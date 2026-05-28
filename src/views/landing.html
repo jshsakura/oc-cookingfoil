@@ -380,6 +380,62 @@
       }
       @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+      /* Floating upload button + tray. Sits over the grid; hidden when
+         the server reports uploads disabled. */
+      .fab {
+        position: fixed; right: 24px; bottom: 24px; z-index: 90;
+        height: 56px; padding: 0 22px; border-radius: 28px;
+        background: linear-gradient(135deg, var(--mauve), var(--lavender));
+        color: var(--base); font-weight: 700; font-size: 14px;
+        border: none; cursor: pointer; display: none; gap: 8px;
+        box-shadow: 0 12px 30px rgba(203, 166, 247, 0.4);
+        align-items: center;
+      }
+      .fab:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(203, 166, 247, 0.55); }
+      .fab.show { display: inline-flex; }
+      .upload-tray {
+        position: fixed; right: 24px; bottom: 88px; z-index: 95;
+        width: 380px; max-width: calc(100vw - 48px);
+        max-height: 70vh; overflow: auto;
+        background: rgba(24, 24, 37, 0.92); backdrop-filter: blur(18px);
+        border: 1px solid var(--surface1); border-radius: 20px;
+        padding: 18px; display: none;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      }
+      .upload-tray.open { display: block; }
+      .upload-tray h3 { margin: 0 0 12px; font-size: 16px; }
+      .drop-zone {
+        border: 2px dashed var(--surface2); border-radius: 14px;
+        padding: 22px 16px; text-align: center; color: var(--subtext0);
+        font-size: 13px; cursor: pointer; transition: border-color 0.15s;
+      }
+      .drop-zone.dragover { border-color: var(--lavender); color: var(--text); background: rgba(180, 190, 254, 0.06); }
+      .upload-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+      .upload-row {
+        background: rgba(255, 255, 255, 0.03); border: 1px solid var(--surface0);
+        border-radius: 12px; padding: 10px 12px; font-size: 12.5px;
+      }
+      .upload-row .name { font-weight: 600; word-break: break-all; margin-bottom: 6px; }
+      .upload-row .meta { color: var(--subtext0); margin-bottom: 8px; font-family: var(--font-mono); font-size: 11px; }
+      .upload-row .actions { display: flex; gap: 6px; }
+      .upload-row .actions button {
+        flex: 1; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+        border: 1px solid var(--surface1); background: transparent; color: var(--text); cursor: pointer;
+      }
+      .upload-row .actions button.primary { background: var(--green); color: var(--base); border-color: transparent; }
+      .upload-row .actions button:hover { background: var(--surface1); }
+      .upload-row .actions button.primary:hover { filter: brightness(1.05); }
+      .upload-empty, .upload-disabled { color: var(--subtext0); font-size: 12.5px; text-align: center; padding: 14px 0; }
+      .upload-progress { margin-top: 10px; height: 6px; border-radius: 3px; background: var(--surface0); overflow: hidden; display: none; }
+      .upload-progress.show { display: block; }
+      .upload-progress .bar { height: 100%; width: 0%; background: var(--lavender); transition: width 0.15s; }
+      .live-dot {
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        background: var(--overlay1); margin-right: 6px; vertical-align: middle;
+      }
+      .live-dot.on  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+      .live-dot.off { background: var(--yellow); }
+
       .footer { margin-top: 36px; text-align: center; font-size: 13px; color: var(--overlay0); }
       .footer a { color: var(--lavender); text-decoration: none; font-weight: 600; }
       .footer a:hover { text-decoration: underline; }
@@ -480,6 +536,20 @@
 
     <div class="toast-rack" id="toasts"></div>
 
+    <button class="fab" id="upload-fab" type="button" aria-haspopup="dialog" aria-controls="upload-tray">
+      <span aria-hidden="true">📤</span>
+      <span data-i18n="upload.open"></span>
+    </button>
+    <div class="upload-tray" id="upload-tray" role="dialog" aria-modal="false" aria-labelledby="upload-title">
+      <h3 id="upload-title" data-i18n="upload.title"></h3>
+      <div class="drop-zone" id="drop-zone" tabindex="0">
+        <span data-i18n="upload.drop"></span>
+        <input type="file" id="file-input" accept=".nsp,.nsz,.xci,.xcz" hidden />
+      </div>
+      <div class="upload-progress" id="upload-progress"><div class="bar" id="upload-bar"></div></div>
+      <div class="upload-list" id="upload-list"></div>
+    </div>
+
     <script>
       // ─── i18n ──────────────────────────────────────────────────────────────
       const I18N = {
@@ -533,6 +603,18 @@
           "modal.category": "장르",
           "modal.players": "플레이어",
           "modal.noDesc": "설명이 없습니다.",
+          "upload.title": "업로드 트레이",
+          "upload.open": "업로드",
+          "upload.drop": "파일을 끌어다 놓거나 클릭해서 선택",
+          "upload.empty": "대기 중인 업로드 없음",
+          "upload.disabled": "업로드 비활성화 — COOK_UPLOADS_ENABLED=true",
+          "upload.apply": "Apply",
+          "upload.delete": "삭제",
+          "upload.applied": (n) => `${n} → 라이브러리로 이동됨`,
+          "upload.deleted": "업로드 삭제됨",
+          "upload.failed": (m) => "업로드 실패: " + m,
+          "live.connected": "라이브 갱신 켜짐",
+          "live.disconnected": "재연결 시도 중…",
         },
         en: {
           "hero.desc": "The file manager that fits anywhere — smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
@@ -584,6 +666,18 @@
           "modal.category": "Category",
           "modal.players": "Players",
           "modal.noDesc": "No description available.",
+          "upload.title": "Upload tray",
+          "upload.open": "Upload",
+          "upload.drop": "Drop a file here, or click to pick",
+          "upload.empty": "No pending uploads",
+          "upload.disabled": "Uploads disabled — set COOK_UPLOADS_ENABLED=true",
+          "upload.apply": "Apply",
+          "upload.delete": "Delete",
+          "upload.applied": (n) => `${n} → moved into library`,
+          "upload.deleted": "Upload removed",
+          "upload.failed": (m) => "Upload failed: " + m,
+          "live.connected": "Live updates connected",
+          "live.disconnected": "Reconnecting…",
         },
       };
 
@@ -1006,6 +1100,188 @@
       applyI18n();
       renderSkeletons(8);
       loadShop();
+
+      // ─── upload tray ──────────────────────────────────────────────────────
+      // POST /api/uploads → temp/, then user clicks Apply to move into games/.
+      // The whole tray hides when the server reports uploads disabled (503).
+      let uploadsEnabled = false;
+      const uploadFab   = $("upload-fab");
+      const uploadTray  = $("upload-tray");
+      const uploadList  = $("upload-list");
+      const dropZone    = $("drop-zone");
+      const fileInput   = $("file-input");
+      const progressBar = $("upload-bar");
+      const progressBox = $("upload-progress");
+
+      function fmtBytesShort(n) { return fmtBytes(n); }
+
+      async function refreshUploads() {
+        try {
+          const r = await fetch("/api/uploads", { headers: { Accept: "application/json" } });
+          if (r.status === 503) {
+            uploadsEnabled = false;
+            uploadFab.classList.remove("show");
+            uploadList.innerHTML = `<div class="upload-disabled">${t("upload.disabled")}</div>`;
+            return;
+          }
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const data = await r.json();
+          uploadsEnabled = true;
+          uploadFab.classList.add("show");
+          renderUploadList(data.uploads || []);
+        } catch (err) {
+          console.error("[CookingFoil] /api/uploads:", err);
+        }
+      }
+
+      function renderUploadList(items) {
+        if (items.length === 0) {
+          uploadList.innerHTML = `<div class="upload-empty">${t("upload.empty")}</div>`;
+          return;
+        }
+        uploadList.innerHTML = "";
+        for (const u of items) {
+          const row = document.createElement("div");
+          row.className = "upload-row";
+          const name = document.createElement("div");
+          name.className = "name";
+          name.textContent = u.name;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${fmtBytesShort(u.size)} · ${u.kind || "?"} · ${u.baseTitleId || "no-titleid"}`;
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          const apply = document.createElement("button");
+          apply.type = "button"; apply.className = "primary";
+          apply.textContent = t("upload.apply");
+          apply.addEventListener("click", () => applyUpload(u.id, u.name));
+          const del = document.createElement("button");
+          del.type = "button";
+          del.textContent = t("upload.delete");
+          del.addEventListener("click", () => deleteUpload(u.id));
+          actions.appendChild(apply); actions.appendChild(del);
+          row.appendChild(name); row.appendChild(meta); row.appendChild(actions);
+          uploadList.appendChild(row);
+        }
+      }
+
+      function uploadFile(file) {
+        // We use XHR (not fetch) so the upload phase reports progress
+        // — fetch's body upload progress is still browser-spotty in 2026.
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const fd = new FormData();
+          fd.append("file", file, file.name);
+          xhr.open("POST", "/api/uploads");
+          xhr.upload.addEventListener("progress", (e) => {
+            if (!e.lengthComputable) return;
+            progressBar.style.width = ((e.loaded / e.total) * 100).toFixed(1) + "%";
+          });
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+            else reject(new Error("HTTP " + xhr.status + ": " + xhr.responseText));
+          });
+          xhr.addEventListener("error", () => reject(new Error("network error")));
+          xhr.addEventListener("abort", () => reject(new Error("aborted")));
+          xhr.send(fd);
+        });
+      }
+
+      async function pickFile(file) {
+        if (!file) return;
+        progressBox.classList.add("show");
+        progressBar.style.width = "0%";
+        try {
+          await uploadFile(file);
+          await refreshUploads();
+        } catch (err) {
+          toast(t("upload.failed", err.message || String(err)));
+        } finally {
+          progressBox.classList.remove("show");
+          progressBar.style.width = "0%";
+        }
+      }
+
+      async function applyUpload(id, name) {
+        try {
+          const r = await fetch(`/api/uploads/${id}/apply`, { method: "POST" });
+          if (!r.ok) throw new Error("HTTP " + r.status + ": " + await r.text());
+          toast(t("upload.applied", name));
+          await refreshUploads();
+          // shop-cache will rebuild via chokidar; ws push refreshes the grid.
+        } catch (err) {
+          toast(t("upload.failed", err.message || String(err)));
+        }
+      }
+
+      async function deleteUpload(id) {
+        try {
+          const r = await fetch(`/api/uploads/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          toast(t("upload.deleted"));
+          await refreshUploads();
+        } catch (err) {
+          toast(t("upload.failed", err.message || String(err)));
+        }
+      }
+
+      uploadFab.addEventListener("click", () => {
+        uploadTray.classList.toggle("open");
+        if (uploadTray.classList.contains("open")) refreshUploads();
+      });
+      dropZone.addEventListener("click", () => fileInput.click());
+      dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
+      dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        const file = e.dataTransfer?.files?.[0];
+        pickFile(file);
+      });
+      fileInput.addEventListener("change", () => pickFile(fileInput.files?.[0]));
+      // Probe once on load so the fab only appears when the API is on.
+      refreshUploads();
+
+      // ─── realtime: WebSocket library push ─────────────────────────────────
+      // The dashboard re-fetches /shop.json on every shop-updated event so
+      // additions, removals and metadata refreshes appear without a manual
+      // reload. We never push the body itself — the ETag short-circuits
+      // unchanged responses to 304.
+      let ws = null;
+      let wsRetry = 0;
+      let wsReloadTimer = null;
+      function scheduleReload() {
+        // Coalesce a burst of rebuilds (rsync multi-file copy) into one fetch.
+        if (wsReloadTimer) clearTimeout(wsReloadTimer);
+        wsReloadTimer = setTimeout(() => { wsReloadTimer = null; loadShop(); }, 250);
+      }
+      function connectWs() {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        try {
+          ws = new WebSocket(`${proto}//${location.host}/ws/library`);
+        } catch (err) {
+          console.warn("[CookingFoil] ws construct failed:", err);
+          scheduleReconnect();
+          return;
+        }
+        ws.addEventListener("open", () => {
+          wsRetry = 0;
+          console.info("[CookingFoil] ws connected");
+        });
+        ws.addEventListener("message", (ev) => {
+          let msg;
+          try { msg = JSON.parse(ev.data); } catch { return; }
+          if (msg.type === "shop-updated") scheduleReload();
+        });
+        ws.addEventListener("close", () => { ws = null; scheduleReconnect(); });
+        ws.addEventListener("error", () => { /* close fires next */ });
+      }
+      function scheduleReconnect() {
+        // Exponential backoff capped at 30s.
+        const delay = Math.min(30_000, 1000 * Math.pow(2, Math.min(wsRetry++, 5)));
+        setTimeout(connectWs, delay);
+      }
+      connectWs();
     </script>
   </body>
 </html>

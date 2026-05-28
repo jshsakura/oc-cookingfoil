@@ -66,6 +66,13 @@ const dataDir = path.resolve(
 );
 const iconCacheDir = path.join(dataDir, "extracted");
 const titledbCacheDir = path.join(dataDir, "titledb");
+// Pending file uploads land here before the user clicks Apply (which moves
+// them into the games library). The dir is created lazily on first upload.
+const uploadsDir = path.join(dataDir, "uploads");
+// Extracted-from-NACP metadata (name/publisher/iconPath/...) keyed by
+// titleId. Used as a fallback layer when titledb has no entry — fan and
+// homebrew titles end up here.
+const extractedMetaDir = path.join(dataDir, "extracted-meta");
 
 // Switch console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
@@ -83,6 +90,13 @@ const langPriority = (process.env.COOK_LANG_PRIORITY ?? "ko,en,ja,en-US")
   .map((s) => s.trim())
   .filter(Boolean);
 
+// Upload constraints. Conservative defaults; users can override via env.
+// 32 GiB ceiling fits dual-layer XCI dumps; bump if you're shipping bigger.
+const uploadMaxBytes = Number(process.env.COOK_UPLOAD_MAX_BYTES ?? 32 * 1024 ** 3);
+// Disable uploads by default — they need basic-auth AND an explicit opt-in
+// because they let an authenticated user grow the games volume.
+const uploadsEnabled = process.env.COOK_UPLOADS_ENABLED === "true";
+
 export {
   romsDirPath,
   jsonTemplatePath,
@@ -96,4 +110,8 @@ export {
   keysDir,
   customEntriesPath,
   langPriority,
+  uploadsDir,
+  extractedMetaDir,
+  uploadMaxBytes,
+  uploadsEnabled,
 };

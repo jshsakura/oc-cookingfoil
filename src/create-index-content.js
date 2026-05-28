@@ -36,6 +36,8 @@ import debug from "./debug.js";
 import { parseFromFilename } from "./meta/filename-parser.js";
 import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
+import * as extractedMeta from "./meta/extracted-meta-store.js";
+import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
   romsDirPath,
   welcomeMessage,
@@ -172,10 +174,28 @@ export function composeResponse(filesMap, customs) {
     if (baseId && !titledb[baseId]) {
       const fromDb = titledbStore.get(baseId);
       const proxied = proxyifyTitledb(fromDb, baseId);
+      // Fallback layer (NACP/NRO extraction). Lower priority than titledb
+      // but higher than nothing — fills in name/publisher/version for
+      // homebrew and fan titles that blawar will never carry.
+      const extracted = !fromDb ? extractedMeta.get(baseId) : null;
+      // Queue extraction for anything missing from both layers. The worker
+      // de-dupes by titleId, so re-enqueueing on every rebuild is cheap.
+      if (!fromDb && !extracted) {
+        nacpExtractor.enqueue({
+          absPath: path.join(romsDirPath, item.url.replace(/^\.\.\//, "")),
+          baseTitleId: baseId,
+          fileName: item.name,
+        });
+      }
       titledb[baseId] = {
         ...(proxied ?? {}),
         id: baseId,
         name: item.name,
+        // Pick up extracted fields when titledb is silent. These only
+        // overwrite the synthesized defaults — proxied (titledb) always wins.
+        publisher: proxied?.publisher ?? extracted?.publisher,
+        version: proxied?.version ?? extracted?.version,
+        numberOfPlayers: proxied?.numberOfPlayers ?? extracted?.numberOfPlayers,
         // No-omission invariant: every base titleId surfaces with an icon
         // URL even when titledb has nothing for it. The icon route falls
         // back to a 1×1 transparent PNG when there's also no upstream, so

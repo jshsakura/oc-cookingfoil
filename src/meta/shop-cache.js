@@ -64,6 +64,25 @@ let buildCount = 0;
 let watcher = null;
 let debounceTimer = null;
 
+// ── Build-event subscribers ─────────────────────────────────────────────
+// The realtime ws layer wants to push a "shop-updated" message every time
+// the response changes. We expose a tiny pub/sub instead of pulling in
+// EventEmitter, so the cache stays a leaf module with no node:events tax.
+const subscribers = new Set();
+
+export function onUpdate(fn) {
+  subscribers.add(fn);
+  return () => subscribers.delete(fn);
+}
+
+function notify(payload) {
+  for (const fn of subscribers) {
+    try { fn(payload); } catch (err) {
+      debug.error("shop cache: subscriber threw: %s", err.message);
+    }
+  }
+}
+
 // ── Incremental rebuild state ───────────────────────────────────────────
 // `filesMap` and `customs` are the primitive library state. composeResponse()
 // rebuilds the output from these — cheap (~10–30 ms even for 5k entries).
@@ -176,6 +195,20 @@ async function build() {
       // critical-path measurement and so the consumer's `await build()`
       // resolves the moment the response Buffers are ready.
       setImmediate(() => schedulePrewarm(r));
+
+      // Push to ws subscribers so dashboards open across the network see
+      // library changes within ~debounce + ~build_ms instead of having to
+      // refresh manually.
+      notify({
+        etag,
+        files: filesMap.size,
+        customs: customs.length,
+        titledbSize: Object.keys(r.titledb || {}).length,
+        bytes: { identity: json.length, gzip: gzipBuf?.length ?? 0, brotli: brBuf?.length ?? 0 },
+        mode,
+        buildMs: lastBuildMs,
+      });
+
       return r;
     } finally {
       building = null;

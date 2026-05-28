@@ -1,6 +1,6 @@
 {
   "name": "oc-cookingfoil",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "CookingFoil — local Switch homebrew shop server with metadata/icon support.",
   "main": "./src/index.js",
   "type": "module",
@@ -20,16 +20,18 @@
     "chokidar": "^4.0.3",
     "debug": "^4.3.4",
     "dotenv": "^16.3.1",
-    "sharp": "^0.33.5",
     "express": "^4.18.2",
     "express-basic-auth": "^1.2.1",
     "fast-glob": "^3.2.12",
     "json5": "^2.2.3",
     "local-ip-address": "^1.0.0",
     "lodash": "^4.17.21",
+    "multer": "^2.1.1",
     "public-ip": "^6.0.1",
     "serve-index": "^1.9.1",
-    "urlencode": "^1.1.0"
+    "sharp": "^0.33.5",
+    "urlencode": "^1.1.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.1",

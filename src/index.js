@@ -7,6 +7,7 @@ import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
+import uploadsRouter from "./routes/uploads.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -16,6 +17,8 @@ import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
+import * as extractedMeta from "./meta/extracted-meta-store.js";
+import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
 import { romsDirPath, appPort } from "./helpers/envs.js";
 import { afterStartFunction } from "./afterStartFunction.js";
@@ -50,6 +53,9 @@ expressApp.use(accessGuard());
 expressApp.use(authGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
+// Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
+expressApp.use("/api/uploads", uploadsRouter());
+
 // Locally-cached artwork. First request fetches from Nintendo's eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
@@ -87,6 +93,12 @@ securityStore
   .load()
   .catch((err) => debug.error("security store load failed:", err.message));
 
+// Hydrate any previously-extracted NACP metadata before the shop cache
+// runs its first compose, so the fallback layer is already populated.
+extractedMeta
+  .load()
+  .catch((err) => debug.error("extracted-meta load failed:", err.message));
+
 bootstrapTitledb().catch((err) =>
   debug.error("titledb bootstrap failed:", err.message)
 );
@@ -95,10 +107,15 @@ shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
 );
 
+// Realtime push channel for the dashboard. Mounted on the same HTTP
+// server so it shares port + auth context with the rest of the API.
+const wsHandle = attachWs(server);
+
 // Flush security state on graceful shutdown.
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
     debug.log("received %s — flushing security state", sig);
+    try { wsHandle.close(); } catch {}
     securityStore
       .shutdown()
       .catch(() => {})
