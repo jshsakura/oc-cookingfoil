@@ -15,6 +15,8 @@ services:
       COOK_DATA_DIR: /data
       COOK_KEYS_DIR: /keys
       COOK_LANG_PRIORITY: ${COOK_LANG_PRIORITY:-ko,en,ja}
+      # Auto-refresh titledb every N hours while running (default 24).
+      COOK_TITLEDB_REFRESH_INTERVAL_HOURS: ${COOK_TITLEDB_REFRESH_INTERVAL_HOURS:-24}
       # Optional explicit path. Defaults to /games/custom_entries.jsonc.
       COOK_CUSTOM_ENTRIES: ${COOK_CUSTOM_ENTRIES:-}
       # Basic auth — leave unset to disable. Format: "user:pass,user2:pass2".
