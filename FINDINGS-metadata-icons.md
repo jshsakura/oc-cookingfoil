@@ -143,7 +143,32 @@ if (!item.hasIconUrl && !inst::config::shopLegacyMode) {
 - 로컬 아이콘: `iconPath`(서버 호스트의 상대/절대 경로)는 `/api/shop/icon/<titleId 또는 hash>`로 자동 노출.
 - titleID 없는 항목도 합법 — 그룹화/풍부 표시 못 받을 뿐, 리스트에는 정상 등장.
 
-## 6. 누락 0 원칙 (Hard Invariant)
+## 6. "샵 = 파일 + 메타 한 덩어리" 원칙
+
+> 기존 샵: 로그인 → `shop.json`(파일 URL 리스트)만. 메타데이터는 클라이언트가 별도 출처(온라인 CDN, 자체 titledb)에서 가져와 매핑.
+> CookingFoil: 로그인 한 번 → **파일 + 메타 + 아이콘 참조까지 한 응답에 통째로**.
+
+설계 결정:
+
+1. **`shop.json` = fat manifest**
+   - `files[]` 각 항목에 `name`, `size`, `icon_url` 포함.
+   - 같은 응답에 `titledb` 통째로 포함(쿼리 1회로 모든 메타 확보).
+   - 다국어 머지·custom entries 결과도 동일 응답에 반영.
+
+2. **균일 인증 게이트**
+   - basic-auth는 `shop.json`/`shop.tfl`뿐 아니라 **파일 다운로드, `/api/shop/icon/:titleId`, custom entries 응답에도 동일 적용.**
+   - "shop.json만 보호하고 파일은 익명 다운로드" 같은 비대칭을 만들지 않는다.
+
+3. **(선택) `/api/shop/bundle`** — 운영 편의를 위한 단일 dump 엔드포인트.
+   - 응답: `shop.json` 내용 + 아이콘 매니페스트(타이틀ID→URL 또는 base64) + titledb 버전 정보.
+   - 사용처: 클라이언트의 "오프라인 동기화" 한 방, 운영자의 백업.
+
+4. 클라이언트 호환성
+   - 표준 Tinfoil: `files`/`titledb`만 읽음 → 그대로 동작.
+   - CyberFoil/AeroFoil: 위에 + `name`/`icon_url`/`/api/shop/icon` 추가 활용 → 더 풍부하게 표시.
+   - 양쪽 모두 한 응답으로 만족시키도록 superset 스키마 유지.
+
+## 7. 누락 0 원칙 (Hard Invariant)
 
 > 어떤 게임이든 — titleID 파싱 실패, NACP 추출 실패, titledb 미수록, NSZ 압축 풀기 실패, 합성ID, 외부 URL, 팬메이드 — **무조건 `files[]`에 들어간다.**
 
