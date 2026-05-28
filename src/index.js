@@ -76,6 +76,13 @@ expressApp.use(
 // ── lifecycle ───────────────────────────────────────────────────────────
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
 
+// Disable Nagle on accepted sockets. Our hot responses are single Buffers
+// (pre-built shop body, encoded landing HTML, single small image variants);
+// Nagle's 40 ms coalescing delay only delays the inevitable last segment.
+// At LAN distances this is the difference between a snappy dashboard and
+// a perceptibly laggy one.
+server.on("connection", (socket) => socket.setNoDelay(true));
+
 securityStore
   .load()
   .catch((err) => debug.error("security store load failed:", err.message));

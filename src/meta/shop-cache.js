@@ -1,17 +1,28 @@
 /**
- * In-memory shop response cache with filesystem-driven invalidation.
+ * In-memory shop response cache with filesystem-driven invalidation and a
+ * persistent on-disk warm-restart layer.
  *
  * Before: every GET /shop.json or /shop.tfl re-scanned the games folder
  * with fast-glob, stat'd each file, reloaded custom_entries.jsonc, and
  * rebuilt the merged titledb output. For a multi-thousand-game library
  * that's seconds per request — and concurrent requests pile up.
  *
- * After: we build the response once at boot and then keep it warm via
- * chokidar. Any add/change/unlink under the games folder (or a change to
- * custom_entries.jsonc) invalidates the cache and schedules a debounced
- * rebuild. Concurrent requests share a single in-flight build promise,
- * so a 1k-file copy that touches the watcher a thousand times still
- * yields exactly one rebuild.
+ * After:
+ *   - The response body is built once and pre-serialized to identity /
+ *     gzip / brotli Buffers + a strong ETag. Every request becomes a
+ *     header check and a Buffer write.
+ *   - The whole state (Buffers + ETag) is persisted to disk after each
+ *     build, so a container restart can hydrate from disk and serve
+ *     /shop.json on the FIRST request before any rebuild happens. The
+ *     fresh rebuild then runs in the background and atomically replaces
+ *     the warm-loaded snapshot.
+ *   - chokidar drives invalidation: any add/change/unlink under the games
+ *     folder (or a change to custom_entries.jsonc) schedules a debounced
+ *     rebuild. The old cache stays serveable until the new one is ready —
+ *     no stale-window where /shop.json blocks behind a fresh scan.
+ *   - Concurrent requests share a single in-flight build promise, so a
+ *     1k-file copy that touches the watcher a thousand times still yields
+ *     exactly one rebuild.
  */
 import chokidar from "chokidar";
 import path from "path";
@@ -21,17 +32,26 @@ import { promisify } from "util";
 import generateIndex from "../create-index-content.js";
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
-import { romsDirPath, customEntriesPath } from "../helpers/envs.js";
+import * as diskCache from "./shop-cache-disk.js";
+import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 const gzipAsync = promisify(zlib.gzip);
+const brotliAsync = promisify(zlib.brotliCompress);
 
 const REBUILD_DEBOUNCE_MS = 800;
+// Sweet spot for multi-MB JSON: similar size to gzip-6, similar wall-clock
+// when run in parallel with gzip on libuv's thread pool. Levels >= 6 are
+// slower than the debounce window for very large libraries.
+const BROTLI_QUALITY = 4;
+
+const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
 
 let cached = null;           // raw shop object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
-let serializedGzip = null;   // Buffer: gzipped variant for Accept-Encoding: gzip
-let serializedEtag = null;   // Strong ETag — same for both encodings (semantic equivalence)
+let serializedGzip = null;   // Buffer: gzip variant for Accept-Encoding: gzip
+let serializedBrotli = null; // Buffer: brotli variant for Accept-Encoding: br
+let serializedEtag = null;   // Strong ETag — shared across all encodings
 let building = null;
 let lastBuildMs = 0;
 let buildCount = 0;
@@ -44,35 +64,58 @@ async function build() {
   building = (async () => {
     try {
       const r = await generateIndex();
+      const json = Buffer.from(JSON.stringify(r));
+      const etag = `"${crypto.createHash("sha1").update(json).digest("base64url")}"`;
+      // gzip + brotli run in parallel on libuv's thread pool. Brotli at
+      // quality 4 finishes in the same ballpark as gzip-6 (~50–150 ms on
+      // a 5–10 MB body), so total wall-clock is dominated by the slower
+      // of the two — not their sum.
+      const [gzipBuf, brBuf] = await Promise.all([
+        gzipAsync(json, { level: 6 }).catch((err) => {
+          debug.error("shop cache: gzip failed: %s", err.message);
+          return null;
+        }),
+        brotliAsync(json, {
+          params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
+        }).catch((err) => {
+          debug.error("shop cache: brotli failed: %s", err.message);
+          return null;
+        }),
+      ]);
+
+      // Atomic replacement: consumers reading `cached` / `serializedJson`
+      // during the build above kept seeing the previous snapshot; now they
+      // see the new one without any null window.
       cached = r;
-      // Pre-serialize the body once per build so every /shop.json hit just
-      // writes a Buffer to the socket — no JSON.stringify per request, no
-      // per-request gzip pass. For a 5k-title library the body is ~2-10 MB
-      // and stringify alone is ~10-30 ms; multiply by every Switch device
-      // on the LAN and the savings stack up.
-      serializedJson = Buffer.from(JSON.stringify(r));
-      // Strong ETag derived from the identity bytes. Same content → same
-      // ETag across the gzip variant (RFC 9110 §8.8.3 allows this when the
-      // representation is semantically equivalent).
-      serializedEtag = `"${crypto.createHash("sha1").update(serializedJson).digest("base64url")}"`;
-      try {
-        serializedGzip = await gzipAsync(serializedJson, { level: 6 });
-      } catch (err) {
-        // Best-effort — if gzip fails for any reason we fall back to identity.
-        serializedGzip = null;
-        debug.error("shop cache: gzip failed: %s", err.message);
-      }
+      serializedJson = json;
+      serializedGzip = gzipBuf;
+      serializedBrotli = brBuf;
+      serializedEtag = etag;
+
       lastBuildMs = Date.now() - start;
       buildCount += 1;
       debug.log(
-        "shop cache: built in %dms (%d files, raw=%d B, gzip=%s B, build #%d)",
+        "shop cache: built in %dms (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
         lastBuildMs,
         Array.isArray(r.files) ? r.files.length : 0,
-        serializedJson.length,
-        serializedGzip ? serializedGzip.length : "—",
+        json.length,
+        gzipBuf ? gzipBuf.length : "—",
+        brBuf ? brBuf.length : "—",
         buildCount
       );
-      schedulePrewarm(r);
+
+      // Persist asynchronously — consumers already have the new state.
+      // Failures don't affect this process; they just mean the next boot
+      // pays full build cost instead of warm-starting.
+      diskCache
+        .write(SHOP_CACHE_DIR, { etag, identity: json, gzip: gzipBuf, brotli: brBuf })
+        .then((n) => debug.log("shop cache: persisted to disk (%d B)", n))
+        .catch((err) => debug.error("shop cache: disk persist failed: %s", err.message));
+
+      // Prewarm icons in a separate tick so it doesn't extend the build's
+      // critical-path measurement and so the consumer's `await build()`
+      // resolves the moment the response Buffers are ready.
+      setImmediate(() => schedulePrewarm(r));
       return r;
     } finally {
       building = null;
@@ -107,33 +150,36 @@ export async function get() {
 }
 
 /**
- * Return the pre-serialized body for /shop.json (or /shop.tfl). Selects gzip
- * when the caller advertises it; falls back to identity for everyone else
- * (Switch clients usually don't send Accept-Encoding).
+ * Return the pre-serialized body for /shop.json (or /shop.tfl). Picks the
+ * smallest variant the caller advertised — br > gzip > identity — and
+ * falls back to identity when the client advertises none or when the
+ * matching variant failed to encode at build time.
  */
 export async function getEncoded(acceptedEncodings) {
   if (!cached) await build();
-  const wantsGzip = Array.isArray(acceptedEncodings)
-    ? acceptedEncodings.includes("gzip")
-    : false;
-  if (wantsGzip && serializedGzip) {
+  const enc = Array.isArray(acceptedEncodings) ? acceptedEncodings : [];
+  if (enc.includes("br") && serializedBrotli) {
+    return { body: serializedBrotli, contentEncoding: "br", etag: serializedEtag };
+  }
+  if (enc.includes("gzip") && serializedGzip) {
     return { body: serializedGzip, contentEncoding: "gzip", etag: serializedEtag };
   }
   return { body: serializedJson, contentEncoding: null, etag: serializedEtag };
 }
 
+/**
+ * Mark the cache as stale and schedule a debounced rebuild — WITHOUT
+ * clearing the current snapshot. Consumers keep getting the previous
+ * response until the new one is ready, then see it atomically replaced.
+ * This is what makes warm restart and titledb-late-load paths smooth:
+ * no request ever has to wait through a fresh scan just because something
+ * changed in the background.
+ */
 export function invalidate() {
-  if (cached !== null) {
-    debug.log("shop cache: invalidated");
-    cached = null;
-    serializedJson = null;
-    serializedGzip = null;
-    serializedEtag = null;
-  }
+  scheduleRebuild("invalidate");
 }
 
 function scheduleRebuild(reason) {
-  invalidate();
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
@@ -146,9 +192,47 @@ function scheduleRebuild(reason) {
   if (debounceTimer.unref) debounceTimer.unref();
 }
 
+async function tryHydrateFromDisk() {
+  try {
+    const r = await diskCache.read(SHOP_CACHE_DIR);
+    // Parse the identity body so in-process consumers (the prewarmer, the
+    // landing dashboard's stats API, future admin endpoints) can read
+    // `cached.files` without us having to re-stringify.
+    const parsed = JSON.parse(r.identity.toString("utf-8"));
+    cached = parsed;
+    serializedJson = r.identity;
+    serializedGzip = r.gzip;
+    serializedBrotli = r.brotli;
+    serializedEtag = r.etag;
+    debug.log(
+      "shop cache: hydrated from disk (%d files, raw=%d B, gzip=%s B, br=%s B)",
+      Array.isArray(parsed.files) ? parsed.files.length : 0,
+      r.identity.length,
+      r.gzip ? r.gzip.length : "—",
+      r.brotli ? r.brotli.length : "—"
+    );
+    return true;
+  } catch (err) {
+    debug.log("shop cache: no disk cache (%s)", err.code || err.message);
+    return false;
+  }
+}
+
 export async function init() {
-  // Build proactively so the first request doesn't pay the full scan cost.
-  await build();
+  // Warm-start path: if the previous run persisted state to disk, hydrate
+  // it now so the first /shop.json request after restart is served from
+  // the snapshot — no fast-glob, no compression, no JSON.stringify. The
+  // rebuild that catches up to any changes happens behind the scenes.
+  const warm = await tryHydrateFromDisk();
+  if (warm) {
+    // Schedule a refresh in the background. The watcher's events will
+    // catch concrete file changes; this guarantees we eventually publish
+    // a snapshot reflecting current titledb + library state even if no
+    // file changed (e.g. user just restarted the container).
+    scheduleRebuild("warm restart");
+  } else {
+    await build();
+  }
 
   if (watcher) {
     try { await watcher.close(); } catch {}
@@ -159,7 +243,10 @@ export async function init() {
     persistent: true,
     ignoreInitial: true,
     // Big files getting rsync'd: wait until they stop growing before firing.
-    awaitWriteFinish: { stabilityThreshold: 800, pollInterval: 200 },
+    // 400 ms stability with 100 ms polling cuts the typical post-add latency
+    // roughly in half versus the earlier 800/200 — still safely above the
+    // tail of an rsync block flush.
+    awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
     // Ignore dotfiles by BASENAME only. Using a regex against the full path
     // catches directories whose names happen to start with a dot (the
     // watch root itself, in dev), which would silently mute every change.
@@ -191,5 +278,10 @@ export function stats() {
     buildCount,
     files: cached?.files?.length ?? 0,
     titledbSize: cached?.titledb ? Object.keys(cached.titledb).length : 0,
+    bytes: {
+      identity: serializedJson?.length ?? 0,
+      gzip: serializedGzip?.length ?? 0,
+      brotli: serializedBrotli?.length ?? 0,
+    },
   };
 }
