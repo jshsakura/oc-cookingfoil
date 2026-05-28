@@ -6,8 +6,10 @@ import fileDirName from "./helpers.js";
 
 const { __dirname } = fileDirName(import.meta);
 
-const gamesPath =
-  process.env.COOK_GAMES_DIR ?? path.join(__dirname, "/../../games/");
+// Relative default resolves against CWD — useful for tests that cd into
+// test/project/ and want test/project/games. Docker sets COOK_GAMES_DIR=/games
+// via ENV so the container is unaffected.
+const gamesPath = process.env.COOK_GAMES_DIR ?? "./games";
 const romsDirPath = path.resolve(gamesPath);
 
 const jsonTemplatePath = path.resolve(

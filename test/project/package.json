@@ -1,11 +1,11 @@
 {
-  "name": "test-project",
-  "version": "1.0.0",
-  "description": "",
+  "name": "oc-cookingfoil-test-project",
+  "version": "0.0.0",
+  "description": "Playwright test fixture — launched by the parent playwright.config.ts as the webServer CWD.",
+  "private": true,
   "main": "../../src/index.js",
   "scripts": {
-    "start": "node --experimental-modules ../../src/index.js",
-    "dev": "env DEBUG=tinfoil* nodemon node --experimental-modules ../../src/index.js"
+    "start": "node ../../src/index.js"
   },
   "license": "MIT"
 }

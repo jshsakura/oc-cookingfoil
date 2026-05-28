@@ -21,7 +21,7 @@ jobs:
       - name: Copy environment files
         run: |
           cp -f ./.env.example ./.env
-          cp -f ./.env.example ./test/project/.env
+          cp -f ./test/project/.env.example ./test/project/.env
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
       - name: Run Playwright tests
