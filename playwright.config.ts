@@ -35,9 +35,11 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  /* Run your local dev server before starting the tests */
+  /* Run your local dev server before starting the tests.
+     The CI workflow stages test/project/.env from test/project/.env.example
+     before this runs — do NOT clobber it by copying the root .env over.   */
   webServer: {
-    command: 'cp -f ./.env ./test/project && cd ./test/project/ && node ../../src/index.js',
+    command: 'cd ./test/project/ && node ../../src/index.js',
     url: 'http://127.0.0.1:' + process.env.COOK_PORT,
     reuseExistingServer: !process.env.CI,
   },
