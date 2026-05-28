@@ -351,8 +351,7 @@
         <div class="toolbar">
           <input class="search" id="search" type="search" autocomplete="off" />
           <div class="chips" id="chips">
-            <button class="chip active" data-kind="all"    type="button" data-i18n="chip.all"></button>
-            <button class="chip"        data-kind="base"   type="button" data-i18n="chip.base"></button>
+            <button class="chip active" data-kind="base"   type="button" data-i18n="chip.base"></button>
             <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
             <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
             <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
@@ -420,7 +419,6 @@
           "stat.base": "베이스",
           "stat.base_sub": "원본 게임",
           "stat.mods": "업데이트/DLC",
-          "chip.all": "전체",
           "chip.base": "베이스",
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
@@ -472,7 +470,6 @@
           "stat.base": "Base",
           "stat.base_sub": "base games",
           "stat.mods": "Updates / DLC",
-          "chip.all": "All",
           "chip.base": "Base",
           "chip.update": "Updates",
           "chip.dlc": "DLC",
@@ -569,7 +566,7 @@
       // ─── state ─────────────────────────────────────────────────────────────
       let shopData = null;
       let renderedItems = [];
-      const state = { kind: "all", q: "", sort: "name", page: 1, perPage: 50 };
+      const state = { kind: "base", q: "", sort: "name", page: 1, perPage: 50 };
 
       // ─── data flow ─────────────────────────────────────────────────────────
       async function loadShop() {
@@ -637,13 +634,7 @@
       // ─── filter / sort / paginate ─────────────────────────────────────────
       function visibleSet() {
         const list = renderedItems.filter(r => {
-          // "All" shows only base games — updates/DLC roll up under their base,
-          // and custom entries get their own dedicated chip. Per user spec.
-          if (state.kind === "all") {
-            if (r.kind !== "base") return false;
-          } else if (r.kind !== state.kind) {
-            return false;
-          }
+          if (r.kind !== state.kind) return false;
           if (state.q && !r.name.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
