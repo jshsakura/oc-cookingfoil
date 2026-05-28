@@ -1,19 +1,24 @@
 /**
- * On-disk image cache + lazy upstream fetcher.
+ * On-disk image cache + lazy upstream fetcher + on-the-fly thumbnail/WebP
+ * variant pipeline.
  *
- * Used by the /api/shop/icon, /banner, /screenshot routes. The Switch
- * client (Tinfoil/CyberFoil) requests these on demand; we serve the
- * locally-cached file when present, and otherwise pull once from
- * Nintendo's eShop CDN (via the URL we got from titledb) and write
- * the bytes to disk so every subsequent request is fast.
+ * Variants live next to the original:
+ *   <titleId>.jpg             ← upstream JPEG (Nintendo eShop CDN)
+ *   <titleId>.banner.jpg
+ *   <titleId>.screen.<n>.jpg
+ *   <titleId>.thumb.jpg       ← 256×256 cover (mozjpeg q85)
+ *   <titleId>.thumb.webp      ← 256×256 cover (webp q80)
  *
- * Concurrent requests for the same image share a single in-flight
- * fetch promise — a packed Switch home screen hitting 30 covers at
- * once produces at most 30 upstream fetches, not 30 × N.
+ * Switch clients (Tinfoil/CyberFoil) request the original — no Accept:
+ * image/webp header from them, so they always get JPEG.
+ * Browsers requesting `?size=sm` with `Accept: image/webp` get the WebP
+ * thumbnail (~70% smaller than the original JPEG); JPEG falls through
+ * for the rest.
  */
 import fs from "fs";
 import path from "path";
-import { mkdir, rename, writeFile } from "fs/promises";
+import { mkdir, rename, writeFile, stat as statAsync } from "fs/promises";
+import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir } from "../helpers/envs.js";
 
@@ -22,14 +27,15 @@ const TRANSPARENT_PNG = Buffer.from(
   "base64"
 );
 
-const inFlight = new Map();
+const THUMB_PX = 256;
+const inFlightFetch = new Map();   // upstream-fetch coalescing
+const inFlightVariant = new Map(); // variant-generation coalescing
 
 export function placeholder(res) {
   res.set("Cache-Control", "no-store");
   res.type("image/png").status(200).send(TRANSPARENT_PNG);
 }
 
-/** Where the cached image lives on disk, keyed by titleId + kind (+ idx). */
 export function cachePathFor(titleId, kind, idx) {
   switch (kind) {
     case "icon":       return path.join(iconCacheDir, `${titleId}.jpg`);
@@ -39,12 +45,17 @@ export function cachePathFor(titleId, kind, idx) {
   }
 }
 
+/** Build a variant filename next to the original: foo.jpg → foo.thumb.webp. */
+function variantPath(originalPath, suffix, ext) {
+  const dir = path.dirname(originalPath);
+  const base = path.basename(originalPath).replace(/\.[^.]+$/, "");
+  return path.join(dir, `${base}.${suffix}.${ext}`);
+}
+
 async function fetchAndStore(url, cachePath) {
   const start = Date.now();
   const upstream = await fetch(url, { redirect: "follow" });
-  if (!upstream.ok) {
-    throw new Error(`upstream HTTP ${upstream.status}`);
-  }
+  if (!upstream.ok) throw new Error(`upstream HTTP ${upstream.status}`);
   const buf = Buffer.from(await upstream.arrayBuffer());
   await mkdir(path.dirname(cachePath), { recursive: true });
   const tmp = `${cachePath}.tmp.${process.pid}`;
@@ -52,52 +63,88 @@ async function fetchAndStore(url, cachePath) {
   await rename(tmp, cachePath);
   debug.log(
     "image cache: stored %s (%d bytes, %dms)",
-    path.basename(cachePath),
-    buf.length,
-    Date.now() - start
+    path.basename(cachePath), buf.length, Date.now() - start
   );
-  return {
-    buf,
-    contentType: upstream.headers.get("content-type") ?? "image/jpeg",
-  };
+  return { buf, contentType: upstream.headers.get("content-type") ?? "image/jpeg" };
+}
+
+async function ensureOriginal(cachePath, upstreamUrl) {
+  if (fs.existsSync(cachePath)) return;
+  if (!upstreamUrl) throw new Error("no upstream URL and no cache");
+  let pending = inFlightFetch.get(cachePath);
+  if (!pending) {
+    pending = fetchAndStore(upstreamUrl, cachePath).finally(() => inFlightFetch.delete(cachePath));
+    inFlightFetch.set(cachePath, pending);
+  }
+  await pending;
+}
+
+async function ensureVariant(originalPath, variant) {
+  if (fs.existsSync(variant.path)) return variant.path;
+  const key = variant.path;
+  let pending = inFlightVariant.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const tmp = `${variant.path}.tmp.${process.pid}`;
+      let pipeline = sharp(originalPath, { failOn: "none" });
+      if (variant.resize) {
+        pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
+      }
+      if (variant.format === "webp")  pipeline = pipeline.webp({ quality: 80, effort: 4 });
+      else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: 85, mozjpeg: true });
+      const t0 = Date.now();
+      await pipeline.toFile(tmp);
+      await rename(tmp, variant.path);
+      const sz = (await statAsync(variant.path)).size;
+      debug.log("image cache: variant %s (%d bytes, %dms)", path.basename(variant.path), sz, Date.now() - t0);
+    })().finally(() => inFlightVariant.delete(key));
+    inFlightVariant.set(key, pending);
+  }
+  await pending;
+  return variant.path;
+}
+
+function acceptsWebp(req) {
+  const a = req.get("accept") || "";
+  return a.includes("image/webp") || a === "*/*" === false && /\bwebp\b/.test(a);
 }
 
 /**
- * Serve a cached image, fetching once on miss.
- *   - `cachePath`: where to find/store it on disk
- *   - `upstreamUrl`: where to fetch it from (titledb-supplied)
- *
- * If the cache hits, sendFile (no buffering — fastest path).
- * If the cache misses and there's no upstream URL → 1×1 placeholder.
+ * Serve a cached image. `?size=sm` returns a 256-px thumb; the default
+ * returns the original. When the client says `Accept: image/webp` we
+ * serve WebP for any variant we have; otherwise JPEG.
  */
-export async function serveImage(res, { cachePath, upstreamUrl }) {
-  // Strong long-lived cache for HTTP clients too — these images don't change
-  // for a given titleId.
+export async function serveImage(req, res, { cachePath, upstreamUrl }) {
   res.set("Cache-Control", "public, max-age=86400, immutable");
 
-  if (fs.existsSync(cachePath)) {
+  const wantThumb = req.query?.size === "sm";
+  const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
+
+  try {
+    await ensureOriginal(cachePath, upstreamUrl);
+  } catch (err) {
+    debug.log("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
+    return placeholder(res);
+  }
+
+  if (!wantThumb) {
     res.type("image/jpeg");
     return res.sendFile(cachePath);
   }
-  if (!upstreamUrl) {
-    return placeholder(res);
-  }
-
-  let pending = inFlight.get(cachePath);
-  if (!pending) {
-    pending = fetchAndStore(upstreamUrl, cachePath).finally(() =>
-      inFlight.delete(cachePath)
-    );
-    inFlight.set(cachePath, pending);
-  }
 
   try {
-    const { buf, contentType } = await pending;
-    res.type(contentType);
-    return res.send(buf);
+    const variant = wantWebp
+      ? { path: variantPath(cachePath, "thumb", "webp"), resize: THUMB_PX, format: "webp" }
+      : { path: variantPath(cachePath, "thumb", "jpg"),  resize: THUMB_PX, format: "jpeg" };
+    await ensureVariant(cachePath, variant);
+    res.set("Vary", "Accept");
+    res.type(wantWebp ? "image/webp" : "image/jpeg");
+    return res.sendFile(variant.path);
   } catch (err) {
-    debug.error("image cache: fetch %s failed: %s", upstreamUrl, err.message);
-    return placeholder(res);
+    debug.error("image cache: variant failed for %s: %s", cachePath, err.message);
+    // Worst case: send the original full-size, still works.
+    res.type("image/jpeg");
+    return res.sendFile(cachePath);
   }
 }
 

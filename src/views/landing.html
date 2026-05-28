@@ -750,8 +750,11 @@
         card.addEventListener("keypress", (e) => { if (e.key === "Enter") openModal(r); });
 
         const cover = document.createElement("img");
-        cover.className = "cover"; cover.loading = "lazy"; cover.alt = "";
-        if (r.item.icon_url) cover.src = r.item.icon_url;
+        cover.className = "cover"; cover.loading = "lazy"; cover.decoding = "async"; cover.alt = "";
+        // Grid covers use the 256-px thumbnail variant (WebP if the
+        // browser accepts it). Modal banner / Switch client still hit
+        // the original via the same base URL without ?size.
+        if (r.item.icon_url) cover.src = r.item.icon_url + "?size=sm";
         cover.onerror = () => { cover.style.visibility = "hidden"; };
 
         const meta = document.createElement("div"); meta.className = "meta";

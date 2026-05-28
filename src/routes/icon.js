@@ -24,7 +24,7 @@ export default async function iconRoute(req, res) {
   }
   const base = baseTitleIdOf(tid);
   const entry = titledbStore.get(base);
-  await serveImage(res, {
+  await serveImage(req, res, {
     cachePath: cachePathFor(base, "icon"),
     upstreamUrl: entry?.iconUrl,
   });

@@ -22,7 +22,7 @@ export default async function screenshotRoute(req, res) {
   const base = baseTitleIdOf(tid);
   const entry = titledbStore.get(base);
   const shots = Array.isArray(entry?.screenshots) ? entry.screenshots : [];
-  await serveImage(res, {
+  await serveImage(req, res, {
     cachePath: cachePathFor(base, "screenshot", idx),
     upstreamUrl: shots[idx],
   });
