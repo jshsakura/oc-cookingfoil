@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1e1e2e" />
-    <title>CookingFoil — Smooth File Manager</title>
+    <title>COOKING FOIL — Smooth File Manager</title>
     <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.88em%22 font-size=%2290%22>🧈</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,6 +35,9 @@
         min-height: 100dvh;
         padding: 40px 24px 80px;
         -webkit-font-smoothing: antialiased;
+        /* Korean-friendly wrapping — break at whole words, never mid-syllable. */
+        word-break: keep-all;
+        overflow-wrap: anywhere;
       }
 
       /* themed scrollbars (webkit) */
@@ -110,11 +113,14 @@
         margin: 36px 0 18px; display: flex; align-items: center; gap: 12px;
       }
       h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
+      h2.has-action::after { display: none; }
+      h2 .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
       .h2-action {
-        margin-left: auto; padding: 6px 12px; border-radius: 100px;
+        padding: 6px 12px; border-radius: 100px;
         background: rgba(180, 190, 254, 0.08); border: 1px solid rgba(180, 190, 254, 0.15);
         color: var(--lavender); font-size: 12px; font-weight: 600;
         cursor: pointer; transition: all 0.2s ease; font-family: inherit;
+        white-space: nowrap; flex-shrink: 0;
       }
       .h2-action:hover { background: rgba(180, 190, 254, 0.18); border-color: rgba(180, 190, 254, 0.3); }
 
@@ -327,12 +333,15 @@
         <header class="header">
           <div class="logo" aria-hidden="true">🧈</div>
           <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text">…</span></div>
-          <h1>CookingFoil</h1>
-          <p class="description" data-i18n="hero.desc"></p>
+          <h1>COOKING&nbsp;FOIL</h1>
+          <p class="description" data-i18n-html="hero.desc"></p>
         </header>
 
-        <h2 data-i18n="section.connect"></h2>
-        <button class="h2-action" id="refresh-btn" type="button" style="margin-left:auto" data-i18n="action.refresh"></button>
+        <h2 class="has-action">
+          <span data-i18n="section.connect"></span>
+          <span class="rule"></span>
+          <button class="h2-action" id="refresh-btn" type="button" data-i18n="action.refresh"></button>
+        </h2>
         <div class="connect-row">
           <div id="shop-url" class="url-pill">—</div>
           <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
@@ -403,21 +412,21 @@
       // ─── i18n ──────────────────────────────────────────────────────────────
       const I18N = {
         ko: {
-          "hero.desc": "버터처럼 어디에도 잘 어울리는 파일 매니저. 파일·메타·아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.",
+          "hero.desc": "버터처럼 어디에도 잘 어울리는 파일 매니저.<br>파일·메타·아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.",
           "section.connect": "샵 연결",
           "section.stats": "현황",
-          "section.library": "게임",
+          "section.library": "타이틀",
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
           "action.download": "다운로드",
           "action.close": "닫기",
           "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> 후 위 URL 추가. AUTH가 켜져 있으면 <code>https://user:pass@host:port/</code> 형태로 입력.",
-          "stat.games": "게임",
+          "stat.games": "타이틀",
           "stat.games_sub": "/games 폴더 스캔",
           "stat.titledb": "TITLEDB",
           "stat.titledb_sub": "병합된 타이틀",
           "stat.base": "베이스",
-          "stat.base_sub": "원본 게임",
+          "stat.base_sub": "원본 타이틀",
           "stat.mods": "업데이트/DLC",
           "chip.base": "베이스",
           "chip.update": "업데이트",
@@ -428,12 +437,12 @@
           "sort.size_desc": "정렬: 크기(큰 것부터)",
           "sort.size_asc": "정렬: 크기(작은 것부터)",
           "sort.release_desc": "정렬: 출시일(최신순)",
-          "empty.loading": "게임 라이브러리 로딩 중…",
-          "empty.none": "조건에 맞는 게임이 없습니다. 검색·필터를 비워보세요.",
+          "empty.loading": "타이틀 라이브러리 로딩 중…",
+          "empty.none": "조건에 맞는 타이틀이 없습니다.<br>검색·필터를 비워보세요.",
           "empty.err": "/shop.json 로드 실패 — 콘솔 확인",
           "status.loading": "샵 데이터 불러오는 중…",
-          "status.serving": (n) => `게임 ${n.toLocaleString()}개 서비스 중`,
-          "status.empty": "구동 중 — 스캔된 게임 없음",
+          "status.serving": (n) => `타이틀 ${n.toLocaleString()}개 서비스 중`,
+          "status.empty": "구동 중 — 스캔된 타이틀 없음",
           "status.timeout": "타임아웃 — 캐시 빌드가 오래 걸리는 듯",
           "status.error": (m) => "오류: " + m,
           "search.placeholder": "이름·타이틀ID 검색…",
@@ -454,21 +463,21 @@
           "modal.noDesc": "설명이 없습니다.",
         },
         en: {
-          "hero.desc": "The file manager that fits anywhere — smooth as butter. Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
+          "hero.desc": "The file manager that fits anywhere — smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
           "section.connect": "Shop URL",
           "section.stats": "Stats",
-          "section.library": "Library",
+          "section.library": "Titles",
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
           "action.download": "Download",
           "action.close": "Close",
           "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> and add the URL above. With auth enabled, use <code>https://user:pass@host:port/</code>.",
-          "stat.games": "Games",
+          "stat.games": "Titles",
           "stat.games_sub": "scanned in /games",
           "stat.titledb": "Titledb",
           "stat.titledb_sub": "merged titles",
           "stat.base": "Base",
-          "stat.base_sub": "base games",
+          "stat.base_sub": "base titles",
           "stat.mods": "Updates / DLC",
           "chip.base": "Base",
           "chip.update": "Updates",
@@ -479,12 +488,12 @@
           "sort.size_desc": "Sort: Size (large)",
           "sort.size_asc": "Sort: Size (small)",
           "sort.release_desc": "Sort: Release (newest)",
-          "empty.loading": "Loading game library…",
-          "empty.none": "No matches. Try clearing search or filter.",
+          "empty.loading": "Loading title library…",
+          "empty.none": "No matches.<br>Try clearing search or filter.",
           "empty.err": "Failed to load /shop.json — check console.",
           "status.loading": "Loading shop data…",
-          "status.serving": (n) => `Serving ${n.toLocaleString()} games`,
-          "status.empty": "Running — no games scanned",
+          "status.serving": (n) => `Serving ${n.toLocaleString()} titles`,
+          "status.empty": "Running — no titles scanned",
           "status.timeout": "Timed out — server still building cache?",
           "status.error": (m) => "Error: " + m,
           "search.placeholder": "Search by name or title ID…",
@@ -517,8 +526,10 @@
       function applyI18n() {
         document.documentElement.setAttribute("lang", lang);
         document.documentElement.setAttribute("data-lang", lang);
-        for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
-        for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.iI18nHtml || el.dataset.i18nHtml);
+        // data-i18n: plain text (safe). data-i18n-html: allows inline tags
+        // (e.g. <br>, <code>, <em>) authored in the bundle itself.
+        for (const el of document.querySelectorAll("[data-i18n]"))      el.textContent = t(el.dataset.i18n);
+        for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         $("search").placeholder = t("search.placeholder");
         for (const b of document.querySelectorAll(".lang-toggle button")) b.classList.toggle("active", b.dataset.lang === lang);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
