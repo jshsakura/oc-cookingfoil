@@ -21,6 +21,7 @@ import FastGlob from "fast-glob";
 import debug from "./debug.js";
 import { parseFromFilename } from "./meta/filename-parser.js";
 import { loadCustomEntries } from "./meta/custom-entries.js";
+import * as titledbStore from "./meta/titledb-store.js";
 import {
   romsDirPath,
   welcomeMessage,
@@ -75,9 +76,18 @@ export default async function generateIndex() {
     const size = safeStatSize(path.join(romsDirPath, rel));
     const parsed = parseFromFilename(rel);
 
+    // Overlay community titledb (per-field language fallback already applied
+    // inside the store). Missing groupTitleId or empty DB just yields null;
+    // we still keep the item.
+    const fromDb = parsed.groupTitleId
+      ? titledbStore.get(parsed.groupTitleId)
+      : null;
+
+    const displayName = fromDb?.name || parsed.name;
+
     const item = {
       url: encodeRelPath(rel),
-      name: parsed.name,
+      name: displayName,
       size,
     };
     if (parsed.titleId) {
@@ -85,14 +95,15 @@ export default async function generateIndex() {
     }
     files.push(item);
 
-    // Seed a titledb entry keyed by the group (base) title id so updates and
-    // DLC roll up under the same game. Phase 2b's titledb merger will overlay
-    // richer fields on top of this skeleton.
+    // titledb entry keyed by the group (base) title id so updates and DLC
+    // roll up under the same game. Filename-derived fields seed; titledb
+    // store fields overlay; file size always wins (most accurate).
     if (parsed.groupTitleId && !titledb[parsed.groupTitleId]) {
       titledb[parsed.groupTitleId] = {
+        ...(fromDb ?? {}),
         id: parsed.groupTitleId,
-        name: parsed.name,
-        size,
+        name: displayName,
+        size: size > 0 ? size : fromDb?.size ?? 0,
       };
     }
   }
@@ -108,16 +119,21 @@ export default async function generateIndex() {
     files.push(entry);
 
     if (tid && !titledb[tid]) {
+      // Custom entries override titledb. Start from db record (if any), then
+      // overwrite with whatever the user supplied — the user is authoritative
+      // for their own entries.
+      const fromDb = titledbStore.get(tid) ?? {};
       titledb[tid] = {
+        ...fromDb,
         id: tid,
-        name: entry.name,
-        size: typeof entry.size === "number" ? entry.size : 0,
-        publisher: entry.publisher,
-        description: entry.description,
-        releaseDate: entry.releaseDate,
-        region: entry.region,
-        rating: entry.rating,
-        rank: entry.rank,
+        name: entry.name ?? fromDb.name,
+        size: typeof entry.size === "number" ? entry.size : fromDb.size ?? 0,
+        publisher: entry.publisher ?? fromDb.publisher,
+        description: entry.description ?? fromDb.description,
+        releaseDate: entry.releaseDate ?? fromDb.releaseDate,
+        region: entry.region ?? fromDb.region,
+        rating: entry.rating ?? fromDb.rating,
+        rank: entry.rank ?? fromDb.rank,
       };
     }
   }

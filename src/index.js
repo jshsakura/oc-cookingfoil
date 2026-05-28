@@ -4,6 +4,8 @@ import expressBasicAuth from "express-basic-auth";
 
 import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";
+import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
+import debug from "./debug.js";
 import { romsDirPath, appPort, unauthorizedMessage } from "./helpers/envs.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { getUsersFromEnv } from "./authUsersParser.js";
@@ -42,5 +44,11 @@ expressApp.use(
 );
 
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
+
+// Load cached titledb synchronously and, if the cache is cold, kick off a
+// background fetch. Never blocks listen — see meta/titledb-bootstrap.js.
+bootstrapTitledb().catch((err) =>
+  debug.error("titledb bootstrap failed:", err.message)
+);
 
 export default server;
