@@ -610,14 +610,15 @@
       };
       const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-      // Append an English-ish alias in parens when the displayed name isn't
-      // mostly ASCII — gives Korean/Japanese users brand-recognition for
-      // titles like '젤다의 전설 (The Legend of Zelda)' without forcing them
-      // to switch language priority. Returns the name as-is when not needed.
+      // Append an English-ish alias in parens — ONLY when the user is on
+      // Korean. Gives '젤다의 전설 (The Legend of Zelda)' brand recognition
+      // without polluting the English mode (where the default name is
+      // already English anyway). Toggling the lang button re-renders so
+      // the cards update without a refresh.
       function nameWithAlias(name, aliases) {
-        if (!name) return name;
+        if (!name || lang !== "ko") return name;
         const asciiOf = (s) => s.replace(/[^\x20-\x7E]/g, "").length / Math.max(1, s.length);
-        if (asciiOf(name) > 0.7) return name; // already English-y
+        if (asciiOf(name) > 0.7) return name; // displayed is already English-y
         if (!Array.isArray(aliases)) return name;
         for (const a of aliases) {
           if (!a || a === name) continue;
