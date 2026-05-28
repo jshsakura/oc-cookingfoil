@@ -29,7 +29,13 @@ import path from "path";
 import zlib from "zlib";
 import crypto from "crypto";
 import { promisify } from "util";
-import generateIndex from "../create-index-content.js";
+import {
+  scanLibrary,
+  composeResponse,
+  readOneFile,
+  loadCustoms,
+  isGameFile,
+} from "../create-index-content.js";
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as diskCache from "./shop-cache-disk.js";
@@ -58,12 +64,65 @@ let buildCount = 0;
 let watcher = null;
 let debounceTimer = null;
 
+// ── Incremental rebuild state ───────────────────────────────────────────
+// `filesMap` and `customs` are the primitive library state. composeResponse()
+// rebuilds the output from these — cheap (~10–30 ms even for 5k entries).
+// chokidar events queue into pendingFileDeltas / pendingCustomsReload and
+// the next build pass applies them. The cold/first build does a full scan
+// and seeds filesMap.
+let filesMap = null;                        // Map<relPath, fileItem> | null
+let customs = [];                           // last loaded custom_entries
+const pendingFileDeltas = new Map();        // relPath -> "upsert" | "remove"
+let pendingCustomsReload = false;
+let needsFullRescan = false;                // dir-level event fallback
+
+async function applyPendingDeltas() {
+  let upserts = 0, removes = 0;
+  for (const [relPath, op] of pendingFileDeltas) {
+    if (op === "remove") {
+      if (filesMap.delete(relPath)) removes++;
+      continue;
+    }
+    // upsert: re-stat + re-parse. If the file disappeared between the
+    // chokidar event and us, treat as removal.
+    const item = await readOneFile(relPath);
+    if (item) {
+      filesMap.set(relPath, item);
+      upserts++;
+    } else if (filesMap.delete(relPath)) {
+      removes++;
+    }
+  }
+  pendingFileDeltas.clear();
+  return { upserts, removes };
+}
+
 async function build() {
   if (building) return building;
   const start = Date.now();
   building = (async () => {
     try {
-      const r = await generateIndex();
+      // Pick the cheapest valid path to fresh state.
+      let mode;
+      if (!filesMap || needsFullRescan) {
+        const r = await scanLibrary();
+        filesMap = r.filesMap;
+        customs = r.customs;
+        // Any queued deltas were just absorbed by the full scan.
+        pendingFileDeltas.clear();
+        pendingCustomsReload = false;
+        needsFullRescan = false;
+        mode = filesMap.size === 0 && customs.length === 0 ? "full-empty" : "full";
+      } else {
+        const delta = await applyPendingDeltas();
+        if (pendingCustomsReload) {
+          customs = await loadCustoms();
+          pendingCustomsReload = false;
+        }
+        mode = `incremental(+${delta.upserts}/-${delta.removes})`;
+      }
+
+      const r = composeResponse(filesMap, customs);
       const json = Buffer.from(JSON.stringify(r));
       const etag = `"${crypto.createHash("sha1").update(json).digest("base64url")}"`;
       // gzip + brotli run in parallel on libuv's thread pool. Brotli at
@@ -95,8 +154,9 @@ async function build() {
       lastBuildMs = Date.now() - start;
       buildCount += 1;
       debug.log(
-        "shop cache: built in %dms (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
+        "shop cache: built in %dms [%s] (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
         lastBuildMs,
+        mode,
         Array.isArray(r.files) ? r.files.length : 0,
         json.length,
         gzipBuf ? gzipBuf.length : "—",
@@ -192,6 +252,26 @@ function scheduleRebuild(reason) {
   if (debounceTimer.unref) debounceTimer.unref();
 }
 
+// Map a raw chokidar file event to the right pending bucket.
+//   - custom_entries.jsonc       → just reload customs (no per-file delta).
+//   - game file (.nsp/.nsz/...)  → enqueue upsert/remove for that path only.
+//   - anything else              → ignore (silently drop dotfile siblings etc.).
+function routeFileEvent(op, absPath) {
+  if (path.resolve(absPath) === path.resolve(customEntriesPath)) {
+    pendingCustomsReload = true;
+    scheduleRebuild(`custom_entries ${op}`);
+    return;
+  }
+  if (!isGameFile(absPath)) return;
+  const rel = path.relative(romsDirPath, absPath);
+  // Coalesce same-path events in the debounce window — multiple rapid
+  // writes to one file should only produce one stat+parse pass. The
+  // last-write-wins op is fine because "upsert" already covers both
+  // newly added files and content changes.
+  pendingFileDeltas.set(rel, op);
+  scheduleRebuild(`${op} ${path.basename(absPath)}`);
+}
+
 async function tryHydrateFromDisk() {
   try {
     const r = await diskCache.read(SHOP_CACHE_DIR);
@@ -254,12 +334,12 @@ export async function init() {
   });
 
   watcher
-    .on("add",    (p) => scheduleRebuild(`add ${path.basename(p)}`))
-    .on("unlink", (p) => scheduleRebuild(`unlink ${path.basename(p)}`))
-    .on("change", (p) => scheduleRebuild(`change ${path.basename(p)}`))
-    .on("addDir", (p) => scheduleRebuild(`addDir ${path.basename(p)}`))
-    .on("unlinkDir", (p) => scheduleRebuild(`unlinkDir ${path.basename(p)}`))
-    .on("error", (err) => debug.error("shop cache: watch error: %s", err.message));
+    .on("add",       (p) => routeFileEvent("upsert", p))
+    .on("change",    (p) => routeFileEvent("upsert", p))
+    .on("unlink",    (p) => routeFileEvent("remove", p))
+    .on("addDir",    (p) => { needsFullRescan = true; scheduleRebuild(`addDir ${path.basename(p)}`); })
+    .on("unlinkDir", (p) => { needsFullRescan = true; scheduleRebuild(`unlinkDir ${path.basename(p)}`); })
+    .on("error",     (err) => debug.error("shop cache: watch error: %s", err.message));
 
   // Don't keep the event loop alive for the watcher alone — Node should
   // exit cleanly on SIGTERM. chokidar v4 doesn't expose .unref directly,

@@ -11,6 +11,15 @@
  *     → rewrite every titledb image URL to the local proxy (/api/shop/...)
  *     → fold in the shop_template (welcome message, custom headers, ...)
  *
+ * Two surfaces:
+ *   - generateIndex() — convenience wrapper that does a full scan + compose.
+ *     Useful for one-shot callers (tests, ad-hoc invocation).
+ *   - scanLibrary() / readOneFile() / composeResponse() — primitives used
+ *     by the cache layer to maintain an incremental in-memory state. A
+ *     chokidar event for a single file produces a single readOneFile()
+ *     and a re-compose, instead of re-walking thousands of unchanged
+ *     entries.
+ *
  * Invariants (FINDINGS §6, §7):
  *   - Every scanned file ends up in `files[]`. Parse failures only thin out
  *     metadata; they never drop the item.
@@ -19,6 +28,8 @@
  *     Nintendo CDN URLs — so the Switch client gets locally-cached
  *     bytes (offline-friendly) and we control retention.
  */
+import fs from "fs/promises";
+import path from "path";
 import FastGlob from "fast-glob";
 
 import debug from "./debug.js";
@@ -36,6 +47,11 @@ import {
 } from "./helpers/helpers.js";
 
 const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz"];
+const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz)$/i;
+
+export function isGameFile(relOrAbsPath) {
+  return GAME_FILE_RE.test(relOrAbsPath);
+}
 
 function encodeRelPath(relPath) {
   // Match the original tinfoil-hat wire format: inner path is percent-encoded
@@ -70,13 +86,50 @@ function proxyifyTitledb(entry, titleId) {
   return out;
 }
 
-export default async function generateIndex() {
-  const template = getJsonTemplateFile();
+function buildFileItem(relPath, size) {
+  const parsed = parseFromFilename(relPath);
+  const baseId = parsed.groupTitleId;
+  const fromDb = baseId ? titledbStore.get(baseId) : null;
+  const displayName = fromDb?.name || parsed.name;
 
-  // `stats: true` makes fast-glob fold the per-file size into the directory
-  // walk itself (one async syscall stream) — replaces an N-deep `fs.statSync`
-  // loop that would block the event loop for libraries with thousands of
-  // games. Entries become objects with `.path` and `.stats`.
+  const item = {
+    url: encodeRelPath(relPath),
+    name: displayName,
+    size,
+  };
+  if (parsed.titleId) {
+    item.titleId = parsed.titleId;
+    item.baseTitleId = baseId;
+    item.kind = parsed.contentType; // "base" | "update" | "dlc"
+    item.icon_url = `/api/shop/icon/${parsed.titleId}`;
+  }
+  return item;
+}
+
+/**
+ * Re-read one file from disk and build its file item. Returns null if the
+ * file disappeared between the chokidar event and this stat — the caller
+ * should treat that as a removal.
+ */
+export async function readOneFile(relPath) {
+  try {
+    const st = await fs.stat(path.join(romsDirPath, relPath));
+    return buildFileItem(relPath, st.size);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      debug.error("readOneFile %s: %s", relPath, err.message);
+    }
+    return null;
+  }
+}
+
+/**
+ * Full library scan + custom-entries load. Returns the primitive state
+ * (`filesMap` keyed by relative path, plus `customs` array) that the
+ * shop-cache layer then mutates via delta apply and re-composes on each
+ * change.
+ */
+export async function scanLibrary() {
   const entries = await FastGlob(SCAN_PATTERNS, {
     cwd: romsDirPath,
     dot: false,
@@ -87,49 +140,52 @@ export default async function generateIndex() {
   });
   debug.log("scanned files: %d", entries.length);
 
-  const files = [];
-  const titledb = {};
-
+  const filesMap = new Map();
   for (const entry of entries) {
     const rel = entry.path;
     const size = entry.stats?.size ?? 0;
-    const parsed = parseFromFilename(rel);
+    filesMap.set(rel, buildFileItem(rel, size));
+  }
 
-    const baseId = parsed.groupTitleId;
-    const fromDb = baseId ? titledbStore.get(baseId) : null;
-    const displayName = fromDb?.name || parsed.name;
+  const customs = await loadCustomEntries(customEntriesPath);
+  return { filesMap, customs };
+}
 
-    const item = {
-      url: encodeRelPath(rel),
-      name: displayName,
-      size,
-    };
-    if (parsed.titleId) {
-      item.titleId = parsed.titleId;
-      item.baseTitleId = baseId;
-      item.kind = parsed.contentType; // "base" | "update" | "dlc"
-      item.icon_url = `/api/shop/icon/${parsed.titleId}`;
-    }
+export async function loadCustoms() {
+  return loadCustomEntries(customEntriesPath);
+}
+
+/**
+ * Produce the shop response payload from current primitive state. Cheap
+ * (O(filesMap.size + customs.length) iteration, no I/O), so safe to call
+ * after every chokidar delta. Output ordering follows Map insertion order
+ * + customs append, which is deterministic given the same state.
+ */
+export function composeResponse(filesMap, customs) {
+  const template = getJsonTemplateFile();
+  const files = [];
+  const titledb = {};
+
+  for (const item of filesMap.values()) {
     files.push(item);
-
+    const baseId = item.baseTitleId;
     if (baseId && !titledb[baseId]) {
+      const fromDb = titledbStore.get(baseId);
       const proxied = proxyifyTitledb(fromDb, baseId);
       titledb[baseId] = {
         ...(proxied ?? {}),
         id: baseId,
-        name: displayName,
+        name: item.name,
         // No-omission invariant: every base titleId surfaces with an icon
         // URL even when titledb has nothing for it. The icon route falls
         // back to a 1×1 transparent PNG when there's also no upstream, so
         // the frontend's r.tdb is never undefined and image tags never 404.
         iconUrl: proxied?.iconUrl ?? `/api/shop/icon/${baseId}`,
-        size: size > 0 ? size : proxied?.size ?? 0,
+        size: item.size > 0 ? item.size : proxied?.size ?? 0,
       };
     }
   }
 
-  // Append user-supplied entries (homebrew, fan content, synthetic IDs).
-  const customs = await loadCustomEntries(customEntriesPath);
   for (const raw of customs) {
     const entry = { ...raw };
     const tid = normalizeTitleId(entry.titleId);
@@ -160,4 +216,13 @@ export default async function generateIndex() {
   }
 
   return Object.assign(template, { files, titledb });
+}
+
+/**
+ * Convenience wrapper: full scan + immediate compose. Used by tests and
+ * any caller that doesn't need to maintain incremental state.
+ */
+export default async function generateIndex() {
+  const { filesMap, customs } = await scanLibrary();
+  return composeResponse(filesMap, customs);
 }
