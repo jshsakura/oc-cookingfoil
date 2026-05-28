@@ -161,3 +161,40 @@ export function normalizeTitleId(raw) {
   const hex = raw.toUpperCase().replace(/[^0-9A-F]/g, "");
   return hex.length === 16 ? hex : null;
 }
+
+/**
+ * Background prefetch of icons for the title IDs the user actually has
+ * in their library. Only fetches the ORIGINAL JPEG — variant transcoding
+ * is still on-demand (cheaper to defer than pre-generate both WebP+JPEG
+ * sizes for thousands of titles).
+ *
+ * Concurrency capped so we don't hammer the eShop CDN; we also skip any
+ * file already on disk so reruns are no-ops.
+ */
+export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 4 } = {}) {
+  const queue = Array.from(new Set(baseIds)).filter((tid) => tid && tid.length === 16);
+  if (queue.length === 0) return { done: 0, skipped: 0, failed: 0 };
+  let done = 0, skipped = 0, failed = 0;
+  async function worker() {
+    while (queue.length > 0) {
+      const tid = queue.shift();
+      const cp = cachePathFor(tid, "icon");
+      if (fs.existsSync(cp)) { skipped++; continue; }
+      const url = getUpstreamForBase(tid);
+      if (!url) { skipped++; continue; }
+      try {
+        await ensureOriginal(cp, url);
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+  }
+  const t0 = Date.now();
+  await Promise.all(Array(concurrency).fill(0).map(worker));
+  debug.log(
+    "image cache: prewarm done — %d new, %d skipped, %d failed (%dms)",
+    done, skipped, failed, Date.now() - t0
+  );
+  return { done, skipped, failed };
+}

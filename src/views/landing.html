@@ -293,6 +293,15 @@
         background: rgba(49, 50, 68, 0.4); border: 1px dashed var(--surface0); border-radius: 16px;
       }
 
+      /* SKELETON cards — shown immediately on page load while /shop.json fetches. */
+      .game.skel { cursor: default; pointer-events: none; }
+      .skel .cover, .skel .name-skel, .skel .sub-skel { background: linear-gradient(90deg, var(--surface0) 0%, var(--surface1) 50%, var(--surface0) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite linear; }
+      .skel .cover { box-shadow: none; }
+      .skel .meta { gap: 8px; }
+      .skel .name-skel { width: 78%;  height: 13px; border-radius: 6px; }
+      .skel .sub-skel  { width: 52%;  height: 10px; border-radius: 6px; }
+      @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
       /* PAGER */
       .pager {
         display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -428,9 +437,7 @@
             <option value="release-desc" data-i18n="sort.release_desc"></option>
           </select>
         </div>
-        <div id="games" class="games">
-          <div class="empty" data-i18n="empty.loading"></div>
-        </div>
+        <div id="games" class="games" aria-busy="true"></div>
         <div class="pager" id="pager"></div>
       </div>
 
@@ -650,6 +657,23 @@
       let shopData = null;
       let renderedItems = [];
       const state = { kind: "base", q: "", sort: "name", page: 1, perPage: 50 };
+
+      // ─── skeleton placeholders ─────────────────────────────────────────────
+      // Drop a grid of shimmering cards in immediately so the first paint
+      // already feels populated. Replaced by real cards once /shop.json
+      // resolves; never shown again after that.
+      function renderSkeletons(n = 8) {
+        const grid = $("games");
+        grid.innerHTML = "";
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < n; i++) {
+          const card = document.createElement("div");
+          card.className = "game skel";
+          card.innerHTML = '<div class="cover"></div><div class="meta"><div class="name-skel"></div><div class="sub-skel"></div></div>';
+          frag.appendChild(card);
+        }
+        grid.appendChild(frag);
+      }
 
       // ─── data flow ─────────────────────────────────────────────────────────
       async function loadShop() {
@@ -952,6 +976,7 @@
       bindStatClick("stat-mods",    "update");
 
       applyI18n();
+      renderSkeletons(8);
       loadShop();
     </script>
   </body>
