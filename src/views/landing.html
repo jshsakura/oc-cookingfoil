@@ -684,10 +684,16 @@
         renderedItems = files.map((f, idx) => {
           const tdb = (f.baseTitleId && titledb[f.baseTitleId]) || (f.titleId && titledb[f.titleId]) || null;
           const kind = f.kind || (tdb ? "base" : "custom");
+          // Cross-language search blob: displayed name + every alias the
+          // server collected across region files (KR.ko / US.en / JP.ja /
+          // EU.en / HK.zh). So 'zelda' finds 젤다, 'マリオ' finds Mario, etc.
+          const aliases = Array.isArray(tdb?.aliases) ? tdb.aliases : [];
+          const searchBlob = [f.name || "", ...aliases].join("  ").toLowerCase();
           return {
             idx, item: f, tdb, kind,
             name: (f.name || "").toLowerCase(),
             tid: (f.titleId || "").toLowerCase(),
+            search: searchBlob,
             size: typeof f.size === "number" ? f.size : 0,
             releaseDate: tdb?.releaseDate || 0,
           };
@@ -701,7 +707,7 @@
       function visibleSet() {
         const list = renderedItems.filter(r => {
           if (r.kind !== state.kind) return false;
-          if (state.q && !r.name.includes(state.q) && !r.tid.includes(state.q)) return false;
+          if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
         list.sort((a, b) => {

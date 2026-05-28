@@ -102,8 +102,16 @@ export async function load() {
 
       let rec = state.db.get(id);
       if (!rec) {
-        rec = { id };
+        rec = { id, aliases: [] };
         state.db.set(id, rec);
+      }
+      // Cross-language search support: collect every distinct name we
+      // see across region files (KR.ko, US.en, JP.ja, ...) so a Tinfoil
+      // user typing English on the on-screen keyboard finds the game
+      // even when the displayed name happens to be Korean.
+      if (typeof entry.name === "string") {
+        const n = entry.name.trim();
+        if (n && !rec.aliases.includes(n)) rec.aliases.push(n);
       }
       for (const field of MERGED_FIELDS) {
         setIfEmpty(rec, field, entry[field]);
