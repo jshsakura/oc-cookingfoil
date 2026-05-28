@@ -15,6 +15,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import * as store from "./titledb-store.js";
+import * as shopCache from "./shop-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
 
 // `Number` here so "0.01" (~36 s) works for tests; clamped to >= 0.
@@ -45,6 +46,9 @@ async function doFetch() {
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
+        // Fresh titledb → stale shop cache. Next /shop.json rebuilds with
+        // the new metadata; in-flight responses keep the old one (fine).
+        shopCache.invalidate();
       }
       return results;
     } finally {

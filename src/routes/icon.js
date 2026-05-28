@@ -1,41 +1,31 @@
 /**
  * GET /api/shop/icon/:titleId
  *
- * Returns the locally-cached icon for a title (extracted from NACP in Phase 2c).
- * Falls back to a 1×1 transparent PNG when an icon isn't yet extracted —
- * this keeps the shop listing intact instead of returning 404, per the
- * no-omission invariant (FINDINGS §7).
+ * Serves the local icon cache; on miss, lazily fetches from the
+ * Nintendo eShop CDN URL stored in titledb (iconUrl) and writes the
+ * bytes to disk for next time. Falls back to a 1×1 transparent PNG
+ * when the titleId isn't in titledb either, so listings never break
+ * (no-omission invariant, FINDINGS §7).
  */
-import fs from "fs";
-import path from "path";
-import debug from "../debug.js";
-import { iconCacheDir } from "../helpers/envs.js";
+import * as titledbStore from "../meta/titledb-store.js";
+import {
+  baseTitleIdOf,
+  cachePathFor,
+  normalizeTitleId,
+  placeholder,
+  serveImage,
+} from "../meta/image-cache.js";
 
-const TRANSPARENT_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64"
-);
-
-function normalizeTitleId(raw) {
-  if (typeof raw !== "string") return null;
-  const hex = raw.toUpperCase().replace(/[^0-9A-F]/g, "");
-  return hex.length === 16 ? hex : null;
-}
-
-export default function iconRoute(req, res) {
-  const titleId = normalizeTitleId(req.params.titleId);
-  if (!titleId) {
+export default async function iconRoute(req, res) {
+  const tid = normalizeTitleId(req.params.titleId);
+  if (!tid) {
     res.status(400).type("text/plain").send("invalid titleId");
     return;
   }
-  const candidate = path.join(iconCacheDir, `${titleId}.jpg`);
-  fs.access(candidate, fs.constants.R_OK, (err) => {
-    if (!err) {
-      res.type("image/jpeg").sendFile(candidate);
-      return;
-    }
-    debug.file("icon miss for %s — returning placeholder", titleId);
-    res.set("Cache-Control", "no-store");
-    res.type("image/png").status(200).send(TRANSPARENT_PNG);
+  const base = baseTitleIdOf(tid);
+  const entry = titledbStore.get(base);
+  await serveImage(res, {
+    cachePath: cachePathFor(base, "icon"),
+    upstreamUrl: entry?.iconUrl,
   });
 }

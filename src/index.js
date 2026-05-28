@@ -4,8 +4,11 @@ import expressBasicAuth from "express-basic-auth";
 
 import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";
+import bannerRoute from "./routes/banner.js";
+import screenshotRoute from "./routes/screenshot.js";
 import landingRoute from "./routes/landing.js";
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
+import * as shopCache from "./meta/shop-cache.js";
 import debug from "./debug.js";
 import { romsDirPath, appPort, unauthorizedMessage } from "./helpers/envs.js";
 import { afterStartFunction } from "./afterStartFunction.js";
@@ -27,9 +30,12 @@ if (basicAuthUsers) {
   );
 }
 
-// Locally-extracted (or placeholder) icons. CyberFoil/AeroFoil auto-derive
-// this URL from titleId when `icon_url` is omitted from a shop entry.
+// Locally-cached artwork. First request fetches from Nintendo's eShop CDN
+// via the URL stored in titledb; subsequent requests serve from disk. The
+// Switch client (Tinfoil/CyberFoil) hits these auto-derived URLs.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
+expressApp.get("/api/shop/banner/:titleId", bannerRoute);
+expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
 
 // Friendly dashboard for human visitors hitting the root in a browser.
 // Goes BEFORE the shop builder + static so that exactly `/` returns the
@@ -56,6 +62,12 @@ const server = expressApp.listen(appPort, afterStartFunction(appPort));
 // background fetch. Never blocks listen — see meta/titledb-bootstrap.js.
 bootstrapTitledb().catch((err) =>
   debug.error("titledb bootstrap failed:", err.message)
+);
+
+// Build the shop response once and keep it warm via chokidar — no more
+// fast-glob scan on every request.
+shopCache.init().catch((err) =>
+  debug.error("shop cache init failed:", err.message)
 );
 
 export default server;
