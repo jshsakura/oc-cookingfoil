@@ -33,4 +33,7 @@ services:
       # Read-only; server runs without it but won't extract icons/metadata.
       - ./keys:/keys:ro
       # Optional: shop template overrides (welcome message, custom headers, ...)
-      - ./shop_template.jsonc:/app/shop_template.jsonc:ro
+      # Mounts to /shop_template.jsonc — same path the legacy tinfoil-hat
+      # image used, so an existing compose can swap just `image:` and keep
+      # the rest of the volumes/env unchanged.
+      - ./shop_template.jsonc:/shop_template.jsonc:ro

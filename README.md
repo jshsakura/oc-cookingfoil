@@ -42,6 +42,28 @@ docker compose up -d
 
 The default published image is **`ghcr.io/jshsakura/oc-cookingfoil:latest`** (built on every `v*.*.*` tag push). Compose will pull it; pass `--build` to rebuild from source.
 
+### Drop-in from tinfoil-hat
+
+If you already run `vinicioslc/tinfoil-hat`, just swap the `image:` line. Env names, mount paths, and the internal port are all backward-compatible:
+
+```yaml
+services:
+  tinfoil-hat:                                       # keep your container_name
+-   image: vinicioslc/tinfoil-hat:latest
++   image: ghcr.io/jshsakura/oc-cookingfoil:latest
+    environment:
+      - AUTH_USERS=admin:123                         # alias for COOK_AUTH_USERS
+      - WELCOME_MSG=The Server Just Works!!          # alias for COOK_WELCOME_MSG
+      - UNAUTHORIZED_MSG=No tricks and treats!       # alias for COOK_UNAUTHORIZED_MSG
+      # NX_PORTS / NX_IPS / SAVE_SYNC_INTERVAL → harmless no-op
+      # (save sync moved to oc-save-keeper; a one-line stderr notice is logged)
+    volumes:
+      - /your/switch/games/:/games/
+      - ./shop_template.jsonc:/shop_template.jsonc   # legacy mount path still works
+```
+
+After the swap, the shop response is the new fat manifest (per-item `name`/`icon_url`, merged `titledb`). Clients that only understood the old format keep working — every field the old shop emitted is still there. To benefit from local icon caching, add a `./data:/data` volume too.
+
 ### Local dev (Node 20+)
 
 ```bash

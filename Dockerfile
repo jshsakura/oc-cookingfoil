@@ -23,6 +23,7 @@ ENV NODE_ENV=production \
     COOK_GAMES_DIR=/games \
     COOK_DATA_DIR=/data \
     COOK_KEYS_DIR=/keys \
+    COOK_SHOP_TEMPLATE=/shop_template.jsonc \
     DEBUG=oc-cookingfoil*
 
 WORKDIR /app
@@ -34,8 +35,13 @@ RUN addgroup -S cook && adduser -S -G cook cook && \
     chown -R cook:cook /games /data /keys
 
 COPY --from=deps --chown=cook:cook /app/node_modules ./node_modules
-COPY --chown=cook:cook package.json shop_template.jsonc ./
+COPY --chown=cook:cook package.json ./
 COPY --chown=cook:cook src ./src
+# Ship the shop template at the legacy tinfoil-hat mount point so users can
+# swap their `vinicioslc/tinfoil-hat` image for `oc-cookingfoil` without
+# touching their existing docker-compose (the original mounted to
+# /shop_template.jsonc). envs.js resolves the same path via __dirname/../.. .
+COPY --chown=cook:cook shop_template.jsonc /shop_template.jsonc
 
 USER cook
 
