@@ -35,6 +35,15 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
+// Loopback callers (you, your dev box, the docker host on bridge mode) are
+// inherently trusted — they already have shell access. Excluding them stops
+// dev/test setups from locking themselves out on intentional auth failures.
+// Override with COOK_LOCKOUT_TRUST_LOOPBACK=false to enforce strictly.
+const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
+function isLoopback(ip) {
+  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+}
+
 export default function authGuard() {
   if (!authUsers) {
     // No AUTH_USERS configured → auth disabled entirely.
@@ -54,6 +63,11 @@ export default function authGuard() {
 
   return (req, res, next) => {
     const ip = clientIp(req);
+
+    // Loopback bypass — trusted caller, no lockout tracking.
+    if (isLoopback(ip)) {
+      return basicAuth(req, res, next);
+    }
 
     if (store.isLocked(ip)) {
       const lock = store.snapshot().lockouts.find((l) => l.ip === ip);

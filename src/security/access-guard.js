@@ -42,6 +42,11 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
+const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
+function isLoopback(ip) {
+  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+}
+
 function flag(req, reason) {
   const ip = clientIp(req);
   store.appendAudit({ kind: "probe", ip, path: req.path, ua: req.get("user-agent") || "", reason, at: Date.now() });
@@ -62,6 +67,12 @@ function flag(req, reason) {
 export default function accessGuard() {
   return (req, res, next) => {
     const ip = clientIp(req);
+
+    // Loopback bypass — let local dev / test runners hit any path without
+    // burning the lockout budget.
+    if (isLoopback(ip)) {
+      return next();
+    }
 
     // Locked IPs get the cold shoulder for ALL requests — landing page too,
     // not only auth-protected routes.
