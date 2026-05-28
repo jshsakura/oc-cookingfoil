@@ -28,22 +28,21 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# non-root runtime user, owns the bind-mount targets.
-# /data is writable (icon + titledb cache); /keys is mounted read-only.
-RUN addgroup -S cook && adduser -S -G cook cook && \
-    mkdir -p /games /data /keys && \
-    chown -R cook:cook /games /data /keys
+# Pre-create the bind-mount targets so the user doesn't have to.
+# Runs as root (USER directive intentionally omitted): the legacy
+# vinicioslc/tinfoil-hat image ran as root too, so drop-in swaps don't
+# trip over host UID mismatches on bind-mounted /games. Users who want
+# non-root should set `user: "1000:1000"` (or their host uid:gid) in
+# their docker-compose.yml.
+RUN mkdir -p /games /data /keys
 
-COPY --from=deps --chown=cook:cook /app/node_modules ./node_modules
-COPY --chown=cook:cook package.json ./
-COPY --chown=cook:cook src ./src
-# Ship the shop template at the legacy tinfoil-hat mount point so users can
-# swap their `vinicioslc/tinfoil-hat` image for `oc-cookingfoil` without
-# touching their existing docker-compose (the original mounted to
-# /shop_template.jsonc). envs.js resolves the same path via __dirname/../.. .
-COPY --chown=cook:cook shop_template.jsonc /shop_template.jsonc
-
-USER cook
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY src ./src
+# Ship the shop template at the legacy tinfoil-hat mount point so users
+# can swap `vinicioslc/tinfoil-hat` for `oc-cookingfoil` without touching
+# their existing docker-compose volume mappings.
+COPY shop_template.jsonc /shop_template.jsonc
 
 EXPOSE 80
 
