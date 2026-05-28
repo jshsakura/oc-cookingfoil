@@ -732,6 +732,15 @@
         $("stat-mods").textContent = modsCount.toLocaleString();
         $("stat-mods-sub").textContent = updateCount + " upd · " + dlcCount + " dlc";
 
+        // Roll up update/DLC counts onto each base title so the card can
+        // surface 'this base also has N updates / M DLC in your library'.
+        const updByBase = new Map(), dlcByBase = new Map();
+        for (const f of files) {
+          if (!f.baseTitleId) continue;
+          if (f.kind === "update") updByBase.set(f.baseTitleId, (updByBase.get(f.baseTitleId) || 0) + 1);
+          else if (f.kind === "dlc") dlcByBase.set(f.baseTitleId, (dlcByBase.get(f.baseTitleId) || 0) + 1);
+        }
+
         renderedItems = files.map((f, idx) => {
           const tdb = (f.baseTitleId && titledb[f.baseTitleId]) || (f.titleId && titledb[f.titleId]) || null;
           const kind = f.kind || (tdb ? "base" : "custom");
@@ -739,7 +748,7 @@
           // server collected across region files (KR.ko / US.en / JP.ja /
           // EU.en / HK.zh). So 'zelda' finds 젤다, 'マリオ' finds Mario, etc.
           const aliases = Array.isArray(tdb?.aliases) ? tdb.aliases : [];
-          const searchBlob = [f.name || "", ...aliases].join("  ").toLowerCase();
+          const searchBlob = [f.name || "", ...aliases].join("  ").toLowerCase();
           return {
             idx, item: f, tdb, kind,
             name: (f.name || "").toLowerCase(),
@@ -747,6 +756,8 @@
             search: searchBlob,
             size: typeof f.size === "number" ? f.size : 0,
             releaseDate: tdb?.releaseDate || 0,
+            updateCount: kind === "base" && f.titleId ? (updByBase.get(f.titleId) || 0) : 0,
+            dlcCount:    kind === "base" && f.titleId ? (dlcByBase.get(f.titleId) || 0) : 0,
           };
         });
 
