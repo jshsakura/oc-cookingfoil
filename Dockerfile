@@ -21,13 +21,17 @@ LABEL org.opencontainers.image.title="CookingFoil" \
 ENV NODE_ENV=production \
     COOK_PORT=80 \
     COOK_GAMES_DIR=/games \
+    COOK_DATA_DIR=/data \
+    COOK_KEYS_DIR=/keys \
     DEBUG=oc-cookingfoil*
 
 WORKDIR /app
 
-# non-root runtime user, owns /games
+# non-root runtime user, owns the bind-mount targets.
+# /data is writable (icon + titledb cache); /keys is mounted read-only.
 RUN addgroup -S cook && adduser -S -G cook cook && \
-    mkdir -p /games && chown -R cook:cook /games
+    mkdir -p /games /data /keys && \
+    chown -R cook:cook /games /data /keys
 
 COPY --from=deps --chown=cook:cook /app/node_modules ./node_modules
 COPY --chown=cook:cook package.json shop_template.jsonc ./
@@ -37,7 +41,6 @@ USER cook
 
 EXPOSE 80
 
-# wget is included in node:alpine. Healthcheck hits the dynamic shop endpoint.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${COOK_PORT}/shop.json" >/dev/null || exit 1
 

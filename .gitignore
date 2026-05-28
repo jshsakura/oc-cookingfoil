@@ -144,3 +144,10 @@ dist
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# CookingFoil — runtime
+data/*
+!data/.gitkeep
+keys/*
+!keys/.gitkeep
+games/custom_entries.jsonc
