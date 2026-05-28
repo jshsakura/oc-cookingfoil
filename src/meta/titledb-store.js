@@ -77,14 +77,29 @@ export async function load() {
         a.region.localeCompare(b.region)
     );
 
-  for (const { file, region } of regionFiles) {
-    const fullPath = path.join(titledbCacheDir, file);
-    let json;
-    try {
-      const text = await readFile(fullPath, "utf-8");
-      json = JSON.parse(text);
-    } catch (err) {
-      debug.error("titledb store: parse error in %s: %s", file, err.message);
+  // Phase 1: read + parse every region file in parallel. The fs reads
+  // overlap (saves wall-clock time on cold disk caches), and the JSON
+  // parses still serialize on the event loop — but cooperatively, so the
+  // server stays responsive during boot instead of pegging on one huge
+  // synchronous read.
+  const parsed = await Promise.all(
+    regionFiles.map(async ({ file, region }) => {
+      const fullPath = path.join(titledbCacheDir, file);
+      try {
+        const text = await readFile(fullPath, "utf-8");
+        return { file, region, json: JSON.parse(text), error: null };
+      } catch (err) {
+        return { file, region, json: null, error: err };
+      }
+    })
+  );
+
+  // Phase 2: merge sequentially in `langPriority` order (priIndex already
+  // sorted `regionFiles`, and `Promise.all` preserves input order) so the
+  // "first defined value per field wins" rule stays intact.
+  for (const { file, region, json, error } of parsed) {
+    if (error) {
+      debug.error("titledb store: parse error in %s: %s", file, error.message);
       continue;
     }
     if (!json || typeof json !== "object") continue;

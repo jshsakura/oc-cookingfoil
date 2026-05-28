@@ -31,6 +31,24 @@ const THUMB_PX = 256;
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
 
+// Once we've confirmed a file is on disk, skip the syscall on subsequent
+// requests. A grid of 24 cards triggers 24+ image hits; on a warm cache
+// every one of those was paying for an `fs.existsSync` round-trip per
+// request. Membership-only set — entries are never removed during the
+// process lifetime (we never delete from the cache at runtime), so the
+// only stale shape is "user deleted the file behind our back", which is
+// not a supported live mutation.
+const knownExists = new Set();
+
+function existsCached(p) {
+  if (knownExists.has(p)) return true;
+  if (fs.existsSync(p)) {
+    knownExists.add(p);
+    return true;
+  }
+  return false;
+}
+
 export function placeholder(res) {
   res.set("Cache-Control", "no-store");
   res.type("image/png").status(200).send(TRANSPARENT_PNG);
@@ -61,6 +79,7 @@ async function fetchAndStore(url, cachePath) {
   const tmp = `${cachePath}.tmp.${process.pid}`;
   await writeFile(tmp, buf);
   await rename(tmp, cachePath);
+  knownExists.add(cachePath);
   debug.log(
     "image cache: stored %s (%d bytes, %dms)",
     path.basename(cachePath), buf.length, Date.now() - start
@@ -69,7 +88,7 @@ async function fetchAndStore(url, cachePath) {
 }
 
 async function ensureOriginal(cachePath, upstreamUrl) {
-  if (fs.existsSync(cachePath)) return;
+  if (existsCached(cachePath)) return;
   if (!upstreamUrl) throw new Error("no upstream URL and no cache");
   let pending = inFlightFetch.get(cachePath);
   if (!pending) {
@@ -80,7 +99,7 @@ async function ensureOriginal(cachePath, upstreamUrl) {
 }
 
 async function ensureVariant(originalPath, variant) {
-  if (fs.existsSync(variant.path)) return variant.path;
+  if (existsCached(variant.path)) return variant.path;
   const key = variant.path;
   let pending = inFlightVariant.get(key);
   if (!pending) {
@@ -95,6 +114,7 @@ async function ensureVariant(originalPath, variant) {
       const t0 = Date.now();
       await pipeline.toFile(tmp);
       await rename(tmp, variant.path);
+      knownExists.add(variant.path);
       const sz = (await statAsync(variant.path)).size;
       debug.log("image cache: variant %s (%d bytes, %dms)", path.basename(variant.path), sz, Date.now() - t0);
     })().finally(() => inFlightVariant.delete(key));
@@ -105,8 +125,12 @@ async function ensureVariant(originalPath, variant) {
 }
 
 function acceptsWebp(req) {
+  // Switch clients (Tinfoil/CyberFoil) don't send `image/webp`; modern
+  // browsers include it in the Accept header. We only check the explicit
+  // mime — relying on a bare `*/*` to mean "supports webp" produces
+  // false positives for legacy HTTP clients.
   const a = req.get("accept") || "";
-  return a.includes("image/webp") || a === "*/*" === false && /\bwebp\b/.test(a);
+  return a.includes("image/webp");
 }
 
 /**
@@ -175,11 +199,14 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
   const queue = Array.from(new Set(baseIds)).filter((tid) => tid && tid.length === 16);
   if (queue.length === 0) return { done: 0, skipped: 0, failed: 0 };
   let done = 0, skipped = 0, failed = 0;
+  // Cursor instead of `.shift()` (O(n) per pop on an Array). For a 5k-title
+  // library that's 25M array-element moves over the prewarm pass.
+  let cursor = 0;
   async function worker() {
-    while (queue.length > 0) {
-      const tid = queue.shift();
+    while (cursor < queue.length) {
+      const tid = queue[cursor++];
       const cp = cachePathFor(tid, "icon");
-      if (fs.existsSync(cp)) { skipped++; continue; }
+      if (existsCached(cp)) { skipped++; continue; }
       const url = getUpstreamForBase(tid);
       if (!url) { skipped++; continue; }
       try {

@@ -19,8 +19,6 @@
  *     Nintendo CDN URLs — so the Switch client gets locally-cached
  *     bytes (offline-friendly) and we control retention.
  */
-import fs from "fs";
-import path from "path";
 import FastGlob from "fast-glob";
 
 import debug from "./debug.js";
@@ -44,15 +42,6 @@ function encodeRelPath(relPath) {
   // (incl. `/`), then a literal "../" prefix is prepended.
   const encoded = encodeUrlObject({ url: relPath }).url;
   return "../" + encoded;
-}
-
-function safeStatSize(absPath) {
-  try {
-    return fs.statSync(absPath).size;
-  } catch (err) {
-    debug.error("stat failed for %s: %s", absPath, err.message);
-    return 0;
-  }
 }
 
 function normalizeTitleId(raw) {
@@ -84,20 +73,26 @@ function proxyifyTitledb(entry, titleId) {
 export default async function generateIndex() {
   const template = getJsonTemplateFile();
 
-  const relPaths = await FastGlob(SCAN_PATTERNS, {
+  // `stats: true` makes fast-glob fold the per-file size into the directory
+  // walk itself (one async syscall stream) — replaces an N-deep `fs.statSync`
+  // loop that would block the event loop for libraries with thousands of
+  // games. Entries become objects with `.path` and `.stats`.
+  const entries = await FastGlob(SCAN_PATTERNS, {
     cwd: romsDirPath,
     dot: false,
     onlyFiles: true,
     braceExpansion: false,
     caseSensitiveMatch: false,
+    stats: true,
   });
-  debug.log("scanned files: %d", relPaths.length);
+  debug.log("scanned files: %d", entries.length);
 
   const files = [];
   const titledb = {};
 
-  for (const rel of relPaths) {
-    const size = safeStatSize(path.join(romsDirPath, rel));
+  for (const entry of entries) {
+    const rel = entry.path;
+    const size = entry.stats?.size ?? 0;
     const parsed = parseFromFilename(rel);
 
     const baseId = parsed.groupTitleId;
