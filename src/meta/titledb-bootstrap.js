@@ -101,6 +101,11 @@ export async function bootstrap() {
   }
 
   await store.load();
+  // The shop-cache init runs concurrently and might have already built a
+  // response while titledb-store was still loading from disk (race on cold
+  // start). Invalidate so the next /shop.json triggers a rebuild with the
+  // titledb data we just loaded — names, aliases and metadata all flow.
+  shopCache.invalidate();
   const autoFetch = process.env.COOK_TITLEDB_AUTO_FETCH !== "false";
   const haveCache = store.size() > 0;
 

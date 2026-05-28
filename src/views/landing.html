@@ -610,6 +610,22 @@
       };
       const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+      // Append an English-ish alias in parens when the displayed name isn't
+      // mostly ASCII — gives Korean/Japanese users brand-recognition for
+      // titles like '젤다의 전설 (The Legend of Zelda)' without forcing them
+      // to switch language priority. Returns the name as-is when not needed.
+      function nameWithAlias(name, aliases) {
+        if (!name) return name;
+        const asciiOf = (s) => s.replace(/[^\x20-\x7E]/g, "").length / Math.max(1, s.length);
+        if (asciiOf(name) > 0.7) return name; // already English-y
+        if (!Array.isArray(aliases)) return name;
+        for (const a of aliases) {
+          if (!a || a === name) continue;
+          if (asciiOf(a) > 0.7) return name + " (" + a + ")";
+        }
+        return name;
+      }
+
       function animateCount(el, target, duration = 700) {
         const start = 0, t0 = performance.now();
         function step(now) {
@@ -764,7 +780,9 @@
         cover.onerror = () => { cover.style.visibility = "hidden"; };
 
         const meta = document.createElement("div"); meta.className = "meta";
-        const name = document.createElement("div"); name.className = "name"; name.textContent = r.item.name || "(unnamed)";
+        const name = document.createElement("div"); name.className = "name";
+        const aliases = Array.isArray(r.tdb?.aliases) ? r.tdb.aliases : [];
+        name.textContent = nameWithAlias(r.item.name || "(unnamed)", aliases);
         const sub  = document.createElement("div"); sub.className = "sub";
 
         const pill = document.createElement("span");
@@ -827,7 +845,7 @@
       // ─── modal ─────────────────────────────────────────────────────────────
       function openModal(r) {
         const f = r.item, td = r.tdb || {};
-        $("modal-title").textContent = f.name || "(unnamed)";
+        $("modal-title").textContent = nameWithAlias(f.name || "(unnamed)", td.aliases || []);
         $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
 
         $("modal-banner").style.backgroundImage = td.bannerUrl ? `url('${td.bannerUrl}')` : "";
