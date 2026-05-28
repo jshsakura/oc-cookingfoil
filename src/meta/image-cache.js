@@ -195,10 +195,10 @@ export function normalizeTitleId(raw) {
  * Concurrency capped so we don't hammer the eShop CDN; we also skip any
  * file already on disk so reruns are no-ops.
  */
-export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 4 } = {}) {
+export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 8 } = {}) {
   const queue = Array.from(new Set(baseIds)).filter((tid) => tid && tid.length === 16);
-  if (queue.length === 0) return { done: 0, skipped: 0, failed: 0 };
-  let done = 0, skipped = 0, failed = 0;
+  if (queue.length === 0) return { done: 0, skipped: 0, failed: 0, thumbs: 0 };
+  let done = 0, skipped = 0, failed = 0, thumbs = 0;
   // Cursor instead of `.shift()` (O(n) per pop on an Array). For a 5k-title
   // library that's 25M array-element moves over the prewarm pass.
   let cursor = 0;
@@ -206,12 +206,28 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     while (cursor < queue.length) {
       const tid = queue[cursor++];
       const cp = cachePathFor(tid, "icon");
-      if (existsCached(cp)) { skipped++; continue; }
+      const webpThumb = variantPath(cp, "thumb", "webp");
+      const haveOriginal = existsCached(cp);
+      const haveThumb = existsCached(webpThumb);
+      if (haveOriginal && haveThumb) { skipped++; continue; }
+
       const url = getUpstreamForBase(tid);
-      if (!url) { skipped++; continue; }
+      if (!url && !haveOriginal) { skipped++; continue; }
+
       try {
-        await ensureOriginal(cp, url);
-        done++;
+        if (!haveOriginal) {
+          await ensureOriginal(cp, url);
+          done++;
+        }
+        // Eagerly transcode the WebP thumbnail too. Browsers hitting the
+        // grid request `?size=sm` with Accept: image/webp — having the
+        // variant on disk means the first paint never waits for sharp.
+        // Sharp's internal threadpool handles CPU parallelism, so the only
+        // backpressure we apply is at the network-fetch level.
+        if (!haveThumb) {
+          await ensureVariant(cp, { path: webpThumb, resize: THUMB_PX, format: "webp" });
+          thumbs++;
+        }
       } catch {
         failed++;
       }
@@ -220,8 +236,8 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
   const t0 = Date.now();
   await Promise.all(Array(concurrency).fill(0).map(worker));
   debug.log(
-    "image cache: prewarm done — %d new, %d skipped, %d failed (%dms)",
-    done, skipped, failed, Date.now() - t0
+    "image cache: prewarm done — %d new, %d thumbs, %d skipped, %d failed (%dms)",
+    done, thumbs, skipped, failed, Date.now() - t0
   );
-  return { done, skipped, failed };
+  return { done, skipped, failed, thumbs };
 }

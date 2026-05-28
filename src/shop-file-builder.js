@@ -17,9 +17,12 @@ export default function shopFileBuilder() {
     }
     debug.http("IN-> %o", req.path);
 
-    let body;
+    let payload;
     try {
-      body = await shopCache.get();
+      // req.acceptsEncodings() returns the list ranked by client preference.
+      // We pre-built both identity and gzip Buffers at shop-cache build time,
+      // so this is just a header check + buffer pick — no per-request work.
+      payload = await shopCache.getEncoded(req.acceptsEncodings());
     } catch (err) {
       debug.error("shop cache get failed: %s", err.stack || err.message);
       res
@@ -33,7 +36,14 @@ export default function shopFileBuilder() {
       "Content-Type",
       req.path === "/shop.json" ? "application/json" : "application/octet-stream"
     );
-    res.status(200).send(body);
+    if (payload.contentEncoding) {
+      res.header("Content-Encoding", payload.contentEncoding);
+      res.header("Vary", "Accept-Encoding");
+    }
+    // Explicit Content-Length keeps HTTP/1.1 connections cleanly framed and
+    // avoids chunked-encoding overhead for what's already a single Buffer.
+    res.header("Content-Length", String(payload.body.length));
+    res.status(200).end(payload.body);
     debug.http("OUT-< %o", req.path);
   };
 }

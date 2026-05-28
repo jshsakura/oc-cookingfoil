@@ -118,6 +118,11 @@ export default async function generateIndex() {
         ...(proxied ?? {}),
         id: baseId,
         name: displayName,
+        // No-omission invariant: every base titleId surfaces with an icon
+        // URL even when titledb has nothing for it. The icon route falls
+        // back to a 1×1 transparent PNG when there's also no upstream, so
+        // the frontend's r.tdb is never undefined and image tags never 404.
+        iconUrl: proxied?.iconUrl ?? `/api/shop/icon/${baseId}`,
         size: size > 0 ? size : proxied?.size ?? 0,
       };
     }

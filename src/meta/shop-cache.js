@@ -15,15 +15,21 @@
  */
 import chokidar from "chokidar";
 import path from "path";
+import zlib from "zlib";
+import { promisify } from "util";
 import generateIndex from "../create-index-content.js";
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import { romsDirPath, customEntriesPath } from "../helpers/envs.js";
 import debug from "../debug.js";
 
+const gzipAsync = promisify(zlib.gzip);
+
 const REBUILD_DEBOUNCE_MS = 800;
 
-let cached = null;
+let cached = null;           // raw shop object (for in-process consumers)
+let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
+let serializedGzip = null;   // Buffer: gzipped variant for Accept-Encoding: gzip
 let building = null;
 let lastBuildMs = 0;
 let buildCount = 0;
@@ -37,12 +43,27 @@ async function build() {
     try {
       const r = await generateIndex();
       cached = r;
+      // Pre-serialize the body once per build so every /shop.json hit just
+      // writes a Buffer to the socket — no JSON.stringify per request, no
+      // per-request gzip pass. For a 5k-title library the body is ~2-10 MB
+      // and stringify alone is ~10-30 ms; multiply by every Switch device
+      // on the LAN and the savings stack up.
+      serializedJson = Buffer.from(JSON.stringify(r));
+      try {
+        serializedGzip = await gzipAsync(serializedJson, { level: 6 });
+      } catch (err) {
+        // Best-effort — if gzip fails for any reason we fall back to identity.
+        serializedGzip = null;
+        debug.error("shop cache: gzip failed: %s", err.message);
+      }
       lastBuildMs = Date.now() - start;
       buildCount += 1;
       debug.log(
-        "shop cache: built in %dms (%d files, build #%d)",
+        "shop cache: built in %dms (%d files, raw=%d B, gzip=%s B, build #%d)",
         lastBuildMs,
         Array.isArray(r.files) ? r.files.length : 0,
+        serializedJson.length,
+        serializedGzip ? serializedGzip.length : "—",
         buildCount
       );
       schedulePrewarm(r);
@@ -79,10 +100,28 @@ export async function get() {
   return build();
 }
 
+/**
+ * Return the pre-serialized body for /shop.json (or /shop.tfl). Selects gzip
+ * when the caller advertises it; falls back to identity for everyone else
+ * (Switch clients usually don't send Accept-Encoding).
+ */
+export async function getEncoded(acceptedEncodings) {
+  if (!cached) await build();
+  const wantsGzip = Array.isArray(acceptedEncodings)
+    ? acceptedEncodings.includes("gzip")
+    : false;
+  if (wantsGzip && serializedGzip) {
+    return { body: serializedGzip, contentEncoding: "gzip" };
+  }
+  return { body: serializedJson, contentEncoding: null };
+}
+
 export function invalidate() {
   if (cached !== null) {
     debug.log("shop cache: invalidated");
     cached = null;
+    serializedJson = null;
+    serializedGzip = null;
   }
 }
 
