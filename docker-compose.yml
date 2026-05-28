@@ -1,0 +1,26 @@
+# CookingFoil — local Switch homebrew shop.
+# Configure via .env (see .env.example). Mount your game library at ./games.
+services:
+  cookingfoil:
+    image: ghcr.io/jshsakura/oc-cookingfoil:latest
+    container_name: cookingfoil
+    hostname: cookingfoil
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      DEBUG: ${DEBUG:-oc-cookingfoil*}
+      COOK_PORT: 80
+      COOK_GAMES_DIR: /games
+      # Basic auth — leave unset to disable. Format: "user:pass,user2:pass2".
+      COOK_AUTH_USERS: ${COOK_AUTH_USERS:-}
+      COOK_UNAUTHORIZED_MSG: ${COOK_UNAUTHORIZED_MSG:-No tricks and treats for you!!}
+      COOK_WELCOME_MSG: ${COOK_WELCOME_MSG:-CookingFoil is serving fresh.}
+    ports:
+      # Host:container. Change the host side freely; container side stays 80.
+      - "${COOK_HOST_PORT:-9080}:80"
+    volumes:
+      # Game library — required.
+      - ./games:/games
+      # Optional: shop template overrides (welcome message, custom headers, ...)
+      - ./shop_template.jsonc:/app/shop_template.jsonc:ro
