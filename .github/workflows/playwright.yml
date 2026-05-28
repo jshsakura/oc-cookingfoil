@@ -18,10 +18,11 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --ignore-scripts
-      - name: Copy environment files
-        run: |
-          cp -f ./.env.example ./.env
-          cp -f ./test/project/.env.example ./test/project/.env
+      - name: Stage test environment
+        # Don't stage the root .env — playwright.config.ts deliberately
+        # avoids loading it, so the webServer subprocess only sees what
+        # test/project/.env supplies (no leaked /data, /games defaults).
+        run: cp -f ./test/project/.env.example ./test/project/.env
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
       - name: Run Playwright tests

@@ -1,55 +1,59 @@
 import { defineConfig, devices } from '@playwright/test';
-
+import { parse } from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 
-
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
+ * Important: do NOT call `dotenv.config()` here.
+ *
+ * Playwright's webServer subprocess inherits this process's env. If we
+ * loaded the root .env into process.env, those values would leak into
+ * the spawned server and silently override its own test/project/.env
+ * (dotenv keeps existing env vars by default). The CI suite then runs
+ * with the wrong auth/data/welcome settings — exactly how we used to lose
+ * "The Server Works!!" and end up with /data EACCES errors.
+ *
+ * Instead, parse test/project/.env.example without injecting anything,
+ * just to learn which port to poll. Anything more comes from
+ * test/project/.env (staged by the workflow) at server boot time.
  */
-import dotenv from 'dotenv'
-dotenv.config();
+const TEST_ENV_DEFAULTS = (() => {
+  try {
+    return parse(fs.readFileSync(path.resolve('./test/project/.env.example')));
+  } catch {
+    return {};
+  }
+})();
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
+const PORT = process.env.COOK_PORT ?? TEST_ENV_DEFAULTS.COOK_PORT ?? '3001';
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
 export default defineConfig({
   testDir: './test',
-  /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   globalSetup: path.resolve(path.resolve(), './test/switch.setup.ts'),
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://127.0.0.1:' + process.env.COOK_PORT,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
   },
 
   /* Run your local dev server before starting the tests.
-     The CI workflow stages test/project/.env from test/project/.env.example
-     before this runs — do NOT clobber it by copying the root .env over.   */
+     The CI workflow stages test/project/.env from .env.example beforehand;
+     the server reads that file from its CWD on boot. */
   webServer: {
     command: 'cd ./test/project/ && node ../../src/index.js',
-    url: 'http://127.0.0.1:' + process.env.COOK_PORT,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
   },
 
-  /* Configure projects for major browsers */
   projects: [
     {
       name: 'chrome',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
 });

@@ -6,23 +6,57 @@ import fileDirName from "./helpers.js";
 
 const { __dirname } = fileDirName(import.meta);
 
-// Relative default resolves against CWD — useful for tests that cd into
-// test/project/ and want test/project/games. Docker sets COOK_GAMES_DIR=/games
-// via ENV so the container is unaffected.
-const gamesPath = process.env.COOK_GAMES_DIR ?? "./games";
+/**
+ * Backward-compat env var reader.
+ * Returns the first defined+non-empty value across the supplied keys.
+ * The first key is the canonical (COOK_*) name; the rest are legacy
+ * tinfoil-hat aliases we still accept so existing setups keep working.
+ */
+function pickEnv(...names) {
+  for (const name of names) {
+    const v = process.env[name];
+    if (v !== undefined && v !== "") return v;
+  }
+  return undefined;
+}
+
+// One-shot deprecation log for env vars whose feature was removed in the
+// rebrand. We log via process.stderr so it surfaces regardless of DEBUG.
+const DEPRECATED_FEATURE_VARS = {
+  NX_PORTS: "save sync (moved to the oc-save-keeper project)",
+  NX_IPS: "save sync (moved to the oc-save-keeper project)",
+  NX_USER: "save sync (moved to the oc-save-keeper project)",
+  NX_PASSWORD: "save sync (moved to the oc-save-keeper project)",
+  SAVE_SYNC_INTERVAL: "save sync (moved to the oc-save-keeper project)",
+  SAVES_BACKUP_PATH: "save sync (moved to the oc-save-keeper project)",
+};
+for (const [v, where] of Object.entries(DEPRECATED_FEATURE_VARS)) {
+  if (process.env[v] !== undefined) {
+    process.stderr.write(
+      `[oc-cookingfoil] ${v} is set but no longer used — ${where}.\n`
+    );
+  }
+}
+
+// Games library. Relative default resolves against CWD — Docker overrides
+// via ENV=/games. ROMS_DIR_FULLPATH is the legacy tinfoil-hat name.
+const gamesPath =
+  pickEnv("COOK_GAMES_DIR", "ROMS_DIR_FULLPATH") ?? "./games";
 const romsDirPath = path.resolve(gamesPath);
 
 const jsonTemplatePath = path.resolve(
-  process.env.COOK_SHOP_TEMPLATE ??
+  pickEnv("COOK_SHOP_TEMPLATE", "JSON_TEMPLATE_PATH") ??
     path.join(__dirname, "../../shop_template.jsonc")
 );
 
-const appPort = process.env.COOK_PORT ?? "80";
+const appPort = pickEnv("COOK_PORT", "TINFOIL_HAT_PORT") ?? "80";
 
-const authUsers = process.env.COOK_AUTH_USERS || null;
+const authUsers = pickEnv("COOK_AUTH_USERS", "AUTH_USERS") ?? null;
 const unauthorizedMessage =
-  process.env.COOK_UNAUTHORIZED_MSG ?? "No tricks and treats for you!!";
-const welcomeMessage = process.env.COOK_WELCOME_MSG || null;
+  pickEnv("COOK_UNAUTHORIZED_MSG", "UNAUTHORIZED_MSG") ??
+  "No tricks and treats for you!!";
+const welcomeMessage =
+  pickEnv("COOK_WELCOME_MSG", "WELCOME_MSG") ?? null;
 
 // --- Phase 2 additions ---
 
