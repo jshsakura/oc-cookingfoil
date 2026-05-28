@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-lang="ko">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -8,7 +8,7 @@
     <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.88em%22 font-size=%2290%22>🧈</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
     <style>
       :root {
         --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
@@ -19,10 +19,10 @@
         --peach: #fab387; --pink: #f5c2e7; --mauve: #cba6f7;
         --surface0: #313244; --surface1: #45475a; --surface2: #585b70;
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--surface1) transparent; }
       html { color-scheme: dark; scroll-behavior: smooth; }
       body {
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         background-color: var(--crust);
         background-image:
           radial-gradient(circle at 0% 0%, rgba(250, 179, 135, 0.08) 0%, transparent 40%),
@@ -33,14 +33,20 @@
         padding: 40px 24px 80px;
         -webkit-font-smoothing: antialiased;
       }
+
+      /* themed scrollbars (webkit) */
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--surface1); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--surface2); background-clip: padding-box; border: 2px solid transparent; }
+      ::-webkit-scrollbar-corner { background: transparent; }
+
       .wrap { width: 100%; max-width: 1100px; margin: 0 auto; }
       .card {
         background: rgba(24, 24, 37, 0.7);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 32px;
-        padding: 40px 36px;
+        border-radius: 32px; padding: 40px 36px;
         box-shadow: 0 40px 80px rgba(0, 0, 0, 0.4);
         animation: slideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1);
       }
@@ -49,6 +55,21 @@
       @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.75); } }
 
       /* HEADER */
+      .top-row { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 6px; }
+      .lang-toggle {
+        display: inline-flex; gap: 4px; padding: 4px;
+        background: rgba(49, 50, 68, 0.55); border: 1px solid var(--surface0); border-radius: 100px;
+        font-family: inherit;
+      }
+      .lang-toggle button {
+        background: transparent; border: none; color: var(--subtext0);
+        padding: 4px 10px; border-radius: 100px;
+        font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+        transition: all 0.2s ease;
+      }
+      .lang-toggle button.active { background: rgba(180, 190, 254, 0.18); color: var(--lavender); }
+      .lang-toggle button:hover:not(.active) { color: var(--text); }
+
       .header { text-align: center; margin-bottom: 28px; }
       .logo {
         width: 88px; height: 88px; margin: 0 auto 20px;
@@ -63,10 +84,8 @@
         display: inline-flex; align-items: center; gap: 8px;
         padding: 8px 16px; border-radius: 100px;
         font-size: 13px; font-weight: 600;
-        background: rgba(166, 227, 161, 0.1);
-        border: 1px solid rgba(166, 227, 161, 0.22);
-        color: var(--green); margin-bottom: 18px;
-        transition: all 0.3s ease;
+        background: rgba(166, 227, 161, 0.1); border: 1px solid rgba(166, 227, 161, 0.22);
+        color: var(--green); margin-bottom: 18px; transition: all 0.3s ease;
       }
       .badge.warm { background: rgba(249, 226, 175, 0.1); border-color: rgba(249, 226, 175, 0.22); color: var(--yellow); }
       .badge.cold { background: rgba(243, 139, 168, 0.1); border-color: rgba(243, 139, 168, 0.22); color: var(--red); }
@@ -77,7 +96,7 @@
         background: linear-gradient(135deg, var(--text) 30%, var(--lavender));
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
       }
-      .description { font-size: 16px; color: var(--subtext1); line-height: 1.6; max-width: 540px; margin: 0 auto; }
+      .description { font-size: 16px; color: var(--subtext1); line-height: 1.6; max-width: 560px; margin: 0 auto; }
 
       h2 {
         font-size: 17px; font-weight: 600; color: var(--lavender);
@@ -124,8 +143,7 @@
       .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
       .stat {
         background: rgba(49, 50, 68, 0.55); border: 1px solid var(--surface0);
-        border-radius: 16px; padding: 18px;
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        border-radius: 16px; padding: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .stat:hover { background: rgba(69, 71, 90, 0.5); border-color: var(--surface1); transform: translateY(-2px); }
       .stat .label {
@@ -178,8 +196,7 @@
         background: rgba(49, 50, 68, 0.55); border: 1px solid var(--surface0);
         text-decoration: none; color: inherit;
         cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        content-visibility: auto; /* skip off-screen paint */
-        contain-intrinsic-size: 1px 92px;
+        content-visibility: auto; contain-intrinsic-size: 1px 92px;
       }
       .game:hover { background: rgba(69, 71, 90, 0.6); border-color: var(--surface1); transform: translateY(-2px); }
       .game .cover {
@@ -198,9 +215,9 @@
         background: rgba(180, 190, 254, 0.1); color: var(--lavender);
         border: 1px solid rgba(180, 190, 254, 0.15); text-transform: uppercase; letter-spacing: 0.05em;
       }
-      .game .sub .pill.update  { background: rgba(137, 180, 250, 0.1); color: var(--blue);   border-color: rgba(137, 180, 250, 0.2); }
-      .game .sub .pill.dlc     { background: rgba(250, 179, 135, 0.1); color: var(--peach);  border-color: rgba(250, 179, 135, 0.2); }
-      .game .sub .pill.custom  { background: rgba(245, 194, 231, 0.1); color: var(--pink);   border-color: rgba(245, 194, 231, 0.2); }
+      .game .sub .pill.update { background: rgba(137, 180, 250, 0.1); color: var(--blue); border-color: rgba(137, 180, 250, 0.2); }
+      .game .sub .pill.dlc    { background: rgba(250, 179, 135, 0.1); color: var(--peach); border-color: rgba(250, 179, 135, 0.2); }
+      .game .sub .pill.custom { background: rgba(245, 194, 231, 0.1); color: var(--pink); border-color: rgba(245, 194, 231, 0.2); }
       .game .sub .size { font-family: "JetBrains Mono", monospace; }
 
       .empty {
@@ -208,6 +225,27 @@
         color: var(--overlay0); font-size: 14px;
         background: rgba(49, 50, 68, 0.4); border: 1px dashed var(--surface0); border-radius: 16px;
       }
+
+      /* PAGER */
+      .pager {
+        display: flex; align-items: center; justify-content: center; gap: 4px;
+        margin-top: 20px; flex-wrap: wrap;
+      }
+      .pager .info {
+        margin-right: auto; font-size: 13px; color: var(--subtext0);
+      }
+      .pager-btn {
+        min-width: 36px; height: 36px; padding: 0 12px;
+        border-radius: 10px; background: rgba(49, 50, 68, 0.5);
+        border: 1px solid var(--surface0); color: var(--subtext1);
+        font-size: 13px; font-weight: 600; font-family: inherit;
+        cursor: pointer; transition: all 0.2s ease;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .pager-btn:hover:not(:disabled) { background: rgba(69, 71, 90, 0.6); color: var(--text); border-color: var(--surface1); }
+      .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+      .pager-btn.current { background: rgba(180, 190, 254, 0.18); color: var(--lavender); border-color: var(--lavender); }
+      .pager-ellipsis { color: var(--overlay0); padding: 0 4px; }
 
       /* MODAL */
       .modal-backdrop {
@@ -264,64 +302,66 @@
         .card { padding: 28px 20px; border-radius: 24px; }
         h1 { font-size: 28px; }
         .games { grid-template-columns: 1fr; }
+        .pager .info { width: 100%; margin-bottom: 8px; text-align: center; }
       }
     </style>
   </head>
 
   <body>
     <div class="wrap">
+      <div class="top-row">
+        <div class="lang-toggle" role="tablist" aria-label="language">
+          <button data-lang="ko" type="button">KO</button>
+          <button data-lang="en" type="button">EN</button>
+        </div>
+      </div>
+
       <div class="card">
         <header class="header">
           <div class="logo" aria-hidden="true">🧈</div>
-          <div id="status" class="badge">
-            <span class="badge-dot"></span><span id="status-text">Loading…</span>
-          </div>
+          <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text">…</span></div>
           <h1>CookingFoil</h1>
-          <p class="description">
-            버터처럼 어디에도 잘 어울리는 파일 매니저.
-            파일 · 메타 · 아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.
-          </p>
+          <p class="description" data-i18n="hero.desc"></p>
         </header>
 
-        <h2>샵 연결 / Shop URL <button class="h2-action" id="refresh-btn" type="button">↻ Refresh</button></h2>
+        <h2 data-i18n="section.connect"></h2>
+        <button class="h2-action" id="refresh-btn" type="button" style="margin-left:auto" data-i18n="action.refresh"></button>
         <div class="connect-row">
           <div id="shop-url" class="url-pill">—</div>
-          <button class="btn" id="copy-btn" type="button">Copy</button>
+          <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
         </div>
-        <p class="hint">
-          Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> 후 위 URL 추가.
-          AUTH가 켜져 있으면 <code>https://user:pass@host:port/</code> 형태로 입력.
-        </p>
+        <p class="hint" data-i18n-html="hint.connect"></p>
 
-        <h2>현황 / Stats</h2>
+        <h2 data-i18n="section.stats"></h2>
         <div class="stats">
-          <div class="stat"><div class="label">Games</div><div class="value" data-counter id="stat-games">—</div><div class="sub" id="stat-games-sub">scanned in /games</div></div>
-          <div class="stat"><div class="label">Titledb</div><div class="value" data-counter id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub">merged titles</div></div>
-          <div class="stat"><div class="label">Base</div><div class="value" data-counter id="stat-base">—</div><div class="sub">base games</div></div>
-          <div class="stat"><div class="label">Updates / DLC</div><div class="value" id="stat-mods">—</div><div class="sub" id="stat-mods-sub">addons</div></div>
+          <div class="stat"><div class="label" data-i18n="stat.games"></div><div class="value" id="stat-games">—</div><div class="sub" data-i18n="stat.games_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.titledb"></div><div class="value" id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub" data-i18n="stat.titledb_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value" id="stat-mods">—</div><div class="sub" id="stat-mods-sub">—</div></div>
         </div>
 
-        <h2>게임 / Library <span class="count" id="games-count">0</span></h2>
+        <h2><span data-i18n="section.library"></span><span class="count" id="games-count">0</span></h2>
         <div class="toolbar">
-          <input class="search" id="search" type="search" placeholder="이름·title id 검색…" autocomplete="off" />
+          <input class="search" id="search" type="search" autocomplete="off" />
           <div class="chips" id="chips">
-            <button class="chip active" data-kind="all" type="button">All</button>
-            <button class="chip" data-kind="base" type="button">Base</button>
-            <button class="chip" data-kind="update" type="button">Update</button>
-            <button class="chip" data-kind="dlc" type="button">DLC</button>
-            <button class="chip" data-kind="custom" type="button">Custom</button>
+            <button class="chip active" data-kind="all"    type="button" data-i18n="chip.all"></button>
+            <button class="chip"        data-kind="base"   type="button" data-i18n="chip.base"></button>
+            <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
+            <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
+            <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
           </div>
           <select class="sort-select" id="sort">
-            <option value="name">Sort: Name (A→Z)</option>
-            <option value="name-desc">Sort: Name (Z→A)</option>
-            <option value="size-desc">Sort: Size (large)</option>
-            <option value="size-asc">Sort: Size (small)</option>
-            <option value="release-desc">Sort: Release (new)</option>
+            <option value="name"         data-i18n="sort.name_asc"></option>
+            <option value="name-desc"    data-i18n="sort.name_desc"></option>
+            <option value="size-desc"    data-i18n="sort.size_desc"></option>
+            <option value="size-asc"     data-i18n="sort.size_asc"></option>
+            <option value="release-desc" data-i18n="sort.release_desc"></option>
           </select>
         </div>
         <div id="games" class="games">
-          <div class="empty">Loading game library…</div>
+          <div class="empty" data-i18n="empty.loading"></div>
         </div>
+        <div class="pager" id="pager"></div>
       </div>
 
       <div class="footer">
@@ -334,9 +374,8 @@
       </div>
     </div>
 
-    <!-- Game detail modal -->
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
-      <div class="modal" id="modal-card" onclick="event.stopPropagation()">
+      <div class="modal" onclick="event.stopPropagation()">
         <div class="banner" id="modal-banner"></div>
         <div class="body">
           <h3 id="modal-title">—</h3>
@@ -345,8 +384,8 @@
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
           <div class="modal-actions">
-            <a class="btn" id="modal-download" href="#" target="_blank">Download</a>
-            <button class="btn ghost" id="modal-close" type="button">Close</button>
+            <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
+            <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
           </div>
         </div>
       </div>
@@ -355,20 +394,143 @@
     <div class="toast-rack" id="toasts"></div>
 
     <script>
-      const $ = (id) => document.getElementById(id);
+      // ─── i18n ──────────────────────────────────────────────────────────────
+      const I18N = {
+        ko: {
+          "hero.desc": "버터처럼 어디에도 잘 어울리는 파일 매니저. 파일·메타·아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.",
+          "section.connect": "샵 연결",
+          "section.stats": "현황",
+          "section.library": "게임",
+          "action.refresh": "↻ 새로고침",
+          "action.copy": "복사",
+          "action.download": "다운로드",
+          "action.close": "닫기",
+          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> 후 위 URL 추가. AUTH가 켜져 있으면 <code>https://user:pass@host:port/</code> 형태로 입력.",
+          "stat.games": "게임",
+          "stat.games_sub": "/games 폴더 스캔",
+          "stat.titledb": "TITLEDB",
+          "stat.titledb_sub": "병합된 타이틀",
+          "stat.base": "베이스",
+          "stat.base_sub": "원본 게임",
+          "stat.mods": "업데이트/DLC",
+          "chip.all": "전체",
+          "chip.base": "베이스",
+          "chip.update": "업데이트",
+          "chip.dlc": "DLC",
+          "chip.custom": "커스텀",
+          "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
+          "sort.name_desc": "정렬: 이름 ㅎ→ㄱ",
+          "sort.size_desc": "정렬: 크기(큰 것부터)",
+          "sort.size_asc": "정렬: 크기(작은 것부터)",
+          "sort.release_desc": "정렬: 출시일(최신순)",
+          "empty.loading": "게임 라이브러리 로딩 중…",
+          "empty.none": "조건에 맞는 게임이 없습니다. 검색·필터를 비워보세요.",
+          "empty.err": "/shop.json 로드 실패 — 콘솔 확인",
+          "status.loading": "샵 데이터 불러오는 중…",
+          "status.serving": (n) => `게임 ${n.toLocaleString()}개 서비스 중`,
+          "status.empty": "구동 중 — 스캔된 게임 없음",
+          "status.timeout": "타임아웃 — 캐시 빌드가 오래 걸리는 듯",
+          "status.error": (m) => "오류: " + m,
+          "search.placeholder": "이름·타이틀ID 검색…",
+          "pager.info": (a, b, total) => `${a}–${b} / 총 ${total.toLocaleString()}`,
+          "pager.prev": "이전",
+          "pager.next": "다음",
+          "toast.copied": "URL이 클립보드에 복사됐습니다",
+          "toast.refresh": "샵 데이터 새로고침 완료",
+          "toast.copyFail": "복사 실패",
+          "modal.size": "크기",
+          "modal.release": "출시일",
+          "modal.type": "종류",
+          "modal.titleId": "타이틀 ID",
+          "modal.region": "지역",
+          "modal.rating": "등급",
+          "modal.category": "장르",
+          "modal.players": "플레이어",
+          "modal.noDesc": "설명이 없습니다.",
+        },
+        en: {
+          "hero.desc": "The file manager that fits anywhere — smooth as butter. Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
+          "section.connect": "Shop URL",
+          "section.stats": "Stats",
+          "section.library": "Library",
+          "action.refresh": "↻ Refresh",
+          "action.copy": "Copy",
+          "action.download": "Download",
+          "action.close": "Close",
+          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> and add the URL above. With auth enabled, use <code>https://user:pass@host:port/</code>.",
+          "stat.games": "Games",
+          "stat.games_sub": "scanned in /games",
+          "stat.titledb": "Titledb",
+          "stat.titledb_sub": "merged titles",
+          "stat.base": "Base",
+          "stat.base_sub": "base games",
+          "stat.mods": "Updates / DLC",
+          "chip.all": "All",
+          "chip.base": "Base",
+          "chip.update": "Updates",
+          "chip.dlc": "DLC",
+          "chip.custom": "Custom",
+          "sort.name_asc": "Sort: Name (A→Z)",
+          "sort.name_desc": "Sort: Name (Z→A)",
+          "sort.size_desc": "Sort: Size (large)",
+          "sort.size_asc": "Sort: Size (small)",
+          "sort.release_desc": "Sort: Release (newest)",
+          "empty.loading": "Loading game library…",
+          "empty.none": "No matches. Try clearing search or filter.",
+          "empty.err": "Failed to load /shop.json — check console.",
+          "status.loading": "Loading shop data…",
+          "status.serving": (n) => `Serving ${n.toLocaleString()} games`,
+          "status.empty": "Running — no games scanned",
+          "status.timeout": "Timed out — server still building cache?",
+          "status.error": (m) => "Error: " + m,
+          "search.placeholder": "Search by name or title ID…",
+          "pager.info": (a, b, total) => `${a}–${b} of ${total.toLocaleString()}`,
+          "pager.prev": "Prev",
+          "pager.next": "Next",
+          "toast.copied": "URL copied to clipboard",
+          "toast.refresh": "Shop data refreshed",
+          "toast.copyFail": "Copy failed",
+          "modal.size": "Size",
+          "modal.release": "Release",
+          "modal.type": "Type",
+          "modal.titleId": "Title ID",
+          "modal.region": "Region",
+          "modal.rating": "Rating",
+          "modal.category": "Category",
+          "modal.players": "Players",
+          "modal.noDesc": "No description available.",
+        },
+      };
 
-      // ── utils ──────────────────────────────────────────────────────────────
+      const LANG_KEY = "cookingfoil:lang";
+      let lang = localStorage.getItem(LANG_KEY)
+        || (navigator.language?.toLowerCase().startsWith("ko") ? "ko" : "en");
+      function t(key, ...args) {
+        const bundle = I18N[lang] || I18N.en;
+        const v = bundle[key] ?? I18N.en[key] ?? key;
+        return typeof v === "function" ? v(...args) : v;
+      }
+      function applyI18n() {
+        document.documentElement.setAttribute("lang", lang);
+        document.documentElement.setAttribute("data-lang", lang);
+        for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+        for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.iI18nHtml || el.dataset.i18nHtml);
+        $("search").placeholder = t("search.placeholder");
+        for (const b of document.querySelectorAll(".lang-toggle button")) b.classList.toggle("active", b.dataset.lang === lang);
+        if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
+      }
+
+      // ─── utils ─────────────────────────────────────────────────────────────
+      const $ = (id) => document.getElementById(id);
       const fmtBytes = (n) => {
         if (!Number.isFinite(n) || n <= 0) return "—";
-        const units = ["B", "KB", "MB", "GB", "TB"];
-        let i = 0, v = n;
-        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-        return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + units[i];
+        const u = ["B","KB","MB","GB","TB"]; let i = 0, v = n;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + u[i];
       };
       const fmtDate = (yyyymmdd) => {
-        const s = String(yyyymmdd || "");
-        if (s.length !== 8) return "—";
-        return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+        const s = String(yyyymmdd || ""); if (s.length !== 8) return "—";
+        return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
       };
       const toast = (msg) => {
         const el = document.createElement("div");
@@ -376,11 +538,8 @@
         $("toasts").appendChild(el);
         setTimeout(() => el.remove(), 2400);
       };
-      const debounce = (fn, ms) => {
-        let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-      };
+      const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-      // ── animated counters ──────────────────────────────────────────────────
       function animateCount(el, target, duration = 700) {
         const start = 0, t0 = performance.now();
         function step(now) {
@@ -392,68 +551,59 @@
         requestAnimationFrame(step);
       }
 
-      // ── shop URL ───────────────────────────────────────────────────────────
+      // ─── url / copy ────────────────────────────────────────────────────────
       const baseUrl = window.location.origin + "/";
       $("shop-url").textContent = baseUrl;
       $("copy-btn").addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(baseUrl); toast("URL이 클립보드에 복사됐습니다"); }
-        catch { toast("복사 실패"); }
+        try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
+        catch { toast(t("toast.copyFail")); }
       });
 
-      // ── state ──────────────────────────────────────────────────────────────
-      let shopData = null;       // last fetched shop.json
-      let renderedItems = [];    // array of {item, kind, name, size, releaseDate}
+      // ─── state ─────────────────────────────────────────────────────────────
+      let shopData = null;
+      let renderedItems = [];
+      const state = { kind: "all", q: "", sort: "name", page: 1, perPage: 50 };
 
-      // ── load & render ─────────────────────────────────────────────────────
+      // ─── data flow ─────────────────────────────────────────────────────────
       async function loadShop() {
-        // Surface progress visibly so the user knows we're alive while the
-        // server cold-builds the cache on a fresh container.
-        $("status-text").textContent = "Loading shop data…";
-        const t0 = performance.now();
+        $("status-text").textContent = t("status.loading");
         const ctrl = new AbortController();
-        const timeout = setTimeout(() => ctrl.abort(), 60_000);
+        const timer = setTimeout(() => ctrl.abort(), 60_000);
+        const t0 = performance.now();
         try {
-          const r = await fetch("/shop.json", {
-            headers: { Accept: "application/json" },
-            signal: ctrl.signal,
-          });
+          const r = await fetch("/shop.json", { headers: { Accept: "application/json" }, signal: ctrl.signal });
           if (!r.ok) throw new Error("HTTP " + r.status);
           shopData = await r.json();
-          const elapsed = Math.round(performance.now() - t0);
-          if (elapsed > 1500) console.info("[CookingFoil] shop.json fetched in", elapsed, "ms");
+          const ms = Math.round(performance.now() - t0);
+          if (ms > 1500) console.info("[CookingFoil] /shop.json", ms, "ms");
           renderAll(shopData);
         } catch (err) {
-          console.error("[CookingFoil] shop.json fetch failed:", err);
+          console.error("[CookingFoil] /shop.json failed:", err);
           $("status").classList.remove("warm"); $("status").classList.add("cold");
-          $("status-text").textContent =
-            err.name === "AbortError"
-              ? "Timed out — server still building cache?"
-              : "Error: " + (err.message || String(err));
-          $("games").innerHTML = '<div class="empty">Failed to load /shop.json — open dev-tools console for details.</div>';
+          $("status-text").textContent = err.name === "AbortError" ? t("status.timeout") : t("status.error", err.message || String(err));
+          $("games").innerHTML = `<div class="empty">${t("empty.err")}</div>`;
         } finally {
-          clearTimeout(timeout);
+          clearTimeout(timer);
         }
       }
 
       function renderAll(shop) {
-        const files = Array.isArray(shop.files) ? shop.files : [];
+        const files   = Array.isArray(shop.files) ? shop.files : [];
         const titledb = shop.titledb && typeof shop.titledb === "object" ? shop.titledb : {};
-        const tCount = Object.keys(titledb).length;
+        const tCount  = Object.keys(titledb).length;
 
-        // header status
         $("status").classList.remove("cold", "warm");
         if (files.length === 0) {
           $("status").classList.add("warm");
-          $("status-text").textContent = "Running — no games scanned";
+          $("status-text").textContent = t("status.empty");
         } else {
-          $("status-text").textContent = "Serving " + files.length.toLocaleString() + " entries";
+          $("status-text").textContent = t("status.serving", files.length);
         }
 
-        // animated stats
         const baseCount   = files.filter(f => (f.kind || "base") === "base").length;
-        const modsCount   = files.filter(f => f.kind === "update" || f.kind === "dlc").length;
         const updateCount = files.filter(f => f.kind === "update").length;
         const dlcCount    = files.filter(f => f.kind === "dlc").length;
+        const modsCount   = updateCount + dlcCount;
 
         animateCount($("stat-games"), files.length);
         animateCount($("stat-titledb"), tCount);
@@ -461,9 +611,6 @@
         $("stat-mods").textContent = modsCount.toLocaleString();
         $("stat-mods-sub").textContent = updateCount + " upd · " + dlcCount + " dlc";
 
-        $("stat-titledb-sub").textContent = tCount > 0 ? "merged from regions" : "cache empty";
-
-        // build renderable items
         renderedItems = files.map((f, idx) => {
           const tdb = (f.baseTitleId && titledb[f.baseTitleId]) || (f.titleId && titledb[f.titleId]) || null;
           const kind = f.kind || (tdb ? "base" : "custom");
@@ -476,22 +623,23 @@
           };
         });
 
+        state.page = 1;
         applyFilters();
       }
 
-      // ── filter / sort / search ────────────────────────────────────────────
-      const state = { kind: "all", q: "", sort: "name" };
-
-      function applyFilters() {
+      // ─── filter / sort / paginate ─────────────────────────────────────────
+      function visibleSet() {
         const list = renderedItems.filter(r => {
-          if (state.kind !== "all" && r.kind !== state.kind) return false;
-          if (state.q) {
-            const q = state.q;
-            if (!r.name.includes(q) && !r.tid.includes(q)) return false;
+          // "All" shows only base games — updates/DLC roll up under their base,
+          // and custom entries get their own dedicated chip. Per user spec.
+          if (state.kind === "all") {
+            if (r.kind !== "base") return false;
+          } else if (r.kind !== state.kind) {
+            return false;
           }
+          if (state.q && !r.name.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
-
         list.sort((a, b) => {
           switch (state.sort) {
             case "name-desc":    return b.item.name.localeCompare(a.item.name);
@@ -502,34 +650,43 @@
             default:             return a.item.name.localeCompare(b.item.name);
           }
         });
+        return list;
+      }
 
-        renderList(list);
-        $("games-count").textContent = list.length.toLocaleString() + " / " + renderedItems.length.toLocaleString();
+      function applyFilters() {
+        const list = visibleSet();
+        const total = list.length;
+        const pages = Math.max(1, Math.ceil(total / state.perPage));
+        state.page = Math.min(state.page, pages);
+        const start = (state.page - 1) * state.perPage;
+        const slice = list.slice(start, start + state.perPage);
+
+        renderList(slice);
+        $("games-count").textContent = `${total.toLocaleString()} / ${renderedItems.length.toLocaleString()}`;
+        renderPager(state.page, pages, total, start + 1, Math.min(total, start + slice.length));
       }
 
       function renderList(list) {
         const grid = $("games");
         grid.innerHTML = "";
         if (list.length === 0) {
-          grid.innerHTML = '<div class="empty">No matches. Try clearing search or filter.</div>';
+          grid.innerHTML = `<div class="empty">${t("empty.none")}</div>`;
           return;
         }
         const frag = document.createDocumentFragment();
         for (const r of list) frag.appendChild(makeCard(r));
         grid.appendChild(frag);
+        grid.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
 
       function makeCard(r) {
         const card = document.createElement("div");
-        card.className = "game";
-        card.tabIndex = 0;
+        card.className = "game"; card.tabIndex = 0;
         card.addEventListener("click", () => openModal(r));
         card.addEventListener("keypress", (e) => { if (e.key === "Enter") openModal(r); });
 
         const cover = document.createElement("img");
-        cover.className = "cover";
-        cover.loading = "lazy";
-        cover.alt = "";
+        cover.className = "cover"; cover.loading = "lazy"; cover.alt = "";
         if (r.item.icon_url) cover.src = r.item.icon_url;
         cover.onerror = () => { cover.style.visibility = "hidden"; };
 
@@ -539,91 +696,126 @@
 
         const pill = document.createElement("span");
         pill.className = "pill " + r.kind;
-        pill.textContent = r.kind;
+        pill.textContent = t("chip." + r.kind) || r.kind;
         sub.appendChild(pill);
 
         const sizeEl = document.createElement("span"); sizeEl.className = "size"; sizeEl.textContent = fmtBytes(r.size);
         sub.appendChild(sizeEl);
 
-        if (r.tdb?.releaseDate) {
-          const date = document.createElement("span"); date.textContent = fmtDate(r.tdb.releaseDate);
-          sub.appendChild(date);
-        }
-        if (r.tdb?.publisher) {
-          const pub = document.createElement("span"); pub.textContent = r.tdb.publisher;
-          sub.appendChild(pub);
-        }
+        if (r.tdb?.releaseDate) { const d = document.createElement("span"); d.textContent = fmtDate(r.tdb.releaseDate); sub.appendChild(d); }
+        if (r.tdb?.publisher)   { const p = document.createElement("span"); p.textContent = r.tdb.publisher;   sub.appendChild(p); }
 
         meta.appendChild(name); meta.appendChild(sub);
         card.appendChild(cover); card.appendChild(meta);
         return card;
       }
 
-      // ── modal ──────────────────────────────────────────────────────────────
+      // Compact pager: « 1 … 5 6 [7] 8 9 … 42 »
+      function renderPager(current, total, totalItems, from, to) {
+        const p = $("pager"); p.innerHTML = "";
+        if (totalItems === 0) return;
+
+        const info = document.createElement("span");
+        info.className = "info";
+        info.textContent = t("pager.info", from, to, totalItems);
+        p.appendChild(info);
+
+        const mkBtn = (label, target, opts = {}) => {
+          const b = document.createElement("button");
+          b.className = "pager-btn" + (opts.current ? " current" : "");
+          b.type = "button"; b.textContent = label;
+          if (opts.disabled) b.disabled = true;
+          else b.addEventListener("click", () => { state.page = target; applyFilters(); });
+          return b;
+        };
+
+        p.appendChild(mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1 }));
+
+        const window = 2; // pages around current
+        const pages = new Set();
+        pages.add(1); pages.add(total);
+        for (let i = current - window; i <= current + window; i++) {
+          if (i >= 1 && i <= total) pages.add(i);
+        }
+        const sorted = [...pages].sort((a, b) => a - b);
+        let prev = 0;
+        for (const n of sorted) {
+          if (n - prev > 1) {
+            const dots = document.createElement("span"); dots.className = "pager-ellipsis"; dots.textContent = "…";
+            p.appendChild(dots);
+          }
+          p.appendChild(mkBtn(String(n), n, { current: n === current }));
+          prev = n;
+        }
+
+        p.appendChild(mkBtn(t("pager.next"), current + 1, { disabled: current >= total }));
+      }
+
+      // ─── modal ─────────────────────────────────────────────────────────────
       function openModal(r) {
-        const f = r.item, t = r.tdb || {};
+        const f = r.item, td = r.tdb || {};
         $("modal-title").textContent = f.name || "(unnamed)";
-        $("modal-publisher").textContent = t.publisher || (f.titleId ? "Title ID " + f.titleId : "Custom entry");
+        $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
 
-        const banner = $("modal-banner");
-        banner.style.backgroundImage = t.bannerUrl ? `url('${t.bannerUrl}')` : "";
+        $("modal-banner").style.backgroundImage = td.bannerUrl ? `url('${td.bannerUrl}')` : "";
 
-        const metaBox = $("modal-meta");
-        metaBox.innerHTML = "";
+        const metaBox = $("modal-meta"); metaBox.innerHTML = "";
         const rows = [
-          ["Size", fmtBytes(r.size)],
-          ["Release", fmtDate(t.releaseDate)],
-          ["Type", r.kind],
-          ["Title ID", f.titleId || "—"],
-          ["Region", t.region || "—"],
-          ["Rating", t.rating != null ? String(t.rating) : "—"],
-          ["Category", Array.isArray(t.category) ? t.category.join(", ") : (t.category || "—")],
-          ["Players", t.numberOfPlayers != null ? String(t.numberOfPlayers) : "—"],
+          [t("modal.size"),     fmtBytes(r.size)],
+          [t("modal.release"),  fmtDate(td.releaseDate)],
+          [t("modal.type"),     t("chip." + r.kind) || r.kind],
+          [t("modal.titleId"),  f.titleId || "—"],
+          [t("modal.region"),   td.region || "—"],
+          [t("modal.rating"),   td.rating != null ? String(td.rating) : "—"],
+          [t("modal.category"), Array.isArray(td.category) ? td.category.join(", ") : (td.category || "—")],
+          [t("modal.players"),  td.numberOfPlayers != null ? String(td.numberOfPlayers) : "—"],
         ];
         for (const [k, v] of rows) {
           const cell = document.createElement("div");
-          cell.innerHTML = '<span style="color:var(--overlay1);font-size:11px;letter-spacing:.05em;text-transform:uppercase">' + k + '</span><strong>' + v + '</strong>';
+          cell.innerHTML = `<span style="color:var(--overlay1);font-size:11px;letter-spacing:.05em;text-transform:uppercase">${k}</span><strong>${v}</strong>`;
           metaBox.appendChild(cell);
         }
+        $("modal-desc").textContent = td.description || t("modal.noDesc");
 
-        $("modal-desc").textContent = t.description || "No description available.";
         const scr = $("modal-screens"); scr.innerHTML = "";
-        if (Array.isArray(t.screenshots)) {
-          for (const url of t.screenshots) {
-            const im = document.createElement("img");
-            im.loading = "lazy"; im.src = url; im.alt = "";
+        if (Array.isArray(td.screenshots)) {
+          for (const url of td.screenshots) {
+            const im = document.createElement("img"); im.loading = "lazy"; im.src = url; im.alt = "";
             scr.appendChild(im);
           }
         }
-
         $("modal-download").href = f.url || "#";
-        $("modal").classList.add("open");
-        $("modal").setAttribute("aria-hidden", "false");
+        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
       }
-      function closeModal() {
-        $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true");
-      }
+      function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
       $("modal-close").addEventListener("click", closeModal);
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-      // ── toolbar wiring ────────────────────────────────────────────────────
-      const onSearch = debounce(() => { state.q = $("search").value.trim().toLowerCase(); applyFilters(); }, 100);
-      $("search").addEventListener("input", onSearch);
+      // ─── toolbar wiring ───────────────────────────────────────────────────
+      $("search").addEventListener("input", debounce(() => { state.q = $("search").value.trim().toLowerCase(); state.page = 1; applyFilters(); }, 100));
       $("chips").addEventListener("click", (e) => {
         if (!(e.target instanceof HTMLButtonElement)) return;
-        const kind = e.target.dataset.kind;
         for (const c of $("chips").children) c.classList.toggle("active", c === e.target);
-        state.kind = kind; applyFilters();
+        state.kind = e.target.dataset.kind; state.page = 1; applyFilters();
       });
-      $("sort").addEventListener("change", () => { state.sort = $("sort").value; applyFilters(); });
+      $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
-        $("refresh-btn").textContent = "↻ ...";
+        $("refresh-btn").disabled = true;
         await loadShop();
-        $("refresh-btn").textContent = "↻ Refresh";
-        toast("샵 데이터 새로고침 완료");
+        $("refresh-btn").disabled = false;
+        toast(t("toast.refresh"));
       });
 
+      // language toggle
+      document.querySelector(".lang-toggle").addEventListener("click", (e) => {
+        if (!(e.target instanceof HTMLButtonElement)) return;
+        lang = e.target.dataset.lang;
+        localStorage.setItem(LANG_KEY, lang);
+        applyI18n();
+      });
+
+      applyI18n();
       loadShop();
     </script>
   </body>
