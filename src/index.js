@@ -4,6 +4,7 @@ import expressBasicAuth from "express-basic-auth";
 
 import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";
+import landingRoute from "./routes/landing.js";
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import debug from "./debug.js";
 import { romsDirPath, appPort, unauthorizedMessage } from "./helpers/envs.js";
@@ -29,6 +30,12 @@ if (basicAuthUsers) {
 // Locally-extracted (or placeholder) icons. CyberFoil/AeroFoil auto-derive
 // this URL from titleId when `icon_url` is omitted from a shop entry.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
+
+// Friendly dashboard for human visitors hitting the root in a browser.
+// Goes BEFORE the shop builder + static so that exactly `/` returns the
+// landing page; everything else (`/shop.json`, file downloads, dir listings)
+// is unaffected.
+expressApp.get("/", landingRoute);
 
 // Dynamic shop index for Tinfoil/CookingFoil-compatible clients.
 expressApp.use(shopFileBuilder());
