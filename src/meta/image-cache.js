@@ -22,6 +22,11 @@ import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir } from "../helpers/envs.js";
 
+// libvips operation cache lives in C-land — bumping it pays for itself the
+// first time a hot icon's WebP variant is regenerated, since the source
+// JPEG's decode state stays warm. Defaults are 50 MB / 100 file slots.
+sharp.cache({ memory: 256, files: 200 });
+
 const TRANSPARENT_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64"

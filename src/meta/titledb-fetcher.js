@@ -8,6 +8,7 @@
 import { mkdir, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
+import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
 
 const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
 
@@ -60,6 +61,15 @@ export async function fetchRegion(region, destDir) {
     await writeFile(tmpPath, buf);
     await rename(tmpPath, finalPath);
     debug.log("titledb: %s saved (%d bytes)", region, buf.length);
+    // Emit slim sibling so the next boot skips the multi-second raw parse.
+    // Non-fatal: if it fails the store falls back to the raw file.
+    try {
+      const slimPath = slimPathFor(finalPath);
+      const slim = await writeSlimFromRawPath(finalPath, slimPath);
+      debug.log("titledb: %s slim written (%d entries)", region, slim.count);
+    } catch (slimErr) {
+      debug.error("titledb: slim write failed for %s: %s", region, slimErr.message);
+    }
     return { region, ok: true, bytes: buf.length, path: finalPath };
   } catch (err) {
     // best-effort cleanup of the .tmp file

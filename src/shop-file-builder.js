@@ -40,6 +40,17 @@ export default function shopFileBuilder() {
       res.header("Content-Encoding", payload.contentEncoding);
       res.header("Vary", "Accept-Encoding");
     }
+    // ETag enables conditional GET — repeat visitors (and Switch clients
+    // hitting /shop.tfl on every dashboard open) receive 304 + 0 bytes
+    // when the library hasn't changed. Express's `req.fresh` checks the
+    // current res ETag against the incoming If-None-Match for us.
+    if (payload.etag) res.header("ETag", payload.etag);
+    res.header("Cache-Control", "private, max-age=0, must-revalidate");
+    if (req.fresh) {
+      debug.http("OUT-< %o 304", req.path);
+      res.status(304).end();
+      return;
+    }
     // Explicit Content-Length keeps HTTP/1.1 connections cleanly framed and
     // avoids chunked-encoding overhead for what's already a single Buffer.
     res.header("Content-Length", String(payload.body.length));

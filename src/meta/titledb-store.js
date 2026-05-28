@@ -11,6 +11,7 @@ import path from "path";
 import { readdir, readFile } from "fs/promises";
 import debug from "../debug.js";
 import { titledbCacheDir, langPriority } from "../helpers/envs.js";
+import { slimPathFor, writeSlimFromJson } from "./titledb-slim.js";
 
 // Fields we surface in the merged record. Keep the list aligned with the
 // shop_template.jsonc Tinfoil titledb spec and CyberFoil's info panel.
@@ -21,8 +22,11 @@ const MERGED_FIELDS = [
 ];
 
 // blawar/titledb publishes one file per country/lang pair, named "XX.yy.json"
-// (e.g. KR.ko.json, US.en.json). Anything else under data/titledb/ is ignored.
+// (e.g. KR.ko.json, US.en.json). We also accept "XX.yy.slim.json" — the
+// pre-indexed slim sibling emitted by the fetcher/store on first parse —
+// and prefer it when both are present.
 const REGION_FILE_RE = /^([A-Z]{2}\.[a-z]{2,3})\.json$/;
+const REGION_SLIM_RE = /^([A-Z]{2}\.[a-z]{2,3})\.slim\.json$/;
 
 function regionToLang(region) {
   // "US.en" → "en", "JP.ja" → "ja", "KR.ko" → "ko".
@@ -65,17 +69,31 @@ export async function load() {
     return status();
   }
 
-  const regionFiles = entries
-    .map((name) => {
-      const m = name.match(REGION_FILE_RE);
-      return m ? { file: name, region: m[1] } : null;
-    })
-    .filter(Boolean)
-    .sort(
-      (a, b) =>
-        priIndex(a.region) - priIndex(b.region) ||
-        a.region.localeCompare(b.region)
-    );
+  // Build a region → {file, slim} map preferring slim siblings. A raw file
+  // is only used when its slim counterpart is missing — and when that
+  // happens, we emit slim opportunistically after the parse so the next
+  // boot is fast.
+  const bestForRegion = new Map();
+  for (const name of entries) {
+    const ms = name.match(REGION_SLIM_RE);
+    if (ms) {
+      bestForRegion.set(ms[1], { file: name, region: ms[1], slim: true });
+      continue;
+    }
+    const mr = name.match(REGION_FILE_RE);
+    if (mr) {
+      const existing = bestForRegion.get(mr[1]);
+      // Slim already chosen for this region? leave it.
+      if (existing && existing.slim) continue;
+      bestForRegion.set(mr[1], { file: name, region: mr[1], slim: false });
+    }
+  }
+
+  const regionFiles = Array.from(bestForRegion.values()).sort(
+    (a, b) =>
+      priIndex(a.region) - priIndex(b.region) ||
+      a.region.localeCompare(b.region)
+  );
 
   // Phase 1: read + parse every region file in parallel. The fs reads
   // overlap (saves wall-clock time on cold disk caches), and the JSON
@@ -83,13 +101,13 @@ export async function load() {
   // server stays responsive during boot instead of pegging on one huge
   // synchronous read.
   const parsed = await Promise.all(
-    regionFiles.map(async ({ file, region }) => {
+    regionFiles.map(async ({ file, region, slim }) => {
       const fullPath = path.join(titledbCacheDir, file);
       try {
         const text = await readFile(fullPath, "utf-8");
-        return { file, region, json: JSON.parse(text), error: null };
+        return { file, region, slim, json: JSON.parse(text), error: null };
       } catch (err) {
-        return { file, region, json: null, error: err };
+        return { file, region, slim, json: null, error: err };
       }
     })
   );
@@ -97,12 +115,26 @@ export async function load() {
   // Phase 2: merge sequentially in `langPriority` order (priIndex already
   // sorted `regionFiles`, and `Promise.all` preserves input order) so the
   // "first defined value per field wins" rule stays intact.
-  for (const { file, region, json, error } of parsed) {
+  for (const { file, region, slim, json, error } of parsed) {
     if (error) {
       debug.error("titledb store: parse error in %s: %s", file, error.message);
       continue;
     }
     if (!json || typeof json !== "object") continue;
+
+    // Opportunistically emit slim when we just parsed a raw file. Fire and
+    // forget — failures don't affect this boot, and on next boot we'll try
+    // again the same way.
+    if (!slim) {
+      const rawPath = path.join(titledbCacheDir, file);
+      const slimPath = slimPathFor(rawPath);
+      const capturedJson = json; // hold the reference so GC keeps it alive
+      setImmediate(() => {
+        writeSlimFromJson(capturedJson, slimPath)
+          .then((r) => debug.log("titledb store: emitted slim for %s (%d entries)", region, r.count))
+          .catch((err) => debug.error("titledb store: slim emit failed for %s: %s", region, err.message));
+      });
+    }
 
     // blawar/titledb top-level keys are nsuIds (eShop ids). The actual Switch
     // title id is in entry.id. Key the merged DB by entry.id so lookups from
@@ -133,8 +165,8 @@ export async function load() {
       }
       count++;
     }
-    state.regionsLoaded.push({ region, file, count });
-    debug.log("titledb store: %s loaded (%d entries)", region, count);
+    state.regionsLoaded.push({ region, file, count, format: slim ? "slim" : "raw" });
+    debug.log("titledb store: %s loaded (%d entries, %s)", region, count, slim ? "slim" : "raw");
   }
 
   state.loadedAt = new Date();

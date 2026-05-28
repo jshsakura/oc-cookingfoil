@@ -16,6 +16,7 @@
 import chokidar from "chokidar";
 import path from "path";
 import zlib from "zlib";
+import crypto from "crypto";
 import { promisify } from "util";
 import generateIndex from "../create-index-content.js";
 import * as titledbStore from "./titledb-store.js";
@@ -30,6 +31,7 @@ const REBUILD_DEBOUNCE_MS = 800;
 let cached = null;           // raw shop object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
 let serializedGzip = null;   // Buffer: gzipped variant for Accept-Encoding: gzip
+let serializedEtag = null;   // Strong ETag — same for both encodings (semantic equivalence)
 let building = null;
 let lastBuildMs = 0;
 let buildCount = 0;
@@ -49,6 +51,10 @@ async function build() {
       // and stringify alone is ~10-30 ms; multiply by every Switch device
       // on the LAN and the savings stack up.
       serializedJson = Buffer.from(JSON.stringify(r));
+      // Strong ETag derived from the identity bytes. Same content → same
+      // ETag across the gzip variant (RFC 9110 §8.8.3 allows this when the
+      // representation is semantically equivalent).
+      serializedEtag = `"${crypto.createHash("sha1").update(serializedJson).digest("base64url")}"`;
       try {
         serializedGzip = await gzipAsync(serializedJson, { level: 6 });
       } catch (err) {
@@ -111,9 +117,9 @@ export async function getEncoded(acceptedEncodings) {
     ? acceptedEncodings.includes("gzip")
     : false;
   if (wantsGzip && serializedGzip) {
-    return { body: serializedGzip, contentEncoding: "gzip" };
+    return { body: serializedGzip, contentEncoding: "gzip", etag: serializedEtag };
   }
-  return { body: serializedJson, contentEncoding: null };
+  return { body: serializedJson, contentEncoding: null, etag: serializedEtag };
 }
 
 export function invalidate() {
@@ -122,6 +128,7 @@ export function invalidate() {
     cached = null;
     serializedJson = null;
     serializedGzip = null;
+    serializedEtag = null;
   }
 }
 
