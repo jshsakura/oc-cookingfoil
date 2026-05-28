@@ -123,3 +123,41 @@ if (!item.hasIconUrl && !inst::config::shopLegacyMode) {
 - 현재: 매 요청 fast-glob full scan. → **파일 캐시 + chokidar로 변경 감지** 기반 incremental refresh.
 - 추출 결과(`data/extracted/`)는 영구 캐시 — 같은 파일은 재추출 안 함(파일 mtime/size 해시로 키).
 
+### NSZ/XCZ 지원 (필수)
+- 대상: `.nsp`, `.xci`, `.nsz`(NSP 압축), `.xcz`(XCI 압축) 동등 처리.
+- 방식: 이미지에 Python `nsz` 도구 번들(이미지 +~50MB).
+- 파이프라인: 추출 전 임시 디렉터리(`/tmp/cf-decompress/<hash>`)에 NSP/XCI로 decompress → NACP/icon 추출 → 임시 파일 즉시 삭제.
+- 캐시 키는 원본 NSZ 파일의 mtime/size 해시 — 한 번 추출되면 NSZ 자체에 대해 재추출 안 함.
+
+### 임의 항목(custom entries) 지원 — 팬/홈브류/레거시 콘텐츠용
+> CyberFoil 코드상 `url`+`name`만 있어도 항목으로 push됨 → 서버가 자유 항목 머지 가능.
+> 예: **Just Dance Legacy** 같은 fan-made/modded 콘텐츠, 홈브류 NRO, 합성 ID를 쓰는 컬렉션.
+
+- **파일**: `custom_entries.jsonc` (게임 폴더 루트 또는 `COOK_CUSTOM_ENTRIES` env로 경로 지정).
+- 형식: 배열. 필수=`url`+`name`, 선택=`size`, `titleId`(합성 가능), `iconPath`/`iconUrl`, `publisher`, `description`, `releaseDate`, `region`, `rating`, `rank`.
+- 머지 규칙: 파일 스캔 결과의 `files[]`에 append, `titleId`가 있으면 `titledb`에도 등록.
+- **titleID 정책**:
+  - 공식 Nintendo 영역(`01XX...`) 그대로 허용.
+  - 합성 ID도 그대로 허용 — Nintendo 미사용 prefix(`09FF...`, `0FFF...`) 권장하지만 강제 X.
+  - **ID의 "정합성" 검사로 항목을 떨어뜨리지 않는다** (필터링 금지).
+- 로컬 아이콘: `iconPath`(서버 호스트의 상대/절대 경로)는 `/api/shop/icon/<titleId 또는 hash>`로 자동 노출.
+- titleID 없는 항목도 합법 — 그룹화/풍부 표시 못 받을 뿐, 리스트에는 정상 등장.
+
+## 6. 누락 0 원칙 (Hard Invariant)
+
+> 어떤 게임이든 — titleID 파싱 실패, NACP 추출 실패, titledb 미수록, NSZ 압축 풀기 실패, 합성ID, 외부 URL, 팬메이드 — **무조건 `files[]`에 들어간다.**
+
+구현 가드레일:
+1. 메타 추출은 **enrichment**일 뿐, **gating이 아니다.** 추출 실패 = `name`이 파일명 그대로일 뿐, 항목 누락 아님.
+2. 키 없거나 prod.keys 미구비 환경 → 메타·아이콘 비어 있을 뿐, 다운로드 가능한 항목으로 그대로 노출.
+3. titledb 모든 region 파일이 비어/없어도 → NACP만으로, 그것도 없으면 파일명만으로 표시.
+4. titleID "유효성"(체크섬·길이·Nintendo prefix)으로 **거르지 않는다**. 합성/팬메이드 ID 그대로 통과.
+5. custom_entries.jsonc 파싱 실패시 → 그 항목만 skip + 로그, 다른 항목 영향 없음.
+
+체크리스트 (Phase 2 PR 머지 직전 검증):
+- [ ] prod.keys 없는 환경에서 모든 `.nsp/.xci/.nsz` 파일이 shop 리스트에 등장 (메타 비어도 OK)
+- [ ] titledb 캐시 비운 상태에서도 모든 파일 등장
+- [ ] 합성 titleID(`09FF000000000000`) 항목이 정상 표시
+- [ ] titleID 없는 항목(`{ "url": "...", "name": "..." }`)이 정상 표시
+- [ ] 파일명에서 titleID 못 뽑는 항목(예: `random.nsp`)도 정상 표시
+
