@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# CookingFoil — CI-mirroring pre-commit guard.
+# Reproduces locally what the GitHub workflows do, fast, so deploy errors
+# get caught BEFORE the push instead of after.
+#
+# Install (one-time per clone):  npm run hooks:install
+# Skip an individual commit:     git commit --no-verify
+set -uo pipefail
+
+PASS="\033[1;32m✓\033[0m"
+FAIL="\033[1;31m✗\033[0m"
+INFO="\033[1;36m▶\033[0m"
+
+fail() { echo -e "${FAIL} $*" >&2; exit 1; }
+ok()   { echo -e "  ${PASS} $*"; }
+step() { echo -e "${INFO} $*"; }
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# ─────────────────────────────────────────────────────────────────────────
+step "secret-leak guard"
+LEAK=$(echo "$STAGED" | grep -E '^(\.env$|\.env\.[^e]|keys/[^.]|prod\.keys$|.*\.pem$|.*\.key$)' || true)
+if [ -n "$LEAK" ]; then
+  echo "$LEAK" | sed 's/^/    /'
+  fail "refusing to commit suspected secret files (use --no-verify if intentional)"
+fi
+ok "no obvious secrets staged"
+
+# ─────────────────────────────────────────────────────────────────────────
+step "JS syntax (node --check)"
+STAGED_JS=$(echo "$STAGED" | grep -E '\.(m?js|cjs)$' || true)
+if [ -n "$STAGED_JS" ]; then
+  COUNT=0
+  for f in $STAGED_JS; do
+    [ -f "$f" ] || continue
+    node --check "$f" || fail "syntax error in $f"
+    COUNT=$((COUNT + 1))
+  done
+  ok "JS syntax OK (${COUNT} file(s))"
+else
+  ok "no JS changes"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────
+step "JSON / JSONC validation"
+STAGED_JSON=$(echo "$STAGED" | grep -E '\.(json|jsonc)$' || true)
+if [ -n "$STAGED_JSON" ]; then
+  for f in $STAGED_JSON; do
+    [ -f "$f" ] || continue
+    if [[ "$f" == *.jsonc ]]; then
+      node -e "require('json5').parse(require('fs').readFileSync('$f','utf-8'))" \
+        || fail "JSONC parse error in $f"
+    else
+      node -e "JSON.parse(require('fs').readFileSync('$f','utf-8'))" \
+        || fail "JSON parse error in $f"
+    fi
+  done
+  ok "JSON/JSONC OK"
+else
+  ok "no JSON changes"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────
+step ".env.example port sanity"
+if [ -f .env.example ]; then
+  PORT=$(grep -E '^COOK_PORT=' .env.example | tail -1 | cut -d= -f2 | tr -d ' ')
+  if [ -n "$PORT" ] && ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
+    fail ".env.example COOK_PORT=$PORT is not a number"
+  fi
+  if [ -n "$PORT" ] && [ "$PORT" -lt 1024 ]; then
+    fail ".env.example COOK_PORT=$PORT is privileged (<1024) — non-root CI will EACCES"
+  fi
+fi
+ok ".env.example port unprivileged"
+
+# ─────────────────────────────────────────────────────────────────────────
+step "package.json ↔ package-lock.json"
+if [ -f package-lock.json ]; then
+  node -e "
+    const pkg = require('./package.json');
+    const lock = require('./package-lock.json');
+    if (pkg.name !== lock.name) { console.error('name mismatch'); process.exit(1); }
+    if (pkg.version !== lock.version) { console.error('version mismatch'); process.exit(1); }
+  " || fail "package.json and package-lock.json out of sync (run: npm install --ignore-scripts)"
+fi
+ok "lockfile in sync"
+
+# ─────────────────────────────────────────────────────────────────────────
+step "server smoke (boot + /shop.json)"
+PORT=$(( ((RANDOM % 50000) + 3000) ))  # avoid collision with running dev servers
+LOG=$(mktemp)
+JSON=$(mktemp)
+COOK_PORT="$PORT" \
+COOK_GAMES_DIR="$ROOT/test/project/games" \
+COOK_TITLEDB_AUTO_FETCH=false \
+DEBUG="" \
+node src/index.js > "$LOG" 2>&1 &
+SERVER_PID=$!
+
+BODY_OK=""
+for _ in 1 2 3 4 5 6 7 8; do
+  sleep 0.4
+  if curl -sf "http://127.0.0.1:$PORT/shop.json" -o "$JSON" 2>/dev/null; then
+    BODY_OK=1
+    break
+  fi
+done
+kill "$SERVER_PID" 2>/dev/null
+wait "$SERVER_PID" 2>/dev/null || true
+
+if [ -z "$BODY_OK" ]; then
+  echo "--- server log ---"
+  cat "$LOG"
+  rm -f "$LOG" "$JSON"
+  fail "server did not respond on :$PORT"
+fi
+
+node -e "
+  const r = JSON.parse(require('fs').readFileSync('$JSON','utf-8'));
+  if (!Array.isArray(r.files)) { console.error('files[] missing'); process.exit(1); }
+  if (!r.titledb || typeof r.titledb !== 'object') { console.error('titledb missing'); process.exit(1); }
+  for (const f of r.files) {
+    if (!f.url || !f.name) {
+      console.error('item missing url/name:', JSON.stringify(f));
+      process.exit(1);
+    }
+  }
+" || { rm -f "$LOG" "$JSON"; fail "/shop.json shape invalid"; }
+rm -f "$LOG" "$JSON"
+ok "server boots + /shop.json valid"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Docker build is slow — only when Dockerfile or .dockerignore is staged.
+DOCKER_CHANGED=$(echo "$STAGED" | grep -E '^(Dockerfile|\.dockerignore)$' || true)
+if [ -n "$DOCKER_CHANGED" ]; then
+  step "docker build (Dockerfile / .dockerignore changed)"
+  if command -v docker >/dev/null 2>&1; then
+    BUILD_LOG=$(mktemp)
+    if docker build --quiet -t oc-cookingfoil:precommit . > "$BUILD_LOG" 2>&1; then
+      ok "docker build OK"
+    else
+      cat "$BUILD_LOG"
+      rm -f "$BUILD_LOG"
+      fail "docker build failed"
+    fi
+    rm -f "$BUILD_LOG"
+  else
+    echo "    (docker not installed — skipping)"
+  fi
+fi
+
+echo
+echo -e "\033[1;32m✓ pre-commit: all checks passed.\033[0m"

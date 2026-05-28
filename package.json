@@ -12,7 +12,9 @@
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:setup": "playwright install --with-deps"
+    "test:setup": "playwright install --with-deps",
+    "hooks:install": "node scripts/install-hooks.cjs",
+    "postinstall": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
     "debug": "^4.3.4",
