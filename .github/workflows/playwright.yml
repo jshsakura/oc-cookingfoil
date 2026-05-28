@@ -6,6 +6,10 @@ on:
     branches: [main, master]
   workflow_call:
 
+env:
+  # See ghcr-publish.yml — Node 20 actions deprecation, 2026-06-02 cutover.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   test:
     timeout-minutes: 60

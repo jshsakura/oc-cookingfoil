@@ -18,15 +18,17 @@ import path from "path";
 import fs from "fs/promises";
 import * as extractedMeta from "./extracted-meta-store.js";
 import { cachePathFor } from "./image-cache.js";
-import { extract as stubExtract } from "./extract-providers/stub.js";
+import * as autoProvider from "./extract-providers/auto.js";
 import { iconCacheDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 const CONCURRENCY = Number(process.env.COOK_EXTRACT_CONCURRENCY ?? 2);
 
-// Active provider. Swapped in by future commits that ship a binary
-// integration; tests can swap it via setProvider() too.
-let provider = { name: "stub", extract: stubExtract };
+// Active provider. `auto` dispatches by file extension — NRO files get
+// the pure-JS NACP/icon parser, encrypted containers fall through to the
+// stub until a keyed extractor is wired in. Tests / future binary
+// integrations can swap via setProvider().
+let provider = autoProvider;
 
 export function setProvider(p) {
   if (!p || typeof p.extract !== "function") {
@@ -34,6 +36,22 @@ export function setProvider(p) {
   }
   provider = p;
   debug.log("nacp-extractor: provider set to %s", p.name || "anonymous");
+}
+
+// Subscribers fired AFTER a record is persisted to extracted-meta. The
+// shop-cache layer hooks this so the next /shop.json reflects the new
+// metadata without the user having to wait for the next chokidar event.
+const subscribers = new Set();
+export function onExtracted(fn) {
+  subscribers.add(fn);
+  return () => subscribers.delete(fn);
+}
+function notifyExtracted(payload) {
+  for (const fn of subscribers) {
+    try { fn(payload); } catch (err) {
+      debug.error("nacp-extractor: subscriber threw: %s", err.message);
+    }
+  }
 }
 
 const queue = [];
@@ -92,6 +110,7 @@ async function workOne(job) {
         "nacp-extractor: stored %s (%s) — %s",
         job.baseTitleId, record.source || provider.name, record.name || "(no name)"
       );
+      notifyExtracted({ baseTitleId: job.baseTitleId, source: record.source || provider.name });
     } catch (err) {
       debug.error("nacp-extractor: persist failed for %s: %s", job.baseTitleId, err.message);
     }
@@ -136,5 +155,5 @@ export function resetForTests() {
   active = 0;
   drained = Promise.resolve();
   drainedResolver = null;
-  provider = { name: "stub", extract: stubExtract };
+  provider = autoProvider;
 }

@@ -39,6 +39,7 @@ import {
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as diskCache from "./shop-cache-disk.js";
+import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 
@@ -332,6 +333,14 @@ async function tryHydrateFromDisk() {
 }
 
 export async function init() {
+  // Extractor → shop-cache: when the NACP worker finishes a record we
+  // schedule a rebuild so the new name/publisher/version surfaces in
+  // /shop.json + propagates to ws subscribers without the user having
+  // to touch a file.
+  nacpExtractor.onExtracted(({ baseTitleId }) => {
+    scheduleRebuild(`nacp-extracted ${baseTitleId}`);
+  });
+
   // Warm-start path: if the previous run persisted state to disk, hydrate
   // it now so the first /shop.json request after restart is served from
   // the snapshot — no fast-glob, no compression, no JSON.stringify. The

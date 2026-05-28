@@ -48,7 +48,7 @@ import {
 import { parseFromFilename } from "../meta/filename-parser.js";
 import debug from "../debug.js";
 
-const GAME_EXT_RE = /\.(nsp|nsz|xci|xcz)$/i;
+const GAME_EXT_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
 // Reject control chars, path separators, and dotfile-style names.
 const UNSAFE_NAME_RE = /[\x00-\x1f\x7f/\\]/;
 

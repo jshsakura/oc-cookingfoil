@@ -48,8 +48,8 @@ import {
   getJsonTemplateFile,
 } from "./helpers/helpers.js";
 
-const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz"];
-const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz)$/i;
+const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz", "**/*.nro"];
+const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
 
 export function isGameFile(relOrAbsPath) {
   return GAME_FILE_RE.test(relOrAbsPath);
@@ -168,7 +168,7 @@ export function composeResponse(filesMap, customs) {
   const files = [];
   const titledb = {};
 
-  for (const item of filesMap.values()) {
+  for (const [relPath, item] of filesMap.entries()) {
     files.push(item);
     const baseId = item.baseTitleId;
     if (baseId && !titledb[baseId]) {
@@ -180,9 +180,12 @@ export function composeResponse(filesMap, customs) {
       const extracted = !fromDb ? extractedMeta.get(baseId) : null;
       // Queue extraction for anything missing from both layers. The worker
       // de-dupes by titleId, so re-enqueueing on every rebuild is cheap.
+      // Use the raw relPath (filesMap key) — item.url is percent-encoded
+      // for wire transport and would point the extractor at a non-existent
+      // path otherwise.
       if (!fromDb && !extracted) {
         nacpExtractor.enqueue({
-          absPath: path.join(romsDirPath, item.url.replace(/^\.\.\//, "")),
+          absPath: path.join(romsDirPath, relPath),
           baseTitleId: baseId,
           fileName: item.name,
         });
@@ -190,9 +193,10 @@ export function composeResponse(filesMap, customs) {
       titledb[baseId] = {
         ...(proxied ?? {}),
         id: baseId,
-        name: item.name,
-        // Pick up extracted fields when titledb is silent. These only
-        // overwrite the synthesized defaults — proxied (titledb) always wins.
+        // Preference order: titledb (proxied) > extracted NACP > filename.
+        // titledb always wins because it's the authoritative community DB.
+        // Extracted (NACP) wins over filename for homebrew/fan titles.
+        name: proxied?.name ?? extracted?.name ?? item.name,
         publisher: proxied?.publisher ?? extracted?.publisher,
         version: proxied?.version ?? extracted?.version,
         numberOfPlayers: proxied?.numberOfPlayers ?? extracted?.numberOfPlayers,

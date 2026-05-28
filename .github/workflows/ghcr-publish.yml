@@ -12,6 +12,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # GH Actions deprecates Node 20 as the JS-action runtime on 2026-06-02.
+  # Opt in to Node 24 ahead of the cutover so we catch breakage on our
+  # schedule, not theirs. Drop this once Node 24 is the default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-and-push:
