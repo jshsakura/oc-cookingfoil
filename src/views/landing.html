@@ -940,8 +940,12 @@
         if (r.tdb?.publisher)   addPill(r.tdb.publisher, "neutral pub");
 
         // Related-content cues: only on base cards, only when present.
-        if (r.updateCount) addPill((lang === "ko" ? "업뎃" : "Upd") + " ×" + r.updateCount, "update");
-        if (r.dlcCount)    addPill("DLC ×" + r.dlcCount, "dlc");
+        // "+N" prefix reads as "this base has N extra X attached" — clearer
+        // than "×N" which looked like a multiplier on the base card itself.
+        // Korean uses the chip label "업데이트" so the rollup matches the
+        // filter chip across the toolbar.
+        if (r.updateCount) addPill("+" + r.updateCount + " " + (lang === "ko" ? "업데이트" : "Update"), "update");
+        if (r.dlcCount)    addPill("+" + r.dlcCount + " DLC", "dlc");
 
         meta.appendChild(name); meta.appendChild(sub);
         card.appendChild(cover); card.appendChild(meta);
