@@ -750,7 +750,11 @@
       }
 
       // ─── url / copy ────────────────────────────────────────────────────────
-      const baseUrl = window.location.origin + "/";
+      // We deliberately do NOT print the live origin here. Public-facing
+      // dashboards shouldn't advertise the deployment URL — the visitor's
+      // browser address bar already has it, and the hint text below the
+      // pill names this is just the URL FORMAT they need to follow.
+      const baseUrl = "https://user:pass@host:port/";
       $("shop-url").textContent = baseUrl;
       $("copy-btn").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
@@ -807,18 +811,22 @@
         const titledb = shop.titledb && typeof shop.titledb === "object" ? shop.titledb : {};
         const tCount  = Object.keys(titledb).length;
 
+        const baseCount   = files.filter(f => (f.kind || "base") === "base").length;
+        const updateCount = files.filter(f => f.kind === "update").length;
+        const dlcCount    = files.filter(f => f.kind === "dlc").length;
+        const modsCount   = updateCount + dlcCount;
+
+        // Show BASE titles in the running marquee — that's what people mean
+        // by "how many games". updates + DLC roll up under the base on
+        // their cards (the '+N 업데이트' / '+N DLC' pills) and in the
+        // /games stat below, so we don't double-count here.
         $("status").classList.remove("cold", "warm");
         if (files.length === 0) {
           $("status").classList.add("warm");
           $("status-text").textContent = t("status.empty");
         } else {
-          $("status-text").textContent = t("status.serving", files.length);
+          $("status-text").textContent = t("status.serving", baseCount);
         }
-
-        const baseCount   = files.filter(f => (f.kind || "base") === "base").length;
-        const updateCount = files.filter(f => f.kind === "update").length;
-        const dlcCount    = files.filter(f => f.kind === "dlc").length;
-        const modsCount   = updateCount + dlcCount;
 
         animateCount($("stat-games"), files.length);
         animateCount($("stat-titledb"), tCount);
