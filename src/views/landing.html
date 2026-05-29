@@ -271,23 +271,6 @@
         background: linear-gradient(135deg, var(--surface1), var(--surface0));
         object-fit: cover; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       }
-      /* Fallback when the icon route 404s. JS clears the broken src and
-         flips `.nocover` on; the SVG below shows through as a CSS
-         background so the card never displays a broken-image glyph or
-         collapses to a blank tile. Mirrors the oc-scraper sibling
-         project's PosterImage placeholder, adapted for the 1:1 icon
-         aspect and the Catppuccin palette. */
-      .game .cover.nocover {
-        background-image:
-          url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e1e2e'/%3E%3Cstop offset='100%25' stop-color='%23313244'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='96' height='96' rx='12' fill='url(%23g)'/%3E%3Crect x='20' y='24' width='56' height='42' rx='6' fill='none' stroke='%237f849c' stroke-width='2'/%3E%3Ccircle cx='30' cy='36' r='4' fill='%237f849c'/%3E%3Cpath d='M22 60L36 42L48 52L60 38L74 60Z' fill='%236c7086'/%3E%3Cpath d='M26 60L36 48L48 56L60 46L70 60Z' fill='%239399b2'/%3E%3Ctext x='48' y='82' text-anchor='middle' fill='%23a6adc8' font-family='system-ui,sans-serif' font-size='9' font-weight='600'%3ENo Image%3C/text%3E%3C/svg%3E");
-        background-size: cover; background-position: center;
-      }
-      @media (prefers-color-scheme: light) {
-        .game .cover.nocover {
-          background-image:
-            url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eff1f5'/%3E%3Cstop offset='100%25' stop-color='%23ccd0da'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='96' height='96' rx='12' fill='url(%23g)'/%3E%3Crect x='20' y='24' width='56' height='42' rx='6' fill='%23eff1f5' stroke='%238c8fa1' stroke-width='2'/%3E%3Ccircle cx='30' cy='36' r='4' fill='%238c8fa1'/%3E%3Cpath d='M22 60L36 42L48 52L60 38L74 60Z' fill='%239ca0b0'/%3E%3Cpath d='M26 60L36 48L48 56L60 46L70 60Z' fill='%237c7f93'/%3E%3Ctext x='48' y='82' text-anchor='middle' fill='%235c5f77' font-family='system-ui,sans-serif' font-size='9' font-weight='600'%3ENo Image%3C/text%3E%3C/svg%3E");
-        }
-      }
       .game .meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
       .game .name {
         font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.35;
@@ -738,6 +721,46 @@
       };
       const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+      // Inline placeholder SVGs for the "icon missing" state. We swap the
+      // img's `src` to one of these on 404 / no-icon-url, so the browser
+      // sees a successfully-loaded image (no broken-glyph X) and
+      // `object-fit: cover` paints it edge-to-edge in the 72×72 cover
+      // box. The 1:1 viewBox matches the cover aspect so there's no
+      // letterbox or weird centering. Adapted from the oc-scraper
+      // sibling project's PosterImage — Catppuccin Mocha (dark) and
+      // Latte (light) palettes.
+      const COVER_PLACEHOLDER_DARK = "data:image/svg+xml;utf8," + encodeURIComponent(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96' preserveAspectRatio='xMidYMid slice'>" +
+          "<defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'>" +
+            "<stop offset='0%' stop-color='#1e1e2e'/><stop offset='100%' stop-color='#313244'/>" +
+          "</linearGradient></defs>" +
+          "<rect width='96' height='96' fill='url(#g)'/>" +
+          "<rect x='20' y='24' width='56' height='42' rx='6' fill='none' stroke='#7f849c' stroke-width='2'/>" +
+          "<circle cx='30' cy='36' r='4' fill='#7f849c'/>" +
+          "<path d='M22 60L36 42L48 52L60 38L74 60Z' fill='#6c7086'/>" +
+          "<path d='M26 60L36 48L48 56L60 46L70 60Z' fill='#9399b2'/>" +
+          "<text x='48' y='82' text-anchor='middle' fill='#a6adc8' font-family='system-ui,sans-serif' font-size='9' font-weight='600'>No Image</text>" +
+        "</svg>"
+      );
+      const COVER_PLACEHOLDER_LIGHT = "data:image/svg+xml;utf8," + encodeURIComponent(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96' preserveAspectRatio='xMidYMid slice'>" +
+          "<defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'>" +
+            "<stop offset='0%' stop-color='#eff1f5'/><stop offset='100%' stop-color='#ccd0da'/>" +
+          "</linearGradient></defs>" +
+          "<rect width='96' height='96' fill='url(#g)'/>" +
+          "<rect x='20' y='24' width='56' height='42' rx='6' fill='#eff1f5' stroke='#8c8fa1' stroke-width='2'/>" +
+          "<circle cx='30' cy='36' r='4' fill='#8c8fa1'/>" +
+          "<path d='M22 60L36 42L48 52L60 38L74 60Z' fill='#9ca0b0'/>" +
+          "<path d='M26 60L36 48L48 56L60 46L70 60Z' fill='#7c7f93'/>" +
+          "<text x='48' y='82' text-anchor='middle' fill='#5c5f77' font-family='system-ui,sans-serif' font-size='9' font-weight='600'>No Image</text>" +
+        "</svg>"
+      );
+      function coverPlaceholder() {
+        return window.matchMedia("(prefers-color-scheme: light)").matches
+          ? COVER_PLACEHOLDER_LIGHT
+          : COVER_PLACEHOLDER_DARK;
+      }
+
       // Append an English-ish alias in parens — ONLY when the user is on
       // Korean. Gives '젤다의 전설 (The Legend of Zelda)' brand recognition
       // without polluting the English mode (where the default name is
@@ -942,17 +965,16 @@
         // browser accepts it). Modal banner / Switch client still hit
         // the original via the same base URL without ?size.
         if (r.item.icon_url) cover.src = r.item.icon_url + "?size=sm";
-        // 404 from the icon route (placeholder per FINDINGS §2 reasoning):
-        // swap to the `.nocover` class so the themed SVG background shows
-        // through. Clear `src` so the broken-image glyph never paints, and
-        // null the handler so a follow-up error on the cleared src can't
-        // loop. The CSS data-URI background is purely client-side, so the
-        // server icon route still 404s — embedded clients (Tinfoil) get
-        // the no-cache 404 and stay free to refetch when the asset lands.
+        else                 cover.src = coverPlaceholder();
+        // 404 from the icon route → swap src to a valid placeholder SVG
+        // data URI. Setting src (not removing it) is what prevents the
+        // browser's broken-image glyph from rendering on top: the img
+        // is in a "successfully loaded" state, just loaded with a
+        // placeholder graphic. `object-fit: cover` then fills the
+        // 72×72 box edge-to-edge.
         cover.onerror = () => {
           cover.onerror = null;
-          cover.removeAttribute("src");
-          cover.classList.add("nocover");
+          cover.src = coverPlaceholder();
         };
 
         const meta = document.createElement("div"); meta.className = "meta";
