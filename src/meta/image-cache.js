@@ -27,11 +27,6 @@ import { iconCacheDir } from "../helpers/envs.js";
 // JPEG's decode state stays warm. Defaults are 50 MB / 100 file slots.
 sharp.cache({ memory: 256, files: 200 });
 
-const TRANSPARENT_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64"
-);
-
 const THUMB_PX = 256;
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
@@ -55,8 +50,19 @@ function existsCached(p) {
 }
 
 export function placeholder(res) {
+  // 404 — NOT a 200 with a 1×1 transparent PNG. Tinfoil and other
+  // embedded clients cache responses by URL: a 200 + valid PNG looks
+  // like a successful icon and gets memoized indefinitely, so a later
+  // NACP extraction filling in the real icon never reaches the screen.
+  // A 404 signals "not yet available" semantically, lets the client
+  // render its own generic placeholder, and clears the way for retries
+  // once the extractor lands the real bytes.
+  //
+  // For the browser dashboard we still want a graceful fallback: the
+  // landing template wires `cover.onerror → visibility:hidden`, so 404
+  // collapses to an empty card slot without a broken-image glyph.
   res.set("Cache-Control", "no-store");
-  res.type("image/png").status(200).send(TRANSPARENT_PNG);
+  res.status(404).type("text/plain").send("icon not available");
 }
 
 export function cachePathFor(titleId, kind, idx) {

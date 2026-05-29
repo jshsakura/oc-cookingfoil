@@ -132,7 +132,13 @@ function buildFileItem(relPath, size) {
     item.titleId = parsed.titleId;
     item.baseTitleId = baseId;
     item.kind = parsed.contentType; // "base" | "update" | "dlc"
-    item.icon_url = `/api/shop/icon/${parsed.titleId}`;
+    // Per FINDINGS §2: CyberFoil reads either `icon_url` (snake_case)
+    // OR `iconUrl` (camelCase) per file. Emitting both maximizes
+    // compatibility across Tinfoil forks / future clients without
+    // making the response materially larger.
+    const iconUrl = `/api/shop/icon/${parsed.titleId}`;
+    item.icon_url = iconUrl;
+    item.iconUrl = iconUrl;
   }
   return item;
 }

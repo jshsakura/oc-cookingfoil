@@ -1022,7 +1022,11 @@
         const scr = $("modal-screens"); scr.innerHTML = "";
         if (Array.isArray(td.screenshots)) {
           for (const url of td.screenshots) {
-            const im = document.createElement("img"); im.loading = "lazy"; im.src = url; im.alt = "";
+            const im = document.createElement("img");
+            im.loading = "lazy"; im.src = url; im.alt = "";
+            // Icon route returns 404 when the asset isn't on disk yet —
+            // hide rather than show a broken-image glyph.
+            im.onerror = () => im.remove();
             scr.appendChild(im);
           }
         }
