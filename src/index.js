@@ -50,8 +50,18 @@ expressApp.use(defensiveHeaders());
 // auth-guard. Returns 200 once the shop cache has produced a snapshot
 // (cold boot returns 503 — that's the period during which orchestrators
 // SHOULD keep the container in "starting" state, not declare it healthy).
-expressApp.get("/healthz", (_req, res) => {
+expressApp.get("/healthz", async (_req, res) => {
   const s = shopCache.stats();
+  // titledb diagnostics live here too — a quick at-a-glance of WHICH
+  // region files actually landed (US.en presence / size matters for the
+  // English-alias decoration on CJK display names). Lazy-imported to
+  // keep the top of the file clean.
+  let tdb = null;
+  try {
+    const store = await import("./meta/titledb-store.js");
+    tdb = store.status();
+  } catch { /* ignore */ }
+
   if (s.cached) {
     res
       .status(200)
@@ -61,13 +71,18 @@ expressApp.get("/healthz", (_req, res) => {
         files: s.files,
         buildCount: s.buildCount,
         uptime: Math.round(process.uptime()),
+        titledb: tdb && {
+          titles: tdb.titles,
+          regions: tdb.regions, // [{region, file, count, format}]
+          loadedAt: tdb.loadedAt,
+        },
       }));
     return;
   }
   res
     .status(503)
     .type("application/json")
-    .send(JSON.stringify({ ok: false, reason: "shop cache initializing" }));
+    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb }));
 });
 
 expressApp.use(rateLimit());

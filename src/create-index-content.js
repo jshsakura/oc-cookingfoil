@@ -226,6 +226,13 @@ export function composeResponse(filesMap, customs) {
     if (baseId && !titledb[baseId]) {
       const fromDb = titledbStore.get(baseId);
       const proxied = proxyifyTitledb(fromDb, baseId);
+      // Tinfoil reads the displayed name from per-file entries, but
+      // some forks fall back to the titledb section's name for search.
+      // Decorate this one too so the English alias is reachable from
+      // both code paths.
+      const decoratedTitledbName = proxied?.name
+        ? decorateNameWithAlias(proxied.name, fromDb)
+        : null;
       // Fallback layer (NACP/NRO extraction). Lower priority than titledb
       // but higher than nothing — fills in name/publisher/version for
       // homebrew and fan titles that blawar will never carry.
@@ -245,10 +252,12 @@ export function composeResponse(filesMap, customs) {
       titledb[baseId] = {
         ...(proxied ?? {}),
         id: baseId,
-        // Preference order: titledb (proxied) > extracted NACP > filename.
-        // titledb always wins because it's the authoritative community DB.
-        // Extracted (NACP) wins over filename for homebrew/fan titles.
-        name: proxied?.name ?? extracted?.name ?? item.name,
+        // Preference order: titledb (decorated) > extracted NACP > filename.
+        // The decorated form glues the English alias onto a CJK name
+        // ('젤다의 전설 (The Legend of Zelda)') so the Switch English-
+        // keyboard search matches no matter which name surface a given
+        // Tinfoil fork reads.
+        name: decoratedTitledbName ?? extracted?.name ?? item.name,
         publisher: proxied?.publisher ?? extracted?.publisher,
         version: proxied?.version ?? extracted?.version,
         numberOfPlayers: proxied?.numberOfPlayers ?? extracted?.numberOfPlayers,
