@@ -47,6 +47,18 @@ import {
   addUrlEncodedFileInfo as encodeUrlObject,
   getJsonTemplateFile,
 } from "./helpers/helpers.js";
+import pkg from "./package.js";
+
+// Stamp every proxy artwork URL with the server version. Embedded clients
+// like Tinfoil cache responses keyed on the literal URL string, so they
+// hold onto whatever bytes they fetched the first time — including the
+// 1×1 placeholder we used to serve. Bumping the suffix on each release
+// makes those URLs look new to the client without us having to ship a
+// separate cache-bust API or ask the user to clear shop data by hand.
+// Within a single release the URL stays stable, so steady-state traffic
+// still benefits from the icon route's 1-year immutable Cache-Control.
+const ARTWORK_VERSION = pkg.version;
+function withVersion(path) { return `${path}?v=${ARTWORK_VERSION}`; }
 
 const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz", "**/*.nro"];
 const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
@@ -77,11 +89,11 @@ function normalizeTitleId(raw) {
 function proxyifyTitledb(entry, titleId) {
   if (!entry) return entry;
   const out = { ...entry, id: titleId };
-  if (entry.iconUrl) out.iconUrl = `/api/shop/icon/${titleId}`;
-  if (entry.bannerUrl) out.bannerUrl = `/api/shop/banner/${titleId}`;
+  if (entry.iconUrl) out.iconUrl = withVersion(`/api/shop/icon/${titleId}`);
+  if (entry.bannerUrl) out.bannerUrl = withVersion(`/api/shop/banner/${titleId}`);
   if (Array.isArray(entry.screenshots) && entry.screenshots.length > 0) {
     out.screenshots = entry.screenshots.map(
-      (_, i) => `/api/shop/screenshot/${titleId}/${i}`
+      (_, i) => withVersion(`/api/shop/screenshot/${titleId}/${i}`)
     );
     out.screenshotCount = entry.screenshots.length;
   }
@@ -136,7 +148,7 @@ function buildFileItem(relPath, size) {
     // OR `iconUrl` (camelCase) per file. Emitting both maximizes
     // compatibility across Tinfoil forks / future clients without
     // making the response materially larger.
-    const iconUrl = `/api/shop/icon/${parsed.titleId}`;
+    const iconUrl = withVersion(`/api/shop/icon/${parsed.titleId}`);
     item.icon_url = iconUrl;
     item.iconUrl = iconUrl;
   }
@@ -236,10 +248,10 @@ export function composeResponse(filesMap, customs) {
         version: proxied?.version ?? extracted?.version,
         numberOfPlayers: proxied?.numberOfPlayers ?? extracted?.numberOfPlayers,
         // No-omission invariant: every base titleId surfaces with an icon
-        // URL even when titledb has nothing for it. The icon route falls
-        // back to a 1×1 transparent PNG when there's also no upstream, so
-        // the frontend's r.tdb is never undefined and image tags never 404.
-        iconUrl: proxied?.iconUrl ?? `/api/shop/icon/${baseId}`,
+        // URL even when titledb has nothing for it. The icon route 404s
+        // when the asset isn't on disk yet — clients render their own
+        // 'no icon' graphic and re-fetch on the next shop refresh.
+        iconUrl: proxied?.iconUrl ?? withVersion(`/api/shop/icon/${baseId}`),
         size: item.size > 0 ? item.size : proxied?.size ?? 0,
       };
     }
@@ -249,7 +261,7 @@ export function composeResponse(filesMap, customs) {
     const entry = { ...raw };
     const tid = normalizeTitleId(entry.titleId);
     if (tid && !entry.icon_url && !entry.iconUrl) {
-      entry.icon_url = `/api/shop/icon/${tid}`;
+      entry.icon_url = withVersion(`/api/shop/icon/${tid}`);
     }
     files.push(entry);
 
