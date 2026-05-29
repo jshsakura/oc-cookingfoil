@@ -43,6 +43,33 @@ if (process.env.COOK_TRUST_PROXY === "true") {
 //   4. access guard      (block probes / traversal / locked IPs)
 //   5. auth guard        (basic-auth + 5-strike lockout)
 expressApp.use(defensiveHeaders());
+
+// /healthz must answer WITHOUT basic-auth so Docker / Portainer / k8s
+// healthchecks don't have to embed credentials. Mounted before the rest
+// of the perimeter so it also bypasses rate-limit + access-guard +
+// auth-guard. Returns 200 once the shop cache has produced a snapshot
+// (cold boot returns 503 — that's the period during which orchestrators
+// SHOULD keep the container in "starting" state, not declare it healthy).
+expressApp.get("/healthz", (_req, res) => {
+  const s = shopCache.stats();
+  if (s.cached) {
+    res
+      .status(200)
+      .type("application/json")
+      .send(JSON.stringify({
+        ok: true,
+        files: s.files,
+        buildCount: s.buildCount,
+        uptime: Math.round(process.uptime()),
+      }));
+    return;
+  }
+  res
+    .status(503)
+    .type("application/json")
+    .send(JSON.stringify({ ok: false, reason: "shop cache initializing" }));
+});
+
 expressApp.use(rateLimit());
 
 if (adminEnabled) {

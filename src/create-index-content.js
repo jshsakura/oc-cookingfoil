@@ -88,11 +88,40 @@ function proxyifyTitledb(entry, titleId) {
   return out;
 }
 
+// Tinfoil's on-Switch search only matches the literal `name` field of
+// each entry, AND the Switch's on-screen keyboard is English-only. So
+// when titledb picks a Korean (or other CJK) display name, the title is
+// effectively unsearchable from the device unless we glue the English
+// rendering onto the name ourselves:
+//
+//   "젤다의 전설 (The Legend of Zelda)"
+//
+// We do this for exactly the "CJK pick + English alias exists" case:
+//   - skip when the picked name is already ASCII ("Mario" stays "Mario")
+//   - skip when no English alias was collected for the title
+// The first ASCII alias different from the picked name is the one we
+// surface — there's typically only one canonical English title, and
+// extra clutter would just push the row off-screen on Tinfoil.
+const CJK_RE = /[　-〿぀-ゟ゠-ヿ㐀-䶿一-鿿가-힯]/;
+const ASCII_RE = /^[\x00-\x7f]+$/;
+
+function decorateNameWithAlias(name, fromDb) {
+  if (!fromDb) return name;
+  if (!CJK_RE.test(name)) return name;
+  const aliases = Array.isArray(fromDb.aliases) ? fromDb.aliases : [];
+  const eng = aliases.find(
+    (a) => typeof a === "string" && ASCII_RE.test(a.trim()) && a.trim() !== name
+  );
+  if (!eng) return name;
+  return `${name} (${eng.trim()})`;
+}
+
 function buildFileItem(relPath, size) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
-  const displayName = fromDb?.name || parsed.name;
+  const rawName = fromDb?.name || parsed.name;
+  const displayName = decorateNameWithAlias(rawName, fromDb);
 
   const item = {
     url: encodeRelPath(relPath),

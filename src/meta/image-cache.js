@@ -85,7 +85,9 @@ async function fetchAndStore(url, cachePath) {
   await writeFile(tmp, buf);
   await rename(tmp, cachePath);
   knownExists.add(cachePath);
-  debug.log(
+  // Per-icon I/O is high-frequency during the prewarm pass — log to the
+  // `cache` namespace so the default DEBUG pattern doesn't flood the user.
+  debug.cache(
     "image cache: stored %s (%d bytes, %dms)",
     path.basename(cachePath), buf.length, Date.now() - start
   );
@@ -121,7 +123,7 @@ async function ensureVariant(originalPath, variant) {
       await rename(tmp, variant.path);
       knownExists.add(variant.path);
       const sz = (await statAsync(variant.path)).size;
-      debug.log("image cache: variant %s (%d bytes, %dms)", path.basename(variant.path), sz, Date.now() - t0);
+      debug.cache("image cache: variant %s (%d bytes, %dms)", path.basename(variant.path), sz, Date.now() - t0);
     })().finally(() => inFlightVariant.delete(key));
     inFlightVariant.set(key, pending);
   }
@@ -157,7 +159,7 @@ export async function serveImage(req, res, { cachePath, upstreamUrl }) {
   try {
     await ensureOriginal(cachePath, upstreamUrl);
   } catch (err) {
-    debug.log("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
+    debug.cache("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
     return placeholder(res);
   }
 

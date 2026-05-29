@@ -48,7 +48,9 @@ ENV NODE_ENV=production \
     COOK_SHOP_TEMPLATE=/shop_template.jsonc \
     COOK_NSTOOL_BIN=/usr/local/bin/nstool \
     COOK_NSZ_BIN=/usr/bin/nsz \
-    DEBUG=oc-cookingfoil*
+    # Info + errors by default; bump to `oc-cookingfoil*` for full traces
+    # (incl. per-icon cache I/O during prewarm — chatty on big libraries).
+    DEBUG=oc-cookingfoil,oc-cookingfoil:err
 
 WORKDIR /app
 
@@ -83,7 +85,7 @@ COPY shop_template.jsonc /shop_template.jsonc
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- "http://127.0.0.1:${COOK_PORT}/shop.json" >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -qO- "http://127.0.0.1:${COOK_PORT}/healthz" >/dev/null || exit 1
 
 CMD ["node", "src/index.js"]
