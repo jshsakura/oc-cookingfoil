@@ -10,6 +10,28 @@ COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --ignore-scripts
 
+# ---- nstool: build jakcron/nstool from source ----
+# Used by the NSP/XCI keyed extractor to dump container contents so we
+# can read the Control NCA's NACP + icon. Building from source keeps us
+# arch-portable through buildx's QEMU emulation — the same Dockerfile
+# produces a working binary for both linux/amd64 and linux/arm64.
+#
+# Two-step build per upstream BUILDING.md: make deps (builds the bundled
+# libpietendo / libtoolchain / libfmt / liblz4 / libmbedtls submodules),
+# then make (compiles nstool linking against those). Output lands at
+# bin/nstool.
+FROM alpine:3.20 AS nstool-builder
+RUN apk add --no-cache git build-base linux-headers
+WORKDIR /build
+ARG NSTOOL_REF=v1.9.2
+RUN git clone --depth 1 --branch "${NSTOOL_REF}" --recurse-submodules \
+        https://github.com/jakcron/nstool.git
+WORKDIR /build/nstool
+RUN make -j"$(nproc)" deps && \
+    make -j"$(nproc)" && \
+    cp bin/nstool /nstool && \
+    strip /nstool
+
 # ---- runtime ----
 FROM node:22-alpine AS runtime
 
@@ -24,6 +46,8 @@ ENV NODE_ENV=production \
     COOK_DATA_DIR=/data \
     COOK_KEYS_DIR=/keys \
     COOK_SHOP_TEMPLATE=/shop_template.jsonc \
+    COOK_NSTOOL_BIN=/usr/local/bin/nstool \
+    COOK_NSZ_BIN=/usr/bin/nsz \
     DEBUG=oc-cookingfoil*
 
 WORKDIR /app
@@ -35,6 +59,19 @@ WORKDIR /app
 # non-root should set `user: "1000:1000"` (or their host uid:gid) in
 # their docker-compose.yml.
 RUN mkdir -p /games /data /keys
+
+# nstool — copied from the builder stage. Single static binary, ~1-2 MB.
+COPY --from=nstool-builder /nstool /usr/local/bin/nstool
+
+# nsz — decompresses .nsz / .xcz wrappers into .nsp / .xci so the NSP
+# extractor can run against the inner container. Pure Python (uses the
+# zstandard library), installed via pip. --break-system-packages is
+# required on Alpine 3.20+'s PEP 668 environment; the image is single-
+# tenant and we own the Python install, so this is safe.
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --no-cache-dir --break-system-packages nsz && \
+    # Drop pip caches & build deps to keep the runtime layer lean.
+    rm -rf /root/.cache /tmp/* /var/cache/apk/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./

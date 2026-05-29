@@ -1,6 +1,6 @@
 {
   "name": "oc-cookingfoil",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "CookingFoil — local Switch homebrew shop server with metadata/icon support.",
   "main": "./src/index.js",
   "type": "module",
