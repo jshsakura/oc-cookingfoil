@@ -144,7 +144,12 @@ function acceptsWebp(req) {
  * serve WebP for any variant we have; otherwise JPEG.
  */
 export async function serveImage(req, res, { cachePath, upstreamUrl }) {
-  res.set("Cache-Control", "public, max-age=86400, immutable");
+  // Cache aggressively: artwork is content-addressed by titleId — the
+  // bytes never change for a given URL once we've cached them. One-year
+  // max-age is the RFC 9111 recommended upper bound for `immutable`,
+  // so repeat fetches from the same Switch / browser return from local
+  // cache without even hitting the server.
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
 
   const wantThumb = req.query?.size === "sm";
   const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
