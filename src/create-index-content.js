@@ -49,15 +49,20 @@ import {
 } from "./helpers/helpers.js";
 import pkg from "./package.js";
 
-// Stamp every proxy artwork URL with the server version. Embedded clients
-// like Tinfoil cache responses keyed on the literal URL string, so they
-// hold onto whatever bytes they fetched the first time — including the
-// 1×1 placeholder we used to serve. Bumping the suffix on each release
-// makes those URLs look new to the client without us having to ship a
-// separate cache-bust API or ask the user to clear shop data by hand.
-// Within a single release the URL stays stable, so steady-state traffic
-// still benefits from the icon route's 1-year immutable Cache-Control.
-const ARTWORK_VERSION = pkg.version;
+// Stamp every proxy artwork URL with the server's MAJOR.MINOR version.
+// Embedded clients like Tinfoil cache responses keyed on the literal URL
+// string. The stamp gives us a single knob to bust those caches across
+// a release line — but doing it on every patch turned out to be way too
+// aggressive: each v0.7.x → v0.7.(x+1) bump forced Tinfoil to re-fetch
+// the entire icon library (1.9k titles × ~300 ms cold = multi-minute
+// stall on a normal LAN deploy).
+//
+// Major/minor only means a patch release (bug fixes, doc edits, this
+// kind of internal tweak) ships without re-fetching anything. The next
+// minor bump (v0.8.0) is the planned moment for a one-shot bust —
+// long-running deployments that have accreted stale placeholders pick
+// up clean state then, and nobody pays the bandwidth tax in between.
+const ARTWORK_VERSION = pkg.version.split(".").slice(0, 2).join(".");
 function withVersion(path) { return `${path}?v=${ARTWORK_VERSION}`; }
 
 const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz", "**/*.nro"];
