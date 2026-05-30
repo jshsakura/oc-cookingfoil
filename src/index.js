@@ -5,6 +5,7 @@ import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
+import extrasRoute from "./routes/extras.js";
 import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
@@ -103,6 +104,10 @@ expressApp.use("/api/uploads", uploadsRouter());
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
 expressApp.get("/api/shop/banner/:titleId", bannerRoute);
 expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
+
+// Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
+// Tinfoil shop can't install but the dashboard can list + download.
+expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // Browser dashboard for the literal `/` path. Other GETs fall through to
 // the shop builder, static files, and the serve-index listing.

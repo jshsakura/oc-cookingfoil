@@ -258,6 +258,21 @@ export async function get() {
 }
 
 /**
+ * Relative paths (under the games dir) of every scanned game file whose base
+ * titleId matches. Used by the extras route to locate a title's folder(s).
+ * Returns [] before the first build (cache cold) — callers should await get()
+ * first to guarantee filesMap is populated.
+ */
+export function relPathsForBase(baseTitleId) {
+  if (!filesMap || !baseTitleId) return [];
+  const out = [];
+  for (const [rel, item] of filesMap) {
+    if (item.baseTitleId === baseTitleId) out.push(rel);
+  }
+  return out;
+}
+
+/**
  * Return the pre-serialized body for /shop.json (or /shop.tfl). Picks the
  * smallest variant the caller advertised — br > gzip > identity — and
  * falls back to identity when the client advertises none or when the

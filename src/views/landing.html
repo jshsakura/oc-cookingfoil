@@ -364,6 +364,22 @@
         background: var(--mantle); cursor: zoom-in; transition: transform 0.2s ease;
       }
       .modal .screenshots img:hover { transform: scale(1.02); }
+      .modal .extras { margin-bottom: 16px; }
+      .modal .extras .extras-head {
+        font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+        color: var(--overlay1); margin-bottom: 8px;
+      }
+      .modal .extras .extra-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 9px 12px; margin-bottom: 6px; border-radius: 10px;
+        background: rgba(49, 50, 68, 0.4); border: 1px solid var(--surface0);
+        color: var(--text); text-decoration: none; font-size: 13px;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .modal .extras .extra-row:hover { border-color: var(--lavender); background: rgba(180, 190, 254, 0.08); }
+      .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
+      .modal .extras .extra-name::before { content: "⬇ "; color: var(--overlay1); }
+      .modal .extras .extra-size { color: var(--subtext0); flex-shrink: 0; font-variant-numeric: tabular-nums; }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
       /* TOAST */
@@ -523,6 +539,7 @@
           <div class="modal-meta" id="modal-meta"></div>
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
+          <div class="extras" id="modal-extras"></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
@@ -600,6 +617,7 @@
           "modal.category": "장르",
           "modal.players": "플레이어",
           "modal.noDesc": "설명이 없습니다.",
+          "modal.extras": "추가 파일",
           "upload.title": "업로드 트레이",
           "upload.open": "업로드",
           "upload.drop": "파일을 끌어다 놓거나 클릭해서 선택",
@@ -663,6 +681,7 @@
           "modal.category": "Category",
           "modal.players": "Players",
           "modal.noDesc": "No description available.",
+          "modal.extras": "Extras",
           "upload.title": "Upload tray",
           "upload.open": "Upload",
           "upload.drop": "Drop a file here, or click to pick",
@@ -1105,8 +1124,50 @@
             scr.appendChild(im);
           }
         }
+        // Extra (non-installable) files in the title's folder — web-only.
+        const extrasBox = $("modal-extras"); extrasBox.innerHTML = "";
+        const baseId = f.baseTitleId || f.titleId;
+        if (baseId && /^[0-9A-Fa-f]{16}$/.test(baseId)) loadExtras(baseId, extrasBox);
+
         $("modal-download").href = f.url || "#";
         $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+      }
+
+      // Fetch + render a title's auxiliary files (mods/patches/zips). Best
+      // effort: any failure just leaves the section empty. Filenames go in via
+      // textContent (never innerHTML) so odd names can't inject markup. A
+      // request token guards against a slow response from a previously-closed
+      // modal painting into the currently-open one.
+      let extrasReq = 0;
+      async function loadExtras(baseId, box) {
+        const token = ++extrasReq;
+        try {
+          const res = await fetch(`/api/title/${baseId}/extras`, {
+            headers: { Accept: "application/json" },
+          });
+          if (token !== extrasReq || !res.ok) return;
+          const data = await res.json();
+          const items = Array.isArray(data.extras) ? data.extras : [];
+          if (token !== extrasReq || items.length === 0) return;
+
+          const head = document.createElement("div");
+          head.className = "extras-head";
+          head.textContent = t("modal.extras") + " (" + items.length + ")";
+          box.appendChild(head);
+
+          for (const x of items) {
+            const row = document.createElement("a");
+            row.className = "extra-row";
+            row.href = x.url; row.target = "_blank"; row.rel = "noopener";
+            row.setAttribute("download", x.name);
+            const nameEl = document.createElement("span");
+            nameEl.className = "extra-name"; nameEl.textContent = x.name;
+            const sizeEl = document.createElement("span");
+            sizeEl.className = "extra-size"; sizeEl.textContent = fmtBytes(x.size);
+            row.appendChild(nameEl); row.appendChild(sizeEl);
+            box.appendChild(row);
+          }
+        } catch { /* extras are best-effort */ }
       }
       function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
