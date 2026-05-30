@@ -309,6 +309,25 @@
       .skel .sub-skel  { width: 52%;  height: 10px; border-radius: 6px; }
       @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
+      /* Generic shimmer skeleton for text/values shown before data arrives.
+         Hides the underlying text and paints a shimmer bar in its place.
+         Removed (class dropped) once the real value is in. */
+      .sk {
+        color: transparent !important;
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--surface0) 0%, var(--surface1) 50%, var(--surface0) 100%);
+        background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
+      }
+      .stat .value.sk { display: inline-block; min-width: 54px; height: 26px; vertical-align: middle; }
+      .stat .sub.sk   { display: inline-block; min-width: 78px; height: 11px; }
+      #status-text.sk { display: inline-block; min-width: 150px; height: 13px; vertical-align: middle; }
+      .url-pill.sk    { border-color: transparent; }
+      /* Cover image: shimmer while the bytes load; cleared on load/error. */
+      .game .cover.loading {
+        background: linear-gradient(90deg, var(--surface0) 0%, var(--surface1) 50%, var(--surface0) 100%);
+        background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
+      }
+
       /* PAGER */
       .pager {
         display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -487,7 +506,7 @@
       <div class="card">
         <header class="header">
           <div class="logo" aria-hidden="true">🧈</div>
-          <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text">…</span></div>
+          <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></div>
           <h1>COOKING&nbsp;FOIL</h1>
           <p class="description" data-i18n-html="hero.desc"></p>
         </header>
@@ -498,17 +517,17 @@
           <button class="h2-action" id="refresh-btn" type="button" data-i18n="action.refresh"></button>
         </h2>
         <div class="connect-row">
-          <div id="shop-url" class="url-pill">—</div>
+          <div id="shop-url" class="url-pill sk">—</div>
           <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
         </div>
         <p class="hint" data-i18n-html="hint.connect"></p>
 
         <h2 data-i18n="section.stats"></h2>
         <div class="stats">
-          <div class="stat"><div class="label" data-i18n="stat.games"></div><div class="value" id="stat-games">—</div><div class="sub" data-i18n="stat.games_sub"></div></div>
-          <div class="stat"><div class="label" data-i18n="stat.titledb"></div><div class="value" id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub" data-i18n="stat.titledb_sub"></div></div>
-          <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
-          <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value" id="stat-mods">—</div><div class="sub" id="stat-mods-sub">—</div></div>
+          <div class="stat"><div class="label" data-i18n="stat.games"></div><div class="value sk" id="stat-games">—</div><div class="sub" data-i18n="stat.games_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.titledb"></div><div class="value sk" id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub" data-i18n="stat.titledb_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value sk" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
+          <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value sk" id="stat-mods">—</div><div class="sub sk" id="stat-mods-sub">—</div></div>
         </div>
 
         <h2><span data-i18n="section.library"></span><span class="count" id="games-count">0</span></h2>
@@ -859,13 +878,13 @@
       // /api/connect-url decodes the credentials the browser already sent. When
       // auth is off (or the fetch fails) the placeholder stays.
       let baseUrl = `${location.protocol}//user:pass@${location.host}/`;
-      $("shop-url").textContent = baseUrl;
+      const urlEl = $("shop-url");
+      urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d && d.url) { baseUrl = d.url; $("shop-url").textContent = baseUrl; }
-        })
-        .catch(() => { /* keep the placeholder */ });
+        .then((d) => { if (d && d.url) baseUrl = d.url; })
+        .catch(() => { /* keep the placeholder */ })
+        .finally(() => { urlEl.textContent = baseUrl; urlEl.classList.remove("sk"); });
       $("copy-btn").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
         catch { toast(t("toast.copyFail")); }
@@ -930,6 +949,12 @@
         // by "how many games". updates + DLC roll up under the base on
         // their cards (the '+N 업데이트' / '+N DLC' pills) and in the
         // /games stat below, so we don't double-count here.
+        // Data's here — drop the entry skeletons on the stat values + status.
+        for (const id of ["stat-games", "stat-titledb", "stat-base", "stat-mods", "stat-mods-sub"]) {
+          $(id).classList.remove("sk");
+        }
+        $("status-text").classList.remove("sk");
+
         $("status").classList.remove("cold", "warm");
         if (files.length === 0) {
           $("status").classList.add("warm");
@@ -1030,7 +1055,10 @@
         card.addEventListener("keypress", (e) => { if (e.key === "Enter") openModal(r); });
 
         const cover = document.createElement("img");
-        cover.className = "cover"; cover.loading = "lazy"; cover.decoding = "async"; cover.alt = "";
+        cover.className = "cover loading"; cover.loading = "lazy"; cover.decoding = "async"; cover.alt = "";
+        // Shimmer until the bytes land. onerror swaps to a placeholder which
+        // then fires `load`, so this clears the skeleton in both cases.
+        cover.addEventListener("load", () => cover.classList.remove("loading"), { once: true });
         // Grid covers use the 256-px thumbnail variant (WebP if the
         // browser accepts it). Modal banner / Switch client still hit
         // the original via the same base URL without ?size. icon_url
