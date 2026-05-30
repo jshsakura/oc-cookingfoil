@@ -66,6 +66,10 @@ const dataDir = path.resolve(
 );
 const iconCacheDir = path.join(dataDir, "extracted");
 const titledbCacheDir = path.join(dataDir, "titledb");
+// Operator-supplied artwork (icon/banner/screenshot) that overrides both the
+// titledb CDN proxy and NACP extraction. Kept in its own dir so the prewarm /
+// extraction passes never clobber it.
+const customArtDir = path.join(dataDir, "custom-art");
 // Pending file uploads land here before the user clicks Apply (which moves
 // them into the games library). The dir is created lazily on first upload.
 const uploadsDir = path.join(dataDir, "uploads");
@@ -118,6 +122,7 @@ export {
   dataDir,
   iconCacheDir,
   titledbCacheDir,
+  customArtDir,
   keysDir,
   publicBaseUrl,
   customEntriesPath,

@@ -8,6 +8,7 @@
  * (no-omission invariant, FINDINGS §7).
  */
 import * as titledbStore from "../meta/titledb-store.js";
+import * as customArt from "../meta/custom-art.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -27,5 +28,8 @@ export default async function iconRoute(req, res) {
   await serveImage(req, res, {
     cachePath: cachePathFor(base, "icon"),
     upstreamUrl: entry?.iconUrl,
+    overridePath: customArt.hasOverride(base, "icon")
+      ? customArt.pathFor(base, "icon")
+      : undefined,
   });
 }

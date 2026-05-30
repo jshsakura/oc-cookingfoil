@@ -4,6 +4,7 @@
  * from titledb's bannerUrl field.
  */
 import * as titledbStore from "../meta/titledb-store.js";
+import * as customArt from "../meta/custom-art.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -22,5 +23,8 @@ export default async function bannerRoute(req, res) {
   await serveImage(req, res, {
     cachePath: cachePathFor(base, "banner"),
     upstreamUrl: entry?.bannerUrl,
+    overridePath: customArt.hasOverride(base, "banner")
+      ? customArt.pathFor(base, "banner")
+      : undefined,
   });
 }

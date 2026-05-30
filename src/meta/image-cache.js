@@ -81,6 +81,25 @@ function variantPath(originalPath, suffix, ext) {
   return path.join(dir, `${base}.${suffix}.${ext}`);
 }
 
+/** The thumbnail variant paths derived from an original — used by callers
+ *  (e.g. custom-art) that need to invalidate them when the original changes. */
+export function thumbVariantPaths(originalPath) {
+  return [
+    variantPath(originalPath, "thumb", "jpg"),
+    variantPath(originalPath, "thumb", "webp"),
+  ];
+}
+
+/** Forget any memoized existence / in-flight state for a path. Call after
+ *  writing or deleting a file behind the cache's back (custom-art mutations)
+ *  so the next request re-checks the filesystem instead of trusting a stale
+ *  positive from `knownExists`. */
+export function forget(filePath) {
+  knownExists.delete(filePath);
+  inFlightFetch.delete(filePath);
+  inFlightVariant.delete(filePath);
+}
+
 async function fetchAndStore(url, cachePath) {
   const start = Date.now();
   const upstream = await fetch(url, { redirect: "follow" });
@@ -151,42 +170,57 @@ function acceptsWebp(req) {
  * returns the original. When the client says `Accept: image/webp` we
  * serve WebP for any variant we have; otherwise JPEG.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl }) {
-  // Cache aggressively: artwork is content-addressed by titleId — the
-  // bytes never change for a given URL once we've cached them. One-year
-  // max-age is the RFC 9111 recommended upper bound for `immutable`,
-  // so repeat fetches from the same Switch / browser return from local
-  // cache without even hitting the server.
-  res.set("Cache-Control", "public, max-age=31536000, immutable");
-
+export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath }) {
   const wantThumb = req.query?.size === "sm";
   const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
 
-  try {
-    await ensureOriginal(cachePath, upstreamUrl);
-  } catch (err) {
-    debug.cache("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
-    return placeholder(res);
+  // Operator-supplied art wins outright over the titledb CDN proxy / NACP
+  // cache. When present we serve it (and derive thumbs from it) and never
+  // touch the upstream. `existsCached` keeps the common no-override path a
+  // pure Set lookup after the first hit.
+  let source = cachePath;
+  let fromOverride = false;
+  if (overridePath && existsCached(overridePath)) {
+    source = overridePath;
+    fromOverride = true;
+  } else {
+    try {
+      await ensureOriginal(cachePath, upstreamUrl);
+    } catch (err) {
+      debug.cache("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
+      return placeholder(res);
+    }
   }
+
+  // Cached/upstream artwork is content-addressed by titleId and never changes
+  // for a given URL → cache it for a year, immutable. Operator overrides ARE
+  // editable, so they get a short max-age and must-revalidate instead, letting
+  // a replace show up without a hard refresh.
+  res.set(
+    "Cache-Control",
+    fromOverride
+      ? "public, max-age=60, must-revalidate"
+      : "public, max-age=31536000, immutable"
+  );
 
   if (!wantThumb) {
     res.type("image/jpeg");
-    return res.sendFile(cachePath);
+    return res.sendFile(source);
   }
 
   try {
     const variant = wantWebp
-      ? { path: variantPath(cachePath, "thumb", "webp"), resize: THUMB_PX, format: "webp" }
-      : { path: variantPath(cachePath, "thumb", "jpg"),  resize: THUMB_PX, format: "jpeg" };
-    await ensureVariant(cachePath, variant);
+      ? { path: variantPath(source, "thumb", "webp"), resize: THUMB_PX, format: "webp" }
+      : { path: variantPath(source, "thumb", "jpg"),  resize: THUMB_PX, format: "jpeg" };
+    await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");
     return res.sendFile(variant.path);
   } catch (err) {
-    debug.error("image cache: variant failed for %s: %s", cachePath, err.message);
+    debug.error("image cache: variant failed for %s: %s", source, err.message);
     // Worst case: send the original full-size, still works.
     res.type("image/jpeg");
-    return res.sendFile(cachePath);
+    return res.sendFile(source);
   }
 }
 

@@ -10,6 +10,7 @@ import connectUrlRoute from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
+import artRouter from "./routes/art.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -19,6 +20,7 @@ import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
+import * as customArt from "./meta/custom-art.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
@@ -99,6 +101,8 @@ expressApp.use(authGuard());
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
 expressApp.use("/api/uploads", uploadsRouter());
+// Authenticated title-artwork overrides (same opt-in flag as the upload tray).
+expressApp.use("/api/art", artRouter());
 
 // Locally-cached artwork. First request fetches from Nintendo's eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.
@@ -157,6 +161,12 @@ bootstrapTitledb().catch((err) =>
 
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
+);
+
+// Seed the custom-art override index from disk so the icon/banner/screenshot
+// routes can do a zero-syscall "is there an override?" check on the hot path.
+customArt.init().catch((err) =>
+  debug.error("custom-art init failed:", err.message)
 );
 
 // Realtime push channel for the dashboard. Mounted on the same HTTP

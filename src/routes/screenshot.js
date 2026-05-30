@@ -3,6 +3,7 @@
  * Bounds the index to a sane upper limit (no infinite range requests).
  */
 import * as titledbStore from "../meta/titledb-store.js";
+import * as customArt from "../meta/custom-art.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -25,5 +26,8 @@ export default async function screenshotRoute(req, res) {
   await serveImage(req, res, {
     cachePath: cachePathFor(base, "screenshot", idx),
     upstreamUrl: shots[idx],
+    overridePath: customArt.hasOverride(base, "screenshot", idx)
+      ? customArt.pathFor(base, "screenshot", idx)
+      : undefined,
   });
 }
