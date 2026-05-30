@@ -819,13 +819,18 @@
       }
 
       // ─── url / copy ────────────────────────────────────────────────────────
-      // Build the connect URL from the live origin (host:port the visitor
-      // actually reached us on) so it's copy-paste ready for Tinfoil/CyberFoil.
-      // The "user:pass@" segment stays a literal placeholder — the operator
-      // swaps in real credentials when basic-auth is enabled, and we never
-      // echo real secrets into the page.
-      const baseUrl = `${location.protocol}//user:pass@${location.host}/`;
+      // Start with a placeholder built from the live origin, then upgrade it to
+      // a copy-paste-ready URL carrying the visitor's OWN basic-auth creds —
+      // /api/connect-url decodes the credentials the browser already sent. When
+      // auth is off (or the fetch fails) the placeholder stays.
+      let baseUrl = `${location.protocol}//user:pass@${location.host}/`;
       $("shop-url").textContent = baseUrl;
+      fetch("/api/connect-url", { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d && d.url) { baseUrl = d.url; $("shop-url").textContent = baseUrl; }
+        })
+        .catch(() => { /* keep the placeholder */ });
       $("copy-btn").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
         catch { toast(t("toast.copyFail")); }

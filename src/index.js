@@ -6,6 +6,7 @@ import iconRoute from "./routes/icon.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
+import connectUrlRoute from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
@@ -108,6 +109,10 @@ expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
 // Tinfoil shop can't install but the dashboard can list + download.
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
+
+// Copy-paste-ready shop URL for the authenticated visitor (weaves their own
+// basic-auth credentials into the live origin).
+expressApp.get("/api/connect-url", connectUrlRoute);
 
 // Browser dashboard for the literal `/` path. Other GETs fall through to
 // the shop builder, static files, and the serve-index listing.
