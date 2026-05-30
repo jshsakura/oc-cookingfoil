@@ -11,6 +11,12 @@ import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
 import artRouter from "./routes/art.js";
+import adminPageRouter from "./routes/admin-page.js";
+import {
+  adminTotpEnabled,
+  provisioningUri,
+  selfTest as adminSelfTest,
+} from "./security/admin-session.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -118,6 +124,10 @@ expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 // basic-auth credentials into the live origin).
 expressApp.get("/api/connect-url", connectUrlRoute);
 
+// 2FA-gated operator dashboard (inside the basic-auth perimeter). 404s when
+// COOK_ADMIN_TOTP_SECRET is unset.
+expressApp.use("/admin", adminPageRouter());
+
 // Browser dashboard for the literal `/` path. Other GETs fall through to
 // the shop builder, static files, and the serve-index listing.
 expressApp.get("/", landingRoute);
@@ -168,6 +178,26 @@ shopCache.init().catch((err) =>
 customArt.init().catch((err) =>
   debug.error("custom-art init failed:", err.message)
 );
+
+// Admin 2FA: validate the configured secret and surface the enrollment URI in
+// the logs (never over HTTP) so the operator can add it to an authenticator.
+if (adminTotpEnabled()) {
+  adminSelfTest().then(async (ok) => {
+    if (!ok) {
+      debug.error("admin 2fa: COOK_ADMIN_TOTP_SECRET is not a valid base32 secret — /admin disabled in practice");
+      return;
+    }
+    const uri = await provisioningUri();
+    // Print unconditionally (not via DEBUG) — the operator needs this URI to
+    // enroll the secret in their authenticator app on first boot.
+    process.stdout.write(
+      `[oc-cookingfoil] /admin 2FA enabled. Enroll in your authenticator:\n` +
+      `[oc-cookingfoil] ${uri}\n`
+    );
+  });
+} else {
+  debug.log("admin 2fa: /admin disabled (set COOK_ADMIN_TOTP_SECRET to enable)");
+}
 
 // Realtime push channel for the dashboard. Mounted on the same HTTP
 // server so it shares port + auth context with the rest of the API.

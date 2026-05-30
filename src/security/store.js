@@ -20,6 +20,7 @@ const AUDIT_MAX = 1000;
 const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
   lockouts: new Map(), // ip → { lockedAt, until, reason }
+  access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
   audit: [],
 };
 
@@ -30,6 +31,7 @@ function serialise() {
   return {
     failures: Object.fromEntries(state.failures),
     lockouts: Object.fromEntries(state.lockouts),
+    access: Object.fromEntries(state.access),
     audit: state.audit,
     savedAt: Date.now(),
   };
@@ -70,6 +72,7 @@ export async function load() {
     const parsed = JSON.parse(raw);
     state.failures = new Map(Object.entries(parsed.failures ?? {}));
     state.lockouts = new Map(Object.entries(parsed.lockouts ?? {}));
+    state.access = new Map(Object.entries(parsed.access ?? {}));
     state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
     debug.log(
       "security: state loaded (%d failure tracker(s), %d lockout(s))",
@@ -153,6 +156,37 @@ export function snapshot() {
     lockouts: Array.from(state.lockouts.entries()).map(([ip, v]) => ({ ip, ...v })),
     audit: state.audit.slice(-100),
   };
+}
+
+// ── Per-user access tracking (for the /admin dashboard) ─────────────────────
+// Every successful authenticated request bumps the user's counters. Cheap
+// in-memory mutation; persistence rides the same debounced flush as the rest.
+export function recordAccess(user, ip) {
+  if (!user) return;
+  const now = Date.now();
+  const prev = state.access.get(user) ?? { firstAt: now, lastAt: now, count: 0, ips: {} };
+  prev.lastAt = now;
+  prev.count += 1;
+  prev.lastIp = ip;
+  prev.ips = prev.ips ?? {};
+  if (ip) prev.ips[ip] = now;
+  state.access.set(user, prev);
+  scheduleFlush();
+}
+
+export function accessSnapshot() {
+  return Array.from(state.access.entries())
+    .map(([user, v]) => ({
+      user,
+      firstAt: v.firstAt,
+      lastAt: v.lastAt,
+      count: v.count,
+      lastIp: v.lastIp ?? null,
+      ips: Object.entries(v.ips ?? {})
+        .map(([ip, lastAt]) => ({ ip, lastAt }))
+        .sort((a, b) => b.lastAt - a.lastAt),
+    }))
+    .sort((a, b) => b.lastAt - a.lastAt);
 }
 
 export async function shutdown() {

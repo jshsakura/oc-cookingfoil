@@ -89,6 +89,13 @@ const publicBaseUrl = rawPublicBaseUrl
   ? rawPublicBaseUrl.trim().replace(/\/+$/, "")
   : null;
 
+// /admin 2FA. The admin dashboard sits inside the basic-auth perimeter and
+// adds a TOTP second factor. Unset = /admin disabled entirely. Generate a
+// base32 secret once (the server logs a provisioning URI on boot) and keep it
+// out of source control. Session lifetime after a successful code, in hours.
+const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
+const adminSessionHours = Math.max(1, Number(process.env.COOK_ADMIN_SESSION_HOURS ?? 8));
+
 // Switch console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
@@ -125,6 +132,8 @@ export {
   customArtDir,
   keysDir,
   publicBaseUrl,
+  adminTotpSecret,
+  adminSessionHours,
   customEntriesPath,
   langPriority,
   uploadsDir,

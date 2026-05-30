@@ -64,9 +64,13 @@ export default function authGuard() {
   return (req, res, next) => {
     const ip = clientIp(req);
 
-    // Loopback bypass — trusted caller, no lockout tracking.
+    // Loopback bypass — trusted caller, no lockout tracking. Still record
+    // access on success so the operator's own sessions show in /admin.
     if (isLoopback(ip)) {
-      return basicAuth(req, res, next);
+      return basicAuth(req, res, (err) => {
+        if (!err && req.auth?.user) store.recordAccess(req.auth.user, ip);
+        next(err);
+      });
     }
 
     if (store.isLocked(ip)) {
@@ -98,9 +102,11 @@ export default function authGuard() {
     };
 
     basicAuth(req, res, (err) => {
-      // If we got here without a 401, auth succeeded — reset counters.
+      // If we got here without a 401, auth succeeded — reset counters and
+      // record the access for the /admin dashboard.
       if (!intercepted && !err) {
         store.clearFailure(ip);
+        store.recordAccess(req.auth?.user, ip);
       }
       next(err);
     });
