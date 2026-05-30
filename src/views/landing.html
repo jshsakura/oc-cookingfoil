@@ -380,6 +380,18 @@
       .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
       .modal .extras .extra-name::before { content: "⬇ "; color: var(--overlay1); }
       .modal .extras .extra-size { color: var(--subtext0); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+      .modal .art-edit {
+        margin-bottom: 16px; padding: 12px 14px; border-radius: 12px;
+        background: rgba(49, 50, 68, 0.32); border: 1px solid var(--surface0);
+      }
+      .modal .art-edit .art-head {
+        font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+        color: var(--overlay1); margin-bottom: 10px;
+      }
+      .modal .art-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+      .modal .art-row:last-child { margin-bottom: 0; }
+      .modal .art-row .art-label { width: 84px; flex-shrink: 0; color: var(--subtext0); font-size: 12px; }
+      .btn.tiny { padding: 5px 11px; font-size: 12px; border-radius: 8px; }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
       /* TOAST */
@@ -539,6 +551,7 @@
           <div class="modal-meta" id="modal-meta"></div>
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
+          <div class="art-edit" id="modal-art" hidden></div>
           <div class="extras" id="modal-extras"></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
@@ -618,6 +631,17 @@
           "modal.players": "플레이어",
           "modal.noDesc": "설명이 없습니다.",
           "modal.extras": "추가 파일",
+          "art.head": "아트워크 (직접 올리기)",
+          "art.icon": "아이콘",
+          "art.banner": "배너",
+          "art.screens": "스크린샷",
+          "art.upload": "업로드",
+          "art.replace": "교체",
+          "art.remove": "삭제",
+          "art.add": "추가",
+          "art.saved": "저장됨",
+          "art.removed": "삭제됨",
+          "art.failed": "처리 실패",
           "upload.title": "업로드 트레이",
           "upload.open": "업로드",
           "upload.drop": "파일을 끌어다 놓거나 클릭해서 선택",
@@ -682,6 +706,17 @@
           "modal.players": "Players",
           "modal.noDesc": "No description available.",
           "modal.extras": "Extras",
+          "art.head": "Artwork (upload your own)",
+          "art.icon": "Icon",
+          "art.banner": "Banner",
+          "art.screens": "Screenshots",
+          "art.upload": "Upload",
+          "art.replace": "Replace",
+          "art.remove": "Remove",
+          "art.add": "Add",
+          "art.saved": "Saved",
+          "art.removed": "Removed",
+          "art.failed": "Failed",
           "upload.title": "Upload tray",
           "upload.open": "Upload",
           "upload.drop": "Drop a file here, or click to pick",
@@ -1093,12 +1128,37 @@
       }
 
       // ─── modal ─────────────────────────────────────────────────────────────
-      function openModal(r) {
+      // Bumped after every artwork edit; appended to image URLs so a replaced
+      // override repaints immediately despite HTTP caching.
+      let currentModal = null;
+      let artVersion = 0;
+      function bustUrl(u) {
+        if (!artVersion) return u;
+        return u + (u.includes("?") ? "&" : "?") + "_a=" + artVersion;
+      }
+
+      async function openModal(r) {
+        currentModal = r;
         const f = r.item, td = r.tdb || {};
+        const baseId = (f.baseTitleId || f.titleId || "").toUpperCase();
+        const validBase = /^[0-9A-F]{16}$/.test(baseId);
+
+        // Operator-supplied art presence (best effort). Drives banner/
+        // screenshot fallbacks for titles titledb has no art for, plus the
+        // edit controls below.
+        let art = { icon: false, banner: false, screens: [] };
+        if (validBase) {
+          try {
+            const ar = await fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } });
+            if (ar.ok) art = await ar.json();
+          } catch { /* best effort */ }
+        }
+
         $("modal-title").textContent = nameWithAlias(f.name || "(unnamed)", td.aliases || []);
         $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
 
-        $("modal-banner").style.backgroundImage = td.bannerUrl ? `url('${td.bannerUrl}')` : "";
+        const bannerUrl = td.bannerUrl || (validBase && art.banner ? `/api/shop/banner/${baseId}` : "");
+        $("modal-banner").style.backgroundImage = bannerUrl ? `url('${bustUrl(bannerUrl)}')` : "";
 
         const metaBox = $("modal-meta"); metaBox.innerHTML = "";
         const rows = [
@@ -1119,23 +1179,96 @@
         $("modal-desc").textContent = td.description || t("modal.noDesc");
 
         const scr = $("modal-screens"); scr.innerHTML = "";
-        if (Array.isArray(td.screenshots)) {
-          for (const url of td.screenshots) {
-            const im = document.createElement("img");
-            im.loading = "lazy"; im.src = url; im.alt = "";
-            // Icon route returns 404 when the asset isn't on disk yet —
-            // hide rather than show a broken-image glyph.
-            im.onerror = () => im.remove();
-            scr.appendChild(im);
-          }
+        const shots = [];
+        if (Array.isArray(td.screenshots)) shots.push(...td.screenshots);
+        if (validBase) for (const i of (art.screens || [])) shots.push(`/api/shop/screenshot/${baseId}/${i}`);
+        for (const url of shots) {
+          const im = document.createElement("img");
+          im.loading = "lazy"; im.src = bustUrl(url); im.alt = "";
+          // Icon route returns 404 when the asset isn't on disk yet —
+          // hide rather than show a broken-image glyph.
+          im.onerror = () => im.remove();
+          scr.appendChild(im);
         }
+
+        // Artwork edit controls — only when uploads are enabled.
+        renderArtEditor(baseId, validBase, art);
+
         // Extra (non-installable) files in the title's folder — web-only.
         const extrasBox = $("modal-extras"); extrasBox.innerHTML = "";
-        const baseId = f.baseTitleId || f.titleId;
-        if (baseId && /^[0-9A-Fa-f]{16}$/.test(baseId)) loadExtras(baseId, extrasBox);
+        if (validBase) loadExtras(baseId, extrasBox);
 
         $("modal-download").href = f.url || "#";
         $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+      }
+
+      // ─── artwork editor (upload / replace / remove) ────────────────────────
+      function artBtn(label, cls, onClick) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "btn " + cls + " tiny"; b.textContent = label;
+        b.addEventListener("click", onClick);
+        return b;
+      }
+      function pickAndUpload(baseId, kind) {
+        const input = document.createElement("input");
+        input.type = "file"; input.accept = "image/*";
+        input.addEventListener("change", () => {
+          if (input.files && input.files[0]) uploadArt(baseId, kind, input.files[0]);
+        });
+        input.click();
+      }
+      function artSlotRow(baseId, kind, label, hasCustom) {
+        const row = document.createElement("div"); row.className = "art-row";
+        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = label;
+        row.appendChild(lab);
+        row.appendChild(artBtn(hasCustom ? t("art.replace") : t("art.upload"), "", () => pickAndUpload(baseId, kind)));
+        if (hasCustom) row.appendChild(artBtn(t("art.remove"), "ghost", () => removeArt(baseId, kind)));
+        return row;
+      }
+      function artScreensRow(baseId, screens) {
+        const row = document.createElement("div"); row.className = "art-row";
+        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = t("art.screens");
+        row.appendChild(lab);
+        row.appendChild(artBtn(t("art.add"), "", () => pickAndUpload(baseId, "screenshot")));
+        for (const i of screens) {
+          row.appendChild(artBtn("#" + i + " ✕", "ghost", () => removeArt(baseId, "screenshot", i)));
+        }
+        return row;
+      }
+      function renderArtEditor(baseId, validBase, art) {
+        const box = $("modal-art");
+        box.innerHTML = ""; box.hidden = true;
+        if (!uploadsEnabled || !validBase) return;
+        box.hidden = false;
+        const head = document.createElement("div");
+        head.className = "art-head"; head.textContent = t("art.head");
+        box.appendChild(head);
+        box.appendChild(artSlotRow(baseId, "icon", t("art.icon"), art.icon));
+        box.appendChild(artSlotRow(baseId, "banner", t("art.banner"), art.banner));
+        box.appendChild(artScreensRow(baseId, art.screens || []));
+      }
+      async function uploadArt(baseId, kind, file) {
+        const fd = new FormData(); fd.append("file", file, file.name);
+        try {
+          const res = await fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { toast(d.error || t("art.failed")); return; }
+          toast(t("art.saved"));
+          artVersion++;
+          if (currentModal) openModal(currentModal); // re-render with fresh art + cache-bust
+        } catch { toast(t("art.failed")); }
+      }
+      async function removeArt(baseId, kind, idx) {
+        const url = kind === "screenshot"
+          ? `/api/art/${baseId}/screenshot/${idx}`
+          : `/api/art/${baseId}/${kind}`;
+        try {
+          const res = await fetch(url, { method: "DELETE" });
+          if (!res.ok) { toast(t("art.failed")); return; }
+          toast(t("art.removed"));
+          artVersion++;
+          if (currentModal) openModal(currentModal);
+        } catch { toast(t("art.failed")); }
       }
 
       // Fetch + render a title's auxiliary files (mods/patches/zips). Best
