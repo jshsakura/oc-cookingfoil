@@ -963,9 +963,15 @@
         cover.className = "cover"; cover.loading = "lazy"; cover.decoding = "async"; cover.alt = "";
         // Grid covers use the 256-px thumbnail variant (WebP if the
         // browser accepts it). Modal banner / Switch client still hit
-        // the original via the same base URL without ?size.
-        if (r.item.icon_url) cover.src = r.item.icon_url + "?size=sm";
-        else                 cover.src = coverPlaceholder();
+        // the original via the same base URL without ?size. icon_url
+        // already carries a ?v= cache-bust stamp, so pick the right
+        // separator instead of appending a second "?".
+        if (r.item.icon_url) {
+          const sep = r.item.icon_url.includes("?") ? "&" : "?";
+          cover.src = r.item.icon_url + sep + "size=sm";
+        } else {
+          cover.src = coverPlaceholder();
+        }
         // 404 from the icon route → swap src to a valid placeholder SVG
         // data URI. Setting src (not removing it) is what prevents the
         // browser's broken-image glyph from rendering on top: the img

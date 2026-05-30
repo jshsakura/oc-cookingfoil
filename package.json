@@ -11,6 +11,7 @@
     "start": "node ./src/index.js",
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
     "test": "playwright test",
+    "test:unit": "node --test test/unit/*.test.js",
     "test:ui": "playwright test --ui",
     "test:setup": "playwright install --with-deps",
     "hooks:install": "node scripts/install-hooks.cjs",

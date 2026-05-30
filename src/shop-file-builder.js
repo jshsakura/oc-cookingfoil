@@ -9,6 +9,8 @@
  */
 import debug from "./debug.js";
 import * as shopCache from "./meta/shop-cache.js";
+import { resolveOrigin } from "./helpers/origin.js";
+import { publicBaseUrl } from "./helpers/envs.js";
 
 export default function shopFileBuilder() {
   return async (req, res, next) => {
@@ -19,10 +21,13 @@ export default function shopFileBuilder() {
 
     let payload;
     try {
-      // req.acceptsEncodings() returns the list ranked by client preference.
-      // We pre-built both identity and gzip Buffers at shop-cache build time,
-      // so this is just a header check + buffer pick — no per-request work.
-      payload = await shopCache.getEncoded(req.acceptsEncodings());
+      // Rewrite artwork URLs to be absolute against the request's own origin
+      // so CyberFoil/AeroFoil can fetch icons by curling the URL verbatim
+      // (a host-relative URL has no host for curl to resolve). The encoded
+      // variant is memoized per origin, so this stays a header check + buffer
+      // pick after the first request from a given host.
+      const origin = resolveOrigin(req, publicBaseUrl);
+      payload = await shopCache.getEncodedForOrigin(req.acceptsEncodings(), origin);
     } catch (err) {
       debug.error("shop cache get failed: %s", err.stack || err.message);
       res

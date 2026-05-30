@@ -74,6 +74,17 @@ const uploadsDir = path.join(dataDir, "uploads");
 // homebrew titles end up here.
 const extractedMetaDir = path.join(dataDir, "extracted-meta");
 
+// Public base URL override for the ABSOLUTE artwork URLs in the shop
+// response. CyberFoil/AeroFoil fetch icons by curling the per-item URL
+// verbatim, so the shop must hand out absolute URLs. Normally the origin is
+// derived per-request from the Host header; pin this when running behind a
+// proxy that rewrites Host, or to force a canonical address. Trailing slash
+// trimmed. Unset = derive from each request.
+const rawPublicBaseUrl = pickEnv("COOK_PUBLIC_BASE_URL");
+const publicBaseUrl = rawPublicBaseUrl
+  ? rawPublicBaseUrl.trim().replace(/\/+$/, "")
+  : null;
+
 // Switch console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
@@ -108,6 +119,7 @@ export {
   iconCacheDir,
   titledbCacheDir,
   keysDir,
+  publicBaseUrl,
   customEntriesPath,
   langPriority,
   uploadsDir,

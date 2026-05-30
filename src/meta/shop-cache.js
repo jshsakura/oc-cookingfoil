@@ -41,6 +41,7 @@ import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as diskCache from "./shop-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
+import { rewriteArtworkOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
 
 const gzipAsync = promisify(zlib.gzip);
@@ -53,6 +54,16 @@ const REBUILD_DEBOUNCE_MS = 800;
 const BROTLI_QUALITY = 4;
 
 const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
+
+// Per-origin re-encode cache. The base buffers below hold host-relative
+// artwork URLs; serving CyberFoil needs ABSOLUTE ones (see helpers/origin.js).
+// We derive an absolute-URL variant per distinct request origin and memoize
+// its identity/gzip/brotli/etag, so the expensive compression only runs once
+// per origin instead of per request. Realistic deployments see 1–2 origins;
+// the cap only guards against a flood of spoofed Host headers. Cleared on
+// every rebuild so variants never outlive the base snapshot they derive from.
+const ORIGIN_MEMO_MAX = 16;
+const originMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
 
 let cached = null;           // raw shop object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
@@ -170,6 +181,9 @@ async function build() {
       serializedGzip = gzipBuf;
       serializedBrotli = brBuf;
       serializedEtag = etag;
+      // Drop per-origin variants — they were derived from the now-replaced
+      // base buffers and would serve stale artwork URLs / etags otherwise.
+      originMemo.clear();
 
       lastBuildMs = Date.now() - start;
       buildCount += 1;
@@ -259,6 +273,59 @@ export async function getEncoded(acceptedEncodings) {
     return { body: serializedGzip, contentEncoding: "gzip", etag: serializedEtag };
   }
   return { body: serializedJson, contentEncoding: null, etag: serializedEtag };
+}
+
+// Derive the absolute-URL variant for a single origin and compress it. The
+// rewrite reads serializedJson synchronously up front, so a concurrent
+// rebuild swapping the base buffers can't desync this variant's body/etag.
+async function encodeForOrigin(origin) {
+  const rewritten = rewriteArtworkOrigin(serializedJson.toString("utf-8"), origin);
+  const identity = Buffer.from(rewritten);
+  const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
+  const [gzip, brotli] = await Promise.all([
+    gzipAsync(identity, { level: 6 }).catch((err) => {
+      debug.error("shop cache: origin gzip failed: %s", err.message);
+      return null;
+    }),
+    brotliAsync(identity, {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
+    }).catch((err) => {
+      debug.error("shop cache: origin brotli failed: %s", err.message);
+      return null;
+    }),
+  ]);
+  return { identity, gzip, brotli, etag };
+}
+
+/**
+ * Like getEncoded(), but rewrites the shop response's artwork URLs to be
+ * ABSOLUTE against `origin` (scheme://host) so CyberFoil/AeroFoil can fetch
+ * icons by curling the URL verbatim. A falsy origin falls back to the
+ * host-relative payload (getEncoded) — correct for same-origin browser fetches
+ * and any caller that can't determine a host.
+ */
+export async function getEncodedForOrigin(acceptedEncodings, origin) {
+  if (!origin) return getEncoded(acceptedEncodings);
+  if (!cached) await build();
+
+  let variant = originMemo.get(origin);
+  if (!variant) {
+    variant = await encodeForOrigin(origin);
+    originMemo.set(origin, variant);
+    if (originMemo.size > ORIGIN_MEMO_MAX) {
+      const oldest = originMemo.keys().next().value;
+      originMemo.delete(oldest);
+    }
+  }
+
+  const enc = Array.isArray(acceptedEncodings) ? acceptedEncodings : [];
+  if (enc.includes("br") && variant.brotli) {
+    return { body: variant.brotli, contentEncoding: "br", etag: variant.etag };
+  }
+  if (enc.includes("gzip") && variant.gzip) {
+    return { body: variant.gzip, contentEncoding: "gzip", etag: variant.etag };
+  }
+  return { body: variant.identity, contentEncoding: null, etag: variant.etag };
 }
 
 /**
