@@ -23,7 +23,7 @@
         --font-mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--surface1) transparent; }
-      html { color-scheme: dark; scroll-behavior: smooth; --mx: 50%; --my: 30%; }
+      html { color-scheme: dark; scroll-behavior: smooth; }
       body {
         font-family: var(--font-body);
         background-color: var(--crust);
@@ -57,12 +57,9 @@
         mask-image: radial-gradient(ellipse at center, #000 60%, transparent 100%);
       }
 
-      /* Layer 2: cursor-tracking spotlight + slow-drifting glow orb.
-         --mx/--my are updated from JS on requestAnimationFrame. */
+      /* Layer 2: slow-drifting glow orb (time-based, not cursor-tracking). */
       body::after {
         background:
-          radial-gradient(520px circle at var(--mx) var(--my),
-                          rgba(180, 190, 254, 0.10), transparent 45%),
           radial-gradient(380px circle at calc(50% + var(--orbX, 0px)) calc(35% + var(--orbY, 0px)),
                           rgba(250, 179, 135, 0.08), transparent 60%);
         animation: orbDrift 18s ease-in-out infinite;
@@ -761,21 +758,34 @@
           : COVER_PLACEHOLDER_DARK;
       }
 
-      // Append an English-ish alias in parens — ONLY when the user is on
-      // Korean. Gives '젤다의 전설 (The Legend of Zelda)' brand recognition
-      // without polluting the English mode (where the default name is
-      // already English anyway). Toggling the lang button re-renders so
-      // the cards update without a refresh.
+      // Pick the display name for the current UI language. The server name
+      // is Korean-first (COOK_LANG_PRIORITY) and may arrive already decorated
+      // as 'Korean (English)' so on-device Tinfoil search matches.
+      //   ko: keep that 'Korean (English)' form for brand recognition.
+      //   en: prefer English outright — strip any '(…)' wrapping and swap a
+      //       CJK display name for its English alias when one exists.
+      // Falls back to the given name whenever no better candidate exists.
+      // Toggling the lang button re-renders, so cards update without a refresh.
+      const asciiRatio = (s) =>
+        s.replace(/[^\x20-\x7E]/g, "").length / Math.max(1, s.length);
+      const coreName = (name) =>
+        name.replace(/\s*\([^()]*\)\s*$/, "").trim() || name;
+
       function nameWithAlias(name, aliases) {
-        if (!name || lang !== "ko") return name;
-        const asciiOf = (s) => s.replace(/[^\x20-\x7E]/g, "").length / Math.max(1, s.length);
-        if (asciiOf(name) > 0.7) return name; // displayed is already English-y
-        if (!Array.isArray(aliases)) return name;
-        for (const a of aliases) {
-          if (!a || a === name) continue;
-          if (asciiOf(a) > 0.7) return name + " (" + a + ")";
+        if (!name) return name;
+        const list = Array.isArray(aliases) ? aliases : [];
+        const core = coreName(name);
+
+        if (lang === "en") {
+          if (asciiRatio(core) > 0.7) return core; // already English-y
+          const eng = list.find((a) => a && a !== core && asciiRatio(a) > 0.7);
+          return eng || name;
         }
-        return name;
+
+        // Korean UI: keep an already-decorated name, else append an English alias.
+        if (asciiRatio(core) > 0.7) return name;
+        const eng = list.find((a) => a && a !== core && asciiRatio(a) > 0.7);
+        return eng ? core + " (" + eng + ")" : name;
       }
 
       function animateCount(el, target, duration = 700) {
@@ -790,11 +800,12 @@
       }
 
       // ─── url / copy ────────────────────────────────────────────────────────
-      // We deliberately do NOT print the live origin here. Public-facing
-      // dashboards shouldn't advertise the deployment URL — the visitor's
-      // browser address bar already has it, and the hint text below the
-      // pill names this is just the URL FORMAT they need to follow.
-      const baseUrl = "https://user:pass@host:port/";
+      // Build the connect URL from the live origin (host:port the visitor
+      // actually reached us on) so it's copy-paste ready for Tinfoil/CyberFoil.
+      // The "user:pass@" segment stays a literal placeholder — the operator
+      // swaps in real credentials when basic-auth is enabled, and we never
+      // echo real secrets into the page.
+      const baseUrl = `${location.protocol}//user:pass@${location.host}/`;
       $("shop-url").textContent = baseUrl;
       $("copy-btn").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
@@ -1125,21 +1136,7 @@
         applyI18n();
       });
 
-      // ─── interactive background + scroll progress ─────────────────────────
-      let mx = 0, my = 0, mxLast = 0, myLast = 0, mouseTicking = false;
-      function flushMouse() {
-        if (mx !== mxLast || my !== myLast) {
-          document.documentElement.style.setProperty("--mx", mx + "px");
-          document.documentElement.style.setProperty("--my", my + "px");
-          mxLast = mx; myLast = my;
-        }
-        mouseTicking = false;
-      }
-      document.addEventListener("pointermove", (e) => {
-        mx = e.clientX; my = e.clientY;
-        if (!mouseTicking) { mouseTicking = true; requestAnimationFrame(flushMouse); }
-      }, { passive: true });
-
+      // ─── scroll progress ──────────────────────────────────────────────────
       let scrollTicking = false;
       function flushScroll() {
         const h = document.documentElement;
