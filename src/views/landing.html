@@ -367,8 +367,18 @@
         border-bottom: 1px solid var(--surface0);
       }
       .modal .body { padding: 26px 30px; }
+      /* Title image preview: a cover thumb sits beside the heading so every
+         title shows an image even when there's no banner. Pulled up over the
+         banner edge for an app-store-ish header. */
+      .modal .modal-head { display: flex; gap: 16px; align-items: flex-end; margin: -52px 0 18px; }
+      .modal .modal-cover {
+        width: 84px; height: 84px; flex-shrink: 0; border-radius: 18px;
+        object-fit: cover; background: var(--mantle);
+        border: 3px solid var(--base); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      }
+      .modal .modal-head-text { min-width: 0; padding-bottom: 4px; }
       .modal h3 { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; }
-      .modal .publisher { font-size: 13px; color: var(--subtext0); margin-bottom: 16px; }
+      .modal .publisher { font-size: 13px; color: var(--subtext0); margin-bottom: 0; }
       .modal .modal-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
       .modal .modal-meta div { font-size: 12px; color: var(--subtext0); }
       .modal .modal-meta strong { display: block; color: var(--text); font-size: 13px; font-weight: 600; margin-top: 2px; }
@@ -409,7 +419,17 @@
       }
       .modal .art-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
       .modal .art-row:last-child { margin-bottom: 0; }
-      .modal .art-row .art-label { width: 84px; flex-shrink: 0; color: var(--subtext0); font-size: 12px; }
+      .modal .art-row .art-label { width: 64px; flex-shrink: 0; color: var(--subtext0); font-size: 12px; }
+      .modal .art-thumb {
+        border-radius: 7px; object-fit: cover; background: var(--mantle);
+        border: 1px solid var(--surface1); flex-shrink: 0;
+      }
+      .modal .art-shot { position: relative; display: inline-flex; }
+      .modal .art-shot-x {
+        position: absolute; top: -7px; right: -7px; width: 19px; height: 19px;
+        border-radius: 50%; border: none; cursor: pointer; padding: 0;
+        background: var(--red, #f38ba8); color: #11111b; font-size: 11px; line-height: 19px;
+      }
       .btn.tiny { padding: 5px 11px; font-size: 12px; border-radius: 8px; }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -565,8 +585,13 @@
       <div class="modal" onclick="event.stopPropagation()">
         <div class="banner" id="modal-banner"></div>
         <div class="body">
-          <h3 id="modal-title">—</h3>
-          <p class="publisher" id="modal-publisher">—</p>
+          <div class="modal-head">
+            <img class="modal-cover" id="modal-cover" alt="" decoding="async">
+            <div class="modal-head-text">
+              <h3 id="modal-title">—</h3>
+              <p class="publisher" id="modal-publisher">—</p>
+            </div>
+          </div>
           <div class="modal-meta" id="modal-meta"></div>
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
@@ -1185,6 +1210,13 @@
         $("modal-title").textContent = nameWithAlias(f.name || "(unnamed)", td.aliases || []);
         $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
 
+        // Title image preview beside the heading — every title gets one. Falls
+        // back to the placeholder SVG (never a broken-image glyph) on 404.
+        const coverEl = $("modal-cover");
+        const iconUrl = f.icon_url || (validBase ? `/api/shop/icon/${baseId}` : "");
+        coverEl.onerror = () => { coverEl.onerror = null; coverEl.src = coverPlaceholder(); };
+        coverEl.src = iconUrl ? bustUrl(iconUrl) : coverPlaceholder();
+
         const bannerUrl = td.bannerUrl || (validBase && art.banner ? `/api/shop/banner/${baseId}` : "");
         $("modal-banner").style.backgroundImage = bannerUrl ? `url('${bustUrl(bannerUrl)}')` : "";
 
@@ -1245,10 +1277,24 @@
         });
         input.click();
       }
+      // A small live preview thumbnail. Hides itself on 404 so empty slots
+      // (no custom art and no titledb art) just show no image.
+      function artThumb(url, w, h) {
+        const img = document.createElement("img");
+        img.className = "art-thumb"; img.loading = "lazy"; img.alt = "";
+        img.style.width = w + "px"; img.style.height = h + "px";
+        img.onerror = () => { img.style.display = "none"; };
+        img.src = bustUrl(url);
+        return img;
+      }
       function artSlotRow(baseId, kind, label, hasCustom) {
         const row = document.createElement("div"); row.className = "art-row";
         const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = label;
         row.appendChild(lab);
+        const url = kind === "icon"
+          ? `/api/shop/icon/${baseId}?size=sm`
+          : `/api/shop/banner/${baseId}`;
+        row.appendChild(kind === "icon" ? artThumb(url, 42, 42) : artThumb(url, 72, 40));
         row.appendChild(artBtn(hasCustom ? t("art.replace") : t("art.upload"), "", () => pickAndUpload(baseId, kind)));
         if (hasCustom) row.appendChild(artBtn(t("art.remove"), "ghost", () => removeArt(baseId, kind)));
         return row;
@@ -1259,7 +1305,13 @@
         row.appendChild(lab);
         row.appendChild(artBtn(t("art.add"), "", () => pickAndUpload(baseId, "screenshot")));
         for (const i of screens) {
-          row.appendChild(artBtn("#" + i + " ✕", "ghost", () => removeArt(baseId, "screenshot", i)));
+          const wrap = document.createElement("div"); wrap.className = "art-shot";
+          wrap.appendChild(artThumb(`/api/shop/screenshot/${baseId}/${i}`, 64, 36));
+          const x = document.createElement("button");
+          x.type = "button"; x.className = "art-shot-x"; x.textContent = "✕"; x.title = t("art.remove");
+          x.addEventListener("click", () => removeArt(baseId, "screenshot", i));
+          wrap.appendChild(x);
+          row.appendChild(wrap);
         }
         return row;
       }
