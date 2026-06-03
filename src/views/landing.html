@@ -633,7 +633,7 @@
           "action.copy": "복사",
           "action.download": "다운로드",
           "action.close": "닫기",
-          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> 후 위 URL 추가. AUTH가 켜져 있으면 <code>https://user:pass@host:port/</code> 형태로 입력.",
+          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> 후 위 URL 추가. AUTH가 켜져 있으면 클라가 인라인 자격증명을 못 읽는 경우가 있으니, URL은 <code>https://host:port/shop.tfl</code> 로 넣고 <em>Username / Password</em> 칸에 따로 입력하세요.",
           "stat.games": "타이틀",
           "stat.games_sub": "/games 폴더 스캔",
           "stat.titledb": "TITLEDB",
@@ -708,7 +708,7 @@
           "action.copy": "Copy",
           "action.download": "Download",
           "action.close": "Close",
-          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> and add the URL above. With auth enabled, use <code>https://user:pass@host:port/</code>.",
+          "hint.connect": "Tinfoil / CyberFoil → <em>File Browser</em> → <code>+</code> and add the URL above. With auth enabled, some clients ignore inline credentials — set the URL to <code>https://host:port/shop.tfl</code> and fill the separate <em>Username / Password</em> fields.",
           "stat.games": "Titles",
           "stat.games_sub": "scanned in /games",
           "stat.titledb": "Titledb",
@@ -902,7 +902,7 @@
       // a copy-paste-ready URL carrying the visitor's OWN basic-auth creds —
       // /api/connect-url decodes the credentials the browser already sent. When
       // auth is off (or the fetch fails) the placeholder stays.
-      let baseUrl = `${location.protocol}//user:pass@${location.host}/`;
+      let baseUrl = `${location.protocol}//user:pass@${location.host}/shop.tfl`;
       const urlEl = $("shop-url");
       urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })

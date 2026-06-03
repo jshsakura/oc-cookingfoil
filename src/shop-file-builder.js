@@ -2,6 +2,10 @@
  * Generate the Tinfoil/CookingFoil shop index on every request:
  *   - GET /shop.json  → application/json (browser-readable)
  *   - GET /shop.tfl   → application/octet-stream (consumed by the client)
+ *   - GET /           → application/octet-stream, for non-browser clients that
+ *                       landingRoute waved through (a bare host URL attaches
+ *                       like /shop.tfl). Browsers are served the landing page
+ *                       by landingRoute and never reach this for "/".
  *
  * Both endpoints return the same payload, served from the chokidar-warmed
  * in-memory cache in src/meta/shop-cache.js — concurrent requests share a
@@ -14,7 +18,7 @@ import { publicBaseUrl } from "./helpers/envs.js";
 
 export default function shopFileBuilder() {
   return async (req, res, next) => {
-    if (req.path !== "/shop.json" && req.path !== "/shop.tfl") {
+    if (req.path !== "/" && req.path !== "/shop.json" && req.path !== "/shop.tfl") {
       return next();
     }
     debug.http("IN-> %o", req.path);

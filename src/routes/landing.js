@@ -65,7 +65,16 @@ function pickEncoding(req, e) {
   return                    { body: e.identity, contentEncoding: null };
 }
 
-export default async function landingRoute(req, res) {
+export default async function landingRoute(req, res, next) {
+  // Tinfoil / CyberFoil and other non-browser clients fetch the bare host
+  // (path "/") expecting the shop index, and never send `text/html` in their
+  // Accept header — browsers always do. Hand those callers through to the
+  // shop builder so a root URL attaches exactly like /shop.tfl. Real browsers
+  // fall through to the landing dashboard below.
+  if (!(req.headers.accept || "").includes("text/html")) {
+    return next();
+  }
+
   let e;
   try {
     e = await prepare();

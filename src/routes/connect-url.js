@@ -2,7 +2,7 @@
  * GET /api/connect-url
  *
  * Returns the ready-to-paste shop URL for the CURRENTLY authenticated visitor:
- *   { url: "https://user:pass@host:port/", hasAuth: true }
+ *   { url: "https://user:pass@host:port/shop.tfl", hasAuth: true }
  *
  * The browser already holds the basic-auth credentials (it sent them to reach
  * this authenticated endpoint), so we decode the Authorization header and weave
@@ -43,9 +43,9 @@ export default function connectUrlRoute(req, res) {
     if (creds) {
       const user = encodeURIComponent(creds.user);
       const pass = encodeURIComponent(creds.pass);
-      url = origin.replace(/^([a-z]+:\/\/)/i, `$1${user}:${pass}@`) + "/";
+      url = origin.replace(/^([a-z]+:\/\/)/i, `$1${user}:${pass}@`) + "/shop.tfl";
     } else {
-      url = origin + "/";
+      url = origin + "/shop.tfl";
     }
   }
 
