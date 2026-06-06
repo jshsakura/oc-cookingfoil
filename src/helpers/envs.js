@@ -84,10 +84,28 @@ const extractedMetaDir = path.join(dataDir, "extracted-meta");
 // derived per-request from the Host header; pin this when running behind a
 // proxy that rewrites Host, or to force a canonical address. Trailing slash
 // trimmed. Unset = derive from each request.
+// A scheme is REQUIRED: the value is concatenated verbatim in front of the
+// proxy path ("<base>/api/shop/icon/..."), so a bare "host.tld" produces a
+// schemeless string that CyberFoil's curl and Tinfoil's downloader both treat
+// as invalid (icons silently fail, tapping a title does nothing). It's an easy
+// footgun — operators paste just the domain — so we self-heal: prepend https://
+// (the overwhelmingly common case for a domain behind a TLS-terminating proxy)
+// and warn loudly so a plain-HTTP setup can correct it.
+function normalizeBaseUrl(raw) {
+  if (!raw) return null;
+  let v = raw.trim().replace(/\/+$/, "");
+  if (!v) return null;
+  if (!/^https?:\/\//i.test(v)) {
+    process.stderr.write(
+      `[oc-cookingfoil] COOK_PUBLIC_BASE_URL="${v}" has no scheme — assuming ` +
+        `"https://${v}". Set http:// explicitly if your proxy serves plain HTTP.\n`
+    );
+    v = `https://${v}`;
+  }
+  return v;
+}
 const rawPublicBaseUrl = pickEnv("COOK_PUBLIC_BASE_URL");
-const publicBaseUrl = rawPublicBaseUrl
-  ? rawPublicBaseUrl.trim().replace(/\/+$/, "")
-  : null;
+const publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 
 // /admin 2FA. The admin dashboard sits inside the basic-auth perimeter and
 // adds a TOTP second factor. Unset = /admin disabled entirely. Generate a
