@@ -54,3 +54,24 @@ export function rewriteArtworkOrigin(json, origin) {
   if (!origin) return json;
   return json.replaceAll('"/api/shop/', `"${origin}/api/shop/`);
 }
+
+/**
+ * Make file-download URLs absolute, for the SAME reason as the artwork ones.
+ *
+ * Scanned-file entries carry a `"../" + percent-encoded-relpath` URL (the
+ * legacy tinfoil-hat wire form). CyberFoil/AeroFoil hand the download URL
+ * straight to curl just like they do icons — and a host-relative `../foo.nsp`
+ * has no host to resolve against, so the download silently does nothing
+ * on-device ("tap, no reaction") even though the browser dashboard, which
+ * resolves `../` against its own origin, downloads fine. Anchor it at the
+ * request origin:  "../foo.nsp"  →  "<origin>/foo.nsp".
+ *
+ * The match is anchored on `"../` (opening JSON-string quote + the relative
+ * prefix) so it only touches values that START with `../` — i.e. our own
+ * download URLs. Absolute custom-entry URLs ("https://…") never match. A
+ * falsy origin is a no-op (browser same-origin resolves `../` correctly).
+ */
+export function rewriteDownloadOrigin(json, origin) {
+  if (!origin) return json;
+  return json.replaceAll('"../', `"${origin}/`);
+}

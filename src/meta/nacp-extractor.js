@@ -61,7 +61,7 @@ let active = 0;
 let drained = Promise.resolve();
 let drainedResolver = null;
 
-export function enqueue({ absPath, baseTitleId, fileName }) {
+export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   if (!baseTitleId) return false;
   if (tried.has(baseTitleId)) return false;
   if (inFlight.has(baseTitleId)) return false;
@@ -69,7 +69,7 @@ export function enqueue({ absPath, baseTitleId, fileName }) {
     tried.add(baseTitleId);
     return false;
   }
-  queue.push({ absPath, baseTitleId, fileName });
+  queue.push({ absPath, baseTitleId, fileName, wantMeta });
   inFlight.add(baseTitleId);
   if (drainedResolver === null) {
     drained = new Promise((resolve) => { drainedResolver = resolve; });
@@ -78,7 +78,23 @@ export function enqueue({ absPath, baseTitleId, fileName }) {
   return true;
 }
 
+async function iconCached(baseTitleId) {
+  try {
+    await fs.access(cachePathFor(baseTitleId, "icon"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function workOne(job) {
+  // titledb-covered titles (wantMeta === false) only need an icon. If one is
+  // already on disk — from a prior extract OR the CDN proxy — skip the
+  // expensive container dump entirely. This keeps COOK_EXTRACT_ICONS=all a
+  // one-time pass instead of re-dumping multi-GB files on every restart.
+  if (job.wantMeta === false && (await iconCached(job.baseTitleId))) {
+    return;
+  }
   let record = null;
   try {
     record = await provider.extract(job);
@@ -103,6 +119,16 @@ async function workOne(job) {
         debug.error("nacp-extractor: icon persist failed for %s: %s", job.baseTitleId, err.message);
       }
       delete record.iconBuffer;
+    }
+    // titledb already owns the name/publisher/version for wantMeta === false
+    // titles, and composeResponse only reads extracted meta when titledb has
+    // no entry. Writing a record for them would just be dead JSON on disk, so
+    // we keep the icon we just persisted and skip the metadata store.
+    if (job.wantMeta === false) {
+      if (record.iconPath) {
+        debug.log("nacp-extractor: icon-only %s — %s", job.baseTitleId, path.basename(record.iconPath));
+      }
+      return;
     }
     try {
       await extractedMeta.put({ id: job.baseTitleId, ...record });

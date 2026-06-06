@@ -42,6 +42,7 @@ import {
   romsDirPath,
   welcomeMessage,
   customEntriesPath,
+  extractIcons,
 } from "./helpers/envs.js";
 import {
   addUrlEncodedFileInfo as encodeUrlObject,
@@ -237,16 +238,26 @@ export function composeResponse(filesMap, customs) {
       // but higher than nothing — fills in name/publisher/version for
       // homebrew and fan titles that blawar will never carry.
       const extracted = !fromDb ? extractedMeta.get(baseId) : null;
-      // Queue extraction for anything missing from both layers. The worker
-      // de-dupes by titleId, so re-enqueueing on every rebuild is cheap.
-      // Use the raw relPath (filesMap key) — item.url is percent-encoded
-      // for wire transport and would point the extractor at a non-existent
-      // path otherwise.
-      if (!fromDb && !extracted) {
+      // Queue extraction per the COOK_EXTRACT_ICONS policy:
+      //   all     → every title, so the icon comes out of the container and
+      //             covers render fully offline (CDN is only a fallback).
+      //   missing → only titles titledb can't cover.
+      //   off     → never.
+      // The worker de-dupes by titleId AND skips containers whose icon is
+      // already on disk, so re-enqueueing on every rebuild stays cheap.
+      // `wantMeta` is false for titledb-covered titles — they only need the
+      // icon, so the worker can skip the expensive nstool dump when one is
+      // already cached. Use the raw relPath (filesMap key) — item.url is
+      // percent-encoded for wire transport and would point the extractor at
+      // a non-existent path otherwise.
+      const wantExtract =
+        extractIcons === "all" ? true : extractIcons === "missing" ? !fromDb : false;
+      if (wantExtract && !extracted) {
         nacpExtractor.enqueue({
           absPath: path.join(romsDirPath, relPath),
           baseTitleId: baseId,
           fileName: item.name,
+          wantMeta: !fromDb,
         });
       }
       titledb[baseId] = {

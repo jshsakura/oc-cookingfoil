@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveOrigin, rewriteArtworkOrigin } from "../../src/helpers/origin.js";
+import {
+  resolveOrigin,
+  rewriteArtworkOrigin,
+  rewriteDownloadOrigin,
+} from "../../src/helpers/origin.js";
 
 // Minimal Express-req stand-in: get() is case-insensitive like the real one.
 function fakeReq({ headers = {}, protocol = "http" } = {}) {
@@ -67,4 +71,28 @@ test("rewriteArtworkOrigin: prefixes only our proxy endpoints", () => {
 test("rewriteArtworkOrigin: empty origin is a no-op", () => {
   const json = '{"icon_url":"/api/shop/icon/X"}';
   assert.equal(rewriteArtworkOrigin(json, ""), json);
+});
+
+test("rewriteDownloadOrigin: anchors only ../ download URLs at the origin", () => {
+  const json = JSON.stringify({
+    files: [
+      { url: "../Armello%20%5B0100%5D.nsp", icon_url: "/api/shop/icon/0100?v=0.7" },
+      { url: "../Sub%20Folder%2FGame.nsz" },
+      { url: "https://fan.example.com/homebrew.nro" }, // custom entry — absolute
+    ],
+  });
+
+  const out = JSON.parse(rewriteDownloadOrigin(json, "http://host:9080"));
+
+  // ../ download URLs become absolute against the request origin…
+  assert.equal(out.files[0].url, "http://host:9080/Armello%20%5B0100%5D.nsp");
+  assert.equal(out.files[1].url, "http://host:9080/Sub%20Folder%2FGame.nsz");
+  // …absolute custom URLs and non-download fields are left untouched.
+  assert.equal(out.files[2].url, "https://fan.example.com/homebrew.nro");
+  assert.equal(out.files[0].icon_url, "/api/shop/icon/0100?v=0.7");
+});
+
+test("rewriteDownloadOrigin: empty origin is a no-op", () => {
+  const json = '{"url":"../game.nsp"}';
+  assert.equal(rewriteDownloadOrigin(json, ""), json);
 });

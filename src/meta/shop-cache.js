@@ -40,8 +40,8 @@ import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as diskCache from "./shop-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
-import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
-import { rewriteArtworkOrigin } from "../helpers/origin.js";
+import { romsDirPath, customEntriesPath, dataDir, publicBaseUrl } from "../helpers/envs.js";
+import { rewriteArtworkOrigin, rewriteDownloadOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
 
 const gzipAsync = promisify(zlib.gzip);
@@ -294,7 +294,18 @@ export async function getEncoded(acceptedEncodings) {
 // rewrite reads serializedJson synchronously up front, so a concurrent
 // rebuild swapping the base buffers can't desync this variant's body/etag.
 async function encodeForOrigin(origin) {
-  const rewritten = rewriteArtworkOrigin(serializedJson.toString("utf-8"), origin);
+  // Artwork URLs (`/api/shop/...`) are ALWAYS made absolute: CyberFoil/AeroFoil
+  // hand them straight to curl, and a host-relative URL has no host to resolve.
+  let rewritten = rewriteArtworkOrigin(serializedJson.toString("utf-8"), origin);
+  // File-download URLs (`../foo.nsp`) stay HOST-RELATIVE by default. The client
+  // resolves them against whatever URL it connected with, so they always point
+  // at the right host with zero config — even behind a reverse proxy. We only
+  // anchor them at an absolute host when the operator explicitly pins one via
+  // COOK_PUBLIC_BASE_URL (origin === publicBaseUrl then), e.g. a domain behind
+  // a proxy where the client should be steered to a canonical address.
+  if (publicBaseUrl && origin === publicBaseUrl) {
+    rewritten = rewriteDownloadOrigin(rewritten, origin);
+  }
   const identity = Buffer.from(rewritten);
   const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
   const [gzip, brotli] = await Promise.all([
