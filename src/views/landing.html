@@ -1070,7 +1070,10 @@
         const frag = document.createDocumentFragment();
         for (const r of list) frag.appendChild(makeCard(r));
         grid.appendChild(frag);
-        grid.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        // NOTE: do NOT scrollIntoView here. renderList() runs on initial load,
+        // every search keystroke and every filter change — auto-scrolling on all
+        // of those yanks the page around ("자꾸 지가 내려감"). Page-change scroll
+        // is handled in the pager button click instead, where it's intentional.
       }
 
       function makeCard(r) {
@@ -1154,7 +1157,12 @@
           b.className = "pager-btn" + (opts.current ? " current" : "");
           b.type = "button"; b.textContent = label;
           if (opts.disabled) b.disabled = true;
-          else b.addEventListener("click", () => { state.page = target; applyFilters(); });
+          else b.addEventListener("click", () => {
+            state.page = target;
+            applyFilters();
+            // Intentional: changing pages brings the grid top into view.
+            $("games").scrollIntoView({ behavior: "smooth", block: "start" });
+          });
           return b;
         };
 
