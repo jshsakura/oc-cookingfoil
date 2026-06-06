@@ -15,6 +15,18 @@ services:
       COOK_DATA_DIR: /data
       COOK_KEYS_DIR: /keys
       COOK_LANG_PRIORITY: ${COOK_LANG_PRIORITY:-ko,en,ja}
+      # Behind a reverse proxy / on a domain? Pin the EXTERNAL base URL the
+      # client actually browses to (no trailing slash, no /shop.tfl). This makes
+      # BOTH icon and file-download URLs absolute against that address, so they
+      # work regardless of the internal Host header the proxy forwards. Leave
+      # unset for direct IP:port access. See .env.example for details.
+      COOK_PUBLIC_BASE_URL: ${COOK_PUBLIC_BASE_URL:-}
+      # Trust X-Forwarded-* from the proxy (correct client IP for rate-limit /
+      # lockout, and Host derivation when COOK_PUBLIC_BASE_URL is unset).
+      COOK_TRUST_PROXY: ${COOK_TRUST_PROXY:-}
+      # Icon source: all = pull from game containers (offline-first, needs
+      # prod.keys) | missing = only titles titledb can't cover | off.
+      COOK_EXTRACT_ICONS: ${COOK_EXTRACT_ICONS:-all}
       # Auto-refresh titledb every N hours while running (default 24).
       COOK_TITLEDB_REFRESH_INTERVAL_HOURS: ${COOK_TITLEDB_REFRESH_INTERVAL_HOURS:-24}
       # Optional explicit path. Defaults to /games/custom_entries.jsonc.
