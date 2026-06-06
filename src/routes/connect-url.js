@@ -2,17 +2,15 @@
  * GET /api/connect-url
  *
  * Returns the ready-to-paste shop URL for the CURRENTLY authenticated visitor:
- *   { url: "https://user:pass@host:port/shop.tfl", hasAuth: true }
+ *   { url: "https://host:port/shop.tfl", hasAuth: true, username: "tinfoil" }
  *
- * The browser already holds the basic-auth credentials (it sent them to reach
- * this authenticated endpoint), so we decode the Authorization header and weave
- * the real user:pass into the origin the request actually arrived on. That lets
- * the dashboard show a copy-paste-ready URL instead of a "user:pass@host"
- * placeholder the operator has to hand-edit.
+ * The URL is CLEAN — the password is never woven into it. Credentials in a URL
+ * leak through browser history, proxy/access logs, and Referer headers, and most
+ * clients (Tinfoil/CyberFoil) want them in their own Username/Password fields
+ * anyway. We surface the username (handy, low-risk) but the visitor types their
+ * own password into the client; the server never echoes it back.
  *
- * Security: the response echoes the caller's OWN password back to the caller
- * (who just typed it) over the same authenticated channel — no third party
- * sees it. Marked no-store and the credentials are never logged.
+ * Security: marked no-store; the password is neither returned nor logged.
  */
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
@@ -38,16 +36,12 @@ export default function connectUrlRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl); // "proto://host" or ""
   const creds = decodeBasicAuth(req);
 
-  let url = null;
-  if (origin) {
-    if (creds) {
-      const user = encodeURIComponent(creds.user);
-      const pass = encodeURIComponent(creds.pass);
-      url = origin.replace(/^([a-z]+:\/\/)/i, `$1${user}:${pass}@`) + "/shop.tfl";
-    } else {
-      url = origin + "/shop.tfl";
-    }
-  }
+  // Clean URL only — never embed the password (history/log/Referer leak).
+  const url = origin ? origin + "/shop.tfl" : null;
 
-  res.status(200).json({ url, hasAuth: Boolean(creds) });
+  res.status(200).json({
+    url,
+    hasAuth: Boolean(creds),
+    username: creds ? creds.user : null,
+  });
 }

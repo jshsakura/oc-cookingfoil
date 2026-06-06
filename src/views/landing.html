@@ -898,11 +898,11 @@
       }
 
       // ─── url / copy ────────────────────────────────────────────────────────
-      // Start with a placeholder built from the live origin, then upgrade it to
-      // a copy-paste-ready URL carrying the visitor's OWN basic-auth creds —
-      // /api/connect-url decodes the credentials the browser already sent. When
-      // auth is off (or the fetch fails) the placeholder stays.
-      let baseUrl = `${location.protocol}//user:pass@${location.host}/shop.tfl`;
+      // CLEAN shop URL only — the password is never embedded (it would leak via
+      // browser history / proxy logs / Referer). /api/connect-url returns the
+      // canonical URL; users enter their own credentials in the client's
+      // Username / Password fields. Falls back to the live origin on fetch fail.
+      let baseUrl = `${location.protocol}//${location.host}/shop.tfl`;
       const urlEl = $("shop-url");
       urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
