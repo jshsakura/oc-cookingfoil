@@ -43,6 +43,7 @@ import {
   welcomeMessage,
   customEntriesPath,
   extractIcons,
+  emitTitledb,
 } from "./helpers/envs.js";
 import {
   addUrlEncodedFileInfo as encodeUrlObject,
@@ -311,7 +312,11 @@ export function composeResponse(filesMap, customs) {
     template.success = welcomeMessage;
   }
 
-  return Object.assign(template, { files, titledb });
+  // The titledb map is built above regardless (it drives icon prewarm + the
+  // NACP extraction queue), but we only PUBLISH it when explicitly opted in.
+  // Emitting it makes CyberFoil/AeroFoil render a url-less, unselectable
+  // "ghost" row per title — see the COOK_EMIT_TITLEDB note in helpers/envs.js.
+  return Object.assign(template, emitTitledb ? { files, titledb } : { files });
 }
 
 /**

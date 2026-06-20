@@ -144,6 +144,24 @@ if (rawExtractIcons !== extractIcons) {
   );
 }
 
+// Whether to emit the top-level `titledb` metadata map in the shop response.
+//
+// OFF by default — and that is deliberate. CyberFoil/AeroFoil's legacy shop
+// parser (remoteInstall.cpp::AppendLegacyTitleDbFromJson) turns EVERY titledb
+// entry into a list item with an EMPTY download url, deduped on "tid:<id>"
+// instead of the file's url. Those never collide with the real file entries,
+// so a response carrying both `files` and `titledb` produces a second, url-less
+// "ghost" row per title. selectTitle() early-returns on `url.empty()`, so those
+// ghost rows can't be checked or installed — the on-device symptom is "the list
+// shows but A/＋ do nothing on half the rows". tinfoil-hat never shipped a
+// titledb, which is why it didn't hit this.
+//
+// The per-file entries already carry name + size + titleId + icon_url, and
+// CyberFoil pulls richer metadata from its own offline DB by titleId, so
+// dropping titledb costs the priority clients nothing. Flip this on only for
+// stock Tinfoil, whose detail view / search reads the titledb override map.
+const emitTitledb = process.env.COOK_EMIT_TITLEDB === "true";
+
 // User-supplied custom shop entries (default lives alongside the games folder).
 const customEntriesPath =
   process.env.COOK_CUSTOM_ENTRIES ??
@@ -175,6 +193,7 @@ export {
   customArtDir,
   keysDir,
   extractIcons,
+  emitTitledb,
   publicBaseUrl,
   adminTotpSecret,
   adminSessionHours,

@@ -29,6 +29,10 @@ services:
       COOK_EXTRACT_ICONS: ${COOK_EXTRACT_ICONS:-all}
       # Auto-refresh titledb every N hours while running (default 24).
       COOK_TITLEDB_REFRESH_INTERVAL_HOURS: ${COOK_TITLEDB_REFRESH_INTERVAL_HOURS:-24}
+      # Publish the top-level titledb map in the shop response. OFF by default:
+      # CyberFoil/AeroFoil turn each titledb entry into a url-less, unselectable
+      # "ghost" row (breaks A/＋ selection). Turn on only for stock Tinfoil.
+      COOK_EMIT_TITLEDB: ${COOK_EMIT_TITLEDB:-}
       # Optional explicit path. Defaults to /games/custom_entries.jsonc.
       COOK_CUSTOM_ENTRIES: ${COOK_CUSTOM_ENTRIES:-}
       # Basic auth — leave unset to disable. Format: "user:pass,user2:pass2".
