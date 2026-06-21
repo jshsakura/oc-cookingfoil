@@ -142,9 +142,24 @@ function buildFileItem(relPath, size) {
   const rawName = fromDb?.name || parsed.name;
   const displayName = decorateNameWithAlias(rawName, fromDb);
 
+  // CyberFoil/AeroFoil's legacy remote parser (remoteInstall.cpp::
+  // AppendRemoteItemFromEntry → ApplyLegacyMetadataFromName) IGNORES the
+  // per-item `titleId` field and recovers the title id + content type ONLY
+  // from `[...]` tokens inside `name`. A clean name like "1-2-Switch" leaves
+  // the item with no title id, so it isn't recognised as a base title — and
+  // with the client's "All base only" filter on (remoteAllBaseOnly, default
+  // ON), every such row is dropped and the catalog shows up EMPTY. Stamping
+  // the standard `[TITLEID][vVER]` suffix onto the name restores base
+  // detection (and per-title grouping) on those clients; the client then
+  // renders its own clean name from its offline DB. Stock Tinfoil shows the
+  // suffixed name, which is the conventional shop format anyway.
+  const nameWithId = parsed.titleId
+    ? `${displayName} [${parsed.titleId}][v${parsed.version ?? 0}]`
+    : displayName;
+
   const item = {
     url: encodeRelPath(relPath),
-    name: displayName,
+    name: nameWithId,
     size,
   };
   if (parsed.titleId) {
