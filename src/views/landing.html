@@ -1192,6 +1192,10 @@
       // Bumped after every artwork edit; appended to image URLs so a replaced
       // override repaints immediately despite HTTP caching.
       let currentModal = null;
+      // Per-title detail/art cache — reopening a title (or revisiting after a
+      // filter) reuses the fetched metadata instead of hitting the API again.
+      // Keyed by base title id; lives for the page session.
+      const detailCache = new Map();
       let artVersion = 0;
       function bustUrl(u) {
         if (!artVersion) return u;
@@ -1212,12 +1216,18 @@
         let art = { icon: false, banner: false, screens: [] };
         let detail = {};
         if (validBase) {
-          const [ar, dr] = await Promise.all([
-            fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-            fetch(`/api/title/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-          ]);
-          try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
-          try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
+          const cached = detailCache.get(baseId);
+          if (cached) {
+            ({ art, detail } = cached);
+          } else {
+            const [ar, dr] = await Promise.all([
+              fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+              fetch(`/api/title/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+            ]);
+            try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
+            try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
+            detailCache.set(baseId, { art, detail });
+          }
         }
         // detail (server titledb store) wins over the sparse per-row tdb.
         const td = { ...(r.tdb || {}), ...detail };
