@@ -1200,20 +1200,27 @@
 
       async function openModal(r) {
         currentModal = r;
-        const f = r.item, td = r.tdb || {};
+        const f = r.item;
         const baseId = (f.baseTitleId || f.titleId || "").toUpperCase();
         const validBase = /^[0-9A-F]{16}$/.test(baseId);
 
-        // Operator-supplied art presence (best effort). Drives banner/
-        // screenshot fallbacks for titles titledb has no art for, plus the
-        // edit controls below.
+        // Rich metadata (description, publisher, screenshots, release, region,
+        // rating, players) lives behind /api/title/:id because the shop
+        // response drops the top-level titledb map (CyberFoil ghost-row
+        // avoidance). Fetch that detail alongside operator-supplied art
+        // (best effort) so the modal shows full info instead of "—".
         let art = { icon: false, banner: false, screens: [] };
+        let detail = {};
         if (validBase) {
-          try {
-            const ar = await fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } });
-            if (ar.ok) art = await ar.json();
-          } catch { /* best effort */ }
+          const [ar, dr] = await Promise.all([
+            fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+            fetch(`/api/title/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+          ]);
+          try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
+          try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
         }
+        // detail (server titledb store) wins over the sparse per-row tdb.
+        const td = { ...(r.tdb || {}), ...detail };
 
         $("modal-title").textContent = nameWithAlias(f.name || "(unnamed)", td.aliases || []);
         $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
