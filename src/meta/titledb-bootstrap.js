@@ -29,14 +29,14 @@ const POST_BOOT_DELAY_MS = 60_000;  // small breathing room when refresh is due
 let inFlight = null;
 let refreshTimer = null;
 
-async function doFetch() {
+async function doFetch(regions) {
   // Concurrent callers share the same in-flight promise — no duplicate
   // downloads when boot fetch and scheduled refresh race.
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const regions = getRegionsFromEnv();
-      const results = await fetchAll(regions, titledbCacheDir);
+      const target = regions ?? getRegionsFromEnv();
+      const results = await fetchAll(target, titledbCacheDir);
       const okCount = results.filter((r) => r.ok).length;
       debug.log(
         "titledb fetch: ok=%d/%d",
@@ -56,6 +56,26 @@ async function doFetch() {
     }
   })();
   return inFlight;
+}
+
+/**
+ * Configured regions that have NO file on disk yet (neither the raw
+ * `<region>.json` nor the pre-indexed `<region>.slim.json`). Pure + exported
+ * so the back-fill decision is unit-testable without touching the network.
+ */
+export function missingRegions(configured, presentFiles) {
+  const files = presentFiles instanceof Set ? presentFiles : new Set(presentFiles);
+  return configured.filter(
+    (r) => !files.has(`${r}.json`) && !files.has(`${r}.slim.json`)
+  );
+}
+
+async function presentRegionFiles() {
+  try {
+    return new Set(await readdir(titledbCacheDir));
+  } catch {
+    return new Set();
+  }
 }
 
 async function oldestCacheMtime() {
@@ -108,23 +128,36 @@ export async function bootstrap() {
   shopCache.invalidate();
   const autoFetch = process.env.COOK_TITLEDB_AUTO_FETCH !== "false";
   const haveCache = store.size() > 0;
+  // A partial cache is the common real-world state: an early boot (or a once-
+  // narrowed COOK_TITLEDB_REGIONS) left only some regions on disk. Because
+  // `haveCache` used to gate the boot fetch on "store non-empty", the missing
+  // regions — notably US.en, the source of English search aliases for the
+  // "한글 (English)" name decoration — were NEVER back-filled until the 24 h
+  // refresh happened to run. Detect the gap and fetch ONLY the missing regions
+  // (the ones already on disk, e.g. KR.ko, aren't re-pulled).
+  const missing = missingRegions(getRegionsFromEnv(), await presentRegionFiles());
 
-  if (haveCache) {
+  const onFetchDone = (label) => () =>
+    debug.log("titledb bootstrap: %s done (%d titles)", label, store.size());
+  const onFetchFail = (label) => (err) =>
+    debug.error("titledb bootstrap: %s failed: %s", label, err.message);
+
+  if (haveCache && missing.length === 0) {
     debug.log("titledb bootstrap: cache present (%d titles)", store.size());
   } else if (!autoFetch) {
-    debug.log("titledb bootstrap: cache empty and auto-fetch disabled");
+    debug.log(
+      "titledb bootstrap: cache %s and auto-fetch disabled",
+      haveCache ? `incomplete (missing ${missing.join(", ")})` : "empty"
+    );
+  } else if (haveCache && missing.length > 0) {
+    debug.log(
+      "titledb bootstrap: back-filling missing regions: %s",
+      missing.join(", ")
+    );
+    doFetch(missing).then(onFetchDone("back-fill")).catch(onFetchFail("back-fill"));
   } else {
     debug.log("titledb bootstrap: cache empty — fetching in background");
-    doFetch()
-      .then(() =>
-        debug.log(
-          "titledb bootstrap: initial fetch done (%d titles)",
-          store.size()
-        )
-      )
-      .catch((err) =>
-        debug.error("titledb bootstrap: initial fetch failed: %s", err.message)
-      );
+    doFetch().then(onFetchDone("initial fetch")).catch(onFetchFail("initial fetch"));
   }
 
   if (!autoFetch) {
