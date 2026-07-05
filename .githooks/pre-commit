@@ -121,7 +121,10 @@ fi
 node -e "
   const r = JSON.parse(require('fs').readFileSync('$JSON','utf-8'));
   if (!Array.isArray(r.files)) { console.error('files[] missing'); process.exit(1); }
-  if (!r.titledb || typeof r.titledb !== 'object') { console.error('titledb missing'); process.exit(1); }
+  // titledb is OPTIONAL since v0.7.17 (dropped by default to avoid CyberFoil
+  // ghost rows; only emitted when COOK_EMIT_TITLEDB=true). Validate its shape
+  // only when present.
+  if ('titledb' in r && (typeof r.titledb !== 'object' || r.titledb === null)) { console.error('titledb present but not an object'); process.exit(1); }
   for (const f of r.files) {
     if (!f.url || !f.name) {
       console.error('item missing url/name:', JSON.stringify(f));
