@@ -37,3 +37,12 @@ test("missingRegions: full cache → nothing missing", () => {
   const present = CONFIGURED.map((r) => `${r}.json`);
   assert.deepEqual(missingRegions(CONFIGURED, present), []);
 });
+
+test("missingRegions: a .404 tombstone marks a region as not-missing (no re-fetch every boot)", () => {
+  // EU.en is often absent upstream; its 404 tombstone should stop the boot
+  // back-fill from re-requesting it on every restart.
+  const present = ["KR.ko.slim.json", "US.en.slim.json", "EU.en.404"];
+  assert.deepEqual(missingRegions(["KR.ko", "US.en", "EU.en", "JP.ja"], present), [
+    "JP.ja",
+  ]);
+});

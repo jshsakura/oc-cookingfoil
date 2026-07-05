@@ -26,23 +26,24 @@ const REFRESH_HOURS = Math.max(
 const REFRESH_MS = REFRESH_HOURS * 60 * 60 * 1000;
 const POST_BOOT_DELAY_MS = 60_000;  // small breathing room when refresh is due
 
-let inFlight = null;
+// Keyed by the exact region set so identical concurrent calls dedup, but a
+// narrowed boot back-fill (missing regions only) and a full scheduled refresh
+// don't clobber each other — sharing one guard would hand the later caller the
+// other's partial-set promise and silently drop its work.
+const inFlightByKey = new Map();
 let refreshTimer = null;
 
 async function doFetch(regions) {
-  // Concurrent callers share the same in-flight promise — no duplicate
-  // downloads when boot fetch and scheduled refresh race.
-  if (inFlight) return inFlight;
-  inFlight = (async () => {
+  const target = regions ?? getRegionsFromEnv();
+  const key = [...target].sort().join(",");
+  const existing = inFlightByKey.get(key);
+  if (existing) return existing;
+
+  const p = (async () => {
     try {
-      const target = regions ?? getRegionsFromEnv();
       const results = await fetchAll(target, titledbCacheDir);
       const okCount = results.filter((r) => r.ok).length;
-      debug.log(
-        "titledb fetch: ok=%d/%d",
-        okCount,
-        results.length
-      );
+      debug.log("titledb fetch: ok=%d/%d", okCount, results.length);
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
@@ -52,21 +53,27 @@ async function doFetch(regions) {
       }
       return results;
     } finally {
-      inFlight = null;
+      inFlightByKey.delete(key);
     }
   })();
-  return inFlight;
+  inFlightByKey.set(key, p);
+  return p;
 }
 
 /**
- * Configured regions that have NO file on disk yet (neither the raw
- * `<region>.json` nor the pre-indexed `<region>.slim.json`). Pure + exported
+ * Configured regions that have NO file on disk yet — neither the raw
+ * `<region>.json`, the pre-indexed `<region>.slim.json`, nor a `<region>.404`
+ * tombstone (a region blawar doesn't carry; re-requesting it every boot is
+ * wasted work — the scheduled full refresh still retries it). Pure + exported
  * so the back-fill decision is unit-testable without touching the network.
  */
 export function missingRegions(configured, presentFiles) {
   const files = presentFiles instanceof Set ? presentFiles : new Set(presentFiles);
   return configured.filter(
-    (r) => !files.has(`${r}.json`) && !files.has(`${r}.slim.json`)
+    (r) =>
+      !files.has(`${r}.json`) &&
+      !files.has(`${r}.slim.json`) &&
+      !files.has(`${r}.404`)
   );
 }
 

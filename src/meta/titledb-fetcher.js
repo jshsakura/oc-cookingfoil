@@ -27,6 +27,32 @@ function regionUrl(region) {
   return `${BASE_URL}/${region}.json`;
 }
 
+// A region that returns 404 upstream (not every region/lang pair exists in
+// blawar/titledb) is marked absent with a `<region>.404` tombstone so the
+// boot-time back-fill (which only fetches "missing" regions) doesn't re-request
+// it on every restart. The scheduled full refresh still re-attempts it, so a
+// region that later appears upstream is picked up.
+function tombstonePath(destDir, region) {
+  return path.join(destDir, `${region}.404`);
+}
+
+async function writeTombstone(destDir, region) {
+  try {
+    await mkdir(destDir, { recursive: true });
+    await writeFile(tombstonePath(destDir, region), "");
+  } catch (err) {
+    debug.error("titledb: tombstone write failed for %s: %s", region, err.message);
+  }
+}
+
+async function clearTombstone(destDir, region) {
+  try {
+    await unlink(tombstonePath(destDir, region));
+  } catch (_) {
+    // ENOENT is the normal case — no tombstone to clear.
+  }
+}
+
 export async function fetchRegion(region, destDir) {
   const url = regionUrl(region);
   const finalPath = path.join(destDir, `${region}.json`);
@@ -43,6 +69,7 @@ export async function fetchRegion(region, destDir) {
 
   if (res.status === 404) {
     debug.log("titledb: %s not available (404) — skipping", region);
+    await writeTombstone(destDir, region);
     return { region, ok: false, status: 404 };
   }
   if (!res.ok) {
@@ -60,6 +87,8 @@ export async function fetchRegion(region, destDir) {
     await mkdir(destDir, { recursive: true });
     await writeFile(tmpPath, buf);
     await rename(tmpPath, finalPath);
+    // Region is back — drop any stale absent-marker from a prior 404.
+    await clearTombstone(destDir, region);
     debug.log("titledb: %s saved (%d bytes)", region, buf.length);
     // Emit slim sibling so the next boot skips the multi-second raw parse.
     // Non-fatal: if it fails the store falls back to the raw file.
