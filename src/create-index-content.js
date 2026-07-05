@@ -135,19 +135,25 @@ function decorateNameWithAlias(name, fromDb) {
   return `${name} (${eng.trim()})`;
 }
 
+// Resolve a title's DISPLAY name from the best available source, in order:
+// titledb (rich, may carry a localized name + English aliases for the 한(영)
+// decoration) → NACP data extracted from the container (homebrew / fan /
+// brand-new titles blawar's titledb never has) → the filename. Without the
+// extracted layer a title missing from titledb collapsed to its filename —
+// often the bare "[TITLEID][vVER]" tokens. Returns the decorated name.
+// Shared by buildFileItem (legacy/dashboard) and buildSectionItem (CyberFoil).
+function resolveDisplayName(parsed, fromDb) {
+  const baseId = parsed.groupTitleId;
+  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
+  const rawName = fromDb?.name || extracted?.name || parsed.name;
+  return decorateNameWithAlias(rawName, fromDb);
+}
+
 function buildFileItem(relPath, size) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
-  // Display-name fallback chain: titledb (rich, may carry a KR name + English
-  // aliases for the 한(영) decoration) → NACP extracted from the container
-  // (covers homebrew / fan / brand-new titles blawar's titledb never has) →
-  // filename. Without the extracted layer a title missing from titledb
-  // collapsed to its filename — often the bare "[TITLEID][vVER]" tokens.
-  // COOK_EXTRACT_ICONS already populates extracted-meta, so surface its name.
-  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
-  const rawName = fromDb?.name || extracted?.name || parsed.name;
-  const displayName = decorateNameWithAlias(rawName, fromDb);
+  const displayName = resolveDisplayName(parsed, fromDb);
 
   // CyberFoil/AeroFoil's legacy remote parser (remoteInstall.cpp::
   // AppendRemoteItemFromEntry → ApplyLegacyMetadataFromName) IGNORES the
@@ -358,13 +364,9 @@ function buildSectionItem(relPath, wireItem) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
-  // Same fallback chain as buildFileItem: titledb → NACP extracted → filename,
-  // so titles absent from titledb still surface a real name to CyberFoil.
-  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
-  const rawName = fromDb?.name || extracted?.name || parsed.name;
   const item = {
     url: wireItem.url, // already "../" + percent-encoded relPath
-    name: decorateNameWithAlias(rawName, fromDb), // CLEAN — no [TID][vVER] suffix
+    name: resolveDisplayName(parsed, fromDb), // CLEAN — no [TID][vVER] suffix
     size: wireItem.size,
   };
   if (parsed.titleId) {
