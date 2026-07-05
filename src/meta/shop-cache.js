@@ -32,6 +32,7 @@ import { promisify } from "util";
 import {
   scanLibrary,
   composeResponse,
+  composeSections,
   readOneFile,
   loadCustoms,
   isGameFile,
@@ -64,6 +65,14 @@ const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
 // every rebuild so variants never outlive the base snapshot they derive from.
 const ORIGIN_MEMO_MAX = 16;
 const originMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
+
+// Native sections view (CyberFoil /api/shop/sections), built lazily from the
+// same filesMap and memoized per origin exactly like the shop response.
+// Invalidated on every rebuild (alongside originMemo) so it never serves a
+// stale catalog.
+let sectionsIdentity = null; // Buffer: relative-URL sections JSON
+let sectionsNoOriginVariant = null; // compressed relative variant (falsy origin)
+const sectionsOriginMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
 
 let cached = null;           // raw shop object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
@@ -184,6 +193,10 @@ async function build() {
       // Drop per-origin variants — they were derived from the now-replaced
       // base buffers and would serve stale artwork URLs / etags otherwise.
       originMemo.clear();
+      // Same for the sections view — rebuilt lazily on the next request.
+      sectionsIdentity = null;
+      sectionsNoOriginVariant = null;
+      sectionsOriginMemo.clear();
 
       lastBuildMs = Date.now() - start;
       buildCount += 1;
@@ -258,24 +271,6 @@ export async function get() {
 }
 
 /**
- * Expose the primitive library state (filesMap + customs) so callers that
- * need to derive an ALTERNATE view of the same warmed library — e.g. the
- * native `/api/shop/sections` response for CyberFoil — can build it without
- * re-scanning disk.
- *
- * Forces a build when `filesMap` is still null. This matters on the WARM
- * restart path: tryHydrateFromDisk() restores `cached`/`serializedJson` from
- * disk (so /shop.tfl serves immediately) but does NOT populate `filesMap` —
- * only build() does. Without this guard, `get()` short-circuits on `cached`
- * and callers would see an empty library in the window between hydrate and the
- * first debounced rebuild. build() dedups via its own in-flight guard.
- */
-export async function getState() {
-  if (!filesMap) await build();
-  return { filesMap, customs };
-}
-
-/**
  * Relative paths (under the games dir) of every scanned game file whose base
  * titleId matches. Used by the extras route to locate a title's folder(s).
  * Returns [] before the first build (cache cold) — callers should await get()
@@ -308,6 +303,39 @@ export async function getEncoded(acceptedEncodings) {
   return { body: serializedJson, contentEncoding: null, etag: serializedEtag };
 }
 
+// Compress an identity Buffer into the { identity, gzip, brotli, etag } variant
+// shape shared by the shop response and the sections view. gzip + brotli run in
+// parallel on libuv's thread pool; a failed codec yields null and the caller
+// falls back to a lighter encoding.
+async function compressVariant(identity) {
+  const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
+  const [gzip, brotli] = await Promise.all([
+    gzipAsync(identity, { level: 6 }).catch((err) => {
+      debug.error("shop cache: gzip failed: %s", err.message);
+      return null;
+    }),
+    brotliAsync(identity, {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
+    }).catch((err) => {
+      debug.error("shop cache: brotli failed: %s", err.message);
+      return null;
+    }),
+  ]);
+  return { identity, gzip, brotli, etag };
+}
+
+// Pick the smallest variant the caller advertised — br > gzip > identity.
+function pickVariant(variant, acceptedEncodings) {
+  const enc = Array.isArray(acceptedEncodings) ? acceptedEncodings : [];
+  if (enc.includes("br") && variant.brotli) {
+    return { body: variant.brotli, contentEncoding: "br", etag: variant.etag };
+  }
+  if (enc.includes("gzip") && variant.gzip) {
+    return { body: variant.gzip, contentEncoding: "gzip", etag: variant.etag };
+  }
+  return { body: variant.identity, contentEncoding: null, etag: variant.etag };
+}
+
 // Derive the absolute-URL variant for a single origin and compress it. The
 // rewrite reads serializedJson synchronously up front, so a concurrent
 // rebuild swapping the base buffers can't desync this variant's body/etag.
@@ -324,21 +352,7 @@ async function encodeForOrigin(origin) {
   // (Stock Tinfoil accepts absolute file URLs fine, so this is safe there too.)
   let rewritten = rewriteArtworkOrigin(serializedJson.toString("utf-8"), origin);
   rewritten = rewriteDownloadOrigin(rewritten, origin);
-  const identity = Buffer.from(rewritten);
-  const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
-  const [gzip, brotli] = await Promise.all([
-    gzipAsync(identity, { level: 6 }).catch((err) => {
-      debug.error("shop cache: origin gzip failed: %s", err.message);
-      return null;
-    }),
-    brotliAsync(identity, {
-      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
-    }).catch((err) => {
-      debug.error("shop cache: origin brotli failed: %s", err.message);
-      return null;
-    }),
-  ]);
-  return { identity, gzip, brotli, etag };
+  return compressVariant(Buffer.from(rewritten));
 }
 
 /**
@@ -362,14 +376,53 @@ export async function getEncodedForOrigin(acceptedEncodings, origin) {
     }
   }
 
-  const enc = Array.isArray(acceptedEncodings) ? acceptedEncodings : [];
-  if (enc.includes("br") && variant.brotli) {
-    return { body: variant.brotli, contentEncoding: "br", etag: variant.etag };
+  return pickVariant(variant, acceptedEncodings);
+}
+
+// Lazily serialize the sections view from the current warmed state. Cached
+// until the next rebuild clears it, so the expensive composeSections + stringify
+// happens at most once per library change instead of once per request.
+function ensureSectionsIdentity() {
+  if (!sectionsIdentity) {
+    sectionsIdentity = Buffer.from(JSON.stringify(composeSections(filesMap, customs)));
   }
-  if (enc.includes("gzip") && variant.gzip) {
-    return { body: variant.gzip, contentEncoding: "gzip", etag: variant.etag };
+  return sectionsIdentity;
+}
+
+async function encodeSectionsForOrigin(origin) {
+  let rewritten = rewriteArtworkOrigin(sectionsIdentity.toString("utf-8"), origin);
+  rewritten = rewriteDownloadOrigin(rewritten, origin);
+  return compressVariant(Buffer.from(rewritten));
+}
+
+/**
+ * Pre-serialized, per-origin-memoized, compressed native sections payload for
+ * CyberFoil (/api/shop/sections). Mirrors getEncodedForOrigin: the body is
+ * built once per rebuild and reused across requests (br/gzip/identity + ETag),
+ * instead of recomputing ~1 MB of JSON on every hit. Forces a build when
+ * filesMap is null so it's safe on the warm-restart path.
+ */
+export async function getSectionsEncodedForOrigin(acceptedEncodings, origin) {
+  if (!filesMap) await build();
+  ensureSectionsIdentity();
+
+  if (!origin) {
+    if (!sectionsNoOriginVariant) {
+      sectionsNoOriginVariant = await compressVariant(sectionsIdentity);
+    }
+    return pickVariant(sectionsNoOriginVariant, acceptedEncodings);
   }
-  return { body: variant.identity, contentEncoding: null, etag: variant.etag };
+
+  let variant = sectionsOriginMemo.get(origin);
+  if (!variant) {
+    variant = await encodeSectionsForOrigin(origin);
+    sectionsOriginMemo.set(origin, variant);
+    if (sectionsOriginMemo.size > ORIGIN_MEMO_MAX) {
+      const oldest = sectionsOriginMemo.keys().next().value;
+      sectionsOriginMemo.delete(oldest);
+    }
+  }
+  return pickVariant(variant, acceptedEncodings);
 }
 
 /**
