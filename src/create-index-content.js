@@ -334,6 +334,78 @@ export function composeResponse(filesMap, customs) {
   return Object.assign(template, emitTitledb ? { files, titledb } : { files });
 }
 
+// ── Native sections view (CyberFoil v1.4.5+) ──────────────────────────────
+// CyberFoil's remote menu PREFERS a native `/api/shop/sections` (or
+// `/api/remote/sections`) response and only falls back to the flat legacy
+// index when that 404s. The legacy path forces the client to scrape metadata
+// out of the `[TITLEID][vVER]`-stamped `name` string; the native path lets us
+// hand it FIRST-CLASS fields (clean name, title_id, app_version, app_type,
+// icon_url) so titles render with proper info instead of the degraded
+// name-token fallback. Schema per remoteInstall.cpp::ParseRemoteSectionsBody:
+//   { sections: [ { id, title, items: [ { url, name, size, title_id,
+//     app_id, app_version, app_type, release_date, icon_url } ] } ] }
+// URLs are emitted RELATIVE here; the route applies the SAME origin rewrite
+// as the legacy path (helpers/origin.js) so on-device curl gets absolute URLs.
+
+function buildSectionItem(relPath, wireItem) {
+  const parsed = parseFromFilename(relPath);
+  const baseId = parsed.groupTitleId;
+  const fromDb = baseId ? titledbStore.get(baseId) : null;
+  const rawName = fromDb?.name || parsed.name;
+  const item = {
+    url: wireItem.url, // already "../" + percent-encoded relPath
+    name: decorateNameWithAlias(rawName, fromDb), // CLEAN — no [TID][vVER] suffix
+    size: wireItem.size,
+  };
+  if (parsed.titleId) {
+    item.title_id = parsed.titleId;
+    item.app_id = parsed.titleId;
+    item.app_version = parsed.version ?? 0;
+    item.app_type = parsed.contentType; // "base" | "update" | "dlc"
+    if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
+    item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
+  }
+  return item;
+}
+
+function buildSectionItemFromCustom(raw) {
+  // Native sections require a `url`; skip title-only custom rows that the
+  // legacy index would otherwise surface via titledb.
+  if (!raw || typeof raw.url !== "string" || !raw.url) return null;
+  const tid = normalizeTitleId(raw.titleId);
+  const item = {
+    url: raw.url,
+    name: typeof raw.name === "string" ? raw.name : "",
+    size: typeof raw.size === "number" ? raw.size : 0,
+  };
+  if (tid) {
+    item.title_id = tid;
+    item.app_id = tid;
+    if (typeof raw.version === "number") item.app_version = raw.version;
+    item.icon_url = raw.icon_url ?? raw.iconUrl ?? withVersion(`/api/shop/icon/${tid}`);
+  }
+  return item;
+}
+
+/**
+ * Build the native sections payload from the same warmed primitive state the
+ * legacy index uses. A single "All" section keeps parity with the flat
+ * catalog; per-item `app_type` still drives CyberFoil's "base only" filter.
+ */
+export function composeSections(filesMap, customs) {
+  const items = [];
+  if (filesMap) {
+    for (const [relPath, wireItem] of filesMap.entries()) {
+      items.push(buildSectionItem(relPath, wireItem));
+    }
+  }
+  for (const raw of customs ?? []) {
+    const item = buildSectionItemFromCustom(raw);
+    if (item) items.push(item);
+  }
+  return { sections: [{ id: "all", title: "All", items }] };
+}
+
 /**
  * Convenience wrapper: full scan + immediate compose. Used by tests and
  * any caller that doesn't need to maintain incremental state.

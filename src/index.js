@@ -3,6 +3,7 @@ import serveIndex from "serve-index";
 
 import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";
+import sectionsRoute from "./routes/sections.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
@@ -115,6 +116,16 @@ expressApp.use("/api/art", artRouter());
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
 expressApp.get("/api/shop/banner/:titleId", bannerRoute);
 expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
+
+// Native sections view for CyberFoil v1.4.5+ (its remote menu probes these
+// FIRST, falling back to the flat legacy index at `/` only on 404). Serving
+// them keeps the client on its first-class path so titles render full info +
+// icons instead of the degraded name-token fallback. `/api/remote/*` are
+// aliases for the client's post-1.4.5 prefix; the `/api/remote/icon` alias
+// covers icon URLs the client builds from its resolved prefix.
+expressApp.get("/api/shop/sections", sectionsRoute);
+expressApp.get("/api/remote/sections", sectionsRoute);
+expressApp.get("/api/remote/icon/:titleId", iconRoute);
 
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
 // Tinfoil shop can't install but the dashboard can list + download.

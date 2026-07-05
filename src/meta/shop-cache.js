@@ -258,6 +258,17 @@ export async function get() {
 }
 
 /**
+ * Expose the primitive library state (filesMap + customs) so callers that
+ * need to derive an ALTERNATE view of the same warmed library — e.g. the
+ * native `/api/shop/sections` response for CyberFoil — can build it without
+ * re-scanning disk. `filesMap` is null before the first build; callers should
+ * `await get()` first to guarantee it's populated.
+ */
+export function getState() {
+  return { filesMap, customs };
+}
+
+/**
  * Relative paths (under the games dir) of every scanned game file whose base
  * titleId matches. Used by the extras route to locate a title's folder(s).
  * Returns [] before the first build (cache cold) — callers should await get()
