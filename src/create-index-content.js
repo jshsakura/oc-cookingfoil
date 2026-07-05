@@ -139,7 +139,14 @@ function buildFileItem(relPath, size) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
-  const rawName = fromDb?.name || parsed.name;
+  // Display-name fallback chain: titledb (rich, may carry a KR name + English
+  // aliases for the 한(영) decoration) → NACP extracted from the container
+  // (covers homebrew / fan / brand-new titles blawar's titledb never has) →
+  // filename. Without the extracted layer a title missing from titledb
+  // collapsed to its filename — often the bare "[TITLEID][vVER]" tokens.
+  // COOK_EXTRACT_ICONS already populates extracted-meta, so surface its name.
+  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
+  const rawName = fromDb?.name || extracted?.name || parsed.name;
   const displayName = decorateNameWithAlias(rawName, fromDb);
 
   // CyberFoil/AeroFoil's legacy remote parser (remoteInstall.cpp::
@@ -351,7 +358,10 @@ function buildSectionItem(relPath, wireItem) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
-  const rawName = fromDb?.name || parsed.name;
+  // Same fallback chain as buildFileItem: titledb → NACP extracted → filename,
+  // so titles absent from titledb still surface a real name to CyberFoil.
+  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
+  const rawName = fromDb?.name || extracted?.name || parsed.name;
   const item = {
     url: wireItem.url, // already "../" + percent-encoded relPath
     name: decorateNameWithAlias(rawName, fromDb), // CLEAN — no [TID][vVER] suffix
