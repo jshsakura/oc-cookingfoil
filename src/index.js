@@ -7,6 +7,7 @@ import sectionsRoute from "./routes/sections.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
+import titleDetailRoute from "./routes/title-detail.js";
 import connectUrlRoute from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
@@ -130,6 +131,11 @@ expressApp.get("/api/remote/icon/:titleId", iconRoute);
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
 // Tinfoil shop can't install but the dashboard can list + download.
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
+
+// On-demand rich metadata (description, publisher, screenshots, …) for one
+// title. Surfaces titledb detail the shop response intentionally omits — the
+// dashboard modal and the remote client's detail panel both read this.
+expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
 
 // Copy-paste-ready shop URL for the authenticated visitor (weaves their own
 // basic-auth credentials into the live origin).
