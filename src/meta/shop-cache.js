@@ -261,10 +261,17 @@ export async function get() {
  * Expose the primitive library state (filesMap + customs) so callers that
  * need to derive an ALTERNATE view of the same warmed library — e.g. the
  * native `/api/shop/sections` response for CyberFoil — can build it without
- * re-scanning disk. `filesMap` is null before the first build; callers should
- * `await get()` first to guarantee it's populated.
+ * re-scanning disk.
+ *
+ * Forces a build when `filesMap` is still null. This matters on the WARM
+ * restart path: tryHydrateFromDisk() restores `cached`/`serializedJson` from
+ * disk (so /shop.tfl serves immediately) but does NOT populate `filesMap` —
+ * only build() does. Without this guard, `get()` short-circuits on `cached`
+ * and callers would see an empty library in the window between hydrate and the
+ * first debounced rebuild. build() dedups via its own in-flight guard.
  */
-export function getState() {
+export async function getState() {
+  if (!filesMap) await build();
   return { filesMap, customs };
 }
 

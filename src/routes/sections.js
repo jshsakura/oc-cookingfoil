@@ -31,16 +31,19 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 export default async function sectionsRoute(req, res) {
+  // getState() forces a build when filesMap is still null (warm-restart
+  // hydrate populates `cached` but not filesMap) — so sections never serves an
+  // empty library while /shop.tfl serves the full hydrated snapshot.
+  let filesMap, customs;
   try {
-    await shopCache.get(); // ensure the library scan has populated filesMap
+    ({ filesMap, customs } = await shopCache.getState());
   } catch (err) {
     debug.error("sections: cache warm failed: %s", err.stack || err.message);
-    res.status(503).json({ error: "library not ready: " + err.message });
+    res.status(503).json({ error: "library not ready" });
     return;
   }
 
   try {
-    const { filesMap, customs } = shopCache.getState();
     let json = JSON.stringify(composeSections(filesMap, customs));
 
     const origin = resolveOrigin(req, publicBaseUrl);
@@ -55,6 +58,6 @@ export default async function sectionsRoute(req, res) {
     res.status(200).send(json);
   } catch (err) {
     debug.error("sections: build failed: %s", err.stack || err.message);
-    res.status(500).json({ error: "sections build failed: " + err.message });
+    res.status(500).json({ error: "sections build failed" });
   }
 }
