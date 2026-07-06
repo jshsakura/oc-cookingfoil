@@ -1,6 +1,6 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **구현 착수됨 (M4b SD설치 배선 완료 — 앱이 실제 설치 수행, 엔진 .nro에 진입 10.12MB, CF설치 hooked. 다음 M5 큐/NAND)** · 갱신 2026-07-06
+> 상태: **M2~M5 전부 완료 — 연결·브라우즈·상세·설치·큐·일괄·NAND 실동작(10.15MB). 브랜드 아이콘 확정. 남은 건 M6(아이콘 baking·하니스·i18n)+릴리스/push** · 갱신 2026-07-06
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
 
 ---
@@ -25,7 +25,8 @@
 - ✅ **M3.5** 다중샵 프로필 + Cloudflare Access (커밋 7455c32, 9.36MB, 호스트테스트 **271**). `ShopProfile`(label/url/user/pass/cfClientId/cfClientSecret)+`ShopProfileCodec`(순수 json 직렬화, 레거시 M3 마이그레이션)→SettingsStore `shops`배열+`shops.selected`. `net::ShopAuth`+`buildCfHeaders`(순수)→httpGet/fetchSections/fetchTitleDetail/TextureCache 전부에 스레딩(아트워크도 auth). **인증 유연 패스스루**: 논인증(URL만)·basic·CF·조합 자유, 강한검증 없음(하드요구=URL만). `SettingsScreen`(샵리스트: A연결 X추가 Y편집 −삭제)+`ConnectScreen`(프로필편집기). Minus로 진입. **스크린샷 검증됨**: 리스트(3프로필—공개/basic+CF/CF전용 시연)·편집기(CF필드+마스킹). 보안한계=평문저장 주석. swkbd/fetch는 스위치 빌드검증만, 설정UI는 호스트 스크린샷검증.
 - ✅ **M4b** SD설치 배선 (커밋 afe4a17, **10.12MB ←+0.76 엔진 실진입!**, 호스트테스트 **277**). M4a stub→실 `network_util.cpp`/`offline_title_db.cpp`(+uid/hauth) 컴파일. 자체 얇은 오케스트레이터 `installGroup`(HTTPNSP+NSPInstall / HTTPXCI+XCIInstallTask, Prepare/Begin; `initInstallServices` 인라인 재구현 — util.cpp Plutonium결합이라). `net::toRemoteItem`(순수, 6테스트). `InstallScreen`(SDL2, 진행바+상태3줄+SD/NAND배지+홀드B취소). shim 라우팅=`InstallSink` 싱글턴, 매 뮤테이터가 프레임 펌핑(Begin() 블로킹 중 바 전진). [A설치]→선택그룹(base+토글 upd/dlc)→`installGroup(items, Sd, auth)`. 신규 shim: MainApplication 4 no-op + `curl_shim`(getUserAgent). **CF설치=HOOKED**: `tin::network::SetExtraHeaders` 추가(SetBasicAuth 미러, 2개 요청빌드 사이트) → 오케스트레이터가 `buildCfHeaders(auth)` 스레딩. 스크린샷 검증(42%, item 2/3, 한글 렌더). 엔진 실설치=스위치 빌드검증만.
   - ⚠️ **캐리드 패치 취약점**: CF hook은 서브모듈 network_util.cpp에 **43줄 캐리드 패치**(`third_party/patches/network_util-cf-extra-headers.patch`, 워킹트리 dirty·gitlink 불변). 오케스트레이터가 `SetExtraHeaders`(패치로만 정의) 호출 → **신규 클론+submodule update시 pristine이라 링크실패=재현불가**. 지금 환경은 패치적용돼 빌드OK. **수정=M5 task-0로 Makefile 멱등 auto-apply**(신규클론도 빌드되게). 서브모듈 reset/clean 금지(패치 유실).
-- 다음: **M5** 큐/일괄/NAND/SD토글 실동작(§11) + M4b 캐리드패치 auto-apply → **M6** oc아이콘·i18n.
+- ✅ **M5** 큐/일괄/NAND (커밋 15f1bb1, **10.15MB**, 호스트테스트 **285**). `ui::shop::InstallQueue`(순수, baseId dedupe=재큐시 in-place 교체, 8테스트) + 상세 [−Queue]. **Install All**=큐 순차설치("Entry n of m" 배치카운터, InstallScreen 재사용, 항목별 Installing→Done/Failed). **SD⇄NAND** 상주토글(그리드헤더/상세풋터, R키, SettingsStore `install.storage` 저장) + **NAND 확인 다이얼로그**(EN+KO 경고). **task-0 재현성 수정**: Makefile `engine-patch` 멱등타깃(`apply --reverse --check`로 미적용시만 apply)이 `$(BUILD)` 전제조건 → 신규 클론도 CF패치 자동적용 링크. `.DEFAULT_GOAL := all` 핀(engine-patch가 기본골 가로채던 것 수정). 도커빌드 그린+2차빌드 no-op 검증. **버그픽스**: `SettingsStore::saveRoot` 이중free(잠재 힙손상, install.storage 저장으로 표면화) 수정. 큐/토글/확인 스크린샷 검증. 실설치=스위치 빌드검증만.
+- 다음: **M6** = 브랜드 아이콘 baking(§5 `brand/cookfoil-icon.svg`→256×256 icon.png+romfs/gfx+application.json) · 메모리 하니스(§6 .nro 크기예산 CI게이트 + libnx 힙HUD) · i18n en/ko 마감. 그리고 **릴리스/push**(§12).
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
