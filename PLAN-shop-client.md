@@ -168,3 +168,13 @@
 - **M4b — 설치 배선**: SDL2 설치진행 화면 + shim이 그 화면으로 라우팅 + `ShopItem`→`RemoteItem` 어댑터 + [설치] 버튼→`installTitleRemote(items, SD, ...)`. **SD 설치 경로**만(NAND는 M5). 하드웨어 없어 빌드검증 + 로직 유닛테스트 한도.
 
 **리스크**: `pu::String`/`_lang`/`instPage` 재현이 M4의 실난이도(엔진이 Plutonium 헤더를 얼마나 transitively 당기는지에 따라 shim 표면이 커질 수 있음 — M4a에서 실측). 업스트림 리팩터 시 shim 수리.
+
+### 9.1 M4b 착수 준비 — `installTitleRemote` 흐름 실사 (remoteInstall.cpp:2410-2518)
+
+전체 시퀀스: `initInstallServices()` → `instPage::loadInstallScreen()` → `destStorageId = storage ? BuiltInUser : SdCard`(**0=SD, 1=NAND**) → diag `StartSession` → (overclock config) → **basic-auth**: `inst::config::remoteUser/remotePass` 비어있지않으면 `tin::network::SetBasicAuth(user,pass)` → **item 루프**: `UpdateInstallIcon` + `setTopInstInfoText` + XCI판별(`IsXciExtension(name|url)||IsXciMagic(url)`) → XCI면 `InstallXciHttpStream(url, storage)`, NSP면 `HTTPNSP(url)`+`NSPInstall(storage, ignoreReqVers, httpNSP)` → `Prepare()`+`Begin()`(진행은 `HTTPNSP::StreamToPlaceholder`가 `instPage::setInstBarPerc/setProgressDetailText`로 구동) → diag record → catch(std::exception)→실패 다이얼로그 → 성공시 `CreateShowDialog` 완료 → `instPage::loadMainMenu()` → `deinitInstallServices()`.
+
+**M4b 설계 결정 (권장): `installTitleRemote`를 통째 흡수하지 말 것.** 그 함수는 `remoteInstall.cpp`(결합 36곳: `inst::config/diag/util`, `_lang`, `mainApp`, 오디오 romfs `bark.wav`/`success.wav`, `std::thread` 오디오, overclock)에 있어 통째 끌어오면 결합을 상속. **대신 M4a가 컴파일한 딥 설치클래스(`tin::install::nsp::HTTPNSP`/`NSPInstall`, `InstallXciHttpStream`)를 우리 네임스페이스의 얇은 오케스트레이터(~60줄, 위 시퀀스의 핵심만: init→루프[HTTPNSP+NSPInstall+Prepare/Begin]→deinit)가 직접 구동.** 진행 콜백은 우리 SDL2 설치진행 화면으로. "우리가 소유하는 건 글루+프론트뿐"(§1) 정신에 부합, `_lang`/오디오/overclock 등 불필요 결합 회피.
+
+**M4b shim 라우팅 실체(no-op→실동작)**: `loadInstallScreen`/`loadMainMenu`=우리 설치화면 push/pop, `setInstBarPerc(double)`=진행바 0-100, `setInstInfoText`/`setTopInstInfoText`/`setProgressDetailText`=상태텍스트 3줄, `setInstallIcon*`=박스아트(초기 no-op 허용), `isInstallCancelRequested`=B/취소 플래그. **basic-auth 배선**: M3의 `shop.user/pass`를 `inst::config::remoteUser/remotePass`(또는 우리 오케스트레이터가 직접 `tin::network::SetBasicAuth`)로. **M4b=SD경로만**(storage=0), NAND=M5.
+
+**미확정(M4a 결과 대기)**: `NSPInstall`/`HTTPNSP` 생성자·`Prepare`/`Begin` 시그니처가 깨끗이 컴파일되는지, `initInstallServices`/`deinitInstallServices`가 어느 파일(util)이고 얼마나 결합됐는지 — M4a의 shim 실측이 M4b 오케스트레이터 표면을 확정.
