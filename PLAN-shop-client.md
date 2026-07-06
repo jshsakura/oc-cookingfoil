@@ -122,7 +122,7 @@
 - **컨셉/태그라인**: **"버터처럼 어디에도 어울리는 쿠킹호일"** — 버터같이 어디에나 어울리는 만능 주방 필수품.
 - **모티프 = 버터**(Zen Tokyo Zoo 대신 버터로 확정). 아이콘에 버터 스틱/팻 사용. 버터색 = **Catppuccin Yellow `#f9e2af`** 액센트 + Mocha base(`#1e1e2e`)·mauve/pink.
 - **이름/저자**: `APP_TITLE="CookingFoil"`, 한글표기 「쿠킹호일」, `APP_AUTHOR="OpenCourse"`. `TARGET=oc-cookfoil`(§8에서 확정). 팔레트 Catppuccin Mocha.
-- **아이콘**(hbmenu 256×256 `icon.png`+`romfs/gfx/icon.png`): 버터 모티프(+은박/포일 은은히), 따뜻한 버터-옐로우, 앱아이콘 스타일. `application.json` hbmenu 매니페스트. CyberFoil 문구/이미지/룩 전부 교체.
+- **아이콘 = 제작완료(SVG 벡터)**: **캐논 소스 `oc-cookingfoil/brand/cookfoil-icon.svg`** (커밋 04999a7) — 은박 포일 위 3D 버터 스틱, Mocha 배경 + 모브/핑크 글로우 + 핑크 스파클, 라운드 앱아이콘 프레임. 프리뷰 아트팩트 `https://claude.ai/code/artifact/d6e6eef3-60e2-4917-bb84-b139bfe07d9d`. **M6가 이 SVG를 256×256 `icon.png`+`romfs/gfx/icon.png`로 래스터화**(cairosvg/inkscape 호스트에 있음) + `application.json` hbmenu 매니페스트. CyberFoil 문구/이미지/룩 전부 교체. (사용자 피드백 시 SVG 수정 후 재래스터.)
 - **주의**: 설치화면 데모의 "요리포일 Deluxe"는 픽스처 텍스트일 뿐 — 실제 한글 브랜드명은 「쿠킹호일」. UI 워드마크 헤더는 이미 "CookingFoil"(영문).
 
 ---
