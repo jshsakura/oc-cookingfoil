@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Catppuccin Mocha backdrop with a little depth -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e1e2e"/>
+      <stop offset="1" stop-color="#181825"/>
+    </linearGradient>
+    <!-- soft mauve/pink glow behind the butter -->
+    <radialGradient id="glow" cx="0.5" cy="0.44" r="0.55">
+      <stop offset="0" stop-color="#cba6f7" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#f5c2e7" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#1e1e2e" stop-opacity="0"/>
+    </radialGradient>
+    <!-- aluminium foil: cool silver -->
+    <linearGradient id="foil" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cdd6f4"/>
+      <stop offset="0.5" stop-color="#9399b2"/>
+      <stop offset="1" stop-color="#585b70"/>
+    </linearGradient>
+    <!-- butter top face -->
+    <linearGradient id="butterTop" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#fdeec4"/>
+      <stop offset="0.5" stop-color="#f9e2af"/>
+      <stop offset="1" stop-color="#f2d79b"/>
+    </linearGradient>
+    <!-- butter front (thickness) -->
+    <linearGradient id="butterFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efce8b"/>
+      <stop offset="1" stop-color="#e0b871"/>
+    </linearGradient>
+    <!-- butter right side -->
+    <linearGradient id="butterSide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e6c682"/>
+      <stop offset="1" stop-color="#d8ab63"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="96" fill="url(#glow)"/>
+
+  <!-- aluminium foil sheet peeking behind the butter -->
+  <g transform="translate(256 300) rotate(-16)">
+    <rect x="-190" y="-70" width="380" height="150" rx="20" fill="url(#foil)"/>
+    <!-- crinkle highlights -->
+    <path d="M-160 -40 L-40 20 L60 -30 L170 30" fill="none" stroke="#eff1f5" stroke-opacity="0.5" stroke-width="5" stroke-linecap="round"/>
+    <path d="M-150 30 L-20 -20 L90 40 L165 -10" fill="none" stroke="#45475a" stroke-opacity="0.55" stroke-width="4" stroke-linecap="round"/>
+    <path d="M-120 60 L10 5 L120 55" fill="none" stroke="#eff1f5" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- butter stick: clean 2.5D box (front + top + right), origin at front-top-left -->
+  <g transform="translate(256 232)">
+    <!-- right side face -->
+    <path d="M95 -6 L135 -32 L135 52 L95 78 Z" fill="url(#butterSide)"/>
+    <!-- top face -->
+    <path d="M-95 -6 L95 -6 L135 -32 L-55 -32 Z" fill="url(#butterTop)"/>
+    <!-- front face (thickness) -->
+    <rect x="-95" y="-6" width="190" height="84" rx="12" fill="url(#butterFront)"/>
+    <!-- edge accents so the three faces read crisply -->
+    <path d="M-95 -6 L95 -6" stroke="#fbe7b3" stroke-opacity="0.65" stroke-width="2.5"/>
+    <path d="M95 -6 L135 -32" stroke="#d8ab63" stroke-opacity="0.6" stroke-width="2"/>
+    <!-- pat-of-butter cut groove across the top face -->
+    <path d="M-58 -20 L108 -20" stroke="#eacf8f" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round"/>
+    <!-- specular sheen sweeping across front + top -->
+    <rect x="-95" y="-6" width="190" height="84" rx="12" fill="url(#sheen)" opacity="0.4"/>
+    <path d="M-95 -6 L95 -6 L135 -32 L-55 -32 Z" fill="url(#sheen)" opacity="0.45"/>
+    <!-- glossy melt highlight -->
+    <ellipse cx="48" cy="-20" rx="10" ry="5" fill="#fff7e0" opacity="0.75"/>
+  </g>
+
+  <!-- sparkle on foil -->
+  <g transform="translate(150 330)" fill="#f5c2e7">
+    <path d="M0 -14 L3 -3 L14 0 L3 3 L0 14 L-3 3 L-14 0 L-3 -3 Z" opacity="0.9"/>
+  </g>
+</svg>
