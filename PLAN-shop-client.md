@@ -2,7 +2,7 @@
 
 > 상태: **기능 전부 구현 + 실기기 테스트 단계 진입(2026-07-07).** M2~M6(연결·브라우즈·상세·SD/NAND설치·큐·일괄·i18n·브랜딩) + 편의/안전 스위트(진행표시+속도·공간가드·applet가드·미완료청소) + 서버 추출 린화 전부 완료. **NRO가 실기 hbmenu에 뜨고 실행됨** → 첫 실행에서 나온 버그들 수정 중(§13): 한글폰트·화면스케일·설정화면 재디자인·온디바이스경로. **아직 실기 미검증: 실제 설치(다운로드→NCA→등록), scale-fill 최종확인.** "완성" 금지, 릴리스/push는 사용자 GO 전까지 금지. .nro 10.05MB, 호스트테스트 90. · 갱신 2026-07-07
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
-> 최신 nro: `oc-cookfoil-sdl/oc-cookfoil.nro` (커밋 ee80743 기준). 실기: `sdmc:/switch/oc-cookfoil/oc-cookfoil.nro`, 설정: `sdmc:/switch/oc-cookfoil/config/settings.json`.
+> 최신 nro: `oc-cookfoil-sdl/oc-cookfoil.nro` (커밋 **c2036e7**, 10.57MB — 실기 폰트/스케일/재디자인/폴리시 전부 포함). 실기: `sdmc:/switch/oc-cookfoil/oc-cookfoil.nro`, 설정: `sdmc:/switch/oc-cookfoil/config/settings.json`.
 
 ---
 
@@ -258,3 +258,7 @@
 **설정파일 pre-config**: SD `sdmc:/switch/oc-cookfoil/config/settings.json` 손으로 넣어 샵 미리등록 가능(스위치 키보드 회피). 스키마: `shops`(프로필 배열을 **문자열로 직렬화** — label/url/user/pass/cfClientId/cfClientSecret, 이스케이프 주의) + `shops.selected`(int) + `install.storage`(0=SD/1=NAND) + `language`("ko"/"en") + `logging_enabled`. 정확한 템플릿은 세션에서 생성함.
 
 **아직 실기 미검증(다음 관문)**: ①**실제 설치** — [설치] 눌러 다운로드→NCA쓰기→NCM등록→홈메뉴 등재→실행. **반드시 application(타이틀 오버라이드) 모드**(게임에 R)여야 ncm/spl 접근. ②scale-fill 최종 화면채움. ③라이브 서버 end-to-end. ④JP/CN 폰트 폴백.
+
+**폴리시(2026-07-07, 실기 피드백 반영)**:
+- **버터 글로우↓**(`brand/cookfoil-icon.svg` glow 0.55→0.20, 재렌더 icon.png/icon.jpg) · **워드마크 "COOKINGFOIL" 대문자**(Zen Tokyo Zoo, romfs/gfx/wordmark.png) · **"샵"→"서버" 통일**(앱 ko/en 조사교정, 웹 landing.html user-facing 3곳; `shop.json`/`shop.tfl`/`eShop`/id·변수 등 기술용어는 유지). 커밋 7cc79f9.
+- **드라큘라→버터옐로우 워밍 액센트**: base는 Catppuccin Mocha 유지(웹과 동일 팔레트), **주 액센트만 보라(모브/라벤더)→버터옐로우 #f9e2af+피치 #fab387**. 앱=`ShopRender` `kAccent=kYellow`/`kSelect`/`kOnAccent`(선택·CTA·탭·칩·진행링 워밍, base/서피스/의미색 초록완료·빨강실패 유지), 커밋 c2036e7. 웹 landing.html=lavender→yellow, 커밋 ea02761. **다음 세션: 보라 액센트 재도입 금지**(메모리 north-star).
