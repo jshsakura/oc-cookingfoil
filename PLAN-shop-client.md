@@ -192,6 +192,8 @@
 
 **HTTP 배선(중요)** — `net::httpGet`은 M3에서 optional `userpwd`(basic-auth) 받음. **CF 헤더 2개**(`CF-Access-Client-Id`/`CF-Access-Client-Secret`) 추가 = curl `CURLOPT_HTTPHEADER`. **모든 샵 요청에 실려야 함**: sections·title detail **+ TextureCache의 아이콘/배너/스크린샷 프록시**(CF Access 뒤면 아트워크도 403 나므로 필수). 즉 연결 인증(basic+CF)을 **세션 컨텍스트**(`net::ShopAuth{userpwd, cfId, cfSecret}`)로 묶어 sections/detail/텍스처 페치 전부에 전달. M2b/M2c의 TextureCache 페치 경로가 현재 auth를 안 받으면 이 컨텍스트를 받도록 확장.
 
+**인증 = 완전 유연·선택적 패스스루 (사용자 확정 2026-07-06 "주소만이든 프로토콜+아이디+패스워드든 논인증이든 뭐든 지원")** — 강한 검증 없음. 프로필은 다음 중 아무거나 또는 무(無): ①URL만=**논인증**(공개샵, 1급 기본값) ②URL+user/pass=basic(http/https 무관, normalizeShopUrl이 스킴 보존·없으면 https) ③URL+CF 서비스토큰 ④임의 조합. 각 필드(user/pass/cfId/cfSecret) **독립 선택**: 채워진 것만 실어보냄(user/pass 있으면 basic, CF 둘다 있으면 CF헤더, 없으면 생략=에러 아님). **유일 하드요구=URL 비어있지 않음.** 부분인증·http/https로 프로필 거부 금지. 강제 auth-type 셀렉터 없음 — 편집기가 선택필드만 노출, 사용자가 필요한 것만 채움.
+
 **UI** — M3 `ConnectScreen`을 2레벨 설정으로: ①**샵 리스트**(선택/추가/편집/삭제, 현재 연결 표시) ②**프로필 편집기**(label/url/user/pass/cfId/cfSecret 필드, swkbd 입력, Connect/Save). 그리드의 Minus=설정 진입. 선택 프로필로 연결.
 
 **보안 주의(알려진 한계)**: Switch 홈브류 SD는 비암호화 → `settings.json`에 pass·CF secret **평문 저장**(M3의 pass도 동일). 진짜 보안은 불가; 난독화는 가능하나 홈브류에선 형식적. 플랜/메모리에 한계로 명시. (CF Access 자체는 전송구간을 CF가 강제하므로, "샵을 공개 basic-auth로 여는 것보다 안전"이라는 요구는 충족.)
