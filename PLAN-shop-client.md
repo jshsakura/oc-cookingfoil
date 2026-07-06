@@ -178,3 +178,23 @@
 **M4b shim 라우팅 실체(no-op→실동작)**: `loadInstallScreen`/`loadMainMenu`=우리 설치화면 push/pop, `setInstBarPerc(double)`=진행바 0-100, `setInstInfoText`/`setTopInstInfoText`/`setProgressDetailText`=상태텍스트 3줄, `setInstallIcon*`=박스아트(초기 no-op 허용), `isInstallCancelRequested`=B/취소 플래그. **basic-auth 배선**: M3의 `shop.user/pass`를 `inst::config::remoteUser/remotePass`(또는 우리 오케스트레이터가 직접 `tin::network::SetBasicAuth`)로. **M4b=SD경로만**(storage=0), NAND=M5.
 
 **미확정(M4a 결과 대기)**: `NSPInstall`/`HTTPNSP` 생성자·`Prepare`/`Begin` 시그니처가 깨끗이 컴파일되는지, `initInstallServices`/`deinitInstallServices`가 어느 파일(util)이고 얼마나 결합됐는지 — M4a의 shim 실측이 M4b 오케스트레이터 표면을 확정.
+
+---
+
+## 10. M3.5 — 다중 샵 프로필 + Cloudflare Access (신규 요구, 사용자 2026-07-06)
+
+> M3(단일 프로필)의 확장. **클라 repo(`master`) — ConnectScreen/ShopProfile 수정 → M4a 착지 후 순차 실행**(같은 repo 커밋 레이스 방지). 사용자 확정: CF는 **Access 서비스 토큰**(Client-Id+Client-Secret 쌍).
+
+**요구**: 설정 메뉴에서 **여러 샵을 등록/관리**(주소·아이디·비밀번호 입력해 전환) + 각 샵에 **Cloudflare Access 서비스 토큰**을 넣어 CF Zero Trust 뒤의 샵을 더 안전하게 통과.
+
+**데이터 모델** — `ShopProfile`(M3)을 리스트로 확장. 프로필 필드: `label`(표시명)·`url`·`user`·`pass`(선택 basic-auth)·`cfClientId`·`cfClientSecret`(선택 CF Access). 저장: `SettingsStore`(플랫 json)에 프로필 벡터를 **json 배열 문자열로 직렬화**해 `shops` 키 + `shops.selected` int(setInt). SettingsStore API 변경 없이 ShopProfile 모듈이 json-c로 `loadProfiles()/saveProfiles(vector)` 담당(KISS).
+
+**HTTP 배선(중요)** — `net::httpGet`은 M3에서 optional `userpwd`(basic-auth) 받음. **CF 헤더 2개**(`CF-Access-Client-Id`/`CF-Access-Client-Secret`) 추가 = curl `CURLOPT_HTTPHEADER`. **모든 샵 요청에 실려야 함**: sections·title detail **+ TextureCache의 아이콘/배너/스크린샷 프록시**(CF Access 뒤면 아트워크도 403 나므로 필수). 즉 연결 인증(basic+CF)을 **세션 컨텍스트**(`net::ShopAuth{userpwd, cfId, cfSecret}`)로 묶어 sections/detail/텍스처 페치 전부에 전달. M2b/M2c의 TextureCache 페치 경로가 현재 auth를 안 받으면 이 컨텍스트를 받도록 확장.
+
+**UI** — M3 `ConnectScreen`을 2레벨 설정으로: ①**샵 리스트**(선택/추가/편집/삭제, 현재 연결 표시) ②**프로필 편집기**(label/url/user/pass/cfId/cfSecret 필드, swkbd 입력, Connect/Save). 그리드의 Minus=설정 진입. 선택 프로필로 연결.
+
+**보안 주의(알려진 한계)**: Switch 홈브류 SD는 비암호화 → `settings.json`에 pass·CF secret **평문 저장**(M3의 pass도 동일). 진짜 보안은 불가; 난독화는 가능하나 홈브류에선 형식적. 플랜/메모리에 한계로 명시. (CF Access 자체는 전송구간을 CF가 강제하므로, "샵을 공개 basic-auth로 여는 것보다 안전"이라는 요구는 충족.)
+
+**호스트 테스트 대상**: 프로필 직렬화/역직렬화(json 라운드트립), CF 헤더 조립 로직(순수). fetch/swkbd는 빌드검증만.
+
+**마일스톤 순서 갱신**: M4a(진행) → **M3.5(다중샵+CF, 클라 master 순차)** → M4b(설치배선) → M5 → M6. (M3.5를 M4b보다 먼저: 설정/연결 계층이라 M4a와 같은 repo 순차슬롯에 자연스럽게 들어감. 단 M4b가 급하면 순서 교체 가능 — 둘 다 M4a 뒤 순차.)
