@@ -47,11 +47,11 @@
       body::before {
         background-image:
           /* dot grid */
-          radial-gradient(rgba(180, 190, 254, 0.08) 1px, transparent 1px),
+          radial-gradient(rgba(249, 226, 175, 0.08) 1px, transparent 1px),
           /* mesh blobs */
           radial-gradient(800px circle at 0% 0%,   rgba(250, 179, 135, 0.12), transparent 50%),
           radial-gradient(900px circle at 100% 100%, rgba(137, 180, 250, 0.12), transparent 50%),
-          radial-gradient(700px circle at 50% 60%, rgba(180, 190, 254, 0.06), transparent 60%);
+          radial-gradient(700px circle at 50% 60%, rgba(249, 226, 175, 0.06), transparent 60%);
         background-size: 26px 26px, auto, auto, auto;
         background-position: 0 0, 0 0, 0 0, 0 0;
         mask-image: radial-gradient(ellipse at center, #000 60%, transparent 100%);
@@ -83,11 +83,11 @@
       /* Top scroll-progress accent. Width set from JS. */
       .scroll-progress {
         position: fixed; top: 0; left: 0; height: 2px; width: 0;
-        background: linear-gradient(90deg, var(--peach), var(--lavender));
+        background: linear-gradient(90deg, var(--peach), var(--yellow));
         z-index: 50;
         transition: width 0.12s ease;
         pointer-events: none;
-        box-shadow: 0 0 12px rgba(180, 190, 254, 0.4);
+        box-shadow: 0 0 12px rgba(249, 226, 175, 0.4);
       }
 
       /* themed scrollbars (webkit) */
@@ -123,7 +123,7 @@
         font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
         transition: all 0.2s ease;
       }
-      .lang-toggle button.active { background: rgba(180, 190, 254, 0.18); color: var(--lavender); }
+      .lang-toggle button.active { background: rgba(249, 226, 175, 0.18); color: var(--yellow); }
       .lang-toggle button:hover:not(.active) { color: var(--text); }
 
       /* Compact header: logo + title + status on one row, left-aligned, so the
@@ -136,7 +136,7 @@
       .logo {
         width: 52px; height: 52px; flex-shrink: 0;
         border-radius: 14px;
-        background: linear-gradient(135deg, var(--peach), var(--lavender));
+        background: linear-gradient(135deg, var(--peach), var(--yellow));
         display: flex; align-items: center; justify-content: center;
         font-size: 28px; box-shadow: 0 8px 20px rgba(250, 179, 135, 0.2);
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -156,7 +156,7 @@
       h1 {
         font-family: var(--font-title);
         font-size: 34px; font-weight: 400; letter-spacing: 0.01em; line-height: 1;
-        background: linear-gradient(135deg, var(--peach) 20%, var(--lavender) 80%);
+        background: linear-gradient(135deg, var(--peach) 20%, var(--yellow) 80%);
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         padding-bottom: 2px;
       }
@@ -166,7 +166,7 @@
       @media (min-width: 900px) { .description { display: block; } }
 
       h2 {
-        font-size: 16px; font-weight: 600; color: var(--lavender);
+        font-size: 16px; font-weight: 600; color: var(--yellow);
         margin: 20px 0 12px; display: flex; align-items: center; gap: 12px;
       }
       h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
@@ -174,12 +174,12 @@
       h2 .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
       .h2-action {
         padding: 6px 12px; border-radius: 100px;
-        background: rgba(180, 190, 254, 0.08); border: 1px solid rgba(180, 190, 254, 0.15);
-        color: var(--lavender); font-size: 12px; font-weight: 600;
+        background: rgba(249, 226, 175, 0.08); border: 1px solid rgba(249, 226, 175, 0.15);
+        color: var(--yellow); font-size: 12px; font-weight: 600;
         cursor: pointer; transition: all 0.2s ease; font-family: inherit;
         white-space: nowrap; flex-shrink: 0;
       }
-      .h2-action:hover { background: rgba(180, 190, 254, 0.18); border-color: rgba(180, 190, 254, 0.3); }
+      .h2-action:hover { background: rgba(249, 226, 175, 0.18); border-color: rgba(249, 226, 175, 0.3); }
 
       /* CONNECT URL */
       .connect-row { display: flex; gap: 10px; }
@@ -187,26 +187,26 @@
         flex: 1; padding: 14px 18px;
         background: rgba(49, 50, 68, 0.6); border: 1px solid var(--surface1); border-radius: 14px;
         font-family: "JetBrains Mono", ui-monospace, monospace;
-        font-size: 14px; color: var(--lavender);
+        font-size: 14px; color: var(--yellow);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
       .btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 14px;
-        background: rgba(180, 190, 254, 0.12); color: var(--lavender);
-        border: 1px solid rgba(180, 190, 254, 0.22); cursor: pointer; font-family: inherit;
+        background: rgba(249, 226, 175, 0.12); color: var(--yellow);
+        border: 1px solid rgba(249, 226, 175, 0.22); cursor: pointer; font-family: inherit;
         text-decoration: none; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         white-space: nowrap;
       }
-      .btn:hover { background: rgba(180, 190, 254, 0.22); transform: translateY(-1px); }
+      .btn:hover { background: rgba(249, 226, 175, 0.22); transform: translateY(-1px); }
       .btn:active { transform: translateY(0); }
       .btn.ghost { background: transparent; border-color: var(--surface1); color: var(--subtext1); }
       .btn.ghost:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
       .hint { font-size: 13px; color: var(--overlay0); line-height: 1.6; margin-top: 8px; }
       .hint code {
-        font-family: "JetBrains Mono", monospace; background: rgba(180, 190, 254, 0.1);
-        color: var(--lavender); padding: 2px 8px; border-radius: 6px;
-        font-size: 12.5px; border: 1px solid rgba(180, 190, 254, 0.1);
+        font-family: "JetBrains Mono", monospace; background: rgba(249, 226, 175, 0.1);
+        color: var(--yellow); padding: 2px 8px; border-radius: 6px;
+        font-size: 12.5px; border: 1px solid rgba(249, 226, 175, 0.1);
       }
 
       /* STATS — compact chip row (was 4 tall cards that pushed the grid down). */
@@ -218,8 +218,8 @@
         transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .stat:hover {
-        background: rgba(69, 71, 90, 0.5); border-color: var(--lavender);
-        transform: translateY(-2px); box-shadow: 0 8px 24px rgba(180, 190, 254, 0.10);
+        background: rgba(69, 71, 90, 0.5); border-color: var(--yellow);
+        transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249, 226, 175, 0.10);
       }
       .stat:active { transform: translateY(-1px); }
       .stat .label {
@@ -276,7 +276,7 @@
         color: var(--text); font-size: 14px; font-family: inherit;
         transition: border-color 0.2s ease;
       }
-      .search:focus { outline: none; border-color: var(--lavender); box-shadow: 0 0 0 3px rgba(180, 190, 254, 0.18); }
+      .search:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(249, 226, 175, 0.18); }
       .chips { display: flex; gap: 6px; flex-wrap: wrap; }
       .chip {
         padding: 8px 14px; border-radius: 100px; font-size: 13px; font-weight: 500;
@@ -285,16 +285,16 @@
         font-family: inherit;
       }
       .chip:hover { color: var(--text); }
-      .chip.active { background: rgba(180, 190, 254, 0.18); border-color: var(--lavender); color: var(--lavender); }
+      .chip.active { background: rgba(249, 226, 175, 0.18); border-color: var(--yellow); color: var(--yellow); }
       .sort-select {
         padding: 9px 14px; border-radius: 12px;
         background: rgba(24, 24, 37, 0.7); border: 1px solid var(--surface1);
         color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer;
       }
-      .sort-select:focus { outline: none; border-color: var(--lavender); }
+      .sort-select:focus { outline: none; border-color: var(--yellow); }
       .count {
         padding: 6px 12px; border-radius: 100px; font-size: 12px; font-weight: 600;
-        background: rgba(180, 190, 254, 0.08); color: var(--lavender); white-space: nowrap;
+        background: rgba(249, 226, 175, 0.08); color: var(--yellow); white-space: nowrap;
       }
 
       /* GAME GRID — horizontal cards, icon LEFT, content RIGHT */
@@ -308,9 +308,9 @@
         content-visibility: auto; contain-intrinsic-size: 1px 92px;
       }
       .game:hover {
-        background: rgba(69, 71, 90, 0.6); border-color: var(--lavender);
+        background: rgba(69, 71, 90, 0.6); border-color: var(--yellow);
         transform: translateY(-2px);
-        box-shadow: 0 10px 24px rgba(180, 190, 254, 0.12);
+        box-shadow: 0 10px 24px rgba(249, 226, 175, 0.12);
       }
       .game .cover {
         width: 72px; height: 72px; flex-shrink: 0; border-radius: 12px;
@@ -325,8 +325,8 @@
       .game .sub { font-size: 12px; color: var(--subtext0); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
       .game .sub .pill {
         padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 600;
-        background: rgba(180, 190, 254, 0.1); color: var(--lavender);
-        border: 1px solid rgba(180, 190, 254, 0.15);
+        background: rgba(249, 226, 175, 0.1); color: var(--yellow);
+        border: 1px solid rgba(249, 226, 175, 0.15);
         text-transform: uppercase; letter-spacing: 0.04em;
         white-space: nowrap; flex-shrink: 0; line-height: 1.4;
       }
@@ -395,7 +395,7 @@
       }
       .pager-btn:hover:not(:disabled) { background: rgba(69, 71, 90, 0.6); color: var(--text); border-color: var(--surface1); }
       .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-      .pager-btn.current { background: rgba(180, 190, 254, 0.18); color: var(--lavender); border-color: var(--lavender); }
+      .pager-btn.current { background: rgba(249, 226, 175, 0.18); color: var(--yellow); border-color: var(--yellow); }
       .pager-ellipsis { color: var(--overlay0); padding: 0 4px; }
 
       /* MODAL */
@@ -454,7 +454,7 @@
         color: var(--text); text-decoration: none; font-size: 13px;
         transition: border-color 0.15s, background 0.15s;
       }
-      .modal .extras .extra-row:hover { border-color: var(--lavender); background: rgba(180, 190, 254, 0.08); }
+      .modal .extras .extra-row:hover { border-color: var(--yellow); background: rgba(249, 226, 175, 0.08); }
       .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
       .modal .extras .extra-name::before { content: "⬇ "; color: var(--overlay1); }
       .modal .extras .extra-size { color: var(--subtext0); flex-shrink: 0; font-variant-numeric: tabular-nums; }
@@ -498,7 +498,7 @@
       .fab {
         position: fixed; right: 24px; bottom: 24px; z-index: 90;
         height: 56px; padding: 0 22px; border-radius: 28px;
-        background: linear-gradient(135deg, var(--mauve), var(--lavender));
+        background: linear-gradient(135deg, var(--peach), var(--yellow));
         color: var(--base); font-weight: 700; font-size: 14px;
         border: none; cursor: pointer; display: none; gap: 8px;
         box-shadow: 0 12px 30px rgba(203, 166, 247, 0.4);
@@ -522,7 +522,7 @@
         padding: 22px 16px; text-align: center; color: var(--subtext0);
         font-size: 13px; cursor: pointer; transition: border-color 0.15s;
       }
-      .drop-zone.dragover { border-color: var(--lavender); color: var(--text); background: rgba(180, 190, 254, 0.06); }
+      .drop-zone.dragover { border-color: var(--yellow); color: var(--text); background: rgba(249, 226, 175, 0.06); }
       .upload-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
       .upload-row {
         background: rgba(255, 255, 255, 0.03); border: 1px solid var(--surface0);
@@ -541,7 +541,7 @@
       .upload-empty, .upload-disabled { color: var(--subtext0); font-size: 12.5px; text-align: center; padding: 14px 0; }
       .upload-progress { margin-top: 10px; height: 6px; border-radius: 3px; background: var(--surface0); overflow: hidden; display: none; }
       .upload-progress.show { display: block; }
-      .upload-progress .bar { height: 100%; width: 0%; background: var(--lavender); transition: width 0.15s; }
+      .upload-progress .bar { height: 100%; width: 0%; background: var(--yellow); transition: width 0.15s; }
       .live-dot {
         display: inline-block; width: 8px; height: 8px; border-radius: 50%;
         background: var(--overlay1); margin-right: 6px; vertical-align: middle;
@@ -550,7 +550,7 @@
       .live-dot.off { background: var(--yellow); }
 
       .footer { margin-top: 36px; text-align: center; font-size: 13px; color: var(--overlay0); }
-      .footer a { color: var(--lavender); text-decoration: none; font-weight: 600; }
+      .footer a { color: var(--yellow); text-decoration: none; font-weight: 600; }
       .footer a:hover { text-decoration: underline; }
 
       @media (max-width: 560px) {
