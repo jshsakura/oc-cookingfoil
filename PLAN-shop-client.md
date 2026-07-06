@@ -203,3 +203,26 @@
 **호스트 테스트 대상**: 프로필 직렬화/역직렬화(json 라운드트립), CF 헤더 조립 로직(순수). fetch/swkbd는 빌드검증만.
 
 **마일스톤 순서 갱신**: M4a(진행) → **M3.5(다중샵+CF, 클라 master 순차)** → M4b(설치배선) → M5 → M6. (M3.5를 M4b보다 먼저: 설정/연결 계층이라 M4a와 같은 repo 순차슬롯에 자연스럽게 들어감. 단 M4b가 급하면 순서 교체 가능 — 둘 다 M4a 뒤 순차.)
+
+---
+
+## 11. M5 — 큐 · 일괄설치 · NAND/SD 토글 (설계 선확정, M4b 위에 얹힘)
+
+> M4b가 `installGroup(items, storage, auth, hooks)`(단일 그룹 순차설치 + 진행화면)를 확립하면, M5는 그 위의 **UI 누적 레이어**. 핵심: 엔진 `installTitleRemote`가 이미 벡터 순차설치라 큐/일괄은 새 엔진작업 아님(플랜 §2.1) — 벡터를 어떻게 모으고 보여주느냐의 UI 문제.
+
+**① 다운로드 큐** — `ui::shop::InstallQueue`(우리 소유, 순수 상태): 여러 그룹의 선택항목(base+토글된 upd/dlc)을 **누적**한 `std::vector<QueueEntry{RemoteItem or ShopItem, storage}>`. 상세 모달 **[＋ Queue]**(현재 M4b 스텁)→선택 벡터를 큐에 push. 큐 화면(리스트: 타이틀·용량·대상·상태)에서 **[설치 시작]**→큐 전체를 `installGroup`에 순차 전달(항목별 진행은 M4b InstallScreen 재사용, "3/7" 배치 카운터 추가). 제거/비우기/재정렬(후순위). 순수 큐 로직=호스트 유닛테스트(push/dedupe/총용량/제거).
+
+**② 일괄설치** — 이미 M2c 그룹핑+범위토글로 확보: 그룹의 base+체크된 upd/dlc가 한 벡터 → `installGroup` 한 번 호출이 곧 일괄(§2.1). M5는 **여러 그룹**을 큐로 묶어 한 번에(=①과 동일 메커니즘). "전부 설치" 단축(모든 그룹 큐에 담기)도 선택.
+
+**③ SD ⇄ NAND 토글** — M4b는 storage=0(SD) 고정. M5: **헤더/풋터 상주 토글**(기본 SD, 1회 설정 유지, 플랜 §2.1). `installGroup`의 `storage` 인자로 전달(`0=SdCard`, `1=BuiltInUser`, 엔진 `NcmStorageId` 기지원 — remoteInstall.cpp:2415 확인). 큐 항목별 override는 후순위(기본=담을 때의 전역 토글값). 설치/큐 확정 시 대상 표시. 저장은 SettingsStore(`install.storage`)에 유지.
+
+**검증**: 큐 순수로직=호스트 유닛테스트, 큐 화면+토글=H1 하니스 스크린샷. 실제 NAND설치=스위치 빌드검증(하드웨어 없음). **NAND 주의**: 시스템 파티션 쓰기라 위험도↑ — 경고 다이얼로그 + 용량체크 권장.
+
+---
+
+## 12. 마무리 단계 (M6 이후) — 보류 중 결정
+
+- **서버 릴리스**: sections 리치필드(`a4f9ac0`) 등 미릴리스 커밋 → v0.7.27 범프 + GHCR 퍼블리시(외부영향, 사용자 GO 대기).
+- **push**: 클라(`master`)·서버(`main`) 로컬 커밋 다수 — push 시점 사용자 결정.
+- **M6**: oc 브랜드 아이콘/`application.json`, 메모리 하니스(.nro 크기예산 CI게이트 §6), i18n en/ko 마감.
+- **선택**: 서버 WebP 프록시(sharp), oc-scraper식 확장(트레일러/평점).
