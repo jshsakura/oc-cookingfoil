@@ -1,7 +1,8 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **M2~M6 기능 구현 완료 — 단, 실기기 미검증(핵심 미완).** 연결·브라우즈·상세·SD/NAND설치·큐·일괄·브랜딩·하니스·i18n 전부 **코드 구현 + 호스트 UI 검증**. .nro 10.51MB, 호스트테스트 288. **BUT 실기기에서 단 한 번도 안 돌림** — 설치엔진/svcGetInfo/swkbd/라이브페치 전부 빌드검증만. "완성"이라 부르지 말 것(사용자 피드백). **릴리스/push는 사용자 GO 전까지 금지.** 남은 것: 실기기 설치검증(최우선)·라이브 end-to-end·Dropbox잔재 제거·온디바이스 에러처리. · 갱신 2026-07-06
+> 상태: **기능 전부 구현 + 실기기 테스트 단계 진입(2026-07-07).** M2~M6(연결·브라우즈·상세·SD/NAND설치·큐·일괄·i18n·브랜딩) + 편의/안전 스위트(진행표시+속도·공간가드·applet가드·미완료청소) + 서버 추출 린화 전부 완료. **NRO가 실기 hbmenu에 뜨고 실행됨** → 첫 실행에서 나온 버그들 수정 중(§13): 한글폰트·화면스케일·설정화면 재디자인·온디바이스경로. **아직 실기 미검증: 실제 설치(다운로드→NCA→등록), scale-fill 최종확인.** "완성" 금지, 릴리스/push는 사용자 GO 전까지 금지. .nro 10.05MB, 호스트테스트 90. · 갱신 2026-07-07
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
+> 최신 nro: `oc-cookfoil-sdl/oc-cookfoil.nro` (커밋 ee80743 기준). 실기: `sdmc:/switch/oc-cookfoil/oc-cookfoil.nro`, 설정: `sdmc:/switch/oc-cookfoil/config/settings.json`.
 
 ---
 
@@ -239,3 +240,21 @@
 - **push**: 클라(`master`)·서버(`main`) 로컬 커밋 다수 — push 시점 사용자 결정.
 - **M6**: oc 브랜드 아이콘/`application.json`, 메모리 하니스(.nro 크기예산 CI게이트 §6), i18n en/ko 마감.
 - **선택**: 서버 WebP 프록시(sharp), oc-scraper식 확장(트레일러/평점).
+
+---
+
+## 13. 실기기 테스트 단계 (2026-07-07 착수) — 첫 온디바이스 실행
+
+호스트 스크린샷·유닛테스트로 M2~M6 + 편의/안전 스위트를 다 검증한 뒤, **처음으로 실기기(Switch)에서 실행.** 예상대로 첫 실행에서 온디바이스 전용 버그가 나옴 → 하나씩 수정. **여기부터가 진짜 검증 루프(사용자가 실기 테스터).**
+
+**hbmenu 등재**: NRO 유효(NRO0+ASET+아이콘+NACP "CookingFoil"/"OpenCourse" 확인). 위치는 `sdmc:/switch/oc-cookfoil.nro` 또는 `/switch/oc-cookfoil/oc-cookfoil.nro`.
+
+**발견 → 수정 (클라 커밋)**:
+- **한글 두부** → `f5b3929`: 스위치가 `PlSharedFontType_Standard`(일/라틴, 한글無)만 로드 → **`PlSharedFontType_KO`** 로드로 8개 폰트슬롯 전환. **실기서 한글 정상 렌더 확인됨.** (JP/CN 게임명은 KO폰트 미커버 → 다국어 폰트폴백 후속 TODO.)
+- **화면 중앙 몰림(안 채워짐)** → `f5b3929`(1차: 실해상도 윈도우+로지컬사이즈) → `94d6545`(2차: **로지컬사이즈 대신 `SDL_RenderSetScale(rw/1280, rh/720)` 명시적 scale-to-fill** — SDL-스위치 포트가 로지컬사이즈를 1080p 중앙에 letterbox하던 문제). `main.cpp`에 `LOG_INFO("output %dx%d scale ...")` 진단로그 추가. **실기 최종 채움 확인 대기.**
+- **온디바이스 경로 잔재** → `6207fa2`: `Paths.hpp`가 `/switch/oc-save-keeper/...`(포크 잔재)였음 → **`/switch/oc-cookfoil/`** 리브랜드 + 죽은 backup/dropbox/device/trash 경로 제거(config/cache/logs만).
+- **설정/연결/빈상태 = 민짜 와이어프레임** → `ee80743`: M2r이 그리드만 다듬고 SettingsScreen/ConnectScreen은 방치 → 첫 실행(샵無)이 로고·아이콘·카드 전무한 텍스트 박스. **브랜드 헤더(버터로고+Zen Tokyo Zoo 워드마크, Chrome `drawBrand` 추출·공유) + 빈상태 CTA카드(큰 버터아이콘+"샵을 추가해 시작하세요"+[＋샵추가]) + 카드형 리스트/편집기**로 그리드 수준 재디자인. 호스트 스크린샷으로 그리드 품질 대조 확인.
+
+**설정파일 pre-config**: SD `sdmc:/switch/oc-cookfoil/config/settings.json` 손으로 넣어 샵 미리등록 가능(스위치 키보드 회피). 스키마: `shops`(프로필 배열을 **문자열로 직렬화** — label/url/user/pass/cfClientId/cfClientSecret, 이스케이프 주의) + `shops.selected`(int) + `install.storage`(0=SD/1=NAND) + `language`("ko"/"en") + `logging_enabled`. 정확한 템플릿은 세션에서 생성함.
+
+**아직 실기 미검증(다음 관문)**: ①**실제 설치** — [설치] 눌러 다운로드→NCA쓰기→NCM등록→홈메뉴 등재→실행. **반드시 application(타이틀 오버라이드) 모드**(게임에 R)여야 ncm/spl 접근. ②scale-fill 최종 화면채움. ③라이브 서버 end-to-end. ④JP/CN 폰트 폴백.
