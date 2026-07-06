@@ -1,6 +1,6 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **구현 착수됨 (H1 호스트 하니스 완료 — UI가 헤드리스 호스트서 실제 렌더·스크린샷 검증됨. 다음 M3.5)** · 갱신 2026-07-06
+> 상태: **구현 착수됨 (M3.5 다중샵+CF 완료 — 설정UI 스크린샷 검증. 다음 M4b 설치 배선 = 첫 실동작)** · 갱신 2026-07-06
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
 
 ---
@@ -22,7 +22,8 @@
 - ✅ **M3** 연결 UI + 프로필저장 (커밋 34aec7f, 9.31MB, 호스트테스트 **262**). `net::normalizeShopUrl`(순수, 스킴없으면 https prepend·authority검증·트레일링슬래시strip, 호스트테스트11) + `ShopProfile`(SettingsStore `shop.url/user/pass`) + `ConnectScreen`(swkbd 입력·호스트는 `COOK_SHOP_URL` env폴백·실패시 에러표시). 부팅시 저장URL 있으면 자동연결. **Minus=서버변경**. 선택 basic-auth를 httpGet/fetch에 스레딩. 상세 리치화(category/rating/intro 렌더). swkbd/fetch는 빌드검증만.
 - ✅ **M4a** 엔진 seam (커밋 c554d96, 9.32MB, 호스트테스트 262). CyberFoil **서브모듈** `third_party/CyberFoil`@eaf0353(1.4.5, 리모트 clone 성공) + `nx/`·`install/`(usb제외)·util·data 컴파일(예외 per-object ON). **`engine-shim`이 예상보다 작음**: 헤더 2개만 섀도잉(`ui/instPage.hpp`·`ui/MainApplication.hpp`), `pu::String` 불필요, instPage 14 + mainApp `CreateShowDialog`(std::string) + `_lang` identity + 링커가 노출한 `tin::network::HTTPDownload/HTTPHeader`·`inst::offline::TryGetMetadata` no-op 스텁(M4b가 실 network_util/offline_title_db로 대체). +`-lzstd -lmbedtls*`. 크기 미증가=`--gc-sections`가 미참조 엔진 스트립(진단 `--no-gc-sections`로 tin/inst 미해결 0 확인=**100% 링크**). M4b에서 설치버튼이 참조하면 진입.
 - ✅ **H1** 호스트 런타임 하니스 (커밋 664f6be + CJK폰트 34b9bfd, 호스트테스트 262, .nro 9.32MB). `make host`→네이티브 `oc-cookfoil-host`(SDL2+ttf+image+curl), **헤드리스 offscreen 렌더→PNG**. 픽스처(`host/fixtures/sections.json`+`title-*.json`) 결정론 렌더 + 라이브 `--url`. 호스트 네트워크 `COOKFOIL_HAVE_CURL` 매크로 개방(유닛테스트 순수유지). `ShopScreen::loadCatalogFromJson`/`injectDetailJson` 주입 seam. **스크린샷 실검증됨**: 그리드(6그룹, 선택하이라이트, +N upd·N dlc 뱃지)·상세(배너·메타·캐러셀·범위칩·설치요약·버튼) 목업대로 렌더. **한글**=호스트폰트를 NotoSansCJK로(두부 해결, 커밋 34b9bfd). **엔진 설치(libnx)만 온디바이스, UI/browse/detail/connect/net/parse는 호스트 실검증.** → **이후 모든 클라 워커는 H1 하니스로 스크린샷 시각검증할 것.**
-- 다음(클라 master 순차): **M3.5** 다중샵+CF(§10) → **M4b** 설치배선(§9.1) → **M5** 큐/일괄/NAND → **M6** oc아이콘·i18n.
+- ✅ **M3.5** 다중샵 프로필 + Cloudflare Access (커밋 7455c32, 9.36MB, 호스트테스트 **271**). `ShopProfile`(label/url/user/pass/cfClientId/cfClientSecret)+`ShopProfileCodec`(순수 json 직렬화, 레거시 M3 마이그레이션)→SettingsStore `shops`배열+`shops.selected`. `net::ShopAuth`+`buildCfHeaders`(순수)→httpGet/fetchSections/fetchTitleDetail/TextureCache 전부에 스레딩(아트워크도 auth). **인증 유연 패스스루**: 논인증(URL만)·basic·CF·조합 자유, 강한검증 없음(하드요구=URL만). `SettingsScreen`(샵리스트: A연결 X추가 Y편집 −삭제)+`ConnectScreen`(프로필편집기). Minus로 진입. **스크린샷 검증됨**: 리스트(3프로필—공개/basic+CF/CF전용 시연)·편집기(CF필드+마스킹). 보안한계=평문저장 주석. swkbd/fetch는 스위치 빌드검증만, 설정UI는 호스트 스크린샷검증.
+- 다음(클라 master 순차): **M4b** 설치배선(§9.1) → **M5** 큐/일괄/NAND → **M6** oc아이콘·i18n.
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
