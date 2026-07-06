@@ -1,6 +1,6 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **구현 착수됨 (M2 전체 완료 — 브라우즈+마스터디테일 UI 완성, M3 진행 예정)** · 갱신 2026-07-06
+> 상태: **구현 착수됨 (M3 완료 — 연결UI+프로필저장, M4a 엔진seam 진행 중)** · 갱신 2026-07-06
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
 
 ---
@@ -19,7 +19,9 @@
 - ✅ **M2a** `net/ShopClient`: curl fetch `/api/shop/sections` + json-c 파서 + 호스트유닛테스트(231) + 텍스트목록 (9.58MB, 커밋 18b3d11).
 - ✅ **M2b** 카드 그리드 + 박스아트 (커밋 6ea85ef, 9.68MB, 호스트테스트 237). `ui::shop::GridLayout`(순수·불변) + `net::httpGet`(curl GET DRY 추출) + `IconCache`(실패캐시, 프레임당 2로드상한, 스레드無). D-pad/스틱/방향키 내비.
 - ✅ **M2c** 마스터-디테일 (커밋 c7aebd9, **9.29MB** ←DRY통합으로 −0.39, 호스트테스트 **251**). ①`base_title_id`로 base+upd+dlc **그룹핑**(`ui::shop::TitleGroup::groupTitles` 순수, out-of-order base promotion, 호스트테스트9) ②A선택→상세모달(`net::parseTitleDetail`+`fetchTitleDetail`, 스샷 캐러셀 L/R, 호스트테스트5) ③설치범위 토글 X=upd·Y=dlc(기본 둘다ON)+"will install" 요약. `IconCache`→**`TextureCache`**(git mv, url키, icon/banner/스샷 공용) + `ShopRender`(팔레트·draw/wrap 헬퍼 추출, ShopScreen/DetailPanel 공유). **Queue/Install/SD⇄NAND=로그스텁(M4/M5), 엔진 미연결.** fetch/decode는 하드웨어 없어 빌드검증만.
-- 다음: **M3** = 연결 UI(샵URL 하드코딩→SettingsStore/온스크린 connect, 현재 `http://192.168.0.10:8465` 고정 = M3 최우선) + 상세 리치화(평점/카테고리/인트로). → **M4** 엔진통합(CyberFoil 설치엔진 서브모듈+`http_nsp` 진행글루 SDL2 재작성 — 유일한 실작업) → **M5** 큐/일괄/NAND/SD토글 실동작 → **M6** oc아이콘·메모리하니스·i18n.
+- ✅ **M3** 연결 UI + 프로필저장 (커밋 34aec7f, 9.31MB, 호스트테스트 **262**). `net::normalizeShopUrl`(순수, 스킴없으면 https prepend·authority검증·트레일링슬래시strip, 호스트테스트11) + `ShopProfile`(SettingsStore `shop.url/user/pass`) + `ConnectScreen`(swkbd 입력·호스트는 `COOK_SHOP_URL` env폴백·실패시 에러표시). 부팅시 저장URL 있으면 자동연결. **Minus=서버변경**. 선택 basic-auth를 httpGet/fetch에 스레딩. 상세 리치화(category/rating/intro 렌더). swkbd/fetch는 빌드검증만.
+- ⏳ **M4a** (진행 중, 워커) — CyberFoil 서브모듈 핀 + `nx/`·`install/`(usb제외) 컴파일 + `engine-shim`(instPage/mainApp/pu::String/`_lang` 최소구현, no-op) → **빌드 그린**. shim 표면 실측(플랜대로 안 되면 "벽" 보고). 결과=최신 커밋 + shim 실제 크기 확인할 것.
+- 다음: **M4b** SDL2 설치진행화면+shim라우팅+`ShopItem→RemoteItem`어댑터+[설치]→`installTitleRemote`(SD경로) → **M5** 큐/일괄/NAND/SD토글 실동작 → **M6** oc아이콘·메모리하니스·i18n.
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
