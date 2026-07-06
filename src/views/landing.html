@@ -229,6 +229,39 @@
       .stat .value { font-size: 20px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
       .stat .sub { font-size: 11px; color: var(--subtext0); margin-top: 2px; }
 
+      /* NAME-SOURCE HEALTH — operator panel: WHY names resolve or fall back. */
+      .namehealth {
+        background: rgba(49, 50, 68, 0.45); border: 1px solid var(--surface0);
+        border-radius: 16px; padding: 14px 16px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .nh-state {
+        display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+        padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 700;
+        background: rgba(166, 227, 161, 0.12); border: 1px solid rgba(166, 227, 161, 0.28);
+        color: var(--green); max-width: 100%;
+      }
+      .nh-state.warn { background: rgba(249, 226, 175, 0.12); border-color: rgba(249, 226, 175, 0.28); color: var(--yellow); }
+      .nh-state.bad  { background: rgba(243, 139, 168, 0.14); border-color: rgba(243, 139, 168, 0.34); color: var(--red); }
+      .nh-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+      .nh-state.bad .nh-dot { animation: pulse 1.6s infinite; }
+      .nh-verdict { min-width: 0; }
+      .nh-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 18px; }
+      .nh-row { display: flex; gap: 10px; align-items: baseline; font-size: 13px; min-width: 0; }
+      .nh-label {
+        color: var(--overlay1); font-size: 10px; font-weight: 600;
+        letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0;
+        min-width: 78px;
+      }
+      .nh-val { color: var(--subtext1); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+      .nh-val.good { color: var(--green); }
+      .nh-val.off  { color: var(--peach); }
+      .nh-hint {
+        font-size: 12.5px; color: var(--peach); line-height: 1.55;
+        background: rgba(243, 139, 168, 0.08); border: 1px solid rgba(243, 139, 168, 0.2);
+        border-radius: 10px; padding: 9px 12px;
+      }
+
       /* TOOLBAR */
       .toolbar {
         display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
@@ -569,6 +602,25 @@
           <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value sk" id="stat-mods">—</div><div class="sub sk" id="stat-mods-sub">—</div></div>
         </div>
 
+        <h2 data-i18n="section.namehealth"></h2>
+        <div class="namehealth" id="namehealth">
+          <div class="nh-state" id="nh-state">
+            <span class="nh-dot" aria-hidden="true"></span>
+            <span class="nh-verdict sk" id="nh-verdict">…</span>
+          </div>
+          <div class="nh-rows">
+            <div class="nh-row">
+              <span class="nh-label" data-i18n="nh.titledb"></span>
+              <span class="nh-val sk" id="nh-titledb">—</span>
+            </div>
+            <div class="nh-row">
+              <span class="nh-label" data-i18n="nh.extraction"></span>
+              <span class="nh-val sk" id="nh-extraction">—</span>
+            </div>
+          </div>
+          <p class="nh-hint" id="nh-hint" hidden></p>
+        </div>
+
         <h2><span data-i18n="section.library"></span><span class="count" id="games-count">0</span></h2>
         <div class="toolbar">
           <input class="search" id="search" type="search" autocomplete="off" />
@@ -660,6 +712,18 @@
           "stat.base": "베이스",
           "stat.base_sub": "원본 타이틀",
           "stat.mods": "업데이트/DLC",
+          "section.namehealth": "게임명 소스 상태 / Name source",
+          "nh.titledb": "TITLEDB",
+          "nh.extraction": "NSP/XCI 추출",
+          "nh.verdict.ok": "정상",
+          "nh.verdict.degraded": "부분",
+          "nh.verdict.filename": "파일명으로 폴백 — titledb 웹페치 실패 또는 서버 prod.keys 없음",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} 타이틀` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "활성 · 키 확인됨",
+          "nh.ext.off": "비활성 (extract off)",
+          "nh.ext.nostool": "비활성 — nstool 없음",
+          "nh.ext.nokeys": "비활성 — prod.keys 없음",
+          "nh.hint.filename": "titledb가 github에 닿게 하거나 서버에 prod.keys를 넣으세요.",
           "chip.base": "베이스",
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
@@ -735,6 +799,18 @@
           "stat.base": "Base",
           "stat.base_sub": "base titles",
           "stat.mods": "Updates / DLC",
+          "section.namehealth": "Name source health",
+          "nh.titledb": "Titledb",
+          "nh.extraction": "NSP/XCI extract",
+          "nh.verdict.ok": "OK",
+          "nh.verdict.degraded": "Partial",
+          "nh.verdict.filename": "Filename fallback — titledb web-fetch failed or no server prod.keys",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} titles` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "enabled · keys found",
+          "nh.ext.off": "disabled (extract off)",
+          "nh.ext.nostool": "disabled — nstool missing",
+          "nh.ext.nokeys": "disabled — no prod.keys",
+          "nh.hint.filename": "Make titledb reach github, or drop prod.keys onto the server.",
           "chip.base": "Base",
           "chip.update": "Updates",
           "chip.dlc": "DLC",
@@ -812,6 +888,7 @@
         for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         $("search").placeholder = t("search.placeholder");
         for (const b of document.querySelectorAll(".lang-toggle button")) b.classList.toggle("active", b.dataset.lang === lang);
+        if (nameHealthData) renderNameHealth(nameHealthData);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
 
@@ -936,6 +1013,7 @@
 
       // ─── state ─────────────────────────────────────────────────────────────
       let shopData = null;
+      let nameHealthData = null;
       let renderedItems = [];
       const state = { kind: "base", q: "", sort: "name", page: 1, perPage: 24 };
 
@@ -954,6 +1032,53 @@
           frag.appendChild(card);
         }
         grid.appendChild(frag);
+      }
+
+      // ─── name-source health ────────────────────────────────────────────────
+      // Reads /healthz (no-auth; carries `nameHealth` in both 200 and 503) so
+      // the operator SEES why names resolve or fall back to filenames.
+      function renderNameHealth(nh) {
+        if (!nh || typeof nh !== "object") return;
+        const stateEl = $("nh-state");
+        const verdictEl = $("nh-verdict");
+        stateEl.classList.remove("warn", "bad");
+        let verdictKey;
+        if (nh.verdict === "degraded") { verdictKey = "nh.verdict.degraded"; stateEl.classList.add("warn"); }
+        else if (nh.verdict === "filename-only") { verdictKey = "nh.verdict.filename"; stateEl.classList.add("bad"); }
+        else { verdictKey = "nh.verdict.ok"; }
+        verdictEl.textContent = t(verdictKey);
+        verdictEl.classList.remove("sk");
+
+        const tdb = nh.titledb || {};
+        const regions = Array.isArray(tdb.regions) ? tdb.regions : [];
+        const tdbEl = $("nh-titledb");
+        tdbEl.textContent = t("nh.titles", tdb.titles || 0, regions.join(", "));
+        tdbEl.classList.remove("sk");
+        tdbEl.classList.toggle("good", (tdb.titles || 0) > 0);
+
+        const ex = nh.extraction || {};
+        let extKey;
+        if (ex.mode === "off") extKey = "nh.ext.off";
+        else if (!ex.nstool) extKey = "nh.ext.nostool";
+        else if (!ex.prodKeys) extKey = "nh.ext.nokeys";
+        else extKey = "nh.ext.enabled";
+        const extEl = $("nh-extraction");
+        extEl.textContent = t(extKey);
+        extEl.classList.remove("sk", "good", "off");
+        extEl.classList.add(ex.nspXciCapable ? "good" : "off");
+
+        const hintEl = $("nh-hint");
+        if (nh.verdict === "filename-only") { hintEl.hidden = false; hintEl.textContent = t("nh.hint.filename"); }
+        else { hintEl.hidden = true; }
+      }
+
+      async function loadNameHealth() {
+        try {
+          // 200 when cached, 503 while cold — both carry nameHealth. Read either.
+          const r = await fetch("/healthz", { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => null);
+          if (d && d.nameHealth) { nameHealthData = d.nameHealth; renderNameHealth(nameHealthData); }
+        } catch { /* best effort — panel keeps its shimmer/placeholder */ }
       }
 
       // ─── data flow ─────────────────────────────────────────────────────────
@@ -1446,7 +1571,7 @@
       $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
         $("refresh-btn").disabled = true;
-        await loadShop();
+        await Promise.all([loadShop(), loadNameHealth()]);
         $("refresh-btn").disabled = false;
         toast(t("toast.refresh"));
       });
@@ -1492,6 +1617,7 @@
       applyI18n();
       renderSkeletons(8);
       loadShop();
+      loadNameHealth();
 
       // ─── upload tray ──────────────────────────────────────────────────────
       // POST /api/uploads → temp/, then user clicks Apply to move into games/.

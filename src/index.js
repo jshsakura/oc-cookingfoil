@@ -74,6 +74,15 @@ expressApp.get("/healthz", async (_req, res) => {
     tdb = store.status();
   } catch { /* ignore */ }
 
+  // name-source health — WHY names resolve (titledb) or collapse to filenames
+  // (no titledb + no keys). Machine-readable so Docker/k8s/curl can alert on it.
+  // Lazy-imported + best-effort: a probe failure must never take /healthz down.
+  let nameHealth = null;
+  try {
+    const nh = await import("./meta/name-health.js");
+    nameHealth = await nh.getNameHealth();
+  } catch { /* ignore — /healthz stays up without the field */ }
+
   if (s.cached) {
     res
       .status(200)
@@ -88,13 +97,14 @@ expressApp.get("/healthz", async (_req, res) => {
           regions: tdb.regions, // [{region, file, count, format}]
           loadedAt: tdb.loadedAt,
         },
+        nameHealth,
       }));
     return;
   }
   res
     .status(503)
     .type("application/json")
-    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb }));
+    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth }));
 });
 
 expressApp.use(rateLimit());
@@ -182,9 +192,16 @@ extractedMeta
   .load()
   .catch((err) => debug.error("extracted-meta load failed:", err.message));
 
-bootstrapTitledb().catch((err) =>
-  debug.error("titledb bootstrap failed:", err.message)
-);
+bootstrapTitledb()
+  .catch((err) => debug.error("titledb bootstrap failed:", err.message))
+  // Once the titledb store has (re)loaded, surface the name-source verdict in
+  // the boot log so a deployment with no titledb + no keys screams instead of
+  // silently serving filename garbage. WARN (err namespace) when filename-only.
+  .finally(() => {
+    import("./meta/name-health.js")
+      .then((nh) => nh.logNameHealth())
+      .catch((err) => debug.error("name-health boot log failed:", err.message));
+  });
 
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
