@@ -116,9 +116,14 @@
 
 ---
 
-## 5. 브랜딩 (oc 패밀리)
+## 5. 브랜딩 (oc 패밀리) — **확정 (사용자 2026-07-06)**
 
-`TARGET=oc-cookfoil`(잠정), `APP_TITLE="OC CookFoil"`, `APP_AUTHOR="OpenCourse"`, oc 메인 아이콘으로 `icon.png`. Catppuccin Mocha 팔레트 + Zen Tokyo Zoo/버터 모티프. `application.json` hbmenu 매니페스트. CyberFoil 문구/이미지/룩 전부 교체.
+**브랜드 = CookingFoil / 한글 「쿠킹호일」** (요리포일 아님 — CookingFoil 음차이자 부엌 은박지의 한국 일상어). Tinfoil 패러디.
+- **컨셉/태그라인**: **"버터처럼 어디에도 어울리는 쿠킹호일"** — 버터같이 어디에나 어울리는 만능 주방 필수품.
+- **모티프 = 버터**(Zen Tokyo Zoo 대신 버터로 확정). 아이콘에 버터 스틱/팻 사용. 버터색 = **Catppuccin Yellow `#f9e2af`** 액센트 + Mocha base(`#1e1e2e`)·mauve/pink.
+- **이름/저자**: `APP_TITLE="CookingFoil"`, 한글표기 「쿠킹호일」, `APP_AUTHOR="OpenCourse"`. `TARGET=oc-cookfoil`(§8에서 확정). 팔레트 Catppuccin Mocha.
+- **아이콘**(hbmenu 256×256 `icon.png`+`romfs/gfx/icon.png`): 버터 모티프(+은박/포일 은은히), 따뜻한 버터-옐로우, 앱아이콘 스타일. `application.json` hbmenu 매니페스트. CyberFoil 문구/이미지/룩 전부 교체.
+- **주의**: 설치화면 데모의 "요리포일 Deluxe"는 픽스처 텍스트일 뿐 — 실제 한글 브랜드명은 「쿠킹호일」. UI 워드마크 헤더는 이미 "CookingFoil"(영문).
 
 ---
 
@@ -144,7 +149,7 @@
 
 - **글루 seam**: 아래 §9 참조 — `http_nsp` 1파일이 아니라 `install/*.cpp` 전반의 진행/다이얼로그 레이어. shim 하나로 흡수.
 - **예외 플래그**: Tinfoil 엔진 C++ 예외 사용 → 설치 TU는 예외 켜서 빌드(save-keeper 기본 `-fno-exceptions`와 분리).
-- **미결정**: 클라 앱 이름(`oc-cookfoil` 잠정). ~~서브모듈 vs 벤더링~~ → **서브모듈로 결정**(§9, CyberFoil GitHub 리모트 확인). ~~sections 리치필드~~ → **완료**(a4f9ac0).
+- ~~**미결정**: 클라 앱 이름~~ → **확정(§5)**: 브랜드 CookingFoil/「쿠킹호일」, 버터 모티프, `TARGET=oc-cookfoil`, `APP_TITLE="CookingFoil"`, `APP_AUTHOR="OpenCourse"`. ~~서브모듈 vs 벤더링~~ → **서브모듈**(§9). ~~sections 리치필드~~ → **완료**(a4f9ac0).
 - 관련 메모리: [[cyberfoil-native-sections-endpoint]] [[lean-shop-client-plan]] [[public-base-url-scheme-footgun]]
 
 ---
