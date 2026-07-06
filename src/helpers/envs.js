@@ -125,22 +125,24 @@ const keysDir = process.env.COOK_KEYS_DIR ?? "/keys";
 //   all     — extract for EVERY title, so covers render fully offline and
 //             the on-device icon matches the actual file. titledb's CDN URL
 //             becomes a fallback only. Requires prod.keys + nstool; degrades
-//             gracefully to CDN when they're absent. (default)
+//             gracefully to CDN when they're absent. Use ONLY for a LAN with
+//             no internet — otherwise it needlessly unpacks multi-GB XCI/NSZ.
 //   missing — extract only titles blawar/titledb can't cover (homebrew /
-//             fan / synthetic title IDs). Lighter I/O; titledb-covered
-//             titles keep using the CDN icon.
+//             fan / synthetic title IDs). Lighter I/O; titledb-covered titles
+//             keep the CDN icon (name+icon already known from the filename's
+//             title ID). No wasted nstool unpack on retail dumps. (DEFAULT)
 //   off     — never extract.
 // The extractor skips any container whose icon is already cached on disk,
 // so `all` is a one-time background pass, not a per-boot re-dump.
 const VALID_EXTRACT_MODES = new Set(["all", "missing", "off"]);
-const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "all").toLowerCase();
+const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "missing").toLowerCase();
 const extractIcons = VALID_EXTRACT_MODES.has(rawExtractIcons)
   ? rawExtractIcons
-  : "all";
+  : "missing";
 if (rawExtractIcons !== extractIcons) {
   process.stderr.write(
     `[oc-cookingfoil] COOK_EXTRACT_ICONS="${rawExtractIcons}" is invalid — ` +
-      `falling back to "all" (valid: all | missing | off).\n`
+      `falling back to "missing" (valid: all | missing | off).\n`
   );
 }
 
