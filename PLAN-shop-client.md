@@ -30,7 +30,9 @@
 
 - ⚠️ **M2r UI 재작업** (커밋 ff15a91, 호스트테스트 **293**) — **초기 M2~M6의 메인화면이 목업과 어긋나 있었음**(중앙 모달 상세 + 미니멀 헤더, 검색/필터/연결/여유/CRT 누락). 사용자 지적("이쁘게 다시해") 후 목업(`design/cookfoil-client-mockup.html`, repo에 기준으로 커밋 f938dd3)에 **충실히 재정렬**: 60px 상단바(`Chrome.cpp`: 버터로고+CookingFoil v0.1+연결pill+검색+전체/베이스/업데이트/DLC 필터+⚙) + split본문(좌 4열그리드 / **우 486px 항상보이는 상세패널**, 모달→인라인 리팩터) + 44px 원형 글리프 힌트+여유공간 + CRT 스캔라인/비네트. 검색/필터=순수 `GridFilter.cpp`(5테스트), 라이브 상세(커서이동→우패널 갱신), 기어→설정. **목업과 요소별 대조 완료(부모가 렌더 직접 비교)=일치.** 데이터한계 차이만 남음(평점→연령등급, 버전문자열 없음, 타일색 해시기반).
 
-**→ 클라 M2~M6 + M2r UI정렬 = 기능구현+호스트검증 완료. 단 실기기 미검증(핵심).** 남은 것 = 실기기 설치검증, 라이브 e2e, Dropbox제거, 그다음 릴리스/push(§12, 사용자 GO 대기).
+- ✅ **정리(fc803c5)**: ①**applet-mode 설치가드** — `canInstall(AppletMode)`(순수,테스트) + 부팅시 `appletGetAppletType()` 감지, 설치/일괄설치 전에 applet모드면 차단 다이얼로그(EN+KO "애플리케이션 모드가 필요합니다… R로 실행/포워더")+상단바 "애플릿 모드—설치 불가" 배지. 설치 전제조건을 앱이 처리. ②**Dropbox/save 도메인 제거**(플랜 §4): save-keeper 잔재 55파일 삭제(SaveManager·Dropbox·ui/saves·zip·TokenCrypto·QRCode), Makefile/CI에서 DROPBOX 키요구 제거 → **더미 키 없이 빌드**. 호스트테스트 69(save도메인 227개 제거+가드3). .nro 10.52MB.
+
+**→ 클라 기능·디자인 구현 완료(호스트검증). 단 실기기 미검증(핵심 관문).** 남은 것 = 실기기 설치검증, 라이브 e2e, 그다음 릴리스/push(§12, 사용자 GO 대기). ⚠️ CI 워크플로가 아직 `oc-save-keeper.nro` 파일명 참조(릴리스 시 `oc-cookfoil.nro`로 수정 필요).
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
