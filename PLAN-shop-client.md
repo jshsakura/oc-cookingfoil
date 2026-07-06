@@ -1,22 +1,24 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **구현 착수됨 (M2 진행 중)** · 갱신 2026-07-06
+> 상태: **구현 착수됨 (M2b 완료, M2c 진행 예정)** · 갱신 2026-07-06
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
 
 ---
 
 ## 현황 & 이어가기 (다음 세션은 여기부터)
 
-**서버 (oc-cookingfoil) — 사실상 완료, GHCR `latest`=v0.7.26 배포됨:**
+**서버 (oc-cookingfoil) — 사실상 완료, GHCR `latest`=v0.7.26 배포됨 (미릴리스 커밋 a4f9ac0 있음):**
 - `/api/shop/sections`(캐시+압축+ETag) · `/api/title/:id`(리치상세) · icon/banner/screenshot 프록시
 - NACP폴백·한(영) titledb백필 · 대시보드 모달 상세부활+캐시 · **대시보드 eShop-린 개편(v0.7.26)**
-- 남은 것(선택): sections 행에 publisher 인라인 · WebP 프록시(sharp) · oc-scraper식 확장(트레일러/평점)
+- ✅ **sections 행 리치필드 인라인** (커밋 a4f9ac0, 미릴리스): `base_title_id`(그룹핑 키 — M2c가 base+upd+dlc 묶는 근거) + `publisher`(titledb→NACP폴백) + `region`. 커스텀행도 통과. 유닛테스트 28개 통과.
+- 남은 것(선택): WebP 프록시(sharp) · oc-scraper식 확장(트레일러/평점) · **v0.7.27 릴리스 범프**(a4f9ac0 아직 릴리스 안 함 — 사용자 판단)
 
-**클라 (`oc-cookfoil-sdl/`, save-keeper SDL2 fork) — 마일스톤 진행:**
+**클라 (`oc-cookfoil-sdl/`, save-keeper SDL2 fork) — 브랜치 `master`(main 아님!) — 마일스톤 진행:**
 - ✅ **M0** 리브랜드 빌드 확증 (10.0MB, 커밋 3690509)
 - ✅ **M1** 우리 `ui::shop::ShopScreen` 부팅 (9.24MB, 커밋 60465eb). save 도메인은 dead code로 트리에 둠.
-- ⏳ **M2a** (진행 중, 워커) — `net/ShopClient`: curl fetch `/api/shop/sections` + json-c 파서 + **호스트 유닛테스트** + 텍스트목록 렌더. 결과=oc-cookfoil-sdl 최신 커밋 + host `make test` 확인할 것.
-- 다음: **M2b** 그리드+박스아트(SDL2_image) → **M2c** 마스터-디테일 상세패널(`/api/title/:id`) → **M3** 상세 리치화 → **M4** 엔진통합(CyberFoil 설치엔진 서브모듈+`http_nsp` 진행글루 SDL2 재작성) → **M5** 큐/일괄/NAND/SD토글 → **M6** oc아이콘·메모리하니스·i18n.
+- ✅ **M2a** `net/ShopClient`: curl fetch `/api/shop/sections` + json-c 파서 + 호스트유닛테스트(231) + 텍스트목록 (9.58MB, 커밋 18b3d11).
+- ✅ **M2b** 카드 그리드 + 박스아트 (커밋 6ea85ef, 9.68MB, 호스트테스트 237). `ui::shop::GridLayout`(순수·불변, 호스트테스트 6) + `net::httpGet`(curl GET DRY 추출) + `ui::shop::IconCache`(iconUrl→IMG_Load_RW→텍스처, 실패캐시, 프레임당 2로드상한, 스레드無). D-pad/스틱/방향키 내비. **A선택=로그스텁(M2c 대기), 그룹핑無(M2c).** fetch/decode는 하드웨어 없어 빌드검증만.
+- 다음: **M2c 마스터-디테일** = ①`base_title_id`로 base+upd+dlc **그룹핑**(서버 a4f9ac0가 키 제공) ②A선택→우측 **상세패널**(`/api/title/:id`: desc/스샷/배너/publisher) ③설치범위 토글(upd/dlc 기본ON) 목업대로. → **M3** 상세 리치화 → **M4** 엔진통합(CyberFoil 설치엔진 서브모듈+`http_nsp` 진행글루 SDL2 재작성) → **M5** 큐/일괄/NAND/SD토글 → **M6** oc아이콘·메모리하니스·i18n.
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
@@ -92,10 +94,10 @@
 | `/api/shop/sections` 네이티브 섹션 (캐시+압축+ETag) | ✅ v0.7.19~22 |
 | `/api/title/:baseTitleId` 온디맨드 리치 상세 (desc/screenshots/publisher…) | ✅ v0.7.23 |
 | NACP 폴백 이름, titledb 지역 백필(한(영)) | ✅ v0.7.20~ |
-| **sections 행에 리치필드 인라인**(publisher/region/release_date) | ⏳ TODO (경량 유지 위해 소수 필드만) |
+| **sections 행에 리치필드 인라인**(base_title_id/publisher/region/release_date) | ✅ 커밋 a4f9ac0 (base_title_id 그룹핑키 + publisher + region + 기존 release_date, 경량) |
 | icon/banner/screenshot 프록시 | ✅ 기존 |
 
-→ 서버는 새 클라가 필요로 하는 계약을 거의 다 제공. 남은 건 sections 행 경량 리치필드 추가 정도.
+→ 서버는 새 클라가 필요로 하는 계약을 **다 제공**. `base_title_id`까지 내보내므로 M2c 그룹핑은 서버 추가작업 없이 클라만 구현하면 됨. (남은 서버작업=선택: v0.7.27 릴리스 범프, WebP 프록시.)
 
 ---
 
