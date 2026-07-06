@@ -45,7 +45,7 @@ import {
 import { findControlNcaId } from "../cnmt-parse.js";
 
 const NSP_RE = /\.(nsp|xci)$/i;
-const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 120_000);
+const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 600_000);
 const KEYS_PATH = process.env.COOK_PROD_KEYS_PATH ?? "/keys/prod.keys";
 
 // Detected once at module load. resolveBinary() returns null when both
