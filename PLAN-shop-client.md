@@ -1,6 +1,6 @@
 # CookingFoil — 경량 원격 샵 클라이언트 (확정 플랜)
 
-> 상태: **구현 착수됨 (M2b 완료, M2c 진행 예정)** · 갱신 2026-07-06
+> 상태: **구현 착수됨 (M2 전체 완료 — 브라우즈+마스터디테일 UI 완성, M3 진행 예정)** · 갱신 2026-07-06
 > 한 줄: **CyberFoil 설치 엔진만 훔쳐오고, 프론트는 save-keeper(SDL2) 골격으로 새로. 상대는 틴포일.**
 
 ---
@@ -17,8 +17,9 @@
 - ✅ **M0** 리브랜드 빌드 확증 (10.0MB, 커밋 3690509)
 - ✅ **M1** 우리 `ui::shop::ShopScreen` 부팅 (9.24MB, 커밋 60465eb). save 도메인은 dead code로 트리에 둠.
 - ✅ **M2a** `net/ShopClient`: curl fetch `/api/shop/sections` + json-c 파서 + 호스트유닛테스트(231) + 텍스트목록 (9.58MB, 커밋 18b3d11).
-- ✅ **M2b** 카드 그리드 + 박스아트 (커밋 6ea85ef, 9.68MB, 호스트테스트 237). `ui::shop::GridLayout`(순수·불변, 호스트테스트 6) + `net::httpGet`(curl GET DRY 추출) + `ui::shop::IconCache`(iconUrl→IMG_Load_RW→텍스처, 실패캐시, 프레임당 2로드상한, 스레드無). D-pad/스틱/방향키 내비. **A선택=로그스텁(M2c 대기), 그룹핑無(M2c).** fetch/decode는 하드웨어 없어 빌드검증만.
-- 다음: **M2c 마스터-디테일** = ①`base_title_id`로 base+upd+dlc **그룹핑**(서버 a4f9ac0가 키 제공) ②A선택→우측 **상세패널**(`/api/title/:id`: desc/스샷/배너/publisher) ③설치범위 토글(upd/dlc 기본ON) 목업대로. → **M3** 상세 리치화 → **M4** 엔진통합(CyberFoil 설치엔진 서브모듈+`http_nsp` 진행글루 SDL2 재작성) → **M5** 큐/일괄/NAND/SD토글 → **M6** oc아이콘·메모리하니스·i18n.
+- ✅ **M2b** 카드 그리드 + 박스아트 (커밋 6ea85ef, 9.68MB, 호스트테스트 237). `ui::shop::GridLayout`(순수·불변) + `net::httpGet`(curl GET DRY 추출) + `IconCache`(실패캐시, 프레임당 2로드상한, 스레드無). D-pad/스틱/방향키 내비.
+- ✅ **M2c** 마스터-디테일 (커밋 c7aebd9, **9.29MB** ←DRY통합으로 −0.39, 호스트테스트 **251**). ①`base_title_id`로 base+upd+dlc **그룹핑**(`ui::shop::TitleGroup::groupTitles` 순수, out-of-order base promotion, 호스트테스트9) ②A선택→상세모달(`net::parseTitleDetail`+`fetchTitleDetail`, 스샷 캐러셀 L/R, 호스트테스트5) ③설치범위 토글 X=upd·Y=dlc(기본 둘다ON)+"will install" 요약. `IconCache`→**`TextureCache`**(git mv, url키, icon/banner/스샷 공용) + `ShopRender`(팔레트·draw/wrap 헬퍼 추출, ShopScreen/DetailPanel 공유). **Queue/Install/SD⇄NAND=로그스텁(M4/M5), 엔진 미연결.** fetch/decode는 하드웨어 없어 빌드검증만.
+- 다음: **M3** = 연결 UI(샵URL 하드코딩→SettingsStore/온스크린 connect, 현재 `http://192.168.0.10:8465` 고정 = M3 최우선) + 상세 리치화(평점/카테고리/인트로). → **M4** 엔진통합(CyberFoil 설치엔진 서브모듈+`http_nsp` 진행글루 SDL2 재작성 — 유일한 실작업) → **M5** 큐/일괄/NAND/SD토글 실동작 → **M6** oc아이콘·메모리하니스·i18n.
 
 **UI 청사진(목업, 실기 없이 확인용)**: Artifact `https://claude.ai/code/artifact/bd89b180-68c4-4912-b1b9-34ad5f47b458`
 (1280×720 eShop 마스터-디테일: 좌 그리드 + 우 상세(배너·박스·스샷·메타·설치범위토글·SD/NAND·큐/설치) + 하단 컨트롤러힌트 + Catppuccin+CRT). **M2~M5가 이 목업을 SDL2로 구현.** 소스: scratchpad/cookfoil-client-mockup.html.
