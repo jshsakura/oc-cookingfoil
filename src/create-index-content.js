@@ -39,10 +39,18 @@ import * as titledbStore from "./meta/titledb-store.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
+  shouldAutoExtract,
+  wantsExtractByMode,
+  isOverSizeCap,
+  BYTES_PER_GB,
+} from "./meta/extract-policy.js";
+import {
   romsDirPath,
   welcomeMessage,
   customEntriesPath,
   extractIcons,
+  extractMaxGb,
+  extractMaxBytes,
   emitTitledb,
 } from "./helpers/envs.js";
 import {
@@ -279,15 +287,33 @@ export function composeResponse(filesMap, customs) {
       // already cached. Use the raw relPath (filesMap key) — item.url is
       // percent-encoded for wire transport and would point the extractor at
       // a non-existent path otherwise.
-      const wantExtract =
-        extractIcons === "all" ? true : extractIcons === "missing" ? !fromDb : false;
-      if (wantExtract && !extracted) {
+      //
+      // Policy (pure, in extract-policy.js): mode gate × size cap. A giant
+      // uncovered file is SKIPPED rather than allowed to grind for minutes —
+      // it keeps its filename fallback. `item.size` is the fast-glob stat from
+      // scanLibrary, so no extra fs.stat here.
+      const sizeBytes = item.size;
+      if (
+        !extracted &&
+        shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes })
+      ) {
         nacpExtractor.enqueue({
           absPath: path.join(romsDirPath, relPath),
           baseTitleId: baseId,
           fileName: item.name,
           wantMeta: !fromDb,
         });
+      } else if (
+        !extracted &&
+        wantsExtractByMode({ extractMode: extractIcons, fromDb }) &&
+        isOverSizeCap({ sizeBytes, maxBytes: extractMaxBytes })
+      ) {
+        debug.log(
+          "[extract] skip %s (%s GB > cap %s GB)",
+          item.name,
+          (sizeBytes / BYTES_PER_GB).toFixed(2),
+          extractMaxGb
+        );
       }
       titledb[baseId] = {
         ...(proxied ?? {}),

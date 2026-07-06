@@ -149,3 +149,11 @@ test("buildNameHealth: non-array regions coerced to []", () => {
   const nh = buildNameHealth({ titledbTitles: 3, titledbRegions: null });
   assert.deepEqual(nh.titledb.regions, []);
 });
+
+test("buildNameHealth: surfaces the auto-extract size cap (maxGb)", () => {
+  const nh = buildNameHealth({ titledbTitles: 1, maxGb: 4 });
+  assert.equal(nh.extraction.maxGb, 4);
+  // 0 = unlimited; a missing/garbage cap coerces to 0
+  assert.equal(buildNameHealth({ maxGb: 0 }).extraction.maxGb, 0);
+  assert.equal(buildNameHealth().extraction.maxGb, 0);
+});

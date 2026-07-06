@@ -146,6 +146,24 @@ if (rawExtractIcons !== extractIcons) {
   );
 }
 
+// Size cap for AUTO extraction (GB). Even in "missing" mode a genuinely-
+// uncovered giant container (≥6 GB XCI / NSZ) would let the background worker
+// grind for minutes and hit COOK_EXTRACT_TIMEOUT_MS. We skip auto-enqueuing
+// anything larger than this — the file keeps its filename fallback (rare).
+// 0 or negative disables the cap (unlimited). Default 4 GB.
+const rawExtractMaxGb = Number(process.env.COOK_EXTRACT_MAX_GB ?? 4);
+const extractMaxGb = Number.isFinite(rawExtractMaxGb) ? rawExtractMaxGb : 4;
+const extractMaxBytes = extractMaxGb > 0 ? extractMaxGb * 1024 ** 3 : 0;
+
+// Inter-job pacing (ms) for the background extraction worker. A small delay
+// between jobs keeps the one-time pass from saturating disk/CPU while the
+// server is answering shop requests — "run gently, not a thundering pass".
+// Concurrency (COOK_EXTRACT_CONCURRENCY) is unchanged; this only spaces jobs
+// out. 0 disables the delay. Default 250 ms.
+const rawExtractPaceMs = Number(process.env.COOK_EXTRACT_PACE_MS ?? 250);
+const extractPaceMs =
+  Number.isFinite(rawExtractPaceMs) && rawExtractPaceMs >= 0 ? rawExtractPaceMs : 250;
+
 // Whether to emit the top-level `titledb` metadata map in the shop response.
 //
 // OFF by default — and that is deliberate. CyberFoil/AeroFoil's legacy shop
@@ -195,6 +213,9 @@ export {
   customArtDir,
   keysDir,
   extractIcons,
+  extractMaxGb,
+  extractMaxBytes,
+  extractPaceMs,
   emitTitledb,
   publicBaseUrl,
   adminTotpSecret,

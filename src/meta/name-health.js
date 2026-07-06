@@ -30,7 +30,7 @@
 import debug from "../debug.js";
 import * as titledbStore from "./titledb-store.js";
 import * as nsp from "./extract-providers/nsp.js";
-import { extractIcons } from "../helpers/envs.js";
+import { extractIcons, extractMaxGb } from "../helpers/envs.js";
 
 /**
  * Pure verdict function — no I/O, fully unit-testable.
@@ -56,6 +56,7 @@ export function buildNameHealth({
   mode = "all",
   nstool = false,
   prodKeys = false,
+  maxGb = 0,
 } = {}) {
   const extractionOn = mode !== "off";
   const nspXciCapable = extractionOn && Boolean(nstool) && Boolean(prodKeys);
@@ -76,6 +77,7 @@ export function buildNameHealth({
       prodKeys: Boolean(prodKeys),
       nspXciCapable, // can read names out of NSP/XCI
       nroCapable, // .nro needs no keys
+      maxGb: Number(maxGb) || 0, // auto-extract size cap (0 = unlimited)
     },
     verdict,
   };
@@ -119,6 +121,7 @@ export async function getNameHealth() {
     mode: extractIcons,
     nstool,
     prodKeys,
+    maxGb: extractMaxGb,
   });
 }
 
