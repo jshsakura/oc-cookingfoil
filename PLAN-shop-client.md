@@ -136,7 +136,33 @@
 
 ## 8. 리스크 / 미결
 
-- **글루 seam**: `http_nsp` 진행/다이얼로그를 우리 UI로 교체 — 유일한 실질 결합 지점. 업스트림이 이 파일 리팩터 시(이전 shop→remote 전례) shim 수리 필요.
-- **예외 플래그**: Tinfoil 엔진 C++ 예외 사용 → 우리 앱도 예외 켜서 빌드.
-- **미결정**: 클라 앱 이름(`oc-cookfoil` 잠정), 서브모듈 vs 벤더링, sections 리치필드 범위.
+- **글루 seam**: 아래 §9 참조 — `http_nsp` 1파일이 아니라 `install/*.cpp` 전반의 진행/다이얼로그 레이어. shim 하나로 흡수.
+- **예외 플래그**: Tinfoil 엔진 C++ 예외 사용 → 설치 TU는 예외 켜서 빌드(save-keeper 기본 `-fno-exceptions`와 분리).
+- **미결정**: 클라 앱 이름(`oc-cookfoil` 잠정). ~~서브모듈 vs 벤더링~~ → **서브모듈로 결정**(§9, CyberFoil GitHub 리모트 확인). ~~sections 리치필드~~ → **완료**(a4f9ac0).
 - 관련 메모리: [[cyberfoil-native-sections-endpoint]] [[lean-shop-client-plan]] [[public-base-url-scheme-footgun]]
+
+---
+
+## 9. M4 엔진 통합 — seam 정찰 결과 (2026-07-06, CyberFoil v1.4.5 실사)
+
+**진입점**: `remoteInstStuff::installTitleRemote(const std::vector<RemoteItem>& items, int storage, const std::string& sourceLabel)` (`source/remoteInstall.cpp:2410`, 헤더 `include/remoteInstall.hpp`). `storage`=NcmStorageId(SD/NAND). 우리 [＋큐]/[설치] 버튼이 선택그룹→`RemoteItem` 벡터 만들어 호출.
+
+**`RemoteItem`은 우리 `net::ShopItem`과 사실상 1:1** (`name·url·iconUrl·appId·size·titleId(u64)·appVersion·releaseDate·appType(int)` + has* 플래그; `save*` 필드는 save_sync용=무시). 매핑 어댑터 1개면 됨.
+
+**결합 지형 (핵심)**:
+- **`source/nx/` = Plutonium 결합 0** (`content_meta·fs·nca_writer(NCZ/zstd)·ncm·ipc/`) → **무수정 as-is 컴파일**. 딥 암호화/NCA쓰기/NCM등록 = 그대로 흡수.
+- **`source/install/*.cpp` = 대부분 결합** (http_nsp/xci·install·install_nsp/xci·sdmc_nsp/xci·usb_nsp/xci 가 `inst::ui::instPage::*`·`inst::ui::mainApp->CreateShowDialog`·`"..."_lang` 호출). **usb_\* 는 드롭**(경량). 나머지는 shim에 대고 컴파일.
+- `remoteInstall.cpp`(2520줄, 결합 36곳)는 오케스트레이터 — 통째 흡수 대신 `installTitleRemote` 경로에 필요한 부분만 + shim.
+
+**shim 표면 (우리가 공급할 비-Plutonium 대체 심볼 — 엔진 무수정 컴파일용)**:
+1. `inst::ui::instPage` 정적 15개: `setTopInstInfoText·setInstInfoText·setInstBarPerc(double)·setProgressDetailText·clearProgressDetailText·setInstallIconFromTitleId·setInstallIcon·setInstallIconData·clearInstallIcon·loadMainMenu·loadInstallScreen·requestInstallCancel·isInstallCancelRequested·clearInstallCancel` → **우리 SDL2 설치진행 화면 상태**로 라우팅(진행바 %, 상세텍스트, 취소플래그).
+2. `inst::ui::mainApp->CreateShowDialog(String Title, String Content, vector<String> Options, bool UseLastOptionAsCancel, string Icon) → int` + **최소 `pu::String` 스탠드인** → SDL2 확인 다이얼로그(선택 인덱스 반환); 헤드리스 기본선택.
+3. `"..."_lang` user-defined literal → **최소 로컬라이제이션 shim**(키 또는 en 매핑 반환).
+
+**빌드**: CyberFoil Makefile = `-fno-rtti -std=gnu++20`, 예외 사용(=`-fno-exceptions` 없음). 우리 Makefile은 `nx/`+`install/`(usb 제외) 소스를 예외 켜서 컴파일 + shim 헤더 경로. **CyberFoil = git 서브모듈 핀**(`github.com/luketanti/CyberFoil.git`, 1.4.5) → `submodule update --remote`로 업스트림 흡수.
+
+**M4 분할(권장)**:
+- **M4a — 엔진 seam**: CyberFoil 서브모듈 핀 + `nx/`·`install/`(usb제외) 컴파일 + `engine-shim/`(instPage/mainApp/pu::String/`_lang` 최소구현, 진행콜백은 일단 no-op/log) → **빌드 그린**(동작無). 엔진이 우리 트리에서 링크됨을 실증.
+- **M4b — 설치 배선**: SDL2 설치진행 화면 + shim이 그 화면으로 라우팅 + `ShopItem`→`RemoteItem` 어댑터 + [설치] 버튼→`installTitleRemote(items, SD, ...)`. **SD 설치 경로**만(NAND는 M5). 하드웨어 없어 빌드검증 + 로직 유닛테스트 한도.
+
+**리스크**: `pu::String`/`_lang`/`instPage` 재현이 M4의 실난이도(엔진이 Plutonium 헤더를 얼마나 transitively 당기는지에 따라 shim 표면이 커질 수 있음 — M4a에서 실측). 업스트림 리팩터 시 shim 수리.
