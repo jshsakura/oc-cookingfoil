@@ -19,10 +19,16 @@ import fs from "fs/promises";
 import * as extractedMeta from "./extracted-meta-store.js";
 import { cachePathFor } from "./image-cache.js";
 import * as autoProvider from "./extract-providers/auto.js";
-import { iconCacheDir } from "../helpers/envs.js";
+import { iconCacheDir, extractPaceMs } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 const CONCURRENCY = Number(process.env.COOK_EXTRACT_CONCURRENCY ?? 2);
+
+// Inter-job pacing: a small gap between jobs so the one-time background pass
+// runs GENTLY (never saturates disk/CPU while serving). Concurrency is
+// unchanged — this only spaces jobs out. See COOK_EXTRACT_PACE_MS.
+const PACE_MS = extractPaceMs;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Active provider. `auto` dispatches by file extension — NRO files get
 // the pure-JS NACP/icon parser, encrypted containers fall through to the
@@ -149,7 +155,7 @@ function pump() {
     active += 1;
     workOne(job)
       .catch((err) => debug.error("nacp-extractor: workOne failed: %s", err.message))
-      .finally(() => {
+      .finally(async () => {
         active -= 1;
         inFlight.delete(job.baseTitleId);
         tried.add(job.baseTitleId);
@@ -158,6 +164,9 @@ function pump() {
           drainedResolver = null;
           r();
         } else {
+          // Pace the NEXT job so the pass stays gentle. Only when there's more
+          // work — an empty queue drains immediately (no artificial latency).
+          if (PACE_MS > 0) await delay(PACE_MS);
           pump();
         }
       });

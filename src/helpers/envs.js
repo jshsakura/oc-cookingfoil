@@ -125,24 +125,44 @@ const keysDir = process.env.COOK_KEYS_DIR ?? "/keys";
 //   all     — extract for EVERY title, so covers render fully offline and
 //             the on-device icon matches the actual file. titledb's CDN URL
 //             becomes a fallback only. Requires prod.keys + nstool; degrades
-//             gracefully to CDN when they're absent. (default)
+//             gracefully to CDN when they're absent. Use ONLY for a LAN with
+//             no internet — otherwise it needlessly unpacks multi-GB XCI/NSZ.
 //   missing — extract only titles blawar/titledb can't cover (homebrew /
-//             fan / synthetic title IDs). Lighter I/O; titledb-covered
-//             titles keep using the CDN icon.
+//             fan / synthetic title IDs). Lighter I/O; titledb-covered titles
+//             keep the CDN icon (name+icon already known from the filename's
+//             title ID). No wasted nstool unpack on retail dumps. (DEFAULT)
 //   off     — never extract.
 // The extractor skips any container whose icon is already cached on disk,
 // so `all` is a one-time background pass, not a per-boot re-dump.
 const VALID_EXTRACT_MODES = new Set(["all", "missing", "off"]);
-const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "all").toLowerCase();
+const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "missing").toLowerCase();
 const extractIcons = VALID_EXTRACT_MODES.has(rawExtractIcons)
   ? rawExtractIcons
-  : "all";
+  : "missing";
 if (rawExtractIcons !== extractIcons) {
   process.stderr.write(
     `[oc-cookingfoil] COOK_EXTRACT_ICONS="${rawExtractIcons}" is invalid — ` +
-      `falling back to "all" (valid: all | missing | off).\n`
+      `falling back to "missing" (valid: all | missing | off).\n`
   );
 }
+
+// Size cap for AUTO extraction (GB). Even in "missing" mode a genuinely-
+// uncovered giant container (≥6 GB XCI / NSZ) would let the background worker
+// grind for minutes and hit COOK_EXTRACT_TIMEOUT_MS. We skip auto-enqueuing
+// anything larger than this — the file keeps its filename fallback (rare).
+// 0 or negative disables the cap (unlimited). Default 4 GB.
+const rawExtractMaxGb = Number(process.env.COOK_EXTRACT_MAX_GB ?? 4);
+const extractMaxGb = Number.isFinite(rawExtractMaxGb) ? rawExtractMaxGb : 4;
+const extractMaxBytes = extractMaxGb > 0 ? extractMaxGb * 1024 ** 3 : 0;
+
+// Inter-job pacing (ms) for the background extraction worker. A small delay
+// between jobs keeps the one-time pass from saturating disk/CPU while the
+// server is answering shop requests — "run gently, not a thundering pass".
+// Concurrency (COOK_EXTRACT_CONCURRENCY) is unchanged; this only spaces jobs
+// out. 0 disables the delay. Default 250 ms.
+const rawExtractPaceMs = Number(process.env.COOK_EXTRACT_PACE_MS ?? 250);
+const extractPaceMs =
+  Number.isFinite(rawExtractPaceMs) && rawExtractPaceMs >= 0 ? rawExtractPaceMs : 250;
 
 // Whether to emit the top-level `titledb` metadata map in the shop response.
 //
@@ -180,6 +200,14 @@ const uploadMaxBytes = Number(process.env.COOK_UPLOAD_MAX_BYTES ?? 32 * 1024 ** 
 // because they let an authenticated user grow the games volume.
 const uploadsEnabled = process.env.COOK_UPLOADS_ENABLED === "true";
 
+// Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
+// /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
+// accepted as an alternative to basic-auth. Basic-auth (Tinfoil) always keeps
+// working regardless. Off by default so upgrades don't change behavior. For a
+// pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
+// basic-auth lane is disabled and an approved device is the sole way in.
+const devicePairing = process.env.COOK_DEVICE_PAIRING === "true";
+
 export {
   romsDirPath,
   jsonTemplatePath,
@@ -193,6 +221,9 @@ export {
   customArtDir,
   keysDir,
   extractIcons,
+  extractMaxGb,
+  extractMaxBytes,
+  extractPaceMs,
   emitTitledb,
   publicBaseUrl,
   adminTotpSecret,
@@ -203,4 +234,5 @@ export {
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  devicePairing,
 };

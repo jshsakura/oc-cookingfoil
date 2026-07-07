@@ -24,6 +24,9 @@ import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import authGuard from "./security/auth-guard.js";
+import pairingGate from "./security/pairing-gate.js";
+import deviceContentGuard from "./security/device-content-guard.js";
+import pairRouter from "./routes/pair.js";
 import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
@@ -74,6 +77,15 @@ expressApp.get("/healthz", async (_req, res) => {
     tdb = store.status();
   } catch { /* ignore */ }
 
+  // name-source health — WHY names resolve (titledb) or collapse to filenames
+  // (no titledb + no keys). Machine-readable so Docker/k8s/curl can alert on it.
+  // Lazy-imported + best-effort: a probe failure must never take /healthz down.
+  let nameHealth = null;
+  try {
+    const nh = await import("./meta/name-health.js");
+    nameHealth = await nh.getNameHealth();
+  } catch { /* ignore — /healthz stays up without the field */ }
+
   if (s.cached) {
     res
       .status(200)
@@ -88,13 +100,14 @@ expressApp.get("/healthz", async (_req, res) => {
           regions: tdb.regions, // [{region, file, count, format}]
           loadedAt: tdb.loadedAt,
         },
+        nameHealth,
       }));
     return;
   }
   res
     .status(503)
     .type("application/json")
-    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb }));
+    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth }));
 });
 
 expressApp.use(rateLimit());
@@ -104,6 +117,16 @@ if (adminEnabled) {
 }
 
 expressApp.use(accessGuard());
+
+// Public device-pairing endpoints (CyberFoil lane). Deliberately OUTSIDE the
+// basic-auth perimeter — a pairing device has no password — but still inside
+// rate-limiting + the probe access-guard. 404s unless COOK_DEVICE_PAIRING=true.
+expressApp.use("/api/pair", pairRouter());
+
+// Device auth lane: an approved (deviceKey + accessKey) authenticates here and
+// tags the request so authGuard skips the basic-auth challenge below. No-op
+// when COOK_DEVICE_PAIRING is off.
+expressApp.use(pairingGate());
 expressApp.use(authGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
@@ -149,6 +172,11 @@ expressApp.use("/admin", adminPageRouter());
 // the shop builder, static files, and the serve-index listing.
 expressApp.get("/", landingRoute);
 
+// Lock the content surface (shop index + downloads) to approved devices when
+// pairing is the SOLE lane (COOK_DEVICE_PAIRING on + no basic-auth users).
+// No-op otherwise — authGuard already gates this when basic-auth is configured.
+expressApp.use(deviceContentGuard());
+
 // Dynamic shop index for Tinfoil/CookingFoil-compatible clients.
 expressApp.use(shopFileBuilder());
 
@@ -182,9 +210,16 @@ extractedMeta
   .load()
   .catch((err) => debug.error("extracted-meta load failed:", err.message));
 
-bootstrapTitledb().catch((err) =>
-  debug.error("titledb bootstrap failed:", err.message)
-);
+bootstrapTitledb()
+  .catch((err) => debug.error("titledb bootstrap failed:", err.message))
+  // Once the titledb store has (re)loaded, surface the name-source verdict in
+  // the boot log so a deployment with no titledb + no keys screams instead of
+  // silently serving filename garbage. WARN (err namespace) when filename-only.
+  .finally(() => {
+    import("./meta/name-health.js")
+      .then((nh) => nh.logNameHealth())
+      .catch((err) => debug.error("name-health boot log failed:", err.message));
+  });
 
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)

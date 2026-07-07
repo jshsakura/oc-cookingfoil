@@ -64,6 +64,17 @@ test("composeSections: update file is typed and versioned from the filename", ()
   assert.equal(item.app_version, 131072);
 });
 
+test("composeSections: base_title_id groups base + update under one base key", () => {
+  // M2c grouping needs the client to collapse base + update + dlc into one
+  // base card. The section item carries the derived group key so the client
+  // groups without re-deriving it from the (clean, token-less) name.
+  const items = run().sections[0].items;
+  const base = items.find((i) => i.title_id === "0100000000010000");
+  const upd = items.find((i) => i.title_id === "0100000000010800");
+  assert.equal(base.base_title_id, "0100000000010000"); // base groups under itself
+  assert.equal(upd.base_title_id, "0100000000010000"); // update collapses to base
+});
+
 test("composeSections: title-less homebrew still lists (name/url/size only)", () => {
   const item = run().sections[0].items.find((i) => i.name === "Homebrew");
   assert.ok(item);

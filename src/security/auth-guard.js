@@ -62,6 +62,10 @@ export default function authGuard() {
   });
 
   return (req, res, next) => {
+    // Device lane already authenticated this request (CyberFoil pairing) — skip
+    // the basic-auth challenge entirely. Set by pairingGate upstream.
+    if (req.pairedDevice) return next();
+
     const ip = clientIp(req);
 
     // Loopback bypass — trusted caller, no lockout tracking. Still record

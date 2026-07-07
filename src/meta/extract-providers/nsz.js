@@ -25,7 +25,7 @@ import debug from "../../debug.js";
 import * as nsp from "./nsp.js";
 
 const NSZ_RE = /\.(nsz|xcz)$/i;
-const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 120_000);
+const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 600_000);
 
 let cachedBinary = undefined;
 
