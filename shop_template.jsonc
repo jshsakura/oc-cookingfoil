@@ -38,9 +38,9 @@
     // You may add a new location permenently to the user's File Browser using the "locations" json key:
     // "locations": [
     //     "https://abc123.com/456/",
-    //     {"url": "https://xyz.com/blah", "title": "xyz", "action"="disable"},
-    //     {"url": "https://xyz.com/blah2", "title": "xyz2", "action"="enable"},
-    //     {"url": "https://xyz.com/blah3", "title": "xyz3", "action"="add"}
+    //     {"url": "https://xyz.com/blah", "title": "xyz", "action": "disable"},
+    //     {"url": "https://xyz.com/blah2", "title": "xyz2", "action": "enable"},
+    //     {"url": "https://xyz.com/blah3", "title": "xyz3", "action": "add"}
     // ]
 
     // You may add or modify title metadata using the "titledb" json key:
