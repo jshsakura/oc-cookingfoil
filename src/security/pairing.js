@@ -30,6 +30,15 @@ export function normalizeDeviceKey(raw) {
   return key;
 }
 
+/**
+ * Read the device key a client presents as a request header. oc-cookfoil-sdl
+ * sends `X-Device-Key`; the CyberFoil-family Tinfoil fork sends the legacy
+ * `UID` header — accept either. Returns the normalised key or null.
+ */
+export function deviceKeyFromHeaders(req) {
+  return normalizeDeviceKey(req.get("X-Device-Key") || req.get("UID"));
+}
+
 export function generateAccessKey() {
   return crypto.randomBytes(32).toString("base64url");
 }

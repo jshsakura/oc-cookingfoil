@@ -85,38 +85,54 @@ pending:  Map<deviceKey, { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
   실기 검증**(그 전엔 "완성" 아님).
 - **Phase 3 (SSO, 대시보드):** Google OAuth(웹) 관리자 로그인, TOTP 폴백 유지.
 
-## 8. Phase 2 클라이언트 계약 (CyberFoil, `../CyberFoil`)
+## 8. Phase 2 클라이언트 계약 (실제 앱 `../oc-cookfoil-sdl`, SDL/libnx)
 
-서버(Phase 1)는 확정. 앱은 아래만 구현하면 end-to-end 완성 — **턴키 규격:**
+> ⚠️ 앞선 초안은 구 CyberFoil(Plutonium) 기준이라 폐기. 진짜 앱은 처음부터 새로 짠
+> SDL 코드베이스(`TARGET=oc-cookfoil` → `.nro`, git remote 없음 → 빌드는 사용자 GitHub
+> CI(nightly=main push, release=v태그/PR) 또는 로컬 devkitPro). **이 환경선 컴파일 불가.**
 
-### 저장 (영속 config)
-- 기존 `inst::config::remoteUrl/remoteUser/remotePass` 옆에 **`remoteAccessKey`** 추가.
-- `remoteUser/remotePass`는 페어링 모드에선 빈 값 허용(무비번).
+### 헤더 (단일 초크포인트)
+- `source/network/ShopAuth.cpp::buildCfHeaders(auth)` — 앱 fetch + 엔진 설치 요청 **둘 다**
+  여길 통과. 여기에 값 있을 때만 추가:
+  `X-Device-Key: <deviceKey>` / `X-Access-Key: <accessKey>` (CF 토큰 가드 밖에).
+- `net::ShopAuth`(`include/network/HttpClient.hpp:17`)에 `deviceKey`/`accessKey` 필드 추가,
+  `ShopProfile::auth()`(`ShopProfile.hpp:31`)에서 채움.
 
-### 헤더 (한 지점만 수정)
-- `source/util/curl.cpp::buildRemoteHeaders()` — 이미 `UID:`(=deviceKey) 전송 중.
-  여기에 **`X-Access-Key: <remoteAccessKey>`** 한 줄 추가(값 있을 때만). deviceKey는
-  `util/uid.hpp::ComputeUidFromMmcCid()` 그대로.
+### deviceKey (이미 링크됨)
+- `inst::util::ComputeUidFromMmcCid()`(핀된 엔진 `third_party/CyberFoil/source/util/uid.cpp`,
+  Makefile:60로 이미 .nro에 포함) = eMMC CID→SHA256 64hex. `#ifdef __SWITCH__` 가드, 호스트는
+  placeholder. → 서버 `deviceKeyFromHeaders`가 이 64hex를 그대로 받음(정렬 완료).
 
-### 온보딩 UI (remoteInstPage / remoteInstall.cpp)
-1. **도메인만 입력** 모드(아이디/비번 칸 옵션화). 값 예: `cook.example.com` 또는 `1.2.3.4:9080`.
-2. **기기키 QR 표시** — `ComputeUidFromMmcCid()` 결과(64hex)를 QR로. (QR 렌더 라이브러리
-   필요 — 현재 CyberFoil엔 없음. 경량 C QR 인코더 vendoring.)
-3. **페어링 상태머신:**
-   ```
-   POST {domain}/api/pair/request  {deviceKey}         → 대기 화면 진입
-   loop: GET {domain}/api/pair/status?deviceKey=...     (3~5s 간격, 지수백오프)
-         status=="pending"   → 계속 폴링 (QR 화면 유지)
-         status=="approved" && accessKey 있음
-             → remoteAccessKey=accessKey, remoteUrl=shopUrl 저장 → 폴링 종료 → 접속
-         status=="approved" && accessKey 없음(이미 수령분 소진)
-             → 이미 페어링됨. 키 없으면 관리자에게 "Re-issue" 요청 안내
-   ```
-4. 이후 일반 접속: 저장된 `remoteUrl` + (UID + X-Access-Key) 헤더로 shop/다운로드.
-   403 오면 "기기 미승인/키 만료" 안내 → 재페어링 or Re-issue.
+### 프로필 저장 (accessKey)
+- `ShopProfile`(`include/ui/shop/ShopProfile.hpp:16`)에 `accessKey` 필드 + 코덱
+  (`ShopProfileCodec.cpp` 13-18/54-65/88-95에 key 상수+addStr/getStr). parse는 tolerant라
+  구버전 config 호환.
 
-### 폴링 예절
-- `pair/status`는 공개+rate-limited. 지수 백오프(예: 3→5→8s, 상한 15s), 화면 벗어나면 중단.
+### QR ("몰래 담기" — 최소 노출)
+- QR 라이브러리 없음 → Nayuki `qrcodegen`(MIT, 단일 .c) vendoring. `source/utils/` 등
+  globbed 디렉토리에 두면 자동 빌드(신규 subdir면 Makefile:29 `SOURCES`에 추가). 12MiB
+  예산 여유 ~1.85MiB.
+- 렌더: QR 매트릭스→`SDL_Surface`→`SDL_CreateTextureFromSurface`(패턴 `TextureCache.cpp:51`).
+  64hex 텍스트 노출 X, **QR 이미지 하나만**.
+
+### UI/상태 (단일 클래스 상태머신)
+- `ui::shop::ShopScreen` `enum Screen{List,Editor,Shop,Queue}`(`ShopScreen.hpp:137`). 신규
+  `Screen::Pairing` 값 + 서브스크린 멤버 + `show…()` 세터. 스레드 없음 → **폴링은
+  `ShopScreen::update()`(매 프레임, `main.cpp:197`)에서 프레임카운터로 rate-limit**.
+
+### 상태머신
+```
+연결 시도 → deviceKey 계산 → POST {url}/api/pair/request {deviceKey} → Screen::Pairing(QR)
+update() 폴링(≈3~5s, 지수백오프): GET {url}/api/pair/status?deviceKey=
+   pending             → QR 유지
+   approved + accessKey → ShopProfile.accessKey 저장 → 폴링종료 → 정상 연결
+   approved (키 없음)   → 이미 페어링됨/키소진 → 관리자 Re-issue 안내
+이후: 저장된 (X-Device-Key + X-Access-Key)로 shop/다운로드. 403 → 재페어링/Re-issue.
+```
+
+### CI 주의
+- `nightly.yml:39`/`release.yml:42,49`가 산출물명을 `oc-save-keeper.nro`로 잘못 참조(실제는
+  `oc-cookfoil.nro`) → 업로드 스텝 깨져 있음. 앱 작업 김에 같이 고칠 것.
 
 ## 7. 미해결 / 결정 필요
 - [ ] accessKey 회전·만료 정책(무기한 vs TTL). 초안: 무기한 + 관리자 revoke.

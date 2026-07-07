@@ -17,7 +17,7 @@
  */
 import * as store from "./store.js";
 import { devicePairing, authUsers } from "../helpers/envs.js";
-import { normalizeDeviceKey } from "./pairing.js";
+import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
 
 const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
@@ -42,7 +42,7 @@ export default function deviceContentGuard() {
     if (isLoopback(clientIp(req))) return next();
     if (hasValidSession(req)) return next();
 
-    const deviceKey = normalizeDeviceKey(req.get("UID"));
+    const deviceKey = deviceKeyFromHeaders(req);
     if (deviceKey && !store.isDeviceApproved(deviceKey)) {
       store.recordPendingDevice(deviceKey, {
         ip: clientIp(req),

@@ -16,7 +16,7 @@
  */
 import * as store from "./store.js";
 import { devicePairing } from "../helpers/envs.js";
-import { normalizeDeviceKey, verifyAccessKey } from "./pairing.js";
+import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
 
 function clientIp(req) {
   return (req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
@@ -27,7 +27,7 @@ export default function pairingGate() {
     return (req, res, next) => next();
   }
   return (req, res, next) => {
-    const deviceKey = normalizeDeviceKey(req.get("UID"));
+    const deviceKey = deviceKeyFromHeaders(req);
     if (!deviceKey) return next(); // browser / Tinfoil / malformed → basic-auth lane
 
     const hash = store.getDeviceAccessKeyHash(deviceKey);

@@ -6,12 +6,15 @@ import path from "node:path";
 
 import {
   normalizeDeviceKey,
+  deviceKeyFromHeaders,
   generateAccessKey,
   hashAccessKey,
   verifyAccessKey,
   stageAccessKeyDelivery,
   takeAccessKeyDelivery,
 } from "../../src/security/pairing.js";
+
+const fakeReq = (headers) => ({ get: (name) => headers[name] ?? undefined });
 
 const VALID = "A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90";
 
@@ -35,6 +38,15 @@ test("normalizeDeviceKey rejects malformed keys", () => {
   assert.equal(normalizeDeviceKey("G".repeat(64)), null); // non-hex char
   assert.equal(normalizeDeviceKey(null), null);
   assert.equal(normalizeDeviceKey(12345), null);
+});
+
+test("deviceKeyFromHeaders reads X-Device-Key, falls back to UID", () => {
+  assert.equal(deviceKeyFromHeaders(fakeReq({ "X-Device-Key": VALID })), VALID);
+  assert.equal(deviceKeyFromHeaders(fakeReq({ UID: VALID })), VALID); // CyberFoil legacy
+  // X-Device-Key wins when both present.
+  assert.equal(deviceKeyFromHeaders(fakeReq({ "X-Device-Key": VALID, UID: "0".repeat(64) })), VALID);
+  assert.equal(deviceKeyFromHeaders(fakeReq({})), null);
+  assert.equal(deviceKeyFromHeaders(fakeReq({ "X-Device-Key": "bad" })), null);
 });
 
 test("accessKey hash/verify roundtrip is correct and rejects mismatches", () => {
