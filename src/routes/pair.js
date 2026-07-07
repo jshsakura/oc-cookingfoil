@@ -67,6 +67,13 @@ export default function pairRouter() {
       return;
     }
     if (!store.isDeviceApproved(deviceKey)) {
+      // Polling doubles as the knock: record the device as pending so a
+      // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the
+      // admin dashboard without a separate /request call.
+      store.recordPendingDevice(deviceKey, {
+        ip: clientIp(req),
+        version: req.get("Version") || null,
+      });
       res.json({ status: "pending" });
       return;
     }

@@ -120,10 +120,11 @@ pending:  Map<deviceKey, { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
   `Screen::Pairing` 값 + 서브스크린 멤버 + `show…()` 세터. 스레드 없음 → **폴링은
   `ShopScreen::update()`(매 프레임, `main.cpp:197`)에서 프레임카운터로 rate-limit**.
 
-### 상태머신
+### 상태머신 (GET-only — 앱 HttpClient엔 httpGet만)
 ```
-연결 시도 → deviceKey 계산 → POST {url}/api/pair/request {deviceKey} → Screen::Pairing(QR)
+연결 시도 → deviceKey 계산 → Screen::Pairing(QR)
 update() 폴링(≈3~5s, 지수백오프): GET {url}/api/pair/status?deviceKey=
+   ※ status GET이 미등록 기기를 자동 pending 기록 → 별도 POST /request 불필요
    pending             → QR 유지
    approved + accessKey → ShopProfile.accessKey 저장 → 폴링종료 → 정상 연결
    approved (키 없음)   → 이미 페어링됨/키소진 → 관리자 Re-issue 안내
