@@ -22,6 +22,13 @@ import {
   hasValidSession,
 } from "../security/admin-session.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
+import {
+  normalizeDeviceKey,
+  generateAccessKey,
+  hashAccessKey,
+  stageAccessKeyDelivery,
+} from "../security/pairing.js";
+import { devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 function gatePage() {
@@ -78,7 +85,9 @@ button{padding:8px 14px;border:1px solid #45475a;border-radius:9px;cursor:pointe
 <button id="logout" type="button">Log out</button></header>
 <div class="cards" id="cards"></div>
 <h2>Users</h2><div id="users"></div>
-<h2>Lockouts</h2><div id="lockouts"></div></div>
+<h2>Lockouts</h2><div id="lockouts"></div>
+<h2>Devices <span class="muted" id="devhint"></span></h2>
+<div id="pending"></div><div id="devices"></div></div>
 <script>
 const fmt=t=>t?new Date(t).toLocaleString():'—';
 function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e;}
@@ -113,9 +122,44 @@ async function load(){
       tr.appendChild(el('td',l.until?fmt(l.until):'forever'));
       t.appendChild(tr);} lb.appendChild(t);}
 }
+async function loadDevices(){
+  const r=await fetch('/admin/api/devices',{headers:{Accept:'application/json'}});
+  if(r.status===401){location.reload();return;}
+  const d=await r.json();
+  document.getElementById('devhint').textContent=d.pairingEnabled?'':'(off — set COOK_DEVICE_PAIRING=true)';
+  const pb=document.getElementById('pending');pb.innerHTML='';
+  if(!d.pending.length){pb.appendChild(el('div','No devices awaiting approval','empty'));}
+  else{const t=el('table');t.innerHTML='<tr><th>Pending device key</th><th>Seen</th><th>Last IP</th><th></th></tr>';
+    for(const p of d.pending){const tr=document.createElement('tr');
+      const k=el('td',p.deviceKey.slice(0,16)+'…');k.className='ip';k.title=p.deviceKey;tr.appendChild(k);
+      tr.appendChild(el('td',fmt(p.lastSeenAt)));
+      const ip=el('td',p.lastIp||'—');ip.className='ip';tr.appendChild(ip);
+      const act=el('td');const b=el('button','Approve');b.addEventListener('click',()=>approve(p.deviceKey));act.appendChild(b);tr.appendChild(act);
+      t.appendChild(tr);} pb.appendChild(t);}
+  const db=document.getElementById('devices');db.innerHTML='';
+  if(!d.approved.length){db.appendChild(el('div','No approved devices','empty'));}
+  else{const t=el('table');t.innerHTML='<tr><th>Label</th><th>Device key</th><th>Last seen</th><th>Last IP</th><th></th></tr>';
+    for(const a of d.approved){const tr=document.createElement('tr');
+      tr.appendChild(el('td',a.label||'—'));
+      const k=el('td',a.deviceKey.slice(0,16)+'…');k.className='ip';k.title=a.deviceKey;tr.appendChild(k);
+      tr.appendChild(el('td',fmt(a.lastSeenAt)));
+      const ip=el('td',a.lastIp||'—');ip.className='ip';tr.appendChild(ip);
+      const act=el('td');const b=el('button','Revoke');b.addEventListener('click',()=>revoke(a.deviceKey));act.appendChild(b);tr.appendChild(act);
+      t.appendChild(tr);} db.appendChild(t);}
+}
+async function approve(deviceKey){
+  const label=prompt('Label for this device (e.g. friend switch):','')||'';
+  const r=await fetch('/admin/api/devices/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceKey,label})});
+  if(r.ok){loadDevices();}else{alert('Approve failed');}
+}
+async function revoke(deviceKey){
+  if(!confirm('Revoke this device? It loses access.'))return;
+  const r=await fetch('/admin/api/devices/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceKey})});
+  if(r.ok){loadDevices();}else{alert('Revoke failed');}
+}
 document.getElementById('logout').addEventListener('click',async()=>{
   await fetch('/admin/logout',{method:'POST'});location.reload();});
-load();setInterval(load,15000);
+load();loadDevices();setInterval(()=>{load();loadDevices();},15000);
 </script></body></html>`;
 }
 
@@ -194,6 +238,58 @@ export default function adminPageRouter() {
         lockouts: lockouts.length,
       },
     });
+  });
+
+  // ── Device pairing (CyberFoil) ──────────────────────────────────────────
+  // Approved + pending devices, plus approve/revoke. Session-gated like stats;
+  // the cf_admin cookie (Path=/admin) rides along automatically from the page.
+  router.get("/api/devices", (req, res) => {
+    if (!hasValidSession(req)) {
+      res.status(401).json({ error: "2fa required" });
+      return;
+    }
+    res.set("Cache-Control", "no-store");
+    res.json({ pairingEnabled: devicePairing, ...store.devicesSnapshot() });
+  });
+
+  router.post("/api/devices/approve", (req, res) => {
+    if (!hasValidSession(req)) {
+      res.status(401).json({ error: "2fa required" });
+      return;
+    }
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey) {
+      res.status(400).json({ error: "invalid deviceKey" });
+      return;
+    }
+    const label = String(req.body?.label ?? "").slice(0, 64).trim();
+
+    // Mint a fresh accessKey, persist only its hash, stage the plaintext for the
+    // device's next status poll (one-time, in-memory). Re-approving rotates it.
+    const accessKey = generateAccessKey();
+    store.approveDevice(deviceKey, {
+      label,
+      addedBy: "admin",
+      accessKeyHash: hashAccessKey(accessKey),
+    });
+    stageAccessKeyDelivery(deviceKey, accessKey);
+    debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), label || "no label");
+    res.json({ ok: true, deviceKey });
+  });
+
+  router.post("/api/devices/revoke", (req, res) => {
+    if (!hasValidSession(req)) {
+      res.status(401).json({ error: "2fa required" });
+      return;
+    }
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey) {
+      res.status(400).json({ error: "invalid deviceKey" });
+      return;
+    }
+    const removed = store.revokeDevice(deviceKey);
+    debug.log("admin: revoke device %s… → %s", deviceKey.slice(0, 12), removed);
+    res.json({ ok: true, revoked: removed ? 1 : 0 });
   });
 
   return router;

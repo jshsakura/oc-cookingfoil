@@ -24,6 +24,9 @@ import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import authGuard from "./security/auth-guard.js";
+import pairingGate from "./security/pairing-gate.js";
+import deviceContentGuard from "./security/device-content-guard.js";
+import pairRouter from "./routes/pair.js";
 import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
@@ -114,6 +117,16 @@ if (adminEnabled) {
 }
 
 expressApp.use(accessGuard());
+
+// Public device-pairing endpoints (CyberFoil lane). Deliberately OUTSIDE the
+// basic-auth perimeter — a pairing device has no password — but still inside
+// rate-limiting + the probe access-guard. 404s unless COOK_DEVICE_PAIRING=true.
+expressApp.use("/api/pair", pairRouter());
+
+// Device auth lane: an approved (deviceKey + accessKey) authenticates here and
+// tags the request so authGuard skips the basic-auth challenge below. No-op
+// when COOK_DEVICE_PAIRING is off.
+expressApp.use(pairingGate());
 expressApp.use(authGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
@@ -158,6 +171,11 @@ expressApp.use("/admin", adminPageRouter());
 // Browser dashboard for the literal `/` path. Other GETs fall through to
 // the shop builder, static files, and the serve-index listing.
 expressApp.get("/", landingRoute);
+
+// Lock the content surface (shop index + downloads) to approved devices when
+// pairing is the SOLE lane (COOK_DEVICE_PAIRING on + no basic-auth users).
+// No-op otherwise — authGuard already gates this when basic-auth is configured.
+expressApp.use(deviceContentGuard());
 
 // Dynamic shop index for Tinfoil/CookingFoil-compatible clients.
 expressApp.use(shopFileBuilder());

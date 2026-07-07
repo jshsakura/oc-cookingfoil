@@ -200,6 +200,14 @@ const uploadMaxBytes = Number(process.env.COOK_UPLOAD_MAX_BYTES ?? 32 * 1024 ** 
 // because they let an authenticated user grow the games volume.
 const uploadsEnabled = process.env.COOK_UPLOADS_ENABLED === "true";
 
+// Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
+// /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
+// accepted as an alternative to basic-auth. Basic-auth (Tinfoil) always keeps
+// working regardless. Off by default so upgrades don't change behavior. For a
+// pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
+// basic-auth lane is disabled and an approved device is the sole way in.
+const devicePairing = process.env.COOK_DEVICE_PAIRING === "true";
+
 export {
   romsDirPath,
   jsonTemplatePath,
@@ -226,4 +234,5 @@ export {
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  devicePairing,
 };
