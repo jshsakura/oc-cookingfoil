@@ -144,8 +144,16 @@ async function loadDevices(){
       const k=el('td',a.deviceKey.slice(0,16)+'…');k.className='ip';k.title=a.deviceKey;tr.appendChild(k);
       tr.appendChild(el('td',fmt(a.lastSeenAt)));
       const ip=el('td',a.lastIp||'—');ip.className='ip';tr.appendChild(ip);
-      const act=el('td');const b=el('button','Revoke');b.addEventListener('click',()=>revoke(a.deviceKey));act.appendChild(b);tr.appendChild(act);
+      const act=el('td');
+      const ri=el('button','Re-issue');ri.addEventListener('click',()=>reissue(a.deviceKey,a.label));act.appendChild(ri);
+      const b=el('button','Revoke');b.style.marginLeft='6px';b.addEventListener('click',()=>revoke(a.deviceKey));act.appendChild(b);
+      tr.appendChild(act);
       t.appendChild(tr);} db.appendChild(t);}
+}
+async function reissue(deviceKey,label){
+  if(!confirm('Re-issue a fresh access key? The old key stops working; the device picks up the new one on its next connect.'))return;
+  const r=await fetch('/admin/api/devices/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceKey,label:label||''})});
+  if(r.ok){loadDevices();alert('New key staged — the device gets it on its next poll.');}else{alert('Re-issue failed');}
 }
 async function approve(deviceKey){
   const label=prompt('Label for this device (e.g. friend switch):','')||'';

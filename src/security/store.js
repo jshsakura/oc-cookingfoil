@@ -16,6 +16,9 @@ const STATE_DIR = path.join(dataDir, "security");
 const STATE_PATH = path.join(STATE_DIR, "state.json");
 const FLUSH_DEBOUNCE_MS = 500;
 const AUDIT_MAX = 1000;
+// Bound the pending-device map so a flood of pair/requests from random device
+// keys can't balloon state.json. Oldest-seen entries are evicted first.
+const PENDING_MAX = 200;
 
 const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
@@ -255,7 +258,21 @@ export function recordPendingDevice(deviceKey, { ip, version } = {}) {
     lastIp: ip ?? prev.lastIp ?? null,
     lastVersion: version ?? prev.lastVersion ?? null,
   });
+  if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
+}
+
+function evictOldestPending() {
+  let oldestKey = null;
+  let oldestAt = Infinity;
+  for (const [key, v] of state.pending) {
+    const seen = v.lastSeenAt ?? 0;
+    if (seen < oldestAt) {
+      oldestAt = seen;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey !== null) state.pending.delete(oldestKey);
 }
 
 export function devicesSnapshot() {

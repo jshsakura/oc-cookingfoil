@@ -85,6 +85,39 @@ pending:  Map<deviceKey, { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
   실기 검증**(그 전엔 "완성" 아님).
 - **Phase 3 (SSO, 대시보드):** Google OAuth(웹) 관리자 로그인, TOTP 폴백 유지.
 
+## 8. Phase 2 클라이언트 계약 (CyberFoil, `../CyberFoil`)
+
+서버(Phase 1)는 확정. 앱은 아래만 구현하면 end-to-end 완성 — **턴키 규격:**
+
+### 저장 (영속 config)
+- 기존 `inst::config::remoteUrl/remoteUser/remotePass` 옆에 **`remoteAccessKey`** 추가.
+- `remoteUser/remotePass`는 페어링 모드에선 빈 값 허용(무비번).
+
+### 헤더 (한 지점만 수정)
+- `source/util/curl.cpp::buildRemoteHeaders()` — 이미 `UID:`(=deviceKey) 전송 중.
+  여기에 **`X-Access-Key: <remoteAccessKey>`** 한 줄 추가(값 있을 때만). deviceKey는
+  `util/uid.hpp::ComputeUidFromMmcCid()` 그대로.
+
+### 온보딩 UI (remoteInstPage / remoteInstall.cpp)
+1. **도메인만 입력** 모드(아이디/비번 칸 옵션화). 값 예: `cook.example.com` 또는 `1.2.3.4:9080`.
+2. **기기키 QR 표시** — `ComputeUidFromMmcCid()` 결과(64hex)를 QR로. (QR 렌더 라이브러리
+   필요 — 현재 CyberFoil엔 없음. 경량 C QR 인코더 vendoring.)
+3. **페어링 상태머신:**
+   ```
+   POST {domain}/api/pair/request  {deviceKey}         → 대기 화면 진입
+   loop: GET {domain}/api/pair/status?deviceKey=...     (3~5s 간격, 지수백오프)
+         status=="pending"   → 계속 폴링 (QR 화면 유지)
+         status=="approved" && accessKey 있음
+             → remoteAccessKey=accessKey, remoteUrl=shopUrl 저장 → 폴링 종료 → 접속
+         status=="approved" && accessKey 없음(이미 수령분 소진)
+             → 이미 페어링됨. 키 없으면 관리자에게 "Re-issue" 요청 안내
+   ```
+4. 이후 일반 접속: 저장된 `remoteUrl` + (UID + X-Access-Key) 헤더로 shop/다운로드.
+   403 오면 "기기 미승인/키 만료" 안내 → 재페어링 or Re-issue.
+
+### 폴링 예절
+- `pair/status`는 공개+rate-limited. 지수 백오프(예: 3→5→8s, 상한 15s), 화면 벗어나면 중단.
+
 ## 7. 미해결 / 결정 필요
 - [ ] accessKey 회전·만료 정책(무기한 vs TTL). 초안: 무기한 + 관리자 revoke.
 - [ ] 계정↔기기 다대다 허용? 초안: deviceKey 단독 식별(계정 개념과 분리).
