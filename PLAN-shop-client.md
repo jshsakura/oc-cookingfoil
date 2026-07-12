@@ -262,3 +262,11 @@
 **폴리시(2026-07-07, 실기 피드백 반영)**:
 - **버터 글로우↓**(`brand/cookfoil-icon.svg` glow 0.55→0.20, 재렌더 icon.png/icon.jpg) · **워드마크 "COOKINGFOIL" 대문자**(Zen Tokyo Zoo, romfs/gfx/wordmark.png) · **"샵"→"서버" 통일**(앱 ko/en 조사교정, 웹 landing.html user-facing 3곳; `shop.json`/`shop.tfl`/`eShop`/id·변수 등 기술용어는 유지). 커밋 7cc79f9.
 - **드라큘라→버터옐로우 워밍 액센트**: base는 Catppuccin Mocha 유지(웹과 동일 팔레트), **주 액센트만 보라(모브/라벤더)→버터옐로우 #f9e2af+피치 #fab387**. 앱=`ShopRender` `kAccent=kYellow`/`kSelect`/`kOnAccent`(선택·CTA·탭·칩·진행링 워밍, base/서피스/의미색 초록완료·빨강실패 유지), 커밋 c2036e7. 웹 landing.html=lavender→yellow, 커밋 ea02761. **다음 세션: 보라 액센트 재도입 금지**(메모리 north-star).
+
+**2차 실기 피드백 (2026-07-13):**
+- **텍스트 흐림 → 네이티브 해상도 래스터** (`c472694`): 1280×720 논리 캔버스를 `SDL_RenderSetScale`로 1080p까지 통째로 업스케일 → 720p 래스터 글자가 1.5배 블러. 해결=레이아웃/측정(textWidth·TTF_FontHeight)은 720 유지, 폰트마다 `size×scale` **고해상도 트윈**을 열어 `drawText`에서만 네이티브로 래스터→논리 dest로 축소(`ShopRender::registerRasterFont`, `SDL_RenderGetScale`로 스케일 감지, 1.0x면 무등록=기존동일). **선명도 개선은 도크(1.5x)에서만 보임 — 호스트는 no-op. 실기 도크 최종확인 대기.**
+- **상단바/하단힌트 너무 작음 → 크롬 확대** (`5ee9373`): `kTopBarH 76→92`, `kHintsH 44→56`(BODY_TOP/BOTTOM 파생→그리드 자동 리플로우) + 컨트롤·배지·브랜드 비례확대 + **크롬 전용 폰트**(m_fBarBody19/m_fBarSmall16, m_fBrand24→30)로 그리드/상세 본문은 불변. 곁다리 수정: 긴 연결호스트가 검색창 침범→우측클러스터 좌단 선계산해 host 생략, 힌트확대로 28px 짧아진 상세패널 회수(HERO_H172→150, GAP13→11). **overscan 아님(사용자: "보이긴 하는데 작음") 확인 → 안전여백 미적용.**
+- **basic-auth 404 → 샵URL 정규화** (서버레포 `c6cbcfb`): 앱은 `<base>/api/shop/sections`로 부르는데 틴포일식 `.../shop.tfl`을 그대로 넣으면 `.../shop.tfl/api/shop/sections` 404. `net::normalizeShopUrl`이 꼬리 `/shop.tfl`·`/shop.json`(대소문자무시) 제거, bare `shop.tfl` 도메인은 보존. 호스트테스트 5종 추가. **주의: 로컬 하니스는 빈 라이브러리라 목록 비어보이는게 정상, 스위치는 127.0.0.1 못감→LAN IP.**
+- **아이콘 교체** (`69cf088`): 픽셀아트 버터 키아트. icon.jpg(홈메뉴)=제목포함 전체, romfs/gfx/icon.png(상단바)=제목뺀 버터장면 크롭(워드마크 텍스트중복 방지). 원본 `brand/cookfoil-icon.webp` 보관. **Makefile 픽스: `.nro`가 `$(APP_ICON)`+romfs 파일에 의존하도록(에셋만 바뀌어도 repack — 안그러면 icon 변경이 NRO에 안 박힘).**
+
+**리모트 상태**: 앱레포(`oc-cookfoil-sdl`)는 **remote 없음(로컬 전용)** → push 대상 아님. 서버레포(`oc-cookingfoil`)만 `feat/device-pairing`에 unpushed 커밋. push/릴리스는 사용자 GO 대기(변함없음).
