@@ -19,6 +19,11 @@ import {
   provisioningUri,
   selfTest as adminSelfTest,
 } from "./security/admin-session.js";
+import {
+  isEnrolled as adminEnrolled,
+  secretSource as adminSecretSource,
+} from "./security/admin-secret.js";
+import { logConfigHealth } from "./security/config-health.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -231,24 +236,32 @@ customArt.init().catch((err) =>
   debug.error("custom-art init failed:", err.message)
 );
 
-// Admin 2FA: validate the configured secret and surface the enrollment URI in
-// the logs (never over HTTP) so the operator can add it to an authenticator.
+// Which auth lanes are live, and does that combination lock out a client the
+// operator expects to work? Printed unconditionally — a silent misconfiguration
+// here is exactly what makes downloads "fail with no error".
+logConfigHealth();
+
+// Admin 2FA: validate the secret and surface the enrollment URI in the logs so
+// the operator can add it to an authenticator without shell-diving.
 if (adminTotpEnabled()) {
   adminSelfTest().then(async (ok) => {
     if (!ok) {
-      debug.error("admin 2fa: COOK_ADMIN_TOTP_SECRET is not a valid base32 secret — /admin disabled in practice");
+      debug.error("admin 2fa: the TOTP secret is not valid base32 — /admin cannot verify codes");
+      return;
+    }
+    if (adminEnrolled()) {
+      debug.log("admin 2fa: enrolled (%s secret)", adminSecretSource());
       return;
     }
     const uri = await provisioningUri();
     // Print unconditionally (not via DEBUG) — the operator needs this URI to
     // enroll the secret in their authenticator app on first boot.
     process.stdout.write(
-      `[oc-cookingfoil] /admin 2FA enabled. Enroll in your authenticator:\n` +
-      `[oc-cookingfoil] ${uri}\n`
+      `[oc-cookingfoil] /admin 2FA not enrolled yet. Add this to your authenticator:\n` +
+      `[oc-cookingfoil] ${uri}\n` +
+      `[oc-cookingfoil] (or open /admin from your local network to copy the key)\n`
     );
   });
-} else {
-  debug.log("admin 2fa: /admin disabled (set COOK_ADMIN_TOTP_SECRET to enable)");
 }
 
 // Realtime push channel for the dashboard. Mounted on the same HTTP

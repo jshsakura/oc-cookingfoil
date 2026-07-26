@@ -17,6 +17,7 @@ import debug from "../debug.js";
 import { authUsers, unauthorizedMessage } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
 import * as store from "./store.js";
+import { recordDeny, denyResponse, DENY } from "./deny.js";
 
 const MAX_FAILURES = Math.max(
   1,
@@ -83,12 +84,13 @@ export default function authGuard() {
         lock?.until && lock.until > Date.now()
           ? Math.ceil((lock.until - Date.now()) / 1000)
           : null;
-      debug.log("security: blocked locked IP %s on %s", ip, req.path);
-      res.set("Cache-Control", "no-store");
       if (remaining !== null) res.set("Retry-After", String(remaining));
-      res.status(429).type("text/plain").send(
-        "Locked out after too many failed attempts. Contact the administrator."
-      );
+      denyResponse(req, res, {
+        reason: DENY.IP_LOCKED,
+        status: 429,
+        detail: lock?.reason ?? null,
+        body: "Locked out after too many failed attempts. Contact the administrator.\n",
+      });
       return;
     }
 
@@ -100,6 +102,14 @@ export default function authGuard() {
     res.status = (code) => {
       if (code === 401 && !intercepted) {
         intercepted = true;
+        // basic-auth owns the body here, so we only tag the response — the
+        // reason still reaches the operator via the header + denial log.
+        res.set("X-CookingFoil-Deny", DENY.BAD_CREDENTIALS);
+        recordDeny(req, {
+          reason: DENY.BAD_CREDENTIALS,
+          status: 401,
+          user: req.auth?.user ?? null,
+        });
         recordFailure(ip, req);
       }
       return originalStatus(code);

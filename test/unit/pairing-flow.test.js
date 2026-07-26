@@ -132,3 +132,77 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
     server.kill("SIGKILL");
   }
 });
+
+test("pair endpoints accept the device key from the header the client already sends", async () => {
+  // oc-cookfoil-sdl stamps X-Device-Key on every request via buildCfHeaders.
+  // Requiring the query param *as well* made these endpoints fail in a way that
+  // looked like "pairing is broken" rather than "wrong parameter shape".
+  const server = bootServer();
+  try {
+    await waitReady();
+
+    let r = await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": DEVICE_KEY } });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).status, "pending", "a header-only poll still knocks");
+
+    // …and the knock reached the admin queue, so it can actually be approved.
+    const code = await generate({ secret: TOTP_SECRET });
+    r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+    r = await fetch(`${BASE}/admin/api/devices`, { headers: { Cookie: cookie } });
+    const devices = await r.json();
+    assert.ok(
+      devices.pending.some((p) => p.deviceKey === DEVICE_KEY),
+      "header-only poll must surface in the pending queue"
+    );
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("a refused request is visible on the admin dashboard, with a reason and a hint", async () => {
+  // The regression that started all this: content refusals left no trace, so a
+  // client that failed silently was undiagnosable from the server side.
+  const server = bootServer();
+  try {
+    await waitReady();
+
+    // A stock-Tinfoil-shaped request: no device key, no credentials.
+    const refused = await fetch(`${BASE}/shop.tfl`, { headers: { "User-Agent": "Tinfoil/17.0" } });
+    assert.equal(refused.status, 403);
+    assert.equal(
+      refused.headers.get("x-cookingfoil-deny"),
+      "no-device-key",
+      "the response itself must say why"
+    );
+
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+
+    r = await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: cookie } });
+    const stats = await r.json();
+
+    const denial = stats.denials.recent.find((d) => d.reason === "no-device-key");
+    assert.ok(denial, "the refusal must appear in the denial log");
+    assert.equal(denial.path, "/shop.tfl");
+    assert.equal(denial.ua, "Tinfoil/17.0");
+    assert.match(denial.hint, /COOK_AUTH_USERS/, "the row must state the fix");
+    assert.ok(stats.totals.denied24h >= 1);
+
+    assert.ok(
+      stats.warnings.some((w) => w.code === "pairing-only-blocks-tinfoil"),
+      "the configuration that causes this must be called out on its own"
+    );
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

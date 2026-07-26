@@ -17,10 +17,7 @@
 import * as store from "./store.js";
 import { devicePairing } from "../helpers/envs.js";
 import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
-
-function clientIp(req) {
-  return (req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
-}
+import { recordDeny, clientIp, DENY } from "./deny.js";
 
 export default function pairingGate() {
   if (!devicePairing) {
@@ -41,12 +38,16 @@ export default function pairingGate() {
     }
 
     // Known-but-unauthenticated or unknown device → log for the dashboard,
-    // then defer to basic-auth.
+    // then defer to basic-auth. Not a hard refusal, but still worth a denial
+    // row: an approved device failing its key is exactly the "why did my
+    // console stop working?" case.
     if (!store.isDeviceApproved(deviceKey)) {
       store.recordPendingDevice(deviceKey, {
         ip: clientIp(req),
         version: req.get("Version") || null,
       });
+    } else {
+      recordDeny(req, { reason: DENY.DEVICE_BAD_ACCESS_KEY, status: null, deviceKey });
     }
     next();
   };

@@ -10,6 +10,7 @@
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { recordDeny, DENY } from "./deny.js";
 
 const REFILL_PER_MIN = Math.max(1, Number(process.env.COOK_RATE_LIMIT_PER_MIN ?? 240));
 const BURST = Math.max(1, Number(process.env.COOK_RATE_LIMIT_BURST ?? 60));
@@ -51,6 +52,8 @@ export default function rateLimit() {
       res.set("Retry-After", String(Math.ceil(waitMs / 1000)));
       res.set("Cache-Control", "no-store");
       store.appendAudit({ kind: "rate-limited", ip, path: req.path, at: now });
+      recordDeny(req, { reason: DENY.RATE_LIMITED, status: 429 });
+      res.set("X-CookingFoil-Deny", DENY.RATE_LIMITED);
       debug.log("security: rate-limited %s (%s)", ip, req.path);
       return res.status(429).type("text/plain").send("Too many requests.");
     }

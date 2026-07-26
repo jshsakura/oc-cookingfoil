@@ -6,7 +6,7 @@
  *        → records the device as "pending" for the admin to approve.
  *        → { status: "pending" }  (or { status: "approved" } if already done)
  *
- *   GET  /api/pair/status?deviceKey=<64hex>
+ *   GET  /api/pair/status?deviceKey=<64hex>   (or the X-Device-Key header)
  *        → { status: "pending" }                              while unapproved
  *        → { status: "approved", accessKey, shopUrl }         ONCE after approval
  *        → { status: "approved" }                             on later polls
@@ -18,7 +18,11 @@
 import express from "express";
 
 import * as store from "../security/store.js";
-import { normalizeDeviceKey, takeAccessKeyDelivery } from "../security/pairing.js";
+import {
+  normalizeDeviceKey,
+  deviceKeyFromHeaders,
+  takeAccessKeyDelivery,
+} from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -40,9 +44,15 @@ export default function pairRouter() {
     next();
   });
 
+  // The device key may arrive in the body/query OR as the header the client
+  // already stamps on every other request — accept either so a caller can't
+  // half-work depending on which endpoint it hits.
+  const resolveKey = (req, explicit) =>
+    normalizeDeviceKey(explicit) ?? deviceKeyFromHeaders(req);
+
   router.post("/request", (req, res) => {
     res.set("Cache-Control", "no-store");
-    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    const deviceKey = resolveKey(req, req.body?.deviceKey);
     if (!deviceKey) {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
@@ -61,7 +71,7 @@ export default function pairRouter() {
 
   router.get("/status", (req, res) => {
     res.set("Cache-Control", "no-store");
-    const deviceKey = normalizeDeviceKey(req.query?.deviceKey);
+    const deviceKey = resolveKey(req, req.query?.deviceKey);
     if (!deviceKey) {
       res.status(400).json({ error: "invalid deviceKey" });
       return;

@@ -19,6 +19,9 @@ const AUDIT_MAX = 1000;
 // Bound the pending-device map so a flood of pair/requests from random device
 // keys can't balloon state.json. Oldest-seen entries are evicted first.
 const PENDING_MAX = 200;
+// Denials are the operator's debugging trail — keep enough to see a pattern,
+// few enough that a scanner can't grow state.json without bound.
+const DENIALS_MAX = 300;
 
 const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
@@ -27,6 +30,8 @@ const state = {
   devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, lastSeenAt, lastIp, lastVersion }
   pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
   audit: [],
+  denials: [],         // newest-last ring of refusals (see security/deny.js)
+  denialCounts: {},    // reason → total ever, so the dashboard can show trends
 };
 
 let flushTimer = null;
@@ -40,6 +45,8 @@ function serialise() {
     devices: Object.fromEntries(state.devices),
     pending: Object.fromEntries(state.pending),
     audit: state.audit,
+    denials: state.denials,
+    denialCounts: state.denialCounts,
     savedAt: Date.now(),
   };
 }
@@ -83,6 +90,8 @@ export async function load() {
     state.devices = new Map(Object.entries(parsed.devices ?? {}));
     state.pending = new Map(Object.entries(parsed.pending ?? {}));
     state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
+    state.denials = Array.isArray(parsed.denials) ? parsed.denials : [];
+    state.denialCounts = parsed.denialCounts ?? {};
     debug.log(
       "security: state loaded (%d failure tracker(s), %d lockout(s))",
       state.failures.size,
@@ -112,6 +121,39 @@ export function appendAudit(entry) {
   if (state.audit.length > AUDIT_MAX) {
     state.audit.splice(0, state.audit.length - AUDIT_MAX);
   }
+  scheduleFlush();
+}
+
+// ── Denials (the operator's "why was this refused?" trail) ─────────────────
+// Written exclusively through security/deny.js so every refusal in the app
+// lands here in one shape.
+
+export function recordDenial(entry) {
+  state.denials.push(entry);
+  if (state.denials.length > DENIALS_MAX) {
+    state.denials.splice(0, state.denials.length - DENIALS_MAX);
+  }
+  const reason = entry?.reason ?? "unknown";
+  state.denialCounts = {
+    ...state.denialCounts,
+    [reason]: (state.denialCounts[reason] ?? 0) + 1,
+  };
+  scheduleFlush();
+}
+
+/** Newest-first denials, optionally limited. `sinceMs` filters by age. */
+export function denialsSnapshot({ limit = 100, sinceMs = null } = {}) {
+  const cutoff = sinceMs ? Date.now() - sinceMs : null;
+  const rows = state.denials.filter((d) => cutoff === null || (d.at ?? 0) >= cutoff);
+  return {
+    recent: rows.slice(-limit).reverse(),
+    total: state.denials.length,
+    counts: { ...state.denialCounts },
+  };
+}
+
+export function clearDenials() {
+  state.denials = [];
   scheduleFlush();
 }
 

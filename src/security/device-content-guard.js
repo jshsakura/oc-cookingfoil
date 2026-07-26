@@ -19,15 +19,13 @@ import * as store from "./store.js";
 import { devicePairing, authUsers } from "../helpers/envs.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
+import { denyResponse, clientIp, DENY } from "./deny.js";
+import { isLoopbackIp } from "./net.js";
 
 const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
 
-function clientIp(req) {
-  return (req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
-}
-
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+  return TRUST_LOOPBACK && isLoopbackIp(ip);
 }
 
 export default function deviceContentGuard() {
@@ -49,10 +47,25 @@ export default function deviceContentGuard() {
         version: req.get("Version") || null,
       });
     }
-    res.set("Cache-Control", "no-store");
-    res
-      .status(403)
-      .type("text/plain")
-      .send("Device not approved. Ask the admin to approve your device key.");
+
+    // A client with NO device key can never pair — stock Tinfoil is the case
+    // that matters. Calling that out separately is what turns a mystery
+    // ("download just says Complete") into a one-line dashboard answer.
+    if (!deviceKey) {
+      return denyResponse(req, res, {
+        reason: DENY.NO_DEVICE_KEY,
+        status: 403,
+        body:
+          "This server is in pairing-only mode and your client sent no device key.\n" +
+          "Stock Tinfoil cannot pair — the operator must set COOK_AUTH_USERS to enable the password lane.\n",
+      });
+    }
+
+    return denyResponse(req, res, {
+      reason: DENY.DEVICE_NOT_APPROVED,
+      status: 403,
+      deviceKey,
+      body: "Device not approved. Ask the admin to approve your device key.\n",
+    });
   };
 }
