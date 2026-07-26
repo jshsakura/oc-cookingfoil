@@ -21,11 +21,10 @@ import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
 import { denyResponse, clientIp, DENY } from "./deny.js";
 import { isLoopbackIp } from "./net.js";
-
-const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
+import { trustLoopback } from "./limits.js";
 
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && isLoopbackIp(ip);
+  return trustLoopback && isLoopbackIp(ip);
 }
 
 export default function deviceContentGuard() {

@@ -17,11 +17,12 @@ import { titledbCacheDir } from "../helpers/envs.js";
 import * as store from "./titledb-store.js";
 import * as shopCache from "./shop-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
+import { envNumber, envBool } from "../helpers/env-read.js";
 
 // `Number` here so "0.01" (~36 s) works for tests; clamped to >= 0.
 const REFRESH_HOURS = Math.max(
   0,
-  Number(process.env.COOK_TITLEDB_REFRESH_INTERVAL_HOURS ?? 24)
+  envNumber("COOK_TITLEDB_REFRESH_INTERVAL_HOURS", 24)
 );
 const REFRESH_MS = REFRESH_HOURS * 60 * 60 * 1000;
 const POST_BOOT_DELAY_MS = 60_000;  // small breathing room when refresh is due
@@ -133,7 +134,7 @@ export async function bootstrap() {
   // start). Invalidate so the next /shop.json triggers a rebuild with the
   // titledb data we just loaded — names, aliases and metadata all flow.
   shopCache.invalidate();
-  const autoFetch = process.env.COOK_TITLEDB_AUTO_FETCH !== "false";
+  const autoFetch = envBool("COOK_TITLEDB_AUTO_FETCH", true);
   const haveCache = store.size() > 0;
   // A partial cache is the common real-world state: an early boot (or a once-
   // narrowed COOK_TITLEDB_REGIONS) left only some regions on disk. Because

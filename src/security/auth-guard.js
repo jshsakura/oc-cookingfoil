@@ -18,15 +18,11 @@ import { authUsers, unauthorizedMessage } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
 import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
+import { noteProxyCollapse } from "./proxy-check.js";
+import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
+import { envNumber } from "../helpers/env-read.js";
 
-const MAX_FAILURES = Math.max(
-  1,
-  Number(process.env.COOK_AUTH_MAX_FAILURES ?? 5)
-);
-const LOCKOUT_TTL_MS = Math.max(
-  0,
-  Number(process.env.COOK_LOCKOUT_TTL_HOURS ?? 0) * 60 * 60 * 1000
-);
+const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
 function clientIp(req) {
   // Prefers req.ip when `trust proxy` is on and an X-Forwarded-For arrived;
@@ -40,9 +36,8 @@ function clientIp(req) {
 // inherently trusted — they already have shell access. Excluding them stops
 // dev/test setups from locking themselves out on intentional auth failures.
 // Override with COOK_LOCKOUT_TRUST_LOOPBACK=false to enforce strictly.
-const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+  return trustLoopback && isLoopbackIp(ip);
 }
 
 export default function authGuard() {
@@ -128,6 +123,10 @@ export default function authGuard() {
 }
 
 function recordFailure(ip, req) {
+  // Behind an untrusted proxy every client counts toward THIS one counter, so a
+  // stranger's typo can lock out the whole household. Surface it before the
+  // lockout lands rather than after.
+  noteProxyCollapse(req);
   const now = Date.now();
   const prev = store.getFailure(ip) ?? { count: 0, firstAt: now };
   const next = {

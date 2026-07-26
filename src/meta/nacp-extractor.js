@@ -21,8 +21,9 @@ import { cachePathFor } from "./image-cache.js";
 import * as autoProvider from "./extract-providers/auto.js";
 import { iconCacheDir, extractPaceMs } from "../helpers/envs.js";
 import debug from "../debug.js";
+import { envNumber } from "../helpers/env-read.js";
 
-const CONCURRENCY = Number(process.env.COOK_EXTRACT_CONCURRENCY ?? 2);
+const CONCURRENCY = envNumber("COOK_EXTRACT_CONCURRENCY", 2, { min: 1, integer: true });
 
 // Inter-job pacing: a small gap between jobs so the one-time background pass
 // runs GENTLY (never saturates disk/CPU while serving). Concurrency is

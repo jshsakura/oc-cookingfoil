@@ -16,6 +16,7 @@ import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { hasValidSession } from "./admin-session.js";
 import { isLoopbackIp } from "./net.js";
+import { maxAuthFailures, trustLoopback } from "./limits.js";
 
 const MAX_URI_LENGTH = 4096;
 
@@ -45,9 +46,8 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
-const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && isLoopbackIp(ip);
+  return trustLoopback && isLoopbackIp(ip);
 }
 
 function flag(req, reason) {
@@ -61,7 +61,7 @@ function flag(req, reason) {
   const prev = store.getFailure(ip) ?? { count: 0, firstAt: Date.now() };
   const next = { count: prev.count + 1, firstAt: prev.firstAt, lastAt: Date.now(), lastPath: req.path };
   store.setFailure(ip, next);
-  const MAX = Math.max(1, Number(process.env.COOK_AUTH_MAX_FAILURES ?? 5));
+  const MAX = maxAuthFailures;
   if (next.count >= MAX) {
     store.lock(ip, { reason: `probe: ${reason}`, ttlMs: 0 });
     debug.error("security: %s LOCKED OUT after %d probe(s)", ip, next.count);

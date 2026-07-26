@@ -11,6 +11,7 @@ import path from "path";
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
+import { envBool } from "../helpers/env-read.js";
 
 const STATE_DIR = path.join(dataDir, "security");
 const STATE_PATH = path.join(STATE_DIR, "state.json");
@@ -106,7 +107,7 @@ export async function load() {
   // One-shot reset switch: COOK_RESET_LOCKOUTS=true clears all lockouts on
   // boot. Useful if the admin loses access. Failure counters also clear so
   // a previously-locked IP gets a clean slate.
-  if (process.env.COOK_RESET_LOCKOUTS === "true") {
+  if (envBool("COOK_RESET_LOCKOUTS", false)) {
     const lockCount = state.lockouts.size;
     state.failures.clear();
     state.lockouts.clear();

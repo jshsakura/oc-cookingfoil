@@ -43,10 +43,11 @@ import {
   slotPriorityOrder,
 } from "../nacp-decode.js";
 import { findControlNcaId } from "../cnmt-parse.js";
+import { envNumber, envString } from "../../helpers/env-read.js";
 
 const NSP_RE = /\.(nsp|xci)$/i;
-const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 600_000);
-const KEYS_PATH = process.env.COOK_PROD_KEYS_PATH ?? "/keys/prod.keys";
+const DEFAULT_TIMEOUT_MS = envNumber("COOK_EXTRACT_TIMEOUT_MS", 600_000, { min: 1000 });
+const KEYS_PATH = envString("COOK_PROD_KEYS_PATH", "/keys/prod.keys");
 
 // Detected once at module load. resolveBinary() returns null when both
 // `COOK_NSTOOL_BIN` is unset and no `nstool` lives in PATH.
@@ -54,7 +55,7 @@ let cachedBinary = undefined;
 
 async function resolveBinary() {
   if (cachedBinary !== undefined) return cachedBinary;
-  const explicit = process.env.COOK_NSTOOL_BIN;
+  const explicit = envString("COOK_NSTOOL_BIN");
   if (explicit) {
     try {
       await fs.access(explicit, fs.constants.X_OK);

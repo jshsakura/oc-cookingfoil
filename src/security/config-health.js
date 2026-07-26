@@ -14,6 +14,7 @@ import { getUsersFromEnv } from "../authUsersParser.js";
 import { adminTotpEnabled, adminOwner } from "./admin-session.js";
 import { secretSource, isEnrolled } from "./admin-secret.js";
 import { adminEmail } from "../helpers/envs.js";
+import { proxyCollapseObserved } from "./proxy-check.js";
 
 export const SEVERITY = { WARN: "warn", INFO: "info" };
 
@@ -66,6 +67,18 @@ export function configWarnings(lanes = authLanes()) {
       detail:
         "A TOTP secret was generated automatically. Scan it from a device on your local network, " +
         "or copy the otpauth:// URI printed in the server log. The QR stops being served once enrolled.",
+    });
+  }
+
+  if (proxyCollapseObserved()) {
+    out.push({
+      severity: SEVERITY.WARN,
+      code: "proxy-collapse",
+      title: "Requests arrive through a proxy, but COOK_TRUST_PROXY is not set",
+      detail:
+        "Every client is being counted as the proxy's single IP, so they share one rate-limit " +
+        "budget and one lockout counter — one stranger's failures can throttle or lock out " +
+        "everyone. Set COOK_TRUST_PROXY=true and have the proxy forward X-Forwarded-For.",
     });
   }
 
