@@ -81,6 +81,28 @@ test("an auto-provisioned admin secret reports as unenrolled and warns", () => {
   assert.ok(codes(r).includes("admin-unenrolled"));
 });
 
+test("COOK_ADMIN_EMAIL becomes the admin identity", () => {
+  const r = runProbe({ COOK_ADMIN_EMAIL: "jshsakura@gmail.com" });
+  assert.equal(r.lanes.admin.email, "jshsakura@gmail.com");
+  assert.equal(r.lanes.admin.owner, "jshsakura@gmail.com");
+});
+
+test("an unset admin email falls back to a generic owner, not a crash", () => {
+  const r = runProbe({ COOK_ADMIN_EMAIL: "" });
+  assert.equal(r.lanes.admin.email, null);
+  assert.equal(r.lanes.admin.owner, "admin");
+});
+
+test("a malformed admin email is rejected rather than shown as-is", () => {
+  // It ends up in the authenticator label and the admin page; garbage in that
+  // slot is confusing, and it is never worth failing a boot over.
+  for (const bad of ["not-an-email", "@nope.com", "a@b", "two words@x.com"]) {
+    const r = runProbe({ COOK_ADMIN_EMAIL: bad });
+    assert.equal(r.lanes.admin.email, null, `${bad} should be ignored`);
+    assert.equal(r.lanes.admin.owner, "admin");
+  }
+});
+
 test("an operator-supplied COOK_ADMIN_TOTP_SECRET counts as already enrolled", () => {
   const r = runProbe({
     COOK_AUTH_USERS: "switch:foil",

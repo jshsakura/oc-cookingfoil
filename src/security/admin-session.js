@@ -13,7 +13,7 @@
 import crypto from "crypto";
 import { generate, verify, generateURI } from "otplib";
 
-import { adminSessionHours } from "../helpers/envs.js";
+import { adminSessionHours, adminEmail } from "../helpers/envs.js";
 import { adminSecret, markEnrolled } from "./admin-secret.js";
 import debug from "../debug.js";
 
@@ -28,6 +28,11 @@ const SIGNING_SECRET = crypto.randomBytes(32);
  */
 export function adminTotpEnabled() {
   return Boolean(adminSecret());
+}
+
+/** The operator's identity for display + the authenticator account label. */
+export function adminOwner() {
+  return adminEmail ?? "admin";
 }
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */
@@ -57,7 +62,9 @@ export async function provisioningUri() {
   try {
     return await generateURI({
       secret,
-      label: "admin",
+      // The authenticator shows this as the account name. An email makes the
+      // entry identifiable among a dozen other "admin" rows.
+      label: adminOwner(),
       issuer: "CookingFoil",
       type: "totp",
     });

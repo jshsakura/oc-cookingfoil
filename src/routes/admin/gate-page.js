@@ -1,7 +1,8 @@
 /** The 6-digit TOTP prompt shown to anyone without a valid admin session. */
 import { ADMIN_CSS } from "./styles.js";
+import { escapeHtml } from "./escape.js";
 
-export function gatePage() {
+export function gatePage({ owner } = {}) {
   return /* html */ `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil · Admin</title><style>${ADMIN_CSS}
@@ -15,7 +16,7 @@ border:1px solid #45475a;background:var(--sunk);color:var(--text);font-family:in
 button{margin-top:14px;width:100%;padding:11px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}</style></head><body>
 <div class="box"><div class="logo">🔐</div><h1>Admin access</h1>
-<p>Enter the 6-digit code from your authenticator app.</p>
+<p>Enter the 6-digit code for <b>${escapeHtml(owner || "admin")}</b> from your authenticator app.</p>
 <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" autofocus>
 <button id="go" class="primary" type="button">Unlock</button><div class="err" id="err"></div></div>
 <script>

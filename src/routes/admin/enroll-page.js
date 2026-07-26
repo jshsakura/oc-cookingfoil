@@ -8,21 +8,16 @@
  * offline case this server actually runs in).
  */
 import { ADMIN_CSS } from "./styles.js";
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
-}
+import { escapeHtml } from "./escape.js";
 
 /** Groups the base32 secret into 4-char blocks so it can be typed accurately. */
 function grouped(secret) {
   return String(secret).replace(/(.{4})/g, "$1 ").trim();
 }
 
-export function enrollPage({ secret, uri }) {
-  const safeSecret = escapeHtml(secret);
+export function enrollPage({ secret, uri, owner }) {
   const safeUri = escapeHtml(uri ?? "");
+  const safeOwner = escapeHtml(owner || "admin");
   return /* html */ `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil · Admin setup</title><style>${ADMIN_CSS}
@@ -45,7 +40,7 @@ font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:var
 <ol>
 <li>Open your authenticator (Google Authenticator, Aegis, 1Password, …)</li>
 <li>Choose <b>“Enter a setup key”</b> / manual entry</li>
-<li>Account: <b>CookingFoil admin</b> · Type: <b>Time based</b></li>
+<li>Account: <b>CookingFoil (${safeOwner})</b> · Type: <b>Time based</b></li>
 <li>Paste the key below, then continue</li>
 </ol>
 <div class="key" id="key">${escapeHtml(grouped(secret))}</div>

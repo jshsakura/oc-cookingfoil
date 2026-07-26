@@ -24,6 +24,7 @@ import {
   clearSession,
   hasValidSession,
   provisioningUri,
+  adminOwner,
 } from "../security/admin-session.js";
 import { adminSecret, isEnrolled } from "../security/admin-secret.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
@@ -92,10 +93,10 @@ export default function adminPageRouter() {
     if (!wantsGate && !isEnrolled() && isPrivateIp(clientIp(req))) {
       const uri = await provisioningUri();
       res.set("Cache-Control", "no-store");
-      res.type("html").send(enrollPage({ secret: adminSecret(), uri }));
+      res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
       return;
     }
-    res.type("html").send(gatePage());
+    res.type("html").send(gatePage({ owner: adminOwner() }));
   });
 
   router.post("/verify", async (req, res) => {

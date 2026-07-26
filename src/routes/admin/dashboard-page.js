@@ -16,6 +16,9 @@ export function dashboardPage() {
 body{padding:28px 20px}.wrap{max-width:980px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
 h1{font-size:20px;margin:0}
+.who{display:flex;align-items:center;gap:8px;margin-top:2px}
+.avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;
+background:linear-gradient(135deg,var(--accent),#b4befe);color:var(--sunk);flex:none}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
 .card .v{font-size:24px;font-weight:700}
@@ -26,7 +29,8 @@ h1{font-size:20px;margin:0}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
 </style></head><body>
 <div class="wrap">
-<header><div><h1>🧈 CookingFoil Admin</h1><div class="muted" id="ts">loading…</div></div>
+<header><div><h1>🧈 CookingFoil Admin</h1>
+<div class="who" id="who"></div><div class="muted" id="ts">loading…</div></div>
 <button id="logout" type="button">Log out</button></header>
 
 <div id="warnings"></div>
@@ -62,6 +66,12 @@ function renderWarnings(list){const box=document.getElementById('warnings');box.
   n.appendChild(el('div',(w.severity==='warn'?'⚠️ ':'ℹ️ ')+w.title,'t'));
   n.appendChild(el('div',w.detail,'d'));box.appendChild(n);}}
 
+function renderOwner(admin){const box=document.getElementById('who');box.innerHTML='';
+ const name=admin.email||admin.owner||'admin';
+ const av=el('div',(name[0]||'a').toUpperCase(),'avatar');
+ box.appendChild(av);box.appendChild(el('span',name,'muted'));
+ if(!admin.email)box.appendChild(el('span','set COOK_ADMIN_EMAIL','pill'));}
+
 function renderLanes(l){const box=document.getElementById('lanes');box.innerHTML='';
  const chip=(txt,on)=>el('span',txt,'pill '+(on?'on':'off'));
  box.appendChild(chip('Basic auth: '+(l.basicAuth.enabled?l.basicAuth.userCount+' user(s)':'off'),l.basicAuth.enabled));
@@ -75,6 +85,7 @@ async function load(){
   const d=await r.json();
   document.getElementById('ts').textContent='Updated '+fmt(d.generatedAt);
   renderWarnings(d.warnings||[]);
+  renderOwner(d.lanes.admin);
   renderLanes(d.lanes);
 
   const cards=document.getElementById('cards');cards.innerHTML='';

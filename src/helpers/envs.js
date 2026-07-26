@@ -114,6 +114,23 @@ const publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
 const adminSessionHours = Math.max(1, Number(process.env.COOK_ADMIN_SESSION_HOURS ?? 8));
 
+// Who owns this server. Used as the account label in the authenticator entry
+// (so "CookingFoil (you@example.com)" is distinguishable from every other TOTP
+// row) and shown on the admin pages. Never sent to unauthenticated clients.
+// Deliberately lenient validation — this is a display label, not a mail route;
+// a malformed value is dropped with a warning rather than failing the boot.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const rawAdminEmail = pickEnv("COOK_ADMIN_EMAIL");
+const adminEmail = (() => {
+  if (!rawAdminEmail) return null;
+  const trimmed = rawAdminEmail.trim();
+  if (EMAIL_RE.test(trimmed)) return trimmed;
+  process.stderr.write(
+    `[oc-cookingfoil] COOK_ADMIN_EMAIL is not a valid address ("${trimmed}") — ignoring it.\n`
+  );
+  return null;
+})();
+
 // Switch console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
@@ -228,6 +245,7 @@ export {
   publicBaseUrl,
   adminTotpSecret,
   adminSessionHours,
+  adminEmail,
   customEntriesPath,
   langPriority,
   uploadsDir,

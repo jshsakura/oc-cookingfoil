@@ -11,8 +11,9 @@
  */
 import { devicePairing, authUsers } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
-import { adminTotpEnabled } from "./admin-session.js";
+import { adminTotpEnabled, adminOwner } from "./admin-session.js";
 import { secretSource, isEnrolled } from "./admin-secret.js";
+import { adminEmail } from "../helpers/envs.js";
 
 export const SEVERITY = { WARN: "warn", INFO: "info" };
 
@@ -27,6 +28,8 @@ export function authLanes() {
       enabled: adminTotpEnabled(),
       secretSource: secretSource(),
       enrolled: isEnrolled(),
+      owner: adminOwner(),
+      email: adminEmail,
     },
   };
 }
@@ -83,6 +86,7 @@ export function configWarnings(lanes = authLanes()) {
 /** One-line-per-warning boot log so a misconfiguration is loud before it bites. */
 export function logConfigHealth(write = (s) => process.stdout.write(s)) {
   const lanes = authLanes();
+  write(`[oc-cookingfoil] admin: ${lanes.admin.owner}\n`);
   for (const w of configWarnings(lanes)) {
     if (w.severity !== SEVERITY.WARN) continue;
     write(`[oc-cookingfoil] WARNING: ${w.title}\n[oc-cookingfoil]   ${w.detail}\n`);
