@@ -13,6 +13,10 @@
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { recordDeny, denyResponse, DENY } from "./deny.js";
+import { hasValidSession } from "./admin-session.js";
+import { isLoopbackIp } from "./net.js";
+import { maxAuthFailures, trustLoopback } from "./limits.js";
 
 const MAX_URI_LENGTH = 4096;
 
@@ -42,14 +46,14 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
-const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+  return trustLoopback && isLoopbackIp(ip);
 }
 
 function flag(req, reason) {
   const ip = clientIp(req);
   store.appendAudit({ kind: "probe", ip, path: req.path, ua: req.get("user-agent") || "", reason, at: Date.now() });
+  recordDeny(req, { reason: DENY.PROBE, status: 404, detail: reason });
   debug.error("security: probe blocked from %s — %s (%s)", ip, reason, req.path);
 
   // Probes burn the same budget as bad credentials. Several probes from
@@ -57,7 +61,7 @@ function flag(req, reason) {
   const prev = store.getFailure(ip) ?? { count: 0, firstAt: Date.now() };
   const next = { count: prev.count + 1, firstAt: prev.firstAt, lastAt: Date.now(), lastPath: req.path };
   store.setFailure(ip, next);
-  const MAX = Math.max(1, Number(process.env.COOK_AUTH_MAX_FAILURES ?? 5));
+  const MAX = maxAuthFailures;
   if (next.count >= MAX) {
     store.lock(ip, { reason: `probe: ${reason}`, ttlMs: 0 });
     debug.error("security: %s LOCKED OUT after %d probe(s)", ip, next.count);
@@ -74,11 +78,23 @@ export default function accessGuard() {
       return next();
     }
 
+    // An operator holding a valid 2FA session cookie is, by definition, not the
+    // brute-forcer the lockout is aimed at. Letting them through is what makes
+    // the dashboard's Unlock button reachable from the very IP that got locked —
+    // otherwise locking yourself out means editing .env and restarting. The
+    // cookie is Path=/admin, so this widens nothing else.
+    if (hasValidSession(req)) {
+      return next();
+    }
+
     // Locked IPs get the cold shoulder for ALL requests — landing page too,
     // not only auth-protected routes.
     if (store.isLocked(ip)) {
-      res.set("Cache-Control", "no-store");
-      res.status(429).type("text/plain").send("Locked out — contact administrator.");
+      denyResponse(req, res, {
+        reason: DENY.IP_LOCKED,
+        status: 429,
+        body: "Locked out — contact administrator.\n",
+      });
       return;
     }
 

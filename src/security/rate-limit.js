@@ -2,17 +2,30 @@
  * Per-IP token-bucket rate limiter. Pure in-memory, no external store.
  *
  * Defaults:
- *   - COOK_RATE_LIMIT_PER_MIN  (default 240) — generous; Tinfoil walks a lot.
- *   - COOK_RATE_LIMIT_BURST    (default 60)  — concurrent burst capacity.
+ *   - COOK_RATE_LIMIT_PER_MIN  (default 1200 = 20/s)
+ *   - COOK_RATE_LIMIT_BURST    (default 300) — concurrent burst capacity.
+ *
+ * The defaults are sized for what this server actually serves, not for a
+ * cautious guess:
+ *   - a console install streams a title in 16 MB range requests, so a large
+ *     game is hundreds of requests in one sitting;
+ *   - the dashboard grid fires one icon request per visible title, which is a
+ *     few hundred at once on a real library.
+ * The old 240/min + 60 burst throttled both of those, and a throttled range
+ * read surfaces on the console as a bare "install failed" with no cause. This
+ * limiter exists to blunt floods, not to pace legitimate transfers.
  *
  * On exhaustion we 429 with a Retry-After hint and audit the event but
  * don't auto-lock (a noisy client isn't necessarily malicious).
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { recordDeny, DENY } from "./deny.js";
+import { noteProxyCollapse } from "./proxy-check.js";
+import { envNumber } from "../helpers/env-read.js";
 
-const REFILL_PER_MIN = Math.max(1, Number(process.env.COOK_RATE_LIMIT_PER_MIN ?? 240));
-const BURST = Math.max(1, Number(process.env.COOK_RATE_LIMIT_BURST ?? 60));
+const REFILL_PER_MIN = envNumber("COOK_RATE_LIMIT_PER_MIN", 1200, { min: 1 });
+const BURST = envNumber("COOK_RATE_LIMIT_BURST", 300, { min: 1 });
 const REFILL_PER_MS = REFILL_PER_MIN / 60_000;
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -51,6 +64,17 @@ export default function rateLimit() {
       res.set("Retry-After", String(Math.ceil(waitMs / 1000)));
       res.set("Cache-Control", "no-store");
       store.appendAudit({ kind: "rate-limited", ip, path: req.path, at: now });
+      // If a proxy is folding every client into this one bucket, that — not the
+      // limit itself — is the thing to fix. Say which it is on the denial row.
+      const shared = noteProxyCollapse(req);
+      recordDeny(req, {
+        reason: DENY.RATE_LIMITED,
+        status: 429,
+        detail: shared
+          ? "all clients share this bucket — set COOK_TRUST_PROXY=true"
+          : `${REFILL_PER_MIN}/min, burst ${BURST}`,
+      });
+      res.set("X-CookingFoil-Deny", DENY.RATE_LIMITED);
       debug.log("security: rate-limited %s (%s)", ip, req.path);
       return res.status(429).type("text/plain").send("Too many requests.");
     }

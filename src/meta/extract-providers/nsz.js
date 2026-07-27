@@ -23,15 +23,16 @@ import os from "os";
 import path from "path";
 import debug from "../../debug.js";
 import * as nsp from "./nsp.js";
+import { envNumber, envString } from "../../helpers/env-read.js";
 
 const NSZ_RE = /\.(nsz|xcz)$/i;
-const DEFAULT_TIMEOUT_MS = Number(process.env.COOK_EXTRACT_TIMEOUT_MS ?? 120_000);
+const DEFAULT_TIMEOUT_MS = envNumber("COOK_EXTRACT_TIMEOUT_MS", 600_000, { min: 1000 });
 
 let cachedBinary = undefined;
 
 async function resolveBinary() {
   if (cachedBinary !== undefined) return cachedBinary;
-  const explicit = process.env.COOK_NSZ_BIN;
+  const explicit = envString("COOK_NSZ_BIN");
   if (explicit) {
     try {
       await fs.access(explicit, fs.constants.X_OK);

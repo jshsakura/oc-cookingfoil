@@ -3,6 +3,7 @@ dotenv.config({ path: "./.env" });
 
 import path from "path";
 import fileDirName from "./helpers.js";
+import { envString, envNumber, envBool } from "./env-read.js";
 
 const { __dirname } = fileDirName(import.meta);
 
@@ -62,7 +63,7 @@ const welcomeMessage =
 
 // Persistent runtime data: extracted icons/metadata + titledb cache.
 const dataDir = path.resolve(
-  process.env.COOK_DATA_DIR ?? path.join(__dirname, "/../../data/")
+  envString("COOK_DATA_DIR", path.join(__dirname, "/../../data/"))
 );
 const iconCacheDir = path.join(dataDir, "extracted");
 const titledbCacheDir = path.join(dataDir, "titledb");
@@ -112,12 +113,29 @@ const publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 // base32 secret once (the server logs a provisioning URI on boot) and keep it
 // out of source control. Session lifetime after a successful code, in hours.
 const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
-const adminSessionHours = Math.max(1, Number(process.env.COOK_ADMIN_SESSION_HOURS ?? 8));
+const adminSessionHours = envNumber("COOK_ADMIN_SESSION_HOURS", 8, { min: 1 });
+
+// Who owns this server. Used as the account label in the authenticator entry
+// (so "CookingFoil (you@example.com)" is distinguishable from every other TOTP
+// row) and shown on the admin pages. Never sent to unauthenticated clients.
+// Deliberately lenient validation — this is a display label, not a mail route;
+// a malformed value is dropped with a warning rather than failing the boot.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const rawAdminEmail = pickEnv("COOK_ADMIN_EMAIL");
+const adminEmail = (() => {
+  if (!rawAdminEmail) return null;
+  const trimmed = rawAdminEmail.trim();
+  if (EMAIL_RE.test(trimmed)) return trimmed;
+  process.stderr.write(
+    `[oc-cookingfoil] COOK_ADMIN_EMAIL is not a valid address ("${trimmed}") — ignoring it.\n`
+  );
+  return null;
+})();
 
 // Switch console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
-const keysDir = process.env.COOK_KEYS_DIR ?? "/keys";
+const keysDir = envString("COOK_KEYS_DIR", "/keys");
 
 // Icon/metadata extraction policy (Phase 2c). Controls when we pull the
 // icon (and fallback name/publisher) straight out of the game container
@@ -125,24 +143,41 @@ const keysDir = process.env.COOK_KEYS_DIR ?? "/keys";
 //   all     — extract for EVERY title, so covers render fully offline and
 //             the on-device icon matches the actual file. titledb's CDN URL
 //             becomes a fallback only. Requires prod.keys + nstool; degrades
-//             gracefully to CDN when they're absent. (default)
+//             gracefully to CDN when they're absent. Use ONLY for a LAN with
+//             no internet — otherwise it needlessly unpacks multi-GB XCI/NSZ.
 //   missing — extract only titles blawar/titledb can't cover (homebrew /
-//             fan / synthetic title IDs). Lighter I/O; titledb-covered
-//             titles keep using the CDN icon.
+//             fan / synthetic title IDs). Lighter I/O; titledb-covered titles
+//             keep the CDN icon (name+icon already known from the filename's
+//             title ID). No wasted nstool unpack on retail dumps. (DEFAULT)
 //   off     — never extract.
 // The extractor skips any container whose icon is already cached on disk,
 // so `all` is a one-time background pass, not a per-boot re-dump.
 const VALID_EXTRACT_MODES = new Set(["all", "missing", "off"]);
-const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "all").toLowerCase();
+const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "missing").toLowerCase();
 const extractIcons = VALID_EXTRACT_MODES.has(rawExtractIcons)
   ? rawExtractIcons
-  : "all";
+  : "missing";
 if (rawExtractIcons !== extractIcons) {
   process.stderr.write(
     `[oc-cookingfoil] COOK_EXTRACT_ICONS="${rawExtractIcons}" is invalid — ` +
-      `falling back to "all" (valid: all | missing | off).\n`
+      `falling back to "missing" (valid: all | missing | off).\n`
   );
 }
+
+// Size cap for AUTO extraction (GB). Even in "missing" mode a genuinely-
+// uncovered giant container (≥6 GB XCI / NSZ) would let the background worker
+// grind for minutes and hit COOK_EXTRACT_TIMEOUT_MS. We skip auto-enqueuing
+// anything larger than this — the file keeps its filename fallback (rare).
+// 0 or negative disables the cap (unlimited). Default 4 GB.
+const extractMaxGb = envNumber("COOK_EXTRACT_MAX_GB", 4);
+const extractMaxBytes = extractMaxGb > 0 ? extractMaxGb * 1024 ** 3 : 0;
+
+// Inter-job pacing (ms) for the background extraction worker. A small delay
+// between jobs keeps the one-time pass from saturating disk/CPU while the
+// server is answering shop requests — "run gently, not a thundering pass".
+// Concurrency (COOK_EXTRACT_CONCURRENCY) is unchanged; this only spaces jobs
+// out. 0 disables the delay. Default 250 ms.
+const extractPaceMs = envNumber("COOK_EXTRACT_PACE_MS", 250, { min: 0 });
 
 // Whether to emit the top-level `titledb` metadata map in the shop response.
 //
@@ -160,25 +195,34 @@ if (rawExtractIcons !== extractIcons) {
 // CyberFoil pulls richer metadata from its own offline DB by titleId, so
 // dropping titledb costs the priority clients nothing. Flip this on only for
 // stock Tinfoil, whose detail view / search reads the titledb override map.
-const emitTitledb = process.env.COOK_EMIT_TITLEDB === "true";
+const emitTitledb = envBool("COOK_EMIT_TITLEDB", false);
 
 // User-supplied custom shop entries (default lives alongside the games folder).
-const customEntriesPath =
-  process.env.COOK_CUSTOM_ENTRIES ??
-  path.join(romsDirPath, "custom_entries.jsonc");
+const customEntriesPath = envString(
+  "COOK_CUSTOM_ENTRIES",
+  path.join(romsDirPath, "custom_entries.jsonc")
+);
 
 // Display-language preference order. ISO-ish codes used in NACP + titledb files.
-const langPriority = (process.env.COOK_LANG_PRIORITY ?? "ko,en,ja,en-US")
+const langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
 // Upload constraints. Conservative defaults; users can override via env.
 // 32 GiB ceiling fits dual-layer XCI dumps; bump if you're shipping bigger.
-const uploadMaxBytes = Number(process.env.COOK_UPLOAD_MAX_BYTES ?? 32 * 1024 ** 3);
+const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
 // Disable uploads by default — they need basic-auth AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
-const uploadsEnabled = process.env.COOK_UPLOADS_ENABLED === "true";
+const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
+
+// Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
+// /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
+// accepted as an alternative to basic-auth. Basic-auth (Tinfoil) always keeps
+// working regardless. Off by default so upgrades don't change behavior. For a
+// pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
+// basic-auth lane is disabled and an approved device is the sole way in.
+const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
 
 export {
   romsDirPath,
@@ -193,14 +237,19 @@ export {
   customArtDir,
   keysDir,
   extractIcons,
+  extractMaxGb,
+  extractMaxBytes,
+  extractPaceMs,
   emitTitledb,
   publicBaseUrl,
   adminTotpSecret,
   adminSessionHours,
+  adminEmail,
   customEntriesPath,
   langPriority,
   uploadsDir,
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  devicePairing,
 };

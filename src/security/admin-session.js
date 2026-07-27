@@ -13,7 +13,8 @@
 import crypto from "crypto";
 import { generate, verify, generateURI } from "otplib";
 
-import { adminTotpSecret, adminSessionHours } from "../helpers/envs.js";
+import { adminSessionHours, adminEmail } from "../helpers/envs.js";
+import { adminSecret, markEnrolled } from "./admin-secret.js";
 import debug from "../debug.js";
 
 const COOKIE_NAME = "cf_admin";
@@ -21,30 +22,49 @@ const SESSION_MS = adminSessionHours * 60 * 60 * 1000;
 // Per-boot signing secret. Sessions invalidate on restart by design.
 const SIGNING_SECRET = crypto.randomBytes(32);
 
+/**
+ * Always true now: a secret is auto-provisioned when the operator hasn't set
+ * one, so the dashboard can never be the reason approvals are impossible.
+ */
 export function adminTotpEnabled() {
-  return Boolean(adminTotpSecret);
+  return Boolean(adminSecret());
+}
+
+/** The operator's identity for display + the authenticator account label. */
+export function adminOwner() {
+  return adminEmail ?? "admin";
 }
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */
 export async function verifyTotp(code) {
   const token = String(code ?? "").trim();
-  if (!adminTotpSecret || !/^\d{6}$/.test(token)) return false;
+  const secret = adminSecret();
+  if (!secret || !/^\d{6}$/.test(token)) return false;
   try {
-    const r = await verify({ token, secret: adminTotpSecret, window: 1 });
-    return Boolean(r && r.valid);
+    const r = await verify({ token, secret, window: 1 });
+    const ok = Boolean(r && r.valid);
+    // First correct code proves the operator holds the secret — retire the QR.
+    if (ok) markEnrolled();
+    return ok;
   } catch (err) {
     debug.error("admin 2fa: verify error: %s", err.message);
     return false;
   }
 }
 
-/** otpauth:// enrollment URI (logged at boot; never exposed over HTTP). */
+/**
+ * otpauth:// enrollment URI. Always logged at boot; served over HTTP ONLY by
+ * the enrollment page, and only while unenrolled + on a private address.
+ */
 export async function provisioningUri() {
-  if (!adminTotpSecret) return null;
+  const secret = adminSecret();
+  if (!secret) return null;
   try {
     return await generateURI({
-      secret: adminTotpSecret,
-      label: "admin",
+      secret,
+      // The authenticator shows this as the account name. An email makes the
+      // entry identifiable among a dozen other "admin" rows.
+      label: adminOwner(),
       issuer: "CookingFoil",
       type: "totp",
     });
@@ -56,9 +76,10 @@ export async function provisioningUri() {
 
 /** Sanity check at boot that the secret actually drives the TOTP generator. */
 export async function selfTest() {
-  if (!adminTotpSecret) return false;
+  const secret = adminSecret();
+  if (!secret) return false;
   try {
-    await generate({ secret: adminTotpSecret });
+    await generate({ secret });
     return true;
   } catch (err) {
     debug.error("admin 2fa: secret rejected by generator: %s", err.message);

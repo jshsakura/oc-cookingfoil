@@ -1,6 +1,6 @@
 {
   "name": "oc-cookingfoil",
-  "version": "0.7.26",
+  "version": "0.8.0",
   "description": "CookingFoil — local Switch homebrew shop server with metadata/icon support.",
   "main": "./src/index.js",
   "type": "module",
@@ -12,6 +12,8 @@
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
     "test": "playwright test",
     "test:unit": "node --test test/unit/*.test.js",
+    "test:pairing": "node scripts/local-pairing.mjs",
+    "test:basic": "node scripts/local-basic-auth.mjs",
     "test:ui": "playwright test --ui",
     "test:setup": "playwright install --with-deps",
     "hooks:install": "node scripts/install-hooks.cjs",

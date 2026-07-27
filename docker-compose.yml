@@ -39,6 +39,49 @@ services:
       COOK_AUTH_USERS: ${COOK_AUTH_USERS:-}
       COOK_UNAUTHORIZED_MSG: ${COOK_UNAUTHORIZED_MSG:-No tricks and treats for you!!}
       COOK_WELCOME_MSG: ${COOK_WELCOME_MSG:-CookingFoil is serving fresh.}
+
+      # --- /admin dashboard + device pairing ---
+      # These MUST be listed here to reach the container: anything not named in
+      # this block is invisible to the server no matter what .env says.
+      COOK_ADMIN_EMAIL: ${COOK_ADMIN_EMAIL:-}
+      # Leave empty to have the server generate + persist a secret on first boot
+      # (it prints the otpauth:// URI to the log).
+      COOK_ADMIN_TOTP_SECRET: ${COOK_ADMIN_TOTP_SECRET:-}
+      COOK_ADMIN_SESSION_HOURS: ${COOK_ADMIN_SESSION_HOURS:-}
+      # Bearer token for the recovery API (/api/admin/unlock) — reachable even
+      # when your own IP is locked out.
+      COOK_ADMIN_TOKEN: ${COOK_ADMIN_TOKEN:-}
+      # Passwordless lane for approved devices. NOTE: with COOK_AUTH_USERS empty
+      # this becomes the ONLY lane and stock Tinfoil can no longer connect.
+      COOK_DEVICE_PAIRING: ${COOK_DEVICE_PAIRING:-}
+
+      # --- Lockout / rate limiting ---
+      COOK_AUTH_MAX_FAILURES: ${COOK_AUTH_MAX_FAILURES:-}
+      COOK_LOCKOUT_TTL_HOURS: ${COOK_LOCKOUT_TTL_HOURS:-}
+      COOK_LOCKOUT_TRUST_LOOPBACK: ${COOK_LOCKOUT_TRUST_LOOPBACK:-}
+      # One-shot recovery: set true, restart once, then unset.
+      COOK_RESET_LOCKOUTS: ${COOK_RESET_LOCKOUTS:-}
+      # Defaults (1200/min, burst 300) already cover console installs — which
+      # pull a title in 16MB range requests — and a full dashboard icon grid.
+      COOK_RATE_LIMIT_PER_MIN: ${COOK_RATE_LIMIT_PER_MIN:-}
+      COOK_RATE_LIMIT_BURST: ${COOK_RATE_LIMIT_BURST:-}
+
+      # --- Extraction tuning (see .env.example) ---
+      COOK_EXTRACT_MAX_GB: ${COOK_EXTRACT_MAX_GB:-}
+      COOK_EXTRACT_PACE_MS: ${COOK_EXTRACT_PACE_MS:-}
+      COOK_EXTRACT_CONCURRENCY: ${COOK_EXTRACT_CONCURRENCY:-}
+      COOK_EXTRACT_TIMEOUT_MS: ${COOK_EXTRACT_TIMEOUT_MS:-}
+      COOK_NSTOOL_BIN: ${COOK_NSTOOL_BIN:-}
+      COOK_NSZ_BIN: ${COOK_NSZ_BIN:-}
+      COOK_PROD_KEYS_PATH: ${COOK_PROD_KEYS_PATH:-}
+
+      # --- titledb ---
+      COOK_TITLEDB_AUTO_FETCH: ${COOK_TITLEDB_AUTO_FETCH:-}
+      COOK_TITLEDB_REGIONS: ${COOK_TITLEDB_REGIONS:-}
+
+      # --- Upload tray (off by default) ---
+      COOK_UPLOADS_ENABLED: ${COOK_UPLOADS_ENABLED:-}
+      COOK_UPLOAD_MAX_BYTES: ${COOK_UPLOAD_MAX_BYTES:-}
     ports:
       # Host:container. Change the host side freely; container side stays 80.
       - "${COOK_HOST_PORT:-9080}:80"

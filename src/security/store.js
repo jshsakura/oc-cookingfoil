@@ -11,17 +11,28 @@ import path from "path";
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
+import { envBool } from "../helpers/env-read.js";
 
 const STATE_DIR = path.join(dataDir, "security");
 const STATE_PATH = path.join(STATE_DIR, "state.json");
 const FLUSH_DEBOUNCE_MS = 500;
 const AUDIT_MAX = 1000;
+// Bound the pending-device map so a flood of pair/requests from random device
+// keys can't balloon state.json. Oldest-seen entries are evicted first.
+const PENDING_MAX = 200;
+// Denials are the operator's debugging trail — keep enough to see a pattern,
+// few enough that a scanner can't grow state.json without bound.
+const DENIALS_MAX = 300;
 
 const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
   lockouts: new Map(), // ip → { lockedAt, until, reason }
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
+  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, lastSeenAt, lastIp, lastVersion }
+  pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
   audit: [],
+  denials: [],         // newest-last ring of refusals (see security/deny.js)
+  denialCounts: {},    // reason → total ever, so the dashboard can show trends
 };
 
 let flushTimer = null;
@@ -32,7 +43,11 @@ function serialise() {
     failures: Object.fromEntries(state.failures),
     lockouts: Object.fromEntries(state.lockouts),
     access: Object.fromEntries(state.access),
+    devices: Object.fromEntries(state.devices),
+    pending: Object.fromEntries(state.pending),
     audit: state.audit,
+    denials: state.denials,
+    denialCounts: state.denialCounts,
     savedAt: Date.now(),
   };
 }
@@ -73,7 +88,11 @@ export async function load() {
     state.failures = new Map(Object.entries(parsed.failures ?? {}));
     state.lockouts = new Map(Object.entries(parsed.lockouts ?? {}));
     state.access = new Map(Object.entries(parsed.access ?? {}));
+    state.devices = new Map(Object.entries(parsed.devices ?? {}));
+    state.pending = new Map(Object.entries(parsed.pending ?? {}));
     state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
+    state.denials = Array.isArray(parsed.denials) ? parsed.denials : [];
+    state.denialCounts = parsed.denialCounts ?? {};
     debug.log(
       "security: state loaded (%d failure tracker(s), %d lockout(s))",
       state.failures.size,
@@ -88,7 +107,7 @@ export async function load() {
   // One-shot reset switch: COOK_RESET_LOCKOUTS=true clears all lockouts on
   // boot. Useful if the admin loses access. Failure counters also clear so
   // a previously-locked IP gets a clean slate.
-  if (process.env.COOK_RESET_LOCKOUTS === "true") {
+  if (envBool("COOK_RESET_LOCKOUTS", false)) {
     const lockCount = state.lockouts.size;
     state.failures.clear();
     state.lockouts.clear();
@@ -103,6 +122,39 @@ export function appendAudit(entry) {
   if (state.audit.length > AUDIT_MAX) {
     state.audit.splice(0, state.audit.length - AUDIT_MAX);
   }
+  scheduleFlush();
+}
+
+// ── Denials (the operator's "why was this refused?" trail) ─────────────────
+// Written exclusively through security/deny.js so every refusal in the app
+// lands here in one shape.
+
+export function recordDenial(entry) {
+  state.denials.push(entry);
+  if (state.denials.length > DENIALS_MAX) {
+    state.denials.splice(0, state.denials.length - DENIALS_MAX);
+  }
+  const reason = entry?.reason ?? "unknown";
+  state.denialCounts = {
+    ...state.denialCounts,
+    [reason]: (state.denialCounts[reason] ?? 0) + 1,
+  };
+  scheduleFlush();
+}
+
+/** Newest-first denials, optionally limited. `sinceMs` filters by age. */
+export function denialsSnapshot({ limit = 100, sinceMs = null } = {}) {
+  const cutoff = sinceMs ? Date.now() - sinceMs : null;
+  const rows = state.denials.filter((d) => cutoff === null || (d.at ?? 0) >= cutoff);
+  return {
+    recent: rows.slice(-limit).reverse(),
+    total: state.denials.length,
+    counts: { ...state.denialCounts },
+  };
+}
+
+export function clearDenials() {
+  state.denials = [];
   scheduleFlush();
 }
 
@@ -187,6 +239,103 @@ export function accessSnapshot() {
         .sort((a, b) => b.lastAt - a.lastAt),
     }))
     .sort((a, b) => b.lastAt - a.lastAt);
+}
+
+// ── Device pairing (CyberFoil) ──────────────────────────────────────────────
+// `devices` holds APPROVED devices keyed by deviceKey (UID = SHA-256 of the
+// console eMMC CID). Each stores only the ACCESS-KEY HASH, never the plaintext.
+// `pending` holds device keys that knocked but aren't approved yet — surfaced
+// in the admin dashboard so the operator can approve them.
+
+export function isDeviceApproved(deviceKey) {
+  return state.devices.has(deviceKey);
+}
+
+export function getDeviceAccessKeyHash(deviceKey) {
+  return state.devices.get(deviceKey)?.accessKeyHash ?? null;
+}
+
+export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
+  const now = Date.now();
+  const prev = state.devices.get(deviceKey);
+  state.devices.set(deviceKey, {
+    label: label ?? prev?.label ?? "",
+    addedAt: prev?.addedAt ?? now,
+    addedBy: addedBy ?? prev?.addedBy ?? null,
+    accessKeyHash,
+    lastSeenAt: prev?.lastSeenAt ?? null,
+    lastIp: prev?.lastIp ?? null,
+    lastVersion: prev?.lastVersion ?? null,
+  });
+  state.pending.delete(deviceKey);
+  appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
+  scheduleFlush();
+}
+
+export function revokeDevice(deviceKey) {
+  const removed = state.devices.delete(deviceKey);
+  state.pending.delete(deviceKey);
+  if (removed) {
+    appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
+    scheduleFlush();
+  }
+  return removed;
+}
+
+export function recordDeviceSeen(deviceKey, { ip, version } = {}) {
+  const d = state.devices.get(deviceKey);
+  if (!d) return;
+  d.lastSeenAt = Date.now();
+  if (ip) d.lastIp = ip;
+  if (version) d.lastVersion = version;
+  scheduleFlush();
+}
+
+export function recordPendingDevice(deviceKey, { ip, version } = {}) {
+  const now = Date.now();
+  const prev = state.pending.get(deviceKey) ?? { firstSeenAt: now, count: 0 };
+  state.pending.set(deviceKey, {
+    firstSeenAt: prev.firstSeenAt,
+    lastSeenAt: now,
+    count: prev.count + 1,
+    lastIp: ip ?? prev.lastIp ?? null,
+    lastVersion: version ?? prev.lastVersion ?? null,
+  });
+  if (state.pending.size > PENDING_MAX) evictOldestPending();
+  scheduleFlush();
+}
+
+function evictOldestPending() {
+  let oldestKey = null;
+  let oldestAt = Infinity;
+  for (const [key, v] of state.pending) {
+    const seen = v.lastSeenAt ?? 0;
+    if (seen < oldestAt) {
+      oldestAt = seen;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey !== null) state.pending.delete(oldestKey);
+}
+
+export function devicesSnapshot() {
+  const byLastSeen = (a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0);
+  return {
+    approved: Array.from(state.devices.entries())
+      .map(([deviceKey, v]) => ({
+        deviceKey,
+        label: v.label ?? "",
+        addedAt: v.addedAt ?? null,
+        addedBy: v.addedBy ?? null,
+        lastSeenAt: v.lastSeenAt ?? null,
+        lastIp: v.lastIp ?? null,
+        lastVersion: v.lastVersion ?? null,
+      }))
+      .sort(byLastSeen),
+    pending: Array.from(state.pending.entries())
+      .map(([deviceKey, v]) => ({ deviceKey, ...v }))
+      .sort(byLastSeen),
+  };
 }
 
 export async function shutdown() {

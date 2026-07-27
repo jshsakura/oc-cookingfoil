@@ -151,3 +151,9 @@ data/*
 keys/*
 !keys/.gitkeep
 games/custom_entries.jsonc
+
+# Local pairing test harness — persisted state (config is .env)
+/local-test/data/
+
+# Playwright MCP browser session artifacts (console/page dumps)
+.playwright-mcp/

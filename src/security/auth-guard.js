@@ -17,15 +17,12 @@ import debug from "../debug.js";
 import { authUsers, unauthorizedMessage } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
 import * as store from "./store.js";
+import { recordDeny, denyResponse, DENY } from "./deny.js";
+import { noteProxyCollapse } from "./proxy-check.js";
+import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
+import { envNumber } from "../helpers/env-read.js";
 
-const MAX_FAILURES = Math.max(
-  1,
-  Number(process.env.COOK_AUTH_MAX_FAILURES ?? 5)
-);
-const LOCKOUT_TTL_MS = Math.max(
-  0,
-  Number(process.env.COOK_LOCKOUT_TTL_HOURS ?? 0) * 60 * 60 * 1000
-);
+const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
 function clientIp(req) {
   // Prefers req.ip when `trust proxy` is on and an X-Forwarded-For arrived;
@@ -39,9 +36,8 @@ function clientIp(req) {
 // inherently trusted — they already have shell access. Excluding them stops
 // dev/test setups from locking themselves out on intentional auth failures.
 // Override with COOK_LOCKOUT_TRUST_LOOPBACK=false to enforce strictly.
-const TRUST_LOOPBACK = process.env.COOK_LOCKOUT_TRUST_LOOPBACK !== "false";
 function isLoopback(ip) {
-  return TRUST_LOOPBACK && (ip === "127.0.0.1" || ip === "::1" || ip === "localhost");
+  return trustLoopback && isLoopbackIp(ip);
 }
 
 export default function authGuard() {
@@ -62,6 +58,10 @@ export default function authGuard() {
   });
 
   return (req, res, next) => {
+    // Device lane already authenticated this request (CyberFoil pairing) — skip
+    // the basic-auth challenge entirely. Set by pairingGate upstream.
+    if (req.pairedDevice) return next();
+
     const ip = clientIp(req);
 
     // Loopback bypass — trusted caller, no lockout tracking. Still record
@@ -79,12 +79,13 @@ export default function authGuard() {
         lock?.until && lock.until > Date.now()
           ? Math.ceil((lock.until - Date.now()) / 1000)
           : null;
-      debug.log("security: blocked locked IP %s on %s", ip, req.path);
-      res.set("Cache-Control", "no-store");
       if (remaining !== null) res.set("Retry-After", String(remaining));
-      res.status(429).type("text/plain").send(
-        "Locked out after too many failed attempts. Contact the administrator."
-      );
+      denyResponse(req, res, {
+        reason: DENY.IP_LOCKED,
+        status: 429,
+        detail: lock?.reason ?? null,
+        body: "Locked out after too many failed attempts. Contact the administrator.\n",
+      });
       return;
     }
 
@@ -96,6 +97,14 @@ export default function authGuard() {
     res.status = (code) => {
       if (code === 401 && !intercepted) {
         intercepted = true;
+        // basic-auth owns the body here, so we only tag the response — the
+        // reason still reaches the operator via the header + denial log.
+        res.set("X-CookingFoil-Deny", DENY.BAD_CREDENTIALS);
+        recordDeny(req, {
+          reason: DENY.BAD_CREDENTIALS,
+          status: 401,
+          user: req.auth?.user ?? null,
+        });
         recordFailure(ip, req);
       }
       return originalStatus(code);
@@ -114,6 +123,10 @@ export default function authGuard() {
 }
 
 function recordFailure(ip, req) {
+  // Behind an untrusted proxy every client counts toward THIS one counter, so a
+  // stranger's typo can lock out the whole household. Surface it before the
+  // lockout lands rather than after.
+  noteProxyCollapse(req);
   const now = Date.now();
   const prev = store.getFailure(ip) ?? { count: 0, firstAt: now };
   const next = {

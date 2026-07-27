@@ -47,11 +47,11 @@
       body::before {
         background-image:
           /* dot grid */
-          radial-gradient(rgba(180, 190, 254, 0.08) 1px, transparent 1px),
+          radial-gradient(rgba(249, 226, 175, 0.08) 1px, transparent 1px),
           /* mesh blobs */
           radial-gradient(800px circle at 0% 0%,   rgba(250, 179, 135, 0.12), transparent 50%),
           radial-gradient(900px circle at 100% 100%, rgba(137, 180, 250, 0.12), transparent 50%),
-          radial-gradient(700px circle at 50% 60%, rgba(180, 190, 254, 0.06), transparent 60%);
+          radial-gradient(700px circle at 50% 60%, rgba(249, 226, 175, 0.06), transparent 60%);
         background-size: 26px 26px, auto, auto, auto;
         background-position: 0 0, 0 0, 0 0, 0 0;
         mask-image: radial-gradient(ellipse at center, #000 60%, transparent 100%);
@@ -83,11 +83,11 @@
       /* Top scroll-progress accent. Width set from JS. */
       .scroll-progress {
         position: fixed; top: 0; left: 0; height: 2px; width: 0;
-        background: linear-gradient(90deg, var(--peach), var(--lavender));
+        background: linear-gradient(90deg, var(--peach), var(--yellow));
         z-index: 50;
         transition: width 0.12s ease;
         pointer-events: none;
-        box-shadow: 0 0 12px rgba(180, 190, 254, 0.4);
+        box-shadow: 0 0 12px rgba(249, 226, 175, 0.4);
       }
 
       /* themed scrollbars (webkit) */
@@ -123,7 +123,7 @@
         font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
         transition: all 0.2s ease;
       }
-      .lang-toggle button.active { background: rgba(180, 190, 254, 0.18); color: var(--lavender); }
+      .lang-toggle button.active { background: rgba(249, 226, 175, 0.18); color: var(--yellow); }
       .lang-toggle button:hover:not(.active) { color: var(--text); }
 
       /* Compact header: logo + title + status on one row, left-aligned, so the
@@ -136,7 +136,7 @@
       .logo {
         width: 52px; height: 52px; flex-shrink: 0;
         border-radius: 14px;
-        background: linear-gradient(135deg, var(--peach), var(--lavender));
+        background: linear-gradient(135deg, var(--peach), var(--yellow));
         display: flex; align-items: center; justify-content: center;
         font-size: 28px; box-shadow: 0 8px 20px rgba(250, 179, 135, 0.2);
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -156,7 +156,7 @@
       h1 {
         font-family: var(--font-title);
         font-size: 34px; font-weight: 400; letter-spacing: 0.01em; line-height: 1;
-        background: linear-gradient(135deg, var(--peach) 20%, var(--lavender) 80%);
+        background: linear-gradient(135deg, var(--peach) 20%, var(--yellow) 80%);
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         padding-bottom: 2px;
       }
@@ -166,7 +166,7 @@
       @media (min-width: 900px) { .description { display: block; } }
 
       h2 {
-        font-size: 16px; font-weight: 600; color: var(--lavender);
+        font-size: 16px; font-weight: 600; color: var(--yellow);
         margin: 20px 0 12px; display: flex; align-items: center; gap: 12px;
       }
       h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
@@ -174,12 +174,12 @@
       h2 .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--surface1), transparent); }
       .h2-action {
         padding: 6px 12px; border-radius: 100px;
-        background: rgba(180, 190, 254, 0.08); border: 1px solid rgba(180, 190, 254, 0.15);
-        color: var(--lavender); font-size: 12px; font-weight: 600;
+        background: rgba(249, 226, 175, 0.08); border: 1px solid rgba(249, 226, 175, 0.15);
+        color: var(--yellow); font-size: 12px; font-weight: 600;
         cursor: pointer; transition: all 0.2s ease; font-family: inherit;
         white-space: nowrap; flex-shrink: 0;
       }
-      .h2-action:hover { background: rgba(180, 190, 254, 0.18); border-color: rgba(180, 190, 254, 0.3); }
+      .h2-action:hover { background: rgba(249, 226, 175, 0.18); border-color: rgba(249, 226, 175, 0.3); }
 
       /* CONNECT URL */
       .connect-row { display: flex; gap: 10px; }
@@ -187,26 +187,26 @@
         flex: 1; padding: 14px 18px;
         background: rgba(49, 50, 68, 0.6); border: 1px solid var(--surface1); border-radius: 14px;
         font-family: "JetBrains Mono", ui-monospace, monospace;
-        font-size: 14px; color: var(--lavender);
+        font-size: 14px; color: var(--yellow);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
       .btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         padding: 12px 18px; border-radius: 14px; font-weight: 600; font-size: 14px;
-        background: rgba(180, 190, 254, 0.12); color: var(--lavender);
-        border: 1px solid rgba(180, 190, 254, 0.22); cursor: pointer; font-family: inherit;
+        background: rgba(249, 226, 175, 0.12); color: var(--yellow);
+        border: 1px solid rgba(249, 226, 175, 0.22); cursor: pointer; font-family: inherit;
         text-decoration: none; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         white-space: nowrap;
       }
-      .btn:hover { background: rgba(180, 190, 254, 0.22); transform: translateY(-1px); }
+      .btn:hover { background: rgba(249, 226, 175, 0.22); transform: translateY(-1px); }
       .btn:active { transform: translateY(0); }
       .btn.ghost { background: transparent; border-color: var(--surface1); color: var(--subtext1); }
       .btn.ghost:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
       .hint { font-size: 13px; color: var(--overlay0); line-height: 1.6; margin-top: 8px; }
       .hint code {
-        font-family: "JetBrains Mono", monospace; background: rgba(180, 190, 254, 0.1);
-        color: var(--lavender); padding: 2px 8px; border-radius: 6px;
-        font-size: 12.5px; border: 1px solid rgba(180, 190, 254, 0.1);
+        font-family: "JetBrains Mono", monospace; background: rgba(249, 226, 175, 0.1);
+        color: var(--yellow); padding: 2px 8px; border-radius: 6px;
+        font-size: 12.5px; border: 1px solid rgba(249, 226, 175, 0.1);
       }
 
       /* STATS — compact chip row (was 4 tall cards that pushed the grid down). */
@@ -218,8 +218,8 @@
         transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .stat:hover {
-        background: rgba(69, 71, 90, 0.5); border-color: var(--lavender);
-        transform: translateY(-2px); box-shadow: 0 8px 24px rgba(180, 190, 254, 0.10);
+        background: rgba(69, 71, 90, 0.5); border-color: var(--yellow);
+        transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249, 226, 175, 0.10);
       }
       .stat:active { transform: translateY(-1px); }
       .stat .label {
@@ -228,6 +228,39 @@
       }
       .stat .value { font-size: 20px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
       .stat .sub { font-size: 11px; color: var(--subtext0); margin-top: 2px; }
+
+      /* NAME-SOURCE HEALTH — operator panel: WHY names resolve or fall back. */
+      .namehealth {
+        background: rgba(49, 50, 68, 0.45); border: 1px solid var(--surface0);
+        border-radius: 16px; padding: 14px 16px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .nh-state {
+        display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+        padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 700;
+        background: rgba(166, 227, 161, 0.12); border: 1px solid rgba(166, 227, 161, 0.28);
+        color: var(--green); max-width: 100%;
+      }
+      .nh-state.warn { background: rgba(249, 226, 175, 0.12); border-color: rgba(249, 226, 175, 0.28); color: var(--yellow); }
+      .nh-state.bad  { background: rgba(243, 139, 168, 0.14); border-color: rgba(243, 139, 168, 0.34); color: var(--red); }
+      .nh-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+      .nh-state.bad .nh-dot { animation: pulse 1.6s infinite; }
+      .nh-verdict { min-width: 0; }
+      .nh-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 18px; }
+      .nh-row { display: flex; gap: 10px; align-items: baseline; font-size: 13px; min-width: 0; }
+      .nh-label {
+        color: var(--overlay1); font-size: 10px; font-weight: 600;
+        letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0;
+        min-width: 78px;
+      }
+      .nh-val { color: var(--subtext1); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+      .nh-val.good { color: var(--green); }
+      .nh-val.off  { color: var(--peach); }
+      .nh-hint {
+        font-size: 12.5px; color: var(--peach); line-height: 1.55;
+        background: rgba(243, 139, 168, 0.08); border: 1px solid rgba(243, 139, 168, 0.2);
+        border-radius: 10px; padding: 9px 12px;
+      }
 
       /* TOOLBAR */
       .toolbar {
@@ -243,7 +276,7 @@
         color: var(--text); font-size: 14px; font-family: inherit;
         transition: border-color 0.2s ease;
       }
-      .search:focus { outline: none; border-color: var(--lavender); box-shadow: 0 0 0 3px rgba(180, 190, 254, 0.18); }
+      .search:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(249, 226, 175, 0.18); }
       .chips { display: flex; gap: 6px; flex-wrap: wrap; }
       .chip {
         padding: 8px 14px; border-radius: 100px; font-size: 13px; font-weight: 500;
@@ -252,16 +285,16 @@
         font-family: inherit;
       }
       .chip:hover { color: var(--text); }
-      .chip.active { background: rgba(180, 190, 254, 0.18); border-color: var(--lavender); color: var(--lavender); }
+      .chip.active { background: rgba(249, 226, 175, 0.18); border-color: var(--yellow); color: var(--yellow); }
       .sort-select {
         padding: 9px 14px; border-radius: 12px;
         background: rgba(24, 24, 37, 0.7); border: 1px solid var(--surface1);
         color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer;
       }
-      .sort-select:focus { outline: none; border-color: var(--lavender); }
+      .sort-select:focus { outline: none; border-color: var(--yellow); }
       .count {
         padding: 6px 12px; border-radius: 100px; font-size: 12px; font-weight: 600;
-        background: rgba(180, 190, 254, 0.08); color: var(--lavender); white-space: nowrap;
+        background: rgba(249, 226, 175, 0.08); color: var(--yellow); white-space: nowrap;
       }
 
       /* GAME GRID — horizontal cards, icon LEFT, content RIGHT */
@@ -275,9 +308,9 @@
         content-visibility: auto; contain-intrinsic-size: 1px 92px;
       }
       .game:hover {
-        background: rgba(69, 71, 90, 0.6); border-color: var(--lavender);
+        background: rgba(69, 71, 90, 0.6); border-color: var(--yellow);
         transform: translateY(-2px);
-        box-shadow: 0 10px 24px rgba(180, 190, 254, 0.12);
+        box-shadow: 0 10px 24px rgba(249, 226, 175, 0.12);
       }
       .game .cover {
         width: 72px; height: 72px; flex-shrink: 0; border-radius: 12px;
@@ -292,8 +325,8 @@
       .game .sub { font-size: 12px; color: var(--subtext0); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
       .game .sub .pill {
         padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 600;
-        background: rgba(180, 190, 254, 0.1); color: var(--lavender);
-        border: 1px solid rgba(180, 190, 254, 0.15);
+        background: rgba(249, 226, 175, 0.1); color: var(--yellow);
+        border: 1px solid rgba(249, 226, 175, 0.15);
         text-transform: uppercase; letter-spacing: 0.04em;
         white-space: nowrap; flex-shrink: 0; line-height: 1.4;
       }
@@ -362,7 +395,7 @@
       }
       .pager-btn:hover:not(:disabled) { background: rgba(69, 71, 90, 0.6); color: var(--text); border-color: var(--surface1); }
       .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-      .pager-btn.current { background: rgba(180, 190, 254, 0.18); color: var(--lavender); border-color: var(--lavender); }
+      .pager-btn.current { background: rgba(249, 226, 175, 0.18); color: var(--yellow); border-color: var(--yellow); }
       .pager-ellipsis { color: var(--overlay0); padding: 0 4px; }
 
       /* MODAL */
@@ -421,7 +454,7 @@
         color: var(--text); text-decoration: none; font-size: 13px;
         transition: border-color 0.15s, background 0.15s;
       }
-      .modal .extras .extra-row:hover { border-color: var(--lavender); background: rgba(180, 190, 254, 0.08); }
+      .modal .extras .extra-row:hover { border-color: var(--yellow); background: rgba(249, 226, 175, 0.08); }
       .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
       .modal .extras .extra-name::before { content: "⬇ "; color: var(--overlay1); }
       .modal .extras .extra-size { color: var(--subtext0); flex-shrink: 0; font-variant-numeric: tabular-nums; }
@@ -465,7 +498,7 @@
       .fab {
         position: fixed; right: 24px; bottom: 24px; z-index: 90;
         height: 56px; padding: 0 22px; border-radius: 28px;
-        background: linear-gradient(135deg, var(--mauve), var(--lavender));
+        background: linear-gradient(135deg, var(--peach), var(--yellow));
         color: var(--base); font-weight: 700; font-size: 14px;
         border: none; cursor: pointer; display: none; gap: 8px;
         box-shadow: 0 12px 30px rgba(203, 166, 247, 0.4);
@@ -489,7 +522,7 @@
         padding: 22px 16px; text-align: center; color: var(--subtext0);
         font-size: 13px; cursor: pointer; transition: border-color 0.15s;
       }
-      .drop-zone.dragover { border-color: var(--lavender); color: var(--text); background: rgba(180, 190, 254, 0.06); }
+      .drop-zone.dragover { border-color: var(--yellow); color: var(--text); background: rgba(249, 226, 175, 0.06); }
       .upload-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
       .upload-row {
         background: rgba(255, 255, 255, 0.03); border: 1px solid var(--surface0);
@@ -508,7 +541,7 @@
       .upload-empty, .upload-disabled { color: var(--subtext0); font-size: 12.5px; text-align: center; padding: 14px 0; }
       .upload-progress { margin-top: 10px; height: 6px; border-radius: 3px; background: var(--surface0); overflow: hidden; display: none; }
       .upload-progress.show { display: block; }
-      .upload-progress .bar { height: 100%; width: 0%; background: var(--lavender); transition: width 0.15s; }
+      .upload-progress .bar { height: 100%; width: 0%; background: var(--yellow); transition: width 0.15s; }
       .live-dot {
         display: inline-block; width: 8px; height: 8px; border-radius: 50%;
         background: var(--overlay1); margin-right: 6px; vertical-align: middle;
@@ -517,7 +550,7 @@
       .live-dot.off { background: var(--yellow); }
 
       .footer { margin-top: 36px; text-align: center; font-size: 13px; color: var(--overlay0); }
-      .footer a { color: var(--lavender); text-decoration: none; font-weight: 600; }
+      .footer a { color: var(--yellow); text-decoration: none; font-weight: 600; }
       .footer a:hover { text-decoration: underline; }
 
       @media (max-width: 560px) {
@@ -567,6 +600,25 @@
           <div class="stat"><div class="label" data-i18n="stat.titledb"></div><div class="value sk" id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub" data-i18n="stat.titledb_sub"></div></div>
           <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value sk" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
           <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value sk" id="stat-mods">—</div><div class="sub sk" id="stat-mods-sub">—</div></div>
+        </div>
+
+        <h2 data-i18n="section.namehealth"></h2>
+        <div class="namehealth" id="namehealth">
+          <div class="nh-state" id="nh-state">
+            <span class="nh-dot" aria-hidden="true"></span>
+            <span class="nh-verdict sk" id="nh-verdict">…</span>
+          </div>
+          <div class="nh-rows">
+            <div class="nh-row">
+              <span class="nh-label" data-i18n="nh.titledb"></span>
+              <span class="nh-val sk" id="nh-titledb">—</span>
+            </div>
+            <div class="nh-row">
+              <span class="nh-label" data-i18n="nh.extraction"></span>
+              <span class="nh-val sk" id="nh-extraction">—</span>
+            </div>
+          </div>
+          <p class="nh-hint" id="nh-hint" hidden></p>
         </div>
 
         <h2><span data-i18n="section.library"></span><span class="count" id="games-count">0</span></h2>
@@ -645,7 +697,7 @@
       const I18N = {
         ko: {
           "hero.desc": "버터처럼 어디에도 잘 어울리는 파일 매니저.<br>파일·메타·아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.",
-          "section.connect": "샵 연결",
+          "section.connect": "서버 연결",
           "section.stats": "현황",
           "section.library": "타이틀",
           "action.refresh": "↻ 새로고침",
@@ -660,6 +712,18 @@
           "stat.base": "베이스",
           "stat.base_sub": "원본 타이틀",
           "stat.mods": "업데이트/DLC",
+          "section.namehealth": "게임명 소스 상태 / Name source",
+          "nh.titledb": "TITLEDB",
+          "nh.extraction": "NSP/XCI 추출",
+          "nh.verdict.ok": "정상",
+          "nh.verdict.degraded": "부분",
+          "nh.verdict.filename": "파일명으로 폴백 — titledb 웹페치 실패 또는 서버 prod.keys 없음",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} 타이틀` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "활성 · 키 확인됨",
+          "nh.ext.off": "비활성 (extract off)",
+          "nh.ext.nostool": "비활성 — nstool 없음",
+          "nh.ext.nokeys": "비활성 — prod.keys 없음",
+          "nh.hint.filename": "titledb가 github에 닿게 하거나 서버에 prod.keys를 넣으세요.",
           "chip.base": "베이스",
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
@@ -672,7 +736,7 @@
           "empty.loading": "타이틀 라이브러리 로딩 중…",
           "empty.none": "조건에 맞는 타이틀이 없습니다.<br>검색·필터를 비워보세요.",
           "empty.err": "/shop.json 로드 실패 — 콘솔 확인",
-          "status.loading": "샵 데이터 불러오는 중…",
+          "status.loading": "서버 데이터 불러오는 중…",
           "status.serving": (n) => `타이틀 ${n.toLocaleString()}개 서비스 중`,
           "status.empty": "구동 중 — 스캔된 타이틀 없음",
           "status.timeout": "타임아웃 — 캐시 빌드가 오래 걸리는 듯",
@@ -682,7 +746,7 @@
           "pager.prev": "이전",
           "pager.next": "다음",
           "toast.copied": "URL이 클립보드에 복사됐습니다",
-          "toast.refresh": "샵 데이터 새로고침 완료",
+          "toast.refresh": "서버 데이터 새로고침 완료",
           "toast.copyFail": "복사 실패",
           "modal.size": "크기",
           "modal.release": "출시일",
@@ -720,7 +784,7 @@
         },
         en: {
           "hero.desc": "The file manager that fits anywhere — smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
-          "section.connect": "Shop URL",
+          "section.connect": "Server URL",
           "section.stats": "Stats",
           "section.library": "Titles",
           "action.refresh": "↻ Refresh",
@@ -735,6 +799,18 @@
           "stat.base": "Base",
           "stat.base_sub": "base titles",
           "stat.mods": "Updates / DLC",
+          "section.namehealth": "Name source health",
+          "nh.titledb": "Titledb",
+          "nh.extraction": "NSP/XCI extract",
+          "nh.verdict.ok": "OK",
+          "nh.verdict.degraded": "Partial",
+          "nh.verdict.filename": "Filename fallback — titledb web-fetch failed or no server prod.keys",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} titles` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "enabled · keys found",
+          "nh.ext.off": "disabled (extract off)",
+          "nh.ext.nostool": "disabled — nstool missing",
+          "nh.ext.nokeys": "disabled — no prod.keys",
+          "nh.hint.filename": "Make titledb reach github, or drop prod.keys onto the server.",
           "chip.base": "Base",
           "chip.update": "Updates",
           "chip.dlc": "DLC",
@@ -747,7 +823,7 @@
           "empty.loading": "Loading title library…",
           "empty.none": "No matches.<br>Try clearing search or filter.",
           "empty.err": "Failed to load /shop.json — check console.",
-          "status.loading": "Loading shop data…",
+          "status.loading": "Loading server data…",
           "status.serving": (n) => `Serving ${n.toLocaleString()} titles`,
           "status.empty": "Running — no titles scanned",
           "status.timeout": "Timed out — server still building cache?",
@@ -757,7 +833,7 @@
           "pager.prev": "Prev",
           "pager.next": "Next",
           "toast.copied": "URL copied to clipboard",
-          "toast.refresh": "Shop data refreshed",
+          "toast.refresh": "Server data refreshed",
           "toast.copyFail": "Copy failed",
           "modal.size": "Size",
           "modal.release": "Release",
@@ -812,6 +888,7 @@
         for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         $("search").placeholder = t("search.placeholder");
         for (const b of document.querySelectorAll(".lang-toggle button")) b.classList.toggle("active", b.dataset.lang === lang);
+        if (nameHealthData) renderNameHealth(nameHealthData);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
 
@@ -936,6 +1013,7 @@
 
       // ─── state ─────────────────────────────────────────────────────────────
       let shopData = null;
+      let nameHealthData = null;
       let renderedItems = [];
       const state = { kind: "base", q: "", sort: "name", page: 1, perPage: 24 };
 
@@ -954,6 +1032,53 @@
           frag.appendChild(card);
         }
         grid.appendChild(frag);
+      }
+
+      // ─── name-source health ────────────────────────────────────────────────
+      // Reads /healthz (no-auth; carries `nameHealth` in both 200 and 503) so
+      // the operator SEES why names resolve or fall back to filenames.
+      function renderNameHealth(nh) {
+        if (!nh || typeof nh !== "object") return;
+        const stateEl = $("nh-state");
+        const verdictEl = $("nh-verdict");
+        stateEl.classList.remove("warn", "bad");
+        let verdictKey;
+        if (nh.verdict === "degraded") { verdictKey = "nh.verdict.degraded"; stateEl.classList.add("warn"); }
+        else if (nh.verdict === "filename-only") { verdictKey = "nh.verdict.filename"; stateEl.classList.add("bad"); }
+        else { verdictKey = "nh.verdict.ok"; }
+        verdictEl.textContent = t(verdictKey);
+        verdictEl.classList.remove("sk");
+
+        const tdb = nh.titledb || {};
+        const regions = Array.isArray(tdb.regions) ? tdb.regions : [];
+        const tdbEl = $("nh-titledb");
+        tdbEl.textContent = t("nh.titles", tdb.titles || 0, regions.join(", "));
+        tdbEl.classList.remove("sk");
+        tdbEl.classList.toggle("good", (tdb.titles || 0) > 0);
+
+        const ex = nh.extraction || {};
+        let extKey;
+        if (ex.mode === "off") extKey = "nh.ext.off";
+        else if (!ex.nstool) extKey = "nh.ext.nostool";
+        else if (!ex.prodKeys) extKey = "nh.ext.nokeys";
+        else extKey = "nh.ext.enabled";
+        const extEl = $("nh-extraction");
+        extEl.textContent = t(extKey);
+        extEl.classList.remove("sk", "good", "off");
+        extEl.classList.add(ex.nspXciCapable ? "good" : "off");
+
+        const hintEl = $("nh-hint");
+        if (nh.verdict === "filename-only") { hintEl.hidden = false; hintEl.textContent = t("nh.hint.filename"); }
+        else { hintEl.hidden = true; }
+      }
+
+      async function loadNameHealth() {
+        try {
+          // 200 when cached, 503 while cold — both carry nameHealth. Read either.
+          const r = await fetch("/healthz", { headers: { Accept: "application/json" } });
+          const d = await r.json().catch(() => null);
+          if (d && d.nameHealth) { nameHealthData = d.nameHealth; renderNameHealth(nameHealthData); }
+        } catch { /* best effort — panel keeps its shimmer/placeholder */ }
       }
 
       // ─── data flow ─────────────────────────────────────────────────────────
@@ -1446,7 +1571,7 @@
       $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
         $("refresh-btn").disabled = true;
-        await loadShop();
+        await Promise.all([loadShop(), loadNameHealth()]);
         $("refresh-btn").disabled = false;
         toast(t("toast.refresh"));
       });
@@ -1492,6 +1617,7 @@
       applyI18n();
       renderSkeletons(8);
       loadShop();
+      loadNameHealth();
 
       // ─── upload tray ──────────────────────────────────────────────────────
       // POST /api/uploads → temp/, then user clicks Apply to move into games/.

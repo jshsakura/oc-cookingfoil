@@ -39,10 +39,18 @@ import * as titledbStore from "./meta/titledb-store.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
+  shouldAutoExtract,
+  wantsExtractByMode,
+  isOverSizeCap,
+  BYTES_PER_GB,
+} from "./meta/extract-policy.js";
+import {
   romsDirPath,
   welcomeMessage,
   customEntriesPath,
   extractIcons,
+  extractMaxGb,
+  extractMaxBytes,
   emitTitledb,
 } from "./helpers/envs.js";
 import {
@@ -279,15 +287,33 @@ export function composeResponse(filesMap, customs) {
       // already cached. Use the raw relPath (filesMap key) — item.url is
       // percent-encoded for wire transport and would point the extractor at
       // a non-existent path otherwise.
-      const wantExtract =
-        extractIcons === "all" ? true : extractIcons === "missing" ? !fromDb : false;
-      if (wantExtract && !extracted) {
+      //
+      // Policy (pure, in extract-policy.js): mode gate × size cap. A giant
+      // uncovered file is SKIPPED rather than allowed to grind for minutes —
+      // it keeps its filename fallback. `item.size` is the fast-glob stat from
+      // scanLibrary, so no extra fs.stat here.
+      const sizeBytes = item.size;
+      if (
+        !extracted &&
+        shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes })
+      ) {
         nacpExtractor.enqueue({
           absPath: path.join(romsDirPath, relPath),
           baseTitleId: baseId,
           fileName: item.name,
           wantMeta: !fromDb,
         });
+      } else if (
+        !extracted &&
+        wantsExtractByMode({ extractMode: extractIcons, fromDb }) &&
+        isOverSizeCap({ sizeBytes, maxBytes: extractMaxBytes })
+      ) {
+        debug.log(
+          "[extract] skip %s (%s GB > cap %s GB)",
+          item.name,
+          (sizeBytes / BYTES_PER_GB).toFixed(2),
+          extractMaxGb
+        );
       }
       titledb[baseId] = {
         ...(proxied ?? {}),
@@ -364,6 +390,7 @@ function buildSectionItem(relPath, wireItem) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
+  const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
   const item = {
     url: wireItem.url, // already "../" + percent-encoded relPath
     name: resolveDisplayName(parsed, fromDb), // CLEAN — no [TID][vVER] suffix
@@ -372,8 +399,17 @@ function buildSectionItem(relPath, wireItem) {
   if (parsed.titleId) {
     item.title_id = parsed.titleId;
     item.app_id = parsed.titleId;
+    // Grouping key: base + update + dlc all carry the base's id so the client
+    // collapses them into one card (M2c) without re-deriving it from the name.
+    item.base_title_id = baseId;
     item.app_version = parsed.version ?? 0;
     item.app_type = parsed.contentType; // "base" | "update" | "dlc"
+    // Lightweight rich fields — inlined only when known (titledb, else NACP
+    // fallback). Kept to a few small fields so the sections payload stays lean;
+    // full detail (description/screenshots) is the on-demand /api/title/:id.
+    const publisher = fromDb?.publisher ?? extracted?.publisher;
+    if (publisher) item.publisher = publisher;
+    if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
   }
@@ -393,7 +429,11 @@ function buildSectionItemFromCustom(raw) {
   if (tid) {
     item.title_id = tid;
     item.app_id = tid;
+    // Custom rows are standalone — they group under their own id.
+    item.base_title_id = tid;
     if (typeof raw.version === "number") item.app_version = raw.version;
+    if (raw.publisher) item.publisher = raw.publisher;
+    if (raw.region) item.region = raw.region;
     item.icon_url = raw.icon_url ?? raw.iconUrl ?? withVersion(`/api/shop/icon/${tid}`);
   }
   return item;
