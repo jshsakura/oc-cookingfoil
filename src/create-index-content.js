@@ -157,7 +157,7 @@ function resolveDisplayName(parsed, fromDb) {
   return decorateNameWithAlias(rawName, fromDb);
 }
 
-function buildFileItem(relPath, size) {
+function buildFileItem(relPath, size, mtimeMs) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
   const fromDb = baseId ? titledbStore.get(baseId) : null;
@@ -183,6 +183,14 @@ function buildFileItem(relPath, size) {
     name: nameWithId,
     size,
   };
+  // File mtime (epoch seconds) so consumers can sort by "recently added"
+  // without keeping their own first-seen bookkeeping. The stat is already
+  // in hand — fast-glob runs with `stats: true` and readOneFile stats
+  // anyway — so this costs no extra I/O. Omitted when unknown rather than
+  // emitted as 0, which would read as "1970" to a naive sort.
+  if (Number.isFinite(mtimeMs) && mtimeMs > 0) {
+    item.mtime = Math.floor(mtimeMs / 1000);
+  }
   if (parsed.titleId) {
     item.titleId = parsed.titleId;
     item.baseTitleId = baseId;
@@ -206,7 +214,7 @@ function buildFileItem(relPath, size) {
 export async function readOneFile(relPath) {
   try {
     const st = await fs.stat(path.join(romsDirPath, relPath));
-    return buildFileItem(relPath, st.size);
+    return buildFileItem(relPath, st.size, st.mtimeMs);
   } catch (err) {
     if (err.code !== "ENOENT") {
       debug.error("readOneFile %s: %s", relPath, err.message);
@@ -236,7 +244,7 @@ export async function scanLibrary() {
   for (const entry of entries) {
     const rel = entry.path;
     const size = entry.stats?.size ?? 0;
-    filesMap.set(rel, buildFileItem(rel, size));
+    filesMap.set(rel, buildFileItem(rel, size, entry.stats?.mtimeMs));
   }
 
   const customs = await loadCustomEntries(customEntriesPath);
