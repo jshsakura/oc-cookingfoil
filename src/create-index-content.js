@@ -153,8 +153,15 @@ function decorateNameWithAlias(name, fromDb) {
 function resolveDisplayName(parsed, fromDb) {
   const baseId = parsed.groupTitleId;
   const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
-  const rawName = fromDb?.name || extracted?.name || parsed.name;
-  return decorateNameWithAlias(rawName, fromDb);
+  // A title never released in the preferred-language region has no titledb
+  // entry for ITS id, so `fromDb.name` is the foreign one — even though the
+  // localized name exists in the same titledb under the sibling release's id.
+  // The eShop artwork hash links them. Without this the catalog shows
+  // "Dead Cells" while "데드 셀" sits right there (measured: 52 titles).
+  const sibling = baseId ? titledbStore.preferredSibling(baseId) : null;
+  const source = sibling ?? fromDb;
+  const rawName = source?.name || extracted?.name || parsed.name;
+  return decorateNameWithAlias(rawName, source ?? fromDb);
 }
 
 function buildFileItem(relPath, size, mtimeMs) {

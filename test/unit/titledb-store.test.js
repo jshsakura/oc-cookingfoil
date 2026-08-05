@@ -256,3 +256,85 @@ test("size/status: reflect the merged title count and region summary after load(
   assert.equal(s.regions[0].count, 2);
   assert.ok(s.loadedAt instanceof Date);
 });
+
+// ── preferredSibling: cross-region name recovery via eShop artwork ─────────
+// A game released only outside Korea has no KR.ko entry for ITS title id, so
+// the merged record keeps the English name even though the Korean name sits
+// in the same titledb under the Korean release's (different) id. Nothing in
+// titledb links those two ids — the shared eShop artwork hash does.
+
+const ART = "https://img-eshop.cdn.nintendo.net/i/deadcells-icon.jpg";
+
+test("preferredSibling: finds the preferred-language release that shares artwork", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    "70010000000010": { id: "0100E0E00E64C000", name: "데드 셀", iconUrl: ART },
+  });
+  await writeRegion("US.en.json", {
+    "70010000000011": { id: "0100646009FBE000", name: "Dead Cells", iconUrl: ART },
+  });
+
+  await store.load();
+
+  assert.equal(store.get("0100646009FBE000").name, "Dead Cells");
+  assert.equal(store.preferredSibling("0100646009FBE000").name, "데드 셀");
+});
+
+test("preferredSibling: null when the record already carries a preferred-language name", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    "70010000000012": { id: "0100000000020000", name: "슈퍼로봇대전 30", iconUrl: ART },
+  });
+
+  await store.load();
+
+  // Already Korean — no sibling lookup should fire.
+  assert.equal(store.preferredSibling("0100000000020000"), null);
+});
+
+test("preferredSibling: ignores DLC/update siblings so a title can't borrow its add-on's name", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    // low 13 bits set (base + 0x1003) → DLC id, never a valid name source
+    "70010000000013": { id: "01000A10041EB003", name: "스카이림 스페인어 언어 팩", iconUrl: ART },
+  });
+  await writeRegion("US.en.json", {
+    "70010000000014": { id: "01000A10041EA000", name: "The Elder Scrolls V: Skyrim", iconUrl: ART },
+  });
+
+  await store.load();
+
+  assert.equal(store.preferredSibling("01000A10041EA000"), null);
+});
+
+test("preferredSibling: null when two different titles claim the same artwork", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    "70010000000015": { id: "0100000000030000", name: "한글 게임 하나", iconUrl: ART },
+    "70010000000016": { id: "0100000000040000", name: "한글 게임 둘", iconUrl: ART },
+  });
+  await writeRegion("US.en.json", {
+    "70010000000017": { id: "0100000000050000", name: "Ambiguous Game", iconUrl: ART },
+  });
+
+  await store.load();
+
+  // Ambiguous → refuse rather than guess; a wrong localized name is worse
+  // than a correct foreign one.
+  assert.equal(store.preferredSibling("0100000000050000"), null);
+});
+
+test("preferredSibling: matches on bannerUrl too, not just iconUrl", async () => {
+  await resetDir();
+  const banner = "https://img-eshop.cdn.nintendo.net/i/furi-banner.jpg";
+  await writeRegion("KR.ko.json", {
+    "70010000000018": { id: "0100000000060000", name: "퓨리", bannerUrl: banner },
+  });
+  await writeRegion("US.en.json", {
+    "70010000000019": { id: "0100000000070000", name: "Furi", bannerUrl: banner },
+  });
+
+  await store.load();
+
+  assert.equal(store.preferredSibling("0100000000070000").name, "퓨리");
+});
