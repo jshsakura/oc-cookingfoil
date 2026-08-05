@@ -432,9 +432,24 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin) {
  * This is what makes warm restart and titledb-late-load paths smooth:
  * no request ever has to wait through a fresh scan just because something
  * changed in the background.
+ *
+ * Pass `{ rescan: true }` when the change invalidates the per-file items
+ * THEMSELVES rather than the library contents — titledb finishing its load
+ * is the case that matters. Each `filesMap` entry bakes in its display name
+ * at scan time, so a plain rebuild takes the incremental path, finds
+ * `+0/-0` files changed, and re-composes the very same stale names. On a
+ * small/fast library the cold scan beats titledb's ~1s load every time, and
+ * the catalog then serves filename-derived names until some file happens to
+ * change. `rescan` forces the items to be rebuilt against the loaded store.
+ *
+ * (The native sections view never had this bug: composeSections re-derives
+ * each item from its path on every build, so it always saw fresh titledb.
+ * That asymmetry is exactly how this was caught — CyberFoil showed
+ * "데드 셀" while stock Tinfoil got "Dead Cells".)
  */
-export function invalidate() {
-  scheduleRebuild("invalidate");
+export function invalidate({ rescan = false } = {}) {
+  if (rescan) needsFullRescan = true;
+  scheduleRebuild(rescan ? "invalidate+rescan" : "invalidate");
 }
 
 function scheduleRebuild(reason) {

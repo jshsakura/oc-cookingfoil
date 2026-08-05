@@ -48,9 +48,10 @@ async function doFetch(regions) {
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
-        // Fresh titledb → stale shop cache. Next /shop.json rebuilds with
-        // the new metadata; in-flight responses keep the old one (fine).
-        shopCache.invalidate();
+        // Fresh titledb → stale shop cache. rescan:true because each
+        // filesMap entry baked its display name at scan time; without it
+        // the rebuild goes incremental (+0/-0) and re-serves those names.
+        shopCache.invalidate({ rescan: true });
       }
       return results;
     } finally {
@@ -131,9 +132,10 @@ export async function bootstrap() {
   await store.load();
   // The shop-cache init runs concurrently and might have already built a
   // response while titledb-store was still loading from disk (race on cold
-  // start). Invalidate so the next /shop.json triggers a rebuild with the
-  // titledb data we just loaded — names, aliases and metadata all flow.
-  shopCache.invalidate();
+  // start). rescan:true so the per-file items are rebuilt against the store
+  // we just loaded — a plain invalidate finds +0/-0 files changed and
+  // re-composes the same filename-derived names.
+  shopCache.invalidate({ rescan: true });
   const autoFetch = envBool("COOK_TITLEDB_AUTO_FETCH", true);
   const haveCache = store.size() > 0;
   // A partial cache is the common real-world state: an early boot (or a once-
