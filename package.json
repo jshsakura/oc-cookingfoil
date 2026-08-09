@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node ./src/index.js",
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
+    "lint": "eslint .",
     "test": "playwright test",
     "test:unit": "node --test test/unit/*.test.js",
     "test:pairing": "node scripts/local-pairing.mjs",
@@ -40,6 +41,8 @@
   "devDependencies": {
     "@playwright/test": "^1.45.1",
     "@types/node": "^20.14.10",
+    "eslint": "^10.8.1",
+    "globals": "^17.9.0",
     "nodemon": "^3.1.4"
   },
   "repository": {

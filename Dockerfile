@@ -85,7 +85,11 @@ COPY shop_template.jsonc /shop_template.jsonc
 
 EXPOSE 80
 
+# /healthz alone only proves the process is alive: it sits in front of the
+# guards, so in v0.8.2 it answered 200 for an hour while every real request
+# 500'd and the container sat there reporting "healthy". Probe the guarded root
+# too and treat 5xx as unhealthy — 401/403 are correct answers, not failures.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget -qO- "http://127.0.0.1:${COOK_PORT}/healthz" >/dev/null || exit 1
+  CMD node -e "const b='http://127.0.0.1:'+(process.env.COOK_PORT||80);(async()=>{const h=await fetch(b+'/healthz');if(!h.ok)process.exit(1);const r=await fetch(b+'/',{redirect:'manual'});if(r.status>=500)process.exit(1)})().catch(()=>process.exit(1))"
 
 CMD ["node", "src/index.js"]

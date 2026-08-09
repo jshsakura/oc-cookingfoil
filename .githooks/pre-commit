@@ -40,6 +40,18 @@ if [ -n "$STAGED_JS" ]; then
     COUNT=$((COUNT + 1))
   done
   ok "JS syntax OK (${COUNT} file(s))"
+
+  # node --check only PARSES. A symbol used without its import is valid syntax
+  # and blows up at runtime instead — that is how v0.8.2 shipped a 500 on every
+  # request. eslint's no-undef is the check that actually sees it.
+  step "eslint (no-undef)"
+  if [ -x node_modules/.bin/eslint ]; then
+    # shellcheck disable=SC2086
+    node_modules/.bin/eslint --max-warnings=-1 $STAGED_JS || fail "eslint found errors"
+    ok "eslint clean"
+  else
+    echo "    (eslint not installed — run: npm install --ignore-scripts)"
+  fi
 else
   ok "no JS changes"
 fi
@@ -134,6 +146,51 @@ node -e "
 " || { rm -f "$LOG" "$JSON"; fail "/shop.json shape invalid"; }
 rm -f "$LOG" "$JSON"
 ok "server boots + /shop.json valid"
+
+# ─────────────────────────────────────────────────────────────────────────
+# The smoke above boots with COOK_AUTH_USERS unset, and authGuard returns a
+# pass-through in that case — so the entire auth lane is unreachable code
+# there. That blind spot is what let v0.8.2 ship 500-on-every-request. Boot a
+# second time with the guards ARMED and demand a 401 challenge, not a 5xx.
+step "auth lane smoke (guards armed)"
+PORT=$(( ((RANDOM % 50000) + 3000) ))
+LOG=$(mktemp)
+COOK_PORT="$PORT" \
+COOK_GAMES_DIR="$ROOT/test/project/games" \
+COOK_TITLEDB_AUTO_FETCH=false \
+COOK_AUTH_USERS="smoke:smokepass" \
+COOK_DATA_DIR="$(mktemp -d)" \
+DEBUG="" \
+node src/index.js > "$LOG" 2>&1 &
+SERVER_PID=$!
+
+CODE=""
+for _ in 1 2 3 4 5 6 7 8; do
+  sleep 0.4
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" 2>/dev/null || true)
+  [ -n "$CODE" ] && [ "$CODE" != "000" ] && break
+done
+kill "$SERVER_PID" 2>/dev/null
+wait "$SERVER_PID" 2>/dev/null || true
+
+case "$CODE" in
+  401)
+    rm -f "$LOG"
+    ok "auth lane challenges (401)"
+    ;;
+  5*)
+    echo "--- server log ---"
+    grep -iE 'error|referenceerror|typeError' "$LOG" | tail -10
+    rm -f "$LOG"
+    fail "auth lane returned $CODE — a guard is throwing on the request path"
+    ;;
+  *)
+    echo "--- server log ---"
+    cat "$LOG"
+    rm -f "$LOG"
+    fail "auth lane returned '$CODE', expected 401"
+    ;;
+esac
 
 # ─────────────────────────────────────────────────────────────────────────
 # Docker build is slow — only when Dockerfile or .dockerignore is staged.

@@ -1,0 +1,39 @@
+name: CI
+
+# Until v0.8.2 the only workflow here was ghcr-publish, which fires on tags and
+# does nothing but build & push. The 200+ unit tests never ran in CI at all —
+# they ran when a human remembered to. That is how a one-line missing import
+# reached :latest and 500'd every request.
+#
+# This gates main: lint (catches "used but never imported") + unit tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call: # reused by ghcr-publish so releases can't skip it
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # --ignore-scripts: postinstall only arms local git hooks, pointless here.
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      # Fails on errors only; the pre-existing unused-var warnings stay advisory.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
