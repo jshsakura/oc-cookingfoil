@@ -19,6 +19,7 @@ import { getUsersFromEnv } from "../authUsersParser.js";
 import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
+import { isLoopbackIp } from "./net.js";
 import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
 import { envNumber } from "../helpers/env-read.js";
 
