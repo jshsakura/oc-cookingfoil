@@ -142,6 +142,28 @@ Skip the hook for a single commit:
 git commit --no-verify -m "..."
 ```
 
+## Native client home metadata
+
+`GET /api/shop/sections` (also `/api/remote/sections`) includes two optional
+fields on each item for CookingFoil's home rows:
+
+| Field | Meaning |
+|---|---|
+| `added_at` | File modification time in epoch seconds, used for recently added sorting. Reuses the scanned `mtime`; omitted when unknown. |
+| `languages` | Supported game language codes from TitleDB, e.g. `["ko", "en"]`. Codes are trimmed, lowercased and deduplicated. Omitted when unknown. |
+
+Base, update and DLC items use the language metadata for their `base_title_id`.
+A localized name or a region file such as `KR.ko.json` does not establish
+Korean game support. Language lists follow the existing TitleDB priority
+order; the first nonempty valid list wins rather than combining releases.
+Custom entries can provide `added_at` (or legacy `mtime`) and `languages`.
+
+On upgrade, old slim TitleDB caches are regenerated from their raw siblings
+to recover languages. A slim-only cache still loads; language information
+remains unknown until a current cache is fetched. Responses retain absolute
+URLs, gzip/Brotli encoding and ETag revalidation. Clients should hide home
+rows whose required metadata is unavailable.
+
 ## Related projects
 
 - **[CyberFoil](https://github.com/luketanti/CyberFoil)** — Switch homebrew client (consumes this server)

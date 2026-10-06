@@ -36,6 +36,7 @@ import debug from "./debug.js";
 import { parseFromFilename } from "./meta/filename-parser.js";
 import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
+import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -411,6 +412,13 @@ function buildSectionItem(relPath, wireItem) {
     name: resolveDisplayName(parsed, fromDb), // CLEAN — no [TID][vVER] suffix
     size: wireItem.size,
   };
+  // The primitive already carries stat.mtime in epoch seconds. Reuse it
+  // without another stat, including for files with no title metadata.
+  if (Number.isFinite(wireItem.mtime) && wireItem.mtime > 0) {
+    item.added_at = Math.floor(wireItem.mtime);
+  }
+  const languages = normalizeSupportedLanguages(fromDb?.languages);
+  if (languages) item.languages = languages;
   if (parsed.titleId) {
     item.title_id = parsed.titleId;
     item.app_id = parsed.titleId;
@@ -441,6 +449,10 @@ function buildSectionItemFromCustom(raw) {
     name: typeof raw.name === "string" ? raw.name : "",
     size: typeof raw.size === "number" ? raw.size : 0,
   };
+  const addedAt = raw.added_at ?? raw.mtime;
+  if (Number.isFinite(addedAt) && addedAt > 0) item.added_at = Math.floor(addedAt);
+  const languages = normalizeSupportedLanguages(raw.languages);
+  if (languages) item.languages = languages;
   if (tid) {
     item.title_id = tid;
     item.app_id = tid;

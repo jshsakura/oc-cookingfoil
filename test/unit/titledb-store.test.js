@@ -164,6 +164,7 @@ test("load: a `.slim.json` sibling is preferred over the raw `.json` for the sam
     a: { id: "0100000000050000", name: "Raw Name (stale)" },
   });
   await writeRegion("JP.ja.slim.json", {
+    _schemaVersion: 2,
     "0100000000050000": { id: "0100000000050000", name: "Slim Name (fresh)" },
   });
 
@@ -171,6 +172,43 @@ test("load: a `.slim.json` sibling is preferred over the raw `.json` for the sam
   assert.equal(status.regions.length, 1); // only one file chosen for the region
   assert.equal(status.regions[0].format, "slim");
   assert.equal(store.get("0100000000050000").name, "Slim Name (fresh)");
+});
+
+test("load: old slim cache recovers languages from raw without inferring them from the region", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    a: { id: "0100000000050000", name: "Raw", languages: [" EN ", "ko", "ko", null, ""] },
+  });
+  await writeRegion("KR.ko.slim.json", {
+    "0100000000050000": { id: "0100000000050000", name: "Old Slim" },
+  });
+  const result = await store.load();
+  assert.equal(result.regions[0].format, "raw");
+  assert.deepEqual(store.get("0100000000050000").languages, ["en", "ko"]);
+  await settleBackgroundIO();
+  const fresh = await store.load();
+  assert.equal(fresh.regions[0].format, "slim");
+  assert.deepEqual(store.get("0100000000050000").languages, ["en", "ko"]);
+});
+
+test("load: language lists use priority fallback, never merge sibling releases or localized names", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", {
+    a: { id: "0100000000050000", name: "한국어 이름", languages: [] },
+    b: { id: "0100000000060000", name: "한국어 이름", languages: ["ja"] },
+    c: { id: "0100000000070000", name: "한국어 이름" },
+    d: { id: "0100000000080000", languages: "ko" },
+  });
+  await writeRegion("US.en.json", {
+    a: { id: "0100000000050000", languages: ["ko", "en"] },
+    b: { id: "0100000000060000", languages: ["ko", "en"] },
+    d: { id: "0100000000080000", languages: ["en"] },
+  });
+  await store.load();
+  assert.deepEqual(store.get("0100000000050000").languages, ["ko", "en"]);
+  assert.deepEqual(store.get("0100000000060000").languages, ["ja"]);
+  assert.equal(store.get("0100000000070000").languages, undefined);
+  assert.deepEqual(store.get("0100000000080000").languages, ["en"]);
 });
 
 test("load: a slim-only region (no raw sibling at all) loads fine", async () => {

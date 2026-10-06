@@ -11,10 +11,12 @@ import path from "path";
 import { readdir, readFile } from "fs/promises";
 import debug from "../debug.js";
 import { titledbCacheDir, langPriority } from "../helpers/envs.js";
-import { slimPathFor, writeSlimFromJson } from "./titledb-slim.js";
+import { slimPathFor, writeSlimFromJson, SLIM_SCHEMA_VERSION } from "./titledb-slim.js";
+import { normalizeSupportedLanguages } from "./supported-languages.js";
 
 // Fields we surface in the merged record. Keep the list aligned with the
 // shop_template.jsonc Tinfoil titledb spec and CyberFoil's info panel.
+// languages is normalized separately below so invalid arrays allow fallback.
 const MERGED_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
@@ -125,7 +127,24 @@ export async function load() {
       const fullPath = path.join(titledbCacheDir, file);
       try {
         const text = await readFile(fullPath, "utf-8");
-        return { file, region, slim, json: JSON.parse(text), error: null };
+        const json = JSON.parse(text);
+        if (slim && json?._schemaVersion !== SLIM_SCHEMA_VERSION) {
+          // Existing caches stripped the supported-language field. Re-read
+          // the raw sibling once and let the normal slim writer upgrade it.
+          // If raw is unavailable or malformed, keep serving the old cache.
+          const rawFile = `${region}.json`;
+          try {
+            const raw = JSON.parse(await readFile(path.join(titledbCacheDir, rawFile), "utf-8"));
+            if (raw && typeof raw === "object") {
+              return { file: rawFile, region, slim: false, json: raw, error: null };
+            }
+          } catch (err) {
+            if (err.code !== "ENOENT") {
+              debug.error("titledb store: raw cache upgrade %s: %s", rawFile, err.message);
+            }
+          }
+        }
+        return { file, region, slim, json, error: null };
       } catch (err) {
         return { file, region, slim, json: null, error: err };
       }
@@ -187,6 +206,13 @@ export async function load() {
       }
       for (const field of MERGED_FIELDS) {
         setIfEmpty(rec, field, entry[field]);
+      }
+      // Keep the first known list in language-priority order. Empty or
+      // malformed lists allow fallback; a second region cannot broaden the
+      // languages supported by the selected release.
+      if (!rec.languages) {
+        const languages = normalizeSupportedLanguages(entry.languages);
+        if (languages) rec.languages = languages;
       }
       count++;
     }

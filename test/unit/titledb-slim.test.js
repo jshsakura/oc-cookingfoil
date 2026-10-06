@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   SLIM_SUFFIX,
+  SLIM_SCHEMA_VERSION,
   slimPathFor,
   writeSlimFromJson,
   writeSlimFromRawPath,
@@ -53,6 +54,7 @@ test("writeSlimFromJson: keeps only SLIM_FIELDS, drops empty/null/undefined valu
       description: "", // empty string must be dropped
       releaseDate: null, // null must be dropped
       region: "US",
+      languages: ["ko", "en"],
       extraJunkField: "not in SLIM_FIELDS, must be dropped",
     },
   };
@@ -61,7 +63,8 @@ test("writeSlimFromJson: keeps only SLIM_FIELDS, drops empty/null/undefined valu
   assert.equal(result.count, 1);
 
   const written = JSON.parse(await readFile(slimPath, "utf-8"));
-  const keys = Object.keys(written);
+  assert.equal(written._schemaVersion, SLIM_SCHEMA_VERSION);
+  const keys = Object.keys(written).filter((key) => key !== "_schemaVersion");
   assert.deepEqual(keys, ["0100000000010000"]);
 
   const entry = written["0100000000010000"];
@@ -72,6 +75,7 @@ test("writeSlimFromJson: keeps only SLIM_FIELDS, drops empty/null/undefined valu
   assert.equal("releaseDate" in entry, false);
   assert.equal("extraJunkField" in entry, false);
   assert.equal(entry.region, "US");
+  assert.deepEqual(entry.languages, ["ko", "en"]);
 });
 
 test("writeSlimFromJson: skips entries with invalid/missing/non-string id and non-object entries", async () => {
@@ -90,7 +94,7 @@ test("writeSlimFromJson: skips entries with invalid/missing/non-string id and no
   assert.equal(result.count, 1);
 
   const written = JSON.parse(await readFile(slimPath, "utf-8"));
-  assert.deepEqual(Object.keys(written), ["0100000000010000"]);
+  assert.deepEqual(Object.keys(written).filter((key) => key !== "_schemaVersion"), ["0100000000010000"]);
 });
 
 test("writeSlimFromJson: throws when the raw payload is not an object (covers the transform guard)", async () => {

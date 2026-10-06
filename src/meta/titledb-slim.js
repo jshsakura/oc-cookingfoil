@@ -25,10 +25,13 @@ import { readFile, writeFile, rename } from "fs/promises";
 const SLIM_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
-  "screenshots", "version", "nsuId", "numberOfPlayers",
+  "screenshots", "version", "nsuId", "numberOfPlayers", "languages",
 ];
 
 export const SLIM_SUFFIX = ".slim.json";
+// Version 1 caches discarded languages. The store rebuilds those from raw
+// on upgrade while continuing to accept slim-only installations.
+export const SLIM_SCHEMA_VERSION = 2;
 
 export function slimPathFor(rawPath) {
   return rawPath.replace(/\.json$/, SLIM_SUFFIX);
@@ -38,7 +41,7 @@ function transform(json) {
   if (!json || typeof json !== "object") {
     throw new Error("raw titledb is not an object");
   }
-  const slim = {};
+  const slim = { _schemaVersion: SLIM_SCHEMA_VERSION };
   let count = 0;
   for (const entry of Object.values(json)) {
     if (!entry || typeof entry !== "object") continue;
