@@ -156,6 +156,15 @@ Desktop uses a six-column catalog; narrow screens use bottom navigation.
   installations or confirm a browser download completed.
 - Upload staging, explicit Apply/Delete actions and artwork management retain
   their existing authenticated server endpoints.
+- Detail includes the backend's uploaded banners and screenshots, including
+  sparse screenshot slots. Photos open in a keyboard-accessible viewer.
+- Explicit `videos`, `videoUrl` or `youtube` title metadata can supply YouTube
+  trailers and HTTPS MP4/WebM files. The browser starts playback when selected
+  and removes the player when leaving detail. Missing metadata hides video
+  controls. No trailer is guessed from a game name, and TitleDB is not assumed
+  to provide videos for every title. This does not enable on-device YouTube playback.
+- IBM Plex Sans KR is served locally with its OFL license. The favicon and brand
+  icon use the flat butter shape from the approved preview.
 
 Run `npm run test:web` after `npx playwright install chromium` to test the actual
 browser UI and generate screenshots under `out/web/`. Screenshots and fixture

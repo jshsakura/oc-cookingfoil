@@ -20,7 +20,7 @@ import { normalizeSupportedLanguages } from "./supported-languages.js";
 const MERGED_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
-  "screenshots", "version", "nsuId", "numberOfPlayers",
+  "screenshots", "version", "nsuId", "numberOfPlayers", "videos", "videoUrl", "youtube",
 ];
 
 // blawar/titledb publishes one file per country/lang pair, named "XX.yy.json"

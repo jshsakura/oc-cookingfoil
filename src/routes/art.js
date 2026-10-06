@@ -22,6 +22,7 @@ import multer from "multer";
 import { uploadsEnabled } from "../helpers/envs.js";
 import * as customArt from "../meta/custom-art.js";
 import debug from "../debug.js";
+import { invalidate } from "../meta/shop-cache.js";
 
 // Images are small relative to game files; 16 MiB is plenty for a 4K banner
 // and keeps a single decode bounded.
@@ -88,6 +89,7 @@ export default function artRouter() {
     }
     try {
       const r = await customArt.put(base, kind, idx, req.file.buffer);
+      invalidate();
       res.status(201).json({
         baseTitleId: base,
         kind,
@@ -131,6 +133,7 @@ export default function artRouter() {
       return badRequest(res, "invalid screenshot index");
     }
     await customArt.remove(base, "screenshot", idx);
+    invalidate();
     res.json({ deleted: true, baseTitleId: base, ...customArt.list(base) });
   });
 
@@ -142,6 +145,7 @@ export default function artRouter() {
       return badRequest(res, "kind must be icon or banner");
     }
     await customArt.remove(base, kind, null);
+    invalidate();
     res.json({ deleted: true, baseTitleId: base, ...customArt.list(base) });
   });
 

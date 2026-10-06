@@ -58,7 +58,7 @@ import {
   addUrlEncodedFileInfo as encodeUrlObject,
   getJsonTemplateFile,
 } from "./helpers/helpers.js";
-import pkg from "./package.js";
+import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
 
 // Stamp every proxy artwork URL with the server's MAJOR.MINOR version.
 // Embedded clients like Tinfoil cache responses keyed on the literal URL
@@ -73,8 +73,6 @@ import pkg from "./package.js";
 // minor bump (v0.8.0) is the planned moment for a one-shot bust —
 // long-running deployments that have accreted stale placeholders pick
 // up clean state then, and nobody pays the bandwidth tax in between.
-const ARTWORK_VERSION = pkg.version.split(".").slice(0, 2).join(".");
-function withVersion(path) { return `${path}?v=${ARTWORK_VERSION}`; }
 
 const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz", "**/*.nro"];
 const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;

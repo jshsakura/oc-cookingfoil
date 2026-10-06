@@ -55,6 +55,7 @@ test("writeSlimFromJson: keeps only SLIM_FIELDS, drops empty/null/undefined valu
       releaseDate: null, // null must be dropped
       region: "US",
       languages: ["ko", "en"],
+      videos: [{ type: "youtube", id: "abcdefghijk" }],
       extraJunkField: "not in SLIM_FIELDS, must be dropped",
     },
   };
@@ -70,6 +71,7 @@ test("writeSlimFromJson: keeps only SLIM_FIELDS, drops empty/null/undefined valu
   const entry = written["0100000000010000"];
   assert.equal(entry.id, "0100000000010000");
   assert.equal(entry.name, "English Game");
+  assert.deepEqual(entry.videos, raw["70010000000001"].videos);
   assert.equal(entry.publisher, "EN Publisher");
   assert.equal("description" in entry, false);
   assert.equal("releaseDate" in entry, false);

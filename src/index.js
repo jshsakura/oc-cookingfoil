@@ -240,7 +240,7 @@ shopCache.init().catch((err) =>
 
 // Seed the custom-art override index from disk so the icon/banner/screenshot
 // routes can do a zero-syscall "is there an override?" check on the hot path.
-customArt.init().catch((err) =>
+customArt.init().then(() => shopCache.invalidate()).catch((err) =>
   debug.error("custom-art init failed:", err.message)
 );
 

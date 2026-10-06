@@ -17,13 +17,13 @@
  */
 import * as titledbStore from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
+import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
-import pkg from "../package.js";
+import { titleVideos } from "../meta/title-videos.js";
+import { versionedArtwork } from "../meta/artwork-version.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
-// Same MAJOR.MINOR artwork cache-bust stamp the shop response uses.
-const ARTWORK_VERSION = pkg.version.split(".").slice(0, 2).join(".");
 
 export default function titleDetailRoute(req, res) {
   const base = String(req.params.baseTitleId || "").toUpperCase();
@@ -34,21 +34,23 @@ export default function titleDetailRoute(req, res) {
 
   const fromDb = titledbStore.get(base);
   const extracted = fromDb ? null : extractedMeta.get(base);
-  if (!fromDb && !extracted) {
+  const overrides = customArt.list(base);
+  if (!fromDb && !extracted && !overrides.icon && !overrides.banner && !overrides.screens.length) {
     res.status(404).json({ error: "no metadata for title" });
     return;
   }
 
   const origin = resolveOrigin(req, publicBaseUrl);
   const art = (path) => {
-    const url = `${path}?v=${ARTWORK_VERSION}`;
+    const url = versionedArtwork(path);
     return origin ? origin + url : url;
   };
 
-  const screenshots =
-    Array.isArray(fromDb?.screenshots) && fromDb.screenshots.length > 0
-      ? fromDb.screenshots.map((_, i) => art(`/api/shop/screenshot/${base}/${i}`))
-      : [];
+  const slots = new Set(overrides.screens.filter((i) => Number.isInteger(i) && i >= 0 && i <= 30));
+  if (Array.isArray(fromDb?.screenshots)) {
+    fromDb.screenshots.slice(0, 31).forEach((url, i) => { if (url) slots.add(i); });
+  }
+  const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/shop/screenshot/${base}/${i}`));
 
   // titledb changes at most on the ~24h refresh; let the dashboard/client hold
   // a detail for a minute instead of re-fetching on every open.
@@ -66,8 +68,9 @@ export default function titleDetailRoute(req, res) {
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     iconUrl: art(`/api/shop/icon/${base}`),
-    bannerUrl: fromDb?.bannerUrl ? art(`/api/shop/banner/${base}`) : null,
+    bannerUrl: fromDb?.bannerUrl || overrides.banner ? art(`/api/shop/banner/${base}`) : null,
     screenshots,
     screenshotCount: screenshots.length,
+    videos: titleVideos(fromDb),
   });
 }

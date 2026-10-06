@@ -25,13 +25,13 @@ import { readFile, writeFile, rename } from "fs/promises";
 const SLIM_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
-  "screenshots", "version", "nsuId", "numberOfPlayers", "languages",
+  "screenshots", "version", "nsuId", "numberOfPlayers", "languages", "videos", "videoUrl", "youtube",
 ];
 
 export const SLIM_SUFFIX = ".slim.json";
-// Version 1 caches discarded languages. The store rebuilds those from raw
-// on upgrade while continuing to accept slim-only installations.
-export const SLIM_SCHEMA_VERSION = 2;
+// Version 1 discarded languages, versions 1 and 2 discarded trailers. Rebuild
+// from raw on upgrade while continuing to accept slim-only installations.
+export const SLIM_SCHEMA_VERSION = 3;
 
 export function slimPathFor(rawPath) {
   return rawPath.replace(/\.json$/, SLIM_SUFFIX);

@@ -67,6 +67,33 @@ test('mobile navigation and full detail fit a narrow viewport', async ({ page })
   await expect(page.locator('#detail-add')).toBeVisible();
   expect(await page.locator('#detail').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(390);
 });
+test('screenshots expand with keyboard navigation and trailers stop on detail close', async ({ page }) => {
+  fs.mkdirSync('out/web', { recursive:true });
+  await page.route('**/api/title/*', (route) => route.fulfill({ json: {
+    description: '미리보기 자료를 확인합니다.',
+    screenshots: ['/fixture-icons/0100E5E01C098000.jpg', '/fixture-icons/01002FC00412C000.jpg'],
+    videos: [{ type:'youtube', id:'abcdefghijk', title:'Trailer' }],
+  } }));
+  await page.route('https://www.youtube-nocookie.com/**', (route) => route.fulfill({ contentType:'text/html', body:'<html><body>Isolated embed fixture</body></html>' }));
+  await page.goto('/#library');
+  await page.getByRole('button', { name:'Darkest Dungeon II', exact:true }).click();
+  const thumbnail = page.locator('#screenshots button').first();
+  await thumbnail.click();
+  await expect(page.locator('.media-viewer')).toBeVisible();
+  await expect(page.locator('.media-heading strong')).toHaveText('1 / 2');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.media-heading strong')).toHaveText('2 / 2');
+  await page.screenshot({ path:'out/web/gallery.png' });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.media-viewer')).toHaveCount(0);
+  await expect(page.locator('#detail')).toBeVisible();
+  await expect(thumbnail).toBeFocused();
+  await page.getByRole('button', { name:'▶  Trailer' }).click();
+  await expect(page.locator('.trailer-player')).toHaveAttribute('src', /youtube-nocookie.com\/embed\/abcdefghijk/);
+  await page.screenshot({ path:'out/web/trailer-embed-fixture.png' });
+  await page.locator('#detail-back').click();
+  await expect(page.locator('.trailer-player')).toHaveCount(0);
+});
 test('desktop and mobile screenshots are captured from the actual UI', async ({ page }) => {
   fs.mkdirSync('out/web', { recursive:true });
   await page.setViewportSize({ width:1280, height:720 });

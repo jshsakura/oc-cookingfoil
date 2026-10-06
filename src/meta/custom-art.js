@@ -46,8 +46,9 @@ const FILE_RE = /^([0-9A-F]{16})\.(icon|banner|screen\.(\d+))\.jpg$/;
 const index = new Map();
 
 function blank() {
-  return { icon: false, banner: false, screens: new Set() };
+  return { icon: false, banner: false, screens: new Set(), revision: 0 };
 }
+export function revision(base) { return index.get(base)?.revision || 0; }
 function entryFor(base, create = false) {
   let e = index.get(base);
   if (!e && create) {
@@ -93,9 +94,10 @@ export function list(base) {
   };
 }
 
-function setSlot(base, kind, idx, present) {
+function setSlot(base, kind, idx, present, changed = Date.now()) {
   const e = entryFor(base, present);
   if (!e) return;
+  e.revision = Math.max(changed, e.revision + 1);
   if (kind === "icon") e.icon = present;
   else if (kind === "banner") e.banner = present;
   else if (kind === "screenshot") {
@@ -134,9 +136,12 @@ export async function init() {
     const m = FILE_RE.exec(name);
     if (!m) continue; // ignores thumb variants + anything unexpected
     const base = m[1];
-    if (m[2] === "icon") setSlot(base, "icon", null, true);
-    else if (m[2] === "banner") setSlot(base, "banner", null, true);
-    else setSlot(base, "screenshot", Number(m[3]), true);
+    let modified;
+    try { modified = Math.ceil((await fs.stat(path.join(customArtDir, name))).mtimeMs); }
+    catch { continue; }
+    if (m[2] === "icon") setSlot(base, "icon", null, true, modified);
+    else if (m[2] === "banner") setSlot(base, "banner", null, true, modified);
+    else setSlot(base, "screenshot", Number(m[3]), true, modified);
     n++;
   }
   debug.log("custom-art: indexed %d override(s)", n);

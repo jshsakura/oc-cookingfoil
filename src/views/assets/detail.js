@@ -1,6 +1,7 @@
 import { $, t, el, button, badges, setImage, toast } from "./widgets.js";
 import { bytes, versionLabel, safeUrl } from "./catalog.js";
 import { addDownloads, canEditArt } from "./transfers.js";
+import { closeMedia, screenshotButton, renderVideos } from "./media.js";
 let group = null, returnFocus = null, controller = null, selected = new Set();
 let onQueue = () => {};
 const cache = new Map();
@@ -25,11 +26,13 @@ export function initDetail(queueAction) {
 }
 export function closeDetail() {
   if ($("detail").hidden) return;
+  closeMedia();
   controller?.abort(); controller = null; group = null;
   $("detail").hidden = true; $("content").inert = false; $("navigation").inert = false;
   document.body.style.overflow = ""; returnFocus?.focus();
 }
 export async function openDetail(value, force = false) {
+  closeMedia();
   controller?.abort(); controller = new AbortController();
   const request = controller;
   const changing = group?.id !== value.id;
@@ -55,7 +58,7 @@ export async function openDetail(value, force = false) {
   let data = cache.get(key);
   if (force || !data || Date.now() - data.at > 60000) {
     const get = async (path) => {
-      try { const r = await fetch(path, { signal: request.signal }); return r.ok ? await r.json() : {}; } catch { return {}; }
+      try { const r = await fetch(path, { signal: request.signal, cache: force ? "reload" : "default" }); return r.ok ? await r.json() : {}; } catch { return {}; }
     };
     const [detail, art, extras] = await Promise.all([get("/api/title/" + key), get("/api/art/" + key), get("/api/title/" + key + "/extras")]);
     if (request.signal.aborted || group?.id !== key) return;
@@ -101,12 +104,10 @@ function paintMetadata({ detail, art, extras }) {
   if (detail.numberOfPlayers) values.push(["players", detail.numberOfPlayers]);
   for (const [key, value] of values) { const pair = el("div"); pair.append(el("dt", "", t(key)), el("dd", "", value)); meta.append(pair); }
   const screens = $("screenshots");
-  for (const url of (detail.screenshots || []).filter(safeUrl)) {
-    const link = el("a"); link.href = url; link.target = "_blank"; link.rel = "noopener";
-    const img = el("img"); img.alt = t("screens") + " " + (screens.children.length + 1); img.loading = "lazy"; img.src = url;
-    link.append(img); screens.append(link);
-  }
+  const urls = (detail.screenshots || []).filter(safeUrl);
+  urls.forEach((url, index) => screens.append(screenshotButton(url, index, urls)));
   const extrasBox = $("extras");
+  renderVideos(extrasBox, detail.videos);
   if (extras.extras?.length) extrasBox.append(el("h2", "", t("extra")));
   for (const file of extras.extras || []) {
     if (!safeUrl(file.url)) continue;

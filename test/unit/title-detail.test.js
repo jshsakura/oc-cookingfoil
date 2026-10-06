@@ -13,7 +13,9 @@ import path from "node:path";
 const PROBE = `
   import * as store from "../../src/meta/titledb-store.js";
   import route from "../../src/routes/title-detail.js";
+  import * as art from "../../src/meta/custom-art.js";
   await store.load();
+  await art.init();
   const mkRes = () => {
     const r = { code: 200, body: null, headers: {} };
     r.status = (c) => { r.code = c; return r; };
@@ -27,17 +29,24 @@ const PROBE = `
   const ok = call("0100000000ABC000");
   const bad = call("ZZZZ");
   const missing = call("0100000000FFF000");
+  const artworkOnly = call("0100000000DDD000");
   process.stdout.write(JSON.stringify({
     okCode: ok.code, name: ok.body?.name, publisher: ok.body?.publisher,
     descLen: (ok.body?.description || "").length, shots: ok.body?.screenshotCount,
     shot0: ok.body?.screenshots?.[0], banner: ok.body?.bannerUrl,
     badCode: bad.code, missingCode: missing.code,
+    screens: ok.body?.screenshots, artworkOnly,
+    videos: ok.body?.videos,
   }));
 `;
 
 test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () => {
   const data = mkdtempSync(path.join(tmpdir(), "cook-detail-"));
   mkdirSync(path.join(data, "titledb"), { recursive: true });
+  mkdirSync(path.join(data, "custom-art"));
+  for (const file of ["0100000000ABC000.screen.4.jpg", "0100000000DDD000.banner.jpg", "0100000000DDD000.screen.2.jpg"]) {
+    writeFileSync(path.join(data, "custom-art", file), "indexed artwork fixture");
+  }
   writeFileSync(
     path.join(data, "titledb", "US.en.json"),
     JSON.stringify({
@@ -49,6 +58,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
         releaseDate: 20240101,
         screenshots: ["https://cdn/a.jpg", "https://cdn/b.jpg"],
         bannerUrl: "https://cdn/banner.jpg",
+        videos: ["https://youtu.be/abcdefghijk"],
       },
     })
   );
@@ -64,7 +74,13 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   assert.equal(r.name, "Test Title");
   assert.equal(r.publisher, "OpenCourse");
   assert.ok(r.descLen > 10, "description surfaced");
-  assert.equal(r.shots, 2);
+  assert.equal(r.shots, 3);
+  assert.deepEqual(r.videos, [{ type: "youtube", id: "abcdefghijk", title: "" }]);
+  assert.ok(r.screens[2].includes("/4?"), "sparse custom screenshot indices stay intact");
+  assert.equal(r.artworkOnly.code, 200);
+  assert.equal(r.artworkOnly.body.name, null);
+  assert.ok(r.artworkOnly.body.bannerUrl.includes("/0100000000DDD000?"));
+  assert.ok(r.artworkOnly.body.screenshots[0].includes("/2?"));
   // screenshots/banner point at the proxy endpoints (relative — no origin in mock req)
   assert.equal(r.shot0, "/api/shop/screenshot/0100000000ABC000/0?v=" + r.shot0.split("v=")[1]);
   assert.ok(r.banner.startsWith("/api/shop/banner/0100000000ABC000"), "banner proxied");
