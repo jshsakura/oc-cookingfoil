@@ -26,6 +26,18 @@ import {
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
+import { issuePairLink } from "../security/pairing-link.js";
+
+function pendingResponse(req, deviceKey) {
+  const link = issuePairLink(deviceKey);
+  const origin = resolveOrigin(req, publicBaseUrl);
+  return {
+    status: "pending",
+    pairUrl: origin ? `${origin}/admin/pair/${link.token}` : null,
+    pairCode: link.code,
+    expiresAt: link.expiresAt,
+  };
+}
 
 function clientIp(req) {
   return (req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
@@ -66,7 +78,7 @@ export default function pairRouter() {
       version: req.get("Version") || null,
     });
     debug.log("pair: request from %s… (%s)", deviceKey.slice(0, 12), clientIp(req));
-    res.json({ status: "pending" });
+    res.json(pendingResponse(req, deviceKey));
   });
 
   router.get("/status", (req, res) => {
@@ -84,7 +96,7 @@ export default function pairRouter() {
         ip: clientIp(req),
         version: req.get("Version") || null,
       });
-      res.json({ status: "pending" });
+      res.json(pendingResponse(req, deviceKey));
       return;
     }
     const out = { status: "approved" };

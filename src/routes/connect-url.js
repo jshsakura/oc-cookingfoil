@@ -13,7 +13,7 @@
  * Security: marked no-store; the password is neither returned nor logged.
  */
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl } from "../helpers/envs.js";
+import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 
 function decodeBasicAuth(req) {
   const header = req.headers.authorization || "";
@@ -44,4 +44,23 @@ export default function connectUrlRoute(req, res) {
     hasAuth: Boolean(creds),
     username: creds ? creds.user : null,
   });
+}
+
+// A portable profile for the client. Pairing credentials belong to state.json;
+// the exported user config contains no password, access key or CF secret.
+export function clientConfigRoute(req, res) {
+  const origin = resolveOrigin(req, publicBaseUrl);
+  if (!origin) return res.status(503).json({ error: "server origin unavailable" });
+  const creds = decodeBasicAuth(req);
+  const server = {
+    title: "원격 서버",
+    url: origin,
+    username: devicePairing ? "" : creds?.user ?? "",
+    password: "",
+    cfClientId: "",
+    cfClientSecret: "",
+    enabled: true,
+  };
+  res.set({ "Cache-Control": "no-store", "Content-Disposition": 'attachment; filename="config.json"' });
+  res.type("application/json").send(JSON.stringify({ servers: [server], language: "ko", installTarget: "sd" }, null, 2) + "\n");
 }

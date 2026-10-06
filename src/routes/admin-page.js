@@ -43,6 +43,10 @@ import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import debug from "../debug.js";
+import { readPairLink, finishPairLink } from "../security/pairing-link.js";
+import { pairPage } from "./admin/pair-page.js";
+import { resolveOrigin } from "../helpers/origin.js";
+import { publicBaseUrl } from "../helpers/envs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -81,6 +85,40 @@ function buildUserRows() {
 export default function adminPageRouter() {
   const router = express.Router();
   router.use(express.json());
+
+  router.get("/pair/:token", (req, res) => {
+    res.set({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" });
+    if (!devicePairing) return res.status(404).send("not found");
+    const link = readPairLink(req.params.token);
+    if (!link) return res.status(410).type("html").send(pairPage({ expired: true }));
+    res.type("html").send(pairPage({
+      code: link.code,
+      authenticated: hasValidSession(req),
+      approved: link.used || store.isDeviceApproved(link.deviceKey),
+    }));
+  });
+
+  router.post("/api/pair/:token/approve", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!devicePairing) return res.status(404).send("not found");
+    if (!requireSession(req, res)) return;
+    const origin = req.get("Origin");
+    if (origin && origin !== resolveOrigin(req, publicBaseUrl))
+      return res.status(403).json({ error: "origin mismatch" });
+    const link = readPairLink(req.params.token);
+    if (!link) return res.status(410).json({ error: "pair link expired" });
+    if (link.used || store.isDeviceApproved(link.deviceKey))
+      return res.status(409).json({ error: "pair link already approved" });
+    const accessKey = generateAccessKey();
+    store.approveDevice(link.deviceKey, {
+      label: String(req.body?.label ?? "").slice(0, 64).trim(),
+      addedBy: "admin",
+      accessKeyHash: hashAccessKey(accessKey),
+    });
+    stageAccessKeyDelivery(link.deviceKey, accessKey);
+    finishPairLink(req.params.token);
+    res.json({ ok: true });
+  });
 
   router.get("/", async (req, res) => {
     if (hasValidSession(req)) {

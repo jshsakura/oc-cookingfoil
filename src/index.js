@@ -8,7 +8,7 @@ import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
 import titleDetailRoute from "./routes/title-detail.js";
-import connectUrlRoute from "./routes/connect-url.js";
+import connectUrlRoute, { clientConfigRoute } from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
 import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
@@ -137,6 +137,10 @@ expressApp.use(pairingGate());
 expressApp.use(authGuard());
 expressApp.use("/assets", webAssets);
 
+// Pairing-only shops must guard API content as well as the legacy shop/files.
+// Keep admin approval and clean configuration export reachable for onboarding.
+expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art"], deviceContentGuard());
+
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
 expressApp.use("/api/uploads", uploadsRouter());
@@ -171,6 +175,7 @@ expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
 // Copy-paste-ready shop URL for the authenticated visitor (weaves their own
 // basic-auth credentials into the live origin).
 expressApp.get("/api/connect-url", connectUrlRoute);
+expressApp.get("/api/client-config", clientConfigRoute);
 
 // 2FA-gated operator dashboard (inside the basic-auth perimeter). 404s when
 // COOK_ADMIN_TOTP_SECRET is unset.

@@ -162,6 +162,30 @@ browser UI and generate screenshots under `out/web/`. Screenshots and fixture
 game artwork are excluded from git. The approved game artwork stays in the
 private client repository.
 
+### Client setup and QR approval
+
+Web Settings offers **Get configuration** (`GET /api/client-config`). Put the
+downloaded `config.json` in `sdmc:/switch/cookingfoil/`. The profile names this
+server and excludes passwords, access keys and Cloudflare secrets. For shops
+using only Basic auth or a Cloudflare service token, add the required credentials
+on the PC. Merge server arrays on the PC if an existing profile lists other shops.
+
+With `COOK_DEVICE_PAIRING=true`, a pending device status includes `pairUrl`,
+`pairCode` and `expiresAt`. The CookingFoil client displays a QR and checks again
+every five seconds. The phone opens a short-lived `/admin/pair/<token>` page,
+authenticates the operator, confirms the displayed device code and explicitly
+approves it. The device receives the access key once, saves it to `state.json`
+and loads the catalog without entering a shop password on the console.
+
+The QR contains an opaque approval request, never a device key, access key or
+password. It expires after ten minutes; repeated approval cannot rotate keys.
+Phone approval retains the server's Basic auth and admin TOTP requirements.
+Pairing-only shops guard content APIs as well as the legacy shop and downloads.
+Older clients can keep using the existing manual admin approval flow.
+
+The phone must be able to reach the configured shop address. This flow requires
+deploying the updated server code; pushing main does not update a running server.
+
 ## Native client home metadata
 
 `GET /api/shop/sections` (also `/api/remote/sections`) includes two optional

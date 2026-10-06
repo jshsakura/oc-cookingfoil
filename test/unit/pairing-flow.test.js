@@ -18,7 +18,7 @@ const DEVICE_KEY = "A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E
 const PORT = 13100 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
 
-function bootServer() {
+function bootServer(overrides = {}) {
   const data = mkdtempSync(path.join(tmpdir(), "cook-flow-data-"));
   const games = path.join(data, "games");
   mkdirSync(games, { recursive: true });
@@ -36,6 +36,7 @@ function bootServer() {
       // Treat 127.0.0.1 as a real remote so the content guard actually enforces
       // (loopback is trusted by default for dev/docker-host convenience).
       COOK_LOCKOUT_TRUST_LOOPBACK: "false",
+      ...overrides,
     },
     stdio: "ignore",
   });
@@ -67,11 +68,18 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
       body: JSON.stringify({ deviceKey: DEVICE_KEY }),
     });
     assert.equal(r.status, 200);
-    assert.deepEqual(await r.json(), { status: "pending" });
+    const pending = await r.json();
+    assert.equal(pending.status, "pending");
+    assert.match(pending.pairUrl, /\/admin\/pair\/[a-f0-9]{32}$/);
+    assert.ok(!pending.pairUrl.includes(DEVICE_KEY));
 
     // 2) Content is locked before approval (sole lane, no creds) → 403.
     r = await fetch(`${BASE}/shop.tfl`, { headers: { UID: DEVICE_KEY } });
     assert.equal(r.status, 403);
+    for (const route of ["/api/shop/sections", "/api/remote/sections", "/api/title/0100000000000000", "/api/uploads", "/api/art/0100000000000000"]) {
+      r = await fetch(BASE + route, { headers: { UID: DEVICE_KEY } });
+      assert.equal(r.status, 403, `${route} must not bypass pairing-only approval`);
+    }
 
     // 3) Admin mints a real TOTP session cookie.
     const code = await generate({ secret: TOTP_SECRET });
@@ -159,6 +167,85 @@ test("pair endpoints accept the device key from the header the client already se
       devices.pending.some((p) => p.deviceKey === DEVICE_KEY),
       "header-only poll must surface in the pending queue"
     );
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("QR approval authenticates the admin and delivers the key only to the device", async () => {
+  const server = bootServer();
+  try {
+    await waitReady();
+    const headers = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    const again = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.equal(again.pairUrl, pending.pairUrl);
+    assert.match(pending.pairCode, /^[A-F0-9]{8}$/);
+    const token = pending.pairUrl.split("/").pop();
+    const endpoint = `${BASE}/admin/api/pair/${token}/approve`;
+    const page = await fetch(pending.pairUrl);
+    assert.equal(page.headers.get("cache-control"), "no-store");
+    const html = await page.text();
+    assert.ok(html.includes(pending.pairCode));
+    assert.ok(!html.includes(DEVICE_KEY));
+    assert.ok(html.includes('id="verify"'));
+    let r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(r.status, 401);
+    assert.equal((await fetch(`${BASE}/admin/pair/${"0".repeat(32)}`)).status, 410);
+    const code = await generate({ secret: TOTP_SECRET });
+    r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }),
+    });
+    const cookie = r.headers.get("set-cookie").split(";")[0];
+    const auth = { "Content-Type": "application/json", Cookie: cookie };
+    assert.ok((await (await fetch(pending.pairUrl, { headers: auth })).text()).includes('id="approve"'));
+    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: "https://other.example" }, body: "{}" });
+    assert.equal(r.status, 403);
+    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: BASE }, body: JSON.stringify({ label: "Nintendo Switch" }) });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { ok: true });
+    r = await fetch(endpoint, { method: "POST", headers: auth, body: "{}" });
+    assert.equal(r.status, 409, "replaying the QR must not rotate the key");
+    const approvedPage = await (await fetch(pending.pairUrl, { headers: auth })).text();
+    assert.ok(approvedPage.includes("샵 연결을 승인했습니다."));
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.ok(approved.accessKey);
+    assert.ok(!approvedPage.includes(approved.accessKey));
+    assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers })).json()).accessKey, undefined);
+    r = await fetch(`${BASE}/api/shop/sections`, { headers: { ...headers, "X-Access-Key": approved.accessKey } });
+    assert.equal(r.status, 200);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("QR approval bypasses console password entry on a basic-auth shop", async () => {
+  const server = bootServer({ COOK_AUTH_USERS: "operator:test-password" });
+  try {
+    await waitReady();
+    const deviceHeaders = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers: deviceHeaders })).json();
+    assert.equal(pending.status, "pending", "the console needs no basic-auth credentials to pair");
+    const basic = "Basic " + Buffer.from("operator:test-password").toString("base64");
+    const phoneHeaders = { "Content-Type": "application/json", Authorization: basic };
+    const profileResponse = await fetch(`${BASE}/api/client-config`, { headers: phoneHeaders });
+    const profile = await profileResponse.json();
+    assert.equal(profile.servers[0].username, "");
+    assert.equal(profile.servers[0].password, "");
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: phoneHeaders, body: JSON.stringify({ code }) });
+    assert.equal(r.status, 200);
+    const cookie = r.headers.get("set-cookie").split(";")[0];
+    const token = pending.pairUrl.split("/").pop();
+    r = await fetch(`${BASE}/admin/api/pair/${token}/approve`, {
+      method: "POST", headers: { ...phoneHeaders, Cookie: cookie }, body: "{}",
+    });
+    assert.equal(r.status, 200);
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers: deviceHeaders })).json();
+    r = await fetch(`${BASE}/api/shop/sections`, {
+      headers: { ...deviceHeaders, "X-Access-Key": approved.accessKey },
+    });
+    assert.equal(r.status, 200, "device key authentication replaces console basic-auth credentials");
   } finally {
     server.kill("SIGKILL");
   }
