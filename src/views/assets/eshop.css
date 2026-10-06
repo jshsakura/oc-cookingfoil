@@ -63,7 +63,10 @@
 .button{background:var(--butter);border-radius:14px;min-height:52px;padding:12px 20px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:10px}
 .button.secondary{background:var(--surface);border:1px solid var(--line);font-weight:500}
 .button.ink{background:var(--ink);color:white}
-.panel{background:white;border-radius:20px;padding:22px;line-height:1.65}
+.panel{background:white;border-radius:20px;padding:22px;line-height:1.65;word-break:keep-all}
+.panel>h2{margin-bottom:10px}
+.panel .connect-url{margin-top:8px}
+.panel .queue-actions{margin-top:10px;margin-bottom:0}
 .muted{color:var(--muted)}
 .info-layout{display:grid;grid-template-columns:1.3fr 1fr;gap:24px}
 .stack{display:grid;gap:16px}
