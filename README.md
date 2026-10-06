@@ -142,6 +142,26 @@ Skip the hook for a single commit:
 git commit --no-verify -m "..."
 ```
 
+## eShop web interface
+
+The web interface uses the CookingFoil client's approved light eShop design:
+butter yellow actions, large game covers, a sidebar and a full-page detail view.
+Desktop uses a six-column catalog; narrow screens use bottom navigation.
+
+- Home rows use actual `added_at` and `languages` metadata. Unsupported rows are hidden.
+- One card groups base game, newest update and newest version of each DLC.
+- Search, filters, file selection, total size, keyboard navigation and Korean/English are available.
+- The browser download list persists locally and supports reordering and removal.
+  Each file is downloaded through the browser. The web cannot inspect Switch
+  installations or confirm a browser download completed.
+- Upload staging, explicit Apply/Delete actions and artwork management retain
+  their existing authenticated server endpoints.
+
+Run `npm run test:web` after `npx playwright install chromium` to test the actual
+browser UI and generate screenshots under `out/web/`. Screenshots and fixture
+game artwork are excluded from git. The approved game artwork stays in the
+private client repository.
+
 ## Native client home metadata
 
 `GET /api/shop/sections` (also `/api/remote/sections`) includes two optional

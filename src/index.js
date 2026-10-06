@@ -10,6 +10,7 @@ import extrasRoute from "./routes/extras.js";
 import titleDetailRoute from "./routes/title-detail.js";
 import connectUrlRoute from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
+import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
 import artRouter from "./routes/art.js";
@@ -134,6 +135,7 @@ expressApp.use("/api/pair", pairRouter());
 // when COOK_DEVICE_PAIRING is off.
 expressApp.use(pairingGate());
 expressApp.use(authGuard());
+expressApp.use("/assets", webAssets);
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).

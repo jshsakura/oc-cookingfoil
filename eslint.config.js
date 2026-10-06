@@ -44,6 +44,10 @@ export default [
     },
   },
   {
+    files: ["src/views/assets/**/*.js"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
     files: ["**/*.cjs"],
     languageOptions: {
       ecmaVersion: 2023,

@@ -157,3 +157,4 @@ games/custom_entries.jsonc
 
 # Playwright MCP browser session artifacts (console/page dumps)
 .playwright-mcp/
+out/

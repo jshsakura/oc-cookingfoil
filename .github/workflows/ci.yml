@@ -37,3 +37,13 @@ jobs:
 
       - name: Unit tests
         run: npm run test:unit
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Web interaction and screenshot tests
+        run: npm run test:web
+      - name: Web screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-screens
+          path: out/web/*.png

@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "test": "playwright test",
     "test:unit": "node --test test/unit/*.test.js",
+    "test:web": "playwright test --config playwright.web.config.ts",
     "test:pairing": "node scripts/local-pairing.mjs",
     "test:basic": "node scripts/local-basic-auth.mjs",
     "test:ui": "playwright test --ui",
