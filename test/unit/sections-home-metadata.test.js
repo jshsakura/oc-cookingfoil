@@ -38,6 +38,7 @@ test("sections: recent timestamps and actual supported languages survive scan, c
     const probe = `
       import assert from "node:assert/strict";
       import express from "express";
+      import { get as httpGet } from "node:http";
       import { gunzipSync, brotliDecompressSync } from "node:zlib";
       import * as store from "../../src/meta/titledb-store.js";
       import * as cache from "../../src/meta/shop-cache.js";
@@ -68,12 +69,22 @@ test("sections: recent timestamps and actual supported languages survive scan, c
           const actual = await response.json();
           assert.equal(actual.sections[0].items[0].added_at, 1728000000);
           assert.deepEqual(actual.sections[0].items.find((i) => i.title_id === "${base}").languages, ["ko", "en"]);
-          const unchanged = await fetch(baseUrl + endpoint, {
-            headers: { "Accept-Encoding": "identity", "If-None-Match": response.headers.get("etag") },
-            signal: AbortSignal.timeout(5000),
+          // Fetch adds Cache-Control: no-cache for a conditional request.
+          // Use plain HTTP to model curl's If-None-Match revalidation.
+          const unchanged = await new Promise((resolve, reject) => {
+            httpGet(baseUrl + endpoint, {
+              headers: { "Accept-Encoding": "identity", "If-None-Match": response.headers.get("etag") },
+              signal: AbortSignal.timeout(5000),
+            }, (res) => {
+              let body = "";
+              res.setEncoding("utf8");
+              res.on("data", (chunk) => { body += chunk; });
+              res.on("end", () => resolve({ status: res.statusCode, body }));
+              res.on("error", reject);
+            }).on("error", reject);
           });
           assert.equal(unchanged.status, 304);
-          assert.equal(await unchanged.text(), "");
+          assert.equal(unchanged.body, "");
         }
       } finally {
         server.closeAllConnections();
