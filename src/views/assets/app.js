@@ -1,4 +1,4 @@
-import { $, t, el, button, image, badges, card, empty, toast, translate, setLanguage, language } from "./widgets.js";
+import { $, t, el, button, image, badges, card, empty, toast, translate, setLanguage, language, slider } from "./widgets.js";
 import { groupCatalog, selectCatalog, versionLabel } from "./catalog.js";
 import { initDetail, openDetail, closeDetail } from "./detail.js";
 import { initTransfers, addDownloads, renderDownloads, queueCount, setAvailableFiles, refreshUploads } from "./transfers.js";
@@ -61,17 +61,12 @@ function homeRow(title, list) {
   const section = el("section", "home-row"); const head = el("div", "section-head");
   const row = el("div", "row-grid");
   head.append(el("h2", "", t(title)));
-  const controls = el("div", "row-controls");
-  const scroll = (direction) => row.scrollBy({ left: direction * Math.max(170, row.clientWidth * .8), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-  const left = button("‹", () => scroll(-1), "row-control"); left.setAttribute("aria-label", t("previous"));
-  const right = button("›", () => scroll(1), "row-control"); right.setAttribute("aria-label", t("next"));
-  controls.append(left, right, button(t("seeAll"), () => {
+  head.append(button(t("seeAll"), () => {
     filter = title === "korean" ? "ko" : "all"; sort = title === "recent" ? "recent" : "name"; page = 1;
     $("sort").value = sort; navigate("library");
   }, "text-button"));
-  head.append(controls);
   list.slice(0, 24).forEach((g) => row.append(card(g, openDetail)));
-  section.append(head, row); return section;
+  section.append(head, slider(row)); return section;
 }
 function renderLibrary() {
   const list = selectCatalog(groups, { query, filter, sort });

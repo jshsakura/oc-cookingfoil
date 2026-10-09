@@ -1,4 +1,4 @@
-import { $, t, el, button, badges, setImage, toast } from "./widgets.js";
+import { $, t, el, button, badges, setImage, toast, slider } from "./widgets.js";
 import { bytes, versionLabel, safeUrl } from "./catalog.js";
 import { addDownloads, canEditArt } from "./transfers.js";
 import { closeMedia, screenshotButton, renderVideos } from "./media.js";
@@ -7,6 +7,7 @@ let onQueue = () => {};
 const cache = new Map();
 export function initDetail(queueAction) {
   onQueue = queueAction;
+  slider($("screenshots"));
   $("detail-back").addEventListener("click", closeDetail);
   $("detail-add").addEventListener("click", () => {
     if (!group) return;

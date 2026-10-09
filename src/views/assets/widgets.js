@@ -49,6 +49,25 @@ export function el(tag, className, text) {
 export function button(text, action, className = "button secondary") {
   const b = el("button", className, text); b.type = "button"; b.addEventListener("click", action); return b;
 }
+const chevron = (d) => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// Wraps a horizontal scroller with edge buttons that appear only when there is more to see.
+export function slider(track) {
+  const wrap = el("div", "slider");
+  if (track.parentNode) track.replaceWith(wrap);
+  const move = (direction) => track.scrollBy({ left: direction * track.clientWidth * .85, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  const prev = button("", () => move(-1), "slide-nav prev"), next = button("", () => move(1), "slide-nav next");
+  prev.innerHTML = chevron("M15 5l-7 7 7 7"); next.innerHTML = chevron("M9 5l7 7-7 7");
+  prev.setAttribute("aria-label", t("previous")); next.setAttribute("aria-label", t("next"));
+  const sync = () => {
+    const max = track.scrollWidth - track.clientWidth - 2;
+    prev.hidden = track.scrollLeft <= 10; next.hidden = track.scrollLeft >= max - 8;
+  };
+  track.addEventListener("scroll", sync, { passive: true });
+  new ResizeObserver(sync).observe(track);
+  new MutationObserver(sync).observe(track, { childList: true });
+  wrap.append(prev, track, next); sync();
+  return wrap;
+}
 const placeholder = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="24" fill="#E2E0DA"/><rect x="76" y="98" width="104" height="60" rx="12" fill="#FFC23D" stroke="#16161A" stroke-width="5"/><path d="M84 109h88" stroke="#FFE08A" stroke-width="14"/></svg>');
 export function image(url, className = "cover") {
   const node = el("img", className); node.alt = ""; node.decoding = "async"; node.loading = className === "hero-bg" ? "eager" : "lazy";
