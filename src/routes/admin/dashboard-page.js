@@ -8,14 +8,14 @@
  *   3. show every refusal the server made, with the reason
  *   4. keep the library healthy without shell access
  */
-import { ADMIN_CSS, THEME_BOOT } from "./styles.js";
+import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:24px 20px 60px}.wrap{max-width:1040px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .brand{display:flex;align-items:center;gap:12px}
-.logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:var(--sunk);border:1px solid var(--line)}
+.logo{width:42px;height:42px;flex:none;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}
 h1{font-size:20px;margin:0}
 .who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -61,10 +61,10 @@ const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${THEME_BOOT}<style>${ADMIN_CSS}${PAGE_CSS}</style></head><body>
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <div class="brand"><div class="logo" aria-hidden="true">🧈</div>
+  <div class="brand"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42">
     <div><h1>CookingFoil 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
   <div class="actions">
     <a class="btn" href="/">대시보드</a>

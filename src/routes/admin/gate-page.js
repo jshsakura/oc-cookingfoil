@@ -1,21 +1,21 @@
 /** The 6-digit TOTP prompt shown to anyone without a valid admin session. */
-import { ADMIN_CSS, THEME_BOOT } from "./styles.js";
+import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { escapeHtml } from "./escape.js";
 
 export function gatePage({ owner } = {}) {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${THEME_BOOT}<style>${ADMIN_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px;width:min(360px,100%);
 text-align:center;box-shadow:0 30px 60px var(--shadow)}
-.logo{font-size:40px;margin-bottom:8px}h1{font-size:19px;margin:0 0 6px}
+.logo{display:block;margin:0 auto 8px;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}h1{font-size:19px;margin:0 0 6px}
 p{color:var(--muted);font-size:13px;margin:0 0 20px}
 input{width:100%;padding:12px;font-size:22px;letter-spacing:8px;text-align:center}
 #go{margin-top:14px;width:100%;padding:11px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
 .back{display:inline-block;margin-top:16px;color:var(--muted);font-size:13px}</style></head><body>
-<div class="box"><div class="logo">🧈</div><h1>관리 페이지</h1>
+<div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="56" height="56"><h1>관리 페이지</h1>
 <p><b>${escapeHtml(owner || "admin")}</b> 계정의 인증 앱에 표시된 6자리 코드를 입력합니다.</p>
 <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="인증 코드" autofocus>
 <button id="go" class="primary" type="button">들어가기</button><div class="err" id="err" role="alert"></div>

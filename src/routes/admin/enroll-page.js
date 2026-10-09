@@ -7,7 +7,7 @@
  * keeps the page dependency-free (no bundled QR encoder, no CDN — the CSP-free
  * offline case this server actually runs in).
  */
-import { ADMIN_CSS, THEME_BOOT } from "./styles.js";
+import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { escapeHtml } from "./escape.js";
 
 /** Groups the base32 secret into 4-char blocks so it can be typed accurately. */
@@ -20,11 +20,11 @@ export function enrollPage({ secret, uri, owner }) {
   const safeOwner = escapeHtml(owner || "admin");
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리 설정</title>${THEME_BOOT}<style>${ADMIN_CSS}
+<title>CookingFoil 관리 설정</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;width:min(460px,100%);
 box-shadow:0 30px 60px var(--shadow)}
-.logo{font-size:38px;text-align:center}h1{font-size:19px;margin:6px 0 6px;text-align:center}
+.logo{display:block;margin:0 auto;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}h1{font-size:19px;margin:6px 0 6px;text-align:center}
 .lead{color:var(--muted);font-size:13px;text-align:center;margin:0 0 22px}
 ol{margin:0 0 20px;padding-left:20px;color:var(--muted);font-size:13px}li{margin-bottom:6px}
 .key{background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;
@@ -35,7 +35,7 @@ details{margin-top:16px}summary{cursor:pointer;color:var(--muted);font-size:13px
 font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:var(--muted)}
 .done{margin-top:20px}.ok{color:var(--good);font-size:13px;min-height:18px;text-align:center;margin-top:8px}
 </style></head><body>
-<div class="box"><div class="logo">🧈</div><h1>관리자 인증 설정</h1>
+<div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="52" height="52"><h1>관리자 인증 설정</h1>
 <p class="lead">관리 페이지는 인증 앱의 6자리 코드로 엽니다. 아래 키를 인증 앱에 등록하면 설정이 끝납니다.</p>
 <ol>
 <li>인증 앱(Google Authenticator, Aegis, 1Password 등)을 엽니다</li>

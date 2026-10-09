@@ -1,9 +1,11 @@
 /**
  * Shared chrome for every /admin page: Catppuccin Mocha (dark) and Latte
- * (light), the same palettes as the public dashboard. THEME_BOOT applies the
- * theme the visitor chose there (same origin, same storage key) before paint.
+ * (light), the same palettes as the public dashboard. ADMIN_HEAD adds the icon
+ * and applies the theme the visitor chose there (same origin, same storage key)
+ * before paint.
  */
-export const THEME_BOOT = /* html */ `<script>try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch{}</script>`;
+export const ADMIN_HEAD = /* html */ `<link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml">\
+<script>try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch{}</script>`;
 
 const DARK = `--bg:#1e1e2e;--panel:#181825;--sunk:#11111b;--line:#313244;--line2:#45475a;
 --text:#cdd6f4;--muted:#a6adc8;--faint:#6c7086;--warn:#f9e2af;--bad:#f38ba8;--good:#a6e3a1;--accent:#f9e2af;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1e1e2e" />
     <title>COOKING FOIL — Smooth File Manager</title>
-    <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.88em%22 font-size=%2290%22>🧈</text></svg>" />
+    <link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
@@ -162,10 +162,8 @@
       .header .head-text { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
       .logo {
         width: 52px; height: 52px; flex-shrink: 0;
-        border-radius: 14px;
-        background: linear-gradient(135deg, var(--peach), var(--yellow));
-        display: flex; align-items: center; justify-content: center;
-        font-size: 28px; box-shadow: 0 8px 20px rgba(var(--peach-rgb), 0.2);
+        /* the client's app-icon tile, so the outline reads on the dark theme too */
+        background: #F2F1EE; border-radius: 12px; padding: 4px; box-sizing: border-box;
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .logo:hover { transform: scale(1.05) rotate(-3deg); }
@@ -613,7 +611,7 @@
 
       <div class="card">
         <header class="header">
-          <div class="logo" aria-hidden="true">🧈</div>
+          <img class="logo" src="/assets/cookingfoil.svg" alt="" width="52" height="52">
           <div class="head-text">
             <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></div>
             <h1>CookingFoil</h1>
