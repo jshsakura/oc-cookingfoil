@@ -40,6 +40,7 @@ import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
 import { normalizeCategories } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
+import * as updateVersions from "./meta/update-versions.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -451,8 +452,20 @@ function buildSectionItem(relPath, wireItem) {
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     Object.assign(item, sectionExtras(fromDb));
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
+    if (parsed.contentType === "update") attachVersionName(item, relPath, parsed);
   }
   return item;
+}
+
+// Clients show "1.4.1" instead of "v131072" when the update's NACP has been
+// read; until then the file is queued and the next rebuild picks it up.
+function attachVersionName(item, relPath, parsed) {
+  const versionName = updateVersions.get(parsed.titleId, parsed.version);
+  if (versionName) {
+    item.version_name = versionName;
+  } else if (extractIcons !== "off") {
+    updateVersions.enqueue({ absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId, version: parsed.version });
+  }
 }
 
 function buildSectionItemFromCustom(raw) {

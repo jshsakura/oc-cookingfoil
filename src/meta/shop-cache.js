@@ -39,6 +39,7 @@ import {
 } from "../create-index-content.js";
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
+import * as updateVersions from "./update-versions.js";
 import * as diskCache from "./shop-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
@@ -519,6 +520,10 @@ export async function init() {
   nacpExtractor.onExtracted(({ baseTitleId }) => {
     scheduleRebuild(`nacp-extracted ${baseTitleId}`);
   });
+  // Update display versions ("1.4.1") arrive in batches from the same kind of
+  // background read; load what earlier runs found before the first build.
+  await updateVersions.load();
+  updateVersions.onExtracted(() => scheduleRebuild("update-versions"));
 
   // Warm-start path: if the previous run persisted state to disk, hydrate
   // it now so the first /shop.json request after restart is served from

@@ -235,3 +235,7 @@ export async function status() {
     timeoutMs: DEFAULT_TIMEOUT_MS,
   };
 }
+
+// Shared with the update display-version reader, which runs the same nstool
+// steps on single NCAs cut out of the container instead of a full dump.
+export { resolveBinary, keysAvailable, runNstool, findFirstRecursive, KEYS_PATH, DEFAULT_TIMEOUT_MS };
