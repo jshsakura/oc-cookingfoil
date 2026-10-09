@@ -35,8 +35,8 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
 });
 
 test('a configuration file can be downloaded without exposing authentication secrets', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cookingfoil:eshop-lang', JSON.stringify('ko')));
-  await page.goto('/#settings');
+  await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
+  await page.goto('/');
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('link', { name:'설정 파일 받기', exact:true }).click();
   const download = await downloadEvent;

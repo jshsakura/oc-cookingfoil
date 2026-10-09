@@ -142,34 +142,20 @@ Skip the hook for a single commit:
 git commit --no-verify -m "..."
 ```
 
-## eShop web interface
+## Web dashboard
 
-The web interface uses the CookingFoil client's approved light eShop design:
-butter yellow actions, large game covers, a sidebar and a full-page detail view.
-Desktop uses a six-column catalog; narrow screens use bottom navigation.
+The landing page is a single self-contained dashboard (`src/views/landing.html`):
+connection address, server stats, name-source health and a searchable library
+with a per-title detail view.
 
-- Home rows use actual `added_at` and `languages` metadata. Unsupported rows are hidden.
-- One card groups base game, newest update and newest version of each DLC.
-- Search, filters, file selection, total size, keyboard navigation and Korean/English are available.
-- The browser download list persists locally and supports reordering and removal.
-  Each file is downloaded through the browser. The web cannot inspect Switch
-  installations or confirm a browser download completed.
-- Upload staging, explicit Apply/Delete actions and artwork management retain
-  their existing authenticated server endpoints.
-- Detail includes the backend's uploaded banners and screenshots, including
-  sparse screenshot slots. Photos open in a keyboard-accessible viewer.
-- Explicit `videos`, `videoUrl` or `youtube` title metadata can supply YouTube
-  trailers and HTTPS MP4/WebM files. The browser starts playback when selected
-  and removes the player when leaving detail. Missing metadata hides video
-  controls. No trailer is guessed from a game name, and TitleDB is not assumed
-  to provide videos for every title. This does not enable on-device YouTube playback.
-- IBM Plex Sans KR is served locally with its OFL license. The favicon and brand
-  icon use the flat butter shape from the approved preview.
+- Dark (Catppuccin Mocha) and light (Catppuccin Latte) themes. The system setting
+  decides until the visitor uses the theme button, which is remembered per browser.
+- Korean/English toggle. The connection row also offers the client `config.json`.
+- The web cannot see what is installed on a Switch, so it does not list pending
+  updates. Picking updates to install is the client's job.
 
 Run `npm run test:web` after `npx playwright install chromium` to test the actual
-browser UI and generate screenshots under `out/web/`. Screenshots and fixture
-game artwork are excluded from git. The approved game artwork stays in the
-private client repository.
+browser UI and generate screenshots under `out/web/`.
 
 ### Client setup and QR approval
 
