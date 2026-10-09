@@ -108,3 +108,13 @@ test("mode off → skip even for a tiny uncovered file", () => {
     false
   );
 });
+
+// ── NSP/NSZ are sliced, so the size cap does not apply to them ────────────
+
+test("NSP and NSZ extract even above the size cap; XCI still respects it", () => {
+  const base = { sizeBytes: 90 * BYTES_PER_GB, extractMode: "missing", fromDb: NO_DB, maxBytes: CAP_4GB };
+  assert.equal(shouldAutoExtract({ ...base, fileName: "Just Dance Legacy [0100EE2188AA8000][v0].nsp" }), true);
+  assert.equal(shouldAutoExtract({ ...base, fileName: "game.NSZ" }), true);
+  assert.equal(shouldAutoExtract({ ...base, fileName: "game.xci" }), false);
+  assert.equal(shouldAutoExtract({ ...base }), false);
+});

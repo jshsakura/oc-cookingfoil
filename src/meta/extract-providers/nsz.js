@@ -85,6 +85,12 @@ export const name = "nsz";
 
 export async function extract({ absPath, baseTitleId, fileName }, opts = {}) {
   if (!NSZ_RE.test(absPath)) return null;
+  // NSZ keeps its meta and control NCAs uncompressed: cut them out first and
+  // only decompress the whole file when that is not possible.
+  if (/\.nsz$/i.test(absPath)) {
+    const sliced = await nsp.extractFromPfs0({ absPath, baseTitleId }, opts);
+    if (sliced) return sliced;
+  }
   const bin = await resolveBinary();
   if (!bin) return null;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;

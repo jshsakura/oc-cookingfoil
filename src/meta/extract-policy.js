@@ -44,8 +44,14 @@ export function isOverSizeCap({ sizeBytes, maxBytes }) {
  * Combined verdict: extract only when the mode wants it AND it's under the cap.
  * @param {{sizeBytes:number, extractMode:string, fromDb:unknown, maxBytes:number}} x
  */
-export function shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes }) {
+// NSP/NSZ icons are read by cutting two small NCAs out of the container, so
+// file size does not matter; the cap only guards full dumps (XCI/XCZ).
+export function isSliceable(fileName) {
+  return /\.(nsp|nsz)$/i.test(String(fileName ?? ""));
+}
+
+export function shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes, fileName }) {
   if (!wantsExtractByMode({ extractMode, fromDb })) return false;
-  if (isOverSizeCap({ sizeBytes, maxBytes })) return false;
+  if (!isSliceable(fileName) && isOverSizeCap({ sizeBytes, maxBytes })) return false;
   return true;
 }

@@ -36,6 +36,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import debug from "../../debug.js";
+import { readPfs0Entries, copyPfs0Entry } from "../pfs0.js";
 import {
   decodeNacp,
   NACP_TOTAL_BYTES,
@@ -109,15 +110,6 @@ function runNstool(bin, args, { timeoutMs }) {
   });
 }
 
-async function findFirst(dir, predicate) {
-  let entries;
-  try { entries = await fs.readdir(dir); } catch { return null; }
-  for (const name of entries) {
-    if (predicate(name)) return path.join(dir, name);
-  }
-  return null;
-}
-
 async function findFirstRecursive(dir, predicate, maxDepth = 4) {
   if (maxDepth < 0) return null;
   let entries;
@@ -158,8 +150,77 @@ async function pickIconForLangs(controlDir, langPriority) {
 
 export const name = "nsp";
 
+// Shared tail: given NCAs reachable through `ensureNca(name)` in pfs0Dir, read
+// the cnmt, then the Control NCA, then NACP + icon.
+async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPriority, timeoutMs }) {
+  const cnmtDir = path.join(tmpRoot, "cnmt");
+  const ctrlDir = path.join(tmpRoot, "ctrl");
+  const cnmtName = cnmtNames.find((n) => /\.cnmt\.nca$/i.test(n));
+  if (!cnmtName || !(await ensureNca(cnmtName))) return null;
+  await fs.mkdir(cnmtDir, { recursive: true });
+  await runNstool(bin, ["-k", KEYS_PATH, "-x", cnmtDir, path.join(pfs0Dir, cnmtName)], { timeoutMs });
+  const cnmtFile = await findFirstRecursive(cnmtDir, (n) => /\.cnmt$/i.test(n));
+  if (!cnmtFile) return null;
+  const controlId = findControlNcaId(await fs.readFile(cnmtFile));
+  if (!controlId || !(await ensureNca(`${controlId}.nca`))) return null;
+  await fs.mkdir(ctrlDir, { recursive: true });
+  await runNstool(bin, ["-k", KEYS_PATH, "-x", ctrlDir, path.join(pfs0Dir, `${controlId}.nca`)], { timeoutMs });
+  const nacpFile = await findFirstRecursive(ctrlDir, (n) => n.toLowerCase() === "control.nacp");
+  if (!nacpFile) return null;
+  const nacpBuf = await fs.readFile(nacpFile);
+  if (nacpBuf.length < NACP_TOTAL_BYTES) return null;
+  const meta = decodeNacp(nacpBuf, langPriority);
+  if (!meta) return null;
+  return { meta, iconBuffer: await pickIconForLangs(ctrlDir, langPriority) };
+}
+
+/**
+ * NSP and NSZ are PFS0 containers whose meta and control NCAs are small and
+ * stored plain, so only those two are cut out of the file. A 90 GB title
+ * costs a few MB of reads instead of a full dump, which is what lets large
+ * files get icons at all. Returns null when the file is not PFS0.
+ */
+export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
+  const bin = await resolveBinary();
+  if (!bin) return null;
+  if (!(await keysAvailable())) return null;
+  const entries = await readPfs0Entries(absPath).catch(() => null);
+  if (!entries) return null;
+  const byName = new Map(entries.map((e) => [e.name.toLowerCase(), e]));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cook-pfs0-"));
+  try {
+    const pfs0Dir = path.join(tmpRoot, "pfs0");
+    await fs.mkdir(pfs0Dir, { recursive: true });
+    const ensureNca = async (name) => {
+      const entry = byName.get(name.toLowerCase());
+      if (!entry) return false;
+      await copyPfs0Entry(absPath, entry, path.join(pfs0Dir, name));
+      return true;
+    };
+    const found = await readControl({
+      bin, tmpRoot, pfs0Dir, ensureNca,
+      cnmtNames: entries.map((e) => e.name),
+      langPriority: opts.langPriority ?? ["en", "ja", "ko"],
+      timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    });
+    if (!found) return null;
+    const { meta, iconBuffer } = found;
+    return { id: baseTitleId, name: meta.name, publisher: meta.publisher, version: meta.version,
+      source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer };
+  } catch (err) {
+    debug.log("pfs0 extractor: %s — %s", path.basename(absPath), err.message);
+    return null;
+  } finally {
+    fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 export async function extract({ absPath, baseTitleId }, opts = {}) {
   if (!NSP_RE.test(absPath)) return null;
+  if (/\.nsp$/i.test(absPath)) {
+    const sliced = await extractFromPfs0({ absPath, baseTitleId }, opts);
+    if (sliced) return sliced;
+  }
   const bin = await resolveBinary();
   if (!bin) return null;
   if (!(await keysAvailable())) return null;
@@ -168,52 +229,23 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
   const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cook-nsp-"));
   try {
     const pfs0Dir = path.join(tmpRoot, "pfs0");
-    const cnmtDir = path.join(tmpRoot, "cnmt");
-    const ctrlDir = path.join(tmpRoot, "ctrl");
     await fs.mkdir(pfs0Dir, { recursive: true });
-
-    // 1. Dump the container into individual NCAs.
+    // XCI (or a PFS0 the slicer could not read): dump the container whole.
     await runNstool(bin, ["-k", KEYS_PATH, "-x", pfs0Dir, absPath], { timeoutMs });
-
-    // 2. Find the cnmt NCA (small, suffixed .cnmt.nca).
-    const cnmtNca = await findFirst(pfs0Dir, (n) => /\.cnmt\.nca$/i.test(n));
-    if (!cnmtNca) return null;
-
-    // 3. Extract the cnmt NCA → contains a binary .cnmt manifest.
-    await fs.mkdir(cnmtDir, { recursive: true });
-    await runNstool(bin, ["-k", KEYS_PATH, "-x", cnmtDir, cnmtNca], { timeoutMs });
-    const cnmtFile = await findFirstRecursive(cnmtDir, (n) => /\.cnmt$/i.test(n));
-    if (!cnmtFile) return null;
-    const cnmtBuf = await fs.readFile(cnmtFile);
-
-    // 4. Parse the cnmt to find the Control NCA's id.
-    const controlId = findControlNcaId(cnmtBuf);
-    if (!controlId) return null;
-
-    // 5. Extract the Control NCA.
-    const controlNcaPath = path.join(pfs0Dir, `${controlId}.nca`);
-    try { await fs.access(controlNcaPath); }
-    catch { return null; }
-    await fs.mkdir(ctrlDir, { recursive: true });
-    await runNstool(bin, ["-k", KEYS_PATH, "-x", ctrlDir, controlNcaPath], { timeoutMs });
-
-    // 6. control.nacp + icon picked by language priority.
-    const nacpFile = await findFirstRecursive(ctrlDir, (n) => n.toLowerCase() === "control.nacp");
-    if (!nacpFile) return null;
-    const nacpBuf = await fs.readFile(nacpFile);
-    if (nacpBuf.length < NACP_TOTAL_BYTES) return null;
-
-    const meta = decodeNacp(nacpBuf, langPriority);
-    if (!meta) return null;
-
-    const iconBuffer = await pickIconForLangs(ctrlDir, langPriority);
-
+    const ensureNca = async (name) => {
+      try { await fs.access(path.join(pfs0Dir, name)); return true; } catch { return false; }
+    };
+    const found = await readControl({
+      bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames: await fs.readdir(pfs0Dir), langPriority, timeoutMs,
+    });
+    if (!found) return null;
+    const { meta, iconBuffer } = found;
     return {
       id: baseTitleId,
       name: meta.name,
       publisher: meta.publisher,
       version: meta.version,
-      source: NSP_RE.test(absPath) && absPath.toLowerCase().endsWith(".xci") ? "nacp-xci" : "nacp-nsp",
+      source: absPath.toLowerCase().endsWith(".xci") ? "nacp-xci" : "nacp-nsp",
       iconBuffer,
     };
   } catch (err) {

@@ -46,6 +46,7 @@ import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
   shouldAutoExtract,
+  isSliceable,
   wantsExtractByMode,
   isOverSizeCap,
   BYTES_PER_GB,
@@ -330,7 +331,7 @@ export function composeResponse(filesMap, customs) {
       const sizeBytes = item.size;
       if (
         !extracted &&
-        shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes })
+        shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes, fileName: relPath })
       ) {
         nacpExtractor.enqueue({
           absPath: path.join(romsDirPath, relPath),
@@ -341,6 +342,7 @@ export function composeResponse(filesMap, customs) {
       } else if (
         !extracted &&
         wantsExtractByMode({ extractMode: extractIcons, fromDb }) &&
+        !isSliceable(relPath) &&
         isOverSizeCap({ sizeBytes, maxBytes: extractMaxBytes })
       ) {
         debug.log(
