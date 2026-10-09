@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { displayVersionOf, recordFromFacts } from "../../src/meta/content-meta.js";
+import { displayVersionOf, recordFromFacts, englishNameOf } from "../../src/meta/content-meta.js";
+import { decorateNameWithAlias } from "../../src/create-index-content.js";
 import { readCnmtFacts, firmwareString } from "../../src/meta/cnmt-parse.js";
 
 test("update display version is the NUL-padded text at 0x3060 in the NACP", () => {
@@ -57,6 +58,33 @@ test("firmware numbers read as major.minor.micro and zero means none", () => {
 
 test("the stored record adds the meta NCA and keeps only known fields", () => {
   const facts = { contentSize: 1000, requiredSystemVersion: FW_16_0_3, requiredApplicationVersion: null };
-  assert.deepEqual(recordFromFacts(facts, 24, "1.0.2"), { installSize: 1024, requiredFirmware: "16.0.3", displayVersion: "1.0.2" });
+  assert.deepEqual(recordFromFacts(facts, 24, { displayVersion: "1.0.2", englishName: "Absolum" }),
+    { installSize: 1024, nacpRead: true, requiredFirmware: "16.0.3", displayVersion: "1.0.2", englishName: "Absolum" });
+  assert.deepEqual(recordFromFacts(facts, 24, {}), { installSize: 1024, nacpRead: true, requiredFirmware: "16.0.3" },
+    "a NACP that was read but empty is still marked read, so it is not read again");
   assert.deepEqual(recordFromFacts({ ...facts, requiredSystemVersion: null }, 0, null), { installSize: 1000 });
+});
+
+function nacpWith(slots) {
+  const nacp = Buffer.alloc(0x4000);
+  for (const [slot, name] of Object.entries(slots)) nacp.write(name, Number(slot) * 0x300, "utf8");
+  return nacp;
+}
+
+test("the English title comes from the en-US slot, else en-GB", () => {
+  assert.equal(englishNameOf(nacpWith({ 0: "Absolum", 12: "Absolum" })), "Absolum");
+  assert.equal(englishNameOf(nacpWith({ 1: "Pokémon LeafGreen" })), "Pokémon LeafGreen");
+});
+
+test("a NACP without an English slot, or with Korean in it, gives no English title", () => {
+  assert.equal(englishNameOf(nacpWith({ 12: "압솔룸" })), null);
+  assert.equal(englishNameOf(nacpWith({ 0: "압솔룸" })), null);
+});
+
+test("a Korean name gets the English title from titledb first, then from the NACP", () => {
+  assert.equal(decorateNameWithAlias("압솔룸", null, "Absolum"), "압솔룸 (Absolum)");
+  assert.equal(decorateNameWithAlias("젤다의 전설", { aliases: ["The Legend of Zelda"] }, "Zelda NACP"), "젤다의 전설 (The Legend of Zelda)");
+  assert.equal(decorateNameWithAlias("엘와의 유산 Alwa's Legacy", null, "Alwa's Legacy"), "엘와의 유산 Alwa's Legacy",
+    "a name that already spells the English title is left alone");
+  assert.equal(decorateNameWithAlias("A Hat in Time", null, "A Hat in Time"), "A Hat in Time");
 });

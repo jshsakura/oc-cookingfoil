@@ -136,15 +136,18 @@ function proxyifyTitledb(entry, titleId) {
 const CJK_RE = /[　-〿぀-ゟ゠-ヿ㐀-䶿一-鿿가-힯]/;
 const ASCII_RE = /^[\x00-\x7f]+$/;
 
-function decorateNameWithAlias(name, fromDb) {
-  if (!fromDb) return name;
+// When titledb has no English alias (Korean-only release ids, games newer
+// than the US file), the English title read from the game's own NACP is used.
+// A name that already spells the English title out is left alone.
+export function decorateNameWithAlias(name, fromDb, nacpEnglish = null) {
   if (!CJK_RE.test(name)) return name;
-  const aliases = Array.isArray(fromDb.aliases) ? fromDb.aliases : [];
-  const eng = aliases.find(
+  const aliases = Array.isArray(fromDb?.aliases) ? fromDb.aliases : [];
+  const alias = aliases.find(
     (a) => typeof a === "string" && ASCII_RE.test(a.trim()) && a.trim() !== name
   );
-  if (!eng) return name;
-  return `${name} (${eng.trim()})`;
+  const eng = alias?.trim() || nacpEnglish?.trim();
+  if (!eng || name.toLowerCase().includes(eng.toLowerCase())) return name;
+  return `${name} (${eng})`;
 }
 
 // Resolve a title's DISPLAY name from the best available source, in order:
@@ -177,7 +180,8 @@ function baseDisplayName(parsed, fromDb) {
   const sibling = baseId ? titledbStore.preferredSibling(baseId) : null;
   const source = sibling ?? fromDb;
   const rawName = source?.name || extracted?.name || parsed.name;
-  return decorateNameWithAlias(rawName, source ?? fromDb);
+  const nacpEnglish = baseId ? contentMeta.get(baseId, 0)?.englishName : null;
+  return decorateNameWithAlias(rawName, source ?? fromDb, nacpEnglish);
 }
 
 function buildFileItem(relPath, size, mtimeMs) {

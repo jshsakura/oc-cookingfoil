@@ -6,10 +6,13 @@
  *   requiredFirmware    "16.0.0", for base games and updates
  *   requiredAppVersion  the base update a DLC needs, as a numeric version
  *   displayVersion      "1.4.1" for updates (titledb only knows 131072)
+ *   englishName         the English title from the NACP of a base game, so a
+ *                       Korean name can carry it even when titledb's US file
+ *                       lacks the title (Korean-only ids, brand-new games)
  *
  * Persisted as one JSON map under the extracted-meta directory, keyed by
  * "<TITLE_ID>@<numeric version>" so a replaced file gets read again. Reading
- * costs one small NCA copy per file, plus the control NCA for updates (see
+ * costs one small NCA copy per file, plus the control NCA for base games and updates (see
  * pfs0.js), done one file at a time in the background; every batch of results
  * triggers a shop rebuild.
  */
@@ -20,7 +23,7 @@ import debug from "../debug.js";
 import { extractedMetaDir } from "../helpers/envs.js";
 import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { findControlNcaId, readCnmtFacts, firmwareString } from "./cnmt-parse.js";
-import { NACP_TOTAL_BYTES } from "./nacp-decode.js";
+import { NACP_TOTAL_BYTES, decodeNacp } from "./nacp-decode.js";
 import {
   resolveBinary, keysAvailable, runNstool, findFirstRecursive, KEYS_PATH, DEFAULT_TIMEOUT_MS,
 } from "./extract-providers/nsp.js";
@@ -43,8 +46,21 @@ let sinceNotify = 0;
 
 const keyOf = (titleId, version) => `${String(titleId).toUpperCase()}@${Number(version) || 0}`;
 
-// A record migrated from the legacy store has only displayVersion.
-const isComplete = (record) => Boolean(record && (record.failed || record.installSize));
+const NACP_SLOT_EN_US = 0;
+const NACP_SLOT_EN_GB = 1;
+const LATIN_RE = /[A-Za-z]/;
+const CJK_RE = /[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
+
+const wantsNacp = (contentType) => contentType === "base" || contentType === "update";
+
+// A record migrated from the legacy store has only displayVersion, and records
+// from before English names lack nacpRead; both are read again.
+function isComplete(record, contentType) {
+  if (!record) return false;
+  if (record.failed) return true;
+  if (!record.installSize) return false;
+  return !wantsNacp(contentType) || Boolean(record.nacpRead);
+}
 
 async function readJson(file) {
   try {
@@ -98,12 +114,15 @@ export function displayVersionOf(nacp) {
 }
 
 /** Builds the stored record from parsed cnmt facts; the cnmt NCA itself is installed too. */
-export function recordFromFacts(facts, metaNcaSize, displayVersion) {
+export function recordFromFacts(facts, metaNcaSize, nacpFacts = null) {
   const record = { installSize: facts.contentSize + metaNcaSize };
+  if (nacpFacts) record.nacpRead = true;
+  const { displayVersion, englishName } = nacpFacts ?? {};
   const firmware = firmwareString(facts.requiredSystemVersion);
   if (firmware) record.requiredFirmware = firmware;
   if (facts.requiredApplicationVersion) record.requiredAppVersion = facts.requiredApplicationVersion;
   if (displayVersion) record.displayVersion = displayVersion;
+  if (englishName) record.englishName = englishName;
   return record;
 }
 
@@ -114,18 +133,43 @@ async function extractOne(run, absPath, entry, tmp, label, pick) {
   return findFirstRecursive(path.join(tmp, label), pick);
 }
 
-async function readDisplayVersion(run, absPath, entries, cnmt, tmp) {
+async function extractNacp(run, absPath, entry, tmp) {
+  const nca = path.join(tmp, "control.nca");
+  await copyPfs0Entry(absPath, entry, nca);
+  // The NACP sits at the root of the control NCA's first section; pulling just
+  // it skips the icon files. Older dumps that lay it out differently fall back
+  // to a full extraction.
+  const direct = path.join(tmp, "control.nacp");
+  try {
+    await run(["-x", "/0/control.nacp", direct, nca]);
+    await fs.access(direct);
+    return direct;
+  } catch {
+    await run(["-x", path.join(tmp, "ctrl"), nca]);
+    return findFirstRecursive(path.join(tmp, "ctrl"), (n) => n.toLowerCase() === "control.nacp");
+  }
+}
+
+/** English title from the en-US or en-GB slot; null when only other languages are filled. */
+export function englishNameOf(nacp) {
+  const picked = decodeNacp(nacp, ["en-US", "en-GB"]);
+  if (!picked || (picked.pickedSlot !== NACP_SLOT_EN_US && picked.pickedSlot !== NACP_SLOT_EN_GB)) return null;
+  return LATIN_RE.test(picked.name) && !CJK_RE.test(picked.name) ? picked.name : null;
+}
+
+async function readNacpFacts(run, absPath, entries, cnmt, tmp) {
   const controlId = findControlNcaId(cnmt);
   const controlEntry = controlId && entries.find((e) => e.name.toLowerCase() === `${controlId}.nca`);
-  if (!controlEntry) return null;
-  const nacpFile = await extractOne(run, absPath, controlEntry, tmp, "ctrl", (n) => n.toLowerCase() === "control.nacp");
-  if (!nacpFile) return null;
+  if (!controlEntry) return {};
+  const nacpFile = await extractNacp(run, absPath, controlEntry, tmp);
+  if (!nacpFile) return {};
   const nacp = await fs.readFile(nacpFile);
-  return nacp.length < NACP_TOTAL_BYTES ? null : displayVersionOf(nacp);
+  if (nacp.length < NACP_TOTAL_BYTES) return {};
+  return { displayVersion: displayVersionOf(nacp), englishName: englishNameOf(nacp) };
 }
 
 /** Reads the install facts of one container; null when unreadable. */
-export async function readContentMeta(absPath, { withDisplayVersion = false } = {}) {
+export async function readContentMeta(absPath, { withNacp = false } = {}) {
   const bin = await resolveBinary();
   if (!bin || !(await keysAvailable())) return null;
   const entries = await readPfs0Entries(absPath);
@@ -139,8 +183,8 @@ export async function readContentMeta(absPath, { withDisplayVersion = false } = 
     const cnmt = await fs.readFile(cnmtFile);
     const facts = readCnmtFacts(cnmt);
     if (!facts) return null;
-    const displayVersion = withDisplayVersion ? await readDisplayVersion(run, absPath, entries, cnmt, tmp) : null;
-    return recordFromFacts(facts, cnmtEntry.size, displayVersion);
+    const nacpFacts = withNacp ? await readNacpFacts(run, absPath, entries, cnmt, tmp) : null;
+    return recordFromFacts(facts, cnmtEntry.size, nacpFacts);
   } finally {
     fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
   }
@@ -156,9 +200,9 @@ export function enqueue(job) {
     return;
   }
   const key = keyOf(titleId, version);
-  if (isComplete(known.get(key)) || tried.has(key)) return;
+  if (isComplete(known.get(key), contentType) || tried.has(key)) return;
   tried.add(key);
-  queue.push({ absPath, key, isUpdate: contentType === "update" });
+  queue.push({ absPath, key, contentType });
   if (!running) work();
 }
 
@@ -169,8 +213,8 @@ async function work() {
     const previous = known.get(job.key);
     let record = null;
     try {
-      const withDisplayVersion = job.isUpdate && !previous?.displayVersion;
-      record = await readContentMeta(job.absPath, { withDisplayVersion });
+      const withNacp = wantsNacp(job.contentType) && !previous?.nacpRead;
+      record = await readContentMeta(job.absPath, { withNacp });
     } catch (err) {
       debug.log("content-meta: %s: %s", path.basename(job.absPath), err.message);
     }
