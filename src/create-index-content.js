@@ -464,7 +464,10 @@ function buildSectionItem(relPath, wireItem) {
     Object.assign(item, sectionExtras(fromDb));
     // titledb's rank is empty upstream; the US eShop ranking fills it in.
     if (!item.rank && parsed.contentType === "base") {
-      const rank = popularity.rankOf(parsed.titleId);
+      const rank = popularity.rankOf(parsed.titleId, {
+        siblings: titledbStore.artSiblings(parsed.titleId),
+        names: englishNamesOf(parsed.titleId, fromDb),
+      });
       if (rank) item.rank = rank;
     }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
@@ -529,6 +532,15 @@ function buildSectionItemFromCustom(raw) {
     item.icon_url = raw.icon_url ?? raw.iconUrl ?? withVersion(`/api/shop/icon/${tid}`);
   }
   return item;
+}
+
+// English titles a release goes by, for matching it against the US store:
+// titledb's English aliases and the title in the game's own NACP.
+function englishNamesOf(titleId, fromDb) {
+  const names = (fromDb?.aliases ?? []).filter((a) => typeof a === "string" && ASCII_RE.test(a));
+  const nacpEnglish = contentMeta.get(titleId, 0)?.englishName;
+  if (nacpEnglish) names.push(nacpEnglish);
+  return names;
 }
 
 // The eShop's own strings ("64,800원", "$19.99"), so the client shows them as is.

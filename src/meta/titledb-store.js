@@ -49,6 +49,8 @@ const state = {
   artIndex: new Map(),
   // base title id → ids of the DLC the region files list for it.
   dlcIndex: new Map(),
+  // artwork URL → every base title id using it, in any language.
+  artIds: new Map(),
 };
 
 // eShop CDN artwork is the practical cross-region join key. The same game
@@ -304,6 +306,16 @@ function isDlcTitleId(id) {
 
 function buildDlcIndex() {
   state.dlcIndex = new Map();
+  state.artIds = new Map();
+  for (const rec of state.db.values()) {
+    if (!isBaseTitleId(rec.id)) continue;
+    for (const field of ART_FIELDS) {
+      const url = rec[field];
+      if (typeof url !== "string" || !url) continue;
+      if (!state.artIds.has(url)) state.artIds.set(url, new Set());
+      state.artIds.get(url).add(rec.id);
+    }
+  }
   for (const id of state.db.keys()) {
     if (!isDlcTitleId(id)) continue;
     const base = dlcBaseTitleId(id);
@@ -311,6 +323,20 @@ function buildDlcIndex() {
     if (!state.dlcIndex.has(base)) state.dlcIndex.set(base, new Set());
     state.dlcIndex.get(base).add(id);
   }
+}
+
+/**
+ * Other releases of the same game: base title ids sharing this title's eShop
+ * icon or banner (a Korean release and its US one, for example).
+ */
+export function artSiblings(titleId) {
+  const rec = get(titleId);
+  if (!rec) return [];
+  const out = new Set();
+  for (const field of ART_FIELDS) {
+    for (const id of state.artIds.get(rec[field]) ?? []) if (id !== rec.id) out.add(id);
+  }
+  return [...out];
 }
 
 /** Ids of the DLC the region files list for a base game. */
