@@ -121,13 +121,18 @@ async function loadCatalog() {
   try {
     const headers = etag ? { "If-None-Match": etag } : {};
     const response = await fetch("/api/shop/sections", { headers, signal: AbortSignal.timeout(60000) });
-    if (response.status !== 304) {
+    // The server rebuilds and announces often (startup, metadata loads). Redrawing an
+    // unchanged catalog wipes every image and the scroll position, so only redraw on change.
+    const nextEtag = response.headers.get("etag") || "";
+    const changed = !loaded || (response.status !== 304 && (!nextEtag || nextEtag !== etag));
+    if (changed && response.status !== 304) {
       if (!response.ok) throw new Error();
       const data = await response.json();
       if (!Array.isArray(data.sections)) throw new Error();
       files = data.sections.flatMap((s) => Array.isArray(s.items) ? s.items : []);
-      groups = groupCatalog(files); etag = response.headers.get("etag") || "";
+      groups = groupCatalog(files); etag = nextEtag;
     }
+    if (!changed) return;
     loaded = true; setAvailableFiles(groups); renderCurrent();
   } catch {
     $("connection-status").textContent = t("retry");
