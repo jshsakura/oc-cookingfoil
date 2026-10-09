@@ -97,7 +97,7 @@ test('screenshots expand with keyboard navigation and trailers stop on detail cl
 test('desktop and mobile screenshots are captured from the actual UI', async ({ page }) => {
   fs.mkdirSync('out/web', { recursive:true });
   await page.setViewportSize({ width:1280, height:720 });
-  for (const screen of ['home', 'library', 'updates', 'downloads', 'settings']) {
+  for (const screen of ['home', 'library', 'downloads', 'settings']) {
     await page.goto('/#' + screen); await expect(page.locator('#' + screen + '-screen')).toBeVisible();
     await expect(page.locator('#connection-dot')).toHaveClass('dot ready');
     await page.evaluate(async () => { await document.fonts.ready; });

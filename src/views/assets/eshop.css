@@ -136,8 +136,8 @@
 .art-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
 .art-row button{padding:8px 12px;background:white;border:1px solid var(--line);border-radius:8px;font-size:17px}
 .art-row .remove-art{color:#9B2020}
-.download-row,.update-row{display:flex;align-items:center;gap:20px;padding:18px 22px;background:white;border-radius:16px;margin-bottom:16px}
-.download-row .cover,.update-row .cover{width:80px;flex-shrink:0}
+.download-row{display:flex;align-items:center;gap:20px;padding:18px 22px;background:white;border-radius:16px;margin-bottom:16px}
+.download-row .cover{width:80px;flex-shrink:0}
 .row-copy{flex:1;min-width:0}
 .row-copy h3{font-size:21px;margin-bottom:6px;overflow-wrap:anywhere}
 .row-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -219,9 +219,9 @@
 .detail-desc{font-size:18px}
 .content-row{padding:10px 0;gap:10px}
 .content-row strong{font-size:18px}
-.download-row,.update-row{padding:16px;flex-wrap:wrap;gap:14px}
+.download-row{padding:16px;flex-wrap:wrap;gap:14px}
 .row-actions{width:100%;justify-content:flex-end}
-.download-row .cover,.update-row .cover{width:64px}
+.download-row .cover{width:64px}
 .row-copy h3{font-size:19px}
 .panel{padding:20px}
 .server-stats{gap:12px}
