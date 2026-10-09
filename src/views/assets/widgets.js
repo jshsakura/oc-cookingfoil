@@ -1,7 +1,7 @@
 import { safeUrl } from "./catalog.js";
 const translations = {
   ko: {
-    skip:"본문으로 이동",home:"홈",search:"검색",library:"모든 게임",downloads:"다운로드",settings:"설정",server:"원격 서버",
+    skip:"본문으로 이동",home:"홈",search:"검색",library:"모든 게임",downloads:"다운로드",settings:"설정",
     loading:"게임을 불러오고 있습니다.",all:"전체",korean:"한국어 지원",withUpdate:"업데이트 있음",withDlc:"DLC 있음",sortRecent:"정렬: 최근 추가순",sortName:"정렬: 이름순",sortRelease:"정렬: 출시일순",sortSize:"정렬: 용량순",
     downloadNote:"파일마다 다운로드를 눌러 PC에 저장합니다. 완료 여부와 저장 위치는 브라우저에서 확인합니다.",
     uploadTitle:"서버에 파일 추가",uploadDrop:"파일을 끌어 놓거나 선택합니다.",connectTitle:"원격 서버 추가",connectNote:"설정 파일을 switch/cookingfoil에 넣습니다. 기기 승인이 필요한 샵은 스위치에 표시된 QR로 인증합니다.",downloadConfig:"설정 파일 받기",copy:"주소 복사",refresh:"다시 읽기",language:"언어",version:"서버 버전",manage:"서버 관리",openAdmin:"관리 화면 열기",serverInfo:"서버 정보",select:"선택",back:"뒤로",
@@ -11,7 +11,7 @@ const translations = {
     searchPlaceholder:"게임 이름으로 찾기",previous:"이전",next:"다음",unknownPublisher:"배포사 정보 없음",downloadHelp:"다운로드 요청 후 브라우저가 파일을 저장합니다.",trailers:"게임 영상",playTrailer:"미리보기 재생",
   },
   en: {
-    skip:"Skip to content",home:"Home",search:"Search",library:"All games",downloads:"Downloads",settings:"Settings",server:"Remote server",
+    skip:"Skip to content",home:"Home",search:"Search",library:"All games",downloads:"Downloads",settings:"Settings",
     loading:"Loading games.",all:"All",korean:"Korean support",withUpdate:"With updates",withDlc:"With DLC",sortRecent:"Sort: recently added",sortName:"Sort: name",sortRelease:"Sort: release date",sortSize:"Sort: size",
     downloadNote:"Download each file to your PC. Check completion and the save location in your browser.",
     uploadTitle:"Add files to the server",uploadDrop:"Drop a file here or choose one.",connectTitle:"Add remote server",connectNote:"Place the configuration file in switch/cookingfoil. For shops requiring device approval, scan the QR shown on your Switch.",downloadConfig:"Get configuration",copy:"Copy address",refresh:"Reload",language:"Language",version:"Server version",manage:"Server administration",openAdmin:"Open admin",serverInfo:"Server information",select:"Select",back:"Back",
