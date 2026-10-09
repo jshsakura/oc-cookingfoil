@@ -13,6 +13,7 @@ import debug from "../debug.js";
 import { titledbCacheDir, langPriority } from "../helpers/envs.js";
 import { slimPathFor, writeSlimFromJson, SLIM_SCHEMA_VERSION } from "./titledb-slim.js";
 import { normalizeSupportedLanguages } from "./supported-languages.js";
+import { dlcBaseTitleId } from "./filename-parser.js";
 
 // Fields we surface in the merged record. Keep the list aligned with the
 // shop_template.jsonc Tinfoil titledb spec and CyberFoil's info panel.
@@ -21,6 +22,7 @@ const MERGED_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
   "screenshots", "version", "nsuId", "numberOfPlayers", "videos", "videoUrl", "youtube",
+  "ratingContent",
 ];
 
 // blawar/titledb publishes one file per country/lang pair, named "XX.yy.json"
@@ -45,6 +47,8 @@ const state = {
   // we keep the entry so lookups can tell "ambiguous" from "unknown" and skip
   // both. Built once at the end of load() — see buildArtIndex().
   artIndex: new Map(),
+  // base title id → ids of the DLC the region files list for it.
+  dlcIndex: new Map(),
 };
 
 // eShop CDN artwork is the practical cross-region join key. The same game
@@ -221,6 +225,7 @@ export async function load() {
   }
 
   buildArtIndex();
+  buildDlcIndex();
 
   state.loadedAt = new Date();
   debug.log(
@@ -286,6 +291,31 @@ export function preferredSibling(titleId) {
     if (sibling?.name) return sibling;
   }
   return null;
+}
+
+// DLC ids carry 0x1000+ in the low 13 bits; updates (0x800) and bases do not.
+function isDlcTitleId(id) {
+  try {
+    return (BigInt(`0x${id}`) & 0x1fffn) >= 0x1000n;
+  } catch {
+    return false;
+  }
+}
+
+function buildDlcIndex() {
+  state.dlcIndex = new Map();
+  for (const id of state.db.keys()) {
+    if (!isDlcTitleId(id)) continue;
+    const base = dlcBaseTitleId(id);
+    if (!base) continue;
+    if (!state.dlcIndex.has(base)) state.dlcIndex.set(base, new Set());
+    state.dlcIndex.get(base).add(id);
+  }
+}
+
+/** Ids of the DLC the region files list for a base game. */
+export function dlcIdsOf(baseTitleId) {
+  return [...(state.dlcIndex.get(String(baseTitleId).toUpperCase()) ?? [])];
 }
 
 export function get(titleId) {

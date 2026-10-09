@@ -37,6 +37,7 @@ const PROBE = `
     badCode: bad.code, missingCode: missing.code,
     screens: ok.body?.screenshots, artworkOnly,
     videos: ok.body?.videos, category: ok.body?.category, categories: ok.body?.categories,
+    ratingContent: ok.body?.ratingContent,
   }));
 `;
 
@@ -60,6 +61,8 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
         bannerUrl: "https://cdn/banner.jpg",
         videos: ["https://youtu.be/abcdefghijk"],
         category: ["Adventure", "Action"],
+        rating: 15,
+        ratingContent: ["Violence", " ", "Violence", "Drugs"],
       },
     })
   );
@@ -76,6 +79,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   assert.equal(r.publisher, "OpenCourse");
   assert.ok(r.descLen > 10, "description surfaced");
   assert.equal(r.shots, 3);
+  assert.deepEqual(r.ratingContent, ["Violence", "Drugs"], "rating reasons are trimmed and deduplicated");
   assert.deepEqual(r.videos, [{ type: "youtube", id: "abcdefghijk", title: "" }]);
   assert.ok(r.screens[2].includes("/4?"), "sparse custom screenshot indices stay intact");
   assert.equal(r.artworkOnly.code, 200);

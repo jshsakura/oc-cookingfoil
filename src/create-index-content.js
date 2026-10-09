@@ -40,7 +40,8 @@ import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
 import { normalizeCategories } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
-import * as updateVersions from "./meta/update-versions.js";
+import * as contentMeta from "./meta/content-meta.js";
+import * as titledbVersions from "./meta/titledb-versions.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -452,19 +453,37 @@ function buildSectionItem(relPath, wireItem) {
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     Object.assign(item, sectionExtras(fromDb));
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
-    if (parsed.contentType === "update") attachVersionName(item, relPath, parsed);
+    attachContentMeta(item, relPath, parsed);
   }
   return item;
 }
 
-// Clients show "1.4.1" instead of "v131072" when the update's NACP has been
-// read; until then the file is queued and the next rebuild picks it up.
-function attachVersionName(item, relPath, parsed) {
-  const versionName = updateVersions.get(parsed.titleId, parsed.version);
-  if (versionName) {
-    item.version_name = versionName;
-  } else if (extractIcons !== "off") {
-    updateVersions.enqueue({ absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId, version: parsed.version });
+// Facts read from inside the file: the install size (NSZ files understate it),
+// the firmware a game or update needs, the base update a DLC needs, and the
+// display version ("1.4.1") of an update. Until a file has been read it is
+// queued and the next rebuild picks the facts up; titledb's cnmts fill the
+// firmware and DLC requirement meanwhile (and for XCI, which is never read).
+function attachContentMeta(item, relPath, parsed) {
+  const { titleId, version } = parsed;
+  const meta = contentMeta.get(titleId, version);
+  if (meta?.installSize) item.install_size = meta.installSize;
+  const firmware = meta?.requiredFirmware ?? titledbVersions.requiredFirmware(titleId, version);
+  if (firmware) item.required_firmware = firmware;
+  const needsUpdate = meta?.requiredAppVersion ?? titledbVersions.requiredAppVersion(titleId, version);
+  if (needsUpdate) item.required_app_version = needsUpdate;
+  if (parsed.contentType === "base") {
+    // What the eShop has published, so a client can tell a stale update apart.
+    const latest = titledbVersions.latestVersion(titleId);
+    if (latest) item.latest_version = latest;
+    const dlcTotal = titledbVersions.dlcCount(titleId, titledbStore.dlcIdsOf(titleId));
+    if (dlcTotal) item.dlc_total = dlcTotal;
+  }
+  if (parsed.contentType === "update" && meta?.displayVersion) item.version_name = meta.displayVersion;
+  if (extractIcons !== "off") {
+    contentMeta.enqueue({
+      absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId,
+      version: parsed.version, contentType: parsed.contentType,
+    });
   }
 }
 

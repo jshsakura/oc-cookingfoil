@@ -26,12 +26,14 @@ const SLIM_FIELDS = [
   "name", "publisher", "description", "releaseDate", "region", "rating",
   "rank", "size", "intro", "category", "iconUrl", "bannerUrl",
   "screenshots", "version", "nsuId", "numberOfPlayers", "languages", "videos", "videoUrl", "youtube",
+  "ratingContent",
 ];
 
 export const SLIM_SUFFIX = ".slim.json";
-// Version 1 discarded languages, versions 1 and 2 discarded trailers. Rebuild
+// Version 1 discarded languages, versions 1 and 2 discarded trailers, version 3
+// discarded rating descriptors. Rebuild
 // from raw on upgrade while continuing to accept slim-only installations.
-export const SLIM_SCHEMA_VERSION = 3;
+export const SLIM_SCHEMA_VERSION = 4;
 
 export function slimPathFor(rawPath) {
   return rawPath.replace(/\.json$/, SLIM_SUFFIX);

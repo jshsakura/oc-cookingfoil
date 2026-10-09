@@ -7,6 +7,7 @@ import sectionsRoute from "./routes/sections.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
+import shopInfoRoute from "./routes/shop-info.js";
 import titleDetailRoute from "./routes/title-detail.js";
 import connectUrlRoute, { clientConfigRoute } from "./routes/connect-url.js";
 import landingRoute from "./routes/landing.js";
@@ -160,6 +161,7 @@ expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
 // aliases for the client's post-1.4.5 prefix; the `/api/remote/icon` alias
 // covers icon URLs the client builds from its resolved prefix.
 expressApp.get("/api/shop/sections", sectionsRoute);
+expressApp.get("/api/shop/info", shopInfoRoute);
 expressApp.get("/api/remote/sections", sectionsRoute);
 expressApp.get("/api/remote/icon/:titleId", iconRoute);
 

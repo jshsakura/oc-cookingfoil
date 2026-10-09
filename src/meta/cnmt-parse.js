@@ -76,3 +76,49 @@ export function listContents(buf) {
   }
   return out;
 }
+
+const META_APPLICATION = 0x80;
+const META_PATCH = 0x81;
+const META_ADD_ON = 0x82;
+const CONTENT_TYPE_DELTA = 6;
+
+/**
+ * Install facts from a .cnmt: the bytes the console ends up storing (content
+ * sizes are of the plain NCAs, so NSZ files report their unpacked size too),
+ * the firmware an application or patch needs, and the base update a DLC needs.
+ *
+ * Extended header (switchbrew CNMT):
+ *   Application / Patch  0x08  u32 RequiredSystemVersion
+ *   AddOnContent         0x08  u32 RequiredApplicationVersion
+ */
+export function readCnmtFacts(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < HEADER_SIZE) return null;
+  const type = buf[0x0C];
+  const extendedHeaderSize = buf.readUInt16LE(0x0E);
+  const contentCount = buf.readUInt16LE(0x10);
+  const contentStart = HEADER_SIZE + extendedHeaderSize;
+  if (buf.length < contentStart + contentCount * CONTENT_INFO_SIZE) return null;
+
+  let contentSize = 0;
+  for (let i = 0; i < contentCount; i++) {
+    const off = contentStart + i * CONTENT_INFO_SIZE;
+    if (buf[off + 0x36] === CONTENT_TYPE_DELTA) continue;
+    contentSize += buf.readUIntLE(off + 0x30, 6);
+  }
+  const facts = { contentSize, requiredSystemVersion: null, requiredApplicationVersion: null };
+  if (extendedHeaderSize >= 0x0C) {
+    const required = buf.readUInt32LE(HEADER_SIZE + 0x08);
+    if (type === META_APPLICATION || type === META_PATCH) facts.requiredSystemVersion = required || null;
+    if (type === META_ADD_ON) facts.requiredApplicationVersion = required || null;
+  }
+  return facts;
+}
+
+/** Firmware version number → "16.0.3"; null for 0 or garbage. */
+export function firmwareString(version) {
+  if (!Number.isInteger(version) || version <= 0) return null;
+  const major = version >>> 26;
+  const minor = (version >>> 20) & 0x3f;
+  const micro = (version >>> 16) & 0xf;
+  return major ? `${major}.${minor}.${micro}` : null;
+}

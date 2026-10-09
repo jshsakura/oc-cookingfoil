@@ -164,7 +164,7 @@ test("load: a `.slim.json` sibling is preferred over the raw `.json` for the sam
     a: { id: "0100000000050000", name: "Raw Name (stale)" },
   });
   await writeRegion("JP.ja.slim.json", {
-    _schemaVersion: 3,
+    _schemaVersion: 4,
     "0100000000050000": { id: "0100000000050000", name: "Slim Name (fresh)" },
   });
 

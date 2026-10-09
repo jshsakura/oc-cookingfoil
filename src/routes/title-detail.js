@@ -24,10 +24,12 @@ import { titleVideos } from "../meta/title-videos.js";
 import { normalizeCategories } from "../meta/categories.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
+import * as titledbVersions from "../meta/titledb-versions.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // The detail must not wait on Nintendo; a slow price is simply left out.
 const PRICE_WAIT_MS = 3000;
+const MAX_RATING_REASONS = 8;
 
 function priceWithin(nsuId, ms) {
   return Promise.race([
@@ -80,6 +82,8 @@ export default async function titleDetailRoute(req, res) {
     releaseDate: fromDb?.releaseDate ?? extracted?.releaseDate ?? null,
     region: fromDb?.region ?? null,
     rating: fromDb?.rating ?? null,
+    // Why the age rating is what it is, e.g. ["약물"]; a client can show them beside it.
+    ratingContent: normalizeCategories(fromDb?.ratingContent, MAX_RATING_REASONS) ?? null,
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     iconUrl: art(`/api/shop/icon/${base}`),
@@ -88,5 +92,10 @@ export default async function titleDetailRoute(req, res) {
     screenshotCount: screenshots.length,
     videos: titleVideos(fromDb),
     price,
+    // Published updates, oldest first: [{ version, date }], and the DLC count.
+    latestVersion: titledbVersions.latestVersion(base),
+    updates: titledbVersions.updateHistory(base),
+    dlcTotal: titledbVersions.dlcCount(base, titledbStore.dlcIdsOf(base)),
+    requiredFirmware: titledbVersions.requiredFirmware(base, 0),
   });
 }
