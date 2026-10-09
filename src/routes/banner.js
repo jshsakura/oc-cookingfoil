@@ -21,6 +21,7 @@ export default async function bannerRoute(req, res) {
   const base = baseTitleIdOf(tid);
   const entry = titledbStore.get(base);
   await serveImage(req, res, {
+    wide: true,
     cachePath: cachePathFor(base, "banner"),
     upstreamUrl: entry?.bannerUrl,
     overridePath: customArt.hasOverride(base, "banner")

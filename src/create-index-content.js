@@ -42,6 +42,8 @@ import { normalizeCategories } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
+import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
+import * as featured from "./meta/featured.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -59,6 +61,7 @@ import {
   extractMaxGb,
   extractMaxBytes,
   emitTitledb,
+  eshopPrices,
 } from "./helpers/envs.js";
 import {
   addUrlEncodedFileInfo as encodeUrlObject,
@@ -522,6 +525,17 @@ function buildSectionItemFromCustom(raw) {
   return item;
 }
 
+// The eShop's own strings ("64,800원", "$19.99"), so the client shows them as is.
+function priceFields(price) {
+  if (!price) return {};
+  const fields = { price_regular: price.regular, price_country: price.country };
+  if (price.discount) {
+    fields.price_discount = price.discount;
+    if (price.discountEnds) fields.price_discount_ends = price.discountEnds;
+  }
+  return fields;
+}
+
 /**
  * Build the native sections payload from the same warmed primitive state the
  * legacy index uses. A single "All" section keeps parity with the flat
@@ -529,16 +543,29 @@ function buildSectionItemFromCustom(raw) {
  */
 export function composeSections(filesMap, customs) {
   const items = [];
+  const nsuIds = [];
   if (filesMap) {
     for (const [relPath, wireItem] of filesMap.entries()) {
-      items.push(buildSectionItem(relPath, wireItem));
+      const item = buildSectionItem(relPath, wireItem);
+      const nsuId = item.app_type === "base" ? titledbStore.get(item.title_id)?.nsuId : null;
+      if (nsuId) {
+        nsuIds.push(nsuId);
+        Object.assign(item, priceFields(cachedPrice(nsuId)));
+      }
+      items.push(item);
     }
   }
+  // Unknown or stale prices are fetched in the background; a change rebuilds.
+  if (eshopPrices && nsuIds.length) warmPrices(nsuIds);
   for (const raw of customs ?? []) {
     const item = buildSectionItemFromCustom(raw);
     if (item) items.push(item);
   }
-  return { sections: [{ id: "all", title: "All", items }] };
+  const picks = featured.forSections();
+  const body = { sections: [{ id: "all", title: "All", items }] };
+  // Operator-picked home rows refer to items by base id (see meta/featured.js).
+  if (picks.length) body.featured = picks;
+  return body;
 }
 
 /**

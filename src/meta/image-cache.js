@@ -29,6 +29,9 @@ import { dlcBaseTitleId } from "./filename-parser.js";
 sharp.cache({ memory: 256, files: 200 });
 
 const THUMB_PX = 256;
+// ?size= → longest edge in px. Icons are square and cropped to it; banners and
+// screenshots keep their aspect ratio and are scaled to that width.
+const SIZES = { sm: THUMB_PX, md: 512 };
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
 
@@ -139,7 +142,9 @@ async function ensureVariant(originalPath, variant) {
     pending = (async () => {
       const tmp = `${variant.path}.tmp.${process.pid}`;
       let pipeline = sharp(originalPath, { failOn: "none" });
-      if (variant.resize) {
+      if (variant.resize && variant.wide) {
+        pipeline = pipeline.resize({ width: variant.resize, withoutEnlargement: true });
+      } else if (variant.resize) {
         pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
       }
       if (variant.format === "webp")  pipeline = pipeline.webp({ quality: 80, effort: 4 });
@@ -166,13 +171,22 @@ function acceptsWebp(req) {
   return a.includes("image/webp");
 }
 
+// Variant file suffix. The square 256-px one keeps its historic name so thumbs
+// already on disk (and the prewarm) stay valid.
+function variantSuffix(size, wide) {
+  const name = size === "sm" ? "thumb" : size;
+  return wide ? `${name}-wide` : name;
+}
+
 /**
- * Serve a cached image. `?size=sm` returns a 256-px thumb; the default
- * returns the original. When the client says `Accept: image/webp` we
- * serve WebP for any variant we have; otherwise JPEG.
+ * Serve a cached image. `?size=sm` (256 px) and `?size=md` (512 px) return a
+ * smaller variant; the default returns the original. `wide` keeps the aspect
+ * ratio (banners, screenshots) instead of cropping to a square (icons). When
+ * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath }) {
-  const wantThumb = req.query?.size === "sm";
+export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, wide = false }) {
+  const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
+  const wantThumb = size !== null;
   const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
 
   // Operator-supplied art wins outright over the titledb CDN proxy / NACP
@@ -210,9 +224,10 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
   }
 
   try {
+    const suffix = variantSuffix(size, wide);
     const variant = wantWebp
-      ? { path: variantPath(source, "thumb", "webp"), resize: THUMB_PX, format: "webp" }
-      : { path: variantPath(source, "thumb", "jpg"),  resize: THUMB_PX, format: "jpeg" };
+      ? { path: variantPath(source, suffix, "webp"), resize: SIZES[size], wide, format: "webp" }
+      : { path: variantPath(source, suffix, "jpg"), resize: SIZES[size], wide, format: "jpeg" };
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");

@@ -29,11 +29,12 @@ async function api(url,opts={}){
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
-const TABS=['overview','users','devices','security','library'];
+const TABS=['overview','users','devices','security','featured','library'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
-  if(tab==='library')loadLibrary();}
+  if(tab==='library')loadLibrary();
+  if(tab==='featured')loadFeatured();}
 addEventListener('hashchange',showTab);
 
 // ── theme (shared with the public dashboard) ──────────────────────────
@@ -172,6 +173,55 @@ async function loadLibrary(){
 $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
   try{await api('/admin/api/library/rescan',{method:'POST',body:{}});toast('다시 스캔을 시작했습니다. 끝나면 숫자가 바뀝니다.');
     setTimeout(loadLibrary,3000);}catch(err){toast(err.message);}finally{$('rescan').disabled=false;}});
+
+// ── featured ──────────────────────────────────────────────────────────
+let featured=[],names=new Map(),featuredDirty=false;
+const ID_TAIL=/([0-9A-Fa-f]{16})\\s*$/;
+function markDirty(){featuredDirty=true;$('f-save').textContent='저장 (바뀜)';}
+async function loadFeatured(){
+  if(featuredDirty)return;
+  try{const d=await api('/admin/api/featured');featured=d.collections;
+    names=new Map(d.candidates.map((c)=>[c.titleId,c.name]));
+    const list=$('f-candidates');list.replaceChildren();
+    for(const c of d.candidates){const o=el('option');o.value=c.name+' · '+c.titleId;list.append(o);}
+    renderFeatured();}catch(err){toast(err.message);}}
+function move(arr,i,d){const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];}
+function renderFeatured(){const box=$('f-list');box.replaceChildren();
+  if(!featured.length){box.append(el('div','아직 추천 줄이 없습니다. 추천 줄 추가를 누릅니다.','empty'));return;}
+  featured.forEach((c,ci)=>{const card=el('div',null,'fcard');
+    const top=el('div',null,'top');const title=el('input');title.value=c.title;title.maxLength=40;
+    title.placeholder='줄 제목 (예: 이번 주 추천)';title.setAttribute('aria-label','줄 제목');
+    title.addEventListener('input',()=>{c.title=title.value;markDirty();});
+    const banner=el('select');banner.setAttribute('aria-label','배너');banner.append(new Option('배너 없음',''));
+    for(const id of c.titleIds)banner.append(new Option('배너: '+(names.get(id)||id),id,false,id===c.bannerTitleId));
+    banner.addEventListener('change',()=>{c.bannerTitleId=banner.value||null;markDirty();});
+    top.append(title,banner,btn('▲',()=>{move(featured,ci,-1);markDirty();renderFeatured();}),
+      btn('▼',()=>{move(featured,ci,1);markDirty();renderFeatured();}),
+      btn('줄 삭제',()=>{if(!confirm('"'+(c.title||'제목 없음')+'" 줄을 지웁니다.'))return;featured.splice(ci,1);markDirty();renderFeatured();},'danger'));
+    card.append(top);
+    const ul=el('ul',null,'fgames');
+    c.titleIds.forEach((id,gi)=>{const li=el('li');const img=el('img');img.src='/api/shop/icon/'+id+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
+      li.append(img,el('span',names.get(id)||id,'name'),
+        btn('▲',()=>{move(c.titleIds,gi,-1);markDirty();renderFeatured();}),
+        btn('▼',()=>{move(c.titleIds,gi,1);markDirty();renderFeatured();}),
+        btn('빼기',()=>{c.titleIds.splice(gi,1);if(c.bannerTitleId===id)c.bannerTitleId=null;markDirty();renderFeatured();}));
+      ul.append(li);});
+    if(c.titleIds.length)card.append(ul);
+    const add=el('form',null,'fadd');const q=el('input');q.setAttribute('list','f-candidates');
+    q.placeholder='게임 이름이나 타이틀 ID 로 찾습니다';q.setAttribute('aria-label','추가할 게임');
+    const addBtn=el('button','게임 추가');addBtn.type='submit';add.append(q,addBtn);
+    add.addEventListener('submit',(e)=>{e.preventDefault();const m=ID_TAIL.exec(q.value.trim());
+      const id=m&&m[1].toUpperCase();
+      if(!id||!names.has(id)){toast('목록에서 게임을 고릅니다.');return;}
+      if(c.titleIds.includes(id)){toast('이미 들어 있습니다.');return;}
+      c.titleIds.push(id);markDirty();renderFeatured();});
+    card.append(add);box.append(card);});}
+$('f-add').addEventListener('click',()=>{featured.push({title:'',bannerTitleId:null,titleIds:[]});markDirty();renderFeatured();});
+$('f-save').addEventListener('click',async()=>{
+  try{const d=await api('/admin/api/featured',{method:'PUT',body:{collections:featured}});featured=d.collections;
+    featuredDirty=false;$('f-save').textContent='저장';renderFeatured();toast('추천을 저장했습니다.');}
+  catch(err){toast(err.message);}});
+addEventListener('beforeunload',(e)=>{if(featuredDirty)e.preventDefault();});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
 syncTheme();showTab();loadStats();loadDevices();

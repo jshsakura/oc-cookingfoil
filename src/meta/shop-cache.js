@@ -40,6 +40,8 @@ import {
 import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as contentMeta from "./content-meta.js";
+import { onPricesChanged } from "./eshop-price.js";
+import * as featured from "./featured.js";
 import * as diskCache from "./shop-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
@@ -512,6 +514,8 @@ async function tryHydrateFromDisk() {
   }
 }
 
+const PRICE_REFRESH_MS = 12 * 60 * 60 * 1000;
+
 export async function init() {
   // Extractor → shop-cache: when the NACP worker finishes a record we
   // schedule a rebuild so the new name/publisher/version surfaces in
@@ -524,6 +528,11 @@ export async function init() {
   // from a background read; load what earlier runs found before the first build.
   await contentMeta.load();
   contentMeta.onExtracted(() => scheduleRebuild("content-meta"));
+  // Prices arrive from Nintendo after the list is built, and go stale after
+  // 12 h; a rebuild re-composes the list, which asks again for stale ones.
+  onPricesChanged(() => scheduleRebuild("eshop-prices"));
+  featured.onChange(() => scheduleRebuild("featured"));
+  setInterval(() => scheduleRebuild("eshop-prices refresh"), PRICE_REFRESH_MS).unref();
 
   // Warm-start path: if the previous run persisted state to disk, hydrate
   // it now so the first /shop.json request after restart is served from

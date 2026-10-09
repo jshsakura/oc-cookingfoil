@@ -8,6 +8,7 @@
 import * as users from "../../security/users.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
+import * as featured from "../../meta/featured.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import {
   publicBaseUrl, devicePairing, uploadsEnabled, extractIcons, langPriority,
@@ -17,7 +18,21 @@ import debug from "../../debug.js";
 
 const USER_ERROR_STATUS = {
   "invalid-name": 400, "weak-password": 400, "not-found": 404, exists: 409, "last-user": 409,
+  "invalid-featured": 400,
 };
+const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
+
+// Base games in the library, for picking featured titles: [{ titleId, name }].
+async function baseCandidates() {
+  const index = await shopCache.get();
+  const seen = new Map();
+  for (const file of index?.files ?? []) {
+    if (file.kind !== "base" || !file.baseTitleId || seen.has(file.baseTitleId)) continue;
+    seen.set(file.baseTitleId, String(file.name ?? "").replace(FILE_NAME_TAIL_RE, ""));
+  }
+  return [...seen].map(([titleId, name]) => ({ titleId, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
 
 function sameOrigin(req, res) {
   const origin = req.get("Origin");
@@ -90,6 +105,18 @@ export function mountManageApi(router, guard) {
       settings: { devicePairing, uploadsEnabled, extractIcons, langPriority, publicBaseUrl: publicBaseUrl || null },
     });
   });
+
+  router.get("/api/featured", async (req, res) => {
+    if (!guard(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    res.json({ collections: featured.list(), candidates: await baseCandidates() });
+  });
+
+  router.put("/api/featured", change((req, res) => {
+    const collections = featured.replace(req.body?.collections);
+    debug.log("admin: saved %d featured collection(s)", collections.length);
+    res.json({ collections });
+  }));
 
   router.post("/api/library/rescan", change((req, res) => {
     shopCache.invalidate({ rescan: true });

@@ -64,6 +64,24 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
   await expect(page.locator('#toast')).toContainText('다시 스캔을 시작했습니다');
 });
 
+test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
+  await signIn(page);
+  await page.getByRole('link', { name: '추천' }).click();
+  await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
+  await page.getByLabel('줄 제목').fill('이번 주 추천');
+  await page.getByLabel('추가할 게임').fill('Test Game · 0100000000010000');
+  await page.getByRole('button', { name: '게임 추가', exact: true }).click();
+  await expect(page.locator('#f-list .fgames')).toContainText('Test Game');
+  await page.getByRole('button', { name: /^저장/ }).click();
+  await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-featured.png' });
+
+  await expect.poll(async () => (await (await request.get('/api/shop/sections')).json()).featured?.[0]?.title_ids)
+    .toEqual(['0100000000010000']);
+  await request.put('/admin/api/featured', { data: { collections: [] }, headers: { Cookie: adminCookie, Origin: new URL(page.url()).origin } });
+});
+
 test('admin API refuses changes without a session', async ({ request }) => {
   const response = await request.post('/admin/api/users', { data: { name: 'intruder' } });
   expect(response.status()).toBe(401);

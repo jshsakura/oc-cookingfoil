@@ -52,6 +52,16 @@ dialog h3{margin:0 0 6px;font-size:18px}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.fcard .top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.fcard .top input{flex:1;min-width:180px}
+.fgames{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.fgames li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--sunk)}
+.fgames li:last-child{border-bottom:none}
+.fgames img{width:36px;height:36px;border-radius:8px;flex:none;background:var(--line)}
+.fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fgames button{padding:4px 9px}
+.fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
 @media (max-width:640px){th:nth-child(n+4),td:nth-child(n+4):not(:last-child){display:none}}
 `;
 
@@ -81,6 +91,7 @@ export function dashboardPage() {
   <a href="#users" data-tab="users">사용자</a>
   <a href="#devices" data-tab="devices">기기<span class="count" id="pending-count" hidden></span></a>
   <a href="#security" data-tab="security">보안<span class="count" id="lock-count" hidden></span></a>
+  <a href="#featured" data-tab="featured">추천</a>
   <a href="#library" data-tab="library">라이브러리</a>
 </nav>
 
@@ -113,6 +124,15 @@ export function dashboardPage() {
   <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 지우기</button></div>
   <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
   <div class="scroll" id="denials"></div>
+</section>
+
+<section id="tab-featured" hidden>
+  <div class="hd"><h2>추천</h2>
+    <div class="actions"><button type="button" id="f-add">추천 줄 추가</button>
+    <button type="button" class="primary" id="f-save">저장</button></div></div>
+  <p class="muted">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
+  <div id="f-list"></div>
+  <datalist id="f-candidates"></datalist>
 </section>
 
 <section id="tab-library" hidden>

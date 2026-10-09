@@ -215,6 +215,9 @@ const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min:
 // Disable uploads by default — they need basic-auth AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
 const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
+// Base games in the sections list carry their eShop price, looked up in the
+// background from Nintendo's public price endpoint. Off for offline servers.
+const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -251,5 +254,6 @@ export {
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  eshopPrices,
   devicePairing,
 };

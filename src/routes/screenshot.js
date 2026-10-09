@@ -24,6 +24,7 @@ export default async function screenshotRoute(req, res) {
   const entry = titledbStore.get(base);
   const shots = Array.isArray(entry?.screenshots) ? entry.screenshots : [];
   await serveImage(req, res, {
+    wide: true,
     cachePath: cachePathFor(base, "screenshot", idx),
     upstreamUrl: shots[idx],
     overridePath: customArt.hasOverride(base, "screenshot", idx)

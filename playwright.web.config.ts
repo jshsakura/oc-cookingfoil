@@ -18,7 +18,7 @@ export default defineConfig({
       COOK_PORT: '3188', COOK_DATA_DIR: '/tmp/cookingfoil-web-test-data',
       COOK_GAMES_DIR: '/tmp/cookingfoil-web-test-games', COOK_TITLEDB_AUTO_FETCH: 'false',
       COOK_EXTRACT_ICONS: 'off', COOK_AUTH_USERS: '', COOK_DEVICE_PAIRING: 'true',
-      COOK_UPLOADS_ENABLED: 'true', COOK_ADMIN_TOTP_SECRET: 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU',
+      COOK_UPLOADS_ENABLED: 'true', COOK_ESHOP_PRICES: 'false', COOK_ADMIN_TOTP_SECRET: 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU',
     },
   },
   projects: [{ name: 'web-chromium', use: { ...devices['Desktop Chrome'] } }],

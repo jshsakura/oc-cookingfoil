@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { eshopPrice, clearPriceCache } from "../../src/meta/eshop-price.js";
+import { eshopPrice, clearPriceCache, fetchPrices, cachedPrice, warmPrices, onPricesChanged } from "../../src/meta/eshop-price.js";
 
 const reply = (body, ok = true) => async () => ({ ok, json: async () => body });
 
@@ -43,4 +43,44 @@ test("eshopPrice does not cache network failures", async () => {
   assert.equal(await eshopPrice("70010000000003", { fetchImpl }), null);
   assert.equal(await eshopPrice("70010000000003", { fetchImpl }), null);
   assert.equal(calls, 6);
+});
+
+test("fetchPrices asks 50 ids per request and falls back per id to the next region", async () => {
+  const asked = [];
+  const ids = Array.from({ length: 60 }, (_, i) => String(70010000000100 + i));
+  const fetchImpl = async (url) => {
+    const params = new URL(url).searchParams;
+    const batch = params.get("ids").split(",");
+    asked.push([params.get("country"), batch.length]);
+    const prices = batch.map((id) => (params.get("country") === "KR" && id !== ids[0]) || params.get("country") === "US"
+      ? { title_id: Number(id), sales_status: "onsale", regular_price: { amount: params.get("country") + id } }
+      : { title_id: Number(id), sales_status: "not_found" });
+    return { ok: true, json: async () => ({ prices }) };
+  };
+  const changed = await fetchPrices(ids, { fetchImpl, paceMs: 0 });
+  assert.equal(changed, 60);
+  assert.deepEqual(asked, [["KR", 50], ["KR", 10], ["US", 1]]);
+  assert.equal(cachedPrice(ids[0]).country, "US");
+  assert.equal(cachedPrice(ids[1]).regular, `KR${ids[1]}`);
+  assert.equal(cachedPrice("70010000009999"), undefined, "never asked is unknown, not missing");
+});
+
+test("a failed batch stays unknown so the next warm retries it", async () => {
+  const ids = ["70010000000200"];
+  await fetchPrices(ids, { fetchImpl: async () => ({ ok: false }), paceMs: 0 });
+  assert.equal(cachedPrice(ids[0]), undefined);
+});
+
+test("warmPrices tells listeners only when a price changed, and skips fresh ones", async () => {
+  let heard = 0;
+  onPricesChanged(() => heard++);
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    return { ok: true, json: async () => ({ prices: [{ title_id: 70010000000300, sales_status: "onsale", regular_price: { amount: "1원" } }] }) };
+  };
+  await warmPrices(["70010000000300"], { fetchImpl, paceMs: 0 });
+  await warmPrices(["70010000000300"], { fetchImpl, paceMs: 0 });
+  assert.equal(calls, 1);
+  assert.equal(heard, 1);
 });

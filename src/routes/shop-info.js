@@ -26,6 +26,9 @@ const FEATURES = [
   "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
+  "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
+  "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
+  "image-sizes",          // icon, banner, screenshot accept ?size=sm (256) and ?size=md (512)
 ];
 
 export default function shopInfoRoute(_req, res) {
