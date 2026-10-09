@@ -21,6 +21,7 @@ import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
+import { normalizeCategories } from "../meta/categories.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
@@ -55,13 +56,16 @@ export default function titleDetailRoute(req, res) {
   // titledb changes at most on the ~24h refresh; let the dashboard/client hold
   // a detail for a minute instead of re-fetching on every open.
   res.header("Cache-Control", "private, max-age=60");
+  const categories = normalizeCategories(fromDb?.category);
   res.json({
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     description: fromDb?.description ?? extracted?.description ?? null,
     intro: fromDb?.intro ?? null,
-    category: fromDb?.category ?? null,
+    // The Switch client reads category as text; the list keeps the sections name.
+    category: categories ? categories.join(", ") : null,
+    categories: categories ?? null,
     releaseDate: fromDb?.releaseDate ?? extracted?.releaseDate ?? null,
     region: fromDb?.region ?? null,
     rating: fromDb?.rating ?? null,

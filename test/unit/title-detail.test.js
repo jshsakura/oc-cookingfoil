@@ -36,7 +36,7 @@ const PROBE = `
     shot0: ok.body?.screenshots?.[0], banner: ok.body?.bannerUrl,
     badCode: bad.code, missingCode: missing.code,
     screens: ok.body?.screenshots, artworkOnly,
-    videos: ok.body?.videos,
+    videos: ok.body?.videos, category: ok.body?.category, categories: ok.body?.categories,
   }));
 `;
 
@@ -59,6 +59,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
         screenshots: ["https://cdn/a.jpg", "https://cdn/b.jpg"],
         bannerUrl: "https://cdn/banner.jpg",
         videos: ["https://youtu.be/abcdefghijk"],
+        category: ["Adventure", "Action"],
       },
     })
   );
@@ -84,6 +85,11 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   // screenshots/banner point at the proxy endpoints (relative — no origin in mock req)
   assert.equal(r.shot0, "/api/shop/screenshot/0100000000ABC000/0?v=" + r.shot0.split("v=")[1]);
   assert.ok(r.banner.startsWith("/api/shop/banner/0100000000ABC000"), "banner proxied");
+  // The Switch client reads category as text; the array stays under categories
+  // (same name the shop sections use) for the web dashboard.
+  assert.equal(r.category, "Adventure, Action");
+  assert.deepEqual(r.categories, ["Adventure", "Action"]);
+  assert.equal(r.artworkOnly.body.category, null);
   assert.equal(r.badCode, 400);
   assert.equal(r.missingCode, 404);
 });
