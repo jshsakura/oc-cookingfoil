@@ -21,6 +21,7 @@ import { mkdir, rename, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir } from "../helpers/envs.js";
+import { dlcBaseTitleId } from "./filename-parser.js";
 
 // libvips operation cache lives in C-land — bumping it pays for itself the
 // first time a hot icon's WebP variant is regenerated, since the source
@@ -229,7 +230,8 @@ export function baseTitleIdOf(titleId) {
   if (!titleId || titleId.length !== 16) return titleId;
   const sfx = titleId.slice(-3).toLowerCase();
   if (sfx === "000") return titleId;
-  return titleId.slice(0, -3) + "000";
+  if (sfx === "800") return titleId.slice(0, -3) + "000";
+  return /^[0-9A-Fa-f]{16}$/.test(titleId) ? dlcBaseTitleId(titleId) : titleId;
 }
 
 export function normalizeTitleId(raw) {

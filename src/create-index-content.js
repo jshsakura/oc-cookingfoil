@@ -38,6 +38,7 @@ import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { normalizeCategories } from "./meta/categories.js";
+import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -151,6 +152,18 @@ function decorateNameWithAlias(name, fromDb) {
 // often the bare "[TITLEID][vVER]" tokens. Returns the decorated name.
 // Shared by buildFileItem (legacy/dashboard) and buildSectionItem (CyberFoil).
 function resolveDisplayName(parsed, fromDb) {
+  if (parsed.contentType !== "dlc") return baseDisplayName(parsed, fromDb);
+  // fromDb is the BASE game here; the add-on may have its own titledb entry.
+  const own = titledbStore.get(parsed.titleId);
+  return dlcDisplayName({
+    ownName: own?.name ? decorateNameWithAlias(own.name, own) : null,
+    fileName: parsed.name,
+    baseName: fromDb ? baseDisplayName(parsed, fromDb) : null,
+    titleId: parsed.titleId,
+  });
+}
+
+function baseDisplayName(parsed, fromDb) {
   const baseId = parsed.groupTitleId;
   const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
   // A title never released in the preferred-language region has no titledb

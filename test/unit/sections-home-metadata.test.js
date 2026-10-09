@@ -26,7 +26,7 @@ test("sections: recent timestamps and actual supported languages survive scan, c
     const names = [
       `Mario [${base}][v0].nsp`,
       "Mario Update [0100000000010800][v65536].nsz",
-      "Mario DLC [0100000000010001][v0].nsp",
+      "Mario DLC [0100000000011001][v0].nsp",
       "Other [0100000000020000][v0].nsp",
       "Homebrew.nro",
     ];

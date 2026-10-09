@@ -24,12 +24,17 @@ test("parseFromFilename: update (800 suffix) reports contentType update and rewr
   assert.equal(r.version, 65536);
 });
 
-test("parseFromFilename: DLC (non-000/800 suffix) reports contentType dlc and rewrites groupTitleId to 000", () => {
-  const r = parseFromFilename("Armello - Bird Song [0100E2E00CE7A001][v0].nsp");
+test("parseFromFilename: DLC groups under its real base game (add-on ids start at base + 0x1000)", () => {
+  // Real library pairs: DAEMON X MACHINA 0100B6400CA56000 owns DLC 0100B6400CA57xxx,
+  // DAVE THE DIVER 010097F018538000 owns DLC 010097F018539xxx. Zeroing only the
+  // last three digits pointed every DLC at a base game that does not exist.
+  const r = parseFromFilename("Daemon X Machina/DLC/Outer Emote Roar [0100B6400CA57090][v0].nsp");
 
-  assert.equal(r.titleId, "0100E2E00CE7A001");
+  assert.equal(r.titleId, "0100B6400CA57090");
   assert.equal(r.contentType, "dlc");
-  assert.equal(r.groupTitleId, "0100E2E00CE7A000");
+  assert.equal(r.groupTitleId, "0100B6400CA56000");
+  assert.equal(parseFromFilename("Dave The Diver/DLC/Unknown [010097F018539003][v0].nsp").groupTitleId, "010097F018538000");
+  assert.equal(parseFromFilename("X [01000000000FF001].nsp").groupTitleId, "01000000000FE000");
 });
 
 test("parseFromFilename: DLC suffix comparison is case-insensitive (uppercase hex 800 still update)", () => {

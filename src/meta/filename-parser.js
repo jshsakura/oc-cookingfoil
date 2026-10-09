@@ -21,6 +21,14 @@ const PAREN_RE = /\([^)]*\)/g;
 
 const KNOWN_EXTS = new Set(["nsp", "nsz", "xci", "xcz", "nro"]);
 
+// Add-on content ids start one 0x1000 block above their application id
+// (base 0100B6400CA56000 → DLC 0100B6400CA57001…), so the base is the DLC id
+// with the low 12 bits cleared, minus 0x1000.
+export function dlcBaseTitleId(titleId) {
+  const base = (BigInt(`0x${titleId}`) & ~0xfffn) - 0x1000n;
+  return base.toString(16).toUpperCase().padStart(16, "0");
+}
+
 export function parseFromFilename(filename) {
   const base = path.basename(filename);
   const ext = path.extname(base).toLowerCase().replace(".", "");
@@ -49,8 +57,7 @@ export function parseFromFilename(filename) {
       groupTitleId = titleId.slice(0, -3) + "000";
     } else if (suffix !== "000") {
       contentType = "dlc";
-      // DLC group key is the base title id with 000 suffix (community convention).
-      groupTitleId = titleId.slice(0, -3) + "000";
+      groupTitleId = dlcBaseTitleId(titleId);
     }
   }
 
