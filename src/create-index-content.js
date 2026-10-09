@@ -44,6 +44,7 @@ import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
 import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
+import * as popularity from "./meta/eshop-popularity.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -461,6 +462,11 @@ function buildSectionItem(relPath, wireItem) {
     if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     Object.assign(item, sectionExtras(fromDb));
+    // titledb's rank is empty upstream; the US eShop ranking fills it in.
+    if (!item.rank && parsed.contentType === "base") {
+      const rank = popularity.rankOf(parsed.titleId);
+      if (rank) item.rank = rank;
+    }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);
   }
