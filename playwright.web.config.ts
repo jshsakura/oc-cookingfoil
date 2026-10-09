@@ -1,8 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './test/web',
-  fullyParallel: true,
-  workers: process.env.CI ? 2 : 3,
+  // The admin spec turns the password lane on and off for the whole server,
+  // so specs share one worker and run one at a time.
+  fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:3188', trace: 'retain-on-failure',

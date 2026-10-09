@@ -42,16 +42,16 @@ import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
 import { romsDirPath, appPort } from "./helpers/envs.js";
-import { envBool } from "./helpers/env-read.js";
+import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import staticIndexHTML from "./staticIndexHTML.js";
 
 const expressApp = express();
 expressApp.disable("x-powered-by");
-if (envBool("COOK_TRUST_PROXY", false)) {
-  // Required when running behind nginx/caddy/etc., so req.ip reflects the
-  // real client instead of the proxy and rate-limit/lockout per-IP works.
-  expressApp.set("trust proxy", true);
+if (trustProxy) {
+  // Required when running behind nginx/caddy/cloudflared, so req.ip reflects
+  // the real client instead of the proxy and rate-limit/lockout per-IP works.
+  expressApp.set("trust proxy", trustProxy);
 }
 
 // ── security perimeter ──────────────────────────────────────────────────

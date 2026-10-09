@@ -9,8 +9,8 @@
  *
  * Rendered on the dashboard and printed once at boot.
  */
-import { devicePairing, authUsers } from "../helpers/envs.js";
-import { getUsersFromEnv } from "../authUsersParser.js";
+import { devicePairing } from "../helpers/envs.js";
+import * as users from "./users.js";
 import { adminTotpEnabled, adminOwner } from "./admin-session.js";
 import { secretSource, isEnrolled } from "./admin-secret.js";
 import { adminEmail } from "../helpers/envs.js";
@@ -19,12 +19,12 @@ import { proxyCollapseObserved } from "./proxy-check.js";
 export const SEVERITY = { WARN: "warn", INFO: "info" };
 
 export function authLanes() {
-  const users = Object.keys(getUsersFromEnv() ?? {});
+  const enabled = users.list().filter((u) => u.enabled).length;
   return {
-    basicAuth: { enabled: Boolean(authUsers) && users.length > 0, userCount: users.length },
+    basicAuth: { enabled: enabled > 0, userCount: enabled },
     pairing: { enabled: devicePairing },
     // deviceContentGuard only bites when pairing is the SOLE lane.
-    pairingOnly: devicePairing && !authUsers,
+    pairingOnly: devicePairing && !users.hasUsers(),
     admin: {
       enabled: adminTotpEnabled(),
       secretSource: secretSource(),
@@ -78,7 +78,7 @@ export function configWarnings(lanes = authLanes()) {
       detail:
         "Every client is being counted as the proxy's single IP, so they share one rate-limit " +
         "budget and one lockout counter — one stranger's failures can throttle or lock out " +
-        "everyone. Set COOK_TRUST_PROXY=true and have the proxy forward X-Forwarded-For.",
+        "everyone. Set COOK_TRUST_PROXY (true, or proxy hops like loopback, uniquelocal) and have the proxy forward X-Forwarded-For.",
     });
   }
 

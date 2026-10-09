@@ -16,7 +16,8 @@
  * never touches /admin, /api/*, or the landing page.
  */
 import * as store from "./store.js";
-import { devicePairing, authUsers } from "../helpers/envs.js";
+import { devicePairing } from "../helpers/envs.js";
+import * as users from "./users.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
 import { denyResponse, clientIp, DENY } from "./deny.js";
@@ -30,11 +31,12 @@ function isLoopback(ip) {
 export default function deviceContentGuard() {
   // Enforce only when pairing is the sole lane. With basic-auth users present,
   // authGuard covers this surface and we must not double-gate the Tinfoil path.
-  const enforced = devicePairing && !authUsers;
-  if (!enforced) {
+  // Accounts change live from /admin, so the decision is made per request.
+  if (!devicePairing) {
     return (req, res, next) => next();
   }
   return (req, res, next) => {
+    if (users.hasUsers()) return next();
     if (req.pairedDevice) return next();
     if (isLoopback(clientIp(req))) return next();
     if (hasValidSession(req)) return next();

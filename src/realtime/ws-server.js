@@ -24,13 +24,11 @@
 import { WebSocketServer } from "ws";
 import * as shopCache from "../meta/shop-cache.js";
 import * as securityStore from "../security/store.js";
-import { getUsersFromEnv } from "../authUsersParser.js";
+import * as users from "../security/users.js";
 import pkg from "../package.js";
 import debug from "../debug.js";
 
 const HEARTBEAT_MS = 30_000;
-
-const userMap = getUsersFromEnv(); // { username: password } | null when auth disabled
 
 function clientIp(req) {
   // express's req.ip honors trust-proxy; raw upgrade requests don't go
@@ -53,11 +51,9 @@ function decodeBasicAuth(authHeader) {
 }
 
 function isAuthorized(req) {
-  if (!userMap) return true; // auth disabled globally
+  if (!users.hasUsers()) return true; // no accounts → password lane is off
   const creds = decodeBasicAuth(req.headers["authorization"]);
-  if (!creds) return false;
-  const expected = userMap[creds.user];
-  return typeof expected === "string" && expected === creds.pass;
+  return Boolean(creds) && users.verify(creds.user, creds.pass);
 }
 
 function send(ws, obj) {

@@ -13,9 +13,9 @@
  * so — in the denial row, in the log, and on the dashboard.
  */
 import debug from "../debug.js";
-import { envBool } from "../helpers/env-read.js";
+import { trustProxy } from "../helpers/trust-proxy.js";
 
-const TRUST_PROXY = envBool("COOK_TRUST_PROXY", false);
+const TRUST_PROXY = trustProxy !== false;
 const FORWARD_HEADERS = ["x-forwarded-for", "x-real-ip", "forwarded"];
 
 let observed = false;

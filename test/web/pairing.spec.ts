@@ -34,14 +34,10 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   expect(response.ok()).toBeTruthy();
 });
 
-test('a configuration file can be downloaded without exposing authentication secrets', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
-  await page.goto('/');
-  const downloadEvent = page.waitForEvent('download');
-  await page.getByRole('link', { name:'설정 파일 받기', exact:true }).click();
-  const download = await downloadEvent;
-  expect(download.suggestedFilename()).toBe('config.json');
-  const configuration = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'));
+test('a configuration file can be downloaded without exposing authentication secrets', async ({ request }) => {
+  const response = await request.get('/api/client-config');
+  expect(response.headers()['content-disposition']).toContain('config.json');
+  const configuration = await response.json();
   expect(configuration.servers).toHaveLength(1);
   expect(configuration.servers[0].url).toBe('http://127.0.0.1:3188');
   expect(configuration.servers[0].password).toBe('');

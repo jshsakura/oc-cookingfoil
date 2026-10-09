@@ -3,8 +3,10 @@ import _ from "lodash";
 import { authUsers } from "./helpers/envs.js";
 import debug from "./debug.js";
 
+// Only the first colon separates name and password; passwords may contain ':'.
 function parseUserString(authString) {
-  return { name: authString[0].trim(), pass: authString[1].trim() };
+  const sep = authString.indexOf(":");
+  return { name: authString.slice(0, sep).trim(), pass: authString.slice(sep + 1).trim() };
 }
 
 export function getUsersFromEnv() {
@@ -14,11 +16,10 @@ export function getUsersFromEnv() {
       if (authUsers.split(",").length > 0) {
         parsedUsers = authUsers
           .split(",")
-          .map((userString) => userString.split(":"))
           .map(parseUserString);
       }
     } else if (authUsers.includes(":")) {
-      parsedUsers = [parseUserString(authUsers.split(":"))];
+      parsedUsers = [parseUserString(authUsers)];
     }
 
     debug.log(

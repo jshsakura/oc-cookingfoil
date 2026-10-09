@@ -14,8 +14,8 @@
  */
 import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
-import { authUsers, unauthorizedMessage } from "../helpers/envs.js";
-import { getUsersFromEnv } from "../authUsersParser.js";
+import { unauthorizedMessage } from "../helpers/envs.js";
+import * as users from "./users.js";
 import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
@@ -42,23 +42,17 @@ function isLoopback(ip) {
 }
 
 export default function authGuard() {
-  if (!authUsers) {
-    // No AUTH_USERS configured → auth disabled entirely.
-    return (req, res, next) => next();
-  }
-
-  const users = getUsersFromEnv();
-  if (!users) {
-    return (req, res, next) => next();
-  }
-
   const basicAuth = expressBasicAuth({
-    users,
+    authorizer: (name, password, done) => users.verifyAsync(name, password).then((ok) => done(null, ok), done),
+    authorizeAsync: true,
     unauthorizedResponse: unauthorizedMessage,
     challenge: true,
   });
 
   return (req, res, next) => {
+    // Accounts are managed live from /admin: no accounts means no password lane.
+    if (!users.hasUsers()) return next();
+
     // Device lane already authenticated this request (CyberFoil pairing) — skip
     // the basic-auth challenge entirely. Set by pairingGate upstream.
     if (req.pairedDevice) return next();
@@ -95,8 +89,12 @@ export default function authGuard() {
     // We wrap res.status so we can tell when it produces a 401.
     const originalStatus = res.status.bind(res);
     let intercepted = false;
+    // No Authorization header is the normal first step of basic auth (the
+    // client waits for the 401 challenge before sending credentials), so only
+    // a wrong password counts toward the lockout.
+    const presentedCredentials = Boolean(req.headers.authorization);
     res.status = (code) => {
-      if (code === 401 && !intercepted) {
+      if (code === 401 && !intercepted && presentedCredentials) {
         intercepted = true;
         // basic-auth owns the body here, so we only tag the response — the
         // reason still reaches the operator via the header + denial log.

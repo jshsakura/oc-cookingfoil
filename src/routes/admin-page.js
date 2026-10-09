@@ -27,7 +27,8 @@ import {
   adminOwner,
 } from "../security/admin-session.js";
 import { adminSecret, isEnrolled } from "../security/admin-secret.js";
-import { getUsersFromEnv } from "../authUsersParser.js";
+import * as users from "../security/users.js";
+import { mountManageApi } from "./admin/manage-api.js";
 import {
   normalizeDeviceKey,
   generateAccessKey,
@@ -61,16 +62,15 @@ function requireSession(req, res) {
 function buildUserRows() {
   const access = store.accessSnapshot();
   const byUser = new Map(access.map((a) => [a.user, a]));
-  const configured = Object.keys(getUsersFromEnv() ?? {});
-
   // Configured users first (so never-seen accounts still show), then any
-  // historical user no longer in the env list.
-  const users = configured.map((user) => {
+  // historical user that has since been removed.
+  const rows = users.list().map(({ name: user, enabled }) => {
     const a = byUser.get(user);
     byUser.delete(user);
     return {
       user,
       configured: true,
+      enabled,
       lastAt: a?.lastAt ?? null,
       firstAt: a?.firstAt ?? null,
       count: a?.count ?? 0,
@@ -79,7 +79,7 @@ function buildUserRows() {
     };
   });
   const historical = Array.from(byUser.values()).map((a) => ({ ...a, configured: false }));
-  return { users: [...users, ...historical], access };
+  return { users: [...rows, ...historical], access };
 }
 
 export default function adminPageRouter() {
@@ -157,7 +157,7 @@ export default function adminPageRouter() {
   router.get("/api/stats", (req, res) => {
     if (!requireSession(req, res)) return;
 
-    const { users, access } = buildUserRows();
+    const { users: userRows, access } = buildUserRows();
     const lockouts = store.snapshot().lockouts;
     const lanes = authLanes();
     const denials = store.denialsSnapshot({ limit: 100 });
@@ -168,7 +168,7 @@ export default function adminPageRouter() {
       generatedAt: Date.now(),
       lanes,
       warnings: configWarnings(lanes),
-      users,
+      users: userRows,
       lockouts,
       // The hint is what turns a reason code into an action the operator can take.
       denials: {
@@ -176,7 +176,7 @@ export default function adminPageRouter() {
         recent: denials.recent.map((d) => ({ ...d, hint: hintFor(d.reason) })),
       },
       totals: {
-        configuredUsers: Object.keys(getUsersFromEnv() ?? {}).length,
+        configuredUsers: users.list().length,
         activeUsers: access.length,
         totalRequests: access.reduce((s, a) => s + (a.count || 0), 0),
         lockouts: lockouts.length,
@@ -252,6 +252,8 @@ export default function adminPageRouter() {
     debug.log("admin: revoke device %s… → %s", deviceKey.slice(0, 12), removed);
     res.json({ ok: true, revoked: removed ? 1 : 0 });
   });
+
+  mountManageApi(router, requireSession);
 
   return router;
 }

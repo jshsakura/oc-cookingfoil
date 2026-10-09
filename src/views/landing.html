@@ -140,6 +140,12 @@
         font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
         transition: all 0.2s ease;
       }
+      .admin-link {
+        display: inline-flex; align-items: center; padding: 0 14px; margin-right: auto;
+        border-radius: 100px; border: 1px solid var(--surface0); background: rgba(var(--surface0-rgb), 0.55);
+        color: var(--subtext0); font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s ease;
+      }
+      .admin-link:hover { color: var(--yellow); }
       .theme-toggle button { display: grid; place-items: center; padding: 4px 9px; }
       .theme-toggle svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       :root[data-theme="light"] .scanlines { display: none; }
@@ -594,6 +600,7 @@
     <div class="scroll-progress" id="scroll-progress"></div>
     <div class="wrap">
       <div class="top-row">
+        <a class="admin-link" href="/admin" data-i18n="action.admin"></a>
         <div class="theme-toggle" id="theme-toggle" role="group" aria-label="theme">
           <button data-theme-choice="light" type="button" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5"/></svg></button>
           <button data-theme-choice="dark" type="button" aria-label="Dark" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
@@ -622,7 +629,6 @@
         <div class="connect-row">
           <div id="shop-url" class="url-pill sk">—</div>
           <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
-          <a class="btn ghost" href="/api/client-config" download="config.json" data-i18n="action.config"></a>
         </div>
         <p class="hint" data-i18n-html="hint.connect"></p>
 
@@ -734,7 +740,7 @@
           "section.library": "타이틀",
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
-          "action.config": "설정 파일 받기",
+          "action.admin": "관리",
           "action.download": "다운로드",
           "action.close": "닫기",
           "hint.connect": "<b>CyberFoil</b>: 옵션(설정) → <em>eShop URL</em>에 위 주소 입력, 인증을 켰다면 <em>eShop 사용자 이름 / 비밀번호</em> 칸에 로그인 정보 입력. &nbsp;|&nbsp; Tinfoil 호환: <em>File Browser</em> → <code>+</code> 로 위 URL 추가.",
@@ -822,7 +828,7 @@
           "section.library": "Titles",
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
-          "action.config": "Download config",
+          "action.admin": "Admin",
           "action.download": "Download",
           "action.close": "Close",
           "hint.connect": "<b>CyberFoil</b>: Options → <em>eShop URL</em> = the address above; with auth on, put your login in the <em>eShop Username / Password</em> fields. &nbsp;|&nbsp; Tinfoil-compatible: <em>File Browser</em> → <code>+</code> to add the URL.",

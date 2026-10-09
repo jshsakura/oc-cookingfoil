@@ -24,6 +24,7 @@ const BASIC_BAD = `Basic ${Buffer.from("probe:wrong").toString("base64")}`;
 
 const PROBE = `
   import authGuard from "../../src/security/auth-guard.js";
+  import * as store from "../../src/security/store.js";
 
   const req = {
     ip: process.env.PROBE_IP,
@@ -39,15 +40,19 @@ const PROBE = `
     set(k, v) { res.headers[String(k).toLowerCase()] = v; return res; },
     setHeader(k, v) { return res.set(k, v); },
     status(c) { res.statusCode = c; return res; },
-    send(b) { res.body = b; return res; },
-    end(b) { res.body = b ?? res.body; return res; },
-    json(b) { res.body = b; return res; },
+    send(b) { res.body = b; finish(); return res; },
+    end(b) { res.body = b ?? res.body; finish(); return res; },
+    json(b) { res.body = b; finish(); return res; },
   };
 
+  // Password checks are async, so wait for either next() or a response.
+  let finish;
+  const done = new Promise((resolve) => { finish = resolve; });
   let passedThrough = false;
   let error = null;
   try {
-    authGuard()(req, res, (err) => { passedThrough = !err; });
+    authGuard()(req, res, (err) => { passedThrough = !err; finish(); });
+    await Promise.race([done, new Promise((r) => setTimeout(r, 5000))]);
   } catch (err) {
     error = err?.message ?? String(err);
   }
@@ -56,6 +61,7 @@ const PROBE = `
     passedThrough,
     error,
     status: res.statusCode,
+    failures: store.getFailure(process.env.PROBE_IP)?.count ?? 0,
   }));
 `;
 
@@ -120,4 +126,19 @@ test("no auth configured short-circuits — the smoke test's blind spot", () => 
   const r = runProbe({ authUsers: "" });
   assert.equal(r.error, null);
   assert.equal(r.passedThrough, true);
+});
+
+test("a browser's first request without credentials is a challenge, not a failed login", () => {
+  // Browsers send the first requests with no Authorization header and only
+  // add credentials after the 401. Counting those locked out every user that
+  // shares the proxy's address in one page load.
+  const r = runProbe({ ip: "192.168.1.50" });
+  assert.equal(r.status, 401);
+  assert.equal(r.failures, 0);
+});
+
+test("a wrong password still counts toward the lockout", () => {
+  const r = runProbe({ ip: "192.168.1.50", authHeader: BASIC_BAD });
+  assert.equal(r.status, 401);
+  assert.equal(r.failures, 1);
 });

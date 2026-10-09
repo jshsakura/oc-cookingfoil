@@ -87,7 +87,8 @@ Every variable uses the **`COOK_`** prefix. See [`.env.example`](./.env.example)
 | `COOK_LANG_PRIORITY` | `ko,en,ja` | Language order for per-field titledb fallback |
 | `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,EU.en,HK.zh` | Region files fetched on cold start |
 | `COOK_TITLEDB_AUTO_FETCH` | `true` | Set `false` to never download (use only what you've placed locally) |
-| `COOK_AUTH_USERS` | _(empty)_ | `user:pass,user2:pass2`. Empty = no auth. |
+| `COOK_AUTH_USERS` | _(empty)_ | `user:pass,user2:pass2`. Imported once into `data/security/users.json`; after that accounts are managed in `/admin`. |
+| `COOK_TRUST_PROXY` | _(empty)_ | `true`, or the proxy hops to trust such as `loopback, uniquelocal` (cloudflared or a reverse proxy on the docker gateway). Without it every client behind the proxy shares one lockout. |
 | `COOK_UNAUTHORIZED_MSG` | `No tricks and treats for you!!` | Shown on failed basic-auth |
 | `COOK_WELCOME_MSG` | `CookingFoil is serving fresh.` | Optional welcome string surfaced in `shop.json` |
 | `COOK_SHOP_TEMPLATE` | `<repo>/shop_template.jsonc` | Custom JSON5 template merged into shop responses |
@@ -156,6 +157,19 @@ with a per-title detail view.
 
 Run `npm run test:web` after `npx playwright install chromium` to test the actual
 browser UI and generate screenshots under `out/web/`.
+
+## Admin page
+
+`/admin` opens with a 6-digit code from an authenticator app. The first visit from
+the local network shows the setup key; after the first correct code it is gone.
+
+- **Users:** add, disable, delete and reset passwords. Changes apply immediately.
+  A new password is shown once together with the shop address and a CookingFoil
+  `config.json`; only its scrypt hash is stored. The last account is only removed
+  after an explicit warning, because no accounts means no password at all.
+- **Devices:** approve, re-key and revoke CyberFoil devices.
+- **Security:** lockouts and the log of refused requests with the reason.
+- **Library:** file and titledb counts, server settings and a rescan button.
 
 ### Client setup and QR approval
 

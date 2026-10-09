@@ -20,10 +20,10 @@ test('landing follows the system theme until the visitor picks one, then remembe
   await page.screenshot({ path: 'out/web/landing-dark.png' });
 });
 
-test('landing keeps the status badge clear of the title and offers the client config', async ({ page }) => {
+test('landing keeps the status badge clear of the title and links to the admin page', async ({ page }) => {
   await page.goto('/');
   const badge = await page.locator('#status').boundingBox();
   const title = await page.locator('.header h1').boundingBox();
   expect(title!.y - (badge!.y + badge!.height)).toBeGreaterThanOrEqual(8);
-  await expect(page.locator('a[href="/api/client-config"]')).toHaveAttribute('download', 'config.json');
+  await expect(page.locator('a.admin-link')).toHaveAttribute('href', '/admin');
 });
