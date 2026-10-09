@@ -32,12 +32,13 @@ export function groupCatalog(items) {
     }
     const representative = bases[0] || files[0];
     const languages = Array.isArray(representative.languages) ? representative.languages : [];
+    const categories = Array.isArray(representative.categories) ? representative.categories : [];
     return {
       id, name: representative.name || "CookingFoil", publisher: representative.publisher || "",
-      icon: representative.icon_url || "", languages,
+      icon: representative.icon_url || "", languages, categories,
       base: bases[0] || null, update: updates[0] || null, dlc: [...dlcMap.values()],
       alternatives: bases.slice(1), files,
-      addedAt: Math.max(0, ...files.map((f) => Number.isFinite(f.added_at) ? f.added_at : 0)),
+      addedAt: Math.max(0, ...bases.map((f) => Number.isFinite(f.added_at) ? f.added_at : 0)),
       releaseDate: representative.release_date || 0,
       search: files.map((f) => [f.name, f.title_id, f.publisher].join(" ")).join(" ").toLocaleLowerCase(),
     };
@@ -46,6 +47,7 @@ export function groupCatalog(items) {
 export function selectCatalog(groups, { query = "", filter = "all", sort = "name" } = {}) {
   return groups.filter((g) => (!query || g.search.includes(query.toLocaleLowerCase()))
     && (filter !== "ko" || g.languages.includes("ko"))
+    && (!filter.startsWith("genre:") || g.categories.includes(filter.slice(6)))
     && (filter !== "update" || g.update)
     && (filter !== "dlc" || g.dlc.length)
     && (filter !== "custom" || !/^[0-9A-F]{16}$/i.test(g.id)))
@@ -62,4 +64,20 @@ export function bytes(n) {
   let i = 0;
   while (n >= 1024 && i < units.length - 1) { n /= 1024; ++i; }
   return n.toFixed(i > 1 && n < 10 ? 1 : 0) + " " + units[i];
+}
+// Home shelves: the most common genres among base games, each game shown once.
+export function genreShelves(groups, { exclude = new Set(), count = 4, size = 24, minimum = 6 } = {}) {
+  const tally = new Map();
+  for (const g of groups) if (g.base) for (const name of g.categories) tally.set(name, (tally.get(name) || 0) + 1);
+  const seen = new Set(exclude), shelves = [];
+  const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  for (const name of ranked) {
+    if (shelves.length >= count) break;
+    const games = selectCatalog(groups, { filter: "genre:" + name, sort: "release" })
+      .filter((g) => g.base && !seen.has(g.id)).slice(0, size);
+    if (games.length < minimum) continue;
+    games.forEach((g) => seen.add(g.id));
+    shelves.push({ name, games });
+  }
+  return shelves;
 }

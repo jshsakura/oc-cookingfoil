@@ -1,5 +1,5 @@
 import { $, t, el, button, image, badges, card, empty, toast, translate, setLanguage, language, slider } from "./widgets.js";
-import { groupCatalog, selectCatalog, versionLabel } from "./catalog.js";
+import { groupCatalog, selectCatalog, versionLabel, genreShelves } from "./catalog.js";
 import { initDetail, openDetail, closeDetail } from "./detail.js";
 import { initTransfers, addDownloads, renderDownloads, queueCount, setAvailableFiles, refreshUploads } from "./transfers.js";
 let groups = [], files = [], health = null, loaded = false, loading = false;
@@ -33,11 +33,13 @@ function renderCurrent() {
 function updateCounts() {
   const updates = groups.filter((g) => g.update || g.dlc.length).length;
   for (const [id, count] of [["updates-count", updates], ["downloads-count", queueCount()]]) {
-    $(id).hidden = !count; $(id).textContent = count;
+    $(id).hidden = !count; $(id).textContent = count > 99 ? "99+" : count;
+    $(id).title = count.toLocaleString();
   }
   $("connection-status").textContent = loaded ? groups.length.toLocaleString() + " " + t("games") : t("connecting");
   $("connection-dot").classList.toggle("ready", loaded);
 }
+const HOME_ROW_SIZE = 24;
 function renderHome() {
   const box = $("home-content"); box.replaceChildren(); box.setAttribute("aria-busy", "false");
   if (!groups.length) { empty(box, "noGames"); return; }
@@ -50,29 +52,37 @@ function renderHome() {
   copy.append(el("span", "eyebrow", t(featured.addedAt ? "newGame" : "featured")), el("h1", "", featured.name), el("p", "", featured.publisher));
   const tags = badges(featured); if (featured.languages.includes("ko")) tags.prepend(el("span", "pill", t("korean")));
   copy.append(tags); hero.append(copy); box.append(hero);
-  const recent = sorted.filter((g) => g.addedAt > 0 && g.id !== featured.id);
-  const korean = sorted.filter((g) => g.languages.includes("ko"));
-  if (recent.length) box.append(homeRow("recent", recent));
-  if (korean.length) box.append(homeRow("korean", korean));
+  // Updates and DLC landing later must not resurface a game, so only base games count as additions.
+  const recent = sorted.filter((g) => g.base && g.addedAt > 0 && g.id !== featured.id).slice(0, HOME_ROW_SIZE);
+  if (recent.length) box.append(homeRow(t("recent"), recent, () => showLibrary("all", "recent")));
+  const shelves = genreShelves(groups, { exclude: new Set([featured.id, ...recent.map((g) => g.id)]), size: HOME_ROW_SIZE });
+  for (const shelf of shelves) box.append(homeRow(shelf.name, shelf.games, () => showLibrary("genre:" + shelf.name, "release")));
   // Older servers omit both metadata fields. Keep useful browsing available.
-  if (!recent.length && !korean.length) box.append(homeRow("library", sorted));
+  if (!recent.length && !shelves.length) box.append(homeRow(t("library"), sorted, () => showLibrary("all", "name")));
 }
-function homeRow(title, list) {
+function showLibrary(nextFilter, nextSort) {
+  filter = nextFilter; sort = nextSort; page = 1; $("sort").value = sort; navigate("library");
+}
+function homeRow(title, list, seeAll) {
   const section = el("section", "home-row"); const head = el("div", "section-head");
   const row = el("div", "row-grid");
-  head.append(el("h2", "", t(title)));
-  head.append(button(t("seeAll"), () => {
-    filter = title === "korean" ? "ko" : "all"; sort = title === "recent" ? "recent" : "name"; page = 1;
-    $("sort").value = sort; navigate("library");
-  }, "text-button"));
-  list.slice(0, 24).forEach((g) => row.append(card(g, openDetail)));
+  head.append(el("h2", "", title), button(t("seeAll"), seeAll, "text-button"));
+  list.slice(0, HOME_ROW_SIZE).forEach((g) => row.append(card(g, openDetail)));
   section.append(head, slider(row)); return section;
+}
+// A genre opened from a home shelf shows up as its own chip next to the fixed filters.
+function syncGenreChip() {
+  document.querySelectorAll("#filters .genre-chip").forEach((b) => { if (b.dataset.filter !== filter) b.remove(); });
+  if (!filter.startsWith("genre:") || document.querySelector("#filters .genre-chip")) return;
+  const chip = el("button", "chip genre-chip", filter.slice(6)); chip.type = "button"; chip.dataset.filter = filter;
+  document.querySelector('#filters [data-filter="all"]').after(chip);
 }
 function renderLibrary() {
   const list = selectCatalog(groups, { query, filter, sort });
   const pages = Math.max(1, Math.ceil(list.length / perPage)); page = Math.min(page, pages);
   const grid = $("games"); grid.replaceChildren(); grid.setAttribute("aria-busy", "false");
   $("games-count").textContent = list.length.toLocaleString() + " " + t("games");
+  syncGenreChip();
   document.querySelectorAll("[data-filter]").forEach((b) => { b.classList.toggle("active", b.dataset.filter === filter); b.setAttribute("aria-pressed", String(b.dataset.filter === filter)); });
   if (!list.length) empty(grid, "noResults");
   else list.slice((page - 1) * perPage, page * perPage).forEach((g) => grid.append(card(g, openDetail)));
