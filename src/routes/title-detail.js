@@ -23,10 +23,20 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
 import { normalizeCategories } from "../meta/categories.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
+import { eshopPrice } from "../meta/eshop-price.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
+// The detail must not wait on Nintendo; a slow price is simply left out.
+const PRICE_WAIT_MS = 3000;
 
-export default function titleDetailRoute(req, res) {
+function priceWithin(nsuId, ms) {
+  return Promise.race([
+    eshopPrice(nsuId).catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), ms).unref?.()),
+  ]);
+}
+
+export default async function titleDetailRoute(req, res) {
   const base = String(req.params.baseTitleId || "").toUpperCase();
   if (!TITLE_ID_RE.test(base)) {
     res.status(400).json({ error: "invalid titleId" });
@@ -55,6 +65,7 @@ export default function titleDetailRoute(req, res) {
 
   // titledb changes at most on the ~24h refresh; let the dashboard/client hold
   // a detail for a minute instead of re-fetching on every open.
+  const price = fromDb?.nsuId ? await priceWithin(fromDb.nsuId, PRICE_WAIT_MS) : null;
   res.header("Cache-Control", "private, max-age=60");
   const categories = normalizeCategories(fromDb?.category);
   res.json({
@@ -76,5 +87,6 @@ export default function titleDetailRoute(req, res) {
     screenshots,
     screenshotCount: screenshots.length,
     videos: titleVideos(fromDb),
+    price,
   });
 }
