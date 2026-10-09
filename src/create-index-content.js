@@ -37,6 +37,7 @@ import { parseFromFilename } from "./meta/filename-parser.js";
 import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
+import { sectionExtras } from "./meta/section-extras.js";
 import { normalizeCategories } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
@@ -448,6 +449,7 @@ function buildSectionItem(relPath, wireItem) {
     if (publisher) item.publisher = publisher;
     if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
+    Object.assign(item, sectionExtras(fromDb));
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
   }
   return item;
