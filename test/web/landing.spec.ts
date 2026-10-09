@@ -9,7 +9,8 @@ test('landing follows the system theme until the visitor picks one, then remembe
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(await background()).toBe('rgb(220, 224, 232)');
 
-  await page.locator('#theme-toggle').click();
+  await expect(page.locator('[data-theme-choice="light"]')).toHaveClass(/active/);
+  await page.locator('[data-theme-choice="dark"]').click();
   await expect(root).toHaveAttribute('data-theme', 'dark');
   expect(await background()).toBe('rgb(17, 17, 27)');
 
