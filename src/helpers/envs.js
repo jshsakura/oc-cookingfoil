@@ -231,6 +231,16 @@ const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 // Base games in the sections list carry their eShop price, looked up in the
 // background from Nintendo's public price endpoint. Off for offline servers.
 const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
+// The "popular" order comes from the search index nintendo.com's US store
+// uses (Algolia). The defaults are the public search-only credentials that
+// site ships to every visitor; override them or turn the ranking off.
+const eshopPopularity = envBool("COOK_ESHOP_POPULARITY", true);
+const eshopAlgoliaAppId = envString("COOK_ESHOP_ALGOLIA_APP_ID", "U3B6GR4UA3").trim();
+const eshopAlgoliaKey = envString("COOK_ESHOP_ALGOLIA_KEY", "a29c6927638bfd8cee23993e51e721c9").trim();
+// Icons, banners and screenshots are fetched from Nintendo's eShop CDN (the
+// URLs titledb lists) and cached on disk. false serves only what is cached,
+// extracted from the game files, or uploaded on the admin page.
+const eshopArtwork = envBool("COOK_ESHOP_ARTWORK", true);
 // oc-scraper base URL (e.g. http://host:18765). Base games then carry Steam /
 // IGDB / RAWG review scores from it, matched by title id. Empty turns it off.
 const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
@@ -280,6 +290,10 @@ export {
   uploadMaxBytes,
   uploadsEnabled,
   eshopPrices,
+  eshopPopularity,
+  eshopAlgoliaAppId,
+  eshopAlgoliaKey,
+  eshopArtwork,
   patchesDir,
   ratingsUrl,
   ratingSync,

@@ -1,0 +1,43 @@
+# The setup cookingfoil's author runs, with secrets replaced by placeholders.
+# Copy this folder, fill in .env (see .env.example next to this file) and run
+#   docker compose up -d
+# Every line is optional unless marked REQUIRED.
+services:
+  cookingfoil:
+    image: ghcr.io/jshsakura/oc-cookingfoil:latest
+    # Pull a new image on every `up`, so `docker compose pull && up -d` updates.
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "${COOK_HOST_PORT:-38000}:80"
+    environment:
+      TZ: ${TZ:-UTC}
+      # REQUIRED: at least one account. Imported once; manage them in /admin after.
+      COOK_AUTH_USERS: ${COOK_AUTH_USERS:?set COOK_AUTH_USERS in .env}
+      # Behind a reverse proxy or tunnel on the docker host, trust only local
+      # hops for X-Forwarded-For, so every client gets its own lockout.
+      COOK_TRUST_PROXY: ${COOK_TRUST_PROXY:-loopback, uniquelocal}
+      # The admin page: a password (12+ chars) instead of an authenticator app.
+      # Leave empty to use a TOTP code (the setup key shows to LAN visitors).
+      COOK_ADMIN_PASSWORD: ${COOK_ADMIN_PASSWORD:-}
+      # Shown in Tinfoil-style clients when they open the shop.
+      COOK_WELCOME_MSG: ${COOK_WELCOME_MSG:-Welcome to my shop}
+      # CyberFoil devices approved by QR code from a phone.
+      COOK_DEVICE_PAIRING: ${COOK_DEVICE_PAIRING:-false}
+      # Names and descriptions in this language order (titledb merge).
+      COOK_LANG_PRIORITY: ${COOK_LANG_PRIORITY:-en,ko,ja,en-US}
+      # Review scores: Steam needs nothing; IGDB needs a Twitch app (dev.twitch.tv).
+      COOK_IGDB_CLIENT_ID: ${COOK_IGDB_CLIENT_ID:-}
+      COOK_IGDB_CLIENT_SECRET: ${COOK_IGDB_CLIENT_SECRET:-}
+    volumes:
+      # REQUIRED: your games (.nsp .nsz .xci .xcz), any folder layout.
+      - ${GAMES_DIR:?set GAMES_DIR in .env}:/games
+      # REQUIRED: caches, metadata, accounts. Losing it means re-downloading
+      # titledb and re-creating accounts, so keep it on persistent storage.
+      - ${DATA_DIR:-./data}:/data
+      # Your console's prod.keys, read-only: names and icons for games titledb
+      # does not know. The shop works without it.
+      - ${KEYS_DIR:-./keys}:/keys:ro
+      # User patches (mods, cheats) for the CookingFoil client, read-only:
+      # <base title id>/<patch folder>/<SD card layout> + optional patch.json
+      - ${PATCHES_DIR:-./patches}:/patches:ro

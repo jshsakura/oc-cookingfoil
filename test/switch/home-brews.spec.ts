@@ -10,22 +10,23 @@ test.describe('Roms and homebrews listing', () => {
     // Welcome message comes from the test env (COOK_WELCOME_MSG).
     expect(shop.success).toBe('The Server Works!!');
 
-    // Files must include both Double Dragon NSZ entries with the expected
-    // wire-encoded urls. `toMatchObject` is a partial match so extra fields
-    // (name, icon_url) don't cause failures.
+    // Files must include both sample NSZ entries with the expected
+    // wire-encoded paths. URLs are absolute against the request origin and
+    // icon URLs carry a ?v= cache stamp (CyberFoil fetches them verbatim),
+    // so only the stable parts are matched.
     expect(shop.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          url: '../Double%20Dragon%20Gaiden%20Rise%20of%20the%20Dragons%20%5BNSZ%5D%2FDouble%20Dragon%20Gaiden%20Rise%20of%20the%20Dragons%20%5B010010401BC1A000%5D%5Bv0%5D%20%280.39%20GB%29.nsz',
+          url: expect.stringMatching(/\/Sample%20Homebrew%20%5BNSZ%5D%2FSample%20Homebrew%20%5B05000000AB000000%5D%5Bv0%5D%20%280.39%20GB%29.nsz$/),
           name: expect.any(String),
           size: 5,
-          icon_url: '/api/shop/icon/010010401BC1A000',
+          icon_url: expect.stringMatching(/\/api\/shop\/icon\/05000000AB000000(\?|$)/),
         }),
         expect.objectContaining({
-          url: '../Double%20Dragon%20Gaiden%20Rise%20of%20the%20Dragons%20%5BNSZ%5D%2FDouble%20Dragon%20Gaiden%20Rise%20of%20the%20Dragons%20%5B010010401BC1A800%5D%5Bv65536%5D%20%280.11%20GB%29.nsz',
+          url: expect.stringMatching(/\/Sample%20Homebrew%20%5BNSZ%5D%2FSample%20Homebrew%20%5B05000000AB000800%5D%5Bv65536%5D%20%280.11%20GB%29.nsz$/),
           name: expect.any(String),
           size: 5,
-          icon_url: '/api/shop/icon/010010401BC1A800',
+          icon_url: expect.stringMatching(/\/api\/shop\/icon\/05000000AB000800(\?|$)/),
         }),
       ]),
     );
@@ -37,9 +38,9 @@ test.describe('Roms and homebrews listing', () => {
       expect(f.name.length).toBeGreaterThan(0);
     }
 
-    // Fat shop manifest: titledb must always be present (may be empty if no
-    // titleId could be parsed, but the object itself exists).
-    expect(typeof shop.titledb).toBe('object');
+    // The titledb map is left out by default (COOK_EMIT_TITLEDB): CyberFoil
+    // turns its entries into ghost rows. Rich detail comes from /api/title/:id.
+    expect(shop.titledb).toBeUndefined();
   });
 
   test('Icon endpoint 404s with no-store when the asset is not yet on disk', async ({ nxPage }) => {
@@ -49,7 +50,7 @@ test.describe('Roms and homebrews listing', () => {
     // filling in the real bytes never made it to the screen. 404 +
     // Cache-Control: no-store is the new contract: clients render their
     // own 'no icon' placeholder and re-fetch on the next shop refresh.
-    const response = await nxPage.request.get('/api/shop/icon/010010401BC1A000');
+    const response = await nxPage.request.get('/api/shop/icon/05000000AB000000');
     expect(response.status()).toBe(404);
     expect(response.headers()['cache-control']).toBe('no-store');
   });

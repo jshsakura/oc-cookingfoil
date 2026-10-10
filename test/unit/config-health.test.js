@@ -82,9 +82,9 @@ test("an auto-provisioned admin secret reports as unenrolled and warns", () => {
 });
 
 test("COOK_ADMIN_EMAIL becomes the admin identity", () => {
-  const r = runProbe({ COOK_ADMIN_EMAIL: "jshsakura@gmail.com" });
-  assert.equal(r.lanes.admin.email, "jshsakura@gmail.com");
-  assert.equal(r.lanes.admin.owner, "jshsakura@gmail.com");
+  const r = runProbe({ COOK_ADMIN_EMAIL: "admin@example.com" });
+  assert.equal(r.lanes.admin.email, "admin@example.com");
+  assert.equal(r.lanes.admin.owner, "admin@example.com");
 });
 
 test("an unset admin email falls back to a generic owner, not a crash", () => {
