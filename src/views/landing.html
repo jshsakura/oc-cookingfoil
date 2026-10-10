@@ -242,7 +242,8 @@
       .recent { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 18px; overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0; scroll-padding-inline: 12px; scroll-snap-type: x proximity; }
       .recent .game { scroll-snap-align: start; }
       .home-row { margin-bottom: 26px; }
-      .home-row h2 { margin-bottom: 4px; }
+      .home-row h2 { margin-bottom: 4px; display: flex; align-items: baseline; gap: 10px; }
+      .home-row .row-count { font-size: 14px; font-weight: 600; color: var(--secondary); font-variant-numeric: tabular-nums; }
       .toolbar {
         display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
         padding: 10px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line);
@@ -1752,6 +1753,8 @@
         return slides.slice(0, HERO_SLIDES);
       }
 
+      // Each row carries its whole list; the page draws ROW_LIMIT at a time and
+      // the next batch as the row is scrolled near its right end.
       function buildRows(bases, heroGame) {
         const rows = [];
         const shown = new Set(heroGame ? [heroGame] : []);
@@ -1762,11 +1765,15 @@
         };
         for (const f of featuredRows) {
           const ids = (f.title_ids || []).map((id) => String(id).toUpperCase());
-          keep(f.title, ids.map((id) => bases.find((b) => tidOf(b) === id)).filter((r) => r && r !== heroGame).slice(0, ROW_LIMIT));
+          keep(f.title, ids.map((id) => bases.find((b) => tidOf(b) === id)).filter((r) => r && r !== heroGame));
         }
         const add = (key, theme, pool = 0, title = null) => {
-          let items = browse(bases, theme).filter((r) => !shown.has(r)).slice(0, pool || ROW_LIMIT);
-          if (pool) items = seededShuffle(items, seedFor(key)).slice(0, ROW_LIMIT);
+          let items = browse(bases, theme).filter((r) => !shown.has(r));
+          // A shuffled row opens with a daily pick from its leaders, then goes on in order.
+          if (pool) {
+            const head = seededShuffle(items.slice(0, pool), seedFor(key));
+            items = [...head, ...items.slice(pool)];
+          }
           keep(title ?? t(key), items);
         };
         add("row.recent", { sort: "recent" });
@@ -1798,7 +1805,19 @@
           const block = document.createElement("div"); block.className = "home-row";
           const h = document.createElement("h2"); h.textContent = row.title;
           const list = document.createElement("div"); list.className = "recent";
-          for (const r of row.items) list.appendChild(makeCard(r));
+          let drawn = 0;
+          const more = () => {
+            for (const r of row.items.slice(drawn, drawn + ROW_LIMIT)) list.appendChild(makeCard(r));
+            drawn = Math.min(row.items.length, drawn + ROW_LIMIT);
+          };
+          more();
+          list.addEventListener("scroll", () => {
+            if (drawn < row.items.length && list.scrollLeft + list.clientWidth > list.scrollWidth - 600) more();
+          }, { passive: true });
+          if (row.items.length > ROW_LIMIT) {
+            const n = document.createElement("span"); n.className = "row-count"; n.textContent = row.items.length.toLocaleString();
+            h.appendChild(n);
+          }
           block.append(h, list);
           box.appendChild(block);
         }
