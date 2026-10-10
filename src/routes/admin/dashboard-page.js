@@ -67,8 +67,6 @@ dialog h3{margin:0 0 6px;font-size:18px}
 @media (max-width:640px){th:nth-child(n+4),td:nth-child(n+4):not(:last-child){display:none}}
 `;
 
-const SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5"/></svg>';
-const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
 
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
@@ -80,10 +78,6 @@ export function dashboardPage() {
     <div><h1 aria-label="CookingFoil 관리"><span class="wm">cookingfoil<span class="dot">.</span></span> 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
   <div class="actions">
     <a class="btn" href="/">대시보드</a>
-    <div class="seg" id="theme" role="group" aria-label="테마">
-      <button type="button" data-theme-choice="light" aria-label="라이트">${SUN}</button>
-      <button type="button" data-theme-choice="dark" aria-label="다크">${MOON}</button>
-    </div>
     <button type="button" id="logout">로그아웃</button>
   </div>
 </header>

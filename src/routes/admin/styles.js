@@ -1,12 +1,12 @@
 /**
  * Shared chrome for every /admin page, in the Switch client's palette (warm
  * ground, white surfaces, ink text, butter accent) and the public dashboard's
- * dark variant. ADMIN_HEAD adds the icon and applies the theme the visitor
- * chose there (same origin, same storage key) before paint.
+ * dark variant, following the system light/dark setting. ADMIN_HEAD adds the
+ * icon and drops a theme the old toggle saved.
  */
 export const ADMIN_HEAD = /* html */ `<link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml">\
 <link rel="stylesheet" href="/assets/fonts.css">\
-<script>try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch{}</script>`;
+<script>try{localStorage.removeItem("cookingfoil:theme");}catch{}</script>`;
 
 const DARK = `--bg:#16161a;--panel:#1f1f24;--sunk:#26262c;--line:#303037;--line2:#41414a;
 --text:#f2f1ee;--muted:#a9a8a3;--faint:#75747c;--warn:#e3a43a;--bad:#ef6b5f;--good:#3fbf83;--accent:#ffc23d;--accent-ink:#16161a;

@@ -12,6 +12,7 @@
  *
  * Security: marked no-store; the password is neither returned nor logged.
  */
+import { requestLang } from "../meta/categories.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 
@@ -52,8 +53,9 @@ export function clientConfigRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);
   if (!origin) return res.status(503).json({ error: "server origin unavailable" });
   const creds = decodeBasicAuth(req);
+  // Named after the shop's host (language-neutral), in the language of whoever downloads it.
   const server = {
-    title: "원격 서버",
+    title: new URL(origin).hostname,
     url: origin,
     username: devicePairing ? "" : creds?.user ?? "",
     password: "",
@@ -62,5 +64,5 @@ export function clientConfigRoute(req, res) {
     enabled: true,
   };
   res.set({ "Cache-Control": "no-store", "Content-Disposition": 'attachment; filename="config.json"' });
-  res.type("application/json").send(JSON.stringify({ servers: [server], language: "ko", installTarget: "sd" }, null, 2) + "\n");
+  res.type("application/json").send(JSON.stringify({ servers: [server], language: requestLang(req), installTarget: "sd" }, null, 2) + "\n");
 }

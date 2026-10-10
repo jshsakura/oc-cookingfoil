@@ -35,11 +35,13 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
 });
 
 test('a configuration file can be downloaded without exposing authentication secrets', async ({ request }) => {
-  const response = await request.get('/api/client-config');
+  const response = await request.get('/api/client-config', { headers: { 'Accept-Language': 'ko-KR,ko;q=0.9' } });
   expect(response.headers()['content-disposition']).toContain('config.json');
   const configuration = await response.json();
   expect(configuration.servers).toHaveLength(1);
   expect(configuration.servers[0].url).toBe('http://127.0.0.1:3188');
+  // named after the shop's host, in the downloader's language
+  expect(configuration.servers[0].title).toBe('127.0.0.1');
   expect(configuration.servers[0].password).toBe('');
   expect(configuration.servers[0].cfClientSecret).toBe('');
   expect(configuration.language).toBe('ko');
