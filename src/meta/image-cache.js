@@ -20,7 +20,7 @@ import path from "path";
 import { mkdir, rename, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
 import debug from "../debug.js";
-import { iconCacheDir } from "../helpers/envs.js";
+import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
 
 // libvips operation cache lives in C-land — bumping it pays for itself the
@@ -108,6 +108,8 @@ export function forget(filePath) {
 }
 
 async function fetchAndStore(url, cachePath) {
+  // COOK_ESHOP_ARTWORK=false: nothing is fetched from Nintendo's CDN.
+  if (!eshopArtwork) throw new Error("eShop artwork fetching is off");
   const start = Date.now();
   const upstream = await fetch(url, { redirect: "follow" });
   if (!upstream.ok) throw new Error(`upstream HTTP ${upstream.status}`);

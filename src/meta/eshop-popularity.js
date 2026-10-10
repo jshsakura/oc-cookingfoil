@@ -14,13 +14,14 @@
 import fs from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { titledbCacheDir } from "../helpers/envs.js";
+import { titledbCacheDir, eshopPopularity, eshopAlgoliaAppId, eshopAlgoliaKey } from "../helpers/envs.js";
 
-// Public search-only credentials nintendo.com ships to every visitor.
-const ENDPOINT = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/store_game_en_us/query";
+// Public search-only credentials nintendo.com ships to every visitor
+// (COOK_ESHOP_ALGOLIA_APP_ID / _KEY override them).
+const ENDPOINT = `https://${eshopAlgoliaAppId.toLowerCase()}-dsn.algolia.net/1/indexes/store_game_en_us/query`;
 const HEADERS = {
-  "X-Algolia-Application-Id": "U3B6GR4UA3",
-  "X-Algolia-API-Key": "a29c6927638bfd8cee23993e51e721c9",
+  "X-Algolia-Application-Id": eshopAlgoliaAppId,
+  "X-Algolia-API-Key": eshopAlgoliaKey,
 };
 const PAGE_SIZE = 500;
 // The index serves at most 1000 hits per query and does not return them in
@@ -148,6 +149,7 @@ export function buildStore(byNsuId, nsuIdToTitleId) {
 
 /** Downloads the ranking and maps it to title ids; keeps the old one on failure. */
 export async function refresh(opts = {}) {
+  if (!eshopPopularity && !opts.fetchImpl) return false; // COOK_ESHOP_POPULARITY=false
   try {
     const byNsuId = await fetchRanks(opts);
     const next = buildStore(byNsuId, nsuIdIndex(await readUsTitledb()));

@@ -18,8 +18,7 @@
     "test:basic": "node scripts/local-basic-auth.mjs",
     "test:ui": "playwright test --ui",
     "test:setup": "playwright install --with-deps",
-    "hooks:install": "node scripts/install-hooks.cjs",
-    "postinstall": "node scripts/install-hooks.cjs"
+    "hooks:install": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
