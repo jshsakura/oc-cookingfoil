@@ -32,6 +32,7 @@ const FEATURES = [
   "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
   "image-sizes",
   "user-patches",
+  "item-icons",           // base item.icons { ko?, en?, ja?, zh? } and ?lang= on icon/banner; detail iconUrl/bannerUrl follow ?lang=
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon, banner, screenshot accept ?size=sm (256) and ?size=md (512)
 ];
 

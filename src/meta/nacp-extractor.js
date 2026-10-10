@@ -72,11 +72,15 @@ export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   if (!baseTitleId) return false;
   if (tried.has(baseTitleId)) return false;
   if (inFlight.has(baseTitleId)) return false;
-  if (extractedMeta.get(baseTitleId)) {
+  // A record from before per-language icons (no iconLangs) is extracted once
+  // more so a game titledb does not know still gets its English/Japanese/
+  // Chinese box art; the record then carries iconLangs and is left alone.
+  const existing = extractedMeta.get(baseTitleId);
+  if (existing && (Array.isArray(existing.iconLangs) || wantMeta === false)) {
     tried.add(baseTitleId);
     return false;
   }
-  queue.push({ absPath, baseTitleId, fileName, wantMeta });
+  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) });
   inFlight.add(baseTitleId);
   if (drainedResolver === null) {
     drained = new Promise((resolve) => { drainedResolver = resolve; });
@@ -94,6 +98,44 @@ async function iconCached(baseTitleId) {
   }
 }
 
+/**
+ * Saves the game file's icon for each client language whose art differs from
+ * the default icon, as `<id>.icon.<lang>.jpg`; returns the languages saved.
+ */
+async function persistLangIcons(baseTitleId, byLang, defaultIconPath) {
+  if (!byLang || typeof byLang !== "object") return [];
+  const fallback = defaultIconPath ? await fs.readFile(defaultIconPath).catch(() => null) : null;
+  const saved = [];
+  for (const [lang, buf] of Object.entries(byLang)) {
+    if (!Buffer.isBuffer(buf) || (fallback && buf.equals(fallback))) continue;
+    try {
+      const file = cachePathFor(baseTitleId, "icon-lang", lang);
+      await fs.writeFile(`${file}.tmp.${process.pid}`, buf);
+      await fs.rename(`${file}.tmp.${process.pid}`, file);
+      saved.push(lang);
+    } catch (err) {
+      debug.error("nacp-extractor: %s icon for %s not saved: %s", lang, baseTitleId, err.message);
+    }
+  }
+  return saved;
+}
+
+/**
+ * Second pass over a title already extracted: keep its record (names may have
+ * been fixed by hand in extracted-meta/<id>.json) and its icon, and only add
+ * the per-language icons.
+ */
+async function addLangIcons(job, record) {
+  const existing = extractedMeta.get(job.baseTitleId);
+  if (!existing) return;
+  const iconLangs = await persistLangIcons(job.baseTitleId, record?.iconsByLang, cachePathFor(job.baseTitleId, "icon"));
+  await extractedMeta.put({ ...existing, iconLangs });
+  if (iconLangs.length) {
+    debug.log("nacp-extractor: %s icons for %s", iconLangs.join("/"), job.baseTitleId);
+    notifyExtracted({ baseTitleId: job.baseTitleId, source: "lang-icons" });
+  }
+}
+
 async function workOne(job) {
   // titledb-covered titles (wantMeta === false) only need an icon. If one is
   // already on disk — from a prior extract OR the CDN proxy — skip the
@@ -105,6 +147,7 @@ async function workOne(job) {
   let record = null;
   try {
     record = await provider.extract(job);
+    if (job.langIconsOnly) return await addLangIcons(job, record);
   } catch (err) {
     debug.error(
       "nacp-extractor: provider threw for %s (%s): %s",
@@ -127,6 +170,8 @@ async function workOne(job) {
       }
       delete record.iconBuffer;
     }
+    record.iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, record.iconPath);
+    delete record.iconsByLang;
     // titledb already owns the name/publisher/version for wantMeta === false
     // titles, and composeResponse only reads extracted meta when titledb has
     // no entry. Writing a record for them would just be dead JSON on disk, so

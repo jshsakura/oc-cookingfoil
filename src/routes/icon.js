@@ -9,6 +9,7 @@
  */
 import * as titledbStore from "../meta/titledb-store.js";
 import * as customArt from "../meta/custom-art.js";
+import { artLang, iconSource } from "../meta/localized-art.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -25,6 +26,13 @@ export default async function iconRoute(req, res) {
   }
   const base = baseTitleIdOf(tid);
   const entry = titledbStore.get(base);
+  // ?lang=en|ja|zh|ko: that language's own box art when the game has one.
+  const lang = artLang(req.query?.lang);
+  const own = iconSource(base, lang);
+  if (own) {
+    await serveImage(req, res, { cachePath: cachePathFor(base, "icon-lang", lang), upstreamUrl: own.url });
+    return;
+  }
   await serveImage(req, res, {
     cachePath: cachePathFor(base, "icon"),
     upstreamUrl: entry?.iconUrl,

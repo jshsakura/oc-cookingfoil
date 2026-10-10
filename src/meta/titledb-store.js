@@ -85,6 +85,9 @@ function keepLocalized(rec, lang, entry) {
   if (name) (rec.names ??= {})[lang] ??= name;
   const text = typeof entry.description === "string" ? entry.description.trim() : "";
   if (text) (rec.descriptions ??= {})[lang] ??= text;
+  // Box art carries the title in that region's script, so it follows the language too.
+  if (typeof entry.iconUrl === "string" && entry.iconUrl) (rec.icons ??= {})[lang] ??= entry.iconUrl;
+  if (typeof entry.bannerUrl === "string" && entry.bannerUrl) (rec.banners ??= {})[lang] ??= entry.bannerUrl;
 }
 
 function priIndex(region) {
@@ -399,4 +402,14 @@ export function namesOf(titleId) {
 /** The game's description in each language titledb has it in, or null. */
 export function descriptionsOf(titleId) {
   return localized(titleId, "descriptions");
+}
+
+/** eShop icon URL per language, or null. */
+export function iconsOf(titleId) {
+  return localized(titleId, "icons");
+}
+
+/** eShop banner URL per language, or null. */
+export function bannersOf(titleId) {
+  return localized(titleId, "banners");
 }

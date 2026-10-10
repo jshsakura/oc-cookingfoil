@@ -5,6 +5,7 @@
  */
 import * as titledbStore from "../meta/titledb-store.js";
 import * as customArt from "../meta/custom-art.js";
+import { artLang, bannerSource } from "../meta/localized-art.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -20,6 +21,12 @@ export default async function bannerRoute(req, res) {
   }
   const base = baseTitleIdOf(tid);
   const entry = titledbStore.get(base);
+  const lang = artLang(req.query?.lang);
+  const own = bannerSource(base, lang);
+  if (own) {
+    await serveImage(req, res, { wide: true, cachePath: cachePathFor(base, "banner-lang", lang), upstreamUrl: own });
+    return;
+  }
   await serveImage(req, res, {
     wide: true,
     cachePath: cachePathFor(base, "banner"),
