@@ -97,12 +97,17 @@
       }
       .admin-link:hover { border-color: var(--ink); }
 
-      /* TABS: plain menu words beside the wordmark; the open one is underlined */
-      .tabs { display: flex; gap: 6px; margin: 0 auto 0 22px; }
-      .tabs button { border: none; background: transparent; color: var(--secondary); padding: 8px 10px;
-        font: 700 15px var(--font-body); cursor: pointer; border-bottom: 3px solid transparent; }
+      /* TABS: the same pill group as the language and theme toggles, beside the wordmark */
+      .tabs {
+        display: inline-flex; gap: 2px; padding: 3px; margin: 0 auto 0 20px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 100px;
+      }
+      .tabs button {
+        background: transparent; border: none; color: var(--secondary); white-space: nowrap;
+        padding: 6px 14px; border-radius: 100px; font: 600 13px var(--font-body); cursor: pointer;
+      }
       .tabs button:hover:not(.active) { color: var(--ink); }
-      .tabs button.active { color: var(--ink); border-bottom-color: var(--butter); }
+      .tabs button.active { background: var(--ink); color: var(--ground); }
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
@@ -430,7 +435,7 @@
       }
       @media (max-width: 640px) {
         .connect-bar { grid-template-columns: 1fr; }
-        .tabs { order: 3; width: 100%; margin: 0; }
+        .tabs { order: 3; margin: 0; }
         body { padding: 16px 16px 80px; }
         .wordmark { font-size: 21px; }
         .logo { width: 36px; height: 36px; }
