@@ -26,6 +26,7 @@ import * as scores from "../meta/scraper-ratings.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
+import * as userPatches from "../meta/user-patches.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // The detail must not wait on Nintendo; a slow price is simply left out.
@@ -111,5 +112,7 @@ export default async function titleDetailRoute(req, res) {
     scoreSource: score?.source ?? null,
     scoreLabel: score?.label ? (scores.SCORE_LABELS[score.label]?.[lang] ?? score.label) : null,
     scoreLabelKey: score?.label ?? null,
+    // User patches for this game, as in /api/patches.
+    patches: userPatches.forTitle(base),
   });
 }

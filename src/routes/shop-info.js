@@ -30,7 +30,8 @@ const FEATURES = [
   "item-score",           // base item.score, score_count, score_source, score_label (+ score_labels map)
   "genre-keys",           // categories are English keys; sections.genres maps them per language
   "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
-  "image-sizes",          // icon, banner, screenshot accept ?size=sm (256) and ?size=md (512)
+  "image-sizes",
+  "user-patches",         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon, banner, screenshot accept ?size=sm (256) and ?size=md (512)
 ];
 
 export default function shopInfoRoute(_req, res) {
