@@ -17,7 +17,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .brand{display:flex;align-items:center;gap:12px}
 .logo{width:44px;height:44px;flex:none}
 h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
-h1 .foil{margin-left:5px;background:var(--accent);color:var(--accent-ink);padding:0 8px 2px;border-radius:9px}
+h1 .wm{font-family:'Baloo 2',inherit;font-weight:800;letter-spacing:-.02em;margin-right:4px}h1 .wm .dot{color:var(--accent)}
 .who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
@@ -77,7 +77,7 @@ export function dashboardPage() {
 <div class="wrap">
 <header>
   <div class="brand"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42">
-    <div><h1>Cooking<span class="foil">Foil</span> 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
+    <div><h1 aria-label="CookingFoil 관리"><span class="wm">cookingfoil<span class="dot">.</span></span> 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
   <div class="actions">
     <a class="btn" href="/">대시보드</a>
     <div class="seg" id="theme" role="group" aria-label="테마">

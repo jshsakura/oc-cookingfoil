@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f2f1ee" />
     <title>CookingFoil</title>
     <link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/fonts.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
@@ -76,8 +77,9 @@
       .top-row, .top-row * { white-space: nowrap; }
       .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
       .logo { width: 44px; height: 44px; flex-shrink: 0; }
-      .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
-      .wordmark .foil { margin-left: 6px; background: var(--butter); color: var(--butter-ink); padding: 0 8px 2px; border-radius: 9px; }
+      /* the logotype: soft rounded lowercase, a butter dot to end it (brand/wordmark-*.png) */
+      .wordmark { font-family: "Baloo 2", var(--font-body); font-size: 31px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; padding-top: 4px; }
+      .wordmark .dot { color: var(--butter); }
       .top-row svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
       /* one round button flips light and dark; it shows the theme you would switch to */
       .icon-btn {
@@ -461,7 +463,7 @@
         .connect-bar { grid-template-columns: 1fr; }
         .tabs { order: 3; margin: 0; }
         body { padding: 16px 16px 80px; }
-        .wordmark { font-size: 21px; }
+        .wordmark { font-size: 26px; }
         .logo { width: 36px; height: 36px; }
         .hero { flex-direction: column; align-items: flex-start; gap: 20px; padding: 24px; }
         .hero .hero-cover { width: 132px; height: 132px; }
@@ -486,7 +488,7 @@
       <div class="top-row">
         <a class="brand" href="/" aria-label="CookingFoil">
           <img class="logo" src="/assets/cookingfoil.svg" alt="" width="44" height="44">
-          <span class="wordmark">Cooking<span class="foil">Foil</span></span>
+          <span class="wordmark">cookingfoil<span class="dot">.</span></span>
         </a>
         <nav class="tabs" role="tablist" aria-label="views">
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
