@@ -476,6 +476,8 @@
         <div class="lang-toggle" role="tablist" aria-label="language">
           <button data-lang="ko" type="button">KO</button>
           <button data-lang="en" type="button">EN</button>
+          <button data-lang="ja" type="button">JA</button>
+          <button data-lang="zh" type="button">ZH</button>
         </div>
       </div>
 
@@ -660,6 +662,7 @@
           "stat.base": "베이스",
           "stat.base_sub": "원본 타이틀",
           "stat.mods": "업데이트/DLC",
+          "stat.mods_sub": (u, d) => `업데이트 ${u} · DLC ${d}`,
           "section.namehealth": "게임명 소스 상태 / Name source",
           "nh.titledb": "TITLEDB",
           "nh.extraction": "NSP/XCI 추출",
@@ -676,6 +679,8 @@
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
           "chip.custom": "커스텀",
+          "pill.update": "업데이트",
+          "misc.unnamed": "(이름 없음)",
           "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
           "sort.name_desc": "정렬: 이름 ㅎ→ㄱ",
           "sort.size_desc": "정렬: 크기(큰 것부터)",
@@ -773,6 +778,7 @@
           "stat.base": "Base",
           "stat.base_sub": "base titles",
           "stat.mods": "Updates / DLC",
+          "stat.mods_sub": (u, d) => `${u} upd · ${d} dlc`,
           "section.namehealth": "Name source health",
           "nh.titledb": "Titledb",
           "nh.extraction": "NSP/XCI extract",
@@ -789,6 +795,8 @@
           "chip.update": "Updates",
           "chip.dlc": "DLC",
           "chip.custom": "Custom",
+          "pill.update": "Update",
+          "misc.unnamed": "(unnamed)",
           "sort.name_asc": "Sort: Name (A→Z)",
           "sort.name_desc": "Sort: Name (Z→A)",
           "sort.size_desc": "Sort: Size (large)",
@@ -846,11 +854,252 @@
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
         },
+        ja: {
+          "hero.desc": "バターのようにどこにでもなじむファイルマネージャー。<br>ファイル・メタデータ・アートワークを認証付きの単一ホストから、ディスクにキャッシュしながら配信します。",
+          "section.connect": "サーバーURL",
+          "section.stats": "状況",
+          "section.library": "すべてのゲーム",
+          "section.recent": "最近の追加",
+          "tab.games": "すべてのゲーム",
+          "tab.preview": "プレビュー",
+          "row.recent": "最近の追加",
+          "row.sale": "eShopでセール中",
+          "row.new": "新作",
+          "row.updated": "最近のアップデート",
+          "row.popular": "人気",
+          "row.great": "名作",
+          "row.together": "2人以上でプレイ",
+          "row.party": "パーティーゲーム",
+          "row.big": "大容量ゲーム",
+          "row.korean": "韓国語対応",
+          "genre.all": "すべてのジャンル",
+          "hero.new": "新着ゲーム",
+          "hero.sale": "eShopでセール中",
+          "hero.popular": "人気ゲーム",
+          "hero.party": "みんなで遊ぶともっと楽しい",
+          "hero.today": "今日のおすすめ",
+          "hero.slide": (n) => `${n}枚目`,
+          "hero.discount": (p) => `eShopセール価格 ${p}`,
+          "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}まで`,
+          "hero.updates": (n) => `アップデート${n}件`,
+          "hero.dlc": (n) => `DLC ${n}件`,
+          "sort.added_desc": "並び替え: 追加が新しい順",
+          "action.refresh": "↻ 更新",
+          "action.copy": "コピー",
+          "action.admin": "管理",
+          "action.download": "ダウンロード",
+          "action.close": "閉じる",
+          "hint.connect": "<b>CyberFoil</b>: オプション → <em>eShop URL</em> に上のアドレスを入力し、認証を有効にしている場合は <em>eShop ユーザー名 / パスワード</em> にログイン情報を入力します。 &nbsp;|&nbsp; Tinfoil 互換: <em>File Browser</em> → <code>+</code> で上のURLを追加します。",
+          "stat.games": "タイトル",
+          "stat.games_sub": "/games をスキャン",
+          "stat.titledb": "Titledb",
+          "stat.titledb_sub": "統合タイトル",
+          "stat.base": "本編",
+          "stat.base_sub": "本編タイトル",
+          "stat.mods": "アップデート/DLC",
+          "stat.mods_sub": (u, d) => `アップデート ${u} · DLC ${d}`,
+          "section.namehealth": "名前ソースの状態",
+          "nh.titledb": "Titledb",
+          "nh.extraction": "NSP/XCI 抽出",
+          "nh.verdict.ok": "正常",
+          "nh.verdict.degraded": "一部",
+          "nh.verdict.filename": "ファイル名で代用中。titledb の取得に失敗したか、サーバーに prod.keys がありません",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()}タイトル` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "有効・キー確認済み",
+          "nh.ext.off": "無効 (extract off)",
+          "nh.ext.nostool": "無効。nstool がありません",
+          "nh.ext.nokeys": "無効。prod.keys がありません",
+          "nh.hint.filename": "titledb が github に届くようにするか、サーバーに prod.keys を置いてください。",
+          "chip.base": "本編",
+          "chip.update": "アップデート",
+          "chip.dlc": "DLC",
+          "chip.custom": "カスタム",
+          "pill.update": "アップデート",
+          "misc.unnamed": "(名前なし)",
+          "sort.name_asc": "並び替え: 名前 (昇順)",
+          "sort.name_desc": "並び替え: 名前 (降順)",
+          "sort.size_desc": "並び替え: サイズ (大きい順)",
+          "sort.size_asc": "並び替え: サイズ (小さい順)",
+          "sort.release_desc": "並び替え: 発売日 (新しい順)",
+          "sort.score_desc": "並び替え: 評価が高い順",
+          "empty.loading": "ライブラリを読み込んでいます…",
+          "empty.none": "一致するゲームがありません。<br>検索やフィルターを解除してみてください。",
+          "empty.err": "/shop.json を読み込めませんでした。コンソールを確認してください。",
+          "status.loading": "サーバー情報を読み込んでいます…",
+          "status.serving": (n) => `${n.toLocaleString()}タイトルを配信中`,
+          "status.empty": "稼働中。スキャンされたタイトルはありません",
+          "status.timeout": "時間切れです。サーバーがキャッシュを作成中かもしれません",
+          "status.error": (m) => "エラー: " + m,
+          "search.placeholder": "名前・タイトルIDで検索…",
+          "pager.info": (a, b, total) => `${a}–${b} / 全${total.toLocaleString()}件`,
+          "pager.prev": "前へ",
+          "pager.next": "次へ",
+          "toast.copied": "URLをコピーしました",
+          "toast.refresh": "サーバー情報を更新しました",
+          "toast.copyFail": "コピーできませんでした",
+          "modal.size": "サイズ",
+          "modal.score": "評価",
+          "score.count": (n) => `${n.toLocaleString()}件のレビュー`,
+          "modal.release": "発売日",
+          "modal.type": "種類",
+          "modal.titleId": "タイトルID",
+          "modal.region": "地域",
+          "modal.rating": "レーティング",
+          "modal.category": "ジャンル",
+          "modal.players": "プレイ人数",
+          "modal.noDesc": "説明がありません。",
+          "modal.extras": "追加ファイル",
+          "art.head": "アートワーク (自分でアップロード)",
+          "art.icon": "アイコン",
+          "art.banner": "バナー",
+          "art.screens": "スクリーンショット",
+          "art.upload": "アップロード",
+          "art.replace": "差し替え",
+          "art.remove": "削除",
+          "art.add": "追加",
+          "art.saved": "保存しました",
+          "art.removed": "削除しました",
+          "art.failed": "失敗しました",
+          "upload.title": "アップロードトレイ",
+          "upload.open": "アップロード",
+          "upload.drop": "ファイルをドロップするか、クリックして選択します",
+          "upload.empty": "保留中のアップロードはありません",
+          "upload.disabled": "アップロードは無効です。COOK_UPLOADS_ENABLED=true を設定してください",
+          "upload.apply": "適用",
+          "upload.delete": "削除",
+          "upload.applied": (n) => `${n} → ライブラリに移動しました`,
+          "upload.deleted": "アップロードを削除しました",
+          "upload.failed": (m) => "アップロード失敗: " + m,
+          "live.connected": "ライブ更新に接続しました",
+          "live.disconnected": "再接続しています…",
+        },
+        zh: {
+          "hero.desc": "像奶油一樣百搭的檔案管理器。<br>檔案、中繼資料與圖片由單一需驗證的主機提供，並快取在磁碟上。",
+          "section.connect": "伺服器網址",
+          "section.stats": "狀態",
+          "section.library": "所有遊戲",
+          "section.recent": "最近新增",
+          "tab.games": "所有遊戲",
+          "tab.preview": "預覽",
+          "row.recent": "最近新增",
+          "row.sale": "eShop 特價中",
+          "row.new": "新作",
+          "row.updated": "最近更新",
+          "row.popular": "熱門",
+          "row.great": "名作",
+          "row.together": "2 人以上遊玩",
+          "row.party": "派對遊戲",
+          "row.big": "大容量遊戲",
+          "row.korean": "支援韓文",
+          "genre.all": "所有類型",
+          "hero.new": "新進遊戲",
+          "hero.sale": "eShop 特價中",
+          "hero.popular": "熱門遊戲",
+          "hero.party": "一起玩更有趣",
+          "hero.today": "今日推薦",
+          "hero.slide": (n) => `第 ${n} 張`,
+          "hero.discount": (p) => `eShop 特價 ${p}`,
+          "hero.until": (d) => `至 ${d.getMonth() + 1}/${d.getDate()}`,
+          "hero.updates": (n) => `${n} 個更新`,
+          "hero.dlc": (n) => `${n} 個 DLC`,
+          "sort.added_desc": "排序：最近新增",
+          "action.refresh": "↻ 重新整理",
+          "action.copy": "複製",
+          "action.admin": "管理",
+          "action.download": "下載",
+          "action.close": "關閉",
+          "hint.connect": "<b>CyberFoil</b>：選項 → 在 <em>eShop URL</em> 輸入上方網址；若已開啟驗證，請在 <em>eShop 使用者名稱 / 密碼</em> 輸入登入資訊。 &nbsp;|&nbsp; Tinfoil 相容：<em>File Browser</em> → <code>+</code> 加入上方網址。",
+          "stat.games": "遊戲檔",
+          "stat.games_sub": "/games 掃描",
+          "stat.titledb": "Titledb",
+          "stat.titledb_sub": "合併的標題",
+          "stat.base": "本體",
+          "stat.base_sub": "本體標題",
+          "stat.mods": "更新 / DLC",
+          "stat.mods_sub": (u, d) => `更新 ${u} · DLC ${d}`,
+          "section.namehealth": "名稱來源狀態",
+          "nh.titledb": "Titledb",
+          "nh.extraction": "NSP/XCI 擷取",
+          "nh.verdict.ok": "正常",
+          "nh.verdict.degraded": "部分",
+          "nh.verdict.filename": "以檔名代替。titledb 取得失敗，或伺服器沒有 prod.keys",
+          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} 個標題` + (regions ? ` · ${regions}` : ""),
+          "nh.ext.enabled": "已啟用・已找到金鑰",
+          "nh.ext.off": "已停用 (extract off)",
+          "nh.ext.nostool": "已停用。缺少 nstool",
+          "nh.ext.nokeys": "已停用。沒有 prod.keys",
+          "nh.hint.filename": "請讓 titledb 能連上 github，或把 prod.keys 放到伺服器。",
+          "chip.base": "本體",
+          "chip.update": "更新",
+          "chip.dlc": "DLC",
+          "chip.custom": "自訂",
+          "pill.update": "更新",
+          "misc.unnamed": "(未命名)",
+          "sort.name_asc": "排序：名稱 (A→Z)",
+          "sort.name_desc": "排序：名稱 (Z→A)",
+          "sort.size_desc": "排序：大小 (大→小)",
+          "sort.size_asc": "排序：大小 (小→大)",
+          "sort.release_desc": "排序：發售日 (新→舊)",
+          "sort.score_desc": "排序：評分最高",
+          "empty.loading": "正在載入遊戲庫…",
+          "empty.none": "沒有符合的遊戲。<br>請清除搜尋或篩選。",
+          "empty.err": "無法載入 /shop.json，請查看主控台。",
+          "status.loading": "正在載入伺服器資料…",
+          "status.serving": (n) => `提供 ${n.toLocaleString()} 個標題中`,
+          "status.empty": "運行中，尚未掃描到標題",
+          "status.timeout": "逾時，伺服器可能仍在建立快取",
+          "status.error": (m) => "錯誤：" + m,
+          "search.placeholder": "以名稱或標題 ID 搜尋…",
+          "pager.info": (a, b, total) => `${a}–${b} / 共 ${total.toLocaleString()} 個`,
+          "pager.prev": "上一頁",
+          "pager.next": "下一頁",
+          "toast.copied": "已複製網址",
+          "toast.refresh": "已重新整理伺服器資料",
+          "toast.copyFail": "複製失敗",
+          "modal.size": "大小",
+          "modal.score": "評分",
+          "score.count": (n) => `${n.toLocaleString()} 則評論`,
+          "modal.release": "發售日",
+          "modal.type": "種類",
+          "modal.titleId": "標題 ID",
+          "modal.region": "地區",
+          "modal.rating": "分級",
+          "modal.category": "類型",
+          "modal.players": "玩家人數",
+          "modal.noDesc": "沒有說明。",
+          "modal.extras": "附加檔案",
+          "art.head": "圖片 (自行上傳)",
+          "art.icon": "圖示",
+          "art.banner": "橫幅",
+          "art.screens": "截圖",
+          "art.upload": "上傳",
+          "art.replace": "取代",
+          "art.remove": "刪除",
+          "art.add": "新增",
+          "art.saved": "已儲存",
+          "art.removed": "已刪除",
+          "art.failed": "失敗",
+          "upload.title": "上傳區",
+          "upload.open": "上傳",
+          "upload.drop": "將檔案拖放到此處，或點擊選擇",
+          "upload.empty": "沒有待處理的上傳",
+          "upload.disabled": "上傳已停用，請設定 COOK_UPLOADS_ENABLED=true",
+          "upload.apply": "套用",
+          "upload.delete": "刪除",
+          "upload.applied": (n) => `${n} → 已移入遊戲庫`,
+          "upload.deleted": "已刪除上傳",
+          "upload.failed": (m) => "上傳失敗：" + m,
+          "live.connected": "已連線即時更新",
+          "live.disconnected": "重新連線中…",
+        },
       };
 
       const LANG_KEY = "cookingfoil:lang";
-      let lang = localStorage.getItem(LANG_KEY)
-        || (navigator.language?.toLowerCase().startsWith("ko") ? "ko" : "en");
+      // The four languages the server labels genres and reviews in.
+      const LANGS = ["ko", "en", "ja", "zh"];
+      const browserLang = (navigator.language || "").toLowerCase().slice(0, 2);
+      let lang = localStorage.getItem(LANG_KEY);
+      if (!LANGS.includes(lang)) lang = LANGS.includes(browserLang) ? browserLang : "en";
       function t(key, ...args) {
         const bundle = I18N[lang] || I18N.en;
         const v = bundle[key] ?? I18N.en[key] ?? key;
@@ -1131,7 +1380,7 @@
         animateCount($("stat-titledb"), tCount);
         animateCount($("stat-base"), baseCount);
         $("stat-mods").textContent = modsCount.toLocaleString();
-        $("stat-mods-sub").textContent = updateCount + " upd · " + dlcCount + " dlc";
+        $("stat-mods-sub").textContent = t("stat.mods_sub", updateCount, dlcCount);
 
         // Roll up update/DLC counts onto each base title so the card can
         // surface 'this base also has N updates / M DLC in your library'.
@@ -1557,7 +1806,7 @@
         const meta = document.createElement("div"); meta.className = "meta";
         const name = document.createElement("div"); name.className = "name";
         const aliases = Array.isArray(r.tdb?.aliases) ? r.tdb.aliases : [];
-        name.textContent = cleanName(nameWithAlias(r.item.name || "(unnamed)", aliases));
+        name.textContent = cleanName(nameWithAlias(r.item.name || t("misc.unnamed"), aliases));
         name.title = name.textContent;
         const sub  = document.createElement("div"); sub.className = "sub";
 
@@ -1579,7 +1828,7 @@
         // than "×N" which looked like a multiplier on the base card itself.
         // Korean uses the chip label "업데이트" so the rollup matches the
         // filter chip across the toolbar.
-        if (r.updateCount) addPill("+" + r.updateCount + " " + (lang === "ko" ? "업데이트" : "Update"), "update");
+        if (r.updateCount) addPill("+" + r.updateCount + " " + t("pill.update"), "update");
         if (r.dlcCount)    addPill("+" + r.dlcCount + " DLC", "dlc");
         const poster = document.createElement("div"); poster.className = "poster";
         poster.appendChild(cover);
@@ -1687,8 +1936,8 @@
         // detail (server titledb store) wins over the sparse per-row tdb.
         const td = { ...(r.tdb || {}), ...detail };
 
-        $("modal-title").textContent = cleanName(nameWithAlias(f.name || "(unnamed)", td.aliases || []));
-        $("modal-publisher").textContent = td.publisher || (f.titleId ? "Title ID " + f.titleId : t("chip.custom"));
+        $("modal-title").textContent = cleanName(nameWithAlias(f.name || t("misc.unnamed"), td.aliases || []));
+        $("modal-publisher").textContent = td.publisher || (f.titleId ? t("modal.titleId") + " " + f.titleId : t("chip.custom"));
 
         // Title image preview beside the heading — every title gets one. Falls
         // back to the placeholder SVG (never a broken-image glyph) on 404.

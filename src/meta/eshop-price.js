@@ -1,6 +1,14 @@
 // eShop price for a title, from Nintendo's public price endpoint, keyed by the
 // titledb nsuId. The merged titledb prefers Korean records, so KR is asked
 // first; titles only another region sells fall back to US then JP.
+//
+// The cache is kept on disk (loadPrices at boot, saved after each refresh) so
+// a restart does not empty the sale rows while thousands of ids are re-asked.
+import fs from "fs";
+import path from "path";
+import debug from "../debug.js";
+import { titledbCacheDir } from "../helpers/envs.js";
+
 const ENDPOINT = "https://api.ec.nintendo.com/v1/price";
 const COUNTRIES = [["KR", "ko"], ["US", "en"], ["JP", "ja"]];
 const FOUND_TTL_MS = 12 * 60 * 60 * 1000;
@@ -11,9 +19,37 @@ const NSU_ID_RE = /^\d{14}$/;
 const BATCH_SIZE = 50;
 const BATCH_PACE_MS = 300;
 
+const STORE_VERSION = 1;
 const cache = new Map();
 const listeners = [];
 let warming = null;
+let storeFile = null; // set by loadPrices(); tests leave it off and never touch disk
+
+/** Reads the saved cache; later refreshes write back to the same file. */
+export function loadPrices(file = path.join(titledbCacheDir, "prices.json")) {
+  storeFile = file;
+  try {
+    const stored = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (stored?.version !== STORE_VERSION || !Array.isArray(stored.entries)) return 0;
+    for (const [id, hit] of stored.entries) {
+      if (NSU_ID_RE.test(String(id)) && Number.isFinite(hit?.at)) cache.set(String(id), { at: hit.at, value: hit.value ?? null });
+    }
+  } catch (err) {
+    if (err.code !== "ENOENT") debug.error("eshop prices: cannot read %s: %s", file, err.message);
+  }
+  return cache.size;
+}
+
+function savePrices() {
+  if (!storeFile) return;
+  try {
+    fs.mkdirSync(path.dirname(storeFile), { recursive: true });
+    fs.writeFileSync(`${storeFile}.tmp`, JSON.stringify({ version: STORE_VERSION, entries: [...cache] }));
+    fs.renameSync(`${storeFile}.tmp`, storeFile);
+  } catch (err) {
+    debug.error("eshop prices: cannot save %s: %s", storeFile, err.message);
+  }
+}
 
 function priceFrom(entry, country) {
   if (entry?.sales_status !== "onsale" || !entry.regular_price?.amount) return null;
@@ -57,6 +93,7 @@ export async function eshopPrice(nsuId, { fetchImpl = fetch, now = Date.now } = 
 
 export function clearPriceCache() {
   cache.clear();
+  storeFile = null;
 }
 
 const isFresh = (hit, now) => hit && now - hit.at < (hit.value ? FOUND_TTL_MS : MISSING_TTL_MS);
@@ -134,6 +171,7 @@ export function warmPrices(nsuIds, opts = {}) {
   if (!stale.length) return Promise.resolve(0);
   warming = fetchPrices(stale, opts)
     .then((changed) => {
+      savePrices(); // also keeps the refreshed timestamps of unchanged prices
       if (changed) for (const fn of listeners) fn();
       return changed;
     })
