@@ -84,3 +84,29 @@ test("wantMeta=true → persists both the icon and the fallback metadata", async
   assert.equal(rec.name, "Homebrew Title");
   assert.equal(rec.publisher, "Acme");
 });
+
+test("an older record is extracted once more for language icons, keeping its hand-fixed name and icon", async () => {
+  const BASE = "0100000000040000";
+  const iconPath = cachePathFor(BASE, "icon");
+  await fs.mkdir(path.dirname(iconPath), { recursive: true });
+  await fs.writeFile(iconPath, Buffer.from("korean-icon"));
+  await extractedMeta.put({ id: BASE, name: "Fixed By Hand", source: "nacp-nsp" });
+  const calls = [];
+  extractor.setProvider(stubProvider({
+    name: "� broken", iconBuffer: Buffer.from("korean-icon"),
+    iconsByLang: { ko: Buffer.from("korean-icon"), en: Buffer.from("english-icon"), ja: Buffer.from("japanese-icon") },
+  }, calls));
+
+  assert.equal(extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" }), true);
+  await extractor.whenDrained();
+
+  const rec = extractedMeta.get(BASE);
+  assert.equal(rec.name, "Fixed By Hand");
+  assert.deepEqual(rec.iconLangs, ["en", "ja"], "ko matches the default icon, so it is not saved again");
+  assert.equal((await fs.readFile(cachePathFor(BASE, "icon-lang", "en"))).toString(), "english-icon");
+  assert.equal((await fs.readFile(iconPath)).toString(), "korean-icon");
+
+  extractor.resetForTests();
+  assert.equal(extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" }), false, "done once");
+  assert.equal(calls.length, 1);
+});

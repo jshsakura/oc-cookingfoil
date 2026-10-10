@@ -17,6 +17,7 @@
  */
 import * as titledbStore from "../meta/titledb-store.js";
 import { LOCALIZED_LANGS } from "../meta/titledb-store.js";
+import { iconSource, bannerSource, iconLangs } from "../meta/localized-art.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -104,8 +105,14 @@ export default async function titleDetailRoute(req, res) {
     ratingContent: normalizeCategories(fromDb?.ratingContent, MAX_RATING_REASONS) ?? null,
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
-    iconUrl: art(`/api/shop/icon/${base}`),
-    bannerUrl: fromDb?.bannerUrl || overrides.banner ? art(`/api/shop/banner/${base}`) : null,
+    // With ?lang=, the icon and banner of that language's release when it has its own art.
+    iconUrl: art(`/api/shop/icon/${base}`) + (iconSource(base, asked) ? `&lang=${asked}` : ""),
+    bannerUrl: fromDb?.bannerUrl || overrides.banner
+      ? art(`/api/shop/banner/${base}`) + (bannerSource(base, asked) ? `&lang=${asked}` : "")
+      : null,
+    icons: iconLangs(base).length
+      ? Object.fromEntries(iconLangs(base).map((l) => [l, `${art(`/api/shop/icon/${base}`)}&lang=${l}`]))
+      : null,
     screenshots,
     screenshotCount: screenshots.length,
     videos: titleVideos(fromDb),

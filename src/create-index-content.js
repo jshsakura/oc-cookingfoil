@@ -49,6 +49,7 @@ import * as popularity from "./meta/eshop-popularity.js";
 import * as userPatches from "./meta/user-patches.js";
 import * as scores from "./meta/ratings.js";
 import * as ratingSync from "./meta/rating-sync.js";
+import { iconLangs } from "./meta/localized-art.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
@@ -481,6 +482,11 @@ function buildSectionItem(relPath, wireItem) {
       const nacpEnglish = contentMeta.get(parsed.titleId, 0)?.englishName;
       const names = titledbStore.namesOf(parsed.titleId) ?? (nacpEnglish ? { en: nacpEnglish } : null);
       if (names) item.names = names;
+      // Box art per language where it differs from icon_url (feature "item-icons").
+      const langs = iconLangs(parsed.titleId);
+      if (langs.length) {
+        item.icons = Object.fromEntries(langs.map((l) => [l, `${withVersion(`/api/shop/icon/${parsed.titleId}`)}&lang=${l}`]));
+      }
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);
       if (patchCount) item.patches = patchCount;

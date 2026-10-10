@@ -74,6 +74,9 @@ export function cachePathFor(titleId, kind, idx) {
     case "icon":       return path.join(iconCacheDir, `${titleId}.jpg`);
     case "banner":     return path.join(iconCacheDir, `${titleId}.banner.jpg`);
     case "screenshot": return path.join(iconCacheDir, `${titleId}.screen.${idx}.jpg`);
+    // A language's own art (idx is the language): from that region's eShop, or the game file's icon_<Language>.dat
+    case "icon-lang":   return path.join(iconCacheDir, `${titleId}.icon.${idx}.jpg`);
+    case "banner-lang": return path.join(iconCacheDir, `${titleId}.banner.${idx}.jpg`);
     default:           throw new Error(`unknown image kind: ${kind}`);
   }
 }

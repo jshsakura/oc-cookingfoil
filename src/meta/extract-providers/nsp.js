@@ -148,6 +148,28 @@ async function pickIconForLangs(controlDir, langPriority) {
   return null;
 }
 
+// The game file carries an icon per console language; these are the ones a
+// client language maps to, best first.
+const LANG_ICON_NAMES = {
+  ko: ["Korean"],
+  en: ["AmericanEnglish", "BritishEnglish"],
+  ja: ["Japanese"],
+  zh: ["TaiwaneseChinese", "TraditionalChinese", "SimplifiedChinese"],
+};
+
+/** { ko?, en?, ja?, zh? } → icon bytes, for the languages this game has an icon in. */
+async function iconsByLang(controlDir) {
+  const out = {};
+  for (const [lang, names] of Object.entries(LANG_ICON_NAMES)) {
+    for (const langName of names) {
+      const file = await findFirstRecursive(controlDir, (n) => n.toLowerCase() === `icon_${langName.toLowerCase()}.dat`);
+      if (!file) continue;
+      try { out[lang] = await fs.readFile(file); break; } catch { /* try the next name */ }
+    }
+  }
+  return out;
+}
+
 export const name = "nsp";
 
 // Shared tail: given NCAs reachable through `ensureNca(name)` in pfs0Dir, read
@@ -171,7 +193,7 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   if (nacpBuf.length < NACP_TOTAL_BYTES) return null;
   const meta = decodeNacp(nacpBuf, langPriority);
   if (!meta) return null;
-  return { meta, iconBuffer: await pickIconForLangs(ctrlDir, langPriority) };
+  return { meta, iconBuffer: await pickIconForLangs(ctrlDir, langPriority), iconsByLang: await iconsByLang(ctrlDir) };
 }
 
 /**
@@ -204,9 +226,9 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
       timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
     if (!found) return null;
-    const { meta, iconBuffer } = found;
+    const { meta, iconBuffer, iconsByLang: langIcons } = found;
     return { id: baseTitleId, name: meta.name, publisher: meta.publisher, version: meta.version,
-      source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer };
+      source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer, iconsByLang: langIcons };
   } catch (err) {
     debug.log("pfs0 extractor: %s — %s", path.basename(absPath), err.message);
     return null;
@@ -239,7 +261,7 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
       bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames: await fs.readdir(pfs0Dir), langPriority, timeoutMs,
     });
     if (!found) return null;
-    const { meta, iconBuffer } = found;
+    const { meta, iconBuffer, iconsByLang: langIcons } = found;
     return {
       id: baseTitleId,
       name: meta.name,
@@ -247,6 +269,7 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
       version: meta.version,
       source: absPath.toLowerCase().endsWith(".xci") ? "nacp-xci" : "nacp-nsp",
       iconBuffer,
+      iconsByLang: langIcons,
     };
   } catch (err) {
     debug.log("nsp extractor: %s — %s", path.basename(absPath), err.message);
