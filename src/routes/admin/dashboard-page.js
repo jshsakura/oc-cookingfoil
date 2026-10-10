@@ -14,10 +14,19 @@ import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
-.brand{display:flex;align-items:center;gap:12px}
+.brand{margin:0}.brand a{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}
 .logo{width:44px;height:44px;flex:none}
-h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
-h1 .wm{font-family:'Baloo 2',inherit;font-weight:800;letter-spacing:-.02em;margin-right:4px}h1 .wm .dot{color:var(--accent)}
+.brand .wm{font-family:'Baloo 2',inherit;font-size:31px;font-weight:800;letter-spacing:-.02em;line-height:1;padding-top:4px}.brand .wm .dot{color:var(--accent)}
+/* the dashboard's view switch, so the admin page reads as its third tab */
+.apptabs{display:inline-flex;gap:2px;padding:3px;margin-right:auto;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
+.apptabs a{padding:6px 14px;border-radius:100px;color:var(--muted);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap}
+.apptabs a:hover{color:var(--text)}.apptabs a[aria-current="page"]{background:var(--text);color:var(--bg)}
+.tfa{display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:22px}
+.tfa .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tfa-setup{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.tfa-qr{width:180px;height:180px;background:#fff;border-radius:12px;padding:6px}.tfa-qr svg{width:100%;height:100%;display:block}
+.tfa-key{font-family:ui-monospace,monospace;font-size:15px;letter-spacing:1px;word-break:break-all;background:var(--sunk);border-radius:10px;padding:10px 12px}
+@media(max-width:640px){.tfa-setup{grid-template-columns:1fr}}
 .who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
@@ -74,12 +83,11 @@ export function dashboardPage() {
 <title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <div class="brand"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42">
-    <div><h1 aria-label="CookingFoil 관리"><span class="wm">cookingfoil<span class="dot">.</span></span> 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
-  <div class="actions">
-    <a class="btn" href="/">대시보드</a>
-    <button type="button" id="logout">로그아웃</button>
-  </div>
+  <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <nav class="apptabs" aria-label="CookingFoil">
+    <a href="/#all">모든 게임</a><a href="/#preview">미리보기</a><a href="/admin" aria-current="page">관리</a>
+  </nav>
+  <div class="actions"><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">로그아웃</button></div>
 </header>
 
 <nav class="tabs" aria-label="관리 메뉴">
@@ -115,6 +123,23 @@ export function dashboardPage() {
 </section>
 
 <section id="tab-security" hidden>
+  <div class="hd"><h2>관리자 로그인</h2></div>
+  <div class="tfa" id="tfa">
+    <p id="tfa-status" class="muted">불러오고 있습니다</p>
+    <div class="row" id="tfa-actions"></div>
+    <div class="tfa-setup" id="tfa-setup" hidden>
+      <div class="tfa-qr" id="tfa-qr" role="img" aria-label="인증 앱 QR 코드"></div>
+      <div class="tfa-steps">
+        <p class="muted">인증 앱(Google Authenticator, 1Password 등)으로 QR 을 찍거나 아래 키를 직접 넣습니다. 그다음 앱에 나온 6자리 코드를 입력하면 등록이 끝납니다. 끝내기 전까지는 지금 로그인 방식이 그대로입니다.</p>
+        <div class="tfa-key" id="tfa-key"></div>
+        <div class="row" style="margin-top:10px">
+          <input id="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="확인 코드">
+          <button type="button" class="primary" id="tfa-confirm">등록</button>
+          <button type="button" id="tfa-cancel">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="hd"><h2>차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
   <div class="scroll" id="lockouts"></div>
   <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 지우기</button></div>

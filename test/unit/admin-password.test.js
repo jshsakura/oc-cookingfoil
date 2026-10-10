@@ -12,8 +12,12 @@ test("the admin password matches only itself", () => {
   assert.equal(verifyPassword("anything", null), false);
 });
 
-test("the gate asks for a password field in password mode and a code otherwise", () => {
-  assert.match(gatePage({ password: true }), /type="password"/);
-  assert.doesNotMatch(gatePage({ password: true }), /one-time-code/);
+test("the gate asks for what the login needs: password, code, or both", () => {
+  assert.match(gatePage({ mode: "password" }), /type="password"/);
+  assert.doesNotMatch(gatePage({ mode: "password" }), /one-time-code/);
   assert.match(gatePage({}), /one-time-code/);
+  assert.doesNotMatch(gatePage({}), /type="password"/);
+  const both = gatePage({ mode: "both" });
+  assert.match(both, /type="password"/);
+  assert.match(both, /one-time-code/);
 });

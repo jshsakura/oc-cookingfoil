@@ -31,6 +31,7 @@ import {
 import { adminSecret, isEnrolled } from "../security/admin-secret.js";
 import * as users from "../security/users.js";
 import { mountManageApi } from "./admin/manage-api.js";
+import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import {
   normalizeDeviceKey,
   generateAccessKey,
@@ -52,6 +53,12 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** What the login asks for: "code" (authenticator only), "password", or "both". */
+function loginMode() {
+  if (!adminPasswordMode()) return "code";
+  return isEnrolled() ? "both" : "password";
+}
 
 /** Session check that also leaves a trail when it fails. */
 function requireSession(req, res) {
@@ -136,13 +143,15 @@ export default function adminPageRouter() {
       res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
       return;
     }
-    res.type("html").send(gatePage({ owner: adminOwner(), password: adminPasswordMode() }));
+    res.type("html").send(gatePage({ owner: adminOwner(), mode: loginMode() }));
   });
 
   router.post("/verify", async (req, res) => {
-    const ok = adminPasswordMode()
-      ? verifyPassword(req.body?.password)
-      : await verifyTotp(req.body?.code);
+    // Admin password, then the authenticator code too once one is enrolled.
+    const mode = loginMode();
+    const ok = mode === "code"
+      ? await verifyTotp(req.body?.code)
+      : verifyPassword(req.body?.password) && (mode === "password" || (await verifyTotp(req.body?.code)));
     if (!ok) {
       recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 401 });
       debug.log("admin 2fa: failed code attempt");
@@ -258,6 +267,7 @@ export default function adminPageRouter() {
   });
 
   mountManageApi(router, requireSession);
+  mountTwoFactorApi(router, { requireSession });
 
   return router;
 }
