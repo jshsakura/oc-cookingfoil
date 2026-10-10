@@ -40,6 +40,13 @@ test('genre chips filter the library by English key and follow the page language
   await expect(party).toContainText('파티');
   await page.locator('.lang-toggle [data-lang="en"]').click();
   await expect(party).toContainText('Party');
+  await page.locator('.lang-toggle [data-lang="ja"]').click();
+  await expect(party).toContainText('パーティー');
+  await expect(page.locator('.tabs [data-tab="games"]')).toHaveText('すべてのゲーム');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+  await page.locator('.lang-toggle [data-lang="zh"]').click();
+  await expect(party).toContainText('派對');
+  await page.locator('.lang-toggle [data-lang="en"]').click();
   await party.click();
   await expect(party).toHaveClass(/active/);
   await expect(page.locator('#games .game')).toHaveCount(1);

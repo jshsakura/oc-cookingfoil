@@ -94,3 +94,21 @@ test("a sale past its end date is left out of the item fields", async () => {
   assert.equal(priceFields(price, before).price_discount_ends, "2026-10-28T14:59:59Z");
   assert.deepEqual(priceFields(price, after), { price_regular: "23,220원", price_country: "KR" });
 });
+
+test("prices survive a restart through the saved cache", async () => {
+  const { loadPrices } = await import("../../src/meta/eshop-price.js");
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "prices-")), "prices.json");
+  clearPriceCache();
+  loadPrices(file);
+  const body = { prices: [{ title_id: 70010000000001, sales_status: "onsale", regular_price: { amount: "10,000원" } }] };
+  await warmPrices(["70010000000001"], { fetchImpl: reply(body), paceMs: 0 });
+  assert.ok(fs.existsSync(file));
+  clearPriceCache();
+  assert.equal(cachedPrice("70010000000001"), undefined);
+  assert.equal(loadPrices(file), 1);
+  assert.equal(cachedPrice("70010000000001").regular, "10,000원");
+  clearPriceCache();
+});

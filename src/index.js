@@ -36,6 +36,7 @@ import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
 import patchesRouter from "./routes/patches.js";
 import * as userPatches from "./meta/user-patches.js";
+import { loadPrices } from "./meta/eshop-price.js";
 import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
@@ -241,6 +242,8 @@ bootstrapTitledb()
       .catch((err) => debug.error("name-health boot log failed:", err.message));
   });
 
+// Saved eShop prices first, so the first sections build already has them.
+loadPrices();
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
 );
