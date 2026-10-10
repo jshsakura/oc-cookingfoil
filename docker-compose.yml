@@ -47,6 +47,7 @@ services:
       # Leave empty to have the server generate + persist a secret on first boot
       # (it prints the otpauth:// URI to the log).
       COOK_ADMIN_TOTP_SECRET: ${COOK_ADMIN_TOTP_SECRET:-}
+      COOK_ADMIN_PASSWORD: ${COOK_ADMIN_PASSWORD:-}
       COOK_ADMIN_SESSION_HOURS: ${COOK_ADMIN_SESSION_HOURS:-}
       # Bearer token for the recovery API (/api/admin/unlock) — reachable even
       # when your own IP is locked out.

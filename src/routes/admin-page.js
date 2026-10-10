@@ -20,6 +20,8 @@ import express from "express";
 import * as store from "../security/store.js";
 import {
   verifyTotp,
+  verifyPassword,
+  adminPasswordMode,
   issueSession,
   clearSession,
   hasValidSession,
@@ -128,17 +130,19 @@ export default function adminPageRouter() {
     // First run: the operator has never proven they hold the generated secret.
     // Show it — but only to the local network, and only until they enroll.
     const wantsGate = req.query.enrolled !== undefined;
-    if (!wantsGate && !isEnrolled() && isPrivateIp(clientIp(req))) {
+    if (!adminPasswordMode() && !wantsGate && !isEnrolled() && isPrivateIp(clientIp(req))) {
       const uri = await provisioningUri();
       res.set("Cache-Control", "no-store");
       res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
       return;
     }
-    res.type("html").send(gatePage({ owner: adminOwner() }));
+    res.type("html").send(gatePage({ owner: adminOwner(), password: adminPasswordMode() }));
   });
 
   router.post("/verify", async (req, res) => {
-    const ok = await verifyTotp(req.body?.code);
+    const ok = adminPasswordMode()
+      ? verifyPassword(req.body?.password)
+      : await verifyTotp(req.body?.code);
     if (!ok) {
       recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 401 });
       debug.log("admin 2fa: failed code attempt");
