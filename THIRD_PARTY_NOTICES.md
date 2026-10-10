@@ -18,7 +18,7 @@ CookingFoil is MIT-licensed (see [LICENSE](./LICENSE)) and builds on the work be
 
 | Package | License |
 |---|---|
-| chokidar, debug, express, express-basic-auth, fast-glob, json5, local-ip-address, lodash, multer, otplib, public-ip, serve-index, urlencode, ws | MIT |
+| chokidar, debug, express, express-basic-auth, fast-glob, json5, local-ip-address, lodash, multer, otplib, public-ip, serve-index, uqr, urlencode, ws | MIT |
 | dotenv | BSD-2-Clause |
 | sharp | Apache-2.0 |
 

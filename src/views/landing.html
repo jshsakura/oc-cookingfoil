@@ -104,13 +104,6 @@
       }
       .lang-list button:hover:not(.active) { background: var(--sunk); }
       .lang-list button.active { background: var(--ink); color: var(--ground); }
-      .admin-link {
-        display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px 0 12px;
-        border-radius: 100px; border: 1px solid var(--line); background: var(--surface);
-        color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none;
-      }
-      .admin-link:hover { border-color: var(--ink); }
-      .admin-link svg { width: 16px; height: 16px; }
 
       /* TABS: a pill group beside the wordmark, the open view filled */
       .tabs {
@@ -121,7 +114,11 @@
         background: transparent; border: none; color: var(--secondary); white-space: nowrap;
         padding: 6px 14px; border-radius: 100px; font: 600 13px var(--font-body); cursor: pointer;
       }
-      .tabs button:hover:not(.active) { color: var(--ink); }
+      .tabs a.tab-link {
+        display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 100px; text-decoration: none;
+        color: var(--secondary); font: 600 13px var(--font-body); white-space: nowrap;
+      }
+      .tabs button:hover:not(.active), .tabs a.tab-link:hover { color: var(--ink); }
       .tabs button.active { background: var(--ink); color: var(--ground); }
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
@@ -494,11 +491,8 @@
         <nav class="tabs" role="tablist" aria-label="views">
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
           <button type="button" role="tab" data-tab="preview" data-i18n="tab.preview"></button>
+          <a class="tab-link" href="/admin" data-i18n="tab.admin"></a>
         </nav>
-        <a class="admin-link" href="/admin">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>
-          <span data-i18n="action.admin"></span>
-        </a>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
@@ -656,6 +650,7 @@
           "section.stats": "현황",
           "section.library": "모든 게임",
           "tab.games": "모든 게임",
+          "tab.admin": "관리",
           "tab.preview": "미리보기",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
@@ -687,7 +682,6 @@
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
           "action.language": "언어",
-          "action.admin": "관리",
           "action.download": "다운로드",
           "action.close": "닫기",
           "hint.connect": "<b>CyberFoil</b>: 옵션(설정) → <em>eShop URL</em>에 위 주소 입력, 인증을 켰다면 <em>eShop 사용자 이름 / 비밀번호</em> 칸에 로그인 정보 입력. &nbsp;|&nbsp; Tinfoil 호환: <em>File Browser</em> → <code>+</code> 로 위 URL 추가.",
@@ -779,6 +773,7 @@
           "section.library": "All games",
           "section.recent": "Recently added",
           "tab.games": "All games",
+          "tab.admin": "Admin",
           "tab.preview": "Preview",
           "row.recent": "Recently added",
           "row.sale": "On sale on eShop",
@@ -806,7 +801,6 @@
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
           "action.language": "Language",
-          "action.admin": "Admin",
           "action.download": "Download",
           "action.close": "Close",
           "hint.connect": "<b>CyberFoil</b>: Options → <em>eShop URL</em> = the address above; with auth on, put your login in the <em>eShop Username / Password</em> fields. &nbsp;|&nbsp; Tinfoil-compatible: <em>File Browser</em> → <code>+</code> to add the URL.",
@@ -901,6 +895,7 @@
           "section.library": "すべてのゲーム",
           "section.recent": "最近の追加",
           "tab.games": "すべてのゲーム",
+          "tab.admin": "管理",
           "tab.preview": "プレビュー",
           "row.recent": "最近の追加",
           "row.sale": "eShopでセール中",
@@ -928,7 +923,6 @@
           "action.refresh": "↻ 更新",
           "action.copy": "コピー",
           "action.language": "言語",
-          "action.admin": "管理",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
           "hint.connect": "<b>CyberFoil</b>: オプション → <em>eShop URL</em> に上のアドレスを入力し、認証を有効にしている場合は <em>eShop ユーザー名 / パスワード</em> にログイン情報を入力します。 &nbsp;|&nbsp; Tinfoil 互換: <em>File Browser</em> → <code>+</code> で上のURLを追加します。",
@@ -1023,6 +1017,7 @@
           "section.library": "所有遊戲",
           "section.recent": "最近新增",
           "tab.games": "所有遊戲",
+          "tab.admin": "管理",
           "tab.preview": "預覽",
           "row.recent": "最近新增",
           "row.sale": "eShop 特價中",
@@ -1050,7 +1045,6 @@
           "action.refresh": "↻ 重新整理",
           "action.copy": "複製",
           "action.language": "語言",
-          "action.admin": "管理",
           "action.download": "下載",
           "action.close": "關閉",
           "hint.connect": "<b>CyberFoil</b>：選項 → 在 <em>eShop URL</em> 輸入上方網址；若已開啟驗證，請在 <em>eShop 使用者名稱 / 密碼</em> 輸入登入資訊。 &nbsp;|&nbsp; Tinfoil 相容：<em>File Browser</em> → <code>+</code> 加入上方網址。",

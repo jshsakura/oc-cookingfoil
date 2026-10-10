@@ -34,6 +34,7 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
+  if(tab==='security')loadTfa();
   if(tab==='featured')loadFeatured();}
 addEventListener('hashchange',showTab);
 
@@ -214,6 +215,33 @@ $('f-save').addEventListener('click',async()=>{
     featuredDirty=false;$('f-save').textContent='저장';renderFeatured();toast('추천을 저장했습니다.');}
   catch(err){toast(err.message);}});
 addEventListener('beforeunload',(e)=>{if(featuredDirty)e.preventDefault();});
+
+// ── admin login: password and/or authenticator ─────────────────
+const grouped=(s)=>String(s).replace(/(.{4})/g,'$1 ').trim();
+async function loadTfa(){
+  let s;try{s=await api('/admin/api/2fa');}catch(e){$('tfa-status').textContent='불러오지 못했습니다: '+e.message;return;}
+  $('tfa-status').textContent=s.password
+    ?(s.authenticator?'관리자 비밀번호와 인증 앱 코드로 들어갑니다.':'관리자 비밀번호로만 들어갑니다. 인증 앱을 등록하면 비밀번호 다음에 코드도 묻습니다.')
+    :(s.authenticator?'인증 앱 코드로 들어갑니다.':'인증 앱 코드로 들어갑니다. 아직 등록한 앱이 없습니다.');
+  const box=$('tfa-actions');box.replaceChildren();
+  if(!s.manageable){box.append(el('span','COOK_ADMIN_TOTP_SECRET 으로 고정돼 있어 여기서 바꿀 수 없습니다.','muted'));return;}
+  box.append(btn(s.authenticator?'인증 앱 다시 등록':'인증 앱 등록',startTfa,'primary'));
+  if(s.password&&s.authenticator)box.append(btn('인증 앱 끄기',async()=>{
+    if(!confirm('인증 앱을 끄면 관리자 비밀번호만으로 들어갑니다. 끌까요?'))return;
+    try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast('인증 앱을 껐습니다.');loadTfa();}catch(e){toast(e.message);}}));}
+async function startTfa(){
+  try{const d=await api('/admin/api/2fa/start',{method:'POST',body:{}});
+    $('tfa-qr').innerHTML=d.qr||'';$('tfa-key').textContent=grouped(d.secret);
+    $('tfa-setup').hidden=false;$('tfa-code').value='';$('tfa-code').focus();}catch(e){toast(e.message);}}
+async function confirmTfa(){const code=$('tfa-code').value.trim();
+  if(!/^\d{6}$/.test(code)){toast('숫자 6자리를 입력합니다.');return;}
+  try{await api('/admin/api/2fa/confirm',{method:'POST',body:{code}});
+    $('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';
+    toast('인증 앱을 등록했습니다. 다음 로그인부터 코드도 묻습니다.');loadTfa();}
+  catch(e){toast(e.message==='code does not match'?'코드가 맞지 않습니다. 앱에 나온 최신 코드를 넣습니다.':e.message==='enrollment expired, start again'?'시간이 지났습니다. 다시 등록합니다.':e.message);}}
+$('tfa-confirm').addEventListener('click',confirmTfa);
+$('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();});
+$('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
 showTab();loadStats();loadDevices();

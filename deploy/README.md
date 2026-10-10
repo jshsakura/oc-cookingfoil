@@ -56,7 +56,9 @@ only from file names (with a hint on what is missing).
 Open `/admin`. Without `COOK_ADMIN_PASSWORD`, the first visit **from your LAN**
 shows a setup key for an authenticator app; after the first correct code it is
 never shown again. With `COOK_ADMIN_PASSWORD` set, the page asks for that
-password instead (useful when you only reach it from outside).
+password instead (useful when you only reach it from outside). To add a
+second step, open *Security* in the admin page and register an authenticator
+app there: from then on the login asks for the password and then the code.
 
 There you add and remove accounts, approve devices, clear lockouts, pick
 featured rows for the client's home, and rescan the library.

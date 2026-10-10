@@ -118,7 +118,52 @@ export function markEnrolled() {
   debug.log("admin secret: enrolled — the enrollment QR is no longer served");
 }
 
+// ── Enrollment from the admin page ──────────────────────────────────────
+// A new secret is only a candidate until the operator types a code it
+// produced; the live secret keeps working until then. Ten minutes to finish.
+const PENDING_MS = 10 * 60 * 1000;
+let pending = null; // { secret, at }
+
+/** False when COOK_ADMIN_TOTP_SECRET pins the secret; then the page cannot change it. */
+export function canManage() {
+  return resolve().source !== "env";
+}
+
+/** A fresh candidate secret for the authenticator app (replaces any earlier candidate). */
+export function startEnrollment(now = Date.now()) {
+  if (!canManage()) throw new Error("the TOTP secret is set by COOK_ADMIN_TOTP_SECRET");
+  pending = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), at: now };
+  return pending.secret;
+}
+
+/** The candidate secret, or null when none was started or it expired. */
+export function pendingSecret(now = Date.now()) {
+  return pending && now - pending.at < PENDING_MS ? pending.secret : null;
+}
+
+/** Makes the candidate the live, enrolled secret. Call only after its code checked out. */
+export function commitEnrollment(now = Date.now()) {
+  const secret = pendingSecret(now);
+  if (!secret) throw new Error("no enrollment in progress");
+  const record = { secret, enrolled: true, createdAt: now, enrolledAt: now };
+  persist(record);
+  cached = { ...record, source: "file" };
+  pending = null;
+  debug.log("admin secret: authenticator enrolled from the admin page");
+}
+
+/** Turns the authenticator off (only sensible while an admin password guards the page). */
+export function disableEnrollment(now = Date.now()) {
+  if (!canManage()) throw new Error("the TOTP secret is set by COOK_ADMIN_TOTP_SECRET");
+  const record = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), enrolled: false, createdAt: now };
+  persist(record);
+  cached = { ...record, source: "file" };
+  pending = null;
+  debug.log("admin secret: authenticator turned off from the admin page");
+}
+
 /** Test-only escape hatch so a suite can start from a clean slate. */
 export function resetForTests() {
   cached = null;
+  pending = null;
 }

@@ -48,28 +48,31 @@ export function verifyPassword(input, expected = adminPassword) {
 }
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */
-export async function verifyTotp(code) {
+/** Whether a 6-digit code matches `secret` (±1 step drift). Marks nothing. */
+export async function codeMatches(secret, code) {
   const token = String(code ?? "").trim();
-  const secret = adminSecret();
   if (!secret || !/^\d{6}$/.test(token)) return false;
   try {
     const r = await verify({ token, secret, window: 1 });
-    const ok = Boolean(r && r.valid);
-    // First correct code proves the operator holds the secret — retire the QR.
-    if (ok) markEnrolled();
-    return ok;
+    return Boolean(r && r.valid);
   } catch (err) {
     debug.error("admin 2fa: verify error: %s", err.message);
     return false;
   }
 }
 
+export async function verifyTotp(code) {
+  const ok = await codeMatches(adminSecret(), code);
+  // First correct code proves the operator holds the secret — retire the QR.
+  if (ok) markEnrolled();
+  return ok;
+}
+
 /**
  * otpauth:// enrollment URI. Always logged at boot; served over HTTP ONLY by
  * the enrollment page, and only while unenrolled + on a private address.
  */
-export async function provisioningUri() {
-  const secret = adminSecret();
+export async function provisioningUri(secret = adminSecret()) {
   if (!secret) return null;
   try {
     return await generateURI({
