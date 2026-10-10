@@ -74,7 +74,12 @@ test('score badges read the section scores and label them in the page language',
   await pickLang(page, 'ko');
   const pill = page.locator('#games .score-badge');
   await expect(pill).toHaveText('75');
-  await expect(pill).toHaveClass(/high/);
+  // Steam's "Mostly Positive" tier, not the score range
+  await expect(pill).toHaveClass(/fair/);
+  const chip = page.locator('#steam-chips [data-steam="Mostly Positive"]');
+  await expect(chip).toContainText('대체로 긍정적');
+  await chip.click();
+  await expect(page.locator('#games .game')).toHaveCount(1);
   await expect(pill).toHaveAttribute('title', '75 · 대체로 긍정적 · 25,575명');
   await pickLang(page, 'en');
   await expect(page.locator('#games .score-badge')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');

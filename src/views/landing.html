@@ -21,7 +21,7 @@
         --ground: #16161a; --surface: #1f1f24; --sunk: #26262c; --ink: #f2f1ee;
         --line: #303037; --line2: #41414a; --secondary: #a9a8a3; --faint: #75747c;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #0c0c0e;
-        --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
+        --good: #3fbf83; --fair: #a3c14a; --pending: #e3a43a; --bad: #ef6b5f;
         --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
         color-scheme: dark;
       }
@@ -30,7 +30,7 @@
           --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
           --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
           --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-          --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+          --good: #1e8e5a; --fair: #5f8a1f; --pending: #c47c00; --bad: #cc3e34;
           --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
           color-scheme: light;
         }
@@ -39,7 +39,7 @@
         --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
         --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-        --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+        --good: #1e8e5a; --fair: #5f8a1f; --pending: #c47c00; --bad: #cc3e34;
         --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
         color-scheme: light;
       }
@@ -263,6 +263,7 @@
       .genre-chips .chip { flex-shrink: 0; background: var(--surface); border: 1px solid var(--line); }
       .genre-chips .chip.active { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       .genre-chips .chip .n { margin-left: 6px; font-weight: 500; opacity: 0.6; }
+      .genre-chips .chips-head { flex-shrink: 0; align-self: center; padding: 0 4px 0 2px; font-size: 12px; font-weight: 800; color: var(--secondary); letter-spacing: 0.04em; }
       .sort-select {
         padding: 10px 14px; border-radius: 12px; background: var(--sunk); border: 1px solid transparent;
         color: var(--ink); font: 600 13px var(--font-body); cursor: pointer;
@@ -291,7 +292,10 @@
         font: 800 15px/1 var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); background: var(--bad);
       }
+      /* Steam's tiers when Steam rated it, score ranges otherwise (IGDB) */
+      .game .score-badge.top  { background: var(--good); box-shadow: 0 0 0 2px var(--butter), 0 2px 8px rgba(0, 0, 0, 0.35); }
       .game .score-badge.high { background: var(--good); }
+      .game .score-badge.fair { background: var(--fair); }
       .game .score-badge.mid  { background: var(--pending); }
       .game .meta { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
       .game .name {
@@ -571,6 +575,7 @@
           </select>
         </div>
         <div class="genre-chips" id="genre-chips" role="group" hidden></div>
+        <div class="genre-chips" id="steam-chips" role="group" hidden></div>
         <div id="games" class="games" aria-busy="true"></div>
         <div class="pager" id="pager"></div>
         </div>
@@ -664,6 +669,7 @@
           "row.party": "파티 게임",
           "row.big": "대용량 게임",
           "row.korean": "한국어 지원",
+          "score.all": "모든 평가",
           "genre.all": "모든 장르",
           "hero.new": "새로 들어온 게임",
           "hero.sale": "eShop 할인 중",
@@ -785,6 +791,7 @@
           "row.party": "Party games",
           "row.big": "Big games",
           "row.korean": "Korean supported",
+          "score.all": "All reviews",
           "genre.all": "All genres",
           "hero.new": "Just arrived",
           "hero.sale": "On sale on eShop",
@@ -906,6 +913,7 @@
           "row.party": "パーティーゲーム",
           "row.big": "大容量ゲーム",
           "row.korean": "韓国語対応",
+          "score.all": "すべての評価",
           "genre.all": "すべてのジャンル",
           "hero.new": "新着ゲーム",
           "hero.sale": "eShopでセール中",
@@ -1027,6 +1035,7 @@
           "row.party": "派對遊戲",
           "row.big": "大容量遊戲",
           "row.korean": "支援韓文",
+          "score.all": "所有評價",
           "genre.all": "所有類型",
           "hero.new": "新進遊戲",
           "hero.sale": "eShop 特價中",
@@ -1285,7 +1294,7 @@
       let nameHealthData = null;
       let renderedItems = [];
       const PAGE_TARGET = 24;
-      const state = { kind: "base", q: "", sort: "name", genre: "", page: 1, perPage: PAGE_TARGET };
+      const state = { kind: "base", q: "", sort: "name", genre: "", steam: "", page: 1, perPage: PAGE_TARGET };
 
       // Whole rows only: about PAGE_TARGET cards, rounded up to a full row of
       // however many columns fit the window (and zoom level) right now.
@@ -1472,6 +1481,7 @@
         const list = renderedItems.filter(r => {
           if (r.kind !== state.kind) return false;
           if (state.genre && !(genreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || []).includes(state.genre)) return false;
+          if (state.steam && scoreFor(r)?.label !== state.steam) return false;
           if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
@@ -1520,6 +1530,16 @@
         // is handled in the pager button click instead, where it's intentional.
       }
 
+      // Badge colour: the Steam tier when Steam gave one, else the score range.
+      const STEAM_TIER = {
+        "Overwhelmingly Positive": "top", "Very Positive": "high", "Positive": "fair", "Mostly Positive": "fair",
+        "Mixed": "mid", "Mostly Negative": "low", "Negative": "low", "Very Negative": "low", "Overwhelmingly Negative": "low",
+      };
+      const scoreTier = (sc) => STEAM_TIER[sc.label] || (sc.score >= 75 ? "high" : sc.score >= 50 ? "mid" : "low");
+      // Steam's own order, best first, for the filter chips.
+      const STEAM_ORDER = Object.keys(STEAM_TIER);
+      const steamLabelName = (key) => { const n = scoreNames[key] || {}; return n[lang] || n.en || key; };
+
       function scoreFor(r) {
         return scoreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || null;
       }
@@ -1562,6 +1582,7 @@
           if (renderedItems.length) renderShowcase();
           if (state.genre && ![...next.values()].some((keys) => keys.includes(state.genre))) state.genre = "";
           renderGenreChips();
+          renderSteamChips();
           applyFilters();
         } catch (err) {
           console.warn("[CookingFoil] genres unavailable:", err);
@@ -1586,6 +1607,36 @@
         chip("", t("genre.all"));
         for (const [key, n] of [...counts].sort((a, b) => b[1] - a[1])) chip(key, genreLabel(key), n);
       }
+
+      // One chip per Steam review tier present, best first, in the page language.
+      function renderSteamChips() {
+        const box = $("steam-chips");
+        const counts = new Map();
+        for (const sc of scoreOf.values()) if (sc.label) counts.set(sc.label, (counts.get(sc.label) || 0) + 1);
+        if (state.steam && !counts.has(state.steam)) state.steam = "";
+        box.hidden = counts.size === 0;
+        box.innerHTML = "";
+        const head = document.createElement("span"); head.className = "chips-head"; head.textContent = "Steam";
+        box.appendChild(head);
+        const chip = (key, label, n) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "chip" + (state.steam === key ? " active" : ""); b.dataset.steam = key;
+          b.setAttribute("aria-pressed", String(state.steam === key));
+          b.textContent = label;
+          if (n) { const c = document.createElement("span"); c.className = "n"; c.textContent = n.toLocaleString(); b.appendChild(c); }
+          box.appendChild(b);
+        };
+        chip("", t("score.all"));
+        for (const key of STEAM_ORDER) if (counts.has(key)) chip(key, steamLabelName(key), counts.get(key));
+      }
+      $("steam-chips").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-steam]");
+        if (!b) return;
+        state.steam = b.dataset.steam;
+        state.page = 1;
+        renderSteamChips();
+        applyFilters();
+      });
 
       $("genre-chips").addEventListener("click", (e) => {
         const b = e.target.closest("button[data-genre]");
@@ -1647,6 +1698,7 @@
           if (theme.minPlayers && !((m.players || 0) >= theme.minPlayers)) return false;
           if (theme.minSize && r.size < theme.minSize) return false;
           if (theme.minScore && !((scoreFor(r)?.score || 0) >= theme.minScore)) return false;
+          if (theme.steamLabel && scoreFor(r)?.label !== theme.steamLabel) return false;
           if (theme.korean && !(m.languages || []).includes("ko")) return false;
           if (theme.category && !(m.categories || []).includes(theme.category)) return false;
           if (theme.without && (m.categories || []).includes(theme.without)) return false;
@@ -1713,6 +1765,7 @@
         add("row.updated", { sort: "updated" });
         add("row.popular", { sort: "popular" }, TOP_POOL);
         add("row.great", { sort: "score", minScore: GREAT_SCORE }, WIDE_POOL);
+        add("row.steamTop", { sort: "score", steamLabel: "Overwhelmingly Positive" }, WIDE_POOL, steamLabelName("Overwhelmingly Positive"));
         add("row.together", { sort: "popular", minPlayers: 2, without: PARTY }, WIDE_POOL);
         add("row.party", { sort: "popular", category: PARTY }, WIDE_POOL);
         add("row.big", { sort: "largest", minSize: BIG_SIZE }, Infinity);
@@ -1884,7 +1937,7 @@
         const sc = r.kind === "base" ? scoreFor(r) : null;
         if (sc) {
           const badge = document.createElement("span");
-          badge.className = "score-badge " + (sc.score >= 75 ? "high" : sc.score >= 50 ? "mid" : "low");
+          badge.className = "score-badge " + scoreTier(sc);
           badge.textContent = String(sc.score);
           badge.title = scoreText(sc.score, sc.label) + (sc.count ? " · " + t("score.count", sc.count) : "");
           poster.appendChild(badge);
@@ -2216,6 +2269,7 @@
         $("lang-btn").focus();
         applyI18n();
         renderGenreChips();
+        renderSteamChips();
       });
       document.addEventListener("click", (e) => { if (!langList.hidden && !e.target.closest("#lang-menu")) setLangMenu(false); });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !langList.hidden) { setLangMenu(false); $("lang-btn").focus(); } });
