@@ -38,7 +38,7 @@ import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
-import { normalizeGenres } from "./meta/categories.js";
+import { normalizeGenres, GENRE_LABELS } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
@@ -582,6 +582,8 @@ export function composeSections(filesMap, customs) {
   }
   const picks = featured.forSections();
   const body = { sections: [{ id: "all", title: "All", items: fillMissingRanks(items) }] };
+  // Item categories are English keys; this maps each to its label per language.
+  body.genres = GENRE_LABELS;
   // Operator-picked home rows refer to items by base id (see meta/featured.js).
   if (picks.length) body.featured = picks;
   return body;

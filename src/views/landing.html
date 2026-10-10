@@ -1269,17 +1269,17 @@
         let art = { icon: false, banner: false, screens: [] };
         let detail = {};
         if (validBase) {
-          const cached = detailCache.get(baseId);
+          const cached = detailCache.get(baseId + ":" + lang);
           if (cached) {
             ({ art, detail } = cached);
           } else {
             const [ar, dr] = await Promise.all([
               fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-              fetch(`/api/title/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+              fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" } }).catch(() => null),
             ]);
             try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
             try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
-            detailCache.set(baseId, { art, detail });
+            detailCache.set(baseId + ":" + lang, { art, detail });
           }
         }
         // detail (server titledb store) wins over the sparse per-row tdb.

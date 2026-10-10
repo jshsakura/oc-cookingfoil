@@ -21,7 +21,7 @@ import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
-import { normalizeCategories, normalizeGenres } from "../meta/categories.js";
+import { normalizeCategories, normalizeGenres, genreLabel, requestLang } from "../meta/categories.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
@@ -69,16 +69,21 @@ export default async function titleDetailRoute(req, res) {
   // a detail for a minute instead of re-fetching on every open.
   const price = fromDb?.nsuId ? await priceWithin(fromDb.nsuId, PRICE_WAIT_MS) : null;
   res.header("Cache-Control", "private, max-age=60");
+  res.header("Vary", "Accept-Language");
   const categories = normalizeGenres(fromDb?.category);
+  const lang = requestLang(req);
+  const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   res.json({
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     description: fromDb?.description ?? extracted?.description ?? null,
     intro: fromDb?.intro ?? null,
-    // The Switch client reads category as text; the list keeps the sections name.
-    category: categories ? categories.join(", ") : null,
+    // categories are English keys (as in sections); category and categoryLabels
+    // are their labels in the language the request asked for.
+    category: categoryLabels ? categoryLabels.join(", ") : null,
     categories: categories ?? null,
+    categoryLabels: categoryLabels ?? null,
     releaseDate: fromDb?.releaseDate ?? extracted?.releaseDate ?? null,
     region: fromDb?.region ?? null,
     rating: fromDb?.rating ?? null,
