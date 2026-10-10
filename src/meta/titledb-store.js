@@ -76,6 +76,17 @@ function setIfEmpty(target, field, value) {
   }
 }
 
+// The languages clients pick from; other region files still merge as before.
+export const LOCALIZED_LANGS = ["ko", "en", "ja", "zh"];
+
+function keepLocalized(rec, lang, entry) {
+  if (!LOCALIZED_LANGS.includes(lang)) return;
+  const name = typeof entry.name === "string" ? entry.name.trim() : "";
+  if (name) (rec.names ??= {})[lang] ??= name;
+  const text = typeof entry.description === "string" ? entry.description.trim() : "";
+  if (text) (rec.descriptions ??= {})[lang] ??= text;
+}
+
 function priIndex(region) {
   const lang = regionToLang(region);
   const i = langPriority.indexOf(lang);
@@ -213,6 +224,10 @@ export async function load() {
       for (const field of MERGED_FIELDS) {
         setIfEmpty(rec, field, entry[field]);
       }
+      // The merged record speaks the top-priority language; a client showing
+      // English, Japanese or Chinese wants that region's own name and text.
+      // Kept for base games only, which is where a client shows them.
+      if (isBaseTitleId(id)) keepLocalized(rec, regionToLang(region), entry);
       // Keep the first known list in language-priority order. Empty or
       // malformed lists allow fallback; a second region cannot broaden the
       // languages supported by the selected release.
@@ -363,4 +378,25 @@ export function status() {
     regions: state.regionsLoaded,
     titles: state.db.size,
   };
+}
+
+// A Korean-only release has its own title id; the same game's other regions
+// sit under the ids that share its eShop artwork.
+function localized(titleId, field) {
+  const id = String(titleId ?? "").toUpperCase();
+  const out = { ...(state.db.get(id)?.[field] ?? {}) };
+  for (const sib of artSiblings(id)) {
+    for (const [lang, value] of Object.entries(state.db.get(sib)?.[field] ?? {})) out[lang] ??= value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** The game's name in each language titledb has it in: { ko?, en?, ja?, zh? }, or null. */
+export function namesOf(titleId) {
+  return localized(titleId, "names");
+}
+
+/** The game's description in each language titledb has it in, or null. */
+export function descriptionsOf(titleId) {
+  return localized(titleId, "descriptions");
 }

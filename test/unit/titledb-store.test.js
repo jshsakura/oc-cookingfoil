@@ -376,3 +376,16 @@ test("preferredSibling: matches on bannerUrl too, not just iconUrl", async () =>
 
   assert.equal(store.preferredSibling("0100000000070000").name, "퓨리");
 });
+
+test("load: keeps each language's own name and description for base games", async () => {
+  await resetDir();
+  await writeRegion("KR.ko.json", { a: { id: "0100AAAA00000000", name: "다키스트 던전 II", description: "한국어 설명" } });
+  await writeRegion("US.en.json", { b: { id: "0100AAAA00000000", name: "Darkest Dungeon® II", description: "English text" } });
+  await writeRegion("JP.ja.json", { c: { id: "0100AAAA00000000", name: "Darkest Dungeon II", description: "日本語の説明" } });
+  await store.load();
+  assert.equal(store.get("0100AAAA00000000").description, "한국어 설명");
+  assert.deepEqual(store.namesOf("0100aaaa00000000"), { ko: "다키스트 던전 II", en: "Darkest Dungeon® II", ja: "Darkest Dungeon II" });
+  assert.equal(store.descriptionsOf("0100AAAA00000000").en, "English text");
+  assert.equal(store.descriptionsOf("0100AAAA00000000").zh, undefined);
+  assert.equal(store.namesOf("0100BBBB00000000"), null);
+});
