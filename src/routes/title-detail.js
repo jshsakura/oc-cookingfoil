@@ -16,6 +16,7 @@
  * clients can curl them verbatim; a same-origin browser keeps the relative form.
  */
 import * as titledbStore from "../meta/titledb-store.js";
+import { LOCALIZED_LANGS } from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -74,13 +75,22 @@ export default async function titleDetailRoute(req, res) {
   res.header("Vary", "Accept-Language");
   const categories = normalizeGenres(fromDb?.category);
   const lang = requestLang(req);
+  // An explicit ?lang= gets that region's own text when titledb has it; without
+  // one the detail keeps the merged (top-priority language) description.
+  const queryLang = String(req.query?.lang ?? "").toLowerCase();
+  const asked = LOCALIZED_LANGS.includes(queryLang) ? queryLang : null;
+  const descriptions = titledbStore.descriptionsOf(base);
+  const names = titledbStore.namesOf(base);
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
-    description: fromDb?.description ?? extracted?.description ?? null,
+    description: (asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null),
+    // The name and description in each language titledb has them in.
+    names: names ?? null,
+    descriptionLang: asked && descriptions?.[asked] ? asked : null,
     intro: fromDb?.intro ?? null,
     // categories are English keys (as in sections); category and categoryLabels
     // are their labels in the language the request asked for.

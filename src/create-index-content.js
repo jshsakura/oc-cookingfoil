@@ -476,6 +476,11 @@ function buildSectionItem(relPath, wireItem) {
       if (rank) item.rank = rank;
     }
     if (parsed.contentType === "base") {
+      // The name in each language titledb has (client feature "item-names").
+      // A game titledb does not list still has the English name its own file carries.
+      const nacpEnglish = contentMeta.get(parsed.titleId, 0)?.englishName;
+      const names = titledbStore.namesOf(parsed.titleId) ?? (nacpEnglish ? { en: nacpEnglish } : null);
+      if (names) item.names = names;
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);
       if (patchCount) item.patches = patchCount;
