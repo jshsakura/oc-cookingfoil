@@ -1243,6 +1243,14 @@
       const coreName = (name) =>
         name.replace(/\s*\([^()]*\)\s*$/, "").trim() || name;
 
+      // A base game's name in the page language, as the client picks it: that
+      // language, then English, then the shop's own name (titledb names per region).
+      function pickName(names, fallback) {
+        return (names && (names[lang] || names.en)) || fallback;
+      }
+      const localName = (r, fallback) =>
+        r.kind === "base" ? pickName(sectionOf.get((r.item.titleId || "").toUpperCase())?.names, fallback) : fallback;
+
       function nameWithAlias(name, aliases) {
         if (!name) return name;
         const list = Array.isArray(aliases) ? aliases : [];
@@ -1807,7 +1815,7 @@
         bg.style.backgroundImage = `url("${banner || coverSrc}")`;
         $("hero-eyebrow").textContent = label || t(key);
         const aliases = Array.isArray(r.tdb?.aliases) ? r.tdb.aliases : [];
-        $("hero-title").textContent = cleanName(nameWithAlias(r.item.name || "", aliases));
+        $("hero-title").textContent = localName(r, cleanName(nameWithAlias(r.item.name || "", aliases)));
         $("hero-pub").textContent = r.tdb?.publisher || "";
         const tags = $("hero-tags"); tags.innerHTML = "";
         const addTag = (text) => { const el = document.createElement("span"); el.textContent = text; tags.appendChild(el); };
@@ -1908,7 +1916,7 @@
         const meta = document.createElement("div"); meta.className = "meta";
         const name = document.createElement("div"); name.className = "name";
         const aliases = Array.isArray(r.tdb?.aliases) ? r.tdb.aliases : [];
-        name.textContent = cleanName(nameWithAlias(r.item.name || t("misc.unnamed"), aliases));
+        name.textContent = localName(r, cleanName(nameWithAlias(r.item.name || t("misc.unnamed"), aliases)));
         name.title = name.textContent;
         const sub  = document.createElement("div"); sub.className = "sub";
 
@@ -2038,7 +2046,7 @@
         // detail (server titledb store) wins over the sparse per-row tdb.
         const td = { ...(r.tdb || {}), ...detail };
 
-        $("modal-title").textContent = cleanName(nameWithAlias(f.name || t("misc.unnamed"), td.aliases || []));
+        $("modal-title").textContent = pickName(r.kind === "base" ? td.names : null, cleanName(nameWithAlias(f.name || t("misc.unnamed"), td.aliases || [])));
         $("modal-publisher").textContent = td.publisher || (f.titleId ? t("modal.titleId") + " " + f.titleId : t("chip.custom"));
 
         // Title image preview beside the heading — every title gets one. Falls

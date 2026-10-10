@@ -115,3 +115,19 @@ test('the language menu opens on demand, shows the current code and closes on Es
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('a.admin-link svg')).toBeVisible();
 });
+
+test('card names follow the page language from the sections names, falling back to English', async ({ page }) => {
+  await page.route('**/api/shop/sections', (route) => route.fulfill({
+    json: { sections: [{ id: 'all', title: 'All', items: [{
+      app_type: 'base', title_id: '0100000000010000', names: { ko: '테스트 게임', en: 'Test Game EN', ja: 'テストゲーム' },
+    }] }], genres: {}, score_labels: {} },
+  }));
+  await page.goto('/');
+  const name = page.locator('#games .game .name').first();
+  await pickLang(page, 'ja');
+  await expect(name).toHaveText('テストゲーム');
+  await pickLang(page, 'zh');
+  await expect(name).toHaveText('Test Game EN');
+  await pickLang(page, 'ko');
+  await expect(name).toHaveText('테스트 게임');
+});
