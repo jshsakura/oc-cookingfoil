@@ -34,7 +34,7 @@ test('genre chips filter the library by English key and follow the page language
       genres: { Party: { en: 'Party', ko: '파티', ja: 'パーティー', zh: '派對' } },
     },
   }));
-  await page.goto('/');
+  await page.goto('/#games');
   await page.locator('.lang-toggle [data-lang="ko"]').click();
   const party = page.locator('#genre-chips [data-genre="Party"]');
   await expect(party).toContainText('파티');
@@ -56,7 +56,7 @@ test('score badges read the section scores and label them in the page language',
       score_labels: { 'Mostly Positive': { en: 'Mostly Positive', ko: '대체로 긍정적', ja: 'やや好評', zh: '大多好評' } },
     },
   }));
-  await page.goto('/');
+  await page.goto('/#games');
   await page.locator('.lang-toggle [data-lang="ko"]').click();
   const pill = page.locator('#games .score-badge');
   await expect(pill).toHaveText('75');
@@ -64,4 +64,18 @@ test('score badges read the section scores and label them in the page language',
   await expect(pill).toHaveAttribute('title', '75 · 대체로 긍정적 · 25,575명');
   await page.locator('.lang-toggle [data-lang="en"]').click();
   await expect(page.locator('#games .score-badge')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
+});
+
+test('tabs show one view at a time and remember the choice', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.tabs [data-tab="store"]')).toHaveClass(/active/);
+  await expect(page.locator('#search')).toBeHidden();
+  await page.locator('.tabs [data-tab="server"]').click();
+  await expect(page.locator('#shop-url')).toBeVisible();
+  await expect(page).toHaveURL(/#server$/);
+  await page.goto('/');
+  await expect(page.locator('.tabs [data-tab="server"]')).toHaveClass(/active/);
+  await page.locator('.tabs [data-tab="games"]').click();
+  await expect(page.locator('#search')).toBeVisible();
+  await expect(page.locator('#games .game')).toHaveCount(1);
 });

@@ -561,10 +561,13 @@ function scoreFields(rating) {
 }
 
 // The eShop's own strings ("64,800원", "$19.99"), so the client shows them as is.
-function priceFields(price) {
+// Prices are re-read every 12 hours, so a sale whose end has passed since is
+// dropped here rather than shown as still running.
+export function priceFields(price, now = Date.now()) {
   if (!price) return {};
   const fields = { price_regular: price.regular, price_country: price.country };
-  if (price.discount) {
+  const ended = price.discountEnds && Date.parse(price.discountEnds) <= now;
+  if (price.discount && !ended) {
     fields.price_discount = price.discount;
     if (price.discountEnds) fields.price_discount_ends = price.discountEnds;
   }

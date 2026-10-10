@@ -97,6 +97,15 @@
       }
       .admin-link:hover { border-color: var(--ink); }
 
+      /* TABS: store preview, the whole library, server status (the admin's pill bar) */
+      .tabs { display: flex; gap: 4px; padding: 4px; margin: 0 0 24px; width: fit-content; max-width: 100%; overflow-x: auto;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 100px; }
+      .tabs button { border: none; background: transparent; color: var(--secondary); white-space: nowrap;
+        padding: 9px 20px; border-radius: 100px; font: 700 14px var(--font-body); cursor: pointer; }
+      .tabs button:hover:not(.active) { color: var(--ink); }
+      .tabs button.active { background: var(--ink); color: var(--ground); }
+      [data-tab-panel][hidden] { display: none; }
+
       /* HERO: the newest arrival on the dark band the client opens with */
       .hero {
         display: flex; align-items: center; gap: 36px; padding: 36px 40px; margin-bottom: 34px;
@@ -259,7 +268,9 @@
       .game .meta { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
       .game .name {
         font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.35;
-        overflow-wrap: anywhere;
+        /* two lines at most, always two lines tall, so a row of cards lines up; the full name is the tooltip */
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        overflow-wrap: anywhere; min-height: calc(2 * 1.35em);
       }
       .game .sub { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 0; }
       .game .sub .pill {
@@ -455,7 +466,14 @@
         </div>
       </div>
 
+      <nav class="tabs" role="tablist" aria-label="views">
+        <button type="button" role="tab" data-tab="store" data-i18n="tab.store"></button>
+        <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
+        <button type="button" role="tab" data-tab="server" data-i18n="tab.server"></button>
+      </nav>
+
       <div class="card">
+        <div data-tab-panel="store">
         <section class="hero" id="hero" tabindex="0" hidden>
           <div class="hero-bg" id="hero-bg"></div>
           <img class="hero-cover" id="hero-cover" alt="" decoding="async">
@@ -469,6 +487,35 @@
           </div>
         </section>
 
+        <div id="home-rows"></div>
+        </div>
+
+        <div data-tab-panel="games" hidden>
+        <h2><span data-i18n="section.library"></span><span class="rule"></span><span class="count" id="games-count">0</span></h2>
+        <div class="toolbar">
+          <input class="search" id="search" type="search" autocomplete="off" />
+          <div class="chips" id="chips">
+            <button class="chip active" data-kind="base"   type="button" data-i18n="chip.base"></button>
+            <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
+            <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
+            <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
+          </div>
+          <select class="sort-select" id="sort">
+            <option value="name"         data-i18n="sort.name_asc"></option>
+            <option value="name-desc"    data-i18n="sort.name_desc"></option>
+            <option value="added-desc"   data-i18n="sort.added_desc"></option>
+            <option value="size-desc"    data-i18n="sort.size_desc"></option>
+            <option value="size-asc"     data-i18n="sort.size_asc"></option>
+            <option value="release-desc" data-i18n="sort.release_desc"></option>
+            <option value="score-desc"   data-i18n="sort.score_desc"></option>
+          </select>
+        </div>
+        <div class="genre-chips" id="genre-chips" role="group" hidden></div>
+        <div id="games" class="games" aria-busy="true"></div>
+        <div class="pager" id="pager"></div>
+        </div>
+
+        <div data-tab-panel="server" hidden>
         <div class="panels">
           <section class="panel">
             <h3><span data-i18n="section.connect"></span><span class="rule"></span>
@@ -510,31 +557,7 @@
             </div>
           </section>
         </div>
-
-        <div id="home-rows"></div>
-
-        <h2><span data-i18n="section.library"></span><span class="rule"></span><span class="count" id="games-count">0</span></h2>
-        <div class="toolbar">
-          <input class="search" id="search" type="search" autocomplete="off" />
-          <div class="chips" id="chips">
-            <button class="chip active" data-kind="base"   type="button" data-i18n="chip.base"></button>
-            <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
-            <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
-            <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
-          </div>
-          <select class="sort-select" id="sort">
-            <option value="name"         data-i18n="sort.name_asc"></option>
-            <option value="name-desc"    data-i18n="sort.name_desc"></option>
-            <option value="added-desc"   data-i18n="sort.added_desc"></option>
-            <option value="size-desc"    data-i18n="sort.size_desc"></option>
-            <option value="size-asc"     data-i18n="sort.size_asc"></option>
-            <option value="release-desc" data-i18n="sort.release_desc"></option>
-            <option value="score-desc"   data-i18n="sort.score_desc"></option>
-          </select>
         </div>
-        <div class="genre-chips" id="genre-chips" role="group" hidden></div>
-        <div id="games" class="games" aria-busy="true"></div>
-        <div class="pager" id="pager"></div>
       </div>
 
       <div class="footer">
@@ -595,9 +618,12 @@
           "section.connect": "서버 연결",
           "section.stats": "현황",
           "section.library": "모든 게임",
+          "tab.store": "스토어",
+          "tab.games": "모든 게임",
+          "tab.server": "서버",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
-          "row.sale": "할인 중",
+          "row.sale": "eShop 할인 중",
           "row.new": "신작",
           "row.updated": "최근 업데이트",
           "row.popular": "인기",
@@ -608,12 +634,13 @@
           "row.korean": "한국어 지원",
           "genre.all": "모든 장르",
           "hero.new": "새로 들어온 게임",
-          "hero.sale": "지금 할인 중",
+          "hero.sale": "eShop 할인 중",
           "hero.popular": "인기 게임",
           "hero.party": "함께 하면 더 재미있는 게임",
           "hero.today": "오늘의 추천",
           "hero.slide": (n) => `${n}번째 추천`,
-          "hero.discount": (p) => `할인 ${p}`,
+          "hero.discount": (p) => `eShop 할인가 ${p}`,
+          "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}까지`,
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
           "sort.added_desc": "정렬: 최근 추가순",
@@ -709,8 +736,11 @@
           "section.stats": "Stats",
           "section.library": "All games",
           "section.recent": "Recently added",
+          "tab.store": "Store",
+          "tab.games": "All games",
+          "tab.server": "Server",
           "row.recent": "Recently added",
-          "row.sale": "On sale",
+          "row.sale": "On sale on eShop",
           "row.new": "New releases",
           "row.updated": "Recently updated",
           "row.popular": "Popular",
@@ -721,12 +751,13 @@
           "row.korean": "Korean supported",
           "genre.all": "All genres",
           "hero.new": "Just arrived",
-          "hero.sale": "On sale now",
+          "hero.sale": "On sale on eShop",
           "hero.popular": "Popular",
           "hero.party": "Better together",
           "hero.today": "Today's pick",
           "hero.slide": (n) => `Slide ${n}`,
-          "hero.discount": (p) => `Sale ${p}`,
+          "hero.discount": (p) => `eShop sale ${p}`,
+          "hero.until": (d) => `until ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => `${n} updates`,
           "hero.dlc": (n) => `${n} DLC`,
           "sort.added_desc": "Sort: Recently added",
@@ -1304,6 +1335,14 @@
       const tidOf = (r) => (r.item.titleId || "").toUpperCase();
       const metaOf = (r) => sectionOf.get(tidOf(r)) || {};
       const releaseOf = (r) => r.releaseDate || metaOf(r).release_date || 0;
+      // eShop prices are re-read every 12 hours; a sale past its end no longer counts.
+      const saleOf = (r) => {
+        const m = metaOf(r);
+        if (!m.price_discount) return null;
+        const ends = m.price_discount_ends ? Date.parse(m.price_discount_ends) : NaN;
+        if (ends <= Date.now()) return null;
+        return { price: m.price_discount, ends: Number.isFinite(ends) ? new Date(ends) : null };
+      };
 
       // One theme: filter the base games, then order them like the client does.
       function browse(bases, theme) {
@@ -1311,7 +1350,7 @@
           const m = metaOf(r);
           if (theme.sort === "release" && !releaseOf(r)) return false;
           if (theme.sort === "updated" && !r.updAdded) return false;
-          if (theme.onSale && !m.price_discount) return false;
+          if (theme.onSale && !saleOf(r)) return false;
           if (theme.minPlayers && !((m.players || 0) >= theme.minPlayers)) return false;
           if (theme.minSize && r.size < theme.minSize) return false;
           if (theme.minScore && !((scoreFor(r)?.score || 0) >= theme.minScore)) return false;
@@ -1431,7 +1470,8 @@
         if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
         const sc = scoreFor(r);
         if (sc) addTag(scoreText(sc.score, sc.label));
-        if (metaOf(r).price_discount) addTag(t("hero.discount", metaOf(r).price_discount));
+        const sale = saleOf(r);
+        if (sale) addTag(t("hero.discount", sale.price) + (sale.ends ? " · " + t("hero.until", sale.ends) : ""));
         $("hero").onclick = () => openModal(r);
         const dots = $("hero-dots");
         dots.hidden = heroSlides.length < 2;
@@ -1446,9 +1486,30 @@
         if (animate) { const h = $("hero"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap"); }
       }
 
+      // Store preview, all games, server: one at a time, remembered and linkable (#games).
+      const TAB_KEY = "cookingfoil:tab", TABS = ["store", "games", "server"];
+      function showTab(name) {
+        if (!TABS.includes(name)) name = "store";
+        for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== name;
+        for (const b of document.querySelectorAll(".tabs [data-tab]")) {
+          b.classList.toggle("active", b.dataset.tab === name);
+          b.setAttribute("aria-selected", String(b.dataset.tab === name));
+        }
+        try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }
+        if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+        // The grid sizes its page from the visible column count.
+        if (name === "games") applyFilters();
+      }
+      document.querySelector(".tabs").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-tab]");
+        if (b) showTab(b.dataset.tab);
+      });
+      window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+      showTab(location.hash.slice(1) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })());
+
       // Turns on its own every six seconds unless the pointer or focus is on it.
       setInterval(() => {
-        if (heroPaused || document.hidden || heroSlides.length < 2) return;
+        if (heroPaused || document.hidden || heroSlides.length < 2 || !$("hero").offsetParent) return;
         if (Date.now() - heroAt >= HERO_MS) showHero(heroIndex + 1);
       }, 500);
       $("hero").addEventListener("mouseenter", () => { heroPaused = true; });
