@@ -38,7 +38,7 @@ import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
-import { normalizeCategories } from "./meta/categories.js";
+import { normalizeGenres } from "./meta/categories.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
@@ -445,7 +445,7 @@ function buildSectionItem(relPath, wireItem) {
   }
   const languages = normalizeSupportedLanguages(fromDb?.languages);
   if (languages) item.languages = languages;
-  const categories = normalizeCategories(fromDb?.category);
+  const categories = normalizeGenres(fromDb?.category);
   if (categories) item.categories = categories;
   if (parsed.titleId) {
     item.title_id = parsed.titleId;
@@ -520,7 +520,7 @@ function buildSectionItemFromCustom(raw) {
   if (Number.isFinite(addedAt) && addedAt > 0) item.added_at = Math.floor(addedAt);
   const languages = normalizeSupportedLanguages(raw.languages);
   if (languages) item.languages = languages;
-  const categories = normalizeCategories(raw.categories ?? raw.category);
+  const categories = normalizeGenres(raw.categories ?? raw.category);
   if (categories) item.categories = categories;
   if (tid) {
     item.title_id = tid;

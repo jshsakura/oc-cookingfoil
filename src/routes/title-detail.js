@@ -21,7 +21,7 @@ import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
-import { normalizeCategories } from "../meta/categories.js";
+import { normalizeCategories, normalizeGenres } from "../meta/categories.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
@@ -69,7 +69,7 @@ export default async function titleDetailRoute(req, res) {
   // a detail for a minute instead of re-fetching on every open.
   const price = fromDb?.nsuId ? await priceWithin(fromDb.nsuId, PRICE_WAIT_MS) : null;
   res.header("Cache-Control", "private, max-age=60");
-  const categories = normalizeCategories(fromDb?.category);
+  const categories = normalizeGenres(fromDb?.category);
   res.json({
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
