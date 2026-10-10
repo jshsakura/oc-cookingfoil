@@ -16,8 +16,8 @@ body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
 .brand{display:flex;align-items:center;gap:12px}
 .logo{width:44px;height:44px;flex:none}
-h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:6px}
-h1 .foil{background:var(--accent);color:var(--accent-ink);padding:0 8px 2px;border-radius:9px}
+h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
+h1 .foil{margin-left:5px;background:var(--accent);color:var(--accent-ink);padding:0 8px 2px;border-radius:9px}
 .who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}

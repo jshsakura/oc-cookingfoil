@@ -75,8 +75,8 @@
       .top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; }
       .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; text-decoration: none; color: var(--ink); }
       .logo { width: 44px; height: 44px; flex-shrink: 0; }
-      .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 6px; }
-      .wordmark .foil { background: var(--butter); color: var(--butter-ink); padding: 0 8px 2px; border-radius: 9px; }
+      .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+      .wordmark .foil { margin-left: 6px; background: var(--butter); color: var(--butter-ink); padding: 0 8px 2px; border-radius: 9px; }
       .lang-toggle, .theme-toggle {
         display: inline-flex; gap: 2px; padding: 3px;
         background: var(--surface); border: 1px solid var(--line); border-radius: 100px;
@@ -205,6 +205,11 @@
       }
       .chip:hover { color: var(--ink); }
       .chip.active { background: var(--ink); color: var(--ground); }
+      .genre-chips { display: flex; gap: 6px; overflow-x: auto; padding: 12px 2px 2px; scrollbar-width: none; }
+      .genre-chips[hidden] { display: none; }
+      .genre-chips .chip { flex-shrink: 0; background: var(--surface); border: 1px solid var(--line); }
+      .genre-chips .chip.active { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+      .genre-chips .chip .n { margin-left: 6px; font-weight: 500; opacity: 0.6; }
       .sort-select {
         padding: 10px 14px; border-radius: 12px; background: var(--sunk); border: 1px solid transparent;
         color: var(--ink); font: 600 13px var(--font-body); cursor: pointer;
@@ -500,6 +505,7 @@
             <option value="release-desc" data-i18n="sort.release_desc"></option>
           </select>
         </div>
+        <div class="genre-chips" id="genre-chips" role="group" hidden></div>
         <div id="games" class="games" aria-busy="true"></div>
         <div class="pager" id="pager"></div>
       </div>
@@ -563,6 +569,7 @@
           "section.stats": "현황",
           "section.library": "모든 게임",
           "section.recent": "최근 추가",
+          "genre.all": "모든 장르",
           "hero.eyebrow": "새로 들어온 게임",
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
@@ -656,6 +663,7 @@
           "section.stats": "Stats",
           "section.library": "All games",
           "section.recent": "Recently added",
+          "genre.all": "All genres",
           "hero.eyebrow": "Just arrived",
           "hero.updates": (n) => `${n} updates`,
           "hero.dlc": (n) => `${n} DLC`,
@@ -887,7 +895,11 @@
       let shopData = null;
       let nameHealthData = null;
       let renderedItems = [];
-      const state = { kind: "base", q: "", sort: "name", page: 1, perPage: 24 };
+      const state = { kind: "base", q: "", sort: "name", genre: "", page: 1, perPage: 24 };
+      // Genres come from /api/shop/sections as English keys plus a label per
+      // language (shop.json stays the plain Tinfoil index without them).
+      let genreOf = new Map(); // base title id → [genre key]
+      let genreNames = {};    // genre key → { en, ko, ja, zh }
 
       // ─── skeleton placeholders ─────────────────────────────────────────────
       // Drop a grid of shimmering cards in immediately so the first paint
@@ -1047,12 +1059,14 @@
         renderShowcase();
         state.page = 1;
         applyFilters();
+        loadGenres();
       }
 
       // ─── filter / sort / paginate ─────────────────────────────────────────
       function visibleSet() {
         const list = renderedItems.filter(r => {
           if (r.kind !== state.kind) return false;
+          if (state.genre && !(genreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || []).includes(state.genre)) return false;
           if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
@@ -1098,6 +1112,62 @@
         // of those yanks the page around ("자꾸 지가 내려감"). Page-change scroll
         // is handled in the pager button click instead, where it's intentional.
       }
+
+      function genreLabel(key) {
+        const names = genreNames[key] || {};
+        return names[lang] || names.en || key;
+      }
+
+      async function loadGenres() {
+        try {
+          const r = await fetch("/api/shop/sections", { headers: { Accept: "application/json" } });
+          if (!r.ok) return;
+          const body = await r.json();
+          const next = new Map();
+          for (const section of body.sections || []) {
+            for (const item of section.items || []) {
+              if (item.app_type === "base" && item.title_id && Array.isArray(item.categories)) {
+                next.set(String(item.title_id).toUpperCase(), item.categories);
+              }
+            }
+          }
+          genreOf = next;
+          genreNames = body.genres && typeof body.genres === "object" ? body.genres : {};
+          if (state.genre && ![...next.values()].some((keys) => keys.includes(state.genre))) state.genre = "";
+          renderGenreChips();
+          applyFilters();
+        } catch (err) {
+          console.warn("[CookingFoil] genres unavailable:", err);
+        }
+      }
+
+      // One chip per genre key, busiest first, labelled in the page language.
+      function renderGenreChips() {
+        const box = $("genre-chips");
+        const counts = new Map();
+        for (const keys of genreOf.values()) for (const key of keys) counts.set(key, (counts.get(key) || 0) + 1);
+        box.hidden = counts.size === 0;
+        box.innerHTML = "";
+        const chip = (key, label, n) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "chip" + (state.genre === key ? " active" : ""); b.dataset.genre = key;
+          b.setAttribute("aria-pressed", String(state.genre === key));
+          b.textContent = label;
+          if (n) { const c = document.createElement("span"); c.className = "n"; c.textContent = n.toLocaleString(); b.appendChild(c); }
+          box.appendChild(b);
+        };
+        chip("", t("genre.all"));
+        for (const [key, n] of [...counts].sort((a, b) => b[1] - a[1])) chip(key, genreLabel(key), n);
+      }
+
+      $("genre-chips").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-genre]");
+        if (!b) return;
+        state.genre = b.dataset.genre;
+        state.page = 1;
+        renderGenreChips();
+        applyFilters();
+      });
 
       // File names carry "[TITLEID][vN]" for Tinfoil; people read the title alone.
       function cleanName(name) {
@@ -1306,7 +1376,7 @@
           [t("modal.titleId"),  f.titleId || "—"],
           [t("modal.region"),   td.region || "—"],
           [t("modal.rating"),   td.rating != null ? String(td.rating) : "—"],
-          [t("modal.category"), Array.isArray(td.category) ? td.category.join(", ") : (td.category || "—")],
+          [t("modal.category"), Array.isArray(td.categoryLabels) ? td.categoryLabels.join(", ") : (td.category || "—")],
           [t("modal.players"),  td.numberOfPlayers != null ? String(td.numberOfPlayers) : "—"],
         ];
         for (const [k, v] of rows) {
@@ -1493,6 +1563,7 @@
         lang = e.target.dataset.lang;
         localStorage.setItem(LANG_KEY, lang);
         applyI18n();
+        renderGenreChips();
       });
 
       // ─── theme ────────────────────────────────────────────────────────────
