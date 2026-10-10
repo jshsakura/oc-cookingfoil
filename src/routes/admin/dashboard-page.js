@@ -12,53 +12,55 @@ import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 
 const PAGE_CSS = /* css */ `
-body{padding:24px 20px 60px}.wrap{max-width:1040px;margin:0 auto}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
 .brand{display:flex;align-items:center;gap:12px}
-.logo{width:42px;height:42px;flex:none;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}
-h1{font-size:20px;margin:0}
+.logo{width:44px;height:44px;flex:none}
+h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:6px}
+h1 .foil{background:var(--accent);color:var(--accent-ink);padding:0 8px 2px;border-radius:9px}
 .who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
-.seg button{border:none;border-radius:100px;padding:5px 9px;color:var(--muted)}
-.seg button.active{background:rgba(var(--accent-rgb),.18);color:var(--accent)}
+.seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
+.seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
+.seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
-nav.tabs a{padding:10px 14px;color:var(--muted);text-decoration:none;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
-nav.tabs a[aria-current="page"]{color:var(--text);border-bottom-color:var(--accent)}
+nav.tabs{display:flex;gap:6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+nav.tabs a{padding:10px 18px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
+nav.tabs a:hover{color:var(--text)}
+nav.tabs a[aria-current="page"]{color:var(--bg);background:var(--text)}
 .count[hidden]{display:none}
 .count{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:100px;font-size:11px;background:rgba(var(--bad-rgb),.18);color:var(--bad)}
 section[hidden]{display:none}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
-.card .v{font-size:24px;font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+.card .v{font-size:28px;font-weight:800;letter-spacing:-.02em}
 .card .l{color:var(--muted);font-size:12px}
 .card.alert{border-color:rgba(var(--bad-rgb),.45)}.card.alert .v{color:var(--bad)}
 .lanes{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
 .scroll{overflow-x:auto}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .hd h2{margin:22px 0 10px}
-form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 form.add input{flex:1;min-width:150px}
 td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 td.dim{color:var(--faint)}
-dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
-dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
+dialog{border:1px solid var(--line);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog h3{margin:0 0 6px;font-size:18px}
 .cred{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 12px;align-items:center;margin:16px 0}
 .cred .v{font-family:ui-monospace,monospace;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:7px 10px;word-break:break-all}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
-.fcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
 .fcard .top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .fcard .top input{flex:1;min-width:180px}
-.fgames{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.fgames{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .fgames li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--sunk)}
 .fgames li:last-child{border-bottom:none}
-.fgames img{width:36px;height:36px;border-radius:8px;flex:none;background:var(--line)}
+.fgames img{width:40px;height:40px;border-radius:10px;flex:none;background:var(--line)}
 .fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fgames button{padding:4px 9px}
 .fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
@@ -75,7 +77,7 @@ export function dashboardPage() {
 <div class="wrap">
 <header>
   <div class="brand"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42">
-    <div><h1>CookingFoil 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
+    <div><h1>Cooking<span class="foil">Foil</span> 관리</h1><div class="who" id="who">불러오고 있습니다</div></div></div>
   <div class="actions">
     <a class="btn" href="/">대시보드</a>
     <div class="seg" id="theme" role="group" aria-label="테마">

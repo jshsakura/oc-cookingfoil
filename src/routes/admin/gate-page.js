@@ -7,12 +7,12 @@ export function gatePage({ owner } = {}) {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
-.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px;width:min(360px,100%);
+.box{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:36px 32px;width:min(360px,100%);
 text-align:center;box-shadow:0 30px 60px var(--shadow)}
-.logo{display:block;margin:0 auto 8px;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}h1{font-size:19px;margin:0 0 6px}
+.logo{display:block;margin:0 auto 12px}h1{font-size:22px;font-weight:800;margin:0 0 6px}
 p{color:var(--muted);font-size:13px;margin:0 0 20px}
 input{width:100%;padding:12px;font-size:22px;letter-spacing:8px;text-align:center}
-#go{margin-top:14px;width:100%;padding:11px}
+#go{margin-top:14px;width:100%;padding:14px;font-size:15px;border-radius:14px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
 .back{display:inline-block;margin-top:16px;color:var(--muted);font-size:13px}</style></head><body>
 <div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="56" height="56"><h1>관리 페이지</h1>
