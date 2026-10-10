@@ -45,7 +45,7 @@ test('genre chips filter the library by English key and follow the page language
   await expect(page.locator('#games .game')).toHaveCount(1);
 });
 
-test('score pills read the section scores and label them in the page language', async ({ page }) => {
+test('score badges read the section scores and label them in the page language', async ({ page }) => {
   await page.route('**/api/shop/sections', (route) => route.fulfill({
     json: {
       sections: [{ id: 'all', title: 'All', items: [{
@@ -58,9 +58,10 @@ test('score pills read the section scores and label them in the page language', 
   }));
   await page.goto('/');
   await page.locator('.lang-toggle [data-lang="ko"]').click();
-  const pill = page.locator('#games .pill.score');
-  await expect(pill).toHaveText('★ 75');
+  const pill = page.locator('#games .score-badge');
+  await expect(pill).toHaveText('75');
+  await expect(pill).toHaveClass(/high/);
   await expect(pill).toHaveAttribute('title', '75 · 대체로 긍정적 · 25,575명');
   await page.locator('.lang-toggle [data-lang="en"]').click();
-  await expect(page.locator('#games .pill.score')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
+  await expect(page.locator('#games .score-badge')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
 });
