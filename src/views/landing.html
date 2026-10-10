@@ -74,7 +74,7 @@
       /* TOP BAR: wordmark on the left, admin + toggles on the right */
       .top-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
       .top-row, .top-row * { white-space: nowrap; }
-      .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; text-decoration: none; color: var(--ink); }
+      .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
       .logo { width: 44px; height: 44px; flex-shrink: 0; }
       .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
       .wordmark .foil { margin-left: 6px; background: var(--butter); color: var(--butter-ink); padding: 0 8px 2px; border-radius: 9px; }
@@ -97,13 +97,17 @@
       }
       .admin-link:hover { border-color: var(--ink); }
 
-      /* TABS: store preview, the whole library, server status (the admin's pill bar) */
-      .tabs { display: flex; gap: 4px; padding: 4px; margin: 0 0 24px; width: fit-content; max-width: 100%; overflow-x: auto;
-        background: var(--surface); border: 1px solid var(--line); border-radius: 100px; }
-      .tabs button { border: none; background: transparent; color: var(--secondary); white-space: nowrap;
-        padding: 9px 20px; border-radius: 100px; font: 700 14px var(--font-body); cursor: pointer; }
+      /* TABS: plain menu words beside the wordmark; the open one is underlined */
+      .tabs { display: flex; gap: 6px; margin: 0 auto 0 22px; }
+      .tabs button { border: none; background: transparent; color: var(--secondary); padding: 8px 10px;
+        font: 700 15px var(--font-body); cursor: pointer; border-bottom: 3px solid transparent; }
       .tabs button:hover:not(.active) { color: var(--ink); }
-      .tabs button.active { background: var(--ink); color: var(--ground); }
+      .tabs button.active { color: var(--ink); border-bottom-color: var(--butter); }
+      /* CONNECT: the shop address, always on top */
+      .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
+      .connect-bar .hint { grid-column: 1 / -1; margin-top: 0; }
+      .stats-panel { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
 
       /* HERO: the newest arrival on the dark band the client opens with */
@@ -158,7 +162,6 @@
       .badge.warm { color: var(--pending); }
       .badge.cold { color: var(--bad); }
       .badge-dot { width: 8px; height: 8px; background: currentColor; border-radius: 50%; animation: pulse 2s infinite; }
-      .panels { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
       .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; }
       .panel h3 { font-size: 16px; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
       .panel h3 .rule { flex: 1; }
@@ -424,9 +427,10 @@
       .footer a:hover { text-decoration: underline; }
 
       @media (max-width: 900px) {
-        .panels { grid-template-columns: 1fr; }
       }
       @media (max-width: 640px) {
+        .connect-bar { grid-template-columns: 1fr; }
+        .tabs { order: 3; width: 100%; margin: 0; }
         body { padding: 16px 16px 80px; }
         .wordmark { font-size: 21px; }
         .logo { width: 36px; height: 36px; }
@@ -455,6 +459,10 @@
           <img class="logo" src="/assets/cookingfoil.svg" alt="" width="44" height="44">
           <span class="wordmark">Cooking<span class="foil">Foil</span></span>
         </a>
+        <nav class="tabs" role="tablist" aria-label="views">
+          <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
+          <button type="button" role="tab" data-tab="preview" data-i18n="tab.preview"></button>
+        </nav>
         <a class="admin-link" href="/admin" data-i18n="action.admin"></a>
         <div class="theme-toggle" id="theme-toggle" role="group" aria-label="theme">
           <button data-theme-choice="light" type="button" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5"/></svg></button>
@@ -466,69 +474,18 @@
         </div>
       </div>
 
-      <nav class="tabs" role="tablist" aria-label="views">
-        <button type="button" role="tab" data-tab="store" data-i18n="tab.store"></button>
-        <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
-        <button type="button" role="tab" data-tab="server" data-i18n="tab.server"></button>
-      </nav>
+      <section class="connect-bar" aria-label="connect">
+        <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></div>
+        <div class="connect-row">
+          <div id="shop-url" class="url-pill sk">—</div>
+          <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
+        </div>
+        <p class="hint" data-i18n-html="hint.connect"></p>
+      </section>
 
       <div class="card">
-        <div data-tab-panel="store">
-        <section class="hero" id="hero" tabindex="0" hidden>
-          <div class="hero-bg" id="hero-bg"></div>
-          <img class="hero-cover" id="hero-cover" alt="" decoding="async">
-          <div class="hero-text">
-            <span class="eyebrow" id="hero-eyebrow"></span>
-            <span class="hero-title" id="hero-title"></span>
-            <span class="hero-pub" id="hero-pub"></span>
-            <div class="hero-tags" id="hero-tags"></div>
-          </div>
-          <div class="hero-dots" id="hero-dots" hidden>
-          </div>
-        </section>
-
-        <div id="home-rows"></div>
-        </div>
-
-        <div data-tab-panel="games" hidden>
-        <h2><span data-i18n="section.library"></span><span class="rule"></span><span class="count" id="games-count">0</span></h2>
-        <div class="toolbar">
-          <input class="search" id="search" type="search" autocomplete="off" />
-          <div class="chips" id="chips">
-            <button class="chip active" data-kind="base"   type="button" data-i18n="chip.base"></button>
-            <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
-            <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
-            <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
-          </div>
-          <select class="sort-select" id="sort">
-            <option value="name"         data-i18n="sort.name_asc"></option>
-            <option value="name-desc"    data-i18n="sort.name_desc"></option>
-            <option value="added-desc"   data-i18n="sort.added_desc"></option>
-            <option value="size-desc"    data-i18n="sort.size_desc"></option>
-            <option value="size-asc"     data-i18n="sort.size_asc"></option>
-            <option value="release-desc" data-i18n="sort.release_desc"></option>
-            <option value="score-desc"   data-i18n="sort.score_desc"></option>
-          </select>
-        </div>
-        <div class="genre-chips" id="genre-chips" role="group" hidden></div>
-        <div id="games" class="games" aria-busy="true"></div>
-        <div class="pager" id="pager"></div>
-        </div>
-
-        <div data-tab-panel="server" hidden>
-        <div class="panels">
-          <section class="panel">
-            <h3><span data-i18n="section.connect"></span><span class="rule"></span>
-              <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></div>
-            </h3>
-            <p class="description" data-i18n-html="hero.desc"></p>
-            <div class="connect-row">
-              <div id="shop-url" class="url-pill sk">—</div>
-              <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
-            </div>
-            <p class="hint" data-i18n-html="hint.connect"></p>
-          </section>
-          <section class="panel">
+        <div data-tab-panel="games">
+          <section class="panel stats-panel">
             <h3><span data-i18n="section.stats"></span><span class="rule"></span>
               <button class="h2-action" id="refresh-btn" type="button" data-i18n="action.refresh"></button>
             </h3>
@@ -556,7 +513,46 @@
               <p class="nh-hint" id="nh-hint" hidden></p>
             </div>
           </section>
+
+        <h2><span data-i18n="section.library"></span><span class="rule"></span><span class="count" id="games-count">0</span></h2>
+        <div class="toolbar">
+          <input class="search" id="search" type="search" autocomplete="off" />
+          <div class="chips" id="chips">
+            <button class="chip active" data-kind="base"   type="button" data-i18n="chip.base"></button>
+            <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
+            <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
+            <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
+          </div>
+          <select class="sort-select" id="sort">
+            <option value="name"         data-i18n="sort.name_asc"></option>
+            <option value="name-desc"    data-i18n="sort.name_desc"></option>
+            <option value="added-desc"   data-i18n="sort.added_desc"></option>
+            <option value="size-desc"    data-i18n="sort.size_desc"></option>
+            <option value="size-asc"     data-i18n="sort.size_asc"></option>
+            <option value="release-desc" data-i18n="sort.release_desc"></option>
+            <option value="score-desc"   data-i18n="sort.score_desc"></option>
+          </select>
         </div>
+        <div class="genre-chips" id="genre-chips" role="group" hidden></div>
+        <div id="games" class="games" aria-busy="true"></div>
+        <div class="pager" id="pager"></div>
+        </div>
+
+        <div data-tab-panel="preview" hidden>
+        <section class="hero" id="hero" tabindex="0" hidden>
+          <div class="hero-bg" id="hero-bg"></div>
+          <img class="hero-cover" id="hero-cover" alt="" decoding="async">
+          <div class="hero-text">
+            <span class="eyebrow" id="hero-eyebrow"></span>
+            <span class="hero-title" id="hero-title"></span>
+            <span class="hero-pub" id="hero-pub"></span>
+            <div class="hero-tags" id="hero-tags"></div>
+          </div>
+          <div class="hero-dots" id="hero-dots" hidden>
+          </div>
+        </section>
+
+        <div id="home-rows"></div>
         </div>
       </div>
 
@@ -618,9 +614,8 @@
           "section.connect": "서버 연결",
           "section.stats": "현황",
           "section.library": "모든 게임",
-          "tab.store": "스토어",
           "tab.games": "모든 게임",
-          "tab.server": "서버",
+          "tab.preview": "미리보기",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
           "row.sale": "eShop 할인 중",
@@ -736,9 +731,8 @@
           "section.stats": "Stats",
           "section.library": "All games",
           "section.recent": "Recently added",
-          "tab.store": "Store",
           "tab.games": "All games",
-          "tab.server": "Server",
+          "tab.preview": "Preview",
           "row.recent": "Recently added",
           "row.sale": "On sale on eShop",
           "row.new": "New releases",
@@ -1486,10 +1480,10 @@
         if (animate) { const h = $("hero"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap"); }
       }
 
-      // Store preview, all games, server: one at a time, remembered and linkable (#games).
-      const TAB_KEY = "cookingfoil:tab", TABS = ["store", "games", "server"];
+      // All games or the client preview: one at a time, remembered and linkable (#preview).
+      const TAB_KEY = "cookingfoil:tab", TABS = ["games", "preview"];
       function showTab(name) {
-        if (!TABS.includes(name)) name = "store";
+        if (!TABS.includes(name)) name = "games";
         for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== name;
         for (const b of document.querySelectorAll(".tabs [data-tab]")) {
           b.classList.toggle("active", b.dataset.tab === name);
