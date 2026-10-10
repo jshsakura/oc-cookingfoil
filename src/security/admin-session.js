@@ -13,7 +13,7 @@
 import crypto from "crypto";
 import { generate, verify, generateURI } from "otplib";
 
-import { adminSessionHours, adminEmail } from "../helpers/envs.js";
+import { adminSessionHours, adminEmail, adminPassword } from "../helpers/envs.js";
 import { adminSecret, markEnrolled } from "./admin-secret.js";
 import debug from "../debug.js";
 
@@ -33,6 +33,18 @@ export function adminTotpEnabled() {
 /** The operator's identity for display + the authenticator account label. */
 export function adminOwner() {
   return adminEmail ?? "admin";
+}
+
+/** True when /admin asks for COOK_ADMIN_PASSWORD instead of a TOTP code. */
+export function adminPasswordMode() {
+  return Boolean(adminPassword);
+}
+
+/** Constant-time check of the admin password; hashing first evens out the lengths. */
+export function verifyPassword(input, expected = adminPassword) {
+  if (!expected || typeof input !== "string" || !input) return false;
+  const digest = (v) => crypto.createHash("sha256").update(v, "utf8").digest();
+  return crypto.timingSafeEqual(digest(input), digest(expected));
 }
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */

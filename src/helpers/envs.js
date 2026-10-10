@@ -114,6 +114,19 @@ const publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 // out of source control. Session lifetime after a successful code, in hours.
 const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
 const adminSessionHours = envNumber("COOK_ADMIN_SESSION_HOURS", 8, { min: 1 });
+// For an operator without an authenticator app: when set, /admin asks for this
+// password instead of a TOTP code. Keep it apart from the shop accounts, which
+// are shared with every player; shorter than 12 characters is refused.
+const ADMIN_PASSWORD_MIN = 12;
+const adminPassword = (() => {
+  const raw = pickEnv("COOK_ADMIN_PASSWORD");
+  if (!raw) return null;
+  if (raw.length >= ADMIN_PASSWORD_MIN) return raw;
+  process.stderr.write(
+    `[oc-cookingfoil] COOK_ADMIN_PASSWORD is shorter than ${ADMIN_PASSWORD_MIN} characters; ignoring it and keeping TOTP.\n`
+  );
+  return null;
+})();
 
 // Who owns this server. Used as the account label in the authenticator entry
 // (so "CookingFoil (you@example.com)" is distinguishable from every other TOTP
@@ -253,6 +266,7 @@ export {
   publicBaseUrl,
   adminTotpSecret,
   adminSessionHours,
+  adminPassword,
   adminEmail,
   customEntriesPath,
   langPriority,
