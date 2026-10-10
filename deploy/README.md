@@ -12,7 +12,7 @@ accounts, the admin page, review scores and user patches. Copy it, fill in
 cookingfoil/
 ├── docker-compose.yml   (this folder's)
 ├── .env                 (from .env.example)
-├── data/                caches, metadata, accounts — back this up
+├── data/                caches, metadata, accounts (back this up)
 ├── keys/prod.keys       optional, from your own console
 └── patches/             optional, user patches
 ```

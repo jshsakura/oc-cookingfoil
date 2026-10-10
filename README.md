@@ -18,6 +18,10 @@
 
 <p align="center"><a href="./README.ko.md">한국어</a></p>
 
+<p align="center">
+  <img src="docs/screenshots/preview-dark.png" alt="The dashboard's Preview tab: a rotating banner and store rows, the same layout the CookingFoil client shows" width="900">
+</p>
+
 > [!IMPORTANT]
 > CookingFoil is an unofficial project and is not affiliated with, endorsed by, or sponsored by Nintendo. It ships **no games, no keys and no Nintendo content**. Serve only software you own and dumped from your own console, and keep your `prod.keys` to yourself. "Nintendo Switch" and "Nintendo eShop" are trademarks of Nintendo.
 
@@ -33,6 +37,22 @@ Point it at a folder of your `.nsp` / `.nsz` / `.xci` / `.xcz` files and your Sw
 - **Web dashboard.** Browse the library in four languages, with a preview of how the client store will look.
 - **Admin page.** Users, devices, lockouts and refused requests, featured rows, library rescan. Signed in with an authenticator code or an admin password.
 - **User patches.** Serve mods and cheats you collected for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to install and toggle on the SD card.
+
+## A look around
+
+| All games | Game detail | On a phone (한국어) |
+|---|---|---|
+| <img src="docs/screenshots/games-light.png" alt="All games tab with stats, genre and Steam filters" width="320"> | <img src="docs/screenshots/detail-light.png" alt="Game detail with facts, review score and screenshots" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="Preview tab on a phone in Korean" width="150"> |
+
+Screenshots use made-up games and generated placeholder art (`node scripts/readme-screenshots.mjs` regenerates them).
+
+## Works with
+
+| Client | How it connects | What you get |
+|---|---|---|
+| [CyberFoil](https://github.com/luketanti/CyberFoil) | Native sections API | Full names, icons, versions, required firmware; QR device pairing |
+| [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) | Native API + `/api/title` | Store-style home, per-language names and art, review scores, user patches |
+| Tinfoil-style clients | `shop.tfl` | The classic file list with names and icons |
 
 ## Quick start (Docker)
 
