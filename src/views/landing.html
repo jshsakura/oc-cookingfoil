@@ -72,7 +72,8 @@
       @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
       /* TOP BAR: wordmark on the left, admin + toggles on the right */
-      .top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; }
+      .top-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+      .top-row, .top-row * { white-space: nowrap; }
       .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; text-decoration: none; color: var(--ink); }
       .logo { width: 44px; height: 44px; flex-shrink: 0; }
       .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
@@ -186,7 +187,7 @@
       .nh-hint { font-size: 13px; color: var(--bad); line-height: 1.55; background: rgba(var(--bad-rgb), 0.08); border-radius: 10px; padding: 9px 12px; }
 
       /* RECENT ROW + LIBRARY: square art with the name under it */
-      .recent { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 18px; overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0; scroll-snap-type: x proximity; }
+      .recent { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 18px; overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0; scroll-padding-inline: 12px; scroll-snap-type: x proximity; }
       .recent .game { scroll-snap-align: start; }
       .toolbar {
         display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
@@ -302,7 +303,8 @@
         overflow: hidden auto; animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
       }
-      .modal .banner { width: 100%; aspect-ratio: 16 / 9; background: var(--hero); background-size: cover; background-position: center; }
+      /* capped so a zoomed-in or short window still shows the title and details */
+      .modal .banner { width: 100%; aspect-ratio: 16 / 9; max-height: 34vh; background: var(--hero); background-size: cover; background-position: center; }
       .modal .body { padding: 26px 30px 28px; }
       .modal .modal-head { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 20px; }
       .modal .modal-head .modal-cover { margin-top: -64px; }
@@ -912,7 +914,15 @@
       let shopData = null;
       let nameHealthData = null;
       let renderedItems = [];
-      const state = { kind: "base", q: "", sort: "name", genre: "", page: 1, perPage: 24 };
+      const PAGE_TARGET = 24;
+      const state = { kind: "base", q: "", sort: "name", genre: "", page: 1, perPage: PAGE_TARGET };
+
+      // Whole rows only: about PAGE_TARGET cards, rounded up to a full row of
+      // however many columns fit the window (and zoom level) right now.
+      function fitPerPage() {
+        const cols = getComputedStyle($("games")).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+        return cols * Math.ceil(PAGE_TARGET / cols);
+      }
       // Genres come from /api/shop/sections as English keys plus a label per
       // language (shop.json stays the plain Tinfoil index without them).
       let genreOf = new Map(); // base title id → [genre key]
@@ -1105,6 +1115,7 @@
       }
 
       function applyFilters() {
+        state.perPage = fitPerPage();
         const list = visibleSet();
         const total = list.length;
         const pages = Math.max(1, Math.ceil(total / state.perPage));
@@ -1598,6 +1609,14 @@
         for (const c of $("chips").children) c.classList.toggle("active", c === e.target);
         state.kind = e.target.dataset.kind; state.page = 1; applyFilters();
       });
+      // Zooming or resizing changes the column count; keep the first visible card on screen.
+      window.addEventListener("resize", debounce(() => {
+        const next = fitPerPage();
+        if (next === state.perPage) return;
+        const first = (state.page - 1) * state.perPage;
+        state.page = Math.floor(first / next) + 1;
+        applyFilters();
+      }, 150));
       $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
         $("refresh-btn").disabled = true;
