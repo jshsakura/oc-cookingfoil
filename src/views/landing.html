@@ -22,7 +22,7 @@
         --ground: #16161a; --surface: #1f1f24; --sunk: #26262c; --ink: #f2f1ee;
         --line: #303037; --line2: #41414a; --secondary: #a9a8a3; --faint: #75747c;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #0c0c0e;
-        --good: #3fbf83; --fair: #a3c14a; --pending: #e3a43a; --bad: #ef6b5f;
+        --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
         --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
         color-scheme: dark;
       }
@@ -31,7 +31,7 @@
           --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
           --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
           --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-          --good: #1e8e5a; --fair: #5f8a1f; --pending: #c47c00; --bad: #cc3e34;
+          --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
           --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
           color-scheme: light;
         }
@@ -40,7 +40,7 @@
         --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
         --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-        --good: #1e8e5a; --fair: #5f8a1f; --pending: #c47c00; --bad: #cc3e34;
+        --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
         --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
         color-scheme: light;
       }
@@ -294,11 +294,12 @@
         font: 800 15px/1 var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); background: var(--bad);
       }
-      /* Steam's tiers when Steam rated it, score ranges otherwise (IGDB) */
-      .game .score-badge.top  { background: var(--good); box-shadow: 0 0 0 2px var(--butter), 0 2px 8px rgba(0, 0, 0, 0.35); }
-      .game .score-badge.high { background: var(--good); }
-      .game .score-badge.fair { background: var(--fair); }
-      .game .score-badge.mid  { background: var(--pending); }
+      /* five score bands, the same colours the Switch client uses */
+      .game .score-badge.s90 { background: #0d6e40; }
+      .game .score-badge.s80 { background: #22965a; }
+      .game .score-badge.s70 { background: #768c1c; }
+      .game .score-badge.s50 { background: #c47c00; }
+      .game .score-badge.low { background: #cc3e34; }
       .game .meta { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
       .game .name {
         font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.35;
@@ -1540,14 +1541,13 @@
         // is handled in the pager button click instead, where it's intentional.
       }
 
-      // Badge colour: the Steam tier when Steam gave one, else the score range.
-      const STEAM_TIER = {
-        "Overwhelmingly Positive": "top", "Very Positive": "high", "Positive": "fair", "Mostly Positive": "fair",
-        "Mixed": "mid", "Mostly Negative": "low", "Negative": "low", "Very Negative": "low", "Overwhelmingly Negative": "low",
-      };
-      const scoreTier = (sc) => STEAM_TIER[sc.label] || (sc.score >= 75 ? "high" : sc.score >= 50 ? "mid" : "low");
-      // Steam's own order, best first, for the filter chips.
-      const STEAM_ORDER = Object.keys(STEAM_TIER);
+      // Badge colour by score band (90+, 80s, 70s, 50–69, below 50), as on the Switch client.
+      const scoreTier = (sc) => (sc.score >= 90 ? "s90" : sc.score >= 80 ? "s80" : sc.score >= 70 ? "s70" : sc.score >= 50 ? "s50" : "low");
+      // Steam's review wording, best first, for the filter chips.
+      const STEAM_ORDER = [
+        "Overwhelmingly Positive", "Very Positive", "Positive", "Mostly Positive", "Mixed",
+        "Mostly Negative", "Negative", "Very Negative", "Overwhelmingly Negative",
+      ];
       const steamLabelName = (key) => { const n = scoreNames[key] || {}; return n[lang] || n.en || key; };
 
       function scoreFor(r) {
