@@ -382,6 +382,8 @@
       }
       .modal .modal-meta div { font-size: 12px; color: var(--secondary); }
       .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; }
+      /* a 16-digit title id must not break mid-way */
+      .modal .modal-meta strong.mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; white-space: nowrap; }
       .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; max-height: 220px; overflow-y: auto; }
       .modal .screenshots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
       .modal .screenshots img { width: 240px; height: 135px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--sunk); cursor: zoom-in; }
@@ -805,7 +807,7 @@
           "hero.slide": (n) => `Slide ${n}`,
           "hero.discount": (p) => `eShop sale ${p}`,
           "hero.until": (d) => `until ${d.getMonth() + 1}/${d.getDate()}`,
-          "hero.updates": (n) => `${n} updates`,
+          "hero.updates": (n) => (n === 1 ? "1 update" : `${n} updates`),
           "hero.dlc": (n) => `${n} DLC`,
           "sort.added_desc": "Sort: Recently added",
           "action.refresh": "↻ Refresh",
@@ -2096,6 +2098,7 @@
           const cell = document.createElement("div");
           const label = document.createElement("span"); label.textContent = k;
           const value = document.createElement("strong"); value.textContent = v;
+          if (k === t("modal.titleId")) value.className = "mono";
           cell.append(label, value);
           metaBox.appendChild(cell);
         }

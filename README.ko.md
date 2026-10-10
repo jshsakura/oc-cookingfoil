@@ -12,6 +12,10 @@
 
 <p align="center"><a href="./README.md">English</a></p>
 
+<p align="center">
+  <img src="docs/screenshots/preview-dark.png" alt="대시보드의 미리보기 탭: CookingFoil 클라이언트와 같은 배너와 스토어 줄" width="900">
+</p>
+
 > [!IMPORTANT]
 > CookingFoil 은 비공식 프로젝트이며 닌텐도와 관련이 없고 승인이나 후원을 받지 않습니다. **게임, 키, 닌텐도 콘텐츠를 일절 포함하지 않습니다.** 내가 소유하고 내 기기에서 직접 덤프한 소프트웨어만 제공하고, `prod.keys` 는 공유하지 마세요. "Nintendo Switch" 와 "Nintendo eShop" 은 닌텐도의 상표입니다.
 
@@ -27,6 +31,22 @@
 - **웹 대시보드.** 4개 언어로 라이브러리를 보고, 클라이언트 스토어가 어떻게 보일지 미리 봅니다.
 - **관리 페이지.** 사용자, 기기, 잠금과 거부 기록, 추천 줄, 다시 스캔. 인증 앱 코드나 관리자 비밀번호로 들어갑니다.
 - **유저 패치.** 직접 모은 모드와 치트를 [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client)가 SD 카드에 설치하고 켜고 끌 수 있게 내려 줍니다.
+
+## 둘러보기
+
+| 모든 게임 | 게임 상세 | 휴대폰 (한국어) |
+|---|---|---|
+| <img src="docs/screenshots/games-light.png" alt="통계, 장르와 Steam 필터가 있는 모든 게임 탭" width="320"> | <img src="docs/screenshots/detail-light.png" alt="정보, 리뷰 점수, 스크린샷이 있는 게임 상세" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="휴대폰에서 본 한국어 미리보기 탭" width="150"> |
+
+스크린샷은 가상의 게임과 생성한 자리표시 아트로 찍었습니다(`node scripts/readme-screenshots.mjs` 로 다시 만듭니다).
+
+## 함께 쓰는 클라이언트
+
+| 클라이언트 | 연결 방식 | 받는 것 |
+|---|---|---|
+| [CyberFoil](https://github.com/luketanti/CyberFoil) | 네이티브 섹션 API | 이름, 아이콘, 버전, 필요 펌웨어, QR 기기 페어링 |
+| [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client) | 네이티브 API + `/api/title` | 스토어형 홈, 언어별 이름과 아트, 리뷰 점수, 유저 패치 |
+| Tinfoil 계열 | `shop.tfl` | 이름과 아이콘이 있는 기존 파일 목록 |
 
 ## 빠르게 시작하기 (Docker)
 
