@@ -5,6 +5,7 @@
  * chose there (same origin, same storage key) before paint.
  */
 export const ADMIN_HEAD = /* html */ `<link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml">\
+<link rel="stylesheet" href="/assets/fonts.css">\
 <script>try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch{}</script>`;
 
 const DARK = `--bg:#16161a;--panel:#1f1f24;--sunk:#26262c;--line:#303037;--line2:#41414a;
