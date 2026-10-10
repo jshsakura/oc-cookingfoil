@@ -48,6 +48,10 @@ services:
       # (it prints the otpauth:// URI to the log).
       COOK_ADMIN_TOTP_SECRET: ${COOK_ADMIN_TOTP_SECRET:-}
       COOK_ADMIN_PASSWORD: ${COOK_ADMIN_PASSWORD:-}
+      COOK_RATING_SYNC: ${COOK_RATING_SYNC:-true}
+      COOK_IGDB_CLIENT_ID: ${COOK_IGDB_CLIENT_ID:-}
+      COOK_IGDB_CLIENT_SECRET: ${COOK_IGDB_CLIENT_SECRET:-}
+      COOK_RATINGS_URL: ${COOK_RATINGS_URL:-}
       COOK_ADMIN_SESSION_HOURS: ${COOK_ADMIN_SESSION_HOURS:-}
       # Bearer token for the recovery API (/api/admin/unlock) — reachable even
       # when your own IP is locked out.

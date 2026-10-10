@@ -37,6 +37,7 @@ import pairRouter from "./routes/pair.js";
 import patchesRouter from "./routes/patches.js";
 import * as userPatches from "./meta/user-patches.js";
 import { loadPrices } from "./meta/eshop-price.js";
+import * as ratingSync from "./meta/rating-sync.js";
 import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
@@ -250,6 +251,8 @@ shopCache.init().catch((err) =>
 
 // User patches: scanned now and every minute; a change recomposes the patch counts.
 userPatches.start({ onChange: () => shopCache.invalidate() });
+// Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
+ratingSync.start({ onChange: () => shopCache.invalidate() });
 
 // Seed the custom-art override index from disk so the icon/banner/screenshot
 // routes can do a zero-syscall "is there an override?" check on the hot path.
