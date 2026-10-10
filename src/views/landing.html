@@ -614,6 +614,7 @@
           "hero.today": "오늘의 추천",
           "hero.slide": (n) => `${n}번째 추천`,
           "hero.discount": (p) => `eShop 할인가 ${p}`,
+          "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}까지`,
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
           "sort.added_desc": "정렬: 최근 추가순",
@@ -727,6 +728,7 @@
           "hero.today": "Today's pick",
           "hero.slide": (n) => `Slide ${n}`,
           "hero.discount": (p) => `eShop sale ${p}`,
+          "hero.until": (d) => `until ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => `${n} updates`,
           "hero.dlc": (n) => `${n} DLC`,
           "sort.added_desc": "Sort: Recently added",
@@ -1304,6 +1306,14 @@
       const tidOf = (r) => (r.item.titleId || "").toUpperCase();
       const metaOf = (r) => sectionOf.get(tidOf(r)) || {};
       const releaseOf = (r) => r.releaseDate || metaOf(r).release_date || 0;
+      // eShop prices are re-read every 12 hours; a sale past its end no longer counts.
+      const saleOf = (r) => {
+        const m = metaOf(r);
+        if (!m.price_discount) return null;
+        const ends = m.price_discount_ends ? Date.parse(m.price_discount_ends) : NaN;
+        if (ends <= Date.now()) return null;
+        return { price: m.price_discount, ends: Number.isFinite(ends) ? new Date(ends) : null };
+      };
 
       // One theme: filter the base games, then order them like the client does.
       function browse(bases, theme) {
@@ -1311,7 +1321,7 @@
           const m = metaOf(r);
           if (theme.sort === "release" && !releaseOf(r)) return false;
           if (theme.sort === "updated" && !r.updAdded) return false;
-          if (theme.onSale && !m.price_discount) return false;
+          if (theme.onSale && !saleOf(r)) return false;
           if (theme.minPlayers && !((m.players || 0) >= theme.minPlayers)) return false;
           if (theme.minSize && r.size < theme.minSize) return false;
           if (theme.minScore && !((scoreFor(r)?.score || 0) >= theme.minScore)) return false;
@@ -1431,7 +1441,8 @@
         if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
         const sc = scoreFor(r);
         if (sc) addTag(scoreText(sc.score, sc.label));
-        if (metaOf(r).price_discount) addTag(t("hero.discount", metaOf(r).price_discount));
+        const sale = saleOf(r);
+        if (sale) addTag(t("hero.discount", sale.price) + (sale.ends ? " · " + t("hero.until", sale.ends) : ""));
         $("hero").onclick = () => openModal(r);
         const dots = $("hero-dots");
         dots.hidden = heroSlides.length < 2;

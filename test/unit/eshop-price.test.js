@@ -84,3 +84,13 @@ test("warmPrices tells listeners only when a price changed, and skips fresh ones
   assert.equal(calls, 1);
   assert.equal(heard, 1);
 });
+
+test("a sale past its end date is left out of the item fields", async () => {
+  const { priceFields } = await import("../../src/create-index-content.js");
+  const price = { regular: "23,220원", country: "KR", discount: "11,610원", discountEnds: "2026-10-28T14:59:59Z" };
+  const before = Date.parse("2026-10-20T00:00:00Z");
+  const after = Date.parse("2026-10-29T00:00:00Z");
+  assert.equal(priceFields(price, before).price_discount, "11,610원");
+  assert.equal(priceFields(price, before).price_discount_ends, "2026-10-28T14:59:59Z");
+  assert.deepEqual(priceFields(price, after), { price_regular: "23,220원", price_country: "KR" });
+});
