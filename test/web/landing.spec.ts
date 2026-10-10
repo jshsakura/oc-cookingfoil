@@ -8,21 +8,17 @@ async function pickLang(page: Page, code: string) {
   await expect(page.locator('#lang-list')).toBeHidden();
 }
 
-test('landing follows the system theme until the visitor picks one, then remembers it', async ({ page }) => {
+test('landing follows the system light/dark setting and forgets a theme saved by the old button', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('cookingfoil:theme', 'dark'));
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
-  const root = page.locator('html');
-  await expect(root).not.toHaveAttribute('data-theme', /.+/);
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   expect(await background()).toBe('rgb(242, 241, 238)');
+  await expect(page.locator('#theme-btn')).toHaveCount(0);
 
-  await expect(page.locator('#theme-btn')).toHaveAttribute('data-current', 'light');
-  await page.locator('#theme-btn').click();
-  await expect(root).toHaveAttribute('data-theme', 'dark');
-  expect(await background()).toBe('rgb(22, 22, 26)');
-
-  await page.reload();
-  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(background).toBe('rgb(22, 22, 26)');
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/landing-dark.png' });
 });

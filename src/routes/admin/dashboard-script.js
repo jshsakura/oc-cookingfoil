@@ -37,14 +37,6 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
   if(tab==='featured')loadFeatured();}
 addEventListener('hashchange',showTab);
 
-// ── theme (shared with the public dashboard) ──────────────────────────
-const systemLight=matchMedia('(prefers-color-scheme: light)');
-const theme=()=>document.documentElement.dataset.theme||(systemLight.matches?'light':'dark');
-function syncTheme(){for(const b of $('theme').querySelectorAll('button')){const on=b.dataset.themeChoice===theme();
-  b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));}}
-$('theme').addEventListener('click',(e)=>{const next=e.target.closest('button')?.dataset.themeChoice;if(!next)return;
-  document.documentElement.dataset.theme=next;try{localStorage.setItem('cookingfoil:theme',next);}catch{}syncTheme();});
-systemLight.addEventListener('change',syncTheme);
 
 // ── overview + users + security (one stats call) ──────────────────────
 let origin=location.origin;
@@ -101,7 +93,7 @@ $('cred-close').addEventListener('click',()=>{$('cred-dialog').close();lastCred=
 $('cred-dialog').addEventListener('close',()=>{lastCred=null;});
 $('cred-config').addEventListener('click',()=>{if(!lastCred)return;
   const config={servers:[{title:location.hostname,url:origin,username:lastCred.name,password:lastCred.password,
-    cfClientId:'',cfClientSecret:'',enabled:true}],language:'ko',installTarget:'sd'};
+    cfClientId:'',cfClientSecret:'',enabled:true}],language:(['ko','en','ja','zh'].find((l)=>(navigator.language||'').toLowerCase().startsWith(l))||'en'),installTarget:'sd'};
   const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)+'\\n'],{type:'application/json'}));
   a.download='config.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
 $('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
@@ -224,6 +216,6 @@ $('f-save').addEventListener('click',async()=>{
 addEventListener('beforeunload',(e)=>{if(featuredDirty)e.preventDefault();});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
-syncTheme();showTab();loadStats();loadDevices();
+showTab();loadStats();loadDevices();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();}},15000);
 `;

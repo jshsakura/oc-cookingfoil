@@ -11,7 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
     <script>
-      try { const saved = localStorage.getItem("cookingfoil:theme"); if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved; } catch { /* storage blocked: follow the system */ }
+      // The page follows the system light/dark setting; drop a choice the old theme button saved.
+      try { localStorage.removeItem("cookingfoil:theme"); } catch { /* storage blocked */ }
     </script>
     <style>
       /* The Switch client's palette (include/ui/Theme.hpp): warm ground, white
@@ -81,14 +82,6 @@
       .wordmark { font-family: "Baloo 2", var(--font-body); font-size: 31px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; padding-top: 4px; }
       .wordmark .dot { color: var(--butter); }
       .top-row svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-      /* one round button flips light and dark; it shows the theme you would switch to */
-      .icon-btn {
-        width: 36px; height: 36px; padding: 0; display: grid; place-items: center; cursor: pointer;
-        border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-      }
-      .icon-btn:hover { border-color: var(--ink); }
-      .icon-btn svg { width: 17px; height: 17px; }
-      #theme-btn[data-current="dark"] .moon, #theme-btn[data-current="light"] .sun { display: none; }
       /* language: the current code, a list only when asked for */
       .lang-menu { position: relative; }
       .lang-btn {
@@ -289,12 +282,14 @@
         box-shadow: 0 0 0 3px var(--ground), 0 0 0 7px var(--butter), 0 14px 30px rgba(var(--shadow-rgb), 0.18);
       }
       /* review score stamped on the poster's top-right, coloured by tier */
-      .game .score-badge {
-        position: absolute; top: 8px; right: 8px; min-width: 34px; padding: 4px 7px;
-        border-radius: 9px; text-align: center; color: #fff;
-        font: 800 15px/1 var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); background: var(--bad);
+      /* poster badges as on the Switch client: size top-left, score top-right, one shape */
+      .game .poster-badge {
+        position: absolute; top: 8px; height: 22px; padding: 0 7px; border-radius: 6px;
+        color: #fff; font: 700 13px/22px var(--font-body); font-variant-numeric: tabular-nums;
+        white-space: nowrap; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
       }
+      .game .size-badge { left: 8px; background: rgba(22, 22, 26, 0.78); }
+      .game .score-badge { right: 8px; min-width: 22px; text-align: center; background: #cc3e34; }
       /* five score bands, the same colours the Switch client uses */
       .game .score-badge.s90 { background: #0d6e40; }
       .game .score-badge.s80 { background: #22965a; }
@@ -308,7 +303,8 @@
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
         overflow-wrap: anywhere; min-height: calc(2 * 1.35em);
       }
-      .game .sub { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 0; }
+      /* one line of pills, as on the client: one that would wrap is left out, and every card keeps the line */
+      .game .sub { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 0; height: 24px; overflow: hidden; }
       .game .sub .pill {
         padding: 3px 9px; border-radius: 100px; font-size: 11.5px; font-weight: 600;
         background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
@@ -316,6 +312,7 @@
       }
       .game .sub .pill.base { display: none; }
       .game .sub .pill.update, .game .sub .pill.dlc { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+      .game .sub .pill.sale { background: var(--butter); border-color: var(--butter); color: var(--butter-ink); }
       .game .sub .pill.custom { background: rgba(var(--butter-rgb), 0.25); border-color: transparent; color: var(--ink); }
       .game .sub .pill.mono { font-family: var(--font-mono); font-weight: 500; }
       .game .sub .pill.pub { display: none; }
@@ -502,10 +499,6 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>
           <span data-i18n="action.admin"></span>
         </a>
-        <button class="icon-btn" id="theme-btn" type="button">
-          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
-          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
-        </button>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
@@ -571,9 +564,9 @@
             <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
           </div>
           <select class="sort-select" id="sort">
+            <option value="added-desc"   data-i18n="sort.added_desc"></option>
             <option value="name"         data-i18n="sort.name_asc"></option>
             <option value="name-desc"    data-i18n="sort.name_desc"></option>
-            <option value="added-desc"   data-i18n="sort.added_desc"></option>
             <option value="size-desc"    data-i18n="sort.size_desc"></option>
             <option value="size-asc"     data-i18n="sort.size_asc"></option>
             <option value="release-desc" data-i18n="sort.release_desc"></option>
@@ -693,7 +686,6 @@
           "score.count": (n) => `${n.toLocaleString()}명`,
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
-          "action.theme": "테마 전환",
           "action.language": "언어",
           "action.admin": "관리",
           "action.download": "다운로드",
@@ -723,6 +715,7 @@
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
           "chip.custom": "커스텀",
+          "pill.sale": "eShop 할인",
           "pill.update": "업데이트",
           "misc.unnamed": "(이름 없음)",
           "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
@@ -812,7 +805,6 @@
           "sort.added_desc": "Sort: Recently added",
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
-          "action.theme": "Switch theme",
           "action.language": "Language",
           "action.admin": "Admin",
           "action.download": "Download",
@@ -842,6 +834,7 @@
           "chip.update": "Updates",
           "chip.dlc": "DLC",
           "chip.custom": "Custom",
+          "pill.sale": "eShop sale",
           "pill.update": "Update",
           "misc.unnamed": "(unnamed)",
           "sort.name_asc": "Sort: Name (A→Z)",
@@ -934,7 +927,6 @@
           "sort.added_desc": "並び替え: 追加が新しい順",
           "action.refresh": "↻ 更新",
           "action.copy": "コピー",
-          "action.theme": "テーマ切り替え",
           "action.language": "言語",
           "action.admin": "管理",
           "action.download": "ダウンロード",
@@ -964,6 +956,7 @@
           "chip.update": "アップデート",
           "chip.dlc": "DLC",
           "chip.custom": "カスタム",
+          "pill.sale": "eShopセール",
           "pill.update": "アップデート",
           "misc.unnamed": "(名前なし)",
           "sort.name_asc": "並び替え: 名前 (昇順)",
@@ -1056,7 +1049,6 @@
           "sort.added_desc": "排序：最近新增",
           "action.refresh": "↻ 重新整理",
           "action.copy": "複製",
-          "action.theme": "切換主題",
           "action.language": "語言",
           "action.admin": "管理",
           "action.download": "下載",
@@ -1086,6 +1078,7 @@
           "chip.update": "更新",
           "chip.dlc": "DLC",
           "chip.custom": "自訂",
+          "pill.sale": "eShop 特價",
           "pill.update": "更新",
           "misc.unnamed": "(未命名)",
           "sort.name_asc": "排序：名稱 (A→Z)",
@@ -1172,8 +1165,6 @@
         }
         $("lang-current").textContent = lang.toUpperCase();
         $("lang-btn").setAttribute("aria-label", t("action.language"));
-        $("theme-btn").setAttribute("aria-label", t("action.theme"));
-        $("theme-btn").title = t("action.theme");
         if (nameHealthData) renderNameHealth(nameHealthData);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
@@ -1308,7 +1299,7 @@
       let nameHealthData = null;
       let renderedItems = [];
       const PAGE_TARGET = 24;
-      const state = { kind: "base", q: "", sort: "name", genre: "", steam: "", page: 1, perPage: PAGE_TARGET };
+      const state = { kind: "base", q: "", sort: "added-desc", genre: "", steam: "", page: 1, perPage: PAGE_TARGET };
 
       // Whole rows only: about PAGE_TARGET cards, rounded up to a full row of
       // however many columns fit the window (and zoom level) right now.
@@ -1953,7 +1944,7 @@
         };
 
         addPill(t("chip." + r.kind) || r.kind, r.kind);
-        addPill(fmtBytes(r.size), "neutral mono");
+
         if (r.tdb?.publisher)   addPill(r.tdb.publisher, "neutral pub");
 
         // Related-content cues: only on base cards, only when present.
@@ -1961,14 +1952,20 @@
         // than "×N" which looked like a multiplier on the base card itself.
         // Korean uses the chip label "업데이트" so the rollup matches the
         // filter chip across the toolbar.
-        if (r.updateCount) addPill("+" + r.updateCount + " " + t("pill.update"), "update");
-        if (r.dlcCount)    addPill("+" + r.dlcCount + " DLC", "dlc");
+        if (r.kind === "base" && saleOf(r)) addPill(t("pill.sale"), "sale");
+        if (r.updateCount) addPill(t("pill.update"), "update");
+        if (r.dlcCount)    addPill("DLC " + r.dlcCount, "dlc");
         const poster = document.createElement("div"); poster.className = "poster";
         poster.appendChild(cover);
+        if (r.size) {
+          const size = document.createElement("span");
+          size.className = "poster-badge size-badge"; size.textContent = fmtBytes(r.size);
+          poster.appendChild(size);
+        }
         const sc = r.kind === "base" ? scoreFor(r) : null;
         if (sc) {
           const badge = document.createElement("span");
-          badge.className = "score-badge " + scoreTier(sc);
+          badge.className = "poster-badge score-badge " + scoreTier(sc);
           badge.textContent = String(sc.score);
           badge.title = scoreText(sc.score, sc.label) + (sc.count ? " · " + t("score.count", sc.count) : "");
           poster.appendChild(badge);
@@ -2307,23 +2304,12 @@
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !langList.hidden) { setLangMenu(false); $("lang-btn").focus(); } });
 
       // ─── theme ────────────────────────────────────────────────────────────
-      // The system setting decides until the visitor picks one; the choice then sticks.
-      const THEME_KEY = "cookingfoil:theme";
+      // The page follows the system light/dark setting.
       const systemLight = window.matchMedia("(prefers-color-scheme: light)");
-      function currentTheme() {
-        return document.documentElement.dataset.theme || (systemLight.matches ? "light" : "dark");
-      }
+      const currentTheme = () => (systemLight.matches ? "light" : "dark");
       function syncThemeChrome() {
-        const theme = currentTheme();
-        $("theme-btn").dataset.current = theme;
-        document.querySelector('meta[name="theme-color"]').content = theme === "light" ? "#f2f1ee" : "#16161a";
+        document.querySelector('meta[name="theme-color"]').content = systemLight.matches ? "#f2f1ee" : "#16161a";
       }
-      $("theme-btn").addEventListener("click", () => {
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        document.documentElement.dataset.theme = next;
-        try { localStorage.setItem(THEME_KEY, next); } catch { /* storage blocked: keep it for this visit */ }
-        syncThemeChrome();
-      });
       systemLight.addEventListener("change", syncThemeChrome);
       syncThemeChrome();
 
