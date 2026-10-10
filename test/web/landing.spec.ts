@@ -44,3 +44,23 @@ test('genre chips filter the library by English key and follow the page language
   await expect(party).toHaveClass(/active/);
   await expect(page.locator('#games .game')).toHaveCount(1);
 });
+
+test('score pills read the section scores and label them in the page language', async ({ page }) => {
+  await page.route('**/api/shop/sections', (route) => route.fulfill({
+    json: {
+      sections: [{ id: 'all', title: 'All', items: [{
+        app_type: 'base', title_id: '0100000000010000', categories: ['Party'],
+        score: 75, score_count: 25575, score_source: 'steam', score_label: 'Mostly Positive',
+      }] }],
+      genres: { Party: { en: 'Party', ko: '파티', ja: 'パーティー', zh: '派對' } },
+      score_labels: { 'Mostly Positive': { en: 'Mostly Positive', ko: '대체로 긍정적', ja: 'やや好評', zh: '大多好評' } },
+    },
+  }));
+  await page.goto('/');
+  await page.locator('.lang-toggle [data-lang="ko"]').click();
+  const pill = page.locator('#games .pill.score');
+  await expect(pill).toHaveText('★ 75');
+  await expect(pill).toHaveAttribute('title', '75 · 대체로 긍정적 · 25,575명');
+  await page.locator('.lang-toggle [data-lang="en"]').click();
+  await expect(page.locator('#games .pill.score')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
+});

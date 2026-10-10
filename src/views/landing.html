@@ -247,6 +247,7 @@
       .game .sub .pill.custom { background: rgba(var(--butter-rgb), 0.25); border-color: transparent; color: var(--ink); }
       .game .sub .pill.mono { font-family: var(--font-mono); font-weight: 500; }
       .game .sub .pill.pub { display: none; }
+      .game .sub .pill.score { background: var(--butter); border-color: transparent; color: #16161a; font-weight: 700; }
 
       .empty {
         grid-column: 1 / -1; padding: 48px; text-align: center; color: var(--secondary); font-size: 14px;
@@ -503,6 +504,7 @@
             <option value="size-desc"    data-i18n="sort.size_desc"></option>
             <option value="size-asc"     data-i18n="sort.size_asc"></option>
             <option value="release-desc" data-i18n="sort.release_desc"></option>
+            <option value="score-desc"   data-i18n="sort.score_desc"></option>
           </select>
         </div>
         <div class="genre-chips" id="genre-chips" role="group" hidden></div>
@@ -574,6 +576,9 @@
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
           "sort.added_desc": "정렬: 최근 추가순",
+          "sort.score_desc": "정렬: 평점 높은순",
+          "modal.score": "평점",
+          "score.count": (n) => `${n.toLocaleString()}명`,
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
           "action.admin": "관리",
@@ -718,6 +723,9 @@
           "toast.refresh": "Server data refreshed",
           "toast.copyFail": "Copy failed",
           "modal.size": "Size",
+          "modal.score": "Score",
+          "sort.score_desc": "Sort: highest score",
+          "score.count": (n) => `${n.toLocaleString()} reviews`,
           "modal.release": "Release",
           "modal.type": "Type",
           "modal.titleId": "Title ID",
@@ -900,6 +908,8 @@
       // language (shop.json stays the plain Tinfoil index without them).
       let genreOf = new Map(); // base title id → [genre key]
       let genreNames = {};    // genre key → { en, ko, ja, zh }
+      let scoreOf = new Map(); // base title id → { score, count, label }
+      let scoreNames = {};     // score label key → { en, ko, ja, zh }
 
       // ─── skeleton placeholders ─────────────────────────────────────────────
       // Drop a grid of shimmering cards in immediately so the first paint
@@ -1077,6 +1087,7 @@
             case "size-asc":     return a.size - b.size;
             case "release-desc": return (b.releaseDate || 0) - (a.releaseDate || 0);
             case "added-desc":   return b.added - a.added;
+            case "score-desc":   return (scoreFor(b)?.score ?? -1) - (scoreFor(a)?.score ?? -1) || a.item.name.localeCompare(b.item.name);
             case "name":
             default:             return a.item.name.localeCompare(b.item.name);
           }
@@ -1113,6 +1124,17 @@
         // is handled in the pager button click instead, where it's intentional.
       }
 
+      function scoreFor(r) {
+        return scoreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || null;
+      }
+
+      // "75 · 대체로 긍정적" with the label in the page language when Steam gave one.
+      function scoreText(score, labelKey, localized) {
+        const names = scoreNames[labelKey] || {};
+        const label = localized || names[lang] || names.en || labelKey || "";
+        return label ? `${score} · ${label}` : String(score);
+      }
+
       function genreLabel(key) {
         const names = genreNames[key] || {};
         return names[lang] || names.en || key;
@@ -1124,15 +1146,20 @@
           if (!r.ok) return;
           const body = await r.json();
           const next = new Map();
+          const scores = new Map();
           for (const section of body.sections || []) {
             for (const item of section.items || []) {
-              if (item.app_type === "base" && item.title_id && Array.isArray(item.categories)) {
-                next.set(String(item.title_id).toUpperCase(), item.categories);
-              }
+              if (item.app_type !== "base" || !item.title_id) continue;
+              const tid = String(item.title_id).toUpperCase();
+              if (Array.isArray(item.categories)) next.set(tid, item.categories);
+              if (Number.isFinite(item.score)) scores.set(tid, { score: item.score, count: item.score_count, label: item.score_label });
             }
           }
           genreOf = next;
+          scoreOf = scores;
           genreNames = body.genres && typeof body.genres === "object" ? body.genres : {};
+          scoreNames = body.score_labels && typeof body.score_labels === "object" ? body.score_labels : {};
+          if (renderedItems.length) renderShowcase();
           if (state.genre && ![...next.values()].some((keys) => keys.includes(state.genre))) state.genre = "";
           renderGenreChips();
           applyFilters();
@@ -1193,6 +1220,8 @@
         addTag(fmtBytes(hero.size));
         if (hero.updateCount) addTag(t("hero.updates", hero.updateCount));
         if (hero.dlcCount) addTag(t("hero.dlc", hero.dlcCount));
+        const heroScore = scoreFor(hero);
+        if (heroScore) addTag("★ " + scoreText(heroScore.score, heroScore.label));
         $("hero").onclick = () => openModal(hero);
         $("hero").onkeypress = (e) => { if (e.key === "Enter") openModal(hero); };
         const row = $("recent"); row.innerHTML = "";
@@ -1259,6 +1288,11 @@
         // filter chip across the toolbar.
         if (r.updateCount) addPill("+" + r.updateCount + " " + (lang === "ko" ? "업데이트" : "Update"), "update");
         if (r.dlcCount)    addPill("+" + r.dlcCount + " DLC", "dlc");
+        const sc = r.kind === "base" ? scoreFor(r) : null;
+        if (sc) {
+          addPill("★ " + sc.score, "score");
+          sub.lastChild.title = scoreText(sc.score, sc.label) + (sc.count ? " · " + t("score.count", sc.count) : "");
+        }
 
         meta.appendChild(name); meta.appendChild(sub);
         card.appendChild(cover); card.appendChild(meta);
@@ -1375,6 +1409,7 @@
           [t("modal.type"),     t("chip." + r.kind) || r.kind],
           [t("modal.titleId"),  f.titleId || "—"],
           [t("modal.region"),   td.region || "—"],
+          [t("modal.score"),    Number.isFinite(td.score) ? scoreText(td.score, td.scoreLabelKey, td.scoreLabel) + (td.scoreCount ? " · " + t("score.count", td.scoreCount) : "") : "—"],
           [t("modal.rating"),   td.rating != null ? String(td.rating) : "—"],
           [t("modal.category"), Array.isArray(td.categoryLabels) ? td.categoryLabels.join(", ") : (td.category || "—")],
           [t("modal.players"),  td.numberOfPlayers != null ? String(td.numberOfPlayers) : "—"],
