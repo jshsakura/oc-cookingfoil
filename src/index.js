@@ -34,6 +34,8 @@ import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
+import patchesRouter from "./routes/patches.js";
+import * as userPatches from "./meta/user-patches.js";
 import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
@@ -140,7 +142,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art"], deviceContentGuard());
+expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches"], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -168,6 +170,9 @@ expressApp.get("/api/remote/icon/:titleId", iconRoute);
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
 // Tinfoil shop can't install but the dashboard can list + download.
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
+
+// User patches (mods, cheats) a client installs onto the SD card itself.
+expressApp.use("/api/patches", patchesRouter());
 
 // On-demand rich metadata (description, publisher, screenshots, …) for one
 // title. Surfaces titledb detail the shop response intentionally omits — the
@@ -239,6 +244,9 @@ bootstrapTitledb()
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
 );
+
+// User patches: scanned now and every minute; a change recomposes the patch counts.
+userPatches.start({ onChange: () => shopCache.invalidate() });
 
 // Seed the custom-art override index from disk so the icon/banner/screenshot
 // routes can do a zero-syscall "is there an override?" check on the hot path.

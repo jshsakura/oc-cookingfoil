@@ -46,6 +46,7 @@ import * as titledbVersions from "./meta/titledb-versions.js";
 import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
 import * as popularity from "./meta/eshop-popularity.js";
+import * as userPatches from "./meta/user-patches.js";
 import * as scores from "./meta/scraper-ratings.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
@@ -475,6 +476,8 @@ function buildSectionItem(relPath, wireItem) {
     }
     if (parsed.contentType === "base") {
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
+      const patchCount = userPatches.countFor(parsed.titleId);
+      if (patchCount) item.patches = patchCount;
     }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);

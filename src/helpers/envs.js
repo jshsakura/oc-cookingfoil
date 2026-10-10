@@ -221,6 +221,9 @@ const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
 // oc-scraper base URL (e.g. http://host:18765). Base games then carry Steam /
 // IGDB / RAWG review scores from it, matched by title id. Empty turns it off.
 const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
+// User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
+// Missing folder means no patches.
+const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -258,6 +261,7 @@ export {
   uploadMaxBytes,
   uploadsEnabled,
   eshopPrices,
+  patchesDir,
   ratingsUrl,
   devicePairing,
 };

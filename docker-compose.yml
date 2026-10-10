@@ -98,3 +98,6 @@ services:
       # image used, so an existing compose can swap just `image:` and keep
       # the rest of the volumes/env unchanged.
       - ./shop_template.jsonc:/shop_template.jsonc:ro
+      # Optional: user patches (mods, cheats) for clients to install:
+      # <base title id>/<patch folder>/<SD card layout>, plus an optional patch.json.
+      # - ./patches:/patches:ro
