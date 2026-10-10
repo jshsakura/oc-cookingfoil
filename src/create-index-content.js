@@ -39,12 +39,14 @@ import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
 import { normalizeGenres, GENRE_LABELS } from "./meta/categories.js";
+import { SCORE_LABELS } from "./meta/scraper-ratings.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
 import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
 import * as popularity from "./meta/eshop-popularity.js";
+import * as scores from "./meta/scraper-ratings.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
@@ -471,6 +473,9 @@ function buildSectionItem(relPath, wireItem) {
       });
       if (rank) item.rank = rank;
     }
+    if (parsed.contentType === "base") {
+      Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
+    }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);
   }
@@ -544,6 +549,14 @@ function englishNamesOf(titleId, fromDb) {
   return names;
 }
 
+// Review score from oc-scraper; score_label is a SCORE_LABELS key (Steam only).
+function scoreFields(rating) {
+  if (!rating) return {};
+  const fields = { score: rating.score, score_count: rating.count, score_source: rating.source };
+  if (rating.label) fields.score_label = rating.label;
+  return fields;
+}
+
 // The eShop's own strings ("64,800원", "$19.99"), so the client shows them as is.
 function priceFields(price) {
   if (!price) return {};
@@ -584,6 +597,8 @@ export function composeSections(filesMap, customs) {
   const body = { sections: [{ id: "all", title: "All", items: fillMissingRanks(items) }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;
+  // score_label keys → their label per language.
+  body.score_labels = SCORE_LABELS;
   // Operator-picked home rows refer to items by base id (see meta/featured.js).
   if (picks.length) body.featured = picks;
   return body;

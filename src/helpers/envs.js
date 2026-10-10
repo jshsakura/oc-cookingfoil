@@ -218,6 +218,9 @@ const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 // Base games in the sections list carry their eShop price, looked up in the
 // background from Nintendo's public price endpoint. Off for offline servers.
 const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
+// oc-scraper base URL (e.g. http://host:18765). Base games then carry Steam /
+// IGDB / RAWG review scores from it, matched by title id. Empty turns it off.
+const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -255,5 +258,6 @@ export {
   uploadMaxBytes,
   uploadsEnabled,
   eshopPrices,
+  ratingsUrl,
   devicePairing,
 };

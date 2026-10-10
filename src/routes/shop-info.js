@@ -27,6 +27,8 @@ const FEATURES = [
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
   "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
+  "item-score",           // base item.score, score_count, score_source, score_label (+ score_labels map)
+  "genre-keys",           // categories are English keys; sections.genres maps them per language
   "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
   "image-sizes",          // icon, banner, screenshot accept ?size=sm (256) and ?size=md (512)
 ];

@@ -22,6 +22,7 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
 import { normalizeCategories, normalizeGenres, genreLabel, requestLang } from "../meta/categories.js";
+import * as scores from "../meta/scraper-ratings.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
@@ -73,6 +74,7 @@ export default async function titleDetailRoute(req, res) {
   const categories = normalizeGenres(fromDb?.category);
   const lang = requestLang(req);
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
+  const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
@@ -102,5 +104,12 @@ export default async function titleDetailRoute(req, res) {
     updates: titledbVersions.updateHistory(base),
     dlcTotal: titledbVersions.dlcCount(base, titledbStore.dlcIdsOf(base)),
     requiredFirmware: titledbVersions.requiredFirmware(base, 0),
+    // Review score (0-100) with its vote count and source; scoreLabel is Steam's
+    // summary in the request language, scoreLabelKey its SCORE_LABELS key.
+    score: score?.score ?? null,
+    scoreCount: score?.count ?? null,
+    scoreSource: score?.source ?? null,
+    scoreLabel: score?.label ? (scores.SCORE_LABELS[score.label]?.[lang] ?? score.label) : null,
+    scoreLabelKey: score?.label ?? null,
   });
 }
