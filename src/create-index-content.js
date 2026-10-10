@@ -45,6 +45,7 @@ import * as titledbVersions from "./meta/titledb-versions.js";
 import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
 import * as popularity from "./meta/eshop-popularity.js";
+import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
@@ -580,7 +581,7 @@ export function composeSections(filesMap, customs) {
     if (item) items.push(item);
   }
   const picks = featured.forSections();
-  const body = { sections: [{ id: "all", title: "All", items }] };
+  const body = { sections: [{ id: "all", title: "All", items: fillMissingRanks(items) }] };
   // Operator-picked home rows refer to items by base id (see meta/featured.js).
   if (picks.length) body.featured = picks;
   return body;
