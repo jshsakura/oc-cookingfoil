@@ -22,7 +22,7 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { titleVideos } from "../meta/title-videos.js";
 import { normalizeCategories, normalizeGenres, genreLabel, requestLang } from "../meta/categories.js";
-import * as scores from "../meta/scraper-ratings.js";
+import * as scores from "../meta/ratings.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";

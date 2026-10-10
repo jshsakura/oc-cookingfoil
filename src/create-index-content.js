@@ -47,7 +47,8 @@ import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
 import * as popularity from "./meta/eshop-popularity.js";
 import * as userPatches from "./meta/user-patches.js";
-import * as scores from "./meta/scraper-ratings.js";
+import * as scores from "./meta/ratings.js";
+import * as ratingSync from "./meta/rating-sync.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
@@ -600,6 +601,12 @@ export function composeSections(filesMap, customs) {
     if (item) items.push(item);
   }
   const picks = featured.forSections();
+  // Hand the library's base games to the rating collector (it works them through on its own pace).
+  ratingSync.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({
+    titleId: i.title_id,
+    names: englishNamesOf(i.title_id, titledbStore.get(i.title_id)),
+    year: i.release_date ? Math.floor(i.release_date / 10000) : null,
+  })));
   const body = { sections: [{ id: "all", title: "All", items: fillMissingRanks(items) }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;

@@ -234,6 +234,11 @@ const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
 // oc-scraper base URL (e.g. http://host:18765). Base games then carry Steam /
 // IGDB / RAWG review scores from it, matched by title id. Empty turns it off.
 const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
+// CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
+// client id and secret are given. On by default; false turns the loop off.
+const ratingSync = envBool("COOK_RATING_SYNC", true);
+const igdbClientId = envString("COOK_IGDB_CLIENT_ID", "").trim();
+const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
@@ -277,5 +282,8 @@ export {
   eshopPrices,
   patchesDir,
   ratingsUrl,
+  ratingSync,
+  igdbClientId,
+  igdbClientSecret,
   devicePairing,
 };
