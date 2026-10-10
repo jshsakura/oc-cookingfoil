@@ -78,26 +78,46 @@
       .logo { width: 44px; height: 44px; flex-shrink: 0; }
       .wordmark { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
       .wordmark .foil { margin-left: 6px; background: var(--butter); color: var(--butter-ink); padding: 0 8px 2px; border-radius: 9px; }
-      .lang-toggle, .theme-toggle {
-        display: inline-flex; gap: 2px; padding: 3px;
-        background: var(--surface); border: 1px solid var(--line); border-radius: 100px;
+      .top-row svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+      /* one round button flips light and dark; it shows the theme you would switch to */
+      .icon-btn {
+        width: 36px; height: 36px; padding: 0; display: grid; place-items: center; cursor: pointer;
+        border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
       }
-      .lang-toggle button, .theme-toggle button {
-        background: transparent; border: none; color: var(--secondary);
-        padding: 6px 11px; border-radius: 100px; font: 600 12px var(--font-body); cursor: pointer;
+      .icon-btn:hover { border-color: var(--ink); }
+      .icon-btn svg { width: 17px; height: 17px; }
+      #theme-btn[data-current="dark"] .moon, #theme-btn[data-current="light"] .sun { display: none; }
+      /* language: the current code, a list only when asked for */
+      .lang-menu { position: relative; }
+      .lang-btn {
+        display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; cursor: pointer;
+        border-radius: 100px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+        font: 700 13px var(--font-body);
       }
-      .theme-toggle button { display: grid; place-items: center; padding: 6px 10px; }
-      .theme-toggle svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .lang-toggle button.active, .theme-toggle button.active { background: var(--ink); color: var(--ground); }
-      .lang-toggle button:hover:not(.active), .theme-toggle button:hover:not(.active) { color: var(--ink); }
+      .lang-btn:hover, .lang-btn[aria-expanded="true"] { border-color: var(--ink); }
+      .lang-btn svg { width: 16px; height: 16px; }
+      .lang-btn .chev { width: 13px; height: 13px; color: var(--secondary); }
+      .lang-list {
+        position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 148px; padding: 6px;
+        display: grid; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+        box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22);
+      }
+      .lang-list[hidden] { display: none; }
+      .lang-list button {
+        text-align: left; padding: 9px 12px; border: none; border-radius: 9px; cursor: pointer;
+        background: transparent; color: var(--ink); font: 600 14px var(--font-body);
+      }
+      .lang-list button:hover:not(.active) { background: var(--sunk); }
+      .lang-list button.active { background: var(--ink); color: var(--ground); }
       .admin-link {
-        display: inline-flex; align-items: center; height: 36px; padding: 0 16px;
+        display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px 0 12px;
         border-radius: 100px; border: 1px solid var(--line); background: var(--surface);
         color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none;
       }
       .admin-link:hover { border-color: var(--ink); }
+      .admin-link svg { width: 16px; height: 16px; }
 
-      /* TABS: the same pill group as the language and theme toggles, beside the wordmark */
+      /* TABS: a pill group beside the wordmark, the open view filled */
       .tabs {
         display: inline-flex; gap: 2px; padding: 3px; margin: 0 auto 0 20px;
         background: var(--surface); border: 1px solid var(--line); border-radius: 100px;
@@ -468,16 +488,26 @@
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
           <button type="button" role="tab" data-tab="preview" data-i18n="tab.preview"></button>
         </nav>
-        <a class="admin-link" href="/admin" data-i18n="action.admin"></a>
-        <div class="theme-toggle" id="theme-toggle" role="group" aria-label="theme">
-          <button data-theme-choice="light" type="button" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5"/></svg></button>
-          <button data-theme-choice="dark" type="button" aria-label="Dark" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
-        </div>
-        <div class="lang-toggle" role="tablist" aria-label="language">
-          <button data-lang="ko" type="button">KO</button>
-          <button data-lang="en" type="button">EN</button>
-          <button data-lang="ja" type="button">JA</button>
-          <button data-lang="zh" type="button">ZH</button>
+        <a class="admin-link" href="/admin">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>
+          <span data-i18n="action.admin"></span>
+        </a>
+        <button class="icon-btn" id="theme-btn" type="button">
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+        </button>
+        <div class="lang-menu" id="lang-menu">
+          <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+            <span id="lang-current">KO</span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="lang-list" id="lang-list" role="menu" hidden>
+            <button type="button" role="menuitemradio" data-lang="ko" lang="ko">한국어</button>
+            <button type="button" role="menuitemradio" data-lang="en" lang="en">English</button>
+            <button type="button" role="menuitemradio" data-lang="ja" lang="ja">日本語</button>
+            <button type="button" role="menuitemradio" data-lang="zh" lang="zh">中文</button>
+          </div>
         </div>
       </div>
 
@@ -651,6 +681,8 @@
           "score.count": (n) => `${n.toLocaleString()}명`,
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
+          "action.theme": "테마 전환",
+          "action.language": "언어",
           "action.admin": "관리",
           "action.download": "다운로드",
           "action.close": "닫기",
@@ -767,6 +799,8 @@
           "sort.added_desc": "Sort: Recently added",
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
+          "action.theme": "Switch theme",
+          "action.language": "Language",
           "action.admin": "Admin",
           "action.download": "Download",
           "action.close": "Close",
@@ -886,6 +920,8 @@
           "sort.added_desc": "並び替え: 追加が新しい順",
           "action.refresh": "↻ 更新",
           "action.copy": "コピー",
+          "action.theme": "テーマ切り替え",
+          "action.language": "言語",
           "action.admin": "管理",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
@@ -1005,6 +1041,8 @@
           "sort.added_desc": "排序：最近新增",
           "action.refresh": "↻ 重新整理",
           "action.copy": "複製",
+          "action.theme": "切換主題",
+          "action.language": "語言",
           "action.admin": "管理",
           "action.download": "下載",
           "action.close": "關閉",
@@ -1113,7 +1151,14 @@
         for (const el of document.querySelectorAll("[data-i18n]"))      el.textContent = t(el.dataset.i18n);
         for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         $("search").placeholder = t("search.placeholder");
-        for (const b of document.querySelectorAll(".lang-toggle button")) b.classList.toggle("active", b.dataset.lang === lang);
+        for (const b of document.querySelectorAll("#lang-list [data-lang]")) {
+          b.classList.toggle("active", b.dataset.lang === lang);
+          b.setAttribute("aria-checked", String(b.dataset.lang === lang));
+        }
+        $("lang-current").textContent = lang.toUpperCase();
+        $("lang-btn").setAttribute("aria-label", t("action.language"));
+        $("theme-btn").setAttribute("aria-label", t("action.theme"));
+        $("theme-btn").title = t("action.theme");
         if (nameHealthData) renderNameHealth(nameHealthData);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
@@ -1734,8 +1779,12 @@
         if (animate) { const h = $("hero"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap"); }
       }
 
-      // All games or the client preview: one at a time, remembered and linkable (#preview).
+      // All games or the client preview: one at a time, remembered and linkable (#all, #preview).
+      // The address uses "all", not "games": #games is the grid's id, and a
+      // fragment naming an element makes the browser jump to it on load.
       const TAB_KEY = "cookingfoil:tab", TABS = ["games", "preview"];
+      const TAB_HASH = { games: "all", preview: "preview" };
+      const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h);
       function showTab(name) {
         if (!TABS.includes(name)) name = "games";
         for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== name;
@@ -1744,7 +1793,7 @@
           b.setAttribute("aria-selected", String(b.dataset.tab === name));
         }
         try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }
-        if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+        if (location.hash.slice(1) !== TAB_HASH[name]) history.replaceState(null, "", "#" + TAB_HASH[name]);
         // The grid sizes its page from the visible column count.
         if (name === "games") applyFilters();
       }
@@ -1752,8 +1801,8 @@
         const b = e.target.closest("[data-tab]");
         if (b) showTab(b.dataset.tab);
       });
-      window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
-      showTab(location.hash.slice(1) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })());
+      window.addEventListener("hashchange", () => showTab(tabFromHash(location.hash.slice(1))));
+      showTab(tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })());
 
       // Turns on its own every six seconds unless the pointer or focus is on it.
       setInterval(() => {
@@ -2148,13 +2197,28 @@
       });
 
       // language toggle
-      document.querySelector(".lang-toggle").addEventListener("click", (e) => {
-        if (!(e.target instanceof HTMLButtonElement)) return;
-        lang = e.target.dataset.lang;
-        localStorage.setItem(LANG_KEY, lang);
+      const langList = $("lang-list");
+      function setLangMenu(open) {
+        langList.hidden = !open;
+        $("lang-btn").setAttribute("aria-expanded", String(open));
+        if (!open) return;
+        langList.style.left = ""; langList.style.right = "";
+        if (langList.getBoundingClientRect().left < 8) { langList.style.left = "0"; langList.style.right = "auto"; }
+        langList.querySelector(".active")?.focus();
+      }
+      $("lang-btn").addEventListener("click", (e) => { e.stopPropagation(); setLangMenu(langList.hidden); });
+      langList.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-lang]");
+        if (!b) return;
+        lang = b.dataset.lang;
+        try { localStorage.setItem(LANG_KEY, lang); } catch { /* storage blocked: keep it for this visit */ }
+        setLangMenu(false);
+        $("lang-btn").focus();
         applyI18n();
         renderGenreChips();
       });
+      document.addEventListener("click", (e) => { if (!langList.hidden && !e.target.closest("#lang-menu")) setLangMenu(false); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !langList.hidden) { setLangMenu(false); $("lang-btn").focus(); } });
 
       // ─── theme ────────────────────────────────────────────────────────────
       // The system setting decides until the visitor picks one; the choice then sticks.
@@ -2165,15 +2229,11 @@
       }
       function syncThemeChrome() {
         const theme = currentTheme();
-        for (const b of $("theme-toggle").querySelectorAll("button")) {
-          const on = b.dataset.themeChoice === theme;
-          b.classList.toggle("active", on); b.setAttribute("aria-pressed", String(on));
-        }
-        document.querySelector('meta[name="theme-color"]').content = theme === "light" ? "#eff1f5" : "#1e1e2e";
+        $("theme-btn").dataset.current = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === "light" ? "#f2f1ee" : "#16161a";
       }
-      $("theme-toggle").addEventListener("click", (e) => {
-        const next = e.target.closest("button")?.dataset.themeChoice;
-        if (!next) return;
+      $("theme-btn").addEventListener("click", () => {
+        const next = currentTheme() === "dark" ? "light" : "dark";
         document.documentElement.dataset.theme = next;
         try { localStorage.setItem(THEME_KEY, next); } catch { /* storage blocked: keep it for this visit */ }
         syncThemeChrome();

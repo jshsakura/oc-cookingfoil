@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
+import type { Page } from '@playwright/test';
+
+async function pickLang(page: Page, code: string) {
+  await page.locator('#lang-btn').click();
+  await page.locator(`#lang-list [data-lang="${code}"]`).click();
+  await expect(page.locator('#lang-list')).toBeHidden();
+}
 
 test('landing follows the system theme until the visitor picks one, then remembers it', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
@@ -9,8 +16,8 @@ test('landing follows the system theme until the visitor picks one, then remembe
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(await background()).toBe('rgb(242, 241, 238)');
 
-  await expect(page.locator('[data-theme-choice="light"]')).toHaveClass(/active/);
-  await page.locator('[data-theme-choice="dark"]').click();
+  await expect(page.locator('#theme-btn')).toHaveAttribute('data-current', 'light');
+  await page.locator('#theme-btn').click();
   await expect(root).toHaveAttribute('data-theme', 'dark');
   expect(await background()).toBe('rgb(22, 22, 26)');
 
@@ -35,18 +42,18 @@ test('genre chips filter the library by English key and follow the page language
     },
   }));
   await page.goto('/');
-  await page.locator('.lang-toggle [data-lang="ko"]').click();
+  await pickLang(page, 'ko');
   const party = page.locator('#genre-chips [data-genre="Party"]');
   await expect(party).toContainText('파티');
-  await page.locator('.lang-toggle [data-lang="en"]').click();
+  await pickLang(page, 'en');
   await expect(party).toContainText('Party');
-  await page.locator('.lang-toggle [data-lang="ja"]').click();
+  await pickLang(page, 'ja');
   await expect(party).toContainText('パーティー');
   await expect(page.locator('.tabs [data-tab="games"]')).toHaveText('すべてのゲーム');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-  await page.locator('.lang-toggle [data-lang="zh"]').click();
+  await pickLang(page, 'zh');
   await expect(party).toContainText('派對');
-  await page.locator('.lang-toggle [data-lang="en"]').click();
+  await pickLang(page, 'en');
   await party.click();
   await expect(party).toHaveClass(/active/);
   await expect(page.locator('#games .game')).toHaveCount(1);
@@ -64,12 +71,12 @@ test('score badges read the section scores and label them in the page language',
     },
   }));
   await page.goto('/');
-  await page.locator('.lang-toggle [data-lang="ko"]').click();
+  await pickLang(page, 'ko');
   const pill = page.locator('#games .score-badge');
   await expect(pill).toHaveText('75');
   await expect(pill).toHaveClass(/high/);
   await expect(pill).toHaveAttribute('title', '75 · 대체로 긍정적 · 25,575명');
-  await page.locator('.lang-toggle [data-lang="en"]').click();
+  await pickLang(page, 'en');
   await expect(page.locator('#games .score-badge')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
 });
 
@@ -84,4 +91,22 @@ test('tabs switch between all games and the client preview and remember the choi
   await expect(page).toHaveURL(/#preview$/);
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab="preview"]')).toHaveClass(/active/);
+  await page.locator('.tabs [data-tab="games"]').click();
+  await expect(page).toHaveURL(/#all$/);
+  await page.setViewportSize({ width: 1280, height: 300 });
+  await page.reload();
+  await page.waitForTimeout(800);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test('the language menu opens on demand, shows the current code and closes on Escape', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#lang-list')).toBeHidden();
+  await pickLang(page, 'ja');
+  await expect(page.locator('#lang-current')).toHaveText('JA');
+  await page.locator('#lang-btn').click();
+  await expect(page.locator('#lang-list [data-lang="ja"]')).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lang-list')).toBeHidden();
+  await expect(page.locator('a.admin-link svg')).toBeVisible();
 });
