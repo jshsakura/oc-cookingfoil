@@ -1,0 +1,56 @@
+diff --git a/source/main.c b/source/main.c
+index 78e4502..e666015 100644
+--- a/source/main.c
++++ b/source/main.c
+@@ -308,6 +308,37 @@ static void getCodeMemoryCapability(void)
+     }
+ }
+ 
++static bool g_forwarded = false;
++
++// Copy a romfs file holding one line of text into dst (NUL-terminated).
++static bool readRomfsText(const char* path, char* dst, size_t size)
++{
++    int fd = open(path, O_RDONLY);
++    if (fd < 0)
++        return false;
++    ssize_t n = read(fd, dst, size - 1);
++    close(fd);
++    if (n <= 0)
++        return false;
++    while (n > 0 && (dst[n-1] == '\n' || dst[n-1] == '\r'))
++        n--;
++    dst[n] = '\0';
++    return n > 0;
++}
++
++// The NRO to start and its argv, from romfs:/nextNroPath and romfs:/nextArgv.
++static bool readForwardTarget(void)
++{
++    if (R_FAILED(romfsInit()))
++        return false;
++    bool ok = readRomfsText("romfs:/nextNroPath", g_nextNroPath, sizeof(g_nextNroPath))
++           && readRomfsText("romfs:/nextArgv", g_nextArgv, sizeof(g_nextArgv));
++    romfsExit();
++    if (!ok)
++        g_nextNroPath[0] = '\0';
++    return ok;
++}
++
+ void loadNro(void)
+ {
+     NroHeader* header = NULL;
+@@ -353,8 +384,11 @@ void loadNro(void)
+ 
+     if (g_nextNroPath[0] == '\0')
+     {
+-        memcpy(g_nextNroPath, DEFAULT_NRO, sizeof(DEFAULT_NRO));
+-        memcpy(g_nextArgv,    DEFAULT_NRO, sizeof(DEFAULT_NRO));
++        // Forwarder: the first load comes from romfs; once that NRO has
++        // finished and asked for nothing next, go back to the home menu.
++        if (g_forwarded || !readForwardTarget())
++            svcExitProcess();
++        g_forwarded = true;
+     }
+ 
+     memcpy(g_argv, g_nextArgv, sizeof g_argv);

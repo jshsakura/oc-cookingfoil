@@ -13,6 +13,12 @@ CookingFoil is MIT-licensed (see [LICENSE](./LICENSE)) and builds on the work be
   the user's own keys.
 - **nsz** (nicoboss/nsz), MIT. Decompresses `.nsz` / `.xcz`.
 - **libvips**, LGPL-3.0-or-later, dynamically linked through sharp.
+- **hacBrewPack** (The-4n, built from the rlaphoenix/hacBrewPack mirror at a pinned
+  commit), GPL-2.0. A separate program the server runs to pack retro games' HOME-menu
+  forwarders with the user's own keys; its source is that repository.
+- **nx-hbloader** (switchbrew/nx-hbloader v2.4.5), ISC. The forwarder's exefs
+  (`forwarder/exefs/`) is nx-hbloader with `forwarder/hbloader-romfs.patch`, built by
+  `forwarder/build.sh` against libnx (ISC).
 
 ## Node.js dependencies (runtime)
 

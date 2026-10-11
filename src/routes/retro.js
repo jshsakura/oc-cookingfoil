@@ -24,26 +24,31 @@
  *
  * G = { id, name, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
- *       forwarderUrl: null, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
+ *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
  * Bundle and pack paths are relative to the SD root: roms/<system>/…,
  * retroarch/overlays/GameBezels/<System>/…, retroarch/config/<Core>/…,
  * switch/retroarch_switch.nro. A file marked `once` is only written when the
  * card doesn't have it yet (retroarch.cfg holds the player's own settings).
- * Home-screen forwarders are not built yet, so forwarderUrl is always null.
+ *
+ * GET /api/retro/games/:id/forwarder.nsp is the game's HOME-menu shortcut
+ * (src/retro/forwarder.js): it starts the game's core with install.rom. The
+ * forwarder fields are null when the server can't build one (no prod.keys or
+ * hacBrewPack); forwarderSize is null until the NSP has been built.
  */
 import fs from "fs";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { retroDir, dataDir } from "../helpers/envs.js";
+import { retroDir, dataDir, keysDir } from "../helpers/envs.js";
 import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg } from "../retro/bezel-config.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
-import { artKey, ensureSquare, prewarm, SQUARE_SIZES } from "../retro/square-art.js";
+import { artKey, ensureSquare, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
 import { listFilter } from "../retro/list-filter.js";
+import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -62,6 +67,7 @@ export const retroEnabled = () => fs.existsSync(retroDir);
 
 // RetroArch itself: <retro dir>/retroarch/ (or base-pack/, the earlier name).
 const artDir = path.join(dataDir, "retro-art");
+const forwarderDir = path.join(dataDir, "retro-forwarders");
 const packDir = () => (fs.existsSync(path.join(retroDir, "retroarch")) ? path.join(retroDir, "retroarch") : path.join(retroDir, "base-pack"));
 let hashCache = null;
 let manifest = null; // { version, files, sources, builtAt }
@@ -103,6 +109,32 @@ const gameMatches = (g, needle) => [g.name, g.original, g.file].some((s) => s &&
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
+/** What the forwarder module needs to know about a game. */
+function forwarderGame(g, system) {
+  return {
+    id: g.id,
+    name: g.name,
+    core: g.core,
+    romSdPath: sdPaths(g, system).rom,
+    artKey: artKey(g),
+    publisher: `RetroArch · ${system.names?.ko ?? system.name ?? g.system}`,
+    icon: squarePath(artDir, g, "md"),
+  };
+}
+
+/** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
+function forwarderFields(g, system, base) {
+  const spec = forwardersAvailable(keysDir) ? forwarderSpec(forwarderGame(g, system)) : null;
+  if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null };
+  let size = null;
+  try {
+    size = fs.statSync(forwarderPath(forwarderDir, g.id, spec)).size;
+  } catch {
+    // not built yet; the first download builds it
+  }
+  return { forwarderUrl: `${base}/forwarder.nsp`, forwarderTitleId: spec.titleId, forwarderSize: size };
+}
+
 function publicGame(g, systems) {
   const system = systems[g.system];
   const paths = sdPaths(g, system);
@@ -125,7 +157,7 @@ function publicGame(g, systems) {
     bezel: g.bezel
       ? { hasBezel: true, generic: g.bezel.generic, imageUrl: `${base}/bezel.png`, overlayCfgUrl: `${base}/overlay.cfg`, gameCfgUrl: paths.gameCfg ? `${base}/game.cfg` : null }
       : { hasBezel: false },
-    forwarderUrl: null,
+    ...forwarderFields(g, system, base),
     install: {
       rom: paths.rom,
       extras: g.extras.map((x) => paths.extra(x.rel)),
@@ -168,7 +200,13 @@ export default function retroRouter() {
   const router = express.Router();
 
   // Draw square tiles ahead of time after every scan, starting with one at boot.
-  catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
+  // Forwarders come after: their icon is the square tile.
+  catalog.onScan((state) =>
+    prewarm(artDir, state.games)
+      .catch((err) => debug.error("retro: square art: %s", err.message))
+      .then(() => forwardersAvailable(keysDir) && prewarmForwarders(forwarderDir, state.games.map((g) => forwarderGame(g, state.systems[g.system])), keysDir))
+      .catch((err) => debug.error("retro: forwarders: %s", err.message)),
+  );
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
 
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
@@ -277,7 +315,16 @@ export default function retroRouter() {
     const { game, system } = req.retro;
     sendTar(res, bundleFiles(game, system), { filename: `${game.id}.tar`, label: "retro" });
   });
-  router.get("/games/:id/forwarder.nsp", (req, res) => res.status(404).json({ error: "forwarders are not built yet" }));
+  router.get("/games/:id/forwarder.nsp", wrap(async (req, res) => {
+    if (!forwardersAvailable(keysDir)) return res.status(404).json({ error: "forwarders are not available on this server" });
+    const { game, system } = req.retro;
+    await ensureSquare(artDir, game, "md").catch(() => null);
+    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system), keysDir);
+    if (!built) return res.status(404).json({ error: "this game can't have a forwarder" });
+    res.attachment(`${built.spec.name}.nsp`);
+    res.set("X-Forwarder-Title-Id", built.spec.titleId);
+    sendFile(res, built.path, "application/octet-stream");
+  }));
 
   router.get("/base-pack/manifest", wrap(async (req, res) => {
     const m = await currentManifest();

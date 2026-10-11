@@ -119,13 +119,13 @@ const PORT = 14900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = { Authorization: "Basic " + Buffer.from("alice:alice-password").toString("base64") };
 
-async function boot(retroDir) {
+async function boot(retroDir, extraEnv = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "retro-data-"));
   fs.mkdirSync(path.join(data, "games"));
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"), COOK_RETRO_DIR: retroDir,
-      COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false" },
+      COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", ...extraEnv },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -340,4 +340,27 @@ test("the games list filters by rating, size and own bezel", async () => {
   assert.deepEqual(names({ minSize: "200", maxSize: "1000" }), ["c"]);
   assert.deepEqual(names({ bezel: "1" }), ["a"], "the console's default bezel doesn't count");
   assert.deepEqual(names({ minRating: "-5", maxSize: "big" }), ["a", "b", "c"], "malformed values are ignored");
+});
+
+test("with keys and hacBrewPack, each game offers its HOME-menu forwarder", async () => {
+  const dir = fixture();
+  const tools = fs.mkdtempSync(path.join(os.tmpdir(), "retro-fwd-tools-"));
+  const bin = path.join(tools, "hacbrewpack");
+  fs.writeFileSync(bin, '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in --titleid) t="$2"; shift ;; --nspdir) n="$2"; shift ;; esac; shift; done\nmkdir -p "$n" && echo NSP > "$n/$t.nsp"\n', { mode: 0o755 });
+  fs.mkdirSync(path.join(tools, "keys"));
+  fs.writeFileSync(path.join(tools, "keys", "prod.keys"), `header_key = ${"ab".repeat(32)}\n`);
+  const server = await boot(dir, { COOK_HACBREWPACK_BIN: bin, COOK_KEYS_DIR: path.join(tools, "keys") });
+  try {
+    const smw = (await (await get("/api/retro/games?q=mario")).json()).games[0];
+    assert.equal(smw.forwarderUrl, `/api/retro/games/${smw.id}/forwarder.nsp`);
+    assert.match(smw.forwarderTitleId, /^05[0-9A-F]{11}000$/);
+    const nsp = await get(smw.forwarderUrl);
+    assert.equal(nsp.status, 200);
+    assert.equal(nsp.headers.get("x-forwarder-title-id"), smw.forwarderTitleId);
+    assert.equal((await nsp.text()).trim(), "NSP");
+    const again = (await (await get(`/api/retro/games/${smw.id}`)).json());
+    assert.equal(again.forwarderSize, 4, "the size is known once the NSP is built");
+  } finally {
+    server.kill("SIGKILL");
+  }
 });
