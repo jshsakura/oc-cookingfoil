@@ -30,7 +30,7 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4
 .ok{color:#2E7D4F;margin:12px 0 0;font-size:16px}.ok:empty{display:none}
 .block{border-top:1px solid var(--line);margin:28px 0 0;padding:24px 0 0}h2{font-size:20px;margin:0 0 10px}
 .issued{background:var(--soft);border-radius:12px;padding:16px;margin:16px 0 0}.issued dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:10px 0}
-.issued dt{color:var(--muted);font-size:15px}.issued dd{margin:0;font:700 18px monospace;word-break:break-all;user-select:all}
+.issued button.ghost{background:var(--card);border:1px solid var(--line)}.issued dt{color:var(--muted);font-size:15px}.issued dd{margin:0;font:700 18px monospace;word-break:break-all;user-select:all}
 .mine{list-style:none;margin:0;padding:0}.mine li{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
 .mine li:last-child{border-bottom:0}.mine li div{display:flex;flex-direction:column;gap:2px;min-width:0}.mine .hint{margin:0}
 button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(--soft);color:var(--bad);flex:none}
@@ -52,7 +52,8 @@ function loginsSection(t) {
 <input id="login-label" maxlength="64" placeholder="CyberFoil" autocomplete="off"><button type="submit" class="ghost">${t.createLogin}</button></form>
 <div id="issued" class="issued" hidden><p class="hint">${t.shownOnce}</p><dl>
 <dt>${t.serverUrl}</dt><dd id="issued-url"></dd><dt>${t.username}</dt><dd id="issued-name"></dd><dt>${t.password}</dt><dd id="issued-pass"></dd></dl>
-<p class="hint">${t.whereToType}</p></div></section>`;
+<p class="hint">${t.whereToType}</p>
+<button type="button" class="ghost" id="issued-config">${t.configFile}</button><p class="hint">${t.configHint}</p></div></section>`;
 }
 
 function mineSection(t) {
@@ -155,8 +156,16 @@ async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/min
 if(newLogin)newLogin.addEventListener('submit',async(e)=>{e.preventDefault();const button=newLogin.querySelector('button');button.disabled=true;error.textContent='';
   try{const r=await post('/pair/api/logins',{label:document.getElementById('login-label').value});if(!r.ok)throw new Error();const d=await r.json();
     document.getElementById('issued-url').textContent=d.shopUrl;document.getElementById('issued-name').textContent=d.name;document.getElementById('issued-pass').textContent=d.password;
-    document.getElementById('issued').hidden=false;newLogin.reset();loadMine();}
+    document.getElementById('issued').hidden=false;lastLogin=d;newLogin.reset();loadMine();}
   catch{error.textContent=T.errCreate;}finally{button.disabled=false;}});
+// CookingFoil reads its servers from sdmc:/switch/cookingfoil/config.json; with this login inside it connects without a QR.
+let lastLogin=null;
+const configButton=document.getElementById('issued-config');
+if(configButton)configButton.addEventListener('click',()=>{if(!lastLogin)return;
+  const config={servers:[{title:location.hostname,url:location.origin,username:lastLogin.name,password:lastLogin.password,cfClientId:'',cfClientSecret:'',enabled:true}],
+    language:document.documentElement.lang,installTarget:'sd'};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));
+  a.download='config.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
 loadMine();
 `;
 

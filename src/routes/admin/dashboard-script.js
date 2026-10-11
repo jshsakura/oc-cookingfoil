@@ -86,7 +86,8 @@ async function loadStats(){
 let lastCred=null;
 function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=title;
   const box=$('cred');box.replaceChildren();
-  for(const [label,value] of [['서버 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
+  // CyberFoil takes the shop's root as its eShop URL; Tinfoil's File Browser wants shop.tfl.
+  for(const [label,value] of [['CyberFoil eShop 주소',origin+'/'],['Tinfoil 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
     box.append(el('span',label,'muted'),el('span',value,'v'),btn('복사',async()=>{
       try{await navigator.clipboard.writeText(value);toast(label+'를 복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}}));}
   $('cred-dialog').showModal();}
