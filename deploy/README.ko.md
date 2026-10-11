@@ -104,8 +104,8 @@ curl http://localhost:38000/healthz
   ```
   `<시스템>` 은 RetroArch 이름("Nintendo - Game Boy Advance", "Sony - PlayStation" 등),
   짧은 id(gba, ps1 등), 흔한 별칭(FC, SFC, MD, PS1, PSP) 중 무엇이든 되고 대소문자는 가리지
-  않습니다. NES, SNES, GB, GBC, GBA, N64, 메가 드라이브, 마스터 시스템, 게임 기어, PC 엔진,
-  플레이스테이션, PSP, 아케이드(FBNeo)를 지원합니다.
+  않습니다. NES, SNES, GB, GBC, GBA, N64, NDS, 메가 드라이브, 마스터 시스템, 게임 기어, 새턴,
+  PC 엔진, 플레이스테이션, PSP, 네오지오 포켓, 원더스완, 아케이드(FBNeo)를 지원합니다.
   서버는 이 파일들을 하나도 담고 있지 않으니 직접 넣습니다. `retroarch.nro` 는
   `sdmc:/switch/retroarch_switch.nro` 로, `retroarch/` 의 나머지는 `sdmc:/retroarch/` 로 가고,
   `retroarch.cfg` 는 카드에 없을 때만 씁니다. 플레이스테이션은 `.chd`, `.pbp`, 또는 트랙 파일을
