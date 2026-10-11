@@ -1505,7 +1505,7 @@
           const kind = f.kind || (tdb ? "base" : "custom");
           // Cross-language search blob: displayed name + every alias the
           // server collected across region files (KR.ko / US.en / JP.ja /
-          // EU.en / HK.zh). So 'zelda' finds 젤다, 'マリオ' finds Mario, etc.
+          // GB.en / HK.zh). So 'zelda' finds 젤다, 'マリオ' finds Mario, etc.
           const aliases = Array.isArray(tdb?.aliases) ? tdb.aliases : [];
           const searchBlob = [f.name || "", ...aliases].join("  ").toLowerCase();
           return {
