@@ -105,6 +105,8 @@ test("a per-device login reads the shop from its own console only", async () => 
     const admin = { Authorization: BOB, Cookie: adminLogin.headers.get("set-cookie").split(";")[0], "Content-Type": "application/json" };
     const devices = await (await fetch(`${BASE}/admin/api/devices`, { headers: admin })).json();
     assert.ok(!devices.pending.some((p) => p.deviceKey === CONSOLE_A));
+    const stats = await (await fetch(`${BASE}/admin/api/stats`, { headers: admin })).json();
+    assert.ok(!stats.denials.recent.some((d) => d.reason === "device-bad-access-key"), "a password console is not a failed key");
     const all = await (await fetch(`${BASE}/admin/api/device-logins`, { headers: admin })).json();
     const row = all.logins.find((l) => l.name === login.name);
     assert.equal(row.owner, "alice");

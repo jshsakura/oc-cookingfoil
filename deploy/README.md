@@ -44,8 +44,9 @@ only from file names (with a hint on what is missing).
 
 ## 4. Connect your Switch
 
-- **CyberFoil:** Settings, then *eShop URL* = `http://<host>:38000/`, plus your
-  username and password.
+- **CyberFoil:** Settings, then *eShop URL* = `http://<host>:38000/`, plus a
+  username and password. Create a per-console login on the *Devices* page (`/pair`)
+  rather than sharing your account: it only reads the shop and can be revoked.
 - **Tinfoil-style clients:** *File Browser*, then `+`, then `http://<host>:38000/shop.tfl`.
 - **CookingFoil client:** with `COOK_DEVICE_PAIRING=true`, sign in to the shop
   on your phone, open *Devices* (`/pair`) and scan the QR the console shows, or type its

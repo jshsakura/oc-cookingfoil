@@ -43,8 +43,8 @@ export default function pairingGate() {
     // console stop working?" case.
     // A console signing in with a password (an account or its own device
     // login) is not asking for QR approval, so it stays out of the queue.
-    if (!store.isDeviceApproved(deviceKey) && !req.headers.authorization) {
-      store.recordPendingDevice(deviceKey, {
+    if (!store.isDeviceApproved(deviceKey)) {
+      if (!req.headers.authorization) store.recordPendingDevice(deviceKey, {
         ip: clientIp(req),
         version: req.get("Version") || null,
       });
