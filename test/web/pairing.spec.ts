@@ -9,7 +9,7 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   const pending = await (await request.get('/api/pair/status', { headers })).json();
   expect(pending.status).toBe('pending');
   await page.goto(pending.pairUrl);
-  await expect(page.getByRole('heading', { name:'샵 연결', exact:true })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'서버 연결', exact:true })).toBeVisible();
   await expect(page.locator('.device-code')).toHaveText(pending.pairCode);
   await expect(page.locator('#approve')).toHaveCount(0);
   await page.locator('#code').fill('000000');
@@ -25,7 +25,7 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path:'out/web/pairing-confirm-mobile.png' });
   await page.getByRole('button', { name:'이 기기를 연결합니다', exact:true }).click();
-  await expect(page.getByRole('heading', { name:'샵 연결을 승인했습니다.', exact:true })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'서버 연결을 승인했습니다.', exact:true })).toBeVisible();
   await page.screenshot({ path:'out/web/pairing-complete-mobile.png' });
   const approved = await (await request.get('/api/pair/status', { headers })).json();
   expect(approved.status).toBe('approved');
