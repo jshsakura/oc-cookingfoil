@@ -21,7 +21,6 @@ import crypto from "crypto";
 import { dataDir } from "../helpers/envs.js";
 import { hashPassword, matchesAsync } from "./password-hash.js";
 import * as users from "./users.js";
-import debug from "../debug.js";
 
 const DIR = path.join(dataDir, "security");
 const FILE = path.join(DIR, "device-logins.json");

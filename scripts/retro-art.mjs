@@ -44,6 +44,8 @@ const BEZEL_SOURCES = {
   gg: [["bezelproject-GameGear", "GameGear", "Sega-Game-Gear"]],
   pce: [["bezelproject-PCEngine", "PCEngine", "NEC-PC-Engine"]],
   ps1: [["bezelproject-PSX", "PSX", null]],
+  segacd: [["bezelproject-SegaCD", "SegaCD", "Sega-CD"]],
+  pcecd: [["bezelproject-PCE-CD", "PCE-CD", "NEC-PC-Engine-CD"]],
   saturn: [["bezelproject-Saturn", "Saturn", "Sega-Saturn"]],
   ngp: [["bezelproject-NGPC", "NGP", "SNK-Neo-Geo-Pocket-Color"]],
   ws: [["bezelproject-WonderSwanColor", "WonderSwanColor", "Bandai-WonderSwan—Color-Horizontal"]],

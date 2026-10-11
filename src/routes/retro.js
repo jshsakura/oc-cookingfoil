@@ -2,7 +2,8 @@
  * Retro games for RetroArch on the Switch. Off (404) until the retro folder
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
- *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount }] }
+ *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
+ *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png)
  *   GET /api/retro/games?system=&search=&sort=&page=&pageSize=
  *                                                { total, page, pageSize, games: [G…] }
  *   GET /api/retro/games/:id                     G
@@ -77,6 +78,13 @@ async function currentManifest() {
   return result === "pending" ? null : result;
 }
 
+/** A console's icon file, or null. Only names from the system table reach the disk. */
+function systemIcon(system, style) {
+  if (!system?.folder) return null;
+  const file = path.join(retroDir, "system-icons", style, `${system.folder}.png`);
+  return fs.existsSync(file) ? file : null;
+}
+
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
 function publicGame(g, systems) {
@@ -147,7 +155,20 @@ export default function retroRouter() {
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     res.set("Cache-Control", "private, max-age=0, must-revalidate");
-    res.json({ systems: catalog.systemsOf(cat) });
+    res.json({
+      systems: catalog.systemsOf(cat).map((s) => ({
+        ...s,
+        iconUrl: systemIcon(cat.systems[s.id], "color") ? `/api/retro/systems/${s.id}/icon` : null,
+        iconMonoUrl: systemIcon(cat.systems[s.id], "mono") ? `/api/retro/systems/${s.id}/icon?style=mono` : null,
+      })),
+    });
+  }));
+
+  router.get("/systems/:system/icon", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const file = systemIcon(cat.systems[req.params.system], req.query.style === "mono" ? "mono" : "color");
+    if (!file) return res.status(404).json({ error: "no icon" });
+    sendFile(res, file, "png");
   }));
 
   router.get("/games", wrap(async (req, res) => {
