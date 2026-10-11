@@ -112,6 +112,9 @@ curl http://localhost:38000/healthz
   The Bezel Project 에서 받아 옵니다. 이름을 바꾼 한글 패치 롬은 `art-map/<시스템>.json`
   (`{"<롬 이름>": "<No-Intro 이름>"}`) 이 있어야 찾습니다. 이미 있는 파일은 두므로 게임을
   더한 뒤 다시 돌리면 됩니다.
+  평점: `node scripts/retro-ratings.mjs <레트로 폴더> <Metadata.xml>`(gamesdb.launchbox-app.com/Metadata.zip
+  안의 파일)이 art-map 의 원제를 LaunchBox Games DB 와 맞춰 `ratings.json` 을 씁니다.
+  `/api/retro/games?sort=rating` 과 `/api/retro/home` 이 이것을 씁니다.
   서버는 이 파일들을 하나도 담고 있지 않으니 직접 넣습니다. `retroarch.nro` 는
   `sdmc:/switch/retroarch_switch.nro` 로, `retroarch/` 의 나머지는 `sdmc:/retroarch/` 로 가고,
   `retroarch.cfg` 는 카드에 없을 때만 씁니다. 플레이스테이션은 `.chd`, `.pbp`, 또는 트랙 파일을

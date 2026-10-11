@@ -4,8 +4,10 @@
  *
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
  *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png)
- *   GET /api/retro/games?system=&search=&sort=&page=&pageSize=
- *                                                { total, page, pageSize, games: [G…] }
+ *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
+ *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
+ *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
+ *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
  *   GET /api/retro/games/:id/icon                square box art (256px JPEG) for tiles
@@ -16,7 +18,7 @@
  *   GET /api/retro/base-pack/file/<sd path>      one pack file (Range works)
  *   GET /api/retro/base-pack                     the whole pack as a tar, SD-root paths
  *
- * G = { id, name, file, system, core, size, addedAt, iconUrl, romUrl, bundleUrl,
+ * G = { id, name, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
  *       forwarderUrl: null, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
@@ -41,8 +43,11 @@ const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
 const MANIFEST_STALE_MS = 60_000;
 const FIRST_HASH_WAIT_MS = 3000;
+const byName = (a, b) => a.name.localeCompare(b.name);
 const SORTS = {
-  name: (a, b) => a.name.localeCompare(b.name),
+  name: byName,
+  // Rated games first, best first; the unrated after them by name.
+  rating: (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || (b.ratingCount ?? 0) - (a.ratingCount ?? 0) || byName(a, b),
   added: (a, b) => b.addedAt - a.addedAt || a.name.localeCompare(b.name),
   size: (a, b) => b.size - a.size || a.name.localeCompare(b.name),
 };
@@ -85,6 +90,11 @@ function systemIcon(system, style) {
   return fs.existsSync(file) ? file : null;
 }
 
+/** Text for matching: NFC, lower case, no spaces. Pure. */
+const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
+/** A game matches on its name, its original title or its file name. */
+const gameMatches = (g, needle) => [g.name, g.original, g.file].some((s) => s && folded(s).includes(needle));
+
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
 function publicGame(g, systems) {
@@ -94,6 +104,9 @@ function publicGame(g, systems) {
   return {
     id: g.id,
     name: g.name,
+    ...(g.original ? { original: g.original } : {}),
+    ...(g.rating !== undefined ? { rating: g.rating } : {}),
+    ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     file: g.file,
     system: g.system,
     core: g.core,
@@ -166,6 +179,24 @@ export default function retroRouter() {
     });
   }));
 
+  router.get("/home", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+    const bySystem = new Map();
+    for (const g of cat.games) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
+    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    res.json({
+      systems: catalog.systemsOf(cat)
+        .filter((s) => s.romCount > 0)
+        .map((s) => ({
+          ...s,
+          iconUrl: systemIcon(cat.systems[s.id], "color") ? `/api/retro/systems/${s.id}/icon` : null,
+          iconMonoUrl: systemIcon(cat.systems[s.id], "mono") ? `/api/retro/systems/${s.id}/icon?style=mono` : null,
+          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems)),
+        })),
+    });
+  }));
+
   router.get("/systems/:system/icon", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     const file = systemIcon(cat.systems[req.params.system], req.query.style === "mono" ? "mono" : "color");
@@ -176,12 +207,13 @@ export default function retroRouter() {
   router.get("/games", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     const system = typeof req.query.system === "string" ? req.query.system : "";
-    const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase().normalize("NFC") : "";
+    const raw = typeof req.query.q === "string" ? req.query.q : typeof req.query.search === "string" ? req.query.search : "";
+    const search = folded(raw);
     const sort = SORTS[req.query.sort] ?? SORTS.name;
     const pageSize = Math.min(PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const matches = cat.games
-      .filter((g) => (!system || g.system === system) && (!search || g.name.toLowerCase().normalize("NFC").includes(search)))
+      .filter((g) => (!system || g.system === system) && (!search || gameMatches(g, search)))
       .sort(sort);
     res.set("Cache-Control", "private, max-age=0, must-revalidate");
     res.json({

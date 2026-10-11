@@ -22,6 +22,10 @@
  * game in several disc formats (CHD and PBP, CSO and ISO, …), only the best
  * one is listed.
  *
+ * Two optional files add to each game, keyed by its ROM name:
+ *   art-map/<system>.json   the original (No-Intro) title, which search also matches
+ *   ratings.json            { "<system>": { "<ROM name>": { "rating": 0-100, "count": n } } }
+ *
  * Scanning only stats files, so it is cheap; the folder is rescanned when the
  * listing is older than a minute.
  */
@@ -243,6 +247,38 @@ function bestFormats(games) {
   });
 }
 
+async function readJson(file) {
+  try {
+    return JSON.parse(await fsp.readFile(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/** The original title a ROM was mapped to, without the console prefix WonderSwan maps use. */
+const originalOf = (map, name) => {
+  const v = map?.[name];
+  return typeof v === "string" && v ? v.replace(/^WSC?:/, "") : null;
+};
+
+/** Adds `original`, `rating` and `ratingCount` to each game, from art-map and ratings.json. */
+async function addExtras(dir, games) {
+  const ratings = (await readJson(path.join(dir, "ratings.json"))) ?? {};
+  const maps = new Map();
+  for (const g of games) {
+    if (!maps.has(g.system)) maps.set(g.system, await readJson(path.join(dir, "art-map", `${g.system}.json`)));
+    const map = maps.get(g.system);
+    // A multi-disc game is listed by its folded name; its first disc carries the mapping.
+    const firstDisc = g.m3u ? path.basename(g.extras[0]?.rel ?? "", path.extname(g.extras[0]?.rel ?? "")) : null;
+    g.original = originalOf(map, g.name) ?? (firstDisc && originalOf(map, firstDisc));
+    const r = ratings[g.system]?.[g.name] ?? (firstDisc && ratings[g.system]?.[firstDisc]);
+    if (Number.isInteger(r?.rating) && r.rating >= 0 && r.rating <= 100) {
+      g.rating = r.rating;
+      if (Number.isInteger(r.count) && r.count > 0) g.ratingCount = r.count;
+    }
+  }
+}
+
 /** Every game under `dir`, with the system table it was read with. */
 export async function scanDir(dir) {
   const systems = loadSystems(dir);
@@ -273,6 +309,7 @@ export async function scanDir(dir) {
     }
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
+  await addExtras(dir, games);
   return { systems, games, present };
 }
 

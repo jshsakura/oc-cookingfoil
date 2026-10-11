@@ -261,6 +261,7 @@
       .retro-systems .chip img { width: 18px; height: 18px; object-fit: contain; }
       .retro-systems .chip .n { color: var(--secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
       .retro-systems .chip.active .n { color: inherit; opacity: 0.7; }
+      button.game { background: none; border: 0; padding: 0; font: inherit; text-align: left; }
       .game .cover.letter { display: grid; place-items: center; font: 800 54px var(--font-display, var(--font-body)); color: var(--secondary); }
       .genre-chips .chip .n { margin-left: 6px; font-weight: 500; opacity: 0.6; }
       .genre-chips .chips-head { flex-shrink: 0; align-self: center; padding: 0 4px 0 2px; font-size: 12px; font-weight: 800; color: var(--secondary); letter-spacing: 0.04em; }
@@ -721,6 +722,19 @@
           "retro.bezel": "베젤",
           "retro.discs": "여러 디스크",
           "retro.download": "받기",
+          "retro.system": "기종",
+          "retro.core": "코어",
+          "retro.file": "파일",
+          "retro.discCount": "디스크",
+          "retro.added": "추가한 날",
+          "retro.bezelLabel": "베젤",
+          "retro.bezelOwn": "게임 전용",
+          "retro.bezelDefault": "기종 기본",
+          "retro.bezelNone": "없음",
+          "retro.original": "원제",
+          "retro.patch": "패치 정보",
+          "retro.downloadRom": "롬 받기",
+          "retro.downloadDiscs": "디스크 묶음 받기",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
           "row.sale": "eShop 할인 중",
@@ -854,6 +868,19 @@
           "retro.bezel": "Bezel",
           "retro.discs": "Multi-disc",
           "retro.download": "Download",
+          "retro.system": "System",
+          "retro.core": "Core",
+          "retro.file": "File",
+          "retro.discCount": "Discs",
+          "retro.added": "Added",
+          "retro.bezelLabel": "Bezel",
+          "retro.bezelOwn": "Game's own",
+          "retro.bezelDefault": "System default",
+          "retro.bezelNone": "None",
+          "retro.original": "Original title",
+          "retro.patch": "Patch",
+          "retro.downloadRom": "Download ROM",
+          "retro.downloadDiscs": "Download all discs",
           "row.recent": "Recently added",
           "row.sale": "On sale on eShop",
           "row.new": "New releases",
@@ -986,6 +1013,19 @@
           "retro.bezel": "ベゼル",
           "retro.discs": "複数ディスク",
           "retro.download": "ダウンロード",
+          "retro.system": "機種",
+          "retro.core": "コア",
+          "retro.file": "ファイル",
+          "retro.discCount": "ディスク",
+          "retro.added": "追加日",
+          "retro.bezelLabel": "ベゼル",
+          "retro.bezelOwn": "ゲーム専用",
+          "retro.bezelDefault": "機種の標準",
+          "retro.bezelNone": "なし",
+          "retro.original": "原題",
+          "retro.patch": "パッチ情報",
+          "retro.downloadRom": "ROM をダウンロード",
+          "retro.downloadDiscs": "全ディスクをダウンロード",
           "row.recent": "最近の追加",
           "row.sale": "eShopでセール中",
           "row.new": "新作",
@@ -1118,6 +1158,19 @@
           "retro.bezel": "邊框",
           "retro.discs": "多光碟",
           "retro.download": "下載",
+          "retro.system": "機種",
+          "retro.core": "核心",
+          "retro.file": "檔案",
+          "retro.discCount": "光碟",
+          "retro.added": "加入日期",
+          "retro.bezelLabel": "邊框",
+          "retro.bezelOwn": "遊戲專用",
+          "retro.bezelDefault": "機種預設",
+          "retro.bezelNone": "無",
+          "retro.original": "原名",
+          "retro.patch": "修補資訊",
+          "retro.downloadRom": "下載 ROM",
+          "retro.downloadDiscs": "下載全部光碟",
           "row.recent": "最近新增",
           "row.sale": "eShop 特價中",
           "row.new": "新作",
@@ -1992,11 +2045,11 @@
           for (const s of systems.filter((s) => s.romCount > 0)) row.append(chip(s.id, nameOf(s), s.romCount, s.iconUrl));
         }
         function card(g) {
-          const a = document.createElement("a");
+          const a = document.createElement("button");
+          a.type = "button";
           a.className = "game";
-          a.href = g.file.endsWith(".m3u") ? g.bundleUrl : g.romUrl;
-          a.download = "";
-          a.title = `${t("retro.download")}: ${g.file}`;
+          a.title = g.name;
+          a.addEventListener("click", () => openRetroModal(g, systems?.find((s) => s.id === g.system)));
           const poster = document.createElement("div"); poster.className = "poster";
           let cover;
           if (g.iconUrl) {
@@ -2300,6 +2353,8 @@
         $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
         $("modal-screens").innerHTML = ""; $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
         $("modal-download").href = f.url || "#";
+        $("modal-download").removeAttribute("download");
+        $("modal-download").textContent = t("action.download");
         $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
 
         // Rich metadata (description, publisher, screenshots, release, region,
@@ -2507,6 +2562,54 @@
           }
         } catch { /* extras are best-effort */ }
       }
+      // A retro game's details: the square art as cover, its bezel as the banner
+      // (the blurred cover when it has none), and the name split into the
+      // original title and the patch notes the file name carries.
+      function openRetroModal(g, sys) {
+        currentModal = null;
+        const modalEl = document.querySelector("#modal .modal");
+        modalEl.classList.remove("loading");
+        const patch = (g.name.match(/\[([^\]]*)\]\s*$/) || [])[1] || "";
+        const withoutPatch = g.name.replace(/\s*\[[^\]]*\]\s*$/, "");
+        const original = (withoutPatch.match(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/) || [])[1] || "";
+        $("modal-title").textContent = original ? withoutPatch.slice(0, withoutPatch.lastIndexOf("(" + original)).trim() || withoutPatch : withoutPatch;
+        $("modal-publisher").textContent = sys ? (sys.names?.[lang] || sys.name) : g.system;
+        setCover(g.iconUrl || "");
+        const own = g.bezel?.hasBezel && !g.bezel.generic;
+        setBanner(g.bezel?.hasBezel ? g.bezel.imageUrl : "", g.iconUrl || "");
+        const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
+        const rows = [
+          [t("retro.system"), sys ? (sys.names?.[lang] || sys.name) : g.system],
+          [t("modal.size"), fmtBytes(g.size)],
+          [t("retro.core"), g.core || "—"],
+          ...(discs ? [[t("retro.discCount"), String(discs)]] : []),
+          [t("retro.bezelLabel"), own ? t("retro.bezelOwn") : g.bezel?.hasBezel ? t("retro.bezelDefault") : t("retro.bezelNone")],
+          [t("retro.added"), g.addedAt ? new Date(g.addedAt * 1000).toLocaleDateString(lang) : "—"],
+        ];
+        const metaBox = $("modal-meta"); metaBox.replaceChildren();
+        for (const [k, v] of rows) {
+          const cell = document.createElement("div");
+          const label = document.createElement("span"); label.textContent = k;
+          const value = document.createElement("strong"); value.textContent = v;
+          cell.append(label, value);
+          metaBox.append(cell);
+        }
+        const desc = $("modal-desc"); desc.replaceChildren();
+        for (const [k, v] of [[t("retro.original"), original], [t("retro.patch"), patch], [t("retro.file"), g.file]]) {
+          if (!v) continue;
+          const line = document.createElement("div");
+          const b = document.createElement("strong"); b.textContent = k + " ";
+          line.append(b, document.createTextNode(v));
+          desc.append(line);
+        }
+        $("modal-screens").replaceChildren(); $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+        const dl = $("modal-download");
+        dl.href = discs ? g.bundleUrl : g.romUrl;
+        dl.setAttribute("download", "");
+        dl.textContent = discs ? t("retro.downloadDiscs") : t("retro.downloadRom");
+        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+      }
+
       function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
       $("modal-close").addEventListener("click", closeModal);
