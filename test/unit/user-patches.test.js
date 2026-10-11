@@ -153,3 +153,8 @@ test("the listing and hashes survive a restart, and the cache forgets removed fi
   assert.equal(Object.keys(JSON.parse(fs.readFileSync(cacheFile, "utf8")).hashes).length, 1);
   assert.equal(loadCache(path.join(root, "missing.json")), false);
 });
+
+test("a patch for a title nobody knows carries no game block", async () => {
+  const { gameOf } = await import("../../src/routes/patches.js");
+  assert.equal(gameOf("0100FFFFFFFF0000", "https://shop.example"), null);
+});
