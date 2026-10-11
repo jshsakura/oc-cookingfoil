@@ -389,6 +389,13 @@
         color: rgba(255, 255, 255, 0.82); font: 600 14px var(--font-body); margin-bottom: 28px;
       }
       .modal .banner.no-art .banner-empty svg { width: 40px; height: 40px; }
+      /* Retro games: the box art sits in the bezel's screen, where the game will play. */
+      .modal .banner .banner-poster { display: none; }
+      .modal .banner.with-poster .banner-poster {
+        display: block; position: relative; z-index: 1; height: 86%; max-width: 70%; object-fit: contain;
+        border-radius: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .modal .banner.with-poster.no-art .banner-empty { display: none; }
       /* Opened before the detail arrives: shimmer where it will land. */
       .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel {
         background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
@@ -400,7 +407,7 @@
       .modal .desc-skel:last-child { width: 60%; }
       .modal .body { padding: 26px 30px 28px; }
       .modal .modal-head { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 20px; }
-      .modal .modal-head .modal-cover { margin-top: -64px; }
+      .modal .modal-head .modal-cover { margin-top: -64px; position: relative; z-index: 1; }
       .modal .modal-cover {
         width: 112px; height: 112px; flex-shrink: 0; border-radius: 20px; object-fit: cover; background: var(--sunk);
         border: 4px solid var(--ground); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
@@ -660,6 +667,7 @@
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="modal" onclick="event.stopPropagation()">
         <div class="banner" id="modal-banner">
+          <img class="banner-poster" id="modal-poster" alt="" decoding="async">
           <div class="banner-empty" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
             <span data-i18n="modal.noImage"></span>
@@ -1980,7 +1988,7 @@
         heroIndex = (n + heroSlides.length) % heroSlides.length;
         heroAt = Date.now();
         const { r, key, label, banner } = heroSlides[heroIndex];
-        const coverSrc = r.item.icon_url ? r.item.icon_url + (r.item.icon_url.includes("?") ? "&" : "?") + "size=md" : coverPlaceholder();
+        const coverSrc = r.item.icon_url ? r.item.icon_url + (r.item.icon_url.includes("?") ? "&" : "?") + "size=lg" : coverPlaceholder();
         const cover = $("hero-cover");
         cover.onerror = () => { cover.onerror = null; cover.src = coverPlaceholder(); };
         cover.src = coverSrc;
@@ -2178,7 +2186,7 @@
         // separator instead of appending a second "?".
         if (r.item.icon_url) {
           const sep = r.item.icon_url.includes("?") ? "&" : "?";
-          cover.src = r.item.icon_url + sep + "size=md";
+          cover.src = r.item.icon_url + sep + "size=lg";
         } else {
           cover.src = coverPlaceholder();
         }
@@ -2310,6 +2318,18 @@
 
       // Show the banner once it has actually loaded; a missing or broken one
       // falls back to the blurred icon and a "no artwork" mark, never a blank band.
+      // Box art shown inside the banner (retro games); an empty url, or one that fails, hides it.
+      function setPoster(url) {
+        const box = $("modal-banner");
+        const img = $("modal-poster");
+        box.classList.remove("with-poster");
+        img.removeAttribute("src");
+        if (!url) return;
+        img.onload = () => box.classList.add("with-poster");
+        img.onerror = () => box.classList.remove("with-poster");
+        img.src = bustUrl(url);
+      }
+
       function setBanner(bannerUrl, iconUrl) {
         const box = $("modal-banner");
         const empty = () => {
@@ -2343,6 +2363,7 @@
         $("modal-title").textContent = cleanName(nameWithAlias(f.name || t("misc.unnamed"), r.tdb?.aliases || []));
         $("modal-publisher").textContent = r.tdb?.publisher || "\u00a0";
         setCover(iconUrl);
+        setPoster("");
         const bannerBox = $("modal-banner");
         bannerBox.dataset.want = ""; bannerBox.classList.remove("no-art"); bannerBox.style.backgroundImage = "";
         $("modal-meta").replaceChildren(...Array.from({ length: 8 }, () => {
@@ -2577,6 +2598,7 @@
         setCover(g.iconUrl || "");
         const own = g.bezel?.hasBezel && !g.bezel.generic;
         setBanner(g.bezel?.hasBezel ? g.bezel.imageUrl : "", g.iconUrl || "");
+        setPoster(g.boxartUrl || "");
         const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
         const rows = [
           [t("retro.system"), sys ? (sys.names?.[lang] || sys.name) : g.system],

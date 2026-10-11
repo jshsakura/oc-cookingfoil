@@ -19,7 +19,7 @@ import fs from "fs";
 import path from "path";
 import readline from "readline";
 
-const PLATFORMS = {
+export const PLATFORMS = {
   nes: ["Nintendo Entertainment System", "Nintendo Famicom Disk System"],
   snes: ["Super Nintendo Entertainment System", "Nintendo Satellaview"],
   gb: ["Nintendo Game Boy"],
@@ -60,7 +60,7 @@ export function titleKey(raw) {
   return s;
 }
 
-const decode = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+export const decode = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
 async function readLaunchBox(file, wanted) {
   const games = new Map(); // DatabaseID → { name, platform, rating, count }

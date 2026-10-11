@@ -22,16 +22,18 @@ async function picture(width, height) {
   return file;
 }
 
-test("icons are cropped to a square at 256 and 512 px", async () => {
+test("icons are cropped to a square at 160, 256 and 512 px", async () => {
   const file = await picture(1024, 1024);
-  assert.deepEqual(await served(file, { size: "sm" }).then((m) => [m.width, m.height]), [256, 256]);
-  assert.deepEqual(await served(file, { size: "md" }).then((m) => [m.width, m.height]), [512, 512]);
+  assert.deepEqual(await served(file, { size: "sm" }).then((m) => [m.width, m.height]), [160, 160]);
+  assert.deepEqual(await served(file, { size: "md" }).then((m) => [m.width, m.height]), [256, 256]);
+  assert.deepEqual(await served(file, { size: "lg" }).then((m) => [m.width, m.height]), [512, 512]);
 });
 
 test("screenshots keep their aspect ratio instead of being cropped", async () => {
   const file = await picture(1280, 720);
   assert.deepEqual(await served(file, { size: "sm" }, { wide: true }).then((m) => [m.width, m.height]), [256, 144]);
   assert.deepEqual(await served(file, { size: "md" }, { wide: true }).then((m) => [m.width, m.height]), [512, 288]);
+  assert.deepEqual(await served(file, { size: "lg" }, { wide: true }).then((m) => [m.width, m.height]), [512, 288]);
 });
 
 test("an unknown size serves the original", async () => {

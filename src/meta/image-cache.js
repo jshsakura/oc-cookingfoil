@@ -6,8 +6,12 @@
  *   <titleId>.jpg             ← upstream JPEG (Nintendo eShop CDN)
  *   <titleId>.banner.jpg
  *   <titleId>.screen.<n>.jpg
- *   <titleId>.thumb.jpg       ← 256×256 cover (mozjpeg q85)
- *   <titleId>.thumb.webp      ← 256×256 cover (webp q80)
+ *   <titleId>.sm.jpg|webp     ← 160×160 cover (?size=sm, Switch list cards)
+ *   <titleId>.thumb.jpg|webp  ← 256×256 cover (?size=md)
+ *   <titleId>.md.jpg|webp     ← 512×512 cover (?size=lg, browser cards)
+ *
+ * The Switch client's sizes (sm and md, as JPEG) are drawn ahead of time by
+ * prewarmIcons, so a list never waits for a resize.
  *
  * Switch clients (Tinfoil/CyberFoil) request the original — no Accept:
  * image/webp header from them, so they always get JPEG.
@@ -31,7 +35,14 @@ sharp.cache({ memory: 256, files: 200 });
 const THUMB_PX = 256;
 // ?size= → longest edge in px. Icons are square and cropped to it; banners and
 // screenshots keep their aspect ratio and are scaled to that width.
-const SIZES = { sm: THUMB_PX, md: 512 };
+const SIZES = { sm: 160, md: THUMB_PX, lg: 512 };
+// File suffix per size. md and lg keep the names their 256- and 512-px files
+// had before sm existed, so variants already on disk stay valid.
+const SUFFIXES = { sm: "sm", md: "thumb", lg: "md" };
+// Banners and screenshots keep the widths they always had: sm 256, md and lg 512.
+const WIDE_SIZES = { sm: THUMB_PX, md: 512, lg: 512 };
+const WIDE_SUFFIXES = { sm: "thumb-wide", md: "md-wide", lg: "md-wide" };
+const JPEG_QUALITY = 80;
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
 
@@ -153,7 +164,7 @@ async function ensureVariant(originalPath, variant) {
         pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
       }
       if (variant.format === "webp")  pipeline = pipeline.webp({ quality: 80, effort: 4 });
-      else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: 85, mozjpeg: true });
+      else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
       const t0 = Date.now();
       await pipeline.toFile(tmp);
       await rename(tmp, variant.path);
@@ -176,16 +187,14 @@ function acceptsWebp(req) {
   return a.includes("image/webp");
 }
 
-// Variant file suffix. The square 256-px one keeps its historic name so thumbs
-// already on disk (and the prewarm) stay valid.
 function variantSuffix(size, wide) {
-  const name = size === "sm" ? "thumb" : size;
-  return wide ? `${name}-wide` : name;
+  return wide ? WIDE_SUFFIXES[size] : SUFFIXES[size];
 }
 
 /**
- * Serve a cached image. `?size=sm` (256 px) and `?size=md` (512 px) return a
- * smaller variant; the default returns the original. `wide` keeps the aspect
+ * Serve a cached image. `?size=sm` (160 px), `?size=md` (256 px) and
+ * `?size=lg` (512 px) return a smaller square icon; banners and screenshots
+ * (`wide`) come at 256, 512 and 512 px wide; the default returns the original. `wide` keeps the aspect
  * ratio (banners, screenshots) instead of cropping to a square (icons). When
  * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
  */
@@ -230,9 +239,10 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
 
   try {
     const suffix = variantSuffix(size, wide);
+    const px = (wide ? WIDE_SIZES : SIZES)[size];
     const variant = wantWebp
-      ? { path: variantPath(source, suffix, "webp"), resize: SIZES[size], wide, format: "webp" }
-      : { path: variantPath(source, suffix, "jpg"), resize: SIZES[size], wide, format: "jpeg" };
+      ? { path: variantPath(source, suffix, "webp"), resize: px, wide, format: "webp" }
+      : { path: variantPath(source, suffix, "jpg"), resize: px, wide, format: "jpeg" };
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");
@@ -280,10 +290,15 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     while (cursor < queue.length) {
       const tid = queue[cursor++];
       const cp = cachePathFor(tid, "icon");
-      const webpThumb = variantPath(cp, "thumb", "webp");
+      // Switch cards (JPEG, sm and md) and the browser's small WebP.
+      const variants = [
+        { path: variantPath(cp, SUFFIXES.sm, "jpg"), resize: SIZES.sm, format: "jpeg" },
+        { path: variantPath(cp, SUFFIXES.md, "jpg"), resize: SIZES.md, format: "jpeg" },
+        { path: variantPath(cp, SUFFIXES.md, "webp"), resize: SIZES.md, format: "webp" },
+      ];
       const haveOriginal = existsCached(cp);
-      const haveThumb = existsCached(webpThumb);
-      if (haveOriginal && haveThumb) { skipped++; continue; }
+      const missing = variants.filter((v) => !existsCached(v.path));
+      if (haveOriginal && !missing.length) { skipped++; continue; }
 
       const url = getUpstreamForBase(tid);
       if (!url && !haveOriginal) { skipped++; continue; }
@@ -293,13 +308,12 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
           await ensureOriginal(cp, url);
           done++;
         }
-        // Eagerly transcode the WebP thumbnail too. Browsers hitting the
-        // grid request `?size=sm` with Accept: image/webp — having the
-        // variant on disk means the first paint never waits for sharp.
+        // Eagerly transcode the thumbnails too, so the first paint of a
+        // list never waits for sharp.
         // Sharp's internal threadpool handles CPU parallelism, so the only
         // backpressure we apply is at the network-fetch level.
-        if (!haveThumb) {
-          await ensureVariant(cp, { path: webpThumb, resize: THUMB_PX, format: "webp" });
+        for (const v of missing) {
+          await ensureVariant(cp, v);
           thumbs++;
         }
       } catch {
