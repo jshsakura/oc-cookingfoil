@@ -3,7 +3,7 @@
  * Fill the gaps in art-map/<system>.json by looking each ROM's English title up
  * in libretro-thumbnails' list of box art names.
  *
- *   node scripts/retro-art-match.mjs <retro dir> [--dry]
+ *   node scripts/retro-art-match.mjs <retro dir> [--dry] [--system <id>]
  *
  * Retro file names follow "한글명 (English Name) [patch info]". A ROM whose
  * art-map entry is missing or null has its English name matched against the
@@ -146,11 +146,14 @@ async function main() {
   const dry = flags.includes("--dry");
   const lbAt = flags.indexOf("--launchbox");
   const lbXml = lbAt >= 0 ? flags[lbAt + 1] : null;
+  const sysAt = flags.indexOf("--system");
+  const only = sysAt >= 0 ? flags[sysAt + 1] : null;
   const systems = loadSystems(dir);
   const mapDir = path.join(dir, "art-map");
   const lb = lbXml ? await launchBoxCovers(lbXml, new Set(Object.values(PLATFORMS).flat())) : null;
   for (const [id, system] of Object.entries(systems)) {
     if (id === "ws" || id === "arcade") continue; // WS needs a console prefix; arcade uses set names
+    if (only && id !== only) continue;
     const file = path.join(mapDir, `${id}.json`);
     const map = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
     const todo = [...new Set(romsOf(dir, system))].filter((rom) => !map[rom]);

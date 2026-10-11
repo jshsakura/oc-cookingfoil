@@ -29,13 +29,14 @@ async function api(url,opts={}){
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
-const TABS=['overview','users','devices','security','featured','library'];
+const TABS=['overview','users','devices','security','featured','library','upload'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
   if(tab==='security')loadTfa();
-  if(tab==='featured')loadFeatured();}
+  if(tab==='featured')loadFeatured();
+  if(tab==='upload')loadUpload();}
 addEventListener('hashchange',showTab);
 
 
@@ -164,6 +165,62 @@ async function reissue(deviceKey,label){if(!confirm('새 접속 키를 발급합
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function revoke(deviceKey){if(!confirm('이 기기의 승인을 취소합니다. 더는 접속할 수 없습니다.'))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('승인을 취소했습니다.');loadDevices();}catch(err){toast(err.message);}}
+
+// ── upload ────────────────────────────────────────────────────────────
+const UP_HINT={
+  game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 스위치 게임 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
+  retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
+  patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
+  save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
+};
+let upKind='game',upInfo=null,upFiles=[],upPaths=null;
+function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.size,0);
+  $('up-chosen').textContent=n?(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB':'고른 파일이 없습니다';}
+function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
+  for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
+  $('up-hint').textContent=UP_HINT[kind];
+  $('up-system-l').hidden=kind!=='retro';
+  $('up-game-l').hidden=$('up-name-l').hidden=!(kind==='patch'||kind==='save');
+  $('up-desc-l').hidden=$('up-desc-ko-l').hidden=!(kind==='patch'||kind==='save');
+  $('up-dir-btn').hidden=!(kind==='patch'||kind==='save');
+  $('up-file').multiple=kind==='retro';
+  $('up-file').accept=kind==='game'?'.nsp,.nsz,.xci,.xcz':(kind==='patch'||kind==='save')?'.zip':'';
+  const w=upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
+  if(w&&!w.writable){const n=el('div',null,'note warn');n.append(el('div','이 폴더는 지금 쓸 수 없습니다','t'),
+    el('div','compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(n);}
+  $('up-go').disabled=!(w&&w.writable);}
+async function loadUpload(){
+  if(!upInfo){try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return;}
+    $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
+    $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));}
+  upSetKind(upKind);}
+$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
+$('up-file-btn').addEventListener('click',()=>$('up-file').click());
+$('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
+$('up-file').addEventListener('change',()=>{upFiles=[...$('up-file').files];upPaths=null;upChosen();$('up-file').value='';});
+$('up-dir').addEventListener('change',()=>{upFiles=[...$('up-dir').files];upPaths=upFiles.map((f)=>f.webkitRelativePath||f.name);upChosen();$('up-dir').value='';});
+function upTitleId(){const v=$('up-game').value.trim();const m=v.match(/[0-9A-Fa-f]{16}/);return m?m[0].toUpperCase():'';}
+$('up-form').addEventListener('submit',(e)=>{e.preventDefault();
+  if(!upFiles.length){toast('올릴 파일을 고릅니다');return;}
+  const fd=new FormData();
+  if(upKind==='retro')fd.append('system',$('up-system').value);
+  if(upKind==='patch'||upKind==='save'){
+    const tid=upTitleId();if(!tid){toast('게임을 고릅니다');return;}
+    if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}
+    fd.append('titleId',tid);fd.append('name',$('up-name').value.trim());
+    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());}
+  if(upPaths)fd.append('paths',JSON.stringify(upPaths));
+  for(const f of upFiles)fd.append('files',f,f.name);
+  const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-go').disabled=true;
+  xhr.upload.addEventListener('progress',(ev)=>{if(ev.lengthComputable)bar.firstElementChild.style.width=(ev.loaded/ev.total*100).toFixed(1)+'%';});
+  xhr.addEventListener('loadend',()=>{$('up-go').disabled=false;bar.hidden=true;
+    if(xhr.status===401){location.reload();return;}
+    let d={};try{d=JSON.parse(xhr.responseText);}catch{}
+    const ok=xhr.status===201;const n=el('div',null,'note'+(ok?'':' warn'));
+    n.append(el('div',ok?'올렸습니다':'올리지 못했습니다','t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'):(d.error||('HTTP '+xhr.status)),'d'));
+    $('up-log').prepend(n);
+    if(ok){upFiles=[];upPaths=null;upChosen();$('up-name').value='';$('up-desc').value='';$('up-desc-ko').value='';toast('올렸습니다');}});
+  xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});
 
 // ── library ───────────────────────────────────────────────────────────
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);

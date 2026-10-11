@@ -51,6 +51,17 @@ section[hidden]{display:none}
 .hd h2{margin:22px 0 10px}
 form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 form.add input{flex:1;min-width:150px}
+.up-kinds{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.up-kinds button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+form.up{display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+form.up label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+form.up label[hidden]{display:none}
+form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:72px;resize:vertical}
+form.up .pick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+form.up .chosen{font-size:13px;color:var(--text);word-break:break-all}
+.bar{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.up-log{display:grid;gap:6px;margin-top:14px}
 td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 td.dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
@@ -97,6 +108,7 @@ export function dashboardPage() {
   <a href="#security" data-tab="security">보안<span class="count" id="lock-count" hidden></span></a>
   <a href="#featured" data-tab="featured">추천</a>
   <a href="#library" data-tab="library">라이브러리</a>
+  <a href="#upload" data-tab="upload">업로드</a>
 </nav>
 
 <section id="tab-overview">
@@ -174,6 +186,37 @@ export function dashboardPage() {
   <h2>서버 설정</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>
+</section>
+
+<section id="tab-upload" hidden>
+  <div class="hd"><h2>업로드</h2></div>
+  <p class="muted">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다.</p>
+  <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
+    <button type="button" data-kind="game">스위치 게임</button>
+    <button type="button" data-kind="retro">레트로 롬</button>
+    <button type="button" data-kind="patch">유저 패치</button>
+    <button type="button" data-kind="save">세이브</button>
+  </div>
+  <div id="up-note"></div>
+  <form class="up" id="up-form">
+    <p class="muted" id="up-hint"></p>
+    <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
+    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="예: 마리오 카트 8 디럭스 또는 0100152000022000"></label>
+    <datalist id="up-games"></datalist>
+    <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
+    <label id="up-desc-l" hidden>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
+    <label id="up-desc-ko-l" hidden>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
+    <div class="pick">
+      <button type="button" id="up-file-btn">파일 고르기</button>
+      <button type="button" id="up-dir-btn" hidden>폴더 고르기</button>
+      <span class="chosen" id="up-chosen">고른 파일이 없습니다</span>
+      <input type="file" id="up-file" hidden>
+      <input type="file" id="up-dir" webkitdirectory hidden>
+    </div>
+    <div class="bar" id="up-bar" hidden><i></i></div>
+    <div><button type="submit" class="primary" id="up-go">올리기</button></div>
+  </form>
+  <div class="up-log" id="up-log"></div>
 </section>
 </div>
 

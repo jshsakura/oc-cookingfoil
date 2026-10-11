@@ -3,7 +3,7 @@
  * Fetch box art (libretro-thumbnails) and bezels (The Bezel Project) for the
  * retro games in a CookingFoil retro folder.
  *
- *   node scripts/retro-art.mjs <retro dir> [--dry]
+ *   node scripts/retro-art.mjs <retro dir> [--dry] [--system <id>]
  *
  * Game files are often renamed (translations, patches), so their names rarely
  * match the No-Intro / Redump names the artwork is filed under. The mapping
@@ -148,6 +148,8 @@ async function main() {
     process.exit(2);
   }
   const dry = flags.includes("--dry");
+  const sysAt = flags.indexOf("--system");
+  const only = sysAt >= 0 ? flags[sysAt + 1] : null;
   const systems = loadSystems(dir);
   const mapDir = path.join(dir, "art-map");
   const mapped = fs.existsSync(mapDir) ? fs.readdirSync(mapDir).filter((f) => f.endsWith(".json")).map((f) => path.basename(f, ".json")) : [];
@@ -155,7 +157,7 @@ async function main() {
   // Every system gets its default bezel, mapped games or not.
   for (const id of new Set([...mapped, ...Object.keys(BEZEL_SOURCES)])) {
     const system = systems[id];
-    if (!system) continue;
+    if (!system || (only && id !== only)) continue;
     const file = path.join(mapDir, `${id}.json`);
     const map = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
     const results = await pool(jobsFor(dir, id, system, map, dry));

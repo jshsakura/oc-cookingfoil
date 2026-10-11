@@ -87,7 +87,8 @@ COPY --from=hacbrewpack-builder /hacbrewpack /usr/local/bin/hacbrewpack
 # zstandard library), installed via pip. --break-system-packages is
 # required on Alpine 3.20+'s PEP 668 environment; the image is single-
 # tenant and we own the Python install, so this is safe.
-RUN apk add --no-cache python3 py3-pip && \
+# unzip opens the patch and save zips uploaded from the admin page.
+RUN apk add --no-cache python3 py3-pip unzip && \
     pip3 install --no-cache-dir --break-system-packages nsz && \
     # Drop pip caches & build deps to keep the runtime layer lean.
     rm -rf /root/.cache /tmp/* /var/cache/apk/*
@@ -95,6 +96,8 @@ RUN apk add --no-cache python3 py3-pip && \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+# Box art and bezel fetchers, run for a console after a retro ROM is uploaded.
+COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/
 # The forwarder's prebuilt exefs (see forwarder/build.sh).
 COPY forwarder/exefs ./forwarder/exefs
 # Ship the shop template at the legacy tinfoil-hat mount point so users
