@@ -11,6 +11,7 @@ import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
 import * as users from "../security/users.js";
+import { retroEnabled } from "./retro.js";
 
 export const API_VERSION = 1;
 
@@ -51,6 +52,8 @@ export default function shopInfoRoute(_req, res) {
       ...(devicePairing ? ["device-pairing"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(dropboxAppKey ? ["dropbox-sync"] : []),
+      // retro: /api/retro serves retro games, bezels and the RetroArch base pack.
+      ...(retroEnabled() ? ["retro"] : []),
     ],
     files: stats.files,
     contentMeta: contentMeta.progress(),

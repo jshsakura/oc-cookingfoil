@@ -255,6 +255,8 @@ const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
+// Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
+const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "retro")));
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -298,6 +300,7 @@ export {
   eshopAlgoliaKey,
   eshopArtwork,
   patchesDir,
+  retroDir,
   ratingsUrl,
   ratingSync,
   dropboxAppKey,

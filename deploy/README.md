@@ -92,6 +92,20 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   `COOK_DROPBOX_APP_KEY` (the app key only, never the secret) and
   `COOK_PUBLIC_BASE_URL=https://<your shop>`. The client then backs up saves to
   each player's own Dropbox; saves never pass through your server.
+- **Retro games (CookingFoil client):** create `data/retro/` (or mount a folder
+  and set `COOK_RETRO_DIR`):
+  ```
+  retro/
+  ├── roms/<system>/        nes snes gb gbc gba n64 md sms gg pce ps1 arcade
+  ├── icons/<system>/       <game file name without extension>.png (libretro-thumbnails names work)
+  ├── bezels/<system>/      The Bezel Project: <game>.png (+ .cfg), _default.png for the rest
+  ├── base-pack/            retroarch.nro, retroarch.cfg, cores/, assets/, system/ (BIOS)
+  └── systems.json          optional: change a system's core or add one
+  ```
+  The server ships none of these; bring your own. `retroarch.nro` goes to
+  `sdmc:/switch/retroarch_switch.nro`, everything else in `base-pack/` to
+  `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
+  PlayStation games are `.chd`, `.pbp`, or a `.cue` with its tracks beside it.
 - **Nintendo eShop data:** prices, popularity and artwork are on by default;
   set `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY` or `COOK_ESHOP_ARTWORK` to
   `false` to keep the server from contacting Nintendo.
