@@ -26,6 +26,8 @@ import { loadSystems } from "../src/retro/systems.js";
 const THUMBS = "https://raw.githubusercontent.com/libretro-thumbnails";
 const BEZELS = "https://raw.githubusercontent.com/thebezelproject";
 const CONCURRENCY = 6;
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+const MAX_LINK_HOPS = 3;
 
 // Bezel Project collections per system, Japanese ones first: most translated
 // games are Japanese originals. Each is [repo, GameBezels folder, default image].
@@ -50,16 +52,32 @@ const BEZEL_SOURCES = {
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 const repoOf = (folder) => folder.replaceAll(" ", "_");
 
+/**
+ * Download a PNG. libretro-thumbnails stores some covers as Git symlinks, which
+ * raw.githubusercontent.com serves as a short text file holding the target's
+ * name; those are followed (within the same folder). Anything that isn't a PNG
+ * is never written.
+ */
 async function download(url, dest, dry) {
   if (dry) return "dry";
-  const res = await fetch(url);
-  if (res.status === 404) return "missing";
-  if (!res.ok) throw new Error(`${res.status} ${url}`);
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const tmp = `${dest}.part`;
-  fs.writeFileSync(tmp, Buffer.from(await res.arrayBuffer()));
-  fs.renameSync(tmp, dest);
-  return "ok";
+  let current = url;
+  for (let hop = 0; hop <= MAX_LINK_HOPS; hop++) {
+    const res = await fetch(current);
+    if (res.status === 404) return "missing";
+    if (!res.ok) throw new Error(`${res.status} ${current}`);
+    const body = Buffer.from(await res.arrayBuffer());
+    if (body.subarray(0, 4).equals(PNG_MAGIC)) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      const tmp = `${dest}.part`;
+      fs.writeFileSync(tmp, body);
+      fs.renameSync(tmp, dest);
+      return "ok";
+    }
+    const target = body.length < 512 ? body.toString("utf8").trim() : "";
+    if (!target.endsWith(".png") || target.includes("..")) return "not-png";
+    current = new URL(target.split("/").map(encodeURIComponent).join("/"), current).href;
+  }
+  return "not-png";
 }
 
 /** Try each URL in turn until one exists. */

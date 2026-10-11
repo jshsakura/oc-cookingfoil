@@ -35,6 +35,12 @@ const THUMB_UNSAFE_RE = /[&*/:`<>?\\|"]/g;
 
 let state = { dir: null, scannedAt: 0, systems: {}, games: [], present: new Set(), byId: new Map() };
 let inFlight = null;
+const listeners = [];
+
+/** Run `fn(state)` after every scan (say, to draw artwork ahead of time). */
+export function onScan(fn) {
+  listeners.push(fn);
+}
 
 export function gameId(system, rel) {
   return `${system}-${crypto.createHash("sha1").update(`${system}/${rel}`.normalize("NFC")).digest("hex").slice(0, 10)}`;
@@ -205,6 +211,7 @@ export function scan(dir) {
     try {
       const { systems, games, present } = await scanDir(dir);
       state = { dir, scannedAt: Date.now(), systems, games, present, byId: new Map(games.map((g) => [g.id, g])) };
+      for (const fn of listeners) fn(state);
       return state;
     } catch (err) {
       debug.error("retro: scan failed: %s", err.message);
