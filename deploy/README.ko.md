@@ -93,14 +93,18 @@ curl http://localhost:38000/healthz
   마운트하고 `COOK_RETRO_DIR` 을 정합니다).
   ```
   retro/
-  ├── roms/<시스템>/        nes snes gb gbc gba n64 md sms gg pce ps1 arcade
-  ├── icons/<시스템>/       <롬 파일 이름(확장자 제외)>.png (libretro-thumbnails 이름 그대로 됩니다)
-  ├── bezels/<시스템>/      The Bezel Project: <게임>.png (+ .cfg), 나머지 게임용 _default.png
-  ├── base-pack/            retroarch.nro, retroarch.cfg, cores/, assets/, system/(바이오스)
-  └── systems.json          선택: 시스템의 코어를 바꾸거나 시스템을 더합니다
+  ├── roms/<시스템>/                          게임
+  ├── thumbnails/<시스템>/Named_Boxarts/      박스아트(libretro-thumbnails 구조 그대로)
+  ├── bezels/<시스템>/                        The Bezel Project: <게임>.png (+ .cfg), 나머지 게임용 _default.png
+  ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/(바이오스)
+  └── systems.json                            선택: 시스템의 코어를 바꾸거나 시스템을 더합니다
   ```
+  `<시스템>` 은 RetroArch 이름("Nintendo - Game Boy Advance", "Sony - PlayStation" 등),
+  짧은 id(gba, ps1 등), 흔한 별칭(FC, SFC, MD, PS1, PSP) 중 무엇이든 되고 대소문자는 가리지
+  않습니다. NES, SNES, GB, GBC, GBA, N64, 메가 드라이브, 마스터 시스템, 게임 기어, PC 엔진,
+  플레이스테이션, PSP, 아케이드(FBNeo)를 지원합니다.
   서버는 이 파일들을 하나도 담고 있지 않으니 직접 넣습니다. `retroarch.nro` 는
-  `sdmc:/switch/retroarch_switch.nro` 로, `base-pack/` 의 나머지는 `sdmc:/retroarch/` 로 가고,
+  `sdmc:/switch/retroarch_switch.nro` 로, `retroarch/` 의 나머지는 `sdmc:/retroarch/` 로 가고,
   `retroarch.cfg` 는 카드에 없을 때만 씁니다. 플레이스테이션은 `.chd`, `.pbp`, 또는 트랙 파일을
   옆에 둔 `.cue` 입니다.
 - **닌텐도 eShop 정보:** 가격, 인기 순위, 아트가 기본으로 켜져 있습니다.

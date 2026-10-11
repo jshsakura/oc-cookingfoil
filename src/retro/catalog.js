@@ -2,11 +2,15 @@
  * The retro game catalog, read from the operator's retro folder:
  *
  *   roms/<system>/<game file>            a game (or a subfolder holding one)
- *   icons/<system>/<game name>.png|jpg   box art (libretro-thumbnails names work)
+ *   thumbnails/<system>/Named_Boxarts/<game name>.png   box art, libretro-thumbnails layout
  *   bezels/<system>/<game name>.png      The Bezel Project overlay
  *   bezels/<system>/<game name>.cfg      its overlay config (made up when missing)
  *   bezels/<system>/<game name>_override.cfg   per-game RetroArch config (made up when missing)
  *   bezels/<system>/_default.png         the system's bezel for games without their own
+ *
+ * <system> is RetroArch's name for it ("Nintendo - Game Boy Advance"), the
+ * short id ("gba") or an alias ("FC", "PS1"), in any case; two folders for one
+ * system (say FC and NES) are read together.
  *
  * "game name" is the ROM file name without its extension, which is also what
  * RetroArch calls the content when it looks for per-game configs.
@@ -21,7 +25,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { loadSystems } from "./systems.js";
+import { loadSystems, systemForFolder } from "./systems.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -86,8 +90,49 @@ async function listFiles(root, rel = "", depth = 1, out = []) {
   return out;
 }
 
-async function readGame(dir, systemId, system, rel) {
-  const romsDir = path.join(dir, "roms", systemId);
+/** systemId → the folders under <dir>/<sub> that belong to it. */
+async function foldersBySystem(dir, sub, systems) {
+  const out = new Map();
+  let entries = [];
+  try {
+    entries = await fsp.readdir(path.join(dir, sub), { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const id = systemForFolder(systems, e.name);
+    if (!id) continue;
+    out.set(id, [...(out.get(id) ?? []), path.join(dir, sub, e.name)]);
+  }
+  return out;
+}
+
+async function firstIn(dirs, names) {
+  for (const d of dirs) {
+    const hit = await firstImage(d, names);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function findBezel(bezelDirs, name) {
+  for (const d of bezelDirs) {
+    const own = await firstImage(d, [name]);
+    if (!own) continue;
+    const cfg = path.join(d, `${name}.cfg`);
+    const override = path.join(d, `${name}_override.cfg`);
+    return { png: own, generic: false, cfg: (await statFile(cfg)) ? cfg : null, override: (await statFile(override)) ? override : null };
+  }
+  for (const d of bezelDirs) {
+    const generic = path.join(d, "_default.png");
+    const override = path.join(d, `${name}_override.cfg`);
+    if (await statFile(generic)) return { png: generic, generic: true, cfg: null, override: (await statFile(override)) ? override : null };
+  }
+  return null;
+}
+
+async function readGame({ systemId, system, romsDir, art }, rel) {
   const abs = path.join(romsDir, rel);
   const st = await statFile(abs);
   if (!st) return null;
@@ -103,10 +148,7 @@ async function readGame(dir, systemId, system, rel) {
     }
   }
   const thumbName = name.replace(THUMB_UNSAFE_RE, "_");
-  const id = gameId(systemId, rel);
-  const bezelDir = path.join(dir, "bezels", systemId);
-  const ownBezel = await firstImage(bezelDir, [name]);
-  const bezelPng = ownBezel ?? (await statFile(path.join(bezelDir, "_default.png")) ? path.join(bezelDir, "_default.png") : null);
+  const id = gameId(systemId, `${path.basename(romsDir)}/${rel}`);
   return {
     id,
     system: systemId,
@@ -119,13 +161,8 @@ async function readGame(dir, systemId, system, rel) {
     mtimeMs: st.mtimeMs,
     extras,
     core: system.core,
-    icon: await firstImage(path.join(dir, "icons", systemId), [name, thumbName]) ?? (await firstImage(path.join(dir, "icons"), [id])),
-    bezel: bezelPng && {
-      png: bezelPng,
-      generic: !ownBezel,
-      cfg: ownBezel && (await statFile(path.join(bezelDir, `${name}.cfg`))) ? path.join(bezelDir, `${name}.cfg`) : null,
-      override: (await statFile(path.join(bezelDir, `${name}_override.cfg`))) ? path.join(bezelDir, `${name}_override.cfg`) : null,
-    },
+    icon: await firstIn(art.thumbs, [name, thumbName]),
+    bezel: await findBezel(art.bezels, name),
   };
 }
 
@@ -134,20 +171,28 @@ export async function scanDir(dir) {
   const systems = loadSystems(dir);
   const games = [];
   const present = new Set();
-  for (const [systemId, system] of Object.entries(systems)) {
-    const romsDir = path.join(dir, "roms", systemId);
-    if (!(await fsp.stat(romsDir).catch(() => null))?.isDirectory()) continue;
+  const roms = await foldersBySystem(dir, "roms", systems);
+  const thumbs = await foldersBySystem(dir, "thumbnails", systems);
+  const legacyIcons = await foldersBySystem(dir, "icons", systems);
+  const bezels = await foldersBySystem(dir, "bezels", systems);
+  for (const [systemId, romsDirs] of roms) {
+    const system = systems[systemId];
     present.add(systemId);
-    const files = await listFiles(romsDir);
-    const listed = files.filter((rel) => system.extensions.includes(path.extname(rel).toLowerCase()));
-    // A disc's track files are part of its .cue / .m3u, not games of their own.
-    const games0 = [];
-    for (const rel of listed) {
-      const game = await readGame(dir, systemId, system, rel);
-      if (game) games0.push(game);
+    const art = {
+      thumbs: [...(thumbs.get(systemId) ?? []).flatMap((d) => [path.join(d, "Named_Boxarts"), d]), ...(legacyIcons.get(systemId) ?? [])],
+      bezels: bezels.get(systemId) ?? [],
+    };
+    for (const romsDir of romsDirs) {
+      const listed = (await listFiles(romsDir)).filter((rel) => system.extensions.includes(path.extname(rel).toLowerCase()));
+      // A disc's track files are part of its .cue / .m3u, not games of their own.
+      const found = [];
+      for (const rel of listed) {
+        const game = await readGame({ systemId, system, romsDir, art }, rel);
+        if (game) found.push(game);
+      }
+      const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
+      games.push(...found.filter((g) => !claimed.has(g.rel)));
     }
-    const claimed = new Set(games0.flatMap((g) => g.extras.map((x) => x.rel)));
-    games.push(...games0.filter((g) => !claimed.has(g.rel)));
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
   return { systems, games, present };
