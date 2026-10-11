@@ -9,19 +9,23 @@
  * list and is only logged. patch.json is metadata and never ships.
  *
  * The folder is scanned on a timer; content hashes are cached by
- * (size, mtime, inode) so a rescan only reads files that changed.
+ * (size, mtime, inode) so a rescan only reads files that changed. The cache
+ * and the last listing are saved under the data dir, so a restart neither
+ * re-reads gigabytes of patches nor makes a request wait for a fresh scan.
  */
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { patchesDir } from "../helpers/envs.js";
+import { patchesDir, dataDir } from "../helpers/envs.js";
 import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
 const SCAN_INTERVAL_MS = 60_000;
+const CACHE_PATH = path.join(dataDir, "patches-cache.json");
+const READ_CHUNK = 1024 * 1024; // big sequential reads; the patches live on spinning disks
 const STALE_MS = 30_000;
 const MAX_FILES = 20_000;
 const FIELD_MAX = { name: 120, version: 40, game_version: 40, author: 120, description: 2000 };
@@ -34,6 +38,7 @@ let scannedAt = 0;
 let inFlight = null;
 let signature = "";
 const fileHashes = new Map(); // abs path → { key, hash }
+let touched = null; // abs paths hashed by the scan in progress
 
 const isBase = (tid) => TITLE_ID_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
 
@@ -94,10 +99,11 @@ async function walk(root, rel = "", out = []) {
 
 async function hashFile(file) {
   const key = `${file.size}:${file.mtimeMs}:${file.ino}`;
+  touched?.add(file.abs);
   const cached = fileHashes.get(file.abs);
   if (cached?.key === key) return cached.hash;
   const h = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(file.abs)) h.update(chunk);
+  for await (const chunk of fs.createReadStream(file.abs, { highWaterMark: READ_CHUNK })) h.update(chunk);
   const hash = h.digest("hex");
   fileHashes.set(file.abs, { key, hash });
   return hash;
@@ -185,15 +191,55 @@ export async function scanDir(root) {
   return out.sort((a, b) => a.title_id.localeCompare(b.title_id) || a.name.localeCompare(b.name));
 }
 
+/** Thrown by list() while the very first scan, with nothing saved yet, is still running. */
+export class ScanPending extends Error {}
+
+const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.name}:${p.updated_at}`).join("|");
+
+/** Restore the last listing and the hash cache, so the first request is answered at once. */
+export function loadCache(file = CACHE_PATH) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(saved?.patches)) return false;
+    for (const [abs, entry] of Object.entries(saved.hashes ?? {})) {
+      if (typeof entry?.key === "string" && typeof entry?.hash === "string") fileHashes.set(abs, entry);
+    }
+    patches = saved.patches;
+    signature = signatureOf(patches);
+    return true;
+  } catch (err) {
+    if (err.code !== "ENOENT") debug.error("patches: ignoring %s: %s", file, err.message);
+    return false;
+  }
+}
+
+function saveCache(file, seen) {
+  try {
+    // Only hashes of files the scan still found, so the cache can't grow without bound.
+    const hashes = Object.fromEntries([...fileHashes].filter(([abs]) => seen.has(abs)));
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, patches, hashes }));
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    debug.error("patches: could not save %s: %s", file, err.message);
+  }
+}
+
 /** Rescans now (one scan at a time); `onChange` runs when the set or a hash changed. */
-export function scan({ root = patchesDir, onChange } = {}) {
+export function scan({ root = patchesDir, onChange, cacheFile = root === patchesDir ? CACHE_PATH : null } = {}) {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
+      const hashedBefore = fileHashes.size;
+      touched = new Set();
       const next = await scanDir(root);
-      const sig = next.map((p) => `${p.id}:${p.hash}:${p.name}:${p.updated_at}`).join("|");
+      const seen = touched;
+      const sig = signatureOf(next);
       patches = next;
       scannedAt = Date.now();
+      if (cacheFile && (sig !== signature || fileHashes.size !== hashedBefore || !fs.existsSync(cacheFile))) {
+        saveCache(cacheFile, seen);
+      }
       if (sig !== signature) {
         signature = sig;
         debug.log("patches: %d patches", next.length);
@@ -201,22 +247,35 @@ export function scan({ root = patchesDir, onChange } = {}) {
       }
       return patches;
     } finally {
+      touched = null;
       inFlight = null;
     }
   })();
   return inFlight;
 }
 
-/** First scan, then one every minute. */
+/** Restore the saved listing, then scan now and every minute. */
 export function start({ onChange } = {}) {
+  if (loadCache()) debug.log("patches: %d patches from the saved listing", patches.length);
   const run = () => scan({ onChange }).catch((err) => debug.error("patches: scan failed: %s", err.message));
   run();
   setInterval(run, SCAN_INTERVAL_MS).unref();
 }
 
-/** The listing, rescanned first when it is older than half a minute. */
-export async function list() {
-  if (Date.now() - scannedAt > STALE_MS) await scan();
+/**
+ * The listing. A stale one is refreshed in the background and answered as is,
+ * so a slow disk never holds up a request. Only the very first scan, with no
+ * saved listing, is waited on (and reported as ScanPending while it runs).
+ */
+export async function list({ waitMs = 3000, ...scanOptions } = {}) {
+  const fresh = Date.now() - scannedAt <= STALE_MS;
+  if (!fresh) {
+    const running = scan(scanOptions).catch((err) => debug.error("patches: scan failed: %s", err.message));
+    if (!scannedAt && !signature) {
+      const timeout = new Promise((resolve) => setTimeout(resolve, waitMs, "pending"));
+      if ((await Promise.race([running, timeout])) === "pending") throw new ScanPending("first scan still running");
+    }
+  }
   return patches.map(publicFields);
 }
 

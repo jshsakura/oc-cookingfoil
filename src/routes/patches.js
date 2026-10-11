@@ -48,7 +48,17 @@ async function* archive(entries) {
 }
 
 async function listRoute(req, res) {
-  const body = JSON.stringify({ patches: await userPatches.list() });
+  let listing;
+  try {
+    listing = await userPatches.list();
+  } catch (err) {
+    if (!(err instanceof userPatches.ScanPending)) throw err;
+    // The server is reading the patch folder for the first time; ask again shortly.
+    res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
+    res.status(503).json({ error: "patches are still being scanned", retryAfter: 30 });
+    return;
+  }
+  const body = JSON.stringify({ patches: listing });
   res.header("Content-Type", "application/json");
   res.header("ETag", `"${crypto.createHash("sha1").update(body).digest("hex")}"`);
   res.header("Cache-Control", "private, max-age=0, must-revalidate");
