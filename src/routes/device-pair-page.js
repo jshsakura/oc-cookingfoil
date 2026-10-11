@@ -84,7 +84,7 @@ ${logins ? loginsSection(t) : ""}${mineSection(t)}`;
 function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
     "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr", "kindLogin",
-    "notUsed", "lastSeen", "revoke", "revokeConfirm", "errCreate"];
+    "notUsed", "connected", "revoke", "revokeConfirm", "errCreate"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
@@ -143,7 +143,7 @@ const when=(ms)=>ms?new Date(ms).toLocaleString(document.documentElement.lang,{d
 function row(item){const li=document.createElement('li');const info=document.createElement('div');
   const name=document.createElement('strong');name.textContent=item.label||(item.kind==='login'?item.name:'Nintendo Switch');
   const meta=document.createElement('span');meta.className='hint';
-  meta.textContent=[item.kind==='login'?T.kindLogin+' · '+item.name:T.kindQr,item.lastSeenAt?T.lastSeen+' '+when(item.lastSeenAt):T.notUsed].join(' · ');
+  meta.textContent=item.kind==='login'?[T.kindLogin+' · '+item.name,item.locked?T.connected:T.notUsed].join(' · '):[T.kindQr,when(item.addedAt)].join(' · ');
   info.append(name,meta);const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.revoke;
   b.addEventListener('click',async()=>{if(!confirm(T.revokeConfirm))return;b.disabled=true;
     const r=await post(item.kind==='login'?'/pair/api/logins/'+encodeURIComponent(item.name)+'/revoke':'/pair/api/devices/revoke',item.kind==='login'?{}:{deviceKey:item.deviceKey}).catch(()=>null);

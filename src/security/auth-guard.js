@@ -142,7 +142,6 @@ function afterSignIn(req, res, next, ip) {
     return denyResponse(req, res, { reason: DENY.DEVICE_LOGIN_OTHER_CONSOLE, status: 403, user: name, deviceKey });
   }
   req.deviceLogin = name;
-  deviceLogins.recordSeen(name, { ip, version: req.get("Version") || null });
   // The console signed in with its own login, so it is not waiting for QR approval.
   if (deviceKey && !store.isDeviceApproved(deviceKey)) store.dismissPending(deviceKey);
   next();

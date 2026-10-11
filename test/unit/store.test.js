@@ -273,14 +273,14 @@ test("approveDevice on a brand-new device stores label/addedBy/hash and audits i
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
   assert.equal(approved.label, "kid switch");
   assert.equal(approved.addedBy, "admin");
-  assert.equal(approved.lastSeenAt, null);
+  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "deviceKey", "label"], "no IP, last-seen time or version");
 
   const kinds = store.snapshot().audit.map((a) => a.kind);
   assert.ok(kinds.includes("device-approve"));
 });
 
 test("approveDevice clears any pending entry for the same deviceKey", () => {
-  store.recordPendingDevice(DK2, { ip: "8.8.8.8", version: "1.0" });
+  store.recordPendingDevice(DK2);
   assert.ok(store.devicesSnapshot().pending.some((p) => p.deviceKey === DK2));
 
   store.approveDevice(DK2, { label: "", addedBy: null, accessKeyHash: "hash-2" });
@@ -304,27 +304,6 @@ test("re-approving an existing device preserves addedAt/addedBy/label when new v
   assert.equal(store.getDeviceAccessKeyHash(DK1), "hash-1-rotated", "hash is always overwritten");
 });
 
-test("recordDeviceSeen on an unknown deviceKey is a silent no-op", () => {
-  const unknown = "CCCC000000000000000000000000000000000000000000000000000000003C";
-  assert.doesNotThrow(() => store.recordDeviceSeen(unknown, { ip: "1.1.1.1", version: "9.9" }));
-  assert.equal(store.isDeviceApproved(unknown), false);
-});
-
-test("recordDeviceSeen updates lastSeenAt/lastIp/lastVersion for an approved device", () => {
-  store.recordDeviceSeen(DK1, { ip: "77.77.77.77", version: "2.0" });
-  const d = store.devicesSnapshot().approved.find((x) => x.deviceKey === DK1);
-  assert.ok(d.lastSeenAt !== null);
-  assert.equal(d.lastIp, "77.77.77.77");
-  assert.equal(d.lastVersion, "2.0");
-});
-
-test("recordDeviceSeen without ip/version keeps the previously recorded ip/version", () => {
-  store.recordDeviceSeen(DK1, {}); // no ip, no version this time
-  const d = store.devicesSnapshot().approved.find((x) => x.deviceKey === DK1);
-  assert.equal(d.lastIp, "77.77.77.77", "falsy ip must not clobber the existing lastIp");
-  assert.equal(d.lastVersion, "2.0", "falsy version must not clobber the existing lastVersion");
-});
-
 test("revokeDevice removes an approved device and its pending trace, returns true then false", () => {
   assert.equal(store.revokeDevice(DK1), true);
   assert.equal(store.isDeviceApproved(DK1), false);
@@ -334,58 +313,42 @@ test("revokeDevice removes an approved device and its pending trace, returns tru
 
 // ── pending devices ───────────────────────────────────────────────────────────
 
-test("recordPendingDevice creates a fresh entry with count 1 on first knock", () => {
+test("recordPendingDevice keeps only when a console asked: no IP, no version", () => {
   const dk = "DDDD000000000000000000000000000000000000000000000000000000004D";
-  store.recordPendingDevice(dk, { ip: "1.2.3.4", version: "1.0" });
+  store.recordPendingDevice(dk);
   const p = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-  assert.equal(p.count, 1);
+  assert.deepEqual(Object.keys(p).sort(), ["deviceKey", "firstSeenAt", "lastSeenAt"]);
   assert.equal(p.firstSeenAt, p.lastSeenAt);
-  assert.equal(p.lastIp, "1.2.3.4");
-  assert.equal(p.lastVersion, "1.0");
   store.revokeDevice(dk); // also clears the pending entry; keep the pool clean
 });
 
-test("recordPendingDevice on repeat knocks increments count, keeps firstSeenAt, bumps lastSeenAt", () => {
+test("recordPendingDevice on repeat knocks keeps firstSeenAt and bumps lastSeenAt", () => {
   const dk = "EEEE000000000000000000000000000000000000000000000000000000005E";
-  store.recordPendingDevice(dk, { ip: "1.1.1.1", version: "1.0" });
-  const first = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-
-  store.recordPendingDevice(dk, { ip: "2.2.2.2", version: "1.1" });
+  let first;
+  withFakeClock(() => {
+    store.recordPendingDevice(dk);
+    first = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
+    store.recordPendingDevice(dk);
+  });
   const second = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-
-  assert.equal(second.count, 2);
   assert.equal(second.firstSeenAt, first.firstSeenAt, "firstSeenAt never changes");
-  assert.equal(second.lastIp, "2.2.2.2");
-  assert.equal(second.lastVersion, "1.1");
+  assert.ok(second.lastSeenAt > first.lastSeenAt);
   store.revokeDevice(dk);
 });
 
-test("recordPendingDevice without ip/version falls back to the previously recorded ones", () => {
-  const dk = "FFFF000000000000000000000000000000000000000000000000000000006F";
-  store.recordPendingDevice(dk, { ip: "9.9.9.9", version: "3.0" });
-  store.recordPendingDevice(dk, {}); // knock again with no headers this time
-  const p = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-  assert.equal(p.lastIp, "9.9.9.9");
-  assert.equal(p.lastVersion, "3.0");
-  assert.equal(p.count, 2);
-  store.revokeDevice(dk);
-});
-
-test("devicesSnapshot sorts both approved and pending lists by lastSeenAt descending", () => {
+test("devicesSnapshot lists approved consoles newest first and pending ones by latest request", () => {
   withFakeClock(() => {
     store.approveDevice("1111000000000000000000000000000000000000000000000000000000001A", {
       label: "old-approved",
       accessKeyHash: "h",
     });
-    store.recordDeviceSeen("1111000000000000000000000000000000000000000000000000000000001A", { ip: "1.1.1.1" });
     store.approveDevice("2222000000000000000000000000000000000000000000000000000000002B", {
       label: "new-approved",
       accessKeyHash: "h",
     });
-    store.recordDeviceSeen("2222000000000000000000000000000000000000000000000000000000002B", { ip: "2.2.2.2" });
 
-    store.recordPendingDevice("3333000000000000000000000000000000000000000000000000000000003C", {});
-    store.recordPendingDevice("4444000000000000000000000000000000000000000000000000000000004D", {});
+    store.recordPendingDevice("3333000000000000000000000000000000000000000000000000000000003C");
+    store.recordPendingDevice("4444000000000000000000000000000000000000000000000000000000004D");
   });
 
   const approved = store.devicesSnapshot().approved.map((d) => d.label);
@@ -417,7 +380,7 @@ test("recordPendingDevice evicts the single oldest entry once the pool exceeds P
   });
 
   withFakeClock(() => {
-    for (const k of keys) store.recordPendingDevice(k, { ip: "0.0.0.0", version: "1.0" });
+    for (const k of keys) store.recordPendingDevice(k);
   });
 
   const snapPending = store.devicesSnapshot().pending;
@@ -503,4 +466,18 @@ test("dismissing a request that was never approved is saved, so it does not come
   // No forced flush: the dismissal must schedule its own save.
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(readPersisted().pending[key], undefined);
+});
+
+test("load() drops the IP, last-seen time and version older versions kept for consoles", async () => {
+  mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+  writeFileSync(STATE_PATH, JSON.stringify({
+    devices: { [DK1]: { label: "tv", addedAt: 1, addedBy: "admin", accessKeyHash: "h", lastSeenAt: 5, lastIp: "203.0.113.9", lastVersion: "1.0" } },
+    pending: { [DK2]: { firstSeenAt: 1, lastSeenAt: 2, count: 3, lastIp: "203.0.113.10", lastVersion: "1.0" } },
+  }));
+  await store.load();
+  const snap = store.devicesSnapshot();
+  assert.deepEqual(snap.approved[0], { deviceKey: DK1, label: "tv", addedAt: 1, addedBy: "admin" });
+  assert.deepEqual(snap.pending[0], { deviceKey: DK2, firstSeenAt: 1, lastSeenAt: 2 });
+  await store.shutdown();
+  assert.ok(!readFileSync(STATE_PATH, "utf8").includes("203.0.113"), "the old addresses are gone from disk");
 });

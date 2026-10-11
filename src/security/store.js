@@ -28,8 +28,9 @@ const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
   lockouts: new Map(), // ip → { lockedAt, until, reason }
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
-  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, lastSeenAt, lastIp, lastVersion }
-  pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, count, lastIp, lastVersion }
+  // Consoles keep only what approval needs: no IP, no last-seen time, no client version.
+  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash }
+  pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt } (when it asked, to order and trim the queue)
   audit: [],
   denials: [],         // newest-last ring of refusals (see security/deny.js)
   denialCounts: {},    // reason → total ever, so the dashboard can show trends
@@ -81,6 +82,12 @@ function scheduleFlush() {
   if (flushTimer.unref) flushTimer.unref();
 }
 
+// Earlier versions also kept each console's IP, last-seen time and client
+// version; dropping them here clears them from disk at the next save.
+const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null } = {}) =>
+  ({ label, addedAt, addedBy, accessKeyHash });
+const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null } = {}) => ({ firstSeenAt, lastSeenAt });
+
 export async function load() {
   try {
     const raw = await readFile(STATE_PATH, "utf-8");
@@ -88,8 +95,10 @@ export async function load() {
     state.failures = new Map(Object.entries(parsed.failures ?? {}));
     state.lockouts = new Map(Object.entries(parsed.lockouts ?? {}));
     state.access = new Map(Object.entries(parsed.access ?? {}));
-    state.devices = new Map(Object.entries(parsed.devices ?? {}));
-    state.pending = new Map(Object.entries(parsed.pending ?? {}));
+    state.devices = new Map(Object.entries(parsed.devices ?? {}).map(([k, v]) => [k, deviceRecord(v)]));
+    state.pending = new Map(Object.entries(parsed.pending ?? {}).map(([k, v]) => [k, pendingRecord(v)]));
+    const tracked = (v) => ["lastIp", "lastSeenAt", "lastVersion", "count"].some((k) => k in v);
+    if (Object.values(parsed.devices ?? {}).some(tracked) || Object.values(parsed.pending ?? {}).some((v) => "lastIp" in v)) scheduleFlush();
     state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
     state.denials = Array.isArray(parsed.denials) ? parsed.denials : [];
     state.denialCounts = parsed.denialCounts ?? {};
@@ -263,9 +272,6 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
     addedAt: prev?.addedAt ?? now,
     addedBy: addedBy ?? prev?.addedBy ?? null,
     accessKeyHash,
-    lastSeenAt: prev?.lastSeenAt ?? null,
-    lastIp: prev?.lastIp ?? null,
-    lastVersion: prev?.lastVersion ?? null,
   });
   state.pending.delete(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
@@ -286,25 +292,11 @@ export function dismissPending(deviceKey) {
   if (state.pending.delete(deviceKey)) scheduleFlush();
 }
 
-export function recordDeviceSeen(deviceKey, { ip, version } = {}) {
-  const d = state.devices.get(deviceKey);
-  if (!d) return;
-  d.lastSeenAt = Date.now();
-  if (ip) d.lastIp = ip;
-  if (version) d.lastVersion = version;
-  scheduleFlush();
-}
-
-export function recordPendingDevice(deviceKey, { ip, version } = {}) {
+/** A console asking for approval; only when it asked is kept. */
+export function recordPendingDevice(deviceKey) {
   const now = Date.now();
-  const prev = state.pending.get(deviceKey) ?? { firstSeenAt: now, count: 0 };
-  state.pending.set(deviceKey, {
-    firstSeenAt: prev.firstSeenAt,
-    lastSeenAt: now,
-    count: prev.count + 1,
-    lastIp: ip ?? prev.lastIp ?? null,
-    lastVersion: version ?? prev.lastVersion ?? null,
-  });
+  const prev = state.pending.get(deviceKey);
+  state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
 }
@@ -323,22 +315,13 @@ function evictOldestPending() {
 }
 
 export function devicesSnapshot() {
-  const byLastSeen = (a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0);
   return {
     approved: Array.from(state.devices.entries())
-      .map(([deviceKey, v]) => ({
-        deviceKey,
-        label: v.label ?? "",
-        addedAt: v.addedAt ?? null,
-        addedBy: v.addedBy ?? null,
-        lastSeenAt: v.lastSeenAt ?? null,
-        lastIp: v.lastIp ?? null,
-        lastVersion: v.lastVersion ?? null,
-      }))
-      .sort(byLastSeen),
+      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null }))
+      .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, ...v }))
-      .sort(byLastSeen),
+      .map(([deviceKey, v]) => ({ deviceKey, firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null }))
+      .sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
   };
 }
 

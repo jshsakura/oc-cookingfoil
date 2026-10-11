@@ -17,7 +17,7 @@
 import * as store from "./store.js";
 import { devicePairing } from "../helpers/envs.js";
 import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
-import { recordDeny, clientIp, DENY } from "./deny.js";
+import { recordDeny, DENY } from "./deny.js";
 
 export default function pairingGate() {
   if (!devicePairing) {
@@ -30,10 +30,6 @@ export default function pairingGate() {
     const hash = store.getDeviceAccessKeyHash(deviceKey);
     if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) {
       req.pairedDevice = deviceKey;
-      store.recordDeviceSeen(deviceKey, {
-        ip: clientIp(req),
-        version: req.get("Version") || null,
-      });
       return next();
     }
 
@@ -44,10 +40,7 @@ export default function pairingGate() {
     // A console signing in with a password (an account or its own device
     // login) is not asking for QR approval, so it stays out of the queue.
     if (!store.isDeviceApproved(deviceKey)) {
-      if (!req.headers.authorization) store.recordPendingDevice(deviceKey, {
-        ip: clientIp(req),
-        version: req.get("Version") || null,
-      });
+      if (!req.headers.authorization) store.recordPendingDevice(deviceKey);
     } else {
       recordDeny(req, { reason: DENY.DEVICE_BAD_ACCESS_KEY, status: null, deviceKey });
     }

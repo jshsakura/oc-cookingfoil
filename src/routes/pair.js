@@ -39,10 +39,6 @@ function pendingResponse(req, deviceKey) {
   };
 }
 
-function clientIp(req) {
-  return (req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
-}
-
 export default function pairRouter() {
   const router = express.Router();
   router.use(express.json({ limit: "8kb" }));
@@ -73,11 +69,8 @@ export default function pairRouter() {
       res.json({ status: "approved" });
       return;
     }
-    store.recordPendingDevice(deviceKey, {
-      ip: clientIp(req),
-      version: req.get("Version") || null,
-    });
-    debug.log("pair: request from %s… (%s)", deviceKey.slice(0, 12), clientIp(req));
+    store.recordPendingDevice(deviceKey);
+    debug.log("pair: request from %s…", deviceKey.slice(0, 12));
     res.json(pendingResponse(req, deviceKey));
   });
 
@@ -92,10 +85,7 @@ export default function pairRouter() {
       // Polling doubles as the knock: record the device as pending so a
       // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the
       // admin dashboard without a separate /request call.
-      store.recordPendingDevice(deviceKey, {
-        ip: clientIp(req),
-        version: req.get("Version") || null,
-      });
+      store.recordPendingDevice(deviceKey);
       res.json(pendingResponse(req, deviceKey));
       return;
     }
