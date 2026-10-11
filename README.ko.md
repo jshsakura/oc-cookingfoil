@@ -115,6 +115,7 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 아트. `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | 유저 패치 목록과 ustar 묶음 |
 | `GET /api/saves`, `/api/saves/:id/download` | 세이브 파일 목록과 ustar 묶음 |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256) |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | RetroArch 파일, 베젤, RetroArch 기본 묶음 |
 
 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 확인하세요.
