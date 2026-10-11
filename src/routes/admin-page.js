@@ -30,6 +30,7 @@ import {
 } from "../security/admin-session.js";
 import { adminSecret, isEnrolled } from "../security/admin-secret.js";
 import * as users from "../security/users.js";
+import * as deviceLogins from "../security/device-logins.js";
 import { mountManageApi } from "./admin/manage-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import {
@@ -255,6 +256,36 @@ export default function adminPageRouter() {
     stageAccessKeyDelivery(deviceKey, accessKey);
     debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), label || "no label");
     res.json({ ok: true, deviceKey });
+  });
+
+  // Per-device logins (CyberFoil, Tinfoil): every account's, plus the admin's own.
+  router.get("/api/device-logins", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    res.json({ enabled: users.hasUsers(), logins: deviceLogins.list() });
+  });
+
+  router.post("/api/device-logins", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    if (!users.hasUsers()) return res.status(409).json({ error: "device logins need shop accounts" });
+    try {
+      const login = deviceLogins.create({ owner: "admin", label: req.body?.label });
+      const origin = resolveOrigin(req, publicBaseUrl);
+      res.json({ ...login, shopUrl: origin ? `${origin}/` : "/" });
+    } catch (err) {
+      res.status(409).json({ error: err.message });
+    }
+  });
+
+  router.post("/api/device-logins/:name/revoke", (req, res) => {
+    if (!requireSession(req, res)) return;
+    try {
+      deviceLogins.revoke(req.params.name);
+      res.json({ ok: true });
+    } catch {
+      res.status(404).json({ error: "no such device login" });
+    }
   });
 
   router.post("/api/devices/revoke", (req, res) => {

@@ -16,6 +16,9 @@ import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
 import { unauthorizedMessage } from "../helpers/envs.js";
 import * as users from "./users.js";
+import * as deviceLogins from "./device-logins.js";
+import { deviceLoginAllowed } from "./device-login-scope.js";
+import { deviceKeyFromHeaders } from "./pairing.js";
 import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
@@ -43,7 +46,9 @@ function isLoopback(ip) {
 
 export default function authGuard() {
   const basicAuth = expressBasicAuth({
-    authorizer: (name, password, done) => users.verifyAsync(name, password).then((ok) => done(null, ok), done),
+    authorizer: (name, password, done) =>
+      (deviceLogins.has(name) ? deviceLogins.verifyAsync(name, password) : users.verifyAsync(name, password))
+        .then((ok) => done(null, ok), done),
     authorizeAsync: true,
     unauthorizedResponse: unauthorizedMessage,
     challenge: true,
@@ -63,8 +68,8 @@ export default function authGuard() {
     // access on success so the operator's own sessions show in /admin.
     if (isLoopback(ip)) {
       return basicAuth(req, res, (err) => {
-        if (!err && req.auth?.user) store.recordAccess(req.auth.user, ip);
-        next(err);
+        if (err || !req.auth?.user) return next(err);
+        afterSignIn(req, res, next, ip);
       });
     }
 
@@ -112,13 +117,35 @@ export default function authGuard() {
     basicAuth(req, res, (err) => {
       // If we got here without a 401, auth succeeded — reset counters and
       // record the access for the /admin dashboard.
-      if (!intercepted && !err) {
-        store.clearFailure(ip);
-        store.recordAccess(req.auth?.user, ip);
-      }
-      next(err);
+      if (intercepted || err) return next(err);
+      store.clearFailure(ip);
+      afterSignIn(req, res, next, ip);
     });
   };
+}
+
+/**
+ * A shop account is recorded for the dashboard. A per-device login is held to
+ * the shop's content and to the console it is locked to.
+ */
+function afterSignIn(req, res, next, ip) {
+  const name = req.auth?.user;
+  if (!deviceLogins.has(name)) {
+    store.recordAccess(name, ip);
+    return next();
+  }
+  if (!deviceLoginAllowed(req)) {
+    return denyResponse(req, res, { reason: DENY.DEVICE_LOGIN_SCOPE, status: 403, user: name });
+  }
+  const deviceKey = deviceKeyFromHeaders(req);
+  if (deviceLogins.claim(name, deviceKey) === "other-console") {
+    return denyResponse(req, res, { reason: DENY.DEVICE_LOGIN_OTHER_CONSOLE, status: 403, user: name, deviceKey });
+  }
+  req.deviceLogin = name;
+  deviceLogins.recordSeen(name, { ip, version: req.get("Version") || null });
+  // The console signed in with its own login, so it is not waiting for QR approval.
+  if (deviceKey && !store.isDeviceApproved(deviceKey)) store.dismissPending(deviceKey);
+  next();
 }
 
 function recordFailure(ip, req) {

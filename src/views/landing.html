@@ -1290,11 +1290,12 @@
       let baseUrl = `${location.protocol}//${location.host}/shop.tfl`;
       const urlEl = $("shop-url");
       urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
-      // Show the device-approval link only when this shop pairs consoles.
+      // Show the device page only when this shop pairs consoles or issues device logins.
       fetch("/api/shop/info", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((info) => {
-          if (info?.features?.includes("device-pairing")) document.getElementById("pair-link").hidden = false;
+          const features = info?.features ?? [];
+          if (features.includes("device-pairing") || features.includes("device-logins")) document.getElementById("pair-link").hidden = false;
         })
         .catch(() => {});
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })

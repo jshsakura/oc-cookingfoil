@@ -10,6 +10,7 @@ import pkg from "../package.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
+import * as users from "../security/users.js";
 
 export const API_VERSION = 1;
 
@@ -44,7 +45,13 @@ export default function shopInfoRoute(_req, res) {
     version: pkg.version,
     apiVersion: API_VERSION,
     // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
-    features: [...FEATURES, ...(devicePairing ? ["device-pairing"] : []), ...(dropboxAppKey ? ["dropbox-sync"] : [])],
+    // device-logins: signed-in users issue per-console IDs and passwords at /pair.
+    features: [
+      ...FEATURES,
+      ...(devicePairing ? ["device-pairing"] : []),
+      ...(users.hasUsers() ? ["device-logins"] : []),
+      ...(dropboxAppKey ? ["dropbox-sync"] : []),
+    ],
     files: stats.files,
     contentMeta: contentMeta.progress(),
   });

@@ -125,6 +125,13 @@ export function dashboardPage() {
   </form>
   <h2>승인 대기</h2><div class="scroll" id="pending"></div>
   <h2>승인된 기기</h2><div class="scroll" id="devices"></div>
+  <h2>기기별 접속 정보 (CyberFoil·Tinfoil)</h2>
+  <p class="muted">사용자가 기기 승인 화면(/pair)에서 스위치마다 만든 아이디와 비밀번호입니다. 처음 접속한 스위치에만 묶이고, 샵을 읽고 받는 것만 할 수 있습니다.</p>
+  <form class="add" id="add-login">
+    <input id="login-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
+    <button class="primary" type="submit">접속 정보 만들기</button>
+  </form>
+  <div class="scroll" id="logins"></div>
 </section>
 
 <section id="tab-security" hidden>

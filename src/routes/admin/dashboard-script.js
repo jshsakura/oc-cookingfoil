@@ -146,6 +146,17 @@ $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
     toast('승인했습니다. 스위치가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
   catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 스위치 화면의 코드를 다시 확인합니다.':err.message);}});
+async function loadLogins(){
+  const d=await api('/admin/api/device-logins');$('add-login').hidden=!d.enabled;
+  table('logins',['이름','아이디','만든 계정','묶인 기기','마지막 접속',''],(d.logins||[]).map((l)=>{const tr=el('tr');
+    const k=td(l.deviceKey?l.deviceKey.slice(0,16)+'…':'아직 접속 전','ip');if(l.deviceKey)k.title=l.deviceKey;
+    tr.append(td(l.label||'—'),td(l.name,'ip'),td(l.owner==='admin'?'관리자':l.owner+(l.active?'':' (꺼짐)')),k,td(fmt(l.lastSeenAt)));
+    const act=td();act.append(btn('폐기',async()=>{if(!confirm(l.name+' 을 폐기합니다. 이 아이디로 접속하던 스위치는 바로 끊깁니다.'))return;
+      try{await api('/admin/api/device-logins/'+encodeURIComponent(l.name)+'/revoke',{method:'POST',body:{}});toast('폐기했습니다.');loadLogins();}catch(err){toast(err.message);}},'danger'));
+    tr.append(act);return tr;}),d.enabled?'만든 접속 정보가 없습니다.':'샵 계정이 없어서 비밀번호 접속이 꺼져 있습니다.');}
+$('add-login').addEventListener('submit',async(e)=>{e.preventDefault();
+  try{const c=await api('/admin/api/device-logins',{method:'POST',body:{label:$('login-label').value}});$('login-label').value='';
+    showCredential('기기 접속 정보를 만들었습니다',c);loadLogins();}catch(err){toast(err.message);}});
 async function approve(deviceKey){const label=prompt('이 기기를 알아볼 이름을 정합니다 (예: 친구 스위치)','');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!confirm('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;
@@ -248,6 +259,6 @@ $('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();}
 $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
-showTab();loadStats();loadDevices();
-setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();}},15000);
+showTab();loadStats();loadDevices();loadLogins();
+setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();}},15000);
 `;
