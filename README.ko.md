@@ -87,7 +87,7 @@ docker compose up -d
 | `COOK_ADMIN_PASSWORD` | _(비어 있음)_ | 인증 앱 대신 쓰는 관리자 비밀번호(12자 이상) |
 | `COOK_DEVICE_PAIRING` | `false` | CookingFoil 클라이언트 기기를 QR 로 승인(CyberFoil·Tinfoil 은 비밀번호 그대로) |
 | `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | titledb 를 합칠 때 이름과 설명이 이기는 언어 순서 |
-| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh` | 받아 올 titledb 지역 파일 |
+| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 보조 지역 10개 | 받아 올 titledb 지역 파일 |
 | `COOK_RATING_SYNC` | `true` | Steam 리뷰 점수. IGDB 는 `COOK_IGDB_CLIENT_ID` / `_SECRET` 추가 |
 | `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | 닌텐도 eShop 정보(아래 참고) |
 | `COOK_EXTRACT_ICONS` | `missing` | 게임 파일에서 이름·아이콘 읽기: `missing`, `all`, `off` |

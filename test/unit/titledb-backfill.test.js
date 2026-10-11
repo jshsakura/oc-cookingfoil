@@ -50,6 +50,7 @@ test("missingRegions: a .404 tombstone marks a region as not-missing (no re-fetc
 test("Europe comes from GB.en, the file titledb actually has; an old EU.en setting is read as GB.en", async () => {
   const { DEFAULT_REGIONS, getRegionsFromEnv } = await import("../../src/meta/titledb-fetcher.js");
   assert.ok(DEFAULT_REGIONS.includes("GB.en"));
+  assert.deepEqual(DEFAULT_REGIONS.slice(0, 6), ["KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh", "CN.zh"], "the shop's languages come first");
   assert.ok(!DEFAULT_REGIONS.includes("EU.en"));
   const before = process.env.COOK_TITLEDB_REGIONS;
   process.env.COOK_TITLEDB_REGIONS = "KR.ko, EU.en, GB.en";

@@ -389,3 +389,20 @@ test("load: keeps each language's own name and description for base games", asyn
   assert.equal(store.descriptionsOf("0100AAAA00000000").zh, undefined);
   assert.equal(store.namesOf("0100BBBB00000000"), null);
 });
+
+// ── extra regions only fill gaps ─────────────────────────────────────────
+
+test("load: a region outside the shop's languages names Europe-only games but never replaces a name", async () => {
+  await resetDir();
+  await writeRegion("US.en.json", { 1: { id: "0100AAAA00000000", name: "Shared Game" } });
+  await writeRegion("DE.de.json", {
+    2: { id: "0100AAAA00000000", name: "Gemeinsames Spiel" },
+    3: { id: "0100BBBB00000000", name: "Nur in Europa", iconUrl: "https://img.example/de.jpg" },
+  });
+  await store.load();
+  assert.equal(store.get("0100AAAA00000000").name, "Shared Game");
+  assert.equal(store.get("0100BBBB00000000").name, "Nur in Europa");
+  assert.equal(store.get("0100BBBB00000000").iconUrl, "https://img.example/de.jpg");
+  // German is not one of the shop's languages, so it adds no localized name.
+  assert.equal(store.namesOf("0100BBBB00000000"), null);
+});
