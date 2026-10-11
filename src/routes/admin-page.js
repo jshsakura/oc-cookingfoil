@@ -47,7 +47,7 @@ import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import debug from "../debug.js";
-import { readPairLink } from "../security/pairing-link.js";
+import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
 import { pairPage } from "./admin/pair-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -90,6 +90,13 @@ function buildUserRows() {
   });
   const historical = Array.from(byUser.values()).map((a) => ({ ...a, configured: false }));
   return { users: [...rows, ...historical], access };
+}
+
+/** The waiting console whose code this is, or null. */
+function pendingKeyForCode(raw) {
+  const code = normalizeDeviceCode(raw);
+  if (!code) return null;
+  return store.devicesSnapshot().pending.find((p) => deviceCode(p.deviceKey) === code)?.deviceKey ?? null;
 }
 
 export default function adminPageRouter() {
@@ -221,14 +228,18 @@ export default function adminPageRouter() {
   router.get("/api/devices", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    res.json({ pairingEnabled: devicePairing, ...store.devicesSnapshot() });
+    const snapshot = store.devicesSnapshot();
+    const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode) });
   });
 
   router.post("/api/devices/approve", (req, res) => {
     if (!requireSession(req, res)) return;
-    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    // The console's 8-character code works as well as its full key: the admin
+    // reads it off the Switch screen and types it here.
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey) ?? pendingKeyForCode(req.body?.code ?? req.body?.deviceKey);
     if (!deviceKey) {
-      res.status(400).json({ error: "invalid deviceKey" });
+      res.status(req.body?.code !== undefined ? 404 : 400).json({ error: req.body?.code !== undefined ? "no device is waiting with that code" : "invalid deviceKey" });
       return;
     }
     const label = String(req.body?.label ?? "").slice(0, 64).trim();

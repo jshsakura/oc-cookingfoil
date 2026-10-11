@@ -118,6 +118,11 @@ export function dashboardPage() {
 
 <section id="tab-devices" hidden>
   <p class="muted" id="devhint"></p>
+  <form class="add" id="approve-code">
+    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="스위치에 뜬 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
+    <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
+    <button class="primary" type="submit">기기 코드로 승인</button>
+  </form>
   <h2>승인 대기</h2><div class="scroll" id="pending"></div>
   <h2>승인된 기기</h2><div class="scroll" id="devices"></div>
 </section>

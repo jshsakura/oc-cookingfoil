@@ -130,11 +130,11 @@ $('clrdeny').addEventListener('click',async()=>{if(!confirm('거부 기록을 �
 // ── devices ───────────────────────────────────────────────────────────
 async function loadDevices(){
   const d=await api('/admin/api/devices');
-  $('devhint').textContent=d.pairingEnabled?'CyberFoil 기기가 승인을 요청하면 여기에 나옵니다. 승인하면 비밀번호 없이 접속합니다.'
+  $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 스위치에 뜬 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 쓰려면 compose 에 COOK_DEVICE_PAIRING=true 를 넣습니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
-  table('pending',['기기 키','마지막 요청','IP',''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(k,td(fmt(p.lastSeenAt)),td(p.lastIp||'—','ip'));
+  table('pending',['기기 코드','기기 키','마지막 요청','IP',''],pending.map((p)=>{const tr=el('tr');
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)),td(p.lastIp||'—','ip'));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
   table('devices',['이름','연결한 계정','기기 키','마지막 접속','IP',''],(d.approved||[]).map((a)=>{const tr=el('tr');
     tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy||'—'));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
@@ -142,6 +142,10 @@ async function loadDevices(){
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('승인 취소',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');}
+$('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
+  try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
+    toast('승인했습니다. 스위치가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
+  catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 스위치 화면의 코드를 다시 확인합니다.':err.message);}});
 async function approve(deviceKey){const label=prompt('이 기기를 알아볼 이름을 정합니다 (예: 친구 스위치)','');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!confirm('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;

@@ -297,3 +297,28 @@ test("a refused request is visible on the admin dashboard, with a reason and a h
     server.kill("SIGKILL");
   }
 });
+
+test("the admin approves a waiting console by the code on its screen", async () => {
+  const server = bootServer();
+  try {
+    await waitReady();
+    const headers = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }),
+    });
+    const auth = { "Content-Type": "application/json", Cookie: r.headers.get("set-cookie").split(";")[0] };
+    const devices = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(devices.pending.find((p) => p.deviceKey === DEVICE_KEY).code, pending.pairCode);
+    const approveBy = (body) => fetch(`${BASE}/admin/api/devices/approve`, { method: "POST", headers: auth, body: JSON.stringify(body) });
+    assert.equal((await approveBy({ code: "00000000" })).status, 404);
+    r = await approveBy({ code: ` ${pending.pairCode.slice(0, 4).toLowerCase()}-${pending.pairCode.slice(4)}`, label: "TV" });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).deviceKey, DEVICE_KEY);
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.ok(approved.accessKey);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
