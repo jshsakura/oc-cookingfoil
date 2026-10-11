@@ -22,7 +22,8 @@ services:
       COOK_ADMIN_PASSWORD: ${COOK_ADMIN_PASSWORD:-}
       # Shown in Tinfoil-style clients when they open the shop.
       COOK_WELCOME_MSG: ${COOK_WELCOME_MSG:-Welcome to my shop}
-      # CyberFoil devices approved by QR code from a phone.
+      # CookingFoil client consoles approved by QR code from a phone (CyberFoil and
+      # Tinfoil cannot pair; they keep using the accounts above).
       COOK_DEVICE_PAIRING: ${COOK_DEVICE_PAIRING:-false}
       # Names and descriptions in this language order (titledb merge).
       COOK_LANG_PRIORITY: ${COOK_LANG_PRIORITY:-en,ko,ja,en-US}

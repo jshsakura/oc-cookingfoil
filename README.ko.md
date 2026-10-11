@@ -23,7 +23,7 @@
 
 `.nsp` / `.nsz` / `.xci` / `.xcz` 파일이 있는 폴더를 지정하면 스위치가 네트워크로 둘러보고 설치합니다.
 
-- **CyberFoil 기본 지원.** CyberFoil 의 섹션 API(`/api/shop/sections`)로 이름·아이콘·버전·크기·필요 펌웨어를 주고, 휴대폰으로 QR 을 찍어 기기를 승인하는 페어링을 지원합니다.
+- **CyberFoil 기본 지원.** CyberFoil 의 섹션 API(`/api/shop/sections`)로 이름·아이콘·버전·크기·필요 펌웨어를 줍니다.
 - **Tinfoil 호환.** `shop.tfl` / `shop.json` 이 Tinfoil 계열 앱에서 동작합니다. [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) 을 그대로 갈아 끼울 수 있습니다.
 - **손대지 않아도 붙는 메타데이터.** [blawar/titledb](https://github.com/blawar/titledb) 를 지역별로 합치고, titledb 에 없는 게임은 게임 파일에서 이름과 아이콘을 직접 읽습니다(`prod.keys` 필요). 이름·설명·포스터를 한국어·영어·일본어·중국어로 줍니다.
 - **리뷰 점수.** 게임마다 Steam(선택으로 IGDB) 점수를 이름으로 찾아 붙이고 매주 갱신합니다. 이름이 거의 같은 경우만 받습니다.
@@ -44,8 +44,8 @@
 
 | 클라이언트 | 연결 방식 | 받는 것 |
 |---|---|---|
-| [CyberFoil](https://github.com/luketanti/CyberFoil) | 네이티브 섹션 API | 이름, 아이콘, 버전, 필요 펌웨어, QR 기기 페어링 |
-| [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client) | 네이티브 API + `/api/title` | 스토어형 홈, 언어별 이름과 아트, 리뷰 점수, 유저 패치 |
+| [CyberFoil](https://github.com/luketanti/CyberFoil) | 네이티브 섹션 API | 이름, 아이콘, 버전, 필요 펌웨어 |
+| [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client) | 네이티브 API + `/api/title` | 스토어형 홈, 언어별 이름과 아트, 리뷰 점수, 유저 패치, QR 기기 승인 |
 | Tinfoil 계열 | `shop.tfl` | 이름과 아이콘이 있는 기존 파일 목록 |
 
 ## 빠르게 시작하기 (Docker)
@@ -70,9 +70,9 @@ docker compose up -d
 
 ## 클라이언트 연결
 
-- **CyberFoil:** 설정의 *eShop URL* 에 샵 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다. `COOK_DEVICE_PAIRING=true` 면 대신 화면의 QR 을 휴대폰으로 승인할 수 있습니다.
+- **CyberFoil:** 설정의 *eShop URL* 에 샵 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `/shop.tfl` 로 끝나는 주소와 아이디·비밀번호.
-- **CookingFoil 클라이언트:** `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
+- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 스위치 화면의 QR 을 휴대폰으로 승인해 비밀번호 없이 들어옵니다. 또는 `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
 
 ## 설정
 
@@ -84,7 +84,7 @@ docker compose up -d
 | `COOK_HOST_PORT` | `9080` | docker-compose 가 여는 호스트 포트 |
 | `COOK_TRUST_PROXY` | _(비어 있음)_ | 믿을 프록시 단계. 예: `loopback, uniquelocal`. 프록시 뒤 클라이언트마다 잠금이 따로 걸립니다 |
 | `COOK_ADMIN_PASSWORD` | _(비어 있음)_ | 인증 앱 대신 쓰는 관리자 비밀번호(12자 이상) |
-| `COOK_DEVICE_PAIRING` | `false` | CyberFoil 기기를 QR 로 승인 |
+| `COOK_DEVICE_PAIRING` | `false` | CookingFoil 클라이언트 기기를 QR 로 승인(CyberFoil·Tinfoil 은 비밀번호 그대로) |
 | `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | titledb 를 합칠 때 이름과 설명이 이기는 언어 순서 |
 | `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,EU.en,HK.zh` | 받아 올 titledb 지역 파일 |
 | `COOK_RATING_SYNC` | `true` | Steam 리뷰 점수. IGDB 는 `COOK_IGDB_CLIENT_ID` / `_SECRET` 추가 |

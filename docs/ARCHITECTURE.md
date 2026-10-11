@@ -11,7 +11,7 @@ request
   → defensive headers → /healthz (no auth)
   → rate limit → admin API (bearer token)
   → access guard (probes, traversal, locked IPs)
-  → device pairing lane (CyberFoil access keys) → basic auth (accounts, lockout)
+  → device pairing lane (CookingFoil client access keys) → basic auth (accounts, lockout)
   → routes: /shop.tfl /shop.json, /api/shop/*, /api/title/*, /api/patches, /admin, /
 ```
 
