@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { kindOf, readMeta, patchId, scanDir, scan, list, forTitle, countFor, openForDownload, reset } from "../../src/meta/user-patches.js";
+import { kindOf, readMeta, patchId, scanDir, scan, list, forTitle, countFor, openForDownload, reset, loadCache } from "../../src/meta/user-patches.js";
 import { splitPath, fitsUstar, header, archiveSize } from "../../src/helpers/ustar.js";
 import { tarEntries } from "../../src/routes/patches.js";
 
@@ -125,4 +125,31 @@ test("an unknown or vanished patch cannot be downloaded", async () => {
   assert.equal(await openForDownload(`${TID}-000000000000`, root), null);
   fs.rmSync(path.join(root, TID, "a"), { recursive: true });
   assert.equal(await openForDownload(p.id, root), null);
+});
+
+test("the listing and hashes survive a restart, and the cache forgets removed files", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "patches-cache-"));
+  const cacheFile = path.join(root, "..", path.basename(root) + ".json");
+  const put = (rel, body) => {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), body);
+  };
+  put("0100000000010000/Big/atmosphere/contents/0100000000010000/romfs/a.bin", "aaaa");
+  put("0100000000020000/Small/atmosphere/contents/0100000000020000/cheats/0123456789ABCDEF.txt", "[x]");
+  await scan({ root, cacheFile });
+  const before = await list();
+  const saved = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
+  assert.equal(saved.patches.length, 2);
+  assert.equal(Object.keys(saved.hashes).length, 2);
+
+  // A restart: nothing in memory, the saved listing answers at once.
+  reset();
+  assert.equal(loadCache(cacheFile), true);
+  assert.deepEqual((await list({ root, cacheFile })).map((p) => p.hash), before.map((p) => p.hash));
+  await scan({ root, cacheFile }); // the refresh list() started in the background
+
+  fs.rmSync(path.join(root, "0100000000010000"), { recursive: true });
+  await scan({ root, cacheFile });
+  assert.equal(Object.keys(JSON.parse(fs.readFileSync(cacheFile, "utf8")).hashes).length, 1);
+  assert.equal(loadCache(path.join(root, "missing.json")), false);
 });
