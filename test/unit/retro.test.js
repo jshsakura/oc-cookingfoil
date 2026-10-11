@@ -64,7 +64,7 @@ test("base pack files map onto the SD card, RetroArch itself into /switch", () =
   assert.equal(sdPathOf(".DS_Store"), null);
 });
 
-test("bezel configs follow the Bezel Project layout and the 720p 4:3 viewport", () => {
+test("bezel configs follow the Bezel Project layout and keep the core's aspect ratio", () => {
   const systems = loadSystems("/nonexistent");
   const game = { system: "snes", rel: "Super Mario World (USA).sfc", name: "Super Mario World (USA)" };
   const paths = sdPaths(game, systems.snes);
@@ -72,8 +72,9 @@ test("bezel configs follow the Bezel Project layout and the 720p 4:3 viewport", 
   assert.equal(paths.bezelPng, "retroarch/overlays/GameBezels/SNES/Super Mario World (USA).png");
   assert.equal(paths.gameCfg, "retroarch/config/Snes9x/Super Mario World (USA).cfg");
   const cfg = gameCfg(game, systems.snes);
-  for (const line of ['aspect_ratio_index = "22"', 'custom_viewport_width = "960"', 'custom_viewport_height = "720"', 'custom_viewport_x = "160"', 'custom_viewport_y = "0"',
+  for (const line of ['video_aspect_ratio_auto = "true"', 'input_overlay_enable = "true"',
     'input_overlay = "/retroarch/overlays/GameBezels/SNES/Super Mario World (USA).cfg"']) assert.ok(cfg.includes(line), line);
+  assert.ok(!cfg.includes("custom_viewport"), "no fixed pixel viewport: the Switch is 720p handheld and 1080p docked");
   assert.match(overlayCfg(game), /overlay0_overlay = "Super Mario World \(USA\)\.png"/);
 });
 
@@ -157,7 +158,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(smw.install.gameCfg, "retroarch/config/Snes9x/Super Mario World (USA).cfg");
     assert.equal(await (await get(smw.romUrl)).text(), "SMW");
     assert.equal(await (await get(smw.iconUrl)).text(), "PNG");
-    assert.match(await (await get(smw.bezel.gameCfgUrl)).text(), /custom_viewport_x = "160"/);
+    assert.match(await (await get(smw.bezel.gameCfgUrl)).text(), /video_aspect_ratio_auto = "true"/);
     const r = await fetch(BASE + smw.romUrl, { headers: { ...AUTH, Range: "bytes=1-2" } });
     assert.equal(r.status, 206);
     assert.equal(await r.text(), "MW");

@@ -110,6 +110,10 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   …), a short id (gba, ps1, …) or a common alias (FC, SFC, MD, PS1, PSP), in any case.
   Supported: NES, SNES, GB, GBC, GBA, N64, NDS, Mega Drive, Master System, Game Gear,
   Saturn, PC Engine, PlayStation, PSP, Neo Geo Pocket, WonderSwan, arcade (FBNeo).
+  Box art and bezels: `node scripts/retro-art.mjs <retro dir>` fetches them from
+  libretro-thumbnails and The Bezel Project. Renamed or translated games need
+  `art-map/<system>.json` (`{"<ROM name>": "<No-Intro name>"}`) to be found; the
+  script keeps what is already there, so rerun it after adding games.
   The server ships none of these; bring your own. `retroarch.nro` goes to
   `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.

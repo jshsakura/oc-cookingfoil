@@ -27,17 +27,15 @@ export function overlayCfg(game) {
 }
 
 /**
- * Per-game RetroArch config: a 4:3 picture in the middle of a 720p screen
- * (960x720 at x=160), with the bezel around it.
+ * Per-game RetroArch config: the bezel around a picture in the core's own
+ * aspect ratio (4:3 for home consoles, 3:2 for the GBA, …). The Switch draws
+ * 720p handheld and 1080p docked, so a fixed pixel viewport would only fit one
+ * of them; The Bezel Project's images are cut for the core's aspect ratio.
  */
 export function gameCfg(game, system) {
   const overlay = "/" + sdPaths(game, system).overlayCfg;
   return [
-    'aspect_ratio_index = "22"',
-    'custom_viewport_width = "960"',
-    'custom_viewport_height = "720"',
-    'custom_viewport_x = "160"',
-    'custom_viewport_y = "0"',
+    'video_aspect_ratio_auto = "true"',
     'video_scale_integer = "false"',
     'input_overlay_enable = "true"',
     'input_overlay_opacity = "1.000000"',
