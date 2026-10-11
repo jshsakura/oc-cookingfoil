@@ -70,7 +70,7 @@ docker compose up -d
 
 ## 클라이언트 연결
 
-- **CyberFoil:** 설정의 *eShop URL* 에 샵 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다.
+- **CyberFoil:** 설정의 *eShop URL* 에 샵 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다. 내 계정보다는 *기기 승인*(`/pair`) 화면에서 스위치마다 만드는 접속 정보를 권합니다. 샵을 읽고 받는 것만 되고, 처음 접속한 스위치에 묶이며, 언제든 폐기할 수 있습니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `/shop.tfl` 로 끝나는 주소와 아이디·비밀번호.
 - **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 스위치에 QR 이 뜹니다. 휴대폰으로 샵에 로그인해 *기기 승인*(`/pair`) 화면에서 카메라로 찍거나 8자리 기기 코드를 입력하면, 그 계정으로 기기가 연결되고 스위치에는 비밀번호를 넣지 않습니다. 또는 `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
 

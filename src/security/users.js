@@ -18,10 +18,10 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { promisify } from "util";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
+import { hashPassword, DECOY_HASH, matches, matchesAsync } from "./password-hash.js";
 
 const USERS_DIR = path.join(dataDir, "security");
 const USERS_PATH = path.join(USERS_DIR, "users.json");
@@ -29,11 +29,8 @@ const NAME_RE = /^[A-Za-z0-9._-]{1,32}$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 128;
 const GENERATED_BYTES = 18; // 24 base64url characters
-const SCRYPT_KEYLEN = 32;
 const VERIFIED_MAX = 1000;
-const MAX_CONCURRENT_HASHES = 4;
 
-const scryptAsync = promisify(crypto.scrypt);
 const accounts = new Map(); // name → { hash, enabled, createdAt, updatedAt }
 const verified = new Set(); // sha256(name \0 password) of recent successful checks
 
@@ -42,48 +39,6 @@ class UserError extends Error {
     super(message);
     this.code = code;
   }
-}
-
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16);
-  const key = crypto.scryptSync(password, salt, SCRYPT_KEYLEN);
-  return `scrypt$${salt.toString("base64")}$${key.toString("base64")}`;
-}
-
-// Unknown names are checked against this so they take as long as real ones.
-const DECOY_HASH = hashPassword(crypto.randomBytes(16).toString("hex"));
-
-function splitHash(stored) {
-  const [scheme, salt, key] = String(stored).split("$");
-  if (scheme !== "scrypt" || !salt || !key) return null;
-  return { salt: Buffer.from(salt, "base64"), key: Buffer.from(key, "base64") };
-}
-
-function matches(stored, password) {
-  const parts = splitHash(stored);
-  if (!parts) return false;
-  const actual = crypto.scryptSync(password, parts.salt, parts.key.length);
-  return crypto.timingSafeEqual(actual, parts.key);
-}
-
-let hashing = 0;
-const waiting = [];
-async function withHashSlot(fn) {
-  if (hashing >= MAX_CONCURRENT_HASHES) await new Promise((resolve) => waiting.push(resolve));
-  hashing++;
-  try {
-    return await fn();
-  } finally {
-    hashing--;
-    waiting.shift()?.();
-  }
-}
-
-async function matchesAsync(stored, password) {
-  const parts = splitHash(stored);
-  if (!parts) return false;
-  const actual = await withHashSlot(() => scryptAsync(password, parts.salt, parts.key.length));
-  return crypto.timingSafeEqual(actual, parts.key);
 }
 
 function digest(name, password) {
@@ -152,6 +107,10 @@ function validateName(name) {
   if (typeof name !== "string" || !NAME_RE.test(name)) {
     throw new UserError("invalid-name", "Use 1-32 letters, digits, dot, dash or underscore.");
   }
+  // Per-device logins are named cf-xxxxxx; an account must never shadow one.
+  if (/^cf-/i.test(name)) {
+    throw new UserError("invalid-name", "Names starting with cf- are reserved for device logins.");
+  }
 }
 
 function resolvePassword(password) {
@@ -168,6 +127,11 @@ function requireAccount(name) {
   const record = accounts.get(name);
   if (!record) throw new UserError("not-found", "No such user.");
   return record;
+}
+
+/** Whether this account exists and may sign in (owners of device logins are checked against it). */
+export function isActive(name) {
+  return accounts.get(name)?.enabled === true;
 }
 
 export function hasUsers() {

@@ -27,6 +27,13 @@ input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border
 button,.button{display:block;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;border:0;border-radius:10px;padding:15px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
 button.ghost,.button.ghost{background:var(--soft);color:var(--ink)}button:disabled{opacity:.6;cursor:wait}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
+.ok{color:#2E7D4F;margin:12px 0 0;font-size:16px}.ok:empty{display:none}
+.block{border-top:1px solid var(--line);margin:28px 0 0;padding:24px 0 0}h2{font-size:20px;margin:0 0 10px}
+.issued{background:var(--soft);border-radius:12px;padding:16px;margin:16px 0 0}.issued dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:10px 0}
+.issued dt{color:var(--muted);font-size:15px}.issued dd{margin:0;font:700 18px monospace;word-break:break-all;user-select:all}
+.mine{list-style:none;margin:0;padding:0}.mine li{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.mine li:last-child{border-bottom:0}.mine li div{display:flex;flex-direction:column;gap:2px;min-width:0}.mine .hint{margin:0}
+button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(--soft);color:var(--bad);flex:none}
 #error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
 .back{display:block;text-align:center;margin:20px 0 0;color:var(--muted);font-size:15px}
 [hidden]{display:none!important}
@@ -39,7 +46,20 @@ ${withCode ? `<label for="code">${t.codeLabel}</label><input id="code" name="cod
 <button type="submit">${t.approve}</button></form>`;
 }
 
-function body(view, t, { code, approver }) {
+function loginsSection(t) {
+  return `<section class="block" id="logins"><h2>${t.loginsTitle}</h2><p>${t.loginsLead}</p>
+<form id="new-login" novalidate><label for="login-label">${t.nameLabel} <span>${t.optional}</span></label>
+<input id="login-label" maxlength="64" placeholder="CyberFoil" autocomplete="off"><button type="submit" class="ghost">${t.createLogin}</button></form>
+<div id="issued" class="issued" hidden><p class="hint">${t.shownOnce}</p><dl>
+<dt>${t.serverUrl}</dt><dd id="issued-url"></dd><dt>${t.username}</dt><dd id="issued-name"></dd><dt>${t.password}</dt><dd id="issued-pass"></dd></dl>
+<p class="hint">${t.whereToType}</p></div></section>`;
+}
+
+function mineSection(t) {
+  return `<section class="block"><h2>${t.mineTitle}</h2><ul id="mine" class="mine"><li class="hint">${t.mineEmpty}</li></ul></section>`;
+}
+
+function body(view, t, { code, approver, pairing = true, logins = false }) {
   const who = approver === "admin" ? t.asAdmin : t.asUser.replace("{user}", `<strong>${escapeHtml(approver)}</strong>`);
   switch (view) {
     case "done":
@@ -51,30 +71,33 @@ function body(view, t, { code, approver }) {
     case "confirm":
       return `<h1>${t.title}</h1><p>${t.confirmLead}</p><p class="who">${who}</p>${form(t, { withCode: false, code })}`;
     default:
-      return `<h1>${t.title}</h1><p>${t.lead}</p><p class="who">${who}</p>
-<div id="viewer" class="viewer" hidden><video id="video" playsinline muted></video></div>
+      return `<h1>${t.title}</h1><p>${pairing ? t.lead : t.loginsLead}</p><p class="who">${who}</p>
+${pairing ? `<div id="viewer" class="viewer" hidden><video id="video" playsinline muted></video></div>
 <p id="camera-note" class="hint" hidden></p>
 <button type="button" id="scan">${t.scan}</button>
-<div class="divider">${t.or}</div>${form(t, { withCode: true })}`;
+<div class="divider">${t.or}</div>${form(t, { withCode: true })}<p id="status" class="ok" role="status"></p>` : ""}
+${logins ? loginsSection(t) : ""}${mineSection(t)}`;
   }
 }
 
 // Strings the browser script needs, escaped for an inline <script>.
 function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
-    "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody"];
+    "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr", "kindLogin",
+    "notUsed", "lastSeen", "revoke", "revokeConfirm", "errCreate"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
 const SCRIPT = `
 const T=JSON.parse(document.getElementById('pair-text').textContent);
 const main=document.querySelector('main .content'),approveForm=document.getElementById('approve'),error=document.getElementById('error');
+const status=document.getElementById('status')||{};
 const token=(location.pathname.match(/^\\/pair\\/([a-f0-9]{32})$/)||[])[1]||null;
 function showDone(){main.innerHTML='';const h=document.createElement('h1');h.textContent=T.doneTitle;const p=document.createElement('p');p.textContent=T.doneBody;const a=document.createElement('a');a.className='button ghost';a.href='/pair';a.textContent=T.another;main.append(h,p,a);}
 const MESSAGES={404:T.errNotFound,409:T.errUsed,410:T.expiredBody,401:T.errAuth,403:T.errAuth};
 async function approve(payload){const button=approveForm.querySelector('button');button.disabled=true;error.textContent='';
   try{const r=await fetch('/pair/approve',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
-    if(r.ok){stopCamera();showDone();return;}error.textContent=MESSAGES[r.status]||T.errOther;}
+    if(r.ok){stopCamera();if(token){showDone();return;}approveForm.reset();status.textContent=T.doneTitle+' '+T.doneBody;loadMine();return;}error.textContent=MESSAGES[r.status]||T.errOther;}
   catch{error.textContent=T.errNetwork;}finally{button.disabled=false;}}
 if(approveForm)approveForm.addEventListener('submit',e=>{e.preventDefault();const label=document.getElementById('label').value;
   if(token){approve({token,label});return;}
@@ -112,14 +135,37 @@ if(scanButton){
   if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){scanButton.hidden=true;say(T.noCamera);}
   else scanButton.addEventListener('click',()=>stream?(stopCamera(),say('')):startCamera());}
 window.addEventListener('pagehide',stopCamera);
+
+// ── my devices and per-device logins ──
+const mine=document.getElementById('mine'),newLogin=document.getElementById('new-login');
+const post=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body||{})});
+const when=(ms)=>ms?new Date(ms).toLocaleString(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}):null;
+function row(item){const li=document.createElement('li');const info=document.createElement('div');
+  const name=document.createElement('strong');name.textContent=item.label||(item.kind==='login'?item.name:'Nintendo Switch');
+  const meta=document.createElement('span');meta.className='hint';
+  meta.textContent=[item.kind==='login'?T.kindLogin+' · '+item.name:T.kindQr,item.lastSeenAt?T.lastSeen+' '+when(item.lastSeenAt):T.notUsed].join(' · ');
+  info.append(name,meta);const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.revoke;
+  b.addEventListener('click',async()=>{if(!confirm(T.revokeConfirm))return;b.disabled=true;
+    const r=await post(item.kind==='login'?'/pair/api/logins/'+encodeURIComponent(item.name)+'/revoke':'/pair/api/devices/revoke',item.kind==='login'?{}:{deviceKey:item.deviceKey}).catch(()=>null);
+    if(r&&r.ok)loadMine();else{b.disabled=false;error.textContent=T.errOther;}});
+  li.append(info,b);return li;}
+async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/mine',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();
+  const items=[...d.devices.map((x)=>({...x,kind:'qr'})),...d.logins.map((x)=>({...x,kind:'login'}))];
+  mine.replaceChildren(...(items.length?items.map(row):[Object.assign(document.createElement('li'),{className:'hint',textContent:T.mineEmpty})]));}catch{}}
+if(newLogin)newLogin.addEventListener('submit',async(e)=>{e.preventDefault();const button=newLogin.querySelector('button');button.disabled=true;error.textContent='';
+  try{const r=await post('/pair/api/logins',{label:document.getElementById('login-label').value});if(!r.ok)throw new Error();const d=await r.json();
+    document.getElementById('issued-url').textContent=d.shopUrl;document.getElementById('issued-name').textContent=d.name;document.getElementById('issued-pass').textContent=d.password;
+    document.getElementById('issued').hidden=false;newLogin.reset();loadMine();}
+  catch{error.textContent=T.errCreate;}finally{button.disabled=false;}});
+loadMine();
 `;
 
-export function devicePairPage({ view = "scan", lang = "en", code = "", approver = null } = {}) {
+export function devicePairPage({ view = "scan", lang = "en", code = "", approver = null, pairing = true, logins = false } = {}) {
   const t = PAIR_TEXT[lang] ?? PAIR_TEXT.en;
   const interactive = view === "scan" || view === "confirm";
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>${t.title} · CookingFoil</title><link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/fonts.css"><style>${STYLE}</style></head>
 <body><main class="card"><a class="brand" href="/"><img src="/assets/cookingfoil.svg" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></a>
-<div class="content">${body(view, t, { code, approver })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>
+<div class="content">${body(view, t, { code, approver, pairing, logins })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>
 ${interactive ? `<script type="application/json" id="pair-text">${clientText(t)}</script><script>${SCRIPT}</script>` : ""}</body></html>`;
 }

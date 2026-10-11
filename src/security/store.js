@@ -281,6 +281,11 @@ export function revokeDevice(deviceKey) {
   return removed;
 }
 
+/** Drop a console from the approval queue without approving it. */
+export function dismissPending(deviceKey) {
+  if (state.pending.delete(deviceKey)) scheduleFlush();
+}
+
 export function recordDeviceSeen(deviceKey, { ip, version } = {}) {
   const d = state.devices.get(deviceKey);
   if (!d) return;

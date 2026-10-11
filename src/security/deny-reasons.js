@@ -18,6 +18,8 @@ export const DENY = {
   NO_DEVICE_KEY: "no-device-key",
   DEVICE_NOT_APPROVED: "device-not-approved",
   DEVICE_BAD_ACCESS_KEY: "device-bad-access-key",
+  DEVICE_LOGIN_SCOPE: "device-login-scope",
+  DEVICE_LOGIN_OTHER_CONSOLE: "device-login-other-console",
   ADMIN_NO_SESSION: "admin-no-session",
   ADMIN_BAD_TOTP: "admin-bad-totp",
 };
@@ -37,6 +39,10 @@ const HINTS = {
     "Device knocked but is not approved yet. Approve it in the Devices table.",
   [DENY.DEVICE_BAD_ACCESS_KEY]:
     "Device presented a stale or wrong access key. Re-issue its key.",
+  [DENY.DEVICE_LOGIN_SCOPE]:
+    "A per-device login asked for something outside the shop (web pages, uploads, admin). Device logins only read the shop and download.",
+  [DENY.DEVICE_LOGIN_OTHER_CONSOLE]:
+    "A per-device login was used from a different console than the one it is locked to. Issue that console its own login.",
   [DENY.ADMIN_NO_SESSION]: "Admin request without a valid 2FA session.",
   [DENY.ADMIN_BAD_TOTP]: "Wrong 6-digit code at the admin gate.",
 };

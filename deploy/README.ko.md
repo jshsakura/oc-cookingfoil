@@ -43,7 +43,9 @@ curl http://localhost:38000/healthz
 
 ## 4. 스위치 연결
 
-- **CyberFoil:** 설정의 *eShop URL* = `http://<호스트>:38000/` 과 아이디·비밀번호.
+- **CyberFoil:** 설정의 *eShop URL* = `http://<호스트>:38000/` 과 아이디·비밀번호. 계정을
+  나눠 쓰기보다 *기기 승인*(`/pair`) 화면에서 스위치마다 접속 정보를 만들어 넣습니다. 샵 읽기만
+  되고 언제든 폐기할 수 있습니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `http://<호스트>:38000/shop.tfl`.
 - **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 휴대폰으로 샵에 로그인해
   *기기 승인*(`/pair`) 화면에서 스위치에 뜬 QR 을 찍거나 기기 코드를 입력합니다. 스위치에는

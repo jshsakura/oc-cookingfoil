@@ -41,8 +41,10 @@ export default function pairingGate() {
     // then defer to basic-auth. Not a hard refusal, but still worth a denial
     // row: an approved device failing its key is exactly the "why did my
     // console stop working?" case.
+    // A console signing in with a password (an account or its own device
+    // login) is not asking for QR approval, so it stays out of the queue.
     if (!store.isDeviceApproved(deviceKey)) {
-      store.recordPendingDevice(deviceKey, {
+      if (!req.headers.authorization) store.recordPendingDevice(deviceKey, {
         ip: clientIp(req),
         version: req.get("Version") || null,
       });
