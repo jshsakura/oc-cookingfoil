@@ -70,7 +70,8 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
     assert.equal(r.status, 200);
     const pending = await r.json();
     assert.equal(pending.status, "pending");
-    assert.match(pending.pairUrl, /\/admin\/pair\/[a-f0-9]{32}$/);
+    assert.match(pending.pairUrl, /\/pair\/[a-f0-9]{32}$/);
+    assert.ok(!pending.pairUrl.includes("/admin/"), "the QR opens the signed-in user's approval page");
     assert.ok(!pending.pairUrl.includes(DEVICE_KEY));
 
     // 2) Content is locked before approval (sole lane, no creds) → 403.
@@ -183,7 +184,9 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     assert.match(pending.pairCode, /^[A-F0-9]{8}$/);
     const token = pending.pairUrl.split("/").pop();
     const endpoint = `${BASE}/admin/api/pair/${token}/approve`;
+    // No accounts on this shop, so the QR page hands over to the admin's own sign-in.
     const page = await fetch(pending.pairUrl);
+    assert.ok(page.url.endsWith(`/admin/pair/${token}`));
     assert.equal(page.headers.get("cache-control"), "no-store");
     const html = await page.text();
     assert.ok(html.includes(pending.pairCode));
@@ -199,6 +202,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     const cookie = r.headers.get("set-cookie").split(";")[0];
     const auth = { "Content-Type": "application/json", Cookie: cookie };
     assert.ok((await (await fetch(pending.pairUrl, { headers: auth })).text()).includes('id="approve"'));
+    assert.ok((await (await fetch(page.url, { headers: auth })).text()).includes('id="approve"'));
     r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: "https://other.example" }, body: "{}" });
     assert.equal(r.status, 403);
     r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: BASE }, body: JSON.stringify({ label: "Nintendo Switch" }) });
@@ -206,7 +210,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     assert.deepEqual(await r.json(), { ok: true });
     r = await fetch(endpoint, { method: "POST", headers: auth, body: "{}" });
     assert.equal(r.status, 409, "replaying the QR must not rotate the key");
-    const approvedPage = await (await fetch(pending.pairUrl, { headers: auth })).text();
+    const approvedPage = await (await fetch(page.url, { headers: auth })).text();
     assert.ok(approvedPage.includes("샵 연결을 승인했습니다."));
     const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
     assert.ok(approved.accessKey);

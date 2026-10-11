@@ -136,8 +136,8 @@ async function loadDevices(){
   table('pending',['기기 키','마지막 요청','IP',''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(k,td(fmt(p.lastSeenAt)),td(p.lastIp||'—','ip'));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
-  table('devices',['이름','기기 키','마지막 접속','IP',''],(d.approved||[]).map((a)=>{const tr=el('tr');
-    tr.append(td(a.label||'—'));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
+  table('devices',['이름','연결한 계정','기기 키','마지막 접속','IP',''],(d.approved||[]).map((a)=>{const tr=el('tr');
+    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy||'—'));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
     tr.append(k,td(fmt(a.lastSeenAt)),td(a.lastIp||'—','ip'));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('승인 취소',()=>revoke(a.deviceKey),'danger'));
