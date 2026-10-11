@@ -121,6 +121,34 @@
       .tabs a.tab-link[hidden] { display: none; }
       .tabs button:hover:not(.active), .tabs a.tab-link:hover { color: var(--ink); }
       .tabs button.active { background: var(--ink); color: var(--ground); }
+      .tabs a.icon-link { padding: 6px 10px; }
+      .tabs a.icon-link svg { width: 17px; height: 17px; }
+      /* SUBTABS: list or preview, patches or saves, inside the open view */
+      .subtabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 22px; background: var(--sunk); border-radius: 100px; }
+      .subtabs:empty { display: none; }
+      .subtabs button {
+        background: transparent; border: none; color: var(--secondary); white-space: nowrap;
+        padding: 6px 16px; border-radius: 100px; font: 600 13px var(--font-body); cursor: pointer;
+      }
+      .subtabs button:hover:not(.active) { color: var(--ink); }
+      .subtabs button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), 0.18); }
+      /* PATCHES / SAVES: one block per game, its files under it */
+      .xlist { display: grid; gap: 18px; }
+      .xgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; min-width: 0; }
+      .xgroup header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
+      .xgroup header img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
+      .xgroup header strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .xgroup header .n { margin-left: auto; color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+      .xitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: start; padding: 12px 0 0; border-top: 1px solid var(--line); margin-top: 12px; }
+      .xgroup header + .xitem { border-top: none; margin-top: 0; padding-top: 4px; }
+      .xitem .xname { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+      .xitem .xmeta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--secondary); }
+      .xitem .xdesc { grid-column: 1 / -1; font-size: 13px; color: var(--secondary); line-height: 1.55; overflow-wrap: anywhere;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+      .xitem .xdesc.open { -webkit-line-clamp: unset; display: block; }
+      .xitem .xsrc { grid-column: 1 / -1; font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+      .xitem .xsrc a { color: var(--secondary); }
+      .xitem .btn { padding: 8px 14px; font-size: 13px; }
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
@@ -504,7 +532,12 @@
       }
       @media (max-width: 640px) {
         .connect-bar { grid-template-columns: 1fr; }
-        .tabs { order: 3; margin: 0; }
+        .lang-menu { margin-left: auto; }
+        .tabs { order: 3; margin: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .subtabs { display: flex; width: 100%; }
+        .subtabs button { flex: 1; }
+        .xgroup { padding: 14px 12px; border-radius: 16px; }
         body { padding: 16px 16px 80px; }
         .wordmark { font-size: 26px; }
         .logo { width: 36px; height: 36px; }
@@ -535,10 +568,12 @@
         </a>
         <nav class="tabs" role="tablist" aria-label="views">
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
-          <button type="button" role="tab" data-tab="preview" data-i18n="tab.preview"></button>
           <button type="button" role="tab" data-tab="retro" data-i18n="tab.retro" id="retro-tab" hidden></button>
+          <button type="button" role="tab" data-tab="extras" data-i18n="tab.extras" id="extras-tab" hidden></button>
           <a class="tab-link" id="pair-link" href="/pair" data-i18n="tab.pair" hidden></a>
-          <a class="tab-link" href="/admin" data-i18n="tab.admin"></a>
+          <a class="tab-link icon-link" id="admin-link" href="/admin">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </a>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -565,6 +600,7 @@
       </section>
 
       <div class="card">
+        <div class="subtabs" id="subtabs" role="tablist"></div>
         <div data-tab-panel="games">
           <section class="panel stats-panel">
             <h3><span data-i18n="section.stats"></span><span class="rule"></span>
@@ -633,7 +669,7 @@
         <div class="genre-chips retro-systems" id="retro-systems" role="group"></div>
         <div id="retro-games" class="games" aria-busy="true"></div>
         <p class="empty" id="retro-empty" hidden></p>
-        <div id="retro-more" aria-hidden="true"></div>
+        <div class="pager" id="retro-pager"></div>
         </div>
 
         <div data-tab-panel="preview" hidden>
@@ -651,6 +687,22 @@
         </section>
 
         <div id="home-rows"></div>
+        </div>
+
+        <div data-tab-panel="retro-home" hidden>
+          <div id="retro-rows" aria-busy="true"></div>
+        </div>
+
+        <div data-tab-panel="patches" hidden>
+          <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="patches-list" aria-busy="true"></div>
+          <p class="empty" id="patches-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="saves" hidden>
+          <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="saves-list" aria-busy="true"></div>
+          <p class="empty" id="saves-empty" hidden></p>
         </div>
       </div>
 
@@ -727,6 +779,20 @@
           "retro.search": "레트로 게임 검색…",
           "retro.all": "전체",
           "retro.empty": "이 조건에 맞는 레트로 게임이 없습니다.",
+          "tab.extras": "패치·세이브",
+          "tab.list": "목록",
+          "tab.patches": "유저 패치",
+          "tab.saves": "세이브",
+          "extras.search": "게임 이름이나 파일 이름으로 찾기…",
+          "extras.download": "받기",
+          "extras.empty": "이 조건에 맞는 항목이 없습니다.",
+          "extras.source": "출처",
+          "kind.romfs": "데이터",
+          "kind.exefs": "코드",
+          "kind.exefs_patches": "코드 패치",
+          "kind.cheats": "치트",
+          "action.admin": "관리",
+          "extras.files": (n) => `파일 ${n}개`,
           "retro.bezel": "베젤",
           "retro.discs": "여러 디스크",
           "retro.download": "받기",
@@ -873,6 +939,20 @@
           "retro.search": "Search retro games…",
           "retro.all": "All",
           "retro.empty": "No retro games match.",
+          "tab.extras": "Patches & saves",
+          "tab.list": "List",
+          "tab.patches": "User patches",
+          "tab.saves": "Saves",
+          "extras.search": "Search by game or file name…",
+          "extras.download": "Download",
+          "extras.empty": "Nothing matches.",
+          "extras.source": "Source",
+          "kind.romfs": "Data",
+          "kind.exefs": "Code",
+          "kind.exefs_patches": "Code patch",
+          "kind.cheats": "Cheats",
+          "action.admin": "Admin",
+          "extras.files": (n) => `${n} files`,
           "retro.bezel": "Bezel",
           "retro.discs": "Multi-disc",
           "retro.download": "Download",
@@ -1018,6 +1098,20 @@
           "retro.search": "レトロゲームを検索…",
           "retro.all": "すべて",
           "retro.empty": "条件に合うレトロゲームはありません。",
+          "tab.extras": "パッチ・セーブ",
+          "tab.list": "一覧",
+          "tab.patches": "ユーザーパッチ",
+          "tab.saves": "セーブ",
+          "extras.search": "ゲーム名やファイル名で検索…",
+          "extras.download": "ダウンロード",
+          "extras.empty": "条件に合う項目はありません。",
+          "extras.source": "出典",
+          "kind.romfs": "データ",
+          "kind.exefs": "コード",
+          "kind.exefs_patches": "コードパッチ",
+          "kind.cheats": "チート",
+          "action.admin": "管理",
+          "extras.files": (n) => `${n}ファイル`,
           "retro.bezel": "ベゼル",
           "retro.discs": "複数ディスク",
           "retro.download": "ダウンロード",
@@ -1163,6 +1257,20 @@
           "retro.search": "搜尋復古遊戲…",
           "retro.all": "全部",
           "retro.empty": "沒有符合條件的復古遊戲。",
+          "tab.extras": "補丁・存檔",
+          "tab.list": "列表",
+          "tab.patches": "使用者補丁",
+          "tab.saves": "存檔",
+          "extras.search": "依遊戲或檔案名稱搜尋…",
+          "extras.download": "下載",
+          "extras.empty": "沒有符合條件的項目。",
+          "extras.source": "來源",
+          "kind.romfs": "資料",
+          "kind.exefs": "程式碼",
+          "kind.exefs_patches": "程式修補",
+          "kind.cheats": "金手指",
+          "action.admin": "管理",
+          "extras.files": (n) => `${n} 個檔案`,
           "retro.bezel": "邊框",
           "retro.discs": "多光碟",
           "retro.download": "下載",
@@ -1315,6 +1423,10 @@
         for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         $("search").placeholder = t("search.placeholder");
         $("retro-search").placeholder = t("retro.search");
+        $("patches-search").placeholder = t("extras.search");
+        $("saves-search").placeholder = t("extras.search");
+        $("admin-link").setAttribute("aria-label", t("action.admin"));
+        $("admin-link").title = t("action.admin");
         for (const b of document.querySelectorAll("#lang-list [data-lang]")) {
           b.classList.toggle("active", b.dataset.lang === lang);
           b.setAttribute("aria-checked", String(b.dataset.lang === lang));
@@ -1446,10 +1558,14 @@
         .then((info) => {
           const features = info?.features ?? [];
           if (features.includes("device-pairing") || features.includes("device-logins")) document.getElementById("pair-link").hidden = false;
-          if (features.includes("retro")) {
-            $("retro-tab").hidden = false;
-            if (location.hash === "#retro") showTab("retro");
-          }
+          if (features.includes("retro")) { available.add("retro"); available.add("retro-home"); }
+          if (features.includes("user-patches")) available.add("patches");
+          if (features.includes("shop-saves")) available.add("saves");
+          $("retro-tab").hidden = !available.has("retro");
+          $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
+          // A link to a view that only now turned out to exist.
+          const asked = tabFromHash(location.hash.slice(1));
+          if (asked && asked !== current && available.has(asked)) showTab(asked);
         })
         .catch(() => {});
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
@@ -1471,8 +1587,8 @@
 
       // Whole rows only: about PAGE_TARGET cards, rounded up to a full row of
       // however many columns fit the window (and zoom level) right now.
-      function fitPerPage() {
-        const cols = getComputedStyle($("games")).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+      function fitPerPage(grid = $("games")) {
+        const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
         return cols * Math.ceil(PAGE_TARGET / cols);
       }
       // Genres come from /api/shop/sections as English keys plus a label per
@@ -1684,7 +1800,12 @@
 
         renderList(slice);
         $("games-count").textContent = `${total.toLocaleString()} / ${renderedItems.length.toLocaleString()}`;
-        renderPager(state.page, pages, total, start + 1, Math.min(total, start + slice.length));
+        renderPager($("pager"), state.page, pages, total, start + 1, Math.min(total, start + slice.length), (n) => {
+          state.page = n;
+          applyFilters();
+          // Intentional: changing pages brings the grid top into view.
+          $("games").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
       }
 
       function renderList(list) {
@@ -2026,8 +2147,7 @@
       // One chip per console, square tiles the server draws, pages loaded as
       // the list scrolls. A multi-disc game downloads as its bundle (discs + .m3u).
       const retro = (() => {
-        const PAGE = 60;
-        let systems = null, system = "", page = 0, total = 0, loading = false, done = false, seq = 0;
+        let systems = null, system = "", page = 1, shownPer = 0, seq = 0;
         const box = () => $("retro-games");
         const nameOf = (s) => s.names?.[lang] || s.name;
         async function getJson(url) {
@@ -2089,39 +2209,45 @@
           a.append(poster, meta);
           return a;
         }
-        async function more() {
-          if (loading || done) return;
-          loading = true;
+        // One page at a time, whole rows of cards, with the same pager as the game list.
+        async function show(n, scroll = false) {
           const mine = ++seq;
-          const q = new URLSearchParams({ page: String(page + 1), pageSize: String(PAGE), sort: $("retro-sort").value });
+          const perPage = fitPerPage(box());
+          box().setAttribute("aria-busy", "true");
+          const q = new URLSearchParams({ page: String(n), pageSize: String(perPage), sort: $("retro-sort").value });
           if (system) q.set("system", system);
           const search = $("retro-search").value.trim();
           if (search) q.set("search", search);
           try {
             const d = await getJson("/api/retro/games?" + q);
             if (mine !== seq) return; // a newer search or system took over
-            page = d.page; total = d.total;
-            box().append(...d.games.map(card));
-            done = page * PAGE >= total;
-            $("retro-count").textContent = total;
-            $("retro-empty").hidden = total > 0;
+            const pages = Math.max(1, Math.ceil(d.total / perPage));
+            if (d.total && n > pages) return show(pages, scroll);
+            page = n;
+            shownPer = perPage;
+            box().replaceChildren(...d.games.map(card));
+            $("retro-count").textContent = d.total;
+            $("retro-empty").hidden = d.total > 0;
             $("retro-empty").textContent = t("retro.empty");
+            const from = (n - 1) * perPage;
+            renderPager($("retro-pager"), n, pages, d.total, from + 1, from + d.games.length, (to) => show(to, true));
+            if (scroll) box().scrollIntoView({ behavior: "smooth", block: "start" });
           } catch {
-            done = true;
+            if (mine === seq) { box().replaceChildren(); $("retro-pager").replaceChildren(); }
           } finally {
-            if (mine === seq) { loading = false; box().setAttribute("aria-busy", "false"); }
+            if (mine === seq) box().setAttribute("aria-busy", "false");
           }
         }
-        function reload() {
-          seq++; page = 0; done = false; loading = false;
-          box().replaceChildren(); box().setAttribute("aria-busy", "true");
-          more();
-        }
+        const reload = () => show(1);
         let searchTimer = null;
         $("retro-search").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(reload, 250); });
         $("retro-sort").addEventListener("change", reload);
-        new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting) && systems) more(); }, { rootMargin: "600px" })
-          .observe($("retro-more"));
+        // A resize changes how many cards fit a page; keep the first card on screen.
+        window.addEventListener("resize", debounce(() => {
+          if (!systems || !shownPer || box().offsetParent === null) return;
+          const per = fitPerPage(box());
+          if (per !== shownPer) show(Math.floor(((page - 1) * shownPer) / per) + 1);
+        }, 150));
         return {
           async open() {
             if (systems) return;
@@ -2133,32 +2259,178 @@
             renderSystems();
             reload();
           },
-          relabel() { if (systems) { renderSystems(); } },
+          // Preview: each console's best-rated games on a shelf, as the Switch home shows them.
+          async openHome() {
+            const rows = $("retro-rows");
+            if (rows.dataset.lang === lang) return;
+            rows.dataset.lang = lang;
+            rows.setAttribute("aria-busy", "true");
+            if (!systems) await this.open(); // cards name their console from the system list
+            let d;
+            try {
+              d = await getJson("/api/retro/home?limit=20");
+            } catch {
+              rows.replaceChildren();
+              rows.setAttribute("aria-busy", "false");
+              return;
+            }
+            rows.replaceChildren(...d.systems.filter((s) => s.games.length).map((s) => {
+              const block = document.createElement("div"); block.className = "home-row";
+              const h = document.createElement("h2"); h.textContent = nameOf(s);
+              const n = document.createElement("span"); n.className = "row-count"; n.textContent = s.romCount.toLocaleString();
+              h.append(n);
+              const list = document.createElement("div"); list.className = "recent";
+              list.append(...s.games.map(card));
+              block.append(h, list);
+              return block;
+            }));
+            rows.setAttribute("aria-busy", "false");
+          },
+          relabel() {
+            if (systems) renderSystems();
+            if (current === "retro-home") this.openHome();
+          },
         };
+      })();
+
+      // Patches and saves: one block per game with its files, filtered by a search.
+      const extras = (() => {
+        const data = {};   // kind → items
+        const loadedLang = {};
+        const iconPath = (u) => { try { return new URL(u, location.href).pathname + "?size=sm"; } catch { return ""; } };
+        const gameName = (it) => it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id;
+        const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
+        function itemRow(kind, it) {
+          const row = document.createElement("div"); row.className = "xitem";
+          const head = document.createElement("div");
+          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const meta = document.createElement("div"); meta.className = "xmeta";
+          const pill = (text) => { const p = document.createElement("span"); p.className = "pill"; p.textContent = text; return p; };
+          for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
+          meta.append(document.createTextNode(`${fmtBytes(it.size)} · ${t("extras.files", it.files)}`));
+          head.append(name, meta);
+          const dl = document.createElement("a");
+          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", "");
+          dl.href = kind === "patches" ? `/api/patches/${encodeURIComponent(it.id)}/download` : it.url;
+          row.append(head, dl);
+          // Saves credit their source on the description's last line; show it as a link instead.
+          let text = it.description || "";
+          if (kind === "saves" && it.source) text = text.split("\n").slice(0, -1).join("\n");
+          if (text) {
+            const desc = document.createElement("div"); desc.className = "xdesc"; desc.textContent = text;
+            desc.addEventListener("click", () => desc.classList.toggle("open"));
+            row.append(desc);
+          }
+          if (kind === "saves" && it.source) {
+            const src = document.createElement("div"); src.className = "xsrc";
+            src.append(document.createTextNode(t("extras.source") + ": "));
+            if (it.source.url) {
+              const a = document.createElement("a"); a.href = it.source.url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = it.source.name;
+              src.append(a);
+            } else src.append(document.createTextNode(it.source.name));
+            row.append(src);
+          }
+          return row;
+        }
+        function render(kind) {
+          const list = $(kind + "-list");
+          const q = folded($(kind + "-search").value.trim());
+          const groups = new Map();
+          for (const it of data[kind] ?? []) {
+            const tid = it.titleId || it.title_id;
+            if (q && ![gameName(it), it.name, it.description].some((x) => folded(x).includes(q))) continue;
+            if (!groups.has(tid)) groups.set(tid, []);
+            groups.get(tid).push(it);
+          }
+          const sorted = [...groups.values()].sort((a, b) => gameName(a[0]).localeCompare(gameName(b[0]), lang));
+          list.replaceChildren(...sorted.map((items) => {
+            const g = document.createElement("section"); g.className = "xgroup";
+            const head = document.createElement("header");
+            const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+            if (items[0].game?.icon) img.src = iconPath(items[0].game.icon);
+            img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+            const name = document.createElement("strong"); name.textContent = gameName(items[0]);
+            const n = document.createElement("span"); n.className = "n"; n.textContent = items.length;
+            head.append(img, name, n);
+            g.append(head, ...items.map((it) => itemRow(kind, it)));
+            return g;
+          }));
+          $(kind + "-empty").hidden = sorted.length > 0;
+          $(kind + "-empty").textContent = t("extras.empty");
+          list.setAttribute("aria-busy", "false");
+        }
+        async function open(kind) {
+          // Saves come in the reader's language; patches don't vary by it.
+          const want = kind === "saves" ? lang : "any";
+          if (loadedLang[kind] !== want) {
+            loadedLang[kind] = want;
+            $(kind + "-list").setAttribute("aria-busy", "true");
+            try {
+              const url = kind === "patches" ? "/api/patches" : `/api/saves?lang=${encodeURIComponent(lang)}`;
+              const r = await fetch(url, { headers: { Accept: "application/json" } });
+              data[kind] = r.ok ? (await r.json())[kind] ?? [] : [];
+            } catch {
+              data[kind] = [];
+            }
+          }
+          render(kind);
+        }
+        for (const kind of ["patches", "saves"]) {
+          $(kind + "-search").addEventListener("input", debounce(() => render(kind), 120));
+        }
+        return { open, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // All games or the client preview: one at a time, remembered and linkable (#all, #preview).
       // The address uses "all", not "games": #games is the grid's id, and a
       // fragment naming an element makes the browser jump to it on load.
-      const TAB_KEY = "cookingfoil:tab", TABS = ["games", "preview", "retro"];
-      const TAB_HASH = { games: "all", preview: "preview", retro: "retro" };
+      // Top tabs open a group; the views inside a group are its sub-tabs.
+      const TAB_KEY = "cookingfoil:tab";
+      const GROUPS = { games: ["games", "preview"], retro: ["retro", "retro-home"], extras: ["patches", "saves"] };
+      const SUB_LABEL = { games: "tab.list", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves" };
+      const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves" };
+      const groupOf = (name) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(name));
       const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h);
+      // Views this server offers; the rest arrive with /api/shop/info's features.
+      const available = new Set(["games", "preview"]);
+      let current = null;
+      function renderSubtabs(name) {
+        const box = $("subtabs");
+        const views = GROUPS[groupOf(name)].filter((v) => available.has(v));
+        box.replaceChildren(...(views.length > 1 ? views : []).map((v) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.role = "tab"; b.dataset.view = v; b.textContent = t(SUB_LABEL[v]);
+          b.classList.toggle("active", v === name);
+          b.setAttribute("aria-selected", String(v === name));
+          return b;
+        }));
+      }
       function showTab(name) {
-        if (!TABS.includes(name)) name = "games";
+        if (!TAB_HASH[name] || !available.has(name)) name = "games";
+        current = name;
         for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== name;
+        const group = groupOf(name);
         for (const b of document.querySelectorAll(".tabs [data-tab]")) {
-          b.classList.toggle("active", b.dataset.tab === name);
-          b.setAttribute("aria-selected", String(b.dataset.tab === name));
+          b.classList.toggle("active", b.dataset.tab === group);
+          b.setAttribute("aria-selected", String(b.dataset.tab === group));
         }
+        renderSubtabs(name);
         try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }
         if (location.hash.slice(1) !== TAB_HASH[name]) history.replaceState(null, "", "#" + TAB_HASH[name]);
         // The grid sizes its page from the visible column count.
         if (name === "games") applyFilters();
         if (name === "retro") retro.open();
+        if (name === "retro-home") retro.openHome();
+        if (name === "patches" || name === "saves") extras.open(name);
       }
       document.querySelector(".tabs").addEventListener("click", (e) => {
         const b = e.target.closest("[data-tab]");
-        if (b) showTab(b.dataset.tab);
+        if (!b || groupOf(current) === b.dataset.tab) return;
+        showTab(GROUPS[b.dataset.tab].find((v) => available.has(v)));
+      });
+      $("subtabs").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-view]");
+        if (b) showTab(b.dataset.view);
       });
       window.addEventListener("hashchange", () => showTab(tabFromHash(location.hash.slice(1))));
       showTab(tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })());
@@ -2261,8 +2533,8 @@
       }
 
       // Compact pager: « 1 … 5 6 [7] 8 9 … 42 »
-      function renderPager(current, total, totalItems, from, to) {
-        const p = $("pager"); p.innerHTML = "";
+      function renderPager(p, current, total, totalItems, from, to, go) {
+        p.innerHTML = "";
         if (totalItems === 0) return;
 
         const info = document.createElement("span");
@@ -2275,12 +2547,7 @@
           b.className = "pager-btn" + (opts.current ? " current" : "");
           b.type = "button"; b.textContent = label;
           if (opts.disabled) b.disabled = true;
-          else b.addEventListener("click", () => {
-            state.page = target;
-            applyFilters();
-            // Intentional: changing pages brings the grid top into view.
-            $("games").scrollIntoView({ behavior: "smooth", block: "start" });
-          });
+          else b.addEventListener("click", () => go(target));
           return b;
         };
 
@@ -2692,6 +2959,8 @@
         renderGenreChips();
         renderSteamChips();
         retro.relabel();
+        extras.relabel();
+        if (current) renderSubtabs(current);
       });
       document.addEventListener("click", (e) => { if (!langList.hidden && !e.target.closest("#lang-menu")) setLangMenu(false); });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !langList.hidden) { setLangMenu(false); $("lang-btn").focus(); } });

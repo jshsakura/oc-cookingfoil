@@ -82,18 +82,20 @@ test('score badges read the section scores and label them in the page language',
   await expect(page.locator('#games .score-badge')).toHaveAttribute('title', '75 · Mostly Positive · 25,575 reviews');
 });
 
-test('tabs switch between all games and the client preview and remember the choice', async ({ page }) => {
+test('all games has list and preview sub-tabs, and the choice is remembered', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab="games"]')).toHaveClass(/active/);
+  await expect(page.locator('.tabs [data-tab="preview"]')).toHaveCount(0);
   await expect(page.locator('#shop-url')).toBeVisible();
   await expect(page.locator('#games .game')).toHaveCount(1);
-  await page.locator('.tabs [data-tab="preview"]').click();
+  await page.locator('#subtabs [data-view="preview"]').click();
   await expect(page.locator('#search')).toBeHidden();
   await expect(page.locator('#shop-url')).toBeVisible();
   await expect(page).toHaveURL(/#preview$/);
   await page.goto('/');
-  await expect(page.locator('.tabs [data-tab="preview"]')).toHaveClass(/active/);
-  await page.locator('.tabs [data-tab="games"]').click();
+  await expect(page.locator('.tabs [data-tab="games"]')).toHaveClass(/active/);
+  await expect(page.locator('#subtabs [data-view="preview"]')).toHaveClass(/active/);
+  await page.locator('#subtabs [data-view="games"]').click();
   await expect(page).toHaveURL(/#all$/);
   await page.setViewportSize({ width: 1280, height: 300 });
   await page.reload();
@@ -110,7 +112,7 @@ test('the language menu opens on demand, shows the current code and closes on Es
   await expect(page.locator('#lang-list [data-lang="ja"]')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.locator('#lang-list')).toBeHidden();
-  await expect(page.locator('.tabs a.tab-link[href="/admin"]')).toHaveText('管理');
+  await expect(page.locator('.tabs a.tab-link[href="/admin"]')).toHaveAttribute('aria-label', '管理');
 });
 
 test('card names follow the page language from the sections names, falling back to English', async ({ page }) => {
