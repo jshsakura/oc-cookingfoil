@@ -6,7 +6,9 @@
  * field or endpoint the client may rely on once the name is listed; a server
  * that answers 404 here predates the list and offers none of the optional ones.
  */
+import fs from "fs";
 import pkg from "../package.js";
+import { CLIENT_NRO } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
@@ -57,6 +59,8 @@ export default function shopInfoRoute(_req, res) {
       ...(retroEnabled() ? ["retro"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
+      // client-update: /api/client/latest names the CookingFoil client build to update to.
+      ...(fs.existsSync(CLIENT_NRO) ? ["client-update"] : []),
     ],
     files: stats.files,
     contentMeta: contentMeta.progress(),

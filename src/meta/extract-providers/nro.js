@@ -34,7 +34,7 @@ import { decodeNacp, NACP_TOTAL_BYTES } from "../nacp-decode.js";
 const NRO_MAGIC = Buffer.from("NRO0");
 const ASET_MAGIC = Buffer.from("ASET");
 
-async function parseAssets(absPath) {
+export async function parseAssets(absPath) {
   const fd = await fs.open(absPath, "r");
   try {
     const headBuf = Buffer.alloc(0x40);
