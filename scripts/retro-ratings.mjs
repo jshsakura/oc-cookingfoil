@@ -50,12 +50,13 @@ export function titleKey(raw) {
     .replace(/_/g, " ") // libretro-thumbnails writes & / : as _
     .normalize("NFKD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/&/g, " and ")
+    .replace(/&/g, " ")
     .replace(/^(.*), the\b/, "the $1")
     .replace(/['’`.]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-  s = s.split(" ").map((w) => ROMAN[w] ?? w).filter((w) => w !== "the").join(" ");
+  // "&", "and" and the "_" thumbnails write for "&" all mean the same; so does a leading "the".
+  s = s.split(" ").map((w) => ROMAN[w] ?? w).filter((w) => w !== "the" && w !== "and").join(" ");
   return s;
 }
 
