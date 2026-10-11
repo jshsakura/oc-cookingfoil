@@ -8,6 +8,10 @@ import { referencedFiles, gameId, scanDir } from "../../src/retro/catalog.js";
 import { sdPathOf } from "../../src/retro/base-pack.js";
 import { gameCfg, overlayCfg, sdPaths } from "../../src/retro/bezel-config.js";
 import { loadSystems } from "../../src/retro/systems.js";
+import sharp from "sharp";
+
+// A real, tall cover (like a SNES box), so the square drawing has something to fit.
+const TALL_COVER = await sharp({ create: { width: 100, height: 140, channels: 3, background: "#c03030" } }).png().toBuffer();
 
 function put(root, rel, body = "x") {
   fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
@@ -40,7 +44,7 @@ function fixture() {
   put(dir, "roms/PS1/Disc Game/Disc Game.cue", 'FILE "Disc Game (Track 1).bin" BINARY\nFILE "../../escape.bin" BINARY\n');
   put(dir, "roms/PS1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
   put(dir, "roms/gba/.hidden.gba", "x");
-  put(dir, "thumbnails/Nintendo - Super Nintendo Entertainment System/Named_Boxarts/Super Mario World (USA).png", "PNG");
+  put(dir, "thumbnails/Nintendo - Super Nintendo Entertainment System/Named_Boxarts/Super Mario World (USA).png", TALL_COVER);
   put(dir, "bezels/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).png", "BEZEL");
   put(dir, "bezels/Sony - PlayStation/_default.png", "GENERIC");
   put(dir, "retroarch/retroarch.nro", "NRO");
@@ -157,7 +161,11 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(smw.bezel.hasBezel, true);
     assert.equal(smw.install.gameCfg, "retroarch/config/Snes9x/Super Mario World (USA).cfg");
     assert.equal(await (await get(smw.romUrl)).text(), "SMW");
-    assert.equal(await (await get(smw.iconUrl)).text(), "PNG");
+    const tile = await get(smw.iconUrl);
+    assert.equal(tile.headers.get("content-type"), "image/jpeg");
+    const meta = await sharp(Buffer.from(await tile.arrayBuffer())).metadata();
+    assert.deepEqual([meta.width, meta.height], [256, 256], "a square tile for the Switch, whatever the cover's shape");
+    assert.ok(Buffer.from(await (await get(smw.boxartUrl)).arrayBuffer()).equals(TALL_COVER), "the cover itself stays available");
     assert.match(await (await get(smw.bezel.gameCfgUrl)).text(), /video_aspect_ratio_auto = "true"/);
     const r = await fetch(BASE + smw.romUrl, { headers: { ...AUTH, Range: "bytes=1-2" } });
     assert.equal(r.status, 206);
@@ -217,4 +225,27 @@ test("NDS, Neo Geo Pocket, WonderSwan and Saturn folders are read under any of t
   assert.equal(systemForFolder(systems, "Sega - Saturn"), "saturn");
   assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core on the Switch");
   assert.equal(systems.nds.core, "melonds");
+});
+
+test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped with their game", async () => {
+  const { prewarm, squarePath } = await import("../../src/retro/square-art.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-square-"));
+  const artDir = path.join(root, "art");
+  const cover = path.join(root, "cover.png");
+  fs.writeFileSync(cover, TALL_COVER);
+  const game = { id: "snes-0123456789", icon: cover };
+  await prewarm(artDir, [game, { id: "snes-noart00000", icon: null }]);
+  const first = squarePath(artDir, game);
+  assert.ok(fs.existsSync(first));
+  assert.deepEqual(fs.readdirSync(artDir), [path.basename(first)]);
+
+  fs.writeFileSync(cover, await sharp({ create: { width: 140, height: 100, channels: 3, background: "#3030c0" } }).png().toBuffer());
+  fs.utimesSync(cover, new Date(), new Date(Date.now() + 5000));
+  await prewarm(artDir, [game]);
+  const second = squarePath(artDir, game);
+  assert.notEqual(second, first, "a replaced cover gets a new square");
+  assert.deepEqual(fs.readdirSync(artDir), [path.basename(second)], "the old square is gone");
+
+  await prewarm(artDir, []);
+  assert.deepEqual(fs.readdirSync(artDir), [], "a removed game's square is dropped");
 });

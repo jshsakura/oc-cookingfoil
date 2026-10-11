@@ -7,7 +7,8 @@
  *                                                { total, page, pageSize, games: [G…] }
  *   GET /api/retro/games/:id                     G
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
- *   GET /api/retro/games/:id/icon                box art
+ *   GET /api/retro/games/:id/icon                square box art (256px JPEG) for tiles
+ *   GET /api/retro/games/:id/boxart              the box art as it is
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
  *   GET /api/retro/base-pack/manifest            { version, files: [{ path, size, sha256, url, once? }] }
@@ -33,6 +34,7 @@ import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg } from "../retro/bezel-config.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar } from "../helpers/tar-stream.js";
+import { ensureSquare, prewarm } from "../retro/square-art.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -47,6 +49,7 @@ const SORTS = {
 export const retroEnabled = () => fs.existsSync(retroDir);
 
 // RetroArch itself: <retro dir>/retroarch/ (or base-pack/, the earlier name).
+const artDir = path.join(dataDir, "retro-art");
 const packDir = () => (fs.existsSync(path.join(retroDir, "retroarch")) ? path.join(retroDir, "retroarch") : path.join(retroDir, "base-pack"));
 let hashCache = null;
 let manifest = null; // { version, files, sources, builtAt }
@@ -89,6 +92,7 @@ function publicGame(g, systems) {
     size: g.size,
     addedAt: g.addedAt,
     iconUrl: g.icon ? `${base}/icon` : null,
+    boxartUrl: g.icon ? `${base}/boxart` : null,
     romUrl: `${base}/rom`,
     bundleUrl: `${base}/bundle`,
     bezel: g.bezel
@@ -134,6 +138,10 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 export default function retroRouter() {
   const router = express.Router();
 
+  // Draw square tiles ahead of time after every scan, starting with one at boot.
+  catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
+  if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
+
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
 
   router.get("/systems", wrap(async (req, res) => {
@@ -178,7 +186,12 @@ export default function retroRouter() {
     res.attachment(req.retro.game.file);
     sendFile(res, req.retro.game.abs);
   });
-  router.get("/games/:id/icon", (req, res) => (req.retro.game.icon ? sendFile(res, req.retro.game.icon) : res.status(404).json({ error: "no icon" })));
+  router.get("/games/:id/icon", wrap(async (req, res) => {
+    const square = await ensureSquare(artDir, req.retro.game);
+    if (!square) return res.status(404).json({ error: "no icon" });
+    sendFile(res, square, "jpeg");
+  }));
+  router.get("/games/:id/boxart", (req, res) => (req.retro.game.icon ? sendFile(res, req.retro.game.icon) : res.status(404).json({ error: "no box art" })));
   router.get("/games/:id/bezel.png", (req, res) => (req.retro.game.bezel ? sendFile(res, req.retro.game.bezel.png, "png") : res.status(404).json({ error: "no bezel" })));
   router.get("/games/:id/overlay.cfg", (req, res) => {
     const { game } = req.retro;
