@@ -11,7 +11,7 @@ Thanks for helping. A few things keep the project working for everyone.
 - **Language-dependent data uses English keys** (genres, review labels) with
   labels for every supported language (`en`, `ko`, `ja`, `zh`), never one fixed
   display language.
-- **No game content, keys or Nintendo assets** in the repository, tests or
+- **No commercial software, keys or Nintendo assets** in the repository, tests or
   issues. Test fixtures use fake homebrew title ids (`05000000…`).
 
 ## Workflow

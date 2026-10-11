@@ -2,7 +2,7 @@
 
 [한국어](./README.ko.md)
 
-This folder is a complete, working setup: one container, your game folder,
+This folder is a complete, working setup: one container, your file folder,
 accounts, the admin page, review scores and user patches. Copy it, fill in
 `.env`, start it.
 
@@ -17,7 +17,7 @@ cookingfoil/
 └── patches/             optional, user patches
 ```
 
-Your games can live anywhere; set `GAMES_DIR` to that folder. Sub-folders and
+Your files can live anywhere; set `GAMES_DIR` to that folder. Sub-folders and
 any file naming work, but `Name [TITLEID][vVERSION].nsp` names parse best.
 
 ## 2. Settings
@@ -39,16 +39,16 @@ curl http://localhost:38000/healthz
 ```
 
 Open `http://<host>:38000/` and sign in with your account. The dashboard shows
-the shop address and whether names come from titledb, from the game files, or
+the server address and whether names come from titledb, from the files themselves, or
 only from file names (with a hint on what is missing).
 
 ## 4. Connect your Switch
 
 - **CyberFoil:** Settings, then *eShop URL* = `http://<host>:38000/`, plus a
   username and password. Create a per-console login on the *Devices* page (`/pair`)
-  rather than sharing your account: it only reads the shop and can be revoked.
+  rather than sharing your account: it only reads the server and can be revoked.
 - **Tinfoil-style clients:** *File Browser*, then `+`, then `http://<host>:38000/shop.tfl`.
-- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true`, sign in to the shop
+- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true`, sign in to the server
   on your phone, open *Devices* (`/pair`) and scan the QR the console shows, or type its
   device code (no password on the Switch). Or create a user on the admin page; it shows a
   `config.json` to put at `sdmc:/switch/cookingfoil/config.json`.
@@ -73,15 +73,15 @@ Put it behind HTTPS with a reverse proxy (Caddy, nginx, Traefik) or a tunnel
 password locks out that client and not everyone behind the proxy.
 
 Switch clients cannot pass browser login walls such as Cloudflare Access, so
-rely on the shop's own accounts (and device pairing) on the shop's hostname.
+rely on the server's own accounts (and device pairing) on its hostname.
 
 ## 7. Optional extras
 
-- **prod.keys:** copy your console's `prod.keys` into `keys/`. Games titledb does
+- **prod.keys:** copy your console's `prod.keys` into `keys/`. Files titledb does
   not know then get their real name and icon from the file.
 - **Review scores:** on by default (Steam). For IGDB scores too, create an app at
   dev.twitch.tv and set `COOK_IGDB_CLIENT_ID` / `COOK_IGDB_CLIENT_SECRET`.
-- **User patches:** `patches/<BASE TITLE ID>/<patch name>/atmosphere/contents/<TITLE ID>/cheats/…`
+- **User patches:** `patches/<BASE TITLE ID>/<patch name>/atmosphere/contents/<TITLE ID>/romfs/…`
   (or `romfs/`, `exefs/`, `atmosphere/exefs_patches/<name>/`,
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) plus an optional
   `patch.json` with `name`, `version`, `game_version`, `author`, `description`.
@@ -92,17 +92,17 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   `COOK_DROPBOX_APP_KEY` (the app key only, never the secret) and
   `COOK_PUBLIC_BASE_URL=https://<your shop>`. The client then backs up saves to
   each player's own Dropbox; saves never pass through your server.
-- **Shop saves (CookingFoil client):** mount a folder at `/saves` (or set
+- **Save files (CookingFoil client):** mount a folder at `/saves` (or set
   `COOK_SAVES_DIR`) laid out as `<base TITLE ID>/<save name>/<the save folder's contents>`,
   with an optional `meta.json` (`name`, `description`, `gameVersion`). Up to 1 GB and
   5,000 files per save; symlinks are refused.
-- **Retro games (CookingFoil client):** create `data/retro/` (or mount a folder
+- **RetroArch (CookingFoil client):** create `data/retro/` (or mount a folder
   and set `COOK_RETRO_DIR`):
   ```
   retro/
-  ├── roms/<system>/                          your games
+  ├── roms/<system>/                          your files
   ├── thumbnails/<system>/Named_Boxarts/      box art, libretro-thumbnails layout
-  ├── bezels/<system>/                        The Bezel Project: <game>.png (+ .cfg), _default.png for the rest
+  ├── bezels/<system>/                        The Bezel Project: <name>.png (+ .cfg), _default.png for the rest
   ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/ (BIOS)
   └── systems.json                            optional: change a system's core or add one
   ```
@@ -113,9 +113,9 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   WonderSwan, arcade (FBNeo). Console icons go in
   `system-icons/{color,mono}/<system>.png` and show up in `/api/retro/systems`.
   Box art and bezels: `node scripts/retro-art.mjs <retro dir>` fetches them from
-  libretro-thumbnails and The Bezel Project. Renamed or translated games need
+  libretro-thumbnails and The Bezel Project. Renamed or translated files need
   `art-map/<system>.json` (`{"<ROM name>": "<No-Intro name>"}`) to be found; the
-  script keeps what is already there, so rerun it after adding games.
+  script keeps what is already there, so rerun it after adding files.
   Ratings: `node scripts/retro-ratings.mjs <retro dir> <Metadata.xml>` (from
   gamesdb.launchbox-app.com/Metadata.zip) matches the art-map titles against the
   LaunchBox Games Database and writes `ratings.json`; `/api/retro/games?sort=rating`
@@ -123,7 +123,7 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   The server ships none of these; bring your own. `retroarch.nro` goes to
   `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
-  PlayStation games are `.chd`, `.pbp`, or a `.cue` with its tracks beside it.
+  PlayStation files are `.chd`, `.pbp`, or a `.cue` with its tracks beside it.
 - **Nintendo eShop data:** prices, popularity and artwork are on by default;
   set `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY` or `COOK_ESHOP_ARTWORK` to
   `false` to keep the server from contacting Nintendo.

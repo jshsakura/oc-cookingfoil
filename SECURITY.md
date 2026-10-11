@@ -1,6 +1,6 @@
 # Security policy
 
-CookingFoil guards a game library with accounts, device keys and an admin page,
+CookingFoil guards a personal file server with accounts, device keys and an admin page,
 so security reports are welcome.
 
 ## Reporting
@@ -16,7 +16,7 @@ In scope: authentication and lockouts, the admin page (TOTP, admin password,
 sessions), device pairing and access keys, path handling for downloads,
 uploads and user patches, and anything that exposes files or credentials.
 
-Out of scope: the content of game files you serve, and setups that expose the
+Out of scope: the content of the files you keep on it, and setups that expose the
 server without any account (`COOK_AUTH_USERS` empty and pairing off).
 
 ## Hardening a deployment

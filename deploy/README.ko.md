@@ -2,7 +2,7 @@
 
 [English](./README.md)
 
-이 폴더는 그대로 돌아가는 전체 설정입니다. 컨테이너 하나, 게임 폴더, 계정,
+이 폴더는 그대로 돌아가는 전체 설정입니다. 컨테이너 하나, 파일 폴더, 계정,
 관리 페이지, 리뷰 점수, 유저 패치까지 들어 있습니다. 복사하고 `.env` 를 채운 뒤
 시작하면 됩니다.
 
@@ -17,7 +17,7 @@ cookingfoil/
 └── patches/             선택, 유저 패치
 ```
 
-게임은 어디에 있어도 되고 `GAMES_DIR` 로 그 폴더를 지정합니다. 하위 폴더와
+파일은 어디에 있어도 되고 `GAMES_DIR` 로 그 폴더를 지정합니다. 하위 폴더와
 아무 파일 이름이나 되지만 `이름 [TITLEID][v버전].nsp` 형식이 가장 잘 읽힙니다.
 
 ## 2. 설정
@@ -38,16 +38,16 @@ docker compose logs -f         # 처음엔 titledb 를 받습니다(몇 분)
 curl http://localhost:38000/healthz
 ```
 
-`http://<호스트>:38000/` 을 열고 계정으로 로그인합니다. 대시보드에 샵 주소와
-이름이 titledb·게임 파일·파일 이름 중 어디서 오는지, 무엇이 빠졌는지가 나옵니다.
+`http://<호스트>:38000/` 을 열고 계정으로 로그인합니다. 대시보드에 서버 주소와
+이름이 titledb·파일 내용·파일 이름 중 어디서 오는지, 무엇이 빠졌는지가 나옵니다.
 
 ## 4. 스위치 연결
 
 - **CyberFoil:** 설정의 *eShop URL* = `http://<호스트>:38000/` 과 아이디·비밀번호. 계정을
-  나눠 쓰기보다 *기기 승인*(`/pair`) 화면에서 스위치마다 접속 정보를 만들어 넣습니다. 샵 읽기만
+  나눠 쓰기보다 *기기 승인*(`/pair`) 화면에서 스위치마다 접속 정보를 만들어 넣습니다. 서버 읽기만
   되고 언제든 폐기할 수 있습니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `http://<호스트>:38000/shop.tfl`.
-- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 휴대폰으로 샵에 로그인해
+- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 휴대폰으로 서버에 로그인해
   *기기 승인*(`/pair`) 화면에서 스위치에 뜬 QR 을 찍거나 기기 코드를 입력합니다. 스위치에는
   비밀번호를 넣지 않습니다. 또는 관리 페이지에서 사용자를 만들면 보여 주는
   `config.json` 을 `sdmc:/switch/cookingfoil/config.json` 에 둡니다.
@@ -71,34 +71,34 @@ curl http://localhost:38000/healthz
 전원이 함께 잠기지 않습니다.
 
 스위치 앱은 Cloudflare Access 같은 브라우저 로그인 화면을 통과하지 못하므로,
-샵 주소에는 샵 자체 계정(과 기기 페어링)을 쓰세요.
+서버 주소에는 서버 자체 계정(과 기기 페어링)을 쓰세요.
 
 ## 7. 선택 기능
 
 - **prod.keys:** 내 기기의 `prod.keys` 를 `keys/` 에 넣으면 titledb 에 없는
-  게임도 파일에서 실제 이름과 아이콘을 읽습니다.
+  파일도 파일 안에서 실제 이름과 아이콘을 읽습니다.
 - **리뷰 점수:** 기본으로 켜져 있습니다(Steam). IGDB 점수도 원하면 dev.twitch.tv
   에서 앱을 만들고 `COOK_IGDB_CLIENT_ID` / `COOK_IGDB_CLIENT_SECRET` 을 넣습니다.
-- **유저 패치:** `patches/<본편 TITLE ID>/<패치 이름>/atmosphere/contents/<TITLE ID>/cheats/…`
+- **유저 패치:** `patches/<본편 TITLE ID>/<패치 이름>/atmosphere/contents/<TITLE ID>/romfs/…`
   (또는 `romfs/`, `exefs/`, `atmosphere/exefs_patches/<이름>/`,
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) 와 선택 `patch.json`
   (`name`, `version`, `game_version`, `author`, `description`). 이 경로 밖의 파일이
   하나라도 있으면 그 패치는 건너뜁니다.
 - **Dropbox 세이브 동기화(CookingFoil 클라이언트):** dropbox.com/developers/apps 에서 앱을
   만들고(Scoped access, App folder) 리다이렉트 URI
-  `https://<내 샵 주소>/api/dropbox/oauth/dropbox/callback` 을 넣은 뒤 `COOK_DROPBOX_APP_KEY`
-  (앱 키만, 비밀값은 넣지 않습니다)와 `COOK_PUBLIC_BASE_URL=https://<내 샵 주소>` 를 정합니다.
+  `https://<내 서버 주소>/api/dropbox/oauth/dropbox/callback` 을 넣은 뒤 `COOK_DROPBOX_APP_KEY`
+  (앱 키만, 비밀값은 넣지 않습니다)와 `COOK_PUBLIC_BASE_URL=https://<내 서버 주소>` 를 정합니다.
   클라이언트가 각자의 Dropbox 에 세이브를 백업하고, 세이브는 서버를 거치지 않습니다.
-- **샵 세이브(CookingFoil 클라이언트):** `/saves` 에 폴더를 마운트(또는 `COOK_SAVES_DIR`)하고
+- **세이브 파일(CookingFoil 클라이언트):** `/saves` 에 폴더를 마운트(또는 `COOK_SAVES_DIR`)하고
   `<본편 TITLE ID>/<세이브 이름>/<세이브 폴더 내용 그대로>` 로 둡니다. 선택 `meta.json`
   (`name`, `description`, `gameVersion`). 세이브 하나에 1GB·파일 5,000개까지, 심볼릭 링크는 거절합니다.
-- **레트로 게임(CookingFoil 클라이언트):** `data/retro/` 를 만듭니다(다른 곳에 두려면
+- **RetroArch(CookingFoil 클라이언트):** `data/retro/` 를 만듭니다(다른 곳에 두려면
   마운트하고 `COOK_RETRO_DIR` 을 정합니다).
   ```
   retro/
-  ├── roms/<시스템>/                          게임
+  ├── roms/<시스템>/                          내 파일
   ├── thumbnails/<시스템>/Named_Boxarts/      박스아트(libretro-thumbnails 구조 그대로)
-  ├── bezels/<시스템>/                        The Bezel Project: <게임>.png (+ .cfg), 나머지 게임용 _default.png
+  ├── bezels/<시스템>/                        The Bezel Project: <이름>.png (+ .cfg), 나머지용 _default.png
   ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/(바이오스)
   └── systems.json                            선택: 시스템의 코어를 바꾸거나 시스템을 더합니다
   ```
@@ -110,7 +110,7 @@ curl http://localhost:38000/healthz
   `/api/retro/systems` 에 붙습니다.
   박스아트와 베젤: `node scripts/retro-art.mjs <레트로 폴더>` 가 libretro-thumbnails 와
   The Bezel Project 에서 받아 옵니다. 이름을 바꾼 한글 패치 롬은 `art-map/<시스템>.json`
-  (`{"<롬 이름>": "<No-Intro 이름>"}`) 이 있어야 찾습니다. 이미 있는 파일은 두므로 게임을
+  (`{"<롬 이름>": "<No-Intro 이름>"}`) 이 있어야 찾습니다. 이미 있는 파일은 두므로 파일을
   더한 뒤 다시 돌리면 됩니다.
   평점: `node scripts/retro-ratings.mjs <레트로 폴더> <Metadata.xml>`(gamesdb.launchbox-app.com/Metadata.zip
   안의 파일)이 art-map 의 원제를 LaunchBox Games DB 와 맞춰 `ratings.json` 을 씁니다.

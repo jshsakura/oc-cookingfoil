@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  A self-hosted shop server for Nintendo Switch homebrew installers.<br>
-  First-class <b>CyberFoil</b> support, Tinfoil-compatible, with rich metadata cooked from your own files.
+  A personal, self-hosted file server for Nintendo Switch homebrew.<br>
+  Keeps your own files on your home network with names and icons, with first-class <b>CyberFoil</b> support and Tinfoil compatibility.
 </p>
 
 <p align="center">
@@ -19,41 +19,40 @@
 <p align="center"><a href="./README.ko.md">한국어</a></p>
 
 <p align="center">
-  <img src="docs/screenshots/preview-dark.png" alt="The dashboard's Preview tab: a rotating banner and store rows, the same layout the CookingFoil client shows" width="900">
+  <img src="docs/screenshots/preview-dark.png" alt="The dashboard's Preview tab, the same layout the CookingFoil client shows" width="900">
 </p>
 
 > [!IMPORTANT]
-> CookingFoil is an unofficial project and is not affiliated with, endorsed by, or sponsored by Nintendo. It ships **no games, no keys and no Nintendo content**. Serve only software you own and dumped from your own console, and keep your `prod.keys` to yourself. "Nintendo Switch" and "Nintendo eShop" are trademarks of Nintendo.
+> CookingFoil is an unofficial project and is not affiliated with, endorsed by, or sponsored by Nintendo. It ships **no software, no keys and no Nintendo content**; it only organises files you already have. Keep it on your own network, put only your own files in it, and keep your `prod.keys` to yourself. "Nintendo Switch" and "Nintendo eShop" are trademarks of Nintendo.
 
 ## What it does
 
-Point it at a folder of your `.nsp` / `.nsz` / `.xci` / `.xcz` files and your Switch can browse and install them over the network.
+Point it at a folder of your own Switch packages (`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`) and your Switch can browse and fetch them over your home network, the way a file manager would.
 
 - **CyberFoil, natively.** Serves CyberFoil's sections API (`/api/shop/sections`) with names, icons, versions, sizes and required firmware.
 - **Tinfoil-compatible.** `shop.tfl` / `shop.json` work with Tinfoil-style clients. It is a drop-in replacement for [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat).
-- **Metadata without manual work.** Merges [blawar/titledb](https://github.com/blawar/titledb) across regions, and for games titledb does not know, reads the name and icon from the game file itself (with your `prod.keys`). Names, descriptions and box art come in Korean, English, Japanese and Chinese.
-- **Review scores.** Looks up Steam (and optionally IGDB) scores for every game by name, strict matches only, and refreshes them weekly.
-- **eShop extras.** Popularity order, prices and sales, and eShop artwork. Each can be turned off.
-- **Web dashboard.** Browse the library in four languages, with a preview of how the client store will look.
-- **Admin page.** Users, devices, lockouts and refused requests, featured rows, library rescan. Signed in with an authenticator code or an admin password.
-- **Retro games.** Serve ROMs, The Bezel Project overlays and a ready-made RetroArch pack (Korean font, cores, settings) for the CookingFoil client to install in one go. Off until you create the retro folder; see [deploy/README.md](./deploy/README.md#7-optional-extras).
-- **Shop saves.** Hand out save files (say, everything unlocked) for the CookingFoil client to restore into a player's save, after backing up the current one.
-- **User patches.** Serve mods and cheats you collected for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to install and toggle on the SD card.
+- **Names and icons without manual work.** Merges [blawar/titledb](https://github.com/blawar/titledb) across regions, and for anything titledb does not know, reads the name and icon from the file itself (with your own `prod.keys`). Names and descriptions come in Korean, English, Japanese and Chinese.
+- **Public metadata.** Optional review scores (Steam, IGDB), popularity order and artwork from public sources. Each can be turned off.
+- **Web dashboard.** Browse your files in four languages, with a preview of how the client home will look.
+- **Admin page.** Users, devices, lockouts and refused requests, featured rows, rescans and uploads. Signed in with an authenticator code or an admin password.
+- **RetroArch.** A ready-made RetroArch pack (Korean font, cores, settings), The Bezel Project overlays and your own files for it, which the CookingFoil client sets up in one go. Off until you create the retro folder; see [deploy/README.md](./deploy/README.md#7-optional-extras).
+- **Save files.** Keep save data on the server for the CookingFoil client to restore, after it backs up the current one.
+- **User patches.** Keep mods for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to place and toggle on the SD card.
 
 ## A look around
 
-| All games | Game detail | On a phone (한국어) |
+| Library | Detail | On a phone (한국어) |
 |---|---|---|
-| <img src="docs/screenshots/games-light.png" alt="All games tab with stats, genre and Steam filters" width="320"> | <img src="docs/screenshots/detail-light.png" alt="Game detail with facts, review score and screenshots" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="Preview tab on a phone in Korean" width="150"> |
+| <img src="docs/screenshots/games-light.png" alt="Library tab with stats and filters" width="320"> | <img src="docs/screenshots/detail-light.png" alt="Detail view with facts and screenshots" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="Preview tab on a phone in Korean" width="150"> |
 
-Screenshots use made-up games and generated placeholder art (`node scripts/readme-screenshots.mjs` regenerates them).
+Screenshots use made-up entries and generated placeholder art (`node scripts/readme-screenshots.mjs` regenerates them).
 
 ## Works with
 
 | Client | How it connects | What you get |
 |---|---|---|
 | [CyberFoil](https://github.com/luketanti/CyberFoil) | Native sections API | Full names, icons, versions, required firmware |
-| [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) | Native API + `/api/title` | Store-style home, per-language names and art, review scores, user patches; QR device approval |
+| [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) | Native API + `/api/title` | Home screen, per-language names and art, user patches, saves, RetroArch; QR device approval |
 | Tinfoil-style clients | `shop.tfl` | The classic file list with names and icons |
 
 ## Quick start (Docker)
@@ -64,7 +63,7 @@ curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-c
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
 
 mkdir -p games data keys
-# put your game files in ./games, optionally your prod.keys in ./keys
+# put your own files in ./games, optionally your prod.keys in ./keys
 # edit .env: at least COOK_AUTH_USERS=you:a-long-password
 
 docker compose up -d
@@ -97,7 +96,7 @@ Every setting is an environment variable with the `COOK_` prefix. [`.env.example
 | `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 10 fallback regions | titledb region files to fetch |
 | `COOK_RATING_SYNC` | `true` | Steam review scores; add `COOK_IGDB_CLIENT_ID` / `_SECRET` for IGDB |
 | `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | Nintendo eShop data (see below) |
-| `COOK_EXTRACT_ICONS` | `missing` | Read names/icons from game files: `missing`, `all` or `off` |
+| `COOK_EXTRACT_ICONS` | `missing` | Read names/icons from the files: `missing`, `all` or `off` |
 
 ### What it connects to
 
@@ -105,9 +104,9 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 
 | Service | Why | Turn off |
 |---|---|---|
-| `raw.githubusercontent.com` (blawar/titledb) | Game names, descriptions, artwork URLs | `COOK_TITLEDB_AUTO_FETCH=false` |
+| `raw.githubusercontent.com` (blawar/titledb) | Names, descriptions, artwork URLs | `COOK_TITLEDB_AUTO_FETCH=false` |
 | Nintendo eShop CDN | Icons, banners, screenshots (cached on disk) | `COOK_ESHOP_ARTWORK=false` |
-| `api.ec.nintendo.com` | Prices and sales | `COOK_ESHOP_PRICES=false` |
+| `api.ec.nintendo.com` | Store listing data | `COOK_ESHOP_PRICES=false` |
 | nintendo.com's public Algolia index | Popularity order | `COOK_ESHOP_POPULARITY=false` |
 | Steam store, IGDB | Review scores | `COOK_RATING_SYNC=false` |
 
@@ -118,11 +117,11 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | `GET /shop.tfl`, `/shop.json` | Tinfoil-format index |
 | `GET /api/shop/sections` | Native list for CyberFoil and the CookingFoil client (ETag) |
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
-| `GET /api/title/:id?lang=` | Detail: description, screenshots, updates, price, score, localized names and art |
+| `GET /api/title/:id?lang=` | Detail: description, screenshots, updates, localized names and art |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork, `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | User patches as a list and as ustar archives |
-| `GET /api/saves`, `/api/saves/:id/download` | Shop save files as a list and as ustar archives |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | Retro games, bezels and the RetroArch base pack |
+| `GET /api/saves`, `/api/saves/:id/download` | Save files as a list and as ustar archives |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | RetroArch files, bezels and the RetroArch base pack |
 
 A client should read `features` from `/api/shop/info` before using optional fields.
 
@@ -143,4 +142,4 @@ Pull requests go through CI (lint, unit, web). See [CONTRIBUTING.md](./CONTRIBUT
 
 ## Credits and license
 
-MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Game metadata comes from [blawar/titledb](https://github.com/blawar/titledb); the Docker image bundles [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). Full list in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Title metadata comes from [blawar/titledb](https://github.com/blawar/titledb); the Docker image bundles [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). Full list in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).

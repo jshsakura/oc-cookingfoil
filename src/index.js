@@ -177,7 +177,7 @@ expressApp.get("/api/remote/sections", sectionsRoute);
 expressApp.get("/api/remote/icon/:titleId", iconRoute);
 
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder that the
-// Tinfoil shop can't install but the dashboard can list + download.
+// Tinfoil can't install but the dashboard can list + download.
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
