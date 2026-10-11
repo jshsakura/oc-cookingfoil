@@ -45,10 +45,10 @@ only from file names (with a hint on what is missing).
 ## 4. Connect your Switch
 
 - **CyberFoil:** Settings, then *eShop URL* = `http://<host>:38000/`, plus your
-  username and password. With `COOK_DEVICE_PAIRING=true` you can approve the
-  console from your phone instead.
+  username and password.
 - **Tinfoil-style clients:** *File Browser*, then `+`, then `http://<host>:38000/shop.tfl`.
-- **CookingFoil client:** create a user on the admin page; it shows a
+- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true`, approve the console
+  from your phone when it shows a QR code (no password on the Switch). Or create a user on the admin page; it shows a
   `config.json` to put at `sdmc:/switch/cookingfoil/config.json`.
 
 ## 5. The admin page

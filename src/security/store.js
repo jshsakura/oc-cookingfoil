@@ -274,11 +274,10 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
 
 export function revokeDevice(deviceKey) {
   const removed = state.devices.delete(deviceKey);
-  state.pending.delete(deviceKey);
-  if (removed) {
-    appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
-    scheduleFlush();
-  }
+  // Dismissing a request that was never approved must stick across a restart too.
+  const dismissed = state.pending.delete(deviceKey);
+  if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
+  if (removed || dismissed) scheduleFlush();
   return removed;
 }
 
