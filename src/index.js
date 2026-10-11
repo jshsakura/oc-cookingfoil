@@ -34,6 +34,7 @@ import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
+import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import * as userPatches from "./meta/user-patches.js";
 import { loadPrices } from "./meta/eshop-price.js";
@@ -134,6 +135,9 @@ expressApp.use(accessGuard());
 // basic-auth perimeter — a pairing device has no password — but still inside
 // rate-limiting + the probe access-guard. 404s unless COOK_DEVICE_PAIRING=true.
 expressApp.use("/api/pair", pairRouter());
+// Dropbox sign-in callback: opened by the phone's browser, so outside the
+// shop's sign-in like pairing. The session endpoints are inside it (below).
+expressApp.get(`${BRIDGE_PATH}/oauth/dropbox/callback`, dropboxCallback);
 
 // Device auth lane: an approved (deviceKey + accessKey) authenticates here and
 // tags the request so authGuard skips the basic-auth challenge below. No-op
@@ -144,7 +148,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches"], deviceContentGuard());
+expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -175,6 +179,9 @@ expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
 expressApp.use("/api/patches", patchesRouter());
+
+// Dropbox save sync: sign-in sessions for the Switch client (COOK_DROPBOX_APP_KEY).
+expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());
 
 // On-demand rich metadata (description, publisher, screenshots, …) for one
 // title. Surfaces titledb detail the shop response intentionally omits — the

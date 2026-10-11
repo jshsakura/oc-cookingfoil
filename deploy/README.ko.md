@@ -81,6 +81,11 @@ curl http://localhost:38000/healthz
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) 와 선택 `patch.json`
   (`name`, `version`, `game_version`, `author`, `description`). 이 경로 밖의 파일이
   하나라도 있으면 그 패치는 건너뜁니다.
+- **Dropbox 세이브 동기화(CookingFoil 클라이언트):** dropbox.com/developers/apps 에서 앱을
+  만들고(Scoped access, App folder) 리다이렉트 URI
+  `https://<내 샵 주소>/api/dropbox/oauth/dropbox/callback` 을 넣은 뒤 `COOK_DROPBOX_APP_KEY`
+  (앱 키만, 비밀값은 넣지 않습니다)와 `COOK_PUBLIC_BASE_URL=https://<내 샵 주소>` 를 정합니다.
+  클라이언트가 각자의 Dropbox 에 세이브를 백업하고, 세이브는 서버를 거치지 않습니다.
 - **닌텐도 eShop 정보:** 가격, 인기 순위, 아트가 기본으로 켜져 있습니다.
   `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` 를 `false`
   로 두면 닌텐도에 접속하지 않습니다.

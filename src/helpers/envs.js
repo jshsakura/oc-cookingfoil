@@ -247,6 +247,9 @@ const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
 const ratingSync = envBool("COOK_RATING_SYNC", true);
+// Dropbox save sync for the Switch client: this server relays the Dropbox
+// sign-in (PKCE, so only the app key, no secret). Empty turns it off.
+const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
 const igdbClientId = envString("COOK_IGDB_CLIENT_ID", "").trim();
 const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
@@ -297,6 +300,7 @@ export {
   patchesDir,
   ratingsUrl,
   ratingSync,
+  dropboxAppKey,
   igdbClientId,
   igdbClientSecret,
   devicePairing,

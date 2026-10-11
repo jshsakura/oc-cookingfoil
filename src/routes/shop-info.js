@@ -9,7 +9,7 @@
 import pkg from "../package.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing } from "../helpers/envs.js";
+import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
 
 export const API_VERSION = 1;
 
@@ -43,7 +43,8 @@ export default function shopInfoRoute(_req, res) {
     name: "CookingFoil",
     version: pkg.version,
     apiVersion: API_VERSION,
-    features: devicePairing ? [...FEATURES, "device-pairing"] : FEATURES,
+    // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
+    features: [...FEATURES, ...(devicePairing ? ["device-pairing"] : []), ...(dropboxAppKey ? ["dropbox-sync"] : [])],
     files: stats.files,
     contentMeta: contentMeta.progress(),
   });
