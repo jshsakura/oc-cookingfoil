@@ -32,6 +32,21 @@ RUN make -j"$(nproc)" deps && \
     cp bin/nstool /nstool && \
     strip /nstool
 
+# ---- hacbrewpack: packs each retro game's home-screen forwarder NSP ----
+# GPL-2.0, run as a separate program (src/retro/forwarder.js). The original
+# The-4n repository is gone; this is its v3.05 at a pinned commit of the
+# mirror. musl has no *64 stdio names, so they're mapped to the plain ones.
+FROM alpine:3.20 AS hacbrewpack-builder
+RUN apk add --no-cache git build-base
+WORKDIR /build
+ARG HACBREWPACK_REF=745b16ecfc9ce055743067d200572204cb2aac6c
+RUN git clone https://github.com/rlaphoenix/hacBrewPack.git && \
+    cd hacBrewPack && git checkout -q "${HACBREWPACK_REF}" && \
+    cp config.mk.template config.mk && \
+    make -j"$(nproc)" CFLAGS="-O2 -std=gnu11 -fPIC -D_GNU_SOURCE -Dfseeko64=fseeko -Dftello64=ftello -Dfopen64=fopen" && \
+    cp hacbrewpack /hacbrewpack && \
+    strip /hacbrewpack
+
 # ---- runtime ----
 FROM node:22-alpine AS runtime
 
@@ -47,6 +62,7 @@ ENV NODE_ENV=production \
     COOK_KEYS_DIR=/keys \
     COOK_SHOP_TEMPLATE=/shop_template.jsonc \
     COOK_NSTOOL_BIN=/usr/local/bin/nstool \
+    COOK_HACBREWPACK_BIN=/usr/local/bin/hacbrewpack \
     COOK_NSZ_BIN=/usr/bin/nsz \
     # Info + errors by default; bump to `oc-cookingfoil*` for full traces
     # (incl. per-icon cache I/O during prewarm — chatty on big libraries).
@@ -64,6 +80,7 @@ RUN mkdir -p /games /data /keys
 
 # nstool — copied from the builder stage. Single static binary, ~1-2 MB.
 COPY --from=nstool-builder /nstool /usr/local/bin/nstool
+COPY --from=hacbrewpack-builder /hacbrewpack /usr/local/bin/hacbrewpack
 
 # nsz — decompresses .nsz / .xcz wrappers into .nsp / .xci so the NSP
 # extractor can run against the inner container. Pure Python (uses the
@@ -78,6 +95,8 @@ RUN apk add --no-cache python3 py3-pip && \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+# The forwarder's prebuilt exefs (see forwarder/build.sh).
+COPY forwarder/exefs ./forwarder/exefs
 # Ship the shop template at the legacy tinfoil-hat mount point so users
 # can swap `vinicioslc/tinfoil-hat` for `oc-cookingfoil` without touching
 # their existing docker-compose volume mappings.
