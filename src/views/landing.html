@@ -2059,11 +2059,21 @@
           a.title = g.name;
           a.addEventListener("click", () => openRetroModal(g, systems?.find((s) => s.id === g.system)));
           const poster = document.createElement("div"); poster.className = "poster";
+          const letterCover = () => {
+            const d = document.createElement("div"); d.className = "cover letter"; d.textContent = [...g.name.trim()][0] || "?";
+            return d;
+          };
           let cover;
           if (g.iconUrl) {
             cover = document.createElement("img"); cover.className = "cover"; cover.src = g.iconUrl; cover.alt = ""; cover.loading = "lazy"; cover.decoding = "async";
+            // Retry once (the server may be restarting), then show the letter tile, never a broken image.
+            let retried = false;
+            cover.addEventListener("error", () => {
+              if (!retried) { retried = true; setTimeout(() => { cover.src = g.iconUrl + "&retry=1"; }, 3000); return; }
+              cover.replaceWith(letterCover());
+            });
           } else {
-            cover = document.createElement("div"); cover.className = "cover letter"; cover.textContent = [...g.name.trim()][0] || "?";
+            cover = letterCover();
           }
           const size = document.createElement("span"); size.className = "poster-badge size-badge"; size.textContent = fmtBytes(g.size);
           poster.append(cover, size);

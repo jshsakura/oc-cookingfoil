@@ -326,3 +326,18 @@ test("multi-disc games become one entry with an .m3u, and one format per game is
   assert.equal(mgs.extras.length, 2);
   assert.ok(mgs.icon, "the first disc's box art stands in for the set");
 });
+
+test("the games list filters by rating, size and own bezel", async () => {
+  const { listFilter } = await import("../../src/retro/list-filter.js");
+  const games = [
+    { name: "a", rating: 90, size: 100, bezel: { generic: false } },
+    { name: "b", rating: 60, size: 5000, bezel: { generic: true } },
+    { name: "c", size: 300, bezel: null },
+  ];
+  const names = (q) => games.filter(listFilter(q)).map((g) => g.name);
+  assert.deepEqual(names({}), ["a", "b", "c"]);
+  assert.deepEqual(names({ minRating: "70" }), ["a"], "unrated games fall below any minimum");
+  assert.deepEqual(names({ minSize: "200", maxSize: "1000" }), ["c"]);
+  assert.deepEqual(names({ bezel: "1" }), ["a"], "the console's default bezel doesn't count");
+  assert.deepEqual(names({ minRating: "-5", maxSize: "big" }), ["a", "b", "c"], "malformed values are ignored");
+});
