@@ -38,3 +38,12 @@ export function finishPairLink(token, now = Date.now()) {
   links.get(token).used = true;
   return true;
 }
+const CODE_RE = /^[A-F0-9]{8}$/;
+/** Find a live, unapproved link by the 8-character code the console shows. */
+export function findPairLinkByCode(code, now = Date.now()) {
+  prune(now);
+  const wanted = String(code ?? "").replace(/[\s-]/g, "").toUpperCase();
+  if (!CODE_RE.test(wanted)) return null;
+  for (const [token, link] of links) if (link.code === wanted && !link.used) return { token, ...link };
+  return null;
+}

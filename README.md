@@ -78,7 +78,7 @@ The image is `ghcr.io/jshsakura/oc-cookingfoil:latest`, built for every release.
 
 - **CyberFoil:** Settings, then *eShop URL* = your shop address. With accounts enabled, fill in *eShop username / password*.
 - **Tinfoil-style clients:** *File Browser*, then `+`, then the address ending in `/shop.tfl`, with your username and password.
-- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code that you approve from your phone, with no password on the Switch. Or put a `config.json` at `sdmc:/switch/cookingfoil/config.json`. The admin page shows one when you create a user, and a signed-in browser can fetch it from `/api/client-config` (passwords and keys are never included).
+- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Sign in to the shop on your phone, open *Devices* (`/pair`) and scan it with the camera, or type the 8-character device code; the console joins under your account with no password on the Switch. Or put a `config.json` at `sdmc:/switch/cookingfoil/config.json`. The admin page shows one when you create a user, and a signed-in browser can fetch it from `/api/client-config` (passwords and keys are never included).
 
 ## Configuration
 

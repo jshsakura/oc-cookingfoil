@@ -21,6 +21,7 @@ CookingFoil is MIT-licensed (see [LICENSE](./LICENSE)) and builds on the work be
 | chokidar, debug, express, express-basic-auth, fast-glob, json5, local-ip-address, lodash, multer, otplib, public-ip, serve-index, uqr, urlencode, ws | MIT |
 | dotenv | BSD-2-Clause |
 | sharp | Apache-2.0 |
+| jsqr (served to the browser as `/pair/qr.js`) | Apache-2.0 |
 
 Transitive dependencies are MIT, ISC, BSD or Apache-2.0 (`npx license-checker --production` lists them).
 

@@ -33,7 +33,7 @@ function pendingResponse(req, deviceKey) {
   const origin = resolveOrigin(req, publicBaseUrl);
   return {
     status: "pending",
-    pairUrl: origin ? `${origin}/admin/pair/${link.token}` : null,
+    pairUrl: origin ? `${origin}/pair/${link.token}` : null,
     pairCode: link.code,
     expiresAt: link.expiresAt,
   };

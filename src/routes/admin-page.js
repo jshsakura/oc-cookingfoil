@@ -47,7 +47,8 @@ import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import debug from "../debug.js";
-import { readPairLink, finishPairLink } from "../security/pairing-link.js";
+import { readPairLink } from "../security/pairing-link.js";
+import { approvePairLink } from "../security/pairing-approve.js";
 import { pairPage } from "./admin/pair-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
@@ -114,18 +115,9 @@ export default function adminPageRouter() {
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl))
       return res.status(403).json({ error: "origin mismatch" });
-    const link = readPairLink(req.params.token);
-    if (!link) return res.status(410).json({ error: "pair link expired" });
-    if (link.used || store.isDeviceApproved(link.deviceKey))
-      return res.status(409).json({ error: "pair link already approved" });
-    const accessKey = generateAccessKey();
-    store.approveDevice(link.deviceKey, {
-      label: String(req.body?.label ?? "").slice(0, 64).trim(),
-      addedBy: "admin",
-      accessKeyHash: hashAccessKey(accessKey),
-    });
-    stageAccessKeyDelivery(link.deviceKey, accessKey);
-    finishPairLink(req.params.token);
+    const result = approvePairLink(req.params.token, { label: req.body?.label, addedBy: "admin" });
+    if (result === "expired") return res.status(410).json({ error: "pair link expired" });
+    if (result === "used") return res.status(409).json({ error: "pair link already approved" });
     res.json({ ok: true });
   });
 

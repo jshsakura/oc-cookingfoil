@@ -118,6 +118,7 @@
         display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 100px; text-decoration: none;
         color: var(--secondary); font: 600 13px var(--font-body); white-space: nowrap;
       }
+      .tabs a.tab-link[hidden] { display: none; }
       .tabs button:hover:not(.active), .tabs a.tab-link:hover { color: var(--ink); }
       .tabs button.active { background: var(--ink); color: var(--ground); }
       /* CONNECT: the shop address, always on top */
@@ -497,6 +498,7 @@
         <nav class="tabs" role="tablist" aria-label="views">
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
           <button type="button" role="tab" data-tab="preview" data-i18n="tab.preview"></button>
+          <a class="tab-link" id="pair-link" href="/pair" data-i18n="tab.pair" hidden></a>
           <a class="tab-link" href="/admin" data-i18n="tab.admin"></a>
         </nav>
         <div class="lang-menu" id="lang-menu">
@@ -656,6 +658,7 @@
           "section.stats": "현황",
           "section.library": "모든 게임",
           "tab.games": "모든 게임",
+          "tab.pair": "기기 승인",
           "tab.admin": "관리",
           "tab.preview": "미리보기",
           "section.recent": "최근 추가",
@@ -779,6 +782,7 @@
           "section.library": "All games",
           "section.recent": "Recently added",
           "tab.games": "All games",
+          "tab.pair": "Devices",
           "tab.admin": "Admin",
           "tab.preview": "Preview",
           "row.recent": "Recently added",
@@ -901,6 +905,7 @@
           "section.library": "すべてのゲーム",
           "section.recent": "最近の追加",
           "tab.games": "すべてのゲーム",
+          "tab.pair": "デバイス承認",
           "tab.admin": "管理",
           "tab.preview": "プレビュー",
           "row.recent": "最近の追加",
@@ -1023,6 +1028,7 @@
           "section.library": "所有遊戲",
           "section.recent": "最近新增",
           "tab.games": "所有遊戲",
+          "tab.pair": "设备批准",
           "tab.admin": "管理",
           "tab.preview": "預覽",
           "row.recent": "最近新增",
@@ -1284,6 +1290,13 @@
       let baseUrl = `${location.protocol}//${location.host}/shop.tfl`;
       const urlEl = $("shop-url");
       urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
+      // Show the device-approval link only when this shop pairs consoles.
+      fetch("/api/shop/info", { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((info) => {
+          if (info?.features?.includes("device-pairing")) document.getElementById("pair-link").hidden = false;
+        })
+        .catch(() => {});
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (d && d.url) baseUrl = d.url; })

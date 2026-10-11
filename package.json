@@ -28,6 +28,7 @@
     "express-basic-auth": "^1.2.1",
     "fast-glob": "^3.2.12",
     "json5": "^2.2.3",
+    "jsqr": "^1.4.0",
     "local-ip-address": "^1.0.0",
     "lodash": "^4.17.21",
     "multer": "^2.1.1",

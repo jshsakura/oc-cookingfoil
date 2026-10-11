@@ -45,8 +45,9 @@ curl http://localhost:38000/healthz
 
 - **CyberFoil:** 설정의 *eShop URL* = `http://<호스트>:38000/` 과 아이디·비밀번호.
 - **Tinfoil 계열:** *File Browser* → `+` → `http://<호스트>:38000/shop.tfl`.
-- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 스위치에 뜬 QR 을 휴대폰으로
-  승인해 비밀번호 없이 들어옵니다. 또는 관리 페이지에서 사용자를 만들면 보여 주는
+- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 휴대폰으로 샵에 로그인해
+  *기기 승인*(`/pair`) 화면에서 스위치에 뜬 QR 을 찍거나 기기 코드를 입력합니다. 스위치에는
+  비밀번호를 넣지 않습니다. 또는 관리 페이지에서 사용자를 만들면 보여 주는
   `config.json` 을 `sdmc:/switch/cookingfoil/config.json` 에 둡니다.
 
 ## 5. 관리 페이지

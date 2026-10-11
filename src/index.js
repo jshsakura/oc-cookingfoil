@@ -34,6 +34,7 @@ import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
+import devicePairRouter from "./routes/device-pair.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import * as userPatches from "./meta/user-patches.js";
@@ -192,6 +193,9 @@ expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
 // basic-auth credentials into the live origin).
 expressApp.get("/api/connect-url", connectUrlRoute);
 expressApp.get("/api/client-config", clientConfigRoute);
+
+// Device approval for signed-in users: the console's QR opens here (COOK_DEVICE_PAIRING).
+expressApp.use("/pair", devicePairRouter());
 
 // 2FA-gated operator dashboard (inside the basic-auth perimeter). 404s when
 // COOK_ADMIN_TOTP_SECRET is unset.
