@@ -92,6 +92,10 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   `COOK_DROPBOX_APP_KEY` (the app key only, never the secret) and
   `COOK_PUBLIC_BASE_URL=https://<your shop>`. The client then backs up saves to
   each player's own Dropbox; saves never pass through your server.
+- **Shop saves (CookingFoil client):** mount a folder at `/saves` (or set
+  `COOK_SAVES_DIR`) laid out as `<base TITLE ID>/<save name>/<the save folder's contents>`,
+  with an optional `meta.json` (`name`, `description`, `gameVersion`). Up to 1 GB and
+  5,000 files per save; symlinks are refused.
 - **Retro games (CookingFoil client):** create `data/retro/` (or mount a folder
   and set `COOK_RETRO_DIR`):
   ```

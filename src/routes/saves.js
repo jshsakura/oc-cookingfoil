@@ -1,0 +1,55 @@
+/**
+ * Save files the shop hands out (see meta/shop-saves.js). Off (404) until the
+ * saves folder (COOK_SAVES_DIR, default /saves) exists.
+ *
+ *   GET /api/saves                  { saves: [{ id, titleId, name, description, gameVersion,
+ *                                     size, files, updatedAt, hash, game?, url }] }, with ETag
+ *   GET /api/saves/:id/download     the save folder's contents as an uncompressed ustar,
+ *                                   paths relative to the save's root, directories first
+ */
+import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import express from "express";
+import { savesDir, dataDir, publicBaseUrl } from "../helpers/envs.js";
+import { createCatalog } from "../meta/shop-saves.js";
+import { gameOf } from "../meta/game-info.js";
+import { resolveOrigin } from "../helpers/origin.js";
+import { sendTar } from "../helpers/tar-stream.js";
+
+const ID_RE = /^[0-9A-F]{16}-[0-9a-f]{12}$/;
+
+export const savesEnabled = () => fs.existsSync(savesDir);
+
+const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
+
+export default function savesRouter() {
+  const router = express.Router();
+  const catalog = createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json") });
+
+  router.use((req, res, next) => (savesEnabled() ? next() : res.status(404).json({ error: "this shop hands out no save files" })));
+
+  router.get("/", wrap(async (req, res) => {
+    const origin = resolveOrigin(req, publicBaseUrl);
+    const saves = (await catalog.list()).map((s) => {
+      const game = gameOf(s.titleId, origin);
+      return { ...s, ...(game ? { game } : {}), url: `/api/saves/${s.id}/download` };
+    });
+    const body = JSON.stringify({ saves });
+    res.type("application/json");
+    res.set("ETag", `"${crypto.createHash("sha1").update(body).digest("hex")}"`);
+    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    if (req.fresh) return res.status(304).end();
+    res.status(200).end(body);
+  }));
+
+  router.get("/:id/download", wrap(async (req, res) => {
+    const id = String(req.params.id ?? "");
+    if (!ID_RE.test(id)) return res.status(400).json({ error: "invalid save id" });
+    const opened = await catalog.open(id);
+    if (!opened) return res.status(404).json({ error: "no such save" });
+    sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.save.hash, label: "saves" });
+  }));
+
+  return router;
+}

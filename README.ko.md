@@ -31,6 +31,7 @@
 - **웹 대시보드.** 4개 언어로 라이브러리를 보고, 클라이언트 스토어가 어떻게 보일지 미리 봅니다.
 - **관리 페이지.** 사용자, 기기, 잠금과 거부 기록, 추천 줄, 다시 스캔. 인증 앱 코드나 관리자 비밀번호로 들어갑니다.
 - **레트로 게임.** 롬, The Bezel Project 베젤, 바로 쓸 수 있게 맞춘 RetroArch 묶음(한글 폰트, 코어, 설정)을 CookingFoil 클라이언트가 한 번에 설치하도록 내려 줍니다. 레트로 폴더를 만들기 전까지는 꺼져 있습니다. [deploy/README.ko.md](./deploy/README.ko.md#7-선택-기능) 를 봅니다.
+- **샵 세이브.** 전부 해금된 세이브 같은 파일을 내려 주면 CookingFoil 클라이언트가 지금 세이브를 백업한 뒤 고른 계정에 복원합니다.
 - **유저 패치.** 직접 모은 모드와 치트를 [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client)가 SD 카드에 설치하고 켜고 끌 수 있게 내려 줍니다.
 
 ## 둘러보기
@@ -114,6 +115,7 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | `GET /api/title/:id?lang=` | 상세: 설명, 스크린샷, 업데이트, 가격, 점수, 언어별 이름과 아트 |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 아트. `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | 유저 패치 목록과 ustar 묶음 |
+| `GET /api/saves`, `/api/saves/:id/download` | 샵 세이브 목록과 ustar 묶음 |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | 레트로 게임, 베젤, RetroArch 기본 묶음 |
 
 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 확인하세요.

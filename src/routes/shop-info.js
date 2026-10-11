@@ -12,6 +12,7 @@ import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
 import * as users from "../security/users.js";
 import { retroEnabled } from "./retro.js";
+import { savesEnabled } from "./saves.js";
 
 export const API_VERSION = 1;
 
@@ -54,6 +55,8 @@ export default function shopInfoRoute(_req, res) {
       ...(dropboxAppKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack.
       ...(retroEnabled() ? ["retro"] : []),
+      // shop-saves: /api/saves hands out save files to restore on the console.
+      ...(savesEnabled() ? ["shop-saves"] : []),
     ],
     files: stats.files,
     contentMeta: contentMeta.progress(),

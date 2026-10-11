@@ -12,28 +12,14 @@
 import crypto from "crypto";
 import express from "express";
 import * as userPatches from "../meta/user-patches.js";
-import * as titledbStore from "../meta/titledb-store.js";
-import * as extractedMeta from "../meta/extracted-meta-store.js";
+import { gameOf } from "../meta/game-info.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 
-export { tarEntries };
+export { tarEntries, gameOf };
 
 const ID_RE = /^[0-9A-F]{16}-[0-9a-f]{12}$/;
-
-/** The game a patch is for, or null when nothing knows the title. */
-export function gameOf(titleId, origin = "") {
-  const entry = titledbStore.get(titleId);
-  const names = titledbStore.namesOf(titleId);
-  const extracted = extractedMeta.get(titleId);
-  const name = entry?.name || extracted?.name || names?.en || (names && Object.values(names)[0]);
-  if (!name) return null;
-  const game = { name, names: names ?? {} };
-  // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
-  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}/api/shop/icon/${titleId}`;
-  return game;
-}
 
 async function listRoute(req, res) {
   let listing;

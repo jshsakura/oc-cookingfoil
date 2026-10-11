@@ -89,6 +89,9 @@ curl http://localhost:38000/healthz
   `https://<내 샵 주소>/api/dropbox/oauth/dropbox/callback` 을 넣은 뒤 `COOK_DROPBOX_APP_KEY`
   (앱 키만, 비밀값은 넣지 않습니다)와 `COOK_PUBLIC_BASE_URL=https://<내 샵 주소>` 를 정합니다.
   클라이언트가 각자의 Dropbox 에 세이브를 백업하고, 세이브는 서버를 거치지 않습니다.
+- **샵 세이브(CookingFoil 클라이언트):** `/saves` 에 폴더를 마운트(또는 `COOK_SAVES_DIR`)하고
+  `<본편 TITLE ID>/<세이브 이름>/<세이브 폴더 내용 그대로>` 로 둡니다. 선택 `meta.json`
+  (`name`, `description`, `gameVersion`). 세이브 하나에 1GB·파일 5,000개까지, 심볼릭 링크는 거절합니다.
 - **레트로 게임(CookingFoil 클라이언트):** `data/retro/` 를 만듭니다(다른 곳에 두려면
   마운트하고 `COOK_RETRO_DIR` 을 정합니다).
   ```
