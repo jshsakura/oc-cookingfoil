@@ -84,6 +84,12 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) plus an optional
   `patch.json` with `name`, `version`, `game_version`, `author`, `description`.
   Only files under those paths are served; a patch with anything else is skipped.
+- **Dropbox save sync (CookingFoil client):** create an app at
+  dropbox.com/developers/apps (Scoped access, App folder), add the redirect URI
+  `https://<your shop>/api/dropbox/oauth/dropbox/callback`, then set
+  `COOK_DROPBOX_APP_KEY` (the app key only, never the secret) and
+  `COOK_PUBLIC_BASE_URL=https://<your shop>`. The client then backs up saves to
+  each player's own Dropbox; saves never pass through your server.
 - **Nintendo eShop data:** prices, popularity and artwork are on by default;
   set `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY` or `COOK_ESHOP_ARTWORK` to
   `false` to keep the server from contacting Nintendo.

@@ -30,6 +30,10 @@ services:
       # Review scores: Steam needs nothing; IGDB needs a Twitch app (dev.twitch.tv).
       COOK_IGDB_CLIENT_ID: ${COOK_IGDB_CLIENT_ID:-}
       COOK_IGDB_CLIENT_SECRET: ${COOK_IGDB_CLIENT_SECRET:-}
+      # Dropbox save sync for the CookingFoil client: the Dropbox app key (no secret)
+      # and this shop's public address, which the app's redirect URI must use.
+      COOK_DROPBOX_APP_KEY: ${COOK_DROPBOX_APP_KEY:-}
+      COOK_PUBLIC_BASE_URL: ${COOK_PUBLIC_BASE_URL:-}
     volumes:
       # REQUIRED: your games (.nsp .nsz .xci .xcz), any folder layout.
       - ${GAMES_DIR:?set GAMES_DIR in .env}:/games
