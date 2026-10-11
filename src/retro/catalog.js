@@ -17,6 +17,10 @@
  *
  * Disc images: a .cue or .m3u lists the files it needs; those ride along in
  * the game's bundle and count toward its size, but are not listed on their own.
+ * Discs named "… (Disc 1)" / "… [K Disc 2]" in one folder become one game with
+ * a generated .m3u, so RetroArch can swap discs. When one folder holds the same
+ * game in several disc formats (CHD and PBP, CSO and ISO, …), only the best
+ * one is listed.
  *
  * Scanning only stats files, so it is cheap; the folder is rescanned when the
  * listing is older than a minute.
@@ -163,6 +167,7 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
     rel,
     abs,
     size: st.size + extras.reduce((n, f) => n + f.size, 0),
+    fileSize: st.size,
     addedAt: Math.floor(st.mtimeMs / 1000),
     mtimeMs: st.mtimeMs,
     extras,
@@ -170,6 +175,72 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
     icon: await firstIn(art.thumbs, [name, thumbName]),
     bezel: await findBezel(art.bezels, name),
   };
+}
+
+const DISC_EXTS = [".m3u", ".chd", ".pbp", ".cso", ".iso", ".cue"]; // best format first
+const DISC_RE = /([[(])([^[\]()]*?)\bDisc\s*(\d+)\b([^[\]()]*?)([\])])/i;
+
+/** { key, n } for a disc file name ("Game [K Disc 2]" → "Game [K]", 2), or null. Pure. */
+export function discOf(name) {
+  const m = name.match(DISC_RE);
+  if (!m) return null;
+  const inner = `${m[2]}${m[4]}`.replace(/\s+/g, " ").trim();
+  const key = `${name.slice(0, m.index)}${inner ? `${m[1]}${inner}${m[5]}` : ""}${name.slice(m.index + m[0].length)}`;
+  return { key: key.replace(/\s+/g, " ").trim(), n: Number(m[3]) };
+}
+
+/** Folds "Disc N" files of one game into a single entry with a generated .m3u. */
+async function groupDiscs(found, ctx) {
+  const groups = new Map();
+  for (const g of found) {
+    const disc = DISC_EXTS.includes(path.extname(g.rel).toLowerCase()) && discOf(g.name);
+    if (!disc) continue;
+    const k = `${path.posix.dirname(g.rel)}\0${disc.key}`;
+    groups.set(k, [...(groups.get(k) ?? []), { g, ...disc }]);
+  }
+  const folded = new Set();
+  const merged = [];
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    members.sort((a, b) => a.n - b.n);
+    const discs = members.map((m) => m.g);
+    for (const d of discs) folded.add(d);
+    const { key } = members[0];
+    const dir = path.posix.dirname(discs[0].rel);
+    const rel = dir === "." ? `${key}.m3u` : `${dir}/${key}.m3u`;
+    const own = { icon: await firstIn(ctx.art.thumbs, [key, key.replace(THUMB_UNSAFE_RE, "_")]), bezel: await findBezel(ctx.art.bezels, key) };
+    merged.push({
+      ...discs[0],
+      id: gameId(ctx.systemId, `${path.basename(ctx.romsDir)}/${rel}`),
+      name: key,
+      file: `${key}.m3u`,
+      rel,
+      abs: null,
+      m3u: discs.map((d) => path.posix.basename(d.rel)).join("\n") + "\n",
+      size: discs.reduce((n, d) => n + d.size, 0),
+      addedAt: Math.max(...discs.map((d) => d.addedAt)),
+      extras: discs.flatMap((d) => [{ abs: d.abs, rel: d.rel, size: d.fileSize, mtimeMs: d.mtimeMs }, ...d.extras]),
+      icon: own.icon ?? discs[0].icon,
+      bezel: own.bezel ?? discs[0].bezel,
+    });
+  }
+  return [...found.filter((g) => !folded.has(g)), ...merged];
+}
+
+/** One folder, one game, several disc formats: keep the best format only. */
+function bestFormats(games) {
+  const extOf = (g) => path.extname(g.rel).toLowerCase();
+  const titleOf = (g) => `${path.posix.dirname(g.rel)}\0${g.name.replace(/(\s*\[[^\]]*\])+\s*$/, "")}`;
+  const best = new Map();
+  for (const g of games) {
+    const rank = DISC_EXTS.indexOf(extOf(g));
+    if (rank < 0) continue;
+    best.set(titleOf(g), Math.min(best.get(titleOf(g)) ?? Infinity, rank));
+  }
+  return games.filter((g) => {
+    const rank = DISC_EXTS.indexOf(extOf(g));
+    return rank < 0 || rank === best.get(titleOf(g));
+  });
 }
 
 /** Every game under `dir`, with the system table it was read with. */
@@ -197,7 +268,8 @@ export async function scanDir(dir) {
         if (game) found.push(game);
       }
       const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
-      games.push(...found.filter((g) => !claimed.has(g.rel)));
+      const own = found.filter((g) => !claimed.has(g.rel));
+      games.push(...bestFormats(await groupDiscs(own, { systemId, romsDir, art })));
     }
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));

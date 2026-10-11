@@ -259,3 +259,37 @@ test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped
   await prewarm(artDir, []);
   assert.deepEqual(fs.readdirSync(artDir), [], "a removed game's square is dropped");
 });
+
+test("disc names fold to one title", async () => {
+  const { discOf } = await import("../../src/retro/catalog.js");
+  assert.deepEqual(discOf("메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 2]"), { key: "메탈 기어 솔리드 (Metal Gear Solid - Integral) [K]", n: 2 });
+  assert.deepEqual(discOf("Xenogears KOR (Disc 1)"), { key: "Xenogears KOR", n: 1 });
+  assert.deepEqual(discOf("폴리스노츠 (Policenauts) [Jap2Kor_v1.0 Disc 3]"), { key: "폴리스노츠 (Policenauts) [Jap2Kor_v1.0]", n: 3 });
+  assert.equal(discOf("랑그릿사 4 & 5 [IV Disc]"), null, "a disc with no number is its own game");
+});
+
+test("multi-disc games become one entry with an .m3u, and one format per game is listed", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-discs-"));
+  const ps1 = "roms/Sony - PlayStation";
+  put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].chd`, "D1");
+  put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 2].chd`, "DISC2");
+  put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K].PBP`, "PBP-ALL");
+  put(dir, `${ps1}/Langrisser/랑그릿사 4 & 5 (Langrisser IV & V) [IV Disc].chd`, "IV");
+  put(dir, `${ps1}/Langrisser/랑그릿사 4 & 5 (Langrisser IV & V) [V Disc].chd`, "V");
+  put(dir, "roms/Sony - PlayStation Portable/QG/퀸즈 게이트 (Queen's Gate) [K].chd", "CHD");
+  put(dir, "roms/Sony - PlayStation Portable/QG/퀸즈 게이트 (Queen's Gate) [Korea].cso", "CSO");
+  put(dir, `thumbnails/Sony - PlayStation/Named_Boxarts/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].png`, TALL_COVER);
+  const { games } = await scanDir(dir);
+  const names = games.map((g) => `${g.system}:${g.file}`).sort();
+  assert.deepEqual(names, [
+    "ps1:랑그릿사 4 & 5 (Langrisser IV & V) [IV Disc].chd",
+    "ps1:랑그릿사 4 & 5 (Langrisser IV & V) [V Disc].chd",
+    "ps1:메탈 기어 솔리드 (Metal Gear Solid - Integral) [K].m3u",
+    "psp:퀸즈 게이트 (Queen's Gate) [K].chd",
+  ], "discs fold, the CHD set beats the PBP, CHD beats CSO, different games of one format stay apart");
+  const mgs = games.find((g) => g.file.endsWith(".m3u"));
+  assert.equal(mgs.m3u, "메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].chd\n메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 2].chd\n");
+  assert.equal(mgs.size, 7);
+  assert.equal(mgs.extras.length, 2);
+  assert.ok(mgs.icon, "the first disc's box art stands in for the set");
+});
