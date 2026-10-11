@@ -1,0 +1,57 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const PORT = 17400 + (process.pid % 500);
+const BASE = `http://127.0.0.1:${PORT}`;
+const ALICE = "Basic " + Buffer.from("alice:alice-password").toString("base64");
+const SIGNED_IN = "B1".repeat(32);
+const STRANGER = "C2".repeat(32);
+
+async function boot() {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-auto-"));
+  fs.mkdirSync(path.join(data, "games"));
+  const child = spawn(process.execPath, ["./src/index.js"], {
+    cwd: path.join(import.meta.dirname, "../.."),
+    env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
+      COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true", COOK_DEVICE_AUTO_APPROVE: "true",
+      COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
+    stdio: "ignore",
+  });
+  for (let i = 0; i < 60; i++) {
+    try {
+      if ((await fetch(`${BASE}/healthz`)).ok) return child;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  child.kill("SIGKILL");
+  throw new Error("server did not start");
+}
+
+const status = async (key) => (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key } })).json();
+
+test("a console that signs in is approved on the spot; one that doesn't still waits", async () => {
+  const server = await boot();
+  try {
+    assert.equal((await status(SIGNED_IN)).status, "pending");
+    const r = await fetch(`${BASE}/api/shop/sections`, { headers: { Authorization: ALICE, "X-Device-Key": SIGNED_IN } });
+    assert.equal(r.status, 200);
+
+    const first = await status(SIGNED_IN);
+    assert.equal(first.status, "approved");
+    assert.match(first.accessKey, /^[A-Za-z0-9_-]{20,}$/, "the key comes down on the next poll");
+    assert.equal((await status(SIGNED_IN)).accessKey, undefined, "and only once");
+    const paired = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": SIGNED_IN, "X-Access-Key": first.accessKey } });
+    assert.equal(paired.status, 200, "afterwards it connects with no password");
+
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": STRANGER } })).status, 401);
+    assert.equal((await status(STRANGER)).status, "pending", "no sign-in, no approval");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

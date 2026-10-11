@@ -66,6 +66,7 @@ services:
       # Passwordless lane for approved devices. NOTE: with COOK_AUTH_USERS empty
       # this becomes the ONLY lane and stock Tinfoil can no longer connect.
       COOK_DEVICE_PAIRING: ${COOK_DEVICE_PAIRING:-}
+      COOK_DEVICE_AUTO_APPROVE: ${COOK_DEVICE_AUTO_APPROVE:-}
 
       # --- Lockout / rate limiting ---
       COOK_AUTH_MAX_FAILURES: ${COOK_AUTH_MAX_FAILURES:-}

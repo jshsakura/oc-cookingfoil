@@ -41,7 +41,9 @@ export default function pairingGate() {
     // login) is not asking for QR approval, so it stays out of the queue.
     if (!store.isDeviceApproved(deviceKey)) {
       if (!req.headers.authorization) store.recordPendingDevice(deviceKey);
-    } else {
+    } else if (req.get("X-Access-Key")) {
+      // Only a key that was presented and is wrong; an approved console that
+      // signs in with a password (auto-approval, CyberFoil) sends none.
       recordDeny(req, { reason: DENY.DEVICE_BAD_ACCESS_KEY, status: null, deviceKey });
     }
     next();
