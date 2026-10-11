@@ -104,8 +104,10 @@ curl http://localhost:38000/healthz
   ```
   `<시스템>` 은 RetroArch 이름("Nintendo - Game Boy Advance", "Sony - PlayStation" 등),
   짧은 id(gba, ps1 등), 흔한 별칭(FC, SFC, MD, PS1, PSP) 중 무엇이든 되고 대소문자는 가리지
-  않습니다. NES, SNES, GB, GBC, GBA, N64, NDS, 메가 드라이브, 마스터 시스템, 게임 기어, 새턴,
-  PC 엔진, 플레이스테이션, PSP, 네오지오 포켓, 원더스완, 아케이드(FBNeo)를 지원합니다.
+  않습니다. NES, SNES, GB, GBC, GBA, N64, NDS, 메가 드라이브, 메가 CD, 마스터 시스템, 게임 기어,
+  새턴, PC 엔진, PC 엔진 CD, 플레이스테이션, PSP, 네오지오 포켓, 원더스완, 아케이드(FBNeo)를
+  지원합니다. 기종 아이콘은 `system-icons/{color,mono}/<시스템>.png` 에 두면
+  `/api/retro/systems` 에 붙습니다.
   박스아트와 베젤: `node scripts/retro-art.mjs <레트로 폴더>` 가 libretro-thumbnails 와
   The Bezel Project 에서 받아 옵니다. 이름을 바꾼 한글 패치 롬은 `art-map/<시스템>.json`
   (`{"<롬 이름>": "<No-Intro 이름>"}`) 이 있어야 찾습니다. 이미 있는 파일은 두므로 게임을

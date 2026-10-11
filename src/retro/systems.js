@@ -72,6 +72,16 @@ export const DEFAULT_SYSTEMS = {
     extensions: [".pce", ".zip", ".7z"], core: "mednafen_pce_fast", coreName: "Beetle PCE Fast", bezelDir: "PCEngine",
     folder: "NEC - PC Engine - TurboGrafx 16", aliases: ["pce", "pcengine", "tg16"],
   },
+  segacd: {
+    names: { en: "Sega CD / Mega-CD", ko: "메가 CD", ja: "メガCD", zh: "世嘉 Mega-CD" },
+    extensions: [".chd", ".cue", ".m3u", ".iso"], core: "genesis_plus_gx", coreName: "Genesis Plus GX", bezelDir: "SegaCD",
+    folder: "Sega - Mega-CD - Sega CD", aliases: ["segacd", "megacd", "Sega - Mega CD & Sega CD"],
+  },
+  pcecd: {
+    names: { en: "PC Engine CD / TurboGrafx-CD", ko: "PC 엔진 CD", ja: "PCエンジン CD-ROM²", zh: "PC Engine CD" },
+    extensions: [".chd", ".cue", ".m3u", ".ccd"], core: "mednafen_pce_fast", coreName: "Beetle PCE Fast", bezelDir: "PCE-CD",
+    folder: "NEC - PC Engine CD - TurboGrafx-CD", aliases: ["pcecd", "pce-cd", "tgcd", "PCECD"],
+  },
   ps1: {
     names: { en: "PlayStation", ko: "플레이스테이션", ja: "プレイステーション", zh: "PlayStation" },
     extensions: DISC, core: "pcsx_rearmed", coreName: "PCSX-ReARMed", bezelDir: "PSX",

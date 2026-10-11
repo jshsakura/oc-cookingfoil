@@ -108,8 +108,10 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   ```
   `<system>` is RetroArch's name ("Nintendo - Game Boy Advance", "Sony - PlayStation",
   …), a short id (gba, ps1, …) or a common alias (FC, SFC, MD, PS1, PSP), in any case.
-  Supported: NES, SNES, GB, GBC, GBA, N64, NDS, Mega Drive, Master System, Game Gear,
-  Saturn, PC Engine, PlayStation, PSP, Neo Geo Pocket, WonderSwan, arcade (FBNeo).
+  Supported: NES, SNES, GB, GBC, GBA, N64, NDS, Mega Drive, Mega-CD, Master System,
+  Game Gear, Saturn, PC Engine, PC Engine CD, PlayStation, PSP, Neo Geo Pocket,
+  WonderSwan, arcade (FBNeo). Console icons go in
+  `system-icons/{color,mono}/<system>.png` and show up in `/api/retro/systems`.
   Box art and bezels: `node scripts/retro-art.mjs <retro dir>` fetches them from
   libretro-thumbnails and The Bezel Project. Renamed or translated games need
   `art-map/<system>.json` (`{"<ROM name>": "<No-Intro name>"}`) to be found; the

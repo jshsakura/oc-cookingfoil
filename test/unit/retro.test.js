@@ -47,6 +47,8 @@ function fixture() {
   put(dir, "thumbnails/Nintendo - Super Nintendo Entertainment System/Named_Boxarts/Super Mario World (USA).png", TALL_COVER);
   put(dir, "bezels/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).png", "BEZEL");
   put(dir, "bezels/Sony - PlayStation/_default.png", "GENERIC");
+  put(dir, "system-icons/color/Nintendo - Super Nintendo Entertainment System.png", "COLOR");
+  put(dir, "system-icons/mono/Nintendo - Super Nintendo Entertainment System.png", "MONO");
   put(dir, "retroarch/retroarch.nro", "NRO");
   put(dir, "retroarch/retroarch.cfg", 'user_language = "14"\n');
   put(dir, "retroarch/cores/snes9x_libretro_libnx.nro", "CORE");
@@ -149,6 +151,10 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(systems.find((s) => s.id === "nes").romCount, 2);
     assert.equal(snes.defaultCore, "snes9x");
     assert.equal(snes.names.ko, "슈퍼 패미컴 (SNES)");
+    assert.equal(await (await get(snes.iconUrl)).text(), "COLOR");
+    assert.equal(await (await get(snes.iconMonoUrl)).text(), "MONO");
+    assert.equal(systems.find((s) => s.id === "ps1").iconUrl, null, "no icon file, no URL");
+    assert.equal((await get("/api/retro/systems/../../etc/icon")).status, 404);
 
     let page = await (await get("/api/retro/games?system=snes&pageSize=1&sort=name")).json();
     assert.equal(page.total, 2);
@@ -225,6 +231,10 @@ test("NDS, Neo Geo Pocket, WonderSwan and Saturn folders are read under any of t
   assert.equal(systemForFolder(systems, "Sega - Saturn"), "saturn");
   assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core on the Switch");
   assert.equal(systems.nds.core, "melonds");
+  assert.equal(systemForFolder(systems, "Sega - Mega-CD - Sega CD"), "segacd");
+  assert.equal(systemForFolder(systems, "PCECD"), "pcecd");
+  assert.equal(systemForFolder(systems, "NEC - PC Engine CD - TurboGrafx-CD"), "pcecd");
+  assert.ok(!systems.pce.extensions.includes(".chd"), "PC Engine CD discs live in their own system, with their own box art and bezels");
 });
 
 test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped with their game", async () => {
