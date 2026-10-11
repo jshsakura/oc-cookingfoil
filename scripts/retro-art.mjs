@@ -43,12 +43,14 @@ const BEZEL_SOURCES = {
   sms: [["bezelproject-MasterSystem", "MasterSystem", "Sega-Master-System"]],
   gg: [["bezelproject-GameGear", "GameGear", "Sega-Game-Gear"]],
   pce: [["bezelproject-PCEngine", "PCEngine", "NEC-PC-Engine"]],
-  ps1: [["bezelproject-PSX", "PSX", null]],
+  ps1: [["bezelproject-PSX", "PSX", "Sony-PlayStation"]],
   segacd: [["bezelproject-SegaCD", "SegaCD", "Sega-CD"]],
   pcecd: [["bezelproject-PCE-CD", "PCE-CD", "NEC-PC-Engine-CD"]],
   saturn: [["bezelproject-Saturn", "Saturn", "Sega-Saturn"]],
   ngp: [["bezelproject-NGPC", "NGP", "SNK-Neo-Geo-Pocket-Color"]],
   ws: [["bezelproject-WonderSwanColor", "WonderSwanColor", "Bandai-WonderSwan—Color-Horizontal"]],
+  arcade: [["bezelproject-MAME", "MAME", "MAME-Horizontal"]],
+  // psp: none. Its 16:9 screen fills the Switch's, so there is nothing to frame.
 };
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
@@ -148,14 +150,14 @@ async function main() {
   const dry = flags.includes("--dry");
   const systems = loadSystems(dir);
   const mapDir = path.join(dir, "art-map");
-  for (const file of fs.existsSync(mapDir) ? fs.readdirSync(mapDir).filter((f) => f.endsWith(".json")) : []) {
-    const id = path.basename(file, ".json");
+  const mapped = fs.existsSync(mapDir) ? fs.readdirSync(mapDir).filter((f) => f.endsWith(".json")).map((f) => path.basename(f, ".json")) : [];
+  for (const id of mapped.filter((m) => !systems[m])) console.error(`${id}.json: no system "${id}"`);
+  // Every system gets its default bezel, mapped games or not.
+  for (const id of new Set([...mapped, ...Object.keys(BEZEL_SOURCES)])) {
     const system = systems[id];
-    if (!system) {
-      console.error(`${file}: no system "${id}"`);
-      continue;
-    }
-    const map = JSON.parse(fs.readFileSync(path.join(mapDir, file), "utf8"));
+    if (!system) continue;
+    const file = path.join(mapDir, `${id}.json`);
+    const map = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
     const results = await pool(jobsFor(dir, id, system, map, dry));
     const tally = {};
     for (const [kind, outcome] of results.filter(Array.isArray)) tally[`${kind} ${outcome}`] = (tally[`${kind} ${outcome}`] ?? 0) + 1;
