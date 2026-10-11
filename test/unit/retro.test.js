@@ -231,9 +231,13 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.match(m.files[0].sha256, /^[0-9a-f]{64}$/);
     assert.equal(await (await get(m.files.at(-1).url)).text(), "NRO");
     assert.equal((await get("/api/retro/base-pack/file/retroarch/..%2F..%2Fetc%2Fpasswd")).status, 404);
-    const pack = await get("/api/retro/base-pack");
+    assert.equal(m.bundleUrl, "/api/retro/base-pack/bundle");
+    const pack = await get(m.bundleUrl);
     assert.equal(pack.headers.get("x-retro-once"), "retroarch/retroarch.cfg");
+    assert.equal(Number(pack.headers.get("content-length")), m.bundleSize, "the manifest names the bundle's exact size");
+    assert.equal(pack.headers.get("etag"), `"${m.version}"`);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
+    assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");
   } finally {
     server.kill("SIGKILL");
   }
