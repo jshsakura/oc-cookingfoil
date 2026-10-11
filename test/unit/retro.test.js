@@ -38,6 +38,9 @@ function fixture() {
   put(dir, "roms/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc", "SMW");
   put(dir, "roms/Nintendo - Super Nintendo Entertainment System/notes.txt", "not a game");
   put(dir, "roms/SFC/Chrono Trigger (USA).sfc", "CT");
+  put(dir, "roms/SFC/젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K].sfc", "Z");
+  put(dir, "art-map/snes.json", JSON.stringify({ "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]": "Zelda no Densetsu - Kamigami no Triforce (Japan)" }));
+  put(dir, "ratings.json", JSON.stringify({ snes: { "Chrono Trigger (USA)": { rating: 95, count: 40 }, "Super Mario World (USA)": { rating: 90, count: 80 }, "broken": { rating: 900 } } }));
   put(dir, "roms/FC/Contra (J).nes", "C");
   put(dir, "roms/NES/Contra (J).nes", "C2");
   put(dir, "roms/Wii/Some Game.iso", "unsupported");
@@ -98,7 +101,7 @@ test("the catalog lists games, folds disc tracks into their .cue, and finds art"
   const dir = fixture();
   const { games, present } = await scanDir(dir);
   assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "official names, short ids and aliases; Wii is not a RetroArch system here");
-  assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)"]);
+  assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)", "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]"]);
   const contras = games.filter((g) => g.system === "nes");
   assert.notEqual(contras[0].id, contras[1].id, "FC and NES are read together without clashing ids");
   const disc = games.find((g) => g.system === "ps1");
@@ -147,7 +150,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.ok((await (await get("/api/shop/info")).json()).features.includes("retro"));
     const { systems } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
-    assert.equal(snes.romCount, 2);
+    assert.equal(snes.romCount, 3);
     assert.equal(systems.find((s) => s.id === "nes").romCount, 2);
     assert.equal(snes.defaultCore, "snes9x");
     assert.equal(snes.names.ko, "슈퍼 패미컴 (SNES)");
@@ -157,9 +160,29 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal((await get("/api/retro/systems/../../etc/icon")).status, 404);
 
     let page = await (await get("/api/retro/games?system=snes&pageSize=1&sort=name")).json();
-    assert.equal(page.total, 2);
+    assert.equal(page.total, 3);
     assert.equal(page.games.length, 1);
     assert.equal(page.games[0].name, "Chrono Trigger (USA)");
+
+    // Ratings: best first, the unrated last; the fields appear only when known.
+    const rated = await (await get("/api/retro/games?system=snes&sort=rating")).json();
+    assert.deepEqual(rated.games.map((g) => [g.name, g.rating]), [["Chrono Trigger (USA)", 95], ["Super Mario World (USA)", 90], ["젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]", undefined]]);
+    assert.equal(rated.games[0].ratingCount, 40);
+    assert.ok(!("rating" in rated.games[2]));
+
+    // q matches the name, the original title and the file, ignoring case and spaces.
+    for (const q of ["젤다", "트라이포스", "kamigami no", "KAMIGAMINO", "zeldanodensetsu"]) {
+      const hit = await (await get(`/api/retro/games?q=${encodeURIComponent(q)}`)).json();
+      assert.equal(hit.total, 1, q);
+      assert.equal(hit.games[0].original, "Zelda no Densetsu - Kamigami no Triforce (Japan)");
+    }
+
+    // Home: every console with games, its best-rated few.
+    const home = await (await get("/api/retro/home?limit=2")).json();
+    const snesRow = home.systems.find((s) => s.id === "snes");
+    assert.deepEqual(snesRow.games.map((g) => g.rating), [95, 90]);
+    assert.ok(home.systems.every((s) => s.romCount > 0 && s.games.length <= 2));
+    assert.ok(!home.systems.some((s) => s.id === "gg"), "consoles without games are left out");
     page = await (await get("/api/retro/games?search=mario")).json();
     const smw = page.games[0];
     assert.equal(page.total, 1);

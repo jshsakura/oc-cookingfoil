@@ -116,6 +116,10 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   libretro-thumbnails and The Bezel Project. Renamed or translated games need
   `art-map/<system>.json` (`{"<ROM name>": "<No-Intro name>"}`) to be found; the
   script keeps what is already there, so rerun it after adding games.
+  Ratings: `node scripts/retro-ratings.mjs <retro dir> <Metadata.xml>` (from
+  gamesdb.launchbox-app.com/Metadata.zip) matches the art-map titles against the
+  LaunchBox Games Database and writes `ratings.json`; `/api/retro/games?sort=rating`
+  and `/api/retro/home` use it.
   The server ships none of these; bring your own. `retroarch.nro` goes to
   `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
