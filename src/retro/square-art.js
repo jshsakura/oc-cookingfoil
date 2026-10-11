@@ -4,9 +4,11 @@
  * would cut titles off, so the whole cover sits centred on a blurred, darkened
  * copy of itself.
  *
- * Squares are made ahead of time after each catalog scan and kept in
- * <data dir>/retro-art/, keyed by the source file's size and mtime so a
- * replaced cover is redrawn. Files for games that are gone are removed.
+ * Squares are made ahead of time after each catalog scan, at 256 px (md) and
+ * 160 px (sm), and kept in <data dir>/retro-art/, keyed by the source file's
+ * size and mtime so a replaced cover is redrawn under a new key (the key is
+ * also the icon URL's ?v=, which makes the URL safe to cache for good).
+ * Files for games that are gone are removed.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -16,11 +18,12 @@ import sharp from "sharp";
 import debug from "../debug.js";
 
 export const SQUARE_PX = 256;
+export const SQUARE_SIZES = { md: SQUARE_PX, sm: 160 };
 const QUALITY = 82;
 const CONCURRENCY = 2;
 
-/** Where a game's square lives, or null when it has no box art. */
-export function squarePath(artDir, game) {
+/** A short hash of the game's box art file (path, size, mtime), or null without one. */
+export function artKey(game) {
   if (!game.icon) return null;
   let st;
   try {
@@ -28,8 +31,14 @@ export function squarePath(artDir, game) {
   } catch {
     return null;
   }
-  const key = crypto.createHash("sha1").update(`${game.icon}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
-  return path.join(artDir, `${game.id}-${key}.jpg`);
+  return crypto.createHash("sha1").update(`${game.icon}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
+}
+
+/** Where a game's square lives at `size` (md or sm), or null when it has no box art. */
+export function squarePath(artDir, game, size = "md") {
+  const key = artKey(game);
+  if (!key) return null;
+  return path.join(artDir, size === "md" ? `${game.id}-${key}.jpg` : `${game.id}-${key}.${size}.jpg`);
 }
 
 /** Draw the square for `src` into `dest`. */
@@ -46,11 +55,11 @@ export async function makeSquare(src, dest, size = SQUARE_PX) {
   await fsp.rename(tmp, dest);
 }
 
-/** The square for one game, drawn now if it isn't on disk yet; null without box art. */
-export async function ensureSquare(artDir, game) {
-  const dest = squarePath(artDir, game);
+/** The square for one game at `size`, drawn now if it isn't on disk yet; null without box art. */
+export async function ensureSquare(artDir, game, size = "md") {
+  const dest = squarePath(artDir, game, size);
   if (!dest) return null;
-  if (!fs.existsSync(dest)) await makeSquare(game.icon, dest);
+  if (!fs.existsSync(dest)) await makeSquare(game.icon, dest, SQUARE_SIZES[size]);
   return dest;
 }
 
@@ -63,18 +72,20 @@ export function prewarm(artDir, games) {
     const wanted = new Set();
     const todo = [];
     for (const g of games) {
-      const dest = squarePath(artDir, g);
-      if (!dest) continue;
-      wanted.add(path.basename(dest));
-      if (!fs.existsSync(dest)) todo.push([g, dest]);
+      for (const [size, px] of Object.entries(SQUARE_SIZES)) {
+        const dest = squarePath(artDir, g, size);
+        if (!dest) break;
+        wanted.add(path.basename(dest));
+        if (!fs.existsSync(dest)) todo.push([g, dest, px]);
+      }
     }
     let made = 0;
     let next = 0;
     await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
       while (next < todo.length) {
-        const [g, dest] = todo[next++];
+        const [g, dest, px] = todo[next++];
         try {
-          await makeSquare(g.icon, dest);
+          await makeSquare(g.icon, dest, px);
           made++;
         } catch (err) {
           debug.error("retro: square art for %s failed: %s", g.id, err.message);

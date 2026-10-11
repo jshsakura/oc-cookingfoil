@@ -10,7 +10,8 @@
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
- *   GET /api/retro/games/:id/icon                square box art (256px JPEG) for tiles
+ *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md);
+ *                                                drawn ahead of time, cached for a year with the ?v= of iconUrl
  *   GET /api/retro/games/:id/boxart              the box art as it is
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
@@ -37,7 +38,7 @@ import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg } from "../retro/bezel-config.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar } from "../helpers/tar-stream.js";
-import { ensureSquare, prewarm } from "../retro/square-art.js";
+import { artKey, ensureSquare, prewarm, SQUARE_SIZES } from "../retro/square-art.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -112,7 +113,7 @@ function publicGame(g, systems) {
     core: g.core,
     size: g.size,
     addedAt: g.addedAt,
-    iconUrl: g.icon ? `${base}/icon` : null,
+    iconUrl: g.icon ? `${base}/icon?v=${artKey(g)}` : null,
     boxartUrl: g.icon ? `${base}/boxart` : null,
     romUrl: `${base}/rom`,
     bundleUrl: `${base}/bundle`,
@@ -243,9 +244,14 @@ export default function retroRouter() {
     sendFile(res, req.retro.game.abs);
   });
   router.get("/games/:id/icon", wrap(async (req, res) => {
-    const square = await ensureSquare(artDir, req.retro.game);
+    const size = Object.hasOwn(SQUARE_SIZES, req.query.size) ? req.query.size : "md";
+    const square = await ensureSquare(artDir, req.retro.game, size);
     if (!square) return res.status(404).json({ error: "no icon" });
-    sendFile(res, square, "jpeg");
+    // ?v= names one version of the cover, so that URL never changes underneath a cache.
+    const versioned = req.query.v && req.query.v === artKey(req.retro.game);
+    res.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "private, no-cache");
+    res.type("jpeg");
+    res.sendFile(square, { dotfiles: "allow" });
   }));
   router.get("/games/:id/boxart", (req, res) => (req.retro.game.icon ? sendFile(res, req.retro.game.icon) : res.status(404).json({ error: "no box art" })));
   router.get("/games/:id/bezel.png", (req, res) => (req.retro.game.bezel ? sendFile(res, req.retro.game.bezel.png, "png") : res.status(404).json({ error: "no bezel" })));

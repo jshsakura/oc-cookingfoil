@@ -1988,7 +1988,7 @@
         heroIndex = (n + heroSlides.length) % heroSlides.length;
         heroAt = Date.now();
         const { r, key, label, banner } = heroSlides[heroIndex];
-        const coverSrc = r.item.icon_url ? r.item.icon_url + (r.item.icon_url.includes("?") ? "&" : "?") + "size=md" : coverPlaceholder();
+        const coverSrc = r.item.icon_url ? r.item.icon_url + (r.item.icon_url.includes("?") ? "&" : "?") + "size=lg" : coverPlaceholder();
         const cover = $("hero-cover");
         cover.onerror = () => { cover.onerror = null; cover.src = coverPlaceholder(); };
         cover.src = coverSrc;
@@ -2186,7 +2186,7 @@
         // separator instead of appending a second "?".
         if (r.item.icon_url) {
           const sep = r.item.icon_url.includes("?") ? "&" : "?";
-          cover.src = r.item.icon_url + sep + "size=md";
+          cover.src = r.item.icon_url + sep + "size=lg";
         } else {
           cover.src = coverPlaceholder();
         }

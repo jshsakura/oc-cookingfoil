@@ -194,6 +194,12 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(tile.headers.get("content-type"), "image/jpeg");
     const meta = await sharp(Buffer.from(await tile.arrayBuffer())).metadata();
     assert.deepEqual([meta.width, meta.height], [256, 256], "a square tile for the Switch, whatever the cover's shape");
+    assert.match(smw.iconUrl, /\?v=[0-9a-f]{12}$/);
+    assert.equal(tile.headers.get("cache-control"), "public, max-age=31536000, immutable", "a versioned tile is cached for good");
+    assert.ok(tile.headers.get("etag"));
+    const small = await sharp(Buffer.from(await (await get(`${smw.iconUrl}&size=sm`)).arrayBuffer())).metadata();
+    assert.deepEqual([small.width, small.height], [160, 160]);
+    assert.equal((await get(smw.iconUrl.replace(/\?v=.*/, "?v=stale"))).headers.get("cache-control"), "private, no-cache");
     assert.ok(Buffer.from(await (await get(smw.boxartUrl)).arrayBuffer()).equals(TALL_COVER), "the cover itself stays available");
     assert.match(await (await get(smw.bezel.gameCfgUrl)).text(), /video_aspect_ratio_auto = "true"/);
     const r = await fetch(BASE + smw.romUrl, { headers: { ...AUTH, Range: "bytes=1-2" } });
@@ -270,14 +276,14 @@ test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped
   await prewarm(artDir, [game, { id: "snes-noart00000", icon: null }]);
   const first = squarePath(artDir, game);
   assert.ok(fs.existsSync(first));
-  assert.deepEqual(fs.readdirSync(artDir), [path.basename(first)]);
+  assert.deepEqual(fs.readdirSync(artDir).sort(), [path.basename(first), path.basename(squarePath(artDir, game, "sm"))].sort(), "both sizes, drawn ahead");
 
   fs.writeFileSync(cover, await sharp({ create: { width: 140, height: 100, channels: 3, background: "#3030c0" } }).png().toBuffer());
   fs.utimesSync(cover, new Date(), new Date(Date.now() + 5000));
   await prewarm(artDir, [game]);
   const second = squarePath(artDir, game);
   assert.notEqual(second, first, "a replaced cover gets a new square");
-  assert.deepEqual(fs.readdirSync(artDir), [path.basename(second)], "the old square is gone");
+  assert.ok(!fs.readdirSync(artDir).some((f) => f.includes(path.basename(first, ".jpg"))), "the old squares are gone");
 
   await prewarm(artDir, []);
   assert.deepEqual(fs.readdirSync(artDir), [], "a removed game's square is dropped");
