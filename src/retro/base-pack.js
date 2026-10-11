@@ -13,7 +13,6 @@
 import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
-import { fitsUstar } from "../helpers/ustar.js";
 import { HashCache } from "../helpers/hash-cache.js";
 
 export { HashCache };
@@ -49,7 +48,7 @@ export async function listPack(packDir) {
   const files = [];
   for (const rel of await walk(packDir)) {
     const sd = sdPathOf(rel);
-    if (!sd || !fitsUstar(sd)) continue;
+    if (!sd) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
     files.push({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) });
