@@ -133,7 +133,7 @@
       .subtabs button:hover:not(.active) { color: var(--ink); }
       .subtabs button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), 0.18); }
       /* PATCHES / SAVES: one block per game, its files under it */
-      .xlist { display: grid; gap: 18px; }
+      .xlist { display: grid; gap: 18px; margin-top: 22px; }
       .xgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; min-width: 0; }
       .xgroup header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
       .xgroup header img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
@@ -287,6 +287,9 @@
       /* retro: one chip per console, with its icon (white on the active dark chip) */
       .retro-systems .chip { display: inline-flex; align-items: center; gap: 7px; }
       .retro-systems .chip img { width: 18px; height: 18px; object-fit: contain; }
+      .pill.sys-pill { display: inline-flex; align-items: center; gap: 5px; }
+      .pill.sys-pill img { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; }
+      .home-row h2 .sys-icon { width: 26px; height: 26px; object-fit: contain; align-self: center; }
       .retro-systems .chip .n { color: var(--secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
       .retro-systems .chip.active .n { color: inherit; opacity: 0.7; }
       button.game { background: none; border: 0; padding: 0; font: inherit; text-align: left; }
@@ -695,12 +698,14 @@
         </div>
 
         <div data-tab-panel="patches" hidden>
+          <h2><span data-i18n="tab.patches"></span><span class="rule"></span><span class="count" id="patches-count">0</span></h2>
           <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="patches-list" aria-busy="true"></div>
           <p class="empty" id="patches-empty" hidden></p>
         </div>
 
         <div data-tab-panel="saves" hidden>
+          <h2><span data-i18n="tab.saves"></span><span class="rule"></span><span class="count" id="saves-count">0</span></h2>
           <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="saves-list" aria-busy="true"></div>
           <p class="empty" id="saves-empty" hidden></p>
@@ -2202,7 +2207,11 @@
           const sub = document.createElement("div"); sub.className = "sub";
           const pill = (text, cls = "") => { const p = document.createElement("span"); p.className = "pill " + cls; p.textContent = text; return p; };
           const sys = systems?.find((s) => s.id === g.system);
-          if (!system && sys) sub.append(pill(nameOf(sys)));
+          if (!system && sys) {
+            const p = pill(nameOf(sys), "sys-pill");
+            if (sys.iconUrl) { const im = document.createElement("img"); im.src = sys.iconUrl; im.alt = ""; im.loading = "lazy"; p.prepend(im); }
+            sub.append(p);
+          }
           if (g.file.endsWith(".m3u")) sub.append(pill(t("retro.discs")));
           if (g.bezel?.hasBezel && !g.bezel.generic) sub.append(pill(t("retro.bezel")));
           meta.append(name, sub);
@@ -2276,7 +2285,9 @@
             }
             rows.replaceChildren(...d.systems.filter((s) => s.games.length).map((s) => {
               const block = document.createElement("div"); block.className = "home-row";
-              const h = document.createElement("h2"); h.textContent = nameOf(s);
+              const h = document.createElement("h2");
+              if (s.iconUrl) { const im = document.createElement("img"); im.className = "sys-icon"; im.src = s.iconUrl; im.alt = ""; im.loading = "lazy"; h.append(im); }
+              h.append(document.createTextNode(nameOf(s)));
               const n = document.createElement("span"); n.className = "row-count"; n.textContent = s.romCount.toLocaleString();
               h.append(n);
               const list = document.createElement("div"); list.className = "recent";
@@ -2355,6 +2366,7 @@
             g.append(head, ...items.map((it) => itemRow(kind, it)));
             return g;
           }));
+          $(kind + "-count").textContent = sorted.reduce((n, items) => n + items.length, 0).toLocaleString();
           $(kind + "-empty").hidden = sorted.length > 0;
           $(kind + "-empty").textContent = t("extras.empty");
           list.setAttribute("aria-busy", "false");
