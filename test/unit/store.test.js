@@ -492,3 +492,15 @@ test("flush() failures (e.g. an unwritable state dir) are caught internally, not
     chmodSync(securityDir, 0o755); // restore so later flushes (incl. the after() hook) succeed
   }
 });
+
+test("dismissing a request that was never approved is saved, so it does not come back after a restart", async () => {
+  const key = "7777000000000000000000000000000000000000000000000000000000007A";
+  store.recordPendingDevice(key, { ip: "198.51.100.7" });
+  await store.shutdown();
+  assert.ok(readPersisted().pending[key], "the request is on disk");
+
+  assert.equal(store.revokeDevice(key), false, "nothing approved was revoked");
+  // No forced flush: the dismissal must schedule its own save.
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(readPersisted().pending[key], undefined);
+});
