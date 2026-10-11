@@ -18,7 +18,7 @@
  */
 import crypto from "crypto";
 import express from "express";
-import { dropboxAppKey, publicBaseUrl } from "../helpers/envs.js";
+import { dropboxAppKey, dropboxRedirectBase, publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 
@@ -57,7 +57,7 @@ function pollTokenOk(session, given) {
 
 /** The address Dropbox sends the phone back to; must be registered in the Dropbox app. */
 export function redirectUriFor(req) {
-  const origin = publicBaseUrl || resolveOrigin(req, null);
+  const origin = dropboxRedirectBase || publicBaseUrl || resolveOrigin(req, null);
   return `${origin}${BRIDGE_PATH}/oauth/dropbox/callback`;
 }
 

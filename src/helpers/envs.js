@@ -250,6 +250,10 @@ const ratingSync = envBool("COOK_RATING_SYNC", true);
 // Dropbox save sync for the Switch client: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
+// The public address Dropbox sends the phone back to (https, registered in the
+// Dropbox app). Only the sign-in callback uses it, so consoles on the LAN keep
+// their LAN addresses, which COOK_PUBLIC_BASE_URL would replace everywhere.
+const dropboxRedirectBase = normalizeBaseUrl(envString("COOK_DROPBOX_REDIRECT_BASE", ""));
 const igdbClientId = envString("COOK_IGDB_CLIENT_ID", "").trim();
 const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
@@ -307,6 +311,7 @@ export {
   ratingsUrl,
   ratingSync,
   dropboxAppKey,
+  dropboxRedirectBase,
   igdbClientId,
   igdbClientSecret,
   devicePairing,
