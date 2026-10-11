@@ -1,4 +1,4 @@
-# CookingFoil — local Switch homebrew shop.
+# CookingFoil: a self-hosted game library server for your own Nintendo Switch.
 # Configure via .env (see .env.example). Mount your game library at ./games.
 services:
   cookingfoil:

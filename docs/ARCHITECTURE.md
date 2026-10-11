@@ -1,6 +1,6 @@
 # Architecture
 
-CookingFoil is one Node.js (Express) process. It watches a game folder, keeps a
+CookingFoil is one Node.js (Express) process. It watches a file folder, keeps a
 cached shop index in memory and on disk, and enriches every title from several
 metadata sources, none of which is required for the shop to work.
 
@@ -20,7 +20,7 @@ clients get a reason code (`deny-reasons.js`) that the admin page explains.
 
 ## The shop index
 
-- `src/meta/shop-cache.js` scans the game folder (fast-glob + chokidar), parses
+- `src/meta/shop-cache.js` scans the file folder (fast-glob + chokidar), parses
   each file name (`filename-parser.js`) and composes two payloads:
   the Tinfoil index (`shop.tfl` / `shop.json`) and the native sections list
   (`/api/shop/sections`, used by CyberFoil and the CookingFoil client).
@@ -39,7 +39,7 @@ announced in `/api/shop/info` → `features`.
 |---|---|---|
 | File name | `filename-parser.js` | Title id, version, content type; always available |
 | blawar/titledb | `titledb-fetcher.js`, `titledb-store.js`, `titledb-versions.js` | Names, descriptions, artwork URLs, release dates, update history, per region and language |
-| Game file (NACP) | `nacp-extractor.js`, `extract-providers/` | Name, publisher and icons (per language) for titles titledb lacks; needs `prod.keys` and nstool |
+| Package file (NACP) | `nacp-extractor.js`, `extract-providers/` | Name, publisher and icons (per language) for titles titledb lacks; needs `prod.keys` and nstool |
 | Nintendo eShop | `eshop-price.js`, `eshop-popularity.js`, `image-cache.js` | Prices, popularity order, artwork (cached) |
 | Steam / IGDB | `rating-sync.js` | Review scores, matched by English name (similarity ≥ 0.9, sequel numbers must agree) |
 | oc-scraper (optional) | `scraper-ratings.js` | Extra review scores |
@@ -57,7 +57,7 @@ labels for `en`, `ko`, `ja`, `zh`.
 ```
 titledb/        region files, update index, popularity, prices, ratings
 extracted/      icons and artwork cache (and per-language icons)
-extracted-meta/ metadata read from game files (safe to edit by hand)
+extracted-meta/ metadata read from the files (safe to edit by hand)
 custom-art/     artwork uploaded on the admin page
 security/       accounts, devices, lockouts, admin TOTP secret
 shop-cache/     the last built shop index

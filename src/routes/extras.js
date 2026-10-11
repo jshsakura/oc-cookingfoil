@@ -2,7 +2,7 @@
  * GET /api/title/:baseTitleId/extras
  *
  * Lists auxiliary files that live alongside a title's game file(s) — mods,
- * patches, zips, readmes, save bundles — which the Tinfoil shop can't install
+ * patches, zips, readmes, save bundles — which Tinfoil can't install
  * but are worth surfacing (and downloading) from the web dashboard. The shop
  * response intentionally omits these (Tinfoil would choke on a .zip), so this
  * is a web-UI-only view.
