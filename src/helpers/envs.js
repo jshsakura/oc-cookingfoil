@@ -255,6 +255,8 @@ const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
+// Save files the shop hands out (a save with everything unlocked, …). Off until this folder exists.
+const savesDir = path.resolve(envString("COOK_SAVES_DIR", "/saves"));
 // Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
 const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "retro")));
 
@@ -301,6 +303,7 @@ export {
   eshopArtwork,
   patchesDir,
   retroDir,
+  savesDir,
   ratingsUrl,
   ratingSync,
   dropboxAppKey,

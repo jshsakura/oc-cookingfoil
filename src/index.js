@@ -36,6 +36,7 @@ import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
 import devicePairRouter from "./routes/device-pair.js";
 import retroRouter from "./routes/retro.js";
+import savesRouter from "./routes/saves.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import * as userPatches from "./meta/user-patches.js";
@@ -150,7 +151,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/retro", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/retro", "/api/saves", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -181,6 +182,9 @@ expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
 expressApp.use("/api/patches", patchesRouter());
+
+// Save files the shop hands out (off until COOK_SAVES_DIR exists).
+expressApp.use("/api/saves", savesRouter());
 
 // Retro games, bezels and the RetroArch base pack (off until COOK_RETRO_DIR exists).
 expressApp.use("/api/retro", retroRouter());

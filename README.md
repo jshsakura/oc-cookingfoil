@@ -37,6 +37,7 @@ Point it at a folder of your `.nsp` / `.nsz` / `.xci` / `.xcz` files and your Sw
 - **Web dashboard.** Browse the library in four languages, with a preview of how the client store will look.
 - **Admin page.** Users, devices, lockouts and refused requests, featured rows, library rescan. Signed in with an authenticator code or an admin password.
 - **Retro games.** Serve ROMs, The Bezel Project overlays and a ready-made RetroArch pack (Korean font, cores, settings) for the CookingFoil client to install in one go. Off until you create the retro folder; see [deploy/README.md](./deploy/README.md#7-optional-extras).
+- **Shop saves.** Hand out save files (say, everything unlocked) for the CookingFoil client to restore into a player's save, after backing up the current one.
 - **User patches.** Serve mods and cheats you collected for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to install and toggle on the SD card.
 
 ## A look around
@@ -120,6 +121,7 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | `GET /api/title/:id?lang=` | Detail: description, screenshots, updates, price, score, localized names and art |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork, `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | User patches as a list and as ustar archives |
+| `GET /api/saves`, `/api/saves/:id/download` | Shop save files as a list and as ustar archives |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | Retro games, bezels and the RetroArch base pack |
 
 A client should read `features` from `/api/shop/info` before using optional fields.
