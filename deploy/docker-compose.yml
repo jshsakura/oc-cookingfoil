@@ -46,3 +46,7 @@ services:
       # User patches (mods, cheats) for the CookingFoil client, read-only:
       # <base title id>/<patch folder>/<SD card layout> + optional patch.json
       - ${PATCHES_DIR:-./patches}:/patches:ro
+      # Retro games for RetroArch (CookingFoil client). Off until the folder
+      # exists; by default it is data/retro. To keep big ROM sets elsewhere,
+      # mount them here and set COOK_RETRO_DIR=/retro:
+      # - /path/to/retro:/retro:ro

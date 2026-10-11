@@ -10,49 +10,17 @@
  * exact, for progress.
  */
 import crypto from "crypto";
-import fs from "fs";
-import { Readable, pipeline } from "stream";
 import express from "express";
-import debug from "../debug.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as titledbStore from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
-import { header, padding, TRAILER, archiveSize } from "../helpers/ustar.js";
+import { sendTar, tarEntries } from "../helpers/tar-stream.js";
+
+export { tarEntries };
 
 const ID_RE = /^[0-9A-F]{16}-[0-9a-f]{12}$/;
-
-/** Directory entries for every parent of the files, then the files. Pure. */
-export function tarEntries(files) {
-  const dirs = new Set();
-  for (const f of files) {
-    const parts = f.path.split("/");
-    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/") + "/");
-  }
-  return [
-    ...[...dirs].sort().map((d) => ({ path: d, dir: true, mtime: 0 })),
-    ...files.map((f) => ({ ...f, dir: false })),
-  ];
-}
-
-async function* archive(entries) {
-  for (const e of entries) {
-    yield header(e);
-    if (e.dir) continue;
-    let sent = 0;
-    if (e.size) {
-      for await (const chunk of fs.createReadStream(e.abs, { start: 0, end: e.size - 1 })) {
-        sent += chunk.length;
-        yield chunk;
-      }
-    }
-    // A file that shrank mid-download would corrupt every later entry.
-    if (sent !== e.size) throw new Error(`${e.path} changed while sending`);
-    yield padding(e.size);
-  }
-  yield TRAILER;
-}
 
 /** The game a patch is for, or null when nothing knows the title. */
 export function gameOf(titleId, origin = "") {
@@ -106,15 +74,7 @@ async function downloadRoute(req, res) {
     res.status(404).json({ error: "no such patch" });
     return;
   }
-  const entries = tarEntries(opened.entries);
-  res.header("Content-Type", "application/x-tar");
-  res.header("Content-Length", String(archiveSize(entries)));
-  res.header("Content-Disposition", `attachment; filename="${id}.tar"`);
-  res.header("ETag", `"${opened.patch.hash}"`);
-  res.header("Cache-Control", "private, no-cache");
-  pipeline(Readable.from(archive(entries)), res, (err) => {
-    if (err && err.code !== "ERR_STREAM_PREMATURE_CLOSE") debug.error("patches: download %s failed: %s", id, err.message);
-  });
+  sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.patch.hash, label: "patches" });
 }
 
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
