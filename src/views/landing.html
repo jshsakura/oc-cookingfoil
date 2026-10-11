@@ -533,7 +533,8 @@
       @media (max-width: 640px) {
         .connect-bar { grid-template-columns: 1fr; }
         .lang-menu { margin-left: auto; }
-        .tabs { order: 3; margin: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .tabs { order: 3; margin: 0; width: 100%; overflow-x: auto; scrollbar-width: none; justify-content: space-between; }
+        .tabs button, .tabs a.tab-link { padding: 6px 10px; }
         .tabs::-webkit-scrollbar { display: none; }
         .subtabs { display: flex; width: 100%; }
         .subtabs button { flex: 1; }
@@ -1563,9 +1564,8 @@
           if (features.includes("shop-saves")) available.add("saves");
           $("retro-tab").hidden = !available.has("retro");
           $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
-          // A link to a view that only now turned out to exist.
-          const asked = tabFromHash(location.hash.slice(1));
-          if (asked && asked !== current && available.has(asked)) showTab(asked);
+          // A link (or the remembered view) that only now turned out to exist.
+          if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
         })
         .catch(() => {});
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
@@ -2405,8 +2405,8 @@
           return b;
         }));
       }
-      function showTab(name) {
-        if (!TAB_HASH[name] || !available.has(name)) name = "games";
+      function showTab(name, remember = true) {
+        if (!TAB_HASH[name] || !available.has(name)) { name = "games"; remember = false; }
         current = name;
         for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== name;
         const group = groupOf(name);
@@ -2415,8 +2415,11 @@
           b.setAttribute("aria-selected", String(b.dataset.tab === group));
         }
         renderSubtabs(name);
-        try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }
-        if (location.hash.slice(1) !== TAB_HASH[name]) history.replaceState(null, "", "#" + TAB_HASH[name]);
+        // A fallback (the asked-for view isn't known yet) leaves the address and the memory alone.
+        if (remember) {
+          try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }
+          if (location.hash.slice(1) !== TAB_HASH[name]) history.replaceState(null, "", "#" + TAB_HASH[name]);
+        }
         // The grid sizes its page from the visible column count.
         if (name === "games") applyFilters();
         if (name === "retro") retro.open();
@@ -2433,7 +2436,9 @@
         if (b) showTab(b.dataset.view);
       });
       window.addEventListener("hashchange", () => showTab(tabFromHash(location.hash.slice(1))));
-      showTab(tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })());
+      // Kept until the features arrive: a retro or saves link can't open before then.
+      const requestedTab = tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })();
+      showTab(requestedTab);
 
       // Turns on its own every six seconds unless the pointer or focus is on it.
       setInterval(() => {
