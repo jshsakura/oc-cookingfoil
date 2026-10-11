@@ -133,7 +133,7 @@
       .subtabs button:hover:not(.active) { color: var(--ink); }
       .subtabs button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), 0.18); }
       /* PATCHES / SAVES: one block per game, its files under it */
-      .xlist { display: grid; gap: 18px; }
+      .xlist { display: grid; gap: 18px; margin-top: 22px; }
       .xgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; min-width: 0; }
       .xgroup header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
       .xgroup header img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
@@ -695,12 +695,14 @@
         </div>
 
         <div data-tab-panel="patches" hidden>
+          <h2><span data-i18n="tab.patches"></span><span class="rule"></span><span class="count" id="patches-count">0</span></h2>
           <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="patches-list" aria-busy="true"></div>
           <p class="empty" id="patches-empty" hidden></p>
         </div>
 
         <div data-tab-panel="saves" hidden>
+          <h2><span data-i18n="tab.saves"></span><span class="rule"></span><span class="count" id="saves-count">0</span></h2>
           <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="saves-list" aria-busy="true"></div>
           <p class="empty" id="saves-empty" hidden></p>
@@ -2355,6 +2357,7 @@
             g.append(head, ...items.map((it) => itemRow(kind, it)));
             return g;
           }));
+          $(kind + "-count").textContent = sorted.reduce((n, items) => n + items.length, 0).toLocaleString();
           $(kind + "-empty").hidden = sorted.length > 0;
           $(kind + "-empty").textContent = t("extras.empty");
           list.setAttribute("aria-busy", "false");
