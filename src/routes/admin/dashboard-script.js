@@ -154,7 +154,7 @@ async function loadLogins(){
     tr.append(td(l.label||'—'),td(l.name,'ip'),td(l.owner==='admin'?'관리자':l.owner+(l.active?'':' (꺼짐)')),k,td(fmt(l.createdAt)));
     const act=td();act.append(btn('폐기',async()=>{if(!confirm(l.name+' 을 폐기합니다. 이 아이디로 접속하던 스위치는 바로 끊깁니다.'))return;
       try{await api('/admin/api/device-logins/'+encodeURIComponent(l.name)+'/revoke',{method:'POST',body:{}});toast('폐기했습니다.');loadLogins();}catch(err){toast(err.message);}},'danger'));
-    tr.append(act);return tr;}),d.enabled?'만든 접속 정보가 없습니다.':'샵 계정이 없어서 비밀번호 접속이 꺼져 있습니다.');}
+    tr.append(act);return tr;}),d.enabled?'만든 접속 정보가 없습니다.':'서버 계정이 없어서 비밀번호 접속이 꺼져 있습니다.');}
 $('add-login').addEventListener('submit',async(e)=>{e.preventDefault();
   try{const c=await api('/admin/api/device-logins',{method:'POST',body:{label:$('login-label').value}});$('login-label').value='';
     showCredential('기기 접속 정보를 만들었습니다',c);loadLogins();}catch(err){toast(err.message);}});

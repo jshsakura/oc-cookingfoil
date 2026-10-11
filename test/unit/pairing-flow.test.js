@@ -211,7 +211,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     r = await fetch(endpoint, { method: "POST", headers: auth, body: "{}" });
     assert.equal(r.status, 409, "replaying the QR must not rotate the key");
     const approvedPage = await (await fetch(page.url, { headers: auth })).text();
-    assert.ok(approvedPage.includes("샵 연결을 승인했습니다."));
+    assert.ok(approvedPage.includes("서버 연결을 승인했습니다."));
     const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
     assert.ok(approved.accessKey);
     assert.ok(!approvedPage.includes(approved.accessKey));
