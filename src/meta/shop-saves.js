@@ -4,7 +4,13 @@
  *
  *   <savesDir>/<base title id>/<save name>/<the save folder's contents>  (+ optional meta.json)
  *
- * meta.json ({ name, description, gameVersion }) is metadata and never ships.
+ * meta.json is metadata and never ships:
+ *
+ *   { name, description, gameVersion?, source?: { name, url? }, ko?: { name?, description? } }
+ *
+ * name and description are the default (English) text; ko holds the Korean
+ * ones, and saves/localize picks by the request's language. source credits
+ * where the save came from.
  * A save with a symlink, a path ustar cannot hold, too many files or too many
  * bytes is left out and only logged.
  *
@@ -35,16 +41,29 @@ export function saveId(titleId, folder) {
   return `${titleId}-${crypto.createHash("sha256").update(folder.normalize("NFC")).digest("hex").slice(0, 12)}`;
 }
 
-/** meta.json fields as trimmed, length-capped strings; anything else dropped. Pure. */
-export function readMeta(raw) {
+const SOURCE_MAX = { name: 120, url: 500 };
+
+/** `raw`'s fields named in `limits` as trimmed, length-capped strings. Pure. */
+function strings(raw, limits) {
   const out = {};
-  for (const [key, max] of Object.entries(FIELD_MAX)) {
+  for (const [key, max] of Object.entries(limits)) {
     const v = raw?.[key];
     if (typeof v === "string" || typeof v === "number") {
       const s = String(v).trim().slice(0, max);
       if (s) out[key] = s;
     }
   }
+  return out;
+}
+
+/** meta.json fields as trimmed, length-capped strings; anything else dropped. Pure. */
+export function readMeta(raw) {
+  const out = strings(raw, FIELD_MAX);
+  const source = strings(raw?.source, SOURCE_MAX);
+  if (source.url && !/^https?:\/\//i.test(source.url)) delete source.url;
+  if (source.name) out.source = source;
+  const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
+  if (Object.keys(ko).length) out.ko = ko;
   return out;
 }
 
@@ -90,6 +109,8 @@ export async function readSave(root, tidDir, folder, cache) {
       name: meta.name ?? folder.normalize("NFC"),
       description: meta.description ?? null,
       gameVersion: meta.gameVersion ?? null,
+      source: meta.source ?? null,
+      ko: meta.ko ?? null,
       size,
       files: files.length,
       updatedAt: Math.floor(Math.max(...all.map((f) => f.mtimeMs)) / 1000),
@@ -164,5 +185,25 @@ export function createCatalog({ root, cacheFile }) {
         throw err;
       }
     },
+  };
+}
+
+const SOURCE_LABEL = { ko: "출처", en: "Source" };
+
+/**
+ * A save as one language sees it: Korean name and description for "ko" when
+ * the save has them, the default (English) text otherwise, with the source
+ * credited on the description's last line. Pure.
+ */
+export function localize(save, lang) {
+  const { ko, ...rest } = save;
+  const own = lang === "ko" ? ko ?? {} : {};
+  const label = SOURCE_LABEL[lang === "ko" ? "ko" : "en"];
+  const credit = save.source ? `${label}: ${[save.source.name, save.source.url].filter(Boolean).join(" ")}` : null;
+  const text = own.description ?? save.description;
+  return {
+    ...rest,
+    name: own.name ?? save.name,
+    description: [text, credit].filter(Boolean).join("\n") || null,
   };
 }

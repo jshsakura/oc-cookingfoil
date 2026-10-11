@@ -5,7 +5,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { readMeta, saveId } from "../../src/meta/shop-saves.js";
+import { localize, readMeta, saveId } from "../../src/meta/shop-saves.js";
 
 const MK = "0100152000022000";
 const PORT = 15400 + (process.pid % 500);
@@ -59,9 +59,25 @@ test("meta.json keeps only known, capped text fields", () => {
   assert.match(saveId(MK, "All Unlocked"), /^0100152000022000-[0-9a-f]{12}$/);
 });
 
+test("a save reads in Korean for ko and in English for every other language", () => {
+  const meta = readMeta({
+    name: "All karts", description: "Every kart and track.",
+    source: { name: "GameBanana", url: "https://gamebanana.com/mods/1" },
+    ko: { description: "모든 카트와 트랙을 엽니다." },
+  });
+  const save = { id: "x", name: "All karts", description: meta.description, source: meta.source, ko: meta.ko };
+  assert.deepEqual(localize(save, "ko"), {
+    id: "x", name: "All karts", source: meta.source,
+    description: "모든 카트와 트랙을 엽니다.\n출처: GameBanana https://gamebanana.com/mods/1",
+  });
+  assert.equal(localize(save, "ja").description, "Every kart and track.\nSource: GameBanana https://gamebanana.com/mods/1", "no Japanese: English");
+  assert.equal(localize({ ...save, ko: null }, "ko").description.split("\n")[0], "Every kart and track.", "no Korean yet: English");
+  assert.deepEqual(readMeta({ source: { name: "x", url: "javascript:alert(1)" } }).source, { name: "x" }, "only web links");
+});
+
 test("the shop lists save files and sends one as a tar rooted at the save folder", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "saves-"));
-  put(dir, `${MK}/All Unlocked/meta.json`, JSON.stringify({ name: "전 차종 언락", description: "모든 카트와 트랙", gameVersion: "3.0.1" }));
+  put(dir, `${MK}/All Unlocked/meta.json`, JSON.stringify({ name: "All karts", description: "Every kart and track", gameVersion: "3.0.1", ko: { name: "전 차종 언락", description: "모든 카트와 트랙" } }));
   put(dir, `${MK}/All Unlocked/save.dat`, "SAVE");
   put(dir, `${MK}/All Unlocked/sub/ghost.bin`, "GHOST");
   put(dir, `${MK}/Empty/.DS_Store`, "junk");
@@ -72,20 +88,22 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
   try {
     assert.equal((await fetch(`${BASE}/api/saves`)).status, 401);
     assert.ok((await (await get("/api/shop/info")).json()).features.includes("shop-saves"));
-    const res = await get("/api/saves");
+    const res = await get("/api/saves?lang=ko");
     const { saves } = await res.json();
     assert.equal(saves.length, 1, "empty, non-base and symlinked saves are left out");
     const [s] = saves;
     assert.equal(s.titleId, MK);
     assert.equal(s.name, "전 차종 언락");
     assert.equal(s.gameVersion, "3.0.1");
+    assert.equal(s.description, "모든 카트와 트랙");
+    assert.equal((await (await get("/api/saves", { "Accept-Language": "en-US" })).json()).saves[0].name, "All karts");
     assert.equal(s.files, 2);
     assert.equal(s.size, 9);
     assert.match(s.hash, /^[0-9a-f]{64}$/);
     assert.equal(s.url, `/api/saves/${s.id}/download`);
     // fetch() adds Cache-Control: no-cache to conditional requests, so ask the way a console does.
     const status = await new Promise((resolve, reject) => {
-      http.get(`${BASE}/api/saves`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag") } }, (r) => {
+      http.get(`${BASE}/api/saves?lang=ko`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag") } }, (r) => {
         r.resume();
         resolve(r.statusCode);
       }).on("error", reject);
