@@ -204,3 +204,16 @@ test("without a retro folder the API is off", async () => {
     server.kill("SIGKILL");
   }
 });
+
+test("NDS, Neo Geo Pocket, WonderSwan and Saturn folders are read under any of their names", async () => {
+  const { systemForFolder } = await import("../../src/retro/systems.js");
+  const systems = loadSystems("/nonexistent");
+  assert.equal(systemForFolder(systems, "NDS"), "nds");
+  assert.equal(systemForFolder(systems, "Nintendo - Nintendo DS"), "nds");
+  assert.equal(systemForFolder(systems, "NGP"), "ngp");
+  assert.equal(systemForFolder(systems, "WSC"), "ws");
+  assert.equal(systemForFolder(systems, "SS"), "saturn");
+  assert.equal(systemForFolder(systems, "Sega - Saturn"), "saturn");
+  assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core on the Switch");
+  assert.equal(systems.nds.core, "melonds");
+});

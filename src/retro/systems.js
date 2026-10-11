@@ -82,6 +82,26 @@ export const DEFAULT_SYSTEMS = {
     extensions: [".iso", ".cso", ".pbp", ".chd"], core: "ppsspp", coreName: "PPSSPP", bezelDir: "PSP",
     folder: "Sony - PlayStation Portable", aliases: ["psp"],
   },
+  nds: {
+    names: { en: "Nintendo DS", ko: "닌텐도 DS", ja: "ニンテンドーDS", zh: "任天堂 DS" },
+    extensions: [".nds", ".zip", ".7z"], core: "melonds", coreName: "melonDS", bezelDir: "NDS",
+    folder: "Nintendo - Nintendo DS", aliases: ["nds", "ds"],
+  },
+  ngp: {
+    names: { en: "Neo Geo Pocket", ko: "네오지오 포켓", ja: "ネオジオポケット", zh: "Neo Geo Pocket" },
+    extensions: [".ngp", ".ngc", ".zip", ".7z"], core: "mednafen_ngp", coreName: "Beetle NeoPop", bezelDir: "NGPC",
+    folder: "SNK - Neo Geo Pocket Color", aliases: ["ngp", "ngpc", "SNK - Neo Geo Pocket"],
+  },
+  ws: {
+    names: { en: "WonderSwan", ko: "원더스완", ja: "ワンダースワン", zh: "WonderSwan" },
+    extensions: [".ws", ".wsc", ".zip", ".7z"], core: "mednafen_wswan", coreName: "Beetle WonderSwan", bezelDir: "WonderSwanColor",
+    folder: "Bandai - WonderSwan Color", aliases: ["ws", "wsc", "wonderswan", "Bandai - WonderSwan"],
+  },
+  saturn: {
+    names: { en: "Sega Saturn", ko: "세가 새턴", ja: "セガサターン", zh: "世嘉土星" },
+    extensions: [".chd", ".cue", ".m3u"], core: "yabause", coreName: "Yabause", bezelDir: "Saturn",
+    folder: "Sega - Saturn", aliases: ["saturn", "ss"],
+  },
   arcade: {
     names: { en: "Arcade", ko: "아케이드", ja: "アーケード", zh: "街机" },
     extensions: [".zip", ".7z"], core: "fbneo", coreName: "FinalBurn Neo", bezelDir: "MAME",

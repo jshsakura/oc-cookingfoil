@@ -108,8 +108,8 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   ```
   `<system>` is RetroArch's name ("Nintendo - Game Boy Advance", "Sony - PlayStation",
   …), a short id (gba, ps1, …) or a common alias (FC, SFC, MD, PS1, PSP), in any case.
-  Supported: NES, SNES, GB, GBC, GBA, N64, Mega Drive, Master System, Game Gear,
-  PC Engine, PlayStation, PSP, arcade (FBNeo).
+  Supported: NES, SNES, GB, GBC, GBA, N64, NDS, Mega Drive, Master System, Game Gear,
+  Saturn, PC Engine, PlayStation, PSP, Neo Geo Pocket, WonderSwan, arcade (FBNeo).
   The server ships none of these; bring your own. `retroarch.nro` goes to
   `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
