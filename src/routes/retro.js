@@ -15,9 +15,10 @@
  *   GET /api/retro/games/:id/boxart              the box art as it is
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
- *   GET /api/retro/base-pack/manifest            { version, files: [{ path, size, sha256, url, once? }] }
+ *   GET /api/retro/base-pack/manifest            { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once? }] }
  *   GET /api/retro/base-pack/file/<sd path>      one pack file (Range works)
- *   GET /api/retro/base-pack                     the whole pack as a tar, SD-root paths
+ *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
+ *                                                X-Retro-Once lists the files to skip when already on the card
  *
  * G = { id, name, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
@@ -37,7 +38,8 @@ import { retroDir, dataDir } from "../helpers/envs.js";
 import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg } from "../retro/bezel-config.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
-import { sendTar } from "../helpers/tar-stream.js";
+import { sendTar, tarEntries } from "../helpers/tar-stream.js";
+import { archiveSize } from "../helpers/ustar.js";
 import { artKey, ensureSquare, prewarm, SQUARE_SIZES } from "../retro/square-art.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -284,6 +286,8 @@ export default function retroRouter() {
     if (req.fresh) return res.status(304).end();
     res.json({
       version: m.version,
+      bundleUrl: "/api/retro/base-pack/bundle",
+      bundleSize: archiveSize(tarEntries(m.files)),
       files: m.files.map((f) => ({ ...f, url: `/api/retro/base-pack/file/${enc(f.path)}` })),
     });
   }));
@@ -297,13 +301,15 @@ export default function retroRouter() {
     sendFile(res, listed.abs);
   }));
 
-  router.get("/base-pack", wrap(async (req, res) => {
+  // One request for the whole pack: thousands of per-file GETs run into the rate limit.
+  router.get(["/base-pack", "/base-pack/bundle"], wrap(async (req, res) => {
     const files = await listPack(packDir());
     if (!files.length) return res.status(404).json({ error: "the base pack is empty" });
     // A tar can't say "only if missing", so name those files for the client to skip.
     res.set("X-Retro-Once", files.filter((f) => f.once).map((f) => f.path).join(","));
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {
       filename: "retroarch-base-pack.tar",
+      etag: manifest?.version,
       label: "retro",
     });
   }));
