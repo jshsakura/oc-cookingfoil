@@ -12,15 +12,19 @@ import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
 
 const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
 
-export const DEFAULT_REGIONS = ["KR.ko", "US.en", "JP.ja", "EU.en", "HK.zh"];
+// titledb names its European English file GB.en; EU.en does not exist upstream.
+export const DEFAULT_REGIONS = ["KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh"];
+const RENAMED = { "EU.en": "GB.en" };
 
 export function getRegionsFromEnv() {
   const raw = process.env.COOK_TITLEDB_REGIONS;
   if (!raw) return DEFAULT_REGIONS;
-  return raw
+  const regions = raw
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((r) => RENAMED[r] ?? r);
+  return [...new Set(regions)];
 }
 
 function regionUrl(region) {
