@@ -5,6 +5,8 @@
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
  *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png)
  *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
+ *                       &minRating=0-100&bezel=1&minSize=&maxSize=  (bytes; bezel=1 keeps games with their own bezel;
+ *                       total counts what the filters left)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
@@ -41,6 +43,7 @@ import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
 import { artKey, ensureSquare, prewarm, SQUARE_SIZES } from "../retro/square-art.js";
+import { listFilter } from "../retro/list-filter.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -215,8 +218,9 @@ export default function retroRouter() {
     const sort = SORTS[req.query.sort] ?? SORTS.name;
     const pageSize = Math.min(PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const keep = listFilter(req.query);
     const matches = cat.games
-      .filter((g) => (!system || g.system === system) && (!search || gameMatches(g, search)))
+      .filter((g) => (!system || g.system === system) && (!search || gameMatches(g, search)) && keep(g))
       .sort(sort);
     res.set("Cache-Control", "private, max-age=0, must-revalidate");
     res.json({
