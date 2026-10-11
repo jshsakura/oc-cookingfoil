@@ -366,7 +366,31 @@
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
       }
       /* capped so a zoomed-in or short window still shows the title and details */
-      .modal .banner { width: 100%; aspect-ratio: 16 / 9; max-height: 34vh; background: var(--hero); background-size: cover; background-position: center; }
+      .modal .banner {
+        position: relative; overflow: hidden; display: grid; place-items: center;
+        width: 100%; aspect-ratio: 16 / 9; max-height: 34vh; background: var(--hero); background-size: cover; background-position: center;
+      }
+      /* No banner: the game's own icon, blurred, behind a quiet "no artwork" mark. */
+      .modal .banner .banner-empty { display: none; }
+      .modal .banner.no-art::before {
+        content: ""; position: absolute; inset: -48px; background: var(--banner-art, none) center / cover;
+        filter: blur(40px) saturate(1.4); opacity: 0.6;
+      }
+      .modal .banner.no-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 12, 14, 0.15), rgba(12, 12, 14, 0.55)); }
+      .modal .banner.no-art .banner-empty {
+        position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        color: rgba(255, 255, 255, 0.82); font: 600 14px var(--font-body); margin-bottom: 28px;
+      }
+      .modal .banner.no-art .banner-empty svg { width: 40px; height: 40px; }
+      /* Opened before the detail arrives: shimmer where it will land. */
+      .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel {
+        background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
+        background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
+      }
+      .modal.loading .banner .banner-empty { display: none; }
+      .modal.loading .modal-meta strong { color: transparent; border-radius: 6px; width: 70%; }
+      .modal .desc-skel { display: block; height: 13px; border-radius: 6px; margin: 0 0 10px; }
+      .modal .desc-skel:last-child { width: 60%; }
       .modal .body { padding: 26px 30px 28px; }
       .modal .modal-head { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 20px; }
       .modal .modal-head .modal-cover { margin-top: -64px; }
@@ -611,7 +635,12 @@
 
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="modal" onclick="event.stopPropagation()">
-        <div class="banner" id="modal-banner"></div>
+        <div class="banner" id="modal-banner">
+          <div class="banner-empty" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
+            <span data-i18n="modal.noImage"></span>
+          </div>
+        </div>
         <div class="body">
           <div class="modal-head">
             <img class="modal-cover" id="modal-cover" alt="" decoding="async">
@@ -750,6 +779,7 @@
           "modal.category": "장르",
           "modal.players": "플레이어",
           "modal.noDesc": "설명이 없습니다.",
+          "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
           "art.head": "아트워크 (직접 올리기)",
           "art.icon": "아이콘",
@@ -873,6 +903,7 @@
           "modal.category": "Category",
           "modal.players": "Players",
           "modal.noDesc": "No description available.",
+          "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
           "art.head": "Artwork (upload your own)",
           "art.icon": "Icon",
@@ -996,6 +1027,7 @@
           "modal.category": "ジャンル",
           "modal.players": "プレイ人数",
           "modal.noDesc": "説明がありません。",
+          "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
           "art.head": "アートワーク (自分でアップロード)",
           "art.icon": "アイコン",
@@ -1119,6 +1151,7 @@
           "modal.category": "類型",
           "modal.players": "玩家人數",
           "modal.noDesc": "沒有說明。",
+          "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
           "art.head": "圖片 (自行上傳)",
           "art.icon": "圖示",
@@ -2049,11 +2082,58 @@
         return u + (u.includes("?") ? "&" : "?") + "_a=" + artVersion;
       }
 
+      function setCover(iconUrl) {
+        const coverEl = $("modal-cover");
+        coverEl.onerror = () => { coverEl.onerror = null; coverEl.src = coverPlaceholder(); };
+        coverEl.src = iconUrl ? bustUrl(iconUrl) : coverPlaceholder();
+      }
+
+      // Show the banner once it has actually loaded; a missing or broken one
+      // falls back to the blurred icon and a "no artwork" mark, never a blank band.
+      function setBanner(bannerUrl, iconUrl) {
+        const box = $("modal-banner");
+        const empty = () => {
+          box.style.backgroundImage = "";
+          box.style.setProperty("--banner-art", iconUrl ? `url('${bustUrl(iconUrl)}')` : "none");
+          box.classList.add("no-art");
+        };
+        box.dataset.want = bannerUrl;
+        if (!bannerUrl) return empty();
+        const img = new Image();
+        img.onload = () => {
+          if (box.dataset.want !== bannerUrl) return;
+          box.classList.remove("no-art");
+          box.style.backgroundImage = `url('${img.src}')`;
+        };
+        img.onerror = () => { if (box.dataset.want === bannerUrl) empty(); };
+        img.src = bustUrl(bannerUrl);
+      }
+
       async function openModal(r) {
         currentModal = r;
         const f = r.item;
         const baseId = (f.baseTitleId || f.titleId || "").toUpperCase();
         const validBase = /^[0-9A-F]{16}$/.test(baseId);
+        const modalEl = document.querySelector("#modal .modal");
+        const iconUrl = f.icon_url || (validBase ? `/api/shop/icon/${baseId}` : "");
+
+        // Open at once with what the row already knows, shimmering where the
+        // detail will land, instead of waiting on the network with nothing shown.
+        modalEl.classList.add("loading");
+        $("modal-title").textContent = cleanName(nameWithAlias(f.name || t("misc.unnamed"), r.tdb?.aliases || []));
+        $("modal-publisher").textContent = r.tdb?.publisher || "\u00a0";
+        setCover(iconUrl);
+        const bannerBox = $("modal-banner");
+        bannerBox.dataset.want = ""; bannerBox.classList.remove("no-art"); bannerBox.style.backgroundImage = "";
+        $("modal-meta").replaceChildren(...Array.from({ length: 8 }, () => {
+          const cell = document.createElement("div");
+          cell.append(document.createElement("span"), Object.assign(document.createElement("strong"), { textContent: "—" }));
+          return cell;
+        }));
+        $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
+        $("modal-screens").innerHTML = ""; $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
+        $("modal-download").href = f.url || "#";
+        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
 
         // Rich metadata (description, publisher, screenshots, release, region,
         // rating, players) lives behind /api/title/:id because the shop
@@ -2076,6 +2156,8 @@
             detailCache.set(baseId + ":" + lang, { art, detail });
           }
         }
+        if (currentModal !== r) return; // another title was opened meanwhile
+        modalEl.classList.remove("loading");
         // detail (server titledb store) wins over the sparse per-row tdb.
         const td = { ...(r.tdb || {}), ...detail };
 
@@ -2084,13 +2166,8 @@
 
         // Title image preview beside the heading — every title gets one. Falls
         // back to the placeholder SVG (never a broken-image glyph) on 404.
-        const coverEl = $("modal-cover");
-        const iconUrl = f.icon_url || (validBase ? `/api/shop/icon/${baseId}` : "");
-        coverEl.onerror = () => { coverEl.onerror = null; coverEl.src = coverPlaceholder(); };
-        coverEl.src = iconUrl ? bustUrl(iconUrl) : coverPlaceholder();
-
         const bannerUrl = td.bannerUrl || (validBase && art.banner ? `/api/shop/banner/${baseId}` : "");
-        $("modal-banner").style.backgroundImage = bannerUrl ? `url('${bustUrl(bannerUrl)}')` : "";
+        setBanner(bannerUrl, iconUrl);
 
         const metaBox = $("modal-meta"); metaBox.innerHTML = "";
         const rows = [
