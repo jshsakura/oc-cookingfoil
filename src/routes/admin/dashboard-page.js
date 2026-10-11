@@ -181,6 +181,7 @@ export function dashboardPage() {
   <h3 id="cred-title"></h3>
   <p class="muted">이 비밀번호는 지금만 볼 수 있습니다. 창을 닫기 전에 전달합니다.</p>
   <div class="cred" id="cred"></div>
+  <p class="muted">CookingFoil 은 설정 파일을 sdmc:/switch/cookingfoil/config.json 에 넣으면 QR 없이 바로 연결합니다. CyberFoil 은 eShop 주소와 사용자·비밀번호를 설정에 입력합니다.</p>
   <div class="dialog-actions">
     <button type="button" id="cred-config">CookingFoil 설정 파일 받기</button>
     <button type="button" class="primary" id="cred-close">닫기</button>

@@ -32,12 +32,10 @@ const NAME_CHARS = 6;
 const PASSWORD_CHARS = 12; // 31^12, about 2^59
 const NAME_RE = new RegExp(`^${NAME_PREFIX}[${ALPHABET}]{${NAME_CHARS}}$`);
 const MAX_LOGINS = 500;
-const SEEN_FLUSH_MS = 5000;
 const VERIFIED_MAX = 500;
 
-const logins = new Map(); // name → { hash, owner, label, createdAt, deviceKey, lastSeenAt, lastIp, lastVersion }
+const logins = new Map(); // name → { hash, owner, label, createdAt, deviceKey } (no IP, no last-seen time)
 const verified = new Set();
-let flushTimer = null;
 
 export class DeviceLoginError extends Error {
   constructor(code, message) {
@@ -66,18 +64,6 @@ function persist() {
   fs.chmodSync(FILE, 0o600);
 }
 
-function flushSoon() {
-  if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    try {
-      persist();
-    } catch (err) {
-      debug.error("device-logins: could not save last-seen: %s", err.message);
-    }
-  }, SEEN_FLUSH_MS);
-  flushTimer.unref?.();
-}
 
 /** Applies a change to memory and disk together, or not at all. */
 function commit(change) {
@@ -102,7 +88,14 @@ function load() {
     // Fail closed rather than silently dropping everyone's revocations.
     throw new Error(`device-logins: cannot read ${FILE} (${err.message}); fix or restore it before starting`);
   }
-  for (const [name, record] of Object.entries(parsed?.logins ?? {})) logins.set(name, record);
+  // Earlier versions also kept each login's IP, last-seen time and client version; they are dropped here.
+  let scrubbed = false;
+  for (const [name, record] of Object.entries(parsed?.logins ?? {})) {
+    const { hash, owner, label, createdAt, deviceKey } = record;
+    logins.set(name, { hash, owner, label, createdAt, deviceKey: deviceKey ?? null });
+    scrubbed ||= Object.keys(record).some((k) => !["hash", "owner", "label", "createdAt", "deviceKey"].includes(k));
+  }
+  if (scrubbed) persist();
 }
 
 /** The owner may still sign in: "admin" always, an account while it is enabled. */
@@ -125,9 +118,6 @@ function publicRow(name, r) {
     label: r.label ?? "",
     createdAt: r.createdAt ?? null,
     deviceKey: r.deviceKey ?? null,
-    lastSeenAt: r.lastSeenAt ?? null,
-    lastIp: r.lastIp ?? null,
-    lastVersion: r.lastVersion ?? null,
     active: ownerActive(r.owner),
   };
 }
@@ -153,9 +143,6 @@ export function create({ owner, label = "" }) {
     label: String(label ?? "").slice(0, 64).trim(),
     createdAt: Date.now(),
     deviceKey: null,
-    lastSeenAt: null,
-    lastIp: null,
-    lastVersion: null,
   }));
   return { name, password };
 }
@@ -199,13 +186,5 @@ export function claim(name, deviceKey) {
   return record.deviceKey === deviceKey ? "ok" : "other-console";
 }
 
-export function recordSeen(name, { ip, version } = {}) {
-  const record = logins.get(name);
-  if (!record) return;
-  record.lastSeenAt = Date.now();
-  if (ip) record.lastIp = ip;
-  if (version) record.lastVersion = version;
-  flushSoon();
-}
 
 load();

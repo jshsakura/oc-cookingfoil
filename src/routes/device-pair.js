@@ -72,9 +72,9 @@ function mountMineApi(router) {
     if (!approver) return res.status(401).json({ error: "sign in first" });
     const devices = store.devicesSnapshot().approved
       .filter((d) => d.addedBy === approver)
-      .map(({ deviceKey, label, addedAt, lastSeenAt }) => ({ deviceKey, label, addedAt, lastSeenAt }));
+      .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt }));
     const logins = deviceLogins.list({ owner: approver })
-      .map(({ name, label, createdAt, lastSeenAt, deviceKey }) => ({ name, label, createdAt, lastSeenAt, locked: Boolean(deviceKey) }));
+      .map(({ name, label, createdAt, deviceKey }) => ({ name, label, createdAt, locked: Boolean(deviceKey) }));
     res.json({ devices, logins });
   });
 

@@ -86,7 +86,8 @@ async function loadStats(){
 let lastCred=null;
 function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=title;
   const box=$('cred');box.replaceChildren();
-  for(const [label,value] of [['서버 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
+  // CyberFoil takes the shop's root as its eShop URL; Tinfoil's File Browser wants shop.tfl.
+  for(const [label,value] of [['CyberFoil eShop 주소',origin+'/'],['Tinfoil 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
     box.append(el('span',label,'muted'),el('span',value,'v'),btn('복사',async()=>{
       try{await navigator.clipboard.writeText(value);toast(label+'를 복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}}));}
   $('cred-dialog').showModal();}
@@ -133,12 +134,12 @@ async function loadDevices(){
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 스위치에 뜬 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 쓰려면 compose 에 COOK_DEVICE_PAIRING=true 를 넣습니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
-  table('pending',['기기 코드','기기 키','마지막 요청','IP',''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)),td(p.lastIp||'—','ip'));
+  table('pending',['기기 코드','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
-  table('devices',['이름','연결한 계정','기기 키','마지막 접속','IP',''],(d.approved||[]).map((a)=>{const tr=el('tr');
+  table('devices',['이름','연결한 계정','기기 키','승인한 날',''],(d.approved||[]).map((a)=>{const tr=el('tr');
     tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy||'—'));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
-    tr.append(k,td(fmt(a.lastSeenAt)),td(a.lastIp||'—','ip'));
+    tr.append(k,td(fmt(a.addedAt)));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('승인 취소',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');}
@@ -148,9 +149,9 @@ $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 스위치 화면의 코드를 다시 확인합니다.':err.message);}});
 async function loadLogins(){
   const d=await api('/admin/api/device-logins');$('add-login').hidden=!d.enabled;
-  table('logins',['이름','아이디','만든 계정','묶인 기기','마지막 접속',''],(d.logins||[]).map((l)=>{const tr=el('tr');
+  table('logins',['이름','아이디','만든 계정','묶인 기기','만든 날',''],(d.logins||[]).map((l)=>{const tr=el('tr');
     const k=td(l.deviceKey?l.deviceKey.slice(0,16)+'…':'아직 접속 전','ip');if(l.deviceKey)k.title=l.deviceKey;
-    tr.append(td(l.label||'—'),td(l.name,'ip'),td(l.owner==='admin'?'관리자':l.owner+(l.active?'':' (꺼짐)')),k,td(fmt(l.lastSeenAt)));
+    tr.append(td(l.label||'—'),td(l.name,'ip'),td(l.owner==='admin'?'관리자':l.owner+(l.active?'':' (꺼짐)')),k,td(fmt(l.createdAt)));
     const act=td();act.append(btn('폐기',async()=>{if(!confirm(l.name+' 을 폐기합니다. 이 아이디로 접속하던 스위치는 바로 끊깁니다.'))return;
       try{await api('/admin/api/device-logins/'+encodeURIComponent(l.name)+'/revoke',{method:'POST',body:{}});toast('폐기했습니다.');loadLogins();}catch(err){toast(err.message);}},'danger'));
     tr.append(act);return tr;}),d.enabled?'만든 접속 정보가 없습니다.':'샵 계정이 없어서 비밀번호 접속이 꺼져 있습니다.');}

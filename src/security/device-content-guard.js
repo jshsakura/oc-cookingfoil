@@ -43,10 +43,7 @@ export default function deviceContentGuard() {
 
     const deviceKey = deviceKeyFromHeaders(req);
     if (deviceKey && !store.isDeviceApproved(deviceKey)) {
-      store.recordPendingDevice(deviceKey, {
-        ip: clientIp(req),
-        version: req.get("Version") || null,
-      });
+      store.recordPendingDevice(deviceKey);
     }
 
     // A client with NO device key can never pair — stock Tinfoil is the case
