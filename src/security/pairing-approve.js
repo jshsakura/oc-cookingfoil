@@ -7,6 +7,19 @@ import * as store from "./store.js";
 import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "./pairing.js";
 import { readPairLink, finishPairLink } from "./pairing-link.js";
 
+/**
+ * Approve a console that just signed in (COOK_DEVICE_AUTO_APPROVE): its key is
+ * staged for its next status poll like a QR approval's.
+ * @returns {boolean} whether it was newly approved
+ */
+export function approveSignedInDevice(deviceKey, addedBy) {
+  if (!deviceKey || store.isDeviceApproved(deviceKey)) return false;
+  const accessKey = generateAccessKey();
+  store.approveDevice(deviceKey, { label: "자동 등록", addedBy, accessKeyHash: hashAccessKey(accessKey) });
+  stageAccessKeyDelivery(deviceKey, accessKey);
+  return true;
+}
+
 /** @returns {"ok" | "expired" | "used"} */
 export function approvePairLink(token, { label = "", addedBy }) {
   const link = readPairLink(token);

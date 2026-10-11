@@ -14,7 +14,8 @@
  */
 import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
-import { unauthorizedMessage } from "../helpers/envs.js";
+import { unauthorizedMessage, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { approveSignedInDevice } from "./pairing-approve.js";
 import * as users from "./users.js";
 import * as deviceLogins from "./device-logins.js";
 import { deviceLoginAllowed } from "./device-login-scope.js";
@@ -128,10 +129,18 @@ export default function authGuard() {
  * A shop account is recorded for the dashboard. A per-device login is held to
  * the shop's content and to the console it is locked to.
  */
+/** COOK_DEVICE_AUTO_APPROVE: a console that signed in is approved without a QR scan. */
+function autoApprove(req, name) {
+  if (!devicePairing || !deviceAutoApprove) return;
+  const deviceKey = deviceKeyFromHeaders(req);
+  if (approveSignedInDevice(deviceKey, name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), name);
+}
+
 function afterSignIn(req, res, next, ip) {
   const name = req.auth?.user;
   if (!deviceLogins.has(name)) {
     store.recordAccess(name, ip);
+    autoApprove(req, name);
     return next();
   }
   if (!deviceLoginAllowed(req)) {
@@ -142,6 +151,7 @@ function afterSignIn(req, res, next, ip) {
     return denyResponse(req, res, { reason: DENY.DEVICE_LOGIN_OTHER_CONSOLE, status: 403, user: name, deviceKey });
   }
   req.deviceLogin = name;
+  autoApprove(req, name);
   // The console signed in with its own login, so it is not waiting for QR approval.
   if (deviceKey && !store.isDeviceApproved(deviceKey)) store.dismissPending(deviceKey);
   next();

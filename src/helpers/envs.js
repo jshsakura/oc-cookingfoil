@@ -271,6 +271,10 @@ const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "re
 // pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
 // basic-auth lane is disabled and an approved device is the sole way in.
 const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
+// With pairing on: a console that signs in with an account or its device login
+// is approved on the spot (no QR scan), and gets its access key on its next
+// pairing poll. Consoles with no sign-in still wait for approval.
+const deviceAutoApprove = envBool("COOK_DEVICE_AUTO_APPROVE", false);
 
 export {
   romsDirPath,
@@ -315,4 +319,5 @@ export {
   igdbClientId,
   igdbClientSecret,
   devicePairing,
+  deviceAutoApprove,
 };
