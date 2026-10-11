@@ -93,7 +93,7 @@ Every setting is an environment variable with the `COOK_` prefix. [`.env.example
 | `COOK_ADMIN_PASSWORD` | _(empty)_ | Admin page password (12+ chars) instead of an authenticator code |
 | `COOK_DEVICE_PAIRING` | `false` | Let CookingFoil client consoles be approved by QR code (CyberFoil and Tinfoil keep using passwords) |
 | `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | Which language's name and description win when merging titledb |
-| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh` | titledb region files to fetch |
+| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 10 fallback regions | titledb region files to fetch |
 | `COOK_RATING_SYNC` | `true` | Steam review scores; add `COOK_IGDB_CLIENT_ID` / `_SECRET` for IGDB |
 | `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | Nintendo eShop data (see below) |
 | `COOK_EXTRACT_ICONS` | `missing` | Read names/icons from game files: `missing`, `all` or `off` |

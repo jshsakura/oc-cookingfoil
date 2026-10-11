@@ -12,8 +12,16 @@ import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
 
 const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
 
-// titledb names its European English file GB.en; EU.en does not exist upstream.
-export const DEFAULT_REGIONS = ["KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh"];
+// The shop's four languages first, then every other region that still adds
+// games of its own (measured 2026-10: 112 base titles, Europe-only releases
+// mostly). Regions merge in language-priority order and a field keeps its
+// first value, so the extra regions only fill gaps; they never replace a name
+// the shop's languages already have. titledb names its European English file
+// GB.en; EU.en does not exist upstream.
+export const DEFAULT_REGIONS = [
+  "KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh", "CN.zh",
+  "AU.en", "NZ.en", "CA.en", "ZA.en", "DE.de", "FR.fr", "ES.es", "IT.it", "RU.ru", "BR.pt",
+];
 const RENAMED = { "EU.en": "GB.en" };
 
 export function getRegionsFromEnv() {
