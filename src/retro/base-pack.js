@@ -1,6 +1,6 @@
 /**
  * The RetroArch base pack: everything a console needs once before it can play,
- * as the operator lays it out under <retro dir>/base-pack/:
+ * as the operator lays it out under <retro dir>/retroarch/ (or base-pack/):
  *
  *   retroarch.nro     → sdmc:/switch/retroarch_switch.nro
  *   retroarch.cfg     → sdmc:/retroarch/retroarch.cfg   (written only if missing)

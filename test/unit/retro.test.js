@@ -31,20 +31,23 @@ function untar(buf) {
 
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-"));
-  put(dir, "roms/snes/Super Mario World (USA).sfc", "SMW");
-  put(dir, "roms/snes/notes.txt", "not a game");
-  put(dir, "roms/snes/Chrono Trigger (USA).sfc", "CT");
-  put(dir, "roms/ps1/Disc Game/Disc Game.cue", 'FILE "Disc Game (Track 1).bin" BINARY\nFILE "../../escape.bin" BINARY\n');
-  put(dir, "roms/ps1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
+  put(dir, "roms/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc", "SMW");
+  put(dir, "roms/Nintendo - Super Nintendo Entertainment System/notes.txt", "not a game");
+  put(dir, "roms/SFC/Chrono Trigger (USA).sfc", "CT");
+  put(dir, "roms/FC/Contra (J).nes", "C");
+  put(dir, "roms/NES/Contra (J).nes", "C2");
+  put(dir, "roms/Wii/Some Game.iso", "unsupported");
+  put(dir, "roms/PS1/Disc Game/Disc Game.cue", 'FILE "Disc Game (Track 1).bin" BINARY\nFILE "../../escape.bin" BINARY\n');
+  put(dir, "roms/PS1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
   put(dir, "roms/gba/.hidden.gba", "x");
-  put(dir, "icons/snes/Super Mario World (USA).png", "PNG");
-  put(dir, "bezels/snes/Super Mario World (USA).png", "BEZEL");
-  put(dir, "bezels/ps1/_default.png", "GENERIC");
-  put(dir, "base-pack/retroarch.nro", "NRO");
-  put(dir, "base-pack/retroarch.cfg", 'user_language = "14"\n');
-  put(dir, "base-pack/cores/snes9x_libretro_libnx.nro", "CORE");
-  put(dir, "base-pack/assets/fonts/korean.ttf", "FONT");
-  put(dir, "base-pack/.DS_Store", "junk");
+  put(dir, "thumbnails/Nintendo - Super Nintendo Entertainment System/Named_Boxarts/Super Mario World (USA).png", "PNG");
+  put(dir, "bezels/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).png", "BEZEL");
+  put(dir, "bezels/Sony - PlayStation/_default.png", "GENERIC");
+  put(dir, "retroarch/retroarch.nro", "NRO");
+  put(dir, "retroarch/retroarch.cfg", 'user_language = "14"\n');
+  put(dir, "retroarch/cores/snes9x_libretro_libnx.nro", "CORE");
+  put(dir, "retroarch/assets/fonts/korean.ttf", "FONT");
+  put(dir, "retroarch/.DS_Store", "junk");
   return dir;
 }
 
@@ -87,14 +90,16 @@ test("systems.json changes a core or adds a system", () => {
 test("the catalog lists games, folds disc tracks into their .cue, and finds art", async () => {
   const dir = fixture();
   const { games, present } = await scanDir(dir);
-  assert.deepEqual([...present].sort(), ["gba", "ps1", "snes"]);
-  assert.deepEqual(games.map((g) => g.name), ["Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)"]);
-  const disc = games[0];
+  assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "official names, short ids and aliases; Wii is not a RetroArch system here");
+  assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)"]);
+  const contras = games.filter((g) => g.system === "nes");
+  assert.notEqual(contras[0].id, contras[1].id, "FC and NES are read together without clashing ids");
+  const disc = games.find((g) => g.system === "ps1");
   assert.deepEqual(disc.extras.map((x) => x.rel), ["Disc Game/Disc Game (Track 1).bin"]);
-  assert.equal(disc.size, fs.statSync(path.join(dir, "roms/ps1/Disc Game/Disc Game.cue")).size + 6);
+  assert.equal(disc.size, fs.statSync(path.join(dir, "roms/PS1/Disc Game/Disc Game.cue")).size + 6);
   assert.equal(disc.bezel.generic, true);
   const smw = games.find((g) => g.name.startsWith("Super"));
-  assert.equal(smw.id, gameId("snes", "Super Mario World (USA).sfc"));
+  assert.equal(smw.id, gameId("snes", "Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc"));
   assert.ok(smw.icon.endsWith(".png"));
   assert.equal(smw.bezel.generic, false);
   assert.equal(games.find((g) => g.name.startsWith("Chrono")).bezel, null);
@@ -136,6 +141,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const { systems } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
     assert.equal(snes.romCount, 2);
+    assert.equal(systems.find((s) => s.id === "nes").romCount, 2);
     assert.equal(snes.defaultCore, "snes9x");
     assert.equal(snes.names.ko, "슈퍼 패미컴 (SNES)");
 

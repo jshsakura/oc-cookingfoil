@@ -46,7 +46,8 @@ const SORTS = {
 
 export const retroEnabled = () => fs.existsSync(retroDir);
 
-const packDir = () => path.join(retroDir, "base-pack");
+// RetroArch itself: <retro dir>/retroarch/ (or base-pack/, the earlier name).
+const packDir = () => (fs.existsSync(path.join(retroDir, "retroarch")) ? path.join(retroDir, "retroarch") : path.join(retroDir, "base-pack"));
 let hashCache = null;
 let manifest = null; // { version, files, sources, builtAt }
 let building = null;

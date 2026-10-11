@@ -96,14 +96,18 @@ rely on the shop's own accounts (and device pairing) on the shop's hostname.
   and set `COOK_RETRO_DIR`):
   ```
   retro/
-  ├── roms/<system>/        nes snes gb gbc gba n64 md sms gg pce ps1 arcade
-  ├── icons/<system>/       <game file name without extension>.png (libretro-thumbnails names work)
-  ├── bezels/<system>/      The Bezel Project: <game>.png (+ .cfg), _default.png for the rest
-  ├── base-pack/            retroarch.nro, retroarch.cfg, cores/, assets/, system/ (BIOS)
-  └── systems.json          optional: change a system's core or add one
+  ├── roms/<system>/                          your games
+  ├── thumbnails/<system>/Named_Boxarts/      box art, libretro-thumbnails layout
+  ├── bezels/<system>/                        The Bezel Project: <game>.png (+ .cfg), _default.png for the rest
+  ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/ (BIOS)
+  └── systems.json                            optional: change a system's core or add one
   ```
+  `<system>` is RetroArch's name ("Nintendo - Game Boy Advance", "Sony - PlayStation",
+  …), a short id (gba, ps1, …) or a common alias (FC, SFC, MD, PS1, PSP), in any case.
+  Supported: NES, SNES, GB, GBC, GBA, N64, Mega Drive, Master System, Game Gear,
+  PC Engine, PlayStation, PSP, arcade (FBNeo).
   The server ships none of these; bring your own. `retroarch.nro` goes to
-  `sdmc:/switch/retroarch_switch.nro`, everything else in `base-pack/` to
+  `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
   PlayStation games are `.chd`, `.pbp`, or a `.cue` with its tracks beside it.
 - **Nintendo eShop data:** prices, popularity and artwork are on by default;
