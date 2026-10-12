@@ -24,6 +24,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { editionOf } from "./edition.js";
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "fbneo-arcade.json");
 const MAX_CHAIN = 4;
@@ -117,6 +118,7 @@ export function applyArcade(games, overrides = null) {
       names: Object.fromEntries(Object.entries(info.names).filter(([, v]) => v)),
       original: info.desc,
       region: regionOf(info.tag),
+      edition: editionOf(info.tag),
       extras,
       size: g.fileSize + extras.reduce((n, x) => n + x.size, 0),
       keepFileName: true,
