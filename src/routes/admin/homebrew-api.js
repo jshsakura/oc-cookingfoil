@@ -14,12 +14,13 @@
  *            description: { custom: { en, ko } | null, github } }
  */
 import * as sources from "../../meta/homebrew-sources.js";
+import * as kinds from "../../meta/homebrew-kinds.js";
 import * as descriptions from "../../meta/homebrew-descriptions.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
 import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
 import debug from "../../debug.js";
 
-const withDescription = ({ repo_description: github, ...s }) => ({ ...s, description: { custom: descriptions.get(s.id), github } });
+const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
 const statuses = () => githubTracker().status().map(withDescription);
 const statusOf = (repo) => statuses().find((s) => s.repo.toLowerCase() === repo.toLowerCase()) ?? null;
 
@@ -42,7 +43,7 @@ export function mountHomebrewApi(router, requireSession) {
     await refreshManual().catch(() => {});
     const followed = new Set(sources.list().map((s) => s.repo.toLowerCase()));
     const manual = (await manualApps()).map(({ id, name, version, author, size, file_name }) => ({
-      id, name, version, author, size, file_name, description: { custom: descriptions.get(id), github: null },
+      id, name, version, author, size, file_name, kind: kinds.kindOf(id), description: { custom: descriptions.get(id), github: null },
     }));
     res.json({
       sources: statuses(),
@@ -95,6 +96,13 @@ export function mountHomebrewApi(router, requireSession) {
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
     descriptions.set(id, { en: req.body?.en, ko: req.body?.ko });
     res.json({ ok: true, custom: descriptions.get(id) });
+  }));
+
+  router.post("/api/homebrew/kind", write(async (req, res) => {
+    const id = String(req.body?.id ?? "");
+    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!kinds.set(id, String(req.body?.kind ?? ""))) return res.status(400).json({ error: "tool 이나 port 여야 합니다" });
+    res.json({ ok: true, kind: kinds.kindOf(id) });
   }));
 
   router.post("/api/homebrew/description/reset", write(async (req, res) => {

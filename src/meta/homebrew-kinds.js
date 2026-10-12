@@ -1,0 +1,41 @@
+/**
+ * What each homebrew app is, set by the admin: "tool" (the default: file
+ * managers, save tools …) or "port" (a program brought over from another
+ * system, which usually comes with its own saves and mods). Kept in
+ * ${COOK_DATA_DIR}/homebrew/kinds.json as { <id>: "port" }; tools are not stored.
+ */
+import fs from "fs";
+import path from "path";
+import { dataDir } from "../helpers/envs.js";
+
+const FILE = path.join(dataDir, "homebrew", "kinds.json");
+const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
+export const KINDS = ["tool", "port"];
+
+let saved = null;
+
+function all() {
+  if (saved) return saved;
+  try {
+    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+    saved = {};
+  }
+  return saved;
+}
+
+/** "tool" or "port". */
+export const kindOf = (id) => (all()[id] === "port" ? "port" : "tool");
+
+/** Sets an app's kind; false for an unknown id or kind. */
+export function set(id, kind) {
+  if (!ID_RE.test(String(id)) || !KINDS.includes(kind)) return false;
+  const { [id]: _old, ...rest } = all();
+  const next = kind === "port" ? { ...rest, [id]: "port" } : rest;
+  fs.mkdirSync(path.dirname(FILE), { recursive: true });
+  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
+  fs.renameSync(`${FILE}.tmp`, FILE);
+  saved = next;
+  return true;
+}

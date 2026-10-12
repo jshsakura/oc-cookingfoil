@@ -75,6 +75,33 @@ export function patchLayout(paths, titleId) {
   return cur;
 }
 
+/** A homebrew app folder name (switch/<app>/), or null. Pure. */
+export function homebrewApp(raw) {
+  const app = String(raw ?? "").trim();
+  return /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/.test(app) ? app : null;
+}
+
+/**
+ * Files for a homebrew app's patch or save, relative to its switch/<app>/
+ * folder. When the upload carries switch/<app>/ (at the top or under wrapper
+ * folders), everything is taken from inside it; otherwise the paths are kept as
+ * they are, less the picked folder's own name for a folder upload. Anything
+ * aimed at another folder of the SD card is refused. Pure.
+ */
+export function homebrewLayout(paths, app, fromFolderPicker = false) {
+  const prefix = `switch/${app.toLowerCase()}/`;
+  let cur = paths;
+  for (let i = 0; i < 4 && cur; i++) {
+    if (cur.every((p) => p.toLowerCase().startsWith(prefix))) return cur.map((p) => p.slice(prefix.length));
+    cur = stripShared(cur);
+  }
+  const plain = fromFolderPicker ? stripShared(paths) ?? paths : paths;
+  // An SD-card folder anywhere in a path (atmosphere/, another app's switch/<x>/) means it aims elsewhere.
+  const stray = paths.find((p) => /(^|\/)(atmosphere|bootloader)\//i.test(p) || /(^|\/)switch\/[^/]+\//i.test(p));
+  if (stray) throw bad(`이 앱(switch/${app}/) 밖의 경로입니다: ${stray}`);
+  return plain;
+}
+
 /** Save files: one wrapper folder (a zip of the save folder) is peeled off. Pure. */
 export function saveLayout(paths, fromFolderPicker) {
   if (fromFolderPicker) return stripShared(paths) ?? paths;

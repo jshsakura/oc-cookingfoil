@@ -1,5 +1,8 @@
 /**
  * GET /api/patches                 every user patch  { patches: [P…] }, with ETag.
+ *                                  A homebrew app's patch has title_id null and
+ *                                  `homebrew` (its switch/<app>/ folder name); its
+ *                                  files all go under switch/<app>/.
  *                                  Each P carries `game` { name, names, icon } when
  *                                  titledb or the game's own file knows the title,
  *                                  so a client can label patches for games it doesn't list.
@@ -19,7 +22,7 @@ import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 
 export { tarEntries, gameOf };
 
-const ID_RE = /^[0-9A-F]{16}-[0-9a-f]{12}$/;
+const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
 async function listRoute(req, res) {
   let listing;
@@ -35,7 +38,7 @@ async function listRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);
   const body = JSON.stringify({
     patches: listing.map((p) => {
-      const game = gameOf(p.title_id, origin);
+      const game = p.title_id ? gameOf(p.title_id, origin) : null;
       return game ? { ...p, game } : p;
     }),
   });

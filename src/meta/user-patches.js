@@ -3,6 +3,11 @@
  * for a client to install onto the SD card and switch on and off.
  *
  *   <patchesDir>/<base title id>/<patch folder>/<SD root layout>  (+ optional patch.json)
+ *   <patchesDir>/homebrew/<app>/<patch folder>/<files of switch/<app>/>
+ *
+ * A homebrew app's patch (a port's mods, say) holds files relative to its
+ * switch/<app>/ folder; it is listed with `homebrew: <app>` and no title id,
+ * and its archive puts every file under switch/<app>/.
  *
  * Every file must sit under a path the patch's own game owns; one stray file
  * (or a symlink, or a path ustar cannot hold) drops the whole patch from the
@@ -41,6 +46,15 @@ const fileHashes = new Map(); // abs path → { key, hash }
 let touched = null; // abs paths hashed by the scan in progress
 
 const isBase = (tid) => TITLE_ID_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
+
+const HOMEBREW_DIR = "homebrew";
+const APP_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/;
+const short = (s) => crypto.createHash("sha256").update(s.normalize("NFC")).digest("hex").slice(0, 12);
+
+/** "hb-<app hash>-<folder hash>" for a homebrew app's patch. Pure. */
+export function homebrewPatchId(app, folder) {
+  return `hb-${short(app.toLowerCase())}-${short(folder)}`;
+}
 
 /** "0100…000-1a2b3c4d5e6f": the title id and a hash of the folder name. Pure. */
 export function patchId(titleId, folder) {
@@ -133,7 +147,45 @@ async function readMetaFile(file, label) {
  * Reads one patch folder: its listing entry plus `entries`, the files to ship
  * (absolute path, SD path, size, mtime). Throws Rejected when it breaks a rule.
  */
+/** A homebrew app's patch: every file goes under switch/<app>/. */
+async function readHomebrewPatch(root, app, folder) {
+  const label = `${HOMEBREW_DIR}/${app}/${folder}`;
+  const all = await walk(path.join(root, HOMEBREW_DIR, app, folder));
+  const metaFile = all.find((f) => f.path === META_FILE);
+  const files = all.filter((f) => f !== metaFile).map((f) => ({ ...f, path: `switch/${app}/${f.path}` })).sort((a, b) => (a.path < b.path ? -1 : 1));
+  if (!files.length) throw new Rejected("no files");
+  for (const f of files) {
+    if (f.path.split("/").some((p) => !p || p === "." || p === "..")) throw new Rejected(`bad path: ${f.path}`);
+    if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
+  }
+  const meta = metaFile ? await readMetaFile(metaFile, label) : {};
+  const content = crypto.createHash("sha256");
+  for (const f of files) content.update(`${f.path}\0${await hashFile(f)}\n`);
+  return {
+    patch: {
+      id: homebrewPatchId(app, folder),
+      title_id: null,
+      homebrew: app,
+      name: meta.name ?? folder.normalize("NFC"),
+      version: meta.version ?? null,
+      game_version: meta.game_version ?? null,
+      author: meta.author ?? null,
+      description: meta.description ?? null,
+      kinds: ["homebrew"],
+      files: files.length,
+      size: files.reduce((n, f) => n + f.size, 0),
+      updated_at: Math.floor(Math.max(...all.map((f) => f.mtimeMs)) / 1000),
+      hash: content.digest("hex"),
+    },
+    dir: `${HOMEBREW_DIR}/${app}`,
+    folder,
+    entries: files.map((f) => ({ abs: f.abs, path: f.path, size: f.size, mtime: f.mtimeMs / 1000 })),
+  };
+}
+
 export async function readPatch(root, tidDir, folder) {
+  if (tidDir.startsWith(`${HOMEBREW_DIR}/`)) return readHomebrewPatch(root, tidDir.slice(HOMEBREW_DIR.length + 1), folder);
   const titleId = tidDir.toUpperCase();
   const label = `${tidDir}/${folder}`;
   const all = await walk(path.join(root, tidDir, folder));
@@ -186,6 +238,19 @@ async function subdirs(dir) {
 export async function scanDir(root) {
   const out = [];
   for (const tidDir of await subdirs(root)) {
+    if (tidDir === HOMEBREW_DIR) {
+      for (const app of (await subdirs(path.join(root, HOMEBREW_DIR))).filter((a) => APP_RE.test(a))) {
+        for (const folder of await subdirs(path.join(root, HOMEBREW_DIR, app))) {
+          try {
+            out.push({ ...(await readHomebrewPatch(root, app, folder)).patch, dir: `${HOMEBREW_DIR}/${app}`, folder });
+          } catch (err) {
+            if (!(err instanceof Rejected)) throw err;
+            debug.error("patches: homebrew/%s/%s left out: %s", app, folder, err.message);
+          }
+        }
+      }
+      continue;
+    }
     if (!isBase(tidDir.toUpperCase())) {
       debug.log("patches: skipping %s (not a base title id)", tidDir);
       continue;
@@ -199,7 +264,7 @@ export async function scanDir(root) {
       }
     }
   }
-  return out.sort((a, b) => a.title_id.localeCompare(b.title_id) || a.name.localeCompare(b.name));
+  return out.sort((a, b) => (a.title_id ?? `~${a.homebrew}`).localeCompare(b.title_id ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 }
 
 /** Thrown by list() while the very first scan, with nothing saved yet, is still running. */
