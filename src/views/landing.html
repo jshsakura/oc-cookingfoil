@@ -1588,7 +1588,12 @@
       let session = null;
       fetch("/auth/me", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { session = d; $("logout-link").hidden = !d; })
+        .then((d) => {
+          session = d;
+          $("logout-link").hidden = !d;
+          // Only admin accounts can open the admin page; don't offer it to the others.
+          if (d && !d.admin) $("admin-link").hidden = true;
+        })
         .catch(() => {});
       $("logout-link").addEventListener("click", async (e) => {
         e.preventDefault();

@@ -15,9 +15,11 @@ import {
 } from "../../helpers/envs.js";
 import pkg from "../../package.js";
 import debug from "../../debug.js";
+import { isSelf } from "../../security/admin-actor.js";
 
 const USER_ERROR_STATUS = {
-  "invalid-name": 400, "weak-password": 400, "not-found": 404, exists: 409, "last-user": 409,
+  "invalid-name": 400, "weak-password": 400, "invalid-role": 400, "not-found": 404, exists: 409, "last-user": 409,
+  "last-admin": 409, self: 409,
   "invalid-featured": 400,
 };
 const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
@@ -39,6 +41,18 @@ function sameOrigin(req, res) {
   if (!origin || origin === resolveOrigin(req, publicBaseUrl)) return true;
   res.status(403).json({ error: "origin mismatch" });
   return false;
+}
+
+class SelfError extends Error {
+  constructor() {
+    super("You can't disable, demote or remove the account you are signed in with.");
+    this.code = "self";
+  }
+}
+
+/** An admin never locks themselves out (the one exception: emptying the server, which opens it). */
+function notSelf(req, name, { emptying = false } = {}) {
+  if (isSelf(req, "password", name) && !emptying) throw new SelfError();
 }
 
 function userError(res, err) {
@@ -66,7 +80,7 @@ export function mountManageApi(router, guard) {
   // The plaintext password is returned exactly once, so the operator can hand
   // it to the person; only its hash is kept.
   router.post("/api/users", change((req, res) => {
-    const created = users.add(String(req.body?.name ?? "").trim(), req.body?.password || undefined);
+    const created = users.add(String(req.body?.name ?? "").trim(), req.body?.password || undefined, req.body?.role === "admin" ? "admin" : "user");
     debug.log("admin: added user %s", created.name);
     res.status(201).json(created);
   }));
@@ -77,13 +91,23 @@ export function mountManageApi(router, guard) {
     res.json(updated);
   }));
 
+  router.post("/api/users/:name/role", change((req, res) => {
+    const role = String(req.body?.role ?? "");
+    if (role !== "admin") notSelf(req, req.params.name);
+    users.setRole(req.params.name, role);
+    debug.log("admin: %s is now %s", req.params.name, role);
+    res.json({ ok: true });
+  }));
+
   router.post("/api/users/:name/enabled", change((req, res) => {
+    if (req.body?.enabled !== true) notSelf(req, req.params.name);
     users.setEnabled(req.params.name, req.body?.enabled === true);
     debug.log("admin: %s user %s", req.body?.enabled === true ? "enabled" : "disabled", req.params.name);
     res.json({ ok: true });
   }));
 
   router.delete("/api/users/:name", change((req, res) => {
+    notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });
     debug.log("admin: removed user %s", req.params.name);
     res.json({ ok: true });

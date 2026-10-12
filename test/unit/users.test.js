@@ -61,11 +61,11 @@ test("password reset, disable and remove take effect immediately, even for a cac
     users.setEnabled("a", false);
     const disabled = users.verify("a", reset.password);
     users.setEnabled("a", true);
-    users.remove("a", { allowEmpty: true });
+    users.remove("a");
     const removed = users.verify("a", reset.password);
-    return { first, oldAfterReset, newOk, disabled, removed, left: users.hasUsers() };
-  `, { COOK_AUTH_USERS: "a:first-pass-1" });
-  assert.deepEqual(out, { first: true, oldAfterReset: false, newOk: true, disabled: false, removed: false, left: false });
+    return { first, oldAfterReset, newOk, disabled, removed, left: users.list().map((u) => u.name) };
+  `, { COOK_AUTH_USERS: "a:first-pass-1,b:second-pass-1" });
+  assert.deepEqual(out, { first: true, oldAfterReset: false, newOk: true, disabled: false, removed: false, left: ["b"] });
 });
 
 test("names and passwords that would break basic auth are refused", () => {
@@ -85,7 +85,7 @@ test("names and passwords that would break basic auth are refused", () => {
 test("list never exposes password hashes", () => {
   const { out } = run(`return users.list();`, { COOK_AUTH_USERS: "a:first-pass-1" });
   assert.equal(out.length, 1);
-  assert.deepEqual(Object.keys(out[0]).sort(), ["createdAt", "enabled", "name", "updatedAt"]);
+  assert.deepEqual(Object.keys(out[0]).sort(), ["createdAt", "enabled", "name", "role", "updatedAt"]);
 });
 
 test("the last account cannot be removed by accident, because that opens the server", () => {
@@ -118,4 +118,31 @@ test("a users file without a users object refuses to start instead of opening th
   mkdirSync(path.join(dataDir, "security"), { recursive: true });
   writeFileSync(path.join(dataDir, "security", "users.json"), JSON.stringify({ version: 1 }));
   assert.throws(() => run(`return users.hasUsers();`, { COOK_DATA_DIR: dataDir }));
+});
+
+test("accounts are admins or users; the last enabled admin stays", () => {
+  const { out } = run(`
+    const codes = [];
+    const tryIt = (fn) => { try { fn(); codes.push(null); } catch (e) { codes.push(e.code); } };
+    const roles = () => Object.fromEntries(users.list().map((u) => [u.name, u.role]));
+    const before = roles();
+    users.add("newbie", "long-enough-1");
+    const first = users.add("x", "long-enough-2", "admin").role;
+    tryIt(() => users.setRole("old", "user"));      // others are admins too: fine
+    tryIt(() => users.setRole("x", "user"));        // x was the last admin
+    tryIt(() => users.setEnabled("x", false));
+    tryIt(() => users.remove("x"));
+    tryIt(() => users.setRole("x", "boss"));
+    return { before, after: roles(), first, codes, isAdmin: [users.isAdmin("x"), users.isAdmin("newbie")] };
+  `, { COOK_AUTH_USERS: "old:pw-old-123" });
+  assert.deepEqual(out.before, { old: "admin" }, "accounts from before roles keep the admin page");
+  assert.deepEqual(out.after, { old: "user", newbie: "user", x: "admin" }, "new accounts are regular users unless asked");
+  assert.equal(out.first, "admin");
+  assert.deepEqual(out.codes, [null, "last-admin", "last-admin", "last-admin", "invalid-role"]);
+  assert.deepEqual(out.isAdmin, [true, false]);
+});
+
+test("the very first account is an admin whatever was asked", () => {
+  const { out } = run(`return users.add("solo", "long-enough-1", "user").role;`);
+  assert.equal(out, "admin");
 });

@@ -167,6 +167,9 @@ function autoApprove(req, name) {
 
 function afterSignIn(req, res, next, ip) {
   const name = req.auth?.user;
+  // A console signing in with a password still counts as seen.
+  const seenKey = deviceKeyFromHeaders(req);
+  if (seenKey) store.touchDevice(seenKey);
   if (!deviceLogins.has(name)) {
     store.recordAccess(name, ip);
     autoApprove(req, name);

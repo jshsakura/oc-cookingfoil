@@ -106,7 +106,7 @@ export function sessionAccount(req) {
 /**
  * Who is signed in to the web pages, or null:
  *   { kind: "password", name, approver: name }
- *   { kind: "google", email, approver: "google:<email>" }   (approved accounts only)
+ *   { kind: "google", sub, email, approver: "google:<email>" }   (approved accounts only)
  */
 export function webUser(req) {
   const v = unseal(cookies(req)[SESSION_COOKIE]);
@@ -115,7 +115,7 @@ export function webUser(req) {
     return stamp && stamp === v.s ? { kind: "password", name: v.user, approver: v.user } : null;
   }
   const a = v?.sub ? accounts.get(v.sub) : null;
-  return a?.status === "approved" ? { kind: "google", email: a.email, approver: `google:${a.email}` } : null;
+  return a?.status === "approved" ? { kind: "google", sub: a.sub, email: a.email, approver: `google:${a.email}` } : null;
 }
 
 /** This browser's CSRF token, minted (and set as a cookie) on first use. */

@@ -273,7 +273,8 @@ test("approveDevice on a brand-new device stores label/addedBy/hash and audits i
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
   assert.equal(approved.label, "kid switch");
   assert.equal(approved.addedBy, "admin");
-  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "deviceKey", "label"], "no IP, last-seen time or version");
+  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "deviceKey", "label", "lastSeenAt"], "no IP or version");
+  assert.equal(approved.lastSeenAt, null, "not seen since this start");
 
   const kinds = store.snapshot().audit.map((a) => a.kind);
   assert.ok(kinds.includes("device-approve"));
@@ -476,8 +477,12 @@ test("load() drops the IP, last-seen time and version older versions kept for co
   }));
   await store.load();
   const snap = store.devicesSnapshot();
-  assert.deepEqual(snap.approved[0], { deviceKey: DK1, label: "tv", addedAt: 1, addedBy: "admin" });
+  assert.deepEqual(snap.approved[0], { deviceKey: DK1, label: "tv", addedAt: 1, addedBy: "admin", lastSeenAt: null }, "the old last-seen time isn't brought back");
   assert.deepEqual(snap.pending[0], { deviceKey: DK2, firstSeenAt: 1, lastSeenAt: 2 });
+  // A console seen now shows on the admin page, but its last-seen time stays in memory.
+  store.touchDevice(DK1);
+  assert.ok(store.devicesSnapshot().approved[0].lastSeenAt > 0);
   await store.shutdown();
   assert.ok(!readFileSync(STATE_PATH, "utf8").includes("203.0.113"), "the old addresses are gone from disk");
+  assert.equal(readPersisted().devices[DK1].lastSeenAt, undefined, "last-seen never reaches the disk");
 });

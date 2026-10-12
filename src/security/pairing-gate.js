@@ -30,6 +30,7 @@ export default function pairingGate() {
     const hash = store.getDeviceAccessKeyHash(deviceKey);
     if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) {
       req.pairedDevice = deviceKey;
+      store.touchDevice(deviceKey);
       return next();
     }
 

@@ -23,7 +23,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .apptabs a:hover{color:var(--text)}.apptabs a[aria-current="page"]{background:var(--text);color:var(--bg)}
 .tfa{display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:22px}
 .tfa .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.tfa-setup{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.tfa-setup{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}.tfa-setup[hidden]{display:none}
 .tfa-qr{width:180px;height:180px;background:#fff;border-radius:12px;padding:6px}.tfa-qr svg{width:100%;height:100%;display:block}
 .tfa-key{font-family:ui-monospace,monospace;font-size:15px;letter-spacing:1px;word-break:break-all;background:var(--sunk);border-radius:10px;padding:10px 12px}
 @media(max-width:640px){.tfa-setup{grid-template-columns:1fr}}
@@ -88,7 +88,34 @@ dialog h3{margin:0 0 6px;font-size:18px}
 .fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fgames button{padding:4px 9px}
 .fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
-@media (max-width:640px){th:nth-child(n+4),td:nth-child(n+4):not(:last-child){display:none}}
+h2.first{margin-top:0}
+form.add select{flex:none}
+.logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
+.logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
+.logs-list details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.logs-list summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.logs-list summary span{color:var(--muted);font-weight:500;font-size:12px}
+.logs-list button{display:flex;width:100%;justify-content:space-between;margin-top:6px;padding:7px 10px;font-weight:500}
+.logs-list button[aria-pressed="true"]{border-color:var(--accent);background:rgba(var(--accent-rgb),.14)}
+.logs-body{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.logs-body pre{margin:0;padding:14px;min-height:220px;max-height:520px;overflow:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
+.me{margin-left:6px}
+/* Phones: tables turn into one card per row, each cell labelled. */
+@media (max-width:640px){
+body{padding:16px 12px 48px}header{margin-bottom:14px}.apptabs{order:3;margin-right:0}
+nav.tabs{margin:0 -12px 18px;border-radius:0;border-left:0;border-right:0;padding:6px 12px;scrollbar-width:none}
+nav.tabs a{padding:9px 14px}
+form.add input,form.add select,form.add button{flex:1 1 100%}
+.logs-view{grid-template-columns:1fr}
+table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
+tr:first-child:has(th){display:none}
+tr{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:6px 0}
+td{border:0;padding:6px 14px;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
+td::before{content:attr(data-label);color:var(--muted);font-size:12px}
+td[data-label=""]{grid-template-columns:1fr}td[data-label=""]::before{display:none}
+td .row-actions button{flex:1 1 auto}
+}
 `;
 
 
@@ -109,7 +136,8 @@ export function dashboardPage() {
   <a href="#overview" data-tab="overview">개요</a>
   <a href="#users" data-tab="users">사용자<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices">기기<span class="count" id="pending-count" hidden></span></a>
-  <a href="#security" data-tab="security">보안<span class="count" id="lock-count" hidden></span></a>
+  <a href="#settings" data-tab="settings">설정</a>
+  <a href="#logs" data-tab="logs">로그<span class="count" id="lock-count" hidden></span></a>
   <a href="#featured" data-tab="featured">추천</a>
   <a href="#library" data-tab="library">라이브러리</a>
   <a href="#upload" data-tab="upload">업로드</a>
@@ -123,25 +151,15 @@ export function dashboardPage() {
 </section>
 
 <section id="tab-users" hidden>
+  <h2 class="first">계정</h2>
   <form class="add" id="add-user">
     <input id="new-name" autocomplete="off" placeholder="사용자 이름 (영문, 숫자, . _ -)" aria-label="사용자 이름" required maxlength="32">
     <input id="new-pass" type="password" autocomplete="new-password" placeholder="비밀번호 (비우면 자동 생성)" aria-label="비밀번호" maxlength="128">
+    <select id="new-role" aria-label="역할"><option value="user">일반 사용자</option><option value="admin">관리자</option></select>
     <button class="primary" type="submit">사용자 추가</button>
   </form>
-  <p class="muted">CyberFoil 과 Tinfoil 은 이 계정으로 접속합니다. 비밀번호는 만들거나 재발급할 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>
+  <p class="muted">웹은 이 계정으로 /login 에서 로그인하고, CyberFoil 과 Tinfoil 은 같은 아이디와 비밀번호로 접속합니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>
   <div class="scroll" id="users"></div>
-  <h2>구글 로그인 설정</h2>
-  <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
-  <form class="add google-form" id="google-form" autocomplete="off">
-    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
-    <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
-    <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
-    <button class="primary" type="submit">저장</button>
-    <button type="button" id="g-clear" class="danger">키 지우기</button>
-  </form>
-  <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
-  <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
-  <p class="muted" id="g-status"></p>
   <h2>구글 로그인 계정</h2>
   <p class="muted" id="accounthint"></p>
   <div class="scroll" id="accounts"></div>
@@ -165,8 +183,20 @@ export function dashboardPage() {
   <div class="scroll" id="logins"></div>
 </section>
 
-<section id="tab-security" hidden>
-  <div class="hd"><h2>관리자 로그인</h2></div>
+<section id="tab-settings" hidden>
+  <h2>구글 로그인 설정</h2>
+  <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
+  <form class="add google-form" id="google-form" autocomplete="off">
+    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
+    <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
+    <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
+    <button class="primary" type="submit">저장</button>
+    <button type="button" id="g-clear" class="danger">키 지우기</button>
+  </form>
+  <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
+  <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
+  <p class="muted" id="g-status"></p>
+  <div class="hd"><h2>관리 페이지 2단계 인증</h2></div>
   <div class="tfa" id="tfa">
     <p id="tfa-status" class="muted">불러오고 있습니다</p>
     <div class="row" id="tfa-actions"></div>
@@ -182,6 +212,16 @@ export function dashboardPage() {
         </div>
       </div>
     </div>
+  </div>
+  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에도 관리자 비밀번호나 인증 앱 코드를 한 번 더 묻습니다.</p>
+</section>
+
+<section id="tab-logs" hidden>
+  <div class="hd"><h2>클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
+  <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 스위치마다 최근 50개를 남깁니다.</p>
+  <div class="logs-view">
+    <div class="logs-list" id="cl-list"></div>
+    <div class="logs-body"><div class="logs-head" id="cl-head">왼쪽에서 기록을 고릅니다.</div><pre id="cl-text" tabindex="0"></pre></div>
   </div>
   <div class="hd"><h2>차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
   <div class="scroll" id="lockouts"></div>

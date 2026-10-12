@@ -33,6 +33,9 @@ import * as users from "../security/users.js";
 import * as deviceLogins from "../security/device-logins.js";
 import { mountManageApi } from "./admin/manage-api.js";
 import { mountAccountsApi } from "./admin/accounts-api.js";
+import { mountClientLogsApi } from "./admin/client-logs-api.js";
+import { adminActor, mayAdminister } from "../security/admin-actor.js";
+import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import {
@@ -77,13 +80,14 @@ function buildUserRows() {
   const byUser = new Map(access.map((a) => [a.user, a]));
   // Configured users first (so never-seen accounts still show), then any
   // historical user that has since been removed.
-  const rows = users.list().map(({ name: user, enabled }) => {
+  const rows = users.list().map(({ name: user, enabled, role }) => {
     const a = byUser.get(user);
     byUser.delete(user);
     return {
       user,
       configured: true,
       enabled,
+      role,
       lastAt: a?.lastAt ?? null,
       firstAt: a?.firstAt ?? null,
       count: a?.count ?? 0,
@@ -105,6 +109,14 @@ function pendingKeyForCode(raw) {
 export default function adminPageRouter() {
   const router = express.Router();
   router.use(express.json());
+  // Admin accounts only; a regular account is told to sign in as an admin.
+  router.use((req, res, next) => {
+    if (mayAdminister(req)) return next();
+    recordDeny(req, { reason: DENY.ADMIN_NO_SESSION, status: 403 });
+    res.set("Cache-Control", "no-store");
+    if (req.path.startsWith("/api/")) return res.status(403).json({ error: "admin accounts only" });
+    res.status(403).type("html").send(forbiddenPage());
+  });
 
   router.get("/pair/:token", (req, res) => {
     res.set({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" });
@@ -181,6 +193,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     res.json({
       generatedAt: Date.now(),
+      me: adminActor(req),
       lanes,
       warnings: configWarnings(lanes),
       users: userRows,
@@ -233,7 +246,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode) });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), since: Date.now() - Math.round(process.uptime() * 1000) });
   });
 
   router.post("/api/devices/approve", (req, res) => {
@@ -290,6 +303,13 @@ export default function adminPageRouter() {
     }
   });
 
+  router.post("/api/devices/label", (req, res) => {
+    if (!requireSession(req, res)) return;
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey || !store.renameDevice(deviceKey, req.body?.label)) return res.status(404).json({ error: "no such device" });
+    res.json({ ok: true });
+  });
+
   router.post("/api/devices/revoke", (req, res) => {
     if (!requireSession(req, res)) return;
     const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
@@ -304,6 +324,7 @@ export default function adminPageRouter() {
 
   mountManageApi(router, requireSession);
   mountAccountsApi(router, requireSession);
+  mountClientLogsApi(router, requireSession);
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
 

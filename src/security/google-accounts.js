@@ -1,7 +1,8 @@
 /**
  * Accounts that sign in with Google. Joining is by approval: the first sign-in
  * leaves the account "pending" until the admin approves it from /admin. The
- * owner's own address (COOK_ADMIN_EMAIL) is approved on its first sign-in.
+ * owner's own address (COOK_ADMIN_EMAIL) is approved, as an admin, on its first
+ * sign-in. Other accounts are regular users until the admin makes them admins.
  *
  * Only what is needed to tell accounts apart is kept: Google's account id
  * (`sub`) and the verified email. Stored in ${COOK_DATA_DIR}/security/google-accounts.json.
@@ -14,6 +15,7 @@ const DIR = path.join(dataDir, "security");
 const FILE = path.join(DIR, "google-accounts.json");
 const MAX_ACCOUNTS = 1000;
 export const STATUSES = ["pending", "approved", "disabled"];
+export const ROLES = ["admin", "user"];
 
 const accounts = new Map(); // sub → { sub, email, status, createdAt, approvedAt?, lastAt }
 
@@ -60,7 +62,7 @@ export function signIn({ sub, email }, now = Date.now()) {
   if (known) return put({ ...known, email, lastAt: now });
   if (accounts.size >= MAX_ACCOUNTS) return null;
   const owner = isOwner(email);
-  return put({ sub, email, status: owner ? "approved" : "pending", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
+  return put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
 }
 
 export function get(sub) {
@@ -72,10 +74,23 @@ export function isApproved(sub) {
   return accounts.get(sub)?.status === "approved";
 }
 
+/** An approved account the admin made an admin: it may open /admin. */
+export function isAdmin(sub) {
+  const a = accounts.get(sub);
+  return a?.status === "approved" && a.role === "admin";
+}
+
+export function setRole(sub, role) {
+  const a = accounts.get(sub);
+  if (!a || !ROLES.includes(role)) return false;
+  put({ ...a, role });
+  return true;
+}
+
 /** Every account, waiting ones first, then by email. */
 export function list() {
   const rank = { pending: 0, approved: 1, disabled: 2 };
-  return [...accounts.values()].map((a) => ({ ...a })).sort((a, b) => rank[a.status] - rank[b.status] || a.email.localeCompare(b.email));
+  return [...accounts.values()].map((a) => ({ ...a, role: a.role === "admin" ? "admin" : "user" })).sort((a, b) => rank[a.status] - rank[b.status] || a.email.localeCompare(b.email));
 }
 
 export function pendingCount() {

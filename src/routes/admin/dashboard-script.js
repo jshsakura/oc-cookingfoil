@@ -17,8 +17,11 @@ function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show')
 function table(mount,cols,rows,empty){const m=$(mount);m.replaceChildren();
   if(!rows.length){m.append(el('div',empty,'empty'));return;}
   const t=el('table');const hr=el('tr');for(const c of cols)hr.append(el('th',c));t.append(hr);
-  for(const r of rows)t.append(r);m.append(t);}
+  // Each cell carries its column name: on a phone the table becomes labelled cards.
+  for(const r of rows){[...r.children].forEach((c,i)=>{c.dataset.label=cols[i]??'';});t.append(r);}m.append(t);}
 
+const ERRORS={self:'지금 로그인한 계정은 정지, 강등, 삭제할 수 없습니다.','last-admin':'관리자 계정이 하나는 남아 있어야 합니다.'};
+const errText=(err)=>ERRORS[err.code]||err.message;
 async function api(url,opts={}){
   const init={headers:{Accept:'application/json'},...opts};
   if(opts.body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(opts.body);}
@@ -27,16 +30,17 @@ async function api(url,opts={}){
   // to the sign-in page, but never while a new password is still on screen.
   if(r.status===401){if($('cred-dialog').open)$('cred-dialog').addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
   const data=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(data.message||data.error||('HTTP '+r.status));
+  if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.error;throw e;}
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
-const TABS=['overview','users','devices','security','featured','library','upload'];
+const TABS=['overview','users','devices','settings','logs','featured','library','upload'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
-  if(tab==='security')loadTfa();
+  if(tab==='settings'){loadTfa();loadGoogle();}
+  if(tab==='logs')loadClientLogs();
   if(tab==='featured')loadFeatured();
   if(tab==='upload')loadUpload();}
 addEventListener('hashchange',showTab);
@@ -56,17 +60,26 @@ function renderCards(d){const cards=$('cards');cards.replaceChildren();
   const card=(l,v,alert)=>{const c=el('div',null,'card'+(alert?' alert':''));c.append(el('div',num(v),'v'),el('div',l,'l'));return c;};
   cards.append(card('사용자',d.totals.configuredUsers),card('누적 요청',d.totals.totalRequests),
     card('차단된 IP',d.totals.lockouts,d.totals.lockouts>0),card('24시간 거부',d.totals.denied24h,d.totals.denied24h>0));}
+let me=null;
+// The name, with a badge on the account you are signed in with (one cell child, so the phone layout keeps it on one line).
+function nameCell(name,self){const c=td();const s=el('span',name);if(self){const b=pill('나','on');b.classList.add('me');s.append(b);}c.append(s);return c;}
+const isMe=(kind,id)=>Boolean(me)&&me.kind===kind&&(kind==='google'?me.sub===id:me.name===id);
 function renderUsers(list){
-  const rows=list.filter((u)=>u.configured).map((u)=>{const tr=el('tr');
-    tr.append(td(u.user));
+  const configured=list.filter((u)=>u.configured);
+  const rows=configured.map((u)=>{const tr=el('tr');const self=isMe('password',u.user);
+    tr.append(nameCell(u.user,self));
+    tr.append(td(u.role==='admin'?'관리자':'일반 사용자'));
     const st=td();st.append(u.enabled?pill(u.lastAt?'사용 중':'접속 기록 없음',u.lastAt?'on':''):pill('사용 중지','off'));tr.append(st);
-    const seen=td(ago(u.lastAt));seen.title=fmt(u.lastAt);tr.append(seen,td(num(u.count)),td(u.lastIp||'—','ip'));
+    const seen=td(ago(u.lastAt));seen.title=fmt(u.lastAt);tr.append(seen,td(u.lastIp||'—','ip'));
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('비밀번호 재발급',()=>resetPassword(u.user)),
-      btn(u.enabled?'사용 중지':'다시 사용',()=>setEnabled(u.user,!u.enabled)),
-      btn('삭제',()=>removeUser(u.user),'danger'));
+    box.append(btn('비밀번호 변경',()=>resetPassword(u.user)));
+    // Your own account can't be demoted, turned off or removed (you'd lock yourself out).
+    if(!self||u.role!=='admin')box.append(btn(u.role==='admin'?'일반 사용자로':'관리자로',()=>setRole(u.user,u.role==='admin'?'user':'admin')));
+    if(!self)box.append(btn(u.enabled?'사용 중지':'다시 사용',()=>setEnabled(u.user,!u.enabled)));
+    // Removing the very last account opens the server, so nobody is locked out by it.
+    if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
     act.append(box);tr.append(act);return tr;});
-  table('users',['이름','상태','마지막 접속','요청','마지막 IP',''],rows,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.');}
+  table('users',['이름','역할','상태','마지막 접속','마지막 IP',''],rows,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.');}
 function renderSecurity(d){
   const locks=d.lockouts||[];
   $('lock-count').hidden=!locks.length;$('lock-count').textContent=locks.length;
@@ -81,7 +94,8 @@ function renderSecurity(d){
     tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;}),'거부된 요청이 없습니다.');}
 async function loadStats(){
   const d=await api('/admin/api/stats');
-  const a=d.lanes.admin;$('who').textContent=(a.email||a.owner||'admin')+' 으로 로그인했습니다';
+  me=d.me||null;const a=d.lanes.admin;
+  $('who').textContent=(me?(me.name||me.email):(a.email||a.owner||'admin'))+' 계정으로 로그인했습니다';
   $('ts').textContent=fmt(d.generatedAt)+' 기준';
   renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);}
 
@@ -105,23 +119,26 @@ $('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
   const name=$('new-name').value.trim(),password=$('new-pass').value;
   const first=!(await api('/admin/api/users')).users.length;
   if(first&&!confirm('첫 사용자를 만들면 그때부터 이 서버 전체에 비밀번호가 필요합니다. 계속할까요?'))return;
-  try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password}});
+  try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
     $('new-name').value='';$('new-pass').value='';showCredential(name+' 계정을 만들었습니다',cred);loadStats();}
   catch(err){toast(err.message);}});
 async function resetPassword(name){if(!confirm(name+' 의 비밀번호를 새로 만듭니다. 지금 비밀번호는 바로 쓸 수 없게 됩니다.'))return;
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
     showCredential(name+' 의 새 비밀번호',cred);loadStats();}catch(err){toast(err.message);}}
+async function setRole(name,role){
+  if(!confirm(role==='admin'?name+' 계정을 관리자로 바꿉니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 바꿉니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.'))return;
+  try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast('역할을 바꿨습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function setEnabled(name,enabled){
   if(!enabled&&!confirm(name+' 계정을 사용 중지합니다. 이 계정으로는 접속할 수 없게 됩니다.'))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/enabled',{method:'POST',body:{enabled}});
-    toast(enabled?'다시 사용합니다.':'사용을 중지했습니다.');loadStats();}catch(err){toast(err.message);}}
+    toast(enabled?'다시 사용합니다.':'사용을 중지했습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function removeUser(name){
   const last=(await api('/admin/api/users')).users.length===1;
   const msg=last?name+' 은 마지막 계정입니다. 지우면 비밀번호 없이 누구나 이 서버에 접속하고 파일을 받습니다. 정말 지울까요?'
     :name+' 계정을 삭제합니다. 이 계정으로 접속하던 기기는 더 접속할 수 없습니다.';
   if(!confirm(msg))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+(last?'?allowEmpty=1':''),{method:'DELETE'});toast('삭제했습니다.');loadStats();}
-  catch(err){toast(err.message);}}
+  catch(err){toast(errText(err));}}
 
 // ── security ──────────────────────────────────────────────────────────
 async function unlock(ip){if(!confirm(ip+' 의 차단을 해제합니다.'))return;
@@ -136,20 +153,24 @@ const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');const list=d.accounts||[];
   $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 스위치의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
-    :'구글 로그인이 꺼져 있습니다. 위 설정에서 켭니다.';
+    :'구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.';
   const waiting=list.filter((a)=>a.status==='pending').length;$('account-count').hidden=!waiting;$('account-count').textContent=waiting;
-  table('accounts',['이메일','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');
+  table('accounts',['이메일','역할','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
-    tr.append(td(a.email),st,td(fmt(a.createdAt)),td(ago(a.lastAt)));
+    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(fmt(a.createdAt)),td(ago(a.lastAt)));
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
-    if(a.status==='approved')box.append(btn('사용 중지',()=>setAccount(a.sub,'disabled')));
-    box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
+    if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
+    if(a.status==='approved'&&!self)box.append(btn('사용 중지',()=>setAccount(a.sub,'disabled')));
+    if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
     act.append(box);tr.append(act);return tr;}),'아직 로그인한 계정이 없습니다.');}
+async function setAccountRole(sub,email,role){
+  if(!confirm(role==='admin'?email+' 계정을 관리자로 바꿉니다.':email+' 계정을 일반 사용자로 바꿉니다.'))return;
+  try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 바꿨습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function setAccount(sub,status){
-  try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(err.message);}}
+  try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function removeAccount(sub,email){if(!confirm(email+' 계정을 지웁니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
-  try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('지웠습니다.');loadAccounts();}catch(err){toast(err.message);}}
+  try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('지웠습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 
 async function loadGoogle(){
   const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
@@ -172,11 +193,14 @@ async function loadDevices(){
   table('pending',['기기 코드','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
-  table('devices',['이름','연결한 계정','기기 키','승인한 날',''],(d.approved||[]).map((a)=>{const tr=el('tr');
-    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':String(a.addedBy||'—').replace(/^google:/,'')));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
-    tr.append(k,td(fmt(a.addedAt)));
+  // Last seen is kept in memory only, so it starts empty after a restart.
+  const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';
+  table('devices',['이름','연결한 계정','마지막 접속','승인한 날','기기 키',''],(d.approved||[]).map((a)=>{const tr=el('tr');
+    const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
+    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
+    const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('승인 취소',()=>revoke(a.deviceKey),'danger'));
+    box.append(btn('이름 바꾸기',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');}
 $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
@@ -197,8 +221,26 @@ async function approve(deviceKey){const label=prompt('이 기기를 알아볼 �
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!confirm('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
-async function revoke(deviceKey){if(!confirm('이 기기의 승인을 취소합니다. 더는 접속할 수 없습니다.'))return;
-  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('승인을 취소했습니다.');loadDevices();}catch(err){toast(err.message);}}
+async function revoke(deviceKey){if(!confirm('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 비밀번호 없이는 접속할 수 없습니다.'))return;
+  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
+async function renameDevice(deviceKey,label){const next=prompt('이 기기의 이름을 정합니다',label||'');if(next===null)return;
+  try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 바꿨습니다.');loadDevices();}catch(err){toast(err.message);}}
+
+// ── client logs ───────────────────────────────────────────────────────
+const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
+async function loadClientLogs(){
+  const d=await api('/admin/api/client-logs');const box=$('cl-list');box.replaceChildren();
+  if(!(d.consoles||[]).length){box.append(el('div','아직 받은 로그가 없습니다.','empty'));return;}
+  for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
+    const sum=el('summary',c.label||c.prefix);sum.append(el('span',c.files.length+'개'));det.append(sum);
+    for(const f of c.files){const b=btn('',()=>openLog(c,f,b));b.append(el('span',fmt(f.at)),el('span',kb(f.size),'muted'));det.append(b);}
+    box.append(det);}}
+async function openLog(c,f,button){
+  for(const b of document.querySelectorAll('#cl-list button'))b.setAttribute('aria-pressed',String(b===button));
+  $('cl-head').textContent=(c.label?c.label+' · ':'')+c.prefix+' · '+fmt(f.at);
+  const r=await fetch('/admin/api/client-logs/'+c.prefix+'/'+encodeURIComponent(f.name));
+  $('cl-text').textContent=r.ok?await r.text():'기록을 읽지 못했습니다.';}
+$('cl-refresh').addEventListener('click',loadClientLogs);
 
 // ── upload ────────────────────────────────────────────────────────────
 const UP_HINT={
@@ -350,7 +392,10 @@ $('tfa-confirm').addEventListener('click',confirmTfa);
 $('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();});
 $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
-$('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
+// Signs out of the admin page and of the web session together.
+$('logout').addEventListener('click',async()=>{try{await fetch('/admin/logout',{method:'POST'});
+  const me=await fetch('/auth/me').then((r)=>r.ok?r.json():null);if(me)await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrf}});}
+  finally{location.href='/login?next=%2Fadmin';}});
 showTab();loadStats();loadDevices();loadLogins();loadAccounts();loadGoogle();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;
