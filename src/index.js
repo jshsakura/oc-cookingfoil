@@ -30,6 +30,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
+import busyGuard from "./security/busy-guard.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
@@ -131,6 +132,8 @@ expressApp.get("/healthz", async (_req, res) => {
     .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth }));
 });
 
+// A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
+expressApp.use(busyGuard());
 expressApp.use(rateLimit());
 
 if (adminEnabled) {

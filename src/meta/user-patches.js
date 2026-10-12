@@ -29,6 +29,7 @@ import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
 const SCAN_INTERVAL_MS = 60_000;
+const CACHE_SAVE_MS = 30_000;
 const CACHE_PATH = path.join(dataDir, "patches-cache.json");
 const READ_CHUNK = 1024 * 1024; // big sequential reads; the patches live on spinning disks
 const STALE_MS = 30_000;
@@ -39,6 +40,7 @@ const KIND_ORDER = ["romfs", "exefs", "cheats", "exefs_patches", "fpslocker"];
 const JUNK_RE = /^(\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)$/i;
 
 let patches = []; // sorted by title id, then name
+let provisional = null; // during the first scan: the patches read so far
 let scannedAt = 0;
 let inFlight = null;
 let signature = "";
@@ -234,15 +236,23 @@ async function subdirs(dir) {
   }
 }
 
-/** Every valid patch under `root`, sorted by title id then name. */
-export async function scanDir(root) {
+const sortPatches = (list) => list.sort((a, b) => (a.title_id ?? `~${a.homebrew}`).localeCompare(b.title_id ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
+// Test-only: a pause per patch, to make a scan last long enough to watch requests during it.
+const SLOW_SCAN_MS = Number(process.env.COOK_TEST_SLOW_SCAN_MS) || 0;
+
+/** Every valid patch under `root`, sorted by title id then name. `onFound(list)` sees the ones read so far. */
+export async function scanDir(root, { onFound = null } = {}) {
   const out = [];
+  const found = (p) => {
+    out.push(p);
+    onFound?.(sortPatches([...out]));
+  };
   for (const tidDir of await subdirs(root)) {
     if (tidDir === HOMEBREW_DIR) {
       for (const app of (await subdirs(path.join(root, HOMEBREW_DIR))).filter((a) => APP_RE.test(a))) {
         for (const folder of await subdirs(path.join(root, HOMEBREW_DIR, app))) {
           try {
-            out.push({ ...(await readHomebrewPatch(root, app, folder)).patch, dir: `${HOMEBREW_DIR}/${app}`, folder });
+            found({ ...(await readHomebrewPatch(root, app, folder)).patch, dir: `${HOMEBREW_DIR}/${app}`, folder });
           } catch (err) {
             if (!(err instanceof Rejected)) throw err;
             debug.error("patches: homebrew/%s/%s left out: %s", app, folder, err.message);
@@ -257,18 +267,16 @@ export async function scanDir(root) {
     }
     for (const folder of await subdirs(path.join(root, tidDir))) {
       try {
-        out.push({ ...(await readPatch(root, tidDir, folder)).patch, dir: tidDir, folder });
+        if (SLOW_SCAN_MS) await new Promise((r) => setTimeout(r, SLOW_SCAN_MS));
+        found({ ...(await readPatch(root, tidDir, folder)).patch, dir: tidDir, folder });
       } catch (err) {
         if (!(err instanceof Rejected)) throw err;
         debug.error("patches: %s/%s left out: %s", tidDir, folder, err.message);
       }
     }
   }
-  return out.sort((a, b) => (a.title_id ?? `~${a.homebrew}`).localeCompare(b.title_id ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
+  return sortPatches(out);
 }
-
-/** Thrown by list() while the very first scan, with nothing saved yet, is still running. */
-export class ScanPending extends Error {}
 
 const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.name}:${p.updated_at}`).join("|");
 
@@ -276,10 +284,11 @@ const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.name}:${p.u
 export function loadCache(file = CACHE_PATH) {
   try {
     const saved = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (!Array.isArray(saved?.patches)) return false;
-    for (const [abs, entry] of Object.entries(saved.hashes ?? {})) {
+    for (const [abs, entry] of Object.entries(saved?.hashes ?? {})) {
       if (typeof entry?.key === "string" && typeof entry?.hash === "string") fileHashes.set(abs, entry);
     }
+    // A cache saved halfway through the first scan has hashes but no listing yet.
+    if (!Array.isArray(saved?.patches)) return false;
     patches = saved.patches;
     signature = signatureOf(patches);
     return true;
@@ -292,9 +301,10 @@ export function loadCache(file = CACHE_PATH) {
 function saveCache(file, seen) {
   try {
     // Only hashes of files the scan still found, so the cache can't grow without bound.
-    const hashes = Object.fromEntries([...fileHashes].filter(([abs]) => seen.has(abs)));
+    // Mid-scan (no `seen` yet) every hash so far is kept, and no listing unless a whole scan made one.
+    const hashes = Object.fromEntries(seen ? [...fileHashes].filter(([abs]) => seen.has(abs)) : fileHashes);
     const tmp = `${file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ version: 1, patches, hashes }));
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, patches: seen || signature ? patches : null, hashes }));
     fs.renameSync(tmp, file);
   } catch (err) {
     debug.error("patches: could not save %s: %s", file, err.message);
@@ -308,7 +318,18 @@ export function scan({ root = patchesDir, onChange, cacheFile = root === patches
     try {
       const hashedBefore = fileHashes.size;
       touched = new Set();
-      const next = await scanDir(root);
+      const cold = !scannedAt && !signature;
+      // Hashes are saved as the scan goes, so a restart halfway through a big folder doesn't start over.
+      const saver = cacheFile ? setInterval(() => saveCache(cacheFile, null), CACHE_SAVE_MS) : null;
+      saver?.unref();
+      let next;
+      try {
+        // With nothing listed yet, what has been read so far is shown while the rest is read.
+        next = await scanDir(root, { onFound: cold ? (soFar) => { provisional = soFar; } : null });
+      } finally {
+        if (saver) clearInterval(saver);
+      }
+      provisional = null;
       const seen = touched;
       const sig = signatureOf(next);
       patches = next;
@@ -339,20 +360,14 @@ export function start({ onChange } = {}) {
 }
 
 /**
- * The listing. A stale one is refreshed in the background and answered as is,
- * so a slow disk never holds up a request. Only the very first scan, with no
- * saved listing, is waited on (and reported as ScanPending while it runs).
+ * The listing, without ever making a request wait for a scan: a stale one is
+ * refreshed in the background, and before the first scan has finished it is
+ * what has been read so far, with `scanning: true`.
  */
-export async function list({ waitMs = 3000, ...scanOptions } = {}) {
-  const fresh = Date.now() - scannedAt <= STALE_MS;
-  if (!fresh) {
-    const running = scan(scanOptions).catch((err) => debug.error("patches: scan failed: %s", err.message));
-    if (!scannedAt && !signature) {
-      const timeout = new Promise((resolve) => setTimeout(resolve, waitMs, "pending"));
-      if ((await Promise.race([running, timeout])) === "pending") throw new ScanPending("first scan still running");
-    }
-  }
-  return patches.map(publicFields);
+export async function list(scanOptions = {}) {
+  if (Date.now() - scannedAt > STALE_MS) scan(scanOptions).catch((err) => debug.error("patches: scan failed: %s", err.message));
+  const scanning = !scannedAt && !signature;
+  return Object.assign((scanning ? provisional ?? [] : patches).map(publicFields), { scanning });
 }
 
 function publicFields({ dir: _dir, folder: _folder, ...p }) {
