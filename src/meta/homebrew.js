@@ -360,10 +360,12 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     const prev = states.get(id);
     // A failing repository is retried hourly (not on every poll), a healthy one every three hours.
     if (!force && prev?.error && now() - prev.error.at < ERROR_RETRY_MS) return;
-    if (!force && !prev?.error && prev?.checked_at != null && now() - prev.checked_at < CHECK_INTERVAL_MS) return;
+    // A build cached before folder installs existed is looked at again right away.
+    const legacy = Boolean(prev?.cached && !prev.cached.install);
+    if (!force && !legacy && !prev?.error && prev?.checked_at != null && now() - prev.checked_at < CHECK_INTERVAL_MS) return;
     const pattern = patterns.get(id) ?? null;
     // A changed pattern needs the release itself, not a 304.
-    const conditional = !force && prev?.etag && (prev.pattern ?? null) === pattern;
+    const conditional = !force && !legacy && prev?.etag && (prev.pattern ?? null) === pattern;
     const res = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
       headers: headers(conditional ? { "If-None-Match": prev.etag } : {}),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
@@ -371,7 +373,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     if (res.status === 304) {
       save(id, { ...prev, checked_at: now(), error: null });
       // The first build may have failed to arrive; without it the app is not listed.
-      if (!prev.cached) await ensureDownloaded(id);
+      if (!prev.cached?.install) await ensureDownloaded(id);
       return;
     }
     if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
@@ -401,7 +403,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       candidates: candidates.map(brief),
       candidate_key: candidateKey && prev?.candidate_key === candidateKey ? candidateKey : null,
     });
-    if (!prev?.cached) await ensureDownloaded(id);
+    if (!prev?.cached?.install) await ensureDownloaded(id);
   }
 
   /** Fetches one release file to `part`, checking its size and digest against the release. */
@@ -527,7 +529,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     if (!wanted.has(id) || !state?.asset) throw new Error("unknown homebrew");
     const current = () => {
       const c = states.get(id).cached;
-      return c?.asset_id === states.get(id).asset.id ? { path: path.join(dirOf(id), c.file), sha256: c.sha256 } : null;
+      // A build cached before folder installs existed (no `install`) is fetched once more.
+      return c?.install && c.asset_id === states.get(id).asset.id ? { path: path.join(dirOf(id), c.file), sha256: c.sha256 } : null;
     };
     if (current() && fs.existsSync(current().path)) return current();
     if (!downloads.has(id)) downloads.set(id, download(id).finally(() => downloads.delete(id)));

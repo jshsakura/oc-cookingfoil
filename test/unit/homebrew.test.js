@@ -540,3 +540,22 @@ test("an app's shortcut starts the .nro where it is installed", async () => {
   const before = app(homebrewTarget("acnh_editor.nro")), after = app(homebrewTarget("acnh_editor.nro", "switch/acnh_editor/acnh_editor.nro"));
   assert.equal(before.titleId, after.titleId);
 });
+
+test("a build cached before folder installs existed is looked at again and re-fetched once", async () => {
+  const nro = fakeNro("Old", "1.0");
+  const zip = fs.readFileSync(makeZip({ "switch/old/old.nro": nro, "switch/old/data.bin": Buffer.from("d") }));
+  const hub = zipRelease("o/old", { "old.zip": zip });
+  const stateDir = tmp("hb-gh-");
+  const first = createTracker({ repos: ["o/old"], stateDir, fetchImpl: hub.fetchImpl, now: () => 0 });
+  await first.checkAll();
+  const id = first.status()[0].id;
+  // what an older server wrote: no `install`, no folder
+  const file = path.join(stateDir, id, "state.json");
+  const st = JSON.parse(fs.readFileSync(file, "utf8"));
+  delete st.cached.install; delete st.cached.folder; st.checked_at = 0;
+  fs.writeFileSync(file, JSON.stringify(st));
+  const again = createTracker({ repos: ["o/old"], stateDir, fetchImpl: hub.fetchImpl, now: () => 1000 });
+  await again.checkAll();
+  assert.equal(again.status()[0].install.mode, "folder");
+  assert.equal(again.entries()[0].files.length, 2);
+});
