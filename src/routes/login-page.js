@@ -177,7 +177,10 @@ label{display:flex;align-items:center;gap:6px;font-size:16px;margin:14px 0 8px}l
 input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
 #code{text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase}
 button,.button{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;min-height:54px;border:0;border-radius:12px;padding:14px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
-.button.google{background:#fff;color:#1F1F1F;border:1px solid #DADCE0}.button.google svg{flex:none}
+.button.google{background:#fff;color:#1F1F1F;border:1px solid #DADCE0;font-weight:600}.button.google svg{flex:none}
+@media (prefers-color-scheme:dark){.button.google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
+button:hover,.button:hover{filter:brightness(1.05)}.button.google:hover{filter:none;background:#F8F9FA}
+@media (prefers-color-scheme:dark){.button.google:hover{background:#1F1F21}}
 .button.ghost,button.ghost{background:var(--soft);color:var(--ink);font-weight:600;font-size:16px;min-height:48px}button:disabled{opacity:.6;cursor:wait}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
 .who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
