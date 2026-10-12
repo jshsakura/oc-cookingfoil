@@ -1,7 +1,7 @@
 /**
  * /admin/api/upload — the operator adds files to the libraries from the admin page.
  *
- *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save: { writable } }, systems, games }
+ *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save|homebrew: { exists, writable } }, systems, games }
  *   POST /admin/api/upload/:kind     multipart: `files` (+ `paths`, a JSON list of folder-relative
  *                                    paths when a folder was picked) and the fields below
  *
@@ -187,7 +187,10 @@ export function mountUploadApi(router, guard) {
     if (!guard(req, res)) return;
     res.set("Cache-Control", "no-store");
     const targets = {};
-    for (const kind of KINDS) targets[kind] = { writable: fs.existsSync(rootOf(kind)) && (await writable(rootOf(kind))) };
+    for (const kind of KINDS) {
+      const exists = fs.existsSync(rootOf(kind));
+      targets[kind] = { exists, writable: exists && (await writable(rootOf(kind))) };
+    }
     const systems = fs.existsSync(retroDir)
       ? Object.entries(loadSystems(retroDir)).map(([id, s]) => ({ id, name: s.names?.ko ?? s.name, extensions: s.extensions }))
       : [];

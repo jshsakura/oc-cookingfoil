@@ -59,14 +59,25 @@ form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;fo
 form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .copy-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
-.up-kinds{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.up-kinds{display:flex;gap:6px;flex-wrap:wrap}
+.up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
+.up-drop:hover,.up-drop:focus-visible,.up-drop.over{border-color:var(--accent);background:rgba(var(--accent-rgb),.08);outline:none}
+.up-drop svg{width:40px;height:40px;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.up-drop b{font-size:17px}.up-drop span{color:var(--muted);font-size:13px;max-width:520px;word-break:break-word}
+.up-drop.has span{color:var(--text);font-weight:600}
+.up-drop .pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.up-go{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.up-more summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600}
+.up-more[open]{display:grid;gap:12px}.up-more[hidden]{display:none}
+.up-more label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+.up-foot{margin-top:12px}
+body.dragging #tab-upload .up-drop{border-color:var(--accent)}
 .up-kinds button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 form.up{display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+form.up[hidden]{display:none}
 form.up label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 form.up label[hidden]{display:none}
 form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:72px;resize:vertical}
-form.up .pick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-form.up .chosen{font-size:13px;color:var(--text);word-break:break-all}
 .bar{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .up-log{display:grid;gap:6px;margin-top:14px}
@@ -292,16 +303,26 @@ ${RETRO_ART_HTML}
 
 <section id="tab-upload" hidden>
   <div class="hd"><h2>업로드</h2></div>
-  <p class="muted">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다.</p>
-  <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
-    <button type="button" data-kind="game">패키지</button>
-    <button type="button" data-kind="retro">레트로 롬</button>
-    <button type="button" data-kind="patch">패치</button>
-    <button type="button" data-kind="save">세이브</button>
-    <button type="button" data-kind="homebrew">홈브류</button>
+  <div class="up-drop" id="up-drop" tabindex="0" role="button" aria-label="올릴 파일 고르기">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+    <b id="up-drop-t">파일이나 폴더를 여기에 끌어다 놓습니다</b>
+    <span id="up-chosen">게임 패키지, 레트로 롬, 홈브류 .nro, 패치·세이브 zip 이나 폴더를 넣으면 종류를 알아서 고릅니다</span>
+    <div class="pick">
+      <button type="button" id="up-file-btn">파일 고르기</button>
+      <button type="button" id="up-dir-btn">폴더 고르기</button>
+    </div>
+    <input type="file" id="up-file" multiple hidden>
+    <input type="file" id="up-dir" webkitdirectory hidden>
   </div>
   <div id="up-note"></div>
-  <form class="up" id="up-form">
+  <form class="up" id="up-form" hidden>
+    <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
+      <button type="button" data-kind="game">패키지</button>
+      <button type="button" data-kind="retro">레트로 롬</button>
+      <button type="button" data-kind="patch">패치</button>
+      <button type="button" data-kind="save">세이브</button>
+      <button type="button" data-kind="homebrew">홈브류</button>
+    </div>
     <p class="muted" id="up-hint"></p>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
@@ -309,18 +330,14 @@ ${RETRO_ART_HTML}
     <datalist id="up-games"></datalist>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
     <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
-    <label id="up-desc-l" hidden>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
-    <label id="up-desc-ko-l" hidden>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
-    <div class="pick">
-      <button type="button" id="up-file-btn">파일 고르기</button>
-      <button type="button" id="up-dir-btn" hidden>폴더 고르기</button>
-      <span class="chosen" id="up-chosen">고른 파일이 없습니다</span>
-      <input type="file" id="up-file" hidden>
-      <input type="file" id="up-dir" webkitdirectory hidden>
-    </div>
+    <details class="up-more" id="up-desc-l" hidden><summary>설명 넣기 (선택)</summary>
+      <label>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
+      <label>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
+    </details>
     <div class="bar" id="up-bar" hidden><i></i></div>
-    <div><button type="submit" class="primary" id="up-go">올리기</button></div>
+    <div class="up-go"><button type="submit" class="primary" id="up-go">올리기</button><button type="button" id="up-clear">다시 고르기</button><span class="muted" id="up-progress"></span></div>
   </form>
+  <p class="muted up-foot">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다.</p>
   <div class="up-log" id="up-log"></div>
 </section>
 </div>

@@ -91,3 +91,36 @@ test('admin API refuses changes without a session', async ({ request }) => {
   const response = await request.post('/admin/api/users', { data: { name: 'intruder' } });
   expect(response.status()).toBe(401);
 });
+
+test('files dropped into the upload box pick their own kind and go in one by one', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  await expect(page.locator('#up-form')).toBeHidden();
+
+  // A patch folder names its game; the form fills itself in.
+  const dir = fs.mkdtempSync('/tmp/cf-up-');
+  fs.mkdirSync(`${dir}/KoPatch/atmosphere/contents/0100000000010800/romfs`, { recursive: true });
+  fs.writeFileSync(`${dir}/KoPatch/atmosphere/contents/0100000000010800/romfs/text.bin`, 'KO');
+  await page.locator('#up-dir').setInputFiles(`${dir}/KoPatch`);
+  await expect(page.locator('#up-kinds [data-kind="patch"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#up-game')).toHaveValue('Test Game [0100000000010000]');
+  await expect(page.locator('#up-name')).toHaveValue('KoPatch');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-upload-patch.png', fullPage: true });
+  await page.getByRole('button', { name: '다시 고르기' }).click();
+  await expect(page.locator('#up-form')).toBeHidden();
+
+  // Several packages at once go up one after another.
+  const names = ['E2E Up A [0100000000020000][v0].nsp', 'E2E Up B [0100000000030000][v0].nsp'];
+  await page.locator('#up-file').setInputFiles(names.map((name) => ({ name, mimeType: 'application/octet-stream', buffer: Buffer.from('x') })));
+  await expect(page.locator('#up-kinds [data-kind="game"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#up-hint')).toContainText('2개를 하나씩');
+  try {
+    await page.getByRole('button', { name: '올리기', exact: true }).click();
+    await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(2);
+    await expect(page.locator('#up-form')).toBeHidden();
+  } finally {
+    for (const name of names) fs.rmSync(`/tmp/cookingfoil-web-test-games/${name}`, { force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
