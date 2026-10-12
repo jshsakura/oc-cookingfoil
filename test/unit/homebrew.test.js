@@ -423,29 +423,9 @@ test("a repository's own GitHub description is learned once, apart from the rele
 });
 
 // ── folder installs ─────────────────────────────────────────────────────────
-import { installPathFor, packageLayout, zipEntries } from "../../src/meta/homebrew.js";
+import { installPathFor, zipEntries } from "../../src/meta/homebrew.js";
 
 const ent = (name, extra = {}) => ({ name, size: 1, dir: name.endsWith("/"), link: false, ...extra });
-
-test("a zip installs as a folder only when it is exactly one switch/<app>/ with one .nro and nothing foreign", () => {
-  const ok = packageLayout([ent("switch/"), ent("switch/acnh_editor/"), ent("switch/acnh_editor/acnh_editor.nro"), ent("switch/acnh_editor/font.ttf"), ent("switch/acnh_editor/data/items.txt")]);
-  assert.equal(ok.folder.dir, "switch/acnh_editor");
-  assert.equal(ok.folder.nro, "switch/acnh_editor/acnh_editor.nro");
-  assert.deepEqual(ok.folder.files.map((f) => f.path), ["switch/acnh_editor/acnh_editor.nro", "switch/acnh_editor/font.ttf", "switch/acnh_editor/data/items.txt"]);
-
-  const reason = (names, extra) => packageLayout(names.map((n) => ent(n, extra?.[n]))).reason;
-  assert.equal(reason(["app.nro", "font.ttf"]), "not-one-folder", "files at the top");
-  assert.equal(reason(["wrap/switch/app/app.nro", "wrap/switch/app/a.txt"]), "not-one-folder", "a wrapper folder");
-  assert.equal(reason(["switch/a/a.nro", "switch/b/b.txt"]), "not-one-folder", "two apps");
-  assert.equal(reason(["switch/a/a.nro", "README.md"]), "not-one-folder", "something beside the folder");
-  assert.equal(reason(["switch/a/a.nro", "switch/a/b.nro"]), "several-nro");
-  assert.equal(reason(["switch/a/a.txt", "switch/a/b.txt"]), "no-nro");
-  assert.equal(reason(["switch/a/a.nro"]), "only-nro");
-  assert.equal(reason(["switch/a/a.nro", "switch/a/tool.exe"]), "foreign-file");
-  assert.equal(reason(["switch/a/a.nro", "switch/a/x"], { "switch/a/x": { link: true } }), "link");
-  assert.equal(reason(["switch/a/a.nro", "switch/a/../../evil"]), "unsafe-path");
-  assert.equal(reason(["switch/my app/a.nro", "switch/my app/x.txt"]), "unsafe-path", "the app folder name goes into the shortcut");
-});
 
 test("every app lives in its own switch/<app>/ folder", () => {
   assert.equal(installPathFor("ftpd.nro"), "switch/ftpd/ftpd.nro");
@@ -515,15 +495,21 @@ test("of several zips the one with the app's data wins, and its whole folder is 
   assert.equal(hub.downloads.length, before, "and nothing is fetched again");
 });
 
-test("a zip that isn't one clean app folder is served as its .nro, in its own folder", async () => {
+test("a wrapped zip is peeled and normalized; a lone .nro is served in its own folder", async () => {
   const nro = fakeNro("Wrapped", "1.0");
-  const zip = fs.readFileSync(makeZip({ "Wrapped/switch/wrapped/wrapped.nro": nro, "Wrapped/README.txt": Buffer.from("hi") }));
+  const zip = fs.readFileSync(makeZip({ "Wrapped/switch/wrapped/wrapped.nro": nro, "Wrapped/switch/wrapped/data.bin": Buffer.from("d"), "Wrapped/README.txt": Buffer.from("hi"), "Wrapped/atmosphere/x.ovl": Buffer.from("o") }));
   const hub = zipRelease("o/wrapped", { "wrapped.zip": zip });
   const tracker = createTracker({ repos: ["o/wrapped"], stateDir: tmp("hb-gh-"), fetchImpl: hub.fetchImpl });
   await tracker.checkAll();
   const [e] = tracker.entries();
-  assert.deepEqual([e.files, e.install_dir, e.install_path], [null, null, "switch/wrapped/wrapped.nro"]);
-  assert.deepEqual(tracker.status()[0].install, { mode: "nro", reason: "not-one-folder" });
+  assert.equal(e.install_dir, "switch/wrapped");
+  assert.equal(e.install_path, "switch/wrapped/wrapped.nro");
+  assert.deepEqual(e.files.map((f) => [f.path, f.size]), [["switch/wrapped/data.bin", 1], ["switch/wrapped/wrapped.nro", nro.length]]);
+  const { install } = tracker.status()[0];
+  assert.deepEqual([install.mode, install.reason], ["folder", "partial"]);
+  assert.ok(install.rules.includes("wrapper: peeled off Wrapped/"));
+  assert.deepEqual(install.excluded.find((x) => x.rule === "outside-switch").paths, ["atmosphere/ (1)"]);
+  assert.equal(tracker.packageFile(e.id, "switch/wrapped/data.bin").size, 1);
 
   const plain = createTracker({ repos: ["o/app"], stateDir: tmp("hb-gh-"), fetchImpl: zipRelease("o/app", { "app.zip": fs.readFileSync(makeZip({ "switch/app-dir/app.nro": nro })) }).fetchImpl });
   await plain.checkAll();

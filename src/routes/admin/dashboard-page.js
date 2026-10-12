@@ -295,6 +295,7 @@ ${RETRO_ART_HTML}
     <button type="button" data-kind="retro">레트로 롬</button>
     <button type="button" data-kind="patch">유저 패치</button>
     <button type="button" data-kind="save">세이브</button>
+    <button type="button" data-kind="homebrew">홈브류</button>
   </div>
   <div id="up-note"></div>
   <form class="up" id="up-form">

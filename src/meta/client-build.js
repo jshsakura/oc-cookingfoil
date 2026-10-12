@@ -60,3 +60,23 @@ export function compareVersions(a, b) {
   for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] < pb[i] ? -1 : 1;
   return 0;
 }
+
+/**
+ * What is wrong with a homebrew .nro's framing, or null: the NRO0 header, and a
+ * file size that matches the header (plus its ASET block, when it has one). The
+ * NACP is not required here. Pure.
+ */
+export function nroProblem(buf) {
+  if (buf.length < NRO_MIN || buf.toString("latin1", NRO_MAGIC_AT, NRO_MAGIC_AT + 4) !== "NRO0") return "not-nro";
+  const nroSize = buf.readUInt32LE(NRO_SIZE_AT);
+  if (nroSize < NRO_MIN || nroSize > buf.length) return "truncated";
+  if (nroSize === buf.length) return null;
+  if (nroSize + ASET_HEADER > buf.length || buf.toString("latin1", nroSize, nroSize + 4) !== "ASET") return "trailing-bytes";
+  try {
+    inspectNro(buf);
+    return null;
+  } catch (err) {
+    // Only the size checks count here; a homebrew NACP needs no x.y.z version.
+    return ["truncated", "trailing-bytes"].includes(err.code) ? err.code : null;
+  }
+}

@@ -24,6 +24,8 @@ import path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
+import { normalizeLayout } from "./homebrew-layout.js";
+import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
 
@@ -130,7 +132,6 @@ export async function zipEntries(zip) {
   return entries;
 }
 
-const MAX_PACKAGE_FILES = 500;
 const APP_NAME_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
 
 /**
@@ -142,42 +143,13 @@ export function installPathFor(fileName, appDir = null) {
   const dir = appDir && /^switch\/[^/]+$/i.test(appDir) && APP_NAME_RE.test(appDir.slice(7)) ? appDir : `switch/${String(fileName).replace(/\.nro$/i, "")}`;
   return `${dir}/${fileName}`;
 }
-// Files that mean the zip carries something besides the console app: we never install those.
-const FOREIGN_FILE_RE = /\.(exe|dll|msi|bat|cmd|ps1|sh|so|dylib|dmg|pkg|app|apk|ipa|appimage|deb|rpm|jar)$/i;
-const SAFE_SEGMENT_RE = /^[^\0-\x1f/\\]+$/;
 
-/**
- * Whether a zip installs as a whole app folder, decided without a person.
- * Only when every file sits in one switch/<app>/ folder at the top, that folder
- * holds exactly one .nro, and nothing in it is a link, a strange path or a
- * program for another system. Anything else is served as its single .nro.
- * Returns { folder: { dir, nro, files: [{ entry, path, size }] } } or { folder: null, reason }. Pure.
- */
-export function packageLayout(entries) {
-  const files = entries.filter((e) => !e.dir);
-  const dirs = new Set(files.map((e) => e.name.split("/").slice(0, 2).join("/")));
-  if (dirs.size !== 1) return { folder: null, reason: "not-one-folder" };
-  const [dir] = dirs;
-  const parts = dir.split("/");
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "switch" || !files.every((e) => e.name.startsWith(`${dir}/`))) return { folder: null, reason: "not-one-folder" };
-  if (files.length > MAX_PACKAGE_FILES) return { folder: null, reason: "too-many-files" };
-  const nros = files.filter((e) => /\.nro$/i.test(e.name));
-  if (nros.length !== 1) return { folder: null, reason: nros.length ? "several-nro" : "no-nro" };
-  if (!APP_NAME_RE.test(parts[1]) || !APP_NAME_RE.test(path.posix.basename(nros[0].name))) return { folder: null, reason: "unsafe-path" };
-  if (files.length === 1) return { folder: null, reason: "only-nro" };
-  for (const e of entries) {
-    if (e.link) return { folder: null, reason: "link" };
-    if (!e.name.split("/").filter(Boolean).every((p) => p !== "." && p !== ".." && SAFE_SEGMENT_RE.test(p))) return { folder: null, reason: "unsafe-path" };
-    if (FOREIGN_FILE_RE.test(e.name)) return { folder: null, reason: "foreign-file" };
-  }
-  return { folder: { dir, nro: nros[0].name, files: files.map((e) => ({ entry: e.name, path: e.name, size: e.size })) } };
-}
 
 /** How well a zip serves the console: a whole app folder beats a lone .nro; nothing usable is -1. Pure. */
 export function zipScore(entries, repo) {
-  const layout = packageLayout(entries);
-  if (layout.folder) return 1000 + layout.folder.files.length;
-  return pickZipEntry(entries.filter((e) => !e.dir).map((e) => e.name), repo) ? 1 : -1;
+  const layout = normalizeLayout(entries, { repoName: repo.split("/")[1] });
+  if (layout.mode === "folder") return 1000 + layout.files.length;
+  return layout.nro ? 1 : -1;
 }
 
 /** Streams one entry of `zip` into `dest` (never to a path the zip names), cut off past `maxBytes`. Returns the bytes written. */
@@ -206,8 +178,8 @@ function extractEntry(zip, entry, dest, maxBytes) {
 }
 
 /**
- * Unpacks a folder layout under `destDir`, keeping the zip's switch/<app>/ paths
- * (already checked by packageLayout). The whole folder counts against `maxBytes`.
+ * Unpacks a folder layout under `destDir`: each zip entry to the switch/<app>/
+ * path normalizeLayout gave it (already checked to stay inside that folder). The whole folder counts against `maxBytes`.
  * Returns [{ path, size, sha256 }].
  */
 export async function extractPackage(zip, folder, destDir, maxBytes = MAX_NRO_BYTES) {
@@ -265,10 +237,24 @@ export async function sha256File(file) {
 }
 
 /** Every hand-placed app: the first .nro of each folder under `root`. */
+/** What an admin upload decided for a hand-placed app, kept in its folder: { nro, mode, reason, rules, excluded }. */
+export const MANIFEST = ".cookingfoil.json";
+
+/** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
+async function filesUnder(dir, rel = "") {
+  const out = [];
+  for (const e of await fsp.readdir(path.join(dir, rel), { withFileTypes: true })) {
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push(...(await filesUnder(dir, r)));
+    else if (e.isFile() && r !== MANIFEST) out.push(r);
+  }
+  return out.sort();
+}
+
 export async function scanManual(root) {
   let folders;
   try {
-    folders = (await fsp.readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    folders = (await fsp.readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("homebrew: cannot read %s: %s", root, err.message);
     return [];
@@ -287,7 +273,9 @@ export async function scanManual(root) {
 
 async function readManual(root, folder) {
   const dir = path.join(root, folder);
-  const file = (await fsp.readdir(dir)).filter((f) => /\.nro$/i.test(f)).sort()[0];
+  const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
+  const names = await fsp.readdir(dir);
+  const file = manifest?.nro && names.includes(manifest.nro) ? manifest.nro : names.filter((f) => /\.nro$/i.test(f)).sort()[0];
   if (!file) return null;
   const abs = path.join(dir, file);
   const meta = await readNro(abs);
@@ -297,7 +285,20 @@ async function readManual(root, folder) {
   }
   const st = await fsp.stat(abs);
   const hash = await cachedSha256(abs, st);
+  // An uploaded folder install lists every file of switch/<folder>/; a hand-placed folder is its .nro alone.
+  let folderInstall = null;
+  if (manifest?.mode === "folder" && APP_NAME_RE.test(folder) && APP_NAME_RE.test(file)) {
+    const files = [];
+    for (const rel of await filesUnder(dir)) {
+      const fileAbs = path.join(dir, ...rel.split("/"));
+      const fst = await fsp.stat(fileAbs);
+      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst), abs: fileAbs });
+    }
+    folderInstall = { install_dir: `switch/${folder}`, install_path: `switch/${folder}/${file}`, files };
+  }
   return {
+    ...(folderInstall ?? {}),
+    install: manifest ? { mode: manifest.mode, reason: manifest.reason ?? null, rules: manifest.rules ?? [], excluded: manifest.excluded ?? [] } : null,
     id: idFor("manual", folder),
     name: meta.name ?? folder,
     version: meta.version,
@@ -483,22 +484,26 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       let appDir = null;
       let install = { mode: "nro", reason: zipped ? null : "nro-release" };
       if (zipped) {
-        const layout = packageLayout(await zipEntries(part));
-        if (layout.folder) {
+        const layout = normalizeLayout(await zipEntries(part), { repoName });
+        if (!layout.nro) throw new Error(`the zip has no usable .nro (${layout.reason})`);
+        const decided = { rules: layout.rules, excluded: layout.excluded };
+        if (layout.mode === "folder") {
           await fsp.rm(pkgPart, { recursive: true, force: true });
-          const files = await extractPackage(part, layout.folder, pkgPart);
-          folder = { dir: layout.folder.dir, nro: layout.folder.nro, files };
-          nro = path.join(pkgPart, ...layout.folder.nro.split("/"));
-          fileName = safeFileName(path.posix.basename(layout.folder.nro), repoName);
-          install = { mode: "folder", reason: null };
+          const files = await extractPackage(part, { files: layout.files }, pkgPart);
+          folder = { dir: layout.appDir, nro: layout.nro.path, files };
+          nro = path.join(pkgPart, ...layout.nro.path.split("/"));
+          install = { mode: "folder", reason: layout.reason, ...decided };
         } else {
-          fileName = safeFileName(await extractNro(part, state.repo, nroPart), repoName);
+          await extractEntry(part, layout.nro.entry, nroPart, MAX_NRO_BYTES);
           nro = nroPart;
-          install = { mode: "nro", reason: layout.reason };
-          const entry = pickZipEntry((await zipEntries(part)).filter((e) => !e.dir).map((e) => e.name), state.repo);
-          appDir = /^switch\/[^/]+\/[^/]+$/i.test(entry ?? "") ? path.posix.dirname(entry) : null;
+          appDir = layout.appDir;
+          install = { mode: "nro", reason: layout.reason, ...decided };
         }
+        fileName = safeFileName(path.posix.basename(layout.nro.path), repoName);
+        debug.log("homebrew: %s %s → %s %s; %s", state.repo, asset.name, install.mode, layout.appDir ?? fileName, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
       }
+      const problem = nroProblem(await fsp.readFile(nro));
+      if (problem) throw new Error(`the .nro is not a whole NRO (${problem})`);
       const sha = zipped ? await sha256File(nro) : assetSha;
       const size = (await fsp.stat(nro)).size;
       const meta = await readNro(nro);
