@@ -208,4 +208,15 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+test('on a phone the search box and the sort box share the top row, the kind chips under them', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+  const [search, sort, chips] = [await box('#search'), await box('#sort'), await box('#chips')];
+  expect(Math.abs(search.y - sort.y)).toBeLessThan(4);
+  expect(Math.abs(search.width - sort.width)).toBeLessThan(4);
+  expect(chips.y).toBeGreaterThan(search.y + search.height - 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#search').locator('..').screenshot({ path: 'out/web/phone-toolbar.png' });
 });

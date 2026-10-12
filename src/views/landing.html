@@ -627,6 +627,11 @@
         .chart, .chart.wide { grid-column: 1 / -1; }
         .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) auto; }
         .connect-bar { grid-template-columns: minmax(0, 1fr); }
+        /* Search and sort share the top row half and half; the kind chips go under them. */
+        .toolbar:has(.sort-select) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .toolbar:has(.sort-select) .search { grid-column: 1; grid-row: 1; min-width: 0; }
+        .toolbar:has(.sort-select) .sort-select { grid-column: 2; grid-row: 1; min-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .toolbar:has(.sort-select) .chips { grid-column: 1 / -1; grid-row: 2; }
         .lang-menu { margin-left: auto; }
         .tabs { order: 3; margin: 4px 0 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
         /* Four views in four languages on one row: tight padding and a type size that follows the screen, never a scroll. */
