@@ -41,6 +41,7 @@ import path from "path";
 import express from "express";
 import debug from "../debug.js";
 import { retroDir, dataDir, keysDir } from "../helpers/envs.js";
+import { requestLang } from "../meta/categories.js";
 import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
 import { tagsOf, withoutTags } from "../retro/sd-names.js";
@@ -136,17 +137,20 @@ function forwarderFields(g, system, base) {
   return { forwarderUrl: `${base}/forwarder.nsp`, forwarderTitleId: spec.titleId, forwarderSize: size };
 }
 
-function publicGame(g, systems) {
+function publicGame(g, systems, lang = "en") {
   const system = systems[g.system];
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
   const variant = tagsOf(g.name);
+  // An arcade set is named in the page's language, with the English title as its original.
+  const localized = g.names ? g.names[lang] ?? g.names.en : null;
+  const original = g.names ? (localized !== g.names.en ? g.names.en : null) : g.original;
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
-    name: withoutTags(g.name),
+    name: localized ?? withoutTags(g.name),
     ...(variant ? { variant } : {}),
-    ...(g.original ? { original: g.original } : {}),
+    ...(original ? { original } : {}),
     // Arcade sets: the title in each language ({ en, ko, ja?, zh? }).
     ...(g.names ? { names: g.names } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
@@ -223,7 +227,7 @@ export default function retroRouter() {
 
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
-    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       systems: catalog.systemsOf(cat).map((s) => ({
         ...s,
@@ -238,7 +242,7 @@ export default function retroRouter() {
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const bySystem = new Map();
     for (const g of cat.games) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
-    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       systems: catalog.systemsOf(cat)
         .filter((s) => s.romCount > 0)
@@ -246,7 +250,7 @@ export default function retroRouter() {
           ...s,
           iconUrl: systemIcon(cat.systems[s.id], "color") ? `/api/retro/systems/${s.id}/icon` : null,
           iconMonoUrl: systemIcon(cat.systems[s.id], "mono") ? `/api/retro/systems/${s.id}/icon?style=mono` : null,
-          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems)),
+          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req))),
         })),
     });
   }));
@@ -270,12 +274,12 @@ export default function retroRouter() {
     const matches = cat.games
       .filter((g) => (!system || g.system === system) && (!search || gameMatches(g, search)) && keep(g))
       .sort(sort);
-    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       total: matches.length,
       page,
       pageSize,
-      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems)),
+      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req))),
     });
   }));
 
@@ -291,7 +295,7 @@ export default function retroRouter() {
       .catch(next);
   });
 
-  router.get("/games/:id", (req, res) => res.json(publicGame(req.retro.game, req.retro.systems)));
+  router.get("/games/:id", (req, res) => res.vary("Accept-Language").json(publicGame(req.retro.game, req.retro.systems, requestLang(req))));
   router.get("/games/:id/rom", (req, res) => {
     const { game, system } = req.retro;
     res.attachment(path.posix.basename(sdPaths(game, system).rom));
@@ -341,7 +345,7 @@ export default function retroRouter() {
       res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
       return res.status(503).json({ error: "the base pack is still being read", retryAfter: 30 });
     }
-    res.set("Cache-Control", "private, max-age=0, must-revalidate");
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.set("ETag", `"${m.version}"`);
     if (req.fresh) return res.status(304).end();
     res.json({
