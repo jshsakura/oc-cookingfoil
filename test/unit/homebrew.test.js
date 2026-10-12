@@ -403,3 +403,21 @@ test("COOK_HOMEBREW_REPOS seeds the admin's list once; the list file wins afterw
   assert.deepEqual(run(`const e = []; for (const f of [() => s.add("not a repo"), () => s.setAsset("J-D-K/JKSV", "evil.exe")]) { try { f(); e.push(null); } catch (x) { e.push(x.message); } } return e;`, ""),
     ["GitHub 저장소 주소가 아닙니다", "파일 이름 패턴은 .nro 나 .zip 으로 끝나야 합니다"]);
 });
+
+test("a repository's own GitHub description is learned once, apart from the release checks", async () => {
+  const hub = fakeGitHub("murat303/ytb-player");
+  hub.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
+  let asked = 0;
+  const fetchImpl = async (url, opts) => {
+    if (url !== "https://api.github.com/repos/murat303/ytb-player") return hub.fetchImpl(url, opts);
+    asked++;
+    return new Response(JSON.stringify({ description: "  A YouTube player.  " }), { status: 200 });
+  };
+  const tracker = createTracker({ repos: ["murat303/ytb-player"], stateDir: tmp("hb-gh-"), fetchImpl });
+  await tracker.checkAll();
+  assert.equal(tracker.entries()[0].description, null, "not before it is asked for");
+  await tracker.fetchDescriptions();
+  assert.equal(tracker.entries()[0].description, "A YouTube player.");
+  await tracker.fetchDescriptions();
+  assert.equal(asked, 1, "asked once, not every time");
+});

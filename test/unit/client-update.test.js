@@ -60,7 +60,8 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
     const latest = await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json();
     assert.deepEqual(latest, {
       version: "0.1.123", size: first.length, sha256: crypto.createHash("sha256").update(first).digest("hex"), url: "/api/client/cookingfoil.nro",
-    });
+      forwarder_url: null, forwarder_title_id: null, forwarder_size: null,
+    }, "no prod.keys here, so no shortcut");
     const info = await (await fetch(`${BASE}/api/shop/info`, { headers: AUTH })).json();
     assert.ok(info.features.includes("client-update"));
 

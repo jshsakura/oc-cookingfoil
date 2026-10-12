@@ -7,15 +7,21 @@
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
  *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the three-hour wait (all when no repo)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build
+ *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
+ *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own
  *
- * status = { repo, pattern, tag, released_at, checked_at, assets, chosen, cached, error }
+ * status = { id, repo, pattern, tag, released_at, checked_at, assets, chosen, cached, error,
+ *            description: { custom: { en, ko } | null, github } }
  */
 import * as sources from "../../meta/homebrew-sources.js";
+import * as descriptions from "../../meta/homebrew-descriptions.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
 import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
 import debug from "../../debug.js";
 
-const statusOf = (repo) => githubTracker().status().find((s) => s.repo.toLowerCase() === repo.toLowerCase()) ?? null;
+const withDescription = ({ repo_description: github, ...s }) => ({ ...s, description: { custom: descriptions.get(s.id), github } });
+const statuses = () => githubTracker().status().map(withDescription);
+const statusOf = (repo) => statuses().find((s) => s.repo.toLowerCase() === repo.toLowerCase()) ?? null;
 
 export function mountHomebrewApi(router, requireSession) {
   const write = (handler) => async (req, res) => {
@@ -35,9 +41,11 @@ export function mountHomebrewApi(router, requireSession) {
   router.get("/api/homebrew", write(async (req, res) => {
     await refreshManual().catch(() => {});
     const followed = new Set(sources.list().map((s) => s.repo.toLowerCase()));
-    const manual = (await manualApps()).map(({ id, name, version, author, size, file_name }) => ({ id, name, version, author, size, file_name }));
+    const manual = (await manualApps()).map(({ id, name, version, author, size, file_name }) => ({
+      id, name, version, author, size, file_name, description: { custom: descriptions.get(id), github: null },
+    }));
     res.json({
-      sources: githubTracker().status(),
+      sources: statuses(),
       manual,
       recommended: RECOMMENDED.map((r) => ({ ...r, added: followed.has(r.repo.toLowerCase()) })),
     });
@@ -76,7 +84,22 @@ export function mountHomebrewApi(router, requireSession) {
       return res.json(statusOf(s.repo));
     }
     await githubTracker().checkAll({ force: true });
-    res.json({ sources: githubTracker().status() });
+    res.json({ sources: statuses() });
+  }));
+
+  /** Whether `id` is an app this server lists (followed or hand-placed). */
+  const known = async (id) => statuses().some((s) => s.id === id) || (await manualApps()).some((m) => m.id === id);
+
+  router.post("/api/homebrew/description", write(async (req, res) => {
+    const id = String(req.body?.id ?? "");
+    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    descriptions.set(id, { en: req.body?.en, ko: req.body?.ko });
+    res.json({ ok: true, custom: descriptions.get(id) });
+  }));
+
+  router.post("/api/homebrew/description/reset", write(async (req, res) => {
+    descriptions.reset(String(req.body?.id ?? ""));
+    res.json({ ok: true });
   }));
 
   router.post("/api/homebrew/remove", write(async (req, res) => {

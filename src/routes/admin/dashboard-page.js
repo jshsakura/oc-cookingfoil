@@ -99,6 +99,9 @@ h2.first{margin-top:0}
 td select{max-width:220px}
 td .err{color:var(--bad);font-size:12px;margin-top:4px}
 td a{color:var(--text);text-underline-offset:3px}
+.desc-form{display:grid;gap:12px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+.desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
+td .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 form.add select{flex:none}
 .logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
 .logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
@@ -317,6 +320,19 @@ export function dashboardPage() {
     <button type="button" id="cred-config">CookingFoil 설정 파일 받기</button>
     <button type="button" class="primary" id="cred-close">닫기</button>
   </div>
+</dialog>
+<dialog id="hb-desc" aria-labelledby="hb-desc-title">
+  <h3 id="hb-desc-title"></h3>
+  <p class="muted" id="hb-desc-hint"></p>
+  <form class="desc-form" id="hb-desc-form" method="dialog">
+    <label>영어 설명 (모든 언어의 기본값)<textarea id="hb-desc-en" maxlength="2000"></textarea></label>
+    <label>한국어 설명 (한국어로 볼 때)<textarea id="hb-desc-ko" maxlength="2000"></textarea></label>
+    <div class="dialog-actions">
+      <button type="button" id="hb-desc-reset">GitHub 기본값으로</button>
+      <button type="button" id="hb-desc-close">닫기</button>
+      <button type="submit" class="primary">저장</button>
+    </div>
+  </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>${DASHBOARD_SCRIPT}</script></body></html>`;

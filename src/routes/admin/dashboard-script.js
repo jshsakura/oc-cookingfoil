@@ -248,6 +248,8 @@ async function loadHomebrew(){
     l.append(c,t);reco.append(l);}
   table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],(d.sources||[]).map((s)=>{const tr=el('tr');
     const name=td();const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';name.append(a);
+    const shown=s.description?.custom?(s.description.custom.ko||s.description.custom.en||'설명 없음'):s.description?.github;
+    if(shown)name.append(el('div',shown,'desc'));
     tr.append(name,td(s.cached?.version||s.tag||'—'));
     const file=td();
     if((s.assets||[]).length>1||s.pattern){const sel=el('select');sel.setAttribute('aria-label','쓸 파일');
@@ -263,10 +265,24 @@ async function loadHomebrew(){
     else st.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
+    box.append(btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
     '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
-  table('hb-manual',['이름','버전','파일','크기'],(d.manual||[]).map((m)=>{const tr=el('tr');
-    tr.append(td(m.name||'—'),td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));return tr;}),'직접 넣은 앱이 없습니다.');}
+  table('hb-manual',['이름','버전','파일','크기',''],(d.manual||[]).map((m)=>{const tr=el('tr');
+    const n=td(m.name||'—');const c=m.description?.custom;if(c)n.append(el('div',c.ko||c.en||'설명 없음','desc'));
+    tr.append(n,td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));
+    const act=td();act.append(btn('설명',()=>editHbDesc(m.id,m.name||m.file_name,m.description)));tr.append(act);return tr;}),'직접 넣은 앱이 없습니다.');}
+let hbDescId=null;
+function editHbDesc(id,name,d){hbDescId=id;
+  $('hb-desc-title').textContent=name+' 설명';
+  $('hb-desc-hint').textContent=d?.github?'비워 두고 저장하면 설명 없이 보여 줍니다. GitHub 기본값: '+d.github:'비워 두고 저장하면 설명 없이 보여 줍니다.';
+  $('hb-desc-en').value=d?.custom?(d.custom.en||''):(d?.github||'');$('hb-desc-ko').value=d?.custom?.ko||'';
+  $('hb-desc-reset').hidden=!d?.github;$('hb-desc').showModal();}
+$('hb-desc-close').addEventListener('click',()=>$('hb-desc').close());
+$('hb-desc-form').addEventListener('submit',async(e)=>{e.preventDefault();
+  try{await api('/admin/api/homebrew/description',{method:'POST',body:{id:hbDescId,en:$('hb-desc-en').value,ko:$('hb-desc-ko').value}});
+    $('hb-desc').close();toast('설명을 저장했습니다.');loadHomebrew();}catch(err){toast(err.message);}});
+$('hb-desc-reset').addEventListener('click',async()=>{
+  try{await api('/admin/api/homebrew/description/reset',{method:'POST',body:{id:hbDescId}});$('hb-desc').close();toast('GitHub 기본값으로 돌렸습니다.');loadHomebrew();}catch(err){toast(err.message);}});
 async function addHbRecommended(repos){
   if(!repos.length){toast('추가할 것을 고릅니다.');return;}
   try{const r=await api('/admin/api/homebrew/recommended',{method:'POST',body:{repos}});
