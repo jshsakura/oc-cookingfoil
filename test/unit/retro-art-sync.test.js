@@ -60,3 +60,45 @@ test("covers are taken only from SteamGridDB's image host", async () => {
   await assert.rejects(art.saveCover(dir, system, "x", "https://evil.example/a.png", { fetchImpl: fakeNet() }), /SteamGridDB/);
   await assert.rejects(art.saveCover(dir, system, "x", "file:///etc/passwd", { fetchImpl: fakeNet() }), /SteamGridDB/);
 });
+
+test("a bezel falls back to the same title from another region, then gives way to the system default", () => {
+  const sources = [["bezelproject-SFC", "SFC"], ["bezelproject-SNES", "SNES"]];
+  const indexes = new Map([
+    ["bezelproject-SFC", new Map([["SFC", new Set(["Rockman X (Japan)"])]])],
+    ["bezelproject-SNES", new Map([["SNES", new Set(["Mega Man X (USA)", "Super Mario World (USA)"])]])],
+  ]);
+  assert.match(art.bezelUrl(sources, indexes, "Rockman X (Japan)"), /bezelproject-SFC\/master\/.*Rockman%20X%20\(Japan\)\.png$/);
+  assert.match(art.bezelUrl(sources, indexes, "Super Mario World (Japan)"), /bezelproject-SNES\/.*Super%20Mario%20World%20\(USA\)\.png$/, "another region of the same title");
+  assert.equal(art.bezelUrl(sources, indexes, "Nothing Like It (Japan)"), null, "nothing close: the server's default bezel applies");
+});
+
+test("arcade bezels go by set name, falling back to the parent set's", () => {
+  const dir = tmp();
+  const indexes = new Map([["bezelproject-MAME", new Map([["ArcadeBezels", new Set(["mslug", "samsho2"])]])]]);
+  const parents = { samsho2k: "samsho2", mslugx: null, rbff2k: "rbff2" };
+  const jobs = art.arcadeBezelJobs(dir, { folder: "FBNeo - Arcade Games" }, ["mslug", "samsho2k", "mslugx", "rbff2k"], indexes, (s) => parents[s] ?? null, true);
+  assert.equal(jobs.length, 2, "mslug itself and samsho2k through samsho2; the rest keep the default bezel");
+});
+
+test("LaunchBox ratings: same platform, enough votes, and no guessing between different games", async () => {
+  const { Readable } = await import("node:stream");
+  const { buildRatings, readLaunchBox } = await import("../../src/retro/art/ratings.js");
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, "art-map"));
+  fs.writeFileSync(path.join(dir, "art-map", "snes.json"), JSON.stringify({ a: "Super Mario World (USA)", b: "Rockman X (Japan)", c: "Twin (USA)", d: null }));
+  const game = (id, name, rating, count, platform = "Super Nintendo Entertainment System") =>
+    `<Game>\n<Name>${name}</Name>\n<DatabaseID>${id}</DatabaseID>\n<Platform>${platform}</Platform>\n<CommunityRating>${rating}</CommunityRating>\n<CommunityRatingCount>${count}</CommunityRatingCount>\n</Game>`;
+  const xml = [
+    "<LaunchBox>",
+    game(1, "Super Mario World", 4.5, 120),
+    game(2, "Mega Man X", 4.25, 80),
+    "<GameAlternateName>\n<AlternateName>Rockman X</AlternateName>\n<DatabaseID>2</DatabaseID>\n</GameAlternateName>",
+    game(3, "Twin", 4, 10), game(4, "Twin", 2, 10),
+    game(5, "Super Mario World", 1, 1, "Nintendo 64"),
+    "</LaunchBox>",
+  ].join("\n");
+  const data = await readLaunchBox(Readable.from([xml]), new Set(["Super Nintendo Entertainment System", "Nintendo 64"]));
+  const { ratings, summary } = buildRatings(dir, data);
+  assert.deepEqual(ratings, { snes: { a: { rating: 90, count: 120 }, b: { rating: 85, count: 80 } } });
+  assert.equal(summary.snes, "2/3");
+});

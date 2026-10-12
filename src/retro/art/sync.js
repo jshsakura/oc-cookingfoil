@@ -18,6 +18,7 @@ import path from "path";
 import sharp from "sharp";
 import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, pool, repoOf } from "./sources.js";
 import { bestMatch, englishTitle, titleKey } from "./titles.js";
+import { setInfo } from "../arcade.js";
 
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const CANDIDATES = 24;
@@ -48,8 +49,14 @@ function writeMap(dir, id, map) {
 export const boxartPath = (dir, system, rom) => path.join(dir, "thumbnails", system.folder, "Named_Boxarts", `${rom}.png`);
 export const bezelPath = (dir, system, rom) => path.join(dir, "bezels", system.folder, `${rom}.png`);
 
-/** Download jobs for what a system is missing: its default bezel, then each mapped ROM's box art and bezel. */
-export function jobsFor(dir, id, system, map, dry) {
+/**
+ * Download jobs for what a system is missing: its default bezel, then each mapped
+ * ROM's box art and bezel. With `indexes` (repo → bezel names, see bezelIndexes)
+ * a bezel the Bezel Project lacks under that exact name falls back to the same
+ * title from another region; without them only the exact name is tried. Games
+ * left without one still get the system's default bezel from the server.
+ */
+export function jobsFor(dir, id, system, map, dry, indexes = null) {
   const jobs = [];
   const sources = BEZEL_SOURCES[id] ?? [];
   const bezelDir = path.join(dir, "bezels", system.folder);
@@ -74,9 +81,88 @@ export function jobsFor(dir, id, system, map, dry) {
     }
     const bezelDest = path.join(bezelDir, `${rom}.png`);
     if (sources.length && !fs.existsSync(bezelDest)) {
-      const urls = sources.map(([repo, folder]) => `${BEZELS}/${repo}/master/${enc(`retroarch/overlay/GameBezels/${folder}/${name}.png`)}`);
-      jobs.push(async () => ["bezel", await firstOf(urls, bezelDest, dry)]);
+      const urls = indexes ? [bezelUrl(sources, indexes, name)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, name));
+      if (urls.length) jobs.push(async () => ["bezel", await firstOf(urls, bezelDest, dry)]);
     }
+  }
+  return jobs;
+}
+
+const gameBezelUrl = (repo, folder, name) => `${BEZELS}/${repo}/master/${enc(`retroarch/overlay/GameBezels/${folder}/${name}.png`)}`;
+const ARCADE_REPO = "bezelproject-MAME";
+const arcadeBezelUrl = (short) => `${BEZELS}/${ARCADE_REPO}/master/${enc(`retroarch/overlay/ArcadeBezels/${short}.png`)}`;
+
+/** The bezel for a No-Intro name: that name in the first collection that has it, else the same title from another region. Pure. */
+export function bezelUrl(sources, indexes, name) {
+  for (const [repo, folder] of sources) if (indexes.get(repo)?.get(folder)?.has(name)) return gameBezelUrl(repo, folder, name);
+  for (const [repo, folder] of sources) {
+    const hit = bestMatch(name, [...(indexes.get(repo)?.get(folder) ?? [])]);
+    if (hit) return gameBezelUrl(repo, folder, hit);
+  }
+  return null;
+}
+
+const indexCache = new Map(); // repo → { at, folders: Map(folder → Set(name)) }
+
+/**
+ * Bezel names in one Bezel Project repo, per folder (GameBezels/<folder>, and
+ * ArcadeBezels). One recursive tree call; when GitHub truncates it (the MAME
+ * repo has tens of thousands of files) the overlay folders are walked one by one.
+ * Cached for a day.
+ */
+async function bezelIndex(repo, { token = "", fetchImpl = fetch } = {}) {
+  const hit = indexCache.get(repo);
+  if (hit && Date.now() - hit.at < NAMES_TTL_MS) return hit.folders;
+  const tree = async (sha, recursive = false) => {
+    const res = await fetchImpl(`https://api.github.com/repos/thebezelproject/${repo}/git/trees/${sha}${recursive ? "?recursive=1" : ""}`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "oc-cookingfoil", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) throw new Error(`GitHub ${res.status} ${repo}`);
+    return res.json();
+  };
+  const folders = new Map();
+  const add = (folder, file) => {
+    if (!file.endsWith(".png")) return;
+    if (!folders.has(folder)) folders.set(folder, new Set());
+    folders.get(folder).add(file.slice(0, -4));
+  };
+  const whole = await tree("master", true);
+  if (!whole.truncated) {
+    for (const t of whole.tree ?? []) {
+      const m = /^retroarch\/overlay\/(?:GameBezels\/([^/]+)|(ArcadeBezels))\/([^/]+)$/.exec(t.path);
+      if (m) add(m[1] ?? m[2], m[3]);
+    }
+  } else {
+    const child = (t, name) => t.tree.find((x) => x.path === name)?.sha;
+    const overlay = await tree(child(await tree(child(await tree("master"), "retroarch")), "overlay"));
+    const arcade = child(overlay, "ArcadeBezels");
+    if (arcade) for (const t of (await tree(arcade)).tree) add("ArcadeBezels", t.path);
+    const games = child(overlay, "GameBezels");
+    if (games) for (const f of (await tree(games)).tree.filter((x) => x.type === "tree")) for (const t of (await tree(f.sha)).tree) add(f.path, t.path);
+  }
+  indexCache.set(repo, { at: Date.now(), folders });
+  return folders;
+}
+
+/** repo → folder → names for every collection a system draws bezels from; null when GitHub can't be read. */
+export async function bezelIndexes(id, opts = {}) {
+  const repos = [...new Set([...(BEZEL_SOURCES[id] ?? []).map(([repo]) => repo), ...(id === "arcade" ? [ARCADE_REPO] : [])])];
+  try {
+    return new Map(await Promise.all(repos.map(async (repo) => [repo, await bezelIndex(repo, opts)])));
+  } catch {
+    return null;
+  }
+}
+
+/** Arcade bezels are filed by set name: the set's own, else its parent's. `parentOf(short)` gives the parent or null. */
+export function arcadeBezelJobs(dir, system, shorts, indexes, parentOf, dry = false) {
+  const have = indexes?.get(ARCADE_REPO)?.get("ArcadeBezels");
+  const jobs = [];
+  for (const short of new Set(shorts)) {
+    const dest = bezelPath(dir, system, short);
+    if (fs.existsSync(dest)) continue;
+    const pick = !have ? short : have.has(short) ? short : have.has(parentOf(short)) ? parentOf(short) : null;
+    if (pick) jobs.push(async () => ["bezel", await download(arcadeBezelUrl(pick), dest, dry)]);
   }
   return jobs;
 }
@@ -119,7 +205,10 @@ export async function syncArt(dir, systems, roms, { only = null, onProgress = ()
     const system = systems[id];
     try {
       const { matched, missed } = await matchSystem(dir, id, system, roms[id] ?? [], opts);
-      const results = await pool(jobsFor(dir, id, system, readMap(dir, id), false));
+      const indexes = await bezelIndexes(id, opts);
+      const jobs = jobsFor(dir, id, system, readMap(dir, id), false, indexes);
+      if (id === "arcade") jobs.push(...arcadeBezelJobs(dir, system, roms[id] ?? [], indexes, (s) => setInfo(s)?.cloneOf ?? null));
+      const results = await pool(jobs);
       const count = (kind) => results.filter((r) => Array.isArray(r) && r[0] === kind && r[1] === "ok").length;
       summary[id] = { matched: matched.length, missed: missed.length, boxart: count("boxart"), bezel: count("bezel"), errors: results.filter((r) => typeof r === "string").length };
     } catch (err) {
@@ -160,7 +249,7 @@ export async function applyMatch(dir, id, system, rom, name) {
   const sources = BEZEL_SOURCES[id] ?? [];
   const [boxart, bez] = await Promise.all([
     download(libretroUrl(system, name), box, false),
-    sources.length ? firstOf(sources.map(([repo, folder]) => `${BEZELS}/${repo}/master/${enc(`retroarch/overlay/GameBezels/${folder}/${name}.png`)}`), bezel, false) : "none",
+    sources.length ? bezelIndexes(id).then((ix) => firstOf(ix ? [bezelUrl(sources, ix, name)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, name)), bezel, false)) : "none",
   ]);
   return { boxart, bezel: bez };
 }
