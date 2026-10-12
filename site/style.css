@@ -1,0 +1,22 @@
+/* CookingFoil palette: warm ground, white cards, ink text, butter accent. */
+:root{--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--accent:#FFC23D;--link:#9A6A00;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--link:#FFC23D}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 "Noto Sans KR","Noto Sans JP","Noto Sans SC",-apple-system,system-ui,sans-serif;overflow-wrap:anywhere}
+/* Korean breaks at spaces; Japanese and Chinese have none, so they keep normal breaking. */
+:root[data-lang="ko"] body{word-break:keep-all}
+main{max-width:640px;margin:0 auto;padding:40px 16px 64px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none}
+.brand img{width:40px;height:40px}.wm{font-weight:800;font-size:24px;letter-spacing:-.02em}.wm i{font-style:normal;color:var(--accent)}
+select{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:100px;background:var(--card);color:var(--ink)}
+nav{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 24px;font-size:14px}
+nav a{color:var(--muted);text-decoration:none}nav a[aria-current]{color:var(--ink);font-weight:700}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:15px;margin:28px 0 6px}
+p,li{margin:0 0 10px}ul{padding-left:20px;margin:0 0 10px}.sub{color:var(--muted);margin-bottom:24px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:8px}
+a{color:var(--link)}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+/* One language at a time; without a script, English. */
+[data-l]{display:none}
+:root[data-lang="ko"] [data-l="ko"],:root[data-lang="en"] [data-l="en"],:root[data-lang="ja"] [data-l="ja"],:root[data-lang="zh"] [data-l="zh"],:root:not([data-lang]) [data-l="en"]{display:revert}
