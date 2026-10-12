@@ -108,7 +108,7 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.get("/api/retro-art", guarded(async (_req, res) => {
     const age = ratingsAge();
-    res.json({ ...overview(await retroCatalog.current(retroDir)), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb") });
+    res.json({ ...overview(await retroCatalog.current(retroDir)), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {

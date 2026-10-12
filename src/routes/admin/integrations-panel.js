@@ -42,7 +42,7 @@ const SERVICES = [
   {
     id: "github",
     title: "GitHub 토큰",
-    use: "홈브류 새 버전을 확인할 때 GitHub 요청 한도를 시간당 60회에서 5,000회로 올립니다. 없어도 동작합니다.",
+    use: "표지·베젤 목록과 홈브류 새 버전을 GitHub 에서 읽습니다. 토큰이 없으면 이 서버 전체가 시간당 60번으로 막혀, 한도에 걸리면 베젤을 다른 지역판으로 폴백하지 못하고 홈브류 확인도 미뤄집니다. 토큰을 넣으면 시간당 5,000번이 됩니다. 권한은 하나도 주지 않아도 됩니다.",
     steps: [
       '<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com 의 새 토큰 화면</a>에서 Fine-grained 토큰을 만듭니다.',
       "Repository access 는 Public repositories 로 두고 권한은 추가하지 않습니다. 만든 토큰을 아래에 넣습니다.",
