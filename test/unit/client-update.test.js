@@ -75,8 +75,23 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
     fs.utimesSync(nro, new Date(), new Date(Date.now() + 5000));
     assert.equal((await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json()).version, "0.1.124", "a replaced file is read again");
 
-    fs.writeFileSync(nro, "not an nro");
-    assert.equal((await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).status, 404, "a broken file is never offered");
+    // A file that fails the checks is never offered; the last good build stays, and is what downloads.
+    const offered = await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json();
+    const bump = () => fs.utimesSync(nro, new Date(), new Date(Date.now() + 5000 + Math.random() * 1000));
+    for (const [label, bytes] of [
+      ["an empty file", Buffer.alloc(0)],
+      ["a truncated file", second.subarray(0, second.length - 100)],
+      ["a file that isn't an NRO", Buffer.from("not an nro".repeat(50))],
+      ["an older version", fakeNro("0.1.99")],
+    ]) {
+      fs.writeFileSync(nro, bytes);
+      bump();
+      assert.deepEqual(await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json(), offered, label);
+      const got = Buffer.from(await (await fetch(BASE + latest.url, { headers: AUTH })).arrayBuffer());
+      assert.ok(got.equals(second), `${label}: the download is still the last good build`);
+    }
+    fs.writeFileSync(path.join(data, "client", ".cookingfoil.nro.tmp"), fakeNro("9.9.9"));
+    assert.equal((await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json()).version, "0.1.124", "a file still being written is not looked at");
   } finally {
     server.kill("SIGKILL");
   }

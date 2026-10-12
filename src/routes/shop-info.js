@@ -8,7 +8,7 @@
  */
 import fs from "fs";
 import pkg from "../package.js";
-import { CLIENT_NRO } from "./client-update.js";
+import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, retroDir } from "../helpers/envs.js";
@@ -76,7 +76,7 @@ export default async function shopInfoRoute(_req, res) {
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
-      ...(fs.existsSync(CLIENT_NRO) ? ["client-update"] : []),
+      ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
     files: stats.files,
     contentMeta: contentMeta.progress(),
