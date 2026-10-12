@@ -171,6 +171,9 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     // On the SD card every name is ASCII: the English title, tags gone; the tags stay as `variant`.
     const zelda = rated.games[2];
     assert.equal(zelda.variant, "K");
+    assert.deepEqual(zelda.edition, { korean: true, source: "patch" }, "the tags as flags");
+    assert.equal(zelda.region, "kr");
+    assert.ok(!("edition" in rated.games[0]), "no flags for an untagged game");
     assert.equal(zelda.install.rom, "roms/snes/Zelda no Densetsu.sfc");
     assert.ok(!("rating" in rated.games[2]));
 

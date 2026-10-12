@@ -45,6 +45,8 @@ import { requestLang } from "../meta/categories.js";
 import * as catalog from "../retro/catalog.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
 import { tagsOf, withoutTags } from "../retro/sd-names.js";
+import { editionOf } from "../retro/edition.js";
+import { regionOf } from "../retro/arcade.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
@@ -145,6 +147,9 @@ function publicGame(g, systems, lang = "en") {
   // An arcade set is named in the page's language, with the English title as its original.
   const localized = g.names ? g.names[lang] ?? g.names.en : null;
   const original = g.names ? (localized !== g.names.en ? g.names.en : null) : g.original;
+  // The tags as flags: Korean or not, release or patch, patch version.
+  const edition = g.edition ?? editionOf(variant);
+  const region = g.region ?? (edition ? "kr" : regionOf(variant));
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
@@ -154,7 +159,8 @@ function publicGame(g, systems, lang = "en") {
     // Arcade sets: the title in each language ({ en, ko, ja?, zh? }) and the
     // region of the version as a code for a flag: kr, jp, us, eu, asia, br, world.
     ...(g.names ? { names: g.names } : {}),
-    ...(g.region ? { region: g.region } : {}),
+    ...(region ? { region } : {}),
+    ...(edition ? { edition } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     file: g.file,
