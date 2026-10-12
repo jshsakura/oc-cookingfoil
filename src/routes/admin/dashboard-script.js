@@ -34,6 +34,8 @@ async function api(url,opts={}){
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
+// why a zip was served as its single .nro instead of a whole folder
+const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다'};
 const TABS=['overview','users','devices','settings','logs','featured','library','upload','homebrew'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
@@ -263,6 +265,9 @@ async function loadHomebrew(){
     if(s.error){st.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
     else if(s.cached)st.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
     else st.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
+    if(s.install){const folder=s.install.mode==='folder';
+      st.append(pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null));
+      if(!folder&&HB_REASON[s.install.reason])st.append(el('div',HB_REASON[s.install.reason],'muted'));}
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),

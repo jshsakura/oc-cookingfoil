@@ -93,6 +93,17 @@ export function pickAsset(release, repo, pattern = null) {
   return zips.find((a) => a.name.toLowerCase().startsWith(repoName)) ?? zips[0] ?? null;
 }
 
+/**
+ * The release files worth comparing when the server chooses by itself: every
+ * zip that isn't another platform's build, plus the chosen .nro. Fewer than two
+ * means there is nothing to compare. Pure.
+ */
+export function assetCandidates(release, chosen) {
+  const zips = usableAssets(release).filter((a) => /\.zip$/i.test(a.name) && !otherPlatform(a.name));
+  const list = /\.nro$/i.test(chosen?.name ?? "") ? [chosen, ...zips] : zips;
+  return list.length > 1 ? list : [];
+}
+
 /** The .nro to take out of a zip's entry names: the one named after the repository, else the first. Pure. */
 export function pickZipEntry(names, repo) {
   const nros = names.filter((n) => /\.nro$/i.test(n) && !n.endsWith("/")).sort();
@@ -102,6 +113,116 @@ export function pickZipEntry(names, repo) {
 
 // unzip reads its file arguments as wildcards; brackets make each special character literal.
 const literal = (name) => name.replace(/[[\]*?\\]/g, (c) => `[${c}]`);
+
+// "-rw-r--r--  3.0 unx  1234 tx defN 24-Jan-01 12:00 name": a permission field first, the name last.
+const ZIPINFO_LINE = /^([-?dlbcps][-rwxsStTa?]{5,9})\s+\S+\s+\S+\s+(\d+)\s+\S+\s+\S+\s+\S+\s+\S+\s(.*)$/;
+/** A zip's entries as { name, size, dir, link } (from zipinfo, without unpacking anything). */
+export async function zipEntries(zip) {
+  const out = await new Promise((resolve, reject) => {
+    execFile("unzip", ["-Z", zip], { timeout: UNZIP_TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024 }, (err, text) => (err ? reject(new Error("the zip can't be read")) : resolve(text)));
+  });
+  const entries = [];
+  for (const line of out.split("\n")) {
+    const m = ZIPINFO_LINE.exec(line);
+    if (m) entries.push({ name: m[3], size: Number(m[2]), dir: m[1].startsWith("d") || m[3].endsWith("/"), link: m[1].startsWith("l") });
+  }
+  return entries;
+}
+
+const MAX_PACKAGE_FILES = 500;
+const APP_NAME_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
+
+/**
+ * Where the console keeps an app: always its own folder, switch/<app>/<file>.nro.
+ * `appDir` is a zip's switch/<app> when it had one; otherwise the folder is named
+ * after the file. Pure.
+ */
+export function installPathFor(fileName, appDir = null) {
+  const dir = appDir && /^switch\/[^/]+$/i.test(appDir) && APP_NAME_RE.test(appDir.slice(7)) ? appDir : `switch/${String(fileName).replace(/\.nro$/i, "")}`;
+  return `${dir}/${fileName}`;
+}
+// Files that mean the zip carries something besides the console app: we never install those.
+const FOREIGN_FILE_RE = /\.(exe|dll|msi|bat|cmd|ps1|sh|so|dylib|dmg|pkg|app|apk|ipa|appimage|deb|rpm|jar)$/i;
+const SAFE_SEGMENT_RE = /^[^\0-\x1f/\\]+$/;
+
+/**
+ * Whether a zip installs as a whole app folder, decided without a person.
+ * Only when every file sits in one switch/<app>/ folder at the top, that folder
+ * holds exactly one .nro, and nothing in it is a link, a strange path or a
+ * program for another system. Anything else is served as its single .nro.
+ * Returns { folder: { dir, nro, files: [{ entry, path, size }] } } or { folder: null, reason }. Pure.
+ */
+export function packageLayout(entries) {
+  const files = entries.filter((e) => !e.dir);
+  const dirs = new Set(files.map((e) => e.name.split("/").slice(0, 2).join("/")));
+  if (dirs.size !== 1) return { folder: null, reason: "not-one-folder" };
+  const [dir] = dirs;
+  const parts = dir.split("/");
+  if (parts.length !== 2 || parts[0].toLowerCase() !== "switch" || !files.every((e) => e.name.startsWith(`${dir}/`))) return { folder: null, reason: "not-one-folder" };
+  if (files.length > MAX_PACKAGE_FILES) return { folder: null, reason: "too-many-files" };
+  const nros = files.filter((e) => /\.nro$/i.test(e.name));
+  if (nros.length !== 1) return { folder: null, reason: nros.length ? "several-nro" : "no-nro" };
+  if (!APP_NAME_RE.test(parts[1]) || !APP_NAME_RE.test(path.posix.basename(nros[0].name))) return { folder: null, reason: "unsafe-path" };
+  if (files.length === 1) return { folder: null, reason: "only-nro" };
+  for (const e of entries) {
+    if (e.link) return { folder: null, reason: "link" };
+    if (!e.name.split("/").filter(Boolean).every((p) => p !== "." && p !== ".." && SAFE_SEGMENT_RE.test(p))) return { folder: null, reason: "unsafe-path" };
+    if (FOREIGN_FILE_RE.test(e.name)) return { folder: null, reason: "foreign-file" };
+  }
+  return { folder: { dir, nro: nros[0].name, files: files.map((e) => ({ entry: e.name, path: e.name, size: e.size })) } };
+}
+
+/** How well a zip serves the console: a whole app folder beats a lone .nro; nothing usable is -1. Pure. */
+export function zipScore(entries, repo) {
+  const layout = packageLayout(entries);
+  if (layout.folder) return 1000 + layout.folder.files.length;
+  return pickZipEntry(entries.filter((e) => !e.dir).map((e) => e.name), repo) ? 1 : -1;
+}
+
+/** Streams one entry of `zip` into `dest` (never to a path the zip names), cut off past `maxBytes`. Returns the bytes written. */
+function extractEntry(zip, entry, dest, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("unzip", ["-p", zip, literal(entry)], { stdio: ["ignore", "pipe", "ignore"] });
+    const out = fs.createWriteStream(dest);
+    let written = 0;
+    let failed = null;
+    const timer = setTimeout(() => { failed = new Error("unzip took too long"); child.kill(); }, UNZIP_TIMEOUT_MS);
+    child.stdout.on("data", (chunk) => {
+      written += chunk.length;
+      if (written > maxBytes) {
+        failed ??= new Error(`the build is larger than ${maxBytes} bytes unpacked`);
+        child.kill();
+        return;
+      }
+      out.write(chunk);
+    });
+    child.on("error", (err) => { failed ??= err; });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      out.end(() => (failed || code ? reject(failed ?? new Error(`unzip exited ${code}`)) : resolve(written)));
+    });
+  });
+}
+
+/**
+ * Unpacks a folder layout under `destDir`, keeping the zip's switch/<app>/ paths
+ * (already checked by packageLayout). The whole folder counts against `maxBytes`.
+ * Returns [{ path, size, sha256 }].
+ */
+export async function extractPackage(zip, folder, destDir, maxBytes = MAX_NRO_BYTES) {
+  const root = path.resolve(destDir);
+  let left = maxBytes;
+  const out = [];
+  for (const f of folder.files) {
+    const target = path.resolve(root, ...f.path.split("/"));
+    if (!target.startsWith(root + path.sep)) throw new Error(`the zip entry ${f.path} leaves its folder`);
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    const written = await extractEntry(zip, f.entry, target, left);
+    left -= written;
+    out.push({ path: f.path, size: written, sha256: await sha256File(target) });
+  }
+  return out;
+}
 
 /**
  * Copies one .nro out of `zip` into `dest`. The entry is streamed into our own
@@ -114,27 +235,7 @@ export async function extractNro(zip, repo, dest, maxBytes = MAX_NRO_BYTES) {
   });
   const entry = pickZipEntry(names, repo);
   if (!entry) throw new Error("the zip holds no .nro");
-  await new Promise((resolve, reject) => {
-    const child = spawn("unzip", ["-p", zip, literal(entry)], { stdio: ["ignore", "pipe", "ignore"] });
-    const out = fs.createWriteStream(dest);
-    let written = 0;
-    let failed = null;
-    const timer = setTimeout(() => { failed = new Error("unzip took too long"); child.kill(); }, UNZIP_TIMEOUT_MS);
-    child.stdout.on("data", (chunk) => {
-      written += chunk.length;
-      if (written > maxBytes) {
-        failed ??= new Error(`the .nro inside is larger than ${maxBytes} bytes`);
-        child.kill();
-        return;
-      }
-      out.write(chunk);
-    });
-    child.on("error", (err) => { failed ??= err; });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      out.end(() => (failed || code ? reject(failed ?? new Error(`unzip exited ${code}`)) : resolve()));
-    });
-  });
+  await extractEntry(zip, entry, dest, maxBytes);
   return path.posix.basename(entry);
 }
 
@@ -275,8 +376,13 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     }
     if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
     const release = await res.json();
-    const asset = pickAsset(release, repo, pattern);
+    let asset = pickAsset(release, repo, pattern);
     const assets = usableAssets(release).map((a) => a.name);
+    const candidates = pattern ? [] : assetCandidates(release, asset);
+    const candidateKey = candidates.map((a) => a.id).join(",") || null;
+    // Several zips were already compared for this exact release: keep the winner.
+    if (candidateKey && prev?.candidate_key === candidateKey) asset = candidates.find((a) => a.id === prev.asset?.id) ?? asset;
+    const brief = (a) => ({ id: a.id, name: a.name, size: a.size, url: a.browser_download_url, digest: a.digest ?? null });
     if (!asset) {
       save(id, { ...prev, repo, assets, tag: release.tag_name, checked_at: now() });
       throw new Error(pattern ? `release ${release.tag_name} has no file matching ${pattern}` : `release ${release.tag_name} has no .nro or usable .zip`);
@@ -291,14 +397,15 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       checked_at: now(),
       tag: release.tag_name,
       released_at: release.published_at ?? null,
-      asset: { id: asset.id, name: asset.name, size: asset.size, url: asset.browser_download_url, digest: asset.digest ?? null },
+      asset: brief(asset),
+      candidates: candidates.map(brief),
+      candidate_key: candidateKey && prev?.candidate_key === candidateKey ? candidateKey : null,
     });
     if (!prev?.cached) await ensureDownloaded(id);
   }
 
-  async function download(id) {
-    const state = states.get(id);
-    const { asset } = state;
+  /** Fetches one release file to `part`, checking its size and digest against the release. */
+  async function fetchAsset(asset, part) {
     const zipped = /\.zip$/i.test(asset.name);
     if (asset.size > (zipped ? MAX_ZIP_BYTES : MAX_NRO_BYTES)) throw new Error(`build is larger than ${zipped ? MAX_ZIP_BYTES : MAX_NRO_BYTES} bytes`);
     const res = await fetchImpl(asset.url, {
@@ -306,44 +413,111 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`download answered ${res.status}`);
-    const repoName = state.repo.split("/")[1];
-    const part = path.join(dirOf(id), `download.${zipped ? "zip" : "nro"}.part`);
-    const nroPart = path.join(dirOf(id), "inner.nro.part");
-    fs.mkdirSync(dirOf(id), { recursive: true });
-    try {
-      // Stop as soon as the body runs past what the release promised.
-      let received = 0;
-      const capped = async function* (source) {
-        for await (const chunk of source) {
-          received += chunk.length;
-          if (received > asset.size) throw new Error(`body is larger than the release's ${asset.size} bytes`);
-          yield chunk;
+    // Stop as soon as the body runs past what the release promised.
+    let received = 0;
+    const capped = async function* (source) {
+      for await (const chunk of source) {
+        received += chunk.length;
+        if (received > asset.size) throw new Error(`body is larger than the release's ${asset.size} bytes`);
+        yield chunk;
+      }
+    };
+    await pipeline(Readable.fromWeb(res.body), capped, fs.createWriteStream(part));
+    const sha = await sha256File(part);
+    const size = (await fsp.stat(part)).size;
+    if (size !== asset.size) throw new Error(`size ${size} differs from the release's ${asset.size}`);
+    if (asset.digest && asset.digest !== `sha256:${sha}`) throw new Error("digest differs from the release's");
+    return sha;
+  }
+
+  /**
+   * With several candidate files, fetches the zips and keeps the one that installs
+   * best (a whole app folder over a lone .nro). Returns { asset, part, sha } with
+   * the winner already on disk when it is a zip.
+   */
+  async function chooseAsset(id, state) {
+    const zips = state.candidates.filter((a) => /\.zip$/i.test(a.name));
+    let best = { score: /\.nro$/i.test(state.asset.name) ? 1 : -Infinity, asset: state.asset, part: null, sha: null };
+    for (const [i, cand] of zips.entries()) {
+      const part = path.join(dirOf(id), `candidate-${i}.zip.part`);
+      try {
+        const sha = await fetchAsset(cand, part);
+        const score = zipScore(await zipEntries(part), state.repo);
+        if (score > best.score) {
+          if (best.part) await fsp.rm(best.part, { force: true });
+          best = { score, asset: cand, part, sha };
+          continue;
         }
-      };
-      await pipeline(Readable.fromWeb(res.body), capped, fs.createWriteStream(part));
-      const assetSha = await sha256File(part);
-      const assetSize = (await fsp.stat(part)).size;
-      if (assetSize !== asset.size) throw new Error(`size ${assetSize} differs from the release's ${asset.size}`);
-      if (asset.digest && asset.digest !== `sha256:${assetSha}`) throw new Error("digest differs from the release's");
+      } catch (err) {
+        debug.error("homebrew: %s: skipping %s: %s", state.repo, cand.name, err.message);
+      }
+      await fsp.rm(part, { force: true });
+    }
+    save(id, { ...states.get(id), asset: best.asset, candidate_key: state.candidates.map((a) => a.id).join(",") });
+    return best;
+  }
+
+  async function download(id) {
+    let state = states.get(id);
+    fs.mkdirSync(dirOf(id), { recursive: true });
+    let part = null;
+    let assetSha = null;
+    if (state.candidates?.length > 1 && !state.candidate_key) {
+      const best = await chooseAsset(id, state);
+      state = states.get(id);
+      ({ part, sha: assetSha } = best);
+    }
+    const { asset } = state;
+    const zipped = /\.zip$/i.test(asset.name);
+    const repoName = state.repo.split("/")[1];
+    part ??= path.join(dirOf(id), `download.${zipped ? "zip" : "nro"}.part`);
+    const nroPart = path.join(dirOf(id), "inner.nro.part");
+    const pkgPart = path.join(dirOf(id), "pkg.part");
+    try {
+      assetSha ??= await fetchAsset(asset, part);
       let nro = part;
       let fileName = safeFileName(asset.name, repoName);
+      let folder = null;
+      let appDir = null;
+      let install = { mode: "nro", reason: zipped ? null : "nro-release" };
       if (zipped) {
-        fileName = safeFileName(await extractNro(part, state.repo, nroPart), repoName);
-        nro = nroPart;
+        const layout = packageLayout(await zipEntries(part));
+        if (layout.folder) {
+          await fsp.rm(pkgPart, { recursive: true, force: true });
+          const files = await extractPackage(part, layout.folder, pkgPart);
+          folder = { dir: layout.folder.dir, nro: layout.folder.nro, files };
+          nro = path.join(pkgPart, ...layout.folder.nro.split("/"));
+          fileName = safeFileName(path.posix.basename(layout.folder.nro), repoName);
+          install = { mode: "folder", reason: null };
+        } else {
+          fileName = safeFileName(await extractNro(part, state.repo, nroPart), repoName);
+          nro = nroPart;
+          install = { mode: "nro", reason: layout.reason };
+          const entry = pickZipEntry((await zipEntries(part)).filter((e) => !e.dir).map((e) => e.name), state.repo);
+          appDir = /^switch\/[^/]+\/[^/]+$/i.test(entry ?? "") ? path.posix.dirname(entry) : null;
+        }
       }
       const sha = zipped ? await sha256File(nro) : assetSha;
       const size = (await fsp.stat(nro)).size;
       const meta = await readNro(nro);
       if (!meta) throw new Error("the build is not an NRO");
-      const dest = path.join(dirOf(id), fileName);
       const old = states.get(id).cached?.file;
-      await fsp.rename(nro, dest);
-      if (old && old !== fileName) await fsp.rm(path.join(dirOf(id), old), { force: true });
-      save(id, { ...states.get(id), cached: { asset_id: asset.id, file: fileName, sha256: sha, size, ...meta } });
-      debug.log("homebrew: %s %s cached", state.repo, state.tag);
+      const pkgDir = path.join(dirOf(id), "pkg");
+      await fsp.rm(pkgDir, { recursive: true, force: true });
+      let stored = fileName;
+      if (folder) {
+        await fsp.rename(pkgPart, pkgDir);
+        stored = path.posix.join("pkg", folder.nro);
+      } else {
+        await fsp.rename(nro, path.join(dirOf(id), fileName));
+      }
+      if (old && old !== stored && !old.startsWith("pkg/")) await fsp.rm(path.join(dirOf(id), old), { force: true });
+      save(id, { ...states.get(id), cached: { asset_id: asset.id, file: stored, file_name: fileName, app_dir: appDir, sha256: sha, size, install, folder, ...meta } });
+      debug.log("homebrew: %s %s cached (%s)", state.repo, state.tag, install.mode);
     } finally {
       await fsp.rm(part, { force: true });
       await fsp.rm(nroPart, { force: true });
+      await fsp.rm(pkgPart, { recursive: true, force: true });
     }
   }
 
@@ -393,7 +567,9 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       return {
         id, repo, pattern: patterns.get(id) ?? null, tag: s.tag ?? null, released_at: s.released_at ?? null,
         checked_at: s.checked_at ?? null, assets: s.assets ?? [], chosen: s.asset?.name ?? null,
-        cached: c ? { file: c.file, size: c.size ?? s.asset?.size ?? null, name: c.name, version: c.version, current: c.asset_id === s.asset?.id } : null,
+        cached: c ? { file: c.file_name ?? c.file, size: c.size ?? s.asset?.size ?? null, name: c.name, version: c.version, current: c.asset_id === s.asset?.id } : null,
+        install: c?.install ?? (c ? { mode: "nro", reason: null } : null),
+        folder_files: c?.folder?.files.length ?? null,
         error: s.error ?? null,
         repo_description: s.repo_description ?? null,
       };
@@ -440,7 +616,11 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         // A zipped build is served as the .nro inside it.
         size: /\.zip$/i.test(s.asset.name) ? s.cached.size ?? s.asset.size : s.asset.size,
         hash: s.asset.digest ?? `asset-${s.asset.id}`,
-        file_name: /\.zip$/i.test(s.asset.name) ? s.cached.file : safeFileName(s.asset.name, repo.split("/")[1]),
+        file_name: s.cached.file_name ?? (/\.zip$/i.test(s.asset.name) ? s.cached.file : safeFileName(s.asset.name, repo.split("/")[1])),
+        // A folder install: every file of switch/<app>/, the .nro among them.
+        install_dir: s.cached.folder?.dir ?? null,
+        install_path: s.cached.folder?.nro ?? installPathFor(s.cached.file_name ?? (/\.zip$/i.test(s.asset.name) ? s.cached.file : safeFileName(s.asset.name, repo.split("/")[1])), s.cached.app_dir),
+        files: s.cached.folder ? s.cached.folder.files.map(({ path: p, size, sha256 }) => ({ path: p, size, sha256 })) : null,
         source: "github",
         description: s.repo_description ?? null,
         released_at: s.released_at,
@@ -456,5 +636,12 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return wanted.has(id) && c ? path.join(dirOf(id), c.file) : null;
   }
 
-  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, setSources, status, forget, fetchDescriptions };
+  /** One file of a folder install, by its exact listed path, or null. */
+  function packageFile(id, relPath) {
+    const c = states.get(id)?.cached;
+    const f = wanted.has(id) ? c?.folder?.files.find((x) => x.path === relPath) : null;
+    return f ? { path: path.join(dirOf(id), "pkg", ...f.path.split("/")), sha256: f.sha256, size: f.size } : null;
+  }
+
+  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, packageFile, setSources, status, forget, fetchDescriptions };
 }

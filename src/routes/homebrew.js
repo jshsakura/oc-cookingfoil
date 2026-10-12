@@ -2,11 +2,23 @@
  * GET /api/homebrew                every app  { homebrew: [H…] }, with ETag
  * GET /api/homebrew/:id/icon       the app's icon from its NRO (404 before its first fetch)
  * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
- * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/switch/<name>/<file_name>)
+ * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
+ * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
  *
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
+ *       install_path, install_dir, files,
  *       forwarder_url, forwarder_title_id, forwarder_size }
+ *
+ * `install_path` is where the console keeps the .nro: always its own folder,
+ * switch/<app>/<file>.nro, which the shortcut also starts. A client that finds
+ * an older copy straight under switch/ removes it after installing.
+ *
+ * `files` is null for a single .nro. For a release whose zip is exactly one
+ * switch/<app>/ folder (one .nro, nothing for other systems), it lists every file
+ * of that folder as { path, size, sha256, url }, the .nro among them, and
+ * `install_dir` is that folder; `download_url` still serves just the .nro, so a
+ * client that ignores `files` keeps working.
  *
  * `description` is what the admin wrote (Korean for ?lang=ko or a Korean
  * Accept-Language, else English), the GitHub repository's own when the admin
@@ -27,7 +39,7 @@ import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
-import { createTracker, scanManual } from "../meta/homebrew.js";
+import { createTracker, installPathFor, scanManual } from "../meta/homebrew.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 
@@ -80,7 +92,7 @@ const forwarderDir = path.join(dataDir, "homebrew-forwarders");
 const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null };
 
 /** What the forwarder module needs to know about an app. */
-const forwarderApp = (e) => ({ id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name), artKey: e.hash });
+const forwarderApp = (e) => ({ id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name, e.install_path), artKey: e.hash });
 
 let prewarming = null;
 /** Builds the shortcuts that are missing (icons read from each app's .nro), and drops stale ones. */
@@ -135,6 +147,10 @@ export const defaultService = {
     if (!e) return null;
     return { ...(await githubTracker().ensureDownloaded(id)), file_name: e.file_name };
   },
+  /** One file of a folder install, or null. */
+  async file(id, relPath) {
+    return id.startsWith("m-") ? null : githubTracker().packageFile(id, relPath);
+  },
 };
 
 /**
@@ -162,7 +178,10 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.get("/", wrap(async (req, res) => {
     const list = (await service.list(requestLang(req))).map((e) => ({
       description: null,
+      install_dir: null,
       ...e,
+      install_path: e.install_path ?? installPathFor(e.file_name),
+      files: e.files ? e.files.map((f) => ({ ...f, url: `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}` })) : null,
       icon_url: `/api/homebrew/${e.id}/icon`,
       download_url: `/api/homebrew/${e.id}/download`,
       ...(service.forwarderInfo?.(e) ?? NO_FORWARDER),
@@ -198,6 +217,14 @@ export function homebrewRouter({ service = defaultService } = {}) {
     if (!file) return res.status(404).json({ error: "no such homebrew" });
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(file.file_name);
+    res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
+  }));
+
+  router.get("/:id/file", wrap(async (req, res) => {
+    const file = typeof req.query.path === "string" ? await service.file?.(req.params.id, req.query.path) : null;
+    if (!file) return res.status(404).json({ error: "no such file" });
+    res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
+    res.attachment(path.posix.basename(req.query.path));
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
   }));
 

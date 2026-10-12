@@ -101,7 +101,10 @@ export function launchTarget(core, romSdPath) {
  * What a homebrew app's forwarder starts: the .nro where the client keeps it,
  * sdmc:/switch/<name>/<name>.nro, or null for a file name that isn't plain. Pure.
  */
-export function homebrewTarget(fileName) {
+export function homebrewTarget(fileName, installPath = null) {
+  if (/^switch\/[A-Za-z0-9_-][A-Za-z0-9_.-]*\/[A-Za-z0-9_-][A-Za-z0-9_.-]*\.nro$/i.test(String(installPath ?? ""))) {
+    return { nroPath: `sdmc:/${installPath}`, argv: `sdmc:/${installPath}` };
+  }
   if (!/^[A-Za-z0-9_.-]+\.nro$/i.test(String(fileName ?? "")) || fileName.startsWith(".")) return null;
   const nroPath = `sdmc:/switch/${fileName.replace(/\.nro$/i, "")}/${fileName}`;
   return { nroPath, argv: nroPath };

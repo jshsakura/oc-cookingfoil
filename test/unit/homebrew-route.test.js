@@ -95,3 +95,32 @@ test("a download that cannot be fetched from GitHub answers 502", async () => {
     close();
   }
 });
+
+test("the listing names where each app goes and, for a folder install, every file with its own address", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hb-route-"));
+  const font = path.join(dir, "font.ttf");
+  fs.writeFileSync(font, "font");
+  const folder = {
+    ...fakeService(dir),
+    list: async () => [
+      { id: ID, name: "ACNH", file_name: "acnh_editor.nro", hash: "h1", install_dir: "switch/acnh_editor", install_path: "switch/acnh_editor/acnh_editor.nro",
+        files: [{ path: "switch/acnh_editor/acnh_editor.nro", size: 9, sha256: "a" }, { path: "switch/acnh_editor/font.ttf", size: 4, sha256: "b" }] },
+      { id: "m-0123456789ab", name: "Plain", file_name: "ftpd.nro", hash: "h2" },
+    ],
+    file: async (id, p) => (id === ID && p === "switch/acnh_editor/font.ttf" ? { path: font, sha256: "b", size: 4 } : null),
+  };
+  const { base, close } = await serve(folder);
+  try {
+    const { homebrew: [acnh, plain] } = await (await fetch(base)).json();
+    assert.equal(acnh.install_path, "switch/acnh_editor/acnh_editor.nro");
+    assert.equal(acnh.files[1].url, `/api/homebrew/${ID}/file?path=switch%2Facnh_editor%2Ffont.ttf`);
+    assert.deepEqual([plain.install_path, plain.install_dir, plain.files], ["switch/ftpd/ftpd.nro", null, null]);
+    const got = await fetch(`http://127.0.0.1:${new URL(base).port}${acnh.files[1].url}`);
+    assert.equal(got.status, 200);
+    assert.equal(await got.text(), "font");
+    assert.equal((await fetch(`${base}/${ID}/file?path=switch/acnh_editor/../../etc/passwd`)).status, 404);
+    assert.equal((await fetch(`${base}/${ID}/file`)).status, 404);
+  } finally {
+    close();
+  }
+});

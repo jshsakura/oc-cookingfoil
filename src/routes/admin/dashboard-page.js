@@ -98,6 +98,7 @@ h2.first{margin-top:0}
 .hb-reco b{display:block;font-size:13px;word-break:break-all}.hb-reco span{color:var(--muted);font-size:12px}
 td select{max-width:220px}
 td .err{color:var(--bad);font-size:12px;margin-top:4px}
+td .muted{color:var(--muted);font-size:12px;margin-top:4px}
 td a{color:var(--text);text-underline-offset:3px}
 .desc-form{display:grid;gap:12px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
