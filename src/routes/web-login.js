@@ -4,7 +4,7 @@
  *
  *   GET  /login?next=               ID and password form (plus a Google button when Google sign-in is on)
  *   POST /login                     form: username, password, csrf, next → session cookie, then `next`
- *   GET  /auth/me                   { user, kind, csrf } for the signed-in browser, or 401
+ *   GET  /auth/me                   { user, kind, admin, csrf } for the signed-in browser, or 401
  *   POST /auth/logout               X-CSRF-Token
  *   GET  /auth/google/start?next=   off to Google
  *   GET  /auth/google/callback      back from Google
@@ -117,7 +117,8 @@ function mountPasswordLogin(router) {
     res.set("Cache-Control", "no-store");
     const who = webUser(req);
     if (!who) return res.status(401).json({ error: "not signed in" });
-    res.json({ user: who.kind === "password" ? who.name : who.email, kind: who.kind, csrf: csrfToken(req, res) });
+    const admin = who.kind === "password" ? users.isAdmin(who.name) : accounts.isAdmin(who.sub);
+    res.json({ user: who.kind === "password" ? who.name : who.email, kind: who.kind, admin, csrf: csrfToken(req, res) });
   });
 
   router.post("/auth/logout", express.json({ limit: "1kb" }), (req, res) => {

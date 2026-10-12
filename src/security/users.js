@@ -9,6 +9,10 @@
  * No accounts means no password lane, so the last account is only removed when
  * the operator explicitly asks for an open server.
  *
+ * Each account is an admin (may open /admin) or a regular user. Accounts from
+ * before roles existed count as admins, since any of them could reach /admin then.
+ * The last enabled admin can't be disabled, demoted or removed.
+ *
  * scrypt is deliberately slow, and basic auth re-checks on every request
  * (each icon, each download chunk). Successful checks are therefore cached by
  * a digest of the credentials; any change to an account clears the cache.
@@ -148,10 +152,39 @@ export function hasUsers() {
   return accounts.size > 0;
 }
 
+export const ROLES = ["admin", "user"];
+const roleOf = (record) => (record?.role === "user" ? "user" : "admin");
+
 export function list() {
   return Array.from(accounts, ([name, r]) => ({
-    name, enabled: r.enabled, createdAt: r.createdAt, updatedAt: r.updatedAt,
+    name, enabled: r.enabled, role: roleOf(r), createdAt: r.createdAt, updatedAt: r.updatedAt,
   }));
+}
+
+/** Whether this account may open /admin (and is enabled). */
+export function isAdmin(name) {
+  const record = accounts.get(name);
+  return Boolean(record?.enabled) && roleOf(record) === "admin";
+}
+
+/**
+ * Refuse a change that would leave no enabled admin. Removing the very last
+ * account is the exception: that opens the server, so nobody is locked out.
+ */
+function keepAnAdmin(name, after, { removing = false } = {}) {
+  if (removing && accounts.size === 1) return;
+  const others = [...accounts].some(([n, r]) => n !== name && r.enabled && roleOf(r) === "admin");
+  if (!others && !(after.enabled && roleOf(after) === "admin")) {
+    throw new UserError("last-admin", "At least one enabled admin account must remain.");
+  }
+}
+
+export function setRole(name, role) {
+  if (!ROLES.includes(role)) throw new UserError("invalid-role", "Role is admin or user.");
+  const record = requireAccount(name);
+  const next = { ...record, role, updatedAt: Date.now() };
+  keepAnAdmin(name, next);
+  commit(() => accounts.set(name, next));
 }
 
 /** Synchronous check for rare paths (websocket upgrade). */
@@ -180,13 +213,16 @@ export async function verifyAsync(name, password) {
 }
 
 /** Returns the password so the admin can hand it over once; it is not stored. */
-export function add(name, password) {
+export function add(name, password, role = "user") {
   validateName(name);
   if (accounts.has(name)) throw new UserError("exists", "That user already exists.");
+  if (!ROLES.includes(role)) throw new UserError("invalid-role", "Role is admin or user.");
   const plain = resolvePassword(password);
   const now = Date.now();
-  commit(() => accounts.set(name, { hash: hashPassword(plain), enabled: true, createdAt: now, updatedAt: now }));
-  return { name, password: plain };
+  // The first account runs the server, whatever was asked.
+  const effective = accounts.size === 0 ? "admin" : role;
+  commit(() => accounts.set(name, { hash: hashPassword(plain), enabled: true, role: effective, createdAt: now, updatedAt: now }));
+  return { name, password: plain, role: effective };
 }
 
 export function setPassword(name, password) {
@@ -198,7 +234,9 @@ export function setPassword(name, password) {
 
 export function setEnabled(name, enabled) {
   const record = requireAccount(name);
-  commit(() => accounts.set(name, { ...record, enabled: Boolean(enabled), updatedAt: Date.now() }));
+  const next = { ...record, enabled: Boolean(enabled), updatedAt: Date.now() };
+  keepAnAdmin(name, next);
+  commit(() => accounts.set(name, next));
 }
 
 /** Removing the last account turns the password lane off, so it must be asked for. */
@@ -207,6 +245,7 @@ export function remove(name, { allowEmpty = false } = {}) {
   if (accounts.size === 1 && !allowEmpty) {
     throw new UserError("last-user", "Removing the last account lets anyone connect without a password.");
   }
+  keepAnAdmin(name, { enabled: false }, { removing: true });
   commit(() => accounts.delete(name));
 }
 

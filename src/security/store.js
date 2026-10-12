@@ -279,6 +279,7 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
 }
 
 export function revokeDevice(deviceKey) {
+  lastSeen.delete(deviceKey);
   const removed = state.devices.delete(deviceKey);
   // Dismissing a request that was never approved must stick across a restart too.
   const dismissed = state.pending.delete(deviceKey);
@@ -314,10 +315,29 @@ function evictOldestPending() {
   if (oldestKey !== null) state.pending.delete(oldestKey);
 }
 
+// When each approved console last connected: memory only (never written to
+// disk, no IP), so the admin page can say who is active since the last start.
+const lastSeen = new Map();
+const SEEN_GRAIN_MS = 60_000;
+
+export function touchDevice(deviceKey, now = Date.now()) {
+  if (!state.devices.has(deviceKey)) return;
+  if (now - (lastSeen.get(deviceKey) ?? 0) >= SEEN_GRAIN_MS) lastSeen.set(deviceKey, now);
+}
+
+/** Rename an approved console. @returns {boolean} whether it exists */
+export function renameDevice(deviceKey, label) {
+  const d = state.devices.get(deviceKey);
+  if (!d) return false;
+  state.devices.set(deviceKey, { ...d, label: String(label ?? "").slice(0, 64).trim() });
+  scheduleFlush();
+  return true;
+}
+
 export function devicesSnapshot() {
   return {
     approved: Array.from(state.devices.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null }))
+      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
       .map(([deviceKey, v]) => ({ deviceKey, firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null }))
