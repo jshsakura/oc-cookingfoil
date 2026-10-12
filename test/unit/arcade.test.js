@@ -75,3 +75,23 @@ test("arcade is listed before the other systems", async () => {
   const ids = systemsOf({ systems, games: [], present: new Set(["snes", "arcade", "gba"]) }).map((s) => s.id);
   assert.deepEqual(ids, ["arcade", "snes", "gba"]);
 });
+
+test("a Korean version is listed instead of its parent, which still travels with it", () => {
+  const games = applyArcade([zip("samsho2", 10), zip("samsho2k", 5), zip("mslug", 7), zip("neogeo", 1)]);
+  assert.deepEqual(games.map((g) => g.file).sort(), ["mslug.zip", "samsho2k.zip"]);
+  const k = games.find((g) => g.file === "samsho2k.zip");
+  assert.deepEqual(k.extras.map((x) => x.rel), ["samsho2.zip", "neogeo.zip"]);
+});
+
+test("the version tag becomes a region code for a flag", async () => {
+  const { regionOf } = await import("../../src/retro/arcade.js");
+  assert.equal(regionOf("World 911202"), "world");
+  assert.equal(regionOf("Europe 940705"), "eu");
+  assert.equal(regionOf("Japan, set 1"), "jp");
+  assert.equal(regionOf("USA 920513"), "us");
+  assert.equal(regionOf("Asia 970319"), "asia");
+  assert.equal(regionOf("Korean Translation 911202"), "kr");
+  assert.equal(regionOf("Korean release"), "kr");
+  assert.equal(regionOf("NGM-2420"), null);
+  assert.equal(regionOf(null), null);
+});

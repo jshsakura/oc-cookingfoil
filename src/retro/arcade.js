@@ -9,6 +9,8 @@
  *
  * A BIOS set (neogeo.zip, pgm.zip …) is not a game of its own: it is left out of
  * the list and travels with every game that needs it, as does a clone's parent.
+ * When a Korean release or translation of a game is in the folder, only that one
+ * is listed; its parent still travels with it.
  *
  * The operator can correct or add titles in <retro dir>/arcade-names.json,
  * keyed by short name or English title; it wins over the built-in table:
@@ -24,7 +26,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "fbneo-arcade.json");
-const MAX_CHAIN = 4; // clone → parent → BIOS is as deep as it goes
+const MAX_CHAIN = 4;
+const KOREAN_RE = /\bKorea|\bKorean\b|Hangul/i; // clone → parent → BIOS is as deep as it goes
 
 let data = null;
 const load = () => (data ??= JSON.parse(fs.readFileSync(DATA, "utf8")));
@@ -67,6 +70,17 @@ export function dependencies(shortName) {
   return out;
 }
 
+const REGIONS = [
+  ["kr", /\bKorea|\bKorean\b|Hangul/i], ["jp", /\bJapan/i], ["us", /\bUSA?\b|\bAmerica/i],
+  ["eu", /\bEurope|\bEuro\b|\bGerman|\bFrance|\bSpain|\bItaly|\bUK\b/i], ["asia", /\bAsia|\bHong Kong|\bTaiwan|\bChina/i],
+  ["br", /\bBrazil/i], ["world", /\bWorld\b/i],
+];
+
+/** The region a set's version tag names ("World 911202" → "world"), or null. Korean wins over the rest. Pure. */
+export function regionOf(tag) {
+  return REGIONS.find(([, re]) => re.test(String(tag ?? "")))?.[0] ?? null;
+}
+
 /** The name a game is listed under: Korean first with the English title beside it, the version as a tag. Pure. */
 export function listedName(info) {
   const ko = info.names.ko;
@@ -81,11 +95,17 @@ export function listedName(info) {
  */
 export function applyArcade(games, overrides = null) {
   const byName = new Map(games.map((g) => [path.basename(g.rel, path.extname(g.rel)).toLowerCase(), g]));
+  // Parents with a Korean version present: listed through that version only.
+  const korean = new Set();
+  for (const short of byName.keys()) {
+    const info = setInfo(short, overrides);
+    if (info?.cloneOf && byName.has(info.cloneOf) && KOREAN_RE.test(info.desc)) korean.add(info.cloneOf);
+  }
   const out = [];
   for (const [short, g] of byName) {
     const info = setInfo(short, overrides);
     if (!info) { out.push(g); continue; }
-    if (info.bios) continue;
+    if (info.bios || korean.has(short)) continue;
     const extras = [...g.extras];
     for (const dep of dependencies(short)) {
       const d = byName.get(dep);
@@ -96,6 +116,7 @@ export function applyArcade(games, overrides = null) {
       name: listedName(info),
       names: Object.fromEntries(Object.entries(info.names).filter(([, v]) => v)),
       original: info.desc,
+      region: regionOf(info.tag),
       extras,
       size: g.fileSize + extras.reduce((n, x) => n + x.size, 0),
       keepFileName: true,
