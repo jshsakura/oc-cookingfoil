@@ -1,5 +1,5 @@
 /**
- * Dropbox sign-in bridge for the Switch client's save sync, speaking the same
+ * Dropbox sign-in bridge for the client app's save sync, speaking the same
  * protocol as oc-save-keeper's bridge so its client code works unchanged:
  *
  *   POST /api/dropbox/v1/sessions/start              → { session_id, poll_token, authorize_url, expires_in, poll_url }
@@ -120,10 +120,10 @@ export function dropboxSessionsRouter() {
 }
 
 const PAGE_TEXT = {
-  ko: { ok: "Dropbox 를 연결했습니다", okBody: "스위치로 돌아가면 곧 연결이 끝납니다. 이 창은 닫아도 됩니다.", fail: "Dropbox 연결에 실패했습니다", failBody: "스위치에서 다시 시도합니다.", gone: "연결 요청이 만료됐습니다", goneBody: "스위치에서 새 QR 을 띄워 다시 시도합니다." },
-  en: { ok: "Dropbox connected", okBody: "Go back to your Switch; it finishes in a moment. You can close this window.", fail: "Dropbox was not connected", failBody: "Try again from your Switch.", gone: "This sign-in has expired", goneBody: "Show a new QR code on your Switch and try again." },
-  ja: { ok: "Dropbox を接続しました", okBody: "Switch に戻るとまもなく完了します。このウィンドウは閉じてかまいません。", fail: "Dropbox を接続できませんでした", failBody: "Switch からもう一度試してください。", gone: "このサインインは期限切れです", goneBody: "Switch で新しい QR コードを表示して、もう一度試してください。" },
-  zh: { ok: "已連接 Dropbox", okBody: "回到 Switch 即可完成。可以關閉這個視窗。", fail: "未能連接 Dropbox", failBody: "請在 Switch 上再試一次。", gone: "此登入已過期", goneBody: "請在 Switch 上顯示新的 QR 碼再試一次。" },
+  ko: { ok: "Dropbox 를 연결했습니다", okBody: "기기로 돌아가면 곧 연결이 끝납니다. 이 창은 닫아도 됩니다.", fail: "Dropbox 연결에 실패했습니다", failBody: "기기에서 다시 시도합니다.", gone: "연결 요청이 만료됐습니다", goneBody: "기기에서 새 QR 을 띄워 다시 시도합니다." },
+  en: { ok: "Dropbox connected", okBody: "Go back to your console; it finishes in a moment. You can close this window.", fail: "Dropbox was not connected", failBody: "Try again from your console.", gone: "This sign-in has expired", goneBody: "Show a new QR code on your console and try again." },
+  ja: { ok: "Dropbox を接続しました", okBody: "本体に戻るとまもなく完了します。このウィンドウは閉じてかまいません。", fail: "Dropbox を接続できませんでした", failBody: "本体からもう一度試してください。", gone: "このサインインは期限切れです", goneBody: "本体で新しい QR コードを表示して、もう一度試してください。" },
+  zh: { ok: "已連接 Dropbox", okBody: "回到主機即可完成。可以關閉這個視窗。", fail: "未能連接 Dropbox", failBody: "請在主機上再試一次。", gone: "此登入已過期", goneBody: "請在主機上顯示新的 QR 碼再試一次。" },
 };
 
 function page(res, status, lang, kind, detail = "") {

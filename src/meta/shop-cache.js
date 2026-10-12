@@ -528,7 +528,7 @@ export async function init() {
   // from a background read; load what earlier runs found before the first build.
   await contentMeta.load();
   contentMeta.onExtracted(() => scheduleRebuild("content-meta"));
-  // Prices arrive from Nintendo after the list is built, and go stale after
+  // Prices arrive from the eShop after the list is built, and go stale after
   // 12 h; a rebuild re-composes the list, which asks again for stale ones.
   onPricesChanged(() => scheduleRebuild("eshop-prices"));
   featured.onChange(() => scheduleRebuild("featured"));

@@ -93,7 +93,7 @@ test("pairing-only + unapproved device: distinct reason, and it lands in the pen
 });
 
 test("basic-auth configured: the guard steps aside entirely (authGuard owns this surface)", () => {
-  const r = runProbe({ env: { COOK_DEVICE_PAIRING: "true", COOK_AUTH_USERS: "switch:foil" } });
+  const r = runProbe({ env: { COOK_DEVICE_PAIRING: "true", COOK_AUTH_USERS: "console:foil" } });
 
   assert.equal(r.passedThrough, true);
   assert.equal(r.status, null);

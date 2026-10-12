@@ -5,7 +5,7 @@
  *
  * Starts the web test server (test/web/server.mjs) and, in the browser, swaps
  * the catalog endpoints for a fictional library with generated placeholder
- * art, so no real game names or Nintendo artwork ever end up in the repo.
+ * art, so no real titles or third-party artwork ever end up in the repo.
  *
  *   node scripts/readme-screenshots.mjs
  *   PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chrome node scripts/readme-screenshots.mjs

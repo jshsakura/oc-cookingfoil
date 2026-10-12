@@ -35,7 +35,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  globalSetup: path.resolve(path.resolve(), './test/switch.setup.ts'),
+  globalSetup: path.resolve(path.resolve(), './test/client.setup.ts'),
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

@@ -1,5 +1,5 @@
 /**
- * Retro games for RetroArch on the Switch. Off (404) until the retro folder
+ * Retro games for RetroArch on the console. Off (404) until the retro folder
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }

@@ -25,7 +25,7 @@
  *     metadata; they never drop the item.
  *   - The shop response is self-contained: one request, all the metadata.
  *   - Image URLs in the response point to OUR proxy endpoints — never raw
- *     Nintendo CDN URLs — so the Switch client gets locally-cached
+ *     eShop CDN URLs, so the client app gets locally-cached
  *     bytes (offline-friendly) and we control retention.
  */
 import fs from "fs/promises";
@@ -111,7 +111,7 @@ function normalizeTitleId(raw) {
 }
 
 /**
- * Take a titledb entry (with Nintendo CDN URLs) and produce the version we
+ * Take a titledb entry (with eShop CDN URLs) and produce the version we
  * surface to clients — image URLs replaced with our proxy endpoints, keyed
  * by the base titleId. The raw upstream URLs stay in titledb-store for the
  * proxy itself to look up.
@@ -130,8 +130,8 @@ function proxyifyTitledb(entry, titleId) {
   return out;
 }
 
-// Tinfoil's on-Switch search only matches the literal `name` field of
-// each entry, AND the Switch's on-screen keyboard is English-only. So
+// Tinfoil's on-console search only matches the literal `name` field of
+// each entry, AND the console's on-screen keyboard is English-only. So
 // when titledb picks a Korean (or other CJK) display name, the title is
 // effectively unsearchable from the device unless we glue the English
 // rendering onto the name ourselves:
@@ -204,7 +204,7 @@ function buildFileItem(relPath, size, mtimeMs) {
   // CyberFoil/AeroFoil's legacy remote parser (remoteInstall.cpp::
   // AppendRemoteItemFromEntry → ApplyLegacyMetadataFromName) IGNORES the
   // per-item `titleId` field and recovers the title id + content type ONLY
-  // from `[...]` tokens inside `name`. A clean name like "1-2-Switch" leaves
+  // from `[...]` tokens inside `name`. A clean name like "Super Puzzle 2" leaves
   // the item with no title id, so it isn't recognised as a base title — and
   // with the client's "All base only" filter on (remoteAllBaseOnly, default
   // ON), every such row is dropped and the catalog shows up EMPTY. Stamping
@@ -367,7 +367,7 @@ export function composeResponse(filesMap, customs) {
         id: baseId,
         // Preference order: titledb (decorated) > extracted NACP > filename.
         // The decorated form glues the English alias onto a CJK name
-        // ('젤다의 전설 (The Legend of Zelda)') so the Switch English-
+        // ('젤다의 전설 (The Legend of Zelda)') so the console's English-
         // keyboard search matches no matter which name surface a given
         // Tinfoil fork reads.
         name: decoratedTitledbName ?? extracted?.name ?? item.name,

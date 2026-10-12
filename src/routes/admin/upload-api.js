@@ -112,7 +112,7 @@ async function received(req, work) {
 }
 
 async function placeGame(items) {
-  if (items.length !== 1) throw new UploadError(400, "스위치 게임은 파일 하나씩 올립니다");
+  if (items.length !== 1) throw new UploadError(400, "패키지는 파일 하나씩 올립니다");
   const name = safeName(path.posix.basename(items[0].rel));
   if (!name || !GAME_EXT_RE.test(name)) throw new UploadError(400, "nsp·nsz·xci·xcz 파일만 받습니다");
   const dest = path.join(romsDirPath, name);

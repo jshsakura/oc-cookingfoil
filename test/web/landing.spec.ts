@@ -71,7 +71,7 @@ test('score badges read the section scores and label them in the page language',
   await pickLang(page, 'ko');
   const pill = page.locator('#games .score-badge');
   await expect(pill).toHaveText('75');
-  // the 70s band, as on the Switch client
+  // the 70s band, as on the console client
   await expect(pill).toHaveClass(/s70/);
   const chip = page.locator('#steam-chips [data-steam="Mostly Positive"]');
   await expect(chip).toContainText('대체로 긍정적');

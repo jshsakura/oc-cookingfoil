@@ -4,46 +4,43 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil</title>
+<meta name="description" content="A personal, self-hosted homebrew file server.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
-<script src="lang.js"></script>
+<script src="site.js"></script>
 </head>
 <body>
-<main>
-<header>
+<header class="top"><div class="in">
 <a class="brand" href="./"><img src="icon.svg" alt=""><span class="wm">cookingfoil<i>.</i></span></a>
-<select id="lang" aria-label="Language"><option value="ko">한국어</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option></select>
-</header>
-<nav><a href="./" aria-current="page"><span data-l="ko">소개</span><span data-l="en">About</span><span data-l="ja">概要</span><span data-l="zh">简介</span></a><a href="privacy.html"><span data-l="ko">개인정보처리방침</span><span data-l="en">Privacy Policy</span><span data-l="ja">プライバシーポリシー</span><span data-l="zh">隐私政策</span></a><a href="terms.html"><span data-l="ko">서비스 약관</span><span data-l="en">Terms of Service</span><span data-l="ja">利用規約</span><span data-l="zh">服务条款</span></a><a href="https://github.com/jshsakura/oc-cookingfoil">GitHub</a></nav>
-<div data-l="ko">
-<h1>CookingFoil</h1>
-<p class="sub">닌텐도 스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버</p>
-<div class="box"><p>내가 가진 파일을 집 서버에 두고, 이름과 아이콘을 붙여 정리해 스위치의 홈브류 앱으로 받습니다. 각자 자기 서버에 설치해 쓰며, 운영자가 허락한 계정과 기기만 접속합니다.</p></div>
-<h2>로그인</h2>
-<p>웹 화면은 운영자가 만든 아이디와 비밀번호로 로그인합니다. 운영자가 켜 두었다면 구글 계정으로도 로그인할 수 있고, 처음 로그인한 구글 계정은 운영자가 승인해야 쓸 수 있습니다.</p>
+<div class="lang">
+<button class="chip" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Language"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span id="lang-code">EN</span><svg viewBox="0 0 24 24" aria-hidden="true" class="i chev"><path d="M6 9l6 6 6-6"/></svg></button>
+<div class="menu" id="lang-menu" role="menu" hidden></div>
 </div>
-<div data-l="en">
-<h1>CookingFoil</h1>
-<p class="sub">A personal, self-hosted file server for Nintendo Switch homebrew</p>
-<div class="box"><p>Keep your own files on your home server, organised with names and icons, and fetch them from homebrew apps on the console. Everyone installs it on their own server, and only the accounts and consoles its operator allows can connect.</p></div>
-<h2>Signing in</h2>
-<p>The web pages take the ID and password the operator created. If the operator turns it on, you can also sign in with Google; a Google account can be used once the operator approves it.</p>
-</div>
-<div data-l="ja">
-<h1>CookingFoil</h1>
-<p class="sub">Nintendo Switch 自作アプリ向けの個人用セルフホスト型ファイルサーバー</p>
-<div class="box"><p>自分のファイルを自宅のサーバーに置き、名前とアイコンで整理して、本体の自作アプリから受け取ります。各自が自分のサーバーにインストールして使い、運営者が許可したアカウントと本体だけが接続できます。</p></div>
-<h2>ログイン</h2>
-<p>Web 画面には運営者が作成した ID とパスワードでログインします。運営者が有効にしていれば Google アカウントでもログインでき、初めてログインした Google アカウントは運営者の承認後に使えます。</p>
-</div>
-<div data-l="zh">
-<h1>CookingFoil</h1>
-<p class="sub">面向 Nintendo Switch 自制程序的个人自托管文件服务器</p>
-<div class="box"><p>把自己的文件放在家里的服务器上，按名称和图标整理，再用主机上的自制程序获取。每个人都在自己的服务器上安装使用，只有运营者允许的账号和主机才能连接。</p></div>
-<h2>登录</h2>
-<p>网页使用运营者创建的账号和密码登录。如果运营者开启了 Google 登录，也可以用 Google 账号登录；首次登录的 Google 账号需经运营者批准后才能使用。</p>
-</div>
-<footer><p data-l="ko">CookingFoil 은 닌텐도와 제휴, 후원, 보증 관계가 없는 독립된 오픈소스 프로젝트입니다. MIT 라이선스.</p><p data-l="en">CookingFoil is an independent open-source project, not affiliated with, sponsored by or endorsed by Nintendo. MIT License.</p><p data-l="ja">CookingFoil は任天堂と提携・後援・保証関係のない独立したオープンソースプロジェクトです。MIT ライセンス。</p><p data-l="zh">CookingFoil 是独立的开源项目，与任天堂没有任何隶属、赞助或认可关系。MIT 许可证。</p><p><a href="https://github.com/jshsakura/oc-cookingfoil">github.com/jshsakura/oc-cookingfoil</a></p></footer>
+<button class="chip" id="theme-btn" type="button" aria-label="Theme"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" data-t="auto"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/></svg><svg class="i" viewBox="0 0 24 24" aria-hidden="true" data-t="dark"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><svg class="i" viewBox="0 0 24 24" aria-hidden="true" data-t="light"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div></header>
+<main class="wrap">
+<section class="hero">
+<img src="icon.svg" alt="">
+<h1 data-l="ko">홈브류를 위한<br>내 서버, 내 파일</h1><h1 data-l="en">Your server, your files,<br>for homebrew</h1><h1 data-l="ja">自作アプリのための<br>自分のサーバー、自分のファイル</h1><h1 data-l="zh">为自制程序准备的<br>自己的服务器，自己的文件</h1>
+<p data-l="ko">CookingFoil 은 집에 두는 개인용 파일 서버입니다. 내 파일에 이름과 아이콘을 붙여 정리하고, 기기의 홈브류 앱으로 받습니다.</p><p data-l="en">CookingFoil is a personal file server you keep at home. It organises your own files with names and icons and hands them to homebrew apps on your console.</p><p data-l="ja">CookingFoil は自宅に置く個人用ファイルサーバーです。自分のファイルを名前とアイコンで整理し、本体の自作アプリで受け取ります。</p><p data-l="zh">CookingFoil 是放在家里的个人文件服务器。它用名称和图标整理你自己的文件，并交给主机上的自制程序。</p>
+<div class="btns"><a class="btn primary" href="https://github.com/jshsakura/oc-cookingfoil"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg><span data-l="ko">GitHub 에서 보기</span><span data-l="en">View on GitHub</span><span data-l="ja">GitHub で見る</span><span data-l="zh">在 GitHub 查看</span></a><a class="btn" href="https://github.com/jshsakura/oc-cookingfoil#readme"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg><span data-l="ko">설치 안내</span><span data-l="en">Install guide</span><span data-l="ja">インストール手順</span><span data-l="zh">安装说明</span></a></div>
+<p data-l="ko" class="note">오픈소스 · MIT 라이선스 · Docker 로 설치합니다</p><p data-l="en" class="note">Open source · MIT License · installs with Docker</p><p data-l="ja" class="note">オープンソース · MIT ライセンス · Docker でインストール</p><p data-l="zh" class="note">开源 · MIT 许可证 · 使用 Docker 安装</p>
+</section>
+<section class="block">
+<div class="label"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-l="ko">기능</span><span data-l="en">Features</span><span data-l="ja">機能</span><span data-l="zh">功能</span></div>
+<h2 data-l="ko" class="sec">필요한 만큼만, 내 손으로</h2><h2 data-l="en" class="sec">Just what you need, in your hands</h2><h2 data-l="ja" class="sec">必要な分だけ、自分の手で</h2><h2 data-l="zh" class="sec">恰到好处，掌握在自己手中</h2>
+<p data-l="ko" class="lead">공개 서비스가 아닙니다. 운영자가 허락한 계정과 기기만 접속합니다.</p><p data-l="en" class="lead">It is not a public service. Only the accounts and consoles the operator allows can connect.</p><p data-l="ja" class="lead">公開サービスではありません。運営者が許可したアカウントと本体だけが接続できます。</p><p data-l="zh" class="lead">这不是公开服务。只有运营者允许的账号和主机才能连接。</p>
+<div class="grid"><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></div><h3 data-l="ko">내 서버에 직접</h3><h3 data-l="en">On your own server</h3><h3 data-l="ja">自分のサーバーで</h3><h3 data-l="zh">在自己的服务器上</h3><p data-l="ko">Docker 하나로 집 서버에 올립니다. 파일은 내 디스크를 떠나지 않습니다.</p><p data-l="en">One Docker container on your home server. Your files never leave your disk.</p><p data-l="ja">Docker ひとつで自宅のサーバーに置けます。ファイルは自分のディスクから出ません。</p><p data-l="zh">一个 Docker 容器即可部署在家用服务器上。文件不会离开你的硬盘。</p></div><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg></div><h3 data-l="ko">이름과 아이콘</h3><h3 data-l="en">Names and icons</h3><h3 data-l="ja">名前とアイコン</h3><h3 data-l="zh">名称与图标</h3><p data-l="ko">파일 안의 정보로 이름과 아이콘을 붙여 한눈에 보이게 정리합니다.</p><p data-l="en">Names and icons are read from the files themselves, so everything is easy to find.</p><p data-l="ja">ファイル内の情報から名前とアイコンを付け、ひと目で分かるように整理します。</p><p data-l="zh">从文件本身读取名称和图标，整理得一目了然。</p></div><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg></div><h3 data-l="ko">CyberFoil 기본 지원</h3><h3 data-l="en">CyberFoil first</h3><h3 data-l="ja">CyberFoil を標準サポート</h3><h3 data-l="zh">默认支持 CyberFoil</h3><p data-l="ko">CyberFoil 을 기본으로 지원하고 Tinfoil 과도 호환됩니다.</p><p data-l="en">Built for CyberFoil, and compatible with Tinfoil.</p><p data-l="ja">CyberFoil を標準でサポートし、Tinfoil とも互換性があります。</p><p data-l="zh">默认支持 CyberFoil，同时兼容 Tinfoil。</p></div><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></div><h3 data-l="ko">QR 로 기기 승인</h3><h3 data-l="en">Approve consoles by QR</h3><h3 data-l="ja">QR で本体を承認</h3><h3 data-l="zh">扫码批准主机</h3><p data-l="ko">기기 화면의 QR 을 휴대폰으로 찍으면 그 기기만 연결됩니다.</p><p data-l="en">Scan the QR on the console with your phone and only that console is let in.</p><p data-l="ja">本体に表示された QR をスマートフォンで読み取ると、その本体だけが接続されます。</p><p data-l="zh">用手机扫描主机上的二维码，只有这台主机会被允许连接。</p></div><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3 data-l="ko">로그인과 승인제</h3><h3 data-l="en">Sign-in and approval</h3><h3 data-l="ja">ログインと承認制</h3><h3 data-l="zh">登录与审批</h3><p data-l="ko">아이디·비밀번호로 로그인하고, 구글 로그인은 선택입니다. 새 계정은 운영자가 승인합니다.</p><p data-l="en">ID and password sign-in, with Google as an option. New accounts wait for the operator's approval.</p><p data-l="ja">ID とパスワードでログインし、Google ログインは任意です。新しいアカウントは運営者が承認します。</p><p data-l="zh">使用账号和密码登录，Google 登录可选。新账号需经运营者批准。</p></div><div class="card"><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></div><h3 data-l="ko">네 가지 언어</h3><h3 data-l="en">Four languages</h3><h3 data-l="ja">4 つの言語</h3><h3 data-l="zh">四种语言</h3><p data-l="ko">웹 화면을 한국어, 영어, 일본어, 중국어로 씁니다.</p><p data-l="en">The web pages speak Korean, English, Japanese and Chinese.</p><p data-l="ja">Web 画面は韓国語、英語、日本語、中国語に対応します。</p><p data-l="zh">网页支持韩语、英语、日语和中文。</p></div></div>
+</section>
+<section class="block">
+<div class="label"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg><span data-l="ko">시작하기</span><span data-l="en">Getting started</span><span data-l="ja">はじめ方</span><span data-l="zh">开始使用</span></div>
+<h2 data-l="ko" class="sec">세 단계면 됩니다</h2><h2 data-l="en" class="sec">Three steps</h2><h2 data-l="ja" class="sec">3 つのステップ</h2><h2 data-l="zh" class="sec">只需三步</h2>
+<div class="steps" style="margin-top:18px"><div class="card"><h3 data-l="ko">서버에 설치</h3><h3 data-l="en">Install</h3><h3 data-l="ja">サーバーに設置</h3><h3 data-l="zh">安装到服务器</h3><p data-l="ko">저장소의 compose 파일로 <code>docker compose up -d</code> 를 실행합니다.</p><p data-l="en">Run <code>docker compose up -d</code> with the compose file in the repository.</p><p data-l="ja">リポジトリの compose ファイルで <code>docker compose up -d</code> を実行します。</p><p data-l="zh">使用仓库中的 compose 文件运行 <code>docker compose up -d</code>。</p></div><div class="card"><h3 data-l="ko">계정 만들기</h3><h3 data-l="en">Create accounts</h3><h3 data-l="ja">アカウント作成</h3><h3 data-l="zh">创建账号</h3><p data-l="ko">웹 관리 화면에서 사용할 계정을 만들고 필요하면 구글 로그인을 켭니다.</p><p data-l="en">Create accounts in the web admin page, and turn on Google sign-in if you want it.</p><p data-l="ja">Web の管理画面でアカウントを作成し、必要なら Google ログインを有効にします。</p><p data-l="zh">在网页管理页面创建账号，需要时开启 Google 登录。</p></div><div class="card"><h3 data-l="ko">기기 연결</h3><h3 data-l="en">Connect a console</h3><h3 data-l="ja">本体を接続</h3><h3 data-l="zh">连接主机</h3><p data-l="ko">QR 을 찍어 승인하거나, 앱 설정에 서버 주소와 계정을 넣습니다.</p><p data-l="en">Approve it by scanning its QR, or enter the server address and account in the app.</p><p data-l="ja">QR を読み取って承認するか、アプリの設定にサーバーのアドレスとアカウントを入力します。</p><p data-l="zh">扫码批准，或在应用设置中填写服务器地址和账号。</p></div></div>
+</section>
 </main>
+<footer><div class="in">
+<nav><a href="https://github.com/jshsakura/oc-cookingfoil">GitHub</a><a href="privacy.html"><span data-l="ko">개인정보처리방침</span><span data-l="en">Privacy</span><span data-l="ja">プライバシー</span><span data-l="zh">隐私政策</span></a><a href="terms.html"><span data-l="ko">서비스 약관</span><span data-l="en">Terms</span><span data-l="ja">利用規約</span><span data-l="zh">服务条款</span></a><a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/LICENSE">MIT</a></nav>
+<p data-l="ko">CookingFoil 은 독립된 오픈소스 프로젝트입니다. 소프트웨어, 키, BIOS 파일, RetroArch 를 포함하지 않으며 그 자리는 모두 비어 있습니다.</p><p data-l="en">CookingFoil is an independent open-source project. It ships no software, keys, BIOS files or RetroArch; those slots are all empty.</p><p data-l="ja">CookingFoil は独立したオープンソースプロジェクトです。ソフトウェア、キー、BIOS ファイル、RetroArch は含まれず、その枠はすべて空です。</p><p data-l="zh">CookingFoil 是独立的开源项目。不包含任何软件、密钥、BIOS 文件或 RetroArch，这些位置都是空的。</p>
+</div></footer>
 </body>
 </html>

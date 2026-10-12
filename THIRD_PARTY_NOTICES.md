@@ -39,6 +39,6 @@ Transitive dependencies are MIT, ISC, BSD or Apache-2.0 (`npx license-checker --
 
 ## Data
 
-- **blawar/titledb**: game names, descriptions and artwork URLs, fetched at run time, not redistributed.
-- Artwork, prices and popularity come from Nintendo's public eShop services at run time and are cached
+- **blawar/titledb**: title names, descriptions and artwork URLs, fetched at run time, not redistributed.
+- Artwork, prices and popularity come from public store services at run time and are cached
   locally; they are not part of this repository.

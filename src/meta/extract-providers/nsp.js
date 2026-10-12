@@ -1,7 +1,7 @@
 /**
  * Keyed extractor for NSP/XCI containers, via an external `nstool` binary.
  *
- * Switch game containers are encrypted with the console master key set
+ * Package containers are encrypted with the console master key set
  * (prod.keys). Reproducing the full decryption pipeline in JS is a
  * 2–3 kLOC ordeal — Cryptography (AES-XTS, AES-CTR, AES-ECB), key
  * derivation chains, NCA section parsing, the works. Instead we shell
@@ -27,7 +27,7 @@
  *
  * The whole thing runs under a single AbortController so timeouts kill
  * any pending step plus the tmpdir. nstool itself is single-threaded
- * I/O; on a typical Switch dump (~1–8 GB), the wall clock here is
+ * I/O; on a typical package (~1–8 GB), the wall clock here is
  * dominated by the PFS0 extract — multi-second, hence the worker
  * concurrency cap on the queue layer.
  */

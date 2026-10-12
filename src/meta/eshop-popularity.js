@@ -2,7 +2,7 @@
  * eShop popularity rank (1 = most popular), for the client's "인기" row.
  *
  * blawar/titledb carries a `rank` field but leaves it empty in every region,
- * so the rank comes from the search index nintendo.com's own US store uses:
+ * so the rank comes from the search index the US eShop site itself uses:
  * its game records carry `popularityRank`, the US `nsuid` and the title. The
  * US titledb file maps that nsuid to a title id. Refreshed with titledb
  * (daily) and kept as titledb/popularity.json.
@@ -16,7 +16,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir, eshopPopularity, eshopAlgoliaAppId, eshopAlgoliaKey } from "../helpers/envs.js";
 
-// Public search-only credentials nintendo.com ships to every visitor
+// Public search-only credentials that site ships to every visitor
 // (COOK_ESHOP_ALGOLIA_APP_ID / _KEY override them).
 const ENDPOINT = `https://${eshopAlgoliaAppId.toLowerCase()}-dsn.algolia.net/1/indexes/store_game_en_us/query`;
 const HEADERS = {

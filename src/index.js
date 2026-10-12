@@ -164,7 +164,7 @@ expressApp.use("/api/uploads", uploadsRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).
 expressApp.use("/api/art", artRouter());
 
-// Locally-cached artwork. First request fetches from Nintendo's eShop CDN
+// Locally-cached artwork. First request fetches from the eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
 expressApp.get("/api/shop/banner/:titleId", bannerRoute);
@@ -197,7 +197,7 @@ expressApp.use("/api/client", clientUpdateRouter());
 // Retro games, bezels and the RetroArch base pack (off until COOK_RETRO_DIR exists).
 expressApp.use("/api/retro", retroRouter());
 
-// Dropbox save sync: sign-in sessions for the Switch client (COOK_DROPBOX_APP_KEY).
+// Dropbox save sync: sign-in sessions for the client app (COOK_DROPBOX_APP_KEY).
 expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());
 
 // On-demand rich metadata (description, publisher, screenshots, …) for one

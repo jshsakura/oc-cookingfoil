@@ -301,7 +301,7 @@ test("size/status: reflect the merged title count and region summary after load(
 // in the same titledb under the Korean release's (different) id. Nothing in
 // titledb links those two ids — the shared eShop artwork hash does.
 
-const ART = "https://img-eshop.cdn.nintendo.net/i/deadcells-icon.jpg";
+const ART = "https://cdn.example.net/i/deadcells-icon.jpg";
 
 test("preferredSibling: finds the preferred-language release that shares artwork", async () => {
   await resetDir();
@@ -364,7 +364,7 @@ test("preferredSibling: null when two different titles claim the same artwork", 
 
 test("preferredSibling: matches on bannerUrl too, not just iconUrl", async () => {
   await resetDir();
-  const banner = "https://img-eshop.cdn.nintendo.net/i/furi-banner.jpg";
+  const banner = "https://cdn.example.net/i/furi-banner.jpg";
   await writeRegion("KR.ko.json", {
     "70010000000018": { id: "0100000000060000", name: "퓨리", bannerUrl: banner },
   });

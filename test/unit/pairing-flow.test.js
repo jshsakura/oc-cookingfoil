@@ -98,7 +98,7 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
     r = await fetch(`${BASE}/admin/api/devices/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: cookie },
-      body: JSON.stringify({ deviceKey: DEVICE_KEY, label: "friend switch" }),
+      body: JSON.stringify({ deviceKey: DEVICE_KEY, label: "friend console" }),
     });
     assert.equal(r.status, 200);
     assert.equal((await r.json()).ok, true);
@@ -205,7 +205,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     assert.ok((await (await fetch(page.url, { headers: auth })).text()).includes('id="approve"'));
     r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: "https://other.example" }, body: "{}" });
     assert.equal(r.status, 403);
-    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: BASE }, body: JSON.stringify({ label: "Nintendo Switch" }) });
+    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: BASE }, body: JSON.stringify({ label: "Living room" }) });
     assert.equal(r.status, 200);
     assert.deepEqual(await r.json(), { ok: true });
     r = await fetch(endpoint, { method: "POST", headers: auth, body: "{}" });

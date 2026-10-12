@@ -32,7 +32,7 @@ const STEAM_SEARCH = "https://store.steampowered.com/api/storesearch";
 const STEAM_REVIEWS = "https://store.steampowered.com/appreviews";
 const IGDB_TOKEN = "https://id.twitch.tv/oauth2/token";
 const IGDB_GAMES = "https://api.igdb.com/v4/games";
-const SWITCH_PLATFORM = 130;
+const PLATFORM_ID = 130;
 // Steam's review summary wording, as the keys SCORE_LABELS uses.
 const STEAM_LABELS = new Set([
   "Overwhelmingly Positive", "Very Positive", "Positive", "Mostly Positive", "Mixed",
@@ -150,11 +150,11 @@ async function igdbAuth(fetchImpl) {
   return igdbToken.value;
 }
 
-/** IGDB's rating for the Switch release, or { miss }. Only when keys are set. */
+/** IGDB's rating for this platform's release, or { miss }. Only when keys are set. */
 export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
   const token = await igdbAuth(fetchImpl);
   const term = names[0].replace(/"/g, "");
-  const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count; where platforms = (${SWITCH_PLATFORM}); limit 5;`;
+  const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count; where platforms = (${PLATFORM_ID}); limit 5;`;
   const games = await getJson(fetchImpl, IGDB_GAMES, {
     method: "POST", body,
     headers: { "Client-ID": igdbClientId, Authorization: `Bearer ${token}`, Accept: "application/json" },

@@ -1,5 +1,5 @@
 /**
- * Parse Switch title metadata from filenames.
+ * Parse title metadata from package filenames.
  *
  * Convention (community-standard):
  *   "Game Name [TITLEID][vVERSION] (size).ext"

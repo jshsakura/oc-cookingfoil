@@ -3,17 +3,17 @@
  * variant pipeline.
  *
  * Variants live next to the original:
- *   <titleId>.jpg             ← upstream JPEG (Nintendo eShop CDN)
+ *   <titleId>.jpg             ← upstream JPEG (eShop CDN)
  *   <titleId>.banner.jpg
  *   <titleId>.screen.<n>.jpg
- *   <titleId>.sm.jpg|webp     ← 160×160 cover (?size=sm, Switch list cards)
+ *   <titleId>.sm.jpg|webp     ← 160×160 cover (?size=sm, client list cards)
  *   <titleId>.thumb.jpg|webp  ← 256×256 cover (?size=md)
  *   <titleId>.md.jpg|webp     ← 512×512 cover (?size=lg, browser cards)
  *
- * The Switch client's sizes (sm and md, as JPEG) are drawn ahead of time by
+ * The client app's sizes (sm and md, as JPEG) are drawn ahead of time by
  * prewarmIcons, so a list never waits for a resize.
  *
- * Switch clients (Tinfoil/CyberFoil) request the original — no Accept:
+ * Console clients (Tinfoil/CyberFoil) request the original — no Accept:
  * image/webp header from them, so they always get JPEG.
  * Browsers requesting `?size=sm` with `Accept: image/webp` get the WebP
  * thumbnail (~70% smaller than the original JPEG); JPEG falls through
@@ -119,7 +119,7 @@ export function forget(filePath) {
 }
 
 async function fetchAndStore(url, cachePath) {
-  // COOK_ESHOP_ARTWORK=false: nothing is fetched from Nintendo's CDN.
+  // COOK_ESHOP_ARTWORK=false: nothing is fetched from the eShop CDN.
   if (!eshopArtwork) throw new Error("eShop artwork fetching is off");
   const start = Date.now();
   const upstream = await fetch(url, { redirect: "follow" });
@@ -179,7 +179,7 @@ async function ensureVariant(originalPath, variant) {
 }
 
 function acceptsWebp(req) {
-  // Switch clients (Tinfoil/CyberFoil) don't send `image/webp`; modern
+  // Console clients (Tinfoil/CyberFoil) don't send `image/webp`; modern
   // browsers include it in the Accept header. We only check the explicit
   // mime — relying on a bare `*/*` to mean "supports webp" produces
   // false positives for legacy HTTP clients.
@@ -290,7 +290,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     while (cursor < queue.length) {
       const tid = queue[cursor++];
       const cp = cachePathFor(tid, "icon");
-      // Switch cards (JPEG, sm and md) and the browser's small WebP.
+      // Client app cards (JPEG, sm and md) and the browser's small WebP.
       const variants = [
         { path: variantPath(cp, SUFFIXES.sm, "jpg"), resize: SIZES.sm, format: "jpeg" },
         { path: variantPath(cp, SUFFIXES.md, "jpg"), resize: SIZES.md, format: "jpeg" },

@@ -1,5 +1,5 @@
 /**
- * Shared chrome for every /admin page, in the Switch client's palette (warm
+ * Shared chrome for every /admin page, in the client app's palette (warm
  * ground, white surfaces, ink text, butter accent) and the public dashboard's
  * dark variant, following the system light/dark setting. ADMIN_HEAD adds the
  * icon and drops a theme the old toggle saved.

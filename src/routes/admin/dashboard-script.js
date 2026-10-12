@@ -152,7 +152,7 @@ $('clrdeny').addEventListener('click',async()=>{if(!confirm('거부 기록을 �
 const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on'],disabled:['사용 중지','off']};
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');const list=d.accounts||[];
-  $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 스위치의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
+  $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 기기 화면의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
     :'구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.';
   const waiting=list.filter((a)=>a.status==='pending').length;$('account-count').hidden=!waiting;$('account-count').textContent=waiting;
   table('accounts',['이메일','역할','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');const self=isMe('google',a.sub);
@@ -187,7 +187,7 @@ $('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.wri
 // ── devices ───────────────────────────────────────────────────────────
 async function loadDevices(){
   const d=await api('/admin/api/devices');
-  $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 스위치에 뜬 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
+  $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 쓰려면 compose 에 COOK_DEVICE_PAIRING=true 를 넣습니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
   table('pending',['기기 코드','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
@@ -204,20 +204,20 @@ async function loadDevices(){
     act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');}
 $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
-    toast('승인했습니다. 스위치가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
-  catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 스위치 화면의 코드를 다시 확인합니다.':err.message);}});
+    toast('승인했습니다. 기기가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
+  catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 기기 화면의 코드를 다시 확인합니다.':err.message);}});
 async function loadLogins(){
   const d=await api('/admin/api/device-logins');$('add-login').hidden=!d.enabled;
   table('logins',['이름','아이디','만든 계정','묶인 기기','만든 날',''],(d.logins||[]).map((l)=>{const tr=el('tr');
     const k=td(l.deviceKey?l.deviceKey.slice(0,16)+'…':'아직 접속 전','ip');if(l.deviceKey)k.title=l.deviceKey;
     tr.append(td(l.label||'—'),td(l.name,'ip'),td(l.owner==='admin'?'관리자':l.owner+(l.active?'':' (꺼짐)')),k,td(fmt(l.createdAt)));
-    const act=td();act.append(btn('폐기',async()=>{if(!confirm(l.name+' 을 폐기합니다. 이 아이디로 접속하던 스위치는 바로 끊깁니다.'))return;
+    const act=td();act.append(btn('폐기',async()=>{if(!confirm(l.name+' 을 폐기합니다. 이 아이디로 접속하던 기기는 바로 끊깁니다.'))return;
       try{await api('/admin/api/device-logins/'+encodeURIComponent(l.name)+'/revoke',{method:'POST',body:{}});toast('폐기했습니다.');loadLogins();}catch(err){toast(err.message);}},'danger'));
     tr.append(act);return tr;}),d.enabled?'만든 접속 정보가 없습니다.':'서버 계정이 없어서 비밀번호 접속이 꺼져 있습니다.');}
 $('add-login').addEventListener('submit',async(e)=>{e.preventDefault();
   try{const c=await api('/admin/api/device-logins',{method:'POST',body:{label:$('login-label').value}});$('login-label').value='';
     showCredential('기기 접속 정보를 만들었습니다',c);loadLogins();}catch(err){toast(err.message);}});
-async function approve(deviceKey){const label=prompt('이 기기를 알아볼 이름을 정합니다 (예: 친구 스위치)','');if(label===null)return;
+async function approve(deviceKey){const label=prompt('이 기기를 알아볼 이름을 정합니다 (예: 친구 기기)','');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!confirm('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
@@ -244,7 +244,7 @@ $('cl-refresh').addEventListener('click',loadClientLogs);
 
 // ── upload ────────────────────────────────────────────────────────────
 const UP_HINT={
-  game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 스위치 게임 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
+  game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 패키지 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
   retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
   patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
   save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',

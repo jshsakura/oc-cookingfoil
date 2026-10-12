@@ -1,5 +1,5 @@
 /**
- * Square box art for the Switch's square tiles. Box art comes in every shape
+ * Square box art for the client app's square tiles. Box art comes in every shape
  * (tall SNES boxes, wide Japanese ones, near-square cartridges), and cropping
  * would cut titles off, so the whole cover sits centred on a blurred, darkened
  * copy of itself.

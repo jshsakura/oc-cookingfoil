@@ -15,7 +15,7 @@
       try { localStorage.removeItem("cookingfoil:theme"); } catch { /* storage blocked */ }
     </script>
     <style>
-      /* The Switch client's palette (include/ui/Theme.hpp): warm ground, white
+      /* The client app's palette (include/ui/Theme.hpp): warm ground, white
          surfaces, ink text and the butter accent. Dark mode keeps the same
          accent on an ink ground. The legacy names (--base, --surface0 ...) stay
          so every rule below reads from one set of tokens. */
@@ -325,7 +325,7 @@
         box-shadow: 0 0 0 3px var(--ground), 0 0 0 7px var(--butter), 0 14px 30px rgba(var(--shadow-rgb), 0.18);
       }
       /* review score stamped on the poster's top-right, coloured by tier */
-      /* poster badges as on the Switch client: size top-left, score top-right, one shape */
+      /* poster badges as on the client app: size top-left, score top-right, one shape */
       .game .poster-badge {
         position: absolute; top: 8px; height: 22px; padding: 0 7px; border-radius: 6px;
         color: #fff; font: 700 13px/22px var(--font-body); font-variant-numeric: tabular-nums;
@@ -333,7 +333,7 @@
       }
       .game .size-badge { left: 8px; background: rgba(22, 22, 26, 0.78); }
       .game .score-badge { right: 8px; min-width: 22px; text-align: center; background: #cc3e34; }
-      /* five score bands, the same colours the Switch client uses */
+      /* five score bands, the same colours the client app uses */
       .game .score-badge.s90 { background: #0d6e40; }
       .game .score-badge.s80 { background: #22965a; }
       .game .score-badge.s70 { background: #768c1c; }
@@ -1862,7 +1862,7 @@
         // is handled in the pager button click instead, where it's intentional.
       }
 
-      // Badge colour by score band (90+, 80s, 70s, 50–69, below 50), as on the Switch client.
+      // Badge colour by score band (90+, 80s, 70s, 50–69, below 50), as on the client app.
       const scoreTier = (sc) => (sc.score >= 90 ? "s90" : sc.score >= 80 ? "s80" : sc.score >= 70 ? "s70" : sc.score >= 50 ? "s50" : "low");
       // Steam's review wording, best first, for the filter chips.
       const STEAM_ORDER = [
@@ -1984,7 +1984,7 @@
       }
 
       // ─── home: the client's store front ───────────────────────────────────
-      // Same composition as the Switch client's home (source/core/Catalog.cpp):
+      // Same composition as the client app's home (source/core/Catalog.cpp):
       // a rotating banner of up to five picks, then the admin's featured rows
       // and the themed rows, so the web shows how the store will look.
       const HERO_MS = 6000, HERO_SLIDES = 5, HERO_POOL = 40;
@@ -2303,7 +2303,7 @@
             renderSystems();
             reload();
           },
-          // Preview: each console's best-rated games on a shelf, as the Switch home shows them.
+          // Preview: each console's best-rated games on a shelf, as the client app's home shows them.
           async openHome() {
             const rows = $("retro-rows");
             if (rows.dataset.lang === lang) return;
@@ -2514,7 +2514,7 @@
         // then fires `load`, so this clears the skeleton in both cases.
         cover.addEventListener("load", () => cover.classList.remove("loading"), { once: true });
         // Grid covers use the 256-px thumbnail variant (WebP if the
-        // browser accepts it). Modal banner / Switch client still hit
+        // browser accepts it). Modal banner / client app still hit
         // the original via the same base URL without ?size. icon_url
         // already carries a ?v= cache-bust stamp, so pick the right
         // separator instead of appending a second "?".

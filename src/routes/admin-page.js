@@ -252,7 +252,7 @@ export default function adminPageRouter() {
   router.post("/api/devices/approve", (req, res) => {
     if (!requireSession(req, res)) return;
     // The console's 8-character code works as well as its full key: the admin
-    // reads it off the Switch screen and types it here.
+    // reads it off the console's screen and types it here.
     const deviceKey = normalizeDeviceKey(req.body?.deviceKey) ?? pendingKeyForCode(req.body?.code ?? req.body?.deviceKey);
     if (!deviceKey) {
       res.status(req.body?.code !== undefined ? 404 : 400).json({ error: req.body?.code !== undefined ? "no device is waiting with that code" : "invalid deviceKey" });

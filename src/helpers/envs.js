@@ -145,14 +145,14 @@ const adminEmail = (() => {
   return null;
 })();
 
-// Switch console keys, mounted read-only. Required for NACP extraction
+// Console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
 const keysDir = envString("COOK_KEYS_DIR", "/keys");
 
 // Icon/metadata extraction policy (Phase 2c). Controls when we pull the
 // icon (and fallback name/publisher) straight out of the game container
-// instead of leaning on blawar/titledb's Nintendo CDN URL:
+// instead of leaning on blawar/titledb's eShop CDN URL:
 //   all     — extract for EVERY title, so covers render fully offline and
 //             the on-device icon matches the actual file. titledb's CDN URL
 //             becomes a fallback only. Requires prod.keys + nstool; degrades
@@ -229,15 +229,15 @@ const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min:
 // because they let an authenticated user grow the games volume.
 const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 // Base games in the sections list carry their eShop price, looked up in the
-// background from Nintendo's public price endpoint. Off for offline servers.
+// background from the public eShop price endpoint. Off for offline servers.
 const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
-// The "popular" order comes from the search index nintendo.com's US store
+// The "popular" order comes from the search index the US eShop site
 // uses (Algolia). The defaults are the public search-only credentials that
 // site ships to every visitor; override them or turn the ranking off.
 const eshopPopularity = envBool("COOK_ESHOP_POPULARITY", true);
 const eshopAlgoliaAppId = envString("COOK_ESHOP_ALGOLIA_APP_ID", "U3B6GR4UA3").trim();
 const eshopAlgoliaKey = envString("COOK_ESHOP_ALGOLIA_KEY", "a29c6927638bfd8cee23993e51e721c9").trim();
-// Icons, banners and screenshots are fetched from Nintendo's eShop CDN (the
+// Icons, banners and screenshots are fetched from the eShop CDN (the
 // URLs titledb lists) and cached on disk. false serves only what is cached,
 // extracted from the game files, or uploaded on the admin page.
 const eshopArtwork = envBool("COOK_ESHOP_ARTWORK", true);
@@ -247,7 +247,7 @@ const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
 const ratingSync = envBool("COOK_RATING_SYNC", true);
-// Dropbox save sync for the Switch client: this server relays the Dropbox
+// Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
 // The public address Dropbox sends the phone back to (https, registered in the

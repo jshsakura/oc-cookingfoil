@@ -1,4 +1,4 @@
-# CookingFoil: a self-hosted game library server for your own Nintendo Switch.
+# CookingFoil: a personal, self-hosted homebrew file server.
 # Configure via .env (see .env.example). Mount your game library at ./games.
 services:
   cookingfoil:
@@ -108,7 +108,7 @@ services:
       - ./games:/games
       # Persistent runtime cache (extracted icons + titledb). Auto-created.
       - ./data:/data
-      # Switch console keys for NACP extraction (drop prod.keys here).
+      # Console keys for NACP extraction (drop your own prod.keys here).
       # Read-only; server runs without it but won't extract icons/metadata.
       - ./keys:/keys:ro
       # Optional: shop template overrides (welcome message, custom headers, ...)

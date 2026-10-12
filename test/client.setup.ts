@@ -16,8 +16,8 @@ export default async function globalSetup(config: FullConfig) {
   await browser.close()
 }
 
-const test = rawTest.extend<{ nxPage: Page }>({
-  nxPage: async ({ browser }, use) => {
+const test = rawTest.extend<{ consolePage: Page }>({
+  consolePage: async ({ browser }, use) => {
 
     const username = process.env.COOK_AUTH_USERS?.split(',')[0].split(':')[0] ?? 'admin'
     const password = process.env.COOK_AUTH_USERS?.split(',')[0].split(':')[1] ?? '123'

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# CookingFoil: a self-hosted game library server for your own Nintendo Switch.
+# CookingFoil: a personal, self-hosted homebrew file server.
 
 # ---- deps: install production dependencies only ----
 FROM node:22-alpine AS deps
@@ -51,7 +51,7 @@ RUN git clone https://github.com/rlaphoenix/hacBrewPack.git && \
 FROM node:22-alpine AS runtime
 
 LABEL org.opencontainers.image.title="CookingFoil" \
-      org.opencontainers.image.description="Self-hosted game library server for your own Nintendo Switch (CookingFoil)" \
+      org.opencontainers.image.description="Personal, self-hosted homebrew file server (CookingFoil)" \
       org.opencontainers.image.source="https://github.com/jshsakura/oc-cookingfoil" \
       org.opencontainers.image.licenses="MIT"
 
