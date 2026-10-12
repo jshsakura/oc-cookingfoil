@@ -535,15 +535,27 @@ test("a build cached before folder installs existed is looked at again and re-fe
   const first = createTracker({ repos: ["o/old"], stateDir, fetchImpl: hub.fetchImpl, now: () => 0 });
   await first.checkAll();
   const id = first.status()[0].id;
-  // what an older server wrote: no `install`, no folder
+  // what an older server wrote: no layout rules version, no `install`, no folder
   const file = path.join(stateDir, id, "state.json");
   const st = JSON.parse(fs.readFileSync(file, "utf8"));
-  delete st.cached.install; delete st.cached.folder; st.checked_at = 0;
+  delete st.cached.layout; delete st.cached.install; delete st.cached.folder; st.checked_at = 0;
   fs.writeFileSync(file, JSON.stringify(st));
   const again = createTracker({ repos: ["o/old"], stateDir, fetchImpl: hub.fetchImpl, now: () => 1000 });
   await again.checkAll();
   assert.equal(again.status()[0].install.mode, "folder");
   assert.equal(again.entries()[0].files.length, 2);
+  const fetched = hub.downloads.length;
+
+  // Decided under the previous rules (an `install`, no version): decided again once, then left alone.
+  const st2 = JSON.parse(fs.readFileSync(file, "utf8"));
+  delete st2.cached.layout; st2.cached.install = { mode: "nro", reason: "not-one-folder" }; st2.checked_at = 0;
+  fs.writeFileSync(file, JSON.stringify(st2));
+  const third = createTracker({ repos: ["o/old"], stateDir, fetchImpl: hub.fetchImpl, now: () => 2000 });
+  await third.checkAll();
+  assert.equal(third.status()[0].install.mode, "folder");
+  assert.equal(hub.downloads.length, fetched + 1);
+  await third.checkAll();
+  assert.equal(hub.downloads.length, fetched + 1, "only once");
 });
 
 test("the check interval defaults to six hours and can be set per server", async () => {
