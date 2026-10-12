@@ -11,7 +11,8 @@ import pkg from "../package.js";
 import { CLIENT_NRO } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, dropboxAppKey } from "../helpers/envs.js";
+import { devicePairing, dropboxAppKey, retroDir } from "../helpers/envs.js";
+import * as retroCatalog from "../retro/catalog.js";
 import * as users from "../security/users.js";
 import { retroEnabled } from "./retro.js";
 import { savesEnabled } from "./saves.js";
@@ -41,7 +42,18 @@ const FEATURES = [
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
-export default function shopInfoRoute(_req, res) {
+/** Retro is offered only while there is at least one ROM to play (the client hides its menu otherwise). */
+async function hasRetroGames() {
+  if (!retroEnabled()) return false;
+  try {
+    return (await retroCatalog.current(retroDir)).games.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export default async function shopInfoRoute(_req, res) {
+  const retro = await hasRetroGames();
   const stats = shopCache.stats();
   res.header("Cache-Control", "private, max-age=60");
   res.json({
@@ -55,8 +67,8 @@ export default function shopInfoRoute(_req, res) {
       ...(devicePairing ? ["device-pairing"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(dropboxAppKey ? ["dropbox-sync"] : []),
-      // retro: /api/retro serves retro games, bezels and the RetroArch base pack.
-      ...(retroEnabled() ? ["retro"] : []),
+      // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
+      ...(retro ? ["retro"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
