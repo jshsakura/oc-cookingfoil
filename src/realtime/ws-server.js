@@ -25,6 +25,7 @@ import { WebSocketServer } from "ws";
 import * as shopCache from "../meta/shop-cache.js";
 import * as securityStore from "../security/store.js";
 import * as users from "../security/users.js";
+import { webUser } from "../security/user-session.js";
 import pkg from "../package.js";
 import debug from "../debug.js";
 
@@ -50,8 +51,19 @@ function decodeBasicAuth(authHeader) {
   }
 }
 
-function isAuthorized(req) {
+function sameOrigin(req) {
+  try {
+    return new URL(req.headers.origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
+export function isAuthorized(req) {
   if (!users.hasUsers()) return true; // no accounts → password lane is off
+  // A browser signed in at /login (password or Google) carries its session
+  // cookie; only this site's own pages may use it.
+  if (!req.headers["authorization"] && sameOrigin(req) && webUser(req)) return true;
   const creds = decodeBasicAuth(req.headers["authorization"]);
   return Boolean(creds) && users.verify(creds.user, creds.pass);
 }
@@ -86,9 +98,11 @@ export function attach(server) {
       // toward the IP lockout — repeat ws reconnect attempts can hammer
       // the auth guard otherwise — the HTTP layer already protects the
       // backing endpoints. (If we ever expose write APIs via ws, revisit.)
+      // A page's socket (it sends Origin) gets no challenge: Safari would
+      // otherwise open the Basic popup over the page, as auth-guard avoids.
       socket.write(
         "HTTP/1.1 401 Unauthorized\r\n" +
-        'WWW-Authenticate: Basic realm="CookingFoil"\r\n\r\n'
+        (req.headers.origin ? "" : 'WWW-Authenticate: Basic realm="CookingFoil"\r\n') + "\r\n"
       );
       socket.destroy();
       return;

@@ -165,7 +165,8 @@
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
-      .connect-bar .hint { grid-column: 1 / -1; margin-top: 0; }
+      .connect-bar .hint { grid-column: 1 / -1; margin-top: 0; overflow-wrap: anywhere; }
+      .connect-bar > * { min-width: 0; }
       .stats-panel { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
 
@@ -228,7 +229,7 @@
 
       .connect-row { display: flex; gap: 10px; }
       .url-pill {
-        flex: 1; padding: 14px 18px; border-radius: 14px; background: var(--sunk);
+        flex: 1; min-width: 0; padding: 14px 18px; border-radius: 14px; background: var(--sunk);
         font: 500 14px var(--font-mono); color: var(--ink);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
@@ -598,7 +599,7 @@
         .cols { height: 60px; }
         .chart, .chart.wide { grid-column: 1 / -1; }
         .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) auto; }
-        .connect-bar { grid-template-columns: 1fr; }
+        .connect-bar { grid-template-columns: minmax(0, 1fr); }
         .lang-menu { margin-left: auto; }
         .tabs { order: 3; margin: 4px 0 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
         .tabs button { flex: 1; padding: 8px 10px; }

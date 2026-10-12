@@ -228,3 +228,30 @@ test("people sign in with a form; consoles keep Basic; Google is an optional ext
     server.kill("SIGKILL");
   }
 });
+
+/** Open /ws/library: the status, and whether the answer asks for Basic credentials. */
+function upgrade(headers) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(`${BASE}/ws/library`, { headers: {
+      Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Version": "13", "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==", ...headers,
+    } });
+    req.on("upgrade", (res, socket) => { socket.destroy(); resolve({ status: 101, challenge: null }); });
+    req.on("response", (res) => { res.resume(); resolve({ status: res.statusCode, challenge: res.headers["www-authenticate"] ?? null }); });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("a signed-in page's live updates need no Basic popup", async () => {
+  const server = await boot();
+  try {
+    assert.deepEqual(await upgrade({ Origin: BASE, Cookie: googleCookie("ok1") }), { status: 101, challenge: null }, "Google sign-in is enough");
+    assert.deepEqual(await upgrade({ Origin: BASE }), { status: 401, challenge: null }, "a page is never challenged");
+    assert.equal((await upgrade({ Origin: "https://evil.example", Cookie: googleCookie("ok1") })).status, 401, "only this site's pages use the cookie");
+    assert.equal((await upgrade({ Origin: BASE, Cookie: googleCookie("nobody") })).status, 401, "no such account");
+    assert.equal((await upgrade({ Authorization: ALICE })).status, 101, "consoles keep Basic");
+    assert.match((await upgrade({})).challenge, /^Basic /, "and are still asked for it");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

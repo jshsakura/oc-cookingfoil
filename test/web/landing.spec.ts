@@ -153,3 +153,14 @@ test('the stats panel draws composition, storage and recent-month charts from th
   await pickLang(page, 'ko');
   await expect(charts.locator('.chart h4').first()).toContainText('구성');
 });
+
+test('on a phone the page fits the screen width with a long shop address', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('#status-text')).not.toHaveClass(/sk/);
+  await page.locator('#shop-url').evaluate((el) => { el.textContent = 'https://a-rather-long-shop-host.example.com:38000/shop.tfl'; });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBe(0);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/landing-phone.png' });
+});
