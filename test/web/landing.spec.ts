@@ -27,8 +27,12 @@ test('landing names the shop, shows its status and links to the admin page', asy
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'CookingFoil', exact: true })).toBeVisible();
   await expect(page.locator('#status-text')).not.toHaveClass(/sk/);
-  await expect(page.locator('.tabs a.tab-link[href="/admin"]')).toBeVisible();
+  await expect(page.locator('#acct-list')).toBeHidden();
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#acct-list a[href="/admin"]')).toBeVisible();
   await expect(page.locator('#pair-link')).toHaveAttribute('href', '/pair');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#acct-list')).toBeHidden();
 });
 
 test('genre chips filter the library by English key and follow the page language', async ({ page }) => {
@@ -112,7 +116,7 @@ test('the language menu opens on demand, shows the current code and closes on Es
   await expect(page.locator('#lang-list [data-lang="ja"]')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.locator('#lang-list')).toBeHidden();
-  await expect(page.locator('.tabs a.tab-link[href="/admin"]')).toHaveAttribute('aria-label', '管理');
+  await expect(page.locator('#acct-btn')).toHaveAttribute('aria-label', 'メニュー');
 });
 
 test('card names follow the page language from the sections names, falling back to English', async ({ page }) => {
