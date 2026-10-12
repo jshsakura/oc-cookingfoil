@@ -129,6 +129,26 @@ $('unlock-all').addEventListener('click',async()=>{if(!confirm('차단된 IP 를
 $('clrdeny').addEventListener('click',async()=>{if(!confirm('거부 기록을 지웁니다.'))return;
   try{await api('/admin/api/denials/clear',{method:'POST',body:{}});loadStats();}catch(err){toast(err.message);}});
 
+// ── Google accounts ─────────────────────────────────────────────────
+const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on'],disabled:['사용 중지','off']};
+async function loadAccounts(){
+  const d=await api('/admin/api/accounts');const list=d.accounts||[];
+  $('accounthint').textContent=d.enabled?'휴대폰에서 /login 으로 구글 로그인한 계정입니다. 승인한 계정만 스위치의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
+    :'구글 로그인이 꺼져 있습니다. 쓰려면 compose 에 COOK_GOOGLE_CLIENT_ID 와 COOK_GOOGLE_CLIENT_SECRET 을 넣습니다.';
+  const waiting=list.filter((a)=>a.status==='pending').length;$('account-count').hidden=!waiting;$('account-count').textContent=waiting;
+  table('accounts',['이메일','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');
+    const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
+    tr.append(td(a.email),st,td(fmt(a.createdAt)),td(ago(a.lastAt)));
+    const act=td();const box=el('div',null,'row-actions');
+    if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
+    if(a.status==='approved')box.append(btn('사용 중지',()=>setAccount(a.sub,'disabled')));
+    box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
+    act.append(box);tr.append(act);return tr;}),'아직 로그인한 계정이 없습니다.');}
+async function setAccount(sub,status){
+  try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(err.message);}}
+async function removeAccount(sub,email){if(!confirm(email+' 계정을 지웁니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
+  try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('지웠습니다.');loadAccounts();}catch(err){toast(err.message);}}
+
 // ── devices ───────────────────────────────────────────────────────────
 async function loadDevices(){
   const d=await api('/admin/api/devices');
@@ -139,7 +159,7 @@ async function loadDevices(){
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
   table('devices',['이름','연결한 계정','기기 키','승인한 날',''],(d.approved||[]).map((a)=>{const tr=el('tr');
-    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy||'—'));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
+    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':String(a.addedBy||'—').replace(/^google:/,'')));const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;
     tr.append(k,td(fmt(a.addedAt)));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('승인 취소',()=>revoke(a.deviceKey),'danger'));
@@ -317,6 +337,6 @@ $('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();}
 $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
-showTab();loadStats();loadDevices();loadLogins();
-setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();}},15000);
+showTab();loadStats();loadDevices();loadLogins();loadAccounts();
+setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;

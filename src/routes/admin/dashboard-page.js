@@ -103,7 +103,7 @@ export function dashboardPage() {
 
 <nav class="tabs" aria-label="관리 메뉴">
   <a href="#overview" data-tab="overview">개요</a>
-  <a href="#users" data-tab="users">사용자</a>
+  <a href="#users" data-tab="users">사용자<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices">기기<span class="count" id="pending-count" hidden></span></a>
   <a href="#security" data-tab="security">보안<span class="count" id="lock-count" hidden></span></a>
   <a href="#featured" data-tab="featured">추천</a>
@@ -126,6 +126,9 @@ export function dashboardPage() {
   </form>
   <p class="muted">CyberFoil 과 Tinfoil 은 이 계정으로 접속합니다. 비밀번호는 만들거나 재발급할 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>
   <div class="scroll" id="users"></div>
+  <h2>구글 로그인 계정</h2>
+  <p class="muted" id="accounthint"></p>
+  <div class="scroll" id="accounts"></div>
 </section>
 
 <section id="tab-devices" hidden>
