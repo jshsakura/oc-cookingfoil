@@ -12,12 +12,12 @@ test("Korean patch tags become flags", () => {
   assert.deepEqual(editionOf("Korean Translation 911202"), { korean: true, source: "patch" });
 });
 
-test("Korean releases are official, unlicensed ones unofficial", () => {
+test("Korean releases are official, unlicensed Korean carts too", () => {
   assert.deepEqual(editionOf("Korea"), { korean: true, source: "official" });
   assert.deepEqual(editionOf("Japan, Korea"), { korean: true, source: "official" });
   assert.deepEqual(editionOf("Korean release"), { korean: true, source: "official" });
-  assert.deepEqual(editionOf("Korea Unl"), { korean: true, source: "unofficial" });
-  assert.deepEqual(editionOf("Unl-K"), { korean: true, source: "unofficial" });
+  assert.deepEqual(editionOf("Korea Unl"), { korean: true, source: "official" });
+  assert.deepEqual(editionOf("Unl-K"), { korean: true, source: "patch" });
 });
 
 test("other tags carry no Korean flags", () => {
