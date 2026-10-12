@@ -34,7 +34,7 @@ import crypto from "crypto";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { dataDir, homebrewDir, githubToken, keysDir } from "../helpers/envs.js";
+import { dataDir, homebrewDir, githubToken, homebrewCheckHours, keysDir } from "../helpers/envs.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
@@ -44,7 +44,7 @@ import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
-const POLL_MS = 15 * 60 * 1000; // the tracker itself only asks GitHub every three hours
+const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
 const MANUAL_STALE_MS = 30_000;
 const MANUAL_RESCAN_MS = 60_000; // keeps the "homebrew" feature flag current
 
@@ -76,7 +76,7 @@ async function manualEntries() {
 }
 
 export const githubTracker = () =>
-  (tracker ??= createTracker({ sources: sources.list(), stateDir: path.join(dataDir, "homebrew"), token: githubToken }));
+  (tracker ??= createTracker({ sources: sources.list(), stateDir: path.join(dataDir, "homebrew"), token: githubToken, checkIntervalMs: homebrewCheckHours * 60 * 60 * 1000 }));
 
 /** Hand-placed apps for the admin page (read-only there). */
 export const manualApps = () => manualEntries();
@@ -155,7 +155,7 @@ export const defaultService = {
 
 /**
  * Scans the hand-placed folder now and every minute, and checks the
- * repositories now and every 15 minutes (each one asks GitHub at most every three hours).
+ * repositories now and every 15 minutes (each one asks GitHub at most once per COOK_HOMEBREW_CHECK_HOURS).
  */
 export function start() {
   const scan = () => refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));

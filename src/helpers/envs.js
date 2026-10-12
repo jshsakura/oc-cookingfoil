@@ -279,6 +279,8 @@ const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .filter(Boolean);
 // Optional; raises GitHub's limit of 60 unauthenticated requests an hour.
 const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
+// Hours between release checks of each followed repository; "check now" on the admin page ignores it.
+const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 });
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -331,6 +333,7 @@ export {
   homebrewDir,
   homebrewRepos,
   githubToken,
+  homebrewCheckHours,
   ratingsUrl,
   ratingSync,
   dropboxAppKey,
