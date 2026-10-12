@@ -105,6 +105,26 @@
       .lang-list button:hover:not(.active) { background: var(--sunk); }
       .lang-list button.active { background: var(--ink); color: var(--ground); }
 
+      /* ACCOUNT MENU: a gear on the right that opens devices, admin and sign out */
+      .acct-menu { position: relative; }
+      .icon-btn {
+        display: inline-grid; place-items: center; width: 36px; height: 36px; cursor: pointer;
+        border-radius: 100px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+      }
+      .icon-btn:hover, .icon-btn[aria-expanded="true"] { border-color: var(--ink); }
+      .icon-btn svg { width: 17px; height: 17px; }
+      .pop-list {
+        position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 190px; padding: 6px;
+        display: grid; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+        box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22);
+      }
+      .pop-list[hidden], .pop-list [hidden] { display: none; }
+      .pop-list .who { padding: 8px 12px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); color: var(--secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+      .pop-list a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; text-decoration: none; color: var(--ink); font: 600 14px var(--font-body); }
+      .pop-list a:hover, .pop-list a:focus-visible { background: var(--sunk); outline: none; }
+      .pop-list a svg { width: 16px; height: 16px; color: var(--secondary); }
+      .pop-list #logout-link, .pop-list #logout-link svg { color: var(--bad); }
+
       /* TABS: a pill group beside the wordmark, the open view filled */
       .tabs {
         display: inline-flex; gap: 2px; padding: 3px; margin: 0 auto 0 20px;
@@ -114,15 +134,8 @@
         background: transparent; border: none; color: var(--secondary); white-space: nowrap;
         padding: 6px 14px; border-radius: 100px; font: 600 13px var(--font-body); cursor: pointer;
       }
-      .tabs a.tab-link {
-        display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 100px; text-decoration: none;
-        color: var(--secondary); font: 600 13px var(--font-body); white-space: nowrap;
-      }
-      .tabs a.tab-link[hidden] { display: none; }
-      .tabs button:hover:not(.active), .tabs a.tab-link:hover { color: var(--ink); }
+      .tabs button:hover:not(.active) { color: var(--ink); }
       .tabs button.active { background: var(--ink); color: var(--ground); }
-      .tabs a.icon-link { padding: 6px 10px; }
-      .tabs a.icon-link svg { width: 17px; height: 17px; }
       /* SUBTABS: list or preview, patches or saves, inside the open view */
       .subtabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 22px; background: var(--sunk); border-radius: 100px; }
       .subtabs:empty { display: none; }
@@ -542,8 +555,8 @@
       @media (max-width: 640px) {
         .connect-bar { grid-template-columns: 1fr; }
         .lang-menu { margin-left: auto; }
-        .tabs { order: 3; margin: 0; width: 100%; overflow-x: auto; scrollbar-width: none; justify-content: space-between; }
-        .tabs button, .tabs a.tab-link { padding: 6px 10px; }
+        .tabs { order: 3; margin: 4px 0 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .tabs button { flex: 1; padding: 8px 10px; }
         .tabs::-webkit-scrollbar { display: none; }
         .subtabs { display: flex; width: 100%; }
         .subtabs button { flex: 1; }
@@ -580,13 +593,6 @@
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
           <button type="button" role="tab" data-tab="retro" data-i18n="tab.retro" id="retro-tab" hidden></button>
           <button type="button" role="tab" data-tab="extras" data-i18n="tab.extras" id="extras-tab" hidden></button>
-          <a class="tab-link" id="pair-link" href="/pair" data-i18n="tab.pair" hidden></a>
-          <a class="tab-link icon-link" id="admin-link" href="/admin">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </a>
-          <a class="tab-link icon-link" id="logout-link" href="/login" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          </a>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -599,6 +605,17 @@
             <button type="button" role="menuitemradio" data-lang="en" lang="en">English</button>
             <button type="button" role="menuitemradio" data-lang="ja" lang="ja">日本語</button>
             <button type="button" role="menuitemradio" data-lang="zh" lang="zh">中文</button>
+          </div>
+        </div>
+        <div class="acct-menu" id="acct-menu">
+          <button class="icon-btn" id="acct-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <div class="pop-list" id="acct-list" role="menu" hidden>
+            <p class="who" id="acct-who" hidden></p>
+            <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
+            <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
+            <a role="menuitem" id="logout-link" href="/login" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span data-i18n="action.logout"></span></a>
           </div>
         </div>
       </div>
@@ -857,6 +874,7 @@
           "action.refresh": "↻ 새로고침",
           "action.copy": "복사",
           "action.language": "언어",
+          "action.menu": "메뉴",
           "action.download": "다운로드",
           "action.close": "닫기",
           "hint.connect": "<b>CyberFoil</b>: 옵션(설정) → <em>eShop URL</em>에 위 주소 입력, 인증을 켰다면 <em>eShop 사용자 이름 / 비밀번호</em> 칸에 로그인 정보 입력. &nbsp;|&nbsp; Tinfoil 호환: <em>File Browser</em> → <code>+</code> 로 위 URL 추가.",
@@ -1014,6 +1032,7 @@
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
           "action.language": "Language",
+          "action.menu": "Menu",
           "action.download": "Download",
           "action.close": "Close",
           "hint.connect": "<b>CyberFoil</b>: Options → <em>eShop URL</em> = the address above; with auth on, put your login in the <em>eShop Username / Password</em> fields. &nbsp;|&nbsp; Tinfoil-compatible: <em>File Browser</em> → <code>+</code> to add the URL.",
@@ -1174,6 +1193,7 @@
           "action.refresh": "↻ 更新",
           "action.copy": "コピー",
           "action.language": "言語",
+          "action.menu": "メニュー",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
           "hint.connect": "<b>CyberFoil</b>: オプション → <em>eShop URL</em> に上のアドレスを入力し、認証を有効にしている場合は <em>eShop ユーザー名 / パスワード</em> にログイン情報を入力します。 &nbsp;|&nbsp; Tinfoil 互換: <em>File Browser</em> → <code>+</code> で上のURLを追加します。",
@@ -1334,6 +1354,7 @@
           "action.refresh": "↻ 重新整理",
           "action.copy": "複製",
           "action.language": "語言",
+          "action.menu": "菜单",
           "action.download": "下載",
           "action.close": "關閉",
           "hint.connect": "<b>CyberFoil</b>：選項 → 在 <em>eShop URL</em> 輸入上方網址；若已開啟驗證，請在 <em>eShop 使用者名稱 / 密碼</em> 輸入登入資訊。 &nbsp;|&nbsp; Tinfoil 相容：<em>File Browser</em> → <code>+</code> 加入上方網址。",
@@ -1446,10 +1467,8 @@
         $("retro-search").placeholder = t("retro.search");
         $("patches-search").placeholder = t("extras.search");
         $("saves-search").placeholder = t("extras.search");
-        $("admin-link").setAttribute("aria-label", t("action.admin"));
-        $("admin-link").title = t("action.admin");
-        $("logout-link").setAttribute("aria-label", t("action.logout"));
-        $("logout-link").title = t("action.logout");
+        $("acct-btn").setAttribute("aria-label", t("action.menu"));
+        $("acct-btn").title = t("action.menu");
         for (const b of document.querySelectorAll("#lang-list [data-lang]")) {
           b.classList.toggle("active", b.dataset.lang === lang);
           b.setAttribute("aria-checked", String(b.dataset.lang === lang));
@@ -1598,6 +1617,7 @@
         .then((d) => {
           session = d;
           $("logout-link").hidden = !d;
+          if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
         })
@@ -3036,7 +3056,7 @@
         if (langList.getBoundingClientRect().left < 8) { langList.style.left = "0"; langList.style.right = "auto"; }
         langList.querySelector(".active")?.focus();
       }
-      $("lang-btn").addEventListener("click", (e) => { e.stopPropagation(); setLangMenu(langList.hidden); });
+      $("lang-btn").addEventListener("click", (e) => { e.stopPropagation(); setAcctMenu(false); setLangMenu(langList.hidden); });
       langList.addEventListener("click", (e) => {
         const b = e.target.closest("[data-lang]");
         if (!b) return;
@@ -3053,6 +3073,17 @@
       });
       document.addEventListener("click", (e) => { if (!langList.hidden && !e.target.closest("#lang-menu")) setLangMenu(false); });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !langList.hidden) { setLangMenu(false); $("lang-btn").focus(); } });
+
+      // account menu: devices, admin, sign out
+      const acctList = $("acct-list");
+      function setAcctMenu(open) {
+        acctList.hidden = !open;
+        $("acct-btn").setAttribute("aria-expanded", String(open));
+        if (open) acctList.querySelector("a:not([hidden])")?.focus();
+      }
+      $("acct-btn").addEventListener("click", (e) => { e.stopPropagation(); setLangMenu(false); setAcctMenu(acctList.hidden); });
+      document.addEventListener("click", (e) => { if (!acctList.hidden && !e.target.closest("#acct-menu")) setAcctMenu(false); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !acctList.hidden) { setAcctMenu(false); $("acct-btn").focus(); } });
 
       // ─── theme ────────────────────────────────────────────────────────────
       // The page follows the system light/dark setting.
