@@ -32,6 +32,8 @@ import { decodeNacp } from "./nacp-decode.js";
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MAX_NRO_BYTES = 128 * 1024 * 1024;
+// Bumped whenever how a release is laid out changes (homebrew-layout.js), so every cached build is decided again once.
+const LAYOUT_RULES = 2;
 const MAX_ZIP_BYTES = 256 * 1024 * 1024;
 const ERROR_RETRY_MS = 60 * 60 * 1000;
 const UNZIP_TIMEOUT_MS = 5 * 60 * 1000;
@@ -361,8 +363,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     const prev = states.get(id);
     // A failing repository is retried hourly (not on every poll), a healthy one once per check interval.
     if (!force && prev?.error && now() - prev.error.at < ERROR_RETRY_MS) return;
-    // A build cached before folder installs existed is looked at again right away.
-    const legacy = Boolean(prev?.cached && !prev.cached.install);
+    // A build decided under older layout rules is looked at again right away, once.
+    const legacy = Boolean(prev?.cached && prev.cached.layout !== LAYOUT_RULES);
     if (!force && !legacy && !prev?.error && prev?.checked_at != null && now() - prev.checked_at < checkIntervalMs) return;
     const pattern = patterns.get(id) ?? null;
     // A changed pattern needs the release itself, not a 304.
@@ -374,7 +376,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     if (res.status === 304) {
       save(id, { ...prev, checked_at: now(), error: null });
       // The first build may have failed to arrive; without it the app is not listed.
-      if (!prev.cached?.install) await ensureDownloaded(id);
+      if (prev.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
       return;
     }
     if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
@@ -404,7 +406,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       candidates: candidates.map(brief),
       candidate_key: candidateKey && prev?.candidate_key === candidateKey ? candidateKey : null,
     });
-    if (!prev?.cached?.install) await ensureDownloaded(id);
+    if (prev?.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
   }
 
   /** Fetches one release file to `part`, checking its size and digest against the release. */
@@ -519,7 +521,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         await fsp.rename(nro, path.join(dirOf(id), fileName));
       }
       if (old && old !== stored && !old.startsWith("pkg/")) await fsp.rm(path.join(dirOf(id), old), { force: true });
-      save(id, { ...states.get(id), cached: { asset_id: asset.id, file: stored, file_name: fileName, app_dir: appDir, sha256: sha, size, install, folder, ...meta } });
+      save(id, { ...states.get(id), cached: { layout: LAYOUT_RULES, asset_id: asset.id, file: stored, file_name: fileName, app_dir: appDir, sha256: sha, size, install, folder, ...meta } });
       debug.log("homebrew: %s %s cached (%s)", state.repo, state.tag, install.mode);
     } finally {
       await fsp.rm(part, { force: true });
@@ -534,8 +536,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     if (!wanted.has(id) || !state?.asset) throw new Error("unknown homebrew");
     const current = () => {
       const c = states.get(id).cached;
-      // A build cached before folder installs existed (no `install`) is fetched once more.
-      return c?.install && c.asset_id === states.get(id).asset.id ? { path: path.join(dirOf(id), c.file), sha256: c.sha256 } : null;
+      // A build decided under older layout rules is fetched once more.
+      return c?.layout === LAYOUT_RULES && c.asset_id === states.get(id).asset.id ? { path: path.join(dirOf(id), c.file), sha256: c.sha256 } : null;
     };
     if (current() && fs.existsSync(current().path)) return current();
     if (!downloads.has(id)) downloads.set(id, download(id).finally(() => downloads.delete(id)));
