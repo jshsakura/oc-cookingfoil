@@ -377,6 +377,7 @@ function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
   $('up-name-l').hidden=$('up-target-l').hidden=!(kind==='patch'||kind==='save');
   $('up-game-l').hidden=!(kind==='patch'||kind==='save')||$('up-target').value!=='';
   $('up-desc-l').hidden=$('up-desc-ko-l').hidden=!(kind==='patch'||kind==='save');
+  $('up-savetype-l').hidden=!(kind==='save'&&$('up-target').value==='');
   $('up-dir-btn').hidden=!(kind==='patch'||kind==='save'||kind==='homebrew');
   $('up-file').multiple=kind==='retro';
   $('up-file').accept=kind==='game'?'.nsp,.nsz,.xci,.xcz':(kind==='patch'||kind==='save')?'.zip':kind==='homebrew'?'.nro,.zip':'';
@@ -392,7 +393,8 @@ async function loadUpload(){
     for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}}
   if(upPending){$('up-target').value=upPending.app;upKind=upPending.kind;upPending=null;}
   upSetKind(upKind);}
-$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';upHint();});
+$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';
+  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');upHint();});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
@@ -407,7 +409,8 @@ $('up-form').addEventListener('submit',(e)=>{e.preventDefault();
     const app=$('up-target').value;const tid=app?'':upTitleId();if(!app&&!tid){toast('게임이나 홈브류 앱을 고릅니다');return;}
     if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}
     if(app)fd.append('homebrew',app);else fd.append('titleId',tid);fd.append('name',$('up-name').value.trim());
-    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());}
+    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
+    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);}
   if(upPaths)fd.append('paths',JSON.stringify(upPaths));
   for(const f of upFiles)fd.append('files',f,f.name);
   const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-go').disabled=true;
@@ -420,7 +423,7 @@ $('up-form').addEventListener('submit',(e)=>{e.preventDefault();
     if(ok&&d.install){for(const x of d.install.excluded||[])n.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'d'));
       if(d.install.rules?.length)n.append(el('div','판단 근거: '+d.install.rules.join(' · '),'d'));}
     $('up-log').prepend(n);
-    if(ok){upFiles=[];upPaths=null;upChosen();$('up-name').value='';$('up-desc').value='';$('up-desc-ko').value='';toast('올렸습니다');}});
+    if(ok){upFiles=[];upPaths=null;upChosen();$('up-name').value='';$('up-desc').value='';$('up-desc-ko').value='';$('up-savetype').value='';toast('올렸습니다');}});
   xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});
 
 // ── library ───────────────────────────────────────────────────────────

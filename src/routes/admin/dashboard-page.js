@@ -308,6 +308,7 @@ ${RETRO_ART_HTML}
     <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="예: 마리오 카트 8 디럭스 또는 0100152000022000"></label>
     <datalist id="up-games"></datalist>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
+    <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
     <label id="up-desc-l" hidden>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
     <label id="up-desc-ko-l" hidden>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
     <div class="pick">

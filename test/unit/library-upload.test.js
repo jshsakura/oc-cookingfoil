@@ -4,7 +4,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { baseTitleId, patchLayout, retroLayout, safeName, safeRelPath, saveLayout } from "../../src/meta/library-upload.js";
+import { backupSaveType, baseTitleId, patchLayout, retroLayout, safeName, safeRelPath, saveLayout } from "../../src/meta/library-upload.js";
 
 const PORT = 16400 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -116,10 +116,29 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(saveDir, "meta.json"), "utf8")),
       { name: "All karts", description: "Everything unlocked.", ko: { description: "전부 엽니다." } });
 
+    r = await send("save", { titleId: MK, name: "Shared" },
+      [["20261013_120000.meta", "title_id=0100152000022000\nuser_id=device\n"], ["a.dat", "A"]], ["20261013_120000.meta", "20261013_120000/a.dat"]);
+    assert.equal(r.status, 201, await r.clone().text());
+    const sharedDir = path.join(dirs.saves, MK, "Shared");
+    assert.deepEqual(fs.readdirSync(sharedDir).sort(), ["a.dat", "meta.json"], "the backup's .meta is read, not shipped");
+    assert.equal(JSON.parse(fs.readFileSync(path.join(sharedDir, "meta.json"), "utf8")).saveType, "device");
+    r = await send("save", { titleId: MK, name: "Mine", saveType: "account" }, [["b.dat", "B"]]);
+    assert.equal(r.status, 201, await r.clone().text());
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dirs.saves, MK, "Mine", "meta.json"), "utf8")).saveType, "account");
+    assert.equal(JSON.parse(fs.readFileSync(saveDir + "/meta.json", "utf8")).saveType, undefined, "unknown stays unset");
+
     assert.equal((await send("save", { titleId: MK, name: "../x" }, [["a", "b"]])).status, 400);
     assert.equal((await send("patch", { titleId: MK, name: "Wrong" }, [["a.txt", "x"]])).status, 400, "outside the game's paths");
     assert.deepEqual(fs.readdirSync(path.join(dirs.patches, ".upload-staging")), [], "staging is cleaned up");
   } finally {
     server.kill("SIGKILL");
   }
+});
+
+test("a save-keeper backup's .meta names the save's kind by its user_id", () => {
+  assert.equal(backupSaveType("x.meta", "title_id=0100152000022000\r\nuser_id=device\r\n"), "device");
+  assert.equal(backupSaveType(".dropkeep.meta", "user_id=user-1\n"), "account");
+  assert.equal(backupSaveType("x.meta", "title_id=0100152000022000\n"), null, "older backups without user_id");
+  assert.equal(backupSaveType("game.meta", "binary stuff"), null, "a game's own .meta file is not a backup's");
+  assert.equal(backupSaveType("x.dat", "user_id=device"), null);
 });
