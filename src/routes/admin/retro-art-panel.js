@@ -6,8 +6,11 @@
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 받기</button></div>
-  <p class="muted">파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다.</p>
+  <p class="muted">파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다. 그 게임의 베젤이 없으면 같은 제목의 다른 지역판 베젤을, 그것도 없으면 시스템 기본 베젤을 씁니다. 설정 탭에 GitHub 토큰을 넣어 두면 목록 조회가 막히지 않습니다.</p>
   <p class="muted" id="ra-job"></p>
+  <div class="hd"><h2>평점</h2><button type="button" id="ra-ratings">평점 갱신</button></div>
+  <p class="muted">LaunchBox 게임 데이터베이스의 사용자 평점을 원제로 맞춰 붙입니다. 자료 파일이 100MB 쯤이라 몇 분 걸립니다. 일주일마다 저절로 갱신합니다.</p>
+  <p class="muted" id="ra-ratings-state"></p>
   <div class="scroll" id="ra-systems"></div>
   <div class="hd"><h2>표지가 없는 항목</h2><input id="ra-filter" placeholder="이름으로 거르기" aria-label="이름으로 거르기"></div>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다.</p>
@@ -41,7 +44,11 @@ async function loadRetroArt(){
   $('ra-sync').disabled=Boolean(j&&!j.finishedAt);
   $('ra-job').textContent=!j?'':!j.finishedAt?'받고 있습니다'+(j.progress?' · '+j.progress.system+' ('+(j.progress.index+1)+'/'+j.progress.total+')':''):
     j.error?'실패했습니다: '+j.error:'마지막 정리: '+fmt(j.finishedAt)+' · '+Object.entries(j.summary||{}).map(([k,v])=>v.error?k+' 실패':k+' +'+(v.boxart||0)+'/'+(v.bezel||0)).join(', ');
-  clearTimeout(raTimer);if(j&&!j.finishedAt)raTimer=setTimeout(loadRetroArt,3000);
+  const r=raData.ratings||{},rj=r.job;const rRunning=Boolean(rj&&!rj.finishedAt);
+  $('ra-ratings').disabled=rRunning;
+  $('ra-ratings-state').textContent=rRunning?'평점을 받고 있습니다':rj&&rj.error?'실패했습니다: '+rj.error:
+    (r.updatedAt?'마지막 갱신: '+fmt(r.updatedAt):'아직 받은 평점이 없습니다')+(rj&&rj.summary?' · '+Object.entries(rj.summary).map(([k,v])=>k+' '+v).join(', '):'');
+  clearTimeout(raTimer);if((j&&!j.finishedAt)||rRunning)raTimer=setTimeout(loadRetroArt,3000);
   table('ra-systems',['시스템','항목','표지','베젤',''],raData.systems.map((s)=>{const tr=el('tr');
     const b=el('button','이 시스템만 받기');b.type='button';b.addEventListener('click',()=>raSync(s.id));
     const pct=(n)=>n+' ('+Math.round(n*100/Math.max(1,s.games))+'%)';
@@ -89,6 +96,7 @@ async function raApply(url,body){
   try{await api(url,{method:'POST',body});$('ra-dialog').close();toast('바꿨습니다.');loadRetroArt();}catch(err){$('ra-msg').textContent=err.message;}
 }
 $('ra-sync').addEventListener('click',()=>raSync(null));
+$('ra-ratings').addEventListener('click',async()=>{try{await api('/admin/api/retro-art/ratings',{method:'POST',body:{}});toast('평점 받기를 시작했습니다.');loadRetroArt();}catch(err){toast(err.message);}});
 $('ra-filter').addEventListener('input',raList);
 $('ra-search').addEventListener('submit',(e)=>{e.preventDefault();raSearch();});
 $('ra-sgdb-go').addEventListener('click',raSgdb);
