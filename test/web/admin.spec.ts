@@ -18,11 +18,7 @@ async function signIn(page: Page) {
   adminCookie = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 }
 
-// The browser carries the account it is about to create, so once the password
-// lane switches on it keeps answering the challenge like a signed-in operator.
-test.use({ httpCredentials: { username: NAME, password: PASSWORD } });
-
-test('an account created in the admin page works for basic auth, and removing it reopens the server', async ({ page, request }) => {
+test('an account created in the admin page signs in at /login and works for basic auth; removing it reopens the server', async ({ page, request }) => {
   page.on('dialog', (dialog) => dialog.accept());
   await signIn(page);
   fs.mkdirSync('out/web', { recursive: true });
@@ -42,7 +38,16 @@ test('an account created in the admin page works for basic auth, and removing it
   expect((await request.get('/shop.tfl', { headers: basic(NAME, 'wrong-password') })).status()).toBe(401);
   expect((await request.get('/shop.tfl', { headers: basic(NAME, PASSWORD) })).status()).toBe(200);
 
-  // The page itself now signs in with this account, so it already shows as in use.
+  // With an account the web needs a session: the page is sent to /login (no
+  // password popup) and comes back to the admin page after signing in.
+  await page.waitForURL(/\/login\?next=/);
+  expect((await request.get('/', { headers: { Accept: 'text/html', 'Sec-Fetch-Mode': 'navigate' }, maxRedirects: 0 })).headers()['www-authenticate']).toBeUndefined();
+  await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
+  await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
+  await page.screenshot({ path: 'out/web/login.png' });
+  await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
+  await expect(page.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '사용자' }).click();
   const row = page.locator('#users tr', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
@@ -53,7 +58,7 @@ test('an account created in the admin page works for basic auth, and removing it
 
 // Whatever happened above, leave the server without accounts for the other specs.
 test.afterEach(async ({ request }) => {
-  await request.delete(`/admin/api/users/${NAME}?allowEmpty=1`, { headers: { Cookie: adminCookie } }).catch(() => {});
+  await request.delete(`/admin/api/users/${NAME}?allowEmpty=1`, { headers: { Cookie: adminCookie, ...basic(NAME, PASSWORD) } }).catch(() => {});
 });
 
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {

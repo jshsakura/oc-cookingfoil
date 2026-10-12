@@ -23,7 +23,9 @@ async function api(url,opts={}){
   const init={headers:{Accept:'application/json'},...opts};
   if(opts.body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(opts.body);}
   const r=await fetch(url,init);
-  if(r.status===401){location.reload();throw new Error('session');}
+  // Signed out (or the first account just switched sign-in on): reload, which leads
+  // to the sign-in page, but never while a new password is still on screen.
+  if(r.status===401){if($('cred-dialog').open)$('cred-dialog').addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(data.message||data.error||('HTTP '+r.status));
   return data;}
@@ -133,8 +135,8 @@ $('clrdeny').addEventListener('click',async()=>{if(!confirm('거부 기록을 �
 const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on'],disabled:['사용 중지','off']};
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');const list=d.accounts||[];
-  $('accounthint').textContent=d.enabled?'휴대폰에서 /login 으로 구글 로그인한 계정입니다. 승인한 계정만 스위치의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
-    :'구글 로그인이 꺼져 있습니다. 쓰려면 compose 에 COOK_GOOGLE_CLIENT_ID 와 COOK_GOOGLE_CLIENT_SECRET 을 넣습니다.';
+  $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 스위치의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
+    :'구글 로그인이 꺼져 있습니다. 위 설정에서 켭니다.';
   const waiting=list.filter((a)=>a.status==='pending').length;$('account-count').hidden=!waiting;$('account-count').textContent=waiting;
   table('accounts',['이메일','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
@@ -148,6 +150,18 @@ async function setAccount(sub,status){
   try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(err.message);}}
 async function removeAccount(sub,email){if(!confirm(email+' 계정을 지웁니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('지웠습니다.');loadAccounts();}catch(err){toast(err.message);}}
+
+async function loadGoogle(){
+  const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
+  $('g-secret').value='';$('g-secret').placeholder=g.hasSecret?'저장된 시크릿을 씁니다 (바꿀 때만 입력)':'클라이언트 시크릿';
+  $('g-redirect').textContent=g.redirectUri;
+  $('g-status').textContent=g.active?'켜져 있습니다. 로그인 화면에 구글 버튼이 나옵니다.':g.enabled?'켜려면 ID 와 시크릿이 모두 필요합니다.':'꺼져 있습니다. 로그인 화면은 아이디와 비밀번호만 받습니다.';}
+$('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
+  try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
+    toast('저장했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
+$('g-clear').addEventListener('click',async()=>{if(!confirm('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.'))return;
+  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('지웠습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
+$('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast('복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}});
 
 // ── devices ───────────────────────────────────────────────────────────
 async function loadDevices(){
@@ -337,6 +351,6 @@ $('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();}
 $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
 $('logout').addEventListener('click',async()=>{await fetch('/admin/logout',{method:'POST'});location.reload();});
-showTab();loadStats();loadDevices();loadLogins();loadAccounts();
+showTab();loadStats();loadDevices();loadLogins();loadAccounts();loadGoogle();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;
