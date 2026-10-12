@@ -14,7 +14,8 @@
 import fs from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { titledbCacheDir, ratingsUrl } from "../helpers/envs.js";
+import { titledbCacheDir } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 
 const STORE_FILE = "ratings.json";
 const STORE_VERSION = 1;
@@ -129,7 +130,7 @@ export async function hasStore() {
 }
 
 /** Reads every post from oc-scraper; keeps the old scores on failure. Off without COOK_RATINGS_URL. */
-export async function refresh({ fetchImpl = fetch, baseUrl = ratingsUrl } = {}) {
+export async function refresh({ fetchImpl = fetch, baseUrl = integrations.get("ratings").url } = {}) {
   if (!baseUrl) return false;
   try {
     const next = buildStore(await fetchPosts(baseUrl, fetchImpl));

@@ -30,16 +30,18 @@ mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
 mkdir -p games data keys
-# .env 에 최소한 COOK_AUTH_USERS=아이디:긴-비밀번호 를 적습니다
 docker compose up -d
+docker compose logs cookingfoil | grep "setup code"
 ```
 
-웹 화면은 `http://<host>:9080/` 에서 열립니다. 클라이언트에도 이 주소를 서버 주소로 넣습니다.
+`http://<host>:9080/` 을 열면 처음 설정 화면이 나옵니다. 로그에 찍힌 설정 코드를 넣고 관리자 계정을 만든 뒤 인증 앱을 등록합니다. 코드가 없으면 누구도 서버를 먼저 차지할 수 없고, 코드는 켤 때마다 바뀝니다. 클라이언트에도 같은 주소를 서버 주소로 넣습니다.
+
+외부 서비스 키(IGDB 평점, SteamGridDB 표지, Dropbox 세이브 동기화, GitHub, 평점 서버)는 관리 페이지의 설정 탭에서 넣습니다. 키마다 어디서 발급하는지 안내가 있고, 넣지 않아도 서버는 동작합니다.
 
 ```
 cookingfoil/
 ├── docker-compose.yml
-├── .env              # 설정과 첫 계정
+├── .env              # 설정, 모두 선택
 ├── games/            # 내 파일 (필수)
 ├── data/             # 캐시, 계정, 설정. 처음 실행할 때 만들어집니다
 └── keys/             # 선택, 읽기 전용
@@ -57,7 +59,8 @@ cookingfoil/
 
 | 변수 | 기본값 | 용도 |
 |---|---|---|
-| `COOK_AUTH_USERS` | _(비어 있음)_ | `user:pass,user2:pass2`. 처음 한 번만 가져오고, 그 뒤로는 `/admin` 에서 관리합니다 |
+| `COOK_AUTH_USERS` | _(비어 있음)_ | 미리 넣어 둘 계정. `user:pass,user2:pass2` 형식이고, 넣으면 `/setup` 대신 처음 한 번 가져옵니다 |
+| `COOK_FIRST_RUN_SETUP` | `true` | `false` 면 계정이 없어도 `/setup` 으로 보내지 않고 서버를 열어 둡니다 |
 | `COOK_HOST_PORT` | `9080` | 호스트 포트 |
 | `COOK_PUBLIC_BASE_URL` | _(비어 있음)_ | 리버스 프록시나 터널 뒤에 둘 때 바깥 주소 |
 | `COOK_TRUST_PROXY` | _(비어 있음)_ | 믿을 프록시 범위. 예: `loopback, uniquelocal` |
@@ -66,7 +69,7 @@ cookingfoil/
 | `COOK_EXTRACT_ICONS` | `missing` | 파일에서 이름과 아이콘 읽기: `missing`, `all`, `off` |
 | `COOK_TITLEDB_AUTO_FETCH` | `true` | 공개 타이틀 목록 받기. 한 번 받아 두면 오프라인으로 돕니다 |
 
-구글 로그인, 홈브류 저장소, 계정은 관리 페이지(`/admin`)에서 정합니다.
+구글 로그인, 외부 서비스 키, 홈브류 저장소, 계정은 관리 페이지(`/admin`)에서 정합니다.
 
 ## API
 

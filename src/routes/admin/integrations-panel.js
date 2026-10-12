@@ -1,0 +1,108 @@
+/**
+ * The settings tab's "outside services" panel: one card per service with what
+ * it is for, where to get its key, and the form to save and test it.
+ * Talks to /admin/api/integrations (integrations-api.js).
+ */
+
+const SERVICES = [
+  {
+    id: "igdb",
+    title: "IGDB 평점",
+    use: "평점을 모을 때 Steam 에 더해 IGDB 평점도 가져옵니다. 없으면 Steam 평점만 씁니다.",
+    steps: [
+      'Twitch 계정에 2단계 인증을 켭니다. 꺼져 있으면 앱을 등록할 수 없습니다.',
+      '<a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console/apps</a> 에서 애플리케이션을 등록합니다. OAuth 리디렉션 URL 은 <code>http://localhost</code>, 분류는 Application Integration, 클라이언트 유형은 기밀로 고릅니다.',
+      "만든 앱의 클라이언트 ID 를 복사하고, 새 시크릿을 만들어 둘 다 아래에 넣습니다.",
+    ],
+    fields: [["clientId", "클라이언트 ID"], ["clientSecret", "클라이언트 시크릿", true]],
+  },
+  {
+    id: "steamgriddb",
+    title: "SteamGridDB 표지",
+    use: "표지와 아이콘 후보를 검색합니다. 자동으로 맞지 않은 항목을 직접 맞출 때 씁니다.",
+    steps: [
+      '<a href="https://www.steamgriddb.com" target="_blank" rel="noopener">steamgriddb.com</a> 에 Steam 계정으로 로그인합니다.',
+      '<a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank" rel="noopener">설정의 API 화면</a>에서 API 키를 만들어 아래에 넣습니다.',
+    ],
+    fields: [["apiKey", "API 키", true]],
+  },
+  {
+    id: "dropbox",
+    title: "Dropbox 세이브 동기화",
+    use: "클라이언트가 세이브를 Dropbox 와 맞출 수 있게 로그인을 이어 줍니다. 앱 키만 쓰고 시크릿은 필요 없습니다.",
+    steps: [
+      '<a href="https://www.dropbox.com/developers/apps" target="_blank" rel="noopener">dropbox.com/developers/apps</a> 에서 앱을 만듭니다. Scoped access, App folder 를 고릅니다.',
+      "Permissions 탭에서 files.content.read 와 files.content.write 를 켜고 저장합니다.",
+      "Settings 탭의 Redirect URIs 에 아래 주소를 등록합니다. 이 주소는 휴대폰에서 열 수 있는 https 주소여야 합니다. 다르면 아래 공개 주소 칸에 그 주소를 넣습니다.",
+      "App key 를 아래에 넣습니다.",
+    ],
+    fields: [["appKey", "App key"], ["redirectBase", "공개 주소 (선택, https://…)"]],
+    redirect: true,
+  },
+  {
+    id: "github",
+    title: "GitHub 토큰",
+    use: "홈브류 새 버전을 확인할 때 GitHub 요청 한도를 시간당 60회에서 5,000회로 올립니다. 없어도 동작합니다.",
+    steps: [
+      '<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com 의 새 토큰 화면</a>에서 Fine-grained 토큰을 만듭니다.',
+      "Repository access 는 Public repositories 로 두고 권한은 추가하지 않습니다. 만든 토큰을 아래에 넣습니다.",
+    ],
+    fields: [["token", "토큰", true]],
+  },
+  {
+    id: "ratings",
+    title: "평점 수집 서버",
+    use: "따로 운영하는 oc-scraper 서버에서 Steam, IGDB, RAWG 평점을 받아옵니다. 없으면 비워 둡니다.",
+    steps: ["oc-scraper 서버의 주소를 넣습니다. 예: <code>http://192.168.0.10:18765</code>"],
+    fields: [["url", "서버 주소"]],
+  },
+];
+
+const card = (s) => `<div class="intg" data-svc="${s.id}">
+  <div class="intg-hd"><h3>${s.title}</h3><span class="intg-state" data-state></span></div>
+  <p class="muted">${s.use}</p>
+  <ol class="intg-steps">${s.steps.map((x) => `<li>${x}</li>`).join("")}</ol>
+  ${s.redirect ? '<div class="copy-row"><code data-redirect>불러오고 있습니다</code></div>' : ""}
+  <form class="add" autocomplete="off">
+    ${s.fields.map(([k, label, secret]) => `<input name="${k}" ${secret ? 'type="password" autocomplete="new-password"' : 'spellcheck="false"'} placeholder="${label}" aria-label="${label}" maxlength="300">`).join("")}
+    <button class="primary" type="submit">저장</button>
+    <button type="button" data-test>연결 확인</button>
+    <button type="button" class="danger" data-clear>지우기</button>
+  </form>
+  <p class="muted" data-msg></p>
+</div>`;
+
+export const INTEGRATIONS_HTML = `<h2>외부 서비스 키</h2>
+<p class="muted">키는 이 서버의 데이터 폴더에만 저장하고 화면에는 다시 보여 주지 않습니다. 저장하면 바로 적용합니다. 지우면 compose 환경변수에 넣은 값이 있을 때 그 값으로 돌아갑니다.</p>
+${SERVICES.map(card).join("\n")}`;
+
+export const INTEGRATIONS_CSS = `
+.intg{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+.intg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}.intg h3{margin:0;font-size:15px}
+.intg-state{font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--sunk);color:var(--muted)}
+.intg-state.on{color:var(--good)}
+.intg-steps{margin:6px 0 12px;padding-left:20px;color:var(--muted);font-size:13px}.intg-steps li{margin-bottom:4px}
+.intg-steps code{font-size:12px}
+`;
+
+export const INTEGRATIONS_SCRIPT = /* js */ `
+const INTG_SOURCE={admin:'관리 페이지에서 저장',env:'환경변수 사용 중',none:'꺼져 있음'};
+async function loadIntegrations(){
+  try{const d=await api('/admin/api/integrations');
+    document.querySelectorAll('.intg').forEach((c)=>{const s=d[c.dataset.svc];if(!s)return;
+      const st=c.querySelector('[data-state]');st.textContent=s.configured?'켜짐 · '+INTG_SOURCE[s.source]:INTG_SOURCE.none;st.classList.toggle('on',s.configured);
+      for(const [k,f] of Object.entries(s.fields)){const i=c.querySelector('input[name="'+k+'"]');if(!i)continue;
+        if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');}}
+      const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
+  }catch(err){toast(err.message);}
+}
+document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');
+  c.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();
+    const body=Object.fromEntries([...c.querySelectorAll('input')].map((i)=>[i.name,i.value]));
+    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast('저장했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
+  c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent='확인하고 있습니다';
+    try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
+  c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!confirm('저장한 키를 지울까요?'))return;
+    try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('지웠습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
+});
+`;

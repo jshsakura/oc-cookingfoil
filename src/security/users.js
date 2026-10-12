@@ -38,7 +38,7 @@ const VERIFIED_MAX = 1000;
 const accounts = new Map(); // name → { hash, enabled, createdAt, updatedAt }
 const verified = new Set(); // sha256(name \0 password) of recent successful checks
 
-class UserError extends Error {
+export class UserError extends Error {
   constructor(code, message) {
     super(message);
     this.code = code;

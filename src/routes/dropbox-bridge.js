@@ -18,7 +18,8 @@
  */
 import crypto from "crypto";
 import express from "express";
-import { dropboxAppKey, dropboxRedirectBase, publicBaseUrl } from "../helpers/envs.js";
+import { publicBaseUrl } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 
@@ -57,7 +58,7 @@ function pollTokenOk(session, given) {
 
 /** The address Dropbox sends the phone back to; must be registered in the Dropbox app. */
 export function redirectUriFor(req) {
-  const origin = dropboxRedirectBase || publicBaseUrl || resolveOrigin(req, null);
+  const origin = integrations.get("dropbox").redirectBase.replace(/\/+$/, "") || publicBaseUrl || resolveOrigin(req, null);
   return `${origin}${BRIDGE_PATH}/oauth/dropbox/callback`;
 }
 
@@ -67,7 +68,7 @@ export function dropboxSessionsRouter() {
   router.use(express.json({ limit: "4kb" }));
   router.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
-    if (!dropboxAppKey) return res.status(404).json({ detail: "dropbox sync is not configured on this server" });
+    if (!integrations.get("dropbox").appKey) return res.status(404).json({ detail: "dropbox sync is not configured on this server" });
     next();
   });
 
@@ -83,7 +84,7 @@ export function dropboxSessionsRouter() {
     byState.set(state, id);
     const authorize = new URL(AUTHORIZE_URL);
     authorize.search = new URLSearchParams({
-      client_id: dropboxAppKey, redirect_uri: redirectUri, response_type: "code",
+      client_id: integrations.get("dropbox").appKey, redirect_uri: redirectUri, response_type: "code",
       token_access_type: "offline", state, code_challenge_method: "S256", code_challenge: challengeOf(verifier),
     }).toString();
     const base = redirectUri.slice(0, -"/oauth/dropbox/callback".length);

@@ -262,6 +262,11 @@ const googleClientSecret = envString("COOK_GOOGLE_CLIENT_SECRET", "").trim();
 const googleRedirectBase = normalizeBaseUrl(envString("COOK_GOOGLE_REDIRECT_BASE", ""));
 const igdbClientId = envString("COOK_IGDB_CLIENT_ID", "").trim();
 const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
+// SteamGridDB API key (steamgriddb.com/profile/preferences/api): cover search when matching games by hand.
+// First-run setup: while there is no account, browsers are sent to /setup to create
+// the admin. false keeps an account-less server open (LAN-only servers, tests).
+const firstRunSetup = envBool("COOK_FIRST_RUN_SETUP", true);
+const steamGridDbKey = envString("COOK_STEAMGRIDDB_KEY", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
@@ -343,6 +348,8 @@ export {
   googleRedirectBase,
   igdbClientId,
   igdbClientSecret,
+  steamGridDbKey,
+  firstRunSetup,
   devicePairing,
   deviceAutoApprove,
 };

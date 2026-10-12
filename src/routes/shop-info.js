@@ -11,7 +11,8 @@ import pkg from "../package.js";
 import { CLIENT_NRO } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, dropboxAppKey, retroDir } from "../helpers/envs.js";
+import { devicePairing, retroDir } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as users from "../security/users.js";
 import { retroEnabled } from "./retro.js";
@@ -67,7 +68,7 @@ export default async function shopInfoRoute(_req, res) {
       ...FEATURES,
       ...(devicePairing ? ["device-pairing"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
-      ...(dropboxAppKey ? ["dropbox-sync"] : []),
+      ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
       ...(retro ? ["retro"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.

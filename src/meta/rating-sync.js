@@ -15,7 +15,8 @@
 import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
-import { titledbCacheDir, ratingSync, igdbClientId, igdbClientSecret } from "../helpers/envs.js";
+import { titledbCacheDir, ratingSync } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 import { pickScore } from "./scraper-ratings.js";
 
 const STORE_FILE = "ratings-own.json";
@@ -144,7 +145,8 @@ let igdbToken = null; // { value, expiresAt }
 
 async function igdbAuth(fetchImpl) {
   if (igdbToken && Date.now() < igdbToken.expiresAt - 30_000) return igdbToken.value;
-  const url = `${IGDB_TOKEN}?client_id=${encodeURIComponent(igdbClientId)}&client_secret=${encodeURIComponent(igdbClientSecret)}&grant_type=client_credentials`;
+  const { clientId, clientSecret } = integrations.get("igdb");
+  const url = `${IGDB_TOKEN}?client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&grant_type=client_credentials`;
   const body = await getJson(fetchImpl, url, { method: "POST" });
   igdbToken = { value: body.access_token, expiresAt: Date.now() + Number(body.expires_in || 0) * 1000 };
   return igdbToken.value;
@@ -157,7 +159,7 @@ export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
   const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count; where platforms = (${PLATFORM_ID}); limit 5;`;
   const games = await getJson(fetchImpl, IGDB_GAMES, {
     method: "POST", body,
-    headers: { "Client-ID": igdbClientId, Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: { "Client-ID": integrations.get("igdb").clientId, Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
   const best = bestMatch(names, games);
   if (!best || best.confidence < MATCH_MIN) return { miss: true };
@@ -232,7 +234,7 @@ function save() {
 }
 
 export function providers() {
-  return igdbClientId && igdbClientSecret ? ["steam", "igdb"] : ["steam"];
+  return integrations.configured("igdb") ? ["steam", "igdb"] : ["steam"];
 }
 
 /** One paced batch. A network error leaves the title due so the next batch retries it. */
