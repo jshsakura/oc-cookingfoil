@@ -1,5 +1,7 @@
 /**
- * GET /api/patches                 every user patch  { patches: [P…] }, with ETag.
+ * GET /api/patches                 every user patch  { patches: [P…] }, with ETag. Never waits
+ *                                  for a scan: while the first one runs it answers at once with
+ *                                  what was read so far, `scanning: true` and Retry-After.
  *                                  A homebrew app's patch has title_id null and
  *                                  `homebrew` (its switch/<app>/ folder name); its
  *                                  files all go under switch/<app>/.
@@ -25,26 +27,21 @@ export { tarEntries, gameOf };
 const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
 async function listRoute(req, res) {
-  let listing;
-  try {
-    listing = await userPatches.list();
-  } catch (err) {
-    if (!(err instanceof userPatches.ScanPending)) throw err;
-    // The server is reading the patch folder for the first time; ask again shortly.
-    res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
-    res.status(503).json({ error: "patches are still being scanned", retryAfter: 30 });
-    return;
-  }
+  // Never waits for a scan: before the first one finishes this is what has been read so far.
+  const listing = await userPatches.list();
+  if (listing.scanning) res.set("Retry-After", "30");
   const origin = resolveOrigin(req, publicBaseUrl);
   const body = JSON.stringify({
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
       return game ? { ...p, game } : p;
     }),
+    ...(listing.scanning ? { scanning: true } : {}),
   });
   res.header("Content-Type", "application/json");
   res.header("ETag", `"${crypto.createHash("sha1").update(body).digest("hex")}"`);
-  res.header("Cache-Control", "private, max-age=0, must-revalidate");
+  // A partial listing is never cached: the next request may have more.
+  res.header("Cache-Control", listing.scanning ? "no-store" : "private, max-age=0, must-revalidate");
   if (req.fresh) {
     res.status(304).end();
     return;
