@@ -375,6 +375,11 @@
       .skel .sub-skel  { width: 50%; height: 11px; border-radius: 6px; }
       @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
       .sk { color: transparent !important; border-radius: 6px; }
+      /* patches and saves while their list loads */
+      .xgroup.xskel { pointer-events: none; }
+      .xgroup.xskel header i { display: block; width: 28px; height: 28px; border-radius: 8px; flex: none; }
+      .xgroup.xskel header b { display: block; width: 40%; height: 14px; }
+      .xgroup.xskel .xitem b { display: block; height: 12px; margin: 4px 0; }
       .stat .value.sk { display: inline-block; min-width: 60px; height: 28px; vertical-align: middle; }
       .stat .sub.sk   { display: inline-block; min-width: 78px; height: 11px; }
       #status-text.sk { display: inline-block; min-width: 150px; height: 13px; vertical-align: middle; }
@@ -706,6 +711,7 @@
           <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="patches-list" aria-busy="true"></div>
           <p class="empty" id="patches-empty" hidden></p>
+          <div class="pager" id="patches-pager"></div>
         </div>
 
         <div data-tab-panel="saves" hidden>
@@ -713,6 +719,7 @@
           <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" /></div>
           <div class="xlist" id="saves-list" aria-busy="true"></div>
           <p class="empty" id="saves-empty" hidden></p>
+          <div class="pager" id="saves-pager"></div>
         </div>
       </div>
 
@@ -2378,18 +2385,41 @@
           }
           return row;
         }
+        const PAGE = 20;   // items per page; a game's items stay together within a page
+        const pageOf = { patches: 1, saves: 1 };
+        // Shimmering groups in the list's shape while it loads.
+        function skeleton(kind) {
+          const bar = (w) => { const b = document.createElement("b"); b.className = "sk"; b.style.width = w; return b; };
+          const groups = [0, 1, 2].map(() => {
+            const g = document.createElement("section"); g.className = "xgroup xskel"; g.setAttribute("aria-hidden", "true");
+            const head = document.createElement("header");
+            const icon = document.createElement("i"); icon.className = "sk";
+            head.append(icon, bar("40%"));
+            g.append(head);
+            for (const w of ["62%", "46%"]) { const row = document.createElement("div"); row.className = "xitem"; row.append(bar(w)); g.append(row); }
+            return g;
+          });
+          $(kind + "-list").replaceChildren(...groups);
+          $(kind + "-empty").hidden = true;
+          $(kind + "-pager").replaceChildren();
+        }
         function render(kind) {
           const list = $(kind + "-list");
           const q = folded($(kind + "-search").value.trim());
+          const items = (data[kind] ?? [])
+            .filter((it) => !q || [gameName(it), it.name, it.description].some((x) => folded(x).includes(q)))
+            .sort((a, b) => gameName(a).localeCompare(gameName(b), lang, { numeric: true }) || String(a.name).localeCompare(String(b.name), lang, { numeric: true }));
+          const pages = Math.max(1, Math.ceil(items.length / PAGE));
+          const page = Math.min(pageOf[kind], pages);
+          pageOf[kind] = page;
+          const from = (page - 1) * PAGE;
           const groups = new Map();
-          for (const it of data[kind] ?? []) {
+          for (const it of items.slice(from, from + PAGE)) {
             const tid = it.titleId || it.title_id;
-            if (q && ![gameName(it), it.name, it.description].some((x) => folded(x).includes(q))) continue;
             if (!groups.has(tid)) groups.set(tid, []);
             groups.get(tid).push(it);
           }
-          const sorted = [...groups.values()].sort((a, b) => gameName(a[0]).localeCompare(gameName(b[0]), lang));
-          list.replaceChildren(...sorted.map((items) => {
+          list.replaceChildren(...[...groups.values()].map((items) => {
             const g = document.createElement("section"); g.className = "xgroup";
             const head = document.createElement("header");
             const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
@@ -2401,9 +2431,14 @@
             g.append(head, ...items.map((it) => itemRow(kind, it)));
             return g;
           }));
-          $(kind + "-count").textContent = sorted.reduce((n, items) => n + items.length, 0).toLocaleString();
-          $(kind + "-empty").hidden = sorted.length > 0;
+          $(kind + "-count").textContent = items.length.toLocaleString();
+          $(kind + "-empty").hidden = items.length > 0;
           $(kind + "-empty").textContent = t("extras.empty");
+          renderPager($(kind + "-pager"), page, pages, items.length, from + 1, Math.min(from + PAGE, items.length), (next) => {
+            pageOf[kind] = next;
+            render(kind);
+            $(kind + "-list").scrollIntoView({ block: "start", behavior: "smooth" });
+          });
           list.setAttribute("aria-busy", "false");
         }
         async function open(kind) {
@@ -2412,6 +2447,7 @@
           if (loadedLang[kind] !== want) {
             loadedLang[kind] = want;
             $(kind + "-list").setAttribute("aria-busy", "true");
+            skeleton(kind);
             try {
               const url = kind === "patches" ? "/api/patches" : `/api/saves?lang=${encodeURIComponent(lang)}`;
               const r = await fetch(url, { headers: { Accept: "application/json" } });
@@ -2423,7 +2459,7 @@
           render(kind);
         }
         for (const kind of ["patches", "saves"]) {
-          $(kind + "-search").addEventListener("input", debounce(() => render(kind), 120));
+          $(kind + "-search").addEventListener("input", debounce(() => { pageOf[kind] = 1; render(kind); }, 120));
         }
         return { open, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();

@@ -28,7 +28,7 @@ const TEXT = {
     disabledLead: "{email} 계정은 관리자가 사용을 중지했습니다.",
     errWrong: "아이디나 비밀번호가 맞지 않습니다.",
     errLocked: "로그인에 너무 여러 번 실패해 잠겼습니다. 관리자에게 해제를 요청합니다.",
-    errExpired: "화면이 오래돼 다시 불러왔습니다. 한 번 더 로그인합니다.",
+    errStale: "화면이 오래돼 다시 불러왔습니다. 한 번 더 로그인합니다.",
     errGoogle: "구글로 로그인하지 못했습니다. 다시 시도합니다.",
     signedInAs: "{email} 계정",
     signOut: "로그아웃",
@@ -64,7 +64,7 @@ const TEXT = {
     disabledLead: "The admin has turned off {email}.",
     errWrong: "Wrong username or password.",
     errLocked: "Locked after too many failed sign-ins. Ask the admin to unlock it.",
-    errExpired: "The page was stale and has been reloaded. Sign in once more.",
+    errStale: "The page was stale and has been reloaded. Sign in once more.",
     errGoogle: "Couldn't sign in with Google. Try again.",
     signedInAs: "Signed in as {email}",
     signOut: "Sign out",
@@ -88,6 +88,78 @@ const TEXT = {
     errOther: "Couldn't approve it. Try again.",
     errNetwork: "Couldn't reach the server. Try again.",
   },
+  ja: {
+    signinTitle: "ログイン",
+    username: "ID",
+    password: "パスワード",
+    submit: "ログイン",
+    or: "または",
+    google: "Google でログイン",
+    googleHint: "Google アカウントは、初めてログインしたあと管理者が承認すると使えます。",
+    pendingLead: "{email} は管理者の承認を待っています。承認されたらもう一度ログインします。",
+    disabledLead: "{email} は管理者が利用を停止しました。",
+    errWrong: "ID またはパスワードが違います。",
+    errLocked: "ログインに何度も失敗したためロックされました。管理者に解除を依頼します。",
+    errStale: "画面が古くなったため読み込み直しました。もう一度ログインします。",
+    errGoogle: "Google でログインできませんでした。もう一度試します。",
+    signedInAs: "{email} でログイン中",
+    signOut: "ログアウト",
+    codeTitle: "本体を接続",
+    codeLead: "本体に表示された QR をスマートフォンのカメラで読み取るか、本体の画面に出ている 8 文字の端末コードを入力します。",
+    codeLabel: "端末コード",
+    confirmTitle: "この本体を接続します",
+    confirmLead: "本体に表示された端末コードと同じか確認します。",
+    nameLabel: "本体の名前",
+    namePlaceholder: "リビング",
+    optional: "（任意）",
+    approve: "接続を承認します",
+    doneTitle: "接続を承認しました",
+    doneLead: "本体はまもなく自動でサーバーに接続します。このページは閉じてかまいません。",
+    expiredTitle: "接続の期限が切れました",
+    expiredLead: "本体に新しい QR を表示して、もう一度読み取ります。",
+    errNotFound: "そのコードで待っている本体はありません。本体の画面のコードを確認します。",
+    errExpired: "接続の期限が切れました。本体の新しい QR を読み取ります。",
+    errUsed: "すでに承認された本体です。",
+    errAuth: "ログインが切れました。もう一度ログインします。",
+    errOther: "承認できませんでした。もう一度試します。",
+    errNetwork: "サーバーに接続できませんでした。もう一度試します。",
+  },
+  zh: {
+    signinTitle: "登录",
+    username: "账号",
+    password: "密码",
+    submit: "登录",
+    or: "或",
+    google: "使用 Google 登录",
+    googleHint: "Google 账号首次登录后，需经管理员批准才能使用。",
+    pendingLead: "{email} 正在等待管理员批准。批准后请重新登录。",
+    disabledLead: "管理员已停用 {email}。",
+    errWrong: "账号或密码不正确。",
+    errLocked: "登录失败次数过多，已被锁定。请联系管理员解除。",
+    errStale: "页面已过期，已重新载入。请再登录一次。",
+    errGoogle: "无法使用 Google 登录，请重试。",
+    signedInAs: "已登录：{email}",
+    signOut: "退出登录",
+    codeTitle: "连接主机",
+    codeLead: "用手机相机扫描主机上的二维码，或输入主机屏幕上显示的 8 位设备码。",
+    codeLabel: "设备码",
+    confirmTitle: "连接这台主机",
+    confirmLead: "请确认与主机上显示的设备码一致。",
+    nameLabel: "主机名称",
+    namePlaceholder: "客厅",
+    optional: "（可选）",
+    approve: "批准连接",
+    doneTitle: "已批准连接",
+    doneLead: "主机很快会自动连接到服务器。可以关闭此页面。",
+    expiredTitle: "连接已过期",
+    expiredLead: "请在主机上显示新的二维码并重新扫描。",
+    errNotFound: "没有主机在用这个设备码等待。请核对主机屏幕上的设备码。",
+    errExpired: "连接已过期。请扫描主机上的新二维码。",
+    errUsed: "这台主机已经批准过了。",
+    errAuth: "登录已失效，请重新登录。",
+    errOther: "无法批准，请重试。",
+    errNetwork: "无法连接到服务器，请重试。",
+  },
 };
 
 const textFor = (lang) => TEXT[lang] ?? TEXT.en;
@@ -98,7 +170,7 @@ const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#161
 *{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;width:min(100%,440px)}
 .brand{display:flex;align-items:center;gap:12px;margin:0 0 24px}.brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:28px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
-h1{font-size:26px;margin:0 0 12px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;word-break:keep-all}p b{color:var(--ink);word-break:break-all}
+h1{font-size:26px;margin:0 0 12px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
 .device-code{display:block;font:700 30px monospace;letter-spacing:3px;padding:18px;text-align:center;background:var(--soft);border-radius:12px;margin:20px 0}
 label{display:block;font-size:16px;margin:14px 0 8px}label span{color:var(--muted)}
 input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
@@ -119,7 +191,7 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4
 const GOOGLE_G = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>`;
 
 function shell(lang, title, body, script = "") {
-  return `<!doctype html><html lang="${lang === "ko" ? "ko" : "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">
+  return `<!doctype html><html lang="${{ ko: "ko", ja: "ja", zh: "zh-Hans" }[lang] ?? "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">
 <title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}</style></head>
 <body><main class="card"><div class="brand"><img src="${LOGO}" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
 <h1>${escapeHtml(title)}</h1>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
@@ -133,7 +205,7 @@ function whoBar(t, user, csrf) {
 
 export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null } = {}) {
   const t = textFor(lang);
-  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errExpired, google: t.errGoogle }[error];
+  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle }[error];
   const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
   const googleBlock = google
     ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`
