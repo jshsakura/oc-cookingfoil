@@ -22,7 +22,7 @@
  *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
  *                                                X-Retro-Once lists the files to skip when already on the card
  *
- * G = { id, name, names?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
+ * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
@@ -106,8 +106,8 @@ function systemIcon(system, style) {
 
 /** Text for matching: NFC, lower case, no spaces. Pure. */
 const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
-/** A game matches on its name, its original title or its file name. */
-const gameMatches = (g, needle) => [g.name, g.original, g.file].some((s) => s && folded(s).includes(needle));
+/** A game matches on its name in any language, its original title or its file name (sf2.zip). */
+const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {})].some((s) => s && folded(s).includes(needle));
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
@@ -151,8 +151,10 @@ function publicGame(g, systems, lang = "en") {
     name: localized ?? withoutTags(g.name),
     ...(variant ? { variant } : {}),
     ...(original ? { original } : {}),
-    // Arcade sets: the title in each language ({ en, ko, ja?, zh? }).
+    // Arcade sets: the title in each language ({ en, ko, ja?, zh? }) and the
+    // region of the version as a code for a flag: kr, jp, us, eu, asia, br, world.
     ...(g.names ? { names: g.names } : {}),
+    ...(g.region ? { region: g.region } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     file: g.file,
