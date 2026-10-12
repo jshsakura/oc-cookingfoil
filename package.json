@@ -1,7 +1,7 @@
 {
   "name": "oc-cookingfoil",
   "version": "0.8.4",
-  "description": "CookingFoil: a self-hosted game library server for your own Nintendo Switch, with metadata and icons.",
+  "description": "CookingFoil: a personal, self-hosted file server for Nintendo Switch homebrew, with names and icons.",
   "main": "./src/index.js",
   "type": "module",
   "engines": {

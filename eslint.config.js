@@ -44,6 +44,11 @@ export default [
     },
   },
   {
+    // The GitHub Pages site runs in the browser, as a classic script.
+    files: ["site/**/*.js"],
+    languageOptions: { sourceType: "script", globals: { ...globals.browser } },
+  },
+  {
     files: ["**/*.cjs"],
     languageOptions: {
       ecmaVersion: 2023,
