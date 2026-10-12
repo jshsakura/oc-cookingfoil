@@ -73,8 +73,8 @@ export function configWarnings(lanes = authLanes()) {
       code: "admin-unenrolled",
       title: "Admin 2FA is not enrolled yet",
       detail:
-        "A TOTP secret was generated automatically. Scan it from a device on your local network, " +
-        "or copy the otpauth:// URI printed in the server log. The QR stops being served once enrolled.",
+        "Register an authenticator in the admin page's settings tab (or open /admin from your local network). " +
+        "The key is shown only there, never in the server log.",
     });
   }
 

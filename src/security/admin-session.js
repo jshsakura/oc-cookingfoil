@@ -69,8 +69,8 @@ export async function verifyTotp(code) {
 }
 
 /**
- * otpauth:// enrollment URI. Always logged at boot; served over HTTP ONLY by
- * the enrollment page, and only while unenrolled + on a private address.
+ * otpauth:// enrollment URI. Never logged; served over HTTP only by the admin
+ * page (signed in) and the first-run enrollment page (unenrolled, private address).
  */
 export async function provisioningUri(secret = adminSecret()) {
   if (!secret) return null;
