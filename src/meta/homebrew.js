@@ -6,7 +6,7 @@
  *   github  repositories the admin follows (homebrew-sources.js), through their
  *           latest release: a .nro, or a .zip with a .nro inside
  *
- * GitHub is asked at most once every three hours per repository, with the
+ * GitHub is asked at most once per check interval (six hours by default) per repository, with the
  * last ETag, so an unchanged release costs one 304. A new release is only
  * announced: its build is fetched when a console first downloads it, then
  * kept under <data dir>/homebrew/<id>/. The one exception is a repository
@@ -27,7 +27,8 @@ import debug from "../debug.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
 
-export const CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
+/** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
+export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MAX_NRO_BYTES = 128 * 1024 * 1024;
 const MAX_ZIP_BYTES = 256 * 1024 * 1024;
 const ERROR_RETRY_MS = 60 * 60 * 1000;
@@ -316,7 +317,7 @@ async function readManual(root, folder) {
  * Follows the latest release of each repository in `repos`.
  * `fetchImpl` and `now` are injectable for tests.
  */
-export function createTracker({ repos = [], sources = null, stateDir, fetchImpl = fetch, token = "", now = Date.now }) {
+export function createTracker({ repos = [], sources = null, stateDir, fetchImpl = fetch, token = "", now = Date.now, checkIntervalMs = CHECK_INTERVAL_MS }) {
   const wanted = new Map(); // id → repo
   const patterns = new Map(); // id → release-file pattern, or null
   const states = new Map(); // id → saved state
@@ -358,11 +359,11 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
   async function check(id, { force = false } = {}) {
     const repo = wanted.get(id);
     const prev = states.get(id);
-    // A failing repository is retried hourly (not on every poll), a healthy one every three hours.
+    // A failing repository is retried hourly (not on every poll), a healthy one once per check interval.
     if (!force && prev?.error && now() - prev.error.at < ERROR_RETRY_MS) return;
     // A build cached before folder installs existed is looked at again right away.
     const legacy = Boolean(prev?.cached && !prev.cached.install);
-    if (!force && !legacy && !prev?.error && prev?.checked_at != null && now() - prev.checked_at < CHECK_INTERVAL_MS) return;
+    if (!force && !legacy && !prev?.error && prev?.checked_at != null && now() - prev.checked_at < checkIntervalMs) return;
     const pattern = patterns.get(id) ?? null;
     // A changed pattern needs the release itself, not a 304.
     const conditional = !force && !legacy && prev?.etag && (prev.pattern ?? null) === pattern;
@@ -559,7 +560,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return checking;
   }
 
-  /** Checks one repository now, ignoring the three-hour wait. */
+  /** Checks one repository now, ignoring the check interval. */
   const checkNow = (repo) => checkOne(idFor("github", repo), { force: true });
 
   /** What the admin page shows for each followed repository. */

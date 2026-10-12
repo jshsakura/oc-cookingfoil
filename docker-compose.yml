@@ -64,6 +64,7 @@ services:
       COOK_RATINGS_URL: ${COOK_RATINGS_URL:-}
       COOK_HOMEBREW_REPOS: ${COOK_HOMEBREW_REPOS:-}
       COOK_GITHUB_TOKEN: ${COOK_GITHUB_TOKEN:-}
+      COOK_HOMEBREW_CHECK_HOURS: ${COOK_HOMEBREW_CHECK_HOURS:-}
       COOK_ADMIN_SESSION_HOURS: ${COOK_ADMIN_SESSION_HOURS:-}
       # Bearer token for the recovery API (/api/admin/unlock) — reachable even
       # when your own IP is locked out.

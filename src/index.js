@@ -278,7 +278,7 @@ shopCache.init().catch((err) =>
 
 // User patches: scanned now and every minute; a change recomposes the patch counts.
 userPatches.start({ onChange: () => shopCache.invalidate() });
-// Homebrew repositories: checked now, then each at most every three hours.
+// Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });

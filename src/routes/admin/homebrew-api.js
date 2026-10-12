@@ -5,7 +5,7 @@
  *   POST /admin/api/homebrew        { repo, asset? }   follow a repository (owner/name or its address), checked at once
  *   POST /admin/api/homebrew/recommended { repos: [] } follow several from the recommended list (checked in the background)
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
- *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the three-hour wait (all when no repo)
+ *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the check interval (all when no repo)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own

@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { parseRepo, pickAsset, safeFileName, scanManual, createTracker } from "../../src/meta/homebrew.js";
+import { CHECK_INTERVAL_MS, parseRepo, pickAsset, safeFileName, scanManual, createTracker } from "../../src/meta/homebrew.js";
 
 /** A minimal NRO whose NACP carries a name, an author and a version. */
 function fakeNro(name, version, author = "someone") {
@@ -138,10 +138,10 @@ test("an unchanged release costs one conditional request and no download", async
   await tracker.checkAll();
   const before = tracker.entries()[0];
 
-  await tracker.checkAll(); // within three hours: no request at all
+  await tracker.checkAll(); // within the check interval: no request at all
   assert.equal(gh.apiCalls().length, 1);
 
-  now += 3 * 60 * 60 * 1000;
+  now += CHECK_INTERVAL_MS;
   await tracker.checkAll();
   assert.equal(gh.apiCalls().length, 2);
   assert.equal(gh.apiCalls()[1].headers["If-None-Match"], '"v1.1.0"');
@@ -160,7 +160,7 @@ test("a new release only announces itself; the build is fetched when someone dow
 
   const next = fakeNro("YTB Player", "1.2.0");
   gh.publish("v1.2.0", next);
-  now += 3 * 60 * 60 * 1000;
+  now += CHECK_INTERVAL_MS;
   await tracker.checkAll();
   const announced = tracker.entries()[0];
   assert.notEqual(announced.hash, oldHash);
@@ -185,7 +185,7 @@ test("a build whose digest does not match is refused", async () => {
   await tracker.checkAll();
   gh.publish("v2", fakeNro("App", "2"));
   gh.state.release.json.assets[1].digest = `sha256:${"0".repeat(64)}`;
-  now += 3 * 60 * 60 * 1000;
+  now += CHECK_INTERVAL_MS;
   await tracker.checkAll();
   const [e] = tracker.entries();
   await assert.rejects(tracker.ensureDownloaded(e.id), /digest/);
@@ -230,7 +230,7 @@ test("a failing GitHub leaves the last known entry in place", async () => {
   await tracker.checkAll();
   const before = tracker.entries();
   down = true;
-  now += 3 * 60 * 60 * 1000;
+  now += CHECK_INTERVAL_MS;
   await tracker.checkAll();
   assert.deepEqual(tracker.entries(), before);
 });
@@ -247,7 +247,7 @@ test("a first build that failed to arrive is fetched again on the next check, ev
   assert.deepEqual(tracker.entries(), []);
 
   broken = false;
-  now += 3 * 60 * 60 * 1000;
+  now += CHECK_INTERVAL_MS;
   await tracker.checkAll();
   assert.equal(tracker.entries()[0]?.name, "YTB Player");
 });
@@ -369,7 +369,7 @@ test("the admin's list can change at run time; a check can be forced; failures a
   assert.deepEqual(s.assets, ["ytb-player.nro"]);
 
   await tracker.checkNow("murat303/ytb-player");
-  assert.equal(hub.apiCalls().length, 2, "a forced check ignores the three-hour wait");
+  assert.equal(hub.apiCalls().length, 2, "a forced check ignores the check interval");
 
   // The admin picks a file that isn't there: the error is kept and not retried on every poll.
   tracker.setSources([{ repo: "murat303/ytb-player", asset: "nothing.nro" }]);
@@ -558,4 +558,19 @@ test("a build cached before folder installs existed is looked at again and re-fe
   await again.checkAll();
   assert.equal(again.status()[0].install.mode, "folder");
   assert.equal(again.entries()[0].files.length, 2);
+});
+
+test("the check interval defaults to six hours and can be set per server", async () => {
+  assert.equal(CHECK_INTERVAL_MS, 6 * 60 * 60 * 1000);
+  const gh = fakeGitHub("murat303/ytb-player");
+  gh.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
+  let now = 0;
+  const tracker = createTracker({ repos: ["murat303/ytb-player"], stateDir: tmp("hb-gh-"), fetchImpl: gh.fetchImpl, now: () => now, checkIntervalMs: 60 * 60 * 1000 });
+  await tracker.checkAll();
+  now += 59 * 60 * 1000;
+  await tracker.checkAll();
+  assert.equal(gh.apiCalls().length, 1);
+  now += 60 * 1000;
+  await tracker.checkAll();
+  assert.equal(gh.apiCalls().length, 2);
 });
