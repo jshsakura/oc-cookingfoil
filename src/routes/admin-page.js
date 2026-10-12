@@ -42,6 +42,7 @@ import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
+import { clientBuildStatus } from "./client-update.js";
 import {
   normalizeDeviceKey,
   generateAccessKey,
@@ -82,6 +83,23 @@ function loginMode() {
 }
 
 /** Session check that also leaves a trail when it fails. */
+const BUILD_REASONS = {
+  empty: "파일이 비어 있습니다", "not-nro": "NRO 파일이 아닙니다(0x10 에 NRO0 가 없습니다)", truncated: "파일이 잘렸습니다(헤더가 말하는 크기보다 작습니다)",
+  "trailing-bytes": "헤더가 말하는 크기 뒤에 군더더기가 붙어 있습니다", "no-assets": "ASET 자산이 없습니다", "no-nacp": "NACP 가 없습니다",
+  "bad-version": "NACP 표시 버전이 x.y.z 형식이 아닙니다", downgrade: "지금 내보내는 버전보다 낮습니다", "too-large": "파일이 너무 큽니다",
+};
+
+/** A rejected client build, as an overview warning. */
+function clientBuildWarnings() {
+  const { published, rejected } = clientBuildStatus();
+  if (!rejected) return [];
+  return [{
+    code: "client-build-rejected", severity: "warn",
+    title: "새 클라이언트 파일을 내보내지 않았습니다",
+    detail: `data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: ${BUILD_REASONS[rejected.code] ?? rejected.code} (${rejected.message}). ${published ? `기기에는 ${published.version} 을 계속 내보냅니다.` : "아직 내보내는 버전이 없습니다."}`,
+  }];
+}
+
 // What an automation token may not change: who can sign in and how.
 const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa)(\/|$)/;
 
@@ -228,7 +246,7 @@ export default function adminPageRouter() {
       generatedAt: Date.now(),
       me: adminActor(req),
       lanes,
-      warnings: configWarnings(lanes),
+      warnings: [...configWarnings(lanes), ...clientBuildWarnings()],
       users: userRows,
       lockouts,
       // The hint is what turns a reason code into an action the operator can take.

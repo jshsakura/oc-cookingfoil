@@ -8,9 +8,13 @@
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
  *   POST /api/client/log             a console's error log (see client-log.js)
  *
- * A build is published by dropping it at <data dir>/client/cookingfoil.nro.
- * version is the NACP display version inside the NRO; it and the sha256 are
- * worked out again whenever the file's size or mtime changes. The forwarder
+ * A build is published by dropping it at <data dir>/client/cookingfoil.nro
+ * (written elsewhere and moved in; a .tmp beside it is never read). Whenever its
+ * size or mtime changes it is checked (meta/client-build.js: NRO header and size,
+ * ASET, NACP, an x.y.z version not lower than the last one). A build that passes
+ * is copied to client/.published/ with its facts, and that copy is what is
+ * offered and served, so size and sha256 always describe the bytes sent. A build
+ * that fails is logged and shown on the admin page, and the last good one stays. The forwarder
  * fields are null when this server can't build shortcuts (no prod.keys or
  * hacBrewPack); forwarder_size is null until the NSP is built in the background.
  * Every route sits behind the same sign-in as the rest of the server.
@@ -22,11 +26,15 @@ import express from "express";
 import { dataDir, keysDir } from "../helpers/envs.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
-import { decodeNacp } from "../meta/nacp-decode.js";
+import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-build.js";
 import debug from "../debug.js";
 import { mountClientLog } from "./client-log.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
+const PUBLISHED_DIR = path.join(dataDir, "client", ".published");
+const PUBLISHED_NRO = path.join(PUBLISHED_DIR, "cookingfoil.nro");
+const PUBLISHED_INFO = path.join(PUBLISHED_DIR, "build.json");
+const MAX_BUILD_BYTES = 128 * 1024 * 1024;
 const URL_PATH = "/api/client/cookingfoil.nro";
 
 const FORWARDER_DIR = path.join(dataDir, "client-forwarder");
@@ -36,7 +44,7 @@ const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_
 const clientApp = (info) => ({ id: "cookingfoil-client", name: "CookingFoil", publisher: "CookingFoil", target: homebrewTarget("cookingfoil.nro"), artKey: info.sha256 });
 
 async function withIcon(info) {
-  return { ...clientApp(info), icon: (await parseAssets(CLIENT_NRO).catch(() => null))?.icon ?? null };
+  return { ...clientApp(info), icon: (await parseAssets(PUBLISHED_NRO).catch(() => null))?.icon ?? null };
 }
 
 /** forwarder_url, forwarder_title_id, forwarder_size; starts a build when it's missing. */
@@ -45,55 +53,109 @@ async function forwarderFields(info) {
   const spec = forwarderSpec(clientApp(info));
   if (!spec) return NO_FORWARDER;
   let size = null;
+  const nsp = forwarderPath(FORWARDER_DIR, "cookingfoil-client", spec);
   try {
-    size = fs.statSync(forwarderPath(FORWARDER_DIR, "cookingfoil-client", spec)).size;
+    size = fs.statSync(nsp).size;
+    if (size === 0) {
+      // An empty shortcut is never offered: drop it and build it again.
+      debug.error("client update: shortcut %s is empty, rebuilding", path.basename(nsp));
+      fs.rmSync(nsp, { force: true });
+      throw new Error("rebuild");
+    }
   } catch {
+    size = null;
     // Build it (and drop the previous build's) in the background.
     withIcon(info).then((app) => prewarmForwarders(FORWARDER_DIR, [app], keysDir)).catch((err) => debug.error("client update: shortcut: %s", err.message));
   }
   return { forwarder_url: "/api/client/forwarder", forwarder_title_id: spec.titleId, forwarder_size: size };
 }
 
-let cache = null; // { key, info } for the file last read
+let published; // { version, size, sha256, at } of the build being offered, or null
+let rejected = null; // { code, message, size, at } for the file last turned down
+let lastKey = null; // size + mtime of the file last examined
 let inFlight = null;
 
-function sha256Of(file) {
-  return new Promise((resolve, reject) => {
-    const h = crypto.createHash("sha256");
-    fs.createReadStream(file).on("data", (d) => h.update(d)).on("error", reject).on("end", () => resolve(h.digest("hex")));
-  });
+function loadPublished() {
+  if (published !== undefined) return published;
+  try {
+    const saved = JSON.parse(fs.readFileSync(PUBLISHED_INFO, "utf8"));
+    published = fs.statSync(PUBLISHED_NRO).size === saved.size ? saved : null;
+  } catch {
+    published = null;
+  }
+  return published;
 }
 
-/** The published build's facts, or null when there is none (or it isn't an NRO). */
-export async function latestBuild(file = CLIENT_NRO) {
+async function publish(buf, version) {
+  const info = { version, size: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex"), at: Date.now() };
+  await fs.promises.mkdir(PUBLISHED_DIR, { recursive: true });
+  await fs.promises.writeFile(`${PUBLISHED_NRO}.tmp`, buf);
+  await fs.promises.rename(`${PUBLISHED_NRO}.tmp`, PUBLISHED_NRO);
+  await fs.promises.writeFile(`${PUBLISHED_INFO}.tmp`, JSON.stringify(info));
+  await fs.promises.rename(`${PUBLISHED_INFO}.tmp`, PUBLISHED_INFO);
+  published = info;
+  rejected = null;
+  debug.log("client update: published %s (%d bytes, sha256 %s)", version, buf.length, info.sha256.slice(0, 12));
+}
+
+function reject(code, message, size) {
+  rejected = { code, message, size, at: Date.now() };
+  debug.error("client update: %s not offered (%s: %s); keeping %s", CLIENT_NRO, code, message, published?.version ?? "nothing");
+}
+
+/** Checks the dropped-in build if it changed since last time, publishing or rejecting it. */
+async function examine(file) {
   let st;
   try {
     st = await fs.promises.stat(file);
   } catch {
-    return null;
+    return;
   }
-  if (!st.isFile()) return null;
-  const key = `${file}\0${st.size}\0${st.mtimeMs}`;
-  if (cache?.key === key) return cache.info;
+  if (!st.isFile()) return;
+  const key = `${st.size}\0${st.mtimeMs}`;
+  if (key === lastKey) return;
   if (inFlight?.key === key) return inFlight.promise;
   const promise = (async () => {
-    const assets = await parseAssets(file);
-    const version = assets?.nacp ? decodeNacp(assets.nacp).version : null;
-    if (!version) {
-      debug.error("client update: %s has no NACP display version", file);
-      return null;
+    lastKey = key;
+    if (st.size > MAX_BUILD_BYTES) return reject("too-large", `${st.size} bytes`, st.size);
+    // Check and hash the very bytes that will be served.
+    const buf = await fs.promises.readFile(file);
+    let version;
+    try {
+      ({ version } = inspectNro(buf));
+    } catch (err) {
+      if (!(err instanceof ClientBuildError)) throw err;
+      return reject(err.code, err.message, buf.length);
     }
-    const info = { version, size: st.size, sha256: await sha256Of(file), url: URL_PATH };
-    cache = { key, info };
-    debug.log("client update: build %s (%d bytes)", version, st.size);
-    return info;
+    const before = loadPublished();
+    if (before && compareVersions(version, before.version) < 0) return reject("downgrade", `${version} is older than ${before.version}`, buf.length);
+    if (before?.version === version && before.size === buf.length && crypto.createHash("sha256").update(buf).digest("hex") === before.sha256) return;
+    await publish(buf, version);
   })().finally(() => { inFlight = null; });
   inFlight = { key, promise };
   return promise;
 }
 
+/** The build being offered, or null when none has passed the checks. */
+export async function latestBuild(file = CLIENT_NRO) {
+  await examine(file);
+  const p = loadPublished();
+  return p ? { version: p.version, size: p.size, sha256: p.sha256, url: URL_PATH } : null;
+}
+
+/** For the admin page: what is offered, and the last file turned down (null once a good one replaced it). */
+export function clientBuildStatus() {
+  return { published: loadPublished(), rejected };
+}
+
+const RECHECK_MS = 60_000;
+
 export default function clientUpdateRouter() {
   const router = express.Router();
+  // Look at a dropped-in build even before a console asks, so the admin page hears about a bad one.
+  const check = () => latestBuild().catch((err) => debug.error("client update: %s", err.message));
+  check();
+  setInterval(check, RECHECK_MS).unref();
   router.get("/latest", async (req, res, next) => {
     try {
       const info = await latestBuild();
@@ -112,7 +174,7 @@ export default function clientUpdateRouter() {
       if (req.fresh) return res.status(304).end();
       res.type("application/octet-stream");
       res.attachment("cookingfoil.nro");
-      res.sendFile(CLIENT_NRO, { etag: false, lastModified: false, acceptRanges: true });
+      res.sendFile(PUBLISHED_NRO, { etag: false, lastModified: false, acceptRanges: true });
     } catch (err) {
       next(err);
     }
