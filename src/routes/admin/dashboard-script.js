@@ -522,8 +522,27 @@ async function loadPatches(){let d;try{d=await api('/admin/api/patches');}catch(
       catch(err){box.checked=!box.checked;toast(err.message);}box.disabled=false;});
     lab.append(box,el('span','필수'));req.append(lab);
     tr.append(g,td(p.name),td(mb(p.size)),req);return tr;}),'게임 패치가 없습니다. 업로드 탭에서 올립니다.');}
+// The admin's own description of a game; titledb refreshes never overwrite it.
+let gdGames=[],gdId='';
+async function loadDescGames(){let d;try{d=await api('/admin/api/descriptions');}catch(err){toast(err.message);return;}
+  gdGames=d.games||[];$('gd-games').replaceChildren(...gdGames.map((g)=>{const o=el('option',g.edited?'직접 씀':g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));}
+// Leaving the game box fires change again: the same game already open keeps what is being typed.
+async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}/);const id=m?m[0].toUpperCase():'';
+  if(!id){$('gd-body').hidden=true;gdId='';return;}
+  if(force!==true&&id===gdId&&!$('gd-body').hidden)return;
+  let d;try{d=await api('/admin/api/descriptions/'+id);}catch(err){toast(err.message);return;}
+  gdId=id;const own=d.own||{};
+  $('gd-ko').value=own.description?.ko||'';$('gd-en').value=own.description?.en||'';
+  $('gd-notes-ko').value=own.notes?.ko||'';$('gd-notes-en').value=own.notes?.en||'';
+  $('gd-original').textContent=own.description?'직접 쓴 소개를 보여 주고 있습니다.':(d.original?'지금은 titledb 소개를 보여 줍니다: '+d.original.slice(0,160)+(d.original.length>160?'…':''):'지금은 소개가 비어 있습니다. 쓰면 그 글이 나옵니다.');
+  $('gd-body').hidden=false;}
+$('gd-game').addEventListener('change',()=>openDesc());
+$('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
+  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
+$('gd-reset').addEventListener('click',async()=>{if(!gdId||!confirm('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
+  try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 async function loadLibrary(){
-  loadPatches();
+  loadPatches();loadDescGames();
   const d=await api('/admin/api/library');if(d.origin)origin=d.origin;
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};

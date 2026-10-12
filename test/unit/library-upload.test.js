@@ -152,6 +152,27 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(JSON.parse(fs.readFileSync(path.join(dirs.saves, MK, "Mine", "meta.json"), "utf8")).saveType, "account");
     assert.equal(JSON.parse(fs.readFileSync(saveDir + "/meta.json", "utf8")).saveType, undefined, "unknown stays unset");
 
+    // The admin's own description wins in the title detail and is kept apart from titledb.
+    const desc = (p, body) => fetch(`${BASE}/admin/api/descriptions/${p}`, {
+      method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await desc(MK, { description: { ko: "필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.", en: "Install with its data." }, notes: { ko: "게임 데이터를 함께 설치합니다." } })).status, 200);
+    const title = async (lang) => (await fetch(`${BASE}/api/title/${MK}?lang=${lang}`, { headers: { Authorization: ALICE } })).json();
+    const ko = await title("ko");
+    assert.equal(ko.description, "필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.");
+    assert.equal(ko.descriptionCustom, true);
+    assert.equal(ko.notes, "게임 데이터를 함께 설치합니다.", "notes come apart from the description");
+    assert.equal((await title("en")).description, "Install with its data.");
+    const own = await (await fetch(`${BASE}/admin/api/descriptions/${MK}`, { headers: admin })).json();
+    assert.deepEqual(own.own, { description: { ko: "필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.", en: "Install with its data." }, notes: { ko: "게임 데이터를 함께 설치합니다.", en: null } });
+    assert.equal((await fetch(`${BASE}/admin/api/descriptions/${MK}`, { headers: { Authorization: ALICE } })).status, 401, "admin session only");
+    assert.equal((await desc("nope", { ko: "x" })).status, 400);
+    assert.equal((await desc(`${MK}/reset`, { field: "description" })).status, 200);
+    const after = await title("ko");
+    assert.equal(after.descriptionCustom, false, "the description goes back to titledb's");
+    assert.equal(after.notes, "게임 데이터를 함께 설치합니다.", "the notes stay");
+    assert.equal((await desc(`${MK}/reset`, {})).status, 200);
+    assert.equal((await fetch(`${BASE}/api/title/${MK}`, { headers: { Authorization: ALICE } })).status, 404, "back to what titledb has: nothing here");
+
     assert.equal((await send("save", { titleId: MK, name: "../x" }, [["a", "b"]])).status, 400);
     assert.equal((await send("patch", { titleId: MK, name: "Wrong" }, [["a.txt", "x"]])).status, 400, "outside the game's paths");
     assert.deepEqual(fs.readdirSync(path.join(dirs.patches, ".upload-staging")), [], "staging is cleaned up");

@@ -521,7 +521,12 @@
       .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; }
       /* a 16-digit title id must not break mid-way */
       .modal .modal-meta strong.mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; white-space: nowrap; }
-      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; max-height: 220px; overflow-y: auto; }
+      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; max-height: 220px; overflow-y: auto; white-space: pre-line; }
+      /* What the admin adds about a game (what to install with it): above the description, set apart. */
+      .modal .modal-notes { border: 1px solid var(--butter); background: color-mix(in srgb, var(--butter) 10%, var(--surface)); border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; }
+      .modal .modal-notes[hidden] { display: none; }
+      .modal .modal-notes h4 { margin: 0 0 4px; font-size: 13px; font-weight: 800; }
+      .modal .modal-notes p { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
       .modal .screenshots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
       .modal .screenshots img { width: 240px; height: 135px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--sunk); cursor: zoom-in; }
       .modal .extras { margin-bottom: 16px; }
@@ -538,6 +543,13 @@
       .modal .art-edit .art-head { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
       .modal .art-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
       .modal .art-row:last-child { margin-bottom: 0; }
+      .modal .art-desc-form { display: grid; gap: 6px; margin-bottom: 8px; flex: 1; min-width: 220px; }
+      .modal .art-desc-form .art-desc-hint { color: var(--secondary); font-size: 11.5px; }
+      .modal .art-desc-form .art-desc-actions { display: flex; gap: 8px; }
+      .modal .art-desc-form textarea {
+        width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; max-height: 240px;
+        font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 9px;
+      }
       .modal .art-row .art-label { width: 64px; flex-shrink: 0; color: var(--secondary); font-size: 12px; }
       .modal .art-thumb { border-radius: 8px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
       .modal .art-shot { position: relative; display: inline-flex; }
@@ -846,6 +858,7 @@
             </div>
           </div>
           <div class="modal-meta" id="modal-meta"></div>
+          <section class="modal-notes" id="modal-notes" hidden><h4 data-i18n="modal.notes"></h4><p id="modal-notes-text"></p></section>
           <div class="modal-patches" id="modal-patches" hidden></div>
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
@@ -901,6 +914,7 @@
           "patches.need": "함께 설치해야 하는 패치",
           "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 받습니다.",
           "patches.related": "관련 패치",
+          "modal.notes": "추가 정보",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
           "tab.homebrew": "홈브류",
@@ -1032,6 +1046,12 @@
           "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
           "art.head": "아트워크 (직접 올리기)",
+          "art.desc": "게임 설명 (직접 쓰기)",
+          "art.desc.edit": "편집",
+          "art.desc.save": "저장",
+          "art.desc.cancel": "취소",
+          "art.desc.clear": "지우기",
+          "art.desc.hint": "줄바꿈은 그대로 표시됩니다. 비워 두면 저장해도 그 언어 글은 없어집니다.",
           "art.icon": "아이콘",
           "art.banner": "배너",
           "art.screens": "스크린샷",
@@ -1079,6 +1099,7 @@
           "patches.need": "Mods to install with this game",
           "patches.needNote": "The game won't start without these. Get them together with the game.",
           "patches.related": "Related mods",
+          "modal.notes": "Notes",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
           "tab.homebrew": "Homebrew",
@@ -1209,6 +1230,12 @@
           "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
           "art.head": "Artwork (upload your own)",
+          "art.desc": "Description (write your own)",
+          "art.desc.edit": "Edit",
+          "art.desc.save": "Save",
+          "art.desc.cancel": "Cancel",
+          "art.desc.clear": "Clear",
+          "art.desc.hint": "Line breaks show as written. An empty field saves as no text for that language.",
           "art.icon": "Icon",
           "art.banner": "Banner",
           "art.screens": "Screenshots",
@@ -1256,6 +1283,7 @@
           "patches.need": "一緒に入れる必要があるパッチ",
           "patches.needNote": "このパッチがないとゲームが起動しません。ゲームと一緒にダウンロードします。",
           "patches.related": "関連パッチ",
+          "modal.notes": "追加情報",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
           "tab.homebrew": "自作アプリ",
@@ -1386,6 +1414,12 @@
           "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
           "art.head": "アートワーク (自分でアップロード)",
+          "art.desc": "説明 (自分で書く)",
+          "art.desc.edit": "編集",
+          "art.desc.save": "保存",
+          "art.desc.cancel": "キャンセル",
+          "art.desc.clear": "消す",
+          "art.desc.hint": "改行はそのまま表示されます。空欄のまま保存するとその言語の文はなくなります。",
           "art.icon": "アイコン",
           "art.banner": "バナー",
           "art.screens": "スクリーンショット",
@@ -1433,6 +1467,7 @@
           "patches.need": "需要一起安裝的補丁",
           "patches.needNote": "沒有這些補丁遊戲無法啟動。請與遊戲一起下載。",
           "patches.related": "相關補丁",
+          "modal.notes": "補充資訊",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
           "tab.homebrew": "自製軟體",
@@ -1563,6 +1598,12 @@
           "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
           "art.head": "圖片 (自行上傳)",
+          "art.desc": "說明 (自行撰寫)",
+          "art.desc.edit": "編輯",
+          "art.desc.save": "儲存",
+          "art.desc.cancel": "取消",
+          "art.desc.clear": "清除",
+          "art.desc.hint": "換行會如實顯示。欄位留空儲存即該語言無文字。",
           "art.icon": "圖示",
           "art.banner": "橫幅",
           "art.screens": "截圖",
@@ -3102,6 +3143,7 @@
         }));
         $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
         $("modal-screens").innerHTML = ""; $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
+        $("modal-notes").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
@@ -3162,6 +3204,8 @@
           cell.append(label, value);
           metaBox.appendChild(cell);
         }
+        $("modal-notes-text").textContent = td.notes || "";
+        $("modal-notes").hidden = !td.notes;
         renderModalPatches(Array.isArray(detail.patches) ? detail.patches : []);
         $("modal-desc").textContent = td.description || t("modal.noDesc");
 
@@ -3253,6 +3297,64 @@
         box.appendChild(artSlotRow(baseId, "icon", t("art.icon"), art.icon));
         box.appendChild(artSlotRow(baseId, "banner", t("art.banner"), art.banner));
         box.appendChild(artScreensRow(baseId, art.screens || []));
+        box.appendChild(artDescRow(baseId, art));
+      }
+      // The game's own text: edit it in place, Korean and English apart; what
+      // the admin wrote replaces titledb's description, line breaks included.
+      function artDescRow(baseId, art) {
+        const row = document.createElement("div"); row.className = "art-row";
+        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = t("art.desc");
+        const showButtons = () => {
+          row.replaceChildren(lab);
+          row.appendChild(artBtn(t("art.desc.edit"), "", () => showForm()));
+          if (art.description) row.appendChild(artBtn(t("art.desc.clear"), "ghost", () => clearDesc(baseId)));
+        };
+        const showForm = () => {
+          const form = document.createElement("div"); form.className = "art-desc-form";
+          const hint = document.createElement("div"); hint.className = "art-desc-hint"; hint.textContent = t("art.desc.hint");
+          form.appendChild(hint);
+          const fields = [["ko", "한국어"], ["en", "English"]].map(([code, label]) => {
+            const ta = document.createElement("textarea");
+            ta.value = art.description?.[code] || ""; ta.placeholder = label; ta.setAttribute("aria-label", label);
+            form.appendChild(ta);
+            return ta;
+          });
+          const actions = document.createElement("div"); actions.className = "art-desc-actions";
+          actions.append(
+            artBtn(t("art.desc.save"), "", async () => {
+              try {
+                const res = await fetch(`/api/art/${baseId}/description`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Accept: "application/json" },
+                  body: JSON.stringify({ ko: fields[0].value, en: fields[1].value }),
+                });
+                const d = await res.json().catch(() => ({}));
+                if (!res.ok) { toast(d.error || t("art.failed")); return; }
+                toast(t("art.saved"));
+                refreshAfterDesc(baseId);
+              } catch { toast(t("art.failed")); }
+            }),
+            artBtn(t("art.desc.cancel"), "ghost", showButtons),
+          );
+          form.appendChild(actions);
+          row.replaceChildren(lab, form);
+          fields[0].focus();
+        };
+        showButtons();
+        return row;
+      }
+      async function clearDesc(baseId) {
+        try {
+          const res = await fetch(`/api/art/${baseId}/description`, { method: "DELETE" });
+          if (!res.ok) { toast(t("art.failed")); return; }
+          toast(t("art.removed"));
+          refreshAfterDesc(baseId);
+        } catch { toast(t("art.failed")); }
+      }
+      // Drop the cached detail of every language, then repaint the open modal.
+      function refreshAfterDesc(baseId) {
+        for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
+        if (currentModal) openModal(currentModal);
       }
       async function uploadArt(baseId, kind, file) {
         const fd = new FormData(); fd.append("file", file, file.name);
