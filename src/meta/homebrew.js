@@ -395,8 +395,28 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         checked_at: s.checked_at ?? null, assets: s.assets ?? [], chosen: s.asset?.name ?? null,
         cached: c ? { file: c.file, size: c.size ?? s.asset?.size ?? null, name: c.name, version: c.version, current: c.asset_id === s.asset?.id } : null,
         error: s.error ?? null,
+        repo_description: s.repo_description ?? null,
       };
     });
+  }
+
+  /**
+   * Learns each repository's own description once (the admin can still write
+   * their own). Kept apart from checkAll so release checks stay one request each.
+   */
+  async function fetchDescriptions() {
+    for (const [id, repo] of [...wanted]) {
+      const s = states.get(id);
+      if (!s || s.repo_description !== undefined) continue;
+      try {
+        const res = await fetchImpl(`https://api.github.com/repos/${repo}`, { headers: headers(), signal: AbortSignal.timeout(API_TIMEOUT_MS) });
+        if (!res.ok) continue;
+        const text = String((await res.json()).description ?? "").trim();
+        if (wanted.has(id)) save(id, { ...states.get(id), repo_description: text ? text.slice(0, 2000) : null });
+      } catch {
+        // tried again next time
+      }
+    }
   }
 
   /** Drops a repository's saved state and cached build. */
@@ -422,6 +442,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         hash: s.asset.digest ?? `asset-${s.asset.id}`,
         file_name: /\.zip$/i.test(s.asset.name) ? s.cached.file : safeFileName(s.asset.name, repo.split("/")[1]),
         source: "github",
+        description: s.repo_description ?? null,
         released_at: s.released_at,
         repo_url: `https://github.com/${repo}`,
       });
@@ -435,5 +456,5 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return wanted.has(id) && c ? path.join(dirOf(id), c.file) : null;
   }
 
-  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, setSources, status, forget };
+  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, setSources, status, forget, fetchDescriptions };
 }

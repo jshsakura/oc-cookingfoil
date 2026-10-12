@@ -97,6 +97,16 @@ export function launchTarget(core, romSdPath) {
   return { nroPath, argv: `${nroPath} "sdmc:/${romSdPath}"` };
 }
 
+/**
+ * What a homebrew app's forwarder starts: the .nro where the client keeps it,
+ * sdmc:/switch/<name>/<name>.nro, or null for a file name that isn't plain. Pure.
+ */
+export function homebrewTarget(fileName) {
+  if (!/^[A-Za-z0-9_.-]+\.nro$/i.test(String(fileName ?? "")) || fileName.startsWith(".")) return null;
+  const nroPath = `sdmc:/switch/${fileName.replace(/\.nro$/i, "")}/${fileName}`;
+  return { nroPath, argv: nroPath };
+}
+
 let exefsHash = null;
 function exefsVersion() {
   if (exefsHash === null) {
@@ -133,10 +143,11 @@ export function resetAvailability() {
 
 /**
  * Everything one game's NSP is made of, or null when it can't have one.
- * `game` carries { id, name, core, romSdPath, artKey, publisher }.
+ * `game` carries { id, name, core, romSdPath, artKey, publisher }, or a ready
+ * `target` ({ nroPath, argv }) in place of core and romSdPath.
  */
 export function forwarderSpec(game) {
-  const target = launchTarget(game.core, game.romSdPath);
+  const target = game.target ?? launchTarget(game.core, game.romSdPath);
   if (!target) return null;
   const titleId = forwarderTitleId(game.id);
   const name = displayName(game.name);
@@ -231,12 +242,12 @@ export async function ensureForwarder(outDir, game, keysDir) {
   return { path: dest, spec };
 }
 
-let running = null;
+const running = new Map(); // outDir → the build in progress there
 
 /** Build every missing NSP and remove the ones no game uses any more. */
 export function prewarmForwarders(outDir, games, keysDir) {
-  if (running) return running;
-  running = (async () => {
+  if (running.has(outDir)) return running.get(outDir);
+  const job = (async () => {
     const wanted = new Set();
     const todo = [];
     const owners = new Map();
@@ -269,7 +280,8 @@ export function prewarmForwarders(outDir, games, keysDir) {
         removed++;
       }
     }
-    if (made || removed) debug.log("retro: forwarders %d built, %d removed", made, removed);
-  })().finally(() => (running = null));
-  return running;
+    if (made || removed) debug.log("forwarders in %s: %d built, %d removed", path.basename(outDir), made, removed);
+  })().finally(() => running.delete(outDir));
+  running.set(outDir, job);
+  return job;
 }

@@ -114,9 +114,9 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | `GET /api/title/:id?lang=` | 상세: 설명, 스크린샷, 업데이트, 언어별 이름과 아트 |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 아트. `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | 유저 패치 목록과 ustar 묶음 |
-| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download` | 홈브류 `.nro`: 직접 넣은 것과 GitHub 최신 릴리스 |
+| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | 홈브류 `.nro`(직접 넣은 것과 GitHub 최신 릴리스), 관리자가 쓴 설명, 홈 메뉴 바로가기 NSP |
 | `GET /api/saves`, `/api/saves/:id/download` | 세이브 파일 목록과 ustar 묶음 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256) |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256)와 그 홈 메뉴 바로가기 NSP |
 | `POST /api/client/log` | 기기 오류 기록(텍스트, 64KB) 받기. `data/client/logs/<기기>/` 에 둡니다 |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | 레트로 폴더의 파일, 베젤, 운영자가 넣은 RetroArch 기본 묶음 |
 
