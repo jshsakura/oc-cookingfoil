@@ -64,8 +64,8 @@ export function configWarnings(lanes = authLanes()) {
     out.push({
       severity: SEVERITY.INFO,
       code: "admin-authenticator-optional",
-      title: "The admin page asks for the admin password only",
-      detail: "Enroll an authenticator app on the admin page's settings tab to ask for a 6-digit code as well.",
+      title: "The admin page opens with the admin password only",
+      detail: "Enroll an authenticator app on the admin page's settings tab to open it with a 6-digit code instead.",
     });
   } else if (lanes.admin.enabled && !lanes.admin.enrolled) {
     out.push({

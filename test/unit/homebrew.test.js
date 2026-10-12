@@ -83,6 +83,8 @@ test("file names stay inside one folder of the SD card", () => {
   assert.equal(safeFileName("ytb-player.nro", "fallback"), "ytb-player.nro");
   assert.equal(safeFileName("../../boot.nro", "fallback"), "fallback.nro");
   assert.equal(safeFileName("my app.nro", "fallback"), "fallback.nro");
+  assert.equal(safeFileName("내 앱.nro", "내 앱 폴더"), "app.nro", "a fallback is made plain as well");
+  assert.equal(safeFileName("x y.nro", "My Tool v2"), "My-Tool-v2.nro");
 });
 
 test("hand-placed .nro files are listed with what their NACP says", async () => {
