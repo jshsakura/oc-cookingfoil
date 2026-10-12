@@ -162,6 +162,12 @@
       .xitem .xsrc { grid-column: 1 / -1; font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
       .xitem .xsrc a { color: var(--secondary); }
       .xitem .btn { padding: 8px 14px; font-size: 13px; }
+      /* The download button sits at the same place on every item: right, centred on its name and details. */
+      .xitem > .btn { align-self: center; }
+      .xitem.xapp { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; border-top: none; margin-top: 0; padding-top: 0; }
+      .xitem.xapp > img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
+      .xitem.xapp .xname { font-size: 16px; }
+      .xitem.xapp .xmeta { margin-top: 4px; }
       /* Patches in a game's detail: the ones it needs first, set apart, then the rest. */
       .modal-patches { display: grid; gap: 14px; margin: 18px 0 4px; }
       .modal-patches[hidden] { display: none; }
@@ -2769,28 +2775,27 @@
         const byApp = (app) => (apps ?? []).find((a) => a.app === app);
         function card(a) {
           const g = document.createElement("section"); g.className = "xgroup";
-          const head = document.createElement("header");
           const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
           if (a.icon_url) img.src = a.icon_url;
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
-          const name = document.createElement("strong"); name.textContent = a.name || a.app;
-          head.append(img, name);
-          const row = document.createElement("div"); row.className = "xitem";
+          // One row like every other item: icon, name over its details, the button at the right.
+          const row = document.createElement("div"); row.className = "xitem xapp";
           const info = document.createElement("div");
+          const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;
           meta.textContent = [a.version && "v" + a.version, a.author, fmtBytes(a.size), (p || s) && t("homebrew.extras", p, s)].filter(Boolean).join(" · ");
-          info.append(meta);
+          info.append(name, meta);
           const dl = document.createElement("a");
           dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", ""); dl.href = a.download_url;
-          row.append(info, dl);
+          row.append(img, info, dl);
           if (a.description) {
             const desc = document.createElement("div"); desc.className = "xdesc"; desc.textContent = a.description;
             desc.addEventListener("click", () => desc.classList.toggle("open"));
             row.append(desc);
           }
-          g.append(head, row);
+          g.append(row);
           return g;
         }
         function render(view) {
