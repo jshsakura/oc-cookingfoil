@@ -36,3 +36,12 @@ test("shop info lists the optional fields a client may rely on", () => {
 test("shop info lists device pairing when the server offers it", () => {
   assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-pairing"));
 });
+
+test("shop info lists homebrew only when a repository or the homebrew folder is there", () => {
+  const off = probe({ COOK_HOMEBREW_DIR: path.join(tmpdir(), "cf-no-homebrew-here"), COOK_HOMEBREW_REPOS: "" });
+  assert.ok(!off.features.includes("homebrew"));
+  const repo = probe({ COOK_HOMEBREW_DIR: path.join(tmpdir(), "cf-no-homebrew-here"), COOK_HOMEBREW_REPOS: "murat303/ytb-player" });
+  assert.ok(repo.features.includes("homebrew"));
+  const folder = probe({ COOK_HOMEBREW_DIR: mkdtempSync(path.join(tmpdir(), "cf-homebrew-")), COOK_HOMEBREW_REPOS: "" });
+  assert.ok(folder.features.includes("homebrew"));
+});

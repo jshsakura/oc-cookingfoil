@@ -269,6 +269,16 @@ const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
 const savesDir = path.resolve(envString("COOK_SAVES_DIR", "/saves"));
 // Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
 const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "retro")));
+// Homebrew (.nro apps) for clients: hand-placed ones in <dir>/<app>/<app>.nro,
+// plus the latest release of each GitHub repository in COOK_HOMEBREW_REPOS
+// ("owner/name" or github.com addresses, separated by commas or spaces).
+// The feature is off until the folder exists or a repository is named.
+const homebrewDir = path.resolve(envString("COOK_HOMEBREW_DIR", "/homebrew"));
+const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
+  .split(/[\s,]+/)
+  .filter(Boolean);
+// Optional; raises GitHub's limit of 60 unauthenticated requests an hour.
+const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
@@ -318,6 +328,9 @@ export {
   patchesDir,
   retroDir,
   savesDir,
+  homebrewDir,
+  homebrewRepos,
+  githubToken,
   ratingsUrl,
   ratingSync,
   dropboxAppKey,
