@@ -14,20 +14,15 @@ import crypto from "crypto";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { dataDir, homebrewDir, homebrewRepos, githubToken } from "../helpers/envs.js";
-import { createTracker, parseRepo, scanManual } from "../meta/homebrew.js";
+import { dataDir, homebrewDir, githubToken } from "../helpers/envs.js";
+import { createTracker, scanManual } from "../meta/homebrew.js";
+import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself only asks GitHub every three hours
 const MANUAL_STALE_MS = 30_000;
 const MANUAL_RESCAN_MS = 60_000; // keeps the "homebrew" feature flag current
-
-const repos = homebrewRepos.map((r) => {
-  const repo = parseRepo(r);
-  if (!repo) debug.error("homebrew: ignoring %s, not a GitHub repository", r);
-  return repo;
-}).filter(Boolean);
 
 let tracker = null;
 let manual = { at: 0, entries: [] };
@@ -56,8 +51,17 @@ async function manualEntries() {
   return manual.entries;
 }
 
-const githubTracker = () =>
-  (tracker ??= createTracker({ repos, stateDir: path.join(dataDir, "homebrew"), token: githubToken }));
+export const githubTracker = () =>
+  (tracker ??= createTracker({ sources: sources.list(), stateDir: path.join(dataDir, "homebrew"), token: githubToken }));
+
+/** Hand-placed apps for the admin page (read-only there). */
+export const manualApps = () => manualEntries();
+
+/** After the admin changes the list: follow it, and check what is new or changed now. */
+export async function sourcesChanged(repo = null) {
+  githubTracker().setSources(sources.list());
+  if (repo) await githubTracker().checkNow(repo);
+}
 
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
@@ -91,7 +95,7 @@ export function start() {
   const scan = () => refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   scan();
   setInterval(scan, MANUAL_RESCAN_MS).unref();
-  if (!repos.length) return;
+  // Always scheduled: the admin can add a repository at any time.
   const run = () => githubTracker().checkAll().catch((err) => debug.error("homebrew: check failed: %s", err.message));
   run();
   setInterval(run, POLL_MS).unref();

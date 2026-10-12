@@ -86,8 +86,11 @@ rely on the server's own accounts (and device pairing) on its hostname.
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) plus an optional
   `patch.json` with `name`, `version`, `game_version`, `author`, `description`.
   Only files under those paths are served; a patch with anything else is skipped.
-- **Homebrew (CookingFoil client):** set `COOK_HOMEBREW_REPOS=owner/name,…` to
-  follow GitHub releases (e.g. `murat303/ytb-player`). Each repository is checked
+- **Homebrew (CookingFoil client):** add GitHub repositories on the admin page's
+  *Homebrew* tab (pick from the recommended list or paste an address); the list is
+  kept in `data/homebrew/sources.json`, and `COOK_HOMEBREW_REPOS=owner/name,…` only
+  seeds it on the first start. A release may carry a `.nro` or a `.zip` with one
+  inside; when it has several files, choose which one on that tab. Each repository is checked
   at most every three hours with a conditional request; a new release is
   announced at once and its `.nro` is fetched when a console first downloads it,
   then kept under `data/homebrew/`. Apps that are not on GitHub go in a folder
