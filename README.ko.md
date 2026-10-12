@@ -29,7 +29,6 @@ Language: [English](README.md) | **한국어**
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
-mkdir -p games data keys
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -42,10 +41,16 @@ docker compose logs cookingfoil | grep "setup code"
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # 설정, 모두 선택
-├── games/            # 내 파일 (필수)
-├── data/             # 캐시, 계정, 설정. 처음 실행할 때 만들어집니다
-└── keys/             # 선택, 읽기 전용
+├── games/            # 내 파일
+├── data/             # 캐시, 계정, 설정. 이 폴더는 백업해 둡니다
+├── keys/             # 선택, 읽기 전용
+├── retro/            # 기종별 레트로 롬
+├── patches/          # 기본 타이틀 ID 별 패치와 homebrew/<앱>/
+├── saves/            # 타이틀 ID 별 세이브와 homebrew/<앱>/
+└── homebrew/         # .nro 앱과 앱 폴더
 ```
+
+없는 폴더는 Docker 가 만듭니다. 전부 다른 곳에 두려면 `.env` 에 `COOK_ROOT=/경로` 를 넣으면 그 밑에 만들어집니다. 하나만 옮기려면 그 폴더의 경로를 따로 넣습니다. 예: `COOK_GAMES_PATH=/mnt/disk/games` (`COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH`). 예전에는 레트로 롬이 `data/retro` 에 있었습니다. `retro/` 로 옮기면 되고, 옮기기 전까지 로그에 안내가 남습니다.
 
 ## 클라이언트 연결
 
@@ -62,6 +67,7 @@ cookingfoil/
 | `COOK_AUTH_USERS` | _(비어 있음)_ | 미리 넣어 둘 계정. `user:pass,user2:pass2` 형식이고, 넣으면 `/setup` 대신 처음 한 번 가져옵니다 |
 | `COOK_FIRST_RUN_SETUP` | `true` | `false` 면 계정이 없어도 `/setup` 으로 보내지 않고 서버를 열어 둡니다 |
 | `COOK_HOST_PORT` | `9080` | 호스트 포트 |
+| `COOK_ROOT` | `.` | 위 폴더들을 만들 호스트 폴더 |
 | `COOK_PUBLIC_BASE_URL` | _(비어 있음)_ | 리버스 프록시나 터널 뒤에 둘 때 바깥 주소 |
 | `COOK_TRUST_PROXY` | _(비어 있음)_ | 믿을 프록시 범위. 예: `loopback, uniquelocal` |
 | `COOK_ADMIN_PASSWORD` | _(비어 있음)_ | 관리 페이지 비밀번호(12자 이상). 인증 앱 코드로도 들어갈 수 있습니다 |

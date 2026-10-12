@@ -20,27 +20,36 @@ services:
         required: false
     environment:
       DEBUG: ${DEBUG:-oc-cookingfoil*}
-      # Fixed by this file's volumes; .env cannot move them.
+      # Inside the container these never move; choose the host folders below.
       COOK_PORT: 80
       COOK_GAMES_DIR: /games
       COOK_DATA_DIR: /data
       COOK_KEYS_DIR: /keys
+      COOK_RETRO_DIR: /retro
+      COOK_PATCHES_DIR: /patches
+      COOK_SAVES_DIR: /saves
+      COOK_HOMEBREW_DIR: /homebrew
     ports:
       # Host:container. Change the host side freely; the container side stays 80.
       - "${COOK_HOST_PORT:-9080}:80"
     volumes:
-      # Your file library.
-      - ./games:/games
-      # Accounts, keys you save on the admin page, caches. Back this one up.
-      - ./data:/data
-      # Your own prod.keys, read-only. Without it icons and names come from titledb.
-      - ./keys:/keys:ro
-      # Optional folders; each feature stays off until its folder is mounted.
-      # Retro files live in ./data/retro unless you mount them elsewhere.
-      # - ./retro:/data/retro
-      # - ./patches:/patches:ro
-      # - ./saves:/saves:ro
-      # - ./homebrew:/homebrew
+      # Host folders. Set COOK_ROOT in .env and every folder below is made under
+      # it (Docker creates the missing ones); set COOK_<NAME>_PATH to put one
+      # folder somewhere else. With nothing set they sit beside this file.
+      #   games     packages (.nsp .nsz .xci .xcz)
+      #   data      accounts, saved keys, caches. Back this one up
+      #   keys      your own prod.keys, read-only
+      #   retro     retro ROMs by system
+      #   patches   patches by base title id, and homebrew/<app>/
+      #   saves     save files by title id, and homebrew/<app>/
+      #   homebrew  .nro apps and app folders
+      - ${COOK_GAMES_PATH:-${COOK_ROOT:-.}/games}:/games
+      - ${COOK_DATA_PATH:-${COOK_ROOT:-.}/data}:/data
+      - ${COOK_KEYS_PATH:-${COOK_ROOT:-.}/keys}:/keys:ro
+      - ${COOK_RETRO_PATH:-${COOK_ROOT:-.}/retro}:/retro
+      - ${COOK_PATCHES_PATH:-${COOK_ROOT:-.}/patches}:/patches
+      - ${COOK_SAVES_PATH:-${COOK_ROOT:-.}/saves}:/saves
+      - ${COOK_HOMEBREW_PATH:-${COOK_ROOT:-.}/homebrew}:/homebrew
       # Optional template overrides. Create the file first: if it is missing,
       # Docker makes a directory in its place.
       # - ./shop_template.jsonc:/shop_template.jsonc:ro

@@ -29,7 +29,6 @@ The server and the client are two projects:
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
-mkdir -p games data keys
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -42,10 +41,16 @@ Keys for outside services (IGDB scores, SteamGridDB art, Dropbox save sync, GitH
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # settings, all optional
-├── games/            # your files (required)
-├── data/             # cache, accounts and settings, created on first run
-└── keys/             # optional, read-only
+├── games/            # your files
+├── data/             # cache, accounts and settings. Back this one up
+├── keys/             # optional, read-only
+├── retro/            # retro ROMs by system
+├── patches/          # patches by base title id, and homebrew/<app>/
+├── saves/            # save files by title id, and homebrew/<app>/
+└── homebrew/         # .nro apps and app folders
 ```
+
+Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path` in `.env` and they are made under it. To move just one, set its own path, e.g. `COOK_GAMES_PATH=/mnt/disk/games` (`COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH`). Retro ROMs used to live in `data/retro`; move them into `retro/`, and the log says so until you do.
 
 ## Connecting a client
 
@@ -62,6 +67,7 @@ Every setting is an environment variable starting with `COOK_`. [`.env.example`]
 | `COOK_AUTH_USERS` | _(empty)_ | Preset accounts, `user:pass,user2:pass2`, imported once instead of `/setup` |
 | `COOK_FIRST_RUN_SETUP` | `true` | `false` keeps a server without accounts open instead of sending browsers to `/setup` |
 | `COOK_HOST_PORT` | `9080` | Host port |
+| `COOK_ROOT` | `.` | Host folder the folders above are made under |
 | `COOK_PUBLIC_BASE_URL` | _(empty)_ | The outside address when behind a reverse proxy or tunnel |
 | `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, e.g. `loopback, uniquelocal` |
 | `COOK_ADMIN_PASSWORD` | _(empty)_ | Admin page password (12+ chars); an authenticator code also works |
