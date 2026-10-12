@@ -296,8 +296,9 @@ const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 })
 const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
 // With pairing on: a console that signs in with an account or its device login
 // is approved on the spot (no QR scan), and gets its access key on its next
-// pairing poll. Consoles with no sign-in still wait for approval.
-const deviceAutoApprove = envBool("COOK_DEVICE_AUTO_APPROVE", false);
+// pairing poll. Consoles with no sign-in still wait for approval. On unless set
+// to false, which makes every console wait for the admin (manual approval).
+const deviceAutoApprove = envBool("COOK_DEVICE_AUTO_APPROVE", true);
 
 export {
   romsDirPath,
