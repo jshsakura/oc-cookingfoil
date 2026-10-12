@@ -208,6 +208,8 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+});
+
 test('on a phone the search box and the sort box share the top row, the kind chips under them', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
