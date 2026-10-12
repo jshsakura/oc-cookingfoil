@@ -49,12 +49,14 @@ export function patchId(titleId, folder) {
 }
 
 /**
- * A game's other programs (program index 1-F, e.g. the second game of a
- * collection) share its title id except for the last hex digit. Updates and
- * DLC differ further up, so they never match. Pure.
+ * The ids a game's patch may install under: its own title id, its other
+ * programs (program index 1-F, e.g. the second game of a collection), its
+ * update (+0x800) and its add-on content such as a language pack (+0x1000 and
+ * up). A base id has its low 13 bits clear and every id of the game shares the
+ * rest, so another game never matches. Pure.
  */
 function ownsProgram(dir, tid) {
-  return /^[0-9a-f]{16}$/.test(dir) && dir.slice(0, 15) === tid.slice(0, 15);
+  return /^[0-9a-f]{16}$/.test(dir) && BigInt(`0x${dir}`) >> 13n === BigInt(`0x${tid}`) >> 13n;
 }
 
 /**
