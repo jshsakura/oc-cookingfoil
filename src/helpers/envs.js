@@ -254,6 +254,12 @@ const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
 // Dropbox app). Only the sign-in callback uses it, so consoles on the LAN keep
 // their LAN addresses, which COOK_PUBLIC_BASE_URL would replace everywhere.
 const dropboxRedirectBase = normalizeBaseUrl(envString("COOK_DROPBOX_REDIRECT_BASE", ""));
+// Google sign-in for the web (phone) pages: an OAuth "Web application" client.
+// Both empty turns it off. The callback is <base>/auth/google/callback, where
+// the base is COOK_GOOGLE_REDIRECT_BASE, else the Dropbox one, else the public URL.
+const googleClientId = envString("COOK_GOOGLE_CLIENT_ID", "").trim();
+const googleClientSecret = envString("COOK_GOOGLE_CLIENT_SECRET", "").trim();
+const googleRedirectBase = normalizeBaseUrl(envString("COOK_GOOGLE_REDIRECT_BASE", ""));
 const igdbClientId = envString("COOK_IGDB_CLIENT_ID", "").trim();
 const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
@@ -316,6 +322,9 @@ export {
   ratingSync,
   dropboxAppKey,
   dropboxRedirectBase,
+  googleClientId,
+  googleClientSecret,
+  googleRedirectBase,
   igdbClientId,
   igdbClientSecret,
   devicePairing,

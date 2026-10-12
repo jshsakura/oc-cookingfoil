@@ -32,6 +32,7 @@ import { adminSecret, isEnrolled } from "../security/admin-secret.js";
 import * as users from "../security/users.js";
 import * as deviceLogins from "../security/device-logins.js";
 import { mountManageApi } from "./admin/manage-api.js";
+import { mountAccountsApi } from "./admin/accounts-api.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import {
@@ -302,6 +303,7 @@ export default function adminPageRouter() {
   });
 
   mountManageApi(router, requireSession);
+  mountAccountsApi(router, requireSession);
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
 

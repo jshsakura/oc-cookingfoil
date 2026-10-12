@@ -34,6 +34,7 @@ import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
+import googleAuthRouter from "./routes/google-auth.js";
 import devicePairRouter from "./routes/device-pair.js";
 import retroRouter from "./routes/retro.js";
 import savesRouter from "./routes/saves.js";
@@ -142,6 +143,8 @@ expressApp.use("/api/pair", pairRouter());
 // Dropbox sign-in callback: opened by the phone's browser, so outside the
 // shop's sign-in like pairing. The session endpoints are inside it (below).
 expressApp.get(`${BRIDGE_PATH}/oauth/dropbox/callback`, dropboxCallback);
+// Google sign-in and the phone's device approval: the phone has no shop password either.
+expressApp.use(googleAuthRouter());
 
 // Device auth lane: an approved (deviceKey + accessKey) authenticates here and
 // tags the request so authGuard skips the basic-auth challenge below. No-op
