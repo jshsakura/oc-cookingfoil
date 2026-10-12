@@ -77,7 +77,7 @@ Google sign-in, homebrew repositories and accounts are set on the admin page (`/
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
 | `GET /api/title/:id?lang=` | Detail for one entry |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | Homebrew apps and their HOME menu shortcut |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut |
 | `GET /api/patches`, `/api/saves` | User patches and save files |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The client build kept in `data/client/` |
 | `GET /api/retro/systems`, `/api/retro/games` | Files from the retro folder, when you have created it |
