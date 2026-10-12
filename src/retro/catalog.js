@@ -347,11 +347,16 @@ export async function current(dir) {
   return state;
 }
 
+/** Systems listed before the rest, in this order; the others keep the system table's order. */
+const FIRST_SYSTEMS = ["arcade"];
+
 /** Systems that have a roms folder, with how many games each holds. */
 export function systemsOf({ systems, games, present }) {
   const counts = new Map();
   for (const g of games) counts.set(g.system, (counts.get(g.system) ?? 0) + 1);
+  const rank = (id) => (FIRST_SYSTEMS.includes(id) ? FIRST_SYSTEMS.indexOf(id) : FIRST_SYSTEMS.length);
   return Object.entries(systems)
     .filter(([id]) => present.has(id))
+    .sort(([a], [b]) => rank(a) - rank(b))
     .map(([id, s]) => ({ id, name: s.names.en ?? id, names: s.names, defaultCore: s.core, coreName: s.coreName, romCount: counts.get(id) ?? 0 }));
 }
