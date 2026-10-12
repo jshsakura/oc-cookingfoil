@@ -185,6 +185,16 @@ export function createCatalog({ root, cacheFile }) {
       if (Date.now() - scannedAt > STALE_MS) await scan();
       return saves.map(publicFields);
     },
+    /** Where a listed save sits under the root ({ dir, folder }), or null. */
+    async locate(id) {
+      await this.list();
+      const known = saves.find((s) => s.id === id);
+      return known ? { dir: known.dir, folder: known.folder } : null;
+    },
+    /** Read the folder again on the next list (after a change made here). */
+    invalidate() {
+      scannedAt = 0;
+    },
     /** A save read afresh for download, or null when it is gone or no longer valid. */
     async open(id) {
       await this.list();

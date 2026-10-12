@@ -71,6 +71,7 @@ form.up .chosen{font-size:13px;color:var(--text);word-break:break-all}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .up-log{display:grid;gap:6px;margin-top:14px}
 td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+td .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
 td.dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
@@ -272,7 +273,10 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
 
 ${RETRO_ART_HTML}
 <section id="tab-homebrew" hidden>
-  <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
+  <h2 class="first">앱</h2>
+  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 지웁니다. 패치와 세이브는 기기의 switch/&lt;앱&gt;/ 폴더에 풀립니다.</p>
+  <div class="scroll" id="hb-apps"></div>
+  <div class="hd"><h2>추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
   <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
   <div class="hb-reco" id="hb-reco"></div>
   <h2>저장소 직접 추가</h2>
@@ -284,9 +288,6 @@ ${RETRO_ART_HTML}
   <p class="muted">릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
   <div class="hd"><h2>따라가는 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
   <div class="scroll" id="hb-sources"></div>
-  <h2>직접 넣은 앱</h2>
-  <p class="muted">서버의 홈브류 폴더에 직접 넣은 .nro 입니다. 여기서는 바꿀 수 없습니다.</p>
-  <div class="scroll" id="hb-manual"></div>
 </section>
 
 <section id="tab-upload" hidden>

@@ -638,6 +638,7 @@
           <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
           <button type="button" role="tab" data-tab="retro" data-i18n="tab.retro" id="retro-tab" hidden></button>
           <button type="button" role="tab" data-tab="extras" data-i18n="tab.extras" id="extras-tab" hidden></button>
+          <button type="button" role="tab" data-tab="homebrew" data-i18n="tab.homebrew" id="homebrew-tab" hidden></button>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -784,6 +785,20 @@
           <p class="empty" id="saves-empty" hidden></p>
           <div class="pager" id="saves-pager"></div>
         </div>
+
+        <div data-tab-panel="tools" hidden>
+          <h2><span data-i18n="tab.tools"></span><span class="rule"></span><span class="count" id="tools-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="tools-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="tools-list" aria-busy="true"></div>
+          <p class="empty" id="tools-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="ports" hidden>
+          <h2><span data-i18n="tab.ports"></span><span class="rule"></span><span class="count" id="ports-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="ports-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="ports-list" aria-busy="true"></div>
+          <p class="empty" id="ports-empty" hidden></p>
+        </div>
       </div>
 
       <div class="footer">
@@ -867,10 +882,17 @@
           "extras.download": "받기",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
+          "tab.homebrew": "홈브류",
+          "tab.tools": "도구",
+          "tab.ports": "포트",
+          "homebrew.search": "앱 이름으로 찾기…",
+          "homebrew.empty": "이 조건에 맞는 앱이 없습니다.",
+          "homebrew.extras": (p, s) => `패치 ${p}개 · 세이브 ${s}개`,
           "kind.romfs": "데이터",
           "kind.exefs": "코드",
           "kind.exefs_patches": "코드 패치",
           "kind.cheats": "치트",
+          "kind.homebrew": "홈브류",
           "action.admin": "관리",
           "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
@@ -1035,10 +1057,17 @@
           "extras.download": "Download",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
+          "tab.homebrew": "Homebrew",
+          "tab.tools": "Tools",
+          "tab.ports": "Ports",
+          "homebrew.search": "Search by app name…",
+          "homebrew.empty": "No app matches.",
+          "homebrew.extras": (p, s) => `${p} patches · ${s} saves`,
           "kind.romfs": "Data",
           "kind.exefs": "Code",
           "kind.exefs_patches": "Code patch",
           "kind.cheats": "Cheats",
+          "kind.homebrew": "Homebrew",
           "action.admin": "Admin",
           "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
@@ -1202,10 +1231,17 @@
           "extras.download": "ダウンロード",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
+          "tab.homebrew": "自作アプリ",
+          "tab.tools": "ツール",
+          "tab.ports": "移植",
+          "homebrew.search": "アプリ名で検索…",
+          "homebrew.empty": "該当するアプリがありません。",
+          "homebrew.extras": (p, s) => `パッチ ${p} 件 · セーブ ${s} 件`,
           "kind.romfs": "データ",
           "kind.exefs": "コード",
           "kind.exefs_patches": "コードパッチ",
           "kind.cheats": "チート",
+          "kind.homebrew": "自作アプリ",
           "action.admin": "管理",
           "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
@@ -1369,10 +1405,17 @@
           "extras.download": "下載",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
+          "tab.homebrew": "自製軟體",
+          "tab.tools": "工具",
+          "tab.ports": "移植",
+          "homebrew.search": "依應用名稱搜尋…",
+          "homebrew.empty": "沒有符合的應用。",
+          "homebrew.extras": (p, s) => `補丁 ${p} 個 · 存檔 ${s} 個`,
           "kind.romfs": "資料",
           "kind.exefs": "程式碼",
           "kind.exefs_patches": "程式修補",
           "kind.cheats": "金手指",
+          "kind.homebrew": "自製軟體",
           "action.admin": "管理",
           "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
@@ -1537,6 +1580,8 @@
         $("retro-search").placeholder = t("retro.search");
         $("patches-search").placeholder = t("extras.search");
         $("saves-search").placeholder = t("extras.search");
+        $("tools-search").placeholder = t("homebrew.search");
+        $("ports-search").placeholder = t("homebrew.search");
         $("acct-btn").setAttribute("aria-label", t("action.menu"));
         $("acct-btn").title = t("action.menu");
         for (const b of document.querySelectorAll("#lang-list [data-lang]")) {
@@ -1675,6 +1720,8 @@
           if (features.includes("shop-saves")) available.add("saves");
           $("retro-tab").hidden = !available.has("retro");
           $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
+          if (features.includes("homebrew")) { available.add("tools"); available.add("ports"); }
+          $("homebrew-tab").hidden = !available.has("tools");
           // A link (or the remembered view) that only now turned out to exist.
           if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
         })
@@ -2530,7 +2577,7 @@
         const data = {};   // kind → items
         const loadedLang = {};
         const iconPath = (u) => { try { return new URL(u, location.href).pathname + "?size=sm"; } catch { return ""; } };
-        const gameName = (it) => it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id;
+        const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         function itemRow(kind, it) {
           const row = document.createElement("div"); row.className = "xitem";
@@ -2594,7 +2641,7 @@
           const from = (page - 1) * PAGE;
           const groups = new Map();
           for (const it of items.slice(from, from + PAGE)) {
-            const tid = it.titleId || it.title_id;
+            const tid = it.titleId || it.title_id || "hb:" + it.homebrew;
             if (!groups.has(tid)) groups.set(tid, []);
             groups.get(tid).push(it);
           }
@@ -2602,7 +2649,8 @@
             const g = document.createElement("section"); g.className = "xgroup";
             const head = document.createElement("header");
             const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
-            if (items[0].game?.icon) img.src = iconPath(items[0].game.icon);
+            const icon = items[0].homebrew ? homebrew.iconOf(items[0].homebrew) : items[0].game?.icon;
+            if (icon) img.src = items[0].homebrew ? icon : iconPath(icon);
             img.addEventListener("error", () => { img.style.visibility = "hidden"; });
             const name = document.createElement("strong"); name.textContent = gameName(items[0]);
             const n = document.createElement("span"); n.className = "n"; n.textContent = items.length;
@@ -2631,6 +2679,7 @@
               const url = kind === "patches" ? "/api/patches" : `/api/saves?lang=${encodeURIComponent(lang)}`;
               const r = await fetch(url, { headers: { Accept: "application/json" } });
               data[kind] = r.ok ? (await r.json())[kind] ?? [] : [];
+              if (data[kind].some((it) => it.homebrew)) await homebrew.load();
             } catch {
               data[kind] = [];
             }
@@ -2640,7 +2689,92 @@
         for (const kind of ["patches", "saves"]) {
           $(kind + "-search").addEventListener("input", debounce(() => { pageOf[kind] = 1; render(kind); }, 120));
         }
-        return { open, relabel() { if (current === "patches" || current === "saves") open(current); } };
+        const countFor = async (kind) => {
+          if (!data[kind]) {
+            try {
+              const url = kind === "patches" ? "/api/patches" : `/api/saves?lang=${encodeURIComponent(lang)}`;
+              const r = await fetch(url, { headers: { Accept: "application/json" } });
+              data[kind] = r.ok ? (await r.json())[kind] ?? [] : [];
+            } catch {
+              data[kind] = [];
+            }
+          }
+          const n = new Map();
+          for (const it of data[kind]) if (it.homebrew) n.set(it.homebrew, (n.get(it.homebrew) ?? 0) + 1);
+          return n;
+        };
+        return { open, countFor, relabel() { if (current === "patches" || current === "saves") open(current); } };
+      })();
+
+      // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
+      const homebrew = (() => {
+        let apps = null;
+        let counts = { patches: new Map(), saves: new Map() };
+        const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
+        async function load() {
+          if (apps) return apps;
+          try {
+            const r = await fetch(`/api/homebrew?lang=${encodeURIComponent(lang)}`, { headers: { Accept: "application/json" } });
+            apps = r.ok ? (await r.json()).homebrew ?? [] : [];
+          } catch {
+            apps = [];
+          }
+          return apps;
+        }
+        const byApp = (app) => (apps ?? []).find((a) => a.app === app);
+        function card(a) {
+          const g = document.createElement("section"); g.className = "xgroup";
+          const head = document.createElement("header");
+          const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+          if (a.icon_url) img.src = a.icon_url;
+          img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+          const name = document.createElement("strong"); name.textContent = a.name || a.app;
+          head.append(img, name);
+          const row = document.createElement("div"); row.className = "xitem";
+          const info = document.createElement("div");
+          const meta = document.createElement("div"); meta.className = "xmeta";
+          const p = counts.patches.get(a.app) ?? 0;
+          const s = counts.saves.get(a.app) ?? 0;
+          meta.textContent = [a.version && "v" + a.version, a.author, fmtBytes(a.size), (p || s) && t("homebrew.extras", p, s)].filter(Boolean).join(" · ");
+          info.append(meta);
+          const dl = document.createElement("a");
+          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", ""); dl.href = a.download_url;
+          row.append(info, dl);
+          if (a.description) {
+            const desc = document.createElement("div"); desc.className = "xdesc"; desc.textContent = a.description;
+            desc.addEventListener("click", () => desc.classList.toggle("open"));
+            row.append(desc);
+          }
+          g.append(head, row);
+          return g;
+        }
+        function render(view) {
+          const kind = view === "ports" ? "port" : "tool";
+          const q = folded($(view + "-search").value.trim());
+          const list = (apps ?? [])
+            .filter((a) => (a.kind === "port" ? "port" : "tool") === kind)
+            .filter((a) => !q || [a.name, a.app, a.author, a.description].some((x) => folded(x).includes(q)))
+            .sort((x, y) => String(x.name || x.app).localeCompare(String(y.name || y.app), lang, { numeric: true }));
+          $(view + "-list").replaceChildren(...list.map(card));
+          $(view + "-count").textContent = list.length.toLocaleString();
+          $(view + "-empty").hidden = list.length > 0;
+          $(view + "-empty").textContent = t("homebrew.empty");
+          $(view + "-list").setAttribute("aria-busy", "false");
+        }
+        async function open(view) {
+          await load();
+          render(view);
+          const [p, s] = await Promise.all([extras.countFor("patches"), extras.countFor("saves")]);
+          counts = { patches: p, saves: s };
+          if (current === view) render(view);
+        }
+        for (const view of ["tools", "ports"]) $(view + "-search").addEventListener("input", debounce(() => render(view), 120));
+        return {
+          load, open,
+          nameOf: (app) => byApp(app)?.name || app,
+          iconOf: (app) => byApp(app)?.icon_url || "",
+          relabel() { apps = null; if (current === "tools" || current === "ports") open(current); },
+        };
       })();
 
       // All games or the client preview: one at a time, remembered and linkable (#all, #preview).
@@ -2648,9 +2782,9 @@
       // fragment naming an element makes the browser jump to it on load.
       // Top tabs open a group; the views inside a group are its sub-tabs.
       const TAB_KEY = "cookingfoil:tab";
-      const GROUPS = { games: ["games", "preview"], retro: ["retro", "retro-home"], extras: ["patches", "saves"] };
-      const SUB_LABEL = { games: "tab.list", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves" };
-      const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves" };
+      const GROUPS = { games: ["games", "preview"], retro: ["retro", "retro-home"], extras: ["patches", "saves"], homebrew: ["tools", "ports"] };
+      const SUB_LABEL = { games: "tab.list", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves", tools: "tab.tools", ports: "tab.ports" };
+      const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves", tools: "tools", ports: "ports" };
       const groupOf = (name) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(name));
       const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h);
       // Views this server offers; the rest arrive with /api/shop/info's features.
@@ -2687,6 +2821,7 @@
         if (name === "retro") retro.open();
         if (name === "retro-home") retro.openHome();
         if (name === "patches" || name === "saves") extras.open(name);
+        if (name === "tools" || name === "ports") homebrew.open(name);
       }
       document.querySelector(".tabs").addEventListener("click", (e) => {
         const b = e.target.closest("[data-tab]");
@@ -3228,6 +3363,7 @@
         renderSteamChips();
         retro.relabel();
         extras.relabel();
+        homebrew.relabel();
         if (current) renderSubtabs(current);
       });
       document.addEventListener("click", (e) => { if (!langList.hidden && !e.target.closest("#lang-menu")) setLangMenu(false); });

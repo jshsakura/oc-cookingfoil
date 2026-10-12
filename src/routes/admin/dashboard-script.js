@@ -277,10 +277,29 @@ async function loadHomebrew(){
     const act=td();const box=el('div',null,'row-actions');
     box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
     '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
-  table('hb-manual',['이름','버전','파일','크기',''],(d.manual||[]).map((m)=>{const tr=el('tr');
-    const n=td(m.name||'—');const c=m.description?.custom;if(c)n.append(el('div',c.ko||c.en||'설명 없음','desc'));
-    tr.append(n,td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));
-    const act=td();const mb_=el('div',null,'row-actions');mb_.append(hbKind(m.id,m.kind),btn('설명',()=>editHbDesc(m.id,m.name||m.file_name,m.description)));act.append(mb_);tr.append(act);return tr;}),'직접 넣은 앱이 없습니다.');}
+  hbManual=d.manual||[];hbSources=d.sources||[];loadHbApps();}
+let hbManual=[],hbSources=[];
+// Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
+async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
+  const extraCell=(type,app,items)=>{const c=td();
+    for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
+      line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
+    c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
+  table('hb-apps',['이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');
+    const n=td();n.append(el('b',a.name||a.app));
+    n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · switch/'+a.app+'/','muted'));
+    const manual=hbManual.find((m)=>m.id===a.id);
+    const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
+    tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));tr.append(k,td(mb(a.size)),extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));
+    const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
+    if(a.source==='manual')box.append(btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
+    act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.');}
+async function removeHbExtra(type,id,name){if(!confirm(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 지웁니다.'))return;
+  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('지웠습니다.');loadHbApps();}catch(err){toast(err.message);}}
+async function removeManualHb(id,name){if(!confirm(name+' 앱 폴더를 서버에서 지웁니다. 이 앱의 패치와 세이브는 남습니다.'))return;
+  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+let upPending=null;
+function uploadFor(kind,app){upPending={kind,app};if(location.hash==='#upload')loadUpload();else location.hash='upload';}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.
 function hbKind(id,kind){const sel=el('select');sel.setAttribute('aria-label','분류');
   for(const [v,t] of [['tool','도구'],['port','포트']]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
@@ -335,6 +354,12 @@ async function openLog(c,f,button){
 $('cl-refresh').addEventListener('click',loadClientLogs);
 
 // ── upload ────────────────────────────────────────────────────────────
+// A homebrew app's patch or save is the inside of its switch/<app>/ folder, not a game's atmosphere/ tree.
+const UP_HINT_HB={
+  patch:'홈브류 앱의 패치를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 놓일 파일을 그 구조 그대로 넣습니다.',
+  save:'홈브류 앱의 세이브를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 있던 세이브 파일을 그 구조 그대로 넣습니다.',
+};
+function upHint(){const app=$('up-target').value;$('up-hint').textContent=app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];}
 const UP_HINT={
   game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 패키지 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
   retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
@@ -347,7 +372,7 @@ function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.
   $('up-chosen').textContent=n?(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB':'고른 파일이 없습니다';}
 function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
   for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
-  $('up-hint').textContent=UP_HINT[kind];
+  upHint();
   $('up-system-l').hidden=kind!=='retro';
   $('up-name-l').hidden=$('up-target-l').hidden=!(kind==='patch'||kind==='save');
   $('up-game-l').hidden=!(kind==='patch'||kind==='save')||$('up-target').value!=='';
@@ -365,8 +390,9 @@ async function loadUpload(){
     $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
     // A homebrew app's patch or save goes into its own switch/<app>/ folder.
     for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}}
+  if(upPending){$('up-target').value=upPending.app;upKind=upPending.kind;upPending=null;}
   upSetKind(upKind);}
-$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';});
+$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';upHint();});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
