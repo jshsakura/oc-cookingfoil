@@ -40,6 +40,8 @@ import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
+import { mountRetroArtApi } from "./admin/retro-art-api.js";
+import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import {
   normalizeDeviceKey,
   generateAccessKey,
@@ -58,6 +60,10 @@ import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import debug from "../debug.js";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
 import { pairPage } from "./admin/pair-page.js";
@@ -76,8 +82,16 @@ function loginMode() {
 }
 
 /** Session check that also leaves a trail when it fails. */
+// What an automation token may not change: who can sign in and how.
+const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa)(\/|$)/;
+
 function requireSession(req, res) {
-  if (hasValidSession(req)) return true;
+  if (req.apiToken && req.method !== "GET" && TOKEN_BLOCKED_RE.test(req.path)) {
+    res.status(403).json({ error: "automation tokens cannot change accounts or sign-in" });
+    return false;
+  }
+  // An automation token stands in for the admin's second step (auth-guard checked it).
+  if (hasValidSession(req) || req.apiToken) return true;
   recordDeny(req, { reason: DENY.ADMIN_NO_SESSION, status: 401 });
   res.status(401).json({ error: "2fa required" });
   return false;
@@ -166,6 +180,12 @@ export default function adminPageRouter() {
       return;
     }
     res.type("html").send(gatePage({ owner: adminOwner(), mode: loginMode() }));
+  });
+
+  // The operator's guide, which is also what an AI assistant is handed with a token.
+  router.get("/guide.md", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store").type("text/markdown; charset=utf-8").send(GUIDE);
   });
 
   router.post("/verify", async (req, res) => {
@@ -342,6 +362,8 @@ export default function adminPageRouter() {
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
   mountIntegrationsApi(router, requireSession);
+  mountRetroArtApi(router, requireSession);
+  mountApiTokensApi(router, requireSession);
 
   return router;
 }

@@ -11,6 +11,8 @@
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
+import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
+import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -137,14 +139,14 @@ td .row-actions button{flex:1 1 auto}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}</style></head><body>
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <nav class="apptabs" aria-label="CookingFoil">
     <a href="/#all">모든 게임</a><a href="/#preview">미리보기</a><a href="/admin" aria-current="page">관리</a>
   </nav>
-  <div class="actions"><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">로그아웃</button></div>
+  <div class="actions"><a href="/admin/guide.md" target="_blank" rel="noopener">안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">로그아웃</button></div>
 </header>
 
 <nav class="tabs" aria-label="관리 메뉴">
@@ -157,6 +159,7 @@ export function dashboardPage() {
   <a href="#library" data-tab="library">라이브러리</a>
   <a href="#upload" data-tab="upload">업로드</a>
   <a href="#homebrew" data-tab="homebrew">홈브류</a>
+  <a href="#retro" data-tab="retro">레트로</a>
 </nav>
 
 <section id="tab-overview">
@@ -231,6 +234,7 @@ export function dashboardPage() {
     </div>
   </div>
   <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호(compose 의 COOK_ADMIN_PASSWORD)나 인증 앱 코드 중 하나를 넣습니다.</p>
+  ${TOKENS_HTML}
 </section>
 
 <section id="tab-logs" hidden>
@@ -264,6 +268,7 @@ export function dashboardPage() {
   <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>
 </section>
 
+${RETRO_ART_HTML}
 <section id="tab-homebrew" hidden>
   <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
   <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
@@ -338,5 +343,5 @@ export function dashboardPage() {
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
 }
