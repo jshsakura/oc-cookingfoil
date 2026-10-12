@@ -164,3 +164,10 @@ deploy/data/
 deploy/keys/
 deploy/patches/
 deploy/.env
+
+# Kept on the author's machine only, not published
+/docs/
+/deploy/
+/CONTRIBUTING.md
+/SECURITY.md
+/scripts/readme-screenshots.mjs
