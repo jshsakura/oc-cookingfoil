@@ -82,6 +82,7 @@ function resolve() {
     secret: toBase32(crypto.randomBytes(SECRET_BYTES)),
     enrolled: false,
     createdAt: Date.now(),
+    unlogged: true,
   };
   persist(record);
   cached = { ...record, source: "generated" };
@@ -91,6 +92,19 @@ function resolve() {
 
 export function adminSecret() {
   return resolve().secret;
+}
+
+/**
+ * Replaces an unenrolled secret made by an older version, which printed it to
+ * the log. Nobody has proven they hold it, so nothing is lost. True when it did.
+ */
+export function rotateUnenrolledSecret(now = Date.now()) {
+  const current = resolve();
+  if (current.source === "env" || current.enrolled || current.unlogged) return false;
+  const record = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), enrolled: false, createdAt: now, unlogged: true };
+  persist(record);
+  cached = { ...record, source: "file" };
+  return true;
 }
 
 /** True once a correct code has been entered at least once. */
@@ -155,7 +169,7 @@ export function commitEnrollment(now = Date.now()) {
 /** Turns the authenticator off (only sensible while an admin password guards the page). */
 export function disableEnrollment(now = Date.now()) {
   if (!canManage()) throw new Error("the TOTP secret is set by COOK_ADMIN_TOTP_SECRET");
-  const record = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), enrolled: false, createdAt: now };
+  const record = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), enrolled: false, createdAt: now, unlogged: true };
   persist(record);
   cached = { ...record, source: "file" };
   pending = null;

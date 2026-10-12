@@ -18,12 +18,12 @@ import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
   adminTotpEnabled,
-  provisioningUri,
   selfTest as adminSelfTest,
 } from "./security/admin-session.js";
 import {
   isEnrolled as adminEnrolled,
   secretSource as adminSecretSource,
+  rotateUnenrolledSecret,
 } from "./security/admin-secret.js";
 import { logConfigHealth } from "./security/config-health.js";
 
@@ -319,13 +319,12 @@ if (adminTotpEnabled()) {
     }
     // /setup registers a fresh secret; this one would only confuse.
     if (needsSetup()) return;
-    const uri = await provisioningUri();
-    // Print unconditionally (not via DEBUG) — the operator needs this URI to
-    // enroll the secret in their authenticator app on first boot.
+    // Older versions printed the otpauth:// URI here; a secret that may sit in a log is replaced.
+    if (rotateUnenrolledSecret()) debug.log("admin 2fa: replaced the unenrolled secret that older versions logged");
+    // The secret itself never goes to the log: it is shown only on the admin page.
     process.stdout.write(
-      `[oc-cookingfoil] /admin 2FA not enrolled yet. Add this to your authenticator:\n` +
-      `[oc-cookingfoil] ${uri}\n` +
-      `[oc-cookingfoil] (or open /admin from your local network to copy the key)\n`
+      `[oc-cookingfoil] /admin 2FA not enrolled yet. Register an authenticator in the admin page's settings tab\n` +
+      `[oc-cookingfoil] (or open /admin from your local network before the first sign-in)\n`
     );
   });
 }
