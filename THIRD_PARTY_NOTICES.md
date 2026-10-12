@@ -46,3 +46,11 @@ Transitive dependencies are MIT, ISC, BSD or Apache-2.0 (`npx license-checker --
 ## FinalBurn Neo set list
 
 `src/retro/data/fbneo-arcade.json` keeps the set names, descriptions, parents and BIOS flags from the FinalBurn Neo DAT (https://neo-source.com/, https://github.com/finalburnneo/FBNeo), plus our own Korean, Japanese and Chinese titles. No ROM data is included. Rebuild with `node scripts/fbneo-arcade.mjs`.
+
+## Lucide
+
+The line icons on the sign-in, device approval and admin pages (`src/views/icons.js`) use path data from [Lucide](https://lucide.dev).
+
+ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.

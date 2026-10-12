@@ -9,6 +9,7 @@
  *               done     that console is already approved
  *               expired  the QR is gone
  */
+import { ICON_CSS, icon } from "../views/icons.js";
 import fs from "fs";
 import { escapeHtml } from "./admin/escape.js";
 
@@ -23,7 +24,7 @@ const TEXT = {
     submit: "로그인",
     or: "또는",
     google: "Google 계정으로 로그인",
-    googleHint: "구글 계정은 처음 로그인한 뒤 관리자가 승인하면 쓸 수 있습니다.",
+    googleHint: "구글 계정은 관리자 승인 뒤에 쓸 수 있습니다.",
     pendingLead: "{email} 계정은 관리자의 승인을 기다리고 있습니다. 승인되면 다시 로그인합니다.",
     disabledLead: "{email} 계정은 관리자가 사용을 중지했습니다.",
     errWrong: "아이디나 비밀번호가 맞지 않습니다.",
@@ -59,7 +60,7 @@ const TEXT = {
     submit: "Sign in",
     or: "or",
     google: "Sign in with Google",
-    googleHint: "A Google account can be used once the admin approves it after its first sign-in.",
+    googleHint: "Google accounts work once the admin approves them.",
     pendingLead: "{email} is waiting for the admin's approval. Sign in again once it is approved.",
     disabledLead: "The admin has turned off {email}.",
     errWrong: "Wrong username or password.",
@@ -95,7 +96,7 @@ const TEXT = {
     submit: "ログイン",
     or: "または",
     google: "Google でログイン",
-    googleHint: "Google アカウントは、初めてログインしたあと管理者が承認すると使えます。",
+    googleHint: "Google アカウントは管理者の承認後に使えます。",
     pendingLead: "{email} は管理者の承認を待っています。承認されたらもう一度ログインします。",
     disabledLead: "{email} は管理者が利用を停止しました。",
     errWrong: "ID またはパスワードが違います。",
@@ -131,7 +132,7 @@ const TEXT = {
     submit: "登录",
     or: "或",
     google: "使用 Google 登录",
-    googleHint: "Google 账号首次登录后，需经管理员批准才能使用。",
+    googleHint: "Google 账号需管理员批准后才能使用。",
     pendingLead: "{email} 正在等待管理员批准。批准后请重新登录。",
     disabledLead: "管理员已停用 {email}。",
     errWrong: "账号或密码不正确。",
@@ -172,7 +173,7 @@ const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#161
 .brand{display:flex;align-items:center;gap:12px;margin:0 0 24px}.brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:28px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
 h1{font-size:26px;margin:0 0 12px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
 .device-code{display:block;font:700 30px monospace;letter-spacing:3px;padding:18px;text-align:center;background:var(--soft);border-radius:12px;margin:20px 0}
-label{display:block;font-size:16px;margin:14px 0 8px}label span{color:var(--muted)}
+label{display:flex;align-items:center;gap:6px;font-size:16px;margin:14px 0 8px}label span{color:var(--muted)}
 input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
 #code{text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase}
 button,.button{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;min-height:54px;border:0;border-radius:12px;padding:14px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
@@ -180,10 +181,10 @@ button,.button{display:flex;align-items:center;justify-content:center;gap:10px;t
 .button.ghost,button.ghost{background:var(--soft);color:var(--ink);font-weight:600;font-size:16px;min-height:48px}button:disabled{opacity:.6;cursor:wait}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
 .who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
-.who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{width:auto;min-height:0;margin:0;padding:8px 12px;font-size:14px;background:var(--soft);color:var(--ink)}
+.who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{display:inline-flex;align-items:center;gap:6px;width:auto;min-height:0;margin:0;padding:8px 12px;font-size:14px;background:var(--soft);color:var(--ink)}
 .divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;margin:22px 0 0}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
 .note{font-size:15px;background:var(--soft);border-radius:10px;padding:12px 14px;margin:0 0 16px}
-.hint{font-size:14px;margin:10px 0 0;text-align:center}
+.hint{display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;line-height:1.5;margin:10px 0 0;text-align:center}
 .small{display:block;text-align:center;margin:18px 0 0;color:var(--muted);font-size:15px}
 #error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
 @media(max-width:420px){body{padding:14px}.card{padding:22px}}`;
@@ -192,7 +193,7 @@ const GOOGLE_G = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="t
 
 function shell(lang, title, body, script = "") {
   return `<!doctype html><html lang="${{ ko: "ko", ja: "ja", zh: "zh-Hans" }[lang] ?? "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">
-<title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}</style></head>
+<title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}${ICON_CSS}</style></head>
 <body><main class="card"><div class="brand"><img src="${LOGO}" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
 <h1>${escapeHtml(title)}</h1>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
 }
@@ -200,7 +201,7 @@ function shell(lang, title, body, script = "") {
 const SIGN_OUT_SCRIPT = `const out=document.getElementById('signout');if(out)out.addEventListener('click',async()=>{out.disabled=true;try{await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':out.dataset.csrf}});}finally{location.href='/login';}});`;
 
 function whoBar(t, user, csrf) {
-  return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${escapeHtml(t.signOut)}</button></div>`;
+  return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${icon("logout")}${escapeHtml(t.signOut)}</button></div>`;
 }
 
 export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null } = {}) {
@@ -208,14 +209,14 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
   const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle }[error];
   const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
   const googleBlock = google
-    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`
+    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${icon("info")}${escapeHtml(t.googleHint)}</p>`
     : "";
   return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
-<label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus>
-<label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
-${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${escapeHtml(t.submit)}</button></form>${googleBlock}`);
+<label for="username">${icon("user")}${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus>
+<label for="password">${icon("lock")}${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
+${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${icon("login")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`);
 }
 
 function approveScript(t, csrf) {
@@ -232,12 +233,12 @@ export function devicePage({ lang = "ko", view = "code", code = "", token = "", 
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
   if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
-  const name = `<label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off">`;
+  const name = `<label for="label">${icon("tag")}${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off">`;
   const body = view === "confirm"
     ? `<p>${escapeHtml(t.confirmLead)}</p><strong class="device-code">${escapeHtml(code)}</strong>
-<form id="approve" data-token="${escapeHtml(token)}" novalidate>${name}<button type="submit">${escapeHtml(t.approve)}</button></form>`
-    : `<p>${escapeHtml(t.codeLead)}</p><form id="approve" novalidate><label for="code">${escapeHtml(t.codeLabel)}</label>
+<form id="approve" data-token="${escapeHtml(token)}" novalidate>${name}<button type="submit">${icon("check")}<span>${escapeHtml(t.approve)}</span></button></form>`
+    : `<p>${escapeHtml(t.codeLead)}</p><form id="approve" novalidate><label for="code">${icon("keypad")}${escapeHtml(t.codeLabel)}</label>
 <input id="code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A1B2C3D4" required>${name}
-<button type="submit">${escapeHtml(t.approve)}</button></form>`;
+<button type="submit">${icon("check")}<span>${escapeHtml(t.approve)}</span></button></form>`;
   return shell(lang, view === "confirm" ? t.confirmTitle : t.codeTitle, `${body}<p id="error" role="alert"></p>${whoBar(t, user, csrf)}`, approveScript(t, csrf));
 }

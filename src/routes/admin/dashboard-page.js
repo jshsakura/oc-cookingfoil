@@ -10,6 +10,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
+import { ICON_CSS, icon } from "../../views/icons.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
@@ -139,27 +140,28 @@ td .row-actions button{flex:1 1 auto}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}</style></head><body>
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ICON_CSS}
+nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.guide-link{text-decoration:none;color:var(--muted);font-weight:600;font-size:13px}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <nav class="apptabs" aria-label="CookingFoil">
     <a href="/#all">모든 게임</a><a href="/#preview">미리보기</a><a href="/admin" aria-current="page">관리</a>
   </nav>
-  <div class="actions"><a href="/admin/guide.md" target="_blank" rel="noopener">안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">로그아웃</button></div>
+  <div class="actions"><a class="guide-link" href="/admin/guide.md" target="_blank" rel="noopener">${icon("book")}안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">${icon("logout")}로그아웃</button></div>
 </header>
 
 <nav class="tabs" aria-label="관리 메뉴">
-  <a href="#overview" data-tab="overview">개요</a>
-  <a href="#users" data-tab="users">사용자<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices">기기<span class="count" id="pending-count" hidden></span></a>
-  <a href="#settings" data-tab="settings">설정</a>
-  <a href="#logs" data-tab="logs">로그<span class="count" id="lock-count" hidden></span></a>
-  <a href="#featured" data-tab="featured">추천</a>
-  <a href="#library" data-tab="library">라이브러리</a>
-  <a href="#upload" data-tab="upload">업로드</a>
-  <a href="#homebrew" data-tab="homebrew">홈브류</a>
-  <a href="#retro" data-tab="retro">레트로</a>
+  <a href="#overview" data-tab="overview">${icon("dashboard")}개요</a>
+  <a href="#users" data-tab="users">${icon("users")}사용자<span class="count" id="account-count" hidden></span></a>
+  <a href="#devices" data-tab="devices">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
+  <a href="#settings" data-tab="settings">${icon("sliders")}설정</a>
+  <a href="#logs" data-tab="logs">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
+  <a href="#featured" data-tab="featured">${icon("star")}추천</a>
+  <a href="#library" data-tab="library">${icon("folder")}라이브러리</a>
+  <a href="#upload" data-tab="upload">${icon("upload")}업로드</a>
+  <a href="#homebrew" data-tab="homebrew">${icon("package")}홈브류</a>
+  <a href="#retro" data-tab="retro">${icon("image")}레트로</a>
 </nav>
 
 <section id="tab-overview">
