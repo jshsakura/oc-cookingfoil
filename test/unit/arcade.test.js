@@ -68,3 +68,10 @@ test("the operator's arcade-names.json wins over the built-in titles", () => {
   assert.equal(setInfo("bublbobl", { "Bubble Bobble": { ko: "버블 보블" } }).names.ko, "버블 보블", "by English title too");
   assert.equal(setInfo("bublbobl").names.ko, "보글보글");
 });
+
+test("arcade is listed before the other systems", async () => {
+  const { systemsOf } = await import("../../src/retro/catalog.js");
+  const systems = { snes: { names: { en: "SNES" } }, arcade: { names: { en: "Arcade" } }, gba: { names: { en: "GBA" } } };
+  const ids = systemsOf({ systems, games: [], present: new Set(["snes", "arcade", "gba"]) }).map((s) => s.id);
+  assert.deepEqual(ids, ["arcade", "snes", "gba"]);
+});
