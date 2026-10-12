@@ -181,3 +181,31 @@ test('on a phone all four views fit one row in every language', async ({ page })
     }
   }
 });
+
+test("a game's detail shows the patches it needs apart from its other patches", async ({ page }) => {
+  const patch = (id: string, name: string, required: boolean) => ({
+    id: `0100000000010000-${id}`, title_id: '0100000000010000', name, kinds: ['romfs'], size: 52_613_349_376, files: 109,
+    hash: 'h', description: `${name} 설명`, required,
+  });
+  await page.route('**/api/title/0100000000010000*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, patches: [patch('aaaaaaaaaaaa', '성능 패치', false), patch('bbbbbbbbbbbb', '게임 데이터', true)] } });
+  });
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/');
+  await page.locator('.game').first().click();
+  const need = page.locator('#modal-patches .mp-group.need');
+  await expect(need.locator('h4')).toContainText('함께 설치해야 하는 패치');
+  await expect(need.locator('.xname')).toHaveText(['게임 데이터']);
+  await expect(need.locator('a.btn')).toHaveAttribute('href', '/api/patches/0100000000010000-bbbbbbbbbbbb/download');
+  await expect(page.locator('#modal-patches .mp-group:not(.need) .xname')).toHaveText(['성능 패치']);
+  // Above the description, so it isn't missed.
+  const order = await page.evaluate(() => {
+    const a = document.getElementById('modal-patches')!, b = document.getElementById('modal-desc')!;
+    return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(order).toBe(true);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+});

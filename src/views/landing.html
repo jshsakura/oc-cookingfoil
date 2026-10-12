@@ -162,6 +162,15 @@
       .xitem .xsrc { grid-column: 1 / -1; font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
       .xitem .xsrc a { color: var(--secondary); }
       .xitem .btn { padding: 8px 14px; font-size: 13px; }
+      /* Patches in a game's detail: the ones it needs first, set apart, then the rest. */
+      .modal-patches { display: grid; gap: 14px; margin: 18px 0 4px; }
+      .modal-patches[hidden] { display: none; }
+      .mp-group { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; background: var(--surface); }
+      .mp-group.need { border-color: var(--butter); background: color-mix(in srgb, var(--butter) 10%, var(--surface)); }
+      .mp-group h4 { margin: 0; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+      .mp-group h4 .count { font-weight: 600; color: var(--secondary); font-size: 12px; }
+      .mp-group .mp-note { margin: 4px 0 0; font-size: 12px; color: var(--secondary); }
+      .mp-group .xitem:first-of-type { border-top: none; margin-top: 4px; }
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
@@ -831,6 +840,7 @@
             </div>
           </div>
           <div class="modal-meta" id="modal-meta"></div>
+          <div class="modal-patches" id="modal-patches" hidden></div>
           <div class="desc" id="modal-desc"></div>
           <div class="screenshots" id="modal-screens"></div>
           <div class="art-edit" id="modal-art" hidden></div>
@@ -882,6 +892,9 @@
           "tab.saves": "세이브",
           "extras.search": "게임 이름이나 파일 이름으로 찾기…",
           "extras.download": "받기",
+          "patches.need": "함께 설치해야 하는 패치",
+          "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 받습니다.",
+          "patches.related": "관련 패치",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
           "tab.homebrew": "홈브류",
@@ -1057,6 +1070,9 @@
           "tab.saves": "Saves",
           "extras.search": "Search by game or file name…",
           "extras.download": "Download",
+          "patches.need": "Mods to install with this game",
+          "patches.needNote": "The game won't start without these. Get them together with the game.",
+          "patches.related": "Related mods",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
           "tab.homebrew": "Homebrew",
@@ -1231,6 +1247,9 @@
           "tab.saves": "セーブ",
           "extras.search": "ゲーム名やファイル名で検索…",
           "extras.download": "ダウンロード",
+          "patches.need": "一緒に入れる必要があるパッチ",
+          "patches.needNote": "このパッチがないとゲームが起動しません。ゲームと一緒にダウンロードします。",
+          "patches.related": "関連パッチ",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
           "tab.homebrew": "自作アプリ",
@@ -1405,6 +1424,9 @@
           "tab.saves": "存檔",
           "extras.search": "依遊戲或檔案名稱搜尋…",
           "extras.download": "下載",
+          "patches.need": "需要一起安裝的補丁",
+          "patches.needNote": "沒有這些補丁遊戲無法啟動。請與遊戲一起下載。",
+          "patches.related": "相關補丁",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
           "tab.homebrew": "自製軟體",
@@ -2574,6 +2596,27 @@
         };
       })();
 
+      // A game's patches in its detail: required ones first, as the console shows them.
+      function renderModalPatches(list) {
+        const box = $("modal-patches");
+        const group = (cls, title, items, note) => {
+          const g = document.createElement("section"); g.className = "mp-group" + (cls ? " " + cls : "");
+          const h = document.createElement("h4"); h.textContent = title;
+          const n = document.createElement("span"); n.className = "count"; n.textContent = String(items.length); h.append(n);
+          g.append(h);
+          if (note) { const p = document.createElement("p"); p.className = "mp-note"; p.textContent = note; g.append(p); }
+          for (const it of items) g.append(extras.row("patches", it));
+          return g;
+        };
+        const need = list.filter((p) => p.required === true);
+        const rest = list.filter((p) => p.required !== true);
+        box.replaceChildren(
+          ...(need.length ? [group("need", t("patches.need"), need, t("patches.needNote"))] : []),
+          ...(rest.length ? [group("", t("patches.related"), rest)] : []),
+        );
+        box.hidden = !list.length;
+      }
+
       // Patches and saves: one block per game with its files, filtered by a search.
       const extras = (() => {
         const data = {};   // kind → items
@@ -2705,7 +2748,7 @@
           for (const it of data[kind]) if (it.homebrew) n.set(it.homebrew, (n.get(it.homebrew) ?? 0) + 1);
           return n;
         };
-        return { open, countFor, relabel() { if (current === "patches" || current === "saves") open(current); } };
+        return { open, countFor, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
@@ -3054,6 +3097,7 @@
         }));
         $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
         $("modal-screens").innerHTML = ""; $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
+        $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
@@ -3113,6 +3157,7 @@
           cell.append(label, value);
           metaBox.appendChild(cell);
         }
+        renderModalPatches(Array.isArray(detail.patches) ? detail.patches : []);
         $("modal-desc").textContent = td.description || t("modal.noDesc");
 
         const scr = $("modal-screens"); scr.innerHTML = "";
