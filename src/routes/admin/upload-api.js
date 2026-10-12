@@ -16,12 +16,10 @@
  * at once; a name that is already taken is refused, never overwritten. A new
  * retro ROM gets its box art and bezel fetched in the background.
  */
-import { spawn } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 import multer from "multer";
 import debug from "../../debug.js";
 import { dataDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir, uploadMaxBytes } from "../../helpers/envs.js";
@@ -29,6 +27,9 @@ import { resolveOrigin } from "../../helpers/origin.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as retroCatalog from "../../retro/catalog.js";
+import { syncArt } from "../../retro/art/sync.js";
+import * as integrations from "../../security/integrations.js";
+import { romKey } from "./retro-art-api.js";
 import { loadSystems } from "../../retro/systems.js";
 import {
   GAME_EXT_RE, UploadError, baseTitleId, moveFile, mustBeFree, patchLayout, retroLayout,
@@ -38,8 +39,6 @@ import {
 const KINDS = ["game", "retro", "patch", "save"];
 const MAX_FILES = 5000;
 const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
-const here = path.dirname(fileURLToPath(import.meta.url));
-const SCRIPTS = path.resolve(here, "../../../scripts");
 
 const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
@@ -67,22 +66,15 @@ async function libraryGames() {
 }
 
 /** Box art and bezels for one console's new ROMs, after the upload has answered. */
-function fetchRetroArt(systemId) {
-  const run = (script) => new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(SCRIPTS, script), retroDir, "--system", systemId], { stdio: ["ignore", "ignore", "pipe"] });
-    let err = "";
-    child.stderr.on("data", (d) => { err = (err + d).slice(-500); });
-    child.on("close", (code) => {
-      if (code) debug.error("upload: %s %s exited %d: %s", script, systemId, code, err.trim());
-      resolve();
-    });
-    child.on("error", (e) => { debug.error("upload: %s: %s", script, e.message); resolve(); });
-  });
-  if (!fs.existsSync(path.join(SCRIPTS, "retro-art.mjs"))) return;
-  run("retro-art-match.mjs")
-    .then(() => run("retro-art.mjs"))
-    .then(() => retroCatalog.scan(retroDir))
-    .catch((err) => debug.error("upload: retro art for %s: %s", systemId, err.message));
+async function fetchRetroArt(systemId) {
+  try {
+    const catalog = await retroCatalog.scan(retroDir);
+    const roms = { [systemId]: catalog.games.filter((g) => g.system === systemId).map(romKey) };
+    await syncArt(retroDir, catalog.systems, roms, { only: systemId, token: integrations.get("github").token });
+    await retroCatalog.scan(retroDir);
+  } catch (err) {
+    debug.error("upload: retro art for %s: %s", systemId, err.message);
+  }
 }
 
 /** The uploaded files with their paths inside the upload; a lone .zip is unpacked. */

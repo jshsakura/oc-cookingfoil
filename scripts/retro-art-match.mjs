@@ -23,55 +23,21 @@
 import fs from "fs";
 import path from "path";
 import { loadSystems } from "../src/retro/systems.js";
+import { boxartNames } from "../src/retro/art/sources.js";
 import readline from "readline";
 import sharp from "sharp";
-import { PLATFORMS, decode, titleKey } from "./retro-ratings.mjs";
+import { PLATFORMS, decode, titleKey, englishTitle, regionRank, bestMatch } from "../src/retro/art/titles.js";
 
-const API = "https://api.github.com/repos/libretro-thumbnails";
-const REGION_ORDER = ["Japan", "World", "USA", "Europe"];
+export { englishTitle, regionRank, bestMatch };
+
 const LB_IMAGES = "https://images.launchbox-app.com";
 // LaunchBox region labels, best first; covers with no region come after these.
 const LB_REGIONS = ["Japan", "World", "North America", "United States", "Europe"];
 
-/** The English title in a "한글명 (English) [tags]" file name, or the name itself. Pure. */
-export function englishTitle(rom) {
-  const m = rom.match(/\(([^()]*[A-Za-z][^()]*)\)/);
-  return (m ? m[1] : rom).trim();
-}
 
-/** Rank a No-Intro name: Japanese first, then World, USA, Europe; no revisions or betas. Pure. */
-export function regionRank(name) {
-  const tags = name.match(/\(([^)]*)\)/g)?.join(" ") ?? "";
-  const region = REGION_ORDER.findIndex((r) => tags.includes(r));
-  const extra = /\b(Beta|Proto|Demo|Sample|Rev|Alt|Pirate|Hack)\b/.test(tags) ? 10 : 0;
-  return (region < 0 ? REGION_ORDER.length : region) + extra;
-}
 
-/** The best box art name for `title` among `names`, or null. Pure. */
-export function bestMatch(title, names) {
-  const key = titleKey(title);
-  if (!key) return null;
-  const hits = names.filter((n) => titleKey(n) === key);
-  if (!hits.length) return null;
-  return hits.sort((a, b) => regionRank(a) - regionRank(b) || a.localeCompare(b))[0];
-}
 
-async function gh(url) {
-  const headers = { Accept: "application/vnd.github+json" };
-  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`${res.status} ${url}`);
-  return res.json();
-}
 
-/** Box art names (without .png) in one libretro-thumbnails repo. */
-async function boxartNames(repo) {
-  const root = await gh(`${API}/${repo}/git/trees/HEAD`);
-  const dir = root.tree.find((t) => t.path === "Named_Boxarts");
-  if (!dir) return [];
-  const tree = await gh(`${API}/${repo}/git/trees/${dir.sha}`);
-  return tree.tree.filter((t) => t.path.endsWith(".png")).map((t) => t.path.slice(0, -4));
-}
 
 function romsOf(dir, system) {
   const root = path.join(dir, "roms", system.folder);
@@ -158,7 +124,7 @@ async function main() {
     const map = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
     const todo = [...new Set(romsOf(dir, system))].filter((rom) => !map[rom]);
     if (!todo.length) continue;
-    const names = await boxartNames(system.folder.replaceAll(" ", "_"));
+    const names = await boxartNames(system.folder.replaceAll(" ", "_"), { token: process.env.GITHUB_TOKEN });
     const found = {};
     const missed = [];
     for (const rom of todo) {

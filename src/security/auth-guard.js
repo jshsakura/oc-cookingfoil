@@ -27,6 +27,8 @@ import { isLoopbackIp } from "./net.js";
 import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
 import { envNumber } from "../helpers/env-read.js";
 import { webUser } from "./user-session.js";
+import * as apiTokens from "./api-tokens.js";
+import * as googleAccounts from "./google-accounts.js";
 
 const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
@@ -65,6 +67,9 @@ export default function authGuard() {
     if (req.pairedDevice) return next();
 
     const ip = clientIp(req);
+
+    // Automation tokens: the admin API only, acting as the admin who made them.
+    if (apiTokens.presented(req)) return tokenLane(req, res, next, ip);
 
     // People in a browser sign in at /login and carry a session cookie; consoles
     // and API clients keep sending Basic. A browser never gets the Basic challenge.
@@ -216,6 +221,24 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
   if (login && deviceLogins.claim(name, deviceKey) === "other-console") return false;
   if (approveSignedInDevice(deviceKey, name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), name);
   return true;
+}
+
+/** Owner ids are an account name, or "google:<sub>" for a Google admin. */
+function ownerIsAdmin(owner) {
+  return owner.startsWith("google:") ? googleAccounts.isAdmin(owner.slice(7)) : users.isActive(owner) && users.isAdmin(owner);
+}
+
+function tokenLane(req, res, next, ip) {
+  if (!(trustLoopback && isLoopbackIp(ip)) && store.isLocked(ip)) return res.status(429).json({ error: "locked out" });
+  const token = apiTokens.verify(req.headers.authorization);
+  if (!token || !(req.path.startsWith("/admin/api/") || req.path === "/admin/guide.md") || !ownerIsAdmin(token.owner)) {
+    if (!(trustLoopback && isLoopbackIp(ip))) recordFailure(ip, req);
+    return res.status(401).json({ error: "invalid token" });
+  }
+  req.apiToken = token;
+  if (token.owner.startsWith("google:")) req.webUser = { kind: "google", sub: token.owner.slice(7) };
+  else req.auth = { user: token.owner };
+  return next();
 }
 
 export function recordFailure(ip, req) {

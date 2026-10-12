@@ -18,49 +18,13 @@
 import fs from "fs";
 import path from "path";
 import readline from "readline";
+import { PLATFORMS, decode, titleKey } from "../src/retro/art/titles.js";
 
-export const PLATFORMS = {
-  nes: ["Nintendo Entertainment System", "Nintendo Famicom Disk System"],
-  snes: ["Super Nintendo Entertainment System", "Nintendo Satellaview"],
-  gb: ["Nintendo Game Boy"],
-  gbc: ["Nintendo Game Boy Color"],
-  gba: ["Nintendo Game Boy Advance"],
-  n64: ["Nintendo 64"],
-  nds: ["Nintendo DS"],
-  md: ["Sega Genesis"],
-  sms: ["Sega Master System"],
-  gg: ["Sega Game Gear"],
-  segacd: ["Sega CD"],
-  saturn: ["Sega Saturn"],
-  pce: ["NEC TurboGrafx-16"],
-  pcecd: ["NEC TurboGrafx-CD"],
-  ps1: ["Sony Playstation"],
-  psp: ["Sony PSP"],
-  ngp: ["SNK Neo Geo Pocket Color", "SNK Neo Geo Pocket"],
-  ws: ["WonderSwan Color", "WonderSwan"],
-  arcade: ["Arcade"],
-};
+export { PLATFORMS, decode, titleKey };
+
 const MIN_VOTES = 3;
-const ROMAN = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
 
-/** A title reduced to what matching compares: no tags, accents, punctuation or articles. Pure. */
-export function titleKey(raw) {
-  let s = String(raw)
-    .replace(/\s*[[(][^\])]*[\])]/g, "") // (Japan) (Rev 1) [b] …
-    .replace(/_/g, " ") // libretro-thumbnails writes & / : as _
-    .normalize("NFKD").replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " ")
-    .replace(/^(.*), the\b/, "the $1")
-    .replace(/['’`.]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  // "&", "and" and the "_" thumbnails write for "&" all mean the same; so does a leading "the".
-  s = s.split(" ").map((w) => ROMAN[w] ?? w).filter((w) => w !== "the" && w !== "and").join(" ");
-  return s;
-}
 
-export const decode = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
 async function readLaunchBox(file, wanted) {
   const games = new Map(); // DatabaseID → { name, platform, rating, count }

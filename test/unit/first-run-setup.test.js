@@ -100,6 +100,26 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     assert.equal((await (await api("/admin/api/integrations")).json()).steamgriddb.configured, true, "an empty secret keeps the saved one");
     await post("/admin/api/integrations/steamgriddb/clear", {});
     assert.equal((await (await api("/admin/api/integrations")).json()).steamgriddb.configured, false);
+
+    // Automation tokens: made from the session, shown once, admin API only, no accounts or sign-in.
+    const made = await (await post("/admin/api/tokens", { label: "assistant" })).json();
+    assert.match(made.token, /^cft_[a-f0-9]{8}_/);
+    const listed = await (await api("/admin/api/tokens")).json();
+    assert.equal(listed.tokens[0].label, "assistant");
+    assert.ok(!JSON.stringify(listed).includes(made.token.split("_")[2]), "the secret is not listed");
+    const bearer = (token) => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
+    const viaToken = (url, init = {}, token = made.token) => fetch(`${BASE}${url}`, { ...init, headers: bearer(token) });
+    assert.equal((await viaToken("/admin/api/integrations")).status, 200);
+    const guide = await viaToken("/admin/guide.md");
+    assert.equal(guide.status, 200);
+    assert.match(await guide.text(), /AI 도우미에게 맡기기/);
+    assert.equal((await viaToken("/admin/api/users", { method: "POST", body: JSON.stringify({ name: "x", password: "long-enough-pass" }) })).status, 403);
+    assert.equal((await viaToken("/admin/api/tokens", { method: "POST", body: "{}" })).status, 403, "tokens never mint tokens");
+    assert.equal((await viaToken("/admin/api/2fa/start", { method: "POST", body: "{}" })).status, 403);
+    assert.equal((await viaToken("/api/shop/info")).status, 401, "nothing outside the admin API");
+    assert.equal((await viaToken("/admin/api/integrations", {}, made.token.slice(0, -2) + "xx")).status, 401);
+    await post(`/admin/api/tokens/${made.id}/revoke`, {});
+    assert.equal((await viaToken("/admin/api/integrations")).status, 401, "a revoked token stops at once");
   } finally {
     child.kill();
   }

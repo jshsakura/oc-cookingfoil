@@ -33,6 +33,7 @@ export function mountTwoFactorApi(router, { requireSession }) {
   const guarded = (handler, { write = true } = {}) => async (req, res) => {
     res.set("Cache-Control", "no-store");
     if (!requireSession(req, res) || (write && !sameOrigin(req, res))) return;
+    if (req.apiToken) return res.status(403).json({ error: "automation tokens cannot change the admin login" });
     try {
       await handler(req, res);
     } catch (err) {
