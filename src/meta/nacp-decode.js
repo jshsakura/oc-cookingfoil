@@ -1,8 +1,8 @@
 /**
- * Decode a Nintendo Application Control Property blob.
+ * Decode an Application Control Property (NACP) blob.
  *
  * Same binary format whether it comes from an NRO's asset section or a
- * Switch game's Control NCA, so this module is the shared decoder.
+ * package's Control NCA, so this module is the shared decoder.
  *
  * Reference: https://switchbrew.org/wiki/NACP_Format
  *
@@ -10,7 +10,7 @@
  *                         Each slot:  name (0x200) || publisher (0x100)
  *   0x3060   0x10         DisplayVersion (null-padded UTF-8)
  *
- * The Switch supports more languages than its hardware UI lists — slots
+ * The console supports more languages than its hardware UI lists — slots
  * are addressable by index in the table below. Filling priority order
  * means a Korean dashboard finds Korean first, but still falls back to
  * English / Japanese / anything-non-empty before giving up.
@@ -21,7 +21,7 @@ const NACP_NAME_BYTES = 0x200;
 const NACP_PUBLISHER_BYTES = 0x100;
 export const NACP_TOTAL_BYTES = 0x4000;
 
-// Slot index per Switch language code. Aliases ("en" → en-US, "zh" → CN)
+// Slot index per console language code. Aliases ("en" → en-US, "zh" → CN)
 // match how the rest of the codebase talks about langPriority.
 export const NACP_LANG_SLOTS = {
   "en-US": 0, "en-GB": 1, "en": 0,
@@ -37,7 +37,7 @@ export const NACP_LANG_SLOTS = {
   "zh-TW": 13, "zh-CN": 14, "zh": 14,
 };
 
-// Reverse map: slot index → preferred icon filename suffix used by Nintendo
+// Reverse map: slot index → preferred icon filename suffix used by the eShop
 // when extracting the Control NCA. icon_AmericanEnglish.dat etc.
 export const NACP_SLOT_TO_ICON_NAME = {
   0: "AmericanEnglish",

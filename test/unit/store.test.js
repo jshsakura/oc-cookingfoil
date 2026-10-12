@@ -265,13 +265,13 @@ test("isDeviceApproved is false and getDeviceAccessKeyHash is null for an unknow
 });
 
 test("approveDevice on a brand-new device stores label/addedBy/hash and audits it", () => {
-  store.approveDevice(DK1, { label: "kid switch", addedBy: "admin", accessKeyHash: "hash-1" });
+  store.approveDevice(DK1, { label: "kid console", addedBy: "admin", accessKeyHash: "hash-1" });
 
   assert.equal(store.isDeviceApproved(DK1), true);
   assert.equal(store.getDeviceAccessKeyHash(DK1), "hash-1");
 
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
-  assert.equal(approved.label, "kid switch");
+  assert.equal(approved.label, "kid console");
   assert.equal(approved.addedBy, "admin");
   assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "deviceKey", "label", "lastSeenAt"], "no IP or version");
   assert.equal(approved.lastSeenAt, null, "not seen since this start");

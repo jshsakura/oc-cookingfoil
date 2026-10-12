@@ -42,7 +42,7 @@ Open `http://<host>:38000/` and sign in with your account. The dashboard shows
 the server address and whether names come from titledb, from the files themselves, or
 only from file names (with a hint on what is missing).
 
-## 4. Connect your Switch
+## 4. Connect a console
 
 - **CyberFoil:** Settings, then *eShop URL* = `http://<host>:38000/`, plus a
   username and password. Create a per-console login on the *Devices* page (`/pair`)
@@ -50,7 +50,7 @@ only from file names (with a hint on what is missing).
 - **Tinfoil-style clients:** *File Browser*, then `+`, then `http://<host>:38000/shop.tfl`.
 - **CookingFoil client:** with `COOK_DEVICE_PAIRING=true`, sign in to the server
   on your phone, open *Devices* (`/pair`) and scan the QR the console shows, or type its
-  device code (no password on the Switch). Or create a user on the admin page; it shows a
+  device code (no password on the console). Or create a user on the admin page; it shows a
   `config.json` to put at `sdmc:/switch/cookingfoil/config.json`.
 
 ## 5. The admin page
@@ -72,7 +72,7 @@ Put it behind HTTPS with a reverse proxy (Caddy, nginx, Traefik) or a tunnel
 `loopback, uniquelocal` when the proxy runs on the same host, so a wrong
 password locks out that client and not everyone behind the proxy.
 
-Switch clients cannot pass browser login walls such as Cloudflare Access, so
+Console clients cannot pass browser login walls such as Cloudflare Access, so
 rely on the server's own accounts (and device pairing) on its hostname.
 
 ## 7. Optional extras
@@ -113,7 +113,9 @@ rely on the server's own accounts (and device pairing) on its hostname.
   ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/ (BIOS)
   └── systems.json                            optional: change a system's core or add one
   ```
-  `<system>` is RetroArch's name ("Nintendo - Game Boy Advance", "Sony - PlayStation",
+  Nothing here ships with CookingFoil: RetroArch, cores, BIOS files and content
+  are all yours to supply, and the folder starts empty.
+  `<system>` is RetroArch's name ("Sony - PlayStation", "Sega - Mega Drive - Genesis",
   …), a short id (gba, ps1, …) or a common alias (FC, SFC, MD, PS1, PSP), in any case.
   Supported: NES, SNES, GB, GBC, GBA, N64, NDS, Mega Drive, Mega-CD, Master System,
   Game Gear, Saturn, PC Engine, PC Engine CD, PlayStation, PSP, Neo Geo Pocket,
@@ -131,9 +133,9 @@ rely on the server's own accounts (and device pairing) on its hostname.
   `sdmc:/switch/retroarch_switch.nro`, everything else in `retroarch/` to
   `sdmc:/retroarch/`, and `retroarch.cfg` is only written when the card has none.
   PlayStation files are `.chd`, `.pbp`, or a `.cue` with its tracks beside it.
-- **Nintendo eShop data:** prices, popularity and artwork are on by default;
+- **Public store data:** prices, popularity and artwork are on by default;
   set `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY` or `COOK_ESHOP_ARTWORK` to
-  `false` to keep the server from contacting Nintendo.
+  `false` to keep the server from contacting those services.
 
 ## 8. Updating and backups
 

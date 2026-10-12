@@ -6,22 +6,22 @@
 </p>
 
 <p align="center">
-  닌텐도 스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버입니다.<br>
+  개인용 자체 호스팅 홈브류 파일 서버입니다.<br>
   내 파일을 집 네트워크에 이름과 아이콘을 붙여 정리해 둡니다. <b>CyberFoil</b> 을 기본으로 지원하고 Tinfoil 과도 호환됩니다.
 </p>
 
-<p align="center"><a href="./README.md">English</a></p>
+<p align="center"><a href="https://jshsakura.github.io/oc-cookingfoil/">웹사이트</a> · <a href="./README.md">English</a></p>
 
 <p align="center">
   <img src="docs/screenshots/preview-dark.png" alt="대시보드의 미리보기 탭: CookingFoil 클라이언트와 같은 화면" width="900">
 </p>
 
 > [!IMPORTANT]
-> CookingFoil 은 비공식 프로젝트이며 닌텐도와 관련이 없고 승인이나 후원을 받지 않습니다. **소프트웨어, 키, 닌텐도 콘텐츠를 일절 포함하지 않으며, 이미 가진 파일을 정리할 뿐입니다.** 내 네트워크 안에서 내 파일만 두고 쓰며, `prod.keys` 는 공유하지 마세요. "Nintendo Switch" 와 "Nintendo eShop" 은 닌텐도의 상표입니다.
+> CookingFoil 은 독립된 오픈소스 프로젝트입니다. **소프트웨어, 키, 펌웨어나 BIOS 파일, RetroArch 빌드를 일절 포함하지 않습니다.** 이 자리는 모두 비어 있고, 이미 가진 파일을 넣어야 채워집니다. 넣은 것을 정리할 뿐입니다. 내 네트워크 안에서 쓰고, `prod.keys` 는 공유하지 마세요.
 
 ## 하는 일
 
-내 스위치 패키지(`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`)가 있는 폴더를 지정하면, 스위치가 파일 관리자처럼 집 네트워크에서 둘러보고 가져옵니다.
+내 패키지(`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`)가 있는 폴더를 지정하면, 기기가 파일 관리자처럼 집 네트워크에서 둘러보고 가져옵니다.
 
 - **CyberFoil 기본 지원.** CyberFoil 의 섹션 API(`/api/shop/sections`)로 이름·아이콘·버전·크기·필요 펌웨어를 줍니다.
 - **Tinfoil 호환.** `shop.tfl` / `shop.json` 이 Tinfoil 계열 앱에서 동작합니다. [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) 을 그대로 갈아 끼울 수 있습니다.
@@ -29,7 +29,7 @@
 - **공개 메타데이터.** 공개 출처의 평점(Steam, IGDB), 인기 순서, 아트를 붙일 수 있고 각각 끌 수 있습니다.
 - **웹 대시보드.** 4개 언어로 내 파일을 보고, 클라이언트 홈이 어떻게 보일지 미리 봅니다.
 - **관리 페이지.** 사용자, 기기, 잠금과 거부 기록, 추천 줄, 다시 스캔, 업로드. 인증 앱 코드나 관리자 비밀번호로 들어갑니다.
-- **RetroArch.** 바로 쓸 수 있게 맞춘 RetroArch 묶음(한글 폰트, 코어, 설정), The Bezel Project 베젤, 그리고 내 파일을 CookingFoil 클라이언트가 한 번에 설정하도록 내려 줍니다. 레트로 폴더를 만들기 전까지는 꺼져 있습니다. [deploy/README.ko.md](./deploy/README.ko.md#7-선택-기능) 를 봅니다.
+- **RetroArch 자리.** 레트로 폴더에 넣어 둔 RetroArch 묶음, 코어, BIOS 파일, 콘텐츠와 공개된 The Bezel Project 베젤을 CookingFoil 클라이언트가 한 번에 설정하도록 내려 줍니다. 아무것도 포함하지 않습니다. 폴더는 비어 있는 채로 시작하고, 만들기 전까지 기능은 꺼져 있습니다. [deploy/README.ko.md](./deploy/README.ko.md#7-선택-기능) 를 봅니다.
 - **세이브 파일.** 서버에 둔 세이브 데이터를 CookingFoil 클라이언트가 지금 세이브를 백업한 뒤 고른 계정에 복원합니다.
 - **유저 패치.** 직접 모은 모드를 [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client)가 SD 카드에 설치하고 켜고 끌 수 있게 내려 줍니다.
 
@@ -71,9 +71,9 @@ docker compose up -d
 
 ## 클라이언트 연결
 
-- **CyberFoil:** 설정의 *eShop URL* 에 서버 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다. 내 계정보다는 *기기 승인*(`/pair`) 화면에서 스위치마다 만드는 접속 정보를 권합니다. 서버를 읽고 받는 것만 되고, 처음 접속한 스위치에 묶이며, 언제든 폐기할 수 있습니다.
+- **CyberFoil:** 설정의 *eShop URL* 에 서버 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다. 내 계정보다는 *기기 승인*(`/pair`) 화면에서 기기마다 만드는 접속 정보를 권합니다. 서버를 읽고 받는 것만 되고, 처음 접속한 기기에 묶이며, 언제든 폐기할 수 있습니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `/shop.tfl` 로 끝나는 주소와 아이디·비밀번호.
-- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 스위치에 QR 이 뜹니다. 휴대폰으로 서버에 로그인해 *기기 승인*(`/pair`) 화면에서 카메라로 찍거나 8자리 기기 코드를 입력하면, 그 계정으로 기기가 연결되고 스위치에는 비밀번호를 넣지 않습니다. 또는 `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
+- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 기기 화면에 QR 이 뜹니다. 휴대폰으로 서버에 로그인해 *기기 승인*(`/pair`) 화면에서 카메라로 찍거나 8자리 기기 코드를 입력하면, 그 계정으로 기기가 연결되고 기기에는 비밀번호를 넣지 않습니다. 또는 `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
 
 ## 설정
 
@@ -89,7 +89,7 @@ docker compose up -d
 | `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | titledb 를 합칠 때 이름과 설명이 이기는 언어 순서 |
 | `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 보조 지역 10개 | 받아 올 titledb 지역 파일 |
 | `COOK_RATING_SYNC` | `true` | Steam 리뷰 점수. IGDB 는 `COOK_IGDB_CLIENT_ID` / `_SECRET` 추가 |
-| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | 닌텐도 eShop 정보(아래 참고) |
+| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | 공개 상점 정보(아래 참고) |
 | `COOK_EXTRACT_ICONS` | `missing` | 파일에서 이름·아이콘 읽기: `missing`, `all`, `off` |
 
 ### 외부로 나가는 연결
@@ -99,9 +99,9 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | 서비스 | 이유 | 끄기 |
 |---|---|---|
 | `raw.githubusercontent.com` (blawar/titledb) | 이름, 설명, 아트 주소 | `COOK_TITLEDB_AUTO_FETCH=false` |
-| 닌텐도 eShop CDN | 아이콘, 배너, 스크린샷(디스크에 캐시) | `COOK_ESHOP_ARTWORK=false` |
-| `api.ec.nintendo.com` | 목록 정보 | `COOK_ESHOP_PRICES=false` |
-| nintendo.com 의 공개 Algolia 색인 | 인기 순위 | `COOK_ESHOP_POPULARITY=false` |
+| 공개 상점 아트 CDN | 아이콘, 배너, 스크린샷(디스크에 캐시) | `COOK_ESHOP_ARTWORK=false` |
+| 공개 상점 목록 API | 목록 정보 | `COOK_ESHOP_PRICES=false` |
+| 공개 상점 검색 색인 | 인기 순위 | `COOK_ESHOP_POPULARITY=false` |
 | Steam 상점, IGDB | 리뷰 점수 | `COOK_RATING_SYNC=false` |
 
 ## 클라이언트용 API
@@ -117,8 +117,8 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download` | 홈브류 `.nro`: 직접 넣은 것과 GitHub 최신 릴리스 |
 | `GET /api/saves`, `/api/saves/:id/download` | 세이브 파일 목록과 ustar 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256) |
-| `POST /api/client/log` | 스위치 오류 기록(텍스트, 64KB) 받기. `data/client/logs/<기기>/` 에 둡니다 |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | RetroArch 파일, 베젤, RetroArch 기본 묶음 |
+| `POST /api/client/log` | 기기 오류 기록(텍스트, 64KB) 받기. `data/client/logs/<기기>/` 에 둡니다 |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | 레트로 폴더의 파일, 베젤, 운영자가 넣은 RetroArch 기본 묶음 |
 
 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 확인하세요.
 

@@ -1,7 +1,7 @@
 /**
  * Pure-JS NRO asset section parser.
  *
- * NRO is Switch homebrew's executable format — a self-contained ELF-ish
+ * NRO is the homebrew executable format — a self-contained ELF-ish
  * binary with no encryption. Homebrew toolchains (devkitpro, libtransistor)
  * append an "asset" section after the executable holding:
  *   - the title icon (a small JPEG or PNG, typically 256×256)

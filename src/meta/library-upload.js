@@ -1,5 +1,5 @@
 /**
- * Putting operator uploads into the libraries: Switch games, retro ROMs, user
+ * Putting operator uploads into the libraries: packages, retro ROMs, user
  * patches and saves. The admin route (routes/admin/upload-api.js) receives the
  * files into a staging folder on the destination disk; this module checks the
  * names and paths, unpacks a .zip, decides where everything goes and moves it

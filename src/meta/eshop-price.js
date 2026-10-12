@@ -1,4 +1,4 @@
-// eShop price for a title, from Nintendo's public price endpoint, keyed by the
+// eShop price for a title, from the public eShop price endpoint, keyed by the
 // titledb nsuId. The merged titledb prefers Korean records, so KR is asked
 // first; titles only another region sells fall back to US then JP.
 //
@@ -99,7 +99,7 @@ export function clearPriceCache() {
 const isFresh = (hit, now) => hit && now - hit.at < (hit.value ? FOUND_TTL_MS : MISSING_TTL_MS);
 
 /**
- * The cached price without asking Nintendo: the price, null when no eShop
+ * The cached price without asking the price endpoint: the price, null when no eShop
  * sells it, undefined when unknown. A stale entry is still returned so the
  * list keeps its prices while warmPrices() refreshes them.
  */

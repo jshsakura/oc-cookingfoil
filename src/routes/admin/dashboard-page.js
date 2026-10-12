@@ -168,14 +168,14 @@ export function dashboardPage() {
 <section id="tab-devices" hidden>
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">
-    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="스위치에 뜬 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
+    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
     <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
     <button class="primary" type="submit">기기 코드로 승인</button>
   </form>
   <h2>승인 대기</h2><div class="scroll" id="pending"></div>
   <h2>승인된 기기</h2><div class="scroll" id="devices"></div>
   <h2>기기별 접속 정보 (CyberFoil·Tinfoil)</h2>
-  <p class="muted">사용자가 기기 승인 화면(/pair)에서 스위치마다 만든 아이디와 비밀번호입니다. 처음 접속한 스위치에만 묶이고, 서버의 게임 목록을 읽고 받는 것만 할 수 있습니다.</p>
+  <p class="muted">사용자가 기기 승인 화면(/pair)에서 기기마다 만든 아이디와 비밀번호입니다. 처음 접속한 기기에만 묶이고, 서버의 목록을 읽고 파일을 받는 것만 할 수 있습니다.</p>
   <form class="add" id="add-login">
     <input id="login-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
     <button class="primary" type="submit">접속 정보 만들기</button>
@@ -218,7 +218,7 @@ export function dashboardPage() {
 
 <section id="tab-logs" hidden>
   <div class="hd"><h2>클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
-  <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 스위치마다 최근 50개를 남깁니다.</p>
+  <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
   <div class="logs-view">
     <div class="logs-list" id="cl-list"></div>
     <div class="logs-body"><div class="logs-head" id="cl-head">왼쪽에서 기록을 고릅니다.</div><pre id="cl-text" tabindex="0"></pre></div>
@@ -251,7 +251,7 @@ export function dashboardPage() {
   <div class="hd"><h2>업로드</h2></div>
   <p class="muted">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다.</p>
   <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
-    <button type="button" data-kind="game">스위치 게임</button>
+    <button type="button" data-kind="game">패키지</button>
     <button type="button" data-kind="retro">레트로 롬</button>
     <button type="button" data-kind="patch">유저 패치</button>
     <button type="button" data-kind="save">세이브</button>

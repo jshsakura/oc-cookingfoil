@@ -85,14 +85,14 @@ test("store device lifecycle: pending → approve → revoke", async () => {
   assert.equal(snap.approved.length, 0);
 
   const hash = hashAccessKey("k");
-  store.approveDevice(VALID, { label: "friend switch", addedBy: "admin", accessKeyHash: hash });
+  store.approveDevice(VALID, { label: "friend console", addedBy: "admin", accessKeyHash: hash });
   assert.equal(store.isDeviceApproved(VALID), true);
   assert.equal(store.getDeviceAccessKeyHash(VALID), hash);
 
   snap = store.devicesSnapshot();
   assert.equal(snap.pending.length, 0, "approval clears the pending entry");
   assert.equal(snap.approved.length, 1);
-  assert.equal(snap.approved[0].label, "friend switch");
+  assert.equal(snap.approved[0].label, "friend console");
 
   assert.equal(store.revokeDevice(VALID), true);
   assert.equal(store.isDeviceApproved(VALID), false);

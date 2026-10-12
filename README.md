@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  A personal, self-hosted file server for Nintendo Switch homebrew.<br>
+  A personal, self-hosted homebrew file server.<br>
   Keeps your own files on your home network with names and icons, with first-class <b>CyberFoil</b> support and Tinfoil compatibility.
 </p>
 
@@ -16,18 +16,18 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
 </p>
 
-<p align="center"><a href="./README.ko.md">한국어</a></p>
+<p align="center"><a href="https://jshsakura.github.io/oc-cookingfoil/">Website</a> · <a href="./README.ko.md">한국어</a></p>
 
 <p align="center">
   <img src="docs/screenshots/preview-dark.png" alt="The dashboard's Preview tab, the same layout the CookingFoil client shows" width="900">
 </p>
 
 > [!IMPORTANT]
-> CookingFoil is an unofficial project and is not affiliated with, endorsed by, or sponsored by Nintendo. It ships **no software, no keys and no Nintendo content**; it only organises files you already have. Keep it on your own network, put only your own files in it, and keep your `prod.keys` to yourself. "Nintendo Switch" and "Nintendo eShop" are trademarks of Nintendo.
+> CookingFoil is an independent open-source project. It ships **no software, no keys, no firmware or BIOS files and no RetroArch build**: every one of those slots is empty until you fill it with files you already own. It only organises what you put in it. Keep it on your own network and keep your `prod.keys` to yourself.
 
 ## What it does
 
-Point it at a folder of your own Switch packages (`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`) and your Switch can browse and fetch them over your home network, the way a file manager would.
+Point it at a folder of your own packages (`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`) and your console can browse and fetch them over your home network, the way a file manager would.
 
 - **CyberFoil, natively.** Serves CyberFoil's sections API (`/api/shop/sections`) with names, icons, versions, sizes and required firmware.
 - **Tinfoil-compatible.** `shop.tfl` / `shop.json` work with Tinfoil-style clients. It is a drop-in replacement for [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat).
@@ -35,7 +35,7 @@ Point it at a folder of your own Switch packages (`.nsp` / `.nsz` / `.xci` / `.x
 - **Public metadata.** Optional review scores (Steam, IGDB), popularity order and artwork from public sources. Each can be turned off.
 - **Web dashboard.** Browse your files in four languages, with a preview of how the client home will look.
 - **Admin page.** Users, devices, lockouts and refused requests, featured rows, rescans and uploads. Signed in with an authenticator code or an admin password.
-- **RetroArch.** A ready-made RetroArch pack (Korean font, cores, settings), The Bezel Project overlays and your own files for it, which the CookingFoil client sets up in one go. Off until you create the retro folder; see [deploy/README.md](./deploy/README.md#7-optional-extras).
+- **RetroArch slot.** Serves the RetroArch pack, cores, BIOS files and content you place in the retro folder, plus public Bezel Project overlays, and the CookingFoil client sets them up in one go. Nothing is included: the folder starts empty and the feature stays off until you create it; see [deploy/README.md](./deploy/README.md#7-optional-extras).
 - **Save files.** Keep save data on the server for the CookingFoil client to restore, after it backs up the current one.
 - **User patches.** Keep mods for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to place and toggle on the SD card.
 
@@ -79,7 +79,7 @@ The image is `ghcr.io/jshsakura/oc-cookingfoil:latest`, built for every release.
 
 - **CyberFoil:** Settings, then *eShop URL* = your shop address. With accounts enabled, fill in *eShop username / password*: either your account, or better, a per-console login you create on the *Devices* page (`/pair`). A device login only reads the shop, locks to the first console that uses it, and can be revoked any time.
 - **Tinfoil-style clients:** *File Browser*, then `+`, then the address ending in `/shop.tfl`, with your username and password.
-- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Sign in to the shop on your phone, open *Devices* (`/pair`) and scan it with the camera, or type the 8-character device code; the console joins under your account with no password on the Switch. Or put a `config.json` at `sdmc:/switch/cookingfoil/config.json`. The admin page shows one when you create a user, and a signed-in browser can fetch it from `/api/client-config` (passwords and keys are never included).
+- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Sign in to the shop on your phone, open *Devices* (`/pair`) and scan it with the camera, or type the 8-character device code; the console joins under your account with no password on it. Or put a `config.json` at `sdmc:/switch/cookingfoil/config.json`. The admin page shows one when you create a user, and a signed-in browser can fetch it from `/api/client-config` (passwords and keys are never included).
 
 ## Configuration
 
@@ -95,7 +95,7 @@ Every setting is an environment variable with the `COOK_` prefix. [`.env.example
 | `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | Which language's name and description win when merging titledb |
 | `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 10 fallback regions | titledb region files to fetch |
 | `COOK_RATING_SYNC` | `true` | Steam review scores; add `COOK_IGDB_CLIENT_ID` / `_SECRET` for IGDB |
-| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | Nintendo eShop data (see below) |
+| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | Public store data (see below) |
 | `COOK_EXTRACT_ICONS` | `missing` | Read names/icons from the files: `missing`, `all` or `off` |
 
 ### What it connects to
@@ -105,9 +105,9 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | Service | Why | Turn off |
 |---|---|---|
 | `raw.githubusercontent.com` (blawar/titledb) | Names, descriptions, artwork URLs | `COOK_TITLEDB_AUTO_FETCH=false` |
-| Nintendo eShop CDN | Icons, banners, screenshots (cached on disk) | `COOK_ESHOP_ARTWORK=false` |
-| `api.ec.nintendo.com` | Store listing data | `COOK_ESHOP_PRICES=false` |
-| nintendo.com's public Algolia index | Popularity order | `COOK_ESHOP_POPULARITY=false` |
+| Public store artwork CDN | Icons, banners, screenshots (cached on disk) | `COOK_ESHOP_ARTWORK=false` |
+| Public store listing API | Store listing data | `COOK_ESHOP_PRICES=false` |
+| Public store search index | Popularity order | `COOK_ESHOP_POPULARITY=false` |
 | Steam store, IGDB | Review scores | `COOK_RATING_SYNC=false` |
 
 ## API for clients
@@ -124,7 +124,7 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | `GET /api/saves`, `/api/saves/:id/download` | Save files as a list and as ustar archives |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The CookingFoil client build in `data/client/` (version from its NACP, sha256) |
 | `POST /api/client/log` | A console's error log (text, 64 KB), kept in `data/client/logs/<device>/` |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | RetroArch files, bezels and the RetroArch base pack |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | Files from the retro folder, bezels and the operator's RetroArch base pack |
 
 A client should read `features` from `/api/shop/info` before using optional fields.
 

@@ -41,14 +41,14 @@ curl http://localhost:38000/healthz
 `http://<호스트>:38000/` 을 열고 계정으로 로그인합니다. 대시보드에 서버 주소와
 이름이 titledb·파일 내용·파일 이름 중 어디서 오는지, 무엇이 빠졌는지가 나옵니다.
 
-## 4. 스위치 연결
+## 4. 기기 연결
 
 - **CyberFoil:** 설정의 *eShop URL* = `http://<호스트>:38000/` 과 아이디·비밀번호. 계정을
-  나눠 쓰기보다 *기기 승인*(`/pair`) 화면에서 스위치마다 접속 정보를 만들어 넣습니다. 서버 읽기만
+  나눠 쓰기보다 *기기 승인*(`/pair`) 화면에서 기기마다 접속 정보를 만들어 넣습니다. 서버 읽기만
   되고 언제든 폐기할 수 있습니다.
 - **Tinfoil 계열:** *File Browser* → `+` → `http://<호스트>:38000/shop.tfl`.
 - **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 휴대폰으로 서버에 로그인해
-  *기기 승인*(`/pair`) 화면에서 스위치에 뜬 QR 을 찍거나 기기 코드를 입력합니다. 스위치에는
+  *기기 승인*(`/pair`) 화면에서 기기 화면의 QR 을 찍거나 기기 코드를 입력합니다. 기기에는
   비밀번호를 넣지 않습니다. 또는 관리 페이지에서 사용자를 만들면 보여 주는
   `config.json` 을 `sdmc:/switch/cookingfoil/config.json` 에 둡니다.
 
@@ -70,7 +70,7 @@ curl http://localhost:38000/healthz
 `loopback, uniquelocal` 로 두어야 비밀번호를 틀린 그 기기만 잠기고 프록시 뒤
 전원이 함께 잠기지 않습니다.
 
-스위치 앱은 Cloudflare Access 같은 브라우저 로그인 화면을 통과하지 못하므로,
+기기의 앱은 Cloudflare Access 같은 브라우저 로그인 화면을 통과하지 못하므로,
 서버 주소에는 서버 자체 계정(과 기기 페어링)을 쓰세요.
 
 ## 7. 선택 기능
@@ -107,7 +107,9 @@ curl http://localhost:38000/healthz
   ├── retroarch/                              retroarch.nro, retroarch.cfg, cores/, assets/, system/(바이오스)
   └── systems.json                            선택: 시스템의 코어를 바꾸거나 시스템을 더합니다
   ```
-  `<시스템>` 은 RetroArch 이름("Nintendo - Game Boy Advance", "Sony - PlayStation" 등),
+  여기 들어가는 것은 CookingFoil 에 하나도 포함돼 있지 않습니다. RetroArch, 코어, BIOS 파일,
+  콘텐츠는 모두 직접 넣고, 폴더는 비어 있는 채로 시작합니다.
+  `<시스템>` 은 RetroArch 이름("Sony - PlayStation", "Sega - Mega Drive - Genesis" 등),
   짧은 id(gba, ps1 등), 흔한 별칭(FC, SFC, MD, PS1, PSP) 중 무엇이든 되고 대소문자는 가리지
   않습니다. NES, SNES, GB, GBC, GBA, N64, NDS, 메가 드라이브, 메가 CD, 마스터 시스템, 게임 기어,
   새턴, PC 엔진, PC 엔진 CD, 플레이스테이션, PSP, 네오지오 포켓, 원더스완, 아케이드(FBNeo)를
@@ -124,9 +126,9 @@ curl http://localhost:38000/healthz
   `sdmc:/switch/retroarch_switch.nro` 로, `retroarch/` 의 나머지는 `sdmc:/retroarch/` 로 가고,
   `retroarch.cfg` 는 카드에 없을 때만 씁니다. 플레이스테이션은 `.chd`, `.pbp`, 또는 트랙 파일을
   옆에 둔 `.cue` 입니다.
-- **닌텐도 eShop 정보:** 가격, 인기 순위, 아트가 기본으로 켜져 있습니다.
+- **공개 상점 정보:** 가격, 인기 순위, 아트가 기본으로 켜져 있습니다.
   `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` 를 `false`
-  로 두면 닌텐도에 접속하지 않습니다.
+  로 두면 그 서비스에 접속하지 않습니다.
 
 ## 8. 업데이트와 백업
 

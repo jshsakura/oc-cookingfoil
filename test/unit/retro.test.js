@@ -65,7 +65,7 @@ test("disc lists name only files beside them", () => {
   assert.deepEqual(referencedFiles(".m3u", "#comment\nDisc 1.chd\n\nDisc 2.chd\n"), ["Disc 1.chd", "Disc 2.chd"]);
 });
 
-test("base pack files map onto the SD card, RetroArch itself into /switch", () => {
+test("base pack files map onto the SD card, RetroArch itself into its homebrew folder", () => {
   assert.equal(sdPathOf("retroarch.nro"), "switch/retroarch_switch.nro");
   assert.equal(sdPathOf("cores/mgba_libretro_libnx.nro"), "retroarch/cores/mgba_libretro_libnx.nro");
   assert.equal(sdPathOf("retroarch.cfg"), "retroarch/retroarch.cfg");
@@ -83,7 +83,7 @@ test("bezel configs follow the Bezel Project layout and keep the core's aspect r
   const cfg = gameCfg(game, systems.snes);
   for (const line of ['video_aspect_ratio_auto = "true"', 'input_overlay_enable = "true"',
     'input_overlay = "/retroarch/overlays/GameBezels/SNES/Super Mario World (USA).cfg"']) assert.ok(cfg.includes(line), line);
-  assert.ok(!cfg.includes("custom_viewport"), "no fixed pixel viewport: the Switch is 720p handheld and 1080p docked");
+  assert.ok(!cfg.includes("custom_viewport"), "no fixed pixel viewport: the console runs 720p handheld and 1080p docked");
   assert.match(overlayCfg(game), /overlay0_overlay = "Super Mario World \(USA\)\.png"/);
 });
 
@@ -197,7 +197,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const tile = await get(smw.iconUrl);
     assert.equal(tile.headers.get("content-type"), "image/jpeg");
     const meta = await sharp(Buffer.from(await tile.arrayBuffer())).metadata();
-    assert.deepEqual([meta.width, meta.height], [256, 256], "a square tile for the Switch, whatever the cover's shape");
+    assert.deepEqual([meta.width, meta.height], [256, 256], "a square tile for the client, whatever the cover's shape");
     assert.match(smw.iconUrl, /\?v=[0-9a-f]{12}$/);
     assert.equal(tile.headers.get("cache-control"), "public, max-age=31536000, immutable", "a versioned tile is cached for good");
     assert.ok(tile.headers.get("etag"));
@@ -268,7 +268,7 @@ test("NDS, Neo Geo Pocket, WonderSwan and Saturn folders are read under any of t
   assert.equal(systemForFolder(systems, "WSC"), "ws");
   assert.equal(systemForFolder(systems, "SS"), "saturn");
   assert.equal(systemForFolder(systems, "Sega - Saturn"), "saturn");
-  assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core on the Switch");
+  assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core for the console");
   assert.equal(systems.nds.core, "melonds");
   assert.equal(systemForFolder(systems, "Sega - Mega-CD - Sega CD"), "segacd");
   assert.equal(systemForFolder(systems, "PCECD"), "pcecd");

@@ -40,7 +40,7 @@ announced in `/api/shop/info` → `features`.
 | File name | `filename-parser.js` | Title id, version, content type; always available |
 | blawar/titledb | `titledb-fetcher.js`, `titledb-store.js`, `titledb-versions.js` | Names, descriptions, artwork URLs, release dates, update history, per region and language |
 | Package file (NACP) | `nacp-extractor.js`, `extract-providers/` | Name, publisher and icons (per language) for titles titledb lacks; needs `prod.keys` and nstool |
-| Nintendo eShop | `eshop-price.js`, `eshop-popularity.js`, `image-cache.js` | Prices, popularity order, artwork (cached) |
+| Public store data | `eshop-price.js`, `eshop-popularity.js`, `image-cache.js` | Prices, popularity order, artwork (cached) |
 | Steam / IGDB | `rating-sync.js` | Review scores, matched by English name (similarity ≥ 0.9, sequel numbers must agree) |
 | oc-scraper (optional) | `scraper-ratings.js` | Extra review scores |
 | Operator | `custom-entries.js`, `custom-art.js`, `featured.js` | Extra entries, uploaded artwork, featured rows |
@@ -73,4 +73,4 @@ shop-cache/     the last built shop index
 
 - `test/unit`: node:test, no network (fetch is injected).
 - `test/web`: Playwright against a local server with fixture data.
-- `test/switch`: Playwright as a Switch client (auth, shop listing, icons).
+- `test/client`: Playwright as a console client (auth, shop listing, icons).

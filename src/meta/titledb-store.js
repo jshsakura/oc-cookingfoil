@@ -54,7 +54,7 @@ const state = {
 };
 
 // eShop CDN artwork is the practical cross-region join key. The same game
-// released in another country gets a DIFFERENT title id but Nintendo serves
+// released in another country gets a DIFFERENT title id but the eShop serves
 // the SAME asset hash for its icon/banner, so the art URL links the two.
 const ART_FIELDS = ["iconUrl", "bannerUrl"];
 
@@ -195,7 +195,7 @@ export async function load() {
       });
     }
 
-    // blawar/titledb top-level keys are nsuIds (eShop ids). The actual Switch
+    // blawar/titledb top-level keys are nsuIds (eShop ids). The actual console
     // title id is in entry.id. Key the merged DB by entry.id so lookups from
     // filename-parsed title ids work.
     let count = 0;

@@ -50,7 +50,7 @@ const BEZEL_SOURCES = {
   ngp: [["bezelproject-NGPC", "NGP", "SNK-Neo-Geo-Pocket-Color"]],
   ws: [["bezelproject-WonderSwanColor", "WonderSwanColor", "Bandai-WonderSwan—Color-Horizontal"]],
   arcade: [["bezelproject-MAME", "MAME", "MAME-Horizontal"]],
-  // psp: none. Its 16:9 screen fills the Switch's, so there is nothing to frame.
+  // psp: none. Its 16:9 screen fills the console's, so there is nothing to frame.
 };
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");

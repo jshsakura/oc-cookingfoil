@@ -49,7 +49,7 @@ test("pairing-only: warns that stock Tinfoil cannot connect", () => {
 });
 
 test("both lanes: no pairing-only warning, basic-auth user count reported", () => {
-  const r = runProbe({ COOK_DEVICE_PAIRING: "true", COOK_AUTH_USERS: "switch:foil,friend:pass" });
+  const r = runProbe({ COOK_DEVICE_PAIRING: "true", COOK_AUTH_USERS: "console:foil,friend:pass" });
 
   assert.equal(r.lanes.pairingOnly, false, "content guard must stay out of the way");
   assert.equal(r.lanes.basicAuth.enabled, true);
@@ -59,7 +59,7 @@ test("both lanes: no pairing-only warning, basic-auth user count reported", () =
 });
 
 test("basic-auth only: no warnings about lanes at all", () => {
-  const r = runProbe({ COOK_AUTH_USERS: "switch:foil" });
+  const r = runProbe({ COOK_AUTH_USERS: "console:foil" });
 
   assert.equal(r.lanes.pairing.enabled, false);
   assert.equal(r.lanes.basicAuth.enabled, true);
@@ -73,7 +73,7 @@ test("no auth configured at all: warns the server is open", () => {
 });
 
 test("an auto-provisioned admin secret reports as unenrolled and warns", () => {
-  const r = runProbe({ COOK_AUTH_USERS: "switch:foil" });
+  const r = runProbe({ COOK_AUTH_USERS: "console:foil" });
 
   assert.equal(r.lanes.admin.enabled, true, "/admin must always exist so approvals are possible");
   assert.equal(r.lanes.admin.secretSource, "generated");
@@ -105,7 +105,7 @@ test("a malformed admin email is rejected rather than shown as-is", () => {
 
 test("an operator-supplied COOK_ADMIN_TOTP_SECRET counts as already enrolled", () => {
   const r = runProbe({
-    COOK_AUTH_USERS: "switch:foil",
+    COOK_AUTH_USERS: "console:foil",
     COOK_ADMIN_TOTP_SECRET: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
   });
 

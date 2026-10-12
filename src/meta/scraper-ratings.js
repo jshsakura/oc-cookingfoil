@@ -1,7 +1,7 @@
 /**
  * Review scores for base games, read from oc-scraper (COOK_RATINGS_URL), which
  * already collects Steam, IGDB and RAWG ratings per post and keeps them with
- * vote counts and a match confidence. Its /api/games list carries the Switch
+ * vote counts and a match confidence. Its /api/games list carries the console
  * title ids of each post, so scores are matched by title id, never by name.
  *
  * Kept conservative, like oc-scraper's own "best" lists:

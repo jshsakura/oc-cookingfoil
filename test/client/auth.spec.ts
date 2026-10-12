@@ -1,4 +1,4 @@
-import { test, expect } from '../switch.setup';
+import { test, expect } from '../client.setup';
 
 test.describe('Authorization and authentication', () => {
 
@@ -17,11 +17,11 @@ test.describe('Authorization and authentication', () => {
     expect(shopPageData).toBe('No tricks and treats for you!!');
   });
 
-  test('Allow access for authenticated switch', async ({ nxPage }) => {
-    const homePageResponse = await nxPage.request.get(`/`);
+  test('Allow access for an authenticated console', async ({ consolePage }) => {
+    const homePageResponse = await consolePage.request.get(`/`);
     expect(homePageResponse.ok()).toBeTruthy();
 
-    const shopResponse = await nxPage.request.get(`/shop.json`);
+    const shopResponse = await consolePage.request.get(`/shop.json`);
     expect(shopResponse.ok()).toBeTruthy();
     const shopPageData = await shopResponse.json()
     expect(shopPageData.success).toBe('The Server Works!!');

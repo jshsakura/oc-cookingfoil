@@ -7,7 +7,7 @@
  *   romfs/nextNroPath   sdmc:/retroarch/cores/<core>_libretro_libnx.nro
  *   romfs/nextArgv      that path, then the ROM's SD path in quotes
  *   control/control.nacp, control/icon_AmericanEnglish.dat (the 256-px square cover)
- * packed by hacBrewPack with the console keys. On the Switch, every core NRO
+ * packed by hacBrewPack with the console keys. On the console, every core NRO
  * is a whole RetroArch, so the core is what gets launched, not retroarch_switch.nro.
  *
  * Title IDs are 05 + 44 bits of sha256(game id) + 000: the same game always

@@ -1,4 +1,4 @@
-// Small titledb fields the Switch client sorts its home rows by. Only sane
+// Small titledb fields the client app sorts its home rows by. Only sane
 // values are emitted so the sections payload stays lean and trustworthy.
 const MAX_PLAYERS = 64;
 

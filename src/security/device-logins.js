@@ -25,7 +25,7 @@ import * as users from "./users.js";
 const DIR = path.join(dataDir, "security");
 const FILE = path.join(DIR, "device-logins.json");
 export const NAME_PREFIX = "cf-";
-// Easy to read off a phone and type on the Switch keyboard: no 0/o, 1/l/i.
+// Easy to read off a phone and type on the console keyboard: no 0/o, 1/l/i.
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 const NAME_CHARS = 6;
 const PASSWORD_CHARS = 12; // 31^12, about 2^59

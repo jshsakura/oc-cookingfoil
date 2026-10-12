@@ -21,7 +21,7 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   await page.locator('#code').fill(await generate({ secret:'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU' }));
   await page.getByRole('button', { name:'인증합니다', exact:true }).click();
   await expect(page.locator('#approve')).toBeVisible();
-  await page.locator('#label').fill('Nintendo Switch');
+  await page.locator('#label').fill('Living room');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path:'out/web/pairing-confirm-mobile.png' });
   await page.getByRole('button', { name:'이 기기를 연결합니다', exact:true }).click();

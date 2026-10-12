@@ -18,7 +18,7 @@ beforeEach(() => bridge.resetForTests());
 test.after(() => server.close());
 
 async function start() {
-  const r = await post("/v1/sessions/start", { device_id: "switch-1" });
+  const r = await post("/v1/sessions/start", { device_id: "console-1" });
   assert.equal(r.status, 200);
   return r.json();
 }

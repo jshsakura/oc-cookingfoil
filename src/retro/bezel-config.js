@@ -33,7 +33,7 @@ export function overlayCfg(game) {
 
 /**
  * Per-game RetroArch config: the bezel around a picture in the core's own
- * aspect ratio (4:3 for home consoles, 3:2 for the GBA, …). The Switch draws
+ * aspect ratio (4:3 for home consoles, 3:2 for the GBA, …). The console draws
  * 720p handheld and 1080p docked, so a fixed pixel viewport would only fit one
  * of them; The Bezel Project's images are cut for the core's aspect ratio.
  */

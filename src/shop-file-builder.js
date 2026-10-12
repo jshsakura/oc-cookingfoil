@@ -49,7 +49,7 @@ export default function shopFileBuilder() {
       res.header("Content-Encoding", payload.contentEncoding);
       res.header("Vary", "Accept-Encoding");
     }
-    // ETag enables conditional GET — repeat visitors (and Switch clients
+    // ETag enables conditional GET — repeat visitors (and console clients
     // hitting /shop.tfl on every dashboard open) receive 304 + 0 bytes
     // when the library hasn't changed. Express's `req.fresh` checks the
     // current res ETag against the incoming If-None-Match for us.

@@ -42,7 +42,7 @@ button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(
 function form(t, { withCode, code }) {
   return `<form id="approve" novalidate>
 ${withCode ? `<label for="code">${t.codeLabel}</label><input id="code" name="code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="latin" placeholder="A1B2C3D4" required><p class="hint">${t.codeHint}</p>` : `<strong class="device-code">${escapeHtml(code)}</strong>`}
-<label for="label">${t.nameLabel} <span>${t.optional}</span></label><input id="label" name="label" maxlength="64" placeholder="Nintendo Switch" autocomplete="off">
+<label for="label">${t.nameLabel} <span>${t.optional}</span></label><input id="label" name="label" maxlength="64" placeholder="${t.namePlaceholder}" autocomplete="off">
 <button type="submit">${t.approve}</button></form>`;
 }
 
@@ -85,7 +85,7 @@ ${logins ? loginsSection(t) : ""}${mineSection(t)}`;
 function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
     "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr", "kindLogin",
-    "notUsed", "connected", "revoke", "revokeConfirm", "errCreate"];
+    "notUsed", "connected", "revoke", "revokeConfirm", "errCreate", "unnamed"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
@@ -142,7 +142,7 @@ const mine=document.getElementById('mine'),newLogin=document.getElementById('new
 const post=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body||{})});
 const when=(ms)=>ms?new Date(ms).toLocaleString(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}):null;
 function row(item){const li=document.createElement('li');const info=document.createElement('div');
-  const name=document.createElement('strong');name.textContent=item.label||(item.kind==='login'?item.name:'Nintendo Switch');
+  const name=document.createElement('strong');name.textContent=item.label||(item.kind==='login'?item.name:T.unnamed);
   const meta=document.createElement('span');meta.className='hint';
   meta.textContent=item.kind==='login'?[T.kindLogin+' · '+item.name,item.locked?T.connected:T.notUsed].join(' · '):[T.kindQr,when(item.addedAt)].join(' · ');
   info.append(name,meta);const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.revoke;

@@ -31,7 +31,7 @@ import * as titledbVersions from "../meta/titledb-versions.js";
 import * as userPatches from "../meta/user-patches.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
-// The detail must not wait on Nintendo; a slow price is simply left out.
+// The detail must not wait on the price endpoint; a slow price is simply left out.
 const PRICE_WAIT_MS = 3000;
 const MAX_RATING_REASONS = 8;
 

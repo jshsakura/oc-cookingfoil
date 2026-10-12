@@ -1,8 +1,8 @@
-import { test, expect } from '../switch.setup';
+import { test, expect } from '../client.setup';
 
 test.describe('Roms and homebrews listing', () => {
-  test('Shop.json lists scanned game files with name + size + icon_url', async ({ nxPage }) => {
-    const response = await nxPage.request.get(`/shop.json`);
+  test('Shop.json lists scanned game files with name + size + icon_url', async ({ consolePage }) => {
+    const response = await consolePage.request.get(`/shop.json`);
     expect(response.ok()).toBeTruthy();
 
     const shop = await response.json();
@@ -43,20 +43,20 @@ test.describe('Roms and homebrews listing', () => {
     expect(shop.titledb).toBeUndefined();
   });
 
-  test('Icon endpoint 404s with no-store when the asset is not yet on disk', async ({ nxPage }) => {
+  test('Icon endpoint 404s with no-store when the asset is not yet on disk', async ({ consolePage }) => {
     // Tinfoil and other embedded HTTP clients memoize icon responses by
     // URL; serving a 200 + 1×1 transparent PNG looked like a successful
     // fetch and pinned the placeholder forever, so a later NACP extraction
     // filling in the real bytes never made it to the screen. 404 +
     // Cache-Control: no-store is the new contract: clients render their
     // own 'no icon' placeholder and re-fetch on the next shop refresh.
-    const response = await nxPage.request.get('/api/shop/icon/05000000AB000000');
+    const response = await consolePage.request.get('/api/shop/icon/05000000AB000000');
     expect(response.status()).toBe(404);
     expect(response.headers()['cache-control']).toBe('no-store');
   });
 
-  test('Icon endpoint rejects bogus titleIds', async ({ nxPage }) => {
-    const response = await nxPage.request.get('/api/shop/icon/notreallyhex');
+  test('Icon endpoint rejects bogus titleIds', async ({ consolePage }) => {
+    const response = await consolePage.request.get('/api/shop/icon/notreallyhex');
     expect(response.status()).toBe(400);
   });
 });
