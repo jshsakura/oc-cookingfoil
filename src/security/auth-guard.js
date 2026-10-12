@@ -12,6 +12,7 @@
  *
  * Successful auth clears the failure counter for that IP.
  */
+import crypto from "crypto";
 import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
 import { unauthorizedMessage, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
@@ -214,13 +215,28 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
   const login = deviceLogins.has(name);
   const ok = await (login ? deviceLogins.verifyAsync(name, password) : users.verifyAsync(name, password));
   if (!ok) {
-    if (!isLoopback(ip)) recordFailure(ip, req);
+    if (!isLoopback(ip) && !repeatedPoll(ip, req.headers.authorization)) recordFailure(ip, req);
     return false;
   }
   store.clearFailure(ip);
   if (login && deviceLogins.claim(name, deviceKey) === "other-console") return false;
   if (approveSignedInDevice(deviceKey, name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), name);
   return true;
+}
+
+// A console polls its pairing status every few seconds with whatever account it
+// saved. A stale password would lock the address in seconds, so the same wrong
+// credentials from one address count once a window; a new guess still counts.
+const POLL_WINDOW_MS = 15 * 60 * 1000;
+const POLL_SEEN_MAX = 1000;
+const seenPolls = new Map();
+export function repeatedPoll(ip, authorization, now = Date.now()) {
+  const key = `${ip}\0${crypto.createHash("sha256").update(String(authorization)).digest("hex")}`;
+  const last = seenPolls.get(key);
+  seenPolls.delete(key);
+  seenPolls.set(key, now);
+  if (seenPolls.size > POLL_SEEN_MAX) seenPolls.delete(seenPolls.keys().next().value);
+  return last !== undefined && now - last < POLL_WINDOW_MS;
 }
 
 /** Owner ids are an account name, or "google:<sub>" for a Google admin. */
