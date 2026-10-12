@@ -3,8 +3,8 @@
  * instead of printing the raw tags ("[J-K v20221128 v1.1]") in the list.
  *
  *   korean   true when the game is in Korean
- *   source   "official" a Korean release, "patch" a Korean fan translation,
- *            "unofficial" an unlicensed release
+ *   source   "official" released in Korean (unlicensed Korean carts too),
+ *            "patch" a Korean fan translation
  *   from     the region a translation was made from: "jp", "us"
  *   version  the patch version, "v1.1"
  *
@@ -21,12 +21,11 @@ export function editionOf(tags) {
   const patched = Boolean(pair) || /(?:^|\s)K(?:\s|$)|한글|\bko(?:-|\b)|\bKorean Translation\b|\bHangul\b/i.test(s);
   const released = /\bKorea\b|\bKorean release\b/i.test(s);
   if (!patched && !released) return null;
-  const unofficial = /\bUnl\b/i.test(s);
   const version = [...s.matchAll(/\bv\d[\w.-]*/g)].map((m) => m[0]).pop() ?? null;
   const from = pair && FROM[pair[1]];
   return {
     korean: true,
-    source: unofficial ? "unofficial" : released && !patched ? "official" : "patch",
+    source: released && !patched ? "official" : "patch",
     ...(from ? { from } : {}),
     ...(version ? { version } : {}),
   };
