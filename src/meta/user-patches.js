@@ -49,6 +49,15 @@ export function patchId(titleId, folder) {
 }
 
 /**
+ * A game's other programs (program index 1-F, e.g. the second game of a
+ * collection) share its title id except for the last hex digit. Updates and
+ * DLC differ further up, so they never match. Pure.
+ */
+function ownsProgram(dir, tid) {
+  return /^[0-9a-f]{16}$/.test(dir) && dir.slice(0, 15) === tid.slice(0, 15);
+}
+
+/**
  * The kind a file adds ("cheats", …), "" for an allowed file of no listed
  * kind, or null when the path is outside what the game owns. Pure.
  */
@@ -57,7 +66,7 @@ export function kindOf(relPath, titleId) {
   if (parts.some((p) => !p || p === "." || p === ".." || p.includes("\\") || p.includes("\0"))) return null;
   const lower = parts.map((p) => p.toLowerCase());
   const tid = titleId.toLowerCase();
-  if (lower[0] === "atmosphere" && lower[1] === "contents" && lower[2] === tid && parts.length >= 4) {
+  if (lower[0] === "atmosphere" && lower[1] === "contents" && ownsProgram(lower[2], tid) && parts.length >= 4) {
     return ["romfs", "exefs", "cheats"].includes(lower[3]) && parts.length >= 5 ? lower[3] : "";
   }
   if (lower[0] === "atmosphere" && lower[1] === "exefs_patches" && parts.length >= 4) return "exefs_patches";
