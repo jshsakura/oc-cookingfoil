@@ -40,7 +40,7 @@ import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
-import { createTracker, installPathFor, scanManual } from "../meta/homebrew.js";
+import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 
@@ -50,6 +50,7 @@ const MANUAL_STALE_MS = 30_000;
 const MANUAL_RESCAN_MS = 60_000; // keeps the "homebrew" feature flag current
 
 let tracker = null;
+setManualHashFile(path.join(dataDir, "homebrew", "manual-hashes.json"));
 let manual = { at: 0, entries: [] };
 let manualScan = null;
 
@@ -70,9 +71,13 @@ export function refreshManual() {
   return manualScan;
 }
 
-/** Hand-placed apps, rescanned when the last scan is older than 30 seconds. */
+/**
+ * Hand-placed apps. Only the very first scan is waited for; after that a stale
+ * list (older than 30 seconds) is answered at once while a rescan runs behind it.
+ */
 async function manualEntries() {
-  if (Date.now() - manual.at > MANUAL_STALE_MS) await refreshManual();
+  if (!manual.at) await refreshManual();
+  else if (Date.now() - manual.at > MANUAL_STALE_MS) refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   return manual.entries;
 }
 

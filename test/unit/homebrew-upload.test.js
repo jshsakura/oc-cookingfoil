@@ -121,3 +121,30 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     server.kill();
   }
 });
+
+test("a hand-placed app's file hashes are remembered on disk, so a restart doesn't read them again", async () => {
+  const { scanManual, setManualHashFile } = await import("../../src/meta/homebrew.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-hash-"));
+  const app = path.join(root, "apps", "big");
+  fs.mkdirSync(path.join(app, "data"), { recursive: true });
+  fs.writeFileSync(path.join(app, "big.nro"), fakeNro("Big"));
+  fs.writeFileSync(path.join(app, "data", "x.bin"), "X");
+  fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "big.nro", mode: "folder" }));
+  const hashFile = path.join(root, "hashes.json");
+  setManualHashFile(hashFile);
+  const [first] = await scanManual(path.join(root, "apps"));
+  assert.deepEqual([first.install_dir, first.files.map((f) => f.path)], ["switch/big", ["switch/big/big.nro", "switch/big/data/x.bin"]]);
+  const saved = JSON.parse(fs.readFileSync(hashFile, "utf8"));
+  assert.equal(Object.keys(saved).length, 2);
+  // A fresh process: the hash comes from the file, not from reading x.bin (planted to prove it).
+  const xbin = path.join(app, "data", "x.bin");
+  saved[xbin].hash = "remembered";
+  fs.writeFileSync(hashFile, JSON.stringify(saved));
+  setManualHashFile(hashFile);
+  const [again] = await scanManual(path.join(root, "apps"));
+  assert.equal(again.files.find((f) => f.path === "switch/big/data/x.bin").sha256, "remembered");
+  // A file gone is forgotten.
+  fs.rmSync(xbin);
+  await scanManual(path.join(root, "apps"));
+  assert.equal(Object.keys(JSON.parse(fs.readFileSync(hashFile, "utf8"))).length, 1);
+});
