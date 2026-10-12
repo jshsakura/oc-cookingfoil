@@ -22,7 +22,7 @@
  *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
  *                                                X-Retro-Once lists the files to skip when already on the card
  *
- * G = { id, name, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
+ * G = { id, name, names?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
@@ -147,6 +147,8 @@ function publicGame(g, systems) {
     name: withoutTags(g.name),
     ...(variant ? { variant } : {}),
     ...(g.original ? { original: g.original } : {}),
+    // Arcade sets: the title in each language ({ en, ko, ja?, zh? }).
+    ...(g.names ? { names: g.names } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     file: g.file,

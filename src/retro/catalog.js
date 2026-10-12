@@ -35,6 +35,7 @@ import path from "path";
 import debug from "../debug.js";
 import { loadSystems, systemForFolder } from "./systems.js";
 import { assignSdNames } from "./sd-names.js";
+import { applyArcade } from "./arcade.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -271,7 +272,7 @@ async function addExtras(dir, games) {
     const map = maps.get(g.system);
     // A multi-disc game is listed by its folded name; its first disc carries the mapping.
     const firstDisc = g.m3u ? path.basename(g.extras[0]?.rel ?? "", path.extname(g.extras[0]?.rel ?? "")) : null;
-    g.original = originalOf(map, g.name) ?? (firstDisc && originalOf(map, firstDisc));
+    g.original = originalOf(map, g.name) ?? (firstDisc && originalOf(map, firstDisc)) ?? g.original;
     const r = ratings[g.system]?.[g.name] ?? (firstDisc && ratings[g.system]?.[firstDisc]);
     if (Number.isInteger(r?.rating) && r.rating >= 0 && r.rating <= 100) {
       g.rating = r.rating;
@@ -305,7 +306,12 @@ export async function scanDir(dir) {
         if (game) found.push(game);
       }
       const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
-      const own = found.filter((g) => !claimed.has(g.rel));
+      let own = found.filter((g) => !claimed.has(g.rel));
+      // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
+      if (system.core === "fbneo") {
+        own = applyArcade(own);
+        for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
+      }
       games.push(...bestFormats(await groupDiscs(own, { systemId, romsDir, art })));
     }
   }

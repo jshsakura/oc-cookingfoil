@@ -142,7 +142,8 @@ export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "u
 export async function assignSdNames(games, readText) {
   const groups = new Map();
   for (const g of games) {
-    const base = sdStem(g.name) || g.id;
+    // An arcade set must keep its short name (sf2.zip): the core finds it by that name.
+    const base = g.keepFileName ? path.basename(g.rel, path.extname(g.rel)) : sdStem(g.name) || g.id;
     const key = `${g.system}\0${base.toLowerCase()}`;
     groups.set(key, [...(groups.get(key) ?? []), { g, base }]);
   }
