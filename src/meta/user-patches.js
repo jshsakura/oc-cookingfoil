@@ -94,9 +94,14 @@ export function kindOf(relPath, titleId) {
   return null;
 }
 
-/** patch.json fields as trimmed, length-capped strings; anything else dropped. Pure. */
+/**
+ * patch.json fields as trimmed, length-capped strings; anything else dropped.
+ * `required: true` marks a patch the game does not start without (its data
+ * shipped apart from the package). Pure.
+ */
 export function readMeta(raw) {
   const out = {};
+  if (raw?.required === true) out.required = true;
   for (const [key, max] of Object.entries(FIELD_MAX)) {
     const v = raw?.[key];
     if (typeof v === "string" || typeof v === "number") {
@@ -174,6 +179,7 @@ async function readHomebrewPatch(root, app, folder) {
       game_version: meta.game_version ?? null,
       author: meta.author ?? null,
       description: meta.description ?? null,
+      required: meta.required === true,
       kinds: ["homebrew"],
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
@@ -215,6 +221,7 @@ export async function readPatch(root, tidDir, folder) {
       game_version: meta.game_version ?? null,
       author: meta.author ?? null,
       description: meta.description ?? null,
+      required: meta.required === true,
       kinds: KIND_ORDER.filter((k) => kinds.has(k)),
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
@@ -371,7 +378,8 @@ export async function list(scanOptions = {}) {
 }
 
 function publicFields({ dir: _dir, folder: _folder, ...p }) {
-  return p;
+  // A listing cached before `required` existed reads as not required.
+  return { ...p, required: p.required === true };
 }
 
 export function forTitle(titleId) {

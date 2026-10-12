@@ -77,6 +77,7 @@ form.up{display:grid;gap:12px;background:var(--panel);border:1px solid var(--lin
 form.up[hidden]{display:none}
 form.up label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 form.up label[hidden]{display:none}
+form.up label.check,td label.check{display:flex;gap:8px;align-items:center;color:var(--text)}
 form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:72px;resize:vertical}
 .bar{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
@@ -277,6 +278,9 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <div class="cards" id="lib-cards"></div>
+  <h2>게임 패치</h2>
+  <p class="muted">이 패치 없이는 게임이 실행되지 않으면 필수로 표시합니다. 기기는 게임 상세에서 함께 설치해야 하는 패치로 보여 줍니다.</p>
+  <div class="scroll" id="lib-patches"></div>
   <h2>서버 설정</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>
@@ -329,6 +333,7 @@ ${RETRO_ART_HTML}
     <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="예: 마리오 카트 8 디럭스 또는 0100152000022000"></label>
     <datalist id="up-games"></datalist>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
+    <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
     <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
     <details class="up-more" id="up-desc-l" hidden><summary>설명 넣기 (선택)</summary>
       <label>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
