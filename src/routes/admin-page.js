@@ -34,6 +34,7 @@ import * as deviceLogins from "../security/device-logins.js";
 import { mountManageApi } from "./admin/manage-api.js";
 import { mountAccountsApi } from "./admin/accounts-api.js";
 import { mountClientLogsApi } from "./admin/client-logs-api.js";
+import { mountHomebrewApi } from "./admin/homebrew-api.js";
 import { adminActor, mayAdminister } from "../security/admin-actor.js";
 import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
@@ -325,6 +326,7 @@ export default function adminPageRouter() {
   mountManageApi(router, requireSession);
   mountAccountsApi(router, requireSession);
   mountClientLogsApi(router, requireSession);
+  mountHomebrewApi(router, requireSession);
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
 

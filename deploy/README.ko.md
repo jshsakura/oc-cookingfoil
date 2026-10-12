@@ -84,8 +84,10 @@ curl http://localhost:38000/healthz
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) 와 선택 `patch.json`
   (`name`, `version`, `game_version`, `author`, `description`). 이 경로 밖의 파일이
   하나라도 있으면 그 패치는 건너뜁니다.
-- **홈브류(CookingFoil 클라이언트):** `COOK_HOMEBREW_REPOS=owner/name,…` 에 GitHub 저장소를
-  적으면 릴리스를 따라갑니다(예: `murat303/ytb-player`). 저장소마다 최대 3시간에 한 번 조건부
+- **홈브류(CookingFoil 클라이언트):** 관리 페이지의 *홈브류* 탭에서 GitHub 저장소를 추가합니다(추천 목록에서
+  고르거나 주소를 붙여 넣습니다). 목록은 `data/homebrew/sources.json` 에 두고, `COOK_HOMEBREW_REPOS=owner/name,…`
+  는 처음 시작할 때 목록을 채우는 데만 씁니다. 릴리스에는 `.nro` 나 `.nro` 가 든 `.zip` 이 있으면 되고, 파일이
+  여럿이면 그 탭에서 쓸 것을 고릅니다. 저장소마다 최대 3시간에 한 번 조건부
   요청으로 확인하고, 새 릴리스는 바로 알리되 `.nro` 는 기기가 처음 받을 때 내려받아
   `data/homebrew/` 에 둡니다. GitHub 에 없는 앱은 `/homebrew` 에 읽기 전용으로 마운트한 폴더에
   `<앱>/<앱>.nro` 로 넣습니다. `COOK_GITHUB_TOKEN` 은 선택이며 GitHub 의 시간당 한도만 늘립니다.

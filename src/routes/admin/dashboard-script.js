@@ -34,13 +34,14 @@ async function api(url,opts={}){
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
-const TABS=['overview','users','devices','settings','logs','featured','library','upload'];
+const TABS=['overview','users','devices','settings','logs','featured','library','upload','homebrew'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
   if(tab==='settings'){loadTfa();loadGoogle();}
   if(tab==='logs')loadClientLogs();
+  if(tab==='homebrew')loadHomebrew();
   if(tab==='featured')loadFeatured();
   if(tab==='upload')loadUpload();}
 addEventListener('hashchange',showTab);
@@ -225,6 +226,55 @@ async function revoke(deviceKey){if(!confirm('이 기기의 접근 키를 회수
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function renameDevice(deviceKey,label){const next=prompt('이 기기의 이름을 정합니다',label||'');if(next===null)return;
   try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 바꿨습니다.');loadDevices();}catch(err){toast(err.message);}}
+
+// ── homebrew ──────────────────────────────────────────────────────────
+const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
+async function loadHomebrew(){
+  const d=await api('/admin/api/homebrew');
+  const reco=$('hb-reco');reco.replaceChildren();
+  for(const r of d.recommended||[]){const l=el('label');const c=el('input');c.type='checkbox';c.value=r.repo;c.disabled=r.added;
+    l.classList.toggle('added',r.added);const t=el('div');t.append(el('b',r.repo),el('span',(r.purpose.ko||r.purpose.en)+(r.added?' · 추가됨':'')));
+    l.append(c,t);reco.append(l);}
+  table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],(d.sources||[]).map((s)=>{const tr=el('tr');
+    const name=td();const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';name.append(a);
+    tr.append(name,td(s.cached?.version||s.tag||'—'));
+    const file=td();
+    if((s.assets||[]).length>1||s.pattern){const sel=el('select');sel.setAttribute('aria-label','쓸 파일');
+      const auto=el('option','자동 ('+(s.chosen||'없음')+')');auto.value='';sel.append(auto);
+      for(const n of s.assets){const o=el('option',n);o.value=n;sel.append(o);}
+      if(s.pattern&&!s.assets.includes(s.pattern)){const o=el('option',s.pattern);o.value=s.pattern;sel.append(o);}
+      sel.value=s.pattern||'';sel.addEventListener('change',()=>setHbAsset(s.repo,sel.value));file.append(sel);}
+    else file.textContent=s.chosen||'—';
+    tr.append(file);
+    const st=td();
+    if(s.error){st.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
+    else if(s.cached)st.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
+    else st.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
+    tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
+    const act=td();const box=el('div',null,'row-actions');
+    box.append(btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
+    '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
+  table('hb-manual',['이름','버전','파일','크기'],(d.manual||[]).map((m)=>{const tr=el('tr');
+    tr.append(td(m.name||'—'),td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));return tr;}),'직접 넣은 앱이 없습니다.');}
+async function addHbRecommended(repos){
+  if(!repos.length){toast('추가할 것을 고릅니다.');return;}
+  try{const r=await api('/admin/api/homebrew/recommended',{method:'POST',body:{repos}});
+    toast(r.added.length+'개를 추가했습니다. 첫 빌드를 받는 동안 잠시 걸립니다.');loadHomebrew();setTimeout(loadHomebrew,8000);}catch(err){toast(err.message);}}
+$('hb-add-picked').addEventListener('click',()=>addHbRecommended([...document.querySelectorAll('#hb-reco input:checked')].map((c)=>c.value)));
+$('hb-add-all').addEventListener('click',()=>{if(!confirm('추천 홈브류를 모두 추가합니다.'))return;
+  addHbRecommended([...document.querySelectorAll('#hb-reco input:not(:disabled)')].map((c)=>c.value));});
+$('hb-add').addEventListener('submit',async(e)=>{e.preventDefault();const b=e.submitter;if(b)b.disabled=true;
+  try{const s=await api('/admin/api/homebrew',{method:'POST',body:{repo:$('hb-repo').value,asset:$('hb-asset').value}});
+    $('hb-repo').value='';$('hb-asset').value='';toast(s?.error?'추가했지만 확인하지 못했습니다: '+s.error.message:'추가했습니다.');loadHomebrew();}
+  catch(err){toast(err.message);}finally{if(b)b.disabled=false;}});
+async function setHbAsset(repo,asset){
+  try{const s=await api('/admin/api/homebrew/asset',{method:'POST',body:{repo,asset}});toast(s?.error?s.error.message:'쓸 파일을 바꿨습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+async function checkHb(repo){
+  try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});toast(s?.error?s.error.message:'확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+$('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;
+  try{await api('/admin/api/homebrew/check',{method:'POST',body:{}});toast('모두 확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}finally{b.disabled=false;}});
+async function removeHb(repo){if(!confirm(repo+' 를 더 따라가지 않고 받아 둔 파일도 지웁니다.'))return;
+  try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 
 // ── client logs ───────────────────────────────────────────────────────
 const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';

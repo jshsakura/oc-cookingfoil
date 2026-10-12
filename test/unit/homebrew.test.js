@@ -276,3 +276,128 @@ test("an unreadable app folder leaves the other hand-placed apps listed", async 
     fs.chmodSync(path.join(root, "locked"), 0o755);
   }
 });
+
+// ── choosing the file, zipped builds, and the admin's list ────────────────
+import { execFileSync, spawnSync } from "node:child_process";
+import { extractNro, globRegExp, pickZipEntry } from "../../src/meta/homebrew.js";
+
+const gh = (name) => ({ name, browser_download_url: `https://github.com/o/r/releases/download/v1/${name}` });
+
+test("a release with several files picks the one named after the repository, or the one the admin chose", () => {
+  assert.equal(pickAsset({ assets: [gh("ftpd-classic.nro"), gh("ftpd.nro")] }, "mtheall/ftpd").name, "ftpd.nro");
+  assert.equal(pickAsset({ assets: [gh("SimpleModManagerConsole.nro"), gh("SimpleModManager.nro")] }, "nadrino/SimpleModManager").name, "SimpleModManager.nro");
+  assert.equal(pickAsset({ assets: [gh("NXThemesInstaller.nro"), gh("NxThemeTool.zip")] }, "exelix11/SwitchThemeInjector").name, "NXThemesInstaller.nro");
+  assert.equal(pickAsset({ assets: [gh("ftpd-classic.nro"), gh("ftpd.nro")] }, "mtheall/ftpd", "*-classic.nro").name, "ftpd-classic.nro");
+  assert.equal(pickAsset({ assets: [gh("ftpd.nro")] }, "mtheall/ftpd", "nothing.nro"), null);
+  assert.ok(globRegExp("nxmp-*.zip").test("NXMP-0.9.3.zip"));
+  assert.ok(!globRegExp("a.nro").test("a-nro"), "dots are literal");
+});
+
+test("without a .nro, the zip that isn't another platform's build is used", () => {
+  const assets = ["wiliwili-Windows-x86_64.zip", "wiliwili-Windows-arm64.zip", "wiliwili-Windows-x86-OldGPU.zip", "wiliwili-HomebrewBuild.zip"].map(gh);
+  assert.equal(pickAsset({ assets }, "xfangfang/wiliwili").name, "wiliwili-HomebrewBuild.zip");
+  assert.equal(pickAsset({ assets: [gh("nxmp-0.9.3.zip")] }, "proconsule/nxmp").name, "nxmp-0.9.3.zip");
+  assert.equal(pickAsset({ assets: [gh("Tool-windows-x64.zip")] }, "o/tool"), null);
+  assert.equal(pickZipEntry(["switch/Fizeau/", "switch/Fizeau/Fizeau.nro", "atmosphere/x.ovl"], "averne/Fizeau"), "switch/Fizeau/Fizeau.nro");
+  assert.equal(pickZipEntry(["readme.txt"], "o/r"), null);
+});
+
+/** A zip holding `files` ({ "path/in/zip": Buffer }), written by Python so any entry name is possible. */
+function makeZip(files) {
+  const dir = tmp("hb-zip-");
+  const zip = path.join(dir, "build.zip");
+  const spec = path.join(dir, "spec.json");
+  fs.writeFileSync(spec, JSON.stringify(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, v.toString("base64")]))));
+  execFileSync("python3", ["-I", "-c", `
+import base64, json, sys, zipfile
+files = json.load(open(sys.argv[1]))
+with zipfile.ZipFile(sys.argv[2], "w", zipfile.ZIP_DEFLATED) as z:
+    for name, data in files.items():
+        z.writestr(name, base64.b64decode(data))
+`, spec, zip]);
+  return zip;
+}
+
+test("the .nro is copied out of a zip without trusting the zip's paths or sizes", async () => {
+  const nro = fakeNro("Zipped", "2.0");
+  const dir = tmp("hb-out-");
+  const zip = makeZip({ "switch/zipped/zipped.nro": nro, "README.md": Buffer.from("hi") });
+  const dest = path.join(dir, "out.nro");
+  assert.equal(await extractNro(zip, "o/zipped", dest), "zipped.nro");
+  assert.deepEqual(fs.readFileSync(dest), nro);
+
+  // A "../" entry lands in our own file, never next to it.
+  const sneaky = makeZip({ "../../escaped.nro": nro });
+  const dest2 = path.join(dir, "sneaky.nro");
+  assert.equal(await extractNro(sneaky, "o/r", dest2), "escaped.nro");
+  assert.deepEqual(fs.readFileSync(dest2), nro);
+  assert.ok(!fs.existsSync(path.join(dir, "..", "escaped.nro")) && !fs.existsSync(path.join(dir, "..", "..", "escaped.nro")));
+
+  // A tiny zip that inflates past the limit is cut off.
+  const bomb = makeZip({ "bomb.nro": Buffer.alloc(4 * 1024 * 1024) });
+  await assert.rejects(extractNro(bomb, "o/bomb", path.join(dir, "bomb.nro"), 1024 * 1024), /larger than/);
+});
+
+test("a zipped release is served as the .nro inside it", async () => {
+  const nro = fakeNro("Zipped App", "3.1", "Maker");
+  const zipBuf = fs.readFileSync(makeZip({ "switch/zapp/zapp.nro": nro }));
+  const url = "https://github.com/o/zapp/releases/download/v3/zapp.zip";
+  const release = { tag_name: "v3", published_at: null, assets: [{ id: 7, name: "zapp.zip", size: zipBuf.length, browser_download_url: url, digest: `sha256:${sha256(zipBuf)}` }] };
+  const fetchImpl = async (u) => (u.startsWith("https://api.github.com/") ? new Response(JSON.stringify(release), { status: 200, headers: { ETag: '"z"' } }) : new Response(zipBuf, { status: 200 }));
+  const tracker = createTracker({ repos: ["o/zapp"], stateDir: tmp("hb-gh-"), fetchImpl });
+  await tracker.checkAll();
+  const [e] = tracker.entries();
+  assert.deepEqual([e.name, e.version, e.file_name, e.size], ["Zipped App", "3.1", "zapp.nro", nro.length]);
+  const file = await tracker.ensureDownloaded(e.id);
+  assert.deepEqual(fs.readFileSync(file.path), nro);
+  assert.equal(file.sha256, sha256(nro));
+});
+
+test("the admin's list can change at run time; a check can be forced; failures are kept and retried hourly", async () => {
+  const hub = fakeGitHub("murat303/ytb-player");
+  hub.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
+  const stateDir = tmp("hb-gh-");
+  let now = 0;
+  const tracker = createTracker({ sources: [], stateDir, fetchImpl: hub.fetchImpl, now: () => now });
+  assert.deepEqual(tracker.entries(), []);
+  tracker.setSources([{ repo: "murat303/ytb-player", asset: null }]);
+  await tracker.checkNow("murat303/ytb-player");
+  const [s] = tracker.status();
+  assert.deepEqual([s.repo, s.tag, s.chosen, s.cached.version, s.error], ["murat303/ytb-player", "v1.1.0", "ytb-player.nro", "1.1.0", null]);
+  assert.deepEqual(s.assets, ["ytb-player.nro"]);
+
+  await tracker.checkNow("murat303/ytb-player");
+  assert.equal(hub.apiCalls().length, 2, "a forced check ignores the three-hour wait");
+
+  // The admin picks a file that isn't there: the error is kept and not retried on every poll.
+  tracker.setSources([{ repo: "murat303/ytb-player", asset: "nothing.nro" }]);
+  await tracker.checkNow("murat303/ytb-player");
+  assert.match(tracker.status()[0].error.message, /no file matching nothing\.nro/);
+  now += 15 * 60 * 1000;
+  await tracker.checkAll();
+  assert.equal(hub.apiCalls().length, 3, "no retry within the hour");
+  now += 60 * 60 * 1000;
+  await tracker.checkAll();
+  assert.equal(hub.apiCalls().length, 4);
+
+  const id = tracker.status()[0].id;
+  tracker.setSources([]);
+  await tracker.forget("murat303/ytb-player");
+  assert.deepEqual(tracker.status(), []);
+  assert.ok(!fs.existsSync(path.join(stateDir, id)), "its cached build is gone");
+});
+
+test("COOK_HOMEBREW_REPOS seeds the admin's list once; the list file wins afterwards", () => {
+  const data = tmp("hb-src-");
+  const run = (script, repos) => JSON.parse(spawnSync(process.execPath, ["--input-type=module", "-e", `
+    import * as s from "../../src/meta/homebrew-sources.js";
+    const out = await (async () => { ${script} })();
+    process.stdout.write(JSON.stringify(out));
+  `], { cwd: import.meta.dirname, env: { ...process.env, COOK_DATA_DIR: data, COOK_HOMEBREW_REPOS: repos }, encoding: "utf8" }).stdout);
+  assert.deepEqual(run(`return s.list().map((x) => x.repo);`, "murat303/ytb-player,https://github.com/mtheall/ftpd,bad"), ["murat303/ytb-player", "mtheall/ftpd"]);
+  assert.deepEqual(run(`s.remove("mtheall/ftpd"); s.add("github.com/J-D-K/JKSV"); s.setAsset("murat303/ytb-player", "*.nro"); return s.list().map((x) => [x.repo, x.asset]);`, "mtheall/ftpd"),
+    [["murat303/ytb-player", "*.nro"], ["J-D-K/JKSV", null]]);
+  assert.deepEqual(run(`return s.list().map((x) => x.repo);`, "something/else"), ["murat303/ytb-player", "J-D-K/JKSV"], "the env is not read again");
+  assert.deepEqual(run(`const e = []; for (const f of [() => s.add("not a repo"), () => s.setAsset("J-D-K/JKSV", "evil.exe")]) { try { f(); e.push(null); } catch (x) { e.push(x.message); } } return e;`, ""),
+    ["GitHub 저장소 주소가 아닙니다", "파일 이름 패턴은 .nro 나 .zip 으로 끝나야 합니다"]);
+});

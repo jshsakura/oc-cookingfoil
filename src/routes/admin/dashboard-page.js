@@ -89,6 +89,15 @@ dialog h3{margin:0 0 6px;font-size:18px}
 .fgames button{padding:4px 9px}
 .fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
 h2.first{margin-top:0}
+.hd h2.first{margin:0 0 10px}
+.hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
+.hb-reco label{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer}
+.hb-reco label.added{opacity:.6;cursor:default}
+.hb-reco input{margin-top:3px;width:16px;height:16px;flex:none;padding:0}
+.hb-reco b{display:block;font-size:13px;word-break:break-all}.hb-reco span{color:var(--muted);font-size:12px}
+td select{max-width:220px}
+td .err{color:var(--bad);font-size:12px;margin-top:4px}
+td a{color:var(--text);text-underline-offset:3px}
 form.add select{flex:none}
 .logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
 .logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
@@ -141,6 +150,7 @@ export function dashboardPage() {
   <a href="#featured" data-tab="featured">추천</a>
   <a href="#library" data-tab="library">라이브러리</a>
   <a href="#upload" data-tab="upload">업로드</a>
+  <a href="#homebrew" data-tab="homebrew">홈브류</a>
 </nav>
 
 <section id="tab-overview">
@@ -245,6 +255,24 @@ export function dashboardPage() {
   <h2>서버 설정</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>
+</section>
+
+<section id="tab-homebrew" hidden>
+  <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
+  <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
+  <div class="hb-reco" id="hb-reco"></div>
+  <h2>저장소 직접 추가</h2>
+  <form class="add" id="hb-add">
+    <input id="hb-repo" autocomplete="off" spellcheck="false" placeholder="GitHub 주소 또는 owner/name" aria-label="GitHub 저장소" required maxlength="200">
+    <input id="hb-asset" autocomplete="off" spellcheck="false" placeholder="쓸 파일 이름 (선택, 예: *-classic.nro)" aria-label="쓸 파일 이름" maxlength="100">
+    <button class="primary" type="submit">추가</button>
+  </form>
+  <p class="muted">릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
+  <div class="hd"><h2>따라가는 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
+  <div class="scroll" id="hb-sources"></div>
+  <h2>직접 넣은 앱</h2>
+  <p class="muted">서버의 홈브류 폴더에 직접 넣은 .nro 입니다. 여기서는 바꿀 수 없습니다.</p>
+  <div class="scroll" id="hb-manual"></div>
 </section>
 
 <section id="tab-upload" hidden>

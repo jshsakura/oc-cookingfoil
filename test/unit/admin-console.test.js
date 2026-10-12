@@ -100,6 +100,16 @@ test("admin accounts run the admin page; nobody locks themselves out; console lo
     assert.equal((await call("GET", `/admin/api/client-logs/${c.prefix}/..%2F..%2Fsecurity%2Fusers.json`)).status, 400);
     assert.equal((await call("GET", `/admin/api/client-logs/${c.prefix}/latest.txt`)).status, 200);
     assert.equal((await fetch(`${BASE}/admin/api/client-logs`, { headers: { Authorization: ALICE } })).status, 401, "admin session only");
+
+    // Homebrew the server follows: the recommended list, and refusals that never reach GitHub.
+    const hb = await (await call("GET", "/admin/api/homebrew")).json();
+    assert.ok(hb.recommended.length >= 15 && hb.recommended.every((r) => r.purpose.ko && r.purpose.en && r.added === false));
+    assert.deepEqual([hb.sources, hb.manual], [[], []]);
+    assert.equal((await call("POST", "/admin/api/homebrew", { repo: "https://gitlab.com/a/b" })).status, 400);
+    assert.equal((await call("POST", "/admin/api/homebrew", { repo: "a/b", asset: "evil.exe" })).status, 400);
+    assert.equal((await call("POST", "/admin/api/homebrew/remove", { repo: "nobody/here" })).status, 404);
+    assert.equal((await call("POST", "/admin/api/homebrew/check", { repo: "nobody/here" })).status, 404);
+    assert.equal((await fetch(`${BASE}/admin/api/homebrew`, { headers: { Authorization: ALICE } })).status, 401, "admin session only");
   } finally {
     child.kill("SIGKILL");
   }
