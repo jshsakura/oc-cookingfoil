@@ -42,7 +42,8 @@ import express from "express";
 import debug from "../debug.js";
 import { retroDir, dataDir, keysDir } from "../helpers/envs.js";
 import * as catalog from "../retro/catalog.js";
-import { sdPaths, overlayCfg, gameCfg } from "../retro/bezel-config.js";
+import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
+import { tagsOf, withoutTags } from "../retro/sd-names.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
@@ -139,9 +140,12 @@ function publicGame(g, systems) {
   const system = systems[g.system];
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
+  const variant = tagsOf(g.name);
   return {
     id: g.id,
-    name: g.name,
+    // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
+    name: withoutTags(g.name),
+    ...(variant ? { variant } : {}),
     ...(g.original ? { original: g.original } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
@@ -175,15 +179,19 @@ function bundleFiles(g, system) {
     const data = Buffer.from(text);
     return { path: sd, data, size: data.length, mtime: now };
   };
-  // A multi-disc game's .m3u is made up on the spot; its discs ride along as extras.
-  const rom = g.m3u ? made(paths.rom, g.m3u) : fileEntry(paths.rom, g.abs, fs.statSync(g.abs).size, g.mtimeMs);
-  const files = [rom, ...g.extras.map((x) => fileEntry(paths.extra(x.rel), x.abs, x.size, x.mtimeMs))];
+  // A .cue or .m3u is written out naming the files' new SD names; the rest is copied.
+  const rom = g.sd?.romText !== undefined ? made(paths.rom, g.sd.romText) : fileEntry(paths.rom, g.abs, fs.statSync(g.abs).size, g.mtimeMs);
+  const files = [rom, ...g.extras.map((x) => {
+    const text = g.sd?.extras.get(x.rel)?.text;
+    return text !== undefined ? made(paths.extra(x.rel), text) : fileEntry(paths.extra(x.rel), x.abs, x.size, x.mtimeMs);
+  })];
   if (!g.bezel) return files;
   const disk = (abs) => fs.statSync(abs);
   files.push(fileEntry(paths.bezelPng, g.bezel.png, disk(g.bezel.png).size, disk(g.bezel.png).mtimeMs));
-  files.push(g.bezel.cfg ? fileEntry(paths.overlayCfg, g.bezel.cfg, disk(g.bezel.cfg).size, disk(g.bezel.cfg).mtimeMs) : made(paths.overlayCfg, overlayCfg(g)));
+  // Made up rather than copied: The Bezel Project's own .cfg names the image by its old name.
+  files.push(made(paths.overlayCfg, overlayCfg(g)));
   if (paths.gameCfg) {
-    files.push(g.bezel.override ? fileEntry(paths.gameCfg, g.bezel.override, disk(g.bezel.override).size, disk(g.bezel.override).mtimeMs) : made(paths.gameCfg, gameCfg(g, system)));
+    files.push(made(paths.gameCfg, g.bezel.override ? retargetOverride(fs.readFileSync(g.bezel.override, "utf8"), g, system) : gameCfg(g, system)));
   }
   return files;
 }
@@ -283,9 +291,10 @@ export default function retroRouter() {
 
   router.get("/games/:id", (req, res) => res.json(publicGame(req.retro.game, req.retro.systems)));
   router.get("/games/:id/rom", (req, res) => {
-    res.attachment(req.retro.game.file);
-    if (req.retro.game.m3u) return res.type("text/plain").send(req.retro.game.m3u);
-    sendFile(res, req.retro.game.abs);
+    const { game, system } = req.retro;
+    res.attachment(path.posix.basename(sdPaths(game, system).rom));
+    if (game.sd?.romText !== undefined) return res.type("text/plain").send(game.sd.romText);
+    sendFile(res, game.abs);
   });
   router.get("/games/:id/icon", wrap(async (req, res) => {
     const size = Object.hasOwn(SQUARE_SIZES, req.query.size) ? req.query.size : "md";
@@ -302,14 +311,12 @@ export default function retroRouter() {
   router.get("/games/:id/overlay.cfg", (req, res) => {
     const { game } = req.retro;
     if (!game.bezel) return res.status(404).json({ error: "no bezel" });
-    if (game.bezel.cfg) return sendFile(res, game.bezel.cfg, "text/plain");
     res.type("text/plain").send(overlayCfg(game));
   });
   router.get("/games/:id/game.cfg", (req, res) => {
     const { game, system } = req.retro;
     if (!game.bezel || !system.coreName) return res.status(404).json({ error: "no bezel" });
-    if (game.bezel.override) return sendFile(res, game.bezel.override, "text/plain");
-    res.type("text/plain").send(gameCfg(game, system));
+    res.type("text/plain").send(game.bezel.override ? retargetOverride(fs.readFileSync(game.bezel.override, "utf8"), game, system) : gameCfg(game, system));
   });
   router.get("/games/:id/bundle", (req, res) => {
     const { game, system } = req.retro;

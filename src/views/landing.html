@@ -288,6 +288,7 @@
       .retro-systems .chip { display: inline-flex; align-items: center; gap: 7px; }
       .retro-systems .chip img { width: 18px; height: 18px; object-fit: contain; }
       .pill.sys-pill { display: inline-flex; align-items: center; gap: 5px; }
+      .pill.variant { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pill.sys-pill img { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; }
       .home-row h2 .sys-icon { width: 26px; height: 26px; object-fit: contain; align-self: center; }
       .retro-systems .chip .n { color: var(--secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -2213,6 +2214,8 @@
             sub.append(p);
           }
           if (g.file.endsWith(".m3u")) sub.append(pill(t("retro.discs")));
+          // Patch variants of one game share a name; the tags tell them apart.
+          if (g.variant) { const v = pill(g.variant, "variant"); v.title = g.variant; sub.append(v); }
           if (g.bezel?.hasBezel && !g.bezel.generic) sub.append(pill(t("retro.bezel")));
           meta.append(name, sub);
           a.append(poster, meta);
@@ -2884,8 +2887,9 @@
         currentModal = null;
         const modalEl = document.querySelector("#modal .modal");
         modalEl.classList.remove("loading");
-        const patch = (g.name.match(/\[([^\]]*)\]\s*$/) || [])[1] || "";
-        const withoutPatch = g.name.replace(/\s*\[[^\]]*\]\s*$/, "");
+        // The server drops the patch / version tags from the name and sends them as `variant`.
+        const patch = g.variant || "";
+        const withoutPatch = g.name;
         const original = (withoutPatch.match(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/) || [])[1] || "";
         $("modal-title").textContent = original ? withoutPatch.slice(0, withoutPatch.lastIndexOf("(" + original)).trim() || withoutPatch : withoutPatch;
         $("modal-publisher").textContent = sys ? (sys.names?.[lang] || sys.name) : g.system;
