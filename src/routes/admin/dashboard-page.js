@@ -89,6 +89,7 @@ dialog h3{margin:0 0 6px;font-size:18px}
 .fgames button{padding:4px 9px}
 .fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
 h2.first{margin-top:0}
+.note .note-go{margin-top:10px}
 .hd h2.first{margin:0 0 10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
 .hb-reco label{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer}

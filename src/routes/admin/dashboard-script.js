@@ -49,9 +49,20 @@ addEventListener('hashchange',showTab);
 
 // ── overview + users + security (one stats call) ──────────────────────
 let origin=location.origin;
+// The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
+const WARNINGS={
+  'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings']},
+  'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호만 묻습니다',d:'인증 앱을 등록하면 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings']},
+  'no-auth':{t:'주소를 아는 누구나 서버에 접속할 수 있습니다',d:'계정이 없고 기기 승인도 꺼져 있습니다. 사용자 탭에서 계정을 하나 만들면 그때부터 로그인이 필요합니다.',go:['계정 만들기','users']},
+  'pairing-only-blocks-tinfoil':{t:'승인된 기기만 접속할 수 있어 Tinfoil 은 연결하지 못합니다',d:'Tinfoil 은 기기 키를 보내지 못해 모든 요청이 거절됩니다. 사용자 탭에서 계정을 만들면 비밀번호로도 접속할 수 있습니다.',go:['계정 만들기','users']},
+  'proxy-collapse':{t:'프록시를 거쳐 오는데 COOK_TRUST_PROXY 가 없습니다',d:'모든 접속이 프록시 하나의 IP 로 보여 한 사람의 로그인 실패가 모두를 잠글 수 있습니다. compose 에 COOK_TRUST_PROXY 를 넣고 프록시가 X-Forwarded-For 를 넘기게 합니다.'},
+  'both-lanes':{t:'비밀번호와 기기 승인을 함께 씁니다',d:'승인된 기기는 비밀번호 없이, 나머지는 계정으로 접속합니다.'},
+};
 function renderWarnings(list){const box=$('warnings');box.replaceChildren();
-  for(const w of list){const n=el('div',null,'note'+(w.severity==='warn'?' warn':''));
-    n.append(el('div',w.title,'t'),el('div',w.detail,'d'));box.append(n);}}
+  for(const w of list){const k=WARNINGS[w.code];const n=el('div',null,'note'+(w.severity==='warn'?' warn':''));
+    n.append(el('div',k?.t??w.title,'t'),el('div',k?.d??w.detail,'d'));
+    if(k?.go){const b=btn(k.go[0],()=>{location.hash='#'+k.go[1];});b.classList.add('note-go');n.append(b);}
+    box.append(n);}}
 function renderLanes(l){const box=$('lanes');box.replaceChildren();
   box.append(pill('비밀번호 접속: '+(l.basicAuth.enabled?l.basicAuth.userCount+'명':'꺼짐'),l.basicAuth.enabled?'on':'off'));
   box.append(pill('기기 승인: '+(l.pairing.enabled?'켜짐':'꺼짐'),l.pairing.enabled?'on':''));

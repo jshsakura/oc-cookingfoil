@@ -11,7 +11,7 @@
  */
 import { devicePairing } from "../helpers/envs.js";
 import * as users from "./users.js";
-import { adminTotpEnabled, adminOwner } from "./admin-session.js";
+import { adminTotpEnabled, adminOwner, adminPasswordMode } from "./admin-session.js";
 import { secretSource, isEnrolled } from "./admin-secret.js";
 import { adminEmail } from "../helpers/envs.js";
 import { proxyCollapseObserved } from "./proxy-check.js";
@@ -59,7 +59,15 @@ export function configWarnings(lanes = authLanes()) {
     });
   }
 
-  if (lanes.admin.enabled && !lanes.admin.enrolled) {
+  if (lanes.admin.enabled && !lanes.admin.enrolled && adminPasswordMode()) {
+    // The admin password already guards the page; an authenticator is an extra step.
+    out.push({
+      severity: SEVERITY.INFO,
+      code: "admin-authenticator-optional",
+      title: "The admin page asks for the admin password only",
+      detail: "Enroll an authenticator app on the admin page's settings tab to ask for a 6-digit code as well.",
+    });
+  } else if (lanes.admin.enabled && !lanes.admin.enrolled) {
     out.push({
       severity: SEVERITY.WARN,
       code: "admin-unenrolled",
