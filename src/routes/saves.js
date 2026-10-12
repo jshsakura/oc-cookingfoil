@@ -6,6 +6,9 @@
  *                                     size, files, updatedAt, hash, game?, url }] }, with ETag.
  *                                   Korean text for ko (?lang= or Accept-Language) when a save
  *                                   has it, English otherwise; source is { name, url? } or null
+ *                                   A homebrew app's save has titleId null, `homebrew` (its
+ *                                   switch/<app>/ folder name) and `installRoot` ("switch/<app>"):
+ *                                   its files are restored into that folder of the SD card
  *   GET /api/saves/:id/download     the save folder's contents as an uncompressed ustar,
  *                                   paths relative to the save's root, directories first
  */
@@ -20,7 +23,7 @@ import { gameOf } from "../meta/game-info.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { sendTar } from "../helpers/tar-stream.js";
 
-const ID_RE = /^[0-9A-F]{16}-[0-9a-f]{12}$/;
+const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
 export const savesEnabled = () => fs.existsSync(savesDir);
 
@@ -36,7 +39,7 @@ export default function savesRouter() {
     const origin = resolveOrigin(req, publicBaseUrl);
     const lang = requestLang(req);
     const saves = (await catalog.list()).map((s) => {
-      const game = gameOf(s.titleId, origin);
+      const game = s.titleId ? gameOf(s.titleId, origin) : null;
       return { ...localize(s, lang), ...(game ? { game } : {}), url: `/api/saves/${s.id}/download` };
     });
     const body = JSON.stringify({ saves });

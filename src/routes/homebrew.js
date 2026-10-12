@@ -38,6 +38,7 @@ import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/en
 import * as integrations from "../security/integrations.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
+import * as kinds from "../meta/homebrew-kinds.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
@@ -117,7 +118,7 @@ export const defaultService = {
     const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, ...e }) => ({ ...e, files: e.files ? e.files.map(({ abs: _a, ...f }) => f) : null }));
     const entries = [...githubTracker().entries(), ...manualList];
     if (forwardersAvailable(keysDir) && entries.some((e) => !this.forwarderInfo(e).forwarder_size && forwarderSpec(forwarderApp(e)))) prewarmShortcuts(entries);
-    return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null) }));
+    return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id) }));
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
   forwarderInfo(e) {
@@ -189,6 +190,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       install_dir: null,
       ...e,
       install_path: e.install_path ?? installPathFor(e.file_name),
+      // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
+      app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
       files: e.files ? e.files.map((f) => ({ ...f, url: `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}` })) : null,
       icon_url: `/api/homebrew/${e.id}/icon`,
       download_url: `/api/homebrew/${e.id}/download`,

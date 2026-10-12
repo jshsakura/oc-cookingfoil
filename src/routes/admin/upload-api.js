@@ -31,9 +31,11 @@ import { syncArt } from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import { romKey } from "./retro-art-api.js";
 import { HomebrewUploadError, placeHomebrew } from "./homebrew-upload.js";
+import { defaultService } from "../homebrew.js";
+import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
 import {
-  GAME_EXT_RE, UploadError, baseTitleId, moveFile, mustBeFree, patchLayout, retroLayout,
+  GAME_EXT_RE, UploadError, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk,
 } from "../../meta/library-upload.js";
 
@@ -129,15 +131,20 @@ async function placeRetro(items, body) {
 
 /** Build the folder in staging, then rename it into place in one step. */
 async function placeFolder(kind, items, body, work, fromFolder) {
-  const tid = baseTitleId(body.titleId);
-  if (!tid) throw new UploadError(400, "게임(타이틀 ID)을 고릅니다");
+  // The target is a game (its base title id) or a homebrew app (its switch/<app>/ folder name).
+  const app = body.homebrew ? homebrewApp(body.homebrew) : null;
+  if (body.homebrew && !app) throw new UploadError(400, "홈브류 앱을 고릅니다");
+  const tid = app ? null : baseTitleId(body.titleId);
+  if (!app && !tid) throw new UploadError(400, "게임(타이틀 ID)이나 홈브류 앱을 고릅니다");
   const name = safeName(body.name);
   if (!name) throw new UploadError(400, "이름을 적습니다 (100자 이내, / 없이)");
-  const rels = kind === "patch" ? patchLayout(items.map((i) => i.rel), tid) : saveLayout(items.map((i) => i.rel), fromFolder);
+  const paths = items.map((i) => i.rel);
+  const rels = app ? homebrewLayout(paths, app, fromFolder) : kind === "patch" ? patchLayout(paths, tid) : saveLayout(paths, fromFolder);
+  const under = app ? `homebrew/${app}` : tid;
   const metaName = kind === "patch" ? "patch.json" : "meta.json";
   if (rels.some((r) => r.toLowerCase() === metaName)) throw new UploadError(400, `${metaName} 는 서버가 만듭니다. 빼고 올립니다`);
-  const dest = path.join(rootOf(kind), tid, name);
-  mustBeFree(dest, `${tid}/${name}`);
+  const dest = path.join(rootOf(kind), ...under.split("/"), name);
+  mustBeFree(dest, `${under}/${name}`);
   const out = path.join(work, "out");
   for (const [i, it] of items.entries()) await moveFile(it.abs, path.join(out, ...rels[i].split("/")));
   const description = String(body.description ?? "").trim().slice(0, 2000);
@@ -149,7 +156,7 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.rename(out, dest);
   if (kind === "patch") userPatches.scan().catch(() => {});
-  return { where: `${tid}/${name}`, files: rels.length };
+  return { where: `${under}/${name}`, files: rels.length };
 }
 
 export function mountUploadApi(router, guard) {
@@ -161,7 +168,10 @@ export function mountUploadApi(router, guard) {
     const systems = fs.existsSync(retroDir)
       ? Object.entries(loadSystems(retroDir)).map(([id, s]) => ({ id, name: s.names?.ko ?? s.name, extensions: s.extensions }))
       : [];
-    res.json({ targets, systems, games: await libraryGames().catch(() => []), maxBytes: uploadMaxBytes });
+    const homebrew = (await defaultService.list("ko").catch(() => []))
+      .map((e) => ({ app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1], name: e.name, kind: e.kind }))
+      .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "port" ? -1 : 1));
+    res.json({ targets, systems, games: await libraryGames().catch(() => []), homebrew, maxBytes: uploadMaxBytes });
   });
 
   router.post("/api/upload/:kind", async (req, res) => {

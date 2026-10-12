@@ -42,7 +42,7 @@ async function boot(dirs) {
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
-      ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: dirs.data, COOK_GAMES_DIR: dirs.games, COOK_HOMEBREW_DIR: dirs.homebrew,
+      ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: dirs.data, COOK_GAMES_DIR: dirs.games, COOK_HOMEBREW_DIR: dirs.homebrew, COOK_PATCHES_DIR: dirs.patches, COOK_SAVES_DIR: dirs.saves,
       COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false",
     },
     stdio: "ignore",
@@ -59,7 +59,7 @@ async function boot(dirs) {
 
 test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a release would", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-upload-"));
-  const dirs = Object.fromEntries(["data", "games", "homebrew"].map((d) => [d, path.join(root, d)]));
+  const dirs = Object.fromEntries(["data", "games", "homebrew", "patches", "saves"].map((d) => [d, path.join(root, d)]));
   for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
   const server = await boot(dirs);
   try {
@@ -117,6 +117,45 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     r = await send([["cut.nro", nro.subarray(0, nro.length - 10)]]);
     assert.equal(r.status, 400);
     assert.ok(!fs.existsSync(path.join(dirs.homebrew, "bad")) && !fs.existsSync(path.join(dirs.homebrew, "cut")));
+
+    // A port: its kind is listed, and patches and saves can be aimed at it.
+    const myapp = await listed("myapp");
+    assert.equal(myapp.kind, "tool");
+    assert.equal(myapp.app, "myapp");
+    const post = (url, body) => fetch(`${BASE}${url}`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await post("/admin/api/homebrew/kind", { id: myapp.id, kind: "port" })).status, 200);
+    assert.equal((await listed("myapp")).kind, "port");
+    const targets = await (await fetch(`${BASE}/admin/api/upload/targets`, { headers: admin })).json();
+    assert.deepEqual(targets.homebrew[0], { app: "myapp", name: "My App", kind: "port" }, "ports first");
+
+    const sendTo = (kind, fields, files, paths) => {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+      if (paths) fd.append("paths", JSON.stringify(paths));
+      for (const [name, data] of files) fd.append("files", new Blob([data]), name);
+      return fetch(`${BASE}/admin/api/upload/${kind}`, { method: "POST", headers: admin, body: fd });
+    };
+    r = await sendTo("patch", { homebrew: "myapp", name: "HD Textures" }, [["a.txt", "MOD"]], ["pack/switch/myapp/mods/a.txt"]);
+    assert.equal(r.status, 201);
+    assert.equal((await r.json()).where, "homebrew/myapp/HD Textures");
+    assert.equal((await sendTo("patch", { homebrew: "myapp", name: "Bad" }, [["x", "X"]], ["atmosphere/contents/0100000000010000/romfs/x"])).status, 400, "nothing outside switch/<app>/");
+    let patch = null;
+    for (let i = 0; i < 40 && !patch; i++) {
+      const pr = await fetch(`${BASE}/api/patches`, { headers: { Authorization: ALICE } });
+      if (pr.ok) patch = (await pr.json()).patches.find((p) => p.homebrew === "myapp");
+      if (!patch) await new Promise((res) => setTimeout(res, 250));
+    }
+    assert.ok(patch, "the homebrew patch is listed");
+    assert.deepEqual([patch.title_id, patch.homebrew, patch.name, patch.kinds, patch.files], [null, "myapp", "HD Textures", ["homebrew"], 1]);
+    const tarText = Buffer.from(await (await fetch(`${BASE}/api/patches/${patch.id}/download`, { headers: { Authorization: ALICE } })).arrayBuffer()).toString("latin1");
+    assert.ok(tarText.includes("switch/myapp/mods/a.txt") && tarText.includes("MOD"), "its files go under switch/<app>/");
+
+    r = await sendTo("save", { homebrew: "myapp", name: "100%" }, [["slot1.sav", "SAVE"]], ["MySave/save/slot1.sav"]);
+    assert.equal(r.status, 201);
+    const save = (await (await fetch(`${BASE}/api/saves`, { headers: { Authorization: ALICE } })).json()).saves.find((x) => x.homebrew === "myapp");
+    assert.deepEqual([save.titleId, save.homebrew, save.installRoot, save.name, save.files], [null, "myapp", "switch/myapp", "100%", 1]);
+    const saveTar = Buffer.from(await (await fetch(BASE + save.url, { headers: { Authorization: ALICE } })).arrayBuffer()).toString("latin1");
+    assert.ok(saveTar.includes("save/slot1.sav") && !saveTar.includes("MySave"), "paths are relative to installRoot");
   } finally {
     server.kill();
   }

@@ -275,12 +275,17 @@ async function loadHomebrew(){
       if(s.install.rules?.length){const d=el('details');d.append(el('summary','판단 근거'),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
+    box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
     '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
   table('hb-manual',['이름','버전','파일','크기',''],(d.manual||[]).map((m)=>{const tr=el('tr');
     const n=td(m.name||'—');const c=m.description?.custom;if(c)n.append(el('div',c.ko||c.en||'설명 없음','desc'));
     tr.append(n,td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));
-    const act=td();act.append(btn('설명',()=>editHbDesc(m.id,m.name||m.file_name,m.description)));tr.append(act);return tr;}),'직접 넣은 앱이 없습니다.');}
+    const act=td();const mb_=el('div',null,'row-actions');mb_.append(hbKind(m.id,m.kind),btn('설명',()=>editHbDesc(m.id,m.name||m.file_name,m.description)));act.append(mb_);tr.append(act);return tr;}),'직접 넣은 앱이 없습니다.');}
+// Tool or port: a port (a program brought over from another system) is listed apart by the client.
+function hbKind(id,kind){const sel=el('select');sel.setAttribute('aria-label','분류');
+  for(const [v,t] of [['tool','도구'],['port','포트']]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
+  sel.addEventListener('change',async()=>{try{await api('/admin/api/homebrew/kind',{method:'POST',body:{id,kind:sel.value}});toast(sel.value==='port'?'포트로 옮겼습니다.':'도구로 옮겼습니다.');}catch(err){toast(err.message);loadHomebrew();}});
+  return sel;}
 let hbDescId=null;
 function editHbDesc(id,name,d){hbDescId=id;
   $('hb-desc-title').textContent=name+' 설명';
@@ -344,7 +349,8 @@ function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
   for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
   $('up-hint').textContent=UP_HINT[kind];
   $('up-system-l').hidden=kind!=='retro';
-  $('up-game-l').hidden=$('up-name-l').hidden=!(kind==='patch'||kind==='save');
+  $('up-name-l').hidden=$('up-target-l').hidden=!(kind==='patch'||kind==='save');
+  $('up-game-l').hidden=!(kind==='patch'||kind==='save')||$('up-target').value!=='';
   $('up-desc-l').hidden=$('up-desc-ko-l').hidden=!(kind==='patch'||kind==='save');
   $('up-dir-btn').hidden=!(kind==='patch'||kind==='save'||kind==='homebrew');
   $('up-file').multiple=kind==='retro';
@@ -356,8 +362,11 @@ function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
 async function loadUpload(){
   if(!upInfo){try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return;}
     $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
-    $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));}
+    $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
+    // A homebrew app's patch or save goes into its own switch/<app>/ folder.
+    for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}}
   upSetKind(upKind);}
+$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
@@ -369,9 +378,9 @@ $('up-form').addEventListener('submit',(e)=>{e.preventDefault();
   const fd=new FormData();
   if(upKind==='retro')fd.append('system',$('up-system').value);
   if(upKind==='patch'||upKind==='save'){
-    const tid=upTitleId();if(!tid){toast('게임을 고릅니다');return;}
+    const app=$('up-target').value;const tid=app?'':upTitleId();if(!app&&!tid){toast('게임이나 홈브류 앱을 고릅니다');return;}
     if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}
-    fd.append('titleId',tid);fd.append('name',$('up-name').value.trim());
+    if(app)fd.append('homebrew',app);else fd.append('titleId',tid);fd.append('name',$('up-name').value.trim());
     fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());}
   if(upPaths)fd.append('paths',JSON.stringify(upPaths));
   for(const f of upFiles)fd.append('files',f,f.name);

@@ -303,6 +303,7 @@ ${RETRO_ART_HTML}
   <form class="up" id="up-form">
     <p class="muted" id="up-hint"></p>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
+    <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
     <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="예: 마리오 카트 8 디럭스 또는 0100152000022000"></label>
     <datalist id="up-games"></datalist>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>

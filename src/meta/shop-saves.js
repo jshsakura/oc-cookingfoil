@@ -3,6 +3,11 @@
  * client to restore into a player's save on the console:
  *
  *   <savesDir>/<base title id>/<save name>/<the save folder's contents>  (+ optional meta.json)
+ *   <savesDir>/homebrew/<app>/<save name>/<files of switch/<app>/>
+ *
+ * A homebrew app keeps its saves as files in its own SD folder, not in the
+ * console's save data: such a save is listed with `homebrew: <app>`, titleId
+ * null and `installRoot: "switch/<app>"`, the folder its files are restored into.
  *
  * meta.json is metadata and never ships:
  *
@@ -84,7 +89,8 @@ async function walk(root, rel = "", out = []) {
 
 /** One save folder: its listing entry plus the files to ship. Throws Rejected when it breaks a rule. */
 export async function readSave(root, tidDir, folder, cache) {
-  const titleId = tidDir.toUpperCase();
+  const app = tidDir.startsWith("homebrew/") ? tidDir.slice("homebrew/".length) : null;
+  const titleId = app ? null : tidDir.toUpperCase();
   const all = await walk(path.join(root, tidDir, folder));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).sort((a, b) => (a.path < b.path ? -1 : 1));
@@ -104,8 +110,9 @@ export async function readSave(root, tidDir, folder, cache) {
   for (const f of files) content.update(`${f.path}\0${await cache.hash(f)}\n`);
   return {
     save: {
-      id: saveId(titleId, folder),
+      id: app ? `hb-${crypto.createHash("sha256").update(app.toLowerCase()).digest("hex").slice(0, 12)}-${saveId("", folder).slice(1)}` : saveId(titleId, folder),
       titleId,
+      ...(app ? { homebrew: app, installRoot: `switch/${app}` } : {}),
       name: meta.name ?? folder.normalize("NFC"),
       description: meta.description ?? null,
       gameVersion: meta.gameVersion ?? null,
@@ -135,8 +142,13 @@ async function subdirs(dir) {
 export async function scanDir(root, cache) {
   const out = [];
   const seen = new Set();
+  const dirs = [];
   for (const tidDir of await subdirs(root)) {
-    if (!isBase(tidDir.toUpperCase())) continue;
+    if (tidDir === "homebrew") {
+      for (const app of await subdirs(path.join(root, "homebrew"))) if (/^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/.test(app)) dirs.push(`homebrew/${app}`);
+    } else if (isBase(tidDir.toUpperCase())) dirs.push(tidDir);
+  }
+  for (const tidDir of dirs) {
     for (const folder of await subdirs(path.join(root, tidDir))) {
       try {
         const { save, entries } = await readSave(root, tidDir, folder, cache);
@@ -149,7 +161,7 @@ export async function scanDir(root, cache) {
     }
   }
   cache.save(seen);
-  return out.sort((a, b) => a.titleId.localeCompare(b.titleId) || a.name.localeCompare(b.name));
+  return out.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 }
 
 export function createCatalog({ root, cacheFile }) {
