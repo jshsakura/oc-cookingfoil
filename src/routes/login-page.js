@@ -22,7 +22,6 @@ const TEXT = {
     username: "아이디",
     password: "비밀번호",
     submit: "로그인",
-    or: "또는",
     google: "Google 계정으로 로그인",
     googleHint: "구글 계정은 관리자 승인 뒤에 쓸 수 있습니다.",
     pendingLead: "{email} 계정은 관리자의 승인을 기다리고 있습니다. 승인되면 다시 로그인합니다.",
@@ -58,7 +57,6 @@ const TEXT = {
     username: "Username",
     password: "Password",
     submit: "Sign in",
-    or: "or",
     google: "Sign in with Google",
     googleHint: "Google accounts work once the admin approves them.",
     pendingLead: "{email} is waiting for the admin's approval. Sign in again once it is approved.",
@@ -94,7 +92,6 @@ const TEXT = {
     username: "ID",
     password: "パスワード",
     submit: "ログイン",
-    or: "または",
     google: "Google でログイン",
     googleHint: "Google アカウントは管理者の承認後に使えます。",
     pendingLead: "{email} は管理者の承認を待っています。承認されたらもう一度ログインします。",
@@ -130,7 +127,6 @@ const TEXT = {
     username: "账号",
     password: "密码",
     submit: "登录",
-    or: "或",
     google: "使用 Google 登录",
     googleHint: "Google 账号需管理员批准后才能使用。",
     pendingLead: "{email} 正在等待管理员批准。批准后请重新登录。",
@@ -177,12 +173,15 @@ label{display:flex;align-items:center;gap:6px;font-size:16px;margin:14px 0 8px}l
 input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
 #code{text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase}
 button,.button{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;min-height:54px;border:0;border-radius:12px;padding:14px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
-.button.google{background:#fff;color:#1F1F1F;border:1px solid #DADCE0}.button.google svg{flex:none}
+.button.google{margin-top:10px;background:#fff;color:#1F1F1F;border:1px solid #DADCE0;font-weight:600}.button.google svg{flex:none}
+@media (prefers-color-scheme:dark){.button.google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
+button:hover,.button:hover{filter:brightness(1.05)}.button.google:hover{filter:none;background:#F8F9FA}
+@media (prefers-color-scheme:dark){.button.google:hover{background:#1F1F21}}
 .button.ghost,button.ghost{background:var(--soft);color:var(--ink);font-weight:600;font-size:16px;min-height:48px}button:disabled{opacity:.6;cursor:wait}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
 .who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
 .who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{display:inline-flex;align-items:center;gap:6px;width:auto;min-height:0;margin:0;padding:8px 12px;font-size:14px;background:var(--soft);color:var(--ink)}
-.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;margin:22px 0 0}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
+
 .note{font-size:15px;background:var(--soft);border-radius:10px;padding:12px 14px;margin:0 0 16px}
 .hint{display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;line-height:1.5;margin:10px 0 0;text-align:center}
 .small{display:block;text-align:center;margin:18px 0 0;color:var(--muted);font-size:15px}
@@ -209,7 +208,7 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
   const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle }[error];
   const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
   const googleBlock = google
-    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${icon("info")}${escapeHtml(t.googleHint)}</p>`
+    ? `<a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${icon("info")}${escapeHtml(t.googleHint)}</p>`
     : "";
   return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}
 <form method="post" action="/login" novalidate>
