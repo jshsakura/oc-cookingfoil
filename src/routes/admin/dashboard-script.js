@@ -41,7 +41,7 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
-  if(tab==='settings'){loadTfa();loadGoogle();}
+  if(tab==='settings'){loadIntegrations();loadTfa();loadGoogle();}
   if(tab==='logs')loadClientLogs();
   if(tab==='homebrew')loadHomebrew();
   if(tab==='featured')loadFeatured();

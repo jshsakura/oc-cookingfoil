@@ -349,12 +349,11 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     fs.renameSync(`${file}.tmp`, file);
   };
 
-  const headers = (extra = {}) => ({
-    "User-Agent": USER_AGENT,
-    Accept: "application/vnd.github+json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...extra,
-  });
+  // The token may be a function so a key saved on the admin page applies without a restart.
+  const headers = (extra = {}) => {
+    const auth = typeof token === "function" ? token() : token;
+    return { "User-Agent": USER_AGENT, Accept: "application/vnd.github+json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...extra };
+  };
 
   async function check(id, { force = false } = {}) {
     const repo = wanted.get(id);

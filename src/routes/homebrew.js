@@ -34,7 +34,8 @@ import crypto from "crypto";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { dataDir, homebrewDir, githubToken, homebrewCheckHours, keysDir } from "../helpers/envs.js";
+import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
@@ -76,7 +77,7 @@ async function manualEntries() {
 }
 
 export const githubTracker = () =>
-  (tracker ??= createTracker({ sources: sources.list(), stateDir: path.join(dataDir, "homebrew"), token: githubToken, checkIntervalMs: homebrewCheckHours * 60 * 60 * 1000 }));
+  (tracker ??= createTracker({ sources: sources.list(), stateDir: path.join(dataDir, "homebrew"), token: () => integrations.get("github").token, checkIntervalMs: homebrewCheckHours * 60 * 60 * 1000 }));
 
 /** Hand-placed apps for the admin page (read-only there). */
 export const manualApps = () => manualEntries();

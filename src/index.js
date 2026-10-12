@@ -35,6 +35,8 @@ import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
 import webLoginRouter from "./routes/web-login.js";
+import setupRouter from "./routes/setup.js";
+import { needsSetup, setupCode } from "./security/setup.js";
 import devicePairRouter from "./routes/device-pair.js";
 import retroRouter from "./routes/retro.js";
 import savesRouter from "./routes/saves.js";
@@ -136,6 +138,8 @@ if (adminEnabled) {
 }
 
 expressApp.use(accessGuard());
+// First run: until an admin account exists, browsers are sent to /setup.
+expressApp.use(setupRouter());
 
 // Public device-pairing endpoints (CyberFoil lane). Deliberately OUTSIDE the
 // basic-auth perimeter — a pairing device has no password — but still inside
@@ -296,6 +300,13 @@ logConfigHealth();
 
 // Admin 2FA: validate the secret and surface the enrollment URI in the logs so
 // the operator can add it to an authenticator without shell-diving.
+if (needsSetup()) {
+  // Printed unconditionally: only someone who can read this log may claim the server.
+  process.stdout.write(
+    `[oc-cookingfoil] No accounts yet. Open /setup in a browser and enter this setup code: ${setupCode()}\n` +
+    `[oc-cookingfoil] (it changes on every start)\n`
+  );
+}
 if (adminTotpEnabled()) {
   adminSelfTest().then(async (ok) => {
     if (!ok) {
@@ -306,6 +317,8 @@ if (adminTotpEnabled()) {
       debug.log("admin 2fa: enrolled (%s secret)", adminSecretSource());
       return;
     }
+    // /setup registers a fresh secret; this one would only confuse.
+    if (needsSetup()) return;
     const uri = await provisioningUri();
     // Print unconditionally (not via DEBUG) — the operator needs this URI to
     // enroll the secret in their authenticator app on first boot.

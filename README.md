@@ -30,16 +30,18 @@ mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
 mkdir -p games data keys
-# edit .env: at least COOK_AUTH_USERS=you:a-long-password
 docker compose up -d
+docker compose logs cookingfoil | grep "setup code"
 ```
 
-The web page opens at `http://<host>:9080/`. Give clients the same address as their server.
+Open `http://<host>:9080/` and the first-run setup appears. Enter the setup code from the log, create the admin account and register an authenticator app. Nobody can claim the server without that code, and it changes on every start. Give clients the same address as their server.
+
+Keys for outside services (IGDB scores, SteamGridDB art, Dropbox save sync, GitHub, a ratings server) go in the admin page's settings tab, which says where to get each one. The server runs without them.
 
 ```
 cookingfoil/
 ├── docker-compose.yml
-├── .env              # settings and the first account
+├── .env              # settings, all optional
 ├── games/            # your files (required)
 ├── data/             # cache, accounts and settings, created on first run
 └── keys/             # optional, read-only
@@ -57,7 +59,8 @@ Every setting is an environment variable starting with `COOK_`. [`.env.example`]
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `COOK_AUTH_USERS` | _(empty)_ | `user:pass,user2:pass2`, imported once; manage accounts in `/admin` afterwards |
+| `COOK_AUTH_USERS` | _(empty)_ | Preset accounts, `user:pass,user2:pass2`, imported once instead of `/setup` |
+| `COOK_FIRST_RUN_SETUP` | `true` | `false` keeps a server without accounts open instead of sending browsers to `/setup` |
 | `COOK_HOST_PORT` | `9080` | Host port |
 | `COOK_PUBLIC_BASE_URL` | _(empty)_ | The outside address when behind a reverse proxy or tunnel |
 | `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, e.g. `loopback, uniquelocal` |
@@ -66,7 +69,7 @@ Every setting is an environment variable starting with `COOK_`. [`.env.example`]
 | `COOK_EXTRACT_ICONS` | `missing` | Read names and icons from the files: `missing`, `all` or `off` |
 | `COOK_TITLEDB_AUTO_FETCH` | `true` | Fetch public title lists; it runs offline once they are cached |
 
-Google sign-in, homebrew repositories and accounts are set on the admin page (`/admin`).
+Google sign-in, outside-service keys, homebrew repositories and accounts are set on the admin page (`/admin`). Keys can also be preset with env vars (see `.env.example`); what the admin page saves wins.
 
 ## API
 

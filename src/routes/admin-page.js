@@ -39,6 +39,7 @@ import { adminActor, mayAdminister } from "../security/admin-actor.js";
 import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
+import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import {
   normalizeDeviceKey,
   generateAccessKey,
@@ -340,6 +341,7 @@ export default function adminPageRouter() {
   mountHomebrewApi(router, requireSession);
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
+  mountIntegrationsApi(router, requireSession);
 
   return router;
 }

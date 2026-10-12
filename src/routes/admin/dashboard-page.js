@@ -10,6 +10,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
+import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -136,7 +137,7 @@ td .row-actions button{flex:1 1 auto}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}</style></head><body>
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
@@ -199,7 +200,8 @@ export function dashboardPage() {
 </section>
 
 <section id="tab-settings" hidden>
-  <h2>구글 로그인 설정</h2>
+  ${INTEGRATIONS_HTML}
+  <div class="hd"><h2>구글 로그인 설정</h2></div>
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
     <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
@@ -336,5 +338,5 @@ export function dashboardPage() {
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}</script></body></html>`;
 }

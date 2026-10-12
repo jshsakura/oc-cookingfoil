@@ -1,122 +1,46 @@
 # CookingFoil: a personal, self-hosted homebrew file server.
-# Configure via .env (see .env.example). Mount your game library at ./games.
+#
+#   1. docker compose up -d
+#   2. docker compose logs cookingfoil | grep "setup code"
+#   3. open http://<this machine>:9080/setup, enter the code, make the admin
+#      account and register an authenticator app
+#   4. outside-service keys (IGDB, SteamGridDB, Dropbox, GitHub …) go in the
+#      admin page's settings tab, each with where to get it
+#
+# Every option is optional and lives in .env (copy .env.example). The whole file
+# reaches the container; nothing has to be listed here.
 services:
   cookingfoil:
     image: ghcr.io/jshsakura/oc-cookingfoil:latest
     container_name: cookingfoil
     hostname: cookingfoil
-    build:
-      context: .
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       DEBUG: ${DEBUG:-oc-cookingfoil*}
+      # Fixed by this file's volumes; .env cannot move them.
       COOK_PORT: 80
       COOK_GAMES_DIR: /games
       COOK_DATA_DIR: /data
       COOK_KEYS_DIR: /keys
-      COOK_LANG_PRIORITY: ${COOK_LANG_PRIORITY:-ko,en,ja}
-      # Behind a reverse proxy / on a domain? Pin the EXTERNAL base URL the
-      # client actually browses to (no trailing slash, no /shop.tfl). This makes
-      # BOTH icon and file-download URLs absolute against that address, so they
-      # work regardless of the internal Host header the proxy forwards. Leave
-      # unset for direct IP:port access. See .env.example for details.
-      COOK_PUBLIC_BASE_URL: ${COOK_PUBLIC_BASE_URL:-}
-      # Trust X-Forwarded-* from the proxy (correct client IP for rate-limit /
-      # lockout, and Host derivation when COOK_PUBLIC_BASE_URL is unset).
-      COOK_TRUST_PROXY: ${COOK_TRUST_PROXY:-}
-      # Icon source: all = pull from game containers (offline-first, needs
-      # prod.keys) | missing = only titles titledb can't cover | off.
-      COOK_EXTRACT_ICONS: ${COOK_EXTRACT_ICONS:-all}
-      # Auto-refresh titledb every N hours while running (default 24).
-      COOK_TITLEDB_REFRESH_INTERVAL_HOURS: ${COOK_TITLEDB_REFRESH_INTERVAL_HOURS:-24}
-      # Publish the top-level titledb map in the shop response. OFF by default:
-      # CyberFoil/AeroFoil turn each titledb entry into a url-less, unselectable
-      # "ghost" row (breaks A/＋ selection). Turn on only for stock Tinfoil.
-      COOK_EMIT_TITLEDB: ${COOK_EMIT_TITLEDB:-}
-      # Optional explicit path. Defaults to /games/custom_entries.jsonc.
-      COOK_CUSTOM_ENTRIES: ${COOK_CUSTOM_ENTRIES:-}
-      # Basic auth — leave unset to disable. Format: "user:pass,user2:pass2".
-      COOK_AUTH_USERS: ${COOK_AUTH_USERS:-}
-      COOK_UNAUTHORIZED_MSG: ${COOK_UNAUTHORIZED_MSG:-No tricks and treats for you!!}
-      COOK_WELCOME_MSG: ${COOK_WELCOME_MSG:-CookingFoil is serving fresh.}
-
-      # --- /admin dashboard + device pairing ---
-      # These MUST be listed here to reach the container: anything not named in
-      # this block is invisible to the server no matter what .env says.
-      COOK_ADMIN_EMAIL: ${COOK_ADMIN_EMAIL:-}
-      # Leave empty to have the server generate + persist a secret on first boot
-      # (it prints the otpauth:// URI to the log).
-      COOK_ADMIN_TOTP_SECRET: ${COOK_ADMIN_TOTP_SECRET:-}
-      COOK_ADMIN_PASSWORD: ${COOK_ADMIN_PASSWORD:-}
-      COOK_ESHOP_PRICES: ${COOK_ESHOP_PRICES:-true}
-      COOK_ESHOP_POPULARITY: ${COOK_ESHOP_POPULARITY:-true}
-      COOK_ESHOP_ALGOLIA_APP_ID: ${COOK_ESHOP_ALGOLIA_APP_ID:-}
-      COOK_ESHOP_ALGOLIA_KEY: ${COOK_ESHOP_ALGOLIA_KEY:-}
-      COOK_ESHOP_ARTWORK: ${COOK_ESHOP_ARTWORK:-true}
-      COOK_RATING_SYNC: ${COOK_RATING_SYNC:-true}
-      COOK_DROPBOX_APP_KEY: ${COOK_DROPBOX_APP_KEY:-}
-      COOK_DROPBOX_REDIRECT_BASE: ${COOK_DROPBOX_REDIRECT_BASE:-}
-      COOK_GOOGLE_CLIENT_ID: ${COOK_GOOGLE_CLIENT_ID:-}
-      COOK_GOOGLE_CLIENT_SECRET: ${COOK_GOOGLE_CLIENT_SECRET:-}
-      COOK_GOOGLE_REDIRECT_BASE: ${COOK_GOOGLE_REDIRECT_BASE:-}
-      COOK_IGDB_CLIENT_ID: ${COOK_IGDB_CLIENT_ID:-}
-      COOK_IGDB_CLIENT_SECRET: ${COOK_IGDB_CLIENT_SECRET:-}
-      COOK_RATINGS_URL: ${COOK_RATINGS_URL:-}
-      COOK_HOMEBREW_REPOS: ${COOK_HOMEBREW_REPOS:-}
-      COOK_GITHUB_TOKEN: ${COOK_GITHUB_TOKEN:-}
-      COOK_HOMEBREW_CHECK_HOURS: ${COOK_HOMEBREW_CHECK_HOURS:-}
-      COOK_ADMIN_SESSION_HOURS: ${COOK_ADMIN_SESSION_HOURS:-}
-      # Bearer token for the recovery API (/api/admin/unlock) — reachable even
-      # when your own IP is locked out.
-      COOK_ADMIN_TOKEN: ${COOK_ADMIN_TOKEN:-}
-      # Passwordless lane for approved devices. NOTE: with COOK_AUTH_USERS empty
-      # this becomes the ONLY lane and stock Tinfoil can no longer connect.
-      COOK_DEVICE_PAIRING: ${COOK_DEVICE_PAIRING:-}
-      COOK_DEVICE_AUTO_APPROVE: ${COOK_DEVICE_AUTO_APPROVE:-}
-
-      # --- Lockout / rate limiting ---
-      COOK_AUTH_MAX_FAILURES: ${COOK_AUTH_MAX_FAILURES:-}
-      COOK_LOCKOUT_TTL_HOURS: ${COOK_LOCKOUT_TTL_HOURS:-}
-      COOK_LOCKOUT_TRUST_LOOPBACK: ${COOK_LOCKOUT_TRUST_LOOPBACK:-}
-      # One-shot recovery: set true, restart once, then unset.
-      COOK_RESET_LOCKOUTS: ${COOK_RESET_LOCKOUTS:-}
-      # Defaults (1200/min, burst 300) already cover console installs — which
-      # pull a title in 16MB range requests — and a full dashboard icon grid.
-      COOK_RATE_LIMIT_PER_MIN: ${COOK_RATE_LIMIT_PER_MIN:-}
-      COOK_RATE_LIMIT_BURST: ${COOK_RATE_LIMIT_BURST:-}
-
-      # --- Extraction tuning (see .env.example) ---
-      COOK_EXTRACT_MAX_GB: ${COOK_EXTRACT_MAX_GB:-}
-      COOK_EXTRACT_PACE_MS: ${COOK_EXTRACT_PACE_MS:-}
-      COOK_EXTRACT_CONCURRENCY: ${COOK_EXTRACT_CONCURRENCY:-}
-      COOK_EXTRACT_TIMEOUT_MS: ${COOK_EXTRACT_TIMEOUT_MS:-}
-      COOK_NSTOOL_BIN: ${COOK_NSTOOL_BIN:-}
-      COOK_NSZ_BIN: ${COOK_NSZ_BIN:-}
-      COOK_PROD_KEYS_PATH: ${COOK_PROD_KEYS_PATH:-}
-
-      # --- titledb ---
-      COOK_TITLEDB_AUTO_FETCH: ${COOK_TITLEDB_AUTO_FETCH:-}
-      COOK_TITLEDB_REGIONS: ${COOK_TITLEDB_REGIONS:-}
-
-      # --- Upload tray (off by default) ---
-      COOK_UPLOADS_ENABLED: ${COOK_UPLOADS_ENABLED:-}
-      COOK_UPLOAD_MAX_BYTES: ${COOK_UPLOAD_MAX_BYTES:-}
     ports:
-      # Host:container. Change the host side freely; container side stays 80.
+      # Host:container. Change the host side freely; the container side stays 80.
       - "${COOK_HOST_PORT:-9080}:80"
     volumes:
-      # Game library — required.
+      # Your file library.
       - ./games:/games
-      # Persistent runtime cache (extracted icons + titledb). Auto-created.
+      # Accounts, keys you save on the admin page, caches. Back this one up.
       - ./data:/data
-      # Console keys for NACP extraction (drop your own prod.keys here).
-      # Read-only; server runs without it but won't extract icons/metadata.
+      # Your own prod.keys, read-only. Without it icons and names come from titledb.
       - ./keys:/keys:ro
-      # Optional: shop template overrides (welcome message, custom headers, ...)
-      # Mounts to /shop_template.jsonc — same path the legacy tinfoil-hat
-      # image used, so an existing compose can swap just `image:` and keep
-      # the rest of the volumes/env unchanged.
-      - ./shop_template.jsonc:/shop_template.jsonc:ro
-      # Optional: user patches (mods, cheats) for clients to install:
-      # <base title id>/<patch folder>/<SD card layout>, plus an optional patch.json.
+      # Optional folders; each feature stays off until its folder is mounted.
+      # Retro files live in ./data/retro unless you mount them elsewhere.
+      # - ./retro:/data/retro
       # - ./patches:/patches:ro
+      # - ./saves:/saves:ro
+      # - ./homebrew:/homebrew
+      # Optional template overrides. Create the file first: if it is missing,
+      # Docker makes a directory in its place.
+      # - ./shop_template.jsonc:/shop_template.jsonc:ro
