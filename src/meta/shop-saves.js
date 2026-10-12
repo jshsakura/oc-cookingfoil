@@ -11,11 +11,14 @@
  *
  * meta.json is metadata and never ships:
  *
- *   { name, description, gameVersion?, source?: { name, url? }, ko?: { name?, description? } }
+ *   { name, description, gameVersion?, saveType?, source?: { name, url? }, ko?: { name?, description? } }
  *
  * name and description are the default (English) text; ko holds the Korean
  * ones, and saves/localize picks by the request's language. source credits
- * where the save came from.
+ * where the save came from. saveType says which save of a game it is: "device"
+ * for the console's shared save (user id 0,0), "account" for a player's. A
+ * client refuses to put one kind into the other; with no saveType it applies
+ * either way.
  * A save with a symlink, a path ustar cannot hold, too many files or too many
  * bytes is left out and only logged.
  *
@@ -47,6 +50,7 @@ export function saveId(titleId, folder) {
 }
 
 const SOURCE_MAX = { name: 120, url: 500 };
+export const SAVE_TYPES = ["device", "account"];
 
 /** `raw`'s fields named in `limits` as trimmed, length-capped strings. Pure. */
 function strings(raw, limits) {
@@ -69,6 +73,7 @@ export function readMeta(raw) {
   if (source.name) out.source = source;
   const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
   if (Object.keys(ko).length) out.ko = ko;
+  if (SAVE_TYPES.includes(raw?.saveType)) out.saveType = raw.saveType;
   return out;
 }
 
@@ -113,6 +118,7 @@ export async function readSave(root, tidDir, folder, cache) {
       id: app ? `hb-${crypto.createHash("sha256").update(app.toLowerCase()).digest("hex").slice(0, 12)}-${saveId("", folder).slice(1)}` : saveId(titleId, folder),
       titleId,
       ...(app ? { homebrew: app, installRoot: `switch/${app}` } : {}),
+      ...(!app && meta.saveType ? { saveType: meta.saveType } : {}),
       name: meta.name ?? folder.normalize("NFC"),
       description: meta.description ?? null,
       gameVersion: meta.gameVersion ?? null,
@@ -184,6 +190,16 @@ export function createCatalog({ root, cacheFile }) {
     async list() {
       if (Date.now() - scannedAt > STALE_MS) await scan();
       return saves.map(publicFields);
+    },
+    /** Where a listed save sits under the root ({ dir, folder }), or null. */
+    async locate(id) {
+      await this.list();
+      const known = saves.find((s) => s.id === id);
+      return known ? { dir: known.dir, folder: known.folder } : null;
+    },
+    /** Read the folder again on the next list (after a change made here). */
+    invalidate() {
+      scannedAt = 0;
     },
     /** A save read afresh for download, or null when it is gone or no longer valid. */
     async open(id) {

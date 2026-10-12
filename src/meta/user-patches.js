@@ -384,6 +384,12 @@ export function countFor(titleId) {
   return patches.reduce((n, p) => n + (p.title_id === tid), 0);
 }
 
+/** Where a listed patch sits under the root ({ dir, folder }), or null. */
+export function locate(id) {
+  const known = patches.find((p) => p.id === id);
+  return known ? { dir: known.dir, folder: known.folder } : null;
+}
+
 /** A patch read afresh from disk for download, or null when it is gone or no longer valid. */
 export async function openForDownload(id, root = patchesDir) {
   const known = patches.find((p) => p.id === id);

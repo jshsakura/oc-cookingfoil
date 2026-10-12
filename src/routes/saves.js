@@ -27,11 +27,15 @@ const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
 export const savesEnabled = () => fs.existsSync(savesDir);
 
+let shared = null;
+/** The one catalog of the saves folder, shared with the admin page. */
+export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json") }));
+
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
 export default function savesRouter() {
   const router = express.Router();
-  const catalog = createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json") });
+  const catalog = savesCatalog();
 
   router.use((req, res, next) => (savesEnabled() ? next() : res.status(404).json({ error: "this shop hands out no save files" })));
 

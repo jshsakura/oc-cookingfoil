@@ -1,14 +1,15 @@
 /**
  * /admin/api/upload — the operator adds files to the libraries from the admin page.
  *
- *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save: { writable } }, systems, games }
+ *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save|homebrew: { exists, writable } }, systems, games }
  *   POST /admin/api/upload/:kind     multipart: `files` (+ `paths`, a JSON list of folder-relative
  *                                    paths when a folder was picked) and the fields below
  *
  *     game    one .nsp/.nsz/.xci/.xcz          → <games>/<file name>
  *     retro   system; the ROM and its discs    → <retro>/roms/<console folder>/<file name>
  *     patch   titleId, name; a .zip or folder  → <patches>/<title id>/<name>/ in SD-root layout (+ patch.json)
- *     save    titleId, name, description, descriptionKo; a .zip or the save folder
+ *     save    titleId, name, description, descriptionKo, saveType (device|account); a .zip or the save folder
+ *             (a save-keeper backup's .meta is read for saveType and left out)
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
  *
  * Behind the admin 2FA session and a same-origin check. Files are received into
@@ -26,6 +27,7 @@ import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath,
 import { resolveOrigin } from "../../helpers/origin.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
+import { SAVE_TYPES } from "../../meta/shop-saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
@@ -35,7 +37,7 @@ import { defaultService } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
 import {
-  GAME_EXT_RE, UploadError, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
+  GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk,
 } from "../../meta/library-upload.js";
 
@@ -129,6 +131,21 @@ async function placeRetro(items, body) {
   return { where: `roms/${system.folder}/${names[0]}`, files: names.length };
 }
 
+const BACKUP_META_MAX = 64 * 1024;
+
+/** A game save's backup .meta files dropped from `items`, with the save type the last one names. */
+async function takeBackupMeta(items) {
+  const kept = [];
+  let saveType = null;
+  for (const it of items) {
+    const small = /\.meta$/i.test(it.rel) && (await fsp.stat(it.abs)).size <= BACKUP_META_MAX;
+    const type = small ? backupSaveType(it.rel, await fsp.readFile(it.abs, "utf8")) : null;
+    if (small && (type || /(^|\/)\.dropkeep\.meta$/i.test(it.rel))) saveType = type ?? saveType;
+    else kept.push(it);
+  }
+  return { items: kept, saveType };
+}
+
 /** Build the folder in staging, then rename it into place in one step. */
 async function placeFolder(kind, items, body, work, fromFolder) {
   // The target is a game (its base title id) or a homebrew app (its switch/<app>/ folder name).
@@ -138,6 +155,12 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   if (!app && !tid) throw new UploadError(400, "게임(타이틀 ID)이나 홈브류 앱을 고릅니다");
   const name = safeName(body.name);
   if (!name) throw new UploadError(400, "이름을 적습니다 (100자 이내, / 없이)");
+  let saveType = null;
+  if (kind === "save" && !app) {
+    ({ items, saveType } = await takeBackupMeta(items));
+    if (SAVE_TYPES.includes(body.saveType)) saveType = body.saveType;
+    if (!items.length) throw new UploadError(400, "세이브 파일이 없습니다");
+  }
   const paths = items.map((i) => i.rel);
   const rels = app ? homebrewLayout(paths, app, fromFolder) : kind === "patch" ? patchLayout(paths, tid) : saveLayout(paths, fromFolder);
   const under = app ? `homebrew/${app}` : tid;
@@ -151,7 +174,7 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   const descriptionKo = String(body.descriptionKo ?? "").trim().slice(0, 2000);
   const meta = kind === "patch"
     ? { name, ...(description || descriptionKo ? { description: descriptionKo || description } : {}) }
-    : { name, ...(description ? { description } : {}), ...(descriptionKo ? { ko: { description: descriptionKo } } : {}) };
+    : { name, ...(description ? { description } : {}), ...(saveType ? { saveType } : {}), ...(descriptionKo ? { ko: { description: descriptionKo } } : {}) };
   await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.rename(out, dest);
@@ -164,7 +187,10 @@ export function mountUploadApi(router, guard) {
     if (!guard(req, res)) return;
     res.set("Cache-Control", "no-store");
     const targets = {};
-    for (const kind of KINDS) targets[kind] = { writable: fs.existsSync(rootOf(kind)) && (await writable(rootOf(kind))) };
+    for (const kind of KINDS) {
+      const exists = fs.existsSync(rootOf(kind));
+      targets[kind] = { exists, writable: exists && (await writable(rootOf(kind))) };
+    }
     const systems = fs.existsSync(retroDir)
       ? Object.entries(loadSystems(retroDir)).map(([id, s]) => ({ id, name: s.names?.ko ?? s.name, extensions: s.extensions }))
       : [];

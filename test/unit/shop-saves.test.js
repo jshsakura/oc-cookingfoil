@@ -57,6 +57,9 @@ const get = (url, headers = {}) => fetch(BASE + url, { headers: { ...AUTH, ...he
 test("meta.json keeps only known, capped text fields", () => {
   assert.deepEqual(readMeta({ name: " All karts ", gameVersion: 3.1, evil: "x", description: "" }), { name: "All karts", gameVersion: "3.1" });
   assert.match(saveId(MK, "All Unlocked"), /^0100152000022000-[0-9a-f]{12}$/);
+  assert.equal(readMeta({ saveType: "device" }).saveType, "device");
+  assert.equal(readMeta({ saveType: "account" }).saveType, "account");
+  assert.equal(readMeta({ saveType: "bcat" }).saveType, undefined, "only the two kinds a client knows");
 });
 
 test("a save reads in Korean for ko and in English for every other language", () => {
@@ -77,7 +80,7 @@ test("a save reads in Korean for ko and in English for every other language", ()
 
 test("the shop lists save files and sends one as a tar rooted at the save folder", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "saves-"));
-  put(dir, `${MK}/All Unlocked/meta.json`, JSON.stringify({ name: "All karts", description: "Every kart and track", gameVersion: "3.0.1", ko: { name: "전 차종 언락", description: "모든 카트와 트랙" } }));
+  put(dir, `${MK}/All Unlocked/meta.json`, JSON.stringify({ name: "All karts", description: "Every kart and track", gameVersion: "3.0.1", saveType: "device", ko: { name: "전 차종 언락", description: "모든 카트와 트랙" } }));
   put(dir, `${MK}/All Unlocked/save.dat`, "SAVE");
   put(dir, `${MK}/All Unlocked/sub/ghost.bin`, "GHOST");
   put(dir, `${MK}/Empty/.DS_Store`, "junk");
@@ -95,6 +98,7 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
     assert.equal(s.titleId, MK);
     assert.equal(s.name, "전 차종 언락");
     assert.equal(s.gameVersion, "3.0.1");
+    assert.equal(s.saveType, "device", "the console's shared save");
     assert.equal(s.description, "모든 카트와 트랙");
     assert.equal((await (await get("/api/saves", { "Accept-Language": "en-US" })).json()).saves[0].name, "All karts");
     assert.equal(s.files, 2);

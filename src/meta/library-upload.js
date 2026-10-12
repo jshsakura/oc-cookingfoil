@@ -109,6 +109,21 @@ export function saveLayout(paths, fromFolderPicker) {
   return inner && inner.every((p) => p !== "") ? inner : paths;
 }
 
+/**
+ * A save backup's key=value .meta (save-keeper's `<backup>.meta`, or
+ * `.dropkeep.meta` inside a backup zip): "device" when its user_id marks the
+ * console's shared save, "account" for any other user_id, null when the text
+ * is not such a file. Pure.
+ */
+export function backupSaveType(name, text) {
+  if (!/\.meta$/i.test(name)) return null;
+  const fields = Object.fromEntries(String(text).split(/\r?\n/).map((l) => l.split("=")).filter((kv) => kv.length >= 2)
+    .map(([k, ...v]) => [k.trim(), v.join("=").trim()]));
+  if (!("user_id" in fields) && !("title_id" in fields)) return null;
+  if (fields.user_id === "device") return "device";
+  return fields.user_id ? "account" : null;
+}
+
 /** Retro files go flat into the console's folder; one of them must be a ROM it plays. Pure. */
 export function retroLayout(paths, system) {
   const names = paths.map((p) => path.posix.basename(p));

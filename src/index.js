@@ -56,7 +56,8 @@ import * as customArt from "./meta/custom-art.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
-import { romsDirPath, appPort } from "./helpers/envs.js";
+import { romsDirPath, appPort, dataDir, retroDir } from "./helpers/envs.js";
+import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import staticIndexHTML from "./staticIndexHTML.js";
@@ -300,6 +301,10 @@ customArt.init().then(() => shopCache.invalidate()).catch((err) =>
 // operator expects to work? Printed unconditionally — a silent misconfiguration
 // here is exactly what makes downloads "fail with no error".
 logConfigHealth();
+
+// The compose file used to keep retro ROMs in data/retro; it now mounts its own folder.
+const oldRetro = oldRetroLeftBehind(dataDir, retroDir);
+if (oldRetro) debug.error("retro: %s has files but %s is empty; move them over (compose now mounts its own retro folder)", oldRetro, retroDir);
 
 // Admin 2FA: validate the secret and surface the enrollment URI in the logs so
 // the operator can add it to an authenticator without shell-diving.

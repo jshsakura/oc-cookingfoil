@@ -2,6 +2,8 @@
  * Browser script for the /admin dashboard (inlined into the page).
  * Plain DOM, no framework: the page must work on an offline LAN box.
  */
+import { guessUpload } from "./upload-guess.js";
+
 export const DASHBOARD_SCRIPT = /* js */ `
 const $=(id)=>document.getElementById(id);
 const fmt=(t)=>t?new Date(t).toLocaleString('ko-KR'):'—';
@@ -277,10 +279,29 @@ async function loadHomebrew(){
     const act=td();const box=el('div',null,'row-actions');
     box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
     '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
-  table('hb-manual',['이름','버전','파일','크기',''],(d.manual||[]).map((m)=>{const tr=el('tr');
-    const n=td(m.name||'—');const c=m.description?.custom;if(c)n.append(el('div',c.ko||c.en||'설명 없음','desc'));
-    tr.append(n,td(m.version||'—'),td(m.file_name||'—','ip'),td(mb(m.size)));
-    const act=td();const mb_=el('div',null,'row-actions');mb_.append(hbKind(m.id,m.kind),btn('설명',()=>editHbDesc(m.id,m.name||m.file_name,m.description)));act.append(mb_);tr.append(act);return tr;}),'직접 넣은 앱이 없습니다.');}
+  hbManual=d.manual||[];hbSources=d.sources||[];loadHbApps();}
+let hbManual=[],hbSources=[];
+// Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
+async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
+  const extraCell=(type,app,items)=>{const c=td();
+    for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
+      line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
+    c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
+  table('hb-apps',['이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');
+    const n=td();n.append(el('b',a.name||a.app));
+    n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · switch/'+a.app+'/','muted'));
+    const manual=hbManual.find((m)=>m.id===a.id);
+    const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
+    tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));tr.append(k,td(mb(a.size)),extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));
+    const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
+    if(a.source==='manual')box.append(btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
+    act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.');}
+async function removeHbExtra(type,id,name){if(!confirm(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 지웁니다.'))return;
+  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('지웠습니다.');loadHbApps();}catch(err){toast(err.message);}}
+async function removeManualHb(id,name){if(!confirm(name+' 앱 폴더를 서버에서 지웁니다. 이 앱의 패치와 세이브는 남습니다.'))return;
+  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+let upPending=null;
+function uploadFor(kind,app){upPending={kind,app};if(location.hash==='#upload')loadUpload();else location.hash='upload';}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.
 function hbKind(id,kind){const sel=el('select');sel.setAttribute('aria-label','분류');
   for(const [v,t] of [['tool','도구'],['port','포트']]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
@@ -335,6 +356,12 @@ async function openLog(c,f,button){
 $('cl-refresh').addEventListener('click',loadClientLogs);
 
 // ── upload ────────────────────────────────────────────────────────────
+// A homebrew app's patch or save is the inside of its switch/<app>/ folder, not a game's atmosphere/ tree.
+const UP_HINT_HB={
+  patch:'홈브류 앱의 패치를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 놓일 파일을 그 구조 그대로 넣습니다.',
+  save:'홈브류 앱의 세이브를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 있던 세이브 파일을 그 구조 그대로 넣습니다.',
+};
+function upHint(){const app=$('up-target').value;$('up-hint').textContent=app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];}
 const UP_HINT={
   game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 패키지 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
   retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
@@ -342,60 +369,140 @@ const UP_HINT={
   save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
   homebrew:'.nro 하나나 릴리스 zip, 또는 앱 폴더를 올립니다. 감싼 폴더를 벗기고 switch/<앱>/ 하나로 정리하며, 그 밖의 파일(atmosphere/ 등)과 설명서는 빼고 무엇을 뺐는지 아래에 남깁니다.',
 };
-let upKind='game',upInfo=null,upFiles=[],upPaths=null;
+let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[];
+${guessUpload.toString()}
+// The entry names of a .zip, read from its central directory (no unpacking); null when it can't be read.
+async function zipNames(file){
+  try{const tail=Math.min(file.size,65557);const v=new DataView(await file.slice(file.size-tail).arrayBuffer());
+    let end=-1;for(let i=tail-22;i>=0;i--)if(v.getUint32(i,true)===0x06054b50){end=i;break;}
+    if(end<0)return null;
+    const count=v.getUint16(end+10,true),size=v.getUint32(end+12,true),off=v.getUint32(end+16,true);
+    if(off===0xffffffff||size>8e6)return null;
+    const cd=new DataView(await file.slice(off,off+size).arrayBuffer());const dec=new TextDecoder();const out=[];
+    for(let p=0,i=0;i<count&&p+46<=size;i++){
+      if(cd.getUint32(p,true)!==0x02014b50)return null;
+      const nl=cd.getUint16(p+28,true),xl=cd.getUint16(p+30,true),cl=cd.getUint16(p+32,true);
+      out.push(dec.decode(new Uint8Array(cd.buffer,p+46,nl)));p+=46+nl+xl+cl;}
+    return out;}catch{return null;}}
+// Files dropped on the page, with their paths when a folder was among them.
+async function droppedFiles(dt){
+  const entries=[...dt.items].map((i)=>i.webkitGetAsEntry?i.webkitGetAsEntry():null).filter(Boolean);
+  const plain=[...dt.files];
+  if(!entries.length||entries.every((x)=>x.isFile))return {files:plain,paths:null};
+  const files=[],paths=[];
+  const read=(r)=>new Promise((res,rej)=>r.readEntries(res,rej));
+  async function walk(en,pre){
+    if(en.isFile){files.push(await new Promise((res,rej)=>en.file(res,rej)));paths.push(pre+en.name);return;}
+    const r=en.createReader();for(let b=await read(r);b.length;b=await read(r))for(const x of b)await walk(x,pre+en.name+'/');}
+  for(const en of entries)await walk(en,'');
+  return {files,paths};}
+function upHint(){const app=$('up-target').value;
+  let h=!upKind?'파일 이름만으로는 종류를 알 수 없습니다. 위에서 종류를 고릅니다.':app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
+  if(upKind==='retro'&&upSystems.length>1)h+=' 이 확장자는 여러 기종이 씁니다. 기종이 맞는지 확인합니다.';
+  if(upKind==='game'&&upFiles.length>1)h+=' 고른 '+upFiles.length+'개를 하나씩 차례로 올립니다.';
+  $('up-hint').textContent=h;}
 function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.size,0);
-  $('up-chosen').textContent=n?(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB':'고른 파일이 없습니다';}
-function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
+  $('up-drop').classList.toggle('has',n>0);$('up-form').hidden=!(n||$('up-target').value);
+  $('up-drop-t').textContent=n?'다른 파일로 바꾸려면 여기에 다시 놓습니다':'파일이나 폴더를 여기에 끌어다 놓습니다';
+  $('up-chosen').textContent=n?(upPaths?upPaths[0].split('/')[0]+'/ · ':'')+(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB'
+    :'게임 패키지, 레트로 롬, 홈브류 .nro, 패치·세이브 zip 이나 폴더를 넣으면 종류를 알아서 고릅니다';}
+function upSetKind(kind){upKind=kind;
   for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
-  $('up-hint').textContent=UP_HINT[kind];
+  upHint();
+  const ps=kind==='patch'||kind==='save';
   $('up-system-l').hidden=kind!=='retro';
-  $('up-name-l').hidden=$('up-target-l').hidden=!(kind==='patch'||kind==='save');
-  $('up-game-l').hidden=!(kind==='patch'||kind==='save')||$('up-target').value!=='';
-  $('up-desc-l').hidden=$('up-desc-ko-l').hidden=!(kind==='patch'||kind==='save');
-  $('up-dir-btn').hidden=!(kind==='patch'||kind==='save'||kind==='homebrew');
-  $('up-file').multiple=kind==='retro';
-  $('up-file').accept=kind==='game'?'.nsp,.nsz,.xci,.xcz':(kind==='patch'||kind==='save')?'.zip':kind==='homebrew'?'.nro,.zip':'';
-  const w=upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
-  if(w&&!w.writable){const n=el('div',null,'note warn');n.append(el('div','이 폴더는 지금 쓸 수 없습니다','t'),
-    el('div','compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(n);}
+  $('up-name-l').hidden=$('up-target-l').hidden=!ps;
+  $('up-game-l').hidden=!ps||$('up-target').value!=='';
+  $('up-desc-l').hidden=!ps;
+  $('up-savetype-l').hidden=!(kind==='save'&&$('up-target').value==='');
+  const w=kind&&upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
+  if(w&&!w.writable){const n=el('div',null,'note warn');
+    n.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
+      el('div',w.exists===false?'compose 에서 이 폴더를 마운트하고 컨테이너를 다시 띄웁니다. 폴더 위치는 README 의 폴더 설명을 봅니다.'
+        :'compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(n);}
   $('up-go').disabled=!(w&&w.writable);}
+async function loadUploadInfo(){
+  if(upInfo)return true;
+  try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return false;}
+  $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
+  $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
+  // A homebrew app's patch or save goes into its own switch/<app>/ folder.
+  for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
+  return true;}
 async function loadUpload(){
-  if(!upInfo){try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return;}
-    $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
-    $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
-    // A homebrew app's patch or save goes into its own switch/<app>/ folder.
-    for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}}
-  upSetKind(upKind);}
-$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';});
+  if(!await loadUploadInfo())return;
+  if(upPending){$('up-target').value=upPending.app;upKind=upPending.kind;upPending=null;}
+  upSetKind(upKind);upChosen();}
+// New files: guess what they are and fill in what the names tell.
+async function upTake(files,paths){
+  if(!files.length||!await loadUploadInfo())return;
+  upFiles=files;upPaths=paths;
+  const zip=!paths&&files.length===1&&/[.]zip$/i.test(files[0].name)?await zipNames(files[0]):null;
+  const g=guessUpload({names:files.map((f)=>f.name),paths,zipNames:zip,systems:upInfo.systems});
+  // Picked from a homebrew app's row: its patch or save stays that.
+  const keep=$('up-target').value&&(upKind==='patch'||upKind==='save');
+  upSystems=g.systems||[];if(upSystems.length)$('up-system').value=upSystems[0];
+  if(g.name)$('up-name').value=g.name;
+  if(g.titleId&&!keep){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
+    $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}
+  upSetKind(keep?upKind:g.kind);upChosen();}
+function upReset(){upFiles=[];upPaths=null;upSystems=[];
+  for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
+  upSetKind(null);upChosen();}
+$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';
+  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');upHint();});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
-$('up-file').addEventListener('change',()=>{upFiles=[...$('up-file').files];upPaths=null;upChosen();$('up-file').value='';});
-$('up-dir').addEventListener('change',()=>{upFiles=[...$('up-dir').files];upPaths=upFiles.map((f)=>f.webkitRelativePath||f.name);upChosen();$('up-dir').value='';});
+$('up-drop').addEventListener('click',(e)=>{if(!e.target.closest('button'))$('up-file').click();});
+$('up-drop').addEventListener('keydown',(e)=>{if(e.target===$('up-drop')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();$('up-file').click();}});
+$('up-clear').addEventListener('click',upReset);
+$('up-file').addEventListener('change',()=>{const f=[...$('up-file').files];$('up-file').value='';upTake(f,null);});
+$('up-dir').addEventListener('change',()=>{const f=[...$('up-dir').files];$('up-dir').value='';upTake(f,f.map((x)=>x.webkitRelativePath||x.name));});
+// Files dragged anywhere on the page open the upload tab and land there.
+const hasFiles=(e)=>Boolean(e.dataTransfer)&&[...e.dataTransfer.types].includes('Files');
+let dragDepth=0;
+document.addEventListener('dragenter',(e)=>{if(!hasFiles(e))return;e.preventDefault();
+  if(dragDepth++===0){document.body.classList.add('dragging');if(location.hash!=='#upload')location.hash='upload';}});
+document.addEventListener('dragleave',(e)=>{if(!hasFiles(e))return;if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging');}});
+document.addEventListener('dragover',(e)=>{if(hasFiles(e)){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+document.addEventListener('drop',async(e)=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');
+  const got=await droppedFiles(e.dataTransfer);upTake(got.files,got.paths);});
 function upTitleId(){const v=$('up-game').value.trim();const m=v.match(/[0-9A-Fa-f]{16}/);return m?m[0].toUpperCase():'';}
-$('up-form').addEventListener('submit',(e)=>{e.preventDefault();
-  if(!upFiles.length){toast('올릴 파일을 고릅니다');return;}
+// One request; resolves to whether it went in, after logging the answer.
+function upSend(files,paths,label){return new Promise((resolve)=>{
   const fd=new FormData();
   if(upKind==='retro')fd.append('system',$('up-system').value);
-  if(upKind==='patch'||upKind==='save'){
-    const app=$('up-target').value;const tid=app?'':upTitleId();if(!app&&!tid){toast('게임이나 홈브류 앱을 고릅니다');return;}
-    if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}
-    if(app)fd.append('homebrew',app);else fd.append('titleId',tid);fd.append('name',$('up-name').value.trim());
-    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());}
-  if(upPaths)fd.append('paths',JSON.stringify(upPaths));
-  for(const f of upFiles)fd.append('files',f,f.name);
-  const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-go').disabled=true;
+  if(upKind==='patch'||upKind==='save'){const app=$('up-target').value;
+    if(app)fd.append('homebrew',app);else fd.append('titleId',upTitleId());fd.append('name',$('up-name').value.trim());
+    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
+    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);}
+  if(paths)fd.append('paths',JSON.stringify(paths));
+  for(const f of files)fd.append('files',f,f.name);
+  const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
   xhr.upload.addEventListener('progress',(ev)=>{if(ev.lengthComputable)bar.firstElementChild.style.width=(ev.loaded/ev.total*100).toFixed(1)+'%';});
-  xhr.addEventListener('loadend',()=>{$('up-go').disabled=false;bar.hidden=true;
+  xhr.addEventListener('loadend',()=>{
     if(xhr.status===401){location.reload();return;}
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
     const ok=xhr.status===201;const n=el('div',null,'note'+(ok?'':' warn'));
-    n.append(el('div',ok?'올렸습니다':'올리지 못했습니다','t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'):(d.error||('HTTP '+xhr.status)),'d'));
+    n.append(el('div',(ok?'올렸습니다':'올리지 못했습니다')+(label?' · '+label:''),'t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'):(d.error||('HTTP '+xhr.status)),'d'));
     if(ok&&d.install){for(const x of d.install.excluded||[])n.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'d'));
       if(d.install.rules?.length)n.append(el('div','판단 근거: '+d.install.rules.join(' · '),'d'));}
-    $('up-log').prepend(n);
-    if(ok){upFiles=[];upPaths=null;upChosen();$('up-name').value='';$('up-desc').value='';$('up-desc-ko').value='';toast('올렸습니다');}});
-  xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});
+    $('up-log').prepend(n);resolve(ok);});
+  xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});}
+$('up-form').addEventListener('submit',async(e)=>{e.preventDefault();
+  if(!upFiles.length){toast('올릴 파일을 고릅니다');return;}
+  if(!upKind){toast('종류를 고릅니다');return;}
+  if(upKind==='patch'||upKind==='save'){
+    if(!$('up-target').value&&!upTitleId()){toast('게임이나 홈브류 앱을 고릅니다');return;}
+    if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}}
+  $('up-go').disabled=$('up-clear').disabled=true;
+  let ok=true;
+  if(upKind==='game'&&upFiles.length>1){const list=upFiles;
+    for(const [i,f] of list.entries())ok=(await upSend([f],null,(i+1)+' / '+list.length+' · '+f.name))&&ok;}
+  else ok=await upSend(upFiles,upPaths,'');
+  $('up-go').disabled=$('up-clear').disabled=false;$('up-bar').hidden=true;$('up-progress').textContent='';
+  if(ok){upReset();toast('올렸습니다');}else toast('올리지 못한 것이 있습니다. 아래 기록을 봅니다');});
 
 // ── library ───────────────────────────────────────────────────────────
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
