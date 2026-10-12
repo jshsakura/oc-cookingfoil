@@ -106,7 +106,7 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     assert.match(made.token, /^cft_[a-f0-9]{8}_/);
     const listed = await (await api("/admin/api/tokens")).json();
     assert.equal(listed.tokens[0].label, "assistant");
-    assert.ok(!JSON.stringify(listed).includes(made.token.split("_")[2]), "the secret is not listed");
+    assert.ok(!JSON.stringify(listed).includes(made.token.replace(/^cft_[a-f0-9]{8}_/, "")), "the secret is not listed");
     const bearer = (token) => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
     const viaToken = (url, init = {}, token = made.token) => fetch(`${BASE}${url}`, { ...init, headers: bearer(token) });
     assert.equal((await viaToken("/admin/api/integrations")).status, 200);

@@ -22,7 +22,7 @@ import fsp from "fs/promises";
 import path from "path";
 import multer from "multer";
 import debug from "../../debug.js";
-import { dataDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir, uploadMaxBytes } from "../../helpers/envs.js";
+import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir, uploadMaxBytes } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
@@ -30,17 +30,18 @@ import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import { romKey } from "./retro-art-api.js";
+import { HomebrewUploadError, placeHomebrew } from "./homebrew-upload.js";
 import { loadSystems } from "../../retro/systems.js";
 import {
   GAME_EXT_RE, UploadError, baseTitleId, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk,
 } from "../../meta/library-upload.js";
 
-const KINDS = ["game", "retro", "patch", "save"];
+const KINDS = ["game", "retro", "patch", "save", "homebrew"];
 const MAX_FILES = 5000;
 const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
 
-const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir })[kind];
+const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
 // are watched as they land, so theirs stays in the data folder.
 const stagingOf = (kind) => (kind === "game" ? path.join(dataDir, "uploads") : path.join(rootOf(kind), ".upload-staging"));
@@ -88,7 +89,7 @@ async function received(req, work) {
     throw new UploadError(400, "paths 가 JSON 이 아닙니다");
   }
   const fromFolder = Array.isArray(paths) && paths.length === files.length;
-  if (files.length === 1 && /\.zip$/i.test(files[0].originalname) && req.params.kind !== "retro") {
+  if (files.length === 1 && /\.zip$/i.test(files[0].originalname) && req.params.kind !== "retro" && req.params.kind !== "homebrew") {
     const dir = path.join(work, "unzipped");
     await fsp.mkdir(dir);
     await unzip(files[0].path, dir);
@@ -191,11 +192,12 @@ export function mountUploadApi(router, guard) {
       const { items, fromFolder } = await received(req, work);
       const placed = kind === "game" ? await placeGame(items)
         : kind === "retro" ? await placeRetro(items, req.body)
+        : kind === "homebrew" ? await placeHomebrew(items, work)
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
       body = { ok: true, kind, ...placed };
     } catch (err) {
-      status = err instanceof UploadError ? err.status : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
+      status = err instanceof UploadError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
       if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
       body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err.message };
     }

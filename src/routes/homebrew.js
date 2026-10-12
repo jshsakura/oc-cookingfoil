@@ -109,7 +109,7 @@ function prewarmShortcuts(entries) {
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
-    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, ...e }) => e);
+    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, ...e }) => ({ ...e, files: e.files ? e.files.map(({ abs: _a, ...f }) => f) : null }));
     const entries = [...githubTracker().entries(), ...manualList];
     if (forwardersAvailable(keysDir) && entries.some((e) => !this.forwarderInfo(e).forwarder_size && forwarderSpec(forwarderApp(e)))) prewarmShortcuts(entries);
     return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null) }));
@@ -150,7 +150,9 @@ export const defaultService = {
   },
   /** One file of a folder install, or null. */
   async file(id, relPath) {
-    return id.startsWith("m-") ? null : githubTracker().packageFile(id, relPath);
+    if (!id.startsWith("m-")) return githubTracker().packageFile(id, relPath);
+    const f = (await manualEntries()).find((x) => x.id === id)?.files?.find((x) => x.path === relPath);
+    return f ? { path: f.abs, sha256: f.sha256, size: f.size } : null;
   },
 };
 

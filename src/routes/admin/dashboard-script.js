@@ -35,7 +35,9 @@ async function api(url,opts={}){
 
 // ── tabs ──────────────────────────────────────────────────────────────
 // why a zip was served as its single .nro instead of a whole folder
-const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다'};
+// why files of a release were left out of the install
+const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일'};
+const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다','partial':'일부 파일을 빼고 설치합니다'};
 const TABS=['overview','users','devices','settings','logs','featured','library','upload','homebrew','retro'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
@@ -268,7 +270,9 @@ async function loadHomebrew(){
     else st.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
     if(s.install){const folder=s.install.mode==='folder';
       st.append(pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null));
-      if(!folder&&HB_REASON[s.install.reason])st.append(el('div',HB_REASON[s.install.reason],'muted'));}
+      if(!folder&&HB_REASON[s.install.reason])st.append(el('div',HB_REASON[s.install.reason],'muted'));
+      for(const x of s.install.excluded||[])st.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'muted'));
+      if(s.install.rules?.length){const d=el('details');d.append(el('summary','판단 근거'),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
@@ -331,6 +335,7 @@ const UP_HINT={
   retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
   patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
   save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
+  homebrew:'.nro 하나나 릴리스 zip, 또는 앱 폴더를 올립니다. 감싼 폴더를 벗기고 switch/<앱>/ 하나로 정리하며, 그 밖의 파일(atmosphere/ 등)과 설명서는 빼고 무엇을 뺐는지 아래에 남깁니다.',
 };
 let upKind='game',upInfo=null,upFiles=[],upPaths=null;
 function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.size,0);
@@ -341,9 +346,9 @@ function upSetKind(kind){upKind=kind;upFiles=[];upPaths=null;upChosen();
   $('up-system-l').hidden=kind!=='retro';
   $('up-game-l').hidden=$('up-name-l').hidden=!(kind==='patch'||kind==='save');
   $('up-desc-l').hidden=$('up-desc-ko-l').hidden=!(kind==='patch'||kind==='save');
-  $('up-dir-btn').hidden=!(kind==='patch'||kind==='save');
+  $('up-dir-btn').hidden=!(kind==='patch'||kind==='save'||kind==='homebrew');
   $('up-file').multiple=kind==='retro';
-  $('up-file').accept=kind==='game'?'.nsp,.nsz,.xci,.xcz':(kind==='patch'||kind==='save')?'.zip':'';
+  $('up-file').accept=kind==='game'?'.nsp,.nsz,.xci,.xcz':(kind==='patch'||kind==='save')?'.zip':kind==='homebrew'?'.nro,.zip':'';
   const w=upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
   if(w&&!w.writable){const n=el('div',null,'note warn');n.append(el('div','이 폴더는 지금 쓸 수 없습니다','t'),
     el('div','compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(n);}
@@ -377,6 +382,8 @@ $('up-form').addEventListener('submit',(e)=>{e.preventDefault();
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
     const ok=xhr.status===201;const n=el('div',null,'note'+(ok?'':' warn'));
     n.append(el('div',ok?'올렸습니다':'올리지 못했습니다','t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'):(d.error||('HTTP '+xhr.status)),'d'));
+    if(ok&&d.install){for(const x of d.install.excluded||[])n.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'d'));
+      if(d.install.rules?.length)n.append(el('div','판단 근거: '+d.install.rules.join(' · '),'d'));}
     $('up-log').prepend(n);
     if(ok){upFiles=[];upPaths=null;upChosen();$('up-name').value='';$('up-desc').value='';$('up-desc-ko').value='';toast('올렸습니다');}});
   xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});
