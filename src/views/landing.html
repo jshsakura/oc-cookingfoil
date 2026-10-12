@@ -602,7 +602,8 @@
         .connect-bar { grid-template-columns: minmax(0, 1fr); }
         .lang-menu { margin-left: auto; }
         .tabs { order: 3; margin: 4px 0 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
-        .tabs button { flex: 1; padding: 8px 10px; }
+        /* Four views in four languages on one row: tight padding and a type size that follows the screen, never a scroll. */
+        .tabs button { flex: 1 1 auto; min-width: 0; padding: 8px 4px; font-size: clamp(11px, 3.3vw, 13px); overflow: hidden; text-overflow: ellipsis; }
         .tabs::-webkit-scrollbar { display: none; }
         .subtabs { display: flex; width: 100%; }
         .subtabs button { flex: 1; }

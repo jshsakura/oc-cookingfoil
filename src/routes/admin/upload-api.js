@@ -7,7 +7,7 @@
  *
  *     game    one .nsp/.nsz/.xci/.xcz          → <games>/<file name>
  *     retro   system; the ROM and its discs    → <retro>/roms/<console folder>/<file name>
- *     patch   titleId, name; a .zip or folder  → <patches>/<title id>/<name>/ in SD-root layout (+ patch.json)
+ *     patch   titleId, name, required ("true" when the game won't start without it); a .zip or folder  → <patches>/<title id>/<name>/ in SD-root layout (+ patch.json)
  *     save    titleId, name, description, descriptionKo, saveType (device|account); a .zip or the save folder
  *             (a save-keeper backup's .meta is read for saveType and left out)
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
@@ -60,7 +60,7 @@ async function writable(dir) {
 }
 
 /** Base games in the library: [{ titleId, name }]. */
-async function libraryGames() {
+export async function libraryGames() {
   const index = await shopCache.get();
   const seen = new Map();
   for (const f of index?.files ?? []) {
@@ -173,7 +173,7 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   const description = String(body.description ?? "").trim().slice(0, 2000);
   const descriptionKo = String(body.descriptionKo ?? "").trim().slice(0, 2000);
   const meta = kind === "patch"
-    ? { name, ...(description || descriptionKo ? { description: descriptionKo || description } : {}) }
+    ? { name, ...(description || descriptionKo ? { description: descriptionKo || description } : {}), ...(!app && body.required === "true" ? { required: true } : {}) }
     : { name, ...(description ? { description } : {}), ...(saveType ? { saveType } : {}), ...(descriptionKo ? { ko: { description: descriptionKo } } : {}) };
   await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
   await fsp.mkdir(path.dirname(dest), { recursive: true });

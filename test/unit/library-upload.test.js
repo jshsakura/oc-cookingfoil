@@ -107,6 +107,31 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(fs.readFileSync(path.join(patchDir, "atmosphere", "contents", MK, "romfs", "text.bin"), "utf8"), "KO");
     assert.equal(JSON.parse(fs.readFileSync(path.join(patchDir, "patch.json"), "utf8")).description, "한국어로 바꿉니다");
 
+    // A patch the game can't start without: marked on upload, changed later from the admin page.
+    r = await send("patch", { titleId: MK, name: "게임 데이터", required: "true" }, [["patch.zip", fs.readFileSync(zip)]]);
+    assert.equal(r.status, 201, await r.clone().text());
+    const dataJson = path.join(dirs.patches, MK, "게임 데이터", "patch.json");
+    assert.equal(JSON.parse(fs.readFileSync(dataJson, "utf8")).required, true);
+    const adminPatches = async () => (await (await fetch(`${BASE}/admin/api/patches`, { headers: admin })).json()).patches;
+    let listed = [];
+    for (let i = 0; i < 40 && listed.length < 2; i++) {
+      listed = await adminPatches();
+      if (listed.length < 2) await new Promise((res) => setTimeout(res, 100));
+    }
+    const data = listed.find((p) => p.name === "게임 데이터");
+    assert.equal(data.required, true);
+    assert.equal(listed.find((p) => p.name === "한글패치").required, false, "not marked: not required");
+    const setRequired = (id, required) => fetch(`${BASE}/admin/api/patches/required`, {
+      method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ id, required }) });
+    assert.equal((await setRequired(data.id, "yes")).status, 400);
+    assert.equal((await setRequired("0100152000022000-000000000000", true)).status, 404);
+    assert.equal((await setRequired(data.id, false)).status, 200);
+    assert.deepEqual(JSON.parse(fs.readFileSync(dataJson, "utf8")), { name: "게임 데이터" }, "the other fields stay");
+    const pub = (await (await fetch(`${BASE}/api/patches`, { headers: { Authorization: ALICE } })).json()).patches;
+    assert.equal(pub.find((p) => p.id === data.id).required, false, "the shop listing carries the same value");
+    assert.equal((await setRequired(data.id, true)).status, 200);
+    assert.equal((await (await fetch(`${BASE}/api/patches`, { headers: { Authorization: ALICE } })).json()).patches.find((p) => p.id === data.id).required, true);
+
     r = await send("save", { titleId: MK, name: "All karts", description: "Everything unlocked.", descriptionKo: "전부 엽니다." },
       [["userdata.dat", "SAVE"], ["x.bin", "X"]], ["MK8D/userdata.dat", "MK8D/sub/x.bin"]);
     assert.equal(r.status, 201, await r.clone().text());

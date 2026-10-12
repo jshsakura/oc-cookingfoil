@@ -382,6 +382,8 @@ export default function retroRouter() {
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {
       filename: "retroarch-base-pack.tar",
       etag: manifest?.version,
+      // The bytes follow from the manifest version alone, so a client resumes against it.
+      fixedTimes: Boolean(manifest?.version),
       label: "retro",
     });
   }));

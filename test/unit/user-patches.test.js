@@ -47,6 +47,8 @@ test("files map to kinds only under the paths the game owns", () => {
 
 test("patch.json fields are trimmed strings and anything else is dropped", () => {
   assert.deepEqual(readMeta({ name: " 60 FPS ", version: 1.2, author: {}, description: "" }), { name: "60 FPS", version: "1.2" });
+  assert.deepEqual(readMeta({ name: "Data", required: true }), { name: "Data", required: true }, "a patch the game needs");
+  assert.deepEqual(readMeta({ name: "Data", required: "true" }), { name: "Data" }, "only a real boolean");
 });
 
 test("ids are url safe and stable for a folder name", () => {

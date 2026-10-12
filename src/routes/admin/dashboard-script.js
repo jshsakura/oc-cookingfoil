@@ -415,6 +415,7 @@ function upSetKind(kind){upKind=kind;
   $('up-game-l').hidden=!ps||$('up-target').value!=='';
   $('up-desc-l').hidden=!ps;
   $('up-savetype-l').hidden=!(kind==='save'&&$('up-target').value==='');
+  $('up-required-l').hidden=!(kind==='patch'&&$('up-target').value==='');
   const w=kind&&upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
   if(w&&!w.writable){const n=el('div',null,'note warn');
     n.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
@@ -448,9 +449,11 @@ async function upTake(files,paths){
   upSetKind(keep?upKind:g.kind);upChosen();}
 function upReset(){upFiles=[];upPaths=null;upSystems=[];
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
+  $('up-required').checked=false;
   upSetKind(null);upChosen();}
 $('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';
-  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');upHint();});
+  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');
+  $('up-required-l').hidden=!(upKind==='patch'&&$('up-target').value==='');upHint();});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
@@ -476,7 +479,8 @@ function upSend(files,paths,label){return new Promise((resolve)=>{
   if(upKind==='patch'||upKind==='save'){const app=$('up-target').value;
     if(app)fd.append('homebrew',app);else fd.append('titleId',upTitleId());fd.append('name',$('up-name').value.trim());
     fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
-    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);}
+    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
+    if(upKind==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
   if(paths)fd.append('paths',JSON.stringify(paths));
   for(const f of files)fd.append('files',f,f.name);
   const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
@@ -507,7 +511,19 @@ $('up-form').addEventListener('submit',async(e)=>{e.preventDefault();
 // ── library ───────────────────────────────────────────────────────────
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return (d?d+'일 ':'')+(h?h+'시간 ':'')+m+'분';}
+// Game patches: the admin marks the ones a game can't start without.
+async function loadPatches(){let d;try{d=await api('/admin/api/patches');}catch(err){toast(err.message);return;}
+  table('lib-patches',['게임','패치','크기','필수'],(d.patches||[]).map((p)=>{const tr=el('tr');
+    const g=td();g.append(el('b',p.game||p.title_id));if(p.game)g.append(el('div',p.title_id,'muted'));
+    const req=td();const lab=el('label',null,'check');const box=el('input');box.type='checkbox';box.checked=p.required;
+    box.setAttribute('aria-label',p.name+' 필수');
+    box.addEventListener('change',async()=>{box.disabled=true;
+      try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:box.checked}});toast(box.checked?'필수로 표시했습니다':'필수 표시를 뺐습니다');}
+      catch(err){box.checked=!box.checked;toast(err.message);}box.disabled=false;});
+    lab.append(box,el('span','필수'));req.append(lab);
+    tr.append(g,td(p.name),td(mb(p.size)),req);return tr;}),'게임 패치가 없습니다. 업로드 탭에서 올립니다.');}
 async function loadLibrary(){
+  loadPatches();
   const d=await api('/admin/api/library');if(d.origin)origin=d.origin;
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};

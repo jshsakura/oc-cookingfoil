@@ -164,3 +164,20 @@ test('on a phone the page fits the screen width with a long shop address', async
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/landing-phone.png' });
 });
+
+test('on a phone all four views fit one row in every language', async ({ page }) => {
+  for (const width of [390, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const lang of ['ko', 'en', 'ja', 'zh']) {
+      await page.addInitScript((l) => { try { localStorage.setItem('cookingfoil:lang', l); } catch { /* none */ } }, lang);
+      await page.goto('/');
+      await expect(page.locator('html')).toHaveAttribute('lang', lang);
+      // Retro and homebrew show only with content; the test server has none, so show them as a full server would.
+      await page.$$eval('nav.tabs button', (bs) => bs.forEach((b) => { b.hidden = false; }));
+      const nav = await page.locator('nav.tabs').evaluate((n) => ({ over: n.scrollWidth - n.clientWidth, right: n.getBoundingClientRect().right }));
+      expect(nav.over, `${lang} at ${width}px`).toBe(0);
+      expect(nav.right, `${lang} at ${width}px`).toBeLessThanOrEqual(width);
+      await expect(page.locator('nav.tabs button').last()).toBeInViewport({ ratio: 1 });
+    }
+  }
+});

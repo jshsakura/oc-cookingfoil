@@ -12,14 +12,15 @@ const SIGNED_IN = "B1".repeat(32);
 const STRANGER = "C2".repeat(32);
 const KNOCKER = "D3".repeat(32);
 
-async function boot() {
+async function boot(autoApprove) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-auto-"));
   fs.mkdirSync(path.join(data, "games"));
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
-      COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true", COOK_DEVICE_AUTO_APPROVE: "true",
-      COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
+      COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true",
+      COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false",
+      ...(autoApprove === undefined ? {} : { COOK_DEVICE_AUTO_APPROVE: autoApprove }) },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -36,7 +37,7 @@ async function boot() {
 
 const status = async (key) => (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key } })).json();
 
-test("a console that signs in is approved on the spot; one that doesn't still waits", async () => {
+test("a console that signs in is approved on the spot (the default); one that doesn't still waits", async () => {
   const server = await boot();
   try {
     assert.equal((await status(SIGNED_IN)).status, "pending");
@@ -59,6 +60,17 @@ test("a console that signs in is approved on the spot; one that doesn't still wa
 
     assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": STRANGER } })).status, 401);
     assert.equal((await status(STRANGER)).status, "pending", "no sign-in, no approval");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("manual approval: with auto-approval off, a signed-in console waits for the admin", async () => {
+  const server = await boot("false");
+  try {
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { Authorization: ALICE, "X-Device-Key": SIGNED_IN } })).status, 200);
+    assert.equal((await status(SIGNED_IN)).status, "pending");
+    assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: ALICE, "X-Device-Key": KNOCKER } })).json()).status, "pending");
   } finally {
     server.kill("SIGKILL");
   }
