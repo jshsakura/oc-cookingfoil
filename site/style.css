@@ -48,10 +48,15 @@ section.block{padding:40px 0}
 :root[data-theme="light"] .card .ic{color:#9A6A00}
 @media (prefers-color-scheme:light){:root:not([data-theme]) .card .ic{color:#9A6A00}}
 .card h3{font-size:16px;margin:0 0 6px}.card p{color:var(--muted);margin:0;font-size:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pair .card{display:flex;flex-direction:column;gap:0}.pair .card p{flex:1}
+.tag{display:block;width:fit-content;margin:14px 0 12px}
+.more{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;text-decoration:none;color:var(--ink)}.more:hover{color:var(--accent)}
+.more.soon{color:var(--faint);font-weight:600}
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;counter-reset:s}
 .steps .card{counter-increment:s}.steps .card h3::before{content:counter(s);display:inline-grid;place-items:center;width:24px;height:24px;margin-right:8px;border-radius:7px;background:var(--accent);color:var(--accent-ink);font-size:13px}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-@media (max-width:820px){.grid,.steps{grid-template-columns:1fr 1fr}}
+@media (max-width:820px){.grid,.steps{grid-template-columns:1fr 1fr}.pair{grid-template-columns:1fr}}
 @media (max-width:560px){.grid,.steps{grid-template-columns:1fr}.hero{padding:48px 0 36px}.top .wm{font-size:21px}}
 
 /* documents (privacy, terms) */
