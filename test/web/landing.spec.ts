@@ -134,3 +134,22 @@ test('card names follow the page language from the sections names, falling back 
   await pickLang(page, 'ko');
   await expect(name).toHaveText('테스트 게임');
 });
+
+test('the stats panel draws composition, storage and recent-month charts from the file list', async ({ page }) => {
+  const now = Date.now();
+  const files = [
+    { url: 'a', size: 4e9, kind: 'base', mtime: now, titleId: '0100000000010000' },
+    { url: 'b', size: 2e9, kind: 'base', mtime: now, titleId: '0100000000020000' },
+    { url: 'c', size: 1e9, kind: 'update', mtime: now, titleId: '0100000000010800', baseTitleId: '0100000000010000' },
+  ];
+  await page.route('**/shop.json', (route) => route.fulfill({ json: { files, titledb: {} } }));
+  await page.goto('/');
+  await pickLang(page, 'en');
+  const charts = page.locator('#charts');
+  await expect(charts).toBeVisible();
+  await expect(charts.locator('.chart')).toHaveCount(3);
+  await expect(charts.locator('.chart').first()).toContainText('3 total');
+  await expect(charts.locator('.legend').first()).toContainText('Base');
+  await pickLang(page, 'ko');
+  await expect(charts.locator('.chart h4').first()).toContainText('구성');
+});

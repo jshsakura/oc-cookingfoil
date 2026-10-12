@@ -252,6 +252,37 @@
       .stat .value { font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
       .stat .sub { font-size: 12px; color: var(--faint); margin-top: 2px; }
 
+      /* CHARTS: what the library is made of, drawn from the same list */
+      .charts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+      .chart { grid-column: span 2; }
+      .chart.wide { grid-column: span 3; }
+      .chart.full { grid-column: 1 / -1; }
+      .charts[hidden] { display: none; }
+      .chart { background: var(--sunk); border-radius: 14px; padding: 14px 16px; min-width: 0; --c1: var(--butter); --c2: var(--good); --c3: #8b9cf7; }
+      .chart h4 { font-size: 12px; font-weight: 600; color: var(--secondary); margin-bottom: 12px; display: flex; gap: 8px; }
+      .chart h4 .total { margin-left: auto; color: var(--faint); font-weight: 500; }
+      .donut-wrap { display: flex; align-items: center; gap: 18px; }
+      .donut { width: 104px; height: 104px; flex-shrink: 0; transform: rotate(-90deg); }
+      .donut circle { fill: none; stroke-width: 14; }
+      .legend { display: grid; gap: 7px; font-size: 13px; min-width: 0; flex: 1; }
+      .legend div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .legend i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--c); }
+      .legend span { overflow: hidden; text-overflow: ellipsis; }
+      .legend b { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .stack { display: flex; height: 14px; border-radius: 100px; overflow: hidden; background: var(--line); margin-bottom: 14px; }
+      .stack i { background: var(--c); min-width: 2px; }
+      .cols { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 96px; }
+      .cols .col { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+      .cols .bar { background: var(--butter); border-radius: 5px 5px 2px 2px; min-height: 2px; }
+      .cols .bar.zero { background: var(--line); }
+      .col-x { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; margin-top: 6px; font-size: 10px; color: var(--faint); text-align: center; }
+      .hbars { display: grid; gap: 8px; }
+      .hbar { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 13px; }
+      .hbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hbar .track { height: 8px; border-radius: 100px; background: var(--line); overflow: hidden; }
+      .hbar .fill { height: 100%; border-radius: 100px; background: var(--c, var(--butter)); }
+      .hbar b { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 2ch; text-align: right; }
+
       .namehealth { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
       .nh-state {
         display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
@@ -551,8 +582,14 @@
       .footer a:hover { text-decoration: underline; }
 
       @media (max-width: 900px) {
+        .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .chart, .chart.wide { grid-column: span 1; }
+        .chart.full { grid-column: 1 / -1; }
       }
       @media (max-width: 640px) {
+        .charts { grid-template-columns: minmax(0, 1fr); }
+        .chart, .chart.wide { grid-column: 1 / -1; }
+        .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) auto; }
         .connect-bar { grid-template-columns: 1fr; }
         .lang-menu { margin-left: auto; }
         .tabs { order: 3; margin: 4px 0 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
@@ -642,6 +679,7 @@
               <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value sk" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
               <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value sk" id="stat-mods">—</div><div class="sub sk" id="stat-mods-sub">—</div></div>
             </div>
+            <div class="charts" id="charts" hidden></div>
             <div class="namehealth" id="namehealth">
               <div class="nh-state" id="nh-state">
                 <span class="nh-dot" aria-hidden="true"></span>
@@ -901,6 +939,12 @@
           "chip.base": "베이스",
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
+          "chart.composition": "구성",
+          "chart.storage": "용량",
+          "chart.added": "최근 12개월 추가",
+          "chart.genres": "장르",
+          "chart.scores": "Steam 평점",
+          "chart.total": (n) => `총 ${n}`,
           "chip.custom": "커스텀",
           "pill.sale": "eShop 할인",
           "pill.update": "업데이트",
@@ -1059,6 +1103,12 @@
           "chip.base": "Base",
           "chip.update": "Updates",
           "chip.dlc": "DLC",
+          "chart.composition": "Composition",
+          "chart.storage": "Storage",
+          "chart.added": "Added in the last 12 months",
+          "chart.genres": "Genres",
+          "chart.scores": "Steam reviews",
+          "chart.total": (n) => `${n} total`,
           "chip.custom": "Custom",
           "pill.sale": "eShop sale",
           "pill.update": "Update",
@@ -1220,6 +1270,12 @@
           "chip.base": "本編",
           "chip.update": "アップデート",
           "chip.dlc": "DLC",
+          "chart.composition": "構成",
+          "chart.storage": "容量",
+          "chart.added": "直近12か月の追加",
+          "chart.genres": "ジャンル",
+          "chart.scores": "Steam 評価",
+          "chart.total": (n) => `合計 ${n}`,
           "chip.custom": "カスタム",
           "pill.sale": "eShopセール",
           "pill.update": "アップデート",
@@ -1381,6 +1437,12 @@
           "chip.base": "本體",
           "chip.update": "更新",
           "chip.dlc": "DLC",
+          "chart.composition": "构成",
+          "chart.storage": "容量",
+          "chart.added": "近 12 个月新增",
+          "chart.genres": "类型",
+          "chart.scores": "Steam 评价",
+          "chart.total": (n) => `共 ${n}`,
           "chip.custom": "自訂",
           "pill.sale": "eShop 特價",
           "pill.update": "更新",
@@ -1789,6 +1851,8 @@
         animateCount($("stat-base"), baseCount);
         $("stat-mods").textContent = modsCount.toLocaleString();
         $("stat-mods-sub").textContent = t("stat.mods_sub", updateCount, dlcCount);
+        chartFiles = files;
+        renderCharts();
 
         // Roll up update/DLC counts onto each base title so the card can
         // surface 'this base also has N updates / M DLC in your library'.
@@ -1941,10 +2005,97 @@
           if (state.genre && ![...next.values()].some((keys) => keys.includes(state.genre))) state.genre = "";
           renderGenreChips();
           renderSteamChips();
+          renderCharts();
           applyFilters();
         } catch (err) {
           console.warn("[CookingFoil] genres unavailable:", err);
         }
+      }
+
+      // ─── charts in the stats panel ───────────────────────────────────────
+      let chartFiles = [];
+      const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const legendRow = (color, label, value) => `<div><i style="--c:${color}"></i><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+      const chartCard = (title, total, body, cls = "") =>
+        `<div class="chart${cls}"><h4><span>${esc(title)}</span>${total ? `<span class="total">${esc(total)}</span>` : ""}</h4>${body}</div>`;
+
+      function donut(parts) {
+        const sum = parts.reduce((a, p) => a + p.n, 0) || 1;
+        const r = 40, c = 2 * Math.PI * r;
+        let offset = 0;
+        const rings = parts.filter((p) => p.n > 0).map((p) => {
+          const len = (p.n / sum) * c;
+          const ring = `<circle r="${r}" cx="52" cy="52" stroke="${p.color}" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-offset}"/>`;
+          offset += len;
+          return ring;
+        }).join("");
+        return `<svg class="donut" viewBox="0 0 104 104" aria-hidden="true"><circle r="${r}" cx="52" cy="52" stroke="var(--line)"/>${rings}</svg>`;
+      }
+
+      function hbars(rows, max) {
+        return `<div class="hbars">${rows.map((r) => `<div class="hbar"><span title="${esc(r.label)}">${esc(r.label)}</span>` +
+          `<div class="track"><div class="fill" style="width:${Math.max(2, (r.n / (max || 1)) * 100)}%${r.color ? `;--c:${r.color}` : ""}"></div></div><b>${r.n.toLocaleString()}</b></div>`).join("")}</div>`;
+      }
+
+      function renderCharts() {
+        const box = $("charts");
+        const files = chartFiles;
+        if (!files.length) { box.hidden = true; box.innerHTML = ""; return; }
+        const KINDS = [["base", "var(--c1)", t("chip.base")], ["update", "var(--c2)", t("chip.update")], ["dlc", "var(--c3)", t("chip.dlc")]];
+        const kindOf = (f) => f.kind || "base";
+        const cards = [];
+
+        const counts = KINDS.map(([k, color, label]) => ({ n: files.filter((f) => kindOf(f) === k).length, color, label }));
+        cards.push(chartCard(t("chart.composition"), t("chart.total", files.length.toLocaleString()),
+          `<div class="donut-wrap">${donut(counts)}<div class="legend">${counts.map((p) => legendRow(p.color, p.label, p.n.toLocaleString())).join("")}</div></div>`));
+
+        const bytes = KINDS.map(([k, color, label]) => ({ n: files.filter((f) => kindOf(f) === k).reduce((a, f) => a + (typeof f.size === "number" ? f.size : 0), 0), color, label }));
+        const allBytes = bytes.reduce((a, b) => a + b.n, 0);
+        if (allBytes > 0) {
+          cards.push(chartCard(t("chart.storage"), t("chart.total", fmtBytes(allBytes)),
+            `<div class="stack">${bytes.filter((b) => b.n > 0).map((b) => `<i style="--c:${b.color};flex:${b.n}"></i>`).join("")}</div>` +
+            `<div class="legend">${bytes.map((b) => legendRow(b.color, b.label, fmtBytes(b.n))).join("")}</div>`));
+        }
+
+        // base entries added per month over the last year, from file times
+        const now = new Date();
+        const months = Array.from({ length: 12 }, (_, i) => new Date(now.getFullYear(), now.getMonth() - 11 + i, 1));
+        const perMonth = new Array(12).fill(0);
+        for (const f of files) {
+          if (kindOf(f) !== "base" || typeof f.mtime !== "number") continue;
+          const d = new Date(f.mtime < 1e12 ? f.mtime * 1000 : f.mtime);
+          const i = (d.getFullYear() - months[0].getFullYear()) * 12 + d.getMonth() - months[0].getMonth();
+          if (i >= 0 && i < 12) perMonth[i]++;
+        }
+        const peak = Math.max(...perMonth);
+        if (peak > 0) {
+          const fmtMonth = new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : lang, { month: "numeric" });
+          cards.push(chartCard(t("chart.added"), t("chart.total", perMonth.reduce((a, b) => a + b, 0).toLocaleString()),
+            `<div class="cols">${perMonth.map((n, i) => `<div class="col" title="${esc(fmtMonth.format(months[i]))}: ${n}"><div class="bar${n ? "" : " zero"}" style="height:${n ? Math.max(4, (n / peak) * 100) : 2}%"></div></div>`).join("")}</div>` +
+            `<div class="col-x">${months.map((m) => `<span>${esc(fmtMonth.format(m).replace(/[^0-9]/g, ""))}</span>`).join("")}</div>`));
+        }
+
+        const genres = new Map();
+        for (const keys of genreOf.values()) for (const key of keys) genres.set(key, (genres.get(key) || 0) + 1);
+        if (genres.size) {
+          const top = [...genres].sort((a, b) => b[1] - a[1]).slice(0, 6);
+          cards.push(chartCard(t("chart.genres"), "", hbars(top.map(([k, n]) => ({ label: genreLabel(k), n })), top[0][1]), " wide"));
+        }
+
+        const tiers = new Map();
+        for (const sc of scoreOf.values()) if (sc.label) tiers.set(sc.label, (tiers.get(sc.label) || 0) + 1);
+        if (tiers.size) {
+          const rows = STEAM_ORDER.filter((k) => tiers.has(k)).map((k, i, all) => ({
+            label: steamLabelName(k), n: tiers.get(k),
+            color: `color-mix(in srgb, var(--good) ${Math.round(100 - (i / Math.max(1, all.length - 1)) * 100)}%, var(--bad))`,
+          }));
+          cards.push(chartCard(t("chart.scores"), "", hbars(rows, Math.max(...rows.map((r) => r.n))), " wide"));
+        }
+
+        // two wide cards share a row; a lone one takes the whole row
+        if (cards.filter((c) => c.includes('class="chart wide"')).length === 1) cards[cards.length - 1] = cards[cards.length - 1].replace('class="chart wide"', 'class="chart full"');
+        box.innerHTML = cards.join("");
+        box.hidden = false;
       }
 
       // One chip per genre key, busiest first, labelled in the page language.
