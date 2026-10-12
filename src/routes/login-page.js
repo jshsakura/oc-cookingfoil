@@ -215,7 +215,7 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
 <label for="username">${icon("user")}${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus>
 <label for="password">${icon("lock")}${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
-${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${icon("login")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`);
+${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${icon("key")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`);
 }
 
 function approveScript(t, csrf) {
