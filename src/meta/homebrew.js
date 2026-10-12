@@ -221,14 +221,46 @@ export async function readNro(file) {
   return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version } : null;
 }
 
-const manualHashes = new Map(); // abs path → { key, hash }, so a rescan only reads changed files
+// abs path → { key, hash }, so a rescan only reads changed files. Kept on disk
+// (setManualHashFile), so a restart doesn't read a large app's data again.
+let manualHashes = null;
+let hashFile = null;
+let hashesChanged = false;
 
-async function cachedSha256(file, st) {
+/** Where hand-placed apps' file hashes are remembered across restarts. */
+export function setManualHashFile(file) {
+  hashFile = file;
+  manualHashes = null;
+}
+
+function hashes() {
+  if (manualHashes) return manualHashes;
+  manualHashes = new Map();
+  try {
+    if (hashFile) for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(hashFile, "utf8")))) manualHashes.set(k, v);
+  } catch (err) {
+    if (err.code !== "ENOENT") debug.error("homebrew: %s unreadable, hashing again: %s", hashFile, err.message);
+  }
+  return manualHashes;
+}
+
+async function saveHashes(seen) {
+  for (const k of [...hashes().keys()]) if (!seen.has(k)) { hashes().delete(k); hashesChanged = true; }
+  if (!hashFile || !hashesChanged) return;
+  hashesChanged = false;
+  await fsp.mkdir(path.dirname(hashFile), { recursive: true });
+  await fsp.writeFile(`${hashFile}.tmp`, JSON.stringify(Object.fromEntries(hashes())));
+  await fsp.rename(`${hashFile}.tmp`, hashFile);
+}
+
+async function cachedSha256(file, st, seen = null) {
+  seen?.add(file);
   const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
-  const known = manualHashes.get(file);
+  const known = hashes().get(file);
   if (known?.key === key) return known.hash;
   const hash = await sha256File(file);
-  manualHashes.set(file, { key, hash });
+  hashes().set(file, { key, hash });
+  hashesChanged = true;
   return hash;
 }
 
@@ -262,18 +294,20 @@ export async function scanManual(root) {
     return [];
   }
   const out = [];
+  const seen = new Set();
   for (const folder of folders.sort()) {
     try {
-      const entry = await readManual(root, folder);
+      const entry = await readManual(root, folder, seen);
       if (entry) out.push(entry);
     } catch (err) {
       debug.error("homebrew: %s left out: %s", path.join(root, folder), err.message);
     }
   }
+  await saveHashes(seen).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
   return out;
 }
 
-async function readManual(root, folder) {
+async function readManual(root, folder, seen = null) {
   const dir = path.join(root, folder);
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
   const names = await fsp.readdir(dir);
@@ -286,7 +320,7 @@ async function readManual(root, folder) {
     return null;
   }
   const st = await fsp.stat(abs);
-  const hash = await cachedSha256(abs, st);
+  const hash = await cachedSha256(abs, st, seen);
   // An uploaded folder install lists every file of switch/<folder>/; a hand-placed folder is its .nro alone.
   let folderInstall = null;
   if (manifest?.mode === "folder" && APP_NAME_RE.test(folder) && APP_NAME_RE.test(file)) {
@@ -294,7 +328,7 @@ async function readManual(root, folder) {
     for (const rel of await filesUnder(dir)) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
-      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst), abs: fileAbs });
+      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs });
     }
     folderInstall = { install_dir: `switch/${folder}`, install_path: `switch/${folder}/${file}`, files };
   }
