@@ -10,6 +10,10 @@
  * A BIOS set (neogeo.zip, pgm.zip …) is not a game of its own: it is left out of
  * the list and travels with every game that needs it, as does a clone's parent.
  *
+ * The operator can correct or add titles in <retro dir>/arcade-names.json,
+ * keyed by short name or English title; it wins over the built-in table:
+ *   { "sf2": { "ko": "스트리트 파이터 2" }, "Rygar": { "ko": "아르고스의 전사" } }
+ *
  * data/fbneo-arcade.json is built from the FinalBurn Neo DAT and our own
  * translations by scripts/fbneo-arcade.mjs.
  *   sets:  { short name: [description, cloneof|null, romof|null, isBios(1|0)] }
@@ -31,15 +35,23 @@ export function splitDescription(desc) {
   return m ? [m[1].trim(), m[2].trim()] : [String(desc).trim(), null];
 }
 
-/** What the DAT knows about a set, or null. */
-export function setInfo(shortName) {
+/** What the DAT knows about a set, or null. `overrides` is the operator's arcade-names.json. */
+export function setInfo(shortName, overrides = null) {
   const s = load().sets[String(shortName).toLowerCase()];
   if (!s) return null;
   const [desc, cloneOf, romOf, bios] = s;
   const [base, tag] = splitDescription(desc);
   const parentBase = cloneOf ? splitDescription(load().sets[cloneOf]?.[0] ?? "")[0] : null;
-  const local = load().names[base] ?? (parentBase ? load().names[parentBase] : null) ?? null;
-  return { desc, base, tag, cloneOf, romOf, bios: Boolean(bios), names: { en: base, ...(local ?? {}) } };
+  const short = String(shortName).toLowerCase();
+  const pick = (table) => table?.[short] ?? table?.[base] ?? (parentBase ? table?.[parentBase] : null) ?? null;
+  const own = pick(overrides);
+  const local = { ...(pick(load().names) ?? {}), ...(own && typeof own === "object" ? cleanNames(own) : {}) };
+  return { desc, base, tag, cloneOf, romOf, bios: Boolean(bios), names: { en: base, ...local } };
+}
+
+/** Only non-empty ko / ja / zh strings from an operator's entry. Pure. */
+function cleanNames(entry) {
+  return Object.fromEntries(["ko", "ja", "zh"].filter((l) => typeof entry[l] === "string" && entry[l].trim()).map((l) => [l, entry[l].trim().slice(0, 200)]));
 }
 
 /** The sets a game loads besides its own: its parent and BIOS, nearest first. */
@@ -67,11 +79,11 @@ export function listedName(info) {
  * BIOS sets, names the rest, and adds the parent and BIOS zips present in the
  * folder as extras. Unknown zips are left as they are.
  */
-export function applyArcade(games) {
+export function applyArcade(games, overrides = null) {
   const byName = new Map(games.map((g) => [path.basename(g.rel, path.extname(g.rel)).toLowerCase(), g]));
   const out = [];
   for (const [short, g] of byName) {
-    const info = setInfo(short);
+    const info = setInfo(short, overrides);
     if (!info) { out.push(g); continue; }
     if (info.bios) continue;
     const extras = [...g.extras];

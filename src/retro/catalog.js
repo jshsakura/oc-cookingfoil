@@ -309,7 +309,7 @@ export async function scanDir(dir) {
       let own = found.filter((g) => !claimed.has(g.rel));
       // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
       if (system.core === "fbneo") {
-        own = applyArcade(own);
+        own = applyArcade(own, await readJson(path.join(dir, "arcade-names.json")));
         for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
       }
       games.push(...bestFormats(await groupDiscs(own, { systemId, romsDir, art })));
