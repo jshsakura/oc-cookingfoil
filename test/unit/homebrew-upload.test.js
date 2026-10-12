@@ -91,6 +91,8 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     assert.equal(e.install_dir, "switch/myapp");
     assert.equal(e.install_path, "switch/myapp/myapp.nro");
     assert.deepEqual(e.files.map((f) => [f.path, f.size]), [["switch/myapp/data/a.bin", 1], ["switch/myapp/myapp.nro", nro.length]]);
+    assert.equal(e.size, 1 + nro.length, "size is everything a folder install puts on the card");
+    assert.equal(e.nro_size, nro.length);
     inside(e);
     const a = await fetch(BASE + e.files[0].url, { headers: { Authorization: ALICE } });
     assert.equal(await a.text(), "A");
@@ -108,7 +110,7 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     r = await send([["solo.nro", nro]]);
     assert.equal(r.status, 201);
     e = await listed("solo");
-    assert.deepEqual([e.install_dir, e.install_path, e.files], [null, "switch/solo/solo.nro", null]);
+    assert.deepEqual([e.install_dir, e.install_path, e.files, e.size, e.nro_size], [null, "switch/solo/solo.nro", null, nro.length, undefined]);
 
     // 5. The .nro is checked: not an NRO, or cut short, is refused and nothing is placed.
     r = await send([["bad.zip", makeZip(root, { "switch/bad/bad.nro": "this is not an nro".repeat(20), "switch/bad/x": "x" })]]);

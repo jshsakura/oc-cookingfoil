@@ -10,6 +10,9 @@
  *       install_path, install_dir, files,
  *       forwarder_url, forwarder_title_id, forwarder_size }
  *
+ * `size` is what lands on the card: every file of a folder install (the .nro
+ * alone is then `nro_size`), or the .nro.
+ *
  * `install_path` is where the console keeps the .nro: always its own folder,
  * switch/<app>/<file>.nro, which the shortcut also starts. A client that finds
  * an older copy straight under switch/ removes it after installing.
@@ -189,6 +192,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       description: null,
       install_dir: null,
       ...e,
+      // A folder install is everything that lands on the card; nro_size is the .nro alone.
+      ...(e.files ? { size: e.files.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size } : {}),
       install_path: e.install_path ?? installPathFor(e.file_name),
       // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
