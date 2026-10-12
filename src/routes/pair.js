@@ -27,6 +27,7 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
+import { autoApproveFromPairRequest } from "../security/auth-guard.js";
 
 function pendingResponse(req, deviceKey) {
   const link = issuePairLink(deviceKey);
@@ -58,13 +59,14 @@ export default function pairRouter() {
   const resolveKey = (req, explicit) =>
     normalizeDeviceKey(explicit) ?? deviceKeyFromHeaders(req);
 
-  router.post("/request", (req, res) => {
+  router.post("/request", async (req, res) => {
     res.set("Cache-Control", "no-store");
     const deviceKey = resolveKey(req, req.body?.deviceKey);
     if (!deviceKey) {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
+    await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
       res.json({ status: "approved" });
       return;
@@ -74,13 +76,15 @@ export default function pairRouter() {
     res.json(pendingResponse(req, deviceKey));
   });
 
-  router.get("/status", (req, res) => {
+  router.get("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");
     const deviceKey = resolveKey(req, req.query?.deviceKey);
     if (!deviceKey) {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
+    // A console that knocks with its account is approved right here (COOK_DEVICE_AUTO_APPROVE).
+    await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (!store.isDeviceApproved(deviceKey)) {
       // Polling doubles as the knock: record the device as pending so a
       // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the

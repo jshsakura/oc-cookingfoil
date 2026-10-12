@@ -10,6 +10,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const ALICE = "Basic " + Buffer.from("alice:alice-password").toString("base64");
 const SIGNED_IN = "B1".repeat(32);
 const STRANGER = "C2".repeat(32);
+const KNOCKER = "D3".repeat(32);
 
 async function boot() {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-auto-"));
@@ -48,6 +49,13 @@ test("a console that signs in is approved on the spot; one that doesn't still wa
     assert.equal((await status(SIGNED_IN)).accessKey, undefined, "and only once");
     const paired = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": SIGNED_IN, "X-Access-Key": first.accessKey } });
     assert.equal(paired.status, 200, "afterwards it connects with no password");
+
+    // A console whose first call is the pairing poll, with its account: approved there and then.
+    const knock = await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: ALICE, "X-Device-Key": KNOCKER } })).json();
+    assert.equal(knock.status, "approved");
+    assert.ok(knock.accessKey);
+    const wrong = "Basic " + Buffer.from("alice:wrong").toString("base64");
+    assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: wrong, "X-Device-Key": STRANGER } })).json()).status, "pending", "a wrong password approves nothing");
 
     assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": STRANGER } })).status, 401);
     assert.equal((await status(STRANGER)).status, "pending", "no sign-in, no approval");
