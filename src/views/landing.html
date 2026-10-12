@@ -579,6 +579,9 @@
           <a class="tab-link icon-link" id="admin-link" href="/admin">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </a>
+          <a class="tab-link icon-link" id="logout-link" href="/login" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </a>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -799,6 +802,7 @@
           "kind.exefs_patches": "코드 패치",
           "kind.cheats": "치트",
           "action.admin": "관리",
+          "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
           "retro.bezel": "베젤",
           "retro.discs": "여러 디스크",
@@ -959,6 +963,7 @@
           "kind.exefs_patches": "Code patch",
           "kind.cheats": "Cheats",
           "action.admin": "Admin",
+          "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
           "retro.bezel": "Bezel",
           "retro.discs": "Multi-disc",
@@ -1118,6 +1123,7 @@
           "kind.exefs_patches": "コードパッチ",
           "kind.cheats": "チート",
           "action.admin": "管理",
+          "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
           "retro.bezel": "ベゼル",
           "retro.discs": "複数ディスク",
@@ -1277,6 +1283,7 @@
           "kind.exefs_patches": "程式修補",
           "kind.cheats": "金手指",
           "action.admin": "管理",
+          "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
           "retro.bezel": "邊框",
           "retro.discs": "多光碟",
@@ -1434,6 +1441,8 @@
         $("saves-search").placeholder = t("extras.search");
         $("admin-link").setAttribute("aria-label", t("action.admin"));
         $("admin-link").title = t("action.admin");
+        $("logout-link").setAttribute("aria-label", t("action.logout"));
+        $("logout-link").title = t("action.logout");
         for (const b of document.querySelectorAll("#lang-list [data-lang]")) {
           b.classList.toggle("active", b.dataset.lang === lang);
           b.setAttribute("aria-checked", String(b.dataset.lang === lang));
@@ -1574,6 +1583,24 @@
           if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
         })
         .catch(() => {});
+      // Signed in at /login: a sign-out button. A request that finds the session
+      // gone sends the page back to /login (the server never shows a password popup).
+      let session = null;
+      fetch("/auth/me", { headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { session = d; $("logout-link").hidden = !d; })
+        .catch(() => {});
+      $("logout-link").addEventListener("click", async (e) => {
+        e.preventDefault();
+        try { await fetch("/auth/logout", { method: "POST", headers: { "X-CSRF-Token": session?.csrf ?? "" } }); }
+        finally { location.href = "/login"; }
+      });
+      const pageFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const r = await pageFetch(...args);
+        if (r.status === 401 && session && !String(args[0]).startsWith("/auth/")) location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash);
+        return r;
+      };
       fetch("/api/connect-url", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (d && d.url) baseUrl = d.url; })

@@ -134,6 +134,16 @@ export function isActive(name) {
   return accounts.get(name)?.enabled === true;
 }
 
+/**
+ * A short fingerprint of the account's password, sealed into its web session:
+ * a new password (or a disabled account) ends every session signed in with the old one.
+ */
+export function sessionStamp(name) {
+  const record = accounts.get(name);
+  if (!record?.enabled) return null;
+  return crypto.createHash("sha256").update(String(record.hash)).digest("base64url").slice(0, 16);
+}
+
 export function hasUsers() {
   return accounts.size > 0;
 }

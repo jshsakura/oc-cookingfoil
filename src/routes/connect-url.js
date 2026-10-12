@@ -31,11 +31,18 @@ function decodeBasicAuth(req) {
   return { user: decoded.slice(0, sep), pass: decoded.slice(sep + 1) };
 }
 
+/** The visitor's account name: from Basic, or from a web session signed in with a password. */
+function visitor(req) {
+  const creds = decodeBasicAuth(req);
+  if (creds) return creds;
+  return req.webUser?.kind === "password" ? { user: req.webUser.name } : null;
+}
+
 export default function connectUrlRoute(req, res) {
   res.set("Cache-Control", "no-store");
 
   const origin = resolveOrigin(req, publicBaseUrl); // "proto://host" or ""
-  const creds = decodeBasicAuth(req);
+  const creds = visitor(req);
 
   // Clean URL only — never embed the password (history/log/Referer leak).
   const url = origin ? origin + "/shop.tfl" : null;
@@ -52,7 +59,7 @@ export default function connectUrlRoute(req, res) {
 export function clientConfigRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);
   if (!origin) return res.status(503).json({ error: "server origin unavailable" });
-  const creds = decodeBasicAuth(req);
+  const creds = visitor(req);
   // Named after the shop's host (language-neutral), in the language of whoever downloads it.
   const server = {
     title: new URL(origin).hostname,

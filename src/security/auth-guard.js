@@ -26,10 +26,11 @@ import { noteProxyCollapse } from "./proxy-check.js";
 import { isLoopbackIp } from "./net.js";
 import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
 import { envNumber } from "../helpers/env-read.js";
+import { webUser } from "./user-session.js";
 
 const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
-function clientIp(req) {
+export function clientIp(req) {
   // Prefers req.ip when `trust proxy` is on and an X-Forwarded-For arrived;
   // otherwise the socket address. Strip the leading ::ffff: from
   // IPv4-mapped IPv6 so the IP key matches what an admin would type.
@@ -64,6 +65,19 @@ export default function authGuard() {
     if (req.pairedDevice) return next();
 
     const ip = clientIp(req);
+
+    // People in a browser sign in at /login and carry a session cookie; consoles
+    // and API clients keep sending Basic. A browser never gets the Basic challenge.
+    if (!req.headers.authorization) {
+      const who = webUser(req);
+      if (who) {
+        req.auth = { user: who.approver };
+        req.webUser = who;
+        if (who.kind === "password") store.recordAccess(who.name, ip);
+        return next();
+      }
+      if (isBrowser(req)) return toLogin(req, res);
+    }
 
     // Loopback bypass — trusted caller, no lockout tracking. Still record
     // access on success so the operator's own sessions show in /admin.
@@ -100,6 +114,8 @@ export default function authGuard() {
     // a wrong password counts toward the lockout.
     const presentedCredentials = Boolean(req.headers.authorization);
     res.status = (code) => {
+      // A browser holding stale Basic credentials still never sees the popup.
+      if (code === 401 && isBrowser(req)) res.removeHeader("WWW-Authenticate");
       if (code === 401 && !intercepted && presentedCredentials) {
         intercepted = true;
         // basic-auth owns the body here, so we only tag the response — the
@@ -123,6 +139,19 @@ export default function authGuard() {
       afterSignIn(req, res, next, ip);
     });
   };
+}
+
+/** A request from a web browser (consoles and curl send no Sec-Fetch-* or text/html Accept). */
+export function isBrowser(req) {
+  return Boolean(req.get("sec-fetch-mode")) || /text\/html/.test(req.get("accept") ?? "");
+}
+
+/** Pages go to /login and come back; a page's own fetches get a plain 401 (no popup). */
+function toLogin(req, res) {
+  res.set("Cache-Control", "no-store");
+  const navigate = req.method === "GET" && (req.get("sec-fetch-mode") ? req.get("sec-fetch-mode") === "navigate" : /text\/html/.test(req.get("accept") ?? ""));
+  if (navigate) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
+  res.status(401).json({ error: "sign in at /login" });
 }
 
 /**
@@ -186,7 +215,7 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
   return true;
 }
 
-function recordFailure(ip, req) {
+export function recordFailure(ip, req) {
   // Behind an untrusted proxy every client counts toward THIS one counter, so a
   // stranger's typo can lock out the whole household. Surface it before the
   // lockout lands rather than after.

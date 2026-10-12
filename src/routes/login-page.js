@@ -1,11 +1,9 @@
 /**
- * The phone pages of Google sign-in: /login and the device approval it leads
- * to (/device, and /admin/pair/<token> when a console's QR is scanned).
+ * The sign-in page (/login) and the phone's device approval it leads to
+ * (/device, and /pair/<token> when a console's QR is scanned).
  *
- *   loginPage   signin   the Google button
- *               pending  signed in, waiting for the admin to approve the account
- *               disabled the admin turned the account off
- *               off      Google sign-in is not set up on this server
+ *   loginPage   the ID and password form; a Google button under it when Google
+ *               sign-in is on, and a note when a Google account is waiting or turned off
  *   devicePage  code     type the 8-character code a console shows
  *               confirm  one console (its QR was scanned): a single button
  *               done     that console is already approved
@@ -20,18 +18,18 @@ const LOGO = `data:image/svg+xml;base64,${fs.readFileSync(new URL("../views/asse
 const TEXT = {
   ko: {
     signinTitle: "로그인",
-    signinLead: "구글 계정으로 로그인합니다. 처음 로그인한 계정은 관리자가 승인한 뒤에 쓸 수 있습니다.",
+    username: "아이디",
+    password: "비밀번호",
+    submit: "로그인",
+    or: "또는",
     google: "Google 계정으로 로그인",
-    pendingTitle: "승인을 기다립니다",
-    pendingLead: "{email} 계정으로 로그인했습니다. 관리자가 승인하면 이 화면에서 기기를 연결할 수 있습니다.",
-    retry: "승인됐는지 다시 확인",
-    disabledTitle: "쓸 수 없는 계정입니다",
+    googleHint: "구글 계정은 처음 로그인한 뒤 관리자가 승인하면 쓸 수 있습니다.",
+    pendingLead: "{email} 계정은 관리자의 승인을 기다리고 있습니다. 승인되면 다시 로그인합니다.",
     disabledLead: "{email} 계정은 관리자가 사용을 중지했습니다.",
-    offTitle: "로그인을 쓸 수 없습니다",
-    offLead: "이 서버에는 구글 로그인이 설정되지 않았습니다. 관리자에게 문의합니다.",
-    errorLead: "로그인하지 못했습니다. 다시 시도합니다.",
-    adminLink: "관리자 인증으로 승인합니다",
-    other: "다른 계정으로 로그인",
+    errWrong: "아이디나 비밀번호가 맞지 않습니다.",
+    errLocked: "로그인에 너무 여러 번 실패해 잠겼습니다. 관리자에게 해제를 요청합니다.",
+    errExpired: "화면이 오래돼 다시 불러왔습니다. 한 번 더 로그인합니다.",
+    errGoogle: "구글로 로그인하지 못했습니다. 다시 시도합니다.",
     signedInAs: "{email} 계정",
     signOut: "로그아웃",
     codeTitle: "기기 연결",
@@ -55,18 +53,18 @@ const TEXT = {
   },
   en: {
     signinTitle: "Sign in",
-    signinLead: "Sign in with your Google account. A new account can be used once the admin approves it.",
+    username: "Username",
+    password: "Password",
+    submit: "Sign in",
+    or: "or",
     google: "Sign in with Google",
-    pendingTitle: "Waiting for approval",
-    pendingLead: "You are signed in as {email}. Once the admin approves the account, you can connect consoles here.",
-    retry: "Check again",
-    disabledTitle: "This account is turned off",
+    googleHint: "A Google account can be used once the admin approves it after its first sign-in.",
+    pendingLead: "{email} is waiting for the admin's approval. Sign in again once it is approved.",
     disabledLead: "The admin has turned off {email}.",
-    offTitle: "Sign-in is unavailable",
-    offLead: "Google sign-in isn't set up on this server. Ask the admin.",
-    errorLead: "Couldn't sign in. Try again.",
-    adminLink: "Approve with the admin login instead",
-    other: "Use another account",
+    errWrong: "Wrong username or password.",
+    errLocked: "Locked after too many failed sign-ins. Ask the admin to unlock it.",
+    errExpired: "The page was stale and has been reloaded. Sign in once more.",
+    errGoogle: "Couldn't sign in with Google. Try again.",
     signedInAs: "Signed in as {email}",
     signOut: "Sign out",
     codeTitle: "Connect a console",
@@ -109,6 +107,9 @@ button,.button{display:flex;align-items:center;justify-content:center;gap:10px;t
 input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
 .who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
 .who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{width:auto;min-height:0;margin:0;padding:8px 12px;font-size:14px;background:var(--soft);color:var(--ink)}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;margin:22px 0 0}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
+.note{font-size:15px;background:var(--soft);border-radius:10px;padding:12px 14px;margin:0 0 16px}
+.hint{font-size:14px;margin:10px 0 0;text-align:center}
 .small{display:block;text-align:center;margin:18px 0 0;color:var(--muted);font-size:15px}
 #error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
 @media(max-width:420px){body{padding:14px}.card{padding:22px}}`;
@@ -122,43 +123,41 @@ function shell(lang, title, body, script = "") {
 <h1>${escapeHtml(title)}</h1>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
 }
 
-const SIGN_OUT_SCRIPT = `const out=document.getElementById('signout');if(out)out.addEventListener('click',async()=>{out.disabled=true;try{await fetch('/auth/logout',{method:'POST'});}finally{location.href='/login';}});`;
+const SIGN_OUT_SCRIPT = `const out=document.getElementById('signout');if(out)out.addEventListener('click',async()=>{out.disabled=true;try{await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':out.dataset.csrf}});}finally{location.href='/login';}});`;
 
-function whoBar(t, email) {
-  return `<div class="who"><span>${fill(t.signedInAs, email)}</span><button type="button" id="signout">${escapeHtml(t.signOut)}</button></div>`;
+function whoBar(t, user, csrf) {
+  return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${escapeHtml(t.signOut)}</button></div>`;
 }
 
-export function loginPage({ lang = "ko", state = "signin", next = "/device", email = null, error = false, adminHref = null } = {}) {
+export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null } = {}) {
   const t = textFor(lang);
-  const start = `/auth/google/start?next=${encodeURIComponent(next)}`;
-  const admin = adminHref ? `<a class="small" href="${escapeHtml(adminHref)}">${escapeHtml(t.adminLink)}</a>` : "";
-  if (state === "off") return shell(lang, t.offTitle, `<p>${escapeHtml(t.offLead)}</p>${admin}`);
-  if (state === "pending") {
-    return shell(lang, t.pendingTitle, `<p>${fill(t.pendingLead, email)}</p>
-<a class="button" href="${escapeHtml(`/login?next=${encodeURIComponent(next)}`)}">${escapeHtml(t.retry)}</a>${admin}${whoBar(t, email)}`, SIGN_OUT_SCRIPT);
-  }
-  if (state === "disabled") {
-    return shell(lang, t.disabledTitle, `<p>${fill(t.disabledLead, email)}</p>
-<a class="button ghost" href="${escapeHtml(start)}">${escapeHtml(t.other)}</a>${whoBar(t, email)}`, SIGN_OUT_SCRIPT);
-  }
-  return shell(lang, t.signinTitle, `<p>${escapeHtml(t.signinLead)}</p>${error ? `<p id="error" role="alert">${escapeHtml(t.errorLead)}</p>` : ""}
-<a class="button google" href="${escapeHtml(start)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a>${admin}`);
+  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errExpired, google: t.errGoogle }[error];
+  const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
+  const googleBlock = google
+    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`
+    : "";
+  return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}
+<form method="post" action="/login" novalidate>
+<input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
+<label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus>
+<label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
+${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${escapeHtml(t.submit)}</button></form>${googleBlock}`);
 }
 
-function approveScript(t) {
+function approveScript(t, csrf) {
   const errs = JSON.stringify({ 404: t.errNotFound, 410: t.errExpired, 409: t.errUsed, 401: t.errAuth, other: t.errOther, net: t.errNetwork });
   return `const E=${errs},form=document.getElementById('approve'),error=document.getElementById('error');
 if(form)form.addEventListener('submit',async(e)=>{e.preventDefault();const button=form.querySelector('button');const body={label:document.getElementById('label').value};
 const code=document.getElementById('code');if(code)body.code=code.value;else body.token=form.dataset.token;
-button.disabled=true;error.textContent='';try{const r=await fetch('/auth/device/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+button.disabled=true;error.textContent='';try{const r=await fetch('/auth/device/approve',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':${JSON.stringify(csrf)}},body:JSON.stringify(body)});
 if(r.ok){location.href=code?'/device?done=1':location.pathname;return;}if(r.status===401){location.href='/login?next='+encodeURIComponent(location.pathname);return;}error.textContent=E[r.status]||E.other;}
 catch{error.textContent=E.net;}finally{button.disabled=false;}});${SIGN_OUT_SCRIPT}`;
 }
 
-export function devicePage({ lang = "ko", view = "code", code = "", token = "", email = "" } = {}) {
+export function devicePage({ lang = "ko", view = "code", code = "", token = "", user = "", csrf = "" } = {}) {
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
-  if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, email)}`, SIGN_OUT_SCRIPT);
+  if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
   const name = `<label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="Nintendo Switch" autocomplete="off">`;
   const body = view === "confirm"
     ? `<p>${escapeHtml(t.confirmLead)}</p><strong class="device-code">${escapeHtml(code)}</strong>
@@ -166,5 +165,5 @@ export function devicePage({ lang = "ko", view = "code", code = "", token = "", 
     : `<p>${escapeHtml(t.codeLead)}</p><form id="approve" novalidate><label for="code">${escapeHtml(t.codeLabel)}</label>
 <input id="code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A1B2C3D4" required>${name}
 <button type="submit">${escapeHtml(t.approve)}</button></form>`;
-  return shell(lang, view === "confirm" ? t.confirmTitle : t.codeTitle, `${body}<p id="error" role="alert"></p>${whoBar(t, email)}`, approveScript(t));
+  return shell(lang, view === "confirm" ? t.confirmTitle : t.codeTitle, `${body}<p id="error" role="alert"></p>${whoBar(t, user, csrf)}`, approveScript(t, csrf));
 }

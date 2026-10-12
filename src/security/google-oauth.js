@@ -84,12 +84,12 @@ export async function exchangeCode({ code, verifier, clientId, clientSecret, red
 }
 
 /**
- * Where to go after signing in: only this server's own approval pages, so the
- * login can't be turned into an open redirect. Pure.
+ * Where to go after signing in: a path on this server, never another site or
+ * the sign-in pages themselves (an open redirect or a loop). Pure.
  */
 export function safeNext(raw) {
   const next = String(raw ?? "");
-  if (/^(\/admin)?\/pair\/[a-f0-9]{32}$/.test(next)) return next;
-  if (next === "/device" || next === "/login") return next;
-  return "/device";
+  if (!/^\/(?![/\\])[^\s\\]*$/.test(next) || next.length > 512) return "/";
+  if (/^\/(login|auth)(\/|\?|$)/.test(next)) return "/";
+  return next;
 }

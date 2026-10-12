@@ -51,6 +51,10 @@ section[hidden]{display:none}
 .hd h2{margin:22px 0 10px}
 form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 form.add input{flex:1;min-width:150px}
+form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;font-weight:600}
+form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
+.copy-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .up-kinds button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 form.up{display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
@@ -126,6 +130,18 @@ export function dashboardPage() {
   </form>
   <p class="muted">CyberFoil 과 Tinfoil 은 이 계정으로 접속합니다. 비밀번호는 만들거나 재발급할 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>
   <div class="scroll" id="users"></div>
+  <h2>구글 로그인 설정</h2>
+  <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
+  <form class="add google-form" id="google-form" autocomplete="off">
+    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
+    <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
+    <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
+    <button class="primary" type="submit">저장</button>
+    <button type="button" id="g-clear" class="danger">키 지우기</button>
+  </form>
+  <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
+  <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
+  <p class="muted" id="g-status"></p>
   <h2>구글 로그인 계정</h2>
   <p class="muted" id="accounthint"></p>
   <div class="scroll" id="accounts"></div>
