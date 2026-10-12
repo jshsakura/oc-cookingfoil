@@ -27,7 +27,7 @@
 | IGDB | 평점에 IGDB 점수를 더합니다 | https://dev.twitch.tv/console/apps (Twitch 계정에 2단계 인증 필요). 리디렉션 URL `http://localhost`, 분류 Application Integration, 기밀 클라이언트 |
 | SteamGridDB | 표지를 직접 고를 때 후보를 보여 줍니다 | https://www.steamgriddb.com/profile/preferences/api |
 | Dropbox | 클라이언트의 세이브 동기화 로그인을 이어 줍니다 | https://www.dropbox.com/developers/apps (Scoped access, App folder, files.content.read/write, 화면에 보이는 리디렉션 주소 등록). App key 만 넣습니다 |
-| GitHub | 홈브류 새 버전 확인 한도를 시간당 60회에서 5,000회로 올립니다 | https://github.com/settings/personal-access-tokens/new (Public repositories, 권한 추가 없음) |
+| GitHub | 표지·베젤 목록과 홈브류 확인의 GitHub 한도를 시간당 60회에서 5,000회로 올립니다. 없으면 한도에 걸렸을 때 베젤 지역판 폴백과 홈브류 확인이 멈춥니다 | https://github.com/settings/personal-access-tokens/new (Public repositories, 권한 추가 없음) |
 | 평점 서버 | 따로 운영하는 oc-scraper 에서 평점을 받습니다 | 그 서버 주소 |
 
 구글 로그인도 설정 탭에서 켭니다. 구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 화면에 보이는 리디렉션 주소를 등록합니다.
