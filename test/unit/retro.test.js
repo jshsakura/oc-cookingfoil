@@ -370,3 +370,16 @@ test("with keys and hacBrewPack, each game offers its HOME-menu forwarder", asyn
     server.kill("SIGKILL");
   }
 });
+
+test("a retro folder with no ROMs doesn't offer retro, so the client hides its menu", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-empty-"));
+  put(dir, "roms/SFC/readme.txt", "no games yet");
+  const server = await boot(dir);
+  try {
+    const info = await (await get("/api/shop/info")).json();
+    assert.ok(!info.features.includes("retro"));
+    assert.ok(info.features.includes("item-names"), "the rest of the features stay");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

@@ -11,7 +11,7 @@ function probe(env) {
     const res = { headers: {} };
     res.header = (k, v) => { res.headers[k] = v; return res; };
     res.json = (body) => { res.body = body; return res; };
-    route({}, res);
+    await route({}, res);
     process.stdout.write(JSON.stringify(res.body));
   `], {
     cwd: import.meta.dirname,
