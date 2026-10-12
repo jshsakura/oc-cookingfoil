@@ -117,7 +117,7 @@ td select{max-width:220px}
 td .err{color:var(--bad);font-size:12px;margin-top:4px}
 td .muted{color:var(--muted);font-size:12px;margin-top:4px}
 td a{color:var(--text);text-underline-offset:3px}
-.desc-form{display:grid;gap:12px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+.desc-form{display:grid;gap:12px}#gd-body{display:grid;gap:12px}#gd-body h3{margin:6px 0 0;font-size:15px}#gd-body[hidden]{display:none}#gd-form{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
 td .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 form.add select{flex:none}
@@ -281,6 +281,22 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
   <h2>게임 패치</h2>
   <p class="muted">이 패치 없이는 게임이 실행되지 않으면 필수로 표시합니다. 기기는 게임 상세에서 함께 설치해야 하는 패치로 보여 줍니다.</p>
   <div class="scroll" id="lib-patches"></div>
+  <h2>게임 소개와 추가 정보</h2>
+  <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
+  <form class="desc-form" id="gd-form">
+    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="예: Grand Theft Auto V 또는 0100B00B51230000"></label>
+    <datalist id="gd-games"></datalist>
+    <div id="gd-body" hidden>
+      <h3>추가 정보</h3>
+      <label>한국어<textarea id="gd-notes-ko" maxlength="2000" placeholder="예: 게임 데이터 패치(약 49GB)를 함께 설치해야 실행됩니다."></textarea></label>
+      <label>영어 (다른 언어의 기본값)<textarea id="gd-notes-en" maxlength="2000"></textarea></label>
+      <h3>소개</h3>
+      <p class="muted" id="gd-original"></p>
+      <label>한국어<textarea id="gd-ko" maxlength="2000"></textarea></label>
+      <label>영어 (다른 언어의 기본값)<textarea id="gd-en" maxlength="2000"></textarea></label>
+      <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
+    </div>
+  </form>
   <h2>서버 설정</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>

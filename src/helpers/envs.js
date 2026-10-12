@@ -298,7 +298,11 @@ const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set
 // to false, which makes every console wait for the admin (manual approval).
-const deviceAutoApprove = envBool("COOK_DEVICE_AUTO_APPROVE", true);
+// "all" approves every console that asks, signed in or not: for a server only
+// your own consoles can reach.
+const autoApproveMode = envString("COOK_DEVICE_AUTO_APPROVE", "true").trim().toLowerCase();
+const deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
+const deviceAutoApproveAll = autoApproveMode === "all";
 
 export {
   romsDirPath,
@@ -353,4 +357,5 @@ export {
   firstRunSetup,
   devicePairing,
   deviceAutoApprove,
+  deviceAutoApproveAll,
 };

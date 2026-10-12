@@ -124,3 +124,29 @@ test('files dropped into the upload box pick their own kind and go in one by one
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('the admin writes a game description that the title detail shows instead of titledb', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  await page.locator('#gd-game').fill('Test Game [0100000000010000]');
+  await page.locator('#gd-game').dispatchEvent('change');
+  await expect(page.locator('#gd-body')).toBeVisible();
+  await page.locator('#gd-notes-ko').fill('게임 데이터 패치를 함께 설치해야 실행됩니다.');
+  await page.locator('#gd-ko').fill('필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.');
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.locator('#gd-original')).toHaveText('직접 쓴 소개를 보여 주고 있습니다.');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#gd-form').screenshot({ path: 'out/web/admin-description.png' });
+  const detail = await (await request.get('/api/title/0100000000010000?lang=ko')).json();
+  expect(detail.description).toBe('필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.');
+  expect(detail.notes).toBe('게임 데이터 패치를 함께 설치해야 실행됩니다.');
+  page.on('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: '소개를 titledb 것으로 되돌리기' }).click();
+  await expect(page.locator('#gd-original')).not.toHaveText('직접 쓴 소개를 보여 주고 있습니다.');
+  await expect(page.locator('#gd-notes-ko')).toHaveValue('게임 데이터 패치를 함께 설치해야 실행됩니다.');
+  // The web detail shows the notes above the description.
+  await page.goto('/');
+  await page.locator('.game').first().click();
+  await expect(page.locator('#modal-notes-text')).toHaveText('게임 데이터 패치를 함께 설치해야 실행됩니다.');
+  await request.post('/admin/api/descriptions/0100000000010000/reset', { headers: { Cookie: adminCookie }, data: {} });
+});

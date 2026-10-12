@@ -29,6 +29,7 @@ import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
 import * as userPatches from "../meta/user-patches.js";
+import * as gameDescriptions from "../meta/game-descriptions.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // The detail must not wait on the price endpoint; a slow price is simply left out.
@@ -52,7 +53,9 @@ export default async function titleDetailRoute(req, res) {
   const fromDb = titledbStore.get(base);
   const extracted = fromDb ? null : extractedMeta.get(base);
   const overrides = customArt.list(base);
-  if (!fromDb && !extracted && !overrides.icon && !overrides.banner && !overrides.screens.length) {
+  const customDesc = gameDescriptions.describe(base, requestLang(req));
+  const notes = gameDescriptions.notes(base, requestLang(req));
+  if (!fromDb && !extracted && !overrides.icon && !overrides.banner && !overrides.screens.length && !customDesc && !notes) {
     res.status(404).json({ error: "no metadata for title" });
     return;
   }
@@ -88,7 +91,12 @@ export default async function titleDetailRoute(req, res) {
     id: base,
     name: fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
-    description: (asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null),
+    // What the admin wrote wins over every source; descriptionCustom says they did.
+    description: customDesc ?? ((asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null)),
+    descriptionCustom: Boolean(customDesc),
+    // Extra information only the admin writes (what to install with it, space,
+    // version); kept apart from the description, which titledb may refresh.
+    notes,
     // The name and description in each language titledb has them in.
     names: names ?? null,
     descriptionLang: asked && descriptions?.[asked] ? asked : null,

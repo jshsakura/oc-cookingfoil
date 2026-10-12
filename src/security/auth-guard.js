@@ -15,7 +15,7 @@
 import crypto from "crypto";
 import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
-import { unauthorizedMessage, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll } from "../helpers/envs.js";
 import { approveSignedInDevice } from "./pairing-approve.js";
 import * as users from "./users.js";
 import * as deviceLogins from "./device-logins.js";
@@ -202,7 +202,13 @@ function afterSignIn(req, res, next, ip) {
  * console, so it never lands in the QR queue. Returns whether it is approved.
  */
 export async function autoApproveFromPairRequest(req, deviceKey) {
-  if (!devicePairing || !deviceAutoApprove || !deviceKey || !req.headers.authorization) return false;
+  if (!devicePairing || !deviceAutoApprove || !deviceKey) return false;
+  // COOK_DEVICE_AUTO_APPROVE=all: every console that asks is let in, no sign-in needed.
+  if (deviceAutoApproveAll && !store.isLocked(clientIp(req))) {
+    if (approveSignedInDevice(deviceKey, "auto")) debug.log("pair: auto-approved %s… (all consoles)", deviceKey.slice(0, 12));
+    return true;
+  }
+  if (!req.headers.authorization) return false;
   const m = /^Basic\s+(\S+)$/i.exec(req.headers.authorization);
   if (!m) return false;
   const decoded = Buffer.from(m[1], "base64").toString("utf8");

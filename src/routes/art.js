@@ -3,10 +3,12 @@
  *
  *   GET    /api/art/:baseTitleId               → which overrides exist
  *   POST   /api/art/:baseTitleId/icon          → upload/replace the icon
- *   POST   /api/art/:baseTitleId/banner        → upload/replace the banner
+ *   POST   /api/art/:baseTitleId/banner         → upload/replace the banner
  *   POST   /api/art/:baseTitleId/screenshot    → append a screenshot
+ *   POST   /api/art/:baseTitleId/description   → the game's own text (admin's), { en, ko }
  *   DELETE /api/art/:baseTitleId/icon|banner   → remove it
  *   DELETE /api/art/:baseTitleId/screenshot/:idx
+ *   DELETE /api/art/:baseTitleId/description   → back to titledb's own text
  *
  * Uploaded bytes are re-encoded by custom-art (sharp: resize cap + mozjpeg +
  * metadata strip), so a bad/huge image is rejected here rather than served.
@@ -21,6 +23,7 @@ import multer from "multer";
 
 import { uploadsEnabled } from "../helpers/envs.js";
 import * as customArt from "../meta/custom-art.js";
+import * as gameDescriptions from "../meta/game-descriptions.js";
 import debug from "../debug.js";
 import { invalidate } from "../meta/shop-cache.js";
 
@@ -79,7 +82,7 @@ export default function artRouter() {
   router.get("/:baseTitleId", (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
-    res.json({ baseTitleId: base, ...customArt.list(base) });
+    res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...customArt.list(base) });
   });
 
   async function handlePut(req, res, base, kind, idx) {
@@ -135,6 +138,24 @@ export default function artRouter() {
     await customArt.remove(base, "screenshot", idx);
     invalidate();
     res.json({ deleted: true, baseTitleId: base, ...customArt.list(base) });
+  });
+
+  // The admin's own text about the game. Before the generic /:kind DELETE
+  // below, which would otherwise swallow "description".
+  const descJson = express.json({ limit: "16kb" });
+  router.post("/:baseTitleId/description", descJson, (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    const text = (v) => (typeof v === "string" ? v : null);
+    gameDescriptions.set(base, "description", { en: text(req.body?.en), ko: text(req.body?.ko) });
+    res.status(201).json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null });
+  });
+
+  router.delete("/:baseTitleId/description", (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    gameDescriptions.reset(base, "description");
+    res.json({ deleted: true, baseTitleId: base });
   });
 
   router.delete("/:baseTitleId/:kind", async (req, res) => {
