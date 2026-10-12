@@ -7,7 +7,7 @@ import path from "node:path";
 import { generate } from "otplib";
 
 // Admin login set up from the admin page: an operator who signs in with the
-// admin password enrolls an authenticator, after which login needs both, and
+// admin password enrolls an authenticator, after which either one opens the page, and
 // can turn it off again. A real server process, so the session cookie, the
 // same-origin guard and the persisted secret are all exercised.
 const PORT = 13700 + (process.pid % 500);
@@ -41,7 +41,7 @@ const json = { "Content-Type": "application/json" };
 const login = (body) => fetch(`${BASE}/admin/verify`, { method: "POST", headers: json, body: JSON.stringify(body) });
 const cookieOf = (r) => r.headers.get("set-cookie").split(";")[0];
 
-test("enroll an authenticator from the admin page, then login needs password and code, and it can be turned off", async () => {
+test("enroll an authenticator from the admin page, then either the password or a code opens it, and it can be turned off", async () => {
   const server = boot();
   try {
     await ready();
@@ -67,13 +67,15 @@ test("enroll an authenticator from the admin page, then login needs password and
     status = await (await fetch(`${BASE}/admin/api/2fa/confirm`, { method: "POST", body: JSON.stringify({ code }), ...as() })).json();
     assert.equal(status.authenticator, true);
 
-    assert.equal((await login({ password: PASSWORD })).status, 401, "password alone no longer opens the page");
-    assert.equal((await login({ password: "wrong-password-xx", code: await generate({ secret: start.secret }) })).status, 401);
+    assert.equal((await login({ password: PASSWORD })).status, 200, "the password still opens it");
+    assert.equal((await login({ code: await generate({ secret: start.secret }) })).status, 200, "so does a code alone");
+    assert.equal((await login({ password: "wrong-password-xx" })).status, 401);
+    assert.equal((await login({ code: "000000" })).status, 401);
     const gate = await (await fetch(`${BASE}/admin`)).text();
     assert.match(gate, /id="pw"/);
     assert.match(gate, /id="code"/);
-    r = await login({ password: PASSWORD, code: await generate({ secret: start.secret }) });
-    assert.equal(r.status, 200, "password and code together open it");
+    r = await login({ code: await generate({ secret: start.secret }) });
+    assert.equal(r.status, 200);
 
     status = await (await fetch(`${BASE}/admin/api/2fa/disable`, { method: "POST", body: "{}", ...as({ Cookie: cookieOf(r) }) })).json();
     assert.equal(status.authenticator, false);

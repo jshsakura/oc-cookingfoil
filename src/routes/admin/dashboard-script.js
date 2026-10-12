@@ -52,7 +52,7 @@ let origin=location.origin;
 // The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
 const WARNINGS={
   'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings']},
-  'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호만 묻습니다',d:'인증 앱을 등록하면 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings']},
+  'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings']},
   'no-auth':{t:'주소를 아는 누구나 서버에 접속할 수 있습니다',d:'계정이 없고 기기 승인도 꺼져 있습니다. 사용자 탭에서 계정을 하나 만들면 그때부터 로그인이 필요합니다.',go:['계정 만들기','users']},
   'pairing-only-blocks-tinfoil':{t:'승인된 기기만 접속할 수 있어 Tinfoil 은 연결하지 못합니다',d:'Tinfoil 은 기기 키를 보내지 못해 모든 요청이 거절됩니다. 사용자 탭에서 계정을 만들면 비밀번호로도 접속할 수 있습니다.',go:['계정 만들기','users']},
   'proxy-collapse':{t:'프록시를 거쳐 오는데 COOK_TRUST_PROXY 가 없습니다',d:'모든 접속이 프록시 하나의 IP 로 보여 한 사람의 로그인 실패가 모두를 잠글 수 있습니다. compose 에 COOK_TRUST_PROXY 를 넣고 프록시가 X-Forwarded-For 를 넘기게 합니다.'},
@@ -431,13 +431,13 @@ const grouped=(s)=>String(s).replace(/(.{4})/g,'$1 ').trim();
 async function loadTfa(){
   let s;try{s=await api('/admin/api/2fa');}catch(e){$('tfa-status').textContent='불러오지 못했습니다: '+e.message;return;}
   $('tfa-status').textContent=s.password
-    ?(s.authenticator?'관리자 비밀번호와 인증 앱 코드로 들어갑니다.':'관리자 비밀번호로만 들어갑니다. 인증 앱을 등록하면 비밀번호 다음에 코드도 묻습니다.')
+    ?(s.authenticator?'관리자 비밀번호나 인증 앱 코드 중 하나로 들어갑니다. 휴대폰이 없을 때는 비밀번호로, 평소에는 코드로 들어가면 됩니다.':'관리자 비밀번호로 들어갑니다. 인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다.')
     :(s.authenticator?'인증 앱 코드로 들어갑니다.':'인증 앱 코드로 들어갑니다. 아직 등록한 앱이 없습니다.');
   const box=$('tfa-actions');box.replaceChildren();
   if(!s.manageable){box.append(el('span','COOK_ADMIN_TOTP_SECRET 으로 고정돼 있어 여기서 바꿀 수 없습니다.','muted'));return;}
   box.append(btn(s.authenticator?'인증 앱 다시 등록':'인증 앱 등록',startTfa,'primary'));
   if(s.password&&s.authenticator)box.append(btn('인증 앱 끄기',async()=>{
-    if(!confirm('인증 앱을 끄면 관리자 비밀번호만으로 들어갑니다. 끌까요?'))return;
+    if(!confirm('인증 앱을 끄면 관리자 비밀번호로만 들어갑니다. 끌까요?'))return;
     try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast('인증 앱을 껐습니다.');loadTfa();}catch(e){toast(e.message);}}));}
 async function startTfa(){
   try{const d=await api('/admin/api/2fa/start',{method:'POST',body:{}});

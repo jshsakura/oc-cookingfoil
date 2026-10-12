@@ -11,7 +11,7 @@ let adminCookie = '';
 
 async function signIn(page: Page) {
   await page.goto('/admin?enrolled=1');
-  await page.getByLabel('인증 코드').fill(await generate({ secret: SECRET }));
+  await page.getByLabel('인증 앱 코드').fill(await generate({ secret: SECRET }));
   await page.getByRole('button', { name: '들어가기', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
   const cookies = await page.context().cookies();

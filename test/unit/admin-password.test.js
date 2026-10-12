@@ -12,12 +12,14 @@ test("the admin password matches only itself", () => {
   assert.equal(verifyPassword("anything", null), false);
 });
 
-test("the gate asks for what the login needs: password, code, or both", () => {
+test("the gate asks for what the server has: password, code, or a choice of the two", () => {
   assert.match(gatePage({ mode: "password" }), /type="password"/);
   assert.doesNotMatch(gatePage({ mode: "password" }), /one-time-code/);
   assert.match(gatePage({}), /one-time-code/);
   assert.doesNotMatch(gatePage({}), /type="password"/);
-  const both = gatePage({ mode: "both" });
-  assert.match(both, /type="password"/);
-  assert.match(both, /one-time-code/);
+  const either = gatePage({ mode: "either" });
+  assert.match(either, /type="password"/);
+  assert.match(either, /one-time-code/);
+  assert.match(either, /data-use="code"[^>]*>인증 앱 코드<\/button><button[^>]*data-use="pw"/, "a switch between the two");
+  assert.match(either, /COOK_ADMIN_PASSWORD/, "says which password it means");
 });

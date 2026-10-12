@@ -53,9 +53,11 @@ export function parseRepo(text) {
   return REPO_RE.test(repo) && !repo.split("/").some((p) => /^\.+$/.test(p)) ? repo : null;
 }
 
-/** `name` when it is a plain .nro file name, else `<fallback>.nro`. Pure. */
+/** `name` when it is a plain .nro file name, else `<fallback>.nro` with the fallback made plain too. Pure. */
 export function safeFileName(name, fallback) {
-  return FILE_RE.test(name ?? "") && !name.startsWith(".") ? name : `${fallback}.nro`;
+  if (FILE_RE.test(name ?? "") && !name.startsWith(".")) return name;
+  const base = String(fallback ?? "").replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^[.-]+|[.-]+$/g, "").slice(0, 60);
+  return `${base || "app"}.nro`;
 }
 
 /** A glob ("*" and "?") over a file name, case-insensitive. Pure. */

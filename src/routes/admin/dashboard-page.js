@@ -224,7 +224,7 @@ export function dashboardPage() {
       </div>
     </div>
   </div>
-  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에도 관리자 비밀번호나 인증 앱 코드를 한 번 더 묻습니다.</p>
+  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호(compose 의 COOK_ADMIN_PASSWORD)나 인증 앱 코드 중 하나를 넣습니다.</p>
 </section>
 
 <section id="tab-logs" hidden>

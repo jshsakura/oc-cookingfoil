@@ -49,6 +49,9 @@ import { devicePairing } from "../helpers/envs.js";
 import { authLanes, configWarnings } from "../security/config-health.js";
 import { hintFor } from "../security/deny-reasons.js";
 import { recordDeny, clientIp, DENY } from "../security/deny.js";
+import { recordFailure } from "../security/auth-guard.js";
+import { isLoopbackIp } from "../security/net.js";
+import { trustLoopback } from "../security/limits.js";
 import { isPrivateIp } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
@@ -62,10 +65,13 @@ import { publicBaseUrl } from "../helpers/envs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** What the login asks for: "code" (authenticator only), "password", or "both". */
+/**
+ * What the admin page's own check takes: "code" (authenticator only),
+ * "password" (admin password only), or "either" (one of the two).
+ */
 function loginMode() {
   if (!adminPasswordMode()) return "code";
-  return isEnrolled() ? "both" : "password";
+  return isEnrolled() ? "either" : "password";
 }
 
 /** Session check that also leaves a trail when it fails. */
@@ -162,17 +168,22 @@ export default function adminPageRouter() {
   });
 
   router.post("/verify", async (req, res) => {
-    // Admin password, then the authenticator code too once one is enrolled.
+    // The admin password or the authenticator code, whichever the server has (either, when both).
     const mode = loginMode();
-    const ok = mode === "code"
-      ? await verifyTotp(req.body?.code)
-      : verifyPassword(req.body?.password) && (mode === "password" || (await verifyTotp(req.body?.code)));
-    if (!ok) {
+    const ip = clientIp(req);
+    const trusted = trustLoopback && isLoopbackIp(ip);
+    if (!trusted && store.isLocked(ip)) return res.status(429).json({ ok: false });
+    const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
+    const byCode = !byPassword && mode !== "password" && req.body?.code !== undefined && (await verifyTotp(req.body.code));
+    if (!byPassword && !byCode) {
       recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 401 });
-      debug.log("admin 2fa: failed code attempt");
+      debug.log("admin login: failed attempt");
+      // Wrong guesses count toward the same lockout as a wrong account password.
+      if (!trusted) recordFailure(ip, req);
       res.status(401).json({ ok: false });
       return;
     }
+    store.clearFailure(ip);
     issueSession(res);
     res.json({ ok: true });
   });
