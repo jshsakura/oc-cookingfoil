@@ -60,7 +60,7 @@ async function downloadRoute(req, res) {
     res.status(404).json({ error: "no such patch" });
     return;
   }
-  sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.patch.hash, label: "patches" });
+  sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.patch.hash, label: "patches", fixedTimes: true });
 }
 
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);

@@ -60,7 +60,7 @@ export default function savesRouter() {
     if (!ID_RE.test(id)) return res.status(400).json({ error: "invalid save id" });
     const opened = await catalog.open(id);
     if (!opened) return res.status(404).json({ error: "no such save" });
-    sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.save.hash, label: "saves" });
+    sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.save.hash, label: "saves", fixedTimes: true });
   }));
 
   return router;
