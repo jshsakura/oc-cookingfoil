@@ -75,3 +75,18 @@ test("manual approval: with auto-approval off, a signed-in console waits for the
     server.kill("SIGKILL");
   }
 });
+
+test("a console polling with a stale password isn't locked out; guessing passwords still is", async () => {
+  const server = await boot();
+  try {
+    const poll = (password, key = STRANGER) => fetch(`${BASE}/api/pair/status`, {
+      headers: { Authorization: "Basic " + Buffer.from(`alice:${password}`).toString("base64"), "X-Device-Key": key } });
+    for (let i = 0; i < 12; i++) assert.equal((await poll("old-password")).status, 200, `poll ${i + 1}: the same saved password counts once`);
+    assert.equal((await (await poll("old-password")).json()).status, "pending");
+    let last;
+    for (let i = 0; i < 6; i++) last = await poll(`guess-${i}`);
+    assert.equal(last.status, 429, "new wrong passwords lock the address");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
