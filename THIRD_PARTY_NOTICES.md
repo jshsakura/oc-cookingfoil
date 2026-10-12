@@ -42,3 +42,7 @@ Transitive dependencies are MIT, ISC, BSD or Apache-2.0 (`npx license-checker --
 - **blawar/titledb**: title names, descriptions and artwork URLs, fetched at run time, not redistributed.
 - Artwork, prices and popularity come from public store services at run time and are cached
   locally; they are not part of this repository.
+
+## FinalBurn Neo set list
+
+`src/retro/data/fbneo-arcade.json` keeps the set names, descriptions, parents and BIOS flags from the FinalBurn Neo DAT (https://neo-source.com/, https://github.com/finalburnneo/FBNeo), plus our own Korean, Japanese and Chinese titles. No ROM data is included. Rebuild with `node scripts/fbneo-arcade.mjs`.

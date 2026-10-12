@@ -1,0 +1,93 @@
+/**
+ * Arcade sets for the FinalBurn Neo core. FBNeo finds a game by its zip's short
+ * name (sf2.zip), so the file keeps that name everywhere; what changes is what
+ * people see:
+ *
+ *   name      "스트리트 파이터 II (Street Fighter II: The World Warrior) [World 910522]"
+ *   names     { en, ko, ja?, zh? } without the version tag
+ *   original  the set's English description, which is also how its thumbnail is named
+ *
+ * A BIOS set (neogeo.zip, pgm.zip …) is not a game of its own: it is left out of
+ * the list and travels with every game that needs it, as does a clone's parent.
+ *
+ * data/fbneo-arcade.json is built from the FinalBurn Neo DAT and our own
+ * translations by scripts/fbneo-arcade.mjs.
+ *   sets:  { short name: [description, cloneof|null, romof|null, isBios(1|0)] }
+ *   names: { English base title: { ko, ja?, zh? } }
+ */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "fbneo-arcade.json");
+const MAX_CHAIN = 4; // clone → parent → BIOS is as deep as it goes
+
+let data = null;
+const load = () => (data ??= JSON.parse(fs.readFileSync(DATA, "utf8")));
+
+/** "Title (World 910522)" → ["Title", "World 910522"]. Pure. */
+export function splitDescription(desc) {
+  const m = String(desc).match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+  return m ? [m[1].trim(), m[2].trim()] : [String(desc).trim(), null];
+}
+
+/** What the DAT knows about a set, or null. */
+export function setInfo(shortName) {
+  const s = load().sets[String(shortName).toLowerCase()];
+  if (!s) return null;
+  const [desc, cloneOf, romOf, bios] = s;
+  const [base, tag] = splitDescription(desc);
+  const parentBase = cloneOf ? splitDescription(load().sets[cloneOf]?.[0] ?? "")[0] : null;
+  const local = load().names[base] ?? (parentBase ? load().names[parentBase] : null) ?? null;
+  return { desc, base, tag, cloneOf, romOf, bios: Boolean(bios), names: { en: base, ...(local ?? {}) } };
+}
+
+/** The sets a game loads besides its own: its parent and BIOS, nearest first. */
+export function dependencies(shortName) {
+  const out = [];
+  let info = setInfo(shortName);
+  for (let i = 0; info && i < MAX_CHAIN; i++) {
+    const next = info.cloneOf ?? info.romOf;
+    if (!next || out.includes(next)) break;
+    out.push(next);
+    info = setInfo(next);
+  }
+  return out;
+}
+
+/** The name a game is listed under: Korean first with the English title beside it, the version as a tag. Pure. */
+export function listedName(info) {
+  const ko = info.names.ko;
+  const main = ko && ko !== info.base ? `${ko} (${info.base})` : info.base;
+  return info.tag ? `${main} [${info.tag}]` : main;
+}
+
+/**
+ * Applies the DAT to one arcade folder's games (as readGame made them): drops
+ * BIOS sets, names the rest, and adds the parent and BIOS zips present in the
+ * folder as extras. Unknown zips are left as they are.
+ */
+export function applyArcade(games) {
+  const byName = new Map(games.map((g) => [path.basename(g.rel, path.extname(g.rel)).toLowerCase(), g]));
+  const out = [];
+  for (const [short, g] of byName) {
+    const info = setInfo(short);
+    if (!info) { out.push(g); continue; }
+    if (info.bios) continue;
+    const extras = [...g.extras];
+    for (const dep of dependencies(short)) {
+      const d = byName.get(dep);
+      if (d && !extras.some((x) => x.rel === d.rel)) extras.push({ abs: d.abs, rel: d.rel, size: d.fileSize, mtimeMs: d.mtimeMs });
+    }
+    out.push({
+      ...g,
+      name: listedName(info),
+      names: Object.fromEntries(Object.entries(info.names).filter(([, v]) => v)),
+      original: info.desc,
+      extras,
+      size: g.fileSize + extras.reduce((n, x) => n + x.size, 0),
+      keepFileName: true,
+    });
+  }
+  return out;
+}
