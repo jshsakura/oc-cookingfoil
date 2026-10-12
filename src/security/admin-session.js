@@ -16,6 +16,8 @@ import { generate, verify, generateURI } from "otplib";
 import { adminSessionHours, adminEmail, adminPassword } from "../helpers/envs.js";
 import { adminSecret, markEnrolled } from "./admin-secret.js";
 import debug from "../debug.js";
+import { webUser } from "./user-session.js";
+import * as googleAccounts from "./google-accounts.js";
 
 const COOKIE_NAME = "cf_admin";
 const SESSION_MS = adminSessionHours * 60 * 60 * 1000;
@@ -152,5 +154,9 @@ export function clearSession(res) {
 
 export function hasValidSession(req) {
   const cookies = parseCookies(req);
-  return Boolean(readToken(cookies[COOKIE_NAME]));
+  if (readToken(cookies[COOKIE_NAME])) return true;
+  // A Google account the owner made admin already proved who it is at /login;
+  // the admin password is a floor for everyone else, not a second hurdle for it.
+  const who = webUser(req);
+  return who?.kind === "google" && googleAccounts.isAdmin(who.sub);
 }
