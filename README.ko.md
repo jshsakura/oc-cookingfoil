@@ -1,142 +1,112 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/wordmark-dark.png">
-    <img src="brand/wordmark-light.png" alt="cookingfoil." width="360">
-  </picture>
-</p>
+# CookingFoil
 
-<p align="center">
-  개인용 자체 호스팅 홈브류 파일 서버입니다.<br>
-  내 파일을 집 네트워크에 이름과 아이콘을 붙여 정리해 둡니다. <b>CyberFoil</b> 을 기본으로 지원하고 Tinfoil 과도 호환됩니다.
-</p>
+집에 있는 서버에 파일을 올려 두고, 기기의 홈브류 앱으로 받아 쓰는 개인용 파일 서버입니다.
 
-<p align="center"><a href="https://jshsakura.github.io/oc-cookingfoil/">웹사이트</a> · <a href="./README.md">English</a></p>
+Language: [English](README.md) | **한국어**
 
-<p align="center">
-  <img src="docs/screenshots/preview-dark.png" alt="대시보드의 미리보기 탭: CookingFoil 클라이언트와 같은 화면" width="900">
-</p>
+[![CI](https://img.shields.io/github/actions/workflow/status/jshsakura/oc-cookingfoil/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ci.yml)
+[![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
+[![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-> [!IMPORTANT]
-> CookingFoil 은 독립된 오픈소스 프로젝트입니다. **소프트웨어, 키, 펌웨어나 BIOS 파일, RetroArch 빌드를 일절 포함하지 않습니다.** 이 자리는 모두 비어 있고, 이미 가진 파일을 넣어야 채워집니다. 넣은 것을 정리할 뿐입니다. 내 네트워크 안에서 쓰고, `prod.keys` 는 공유하지 마세요.
+웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
 
-## 하는 일
+## 개요
 
-내 패키지(`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`)가 있는 폴더를 지정하면, 기기가 파일 관리자처럼 집 네트워크에서 둘러보고 가져옵니다.
+집 서버에 Docker 로 띄워 씁니다. 넣어 둔 파일의 이름과 아이콘을 찾아 붙이고, 그 목록을 CyberFoil, Tinfoil 방식 클라이언트, CookingFoil 클라이언트에 내려 줍니다.
 
-- **CyberFoil 기본 지원.** CyberFoil 의 섹션 API(`/api/shop/sections`)로 이름·아이콘·버전·크기·필요 펌웨어를 줍니다.
-- **Tinfoil 호환.** `shop.tfl` / `shop.json` 이 Tinfoil 계열 앱에서 동작합니다. [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) 을 그대로 갈아 끼울 수 있습니다.
-- **손대지 않아도 붙는 이름과 아이콘.** [blawar/titledb](https://github.com/blawar/titledb) 를 지역별로 합치고, titledb 에 없는 것은 파일에서 이름과 아이콘을 직접 읽습니다(내 `prod.keys` 필요). 이름과 설명을 한국어·영어·일본어·중국어로 줍니다.
-- **공개 메타데이터.** 공개 출처의 평점(Steam, IGDB), 인기 순서, 아트를 붙일 수 있고 각각 끌 수 있습니다.
-- **웹 대시보드.** 4개 언어로 내 파일을 보고, 클라이언트 홈이 어떻게 보일지 미리 봅니다.
-- **관리 페이지.** 사용자, 기기, 잠금과 거부 기록, 추천 줄, 다시 스캔, 업로드. 인증 앱 코드나 관리자 비밀번호로 들어갑니다.
-- **RetroArch 자리.** 레트로 폴더에 넣어 둔 RetroArch 묶음, 코어, BIOS 파일, 콘텐츠와 공개된 The Bezel Project 베젤을 CookingFoil 클라이언트가 한 번에 설정하도록 내려 줍니다. 아무것도 포함하지 않습니다. 폴더는 비어 있는 채로 시작하고, 만들기 전까지 기능은 꺼져 있습니다. [deploy/README.ko.md](./deploy/README.ko.md#7-선택-기능) 를 봅니다.
-- **세이브 파일.** 서버에 둔 세이브 데이터를 CookingFoil 클라이언트가 지금 세이브를 백업한 뒤 고른 계정에 복원합니다.
-- **유저 패치.** 직접 모은 모드를 [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client)가 SD 카드에 설치하고 켜고 끌 수 있게 내려 줍니다.
+소프트웨어, 키, BIOS 파일, RetroArch 는 들어 있지 않습니다. 그 폴더들은 비어 있는 채로 시작하고, 갖고 있는 파일을 직접 넣기 전까지 관련 기능은 꺼져 있습니다.
 
-## 둘러보기
+서버와 클라이언트는 따로 있는 프로젝트입니다.
 
-| 목록 | 상세 | 휴대폰 (한국어) |
+| 프로젝트 | 실행 위치 | 배포물 |
 |---|---|---|
-| <img src="docs/screenshots/games-light.png" alt="통계와 필터가 있는 목록 탭" width="320"> | <img src="docs/screenshots/detail-light.png" alt="정보와 스크린샷이 있는 상세 화면" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="휴대폰에서 본 한국어 미리보기 탭" width="150"> |
+| CookingFoil 서버 (이 저장소) | Docker 호스트 | `ghcr.io/jshsakura/oc-cookingfoil` |
+| CookingFoil 클라이언트 | 기기의 홈브류 런처 | `cookingfoil.nro` (공개 전) |
 
-스크린샷은 가상의 항목과 생성한 자리표시 아트로 찍었습니다(`node scripts/readme-screenshots.mjs` 로 다시 만듭니다).
-
-## 함께 쓰는 클라이언트
-
-| 클라이언트 | 연결 방식 | 받는 것 |
-|---|---|---|
-| [CyberFoil](https://github.com/luketanti/CyberFoil) | 네이티브 섹션 API | 이름, 아이콘, 버전, 필요 펌웨어 |
-| [CookingFoil 클라이언트](https://github.com/jshsakura/oc-cookingfoil-client) | 네이티브 API + `/api/title` | 홈 화면, 언어별 이름과 아트, 유저 패치, 세이브, RetroArch, QR 기기 승인 |
-| Tinfoil 계열 | `shop.tfl` | 이름과 아이콘이 있는 기존 파일 목록 |
-
-## 빠르게 시작하기 (Docker)
+## 빠른 시작
 
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
-
 mkdir -p games data keys
-# ./games 에 내 파일을, 원하면 ./keys 에 prod.keys 를 넣습니다
-# .env 에서 최소한 COOK_AUTH_USERS=아이디:긴비밀번호 를 정합니다
-
+# .env 에 최소한 COOK_AUTH_USERS=아이디:긴-비밀번호 를 적습니다
 docker compose up -d
 ```
 
-대시보드는 `http://<호스트>:9080/` 입니다. 클라이언트에 넣을 서버 주소도 `http://<호스트>:9080/` 이고, Tinfoil 은 `http://<호스트>:9080/shop.tfl` 입니다.
+웹 화면은 `http://<host>:9080/` 에서 열립니다. 클라이언트에도 이 주소를 서버 주소로 넣습니다.
 
-이미지는 `ghcr.io/jshsakura/oc-cookingfoil:latest` 이고 릴리스마다 빌드됩니다.
-
-**만든 사람이 쓰는 그대로 운영하려면**(리버스 프록시나 터널, 관리 페이지, 평점, 패치) [`deploy/`](./deploy/README.md) 의 설정을 그대로 가져가세요. 항목마다 설명이 달려 있습니다.
+```
+cookingfoil/
+├── docker-compose.yml
+├── .env              # 설정과 첫 계정
+├── games/            # 내 파일 (필수)
+├── data/             # 캐시, 계정, 설정. 처음 실행할 때 만들어집니다
+└── keys/             # 선택, 읽기 전용
+```
 
 ## 클라이언트 연결
 
-- **CyberFoil:** 설정의 *eShop URL* 에 서버 주소를 넣습니다. 계정을 쓰면 *eShop 사용자 이름 / 비밀번호* 도 채웁니다. 내 계정보다는 *기기 승인*(`/pair`) 화면에서 기기마다 만드는 접속 정보를 권합니다. 서버를 읽고 받는 것만 되고, 처음 접속한 기기에 묶이며, 언제든 폐기할 수 있습니다.
-- **Tinfoil 계열:** *File Browser* → `+` → `/shop.tfl` 로 끝나는 주소와 아이디·비밀번호.
-- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 면 기기 화면에 QR 이 뜹니다. 휴대폰으로 서버에 로그인해 *기기 승인*(`/pair`) 화면에서 카메라로 찍거나 8자리 기기 코드를 입력하면, 그 계정으로 기기가 연결되고 기기에는 비밀번호를 넣지 않습니다. 또는 `sdmc:/switch/cookingfoil/config.json` 에 `config.json` 을 둡니다. 관리 페이지에서 사용자를 만들 때 함께 보여 주고, 로그인한 브라우저에서 `/api/client-config` 로도 받습니다(비밀번호와 키는 넣지 않습니다).
+- **CyberFoil:** 설정의 주소 칸에 서버 주소를, 아이디와 비밀번호 칸에 계정을 넣습니다. *기기* 페이지(`/pair`)에서 기기별 로그인을 만들어 쓰면 더 안전합니다. 목록 읽기만 되고, 처음 쓴 기기에 묶이며, 언제든 끊을 수 있습니다.
+- **Tinfoil 방식 클라이언트:** *File Browser* 에서 `+` 를 누르고 `/shop.tfl` 로 끝나는 주소와 계정을 넣습니다.
+- **CookingFoil 클라이언트:** `COOK_DEVICE_PAIRING=true` 이면 기기에 QR 이 뜹니다. 휴대폰으로 찍고 로그인해 승인하면 됩니다. 기기에는 비밀번호가 남지 않습니다.
 
 ## 설정
 
-모든 설정은 `COOK_` 로 시작하는 환경 변수입니다. 전체 목록과 설명은 [`.env.example`](./.env.example) 에 있고, 자주 만지는 것은 아래와 같습니다.
+설정은 모두 `COOK_` 로 시작하는 환경 변수입니다. 전체 목록은 [`.env.example`](./.env.example) 에 있고, 자주 바꾸는 것은 아래와 같습니다.
 
 | 변수 | 기본값 | 용도 |
 |---|---|---|
-| `COOK_AUTH_USERS` | _(비어 있음)_ | `user:pass,user2:pass2`. 처음 한 번 가져오고 그 뒤로는 `/admin` 에서 관리합니다 |
-| `COOK_HOST_PORT` | `9080` | docker-compose 가 여는 호스트 포트 |
-| `COOK_TRUST_PROXY` | _(비어 있음)_ | 믿을 프록시 단계. 예: `loopback, uniquelocal`. 프록시 뒤 클라이언트마다 잠금이 따로 걸립니다 |
-| `COOK_ADMIN_PASSWORD` | _(비어 있음)_ | 인증 앱 대신 쓰는 관리자 비밀번호(12자 이상) |
-| `COOK_DEVICE_PAIRING` | `false` | CookingFoil 클라이언트 기기를 QR 로 승인(CyberFoil·Tinfoil 은 비밀번호 그대로) |
-| `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | titledb 를 합칠 때 이름과 설명이 이기는 언어 순서 |
-| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 보조 지역 10개 | 받아 올 titledb 지역 파일 |
-| `COOK_RATING_SYNC` | `true` | Steam 리뷰 점수. IGDB 는 `COOK_IGDB_CLIENT_ID` / `_SECRET` 추가 |
-| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | 공개 상점 정보(아래 참고) |
-| `COOK_EXTRACT_ICONS` | `missing` | 파일에서 이름·아이콘 읽기: `missing`, `all`, `off` |
+| `COOK_AUTH_USERS` | _(비어 있음)_ | `user:pass,user2:pass2`. 처음 한 번만 가져오고, 그 뒤로는 `/admin` 에서 관리합니다 |
+| `COOK_HOST_PORT` | `9080` | 호스트 포트 |
+| `COOK_PUBLIC_BASE_URL` | _(비어 있음)_ | 리버스 프록시나 터널 뒤에 둘 때 바깥 주소 |
+| `COOK_TRUST_PROXY` | _(비어 있음)_ | 믿을 프록시 범위. 예: `loopback, uniquelocal` |
+| `COOK_ADMIN_PASSWORD` | _(비어 있음)_ | 관리 페이지 비밀번호(12자 이상). 인증 앱 코드로도 들어갈 수 있습니다 |
+| `COOK_DEVICE_PAIRING` | `false` | CookingFoil 클라이언트의 QR 승인 |
+| `COOK_EXTRACT_ICONS` | `missing` | 파일에서 이름과 아이콘 읽기: `missing`, `all`, `off` |
+| `COOK_TITLEDB_AUTO_FETCH` | `true` | 공개 타이틀 목록 받기. 한 번 받아 두면 오프라인으로 돕니다 |
 
-### 외부로 나가는 연결
+구글 로그인, 홈브류 저장소, 계정은 관리 페이지(`/admin`)에서 정합니다.
 
-titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허용하면 아래에 접속합니다.
-
-| 서비스 | 이유 | 끄기 |
-|---|---|---|
-| `raw.githubusercontent.com` (blawar/titledb) | 이름, 설명, 아트 주소 | `COOK_TITLEDB_AUTO_FETCH=false` |
-| 공개 상점 아트 CDN | 아이콘, 배너, 스크린샷(디스크에 캐시) | `COOK_ESHOP_ARTWORK=false` |
-| 공개 상점 목록 API | 목록 정보 | `COOK_ESHOP_PRICES=false` |
-| 공개 상점 검색 색인 | 인기 순위 | `COOK_ESHOP_POPULARITY=false` |
-| Steam 상점, IGDB | 리뷰 점수 | `COOK_RATING_SYNC=false` |
-
-## 클라이언트용 API
+## API
 
 | 엔드포인트 | |
 |---|---|
 | `GET /shop.tfl`, `/shop.json` | Tinfoil 형식 목록 |
-| `GET /api/shop/sections` | CyberFoil 과 CookingFoil 클라이언트용 목록(ETag) |
+| `GET /api/shop/sections` | CyberFoil 과 CookingFoil 클라이언트용 목록 |
 | `GET /api/shop/info` | 서버 버전과 클라이언트가 기대도 되는 `features` |
-| `GET /api/title/:id?lang=` | 상세: 설명, 스크린샷, 업데이트, 언어별 이름과 아트 |
-| `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 아트. `?size=sm\|md`, `?lang=` |
-| `GET /api/patches`, `/api/patches/:id/download` | 유저 패치 목록과 ustar 묶음 |
-| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | 홈브류 `.nro`(직접 넣은 것과 GitHub 최신 릴리스), 관리자가 쓴 설명, 홈 메뉴 바로가기 NSP |
-| `GET /api/saves`, `/api/saves/:id/download` | 세이브 파일 목록과 ustar 묶음 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256)와 그 홈 메뉴 바로가기 NSP |
-| `POST /api/client/log` | 기기 오류 기록(텍스트, 64KB) 받기. `data/client/logs/<기기>/` 에 둡니다 |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | 레트로 폴더의 파일, 베젤, 운영자가 넣은 RetroArch 기본 묶음 |
+| `GET /api/title/:id?lang=` | 항목 하나의 상세 |
+| `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 이미지 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | 홈브류 앱과 홈 메뉴 바로가기 |
+| `GET /api/patches`, `/api/saves` | 유저 패치와 세이브 파일 |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 클라이언트 빌드 |
+| `GET /api/retro/systems`, `/api/retro/games` | 레트로 폴더를 만들었을 때 그 안의 파일 |
 
-선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 확인하세요.
+클라이언트는 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 확인합니다.
 
 ## 개발
 
 ```bash
 npm install
-npm run hooks:install   # 선택: 커밋 전 검사(비밀값 차단, 문법, 부팅 시험)
 cp .env.example .env
 npm run dev             # http://localhost:3001
-
 npm run lint
-npm run test:unit       # node --test
-npm run test:web        # Playwright, 먼저 npx playwright install chromium
+npm run test:unit
+npm run test:web        # 먼저 npx playwright install chromium
 ```
 
-PR 은 CI(lint, 단위, 웹)를 거칩니다. [CONTRIBUTING.md](./CONTRIBUTING.md) 와 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) 를 보세요. 보안 문제는 [SECURITY.md](./SECURITY.md) 대로 비공개로 알려 주세요.
+```
+src/
+├── index.js        # 서버 진입점
+├── routes/         # HTTP 라우트, 로그인과 관리 페이지
+├── security/       # 계정, 세션, 기기, 잠금
+├── meta/           # 이름, 아이콘, 홈브류 추적
+├── retro/          # 레트로 폴더와 바로가기
+└── views/          # 웹 화면
+site/               # GitHub Pages 사이트
+test/unit, test/web # node --test 와 Playwright
+```
 
-## 크레딧과 라이선스
+## 라이선스
 
-MIT, [LICENSE](./LICENSE) 참고. Vinicios Clarindo 의 [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat)(MIT)에서 출발했습니다. 메타데이터는 [blawar/titledb](https://github.com/blawar/titledb) 에서 오고, Docker 이미지에는 [nstool](https://github.com/jakcron/nstool) 과 [nsz](https://github.com/nicoboss/nsz) 가 들어 있습니다. 전체 목록은 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 에 있습니다.
+MIT, [LICENSE](./LICENSE) 를 봅니다. Vinicios Clarindo 의 [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat)(MIT)에서 출발했습니다. 타이틀 정보는 [blawar/titledb](https://github.com/blawar/titledb) 에서 받고, 이미지에 [nstool](https://github.com/jakcron/nstool) 과 [nsz](https://github.com/nicoboss/nsz) 가 들어 있습니다. 자세한 것은 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 에 있습니다.

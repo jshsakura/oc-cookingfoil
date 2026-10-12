@@ -1,130 +1,86 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/wordmark-dark.png">
-    <img src="brand/wordmark-light.png" alt="cookingfoil." width="360">
-  </picture>
-</p>
+# CookingFoil
 
-<p align="center">
-  A personal, self-hosted homebrew file server.<br>
-  Keeps your own files on your home network with names and icons, with first-class <b>CyberFoil</b> support and Tinfoil compatibility.
-</p>
+A personal file server for homebrew. Keep your files on a machine at home and pull them from a homebrew app on your console.
 
-<p align="center">
-  <a href="https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ci.yml"><img src="https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ghcr-publish.yml"><img src="https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ghcr-publish.yml/badge.svg" alt="GHCR"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
-</p>
+Language: **English** | [한국어](README.ko.md)
 
-<p align="center"><a href="https://jshsakura.github.io/oc-cookingfoil/">Website</a> · <a href="./README.ko.md">한국어</a></p>
+[![CI](https://img.shields.io/github/actions/workflow/status/jshsakura/oc-cookingfoil/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/jshsakura/oc-cookingfoil/actions/workflows/ci.yml)
+[![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
+[![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-<p align="center">
-  <img src="docs/screenshots/preview-dark.png" alt="The dashboard's Preview tab, the same layout the CookingFoil client shows" width="900">
-</p>
+Website: <https://jshsakura.github.io/oc-cookingfoil/>
 
-> [!IMPORTANT]
-> CookingFoil is an independent open-source project. It ships **no software, no keys, no firmware or BIOS files and no RetroArch build**: every one of those slots is empty until you fill it with files you already own. It only organises what you put in it. Keep it on your own network and keep your `prod.keys` to yourself.
+## Overview
 
-## What it does
+CookingFoil runs in Docker on your home server. It looks up names and icons for the files you put in it and serves the list to CyberFoil, Tinfoil-style clients and the CookingFoil client.
 
-Point it at a folder of your own packages (`.nsp` / `.nsz` / `.xci` / `.xcz` / `.nro`) and your console can browse and fetch them over your home network, the way a file manager would.
+It ships with no software, no keys, no BIOS files and no RetroArch. Those folders start empty, and the features that use them stay off until you fill them with files you already own.
 
-- **CyberFoil, natively.** Serves CyberFoil's sections API (`/api/shop/sections`) with names, icons, versions, sizes and required firmware.
-- **Tinfoil-compatible.** `shop.tfl` / `shop.json` work with Tinfoil-style clients. It is a drop-in replacement for [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat).
-- **Names and icons without manual work.** Merges [blawar/titledb](https://github.com/blawar/titledb) across regions, and for anything titledb does not know, reads the name and icon from the file itself (with your own `prod.keys`). Names and descriptions come in Korean, English, Japanese and Chinese.
-- **Public metadata.** Optional review scores (Steam, IGDB), popularity order and artwork from public sources. Each can be turned off.
-- **Web dashboard.** Browse your files in four languages, with a preview of how the client home will look.
-- **Admin page.** Users, devices, lockouts and refused requests, featured rows, rescans and uploads. Signed in with an authenticator code or an admin password.
-- **RetroArch slot.** Serves the RetroArch pack, cores, BIOS files and content you place in the retro folder, plus public Bezel Project overlays, and the CookingFoil client sets them up in one go. Nothing is included: the folder starts empty and the feature stays off until you create it; see [deploy/README.md](./deploy/README.md#7-optional-extras).
-- **Save files.** Keep save data on the server for the CookingFoil client to restore, after it backs up the current one.
-- **User patches.** Keep mods for the [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) to place and toggle on the SD card.
+The server and the client are two projects:
 
-## A look around
-
-| Library | Detail | On a phone (한국어) |
+| Project | Runs on | Artifact |
 |---|---|---|
-| <img src="docs/screenshots/games-light.png" alt="Library tab with stats and filters" width="320"> | <img src="docs/screenshots/detail-light.png" alt="Detail view with facts and screenshots" width="320"> | <img src="docs/screenshots/preview-ko-phone.png" alt="Preview tab on a phone in Korean" width="150"> |
+| CookingFoil server (this repository) | Docker host | `ghcr.io/jshsakura/oc-cookingfoil` |
+| CookingFoil client | The console's homebrew launcher | `cookingfoil.nro` (not published yet) |
 
-Screenshots use made-up entries and generated placeholder art (`node scripts/readme-screenshots.mjs` regenerates them).
-
-## Works with
-
-| Client | How it connects | What you get |
-|---|---|---|
-| [CyberFoil](https://github.com/luketanti/CyberFoil) | Native sections API | Full names, icons, versions, required firmware |
-| [CookingFoil client](https://github.com/jshsakura/oc-cookingfoil-client) | Native API + `/api/title` | Home screen, per-language names and art, user patches, saves, RetroArch; QR device approval |
-| Tinfoil-style clients | `shop.tfl` | The classic file list with names and icons |
-
-## Quick start (Docker)
+## Quick start
 
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
-
 mkdir -p games data keys
-# put your own files in ./games, optionally your prod.keys in ./keys
 # edit .env: at least COOK_AUTH_USERS=you:a-long-password
-
 docker compose up -d
 ```
 
-Open `http://<host>:9080/` for the dashboard. The shop address for your client is `http://<host>:9080/` (Tinfoil: `http://<host>:9080/shop.tfl`).
+The web page opens at `http://<host>:9080/`. Give clients the same address as their server.
 
-The image is `ghcr.io/jshsakura/oc-cookingfoil:latest`, built for every release.
-
-**Running it the way the author does** (reverse proxy or tunnel, admin page, ratings, patches): see [`deploy/`](./deploy/README.md) for a complete, commented setup you can copy.
+```
+cookingfoil/
+├── docker-compose.yml
+├── .env              # settings and the first account
+├── games/            # your files (required)
+├── data/             # cache, accounts and settings, created on first run
+└── keys/             # optional, read-only
+```
 
 ## Connecting a client
 
-- **CyberFoil:** Settings, then *eShop URL* = your shop address. With accounts enabled, fill in *eShop username / password*: either your account, or better, a per-console login you create on the *Devices* page (`/pair`). A device login only reads the shop, locks to the first console that uses it, and can be revoked any time.
-- **Tinfoil-style clients:** *File Browser*, then `+`, then the address ending in `/shop.tfl`, with your username and password.
-- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Sign in to the shop on your phone, open *Devices* (`/pair`) and scan it with the camera, or type the 8-character device code; the console joins under your account with no password on it. Or put a `config.json` at `sdmc:/switch/cookingfoil/config.json`. The admin page shows one when you create a user, and a signed-in browser can fetch it from `/api/client-config` (passwords and keys are never included).
+- **CyberFoil:** in Settings, put the server address in the URL field and your account in the username and password fields. A per-console login from the *Devices* page (`/pair`) is safer: it only reads the list, locks to the first console that uses it, and can be revoked.
+- **Tinfoil-style clients:** *File Browser*, then `+`, then the address ending in `/shop.tfl`, with your account.
+- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Scan it with your phone, sign in, and approve it. No password is stored on the console.
 
 ## Configuration
 
-Every setting is an environment variable with the `COOK_` prefix. [`.env.example`](./.env.example) lists all of them with explanations; the ones most setups touch:
+Every setting is an environment variable starting with `COOK_`. [`.env.example`](./.env.example) lists all of them; these are the ones most setups change.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `COOK_AUTH_USERS` | _(empty)_ | `user:pass,user2:pass2`, imported once; afterwards manage accounts in `/admin` |
-| `COOK_HOST_PORT` | `9080` | Host port docker-compose publishes |
-| `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, e.g. `loopback, uniquelocal`, so each client behind a proxy gets its own lockout |
-| `COOK_ADMIN_PASSWORD` | _(empty)_ | Admin page password (12+ chars) instead of an authenticator code |
-| `COOK_DEVICE_PAIRING` | `false` | Let CookingFoil client consoles be approved by QR code (CyberFoil and Tinfoil keep using passwords) |
-| `COOK_LANG_PRIORITY` | `ko,en,ja,en-US` | Which language's name and description win when merging titledb |
-| `COOK_TITLEDB_REGIONS` | `KR.ko,US.en,JP.ja,GB.en,HK.zh,CN.zh` + 10 fallback regions | titledb region files to fetch |
-| `COOK_RATING_SYNC` | `true` | Steam review scores; add `COOK_IGDB_CLIENT_ID` / `_SECRET` for IGDB |
-| `COOK_ESHOP_PRICES` / `_POPULARITY` / `_ARTWORK` | `true` | Public store data (see below) |
-| `COOK_EXTRACT_ICONS` | `missing` | Read names/icons from the files: `missing`, `all` or `off` |
+| `COOK_AUTH_USERS` | _(empty)_ | `user:pass,user2:pass2`, imported once; manage accounts in `/admin` afterwards |
+| `COOK_HOST_PORT` | `9080` | Host port |
+| `COOK_PUBLIC_BASE_URL` | _(empty)_ | The outside address when behind a reverse proxy or tunnel |
+| `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, e.g. `loopback, uniquelocal` |
+| `COOK_ADMIN_PASSWORD` | _(empty)_ | Admin page password (12+ chars); an authenticator code also works |
+| `COOK_DEVICE_PAIRING` | `false` | QR approval for the CookingFoil client |
+| `COOK_EXTRACT_ICONS` | `missing` | Read names and icons from the files: `missing`, `all` or `off` |
+| `COOK_TITLEDB_AUTO_FETCH` | `true` | Fetch public title lists; it runs offline once they are cached |
 
-### What it connects to
+Google sign-in, homebrew repositories and accounts are set on the admin page (`/admin`).
 
-CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
-
-| Service | Why | Turn off |
-|---|---|---|
-| `raw.githubusercontent.com` (blawar/titledb) | Names, descriptions, artwork URLs | `COOK_TITLEDB_AUTO_FETCH=false` |
-| Public store artwork CDN | Icons, banners, screenshots (cached on disk) | `COOK_ESHOP_ARTWORK=false` |
-| Public store listing API | Store listing data | `COOK_ESHOP_PRICES=false` |
-| Public store search index | Popularity order | `COOK_ESHOP_POPULARITY=false` |
-| Steam store, IGDB | Review scores | `COOK_RATING_SYNC=false` |
-
-## API for clients
+## API
 
 | Endpoint | |
 |---|---|
 | `GET /shop.tfl`, `/shop.json` | Tinfoil-format index |
-| `GET /api/shop/sections` | Native list for CyberFoil and the CookingFoil client (ETag) |
+| `GET /api/shop/sections` | List for CyberFoil and the CookingFoil client |
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
-| `GET /api/title/:id?lang=` | Detail: description, screenshots, updates, localized names and art |
-| `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork, `?size=sm\|md`, `?lang=` |
-| `GET /api/patches`, `/api/patches/:id/download` | User patches as a list and as ustar archives |
-| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | Homebrew `.nro` apps (hand-placed and latest GitHub releases), with the admin's description and a HOME-menu shortcut NSP |
-| `GET /api/saves`, `/api/saves/:id/download` | Save files as a list and as ustar archives |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | The CookingFoil client build in `data/client/` (version from its NACP, sha256) and its HOME-menu shortcut NSP |
-| `POST /api/client/log` | A console's error log (text, 64 KB), kept in `data/client/logs/<device>/` |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | Files from the retro folder, bezels and the operator's RetroArch base pack |
+| `GET /api/title/:id?lang=` | Detail for one entry |
+| `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/forwarder` | Homebrew apps and their HOME menu shortcut |
+| `GET /api/patches`, `/api/saves` | User patches and save files |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The client build kept in `data/client/` |
+| `GET /api/retro/systems`, `/api/retro/games` | Files from the retro folder, when you have created it |
 
 A client should read `features` from `/api/shop/info` before using optional fields.
 
@@ -132,17 +88,25 @@ A client should read `features` from `/api/shop/info` before using optional fiel
 
 ```bash
 npm install
-npm run hooks:install   # optional: pre-commit checks (secret guard, syntax, boot test)
 cp .env.example .env
 npm run dev             # http://localhost:3001
-
 npm run lint
-npm run test:unit       # node --test
-npm run test:web        # Playwright, after: npx playwright install chromium
+npm run test:unit
+npm run test:web        # after: npx playwright install chromium
 ```
 
-Pull requests go through CI (lint, unit, web). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Report security issues privately as described in [SECURITY.md](./SECURITY.md).
+```
+src/
+├── index.js        # server entry
+├── routes/         # HTTP routes, login and admin pages
+├── security/       # accounts, sessions, devices, lockouts
+├── meta/           # names, icons, homebrew tracking
+├── retro/          # retro folder and shortcuts
+└── views/          # the web page
+site/               # the GitHub Pages site
+test/unit, test/web # node --test and Playwright
+```
 
-## Credits and license
+## License
 
-MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Title metadata comes from [blawar/titledb](https://github.com/blawar/titledb); the Docker image bundles [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). Full list in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Title data comes from [blawar/titledb](https://github.com/blawar/titledb); the image includes [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
