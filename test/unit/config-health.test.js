@@ -81,6 +81,12 @@ test("an auto-provisioned admin secret reports as unenrolled and warns", () => {
   assert.ok(codes(r).includes("admin-unenrolled"));
 });
 
+test("with an admin password, an unenrolled authenticator is a hint, not a warning", () => {
+  const r = runProbe({ COOK_AUTH_USERS: "console:foil", COOK_ADMIN_PASSWORD: "admin-password-123" });
+  assert.ok(!codes(r).includes("admin-unenrolled"));
+  assert.equal(r.warnings.find((w) => w.code === "admin-authenticator-optional").severity, "info");
+});
+
 test("COOK_ADMIN_EMAIL becomes the admin identity", () => {
   const r = runProbe({ COOK_ADMIN_EMAIL: "admin@example.com" });
   assert.equal(r.lanes.admin.email, "admin@example.com");
