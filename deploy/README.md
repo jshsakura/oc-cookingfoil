@@ -86,6 +86,13 @@ rely on the server's own accounts (and device pairing) on its hostname.
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) plus an optional
   `patch.json` with `name`, `version`, `game_version`, `author`, `description`.
   Only files under those paths are served; a patch with anything else is skipped.
+- **Homebrew (CookingFoil client):** set `COOK_HOMEBREW_REPOS=owner/name,…` to
+  follow GitHub releases (e.g. `murat303/ytb-player`). Each repository is checked
+  at most every three hours with a conditional request; a new release is
+  announced at once and its `.nro` is fetched when a console first downloads it,
+  then kept under `data/homebrew/`. Apps that are not on GitHub go in a folder
+  mounted read-only at `/homebrew`, as `<app>/<app>.nro`. `COOK_GITHUB_TOKEN`
+  is optional and only raises GitHub's hourly limit.
 - **Dropbox save sync (CookingFoil client):** create an app at
   dropbox.com/developers/apps (Scoped access, App folder), add the redirect URI
   `https://<your shop>/api/dropbox/oauth/dropbox/callback`, then set

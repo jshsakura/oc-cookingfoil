@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-function probe(env) {
+function probe(env, before = "") {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", `
     import route from "../../src/routes/shop-info.js";
+    ${before}
     const res = { headers: {} };
     res.header = (k, v) => { res.headers[k] = v; return res; };
     res.json = (body) => { res.body = body; return res; };
@@ -36,3 +38,45 @@ test("shop info lists the optional fields a client may rely on", () => {
 test("shop info lists device pairing when the server offers it", () => {
   assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-pairing"));
 });
+
+test("shop info lists homebrew only while at least one app is listed", () => {
+  const nothing = path.join(tmpdir(), "cf-no-homebrew-here");
+  const refresh = `await (await import("../../src/routes/homebrew.js")).refreshManual();`;
+  assert.ok(!probe({ COOK_HOMEBREW_DIR: nothing, COOK_HOMEBREW_REPOS: "" }, refresh).features.includes("homebrew"));
+
+  // A repository that has not been fetched yet, or an empty folder, lists nothing.
+  const empty = mkdtempSync(path.join(tmpdir(), "cf-homebrew-"));
+  assert.ok(!probe({ COOK_HOMEBREW_DIR: empty, COOK_HOMEBREW_REPOS: "murat303/ytb-player" }, refresh).features.includes("homebrew"));
+
+  // A hand-placed app.
+  const folder = mkdtempSync(path.join(tmpdir(), "cf-homebrew-"));
+  mkdirSync(path.join(folder, "tool"));
+  writeFileSync(path.join(folder, "tool", "tool.nro"), fakeNro("Tool", "1.0"));
+  assert.ok(probe({ COOK_HOMEBREW_DIR: folder, COOK_HOMEBREW_REPOS: "" }, refresh).features.includes("homebrew"));
+
+  // A repository whose build the server already knows.
+  const data = mkdtempSync(path.join(tmpdir(), "cf-info-"));
+  const id = "gh-" + createHash("sha256").update("murat303/ytb-player").digest("hex").slice(0, 12);
+  mkdirSync(path.join(data, "homebrew", id), { recursive: true });
+  writeFileSync(path.join(data, "homebrew", id, "state.json"), JSON.stringify({
+    repo: "murat303/ytb-player", checked_at: Date.now(), tag: "v1.1.0", released_at: null,
+    asset: { id: 1, name: "ytb-player.nro", size: 10, url: "https://github.com/x", digest: null },
+    cached: { asset_id: 1, file: "ytb-player.nro", sha256: "ab", name: "YTB Player", author: null, version: "1.1.0" },
+  }));
+  assert.ok(probe({ COOK_DATA_DIR: data, COOK_HOMEBREW_DIR: nothing, COOK_HOMEBREW_REPOS: "murat303/ytb-player" }).features.includes("homebrew"));
+});
+
+/** A minimal NRO whose NACP carries a name and a version. */
+function fakeNro(name, version) {
+  const head = Buffer.alloc(0x100);
+  head.write("NRO0", 0x10);
+  head.writeUInt32LE(0x100, 0x18);
+  const aset = Buffer.alloc(0x38);
+  aset.write("ASET", 0);
+  aset.writeBigUInt64LE(0x38n, 0x18);
+  aset.writeBigUInt64LE(0x4000n, 0x20);
+  const nacp = Buffer.alloc(0x4000);
+  nacp.write(name, 0);
+  nacp.write(version, 0x3060);
+  return Buffer.concat([head, aset, nacp]);
+}

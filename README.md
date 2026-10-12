@@ -120,6 +120,7 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | `GET /api/title/:id?lang=` | Detail: description, screenshots, updates, localized names and art |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork, `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | User patches as a list and as ustar archives |
+| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download` | Homebrew `.nro` apps: hand-placed ones and the latest GitHub releases |
 | `GET /api/saves`, `/api/saves/:id/download` | Save files as a list and as ustar archives |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The CookingFoil client build in `data/client/` (version from its NACP, sha256) |
 | `POST /api/client/log` | A console's error log (text, 64 KB), kept in `data/client/logs/<device>/` |

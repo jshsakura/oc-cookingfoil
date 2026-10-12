@@ -16,6 +16,7 @@ import * as retroCatalog from "../retro/catalog.js";
 import * as users from "../security/users.js";
 import { retroEnabled } from "./retro.js";
 import { savesEnabled } from "./saves.js";
+import { homebrewEnabled } from "./homebrew.js";
 
 export const API_VERSION = 1;
 
@@ -71,6 +72,8 @@ export default async function shopInfoRoute(_req, res) {
       ...(retro ? ["retro"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
+      // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
+      ...(homebrewEnabled() ? ["homebrew"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) ? ["client-update"] : []),
     ],

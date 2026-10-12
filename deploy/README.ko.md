@@ -84,6 +84,11 @@ curl http://localhost:38000/healthz
   `SaltySD/plugins/FPSLocker/patches/<TITLE ID>/`) 와 선택 `patch.json`
   (`name`, `version`, `game_version`, `author`, `description`). 이 경로 밖의 파일이
   하나라도 있으면 그 패치는 건너뜁니다.
+- **홈브류(CookingFoil 클라이언트):** `COOK_HOMEBREW_REPOS=owner/name,…` 에 GitHub 저장소를
+  적으면 릴리스를 따라갑니다(예: `murat303/ytb-player`). 저장소마다 최대 3시간에 한 번 조건부
+  요청으로 확인하고, 새 릴리스는 바로 알리되 `.nro` 는 기기가 처음 받을 때 내려받아
+  `data/homebrew/` 에 둡니다. GitHub 에 없는 앱은 `/homebrew` 에 읽기 전용으로 마운트한 폴더에
+  `<앱>/<앱>.nro` 로 넣습니다. `COOK_GITHUB_TOKEN` 은 선택이며 GitHub 의 시간당 한도만 늘립니다.
 - **Dropbox 세이브 동기화(CookingFoil 클라이언트):** dropbox.com/developers/apps 에서 앱을
   만들고(Scoped access, App folder) 리다이렉트 URI
   `https://<내 서버 주소>/api/dropbox/oauth/dropbox/callback` 을 넣은 뒤 `COOK_DROPBOX_APP_KEY`

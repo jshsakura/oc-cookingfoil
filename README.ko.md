@@ -114,6 +114,7 @@ titledb 를 한 번 받아 두면 오프라인으로도 잘 동작합니다. 허
 | `GET /api/title/:id?lang=` | 상세: 설명, 스크린샷, 업데이트, 언어별 이름과 아트 |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 아트. `?size=sm\|md`, `?lang=` |
 | `GET /api/patches`, `/api/patches/:id/download` | 유저 패치 목록과 ustar 묶음 |
+| `GET /api/homebrew`, `/api/homebrew/:id/icon`, `/api/homebrew/:id/download` | 홈브류 `.nro`: 직접 넣은 것과 GitHub 최신 릴리스 |
 | `GET /api/saves`, `/api/saves/:id/download` | 세이브 파일 목록과 ustar 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(NACP 버전, sha256) |
 | `POST /api/client/log` | 스위치 오류 기록(텍스트, 64KB) 받기. `data/client/logs/<기기>/` 에 둡니다 |

@@ -41,6 +41,7 @@ import savesRouter from "./routes/saves.js";
 import clientUpdateRouter from "./routes/client-update.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
+import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
 import * as userPatches from "./meta/user-patches.js";
 import { loadPrices } from "./meta/eshop-price.js";
 import * as ratingSync from "./meta/rating-sync.js";
@@ -155,7 +156,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/retro", "/api/saves", "/api/client", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -186,6 +187,8 @@ expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
 expressApp.use("/api/patches", patchesRouter());
+// Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
+expressApp.use("/api/homebrew", homebrewRouter());
 
 // Save files the shop hands out (off until COOK_SAVES_DIR exists).
 expressApp.use("/api/saves", savesRouter());
@@ -275,6 +278,8 @@ shopCache.init().catch((err) =>
 
 // User patches: scanned now and every minute; a change recomposes the patch counts.
 userPatches.start({ onChange: () => shopCache.invalidate() });
+// Homebrew repositories: checked now, then each at most every three hours.
+startHomebrew();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
