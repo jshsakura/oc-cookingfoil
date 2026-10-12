@@ -33,12 +33,14 @@ test("files map to kinds only under the paths the game owns", () => {
   assert.equal(kindOf("atmosphere/contents/0100000000010000/cheats/x.txt", TID), null);
   assert.equal(kindOf("atmosphere/exefs_patches/x.ips", TID), null);
   assert.equal(kindOf("switch/evil.nro", TID), null);
-  // a sub program of the same game (program index 1-F) belongs to it; an update or DLC id does not
+  // the game's own ids belong to it (sub program, update, add-on content); another game's do not
   const sub = TID.slice(0, 15) + "2";
   assert.equal(kindOf(`atmosphere/contents/${sub}/romfs/a.bin`, TID), "romfs");
   assert.equal(kindOf(`atmosphere/contents/${sub.toLowerCase()}/romfs.bin`, TID), "");
-  assert.equal(kindOf("atmosphere/contents/0100F2C0115B6800/romfs/a.bin", TID), null);
-  assert.equal(kindOf("atmosphere/contents/0100F2C0115B7001/romfs/a.bin", TID), null);
+  assert.equal(kindOf("atmosphere/contents/0100F2C0115B6800/romfs/a.bin", TID), "romfs");
+  assert.equal(kindOf("atmosphere/contents/0100F2C0115B7001/romfs/a.bin", TID), "romfs");
+  assert.equal(kindOf("atmosphere/contents/0100F2C0115B8000/romfs/a.bin", TID), null);
+  assert.equal(kindOf("atmosphere/contents/0100F2C0115B4001/romfs/a.bin", TID), null);
   assert.equal(kindOf(`atmosphere/contents/${TID.slice(0, 15)}/romfs/a.bin`, TID), null);
   assert.equal(kindOf(`atmosphere/contents/${TID}/../x`, TID), null);
 });
