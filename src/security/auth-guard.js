@@ -157,6 +157,35 @@ function afterSignIn(req, res, next, ip) {
   next();
 }
 
+/**
+ * The pairing routes sit outside the sign-in wall, but a console may knock
+ * there with its account (Basic) and its device key. With auto-approval on,
+ * check those credentials the same way (lockout included) and approve the
+ * console, so it never lands in the QR queue. Returns whether it is approved.
+ */
+export async function autoApproveFromPairRequest(req, deviceKey) {
+  if (!devicePairing || !deviceAutoApprove || !deviceKey || !req.headers.authorization) return false;
+  const m = /^Basic\s+(\S+)$/i.exec(req.headers.authorization);
+  if (!m) return false;
+  const decoded = Buffer.from(m[1], "base64").toString("utf8");
+  const sep = decoded.indexOf(":");
+  if (sep < 0) return false;
+  const name = decoded.slice(0, sep);
+  const password = decoded.slice(sep + 1);
+  const ip = clientIp(req);
+  if (store.isLocked(ip)) return false;
+  const login = deviceLogins.has(name);
+  const ok = await (login ? deviceLogins.verifyAsync(name, password) : users.verifyAsync(name, password));
+  if (!ok) {
+    if (!isLoopback(ip)) recordFailure(ip, req);
+    return false;
+  }
+  store.clearFailure(ip);
+  if (login && deviceLogins.claim(name, deviceKey) === "other-console") return false;
+  if (approveSignedInDevice(deviceKey, name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), name);
+  return true;
+}
+
 function recordFailure(ip, req) {
   // Behind an untrusted proxy every client counts toward THIS one counter, so a
   // stranger's typo can lock out the whole household. Surface it before the
