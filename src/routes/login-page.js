@@ -9,7 +9,6 @@
  *               done     that console is already approved
  *               expired  the QR is gone
  */
-import { ICON_CSS, icon } from "../views/icons.js";
 import fs from "fs";
 import { escapeHtml } from "./admin/escape.js";
 
@@ -22,8 +21,9 @@ const TEXT = {
     username: "아이디",
     password: "비밀번호",
     submit: "로그인",
+    or: "또는",
     google: "Google 계정으로 로그인",
-    googleHint: "구글 계정은 관리자 승인 뒤에 쓸 수 있습니다.",
+    googleHint: "구글 계정은 처음 로그인한 뒤 관리자가 승인하면 쓸 수 있습니다.",
     pendingLead: "{email} 계정은 관리자의 승인을 기다리고 있습니다. 승인되면 다시 로그인합니다.",
     disabledLead: "{email} 계정은 관리자가 사용을 중지했습니다.",
     errWrong: "아이디나 비밀번호가 맞지 않습니다.",
@@ -57,8 +57,9 @@ const TEXT = {
     username: "Username",
     password: "Password",
     submit: "Sign in",
+    or: "or",
     google: "Sign in with Google",
-    googleHint: "Google accounts work once the admin approves them.",
+    googleHint: "A Google account can be used once the admin approves it after its first sign-in.",
     pendingLead: "{email} is waiting for the admin's approval. Sign in again once it is approved.",
     disabledLead: "The admin has turned off {email}.",
     errWrong: "Wrong username or password.",
@@ -92,8 +93,9 @@ const TEXT = {
     username: "ID",
     password: "パスワード",
     submit: "ログイン",
+    or: "または",
     google: "Google でログイン",
-    googleHint: "Google アカウントは管理者の承認後に使えます。",
+    googleHint: "Google アカウントは、初めてログインしたあと管理者が承認すると使えます。",
     pendingLead: "{email} は管理者の承認を待っています。承認されたらもう一度ログインします。",
     disabledLead: "{email} は管理者が利用を停止しました。",
     errWrong: "ID またはパスワードが違います。",
@@ -127,8 +129,9 @@ const TEXT = {
     username: "账号",
     password: "密码",
     submit: "登录",
+    or: "或",
     google: "使用 Google 登录",
-    googleHint: "Google 账号需管理员批准后才能使用。",
+    googleHint: "Google 账号首次登录后，需经管理员批准才能使用。",
     pendingLead: "{email} 正在等待管理员批准。批准后请重新登录。",
     disabledLead: "管理员已停用 {email}。",
     errWrong: "账号或密码不正确。",
@@ -164,44 +167,40 @@ const fill = (s, email) => escapeHtml(s).replace("{email}", `<b>${escapeHtml(ema
 
 const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--soft:#F2F1EE;--accent:#FFC23D;--bad:#982929;font-family:'IBM Plex Sans KR',system-ui,sans-serif}
 @media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--soft:#26262B;--bad:#FF8A80}}
-*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;color:var(--ink);background:radial-gradient(1200px 600px at 50% -10%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 60%),var(--bg)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:36px 32px 30px;width:min(100%,400px);box-shadow:0 1px 2px rgba(0,0,0,.04),0 24px 60px -24px rgba(0,0,0,.18)}
-@media (prefers-color-scheme:dark){.card{box-shadow:0 24px 60px -20px rgba(0,0,0,.6)}}
-.brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin:0 0 22px}.brand img{width:52px;height:52px}.brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:24px;letter-spacing:-.02em;line-height:1}.brand .dot{color:var(--accent)}
-h1{font-size:20px;font-weight:700;text-align:center;margin:0 0 20px}p{font-size:15px;line-height:1.6;color:var(--muted);margin:0 0 16px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
-.device-code{display:block;font:700 26px ui-monospace,monospace;letter-spacing:3px;padding:16px;text-align:center;background:var(--soft);border-radius:14px;margin:18px 0}
-label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}label span{font-weight:400}
-.field{position:relative}.field .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted);pointer-events:none}
-input{font:inherit;font-size:16px;width:100%;height:50px;border:1px solid var(--line);border-radius:14px;padding:0 14px 0 42px;background:var(--soft);color:var(--ink);transition:border-color .15s,box-shadow .15s,background .15s}
-input::placeholder{color:var(--muted);opacity:.7}
-input:focus{outline:none;border-color:var(--accent);background:var(--card);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 28%,transparent)}
-#code{text-align:center;letter-spacing:4px;font-family:ui-monospace,monospace;text-transform:uppercase;padding-left:14px}
-button,.button{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:16px;width:100%;height:50px;border:0;border-radius:14px;padding:0 16px;background:var(--accent);color:#16161A;margin:22px 0 0;cursor:pointer;transition:filter .15s,background .15s}
-button:hover,.button:hover{filter:brightness(1.04)}
-.button.google{margin-top:10px;background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:600;font-size:15px}.button.google svg{flex:none}.button.google:hover{filter:none;background:var(--soft)}
-.button.ghost,button.ghost{background:var(--soft);color:var(--ink);font-weight:600;font-size:15px;height:46px}button:disabled{opacity:.6;cursor:wait}
-button:focus-visible,a:focus-visible{outline:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 40%,transparent)}
-.who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
-.who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{display:inline-flex;align-items:center;gap:6px;width:auto;height:auto;margin:0;padding:7px 12px;font-size:13px;font-weight:600;background:var(--soft);color:var(--ink)}
-.note{font-size:14px;background:var(--soft);border-radius:12px;padding:12px 14px;margin:0 0 16px}
-.hint{display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;line-height:1.5;margin:12px 0 0;text-align:center}
-.small{display:block;text-align:center;margin:18px 0 0;color:var(--muted);font-size:14px}
-#error{color:var(--bad);margin:12px 0 0;font-size:14px}#error:empty{display:none}
-@media(max-width:420px){body{padding:14px}.card{padding:28px 20px 24px}}`;
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;width:min(100%,440px)}
+.brand{display:flex;align-items:center;gap:12px;margin:0 0 24px}.brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:28px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
+h1{font-size:26px;margin:0 0 12px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
+.device-code{display:block;font:700 30px monospace;letter-spacing:3px;padding:18px;text-align:center;background:var(--soft);border-radius:12px;margin:20px 0}
+label{display:block;font-size:16px;margin:14px 0 8px}label span{color:var(--muted)}
+input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
+#code{text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase}
+button,.button{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;min-height:54px;border:0;border-radius:12px;padding:14px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
+.button.google{background:#fff;color:#1F1F1F;border:1px solid #DADCE0}.button.google svg{flex:none}
+.button.ghost,button.ghost{background:var(--soft);color:var(--ink);font-weight:600;font-size:16px;min-height:48px}button:disabled{opacity:.6;cursor:wait}
+input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
+.who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0}
+.who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button{width:auto;min-height:0;margin:0;padding:8px 12px;font-size:14px;background:var(--soft);color:var(--ink)}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;margin:22px 0 0}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
+.note{font-size:15px;background:var(--soft);border-radius:10px;padding:12px 14px;margin:0 0 16px}
+.hint{font-size:14px;margin:10px 0 0;text-align:center}
+.small{display:block;text-align:center;margin:18px 0 0;color:var(--muted);font-size:15px}
+#error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
+@media(max-width:420px){body{padding:14px}.card{padding:22px}}`;
 
 const GOOGLE_G = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>`;
 
 function shell(lang, title, body, script = "") {
   return `<!doctype html><html lang="${{ ko: "ko", ja: "ja", zh: "zh-Hans" }[lang] ?? "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">
-<title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}${ICON_CSS}</style></head>
-<body><main class="card"><div class="brand"><img src="${LOGO}" alt="" width="52" height="52"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
+<title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}</style></head>
+<body><main class="card"><div class="brand"><img src="${LOGO}" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
 <h1>${escapeHtml(title)}</h1>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
 }
 
 const SIGN_OUT_SCRIPT = `const out=document.getElementById('signout');if(out)out.addEventListener('click',async()=>{out.disabled=true;try{await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':out.dataset.csrf}});}finally{location.href='/login';}});`;
 
 function whoBar(t, user, csrf) {
-  return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${icon("logout")}${escapeHtml(t.signOut)}</button></div>`;
+  return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${escapeHtml(t.signOut)}</button></div>`;
 }
 
 export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null } = {}) {
@@ -209,13 +208,13 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
   const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle }[error];
   const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
   const googleBlock = google
-    ? `<a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${icon("info")}${escapeHtml(t.googleHint)}</p>`
+    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`
     : "";
   return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
-<label for="username">${escapeHtml(t.username)}</label><div class="field">${icon("user")}<input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus></div>
-<label for="password">${escapeHtml(t.password)}</label><div class="field">${icon("lock")}<input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required></div>
+<label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus>
+<label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
 ${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}<button type="submit">${escapeHtml(t.submit)}</button></form>${googleBlock}`);
 }
 
@@ -233,7 +232,7 @@ export function devicePage({ lang = "ko", view = "code", code = "", token = "", 
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
   if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
-  const name = `<label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><div class="field">${icon("tag")}<input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off"></div>`;
+  const name = `<label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off">`;
   const body = view === "confirm"
     ? `<p>${escapeHtml(t.confirmLead)}</p><strong class="device-code">${escapeHtml(code)}</strong>
 <form id="approve" data-token="${escapeHtml(token)}" novalidate>${name}<button type="submit">${escapeHtml(t.approve)}</button></form>`
