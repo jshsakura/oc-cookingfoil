@@ -187,7 +187,7 @@ expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
 expressApp.use("/api/patches", patchesRouter());
-// Homebrew (.nro apps): hand-placed ones and the latest GitHub releases (off until configured).
+// Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
 expressApp.use("/api/homebrew", homebrewRouter());
 
 // Save files the shop hands out (off until COOK_SAVES_DIR exists).

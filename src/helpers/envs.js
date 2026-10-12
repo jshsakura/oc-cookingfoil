@@ -272,7 +272,7 @@ const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "re
 // Homebrew (.nro apps) for clients: hand-placed ones in <dir>/<app>/<app>.nro,
 // plus the latest release of each GitHub repository in COOK_HOMEBREW_REPOS
 // ("owner/name" or github.com addresses, separated by commas or spaces).
-// The feature is off until the folder exists or a repository is named.
+// /api/shop/info lists the "homebrew" feature only while at least one app is listed.
 const homebrewDir = path.resolve(envString("COOK_HOMEBREW_DIR", "/homebrew"));
 const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .split(/[\s,]+/)

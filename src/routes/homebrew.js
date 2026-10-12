@@ -11,7 +11,6 @@
  * fetched by its first download, so that request can take a while.
  */
 import crypto from "crypto";
-import fs from "fs";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
@@ -22,6 +21,7 @@ import { parseAssets } from "../meta/extract-providers/nro.js";
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself only asks GitHub every three hours
 const MANUAL_STALE_MS = 30_000;
+const MANUAL_RESCAN_MS = 60_000; // keeps the "homebrew" feature flag current
 
 const repos = homebrewRepos.map((r) => {
   const repo = parseRepo(r);
@@ -33,19 +33,26 @@ let tracker = null;
 let manual = { at: 0, entries: [] };
 let manualScan = null;
 
-/** On when a repository is named or the hand-placed folder exists. */
+/**
+ * On while at least one app is listed, so a client never shows an empty menu.
+ * Answered from what is already known: the saved GitHub state and the last
+ * scan of the hand-placed folder, which start() keeps fresh.
+ */
 export function homebrewEnabled() {
-  return repos.length > 0 || fs.existsSync(homebrewDir);
+  return manual.entries.length > 0 || githubTracker().entries().length > 0;
 }
 
-/** Hand-placed apps, rescanned at most every 30 seconds and one scan at a time. */
+/** Rescans the hand-placed folder now (one scan at a time). */
+export function refreshManual() {
+  manualScan ??= scanManual(homebrewDir)
+    .then((entries) => { manual = { at: Date.now(), entries }; })
+    .finally(() => { manualScan = null; });
+  return manualScan;
+}
+
+/** Hand-placed apps, rescanned when the last scan is older than 30 seconds. */
 async function manualEntries() {
-  if (Date.now() - manual.at > MANUAL_STALE_MS) {
-    manualScan ??= scanManual(homebrewDir)
-      .then((entries) => { manual = { at: Date.now(), entries }; })
-      .finally(() => { manualScan = null; });
-    await manualScan;
-  }
+  if (Date.now() - manual.at > MANUAL_STALE_MS) await refreshManual();
   return manual.entries;
 }
 
@@ -76,8 +83,14 @@ export const defaultService = {
   },
 };
 
-/** Check the repositories now, then keep checking (each one at most every three hours). */
+/**
+ * Scans the hand-placed folder now and every minute, and checks the
+ * repositories now and every 15 minutes (each one asks GitHub at most every three hours).
+ */
 export function start() {
+  const scan = () => refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
+  scan();
+  setInterval(scan, MANUAL_RESCAN_MS).unref();
   if (!repos.length) return;
   const run = () => githubTracker().checkAll().catch((err) => debug.error("homebrew: check failed: %s", err.message));
   run();

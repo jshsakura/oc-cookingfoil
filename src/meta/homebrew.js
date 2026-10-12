@@ -67,6 +67,17 @@ export async function readNro(file) {
   return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version } : null;
 }
 
+const manualHashes = new Map(); // abs path → { key, hash }, so a rescan only reads changed files
+
+async function cachedSha256(file, st) {
+  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  const known = manualHashes.get(file);
+  if (known?.key === key) return known.hash;
+  const hash = await sha256File(file);
+  manualHashes.set(file, { key, hash });
+  return hash;
+}
+
 export async function sha256File(file) {
   const h = crypto.createHash("sha256");
   for await (const chunk of fs.createReadStream(file)) h.update(chunk);
@@ -105,7 +116,7 @@ async function readManual(root, folder) {
     return null;
   }
   const st = await fsp.stat(abs);
-  const hash = await sha256File(abs);
+  const hash = await cachedSha256(abs, st);
   return {
     id: idFor("manual", folder),
     name: meta.name ?? folder,
