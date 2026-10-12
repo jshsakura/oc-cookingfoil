@@ -122,6 +122,7 @@ CookingFoil runs fine offline once titledb is cached. When allowed, it contacts:
 | `GET /api/patches`, `/api/patches/:id/download` | User patches as a list and as ustar archives |
 | `GET /api/saves`, `/api/saves/:id/download` | Save files as a list and as ustar archives |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The CookingFoil client build in `data/client/` (version from its NACP, sha256) |
+| `POST /api/client/log` | A console's error log (text, 64 KB), kept in `data/client/logs/<device>/` |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/bundle`, `/api/retro/base-pack[/manifest]` | RetroArch files, bezels and the RetroArch base pack |
 
 A client should read `features` from `/api/shop/info` before using optional fields.

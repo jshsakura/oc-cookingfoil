@@ -3,6 +3,7 @@
  *
  *   GET /api/client/latest           { version, size, sha256, url }, or 404 when no build is there
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
+ *   POST /api/client/log             a console's error log (see client-log.js)
  *
  * A build is published by dropping it at <data dir>/client/cookingfoil.nro.
  * version is the NACP display version inside the NRO; it and the sha256 are
@@ -17,6 +18,7 @@ import { dataDir } from "../helpers/envs.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 import { decodeNacp } from "../meta/nacp-decode.js";
 import debug from "../debug.js";
+import { mountClientLog } from "./client-log.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
 const URL_PATH = "/api/client/cookingfoil.nro";
@@ -84,5 +86,6 @@ export default function clientUpdateRouter() {
       next(err);
     }
   });
+  mountClientLog(router);
   return router;
 }
