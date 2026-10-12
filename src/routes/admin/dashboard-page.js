@@ -295,7 +295,7 @@ ${RETRO_ART_HTML}
   <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
     <button type="button" data-kind="game">패키지</button>
     <button type="button" data-kind="retro">레트로 롬</button>
-    <button type="button" data-kind="patch">유저 패치</button>
+    <button type="button" data-kind="patch">패치</button>
     <button type="button" data-kind="save">세이브</button>
     <button type="button" data-kind="homebrew">홈브류</button>
   </div>
