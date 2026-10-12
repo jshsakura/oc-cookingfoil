@@ -34,6 +34,7 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { loadSystems, systemForFolder } from "./systems.js";
+import { assignSdNames } from "./sd-names.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -310,6 +311,7 @@ export async function scanDir(dir) {
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
   await addExtras(dir, games);
+  await assignSdNames(games);
   return { systems, games, present };
 }
 

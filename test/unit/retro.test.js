@@ -166,8 +166,12 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
 
     // Ratings: best first, the unrated last; the fields appear only when known.
     const rated = await (await get("/api/retro/games?system=snes&sort=rating")).json();
-    assert.deepEqual(rated.games.map((g) => [g.name, g.rating]), [["Chrono Trigger (USA)", 95], ["Super Mario World (USA)", 90], ["젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]", undefined]]);
+    assert.deepEqual(rated.games.map((g) => [g.name, g.rating]), [["Chrono Trigger (USA)", 95], ["Super Mario World (USA)", 90], ["젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu)", undefined]]);
     assert.equal(rated.games[0].ratingCount, 40);
+    // On the SD card every name is ASCII: the English title, tags gone; the tags stay as `variant`.
+    const zelda = rated.games[2];
+    assert.equal(zelda.variant, "K");
+    assert.equal(zelda.install.rom, "roms/snes/Zelda no Densetsu.sfc");
     assert.ok(!("rating" in rated.games[2]));
 
     // q matches the name, the original title and the file, ignoring case and spaces.
@@ -214,7 +218,9 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
 
     const disc = (await (await get("/api/retro/games?system=ps1")).json()).games[0];
     const discTar = untar(Buffer.from(await (await get(disc.bundleUrl)).arrayBuffer()));
-    assert.equal(discTar.get("roms/ps1/Disc Game/Disc Game (Track 1).bin"), "TRACK1");
+    assert.equal(discTar.get("roms/ps1/Disc Game (Track 1).bin"), "TRACK1", "flat in the console folder");
+    assert.match(discTar.get("roms/ps1/Disc Game.cue"), /^FILE "Disc Game \(Track 1\)\.bin" BINARY$/m, "the cue names the tracks as they land");
+    assert.equal(disc.install.rom, "roms/ps1/Disc Game.cue");
     assert.ok(![...discTar.keys()].some((k) => k.includes("escape")));
 
     assert.equal((await get("/api/retro/games/snes-0000000000/bundle")).status, 404);
