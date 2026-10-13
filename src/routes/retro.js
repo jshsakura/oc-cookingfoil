@@ -3,7 +3,8 @@
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
- *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png)
+ *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
+ *                                                <folder> being the system's server folder)
  *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
  *                       &minRating=0-100&bezel=1&minSize=&maxSize=  (bytes; bezel=1 keeps games with their own bezel;
  *                       total counts what the filters left)
@@ -231,6 +232,14 @@ export default function retroRouter() {
       .then(() => forwardersAvailable(keysDir) && prewarmForwarders(forwarderDir, state.games.map((g) => forwarderGame(g, state.systems[g.system])), keysDir))
       .catch((err) => debug.error("retro: forwarders: %s", err.message)),
   );
+  // Old-named system folders move into place before anything reads them.
+  if (retroEnabled()) {
+    try {
+      catalog.ensureMigrated(retroDir);
+    } catch (err) {
+      debug.error("retro: moving system folders: %s", err.message);
+    }
+  }
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.

@@ -6,6 +6,9 @@
  *   thumbnails/<folder>/Named_Boxarts/<ROM>.png
  *   bezels/<folder>/<ROM>.png, bezels/<folder>/_default.png
  *
+ * <folder> is the system's folder on the server (systems.js `folder`); the
+ * libretro-thumbnails repository is found by its `libretro` name alone.
+ *
  * syncArt() fills what is missing: it matches unmapped ROMs by their English
  * title against libretro-thumbnails, then downloads box art and bezels for every
  * mapped ROM. applyMatch() is the hand-made correction for one ROM, and
@@ -81,7 +84,7 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
   for (const [rom, target] of Object.entries(map)) {
     if (!target) continue;
     let name = target;
-    let thumbRepo = repoOf(system.folder);
+    let thumbRepo = repoOf(system.libretro);
     if (id === "ws") {
       const [console, ...rest] = target.split(":");
       name = rest.join(":");
@@ -185,7 +188,7 @@ const namesCache = new Map(); // system id → { at, names }
 export async function libretroNames(id, system, { token = "", fetchImpl = fetch } = {}) {
   const hit = namesCache.get(id);
   if (hit && Date.now() - hit.at < NAMES_TTL_MS) return hit.names;
-  const names = await boxartNames(repoOf(system.folder), { token, fetchImpl });
+  const names = await boxartNames(repoOf(system.libretro), { token, fetchImpl });
   namesCache.set(id, { at: Date.now(), names });
   return names;
 }
@@ -246,7 +249,7 @@ export async function candidates(id, system, query, opts = {}) {
 }
 
 /** The libretro box art address for a name, for previews. */
-export const libretroUrl = (system, name) => `${THUMBS}/${repoOf(system.folder)}/master/${enc(`Named_Boxarts/${name}.png`)}`;
+export const libretroUrl = (system, name) => `${THUMBS}/${repoOf(system.libretro)}/master/${enc(`Named_Boxarts/${name}.png`)}`;
 
 /**
  * Sets one ROM's No-Intro name (null: it has no art) and replaces its box art and

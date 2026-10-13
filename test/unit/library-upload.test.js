@@ -99,7 +99,7 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
 
     r = await send("retro", { system: "snes" }, [["슈퍼 마리오 월드 (Super Mario World).sfc", "SMW"]]);
     assert.equal(r.status, 201, await r.clone().text());
-    assert.equal(fs.readFileSync(path.join(dirs.retro, "roms", "Nintendo - Super Nintendo Entertainment System", "슈퍼 마리오 월드 (Super Mario World).sfc"), "utf8"), "SMW");
+    assert.equal(fs.readFileSync(path.join(dirs.retro, "roms", "snes", "슈퍼 마리오 월드 (Super Mario World).sfc"), "utf8"), "SMW");
 
     r = await send("patch", { titleId: MK, name: "한글패치", descriptionKo: "한국어로 바꿉니다" }, [["patch.zip", fs.readFileSync(zip)]]);
     assert.equal(r.status, 201, await r.clone().text());

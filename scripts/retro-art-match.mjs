@@ -23,7 +23,7 @@
 import fs from "fs";
 import path from "path";
 import { loadSystems } from "../src/retro/systems.js";
-import { boxartNames } from "../src/retro/art/sources.js";
+import { boxartNames, repoOf } from "../src/retro/art/sources.js";
 import readline from "readline";
 import sharp from "sharp";
 import { PLATFORMS, decode, titleKey, englishTitle, regionRank, bestMatch } from "../src/retro/art/titles.js";
@@ -124,7 +124,7 @@ async function main() {
     const map = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
     const todo = [...new Set(romsOf(dir, system))].filter((rom) => !map[rom]);
     if (!todo.length) continue;
-    const names = await boxartNames(system.folder.replaceAll(" ", "_"), { token: process.env.GITHUB_TOKEN });
+    const names = await boxartNames(repoOf(system.libretro), { token: process.env.GITHUB_TOKEN });
     const found = {};
     const missed = [];
     for (const rom of todo) {
