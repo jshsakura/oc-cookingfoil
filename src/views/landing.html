@@ -181,6 +181,7 @@
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
       .connect-bar > * { min-width: 0; }
+      .connect-bar .hint { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
       .stats-panel { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
 
@@ -705,6 +706,7 @@
           <div id="shop-url" class="url-pill sk">—</div>
           <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
         </div>
+        <p class="hint" data-i18n-html="hint.connect"></p>
       </section>
 
       <div class="card">
@@ -914,6 +916,7 @@
           "tab.saves": "세이브",
           "extras.search": "게임 이름이나 파일 이름으로 찾기…",
           "extras.download": "받기",
+          "hint.connect": "<b>CookingFoil</b> 앱에 이 주소를 넣으면 기기에 승인 요청이 뜨고, 승인되면 비밀번호 없이 연결됩니다. CyberFoil·Tinfoil 은 관리자에게 받은 기기별 접속 정보로 연결합니다.",
           "patches.need": "함께 설치해야 하는 패치",
           "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 받습니다.",
           "patches.related": "관련 패치",
@@ -1098,6 +1101,7 @@
           "tab.saves": "Saves",
           "extras.search": "Search by game or file name…",
           "extras.download": "Download",
+          "hint.connect": "Put this address in the <b>CookingFoil</b> app: the console asks for approval and, once approved, connects without a password. CyberFoil and Tinfoil connect with a per-device login from the admin.",
           "patches.need": "Mods to install with this game",
           "patches.needNote": "The game won't start without these. Get them together with the game.",
           "patches.related": "Related mods",
@@ -1281,6 +1285,7 @@
           "tab.saves": "セーブ",
           "extras.search": "ゲーム名やファイル名で検索…",
           "extras.download": "ダウンロード",
+          "hint.connect": "<b>CookingFoil</b> アプリにこのアドレスを入れると本体に承認リクエストが表示され、承認後はパスワードなしで接続します。CyberFoil・Tinfoil は管理者から受け取った端末ごとのログインで接続します。",
           "patches.need": "一緒に入れる必要があるパッチ",
           "patches.needNote": "このパッチがないとゲームが起動しません。ゲームと一緒にダウンロードします。",
           "patches.related": "関連パッチ",
@@ -1464,6 +1469,7 @@
           "tab.saves": "存檔",
           "extras.search": "依遊戲或檔案名稱搜尋…",
           "extras.download": "下載",
+          "hint.connect": "在 <b>CookingFoil</b> 應用輸入此網址後，主機會顯示核准請求，核准後無需密碼即可連線。CyberFoil、Tinfoil 請使用管理員提供的裝置專用登入資訊連線。",
           "patches.need": "需要一起安裝的補丁",
           "patches.needNote": "沒有這些補丁遊戲無法啟動。請與遊戲一起下載。",
           "patches.related": "相關補丁",
