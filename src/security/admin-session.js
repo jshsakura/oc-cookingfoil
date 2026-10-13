@@ -15,6 +15,7 @@ import { generate, verify, generateURI } from "otplib";
 
 import { adminSessionHours, adminEmail, adminPassword } from "../helpers/envs.js";
 import { adminSecret, markEnrolled } from "./admin-secret.js";
+import * as savedPassword from "./admin-password.js";
 import debug from "../debug.js";
 import { webUser } from "./user-session.js";
 import * as googleAccounts from "./google-accounts.js";
@@ -37,16 +38,21 @@ export function adminOwner() {
   return adminEmail ?? "admin";
 }
 
-/** True when /admin asks for COOK_ADMIN_PASSWORD instead of a TOTP code. */
+/** True when /admin takes an admin password (COOK_ADMIN_PASSWORD or one set on the admin page). */
 export function adminPasswordMode() {
-  return Boolean(adminPassword);
+  return Boolean(adminPassword) || savedPassword.has();
 }
 
-/** Constant-time check of the admin password; hashing first evens out the lengths. */
-export function verifyPassword(input, expected = adminPassword) {
+/** Constant-time check of the compose admin password; hashing first evens out the lengths. */
+function matchesEnv(input, expected) {
   if (!expected || typeof input !== "string" || !input) return false;
   const digest = (v) => crypto.createHash("sha256").update(v, "utf8").digest();
   return crypto.timingSafeEqual(digest(input), digest(expected));
+}
+
+/** Whether `input` is the admin password: the compose one or the one set on the admin page. */
+export function verifyPassword(input, expected = adminPassword) {
+  return matchesEnv(input, expected) || savedPassword.matches(input);
 }
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */

@@ -10,8 +10,8 @@ import { escapeHtml } from "./escape.js";
 
 const LEAD = {
   code: "인증 앱에 표시된 6자리 코드를 입력합니다.",
-  password: "관리자 비밀번호를 입력합니다. 로그인할 때 쓴 계정 비밀번호와는 다른, 서버 설정의 COOK_ADMIN_PASSWORD 입니다.",
-  either: "인증 앱 코드나 관리자 비밀번호 중 하나를 입력합니다. 관리자 비밀번호는 계정 비밀번호와 다른, 서버 설정의 COOK_ADMIN_PASSWORD 입니다.",
+  password: "관리자 비밀번호를 입력합니다. 로그인할 때 쓴 계정 비밀번호와는 다른, 관리 페이지 설정 탭에서 정했거나 서버 설정(COOK_ADMIN_PASSWORD)에 넣은 비밀번호입니다.",
+  either: "인증 앱 코드나 관리자 비밀번호 중 하나를 입력합니다. 관리자 비밀번호는 계정 비밀번호와 다른, 관리 페이지 설정 탭에서 정했거나 서버 설정(COOK_ADMIN_PASSWORD)에 넣은 비밀번호입니다.",
 };
 
 export function gatePage({ owner, mode = "code" } = {}) {

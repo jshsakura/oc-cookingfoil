@@ -11,7 +11,9 @@
  * half-finished enrollment never locks anyone out.
  */
 import { renderSVG } from "uqr";
-import { adminPasswordMode, codeMatches, provisioningUri } from "../../security/admin-session.js";
+import { adminPasswordMode, codeMatches, provisioningUri, verifyPassword } from "../../security/admin-session.js";
+import * as savedPassword from "../../security/admin-password.js";
+import { adminPassword } from "../../helpers/envs.js";
 import {
   isEnrolled, canManage, startEnrollment, pendingSecret, commitEnrollment, disableEnrollment,
 } from "../../security/admin-secret.js";
@@ -20,7 +22,10 @@ import { publicBaseUrl } from "../../helpers/envs.js";
 import debug from "../../debug.js";
 
 function status() {
-  return { password: adminPasswordMode(), authenticator: isEnrolled(), manageable: canManage() };
+  return {
+    password: adminPasswordMode(), passwordSaved: savedPassword.has(), passwordEnv: Boolean(adminPassword),
+    authenticator: isEnrolled(), manageable: canManage(),
+  };
 }
 
 export function mountTwoFactorApi(router, { requireSession }) {
@@ -67,10 +72,45 @@ export function mountTwoFactorApi(router, { requireSession }) {
     res.json(status());
   }));
 
+  // The admin password set here: a password already in force must be given to change or remove it.
+  router.post("/api/admin-password", guarded((req, res) => {
+    if (adminPasswordMode() && !verifyPassword(req.body?.current)) {
+      res.status(403).json({ error: "지금 비밀번호가 맞지 않습니다" });
+      return;
+    }
+    const next = req.body?.password;
+    if (typeof next !== "string" || next.length < savedPassword.MIN_LENGTH || next.length > savedPassword.MAX_LENGTH) {
+      res.status(400).json({ error: `새 비밀번호는 ${savedPassword.MIN_LENGTH}자 이상 ${savedPassword.MAX_LENGTH}자 이하입니다` });
+      return;
+    }
+    savedPassword.set(next);
+    debug.log("admin: admin password changed on the admin page");
+    res.json(status());
+  }));
+
+  router.post("/api/admin-password/clear", guarded((req, res) => {
+    if (!savedPassword.has()) {
+      res.status(404).json({ error: "여기서 정한 비밀번호가 없습니다" });
+      return;
+    }
+    // Without an authenticator or a compose password, this password is the only way in.
+    if (!isEnrolled() && !adminPassword) {
+      res.status(409).json({ error: "인증 앱을 먼저 등록해야 비밀번호를 지울 수 있습니다" });
+      return;
+    }
+    if (!verifyPassword(req.body?.current)) {
+      res.status(403).json({ error: "지금 비밀번호가 맞지 않습니다" });
+      return;
+    }
+    savedPassword.clear();
+    debug.log("admin: admin password removed on the admin page");
+    res.json(status());
+  }));
+
   router.post("/api/2fa/disable", guarded((_req, res) => {
     // Without an admin password the authenticator is the only lock; keep it.
     if (!adminPasswordMode()) {
-      res.status(409).json({ error: "set COOK_ADMIN_PASSWORD before turning the authenticator off" });
+      res.status(409).json({ error: "관리자 비밀번호를 먼저 정해야 인증 앱을 끌 수 있습니다" });
       return;
     }
     disableEnrollment();

@@ -291,7 +291,17 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
       </div>
     </div>
   </div>
-  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호(compose 의 COOK_ADMIN_PASSWORD)나 인증 앱 코드 중 하나를 넣습니다.</p>
+  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
+  <div class="hd"><h2>관리자 비밀번호</h2></div>
+  <form class="tfa" id="ap-form" autocomplete="off">
+    <p id="ap-status" class="muted">불러오고 있습니다</p>
+    <div class="row">
+      <input id="ap-current" type="password" autocomplete="current-password" placeholder="지금 비밀번호" aria-label="지금 비밀번호" maxlength="200">
+      <input id="ap-new" type="password" autocomplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" minlength="12" maxlength="200">
+      <input id="ap-new2" type="password" autocomplete="new-password" placeholder="새 비밀번호 한 번 더" aria-label="새 비밀번호 확인" maxlength="200">
+    </div>
+    <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 지우기</button></div>
+  </form>
   ${TOKENS_HTML}
 </section>
 
