@@ -1,5 +1,5 @@
 /**
- * GET /api/homebrew                every app  { homebrew: [H…] }, with ETag
+ * GET /api/homebrew                every app the admin left on  { homebrew: [H…] }, with ETag
  * GET /api/homebrew/:id/icon       the app's icon from its NRO (404 before its first fetch)
  * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
@@ -42,6 +42,7 @@ import * as integrations from "../security/integrations.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
+import * as disabled from "../meta/homebrew-disabled.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
@@ -121,7 +122,7 @@ export const defaultService = {
     const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, ...e }) => ({ ...e, files: e.files ? e.files.map(({ abs: _a, ...f }) => f) : null }));
     const entries = [...githubTracker().entries(), ...manualList];
     if (forwardersAvailable(keysDir) && entries.some((e) => !this.forwarderInfo(e).forwarder_size && forwarderSpec(forwarderApp(e)))) prewarmShortcuts(entries);
-    return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id) }));
+    return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }));
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
   forwarderInfo(e) {
@@ -188,7 +189,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
   const router = express.Router();
 
   router.get("/", wrap(async (req, res) => {
-    const list = (await service.list(requestLang(req))).map((e) => ({
+    // An app the admin turned off is left out.
+    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false).map(({ enabled: _on, ...e }) => ({
       description: null,
       install_dir: null,
       ...e,
@@ -213,7 +215,11 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.status(200).end(body);
   }));
 
-  router.param("id", (req, res, next, id) => (ID_RE.test(id) ? next() : res.status(400).json({ error: "invalid homebrew id" })));
+  router.param("id", (req, res, next, id) => {
+    if (!ID_RE.test(id)) return res.status(400).json({ error: "invalid homebrew id" });
+    if (disabled.isDisabled(id)) return res.status(404).json({ error: "no such homebrew" });
+    next();
+  });
 
   router.get("/:id/icon", wrap(async (req, res) => {
     const icon = await service.icon(req.params.id);

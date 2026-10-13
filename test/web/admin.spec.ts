@@ -232,6 +232,24 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   expect(saves.find((s) => s.name === '전부 열림')?.saveType).toBe('device');
 });
 
+test('a homebrew app is turned off and on from the homebrew tab, and the GitHub form sits at the top', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#homebrew');
+  const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
+  await expect.poll(listed).toContain('handapp.nro');
+  const row = page.locator('#hb-apps tr', { hasText: 'Hand App' });
+  await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
+  await expect(page.locator('#tab-homebrew h2').first()).toHaveText('GitHub 저장소 추가');
+  await row.locator('.ss-switch').click();
+  await expect(row).toHaveClass(/hb-off/);
+  expect(await listed()).not.toContain('handapp.nro');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#hb-apps').screenshot({ path: 'out/web/admin-homebrew-apps.png' });
+  await row.locator('.ss-switch').click();
+  await expect(row).not.toHaveClass(/hb-off/);
+  expect(await listed()).toContain('handapp.nro');
+});
+
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');

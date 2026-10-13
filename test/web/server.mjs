@@ -21,4 +21,16 @@ process.env.COOK_SAVES_DIR ??= '/tmp/cookingfoil-web-test-saves';
 fs.rmSync(process.env.COOK_SAVES_DIR, { recursive: true, force: true });
 fs.mkdirSync(`${process.env.COOK_SAVES_DIR}/0100000000010000/All unlocked`, { recursive: true });
 fs.writeFileSync(`${process.env.COOK_SAVES_DIR}/0100000000010000/All unlocked/save.dat`, 'x');
+// One hand-placed homebrew app, for the homebrew tab's on/off switch.
+process.env.COOK_HOMEBREW_DIR ??= '/tmp/cookingfoil-web-test-homebrew';
+fs.rmSync(process.env.COOK_HOMEBREW_DIR, { recursive: true, force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/disabled.json`, { force: true });
+fs.mkdirSync(`${process.env.COOK_HOMEBREW_DIR}/handapp`, { recursive: true });
+{
+  // The smallest .nro the server reads: header, asset header and a control block naming the app.
+  const head = Buffer.alloc(0x100); head.write('NRO0', 0x10); head.writeUInt32LE(0x100, 0x18);
+  const aset = Buffer.alloc(0x38); aset.write('ASET', 0); aset.writeBigUInt64LE(0x38n, 0x18); aset.writeBigUInt64LE(0x4000n, 0x20);
+  const nacp = Buffer.alloc(0x4000); nacp.write('Hand App', 0); nacp.write('someone', 0x200); nacp.write('1.0', 0x3060);
+  fs.writeFileSync(`${process.env.COOK_HOMEBREW_DIR}/handapp/handapp.nro`, Buffer.concat([head, aset, nacp]));
+}
 await import('../../src/index.js');
