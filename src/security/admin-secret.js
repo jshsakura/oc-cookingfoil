@@ -24,6 +24,8 @@ import { dataDir, adminTotpSecret as envSecret } from "../helpers/envs.js";
 import debug from "../debug.js";
 
 const SECRET_PATH = path.join(dataDir, "security", "admin-totp.json");
+// A candidate under enrollment, on disk so a restart mid-way doesn't void the scanned code.
+const PENDING_PATH = path.join(dataDir, "security", "admin-totp-pending.json");
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const SECRET_BYTES = 20; // 160-bit, the RFC 4226 recommendation
 
@@ -138,6 +140,31 @@ export function markEnrolled() {
 const PENDING_MS = 10 * 60 * 1000;
 let pending = null; // { secret, at }
 
+function savePending(next) {
+  pending = next;
+  try {
+    if (next) {
+      fs.mkdirSync(path.dirname(PENDING_PATH), { recursive: true });
+      fs.writeFileSync(PENDING_PATH, JSON.stringify(next), { mode: 0o600 });
+    } else {
+      fs.rmSync(PENDING_PATH, { force: true });
+    }
+  } catch (err) {
+    debug.error("admin secret: pending enrollment not saved: %s", err.message);
+  }
+}
+
+function loadPending() {
+  if (pending) return pending;
+  try {
+    const saved = JSON.parse(fs.readFileSync(PENDING_PATH, "utf8"));
+    if (typeof saved?.secret === "string" && Number.isFinite(saved?.at)) pending = saved;
+  } catch {
+    /* none started */
+  }
+  return pending;
+}
+
 /** False when COOK_ADMIN_TOTP_SECRET pins the secret; then the page cannot change it. */
 export function canManage() {
   return resolve().source !== "env";
@@ -146,13 +173,14 @@ export function canManage() {
 /** A fresh candidate secret for the authenticator app (replaces any earlier candidate). */
 export function startEnrollment(now = Date.now()) {
   if (!canManage()) throw new Error("the TOTP secret is set by COOK_ADMIN_TOTP_SECRET");
-  pending = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), at: now };
+  savePending({ secret: toBase32(crypto.randomBytes(SECRET_BYTES)), at: now });
   return pending.secret;
 }
 
 /** The candidate secret, or null when none was started or it expired. */
 export function pendingSecret(now = Date.now()) {
-  return pending && now - pending.at < PENDING_MS ? pending.secret : null;
+  const p = loadPending();
+  return p && now - p.at < PENDING_MS ? p.secret : null;
 }
 
 /** Makes the candidate the live, enrolled secret. Call only after its code checked out. */
@@ -162,7 +190,7 @@ export function commitEnrollment(now = Date.now()) {
   const record = { secret, enrolled: true, createdAt: now, enrolledAt: now };
   persist(record);
   cached = { ...record, source: "file" };
-  pending = null;
+  savePending(null);
   debug.log("admin secret: authenticator enrolled from the admin page");
 }
 
@@ -172,7 +200,7 @@ export function disableEnrollment(now = Date.now()) {
   const record = { secret: toBase32(crypto.randomBytes(SECRET_BYTES)), enrolled: false, createdAt: now, unlogged: true };
   persist(record);
   cached = { ...record, source: "file" };
-  pending = null;
+  savePending(null);
   debug.log("admin secret: authenticator turned off from the admin page");
 }
 

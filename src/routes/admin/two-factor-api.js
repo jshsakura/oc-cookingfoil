@@ -53,10 +53,13 @@ export function mountTwoFactorApi(router, { requireSession }) {
   router.post("/api/2fa/confirm", guarded(async (req, res) => {
     const secret = pendingSecret();
     if (!secret) {
+      debug.log("admin 2fa: enrollment code arrived with no enrollment in progress");
       res.status(410).json({ error: "enrollment expired, start again" });
       return;
     }
-    if (!(await codeMatches(secret, req.body?.code))) {
+    // A phone clock a minute off still enrolls; sign-in keeps the tighter window.
+    if (!(await codeMatches(secret, req.body?.code, 2))) {
+      debug.log("admin 2fa: enrollment code did not match");
       res.status(400).json({ error: "code does not match" });
       return;
     }

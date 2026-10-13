@@ -58,6 +58,7 @@ form.add input{flex:1;min-width:150px}
 form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;font-weight:600}
 form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .copy-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.copy-row[hidden],.add[hidden]{display:none}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:flex;gap:6px;flex-wrap:wrap}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}

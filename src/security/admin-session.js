@@ -51,11 +51,15 @@ export function verifyPassword(input, expected = adminPassword) {
 
 /** Validate a 6-digit code against the configured secret (±1 step drift). */
 /** Whether a 6-digit code matches `secret` (±1 step drift). Marks nothing. */
-export async function codeMatches(secret, code) {
-  const token = String(code ?? "").trim();
+// otplib takes the tolerance in seconds (epochTolerance; its default is 0, the
+// current 30-second step only). `steps` is how many steps either side count.
+const STEP_SECONDS = 30;
+
+export async function codeMatches(secret, code, steps = 1) {
+  const token = String(code ?? "").replace(/\s+/g, "");
   if (!secret || !/^\d{6}$/.test(token)) return false;
   try {
-    const r = await verify({ token, secret, window: 1 });
+    const r = await verify({ token, secret, epochTolerance: steps * STEP_SECONDS });
     return Boolean(r && r.valid);
   } catch (err) {
     debug.error("admin 2fa: verify error: %s", err.message);
