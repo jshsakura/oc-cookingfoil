@@ -273,6 +273,12 @@ export async function get() {
   return build();
 }
 
+/** Every scanned game file: { rel, name, size, kind, titleId } ([] before the first build). */
+export function files() {
+  if (!filesMap) return [];
+  return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null }));
+}
+
 /**
  * Relative paths (under the games dir) of every scanned game file whose base
  * titleId matches. Used by the extras route to locate a title's folder(s).

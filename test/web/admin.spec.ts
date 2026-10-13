@@ -250,6 +250,24 @@ test('a homebrew app is turned off and on from the homebrew tab, and the GitHub 
   expect(await listed()).toContain('handapp.nro');
 });
 
+test('a game file is found by name and deleted from the library tab', async ({ page, request }) => {
+  const file = '/tmp/cookingfoil-web-test-games/Throwaway [0100000000030000][v0].nsp';
+  fs.writeFileSync(file, '');
+  await signIn(page);
+  await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
+  await page.goto('/admin#library');
+  await expect.poll(async () => {
+    await page.locator('#lf-q').fill('');
+    await page.locator('#lf-q').fill('Throwaway');
+    return page.locator('#lf-list tr', { hasText: 'Throwaway' }).count();
+  }, { timeout: 15000 }).toBe(1);
+  page.on('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 지우기' }).click();
+  await expect(page.locator('#toast')).toContainText('지웠습니다');
+  expect(fs.existsSync(file)).toBe(false);
+  await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
+});
+
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');
