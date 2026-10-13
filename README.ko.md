@@ -111,7 +111,7 @@ cookingfoil/
 | `GET /api/shop/info` | 서버 버전과 클라이언트가 기대도 되는 `features` |
 | `GET /api/title/:id?lang=` | 항목 하나의 상세 |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 이미지 |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<앱>/` 폴더 전체, 설치 위치는 `install_path`)과 홈 메뉴 바로가기. 관리 페이지에서 끈 앱은 빠집니다 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<앱>/` 폴더 전체, 설치 위치는 `install_path`)과 홈 메뉴 바로가기. 폴더 앱은 `bundle` 로 tar 하나에 담아 받을 수도 있습니다. 관리 페이지에서 끈 앱은 빠집니다 |
 | `GET /api/patches?lang=`, `/api/saves?lang=` | 패치와 세이브 파일. `ko` 면 한국어 이름과 설명을 줍니다 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 클라이언트 빌드 |
 | `GET /api/retro/systems`, `/api/retro/games` | 레트로 폴더를 만들었을 때 그 안의 파일 |

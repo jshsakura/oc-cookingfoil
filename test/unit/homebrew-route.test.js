@@ -124,3 +124,63 @@ test("the listing names where each app goes and, for a folder install, every fil
     close();
   }
 });
+
+test("a folder install also comes as one tar in listed order, resumable with If-Range", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hb-route-"));
+  const nro = path.join(dir, "app.nro");
+  const font = path.join(dir, "font + bold.ttf");
+  fs.writeFileSync(nro, "nro bytes");
+  fs.writeFileSync(font, "font");
+  const files = [
+    { path: "switch/acnh_editor/acnh_editor.nro", size: 9, sha256: "a", abs: nro },
+    { path: "switch/acnh_editor/fonts/font + bold.ttf", size: 4, sha256: "b", abs: font },
+  ];
+  const service = {
+    ...fakeService(dir),
+    list: async () => [
+      { id: ID, name: "ACNH", file_name: "acnh_editor.nro", hash: "h1", install_dir: "switch/acnh_editor", install_path: "switch/acnh_editor/acnh_editor.nro",
+        files: files.map(({ abs: _a, ...f }) => f) },
+      { id: "m-0123456789ab", name: "Plain", file_name: "ftpd.nro", hash: "h2" },
+    ],
+    bundle: async (id) => (id === ID ? files : null),
+  };
+  const { base, close } = await serve(service);
+  try {
+    const { homebrew: [acnh, plain] } = await (await fetch(base)).json();
+    assert.equal(acnh.bundle_url, `/api/homebrew/${ID}/bundle`);
+    assert.equal(plain.bundle_url, null);
+    assert.equal((await fetch(`${base}/m-0123456789ab/bundle`)).status, 404);
+
+    const url = `http://127.0.0.1:${new URL(base).port}${acnh.bundle_url}`;
+    const res = await fetch(url);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "application/x-tar");
+    const tar = Buffer.from(await res.arrayBuffer());
+    assert.equal(Number(res.headers.get("content-length")), tar.length);
+    // Folders first, then the files in listed order, each body on a 512-byte boundary.
+    const names = [];
+    for (let at = 0; at + 512 <= tar.length && tar[at]; ) {
+      const name = tar.subarray(at, at + 100).toString().replace(/\0.*$/s, "");
+      const prefix = tar.subarray(at + 345, at + 500).toString().replace(/\0.*$/s, "");
+      const size = parseInt(tar.subarray(at + 124, at + 136).toString(), 8);
+      names.push(prefix ? `${prefix}/${name}` : name);
+      if (size) assert.equal(tar.subarray(at + 512, at + 512 + size).toString(), names.at(-1).endsWith(".nro") ? "nro bytes" : "font");
+      at += 512 + Math.ceil(size / 512) * 512;
+    }
+    assert.deepEqual(names, ["switch/", "switch/acnh_editor/", "switch/acnh_editor/fonts/", ...files.map((f) => f.path)]);
+    assert.deepEqual([...tar.subarray(tar.length - 1024)], new Array(1024).fill(0));
+
+    // The ETag names the paths and hashes; a resume with it gets the rest.
+    const etag = res.headers.get("etag");
+    const again = await fetch(url);
+    assert.equal(again.headers.get("etag"), etag);
+    const part = await fetch(url, { headers: { Range: "bytes=1000-", "If-Range": etag } });
+    assert.equal(part.status, 206);
+    assert.equal(part.headers.get("content-range"), `bytes 1000-${tar.length - 1}/${tar.length}`);
+    assert.deepEqual(Buffer.from(await part.arrayBuffer()), tar.subarray(1000));
+    // A stale ETag gets the whole archive again.
+    assert.equal((await fetch(url, { headers: { Range: "bytes=1000-", "If-Range": '"old"' } })).status, 200);
+  } finally {
+    close();
+  }
+});

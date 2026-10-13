@@ -96,6 +96,11 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     inside(e);
     const a = await fetch(BASE + e.files[0].url, { headers: { Authorization: ALICE } });
     assert.equal(await a.text(), "A");
+    // The same files in one tar: the data file's body sits right after its header.
+    const tar = Buffer.from(await (await fetch(BASE + e.bundle_url, { headers: { Authorization: ALICE } })).arrayBuffer());
+    const at = tar.indexOf("switch/myapp/data/a.bin\0");
+    assert.ok(at >= 0);
+    assert.equal(tar.subarray(at + 512, at + 513).toString(), "A");
     assert.ok(!fs.existsSync(path.join(dirs.homebrew, "myapp", "atmosphere")), "nothing outside switch/<app>/ is kept");
     assert.deepEqual(fs.readdirSync(dirs.homebrew).filter((n) => !n.startsWith(".")), ["myapp"]);
 

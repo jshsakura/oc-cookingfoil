@@ -2891,7 +2891,8 @@
               { title: t("xm.appPatches"), items: extras.itemsOf("patches", a.app).map((it) => extras.row("patches", it)) },
               { title: t("xm.appSaves"), items: extras.itemsOf("saves", a.app).map((it) => extras.row("saves", it)) },
             ],
-            download: a.download_url,
+            // A folder app is its whole folder; the .nro alone would not run.
+            download: a.bundle_url || a.download_url,
           };
         }
         function card(a) {

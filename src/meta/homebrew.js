@@ -687,5 +687,11 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return f ? { path: path.join(dirOf(id), "pkg", ...f.path.split("/")), sha256: f.sha256, size: f.size } : null;
   }
 
-  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, packageFile, setSources, status, forget, fetchDescriptions };
+  /** Every file of a fetched folder package as { path, size, sha256, abs }, or null. */
+  function packageFiles(id) {
+    const files = wanted.has(id) ? states.get(id)?.cached?.folder?.files : null;
+    return files ? files.map((f) => ({ path: f.path, size: f.size, sha256: f.sha256, abs: path.join(dirOf(id), "pkg", ...f.path.split("/")) })) : null;
+  }
+
+  return { checkAll, checkNow, entries, ensureDownloaded, cachedPath, packageFile, packageFiles, setSources, status, forget, fetchDescriptions };
 }
