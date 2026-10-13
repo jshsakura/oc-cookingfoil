@@ -56,18 +56,6 @@ const SERVICES = [
     steps: ["oc-scraper 서버의 주소를 넣습니다. 예: <code>http://192.168.0.10:18765</code>"],
     fields: [["url", "서버 주소"]],
   },
-  {
-    id: "telegram",
-    title: "텔레그램 알림",
-    use: "기기 승인 요청처럼 운영자가 처리할 일이 생기면 텔레그램으로 알립니다. 같은 일은 30분에 한 번만 보내고, 비밀번호나 주소 같은 개인정보는 담지 않습니다.",
-    steps: [
-      '텔레그램에서 <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> 에게 /newbot 을 보내 봇을 만들고, 받은 토큰을 아래에 넣습니다.',
-      "알림을 받을 대화(봇과의 1:1 대화나 봇을 넣은 그룹)에서 봇에게 아무 말이나 보냅니다.",
-      "대화 찾기를 누르면 채팅 ID 를 채웁니다. 받을 알림을 고르고 저장한 뒤 연결 확인으로 시험 메시지를 보냅니다.",
-    ],
-    fields: [["botToken", "봇 토큰", true], ["chatId", "채팅 ID"]],
-    events: true,
-  },
 ];
 
 // Services the server uses without a key, so the admin sees everything it talks to.
@@ -90,7 +78,6 @@ const card = (s) => `<div class="intg" data-svc="${s.id}">
   ${s.redirect ? '<div class="copy-row"><code data-redirect>불러오고 있습니다</code></div>' : ""}
   <form class="add" autocomplete="off">
     ${s.fields.map(([k, label, secret]) => `<input name="${k}" ${secret ? 'type="password" autocomplete="new-password"' : 'spellcheck="false"'} placeholder="${label}" aria-label="${label}" maxlength="300">`).join("")}
-    ${s.events ? '<button type="button" data-chats>대화 찾기</button><div class="intg-events" data-events></div>' : ""}
     <button class="primary" type="submit">저장</button>
     <button type="button" data-test>연결 확인</button>
     <button type="button" class="danger" data-clear>지우기</button>
@@ -117,7 +104,6 @@ export const INTEGRATIONS_CSS = `
 .intg-state.on{color:var(--good)}
 .intg-steps{margin:6px 0 12px;padding-left:20px;color:var(--muted);font-size:13px}.intg-steps li{margin-bottom:4px}
 .intg-steps code{font-size:12px}
-.intg-events{display:flex;flex-wrap:wrap;gap:6px 14px;flex-basis:100%;font-size:13px}.intg-events label{display:flex;align-items:center;gap:6px}
 .intg-frees{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
 .intg-free{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}.intg-free h3{margin:0;font-size:14px}
 .intg-free p{margin:6px 0 0;font-size:13px}.intg-host{display:block;margin-top:4px;font-size:12px;word-break:break-all}
@@ -132,10 +118,7 @@ async function loadIntegrations(){
       const st=c.querySelector('[data-state]');st.textContent=s.configured?'켜짐 · '+INTG_SOURCE[s.source]:INTG_SOURCE.none;st.classList.toggle('on',s.configured);
       for(const [k,f] of Object.entries(s.fields)){const i=c.querySelector('input[name="'+k+'"]');if(!i)continue;
         if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');}}
-      const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';
-      const ev=c.querySelector('[data-events]');if(ev&&d.alertEvents){const list=s.fields.events?s.fields.events.value||'':'';
-        ev.replaceChildren(...Object.entries(d.alertEvents).map(([k,t])=>{const l=el('label');const b=document.createElement('input');b.type='checkbox';b.value=k;
-          b.checked=!list||(list!=='-'&&list.split(',').includes(k));l.append(b,document.createTextNode(t));return l;}));}});
+      const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
     for(const [k,on] of Object.entries(d.keyless||{})){const st=document.querySelector('[data-free="'+k+'"] [data-free-state]');
       if(st){st.textContent=on?'키 필요 없음 · 켜짐':'꺼져 있음';st.classList.toggle('on',on);st.classList.toggle('off',!on);}}
   }catch(err){toast(err.message);}
@@ -143,17 +126,9 @@ async function loadIntegrations(){
 document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');
   c.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();
     const body=Object.fromEntries([...c.querySelectorAll('input[name]')].map((i)=>[i.name,i.value]));
-    const ev=c.querySelector('[data-events]');if(ev)body.events=[...ev.querySelectorAll('input:checked')].map((b)=>b.value).join(',')||'-';
     try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast('저장했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent='확인하고 있습니다';
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
-  const chats=c.querySelector('[data-chats]');
-  if(chats)chats.addEventListener('click',async()=>{msg.textContent='찾고 있습니다';
-    try{const r=await api('/admin/api/integrations/'+svc+'/chats',{method:'POST',body:{botToken:c.querySelector('input[name="botToken"]').value}});
-      if(r.ok&&r.chats.length){c.querySelector('input[name="chatId"]').value=r.chats[0].id;
-        const list=r.chats.map((x)=>x.title?x.title+' ('+x.id+')':x.id).join(', ');
-        msg.textContent=r.chats.length>1?'대화가 여럿이라 첫 번째를 넣었습니다: '+list+'. 다른 대화라면 고쳐 넣습니다.':'채팅 ID 를 넣었습니다: '+list+'. 저장합니다.';}
-      else msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!confirm('저장한 키를 지울까요?'))return;
     try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('지웠습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
 });

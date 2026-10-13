@@ -17,6 +17,7 @@ import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { hasValidSession } from "./admin-session.js";
 import { isLoopbackIp } from "./net.js";
 import { maxAuthFailures, trustLoopback } from "./limits.js";
+import { alert } from "../helpers/alerts.js";
 
 const MAX_URI_LENGTH = 4096;
 
@@ -50,11 +51,22 @@ function isLoopback(ip) {
   return trustLoopback && isLoopbackIp(ip);
 }
 
+// How each reason reads in an operator alert.
+const PROBE_KO = {
+  "uri-too-long": "지나치게 긴 주소",
+  "control-char": "주소 안의 제어 문자",
+  "path-traversal": "상위 폴더로 빠져나가려는 주소",
+  "bad-path": "알려진 공격 경로",
+  "bad-ua": "공격 도구",
+};
+
 function flag(req, reason) {
   const ip = clientIp(req);
   store.appendAudit({ kind: "probe", ip, path: req.path, ua: req.get("user-agent") || "", reason, at: Date.now() });
   recordDeny(req, { reason: DENY.PROBE, status: 404, detail: reason });
   debug.error("security: probe blocked from %s — %s (%s)", ip, reason, req.path);
+  const where = String(req.path).slice(0, 80);
+  alert("probe", `${PROBE_KO[reason] ?? reason}: ${where} 를 로그인 전에 막았습니다.`, { subject: ip, digest: { path: where } });
 
   // Probes burn the same budget as bad credentials. Several probes from
   // the same IP → lockout.

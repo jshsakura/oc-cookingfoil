@@ -1,4 +1,5 @@
 import express from "express";
+import net from "net";
 import serveIndex from "serve-index";
 
 import shopFileBuilder from "./shop-file-builder.js";
@@ -60,7 +61,13 @@ import { romsDirPath, appPort, dataDir, retroDir } from "./helpers/envs.js";
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
+import { alert } from "./helpers/alerts.js";
 import staticIndexHTML from "./staticIndexHTML.js";
+
+// Node gives each address of a host 250 ms before trying the next. Telegram,
+// GitHub and the CDNs sit far enough away on this line that every address
+// timed out in turn and the whole request failed after a second.
+net.setDefaultAutoSelectFamilyAttemptTimeout(3000);
 
 const expressApp = express();
 expressApp.disable("x-powered-by");
@@ -252,6 +259,7 @@ expressApp.use(
 
 // ── lifecycle ───────────────────────────────────────────────────────────
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
+alert("server", "서버가 켜졌습니다.");
 
 // Disable Nagle on accepted sockets. Our hot responses are single Buffers
 // (pre-built shop body, encoded landing HTML, single small image variants);

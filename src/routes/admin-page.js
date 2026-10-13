@@ -43,6 +43,7 @@ import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
+import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { clientBuildStatus } from "./client-update.js";
@@ -394,6 +395,7 @@ export default function adminPageRouter() {
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
   mountIntegrationsApi(router, requireSession);
+  mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
 
