@@ -312,54 +312,32 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.screenshot({ path: 'out/web/patch-detail-phone.png' });
 });
 
-test('the genre and Steam rating charts side by side have the same number of rows', async ({ page }) => {
+test('the four charts share one row: composition, storage, recent months and genres, with no review card', async ({ page }) => {
   const item = (id: string, cats: string[], label: string) => ({ app_type: 'base', title_id: id, categories: cats, score: 80, score_count: 100, score_source: 'steam', score_label: label });
   await page.route('**/api/shop/sections', (route) => route.fulfill({
     json: {
       sections: [{ id: 'all', title: 'All', items: [
         item('0100000000010000', ['Party', 'Action', 'RPG'], 'Overwhelmingly Positive'),
         item('0100000000020000', ['Puzzle', 'Sports', 'Racing', 'Action'], 'Mostly Positive'),
-        item('0100000000030000', ['Party'], 'Very Negative'),
       ] }],
       genres: {},
-      score_labels: { Positive: { en: 'Positive', ko: '긍정적' }, Negative: { en: 'Negative', ko: '부정적' } },
     },
-  }));
-  await page.route('**/shop.json', (route) => route.fulfill({ json: { files: [{ url: 'a', size: 1e9, kind: 'base', mtime: Date.now(), titleId: '0100000000010000' }], titledb: {} } }));
-  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
-  await page.goto('/');
-  const wide = page.locator('#charts .chart.c3');
-  await expect(wide).toHaveCount(2);
-  await expect(wide.nth(0).locator('.hbar')).toHaveCount(5);
-  await expect(wide.nth(1).locator('.hbar')).toHaveCount(5);
-  // Nine Steam tiers in five steps: "Mostly Positive" counts under 긍정적, "Very Negative" under 부정적.
-  await expect(wide.nth(1).locator('.hbar').nth(2)).toContainText('긍정적');
-  await expect(wide.nth(1).locator('.hbar').nth(2).locator('b')).toHaveText('1');
-  await expect(wide.nth(1).locator('.hbar').nth(4)).toContainText('부정적');
-  const [a, b] = await wide.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-  expect(Math.abs(a - b)).toBeLessThan(2);
-  fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#charts').screenshot({ path: 'out/web/charts-rows.png' });
-});
-
-test('a lone wide chart gets a partner so every row stays even', async ({ page }) => {
-  await page.route('**/api/shop/sections', (route) => route.fulfill({
-    json: { sections: [{ id: 'all', title: 'All', items: [{ app_type: 'base', title_id: '0100000000010000', categories: ['Party'] }] }], genres: {} },
   }));
   await page.route('**/shop.json', (route) => route.fulfill({ json: { files: [
     { url: 'a', name: 'Big Game [0100000000010000][v0].nsp', size: 8e9, kind: 'base', mtime: Date.now(), titleId: '0100000000010000' },
     { url: 'b', name: 'Big Game [0100000000010800][v1].nsp', size: 1e9, kind: 'update', mtime: Date.now(), titleId: '0100000000010800', baseTitleId: '0100000000010000' },
-    { url: 'c', name: 'Small Game [0100000000020000][v0].nsp', size: 1e8, kind: 'base', mtime: Date.now(), titleId: '0100000000020000' },
   ], titledb: {} } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  await expect(page.locator('#charts .chart.c2')).toHaveCount(3);
-  const wide = page.locator('#charts .chart.c3');
-  await expect(wide).toHaveCount(2);
-  await expect(wide.nth(1)).toContainText('용량 큰 게임');
-  await expect(wide.nth(1).locator('.hbar').first()).toContainText('Big Game');
-  await expect(wide.nth(1).locator('.hbar').first().locator('b')).toHaveText('8.38 GB');
-  await expect(page.locator('#charts .chart.c6')).toHaveCount(0);
+  const cards = page.locator('#charts .chart');
+  await expect(cards).toHaveCount(4);
+  await expect(page.locator('#charts .chart.c3')).toHaveCount(4);
+  await expect(cards.nth(3)).toContainText('장르');
+  await expect(cards.nth(3).locator('.hbar')).toHaveCount(4);
+  await expect(page.locator('#charts')).not.toContainText('Steam');
+  const tops = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#charts').screenshot({ path: 'out/web/charts-even.png' });
+  await page.locator('#charts').screenshot({ path: 'out/web/charts-row.png' });
 });
