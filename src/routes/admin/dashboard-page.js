@@ -13,6 +13,7 @@ import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 import { ICON_CSS, icon } from "../../views/icons.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
+import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 
 const PAGE_CSS = /* css */ `
@@ -38,7 +39,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs{display:flex;gap:6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
-nav.tabs a{padding:10px 18px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
+nav.tabs a{padding:10px 13px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
 nav.tabs a:hover{color:var(--text)}
 nav.tabs a[aria-current="page"]{color:var(--bg);background:var(--text)}
 .count[hidden]{display:none}
@@ -149,7 +150,7 @@ form.add select{flex:none}
 body{padding:16px 12px 48px}header{margin-bottom:12px}
 .brand .wm{font-size:24px}.brand img{width:32px;height:32px}
 /* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
-nav.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
+nav.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
 nav.tabs a{flex-direction:column;justify-content:center;gap:3px;padding:8px 2px;font-size:12px;border-radius:10px;text-align:center}
 nav.tabs a svg{width:18px;height:18px}nav.tabs .count{position:absolute;margin:-30px 0 0 26px}nav.tabs a{position:relative}
 form.add input,form.add select,form.add button{flex:1 1 100%}
@@ -173,7 +174,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ICON_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${ICON_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
@@ -194,6 +195,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   <a href="#users" data-tab="users">${icon("users")}사용자<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
   <a href="#settings" data-tab="settings">${icon("sliders")}설정</a>
+  <a href="#alerts" data-tab="alerts">${icon("bell")}알림</a>
   <a href="#logs" data-tab="logs">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
   <a href="#featured" data-tab="featured">${icon("star")}추천</a>
   <a href="#library" data-tab="library">${icon("folder")}라이브러리</a>
@@ -337,6 +339,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 </section>
 
 ${RETRO_ART_HTML}
+${ALERTS_HTML}
 <section id="tab-homebrew" hidden>
   <h2 class="first">앱</h2>
   <p class="muted">서버에 있는 홈브류 앱 전체입니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 지웁니다. 패치와 세이브는 기기의 switch/&lt;앱&gt;/ 폴더에 풀립니다.</p>
@@ -422,5 +425,5 @@ ${RETRO_ART_HTML}
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
 }
