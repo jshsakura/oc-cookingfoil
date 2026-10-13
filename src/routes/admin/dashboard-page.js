@@ -14,6 +14,7 @@ import { ICON_CSS, icon } from "../../views/icons.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
+import { GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 
 const PAGE_CSS = /* css */ `
@@ -174,7 +175,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${ICON_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${ICON_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
@@ -316,15 +317,14 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <div class="cards" id="lib-cards"></div>
-  <h2>게임 패치</h2>
-  <p class="muted">이 패치 없이는 게임이 실행되지 않으면 필수로 표시합니다. 기기는 게임 상세에서 함께 설치해야 하는 패치로 보여 줍니다.</p>
-  <div class="scroll" id="lib-patches"></div>
+  ${PATCHES_HTML}
   <h2>게임 소개와 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
     <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="예: Grand Theft Auto V 또는 0100B00B51230000"></label>
     <datalist id="gd-games"></datalist>
     <div id="gd-body" hidden>
+      ${GAME_PATCHES_HTML}
       <h3>추가 정보</h3>
       <label>한국어<textarea id="gd-notes-ko" maxlength="2000" placeholder="예: 게임 데이터 패치(약 49GB)를 함께 설치해야 실행됩니다."></textarea></label>
       <label>영어 (다른 언어의 기본값)<textarea id="gd-notes-en" maxlength="2000"></textarea></label>
@@ -427,5 +427,5 @@ ${ALERTS_HTML}
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
 }

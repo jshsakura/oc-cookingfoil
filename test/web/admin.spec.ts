@@ -154,6 +154,42 @@ test('the admin writes a game description that the title detail shows instead of
   await request.post('/admin/api/descriptions/0100000000010000/reset', { headers: { Cookie: adminCookie }, data: {} });
 });
 
+test('a patch is switched between required and optional from the patch list and from its game', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  const required = async (name: string) =>
+    ((await (await request.get('/api/patches')).json()).patches as { name: string; required: boolean }[]).find((p) => p.name === name)?.required;
+  const group = page.locator('#lib-patches .pt-game', { hasText: '0100000000010000' });
+  await expect(group.locator('.pt-row')).toHaveCount(2);
+  const data = group.getByRole('button', { name: '게임 데이터 필수' });
+  await expect(data).toHaveAttribute('aria-pressed', 'true');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#lib-patches').screenshot({ path: 'out/web/admin-patches.png' });
+
+  await data.click();
+  await expect(data).toHaveAttribute('aria-pressed', 'false');
+  await expect(data).toHaveText('선택');
+  expect(await required('게임 데이터')).toBe(false);
+
+  await page.locator('#pt-q').fill('한글');
+  await expect(page.locator('#lib-patches .pt-row')).toHaveCount(1);
+  await page.locator('#pt-q').fill('');
+  await page.locator('#pt-only').click();
+  await expect(page.locator('#lib-patches')).toContainText('찾는 패치가 없습니다.');
+  await page.locator('#pt-only').click();
+
+  // The game editor lists the same game's patches with the same switch.
+  await page.locator('#gd-game').fill('Test Game [0100000000010000]');
+  await page.locator('#gd-game').dispatchEvent('change');
+  const inGame = page.locator('#gd-patches').getByRole('button', { name: '게임 데이터 필수' });
+  await expect(inGame).toHaveAttribute('aria-pressed', 'false');
+  await inGame.click();
+  await expect(inGame).toHaveAttribute('aria-pressed', 'true');
+  await expect(data).toHaveAttribute('aria-pressed', 'true');
+  expect(await required('게임 데이터')).toBe(true);
+  await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
+});
+
 test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings');

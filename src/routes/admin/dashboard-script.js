@@ -543,17 +543,6 @@ $('up-form').addEventListener('submit',async(e)=>{e.preventDefault();
 // ── library ───────────────────────────────────────────────────────────
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return (d?d+'일 ':'')+(h?h+'시간 ':'')+m+'분';}
-// Game patches: the admin marks the ones a game can't start without.
-async function loadPatches(){let d;try{d=await api('/admin/api/patches');}catch(err){toast(err.message);return;}
-  table('lib-patches',['게임','패치','크기','필수'],(d.patches||[]).map((p)=>{const tr=el('tr');
-    const g=td();g.append(el('b',p.game||p.title_id));if(p.game)g.append(el('div',p.title_id,'muted'));
-    const req=td();const lab=el('label',null,'check');const box=el('input');box.type='checkbox';box.checked=p.required;
-    box.setAttribute('aria-label',p.name+' 필수');
-    box.addEventListener('change',async()=>{box.disabled=true;
-      try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:box.checked}});toast(box.checked?'필수로 표시했습니다':'필수 표시를 뺐습니다');}
-      catch(err){box.checked=!box.checked;toast(err.message);}box.disabled=false;});
-    lab.append(box,el('span','필수'));req.append(lab);
-    tr.append(g,td(p.name),td(mb(p.size)),req);return tr;}),'게임 패치가 없습니다. 업로드 탭에서 올립니다.');}
 // The admin's own description of a game; titledb refreshes never overwrite it.
 let gdGames=[],gdId='';
 async function loadDescGames(){let d;try{d=await api('/admin/api/descriptions');}catch(err){toast(err.message);return;}
@@ -567,7 +556,7 @@ async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}
   $('gd-ko').value=own.description?.ko||'';$('gd-en').value=own.description?.en||'';
   $('gd-notes-ko').value=own.notes?.ko||'';$('gd-notes-en').value=own.notes?.en||'';
   $('gd-original').textContent=own.description?'직접 쓴 소개를 보여 주고 있습니다.':(d.original?'지금은 titledb 소개를 보여 줍니다: '+d.original.slice(0,160)+(d.original.length>160?'…':''):'지금은 소개가 비어 있습니다. 쓰면 그 글이 나옵니다.');
-  $('gd-body').hidden=false;}
+  $('gd-body').hidden=false;ptGame();}
 $('gd-game').addEventListener('change',()=>openDesc());
 $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
   try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
