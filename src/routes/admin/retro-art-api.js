@@ -201,6 +201,19 @@ export function mountRetroArtApi(router, requireSession) {
     }
   }));
 
+  // Deletes a game's ROM and the disc files it names; its box art stays for a re-upload.
+  router.post("/api/retro-art/games/remove", guarded(async (req, res) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const g = catalog.byId.get(String(req.body?.game ?? ""));
+    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    const romsRoot = path.resolve(retroDir, "roms") + path.sep;
+    const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot));
+    for (const f of files) await fs.promises.rm(f, { force: true });
+    await retroCatalog.scan(retroDir);
+    debug.log("admin: retro game %s/%s removed (%d files)", g.system, g.rel, files.length);
+    res.json({ ok: true, files: files.length });
+  }));
+
   router.get("/api/retro-art/games", guarded(async (req, res) => {
     const q = String(req.query.q ?? "").trim().toLowerCase().slice(0, 100);
     if (!q) return res.json({ games: [] });

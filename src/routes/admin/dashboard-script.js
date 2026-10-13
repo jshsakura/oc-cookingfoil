@@ -240,7 +240,8 @@ async function loadDevices(){
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
   table('pending',['기기 코드','메시지','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),td(p.message||'—',p.message?'':'dim'),k,td(fmt(p.lastSeenAt)));
-    const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
+    const act=td();const box=el('div',null,'row-actions');
+    box.append(btn('승인',()=>approve(p.deviceKey),'primary'),btn('거절',()=>dismissDevice(p.deviceKey,p.code),'danger'));act.append(box);tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
   // Last seen is kept in memory only, so it starts empty after a restart.
   const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';
   table('devices',['이름','연결한 계정','마지막 접속','승인한 날','기기 키',''],(d.approved||[]).map((a)=>{const tr=el('tr');
@@ -254,6 +255,9 @@ $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
     toast('승인했습니다. 기기가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
   catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 기기 화면의 코드를 다시 확인합니다.':err.message);}});
+// Drops a request without approving it; the console shows up again only if it asks again.
+async function dismissDevice(deviceKey,code){if(!confirm((code||'이')+' 기기의 승인 요청을 지웁니다. 기기가 다시 요청하면 또 나옵니다.'))return;
+  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('요청을 지웠습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function loadLogins(){
   const d=await api('/admin/api/device-logins');$('add-login').hidden=!d.enabled;
   table('logins',['이름','아이디','만든 계정','묶인 기기','만든 날',''],(d.logins||[]).map((l)=>{const tr=el('tr');
