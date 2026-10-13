@@ -2,7 +2,8 @@
  * An admin's homebrew upload (.nro, .zip, or a folder), placed the same way as a
  * GitHub release: normalizeLayout decides switch/<app>/ and what goes in it, the
  * chosen .nro must be a whole NRO with a NACP, and the result replaces
- * <homebrew dir>/<app>/ with a .cookingfoil.json saying what was decided.
+ * <homebrew dir>/<app>/ with a .cookingfoil.json saying what was decided. With
+ * port set, the placed app is marked a port at once; otherwise its kind stays.
  */
 import fsp from "fs/promises";
 import path from "path";
@@ -11,12 +12,13 @@ import { homebrewDir } from "../../helpers/envs.js";
 import { MANIFEST, extractPackage, readNro, zipEntries } from "../../meta/homebrew.js";
 import { normalizeLayout } from "../../meta/homebrew-layout.js";
 import { nroProblem } from "../../meta/client-build.js";
-import { refreshManual } from "../homebrew.js";
+import { manualApps, refreshManual } from "../homebrew.js";
+import * as kinds from "../../meta/homebrew-kinds.js";
 
 export class HomebrewUploadError extends Error {}
 
-/** items: [{ abs, rel }] as received; a lone .zip is read as a zip. Returns { where, files, install }. */
-export async function placeHomebrew(items, work) {
+/** items: [{ abs, rel }] as received; a lone .zip is read as a zip. Returns { where, files, install, kind }. */
+export async function placeHomebrew(items, work, { port = false } = {}) {
   const zip = items.length === 1 && /\.zip$/i.test(items[0].rel) ? items[0] : null;
   const repoName = path.posix.basename((zip ?? items.find((i) => /\.nro$/i.test(i.rel)) ?? items[0]).rel).replace(/\.(zip|nro)$/i, "");
   const entries = zip ? await zipEntries(zip.abs) : items.map((i) => ({ name: i.rel, size: 0, dir: false, link: false }));
@@ -48,5 +50,7 @@ export async function placeHomebrew(items, work) {
   await fsp.rename(built, dest);
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
   await refreshManual();
-  return { where: layout.appDir, files: take.length, install };
+  const placed = (await manualApps()).find((e) => path.dirname(e.path) === path.resolve(dest));
+  if (port && placed) kinds.set(placed.id, "port");
+  return { where: layout.appDir, files: take.length, install, kind: placed ? kinds.kindOf(placed.id) : "tool" };
 }

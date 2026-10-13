@@ -112,6 +112,17 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     e = await listed("solo");
     assert.deepEqual([e.install_dir, e.install_path, e.files, e.size, e.nro_size], [null, "switch/solo/solo.nro", null, nro.length, undefined]);
 
+    // Picked as a port on upload: marked a port at once, and a later plain upload keeps it one.
+    const asPort = new FormData();
+    asPort.append("port", "true");
+    asPort.append("files", new Blob([fakeNro("Port Game")]), "portgame.nro");
+    r = await fetch(`${BASE}/admin/api/upload/homebrew`, { method: "POST", headers: admin, body: asPort });
+    assert.equal(r.status, 201);
+    assert.equal((await r.json()).kind, "port");
+    assert.equal((await listed("portgame")).kind, "port");
+    r = await send([["portgame.nro", fakeNro("Port Game")]]);
+    assert.equal((await r.json()).kind, "port", "a plain re-upload does not turn a port back into a tool");
+
     // 5. The .nro is checked: not an NRO, or cut short, is refused and nothing is placed.
     r = await send([["bad.zip", makeZip(root, { "switch/bad/bad.nro": "this is not an nro".repeat(20), "switch/bad/x": "x" })]]);
     assert.equal(r.status, 400);
