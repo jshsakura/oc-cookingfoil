@@ -8,7 +8,12 @@
  *   <titleId>.screen.<n>.jpg
  *   <titleId>.sm.jpg|webp     ← 160×160 cover (?size=sm, client list cards)
  *   <titleId>.thumb.jpg|webp  ← 256×256 cover (?size=md)
- *   <titleId>.md.jpg|webp     ← 512×512 cover (?size=lg, browser cards)
+ *   <titleId>.md.jpg|webp     ← 512×512 cover (?size=lg|xl, browser cards)
+ *   <…>.xl-wide.jpg|webp      ← banners and screenshots at screen width, 1280 (?size=xl)
+ *
+ * WebP variants are written as .q75.webp: quality 75 at the slowest effort, about
+ * 35-40% under the JPEG (a 1280 screenshot 95 KB → 57 KB). The CookingFoil
+ * client decodes WebP and asks for it with `Accept: image/webp`.
  *
  * The client app's sizes (sm and md, as JPEG) are drawn ahead of time by
  * prewarmIcons, so a list never waits for a resize.
@@ -35,13 +40,16 @@ sharp.cache({ memory: 256, files: 200 });
 const THUMB_PX = 256;
 // ?size= → longest edge in px. Icons are square and cropped to it; banners and
 // screenshots keep their aspect ratio and are scaled to that width.
-const SIZES = { sm: 160, md: THUMB_PX, lg: 512 };
+const SIZES = { sm: 160, md: THUMB_PX, lg: 512, xl: 512 };
 // File suffix per size. md and lg keep the names their 256- and 512-px files
 // had before sm existed, so variants already on disk stay valid.
-const SUFFIXES = { sm: "sm", md: "thumb", lg: "md" };
-// Banners and screenshots keep the widths they always had: sm 256, md and lg 512.
-const WIDE_SIZES = { sm: THUMB_PX, md: 512, lg: 512 };
-const WIDE_SUFFIXES = { sm: "thumb-wide", md: "md-wide", lg: "md-wide" };
+const SUFFIXES = { sm: "sm", md: "thumb", lg: "md", xl: "md" };
+// Banners and screenshots keep the widths they always had: sm 256, md and lg 512;
+// xl is the console's screen width, for a full-screen gallery or hero.
+const WIDE_SIZES = { sm: THUMB_PX, md: 512, lg: 512, xl: 1280 };
+const WIDE_SUFFIXES = { sm: "thumb-wide", md: "md-wide", lg: "md-wide", xl: "xl-wide" };
+const WEBP_EXT = "q75.webp";
+const WEBP_OPTIONS = { quality: 75, effort: 6 };
 const JPEG_QUALITY = 80;
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
@@ -102,10 +110,8 @@ function variantPath(originalPath, suffix, ext) {
 /** The thumbnail variant paths derived from an original — used by callers
  *  (e.g. custom-art) that need to invalidate them when the original changes. */
 export function thumbVariantPaths(originalPath) {
-  return [
-    variantPath(originalPath, "thumb", "jpg"),
-    variantPath(originalPath, "thumb", "webp"),
-  ];
+  const suffixes = new Set([...Object.values(SUFFIXES), ...Object.values(WIDE_SUFFIXES)]);
+  return [...suffixes].flatMap((s) => [variantPath(originalPath, s, "jpg"), variantPath(originalPath, s, "webp"), variantPath(originalPath, s, WEBP_EXT)]);
 }
 
 /** Forget any memoized existence / in-flight state for a path. Call after
@@ -163,7 +169,7 @@ async function ensureVariant(originalPath, variant) {
       } else if (variant.resize) {
         pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
       }
-      if (variant.format === "webp")  pipeline = pipeline.webp({ quality: 80, effort: 4 });
+      if (variant.format === "webp")  pipeline = pipeline.webp(WEBP_OPTIONS);
       else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
       const t0 = Date.now();
       await pipeline.toFile(tmp);
@@ -193,8 +199,8 @@ function variantSuffix(size, wide) {
 
 /**
  * Serve a cached image. `?size=sm` (160 px), `?size=md` (256 px) and
- * `?size=lg` (512 px) return a smaller square icon; banners and screenshots
- * (`wide`) come at 256, 512 and 512 px wide; the default returns the original. `wide` keeps the aspect
+ * `?size=lg|xl` (512 px) return a smaller square icon; banners and screenshots
+ * (`wide`) come at 256, 512, 512 and 1280 px wide; the default returns the original. `wide` keeps the aspect
  * ratio (banners, screenshots) instead of cropping to a square (icons). When
  * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
  */
@@ -241,7 +247,7 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
     const suffix = variantSuffix(size, wide);
     const px = (wide ? WIDE_SIZES : SIZES)[size];
     const variant = wantWebp
-      ? { path: variantPath(source, suffix, "webp"), resize: px, wide, format: "webp" }
+      ? { path: variantPath(source, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
       : { path: variantPath(source, suffix, "jpg"), resize: px, wide, format: "jpeg" };
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
@@ -290,11 +296,12 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     while (cursor < queue.length) {
       const tid = queue[cursor++];
       const cp = cachePathFor(tid, "icon");
-      // Client app cards (JPEG, sm and md) and the browser's small WebP.
+      // Client app cards (sm and md) as JPEG for older clients and WebP for the CookingFoil client and browsers.
       const variants = [
         { path: variantPath(cp, SUFFIXES.sm, "jpg"), resize: SIZES.sm, format: "jpeg" },
         { path: variantPath(cp, SUFFIXES.md, "jpg"), resize: SIZES.md, format: "jpeg" },
-        { path: variantPath(cp, SUFFIXES.md, "webp"), resize: SIZES.md, format: "webp" },
+        { path: variantPath(cp, SUFFIXES.sm, WEBP_EXT), resize: SIZES.sm, format: "webp" },
+        { path: variantPath(cp, SUFFIXES.md, WEBP_EXT), resize: SIZES.md, format: "webp" },
       ];
       const haveOriginal = existsCached(cp);
       const missing = variants.filter((v) => !existsCached(v.path));

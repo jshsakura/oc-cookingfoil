@@ -41,6 +41,22 @@ export function squarePath(artDir, game, size = "md") {
   return path.join(artDir, size === "md" ? `${game.id}-${key}.jpg` : `${game.id}-${key}.${size}.jpg`);
 }
 
+/** The WebP twin of a square (for clients that send `Accept: image/webp`), about a third smaller. */
+export const webpPath = (square) => square.replace(/\.jpg$/, ".webp");
+
+/** The WebP twin of a game's square, made from the JPEG square on first use; null without box art. */
+export async function ensureSquareWebp(artDir, game, size = "md") {
+  const square = await ensureSquare(artDir, game, size);
+  if (!square) return null;
+  const dest = webpPath(square);
+  if (!fs.existsSync(dest)) {
+    const tmp = `${dest}.tmp`;
+    await sharp(square).webp({ quality: 75, effort: 6 }).toFile(tmp);
+    await fsp.rename(tmp, dest);
+  }
+  return dest;
+}
+
 /** Draw the square for `src` into `dest`. */
 export async function makeSquare(src, dest, size = SQUARE_PX) {
   const backdrop = await sharp(src, { failOn: "none" })
@@ -94,7 +110,7 @@ export function prewarm(artDir, games) {
     }));
     let removed = 0;
     for (const f of await fsp.readdir(artDir).catch(() => [])) {
-      if (f.endsWith(".jpg") && !wanted.has(f)) {
+      if ((f.endsWith(".jpg") && !wanted.has(f)) || (f.endsWith(".webp") && !wanted.has(f.replace(/\.webp$/, ".jpg")))) {
         await fsp.rm(path.join(artDir, f), { force: true });
         removed++;
       }
