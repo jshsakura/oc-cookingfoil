@@ -27,10 +27,25 @@ const LIMIT = { name: 120 };
 
 let saved = null;
 
+/**
+ * An entry written by an older version kept the description's languages at the
+ * top ({ en, ko }); read it as { description: { en, ko } }. Pure.
+ */
+export function normalize(raw) {
+  const out = {};
+  for (const [id, entry] of Object.entries(raw ?? {})) {
+    if (!entry || typeof entry !== "object") continue;
+    const { en, ko, ...rest } = entry;
+    const legacy = (typeof en === "string" || typeof ko === "string") && !rest.description;
+    out[id] = legacy ? { ...rest, description: { en: en ?? null, ko: ko ?? null } } : rest;
+  }
+  return out;
+}
+
 function all() {
   if (saved) return saved;
   try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    saved = normalize(JSON.parse(fs.readFileSync(FILE, "utf8")));
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
     saved = {};
