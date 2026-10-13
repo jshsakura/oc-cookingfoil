@@ -152,7 +152,7 @@ let lastCred=null;
 function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=title;
   const box=$('cred');box.replaceChildren();
   // CyberFoil takes the shop's root as its eShop URL; Tinfoil's File Browser wants shop.tfl.
-  for(const [label,value] of [['CyberFoil eShop 주소',origin+'/'],['Tinfoil 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
+  for(const [label,value] of [['CyberFoil 주소',origin+'/'],['Tinfoil 주소',origin+'/shop.tfl'],['사용자',cred.name],['비밀번호',cred.password]]){
     box.append(el('span',label,'muted'),el('span',value,'v'),btn('복사',async()=>{
       try{await navigator.clipboard.writeText(value);toast(label+'를 복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}}));}
   $('cred-dialog').showModal();}
@@ -209,7 +209,7 @@ async function loadAccounts(){
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
-    if(a.status==='approved'&&!self)box.append(btn('사용 중지',()=>setAccount(a.sub,'disabled')));
+    if(a.status==='approved'&&!self)box.append(btn('사용 중지',()=>{if(confirm(a.email+' 계정의 사용을 중지합니다. 다시 승인하기 전까지 로그인하지 못합니다.'))setAccount(a.sub,'disabled');}));
     if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
     act.append(box);tr.append(act);return tr;}),'아직 로그인한 계정이 없습니다.');}
 async function setAccountRole(sub,email,role){
@@ -346,7 +346,7 @@ $('hb-desc-close').addEventListener('click',()=>$('hb-desc').close());
 $('hb-desc-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/homebrew/description',{method:'POST',body:{id:hbDescId,en:$('hb-desc-en').value,ko:$('hb-desc-ko').value}});
     $('hb-desc').close();toast('설명을 저장했습니다.');loadHomebrew();}catch(err){toast(err.message);}});
-$('hb-desc-reset').addEventListener('click',async()=>{
+$('hb-desc-reset').addEventListener('click',async()=>{if(!confirm('직접 쓴 설명을 지우고 GitHub 설명으로 되돌립니다.'))return;
   try{await api('/admin/api/homebrew/description/reset',{method:'POST',body:{id:hbDescId}});$('hb-desc').close();toast('GitHub 기본값으로 돌렸습니다.');loadHomebrew();}catch(err){toast(err.message);}});
 async function addHbRecommended(repos){
   if(!repos.length){toast('추가할 것을 고릅니다.');return;}
@@ -390,7 +390,6 @@ const UP_HINT_HB={
   patch:'홈브류 앱의 패치를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 놓일 파일을 그 구조 그대로 넣습니다.',
   save:'홈브류 앱의 세이브를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 있던 세이브 파일을 그 구조 그대로 넣습니다.',
 };
-function upHint(){const app=$('up-target').value;$('up-hint').textContent=app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];}
 const UP_HINT={
   game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 패키지 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
   retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
@@ -667,6 +666,12 @@ document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('acct-list').h
 function showShopUrl(){$('shop-url').textContent=origin.replace(/[/]$/,'')+'/shop.tfl';}
 $('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast('주소를 복사했습니다');}catch{toast('복사하지 못했습니다. 주소를 직접 고릅니다');}});
 showShopUrl();
+// A tab that fails to load says so instead of leaving old rows on screen; the same failure is told once.
+let loadErr='';
+function guarded(fn){return async(...a)=>{try{const r=await fn(...a);loadErr='';return r;}
+  catch(err){const m='불러오지 못했습니다: '+(err&&err.message||err);if(m!==loadErr)toast(m);loadErr=m;}};}
+loadHealth=guarded(loadHealth);loadStats=guarded(loadStats);loadDevices=guarded(loadDevices);loadLogins=guarded(loadLogins);
+loadAccounts=guarded(loadAccounts);loadGoogle=guarded(loadGoogle);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
 showTab();loadStats();loadDevices();loadLogins();loadAccounts();loadGoogle();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;

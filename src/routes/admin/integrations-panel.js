@@ -60,15 +60,15 @@ const SERVICES = [
 
 // Services the server uses without a key, so the admin sees everything it talks to.
 const KEYLESS = [
-  ["titledb", "스위치 게임 정보", "게임 이름, 설명, 표지, 출시일을 읽습니다.", "github.com/blawar/titledb", "https://github.com/blawar/titledb"],
-  ["eshopPrices", "닌텐도 eShop 가격", "게임 상세에 eShop 가격을 보여 줍니다. COOK_ESHOP_PRICES=false 로 끕니다.", "api.ec.nintendo.com", null],
-  ["eshopPopularity", "닌텐도 eShop 인기순", "인기순 정렬에 쓰는 순위를 eShop 검색에서 읽습니다. 공개 검색 키가 들어 있어 따로 넣을 키가 없습니다. COOK_ESHOP_POPULARITY=false 로 끕니다.", "algolia.net", null],
+  ["titledb", "게임 정보", "게임 이름, 설명, 표지, 출시일을 읽습니다.", "github.com/blawar/titledb", "https://github.com/blawar/titledb"],
+  ["eshopPrices", "공식 스토어 가격", "게임 상세에 공식 스토어 가격을 보여 줍니다. COOK_ESHOP_PRICES=false 로 끕니다.", "api.ec.nintendo.com", null],
+  ["eshopPopularity", "공식 스토어 인기순", "인기순 정렬에 쓰는 순위를 공식 스토어 검색에서 읽습니다. 공개 검색 키가 들어 있어 따로 넣을 키가 없습니다. COOK_ESHOP_POPULARITY=false 로 끕니다.", "algolia.net", null],
   ["steam", "Steam 평점", "평점을 모을 때 Steam 사용자 평가를 읽습니다.", "store.steampowered.com", null],
   ["libretro", "레트로 표지", "레트로 게임의 표지와 스크린샷을 받습니다.", "github.com/libretro-thumbnails", "https://github.com/libretro-thumbnails"],
   ["bezel", "레트로 베젤", "레트로 게임 화면 둘레의 베젤 그림을 받습니다.", "github.com/thebezelproject", "https://github.com/thebezelproject"],
   ["launchbox", "레트로 평점", "레트로 게임 평점을 LaunchBox Games Database 에서 받습니다.", "gamesdb.launchbox-app.com", "https://gamesdb.launchbox-app.com"],
   ["releases", "홈브류 새 버전", "따라가는 저장소의 GitHub 릴리스를 확인합니다. 키 없이도 되지만 위 GitHub 토큰을 넣으면 한도가 넉넉해집니다.", "api.github.com", null],
-  ["google", "구글 로그인", "웹 로그인에 씁니다. 클라이언트 ID 와 시크릿은 사용자 탭에서 설정합니다.", "accounts.google.com", null],
+  ["google", "구글 로그인", "웹 로그인에 씁니다. 클라이언트 ID 와 시크릿은 이 탭 아래의 구글 로그인 설정에서 넣습니다.", "accounts.google.com", null],
 ];
 
 const card = (s) => `<div class="intg" data-svc="${s.id}">
