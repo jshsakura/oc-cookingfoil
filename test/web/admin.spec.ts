@@ -223,3 +223,13 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await page.getByRole('button', { name: '지우기' }).click();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue('');
 });
+
+test('the overview says where game names come from', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#overview');
+  await expect(page.locator('#health .pill').first()).toContainText('게임 이름');
+  await expect(page.locator('#health')).toContainText('titledb');
+  await expect(page.locator('#health')).toContainText('NSP/XCI 추출');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#tab-overview').screenshot({ path: 'out/web/admin-overview-health.png' });
+});

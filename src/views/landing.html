@@ -328,23 +328,6 @@
       .hbar .fill { height: 100%; border-radius: 100px; background: var(--c, var(--butter)); }
       .hbar b { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 2ch; text-align: right; }
 
-      .namehealth { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
-      .nh-state {
-        display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
-        padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 700;
-        background: rgba(var(--good-rgb), 0.12); color: var(--good); max-width: 100%;
-      }
-      .nh-state.warn { background: rgba(var(--butter-rgb), 0.18); color: var(--pending); }
-      .nh-state.bad  { background: rgba(var(--bad-rgb), 0.12); color: var(--bad); }
-      .nh-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-      .nh-state.bad .nh-dot { animation: pulse 1.6s infinite; }
-      .nh-rows { display: grid; gap: 6px; }
-      .nh-row { display: flex; gap: 10px; align-items: baseline; font-size: 13px; min-width: 0; }
-      .nh-label { color: var(--secondary); font-size: 12px; font-weight: 600; flex-shrink: 0; min-width: 96px; }
-      .nh-val { color: var(--ink); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
-      .nh-val.good { color: var(--good); }
-      .nh-val.off  { color: var(--pending); }
-      .nh-hint { font-size: 13px; color: var(--bad); line-height: 1.55; background: rgba(var(--bad-rgb), 0.08); border-radius: 10px; padding: 9px 12px; }
 
       /* RECENT ROW + LIBRARY: square art with the name under it */
       .recent { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 18px; overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0; scroll-padding-inline: 12px; scroll-snap-type: x proximity; }
@@ -741,28 +724,11 @@
             </h3>
             <div class="stats">
               <div class="stat"><div class="label" data-i18n="stat.games"></div><div class="value sk" id="stat-games">—</div><div class="sub" data-i18n="stat.games_sub"></div></div>
-              <div class="stat"><div class="label" data-i18n="stat.titledb"></div><div class="value sk" id="stat-titledb">—</div><div class="sub" id="stat-titledb-sub" data-i18n="stat.titledb_sub"></div></div>
-              <div class="stat"><div class="label" data-i18n="stat.base"></div><div class="value sk" id="stat-base">—</div><div class="sub" data-i18n="stat.base_sub"></div></div>
-              <div class="stat"><div class="label" data-i18n="stat.mods"></div><div class="value sk" id="stat-mods">—</div><div class="sub sk" id="stat-mods-sub">—</div></div>
+              <div class="stat"><div class="label" data-i18n="stat.updates"></div><div class="value sk" id="stat-updates">—</div><div class="sub" data-i18n="stat.updates_sub"></div></div>
+              <div class="stat"><div class="label" data-i18n="stat.dlc"></div><div class="value sk" id="stat-dlc">—</div><div class="sub" data-i18n="stat.dlc_sub"></div></div>
+              <div class="stat"><div class="label" data-i18n="stat.size"></div><div class="value sk" id="stat-size">—</div><div class="sub sk" id="stat-size-sub">—</div></div>
             </div>
             <div class="charts" id="charts" hidden></div>
-            <div class="namehealth" id="namehealth">
-              <div class="nh-state" id="nh-state">
-                <span class="nh-dot" aria-hidden="true"></span>
-                <span class="nh-verdict sk" id="nh-verdict">…</span>
-              </div>
-              <div class="nh-rows">
-                <div class="nh-row">
-                  <span class="nh-label" data-i18n="nh.titledb"></span>
-                  <span class="nh-val sk" id="nh-titledb">—</span>
-                </div>
-                <div class="nh-row">
-                  <span class="nh-label" data-i18n="nh.extraction"></span>
-                  <span class="nh-val sk" id="nh-extraction">—</span>
-                </div>
-              </div>
-              <p class="nh-hint" id="nh-hint" hidden></p>
-            </div>
           </section>
 
         <h2><span data-i18n="section.library"></span><span class="rule"></span><span class="count" id="games-count">0</span></h2>
@@ -1042,26 +1008,14 @@
           "action.menu": "메뉴",
           "action.download": "다운로드",
           "action.close": "닫기",
-          "stat.games": "타이틀",
-          "stat.games_sub": "/games 폴더 스캔",
-          "stat.titledb": "TITLEDB",
-          "stat.titledb_sub": "병합된 타이틀",
-          "stat.base": "베이스",
-          "stat.base_sub": "원본 타이틀",
-          "stat.mods": "업데이트/DLC",
-          "stat.mods_sub": (u, d) => `업데이트 ${u} · DLC ${d}`,
-          "section.namehealth": "게임명 소스 상태 / Name source",
-          "nh.titledb": "TITLEDB",
-          "nh.extraction": "NSP/XCI 추출",
-          "nh.verdict.ok": "정상",
-          "nh.verdict.degraded": "부분",
-          "nh.verdict.filename": "파일명으로 폴백 — titledb 웹페치 실패 또는 서버 prod.keys 없음",
-          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} 타이틀` + (regions ? ` · ${regions}` : ""),
-          "nh.ext.enabled": "활성 · 키 확인됨",
-          "nh.ext.off": "비활성 (extract off)",
-          "nh.ext.nostool": "비활성 — nstool 없음",
-          "nh.ext.nokeys": "비활성 — prod.keys 없음",
-          "nh.hint.filename": "titledb가 github에 닿게 하거나 서버에 prod.keys를 넣으세요.",
+          "stat.games": "게임",
+          "stat.games_sub": "기본 게임",
+          "stat.updates": "업데이트",
+          "stat.updates_sub": "업데이트 파일",
+          "stat.dlc": "DLC",
+          "stat.dlc_sub": "추가 콘텐츠",
+          "stat.size": "전체 용량",
+          "stat.size_sub": (n) => `파일 ${n.toLocaleString()}개`,
           "chip.base": "베이스",
           "chip.update": "업데이트",
           "chip.dlc": "DLC",
@@ -1233,26 +1187,14 @@
           "action.menu": "Menu",
           "action.download": "Download",
           "action.close": "Close",
-          "stat.games": "Titles",
-          "stat.games_sub": "scanned in /games",
-          "stat.titledb": "Titledb",
-          "stat.titledb_sub": "merged titles",
-          "stat.base": "Base",
-          "stat.base_sub": "base titles",
-          "stat.mods": "Updates / DLC",
-          "stat.mods_sub": (u, d) => `${u} upd · ${d} dlc`,
-          "section.namehealth": "Name source health",
-          "nh.titledb": "Titledb",
-          "nh.extraction": "NSP/XCI extract",
-          "nh.verdict.ok": "OK",
-          "nh.verdict.degraded": "Partial",
-          "nh.verdict.filename": "Filename fallback — titledb web-fetch failed or no server prod.keys",
-          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} titles` + (regions ? ` · ${regions}` : ""),
-          "nh.ext.enabled": "enabled · keys found",
-          "nh.ext.off": "disabled (extract off)",
-          "nh.ext.nostool": "disabled — nstool missing",
-          "nh.ext.nokeys": "disabled — no prod.keys",
-          "nh.hint.filename": "Make titledb reach github, or drop prod.keys onto the server.",
+          "stat.games": "Games",
+          "stat.games_sub": "base games",
+          "stat.updates": "Updates",
+          "stat.updates_sub": "update files",
+          "stat.dlc": "DLC",
+          "stat.dlc_sub": "add-on content",
+          "stat.size": "Total size",
+          "stat.size_sub": (n) => `${n.toLocaleString()} files`,
           "chip.base": "Base",
           "chip.update": "Updates",
           "chip.dlc": "DLC",
@@ -1427,26 +1369,14 @@
           "action.menu": "メニュー",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
-          "stat.games": "タイトル",
-          "stat.games_sub": "/games をスキャン",
-          "stat.titledb": "Titledb",
-          "stat.titledb_sub": "統合タイトル",
-          "stat.base": "本編",
-          "stat.base_sub": "本編タイトル",
-          "stat.mods": "アップデート/DLC",
-          "stat.mods_sub": (u, d) => `アップデート ${u} · DLC ${d}`,
-          "section.namehealth": "名前ソースの状態",
-          "nh.titledb": "Titledb",
-          "nh.extraction": "NSP/XCI 抽出",
-          "nh.verdict.ok": "正常",
-          "nh.verdict.degraded": "一部",
-          "nh.verdict.filename": "ファイル名で代用中。titledb の取得に失敗したか、サーバーに prod.keys がありません",
-          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()}タイトル` + (regions ? ` · ${regions}` : ""),
-          "nh.ext.enabled": "有効・キー確認済み",
-          "nh.ext.off": "無効 (extract off)",
-          "nh.ext.nostool": "無効。nstool がありません",
-          "nh.ext.nokeys": "無効。prod.keys がありません",
-          "nh.hint.filename": "titledb が github に届くようにするか、サーバーに prod.keys を置いてください。",
+          "stat.games": "ゲーム",
+          "stat.games_sub": "本編",
+          "stat.updates": "アップデート",
+          "stat.updates_sub": "アップデートファイル",
+          "stat.dlc": "DLC",
+          "stat.dlc_sub": "追加コンテンツ",
+          "stat.size": "合計サイズ",
+          "stat.size_sub": (n) => `${n.toLocaleString()} ファイル`,
           "chip.base": "本編",
           "chip.update": "アップデート",
           "chip.dlc": "DLC",
@@ -1621,26 +1551,14 @@
           "action.menu": "菜单",
           "action.download": "下載",
           "action.close": "關閉",
-          "stat.games": "遊戲檔",
-          "stat.games_sub": "/games 掃描",
-          "stat.titledb": "Titledb",
-          "stat.titledb_sub": "合併的標題",
-          "stat.base": "本體",
-          "stat.base_sub": "本體標題",
-          "stat.mods": "更新 / DLC",
-          "stat.mods_sub": (u, d) => `更新 ${u} · DLC ${d}`,
-          "section.namehealth": "名稱來源狀態",
-          "nh.titledb": "Titledb",
-          "nh.extraction": "NSP/XCI 擷取",
-          "nh.verdict.ok": "正常",
-          "nh.verdict.degraded": "部分",
-          "nh.verdict.filename": "以檔名代替。titledb 取得失敗，或伺服器沒有 prod.keys",
-          "nh.titles": (n, regions) => `${(n || 0).toLocaleString()} 個標題` + (regions ? ` · ${regions}` : ""),
-          "nh.ext.enabled": "已啟用・已找到金鑰",
-          "nh.ext.off": "已停用 (extract off)",
-          "nh.ext.nostool": "已停用。缺少 nstool",
-          "nh.ext.nokeys": "已停用。沒有 prod.keys",
-          "nh.hint.filename": "請讓 titledb 能連上 github，或把 prod.keys 放到伺服器。",
+          "stat.games": "遊戲",
+          "stat.games_sub": "本體遊戲",
+          "stat.updates": "更新",
+          "stat.updates_sub": "更新檔",
+          "stat.dlc": "DLC",
+          "stat.dlc_sub": "追加內容",
+          "stat.size": "總容量",
+          "stat.size_sub": (n) => `${n.toLocaleString()} 個檔案`,
           "chip.base": "本體",
           "chip.update": "更新",
           "chip.dlc": "DLC",
@@ -1752,7 +1670,6 @@
         }
         $("lang-current").textContent = lang.toUpperCase();
         $("lang-btn").setAttribute("aria-label", t("action.language"));
-        if (nameHealthData) renderNameHealth(nameHealthData);
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
 
@@ -1909,7 +1826,6 @@
 
       // ─── state ─────────────────────────────────────────────────────────────
       let shopData = null;
-      let nameHealthData = null;
       let renderedItems = [];
       const PAGE_TARGET = 24;
       const state = { kind: "base", q: "", sort: "added-desc", genre: "", steam: "", page: 1, perPage: PAGE_TARGET };
@@ -1946,57 +1862,6 @@
         grid.appendChild(frag);
       }
 
-      // ─── name-source health ────────────────────────────────────────────────
-      // Reads /healthz (no-auth; carries `nameHealth` in both 200 and 503) so
-      // the operator SEES why names resolve or fall back to filenames.
-      let healthTitles = 0;
-      function renderNameHealth(nh) {
-        if (!nh || typeof nh !== "object") return;
-        const stateEl = $("nh-state");
-        const verdictEl = $("nh-verdict");
-        stateEl.classList.remove("warn", "bad");
-        let verdictKey;
-        if (nh.verdict === "degraded") { verdictKey = "nh.verdict.degraded"; stateEl.classList.add("warn"); }
-        else if (nh.verdict === "filename-only") { verdictKey = "nh.verdict.filename"; stateEl.classList.add("bad"); }
-        else { verdictKey = "nh.verdict.ok"; }
-        verdictEl.textContent = t(verdictKey);
-        verdictEl.classList.remove("sk");
-
-        const tdb = nh.titledb || {};
-        const regions = Array.isArray(tdb.regions) ? tdb.regions : [];
-        const tdbEl = $("nh-titledb");
-        tdbEl.textContent = t("nh.titles", tdb.titles || 0, regions.join(", "));
-        tdbEl.classList.remove("sk");
-        tdbEl.classList.toggle("good", (tdb.titles || 0) > 0);
-        // The shop response no longer embeds titledb, so the stat card takes its count from here.
-        healthTitles = tdb.titles || 0;
-        if (healthTitles) $("stat-titledb").textContent = healthTitles.toLocaleString();
-
-        const ex = nh.extraction || {};
-        let extKey;
-        if (ex.mode === "off") extKey = "nh.ext.off";
-        else if (!ex.nstool) extKey = "nh.ext.nostool";
-        else if (!ex.prodKeys) extKey = "nh.ext.nokeys";
-        else extKey = "nh.ext.enabled";
-        const extEl = $("nh-extraction");
-        extEl.textContent = t(extKey);
-        extEl.classList.remove("sk", "good", "off");
-        extEl.classList.add(ex.nspXciCapable ? "good" : "off");
-
-        const hintEl = $("nh-hint");
-        if (nh.verdict === "filename-only") { hintEl.hidden = false; hintEl.textContent = t("nh.hint.filename"); }
-        else { hintEl.hidden = true; }
-      }
-
-      async function loadNameHealth() {
-        try {
-          // 200 when cached, 503 while cold — both carry nameHealth. Read either.
-          const r = await fetch("/healthz", { headers: { Accept: "application/json" } });
-          const d = await r.json().catch(() => null);
-          if (d && d.nameHealth) { nameHealthData = d.nameHealth; renderNameHealth(nameHealthData); }
-        } catch { /* best effort — panel keeps its shimmer/placeholder */ }
-      }
-
       // ─── data flow ─────────────────────────────────────────────────────────
       async function loadShop() {
         $("status-text").textContent = t("status.loading");
@@ -2023,21 +1888,20 @@
       function renderAll(shop) {
         const files   = Array.isArray(shop.files) ? shop.files : [];
         const titledb = shop.titledb && typeof shop.titledb === "object" ? shop.titledb : {};
-        const tCount  = Object.keys(titledb).length || healthTitles;
 
         const baseFiles   = files.filter(f => (f.kind || "base") === "base");
         // A game kept as two files (two regions, or base and a repack) is still one title.
         const baseCount   = new Set(baseFiles.map(f => (f.baseTitleId || f.titleId || f.name || "").toUpperCase())).size;
         const updateCount = files.filter(f => f.kind === "update").length;
         const dlcCount    = files.filter(f => f.kind === "dlc").length;
-        const modsCount   = updateCount + dlcCount;
+        const totalSize   = files.reduce((n, f) => n + (Number(f.size) || 0), 0);
 
         // Show BASE titles in the running marquee — that's what people mean
         // by "how many games". updates + DLC roll up under the base on
         // their cards (the '+N 업데이트' / '+N DLC' pills) and in the
         // /games stat below, so we don't double-count here.
         // Data's here — drop the entry skeletons on the stat values + status.
-        for (const id of ["stat-games", "stat-titledb", "stat-base", "stat-mods", "stat-mods-sub"]) {
+        for (const id of ["stat-games", "stat-updates", "stat-dlc", "stat-size", "stat-size-sub"]) {
           $(id).classList.remove("sk");
         }
         $("status-text").classList.remove("sk");
@@ -2050,11 +1914,11 @@
           $("status-text").textContent = t("status.serving", baseCount);
         }
 
-        animateCount($("stat-games"), files.length);
-        animateCount($("stat-titledb"), tCount);
-        animateCount($("stat-base"), baseCount);
-        $("stat-mods").textContent = modsCount.toLocaleString();
-        $("stat-mods-sub").textContent = t("stat.mods_sub", updateCount, dlcCount);
+        animateCount($("stat-games"), baseCount);
+        animateCount($("stat-updates"), updateCount);
+        animateCount($("stat-dlc"), dlcCount);
+        $("stat-size").textContent = fmtBytes(totalSize);
+        $("stat-size-sub").textContent = t("stat.size_sub", files.length);
         chartFiles = files;
         renderCharts();
 
@@ -2329,8 +2193,6 @@
         if (state.steam && !counts.has(state.steam)) state.steam = "";
         box.hidden = counts.size === 0;
         box.innerHTML = "";
-        const head = document.createElement("span"); head.className = "chips-head"; head.textContent = "Steam";
-        box.appendChild(head);
         const chip = (key, label, n) => {
           const b = document.createElement("button");
           b.type = "button"; b.className = "chip" + (state.steam === key ? " active" : ""); b.dataset.steam = key;
@@ -3667,7 +3529,7 @@
       $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
         $("refresh-btn").disabled = true;
-        await Promise.all([loadShop(), loadNameHealth()]);
+        await loadShop();
         $("refresh-btn").disabled = false;
         toast(t("toast.refresh"));
       });
@@ -3748,14 +3610,13 @@
         });
       }
       bindStatClick("stat-games",   "base");
-      bindStatClick("stat-titledb", null);
-      bindStatClick("stat-base",    "base");
-      bindStatClick("stat-mods",    "update");
+      bindStatClick("stat-updates", "update");
+      bindStatClick("stat-dlc",     "dlc");
+      bindStatClick("stat-size",    null);
 
       applyI18n();
       renderSkeletons(8);
       loadShop();
-      loadNameHealth();
 
       // ─── upload tray ──────────────────────────────────────────────────────
       // POST /api/uploads → temp/, then user clicks Apply to move into games/.

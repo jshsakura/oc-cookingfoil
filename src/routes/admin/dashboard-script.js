@@ -76,6 +76,17 @@ function renderLanes(l){const box=$('lanes');box.replaceChildren();
   box.append(pill('기기 승인: '+(l.pairing.enabled?'켜짐':'꺼짐'),l.pairing.enabled?'on':''));
   if(l.pairingOnly)box.append(pill('승인된 기기만 받을 수 있음','warn'));
   box.append(pill('관리자 2단계 인증: '+(l.admin.enrolled?'등록됨':'등록 안 됨'),l.admin.enrolled?'on':'off'));}
+// Where game names come from (titledb, the files' own data): the operator's view of what the web page used to show.
+async function loadHealth(){
+  let nh=null;try{const r=await fetch('/healthz',{headers:{Accept:'application/json'}});nh=(await r.json().catch(()=>null))?.nameHealth;}catch{}
+  const box=$('health');box.replaceChildren();if(!nh)return;
+  const v=nh.verdict==='filename-only'?['게임 이름: 파일 이름으로 대신하는 중','off']:nh.verdict==='degraded'?['게임 이름: 일부만 찾음','warn']:['게임 이름: 정상','on'];
+  box.append(pill(v[0],v[1]));
+  const tdb=nh.titledb||{};box.append(pill('titledb '+num(tdb.titles||0)+'개'+((tdb.regions||[]).length?' · 지역 '+tdb.regions.length+'곳':''),(tdb.titles||0)>0?'on':'off'));
+  const ex=nh.extraction||{};
+  box.append(pill('NSP/XCI 추출: '+(ex.mode==='off'?'꺼짐':!ex.nstool?'nstool 없음':!ex.prodKeys?'prod.keys 없음':'켜짐 · 키 확인됨'),ex.nspXciCapable?'on':'off'));
+  const hint=$('health-hint');hint.hidden=nh.verdict!=='filename-only';
+  hint.textContent='titledb 를 받지 못했고 서버에 prod.keys 도 없어 파일 이름으로 게임 이름을 대신합니다. 서버가 github 에 닿게 하거나 prod.keys 를 넣습니다.';}
 function renderCards(d){const cards=$('cards');cards.replaceChildren();
   const card=(l,v,alert)=>{const c=el('div',null,'card'+(alert?' alert':''));c.append(el('div',num(v),'v'),el('div',l,'l'));return c;};
   cards.append(card('사용자',d.totals.configuredUsers),card('누적 요청',d.totals.totalRequests),
@@ -134,7 +145,7 @@ async function loadStats(){
   me=d.me||null;const a=d.lanes.admin;
   $('who').textContent=me?(me.name||me.email):(a.email||a.owner||'admin');
   $('ts').textContent=fmt(d.generatedAt)+' 기준';
-  renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);}
+  renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);loadHealth();}
 
 // ── users ─────────────────────────────────────────────────────────────
 let lastCred=null;
