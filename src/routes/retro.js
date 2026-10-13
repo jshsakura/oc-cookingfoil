@@ -12,7 +12,8 @@
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
- *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md);
+ *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
+ *                                                WebP when the client sends Accept: image/webp;
  *                                                drawn ahead of time, cached for a year with the ?v= of iconUrl
  *   GET /api/retro/games/:id/boxart              the box art as it is
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
@@ -50,7 +51,7 @@ import { regionOf } from "../retro/arcade.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
-import { artKey, ensureSquare, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
+import { artKey, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
 import { listFilter } from "../retro/list-filter.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
@@ -322,12 +323,14 @@ export default function retroRouter() {
   });
   router.get("/games/:id/icon", wrap(async (req, res) => {
     const size = Object.hasOwn(SQUARE_SIZES, req.query.size) ? req.query.size : "md";
-    const square = await ensureSquare(artDir, req.retro.game, size);
+    const webp = (req.get("accept") || "").includes("image/webp");
+    const square = await (webp ? ensureSquareWebp : ensureSquare)(artDir, req.retro.game, size);
     if (!square) return res.status(404).json({ error: "no icon" });
+    res.set("Vary", "Accept");
     // ?v= names one version of the cover, so that URL never changes underneath a cache.
     const versioned = req.query.v && req.query.v === artKey(req.retro.game);
     res.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "private, no-cache");
-    res.type("jpeg");
+    res.type(webp ? "webp" : "jpeg");
     res.sendFile(square, { dotfiles: "allow" });
   }));
   router.get("/games/:id/boxart", (req, res) => (req.retro.game.icon ? sendFile(res, req.retro.game.icon) : res.status(404).json({ error: "no box art" })));
