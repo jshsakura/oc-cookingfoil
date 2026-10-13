@@ -61,8 +61,8 @@ const SERVICES = [
 // Services the server uses without a key, so the admin sees everything it talks to.
 const KEYLESS = [
   ["titledb", "게임 정보", "게임 이름, 설명, 표지, 출시일을 읽습니다.", "github.com/blawar/titledb", "https://github.com/blawar/titledb"],
-  ["eshopPrices", "공식 스토어 가격", "게임 상세에 공식 스토어 가격을 보여 줍니다. COOK_ESHOP_PRICES=false 로 끕니다.", "api.ec.nintendo.com", null],
-  ["eshopPopularity", "공식 스토어 인기순", "인기순 정렬에 쓰는 순위를 공식 스토어 검색에서 읽습니다. 공개 검색 키가 들어 있어 따로 넣을 키가 없습니다. COOK_ESHOP_POPULARITY=false 로 끕니다.", "algolia.net", null],
+  ["eshopPrices", "공식 스토어 가격", "게임 상세에 공식 스토어 가격을 보여 줍니다.", "api.ec.nintendo.com", null],
+  ["eshopPopularity", "공식 스토어 인기순", "인기순 정렬에 쓰는 순위를 공식 스토어 검색에서 읽습니다. 공개 검색 키가 들어 있어 따로 넣을 키가 없습니다.", "algolia.net", null],
   ["steam", "Steam 평점", "평점을 모을 때 Steam 사용자 평가를 읽습니다.", "store.steampowered.com", null],
   ["libretro", "레트로 표지", "레트로 게임의 표지와 스크린샷을 받습니다.", "github.com/libretro-thumbnails", "https://github.com/libretro-thumbnails"],
   ["bezel", "레트로 베젤", "레트로 게임 화면 둘레의 베젤 그림을 받습니다.", "github.com/thebezelproject", "https://github.com/thebezelproject"],

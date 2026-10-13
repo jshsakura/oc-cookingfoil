@@ -62,9 +62,9 @@ function ratingsAge() {
 let ratingsTimer = null;
 /** Weekly ratings, while the retro folder exists and COOK_RATING_SYNC is on. */
 function scheduleRatings() {
-  if (ratingsTimer || !ratingSync) return;
+  if (ratingsTimer) return;
   const tick = () => {
-    if (fs.existsSync(path.join(retroDir, "art-map")) && ratingsAge() > RATINGS_MAX_AGE_MS) startRatings();
+    if (ratingSync && fs.existsSync(path.join(retroDir, "art-map")) && ratingsAge() > RATINGS_MAX_AGE_MS) startRatings();
   };
   setTimeout(tick, RATINGS_FIRST_CHECK_MS).unref();
   ratingsTimer = setInterval(tick, RATINGS_CHECK_MS);

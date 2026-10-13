@@ -56,7 +56,7 @@ const authUsers = pickEnv("COOK_AUTH_USERS", "AUTH_USERS") ?? null;
 const unauthorizedMessage =
   pickEnv("COOK_UNAUTHORIZED_MSG", "UNAUTHORIZED_MSG") ??
   "No tricks and treats for you!!";
-const welcomeMessage =
+let welcomeMessage =
   pickEnv("COOK_WELCOME_MSG", "WELCOME_MSG") ?? null;
 
 // --- Phase 2 additions ---
@@ -106,7 +106,7 @@ function normalizeBaseUrl(raw) {
   return v;
 }
 const rawPublicBaseUrl = pickEnv("COOK_PUBLIC_BASE_URL");
-const publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
+let publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 
 // /admin 2FA. The admin dashboard sits inside the basic-auth perimeter and
 // adds a TOTP second factor. Unset = /admin disabled entirely. Generate a
@@ -167,7 +167,7 @@ const keysDir = envString("COOK_KEYS_DIR", "/keys");
 // so `all` is a one-time background pass, not a per-boot re-dump.
 const VALID_EXTRACT_MODES = new Set(["all", "missing", "off"]);
 const rawExtractIcons = (pickEnv("COOK_EXTRACT_ICONS") ?? "missing").toLowerCase();
-const extractIcons = VALID_EXTRACT_MODES.has(rawExtractIcons)
+let extractIcons = VALID_EXTRACT_MODES.has(rawExtractIcons)
   ? rawExtractIcons
   : "missing";
 if (rawExtractIcons !== extractIcons) {
@@ -217,7 +217,7 @@ const customEntriesPath = envString(
 );
 
 // Display-language preference order. ISO-ish codes used in NACP + titledb files.
-const langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
+let langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -227,26 +227,26 @@ const langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
 const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
 // Disable uploads by default — they need basic-auth AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
-const uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
+let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 // Base games in the sections list carry their eShop price, looked up in the
 // background from the public eShop price endpoint. Off for offline servers.
-const eshopPrices = envBool("COOK_ESHOP_PRICES", true);
+let eshopPrices = envBool("COOK_ESHOP_PRICES", true);
 // The "popular" order comes from the search index the US eShop site
 // uses (Algolia). The defaults are the public search-only credentials that
 // site ships to every visitor; override them or turn the ranking off.
-const eshopPopularity = envBool("COOK_ESHOP_POPULARITY", true);
+let eshopPopularity = envBool("COOK_ESHOP_POPULARITY", true);
 const eshopAlgoliaAppId = envString("COOK_ESHOP_ALGOLIA_APP_ID", "U3B6GR4UA3").trim();
 const eshopAlgoliaKey = envString("COOK_ESHOP_ALGOLIA_KEY", "a29c6927638bfd8cee23993e51e721c9").trim();
 // Icons, banners and screenshots are fetched from the eShop CDN (the
 // URLs titledb lists) and cached on disk. false serves only what is cached,
 // extracted from the game files, or uploaded on the admin page.
-const eshopArtwork = envBool("COOK_ESHOP_ARTWORK", true);
+let eshopArtwork = envBool("COOK_ESHOP_ARTWORK", true);
 // oc-scraper base URL (e.g. http://host:18765). Base games then carry Steam /
 // IGDB / RAWG review scores from it, matched by title id. Empty turns it off.
 const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
-const ratingSync = envBool("COOK_RATING_SYNC", true);
+let ratingSync = envBool("COOK_RATING_SYNC", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -298,7 +298,7 @@ const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 })
 // working regardless. Off by default so upgrades don't change behavior. For a
 // pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
 // basic-auth lane is disabled and an approved device is the sole way in.
-const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
+let devicePairing = envBool("COOK_DEVICE_PAIRING", false);
 // With pairing on: a console that signs in with an account or its device login
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set
@@ -306,10 +306,60 @@ const devicePairing = envBool("COOK_DEVICE_PAIRING", false);
 // "all" approves every console that asks, signed in or not: for a server only
 // your own consoles can reach.
 const autoApproveMode = envString("COOK_DEVICE_AUTO_APPROVE", "true").trim().toLowerCase();
-const deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
-const deviceAutoApproveAll = autoApproveMode === "all";
+let deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
+let deviceAutoApproveAll = autoApproveMode === "all";
+
+// titledb: fetched in the background and refreshed on a timer; the regions are
+// the per-language name lists it reads (see titledb-fetcher.js DEFAULT_REGIONS).
+let titledbAutoFetch = envBool("COOK_TITLEDB_AUTO_FETCH", true);
+let titledbRegions = envString("COOK_TITLEDB_REGIONS", "").split(",").map((s) => s.trim()).filter(Boolean);
+
+/*
+ * Settings the admin page can change while the server runs (see
+ * security/server-settings.js). ENV_SETTINGS is what compose set; the values
+ * above are replaced by applyServerSettings, and because ES module exports are
+ * live bindings every importer reads the new value on its next request.
+ */
+const ENV_SETTINGS = Object.freeze({
+  devicePairing,
+  deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
+  uploadsEnabled,
+  publicBaseUrl,
+  extractIcons,
+  langPriority: [...langPriority],
+  titledbAutoFetch,
+  titledbRegions: [...titledbRegions],
+  eshopPrices,
+  eshopPopularity,
+  eshopArtwork,
+  ratingSync,
+  welcomeMessage,
+});
+
+/** Puts saved values over the compose ones; a key left out goes back to compose. */
+function applyServerSettings(saved = {}) {
+  const v = { ...ENV_SETTINGS, ...saved };
+  devicePairing = v.devicePairing;
+  deviceAutoApprove = v.deviceApproval !== "manual";
+  deviceAutoApproveAll = v.deviceApproval === "all";
+  uploadsEnabled = v.uploadsEnabled;
+  publicBaseUrl = v.publicBaseUrl ? normalizeBaseUrl(v.publicBaseUrl) : null;
+  extractIcons = v.extractIcons;
+  langPriority = [...v.langPriority];
+  titledbAutoFetch = v.titledbAutoFetch;
+  titledbRegions = [...v.titledbRegions];
+  eshopPrices = v.eshopPrices;
+  eshopPopularity = v.eshopPopularity;
+  eshopArtwork = v.eshopArtwork;
+  ratingSync = v.ratingSync;
+  welcomeMessage = v.welcomeMessage || null;
+}
 
 export {
+  ENV_SETTINGS,
+  applyServerSettings,
+  titledbAutoFetch,
+  titledbRegions,
   romsDirPath,
   jsonTemplatePath,
   appPort,

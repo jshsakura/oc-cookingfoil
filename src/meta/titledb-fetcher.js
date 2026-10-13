@@ -8,6 +8,7 @@
 import { mkdir, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
+import { titledbRegions } from "../helpers/envs.js";
 import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
 
 const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
@@ -24,8 +25,9 @@ export const DEFAULT_REGIONS = [
 ];
 const RENAMED = { "EU.en": "GB.en" };
 
+/** The regions set on the admin page, else COOK_TITLEDB_REGIONS, else the defaults. */
 export function getRegionsFromEnv() {
-  const raw = process.env.COOK_TITLEDB_REGIONS;
+  const raw = titledbRegions.length ? titledbRegions.join(",") : process.env.COOK_TITLEDB_REGIONS;
   if (!raw) return DEFAULT_REGIONS;
   const regions = raw
     .split(",")

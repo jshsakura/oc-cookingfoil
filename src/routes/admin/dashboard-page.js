@@ -14,6 +14,7 @@ import { ICON_CSS, icon } from "../../views/icons.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
+import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 
@@ -175,7 +176,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${ICON_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${ICON_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
@@ -257,6 +258,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 </section>
 
 <section id="tab-settings" hidden>
+  ${SERVER_SETTINGS_HTML}
   ${INTEGRATIONS_HTML}
   <div class="hd"><h2>구글 로그인 설정</h2></div>
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
@@ -337,7 +339,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   </form>
   <h2>서버 설정</h2>
   <dl class="kv" id="settings"></dl>
-  <p class="muted">설정 값은 compose 환경변수에서 읽습니다. 바꾸려면 compose 를 고치고 컨테이너를 다시 띄웁니다.</p>
+  <p class="muted">바꿀 수 있는 설정은 설정 탭의 서버 동작에 있습니다.</p>
 </section>
 
 ${RETRO_ART_HTML}
@@ -427,5 +429,5 @@ ${ALERTS_HTML}
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
 }

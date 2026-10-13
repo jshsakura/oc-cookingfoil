@@ -1,0 +1,77 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+// Server behaviour set on the admin page: saved over compose, applied at once
+// to every module that imported it, and back to compose when cleared.
+const dir = mkdtempSync(path.join(tmpdir(), "cook-ss-"));
+process.env.COOK_DATA_DIR = dir;
+process.env.COOK_DEVICE_PAIRING = "false";
+process.env.COOK_DEVICE_AUTO_APPROVE = "true";
+process.env.COOK_UPLOADS_ENABLED = "false";
+process.env.COOK_PUBLIC_BASE_URL = "";
+process.env.COOK_LANG_PRIORITY = "ko,en";
+const env = await import("../../src/helpers/envs.js");
+const settings = await import("../../src/security/server-settings.js");
+const { getRegionsFromEnv, DEFAULT_REGIONS } = await import("../../src/meta/titledb-fetcher.js");
+
+test("with nothing saved every setting is the compose value", () => {
+  const d = settings.describe();
+  assert.equal(d.devicePairing.value, false);
+  assert.equal(d.devicePairing.source, "env");
+  assert.equal(d.deviceApproval.value, "signin");
+  assert.deepEqual(d.langPriority.value, ["ko", "en"]);
+  assert.equal(d.publicBaseUrl.value, "");
+});
+
+test("a saved value applies at once to importers and is kept in a private file", () => {
+  const changed = settings.save({ devicePairing: true, deviceApproval: "manual", uploadsEnabled: true, publicBaseUrl: "https://files.example.org/" });
+  assert.deepEqual(changed.sort(), ["deviceApproval", "devicePairing", "publicBaseUrl", "uploadsEnabled"]);
+  assert.equal(env.devicePairing, true);
+  assert.equal(env.deviceAutoApprove, false);
+  assert.equal(env.deviceAutoApproveAll, false);
+  assert.equal(env.uploadsEnabled, true);
+  assert.equal(env.publicBaseUrl, "https://files.example.org");
+  const file = path.join(dir, "security", "server-settings.json");
+  assert.equal(JSON.parse(readFileSync(file, "utf8")).settings.devicePairing, true);
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+  const d = settings.describe().devicePairing;
+  assert.deepEqual([d.value, d.source, d.envValue], [true, "saved", false]);
+});
+
+test("'all' approves every console; null goes back to compose", () => {
+  settings.save({ deviceApproval: "all" });
+  assert.equal(env.deviceAutoApproveAll, true);
+  settings.save({ deviceApproval: null, devicePairing: null });
+  assert.equal(env.deviceAutoApprove, true);
+  assert.equal(env.deviceAutoApproveAll, false);
+  assert.equal(env.devicePairing, false);
+  assert.equal(settings.describe().devicePairing.source, "env");
+});
+
+test("lists are split on commas, and the titledb regions follow the saved ones", () => {
+  settings.save({ langPriority: " ja , en ", titledbRegions: "KR.ko,US.en" });
+  assert.deepEqual(env.langPriority, ["ja", "en"]);
+  assert.deepEqual(getRegionsFromEnv(), ["KR.ko", "US.en"]);
+  settings.save({ titledbRegions: "" });
+  assert.deepEqual(getRegionsFromEnv(), DEFAULT_REGIONS);
+});
+
+test("a value that doesn't fit is refused and nothing is saved", () => {
+  const before = settings.describe();
+  for (const bad of [
+    { devicePairing: "yes" }, { deviceApproval: "everyone" }, { publicBaseUrl: "files.example.org" },
+    { langPriority: "" }, { langPriority: "ko;rm" }, { titledbRegions: "kr" }, { extractIcons: "some" },
+    { welcomeMessage: "two\nlines" }, { nope: true },
+  ]) assert.throws(() => settings.save({ ...bad, uploadsEnabled: false }), undefined, JSON.stringify(bad));
+  assert.deepEqual(settings.describe(), before);
+});
+
+test("a saved file is read back on start", () => {
+  settings.save({ ratingSync: false, eshopArtwork: false });
+  settings.load();
+  assert.equal(env.ratingSync, false);
+  assert.equal(env.eshopArtwork, false);
+});

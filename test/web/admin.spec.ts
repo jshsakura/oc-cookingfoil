@@ -190,6 +190,36 @@ test('a patch is switched between required and optional from the patch list and 
   await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
 });
 
+test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#settings');
+  const features = async () => (await (await request.get('/api/shop/info')).json()).features as string[];
+  expect(await features()).toContain('device-pairing');
+  const row = page.locator('.ss-row[data-key="devicePairing"]');
+  await expect(row.getByRole('button', { name: 'compose 값으로' })).toHaveCount(0);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#ss-list').screenshot({ path: 'out/web/admin-server-settings.png' });
+
+  await row.locator('.ss-switch').click();
+  await expect(row).toContainText('여기서 정한 값입니다. compose 값은 켜짐 입니다.');
+  expect(await features()).not.toContain('device-pairing');
+
+  const approval = page.locator('.ss-row[data-key="deviceApproval"] select');
+  await approval.selectOption('manual');
+  await expect(page.locator('.ss-row[data-key="deviceApproval"]')).toContainText('여기서 정한 값입니다');
+
+  const lang = page.locator('.ss-row[data-key="langPriority"] input');
+  await lang.fill('ko;bad');
+  await lang.press('Enter');
+  await expect(page.locator('#toast')).toContainText('이름 언어 순서 값이 맞지 않습니다');
+
+  await row.getByRole('button', { name: 'compose 값으로' }).click();
+  await expect(row.locator('.ss-src')).toHaveCount(0);
+  await page.locator('.ss-row[data-key="deviceApproval"]').getByRole('button', { name: 'compose 값으로' }).click();
+  await expect(page.locator('.ss-row[data-key="deviceApproval"] .ss-src')).toHaveCount(0);
+  expect(await features()).toContain('device-pairing');
+});
+
 test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings');

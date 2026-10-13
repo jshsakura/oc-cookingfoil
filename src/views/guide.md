@@ -9,13 +9,13 @@
 3. 브라우저로 서버 주소를 열면 처음 설정 화면이 나옵니다. 설정 코드, 관리자 계정, 인증 앱 등록 순서로 진행합니다.
 4. 끝나면 관리 페이지가 열립니다. 이후 관리 페이지는 계정 로그인 뒤 관리자 비밀번호나 인증 앱의 6자리 코드를 한 번 더 묻습니다. 관리자 역할의 구글 계정으로 로그인했으면 묻지 않습니다.
 
-설정은 모두 선택입니다. `.env` 에 넣는 값은 `.env.example` 에 설명이 있습니다.
+설정은 모두 선택입니다. 기기 연결, 웹 업로드, 공개 주소, 이름 언어, 게임 정보 받기, 외부 정보는 설정 탭의 서버 동작에서 바꾸고 바로 적용합니다. 거기서 바꾸지 않은 것은 `.env` 값을 쓰고, `.env` 의 값은 `.env.example` 에 설명이 있습니다.
 
 ## 2. 사용자와 기기 (사용자 · 기기 탭)
 
 - **계정**: 사용자 탭에서 만들고, 끄고, 비밀번호를 바꿉니다. 역할은 관리자와 일반 사용자 둘입니다.
 - **기기별 접속 정보**: 기기 탭에서 콘솔 하나에만 묶이는 접속 정보를 만듭니다. 처음 쓴 콘솔에 묶이고 언제든 끊을 수 있어 계정 비밀번호를 콘솔에 넣는 것보다 안전합니다.
-- **기기 승인**: `COOK_DEVICE_PAIRING=true` 이면 클라이언트에 QR 이 뜹니다. 휴대폰으로 찍어 승인하거나 기기 탭에서 승인합니다.
+- **기기 승인**: 설정 탭의 서버 동작에서 "QR 로 기기 연결"을 켜면 클라이언트에 QR 이 뜹니다. 휴대폰으로 찍어 승인하거나 기기 탭에서 승인합니다. 승인 방식(직접 승인, 로그인한 기기는 바로 승인, 모두 승인)도 거기서 고릅니다.
 - **잠금 풀기**: 비밀번호를 여러 번 틀린 주소는 잠깁니다. 로그 탭에서 풉니다.
 
 ## 3. 외부 서비스 키 (설정 탭)
@@ -89,6 +89,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 외부 서비스 키 상태, 저장, 확인 | `GET /admin/api/integrations`, `POST /admin/api/integrations/<igdb\|steamgriddb\|dropbox\|github\|ratings>`, `POST …/<서비스>/test` |
 | 홈브류 목록, 추가, 지금 확인 | `GET /admin/api/homebrew`, `POST /admin/api/homebrew` `{ "repo": "owner/name" }`, `POST /admin/api/homebrew/check` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
+| 서버 동작 보기, 바꾸기 (null 이면 compose 값으로), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "devicePairing": true }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` |
 | 게임 소개와 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "description": { "ko", "en" }, "notes": { "ko", "en" } }`, `POST …/<타이틀 ID>/reset` |
 | 기기 목록, 승인, 이름, 끊기 | `GET /admin/api/devices`, `POST /admin/api/devices/approve` `{ "code": "<기기 코드>" }`, `…/label`, `…/revoke` |
