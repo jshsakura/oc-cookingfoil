@@ -75,7 +75,11 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .howto{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:22px}
 .howto ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}.howto .copy-row code{background:var(--sunk)}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
-.up-kinds{display:flex;gap:6px;flex-wrap:wrap}
+.up-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.up-kinds button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;text-align:left;padding:12px 14px;border-radius:14px}
+.up-kinds button span{font-size:12px;font-weight:400;color:var(--muted)}
+.up-kinds button[aria-pressed="true"] span{color:inherit;opacity:.75}
+.up-hint{margin:0 0 12px;min-height:1.4em}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
 .up-drop:hover,.up-drop:focus-visible,.up-drop.over{border-color:var(--accent);background:rgba(var(--accent-rgb),.08);outline:none}
 .up-drop svg{width:40px;height:40px;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -99,6 +103,9 @@ form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transpare
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .up-log{display:grid;gap:6px;margin-top:14px}
 td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+/* On a wide screen the buttons sit side by side and the column is as wide as they are. */
+@media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}td>.row-actions{flex-wrap:nowrap}}
+td .pills{display:flex;flex-wrap:wrap;gap:6px}
 td .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
 td.dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
@@ -380,10 +387,19 @@ ${ALERTS_HTML}
 
 <section id="tab-upload" hidden>
   <div class="hd"><h2>업로드</h2></div>
+  <div class="up-kinds" id="up-kinds" role="group" aria-label="올릴 종류">
+    <button type="button" data-kind="game"><b>패키지</b><span>nsp · nsz · xci · xcz</span></button>
+    <button type="button" data-kind="retro"><b>레트로 롬</b><span>기종별 롬, CD 이미지</span></button>
+    <button type="button" data-kind="patch"><b>패치</b><span>게임이나 앱에 덮는 파일</span></button>
+    <button type="button" data-kind="save"><b>세이브</b><span>게임이나 앱의 세이브</span></button>
+    <button type="button" data-kind="homebrew"><b>홈브류</b><span>.nro, 앱 폴더</span></button>
+    <button type="button" data-kind="port"><b>포트</b><span>옮겨 온 게임 앱</span></button>
+  </div>
+  <p class="muted up-hint" id="up-hint"></p>
   <div class="up-drop" id="up-drop" tabindex="0" role="button" aria-label="올릴 파일 고르기">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
     <b id="up-drop-t">파일이나 폴더를 여기에 끌어다 놓습니다</b>
-    <span id="up-chosen">게임 패키지, 레트로 롬, 홈브류 .nro, 패치·세이브 zip 이나 폴더를 넣으면 종류를 알아서 고릅니다</span>
+    <span id="up-chosen">놓은 파일의 이름을 보고 종류를 알아서 고릅니다</span>
     <div class="pick">
       <button type="button" id="up-file-btn">파일 고르기</button>
       <button type="button" id="up-dir-btn">폴더 고르기</button>
@@ -393,15 +409,6 @@ ${ALERTS_HTML}
   </div>
   <div id="up-note"></div>
   <form class="up" id="up-form" hidden>
-    <div class="up-kinds" id="up-kinds" role="group" aria-label="종류">
-      <button type="button" data-kind="game">패키지</button>
-      <button type="button" data-kind="retro">레트로 롬</button>
-      <button type="button" data-kind="patch">패치</button>
-      <button type="button" data-kind="save">세이브</button>
-      <button type="button" data-kind="homebrew">홈브류</button>
-      <button type="button" data-kind="port">포트</button>
-    </div>
-    <p class="muted" id="up-hint"></p>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
     <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>

@@ -299,13 +299,14 @@ async function loadHomebrew(){
       sel.value=s.pattern||'';sel.addEventListener('change',()=>setHbAsset(s.repo,sel.value));file.append(sel);}
     else file.textContent=s.chosen||'—';
     tr.append(file);
-    const st=td();
-    if(s.error){st.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
-    else if(s.cached)st.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
-    else st.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
+    const st=td();const pills=el('div',null,'pills');st.append(pills);
+    if(s.error){pills.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
+    else if(s.cached)pills.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
+    else pills.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
     if(s.install){const folder=s.install.mode==='folder';
-      st.append(pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null));
-      if(!folder&&HB_REASON[s.install.reason])st.append(el('div',HB_REASON[s.install.reason],'muted'));
+      const how=pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null);
+      if(!folder&&HB_REASON[s.install.reason])how.title=HB_REASON[s.install.reason];
+      pills.append(how);
       for(const x of s.install.excluded||[])st.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'muted'));
       if(s.install.rules?.length){const d=el('details');d.append(el('summary','판단 근거'),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
@@ -445,7 +446,7 @@ async function droppedFiles(dt){
   for(const en of entries)await walk(en,'');
   return {files,paths};}
 function upHint(){const app=$('up-target').value;
-  let h=!upKind?'파일 이름만으로는 종류를 알 수 없습니다. 위에서 종류를 고릅니다.':app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
+  let h=!upKind?(upFiles.length?'파일 이름만으로는 종류를 알 수 없습니다. 위에서 종류를 고릅니다.':'올릴 종류를 고르거나, 아래에 파일을 바로 놓습니다.'):app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
   if(upKind==='retro'&&upSystems.length>1)h+=' 이 확장자는 여러 기종이 씁니다. 기종이 맞는지 확인합니다.';
   if(upKind==='game'&&upFiles.length>1)h+=' 고른 '+upFiles.length+'개를 하나씩 차례로 올립니다.';
   $('up-hint').textContent=h;}
@@ -453,7 +454,7 @@ function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.
   $('up-drop').classList.toggle('has',n>0);$('up-form').hidden=!(n||$('up-target').value);
   $('up-drop-t').textContent=n?'다른 파일로 바꾸려면 여기에 다시 놓습니다':'파일이나 폴더를 여기에 끌어다 놓습니다';
   $('up-chosen').textContent=n?(upPaths?upPaths[0].split('/')[0]+'/ · ':'')+(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB'
-    :'게임 패키지, 레트로 롬, 홈브류 .nro, 패치·세이브 zip 이나 폴더를 넣으면 종류를 알아서 고릅니다';}
+    :'놓은 파일의 이름을 보고 종류를 알아서 고릅니다';}
 function upSetKind(kind){upKind=kind;
   for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
   upHint();
@@ -495,7 +496,8 @@ async function upTake(files,paths){
   if(g.titleId&&!keep){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
     $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}
   // Picked as a port: a homebrew guess stays a port.
-  upSetKind(keep?upKind:upKind==='port'&&g.kind==='homebrew'?'port':g.kind);upChosen();}
+  // A kind picked before the files stays when their names say nothing.
+  upSetKind(keep?upKind:upKind==='port'&&g.kind==='homebrew'?'port':g.kind??upKind);upChosen();}
 function upReset(){upFiles=[];upPaths=null;upSystems=[];
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
   $('up-required').checked=false;

@@ -96,6 +96,11 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await signIn(page);
   await page.goto('/admin#upload');
   await expect(page.locator('#up-form')).toBeHidden();
+  // Before any file the kinds are on show, each saying what it takes.
+  await expect(page.locator('#up-kinds [data-kind="retro"]')).toContainText('레트로 롬');
+  await expect(page.locator('#up-hint')).toContainText('올릴 종류를 고르거나');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-upload-empty.png', fullPage: true });
 
   // A patch folder names its game; the form fills itself in.
   const dir = fs.mkdtempSync('/tmp/cf-up-');
