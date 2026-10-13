@@ -52,6 +52,7 @@ import * as ratingSync from "./meta/rating-sync.js";
 import { iconLangs } from "./meta/localized-art.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
+import * as gameDescriptions from "./meta/game-descriptions.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
   shouldAutoExtract,
@@ -69,6 +70,7 @@ import {
   extractMaxBytes,
   emitTitledb,
   eshopPrices,
+  langPriority,
 } from "./helpers/envs.js";
 import {
   addUrlEncodedFileInfo as encodeUrlObject,
@@ -180,8 +182,20 @@ function resolveDisplayName(parsed, fromDb) {
   });
 }
 
+/**
+ * The admin's own name for a game, in the first display language they wrote it
+ * in, with the English one after it the way titledb names are shown. Pure.
+ */
+export function ownDisplayName(own, priority) {
+  const lang = priority.map((l) => l.split("-")[0]).find((l) => own[l]) ?? (own.en ? "en" : "ko");
+  const name = own[lang];
+  return lang !== "en" && own.en && !name.toLowerCase().includes(own.en.toLowerCase()) ? `${name} (${own.en})` : name;
+}
+
 function baseDisplayName(parsed, fromDb) {
   const baseId = parsed.groupTitleId;
+  const own = baseId ? gameDescriptions.names(baseId) : null;
+  if (own) return ownDisplayName(own, langPriority);
   const extracted = !fromDb && baseId ? extractedMeta.get(baseId) : null;
   // A title never released in the preferred-language region has no titledb
   // entry for ITS id, so `fromDb.name` is the foreign one — even though the

@@ -26,6 +26,7 @@ import { dataDir, publicBaseUrl, ratingSync, retroDir } from "../../helpers/envs
 import { resolveOrigin } from "../../helpers/origin.js";
 import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
+import * as retroNames from "../../retro/names.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 
@@ -87,7 +88,7 @@ function overview(catalog) {
     const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, bezel: 0 });
     s.games++;
     if (g.icon) s.boxart++;
-    else missing.push({ id: g.id, system: g.system, name: g.name, rom: romKey(g), original: g.original ?? null });
+    else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
     if (g.bezel && !g.bezel.generic) s.bezel++;
   }
   return { systems: Object.values(systems), missing };
@@ -214,14 +215,24 @@ export function mountRetroArtApi(router, requireSession) {
     res.json({ ok: true, files: files.length });
   }));
 
+  // The name clients show for a game: { ko, en }, both empty = the file's own again.
+  router.post("/api/retro-art/games/name", guarded(async (req, res) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const g = catalog.byId.get(String(req.body?.game ?? ""));
+    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    retroNames.set(g.id, { ko: req.body?.ko, en: req.body?.en });
+    debug.log("admin: retro game %s named", g.id);
+    res.json({ ok: true, title: retroNames.get(g.id) });
+  }));
+
   router.get("/api/retro-art/games", guarded(async (req, res) => {
     const q = String(req.query.q ?? "").trim().toLowerCase().slice(0, 100);
     if (!q) return res.json({ games: [] });
     const catalog = await retroCatalog.current(retroDir);
     const games = catalog.games
-      .filter((g) => g.name.toLowerCase().includes(q) || (g.original ?? "").toLowerCase().includes(q))
+      .filter((g) => [g.name, g.original, ...Object.values(retroNames.get(g.id) ?? {})].some((s) => (s ?? "").toLowerCase().includes(q)))
       .slice(0, 500)
-      .map((g) => ({ id: g.id, system: g.system, name: g.name, rom: romKey(g), original: g.original ?? null, boxart: Boolean(g.icon) }));
+      .map((g) => ({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null, boxart: Boolean(g.icon) }));
     res.json({ games });
   }));
 }

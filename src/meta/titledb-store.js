@@ -13,6 +13,7 @@ import debug from "../debug.js";
 import { titledbCacheDir, langPriority } from "../helpers/envs.js";
 import { slimPathFor, writeSlimFromJson, SLIM_SCHEMA_VERSION } from "./titledb-slim.js";
 import { normalizeSupportedLanguages } from "./supported-languages.js";
+import * as gameDescriptions from "./game-descriptions.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
 
 // Fields we surface in the merged record. Keep the list aligned with the
@@ -396,7 +397,10 @@ function localized(titleId, field) {
 
 /** The game's name in each language titledb has it in: { ko?, en?, ja?, zh? }, or null. */
 export function namesOf(titleId) {
-  return localized(titleId, "names");
+  // The name the admin gave the game wins over titledb's, language by language.
+  const own = gameDescriptions.names(titleId);
+  const names = localized(titleId, "names");
+  return own ? { ...(names ?? {}), ...own } : names;
 }
 
 /** The game's description in each language titledb has it in, or null. */

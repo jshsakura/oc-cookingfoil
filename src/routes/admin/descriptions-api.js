@@ -11,6 +11,7 @@
  */
 import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as titledbStore from "../../meta/titledb-store.js";
+import * as shopCache from "../../meta/shop-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
 import { libraryGames } from "./upload-api.js";
 import debug from "../../debug.js";
@@ -45,17 +46,20 @@ export function mountDescriptionsApi(router, requireSession) {
     const id = idOf(req, res);
     if (!id) return;
     const original = titledbStore.get(id)?.description ?? extractedMeta.get(id)?.description ?? null;
-    res.json({ titleId: id, own: gameDescriptions.get(id), original });
+    const originalName = titledbStore.get(id)?.name ?? extractedMeta.get(id)?.name ?? null;
+    res.json({ titleId: id, own: gameDescriptions.get(id), original, originalName });
   }));
 
   router.post("/api/descriptions/:id", handle(async (req, res) => {
     const id = idOf(req, res);
     if (!id) return;
     const text = (v) => (typeof v === "string" ? v : null);
-    for (const field of ["description", "notes"]) {
+    for (const field of gameDescriptions.FIELDS) {
       const v = req.body?.[field];
       if (v && typeof v === "object") gameDescriptions.set(id, field, { en: text(v.en), ko: text(v.ko) });
     }
+    // A changed name is baked into the list the server hands out: build it again.
+    if (req.body?.name) shopCache.invalidate({ rescan: true });
     debug.log("admin: description of %s saved", id);
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
@@ -63,8 +67,9 @@ export function mountDescriptionsApi(router, requireSession) {
   router.post("/api/descriptions/:id/reset", handle(async (req, res) => {
     const id = idOf(req, res);
     if (!id) return;
-    const field = ["description", "notes"].includes(req.body?.field) ? req.body.field : null;
+    const field = gameDescriptions.FIELDS.includes(req.body?.field) ? req.body.field : null;
     gameDescriptions.reset(id, field);
+    if (!field || field === "name") shopCache.invalidate({ rescan: true });
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
 }

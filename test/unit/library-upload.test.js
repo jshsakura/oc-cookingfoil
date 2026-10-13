@@ -163,7 +163,7 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(ko.notes, "게임 데이터를 함께 설치합니다.", "notes come apart from the description");
     assert.equal((await title("en")).description, "Install with its data.");
     const own = await (await fetch(`${BASE}/admin/api/descriptions/${MK}`, { headers: admin })).json();
-    assert.deepEqual(own.own, { description: { ko: "필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.", en: "Install with its data." }, notes: { ko: "게임 데이터를 함께 설치합니다.", en: null } });
+    assert.deepEqual(own.own, { name: null, description: { ko: "필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.", en: "Install with its data." }, notes: { ko: "게임 데이터를 함께 설치합니다.", en: null } });
     assert.equal((await fetch(`${BASE}/admin/api/descriptions/${MK}`, { headers: { Authorization: ALICE } })).status, 401, "admin session only");
     assert.equal((await desc("nope", { ko: "x" })).status, 400);
     assert.equal((await desc(`${MK}/reset`, { field: "description" })).status, 200);
