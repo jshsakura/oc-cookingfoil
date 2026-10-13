@@ -4,7 +4,7 @@
  * Talks to /admin/api/tokens (api-tokens-api.js).
  */
 
-export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2><a href="/admin/guide.md" target="_blank" rel="noopener">운영 안내 보기</a></div>
+export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2><a href="/admin/guide" target="_blank" rel="noopener">운영 안내 보기</a></div>
 <p class="muted">스크립트나 AI 도우미가 관리 페이지와 같은 일을 하게 할 때 씁니다. 토큰은 만든 관리자 계정으로 동작하고, 계정과 로그인 방식은 바꿀 수 없습니다. 도우미에게는 서버 주소, 토큰, 운영 안내를 함께 건넵니다. 다 쓰면 지웁니다.</p>
 <form class="add" id="tok-form" autocomplete="off">
   <input id="tok-label" placeholder="어디에 쓸지 (예: Claude)" aria-label="토큰 이름" maxlength="64">
