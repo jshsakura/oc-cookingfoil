@@ -24,7 +24,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <form id="ra-search" class="add"><input id="ra-q" aria-label="검색어" placeholder="영어 제목"><button class="primary">libretro 에서 찾기</button><button type="button" id="ra-sgdb-go">SteamGridDB 에서 찾기</button></form>
   <div class="ra-up" id="ra-up">
     <button type="button" id="ra-up-btn">내 이미지 올리기</button>
-    <span class="muted">jpg·png·webp 를 골라도 되고, 여기에 끌어다 놓거나 붙여 넣어도 됩니다. 400×600 안의 작은 PNG 로 바꿔 저장합니다.</span>
+    <span class="muted">jpg·png·webp 를 골라도 되고, 여기에 끌어다 놓거나 붙여 넣어도 됩니다. 모양을 살려 세로 표지는 400×600, 가로 표지는 600×400 안의 작은 PNG 로 바꿔 저장합니다.</span>
     <input type="file" id="ra-up-file" accept="image/*" hidden>
   </div>
   <p class="muted" id="ra-msg"></p>

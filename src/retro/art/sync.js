@@ -29,10 +29,11 @@ const CANDIDATES = 24;
 const SGDB = "https://www.steamgriddb.com/api/v2";
 const SGDB_CDN_RE = /^https:\/\/cdn\d*\.steamgriddb\.com\//;
 export const MAX_COVER_BYTES = 15 * 1024 * 1024;
-// Box art is shown small on the console: bound it to 400x600 and keep it a
+// Box art is shown small on the console: its long side to 600 and short side to
+// 400 whichever way it stands (tall SNES boxes, wide Japanese ones), kept a
 // paletted PNG, about a fifth of libretro's originals (85 KB against 400 KB).
-const COVER_MAX_W = 400;
-const COVER_MAX_H = 600;
+const COVER_LONG = 600;
+const COVER_SHORT = 400;
 const OPTIMIZE_CONCURRENCY = 2;
 // Small enough already: not worth a re-encode (and it may not shrink).
 const SMALL_COVER_BYTES = 48 * 1024;
@@ -296,9 +297,12 @@ export class CoverImageError extends Error {}
 /** Any image sharp can read (jpg, png, webp, gif, avif …) → a small PNG. Upright, never enlarged. */
 export async function encodeCover(raw) {
   try {
+    const m = await sharp(raw, { failOn: "none" }).metadata();
+    // EXIF orientations 5-8 turn the picture a quarter, swapping its sides.
+    const wide = (m.orientation >= 5 ? m.height : m.width) > (m.orientation >= 5 ? m.width : m.height);
     return await sharp(raw, { failOn: "none" })
       .rotate()
-      .resize({ width: COVER_MAX_W, height: COVER_MAX_H, fit: "inside", withoutEnlargement: true })
+      .resize({ width: wide ? COVER_LONG : COVER_SHORT, height: wide ? COVER_SHORT : COVER_LONG, fit: "inside", withoutEnlargement: true })
       .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
       .toBuffer();
   } catch (err) {
@@ -310,7 +314,7 @@ export async function encodeCover(raw) {
 async function isOptimized(file) {
   if ((await fsp.stat(file)).size <= SMALL_COVER_BYTES) return true;
   const m = await sharp(file, { failOn: "none" }).metadata();
-  return m.width <= COVER_MAX_W && m.height <= COVER_MAX_H && m.paletteBitDepth !== undefined;
+  return Math.max(m.width, m.height) <= COVER_LONG && Math.min(m.width, m.height) <= COVER_SHORT && m.paletteBitDepth !== undefined;
 }
 
 /**

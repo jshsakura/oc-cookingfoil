@@ -80,6 +80,11 @@ test("an uploaded cover of any format becomes a small upright PNG; anything else
   await art.saveCoverImage(dir, system, "small", tiny);
   assert.deepEqual([(await sharp(art.boxartPath(dir, system, "small")).metadata()).width], [40], "never enlarged");
 
+  const wide = await sharp({ create: { width: 1500, height: 1000, channels: 3, background: "#036" } }).png().toBuffer();
+  await art.saveCoverImage(dir, system, "wide", wide);
+  const w = await sharp(art.boxartPath(dir, system, "wide")).metadata();
+  assert.deepEqual([w.width, w.height], [600, 400], "a wide box keeps its width");
+
   await assert.rejects(art.saveCoverImage(dir, system, "bad", Buffer.from("not an image at all")), art.CoverImageError);
   await assert.rejects(art.saveCoverImage(dir, system, "empty", Buffer.alloc(0)), art.CoverImageError);
   await assert.rejects(art.saveCoverImage(dir, system, "huge", Buffer.alloc(art.MAX_COVER_BYTES + 1)), /15 MB/);
