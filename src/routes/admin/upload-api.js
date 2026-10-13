@@ -174,9 +174,15 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   for (const [i, it] of items.entries()) await moveFile(it.abs, path.join(out, ...rels[i].split("/")));
   const description = String(body.description ?? "").trim().slice(0, 2000);
   const descriptionKo = String(body.descriptionKo ?? "").trim().slice(0, 2000);
+  // The default text is the English one, or the Korean one when that is all
+  // there is; the Korean text is kept apart when both are given.
+  const text = {
+    ...(description || descriptionKo ? { description: description || descriptionKo } : {}),
+    ...(description && descriptionKo ? { ko: { description: descriptionKo } } : {}),
+  };
   const meta = kind === "patch"
-    ? { name, ...(description || descriptionKo ? { description: descriptionKo || description } : {}), ...(!app && body.required === "true" ? { required: true } : {}) }
-    : { name, ...(description ? { description } : {}), ...(saveType ? { saveType } : {}), ...(descriptionKo ? { ko: { description: descriptionKo } } : {}) };
+    ? { name, ...text, ...(!app && body.required === "true" ? { required: true } : {}) }
+    : { name, ...text, ...(saveType ? { saveType } : {}) };
   await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.rename(out, dest);
