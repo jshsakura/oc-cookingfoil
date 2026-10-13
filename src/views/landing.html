@@ -299,8 +299,9 @@
       /* CHARTS: what the library is made of, drawn from the same list */
       .charts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
       .chart { grid-column: span 2; }
-      .chart.wide { grid-column: span 3; }
-      .chart.full { grid-column: 1 / -1; }
+      .chart.c2 { grid-column: span 2; }
+      .chart.c3 { grid-column: span 3; }
+      .chart.c6 { grid-column: 1 / -1; }
       .charts[hidden] { display: none; }
       .chart { background: var(--sunk); border-radius: 14px; padding: 12px 14px; min-width: 0; --c1: var(--butter); --c2: var(--good); --c3: #8b9cf7; }
       .chart h4 { font-size: 12px; font-weight: 600; color: var(--secondary); margin-bottom: 10px; display: flex; gap: 8px; }
@@ -624,8 +625,8 @@
       @media (max-width: 900px) {
         .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .chart, .chart.wide { grid-column: span 1; }
-        .chart.full { grid-column: 1 / -1; }
+        .chart, .chart.c2, .chart.c3 { grid-column: span 1; }
+        .chart.c6, .chart.odd-last { grid-column: 1 / -1; }
       }
       @media (max-width: 640px) {
         .charts { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -635,7 +636,7 @@
         .stat .sub { font-size: 11px; }
         .donut { width: 72px; height: 72px; }
         .cols { height: 60px; }
-        .chart, .chart.wide { grid-column: 1 / -1; }
+        .chart, .chart.c2, .chart.c3 { grid-column: 1 / -1; }
         .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) auto; }
         /* Search and sort share the top row half and half; the kind chips go under them. */
         .toolbar:has(.sort-select) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -1024,6 +1025,7 @@
           "chart.added": "최근 12개월 추가",
           "chart.genres": "장르",
           "chart.scores": "Steam 평점",
+          "chart.biggest": "용량 큰 게임",
           "chart.total": (n) => `총 ${n}`,
           "chip.custom": "커스텀",
           "pill.sale": "eShop 할인",
@@ -1203,6 +1205,7 @@
           "chart.added": "Added in the last 12 months",
           "chart.genres": "Genres",
           "chart.scores": "Steam reviews",
+          "chart.biggest": "Largest games",
           "chart.total": (n) => `${n} total`,
           "chip.custom": "Custom",
           "pill.sale": "eShop sale",
@@ -1385,6 +1388,7 @@
           "chart.added": "直近12か月の追加",
           "chart.genres": "ジャンル",
           "chart.scores": "Steam 評価",
+          "chart.biggest": "容量の大きいゲーム",
           "chart.total": (n) => `合計 ${n}`,
           "chip.custom": "カスタム",
           "pill.sale": "eShopセール",
@@ -1567,6 +1571,7 @@
           "chart.added": "近 12 个月新增",
           "chart.genres": "类型",
           "chart.scores": "Steam 评价",
+          "chart.biggest": "占用空间最大的游戏",
           "chart.total": (n) => `共 ${n}`,
           "chip.custom": "自訂",
           "pill.sale": "eShop 特價",
@@ -2102,7 +2107,7 @@
 
       function hbars(rows, max) {
         return `<div class="hbars">${rows.map((r) => `<div class="hbar"><span title="${esc(r.label)}">${esc(r.label)}</span>` +
-          `<div class="track"><div class="fill" style="width:${Math.max(2, (r.n / (max || 1)) * 100)}%${r.color ? `;--c:${r.color}` : ""}"></div></div><b>${r.n.toLocaleString()}</b></div>`).join("")}</div>`;
+          `<div class="track"><div class="fill" style="width:${Math.max(2, (r.n / (max || 1)) * 100)}%${r.color ? `;--c:${r.color}` : ""}"></div></div><b>${esc(r.text ?? r.n.toLocaleString())}</b></div>`).join("")}</div>`;
       }
 
       function renderCharts() {
@@ -2150,19 +2155,50 @@
           cards.push(chartCard(t("chart.genres"), "", hbars(top.map(([k, n]) => ({ label: genreLabel(k), n })), top[0][1]), " wide"));
         }
 
+        // Steam's nine tiers in five steps, so this card has as many rows as the genres beside it.
         const tiers = new Map();
         for (const sc of scoreOf.values()) if (sc.label) tiers.set(sc.label, (tiers.get(sc.label) || 0) + 1);
         if (tiers.size) {
-          const rows = STEAM_ORDER.filter((k) => tiers.has(k)).map((k, i, all) => ({
-            label: steamLabelName(k), n: tiers.get(k),
-            color: `color-mix(in srgb, var(--good) ${Math.round(100 - (i / Math.max(1, all.length - 1)) * 100)}%, var(--bad))`,
+          // [the tier whose name the row carries, the tiers it counts]
+          const STEPS = [
+            ["Overwhelmingly Positive", ["Overwhelmingly Positive"]], ["Very Positive", ["Very Positive"]],
+            ["Positive", ["Positive", "Mostly Positive"]], ["Mixed", ["Mixed"]],
+            ["Negative", ["Mostly Negative", "Negative", "Very Negative", "Overwhelmingly Negative"]],
+          ];
+          const rows = STEPS.map(([name, keys], i) => ({
+            label: steamLabelName(name),
+            n: keys.reduce((a, k) => a + (tiers.get(k) || 0), 0),
+            color: `color-mix(in srgb, var(--good) ${100 - i * 25}%, var(--bad))`,
           }));
-          cards.push(chartCard(t("chart.scores"), "", hbars(rows, Math.max(...rows.map((r) => r.n))), " wide"));
+          cards.push(chartCard(t("chart.scores"), "", hbars(rows, Math.max(1, ...rows.map((r) => r.n))), " wide"));
         }
 
-        // two wide cards share a row; a lone one takes the whole row
-        if (cards.filter((c) => c.includes('class="chart wide"')).length === 1) cards[cards.length - 1] = cards[cards.length - 1].replace('class="chart wide"', 'class="chart full"');
-        box.innerHTML = cards.join("");
+        // A lone wide card gets a partner: the games taking the most room, all their files together.
+        if (cards.filter((c) => c.includes('class="chart wide"')).length === 1) {
+          const byGame = new Map();
+          for (const f of files) {
+            const id = String(f.baseTitleId || f.titleId || f.name || "").toUpperCase();
+            const cur = byGame.get(id) ?? { n: 0, f };
+            cur.n += typeof f.size === "number" ? f.size : 0;
+            if (kindOf(f) === "base") cur.f = f;
+            byGame.set(id, cur);
+          }
+          const big = [...byGame].sort((a, b) => b[1].n - a[1].n).slice(0, 5).filter(([, g]) => g.n > 0);
+          if (big.length) {
+            const name = (id, f) => pickName(sectionOf.get(id)?.names, cleanName(String(f.name || "").replace(/\.[^.]+$/, "")) || id);
+            cards.push(chartCard(t("chart.biggest"), "", hbars(big.map(([id, g]) => ({ label: name(id, g.f), n: g.n, text: fmtBytes(g.n) })), big[0][1].n), " wide"));
+          }
+        }
+        // Each row is filled evenly whatever the count: the small cards share theirs, and so do the wide ones.
+        const isWide = (c) => c.includes('class="chart wide"');
+        const small = cards.filter((c) => !isWide(c)), wide = cards.filter(isWide);
+        const sized = (list, wideRow) => list.map((c, i) => {
+          const span = wideRow ? (list.length === 1 ? 6 : 3) : 6 / Math.min(3, list.length);
+          // on a two-column screen the odd one out at the end takes the whole row
+          const oddLast = list.length % 2 === 1 && i === list.length - 1 ? " odd-last" : "";
+          return c.replace(/class="chart( wide)?"/, `class="chart c${span}${oddLast}"`);
+        });
+        box.innerHTML = [...sized(small, false), ...sized(wide, true)].join("");
         box.hidden = false;
       }
 
