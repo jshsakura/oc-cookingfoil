@@ -114,3 +114,8 @@ test("admin accounts run the admin page; nobody locks themselves out; console lo
     child.kill("SIGKILL");
   }
 });
+
+test("the recommended homebrew never offers installers or other stores", async () => {
+  const { RECOMMENDED } = await import("../../src/meta/homebrew-recommended.js");
+  for (const r of RECOMMENDED) assert.doesNotMatch(r.repo, /goldleaf|dbi|hb-appstore/i, r.repo);
+});

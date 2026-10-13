@@ -2,6 +2,7 @@
  * Homebrew the admin page offers to follow in one go. Each was checked on
  * 2026-10-12 to publish a usable build (.nro, or a .zip with one inside) in
  * its latest GitHub release; `purpose` is what it is for, per language.
+ * Installers and other stores (Goldleaf, DBI, hb-appstore) are never offered.
  */
 const P = (ko, en, ja, zh) => ({ ko, en, ja, zh });
 
@@ -16,10 +17,8 @@ export const RECOMMENDED = [
   { repo: "BernardoGiordano/Checkpoint", purpose: P("세이브 백업", "Save backup", "セーブのバックアップ", "存档备份") },
   { repo: "joel16/NX-Shell", purpose: P("파일 관리자", "File manager", "ファイルマネージャー", "文件管理器") },
   { repo: "mtheall/ftpd", purpose: P("FTP 서버", "FTP server", "FTP サーバー", "FTP 服务器") },
-  { repo: "XorTroll/Goldleaf", purpose: P("파일·타이틀 관리", "Files and titles", "ファイル・タイトル管理", "文件与标题管理") },
   { repo: "DarkMatterCore/nxdumptool", purpose: P("덤프 도구", "Dump tool", "ダンプツール", "转储工具") },
   { repo: "ITotalJustice/sphaira", purpose: P("홈브류 메뉴", "Homebrew menu", "自作アプリメニュー", "自制程序菜单") },
-  { repo: "fortheusers/hb-appstore", purpose: P("홈브류 스토어", "Homebrew store", "自作アプリストア", "自制程序商店") },
   { repo: "HamletDuFromage/aio-switch-updater", purpose: P("업데이트 도구", "Updater", "アップデーター", "更新工具") },
   { repo: "exelix11/SwitchThemeInjector", purpose: P("테마 설치", "Theme installer", "テーマのインストール", "主题安装") },
   { repo: "nadrino/SimpleModManager", purpose: P("모드 관리", "Mod manager", "MOD 管理", "模组管理") },
