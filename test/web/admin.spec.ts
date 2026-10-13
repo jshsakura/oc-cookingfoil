@@ -26,7 +26,7 @@ test('an account created in the admin page signs in at /login and works for basi
 
   await page.getByRole('link', { name: '사용자' }).click();
   await page.getByLabel('사용자 이름').fill(NAME);
-  await page.getByLabel('비밀번호').fill(PASSWORD);
+  await page.getByLabel('비밀번호', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: '사용자 추가', exact: true }).click();
 
   const dialog = page.locator('#cred-dialog');
@@ -284,6 +284,39 @@ test('a game is renamed from the game editor and every list shows the new name',
   await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#gd-name-original')).toContainText('비워 두면');
   expect((await (await request.get('/api/title/0100000000010000?lang=ko')).json()).name).not.toBe('고친 이름');
+});
+
+test('the admin password is set, changed and removed on the settings tab, and opens the admin page', async ({ page, browser }) => {
+  page.on('dialog', (d) => d.accept());
+  await signIn(page);
+  await page.goto('/admin#settings');
+  await expect(page.locator('#ap-status')).toContainText('아직 관리자 비밀번호가 없습니다');
+  await page.locator('#ap-new').fill('first-password-123');
+  await page.locator('#ap-new2').fill('first-password-123');
+  await page.getByRole('button', { name: '비밀번호 정하기' }).click();
+  await expect(page.locator('#ap-status')).toContainText('여기서 정한 비밀번호가 있습니다');
+
+  // A fresh browser gets in with the password instead of a code.
+  const other = await browser.newPage();
+  await other.goto('/admin?enrolled=1');
+  await other.getByRole('button', { name: '관리자 비밀번호', exact: true }).click();
+  await other.getByLabel('관리자 비밀번호').fill('first-password-123');
+  await other.getByRole('button', { name: '들어가기', exact: true }).click();
+  await expect(other.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
+  await other.close();
+
+  await page.locator('#ap-current').fill('wrong-password-000');
+  await page.locator('#ap-new').fill('second-password-456');
+  await page.locator('#ap-new2').fill('second-password-456');
+  await page.getByRole('button', { name: '비밀번호 정하기' }).click();
+  await expect(page.locator('#toast')).toContainText('지금 비밀번호가 맞지 않습니다');
+  await page.locator('#ap-current').fill('first-password-123');
+  await page.getByRole('button', { name: '비밀번호 정하기' }).click();
+  await expect(page.locator('#toast')).toContainText('관리자 비밀번호를 정했습니다');
+
+  await page.locator('#ap-current').fill('second-password-456');
+  await page.getByRole('button', { name: '여기서 정한 비밀번호 지우기' }).click();
+  await expect(page.locator('#ap-status')).toContainText('아직 관리자 비밀번호가 없습니다');
 });
 
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {

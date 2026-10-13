@@ -652,12 +652,26 @@ async function loadTfa(){
   $('tfa-status').textContent=s.password
     ?(s.authenticator?'관리자 비밀번호나 인증 앱 코드 중 하나로 들어갑니다. 휴대폰이 없을 때는 비밀번호로, 평소에는 코드로 들어가면 됩니다.':'관리자 비밀번호로 들어갑니다. 인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다.')
     :(s.authenticator?'인증 앱 코드로 들어갑니다.':'인증 앱 코드로 들어갑니다. 아직 등록한 앱이 없습니다.');
+  renderAdminPassword(s);
   const box=$('tfa-actions');box.replaceChildren();
   if(!s.manageable){box.append(el('span','COOK_ADMIN_TOTP_SECRET 으로 고정돼 있어 여기서 바꿀 수 없습니다.','muted'));return;}
   box.append(btn(s.authenticator?'인증 앱 다시 등록':'인증 앱 등록',startTfa,'primary'));
   if(s.password&&s.authenticator)box.append(btn('인증 앱 끄기',async()=>{
     if(!confirm('인증 앱을 끄면 관리자 비밀번호로만 들어갑니다. 끌까요?'))return;
     try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast('인증 앱을 껐습니다.');loadTfa();}catch(e){toast(e.message);}}));}
+// The admin password set here (stored as a hash); the compose one keeps working beside it.
+function renderAdminPassword(s){
+  $('ap-status').textContent=s.passwordSaved?'여기서 정한 비밀번호가 있습니다. 바꾸려면 지금 비밀번호와 새 비밀번호를 넣습니다.'
+    :s.passwordEnv?'compose 의 비밀번호로 들어갑니다. 여기서 비밀번호를 정하면 둘 다 받습니다.'
+    :'아직 관리자 비밀번호가 없습니다. 정해 두면 휴대폰이 없을 때도 비밀번호로 들어갑니다.';
+  $('ap-current').hidden=!s.password;$('ap-clear').hidden=!s.passwordSaved;}
+$('ap-form').addEventListener('submit',async(e)=>{e.preventDefault();
+  const password=$('ap-new').value;if(password!==$('ap-new2').value){toast('새 비밀번호 두 칸이 다릅니다.');return;}
+  try{const s=await api('/admin/api/admin-password',{method:'POST',body:{current:$('ap-current').value,password}});
+    for(const id of ['ap-current','ap-new','ap-new2'])$(id).value='';toast('관리자 비밀번호를 정했습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
+$('ap-clear').addEventListener('click',async()=>{if(!confirm('여기서 정한 관리자 비밀번호를 지웁니다.'))return;
+  try{const s=await api('/admin/api/admin-password/clear',{method:'POST',body:{current:$('ap-current').value}});
+    $('ap-current').value='';toast('비밀번호를 지웠습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
 async function startTfa(){
   try{const d=await api('/admin/api/2fa/start',{method:'POST',body:{}});
     $('tfa-qr').innerHTML=d.qr||'';$('tfa-key').textContent=grouped(d.secret);
