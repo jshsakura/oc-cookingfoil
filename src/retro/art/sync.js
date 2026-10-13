@@ -10,13 +10,16 @@
  * title against libretro-thumbnails, then downloads box art and bezels for every
  * mapped ROM. applyMatch() is the hand-made correction for one ROM, and
  * saveCover() takes a cover from SteamGridDB instead, and saveCoverImage() one the
- * admin uploaded; both shrink it the same way. Files that exist are kept,
+ * admin uploaded. Box art is only ever shown, never installed, so the server keeps
+ * one small copy: every cover is shrunk by encodeCover on its way in, and
+ * optimizeBoxarts() shrinks the ones saved before that. Files that exist are kept,
  * except by applyMatch, which replaces them.
  */
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import debug from "../../debug.js";
 import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, pool, repoOf } from "./sources.js";
 import { bestMatch, englishTitle, titleKey } from "./titles.js";
 import { setInfo } from "../arcade.js";
@@ -26,11 +29,13 @@ const CANDIDATES = 24;
 const SGDB = "https://www.steamgriddb.com/api/v2";
 const SGDB_CDN_RE = /^https:\/\/cdn\d*\.steamgriddb\.com\//;
 export const MAX_COVER_BYTES = 15 * 1024 * 1024;
-// Box art is shown small on the console: bound it to libretro's own 512 wide
-// (portrait up to 768 tall) and keep it a paletted PNG (RetroArch reads PNG
-// only), about a fifth of a straight re-encode.
-const COVER_MAX_W = 512;
-const COVER_MAX_H = 768;
+// Box art is shown small on the console: bound it to 400x600 and keep it a
+// paletted PNG, about a fifth of libretro's originals (85 KB against 400 KB).
+const COVER_MAX_W = 400;
+const COVER_MAX_H = 600;
+const OPTIMIZE_CONCURRENCY = 2;
+// Small enough already: not worth a re-encode (and it may not shrink).
+const SMALL_COVER_BYTES = 48 * 1024;
 // WonderSwan names need a console prefix and arcade art follows the DAT, so neither is matched by title.
 const NOT_MATCHED = new Set(["ws", "arcade"]);
 
@@ -83,7 +88,7 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
     }
     const boxDest = path.join(dir, "thumbnails", system.folder, "Named_Boxarts", `${rom}.png`);
     if (!fs.existsSync(boxDest)) {
-      jobs.push(async () => ["boxart", await download(`${THUMBS}/${thumbRepo}/master/${enc(`Named_Boxarts/${name}.png`)}`, boxDest, dry)]);
+      jobs.push(async () => ["boxart", await download(`${THUMBS}/${thumbRepo}/master/${enc(`Named_Boxarts/${name}.png`)}`, boxDest, dry, encodeCover)]);
     }
     const bezelDest = path.join(bezelDir, `${rom}.png`);
     if (sources.length && !fs.existsSync(bezelDest)) {
@@ -254,7 +259,7 @@ export async function applyMatch(dir, id, system, rom, name) {
   if (!name) return { boxart: "removed", bezel: "removed" };
   const sources = BEZEL_SOURCES[id] ?? [];
   const [boxart, bez] = await Promise.all([
-    download(libretroUrl(system, name), box, false),
+    download(libretroUrl(system, name), box, false, encodeCover),
     sources.length ? bezelIndexes(id).then((ix) => firstOf(ix ? [bezelUrl(sources, ix, name)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, name)), bezel, false)) : "none",
   ]);
   return { boxart, bezel: bez };
@@ -299,6 +304,46 @@ export async function encodeCover(raw) {
   } catch (err) {
     throw new CoverImageError(`이미지를 읽지 못했습니다: ${err.message}`);
   }
+}
+
+/** Whether a cover needs no shrinking: already small, or what encodeCover makes (in bounds, paletted). */
+async function isOptimized(file) {
+  if ((await fsp.stat(file)).size <= SMALL_COVER_BYTES) return true;
+  const m = await sharp(file, { failOn: "none" }).metadata();
+  return m.width <= COVER_MAX_W && m.height <= COVER_MAX_H && m.paletteBitDepth !== undefined;
+}
+
+/**
+ * Shrinks every box art under thumbnails/ that isn't already small, in place
+ * (a file that would not get smaller is left as it is). Safe to run again: done
+ * files are skipped. Returns { checked, optimized, before, after } in bytes.
+ */
+export async function optimizeBoxarts(dir) {
+  const root = path.join(dir, "thumbnails");
+  const files = (await fsp.readdir(root, { recursive: true }).catch(() => []))
+    .filter((p) => p.endsWith(".png") && p.split(path.sep).includes("Named_Boxarts"))
+    .map((p) => path.join(root, p));
+  const out = { checked: files.length, optimized: 0, before: 0, after: 0 };
+  let next = 0;
+  await Promise.all(Array.from({ length: OPTIMIZE_CONCURRENCY }, async () => {
+    while (next < files.length) {
+      const file = files[next++];
+      try {
+        if (await isOptimized(file)) continue;
+        const raw = await fsp.readFile(file);
+        const png = await encodeCover(raw);
+        if (png.length >= raw.length) continue;
+        await fsp.writeFile(`${file}.part`, png);
+        await fsp.rename(`${file}.part`, file);
+        out.optimized++;
+        out.before += raw.length;
+        out.after += png.length;
+      } catch (err) {
+        debug.error("retro art: could not shrink %s: %s", file, err.message);
+      }
+    }
+  }));
+  return out;
 }
 
 /** Saves image bytes as one ROM's box art, shrunk by encodeCover. Returns the bytes written. */

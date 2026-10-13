@@ -52,6 +52,7 @@ import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
 import { artKey, ensureSquare, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
 import { listFilter } from "../retro/list-filter.js";
+import { optimizeBoxarts } from "../retro/art/sync.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -230,6 +231,15 @@ export default function retroRouter() {
       .catch((err) => debug.error("retro: forwarders: %s", err.message)),
   );
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
+  // Box art saved before covers were shrunk on the way in: shrink it once, then
+  // rescan so the tiles are redrawn from the small copies.
+  if (retroEnabled()) setImmediate(() => optimizeBoxarts(retroDir)
+    .then((r) => {
+      if (!r.optimized) return;
+      debug.log("retro: shrank %d box art files, %d MB → %d MB", r.optimized, Math.round(r.before / 1048576), Math.round(r.after / 1048576));
+      return catalog.scan(retroDir);
+    })
+    .catch((err) => debug.error("retro: shrinking box art: %s", err.message)));
 
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
 

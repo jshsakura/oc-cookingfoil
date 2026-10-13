@@ -65,7 +65,7 @@ test("a cover uploaded from the retro tab replaces the box art, shrunk", async (
     const png = fs.readdirSync(path.join(dirs.retro, "thumbnails"), { recursive: true }).find((p) => String(p).endsWith(".png"));
     assert.ok(png, "the box art was written");
     const meta = await sharp(path.join(dirs.retro, "thumbnails", png)).metadata();
-    assert.deepEqual([meta.format, meta.width, meta.height], ["png", 512, 768]);
+    assert.deepEqual([meta.format, meta.width, meta.height], ["png", 400, 600]);
 
     const again = (await (await fetch(`${BASE}/admin/api/retro-art/games?q=mario`, { headers: admin })).json()).games;
     assert.equal(again[0].boxart, true, "the list follows at once");

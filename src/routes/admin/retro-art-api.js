@@ -11,7 +11,7 @@
  *   POST /admin/api/retro-art/cover     { game, url }    use a SteamGridDB cover as the game's box art
  *   POST /admin/api/retro-art/cover/upload?game=   the image itself as the body (jpg, png, webp …):
  *                                                  shrunk to a small PNG and used as the game's box art
- *   GET  /admin/api/retro-art/games?q=             every game whose name matches, art or not (at most 100)
+ *   GET  /admin/api/retro-art/games?q=             every game whose name matches, art or not (at most 500)
  *   POST /admin/api/retro-art/ratings              refresh LaunchBox ratings (one job at a time)
  *
  * Ratings also refresh by themselves once ratings.json is a week old (COOK_RATING_SYNC).
@@ -207,7 +207,7 @@ export function mountRetroArtApi(router, requireSession) {
     const catalog = await retroCatalog.current(retroDir);
     const games = catalog.games
       .filter((g) => g.name.toLowerCase().includes(q) || (g.original ?? "").toLowerCase().includes(q))
-      .slice(0, 100)
+      .slice(0, 500)
       .map((g) => ({ id: g.id, system: g.system, name: g.name, rom: romKey(g), original: g.original ?? null, boxart: Boolean(g.icon) }));
     res.json({ games });
   }));

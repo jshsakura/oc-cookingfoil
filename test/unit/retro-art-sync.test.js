@@ -72,7 +72,7 @@ test("an uploaded cover of any format becomes a small upright PNG; anything else
   const out = art.boxartPath(dir, system, "Mega Man X (USA)");
   const meta = await sharp(out).metadata();
   assert.equal(meta.format, "png");
-  assert.deepEqual([meta.width, meta.height], [512, 768], "bounded to 512x768, the shape kept");
+  assert.deepEqual([meta.width, meta.height], [400, 600], "bounded to 400x600, the shape kept");
   assert.equal(fs.statSync(out).size, bytes);
   assert.ok(bytes < jpeg.length, `${bytes} < ${jpeg.length}`);
 
@@ -84,6 +84,23 @@ test("an uploaded cover of any format becomes a small upright PNG; anything else
   await assert.rejects(art.saveCoverImage(dir, system, "empty", Buffer.alloc(0)), art.CoverImageError);
   await assert.rejects(art.saveCoverImage(dir, system, "huge", Buffer.alloc(art.MAX_COVER_BYTES + 1)), /15 MB/);
   assert.ok(!fs.existsSync(art.boxartPath(dir, system, "bad")));
+});
+
+test("libretro box art is shrunk as it comes in, and older files once in place", async () => {
+  const dir = tmp();
+  const big = await sharp(Buffer.alloc(900 * 1300 * 3, 0).map((_, i) => (i * 2654435761) >>> 24), { raw: { width: 900, height: 1300, channels: 3 } }).png().toBuffer();
+  globalThis.fetch = async () => new Response(big);
+  await art.applyMatch(dir, "snes", system, "Mega Man X (USA)", "Mega Man X (USA)");
+  const box = art.boxartPath(dir, system, "Mega Man X (USA)");
+  assert.deepEqual([(await sharp(box).metadata()).width, (await sharp(box).metadata()).height], [400, 578]);
+
+  // One saved before shrinking existed: optimizeBoxarts shrinks it, then leaves it be.
+  const old = art.boxartPath(dir, system, "Old (USA)");
+  fs.writeFileSync(old, big);
+  const first = await art.optimizeBoxarts(dir);
+  assert.equal(first.optimized, 1);
+  assert.ok(first.after < first.before && fs.statSync(old).size === first.after);
+  assert.equal((await art.optimizeBoxarts(dir)).optimized, 0, "nothing left to do the second time");
 });
 
 test("a bezel falls back to the same title from another region, then gives way to the system default", () => {

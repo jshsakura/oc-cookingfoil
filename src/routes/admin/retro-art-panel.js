@@ -16,6 +16,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 id="ra-list-title">표지가 없는 항목</h2><input id="ra-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"></div>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.</p>
   <div class="scroll" id="ra-missing"></div>
+  <div class="ra-pager" id="ra-pager" hidden><button type="button" id="ra-prev">이전</button><span id="ra-page"></span><button type="button" id="ra-next">다음</button></div>
 </section>
 <dialog id="ra-dialog" class="ra-dialog">
   <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
@@ -23,7 +24,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <form id="ra-search" class="add"><input id="ra-q" aria-label="검색어" placeholder="영어 제목"><button class="primary">libretro 에서 찾기</button><button type="button" id="ra-sgdb-go">SteamGridDB 에서 찾기</button></form>
   <div class="ra-up" id="ra-up">
     <button type="button" id="ra-up-btn">내 이미지 올리기</button>
-    <span class="muted">jpg·png·webp 를 골라도 되고, 여기에 끌어다 놓거나 붙여 넣어도 됩니다. 가로 512px 이하의 작은 PNG 로 바꿔 저장합니다.</span>
+    <span class="muted">jpg·png·webp 를 골라도 되고, 여기에 끌어다 놓거나 붙여 넣어도 됩니다. 400×600 안의 작은 PNG 로 바꿔 저장합니다.</span>
     <input type="file" id="ra-up-file" accept="image/*" hidden>
   </div>
   <p class="muted" id="ra-msg"></p>
@@ -39,6 +40,7 @@ export const RETRO_ART_CSS = `
 .ra-grid img{width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--sunk);border-radius:8px}
 .ra-grid span{overflow-wrap:anywhere}
 #ra-filter{max-width:220px}
+.ra-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0;font-size:13px;color:var(--muted)}
 .ra-up{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:13px}
 .ra-up.over{border-color:var(--accent,#4c8dff);background:var(--sunk)}
 .warn-line{background:var(--sunk);border:1px solid var(--line);border-left:3px solid var(--warn,#d9a400);border-radius:10px;padding:10px 12px;font-size:13px}
@@ -68,13 +70,21 @@ function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'바꾸기':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
   tr.append(td(m.system),td(m.name));if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(b));return tr;}
 // Empty: the games without box art. A name: every game that matches, so art can be replaced too.
-let raFind=0;
+let raFind=0,raRows=[],raAt=0,raFound=false;
+const RA_PAGE=50;
+function raShow(){
+  const pages=Math.max(1,Math.ceil(raRows.length/RA_PAGE));raAt=Math.min(raAt,pages-1);
+  const rows=raRows.slice(raAt*RA_PAGE,(raAt+1)*RA_PAGE).map((m)=>raRow(m,raFound));
+  table('ra-missing',raFound?['시스템','이름','표지','']:['시스템','이름',''],rows,raFound?'맞는 항목이 없습니다.':'표지가 빠진 항목이 없습니다.');
+  $('ra-pager').hidden=pages<2;$('ra-page').textContent=(raAt+1)+' / '+pages+' · '+raRows.length+'개';
+  $('ra-prev').disabled=raAt===0;$('ra-next').disabled=raAt>=pages-1;
+}
 async function raList(){
   const q=$('ra-filter').value.trim();const n=++raFind;
   $('ra-list-title').textContent=q?'이름으로 찾은 항목':'표지가 없는 항목';
-  if(!q){table('ra-missing',['시스템','이름',''],(raData?.missing||[]).slice(0,300).map((m)=>raRow(m,false)),'표지가 빠진 항목이 없습니다.');return;}
+  if(!q){raRows=raData?.missing||[];raFound=false;raShow();return;}
   try{const d=await api('/admin/api/retro-art/games?q='+encodeURIComponent(q));if(n!==raFind)return;
-    table('ra-missing',['시스템','이름','표지',''],d.games.map((m)=>raRow(m,true)),'맞는 항목이 없습니다.');}catch(err){toast(err.message);}
+    raRows=d.games;raFound=true;raShow();}catch(err){toast(err.message);}
 }
 async function raUpload(file){
   if(!file||!(file.type||'').startsWith('image/')){$('ra-msg').textContent='이미지 파일을 고릅니다';return;}
@@ -122,7 +132,9 @@ async function raApply(url,body){
 }
 $('ra-sync').addEventListener('click',()=>raSync(null));
 $('ra-ratings').addEventListener('click',async()=>{try{await api('/admin/api/retro-art/ratings',{method:'POST',body:{}});toast('평점 받기를 시작했습니다.');loadRetroArt();}catch(err){toast(err.message);}});
-let raFilterT=0;$('ra-filter').addEventListener('input',()=>{clearTimeout(raFilterT);raFilterT=setTimeout(raList,250);});
+$('ra-prev').addEventListener('click',()=>{raAt--;raShow();});
+$('ra-next').addEventListener('click',()=>{raAt++;raShow();});
+let raFilterT=0;$('ra-filter').addEventListener('input',()=>{raAt=0;clearTimeout(raFilterT);raFilterT=setTimeout(raList,250);});
 $('ra-up-btn').addEventListener('click',()=>$('ra-up-file').click());
 $('ra-up-file').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';raUpload(f);});
 // A drop or paste inside the dialog is the cover; it never reaches the upload tab's page-wide drop.
