@@ -90,11 +90,11 @@ test('all games has list and preview sub-tabs, and the choice is remembered', as
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab="games"]')).toHaveClass(/active/);
   await expect(page.locator('.tabs [data-tab="preview"]')).toHaveCount(0);
-  await expect(page.locator('#shop-url')).toBeVisible();
+  await expect(page.locator('#status')).toBeVisible();
   await expect(page.locator('#games .game')).toHaveCount(1);
   await page.locator('#subtabs [data-view="preview"]').click();
   await expect(page.locator('#search')).toBeHidden();
-  await expect(page.locator('#shop-url')).toBeVisible();
+  await expect(page.locator('#status')).toBeVisible();
   await expect(page).toHaveURL(/#preview$/);
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab="games"]')).toHaveClass(/active/);
@@ -154,11 +154,10 @@ test('the stats panel draws composition, storage and recent-month charts from th
   await expect(charts.locator('.chart h4').first()).toContainText('구성');
 });
 
-test('on a phone the page fits the screen width with a long shop address', async ({ page }) => {
+test('on a phone the page fits the screen width', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.locator('#status-text')).not.toHaveClass(/sk/);
-  await page.locator('#shop-url').evaluate((el) => { el.textContent = 'https://a-rather-long-shop-host.example.com:38000/shop.tfl'; });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
   fs.mkdirSync('out/web', { recursive: true });
@@ -221,4 +220,22 @@ test('on a phone the search box and the sort box share the top row, the kind chi
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#search').locator('..').screenshot({ path: 'out/web/phone-toolbar.png' });
+});
+
+test('the title count beside list and preview counts each game once', async ({ page }) => {
+  await page.route('**/shop.json', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const one = body.files[0];
+    // The same game as two files, plus another game and its update: two titles.
+    body.files = [one, { ...one, url: one.url + '?2', name: one.name.replace('.nsp', ' (KR).nsp') },
+      { ...one, url: one.url + '?3', name: 'Other [0100000000020000][v0].nsp', titleId: '0100000000020000', baseTitleId: '0100000000020000' },
+      { ...one, url: one.url + '?4', name: 'Other [0100000000020800][v65536].nsp', titleId: '0100000000020800', baseTitleId: '0100000000020000', kind: 'update' }];
+    await route.fulfill({ json: body });
+  });
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/');
+  await expect(page.locator('#status-text')).toHaveText('타이틀 2개 서비스 중');
+  const [tabs, count] = [await page.locator('#subtabs').boundingBox(), await page.locator('#status').boundingBox()];
+  expect(Math.abs((tabs!.y + tabs!.height / 2) - (count!.y + count!.height / 2))).toBeLessThan(6);
 });

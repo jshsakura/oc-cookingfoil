@@ -182,8 +182,8 @@ test('the header has one account circle that opens the account, the web page, th
   await expect(page.locator('#acct-list').getByRole('menuitem', { name: '로그아웃' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('#acct-list')).toBeHidden();
-  await page.goto('/admin#devices');
+  await page.goto('/admin#overview');
   await expect(page.locator('#shop-url')).toHaveText(/\/shop\.tfl$/);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-devices-howto.png' });
+  await page.screenshot({ path: 'out/web/admin-overview-connect.png' });
 });
