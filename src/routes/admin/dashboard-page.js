@@ -211,7 +211,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
     <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
     <ul>
       <li><b>CookingFoil</b>: 위 주소를 넣으면 기기 화면에 승인 요청이 뜹니다. 계정이 맞으면 바로 승인되고, 아니면 기기 탭의 승인 대기에서 승인합니다. 비밀번호를 기기에 남기지 않습니다.</li>
-      <li><b>CyberFoil</b>: 옵션의 eShop URL 에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 기기 탭의 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
+      <li><b>CyberFoil</b>: 설정의 주소(URL) 칸에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 기기 탭의 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
       <li><b>Tinfoil</b>(호환): File Browser 에서 + 로 위 주소를 넣습니다. 목록을 읽고 받는 호환 경로만 제공합니다.</li>
     </ul>
   </div>
@@ -321,7 +321,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   <h2>게임 소개와 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
-    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="예: Grand Theft Auto V 또는 0100B00B51230000"></label>
+    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
     <datalist id="gd-games"></datalist>
     <div id="gd-body" hidden>
       ${GAME_PATCHES_HTML}
@@ -386,7 +386,7 @@ ${ALERTS_HTML}
     <p class="muted" id="up-hint"></p>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
-    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="예: 마리오 카트 8 디럭스 또는 0100152000022000"></label>
+    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
     <datalist id="up-games"></datalist>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
     <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
@@ -407,7 +407,7 @@ ${ALERTS_HTML}
   <h3 id="cred-title"></h3>
   <p class="muted">이 비밀번호는 지금만 볼 수 있습니다. 창을 닫기 전에 전달합니다.</p>
   <div class="cred" id="cred"></div>
-  <p class="muted">CookingFoil 은 설정 파일을 sdmc:/switch/cookingfoil/config.json 에 넣으면 QR 없이 바로 연결합니다. CyberFoil 은 eShop 주소와 사용자·비밀번호를 설정에 입력합니다.</p>
+  <p class="muted">CookingFoil 은 설정 파일을 sdmc:/switch/cookingfoil/config.json 에 넣으면 QR 없이 바로 연결합니다. CyberFoil 은 주소와 사용자·비밀번호를 설정에 입력합니다.</p>
   <div class="dialog-actions">
     <button type="button" id="cred-config">CookingFoil 설정 파일 받기</button>
     <button type="button" class="primary" id="cred-close">닫기</button>

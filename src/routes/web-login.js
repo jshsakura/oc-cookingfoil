@@ -32,7 +32,8 @@ import { isLoopbackIp } from "../security/net.js";
 import { trustLoopback } from "../security/limits.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
-import { devicePairing, dropboxRedirectBase, googleRedirectBase, publicBaseUrl } from "../helpers/envs.js";
+import { devicePairing, googleRedirectBase, publicBaseUrl } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 import { devicePage, loginPage } from "./login-page.js";
@@ -43,7 +44,9 @@ const MAX_FIELD = 200;
 
 /** The address Google sends the browser back to (registered in the Google client). */
 export function callbackBase(req) {
-  return googleRedirectBase || dropboxRedirectBase || publicBaseUrl || resolveOrigin(req, null);
+  // The Dropbox public address saved on the admin page counts too, not only the env one.
+  const dropboxBase = (integrations.get("dropbox").redirectBase || "").replace(/\/+$/, "");
+  return googleRedirectBase || dropboxBase || publicBaseUrl || resolveOrigin(req, null);
 }
 
 export const callbackUri = (req) => `${callbackBase(req)}${CALLBACK_PATH}`;
