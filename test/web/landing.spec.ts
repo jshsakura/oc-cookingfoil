@@ -263,6 +263,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.route('**/api/homebrew?*', (route) => route.fulfill({ json: { homebrew: [{
     id: 'm-aaaaaaaaaaaa', app: 'portgame', name: 'Port Game', version: '2.0', author: 'someone', kind: 'port', size: 1048576,
     description: '다른 기종에서 옮겨 온 게임입니다.', icon_url: '', download_url: '/api/homebrew/m-aaaaaaaaaaaa/download', repo_url: null,
+    bundle_url: '/api/homebrew/m-aaaaaaaaaaaa/bundle',
   }] } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#patches');
@@ -296,7 +297,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-title')).toHaveText('Port Game');
   await expect(page.locator('#xm-sections h4')).toHaveText(['이 앱의 패치']);
   await expect(page.locator('#xm-sections .xname')).toHaveText(['HD 텍스처']);
-  await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/homebrew/m-aaaaaaaaaaaa/download');
+  // A folder app downloads as its whole folder, not the .nro alone.
+  await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/homebrew/m-aaaaaaaaaaaa/bundle');
   await page.locator('#xmodal .modal').screenshot({ path: 'out/web/app-detail.png' });
   await page.locator('#xm-close').click();
   await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
