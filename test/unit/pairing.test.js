@@ -12,6 +12,7 @@ import {
   verifyAccessKey,
   stageAccessKeyDelivery,
   takeAccessKeyDelivery,
+  pairMessage,
 } from "../../src/security/pairing.js";
 
 const fakeReq = (headers) => ({ get: (name) => headers[name] ?? undefined });
@@ -97,4 +98,14 @@ test("store device lifecycle: pending → approve → revoke", async () => {
   assert.equal(store.revokeDevice(VALID), true);
   assert.equal(store.isDeviceApproved(VALID), false);
   assert.equal(store.revokeDevice(VALID), false, "revoke is idempotent");
+});
+
+test("a console's approval note is one clean line of at most 100 characters", () => {
+  assert.equal(pairMessage(" 철수   거실 기기 "), "철수 거실 기기");
+  assert.equal(pairMessage("첫 줄\n둘째 줄\r\t끝"), "첫 줄 둘째 줄 끝", "line breaks and tabs become spaces");
+  assert.equal(pairMessage("a\u0000b\u202Ec"), "a b c", "control and direction characters dropped");
+  assert.equal([...pairMessage("가".repeat(150))].length, 100);
+  assert.equal(pairMessage("   "), null);
+  assert.equal(pairMessage(42), null);
+  assert.equal(pairMessage(undefined), null);
 });

@@ -69,3 +69,16 @@ export function takeAccessKeyDelivery(deviceKey) {
   oneTimeDelivery.delete(deviceKey);
   return key;
 }
+
+const MESSAGE_MAX = 100;
+
+/**
+ * The note a console sends with its approval request ("철수 거실 기기"), so the
+ * admin knows which one it is: one line, control characters dropped, at most
+ * 100 characters. null when there is none. Pure.
+ */
+export function pairMessage(raw) {
+  if (typeof raw !== "string") return null;
+  const line = raw.replace(/[\p{Cc}\p{Cf}\u2028\u2029]+/gu, " ").replace(/\s+/g, " ").trim();
+  return line ? [...line].slice(0, MESSAGE_MAX).join("") : null;
+}

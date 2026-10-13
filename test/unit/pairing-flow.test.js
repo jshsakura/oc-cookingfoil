@@ -322,3 +322,26 @@ test("the admin approves a waiting console by the code on its screen", async () 
     server.kill("SIGKILL");
   }
 });
+
+test("a console's note shows in the admin queue, the latest one wins, and names it on approval", async () => {
+  const server = bootServer();
+  const key = "E5".repeat(32);
+  try {
+    await waitReady();
+    const ask = (body) => fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: key, ...body }) });
+    assert.equal((await ask({ message: "철수 기기" })).status, 200);
+    assert.equal((await ask({ message: "철수\n거실 기기" })).status, 200);
+    await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key } });
+    await ask({});
+    const code = await generate({ secret: TOTP_SECRET });
+    const r = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const auth = { "Content-Type": "application/json", Cookie: r.headers.get("set-cookie").split(";")[0] };
+    const devices = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(devices.pending.find((p) => p.deviceKey === key).message, "철수 거실 기기", "the latest note, one line; polls and requests without one keep it");
+    assert.equal((await fetch(`${BASE}/admin/api/devices/approve`, { method: "POST", headers: auth, body: JSON.stringify({ deviceKey: key }) })).status, 200);
+    const after = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(after.approved.find((d) => d.deviceKey === key).label, "철수 거실 기기");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

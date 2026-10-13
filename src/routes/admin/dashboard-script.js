@@ -209,8 +209,8 @@ async function loadDevices(){
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 쓰려면 compose 에 COOK_DEVICE_PAIRING=true 를 넣습니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
-  table('pending',['기기 코드','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),k,td(fmt(p.lastSeenAt)));
+  table('pending',['기기 코드','메시지','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),td(p.message||'—',p.message?'':'dim'),k,td(fmt(p.lastSeenAt)));
     const act=td();act.append(btn('승인',()=>approve(p.deviceKey),'primary'));tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
   // Last seen is kept in memory only, so it starts empty after a restart.
   const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';

@@ -159,9 +159,6 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
-  <nav class="apptabs" aria-label="CookingFoil">
-    <a href="/#all">모든 게임</a><a href="/#preview">미리보기</a><a href="/admin" aria-current="page">관리</a>
-  </nav>
   <div class="actions"><a class="guide-link" href="/admin/guide.md" target="_blank" rel="noopener">${icon("book")}안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">${icon("logout")}로그아웃</button></div>
 </header>
 

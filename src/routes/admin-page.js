@@ -312,7 +312,8 @@ export default function adminPageRouter() {
       res.status(req.body?.code !== undefined ? 404 : 400).json({ error: req.body?.code !== undefined ? "no device is waiting with that code" : "invalid deviceKey" });
       return;
     }
-    const label = String(req.body?.label ?? "").slice(0, 64).trim();
+    // With no name given, the note the console sent names it.
+    const label = (String(req.body?.label ?? "").trim() || store.pendingMessage(deviceKey) || "").slice(0, 64).trim();
 
     // Mint a fresh accessKey, persist only its hash, stage the plaintext for the
     // device's next status poll (one-time, in-memory). Re-approving rotates it.
