@@ -255,3 +255,21 @@ test("a signed-in page's live updates need no Basic popup", async () => {
     server.kill("SIGKILL");
   }
 });
+
+test("a Google admin opens /admin without the admin password; other Google accounts still need it", async () => {
+  // The owner's address is made admin when it first signs in.
+  accounts.signIn({ sub: "t-boss", email: "Owner@example.com" });
+  assert.equal(accounts.isAdmin("t-boss"), true);
+  const server = await boot();
+  try {
+    const page = await get("/admin", { ...PAGE, Cookie: googleCookie("t-boss") });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /id="tab-upload"/, "the dashboard itself, not the password gate");
+    assert.equal((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("t-boss") } })).status, 200);
+    assert.ok([401, 403].includes((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("ok1") } })).status), "an approved non-admin account is turned away");
+    assert.doesNotMatch(await (await get("/admin", { ...PAGE, Cookie: googleCookie("ok1") })).text(), /id="tab-upload"/);
+  } finally {
+    server.kill("SIGKILL");
+    accounts.remove("t-boss");
+  }
+});
