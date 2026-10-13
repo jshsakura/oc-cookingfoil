@@ -50,7 +50,7 @@ test("an arcade folder is read with the DAT: Korean names, BIOS folded in, short
   const path = await import("node:path");
   const { scanDir } = await import("../../src/retro/catalog.js");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arcade-"));
-  const roms = path.join(dir, "roms", "FBNeo - Arcade Games");
+  const roms = path.join(dir, "roms", "arcade");
   fs.mkdirSync(roms, { recursive: true });
   for (const f of ["bublbobl.zip", "mslug.zip", "neogeo.zip"]) fs.writeFileSync(path.join(roms, f), f);
   const { games } = await scanDir(dir);

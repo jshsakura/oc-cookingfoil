@@ -52,7 +52,7 @@ cookingfoil/
 
 없는 폴더는 Docker 가 만듭니다. 전부 다른 곳에 두려면 `.env` 에 `COOK_ROOT=/경로` 를 넣으면 그 밑에 만들어집니다. 하나만 옮기려면 그 폴더의 경로를 따로 넣습니다. 예: `COOK_GAMES_PATH=/mnt/disk/games` (`COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH`). 예전에는 레트로 롬이 `data/retro` 에 있었습니다. `retro/` 로 옮기면 되고, 옮기기 전까지 로그에 안내가 남습니다.
 
-`retro/` 안에서 기종마다 짧은 이름의 폴더 하나를 씁니다. `roms/`, `thumbnails/`, `bezels/` 모두 같은 이름입니다: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` (예: `retro/roms/snes/`). 표지와 베젤은 기종의 libretro 이름으로 받아 오며, 이 이름은 코드 안의 대응표일 뿐입니다. 필요하면 `retro/systems.json` 에서 기종의 `folder` 나 `libretro` 이름을 바꿀 수 있습니다. 예전 libretro 이름 폴더(`Nintendo - Super Nintendo Entertainment System`)는 서버가 켜질 때 짧은 이름으로 옮깁니다.
+`retro/` 안에서 기종마다 짧은 이름의 폴더 하나를 씁니다. `roms/`, `thumbnails/`, `bezels/` 모두 같은 이름입니다: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` (예: `retro/roms/snes/`). 표지와 베젤은 기종의 libretro 이름으로 받아 오며, 이 이름은 코드 안의 대응표일 뿐입니다. 필요하면 `retro/systems.json` 에서 기종의 `folder` 나 `libretro` 이름을 바꿀 수 있습니다.
 
 ## 클라이언트 연결
 

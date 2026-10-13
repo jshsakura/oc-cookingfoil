@@ -17,9 +17,7 @@
  *               the art code reads it, to find the libretro-thumbnails repository
  *               box art comes from; it is a mapping, never a folder name.
  *
- * Each system is read from exactly one folder. Folders laid out under the
- * libretro names or the old aliases (FC, PS1, …) are moved into it once, at
- * startup, by ./folder-migration.js.
+ * Each system is read from exactly one folder.
  *
  * An operator can change any of this, or add a system, with
  * <retro dir>/systems.json: { "<id>": { core, coreName, extensions, names, bezelDir, folder, libretro } }.

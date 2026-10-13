@@ -52,7 +52,7 @@ cookingfoil/
 
 Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path` in `.env` and they are made under it. To move just one, set its own path, e.g. `COOK_GAMES_PATH=/mnt/disk/games` (`COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH`). Retro ROMs used to live in `data/retro`; move them into `retro/`, and the log says so until you do.
 
-Inside `retro/`, each system has one folder named by its short id, the same under `roms/`, `thumbnails/` and `bezels/`: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` (e.g. `retro/roms/snes/`). Box art and bezels are fetched by the system's libretro name, which is only a lookup table in the code. A system's `folder` or `libretro` name can be changed in `retro/systems.json` if you need to. Folders under the old libretro names (`Nintendo - Super Nintendo Entertainment System`) are moved to the short names on start.
+Inside `retro/`, each system has one folder named by its short id, the same under `roms/`, `thumbnails/` and `bezels/`: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` (e.g. `retro/roms/snes/`). Box art and bezels are fetched by the system's libretro name, which is only a lookup table in the code. A system's `folder` or `libretro` name can be changed in `retro/systems.json` if you need to.
 
 ## Connecting a client
 

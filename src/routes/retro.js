@@ -232,14 +232,6 @@ export default function retroRouter() {
       .then(() => forwardersAvailable(keysDir) && prewarmForwarders(forwarderDir, state.games.map((g) => forwarderGame(g, state.systems[g.system])), keysDir))
       .catch((err) => debug.error("retro: forwarders: %s", err.message)),
   );
-  // Old-named system folders move into place before anything reads them.
-  if (retroEnabled()) {
-    try {
-      catalog.ensureMigrated(retroDir);
-    } catch (err) {
-      debug.error("retro: moving system folders: %s", err.message);
-    }
-  }
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.
