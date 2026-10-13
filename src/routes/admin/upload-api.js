@@ -11,6 +11,8 @@
  *     save    titleId, name, description, descriptionKo, saveType (device|account); a .zip or the save folder
  *             (a save-keeper backup's .meta is read for saveType and left out)
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
+ *     homebrew  port ("true" marks the placed app a port); a .nro, a release .zip or the app folder
+ *                                              → <homebrew>/<app>/
  *
  * Behind the admin 2FA session and a same-origin check. Files are received into
  * a staging folder on the destination's own disk, checked, and moved into place
@@ -228,7 +230,7 @@ export function mountUploadApi(router, guard) {
       const { items, fromFolder } = await received(req, work);
       const placed = kind === "game" ? await placeGame(items)
         : kind === "retro" ? await placeRetro(items, req.body)
-        : kind === "homebrew" ? await placeHomebrew(items, work)
+        : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true" })
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
       body = { ok: true, kind, ...placed };

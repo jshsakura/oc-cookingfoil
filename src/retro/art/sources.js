@@ -49,7 +49,8 @@ export const repoOf = (folder) => folder.replaceAll(" ", "_");
  * name; those are followed (within the same folder). Anything that isn't a PNG
  * is never written.
  */
-export async function download(url, dest, dry) {
+/** Fetches a PNG (following libretro's link files) into dest; `transform` reshapes the bytes first. */
+export async function download(url, dest, dry, transform = null) {
   if (dry) return "dry";
   let current = url;
   for (let hop = 0; hop <= MAX_LINK_HOPS; hop++) {
@@ -60,7 +61,8 @@ export async function download(url, dest, dry) {
     if (body.subarray(0, 4).equals(PNG_MAGIC)) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       const tmp = `${dest}.part`;
-      fs.writeFileSync(tmp, body);
+      // A PNG the transform can't read is kept as it came, rather than lost.
+      fs.writeFileSync(tmp, transform ? await transform(body).catch(() => body) : body);
       fs.renameSync(tmp, dest);
       return "ok";
     }

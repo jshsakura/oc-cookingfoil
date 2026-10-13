@@ -10,6 +10,7 @@
 import fs from "fs";
 import path from "path";
 import { adminEmail, dataDir } from "../helpers/envs.js";
+import { alert } from "../helpers/alerts.js";
 
 const DIR = path.join(dataDir, "security");
 const FILE = path.join(DIR, "google-accounts.json");
@@ -62,6 +63,7 @@ export function signIn({ sub, email }, now = Date.now()) {
   if (known) return put({ ...known, email, lastAt: now });
   if (accounts.size >= MAX_ACCOUNTS) return null;
   const owner = isOwner(email);
+  if (!owner) alert("account", "새 구글 계정이 들어왔습니다. 관리 화면의 사용자 탭에서 승인합니다.", { subject: sub, now });
   return put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
 }
 

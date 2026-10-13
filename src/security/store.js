@@ -12,6 +12,7 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { envBool } from "../helpers/env-read.js";
+import { alert } from "../helpers/alerts.js";
 
 const STATE_DIR = path.join(dataDir, "security");
 const STATE_PATH = path.join(STATE_DIR, "state.json");
@@ -310,6 +311,9 @@ export function recordPendingDevice(deviceKey, { message } = {}) {
   state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, ...(note ? { message: note } : {}) });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
+  if (!prev || (message && message !== prev.message)) {
+    alert("device", `${note ? `메시지: ${note}\n` : ""}관리 화면의 기기 탭에서 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now });
+  }
 }
 
 function evictOldestPending() {

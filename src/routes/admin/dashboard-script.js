@@ -368,6 +368,7 @@ const UP_HINT={
   patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
   save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
   homebrew:'.nro 하나나 릴리스 zip, 또는 앱 폴더를 올립니다. 감싼 폴더를 벗기고 switch/<앱>/ 하나로 정리하며, 그 밖의 파일(atmosphere/ 등)과 설명서는 빼고 무엇을 뺐는지 아래에 남깁니다.',
+  port:'포트 게임을 홈브류와 같은 방식으로 올리고 바로 포트로 등록합니다. .nro 나 릴리스 zip, 앱 폴더를 switch/<앱>/ 하나로 정리합니다. 포트의 패치와 세이브는 올린 뒤 그 앱을 골라 따로 올립니다.',
 };
 let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[];
 ${guessUpload.toString()}
@@ -416,7 +417,7 @@ function upSetKind(kind){upKind=kind;
   $('up-desc-l').hidden=!ps;
   $('up-savetype-l').hidden=!(kind==='save'&&$('up-target').value==='');
   $('up-required-l').hidden=!(kind==='patch'&&$('up-target').value==='');
-  const w=kind&&upInfo&&upInfo.targets[kind];$('up-note').replaceChildren();
+  const w=kind&&upInfo&&upInfo.targets[kind==='port'?'homebrew':kind];$('up-note').replaceChildren();
   if(w&&!w.writable){const n=el('div',null,'note warn');
     n.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
       el('div',w.exists===false?'compose 에서 이 폴더를 마운트하고 컨테이너를 다시 띄웁니다. 폴더 위치는 README 의 폴더 설명을 봅니다.'
@@ -446,7 +447,8 @@ async function upTake(files,paths){
   if(g.name)$('up-name').value=g.name;
   if(g.titleId&&!keep){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
     $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}
-  upSetKind(keep?upKind:g.kind);upChosen();}
+  // Picked as a port: a homebrew guess stays a port.
+  upSetKind(keep?upKind:upKind==='port'&&g.kind==='homebrew'?'port':g.kind);upChosen();}
 function upReset(){upFiles=[];upPaths=null;upSystems=[];
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
   $('up-required').checked=false;
@@ -481,6 +483,7 @@ function upSend(files,paths,label){return new Promise((resolve)=>{
     fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
     if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
     if(upKind==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
+  if(upKind==='port')fd.append('port','true');
   if(paths)fd.append('paths',JSON.stringify(paths));
   for(const f of files)fd.append('files',f,f.name);
   const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
@@ -489,11 +492,11 @@ function upSend(files,paths,label){return new Promise((resolve)=>{
     if(xhr.status===401){location.reload();return;}
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
     const ok=xhr.status===201;const n=el('div',null,'note'+(ok?'':' warn'));
-    n.append(el('div',(ok?'올렸습니다':'올리지 못했습니다')+(label?' · '+label:''),'t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'):(d.error||('HTTP '+xhr.status)),'d'));
+    n.append(el('div',(ok?'올렸습니다':'올리지 못했습니다')+(label?' · '+label:''),'t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'+(d.kind==='port'?' · 포트로 등록':'')):(d.error||('HTTP '+xhr.status)),'d'));
     if(ok&&d.install){for(const x of d.install.excluded||[])n.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'d'));
       if(d.install.rules?.length)n.append(el('div','판단 근거: '+d.install.rules.join(' · '),'d'));}
     $('up-log').prepend(n);resolve(ok);});
-  xhr.open('POST','/admin/api/upload/'+upKind);xhr.send(fd);});}
+  xhr.open('POST','/admin/api/upload/'+(upKind==='port'?'homebrew':upKind));xhr.send(fd);});}
 $('up-form').addEventListener('submit',async(e)=>{e.preventDefault();
   if(!upFiles.length){toast('올릴 파일을 고릅니다');return;}
   if(!upKind){toast('종류를 고릅니다');return;}

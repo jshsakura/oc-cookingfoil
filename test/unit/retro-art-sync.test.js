@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import * as art from "../../src/retro/art/sync.js";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
@@ -59,6 +60,52 @@ test("covers are taken only from SteamGridDB's image host", async () => {
   const dir = tmp();
   await assert.rejects(art.saveCover(dir, system, "x", "https://evil.example/a.png", { fetchImpl: fakeNet() }), /SteamGridDB/);
   await assert.rejects(art.saveCover(dir, system, "x", "file:///etc/passwd", { fetchImpl: fakeNet() }), /SteamGridDB/);
+});
+
+test("an uploaded cover of any format becomes a small upright PNG; anything else is refused", async () => {
+  const dir = tmp();
+  // A noisy 1200x1800 photo: a straight PNG of it would run to megabytes.
+  const noise = Buffer.alloc(1200 * 1800 * 3);
+  for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) >>> 24;
+  const jpeg = await sharp(noise, { raw: { width: 1200, height: 1800, channels: 3 } }).jpeg({ quality: 95 }).toBuffer();
+  const bytes = await art.saveCoverImage(dir, system, "Mega Man X (USA)", jpeg);
+  const out = art.boxartPath(dir, system, "Mega Man X (USA)");
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.format, "png");
+  assert.deepEqual([meta.width, meta.height], [400, 600], "bounded to 400x600, the shape kept");
+  assert.equal(fs.statSync(out).size, bytes);
+  assert.ok(bytes < jpeg.length, `${bytes} < ${jpeg.length}`);
+
+  const tiny = await sharp({ create: { width: 40, height: 60, channels: 3, background: "#c00" } }).webp().toBuffer();
+  await art.saveCoverImage(dir, system, "small", tiny);
+  assert.deepEqual([(await sharp(art.boxartPath(dir, system, "small")).metadata()).width], [40], "never enlarged");
+
+  const wide = await sharp({ create: { width: 1500, height: 1000, channels: 3, background: "#036" } }).png().toBuffer();
+  await art.saveCoverImage(dir, system, "wide", wide);
+  const w = await sharp(art.boxartPath(dir, system, "wide")).metadata();
+  assert.deepEqual([w.width, w.height], [600, 400], "a wide box keeps its width");
+
+  await assert.rejects(art.saveCoverImage(dir, system, "bad", Buffer.from("not an image at all")), art.CoverImageError);
+  await assert.rejects(art.saveCoverImage(dir, system, "empty", Buffer.alloc(0)), art.CoverImageError);
+  await assert.rejects(art.saveCoverImage(dir, system, "huge", Buffer.alloc(art.MAX_COVER_BYTES + 1)), /15 MB/);
+  assert.ok(!fs.existsSync(art.boxartPath(dir, system, "bad")));
+});
+
+test("libretro box art is shrunk as it comes in, and older files once in place", async () => {
+  const dir = tmp();
+  const big = await sharp(Buffer.alloc(900 * 1300 * 3, 0).map((_, i) => (i * 2654435761) >>> 24), { raw: { width: 900, height: 1300, channels: 3 } }).png().toBuffer();
+  globalThis.fetch = async () => new Response(big);
+  await art.applyMatch(dir, "snes", system, "Mega Man X (USA)", "Mega Man X (USA)");
+  const box = art.boxartPath(dir, system, "Mega Man X (USA)");
+  assert.deepEqual([(await sharp(box).metadata()).width, (await sharp(box).metadata()).height], [400, 578]);
+
+  // One saved before shrinking existed: optimizeBoxarts shrinks it, then leaves it be.
+  const old = art.boxartPath(dir, system, "Old (USA)");
+  fs.writeFileSync(old, big);
+  const first = await art.optimizeBoxarts(dir);
+  assert.equal(first.optimized, 1);
+  assert.ok(first.after < first.before && fs.statSync(old).size === first.after);
+  assert.equal((await art.optimizeBoxarts(dir)).optimized, 0, "nothing left to do the second time");
 });
 
 test("a bezel falls back to the same title from another region, then gives way to the system default", () => {

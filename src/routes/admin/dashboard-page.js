@@ -376,6 +376,7 @@ ${RETRO_ART_HTML}
       <button type="button" data-kind="patch">패치</button>
       <button type="button" data-kind="save">세이브</button>
       <button type="button" data-kind="homebrew">홈브류</button>
+      <button type="button" data-kind="port">포트</button>
     </div>
     <p class="muted" id="up-hint"></p>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
