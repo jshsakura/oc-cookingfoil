@@ -114,7 +114,7 @@ function renderSecurity(d){
 async function loadStats(){
   const d=await api('/admin/api/stats');
   me=d.me||null;const a=d.lanes.admin;
-  $('who').textContent=(me?(me.name||me.email):(a.email||a.owner||'admin'))+' 계정으로 로그인했습니다';
+  $('who').textContent=me?(me.name||me.email):(a.email||a.owner||'admin');
   $('ts').textContent=fmt(d.generatedAt)+' 기준';
   renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);}
 
@@ -543,7 +543,7 @@ $('gd-reset').addEventListener('click',async()=>{if(!gdId||!confirm('직접 쓴 
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 async function loadLibrary(){
   loadPatches();loadDescGames();
-  const d=await api('/admin/api/library');if(d.origin)origin=d.origin;
+  const d=await api('/admin/api/library');if(d.origin){origin=d.origin;showShopUrl();}
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};
   cards.append(card('게임 파일',num(d.files)),card('titledb 타이틀',num(d.titledb?.titles)),
@@ -637,6 +637,15 @@ $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-
 $('logout').addEventListener('click',async()=>{try{await fetch('/admin/logout',{method:'POST'});
   const me=await fetch('/auth/me').then((r)=>r.ok?r.json():null);if(me)await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrf}});}
   finally{location.href='/login?next=%2Fadmin';}});
+// The account circle in the header.
+function setAcct(open){$('acct-list').hidden=!open;$('acct-btn').setAttribute('aria-expanded',String(open));}
+$('acct-btn').addEventListener('click',(e)=>{e.stopPropagation();setAcct($('acct-list').hidden);});
+document.addEventListener('click',(e)=>{if(!$('acct-list').hidden&&!e.target.closest('.acct-menu'))setAcct(false);});
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('acct-list').hidden){setAcct(false);$('acct-btn').focus();}});
+// The address a console is given, for the how-to on the devices tab.
+function showShopUrl(){$('shop-url').textContent=origin.replace(/[/]$/,'')+'/shop.tfl';}
+$('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast('주소를 복사했습니다');}catch{toast('복사하지 못했습니다. 주소를 직접 고릅니다');}});
+showShopUrl();
 showTab();loadStats();loadDevices();loadLogins();loadAccounts();loadGoogle();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;

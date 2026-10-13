@@ -59,6 +59,17 @@ form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;fo
 form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .copy-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .copy-row[hidden],.add[hidden]{display:none}
+/* One account menu, the same as the web page's: a circle that opens who you are, the web page, the guide and sign out. */
+.acct-menu{position:relative}
+.icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}
+.icon-btn:hover,.icon-btn[aria-expanded="true"]{border-color:var(--text)}.icon-btn .ico{width:19px;height:19px}
+.pop-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:210px;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px var(--shadow)}
+.pop-list[hidden]{display:none}
+.pop-list .who{margin:0 0 4px;padding:8px 12px 10px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop-list a,.pop-list button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:9px;background:none;text-decoration:none;color:var(--text);font:600 14px inherit;text-align:left;cursor:pointer}
+.pop-list a:hover,.pop-list button:hover{background:var(--sunk)}.pop-list #logout{color:var(--bad)}
+.howto{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:22px}
+.howto ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}.howto .copy-row code{background:var(--sunk)}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:flex;gap:6px;flex-wrap:wrap}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
@@ -136,7 +147,7 @@ form.add select{flex:none}
 /* Phones: tables turn into one card per row, each cell labelled. */
 @media (max-width:640px){
 body{padding:16px 12px 48px}header{margin-bottom:12px}
-.brand .wm{font-size:24px}.brand img{width:32px;height:32px}.who{display:none}
+.brand .wm{font-size:24px}.brand img{width:32px;height:32px}
 /* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
 nav.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
 nav.tabs a{flex-direction:column;justify-content:center;gap:3px;padding:8px 2px;font-size:12px;border-radius:10px;text-align:center}
@@ -163,11 +174,19 @@ export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ICON_CSS}
-nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.guide-link{text-decoration:none;color:var(--muted);font-weight:600;font-size:13px}</style></head><body>
+nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
-  <div class="actions"><a class="guide-link" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">${icon("logout")}로그아웃</button></div>
+  <div class="acct-menu">
+    <button class="icon-btn" id="acct-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="계정 메뉴" title="계정 메뉴">${icon("account")}</button>
+    <div class="pop-list" id="acct-list" role="menu" hidden>
+      <p class="who" id="who">불러오고 있습니다</p>
+      <a role="menuitem" href="/">${icon("home")}웹 화면</a>
+      <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
+      <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
+    </div>
+  </div>
 </header>
 
 <nav class="tabs" aria-label="관리 메뉴">
@@ -206,6 +225,15 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
 </section>
 
 <section id="tab-devices" hidden>
+  <h2 class="first">연결 방법</h2>
+  <div class="howto">
+    <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
+    <ul>
+      <li><b>CookingFoil</b>: 위 주소를 넣으면 기기 화면에 승인 요청이 뜹니다. 계정이 맞으면 바로 승인되고, 아니면 아래 승인 대기에서 승인합니다. 비밀번호를 기기에 남기지 않습니다.</li>
+      <li><b>CyberFoil</b>: 옵션의 eShop URL 에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 아래 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
+      <li><b>Tinfoil</b>(호환): File Browser 에서 + 로 위 주소를 넣습니다. 목록을 읽고 받는 호환 경로만 제공합니다.</li>
+    </ul>
+  </div>
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">
     <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
