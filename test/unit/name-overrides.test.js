@@ -35,3 +35,9 @@ test("a retro game name is kept by its id; empty goes back to the file's", () =>
   assert.equal(retroNames.get("snes-0123456789"), null);
   assert.equal(retroNames.set("../x", { ko: "a" }), false);
 });
+
+test("a description saved by an older version, languages at the top, still reads as the description", () => {
+  const read = gameDescriptions.normalize({ "0100B00B51230000": { en: "A port.", ko: "포팅판입니다." }, "0100000000020000": { notes: { ko: "메모" } } });
+  assert.deepEqual(read["0100B00B51230000"], { description: { en: "A port.", ko: "포팅판입니다." } });
+  assert.deepEqual(read["0100000000020000"], { notes: { ko: "메모" } });
+});
