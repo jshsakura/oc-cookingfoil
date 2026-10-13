@@ -239,3 +239,60 @@ test('the title count beside list and preview counts each game once', async ({ p
   const [tabs, count] = [await page.locator('#subtabs').boundingBox(), await page.locator('#status').boundingBox()];
   expect(Math.abs((tabs!.y + tabs!.height / 2) - (count!.y + count!.height / 2))).toBeLessThan(6);
 });
+
+test('patches and homebrew list one line each, and a row opens its detail', async ({ page }) => {
+  await page.route('**/api/shop/info*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
+  });
+  const patch = { id: '0100000000010000-aaaaaaaaaaaa', title_id: '0100000000010000', name: '성능 패치', kinds: ['exefs_patches'], size: 4096, files: 3,
+    hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
+  const hbPatch = { id: 'hb-bbbbbbbbbbbb', title_id: null, homebrew: 'portgame', name: 'HD 텍스처', kinds: ['romfs'], size: 8192, files: 2, hash: 'h', description: '' };
+  await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [patch, hbPatch] } }));
+  await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves: [] } }));
+  await page.route('**/api/homebrew?*', (route) => route.fulfill({ json: { homebrew: [{
+    id: 'm-aaaaaaaaaaaa', app: 'portgame', name: 'Port Game', version: '2.0', author: 'someone', kind: 'port', size: 1048576,
+    description: '다른 기종에서 옮겨 온 게임입니다.', icon_url: '', download_url: '/api/homebrew/m-aaaaaaaaaaaa/download', repo_url: null,
+  }] } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#patches');
+
+  const row = page.locator('#patches-list .xrow', { hasText: '성능 패치' });
+  await expect(row).toBeVisible();
+  await expect(row.locator('.btn')).toHaveCount(0);
+  await expect(row.locator('.pill.need')).toHaveText('필수');
+  await row.click();
+  await expect(page.locator('#xmodal')).toHaveClass(/open/);
+  await expect(page.locator('#xm-title')).toHaveText('성능 패치');
+  await expect(page.locator('#xm-sub')).toHaveText('Test Game');
+  await expect(page.locator('#xm-desc')).toHaveText('프레임을 올립니다.');
+  await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
+  await page.screenshot({ path: 'out/web/patches-list.png' });
+
+  await page.goto('/#ports');
+  const app = page.locator('#ports-list .xrow', { hasText: 'Port Game' });
+  await expect(app).toContainText('패치 1개');
+  await app.click();
+  await expect(page.locator('#xm-title')).toHaveText('Port Game');
+  await expect(page.locator('#xm-sections h4')).toHaveText(['이 앱의 패치']);
+  await expect(page.locator('#xm-sections .xname')).toHaveText(['HD 텍스처']);
+  await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/homebrew/m-aaaaaaaaaaaa/download');
+  await page.locator('#xmodal .modal').screenshot({ path: 'out/web/app-detail.png' });
+  await page.locator('#xm-close').click();
+  await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
+
+  // On a phone the rows and the detail still fit the width.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/#patches');
+  await page.locator('#patches-list .xrow').first().click();
+  await expect(page.locator('#xm-title')).toBeVisible();
+  await page.waitForTimeout(450); // the modal's rise animation
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBe(0);
+  await page.screenshot({ path: 'out/web/patch-detail-phone.png' });
+});

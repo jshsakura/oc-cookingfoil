@@ -164,6 +164,33 @@
       .xitem .btn { padding: 8px 14px; font-size: 13px; }
       /* The download button sits at the same place on every item: right, centred on its name and details. */
       .xitem > .btn { align-self: center; }
+      /* List rows as on the client: one line each, the whole row opens its detail. */
+      .xrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; width: 100%; padding: 11px 6px; margin: 0;
+        border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
+      .xgroup header + .xrow { border-top: none; }
+      .xrow:hover .xname, .xrow:focus-visible .xname { color: var(--accent, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
+      .xrow:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; border-radius: 10px; }
+      .xrow .xname { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xrow .xmeta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--secondary); }
+      .xrow .chev { color: var(--faint); font-size: 20px; line-height: 1; }
+      .xrow.xapp { grid-template-columns: 48px minmax(0, 1fr) auto; border-top: none; padding: 4px 2px; }
+      .xrow.xapp > img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
+      .xrow.xapp .xname { font-size: 16px; }
+      .xrow .pill, .xmodal .xm-pills .pill {
+        padding: 2px 9px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap;
+        background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
+      }
+      .xmodal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
+      .xrow .pill.need, .xmodal .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      /* The detail of one patch, save or app: the game modal's frame without its banner. */
+      .modal.xmodal .body { padding-top: 26px; }
+      .modal.xmodal .modal-head .modal-cover { margin-top: 0; width: 72px; height: 72px; }
+      .modal.xmodal .modal-cover[hidden] { display: none; }
+      .modal.xmodal .xm-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+      .modal.xmodal .xm-section { margin: 0 0 16px; }
+      .modal.xmodal .xm-section h4 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
+      .modal.xmodal .xm-source { font-size: 13px; color: var(--secondary); margin: 0 0 16px; overflow-wrap: anywhere; }
+      .modal.xmodal .desc:empty { display: none; }
       .xitem.xapp { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; border-top: none; margin-top: 0; padding-top: 0; }
       .xitem.xapp > img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
       .xitem.xapp .xname { font-size: 16px; }
@@ -866,6 +893,29 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="xmodal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="xm-title">
+      <div class="modal xmodal" onclick="event.stopPropagation()">
+        <div class="body">
+          <div class="modal-head">
+            <img class="modal-cover" id="xm-icon" alt="" decoding="async">
+            <div class="modal-head-text">
+              <h3 id="xm-title">—</h3>
+              <p class="publisher" id="xm-sub"></p>
+            </div>
+          </div>
+          <div class="xm-pills" id="xm-pills"></div>
+          <div class="modal-meta" id="xm-meta"></div>
+          <div class="desc" id="xm-desc"></div>
+          <p class="xm-source" id="xm-source" hidden></p>
+          <div id="xm-sections"></div>
+          <div class="modal-actions">
+            <a class="btn" id="xm-download" href="#" download data-i18n="extras.download"></a>
+            <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-rack" id="toasts"></div>
 
     <button class="fab" id="upload-fab" type="button" aria-haspopup="dialog" aria-controls="upload-tray">
@@ -917,6 +967,16 @@
           "homebrew.search": "앱 이름으로 찾기…",
           "homebrew.empty": "이 조건에 맞는 앱이 없습니다.",
           "homebrew.extras": (p, s) => `패치 ${p}개 · 세이브 ${s}개`,
+          "xm.size": "크기",
+          "xm.files": "파일",
+          "xm.version": "버전",
+          "xm.gameVersion": "게임 버전",
+          "xm.author": "만든 이",
+          "xm.updated": "올린 날",
+          "xm.required": "필수",
+          "xm.appPatches": "이 앱의 패치",
+          "xm.appSaves": "이 앱의 세이브",
+          "xm.repo": "저장소",
           "kind.romfs": "데이터",
           "kind.exefs": "코드",
           "kind.exefs_patches": "코드 패치",
@@ -1101,6 +1161,16 @@
           "homebrew.search": "Search by app name…",
           "homebrew.empty": "No app matches.",
           "homebrew.extras": (p, s) => `${p} patches · ${s} saves`,
+          "xm.size": "Size",
+          "xm.files": "Files",
+          "xm.version": "Version",
+          "xm.gameVersion": "Game version",
+          "xm.author": "Author",
+          "xm.updated": "Updated",
+          "xm.required": "Required",
+          "xm.appPatches": "Patches for this app",
+          "xm.appSaves": "Saves for this app",
+          "xm.repo": "Repository",
           "kind.romfs": "Data",
           "kind.exefs": "Code",
           "kind.exefs_patches": "Code patch",
@@ -1284,6 +1354,16 @@
           "homebrew.search": "アプリ名で検索…",
           "homebrew.empty": "該当するアプリがありません。",
           "homebrew.extras": (p, s) => `パッチ ${p} 件 · セーブ ${s} 件`,
+          "xm.size": "サイズ",
+          "xm.files": "ファイル",
+          "xm.version": "バージョン",
+          "xm.gameVersion": "ゲームバージョン",
+          "xm.author": "作者",
+          "xm.updated": "更新日",
+          "xm.required": "必須",
+          "xm.appPatches": "このアプリのパッチ",
+          "xm.appSaves": "このアプリのセーブ",
+          "xm.repo": "リポジトリ",
           "kind.romfs": "データ",
           "kind.exefs": "コード",
           "kind.exefs_patches": "コードパッチ",
@@ -1467,6 +1547,16 @@
           "homebrew.search": "依應用名稱搜尋…",
           "homebrew.empty": "沒有符合的應用。",
           "homebrew.extras": (p, s) => `補丁 ${p} 個 · 存檔 ${s} 個`,
+          "xm.size": "大小",
+          "xm.files": "檔案",
+          "xm.version": "版本",
+          "xm.gameVersion": "遊戲版本",
+          "xm.author": "作者",
+          "xm.updated": "更新日期",
+          "xm.required": "必要",
+          "xm.appPatches": "此應用程式的補丁",
+          "xm.appSaves": "此應用程式的存檔",
+          "xm.repo": "儲存庫",
           "kind.romfs": "資料",
           "kind.exefs": "程式碼",
           "kind.exefs_patches": "程式修補",
@@ -2620,6 +2710,44 @@
         };
       })();
 
+      // One patch, save or homebrew app in detail, opened from its list row.
+      const xmodal = (() => {
+        const node = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, sections = [], download = null }) {
+          const img = $("xm-icon");
+          img.hidden = !icon; if (icon) img.src = icon; else img.removeAttribute("src");
+          img.onerror = () => { img.hidden = true; };
+          $("xm-title").textContent = title || "—";
+          $("xm-sub").textContent = sub || "";
+          $("xm-pills").replaceChildren(...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
+          $("xm-pills").hidden = !pills.length;
+          $("xm-meta").replaceChildren(...meta.filter(([, v]) => v != null && v !== "").map(([k, v]) => {
+            const d = node("div", null, k); d.append(node("strong", null, String(v))); return d;
+          }));
+          $("xm-desc").textContent = desc || "";
+          const src = $("xm-source");
+          src.hidden = !source;
+          if (source) {
+            src.replaceChildren(document.createTextNode(source.label + ": "));
+            if (source.url) { const a = node("a", null, source.name); a.href = source.url; a.target = "_blank"; a.rel = "noopener noreferrer"; src.append(a); }
+            else src.append(document.createTextNode(source.name));
+          }
+          $("xm-sections").replaceChildren(...sections.filter((x) => x.items.length).map((x) => {
+            const sec = node("section", "xm-section"); sec.append(node("h4", null, x.title), ...x.items); return sec;
+          }));
+          const dl = $("xm-download");
+          dl.hidden = !download;
+          if (download) dl.href = download;
+          $("xmodal").classList.add("open"); $("xmodal").setAttribute("aria-hidden", "false");
+          $("xm-close").focus();
+        }
+        function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); }
+        $("xmodal").addEventListener("click", (e) => { if (e.target === $("xmodal")) close(); });
+        $("xm-close").addEventListener("click", close);
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("xmodal").classList.contains("open")) close(); });
+        return { show, close };
+      })();
+
       // A game's patches in its detail: required ones first, as the console shows them.
       function renderModalPatches(list) {
         const box = $("modal-patches");
@@ -2680,6 +2808,45 @@
           }
           return row;
         }
+        const day = (at) => (at ? new Date(at).toLocaleDateString(lang) : "");
+        // What a patch or save shows in its detail.
+        function detail(kind, it) {
+          const icon = it.homebrew ? homebrew.iconOf(it.homebrew) : it.game?.icon ? iconPath(it.game.icon).replace("size=sm", "size=md") : "";
+          const text = kind === "saves" && it.source ? String(it.description || "").split("\n").slice(0, -1).join("\n") : it.description;
+          return {
+            icon,
+            title: it.name,
+            sub: gameName(it),
+            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)])],
+            meta: [
+              [t("xm.size"), fmtBytes(it.size)],
+              [t("xm.files"), it.files],
+              [t("xm.version"), it.version],
+              [t("xm.gameVersion"), it.game_version || it.gameVersion],
+              [t("xm.author"), it.author],
+              [t("xm.updated"), day(it.updatedAt || it.updated_at)],
+            ],
+            desc: text,
+            source: kind === "saves" && it.source ? { label: t("extras.source"), name: it.source.name, url: it.source.url } : null,
+            download: kind === "patches" ? `/api/patches/${encodeURIComponent(it.id)}/download` : it.url,
+          };
+        }
+        // One line per item, as on the client; the row opens its detail.
+        function listRow(kind, it) {
+          const row = document.createElement("button"); row.type = "button"; row.className = "xrow";
+          const head = document.createElement("div");
+          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const meta = document.createElement("div"); meta.className = "xmeta";
+          const pill = (text, cls) => { const p = document.createElement("span"); p.className = "pill" + (cls ? " " + cls : ""); p.textContent = text; return p; };
+          if (it.required === true) meta.append(pill(t("xm.required"), "need"));
+          for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
+          meta.append(document.createTextNode(fmtBytes(it.size)));
+          head.append(name, meta);
+          const chev = document.createElement("span"); chev.className = "chev"; chev.setAttribute("aria-hidden", "true"); chev.textContent = "›";
+          row.append(head, chev);
+          row.addEventListener("click", () => xmodal.show(detail(kind, it)));
+          return row;
+        }
         const PAGE = 20;   // items per page; a game's items stay together within a page
         const pageOf = { patches: 1, saves: 1 };
         // Shimmering groups in the list's shape while it loads.
@@ -2724,7 +2891,7 @@
             const name = document.createElement("strong"); name.textContent = gameName(items[0]);
             const n = document.createElement("span"); n.className = "n"; n.textContent = items.length;
             head.append(img, name, n);
-            g.append(head, ...items.map((it) => itemRow(kind, it)));
+            g.append(head, ...items.map((it) => listRow(kind, it)));
             return g;
           }));
           $(kind + "-count").textContent = items.length.toLocaleString();
@@ -2772,7 +2939,8 @@
           for (const it of data[kind]) if (it.homebrew) n.set(it.homebrew, (n.get(it.homebrew) ?? 0) + 1);
           return n;
         };
-        return { open, countFor, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
+        const itemsOf = (kind, app) => (data[kind] ?? []).filter((it) => it.homebrew === app);
+        return { open, countFor, itemsOf, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
@@ -2791,13 +2959,33 @@
           return apps;
         }
         const byApp = (app) => (apps ?? []).find((a) => a.app === app);
+        // An app in detail: what it is, and the patches and saves made for it, each downloadable.
+        function detail(a) {
+          return {
+            icon: a.icon_url,
+            title: a.name || a.app,
+            sub: a.author || "",
+            meta: [
+              [t("xm.version"), a.version && "v" + a.version],
+              [t("xm.size"), fmtBytes(a.size)],
+              [t("xm.updated"), a.released_at ? new Date(a.released_at).toLocaleDateString(lang) : ""],
+            ],
+            desc: a.description,
+            source: a.repo_url ? { label: t("xm.repo"), name: a.repo_url.replace(/^https?:\/\/(www\.)?/, ""), url: a.repo_url } : null,
+            sections: [
+              { title: t("xm.appPatches"), items: extras.itemsOf("patches", a.app).map((it) => extras.row("patches", it)) },
+              { title: t("xm.appSaves"), items: extras.itemsOf("saves", a.app).map((it) => extras.row("saves", it)) },
+            ],
+            download: a.download_url,
+          };
+        }
         function card(a) {
           const g = document.createElement("section"); g.className = "xgroup";
+          // One row like the client's: icon, name over its details; the row opens the app's detail.
+          const row = document.createElement("button"); row.type = "button"; row.className = "xrow xapp";
           const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
           if (a.icon_url) img.src = a.icon_url;
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
-          // One row like every other item: icon, name over its details, the button at the right.
-          const row = document.createElement("div"); row.className = "xitem xapp";
           const info = document.createElement("div");
           const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
           const meta = document.createElement("div"); meta.className = "xmeta";
@@ -2805,14 +2993,9 @@
           const s = counts.saves.get(a.app) ?? 0;
           meta.textContent = [a.version && "v" + a.version, a.author, fmtBytes(a.size), (p || s) && t("homebrew.extras", p, s)].filter(Boolean).join(" · ");
           info.append(name, meta);
-          const dl = document.createElement("a");
-          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", ""); dl.href = a.download_url;
-          row.append(img, info, dl);
-          if (a.description) {
-            const desc = document.createElement("div"); desc.className = "xdesc"; desc.textContent = a.description;
-            desc.addEventListener("click", () => desc.classList.toggle("open"));
-            row.append(desc);
-          }
+          const chev = document.createElement("span"); chev.className = "chev"; chev.setAttribute("aria-hidden", "true"); chev.textContent = "›";
+          row.append(img, info, chev);
+          row.addEventListener("click", () => xmodal.show(detail(a)));
           g.append(row);
           return g;
         }
