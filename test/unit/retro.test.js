@@ -35,23 +35,24 @@ function untar(buf) {
 
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-"));
-  put(dir, "roms/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc", "SMW");
-  put(dir, "roms/Nintendo - Super Nintendo Entertainment System/notes.txt", "not a game");
-  put(dir, "roms/SFC/Chrono Trigger (USA).sfc", "CT");
-  put(dir, "roms/SFC/젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K].sfc", "Z");
+  put(dir, "roms/snes/Super Mario World (USA).sfc", "SMW");
+  put(dir, "roms/snes/notes.txt", "not a game");
+  put(dir, "roms/snes/Chrono Trigger (USA).sfc", "CT");
+  put(dir, "roms/snes/젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K].sfc", "Z");
   put(dir, "art-map/snes.json", JSON.stringify({ "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]": "Zelda no Densetsu - Kamigami no Triforce (Japan)" }));
   put(dir, "ratings.json", JSON.stringify({ snes: { "Chrono Trigger (USA)": { rating: 95, count: 40 }, "Super Mario World (USA)": { rating: 90, count: 80 }, "broken": { rating: 900 } } }));
-  put(dir, "roms/FC/Contra (J).nes", "C");
-  put(dir, "roms/NES/Contra (J).nes", "C2");
+  put(dir, "roms/nes/Contra (J).nes", "C2");
+  // Folders that are not a system's own (an old alias here) are not read.
+  put(dir, "roms/FC/Contra Force (U).nes", "CF");
   put(dir, "roms/Wii/Some Game.iso", "unsupported");
-  put(dir, "roms/PS1/Disc Game/Disc Game.cue", 'FILE "Disc Game (Track 1).bin" BINARY\nFILE "../../escape.bin" BINARY\n');
-  put(dir, "roms/PS1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
+  put(dir, "roms/ps1/Disc Game/Disc Game.cue", 'FILE "Disc Game (Track 1).bin" BINARY\nFILE "../../escape.bin" BINARY\n');
+  put(dir, "roms/ps1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
   put(dir, "roms/gba/.hidden.gba", "x");
-  put(dir, "thumbnails/Nintendo - Super Nintendo Entertainment System/Named_Boxarts/Super Mario World (USA).png", TALL_COVER);
-  put(dir, "bezels/Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).png", "BEZEL");
-  put(dir, "bezels/Sony - PlayStation/_default.png", "GENERIC");
-  put(dir, "system-icons/color/Nintendo - Super Nintendo Entertainment System.png", "COLOR");
-  put(dir, "system-icons/mono/Nintendo - Super Nintendo Entertainment System.png", "MONO");
+  put(dir, "thumbnails/snes/Named_Boxarts/Super Mario World (USA).png", TALL_COVER);
+  put(dir, "bezels/snes/Super Mario World (USA).png", "BEZEL");
+  put(dir, "bezels/ps1/_default.png", "GENERIC");
+  put(dir, "system-icons/color/snes.png", "COLOR");
+  put(dir, "system-icons/mono/snes.png", "MONO");
   put(dir, "retroarch/retroarch.nro", "NRO");
   put(dir, "retroarch/retroarch.cfg", 'user_language = "14"\n');
   put(dir, "retroarch/cores/snes9x_libretro_libnx.nro", "CORE");
@@ -100,16 +101,15 @@ test("systems.json changes a core or adds a system", () => {
 test("the catalog lists games, folds disc tracks into their .cue, and finds art", async () => {
   const dir = fixture();
   const { games, present } = await scanDir(dir);
-  assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "official names and aliases moved into the short folders; Wii is not a RetroArch system here");
-  assert.deepEqual(fs.readdirSync(path.join(dir, "roms")).sort(), ["FC", "Wii", "gba", "nes", "ps1", "snes"]);
+  assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "one short folder per system; Wii is not a RetroArch system here");
   assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)", "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]"]);
-  assert.equal(fs.readFileSync(path.join(dir, "roms/FC/Contra (J).nes"), "utf8"), "C", "FC's Contra clashes with NES's: it stays in FC, unread");
+  assert.ok(!games.some((g) => g.name === "Contra Force (U)"), "an alias folder is not read");
   const disc = games.find((g) => g.system === "ps1");
   assert.deepEqual(disc.extras.map((x) => x.rel), ["Disc Game/Disc Game (Track 1).bin"]);
   assert.equal(disc.size, fs.statSync(path.join(dir, "roms/ps1/Disc Game/Disc Game.cue")).size + 6);
   assert.equal(disc.bezel.generic, true);
   const smw = games.find((g) => g.name.startsWith("Super"));
-  assert.equal(smw.id, gameId("snes", "Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc"));
+  assert.equal(smw.id, gameId("snes", "Super Mario World (USA).sfc"));
   assert.ok(smw.icon.endsWith(".png"));
   assert.equal(smw.bezel.generic, false);
   assert.equal(games.find((g) => g.name.startsWith("Chrono")).bezel, null);
@@ -151,7 +151,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const { systems } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
     assert.equal(snes.romCount, 3);
-    assert.equal(systems.find((s) => s.id === "nes").romCount, 1, "FC's clashing Contra stays in FC, unread");
+    assert.equal(systems.find((s) => s.id === "nes").romCount, 1, "only roms/nes is read");
     assert.equal(snes.defaultCore, "snes9x");
     assert.equal(snes.names.ko, "슈퍼 패미컴 (SNES)");
     assert.equal(await (await get(snes.iconUrl)).text(), "COLOR");
@@ -262,22 +262,12 @@ test("without a retro folder the API is off", async () => {
   }
 });
 
-test("NDS, Neo Geo Pocket, WonderSwan, Saturn and CD folders under their old names move into their own", async () => {
-  const { oldNames } = await import("../../src/retro/folder-migration.js");
+test("NDS, Neo Geo Pocket, WonderSwan, Saturn and the CD systems each have their own folder and core", () => {
   const systems = loadSystems("/nonexistent");
-  const names = oldNames(systems);
-  const owner = (folder) => names.get(folder.toLowerCase()) ?? null;
-  assert.equal(owner("NDS"), "nds");
-  assert.equal(owner("Nintendo - Nintendo DS"), "nds");
-  assert.equal(owner("NGP"), "ngp");
-  assert.equal(owner("WSC"), "ws");
-  assert.equal(owner("SS"), "saturn");
-  assert.equal(owner("Sega - Saturn"), "saturn");
-  assert.equal(owner("PS2"), null, "no PS2 core for the console");
+  for (const id of ["nds", "ngp", "ws", "saturn", "segacd", "pcecd"]) assert.equal(systems[id].folder, id);
   assert.equal(systems.nds.core, "melonds");
-  assert.equal(owner("Sega - Mega-CD - Sega CD"), "segacd");
-  assert.equal(owner("PCECD"), "pcecd");
-  assert.equal(owner("NEC - PC Engine CD - TurboGrafx-CD"), "pcecd");
+  assert.equal(systems.saturn.libretro, "Sega - Saturn");
+  assert.ok(!("ps2" in systems), "no PS2 core for the console");
   assert.ok(!systems.pce.extensions.includes(".chd"), "PC Engine CD discs live in their own system, with their own box art and bezels");
 });
 
@@ -314,15 +304,15 @@ test("disc names fold to one title", async () => {
 
 test("multi-disc games become one entry with an .m3u, and one format per game is listed", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-discs-"));
-  const ps1 = "roms/Sony - PlayStation";
+  const ps1 = "roms/ps1";
   put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].chd`, "D1");
   put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 2].chd`, "DISC2");
   put(dir, `${ps1}/MGS/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K].PBP`, "PBP-ALL");
   put(dir, `${ps1}/Langrisser/랑그릿사 4 & 5 (Langrisser IV & V) [IV Disc].chd`, "IV");
   put(dir, `${ps1}/Langrisser/랑그릿사 4 & 5 (Langrisser IV & V) [V Disc].chd`, "V");
-  put(dir, "roms/Sony - PlayStation Portable/QG/퀸즈 게이트 (Queen's Gate) [K].chd", "CHD");
-  put(dir, "roms/Sony - PlayStation Portable/QG/퀸즈 게이트 (Queen's Gate) [Korea].cso", "CSO");
-  put(dir, `thumbnails/Sony - PlayStation/Named_Boxarts/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].png`, TALL_COVER);
+  put(dir, "roms/psp/QG/퀸즈 게이트 (Queen's Gate) [K].chd", "CHD");
+  put(dir, "roms/psp/QG/퀸즈 게이트 (Queen's Gate) [Korea].cso", "CSO");
+  put(dir, `thumbnails/ps1/Named_Boxarts/메탈 기어 솔리드 (Metal Gear Solid - Integral) [K Disc 1].png`, TALL_COVER);
   const { games } = await scanDir(dir);
   const names = games.map((g) => `${g.system}:${g.file}`).sort();
   assert.deepEqual(names, [
@@ -378,7 +368,7 @@ test("with keys and hacBrewPack, each game offers its HOME-menu forwarder", asyn
 
 test("a retro folder with no ROMs doesn't offer retro, so the client hides its menu", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-empty-"));
-  put(dir, "roms/SFC/readme.txt", "no games yet");
+  put(dir, "roms/snes/readme.txt", "no games yet");
   const server = await boot(dir);
   try {
     const info = await (await get("/api/shop/info")).json();

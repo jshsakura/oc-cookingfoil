@@ -9,13 +9,10 @@
  *   bezels/<system>/_default.png         the system's bezel for games without their own
  *
  * <system> is the system's one folder (systems.js `folder`: its short id,
- * "gba", unless the operator names another). Libraries laid out under the old
- * names ("Nintendo - Game Boy Advance", "FC", "PS1") are moved into it once,
- * before the first scan (./folder-migration.js).
+ * "gba", unless the operator names another).
  *
- * A game's id is a hash of its system and its path under roms/, with the
- * folder part fixed per system (idFolder), so ids stay the same when the
- * folder is renamed. Box art keys (square-art.js artKey) are kept the same way.
+ * A game's id is a hash of its system id and its path inside the system's
+ * folder, so it does not depend on what that folder is called.
  *
  * "game name" is the ROM file name without its extension, which is also what
  * RetroArch calls the content when it looks for per-game configs.
@@ -39,7 +36,6 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { loadSystems } from "./systems.js";
-import { idFolder, migrateFolders, operatorAliases } from "./folder-migration.js";
 import { assignSdNames } from "./sd-names.js";
 import { applyArcade } from "./arcade.js";
 
@@ -122,31 +118,6 @@ async function systemDir(dir, sub, folder) {
   }
 }
 
-const migrated = new Set();
-
-/** Moves old-named system folders into place, once per retro dir and process. */
-export function ensureMigrated(dir, systems = loadSystems(dir)) {
-  if (migrated.has(dir)) return;
-  migrated.add(dir);
-  const report = migrateFolders(dir, systems, operatorAliases(dir));
-  const rel = (p) => path.relative(dir, p);
-  for (const { from, to } of report.renamed) debug.log("retro: moved %s to %s", rel(from), rel(to));
-  if (report.merged.length) debug.log("retro: moved %d entries from old system folders into their new ones", report.merged.length);
-  for (const { from, to } of report.conflicts) debug.error("retro: left %s where it is: %s already exists", rel(from), rel(to));
-  for (const { from, to, error } of report.failed) debug.error("retro: could not move %s to %s: %s", rel(from), rel(to), error);
-}
-
-/** The box art path a game's art key is made from: under the folder its id is built from. Pure. */
-export function artKeyPath(dir, systemId, system, abs) {
-  if (!abs) return null;
-  const seed = idFolder(systemId, system);
-  for (const sub of ["thumbnails", "icons"]) {
-    const prefix = path.join(dir, sub, system.folder) + path.sep;
-    if (abs.startsWith(prefix)) return path.join(dir, sub, seed, abs.slice(prefix.length));
-  }
-  return abs;
-}
-
 async function firstIn(dirs, names) {
   for (const d of dirs) {
     const hit = await firstImage(d, names);
@@ -187,7 +158,7 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
     }
   }
   const thumbName = name.replace(THUMB_UNSAFE_RE, "_");
-  const id = gameId(systemId, `${idFolder(systemId, system)}/${rel}`);
+  const id = gameId(systemId, rel);
   return {
     id,
     system: systemId,
@@ -240,7 +211,7 @@ async function groupDiscs(found, ctx) {
     const own = { icon: await firstIn(ctx.art.thumbs, [key, key.replace(THUMB_UNSAFE_RE, "_")]), bezel: await findBezel(ctx.art.bezels, key) };
     merged.push({
       ...discs[0],
-      id: gameId(ctx.systemId, `${idFolder(ctx.systemId, ctx.system)}/${rel}`),
+      id: gameId(ctx.systemId, rel),
       name: key,
       file: `${key}.m3u`,
       rel,
@@ -309,7 +280,6 @@ export async function scanDir(dir) {
   const systems = loadSystems(dir);
   const games = [];
   const present = new Set();
-  ensureMigrated(dir, systems);
   for (const [systemId, system] of Object.entries(systems)) {
     const romsDir = await systemDir(dir, "roms", system.folder);
     if (!romsDir) continue;
@@ -336,7 +306,6 @@ export async function scanDir(dir) {
       for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
     }
     const listedGames = bestFormats(await groupDiscs(own, { systemId, system, romsDir, art }));
-    for (const g of listedGames) g.iconKey = artKeyPath(dir, systemId, system, g.icon);
     games.push(...listedGames);
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
