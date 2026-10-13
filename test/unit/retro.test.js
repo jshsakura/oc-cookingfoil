@@ -226,6 +226,21 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(disc.install.rom, "roms/ps1/Disc Game.cue");
     assert.ok(![...discTar.keys()].some((k) => k.includes("escape")));
 
+    // A big disc file can be fetched alone (Range, strong ETag) and left out of the bundle.
+    const parts = (await (await get(`/api/retro/games/${disc.id}/parts`)).json()).files;
+    const bin = parts.find((f) => f.path === "roms/ps1/Disc Game (Track 1).bin");
+    assert.equal(bin.size, 6);
+    const ranged = await fetch(BASE + bin.url, { headers: { ...AUTH, Range: "bytes=2-" } });
+    assert.equal(ranged.status, 206);
+    assert.equal(await ranged.text(), "ACK1");
+    assert.match(ranged.headers.get("etag"), /^"[0-9a-f]+-[0-9a-f]+"$/);
+    const cue = parts.find((f) => f.path === "roms/ps1/Disc Game.cue");
+    assert.match(await (await get(cue.url)).text(), /^FILE "Disc Game \(Track 1\)\.bin" BINARY$/m, "a written file is served as written");
+    const slim = untar(Buffer.from(await (await get(`${disc.bundleUrl}?max=5`)).arrayBuffer()));
+    assert.equal(slim.has("roms/ps1/Disc Game (Track 1).bin"), false);
+    assert.deepEqual([...slim.keys()].filter((k) => !k.endsWith("/")).sort(), parts.filter((f) => f.size <= 5).map((f) => f.path).sort(), "only the files up to max");
+    assert.equal((await get(`/api/retro/games/${disc.id}/part?path=..%2Fx`)).status, 404);
+
     assert.equal((await get("/api/retro/games/snes-0000000000/bundle")).status, 404);
     assert.equal((await get("/api/retro/games/..%2F..%2Fetc/rom")).status, 404);
 

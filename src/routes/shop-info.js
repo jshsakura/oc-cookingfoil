@@ -70,7 +70,8 @@ export default async function shopInfoRoute(_req, res) {
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
-      ...(retro ? ["retro"] : []),
+      // retro-parts: /api/retro/games/:id/parts and /part?path=, and bundle?max= without the files over that size.
+      ...(retro ? ["retro", "retro-parts"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.

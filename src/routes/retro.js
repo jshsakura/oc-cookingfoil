@@ -18,7 +18,10 @@
  *                                                drawn ahead of time, cached for a year with the ?v= of iconUrl
  *   GET /api/retro/games/:id/boxart              the box art as it is
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
- *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
+ *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths; ?max=<bytes> leaves out
+ *                                                the files larger than that, to be fetched one by one
+ *   GET /api/retro/games/:id/parts               { files: [{ path, size, url }] } every bundle file, SD-root paths
+ *   GET /api/retro/games/:id/part?path=<sd path>  one bundle file (Range works; strong ETag)
  *   GET /api/retro/base-pack/manifest            { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once? }] }
  *   GET /api/retro/base-pack/file/<sd path>      one pack file (Range works)
  *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
@@ -352,7 +355,27 @@ export default function retroRouter() {
   });
   router.get("/games/:id/bundle", (req, res) => {
     const { game, system } = req.retro;
-    sendTar(res, bundleFiles(game, system), { filename: `${game.id}.tar`, label: "retro" });
+    // ?max= leaves the big files (a disc image, its .bin) to /part, fetched over several connections.
+    const max = /^\d+$/.test(String(req.query.max ?? "")) ? Number(req.query.max) : Infinity;
+    const files = bundleFiles(game, system).filter((f) => f.size <= max);
+    sendTar(res, files, { filename: `${game.id}.tar`, label: "retro" });
+  });
+  router.get("/games/:id/parts", (req, res) => {
+    const { game, system } = req.retro;
+    const base = `/api/retro/games/${game.id}/part?path=`;
+    res.set("Cache-Control", "private, no-cache");
+    res.json({ files: bundleFiles(game, system).map((f) => ({ path: f.path, size: f.size, url: base + encodeURIComponent(f.path) })) });
+  });
+  router.get("/games/:id/part", (req, res) => {
+    const { game, system } = req.retro;
+    const f = bundleFiles(game, system).find((x) => x.path === req.query.path);
+    if (!f) return res.status(404).json({ error: "no such file" });
+    res.attachment(path.posix.basename(f.path));
+    res.set("Cache-Control", "private, no-cache");
+    if (f.data) return res.send(f.data);
+    // A strong validator (size and time), so a resumed range can be checked with If-Range.
+    res.set("ETag", `"${f.size.toString(16)}-${Math.floor(f.mtime * 1000).toString(16)}"`);
+    res.sendFile(f.abs, { dotfiles: "allow", acceptRanges: true, etag: false, lastModified: false });
   });
   router.get("/games/:id/forwarder.nsp", wrap(async (req, res) => {
     if (!forwardersAvailable(keysDir)) return res.status(404).json({ error: "forwarders are not available on this server" });
