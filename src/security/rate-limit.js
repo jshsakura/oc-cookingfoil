@@ -17,12 +17,23 @@
  *
  * On exhaustion we 429 with a Retry-After hint and audit the event but
  * don't auto-lock (a noisy client isn't necessarily malicious).
+ *
+ * Callers who already proved who they are skip the bucket: an approved console
+ * (its device key and access key), a signed-in browser, an admin session. The
+ * client app pulls a retro base pack as hundreds of small files and a library
+ * page as hundreds of icons, and those were being throttled. The check is a
+ * hash compare or a cookie unseal, never a password hash, so it costs no more
+ * than the bucket itself; strangers still hit the limit.
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
 import { recordDeny, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
 import { envNumber } from "../helpers/env-read.js";
+import { devicePairing } from "../helpers/envs.js";
+import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
+import { webUser } from "./user-session.js";
+import { hasValidSession } from "./admin-session.js";
 
 const REFILL_PER_MIN = envNumber("COOK_RATE_LIMIT_PER_MIN", 1200, { min: 1 });
 const BURST = envNumber("COOK_RATE_LIMIT_BURST", 300, { min: 1 });
@@ -42,8 +53,19 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
+/** Whether the request already carries proof of who sent it (see the header). */
+export function provenCaller(req) {
+  if (devicePairing) {
+    const deviceKey = deviceKeyFromHeaders(req);
+    const hash = deviceKey ? store.getDeviceAccessKeyHash(deviceKey) : null;
+    if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) return true;
+  }
+  return Boolean(webUser(req)) || hasValidSession(req);
+}
+
 export default function rateLimit() {
   return (req, res, next) => {
+    if (provenCaller(req)) return next();
     const ip = clientIp(req);
     const now = Date.now();
     let b = buckets.get(ip);

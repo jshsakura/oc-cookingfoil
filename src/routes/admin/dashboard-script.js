@@ -99,8 +99,22 @@ function renderUsers(list){
     if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
     act.append(box);tr.append(act);return tr;});
   table('users',['이름','역할','상태','마지막 접속','마지막 IP',''],rows,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.');}
+// What each refusal means, for the log tab (the server's own codes and English hints are for curl and the server log).
+const DENY_KO={
+  'rate-limited':['요청 과다','짧은 시간에 요청이 너무 많아 잠시 쉬게 했습니다. 승인된 기기와 로그인한 브라우저는 이 제한을 받지 않습니다.'],
+  'ip-locked':['잠긴 주소','비밀번호를 여러 번 틀려 잠긴 주소에서 온 요청입니다. 위 차단 목록에서 풉니다.'],
+  'probe':['공격 시도','알려진 공격 경로나 도구라 로그인 전에 걸렀습니다.'],
+  'bad-credentials':['비밀번호 틀림','아이디나 비밀번호가 맞지 않습니다. 여러 번 틀리면 그 주소를 잠급니다.'],
+  'no-device-key':['기기 키 없음','기기 키 없이 들어왔고 이 서버는 기기 승인으로만 받습니다.'],
+  'device-not-approved':['승인 전 기기','아직 승인하지 않은 기기입니다. 기기 탭에서 승인합니다.'],
+  'device-bad-access-key':['기기 키 틀림','승인된 기기가 맞지 않는 접근 키를 보냈습니다. 기기 탭에서 키를 다시 냅니다.'],
+  'device-login-scope':['기기 로그인 범위 밖','기기 전용 로그인으로 게임 목록과 내려받기 밖의 것을 요청했습니다.'],
+  'device-login-other-console':['다른 콘솔','기기 전용 로그인을 묶인 콘솔이 아닌 곳에서 썼습니다.'],
+  'admin-no-session':['관리자 로그인 필요','관리 기능을 로그인 없이 요청했습니다.'],
+  'admin-bad-totp':['OTP 틀림','관리자 6자리 코드가 맞지 않았습니다.'],
+};
 function renderSecurity(d){
-  const locks=d.lockouts||[];
+  const locks=d.lockouts||[];const lockedNow=new Set(locks.map((l)=>l.ip));
   $('lock-count').hidden=!locks.length;$('lock-count').textContent=locks.length;
   $('unlock-all').disabled=!locks.length;
   table('lockouts',['IP','이유','차단 시각','해제 예정',''],locks.map((l)=>{const tr=el('tr');
@@ -108,8 +122,11 @@ function renderSecurity(d){
     const act=td();act.append(btn('해제',()=>unlock(l.ip)));tr.append(act);return tr;}),'차단된 IP 가 없습니다.');
   table('denials',['시각','이유','클라이언트','경로','IP'],(d.denials?.recent||[]).map((x)=>{const tr=el('tr');
     const w=td(ago(x.at));w.title=fmt(x.at);tr.append(w);
-    const r=td();r.append(pill(x.reason,'warn'));if(x.status)r.append(' ',pill(String(x.status)));
-    if(x.hint)r.append(el('div',x.hint,'muted'));tr.append(r);
+    const [label,hint]=DENY_KO[x.reason]||[x.reason,x.hint||''];
+    const r=td();r.append(pill(label,'warn'));if(x.status)r.append(' ',pill(String(x.status)));
+    // A lock that has since been lifted is history, not a live block.
+    if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill('지금은 풀림'));
+    if(hint)r.append(el('div',hint,'muted'));tr.append(r);
     tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;}),'거부된 요청이 없습니다.');}
 async function loadStats(){
   const d=await api('/admin/api/stats');

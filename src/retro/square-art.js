@@ -41,6 +41,22 @@ export function squarePath(artDir, game, size = "md") {
   return path.join(artDir, size === "md" ? `${game.id}-${key}.jpg` : `${game.id}-${key}.${size}.jpg`);
 }
 
+// The same file drawn by a request and by prewarm at once is drawn once: both
+// wait on one promise, and each draw writes its own temporary name.
+const drawing = new Map();
+function drawOnce(dest, draw) {
+  let p = drawing.get(dest);
+  if (!p) {
+    const tmp = `${dest}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+    p = draw(tmp)
+      .then(() => fsp.rename(tmp, dest))
+      .catch(async (err) => { await fsp.rm(tmp, { force: true }); throw err; })
+      .finally(() => drawing.delete(dest));
+    drawing.set(dest, p);
+  }
+  return p;
+}
+
 /** The WebP twin of a square (for clients that send `Accept: image/webp`), about a third smaller. */
 export const webpPath = (square) => square.replace(/\.jpg$/, ".webp");
 
@@ -49,11 +65,7 @@ export async function ensureSquareWebp(artDir, game, size = "md") {
   const square = await ensureSquare(artDir, game, size);
   if (!square) return null;
   const dest = webpPath(square);
-  if (!fs.existsSync(dest)) {
-    const tmp = `${dest}.tmp`;
-    await sharp(square).webp({ quality: 75, effort: 6 }).toFile(tmp);
-    await fsp.rename(tmp, dest);
-  }
+  if (!fs.existsSync(dest)) await drawOnce(dest, (tmp) => sharp(square).webp({ quality: 75, effort: 6 }).toFile(tmp));
   return dest;
 }
 
@@ -66,9 +78,7 @@ export async function makeSquare(src, dest, size = SQUARE_PX) {
     .toBuffer();
   const cover = await sharp(src, { failOn: "none" }).resize(size, size, { fit: "inside" }).toBuffer();
   await fsp.mkdir(path.dirname(dest), { recursive: true });
-  const tmp = `${dest}.tmp`;
-  await sharp(backdrop).composite([{ input: cover, gravity: "centre" }]).jpeg({ quality: QUALITY, mozjpeg: true }).toFile(tmp);
-  await fsp.rename(tmp, dest);
+  await drawOnce(dest, (tmp) => sharp(backdrop).composite([{ input: cover, gravity: "centre" }]).jpeg({ quality: QUALITY, mozjpeg: true }).toFile(tmp));
 }
 
 /** The square for one game at `size`, drawn now if it isn't on disk yet; null without box art. */
