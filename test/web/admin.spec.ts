@@ -157,3 +157,15 @@ test('the automation token copy row stays out of sight until a token is made', a
   await expect(page.locator('#tok-form')).toBeVisible();
   await expect(page.locator('#tok-new')).toBeHidden();
 });
+
+test('the operator guide reads as a page, and its raw text stays for helpers', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin/guide');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('CookingFoil 운영 안내');
+  await expect(page.locator('table').first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('## ');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-guide.png' });
+  const raw = await request.get('/admin/guide.md', { headers: { Cookie: adminCookie } });
+  expect(await raw.text()).toContain('# CookingFoil 운영 안내');
+});

@@ -71,6 +71,7 @@ const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
 import { pairPage } from "./admin/pair-page.js";
+import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 
@@ -207,6 +208,12 @@ export default function adminPageRouter() {
   router.get("/guide.md", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store").type("text/markdown; charset=utf-8").send(GUIDE);
+  });
+
+  // The same guide as a page to read; /guide.md stays the raw text an AI helper is handed.
+  router.get("/guide", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store").type("html").send(guidePage(GUIDE));
   });
 
   router.post("/verify", async (req, res) => {

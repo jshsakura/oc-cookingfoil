@@ -7,7 +7,7 @@
 1. `docker compose up -d` 로 띄웁니다.
 2. `docker compose logs cookingfoil | grep "setup code"` 로 설정 코드를 확인합니다. 코드는 켤 때마다 바뀝니다.
 3. 브라우저로 서버 주소를 열면 처음 설정 화면이 나옵니다. 설정 코드, 관리자 계정, 인증 앱 등록 순서로 진행합니다.
-4. 끝나면 관리 페이지가 열립니다. 이후 관리 페이지는 계정 로그인 뒤 인증 앱의 6자리 코드를 한 번 더 묻습니다.
+4. 끝나면 관리 페이지가 열립니다. 이후 관리 페이지는 계정 로그인 뒤 관리자 비밀번호나 인증 앱의 6자리 코드를 한 번 더 묻습니다. 관리자 역할의 구글 계정으로 로그인했으면 묻지 않습니다.
 
 설정은 모두 선택입니다. `.env` 에 넣는 값은 `.env.example` 에 설명이 있습니다.
 
@@ -90,7 +90,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 홈브류 목록, 추가, 지금 확인 | `GET /admin/api/homebrew`, `POST /admin/api/homebrew` `{ "repo": "owner/name" }`, `POST /admin/api/homebrew/check` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` |
-| 게임 소개 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "ko": "…", "en": "…" }`, `POST …/<타이틀 ID>/reset` |
+| 게임 소개와 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "description": { "ko", "en" }, "notes": { "ko", "en" } }`, `POST …/<타이틀 ID>/reset` |
 | 기기 목록, 승인, 이름, 끊기 | `GET /admin/api/devices`, `POST /admin/api/devices/approve` `{ "code": "<기기 코드>" }`, `…/label`, `…/revoke` |
 | 기기별 접속 정보 | `GET /admin/api/device-logins`, `POST /admin/api/device-logins` `{ "label" }`, `POST …/<이름>/revoke` |
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
