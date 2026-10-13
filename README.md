@@ -1,6 +1,6 @@
 # CookingFoil
 
-A personal file server for homebrew. Keep your files on a machine at home and pull them from a homebrew app on your console.
+A personal file server for homebrew. Keep your files on a machine at home, manage everything from one admin page, and pull them from a homebrew app on your console.
 
 Language: **English** | [한국어](README.ko.md)
 
@@ -12,11 +12,11 @@ Website: <https://jshsakura.github.io/oc-cookingfoil/>
 
 ## Overview
 
-CookingFoil runs in Docker on your home server. It looks up names and icons for the files you put in it and serves the list to CyberFoil, Tinfoil-style clients and the CookingFoil client.
+CookingFoil runs in Docker on your home server. It finds names and icons for the files you put in it, and it serves the list to CyberFoil, Tinfoil-style clients and the CookingFoil client.
 
-It ships with no software, no keys, no BIOS files and no RetroArch. Those folders start empty, and the features that use them stay off until you fill them with files you already own.
-
-The server and the client are two projects:
+- **One admin page for everything.** Settings, accounts, devices, uploads, homebrew, patches, saves and names are all changed in the browser. Changes apply at once, with no restart and no files to edit by hand.
+- **Nothing included.** It ships with no software, no keys, no BIOS files and no RetroArch. Those folders start empty, and the features that use them stay off until you add files you already own.
+- **Private by default.** First-run setup needs a code from the server log. Consoles connect by QR approval or a login made for that one console, so your password never sits on a console.
 
 | Project | Runs on | Artifact |
 |---|---|---|
@@ -33,16 +33,21 @@ docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
 
-Open `http://<host>:9080/` and the first-run setup appears. Enter the setup code from the log, create the admin account and register an authenticator app. Nobody can claim the server without that code, and it changes on every start. Give clients the same address as their server.
+1. Open `http://<host>:9080/`. The first-run setup appears.
+2. Enter the setup code from the log. It changes on every start, so nobody can claim the server without it.
+3. Create the admin account and register an authenticator app.
+4. The admin page opens. Do everything else from there.
 
-Keys for outside services (IGDB scores, SteamGridDB art, Dropbox save sync, GitHub, a ratings server) go in the admin page's settings tab, which says where to get each one. The server runs without them.
+Give clients the same address you opened in the browser.
+
+## Folders
 
 ```
 cookingfoil/
 ├── docker-compose.yml
-├── .env              # settings, all optional
+├── .env              # optional; defaults for the first start
 ├── games/            # your files
-├── data/             # cache, accounts and settings. Back this one up
+├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
 ├── keys/             # optional, read-only
 ├── retro/            # retro ROMs by system
 ├── patches/          # patches by base title id, and homebrew/<app>/
@@ -50,34 +55,52 @@ cookingfoil/
 └── homebrew/         # .nro apps and app folders
 ```
 
-Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path` in `.env` and they are made under it. To move just one, set its own path, e.g. `COOK_GAMES_PATH=/mnt/disk/games` (`COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH`). Retro ROMs used to live in `data/retro`; move them into `retro/`, and the log says so until you do.
+Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path` in `.env`. To move just one, set its own path, for example `COOK_GAMES_PATH=/mnt/disk/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
 
-Inside `retro/`, each system has one folder named by its short id, the same under `roms/`, `thumbnails/` and `bezels/`: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` (e.g. `retro/roms/snes/`). Box art and bezels are fetched by the system's libretro name, which is only a lookup table in the code. A system's `folder` or `libretro` name can be changed in `retro/systems.json` if you need to.
+Inside `retro/`, each system has one folder named by its short id. The name is the same under `roms/`, `thumbnails/` and `bezels/`, for example `retro/roms/snes/`. The ids are `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade`. Box art and bezels are fetched by the system's libretro name, which is only a lookup table in the code. If you need to, change a system's `folder` or `libretro` name in `retro/systems.json`.
+
+## The admin page
+
+Open `/admin`. After signing in, it asks once more for the admin password or an authenticator code. Every change is saved under `data/` and applies at once.
+
+| Tab | What you do there |
+|---|---|
+| Overview | Server health, warnings, and where game names come from |
+| Users | Accounts and roles; Google accounts waiting for approval |
+| Devices | Approve or reject consoles, rename or disconnect them, and make a login for one console |
+| Settings | **Server behaviour**: QR device approval and how consoles are approved, web uploads, the public address, the welcome message, where names and icons are read from, name language order, title list download and regions, store prices, popularity, artwork and ratings. Also outside-service keys, Google sign-in, the admin password, the authenticator, and automation tokens |
+| Alerts | Telegram alerts for approvals, lockouts and dangerous access |
+| Logs | Locked addresses, refused requests and client error reports |
+| Featured | The rows at the top of the client's home screen |
+| Library | Find and delete files; edit, move to another game or delete patches and saves; mark a patch as required; set a game's name, description and notes |
+| Upload | Games, retro ROMs, patches, saves and homebrew, by file or by folder |
+| Homebrew | Add a GitHub repository, turn an app on or off, remove it, or link a hand-placed app to its repository |
+| Retro | Box art and bezels, cover uploads, display names, and deleting ROMs |
+
+A value in `.env` is only the default for the first start. Once you change a setting on the admin page, the page's value is used, and "back to compose" returns to the `.env` one.
+
+The operator guide at `/admin/guide` covers each task. It also lists the API the admin page uses, so a script or an AI helper with an automation token can do the same work.
 
 ## Connecting a client
 
-- **CyberFoil:** in Settings, put the server address in the URL field and your account in the username and password fields. A per-console login from the *Devices* page (`/pair`) is safer: it only reads the list, locks to the first console that uses it, and can be revoked.
-- **Tinfoil-style clients:** *File Browser*, then `+`, then the address ending in `/shop.tfl`, with your account.
-- **CookingFoil client:** with `COOK_DEVICE_PAIRING=true` the console shows a QR code. Scan it with your phone, sign in, and approve it. No password is stored on the console.
+- **CookingFoil client:** turn on QR device connection in Settings → Server behaviour. The console shows a QR code. Scan it with your phone, sign in, and approve it. No password is stored on the console.
+- **CyberFoil:** in its settings, put the server address in the URL field. In the username and password fields, use a per-console login made on the Devices tab. It can only read the list, locks to the first console that uses it, and can be revoked. Your account works too.
+- **Tinfoil-style clients:** go to *File Browser*, press `+`, then enter the address ending in `/shop.tfl` with your account.
 
-## Configuration
+## Environment variables
 
-Every setting is an environment variable starting with `COOK_`. [`.env.example`](./.env.example) lists all of them; these are the ones most setups change.
+Only what has to be known before the admin page exists lives here. [`.env.example`](./.env.example) lists every variable.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `COOK_AUTH_USERS` | _(empty)_ | Preset accounts, `user:pass,user2:pass2`, imported once instead of `/setup` |
-| `COOK_FIRST_RUN_SETUP` | `true` | `false` keeps a server without accounts open instead of sending browsers to `/setup` |
 | `COOK_HOST_PORT` | `9080` | Host port |
 | `COOK_ROOT` | `.` | Host folder the folders above are made under |
-| `COOK_PUBLIC_BASE_URL` | _(empty)_ | The outside address when behind a reverse proxy or tunnel |
-| `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, e.g. `loopback, uniquelocal` |
-| `COOK_ADMIN_PASSWORD` | _(empty)_ | Admin page password (12+ chars); an authenticator code also works |
-| `COOK_DEVICE_PAIRING` | `false` | QR approval for the CookingFoil client |
-| `COOK_EXTRACT_ICONS` | `missing` | Read names and icons from the files: `missing`, `all` or `off` |
-| `COOK_TITLEDB_AUTO_FETCH` | `true` | Fetch public title lists; it runs offline once they are cached |
+| `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops to trust, for example `loopback, uniquelocal` |
+| `COOK_AUTH_USERS` | _(empty)_ | Preset accounts, `user:pass,user2:pass2`, imported once instead of `/setup` |
+| `COOK_FIRST_RUN_SETUP` | `true` | `false` keeps a server without accounts open instead of sending browsers to `/setup` |
+| `COOK_ADMIN_PASSWORD` | _(empty)_ | A way back in if both the admin password and the authenticator are lost (12+ characters) |
 
-Google sign-in, outside-service keys, homebrew repositories and accounts are set on the admin page (`/admin`). Keys can also be preset with env vars (see `.env.example`); what the admin page saves wins.
+Settings that the admin page changes, such as `COOK_DEVICE_PAIRING`, `COOK_PUBLIC_BASE_URL`, `COOK_EXTRACT_ICONS` and service keys, can also be preset here. They are only defaults.
 
 ## API
 
@@ -88,8 +111,8 @@ Google sign-in, outside-service keys, homebrew repositories and accounts are set
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
 | `GET /api/title/:id?lang=` | Detail for one entry |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut |
-| `GET /api/patches`, `/api/saves` | Mods and save files |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut. Apps turned off on the admin page are left out |
+| `GET /api/patches?lang=`, `/api/saves?lang=` | Patches and save files, with Korean names and descriptions for `ko` |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The client build kept in `data/client/` |
 | `GET /api/retro/systems`, `/api/retro/games` | Files from the retro folder, when you have created it |
 
@@ -109,15 +132,17 @@ npm run test:web        # after: npx playwright install chromium
 ```
 src/
 ├── index.js        # server entry
-├── routes/         # HTTP routes, login and admin pages
-├── security/       # accounts, sessions, devices, lockouts
-├── meta/           # names, icons, homebrew tracking
-├── retro/          # retro folder and shortcuts
-└── views/          # the web page
+├── routes/         # HTTP routes; admin/ holds each admin tab's API and panel
+├── security/       # accounts, sessions, devices, lockouts, settings saved on the admin page
+├── meta/           # names, icons, patches, saves, homebrew tracking
+├── retro/          # retro folder, names and shortcuts
+└── views/          # the web page and the operator guide
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
 
+A new setting gets a control on the admin page, is saved under `data/`, and falls back to its environment variable.
+
 ## License
 
-MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Title data comes from [blawar/titledb](https://github.com/blawar/titledb); the image includes [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](./LICENSE). Started from [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT). Title data comes from [blawar/titledb](https://github.com/blawar/titledb). The image includes [nstool](https://github.com/jakcron/nstool) and [nsz](https://github.com/nicoboss/nsz). See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
