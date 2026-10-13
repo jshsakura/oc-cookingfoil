@@ -9,7 +9,8 @@
  * syncArt() fills what is missing: it matches unmapped ROMs by their English
  * title against libretro-thumbnails, then downloads box art and bezels for every
  * mapped ROM. applyMatch() is the hand-made correction for one ROM, and
- * saveCover() takes a cover from SteamGridDB instead. Files that exist are kept,
+ * saveCover() takes a cover from SteamGridDB instead, and saveCoverImage() one the
+ * admin uploaded; both shrink it the same way. Files that exist are kept,
  * except by applyMatch, which replaces them.
  */
 import fs from "fs";
@@ -24,7 +25,12 @@ const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const CANDIDATES = 24;
 const SGDB = "https://www.steamgriddb.com/api/v2";
 const SGDB_CDN_RE = /^https:\/\/cdn\d*\.steamgriddb\.com\//;
-const MAX_COVER_BYTES = 15 * 1024 * 1024;
+export const MAX_COVER_BYTES = 15 * 1024 * 1024;
+// Box art is shown small on the console: bound it to libretro's own 512 wide
+// (portrait up to 768 tall) and keep it a paletted PNG (RetroArch reads PNG
+// only), about a fifth of a straight re-encode.
+const COVER_MAX_W = 512;
+const COVER_MAX_H = 768;
 // WonderSwan names need a console prefix and arcade art follows the DAT, so neither is matched by title.
 const NOT_MATCHED = new Set(["ws", "arcade"]);
 
@@ -277,9 +283,32 @@ export async function saveCover(dir, system, rom, url, { fetchImpl = fetch } = {
   if (!res.ok) throw new Error(`cover ${res.status}`);
   const body = Buffer.from(await res.arrayBuffer());
   if (body.length > MAX_COVER_BYTES) throw new Error("cover too large");
-  const png = await sharp(body, { failOn: "none" }).png().toBuffer();
+  await saveCoverImage(dir, system, rom, body);
+}
+
+export class CoverImageError extends Error {}
+
+/** Any image sharp can read (jpg, png, webp, gif, avif …) → a small PNG. Upright, never enlarged. */
+export async function encodeCover(raw) {
+  try {
+    return await sharp(raw, { failOn: "none" })
+      .rotate()
+      .resize({ width: COVER_MAX_W, height: COVER_MAX_H, fit: "inside", withoutEnlargement: true })
+      .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
+      .toBuffer();
+  } catch (err) {
+    throw new CoverImageError(`이미지를 읽지 못했습니다: ${err.message}`);
+  }
+}
+
+/** Saves image bytes as one ROM's box art, shrunk by encodeCover. Returns the bytes written. */
+export async function saveCoverImage(dir, system, rom, raw) {
+  if (!raw?.length) throw new CoverImageError("빈 파일입니다");
+  if (raw.length > MAX_COVER_BYTES) throw new CoverImageError("15 MB 보다 큰 이미지는 받지 않습니다");
+  const png = await encodeCover(raw);
   const dest = boxartPath(dir, system, rom);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.writeFile(`${dest}.part`, png);
   await fsp.rename(`${dest}.part`, dest);
+  return png.length;
 }

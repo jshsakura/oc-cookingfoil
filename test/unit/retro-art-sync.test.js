@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import * as art from "../../src/retro/art/sync.js";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
@@ -59,6 +60,30 @@ test("covers are taken only from SteamGridDB's image host", async () => {
   const dir = tmp();
   await assert.rejects(art.saveCover(dir, system, "x", "https://evil.example/a.png", { fetchImpl: fakeNet() }), /SteamGridDB/);
   await assert.rejects(art.saveCover(dir, system, "x", "file:///etc/passwd", { fetchImpl: fakeNet() }), /SteamGridDB/);
+});
+
+test("an uploaded cover of any format becomes a small upright PNG; anything else is refused", async () => {
+  const dir = tmp();
+  // A noisy 1200x1800 photo: a straight PNG of it would run to megabytes.
+  const noise = Buffer.alloc(1200 * 1800 * 3);
+  for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) >>> 24;
+  const jpeg = await sharp(noise, { raw: { width: 1200, height: 1800, channels: 3 } }).jpeg({ quality: 95 }).toBuffer();
+  const bytes = await art.saveCoverImage(dir, system, "Mega Man X (USA)", jpeg);
+  const out = art.boxartPath(dir, system, "Mega Man X (USA)");
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.format, "png");
+  assert.deepEqual([meta.width, meta.height], [512, 768], "bounded to 512x768, the shape kept");
+  assert.equal(fs.statSync(out).size, bytes);
+  assert.ok(bytes < jpeg.length, `${bytes} < ${jpeg.length}`);
+
+  const tiny = await sharp({ create: { width: 40, height: 60, channels: 3, background: "#c00" } }).webp().toBuffer();
+  await art.saveCoverImage(dir, system, "small", tiny);
+  assert.deepEqual([(await sharp(art.boxartPath(dir, system, "small")).metadata()).width], [40], "never enlarged");
+
+  await assert.rejects(art.saveCoverImage(dir, system, "bad", Buffer.from("not an image at all")), art.CoverImageError);
+  await assert.rejects(art.saveCoverImage(dir, system, "empty", Buffer.alloc(0)), art.CoverImageError);
+  await assert.rejects(art.saveCoverImage(dir, system, "huge", Buffer.alloc(art.MAX_COVER_BYTES + 1)), /15 MB/);
+  assert.ok(!fs.existsSync(art.boxartPath(dir, system, "bad")));
 });
 
 test("a bezel falls back to the same title from another region, then gives way to the system default", () => {

@@ -9,6 +9,9 @@
  *   GET  /admin/api/retro-art/sgdb?q=              SteamGridDB games for a title (needs its key)
  *   GET  /admin/api/retro-art/sgdb/:id             that game's covers
  *   POST /admin/api/retro-art/cover     { game, url }    use a SteamGridDB cover as the game's box art
+ *   POST /admin/api/retro-art/cover/upload?game=   the image itself as the body (jpg, png, webp …):
+ *                                                  shrunk to a small PNG and used as the game's box art
+ *   GET  /admin/api/retro-art/games?q=             every game whose name matches, art or not (at most 100)
  *   POST /admin/api/retro-art/ratings              refresh LaunchBox ratings (one job at a time)
  *
  * Ratings also refresh by themselves once ratings.json is a week old (COOK_RATING_SYNC).
@@ -16,9 +19,11 @@
  * Every change rescans the catalog, so the list tiles follow at once.
  */
 import fs from "fs";
+import express from "express";
 import path from "path";
 import debug from "../../debug.js";
-import { dataDir, ratingSync, retroDir } from "../../helpers/envs.js";
+import { dataDir, publicBaseUrl, ratingSync, retroDir } from "../../helpers/envs.js";
+import { resolveOrigin } from "../../helpers/origin.js";
 import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import * as art from "../../retro/art/sync.js";
@@ -173,5 +178,37 @@ export function mountRetroArtApi(router, requireSession) {
     await art.saveCover(retroDir, found.system, romKey(found.g), String(req.body?.url ?? ""));
     await retroCatalog.scan(retroDir);
     res.json({ boxart: "ok" });
+  }));
+
+  const imageBody = express.raw({ type: "image/*", limit: art.MAX_COVER_BYTES });
+  // The session is checked before the body is read, so only an admin can send megabytes.
+  router.post("/api/retro-art/cover/upload", guarded(async (req, res) => {
+    const origin = req.get("Origin");
+    if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
+    const bad = await new Promise((resolve) => imageBody(req, res, resolve));
+    if (bad) return res.status(bad.type === "entity.too.large" ? 413 : 400).json({ error: bad.type === "entity.too.large" ? "15 MB 보다 큰 이미지는 받지 않습니다" : "이미지를 받지 못했습니다" });
+    if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: "이미지 파일을 올립니다" });
+    const found = await gameOf(req.query.game);
+    if (!found) return res.status(404).json({ error: "없는 항목입니다" });
+    try {
+      const bytes = await art.saveCoverImage(retroDir, found.system, romKey(found.g), req.body);
+      await retroCatalog.scan(retroDir);
+      debug.log("admin retro-art: %s cover uploaded (%d → %d bytes)", found.g.id, req.body.length, bytes);
+      res.json({ boxart: "ok", from: req.body.length, bytes });
+    } catch (err) {
+      if (!(err instanceof art.CoverImageError)) throw err;
+      res.status(400).json({ error: err.message });
+    }
+  }));
+
+  router.get("/api/retro-art/games", guarded(async (req, res) => {
+    const q = String(req.query.q ?? "").trim().toLowerCase().slice(0, 100);
+    if (!q) return res.json({ games: [] });
+    const catalog = await retroCatalog.current(retroDir);
+    const games = catalog.games
+      .filter((g) => g.name.toLowerCase().includes(q) || (g.original ?? "").toLowerCase().includes(q))
+      .slice(0, 100)
+      .map((g) => ({ id: g.id, system: g.system, name: g.name, rom: romKey(g), original: g.original ?? null, boxart: Boolean(g.icon) }));
+    res.json({ games });
   }));
 }
