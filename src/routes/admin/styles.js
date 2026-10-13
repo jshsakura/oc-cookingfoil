@@ -41,6 +41,8 @@ button.primary{border-color:transparent;background:var(--accent);color:var(--acc
 button.primary:hover{filter:brightness(1.04);border-color:transparent}
 button.danger{color:var(--bad);border-color:rgba(var(--bad-rgb),.4)}
 input,select{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px}
+/* Our own arrow with room on the right, instead of the browser's pressed against the edge. */
+select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b909a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:12px 8px;text-overflow:ellipsis}
 input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3)}
 button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .empty{color:var(--faint);padding:20px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:16px}
