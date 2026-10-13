@@ -2717,7 +2717,8 @@
           }
           return row;
         }
-        const day = (at) => (at ? new Date(at).toLocaleDateString(lang) : "");
+        // Patch and save dates come as Unix seconds; an ISO string or milliseconds also read right.
+        const day = (at) => (at ? new Date(typeof at === "number" && at < 1e12 ? at * 1000 : at).toLocaleDateString(lang) : "");
         // What a patch or save shows in its detail.
         function detail(kind, it) {
           const icon = it.homebrew ? homebrew.iconOf(it.homebrew) : it.game?.icon ? iconPath(it.game.icon).replace("size=sm", "size=md") : "";
