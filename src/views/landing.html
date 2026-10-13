@@ -105,7 +105,7 @@
       .lang-list button:hover:not(.active) { background: var(--sunk); }
       .lang-list button.active { background: var(--ink); color: var(--ground); }
 
-      /* ACCOUNT MENU: a gear on the right that opens devices, admin and sign out */
+      /* ACCOUNT MENU: a person in a circle on the right, as on the admin page, that opens devices, admin and sign out */
       .acct-menu { position: relative; }
       .icon-btn {
         display: inline-grid; place-items: center; width: 36px; height: 36px; cursor: pointer;
@@ -180,7 +180,6 @@
       /* CONNECT: the shop address, always on top */
       .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
         background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
-      .connect-bar .hint { grid-column: 1 / -1; margin-top: 0; overflow-wrap: anywhere; }
       .connect-bar > * { min-width: 0; }
       .stats-panel { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
@@ -689,7 +688,7 @@
         </div>
         <div class="acct-menu" id="acct-menu">
           <button class="icon-btn" id="acct-btn" type="button" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
           </button>
           <div class="pop-list" id="acct-list" role="menu" hidden>
             <p class="who" id="acct-who" hidden></p>
@@ -706,7 +705,6 @@
           <div id="shop-url" class="url-pill sk">—</div>
           <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
         </div>
-        <p class="hint" data-i18n-html="hint.connect"></p>
       </section>
 
       <div class="card">
@@ -985,7 +983,6 @@
           "action.menu": "메뉴",
           "action.download": "다운로드",
           "action.close": "닫기",
-          "hint.connect": "<b>CyberFoil</b>: 옵션(설정) → <em>eShop URL</em>에 위 주소 입력, 인증을 켰다면 <em>eShop 사용자 이름 / 비밀번호</em> 칸에 로그인 정보 입력. &nbsp;|&nbsp; Tinfoil 호환: <em>File Browser</em> → <code>+</code> 로 위 URL 추가.",
           "stat.games": "타이틀",
           "stat.games_sub": "/games 폴더 스캔",
           "stat.titledb": "TITLEDB",
@@ -1166,7 +1163,6 @@
           "action.menu": "Menu",
           "action.download": "Download",
           "action.close": "Close",
-          "hint.connect": "<b>CyberFoil</b>: Options → <em>eShop URL</em> = the address above; with auth on, put your login in the <em>eShop Username / Password</em> fields. &nbsp;|&nbsp; Tinfoil-compatible: <em>File Browser</em> → <code>+</code> to add the URL.",
           "stat.games": "Titles",
           "stat.games_sub": "scanned in /games",
           "stat.titledb": "Titledb",
@@ -1350,7 +1346,6 @@
           "action.menu": "メニュー",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
-          "hint.connect": "<b>CyberFoil</b>: オプション → <em>eShop URL</em> に上のアドレスを入力し、認証を有効にしている場合は <em>eShop ユーザー名 / パスワード</em> にログイン情報を入力します。 &nbsp;|&nbsp; Tinfoil 互換: <em>File Browser</em> → <code>+</code> で上のURLを追加します。",
           "stat.games": "タイトル",
           "stat.games_sub": "/games をスキャン",
           "stat.titledb": "Titledb",
@@ -1534,7 +1529,6 @@
           "action.menu": "菜单",
           "action.download": "下載",
           "action.close": "關閉",
-          "hint.connect": "<b>CyberFoil</b>：選項 → 在 <em>eShop URL</em> 輸入上方網址；若已開啟驗證，請在 <em>eShop 使用者名稱 / 密碼</em> 輸入登入資訊。 &nbsp;|&nbsp; Tinfoil 相容：<em>File Browser</em> → <code>+</code> 加入上方網址。",
           "stat.games": "遊戲檔",
           "stat.games_sub": "/games 掃描",
           "stat.titledb": "Titledb",

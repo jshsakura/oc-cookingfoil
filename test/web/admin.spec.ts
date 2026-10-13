@@ -92,7 +92,7 @@ test('admin API refuses changes without a session', async ({ request }) => {
   expect(response.status()).toBe(401);
 });
 
-test('files dropped into the upload box pick their own kind and go in one by one', async ({ page }) => {
+test('files dropped into the upload box pick their own kind and go in one by one', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#upload');
   await expect(page.locator('#up-form')).toBeHidden();
@@ -122,6 +122,9 @@ test('files dropped into the upload box pick their own kind and go in one by one
   } finally {
     for (const name of names) fs.rmSync(`/tmp/cookingfoil-web-test-games/${name}`, { force: true });
     fs.rmSync(dir, { recursive: true, force: true });
+    // Later specs count the library's games: wait until it is back to the one it started with.
+    await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
+    await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
   }
 });
 
@@ -168,4 +171,19 @@ test('the operator guide reads as a page, and its raw text stays for helpers', a
   await page.screenshot({ path: 'out/web/admin-guide.png' });
   const raw = await request.get('/admin/guide.md', { headers: { Cookie: adminCookie } });
   expect(await raw.text()).toContain('# CookingFoil 운영 안내');
+});
+
+test('the header has one account circle that opens the account, the web page, the guide and sign out', async ({ page }) => {
+  await signIn(page);
+  await expect(page.locator('#acct-list')).toBeHidden();
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#who')).not.toHaveText('불러오고 있습니다');
+  await expect(page.locator('#acct-list').getByRole('menuitem', { name: '운영 안내' })).toHaveAttribute('href', '/admin/guide');
+  await expect(page.locator('#acct-list').getByRole('menuitem', { name: '로그아웃' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#acct-list')).toBeHidden();
+  await page.goto('/admin#devices');
+  await expect(page.locator('#shop-url')).toHaveText(/\/shop\.tfl$/);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-devices-howto.png' });
 });
