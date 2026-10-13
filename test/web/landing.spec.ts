@@ -261,6 +261,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   const row = page.locator('#patches-list .xrow', { hasText: '성능 패치' });
   await expect(row).toBeVisible();
   await expect(row.locator('.btn')).toHaveCount(0);
+  await expect(row.locator('.more')).toHaveText('자세히');
+  await expect(row.locator('.xline')).toHaveText('프레임을 올립니다.');
   await expect(row.locator('.pill.need')).toHaveText('필수');
   await row.click();
   await expect(page.locator('#xmodal')).toHaveClass(/open/);
@@ -273,6 +275,10 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.keyboard.press('Escape');
   await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
   await page.screenshot({ path: 'out/web/patches-list.png' });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForTimeout(300); // the rows' colour transition
+  await page.screenshot({ path: 'out/web/patches-list-dark.png' });
+  await page.emulateMedia({ colorScheme: 'light' });
 
   await page.goto('/#ports');
   const app = page.locator('#ports-list .xrow', { hasText: 'Port Game' });

@@ -165,15 +165,22 @@
       /* The download button sits at the same place on every item: right, centred on its name and details. */
       .xitem > .btn { align-self: center; }
       /* List rows as on the client: one line each, the whole row opens its detail. */
-      .xrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; width: 100%; padding: 11px 6px; margin: 0;
-        border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
-      .xgroup header + .xrow { border-top: none; }
-      .xrow:hover .xname, .xrow:focus-visible .xname { color: var(--accent, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
-      .xrow:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; border-radius: 10px; }
+      .xrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 14px; width: 100%; padding: 12px 14px; margin: 8px 0 0;
+        border: 1px solid transparent; background: var(--sunk); color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 14px;
+        transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease; }
+      .xgroup header + .xrow { margin-top: 0; }
+      .xrow:hover { border-color: var(--butter); }
+      .xrow:active { transform: scale(0.99); }
+      .xrow:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .xrow .xname { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .xrow .xmeta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--secondary); }
-      .xrow .chev { color: var(--faint); font-size: 20px; line-height: 1; }
-      .xrow.xapp { grid-template-columns: 48px minmax(0, 1fr) auto; border-top: none; padding: 4px 2px; }
+      .xrow .xline { margin-top: 4px; font-size: 12.5px; color: var(--secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* What to press: a small button-shaped label, filled on hover. */
+      .xrow .more { display: inline-flex; align-items: center; gap: 2px; padding: 6px 10px 6px 12px; border-radius: 100px; font-size: 12.5px; font-weight: 700;
+        background: var(--surface); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; transition: background 0.15s ease, border-color 0.15s ease; }
+      .xrow .more::after { content: "›"; font-size: 16px; line-height: 1; margin-left: 2px; }
+      .xrow:hover .more, .xrow:focus-visible .more { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .xrow.xapp { grid-template-columns: 48px minmax(0, 1fr) auto; margin: 0; padding: 0; border-color: transparent; background: none; }
       .xrow.xapp > img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
       .xrow.xapp .xname { font-size: 16px; }
       .xrow .pill, .xmodal .xm-pills .pill {
@@ -977,6 +984,7 @@
           "xm.appPatches": "이 앱의 패치",
           "xm.appSaves": "이 앱의 세이브",
           "xm.repo": "저장소",
+          "xm.more": "자세히",
           "kind.romfs": "데이터",
           "kind.exefs": "코드",
           "kind.exefs_patches": "코드 패치",
@@ -1171,6 +1179,7 @@
           "xm.appPatches": "Patches for this app",
           "xm.appSaves": "Saves for this app",
           "xm.repo": "Repository",
+          "xm.more": "Details",
           "kind.romfs": "Data",
           "kind.exefs": "Code",
           "kind.exefs_patches": "Code patch",
@@ -1364,6 +1373,7 @@
           "xm.appPatches": "このアプリのパッチ",
           "xm.appSaves": "このアプリのセーブ",
           "xm.repo": "リポジトリ",
+          "xm.more": "詳細",
           "kind.romfs": "データ",
           "kind.exefs": "コード",
           "kind.exefs_patches": "コードパッチ",
@@ -1557,6 +1567,7 @@
           "xm.appPatches": "此應用程式的補丁",
           "xm.appSaves": "此應用程式的存檔",
           "xm.repo": "儲存庫",
+          "xm.more": "詳情",
           "kind.romfs": "資料",
           "kind.exefs": "程式碼",
           "kind.exefs_patches": "程式修補",
@@ -2842,8 +2853,13 @@
           for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
           meta.append(document.createTextNode(fmtBytes(it.size)));
           head.append(name, meta);
-          const chev = document.createElement("span"); chev.className = "chev"; chev.setAttribute("aria-hidden", "true"); chev.textContent = "›";
-          row.append(head, chev);
+          // The description's first line, so a row says what it is before it is opened.
+          const first = String(it.description || "").split("\n").find((x) => x.trim()) ?? "";
+          if (first && !(kind === "saves" && it.source && first === String(it.description).trim())) {
+            const line = document.createElement("div"); line.className = "xline"; line.textContent = first; head.append(line);
+          }
+          const more = document.createElement("span"); more.className = "more"; more.textContent = t("xm.more");
+          row.append(head, more);
           row.addEventListener("click", () => xmodal.show(detail(kind, it)));
           return row;
         }
@@ -2993,8 +3009,9 @@
           const s = counts.saves.get(a.app) ?? 0;
           meta.textContent = [a.version && "v" + a.version, a.author, fmtBytes(a.size), (p || s) && t("homebrew.extras", p, s)].filter(Boolean).join(" · ");
           info.append(name, meta);
-          const chev = document.createElement("span"); chev.className = "chev"; chev.setAttribute("aria-hidden", "true"); chev.textContent = "›";
-          row.append(img, info, chev);
+          if (a.description) { const line = document.createElement("div"); line.className = "xline"; line.textContent = a.description.split("\n")[0]; info.append(line); }
+          const more = document.createElement("span"); more.className = "more"; more.textContent = t("xm.more");
+          row.append(img, info, more);
           row.addEventListener("click", () => xmodal.show(detail(a)));
           g.append(row);
           return g;
