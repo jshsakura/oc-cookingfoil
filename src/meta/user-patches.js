@@ -97,12 +97,20 @@ export function kindOf(relPath, titleId) {
 /**
  * patch.json fields as trimmed, length-capped strings; anything else dropped.
  * `required: true` marks a patch the game does not start without (its data
- * shipped apart from the package). Pure.
+ * shipped apart from the package). `ko` holds the Korean name and description
+ * when they differ from the default text (localizePatch picks by language). Pure.
  */
 export function readMeta(raw) {
-  const out = {};
+  const out = strings(raw, FIELD_MAX);
   if (raw?.required === true) out.required = true;
-  for (const [key, max] of Object.entries(FIELD_MAX)) {
+  const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
+  if (Object.keys(ko).length) out.ko = ko;
+  return out;
+}
+
+function strings(raw, limits) {
+  const out = {};
+  for (const [key, max] of Object.entries(limits)) {
     const v = raw?.[key];
     if (typeof v === "string" || typeof v === "number") {
       const s = String(v).trim().slice(0, max);
@@ -110,6 +118,13 @@ export function readMeta(raw) {
     }
   }
   return out;
+}
+
+/** A patch as one language sees it: the Korean name and description for "ko" when it has them. Pure. */
+export function localizePatch(patch, lang) {
+  const { ko, ...rest } = patch;
+  if (lang !== "ko" || !ko) return rest;
+  return { ...rest, name: ko.name ?? rest.name, description: ko.description ?? rest.description };
 }
 
 class Rejected extends Error {}
@@ -180,6 +195,7 @@ async function readHomebrewPatch(root, app, folder) {
       author: meta.author ?? null,
       description: meta.description ?? null,
       required: meta.required === true,
+      ...(meta.ko ? { ko: meta.ko } : {}),
       kinds: ["homebrew"],
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
@@ -222,6 +238,7 @@ export async function readPatch(root, tidDir, folder) {
       author: meta.author ?? null,
       description: meta.description ?? null,
       required: meta.required === true,
+      ...(meta.ko ? { ko: meta.ko } : {}),
       kinds: KIND_ORDER.filter((k) => kinds.has(k)),
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),

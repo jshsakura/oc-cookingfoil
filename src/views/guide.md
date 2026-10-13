@@ -91,6 +91,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
 | 서버 동작 보기, 바꾸기 (null 이면 compose 값으로), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "devicePairing": true }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` |
+| 게임 세이브 목록, 패치·세이브 편집, 다른 게임으로 옮기기, 지우기 | `GET /admin/api/saves`, `POST /admin/api/content/<patch\|save>/meta` `{ "id", "name", "nameKo", "description", "descriptionKo", … }`, `…/move` `{ "id", "titleId" }`, `…/remove` `{ "id" }` |
 | 게임 소개와 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "description": { "ko", "en" }, "notes": { "ko", "en" } }`, `POST …/<타이틀 ID>/reset` |
 | 기기 목록, 승인, 이름, 끊기 | `GET /admin/api/devices`, `POST /admin/api/devices/approve` `{ "code": "<기기 코드>" }`, `…/label`, `…/revoke` |
 | 기기별 접속 정보 | `GET /admin/api/device-logins`, `POST /admin/api/device-logins` `{ "label" }`, `POST …/<이름>/revoke` |

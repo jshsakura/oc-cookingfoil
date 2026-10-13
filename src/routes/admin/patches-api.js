@@ -1,7 +1,7 @@
 /**
  * Game patches on the admin page:
  *
- *   GET  /admin/api/patches            { patches: [{ id, title_id, game, name, size, files, required }] }
+ *   GET  /admin/api/patches            { patches: [{ id, title_id, game, name, ko, description, version, author, size, files, required }] }
  *   POST /admin/api/patches/required   { id, required: boolean }  marks a patch the game does not start without
  *
  * `required` lives in the patch's patch.json, beside the rest of its metadata.
@@ -35,8 +35,8 @@ export function mountPatchesApi(router, requireSession) {
     const [patches, games] = await Promise.all([userPatches.list(), libraryGames().catch(() => [])]);
     const names = new Map(games.map((g) => [g.titleId, g.name]));
     res.json({
-      patches: patches.filter((p) => p.title_id).map(({ id, title_id, name, size, files, required }) =>
-        ({ id, title_id, game: names.get(title_id) ?? null, name, size, files, required })),
+      patches: patches.filter((p) => p.title_id).map(({ id, title_id, name, ko, description, version, author, size, files, required }) =>
+        ({ id, title_id, game: names.get(title_id) ?? null, name, ko: ko ?? null, description, version, author, size, files, required })),
     });
   }));
 

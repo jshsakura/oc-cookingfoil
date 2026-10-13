@@ -190,6 +190,48 @@ test('a patch is switched between required and optional from the patch list and 
   await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
 });
 
+test('an uploaded patch and save are edited, moved to another game and deleted from the library tab', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  const patches = async (lang: string) => (await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as { name: string; title_id: string; description: string | null }[];
+  const row = page.locator('#lib-patches .pt-row', { hasText: '한글패치' });
+  await row.getByRole('button', { name: '한글패치 편집' }).click();
+  const dialog = page.locator('#ct-edit');
+  await expect(dialog).toBeVisible();
+  await page.locator('#ct-name').fill('Korean patch');
+  await page.locator('#ct-name-ko').fill('한글패치');
+  await page.locator('#ct-desc').fill('Turns the text Korean.');
+  await page.locator('#ct-desc-ko').fill('글자를 한국어로 바꿉니다.');
+  await page.locator('#ct-author').fill('누군가');
+  fs.mkdirSync('out/web', { recursive: true });
+  await dialog.screenshot({ path: 'out/web/admin-content-edit.png' });
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await patches('ko')).find((p) => p.name === '한글패치')?.description).toBe('글자를 한국어로 바꿉니다.');
+  expect((await patches('en')).find((p) => p.description === 'Turns the text Korean.')?.name).toBe('Korean patch');
+
+  page.on('dialog', (d) => d.accept());
+  await page.locator('#lib-patches .pt-row', { hasText: 'Korean patch' }).getByRole('button', { name: 'Korean patch 편집' }).click();
+  await page.locator('#ct-move').fill('0100000000020000');
+  await page.locator('#ct-move-go').click();
+  await expect(page.locator('#lib-patches .pt-game', { hasText: '0100000000020000' })).toContainText('Korean patch');
+  expect((await patches('en')).find((p) => p.name === 'Korean patch')?.title_id).toBe('0100000000020000');
+
+  await page.locator('#lib-patches .pt-row', { hasText: 'Korean patch' }).getByRole('button', { name: 'Korean patch 편집' }).click();
+  await page.locator('#ct-remove').click();
+  await expect(page.locator('#lib-patches')).not.toContainText('Korean patch');
+  expect((await patches('en')).some((p) => p.name === 'Korean patch')).toBe(false);
+
+  const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' });
+  await save.getByRole('button', { name: 'All unlocked 편집' }).click();
+  await page.locator('#ct-name-ko').fill('전부 열림');
+  await page.locator('#ct-save-type').selectOption('device');
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(save).toContainText('전부 열림 · 기기 공용');
+  const saves = (await (await request.get('/api/saves?lang=ko')).json()).saves as { name: string; saveType: string }[];
+  expect(saves.find((s) => s.name === '전부 열림')?.saveType).toBe('device');
+});
+
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');

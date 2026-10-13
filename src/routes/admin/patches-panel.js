@@ -1,21 +1,47 @@
 /**
- * The library tab's game patches: grouped by game (the base title id ties a
- * patch to its game), searchable, and each one switched between required and
- * optional with one press. The game editor below shows the same switches for
- * the game it has open. Talks to /admin/api/patches.
+ * The library tab's game patches and saves: grouped by game (the base title
+ * id ties each to its game), patches searchable and switched between required
+ * and optional with one press, and both edited, moved to another game or
+ * deleted from one dialog. The game editor below lists the same rows for the
+ * game it has open. Talks to /admin/api/patches, /admin/api/saves and
+ * /admin/api/content.
  */
 
 export const PATCHES_HTML = `<h2>게임 패치</h2>
-  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다.</p>
+  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 지웁니다.</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
   </div>
   <p class="muted" id="pt-count"></p>
-  <div id="lib-patches"></div>`;
+  <div id="lib-patches"></div>
+  <h2>게임 세이브</h2>
+  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 지웁니다.</p>
+  <div id="lib-saves"></div>`;
 
-export const GAME_PATCHES_HTML = `<h3>이 게임의 패치</h3>
+export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
       <div id="gd-patches"></div>`;
+
+export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-title">
+  <h3 id="ct-title"></h3>
+  <p class="muted" id="ct-where"></p>
+  <form class="desc-form" id="ct-form" method="dialog" autocomplete="off">
+    <label>이름 (모든 언어의 기본값)<input id="ct-name" maxlength="120" required></label>
+    <label>한국어 이름 (다를 때만)<input id="ct-name-ko" maxlength="120"></label>
+    <label>설명 (모든 언어의 기본값)<textarea id="ct-desc" maxlength="2000"></textarea></label>
+    <label>한국어 설명 (다를 때만)<textarea id="ct-desc-ko" maxlength="2000"></textarea></label>
+    <div class="ct-pair" data-for="patch"><label>버전<input id="ct-version" maxlength="40"></label><label>만든 사람<input id="ct-author" maxlength="120"></label></div>
+    <div class="ct-pair" data-for="save"><label>게임 버전<input id="ct-game-version" maxlength="40"></label>
+      <label>세이브 종류<select id="ct-save-type"><option value="">가리지 않습니다</option><option value="device">기기 공용 세이브</option><option value="account">계정별 세이브</option></select></label></div>
+    <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
+    <label>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" list="gd-games" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
+    <div class="dialog-actions">
+      <button type="button" class="danger" id="ct-remove">지우기</button>
+      <button type="button" id="ct-close">닫기</button>
+      <button type="submit" class="primary">저장</button>
+    </div>
+  </form>
+</dialog>`;
 
 export const PATCHES_CSS = `
 .pt-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.pt-tools input{flex:1 1 240px;min-width:0}
@@ -23,42 +49,85 @@ export const PATCHES_CSS = `
 .pt-game{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px;margin:0 0 10px}
 .pt-game>header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 0 4px}
 .pt-game>header b{font-size:15px}.pt-game>header span{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace}
-.pt-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+.pt-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .pt-row:first-of-type{border-top:0}
-.pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-size{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:12px}
+.pt-row .pt-size{font-size:12.5px;color:var(--muted);white-space:nowrap}
 .pt-req{min-width:64px;padding:5px 12px;border-radius:100px;font-size:13px;font-weight:700;background:var(--sunk);color:var(--muted);border:1px solid var(--line);cursor:pointer}
 .pt-req[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .pt-req:disabled{opacity:.6;cursor:progress}
+.pt-edit{padding:5px 12px;font-size:13px}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
+.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden]{display:none}
+.ct-move{display:flex;gap:8px;margin-top:4px}.ct-move input{flex:1;min-width:0}
+#ct-edit{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}
+#ct-form label,#ct-form .ct-pair>*{min-width:0}#ct-form input,#ct-form select,#ct-form textarea{width:100%;min-width:0;box-sizing:border-box}
+.ct-move input{width:auto}.ct-move button{flex:none}
+@media (max-width:640px){.ct-pair{grid-template-columns:1fr}}
 `;
 
 export const PATCHES_SCRIPT = /* js */ `
-let ptData=[];
-function ptRow(p){const r=el('div',null,'pt-row');
+let ptData=[],svData=[];
+const SAVE_TYPE_LABEL={device:'기기 공용',account:'계정별'};
+function ptRow(p){const r=el('div',null,'pt-row');const n=el('span',null,'pt-name');n.append(p.name);
+  if(p.ko&&p.ko.name&&p.ko.name!==p.name)n.append(el('small',p.ko.name));
+  r.append(n,el('span',mb(p.size),'pt-size'));
   const b=el('button',p.required?'필수':'선택','pt-req');b.type='button';b.setAttribute('aria-pressed',String(p.required));
   b.setAttribute('aria-label',p.name+' 필수');b.title=p.required?'누르면 선택으로 바꿉니다':'누르면 필수로 바꿉니다';
   b.addEventListener('click',()=>ptToggle(p,b));
-  r.append(el('span',p.name,'pt-name'),el('span',mb(p.size),'pt-size'),b);return r;}
+  const e=btn('편집',()=>ctOpen('patch',p),'pt-edit');e.setAttribute('aria-label',p.name+' 편집');
+  r.append(b,e);return r;}
+function svRow(s){const r=el('div',null,'pt-row');const n=el('span',null,'pt-name');n.append(s.name);
+  const sub=[s.ko&&s.ko.name&&s.ko.name!==s.name?s.ko.name:'',SAVE_TYPE_LABEL[s.saveType]||''].filter(Boolean).join(' · ');if(sub)n.append(el('small',sub));
+  const e=btn('편집',()=>ctOpen('save',s),'pt-edit');e.setAttribute('aria-label',s.name+' 편집');
+  r.append(n,el('span',mb(s.size),'pt-size'),e);return r;}
 async function ptToggle(p,b){const next=!p.required;b.disabled=true;
   try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:next}});
     ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 표시했습니다':'선택으로 바꿨습니다');ptRender();ptGame();}
   catch(err){toast(err.message);b.disabled=false;}}
+function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){const t=tidOf(x);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(x);}
+  return [...groups.values()].sort((a,b)=>(a[0].game||tidOf(a[0])).localeCompare(b[0].game||tidOf(b[0]))).map((items)=>{
+    const g=el('section',null,'pt-game');const h=el('header');h.append(el('b',items[0].game||'이름 모르는 게임'),el('span',tidOf(items[0])));g.append(h,...items.map(row));return g;});}
 function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
-  const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name].some((s)=>(s||'').toLowerCase().includes(q)));
-  const groups=new Map();for(const p of ptData.filter(hit)){if(!groups.has(p.title_id))groups.set(p.title_id,[]);groups.get(p.title_id).push(p);}
-  const sorted=[...groups.values()].sort((a,b)=>(a[0].game||a[0].title_id).localeCompare(b[0].game||b[0].title_id));
+  const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
   const req=ptData.filter((p)=>p.required).length;
   $('pt-count').textContent=ptData.length?'게임 '+new Set(ptData.map((p)=>p.title_id)).size+'개에 패치 '+ptData.length+'개가 있고, 그중 필수는 '+req+'개입니다.':'';
   const m=$('lib-patches');
   if(!ptData.length){m.replaceChildren(el('div','게임 패치가 없습니다. 업로드 탭에서 올립니다.','empty'));return;}
-  if(!sorted.length){m.replaceChildren(el('div','찾는 패치가 없습니다.','empty'));return;}
-  m.replaceChildren(...sorted.map((list)=>{const g=el('section',null,'pt-game');const h=el('header');
-    h.append(el('b',list[0].game||'이름 모르는 게임'),el('span',list[0].title_id));g.append(h,...list.map(ptRow));return g;}));}
+  const groups=ctGroups(ptData.filter(hit),(p)=>p.title_id,ptRow);
+  m.replaceChildren(...(groups.length?groups:[el('div','찾는 패치가 없습니다.','empty')]));}
+function svRender(){const m=$('lib-saves');
+  m.replaceChildren(...(svData.length?ctGroups(svData,(s)=>s.titleId,svRow):[el('div','게임 세이브가 없습니다. 업로드 탭에서 올립니다.','empty')]));}
 // The game editor's own list, for the game it has open (gdId).
-function ptGame(){const m=$('gd-patches');if(!m)return;const list=ptData.filter((p)=>p.title_id===gdId);
-  m.replaceChildren(...(list.length?list.map(ptRow):[el('div','이 게임에 엮인 패치가 없습니다. 패치 폴더 이름이 이 게임의 타이틀 ID 여야 합니다.','empty')]));}
-async function loadPatches(){let d;try{d=await api('/admin/api/patches');}catch(err){toast(err.message);return;}
-  ptData=d.patches||[];ptRender();ptGame();}
+function ptGame(){const m=$('gd-patches');if(!m)return;
+  const rows=[...ptData.filter((p)=>p.title_id===gdId).map(ptRow),...svData.filter((s)=>s.titleId===gdId).map(svRow)];
+  m.replaceChildren(...(rows.length?rows:[el('div','이 게임에 엮인 패치와 세이브가 없습니다. 폴더 이름이 이 게임의 타이틀 ID 여야 합니다.','empty')]));}
+async function loadPatches(){let p,s;try{[p,s]=await Promise.all([api('/admin/api/patches'),api('/admin/api/saves')]);}catch(err){toast(err.message);return;}
+  ptData=p.patches||[];svData=s.saves||[];ptRender();svRender();ptGame();}
 $('pt-q').addEventListener('input',ptRender);
 $('pt-only').addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
+
+// One dialog edits a patch or a save: its text, its game, or deletes it.
+let ctItem=null,ctKind='';
+function ctOpen(kind,x){ctKind=kind;ctItem=x;const tid=kind==='patch'?x.title_id:x.titleId;
+  $('ct-title').textContent=(kind==='patch'?'패치 편집: ':'세이브 편집: ')+x.name;
+  $('ct-where').textContent=(x.game?x.game+' · ':'')+tid+' · 파일 '+x.files+'개, '+mb(x.size);
+  for(const d of document.querySelectorAll('#ct-form .ct-pair'))d.hidden=d.dataset.for!==kind;
+  $('ct-name').value=x.name||'';$('ct-name-ko').value=x.ko?.name||'';$('ct-desc').value=x.description||'';$('ct-desc-ko').value=x.ko?.description||'';
+  $('ct-version').value=x.version||'';$('ct-author').value=x.author||'';$('ct-game-version').value=x.gameVersion||'';$('ct-save-type').value=x.saveType||'';
+  $('ct-source-name').value=x.source?.name||'';$('ct-source-url').value=x.source?.url||'';$('ct-move').value='';
+  $('ct-edit').showModal();}
+const ctDone=(msg)=>{$('ct-edit').close();toast(msg);loadPatches();};
+$('ct-close').addEventListener('click',()=>$('ct-edit').close());
+$('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
+  const body={id:ctItem.id,name:$('ct-name').value,nameKo:$('ct-name-ko').value,description:$('ct-desc').value,descriptionKo:$('ct-desc-ko').value,
+    version:$('ct-version').value,author:$('ct-author').value,gameVersion:$('ct-game-version').value,saveType:$('ct-save-type').value,
+    sourceName:$('ct-source-name').value,sourceUrl:$('ct-source-url').value};
+  try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
+$('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);
+  if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
+  if(!confirm(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
+  try{await api('/admin/api/content/'+ctKind+'/move',{method:'POST',body:{id:ctItem.id,titleId:to}});ctDone('옮겼습니다.');}catch(err){toast(err.message);}});
+$('ct-remove').addEventListener('click',async()=>{if(!confirm(ctItem.name+' 을(를) 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
+  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('지웠습니다.');}catch(err){toast(err.message);}});
 `;

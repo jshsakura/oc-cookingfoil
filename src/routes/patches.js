@@ -1,5 +1,6 @@
 /**
- * GET /api/patches                 every user patch  { patches: [P…] }, with ETag. Never waits
+ * GET /api/patches?lang=ko         every user patch  { patches: [P…] }, with ETag; the Korean
+ *                                  name and description for ko (?lang= or Accept-Language). Never waits
  *                                  for a scan: while the first one runs it answers at once with
  *                                  what was read so far, `scanning: true` and Retry-After.
  *                                  A homebrew app's patch has title_id null and
@@ -18,6 +19,7 @@ import crypto from "crypto";
 import express from "express";
 import * as userPatches from "../meta/user-patches.js";
 import { gameOf } from "../meta/game-info.js";
+import { requestLang } from "../meta/categories.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
@@ -31,14 +33,17 @@ async function listRoute(req, res) {
   const listing = await userPatches.list();
   if (listing.scanning) res.set("Retry-After", "30");
   const origin = resolveOrigin(req, publicBaseUrl);
+  const lang = requestLang(req);
   const body = JSON.stringify({
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
-      return game ? { ...p, game } : p;
+      const own = userPatches.localizePatch(p, lang);
+      return game ? { ...own, game } : own;
     }),
     ...(listing.scanning ? { scanning: true } : {}),
   });
   res.header("Content-Type", "application/json");
+  res.header("Vary", "Accept-Language");
   res.header("ETag", `"${crypto.createHash("sha1").update(body).digest("hex")}"`);
   // A partial listing is never cached: the next request may have more.
   res.header("Cache-Control", listing.scanning ? "no-store" : "private, max-age=0, must-revalidate");
