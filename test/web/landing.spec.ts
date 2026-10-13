@@ -152,6 +152,15 @@ test('the stats panel draws composition, storage and recent-month charts from th
   await expect(charts.locator('.legend').first()).toContainText('Base');
   await pickLang(page, 'ko');
   await expect(charts.locator('.chart h4').first()).toContainText('구성');
+  // Games, updates, DLC and size; how the server finds names is the admin page's business.
+  await expect(page.locator('#stat-games')).toHaveText('2');
+  await expect(page.locator('#stat-updates')).toHaveText('1');
+  await expect(page.locator('#stat-dlc')).toHaveText('0');
+  await expect(page.locator('#stat-size-sub')).toHaveText('파일 3개');
+  await expect(page.locator('#namehealth')).toHaveCount(0);
+  await expect(page.locator('.stats-panel')).not.toContainText('TITLEDB');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('.stats-panel').screenshot({ path: 'out/web/stats-panel.png' });
 });
 
 test('on a phone the page fits the screen width', async ({ page }) => {

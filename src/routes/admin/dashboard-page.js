@@ -216,6 +216,8 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   </div>
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
+  <div class="lanes" id="health"></div>
+  <p class="muted" id="health-hint" hidden></p>
   <div class="cards" id="cards"></div>
   <p class="muted" id="ts"></p>
 </section>
