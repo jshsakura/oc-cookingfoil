@@ -142,6 +142,9 @@ if (adminEnabled) {
 }
 
 expressApp.use(accessGuard());
+// Crawlers ask for this first; answering before sign-in keeps them out of the
+// failure log and tells them there is nothing to index.
+expressApp.get("/robots.txt", (_req, res) => res.type("text/plain").set("Cache-Control", "public, max-age=86400").send("User-agent: *\nDisallow: /\n"));
 // First run: until an admin account exists, browsers are sent to /setup.
 expressApp.use(setupRouter());
 

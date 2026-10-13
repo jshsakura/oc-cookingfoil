@@ -16,14 +16,16 @@ import path from "node:path";
 const PROBE = `
   import rateLimit from "../../src/security/rate-limit.js";
   import * as store from "../../src/security/store.js";
+  import { hashAccessKey } from "../../src/security/pairing.js";
 
   const headers = JSON.parse(process.env.PROBE_HEADERS ?? "{}");
   const mw = rateLimit();
   const total = Number(process.env.PROBE_REQUESTS ?? 1);
+  if (process.env.PROBE_APPROVE) store.approveDevice(process.env.PROBE_APPROVE, { label: "t", addedBy: "test", accessKeyHash: hashAccessKey("right-key") });
 
   let allowed = 0, refused = 0, lastRetryAfter = null;
   for (let i = 0; i < total; i++) {
-    const req = { ip: "203.0.113.5", method: "GET", originalUrl: "/game.nsp", path: "/game.nsp",
+    const req = { ip: "203.0.113.5", method: "GET", originalUrl: "/game.nsp", path: "/game.nsp", headers,
       get: (n) => headers[n.toLowerCase()] ?? undefined };
     const res = { headers: {},
       type() { return res; }, set(k, v) { res.headers[k] = v; return res; },
@@ -50,6 +52,7 @@ function runProbe({ requests = 1, env = {}, headers = {} } = {}) {
       COOK_RATE_LIMIT_BURST: "",
       PROBE_REQUESTS: String(requests),
       PROBE_HEADERS: JSON.stringify(headers),
+      PROBE_APPROVE: "",
       ...env,
     },
     encoding: "utf-8",
@@ -112,4 +115,17 @@ test("with COOK_TRUST_PROXY=true a forwarded request is not flagged as collapsed
     headers: { "x-forwarded-for": "198.51.100.7" },
   });
   assert.match(r.denials[0].detail, /60\/min/);
+});
+
+const DEVICE = "A".repeat(64);
+
+test("an approved console with its access key is never throttled; a wrong key still is", () => {
+  // The client pulls a retro base pack as hundreds of small files; that is not a flood.
+  const env = { COOK_DEVICE_PAIRING: "true", COOK_RATE_LIMIT_PER_MIN: "60", COOK_RATE_LIMIT_BURST: "5", PROBE_APPROVE: DEVICE };
+  const ok = runProbe({ requests: 50, env, headers: { "x-device-key": DEVICE, "x-access-key": "right-key" } });
+  assert.equal(ok.refused, 0);
+  const wrong = runProbe({ requests: 50, env, headers: { "x-device-key": DEVICE, "x-access-key": "wrong-key" } });
+  assert.equal(wrong.allowed, 5);
+  const stranger = runProbe({ requests: 50, env, headers: { "x-device-key": "B".repeat(64), "x-access-key": "right-key" } });
+  assert.equal(stranger.allowed, 5);
 });
