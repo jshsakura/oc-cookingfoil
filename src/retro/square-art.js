@@ -22,7 +22,11 @@ export const SQUARE_SIZES = { md: SQUARE_PX, sm: 160 };
 const QUALITY = 82;
 const CONCURRENCY = 2;
 
-/** A short hash of the game's box art file (path, size, mtime), or null without one. */
+/**
+ * A short hash of the game's box art file (path, size, mtime), or null without one.
+ * The path is `iconKey` when the catalog gives one: where the file sat before its
+ * system folder was renamed, so squares and forwarders made then stay current.
+ */
 export function artKey(game) {
   if (!game.icon) return null;
   let st;
@@ -31,7 +35,7 @@ export function artKey(game) {
   } catch {
     return null;
   }
-  return crypto.createHash("sha1").update(`${game.icon}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
+  return crypto.createHash("sha1").update(`${game.iconKey ?? game.icon}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
 }
 
 /** Where a game's square lives at `size` (md or sm), or null when it has no box art. */

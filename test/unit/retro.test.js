@@ -100,13 +100,13 @@ test("systems.json changes a core or adds a system", () => {
 test("the catalog lists games, folds disc tracks into their .cue, and finds art", async () => {
   const dir = fixture();
   const { games, present } = await scanDir(dir);
-  assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "official names, short ids and aliases; Wii is not a RetroArch system here");
-  assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)", "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]"]);
-  const contras = games.filter((g) => g.system === "nes");
-  assert.notEqual(contras[0].id, contras[1].id, "FC and NES are read together without clashing ids");
+  assert.deepEqual([...present].sort(), ["gba", "nes", "ps1", "snes"], "official names and aliases moved into the short folders; Wii is not a RetroArch system here");
+  assert.deepEqual(fs.readdirSync(path.join(dir, "roms")).sort(), ["FC", "Wii", "gba", "nes", "ps1", "snes"]);
+  assert.deepEqual(games.map((g) => g.name), ["Contra (J)", "Disc Game", "Chrono Trigger (USA)", "Super Mario World (USA)", "젤다의 전설 - 신들의 트라이포스 (Zelda no Densetsu) [K]"]);
+  assert.equal(fs.readFileSync(path.join(dir, "roms/FC/Contra (J).nes"), "utf8"), "C", "FC's Contra clashes with NES's: it stays in FC, unread");
   const disc = games.find((g) => g.system === "ps1");
   assert.deepEqual(disc.extras.map((x) => x.rel), ["Disc Game/Disc Game (Track 1).bin"]);
-  assert.equal(disc.size, fs.statSync(path.join(dir, "roms/PS1/Disc Game/Disc Game.cue")).size + 6);
+  assert.equal(disc.size, fs.statSync(path.join(dir, "roms/ps1/Disc Game/Disc Game.cue")).size + 6);
   assert.equal(disc.bezel.generic, true);
   const smw = games.find((g) => g.name.startsWith("Super"));
   assert.equal(smw.id, gameId("snes", "Nintendo - Super Nintendo Entertainment System/Super Mario World (USA).sfc"));
@@ -151,7 +151,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const { systems } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
     assert.equal(snes.romCount, 3);
-    assert.equal(systems.find((s) => s.id === "nes").romCount, 2);
+    assert.equal(systems.find((s) => s.id === "nes").romCount, 1, "FC's clashing Contra stays in FC, unread");
     assert.equal(snes.defaultCore, "snes9x");
     assert.equal(snes.names.ko, "슈퍼 패미컴 (SNES)");
     assert.equal(await (await get(snes.iconUrl)).text(), "COLOR");
@@ -262,20 +262,22 @@ test("without a retro folder the API is off", async () => {
   }
 });
 
-test("NDS, Neo Geo Pocket, WonderSwan and Saturn folders are read under any of their names", async () => {
-  const { systemForFolder } = await import("../../src/retro/systems.js");
+test("NDS, Neo Geo Pocket, WonderSwan, Saturn and CD folders under their old names move into their own", async () => {
+  const { oldNames } = await import("../../src/retro/folder-migration.js");
   const systems = loadSystems("/nonexistent");
-  assert.equal(systemForFolder(systems, "NDS"), "nds");
-  assert.equal(systemForFolder(systems, "Nintendo - Nintendo DS"), "nds");
-  assert.equal(systemForFolder(systems, "NGP"), "ngp");
-  assert.equal(systemForFolder(systems, "WSC"), "ws");
-  assert.equal(systemForFolder(systems, "SS"), "saturn");
-  assert.equal(systemForFolder(systems, "Sega - Saturn"), "saturn");
-  assert.equal(systemForFolder(systems, "PS2"), null, "no PS2 core for the console");
+  const names = oldNames(systems);
+  const owner = (folder) => names.get(folder.toLowerCase()) ?? null;
+  assert.equal(owner("NDS"), "nds");
+  assert.equal(owner("Nintendo - Nintendo DS"), "nds");
+  assert.equal(owner("NGP"), "ngp");
+  assert.equal(owner("WSC"), "ws");
+  assert.equal(owner("SS"), "saturn");
+  assert.equal(owner("Sega - Saturn"), "saturn");
+  assert.equal(owner("PS2"), null, "no PS2 core for the console");
   assert.equal(systems.nds.core, "melonds");
-  assert.equal(systemForFolder(systems, "Sega - Mega-CD - Sega CD"), "segacd");
-  assert.equal(systemForFolder(systems, "PCECD"), "pcecd");
-  assert.equal(systemForFolder(systems, "NEC - PC Engine CD - TurboGrafx-CD"), "pcecd");
+  assert.equal(owner("Sega - Mega-CD - Sega CD"), "segacd");
+  assert.equal(owner("PCECD"), "pcecd");
+  assert.equal(owner("NEC - PC Engine CD - TurboGrafx-CD"), "pcecd");
   assert.ok(!systems.pce.extensions.includes(".chd"), "PC Engine CD discs live in their own system, with their own box art and bezels");
 });
 

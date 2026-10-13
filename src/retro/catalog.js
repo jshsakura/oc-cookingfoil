@@ -8,9 +8,14 @@
  *   bezels/<system>/<game name>_override.cfg   per-game RetroArch config (made up when missing)
  *   bezels/<system>/_default.png         the system's bezel for games without their own
  *
- * <system> is RetroArch's name for it ("Nintendo - Game Boy Advance"), the
- * short id ("gba") or an alias ("FC", "PS1"), in any case; two folders for one
- * system (say FC and NES) are read together.
+ * <system> is the system's one folder (systems.js `folder`: its short id,
+ * "gba", unless the operator names another). Libraries laid out under the old
+ * names ("Nintendo - Game Boy Advance", "FC", "PS1") are moved into it once,
+ * before the first scan (./folder-migration.js).
+ *
+ * A game's id is a hash of its system and its path under roms/, with the
+ * folder part fixed per system (idFolder), so ids stay the same when the
+ * folder is renamed. Box art keys (square-art.js artKey) are kept the same way.
  *
  * "game name" is the ROM file name without its extension, which is also what
  * RetroArch calls the content when it looks for per-game configs.
@@ -33,7 +38,8 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { loadSystems, systemForFolder } from "./systems.js";
+import { loadSystems } from "./systems.js";
+import { idFolder, migrateFolders, operatorAliases } from "./folder-migration.js";
 import { assignSdNames } from "./sd-names.js";
 import { applyArcade } from "./arcade.js";
 
@@ -106,22 +112,39 @@ async function listFiles(root, rel = "", depth = 1, out = []) {
   return out;
 }
 
-/** systemId → the folders under <dir>/<sub> that belong to it. */
-async function foldersBySystem(dir, sub, systems) {
-  const out = new Map();
-  let entries = [];
+/** <dir>/<sub>/<folder> when it is a folder, else null. */
+async function systemDir(dir, sub, folder) {
+  const abs = path.join(dir, sub, folder);
   try {
-    entries = await fsp.readdir(path.join(dir, sub), { withFileTypes: true });
+    return (await fsp.stat(abs)).isDirectory() ? abs : null;
   } catch {
-    return out;
+    return null;
   }
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    const id = systemForFolder(systems, e.name);
-    if (!id) continue;
-    out.set(id, [...(out.get(id) ?? []), path.join(dir, sub, e.name)]);
+}
+
+const migrated = new Set();
+
+/** Moves old-named system folders into place, once per retro dir and process. */
+export function ensureMigrated(dir, systems = loadSystems(dir)) {
+  if (migrated.has(dir)) return;
+  migrated.add(dir);
+  const report = migrateFolders(dir, systems, operatorAliases(dir));
+  const rel = (p) => path.relative(dir, p);
+  for (const { from, to } of report.renamed) debug.log("retro: moved %s to %s", rel(from), rel(to));
+  if (report.merged.length) debug.log("retro: moved %d entries from old system folders into their new ones", report.merged.length);
+  for (const { from, to } of report.conflicts) debug.error("retro: left %s where it is: %s already exists", rel(from), rel(to));
+  for (const { from, to, error } of report.failed) debug.error("retro: could not move %s to %s: %s", rel(from), rel(to), error);
+}
+
+/** The box art path a game's art key is made from: under the folder its id is built from. Pure. */
+export function artKeyPath(dir, systemId, system, abs) {
+  if (!abs) return null;
+  const seed = idFolder(systemId, system);
+  for (const sub of ["thumbnails", "icons"]) {
+    const prefix = path.join(dir, sub, system.folder) + path.sep;
+    if (abs.startsWith(prefix)) return path.join(dir, sub, seed, abs.slice(prefix.length));
   }
-  return out;
+  return abs;
 }
 
 async function firstIn(dirs, names) {
@@ -164,7 +187,7 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
     }
   }
   const thumbName = name.replace(THUMB_UNSAFE_RE, "_");
-  const id = gameId(systemId, `${path.basename(romsDir)}/${rel}`);
+  const id = gameId(systemId, `${idFolder(systemId, system)}/${rel}`);
   return {
     id,
     system: systemId,
@@ -217,7 +240,7 @@ async function groupDiscs(found, ctx) {
     const own = { icon: await firstIn(ctx.art.thumbs, [key, key.replace(THUMB_UNSAFE_RE, "_")]), bezel: await findBezel(ctx.art.bezels, key) };
     merged.push({
       ...discs[0],
-      id: gameId(ctx.systemId, `${path.basename(ctx.romsDir)}/${rel}`),
+      id: gameId(ctx.systemId, `${idFolder(ctx.systemId, ctx.system)}/${rel}`),
       name: key,
       file: `${key}.m3u`,
       rel,
@@ -286,34 +309,35 @@ export async function scanDir(dir) {
   const systems = loadSystems(dir);
   const games = [];
   const present = new Set();
-  const roms = await foldersBySystem(dir, "roms", systems);
-  const thumbs = await foldersBySystem(dir, "thumbnails", systems);
-  const legacyIcons = await foldersBySystem(dir, "icons", systems);
-  const bezels = await foldersBySystem(dir, "bezels", systems);
-  for (const [systemId, romsDirs] of roms) {
-    const system = systems[systemId];
+  ensureMigrated(dir, systems);
+  for (const [systemId, system] of Object.entries(systems)) {
+    const romsDir = await systemDir(dir, "roms", system.folder);
+    if (!romsDir) continue;
     present.add(systemId);
+    const thumbs = await systemDir(dir, "thumbnails", system.folder);
+    const legacyIcons = await systemDir(dir, "icons", system.folder);
+    const bezels = await systemDir(dir, "bezels", system.folder);
     const art = {
-      thumbs: [...(thumbs.get(systemId) ?? []).flatMap((d) => [path.join(d, "Named_Boxarts"), d]), ...(legacyIcons.get(systemId) ?? [])],
-      bezels: bezels.get(systemId) ?? [],
+      thumbs: [...(thumbs ? [path.join(thumbs, "Named_Boxarts"), thumbs] : []), ...(legacyIcons ? [legacyIcons] : [])],
+      bezels: bezels ? [bezels] : [],
     };
-    for (const romsDir of romsDirs) {
-      const listed = (await listFiles(romsDir)).filter((rel) => system.extensions.includes(path.extname(rel).toLowerCase()));
-      // A disc's track files are part of its .cue / .m3u, not games of their own.
-      const found = [];
-      for (const rel of listed) {
-        const game = await readGame({ systemId, system, romsDir, art }, rel);
-        if (game) found.push(game);
-      }
-      const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
-      let own = found.filter((g) => !claimed.has(g.rel));
-      // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
-      if (system.core === "fbneo") {
-        own = applyArcade(own, await readJson(path.join(dir, "arcade-names.json")));
-        for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
-      }
-      games.push(...bestFormats(await groupDiscs(own, { systemId, romsDir, art })));
+    const listed = (await listFiles(romsDir)).filter((rel) => system.extensions.includes(path.extname(rel).toLowerCase()));
+    // A disc's track files are part of its .cue / .m3u, not games of their own.
+    const found = [];
+    for (const rel of listed) {
+      const game = await readGame({ systemId, system, romsDir, art }, rel);
+      if (game) found.push(game);
     }
+    const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
+    let own = found.filter((g) => !claimed.has(g.rel));
+    // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
+    if (system.core === "fbneo") {
+      own = applyArcade(own, await readJson(path.join(dir, "arcade-names.json")));
+      for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
+    }
+    const listedGames = bestFormats(await groupDiscs(own, { systemId, system, romsDir, art }));
+    for (const g of listedGames) g.iconKey = artKeyPath(dir, systemId, system, g.icon);
+    games.push(...listedGames);
   }
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
   await addExtras(dir, games);

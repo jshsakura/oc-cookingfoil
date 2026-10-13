@@ -7,7 +7,7 @@ import sharp from "sharp";
 import * as art from "../../src/retro/art/sync.js";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
-const system = { folder: "Nintendo - Super Nintendo Entertainment System" };
+const system = { folder: "snes", libretro: "Nintendo - Super Nintendo Entertainment System" };
 const NAMES = ["Rockman X (Japan)", "Mega Man X (USA)", "Super Mario World (USA)", "Super Mario World 2 - Yoshi's Island (USA)"];
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -123,7 +123,7 @@ test("arcade bezels go by set name, falling back to the parent set's", () => {
   const dir = tmp();
   const indexes = new Map([["bezelproject-MAME", new Map([["ArcadeBezels", new Set(["mslug", "samsho2"])]])]]);
   const parents = { samsho2k: "samsho2", mslugx: null, rbff2k: "rbff2" };
-  const jobs = art.arcadeBezelJobs(dir, { folder: "FBNeo - Arcade Games" }, ["mslug", "samsho2k", "mslugx", "rbff2k"], indexes, (s) => parents[s] ?? null, true);
+  const jobs = art.arcadeBezelJobs(dir, { folder: "arcade", libretro: "FBNeo - Arcade Games" }, ["mslug", "samsho2k", "mslugx", "rbff2k"], indexes, (s) => parents[s] ?? null, true);
   assert.equal(jobs.length, 2, "mslug itself and samsho2k through samsho2; the rest keep the default bezel");
 });
 

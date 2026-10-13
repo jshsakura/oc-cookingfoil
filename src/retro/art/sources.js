@@ -41,7 +41,7 @@ export const BEZEL_SOURCES = {
 };
 
 export const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
-export const repoOf = (folder) => folder.replaceAll(" ", "_");
+export const repoOf = (libretro) => libretro.replaceAll(" ", "_");
 
 /**
  * Download a PNG. libretro-thumbnails stores some covers as Git symlinks, which
