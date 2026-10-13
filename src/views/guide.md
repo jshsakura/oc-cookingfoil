@@ -88,6 +88,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | SteamGridDB 검색, 표지 목록, 적용 | `GET /admin/api/retro-art/sgdb?q=` → `GET /admin/api/retro-art/sgdb/<번호>` → `POST /admin/api/retro-art/cover` `{ "game", "url" }` |
 | 외부 서비스 키 상태, 저장, 확인 | `GET /admin/api/integrations`, `POST /admin/api/integrations/<igdb\|steamgriddb\|dropbox\|github\|ratings>`, `POST …/<서비스>/test` |
 | 홈브류 목록, 추가, 지금 확인 | `GET /admin/api/homebrew`, `POST /admin/api/homebrew` `{ "repo": "owner/name" }`, `POST /admin/api/homebrew/check` |
+| 홈브류 앱 켜기·끄기 (끄면 기기 목록에서만 빠짐), 저장소 빼기, 직접 넣은 앱 지우기 | `POST /admin/api/homebrew/enabled` `{ "id", "enabled": false }`, `POST /admin/api/homebrew/remove` `{ "repo" }`, `POST /admin/api/homebrew/manual/remove` `{ "id" }` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
 | 서버 동작 보기, 바꾸기 (null 이면 compose 값으로), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "devicePairing": true }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` |

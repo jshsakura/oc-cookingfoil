@@ -316,17 +316,32 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
-  table('hb-apps',['이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');
+  table('hb-apps',['켜기','이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
+    const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
+    b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
     const n=td();n.append(el('b',a.name||a.app));
     n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · switch/'+a.app+'/','muted'));
     const manual=hbManual.find((m)=>m.id===a.id);
     const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
     tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));tr.append(k,td(mb(a.size)),extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));
     const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
-    if(a.source==='manual')box.append(btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
+    const repo=(a.repo_url||'').replace('https://github.com/','');
+    if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
+    else if(repo)box.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
     act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.');}
 async function removeHbExtra(type,id,name){if(!confirm(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 지웁니다.'))return;
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('지웠습니다.');loadHbApps();}catch(err){toast(err.message);}}
+async function setHbEnabled(id,enabled,name){
+  try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
+  catch(err){toast(err.message);loadHbApps();}}
+// A hand-placed app linked to its GitHub repository: the server follows the repository, then the hand-placed copy can go.
+async function linkHb(a){const input=prompt((a.name||a.app)+' 의 GitHub 저장소 주소나 owner/name 을 넣습니다. 서버가 그 저장소의 새 버전을 따라갑니다.');
+  if(!input||!input.trim())return;
+  try{const s=await api('/admin/api/homebrew',{method:'POST',body:{repo:input.trim()}});
+    if(s&&!s.error&&confirm(s.repo+' 을(를) 따라갑니다. 직접 넣은 '+(a.name||a.app)+' 사본을 지울까요? 이 앱의 패치와 세이브는 남습니다.')){
+      await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 바꿨습니다.');}
+    else toast(s?.error?.message?s.repo+' 을(를) 따라가지만 확인에 실패했습니다: '+s.error.message:'저장소를 추가했습니다.');
+    loadHomebrew();}catch(err){toast(err.message);}}
 async function removeManualHb(id,name){if(!confirm(name+' 앱 폴더를 서버에서 지웁니다. 이 앱의 패치와 세이브는 남습니다.'))return;
   try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 let upPending=null;

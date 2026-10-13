@@ -7,6 +7,7 @@
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
  *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the check interval (all when no repo)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build
+ *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own
  *
@@ -16,6 +17,7 @@
 import * as sources from "../../meta/homebrew-sources.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
 import * as descriptions from "../../meta/homebrew-descriptions.js";
+import * as disabled from "../../meta/homebrew-disabled.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
 import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
 import debug from "../../debug.js";
@@ -103,6 +105,15 @@ export function mountHomebrewApi(router, requireSession) {
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
     if (!kinds.set(id, String(req.body?.kind ?? ""))) return res.status(400).json({ error: "tool 이나 port 여야 합니다" });
     res.json({ ok: true, kind: kinds.kindOf(id) });
+  }));
+
+  router.post("/api/homebrew/enabled", write(async (req, res) => {
+    const id = String(req.body?.id ?? "");
+    if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: "enabled 는 true 나 false 입니다" });
+    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    disabled.setEnabled(id, req.body.enabled);
+    debug.log("admin: homebrew %s %s", id, req.body.enabled ? "on" : "off");
+    res.json({ ok: true, enabled: req.body.enabled });
   }));
 
   router.post("/api/homebrew/description/reset", write(async (req, res) => {
