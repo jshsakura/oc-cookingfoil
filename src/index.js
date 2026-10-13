@@ -31,6 +31,7 @@ import {
 import { logConfigHealth } from "./security/config-health.js";
 
 import defensiveHeaders from "./security/headers.js";
+import transferLog from "./helpers/transfer-log.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import busyGuard from "./security/busy-guard.js";
@@ -249,7 +250,8 @@ expressApp.use(deviceContentGuard());
 // Dynamic shop index for Tinfoil/CookingFoil-compatible clients.
 expressApp.use(shopFileBuilder());
 
-// File downloads + a directory listing for the games folder.
+// File downloads + a directory listing for the games folder; big ones log their speed.
+expressApp.use(transferLog());
 expressApp.use(express.static(romsDirPath));
 expressApp.use(
   serveIndex(romsDirPath, {
