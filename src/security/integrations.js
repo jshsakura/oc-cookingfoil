@@ -29,7 +29,7 @@ export const SERVICES = {
   dropbox: {
     fields: {
       appKey: { env: () => env.dropboxAppKey, re: /^[A-Za-z0-9]{8,100}$/ },
-      redirectBase: { env: () => env.dropboxRedirectBase, re: URL_RE },
+      redirectBase: { env: () => env.dropboxRedirectBase, re: URL_RE, optional: true },
     },
   },
   github: {
@@ -37,6 +37,14 @@ export const SERVICES = {
   },
   ratings: {
     fields: { url: { env: () => env.ratingsUrl, re: URL_RE } },
+  },
+  telegram: {
+    fields: {
+      botToken: { env: () => env.telegramBotToken, re: /^\d{5,15}:[A-Za-z0-9_-]{30,80}$/, secret: true },
+      chatId: { env: () => env.telegramChatId, re: /^(-?\d{1,20}|@[A-Za-z0-9_]{5,64})$/ },
+      // Comma list of alert events; empty means all, "-" means none.
+      events: { env: () => env.telegramEvents, re: /^(-|[a-z]+(,[a-z]+)*)$/, optional: true },
+    },
   },
 };
 
@@ -64,10 +72,10 @@ export function get(service) {
   return Object.fromEntries(Object.entries(spec.fields).map(([k, f]) => [k, String(own ? own[k] ?? "" : f.env() ?? "").trim()]));
 }
 
-/** Whether every field of a service has a value (the optional Dropbox redirect base aside). */
+/** Whether every field of a service has a value (optional ones aside). */
 export function configured(service) {
   const v = get(service);
-  return Object.entries(v).every(([k, x]) => x || (service === "dropbox" && k === "redirectBase"));
+  return Object.entries(v).every(([k, x]) => x || SERVICES[service].fields[k].optional);
 }
 
 /** What the admin page shows: plain fields as they are, secrets only as set / not set. */

@@ -284,6 +284,11 @@ const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .filter(Boolean);
 // Optional; raises GitHub's limit of 60 unauthenticated requests an hour.
 const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
+// Operator alerts on Telegram (settings tab, or these as the fallback): the bot's token,
+// the chat it writes to, and which events (comma list; empty means all).
+const telegramBotToken = envString("COOK_TELEGRAM_BOT_TOKEN", "").trim();
+const telegramChatId = envString("COOK_TELEGRAM_CHAT_ID", "").trim();
+const telegramEvents = envString("COOK_TELEGRAM_EVENTS", "").trim();
 // Hours between release checks of each followed repository; "check now" on the admin page ignores it.
 const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 });
 
@@ -334,6 +339,9 @@ export {
   uploadsEnabled,
   eshopPrices,
   eshopPopularity,
+  telegramBotToken,
+  telegramChatId,
+  telegramEvents,
   eshopAlgoliaAppId,
   eshopAlgoliaKey,
   eshopArtwork,

@@ -5,10 +5,15 @@
  *   POST /admin/api/integrations/:service          save its fields; an empty secret keeps the saved one
  *   POST /admin/api/integrations/:service/clear    forget what was saved (env vars apply again)
  *   POST /admin/api/integrations/:service/test     try the saved key against the service: { ok, message }
+ *                                                  (Telegram: sends a test message to the saved chat)
+ *   POST /admin/api/integrations/telegram/chats    the chats that wrote to the bot lately: { chats: [{ id, title }] }
+ *   GET  /admin/api/integrations also lists the alert events and what the keyless services are set to.
  */
 import * as integrations from "../../security/integrations.js";
 import debug from "../../debug.js";
 import { redirectUriFor } from "../dropbox-bridge.js";
+import { EVENTS, recentChats, sendTelegram } from "../../helpers/alerts.js";
+import { eshopPopularity, eshopPrices } from "../../helpers/envs.js";
 
 const TEST_TIMEOUT_MS = 10_000;
 
@@ -30,6 +35,9 @@ const TESTS = {
     const r = await fetchImpl(new URL("/", v.url));
     return r.status < 500;
   },
+  async telegram(v) {
+    return (await sendTelegram(v, "[CookingFoil] 알림 연결을 확인했습니다.")).ok === true;
+  },
 };
 
 export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch } = {}) {
@@ -44,7 +52,26 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
     }
   };
 
-  router.get("/api/integrations", guarded((req, res) => res.json({ ...integrations.describe(), dropboxRedirectUri: redirectUriFor(req) })));
+  router.get("/api/integrations", guarded((req, res) => res.json({
+    ...integrations.describe(),
+    dropboxRedirectUri: redirectUriFor(req),
+    alertEvents: EVENTS,
+    keyless: { eshopPrices, eshopPopularity },
+  })));
+
+  router.post("/api/integrations/telegram/chats", guarded(async (req, res) => {
+    const token = String(req.body?.botToken ?? "").trim() || integrations.get("telegram").botToken;
+    if (!token) return res.json({ ok: false, message: "봇 토큰을 먼저 넣습니다" });
+    if (!integrations.SERVICES.telegram.fields.botToken.re.test(token)) return res.json({ ok: false, message: "봇 토큰 형식이 맞지 않습니다" });
+    try {
+      const chats = await recentChats(token);
+      if (!chats) return res.json({ ok: false, message: "텔레그램이 이 토큰을 받아들이지 않았습니다" });
+      res.json({ ok: true, chats, message: chats.length ? "" : "아직 봇에게 온 메시지가 없습니다. 알림을 받을 대화에서 봇에게 아무 말이나 보낸 뒤 다시 누릅니다" });
+    } catch (err) {
+      debug.log("admin: telegram chats failed: %s", err.message);
+      res.json({ ok: false, message: "텔레그램에 닿지 못했습니다" });
+    }
+  }));
 
   router.post("/api/integrations/:service", guarded((req, res) => {
     const saved = integrations.save(req.params.service, req.body ?? {});
