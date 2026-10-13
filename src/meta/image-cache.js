@@ -12,8 +12,10 @@
  *   <…>.xl-wide.jpg|webp      ← banners and screenshots at screen width, 1280 (?size=xl)
  *
  * WebP variants are written as .q75.webp: quality 75 at the slowest effort, about
- * 35-40% under the JPEG (a 1280 screenshot 95 KB → 57 KB). The CookingFoil
- * client decodes WebP and asks for it with `Accept: image/webp`.
+ * 35-40% under the JPEG. The full-screen xl is .q50.webp: at 1280 px quality 50
+ * looks the same as 75 and weighs a quarter less (a screenshot 95 KB as JPEG,
+ * 57 KB at 75, 42 KB at 50). The CookingFoil client decodes WebP and asks for
+ * it with `Accept: image/webp`.
  *
  * The client app's sizes (sm and md, as JPEG) are drawn ahead of time by
  * prewarmIcons, so a list never waits for a resize.
@@ -50,6 +52,8 @@ const WIDE_SIZES = { sm: THUMB_PX, md: 512, lg: 512, xl: 1280 };
 const WIDE_SUFFIXES = { sm: "thumb-wide", md: "md-wide", lg: "md-wide", xl: "xl-wide" };
 const WEBP_EXT = "q75.webp";
 const WEBP_OPTIONS = { quality: 75, effort: 6 };
+const XL_WEBP_EXT = "q50.webp";
+const XL_WEBP_OPTIONS = { quality: 50, effort: 6 };
 const JPEG_QUALITY = 80;
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
@@ -111,7 +115,7 @@ function variantPath(originalPath, suffix, ext) {
  *  (e.g. custom-art) that need to invalidate them when the original changes. */
 export function thumbVariantPaths(originalPath) {
   const suffixes = new Set([...Object.values(SUFFIXES), ...Object.values(WIDE_SUFFIXES)]);
-  return [...suffixes].flatMap((s) => [variantPath(originalPath, s, "jpg"), variantPath(originalPath, s, "webp"), variantPath(originalPath, s, WEBP_EXT)]);
+  return [...suffixes].flatMap((s) => [variantPath(originalPath, s, "jpg"), variantPath(originalPath, s, "webp"), variantPath(originalPath, s, WEBP_EXT), variantPath(originalPath, s, XL_WEBP_EXT)]);
 }
 
 /** Forget any memoized existence / in-flight state for a path. Call after
@@ -169,7 +173,7 @@ async function ensureVariant(originalPath, variant) {
       } else if (variant.resize) {
         pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
       }
-      if (variant.format === "webp")  pipeline = pipeline.webp(WEBP_OPTIONS);
+      if (variant.format === "webp")  pipeline = pipeline.webp(variant.webp ?? WEBP_OPTIONS);
       else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
       const t0 = Date.now();
       await pipeline.toFile(tmp);
@@ -247,7 +251,9 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
     const suffix = variantSuffix(size, wide);
     const px = (wide ? WIDE_SIZES : SIZES)[size];
     const variant = wantWebp
-      ? { path: variantPath(source, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
+      ? size === "xl"
+        ? { path: variantPath(source, suffix, XL_WEBP_EXT), resize: px, wide, format: "webp", webp: XL_WEBP_OPTIONS }
+        : { path: variantPath(source, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
       : { path: variantPath(source, suffix, "jpg"), resize: px, wide, format: "jpeg" };
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");

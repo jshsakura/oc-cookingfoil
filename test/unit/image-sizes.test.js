@@ -50,6 +50,17 @@ test("a client that accepts WebP gets WebP variants; the rest get JPEG", async (
   assert.equal((await served(file, { size: "sm" }, {}, "*/*")).format, "jpeg");
 });
 
+test("the full-screen xl WebP is the lighter cut of the same picture", async () => {
+  const file = await picture(1280, 720);
+  const res = { headers: {}, set() { return res; }, type() { return res; } };
+  const at = (size) => new Promise((resolve) => {
+    res.sendFile = resolve;
+    serveImage({ query: { size }, get: () => "image/webp" }, res, { cachePath: file, wide: true });
+  });
+  assert.match(await at("xl"), /\.xl-wide\.q50\.webp$/);
+  assert.match(await at("md"), /\.md-wide\.q75\.webp$/);
+});
+
 test("an unknown size serves the original", async () => {
   const file = await picture(1280, 720);
   assert.equal((await served(file, { size: "huge" }, { wide: true })).width, 1280);
