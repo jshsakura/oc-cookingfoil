@@ -69,8 +69,13 @@ async function loadRetroArt(){
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'바꾸기':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
   const del=el('button','지우기','danger');del.type='button';del.setAttribute('aria-label',m.name+' 지우기');del.addEventListener('click',()=>raRemove(m));
-  const box=el('div',null,'row-actions');box.append(b,del);
-  tr.append(td(m.system),td(m.name));if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
+  const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');const box=el('div',null,'row-actions');box.append(b,nm,del);
+  const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
+  tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
+// The name clients show; the ROM file keeps its own (box art and configs are found by it).
+async function raName(m){const ko=prompt(m.name+' 의 한국어 이름을 넣습니다. 비우면 파일 이름을 씁니다.',m.title?.ko||'');if(ko===null)return;
+  const en=prompt('영어 이름을 넣습니다 (다른 언어의 기본값). 비워 둬도 됩니다.',m.title?.en||'');if(en===null)return;
+  try{const r=await api('/admin/api/retro-art/games/name',{method:'POST',body:{game:m.id,ko,en}});m.title=r.title;toast(r.title?'이름을 정했습니다.':'파일 이름으로 돌렸습니다.');raShow();}catch(err){toast(err.message);}}
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
 async function raRemove(m){if(!confirm(m.name+' ('+m.system+') 롬 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
   try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('지웠습니다. 파일 '+r.files+'개');

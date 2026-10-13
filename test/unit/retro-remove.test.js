@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import express from "express";
 
-// Deleting a retro game from the admin page takes its ROM and the disc files it names.
+// Deleting a retro game from the admin page takes its ROM and the disc files it names;
+// naming one changes what clients show, never the file.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-rm-"));
 process.env.COOK_DATA_DIR = root;
 process.env.COOK_RETRO_DIR = path.join(root, "retro");
@@ -33,6 +34,14 @@ test("a removed game's cue and bin go, other games stay", async () => {
     assert.equal((await post({ game: "ps1-0000000000" })).status, 404);
     const r = await post({ game: game.id });
     assert.deepEqual(await r.json(), { ok: true, files: 2 });
+    assert.deepEqual(fs.readdirSync(ps1), ["Other.chd"]);
+
+    // A name for the game left: found by it, the file keeps its own.
+    const other = (await retroCatalog.scan(process.env.COOK_RETRO_DIR)).games.find((g) => g.name === "Other");
+    const named = await fetch(`${base}/games/name`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game: other.id, ko: "다른 게임", en: "" }) });
+    assert.deepEqual((await named.json()).title, { ko: "다른 게임" });
+    const found = (await (await fetch(`${base}/games?q=${encodeURIComponent("다른")}`)).json()).games;
+    assert.deepEqual(found.map((g) => [g.name, g.title]), [["Other", { ko: "다른 게임" }]]);
     assert.deepEqual(fs.readdirSync(ps1), ["Other.chd"]);
   } finally {
     server.close();

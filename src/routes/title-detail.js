@@ -31,6 +31,8 @@ import * as titledbVersions from "../meta/titledb-versions.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 
+const ownName = (own, lang) => (own ? (lang === "ko" ? own.ko ?? own.en : own.en ?? own.ko) : null);
+
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // The detail must not wait on the price endpoint; a slow price is simply left out.
 const PRICE_WAIT_MS = 3000;
@@ -55,7 +57,7 @@ export default async function titleDetailRoute(req, res) {
   const overrides = customArt.list(base);
   const customDesc = gameDescriptions.describe(base, requestLang(req));
   const notes = gameDescriptions.notes(base, requestLang(req));
-  if (!fromDb && !extracted && !overrides.icon && !overrides.banner && !overrides.screens.length && !customDesc && !notes) {
+  if (!fromDb && !extracted && !overrides.icon && !overrides.banner && !overrides.screens.length && !customDesc && !notes && !gameDescriptions.names(base)) {
     res.status(404).json({ error: "no metadata for title" });
     return;
   }
@@ -89,7 +91,8 @@ export default async function titleDetailRoute(req, res) {
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
     id: base,
-    name: fromDb?.name ?? extracted?.name ?? null,
+    // The admin's own name for the game wins, in the reader's language when they wrote one.
+    name: ownName(gameDescriptions.names(base), lang) ?? fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     // What the admin wrote wins over every source; descriptionCustom says they did.
     description: customDesc ?? ((asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null)),

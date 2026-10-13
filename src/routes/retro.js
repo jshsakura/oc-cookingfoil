@@ -45,6 +45,7 @@ import debug from "../debug.js";
 import { retroDir, dataDir, keysDir } from "../helpers/envs.js";
 import { requestLang } from "../meta/categories.js";
 import * as catalog from "../retro/catalog.js";
+import * as retroNames from "../retro/names.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
 import { tagsOf, withoutTags } from "../retro/sd-names.js";
 import { editionOf } from "../retro/edition.js";
@@ -112,7 +113,7 @@ function systemIcon(system, style) {
 /** Text for matching: NFC, lower case, no spaces. Pure. */
 const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
 /** A game matches on its name in any language, its original title or its file name (sf2.zip). */
-const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {})].some((s) => s && folded(s).includes(needle));
+const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {}), ...Object.values(retroNames.get(g.id) ?? {})].some((s) => s && folded(s).includes(needle));
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
@@ -147,9 +148,12 @@ function publicGame(g, systems, lang = "en") {
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
   const variant = tagsOf(g.name);
-  // An arcade set is named in the page's language, with the English title as its original.
-  const localized = g.names ? g.names[lang] ?? g.names.en : null;
-  const original = g.names ? (localized !== g.names.en ? g.names.en : null) : g.original;
+  // A name the admin gave wins, language by language, over the file's and the arcade table's.
+  const own = retroNames.get(g.id);
+  const names = own ? { ...(g.names ?? { en: withoutTags(g.name) }), ...own } : g.names;
+  // A named game is shown in the page's language, with the English title as its original.
+  const localized = names ? names[lang] ?? names.en : null;
+  const original = names ? (localized !== names.en ? names.en : null) : g.original;
   // The tags as flags: Korean or not, release or patch, patch version.
   const edition = g.edition ?? editionOf(variant);
   const region = g.region ?? (edition ? "kr" : regionOf(variant));
@@ -161,7 +165,7 @@ function publicGame(g, systems, lang = "en") {
     ...(original ? { original } : {}),
     // Arcade sets: the title in each language ({ en, ko, ja?, zh? }) and the
     // region of the version as a code for a flag: kr, jp, us, eu, asia, br, world.
-    ...(g.names ? { names: g.names } : {}),
+    ...(names ? { names } : {}),
     ...(region ? { region } : {}),
     ...(edition ? { edition } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),

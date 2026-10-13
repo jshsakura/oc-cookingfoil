@@ -1,0 +1,37 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+// Names the admin gives games and retro games, over titledb's and the file's.
+process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-names-"));
+const gameDescriptions = await import("../../src/meta/game-descriptions.js");
+const { ownDisplayName } = await import("../../src/create-index-content.js");
+const titledbStore = await import("../../src/meta/titledb-store.js");
+const retroNames = await import("../../src/retro/names.js");
+
+const TID = "0100000000010000";
+
+test("a game name is one line, both languages empty forget it", () => {
+  assert.equal(gameDescriptions.set(TID, "name", { ko: "  깨진\n 이름 고침 ", en: "Fixed Name" }), true);
+  assert.deepEqual(gameDescriptions.names(TID), { en: "Fixed Name", ko: "깨진 이름 고침" });
+  assert.deepEqual(titledbStore.namesOf(TID), { en: "Fixed Name", ko: "깨진 이름 고침" });
+  gameDescriptions.set(TID, "name", { ko: "", en: "" });
+  assert.equal(gameDescriptions.names(TID), null);
+});
+
+test("the shown name follows the display language and carries the English one", () => {
+  assert.equal(ownDisplayName({ ko: "별의 노래", en: "Star Song" }, ["ko", "en"]), "별의 노래 (Star Song)");
+  assert.equal(ownDisplayName({ ko: "별의 노래", en: "Star Song" }, ["en", "ko"]), "Star Song");
+  assert.equal(ownDisplayName({ ko: "별의 노래" }, ["en"]), "별의 노래");
+  assert.equal(ownDisplayName({ ko: "Star Song 한글판", en: "Star Song" }, ["ko"]), "Star Song 한글판");
+});
+
+test("a retro game name is kept by its id; empty goes back to the file's", () => {
+  assert.equal(retroNames.set("snes-0123456789", { ko: "한글 이름", en: "" }), true);
+  assert.deepEqual(retroNames.get("snes-0123456789"), { ko: "한글 이름" });
+  retroNames.set("snes-0123456789", {});
+  assert.equal(retroNames.get("snes-0123456789"), null);
+  assert.equal(retroNames.set("../x", { ko: "a" }), false);
+});

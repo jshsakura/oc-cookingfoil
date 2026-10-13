@@ -3,7 +3,10 @@
  * ${COOK_DATA_DIR}/game-descriptions.json, apart from titledb so no refresh
  * ever overwrites it:
  *
- *   { <base title id>: { description?: { en, ko }, notes?: { en, ko } } }
+ *   { <base title id>: { name?: { en, ko }, description?: { en, ko }, notes?: { en, ko } } }
+ *
+ * name replaces the game's name everywhere it is shown (a wrong or empty one
+ * from titledb or the file); one the admin cleared goes back to the usual name.
  *
  * description replaces titledb's own text (for a game it has none for, or a
  * wrong one); one the admin cleared goes back to titledb's. notes is extra
@@ -18,7 +21,9 @@ import { dataDir } from "../helpers/envs.js";
 const FILE = path.join(dataDir, "game-descriptions.json");
 const ID_RE = /^[0-9A-F]{16}$/;
 const MAX = 2000;
-const FIELDS = ["description", "notes"];
+export const FIELDS = ["name", "description", "notes"];
+// A name is one line; the other fields keep their line breaks.
+const LIMIT = { name: 120 };
 
 let saved = null;
 
@@ -40,8 +45,10 @@ function persist(next) {
   saved = next;
 }
 
-const clean = (v) => {
-  const s = String(v ?? "").replace(/\r\n/g, "\n").trim().slice(0, MAX);
+const clean = (v, field) => {
+  let s = String(v ?? "").replace(/\r\n/g, "\n").trim();
+  if (field === "name") s = s.replace(/\s+/g, " ");
+  s = s.slice(0, LIMIT[field] ?? MAX);
   return s || null;
 };
 
@@ -53,7 +60,7 @@ export function edited() {
 /** The admin's text for a game ({ description, notes }, each { en, ko } or null), or null. */
 export function get(id) {
   const own = all()[id];
-  return own ? { description: own.description ?? null, notes: own.notes ?? null } : null;
+  return own ? { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null } : null;
 }
 
 /**
@@ -62,7 +69,7 @@ export function get(id) {
  */
 export function set(id, field, { en, ko }) {
   if (!ID_RE.test(String(id)) || !FIELDS.includes(field)) return false;
-  const [enText, koText] = [clean(en), clean(ko)];
+  const [enText, koText] = [clean(en, field), clean(ko, field)];
   const { [id]: prev = {}, ...rest } = all();
   const { [field]: _old, ...others } = prev;
   const entry = enText || koText ? { ...others, [field]: { en: enText, ko: koText } } : others;
@@ -86,6 +93,14 @@ const pick = (text, lang) => (text ? (lang === "ko" ? text.ko ?? text.en : text.
 /** The description a reader sees: the admin's, else `fallback` (titledb's own). */
 export function describe(id, lang, fallback = null) {
   return pick(all()[id]?.description, lang) ?? fallback ?? null;
+}
+
+/** The admin's name for a game in each language they wrote ({ en?, ko? }), or null. */
+export function names(id) {
+  const n = all()[String(id ?? "").toUpperCase()]?.name;
+  if (!n) return null;
+  const out = { ...(n.en ? { en: n.en } : {}), ...(n.ko ? { ko: n.ko } : {}) };
+  return Object.keys(out).length ? out : null;
 }
 
 /** What the admin adds about a game (what to install with it, space, version): never from titledb. */

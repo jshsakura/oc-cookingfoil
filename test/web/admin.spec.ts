@@ -268,6 +268,24 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
 });
 
+test('a game is renamed from the game editor and every list shows the new name', async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  await page.locator('#gd-game').fill('Test Game [0100000000010000]');
+  await page.locator('#gd-game').dispatchEvent('change');
+  await page.locator('#gd-name-ko').fill('고친 이름');
+  await page.locator('#gd-name-en').fill('Fixed Name');
+  await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.locator('#gd-name-original')).toContainText('직접 정한 이름을 보여 주고 있습니다.');
+  expect((await (await request.get('/api/title/0100000000010000?lang=ko')).json()).name).toBe('고친 이름');
+  await expect.poll(async () => JSON.stringify(await (await request.get('/shop.json')).json()), { timeout: 15000 }).toContain('고친 이름 (Fixed Name)');
+  await page.locator('#gd-name-ko').fill('');
+  await page.locator('#gd-name-en').fill('');
+  await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.locator('#gd-name-original')).toContainText('비워 두면');
+  expect((await (await request.get('/api/title/0100000000010000?lang=ko')).json()).name).not.toBe('고친 이름');
+});
+
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');

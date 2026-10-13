@@ -323,12 +323,15 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   <div class="cards" id="lib-cards"></div>
   ${LIBRARY_FILES_HTML}
   ${PATCHES_HTML}
-  <h2>게임 소개와 추가 정보</h2>
+  <h2>게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
     <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
     <datalist id="gd-games"></datalist>
     <div id="gd-body" hidden>
+      <h3>이름</h3>
+      <p class="muted" id="gd-name-original"></p>
+      <div class="ct-pair"><label>한국어<input id="gd-name-ko" maxlength="120" autocomplete="off"></label><label>영어 (다른 언어의 기본값)<input id="gd-name-en" maxlength="120" autocomplete="off"></label></div>
       ${GAME_PATCHES_HTML}
       <h3>추가 정보</h3>
       <label>한국어<textarea id="gd-notes-ko" maxlength="2000" placeholder="예: 게임 데이터 패치(약 49GB)를 함께 설치해야 실행됩니다."></textarea></label>

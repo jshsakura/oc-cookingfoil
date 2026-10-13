@@ -573,11 +573,13 @@ async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}
   gdId=id;const own=d.own||{};
   $('gd-ko').value=own.description?.ko||'';$('gd-en').value=own.description?.en||'';
   $('gd-notes-ko').value=own.notes?.ko||'';$('gd-notes-en').value=own.notes?.en||'';
+  $('gd-name-ko').value=own.name?.ko||'';$('gd-name-en').value=own.name?.en||'';
+  $('gd-name-original').textContent=(own.name?'직접 정한 이름을 보여 주고 있습니다. 비우고 저장하면 ':'비워 두면 ')+(d.originalName?'원래 이름('+d.originalName+')을 씁니다.':'파일에서 읽은 이름을 씁니다.')+' 이름이 깨졌거나 틀렸을 때 고칩니다.';
   $('gd-original').textContent=own.description?'직접 쓴 소개를 보여 주고 있습니다.':(d.original?'지금은 titledb 소개를 보여 줍니다: '+d.original.slice(0,160)+(d.original.length>160?'…':''):'지금은 소개가 비어 있습니다. 쓰면 그 글이 나옵니다.');
   $('gd-body').hidden=false;ptGame();}
 $('gd-game').addEventListener('change',()=>openDesc());
 $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
-  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
+  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!confirm('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 async function loadLibrary(){
