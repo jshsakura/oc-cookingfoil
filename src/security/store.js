@@ -30,7 +30,7 @@ const state = {
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
   // Consoles keep only what approval needs: no IP, no last-seen time, no client version.
   devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash }
-  pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt } (when it asked, to order and trim the queue)
+  pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, message? } (when it asked, to order and trim the queue; its note)
   audit: [],
   denials: [],         // newest-last ring of refusals (see security/deny.js)
   denialCounts: {},    // reason → total ever, so the dashboard can show trends
@@ -86,7 +86,8 @@ function scheduleFlush() {
 // version; dropping them here clears them from disk at the next save.
 const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null } = {}) =>
   ({ label, addedAt, addedBy, accessKeyHash });
-const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null } = {}) => ({ firstSeenAt, lastSeenAt });
+const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null } = {}) =>
+  ({ firstSeenAt, lastSeenAt, ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}) });
 
 export async function load() {
   try {
@@ -288,16 +289,25 @@ export function revokeDevice(deviceKey) {
   return removed;
 }
 
+/** The note a waiting console sent with its request, or null. */
+export function pendingMessage(deviceKey) {
+  return state.pending.get(deviceKey)?.message ?? null;
+}
+
 /** Drop a console from the approval queue without approving it. */
 export function dismissPending(deviceKey) {
   if (state.pending.delete(deviceKey)) scheduleFlush();
 }
 
-/** A console asking for approval; only when it asked is kept. */
-export function recordPendingDevice(deviceKey) {
+/**
+ * A console asking for approval; only when it asked is kept, plus the note it
+ * sent, if any (a later note replaces it; a request without one keeps it).
+ */
+export function recordPendingDevice(deviceKey, { message } = {}) {
   const now = Date.now();
   const prev = state.pending.get(deviceKey);
-  state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now });
+  const note = message === undefined ? prev?.message ?? null : message;
+  state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, ...(note ? { message: note } : {}) });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
 }
@@ -340,7 +350,7 @@ export function devicesSnapshot() {
       .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null }))
+      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null }))
       .sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
   };
 }

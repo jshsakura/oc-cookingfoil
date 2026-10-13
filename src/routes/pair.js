@@ -2,7 +2,7 @@
  * Public device-pairing endpoints (no basic-auth — that's the whole point).
  * Live only when COOK_DEVICE_PAIRING=true; otherwise the router 404s.
  *
- *   POST /api/pair/request  { deviceKey, label? }
+ *   POST /api/pair/request  { deviceKey, label?, message? }  message: a one-line note for the admin (100 chars)
  *        → records the device as "pending" for the admin to approve.
  *        → { status: "pending" }  (or { status: "approved" } if already done)
  *
@@ -22,6 +22,7 @@ import {
   normalizeDeviceKey,
   deviceKeyFromHeaders,
   takeAccessKeyDelivery,
+  pairMessage,
 } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
@@ -71,7 +72,9 @@ export default function pairRouter() {
       res.json({ status: "approved" });
       return;
     }
-    store.recordPendingDevice(deviceKey);
+    // The console's own note, so the admin can tell which one asks; a request without one keeps the last.
+    const message = req.body && "message" in req.body ? pairMessage(req.body.message) : undefined;
+    store.recordPendingDevice(deviceKey, { message });
     debug.log("pair: request from %s…", deviceKey.slice(0, 12));
     res.json(pendingResponse(req, deviceKey));
   });

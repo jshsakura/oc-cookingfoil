@@ -150,3 +150,10 @@ test('the admin writes a game description that the title detail shows instead of
   await expect(page.locator('#modal-notes-text')).toHaveText('게임 데이터 패치를 함께 설치해야 실행됩니다.');
   await request.post('/admin/api/descriptions/0100000000010000/reset', { headers: { Cookie: adminCookie }, data: {} });
 });
+
+test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#settings');
+  await expect(page.locator('#tok-form')).toBeVisible();
+  await expect(page.locator('#tok-new')).toBeHidden();
+});

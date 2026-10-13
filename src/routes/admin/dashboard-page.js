@@ -58,6 +58,7 @@ form.add input{flex:1;min-width:150px}
 form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;font-weight:600}
 form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .copy-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.copy-row[hidden],.add[hidden]{display:none}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:flex;gap:6px;flex-wrap:wrap}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
@@ -158,9 +159,6 @@ nav.tabs a,.guide-link,#logout{display:inline-flex;align-items:center;gap:7px}.g
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
-  <nav class="apptabs" aria-label="CookingFoil">
-    <a href="/#all">모든 게임</a><a href="/#preview">미리보기</a><a href="/admin" aria-current="page">관리</a>
-  </nav>
   <div class="actions"><a class="guide-link" href="/admin/guide.md" target="_blank" rel="noopener">${icon("book")}안내</a><span class="who" id="who">불러오고 있습니다</span><button type="button" id="logout">${icon("logout")}로그아웃</button></div>
 </header>
 
