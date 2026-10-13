@@ -3,11 +3,12 @@
  * GET /api/homebrew/:id/icon       the app's icon from its NRO (404 before its first fetch)
  * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
+ * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
  * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
  *
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
- *       install_path, install_dir, files,
+ *       install_path, install_dir, files, bundle_url,
  *       forwarder_url, forwarder_title_id, forwarder_size }
  *
  * `size` is what lands on the card: every file of a folder install (the .nro
@@ -22,6 +23,10 @@
  * of that folder as { path, size, sha256, url }, the .nro among them, and
  * `install_dir` is that folder; `download_url` still serves just the .nro, so a
  * client that ignores `files` keeps working.
+ *
+ * `bundle_url` (null for a single .nro) sends the same files in one request, in
+ * `files` order after their folders, so a console over a slow round trip does not
+ * pay one per file. Its ETag is a hash of the paths and sha256s, for If-Range.
  *
  * `description` is what the admin wrote (Korean for ?lang=ko or a Korean
  * Accept-Language, else English), the GitHub repository's own when the admin
@@ -43,6 +48,7 @@ import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as disabled from "../meta/homebrew-disabled.js";
+import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
@@ -158,6 +164,12 @@ export const defaultService = {
     if (!e) return null;
     return { ...(await githubTracker().ensureDownloaded(id)), file_name: e.file_name };
   },
+  /** Every file of a folder install as { path, size, sha256, abs }, in listed order, or null. */
+  async bundle(id) {
+    if (!id.startsWith("m-")) return githubTracker().packageFiles(id);
+    const files = (await manualEntries()).find((x) => x.id === id)?.files;
+    return files ? files.map(({ path: p, size, sha256, abs }) => ({ path: p, size, sha256, abs })) : null;
+  },
   /** One file of a folder install, or null. */
   async file(id, relPath) {
     if (!id.startsWith("m-")) return githubTracker().packageFile(id, relPath);
@@ -200,6 +212,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
       files: e.files ? e.files.map((f) => ({ ...f, url: `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}` })) : null,
+      bundle_url: e.files ? `/api/homebrew/${e.id}/bundle` : null,
       icon_url: `/api/homebrew/${e.id}/icon`,
       download_url: `/api/homebrew/${e.id}/download`,
       ...(service.forwarderInfo?.(e) ?? NO_FORWARDER),
@@ -248,6 +261,15 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(path.posix.basename(req.query.path));
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
+  }));
+
+  router.get("/:id/bundle", wrap(async (req, res) => {
+    const files = await service.bundle?.(req.params.id);
+    if (!files?.length) return res.status(404).json({ error: "no folder install" });
+    // The bytes follow from the paths and contents alone, so their hashes are the ETag.
+    const etag = crypto.createHash("sha1").update(JSON.stringify(files.map((f) => [f.path, f.sha256]))).digest("hex");
+    const app = files[0].path.split("/")[1] || req.params.id;
+    sendTar(res, files.map(({ path: p, size, abs }) => ({ path: p, size, abs, mtime: 0 })), { filename: `${app}.tar`, etag, label: "homebrew", fixedTimes: true });
   }));
 
   router.get("/:id/forwarder", wrap(async (req, res) => {

@@ -111,7 +111,7 @@ Settings that the admin page changes, such as `COOK_DEVICE_PAIRING`, `COOK_PUBLI
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
 | `GET /api/title/:id?lang=` | Detail for one entry |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut. Apps turned off on the admin page are left out |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut. A folder app also comes as one tar from `bundle`. Apps turned off on the admin page are left out |
 | `GET /api/patches?lang=`, `/api/saves?lang=` | Patches and save files, with Korean names and descriptions for `ko` |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The client build kept in `data/client/` |
 | `GET /api/retro/systems`, `/api/retro/games` | Files from the retro folder, when you have created it |
