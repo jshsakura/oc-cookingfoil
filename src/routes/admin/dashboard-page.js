@@ -135,9 +135,12 @@ form.add select{flex:none}
 .me{margin-left:6px}
 /* Phones: tables turn into one card per row, each cell labelled. */
 @media (max-width:640px){
-body{padding:16px 12px 48px}header{margin-bottom:14px}.apptabs{order:3;margin-right:0}
-nav.tabs{margin:0 -12px 18px;border-radius:0;border-left:0;border-right:0;padding:6px 12px;scrollbar-width:none}
-nav.tabs a{padding:9px 14px}
+body{padding:16px 12px 48px}header{margin-bottom:12px}
+.brand .wm{font-size:24px}.brand img{width:32px;height:32px}.who{display:none}
+/* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
+nav.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
+nav.tabs a{flex-direction:column;justify-content:center;gap:3px;padding:8px 2px;font-size:12px;border-radius:10px;text-align:center}
+nav.tabs a svg{width:18px;height:18px}nav.tabs .count{position:absolute;margin:-30px 0 0 26px}nav.tabs a{position:relative}
 form.add input,form.add select,form.add button{flex:1 1 100%}
 .logs-view{grid-template-columns:1fr}
 table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
@@ -146,7 +149,12 @@ tr{background:var(--panel);border:1px solid var(--line);border-radius:14px;margi
 td{border:0;padding:6px 14px;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
 td::before{content:attr(data-label);color:var(--muted);font-size:12px}
 td[data-label=""]{grid-template-columns:1fr}td[data-label=""]::before{display:none}
-td .row-actions button{flex:1 1 auto}
+/* The first cell is the card's title, full width, its details under it. */
+td:first-child{grid-template-columns:1fr;padding-top:10px}td:first-child::before{display:none}td:first-child b{font-size:15px}
+td .row-actions{display:flex;gap:8px}td .row-actions button,td[data-label=""]>button{flex:1 1 0;min-width:0}
+td .xline{margin-bottom:8px}td>button{width:100%}
+/* A labelled cell holding several things (a list and its button) keeps them all beside the label. */
+td:not(:first-child):not([data-label=""])>*{grid-column:2}
 }
 `;
 
