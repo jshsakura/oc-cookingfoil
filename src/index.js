@@ -1,6 +1,8 @@
 import express from "express";
 import net from "net";
 import serveIndex from "serve-index";
+// Settings saved on the admin page go over the compose ones before anything reads them.
+import "./security/server-settings.js";
 
 import shopFileBuilder from "./shop-file-builder.js";
 import iconRoute from "./routes/icon.js";

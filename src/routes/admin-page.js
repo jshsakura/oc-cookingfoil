@@ -46,6 +46,7 @@ import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
+import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { clientBuildStatus } from "./client-update.js";
 import {
   normalizeDeviceKey,
@@ -398,6 +399,7 @@ export default function adminPageRouter() {
   mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
+  mountServerSettingsApi(router, requireSession);
 
   return router;
 }

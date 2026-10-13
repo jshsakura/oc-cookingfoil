@@ -265,12 +265,11 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
 /** Load the saved scores and start the paced loop. `onChange` runs after a batch that changed any. */
 export function start({ onChange } = {}) {
   load();
-  if (!ratingSync) {
-    debug.log("rating sync: off (COOK_RATING_SYNC=false)");
-    return;
-  }
+  if (!ratingSync) debug.log("rating sync: off for now; it starts when turned on from the admin page");
   onChangeFn = onChange;
-  const tick = () => runBatch()
+  // The loop always runs and each batch checks the setting, so it can be
+  // turned on and off from the admin page without a restart.
+  const tick = () => (ratingSync ? runBatch() : Promise.resolve(0))
     .then((changed) => { if (changed) { debug.log("rating sync: %d scores changed", changed); onChangeFn?.(); } })
     .catch((err) => debug.error("rating sync: batch failed: %s", err.message));
   setTimeout(tick, FIRST_RUN_MS).unref();

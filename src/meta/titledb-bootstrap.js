@@ -20,7 +20,8 @@ import * as popularity from "./eshop-popularity.js";
 import * as ratings from "./scraper-ratings.js";
 import * as shopCache from "./shop-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
-import { envNumber, envBool } from "../helpers/env-read.js";
+import { envNumber } from "../helpers/env-read.js";
+import { titledbAutoFetch } from "../helpers/envs.js";
 
 // `Number` here so "0.01" (~36 s) works for tests; clamped to >= 0.
 const REFRESH_HOURS = Math.max(
@@ -116,7 +117,8 @@ function schedule(delayMs) {
   refreshTimer = setTimeout(async () => {
     debug.log("titledb refresh: timer fired");
     try {
-      await doFetch();
+      if (titledbAutoFetch) await doFetch();
+      else debug.log("titledb refresh: auto-fetch is off, skipped");
     } catch (err) {
       debug.error("titledb refresh: %s", err.message);
     }
@@ -148,7 +150,7 @@ export async function bootstrap() {
   // we just loaded — a plain invalidate finds +0/-0 files changed and
   // re-composes the same filename-derived names.
   shopCache.invalidate({ rescan: true });
-  const autoFetch = envBool("COOK_TITLEDB_AUTO_FETCH", true);
+  const autoFetch = titledbAutoFetch;
   const haveCache = store.size() > 0;
   // A partial cache is the common real-world state: an early boot (or a once-
   // narrowed COOK_TITLEDB_REGIONS) left only some regions on disk. Because
@@ -199,10 +201,8 @@ export async function bootstrap() {
     doFetch().then(onFetchDone("initial fetch")).catch(onFetchFail("initial fetch"));
   }
 
-  if (!autoFetch) {
-    debug.log("titledb refresh: disabled (COOK_TITLEDB_AUTO_FETCH=false)");
-    return;
-  }
+  // The timer runs even with auto-fetch off, so turning it on from the admin
+  // page takes effect without a restart; each run checks the setting.
   if (REFRESH_MS <= 0) {
     debug.log(
       "titledb refresh: disabled (COOK_TITLEDB_REFRESH_INTERVAL_HOURS=0)"

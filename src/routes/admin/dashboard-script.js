@@ -45,7 +45,7 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
-  if(tab==='settings'){loadIntegrations();loadTfa();loadGoogle();loadTokens();}
+  if(tab==='settings'){loadServerSettings();loadIntegrations();loadTfa();loadGoogle();loadTokens();}
   if(tab==='logs')loadClientLogs();
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();
@@ -236,7 +236,7 @@ $('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.wri
 async function loadDevices(){
   const d=await api('/admin/api/devices');
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
-    :'기기 승인이 꺼져 있습니다. 쓰려면 compose 에 COOK_DEVICE_PAIRING=true 를 넣습니다.';
+    :'기기 승인이 꺼져 있습니다. 설정 탭의 서버 동작에서 QR 로 기기 연결을 켭니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
   table('pending',['기기 코드','메시지','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),td(p.message||'—',p.message?'':'dim'),k,td(fmt(p.lastSeenAt)));
@@ -568,10 +568,8 @@ async function loadLibrary(){
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};
   cards.append(card('게임 파일',num(d.files)),card('titledb 타이틀',num(d.titledb?.titles)),
     card('마지막 빌드',d.lastBuildMs!=null?num(d.lastBuildMs)+'ms':'—'),card('가동 시간',uptime(d.uptime)));
-  const s=d.settings;const rows=[['버전','v'+d.version],['공개 주소',d.origin||'—'],
-    ['titledb 지역',(d.titledb?.regions||[]).map((r)=>r.region||r).join(', ')||'—'],
-    ['기기 승인',s.devicePairing?'켜짐':'꺼짐'],['업로드',s.uploadsEnabled?'켜짐':'꺼짐'],
-    ['NSP/XCI 메타 추출',s.extractIcons],['이름 언어 순서',s.langPriority]];
+  const rows=[['버전','v'+d.version],['공개 주소',d.origin||'—'],
+    ['읽어 둔 titledb 지역',(d.titledb?.regions||[]).map((r)=>r.region||r).join(', ')||'—']];
   const dl=$('settings');dl.replaceChildren();for(const [k,v] of rows)dl.append(el('dt',k),el('dd',String(v)));}
 $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
   try{await api('/admin/api/library/rescan',{method:'POST',body:{}});toast('다시 스캔을 시작했습니다. 끝나면 숫자가 바뀝니다.');
@@ -671,7 +669,7 @@ let loadErr='';
 function guarded(fn){return async(...a)=>{try{const r=await fn(...a);loadErr='';return r;}
   catch(err){const m='불러오지 못했습니다: '+(err&&err.message||err);if(m!==loadErr)toast(m);loadErr=m;}};}
 loadHealth=guarded(loadHealth);loadStats=guarded(loadStats);loadDevices=guarded(loadDevices);loadLogins=guarded(loadLogins);
-loadAccounts=guarded(loadAccounts);loadGoogle=guarded(loadGoogle);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
+loadAccounts=guarded(loadAccounts);loadServerSettings=guarded(loadServerSettings);loadGoogle=guarded(loadGoogle);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
 showTab();loadStats();loadDevices();loadLogins();loadAccounts();loadGoogle();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadLogins();loadAccounts();}},15000);
 `;
