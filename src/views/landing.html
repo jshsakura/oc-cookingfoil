@@ -177,10 +177,6 @@
       .mp-group h4 .count { font-weight: 600; color: var(--secondary); font-size: 12px; }
       .mp-group .mp-note { margin: 4px 0 0; font-size: 12px; color: var(--secondary); }
       .mp-group .xitem:first-of-type { border-top: none; margin-top: 4px; }
-      /* CONNECT: the shop address, always on top */
-      .connect-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 16px;
-        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
-      .connect-bar > * { min-width: 0; }
       .stats-panel { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
 
@@ -228,6 +224,11 @@
       .h2-action:hover { color: var(--ink); border-color: var(--ink); }
 
       /* STATUS + INFO PANELS */
+      /* Beside the list/preview switch: how many games this server has, like the console app shows it. */
+      .subtab-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+      .subtab-row .subtabs { margin-bottom: 0; }
+      .subtab-row .badge { margin-left: auto; }
+      .badge[hidden] { display: none; }
       .badge {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 7px 14px; border-radius: 100px; font-size: 13px; font-weight: 600;
@@ -241,12 +242,6 @@
       .panel h3 .rule { flex: 1; }
       .description { font-size: 14px; color: var(--secondary); line-height: 1.6; margin-bottom: 14px; }
 
-      .connect-row { display: flex; gap: 10px; }
-      .url-pill {
-        flex: 1; min-width: 0; padding: 14px 18px; border-radius: 14px; background: var(--sunk);
-        font: 500 14px var(--font-mono); color: var(--ink);
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      }
       .btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         padding: 12px 20px; border-radius: 14px; font: 700 14px var(--font-body);
@@ -625,7 +620,6 @@
         .cols { height: 60px; }
         .chart, .chart.wide { grid-column: 1 / -1; }
         .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) auto; }
-        .connect-bar { grid-template-columns: minmax(0, 1fr); }
         /* Search and sort share the top row half and half; the kind chips go under them. */
         .toolbar:has(.sort-select) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
         .toolbar:has(.sort-select) .search { grid-column: 1; grid-row: 1; min-width: 0; }
@@ -637,6 +631,10 @@
         .tabs button { flex: 1 1 auto; min-width: 0; padding: 8px 4px; font-size: clamp(11px, 3.3vw, 13px); overflow: hidden; text-overflow: ellipsis; }
         .tabs::-webkit-scrollbar { display: none; }
         .subtabs { display: flex; width: 100%; }
+        /* The switch and the title count share one row. */
+        .subtab-row { flex-wrap: nowrap; }
+        .subtab-row .subtabs { width: auto; flex: 1 1 auto; min-width: 0; }
+        .subtab-row .badge { flex-shrink: 0; padding: 7px 12px; }
         .subtabs button { flex: 1; }
         .xgroup { padding: 14px 12px; border-radius: 16px; }
         body { padding: 16px 16px 80px; }
@@ -644,9 +642,6 @@
         .logo { width: 36px; height: 36px; }
         .hero { flex-direction: column; align-items: flex-start; gap: 20px; padding: 24px; }
         .hero .hero-cover { width: 132px; height: 132px; }
-        .connect-row { flex-wrap: wrap; }
-        .connect-row .url-pill { flex: 1 1 100%; }
-        .connect-row .btn { flex: 1; }
         .games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
         .recent { grid-auto-columns: 140px; }
         .modal-backdrop { padding: 0; align-items: flex-end; }
@@ -699,16 +694,12 @@
         </div>
       </div>
 
-      <section class="connect-bar" aria-label="connect">
-        <div id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></div>
-        <div class="connect-row">
-          <div id="shop-url" class="url-pill sk">—</div>
-          <button class="btn" id="copy-btn" type="button" data-i18n="action.copy"></button>
-        </div>
-      </section>
 
       <div class="card">
-        <div class="subtabs" id="subtabs" role="tablist"></div>
+        <div class="subtab-row">
+          <div class="subtabs" id="subtabs" role="tablist"></div>
+          <span id="status" class="badge"><span class="badge-dot"></span><span id="status-text" class="sk">…</span></span>
+        </div>
         <div data-tab-panel="games">
           <section class="panel stats-panel">
             <h3><span data-i18n="section.stats"></span><span class="rule"></span>
@@ -1771,14 +1762,8 @@
         requestAnimationFrame(step);
       }
 
-      // ─── url / copy ────────────────────────────────────────────────────────
-      // CLEAN shop URL only — the password is never embedded (it would leak via
-      // browser history / proxy logs / Referer). /api/connect-url returns the
-      // canonical URL; users enter their own credentials in the client's
-      // Username / Password fields. Falls back to the live origin on fetch fail.
-      let baseUrl = `${location.protocol}//${location.host}/shop.tfl`;
-      const urlEl = $("shop-url");
-      urlEl.textContent = baseUrl; // hidden under the .sk shimmer until settled
+      // ─── features and session ─────────────────────────────────────────────
+      // The shop address and how to connect live on the admin page's overview now.
       // Show the device page only when this shop pairs consoles or issues device logins.
       fetch("/api/shop/info", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
@@ -1820,15 +1805,6 @@
         if (r.status === 401 && session && !String(args[0]).startsWith("/auth/")) location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash);
         return r;
       };
-      fetch("/api/connect-url", { headers: { Accept: "application/json" } })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d && d.url) baseUrl = d.url; })
-        .catch(() => { /* keep the placeholder */ })
-        .finally(() => { urlEl.textContent = baseUrl; urlEl.classList.remove("sk"); });
-      $("copy-btn").addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(baseUrl); toast(t("toast.copied")); }
-        catch { toast(t("toast.copyFail")); }
-      });
 
       // ─── state ─────────────────────────────────────────────────────────────
       let shopData = null;
@@ -1948,7 +1924,9 @@
         const titledb = shop.titledb && typeof shop.titledb === "object" ? shop.titledb : {};
         const tCount  = Object.keys(titledb).length || healthTitles;
 
-        const baseCount   = files.filter(f => (f.kind || "base") === "base").length;
+        const baseFiles   = files.filter(f => (f.kind || "base") === "base");
+        // A game kept as two files (two regions, or base and a repack) is still one title.
+        const baseCount   = new Set(baseFiles.map(f => (f.baseTitleId || f.titleId || f.name || "").toUpperCase())).size;
         const updateCount = files.filter(f => f.kind === "update").length;
         const dlcCount    = files.filter(f => f.kind === "dlc").length;
         const modsCount   = updateCount + dlcCount;
@@ -2901,6 +2879,7 @@
           b.setAttribute("aria-selected", String(b.dataset.tab === group));
         }
         renderSubtabs(name);
+        $("status").hidden = group !== "games";
         // A fallback (the asked-for view isn't known yet) leaves the address and the memory alone.
         if (remember) {
           try { localStorage.setItem(TAB_KEY, name); } catch { /* private mode */ }

@@ -203,6 +203,15 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 </nav>
 
 <section id="tab-overview">
+  <h2 class="first">연결</h2>
+  <div class="howto">
+    <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
+    <ul>
+      <li><b>CookingFoil</b>: 위 주소를 넣으면 기기 화면에 승인 요청이 뜹니다. 계정이 맞으면 바로 승인되고, 아니면 기기 탭의 승인 대기에서 승인합니다. 비밀번호를 기기에 남기지 않습니다.</li>
+      <li><b>CyberFoil</b>: 옵션의 eShop URL 에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 기기 탭의 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
+      <li><b>Tinfoil</b>(호환): File Browser 에서 + 로 위 주소를 넣습니다. 목록을 읽고 받는 호환 경로만 제공합니다.</li>
+    </ul>
+  </div>
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
   <div class="cards" id="cards"></div>
@@ -225,15 +234,6 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 </section>
 
 <section id="tab-devices" hidden>
-  <h2 class="first">연결 방법</h2>
-  <div class="howto">
-    <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-    <ul>
-      <li><b>CookingFoil</b>: 위 주소를 넣으면 기기 화면에 승인 요청이 뜹니다. 계정이 맞으면 바로 승인되고, 아니면 아래 승인 대기에서 승인합니다. 비밀번호를 기기에 남기지 않습니다.</li>
-      <li><b>CyberFoil</b>: 옵션의 eShop URL 에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 아래 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
-      <li><b>Tinfoil</b>(호환): File Browser 에서 + 로 위 주소를 넣습니다. 목록을 읽고 받는 호환 경로만 제공합니다.</li>
-    </ul>
-  </div>
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">
     <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
