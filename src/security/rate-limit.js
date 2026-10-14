@@ -15,6 +15,11 @@
  * read surfaces on the console as a bare "install failed" with no cause. This
  * limiter exists to blunt floods, not to pace legitimate transfers.
  *
+ * Every response that went through the bucket carries the IETF draft's
+ * RateLimit-Limit (the burst), RateLimit-Remaining (whole tokens left) and
+ * RateLimit-Reset (seconds until the bucket is full again); proven callers
+ * skip the bucket and get none.
+ *
  * On exhaustion we 429 with a Retry-After hint and audit the event but
  * don't auto-lock (a noisy client isn't necessarily malicious).
  *
@@ -81,6 +86,10 @@ export default function rateLimit() {
       b.lastRefill = now;
     }
     b.lastSeen = now;
+    const remaining = Math.max(0, Math.floor(b.tokens - 1));
+    res.set("RateLimit-Limit", String(BURST));
+    res.set("RateLimit-Remaining", String(b.tokens < 1 ? 0 : remaining));
+    res.set("RateLimit-Reset", String(Math.max(1, Math.ceil((BURST - Math.max(0, b.tokens - 1)) / REFILL_PER_MS / 1000))));
 
     if (b.tokens < 1) {
       const waitMs = (1 - b.tokens) / REFILL_PER_MS;

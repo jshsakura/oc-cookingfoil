@@ -5,13 +5,18 @@
  * one by asking instead of guessing from missing fields. Each feature names a
  * field or endpoint the client may rely on once the name is listed; a server
  * that answers 404 here predates the list and offers none of the optional ones.
+ *
+ * `download.maxConnections` is how many connections one console may open for
+ * one download (parallel Range requests): the admin's setting, 4 by default.
+ * The same number rides on list and download responses as
+ * X-CookingFoil-Max-Connections. It is a hint; the server does not enforce it.
  */
 import fs from "fs";
 import pkg from "../package.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, retroDir } from "../helpers/envs.js";
+import { devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as users from "../security/users.js";
@@ -41,6 +46,7 @@ const FEATURES = [
   "image-sizes",
   "user-patches",
   "item-icons",           // base item.icons { ko?, en?, ja?, zh? } and ?lang= on icon/banner; detail iconUrl/bannerUrl follow ?lang=
+  "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
@@ -78,6 +84,8 @@ export default async function shopInfoRoute(_req, res) {
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
+    // How many connections one console may open per download (a hint, not enforced; admin setting).
+    download: { maxConnections: downloadMaxConnections },
     files: stats.files,
     contentMeta: contentMeta.progress(),
   });

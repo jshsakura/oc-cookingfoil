@@ -71,6 +71,29 @@ for (const url of LISTS) {
   });
 }
 
+test("lists and downloads advertise the per-console connection count; images don't", async () => {
+  for (const url of LISTS) assert.equal((await get(url)).headers.get("x-cookingfoil-max-connections"), "4", url);
+  const shop = await (await get("/shop.json")).json();
+  const download = await get(new URL(shop.files[0].url, `${BASE}/`).pathname, { Range: "bytes=0-1" });
+  assert.equal(download.status, 206);
+  assert.equal(download.headers.get("x-cookingfoil-max-connections"), "4");
+  assert.equal((await get(`/api/shop/icon/${TID}`)).headers.get("x-cookingfoil-max-connections"), null);
+  const info = await (await get("/api/shop/info")).json();
+  assert.deepEqual(info.download, { maxConnections: 4 });
+  assert.ok(info.features.includes("download-connections"));
+});
+
+// A password (Basic) is checked after the bucket, so those callers count too; a
+// console with its device key, a browser session and the admin skip both.
+test("callers that went through the rate limiter see RateLimit headers", async () => {
+  for (const r of [await fetch(`${BASE}/robots.txt`), await get("/api/shop/sections")]) {
+    assert.equal(r.headers.get("ratelimit-limit"), "300");
+    const left = Number(r.headers.get("ratelimit-remaining"));
+    assert.ok(left >= 0 && left < 300, `remaining ${left}`);
+    assert.ok(Number(r.headers.get("ratelimit-reset")) >= 1);
+  }
+});
+
 test("the shop and its sections get a new ETag when a game is added", async () => {
   const before = await Promise.all(["/", "/api/shop/sections"].map(async (u) => (await get(u)).headers.get("etag")));
   put(`games/Other Game [0100000000DEF000][v0].nsp`, "NSP2");
