@@ -14,7 +14,13 @@
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
- *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id)
+ *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
+ *                                                and when known (src/retro/meta/): description (in the request's
+ *                                                language, else English), publisher, developer, releaseDate (YYYYMMDD,
+ *                                                YYYY0000 for a year alone), numberOfPlayers, genres (labels in the
+ *                                                request's language) and screenshots (at most 8 URLs with ?v=);
+ *                                                an unknown one is left out. Versions of one game share them.
+ *   GET /api/retro/games/:id/screenshot/:n?v=    one of those screenshots (1-8), cached for a year with its ?v=
  *
  * Versions of one game (src/retro/variants.js: an arcade parent and its
  * clones, or one title's patches and releases) are one group. Lists show each
@@ -65,7 +71,6 @@
  * forwarder fields are null when the server can't build one (no prod.keys or
  * hacBrewPack); forwarderSize is null until the NSP has been built.
  */
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import express from "express";
@@ -82,13 +87,15 @@ import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
 import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
-import { ART_PIPELINE } from "../meta/artwork-version.js";
+import { fileVersion } from "../retro/file-version.js";
 import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
 import { groupVisible, representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
+import * as retroMeta from "../retro/meta/sync.js";
+import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -148,16 +155,6 @@ export function systemIcon(dir, id, system, style) {
   return names.map((n) => path.join(dir, "system-icons", style, `${n}.png`)).find((f) => fs.existsSync(f)) ?? null;
 }
 
-/** 12 hex of a console icon file's size and mtime, the ?v= of its URL; null without the file. */
-function fileVersion(file) {
-  try {
-    const st = fs.statSync(file);
-    return crypto.createHash("sha1").update(`${ART_PIPELINE}\0${file}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
-  } catch {
-    return null;
-  }
-}
-
 /** iconUrl and iconMonoUrl of a console, each with its file's ?v= (null without the file). */
 function systemIconUrls(id, system) {
   const color = systemIcon(retroDir, id, system, "color");
@@ -214,6 +211,9 @@ export function listedGames(cat) {
 }
 
 const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, members: [g] };
+
+/** A game, then its group's representative, then its other versions: whose details it shows. */
+const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members])];
 
 /** "game", "system" or "none": which bezel a game installs with. Pure. */
 export const bezelKind = (g) => (!g.bezel ? "none" : g.bezel.generic ? "system" : "game");
@@ -358,6 +358,9 @@ export default function retroRouter() {
     })
     .catch((err) => debug.error("retro: shrinking box art: %s", err.message)));
 
+  // Details (description, publisher, screenshots …) collected in the background; requests only read them.
+  retroMeta.start({ current: () => catalog.current(retroDir), enabled: retroEnabled });
+
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
 
   router.get("/systems", wrap(async (req, res) => {
@@ -443,6 +446,7 @@ export default function retroRouter() {
     const rep = representative(group, variantPicks.get(group.id));
     res.vary("Accept-Language").json({
       ...publicGame(game, systems, lang, { cat, link: forRequest(req) }),
+      ...retroDetailFields({ dir: retroDir, systems, candidates: metaCandidates(game, rep, group), base: `/api/retro/games/${game.id}`, lang }),
       representative: rep.id,
       variants: group.members.map((m) => publicVariant(m, rep, lang)),
     });
@@ -475,6 +479,14 @@ export default function retroRouter() {
     res.set("Vary", "Accept");
     sendFile(res, file, webp ? "webp" : null, versioned);
   }));
+  router.get("/games/:id/screenshot/:n", (req, res) => {
+    const { game, systems, cat } = req.retro;
+    const n = /^[1-8]$/.test(req.params.n) ? Number(req.params.n) : null;
+    const group = groupOf(cat, game);
+    const file = n && retroShotFile({ dir: retroDir, systems, candidates: metaCandidates(game, representative(group, variantPicks.get(group.id)), group), n });
+    if (!file) return res.status(404).json({ error: "no screenshot" });
+    sendFile(res, file, null, Boolean(req.query.v) && req.query.v === fileVersion(file));
+  });
   router.get("/games/:id/bezel.png", (req, res) => (req.retro.game.bezel ? sendFile(res, req.retro.game.bezel.png, "png") : res.status(404).json({ error: "no bezel" })));
   router.get("/games/:id/overlay.cfg", (req, res) => {
     const { game } = req.retro;
