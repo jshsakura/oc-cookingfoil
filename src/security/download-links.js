@@ -169,7 +169,7 @@ function beforeHeaders(res, fn) {
 
 /**
  * On the lists and info (carriesToken): while a direct address is set the body
- * depends on the feature header, so the response says Vary on it; a signed-in
+ * depends on the feature header and the client's country, so the response says Vary on them; a signed-in
  * client that asked for direct-token also gets its token, and that response is
  * made private whatever the route set.
  */
@@ -180,6 +180,7 @@ export function tokenHeader() {
     const token = link ? tokens.issue(link.who) : null;
     beforeHeaders(res, () => {
       res.vary(FEATURES_HEADER);
+      res.vary("CF-IPCountry");
       if (!token) return;
       res.setHeader(TOKEN_HEADER, token);
       res.setHeader("Cache-Control", privateCacheControl(res.getHeader("Cache-Control")));
