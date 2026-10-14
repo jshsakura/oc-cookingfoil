@@ -93,23 +93,32 @@ function validSub(sub) {
   return [dev, agent, stamp, dstamp].every(isStrOrNull) && typeof paired === "boolean";
 }
 
+/** The decoded payload, or null when it isn't JSON. Pure. */
+function payloadOf(body) {
+  try {
+    return JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Checks a token: { verdict: "ok", sub, exp } | { verdict: "expired" } |
- * { verdict: "invalid" }. Only a token with a valid MAC can be "expired".
+ * { verdict: "stale" } | { verdict: "invalid" }. Only a token with a valid MAC
+ * can be "expired". "stale" is a token shaped like ours ({ v: 1, exp }) whose
+ * MAC fails: most likely made with a key since replaced, so the client should
+ * fetch a list again rather than be counted as a guesser.
  */
 export function verify(token, nowMs = Date.now()) {
   const invalid = { verdict: "invalid" };
   if (typeof token !== "string" || token.length > MAX_TOKEN_CHARS) return invalid;
   const parts = token.split(".");
   if (parts.length !== 2 || !/^[A-Za-z0-9_-]+$/.test(parts[0]) || !/^[A-Za-z0-9_-]+$/.test(parts[1])) return invalid;
+  const payload = payloadOf(parts[0]);
   const want = Buffer.from(macOf(parts[0]));
   const got = Buffer.from(parts[1]);
-  if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return invalid;
-  let payload;
-  try {
-    payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
-  } catch {
-    return invalid;
+  if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) {
+    return payload?.v === 1 && Number.isInteger(payload.exp) ? { verdict: "stale" } : invalid;
   }
   if (payload?.v !== 1 || !Number.isInteger(payload.exp) || !Number.isInteger(payload.iat) || !validSub(payload.sub)) return invalid;
   if (payload.exp * 1000 <= nowMs) return { verdict: "expired" };

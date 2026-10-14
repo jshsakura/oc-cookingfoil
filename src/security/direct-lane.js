@@ -16,7 +16,10 @@
  *     as the proxy. Without the secret configured the direct address serves
  *     nothing (one warning in the log).
  * Every request that looks like the proxy's (the first four) is answered here:
- * without the right edge secret it is a 404. The edge header is removed before
+ * without the right edge secret it is a 404. A request from this machine, not
+ * through the tunnel, with the right edge secret is the proxy's even when the direct address was since
+ * cleared or changed: it is answered 401 revoked, so the client reads its lists
+ * again (and gets today's URLs), rather than falling through to basic auth. The edge header is removed before
  * a request reaches the download routers. Only a GET or HEAD for a
  * download is served: a file in the games folder (a game, update, DLC or a
  * title's extra file) or one of DOWNLOAD_ROUTES; anything else is a 404, so
@@ -37,7 +40,8 @@
  *
  * Refusals carry X-CookingFoil-Token, so a client knows what to do:
  *   401 invalid  no token, or not one this server made
- *   401 expired  the token ran out: read any list again for the current one
+ *   401 expired  the token ran out, or was signed with a key since replaced:
+ *                read any list again for the current one (not counted toward the ban)
  *   401 revoked  the account or console it was made for may no longer sign in
  *   403 blocked  this address sent too many invalid tokens and is shut out for a while
  */
@@ -168,7 +172,9 @@ export default function directLane(root, { routes = {}, ban = newBan(), edgeSecr
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
     if (!looksProxied(req)) {
+      const fromProxy = !req.get("cf-connecting-ip") && isLocalHop(peerOf(req)) && edgeMatches(req.get(EDGE_HEADER), edgeSecret);
       delete req.headers[EDGE_HEADER.toLowerCase()];
+      if (fromProxy) return refuse(res.set("Cache-Control", "no-store"), 401, "revoked");
       return next();
     }
     if (!edgeSecret && !warnedNoSecret) {
@@ -189,7 +195,7 @@ export default function directLane(root, { routes = {}, ban = newBan(), edgeSecr
       ban.recordBad(ip);
       return refuse(res, 401, "invalid");
     }
-    if (token.verdict === "expired") return refuse(res, 401, "expired");
+    if (token.verdict === "expired" || token.verdict === "stale") return refuse(res, 401, "expired");
     if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
 
     lane(req, res, () => res.headersSent || res.status(404).end());
