@@ -75,6 +75,10 @@ test("BIOS notices only name consoles that have games, and an any-of group is me
   ]);
   assert.deepEqual(missingBios(["msx"], ["MSX.rom", "msxromdb.xml"]).map((x) => x.missing.length), [2], "MSX wants its exact paths");
   assert.deepEqual(missingBios(["__proto__", "constructor"], []), [], "only real rules");
+  // NeoCD reads system/neocd/ and the folders under it; one at the top is moved there for the console.
+  assert.deepEqual(missingBios(["neocd"], ["neocd_f.rom"]), [], "a NeoCD BIOS at the top goes into neocd/");
+  assert.deepEqual(missingBios(["neocd"], ["neocd/front/neocd_f.rom"]), [], "any folder under neocd/");
+  assert.equal(missingBios(["neocd"], ["other/neocd_f.rom"]).length, 1, "another folder is not where NeoCD looks");
   for (const id of Object.keys(BIOS)) assert.ok(DEFAULT_SYSTEMS[id], `a BIOS rule for a known system: ${id}`);
 });
 

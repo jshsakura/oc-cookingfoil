@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { referencedFiles, gameId, scanDir } from "../../src/retro/catalog.js";
-import { sdPathOf } from "../../src/retro/base-pack.js";
+import { listPack, sdPathOf } from "../../src/retro/base-pack.js";
 import { gameCfg, overlayCfg, sdPaths } from "../../src/retro/bezel-config.js";
 import { loadSystems } from "../../src/retro/systems.js";
 import sharp from "sharp";
@@ -72,6 +72,9 @@ test("base pack files map onto the SD card, RetroArch itself into its homebrew f
   assert.equal(sdPathOf("retroarch.cfg"), "retroarch/retroarch.cfg");
   assert.equal(sdPathOf("../evil"), null);
   assert.equal(sdPathOf(".DS_Store"), null);
+  assert.equal(sdPathOf("system/neocd_f.rom"), "retroarch/system/neocd/neocd_f.rom", "NeoCD looks in system/neocd/");
+  assert.equal(sdPathOf("system/neocd/neocd_z.rom"), "retroarch/system/neocd/neocd_z.rom");
+  assert.equal(sdPathOf("system/BS-X.bin"), "retroarch/system/BS-X.bin", "other firmware stays at the top");
 });
 
 test("bezel configs follow the Bezel Project layout and keep the core's aspect ratio", () => {
@@ -441,4 +444,15 @@ test("a retro folder with no ROMs doesn't offer retro, so the client hides its m
   } finally {
     server.kill("SIGKILL");
   }
+});
+
+test("a NeoCD BIOS at the top of system/ is listed in system/neocd/, never over one already there", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-pack-"));
+  for (const [rel, body] of [["system/neocd_f.rom", "top"], ["system/neocd_z.rom", "top"], ["system/neocd/neocd_z.rom", "own"], ["system/BS-X.bin", "x"]]) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), body);
+  }
+  const files = await listPack(dir);
+  assert.deepEqual(files.map((f) => f.path), ["retroarch/system/BS-X.bin", "retroarch/system/neocd/neocd_f.rom", "retroarch/system/neocd/neocd_z.rom"]);
+  assert.equal(files.find((f) => f.path.endsWith("neocd_z.rom")).abs, path.join(dir, "system/neocd/neocd_z.rom"));
 });
