@@ -28,6 +28,7 @@ const PROBE = `
 
   const req = {
     ip: process.env.PROBE_IP,
+    socket: { remoteAddress: process.env.PROBE_SOCKET || process.env.PROBE_IP },
     method: "GET",
     originalUrl: "/",
     path: "/",
@@ -65,7 +66,7 @@ const PROBE = `
   }));
 `;
 
-function runProbe({ ip = "127.0.0.1", authUsers = CREDS, authHeader = "", env = {} } = {}) {
+function runProbe({ ip = "127.0.0.1", socket = "", authUsers = CREDS, authHeader = "", env = {} } = {}) {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
     cwd: import.meta.dirname,
     env: {
@@ -75,6 +76,7 @@ function runProbe({ ip = "127.0.0.1", authUsers = CREDS, authHeader = "", env = 
       COOK_DEVICE_PAIRING: "",
       DEBUG: "",
       PROBE_IP: ip,
+      PROBE_SOCKET: socket,
       PROBE_AUTH: authHeader,
       ...env,
     },
@@ -141,4 +143,13 @@ test("a wrong password still counts toward the lockout", () => {
   const r = runProbe({ ip: "192.168.1.50", authHeader: BASIC_BAD });
   assert.equal(r.status, 401);
   assert.equal(r.failures, 1);
+});
+
+test("a forwarded 127.0.0.1 from a remote socket gets no loopback exemption", () => {
+  // req.ip comes from X-Forwarded-For behind a proxy; only the socket says "this machine".
+  const r = runProbe({ ip: "127.0.0.1", socket: "203.0.113.9", authHeader: BASIC_BAD });
+  assert.equal(r.status, 401);
+  assert.equal(r.failures, 1, "the wrong password counts toward the lockout");
+  const local = runProbe({ ip: "127.0.0.1", socket: "127.0.0.1", authHeader: BASIC_BAD });
+  assert.equal(local.failures, 0, "a real loopback socket stays exempt");
 });

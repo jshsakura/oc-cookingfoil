@@ -76,7 +76,8 @@ export function cookies(req) {
   return out;
 }
 
-const isHttps = (req) => req.secure || String(req.get("x-forwarded-proto") ?? "").split(",")[0].trim() === "https";
+/** Whether the browser reached us over https (directly, or through a proxy that says so). */
+export const isHttps = (req) => req.secure || String(req.get("x-forwarded-proto") ?? "").split(",")[0].trim() === "https";
 
 /** A Set-Cookie value. Lax so it rides the top-level redirect back from Google. */
 export function cookieLine(req, name, value, { maxAgeMs, path: cookiePath = "/" }) {

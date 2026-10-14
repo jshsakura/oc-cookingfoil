@@ -122,7 +122,14 @@ test("with no direct address nothing changes: no token, normal URLs, the lane is
   assert.equal(links.directUrl("/api/saves/x/download", links.forRequest(listReq())), "/api/saves/x/download");
   assert.equal(links.withShopDirect('{"url":"../a.nsp"}', null), '{"url":"../a.nsp"}');
   const lane = await start();
-  assert.equal((await get(lane, `/${ENC}`, { headers: { ...PROXY, authorization: "Bearer x.y" } })).headers["x-lane"], "main");
+  // The proxy still forwards the console's old direct URLs: answered revoked so it reads
+  // its lists again, never handed to basic auth.
+  const stale = await get(lane, `/${ENC}`, { headers: { ...PROXY, authorization: "Bearer x.y" } });
+  assert.equal(stale.status, 401);
+  assert.equal(tokenState(stale), "revoked");
+  assert.equal(stale.headers["x-lane"], undefined);
+  const { "x-cookingfoil-edge": _e, ...noEdge } = PROXY;
+  assert.equal((await get(lane, `/${ENC}`, { headers: { ...noEdge, authorization: "Bearer x.y" } })).headers["x-lane"], "main", "without the edge secret it is anyone's request");
   const port = await listApp();
   const r = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...FEATURES } });
   assert.equal(r.headers["x-cookingfoil-download-token"], undefined);
@@ -166,6 +173,32 @@ test("the effective scheme decides: https takes the direct address, http keeps s
   for (const [name, input, want] of cases) assert.equal(links.effectiveScheme(input), want, name);
 });
 
+test("routesDirect: https decides, and Cloudflare's country from a trusted peer must be KR", () => {
+  const tunnel = { forwardedProto: "https", peerTrusted: true };
+  const cases = [
+    ["no country header: unchanged, https takes the direct address", { ...tunnel }, true],
+    ["through Cloudflare from KR", { ...tunnel, country: "KR" }, true],
+    ["lower case and spaces", { ...tunnel, country: " kr " }, true],
+    ["through Cloudflare from JP: the direct port would refuse it", { ...tunnel, country: "JP" }, false],
+    ["Cloudflare doesn't know (XX)", { ...tunnel, country: "XX" }, false],
+    ["Tor (T1)", { ...tunnel, country: "T1" }, false],
+    ["an empty header counts as none", { ...tunnel, country: "" }, true],
+    ["a country from an untrusted peer is ignored", { encrypted: true, country: "JP" }, true],
+    ["http stays same-origin whatever the country", { encrypted: false, country: "KR", peerTrusted: true }, false],
+  ];
+  for (const [name, input, want] of cases) assert.equal(links.routesDirect(input), want, name);
+  // Through forRequest: a trusted peer passing CF-IPCountry: JP gets no direct link.
+  const trusted = { get: (k) => (k === "trust proxy fn" ? () => true : undefined) };
+  const viaTunnel = (country) => {
+    const r = listReq({ https: false });
+    const headers = { "x-forwarded-proto": "https", ...(country ? { "cf-ipcountry": country } : {}) };
+    return { ...r, app: trusted, get: (h) => headers[h.toLowerCase()] ?? r.get(h) };
+  };
+  assert.ok(links.forRequest(viaTunnel("KR")));
+  assert.ok(links.forRequest(viaTunnel(null)));
+  assert.equal(links.forRequest(viaTunnel("US")), null);
+});
+
 test("a list over http keeps today's URLs and carries no token, even with the feature header", async () => {
   const port = await listApp();
   const r = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, "x-cookingfoil-features": "direct-token" } });
@@ -193,11 +226,13 @@ test("a token is stable inside a quarter of its lifetime, lives at least the ful
   assert.deepEqual(payload, { v: 1, sub: { acct: { kind: "user", id: "alice" }, dev: KEY_A, agent: null, paired: false, stamp: users.sessionStamp("alice"), dstamp: null }, iat, exp });
   assert.equal(tokens.verify(a, now * 1000).verdict, "ok");
   assert.equal(tokens.verify(a, exp * 1000).verdict, "expired");
-  // A changed payload or MAC, junk, nothing: invalid.
+  // A changed payload or MAC on a token shaped like ours: stale (a replaced key), never ok.
   const forged = Buffer.from(JSON.stringify({ ...payload, sub: { ...payload.sub, acct: { kind: "user", id: "bob" } } })).toString("base64url");
-  assert.equal(tokens.verify(`${forged}.${a.split(".")[1]}`, now * 1000).verdict, "invalid");
-  assert.equal(tokens.verify(`${a.split(".")[0]}.${"A".repeat(43)}`, now * 1000).verdict, "invalid");
-  for (const bad of [null, "", "x", "a.b.c", "a b.c"]) assert.equal(tokens.verify(bad).verdict, "invalid", String(bad));
+  assert.equal(tokens.verify(`${forged}.${a.split(".")[1]}`, now * 1000).verdict, "stale");
+  assert.equal(tokens.verify(`${a.split(".")[0]}.${"A".repeat(43)}`, now * 1000).verdict, "stale");
+  // Junk, nothing, or a payload that isn't ours: invalid.
+  const notOurs = Buffer.from(JSON.stringify({ v: 2, exp: 1 })).toString("base64url");
+  for (const bad of [null, "", "x", "a.b.c", "a b.c", "forged.token", `${notOurs}.${"A".repeat(43)}`]) assert.equal(tokens.verify(bad).verdict, "invalid", String(bad));
 });
 
 test("the key is kept private and survives a reload", () => {
@@ -229,7 +264,11 @@ test("the direct address needs the edge secret, and the routers never see it", a
   assert.equal(seen["x-cookingfoil-edge"], undefined);
   assert.equal(seen.authorization, `Bearer ${token}`);
   // Elsewhere (the tunnel) the header is dropped too.
-  assert.equal((await get(port, `/${ENC}`, { headers: { host: "shop.example.org", "x-cookingfoil-edge": EDGE } })).headers["x-lane"], "main");
+  assert.equal((await get(port, `/${ENC}`, { headers: { host: "shop.example.org", "cf-connecting-ip": "198.51.100.9", "x-cookingfoil-edge": EDGE } })).headers["x-lane"], "main");
+  // The direct address changed under the proxy: its requests are still its own.
+  const moved = await get(port, `/${ENC}`, bearer(token, { host: "old-dl.example.org:38443" }));
+  assert.equal(moved.status, 401);
+  assert.equal(tokenState(moved), "revoked");
   const off = await start({ edgeSecret: "" });
   assert.equal((await get(off, `/${ENC}`, bearer(token))).status, 404, "no secret configured: nothing is served");
 });
@@ -298,12 +337,16 @@ test("on the direct address a valid token opens downloads; nothing else is there
 test("missing, broken, expired and revoked tokens are 401 and say which", async () => {
   const port = await start();
   const url = `/${ENC}`;
-  for (const headers of [PROXY, bearer("nope").headers, bearer(`${tokenFor().split(".")[0]}.${"Q".repeat(43)}`).headers]) {
+  for (const headers of [PROXY, bearer("nope").headers]) {
     const r = await get(port, url, { headers });
     assert.equal(r.status, 401);
     assert.equal(tokenState(r), "invalid");
     assert.match(r.headers["www-authenticate"], /^Bearer/);
   }
+  // Our shape with a MAC that fails (a key since replaced): expired, so the client reads its lists again.
+  const rotated = await get(port, url, bearer(`${tokenFor().split(".")[0]}.${"Q".repeat(43)}`));
+  assert.equal(rotated.status, 401);
+  assert.equal(tokenState(rotated), "expired");
   const old = tokens.issue(links.forRequest(listReq()).who, Date.now() - 2 * 86400_000);
   const expired = await get(port, url, bearer(old));
   assert.equal(expired.status, 401);
@@ -387,7 +430,9 @@ test("a client that keeps sending invalid tokens is blocked by its own address",
   const old = tokens.issue(links.forRequest(listReq()).who, Date.now() - 2 * 86400_000);
   const from = (ip, token) => ({ method: "HEAD", headers: { ...PROXY, "x-forwarded-for": ip, authorization: `Bearer ${token}` } });
   for (let i = 0; i < 5; i++) await get(port, `/${ENC}`, from("198.51.100.77", old));
-  assert.equal((await get(port, `/${ENC}`, from("198.51.100.77", good))).status, 200, "expired tokens don't count");
+  // Tokens from a replaced key (our shape, MAC fails) don't count either.
+  for (let i = 0; i < 5; i++) await get(port, `/${ENC}`, from("198.51.100.77", `${good.split(".")[0]}.${"Q".repeat(43)}`));
+  assert.equal((await get(port, `/${ENC}`, from("198.51.100.77", good))).status, 200, "expired and stale tokens don't count");
   // Spoofed entries on the left change nothing: the proxy's own entry is the client.
   for (let i = 0; i < 3; i++) await get(port, `/${ENC}`, from(`10.0.0.${i}, 198.51.100.77`, "forged.token"));
   const blocked = await get(port, `/${ENC}`, from("198.51.100.77", good));

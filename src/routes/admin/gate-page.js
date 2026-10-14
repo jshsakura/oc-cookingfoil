@@ -58,7 +58,8 @@ async function submit(){err.textContent='';const body={};
   else{const v=code.value.trim();if(!/^\\d{6}$/.test(v)){err.textContent='숫자 6자리를 입력합니다.';code.focus();return;}body.code=v;}
   go.disabled=true;try{const r=await fetch('/admin/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(r.ok){location.reload();return;}
-    err.textContent=r.status===429?'너무 여러 번 틀려 잠겼습니다. 잠시 뒤에 다시 시도합니다.':use==='pw'?'관리자 비밀번호가 맞지 않습니다.':'코드가 맞지 않습니다. 인증 앱의 새 코드를 입력합니다.';
+    const j=r.status===429?await r.json().catch(()=>({})):{};
+    err.textContent=r.status===429?(j.message||'너무 여러 번 틀려 잠겼습니다. 잠시 뒤에 다시 시도합니다.'):use==='pw'?'관리자 비밀번호가 맞지 않습니다.':'코드가 맞지 않습니다. 인증 앱의 새 코드를 입력합니다.';
     if(use==='code')code.value='';(use==='pw'?pw:code).focus();}
   catch{err.textContent='서버에 연결하지 못했습니다.';}finally{go.disabled=false;}}
 go.addEventListener('click',submit);

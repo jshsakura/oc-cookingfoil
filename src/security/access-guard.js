@@ -16,7 +16,7 @@ import * as store from "./store.js";
 import { lockoutRetryAfter } from "./retry-after.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { hasValidSession } from "./admin-session.js";
-import { isLoopbackIp } from "./net.js";
+import { isLoopbackSocket } from "./net.js";
 import { maxAuthFailures, trustLoopback } from "./limits.js";
 import { alert } from "../helpers/alerts.js";
 
@@ -48,8 +48,9 @@ function clientIp(req) {
   return raw.replace(/^::ffff:/, "");
 }
 
-function isLoopback(ip) {
-  return trustLoopback && isLoopbackIp(ip);
+// The socket, not req.ip: X-Forwarded-For: 127.0.0.1 is only a header.
+function isLoopback(req) {
+  return trustLoopback && isLoopbackSocket(req);
 }
 
 // How each reason reads in an operator alert.
@@ -87,7 +88,7 @@ export default function accessGuard() {
 
     // Loopback bypass — let local dev / test runners hit any path without
     // burning the lockout budget.
-    if (isLoopback(ip)) {
+    if (isLoopback(req)) {
       return next();
     }
 

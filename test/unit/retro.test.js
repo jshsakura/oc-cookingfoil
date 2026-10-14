@@ -244,6 +244,18 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.match(bundle.get("retroarch/overlays/GameBezels/SNES/Super Mario World (USA).cfg"), /overlay0_full_screen = true/);
     assert.match(bundle.get("retroarch/config/Snes9x/Super Mario World (USA).cfg"), /input_overlay_enable = "true"/);
 
+    // Generated entries (overlay.cfg, game.cfg) carry a stable time: the bytes and the
+    // ETag stay the same across seconds, so a resumed download matches.
+    const first = await get(smw.bundleUrl);
+    const firstBytes = Buffer.from(await first.arrayBuffer());
+    await new Promise((res) => setTimeout(res, 1100));
+    const again = await get(smw.bundleUrl);
+    assert.equal(again.headers.get("etag"), first.headers.get("etag"), "the bundle's ETag does not follow the clock");
+    assert.ok(Buffer.from(await again.arrayBuffer()).equals(firstBytes), "nor do its bytes");
+    const resumed = await fetch(BASE + smw.bundleUrl, { headers: { ...AUTH, Range: "bytes=512-", "If-Range": first.headers.get("etag") } });
+    assert.equal(resumed.status, 206, "If-Range with the earlier ETag resumes");
+    assert.ok(Buffer.from(await resumed.arrayBuffer()).equals(firstBytes.subarray(512)));
+
     const disc = (await (await get("/api/retro/games?system=ps1")).json()).games[0];
     const discTar = untar(Buffer.from(await (await get(disc.bundleUrl)).arrayBuffer()));
     assert.equal(discTar.get("roms/ps1/Disc Game (Track 1).bin"), "TRACK1", "flat in the console folder");
@@ -270,6 +282,13 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(pack.headers.get("x-retro-once"), "retroarch/retroarch.cfg");
     assert.equal(Number(pack.headers.get("content-length")), m.bundleSize, "the manifest names the bundle's exact size");
     assert.equal(pack.headers.get("etag"), `"${m.version}"`);
+    // A pack changed after the manifest was read gets an ETag of its own, not the stale version.
+    const extra = path.join(dir, "retroarch/cores/extra_libretro_libnx.nro");
+    fs.writeFileSync(extra, "EXTRA");
+    const changed = await get(m.bundleUrl);
+    assert.notEqual(changed.headers.get("etag"), `"${m.version}"`, "a stale manifest version never names other bytes");
+    assert.ok(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"));
+    fs.rmSync(extra);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");
   } finally {

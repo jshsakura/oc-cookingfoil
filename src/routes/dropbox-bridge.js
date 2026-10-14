@@ -15,6 +15,8 @@
  * The session endpoints sit behind the shop's own sign-in (accounts or a
  * paired device), so only people allowed into the shop can use the operator's
  * Dropbox app. The callback is public: it is opened by the phone's browser.
+ * At most MAX_SESSIONS_PER_ACCOUNT sign-ins per account are in progress at
+ * once, and MAX_SESSIONS in all.
  */
 import crypto from "crypto";
 import express from "express";
@@ -23,12 +25,15 @@ import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 import { tooManyRequests } from "../security/retry-after.js";
+import { ownerKey } from "../security/link-identity.js";
 
 const AUTHORIZE_URL = "https://www.dropbox.com/oauth2/authorize";
 const TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const CONSUMED_TTL_MS = 60 * 1000;
 export const MAX_SESSIONS = 500;
+// One account's share, so a single sign-in can't hold every place.
+export const MAX_SESSIONS_PER_ACCOUNT = 5;
 export const BRIDGE_PATH = "/api/dropbox";
 
 const sessions = new Map(); // session_id → { status, state, pollHash, verifier, code, error, redirectUri, expiresAt }
@@ -38,12 +43,14 @@ const token = (bytes) => crypto.randomBytes(bytes).toString("base64url");
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest();
 const challengeOf = (verifier) => sha256(verifier).toString("base64url");
 
-/** Seconds until the oldest sign-in in progress expires and frees its place. */
-function firstExpiryIn(now = Date.now()) {
+/** Seconds until the oldest sign-in in progress (of `owner`, when given) expires and frees its place. */
+function firstExpiryIn(now = Date.now(), owner = null) {
   let first = Infinity;
-  for (const s of sessions.values()) first = Math.min(first, s.expiresAt);
+  for (const s of sessions.values()) if (!owner || s.owner === owner) first = Math.min(first, s.expiresAt);
   return Number.isFinite(first) ? (first - now) / 1000 : 60;
 }
+
+const sessionsOf = (owner) => [...sessions.values()].filter((s) => s.owner === owner).length;
 
 function sweep(now = Date.now()) {
   for (const [id, s] of sessions) {
@@ -82,11 +89,13 @@ export function dropboxSessionsRouter() {
 
   router.post("/v1/sessions/start", (req, res) => {
     sweep();
+    const owner = ownerKey(req);
+    if (sessionsOf(owner) >= MAX_SESSIONS_PER_ACCOUNT) return tooManyRequests(res, firstExpiryIn(Date.now(), owner)).json({ detail: "too many sign-ins in progress for this account" });
     if (sessions.size >= MAX_SESSIONS) return tooManyRequests(res, firstExpiryIn()).json({ detail: "too many sign-ins in progress" });
     const id = token(18), state = token(18), poll = token(24), verifier = token(64);
     const redirectUri = redirectUriFor(req);
     sessions.set(id, {
-      status: "pending", state, pollHash: sha256(poll), verifier, code: "", error: "",
+      status: "pending", owner, state, pollHash: sha256(poll), verifier, code: "", error: "",
       redirectUri, expiresAt: Date.now() + SESSION_TTL_MS,
     });
     byState.set(state, id);

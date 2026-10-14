@@ -26,11 +26,19 @@ import { deviceKeyFromHeaders } from "./pairing.js";
 const AGENT_CHARS = 12;
 
 /** The account behind a signed-in request ({ kind, id }), or null. */
-function accountOf(req) {
+export function accountOf(req) {
   if (req.deviceLogin) return { kind: "login", id: req.deviceLogin };
   if (req.webUser?.kind === "google") return { kind: "google", id: req.webUser.sub };
   if (req.auth?.user) return { kind: "user", id: req.auth.user };
   return null;
+}
+
+/** A short key for whom a request counts against: "<kind>:<id>" of its account, else its paired console. */
+export function ownerKey(req) {
+  const acct = accountOf(req);
+  if (acct) return `${acct.kind}:${acct.id}`;
+  if (req.pairedDevice) return `paired:${String(req.pairedDevice).slice(0, 8).toLowerCase()}`;
+  return "anonymous";
 }
 
 const fingerprint = (v) => crypto.createHash("sha256").update(String(v)).digest("base64url").slice(0, 16);

@@ -219,7 +219,10 @@ test("the direct address opens nothing but downloads, and the shop's own pages k
   // A token straight to the server (not from the proxy) signs nothing in.
   assert.equal((await fetch(`${BASE}/api/shop/info`, { headers: { Authorization: `Bearer ${token}` } })).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`)).status, 401);
+  // A MAC that fails on a token of our shape reads as a replaced key: fetch the lists again.
   const forged = await viaProxy(`${DL}/${encodeURIComponent("Game/readme.txt")}`, `${token.split(".")[0]}.${"Q".repeat(43)}`);
   assert.equal(forged.status, 401);
-  assert.equal(forged.headers["x-cookingfoil-token"], "invalid");
+  assert.equal(forged.headers["x-cookingfoil-token"], "expired");
+  const junk = await viaProxy(`${DL}/${encodeURIComponent("Game/readme.txt")}`, "forged.token");
+  assert.equal(junk.headers["x-cookingfoil-token"], "invalid");
 });

@@ -62,7 +62,8 @@ import { authLanes, configWarnings } from "../security/config-health.js";
 import { hintFor } from "../security/deny-reasons.js";
 import { recordDeny, clientIp, DENY } from "../security/deny.js";
 import { recordFailure } from "../security/auth-guard.js";
-import { isLoopbackIp } from "../security/net.js";
+import { isLoopbackSocket } from "../security/net.js";
+import * as totpGuard from "../security/totp-guard.js";
 import { trustLoopback } from "../security/limits.js";
 import { isPrivateIp } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
@@ -81,6 +82,8 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+// One authenticator secret guards /admin, so its wrong codes share one account counter.
+const TOTP_ACCOUNT = "admin";
 
 /**
  * What the admin page's own check takes: "code" (authenticator only),
@@ -225,10 +228,21 @@ export default function adminPageRouter() {
     // The admin password or the authenticator code, whichever the server has (either, when both).
     const mode = loginMode();
     const ip = clientIp(req);
-    const trusted = trustLoopback && isLoopbackIp(ip);
+    const trusted = trustLoopback && isLoopbackSocket(req);
     if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
     const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
-    const byCode = !byPassword && mode !== "password" && req.body?.code !== undefined && (await verifyTotp(req.body.code));
+    const triesCode = !byPassword && mode !== "password" && req.body?.code !== undefined;
+    // Wrong codes are counted with no loopback or sign-in exemption (security/totp-guard.js).
+    const codeWait = triesCode ? totpGuard.lockedFor(TOTP_ACCOUNT, ip) : 0;
+    if (codeWait) {
+      recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 429, detail: "too many wrong codes" });
+      return tooManyRequests(res, codeWait).json({ ok: false, error: "otp-locked", message: totpGuard.LOCKED_MESSAGE });
+    }
+    const byCode = triesCode && (await verifyTotp(req.body.code));
+    if (triesCode) {
+      if (byCode) totpGuard.reset(TOTP_ACCOUNT, ip);
+      else totpGuard.recordFailure(TOTP_ACCOUNT, ip);
+    }
     if (!byPassword && !byCode) {
       recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 401 });
       debug.log("admin login: failed attempt");
