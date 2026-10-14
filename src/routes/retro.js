@@ -57,10 +57,9 @@
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
  * Every download URL (romUrl, bundleUrl, the bezel's imageUrl, overlayCfgUrl
- * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) has
- * a direct twin (romDirectUrl, …, direct_url) when the list was asked for by a
- * signed-in request and a direct address is set (security/download-links.js);
- * otherwise the twins are left out.
+ * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) is on
+ * the direct address when a signed-in client asked for it and a direct address
+ * is set (security/download-links.js); artwork never is.
  *
  * Bundle and pack paths are relative to the SD root: roms/<system>/…,
  * retroarch/overlays/GameBezels/<System>/…, retroarch/config/<Core>/…,
@@ -94,7 +93,7 @@ import { listFilter } from "../retro/list-filter.js";
 import { groupVisible, representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
-import { directFields, forRequest } from "../security/download-links.js";
+import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
@@ -198,7 +197,7 @@ function forwarderFields(g, system, base, link) {
   } catch {
     // not built yet; the first download builds it
   }
-  return { forwarderUrl: `${base}/forwarder.nsp`, ...directFields("forwarderUrl", `${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size };
+  return { forwarderUrl: directUrl(`${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size };
 }
 
 /** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
@@ -236,8 +235,8 @@ function publicVariant(g, rep, lang) {
   };
 }
 
-/** A URL field and its direct twin (when `link` is set). */
-const withDirect = (name, url, link) => ({ [name]: url, ...directFields(name, url, link) });
+/** A URL field, on the direct address when `link` is set. */
+const withDirect = (name, url, link) => ({ [name]: directUrl(url, link) });
 
 /** The bezel fields of a game, with their direct twins. */
 function bezelFields(g, paths, base, link) {
@@ -252,7 +251,7 @@ function bezelFields(g, paths, base, link) {
   };
 }
 
-// `link` (download-links.js forRequest) adds the direct twins of the download URLs.
+// `link` (download-links.js forRequest) puts the download URLs on the direct address.
 function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null } = {}) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
@@ -522,8 +521,8 @@ export default function retroRouter() {
     }
     const link = forRequest(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
-    // Direct links change with their console, generation and expiry, so a cached copy must too.
-    res.set("ETag", `"${m.version}${link ? `-${link.u}.${link.g}.${link.exp}` : ""}"`);
+    // The direct variant has other URLs, so it has its own ETag (the same for every console).
+    res.set("ETag", `"${m.version}${link ? "-direct" : ""}"`);
     if (req.fresh) return res.status(304).end();
     res.json({
       version: m.version,
