@@ -18,6 +18,7 @@
 import express from "express";
 
 import * as store from "../security/store.js";
+import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
 import {
   verifyTotp,
   verifyPassword,
@@ -220,7 +221,7 @@ export default function adminPageRouter() {
     const mode = loginMode();
     const ip = clientIp(req);
     const trusted = trustLoopback && isLoopbackIp(ip);
-    if (!trusted && store.isLocked(ip)) return res.status(429).json({ ok: false });
+    if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
     const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
     const byCode = !byPassword && mode !== "password" && req.body?.code !== undefined && (await verifyTotp(req.body.code));
     if (!byPassword && !byCode) {

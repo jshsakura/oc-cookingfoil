@@ -16,6 +16,7 @@ import { renderSVG } from "uqr";
 import * as setup from "../security/setup.js";
 import * as users from "../security/users.js";
 import * as store from "../security/store.js";
+import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
 import { cookieLine, cookies, issuePasswordSession } from "../security/user-session.js";
 import { codeMatches as totpMatches, issueSession, provisioningUri } from "../security/admin-session.js";
 import { startEnrollment, pendingSecret, commitEnrollment } from "../security/admin-secret.js";
@@ -68,7 +69,7 @@ export default function setupRouter() {
   router.post("/setup/api/unlock", (req, res) => {
     if (!guard(req, res, { unlocked: false })) return;
     const ip = clientIp(req);
-    if (store.isLocked(ip)) return res.status(429).json({ error: "locked-out" });
+    if (store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked-out" });
     if (!setup.codeMatches(req.body?.code)) {
       recordFailure(ip, req);
       return res.status(401).json({ error: "bad-code" });

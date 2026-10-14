@@ -1,9 +1,12 @@
 /**
- * GET /api/shop/screenshot/:titleId/:idx — one screenshot from titledb.
+ * GET /api/shop/screenshot/:titleId/:idx[?v=&size=sm|md|lg|xl] — one screenshot
+ * from titledb, or the admin's upload in that slot.
  * Bounds the index to a sane upper limit (no infinite range requests).
+ * Immutable for the current ?v=, `public, max-age=300` with an ETag otherwise.
  */
 import * as titledbStore from "../meta/titledb-store.js";
 import * as customArt from "../meta/custom-art.js";
+import { isCurrentVersion } from "../meta/artwork-version.js";
 import {
   baseTitleIdOf,
   cachePathFor,
@@ -30,5 +33,6 @@ export default async function screenshotRoute(req, res) {
     overridePath: customArt.hasOverride(base, "screenshot", idx)
       ? customArt.pathFor(base, "screenshot", idx)
       : undefined,
+    current: isCurrentVersion(req, "screenshot", base, { idx }),
   });
 }

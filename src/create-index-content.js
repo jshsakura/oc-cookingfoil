@@ -499,7 +499,7 @@ function buildSectionItem(relPath, wireItem) {
       // Box art per language where it differs from icon_url (feature "item-icons").
       const langs = iconLangs(parsed.titleId);
       if (langs.length) {
-        item.icons = Object.fromEntries(langs.map((l) => [l, `${withVersion(`/api/shop/icon/${parsed.titleId}`)}&lang=${l}`]));
+        item.icons = Object.fromEntries(langs.map((l) => [l, withVersion(`/api/shop/icon/${parsed.titleId}`, l)]));
       }
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);

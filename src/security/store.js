@@ -194,6 +194,13 @@ export function isLocked(ip) {
   return true;
 }
 
+/** Milliseconds left on the address's lockout: 0 when not locked, null when it has no end. */
+export function lockRemainingMs(ip) {
+  if (!isLocked(ip)) return 0;
+  const until = state.lockouts.get(ip)?.until;
+  return until === null || until === undefined ? null : Math.max(0, until - Date.now());
+}
+
 export function lock(ip, { reason, ttlMs }) {
   state.lockouts.set(ip, {
     lockedAt: Date.now(),

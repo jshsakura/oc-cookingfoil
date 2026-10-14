@@ -17,6 +17,7 @@ import express from "express";
 import { dataDir } from "../helpers/envs.js";
 import { deviceKeyFromHeaders } from "../security/pairing.js";
 import debug from "../debug.js";
+import { tooManyRequests } from "../security/retry-after.js";
 
 export const LOGS_DIR = path.join(dataDir, "client", "logs");
 const MAX_BYTES = 64 * 1024;
@@ -77,8 +78,7 @@ export function mountClientLog(router) {
       const prefix = deviceKey.slice(0, 8).toLowerCase();
       const wait = tooOften(prefix);
       if (wait) {
-        res.set("Retry-After", String(wait));
-        return res.status(429).json({ error: "too many logs; wait a minute" });
+        return tooManyRequests(res, wait).json({ error: "too many logs; wait a minute" });
       }
       const now = new Date();
       const version = String(req.get("Version") ?? "").replace(/[^\w.+-]/g, "").slice(0, 40) || "unknown";

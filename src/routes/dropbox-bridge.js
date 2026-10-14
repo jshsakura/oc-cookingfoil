@@ -22,12 +22,13 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
+import { tooManyRequests } from "../security/retry-after.js";
 
 const AUTHORIZE_URL = "https://www.dropbox.com/oauth2/authorize";
 const TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const CONSUMED_TTL_MS = 60 * 1000;
-const MAX_SESSIONS = 500;
+export const MAX_SESSIONS = 500;
 export const BRIDGE_PATH = "/api/dropbox";
 
 const sessions = new Map(); // session_id → { status, state, pollHash, verifier, code, error, redirectUri, expiresAt }
@@ -36,6 +37,13 @@ const byState = new Map();  // state → session_id
 const token = (bytes) => crypto.randomBytes(bytes).toString("base64url");
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest();
 const challengeOf = (verifier) => sha256(verifier).toString("base64url");
+
+/** Seconds until the oldest sign-in in progress expires and frees its place. */
+function firstExpiryIn(now = Date.now()) {
+  let first = Infinity;
+  for (const s of sessions.values()) first = Math.min(first, s.expiresAt);
+  return Number.isFinite(first) ? (first - now) / 1000 : 60;
+}
 
 function sweep(now = Date.now()) {
   for (const [id, s] of sessions) {
@@ -74,7 +82,7 @@ export function dropboxSessionsRouter() {
 
   router.post("/v1/sessions/start", (req, res) => {
     sweep();
-    if (sessions.size >= MAX_SESSIONS) return res.status(429).json({ detail: "too many sign-ins in progress" });
+    if (sessions.size >= MAX_SESSIONS) return tooManyRequests(res, firstExpiryIn()).json({ detail: "too many sign-ins in progress" });
     const id = token(18), state = token(18), poll = token(24), verifier = token(64);
     const redirectUri = redirectUriFor(req);
     sessions.set(id, {

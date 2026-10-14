@@ -34,6 +34,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
+import connectionHint from "./helpers/connection-hint.js";
 import busyGuard from "./security/busy-guard.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
@@ -177,6 +178,8 @@ expressApp.use(webLoginRouter());
 // when COOK_DEVICE_PAIRING is off.
 expressApp.use(pairingGate());
 expressApp.use(authGuard());
+// Lists and downloads tell the client how many connections a download may use.
+expressApp.use(connectionHint());
 expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
