@@ -149,6 +149,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 | `COOK_ADMIN_TOTP_SECRET` | _(비어 있음)_ | `/setup` 대신 인증 앱 시크릿을 직접 관리합니다 |
 | `COOK_DIRECT_EDGE_SECRET` | _(비어 있음)_ | 직접 다운로드 프록시와 나누는 시크릿. [아래](#직접-다운로드-주소) 참고 |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | 주소별 요청 한도와 잠기기 전까지 허용하는 로그인 실패 횟수 |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(비어 있음)_ | 사설, 루프백, CGNAT 주소로 풀려도 서버가 가져와도 되는 호스트 이름입니다. 예를 들어 tailnet 안의 평점 서버입니다. 관리 페이지에서 넣은 그 밖의 주소가 내부망을 가리키면 거절합니다 |
 
 보통 관리 페이지(설정 탭)에서 바꾸는 것들입니다. 모두 `.env` 로 미리 정할 수도 있습니다.
 
@@ -216,7 +217,7 @@ CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 H
 
 그대로 쓸 수 있는 Caddy(HTTPS 를 한 스택으로), nginx, Cloudflare Tunnel 설정 파일은 [`examples/`](examples/) 에 있습니다.
 
-- `COOK_TRUST_PROXY` 에는 클라이언트 주소를 정해도 되는 단계만 넣습니다. 같은 호스트나 내부망의 프록시라면 `loopback, uniquelocal` 입니다. `true` 는 모든 단계를 믿으므로, 프록시를 거치지 않고는 서버에 닿을 수 없을 때만 안전합니다. 이 설정이 없으면 모든 클라이언트가 프록시의 주소 하나로 보여서, 낯선 사람 한 명의 로그인 실패가 모두를 잠글 수 있습니다. 관리 페이지가 이 상황을 보면 경고합니다.
+- `COOK_TRUST_PROXY` 에는 클라이언트 주소를 정해도 되는 단계만 넣습니다. 같은 호스트나 내부망의 프록시라면 `loopback, uniquelocal` 입니다. `true` 는 모든 단계를 믿으므로, 프록시를 거치지 않고는 서버에 닿을 수 없을 때만 안전합니다. 이 설정이 없으면 모든 클라이언트가 프록시의 주소 하나로 보여서, 낯선 사람 한 명의 로그인 실패가 모두를 잠글 수 있습니다. 관리 페이지가 이 상황을 보면 경고합니다. `X-Forwarded-Host` 와 `X-Forwarded-Proto` 도 이 단계에서 온 것만 믿고, 그 밖에서 오면 연결 자체의 `Host`(설정했다면 `COOK_PUBLIC_BASE_URL`)를 씁니다.
 - 프록시가 `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` 를 넘기게 합니다. 다운로드와 그림 주소는 절대 주소이고 이 헤더로 만듭니다. 프록시가 `Host` 를 바꾼다면 관리 페이지에서 공개 주소를 정합니다(또는 `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
 - 큰 응답과 오래 걸리는 요청을 허용합니다. 기기는 Range 요청을 여러 번 나눠 받고, 파일 하나가 수십 GB 일 수 있습니다.
 - CookingFoil 앞에 둔 개발 서버(Vite 등)는 모르는 `Host` 헤더를 `403` 으로 거절할 수 있습니다. 프록시를 의심하기 전에 `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` 로 원본을 직접 확인합니다.
@@ -289,7 +290,7 @@ server {
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 레트로 폴더에 롬이 있을 때 레트로 게임과 그림 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드와 그 홈 메뉴 바로가기 |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만) |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다 |
 | `GET /healthz` | 상태 확인. 이미지의 `HEALTHCHECK` 가 씁니다 |
 
 클라이언트는 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 먼저 읽습니다. 관리 API(`/admin/api/*`)는 `/admin/guide` 의 운영 안내에 정리돼 있습니다.

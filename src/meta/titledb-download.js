@@ -11,6 +11,7 @@ import { randomBytes } from "crypto";
 import path from "path";
 import { Readable, Transform } from "stream";
 import { pipeline } from "stream/promises";
+import { guardedFetch } from "../security/outbound-guard.js";
 
 export const MAX_BYTES = 1024 ** 3;
 export const STALL_MS = 60_000;
@@ -32,7 +33,8 @@ export async function downloadToFile(url, destPath, { maxBytes = MAX_BYTES, stal
   };
   arm();
   try {
-    const res = await fetch(url, { redirect: "follow", signal: controller.signal });
+    // The source may be an operator-set mirror: no private address, on any redirect hop either.
+    const res = await guardedFetch(url, { signal: controller.signal });
     if (!res.ok) {
       await res.body?.cancel().catch(() => {});
       return { status: res.status };

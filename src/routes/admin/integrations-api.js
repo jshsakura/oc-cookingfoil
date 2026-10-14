@@ -13,6 +13,7 @@ import debug from "../../debug.js";
 import { redirectUriFor } from "../dropbox-bridge.js";
 import { test as testAlerts } from "../../helpers/alerts.js";
 import { eshopPopularity, eshopPrices } from "../../helpers/envs.js";
+import { checkOutboundUrl, guardedFetch, OutboundError } from "../../security/outbound-guard.js";
 
 const TEST_TIMEOUT_MS = 10_000;
 
@@ -31,13 +32,28 @@ const TESTS = {
     return r.ok;
   },
   async ratings(v, fetchImpl) {
-    const r = await fetchImpl(new URL("/", v.url));
+    const r = await guardedFetch(new URL("/", v.url), {}, { fetchImpl });
     return r.status < 500;
   },
   async telegram() {
     return (await testAlerts()).ok;
   },
 };
+
+/** Refuse an outbound URL field that points at a private address, before anything is saved. */
+async function checkOutboundFields(service, input) {
+  const fields = integrations.SERVICES[service]?.fields ?? {};
+  for (const [k, f] of Object.entries(fields)) {
+    const value = String(input?.[k] ?? "").trim();
+    if (!f.outbound || !value || !f.re.test(value)) continue;
+    try {
+      await checkOutboundUrl(value);
+    } catch (err) {
+      if (err instanceof OutboundError) throw new integrations.IntegrationError(err.message);
+      throw err;
+    }
+  }
+}
 
 export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch } = {}) {
   const guarded = (handler) => async (req, res) => {
@@ -57,7 +73,8 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
     keyless: { eshopPrices, eshopPopularity },
   })));
 
-  router.post("/api/integrations/:service", guarded((req, res) => {
+  router.post("/api/integrations/:service", guarded(async (req, res) => {
+    await checkOutboundFields(req.params.service, req.body ?? {});
     const saved = integrations.save(req.params.service, req.body ?? {});
     debug.log("admin: %s keys saved", req.params.service);
     res.json(saved);
@@ -81,7 +98,7 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
       res.json({ ok, message: ok ? "연결됩니다" : "키가 받아들여지지 않았습니다" });
     } catch (err) {
       debug.log("admin: %s test failed: %s", service, err.message);
-      res.json({ ok: false, message: "서비스에 닿지 못했습니다" });
+      res.json({ ok: false, message: err instanceof OutboundError ? err.message : "서비스에 닿지 못했습니다" });
     }
   }));
 }

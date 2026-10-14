@@ -16,6 +16,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
+import { guardedFetch } from "../security/outbound-guard.js";
 
 const STORE_FILE = "ratings.json";
 const STORE_VERSION = 1;
@@ -92,12 +93,13 @@ export function buildStore(posts) {
   return { version: STORE_VERSION, ratings: out };
 }
 
-async function fetchPosts(baseUrl, fetchImpl) {
+async function fetchPosts(baseUrl, fetchImpl, lookup) {
   const posts = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = new URL("/api/games", baseUrl);
     url.search = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) }).toString();
-    const res = await fetchImpl(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    // The address is the operator's: checked against private ranges after DNS, on every page.
+    const res = await guardedFetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }, { fetchImpl, ...(lookup ? { lookup } : {}) });
     if (!res.ok) throw new Error(`oc-scraper returned HTTP ${res.status}`);
     const body = await res.json();
     posts.push(...(body?.posts ?? []));
@@ -130,10 +132,10 @@ export async function hasStore() {
 }
 
 /** Reads every post from oc-scraper; keeps the old scores on failure. Off without COOK_RATINGS_URL. */
-export async function refresh({ fetchImpl = fetch, baseUrl = integrations.get("ratings").url } = {}) {
+export async function refresh({ fetchImpl = fetch, lookup, baseUrl = integrations.get("ratings").url } = {}) {
   if (!baseUrl) return false;
   try {
-    const next = buildStore(await fetchPosts(baseUrl, fetchImpl));
+    const next = buildStore(await fetchPosts(baseUrl, fetchImpl, lookup));
     if (!Object.keys(next.ratings).length) throw new Error("no post carried a usable score");
     const file = path.join(titledbCacheDir, STORE_FILE);
     await fs.mkdir(titledbCacheDir, { recursive: true });

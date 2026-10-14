@@ -14,6 +14,8 @@
  * the intended target for server-served icons.
  */
 
+import { trustsForwardedHeaders } from "./trust-proxy.js";
+
 // Proxy/Host headers are comma-joined lists when several hops are in play;
 // the left-most value is the original client-facing one.
 function firstHeaderValue(value) {
@@ -27,17 +29,23 @@ function firstHeaderValue(value) {
  *
  * Precedence:
  *   1. publicBaseUrl       — operator-pinned (COOK_PUBLIC_BASE_URL), wins.
- *   2. X-Forwarded-Proto/Host — reverse-proxy hints.
+ *   2. X-Forwarded-Proto/Host — reverse-proxy hints, believed only when the
+ *      socket peer is a trusted proxy (COOK_TRUST_PROXY). From anyone else they
+ *      are only headers a client wrote, and would let it pick the host every
+ *      URL and origin check is built on.
  *   3. req.protocol + Host header — direct connection.
  *
+ * Works on an Express request and on a raw one (the WebSocket upgrade).
  * Returns "" when no host can be determined; callers then fall back to the
  * host-relative URLs (still correct for same-origin browser fetches).
  */
-export function resolveOrigin(req, publicBaseUrl) {
+export function resolveOrigin(req, publicBaseUrl, { trusted = trustsForwardedHeaders(req) } = {}) {
   if (publicBaseUrl) return publicBaseUrl;
-  const host = firstHeaderValue(req.get("x-forwarded-host")) || req.get("host");
+  const header = (name) => (typeof req.get === "function" ? req.get(name) : req.headers?.[name]);
+  const host = (trusted && firstHeaderValue(header("x-forwarded-host"))) || header("host");
   if (!host) return "";
-  const proto = firstHeaderValue(req.get("x-forwarded-proto")) || req.protocol || "http";
+  const own = req.protocol || (req.socket?.encrypted ? "https" : "http");
+  const proto = (trusted && firstHeaderValue(header("x-forwarded-proto"))) || own;
   return `${proto}://${host}`;
 }
 

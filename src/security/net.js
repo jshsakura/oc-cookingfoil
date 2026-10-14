@@ -41,3 +41,14 @@ export function isPrivateIp(ip) {
   if (/^fe80:/i.test(ip)) return true; // link-local IPv6
   return false;
 }
+
+/**
+ * Whether both the connection and the client it speaks for are inside the
+ * house. req.ip alone is X-Forwarded-For behind a proxy, which a client may
+ * write; the socket alone is the proxy for everyone behind it. Asking both
+ * means a forwarded private address from a public connection never counts.
+ */
+export function isPrivateCaller(req) {
+  const forwarded = String(req?.ip || "").replace(/^::ffff:/, "");
+  return isPrivateIp(socketIp(req)) && (!forwarded || isPrivateIp(forwarded));
+}

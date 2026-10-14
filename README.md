@@ -149,6 +149,7 @@ These have to be known before the admin page exists, or are kept out of it on pu
 | `COOK_ADMIN_TOTP_SECRET` | _(empty)_ | Manage the authenticator secret yourself instead of `/setup` |
 | `COOK_DIRECT_EDGE_SECRET` | _(empty)_ | Shared secret of the direct download proxy. See [below](#optional-direct-download-address) |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | Per-address rate limit and failed sign-ins before a lockout |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(empty)_ | Host names the server may fetch even when they resolve to a private, loopback or CGNAT address, for example a ratings server on your tailnet. Any other admin-set address that points into a private network is refused |
 
 Settings you will usually change on the admin page (Settings tab), all of which can be preset in `.env`:
 
@@ -216,7 +217,7 @@ CookingFoil speaks plain HTTP. To reach it from outside your home, put it behind
 
 Ready-to-use files for Caddy (with HTTPS in one stack), nginx and a Cloudflare Tunnel are in [`examples/`](examples/).
 
-- Set `COOK_TRUST_PROXY` to the hops that may set the client address, and nothing more: for a proxy on the same host or a private network, `loopback, uniquelocal`. `true` trusts every hop and is only safe when nothing can reach the server except through the proxy. Without this setting every client looks like the proxy's one address, so one stranger's failed sign-ins can lock everybody out. The admin page warns when it sees this.
+- Set `COOK_TRUST_PROXY` to the hops that may set the client address, and nothing more: for a proxy on the same host or a private network, `loopback, uniquelocal`. `true` trusts every hop and is only safe when nothing can reach the server except through the proxy. Without this setting every client looks like the proxy's one address, so one stranger's failed sign-ins can lock everybody out. The admin page warns when it sees this. `X-Forwarded-Host` and `X-Forwarded-Proto` are also believed only from these hops; from anyone else the server uses the connection's own `Host` (or `COOK_PUBLIC_BASE_URL` when set).
 - Have the proxy forward `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`. Download and artwork URLs are absolute and are built from these headers. If your proxy rewrites `Host`, set the public address on the admin page (or `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
 - Allow large responses and long requests. Consoles download in many Range requests, and a single file can be tens of gigabytes.
 - Development servers in front of CookingFoil (Vite and the like) may refuse unknown `Host` headers with a `403`. Test the origin directly with `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` before you blame the proxy.
@@ -289,7 +290,7 @@ Except for pairing and `/healthz`, every endpoint sits behind the same sign-in a
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | Retro games and their art, when the retro folder holds ROMs |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | The RetroArch base pack you supplied |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | The CookingFoil client build kept in `data/client/`, and its HOME menu shortcut |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on) |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on). The console sends a random `pairSecret` (64 hex) with its request and the same value as `X-Pair-Secret` when it polls; the access key goes only to that caller |
 | `GET /healthz` | Health check, used by the image's `HEALTHCHECK` |
 
 A client should read `features` from `/api/shop/info` before it uses optional fields. The admin API (`/admin/api/*`) is documented in the operator guide at `/admin/guide`.

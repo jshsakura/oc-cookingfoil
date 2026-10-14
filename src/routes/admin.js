@@ -9,6 +9,7 @@
 import express from "express";
 import debug from "../debug.js";
 import * as store from "../security/store.js";
+import { sameOriginWrites } from "../security/same-origin.js";
 
 const ADMIN_TOKEN = process.env.COOK_ADMIN_TOKEN || "";
 
@@ -37,6 +38,8 @@ function timingSafeEqual(a, b) {
 
 export default function adminRouter() {
   const r = express.Router();
+  // Bearer-only, so a browser cannot ride it cross-site; refused all the same.
+  r.use(sameOriginWrites());
   r.use(express.json({ limit: "16kb" }));
 
   r.get("/status", (req, res) => {

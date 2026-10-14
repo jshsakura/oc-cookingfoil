@@ -17,6 +17,7 @@
  * and tokens never depend on it: there is no fallback and nothing restarts.
  */
 import dns from "dns/promises";
+import { checkOutboundUrl } from "./outbound-guard.js";
 import * as env from "../helpers/envs.js";
 import { alert } from "../helpers/alerts.js";
 import debug from "../debug.js";
@@ -41,7 +42,7 @@ let epoch = 0;
  * when the proxy answered (any status below 500, such as its 404), rejects on
  * a 5xx, a failure or the time running out.
  */
-export async function probe(base, { timeoutMs = CHECK_TIMEOUT_MS, fetchImpl = fetch, lookup = dns.lookup } = {}) {
+export async function probe(base, { timeoutMs = CHECK_TIMEOUT_MS, fetchImpl = fetch, lookup = (host) => dns.lookup(host, { all: true }) } = {}) {
   const abort = new AbortController();
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -51,7 +52,8 @@ export async function probe(base, { timeoutMs = CHECK_TIMEOUT_MS, fetchImpl = fe
     }, timeoutMs);
   });
   const ask = (async () => {
-    await lookup(new URL(base).hostname);
+    // The lookup also refuses an address that points back into the private network.
+    await checkOutboundUrl(base, { lookup });
     const res = await fetchImpl(`${base}/`, { method: "GET", redirect: "manual", signal: abort.signal });
     await res.body?.cancel?.().catch(() => {});
     if (res.status >= 500) throw Object.assign(new Error(`answered ${res.status}`), { code: `HTTP${res.status}` });

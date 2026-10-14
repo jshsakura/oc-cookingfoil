@@ -149,6 +149,7 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 | `COOK_ADMIN_TOTP_SECRET` | _(空)_ | `/setup` を使わず、認証アプリのシークレットを自分で管理します |
 | `COOK_DIRECT_EDGE_SECRET` | _(空)_ | 直接ダウンロード用プロキシとの共有シークレット。[後述](#任意の直接ダウンロードアドレス)を参照してください |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | アドレスごとのレート制限と、ロックアウトまでのサインイン失敗回数 |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(空)_ | プライベート、ループバック、CGNAT のアドレスに解決されてもサーバーが取得してよいホスト名です。たとえば tailnet 内の評価サーバーです。管理ページで設定したそれ以外のアドレスが内部ネットワークを指す場合は拒否します |
 
 ふだんは管理ページ (設定 (설정) タブ) で変える設定です。どれも `.env` で既定値を入れておけます。
 
@@ -216,7 +217,7 @@ CookingFoil はプレーンな HTTP で動きます。自宅の外から使う�
 
 そのまま使える Caddy (HTTPS を一つのスタックで)、nginx、Cloudflare Tunnel の設定ファイルは [`examples/`](examples/) にあります。
 
-- `COOK_TRUST_PROXY` には、クライアントのアドレスを設定してよいホップだけを指定します。同じホストかプライベートネットワーク上のプロキシなら `loopback, uniquelocal` です。`true` はすべてのホップを信頼するので、プロキシを経由しないとサーバーに届かない構成でのみ安全です。この設定がないと、すべてのクライアントがプロキシの 1 つのアドレスに見えるため、見知らぬ 1 人のサインイン失敗で全員がロックされることがあります。この状態を検出すると管理ページが警告します。
+- `COOK_TRUST_PROXY` には、クライアントのアドレスを設定してよいホップだけを指定します。同じホストかプライベートネットワーク上のプロキシなら `loopback, uniquelocal` です。`true` はすべてのホップを信頼するので、プロキシを経由しないとサーバーに届かない構成でのみ安全です。この設定がないと、すべてのクライアントがプロキシの 1 つのアドレスに見えるため、見知らぬ 1 人のサインイン失敗で全員がロックされることがあります。この状態を検出すると管理ページが警告します。`X-Forwarded-Host` と `X-Forwarded-Proto` もこれらのホップから届いたものだけを信頼し、それ以外からの場合は接続自体の `Host` (設定していれば `COOK_PUBLIC_BASE_URL`) を使います。
 - プロキシには `X-Forwarded-For`、`X-Forwarded-Proto`、`X-Forwarded-Host` を転送させます。ダウンロードとアートワークの URL は絶対 URL で、これらのヘッダーから組み立てます。プロキシが `Host` を書き換える場合は、管理ページで公開アドレスを設定します (または `COOK_PUBLIC_BASE_URL=https://shop.example.org`)。
 - 大きなレスポンスと長いリクエストを許可します。本体は多数の Range リクエストでダウンロードし、1 つのファイルが数十 GB になることもあります。
 - CookingFoil の前に置いた開発サーバー (Vite など) は、知らない `Host` ヘッダーを `403` で拒否することがあります。プロキシを疑う前に `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` でオリジンを直接確かめてください。
@@ -289,7 +290,7 @@ server {
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 自分で用意した RetroArch ベースパック |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` に置いた CookingFoil クライアントのビルドと、その HOME メニューのショートカット |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ) |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します |
 | `GET /healthz` | ヘルスチェック。イメージの `HEALTHCHECK` が使います |
 
 クライアントは任意のフィールドを使う前に、`/api/shop/info` の `features` を読んでください。管理 API (`/admin/api/*`) は `/admin/guide` の運用ガイドに説明があります。

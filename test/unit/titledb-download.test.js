@@ -9,6 +9,8 @@ import path from "node:path";
 // replaces the cache, and a mirror that hangs or floods is cut off.
 const dir = mkdtempSync(path.join(tmpdir(), "cook-tdl-"));
 process.env.COOK_DATA_DIR = dir;
+// The test mirror is on loopback, which outbound URLs may only reach when listed.
+process.env.COOK_OUTBOUND_PRIVATE_HOSTS = "127.0.0.1";
 const { downloadToFile } = await import("../../src/meta/titledb-download.js");
 const { fetchRegion, rejectReason } = await import("../../src/meta/titledb-fetcher.js");
 const versions = await import("../../src/meta/titledb-versions.js");
@@ -29,6 +31,11 @@ async function withMirrorFetch(body, run) {
   globalThis.fetch = async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status: 200 });
   try { return await run(); } finally { globalThis.fetch = real; }
 }
+
+test("an unlisted private mirror is refused before it is asked", async () => {
+  const guard = await import("../../src/security/outbound-guard.js");
+  await assert.rejects(downloadToFile("http://10.0.0.9/KR.ko.json", path.join(dir, "private.json")), guard.OutboundError);
+});
 
 test("a mirror that stops sending is cut off and leaves no partial file", async () => {
   handler = (req, res) => { res.writeHead(200); res.write("{\"a\":"); };

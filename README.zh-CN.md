@@ -149,6 +149,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 | `COOK_ADMIN_TOTP_SECRET` | _(空)_ | 自己管理身份验证器密钥，代替 `/setup` |
 | `COOK_DIRECT_EDGE_SECRET` | _(空)_ | 直接下载代理的共享密钥。见[下文](#可选的直接下载地址) |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | 每个地址的速率限制，以及锁定前允许的登录失败次数 |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(空)_ | 即使解析到私有、回环或 CGNAT 地址，服务器也可以访问的主机名，例如 tailnet 内的评分服务器。管理页面中设置的其他地址如果指向内部网络，会被拒绝 |
 
 通常在管理页面（设置 (설정) 标签页）修改的设置，全部可以在 `.env` 中预设：
 
@@ -216,7 +217,7 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 
 可直接使用的 Caddy（一个栈内完成 HTTPS）、nginx 和 Cloudflare Tunnel 配置文件在 [`examples/`](examples/) 中。
 
-- 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。
+- 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。`X-Forwarded-Host` 和 `X-Forwarded-Proto` 也只在来自这些跳点时才被采信；来自其他地方时，服务器使用连接本身的 `Host`（设置了 `COOK_PUBLIC_BASE_URL` 时用它）。
 - 让代理转发 `X-Forwarded-For`、`X-Forwarded-Proto` 和 `X-Forwarded-Host`。下载和图片的 URL 是绝对地址，由这些请求头生成。如果你的代理会改写 `Host`，请在管理页面上设置公开地址（或 `COOK_PUBLIC_BASE_URL=https://shop.example.org`）。
 - 允许大响应和长时间请求。主机会用大量 Range 请求下载，单个文件可能有几十 GB。
 - 放在 CookingFoil 前面的开发服务器（Vite 等）可能会用 `403` 拒绝未知的 `Host` 请求头。在怀疑代理之前，先用 `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` 直接测试源站。
@@ -289,7 +290,7 @@ server {
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建及其 HOME 菜单快捷方式 |
-| `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用） |
+| `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方 |
 | `GET /healthz` | 健康检查，供镜像的 `HEALTHCHECK` 使用 |
 
 客户端在使用可选字段之前，应先读取 `/api/shop/info` 中的 `features`。管理 API（`/admin/api/*`）在 `/admin/guide` 的运维指南中有说明。

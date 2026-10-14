@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { isLoopbackSocket, socketIp } from "../../src/security/net.js";
+import { isLoopbackSocket, isPrivateCaller, socketIp } from "../../src/security/net.js";
 
 test("loopback is the socket's address, never X-Forwarded-For", () => {
   assert.equal(isLoopbackSocket({ ip: "127.0.0.1", socket: { remoteAddress: "203.0.113.9" } }), false);
@@ -12,6 +12,14 @@ test("loopback is the socket's address, never X-Forwarded-For", () => {
   assert.equal(isLoopbackSocket({ socket: { remoteAddress: "::1" } }), true);
   assert.equal(isLoopbackSocket({}), false);
   assert.equal(socketIp({ socket: { remoteAddress: "::ffff:10.0.0.4" } }), "10.0.0.4");
+});
+
+test("a private caller is private on the socket and in req.ip both", () => {
+  assert.equal(isPrivateCaller({ ip: "192.168.1.20", socket: { remoteAddress: "203.0.113.9" } }), false, "a forwarded private address from outside");
+  assert.equal(isPrivateCaller({ ip: "203.0.113.9", socket: { remoteAddress: "127.0.0.1" } }), false, "a stranger behind the local proxy");
+  assert.equal(isPrivateCaller({ ip: "192.168.1.20", socket: { remoteAddress: "127.0.0.1" } }), true);
+  assert.equal(isPrivateCaller({ socket: { remoteAddress: "::ffff:10.0.0.4" } }), true);
+  assert.equal(isPrivateCaller({}), false);
 });
 
 // The access guard reads its config at load, so it runs in its own process.
