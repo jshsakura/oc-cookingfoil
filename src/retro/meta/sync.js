@@ -15,12 +15,12 @@
 import path from "path";
 import debug from "../../debug.js";
 import * as env from "../../helpers/envs.js";
-import { fetchMetadata, xmlFrom } from "../art/ratings.js";
+import { fetchMetadata, readXml, shrankTooMuch } from "../art/ratings.js";
 import { PLATFORMS } from "../art/titles.js";
 import { buildMeta, metaKey, titlesOf, wantedKeys } from "./build.js";
 import { readLaunchBoxMeta, readMame } from "./launchbox.js";
 import * as igdbMeta from "./igdb.js";
-import { downloadShots, needsShots, removeShots } from "./screenshots.js";
+import { downloadShots, indexShots, removeShots, shotDir, wantedShots } from "./screenshots.js";
 import * as store from "./store.js";
 
 const REFRESH_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -37,6 +37,7 @@ const PAUSE_MS = 300;
 const shotTried = new Map(); // key → when its screenshots were last attempted
 let running = null;
 let refreshTriedAt = 0;
+let shotIndex = null; // { dir, at, counts: Map(game folder → screenshots on disk) }
 
 /** One game per key (variants that share a file name share the record). */
 const uniqueByKey = (games) => [...new Map(games.map((g) => [metaKey(g), g])).values()];
@@ -55,18 +56,33 @@ export function changedShots(previous, next) {
   return Object.keys(previous).filter((k) => previous[k]?.shots?.length && JSON.stringify(previous[k].shots) !== JSON.stringify(next[k]?.shots ?? null));
 }
 
+/** How many of the earlier LaunchBox records are for games still in the catalog. Pure. */
+export function launchBoxCount(previous, keys) {
+  return Object.entries(previous).filter(([k, r]) => keys.has(k) && r && r.source !== "igdb").length;
+}
+
 /** Matches LaunchBox's data to the catalog's games and saves the records. Returns how many games have one. */
 export async function refreshLaunchBox({ dir, cacheDir, games, systems, fetchImpl = fetch, now = Date.now }) {
   const zip = await fetchMetadata(cacheDir, fetchImpl);
   const sets = new Set(games.filter((g) => g.set).flatMap((g) => [g.set, g.cloneOf].filter(Boolean)));
-  const mame = sets.size ? await readMame(xmlFrom(zip, "Mame.xml"), sets) : new Map();
+  // A failed unzip throws here, before anything is replaced or removed.
+  const mame = sets.size ? await readXml(zip, "Mame.xml", (open) => readMame(open(), sets)) : new Map();
   const wanted = new Set([...new Set(games.map((g) => g.system))].flatMap((s) => PLATFORMS[s] ?? []));
-  const data = await readLaunchBoxMeta(() => xmlFrom(zip), wanted, wantedKeys(games, mame));
+  const data = await readXml(zip, "Metadata.xml", (open) => readLaunchBoxMeta(open, wanted, wantedKeys(games, mame)));
   const fresh = buildMeta(games, data, mame);
   if (games.length && !Object.keys(fresh).length) throw new Error("LaunchBox 자료에서 맞는 게임을 찾지 못했습니다");
   const previous = store.all();
-  const next = mergeRecords(previous, fresh);
   const byKey = new Map(games.map((g) => [metaKey(g), g]));
+  // A read far shorter than the last one is a cut-off file, not LaunchBox forgetting games:
+  // keep the records and the screenshots as they are.
+  const before = launchBoxCount(previous, byKey);
+  const after = Object.keys(fresh).length;
+  if (shrankTooMuch(before, after)) {
+    debug.error("retro meta: LaunchBox matched %d games against %d last time; not applied", after, before);
+    throw new Error(`LaunchBox 자료가 지난번 ${before}개에서 ${after}개로 크게 줄어 적용하지 않았습니다`);
+  }
+  const next = mergeRecords(previous, fresh);
+  shotIndex = null; // screenshots may go below, so the index is read again
   for (const key of changedShots(previous, next)) {
     const g = byKey.get(key);
     if (g) await removeShots(dir, systems[g.system], key).catch(() => {});
@@ -102,19 +118,39 @@ export async function igdbBatch({ games, fetchImpl = fetch, now = Date.now, paus
   return Object.keys(answers).length;
 }
 
+/**
+ * How many screenshots each game folder holds (screenshots.js indexShots), read
+ * from the disk once a day, not once per game per tick; downloads and removals
+ * here keep it current in between.
+ */
+async function shotCounts(dir, now) {
+  if (!shotIndex || shotIndex.dir !== dir || now - shotIndex.at >= SHOT_RETRY_MS) {
+    shotIndex = { dir, at: now, counts: await indexShots(dir) };
+  }
+  return shotIndex.counts;
+}
+
 /** Downloads the screenshots of a few games that lack theirs. Returns how many files it saved. */
 export async function shotsBatch({ dir, games, systems, fetchImpl = fetch, now = Date.now }) {
   const records = store.all();
+  const counts = await shotCounts(dir, now());
+  const lacking = (g, key) => {
+    const folder = shotDir(dir, systems[g.system], key);
+    const want = wantedShots(records[key]);
+    return folder !== null && want > 0 && (counts.get(folder) ?? 0) < want;
+  };
   const due = uniqueByKey(games).filter((g) => {
     const key = metaKey(g);
-    return now() - (shotTried.get(key) ?? 0) >= SHOT_RETRY_MS && needsShots(dir, systems[g.system], key, records[key]);
+    return now() - (shotTried.get(key) ?? 0) >= SHOT_RETRY_MS && lacking(g, key);
   }).slice(0, SHOTS_PER_TICK);
   let saved = 0;
   for (const g of due) {
     const key = metaKey(g);
     shotTried.set(key, now());
     try {
-      saved += (await downloadShots(dir, systems[g.system], key, records[key], { fetchImpl })).saved;
+      const r = await downloadShots(dir, systems[g.system], key, records[key], { fetchImpl });
+      counts.set(shotDir(dir, systems[g.system], key), r.have);
+      saved += r.saved;
     } catch (err) {
       debug.error("retro meta: screenshots of %s: %s", key, err.message);
     }
@@ -167,6 +203,7 @@ export function start({ current, enabled = () => true }) {
 /** For tests. */
 export function reset() {
   shotTried.clear();
+  shotIndex = null;
   running = null;
   refreshTriedAt = 0;
 }

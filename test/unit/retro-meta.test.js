@@ -10,7 +10,8 @@ process.env.COOK_RATING_SYNC = "false";
 const { releaseDateInt, playersInt, genreKeys, fromLaunchBox, fromMame, fromIgdb, fillFrom, detailFields, MAX_SHOTS } = await import("../../src/retro/meta/fields.js");
 const { readLaunchBoxMeta, readMame } = await import("../../src/retro/meta/launchbox.js");
 const { buildMeta, metaKey, pickGame } = await import("../../src/retro/meta/build.js");
-const { shotUrls, downloadShots, localShots, needsShots } = await import("../../src/retro/meta/screenshots.js");
+const { shotUrls, downloadShots, localShots, needsShots, indexShots, fetchAllowed, readCapped } = await import("../../src/retro/meta/screenshots.js");
+const ratings = await import("../../src/retro/art/ratings.js");
 const { retroDetailFields, metaOwner } = await import("../../src/retro/meta/detail.js");
 const store = await import("../../src/retro/meta/store.js");
 const sync = await import("../../src/retro/meta/sync.js");
@@ -251,9 +252,102 @@ test("only images from the known hosts are written", async () => {
   const record = { shots: ["https://images.launchbox-app.com/a.png", "https://evil.example.org/b.png", "https://images.igdb.com/c.jpg"] };
   const fetchImpl = async (url) => (url.includes("igdb") ? new Response("<html>", { status: 200 }) : imageResponse());
   const r = await downloadShots(dir, SNES, "snes/G", record, { fetchImpl });
-  assert.deepEqual(r, { saved: 1, skipped: 2 });
+  assert.deepEqual(r, { saved: 1, skipped: 2, have: 1 });
   assert.deepEqual(localShots(dir, SNES, "snes/G").map((s) => s.n), [1]);
   assert.equal(localShots(dir, SNES, "snes/../../etc").length, 0);
+});
+
+test("a redirect is followed only to an allowed host, and a body over 5 MB is dropped while it streams", async () => {
+  const dir = tmp("retro-shots-");
+  const hops = [];
+  const fetchImpl = async (url, opts) => {
+    hops.push([url, opts.redirect]);
+    if (url.endsWith("/out.png")) return new Response(null, { status: 302, headers: { location: "https://evil.example.org/x.png" } });
+    if (url.endsWith("/move.png")) return new Response(null, { status: 301, headers: { location: "/moved.png" } });
+    if (url.endsWith("/huge.png")) {
+      // No Content-Length: the limit has to hold while reading.
+      let sent = 0;
+      const stream = new ReadableStream({ pull(c) { if (sent > 7) return c.close(); sent++; c.enqueue(new Uint8Array(1024 * 1024)); } });
+      return new Response(stream, { status: 200 });
+    }
+    return imageResponse();
+  };
+  assert.equal(await fetchAllowed("https://images.launchbox-app.com/out.png", fetchImpl), null, "a hop off the allow list is not followed");
+  assert.ok(!hops.some(([u]) => u.includes("evil")));
+  assert.ok(hops.every(([, r]) => r === "manual"));
+  assert.equal((await fetchAllowed("https://images.launchbox-app.com/move.png", fetchImpl)).status, 200, "a hop on the same host is");
+  assert.equal(hops.at(-1)[0], "https://images.launchbox-app.com/moved.png");
+  const record = { shots: ["https://images.launchbox-app.com/huge.png", "https://images.launchbox-app.com/out.png", "https://images.launchbox-app.com/ok.png"] };
+  assert.deepEqual(await downloadShots(dir, SNES, "snes/H", record, { fetchImpl }), { saved: 1, skipped: 2, have: 1 });
+  assert.equal(await readCapped(new Response("x".repeat(10), { headers: { "content-length": "10" } }), 5), null);
+});
+
+test("the screenshot index counts each game folder's screenshots in one async pass", async () => {
+  const dir = tmp("retro-index-");
+  put(dir, "screenshots/snes/A/1.png", PNG);
+  put(dir, "screenshots/snes/A/2.jpg", PNG);
+  put(dir, "screenshots/snes/A/notes.txt", "x");
+  put(dir, "screenshots/snes/B/1.png", PNG);
+  const counts = await indexShots(dir);
+  assert.equal(counts.get(path.join(dir, "screenshots/snes/A")), 2);
+  assert.equal(counts.get(path.join(dir, "screenshots/snes/B")), 1);
+  assert.equal((await indexShots(path.join(dir, "missing"))).size, 0);
+});
+
+test("LaunchBox reads: a failed unzip is no update, and a far shorter read is not applied", async () => {
+  assert.equal(ratings.shrankTooMuch(100, 79), true);
+  assert.equal(ratings.shrankTooMuch(100, 80), false);
+  assert.equal(ratings.shrankTooMuch(5, 0), false, "too few earlier records to compare");
+  assert.equal(ratings.comparableCount({ snes: { A: {}, B: {} }, gone: { C: {} } }, new Set(["snes\0A", "snes\0B"])), 2);
+  // A zip that unzip can't read: whatever was parsed (nothing), the read throws.
+  const cache = tmp("retro-lb-");
+  fs.writeFileSync(path.join(cache, "Metadata.zip"), "not a zip");
+  await assert.rejects(ratings.readXml(path.join(cache, "Metadata.zip"), "Metadata.xml", async (open) => {
+    for await (const _ of open()) { /* drain */ }
+    return "parsed";
+  }), /unzip Metadata\.xml/);
+  // The details refresh stops before touching records or screenshots.
+  const dir = tmp("retro-lbdir-");
+  put(dir, "screenshots/snes/G/1.png", PNG);
+  const previous = { "snes/G": { source: "launchbox", shots: ["https://images.launchbox-app.com/g.png"] } };
+  store.reset(previous, 1);
+  const unchanged = async () => new Response(null, { status: 304 });
+  try {
+    await assert.rejects(sync.refreshLaunchBox({ dir, cacheDir: cache, games: [{ system: "snes", name: "G" }], systems: { snes: SNES }, fetchImpl: unchanged }), /unzip/);
+    assert.deepEqual(store.all(), previous, "records kept");
+    assert.ok(fs.existsSync(path.join(dir, "screenshots/snes/G/1.png")), "screenshots kept");
+    // A good zip with far fewer matches than last time: not applied either.
+    const many = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`snes/Game ${i}`, { source: "launchbox", shots: [`https://images.launchbox-app.com/${i}.png`] }]));
+    store.reset(many, 1);
+    const games = Array.from({ length: 20 }, (_, i) => ({ system: "snes", name: `Game ${i}` }));
+    for (let i = 0; i < 20; i++) put(dir, `screenshots/snes/Game ${i}/1.png`, PNG);
+    const xml = `<LaunchBox>\n  <Game>\n    <Name>Game 1</Name>\n    <DatabaseID>1</DatabaseID>\n    <Platform>Super Nintendo Entertainment System</Platform>\n  </Game>\n</LaunchBox>\n`;
+    const work = tmp("retro-lbzip-");
+    fs.writeFileSync(path.join(work, "Metadata.xml"), xml);
+    fs.rmSync(path.join(cache, "Metadata.zip"));
+    await new Promise((res, rej) => spawn("zip", ["-q", path.join(cache, "Metadata.zip"), "Metadata.xml"], { cwd: work }).on("close", (c) => (c ? rej(new Error(`zip ${c}`)) : res())));
+    await assert.rejects(sync.refreshLaunchBox({ dir, cacheDir: cache, games, systems: { snes: SNES }, fetchImpl: unchanged }), /크게 줄어/);
+    assert.deepEqual(store.all(), many, "records kept");
+    assert.ok(fs.existsSync(path.join(dir, "screenshots/snes/Game 5/1.png")), "screenshots kept");
+  } finally {
+    store.reset();
+    sync.reset();
+  }
+});
+
+test("both LaunchBox readers share one download of Metadata.zip", async () => {
+  const cache = tmp("retro-lbfetch-");
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 20));
+    return new Response("ZIPBYTES", { status: 200 });
+  };
+  const [a, b] = await Promise.all([ratings.fetchMetadata(cache, fetchImpl), ratings.fetchMetadata(cache, fetchImpl)]);
+  assert.equal(a, b);
+  assert.equal(calls, 1, "the second waits for the first");
+  assert.equal(fs.readFileSync(a, "utf8"), "ZIPBYTES");
+  assert.deepEqual(fs.readdirSync(cache), ["Metadata.zip"], "no temporary file is left");
 });
 
 test("a game's detail reads only memory and disk, and versions share one record", async () => {
