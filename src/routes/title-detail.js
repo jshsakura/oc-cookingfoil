@@ -63,8 +63,8 @@ export default async function titleDetailRoute(req, res) {
   }
 
   const origin = resolveOrigin(req, publicBaseUrl);
-  const art = (path) => {
-    const url = versionedArtwork(path);
+  const art = (path, lang = null) => {
+    const url = versionedArtwork(path, lang);
     return origin ? origin + url : url;
   };
 
@@ -117,12 +117,12 @@ export default async function titleDetailRoute(req, res) {
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     // With ?lang=, the icon and banner of that language's release when it has its own art.
-    iconUrl: art(`/api/shop/icon/${base}`) + (iconSource(base, asked) ? `&lang=${asked}` : ""),
+    iconUrl: art(`/api/shop/icon/${base}`, iconSource(base, asked) ? asked : null),
     bannerUrl: fromDb?.bannerUrl || overrides.banner
-      ? art(`/api/shop/banner/${base}`) + (bannerSource(base, asked) ? `&lang=${asked}` : "")
+      ? art(`/api/shop/banner/${base}`, bannerSource(base, asked) ? asked : null)
       : null,
     icons: iconLangs(base).length
-      ? Object.fromEntries(iconLangs(base).map((l) => [l, `${art(`/api/shop/icon/${base}`)}&lang=${l}`]))
+      ? Object.fromEntries(iconLangs(base).map((l) => [l, art(`/api/shop/icon/${base}`, l)]))
       : null,
     screenshots,
     screenshotCount: screenshots.length,

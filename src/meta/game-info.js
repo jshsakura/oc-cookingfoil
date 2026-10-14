@@ -6,6 +6,7 @@
 import * as titledbStore from "./titledb-store.js";
 import * as extractedMeta from "./extracted-meta-store.js";
 import * as shopCache from "./shop-cache.js";
+import { versionedArtwork } from "./artwork-version.js";
 
 const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
 
@@ -25,6 +26,6 @@ export function gameOf(titleId, origin = "") {
   if (!name) return null;
   const game = { name, names: names ?? {} };
   // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
-  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}/api/shop/icon/${titleId}`;
+  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}${versionedArtwork(`/api/shop/icon/${titleId}`)}`;
   return game;
 }

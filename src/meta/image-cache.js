@@ -55,6 +55,8 @@ const WEBP_OPTIONS = { quality: 75, effort: 6 };
 const XL_WEBP_EXT = "q50.webp";
 const XL_WEBP_OPTIONS = { quality: 50, effort: 6 };
 const JPEG_QUALITY = 80;
+export const IMMUTABLE = "public, max-age=31536000, immutable";
+export const UNVERSIONED = "public, max-age=300";
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
 
@@ -208,7 +210,7 @@ function variantSuffix(size, wide) {
  * ratio (banners, screenshots) instead of cropping to a square (icons). When
  * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, wide = false }) {
+export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, wide = false, current = false }) {
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
   const wantThumb = size !== null;
   const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
@@ -231,15 +233,18 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
     }
   }
 
-  // Cached/upstream artwork is content-addressed by titleId and never changes
-  // for a given URL → cache it for a year, immutable. Operator overrides ARE
-  // editable, so they get a short max-age and must-revalidate instead, letting
-  // a replace show up without a hard refresh.
+  // `current`: the request's ?v= is the slot's content version
+  // (artwork-version.js), so these bytes never change under this URL and may
+  // be kept for a year. Without it (no v, an old one) the picture can still be
+  // replaced: a short cache, revalidated by the ETag sendFile sets. Art the
+  // admin uploads is edited from the dashboard, so it revalidates sooner.
   res.set(
     "Cache-Control",
-    fromOverride
-      ? "public, max-age=60, must-revalidate"
-      : "public, max-age=31536000, immutable"
+    current
+      ? IMMUTABLE
+      : fromOverride
+        ? "public, max-age=60, must-revalidate"
+        : UNVERSIONED
   );
 
   if (!wantThumb) {

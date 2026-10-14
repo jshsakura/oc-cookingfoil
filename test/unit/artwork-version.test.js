@@ -33,7 +33,8 @@ test("uploaded artwork changes native cache URLs and preserves other titles", ()
     assert.notEqual(result.first, result.before);
     assert.notEqual(result.second, result.first);
     assert.equal(result.sectionIcon, result.second);
-    assert.match(result.restarted, /&art=\d+$/);
+    assert.equal(result.restarted, result.second, "a restart keeps the uploaded art's v");
+    assert.match(result.first, /\?v=[0-9a-f]{12}$/);
     assert.equal(result.removed, result.before);
     assert.equal(result.other, result.untouched);
   } finally { rmSync(data, { recursive: true, force: true }); }
