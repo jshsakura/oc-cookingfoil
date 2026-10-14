@@ -50,6 +50,12 @@
 - 업로드 탭에서 파일, 레트로 파일, 패치, 세이브를 올립니다. 레트로는 시스템을 고르고 올립니다.
 - 파일을 서버 폴더에 직접 넣었다면 라이브러리 탭의 "다시 읽기"로 반영합니다.
 
+### 임시 공유 (임시 공유 탭)
+
+- 로그인한 사용자는 웹 화면의 계정 메뉴에서 파일, 메모, 링크를 남깁니다. 남기면 텔레그램 알림(임시 공유)이 바로 갑니다.
+- 남긴 것은 서버의 `data/inbox/<날짜-시각>-<사용자>-<4자리>/` 에 하나씩 있습니다. `files/` 에 원래 이름 그대로의 파일이, `note.json` 에 `{ user, at, memo, links, files: [{ name, size, sha256 }] }` 가 있습니다. 정리함으로 보낸 것에는 `status.json` 이 생깁니다.
+- 패치, 세이브, 홈브류로 옮긴 뒤에는 정리함으로 보내거나 지웁니다. 켜고 끄기, 한 번에 올리는 크기, 전체 크기는 설정 탭의 "임시 공유"에서 바꿉니다.
+
 ## 7. 문제가 생기면
 
 - **콘솔이 접속하지 못합니다**: 개요 탭의 경고와 로그 탭의 거절 기록을 봅니다. 거절마다 이유가 적혀 있습니다.
@@ -101,3 +107,5 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 기기별 접속 정보 | `GET /admin/api/device-logins`, `POST /admin/api/device-logins` `{ "label" }`, `POST …/<이름>/revoke` |
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |
+| 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |
+| 임시 공유 정리함으로 보내기, 되돌리기, 지우기 | `POST /admin/api/inbox/<id>/done` `{ "done": true }`, `DELETE /admin/api/inbox/<id>` |

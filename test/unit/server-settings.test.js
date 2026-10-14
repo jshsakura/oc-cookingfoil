@@ -104,3 +104,15 @@ test("a saved file is read back on start", () => {
   assert.equal(env.ratingSync, false);
   assert.equal(env.eshopArtwork, false);
 });
+
+test("the share inbox switch and its two sizes are saved in bytes and apply at once", () => {
+  assert.equal(settings.describe().inboxEnabled.value, true);
+  settings.save({ inboxEnabled: false, inboxMaxBytes: "1073741824", inboxQuotaBytes: 5 * 1024 ** 3 });
+  assert.equal(env.inboxEnabled, false);
+  assert.equal(env.inboxMaxBytes, 1024 ** 3);
+  assert.equal(env.inboxQuotaBytes, 5 * 1024 ** 3);
+  for (const bad of [0, -1, 1.5, "abc", "", true]) assert.throws(() => settings.save({ inboxMaxBytes: bad }), /inboxMaxBytes/, String(bad));
+  settings.save({ inboxEnabled: null, inboxMaxBytes: null, inboxQuotaBytes: null });
+  assert.equal(env.inboxEnabled, true);
+  assert.equal(env.inboxMaxBytes, 2 * 1024 ** 3);
+});

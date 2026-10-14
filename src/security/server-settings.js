@@ -1,7 +1,8 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the public address, where names come from, titledb,
- * the outside lookups and how many connections a console opens per download. Saved in ${COOK_DATA_DIR}/security/server-settings.json
+ * approval, uploads, the share inbox, the public address, where names come from,
+ * titledb, the outside lookups and how many connections a console opens per
+ * download. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
@@ -18,6 +19,8 @@ const REGION_RE = /^[A-Z]{2}\.[a-z]{2}$/;
 
 const bool = { check: (v) => typeof v === "boolean" };
 const oneOf = (...values) => ({ check: (v) => values.includes(v) });
+// A byte count, whole and positive, up to 16 TiB.
+const bytes = { parse: (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), check: (v) => Number.isSafeInteger(v) && v > 0 && v <= 16 * 1024 ** 4 };
 const list = (re, max) => ({
   parse: (v) => (Array.isArray(v) ? v : String(v ?? "").split(",")).map((s) => String(s).trim()).filter(Boolean),
   check: (v) => Array.isArray(v) && v.length <= max && v.every((s) => re.test(s)) && new Set(v).size === v.length,
@@ -28,6 +31,9 @@ export const SETTINGS = {
   devicePairing: bool,
   deviceApproval: oneOf("manual", "signin", "all"),
   uploadsEnabled: bool,
+  inboxEnabled: bool,
+  inboxMaxBytes: bytes,
+  inboxQuotaBytes: bytes,
   publicBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
   extractIcons: oneOf("missing", "all", "off"),
   langPriority: { ...list(LANG_RE, 10), check: (v) => list(LANG_RE, 10).check(v) && v.length > 0 },

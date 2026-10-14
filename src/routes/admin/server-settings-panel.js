@@ -1,5 +1,5 @@
 /**
- * The settings tab's "서버 동작" block: device approval, uploads, the public
+ * The settings tab's "서버 동작" block: device approval, uploads, the share inbox, the public
  * address, names, titledb and the outside lookups, each saved the moment it is
  * changed and applied without a restart. Talks to /admin/api/server-settings.
  */
@@ -16,7 +16,7 @@ export const SERVER_SETTINGS_CSS = `
 .ss-group>h3+.ss-row{border-top:0}
 .ss-row b{font-size:14px}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
-.ss-row .ss-ctl input[type=text],.ss-row .ss-ctl select{width:100%;min-width:0}
+.ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
 .ss-src{grid-column:1/-1;font-size:12px;color:var(--muted)}.ss-src button{font-size:12px;padding:2px 8px;margin-left:6px}
 .ss-switch{position:relative;display:inline-block;vertical-align:middle;width:46px;height:26px;flex:none}
 .ss-switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
@@ -39,6 +39,11 @@ const SS_GROUPS=[
     ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
     ['welcomeMessage','text','접속 인사','Tinfoil 방식 클라이언트가 목록을 열 때 보여 줍니다. 비우면 보이지 않습니다.',''],
   ]],
+  ['임시 공유',[
+    ['inboxEnabled','bool','임시 공유 받기','로그인한 사용자가 웹 화면의 계정 메뉴에서 파일, 메모, 링크를 남길 수 있습니다. 남긴 것은 임시 공유 탭에서 봅니다.'],
+    ['inboxMaxBytes','gb','한 번에 올리는 크기','파일을 모두 합친 크기입니다. GB 단위로 넣습니다.'],
+    ['inboxQuotaBytes','gb','임시 공유함 전체 크기','이만큼 차면 새로 올리는 것을 받지 않고 가득 찼다고 알립니다. GB 단위로 넣습니다.'],
+  ]],
   ['이름과 아이콘',[
     ['extractIcons',[['missing','목록에 없는 것만 파일에서 읽습니다'],['all','모든 파일에서 읽습니다'],['off','파일에서 읽지 않습니다']],'파일에서 이름과 아이콘 읽기','바꾸면 라이브러리를 다시 읽습니다.'],
     ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
@@ -58,13 +63,19 @@ const SS_GROUPS=[
     ['ratingSync','bool','평점 모으기','Steam, IGDB, 레트로 평점을 천천히 모읍니다.'],
   ]],
 ];
-const ssShow=(k,v)=>Array.isArray(v)?v.join(','):typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
+const GIB=1024**3;
+const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
+const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
 async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);loadHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
     toast(row?row[2]+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
     b.addEventListener('change',()=>ssSave({[key]:b.checked},b.checked?'켰습니다.':'껐습니다.'));w.append(b,el('span'));return w;}
+  if(kind==='gb'){const i=el('input');i.type='number';i.min='0.001';i.step='any';i.inputMode='decimal';i.value=ssGb(s.value);i.setAttribute('aria-label',key);
+    const unit=el('span','GB','muted');
+    i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(!(v>0)){toast('0 보다 큰 크기를 넣습니다.');i.value=ssGb(s.value);return;}ssSave({[key]:v});});
+    const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,unit);return w;}
   if(Array.isArray(kind)){const sel=el('select');for(const [v,t] of kind){const o=el('option',t);o.value=v;sel.append(o);}sel.value=s.value;
     sel.addEventListener('change',()=>ssSave({[key]:sel.value}));return sel;}
   const i=el('input');i.type='text';i.spellcheck=false;i.autocomplete='off';i.maxLength=300;i.placeholder=ph||'';
