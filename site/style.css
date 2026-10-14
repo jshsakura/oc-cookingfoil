@@ -64,6 +64,8 @@ h2{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:40px 0 14px;displ
 .stat .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;background:var(--butter);color:var(--butter-ink);font-weight:800;font-size:13px;margin-bottom:8px}
 .stat b{display:block;font-weight:800;margin-bottom:2px}.stat p{margin:0;color:var(--secondary);font-size:13px}
 .pill.code{color:var(--ink)}
+.sample{margin:14px 0 0;padding:14px 16px;border-radius:14px;background:var(--sunk);font:500 12.5px/1.6 "JetBrains Mono",ui-monospace,monospace;color:var(--ink);white-space:pre;overflow-x:auto;max-width:100%}
+.sample-t{font-size:13px;font-weight:600;margin:18px 0 0;color:var(--ink)}
 .hint{font-size:13px;color:var(--secondary);margin:12px 0 0}.hint a{color:var(--ink);font-weight:600}
 
 /* documents (privacy, terms) */
