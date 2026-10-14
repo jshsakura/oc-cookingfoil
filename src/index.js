@@ -36,6 +36,7 @@ import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
+import downloadHost from "./security/download-host.js";
 import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
@@ -154,6 +155,8 @@ expressApp.get("/healthz", async (_req, res) => {
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
 expressApp.use(busyGuard());
 expressApp.use(rateLimit());
+// The download-only address answers signed file links and nothing else.
+expressApp.use(downloadHost(romsDirPath));
 
 if (adminEnabled) {
   expressApp.use("/api/admin", adminRouter());

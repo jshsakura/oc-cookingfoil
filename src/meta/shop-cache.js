@@ -46,6 +46,7 @@ import * as diskCache from "./shop-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
 import { rewriteArtworkOrigin, rewriteDownloadOrigin } from "../helpers/origin.js";
+import * as downloadLinks from "../security/download-links.js";
 import debug from "../debug.js";
 
 const gzipAsync = promisify(zlib.gzip);
@@ -348,7 +349,16 @@ function pickVariant(variant, acceptedEncodings) {
 // Derive the absolute-URL variant for a single origin and compress it. The
 // rewrite reads serializedJson synchronously up front, so a concurrent
 // rebuild swapping the base buffers can't desync this variant's body/etag.
-async function encodeForOrigin(origin) {
+// File URLs go to the download-only address as signed links when one is set
+// (security/download-links.js), otherwise they are anchored at the origin.
+function rewriteDownloads(json, origin, link) {
+  return link ? downloadLinks.rewriteSigned(json, link) : rewriteDownloadOrigin(json, origin);
+}
+
+// The memo key: one variant per origin, and per link expiry step when links are signed.
+const memoKey = (origin, link) => (link ? `${origin}|${link.base}|${link.exp}` : origin);
+
+async function encodeForOrigin(origin, link) {
   // Both artwork (`/api/shop/...`) and file-download (`../foo.nsp`) URLs are made
   // ABSOLUTE against this origin. CyberFoil (our priority client) handles them
   // two different ways and BOTH need an absolute URL:
@@ -360,7 +370,7 @@ async function encodeForOrigin(origin) {
   //     "tap a title → nothing happens". An absolute URL is returned verbatim.
   // (Stock Tinfoil accepts absolute file URLs fine, so this is safe there too.)
   let rewritten = rewriteArtworkOrigin(serializedJson.toString("utf-8"), origin);
-  rewritten = rewriteDownloadOrigin(rewritten, origin);
+  rewritten = rewriteDownloads(rewritten, origin, link);
   return compressVariant(Buffer.from(rewritten));
 }
 
@@ -375,10 +385,12 @@ export async function getEncodedForOrigin(acceptedEncodings, origin) {
   if (!origin) return getEncoded(acceptedEncodings);
   if (!cached) await build();
 
-  let variant = originMemo.get(origin);
+  const link = downloadLinks.current();
+  const key = memoKey(origin, link);
+  let variant = originMemo.get(key);
   if (!variant) {
-    variant = await encodeForOrigin(origin);
-    originMemo.set(origin, variant);
+    variant = await encodeForOrigin(origin, link);
+    originMemo.set(key, variant);
     if (originMemo.size > ORIGIN_MEMO_MAX) {
       const oldest = originMemo.keys().next().value;
       originMemo.delete(oldest);
@@ -398,9 +410,9 @@ function ensureSectionsIdentity() {
   return sectionsIdentity;
 }
 
-async function encodeSectionsForOrigin(origin) {
+async function encodeSectionsForOrigin(origin, link) {
   let rewritten = rewriteArtworkOrigin(sectionsIdentity.toString("utf-8"), origin);
-  rewritten = rewriteDownloadOrigin(rewritten, origin);
+  rewritten = rewriteDownloads(rewritten, origin, link);
   return compressVariant(Buffer.from(rewritten));
 }
 
@@ -422,10 +434,12 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin) {
     return pickVariant(sectionsNoOriginVariant, acceptedEncodings);
   }
 
-  let variant = sectionsOriginMemo.get(origin);
+  const link = downloadLinks.current();
+  const key = memoKey(origin, link);
+  let variant = sectionsOriginMemo.get(key);
   if (!variant) {
-    variant = await encodeSectionsForOrigin(origin);
-    sectionsOriginMemo.set(origin, variant);
+    variant = await encodeSectionsForOrigin(origin, link);
+    sectionsOriginMemo.set(key, variant);
     if (sectionsOriginMemo.size > ORIGIN_MEMO_MAX) {
       const oldest = sectionsOriginMemo.keys().next().value;
       sectionsOriginMemo.delete(oldest);
