@@ -39,7 +39,8 @@ export function slimPathFor(rawPath) {
   return rawPath.replace(/\.json$/, SLIM_SUFFIX);
 }
 
-function transform(json) {
+/** Reduces a parsed raw region file to its slim form. Pure; throws on a non-object. */
+export function slimFromJson(json) {
   if (!json || typeof json !== "object") {
     throw new Error("raw titledb is not an object");
   }
@@ -63,7 +64,7 @@ function transform(json) {
   return { slim, count };
 }
 
-async function atomicWrite(slimPath, slim) {
+export async function atomicWrite(slimPath, slim) {
   const tmp = `${slimPath}.tmp.${process.pid}`;
   await writeFile(tmp, JSON.stringify(slim));
   await rename(tmp, slimPath);
@@ -73,14 +74,14 @@ async function atomicWrite(slimPath, slim) {
 export async function writeSlimFromRawPath(rawPath, slimPath) {
   const text = await readFile(rawPath, "utf-8");
   const json = JSON.parse(text);
-  const { slim, count } = transform(json);
+  const { slim, count } = slimFromJson(json);
   await atomicWrite(slimPath, slim);
   return { count };
 }
 
 /** Reuse an already-parsed raw object (callers that just JSON.parse'd). */
 export async function writeSlimFromJson(json, slimPath) {
-  const { slim, count } = transform(json);
+  const { slim, count } = slimFromJson(json);
   await atomicWrite(slimPath, slim);
   return { count };
 }
