@@ -47,8 +47,8 @@
  *
  * Every download URL (download_url, bundle_url, archive.url, each file's url,
  * forwarder_url) has a direct twin (download_direct_url, bundle_direct_url,
- * direct_url, forwarder_direct_url) when the list was asked for from the home
- * network and a direct address is set (security/download-links.js).
+ * direct_url, forwarder_direct_url) when the list was asked for by a signed-in
+ * request and a direct address is set (security/download-links.js).
  *
  * `hash` changes whenever the build does; a client compares it with the one it
  * installed to show an update. A GitHub build announced but not yet fetched is

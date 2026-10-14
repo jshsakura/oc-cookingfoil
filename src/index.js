@@ -37,7 +37,6 @@ import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane from "./security/direct-lane.js";
-import { startPublicIpWatch } from "./security/home-network.js";
 import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
@@ -164,7 +163,7 @@ const downloadRouters = {
   "/api/client": clientUpdateRouter(),
   "/api/retro": retroRouter(),
 };
-// Direct links on the home network (signed, from a LAN address) are answered here,
+// Direct links (signed, through the direct address's proxy) are answered here,
 // without the sign-in; every other request goes on through the stack below.
 expressApp.use(directLane(romsDirPath, { routes: downloadRouters }));
 
@@ -332,8 +331,6 @@ shopCache.init().catch((err) =>
 userPatches.start({ onChange: () => shopCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
-// This house's public address, for handing out direct links only at home.
-startPublicIpWatch();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 

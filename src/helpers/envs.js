@@ -329,16 +329,11 @@ let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "")
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
 // download.maxConnections), not enforced: the client opens up to this many.
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
-// The direct address on the home network (security/download-links.js): when set,
-// lists asked for from home give every download a direct_url, a signed link on it
-// that stops working after downloadLinkTtl seconds. homePublicIp is this house's
-// public address, for telling home requests through the tunnel apart; empty means
-// it is looked up (security/home-network.js).
-let directBaseUrl = normalizeBaseUrl(pickEnv("COOK_DIRECT_BASE_URL"));
-// The same links outside the home network, on a public address that forwards
-// only signed downloads to this server (security/direct-lane.js).
+// The direct download address (security/download-links.js, direct-lane.js): a
+// proxy in front of this server that forwards only signed downloads. When set,
+// signed-in lists give every download a direct_url, a signed link on it that
+// stops working after downloadLinkTtl seconds.
 let publicDirectBaseUrl = normalizeBaseUrl(pickEnv("COOK_PUBLIC_DIRECT_BASE_URL"));
-let homePublicIp = envString("COOK_HOME_PUBLIC_IP", "").trim();
 let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 43200, { min: 3600, max: 604800, integer: true });
 // Safe restart (security/drain.js): the Retry-After a new request is given while
 // the server drains, and how long running requests may take to finish before
@@ -371,9 +366,7 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   welcomeMessage,
   downloadMaxConnections,
-  directBaseUrl: directBaseUrl || "",
   publicDirectBaseUrl: publicDirectBaseUrl || "",
-  homePublicIp,
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
@@ -401,9 +394,7 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
-  directBaseUrl = v.directBaseUrl ? normalizeBaseUrl(v.directBaseUrl) : null;
   publicDirectBaseUrl = v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
-  homePublicIp = v.homePublicIp || "";
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;
@@ -412,9 +403,7 @@ function applyServerSettings(saved = {}) {
 export {
   ENV_SETTINGS,
   downloadMaxConnections,
-  directBaseUrl,
   publicDirectBaseUrl,
-  homePublicIp,
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,

@@ -14,7 +14,7 @@
  * Download: extras are already served by the games-dir static handler, so the
  * returned `url` is a root-absolute, per-segment-encoded path that resolves
  * straight to the file (behind the same auth perimeter as everything else).
- * From the home network, with a direct address set, `direct_url` is beside it
+ * For a signed-in request, with a direct address set, `direct_url` is beside it
  * (security/download-links.js).
  */
 import path from "path";

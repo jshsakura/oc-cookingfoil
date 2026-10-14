@@ -9,7 +9,7 @@
  *                                  Each P carries `game` { name, names, icon } when
  *                                  titledb or the game's own file knows the title,
  *                                  so a client can label patches for games it doesn't list.
- *                                  From the home network, with a direct address set, each P
+ *                                  For a signed-in request, with a direct address set, each P
  *                                  carries direct_url: a signed link to its download
  *                                  (security/download-links.js).
  * GET /api/patches/:id/download    one patch as an uncompressed ustar archive

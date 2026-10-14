@@ -2,14 +2,16 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
-// The whole server: lists asked for at home carry direct_url beside every
-// download's url, and those links are answered on the LAN without sign-in.
+// The whole server: signed-in lists carry direct_url beside every download's
+// url, and those links are answered without sign-in when they come through
+// the direct address's proxy (from loopback, Host fixed, X-Forwarded-For set).
 const PORT = 15900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-const HOME_IP = "203.0.113.7";
+const DL_HOST = "dl.test:38443";
 const AUTH = "Basic " + Buffer.from("alice:alice-password").toString("base64");
 const KEY_A = "A1".repeat(32);
 const KEY_B = "B2".repeat(32);
@@ -41,7 +43,7 @@ before(async () => {
       ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_RETRO_DIR: retro,
       COOK_SAVES_DIR: saves, COOK_PATCHES_DIR: patches, COOK_HOMEBREW_DIR: path.join(data, "homebrew"),
       COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_RATING_SYNC: "false",
-      COOK_DIRECT_BASE_URL: BASE, COOK_HOME_PUBLIC_IP: HOME_IP,
+      COOK_PUBLIC_DIRECT_BASE_URL: `https://${DL_HOST}`,
     },
     stdio: "ignore",
   });
@@ -57,10 +59,23 @@ before(async () => {
 });
 after(() => child?.kill("SIGKILL"));
 
-const AT_HOME = { Authorization: AUTH, "X-Device-Key": KEY_A };
-const AWAY = { Authorization: AUTH, "X-Device-Key": KEY_A, "CF-Connecting-IP": "198.51.100.9" };
-const TUNNEL_HOME = { Authorization: AUTH, "X-Device-Key": KEY_A, "CF-Connecting-IP": HOME_IP };
+const SIGNED_IN = { Authorization: AUTH, "X-Device-Key": KEY_A };
 const settle = () => new Promise((r) => setTimeout(r, 100));
+
+/** GET a direct link the way the proxy forwards it: to this server, Host fixed, the client in X-Forwarded-For. */
+function viaProxy(link, extra = {}) {
+  const u = new URL(link);
+  assert.equal(u.host, DL_HOST);
+  return new Promise((resolve, reject) => {
+    const req = http.request({ port: PORT, host: "127.0.0.1", path: u.pathname + u.search, headers: { host: DL_HOST, "x-forwarded-for": "198.51.100.9", ...extra } }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 async function json(url, headers) {
   const res = await fetch(BASE + url, { headers });
@@ -78,79 +93,66 @@ async function ready(url, headers, has) {
   throw new Error(`${url} never filled`);
 }
 
-function stripDirect(value) {
-  if (Array.isArray(value)) return value.map(stripDirect);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).filter(([k]) => !/direct_?url$/i.test(k)).map(([k, v]) => [k, stripDirect(v)]));
-}
-
-test("the shop list carries direct_url only at home; url stays what it was", async () => {
-  const home = await ready("/shop.json", AT_HOME, (b) => b.files?.length);
-  const tunnelHome = await json("/shop.json", TUNNEL_HOME);
-  const awayText = await (await fetch(`${BASE}/shop.json`, { headers: AWAY })).text();
-  assert.ok(!awayText.includes("direct_url"), "away from home: no direct links at all");
-  const away = JSON.parse(awayText);
-  const file = home.files.find((f) => f.url.endsWith(".nsp"));
-  assert.ok(file.direct_url.startsWith(`${BASE}/`));
-  assert.ok(tunnelHome.files.every((f) => f.direct_url));
-  assert.deepEqual(stripDirect(home), away, "the rest of the list is the same");
-  const sections = await (await fetch(`${BASE}/api/shop/sections`, { headers: AT_HOME })).text();
+test("the shop list carries direct_url beside url for a signed-in console", async () => {
+  const listed = await ready("/shop.json", SIGNED_IN, (b) => b.files?.length);
+  const file = listed.files.find((f) => f.url.endsWith(".nsp"));
+  assert.ok(file.url.startsWith(BASE), "url stays on the shop's own address");
+  assert.ok(file.direct_url.startsWith(`https://${DL_HOST}/`));
+  const sections = await (await fetch(`${BASE}/api/shop/sections`, { headers: SIGNED_IN })).text();
   assert.ok(sections.includes('"direct_url"'));
-  assert.ok(!(await (await fetch(`${BASE}/api/shop/sections`, { headers: AWAY })).text()).includes("direct_url"));
 });
 
-test("a direct link opens on the LAN without sign-in, once, and not through the tunnel", async () => {
-  const mine = (await json("/shop.json", AT_HOME)).files.find((f) => f.url.endsWith(".nsp")).direct_url;
-  const theirs = (await json("/shop.json", { Authorization: AUTH, "X-Device-Key": KEY_B })).files.find((f) => f.url.endsWith(".nsp")).direct_url;
+test("a direct link opens through the proxy without sign-in, once; never through the tunnel", async () => {
+  const pick = (b) => b.files.find((f) => f.url.endsWith(".nsp")).direct_url;
+  const mine = pick(await json("/shop.json", SIGNED_IN));
+  const theirs = pick(await json("/shop.json", { Authorization: AUTH, "X-Device-Key": KEY_B }));
   assert.notEqual(mine, theirs, "each console has its own link");
-  // Through the tunnel the signed lane steps aside: no sign-in, no file.
-  assert.equal((await fetch(mine, { headers: { "CF-Connecting-IP": HOME_IP } })).status, 401);
-  const res = await fetch(mine);
+  // The same request through the tunnel goes to the normal stack: no sign-in, no file.
+  assert.equal((await viaProxy(mine, { "cf-connecting-ip": "198.51.100.9" })).status, 401);
+  const res = await viaProxy(mine);
   assert.equal(res.status, 200);
-  assert.equal(await res.text(), "NSPDATA");
+  assert.equal(res.body.toString(), "NSPDATA");
   await settle();
-  const again = await fetch(mine);
+  const again = await viaProxy(mine);
   assert.equal(again.status, 403);
-  assert.equal(again.headers.get("x-cookingfoil-link"), "used");
-  assert.equal((await fetch(theirs)).status, 200, "the same account's other console is not affected");
-  const fresh = (await json("/shop.json", AT_HOME)).files.find((f) => f.url.endsWith(".nsp")).direct_url;
+  assert.equal(again.headers["x-cookingfoil-link"], "used");
+  assert.equal((await viaProxy(theirs)).status, 200, "the same account's other console is not affected");
+  const fresh = pick(await json("/shop.json", SIGNED_IN));
   assert.notEqual(fresh, mine);
-  assert.equal((await fetch(fresh)).status, 200);
+  assert.equal((await viaProxy(fresh)).status, 200);
 });
 
-test("retro, saves, patches and extras get direct twins at home and none away", async () => {
-  const games = await ready("/api/retro/games", AT_HOME, (b) => b.games?.length);
+test("retro, saves, patches and extras get direct twins; artwork does not", async () => {
+  const games = await ready("/api/retro/games", SIGNED_IN, (b) => b.games?.length);
   const g = games.games[0];
   assert.ok(g.romDirectUrl && g.bundleDirectUrl);
   assert.equal(g.iconDirectUrl, undefined, "artwork stays on the shop address");
   assert.equal(g.romUrl, `/api/retro/games/${g.id}/rom`);
-  assert.equal(await (await fetch(g.romDirectUrl)).text(), "SMW");
-  assert.ok(!(await (await fetch(`${BASE}/api/retro/games`, { headers: AWAY })).text()).includes("DirectUrl"));
+  assert.equal((await viaProxy(g.romDirectUrl)).body.toString(), "SMW");
 
-  const save = (await ready("/api/saves", AT_HOME, (b) => b.saves?.length)).saves[0];
+  const save = (await ready("/api/saves", SIGNED_IN, (b) => b.saves?.length)).saves[0];
   assert.equal(save.url, `/api/saves/${save.id}/download`);
-  assert.equal((await fetch(save.direct_url)).status, 200);
-  assert.equal((await json("/api/saves", AWAY)).saves[0].direct_url, undefined);
+  assert.equal((await viaProxy(save.direct_url)).status, 200);
 
-  const patch = (await ready("/api/patches", AT_HOME, (b) => b.patches?.length && !b.scanning)).patches[0];
-  const tar = await fetch(patch.direct_url);
+  const patch = (await ready("/api/patches", SIGNED_IN, (b) => b.patches?.length && !b.scanning)).patches[0];
+  const tar = await viaProxy(patch.direct_url);
   assert.equal(tar.status, 200);
-  assert.ok(Buffer.from(await tar.arrayBuffer()).includes(Buffer.from("CHEAT")));
-  assert.equal((await json("/api/patches", AWAY)).patches[0].direct_url, undefined);
+  assert.ok(tar.body.includes(Buffer.from("CHEAT")));
 
-  const extra = (await json("/api/title/0100000000010000/extras", AT_HOME)).extras.find((x) => x.name === "readme.txt");
-  assert.equal(await (await fetch(extra.direct_url)).text(), "README");
-  assert.equal((await json("/api/title/0100000000010000/extras", AWAY)).extras[0].direct_url, undefined);
+  const extra = (await json("/api/title/0100000000010000/extras", SIGNED_IN)).extras.find((x) => x.name === "readme.txt");
+  assert.equal((await viaProxy(extra.direct_url)).body.toString(), "README");
 });
 
-test("a signature opens nothing but downloads, and the LAN pages keep their sign-in", async () => {
-  const link = new URL((await json("/shop.json", AT_HOME)).files[0].direct_url);
+test("a signature opens nothing but downloads, and the shop's own pages keep their sign-in", async () => {
+  const link = new URL((await json("/shop.json", SIGNED_IN)).files[0].direct_url);
   for (const p of ["/api/admin/users", "/api/retro/games", "/api/shop/sections", "/admin", "/api/inbox"]) {
-    assert.equal((await fetch(`${BASE}${p}${link.search}`)).status === 200, false, p);
+    assert.equal((await viaProxy(`https://${DL_HOST}${p}${link.search}`)).status, 404, p);
   }
+  // A signed request straight to the server (not from the proxy) goes through the sign-in.
+  assert.equal((await fetch(`${BASE}${link.pathname}${link.search}`)).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`)).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`, { headers: { Authorization: AUTH } })).status, 200);
-  const forged = await fetch(`${link.origin}${link.pathname}${link.search.replace(/sig=[^&]+/, `sig=${"Q".repeat(22)}`)}`);
+  const forged = await viaProxy(`https://${DL_HOST}${link.pathname}${link.search.replace(/sig=[^&]+/, `sig=${"Q".repeat(22)}`)}`);
   assert.equal(forged.status, 403);
-  assert.equal(forged.headers.get("x-cookingfoil-link"), "invalid");
+  assert.equal(forged.headers["x-cookingfoil-link"], "invalid");
 });

@@ -1,45 +1,50 @@
 /**
- * The signed lane: direct links (download-links.js) answered on the home network.
+ * The signed lane: direct links (download-links.js), answered without the sign-in.
  *
- * A request takes this lane only when all of these hold; anything else goes
- * on through the normal stack and its sign-in, untouched:
- *   - direct links are on (server-settings directBaseUrl or publicDirectBaseUrl),
- *   - it carries exp and sig,
- *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP), and
- *     it is either a LAN connection (a private or loopback peer, no proxy hop:
- *     no X-Forwarded-For) or it came from the public direct address's proxy
- *     (Host or X-Forwarded-Host is that address's host),
- *   - it is a GET or HEAD for a download: a file in the games folder (a game,
- *     update, DLC or a title's extra file) or one of DOWNLOAD_ROUTES.
- * Every other request for the public direct address's host is a 404, so that
- * address carries nothing but the files its links point to.
+ * Direct links point at the direct address (publicDirectBaseUrl), a proxy on
+ * this host that forwards only GET/HEAD requests carrying exp and sig, sets
+ * X-Forwarded-For itself and fixes Host to that address. A request takes this
+ * lane only when all of these hold; anything else goes on through the normal
+ * stack and its sign-in, untouched:
+ *   - a direct address is set,
+ *   - the socket peer is this machine (loopback or the container's gateway,
+ *     local-hop.js): only the proxy on the host connects from there,
+ *   - Host, and X-Forwarded-Host when present, is the direct address's host,
+ *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP),
+ *   - it carries exp and sig and is a GET or HEAD for a download: a file in the
+ *     games folder (a game, update, DLC or a title's extra file) or one of
+ *     DOWNLOAD_ROUTES.
+ * A request that came from the proxy but is not one of those is a 404, so the
+ * direct address carries nothing but the files its links point to.
  *
- * Who is counted for the ban: on the LAN the socket peer itself (headers can't
- * move it); through the proxy req.ip, the client the proxy names in
- * X-Forwarded-For (trust proxy must cover the proxy's address). Headers only
- * choose between those two; no header turns an invalid signature into a
- * valid one, and the link's own console and expiry still decide the rest.
- * On the lane the signature stands in for the sign-in. The request is answered
- * by the very routers the shop uses (`routes`) and by the games folder, and
- * never reaches pages, lists, the admin API, uploads, sign-in or any write.
+ * The client is the rightmost X-Forwarded-For entry, the one the proxy wrote;
+ * whatever a client sends to the left of it is ignored. That address is what
+ * the ban (download-ban.js) counts and what the log names. The ban is a short
+ * first line: the proxy logs every 403, and a firewall rule built on those
+ * logs (CrowdSec) is the hard ban.
+ *
+ * On the lane the request is answered by the very routers the shop uses
+ * (`routes`) and by the games folder with the same options as the shop's own
+ * static handler, so ETag and Last-Modified match on both lanes and a resume
+ * may switch between them. It never reaches pages, lists, the admin API,
+ * uploads, sign-in or any write.
  *
  * Refusals are 403 with X-CookingFoil-Link, so a client knows what to do:
  *   expired  the link ran out: read the list again
  *   used     the file was already delivered in full through this link: read the list again
  *   revoked  the account or console it was made for may no longer sign in
  *   invalid  not a link this server made
- *   blocked  this address sent too many invalid links (download-ban.js) and is shut out for a while
+ *   blocked  this address sent too many invalid links and is shut out for a while
  * The client may then fall back to the item's `url`.
  */
 import express from "express";
+import net from "net";
 import * as links from "./download-links.js";
 import * as state from "./download-state.js";
 import { stillAllowed } from "./link-identity.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { createCoverage, deliveredBytes } from "./link-coverage.js";
-import { clientIp } from "./deny.js";
-import { isLoopbackIp, isPrivateIp } from "./net.js";
-import { trustLoopback } from "./limits.js";
+import { isLocalHop } from "./local-hop.js";
 import connectionHint from "../helpers/connection-hint.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -70,12 +75,7 @@ export function laneOf(rawPath) {
 
 const peerOf = (req) => String(req.socket?.remoteAddress ?? "").replace(/^::ffff:/, "");
 
-function requestHost(req) {
-  const forwarded = String(req.get("x-forwarded-host") || "").split(",")[0].trim();
-  return (forwarded || req.get("host") || "").toLowerCase();
-}
-
-function publicHost() {
+function directHost() {
   if (!env.publicDirectBaseUrl) return "";
   try {
     return new URL(env.publicDirectBaseUrl).host.toLowerCase();
@@ -84,16 +84,24 @@ function publicHost() {
   }
 }
 
+const headerHost = (req, name) => String(req.get(name) ?? "").trim().toLowerCase();
+
+/** The rightmost X-Forwarded-For entry (the one the proxy wrote), or null. Pure. */
+export function proxiedClient(xff) {
+  const last = String(xff ?? "").split(",").pop().trim().replace(/^::ffff:/, "");
+  return net.isIP(last) ? last : null;
+}
+
 /**
- * How a request reached the server: "lan" (straight from the LAN), "proxy"
- * (through the public direct address's proxy), or null (the tunnel, or anything else).
+ * The client's address when a request came from the direct address's proxy
+ * (see the list above), else null.
  */
-export function arrivalOf(req) {
-  if (req.get("cf-connecting-ip")) return null;
-  const host = publicHost();
-  if (host && requestHost(req) === host) return "proxy";
-  if (!req.get("x-forwarded-for") && isPrivateIp(peerOf(req))) return "lan";
-  return null;
+export function viaDirectProxy(req) {
+  const host = directHost();
+  if (!host || req.get("cf-connecting-ip") || !isLocalHop(peerOf(req))) return null;
+  if (headerHost(req, "host") !== host) return null;
+  if (req.get("x-forwarded-host") !== undefined && headerHost(req, "x-forwarded-host") !== host) return null;
+  return proxiedClient(req.get("x-forwarded-for"));
 }
 
 const rawQuery = (url) => (url.includes("?") ? url.slice(url.indexOf("?") + 1) : "");
@@ -124,6 +132,8 @@ function laneRouter(root, routes) {
 function trackDelivery(req, res, link, coverage) {
   if (req.method !== "GET") return;
   res.on("finish", () => {
+    // Handed to the operating system on a socket that has not failed (see link-coverage.js).
+    if (res.socket?.errored || req.socket?.errored) return;
     const delivered = deliveredBytes(req.method, res.statusCode, res.getHeader("content-range"));
     if (coverage.add(link.sig, link.exp, delivered)) state.markUsed(link.sig, link.exp, link.u);
   });
@@ -135,9 +145,8 @@ function newBan() {
   });
 }
 
-/** Whether this request is one for the signed lane at all (see the list above). */
-function takesLane(req, arrival) {
-  if (!arrival || (!env.directBaseUrl && !env.publicDirectBaseUrl)) return false;
+/** Whether a request from the proxy is one for the signed lane (see the list above). */
+function takesLane(req) {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
   return links.hasSignature(rawQuery(req.url)) && laneOf(req.path) !== null;
 }
@@ -149,21 +158,17 @@ function takesLane(req, arrival) {
 export default function directLane(root, { routes = {}, ban = newBan(), coverage = createCoverage() } = {}) {
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
-    const arrival = arrivalOf(req);
-    if (!takesLane(req, arrival)) {
-      // The public direct address answers links and nothing else.
-      if (arrival === "proxy") return res.set("Cache-Control", "no-store").status(404).end();
-      return next();
-    }
+    const ip = viaDirectProxy(req);
+    if (!ip) return next();
+    // The direct address answers links and nothing else.
+    if (!takesLane(req)) return res.set("Cache-Control", "no-store").status(404).end();
 
     res.set("Cache-Control", "private, no-store");
-    const ip = arrival === "lan" ? peerOf(req) : clientIp(req);
-    const exempt = arrival === "lan" && trustLoopback && isLoopbackIp(ip);
-    if (!exempt && ban.isBanned(ip)) return refuse(res, "blocked");
+    if (ban.isBanned(ip)) return refuse(res, "blocked");
 
     const link = links.verifyRequest(req.path, rawQuery(req.url));
     if (link.verdict === "bad") {
-      if (!exempt) ban.recordBad(ip);
+      ban.recordBad(ip);
       return refuse(res, "invalid");
     }
     if (link.verdict === "expired") return refuse(res, "expired");

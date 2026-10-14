@@ -9,7 +9,7 @@
  *                                   A homebrew app's save has titleId null, `homebrew` (its
  *                                   switch/<app>/ folder name) and `installRoot` ("switch/<app>"):
  *                                   its files are restored into that folder of the SD card
- *                                   direct_url beside url when asked from the home network
+ *                                   direct_url beside url for a signed-in request when a direct address is set
  *                                   (security/download-links.js)
  *   GET /api/saves/:id/download     the save folder's contents as an uncompressed ustar,
  *                                   paths relative to the save's root, directories first

@@ -1,13 +1,14 @@
 /**
- * An address that keeps presenting forged or broken links on the download
- * address is shut out for a while: BAD_LIMIT invalid links within BAD_WINDOW_MS
- * blocks every request from it for BAN_MS. Expired links don't count; they
- * are what an honest console holds after a long pause. In memory only, with a
- * bounded table.
+ * A client that keeps presenting forged or broken links on the direct address
+ * is shut out for a while: BAD_LIMIT invalid links within BAD_WINDOW_MS blocks
+ * every request from it for BAN_MS. Expired links don't count; they are what
+ * an honest console holds after a long pause. This is only the first line and
+ * kept short: the proxy logs the 403s and a firewall rule on those logs
+ * (CrowdSec) is the hard ban. In memory only, with a bounded table.
  */
 export const BAD_LIMIT = 10;
 export const BAD_WINDOW_MS = 10 * 60 * 1000;
-export const BAN_MS = 30 * 60 * 1000;
+export const BAN_MS = 10 * 60 * 1000;
 const MAX_ADDRESSES = 10_000;
 
 export function createBan({ limit = BAD_LIMIT, windowMs = BAD_WINDOW_MS, banMs = BAN_MS, maxEntries = MAX_ADDRESSES, onBan = () => {} } = {}) {

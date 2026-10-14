@@ -1,27 +1,28 @@
 /**
- * Signed, expiring links for downloading straight over the home network.
+ * Signed, expiring direct download links.
  *
  * Every download keeps its `url` on the shop's own address (the tunnel, with
  * the usual sign-in). When the admin sets a direct address (server-settings
- * directBaseUrl, e.g. http://192.168.0.136:38000) and a list is asked for from
- * the home network (home-network.js), each download also gets a direct twin:
+ * publicDirectBaseUrl, e.g. https://dl.example.org:38443, a proxy on this host
+ * that forwards only signed GET/HEAD requests here), every signed-in list also
+ * gives each download a direct twin:
  *
  *   "url": "https://shop.example/Game%2Ffile.nsp",
- *   "direct_url": "http://192.168.0.136:38000/Game%2Ffile.nsp?u=<tag>&g=<n>&exp=<unix>&sig=<mac>"
+ *   "direct_url": "https://dl.example.org:38443/Game%2Ffile.nsp?u=<tag>&g=<n>&exp=<unix>&sig=<mac>"
  *
  * (directName() gives the twin's name: url → direct_url, romUrl → romDirectUrl,
- * bundle_url → bundle_direct_url.) Outside the home network the twin is on the
- * public direct address instead (publicDirectBaseUrl, e.g.
- * https://dl.example.org:38443, a proxy in front of this server) when the admin
- * set one; without it the field is left out and the lists are exactly what
- * they were. The host is not signed, so one link opens on either address.
+ * bundle_url → bundle_direct_url.) Without a direct address, or for a caller
+ * who did not sign in, the field is left out and the lists are exactly what
+ * they were.
  *
  * The signature covers the decoded path and the rest of the query in a fixed
- * order, so "/api/homebrew/x/file?path=…" opens that one file and nothing
- * else. u is the console it was made for (link-identity.js) and g that
- * console's generation (download-state.js); both are signed. direct-lane.js
- * serves such a link only on a direct LAN connection, without the sign-in,
- * and closes it once its file has been delivered in full.
+ * order, never the host, so "/api/homebrew/x/file?path=…" opens that one file
+ * and nothing else. u is the console it was made for (link-identity.js) and g
+ * that console's generation (download-state.js), both signed. g is only there
+ * to make a fresh link once one of the console's links has been used up; it is
+ * not compared with the console's current generation, so an older link that
+ * was never used keeps working until it expires. direct-lane.js serves such a
+ * link without the sign-in and closes it once its file has been delivered in full.
  *
  * Expiries are rounded up to a step (a quarter of the lifetime) so every list
  * served inside one step is byte-identical and the memo in shop-cache.js keeps
@@ -37,7 +38,6 @@ import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as identity from "./link-identity.js";
 import * as state from "./download-state.js";
-import { isHome } from "./home-network.js";
 
 const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
@@ -101,9 +101,10 @@ export function expiryFor(nowSec, ttlSec) {
 /**
  * The link settings in force now: { base, exp } when a direct address is set,
  * else null. Without a usable key there are no direct links either, rather
- * than a failing list. `base` is the address the links go on.
+ * than a failing list.
  */
-export function current(nowMs = Date.now(), base = env.directBaseUrl) {
+export function current(nowMs = Date.now()) {
+  const base = env.publicDirectBaseUrl;
   if (!base) return null;
   try {
     signingKey();
@@ -120,18 +121,13 @@ export function tagFor(who) {
   return `i${crypto.createHmac("sha256", signingKey()).update(`id\n${parts}`).digest("base64url").slice(0, TAG_CHARS)}`;
 }
 
-/** The direct address for a list request: the LAN one at home (the public one when there is none), else the public one. */
-export function baseFor(req) {
-  return (isHome(req) && env.directBaseUrl) || env.publicDirectBaseUrl || null;
-}
-
 /**
- * The link settings for one list request: { base, exp, u, g } when it signed
- * in and baseFor() names an address; null otherwise, and the list then
+ * The link settings for one list request: { base, exp, u, g } when a direct
+ * address is set and the request signed in; null otherwise, and the list then
  * carries no direct links.
  */
 export function forRequest(req, nowMs = Date.now()) {
-  const link = current(nowMs, baseFor(req));
+  const link = current(nowMs);
   if (!link) return null;
   const who = identity.requester(req);
   if (!who) return null;

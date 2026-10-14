@@ -52,8 +52,8 @@
  *
  * Every download URL (romUrl, bundleUrl, the bezel's imageUrl, overlayCfgUrl
  * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) has
- * a direct twin (romDirectUrl, …, direct_url) when the list was asked for from
- * the home network and a direct address is set (security/download-links.js);
+ * a direct twin (romDirectUrl, …, direct_url) when the list was asked for by a
+ * signed-in request and a direct address is set (security/download-links.js);
  * otherwise the twins are left out.
  *
  * Bundle and pack paths are relative to the SD root: roms/<system>/…,

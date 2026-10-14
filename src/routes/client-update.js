@@ -3,7 +3,7 @@
  *
  *   GET /api/client/latest           { version, size, sha256, url, forwarder_url, forwarder_title_id, forwarder_size },
  *                                    or 404 when no build is there; direct_url and forwarder_direct_url
- *                                    beside them when asked from the home network (security/download-links.js)
+ *                                    beside them for a signed-in request when a direct address is set (security/download-links.js)
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
  *   GET /api/client/forwarder        the client's own HOME-menu shortcut NSP, starting
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)

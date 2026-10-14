@@ -10,7 +10,13 @@
  *         links whose file was delivered in full; they open nothing again.
  *
  * Entries go once no link made for them can still be open: a used link after
- * its expiry, an identity after two lifetimes without a list.
+ * its expiry, an identity after two lifetimes without a list. One account
+ * keeps at most MAX_IDS_PER_ACCOUNT identities (a browser's is per
+ * User-Agent); a new one pushes out the one that asked for a list longest ago,
+ * and that one's links then answer "revoked".
+ *
+ * Changes are written at most once per WRITE_DELAY_MS (and when the process
+ * exits), so a crash can forget the last couple of seconds.
  */
 import fs from "fs";
 import path from "path";
@@ -19,6 +25,8 @@ import debug from "../debug.js";
 
 const FILE = path.join(env.dataDir, "security", "download-links.json");
 const EMPTY = Object.freeze({ ids: {}, used: {} });
+export const MAX_IDS_PER_ACCOUNT = 8;
+const WRITE_DELAY_MS = 2000;
 
 let state = null;
 
@@ -43,8 +51,15 @@ export function pruned({ ids, used }, nowMs, ttlSec) {
   };
 }
 
-function commit(next, nowMs) {
-  state = pruned(next, nowMs, env.downloadLinkTtl);
+let writeTimer = null;
+let dirty = false;
+
+/** Writes the state now if anything changed since the last write. */
+export function flush() {
+  clearTimeout(writeTimer);
+  writeTimer = null;
+  if (!dirty) return;
+  dirty = false;
   try {
     fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
     const tmp = `${FILE}.tmp`;
@@ -53,6 +68,24 @@ function commit(next, nowMs) {
   } catch (err) {
     debug.error("download links: saving %s failed: %s", FILE, err.message);
   }
+}
+
+process.once("exit", flush);
+
+function commit(next, nowMs) {
+  state = pruned(next, nowMs, env.downloadLinkTtl);
+  dirty = true;
+  writeTimer ??= setTimeout(flush, WRITE_DELAY_MS).unref();
+}
+
+const sameAccount = (a, b) => Boolean(a && b) && a.kind === b.kind && a.id === b.id;
+
+/** `ids` with room for one more identity of `acct`: the account's oldest ones beyond the cap go. Pure. */
+export function makeRoom(ids, acct, keepU, max = MAX_IDS_PER_ACCOUNT) {
+  if (!acct) return ids;
+  const mine = Object.entries(ids).filter(([u, r]) => u !== keepU && sameAccount(r.acct, acct)).sort(([, a], [, b]) => a.seen - b.seen);
+  const drop = new Set(mine.slice(0, Math.max(0, mine.length - (max - 1))).map(([u]) => u));
+  return drop.size ? Object.fromEntries(Object.entries(ids).filter(([u]) => !drop.has(u))) : ids;
 }
 
 const sameWho = (a, b) =>
@@ -68,7 +101,8 @@ export function remember(u, who, nowMs = Date.now()) {
   const fresh = prev && sameWho(prev, who) && nowMs - prev.seen < (env.downloadLinkTtl * 1000) / 4;
   if (fresh) return prev.g;
   const g = prev?.g ?? 0;
-  commit({ ...s, ids: { ...s.ids, [u]: { acct: who.acct, dev: who.dev, agent: who.agent, paired: who.paired, g, seen: nowMs } } }, nowMs);
+  const ids = prev ? s.ids : makeRoom(s.ids, who.acct, u);
+  commit({ ...s, ids: { ...ids, [u]: { acct: who.acct, dev: who.dev, agent: who.agent, paired: who.paired, g, seen: nowMs } } }, nowMs);
   return g;
 }
 
@@ -92,5 +126,6 @@ export function markUsed(sig, exp, u, nowMs = Date.now()) {
 
 /** Tests read the file again, as after a restart. */
 export function resetForTests() {
+  flush();
   state = null;
 }
