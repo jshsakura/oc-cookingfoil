@@ -15,7 +15,7 @@
  * what happened and that something may need doing on the admin page.
  *
  * An approval alert (a console, a Google account) also carries [승인] [거절]
- * buttons once the admin turned them on; each stands for a one-time token
+ * buttons unless the admin turned them off; each stands for a one-time token
  * (approval-tokens.js) and telegram-updates.js receives the presses.
  */
 import fs from "fs";
@@ -87,8 +87,8 @@ export function enabledEvents(list = integrations.get("telegram").events) {
 /** Whether the admin wants this event (see enabledEvents). */
 export const wanted = (event, list) => enabledEvents(list).includes(event);
 
-/** Whether approval alerts carry buttons: only once the admin saved "on" (off by default). */
-export const buttonsOn = (conf = integrations.get("telegram")) => conf.buttons === "on";
+/** Whether approval alerts carry buttons: on unless the admin saved "off". */
+export const buttonsOn = (conf = integrations.get("telegram")) => conf.buttons !== "off";
 
 /**
  * Calls one Bot API method; resolves to Telegram's answer ({ ok, result?, description? }).

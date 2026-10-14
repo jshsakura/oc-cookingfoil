@@ -71,15 +71,14 @@ const useChat = (chatId, extra = {}) => integrations.save("telegram", { botToken
 
 after(() => updates.resetForTests());
 
-test("buttons stay off until the admin turns them on", async () => {
+test("buttons are on unless the admin turns them off", async () => {
   integrations.save("telegram", { botToken: TOKEN, chatId: "42" });
   const tg = fakeTelegram();
   alerts.alert("device", "x", { subject: newKey(), approval: { kind: "device", ref: "k" } });
   await settle();
-  assert.equal(tg.of("sendMessage")[0].body.reply_markup, undefined);
-  assert.equal(alerts.buttonsOn(), false);
-  assert.equal(updates.wanted(), false, "no loop either");
-  assert.equal(alerts.buttonsOn({ buttons: "on" }), true);
+  assert.ok(tg.of("sendMessage")[0].body.reply_markup, "a configured bot gets buttons with nothing saved");
+  assert.equal(alerts.buttonsOn(), true);
+  assert.equal(alerts.buttonsOn({ buttons: "off" }), false);
 });
 
 test("the device alert shows the code to compare with the console's screen", async () => {
