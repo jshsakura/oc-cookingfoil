@@ -465,15 +465,37 @@
         background: var(--surface); border: 1px dashed var(--line2); border-radius: var(--radius);
       }
 
-      .game.skel { cursor: default; pointer-events: none; }
-      .skel .cover, .skel .name-skel, .skel .sub-skel, .sk, .game .cover.loading {
+      /* LOADING: placeholders in the real card's shape (same cover, two name lines, the pill line),
+         so nothing moves when the list arrives */
+      .skel { cursor: default; pointer-events: none; }
+      .skel .cover, .game.skel .meta i, .home-row.skel h2 i, .chart.skel i, .hero.skel .hero-cover, .hero.skel .hero-text i,
+      .sk, .game .cover.loading {
         background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
         background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
       }
       .skel .cover { box-shadow: none; }
-      .skel .name-skel { width: 80%; height: 14px; border-radius: 6px; }
-      .skel .sub-skel  { width: 50%; height: 11px; border-radius: 6px; }
+      .game.skel .meta i { display: block; border-radius: 6px; }
+      .game.skel .name { display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+      .game.skel .name i { height: 13px; width: 86%; }
+      .game.skel .name i + i { width: 58%; }
+      .game.skel .sub i { height: 20px; width: 64px; border-radius: 100px; }
+      .home-row.skel h2 i { display: block; width: 160px; height: 22px; border-radius: 8px; margin: 4px 0; }
+      .chart.skel { min-height: 132px; display: grid; align-content: start; gap: 12px; }
+      .chart.skel i { display: block; height: 12px; border-radius: 6px; }
+      .chart.skel i:first-child { width: 40%; }
+      .chart.skel i:nth-child(2) { height: 64px; border-radius: 10px; }
+      .hero .hero-text[hidden] { display: none; }
+      .hero.skel { background: var(--surface); border: 1px solid var(--line); cursor: default; }
+      .hero.skel .hero-cover { box-shadow: none; }
+      .hero.skel .hero-text { flex: 1; }
+      .hero.skel .hero-text i { display: block; height: 15px; width: 120px; border-radius: 6px; }
+      .hero.skel .hero-text i:nth-child(2) { height: 38px; width: min(420px, 80%); border-radius: 10px; }
+      .hero.skel .hero-text i:nth-child(3) { height: 26px; width: 180px; border-radius: 100px; }
       @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        .skel .cover, .game.skel .meta i, .home-row.skel h2 i, .chart.skel i, .hero.skel .hero-cover, .hero.skel .hero-text i,
+        .sk, .game .cover.loading, .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel { animation: none; }
+      }
       .sk { color: transparent !important; border-radius: 6px; }
       /* patches and saves while their list loads */
       .xgroup.xskel { pointer-events: none; }
@@ -811,7 +833,8 @@
         <section class="hero" id="hero" tabindex="0" hidden>
           <div class="hero-bg" id="hero-bg"></div>
           <img class="hero-cover" id="hero-cover" alt="" decoding="async">
-          <div class="hero-text">
+          <div class="hero-text" id="hero-skel-text" hidden aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="hero-text" id="hero-text">
             <span class="eyebrow" id="hero-eyebrow"></span>
             <span class="hero-title" id="hero-title"></span>
             <span class="hero-pub" id="hero-pub"></span>
@@ -1893,20 +1916,46 @@
       let featuredRows = [];     // sections.featured, the admin's picks
 
       // ─── skeleton placeholders ─────────────────────────────────────────────
-      // Drop a grid of shimmering cards in immediately so the first paint
-      // already feels populated. Replaced by real cards once /shop.json
-      // resolves; never shown again after that.
-      function renderSkeletons(n = 8) {
-        const grid = $("games");
-        grid.innerHTML = "";
-        const frag = document.createDocumentFragment();
-        for (let i = 0; i < n; i++) {
+      // Shimmering cards in the real card's shape go in before the first paint:
+      // whole rows of the grid, the preview's banner and shelves, and the chart
+      // row. Replaced by real cards once /shop.json resolves; never shown again
+      // after that.
+      const BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      function skeletonCards(n) {
+        return Array.from({ length: n }, () => {
           const card = document.createElement("div");
-          card.className = "game skel";
-          card.innerHTML = '<div class="cover"></div><div class="meta"><div class="name-skel"></div><div class="sub-skel"></div></div>';
-          frag.appendChild(card);
-        }
-        grid.appendChild(frag);
+          card.className = "game skel"; card.setAttribute("aria-hidden", "true");
+          card.innerHTML = '<div class="poster"><div class="cover"></div></div><div class="meta"><div class="name"><i></i><i></i></div><div class="sub"><i></i></div></div>';
+          return card;
+        });
+      }
+      function skeletonShelves(rows = 3, cards = 8) {
+        return Array.from({ length: rows }, () => {
+          const block = document.createElement("div"); block.className = "home-row skel"; block.setAttribute("aria-hidden", "true");
+          const h = document.createElement("h2"); h.append(document.createElement("i"));
+          const list = document.createElement("div"); list.className = "recent"; list.append(...skeletonCards(cards));
+          block.append(h, list);
+          return block;
+        });
+      }
+      function setHeroSkeleton(on) {
+        $("hero").classList.toggle("skel", on);
+        $("hero-skel-text").hidden = !on;
+        $("hero-text").hidden = on;
+        $("hero-cover").hidden = false;
+        // a blank pixel, so the cover box shimmers instead of drawing a broken-image frame
+        if (on) { $("hero").hidden = false; $("hero-cover").src = BLANK_PIXEL; $("hero-dots").hidden = true; }
+      }
+      function renderSkeletons() {
+        const grid = $("games");
+        grid.replaceChildren(...skeletonCards(fitPerPage(grid)));
+        grid.setAttribute("aria-busy", "true");
+        setHeroSkeleton(true);
+        $("home-rows").replaceChildren(...skeletonShelves());
+        $("home-rows").setAttribute("aria-busy", "true");
+        const charts = $("charts");
+        charts.innerHTML = Array.from({ length: 4 }, () => '<div class="chart c3 skel" aria-hidden="true"><i></i><i></i><i></i></div>').join("");
+        charts.hidden = false;
       }
 
       // ─── data flow ─────────────────────────────────────────────────────────
@@ -1927,6 +1976,9 @@
           $("status").classList.remove("warm"); $("status").classList.add("cold");
           $("status-text").textContent = err.name === "AbortError" ? t("status.timeout") : t("status.error", err.message || String(err));
           $("games").innerHTML = `<div class="empty">${t("empty.err")}</div>`;
+          $("games").setAttribute("aria-busy", "false");
+          if ($("hero").classList.contains("skel")) { setHeroSkeleton(false); $("hero").hidden = true; $("home-rows").replaceChildren(); }
+          if ($("charts").querySelector(".skel")) { $("charts").hidden = true; $("charts").innerHTML = ""; }
         } finally {
           clearTimeout(timer);
         }
@@ -2055,6 +2107,7 @@
       function renderList(list) {
         const grid = $("games");
         grid.innerHTML = "";
+        grid.setAttribute("aria-busy", "false");
         if (list.length === 0) {
           grid.innerHTML = `<div class="empty">${t("empty.none")}</div>`;
           return;
@@ -2405,7 +2458,9 @@
       function renderShowcase() {
         const bases = renderedItems.filter((r) => r.kind === "base");
         heroSlides = buildHeroSlides(bases);
+        setHeroSkeleton(false);
         $("hero").hidden = !heroSlides.length;
+        $("home-rows").setAttribute("aria-busy", "false");
         if (heroIndex >= heroSlides.length) heroIndex = 0;
         if (heroSlides.length) showHero(heroIndex, false);
         const box = $("home-rows"); box.innerHTML = "";
@@ -2546,6 +2601,7 @@
           const mine = ++seq;
           const perPage = fitPerPage(box());
           box().setAttribute("aria-busy", "true");
+          if (!box().querySelector(".game")) box().replaceChildren(...skeletonCards(perPage));
           const q = new URLSearchParams({ page: String(n), pageSize: String(perPage), sort: $("retro-sort").value });
           if (system) q.set("system", system);
           const search = $("retro-search").value.trim();
@@ -2597,6 +2653,7 @@
             if (rows.dataset.lang === lang) return;
             rows.dataset.lang = lang;
             rows.setAttribute("aria-busy", "true");
+            if (!rows.querySelector(".home-row")) rows.replaceChildren(...skeletonShelves(2));
             if (!systems) await this.open(); // cards name their console from the system list
             let d;
             try {
@@ -3680,7 +3737,7 @@
       bindStatClick("stat-size",    null);
 
       applyI18n();
-      renderSkeletons(8);
+      renderSkeletons();
       loadShop();
 
       // ─── upload tray ──────────────────────────────────────────────────────

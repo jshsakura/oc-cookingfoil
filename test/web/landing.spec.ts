@@ -294,6 +294,53 @@ test("a game's long description runs at full height, so only the modal scrolls",
   }
 });
 
+test('while the library loads, placeholders in the cards\' shape hold the grid, the preview and the charts', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/shop.json', async (route) => { await gate; await route.continue(); });
+  await page.goto('/#all');
+
+  const skeletons = page.locator('#games .game.skel');
+  await expect(skeletons.first()).toBeVisible();
+  await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'true');
+  // whole rows, so the grid has its final width from the first paint
+  const { count, cols } = await page.evaluate(() => {
+    const grid = document.getElementById('games')!;
+    return { count: grid.querySelectorAll('.game.skel').length, cols: getComputedStyle(grid).gridTemplateColumns.split(' ').length };
+  });
+  expect(count % cols).toBe(0);
+  expect(await page.locator('#charts .chart.skel').count()).toBeGreaterThan(0);
+  const skelHeight = (await skeletons.first().boundingBox())!.height;
+  // the shimmer follows the theme tokens
+  const shimmer = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(shimmer).toContain('linear-gradient');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/loading-list.png' });
+
+  await page.locator('#subtabs button', { hasText: '미리보기' }).click();
+  await expect(page.locator('#hero.skel')).toBeVisible();
+  await expect(page.locator('#home-rows .home-row.skel')).toHaveCount(3);
+  await page.screenshot({ path: 'out/web/loading-preview.png' });
+
+  release();
+  await expect(page.locator('.skel')).toHaveCount(0);
+  await expect(page.locator('#hero')).not.toHaveClass(/skel/);
+  await page.locator('#subtabs button', { hasText: '목록' }).click();
+  await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'false');
+  const card = page.locator('#games .game').first();
+  await expect(card).toBeVisible();
+  expect(Math.abs((await card.boundingBox())!.height - skelHeight)).toBeLessThanOrEqual(2);
+});
+
+test('the loading shimmer stands still for visitors who ask for less motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.route('**/shop.json', () => { /* never answers */ });
+  await page.goto('/');
+  const animation = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).animationName);
+  expect(animation).toBe('none');
+});
+
 test('on a phone the search box and the sort box share the top row, the kind chips under them', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
