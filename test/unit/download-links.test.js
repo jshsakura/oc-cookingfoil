@@ -517,32 +517,33 @@ test("the probe looks the host up, asks base/, and counts any answer", async () 
   assert.deepEqual(health.nextHealth({ up: false, since: null, fails: 3 }, true, 5), { up: true, since: 5, fails: 0, checkedAt: 5, error: null });
 });
 
-test("checks run only when asked and due: ten minutes apart, one minute after a first failure", async () => {
+test("checks run only when asked and due: a minute apart, ten seconds after a first failure", async () => {
+  const { RECHECK_MS: recheck, RETRY_MS: retry } = health;
   const t0 = Date.now();
   let probes = 0;
   const failing = { lookup: async () => {}, fetchImpl: async () => { probes++; throw new Error("down"); } };
   const answering = { lookup: async () => {}, fetchImpl: async () => { probes++; return { status: 404 }; } };
   health.setForTests(true, { options: failing, checkedAt: t0 });
-  assert.equal(health.isUp(t0 + 9 * 60_000), true);
+  assert.equal(health.isUp(t0 + recheck - 1000), true);
   await health.pending();
   assert.equal(probes, 0, "not due yet");
-  assert.equal(health.isUp(t0 + 10 * 60_000), true, "the request goes on with what is known");
+  assert.equal(health.isUp(t0 + recheck), true, "the request goes on with what is known");
   await health.pending();
   assert.equal(probes, 1);
-  assert.equal(health.isUp(t0 + 10 * 60_000 + 30_000), true, "one failure is not enough");
+  assert.equal(health.isUp(t0 + recheck + retry / 2), true, "one failure is not enough");
   await health.pending();
-  assert.equal(probes, 1, "the second check waits a minute");
-  health.isUp(t0 + 11 * 60_000 + 1000);
+  assert.equal(probes, 1, "the second check waits for the retry gap");
+  health.isUp(t0 + recheck + retry + 1000);
   await health.pending();
   assert.equal(probes, 2);
-  assert.equal(health.isUp(t0 + 11 * 60_000 + 2000), false, "two failures a minute apart");
+  assert.equal(health.isUp(t0 + recheck + retry + 2000), false, "two failures in a row");
   await health.pending();
   health.setForTests(false, { options: answering, checkedAt: t0 });
-  health.isUp(t0 + 10 * 60_000);
-  health.isUp(t0 + 10 * 60_000);
+  health.isUp(t0 + recheck);
+  health.isUp(t0 + recheck);
   await health.pending();
   assert.equal(probes, 3, "one at a time");
-  assert.equal(health.isUp(t0 + 10 * 60_000 + 1), true);
+  assert.equal(health.isUp(t0 + recheck + 1), true);
   assert.equal(health.due({ up: true, fails: 0, checkedAt: null }, "a", "a", 0), true);
   assert.equal(health.due({ up: true, fails: 0, checkedAt: 0 }, "b", "a", 0), true, "a new address");
   health.setForTests(true);

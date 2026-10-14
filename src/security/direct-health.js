@@ -23,8 +23,8 @@ import * as env from "../helpers/envs.js";
 import { alert } from "../helpers/alerts.js";
 import debug from "../debug.js";
 
-export const RECHECK_MS = 10 * 60 * 1000;
-export const RETRY_MS = 60 * 1000;
+export const RECHECK_MS = 60 * 1000;
+export const RETRY_MS = 10 * 1000;
 export const CHECK_TIMEOUT_MS = 3000;
 export const FAILS_FOR_DOWN = 2;
 

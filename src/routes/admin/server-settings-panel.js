@@ -107,7 +107,7 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();
     if(title==='다시 시작')g.append(ssRestartRow());
     list.append(g);}}
 function ssDirectNote(h){return h.up?'지금 응답하고 있어 목록에 이 주소의 직결 링크를 함께 내려 줍니다.'+(h.since?' '+fmt(h.since)+'부터 응답하고 있습니다.':'')
-  :'지금 응답하지 않아 목록에 직결 링크를 넣지 않고 터널 주소로만 받습니다. 목록 요청이 오면 10분마다 다시 확인하고, 응답하면 직결 링크를 다시 넣습니다.';}
+  :'지금 응답하지 않아 목록에 직결 링크를 넣지 않고 터널 주소로만 받습니다. 목록 요청이 오면 1분마다 다시 확인하고, 응답하면 직결 링크를 다시 넣습니다.';}
 function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const note=el('p','지금 받고 있는 수를 읽고 있습니다.');
   t.append(el('b','안전하게 다시 시작합니다'),note);
   api('/admin/api/server/status').then((st)=>{note.textContent=st.draining?'다시 시작하고 있습니다. 남은 요청 '+st.inflight+'개가 끝나면 꺼졌다가 다시 켜집니다.'
