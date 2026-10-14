@@ -9,6 +9,7 @@
 import * as store from "./store.js";
 import { DENY, hintFor } from "./deny-reasons.js";
 import debug from "../debug.js";
+import { retryAfter, LOCKOUT_RETRY_AFTER_SEC } from "./retry-after.js";
 
 export { DENY };
 
@@ -47,9 +48,11 @@ export function recordDeny(req, { reason, status, deviceKey = null, user = null,
  * Record the refusal AND write the standard response: the reason header plus a
  * plain-text body. Keeps every guard's deny path down to one line.
  */
-export function denyResponse(req, res, { reason, status = 403, body, ...rest }) {
+export function denyResponse(req, res, { reason, status = 403, body, retryAfter: wait, ...rest }) {
   const entry = recordDeny(req, { reason, status, ...rest });
   res.set("Cache-Control", "no-store");
+  // A 429 always says when to come back; a lockout with no end gets the fallback.
+  if (status === 429) retryAfter(res, wait ?? LOCKOUT_RETRY_AFTER_SEC);
   res.set("X-CookingFoil-Deny", reason);
   res.status(status).type("text/plain").send(body ?? defaultBody(reason));
   return entry;

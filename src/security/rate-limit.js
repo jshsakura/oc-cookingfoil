@@ -27,6 +27,7 @@
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { tooManyRequests } from "./retry-after.js";
 import { recordDeny, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
 import { envNumber } from "../helpers/env-read.js";
@@ -83,7 +84,6 @@ export default function rateLimit() {
 
     if (b.tokens < 1) {
       const waitMs = (1 - b.tokens) / REFILL_PER_MS;
-      res.set("Retry-After", String(Math.ceil(waitMs / 1000)));
       res.set("Cache-Control", "no-store");
       store.appendAudit({ kind: "rate-limited", ip, path: req.path, at: now });
       // If a proxy is folding every client into this one bucket, that — not the
@@ -98,7 +98,7 @@ export default function rateLimit() {
       });
       res.set("X-CookingFoil-Deny", DENY.RATE_LIMITED);
       debug.log("security: rate-limited %s (%s)", ip, req.path);
-      return res.status(429).type("text/plain").send("Too many requests.");
+      return tooManyRequests(res, waitMs / 1000).type("text/plain").send("Too many requests.");
     }
     b.tokens -= 1;
     next();

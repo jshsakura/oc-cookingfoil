@@ -22,6 +22,7 @@ import * as deviceLogins from "./device-logins.js";
 import { deviceLoginAllowed } from "./device-login-scope.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import * as store from "./store.js";
+import { lockoutRetryAfter, tooManyRequests } from "./retry-after.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
 import { isLoopbackIp } from "./net.js";
@@ -97,14 +98,10 @@ export default function authGuard() {
 
     if (store.isLocked(ip)) {
       const lock = store.snapshot().lockouts.find((l) => l.ip === ip);
-      const remaining =
-        lock?.until && lock.until > Date.now()
-          ? Math.ceil((lock.until - Date.now()) / 1000)
-          : null;
-      if (remaining !== null) res.set("Retry-After", String(remaining));
       denyResponse(req, res, {
         reason: DENY.IP_LOCKED,
         status: 429,
+        retryAfter: lockoutRetryAfter(ip),
         detail: lock?.reason ?? null,
         body: "Locked out after too many failed attempts. Contact the administrator.\n",
       });
@@ -252,7 +249,7 @@ function ownerIsAdmin(owner) {
 }
 
 function tokenLane(req, res, next, ip) {
-  if (!(trustLoopback && isLoopbackIp(ip)) && store.isLocked(ip)) return res.status(429).json({ error: "locked out" });
+  if (!(trustLoopback && isLoopbackIp(ip)) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });
   const token = apiTokens.verify(req.headers.authorization);
   if (!token || !(req.path.startsWith("/admin/api/") || req.path === "/admin/guide.md") || !ownerIsAdmin(token.owner)) {
     if (!(trustLoopback && isLoopbackIp(ip))) recordFailure(ip, req);

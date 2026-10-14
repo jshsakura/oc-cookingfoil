@@ -13,6 +13,7 @@
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { lockoutRetryAfter } from "./retry-after.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { hasValidSession } from "./admin-session.js";
 import { isLoopbackIp } from "./net.js";
@@ -105,6 +106,7 @@ export default function accessGuard() {
       denyResponse(req, res, {
         reason: DENY.IP_LOCKED,
         status: 429,
+        retryAfter: lockoutRetryAfter(ip),
         body: "Locked out — contact administrator.\n",
       });
       return;
