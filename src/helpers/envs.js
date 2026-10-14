@@ -329,6 +329,11 @@ let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "")
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
 // download.maxConnections), not enforced: the client opens up to this many.
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
+// Safe restart (security/drain.js): the Retry-After a new request is given while
+// the server drains, and how long running requests may take to finish before
+// they are cut. At most 35 s, inside compose's stop_grace_period of 40 s.
+let restartRetryAfter = envNumber("COOK_RESTART_RETRY_AFTER", 20, { min: 1, max: 300, integer: true });
+let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -355,6 +360,8 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   welcomeMessage,
   downloadMaxConnections,
+  restartRetryAfter,
+  restartGrace,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -379,11 +386,15 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
+  restartRetryAfter = v.restartRetryAfter;
+  restartGrace = v.restartGrace;
 }
 
 export {
   ENV_SETTINGS,
   downloadMaxConnections,
+  restartRetryAfter,
+  restartGrace,
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,
