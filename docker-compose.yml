@@ -15,6 +15,9 @@ services:
     container_name: cookingfoil
     hostname: cookingfoil
     restart: unless-stopped
+    # A stop lets running downloads finish (COOK_RESTART_GRACE, 25 s) before the
+    # server exits; docker's own 10 s would cut them.
+    stop_grace_period: 40s
     env_file:
       - path: .env
         required: false
