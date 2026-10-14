@@ -25,7 +25,8 @@ import sharp from "sharp";
 import debug from "../../debug.js";
 import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, pool, repoOf } from "./sources.js";
 import { bestMatch, englishTitle, titleKey } from "./titles.js";
-import { setInfo } from "../arcade.js";
+import { groupSets, setInfo } from "../arcade.js";
+import { rankSets } from "../arcade-policy.js";
 
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const CANDIDATES = 24;
@@ -40,7 +41,7 @@ const COVER_SHORT = 400;
 const OPTIMIZE_CONCURRENCY = 2;
 // Small enough already: not worth a re-encode (and it may not shrink).
 const SMALL_COVER_BYTES = 48 * 1024;
-// WonderSwan names need a console prefix and arcade art follows the DAT, so neither is matched by title.
+// WonderSwan names need a console prefix and arcade art follows the DAT (arcadeBoxartPlan), so neither is matched by title.
 const NOT_MATCHED = new Set(["ws", "arcade"]);
 
 const mapFile = (dir, id) => path.join(dir, "art-map", `${id}.json`);
@@ -182,6 +183,39 @@ export function arcadeBezelJobs(dir, system, shorts, indexes, parentOf, dry = fa
   return jobs;
 }
 
+// libretro-thumbnails replaces these characters with "_" in file names.
+const THUMB_UNSAFE_RE = /[&*/:`<>?\\|"]/g;
+const thumbName = (desc) => desc.replace(THUMB_UNSAFE_RE, "_");
+
+/**
+ * Arcade box art is filed under the set's DAT description. A set libretro has
+ * no art for takes its game's: the best set of the same parent that has some
+ * (catalog.js shows it for every set of that game). `names` are libretro's
+ * box art names. Returns [{ short, name, dest }], one download per file. Pure
+ * apart from checking which files exist.
+ */
+export function arcadeBoxartPlan(dir, system, shorts, names) {
+  const have = new Set(names);
+  const art = path.join(dir, "thumbnails", system.folder, "Named_Boxarts");
+  const onDisk = (short) => {
+    const desc = setInfo(short)?.desc;
+    return [short, ...(desc ? [desc, thumbName(desc)] : [])].some((n) => fs.existsSync(path.join(art, `${n}.png`)) || fs.existsSync(path.join(art, `${n}.jpg`)));
+  };
+  const plan = new Map();
+  for (const short of new Set(shorts)) {
+    const info = setInfo(short);
+    if (!info || info.bios || onDisk(short)) continue;
+    const ranked = rankSets(groupSets(short).filter((s) => s !== short).map((s) => ({ short: s, desc: setInfo(s)?.desc ?? s, parent: !setInfo(s)?.cloneOf }))).map((r) => r.short);
+    // Its game already has art on disk: the catalog shows that one.
+    if (!have.has(thumbName(info.desc)) && ranked.some(onDisk)) continue;
+    const pick = [short, ...ranked].find((s) => have.has(thumbName(setInfo(s).desc)));
+    if (!pick) continue;
+    const name = thumbName(setInfo(pick).desc);
+    if (!plan.has(name)) plan.set(name, { short, name, dest: path.join(art, `${name}.png`) });
+  }
+  return [...plan.values()];
+}
+
 const namesCache = new Map(); // system id → { at, names }
 
 /** The libretro box art names for a system, cached for a day. */
@@ -222,7 +256,14 @@ export async function syncArt(dir, systems, roms, { only = null, onProgress = ()
       const { matched, missed } = await matchSystem(dir, id, system, roms[id] ?? [], opts);
       const indexes = await bezelIndexes(id, opts);
       const jobs = jobsFor(dir, id, system, readMap(dir, id), false, indexes);
-      if (id === "arcade") jobs.push(...arcadeBezelJobs(dir, system, roms[id] ?? [], indexes, (s) => setInfo(s)?.cloneOf ?? null));
+      if (id === "arcade") {
+        jobs.push(...arcadeBezelJobs(dir, system, roms[id] ?? [], indexes, (s) => setInfo(s)?.cloneOf ?? null));
+        // Without libretro's names (GitHub's limit) the bezels still come.
+        const names = await libretroNames(id, system, opts).catch(() => []);
+        for (const p of arcadeBoxartPlan(dir, system, roms[id] ?? [], names)) {
+          jobs.push(async () => ["boxart", await download(`${THUMBS}/${repoOf(system.libretro)}/master/${enc(`Named_Boxarts/${p.name}.png`)}`, p.dest, false, encodeCover)]);
+        }
+      }
       const results = await pool(jobs);
       const count = (kind) => results.filter((r) => Array.isArray(r) && r[0] === kind && r[1] === "ok").length;
       summary[id] = { matched: matched.length, missed: missed.length, boxart: count("boxart"), bezel: count("bezel"), errors: results.filter((r) => typeof r === "string").length };

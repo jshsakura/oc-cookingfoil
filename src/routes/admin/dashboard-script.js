@@ -49,7 +49,7 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
   if(tab==='logs')loadClientLogs();
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();
-  if(tab==='retro')loadRetroArt();
+  if(tab==='retro'){loadRetroArt();loadRetroVariants();}
   if(tab==='featured')loadFeatured();
   if(tab==='upload')loadUpload();
   if(tab==='inbox')loadInbox();}

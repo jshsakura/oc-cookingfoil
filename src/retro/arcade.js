@@ -9,8 +9,12 @@
  *
  * A BIOS set (neogeo.zip, pgm.zip …) is not a game of its own: it is left out of
  * the list and travels with every game that needs it, as does a clone's parent.
- * When a Korean release or translation of a game is in the folder, only that one
- * is listed; its parent still travels with it.
+ * A parent and its clones are one game (variants.js): which set is listed first
+ * is arcade-policy.js's choice, a Korean set before the others.
+ *
+ * Each set also carries `set` (its short name), `cloneOf` (its parent or null)
+ * and `missing`: the parent or BIOS zips it needs that are not in the folder,
+ * without which it does not start.
  *
  * The operator can correct or add titles in <retro dir>/arcade-names.json,
  * keyed by short name or English title; it wins over the built-in table:
@@ -27,11 +31,23 @@ import { fileURLToPath } from "url";
 import { editionOf } from "./edition.js";
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "fbneo-arcade.json");
-const MAX_CHAIN = 4;
-const KOREAN_RE = /\bKorea|\bKorean\b|Hangul/i; // clone → parent → BIOS is as deep as it goes
+const MAX_CHAIN = 4; // clone → parent → BIOS is as deep as it goes
 
 let data = null;
 const load = () => (data ??= JSON.parse(fs.readFileSync(DATA, "utf8")));
+let clones = null;
+
+/** Every set of one game in the DAT: its parent first, then the parent's clones. */
+export function groupSets(shortName) {
+  const sets = load().sets;
+  const short = String(shortName).toLowerCase();
+  const root = sets[short]?.[1] ?? short;
+  if (!clones) {
+    clones = new Map();
+    for (const [s, [, cloneOf]] of Object.entries(sets)) if (cloneOf) clones.set(cloneOf, [...(clones.get(cloneOf) ?? []), s]);
+  }
+  return sets[root] ? [root, ...(clones.get(root) ?? [])] : [short];
+}
 
 /** "Title (World 910522)" → ["Title", "World 910522"]. Pure. */
 export function splitDescription(desc) {
@@ -58,12 +74,21 @@ function cleanNames(entry) {
   return Object.fromEntries(["ko", "ja", "zh"].filter((l) => typeof entry[l] === "string" && entry[l].trim()).map((l) => [l, entry[l].trim().slice(0, 200)]));
 }
 
+/**
+ * The set whose ROMs a set loads, or null. The DAT's `romof` says it: a clone
+ * that carries all its own ROMs (non-merged) has none, so it runs without its
+ * parent's zip. Without romof data, a clone loads its parent, as before. Pure.
+ */
+export function needsOf(info) {
+  return info.romOf !== undefined ? info.romOf ?? null : info.cloneOf ?? null;
+}
+
 /** The sets a game loads besides its own: its parent and BIOS, nearest first. */
 export function dependencies(shortName) {
   const out = [];
   let info = setInfo(shortName);
   for (let i = 0; info && i < MAX_CHAIN; i++) {
-    const next = info.cloneOf ?? info.romOf;
+    const next = needsOf(info);
     if (!next || out.includes(next)) break;
     out.push(next);
     info = setInfo(next);
@@ -91,24 +116,20 @@ export function listedName(info) {
 
 /**
  * Applies the DAT to one arcade folder's games (as readGame made them): drops
- * BIOS sets, names the rest, and adds the parent and BIOS zips present in the
- * folder as extras. Unknown zips are left as they are.
+ * BIOS sets, names the rest, adds the parent and BIOS zips present in the
+ * folder as extras and names the ones that are missing. Unknown zips are left
+ * as they are.
  */
 export function applyArcade(games, overrides = null) {
   const byName = new Map(games.map((g) => [path.basename(g.rel, path.extname(g.rel)).toLowerCase(), g]));
-  // Parents with a Korean version present: listed through that version only.
-  const korean = new Set();
-  for (const short of byName.keys()) {
-    const info = setInfo(short, overrides);
-    if (info?.cloneOf && byName.has(info.cloneOf) && KOREAN_RE.test(info.desc)) korean.add(info.cloneOf);
-  }
   const out = [];
   for (const [short, g] of byName) {
     const info = setInfo(short, overrides);
     if (!info) { out.push(g); continue; }
-    if (info.bios || korean.has(short)) continue;
+    if (info.bios) continue;
     const extras = [...g.extras];
-    for (const dep of dependencies(short)) {
+    const deps = dependencies(short);
+    for (const dep of deps) {
       const d = byName.get(dep);
       if (d && !extras.some((x) => x.rel === d.rel)) extras.push({ abs: d.abs, rel: d.rel, size: d.fileSize, mtimeMs: d.mtimeMs });
     }
@@ -122,6 +143,9 @@ export function applyArcade(games, overrides = null) {
       extras,
       size: g.fileSize + extras.reduce((n, x) => n + x.size, 0),
       keepFileName: true,
+      set: short,
+      cloneOf: info.cloneOf,
+      missing: deps.filter((d) => !byName.has(d)),
     });
   }
   return out;

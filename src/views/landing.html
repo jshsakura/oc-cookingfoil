@@ -599,6 +599,8 @@
         color: var(--ink); text-decoration: none; font-size: 14px; border: 1px solid transparent;
       }
       .modal .extras .extra-row:hover { border-color: var(--butter); }
+      .modal .extras button.extra-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+      .modal .extras .version-row[aria-pressed="true"] { border-color: var(--butter); cursor: default; }
       .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
       .modal .extras .extra-size { color: var(--secondary); flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
       .modal .art-edit { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); }
@@ -1097,6 +1099,11 @@
           "retro.patch": "패치 정보",
           "retro.downloadRom": "롬 받기",
           "retro.downloadDiscs": "디스크 묶음 받기",
+          "retro.versions": (n) => `판 ${n}개`,
+          "retro.versionsHead": "이 게임의 판",
+          "retro.current": "보는 중",
+          "retro.listed": "대표",
+          "retro.cantRun": "실행 불가",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
           "row.sale": "할인 중",
@@ -1308,6 +1315,11 @@
           "retro.patch": "Patch",
           "retro.downloadRom": "Download ROM",
           "retro.downloadDiscs": "Download all discs",
+          "retro.versions": (n) => `${n} versions`,
+          "retro.versionsHead": "Versions of this game",
+          "retro.current": "Showing",
+          "retro.listed": "Listed",
+          "retro.cantRun": "Won't run",
           "row.recent": "Recently added",
           "row.sale": "On sale",
           "row.new": "New releases",
@@ -1518,6 +1530,11 @@
           "retro.patch": "パッチ情報",
           "retro.downloadRom": "ROM をダウンロード",
           "retro.downloadDiscs": "全ディスクをダウンロード",
+          "retro.versions": (n) => `${n} 種類の版`,
+          "retro.versionsHead": "このゲームの版",
+          "retro.current": "表示中",
+          "retro.listed": "代表",
+          "retro.cantRun": "起動できません",
           "row.recent": "最近の追加",
           "row.sale": "セール中",
           "row.new": "新作",
@@ -1728,6 +1745,11 @@
           "retro.patch": "修補資訊",
           "retro.downloadRom": "下載 ROM",
           "retro.downloadDiscs": "下載全部光碟",
+          "retro.versions": (n) => `${n} 個版本`,
+          "retro.versionsHead": "此遊戲的版本",
+          "retro.current": "目前顯示",
+          "retro.listed": "代表",
+          "retro.cantRun": "無法執行",
           "row.recent": "最近新增",
           "row.sale": "特價中",
           "row.new": "新作",
@@ -2755,6 +2777,8 @@
           if (g.file.endsWith(".m3u")) sub.append(pill(t("retro.discs")));
           // Patch variants of one game share a name; the tags tell them apart.
           if (g.variant) { const v = pill(g.variant, "variant"); v.title = g.variant; sub.append(v); }
+          // Other versions of the game (patches, regions) are picked in its window.
+          if (g.variants > 1) sub.append(pill(t("retro.versions", g.variants)));
           if (g.bezel?.hasBezel && !g.bezel.generic) sub.append(pill(t("retro.bezel")));
           meta.append(name, sub);
           a.append(poster, meta);
@@ -3770,11 +3794,60 @@
           desc.append(line);
         }
         $("modal-screens").replaceChildren(); $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+        showRetroVersions(g, sys);
         const dl = $("modal-download");
         dl.href = discs ? g.bundleUrl : g.romUrl;
         dl.setAttribute("download", "");
         dl.textContent = discs ? t("retro.downloadDiscs") : t("retro.downloadRom");
         $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+      }
+
+      // The other files of a game (a patch beside the official release, an arcade
+      // set's other regions): the list shows one card, the window picks among them.
+      let retroVersionSeq = 0;
+      async function showRetroVersions(g, sys) {
+        const mine = ++retroVersionSeq;
+        if (!Array.isArray(g.variants) && !(g.variants > 1)) return;
+        let detail = g;
+        try {
+          if (!Array.isArray(g.variants)) {
+            const r = await fetch(`/api/retro/games/${encodeURIComponent(g.id)}`, { headers: { Accept: "application/json" } });
+            if (!r.ok) return;
+            detail = await r.json();
+          }
+        } catch { return; }
+        if (mine !== retroVersionSeq || !Array.isArray(detail.variants) || detail.variants.length < 2) return;
+        const box = $("modal-extras");
+        const head = document.createElement("div");
+        head.className = "extras-head";
+        head.textContent = t("retro.versionsHead") + " (" + detail.variants.length + ")";
+        box.replaceChildren(head);
+        for (const v of detail.variants) {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "extra-row version-row";
+          const current = v.id === g.id;
+          row.setAttribute("aria-pressed", String(current));
+          const nameEl = document.createElement("span");
+          nameEl.className = "extra-name";
+          const tags = [v.variant || v.region?.toUpperCase() || v.name];
+          if (v.representative) tags.push(t("retro.listed"));
+          if (current) tags.push(t("retro.current"));
+          if (v.missing) tags.push(t("retro.cantRun"));
+          nameEl.textContent = tags.join(" · ");
+          nameEl.title = v.file;
+          const sizeEl = document.createElement("span");
+          sizeEl.className = "extra-size"; sizeEl.textContent = fmtBytes(v.size);
+          row.append(nameEl, sizeEl);
+          row.addEventListener("click", async () => {
+            if (current) return;
+            try {
+              const r = await fetch(`/api/retro/games/${encodeURIComponent(v.id)}`, { headers: { Accept: "application/json" } });
+              if (r.ok) openRetroModal(await r.json(), sys);
+            } catch { /* keep the version on screen */ }
+          });
+          box.append(row);
+        }
       }
 
       function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); }

@@ -8,10 +8,21 @@
  *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
  *                       &minRating=0-100&bezel=1&minSize=&maxSize=  (bytes; bezel=1 keeps games with their own bezel;
  *                       total counts what the filters left)
+ *                       &variants=all                every file, as before versions were grouped (old clients, admin)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
- *   GET /api/retro/games/:id                     G
+ *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id)
+ *
+ * Versions of one game (src/retro/variants.js: an arcade parent and its
+ * clones, or one title's patches and releases) are one group. Lists show each
+ * group's representative once, with `group` and `variants` (how many files
+ * the group holds); a search that finds any version shows the representative.
+ * Arcade groups whose representative can't run (its parent or BIOS zip is
+ * missing) are left out; ?variants=all lists them. romCount counts what the
+ * lists show. Every id still resolves, listed or not, so installs and
+ * forwarders made from another version keep working.
+ *   V = { id, name, variant?, edition?, region?, size, file, representative: bool, missing?: [set] }
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
  *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
  *                                                WebP when the client sends Accept: image/webp;
@@ -31,6 +42,7 @@
  *                                                X-Retro-Once lists the files to skip when already on the card
  *
  * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
+ *       group, variants (a count in lists, the V list in a game's own reply),
  *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
@@ -64,6 +76,8 @@ import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, pre
 import { ART_PIPELINE } from "../meta/artwork-version.js";
 import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
+import { groupVisible, representative } from "../retro/variants.js";
+import * as variantPicks from "../retro/variant-picks.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
 
@@ -174,10 +188,35 @@ function forwarderFields(g, system, base) {
   return { forwarderUrl: `${base}/forwarder.nsp`, forwarderTitleId: spec.titleId, forwarderSize: size };
 }
 
-function publicGame(g, systems, lang = "en") {
-  const system = systems[g.system];
-  const paths = sdPaths(g, system);
-  const base = `/api/retro/games/${g.id}`;
+/** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
+export function listedGames(cat) {
+  const out = [];
+  for (const group of cat.groups?.values() ?? []) {
+    const rep = representative(group, variantPicks.get(group.id));
+    if (groupVisible(rep)) out.push(rep);
+  }
+  return out;
+}
+
+const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, members: [g] };
+
+/** One version of a game, as a game's own reply lists them. */
+function publicVariant(g, rep, lang) {
+  const p = publicGame(g, null, lang, { lean: true });
+  return {
+    id: g.id,
+    name: p.name,
+    ...(p.variant ? { variant: p.variant } : {}),
+    ...(p.edition ? { edition: p.edition } : {}),
+    ...(p.region ? { region: p.region } : {}),
+    size: g.size,
+    file: g.file,
+    representative: g === rep,
+    ...(g.missing?.length ? { missing: g.missing } : {}),
+  };
+}
+
+function publicGame(g, systems, lang = "en", { lean = false, cat = null } = {}) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
   const own = retroNames.get(g.id);
@@ -188,6 +227,11 @@ function publicGame(g, systems, lang = "en") {
   // The tags as flags: Korean or not, release or patch, patch version.
   const edition = g.edition ?? editionOf(variant);
   const region = g.region ?? (edition ? "kr" : regionOf(variant));
+  if (lean) return { name: localized ?? withoutTags(g.name), variant, edition, region };
+  const system = systems[g.system];
+  const paths = sdPaths(g, system);
+  const base = `/api/retro/games/${g.id}`;
+  const group = cat ? groupOf(cat, g) : null;
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
@@ -201,6 +245,7 @@ function publicGame(g, systems, lang = "en") {
     ...(edition ? { edition } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
+    ...(group ? { group: group.id, variants: group.members.length } : {}),
     file: g.file,
     system: g.system,
     core: g.core,
@@ -285,7 +330,7 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
-      systems: catalog.systemsOf(cat).map((s) => ({
+      systems: catalog.systemsOf(cat, listedGames(cat)).map((s) => ({
         ...s,
         ...systemIconUrls(s.id, cat.systems[s.id]),
       })),
@@ -296,15 +341,16 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const bySystem = new Map();
-    for (const g of cat.games) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
+    const listed = listedGames(cat);
+    for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
-      systems: catalog.systemsOf(cat)
+      systems: catalog.systemsOf(cat, listed)
         .filter((s) => s.romCount > 0)
         .map((s) => ({
           ...s,
           ...systemIconUrls(s.id, cat.systems[s.id]),
-          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req))),
+          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req), { cat })),
         })),
     });
   }));
@@ -325,15 +371,18 @@ export default function retroRouter() {
     const pageSize = Math.min(PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const keep = listFilter(req.query);
-    const matches = cat.games
-      .filter((g) => (!system || g.system === system) && (!search || gameMatches(g, search)) && keep(g))
+    const all = req.query.variants === "all";
+    // A search that finds any version of a game shows the game's representative.
+    const found = (g) => !search || (all ? gameMatches(g, search) : groupOf(cat, g).members.some((m) => gameMatches(m, search)));
+    const matches = (all ? cat.games : listedGames(cat))
+      .filter((g) => (!system || g.system === system) && found(g) && keep(g))
       .sort(sort);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       total: matches.length,
       page,
       pageSize,
-      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req))),
+      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat })),
     });
   }));
 
@@ -343,13 +392,23 @@ export default function retroRouter() {
       .then((cat) => {
         const game = cat?.byId.get(id);
         if (!game) return res.status(404).json({ error: "no such game" });
-        req.retro = { game, system: cat.systems[game.system], systems: cat.systems };
+        req.retro = { game, system: cat.systems[game.system], systems: cat.systems, cat };
         next();
       })
       .catch(next);
   });
 
-  router.get("/games/:id", (req, res) => res.vary("Accept-Language").json(publicGame(req.retro.game, req.retro.systems, requestLang(req))));
+  router.get("/games/:id", (req, res) => {
+    const { game, systems, cat } = req.retro;
+    const lang = requestLang(req);
+    const group = groupOf(cat, game);
+    const rep = representative(group, variantPicks.get(group.id));
+    res.vary("Accept-Language").json({
+      ...publicGame(game, systems, lang, { cat }),
+      representative: rep.id,
+      variants: group.members.map((m) => publicVariant(m, rep, lang)),
+    });
+  });
   router.get("/games/:id/rom", (req, res) => {
     const { game, system } = req.retro;
     res.attachment(path.posix.basename(sdPaths(game, system).rom));

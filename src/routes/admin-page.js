@@ -48,6 +48,7 @@ import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
+import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountContentApi } from "./admin/content-api.js";
@@ -391,6 +392,7 @@ export default function adminPageRouter() {
   mountIntegrationsApi(router, requireSession);
   mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);
+  mountRetroVariantsApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
   mountServerSettingsApi(router, requireSession);
   mountContentApi(router, requireSession);

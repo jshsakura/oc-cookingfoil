@@ -1,8 +1,9 @@
 /**
  * Retro box art and bezels from the admin page (retro tab):
  *
- *   GET  /admin/api/retro-art                      per system: games, with box art, with their own bezel;
- *                                                  the games without box art; the running or last job
+ *   GET  /admin/api/retro-art                      per system: games, with box art (borrowed: an arcade set showing
+ *                                                  another set's art of its game), with their own bezel;
+ *                                                  the games still without box art; the running or last job
  *   POST /admin/api/retro-art/sync      { system? } match and download what is missing (one job at a time)
  *   GET  /admin/api/retro-art/candidates?game=&q=  libretro names to pick from, with preview addresses
  *   POST /admin/api/retro-art/match     { game, name }   use that name's box art and bezel (null: no art)
@@ -72,12 +73,8 @@ function scheduleRatings() {
   ratingsTimer.unref();
 }
 
-/** The name a game's art is filed under: its file name, or its first disc's for a multi-disc game. */
-export function romKey(g) {
-  if (g.keepFileName) return path.basename(g.rel, path.extname(g.rel)); // arcade: the set name
-  const first = g.m3u ? g.extras[0]?.rel : null;
-  return first ? path.basename(first, path.extname(first)) : g.name;
-}
+// The name a game's art is filed under (kept here too for the upload tab).
+export const romKey = retroCatalog.romKey;
 
 const ghToken = () => integrations.get("github").token;
 
@@ -85,10 +82,12 @@ function overview(catalog) {
   const systems = {};
   const missing = [];
   for (const g of catalog.games) {
-    const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, bezel: 0 });
+    const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, borrowed: 0, bezel: 0 });
     s.games++;
-    if (g.icon) s.boxart++;
-    else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
+    if (g.icon) {
+      s.boxart++;
+      if (g.iconFrom) s.borrowed++;
+    } else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
     if (g.bezel && !g.bezel.generic) s.bezel++;
   }
   return { systems: Object.values(systems), missing };
