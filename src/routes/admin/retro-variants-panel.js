@@ -19,6 +19,7 @@ export const RETRO_VARIANTS_CSS = `
 #rv-list .pill{margin:0 4px 2px 0}
 #rv-list .pill.warn{background:rgba(217,164,0,.16);color:var(--text)}
 #rv-filter{max-width:220px}
+#rv-list .rv-nw{white-space:nowrap}
 #rv-tools{display:flex;gap:12px;align-items:center;margin:6px 0}
 `;
 
@@ -51,7 +52,7 @@ function rvMemberRow(g,m,withSize){const tr=el('tr');
   const trash=btn('휴지통으로 옮깁니다',()=>rvTrash(m),'danger');
   acts.append(pick,trash);
   tr.append(n,td(m.variant||'—'),raCell(rvTags(m)),td(rvEdition(m)));
-  if(withSize)tr.append(td(rvMb(m.size)),td(rvDate(m.addedAt)));
+  if(withSize)tr.append(td(rvMb(m.size),'rv-nw'),td(rvDate(m.addedAt),'rv-nw'));
   tr.append(raCell(acts));return tr;}
 function rvMatch(g,q){return !q||g.members.some((m)=>(m.name+' '+m.file).toLowerCase().includes(q));}
 function rvShow(){
