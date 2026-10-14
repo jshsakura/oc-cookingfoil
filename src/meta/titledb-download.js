@@ -7,10 +7,16 @@
  */
 import { createWriteStream } from "fs";
 import { mkdir, unlink } from "fs/promises";
+import { randomBytes } from "crypto";
 import path from "path";
+import { Readable, Transform } from "stream";
+import { pipeline } from "stream/promises";
 
 export const MAX_BYTES = 1024 ** 3;
 export const STALL_MS = 60_000;
+
+/** A temporary name beside `file` that no other download of it is using. */
+export const tmpPathFor = (file) => `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
 
 /**
  * GET `url` into `destPath`. Resolves { status } for a non-2xx answer (nothing
@@ -47,28 +53,19 @@ export async function downloadToFile(url, destPath, { maxBytes = MAX_BYTES, stal
 }
 
 async function writeBody(body, destPath, maxBytes, onChunk, signal) {
-  const out = createWriteStream(destPath);
-  const closed = new Promise((resolve, reject) => {
-    out.on("close", resolve);
-    out.on("error", reject);
-  });
   let bytes = 0;
+  const counter = new Transform({
+    transform(chunk, _encoding, done) {
+      onChunk();
+      bytes += chunk.length;
+      done(bytes > maxBytes ? new Error(`body is over the ${maxBytes} byte limit`) : null, chunk);
+    },
+  });
   try {
-    if (body) {
-      for await (const chunk of body) {
-        if (signal.aborted) throw signal.reason;
-        onChunk();
-        bytes += chunk.length;
-        if (bytes > maxBytes) throw new Error(`body is over the ${maxBytes} byte limit`);
-        if (!out.write(chunk)) await new Promise((resolve) => out.once("drain", resolve));
-      }
-    }
-    out.end();
-    await closed;
+    // pipeline settles on every failure (disk full, abort, oversize) and closes both ends.
+    await pipeline(body ? Readable.fromWeb(body) : Readable.from([]), counter, createWriteStream(destPath), { signal });
     return bytes;
   } catch (err) {
-    out.destroy();
-    await closed.catch(() => {});
     await unlink(destPath).catch(() => {});
     throw err;
   }

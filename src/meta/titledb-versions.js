@@ -14,7 +14,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import { firmwareString } from "./cnmt-parse.js";
-import { downloadToFile } from "./titledb-download.js";
+import { downloadToFile, tmpPathFor } from "./titledb-download.js";
 import { titledbBase } from "./titledb-fetcher.js";
 
 const SOURCES = ["versions.json", "cnmts.json"];
@@ -95,7 +95,7 @@ export async function hasIndex() {
 }
 
 async function download(name) {
-  const tmp = path.join(titledbCacheDir, `${name}.tmp`);
+  const tmp = tmpPathFor(path.join(titledbCacheDir, name));
   try {
     const got = await downloadToFile(`${titledbBase()}/${name}`, tmp);
     if (got.bytes === undefined) throw new Error(`${name} returned HTTP ${got.status}`);

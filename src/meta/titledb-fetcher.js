@@ -9,7 +9,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { titledbRegions, titledbSource } from "../helpers/envs.js";
-import { downloadToFile } from "./titledb-download.js";
+import { downloadToFile, tmpPathFor } from "./titledb-download.js";
 import { atomicWrite, slimFromJson, slimPathFor } from "./titledb-slim.js";
 
 export const DEFAULT_SOURCE = "https://raw.githubusercontent.com/blawar/titledb/master";
@@ -95,7 +95,8 @@ export function rejectReason(count, before) {
 export async function fetchRegion(region, destDir) {
   const url = regionUrl(region);
   const finalPath = path.join(destDir, `${region}.json`);
-  const tmpPath = `${finalPath}.tmp`;
+  // Unique, so a back-fill and a full refresh fetching the same region never share one.
+  const tmpPath = tmpPathFor(finalPath);
   const slimPath = slimPathFor(finalPath);
 
   debug.log("titledb: GET %s", url);

@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -44,6 +44,13 @@ test("a body over the size limit is refused", async () => {
   assert.equal(existsSync(dest), false);
 });
 
+test("a file that cannot be written fails the download instead of the process", async () => {
+  handler = (req, res) => { res.writeHead(200); res.end("x".repeat(256 * 1024)); };
+  const dest = path.join(dir, "a-directory");
+  mkdirSync(dest);
+  await assert.rejects(downloadToFile(`${base}/x`, dest), /EISDIR/);
+});
+
 test("a non-2xx answer writes nothing", async () => {
   handler = (req, res) => { res.writeHead(503); res.end("busy"); };
   const dest = path.join(dir, "busy.json");
@@ -67,7 +74,7 @@ test("the wrong JSON from a mirror leaves the cached region untouched", async ()
     const result = await withMirrorFetch(body, () => fetchRegion("KR.ko", dest));
     assert.equal(result.ok, false, JSON.stringify(body));
     assert.equal(readFileSync(path.join(dest, "KR.ko.json"), "utf8"), before);
-    assert.equal(existsSync(path.join(dest, "KR.ko.json.tmp")), false);
+    assert.deepEqual(readdirSync(dest).filter((f) => f.endsWith(".tmp")), [], "no download left behind");
   }
   const slim = JSON.parse(readFileSync(path.join(dest, "KR.ko.slim.json"), "utf8"));
   assert.equal(Object.keys(slim).length - 1, 40, "the slim index keeps every game");
@@ -103,7 +110,7 @@ test("the update index is kept when a mirror sends the wrong files", async () =>
     }
     const onDisk = JSON.parse(readFileSync(path.join(dir, "titledb", "versions-index.json"), "utf8"));
     assert.equal(Object.keys(onDisk.updates).length, 40);
-    assert.equal(existsSync(path.join(dir, "titledb", "versions.json.tmp")), false);
+    assert.deepEqual(readdirSync(path.join(dir, "titledb")).filter((f) => f.endsWith(".tmp")), []);
   } finally {
     globalThis.fetch = real;
   }
