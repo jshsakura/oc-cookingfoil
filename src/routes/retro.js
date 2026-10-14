@@ -3,7 +3,7 @@
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
- *   GET /api/retro/systems/:id/icon[?style=mono] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
+ *   GET /api/retro/systems/:id/icon[?style=mono][&v=] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
  *                                                <folder> being the system's server folder)
  *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
  *                       &minRating=0-100&bezel=1&minSize=&maxSize=  (bytes; bezel=1 keeps games with their own bezel;
@@ -16,7 +16,13 @@
  *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
  *                                                WebP when the client sends Accept: image/webp;
  *                                                drawn ahead of time, cached for a year with the ?v= of iconUrl
- *   GET /api/retro/games/:id/boxart              the box art as it is
+ *   GET /api/retro/games/:id/boxart?v=&size=sm|md the box art as it is; with ?size= fitted within 160 or 256 px,
+ *                                                its shape kept and never enlarged, WebP for Accept: image/webp
+ *
+ * Every image URL in a list (iconUrl, boxartUrl, a console's iconUrl and
+ * iconMonoUrl) ends in ?v=<12 hex> of the file it serves. That v gets
+ * `public, max-age=31536000, immutable`; no v or another one `private, no-cache`
+ * (revalidated by its ETag), so a replaced picture never sticks.
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
  *   GET /api/retro/base-pack/manifest            { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once? }] }
@@ -38,6 +44,7 @@
  * forwarder fields are null when the server can't build one (no prod.keys or
  * hacBrewPack); forwarderSize is null until the NSP has been built.
  */
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import express from "express";
@@ -53,7 +60,9 @@ import { regionOf } from "../retro/arcade.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
-import { artKey, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
+import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
+import { ART_PIPELINE } from "../meta/artwork-version.js";
+import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
@@ -109,6 +118,28 @@ function systemIcon(system, style) {
   const file = path.join(retroDir, "system-icons", style, `${system.folder}.png`);
   return fs.existsSync(file) ? file : null;
 }
+
+/** 12 hex of a console icon file's size and mtime, the ?v= of its URL; null without the file. */
+function fileVersion(file) {
+  try {
+    const st = fs.statSync(file);
+    return crypto.createHash("sha1").update(`${ART_PIPELINE}\0${file}\0${st.size}\0${st.mtimeMs}`).digest("hex").slice(0, 12);
+  } catch {
+    return null;
+  }
+}
+
+/** iconUrl and iconMonoUrl of a console, each with its file's ?v= (null without the file). */
+function systemIconUrls(id, system) {
+  const color = systemIcon(system, "color");
+  const mono = systemIcon(system, "mono");
+  return {
+    iconUrl: color ? `/api/retro/systems/${id}/icon?v=${fileVersion(color)}` : null,
+    iconMonoUrl: mono ? `/api/retro/systems/${id}/icon?style=mono&v=${fileVersion(mono)}` : null,
+  };
+}
+
+const wantsWebp = (req) => (req.get("accept") || "").includes("image/webp");
 
 /** Text for matching: NFC, lower case, no spaces. Pure. */
 const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
@@ -176,7 +207,7 @@ function publicGame(g, systems, lang = "en") {
     size: g.size,
     addedAt: g.addedAt,
     iconUrl: g.icon ? `${base}/icon?v=${artKey(g)}` : null,
-    boxartUrl: g.icon ? `${base}/boxart` : null,
+    boxartUrl: g.icon ? `${base}/boxart?v=${artKey(g)}` : null,
     romUrl: `${base}/rom`,
     bundleUrl: `${base}/bundle`,
     bezel: g.bezel
@@ -217,8 +248,9 @@ function bundleFiles(g, system) {
   return files;
 }
 
-function sendFile(res, abs, type) {
-  res.set("Cache-Control", "private, no-cache");
+/** Sends a file; `immutable` when the request's ?v= names exactly these bytes, else revalidated every time. */
+function sendFile(res, abs, type, immutable = false) {
+  res.set("Cache-Control", immutable ? IMMUTABLE : "private, no-cache");
   if (type) res.type(type);
   res.sendFile(abs, { dotfiles: "allow", acceptRanges: true });
 }
@@ -255,8 +287,7 @@ export default function retroRouter() {
     res.json({
       systems: catalog.systemsOf(cat).map((s) => ({
         ...s,
-        iconUrl: systemIcon(cat.systems[s.id], "color") ? `/api/retro/systems/${s.id}/icon` : null,
-        iconMonoUrl: systemIcon(cat.systems[s.id], "mono") ? `/api/retro/systems/${s.id}/icon?style=mono` : null,
+        ...systemIconUrls(s.id, cat.systems[s.id]),
       })),
     });
   }));
@@ -272,8 +303,7 @@ export default function retroRouter() {
         .filter((s) => s.romCount > 0)
         .map((s) => ({
           ...s,
-          iconUrl: systemIcon(cat.systems[s.id], "color") ? `/api/retro/systems/${s.id}/icon` : null,
-          iconMonoUrl: systemIcon(cat.systems[s.id], "mono") ? `/api/retro/systems/${s.id}/icon?style=mono` : null,
+          ...systemIconUrls(s.id, cat.systems[s.id]),
           games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req))),
         })),
     });
@@ -283,7 +313,7 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     const file = systemIcon(cat.systems[req.params.system], req.query.style === "mono" ? "mono" : "color");
     if (!file) return res.status(404).json({ error: "no icon" });
-    sendFile(res, file, "png");
+    sendFile(res, file, "png", req.query.v && req.query.v === fileVersion(file));
   }));
 
   router.get("/games", wrap(async (req, res) => {
@@ -328,17 +358,26 @@ export default function retroRouter() {
   });
   router.get("/games/:id/icon", wrap(async (req, res) => {
     const size = Object.hasOwn(SQUARE_SIZES, req.query.size) ? req.query.size : "md";
-    const webp = (req.get("accept") || "").includes("image/webp");
+    const webp = wantsWebp(req);
     const square = await (webp ? ensureSquareWebp : ensureSquare)(artDir, req.retro.game, size);
     if (!square) return res.status(404).json({ error: "no icon" });
     res.set("Vary", "Accept");
     // ?v= names one version of the cover, so that URL never changes underneath a cache.
     const versioned = req.query.v && req.query.v === artKey(req.retro.game);
-    res.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "private, no-cache");
+    res.set("Cache-Control", versioned ? IMMUTABLE : "private, no-cache");
     res.type(webp ? "webp" : "jpeg");
     res.sendFile(square, { dotfiles: "allow" });
   }));
-  router.get("/games/:id/boxart", (req, res) => (req.retro.game.icon ? sendFile(res, req.retro.game.icon) : res.status(404).json({ error: "no box art" })));
+  router.get("/games/:id/boxart", wrap(async (req, res) => {
+    const { game } = req.retro;
+    if (!game.icon) return res.status(404).json({ error: "no box art" });
+    const versioned = Boolean(req.query.v) && req.query.v === artKey(game);
+    if (!Object.hasOwn(BOXART_SIZES, req.query.size)) return sendFile(res, game.icon, null, versioned);
+    const webp = wantsWebp(req);
+    const file = await ensureBoxart(artDir, game, req.query.size, webp);
+    res.set("Vary", "Accept");
+    sendFile(res, file, webp ? "webp" : null, versioned);
+  }));
   router.get("/games/:id/bezel.png", (req, res) => (req.retro.game.bezel ? sendFile(res, req.retro.game.bezel.png, "png") : res.status(404).json({ error: "no bezel" })));
   router.get("/games/:id/overlay.cfg", (req, res) => {
     const { game } = req.retro;

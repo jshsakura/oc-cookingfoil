@@ -294,6 +294,10 @@ const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
 const telegramBotToken = envString("COOK_TELEGRAM_BOT_TOKEN", "").trim();
 const telegramChatId = envString("COOK_TELEGRAM_CHAT_ID", "").trim();
 const telegramEvents = envString("COOK_TELEGRAM_EVENTS", "").trim();
+// "on" puts [승인] [거절] buttons on approval alerts; off unless set.
+const telegramButtons = envString("COOK_TELEGRAM_BUTTONS", "").trim().toLowerCase();
+// Telegram user ids who may press them in a group chat (comma list).
+const telegramApprovers = envString("COOK_TELEGRAM_APPROVERS", "").replace(/\s+/g, "");
 // Hours between release checks of each followed repository; "check now" on the admin page ignores it.
 const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 });
 
@@ -321,6 +325,10 @@ let titledbRegions = envString("COOK_TITLEDB_REGIONS", "").split(",").map((s) =>
 // Where titledb is read from: a base address holding <region>.json files. Empty is
 // blawar/titledb itself; a fork or mirror goes here if that one ever stops.
 let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "");
+// How many connections one console may open for one download (Range requests
+// in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
+// download.maxConnections), not enforced: the client opens up to this many.
+let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -346,6 +354,7 @@ const ENV_SETTINGS = Object.freeze({
   eshopArtwork,
   ratingSync,
   welcomeMessage,
+  downloadMaxConnections,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -369,10 +378,12 @@ function applyServerSettings(saved = {}) {
   eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
   welcomeMessage = v.welcomeMessage || null;
+  downloadMaxConnections = v.downloadMaxConnections;
 }
 
 export {
   ENV_SETTINGS,
+  downloadMaxConnections,
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,
@@ -412,6 +423,8 @@ export {
   telegramBotToken,
   telegramChatId,
   telegramEvents,
+  telegramButtons,
+  telegramApprovers,
   eshopAlgoliaAppId,
   eshopAlgoliaKey,
   eshopArtwork,

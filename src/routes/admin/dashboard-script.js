@@ -38,7 +38,7 @@ async function api(url,opts={}){
 // ── tabs ──────────────────────────────────────────────────────────────
 // why a zip was served as its single .nro instead of a whole folder
 // why files of a release were left out of the install
-const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일'};
+const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일','doc':'PC 용 설치 안내문'};
 const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다','partial':'일부 파일을 빼고 설치합니다'};
 const TABS=['overview','users','devices','settings','alerts','logs','featured','library','upload','inbox','homebrew','retro'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
@@ -247,7 +247,7 @@ async function loadDevices(){
   const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';
   table('devices',['이름','연결한 계정','마지막 접속','승인한 날','기기 키',''],(d.approved||[]).map((a)=>{const tr=el('tr');
     const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
-    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
+    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('이름 바꾸기',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
@@ -318,6 +318,8 @@ async function loadHomebrew(){
 let hbManual=[],hbSources=[];
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
 async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
+  const held=d.held||[];$('hb-held').hidden=!held.length;
+  $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
   const extraCell=(type,app,items)=>{const c=td();
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
@@ -386,6 +388,10 @@ async function checkHb(repo){
   try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});toast(s?.error?s.error.message:'확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 $('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;
   try{await api('/admin/api/homebrew/check',{method:'POST',body:{}});toast('모두 확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}finally{b.disabled=false;}});
+$('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disabled=true;
+  try{const r=await api('/admin/api/homebrew/adopt',{method:'POST',body:{}});
+    toast(r.registered.length?r.registered.join(', ')+' 를 등록했습니다.':'새로 등록할 폴더가 없습니다.'+(r.skipped.length?' 건너뜀: '+r.skipped.map((x)=>x.folder+' ('+x.reason+')').join(', '):''));loadHomebrew();}
+  catch(err){toast(err.message);}finally{b.disabled=false;}});
 async function removeHb(repo){if(!confirm(repo+' 를 더 따라가지 않고 받아 둔 파일도 지웁니다.'))return;
   try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 
@@ -698,6 +704,15 @@ function setAcct(open){$('acct-list').hidden=!open;$('acct-btn').setAttribute('a
 $('acct-btn').addEventListener('click',(e)=>{e.stopPropagation();setAcct($('acct-list').hidden);});
 document.addEventListener('click',(e)=>{if(!$('acct-list').hidden&&!e.target.closest('.acct-menu'))setAcct(false);});
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('acct-list').hidden){setAcct(false);$('acct-btn').focus();}});
+// Theme: the system setting until one is picked here or on the web page (same key).
+const THEME_KEY='cookingfoil:theme';
+function syncThemeMenu(){const on=document.documentElement.dataset.theme||'system';
+  for(const b of document.querySelectorAll('[data-theme-choice]'))b.setAttribute('aria-checked',String(b.dataset.themeChoice===on));}
+$('acct-list').addEventListener('click',(e)=>{const v=e.target.closest('[data-theme-choice]')?.dataset.themeChoice;if(!v)return;
+  const picked=v==='light'||v==='dark';if(picked)document.documentElement.dataset.theme=v;else delete document.documentElement.dataset.theme;
+  try{if(picked)localStorage.setItem(THEME_KEY,v);else localStorage.removeItem(THEME_KEY);}catch{/* storage blocked: this visit only */}
+  syncThemeMenu();});
+syncThemeMenu();
 // The address a console is given, for the how-to on the devices tab.
 function showShopUrl(){$('shop-url').textContent=origin.replace(/[/]$/,'')+'/shop.tfl';}
 $('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast('주소를 복사했습니다');}catch{toast('복사하지 못했습니다. 주소를 직접 고릅니다');}});

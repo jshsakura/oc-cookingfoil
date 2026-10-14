@@ -1,7 +1,8 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the share inbox, the public address, where names come from, titledb and
- * the outside lookups. Saved in ${COOK_DATA_DIR}/security/server-settings.json
+ * approval, uploads, the share inbox, the public address, where names come from,
+ * titledb, the outside lookups and how many connections a console opens per
+ * download. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
@@ -43,6 +44,7 @@ export const SETTINGS = {
   eshopPopularity: bool,
   eshopArtwork: bool,
   ratingSync: bool,
+  downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 

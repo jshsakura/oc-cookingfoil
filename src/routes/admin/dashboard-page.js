@@ -73,6 +73,10 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .pop-list .who{margin:0 0 4px;padding:8px 12px 10px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pop-list a,.pop-list button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:9px;background:none;text-decoration:none;color:var(--text);font:600 14px inherit;text-align:left;cursor:pointer}
 .pop-list a:hover,.pop-list button:hover{background:var(--sunk)}.pop-list #logout{color:var(--bad)}
+/* theme: the system setting, light or dark, the one in use ticked */
+.theme-pick{display:grid;gap:2px;padding:4px 0;margin:4px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pop-list .pop-label{margin:0;padding:6px 12px 2px;color:var(--muted);font-size:12px;font-weight:600}
+.theme-pick button[aria-checked="true"]::after{content:"";width:7px;height:12px;margin:-3px 3px 0 auto;border:solid var(--text);border-width:0 2px 2px 0;transform:rotate(45deg)}
 .howto{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:22px}
 .howto ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}.howto .copy-row code{background:var(--sunk)}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
@@ -114,6 +118,8 @@ dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word
 dialog{border:1px solid var(--line);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 #hb-apps tr.hb-off td:not(:first-child){opacity:.5}
+.hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
+.hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
 dialog h3{margin:0 0 6px;font-size:18px}
 .cred{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 12px;align-items:center;margin:16px 0}
 .cred .v{font-family:ui-monospace,monospace;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:7px 10px;word-break:break-all}
@@ -197,6 +203,12 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
       <p class="who" id="who">불러오고 있습니다</p>
       <a role="menuitem" href="/">${icon("home")}웹 화면</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
+      <div class="theme-pick" role="group" aria-labelledby="theme-label">
+        <p class="pop-label" id="theme-label">테마</p>
+        <button role="menuitemradio" type="button" data-theme-choice="system" aria-checked="true">${icon("monitor")}시스템 설정 따르기</button>
+        <button role="menuitemradio" type="button" data-theme-choice="light" aria-checked="false">${icon("sun")}밝은 테마</button>
+        <button role="menuitemradio" type="button" data-theme-choice="dark" aria-checked="false">${icon("moon")}어두운 테마</button>
+      </div>
       <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
     </div>
   </div>
@@ -378,8 +390,9 @@ ${INBOX_HTML}
     <button class="primary" type="submit">추가</button>
   </form>
   <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 따라가는 저장소 목록에서 고릅니다.</p>
-  <h2>앱</h2>
-  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 지웁니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 지웁니다.</p>
+  <div class="hd"><h2>앱</h2><button type="button" id="hb-adopt">폴더 등록</button></div>
+  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 지웁니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 지웁니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>
+  <div id="hb-held" class="hb-held" hidden></div>
   <div class="scroll" id="hb-apps"></div>
   <div class="hd"><h2>추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
   <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>

@@ -84,8 +84,18 @@ test("a value that doesn't fit is refused and nothing is saved", () => {
     { devicePairing: "yes" }, { deviceApproval: "everyone" }, { publicBaseUrl: "files.example.org" },
     { langPriority: "" }, { langPriority: "ko;rm" }, { titledbRegions: "kr" }, { extractIcons: "some" },
     { welcomeMessage: "two\nlines" }, { titledbSource: "mirror.example.org" }, { titledbSource: "ftp://x/y" }, { nope: true },
+    { downloadMaxConnections: 0 }, { downloadMaxConnections: 9 }, { downloadMaxConnections: 2.5 }, { downloadMaxConnections: "many" },
   ]) assert.throws(() => settings.save({ ...bad, uploadsEnabled: false }), undefined, JSON.stringify(bad));
   assert.deepEqual(settings.describe(), before);
+});
+
+test("the per-console connection count is 4 unless the admin picks another, and applies at once", () => {
+  assert.equal(settings.describe().downloadMaxConnections.value, 4);
+  assert.equal(env.downloadMaxConnections, 4);
+  assert.deepEqual(settings.save({ downloadMaxConnections: "6" }), ["downloadMaxConnections"], "the page's select sends a string");
+  assert.equal(env.downloadMaxConnections, 6);
+  settings.save({ downloadMaxConnections: null });
+  assert.equal(env.downloadMaxConnections, 4, "back to compose");
 });
 
 test("a saved file is read back on start", () => {

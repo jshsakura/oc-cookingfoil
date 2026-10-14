@@ -12,6 +12,7 @@ import path from "path";
 import crypto from "crypto";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
+import { versionedArtwork } from "./artwork-version.js";
 
 const STORE_PATH = path.join(dataDir, "featured.json");
 const MAX_COLLECTIONS = 12;
@@ -104,7 +105,7 @@ export function forSections() {
     .filter((c) => c.titleIds.length)
     .map((c) => {
       const out = { id: c.id, title: c.title, title_ids: [...c.titleIds] };
-      if (c.bannerTitleId) out.banner_url = `/api/shop/banner/${c.bannerTitleId}`;
+      if (c.bannerTitleId) out.banner_url = versionedArtwork(`/api/shop/banner/${c.bannerTitleId}`);
       return out;
     });
 }

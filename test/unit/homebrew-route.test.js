@@ -38,7 +38,7 @@ test("the listing carries the icon and download addresses and answers If-None-Ma
     assert.equal(res.status, 200);
     const { homebrew } = await res.json();
     assert.equal(homebrew.length, 1);
-    assert.equal(homebrew[0].icon_url, `/api/homebrew/${ID}/icon`);
+    assert.match(homebrew[0].icon_url, new RegExp(`^/api/homebrew/${ID}/icon\\?v=[0-9a-f]{12}$`));
     assert.equal(homebrew[0].download_url, `/api/homebrew/${ID}/download`);
     assert.equal(homebrew[0].hash, "sha256:abc");
     // fetch adds "Cache-Control: no-cache" to conditional requests unless one is given; a console's curl does not.

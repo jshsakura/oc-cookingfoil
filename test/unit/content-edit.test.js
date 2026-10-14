@@ -15,6 +15,16 @@ test("a patch edit keeps required and drops emptied fields", () => {
   assert.throws(() => patchMeta({}, { name: "  " }), /이름/);
 });
 
+test("a patch edit keeps the game version and the update it is for unless it sets them", () => {
+  const old = { name: "오프라인 실행 패치", game_version: "1.0.32.0", update_version: 2097152, required: true };
+  assert.deepEqual(patchMeta(old, { name: "오프라인 실행 패치" }),
+    { name: "오프라인 실행 패치", game_version: "1.0.32.0", update_version: 2097152, required: true }, "an older page that sends neither");
+  assert.deepEqual(patchMeta(old, { name: "a", gameVersion: "1.0.33.0", updateVersion: "2162688" }),
+    { name: "a", game_version: "1.0.33.0", update_version: 2162688, required: true });
+  assert.deepEqual(patchMeta(old, { name: "a", gameVersion: "", updateVersion: "" }), { name: "a", required: true }, "cleared");
+  for (const bad of ["v2097152", "-1", "1.5", "99999999999"]) assert.throws(() => patchMeta(old, { name: "a", updateVersion: bad }), /업데이트/, bad);
+});
+
 test("a save edit checks the source address and the save kind", () => {
   assert.deepEqual(
     saveMeta({}, { name: "All karts", saveType: "device", sourceName: "Forum", sourceUrl: "https://example.org/x", gameVersion: "3.0" }),

@@ -17,6 +17,13 @@
  * (size, mtime, inode) so a rescan only reads files that changed. The cache
  * and the last listing are saved under the data dir, so a restart neither
  * re-reads gigabytes of patches nor makes a request wait for a fresh scan.
+ *
+ * A scan only lists: a patch whose files are not all hashed yet keeps the
+ * hash it had (or none, when it is new) and is hashed afterwards, one patch
+ * at a time, so one game's 40 GB of data never holds back the others. A file
+ * that moved keeps its hash (same size, mtime and inode), and a hash is
+ * forgotten only after its file has been missing for a week, so a folder
+ * that is renamed or briefly out of sight is not read again.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -25,6 +32,7 @@ import path from "path";
 import debug from "../debug.js";
 import { patchesDir, dataDir } from "../helpers/envs.js";
 import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
+import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -43,9 +51,14 @@ let patches = []; // sorted by title id, then name
 let provisional = null; // during the first scan: the patches read so far
 let scannedAt = 0;
 let inFlight = null;
+let rerun = null; // a scan asked for while one runs: one more after it, so a change made meanwhile is read
 let signature = "";
-const fileHashes = new Map(); // abs path → { key, hash }
-let touched = null; // abs paths hashed by the scan in progress
+const fileHashes = new Map(); // abs path → { key, hash, seen }
+const byStat = new Map(); // key → hash, to recognise a file that moved
+const reading = new Map(); // abs path → promise of its hash, so no file is read twice at once
+const RETAIN_MS = 7 * 24 * 3600_000;
+let hasher = null; // the background hashing run, while one is going
+const pending = new Map(); // "<root>\0<dir>\0<folder>" → { patch, options } waiting to be hashed
 
 const isBase = (tid) => TITLE_ID_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
 
@@ -98,14 +111,24 @@ export function kindOf(relPath, titleId) {
  * patch.json fields as trimmed, length-capped strings; anything else dropped.
  * `required: true` marks a patch the game does not start without (its data
  * shipped apart from the package). `ko` holds the Korean name and description
- * when they differ from the default text (localizePatch picks by language). Pure.
+ * when they differ from the default text (localizePatch picks by language).
+ * `update_version` is the update the patch was made for (2097152 for v2097152),
+ * shown for reference only; nothing is hidden or held back by it. Pure.
  */
 export function readMeta(raw) {
   const out = strings(raw, FIELD_MAX);
   if (raw?.required === true) out.required = true;
+  const update = updateVersionOf(raw?.update_version);
+  if (update) out.update_version = update;
   const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
   if (Object.keys(ko).length) out.ko = ko;
   return out;
+}
+
+/** A positive update version number (from a number or a digit string), else null. Pure. */
+export function updateVersionOf(value) {
+  const n = typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  return Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff ? n : null;
 }
 
 function strings(raw, limits) {
@@ -144,16 +167,48 @@ async function walk(root, rel = "", out = []) {
   return out;
 }
 
-async function hashFile(file) {
-  const key = `${file.size}:${file.mtimeMs}:${file.ino}`;
-  touched?.add(file.abs);
-  const cached = fileHashes.get(file.abs);
-  if (cached?.key === key) return cached.hash;
-  const h = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(file.abs, { highWaterMark: READ_CHUNK })) h.update(chunk);
-  const hash = h.digest("hex");
-  fileHashes.set(file.abs, { key, hash });
+const statKey = (file) => `${file.size}:${file.mtimeMs}:${file.ino}`;
+
+function remember(abs, key, hash) {
+  fileHashes.set(abs, { key, hash, seen: Date.now() });
+  byStat.set(key, hash);
   return hash;
+}
+
+/** The file's hash when it is already known (here or under another path), else null. */
+function knownHash(file) {
+  const key = statKey(file);
+  const cached = fileHashes.get(file.abs);
+  if (cached?.key === key) return remember(file.abs, key, cached.hash);
+  const moved = byStat.get(key);
+  return moved ? remember(file.abs, key, moved) : null;
+}
+
+async function hashFile(file) {
+  const known = knownHash(file);
+  if (known) return known;
+  const busy = reading.get(file.abs);
+  if (busy) return busy;
+  const job = (async () => {
+    const h = crypto.createHash("sha256");
+    for await (const chunk of fs.createReadStream(file.abs, { highWaterMark: READ_CHUNK })) h.update(chunk);
+    return remember(file.abs, statKey(file), h.digest("hex"));
+  })().finally(() => reading.delete(file.abs));
+  reading.set(file.abs, job);
+  return job;
+}
+
+/** The patch's content hash; with `wait: false`, null unless every file is hashed already. */
+async function contentHash(files, wait) {
+  const content = crypto.createHash("sha256");
+  let complete = true;
+  // Every file is looked up even after a miss, so each known hash counts as seen.
+  for (const f of files) {
+    const hash = wait ? await hashFile(f) : knownHash(f);
+    if (hash) content.update(`${f.path}\0${hash}\n`);
+    else complete = false;
+  }
+  return complete ? content.digest("hex") : null;
 }
 
 async function readMetaFile(file, label) {
@@ -170,7 +225,7 @@ async function readMetaFile(file, label) {
  * (absolute path, SD path, size, mtime). Throws Rejected when it breaks a rule.
  */
 /** A homebrew app's patch: every file goes under switch/<app>/. */
-async function readHomebrewPatch(root, app, folder) {
+async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
   const label = `${HOMEBREW_DIR}/${app}/${folder}`;
   const all = await walk(path.join(root, HOMEBREW_DIR, app, folder));
   const metaFile = all.find((f) => f.path === META_FILE);
@@ -179,11 +234,12 @@ async function readHomebrewPatch(root, app, folder) {
   for (const f of files) {
     if (f.path.split("/").some((p) => !p || p === "." || p === "..")) throw new Rejected(`bad path: ${f.path}`);
     if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    const problem = pathProblem(f.path);
+    if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
   }
   const meta = metaFile ? await readMetaFile(metaFile, label) : {};
-  const content = crypto.createHash("sha256");
-  for (const f of files) content.update(`${f.path}\0${await hashFile(f)}\n`);
+  const hash = await contentHash(files, wait);
   return {
     patch: {
       id: homebrewPatchId(app, folder),
@@ -200,7 +256,8 @@ async function readHomebrewPatch(root, app, folder) {
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
       updated_at: Math.floor(Math.max(...all.map((f) => f.mtimeMs)) / 1000),
-      hash: content.digest("hex"),
+      hash,
+      ...(hash ? {} : { unhashed: true }),
     },
     dir: `${HOMEBREW_DIR}/${app}`,
     folder,
@@ -208,8 +265,8 @@ async function readHomebrewPatch(root, app, folder) {
   };
 }
 
-export async function readPatch(root, tidDir, folder) {
-  if (tidDir.startsWith(`${HOMEBREW_DIR}/`)) return readHomebrewPatch(root, tidDir.slice(HOMEBREW_DIR.length + 1), folder);
+export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
+  if (tidDir.startsWith(`${HOMEBREW_DIR}/`)) return readHomebrewPatch(root, tidDir.slice(HOMEBREW_DIR.length + 1), folder, { wait });
   const titleId = tidDir.toUpperCase();
   const label = `${tidDir}/${folder}`;
   const all = await walk(path.join(root, tidDir, folder));
@@ -221,12 +278,13 @@ export async function readPatch(root, tidDir, folder) {
     const kind = kindOf(f.path, titleId);
     if (kind === null) throw new Rejected(`outside the allowed folders: ${f.path}`);
     if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    const problem = pathProblem(f.path);
+    if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
     if (kind) kinds.add(kind);
   }
   const meta = metaFile ? await readMetaFile(metaFile, label) : {};
-  const content = crypto.createHash("sha256");
-  for (const f of files) content.update(`${f.path}\0${await hashFile(f)}\n`);
+  const hash = await contentHash(files, wait);
   const updated = Math.max(...all.map((f) => f.mtimeMs));
   return {
     patch: {
@@ -235,6 +293,7 @@ export async function readPatch(root, tidDir, folder) {
       name: meta.name ?? folder.normalize("NFC"),
       version: meta.version ?? null,
       game_version: meta.game_version ?? null,
+      update_version: meta.update_version ?? null,
       author: meta.author ?? null,
       description: meta.description ?? null,
       required: meta.required === true,
@@ -243,7 +302,8 @@ export async function readPatch(root, tidDir, folder) {
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
       updated_at: Math.floor(updated / 1000),
-      hash: content.digest("hex"),
+      hash,
+      ...(hash ? {} : { unhashed: true }),
     },
     dir: tidDir,
     folder,
@@ -264,8 +324,12 @@ const sortPatches = (list) => list.sort((a, b) => (a.title_id ?? `~${a.homebrew}
 // Test-only: a pause per patch, to make a scan last long enough to watch requests during it.
 const SLOW_SCAN_MS = Number(process.env.COOK_TEST_SLOW_SCAN_MS) || 0;
 
-/** Every valid patch under `root`, sorted by title id then name. `onFound(list)` sees the ones read so far. */
-export async function scanDir(root, { onFound = null } = {}) {
+/**
+ * Every valid patch under `root`, sorted by title id then name. `onFound(list)`
+ * sees the ones read so far. With `wait: false` a patch with files not hashed
+ * yet is listed with `hash: null, unhashed: true` instead of being read.
+ */
+export async function scanDir(root, { onFound = null, wait = true } = {}) {
   const out = [];
   const found = (p) => {
     out.push(p);
@@ -276,7 +340,7 @@ export async function scanDir(root, { onFound = null } = {}) {
       for (const app of (await subdirs(path.join(root, HOMEBREW_DIR))).filter((a) => APP_RE.test(a))) {
         for (const folder of await subdirs(path.join(root, HOMEBREW_DIR, app))) {
           try {
-            found({ ...(await readHomebrewPatch(root, app, folder)).patch, dir: `${HOMEBREW_DIR}/${app}`, folder });
+            found({ ...(await readHomebrewPatch(root, app, folder, { wait })).patch, dir: `${HOMEBREW_DIR}/${app}`, folder });
           } catch (err) {
             if (!(err instanceof Rejected)) throw err;
             debug.error("patches: homebrew/%s/%s left out: %s", app, folder, err.message);
@@ -292,7 +356,7 @@ export async function scanDir(root, { onFound = null } = {}) {
     for (const folder of await subdirs(path.join(root, tidDir))) {
       try {
         if (SLOW_SCAN_MS) await new Promise((r) => setTimeout(r, SLOW_SCAN_MS));
-        found({ ...(await readPatch(root, tidDir, folder)).patch, dir: tidDir, folder });
+        found({ ...(await readPatch(root, tidDir, folder, { wait })).patch, dir: tidDir, folder });
       } catch (err) {
         if (!(err instanceof Rejected)) throw err;
         debug.error("patches: %s/%s left out: %s", tidDir, folder, err.message);
@@ -308,8 +372,11 @@ const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.name}:${p.u
 export function loadCache(file = CACHE_PATH) {
   try {
     const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+    const now = Date.now();
     for (const [abs, entry] of Object.entries(saved?.hashes ?? {})) {
-      if (typeof entry?.key === "string" && typeof entry?.hash === "string") fileHashes.set(abs, entry);
+      if (typeof entry?.key !== "string" || typeof entry?.hash !== "string") continue;
+      fileHashes.set(abs, { key: entry.key, hash: entry.hash, seen: Number.isFinite(entry.seen) ? entry.seen : now });
+      byStat.set(entry.key, entry.hash);
     }
     // A cache saved halfway through the first scan has hashes but no listing yet.
     if (!Array.isArray(saved?.patches)) return false;
@@ -322,57 +389,116 @@ export function loadCache(file = CACHE_PATH) {
   }
 }
 
-function saveCache(file, seen) {
+function forgetOld() {
+  const cutoff = Date.now() - RETAIN_MS;
+  for (const [abs, entry] of fileHashes) if (entry.seen < cutoff) fileHashes.delete(abs);
+  byStat.clear();
+  for (const entry of fileHashes.values()) byStat.set(entry.key, entry.hash);
+}
+
+function saveCache(file) {
   try {
-    // Only hashes of files the scan still found, so the cache can't grow without bound.
-    // Mid-scan (no `seen` yet) every hash so far is kept, and no listing unless a whole scan made one.
-    const hashes = Object.fromEntries(seen ? [...fileHashes].filter(([abs]) => seen.has(abs)) : fileHashes);
+    // A listing only once a whole scan made one; a hash until its file has been gone a week.
     const tmp = `${file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ version: 1, patches: seen || signature ? patches : null, hashes }));
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, patches: signature || scannedAt ? patches : null, hashes: Object.fromEntries(fileHashes) }));
     fs.renameSync(tmp, file);
   } catch (err) {
     debug.error("patches: could not save %s: %s", file, err.message);
   }
 }
 
-/** Rescans now (one scan at a time); `onChange` runs when the set or a hash changed. */
-export function scan({ root = patchesDir, onChange, cacheFile = root === patchesDir ? CACHE_PATH : null } = {}) {
-  if (inFlight) return inFlight;
+/**
+ * Rescans now (one scan at a time) and resolves with the listing; `onChange`
+ * runs when the set or a hash changed. Patches with files not hashed yet are
+ * listed at once and hashed afterwards (see `hashed()`).
+ */
+export function scan(options = {}) {
+  const { root = patchesDir, onChange, cacheFile = root === patchesDir ? CACHE_PATH : null } = options;
+  // The running scan may have read a patch.json before the caller changed it.
+  if (inFlight) {
+    rerun ??= inFlight.catch(() => {}).then(() => {
+      rerun = null;
+      return scan(options);
+    });
+    return rerun;
+  }
   inFlight = (async () => {
     try {
-      const hashedBefore = fileHashes.size;
-      touched = new Set();
       const cold = !scannedAt && !signature;
-      // Hashes are saved as the scan goes, so a restart halfway through a big folder doesn't start over.
-      const saver = cacheFile ? setInterval(() => saveCache(cacheFile, null), CACHE_SAVE_MS) : null;
-      saver?.unref();
-      let next;
-      try {
-        // With nothing listed yet, what has been read so far is shown while the rest is read.
-        next = await scanDir(root, { onFound: cold ? (soFar) => { provisional = soFar; } : null });
-      } finally {
-        if (saver) clearInterval(saver);
-      }
+      const before = new Map(patches.map((p) => [p.id, p.hash]));
+      // With nothing listed yet, what has been read so far is shown while the rest is read.
+      const read = await scanDir(root, { wait: false, onFound: cold ? (soFar) => { provisional = soFar; } : null });
       provisional = null;
-      const seen = touched;
+      // Until it is hashed again a changed patch keeps its old hash, so a console sees no false update.
+      const next = read.map((p) => (p.unhashed ? { ...p, hash: before.get(p.id) ?? null } : p));
       const sig = signatureOf(next);
+      const first = !scannedAt;
       patches = next;
       scannedAt = Date.now();
-      if (cacheFile && (sig !== signature || fileHashes.size !== hashedBefore || !fs.existsSync(cacheFile))) {
-        saveCache(cacheFile, seen);
-      }
+      forgetOld();
+      if (cacheFile && (sig !== signature || first || !fs.existsSync(cacheFile))) saveCache(cacheFile);
       if (sig !== signature) {
         signature = sig;
         debug.log("patches: %d patches", next.length);
         onChange?.();
       }
+      const waiting = next.filter((p) => p.unhashed);
+      if (waiting.length) hashLater(waiting, { ...options, root, cacheFile });
       return patches;
     } finally {
-      touched = null;
       inFlight = null;
     }
   })();
   return inFlight;
+}
+
+/**
+ * Hashes the waiting patches one at a time in the background, saving the cache
+ * as it goes so a restart halfway keeps what was read, and rescans after each
+ * so its hash reaches the listing.
+ */
+function hashLater(waiting, options) {
+  for (const patch of waiting) pending.set(`${options.root}\0${patch.dir}\0${patch.folder}`, { patch, options });
+  if (hasher) return;
+  hasher = (async () => {
+    const failed = new Set();
+    const savers = new Map(); // cache file → interval
+    try {
+      for (let next = firstPending(failed); next; next = firstPending(failed)) {
+        const [key, { patch, options: opts }] = next;
+        const { root, cacheFile } = opts;
+        pending.delete(key);
+        if (cacheFile && !savers.has(cacheFile)) {
+          savers.set(cacheFile, setInterval(() => saveCache(cacheFile), CACHE_SAVE_MS));
+          savers.get(cacheFile).unref();
+        }
+        try {
+          await readPatch(root, patch.dir, patch.folder);
+        } catch (err) {
+          failed.add(key);
+          if (!(err instanceof Rejected) && err.code !== "ENOENT") debug.error("patches: cannot hash %s/%s: %s", patch.dir, patch.folder, err.message);
+        }
+        await scan(opts).catch((err) => debug.error("patches: scan failed: %s", err.message));
+      }
+    } finally {
+      for (const [cacheFile, saver] of savers) {
+        clearInterval(saver);
+        saveCache(cacheFile);
+      }
+      hasher = null;
+    }
+  })();
+}
+
+function firstPending(failed) {
+  for (const entry of pending) if (!failed.has(entry[0])) return entry;
+  pending.clear();
+  return null;
+}
+
+/** Resolves once the background hashing has finished. */
+export async function hashed() {
+  while (hasher || inFlight || rerun) await (hasher ?? inFlight ?? rerun);
 }
 
 /** Restore the saved listing, then scan now and every minute. */
@@ -394,7 +520,7 @@ export async function list(scanOptions = {}) {
   return Object.assign((scanning ? provisional ?? [] : patches).map(publicFields), { scanning });
 }
 
-function publicFields({ dir: _dir, folder: _folder, ...p }) {
+function publicFields({ dir: _dir, folder: _folder, unhashed: _unhashed, ...p }) {
   // A listing cached before `required` existed reads as not required.
   return { ...p, required: p.required === true };
 }
@@ -415,12 +541,16 @@ export function locate(id) {
   return known ? { dir: known.dir, folder: known.folder } : null;
 }
 
-/** A patch read afresh from disk for download, or null when it is gone or no longer valid. */
+/**
+ * A patch read afresh from disk for download, or null when it is gone or no
+ * longer valid. It never waits for hashing: a patch not hashed yet comes with
+ * `hash: null`, and its download is tagged by its files' sizes and times.
+ */
 export async function openForDownload(id, root = patchesDir) {
   const known = patches.find((p) => p.id === id);
   if (!known) return null;
   try {
-    return await readPatch(root, known.dir, known.folder);
+    return await readPatch(root, known.dir, known.folder, { wait: false });
   } catch (err) {
     if (err instanceof Rejected || err.code === "ENOENT") return null;
     throw err;
@@ -433,4 +563,7 @@ export function reset() {
   scannedAt = 0;
   signature = "";
   fileHashes.clear();
+  byStat.clear();
+  rerun = null;
+  pending.clear();
 }

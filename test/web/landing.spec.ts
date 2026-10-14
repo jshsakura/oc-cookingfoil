@@ -8,19 +8,65 @@ async function pickLang(page: Page, code: string) {
   await expect(page.locator('#lang-list')).toBeHidden();
 }
 
-test('landing follows the system light/dark setting and forgets a theme saved by the old button', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cookingfoil:theme', 'dark'));
+test('landing follows the system until a theme is picked in the account menu, then keeps it', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
+  const root = page.locator('html');
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+  const themeColor = () => page.locator('meta[name="theme-color"]').getAttribute('content');
+  await expect(root).not.toHaveAttribute('data-theme', /.+/);
   expect(await background()).toBe('rgb(242, 241, 238)');
-  await expect(page.locator('#theme-btn')).toHaveCount(0);
 
+  await page.locator('#acct-btn').click();
+  const choice = (name: string) => page.locator('#acct-list').getByRole('menuitemradio', { name });
+  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'true');
+  await choice('어두운 테마').click();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect(choice('어두운 테마')).toHaveAttribute('aria-checked', 'true');
+  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'false');
+  expect(await background()).toBe('rgb(22, 22, 26)');
+  await expect.poll(themeColor).toBe('#16161a');
+  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('dark');
+
+  // applied in the head, so the first paint is already dark
+  await page.reload();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect.poll(themeColor).toBe('#16161a');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#acct-btn').click();
+  await page.screenshot({ path: 'out/web/landing-dark.png' });
+
+  await choice('시스템 설정 따르기').click();
+  await expect(root).not.toHaveAttribute('data-theme', /.+/);
+  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBeNull();
+  await expect.poll(themeColor).toBe('#f2f1ee');
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(background).toBe('rgb(22, 22, 26)');
-  fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/landing-dark.png' });
+  await expect.poll(themeColor).toBe('#16161a');
+});
+
+test('a stored light theme wins over a dark system setting, and the menu labels follow the page language', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:theme', 'light'); localStorage.setItem('cookingfoil:lang', 'en'); } catch { /* none */ } });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#acct-list').getByRole('menuitemradio', { name: 'Light theme' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#acct-list').getByRole('menuitemradio')).toHaveText(['Match system setting', 'Light theme', 'Dark theme']);
+});
+
+test('the page shares a large image card whose image is an absolute URL on this server', async ({ page, request }) => {
+  await page.goto('/');
+  const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+  expect(image).toBe('http://127.0.0.1:3188/assets/og-image.png');
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', image!);
+  const res = await request.get(image!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toBe('image/png');
 });
 
 test('landing names the shop, shows its status and links to the admin page', async ({ page }) => {
@@ -198,7 +244,8 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await page.route('**/api/title/0100000000010000*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
-    await route.fulfill({ json: { ...body, patches: [patch('aaaaaaaaaaaa', '성능 패치', false), patch('bbbbbbbbbbbb', '게임 데이터', true)] } });
+    await route.fulfill({ json: { ...body, patches: [patch('aaaaaaaaaaaa', '성능 패치', false),
+      { ...patch('bbbbbbbbbbbb', '게임 데이터', true), update_version: 2097152, game_version: '1.0.32.0' }] } });
   });
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/');
@@ -207,6 +254,9 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await expect(need.locator('h4')).toContainText('함께 설치해야 하는 패치');
   await expect(need.locator('.xname')).toHaveText(['게임 데이터']);
   await expect(need.locator('a.btn')).toHaveAttribute('href', '/api/patches/0100000000010000-bbbbbbbbbbbb/download');
+  // The update it was made for is a note only: every update stays listed and installable.
+  await expect(need.locator('.xmeta')).toContainText('v2097152 (1.0.32.0)용');
+  await expect(page.locator('#modal-patches .mp-group:not(.need) .xmeta')).not.toContainText('용');
   await expect(page.locator('#modal-patches .mp-group:not(.need) .xname')).toHaveText(['성능 패치']);
   // Above the description, so it isn't missed.
   const order = await page.evaluate(() => {
@@ -216,6 +266,83 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+});
+
+test("a game's long description runs at full height, so only the modal scrolls", async ({ page }) => {
+  const description = Array.from({ length: 40 }, (_, i) => `${i + 1}번째 문단입니다. 이 게임의 긴 설명이 모달 안에서 따로 스크롤되지 않고 그대로 이어집니다.`).join('\n\n');
+  await page.route('**/api/title/0100000000010000*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, description, notes: '함께 설치할 것을 적은 메모입니다.\n'.repeat(12) } });
+  });
+  fs.mkdirSync('out/web', { recursive: true });
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 760 });
+    await page.goto('/');
+    await page.locator('.game').first().click();
+    const desc = page.locator('#modal-desc');
+    await expect(desc).toContainText('40번째 문단입니다');
+    const boxes = await page.evaluate(() => {
+      const inner = (id: string) => { const el = document.getElementById(id)!; return { scroll: el.scrollHeight, client: el.clientHeight, oy: getComputedStyle(el).overflowY }; };
+      const modal = document.querySelector('#modal .modal')!;
+      return { desc: inner('modal-desc'), notes: inner('modal-notes'), modal: { scroll: modal.scrollHeight, client: modal.clientHeight, sw: modal.scrollWidth, cw: modal.clientWidth } };
+    });
+    for (const box of [boxes.desc, boxes.notes]) {
+      expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
+      expect(box.oy).toBe('visible');
+    }
+    expect(boxes.modal.scroll).toBeGreaterThan(boxes.modal.client);
+    expect(boxes.modal.sw).toBeLessThanOrEqual(boxes.modal.cw);
+    await page.locator('#modal .modal').screenshot({ path: `out/web/modal-desc-${width}.png` });
+    await page.keyboard.press('Escape');
+  }
+});
+
+test('while the library loads, placeholders in the cards\' shape hold the grid, the preview and the charts', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/shop.json', async (route) => { await gate; await route.continue(); });
+  await page.goto('/#all');
+
+  const skeletons = page.locator('#games .game.skel');
+  await expect(skeletons.first()).toBeVisible();
+  await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'true');
+  // whole rows, so the grid has its final width from the first paint
+  const { count, cols } = await page.evaluate(() => {
+    const grid = document.getElementById('games')!;
+    return { count: grid.querySelectorAll('.game.skel').length, cols: getComputedStyle(grid).gridTemplateColumns.split(' ').length };
+  });
+  expect(count % cols).toBe(0);
+  expect(await page.locator('#charts .chart.skel').count()).toBeGreaterThan(0);
+  const skelHeight = (await skeletons.first().boundingBox())!.height;
+  // the shimmer follows the theme tokens
+  const shimmer = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(shimmer).toContain('linear-gradient');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/loading-list.png' });
+
+  await page.locator('#subtabs button', { hasText: '미리보기' }).click();
+  await expect(page.locator('#hero.skel')).toBeVisible();
+  await expect(page.locator('#home-rows .home-row.skel')).toHaveCount(3);
+  await page.screenshot({ path: 'out/web/loading-preview.png' });
+
+  release();
+  await expect(page.locator('.skel')).toHaveCount(0);
+  await expect(page.locator('#hero')).not.toHaveClass(/skel/);
+  await page.locator('#subtabs button', { hasText: '목록' }).click();
+  await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'false');
+  const card = page.locator('#games .game').first();
+  await expect(card).toBeVisible();
+  expect(Math.abs((await card.boundingBox())!.height - skelHeight)).toBeLessThanOrEqual(2);
+});
+
+test('the loading shimmer stands still for visitors who ask for less motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.route('**/shop.json', () => { /* never answers */ });
+  await page.goto('/');
+  const animation = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).animationName);
+  expect(animation).toBe('none');
 });
 
 test('on a phone the search box and the sort box share the top row, the kind chips under them', async ({ page }) => {
@@ -256,7 +383,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
   });
   const patch = { id: '0100000000010000-aaaaaaaaaaaa', title_id: '0100000000010000', name: '성능 패치', kinds: ['exefs_patches'], size: 4096, files: 3,
-    hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
+    hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game_version: '1.0.32.0', update_version: 2097152,
+    game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
   const hbPatch = { id: 'hb-bbbbbbbbbbbb', title_id: null, homebrew: 'portgame', name: 'HD 텍스처', kinds: ['romfs'], size: 8192, files: 2, hash: 'h', description: '' };
   await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [patch, hbPatch] } }));
   await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves: [] } }));
@@ -279,6 +407,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-title')).toHaveText('성능 패치');
   await expect(page.locator('#xm-sub')).toHaveText('Test Game');
   await expect(page.locator('#xm-desc')).toHaveText('프레임을 올립니다.');
+  await expect(page.locator('#xm-meta')).toContainText('맞는 업데이트');
+  await expect(page.locator('#xm-meta')).toContainText('v2097152');
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });

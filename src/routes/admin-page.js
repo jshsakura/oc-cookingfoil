@@ -18,6 +18,7 @@
 import express from "express";
 
 import * as store from "../security/store.js";
+import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
 import {
   verifyTotp,
   verifyPassword,
@@ -51,12 +52,7 @@ import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
 import { clientBuildStatus } from "./client-update.js";
-import {
-  normalizeDeviceKey,
-  generateAccessKey,
-  hashAccessKey,
-  stageAccessKeyDelivery,
-} from "../security/pairing.js";
+import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
 import { authLanes, configWarnings } from "../security/config-health.js";
 import { hintFor } from "../security/deny-reasons.js";
@@ -74,7 +70,7 @@ import { fileURLToPath } from "url";
 
 const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
-import { approvePairLink } from "../security/pairing-approve.js";
+import { approvePairLink, approveWaitingDevice } from "../security/pairing-approve.js";
 import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -226,7 +222,7 @@ export default function adminPageRouter() {
     const mode = loginMode();
     const ip = clientIp(req);
     const trusted = trustLoopback && isLoopbackIp(ip);
-    if (!trusted && store.isLocked(ip)) return res.status(429).json({ ok: false });
+    if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
     const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
     const byCode = !byPassword && mode !== "password" && req.body?.code !== undefined && (await verifyTotp(req.body.code));
     if (!byPassword && !byCode) {
@@ -324,18 +320,9 @@ export default function adminPageRouter() {
       res.status(req.body?.code !== undefined ? 404 : 400).json({ error: req.body?.code !== undefined ? "no device is waiting with that code" : "invalid deviceKey" });
       return;
     }
-    // With no name given, the note the console sent names it.
-    const label = (String(req.body?.label ?? "").trim() || store.pendingMessage(deviceKey) || "").slice(0, 64).trim();
-
     // Mint a fresh accessKey, persist only its hash, stage the plaintext for the
     // device's next status poll (one-time, in-memory). Re-approving rotates it.
-    const accessKey = generateAccessKey();
-    store.approveDevice(deviceKey, {
-      label,
-      addedBy: "admin",
-      accessKeyHash: hashAccessKey(accessKey),
-    });
-    stageAccessKeyDelivery(deviceKey, accessKey);
+    const label = approveWaitingDevice(deviceKey, { label: req.body?.label, addedBy: "admin" });
     debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), label || "no label");
     res.json({ ok: true, deviceKey });
   });

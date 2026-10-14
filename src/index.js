@@ -1,5 +1,6 @@
 import express from "express";
 import net from "net";
+import { fileURLToPath } from "node:url";
 import serveIndex from "serve-index";
 // Settings saved on the admin page go over the compose ones before anything reads them.
 import "./security/server-settings.js";
@@ -34,6 +35,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
+import connectionHint from "./helpers/connection-hint.js";
 import busyGuard from "./security/busy-guard.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
@@ -65,6 +67,7 @@ import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
+import * as telegramUpdates from "./security/telegram-updates.js";
 import staticIndexHTML from "./staticIndexHTML.js";
 
 // Node gives each address of a host 250 ms before trying the next. Telegram,
@@ -155,6 +158,9 @@ expressApp.use(accessGuard());
 // Crawlers ask for this first; answering before sign-in keeps them out of the
 // failure log and tells them there is nothing to index.
 expressApp.get("/robots.txt", (_req, res) => res.type("text/plain").set("Cache-Control", "public, max-age=86400").send("User-agent: *\nDisallow: /\n"));
+// The share image: link previews fetch it without signing in.
+const OG_IMAGE = fileURLToPath(new URL("./views/assets/og-image.png", import.meta.url));
+expressApp.get("/assets/og-image.png", (_req, res) => res.sendFile(OG_IMAGE, { maxAge: "1d" }));
 // First run: until an admin account exists, browsers are sent to /setup.
 expressApp.use(setupRouter());
 
@@ -173,6 +179,8 @@ expressApp.use(webLoginRouter());
 // when COOK_DEVICE_PAIRING is off.
 expressApp.use(pairingGate());
 expressApp.use(authGuard());
+// Lists and downloads tell the client how many connections a download may use.
+expressApp.use(connectionHint());
 expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
@@ -265,6 +273,8 @@ expressApp.use(
 // ── lifecycle ───────────────────────────────────────────────────────────
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
 alert("server", "서버가 켜졌습니다.");
+// Presses on the approval alerts' buttons, while Telegram is set up and buttons are on.
+telegramUpdates.watch();
 
 // Disable Nagle on accepted sockets. Our hot responses are single Buffers
 // (pre-built shop body, encoded landing HTML, single small image variants);
@@ -362,6 +372,7 @@ for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
     debug.log("received %s — flushing security state", sig);
     try { wsHandle.close(); } catch {}
+    telegramUpdates.stop().catch(() => {});
     securityStore
       .shutdown()
       .catch(() => {})

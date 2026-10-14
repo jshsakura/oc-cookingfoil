@@ -15,6 +15,11 @@
  * read surfaces on the console as a bare "install failed" with no cause. This
  * limiter exists to blunt floods, not to pace legitimate transfers.
  *
+ * Every response that went through the bucket carries the IETF draft's
+ * RateLimit-Limit (the burst), RateLimit-Remaining (whole tokens left) and
+ * RateLimit-Reset (seconds until the bucket is full again); proven callers
+ * skip the bucket and get none.
+ *
  * On exhaustion we 429 with a Retry-After hint and audit the event but
  * don't auto-lock (a noisy client isn't necessarily malicious).
  *
@@ -27,6 +32,7 @@
  */
 import debug from "../debug.js";
 import * as store from "./store.js";
+import { tooManyRequests } from "./retry-after.js";
 import { recordDeny, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
 import { envNumber } from "../helpers/env-read.js";
@@ -80,10 +86,13 @@ export default function rateLimit() {
       b.lastRefill = now;
     }
     b.lastSeen = now;
+    const remaining = Math.max(0, Math.floor(b.tokens - 1));
+    res.set("RateLimit-Limit", String(BURST));
+    res.set("RateLimit-Remaining", String(b.tokens < 1 ? 0 : remaining));
+    res.set("RateLimit-Reset", String(Math.max(1, Math.ceil((BURST - Math.max(0, b.tokens - 1)) / REFILL_PER_MS / 1000))));
 
     if (b.tokens < 1) {
       const waitMs = (1 - b.tokens) / REFILL_PER_MS;
-      res.set("Retry-After", String(Math.ceil(waitMs / 1000)));
       res.set("Cache-Control", "no-store");
       store.appendAudit({ kind: "rate-limited", ip, path: req.path, at: now });
       // If a proxy is folding every client into this one bucket, that — not the
@@ -98,7 +107,7 @@ export default function rateLimit() {
       });
       res.set("X-CookingFoil-Deny", DENY.RATE_LIMITED);
       debug.log("security: rate-limited %s (%s)", ip, req.path);
-      return res.status(429).type("text/plain").send("Too many requests.");
+      return tooManyRequests(res, waitMs / 1000).type("text/plain").send("Too many requests.");
     }
     b.tokens -= 1;
     next();

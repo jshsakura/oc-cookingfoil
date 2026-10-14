@@ -20,6 +20,20 @@ export function approveSignedInDevice(deviceKey, addedBy) {
   return true;
 }
 
+/**
+ * Approve a console from the queue, or give an approved one a new key: mint its
+ * access key and stage it for the console's next status poll. With no name
+ * given, the note the console sent names it. Shared by the admin page's
+ * devices tab and the Telegram alert's button.
+ */
+export function approveWaitingDevice(deviceKey, { label = "", addedBy }) {
+  const name = (String(label ?? "").trim() || store.pendingMessage(deviceKey) || "").slice(0, 64).trim();
+  const accessKey = generateAccessKey();
+  store.approveDevice(deviceKey, { label: name, addedBy, accessKeyHash: hashAccessKey(accessKey) });
+  stageAccessKeyDelivery(deviceKey, accessKey);
+  return name;
+}
+
 /** @returns {"ok" | "expired" | "used"} */
 export function approvePairLink(token, { label = "", addedBy }) {
   const link = readPairLink(token);

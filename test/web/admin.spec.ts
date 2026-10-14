@@ -399,6 +399,26 @@ test('the header has one account circle that opens the account, the web page, th
   await page.screenshot({ path: 'out/web/admin-overview-connect.png' });
 });
 
+test('the admin account menu picks a theme that the web page keeps too', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await signIn(page);
+  await page.locator('#acct-btn').click();
+  const choice = (name: string) => page.locator('#acct-list').getByRole('menuitemradio', { name });
+  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'true');
+  await choice('밝은 테마').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(choice('밝은 테마')).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-theme-menu.png' });
+  await page.evaluate(() => localStorage.setItem('cookingfoil:lang', 'ko'));
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#acct-list').getByRole('menuitemradio', { name: '밝은 테마' })).toHaveAttribute('aria-checked', 'true');
+});
+
 test('the alerts tab sets up Telegram, picks events and shows what was told', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#alerts');

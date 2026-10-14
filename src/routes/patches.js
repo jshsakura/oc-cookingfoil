@@ -54,6 +54,9 @@ async function listRoute(req, res) {
   res.status(200).end(body);
 }
 
+// A patch still being hashed is sent at once, tagged so a changed file still breaks a resume.
+const statTag = (entries) => `s-${crypto.createHash("sha256").update(JSON.stringify(entries.map((e) => [e.path, e.size, e.mtime]))).digest("hex")}`;
+
 async function downloadRoute(req, res) {
   const id = String(req.params.id || "");
   if (!ID_RE.test(id)) {
@@ -65,7 +68,7 @@ async function downloadRoute(req, res) {
     res.status(404).json({ error: "no such patch" });
     return;
   }
-  sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.patch.hash, label: "patches", fixedTimes: true });
+  sendTar(res, opened.entries, { filename: `${id}.tar`, etag: opened.patch.hash ?? statTag(opened.entries), label: "patches", fixedTimes: true });
 }
 
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);

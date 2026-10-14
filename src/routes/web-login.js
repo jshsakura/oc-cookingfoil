@@ -21,6 +21,7 @@ import express from "express";
 import * as accounts from "../security/google-accounts.js";
 import * as users from "../security/users.js";
 import * as store from "../security/store.js";
+import { lockoutRetryAfter, retryAfter } from "../security/retry-after.js";
 import * as googleConfig from "../security/google-config.js";
 import {
   OAUTH_COOKIE, OAUTH_MS, clearUserSession, cookieLine, cookies, csrfOk, csrfToken,
@@ -100,7 +101,7 @@ function mountPasswordLogin(router) {
     const next = safeNext(req.body?.next);
     const ip = clientIp(req);
     const trusted = trustLoopback && isLoopbackIp(ip);
-    if (!trusted && store.isLocked(ip)) return renderLogin(req, res, { status: 429, next, error: "locked" });
+    if (!trusted && store.isLocked(ip)) return renderLogin(req, retryAfter(res, lockoutRetryAfter(ip)), { status: 429, next, error: "locked" });
     if (!csrfOk(req)) return renderLogin(req, res, { status: 403, next, error: "expired" });
     const name = String(req.body?.username ?? "").trim().slice(0, MAX_FIELD);
     const password = String(req.body?.password ?? "").slice(0, MAX_FIELD);

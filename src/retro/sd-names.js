@@ -14,6 +14,7 @@
  */
 import fsp from "fs/promises";
 import path from "path";
+import { pathProblem } from "../meta/console-paths.js";
 
 export const NAME_MAX = 80;
 const SUFFIX_ROOM = 22; // " (Disc 12) (Track 99)" and the like
@@ -133,7 +134,12 @@ export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "u
   }
   // Anything a playlist or cue didn't name keeps a cleaned copy of its own name.
   for (const x of g.extras) {
-    if (!extras.has(x.rel)) extras.set(x.rel, { sd: `${dir}/${asciiOnly(path.posix.basename(x.rel)) || path.posix.basename(x.rel)}` });
+    if (extras.has(x.rel)) continue;
+    // Nothing usable left of a non-ASCII name ("설명서", "자료.sav" → ".sav"): the game's id keeps it unique.
+    const cleaned = asciiOnly(path.posix.basename(x.rel));
+    const ext = path.extname(x.rel).toLowerCase();
+    const name = cleaned && !cleaned.startsWith(".") && !pathProblem(cleaned) ? cleaned : `${stem} (extra ${g.extras.indexOf(x) + 1})${/^\.[a-z0-9]+$/.test(ext) ? ext : ""}`;
+    extras.set(x.rel, { sd: `${dir}/${name}` });
   }
   return { stem, rom: `${dir}/${stem}${romExt}`, ...(romText !== undefined ? { romText } : {}), extras };
 }
@@ -143,7 +149,9 @@ export async function assignSdNames(games, readText) {
   const groups = new Map();
   for (const g of games) {
     // An arcade set must keep its short name (sf2.zip): the core finds it by that name.
-    const base = g.keepFileName ? path.basename(g.rel, path.extname(g.rel)) : sdStem(g.name) || g.id;
+    // A short name the card can't create is no use to the core either; fall back like any other game.
+    const kept = g.keepFileName ? path.basename(g.rel, path.extname(g.rel)) : null;
+    const base = kept && !pathProblem(kept) ? kept : sdStem(g.name) || g.id;
     const key = `${g.system}\0${base.toLowerCase()}`;
     groups.set(key, [...(groups.get(key) ?? []), { g, base }]);
   }

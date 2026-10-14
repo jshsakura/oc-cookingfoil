@@ -25,7 +25,7 @@ test("saved collections survive a restart and reach the sections by base id", ()
   assert.equal(out.length, 1);
   assert.equal(out[0].title, "이번 주 추천");
   assert.deepEqual(out[0].title_ids, [ZELDA, MARIO], "ids are upper-cased and deduplicated, order kept");
-  assert.equal(out[0].banner_url, `/api/shop/banner/${MARIO}`);
+  assert.match(out[0].banner_url, new RegExp(`^/api/shop/banner/${MARIO}\\?v=[0-9a-f]{12}$`));
   assert.match(out[0].id, /^[a-z0-9-]+$/);
   assert.ok(readFileSync(path.join(dataDir, "featured.json"), "utf8").includes(ZELDA));
 });

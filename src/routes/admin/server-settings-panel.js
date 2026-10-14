@@ -53,6 +53,9 @@ const SS_GROUPS=[
     ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
     ['titledbSource','text','받을 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 바꿉니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
   ]],
+  ['내려받기',[
+    ['downloadMaxConnections',[['1','1개'],['2','2개'],['3','3개'],['4','4개 (기본)'],['5','5개'],['6','6개'],['7','7개'],['8','8개']],'기기당 동시 연결','기기 하나가 파일 하나를 받을 때 동시에 여는 연결 수의 상한을 클라이언트에 알려 줍니다. 서버가 막지는 않으며, 줄이면 서버 부담이 줄고 늘리면 먼 곳에서 빨라질 수 있습니다.'],
+  ]],
   ['외부 정보',[
     ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],
     ['eshopPopularity','bool','인기순','인기순 정렬에 쓰는 순위를 받습니다.'],
@@ -62,7 +65,7 @@ const SS_GROUPS=[
 ];
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
-const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===v)?.[1])||v||'비어 있음';
+const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
 async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);loadHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
     toast(row?row[2]+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
