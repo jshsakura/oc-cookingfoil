@@ -193,6 +193,20 @@ test("a patch still being hashed is listed at once and gets its hash afterwards"
   assert.notEqual(forTitle("0100000000010000")[0].hash, old);
 });
 
+test("a scan asked for while one runs reads what changed meanwhile", async () => {
+  const { root, cacheFile, put } = cacheRoot();
+  put(SMALL, "[x]");
+  put("0100000000020000/Small/patch.json", JSON.stringify({ name: "old" }));
+  await scan({ root, cacheFile });
+  const running = scan({ root, cacheFile });
+  const asked = scan({ root, cacheFile });
+  assert.notEqual(asked, running, "not the scan that started before the change");
+  await running;
+  put("0100000000020000/Small/patch.json", JSON.stringify({ name: "new" }));
+  await asked;
+  assert.equal(forTitle("0100000000020000")[0].name, "new");
+});
+
 test("a download never waits for the patch to be hashed", async () => {
   const { root, cacheFile, put } = cacheRoot();
   put(BIG, "aaaa");

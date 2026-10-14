@@ -50,6 +50,7 @@ let patches = []; // sorted by title id, then name
 let provisional = null; // during the first scan: the patches read so far
 let scannedAt = 0;
 let inFlight = null;
+let rerun = null; // a scan asked for while one runs: one more after it, so a change made meanwhile is read
 let signature = "";
 const fileHashes = new Map(); // abs path → { key, hash, seen }
 const byStat = new Map(); // key → hash, to recognise a file that moved
@@ -397,7 +398,14 @@ function saveCache(file) {
  */
 export function scan(options = {}) {
   const { root = patchesDir, onChange, cacheFile = root === patchesDir ? CACHE_PATH : null } = options;
-  if (inFlight) return inFlight;
+  // The running scan may have read a patch.json before the caller changed it.
+  if (inFlight) {
+    rerun ??= inFlight.catch(() => {}).then(() => {
+      rerun = null;
+      return scan(options);
+    });
+    return rerun;
+  }
   inFlight = (async () => {
     try {
       const cold = !scannedAt && !signature;
@@ -474,7 +482,7 @@ function firstPending(failed) {
 
 /** Resolves once the background hashing has finished. */
 export async function hashed() {
-  while (hasher || inFlight) await (hasher ?? inFlight);
+  while (hasher || inFlight || rerun) await (hasher ?? inFlight ?? rerun);
 }
 
 /** Restore the saved listing, then scan now and every minute. */
@@ -540,5 +548,6 @@ export function reset() {
   signature = "";
   fileHashes.clear();
   byStat.clear();
+  rerun = null;
   pending.clear();
 }
