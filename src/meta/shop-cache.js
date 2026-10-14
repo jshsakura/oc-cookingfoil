@@ -65,10 +65,14 @@ const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
 // We derive an absolute-URL variant per distinct request origin and memoize
 // its identity/gzip/brotli/etag, so the expensive compression only runs once
 // per origin instead of per request. Realistic deployments see 1–2 origins;
-// the cap only guards against a flood of spoofed Host headers. Cleared on
-// every rebuild so variants never outlive the base snapshot they derive from.
+// the cap only guards against a flood of spoofed Host headers. Lists carrying
+// direct links are one variant per console, kept apart (DIRECT_MEMO_MAX) so a
+// household's consoles never push the plain variants out. Cleared on every
+// rebuild so variants never outlive the base snapshot they derive from.
 const ORIGIN_MEMO_MAX = 16;
-const originMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
+const DIRECT_MEMO_MAX = 32;
+const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> { identity, gzip, brotli, etag }
+const originMemo = newMemo();
 
 // Native sections view (CyberFoil /api/shop/sections), built lazily from the
 // same filesMap and memoized per origin exactly like the shop response.
@@ -76,7 +80,25 @@ const originMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
 // stale catalog.
 let sectionsIdentity = null; // Buffer: relative-URL sections JSON
 let sectionsNoOriginVariant = null; // compressed relative variant (falsy origin)
-const sectionsOriginMemo = new Map(); // origin -> { identity, gzip, brotli, etag }
+const sectionsOriginMemo = newMemo();
+
+function clearMemo(memo) {
+  memo.plain.clear();
+  memo.direct.clear();
+}
+
+/** The memoized variant for `origin` and `link`, made by `make()` the first time. */
+async function memoized(memo, origin, link, make) {
+  const map = link ? memo.direct : memo.plain;
+  const key = memoKey(origin, link);
+  let variant = map.get(key);
+  if (!variant) {
+    variant = await make();
+    map.set(key, variant);
+    if (map.size > (link ? DIRECT_MEMO_MAX : ORIGIN_MEMO_MAX)) map.delete(map.keys().next().value);
+  }
+  return variant;
+}
 
 let cached = null;           // raw shop object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
@@ -196,11 +218,11 @@ async function build() {
       serializedEtag = etag;
       // Drop per-origin variants — they were derived from the now-replaced
       // base buffers and would serve stale artwork URLs / etags otherwise.
-      originMemo.clear();
+      clearMemo(originMemo);
       // Same for the sections view — rebuilt lazily on the next request.
       sectionsIdentity = null;
       sectionsNoOriginVariant = null;
-      sectionsOriginMemo.clear();
+      clearMemo(sectionsOriginMemo);
 
       lastBuildMs = Date.now() - start;
       buildCount += 1;
@@ -349,14 +371,16 @@ function pickVariant(variant, acceptedEncodings) {
 // Derive the absolute-URL variant for a single origin and compress it. The
 // rewrite reads serializedJson synchronously up front, so a concurrent
 // rebuild swapping the base buffers can't desync this variant's body/etag.
-// File URLs go to the download-only address as signed links when one is set
-// (security/download-links.js), otherwise they are anchored at the origin.
+// File URLs are anchored at the origin; with `link` (a signed-in list while a
+// direct address is set) each also gets its direct_url (security/download-links.js).
 function rewriteDownloads(json, origin, link) {
-  return link ? downloadLinks.rewriteSigned(json, link) : rewriteDownloadOrigin(json, origin);
+  return rewriteDownloadOrigin(downloadLinks.withShopDirect(json, link), origin);
 }
 
-// The memo key: one variant per origin, and per link expiry step when links are signed.
-const memoKey = (origin, link) => (link ? `${origin}|${link.base}|${link.exp}` : origin);
+// The memo key: one variant per origin, and per link expiry step, console and
+// generation when the list carries direct links (a used link moves its console
+// to the next generation). Lists without direct links keep the plain origin key.
+const memoKey = (origin, link) => (link ? `${origin}|${link.base}|${link.exp}|${link.u}|${link.g}` : origin);
 
 async function encodeForOrigin(origin, link) {
   // Both artwork (`/api/shop/...`) and file-download (`../foo.nsp`) URLs are made
@@ -379,24 +403,14 @@ async function encodeForOrigin(origin, link) {
  * ABSOLUTE against `origin` (scheme://host) so CyberFoil/AeroFoil can fetch
  * icons by curling the URL verbatim. A falsy origin falls back to the
  * host-relative payload (getEncoded) — correct for same-origin browser fetches
- * and any caller that can't determine a host.
+ * and any caller that can't determine a host. `link` (download-links.js
+ * forRequest) adds that console's direct_url beside each file URL.
  */
-export async function getEncodedForOrigin(acceptedEncodings, origin) {
+export async function getEncodedForOrigin(acceptedEncodings, origin, link = null) {
   if (!origin) return getEncoded(acceptedEncodings);
   if (!cached) await build();
 
-  const link = downloadLinks.current();
-  const key = memoKey(origin, link);
-  let variant = originMemo.get(key);
-  if (!variant) {
-    variant = await encodeForOrigin(origin, link);
-    originMemo.set(key, variant);
-    if (originMemo.size > ORIGIN_MEMO_MAX) {
-      const oldest = originMemo.keys().next().value;
-      originMemo.delete(oldest);
-    }
-  }
-
+  const variant = await memoized(originMemo, origin, link, () => encodeForOrigin(origin, link));
   return pickVariant(variant, acceptedEncodings);
 }
 
@@ -421,9 +435,10 @@ async function encodeSectionsForOrigin(origin, link) {
  * CyberFoil (/api/shop/sections). Mirrors getEncodedForOrigin: the body is
  * built once per rebuild and reused across requests (br/gzip/identity + ETag),
  * instead of recomputing ~1 MB of JSON on every hit. Forces a build when
- * filesMap is null so it's safe on the warm-restart path.
+ * filesMap is null so it's safe on the warm-restart path. `link` as in
+ * getEncodedForOrigin.
  */
-export async function getSectionsEncodedForOrigin(acceptedEncodings, origin) {
+export async function getSectionsEncodedForOrigin(acceptedEncodings, origin, link = null) {
   if (!filesMap) await build();
   ensureSectionsIdentity();
 
@@ -434,17 +449,7 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin) {
     return pickVariant(sectionsNoOriginVariant, acceptedEncodings);
   }
 
-  const link = downloadLinks.current();
-  const key = memoKey(origin, link);
-  let variant = sectionsOriginMemo.get(key);
-  if (!variant) {
-    variant = await encodeSectionsForOrigin(origin, link);
-    sectionsOriginMemo.set(key, variant);
-    if (sectionsOriginMemo.size > ORIGIN_MEMO_MAX) {
-      const oldest = sectionsOriginMemo.keys().next().value;
-      sectionsOriginMemo.delete(oldest);
-    }
-  }
+  const variant = await memoized(sectionsOriginMemo, origin, link, () => encodeSectionsForOrigin(origin, link));
   return pickVariant(variant, acceptedEncodings);
 }
 

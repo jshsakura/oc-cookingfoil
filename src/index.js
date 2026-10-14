@@ -36,7 +36,7 @@ import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
-import downloadHost from "./security/download-host.js";
+import directLane from "./security/direct-lane.js";
 import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
@@ -155,8 +155,17 @@ expressApp.get("/healthz", async (_req, res) => {
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
 expressApp.use(busyGuard());
 expressApp.use(rateLimit());
-// The download-only address answers signed file links and nothing else.
-expressApp.use(downloadHost(romsDirPath));
+// The download routers, made once: the shop mounts them below and the signed lane shares them.
+const downloadRouters = {
+  "/api/patches": patchesRouter(),
+  "/api/homebrew": homebrewRouter(),
+  "/api/saves": savesRouter(),
+  "/api/client": clientUpdateRouter(),
+  "/api/retro": retroRouter(),
+};
+// Direct links (signed, through the direct address's proxy) are answered here,
+// without the sign-in; every other request goes on through the stack below.
+expressApp.use(directLane(romsDirPath, { routes: downloadRouters }));
 
 if (adminEnabled) {
   expressApp.use("/api/admin", adminRouter());
@@ -225,16 +234,16 @@ expressApp.get("/api/remote/icon/:titleId", iconRoute);
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
 // User patches (mods, cheats) a client installs onto the SD card itself.
-expressApp.use("/api/patches", patchesRouter());
+expressApp.use("/api/patches", downloadRouters["/api/patches"]);
 // Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
-expressApp.use("/api/homebrew", homebrewRouter());
+expressApp.use("/api/homebrew", downloadRouters["/api/homebrew"]);
 
 // Save files the shop hands out (off until COOK_SAVES_DIR exists).
-expressApp.use("/api/saves", savesRouter());
-expressApp.use("/api/client", clientUpdateRouter());
+expressApp.use("/api/saves", downloadRouters["/api/saves"]);
+expressApp.use("/api/client", downloadRouters["/api/client"]);
 
 // Retro games, bezels and the RetroArch base pack (off until COOK_RETRO_DIR exists).
-expressApp.use("/api/retro", retroRouter());
+expressApp.use("/api/retro", downloadRouters["/api/retro"]);
 
 // Dropbox save sync: sign-in sessions for the client app (COOK_DROPBOX_APP_KEY).
 expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());

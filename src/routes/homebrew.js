@@ -45,6 +45,11 @@
  * build shortcuts (no prod.keys or hacBrewPack); forwarder_size is null until
  * the NSP has been built, which happens in the background.
  *
+ * Every download URL (download_url, bundle_url, archive.url, each file's url,
+ * forwarder_url) has a direct twin (download_direct_url, bundle_direct_url,
+ * direct_url, forwarder_direct_url) when the list was asked for by a signed-in
+ * request and a direct address is set (security/download-links.js).
+ *
  * `hash` changes whenever the build does; a client compares it with the one it
  * installed to show an update. A GitHub build announced but not yet fetched is
  * fetched by its first download, so that request can take a while.
@@ -55,6 +60,7 @@ import express from "express";
 import debug from "../debug.js";
 import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
+import { directFields, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
@@ -243,6 +249,12 @@ async function unchanged(files) {
   return true;
 }
 
+/** A URL field and its direct twin (when `link` is set); a null URL has none. */
+const withDirect = (name, url, link) => ({ [name]: url, ...(url ? directFields(name, url, link) : {}) });
+
+/** The forwarder fields with forwarder_direct_url after forwarder_url when there is one. Pure. */
+const forwarderWithDirect = ({ forwarder_url: url, ...rest }, link) => ({ ...withDirect("forwarder_url", url, link), ...rest });
+
 /** Ask for a retry once the folder has been read again. */
 function changedSinceScan(res) {
   refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
@@ -254,6 +266,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
   const router = express.Router();
 
   router.get("/", wrap(async (req, res) => {
+    const link = forRequest(req);
     // An app the admin turned off is left out.
     const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false).map(({ enabled: _on, ...e }) => ({
       description: null,
@@ -264,13 +277,13 @@ export function homebrewRouter({ service = defaultService } = {}) {
       install_path: e.install_path ?? installPathFor(e.file_name),
       // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
-      files: e.files ? e.files.map((f) => ({ ...f, url: `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}` })) : null,
-      bundle_url: e.files ? `/api/homebrew/${e.id}/bundle` : null,
+      files: e.files ? e.files.map((f) => ({ ...f, ...withDirect("url", `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}`, link) })) : null,
+      ...withDirect("bundle_url", e.files ? `/api/homebrew/${e.id}/bundle` : null, link),
       // A zip kept as it is comes whole, with which entry goes where on the card.
-      ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, url: `/api/homebrew/${e.id}/archive` } } : { archive: null }),
+      ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
       icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
-      download_url: `/api/homebrew/${e.id}/download`,
-      ...(service.forwarderInfo?.(e) ?? NO_FORWARDER),
+      ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
+      ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
     }));
     const body = JSON.stringify({ homebrew: list });
     res.set({

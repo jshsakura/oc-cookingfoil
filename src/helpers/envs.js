@@ -329,9 +329,11 @@ let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "")
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
 // download.maxConnections), not enforced: the client opens up to this many.
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
-// The download-only address (security/download-host.js): when set, lists hand out
-// game files as signed links on it that stop working after downloadLinkTtl seconds.
-let downloadBaseUrl = normalizeBaseUrl(pickEnv("COOK_DOWNLOAD_BASE_URL"));
+// The direct download address (security/download-links.js, direct-lane.js): a
+// proxy in front of this server that forwards only signed downloads. When set,
+// signed-in lists give every download a direct_url, a signed link on it that
+// stops working after downloadLinkTtl seconds.
+let publicDirectBaseUrl = normalizeBaseUrl(pickEnv("COOK_PUBLIC_DIRECT_BASE_URL"));
 let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 43200, { min: 3600, max: 604800, integer: true });
 // Safe restart (security/drain.js): the Retry-After a new request is given while
 // the server drains, and how long running requests may take to finish before
@@ -364,7 +366,7 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   welcomeMessage,
   downloadMaxConnections,
-  downloadBaseUrl: downloadBaseUrl || "",
+  publicDirectBaseUrl: publicDirectBaseUrl || "",
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
@@ -392,7 +394,7 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
-  downloadBaseUrl = v.downloadBaseUrl ? normalizeBaseUrl(v.downloadBaseUrl) : null;
+  publicDirectBaseUrl = v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;
@@ -401,7 +403,7 @@ function applyServerSettings(saved = {}) {
 export {
   ENV_SETTINGS,
   downloadMaxConnections,
-  downloadBaseUrl,
+  publicDirectBaseUrl,
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,

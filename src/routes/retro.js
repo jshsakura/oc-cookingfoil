@@ -50,6 +50,12 @@
  *         New kinds may be added later; hasBezel and generic stay for older clients.
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
+ * Every download URL (romUrl, bundleUrl, the bezel's imageUrl, overlayCfgUrl
+ * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) has
+ * a direct twin (romDirectUrl, …, direct_url) when the list was asked for by a
+ * signed-in request and a direct address is set (security/download-links.js);
+ * otherwise the twins are left out.
+ *
  * Bundle and pack paths are relative to the SD root: roms/<system>/…,
  * retroarch/overlays/GameBezels/<System>/…, retroarch/config/<Core>/…,
  * switch/retroarch_switch.nro. A file marked `once` is only written when the
@@ -83,6 +89,7 @@ import { listFilter } from "../retro/list-filter.js";
 import { groupVisible, representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
+import { directFields, forRequest } from "../security/download-links.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -185,7 +192,7 @@ function forwarderGame(g, system) {
 }
 
 /** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
-function forwarderFields(g, system, base) {
+function forwarderFields(g, system, base, link) {
   const spec = forwardersAvailable(keysDir) ? forwarderSpec(forwarderGame(g, system)) : null;
   if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null };
   let size = null;
@@ -194,7 +201,7 @@ function forwarderFields(g, system, base) {
   } catch {
     // not built yet; the first download builds it
   }
-  return { forwarderUrl: `${base}/forwarder.nsp`, forwarderTitleId: spec.titleId, forwarderSize: size };
+  return { forwarderUrl: `${base}/forwarder.nsp`, ...directFields("forwarderUrl", `${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size };
 }
 
 /** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
@@ -229,7 +236,24 @@ function publicVariant(g, rep, lang) {
   };
 }
 
-function publicGame(g, systems, lang = "en", { lean = false, cat = null } = {}) {
+/** A URL field and its direct twin (when `link` is set). */
+const withDirect = (name, url, link) => ({ [name]: url, ...directFields(name, url, link) });
+
+/** The bezel fields of a game, with their direct twins. */
+function bezelFields(g, paths, base, link) {
+  if (!g.bezel) return { kind: "none", hasBezel: false };
+  return {
+    kind: bezelKind(g),
+    hasBezel: true,
+    generic: g.bezel.generic,
+    ...withDirect("imageUrl", `${base}/bezel.png`, link),
+    ...withDirect("overlayCfgUrl", `${base}/overlay.cfg`, link),
+    ...(paths.gameCfg ? withDirect("gameCfgUrl", `${base}/game.cfg`, link) : { gameCfgUrl: null }),
+  };
+}
+
+// `link` (download-links.js forRequest) adds the direct twins of the download URLs.
+function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null } = {}) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
   const own = retroNames.get(g.id);
@@ -266,12 +290,10 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null } = {}) 
     addedAt: g.addedAt,
     iconUrl: g.icon ? `${base}/icon?v=${artKey(g)}` : null,
     boxartUrl: g.icon ? `${base}/boxart?v=${artKey(g)}` : null,
-    romUrl: `${base}/rom`,
-    bundleUrl: `${base}/bundle`,
-    bezel: g.bezel
-      ? { kind: bezelKind(g), hasBezel: true, generic: g.bezel.generic, imageUrl: `${base}/bezel.png`, overlayCfgUrl: `${base}/overlay.cfg`, gameCfgUrl: paths.gameCfg ? `${base}/game.cfg` : null }
-      : { kind: "none", hasBezel: false },
-    ...forwarderFields(g, system, base),
+    ...withDirect("romUrl", `${base}/rom`, link),
+    ...withDirect("bundleUrl", `${base}/bundle`, link),
+    bezel: bezelFields(g, paths, base, link),
+    ...forwarderFields(g, system, base, link),
     install: {
       rom: paths.rom,
       extras: g.extras.map((x) => paths.extra(x.rel)),
@@ -355,6 +377,7 @@ export default function retroRouter() {
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const bySystem = new Map();
     const listed = listedGames(cat);
+    const link = forRequest(req);
     for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
@@ -362,7 +385,7 @@ export default function retroRouter() {
         .map((s) => ({
           ...s,
           ...systemIconUrls(s.id, cat.systems[s.id]),
-          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req), { cat })),
+          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link })),
         })),
     });
   }));
@@ -392,12 +415,13 @@ export default function retroRouter() {
     const matches = (all ? cat.games : listedGames(cat))
       .filter((g) => (!system || g.system === system) && found(g) && keep(g))
       .sort(sort);
+    const link = forRequest(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       total: matches.length,
       page,
       pageSize,
-      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat })),
+      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link })),
     });
   }));
 
@@ -419,7 +443,7 @@ export default function retroRouter() {
     const group = groupOf(cat, game);
     const rep = representative(group, variantPicks.get(group.id));
     res.vary("Accept-Language").json({
-      ...publicGame(game, systems, lang, { cat }),
+      ...publicGame(game, systems, lang, { cat, link: forRequest(req) }),
       representative: rep.id,
       variants: group.members.map((m) => publicVariant(m, rep, lang)),
     });
@@ -484,14 +508,16 @@ export default function retroRouter() {
       res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
       return res.status(503).json({ error: "the base pack is still being read", retryAfter: 30 });
     }
+    const link = forRequest(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
-    res.set("ETag", `"${m.version}"`);
+    // Direct links change with their console, generation and expiry, so a cached copy must too.
+    res.set("ETag", `"${m.version}${link ? `-${link.u}.${link.g}.${link.exp}` : ""}"`);
     if (req.fresh) return res.status(304).end();
     res.json({
       version: m.version,
-      bundleUrl: "/api/retro/base-pack/bundle",
+      ...withDirect("bundleUrl", "/api/retro/base-pack/bundle", link),
       bundleSize: archiveSize(tarEntries(m.files)),
-      files: m.files.map((f) => ({ ...f, url: `/api/retro/base-pack/file/${enc(f.path)}` })),
+      files: m.files.map((f) => ({ ...f, ...withDirect("url", `/api/retro/base-pack/file/${enc(f.path)}`, link) })),
     });
   }));
 

@@ -2,7 +2,8 @@
  * The CookingFoil client updating itself.
  *
  *   GET /api/client/latest           { version, size, sha256, url, forwarder_url, forwarder_title_id, forwarder_size },
- *                                    or 404 when no build is there
+ *                                    or 404 when no build is there; direct_url and forwarder_direct_url
+ *                                    beside them for a signed-in request when a direct address is set (security/download-links.js)
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
  *   GET /api/client/forwarder        the client's own HOME-menu shortcut NSP, starting
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
@@ -29,6 +30,7 @@ import { parseAssets } from "../meta/extract-providers/nro.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-build.js";
 import debug from "../debug.js";
 import { mountClientLog } from "./client-log.js";
+import { directFields, forRequest } from "../security/download-links.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
 const PUBLISHED_DIR = path.join(dataDir, "client", ".published");
@@ -161,7 +163,15 @@ export default function clientUpdateRouter() {
       const info = await latestBuild();
       res.set("Cache-Control", "no-store");
       if (!info) return res.status(404).json({ error: "no client build on this server" });
-      res.json({ ...info, ...(await forwarderFields(info)) });
+      const link = forRequest(req);
+      const { forwarder_url: forwarderUrl, ...forwarder } = await forwarderFields(info);
+      res.json({
+        ...info,
+        ...directFields("url", info.url, link),
+        forwarder_url: forwarderUrl,
+        ...(forwarderUrl ? directFields("forwarder_url", forwarderUrl, link) : {}),
+        ...forwarder,
+      });
     } catch (err) {
       next(err);
     }

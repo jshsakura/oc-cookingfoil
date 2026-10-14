@@ -9,6 +9,9 @@
  *                                  Each P carries `game` { name, names, icon } when
  *                                  titledb or the game's own file knows the title,
  *                                  so a client can label patches for games it doesn't list.
+ *                                  For a signed-in request, with a direct address set, each P
+ *                                  carries direct_url: a signed link to its download
+ *                                  (security/download-links.js).
  * GET /api/patches/:id/download    one patch as an uncompressed ustar archive
  *
  * Archive paths are relative to the SD card root, directories first, so a
@@ -23,10 +26,14 @@ import { requestLang } from "../meta/categories.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
+import { directFields, forRequest } from "../security/download-links.js";
 
 export { tarEntries, gameOf };
 
 const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
+
+/** A patch with the direct link to its download when `link` is set. Pure. */
+export const withPatchDirect = (p, link) => ({ ...p, ...directFields("url", `/api/patches/${p.id}/download`, link) });
 
 async function listRoute(req, res) {
   // Never waits for a scan: before the first one finishes this is what has been read so far.
@@ -34,10 +41,11 @@ async function listRoute(req, res) {
   if (listing.scanning) res.set("Retry-After", "30");
   const origin = resolveOrigin(req, publicBaseUrl);
   const lang = requestLang(req);
+  const link = forRequest(req);
   const body = JSON.stringify({
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
-      const own = userPatches.localizePatch(p, lang);
+      const own = withPatchDirect(userPatches.localizePatch(p, lang), link);
       return game ? { ...own, game } : own;
     }),
     ...(listing.scanning ? { scanning: true } : {}),

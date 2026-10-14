@@ -14,7 +14,7 @@ import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
 import debug from "../../debug.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
-const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "downloadBaseUrl", "downloadLinkTtl"]);
+const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "downloadLinkTtl"]);
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 

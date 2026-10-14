@@ -9,6 +9,8 @@
  *                                   A homebrew app's save has titleId null, `homebrew` (its
  *                                   switch/<app>/ folder name) and `installRoot` ("switch/<app>"):
  *                                   its files are restored into that folder of the SD card
+ *                                   direct_url beside url for a signed-in request when a direct address is set
+ *                                   (security/download-links.js)
  *   GET /api/saves/:id/download     the save folder's contents as an uncompressed ustar,
  *                                   paths relative to the save's root, directories first
  */
@@ -22,6 +24,7 @@ import { requestLang } from "../meta/categories.js";
 import { gameOf } from "../meta/game-info.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { sendTar } from "../helpers/tar-stream.js";
+import { directFields, forRequest } from "../security/download-links.js";
 
 const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
@@ -42,9 +45,10 @@ export default function savesRouter() {
   router.get("/", wrap(async (req, res) => {
     const origin = resolveOrigin(req, publicBaseUrl);
     const lang = requestLang(req);
+    const link = forRequest(req);
     const saves = (await catalog.list()).map((s) => {
       const game = s.titleId ? gameOf(s.titleId, origin) : null;
-      return { ...localize(s, lang), ...(game ? { game } : {}), url: `/api/saves/${s.id}/download` };
+      return { ...localize(s, lang), ...(game ? { game } : {}), url: `/api/saves/${s.id}/download`, ...directFields("url", `/api/saves/${s.id}/download`, link) };
     });
     const body = JSON.stringify({ saves });
     res.type("application/json");

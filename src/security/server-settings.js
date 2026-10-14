@@ -1,6 +1,6 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the share inbox, the public address, the download-only address, where names come from,
+ * approval, uploads, the share inbox, the public address, the direct download address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
  * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
+import debug from "../debug.js";
 
 const FILE = path.join(env.dataDir, "security", "server-settings.json");
 const URL_RE = /^https?:\/\/[^\s/]+[^\s]{0,300}$/;
@@ -56,7 +57,7 @@ export const SETTINGS = {
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
-  downloadBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
   // An hour up to a week; the page sends one of its choices as text.
   downloadLinkTtl: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 3600 && v <= 604800 },
   restartRetryAfter: seconds(300),
@@ -67,13 +68,23 @@ export const SETTINGS = {
 
 let saved = {};
 
+let warnedRetired = false;
+/** The old download-only address is gone; say once that its value is not used. */
+function warnRetired(what) {
+  if (warnedRetired) return;
+  warnedRetired = true;
+  debug.error("settings: %s is no longer used and is ignored; set publicDirectBaseUrl (COOK_PUBLIC_DIRECT_BASE_URL) instead", what);
+}
+
 function read() {
+  if (process.env.COOK_DOWNLOAD_BASE_URL) warnRetired("COOK_DOWNLOAD_BASE_URL");
   try {
     const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
     const out = {};
     for (const [k, v] of Object.entries(parsed?.settings ?? {})) {
       if (SETTINGS[k]?.check(v)) out[k] = v;
     }
+    if (parsed?.settings?.downloadBaseUrl) warnRetired("the saved downloadBaseUrl");
     return out;
   } catch {
     return {};
@@ -99,7 +110,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "downloadBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "publicDirectBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }

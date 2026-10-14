@@ -15,6 +15,7 @@ import debug from "./debug.js";
 import * as shopCache from "./meta/shop-cache.js";
 import { resolveOrigin } from "./helpers/origin.js";
 import { publicBaseUrl } from "./helpers/envs.js";
+import * as downloadLinks from "./security/download-links.js";
 
 export default function shopFileBuilder() {
   return async (req, res, next) => {
@@ -31,7 +32,7 @@ export default function shopFileBuilder() {
       // variant is memoized per origin, so this stays a header check + buffer
       // pick after the first request from a given host.
       const origin = resolveOrigin(req, publicBaseUrl);
-      payload = await shopCache.getEncodedForOrigin(req.acceptsEncodings(), origin);
+      payload = await shopCache.getEncodedForOrigin(req.acceptsEncodings(), origin, downloadLinks.forRequest(req));
     } catch (err) {
       debug.error("shop cache get failed: %s", err.stack || err.message);
       res

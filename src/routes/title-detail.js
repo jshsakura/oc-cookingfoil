@@ -30,6 +30,8 @@ import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
+import { forRequest } from "../security/download-links.js";
+import { withPatchDirect } from "./patches.js";
 
 const ownName = (own, lang) => (own ? (lang === "ko" ? own.ko ?? own.en : own.en ?? own.ko) : null);
 
@@ -63,6 +65,7 @@ export default async function titleDetailRoute(req, res) {
   }
 
   const origin = resolveOrigin(req, publicBaseUrl);
+  const link = forRequest(req);
   const art = (path, lang = null) => {
     const url = versionedArtwork(path, lang);
     return origin ? origin + url : url;
@@ -141,6 +144,6 @@ export default async function titleDetailRoute(req, res) {
     scoreLabel: score?.label ? (scores.SCORE_LABELS[score.label]?.[lang] ?? score.label) : null,
     scoreLabelKey: score?.label ?? null,
     // User patches for this game, as in /api/patches.
-    patches: userPatches.forTitle(base),
+    patches: userPatches.forTitle(base).map((p) => withPatchDirect(p, link)),
   });
 }
