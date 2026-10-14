@@ -36,7 +36,7 @@ import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
-import directLane from "./security/direct-lane.js";
+import directLane, { looksProxied } from "./security/direct-lane.js";
 import * as directHealth from "./security/direct-health.js";
 import { tokenHeader as downloadTokenHeader } from "./security/download-links.js";
 import busyGuard from "./security/busy-guard.js";
@@ -101,6 +101,9 @@ expressApp.use(defensiveHeaders());
 // Safe restart: while the server drains, new requests get 503 + Retry-After and
 // running ones finish (security/drain.js). First, so nothing below starts new work.
 expressApp.use(drainer.middleware());
+// The direct address carries downloads only: the health page below is mounted
+// ahead of the token lane, so a request from that address's proxy never sees it.
+expressApp.use("/healthz", (req, res, next) => (looksProxied(req) ? res.status(404).end() : next()));
 
 // /healthz must answer WITHOUT basic-auth so Docker / Portainer / k8s
 // healthchecks don't have to embed credentials. Mounted before the rest

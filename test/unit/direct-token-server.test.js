@@ -210,9 +210,12 @@ test("retro, saves, patches and extras are on the direct address; artwork is not
 
 test("the direct address opens nothing but downloads, and the shop's own pages keep their sign-in", async () => {
   const token = tokenOf(await fetchOk("/api/shop/info", DIRECT));
-  for (const p of ["/api/admin/users", "/api/retro/games", "/api/shop/sections", "/api/shop/info", "/admin", "/api/inbox"]) {
+  for (const p of ["/healthz", "/api/admin/users", "/api/retro/games", "/api/shop/sections", "/api/shop/info", "/admin", "/api/inbox"]) {
     assert.equal((await viaProxy(`${DL}${p}`, token)).status, 404, p);
   }
+  // Without a token too: the health page is mounted ahead of the lane and still stays shut.
+  assert.equal((await viaProxy(`${DL}/healthz`, null)).status, 404);
+  assert.equal((await fetch(`${BASE}/healthz`)).status, 200, "the server's own health check still works");
   // A token straight to the server (not from the proxy) signs nothing in.
   assert.equal((await fetch(`${BASE}/api/shop/info`, { headers: { Authorization: `Bearer ${token}` } })).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`)).status, 401);
