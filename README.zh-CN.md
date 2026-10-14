@@ -214,6 +214,8 @@ Password   ••••••••
 
 CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HTTPS 的反向代理或隧道后面（nginx、Caddy、Traefik、Cloudflare Tunnel 等）。
 
+可直接使用的 Caddy（一个栈内完成 HTTPS）、nginx 和 Cloudflare Tunnel 配置文件在 [`examples/`](examples/) 中。
+
 - 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。
 - 让代理转发 `X-Forwarded-For`、`X-Forwarded-Proto` 和 `X-Forwarded-Host`。下载和图片的 URL 是绝对地址，由这些请求头生成。如果你的代理会改写 `Host`，请在管理页面上设置公开地址（或 `COOK_PUBLIC_BASE_URL=https://shop.example.org`）。
 - 允许大响应和长时间请求。主机会用大量 Range 请求下载，单个文件可能有几十 GB。
@@ -231,6 +233,8 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 4. 已登录、并通过 HTTPS 发送 `X-CookingFoil-Features: direct-token` 的客户端会收到 `X-CookingFoil-Download-Token` 响应头，它列表中的下载 URL 会指向直接地址。客户端在那里把令牌作为 Bearer 令牌发送。
 
 令牌由服务器签名（使用 `data/security/` 中随机密钥的 HMAC-SHA256），有效期为 `COOK_DOWNLOAD_LINK_TTL` 秒（默认 6 小时），一旦签发对象的账号或主机不能再登录，令牌就立即失效。拒绝响应带有 `X-CookingFoil-Token: invalid | expired | revoked | blocked`，发送过多无效令牌的地址会被暂时封禁。没有声明此功能的客户端（Tinfoil、CyberFoil、浏览器）以及通过普通 HTTP 的请求，看到的列表与以前完全相同。经过 Cloudflare 到达、且 `CF-IPCountry` 不是 `src/security/download-links.js` 中固定国家的请求，会保留普通 URL。
+
+包含 DNS 证书和 DDNS 的完整 Caddy 配置在 [`examples/direct-download/`](examples/direct-download/) 中。
 
 一个最小的 nginx 示例（请按需调整证书、端口和密钥）：
 

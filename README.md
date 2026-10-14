@@ -214,6 +214,8 @@ Stock Tinfoil and CyberFoil cannot pair by QR. They always sign in with an accou
 
 CookingFoil speaks plain HTTP. To reach it from outside your home, put it behind a reverse proxy or a tunnel that terminates HTTPS (nginx, Caddy, Traefik, a Cloudflare Tunnel and so on).
 
+Ready-to-use files for Caddy (with HTTPS in one stack), nginx and a Cloudflare Tunnel are in [`examples/`](examples/).
+
 - Set `COOK_TRUST_PROXY` to the hops that may set the client address, and nothing more: for a proxy on the same host or a private network, `loopback, uniquelocal`. `true` trusts every hop and is only safe when nothing can reach the server except through the proxy. Without this setting every client looks like the proxy's one address, so one stranger's failed sign-ins can lock everybody out. The admin page warns when it sees this.
 - Have the proxy forward `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`. Download and artwork URLs are absolute and are built from these headers. If your proxy rewrites `Host`, set the public address on the admin page (or `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
 - Allow large responses and long requests. Consoles download in many Range requests, and a single file can be tens of gigabytes.
@@ -231,6 +233,8 @@ How it works:
 4. A signed-in client that sends `X-CookingFoil-Features: direct-token` over HTTPS gets an `X-CookingFoil-Download-Token` header, and the download URLs in its lists point at the direct address. It sends the token there as a Bearer token.
 
 Tokens are signed by the server (HMAC-SHA256 with a random key in `data/security/`), last `COOK_DOWNLOAD_LINK_TTL` seconds (6 hours by default), and stop working as soon as the account or console they were made for can no longer sign in. Refusals carry `X-CookingFoil-Token: invalid | expired | revoked | blocked`, and an address that sends too many invalid tokens is shut out for a while. Clients that do not declare the feature (Tinfoil, CyberFoil, browsers), and requests over plain HTTP, see exactly the same lists as before. A request that arrives through Cloudflare with a `CF-IPCountry` other than the one fixed in `src/security/download-links.js` keeps the normal URLs.
+
+A complete Caddy setup with a DNS certificate and DDNS is in [`examples/direct-download/`](examples/direct-download/).
 
 A minimal nginx example (adapt the certificate, port and secret):
 

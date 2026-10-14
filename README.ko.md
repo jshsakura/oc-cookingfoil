@@ -214,6 +214,8 @@ Password   ••••••••
 
 CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 HTTPS 를 처리하는 리버스 프록시나 터널(nginx, Caddy, Traefik, Cloudflare Tunnel 등) 뒤에 둡니다.
 
+그대로 쓸 수 있는 Caddy(HTTPS 를 한 스택으로), nginx, Cloudflare Tunnel 설정 파일은 [`examples/`](examples/) 에 있습니다.
+
 - `COOK_TRUST_PROXY` 에는 클라이언트 주소를 정해도 되는 단계만 넣습니다. 같은 호스트나 내부망의 프록시라면 `loopback, uniquelocal` 입니다. `true` 는 모든 단계를 믿으므로, 프록시를 거치지 않고는 서버에 닿을 수 없을 때만 안전합니다. 이 설정이 없으면 모든 클라이언트가 프록시의 주소 하나로 보여서, 낯선 사람 한 명의 로그인 실패가 모두를 잠글 수 있습니다. 관리 페이지가 이 상황을 보면 경고합니다.
 - 프록시가 `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` 를 넘기게 합니다. 다운로드와 그림 주소는 절대 주소이고 이 헤더로 만듭니다. 프록시가 `Host` 를 바꾼다면 관리 페이지에서 공개 주소를 정합니다(또는 `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
 - 큰 응답과 오래 걸리는 요청을 허용합니다. 기기는 Range 요청을 여러 번 나눠 받고, 파일 하나가 수십 GB 일 수 있습니다.
@@ -231,6 +233,8 @@ CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 H
 4. HTTPS 로 `X-CookingFoil-Features: direct-token` 을 보내는 로그인한 클라이언트는 `X-CookingFoil-Download-Token` 헤더를 받고, 목록의 다운로드 주소가 직접 다운로드 주소를 가리킵니다. 클라이언트는 그곳에 토큰을 Bearer 토큰으로 보냅니다.
 
 토큰은 서버가 서명하고(`data/security/` 의 무작위 키로 HMAC-SHA256), `COOK_DOWNLOAD_LINK_TTL` 초(기본 6시간) 동안 유효하며, 토큰을 받은 계정이나 기기가 더는 로그인할 수 없게 되면 바로 쓸 수 없습니다. 거절에는 `X-CookingFoil-Token: invalid | expired | revoked | blocked` 가 붙고, 틀린 토큰을 너무 많이 보낸 주소는 한동안 막힙니다. 이 기능을 알리지 않는 클라이언트(Tinfoil, CyberFoil, 브라우저)와 일반 HTTP 요청은 전과 똑같은 목록을 봅니다. Cloudflare 를 거쳐 온 요청의 `CF-IPCountry` 가 `src/security/download-links.js` 에 정해 둔 나라가 아니면 원래 주소를 그대로 받습니다.
+
+DNS 인증서와 DDNS 까지 갖춘 Caddy 설정 전체는 [`examples/direct-download/`](examples/direct-download/) 에 있습니다.
 
 가장 작은 nginx 예시입니다(인증서, 포트, 시크릿은 맞게 고칩니다).
 

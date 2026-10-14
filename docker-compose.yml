@@ -15,7 +15,8 @@
 # Behind a reverse proxy or tunnel, set COOK_TRUST_PROXY in .env to the proxy's
 # hops only (for example "loopback, uniquelocal"). For the optional direct
 # download address, COOK_DIRECT_EDGE_SECRET also goes in .env, not in this
-# file. Update with: docker compose pull && docker compose up -d
+# file. Ready-made Caddy, nginx, Cloudflare Tunnel and direct-download setups
+# are in examples/. Update with: docker compose pull && docker compose up -d
 services:
   cookingfoil:
     image: ghcr.io/jshsakura/oc-cookingfoil:latest

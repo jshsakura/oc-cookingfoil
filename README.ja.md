@@ -214,6 +214,8 @@ Password   ••••••••
 
 CookingFoil はプレーンな HTTP で動きます。自宅の外から使うには、HTTPS を終端するリバースプロキシやトンネル (nginx、Caddy、Traefik、Cloudflare Tunnel など) の後ろに置きます。
 
+そのまま使える Caddy (HTTPS を一つのスタックで)、nginx、Cloudflare Tunnel の設定ファイルは [`examples/`](examples/) にあります。
+
 - `COOK_TRUST_PROXY` には、クライアントのアドレスを設定してよいホップだけを指定します。同じホストかプライベートネットワーク上のプロキシなら `loopback, uniquelocal` です。`true` はすべてのホップを信頼するので、プロキシを経由しないとサーバーに届かない構成でのみ安全です。この設定がないと、すべてのクライアントがプロキシの 1 つのアドレスに見えるため、見知らぬ 1 人のサインイン失敗で全員がロックされることがあります。この状態を検出すると管理ページが警告します。
 - プロキシには `X-Forwarded-For`、`X-Forwarded-Proto`、`X-Forwarded-Host` を転送させます。ダウンロードとアートワークの URL は絶対 URL で、これらのヘッダーから組み立てます。プロキシが `Host` を書き換える場合は、管理ページで公開アドレスを設定します (または `COOK_PUBLIC_BASE_URL=https://shop.example.org`)。
 - 大きなレスポンスと長いリクエストを許可します。本体は多数の Range リクエストでダウンロードし、1 つのファイルが数十 GB になることもあります。
@@ -231,6 +233,8 @@ CookingFoil はプレーンな HTTP で動きます。自宅の外から使う�
 4. HTTPS で `X-CookingFoil-Features: direct-token` を送るサインイン済みのクライアントは `X-CookingFoil-Download-Token` ヘッダーを受け取り、一覧のダウンロード URL が直接アドレスを指すようになります。クライアントはそこにトークンを Bearer トークンとして送ります。
 
 トークンはサーバーが署名し (`data/security/` にあるランダムな鍵による HMAC-SHA256)、`COOK_DOWNLOAD_LINK_TTL` 秒 (既定は 6 時間) 有効で、発行対象のアカウントや本体がサインインできなくなった時点で使えなくなります。拒否のレスポンスには `X-CookingFoil-Token: invalid | expired | revoked | blocked` が付き、無効なトークンを送りすぎたアドレスはしばらく締め出されます。この機能を宣言しないクライアント (Tinfoil、CyberFoil、ブラウザー) とプレーンな HTTP のリクエストには、これまでとまったく同じ一覧が返ります。Cloudflare 経由で届き、`CF-IPCountry` が `src/security/download-links.js` に固定された国以外のリクエストは、通常の URL のままです。
+
+DNS 証明書と DDNS まで含む Caddy の完全な設定は [`examples/direct-download/`](examples/direct-download/) にあります。
 
 最小限の nginx の例です (証明書、ポート、シークレットは環境に合わせてください)。
 
