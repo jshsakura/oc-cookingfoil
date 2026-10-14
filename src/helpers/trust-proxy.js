@@ -32,3 +32,18 @@ export function trustsForwardedHeaders(req, fn = trustFn) {
   const peer = req?.socket?.remoteAddress;
   return Boolean(peer) && Boolean(fn(peer, 0));
 }
+
+/**
+ * The client address of a raw request (no Express req.ip), by the rule
+ * Express uses: walk X-Forwarded-For from the socket back toward the client
+ * and stop at the first hop that is not trusted. ::ffff: is stripped.
+ */
+export function clientAddress(req, fn = trustFn) {
+  const peer = req?.socket?.remoteAddress;
+  if (!peer) return "unknown";
+  const forwarded = String(req.headers?.["x-forwarded-for"] ?? "").split(",").map((s) => s.trim()).filter(Boolean).reverse();
+  const hops = [peer, ...forwarded];
+  let i = 0;
+  while (i < hops.length - 1 && fn(hops[i], i)) i++;
+  return hops[i].replace(/^::ffff:/, "");
+}

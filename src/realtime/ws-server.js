@@ -17,28 +17,65 @@
  * changed, so this stays cheap). We never push the body itself —
  * /shop.json is already a Buffer write away.
  *
- * Auth reuses the server's basic-auth: WebSocket upgrade requests carry
- * the browser's stored credentials in the `Authorization` header just
- * like XHR does. Connections that fail the credential check are dropped
- * before the upgrade completes — no separate token surface to manage.
+ * Auth reuses the server's sign-in: a page's session cookie (only from this
+ * site's own Origin) or Basic credentials, checked with the same async scrypt
+ * as the HTTP lane. Before any credential check an upgrade must pass the
+ * address lockout, a small per-address limit (429 + Retry-After) and, when it
+ * sends an Origin, a same-host check (403). Wrong passwords count toward the
+ * HTTP lockout. Connections that fail are dropped before the upgrade
+ * completes — no separate token surface to manage.
  */
 import { WebSocketServer } from "ws";
 import * as shopCache from "../meta/shop-cache.js";
 import * as securityStore from "../security/store.js";
 import * as users from "../security/users.js";
 import { webUser } from "../security/user-session.js";
+import { sameHost } from "../security/same-origin.js";
+import { recordFailure, repeatedPoll } from "../security/auth-guard.js";
+import { isLoopbackSocket } from "../security/net.js";
+import { trustLoopback } from "../security/limits.js";
+import { clientAddress } from "../helpers/trust-proxy.js";
 import pkg from "../package.js";
 import debug from "../debug.js";
 import drainer from "../security/drain.js";
 
 const HEARTBEAT_MS = 30_000;
+// Upgrades per address per window, checked before any credential: a page
+// reconnects with a backoff of a second or more, so this only stops floods.
+const UPGRADE_LIMIT = 10;
+const UPGRADE_WINDOW_MS = 10_000;
+const UPGRADE_TRACKED_MAX = 5000;
 
+// The address the HTTP side would see as req.ip (X-Forwarded-For only through
+// a trusted proxy), so the lockout and the limit key on the same client.
 function clientIp(req) {
-  // express's req.ip honors trust-proxy; raw upgrade requests don't go
-  // through express, so we hit the underlying socket directly. trust-proxy
-  // for ws would need explicit X-Forwarded-For handling — defer until
-  // someone actually puts CookingFoil behind a load balancer.
-  return req.socket.remoteAddress || "unknown";
+  return clientAddress(req);
+}
+
+// Same as auth-guard: the socket decides, a forwarded 127.0.0.1 is only a header.
+const isLoopback = (req) => trustLoopback && isLoopbackSocket(req);
+
+const upgrades = new Map(); // ip → { count, resetAt }
+
+/**
+ * Count one upgrade for `ip`; the seconds to wait when it is over the limit,
+ * else 0. Fixed window, bounded map (the oldest address is dropped first).
+ */
+export function upgradeWait(ip, now = Date.now()) {
+  let entry = upgrades.get(ip);
+  if (!entry || now >= entry.resetAt) {
+    upgrades.delete(ip);
+    entry = { count: 0, resetAt: now + UPGRADE_WINDOW_MS };
+    upgrades.set(ip, entry);
+    if (upgrades.size > UPGRADE_TRACKED_MAX) upgrades.delete(upgrades.keys().next().value);
+  }
+  entry.count += 1;
+  return entry.count > UPGRADE_LIMIT ? Math.max(1, Math.ceil((entry.resetAt - now) / 1000)) : 0;
+}
+
+/** Test-only. */
+export function resetUpgradeLimitForTests() {
+  upgrades.clear();
 }
 
 function decodeBasicAuth(authHeader) {
@@ -53,21 +90,25 @@ function decodeBasicAuth(authHeader) {
   }
 }
 
-function sameOrigin(req) {
-  try {
-    return new URL(req.headers.origin).host === req.headers.host;
-  } catch {
-    return false;
-  }
-}
-
-export function isAuthorized(req) {
-  if (!users.hasUsers()) return true; // no accounts → password lane is off
+/**
+ * Whether the upgrade may connect: "ok", "denied" (no usable credentials), or
+ * "bad-credentials" (a password was tried and was wrong, which counts toward
+ * the lockout). The password check is the async scrypt the HTTP lane uses, so
+ * a flood of upgrades never blocks the event loop.
+ */
+export async function authorize(req) {
+  if (!users.hasUsers()) return "ok"; // no accounts → password lane is off
   // A browser signed in at /login (password or Google) carries its session
   // cookie; only this site's own pages may use it.
-  if (!req.headers["authorization"] && sameOrigin(req) && webUser(req)) return true;
+  if (!req.headers["authorization"] && sameHost(req) === true && webUser(req)) return "ok";
   const creds = decodeBasicAuth(req.headers["authorization"]);
-  return Boolean(creds) && users.verify(creds.user, creds.pass);
+  if (!creds) return "denied";
+  return (await users.verifyAsync(creds.user, creds.pass)) ? "ok" : "bad-credentials";
+}
+
+function refuse(socket, statusLine, extra = "") {
+  socket.write(`HTTP/1.1 ${statusLine}\r\n${extra}\r\n`);
+  socket.destroy();
 }
 
 function send(ws, obj) {
@@ -89,27 +130,35 @@ export function attach(server) {
       return;
     }
     const ip = clientIp(req);
-    if (securityStore.isLocked(ip)) {
-      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-    if (!isAuthorized(req)) {
-      // Mirror the HTTP basic-auth posture: a 401 with WWW-Authenticate
-      // so a browser opens its credential prompt. We do NOT count this
-      // toward the IP lockout — repeat ws reconnect attempts can hammer
-      // the auth guard otherwise — the HTTP layer already protects the
-      // backing endpoints. (If we ever expose write APIs via ws, revisit.)
-      // A page's socket (it sends Origin) gets no challenge: Safari would
-      // otherwise open the Basic popup over the page, as auth-guard avoids.
-      socket.write(
-        "HTTP/1.1 401 Unauthorized\r\n" +
-        (req.headers.origin ? "" : 'WWW-Authenticate: Basic realm="CookingFoil"\r\n') + "\r\n"
-      );
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+    const trusted = isLoopback(req);
+    if (!trusted && securityStore.isLocked(ip)) return refuse(socket, "403 Forbidden");
+    // Before any credential check: a flood of upgrades costs a map lookup each.
+    const wait = upgradeWait(ip);
+    if (wait) return refuse(socket, "429 Too Many Requests", `Retry-After: ${wait}\r\n`);
+    // Browsers always send Origin on an upgrade: another site's page is refused
+    // outright. A non-browser client sends none and is judged by Basic alone.
+    if (sameHost(req) === false) return refuse(socket, "403 Forbidden");
+    authorize(req).then((verdict) => {
+      if (socket.destroyed) return;
+      if (verdict !== "ok") {
+        // A wrong password counts toward the same lockout as the HTTP lane;
+        // the same wrong credentials from one address count once a window,
+        // so a page reconnecting with stale ones cannot lock its owner out.
+        if (verdict === "bad-credentials" && !trusted && !repeatedPoll(ip, req.headers.authorization)) {
+          recordFailure(ip, { path: "/ws/library", get: (name) => req.headers[String(name).toLowerCase()] });
+        }
+        // Mirror the HTTP basic-auth posture: a 401 with WWW-Authenticate
+        // so a non-browser client knows to send credentials. A page's socket
+        // (it sends Origin) gets no challenge: Safari would otherwise open
+        // the Basic popup over the page, as auth-guard avoids.
+        return refuse(socket, "401 Unauthorized", req.headers.origin ? "" : 'WWW-Authenticate: Basic realm="CookingFoil"\r\n');
+      }
+      if (req.headers["authorization"] && !trusted) securityStore.clearFailure(ip);
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+    }, (err) => {
+      debug.error("ws: auth check failed: %s", err.message);
+      if (!socket.destroyed) refuse(socket, "500 Internal Server Error");
+    });
   });
 
   wss.on("connection", (ws, req) => {
