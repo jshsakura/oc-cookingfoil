@@ -4,9 +4,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { kindOf, readMeta, patchId, scanDir, scan, list, forTitle, countFor, openForDownload, reset, loadCache, hashed } from "../../src/meta/user-patches.js";
-import { splitPath, fitsUstar, header, archiveSize } from "../../src/helpers/ustar.js";
-import { tarEntries } from "../../src/routes/patches.js";
+
+// The patch information store lives in the data dir: a fresh one for this file.
+process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "patches-data-"));
+const { kindOf, readMeta, patchId, scanDir: scanRaw, scan, list, forTitle, countFor, openForDownload, reset, loadCache, hashed, withInfo } =
+  await import("../../src/meta/user-patches.js");
+const { splitPath, fitsUstar, header, archiveSize } = await import("../../src/helpers/ustar.js");
+const { tarEntries } = await import("../../src/routes/patches.js");
+// What a scan read, with each patch's information as it is served.
+const scanDir = async (...args) => (await scanRaw(...args)).map((p) => withInfo(p));
 
 const TID = "0100F2C0115B6000";
 const CHEAT = `atmosphere/contents/${TID}/cheats/ABCDEF0123456789.txt`;
@@ -209,15 +215,14 @@ test("a patch still being hashed is listed at once and gets its hash afterwards"
 test("a scan asked for while one runs reads what changed meanwhile", async () => {
   const { root, cacheFile, put } = cacheRoot();
   put(SMALL, "[x]");
-  put("0100000000020000/Small/patch.json", JSON.stringify({ name: "old" }));
   await scan({ root, cacheFile });
   const running = scan({ root, cacheFile });
   const asked = scan({ root, cacheFile });
   assert.notEqual(asked, running, "not the scan that started before the change");
   await running;
-  put("0100000000020000/Small/patch.json", JSON.stringify({ name: "new" }));
+  put(SMALL.replace("/Small/", "/Second/"), "[y]");
   await asked;
-  assert.equal(forTitle("0100000000020000")[0].name, "new");
+  assert.deepEqual(forTitle("0100000000020000").map((p) => p.name), ["Second", "Small"]);
 });
 
 test("a download never waits for the patch to be hashed", async () => {
@@ -242,7 +247,7 @@ test("a renamed folder keeps its hashes, and a missing file's hash is kept for a
 
   fs.renameSync(path.join(root, "0100000000010000", "Big"), path.join(root, "0100000000010000", "Renamed"));
   const moved = await scan({ root, cacheFile });
-  assert.equal(moved.find((p) => p.name === "Renamed").hash, big, "no file had to be read again");
+  assert.equal(moved.find((p) => p.folder === "Renamed").hash, big, "no file had to be read again");
 
   // Out of sight for a moment: the hash stays, so coming back costs nothing.
   fs.rmSync(path.join(root, "0100000000020000"), { recursive: true });

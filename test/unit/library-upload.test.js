@@ -105,13 +105,16 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(r.status, 201, await r.clone().text());
     const patchDir = path.join(dirs.patches, MK, "한글패치");
     assert.equal(fs.readFileSync(path.join(patchDir, "atmosphere", "contents", MK, "romfs", "text.bin"), "utf8"), "KO");
-    assert.equal(JSON.parse(fs.readFileSync(path.join(patchDir, "patch.json"), "utf8")).description, "한국어로 바꿉니다");
+    // The information goes into the server's patch store; no patch.json is written.
+    assert.equal(fs.existsSync(path.join(patchDir, "patch.json")), false);
+    const store = () => JSON.parse(fs.readFileSync(path.join(dirs.data, "patches", "info.json"), "utf8")).patches;
+    assert.deepEqual(store()[`${MK}/한글패치`].info, { name: "한글패치", description: "한국어로 바꿉니다" });
 
     // A patch the game can't start without: marked on upload, changed later from the admin page.
     r = await send("patch", { titleId: MK, name: "게임 데이터", required: "true" }, [["patch.zip", fs.readFileSync(zip)]]);
     assert.equal(r.status, 201, await r.clone().text());
-    const dataJson = path.join(dirs.patches, MK, "게임 데이터", "patch.json");
-    assert.equal(JSON.parse(fs.readFileSync(dataJson, "utf8")).required, true);
+    assert.equal(store()[`${MK}/게임 데이터`].info.required, true);
+    assert.equal(fs.existsSync(path.join(dirs.patches, MK, "게임 데이터", "patch.json")), false);
     const adminPatches = async () => (await (await fetch(`${BASE}/admin/api/patches`, { headers: admin })).json()).patches;
     let listed = [];
     for (let i = 0; i < 40 && listed.length < 2; i++) {
@@ -126,11 +129,41 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal((await setRequired(data.id, "yes")).status, 400);
     assert.equal((await setRequired("0100152000022000-000000000000", true)).status, 404);
     assert.equal((await setRequired(data.id, false)).status, 200);
-    assert.deepEqual(JSON.parse(fs.readFileSync(dataJson, "utf8")), { name: "게임 데이터" }, "the other fields stay");
+    assert.deepEqual(store()[`${MK}/게임 데이터`].info, { name: "게임 데이터" }, "the other fields stay");
     const pub = (await (await fetch(`${BASE}/api/patches`, { headers: { Authorization: ALICE } })).json()).patches;
     assert.equal(pub.find((p) => p.id === data.id).required, false, "the shop listing carries the same value");
     assert.equal((await setRequired(data.id, true)).status, 200);
     assert.equal((await (await fetch(`${BASE}/api/patches`, { headers: { Authorization: ALICE } })).json()).patches.find((p) => p.id === data.id).required, true);
+
+    // Editing a patch's information: checked, saved in the store, and served at once with a new ETag.
+    const editInfo = (id, body) => fetch(`${BASE}/admin/api/patches/${id}/info`, {
+      method: "PUT", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const publicList = (lang) => fetch(`${BASE}/api/patches?lang=${lang}`, { headers: { Authorization: ALICE } });
+    const etagBefore = (await publicList("en")).headers.get("etag");
+    assert.equal((await fetch(`${BASE}/admin/api/patches/${data.id}/info`, {
+      method: "PUT", headers: { Authorization: ALICE, "Content-Type": "application/json" }, body: "{}" })).status, 401, "admin session only");
+    for (const [bad, why] of [[{ name: "" }, /이름/], [{ name: "a".repeat(121) }, /120자/], [{ name: "a", version: 1 }, /글자/],
+      [{ name: "a", ko: "x" }, /ko/], [{ name: "a", ko: { description: "가".repeat(2001) } }, /한국어 설명/], [{ name: "a", update_version: "v1" }, /업데이트/],
+      [{ name: "a", required: "yes" }, /required/]]) {
+      const res = await editInfo(data.id, bad);
+      assert.equal(res.status, 400, JSON.stringify(bad));
+      assert.match((await res.json()).error, why);
+    }
+    assert.equal((await editInfo("0100152000022000-000000000000", { name: "a" })).status, 404);
+    const edited = await editInfo(data.id, { name: "Game data", version: "2.0", author: "someone", description: "Needed to start.",
+      ko: { name: "게임 데이터", description: "이게 있어야 실행됩니다." } });
+    assert.equal(edited.status, 200, await edited.clone().text());
+    assert.equal((await edited.json()).info.required, true, "required stays when left out");
+    const enRes = await publicList("en");
+    assert.notEqual(enRes.headers.get("etag"), etagBefore, "the listing's ETag changes with the edit");
+    const en = (await enRes.json()).patches.find((p) => p.id === data.id);
+    assert.deepEqual([en.name, en.version, en.author, en.description, en.required], ["Game data", "2.0", "someone", "Needed to start.", true]);
+    const koP = (await (await publicList("ko")).json()).patches.find((p) => p.id === data.id);
+    assert.deepEqual([koP.name, koP.description], ["게임 데이터", "이게 있어야 실행됩니다."]);
+    const infoList = await (await fetch(`${BASE}/admin/api/patches/info`, { headers: admin })).json();
+    assert.deepEqual(infoList.patches.find((p) => p.id === data.id).key, `${MK}/게임 데이터`);
+    assert.equal(infoList.patches.find((p) => p.id === data.id).stored, true);
+    assert.equal(fs.existsSync(path.join(dirs.patches, MK, "게임 데이터", "patch.json")), false, "the server never writes a patch.json");
 
     r = await send("save", { titleId: MK, name: "All karts", description: "Everything unlocked.", descriptionKo: "전부 엽니다." },
       [["userdata.dat", "SAVE"], ["x.bin", "X"]], ["MK8D/userdata.dat", "MK8D/sub/x.bin"]);

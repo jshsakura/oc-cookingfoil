@@ -237,6 +237,39 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   expect(saves.find((s) => s.name === '전부 열림')?.saveType).toBe('device');
 });
 
+test("a homebrew app's patch is edited from the homebrew tab with the patch dialog", async ({ page, request }) => {
+  await signIn(page);
+  await page.goto('/admin#homebrew');
+  const patch = async (lang: string) => ((await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as
+    { homebrew: string | null; name: string; description: string | null; version: string | null }[]).find((p) => p.homebrew === 'handapp');
+  await expect.poll(async () => (await patch('en'))?.name).toBe('Turbo mod');
+  const row = page.locator('#hb-apps tr', { hasText: 'Hand App' });
+  await row.getByRole('button', { name: 'Turbo mod 편집' }).click();
+  const dialog = page.locator('#ct-edit');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#ct-where')).toContainText('switch/handapp/');
+  // Only the text: a homebrew patch has no update to pick and is moved or deleted from its row.
+  await expect(page.locator('#ct-update')).toBeHidden();
+  await expect(page.locator('#ct-move')).toBeHidden();
+  await expect(page.locator('#ct-remove')).toBeHidden();
+  await page.locator('#ct-name').fill('Turbo');
+  await page.locator('#ct-desc').fill('Doubles the speed.');
+  await page.locator('#ct-desc-ko').fill('속도를 두 배로 올립니다.');
+  await page.locator('#ct-version').fill('1.1');
+  fs.mkdirSync('out/web', { recursive: true });
+  await dialog.screenshot({ path: 'out/web/admin-homebrew-patch-edit.png' });
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(row).toContainText('Turbo · ');
+  expect(await patch('en')).toMatchObject({ name: 'Turbo', description: 'Doubles the speed.', version: '1.1' });
+  expect((await patch('ko'))?.description).toBe('속도를 두 배로 올립니다.');
+  // A game patch opened afterwards gets its full dialog back.
+  await page.goto('/admin#library');
+  await page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' }).getByRole('button', { name: '게임 데이터 편집' }).click();
+  await expect(page.locator('#ct-update')).toBeVisible();
+  await expect(page.locator('#ct-remove')).toBeVisible();
+});
+
 test('a homebrew app is turned off and on from the homebrew tab, and the GitHub form sits at the top', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#homebrew');

@@ -3,14 +3,20 @@
  * and saves, and the changes that list allows.
  *
  *   GET  /admin/api/homebrew/apps          { apps: [{ id, app, name, version, author, size, kind, source, repo_url,
- *                                            patches: [{ id, name, size, files }], saves: [same] }],
+ *                                            patches: [{ id, name, size, files, ko, description, version, author, game_version }],
+ *                                            saves: [{ id, name, size, files }] }],
  *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
  *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  deletes a homebrew app's patch or save folder
+ *                                          (a patch's information in the patch store goes with it)
+ *
+ * A homebrew app's patch has its information edited with the game patches' dialog
+ * (POST /admin/api/content/patch/meta).
  *   POST /admin/api/homebrew/manual/remove { id }  deletes a hand-placed app's folder (its patches and saves stay)
  */
 import fsp from "fs/promises";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
+import * as patchInfo from "../../meta/patch-info.js";
 import { patchesDir, savesDir, homebrewDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService, manualApps, refreshManual } from "../homebrew.js";
@@ -18,6 +24,9 @@ import { forgetZipCopies, heldManual, installPathFor } from "../../meta/homebrew
 import debug from "../../debug.js";
 
 const brief = ({ id, name, size, files }) => ({ id, name, size, files });
+// A patch also carries what the edit dialog shows.
+const patchBrief = (p) => ({ ...brief(p), homebrew: p.homebrew, ko: p.ko ?? null, description: p.description ?? null, version: p.version ?? null,
+  author: p.author ?? null, game_version: p.game_version ?? null });
 
 /** `rel` under `root`, or null when it would leave it. Pure. */
 export function inside(root, ...rel) {
@@ -31,7 +40,7 @@ export function extrasByApp(patches, saves) {
   const out = new Map();
   const add = (app, type, item) => {
     if (!out.has(app)) out.set(app, { patches: [], saves: [] });
-    out.get(app)[type].push(brief(item));
+    out.get(app)[type].push(type === "patches" ? patchBrief(item) : brief(item));
   };
   for (const p of patches) if (p.homebrew) add(p.homebrew, "patches", p);
   for (const s of saves) if (s.homebrew) add(s.homebrew, "saves", s);
@@ -80,7 +89,10 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const dir = where && where.dir.startsWith("homebrew/") ? inside(type === "patch" ? patchesDir : savesDir, where.dir, where.folder) : null;
     if (!dir) return res.status(404).json({ error: "목록에 없는 항목입니다" });
     await fsp.rm(dir, { recursive: true, force: true });
-    if (type === "patch") await userPatches.scan();
+    if (type === "patch") {
+      patchInfo.remove(where.key);
+      await userPatches.scan();
+    }
     else savesCatalog().invalidate();
     debug.log("admin: removed homebrew %s %s/%s", type, where.dir, where.folder);
     res.json({ ok: true });
