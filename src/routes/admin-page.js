@@ -13,6 +13,9 @@
  *   GET  /admin/api/server/status   → safe restart state, requests in flight (counts only)
  *   POST /admin/api/server/restart  → drain, then exit (the container comes back by its restart policy)
  *
+ * Every POST/PUT/PATCH/DELETE refuses another site's Origin (403
+ * { error: "origin mismatch" }) before its handler; GETs are untouched.
+ *
  * The surface is always mounted: a TOTP secret is auto-provisioned when the
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
@@ -80,6 +83,7 @@ import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
+import { sameOriginWrites } from "../security/same-origin.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 // One authenticator secret guards /admin, so its wrong codes share one account counter.
@@ -160,6 +164,9 @@ function pendingKeyForCode(raw) {
 
 export default function adminPageRouter() {
   const router = express.Router();
+  // Every change here (accounts, homebrew, integrations, ...) must come from
+  // this site's own page: another site's Origin is refused before any handler.
+  router.use(sameOriginWrites());
   router.use(express.json());
   // Admin accounts only; a regular account is told to sign in as an admin.
   router.use((req, res, next) => {
