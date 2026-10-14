@@ -42,6 +42,14 @@ Transitive dependencies are MIT, ISC, BSD or Apache-2.0 (`npx license-checker --
 - **blawar/titledb**: title names, descriptions and artwork URLs, fetched at run time, not redistributed.
 - Artwork, prices and popularity come from public store services at run time and are cached
   locally; they are not part of this repository.
+- **libretro-thumbnails** (box art) and **The Bezel Project** (bezels) are fetched from their
+  GitHub repositories at run time and cached in the user's retro folder. The images belong
+  to their owners and are not redistributed here.
+- **LaunchBox Games Database** (game details, screenshots, ratings), **IGDB** (details and
+  scores, with the user's own Twitch application keys) and **Steam** review scores are read
+  at run time; nothing from them is included in this repository.
+- **CyberFoil** (luketanti/CyberFoil) and **Tinfoil** are separate clients. CookingFoil only
+  speaks the shop formats they read and contains no code from them.
 
 ## FinalBurn Neo set list
 
