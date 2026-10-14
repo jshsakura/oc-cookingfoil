@@ -205,3 +205,57 @@ test("a hand-placed app's file hashes are remembered on disk, so a restart doesn
   await scanManual(path.join(root, "apps"));
   assert.equal(Object.keys(JSON.parse(fs.readFileSync(hashFile, "utf8"))).length, 1);
 });
+
+test("an app kept as a zip is listed from inside it and sent whole, never unpacked on the server", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-zip-"));
+  const dirs = Object.fromEntries(["data", "games", "homebrew", "patches", "saves"].map((k) => [k, path.join(root, k)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  // A wrapped release zip, put by hand in its own folder, with a README outside the app.
+  fs.mkdirSync(path.join(dirs.homebrew, "zipped"));
+  const zipBytes = makeZip(root, {
+    "Zipped-v2/switch/zipped/zipped.nro": fakeNro("Zipped App"),
+    "Zipped-v2/switch/zipped/data/level 1+2.dat": "LEVEL",
+    "Zipped-v2/README.md": "read me",
+  });
+  fs.writeFileSync(path.join(dirs.homebrew, "zipped", "Zipped-v2.zip"), zipBytes);
+  const server = await boot(dirs);
+  try {
+    let e = null;
+    for (let i = 0; i < 40 && !e; i++) {
+      const res = await fetch(`${BASE}/api/homebrew`, { headers: { Authorization: ALICE } });
+      if (res.ok) e = (await res.json()).homebrew.find((x) => x.name === "Zipped App");
+      if (!e) await new Promise((r) => setTimeout(r, 250));
+    }
+    assert.ok(e, "the zipped app is listed");
+    assert.deepEqual([e.install_dir, e.install_path, e.files, e.bundle_url], ["switch/zipped", "switch/zipped/zipped.nro", null, null]);
+    assert.equal(e.archive.format, "zip");
+    assert.equal(e.archive.url, `/api/homebrew/${e.id}/archive`);
+    assert.equal(e.archive.size, zipBytes.length);
+    assert.deepEqual(e.archive.entries.map((x) => [x.entry, x.path]).sort(), [
+      ["Zipped-v2/switch/zipped/data/level 1+2.dat", "switch/zipped/data/level 1+2.dat"],
+      ["Zipped-v2/switch/zipped/zipped.nro", "switch/zipped/zipped.nro"],
+    ], "only what goes in the app folder, each with where it goes");
+    assert.equal(e.size, e.archive.entries.reduce((n, x) => n + x.size, 0), "size is what lands on the card");
+    assert.equal(e.hash, e.archive.sha256);
+
+    // The zip comes whole, resumable; the .nro and icon come from inside it.
+    const whole = await fetch(BASE + e.archive.url, { headers: { Authorization: ALICE } });
+    assert.equal(whole.status, 200);
+    assert.ok(Buffer.from(await whole.arrayBuffer()).equals(zipBytes));
+    assert.equal(whole.headers.get("etag"), `"${e.archive.sha256}"`);
+    const part = await fetch(BASE + e.archive.url, { headers: { Authorization: ALICE, Range: "bytes=10-" } });
+    assert.equal(part.status, 206);
+    const nro = Buffer.from(await (await fetch(BASE + e.download_url, { headers: { Authorization: ALICE } })).arrayBuffer());
+    assert.ok(nro.equals(fakeNro("Zipped App")));
+    assert.deepEqual(fs.readdirSync(path.join(dirs.homebrew, "zipped")), ["Zipped-v2.zip"], "nothing unpacked beside it");
+
+    // Removing it from the admin page takes its folder.
+    const verify = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: ALICE }, body: JSON.stringify({ password: "admin-password-123" }) });
+    const admin = { Authorization: ALICE, Cookie: verify.headers.get("set-cookie").split(";")[0], "Content-Type": "application/json" };
+    const rm = await fetch(`${BASE}/admin/api/homebrew/manual/remove`, { method: "POST", headers: admin, body: JSON.stringify({ id: e.id }) });
+    assert.equal(rm.status, 200);
+    assert.ok(!fs.existsSync(path.join(dirs.homebrew, "zipped")));
+  } finally {
+    server.kill();
+  }
+});

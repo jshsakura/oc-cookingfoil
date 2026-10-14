@@ -52,7 +52,7 @@ cookingfoil/
 ├── retro/            # 기종별 레트로 롬
 ├── patches/          # 기본 타이틀 ID 별 패치와 homebrew/<앱>/
 ├── saves/            # 타이틀 ID 별 세이브와 homebrew/<앱>/
-└── homebrew/         # .nro 앱과 앱 폴더
+└── homebrew/         # .nro 앱, 앱 폴더, 또는 폴더에 그대로 넣은 릴리스 zip
 ```
 
 없는 폴더는 Docker 가 만듭니다. 전부 다른 곳에 두려면 `.env` 에 `COOK_ROOT=/경로` 를 넣습니다. 하나만 옮기려면 그 폴더의 경로를 따로 넣습니다. 예를 들어 `COOK_GAMES_PATH=/mnt/disk/games` 입니다. 나머지는 `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH` 입니다.
@@ -111,7 +111,7 @@ cookingfoil/
 | `GET /api/shop/info` | 서버 버전과 클라이언트가 기대도 되는 `features` |
 | `GET /api/title/:id?lang=` | 항목 하나의 상세 |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | 이미지 |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<앱>/` 폴더 전체, 설치 위치는 `install_path`)과 홈 메뉴 바로가기. 폴더 앱은 `bundle` 로 tar 하나에 담아 받을 수도 있습니다. 관리 페이지에서 끈 앱은 빠집니다 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/archive`, `/api/homebrew/:id/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<앱>/` 폴더 전체, 설치 위치는 `install_path`)과 홈 메뉴 바로가기. 폴더 앱은 `bundle` 로 tar 하나에 담아 받을 수도 있고, zip 으로 둔 앱은 `archive` 로 zip 그대로 받습니다. 관리 페이지에서 끈 앱은 빠집니다 |
 | `GET /api/patches?lang=`, `/api/saves?lang=` | 패치와 세이브 파일. `ko` 면 한국어 이름과 설명을 줍니다 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 클라이언트 빌드 |
 | `GET /api/retro/systems`, `/api/retro/games` | 레트로 폴더를 만들었을 때 그 안의 파일 |

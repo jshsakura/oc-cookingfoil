@@ -20,6 +20,7 @@ import { execFile, spawn } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
+import os from "os";
 import path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
@@ -312,7 +313,11 @@ async function readManual(root, folder, seen = null) {
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
   const names = await fsp.readdir(dir);
   const file = manifest?.nro && names.includes(manifest.nro) ? manifest.nro : names.filter((f) => /\.nro$/i.test(f)).sort()[0];
-  if (!file) return null;
+  if (!file) {
+    // A folder holding a release zip as it is: served whole, never unpacked here.
+    const zip = names.filter((f) => /\.zip$/i.test(f)).sort()[0];
+    return zip ? readManualZip(dir, folder, zip, seen) : null;
+  }
   const abs = path.join(dir, file);
   const meta = await readNro(abs);
   if (!meta) {
@@ -347,6 +352,70 @@ async function readManual(root, folder, seen = null) {
     repo_url: null,
     path: abs,
     sha256: hash,
+  };
+}
+
+// zip path → { key, layout }, so the minutely rescan reads each zip's listing once.
+const zipLayouts = new Map();
+
+/** Where the .nro of a kept zip is copied for its name and icon: beside the hash file, or a temp folder in tests. */
+const zipNroDir = () => path.join(hashFile ? path.dirname(hashFile) : os.tmpdir(), "zip-nro");
+
+/**
+ * A hand-placed app kept as a zip: listed like any app, its .nro copied out for
+ * the name, version and icon, and the zip itself sent as `archive` with the map
+ * of which entry goes where on the card.
+ */
+async function readManualZip(dir, folder, zipName, seen) {
+  const abs = path.join(dir, zipName);
+  const st = await fsp.stat(abs);
+  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  let layout = zipLayouts.get(abs)?.key === key ? zipLayouts.get(abs).layout : null;
+  if (!layout) {
+    // The admin's own zip: as many files as it holds.
+    layout = normalizeLayout(await zipEntries(abs), { repoName: folder, maxFiles: Infinity });
+    zipLayouts.set(abs, { key, layout });
+  }
+  if (!layout.nro) {
+    debug.error("homebrew: %s holds no .nro", abs);
+    return null;
+  }
+  const id = idFor("manual", folder);
+  const hash = await cachedSha256(abs, st, seen);
+  const nro = path.join(zipNroDir(), `${id}.nro`);
+  const copied = await fsp.stat(nro).catch(() => null);
+  if (!copied || copied.mtimeMs < st.mtimeMs) {
+    await fsp.mkdir(path.dirname(nro), { recursive: true });
+    await extractEntry(abs, layout.nro.entry, `${nro}.tmp`, MAX_NRO_BYTES);
+    await fsp.rename(`${nro}.tmp`, nro);
+  }
+  const meta = await readNro(nro);
+  if (!meta) {
+    debug.error("homebrew: %s in %s is not an NRO", layout.nro.entry, abs);
+    return null;
+  }
+  const nroSt = await fsp.stat(nro);
+  const nroHash = await cachedSha256(nro, nroSt, seen);
+  const folderMode = layout.mode === "folder";
+  const files = folderMode ? layout.files : [{ ...layout.nro, size: (await zipEntries(abs)).find((e) => e.name === layout.nro.entry)?.size ?? 0 }];
+  return {
+    install_dir: folderMode ? layout.appDir : null,
+    install_path: layout.nro.path,
+    install: { mode: layout.mode, reason: layout.reason ?? null, rules: layout.rules ?? [], excluded: layout.excluded ?? [] },
+    archive: { format: "zip", abs, size: st.size, sha256: hash, entries: files.map((f) => ({ entry: f.entry, path: f.path, size: f.size })) },
+    id,
+    name: meta.name ?? folder,
+    version: meta.version,
+    author: meta.author,
+    size: nroSt.size,
+    hash,
+    file_name: safeFileName(path.posix.basename(layout.nro.path), folder),
+    source: "manual",
+    released_at: new Date(st.mtimeMs).toISOString(),
+    repo_url: null,
+    path: nro,
+    folder: dir,
+    sha256: nroHash,
   };
 }
 
