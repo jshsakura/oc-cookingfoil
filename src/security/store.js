@@ -13,6 +13,7 @@ import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
+import { deviceCode } from "./pairing-link.js";
 
 const STATE_DIR = path.join(dataDir, "security");
 const STATE_PATH = path.join(STATE_DIR, "state.json");
@@ -317,7 +318,8 @@ export function recordPendingDevice(deviceKey, { message } = {}) {
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
   if (!prev || (message && message !== prev.message)) {
-    alert("device", `${note ? `메시지: ${note}\n` : ""}관리 화면의 기기 탭에서 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
+    // The code is what the console shows on its screen; the note is the console's own words.
+    alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }
 }
 

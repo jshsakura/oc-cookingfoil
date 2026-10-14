@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -18,6 +18,7 @@ const tokens = await import("../../src/security/approval-tokens.js");
 const store = await import("../../src/security/store.js");
 const accounts = await import("../../src/security/google-accounts.js");
 const { takeAccessKeyDelivery } = await import("../../src/security/pairing.js");
+const { deviceCode } = await import("../../src/security/pairing-link.js");
 const { handleCallback, SPENT } = await import("../../src/security/telegram-approve.js");
 const updates = await import("../../src/security/telegram-updates.js");
 
@@ -66,9 +67,32 @@ const press = (token, { yes = true, chat = { id: 42, type: "private", first_name
   message: { message_id: 7, chat, text: "[CookingFoil] 기기 승인 요청\n메시지: 거실" },
 });
 
-const useChat = (chatId, extra = {}) => integrations.save("telegram", { botToken: TOKEN, chatId, ...extra });
+const useChat = (chatId, extra = {}) => integrations.save("telegram", { botToken: TOKEN, chatId, buttons: "on", ...extra });
 
 after(() => updates.resetForTests());
+
+test("buttons stay off until the admin turns them on", async () => {
+  integrations.save("telegram", { botToken: TOKEN, chatId: "42" });
+  const tg = fakeTelegram();
+  alerts.alert("device", "x", { subject: newKey(), approval: { kind: "device", ref: "k" } });
+  await settle();
+  assert.equal(tg.of("sendMessage")[0].body.reply_markup, undefined);
+  assert.equal(alerts.buttonsOn(), false);
+  assert.equal(updates.wanted(), false, "no loop either");
+  assert.equal(alerts.buttonsOn({ buttons: "on" }), true);
+});
+
+test("the device alert shows the code to compare with the console's screen", async () => {
+  useChat("42");
+  const tg = fakeTelegram();
+  const key = newKey();
+  store.recordPendingDevice(key, { message: "거실" });
+  await settle();
+  const text = tg.of("sendMessage")[0].body.text;
+  assert.match(text, new RegExp(`기기 코드 ${deviceCode(key)}`));
+  assert.match(text, /메시지: 거실/);
+  assert.ok(!text.includes(key), "the key itself is never sent");
+});
 
 test("only the approval alerts carry buttons, and only while buttons are on", async () => {
   useChat("42");
@@ -125,21 +149,41 @@ test("a second press of the same button changes nothing", async () => {
   assert.equal(tg.of("editMessageText").length, 1, "the first result stays on the message");
 });
 
-test("a press from another chat, or from a group member who isn't an admin, is ignored", async () => {
-  useChat("-1001");
-  const tg = fakeTelegram();
+test("a press from another chat, or in a group from someone not on the list, is ignored", async () => {
+  useChat("-1001", { approvers: "6" });
+  const tg = fakeTelegram({ member: "administrator" });
   const key = newKey();
   store.recordPendingDevice(key);
   await settle();
   const token = tg.tokenOf();
+  const group = { id: -1001, type: "supergroup", title: "가족" };
   assert.equal(await handleCallback(press(token, { chat: { id: 99, type: "private" }, from: { id: 99 } })), "other-chat");
-  assert.equal(await handleCallback(press(token, { chat: { id: -1001, type: "supergroup" }, from: { id: 5 } })), "not-allowed");
+  assert.equal(await handleCallback(press(token, { chat: group, from: { id: 5 } })), "not-allowed", "a group admin is not enough");
+  assert.equal(await handleCallback(press(token, { chat: { id: 42, type: "private" }, from: { id: 42 } })), "other-chat", "the listed person's own chat isn't the alerts' chat");
   assert.ok(store.isDevicePending(key), "still waiting");
   assert.equal(tg.of("editMessageText").length, 0);
+  assert.equal(tg.of("getChatMember").length, 0, "the list decides, not group roles");
 
-  const admin = fakeTelegram({ member: "administrator" });
-  assert.equal(await handleCallback(press(token, { chat: { id: -1001, type: "supergroup" }, from: { id: 6, first_name: "관리" } })), "approved", "the token was not spent by the ignored presses");
-  assert.deepEqual(admin.of("getChatMember")[0].body, { chat_id: -1001, user_id: 6 });
+  assert.equal(await handleCallback(press(token, { chat: group, from: { id: 6, first_name: "관리" } })), "approved", "the token was not spent by the ignored presses");
+
+  useChat("-1001", { approvers: "" });
+  store.recordPendingDevice(newKey());
+  await settle();
+  assert.equal(await handleCallback(press(tg.tokenOf(), { chat: group, from: { id: 6 } })), "not-allowed", "an empty list lets no one in a group");
+});
+
+test("in the private chat the alerts go to, its person may decide without a list", async () => {
+  useChat("42", { approvers: "" });
+  const tg = fakeTelegram();
+  store.recordPendingDevice(newKey());
+  await settle();
+  assert.equal(await handleCallback(press(tg.tokenOf(), { from: { id: 77 } })), "not-allowed", "someone else in a private chat can't happen, but is refused");
+  assert.equal(await handleCallback(press(tg.tokenOf())), "approved");
+});
+
+test("the approver list is checked when saved", () => {
+  assert.throws(() => useChat("-1001", { approvers: "6;rm" }), /approvers/);
+  assert.equal(useChat("-1001", { approvers: "6,123456789" }).fields.approvers.value, "6,123456789");
 });
 
 test("an expired or unknown token is refused", async () => {
@@ -227,6 +271,7 @@ test("the loop acknowledges each update once and hands presses on", async () => 
   const before = tg.calls.length;
   assert.deepEqual(await updates.recentChats(TOKEN), [{ id: "42", title: "민수" }, { id: "-5", title: "가족" }]);
   assert.equal(tg.calls.length, before, "no call of its own");
+  assert.deepEqual(updates.recentUsers(), [{ id: "42", name: "민수" }], "who pressed or wrote, for picking approvers");
 
   // Turning buttons off on the alerts tab stops it at once.
   useChat("42", { buttons: "off" });
@@ -252,6 +297,38 @@ test("failures back off and double instead of hammering Telegram", async () => {
   await until(() => bad.of("getUpdates").length >= 12, "the polls");
   await updates.stop();
   assert.equal(Math.max(...waits), updates.BACKOFF_MAX_MS, "capped");
+});
+
+test("a new token waits for the old loop's last request to end", async () => {
+  await updates.resetForTests();
+  const OTHER = "987654321:" + "B".repeat(35);
+  const calls = [];
+  let release;
+  alerts.setFetchForTests(async (url, opts = {}) => {
+    const body = JSON.parse(opts.body);
+    calls.push({ bot: url.includes(OTHER) ? "B" : "A", offset: body.offset });
+    if (url.includes(TOKEN)) return new Promise((resolve) => { release = () => resolve({ json: async () => ({ ok: true, result: [{ update_id: 50, message: { chat: { id: 1 } } }] }) }); });
+    return new Promise((_, reject) => opts.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true }));
+  });
+  useChat("42");
+  await until(() => calls.length === 1, "bot A polling");
+  integrations.save("telegram", { botToken: OTHER, chatId: "42", buttons: "on" });
+  const switched = updates.sync();
+  await settle();
+  assert.equal(calls.length, 1, "bot B waits while bot A's request is still out");
+  release();
+  await switched;
+  await until(() => calls.length === 2, "bot B polling");
+  assert.deepEqual(calls[1], { bot: "B", offset: 0 }, "A's late answer didn't move B's offset");
+  await updates.stop();
+});
+
+test("the token file is written 0600 even over a loose leftover", () => {
+  const dir = path.join(process.env.COOK_DATA_DIR, "security");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "telegram-approvals.json.tmp"), "{}", { mode: 0o644 });
+  tokens.issue("device", newKey());
+  assert.equal(statSync(path.join(dir, "telegram-approvals.json")).mode & 0o777, 0o600);
 });
 
 test("without the loop the chat finder still asks Telegram", async () => {

@@ -6,7 +6,8 @@
  *
  * Telegram lets one getUpdates reader per bot at a time, so while this runs the
  * alerts tab's chat finder reads the chats this loop has seen (recentChats)
- * instead of asking Telegram itself.
+ * instead of asking Telegram itself. It also notes who wrote or pressed
+ * (recentUsers), so the admin can pick the people allowed to approve in a group.
  *
  * Each batch is acknowledged by asking for the next offset. A failure (bad
  * token, another reader, no network) waits BACKOFF_MIN_MS, doubling up to
@@ -28,6 +29,8 @@ let loop = null; // { botToken, abort, done }
 let offset = 0;
 let lastToken = ""; // whose updates `offset` and `chats` are
 const chats = new Map(); // id → { id, title }, in the order they first wrote
+const users = new Map(); // id → { id, name }, the same way
+let pending = Promise.resolve(); // the last sync's stop and start
 let sleepImpl = (ms, signal) => new Promise((resolve) => {
   const t = setTimeout(resolve, ms);
   signal.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
@@ -38,11 +41,16 @@ export const wanted = (conf = integrations.get("telegram")) => integrations.conf
 
 export const running = () => Boolean(loop);
 
-function noteChat(u) {
-  const c = alerts.updateChat(u);
-  if (!c || chats.has(c.id)) return;
-  chats.set(c.id, c);
-  if (chats.size > CHATS_MAX) chats.delete(chats.keys().next().value);
+function note(map, entry) {
+  if (!entry || map.has(entry.id)) return;
+  map.set(entry.id, entry);
+  if (map.size > CHATS_MAX) map.delete(map.keys().next().value);
+}
+
+function noteSender(u) {
+  const from = (u.message ?? u.callback_query ?? {}).from;
+  if (from?.id === undefined || from.is_bot) return;
+  note(users, { id: String(from.id), name: String(from.first_name || from.username || "").slice(0, 64) });
 }
 
 const nextDelay = (ms) => Math.min(BACKOFF_MAX_MS, Math.max(BACKOFF_MIN_MS, ms * 2));
@@ -64,7 +72,8 @@ async function run(state) {
         if (state.abort.signal.aborted) break;
         if (!Number.isInteger(u?.update_id) || u.update_id < offset) continue;
         offset = u.update_id + 1;
-        noteChat(u);
+        note(chats, alerts.updateChat(u));
+        noteSender(u);
         if (u.callback_query) await handleCallback(u.callback_query).catch((err) => debug.log("telegram updates: button failed: %s", err.message));
       }
     } catch (err) {
@@ -75,28 +84,48 @@ async function run(state) {
   }
 }
 
-/** Stops the loop; resolves once its last request has ended. */
-export async function stop() {
+/** Marks the loop stopped at once; resolves once its last request has ended. */
+function end() {
   const state = loop;
-  if (!state) return;
+  if (!state) return Promise.resolve();
   loop = null;
   state.abort.abort();
-  await state.done;
+  return state.done;
 }
 
-/** Starts, restarts (a new token) or stops the loop to match the settings. */
-export function sync() {
+function startIfWanted() {
   const conf = integrations.get("telegram");
-  if (loop && (!wanted(conf) || loop.botToken !== conf.botToken)) stop();
   if (loop || !wanted(conf)) return;
   if (conf.botToken !== lastToken) {
     offset = 0;
     chats.clear();
+    users.clear();
     lastToken = conf.botToken;
   }
   const state = { botToken: conf.botToken, abort: new AbortController() };
   state.done = run(state);
   loop = state;
+}
+
+/**
+ * Starts, restarts (a new token) or stops the loop to match the settings. A
+ * new loop starts only after the old one's last request has ended, so the two
+ * never share the offset. Resolves once that is done.
+ */
+export function sync() {
+  const conf = integrations.get("telegram");
+  if (loop && (!wanted(conf) || loop.botToken !== conf.botToken)) {
+    const ending = end();
+    pending = pending.then(() => ending);
+  }
+  pending = pending.then(startIfWanted).catch((err) => debug.log("telegram updates: not started: %s", err.message));
+  return pending;
+}
+
+/** Stops the loop, after any start still on its way; resolves once its last request has ended. */
+export async function stop() {
+  await pending;
+  await end();
 }
 
 /** Follows the alerts tab's saves from now on, and starts the loop if it is set up. */
@@ -114,13 +143,17 @@ export function recentChats(botToken) {
   return alerts.recentChats(botToken);
 }
 
-/** Test-only: swap the wait between failed tries, and forget the offset and chats. */
+/** Who wrote to the bot or pressed its buttons lately: [{ id, name }]; empty while the loop is off. */
+export const recentUsers = () => (loop ? [...users.values()] : []);
+
+/** Test-only: swap the wait between failed tries, and forget the offset, chats and people. */
 export async function resetForTests({ sleep } = {}) {
   await stop();
   if (sleep) sleepImpl = sleep;
   offset = 0;
   lastToken = "";
   chats.clear();
+  users.clear();
 }
 
 /** Test-only: the next update id asked for. */

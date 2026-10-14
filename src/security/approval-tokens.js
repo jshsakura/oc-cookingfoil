@@ -37,6 +37,8 @@ const all = () => (saved ??= read());
 function persist() {
   try {
     fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
+    // A leftover .tmp would keep its own mode, so it goes first.
+    fs.rmSync(`${FILE}.tmp`, { force: true });
     fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ version: 1, requests: saved }), { mode: 0o600 });
     fs.renameSync(`${FILE}.tmp`, FILE);
   } catch (err) {

@@ -44,8 +44,10 @@ export const SERVICES = {
       chatId: { env: () => env.telegramChatId, re: /^(-?\d{1,20}|@[A-Za-z0-9_]{5,64})$/ },
       // Comma list of alert events; empty means all, "-" means none.
       events: { env: () => env.telegramEvents, re: /^(-|[a-z]+(,[a-z]+)*)$/, optional: true },
-      // Approve or refuse requests from the alert's buttons; empty means on.
+      // Approve or refuse requests from the alert's buttons: only "on" turns it on.
       buttons: { env: () => env.telegramButtons, re: /^(on|off)$/, optional: true },
+      // Telegram user ids who may press them in a group (comma list); a private chat needs none.
+      approvers: { env: () => env.telegramApprovers, re: /^\d{1,20}(,\d{1,20})*$/, optional: true },
     },
   },
 };

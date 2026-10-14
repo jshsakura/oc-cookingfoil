@@ -1,8 +1,9 @@
 /**
  * A press on an approval alert's [승인] [거절] button (telegram-updates.js hands
  * it here). Acted on only when it comes from the chat the alerts go to and, in
- * a group or channel, from one of its admins; anyone else gets an answer and
- * nothing changes. The token is then spent, whatever happens next.
+ * a group or channel, from a Telegram user the admin listed (approvers); being
+ * a group admin is not enough. Anyone else gets an answer and nothing changes.
+ * The token is then spent, whatever happens next.
  *
  * Approving and refusing run the same functions as the admin page, so the
  * audit log and what the console or account sees are the same. A request the
@@ -19,7 +20,6 @@ import { approveWaitingDevice } from "./pairing-approve.js";
 
 export const SPENT = "이미 처리했거나 만료된 요청입니다";
 const HANDLED = "이미 관리 화면에서 처리한 요청입니다";
-const GROUP_ADMINS = ["creator", "administrator"];
 
 /** What each kind of request is, and how the admin page approves or refuses it. */
 const KINDS = {
@@ -45,12 +45,11 @@ function sameChat(chat, chatId) {
   return String(chat.id) === chatId;
 }
 
-/** In a private chat the person is the chat; elsewhere only the chat's admins may decide. */
-async function mayDecide(botToken, chat, from) {
-  if (chat.type === "private") return String(chat.id) === String(from?.id);
-  if (!from?.id) return false;
-  const d = await alerts.callTelegram(botToken, "getChatMember", { chat_id: chat.id, user_id: from.id }).catch(() => ({ ok: false }));
-  return d.ok && GROUP_ADMINS.includes(d.result?.status);
+/** In a private chat the person is the chat; elsewhere only the listed approvers may decide. */
+function mayDecide(conf, chat, from) {
+  if (from?.id === undefined) return false;
+  if (chat.type === "private") return String(chat.id) === String(from.id);
+  return String(conf.approvers ?? "").split(",").includes(String(from.id));
 }
 
 const who = (from) => String(from?.first_name || from?.username || "누군가").slice(0, 64);
@@ -77,8 +76,8 @@ export async function handleCallback(q, conf = integrations.get("telegram")) {
     await answer("이 대화에서는 처리할 수 없습니다");
     return "other-chat";
   }
-  if (!(await mayDecide(conf.botToken, chat, q.from))) {
-    await answer("이 대화의 관리자만 처리할 수 있습니다");
+  if (!mayDecide(conf, chat, q.from)) {
+    await answer("승인할 수 있는 사용자로 등록되지 않았습니다");
     return "not-allowed";
   }
   const m = /^([yn]):(.+)$/.exec(String(q.data ?? ""));

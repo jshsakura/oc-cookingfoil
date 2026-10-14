@@ -1,9 +1,11 @@
 /**
  * The admin page's alerts tab (Telegram):
  *
- *   GET  /admin/api/alerts           { configured, source, tokenSet, chatId, bot, buttons, events: [{ id, label, desc, on }], history }
- *   POST /admin/api/alerts           { botToken?, chatId, events: [id…], buttons? }  save; an empty token keeps the saved one,
- *                                    and buttons (approve from the alert) stays as it was when left out
+ *   GET  /admin/api/alerts           { configured, source, tokenSet, chatId, bot, buttons, approvers, users: [{ id, name }],
+ *                                      events: [{ id, label, desc, on }], history }
+ *   POST /admin/api/alerts           { botToken?, chatId, events: [id…], buttons?, approvers? }  save; an empty token keeps
+ *                                    the saved one, and buttons (approve from the alert) and approvers stay as they were
+ *                                    when left out. `users` are the people the button loop saw, to pick approvers from.
  *   POST /admin/api/alerts/test      send a test message now: { ok, message }
  *   POST /admin/api/alerts/chats     { botToken? } the chats that wrote to the bot lately: { ok, chats, message }
  *   POST /admin/api/alerts/clear     forget what was saved (env vars apply again)
@@ -32,7 +34,7 @@ export function mountAlertsApi(router, requireSession) {
 
   router.get("/api/alerts", guarded(async (_req, res) => {
     const d = integrations.describe().telegram;
-    const { botToken, chatId } = integrations.get("telegram");
+    const { botToken, chatId, approvers } = integrations.get("telegram");
     const on = new Set(alerts.enabledEvents());
     // Which bot it is, so the admin sees the token is the one they meant; null when Telegram refuses it.
     const bot = botToken ? await alerts.botName(botToken).catch(() => undefined) : undefined;
@@ -43,6 +45,8 @@ export function mountAlertsApi(router, requireSession) {
       chatId,
       bot,
       buttons: alerts.buttonsOn(),
+      approvers: approvers ? approvers.split(",") : [],
+      users: updates.recentUsers(),
       events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, desc: e.desc, on: on.has(id) })),
       history: alerts.recent(),
     });
@@ -50,13 +54,16 @@ export function mountAlertsApi(router, requireSession) {
 
   router.post("/api/alerts", guarded((req, res) => {
     const ids = Array.isArray(req.body?.events) ? req.body.events.map(String).filter((k) => k in alerts.EVENTS) : [];
-    const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn();
+    const current = integrations.get("telegram");
+    const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn(current);
+    const approvers = Array.isArray(req.body?.approvers) ? [...new Set(req.body.approvers.map((x) => String(x).trim()).filter(Boolean))].join(",") : current.approvers;
     // Saving restarts or stops the button loop at once (telegram-updates.js follows integrations).
     integrations.save("telegram", {
       botToken: String(req.body?.botToken ?? ""),
       chatId: String(req.body?.chatId ?? ""),
       events: ids.length ? ids.join(",") : "-",
       buttons: buttons ? "on" : "off",
+      approvers,
     });
     debug.log("admin: alert settings saved (%s)", ids.join(",") || "none");
     res.json({ ok: true });
