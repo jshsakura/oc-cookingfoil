@@ -101,6 +101,12 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     const at = tar.indexOf("switch/myapp/data/a.bin\0");
     assert.ok(at >= 0);
     assert.equal(tar.subarray(at + 512, at + 513).toString(), "A");
+    // A file changed since the listing: the bundle is refused until the folder is read again.
+    fs.appendFileSync(path.join(dirs.homebrew, "myapp", "data", "a.bin"), "B");
+    assert.equal((await fetch(BASE + e.bundle_url, { headers: { Authorization: ALICE } })).status, 503);
+    for (let i = 0; i < 40 && (await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size !== 2; i++) await new Promise((r) => setTimeout(r, 250));
+    assert.equal((await fetch(BASE + e.bundle_url, { headers: { Authorization: ALICE } })).status, 200);
+    e = await listed("myapp");
     assert.ok(!fs.existsSync(path.join(dirs.homebrew, "myapp", "atmosphere")), "nothing outside switch/<app>/ is kept");
     assert.deepEqual(fs.readdirSync(dirs.homebrew).filter((n) => !n.startsWith(".")), ["myapp"]);
 
@@ -249,6 +255,29 @@ test("an app kept as a zip is listed from inside it and sent whole, never unpack
     assert.ok(nro.equals(fakeNro("Zipped App")));
     assert.deepEqual(fs.readdirSync(path.join(dirs.homebrew, "zipped")), ["Zipped-v2.zip"], "nothing unpacked beside it");
 
+    // Swapped for another zip, even one with an older file time (cp -p, rsync): a send under the
+    // old ETag is refused rather than mixing versions, and the listing follows the new zip.
+    const zipPath = path.join(dirs.homebrew, "zipped", "Zipped-v2.zip");
+    const older = makeZip(root, {
+      "Zipped-v2/switch/zipped/zipped.nro": fakeNro("Zipped Older"),
+      "Zipped-v2/switch/zipped/data/level 1+2.dat": "OLD LEVEL",
+    });
+    fs.writeFileSync(zipPath, older);
+    fs.utimesSync(zipPath, new Date("2020-01-01"), new Date("2020-01-01"));
+    const stale = await fetch(BASE + e.archive.url, { headers: { Authorization: ALICE, Range: "bytes=10-", "If-Range": `"${e.archive.sha256}"` } });
+    assert.equal(stale.status, 503);
+    assert.equal(stale.headers.get("retry-after"), "5");
+    let swapped = null;
+    for (let i = 0; i < 40 && !swapped; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      swapped = (await (await fetch(`${BASE}/api/homebrew`, { headers: { Authorization: ALICE } })).json()).homebrew.find((x) => x.id === e.id && x.name === "Zipped Older");
+    }
+    assert.ok(swapped, "name and icon come from the new zip, not the earlier copy");
+    assert.equal(swapped.archive.size, older.length);
+    const fresh = await fetch(BASE + swapped.archive.url, { headers: { Authorization: ALICE } });
+    assert.ok(Buffer.from(await fresh.arrayBuffer()).equals(older));
+    e = swapped;
+
     // Removing it from the admin page takes its folder.
     const verify = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: ALICE }, body: JSON.stringify({ password: "admin-password-123" }) });
     const admin = { Authorization: ALICE, Cookie: verify.headers.get("set-cookie").split(";")[0], "Content-Type": "application/json" };
@@ -258,4 +287,26 @@ test("an app kept as a zip is listed from inside it and sent whole, never unpack
   } finally {
     server.kill();
   }
+});
+
+test("a zip that can't go on the card as it is stays out of the list, and the scan goes on", async () => {
+  const { scanManual, setManualHashFile, extractNro } = await import("../../src/meta/homebrew.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-badzip-"));
+  const apps = path.join(root, "apps");
+  const put = (folder, name, bytes) => { fs.mkdirSync(path.join(apps, folder), { recursive: true }); fs.writeFileSync(path.join(apps, folder, name), bytes); };
+  setManualHashFile(path.join(root, "data", "hashes.json"));
+  // A space in the app folder would install only the .nro, under a name the card may refuse.
+  put("spaced", "a.zip", makeZip(root, { "switch/My App/My App.nro": fakeNro("Spaced"), "switch/My App/data.bin": "D" }));
+  // Not a zip at all.
+  put("broken", "b.zip", "this is not a zip");
+  // A zip with no app in it.
+  put("empty", "c.zip", makeZip(root, { "readme.txt": "hi" }));
+  put("good", "d.zip", makeZip(root, { "switch/good/good.nro": fakeNro("Good"), "switch/good/x.bin": "X" }));
+  const list = await scanManual(apps);
+  assert.deepEqual(list.map((x) => x.name), ["Good"]);
+  assert.deepEqual(list[0].archive.entries.map((x) => x.path), ["switch/good/good.nro", "switch/good/x.bin"]);
+
+  // Copying out to a place that can't be written fails the copy, not the process.
+  const zip = path.join(apps, "good", "d.zip");
+  await assert.rejects(extractNro(zip, "x/good", path.join(root, "missing", "dir", "good.nro")));
 });

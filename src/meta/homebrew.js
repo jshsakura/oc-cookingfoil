@@ -162,6 +162,8 @@ function extractEntry(zip, entry, dest, maxBytes) {
     const out = fs.createWriteStream(dest);
     let written = 0;
     let failed = null;
+    // A full disk must fail this copy, not take the whole server down.
+    out.on("error", (err) => { failed ??= err; child.kill(); });
     const timer = setTimeout(() => { failed = new Error("unzip took too long"); child.kill(); }, UNZIP_TIMEOUT_MS);
     child.stdout.on("data", (chunk) => {
       written += chunk.length;
@@ -175,7 +177,13 @@ function extractEntry(zip, entry, dest, maxBytes) {
     child.on("error", (err) => { failed ??= err; });
     child.on("close", (code) => {
       clearTimeout(timer);
-      out.end(() => (failed || code ? reject(failed ?? new Error(`unzip exited ${code}`)) : resolve(written)));
+      const done = (err) => {
+        const problem = failed ?? err ?? (code ? new Error(`unzip exited ${code}`) : null);
+        if (!problem) return resolve(written);
+        fsp.rm(dest, { force: true }).finally(() => reject(problem));
+      };
+      if (out.destroyed) done(null);
+      else out.end(done);
     });
   });
 }
@@ -333,7 +341,7 @@ async function readManual(root, folder, seen = null) {
     for (const rel of await filesUnder(dir)) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
-      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs });
+      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });
     }
     folderInstall = { install_dir: `switch/${folder}`, install_path: `switch/${folder}/${file}`, files };
   }
@@ -355,11 +363,19 @@ async function readManual(root, folder, seen = null) {
   };
 }
 
-// zip path → { key, layout }, so the minutely rescan reads each zip's listing once.
+// zip path → { key, layout, sizes, failed }, so the minutely rescan reads each zip
+// once: its listing, and a zip that could not be used stays skipped until it changes.
 const zipLayouts = new Map();
 
-/** Where the .nro of a kept zip is copied for its name and icon: beside the hash file, or a temp folder in tests. */
-const zipNroDir = () => path.join(hashFile ? path.dirname(hashFile) : os.tmpdir(), "zip-nro");
+/** Where the .nro of a kept zip is copied for its name and icon: beside the hash file, or a folder of this process in tests. */
+const zipNroDir = () => path.join(hashFile ? path.dirname(hashFile) : path.join(os.tmpdir(), `cookingfoil-${process.pid}`), "zip-nro");
+
+/** Forget the .nro copies of a removed app, so a new app in the same folder starts clean. */
+export async function forgetZipCopies(id) {
+  const dir = zipNroDir();
+  const names = await fsp.readdir(dir).catch(() => []);
+  await Promise.all(names.filter((n) => n.startsWith(`${id}-`)).map((n) => fsp.rm(path.join(dir, n), { force: true })));
+}
 
 /**
  * A hand-placed app kept as a zip: listed like any app, its .nro copied out for
@@ -370,39 +386,57 @@ async function readManualZip(dir, folder, zipName, seen) {
   const abs = path.join(dir, zipName);
   const st = await fsp.stat(abs);
   const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
-  let layout = zipLayouts.get(abs)?.key === key ? zipLayouts.get(abs).layout : null;
-  if (!layout) {
-    // The admin's own zip: as many files as it holds.
-    layout = normalizeLayout(await zipEntries(abs), { repoName: folder, maxFiles: Infinity });
-    zipLayouts.set(abs, { key, layout });
+  let known = zipLayouts.get(abs);
+  if (known?.key !== key) {
+    known = { key, layout: null, sizes: null, failed: null };
+    zipLayouts.set(abs, known);
+    try {
+      const entries = await zipEntries(abs);
+      // The admin's own zip: as many files as it holds.
+      known.layout = normalizeLayout(entries, { repoName: folder, maxFiles: Infinity });
+      known.sizes = new Map(entries.map((e) => [e.name, e.size]));
+      // A name the card can't take (spaces, other scripts, :?) would install only the .nro, or under a mangled path.
+      if (known.layout.reason === "unsafe-path") known.failed = `a path in it can't go on the card as it is${known.layout.nro ? ` (${known.layout.nro.path})` : ""}; app folder and .nro names take ASCII letters, digits, - _ and .`;
+      else if (!known.layout.nro) known.failed = "it holds no .nro for switch/<app>/";
+    } catch (err) {
+      known.failed = err.message;
+    }
+    if (known.failed) debug.error("homebrew: %s left out: %s", abs, known.failed);
   }
-  if (!layout.nro) {
-    debug.error("homebrew: %s holds no .nro", abs);
-    return null;
-  }
+  if (known.failed) return null;
+  const { layout } = known;
   const id = idFor("manual", folder);
   const hash = await cachedSha256(abs, st, seen);
-  const nro = path.join(zipNroDir(), `${id}.nro`);
-  const copied = await fsp.stat(nro).catch(() => null);
-  if (!copied || copied.mtimeMs < st.mtimeMs) {
+  // Named after the zip's hash: a different zip, older or newer, never reuses another one's copy.
+  const nro = path.join(zipNroDir(), `${id}-${hash.slice(0, 16)}.nro`);
+  if (!(await fsp.stat(nro).catch(() => null))) {
     await fsp.mkdir(path.dirname(nro), { recursive: true });
-    await extractEntry(abs, layout.nro.entry, `${nro}.tmp`, MAX_NRO_BYTES);
-    await fsp.rename(`${nro}.tmp`, nro);
+    try {
+      await extractEntry(abs, layout.nro.entry, `${nro}.tmp`, MAX_NRO_BYTES);
+      await fsp.rename(`${nro}.tmp`, nro);
+    } catch (err) {
+      known.failed = `its .nro can't be copied out: ${err.message}`;
+      debug.error("homebrew: %s left out: %s", abs, known.failed);
+      return null;
+    }
+    // The copies of earlier zips in this folder are no longer needed.
+    for (const n of await fsp.readdir(path.dirname(nro))) if (n.startsWith(`${id}-`) && n !== path.basename(nro)) await fsp.rm(path.join(path.dirname(nro), n), { force: true });
   }
   const meta = await readNro(nro);
   if (!meta) {
-    debug.error("homebrew: %s in %s is not an NRO", layout.nro.entry, abs);
+    known.failed = `${layout.nro.entry} is not an NRO`;
+    debug.error("homebrew: %s left out: %s", abs, known.failed);
     return null;
   }
   const nroSt = await fsp.stat(nro);
   const nroHash = await cachedSha256(nro, nroSt, seen);
   const folderMode = layout.mode === "folder";
-  const files = folderMode ? layout.files : [{ ...layout.nro, size: (await zipEntries(abs)).find((e) => e.name === layout.nro.entry)?.size ?? 0 }];
+  const files = folderMode ? layout.files : [{ ...layout.nro, size: known.sizes.get(layout.nro.entry) ?? 0 }];
   return {
     install_dir: folderMode ? layout.appDir : null,
     install_path: layout.nro.path,
     install: { mode: layout.mode, reason: layout.reason ?? null, rules: layout.rules ?? [], excluded: layout.excluded ?? [] },
-    archive: { format: "zip", abs, size: st.size, sha256: hash, entries: files.map((f) => ({ entry: f.entry, path: f.path, size: f.size })) },
+    archive: { format: "zip", abs, key, size: st.size, sha256: hash, entries: files.map((f) => ({ entry: f.entry, path: f.path, size: f.size })) },
     id,
     name: meta.name ?? folder,
     version: meta.version,
