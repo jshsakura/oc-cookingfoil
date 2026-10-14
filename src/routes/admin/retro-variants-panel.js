@@ -6,7 +6,7 @@
  */
 
 export const RETRO_VARIANTS_HTML = `
-  <div class="hd"><h2 id="rv-title">같은 게임의 여러 판</h2>
+  <div class="hd"><h2 id="rv-title">같은 게임의 여러 버전</h2>
     <div class="seg" role="group" aria-label="보기"><button type="button" data-rv="dups" class="active">중복</button><button type="button" data-rv="sets">아케이드 세트</button><button type="button" data-rv="trash">휴지통</button></div></div>
   <p class="muted" id="rv-help"></p>
   <div class="row-actions" id="rv-tools"><input id="rv-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"><label id="rv-broken-wrap" hidden><input type="checkbox" id="rv-broken"> 못 도는 세트만</label></div>
@@ -26,8 +26,8 @@ export const RETRO_VARIANTS_CSS = `
 export const RETRO_VARIANTS_SCRIPT = /* js */ `
 let rvView='dups',rvData={},rvSeq=0;
 const RV_HELP={
-  dups:'같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 대표 하나만 나오고 나머지 판은 게임 창에서 고릅니다. 대표는 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 휴지통으로 옮기면 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 갑니다.',
-  sets:'아케이드는 FinalBurn Neo 의 부모 세트와 클론 세트를 한 게임으로 봅니다. 한국판, 세계판, 미국판, 유럽판, 일본판 순으로 돌아가는 정규 세트를 대표로 정합니다. 부모 롬이나 BIOS 가 roms/arcade 에 없으면 그 세트는 실행되지 않습니다.',
+  dups:'같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 휴지통으로 옮기면 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 갑니다.',
+  sets:'아케이드는 FinalBurn Neo 의 부모 세트와 클론 세트를 한 게임으로 봅니다. 한국판, 해외판, 북미판, 유럽판, 일본판 순으로 돌아가는 정규 세트를 추천 버전으로 정합니다. 부모 롬이나 BIOS 가 roms/arcade 에 없으면 그 세트는 실행되지 않습니다.',
   trash:'휴지통으로 옮긴 파일입니다. 지우지 않고 보관하며, 되돌리면 원래 자리로 돌아갑니다.'};
 const RV_TAGS={bootleg:'부트렉',hack:'해킹',prototype:'시제품',demo:'데모',decrypted:'복호화판','cps-changer':'CPS 체인저','4p':'4인용','3p':'3인용',resale:'재판',mvs:'MVS',aes:'AES'};
 const RV_REGION={kr:'한국',world:'세계',us:'미국',eu:'유럽',jp:'일본',asia:'아시아',hisp:'중남미',br:'브라질'};
@@ -37,7 +37,7 @@ const rvDate=(s)=>s?new Date(s*1000).toLocaleDateString('ko-KR'):'—';
 function rvEdition(m){const e=m.edition;if(!e)return m.region?RV_REGION[m.region]||m.region:'—';
   return (e.source==='official'?'공식 한국어판':'한글 패치')+(e.version?' '+e.version:'');}
 function rvTags(m){const box=el('div');
-  if(m.representative)box.append(pill('대표','on'));
+  if(m.representative)box.append(pill('추천','on'));
   if(m.class){if(m.class.region)box.append(pill(RV_REGION[m.class.region]||m.class.region));
     if(m.class.date)box.append(pill(String(m.class.date).replace(/(\\d{4})(\\d{2})(\\d{2})/,'$1.$2.$3')));
     for(const t of [...m.class.flags,...m.class.hardware])box.append(pill(RV_TAGS[t]||t,['bootleg','hack','prototype','demo'].includes(t)?'warn':''));}
@@ -48,7 +48,7 @@ function rvHead(text,sub,cols){const tr=el('tr','', 'rv-head');const c=el('td');
 function rvMemberRow(g,m,withSize){const tr=el('tr');
   const n=td();n.append(m.name);n.append(el('div',m.file,'muted'));
   const acts=el('div',null,'row-actions');
-  const pick=btn(m.representative?'대표입니다':'대표로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;
+  const pick=btn(m.representative?'추천 버전입니다':'추천 버전으로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;
   const trash=btn('휴지통으로 옮깁니다',()=>rvTrash(m),'danger');
   acts.append(pick,trash);
   tr.append(n,td(m.variant||'—'),raCell(rvTags(m)),td(rvEdition(m)));
@@ -79,7 +79,7 @@ function rvShow(){
   const groups=d.groups.filter((g)=>rvMatch(g,q));
   $('rv-summary').textContent='묶음 '+d.groups.length+'개에 파일 '+d.groups.reduce((n,g)=>n+g.members.length,0)+'개가 있습니다.';
   const rows=groups.flatMap((g)=>[rvHead(g.systemName,g.reason,7),...g.members.map((m)=>rvMemberRow(g,m,true))]);
-  table('rv-list',['이름','버전','태그','판','크기','추가한 날',''],rows,'같은 게임의 여러 판이 없습니다.');
+  table('rv-list',['이름','버전 정보','태그','종류','크기','추가한 날',''],rows,'같은 게임의 여러 버전이 없습니다.');
 }
 async function loadRetroVariants(){
   const n=++rvSeq;
@@ -87,7 +87,7 @@ async function loadRetroVariants(){
     const d=await api(url);if(n!==rvSeq)return;rvData[rvView]=d;rvShow();}catch(err){toast(err.message);}
 }
 async function rvPick(g,m){
-  try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('대표를 바꿨습니다.');loadRetroVariants();}catch(err){toast(err.message);}
+  try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 바꿨습니다.');loadRetroVariants();}catch(err){toast(err.message);}
 }
 async function rvTrash(m,force=false){
   if(!force&&!confirm(m.file+' 파일을 휴지통으로 옮깁니다. 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 가고, 휴지통에서 되돌릴 수 있습니다.'))return;

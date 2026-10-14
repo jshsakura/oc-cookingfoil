@@ -75,8 +75,8 @@ test("a set that cannot run loses to one that can", () => {
 test("the reason says why the representative leads", () => {
   const reason = (shorts, runnable = {}) => reasonFor(rankSets(shorts.map((s) => member(s, runnable[s] ?? true))));
   assert.equal(reason(["gunbird"]), "하나뿐인 세트입니다");
-  assert.equal(reason(["gunbird", "gunbirdj"]), "세계판입니다");
-  assert.equal(reason(["kodr1", "kod"]), "세계판 최신 개정입니다");
+  assert.equal(reason(["gunbird", "gunbirdj"]), "해외판입니다");
+  assert.equal(reason(["kodr1", "kod"]), "해외판 최신 개정입니다");
   assert.equal(reason(["gunbirdk", "gunbird"]), "한국판입니다");
   assert.equal(reason(["ffightae", "ffightbl"]), "정규 세트가 없어 비정규 세트를 씁니다");
   assert.equal(reason(["gunbirdj", "gunbird"], { gunbirdj: false, gunbird: false }), "돌아가는 세트가 없습니다");

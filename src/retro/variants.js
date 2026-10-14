@@ -157,11 +157,11 @@ export function compareTitles(a, b) {
 
 /** Why the first of an ordered non-arcade group leads, in Korean. Pure. */
 function titleReason(members) {
-  if (members.length < 2) return "하나뿐인 판입니다";
+  if (members.length < 2) return "하나뿐인 버전입니다";
   const t = traits(members[0]);
   if (t.edition?.source === "official") return "공식 한국어판입니다";
   if (t.edition?.korean) return t.version || t.date ? "가장 새 한글 패치입니다" : "한글판입니다";
-  return { world: "세계판입니다", us: "미국판입니다", jp: "일본판입니다" }[t.region] ?? "가장 새 파일입니다";
+  return { world: "해외판입니다", us: "북미판입니다", jp: "일본판입니다" }[t.region] ?? "가장 새 파일입니다";
 }
 
 /** An arcade game as arcade-policy.js reads it. */
