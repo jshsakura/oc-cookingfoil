@@ -44,3 +44,15 @@ test("patch variants of one game get distinct names; a disc set's playlist follo
   assert.equal(games[2].sd.extras.get("Xeno (Disc 2).chd").sd, "roms/ps1/Xenogears (Disc 2).chd");
   for (const g of games) assert.ok(/^[\x20-\x7e]+$/.test(g.sd.rom) && g.sd.rom.split("/").at(-1).length <= NAME_MAX);
 });
+
+test("a file whose name has nothing ASCII left gets a name from its game, and a Korean arcade set falls back too", async () => {
+  const games = [
+    { id: "gba-aaaaaa0001", system: "gba", name: "Golden Sun", rel: "gs.gba", extras: [{ rel: "설명서", abs: "/x/1" }, { rel: "자료.sav", abs: "/x/2" }, { rel: "map.png", abs: "/x/3" }] },
+    { id: "arcade-bbbbbb0002", system: "arcade", name: "Street Fighter II", rel: "스트리트파이터.zip", keepFileName: true, extras: [] },
+  ];
+  await assignSdNames(games, async () => "");
+  const sd = [...games[0].sd.extras.values()].map((x) => x.sd);
+  assert.deepEqual(sd, ["roms/gba/Golden Sun (extra 1)", "roms/gba/Golden Sun (extra 2).sav", "roms/gba/map.png"]);
+  assert.equal(games[1].sd.rom, "roms/arcade/Street Fighter II.zip");
+  for (const g of games) for (const p of [g.sd.rom, ...[...g.sd.extras.values()].map((x) => x.sd)]) assert.ok(/^[\x20-\x7e]+$/.test(p), p);
+});

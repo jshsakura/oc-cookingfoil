@@ -23,3 +23,8 @@ test("problems are listed per path and summarised for a message", () => {
   assert.deepEqual(problems.map((x) => x.path), ["switch/a/한.md", "switch/a/b?.bin"]);
   assert.match(describeProblems(problems, 1), /switch\/a\/한\.md \(.+\) 외 1개/);
 });
+
+test("names that differ only by case are one file on the card", () => {
+  const problems = pathProblems(["switch/a/Data/x.bin", "switch/a/data/y.bin", "switch/a/DATA/x.bin"]);
+  assert.deepEqual(problems.map((x) => x.path), ["switch/a/DATA/x.bin"]);
+});

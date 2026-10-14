@@ -95,10 +95,11 @@ test("a lone .nro, links and escaping paths are never a folder install", () => {
 });
 
 test("hand-placed folders leave out guides and clutter, but not data below the top", () => {
-  for (const rel of ["설치-스위치.md", "INSTALL.txt", "설명.txt", "index.html", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
+  for (const rel of ["설치-스위치.md", "INSTALL.txt", "설명.txt", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
     assert.notEqual(leftOutOfFolder(rel), null, rel);
   }
-  for (const rel of ["game.nro", "items.txt", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini"]) {
+  for (const rel of ["game.nro", "items.txt", "index.html", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini",
+    "data/readme.dat", "img/authors.png", "changes.json"]) {
     assert.equal(leftOutOfFolder(rel), null, rel);
   }
 });
@@ -118,4 +119,18 @@ test("a file the app runs on with a name the console can't create refuses the ap
   assert.equal(layout.reason, "console-path");
   assert.equal(layout.nro, null, "nothing to install, so no caller can take the .nro alone");
   assert.deepEqual(layout.problems.map((x) => x.path), ["switch/game/Audio/전투.ogg"]);
+});
+
+test("an app that falls back to its .nro alone is not refused for a name it never sends", () => {
+  const names = ["switch/big/big.nro", "switch/big/Audio/전투.ogg", ...Array.from({ length: 5 }, (_, i) => `switch/big/d/${i}.bin`)];
+  const layout = normalizeLayout(names.map(entry), { repoName: "big", maxFiles: 3 });
+  assert.equal(layout.mode, "nro");
+  assert.equal(layout.reason, "too-many-files");
+  assert.equal(layout.nro.path, "switch/big/big.nro");
+});
+
+test("two names that differ only by case refuse a folder install", () => {
+  const layout = normalizeLayout(["switch/g/g.nro", "switch/g/A.bin", "switch/g/a.bin"].map(entry), { repoName: "g" });
+  assert.equal(layout.reason, "console-path");
+  assert.match(layout.problems[0].reason, /대소문자/);
 });

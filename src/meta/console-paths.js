@@ -36,11 +36,19 @@ export function pathProblem(p) {
   return null;
 }
 
-/** [{ path, reason }] for every path the console cannot create. Pure. */
+/**
+ * [{ path, reason }] for every path the console cannot create, including two
+ * that differ only by case (FAT treats them as one file). Pure.
+ */
 export function pathProblems(paths) {
+  const seen = new Map();
   return paths.flatMap((p) => {
     const reason = pathProblem(p);
-    return reason ? [{ path: p, reason }] : [];
+    if (reason) return [{ path: p, reason }];
+    const folded = String(p).toLowerCase();
+    const other = seen.get(folded);
+    seen.set(folded, p);
+    return other !== undefined && other !== p ? [{ path: p, reason: `${other} 와 대소문자만 달라 SD 에서 같은 파일이 됩니다` }] : [];
   });
 }
 

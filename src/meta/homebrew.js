@@ -35,7 +35,7 @@ import { decodeNacp } from "./nacp-decode.js";
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MAX_NRO_BYTES = 128 * 1024 * 1024;
 // Bumped whenever how a release is laid out changes (homebrew-layout.js), so every cached build is decided again once.
-const LAYOUT_RULES = 2;
+const LAYOUT_RULES = 3;
 const MAX_ZIP_BYTES = 256 * 1024 * 1024;
 const ERROR_RETRY_MS = 60 * 60 * 1000;
 const UNZIP_TIMEOUT_MS = 5 * 60 * 1000;
@@ -144,7 +144,8 @@ const APP_NAME_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
  * after the file. Pure.
  */
 export function installPathFor(fileName, appDir = null) {
-  const dir = appDir && /^switch\/[^/]+$/i.test(appDir) && APP_NAME_RE.test(appDir.slice(7)) ? appDir : `switch/${String(fileName).replace(/\.nro$/i, "")}`;
+  // FAT drops a trailing dot, so "app..nro" must not make a folder "app.".
+  const dir = appDir && /^switch\/[^/]+$/i.test(appDir) && APP_NAME_RE.test(appDir.slice(7)) ? appDir : `switch/${String(fileName).replace(/\.nro$/i, "").replace(/\.+$/, "")}`;
   return `${dir}/${fileName}`;
 }
 

@@ -429,6 +429,7 @@ const ent = (name, extra = {}) => ({ name, size: 1, dir: name.endsWith("/"), lin
 
 test("every app lives in its own switch/<app>/ folder", () => {
   assert.equal(installPathFor("ftpd.nro"), "switch/ftpd/ftpd.nro");
+  assert.equal(installPathFor("app..nro"), "switch/app/app..nro", "FAT drops a folder's trailing dot");
   assert.equal(installPathFor("x.nro", "switch/acnh_editor"), "switch/acnh_editor/x.nro");
   assert.equal(installPathFor("x.nro", "switch/bad name"), "switch/x/x.nro");
 });

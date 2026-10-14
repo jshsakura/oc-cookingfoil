@@ -42,11 +42,14 @@ const FOREIGN_FILE_RE = /\.(exe|dll|msi|bat|cmd|ps1|sh|so|dylib|dmg|pkg|app|apk|
 const JUNK_NAME_RE = /^(\.ds_store|thumbs\.db|desktop\.ini|\._.*)$/i;
 const DOC_NAME_RE = /^(readme|licen[cs]e|changelog|changes|copying|authors)([._-].*)?$/i;
 // Guides written for a person at a PC. Anywhere: these formats. At the top of
-// the app folder also .md/.html, and a .txt named like a guide or not in ASCII
+// the app folder also .md (never .html: a web runtime's index.html sits there),
+// and a .txt named like a guide or not in ASCII
 // (an item list beside the .nro is data and stays). Deeper down a .txt or .md
 // can be the game's own data (a plugin's meta.txt, a server address), so it stays.
 const DOC_FORMAT_RE = /\.(pdf|docx?|rtf|odt)$/i;
-const TOP_DOC_RE = /\.(md|markdown|html?)$/i;
+const TOP_DOC_RE = /\.(md|markdown)$/i;
+// README and the like only as text: a "readme.dat" or "changes.json" can be the game's own.
+const isDocName = (name) => DOC_NAME_RE.test(name) && /^[^.]*(\.(txt|md|markdown))?$/i.test(name);
 const GUIDE_TXT_RE = /^(install|setup|guide|manual|howto|how[ _-]to|instructions?)([ ._-].*)?\.txt$/i;
 const isNro = (p) => /\.nro$/i.test(p);
 const base = (p) => path.posix.basename(p);
@@ -59,7 +62,7 @@ const SAMPLE = 5;
 export function leftOutOfFolder(rel) {
   const name = base(rel);
   if (rel.split("/").includes("__MACOSX") || JUNK_NAME_RE.test(name)) return "junk";
-  if (DOC_NAME_RE.test(name) || DOC_FORMAT_RE.test(name)) return "doc";
+  if (isDocName(name) || DOC_FORMAT_RE.test(name)) return "doc";
   if (!rel.includes("/") && (TOP_DOC_RE.test(name) || (/\.txt$/i.test(name) && (GUIDE_TXT_RE.test(name) || /[^\x20-\x7e]/.test(name))))) return "doc";
   return null;
 }
@@ -103,7 +106,7 @@ export function normalizeLayout(entries, { repoName = null, maxFiles = MAX_PACKA
   let files = entries.filter((e) => !e.dir).map((e) => ({ entry: e.name, path: e.name, size: e.size }));
 
   // 2. junk (text docs are judged again once the app folder is known)
-  const junk = files.filter((f) => f.path.split("/").some((s) => s === "__MACOSX") || JUNK_NAME_RE.test(base(f.path)) || DOC_NAME_RE.test(base(f.path)));
+  const junk = files.filter((f) => f.path.split("/").some((s) => s === "__MACOSX") || JUNK_NAME_RE.test(base(f.path)) || isDocName(base(f.path)));
   if (junk.length) {
     rules.push(`junk: left out ${junk.length} file(s) such as ${base(junk[0].path)}`);
     leaveOut("junk", junk.map((f) => f.path));
@@ -193,14 +196,14 @@ export function normalizeLayout(entries, { repoName = null, maxFiles = MAX_PACKA
   // Every path must stay inside switch/<app>/.
   if (!inApp.every((f) => f.path.startsWith(`${appDir}/`) && !f.path.split("/").includes(".."))) return result(null, "unsafe-path", { nro });
   if (!APP_NAME_RE.test(appName) || !APP_NAME_RE.test(base(nroPath))) return result("nro", "unsafe-path", { nro, appDir: null });
-  // 8. ascii
+  if (inApp.length > maxFiles) return result("nro", "too-many-files", { nro, appDir });
+  if (inApp.length === 1) return result("nro", "only-nro", { nro, appDir });
+  // 8. ascii, over what a folder install would send (the .nro alone above is already safe)
   const problems = pathProblems(inApp.map((f) => f.path));
   if (problems.length) {
     rules.push(`ascii: ${describeProblems(problems)}`);
     return result(null, "console-path", { appDir, problems });
   }
-  if (inApp.length > maxFiles) return result("nro", "too-many-files", { nro, appDir });
-  if (inApp.length === 1) return result("nro", "only-nro", { nro, appDir });
   const files_ = inApp.sort((a, b) => a.path.localeCompare(b.path));
   return result("folder", excluded.length ? "partial" : null, { appDir, nro, files: files_ });
 }

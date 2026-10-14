@@ -31,6 +31,7 @@ import path from "path";
 import debug from "../debug.js";
 import { fitsUstar } from "../helpers/ustar.js";
 import { HashCache } from "../helpers/hash-cache.js";
+import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -100,7 +101,12 @@ export async function readSave(root, tidDir, folder, cache) {
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).sort((a, b) => (a.path < b.path ? -1 : 1));
   if (!files.length) throw new Rejected("no files");
-  for (const f of files) if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+  for (const f of files) {
+    if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    // A homebrew app's save is restored into switch/<app>/ on the card.
+    const problem = app ? pathProblem(`switch/${app}/${f.path}`) : null;
+    if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
+  }
   const size = files.reduce((n, f) => n + f.size, 0);
   if (size > MAX_BYTES) throw new Rejected(`larger than ${MAX_BYTES} bytes`);
   let meta = {};
