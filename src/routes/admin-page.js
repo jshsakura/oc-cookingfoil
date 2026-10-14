@@ -68,7 +68,7 @@ import { recordFailure } from "../security/auth-guard.js";
 import { isLoopbackSocket } from "../security/net.js";
 import * as totpGuard from "../security/totp-guard.js";
 import { trustLoopback } from "../security/limits.js";
-import { isPrivateIp } from "../security/net.js";
+import { isPrivateCaller } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
@@ -210,7 +210,7 @@ export default function adminPageRouter() {
     // First run: the operator has never proven they hold the generated secret.
     // Show it — but only to the local network, and only until they enroll.
     const wantsGate = req.query.enrolled !== undefined;
-    if (!adminPasswordMode() && !wantsGate && !isEnrolled() && isPrivateIp(clientIp(req))) {
+    if (!adminPasswordMode() && !wantsGate && !isEnrolled() && isPrivateCaller(req)) {
       const uri = await provisioningUri();
       res.set("Cache-Control", "no-store");
       res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
