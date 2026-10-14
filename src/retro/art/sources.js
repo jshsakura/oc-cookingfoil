@@ -37,11 +37,27 @@ export const BEZEL_SOURCES = {
   ngp: [["bezelproject-NGPC", "NGP", "SNK-Neo-Geo-Pocket-Color"]],
   ws: [["bezelproject-WonderSwanColor", "WonderSwanColor", "Bandai-WonderSwan—Color-Horizontal"]],
   arcade: [["bezelproject-MAME", "MAME", "MAME-Horizontal"]],
+  neocd: [["bezelproject-NG-CD", "NG-CD", "SNK-Neo-Geo-CD"]],
+  "32x": [["bezelproject-Sega32X", "Sega32X", "Sega-32X"]],
+  sg: [["bezelproject-SG-1000", "SG-1000", "Sega-SG-1000"]],
+  a2600: [["bezelproject-Atari2600", "Atari2600", "Atari-2600"]],
+  a7800: [["bezelproject-Atari7800", "Atari7800", "Atari-7800"]],
+  lynx: [["bezelproject-AtariLynx", "AtariLynx", "Atari-Lynx-Horizontal"]],
+  col: [["bezelproject-ColecoVision", "ColecoVision", "Colecovision"]],
+  videopac: [["bezelproject-Videopac", "Videopac", "Magnavox-Odyssey-2"]],
+  msx: [["bezelproject-MSX", "MSX", "Microsoft-MSX"]],
+  amstrad: [["bezelproject-AmstradCPC", "AmstradCPC", "Amstrad-CPC"]],
+  c64: [["bezelproject-C64", "C64", "Commodore-64"]],
+  zxs: [["bezelproject-ZXSpectrum", "ZXSpectrum", "Sinclair-ZX-Spectrum"]],
+  vb: [["bezelproject-Virtualboy", "Virtualboy", "Nintendo-Virtual-Boy"]],
+  wsv: [["bezelproject-Supervision", "Supervision", "Watara-Supervision"]],
   // psp: none. Its 16:9 screen fills the console's, so there is nothing to frame.
+  // pico8, chip8, tama: The Bezel Project has no collection for them.
 };
 
 export const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
-export const repoOf = (libretro) => libretro.replaceAll(" ", "_");
+/** The libretro-thumbnails repo for a database name; null for a system libretro has no box art for. Pure. */
+export const repoOf = (libretro) => (libretro ? libretro.replaceAll(" ", "_") : null);
 
 /**
  * Download a PNG. libretro-thumbnails stores some covers as Git symlinks, which

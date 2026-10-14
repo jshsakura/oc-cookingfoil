@@ -3,8 +3,10 @@
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
  *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
+ *                                                only consoles with at least one listed game; the others never appear
  *   GET /api/retro/systems/:id/icon[?style=mono][&v=] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
- *                                                <folder> being the system's server folder)
+ *                                                <folder> being the system's server folder, else <id>.png);
+ *                                                iconUrl / iconMonoUrl are null when there is none
  *   GET /api/retro/games?system=&q=&sort=name|added|size|rating&page=&pageSize=
  *                       &minRating=0-100&bezel=1&minSize=&maxSize=  (bytes; bezel=1 keeps games with their own bezel;
  *                       total counts what the filters left)
@@ -128,11 +130,16 @@ async function currentManifest() {
   return result === "pending" ? null : result;
 }
 
-/** A console's icon file, or null. Only names from the system table reach the disk. */
-function systemIcon(system, style) {
+/**
+ * A console's icon file: system-icons/<style>/<folder>.png, else <id>.png (icons
+ * are filed by the short id while the folder is RetroArch's long name), else
+ * null, which the lists send as a null iconUrl. Only names from the system
+ * table reach the disk.
+ */
+export function systemIcon(dir, id, system, style) {
   if (!system?.folder) return null;
-  const file = path.join(retroDir, "system-icons", style, `${system.folder}.png`);
-  return fs.existsSync(file) ? file : null;
+  const names = [...new Set([system.folder, id])];
+  return names.map((n) => path.join(dir, "system-icons", style, `${n}.png`)).find((f) => fs.existsSync(f)) ?? null;
 }
 
 /** 12 hex of a console icon file's size and mtime, the ?v= of its URL; null without the file. */
@@ -147,8 +154,8 @@ function fileVersion(file) {
 
 /** iconUrl and iconMonoUrl of a console, each with its file's ?v= (null without the file). */
 function systemIconUrls(id, system) {
-  const color = systemIcon(system, "color");
-  const mono = systemIcon(system, "mono");
+  const color = systemIcon(retroDir, id, system, "color");
+  const mono = systemIcon(retroDir, id, system, "mono");
   return {
     iconUrl: color ? `/api/retro/systems/${id}/icon?v=${fileVersion(color)}` : null,
     iconMonoUrl: mono ? `/api/retro/systems/${id}/icon?style=mono&v=${fileVersion(mono)}` : null,
@@ -336,7 +343,7 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
-      systems: catalog.systemsOf(cat, listedGames(cat)).map((s) => ({
+      systems: catalog.visibleSystems(cat, listedGames(cat)).map((s) => ({
         ...s,
         ...systemIconUrls(s.id, cat.systems[s.id]),
       })),
@@ -351,8 +358,7 @@ export default function retroRouter() {
     for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
-      systems: catalog.systemsOf(cat, listed)
-        .filter((s) => s.romCount > 0)
+      systems: catalog.visibleSystems(cat, listed)
         .map((s) => ({
           ...s,
           ...systemIconUrls(s.id, cat.systems[s.id]),
@@ -363,7 +369,10 @@ export default function retroRouter() {
 
   router.get("/systems/:system/icon", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
-    const file = systemIcon(cat.systems[req.params.system], req.query.style === "mono" ? "mono" : "color");
+    const id = req.params.system;
+    // A console without games is invisible here too.
+    const shown = Object.hasOwn(cat.systems, id) && cat.games.some((g) => g.system === id);
+    const file = shown ? systemIcon(retroDir, id, cat.systems[id], req.query.style === "mono" ? "mono" : "color") : null;
     if (!file) return res.status(404).json({ error: "no icon" });
     sendFile(res, file, "png", req.query.v && req.query.v === fileVersion(file));
   }));

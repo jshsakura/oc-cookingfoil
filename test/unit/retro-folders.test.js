@@ -29,10 +29,16 @@ function files(root) {
 }
 const dirs = (root, sub) => fs.readdirSync(path.join(root, sub)).sort();
 
-test("every built-in system's folder is its id; the libretro name is a separate field", () => {
+// The systems that shipped first keep their short folders; the later ones use RetroArch's system name.
+const FIRST = ["nes", "snes", "gb", "gbc", "gba", "n64", "md", "sms", "gg", "pce", "segacd", "pcecd", "ps1", "psp", "nds", "ngp", "ws", "saturn", "arcade"];
+const NO_BOX_ART = ["pico8", "chip8", "tama"];
+
+test("the first systems' folder is their id; the libretro name is a separate field", () => {
   for (const [id, s] of Object.entries(DEFAULT_SYSTEMS)) {
-    assert.equal(s.folder, id, id);
-    assert.ok(s.libretro && s.libretro !== id, `${id} has its own libretro name`);
+    if (FIRST.includes(id)) assert.equal(s.folder, id, id);
+    else assert.notEqual(s.folder, id, `${id} uses RetroArch's system name`);
+    if (NO_BOX_ART.includes(id)) assert.equal(s.libretro, undefined, `${id} has no libretro box art`);
+    else assert.ok(s.libretro && s.libretro !== id, `${id} has its own libretro name`);
     assert.ok(!("aliases" in s), "no alias folders");
   }
   const systems = loadSystems("/nonexistent");
@@ -48,7 +54,7 @@ test("systems.json can rename a system's folder and its libretro name", () => {
     snes: { folder: "Super Famicom", libretro: "Nintendo - Super Famicom" },
     gba: { folder: "../escape" },
     nes: { folder: "  " },
-    msx: { extensions: ["rom"], core: "bluemsx" },
+    x68000: { extensions: ["dim"], core: "px68k" },
   }));
   const systems = loadSystems(dir);
   assert.equal(systems.snes.folder, "Super Famicom");
@@ -57,7 +63,7 @@ test("systems.json can rename a system's folder and its libretro name", () => {
   assert.equal(systems.gba.folder, "gba", "a path is not a folder name");
   assert.equal(systems.gba.libretro, "Nintendo - Game Boy Advance");
   assert.equal(systems.nes.folder, "nes");
-  assert.equal(systems.msx.folder, "msx", "a new system's folder is its id");
+  assert.equal(systems.x68000.folder, "x68000", "an operator's new system's folder is its id");
 });
 
 test("libretro-thumbnails is found by the libretro name, never the folder", async () => {

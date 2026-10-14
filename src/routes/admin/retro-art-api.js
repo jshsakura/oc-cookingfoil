@@ -3,7 +3,9 @@
  *
  *   GET  /admin/api/retro-art                      per system: games, with box art (borrowed: an arcade set showing
  *                                                  another set's art of its game), with their own bezel;
- *                                                  the games still without box art; the running or last job
+ *                                                  the games still without box art; the running or last job;
+ *                                                  bios: [{ id, name, missing: [[file…]] }] for consoles that have
+ *                                                  games but lack firmware (src/retro/bios.js), never for the others
  *   POST /admin/api/retro-art/sync      { system? } match and download what is missing (one job at a time)
  *   GET  /admin/api/retro-art/candidates?game=&q=  libretro names to pick from, with preview addresses
  *   POST /admin/api/retro-art/match     { game, name }   use that name's box art and bezel (null: no art)
@@ -27,6 +29,7 @@ import { dataDir, publicBaseUrl, ratingSync, retroDir } from "../../helpers/envs
 import { resolveOrigin } from "../../helpers/origin.js";
 import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
+import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import * as retroNames from "../../retro/names.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
@@ -93,6 +96,13 @@ function overview(catalog) {
   return { systems: Object.values(systems), missing };
 }
 
+/** The firmware missing for the consoles that have games, with their Korean names. */
+async function biosNotices(catalog) {
+  const ids = catalog.games.map((g) => g.system);
+  const files = await listFirmware(firmwareDir(retroDir));
+  return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
+}
+
 export function mountRetroArtApi(router, requireSession) {
   scheduleRatings();
   const guarded = (handler) => async (req, res) => {
@@ -113,7 +123,8 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.get("/api/retro-art", guarded(async (_req, res) => {
     const age = ratingsAge();
-    res.json({ ...overview(await retroCatalog.current(retroDir)), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+    const catalog = await retroCatalog.current(retroDir);
+    res.json({ ...overview(catalog), bios: await biosNotices(catalog), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {

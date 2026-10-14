@@ -25,6 +25,21 @@ export const PLATFORMS = {
   ngp: ["SNK Neo Geo Pocket Color", "SNK Neo Geo Pocket"],
   ws: ["WonderSwan Color", "WonderSwan"],
   arcade: ["Arcade"],
+  neocd: ["SNK Neo Geo CD"],
+  "32x": ["Sega 32X"],
+  sg: ["Sega SG-1000"],
+  a2600: ["Atari 2600"],
+  a7800: ["Atari 7800"],
+  lynx: ["Atari Lynx"],
+  col: ["ColecoVision"],
+  videopac: ["Magnavox Odyssey 2"],
+  msx: ["Microsoft MSX", "Microsoft MSX2"],
+  amstrad: ["Amstrad CPC"],
+  c64: ["Commodore 64"],
+  zxs: ["Sinclair ZX Spectrum"],
+  vb: ["Nintendo Virtual Boy"],
+  wsv: ["Watara Supervision"],
+  pico8: ["PICO-8"],
 };
 
 const REGION_ORDER = ["Japan", "World", "USA", "Europe"];
