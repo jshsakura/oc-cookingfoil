@@ -284,7 +284,7 @@ test("which paths the lane can reach", () => {
 
 test("only the proxy on this host is let in, and the client is the address it wrote", () => {
   const req = (headers, peer) => ({ socket: { remoteAddress: peer }, get: (h) => headers[h.toLowerCase()] });
-  assert.deepEqual(defaultGateways("Iface\tDestination\tGateway\neth0\t00000000\t0100A8C0\neth0\t0000A8C0\t00000000\n"), ["192.168.1.1"]);
+  assert.deepEqual(defaultGateways("Iface\tDestination\tGateway\neth0\t00000000\t0100A8C0\neth0\t0000A8C0\t00000000\n"), ["192.168.0.1"]);
   assert.equal(isLocalHop("127.0.0.1"), true);
   assert.equal(isLocalHop("::ffff:172.17.0.1"), true);
   assert.equal(isLocalHop("10.0.0.50"), false);
