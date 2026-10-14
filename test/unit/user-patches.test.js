@@ -85,6 +85,15 @@ test("one stray file, a symlink or a non-base folder drops the patch", async () 
   assert.deepEqual(names, ["ok"]);
 });
 
+test("a patch with a file the console can't create is left out", async () => {
+  const root = makeRoot({
+    [`${TID}/korean/atmosphere/contents/${TID}/romfs/한글.bin`]: "x",
+    [`${TID}/colon/atmosphere/contents/${TID}/romfs/a:b.bin`]: "x",
+    [`${TID}/ok/atmosphere/contents/${TID}/romfs/Battle wild.ogg`]: "x",
+  });
+  assert.deepEqual((await scanDir(root)).map((p) => p.name), ["ok"], "a space inside a name is fine");
+});
+
 test("the listing, per-title view and count follow the scan", async () => {
   const root = makeRoot({ [`${TID}/a/${CHEAT}`]: "x", [`${TID}/b/${CHEAT}`]: "y" });
   let changed = 0;
@@ -107,7 +116,7 @@ test("ustar keeps long paths in the prefix field and refuses what cannot fit", (
 });
 
 test("a download is a ustar archive tar can read, of exactly the announced size", async () => {
-  const deep = `atmosphere/contents/${TID}/romfs/` + "긴폴더이름/".repeat(10) + "data.bin";
+  const deep = `atmosphere/contents/${TID}/romfs/` + "long-folder-name/".repeat(10) + "data.bin";
   const root = makeRoot({ [`${TID}/한글/${CHEAT}`]: "cheat\n", [`${TID}/한글/${deep}`]: Buffer.alloc(700, 1) });
   await scan({ root });
   const [p] = await list();

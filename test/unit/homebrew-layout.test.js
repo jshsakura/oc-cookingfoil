@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeLayout } from "../../src/meta/homebrew-layout.js";
+import { leftOutOfFolder, normalizeLayout } from "../../src/meta/homebrew-layout.js";
 
 const zip = (...names) => names.map((name) => ({ name, size: 10, dir: name.endsWith("/"), link: false }));
 const paths = (r) => r.files.map((f) => f.path);
@@ -92,4 +92,45 @@ test("a lone .nro, links and escaping paths are never a folder install", () => {
   const foreign = normalizeLayout(zip("switch/app/app.nro", "switch/app/x.bin", "switch/app/tool.exe"));
   assert.deepEqual(paths(foreign), ["switch/app/app.nro", "switch/app/x.bin"]);
   assert.ok(foreign.excluded.some((e) => e.rule === "foreign-file"));
+});
+
+test("hand-placed folders leave out guides and clutter, but not data below the top", () => {
+  for (const rel of ["설치-스위치.md", "INSTALL.txt", "설명.txt", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
+    assert.notEqual(leftOutOfFolder(rel), null, rel);
+  }
+  for (const rel of ["game.nro", "items.txt", "index.html", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini",
+    "data/readme.dat", "img/authors.png", "changes.json"]) {
+    assert.equal(leftOutOfFolder(rel), null, rel);
+  }
+});
+
+const entry = (name) => ({ name, size: 1, dir: false, link: false });
+
+test("a zip's install guide is left out and the rest goes to the console", () => {
+  const layout = normalizeLayout(["switch/game/game.nro", "switch/game/설치-스위치.md", "switch/game/items.txt", "switch/game/Data/a.txt"].map(entry), { repoName: "game" });
+  assert.equal(layout.mode, "folder");
+  assert.deepEqual(layout.files.map((f) => f.path), ["switch/game/Data/a.txt", "switch/game/game.nro", "switch/game/items.txt"]);
+  assert.ok(layout.excluded.some((x) => x.rule === "doc"));
+});
+
+test("a file the app runs on with a name the console can't create refuses the app, never renamed", () => {
+  const layout = normalizeLayout(["switch/game/game.nro", "switch/game/Audio/전투.ogg", "switch/game/Data/x.bin"].map(entry), { repoName: "game" });
+  assert.equal(layout.mode, null);
+  assert.equal(layout.reason, "console-path");
+  assert.equal(layout.nro, null, "nothing to install, so no caller can take the .nro alone");
+  assert.deepEqual(layout.problems.map((x) => x.path), ["switch/game/Audio/전투.ogg"]);
+});
+
+test("an app that falls back to its .nro alone is not refused for a name it never sends", () => {
+  const names = ["switch/big/big.nro", "switch/big/Audio/전투.ogg", ...Array.from({ length: 5 }, (_, i) => `switch/big/d/${i}.bin`)];
+  const layout = normalizeLayout(names.map(entry), { repoName: "big", maxFiles: 3 });
+  assert.equal(layout.mode, "nro");
+  assert.equal(layout.reason, "too-many-files");
+  assert.equal(layout.nro.path, "switch/big/big.nro");
+});
+
+test("two names that differ only by case refuse a folder install", () => {
+  const layout = normalizeLayout(["switch/g/g.nro", "switch/g/A.bin", "switch/g/a.bin"].map(entry), { repoName: "g" });
+  assert.equal(layout.reason, "console-path");
+  assert.match(layout.problems[0].reason, /대소문자/);
 });

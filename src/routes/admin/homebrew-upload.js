@@ -11,6 +11,7 @@ import debug from "../../debug.js";
 import { homebrewDir } from "../../helpers/envs.js";
 import { MANIFEST, extractPackage, readNro, zipEntries } from "../../meta/homebrew.js";
 import { normalizeLayout } from "../../meta/homebrew-layout.js";
+import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
 import { manualApps, refreshManual } from "../homebrew.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
@@ -23,6 +24,9 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   const repoName = path.posix.basename((zip ?? items.find((i) => /\.nro$/i.test(i.rel)) ?? items[0]).rel).replace(/\.(zip|nro)$/i, "");
   const entries = zip ? await zipEntries(zip.abs) : items.map((i) => ({ name: i.rel, size: 0, dir: false, link: false }));
   const layout = normalizeLayout(entries, { repoName });
+  if (layout.reason === "console-path") {
+    throw new HomebrewUploadError(`콘솔 SD 에 만들 수 없는 이름이 있어 등록하지 않았습니다. 이름을 바꾼 뒤 다시 올립니다: ${describeProblems(layout.problems, 20)}`);
+  }
   if (!layout.nro || !layout.appDir) throw new HomebrewUploadError(`설치할 수 없습니다: ${layout.reason}`);
   const stage = path.join(work, "out");
   const take = layout.mode === "folder" ? layout.files : [{ entry: layout.nro.entry, path: layout.nro.path }];

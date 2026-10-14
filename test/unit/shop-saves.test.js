@@ -5,7 +5,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { localize, readMeta, saveId } from "../../src/meta/shop-saves.js";
+import { localize, readMeta, readSave, saveId } from "../../src/meta/shop-saves.js";
 
 const MK = "0100152000022000";
 const PORT = 15400 + (process.pid % 500);
@@ -136,4 +136,13 @@ test("without a saves folder the API is off", async () => {
   } finally {
     server.kill("SIGKILL");
   }
+});
+
+test("a homebrew app's save with a name the card can't create is left out; a game's save is not an SD path", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "saves-ascii-"));
+  put(root, "homebrew/portgame/bad/세이브.dat");
+  put(root, "homebrew/portgame/good/save1.dat");
+  const cache = { hash: async () => "h" };
+  await assert.rejects(readSave(root, "homebrew/portgame", "bad", cache), /can't create/);
+  await assert.doesNotReject(readSave(root, "homebrew/portgame", "good", cache));
 });

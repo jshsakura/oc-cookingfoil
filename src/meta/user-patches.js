@@ -25,6 +25,7 @@ import path from "path";
 import debug from "../debug.js";
 import { patchesDir, dataDir } from "../helpers/envs.js";
 import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
+import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -179,6 +180,8 @@ async function readHomebrewPatch(root, app, folder) {
   for (const f of files) {
     if (f.path.split("/").some((p) => !p || p === "." || p === "..")) throw new Rejected(`bad path: ${f.path}`);
     if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    const problem = pathProblem(f.path);
+    if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
   }
   const meta = metaFile ? await readMetaFile(metaFile, label) : {};
@@ -221,6 +224,8 @@ export async function readPatch(root, tidDir, folder) {
     const kind = kindOf(f.path, titleId);
     if (kind === null) throw new Rejected(`outside the allowed folders: ${f.path}`);
     if (!fitsUstar(f.path)) throw new Rejected(`path too long for tar: ${f.path}`);
+    const problem = pathProblem(f.path);
+    if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
     if (kind) kinds.add(kind);
   }
