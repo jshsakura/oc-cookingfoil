@@ -4,11 +4,12 @@
  * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
+ * GET /api/homebrew/:id/archive    the zip of an app the admin keeps zipped, as it is (Range, ETag = its sha256)
  * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
  *
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
- *       install_path, install_dir, files, bundle_url,
+ *       install_path, install_dir, files, bundle_url, archive,
  *       forwarder_url, forwarder_title_id, forwarder_size }
  *
  * `size` is what lands on the card: every file of a folder install (the .nro
@@ -27,6 +28,12 @@
  * `bundle_url` (null for a single .nro) sends the same files in one request, in
  * `files` order after their folders, so a console over a slow round trip does not
  * pay one per file. Its ETag is a hash of the paths and sha256s, for If-Range.
+ *
+ * `archive` is null unless the admin keeps the app as a zip; then `files` and
+ * `bundle_url` are null and archive = { format: "zip", url, size, sha256,
+ * entries: [{ entry, path, size }] }: download the zip once and write each listed
+ * entry to its SD path; anything else in the zip stays out. `size` is then what
+ * lands on the card.
  *
  * `description` is what the admin wrote (Korean for ?lang=ko or a Korean
  * Accept-Language, else English), the GitHub repository's own when the admin
@@ -51,6 +58,7 @@ import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
+import fsp from "fs/promises";
 import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
@@ -125,7 +133,11 @@ function prewarmShortcuts(entries) {
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
-    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, ...e }) => ({ ...e, files: e.files ? e.files.map(({ abs: _a, ...f }) => f) : null }));
+    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, folder: _f, ...e }) => ({
+      ...e,
+      files: e.files ? e.files.map(({ abs: _a, key: _k, ...f }) => f) : null,
+      ...(e.archive ? { archive: (({ abs: _a, key: _k, ...a }) => a)(e.archive) } : {}),
+    }));
     const entries = [...githubTracker().entries(), ...manualList];
     if (forwardersAvailable(keysDir) && entries.some((e) => !this.forwarderInfo(e).forwarder_size && forwarderSpec(forwarderApp(e)))) prewarmShortcuts(entries);
     return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }));
@@ -164,11 +176,16 @@ export const defaultService = {
     if (!e) return null;
     return { ...(await githubTracker().ensureDownloaded(id)), file_name: e.file_name };
   },
+  /** A hand-placed app kept as a zip: { path, sha256, file_name } of the zip itself, or null. */
+  async archive(id) {
+    const e = id.startsWith("m-") ? (await manualEntries()).find((x) => x.id === id) : null;
+    return e?.archive ? { path: e.archive.abs, abs: e.archive.abs, key: e.archive.key, sha256: e.archive.sha256, file_name: path.basename(e.archive.abs) } : null;
+  },
   /** Every file of a folder install as { path, size, sha256, abs }, in listed order, or null. */
   async bundle(id) {
     if (!id.startsWith("m-")) return githubTracker().packageFiles(id);
     const files = (await manualEntries()).find((x) => x.id === id)?.files;
-    return files ? files.map(({ path: p, size, sha256, abs }) => ({ path: p, size, sha256, abs })) : null;
+    return files ? files.map(({ path: p, size, sha256, abs, key }) => ({ path: p, size, sha256, abs, key })) : null;
   },
   /** One file of a folder install, or null. */
   async file(id, relPath) {
@@ -197,6 +214,32 @@ export function start() {
 const isPng = (buf) => buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47;
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
+/**
+ * Whether files still are what the last scan saw (each { abs, key } of
+ * "size:mtimeMs:ino"; one without a key is the server's own copy and can't
+ * change). The ETag comes from that scan, so sending newer bytes under it would
+ * let a resume join two versions.
+ */
+async function unchanged(files) {
+  const keyed = files.filter((f) => f.key);
+  // A few dozen at a time: thousands of small files are checked in a moment, not one by one.
+  for (let i = 0; i < keyed.length; i += 64) {
+    const same = await Promise.all(keyed.slice(i, i + 64).map(async (f) => {
+      const st = await fsp.stat(f.abs).catch(() => null);
+      return st && `${st.size}:${st.mtimeMs}:${st.ino}` === f.key;
+    }));
+    if (same.includes(false)) return false;
+  }
+  return true;
+}
+
+/** Ask for a retry once the folder has been read again. */
+function changedSinceScan(res) {
+  refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
+  res.set("Retry-After", "5");
+  return res.status(503).json({ error: "the files changed since they were listed; list again in a few seconds" });
+}
+
 export function homebrewRouter({ service = defaultService } = {}) {
   const router = express.Router();
 
@@ -213,6 +256,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
       files: e.files ? e.files.map((f) => ({ ...f, url: `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}` })) : null,
       bundle_url: e.files ? `/api/homebrew/${e.id}/bundle` : null,
+      // A zip kept as it is comes whole, with which entry goes where on the card.
+      ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, url: `/api/homebrew/${e.id}/archive` } } : { archive: null }),
       icon_url: `/api/homebrew/${e.id}/icon`,
       download_url: `/api/homebrew/${e.id}/download`,
       ...(service.forwarderInfo?.(e) ?? NO_FORWARDER),
@@ -263,9 +308,19 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
   }));
 
+  router.get("/:id/archive", wrap(async (req, res) => {
+    const zip = await service.archive?.(req.params.id);
+    if (!zip) return res.status(404).json({ error: "no zip for this homebrew" });
+    if (!(await unchanged([zip]))) return changedSinceScan(res);
+    res.set({ "Cache-Control": "no-cache", ETag: `"${zip.sha256}"` });
+    res.attachment(zip.file_name);
+    res.sendFile(zip.path, { etag: false, lastModified: false, acceptRanges: true });
+  }));
+
   router.get("/:id/bundle", wrap(async (req, res) => {
     const files = await service.bundle?.(req.params.id);
     if (!files?.length) return res.status(404).json({ error: "no folder install" });
+    if (!(await unchanged(files))) return changedSinceScan(res);
     // The bytes follow from the paths and contents alone, so their hashes are the ETag.
     const etag = crypto.createHash("sha1").update(JSON.stringify(files.map((f) => [f.path, f.sha256]))).digest("hex");
     const app = files[0].path.split("/")[1] || req.params.id;

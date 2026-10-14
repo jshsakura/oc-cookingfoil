@@ -52,7 +52,7 @@ cookingfoil/
 ├── retro/            # retro ROMs by system
 ├── patches/          # patches by base title id, and homebrew/<app>/
 ├── saves/            # save files by title id, and homebrew/<app>/
-└── homebrew/         # .nro apps and app folders
+└── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
 
 Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path` in `.env`. To move just one, set its own path, for example `COOK_GAMES_PATH=/mnt/disk/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
@@ -111,7 +111,7 @@ Settings that the admin page changes, such as `COOK_DEVICE_PAIRING`, `COOK_PUBLI
 | `GET /api/shop/info` | Server version and the `features` a client may rely on |
 | `GET /api/title/:id?lang=` | Detail for one entry |
 | `GET /api/shop/icon/:id`, `/banner/:id`, `/screenshot/:id/:n` | Artwork |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut. A folder app also comes as one tar from `bundle`. Apps turned off on the admin page are left out |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/api/homebrew/:id/file?path=`, `/api/homebrew/:id/bundle`, `/api/homebrew/:id/archive`, `/api/homebrew/:id/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder), each installed as `install_path`, and their HOME menu shortcut. A folder app also comes as one tar from `bundle`; an app kept as a zip comes whole from `archive`. Apps turned off on the admin page are left out |
 | `GET /api/patches?lang=`, `/api/saves?lang=` | Patches and save files, with Korean names and descriptions for `ko` |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The client build kept in `data/client/` |
 | `GET /api/retro/systems`, `/api/retro/games` | Files from the retro folder, when you have created it |

@@ -58,11 +58,12 @@ function pickNro(nros, repoName, appName) {
 
 /**
  * entries: [{ name, size, dir, link }] as zipEntries gives them; repoName: the
- * repository's name, for picking among several .nro files.
+ * repository's name, for picking among several .nro files; maxFiles: past this
+ * many files only the .nro is kept (a release from the web), unlimited for the admin's own.
  * Returns { mode: "folder" | "nro" | null, reason, appDir, nro: { entry, path },
  * files: [{ entry, path, size }], rules: [string], excluded: [{ rule, paths }] }.
  */
-export function normalizeLayout(entries, { repoName = null } = {}) {
+export function normalizeLayout(entries, { repoName = null, maxFiles = MAX_PACKAGE_FILES } = {}) {
   const rules = [];
   const excluded = [];
   const leaveOut = (rule, list) => {
@@ -160,7 +161,7 @@ export function normalizeLayout(entries, { repoName = null } = {}) {
   // Every path must stay inside switch/<app>/.
   if (!inApp.every((f) => f.path.startsWith(`${appDir}/`) && !f.path.split("/").includes(".."))) return result(null, "unsafe-path", { nro });
   if (!APP_NAME_RE.test(appName) || !APP_NAME_RE.test(base(nroPath))) return result("nro", "unsafe-path", { nro, appDir: null });
-  if (inApp.length > MAX_PACKAGE_FILES) return result("nro", "too-many-files", { nro, appDir });
+  if (inApp.length > maxFiles) return result("nro", "too-many-files", { nro, appDir });
   if (inApp.length === 1) return result("nro", "only-nro", { nro, appDir });
   const files_ = inApp.sort((a, b) => a.path.localeCompare(b.path));
   return result("folder", excluded.length ? "partial" : null, { appDir, nro, files: files_ });

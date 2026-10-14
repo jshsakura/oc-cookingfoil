@@ -13,7 +13,7 @@ import * as userPatches from "../../meta/user-patches.js";
 import { patchesDir, savesDir, homebrewDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService, manualApps, refreshManual } from "../homebrew.js";
-import { installPathFor } from "../../meta/homebrew.js";
+import { forgetZipCopies, installPathFor } from "../../meta/homebrew.js";
 import debug from "../../debug.js";
 
 const brief = ({ id, name, size, files }) => ({ id, name, size, files });
@@ -87,10 +87,11 @@ export function mountHomebrewAppsApi(router, requireSession) {
   router.post("/api/homebrew/manual/remove", handle(async (req, res) => {
     const id = String(req.body?.id ?? "");
     const app = (await manualApps()).find((m) => m.id === id);
-    const dir = app ? path.dirname(app.path) : null;
+    const dir = app ? (app.folder ?? path.dirname(app.path)) : null;
     // The app's own folder, directly under the homebrew folder.
     if (!dir || path.dirname(dir) !== path.resolve(homebrewDir)) return res.status(404).json({ error: "직접 넣은 앱 목록에 없습니다" });
     await fsp.rm(dir, { recursive: true, force: true });
+    await forgetZipCopies(id);
     await refreshManual();
     debug.log("admin: removed hand-placed homebrew %s", path.basename(dir));
     res.json({ ok: true });
