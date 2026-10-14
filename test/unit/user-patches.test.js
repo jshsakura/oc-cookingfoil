@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { kindOf, readMeta, patchId, scanDir, scan, list, forTitle, countFor, openForDownload, reset, loadCache } from "../../src/meta/user-patches.js";
+import { kindOf, readMeta, patchId, scanDir, scan, list, forTitle, countFor, openForDownload, reset, loadCache, hashed } from "../../src/meta/user-patches.js";
 import { splitPath, fitsUstar, header, archiveSize } from "../../src/helpers/ustar.js";
 import { tarEntries } from "../../src/routes/patches.js";
 
@@ -21,7 +21,10 @@ function makeRoot(layout) {
   return root;
 }
 
-beforeEach(() => reset());
+beforeEach(async () => {
+  await hashed();
+  reset();
+});
 
 test("files map to kinds only under the paths the game owns", () => {
   assert.equal(kindOf(CHEAT, TID), "cheats");
@@ -138,17 +141,26 @@ test("an unknown or vanished patch cannot be downloaded", async () => {
   assert.equal(await openForDownload(p.id, root), null);
 });
 
-test("the listing and hashes survive a restart, and the cache forgets removed files", async () => {
+function cacheRoot() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "patches-cache-"));
   const cacheFile = path.join(root, "..", path.basename(root) + ".json");
   const put = (rel, body) => {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), body);
   };
-  put("0100000000010000/Big/atmosphere/contents/0100000000010000/romfs/a.bin", "aaaa");
-  put("0100000000020000/Small/atmosphere/contents/0100000000020000/cheats/0123456789ABCDEF.txt", "[x]");
+  return { root, cacheFile, put };
+}
+const BIG = "0100000000010000/Big/atmosphere/contents/0100000000010000/romfs/a.bin";
+const SMALL = "0100000000020000/Small/atmosphere/contents/0100000000020000/cheats/0123456789ABCDEF.txt";
+
+test("the listing and hashes survive a restart", async () => {
+  const { root, cacheFile, put } = cacheRoot();
+  put(BIG, "aaaa");
+  put(SMALL, "[x]");
   await scan({ root, cacheFile });
+  await hashed();
   const before = await list();
+  assert.ok(before.every((p) => /^[0-9a-f]{64}$/.test(p.hash)));
   const saved = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
   assert.equal(saved.patches.length, 2);
   assert.equal(Object.keys(saved.hashes).length, 2);
@@ -157,12 +169,58 @@ test("the listing and hashes survive a restart, and the cache forgets removed fi
   reset();
   assert.equal(loadCache(cacheFile), true);
   assert.deepEqual((await list({ root, cacheFile })).map((p) => p.hash), before.map((p) => p.hash));
-  await scan({ root, cacheFile }); // the refresh list() started in the background
-
-  fs.rmSync(path.join(root, "0100000000010000"), { recursive: true });
-  await scan({ root, cacheFile });
-  assert.equal(Object.keys(JSON.parse(fs.readFileSync(cacheFile, "utf8")).hashes).length, 1);
+  await hashed(); // the refresh list() started in the background
   assert.equal(loadCache(path.join(root, "missing.json")), false);
+});
+
+test("a patch still being hashed is listed at once and gets its hash afterwards", async () => {
+  const { root, cacheFile, put } = cacheRoot();
+  put(BIG, "aaaa");
+  put(SMALL, "[x]");
+  const first = await scan({ root, cacheFile });
+  assert.equal(first.length, 2, "both patches are listed before any file is read");
+  assert.ok(first.every((p) => p.hash === null));
+  assert.equal("unhashed" in (await list())[0], false, "the internal mark never reaches a console");
+  await hashed();
+  assert.ok((await list()).every((p) => /^[0-9a-f]{64}$/.test(p.hash)));
+
+  // A changed file: the patch keeps its old hash until it has been read again.
+  const old = forTitle("0100000000010000")[0].hash;
+  put(BIG, "bbbbbb");
+  await scan({ root, cacheFile });
+  assert.equal(forTitle("0100000000010000")[0].hash, old);
+  await hashed();
+  assert.notEqual(forTitle("0100000000010000")[0].hash, old);
+});
+
+test("a renamed folder keeps its hashes, and a missing file's hash is kept for a week", async () => {
+  const { root, cacheFile, put } = cacheRoot();
+  put(BIG, "aaaa");
+  put(SMALL, "[x]");
+  await scan({ root, cacheFile });
+  await hashed();
+  const big = forTitle("0100000000010000")[0].hash;
+
+  fs.renameSync(path.join(root, "0100000000010000", "Big"), path.join(root, "0100000000010000", "Renamed"));
+  const moved = await scan({ root, cacheFile });
+  assert.equal(moved.find((p) => p.name === "Renamed").hash, big, "no file had to be read again");
+
+  // Out of sight for a moment: the hash stays, so coming back costs nothing.
+  fs.rmSync(path.join(root, "0100000000020000"), { recursive: true });
+  await scan({ root, cacheFile });
+  await hashed();
+  const saved = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
+  assert.equal(Object.keys(saved.hashes).length, 3, "the old path, the new one and the missing file");
+
+  // A week later the ones still missing are forgotten.
+  for (const [abs, entry] of Object.entries(saved.hashes)) if (!fs.existsSync(abs)) entry.seen = Date.now() - 8 * 24 * 3600_000;
+  fs.writeFileSync(cacheFile, JSON.stringify(saved));
+  reset();
+  loadCache(cacheFile);
+  put(`0100000000030000/New/atmosphere/contents/0100000000030000/cheats/0123456789ABCDEF.txt`, "[y]");
+  await scan({ root, cacheFile });
+  await hashed();
+  assert.equal(Object.keys(JSON.parse(fs.readFileSync(cacheFile, "utf8")).hashes).length, 2);
 });
 
 test("a patch for a title nobody knows carries no game block", async () => {
