@@ -347,6 +347,17 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await lang.press('Enter');
   await expect(page.locator('#toast')).toContainText('이름 언어 순서 값이 맞지 않습니다');
 
+  // The titledb address: a fork or mirror is set here, and cleared back to blawar/titledb.
+  const source = page.locator('.ss-row[data-key="titledbSource"]');
+  await source.locator('input').fill('https://raw.githubusercontent.com/someone/titledb/master');
+  await source.locator('input').press('Enter');
+  await expect(source).toContainText('여기서 정한 값입니다');
+  await source.locator('input').fill('not a url');
+  await source.locator('input').press('Enter');
+  await expect(page.locator('#toast')).toContainText('받을 주소 값이 맞지 않습니다');
+  await source.getByRole('button', { name: 'compose 값으로' }).click();
+  await expect(source.locator('.ss-src')).toHaveCount(0);
+
   await row.getByRole('button', { name: 'compose 값으로' }).click();
   await expect(row.locator('.ss-src')).toHaveCount(0);
   await page.locator('.ss-row[data-key="deviceApproval"]').getByRole('button', { name: 'compose 값으로' }).click();

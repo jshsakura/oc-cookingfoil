@@ -15,7 +15,7 @@ process.env.COOK_PUBLIC_BASE_URL = "";
 process.env.COOK_LANG_PRIORITY = "ko,en";
 const env = await import("../../src/helpers/envs.js");
 const settings = await import("../../src/security/server-settings.js");
-const { getRegionsFromEnv, DEFAULT_REGIONS } = await import("../../src/meta/titledb-fetcher.js");
+const { getRegionsFromEnv, DEFAULT_REGIONS, DEFAULT_SOURCE, titledbBase, fetchRegion } = await import("../../src/meta/titledb-fetcher.js");
 
 test("with nothing saved every setting is the compose value", () => {
   const d = settings.describe();
@@ -59,12 +59,31 @@ test("lists are split on commas, and the titledb regions follow the saved ones",
   assert.deepEqual(getRegionsFromEnv(), DEFAULT_REGIONS);
 });
 
+test("titledb is read from the address set on the admin page, blawar/titledb when it is empty", async () => {
+  assert.equal(titledbBase(), DEFAULT_SOURCE);
+  assert.equal(settings.describe().titledbSource.value, "");
+  settings.save({ titledbSource: " https://mirror.example.org/titledb/ " });
+  assert.equal(titledbBase(), "https://mirror.example.org/titledb");
+  // The next fetch goes there.
+  const asked = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url) => { asked.push(String(url)); return new Response("{}", { status: 200 }); };
+  try {
+    await fetchRegion("KR.ko", path.join(dir, "titledb"));
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.deepEqual(asked, ["https://mirror.example.org/titledb/KR.ko.json"]);
+  settings.save({ titledbSource: "" });
+  assert.equal(titledbBase(), DEFAULT_SOURCE);
+});
+
 test("a value that doesn't fit is refused and nothing is saved", () => {
   const before = settings.describe();
   for (const bad of [
     { devicePairing: "yes" }, { deviceApproval: "everyone" }, { publicBaseUrl: "files.example.org" },
     { langPriority: "" }, { langPriority: "ko;rm" }, { titledbRegions: "kr" }, { extractIcons: "some" },
-    { welcomeMessage: "two\nlines" }, { nope: true },
+    { welcomeMessage: "two\nlines" }, { titledbSource: "mirror.example.org" }, { titledbSource: "ftp://x/y" }, { nope: true },
   ]) assert.throws(() => settings.save({ ...bad, uploadsEnabled: false }), undefined, JSON.stringify(bad));
   assert.deepEqual(settings.describe(), before);
 });

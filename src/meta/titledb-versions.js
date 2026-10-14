@@ -14,8 +14,8 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import { firmwareString } from "./cnmt-parse.js";
+import { titledbBase } from "./titledb-fetcher.js";
 
-const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
 const SOURCES = ["versions.json", "cnmts.json"];
 const INDEX_FILE = "versions-index.json";
 const INDEX_VERSION = 1;
@@ -94,7 +94,7 @@ export async function hasIndex() {
 }
 
 async function download(name) {
-  const res = await fetch(`${BASE_URL}/${name}`, { redirect: "follow" });
+  const res = await fetch(`${titledbBase()}/${name}`, { redirect: "follow" });
   if (!res.ok) throw new Error(`${name} returned HTTP ${res.status}`);
   return res.json();
 }

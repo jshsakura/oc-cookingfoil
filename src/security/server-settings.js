@@ -33,6 +33,7 @@ export const SETTINGS = {
   langPriority: { ...list(LANG_RE, 10), check: (v) => list(LANG_RE, 10).check(v) && v.length > 0 },
   titledbAutoFetch: bool,
   titledbRegions: list(REGION_RE, 30),
+  titledbSource: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
   eshopPrices: bool,
   eshopPopularity: bool,
   eshopArtwork: bool,
@@ -74,7 +75,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }
