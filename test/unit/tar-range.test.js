@@ -88,3 +88,37 @@ test("a file of 8 GiB or more has its exact size in a pax record and base-256", 
   assert.equal(out.toString().trim(), `atmosphere/contents/0100000000010000/romfs/big.rpf ${size}`);
   assert.equal(header({ path: "a.bin", size: 3 * 1024 ** 3 }).length, 512, "under 8 GiB: one plain header");
 });
+
+test("many small files read ahead still make the same archive, cut anywhere", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tar-ahead-"));
+  // More small files than are read at once, a big one among them, and an empty one.
+  const sizes = [...Array.from({ length: 30 }, (_, i) => (i * 977) % 4000 + 1), 0, 3 * 1024 * 1024, 700, 513];
+  const files = sizes.map((size, i) => {
+    const abs = path.join(dir, `f${String(i).padStart(2, "0")}.bin`);
+    fs.writeFileSync(abs, Buffer.from(Array.from({ length: size }, (_, j) => (i * 31 + j) % 256)));
+    return { path: `switch/app/f${String(i).padStart(2, "0")}.bin`, abs, size, mtime: 0 };
+  });
+  const app = express();
+  app.get("/t", (req, res) => sendTar(res, files, { filename: "t.tar", etag: "h", fixedTimes: true }));
+  const server = app.listen(0);
+  const base = `http://127.0.0.1:${server.address().port}/t`;
+  const get = async (headers = {}) => Buffer.from(await (await fetch(base, { headers })).arrayBuffer());
+  try {
+    const whole = await get();
+    // Each body is where its header says, with its own bytes.
+    let at = 0;
+    for (const f of files.filter((x) => x.size)) {
+      at = whole.indexOf(`${f.path}\0`, at);
+      assert.ok(whole.subarray(at + 512, at + 512 + f.size).equals(fs.readFileSync(f.abs)), f.path);
+    }
+    for (const cut of [100, 5000, 40_000, 1_000_000, whole.length - 600]) {
+      const rest = await get({ Range: `bytes=${cut}-`, "If-Range": '"h"' });
+      assert.ok(Buffer.concat([whole.subarray(0, cut), rest]).equals(whole), `cut at ${cut}`);
+    }
+    // A small file that shrank stops the download rather than shifting every later entry.
+    fs.truncateSync(files[20].abs, 1);
+    await assert.rejects(get());
+  } finally {
+    server.close();
+  }
+});
