@@ -5,14 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f2f1ee" />
     <title>CookingFoil</title>
+    <meta name="description" content="집 서버에 두고 기기에서 받아 쓰는 개인용 파일 서버입니다." />
+    <!-- share cards: the image URL gets this server's address in front when the page is served -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CookingFoil" />
+    <meta property="og:title" content="CookingFoil" />
+    <meta property="og:description" content="집 서버에 두고 기기에서 받아 쓰는 개인용 파일 서버입니다." />
+    <meta property="og:image" content="__ORIGIN__/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="cookingfoil." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CookingFoil" />
+    <meta name="twitter:description" content="집 서버에 두고 기기에서 받아 쓰는 개인용 파일 서버입니다." />
+    <meta name="twitter:image" content="__ORIGIN__/assets/og-image.png" />
     <link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/fonts.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
     <script>
-      // The page follows the system light/dark setting; drop a choice the old theme button saved.
-      try { localStorage.removeItem("cookingfoil:theme"); } catch { /* storage blocked */ }
+      // The theme picked in the account menu (shared with the admin pages), applied before paint;
+      // no choice follows the system. The address-bar colour follows whichever one shows.
+      (()=>{const r=document.documentElement,q=matchMedia("(prefers-color-scheme: light)"),m=document.querySelector('meta[name="theme-color"]');try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")r.dataset.theme=t;}catch{}const s=()=>{if(m)m.content=(r.dataset.theme||(q.matches?"light":"dark"))==="light"?"#f2f1ee":"#16161a";};s();q.addEventListener("change",s);new MutationObserver(s).observe(r,{attributes:true,attributeFilter:["data-theme"]});})();
     </script>
     <style>
       /* The client app's palette (include/ui/Theme.hpp): warm ground, white
@@ -124,6 +139,17 @@
       .pop-list a:hover, .pop-list a:focus-visible { background: var(--sunk); outline: none; }
       .pop-list a svg { width: 16px; height: 16px; color: var(--secondary); }
       .pop-list #logout-link, .pop-list #logout-link svg { color: var(--bad); }
+      /* theme: the system setting, light or dark, the one in use ticked */
+      .theme-pick { display: grid; gap: 2px; padding: 4px 0; margin: 4px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+      .theme-pick:has(+ #logout-link[hidden]) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+      .pop-list .pop-label { padding: 6px 12px 2px; color: var(--secondary); font-size: 12px; font-weight: 600; }
+      .theme-pick button {
+        display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; border-radius: 9px; cursor: pointer;
+        background: transparent; color: var(--ink); font: 600 14px var(--font-body); text-align: left;
+      }
+      .theme-pick button:hover, .theme-pick button:focus-visible { background: var(--sunk); outline: none; }
+      .theme-pick button svg { width: 16px; height: 16px; color: var(--secondary); }
+      .theme-pick button[aria-checked="true"]::after { content: ""; width: 7px; height: 12px; margin: -3px 3px 0 auto; border: solid var(--ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 
       /* TABS: a pill group beside the wordmark, the open view filled */
       .tabs {
@@ -439,15 +465,37 @@
         background: var(--surface); border: 1px dashed var(--line2); border-radius: var(--radius);
       }
 
-      .game.skel { cursor: default; pointer-events: none; }
-      .skel .cover, .skel .name-skel, .skel .sub-skel, .sk, .game .cover.loading {
+      /* LOADING: placeholders in the real card's shape (same cover, two name lines, the pill line),
+         so nothing moves when the list arrives */
+      .skel { cursor: default; pointer-events: none; }
+      .skel .cover, .game.skel .meta i, .home-row.skel h2 i, .chart.skel i, .hero.skel .hero-cover, .hero.skel .hero-text i,
+      .sk, .game .cover.loading {
         background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
         background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
       }
       .skel .cover { box-shadow: none; }
-      .skel .name-skel { width: 80%; height: 14px; border-radius: 6px; }
-      .skel .sub-skel  { width: 50%; height: 11px; border-radius: 6px; }
+      .game.skel .meta i { display: block; border-radius: 6px; }
+      .game.skel .name { display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+      .game.skel .name i { height: 13px; width: 86%; }
+      .game.skel .name i + i { width: 58%; }
+      .game.skel .sub i { height: 20px; width: 64px; border-radius: 100px; }
+      .home-row.skel h2 i { display: block; width: 160px; height: 22px; border-radius: 8px; margin: 4px 0; }
+      .chart.skel { min-height: 132px; display: grid; align-content: start; gap: 12px; }
+      .chart.skel i { display: block; height: 12px; border-radius: 6px; }
+      .chart.skel i:first-child { width: 40%; }
+      .chart.skel i:nth-child(2) { height: 64px; border-radius: 10px; }
+      .hero .hero-text[hidden] { display: none; }
+      .hero.skel { background: var(--surface); border: 1px solid var(--line); cursor: default; }
+      .hero.skel .hero-cover { box-shadow: none; }
+      .hero.skel .hero-text { flex: 1; }
+      .hero.skel .hero-text i { display: block; height: 15px; width: 120px; border-radius: 6px; }
+      .hero.skel .hero-text i:nth-child(2) { height: 38px; width: min(420px, 80%); border-radius: 10px; }
+      .hero.skel .hero-text i:nth-child(3) { height: 26px; width: 180px; border-radius: 100px; }
       @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        .skel .cover, .game.skel .meta i, .home-row.skel h2 i, .chart.skel i, .hero.skel .hero-cover, .hero.skel .hero-text i,
+        .sk, .game .cover.loading, .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel { animation: none; }
+      }
       .sk { color: transparent !important; border-radius: 6px; }
       /* patches and saves while their list loads */
       .xgroup.xskel { pointer-events: none; }
@@ -534,7 +582,8 @@
       .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; }
       /* a 16-digit title id must not break mid-way */
       .modal .modal-meta strong.mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; white-space: nowrap; }
-      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; max-height: 220px; overflow-y: auto; white-space: pre-line; }
+      /* full height: the modal is the one thing that scrolls, never a box inside it */
+      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; white-space: pre-line; overflow-wrap: anywhere; }
       /* What the admin adds about a game (what to install with it): above the description, set apart. */
       .modal .modal-notes { border: 1px solid var(--butter); background: color-mix(in srgb, var(--butter) 10%, var(--surface)); border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; }
       .modal .modal-notes[hidden] { display: none; }
@@ -708,6 +757,12 @@
             <p class="who" id="acct-who" hidden></p>
             <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
             <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
+            <div class="theme-pick" role="group" aria-labelledby="theme-label">
+              <p class="pop-label" id="theme-label" data-i18n="theme.label"></p>
+              <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span data-i18n="theme.system"></span></button>
+              <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span data-i18n="theme.light"></span></button>
+              <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="theme.dark"></span></button>
+            </div>
             <a role="menuitem" id="logout-link" href="/login" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span data-i18n="action.logout"></span></a>
           </div>
         </div>
@@ -778,7 +833,8 @@
         <section class="hero" id="hero" tabindex="0" hidden>
           <div class="hero-bg" id="hero-bg"></div>
           <img class="hero-cover" id="hero-cover" alt="" decoding="async">
-          <div class="hero-text">
+          <div class="hero-text" id="hero-skel-text" hidden aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="hero-text" id="hero-text">
             <span class="eyebrow" id="hero-eyebrow"></span>
             <span class="hero-title" id="hero-title"></span>
             <span class="hero-pub" id="hero-pub"></span>
@@ -1010,6 +1066,10 @@
           "action.copy": "복사",
           "action.language": "언어",
           "action.menu": "메뉴",
+          "theme.label": "테마",
+          "theme.system": "시스템 설정 따르기",
+          "theme.light": "밝은 테마",
+          "theme.dark": "어두운 테마",
           "action.download": "다운로드",
           "action.close": "닫기",
           "stat.games": "게임",
@@ -1190,6 +1250,10 @@
           "action.copy": "Copy",
           "action.language": "Language",
           "action.menu": "Menu",
+          "theme.label": "Theme",
+          "theme.system": "Match system setting",
+          "theme.light": "Light theme",
+          "theme.dark": "Dark theme",
           "action.download": "Download",
           "action.close": "Close",
           "stat.games": "Games",
@@ -1373,6 +1437,10 @@
           "action.copy": "コピー",
           "action.language": "言語",
           "action.menu": "メニュー",
+          "theme.label": "テーマ",
+          "theme.system": "システム設定に従う",
+          "theme.light": "ライトテーマ",
+          "theme.dark": "ダークテーマ",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
           "stat.games": "ゲーム",
@@ -1556,6 +1624,10 @@
           "action.copy": "複製",
           "action.language": "語言",
           "action.menu": "菜单",
+          "theme.label": "主题",
+          "theme.system": "跟随系统设置",
+          "theme.light": "浅色主题",
+          "theme.dark": "深色主题",
           "action.download": "下載",
           "action.close": "關閉",
           "stat.games": "遊戲",
@@ -1852,20 +1924,46 @@
       let featuredRows = [];     // sections.featured, the admin's picks
 
       // ─── skeleton placeholders ─────────────────────────────────────────────
-      // Drop a grid of shimmering cards in immediately so the first paint
-      // already feels populated. Replaced by real cards once /shop.json
-      // resolves; never shown again after that.
-      function renderSkeletons(n = 8) {
-        const grid = $("games");
-        grid.innerHTML = "";
-        const frag = document.createDocumentFragment();
-        for (let i = 0; i < n; i++) {
+      // Shimmering cards in the real card's shape go in before the first paint:
+      // whole rows of the grid, the preview's banner and shelves, and the chart
+      // row. Replaced by real cards once /shop.json resolves; never shown again
+      // after that.
+      const BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      function skeletonCards(n) {
+        return Array.from({ length: n }, () => {
           const card = document.createElement("div");
-          card.className = "game skel";
-          card.innerHTML = '<div class="cover"></div><div class="meta"><div class="name-skel"></div><div class="sub-skel"></div></div>';
-          frag.appendChild(card);
-        }
-        grid.appendChild(frag);
+          card.className = "game skel"; card.setAttribute("aria-hidden", "true");
+          card.innerHTML = '<div class="poster"><div class="cover"></div></div><div class="meta"><div class="name"><i></i><i></i></div><div class="sub"><i></i></div></div>';
+          return card;
+        });
+      }
+      function skeletonShelves(rows = 3, cards = 8) {
+        return Array.from({ length: rows }, () => {
+          const block = document.createElement("div"); block.className = "home-row skel"; block.setAttribute("aria-hidden", "true");
+          const h = document.createElement("h2"); h.append(document.createElement("i"));
+          const list = document.createElement("div"); list.className = "recent"; list.append(...skeletonCards(cards));
+          block.append(h, list);
+          return block;
+        });
+      }
+      function setHeroSkeleton(on) {
+        $("hero").classList.toggle("skel", on);
+        $("hero-skel-text").hidden = !on;
+        $("hero-text").hidden = on;
+        $("hero-cover").hidden = false;
+        // a blank pixel, so the cover box shimmers instead of drawing a broken-image frame
+        if (on) { $("hero").hidden = false; $("hero-cover").src = BLANK_PIXEL; $("hero-dots").hidden = true; }
+      }
+      function renderSkeletons() {
+        const grid = $("games");
+        grid.replaceChildren(...skeletonCards(fitPerPage(grid)));
+        grid.setAttribute("aria-busy", "true");
+        setHeroSkeleton(true);
+        $("home-rows").replaceChildren(...skeletonShelves());
+        $("home-rows").setAttribute("aria-busy", "true");
+        const charts = $("charts");
+        charts.innerHTML = Array.from({ length: 4 }, () => '<div class="chart c3 skel" aria-hidden="true"><i></i><i></i><i></i></div>').join("");
+        charts.hidden = false;
       }
 
       // ─── data flow ─────────────────────────────────────────────────────────
@@ -1886,6 +1984,9 @@
           $("status").classList.remove("warm"); $("status").classList.add("cold");
           $("status-text").textContent = err.name === "AbortError" ? t("status.timeout") : t("status.error", err.message || String(err));
           $("games").innerHTML = `<div class="empty">${t("empty.err")}</div>`;
+          $("games").setAttribute("aria-busy", "false");
+          if ($("hero").classList.contains("skel")) { setHeroSkeleton(false); $("hero").hidden = true; $("home-rows").replaceChildren(); }
+          if ($("charts").querySelector(".skel")) { $("charts").hidden = true; $("charts").innerHTML = ""; }
         } finally {
           clearTimeout(timer);
         }
@@ -2014,6 +2115,7 @@
       function renderList(list) {
         const grid = $("games");
         grid.innerHTML = "";
+        grid.setAttribute("aria-busy", "false");
         if (list.length === 0) {
           grid.innerHTML = `<div class="empty">${t("empty.none")}</div>`;
           return;
@@ -2364,7 +2466,9 @@
       function renderShowcase() {
         const bases = renderedItems.filter((r) => r.kind === "base");
         heroSlides = buildHeroSlides(bases);
+        setHeroSkeleton(false);
         $("hero").hidden = !heroSlides.length;
+        $("home-rows").setAttribute("aria-busy", "false");
         if (heroIndex >= heroSlides.length) heroIndex = 0;
         if (heroSlides.length) showHero(heroIndex, false);
         const box = $("home-rows"); box.innerHTML = "";
@@ -2505,6 +2609,7 @@
           const mine = ++seq;
           const perPage = fitPerPage(box());
           box().setAttribute("aria-busy", "true");
+          if (!box().querySelector(".game")) box().replaceChildren(...skeletonCards(perPage));
           const q = new URLSearchParams({ page: String(n), pageSize: String(perPage), sort: $("retro-sort").value });
           if (system) q.set("system", system);
           const search = $("retro-search").value.trim();
@@ -2556,6 +2661,7 @@
             if (rows.dataset.lang === lang) return;
             rows.dataset.lang = lang;
             rows.setAttribute("aria-busy", "true");
+            if (!rows.querySelector(".home-row")) rows.replaceChildren(...skeletonShelves(2));
             if (!systems) await this.open(); // cards name their console from the system list
             let d;
             try {
@@ -3584,12 +3690,31 @@
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !acctList.hidden) { setAcctMenu(false); $("acct-btn").focus(); } });
 
       // ─── theme ────────────────────────────────────────────────────────────
-      // The page follows the system light/dark setting.
+      // The system setting until a theme is picked in the account menu; the choice is kept
+      // under one key with the admin pages. The head script applies it before paint and keeps
+      // the address-bar colour in step.
+      const THEME_KEY = "cookingfoil:theme";
       const systemLight = window.matchMedia("(prefers-color-scheme: light)");
-      const currentTheme = () => (systemLight.matches ? "light" : "dark");
+      const currentTheme = () => document.documentElement.dataset.theme || (systemLight.matches ? "light" : "dark");
       function syncThemeChrome() {
-        document.querySelector('meta[name="theme-color"]').content = systemLight.matches ? "#f2f1ee" : "#16161a";
+        const choice = document.documentElement.dataset.theme || "system";
+        for (const b of document.querySelectorAll("[data-theme-choice]")) b.setAttribute("aria-checked", String(b.dataset.themeChoice === choice));
+        // covers already showing the no-image card take the one drawn for this theme
+        for (const img of document.querySelectorAll("img")) {
+          if (img.src === COVER_PLACEHOLDER_LIGHT || img.src === COVER_PLACEHOLDER_DARK) img.src = coverPlaceholder();
+        }
       }
+      function setTheme(choice) {
+        const picked = choice === "light" || choice === "dark";
+        if (picked) document.documentElement.dataset.theme = choice;
+        else delete document.documentElement.dataset.theme;
+        try { if (picked) localStorage.setItem(THEME_KEY, choice); else localStorage.removeItem(THEME_KEY); } catch { /* storage blocked: keep it for this visit */ }
+        syncThemeChrome();
+      }
+      acctList.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-theme-choice]");
+        if (b) setTheme(b.dataset.themeChoice);
+      });
       systemLight.addEventListener("change", syncThemeChrome);
       syncThemeChrome();
 
@@ -3624,7 +3749,7 @@
       bindStatClick("stat-size",    null);
 
       applyI18n();
-      renderSkeletons(8);
+      renderSkeletons();
       loadShop();
 
       // ─── upload tray ──────────────────────────────────────────────────────
