@@ -24,7 +24,7 @@ test("resolveOrigin: derives from Host + protocol on direct connection", () => {
   assert.equal(resolveOrigin(req, null), "http://192.168.1.50:9080");
 });
 
-test("resolveOrigin: honours X-Forwarded-Proto/Host first value", () => {
+test("resolveOrigin: honours X-Forwarded-Proto/Host first value from a trusted proxy", () => {
   const req = fakeReq({
     headers: {
       host: "internal:80",
@@ -33,7 +33,36 @@ test("resolveOrigin: honours X-Forwarded-Proto/Host first value", () => {
     },
     protocol: "http",
   });
-  assert.equal(resolveOrigin(req, null), "https://shop.example.com");
+  assert.equal(resolveOrigin(req, null, { trusted: true }), "https://shop.example.com");
+});
+
+test("resolveOrigin: ignores X-Forwarded-Proto/Host from an untrusted peer", () => {
+  const req = fakeReq({
+    headers: { host: "shop.example.org", "x-forwarded-host": "evil.example.net", "x-forwarded-proto": "https" },
+    protocol: "http",
+  });
+  assert.equal(resolveOrigin(req, null, { trusted: false }), "http://shop.example.org");
+  // The default asks COOK_TRUST_PROXY (unset in tests) about the socket peer.
+  req.socket = { remoteAddress: "203.0.113.9" };
+  assert.equal(resolveOrigin(req, null), "http://shop.example.org");
+});
+
+test("trustsForwardedHeaders: decided by the socket peer against the trust rule", async () => {
+  const { trustsForwardedHeaders } = await import("../../src/helpers/trust-proxy.js");
+  const express = (await import("express")).default;
+  const loopbackOnly = express().set("trust proxy", "loopback").get("trust proxy fn");
+  assert.equal(trustsForwardedHeaders({ socket: { remoteAddress: "127.0.0.1" } }, loopbackOnly), true);
+  assert.equal(trustsForwardedHeaders({ socket: { remoteAddress: "203.0.113.9" } }, loopbackOnly), false);
+  assert.equal(trustsForwardedHeaders({}, loopbackOnly), false);
+  // Unset COOK_TRUST_PROXY trusts nobody.
+  assert.equal(trustsForwardedHeaders({ socket: { remoteAddress: "127.0.0.1" } }), false);
+});
+
+test("resolveOrigin: works on a raw upgrade request (headers object, no get())", () => {
+  const raw = { headers: { host: "shop.example.org", "x-forwarded-host": "evil.example.net" }, socket: { remoteAddress: "203.0.113.9" } };
+  assert.equal(resolveOrigin(raw, null), "http://shop.example.org");
+  assert.equal(resolveOrigin({ ...raw, socket: { encrypted: true } }, null, { trusted: false }), "https://shop.example.org");
+  assert.equal(resolveOrigin(raw, null, { trusted: true }), "http://evil.example.net");
 });
 
 test("resolveOrigin: returns empty string when no host is known", () => {

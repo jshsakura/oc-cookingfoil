@@ -216,7 +216,7 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 
 可直接使用的 Caddy（一个栈内完成 HTTPS）、nginx 和 Cloudflare Tunnel 配置文件在 [`examples/`](examples/) 中。
 
-- 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。
+- 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。`X-Forwarded-Host` 和 `X-Forwarded-Proto` 也只在来自这些跳点时才被采信；来自其他地方时，服务器使用连接本身的 `Host`（设置了 `COOK_PUBLIC_BASE_URL` 时用它）。
 - 让代理转发 `X-Forwarded-For`、`X-Forwarded-Proto` 和 `X-Forwarded-Host`。下载和图片的 URL 是绝对地址，由这些请求头生成。如果你的代理会改写 `Host`，请在管理页面上设置公开地址（或 `COOK_PUBLIC_BASE_URL=https://shop.example.org`）。
 - 允许大响应和长时间请求。主机会用大量 Range 请求下载，单个文件可能有几十 GB。
 - 放在 CookingFoil 前面的开发服务器（Vite 等）可能会用 `403` 拒绝未知的 `Host` 请求头。在怀疑代理之前，先用 `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` 直接测试源站。
