@@ -9,6 +9,11 @@ const bridge = await import("../../src/routes/dropbox-bridge.js");
 
 const app = express();
 app.get(`${bridge.BRIDGE_PATH}/oauth/dropbox/callback`, bridge.dropboxCallback);
+// Stands in for the shop's sign-in: X-Test-User names the account.
+app.use((req, _res, next) => {
+  if (req.get("x-test-user")) req.auth = { user: req.get("x-test-user") };
+  next();
+});
 app.use(bridge.BRIDGE_PATH, bridge.dropboxSessionsRouter());
 const server = app.listen(0);
 const base = `http://127.0.0.1:${server.address().port}${bridge.BRIDGE_PATH}`;
@@ -66,4 +71,13 @@ test("a denied sign-in reports failed with Dropbox's reason", async () => {
   const r = await post(`/v1/sessions/${s.session_id}/consume`, { poll_token: s.poll_token });
   assert.equal(r.status, 409);
   assert.match((await r.json()).detail, /chose not to give/);
+});
+
+test("one account holds only its own share of sign-ins in progress", async () => {
+  const as = (user) => fetch(`${base}/v1/sessions/start`, { method: "POST", headers: { "Content-Type": "application/json", "X-Test-User": user }, body: "{}" });
+  for (let i = 0; i < bridge.MAX_SESSIONS_PER_ACCOUNT; i++) assert.equal((await as("alice")).status, 200);
+  const full = await as("alice");
+  assert.equal(full.status, 429);
+  assert.ok(Number(full.headers.get("retry-after")) > 0);
+  assert.equal((await as("bob")).status, 200, "another account still signs in");
 });

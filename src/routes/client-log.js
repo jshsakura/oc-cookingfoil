@@ -9,6 +9,12 @@
  * Kept at <data dir>/client/logs/<first 8 of the device key>/<YYYYMMDD-HHMMSS>.txt
  * (UTC) plus latest.txt, the newest 50 per console. Files take the owner of
  * the client folder, so the host user can read them. Same sign-in as the rest.
+ *
+ * The limits follow the account that signed in, not the device key it sends
+ * (any signed-in client can make up keys): 5 logs a minute per account, and an
+ * account may start at most MAX_CONSOLES_PER_ACCOUNT console folders (each
+ * folder's .owner names who started it). Across all accounts there are at most
+ * MAX_FOLDERS folders and MAX_TOTAL_BYTES of logs; past that the oldest logs go.
  */
 import fs from "fs";
 import fsp from "fs/promises";
@@ -18,6 +24,7 @@ import { dataDir } from "../helpers/envs.js";
 import { deviceKeyFromHeaders } from "../security/pairing.js";
 import debug from "../debug.js";
 import { tooManyRequests } from "../security/retry-after.js";
+import { ownerKey } from "../security/link-identity.js";
 
 export const LOGS_DIR = path.join(dataDir, "client", "logs");
 const MAX_BYTES = 64 * 1024;
@@ -25,8 +32,52 @@ const KEEP = 50;
 const PER_MINUTE = 5;
 const REASON_MAX = 200;
 const STAMP_RE = /^\d{8}-\d{6}(-\d+)?\.txt$/;
+const PREFIX_RE = /^[0-9a-f]{8}$/;
+const OWNER_FILE = ".owner";
+export const MAX_CONSOLES_PER_ACCOUNT = 8;
+export const MAX_FOLDERS = 256;
+export const MAX_TOTAL_BYTES = 64 * 1024 * 1024;
 
-const recent = new Map(); // device prefix → send times in the last minute
+const recent = new Map(); // account → send times in the last minute
+
+/** Who a log counts against: the signed-in account, else the paired console itself. */
+export const ownerOf = ownerKey;
+
+/** The console folders there are, with who started each. */
+async function folders() {
+  const names = (await fsp.readdir(LOGS_DIR).catch(() => [])).filter((p) => PREFIX_RE.test(p));
+  return Promise.all(names.map(async (prefix) => ({
+    prefix,
+    owner: (await fsp.readFile(path.join(LOGS_DIR, prefix, OWNER_FILE), "utf8").catch(() => "")).trim(),
+  })));
+}
+
+/** Why `owner` may not start a folder for `prefix` now, or null when it may. */
+export async function folderRefusal(prefix, owner) {
+  if (fs.existsSync(path.join(LOGS_DIR, prefix))) return null;
+  const all = await folders();
+  if (all.length >= MAX_FOLDERS) return "log storage is full";
+  if (all.filter((f) => f.owner === owner).length >= MAX_CONSOLES_PER_ACCOUNT) return "too many consoles send logs for this account";
+  return null;
+}
+
+/** Removes the oldest logs, across every console, until all of them fit in `maxBytes`. */
+export async function trimTotal(maxBytes = MAX_TOTAL_BYTES) {
+  const files = [];
+  for (const { prefix } of await folders()) {
+    const dir = path.join(LOGS_DIR, prefix);
+    for (const name of await fsp.readdir(dir).catch(() => [])) {
+      const st = await fsp.stat(path.join(dir, name)).catch(() => null);
+      if (st?.isFile()) files.push({ file: path.join(dir, name), name, size: st.size, stamp: STAMP_RE.test(name) });
+    }
+  }
+  let total = files.reduce((n, f) => n + f.size, 0);
+  for (const f of files.filter((x) => x.stamp).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (total <= maxBytes) break;
+    await fsp.rm(f.file, { force: true });
+    total -= f.size;
+  }
+}
 
 /** The reason header, decoded, one line, at most REASON_MAX characters. Pure. */
 export function cleanReason(raw) {
@@ -76,10 +127,14 @@ export function mountClientLog(router) {
       if (!deviceKey) return res.status(400).json({ error: "send the console's device key (X-Device-Key)" });
       if (typeof req.body !== "string") return res.status(415).json({ error: "send the log as text/plain" });
       const prefix = deviceKey.slice(0, 8).toLowerCase();
-      const wait = tooOften(prefix);
+      if (!PREFIX_RE.test(prefix)) return res.status(400).json({ error: "send the console's device key (X-Device-Key)" });
+      const owner = ownerOf(req);
+      const wait = tooOften(owner);
       if (wait) {
         return tooManyRequests(res, wait).json({ error: "too many logs; wait a minute" });
       }
+      const refusal = await folderRefusal(prefix, owner);
+      if (refusal) return tooManyRequests(res, 3600).json({ error: refusal });
       const now = new Date();
       const version = String(req.get("Version") ?? "").replace(/[^\w.+-]/g, "").slice(0, 40) || "unknown";
       const head = `# received ${now.toISOString()} · version ${version} · reason ${cleanReason(req.get("X-Log-Reason")) || "-"}\n`;
@@ -87,6 +142,7 @@ export function mountClientLog(router) {
       const fresh = !fs.existsSync(dir);
       await fsp.mkdir(dir, { recursive: true });
       if (fresh) {
+        await fsp.writeFile(path.join(dir, OWNER_FILE), `${owner}\n`);
         await ownLikeParent(LOGS_DIR);
         await ownLikeParent(dir);
       }
@@ -100,6 +156,7 @@ export function mountClientLog(router) {
         await ownLikeParent(file);
       }
       await keepNewest(dir);
+      await trimTotal();
       debug.log("client log: %s… sent %d bytes (%s)", prefix, Buffer.byteLength(req.body), version);
       res.status(204).end();
     } catch (err) {
