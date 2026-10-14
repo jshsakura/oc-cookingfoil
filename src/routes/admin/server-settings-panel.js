@@ -46,6 +46,7 @@ const SS_GROUPS=[
   ['게임 정보',[
     ['titledbAutoFetch','bool','자동으로 받기','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
     ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
+    ['titledbSource','text','받을 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 바꿉니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
   ]],
   ['외부 정보',[
     ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],

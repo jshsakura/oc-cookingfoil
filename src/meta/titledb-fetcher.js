@@ -8,10 +8,10 @@
 import { mkdir, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { titledbRegions } from "../helpers/envs.js";
+import { titledbRegions, titledbSource } from "../helpers/envs.js";
 import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
 
-const BASE_URL = "https://raw.githubusercontent.com/blawar/titledb/master";
+export const DEFAULT_SOURCE = "https://raw.githubusercontent.com/blawar/titledb/master";
 
 // The shop's four languages first, then every other region that still adds
 // games of its own (measured 2026-10: 112 base titles, Europe-only releases
@@ -37,8 +37,11 @@ export function getRegionsFromEnv() {
   return [...new Set(regions)];
 }
 
+/** The address set on the admin page (a fork or mirror), else blawar/titledb. */
+export const titledbBase = () => titledbSource || DEFAULT_SOURCE;
+
 function regionUrl(region) {
-  return `${BASE_URL}/${region}.json`;
+  return `${titledbBase()}/${region}.json`;
 }
 
 // A region that returns 404 upstream (not every region/lang pair exists in

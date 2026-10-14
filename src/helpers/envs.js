@@ -313,6 +313,9 @@ let deviceAutoApproveAll = autoApproveMode === "all";
 // the per-language name lists it reads (see titledb-fetcher.js DEFAULT_REGIONS).
 let titledbAutoFetch = envBool("COOK_TITLEDB_AUTO_FETCH", true);
 let titledbRegions = envString("COOK_TITLEDB_REGIONS", "").split(",").map((s) => s.trim()).filter(Boolean);
+// Where titledb is read from: a base address holding <region>.json files. Empty is
+// blawar/titledb itself; a fork or mirror goes here if that one ever stops.
+let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "");
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -329,6 +332,7 @@ const ENV_SETTINGS = Object.freeze({
   langPriority: [...langPriority],
   titledbAutoFetch,
   titledbRegions: [...titledbRegions],
+  titledbSource,
   eshopPrices,
   eshopPopularity,
   eshopArtwork,
@@ -348,6 +352,7 @@ function applyServerSettings(saved = {}) {
   langPriority = [...v.langPriority];
   titledbAutoFetch = v.titledbAutoFetch;
   titledbRegions = [...v.titledbRegions];
+  titledbSource = v.titledbSource;
   eshopPrices = v.eshopPrices;
   eshopPopularity = v.eshopPopularity;
   eshopArtwork = v.eshopArtwork;
@@ -360,6 +365,7 @@ export {
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,
+  titledbSource,
   romsDirPath,
   jsonTemplatePath,
   appPort,
