@@ -173,6 +173,32 @@ test("the effective scheme decides: https takes the direct address, http keeps s
   for (const [name, input, want] of cases) assert.equal(links.effectiveScheme(input), want, name);
 });
 
+test("routesDirect: https decides, and Cloudflare's country from a trusted peer must be KR", () => {
+  const tunnel = { forwardedProto: "https", peerTrusted: true };
+  const cases = [
+    ["no country header: unchanged, https takes the direct address", { ...tunnel }, true],
+    ["through Cloudflare from KR", { ...tunnel, country: "KR" }, true],
+    ["lower case and spaces", { ...tunnel, country: " kr " }, true],
+    ["through Cloudflare from JP: the direct port would refuse it", { ...tunnel, country: "JP" }, false],
+    ["Cloudflare doesn't know (XX)", { ...tunnel, country: "XX" }, false],
+    ["Tor (T1)", { ...tunnel, country: "T1" }, false],
+    ["an empty header counts as none", { ...tunnel, country: "" }, true],
+    ["a country from an untrusted peer is ignored", { encrypted: true, country: "JP" }, true],
+    ["http stays same-origin whatever the country", { encrypted: false, country: "KR", peerTrusted: true }, false],
+  ];
+  for (const [name, input, want] of cases) assert.equal(links.routesDirect(input), want, name);
+  // Through forRequest: a trusted peer passing CF-IPCountry: JP gets no direct link.
+  const trusted = { get: (k) => (k === "trust proxy fn" ? () => true : undefined) };
+  const viaTunnel = (country) => {
+    const r = listReq({ https: false });
+    const headers = { "x-forwarded-proto": "https", ...(country ? { "cf-ipcountry": country } : {}) };
+    return { ...r, app: trusted, get: (h) => headers[h.toLowerCase()] ?? r.get(h) };
+  };
+  assert.ok(links.forRequest(viaTunnel("KR")));
+  assert.ok(links.forRequest(viaTunnel(null)));
+  assert.equal(links.forRequest(viaTunnel("US")), null);
+});
+
 test("a list over http keeps today's URLs and carries no token, even with the feature header", async () => {
   const port = await listApp();
   const r = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, "x-cookingfoil-features": "direct-token" } });

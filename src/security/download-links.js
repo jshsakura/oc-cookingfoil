@@ -26,6 +26,13 @@
  * talking to the server's own address) is already on the short path: it keeps
  * its same-origin URLs and gets no token.
  *
+ * The direct port admits only Korean addresses. A request that came through
+ * Cloudflare says where its client is (CF-IPCountry, believed only from a peer
+ * the trust-proxy setting trusts); one from outside KR keeps today's URLs and
+ * gets no token, since the direct address would refuse it. No header (a
+ * request that didn't come through Cloudflare): the scheme alone decides.
+ * Both rules are one pure function, routesDirect.
+ *
  * Clients that don't declare the feature (Tinfoil, CyberFoil, browsers), a
  * request over http or one that did not sign in, or an empty setting: the
  * lists and headers are exactly what they were before direct downloads existed.
@@ -58,10 +65,30 @@ export function effectiveScheme({ encrypted = false, forwardedProto, peerTrusted
   return encrypted ? "https" : "http";
 }
 
-function schemeOf(req) {
+// The only country the direct port lets in.
+const DIRECT_COUNTRY = "KR";
+
+/**
+ * Whether a request's lists may point at the direct address: it came over
+ * https (effectiveScheme), and when a trusted peer passed on Cloudflare's
+ * CF-IPCountry, that country is KR. Pure.
+ */
+export function routesDirect({ encrypted = false, forwardedProto, peerTrusted = false, country } = {}) {
+  if (effectiveScheme({ encrypted, forwardedProto, peerTrusted }) !== "https") return false;
+  const where = peerTrusted ? String(country ?? "").trim().toUpperCase() : "";
+  return !where || where === DIRECT_COUNTRY;
+}
+
+/** What routesDirect reads, from a request. */
+function routeInputs(req) {
   const trust = req.app?.get?.("trust proxy fn");
   const peer = req.socket?.remoteAddress;
-  return effectiveScheme({ encrypted: Boolean(req.socket?.encrypted), forwardedProto: req.get?.("x-forwarded-proto"), peerTrusted: Boolean(trust?.(peer, 0)) });
+  return {
+    encrypted: Boolean(req.socket?.encrypted),
+    forwardedProto: req.get?.("x-forwarded-proto"),
+    peerTrusted: Boolean(trust?.(peer, 0)),
+    country: req.get?.("cf-ipcountry"),
+  };
 }
 
 let keyBroken = false;
@@ -80,13 +107,13 @@ function keyUsable() {
 
 /**
  * { base, who } when this request's lists use the direct address: an https
- * direct address is set, the request came over https, the client declared the
- * feature, it signed in and a token can be made. null otherwise, and
- * everything stays as it was.
+ * direct address is set, routesDirect says yes (https, and from KR when
+ * Cloudflare says where), the client declared the feature, it signed in and a
+ * token can be made. null otherwise, and everything stays as it was.
  */
 export function forRequest(req) {
   const base = env.publicDirectBaseUrl;
-  if (!base || !base.startsWith("https://") || !wantsDirect(req) || schemeOf(req) !== "https") return null;
+  if (!base || !base.startsWith("https://") || !wantsDirect(req) || !routesDirect(routeInputs(req))) return null;
   const who = identity.requester(req);
   if (!who || !keyUsable()) return null;
   return { base, who };
