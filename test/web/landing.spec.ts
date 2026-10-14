@@ -256,8 +256,10 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await expect(need.locator('a.btn')).toHaveAttribute('href', '/api/patches/0100000000010000-bbbbbbbbbbbb/download');
   // The update it was made for is a note only: every update stays listed and installable.
   await expect(need.locator('.xmeta')).toContainText('v2097152 (1.0.32.0)용');
-  await expect(page.locator('#modal-patches .mp-group:not(.need) .xmeta')).not.toContainText('용');
-  await expect(page.locator('#modal-patches .mp-group:not(.need) .xname')).toHaveText(['성능 패치']);
+  // The others go with what to install, below the description.
+  await expect(page.locator('#modal-patches .mp-group')).toHaveCount(1);
+  await expect(page.locator('#modal-install .mp-group:not(.need) .xmeta')).not.toContainText('용');
+  await expect(page.locator('#modal-install .mp-group:not(.need) .xname')).toHaveText(['성능 패치']);
   // Above the description, so it isn't missed.
   const order = await page.evaluate(() => {
     const a = document.getElementById('modal-patches')!, b = document.getElementById('modal-desc')!;
@@ -266,6 +268,86 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+});
+
+test("a game's detail lays out what the console shows, in the console's order", async ({ page }) => {
+  await page.route('**/api/title/0100000000010000*', (route) => route.fulfill({ json: {
+    id: '0100000000010000', name: 'Test Game', names: { ko: '테스트 게임', en: 'Test Game' }, publisher: 'Nintendo',
+    description: '바다를 건너는 모험입니다.', notes: '업데이트를 함께 설치합니다.', releaseDate: 20170303, region: 'KR', rating: 12, ratingContent: ['폭력'],
+    numberOfPlayers: 4, categories: ['Action', 'RPG'], categoryLabels: ['액션', 'RPG'],
+    price: { country: 'KR', regular: '64,800원', discount: '32,400원', discountEnds: '2999-01-01T00:00:00Z' },
+    latestVersion: 131072, updates: [{ version: 65536, date: 20170401 }, { version: 131072, date: 20170501 }], dlcTotal: 3,
+    requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
+    screenshots: [], patches: [],
+  } }));
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+    sections: [{ id: 'all', title: 'All', items: [
+      { app_type: 'base', title_id: '0100000000010000', app_version: 0, languages: ['ko', 'en'], install_size: 9e9 },
+      { app_type: 'update', title_id: '0100000000010800', app_version: 131072, version_name: '1.2.0' },
+    ] }],
+    genres: {},
+  } }));
+  await page.route('**/shop.json', (route) => route.fulfill({ json: { files: [
+    { url: 'a.nsp', name: 'Test Game [0100000000010000][v0]', size: 8e9, kind: 'base', mtime: 1, titleId: '0100000000010000', baseTitleId: '0100000000010000' },
+    { url: 'b.nsp', name: 'Test Game [0100000000010800][v65536]', size: 5e8, kind: 'update', mtime: 1, titleId: '0100000000010800', baseTitleId: '0100000000010000' },
+    { url: 'c.nsp', name: 'Test Game [0100000000010800][v131072]', size: 1e9, kind: 'update', mtime: 1, titleId: '0100000000010800', baseTitleId: '0100000000010000' },
+    { url: 'd.nsp', name: 'Test Game Extra Map [0100000000011001][v0]', size: 5e8, kind: 'dlc', mtime: 1, titleId: '0100000000011001', baseTitleId: '0100000000010000' },
+  ], titledb: {} } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  fs.mkdirSync('out/web', { recursive: true });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    await page.locator('#games .game').first().click();
+    await expect(page.locator('#modal-title')).toHaveText('테스트 게임');
+    await expect(page.locator('#modal-publisher')).toHaveText('Nintendo');
+    await expect(page.locator('#modal-pills .pill')).toHaveText(['한글', '평점 92', '할인 32,400원', '액션, RPG']);
+    // Notes come before the description.
+    const notesFirst = await page.evaluate(() => Boolean(document.getElementById('modal-notes')!.compareDocumentPosition(document.getElementById('modal-desc')!) & Node.DOCUMENT_POSITION_FOLLOWING));
+    expect(notesFirst).toBe(true);
+    const meta = page.locator('#modal-meta');
+    await expect(meta.locator('div > span')).toHaveText(['eShop 가격', '평점 · 1,234명', '출시일', '퍼블리셔', '플레이 인원', '기본 용량', '설치 용량',
+      '펌웨어', '연령 등급', 'DLC', '최신 버전', '파일 형식', '지역', '타이틀 ID']);
+    await expect(meta.locator('div > strong')).toHaveText(['32,400원 (64,800원)', '92 · 압도적으로 긍정적', '2017.03.03', 'Nintendo', '최대 4명', '7.45 GB', '8.38 GB',
+      '16.0.0', '12 · 폭력', '3개 출시 · 여기 1개', 'v1.2.0', 'NSP', 'KR', '0100000000010000']);
+    await expect(page.locator('#modal-chips .chip-line').first()).toContainText('지원 언어');
+    await expect(page.locator('#modal-chips .chip-line').first().locator('.chip')).toHaveText(['한국어', '영어']);
+    await expect(page.locator('#modal-chips .chip-line').nth(1).locator('.chip')).toHaveText(['액션', 'RPG']);
+    // What to install: the base, the newest update only, then every DLC.
+    const install = page.locator('#modal-install .extra-row');
+    await expect(install.locator('.extra-name')).toHaveText(['기본 게임', '업데이트', 'Test Game Extra Map']);
+    await expect(install.locator('.extra-sub')).toHaveText(['v0 · 필수', 'v1.2.0 · 최신', 'DLC']);
+    await expect(install.nth(1)).toHaveAttribute('href', 'c.nsp');
+    await page.waitForTimeout(450); // the modal's rise animation
+    const over = await page.evaluate(() => {
+      const m = document.querySelector('#modal .modal')!;
+      return { page: document.documentElement.scrollWidth - document.documentElement.clientWidth, modal: m.scrollWidth - m.clientWidth };
+    });
+    expect(over, `at ${width}px`).toEqual({ page: 0, modal: 0 });
+    // A tall window, so the shot holds the whole detail.
+    await page.setViewportSize({ width, height: 2600 });
+    await page.locator('#modal .modal').screenshot({ path: `out/web/switch-detail-${width}.png` });
+    await page.keyboard.press('Escape');
+  }
+});
+
+test("a game's detail shimmers the cells only its detail fills, then leaves out the empty ones", async ({ page }) => {
+  let release!: () => void;
+  const held = new Promise<void>((r) => { release = r; });
+  await page.route('**/api/title/0100000000010000*', async (route) => {
+    await held;
+    await route.fulfill({ json: { id: '0100000000010000', name: 'Test Game', releaseDate: 20170300 } });
+  });
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/');
+  await page.locator('#games .game').first().click();
+  await expect(page.locator('#modal-meta .sk').first()).toBeVisible();
+  await expect(page.locator('#modal-meta div', { hasText: '타이틀 ID' }).locator('strong')).toHaveText('0100000000010000');
+  release();
+  await expect(page.locator('#modal-meta .sk')).toHaveCount(0);
+  await expect(page.locator('#modal-meta div > span')).toHaveText(['출시일', '파일 형식', '타이틀 ID']);
+  await expect(page.locator('#modal-meta div', { hasText: '출시일' }).locator('strong')).toHaveText('2017.03');
+  await expect(page.locator('#modal-desc .desc-empty')).toHaveText('소개 글이 아직 없습니다.');
 });
 
 test("a game's long description runs at full height, so only the modal scrolls", async ({ page }) => {

@@ -209,17 +209,18 @@
       .xrow.xapp { grid-template-columns: 48px minmax(0, 1fr) auto; margin: 0; padding: 0; border-color: transparent; background: none; }
       .xrow.xapp > img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
       .xrow.xapp .xname { font-size: 16px; }
-      .xrow .pill, .xmodal .xm-pills .pill {
+      .xrow .pill, .modal .xm-pills .pill {
         padding: 2px 9px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap;
         background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
       }
-      .xmodal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
-      .xrow .pill.need, .xmodal .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
+      .xrow .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
       .modal.xmodal .modal-head .modal-cover { margin-top: 0; width: 72px; height: 72px; }
       .modal.xmodal .modal-cover[hidden] { display: none; }
-      .modal.xmodal .xm-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+      .modal .xm-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+      .modal .xm-pills:empty { display: none; }
       .modal.xmodal .xm-section { margin: 0 0 16px; }
       .modal.xmodal .xm-section h4 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
       .modal.xmodal .xm-source { font-size: 13px; color: var(--secondary); margin: 0 0 16px; overflow-wrap: anywhere; }
@@ -494,7 +495,7 @@
       @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
       @media (prefers-reduced-motion: reduce) {
         .skel .cover, .game.skel .meta i, .home-row.skel h2 i, .chart.skel i, .hero.skel .hero-cover, .hero.skel .hero-text i,
-        .sk, .game .cover.loading, .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel { animation: none; }
+        .sk, .game .cover.loading, .modal.loading .banner, .modal.loading .desc-skel { animation: none; }
       }
       .sk { color: transparent !important; border-radius: 6px; }
       /* patches and saves while their list loads */
@@ -506,7 +507,6 @@
       .xrow.xapp.xskel b { display: block; height: 13px; margin: 5px 0; }
       /* the detail window's cells, text and screenshots while they arrive */
       .modal .modal-meta strong.sk { display: inline-block; width: 70%; }
-      .modal .retro-desc { margin: 0 0 14px; white-space: pre-line; }
       .modal .screenshots .shot-skel { width: 240px; height: 135px; border-radius: 12px; flex-shrink: 0; }
       .stat .value.sk { display: inline-block; min-width: 60px; height: 28px; vertical-align: middle; }
       .stat .sub.sk   { display: inline-block; min-width: 78px; height: 11px; }
@@ -562,17 +562,24 @@
       }
       .modal .banner.with-poster.no-art .banner-empty { display: none; }
       /* Opened before the detail arrives: shimmer where it will land. */
-      .modal.loading .banner, .modal.loading .modal-meta strong, .modal.loading .desc-skel {
+      .modal.loading .banner, .modal.loading .desc-skel {
         background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
         background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
       }
       .modal.loading .banner .banner-empty { display: none; }
-      .modal.loading .modal-meta strong { color: transparent; border-radius: 6px; width: 70%; }
       .modal .desc-skel { display: block; height: 13px; border-radius: 6px; margin: 0 0 10px; }
       .modal .desc-skel:last-child { width: 60%; }
       .modal .body { padding: 26px 30px 28px; }
       .modal .modal-head { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 20px; }
       .modal .modal-head .modal-cover { margin-top: -64px; position: relative; z-index: 1; }
+      /* The cover with a small region flag on its corner (retro games). */
+      .modal .modal-head .cover-wrap { position: relative; flex-shrink: 0; margin-top: -64px; z-index: 1; }
+      .modal .modal-head .cover-wrap .modal-cover { margin-top: 0; display: block; }
+      .modal .cover-flag {
+        position: absolute; right: -4px; bottom: -4px; min-width: 30px; height: 30px; padding: 0 4px; border-radius: 10px;
+        display: grid; place-items: center; font-size: 18px; line-height: 1; background: var(--ground); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); z-index: 2;
+      }
+      .modal .cover-flag[hidden] { display: none; }
       .modal .modal-cover {
         width: 112px; height: 112px; flex-shrink: 0; border-radius: 20px; object-fit: cover; background: var(--sunk);
         border: 4px solid var(--ground); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
@@ -581,11 +588,12 @@
       .modal h3 { font-size: 26px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.02em; line-height: 1.2; }
       .modal .publisher { font-size: 15px; color: var(--secondary); }
       .modal .modal-meta {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
         background: var(--surface); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px;
       }
+      .modal .modal-meta:empty { display: none; }
       .modal .modal-meta div { font-size: 12px; color: var(--secondary); }
-      .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; }
+      .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; overflow-wrap: anywhere; }
       /* a 16-digit title id must not break mid-way */
       .modal .modal-meta strong.mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; white-space: nowrap; }
       /* full height: the modal is the one thing that scrolls, never a box inside it */
@@ -595,7 +603,20 @@
       .modal .modal-notes[hidden] { display: none; }
       .modal .modal-notes h4 { margin: 0 0 4px; font-size: 13px; font-weight: 800; }
       .modal .modal-notes p { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+      /* No description: a quiet card instead of an empty gap. */
+      .modal .desc-empty { margin: 0; padding: 14px 16px; border-radius: 16px; background: var(--surface); color: var(--secondary); font-size: 14px; line-height: 1.6; }
+      .modal .desc-empty strong { display: block; color: var(--ink); font-weight: 700; }
+      .modal .modal-where { margin: -4px 0 16px; font-size: 13px; color: var(--secondary); overflow-wrap: anywhere; }
+      .modal .modal-where[hidden] { display: none; }
+      .modal .modal-where code { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+      /* Languages, then genres, under the table. */
+      .modal .modal-chips { display: grid; gap: 8px; margin: 0 0 18px; }
+      .modal .modal-chips:empty { display: none; }
+      .modal .modal-chips .chip-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .modal .modal-chips .chips-head { font-size: 12px; font-weight: 800; color: var(--secondary); margin-right: 4px; }
+      .modal .modal-chips .chip { padding: 5px 12px; font-size: 12.5px; cursor: default; background: var(--surface); border: 1px solid var(--line); }
       .modal .screenshots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
+      .modal .screenshots:empty, .modal .extras:empty { display: none; }
       .modal .screenshots img { width: 240px; height: 135px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--sunk); cursor: zoom-in; }
       .modal .extras { margin-bottom: 16px; }
       .modal .extras .extras-head { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
@@ -608,6 +629,14 @@
       .modal .extras button.extra-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
       .modal .extras .version-row[aria-pressed="true"] { border-color: var(--butter); cursor: default; }
       .modal .extras .extra-name { font-weight: 600; word-break: break-all; }
+      .modal .extras .extra-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .modal .extras .extra-text { display: grid; gap: 2px; min-width: 0; }
+      .modal .extras .extra-sub { font-size: 12px; color: var(--secondary); }
+      .modal .extras .extra-sub:empty { display: none; }
+      .modal .extras .mark { width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line2); }
+      .modal .extras .version-row[aria-pressed="true"] .mark { border-color: var(--butter); background: radial-gradient(circle, var(--butter) 45%, transparent 50%); }
+      .modal .extras .flag { font-size: 16px; line-height: 1; flex-shrink: 0; }
+      .modal-install .mp-group { margin-top: 8px; }
       .modal .extras .extra-size { color: var(--secondary); flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
       .modal .art-edit { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); }
       .modal .art-edit .art-head { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
@@ -759,6 +788,7 @@
         .modal { border-radius: 24px 24px 0 0; max-height: 94vh; }
         .modal .body { padding: 22px 20px; }
         .modal .modal-head { flex-direction: column; gap: 10px; }
+        .modal .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
         .pager .info { width: 100%; margin-bottom: 8px; text-align: center; }
       }
     </style>
@@ -947,19 +977,26 @@
         </div>
         <div class="body">
           <div class="modal-head">
-            <img class="modal-cover" id="modal-cover" alt="" decoding="async">
+            <div class="cover-wrap">
+              <img class="modal-cover" id="modal-cover" alt="" decoding="async">
+              <span class="cover-flag" id="modal-flag" hidden></span>
+            </div>
             <div class="modal-head-text">
               <h3 id="modal-title">—</h3>
               <p class="publisher" id="modal-publisher">—</p>
             </div>
           </div>
-          <div class="modal-meta" id="modal-meta"></div>
-          <section class="modal-notes" id="modal-notes" hidden><h4 data-i18n="modal.notes"></h4><p id="modal-notes-text"></p></section>
+          <div class="xm-pills" id="modal-pills"></div>
           <div class="modal-patches" id="modal-patches" hidden></div>
+          <section class="modal-notes" id="modal-notes" hidden><h4 data-i18n="modal.notes"></h4><p id="modal-notes-text"></p></section>
           <div class="desc" id="modal-desc"></div>
+          <div class="modal-meta" id="modal-meta"></div>
+          <p class="modal-where" id="modal-where" hidden></p>
+          <div class="modal-chips" id="modal-chips"></div>
           <div class="screenshots" id="modal-screens"></div>
-          <div class="art-edit" id="modal-art" hidden></div>
           <div class="extras" id="modal-extras"></div>
+          <div class="extras modal-install" id="modal-install" hidden></div>
+          <div class="art-edit" id="modal-art" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
@@ -1096,20 +1133,13 @@
           "retro.download": "받기",
           "retro.system": "기종",
           "retro.core": "코어",
-          "retro.file": "파일",
-          "retro.discCount": "디스크",
-          "retro.added": "추가한 날",
           "retro.bezelLabel": "베젤",
-          "retro.bezelOwn": "게임 전용",
-          "retro.bezelDefault": "기종 기본",
+          "retro.bezelOwn": "전용",
+          "retro.bezelDefault": "기본",
           "retro.bezelNone": "없음",
-          "retro.original": "원제",
-          "retro.patch": "패치 정보",
           "retro.downloadRom": "롬 받기",
           "retro.downloadDiscs": "디스크 묶음 받기",
           "retro.versions": (n) => `버전 ${n}개`,
-          "retro.versionsHead": "이 게임의 버전",
-          "retro.current": "보는 중",
           "retro.listed": "추천",
           "retro.cantRun": "실행 불가",
           "section.recent": "최근 추가",
@@ -1211,16 +1241,14 @@
           "toast.copied": "URL이 클립보드에 복사됐습니다",
           "toast.refresh": "서버 데이터 새로고침 완료",
           "toast.copyFail": "복사 실패",
-          "modal.size": "크기",
+          "modal.size": "용량",
           "modal.release": "출시일",
-          "modal.type": "종류",
           "modal.titleId": "타이틀 ID",
           "modal.region": "지역",
-          "modal.rating": "등급",
           "modal.category": "장르",
-          "modal.players": "플레이어",
+          "modal.players": "플레이 인원",
           "modal.developer": "개발사",
-          "modal.noDesc": "설명이 없습니다.",
+          "modal.noDesc": "소개 글이 아직 없습니다.",
           "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
           "art.head": "아트워크 (직접 올리기)",
@@ -1253,6 +1281,50 @@
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.",
+          "modal.price": "eShop 가격",
+          "modal.scoreN": (n) => `평점 · ${n.toLocaleString()}명`,
+          "modal.publisher": "퍼블리셔",
+          "modal.baseSize": "기본 용량",
+          "modal.installSize": "설치 용량",
+          "modal.firmware": "펌웨어",
+          "modal.ageRating": "연령 등급",
+          "modal.dlcOut": (n) => `${n}개 출시`,
+          "modal.dlcHere": (n) => `여기 ${n}개`,
+          "modal.latest": "최신 버전",
+          "modal.format": "파일 형식",
+          "modal.players1": "1인",
+          "modal.playersN": (n) => `최대 ${n}명`,
+          "modal.languages": "지원 언어",
+          "modal.noDescSub": "아래 정보를 확인해 주세요.",
+          "pill.korean": "한글",
+          "pill.score": (n) => `평점 ${n}`,
+          "pill.price": (p) => `eShop ${p}`,
+          "pill.discount": (p) => `할인 ${p}`,
+          "install.head": "설치할 항목",
+          "install.base": "기본 게임",
+          "install.update": "업데이트",
+          "install.required": "필수",
+          "install.latest": "최신",
+          "region.kr": "한국",
+          "region.jp": "일본",
+          "region.us": "북미",
+          "region.eu": "유럽",
+          "region.asia": "아시아",
+          "region.br": "브라질",
+          "region.world": "전 세계",
+          "retro.from.jp": "일본판",
+          "retro.from.us": "북미판",
+          "retro.from.eu": "유럽판",
+          "retro.from.world": "월드판",
+          "retro.official": "정발",
+          "retro.patched": "한글",
+          "retro.pillBezelOwn": "전용 베젤",
+          "retro.pillBezelDefault": "기본 베젤",
+          "retro.maker": "제작사",
+          "retro.forwarder": "홈 메뉴 바로가기",
+          "retro.forwarderWith": "게임과 함께",
+          "retro.installAt": "설치 위치",
+          "retro.versionsCount": (n) => `버전 ${n}`,
         },
         en: {
           "hero.desc": "The file manager that fits anywhere, smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
@@ -1313,20 +1385,13 @@
           "retro.download": "Download",
           "retro.system": "System",
           "retro.core": "Core",
-          "retro.file": "File",
-          "retro.discCount": "Discs",
-          "retro.added": "Added",
           "retro.bezelLabel": "Bezel",
-          "retro.bezelOwn": "Game's own",
-          "retro.bezelDefault": "System default",
+          "retro.bezelOwn": "Own",
+          "retro.bezelDefault": "Default",
           "retro.bezelNone": "None",
-          "retro.original": "Original title",
-          "retro.patch": "Patch",
           "retro.downloadRom": "Download ROM",
           "retro.downloadDiscs": "Download all discs",
           "retro.versions": (n) => `${n} versions`,
-          "retro.versionsHead": "Versions of this game",
-          "retro.current": "Showing",
           "retro.listed": "Recommended",
           "retro.cantRun": "Won't run",
           "row.recent": "Recently added",
@@ -1429,14 +1494,12 @@
           "sort.score_desc": "Sort: highest score",
           "score.count": (n) => `${n.toLocaleString()} reviews`,
           "modal.release": "Release",
-          "modal.type": "Type",
           "modal.titleId": "Title ID",
           "modal.region": "Region",
-          "modal.rating": "Rating",
           "modal.category": "Category",
           "modal.players": "Players",
           "modal.developer": "Developer",
-          "modal.noDesc": "No description available.",
+          "modal.noDesc": "No introduction yet.",
           "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
           "art.head": "Artwork (upload your own)",
@@ -1469,6 +1532,50 @@
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. Downloads will continue in a moment.",
+          "modal.price": "eShop price",
+          "modal.scoreN": (n) => `Score · ${n.toLocaleString()} reviews`,
+          "modal.publisher": "Publisher",
+          "modal.baseSize": "Base size",
+          "modal.installSize": "Install size",
+          "modal.firmware": "Firmware",
+          "modal.ageRating": "Age rating",
+          "modal.dlcOut": (n) => `${n} released`,
+          "modal.dlcHere": (n) => `${n} here`,
+          "modal.latest": "Latest version",
+          "modal.format": "File format",
+          "modal.players1": "1 player",
+          "modal.playersN": (n) => `Up to ${n} players`,
+          "modal.languages": "Languages",
+          "modal.noDescSub": "Please check the details below.",
+          "pill.korean": "Korean",
+          "pill.score": (n) => `Score ${n}`,
+          "pill.price": (p) => `eShop ${p}`,
+          "pill.discount": (p) => `Sale ${p}`,
+          "install.head": "What to install",
+          "install.base": "Base game",
+          "install.update": "Update",
+          "install.required": "Required",
+          "install.latest": "Latest",
+          "region.kr": "Korea",
+          "region.jp": "Japan",
+          "region.us": "North America",
+          "region.eu": "Europe",
+          "region.asia": "Asia",
+          "region.br": "Brazil",
+          "region.world": "World",
+          "retro.from.jp": "Japanese version",
+          "retro.from.us": "North American version",
+          "retro.from.eu": "European version",
+          "retro.from.world": "World version",
+          "retro.official": "Official",
+          "retro.patched": "Korean patch",
+          "retro.pillBezelOwn": "Own bezel",
+          "retro.pillBezelDefault": "Default bezel",
+          "retro.maker": "Publisher",
+          "retro.forwarder": "HOME menu shortcut",
+          "retro.forwarderWith": "Comes with the game",
+          "retro.installAt": "Install location",
+          "retro.versionsCount": (n) => `Versions ${n}`,
         },
         ja: {
           "hero.desc": "バターのようにどこにでもなじむファイルマネージャー。<br>ファイル・メタデータ・アートワークを認証付きの単一ホストから、ディスクにキャッシュしながら配信します。",
@@ -1529,20 +1636,13 @@
           "retro.download": "ダウンロード",
           "retro.system": "機種",
           "retro.core": "コア",
-          "retro.file": "ファイル",
-          "retro.discCount": "ディスク",
-          "retro.added": "追加日",
           "retro.bezelLabel": "ベゼル",
-          "retro.bezelOwn": "ゲーム専用",
-          "retro.bezelDefault": "機種の標準",
+          "retro.bezelOwn": "専用",
+          "retro.bezelDefault": "標準",
           "retro.bezelNone": "なし",
-          "retro.original": "原題",
-          "retro.patch": "パッチ情報",
           "retro.downloadRom": "ROM をダウンロード",
           "retro.downloadDiscs": "全ディスクをダウンロード",
           "retro.versions": (n) => `${n} バージョン`,
-          "retro.versionsHead": "このゲームのバージョン",
-          "retro.current": "表示中",
           "retro.listed": "おすすめ",
           "retro.cantRun": "起動できません",
           "row.recent": "最近の追加",
@@ -1641,18 +1741,16 @@
           "toast.copied": "URLをコピーしました",
           "toast.refresh": "サーバー情報を更新しました",
           "toast.copyFail": "コピーできませんでした",
-          "modal.size": "サイズ",
+          "modal.size": "容量",
           "modal.score": "評価",
           "score.count": (n) => `${n.toLocaleString()}件のレビュー`,
           "modal.release": "発売日",
-          "modal.type": "種類",
           "modal.titleId": "タイトルID",
           "modal.region": "地域",
-          "modal.rating": "レーティング",
           "modal.category": "ジャンル",
           "modal.players": "プレイ人数",
           "modal.developer": "開発元",
-          "modal.noDesc": "説明がありません。",
+          "modal.noDesc": "紹介文はまだありません。",
           "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
           "art.head": "アートワーク (自分でアップロード)",
@@ -1685,6 +1783,50 @@
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく続きから受信します。",
+          "modal.price": "eShop 価格",
+          "modal.scoreN": (n) => `評価 · ${n.toLocaleString()}件`,
+          "modal.publisher": "パブリッシャー",
+          "modal.baseSize": "基本サイズ",
+          "modal.installSize": "インストール容量",
+          "modal.firmware": "ファームウェア",
+          "modal.ageRating": "年齢区分",
+          "modal.dlcOut": (n) => `${n}個配信`,
+          "modal.dlcHere": (n) => `ここに${n}個`,
+          "modal.latest": "最新バージョン",
+          "modal.format": "ファイル形式",
+          "modal.players1": "1人",
+          "modal.playersN": (n) => `最大${n}人`,
+          "modal.languages": "対応言語",
+          "modal.noDescSub": "下の情報をご確認ください。",
+          "pill.korean": "韓国語",
+          "pill.score": (n) => `評価 ${n}`,
+          "pill.price": (p) => `eShop ${p}`,
+          "pill.discount": (p) => `セール ${p}`,
+          "install.head": "インストールするもの",
+          "install.base": "本編",
+          "install.update": "アップデート",
+          "install.required": "必須",
+          "install.latest": "最新",
+          "region.kr": "韓国",
+          "region.jp": "日本",
+          "region.us": "北米",
+          "region.eu": "欧州",
+          "region.asia": "アジア",
+          "region.br": "ブラジル",
+          "region.world": "全世界",
+          "retro.from.jp": "日本版",
+          "retro.from.us": "北米版",
+          "retro.from.eu": "欧州版",
+          "retro.from.world": "ワールド版",
+          "retro.official": "正式版",
+          "retro.patched": "韓国語パッチ",
+          "retro.pillBezelOwn": "専用ベゼル",
+          "retro.pillBezelDefault": "標準ベゼル",
+          "retro.maker": "発売元",
+          "retro.forwarder": "HOMEメニューのショートカット",
+          "retro.forwarderWith": "ゲームと一緒に入ります",
+          "retro.installAt": "インストール先",
+          "retro.versionsCount": (n) => `バージョン ${n}`,
         },
         zh: {
           "hero.desc": "像奶油一樣百搭的檔案管理器。<br>檔案、中繼資料與圖片由單一需驗證的主機提供，並快取在磁碟上。",
@@ -1745,20 +1887,13 @@
           "retro.download": "下載",
           "retro.system": "機種",
           "retro.core": "核心",
-          "retro.file": "檔案",
-          "retro.discCount": "光碟",
-          "retro.added": "加入日期",
           "retro.bezelLabel": "邊框",
-          "retro.bezelOwn": "遊戲專用",
-          "retro.bezelDefault": "機種預設",
+          "retro.bezelOwn": "專屬",
+          "retro.bezelDefault": "預設",
           "retro.bezelNone": "無",
-          "retro.original": "原名",
-          "retro.patch": "修補資訊",
           "retro.downloadRom": "下載 ROM",
           "retro.downloadDiscs": "下載全部光碟",
           "retro.versions": (n) => `${n} 個版本`,
-          "retro.versionsHead": "此遊戲的版本",
-          "retro.current": "目前顯示",
           "retro.listed": "推薦",
           "retro.cantRun": "無法執行",
           "row.recent": "最近新增",
@@ -1857,18 +1992,16 @@
           "toast.copied": "已複製網址",
           "toast.refresh": "已重新整理伺服器資料",
           "toast.copyFail": "複製失敗",
-          "modal.size": "大小",
+          "modal.size": "容量",
           "modal.score": "評分",
           "score.count": (n) => `${n.toLocaleString()} 則評論`,
           "modal.release": "發售日",
-          "modal.type": "種類",
           "modal.titleId": "標題 ID",
           "modal.region": "地區",
-          "modal.rating": "分級",
           "modal.category": "類型",
           "modal.players": "玩家人數",
           "modal.developer": "開發商",
-          "modal.noDesc": "沒有說明。",
+          "modal.noDesc": "尚無介紹。",
           "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
           "art.head": "圖片 (自行上傳)",
@@ -1901,6 +2034,50 @@
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會接著下載。",
+          "modal.price": "eShop 價格",
+          "modal.scoreN": (n) => `評分 · ${n.toLocaleString()} 則`,
+          "modal.publisher": "發行商",
+          "modal.baseSize": "本體大小",
+          "modal.installSize": "安裝大小",
+          "modal.firmware": "韌體",
+          "modal.ageRating": "年齡分級",
+          "modal.dlcOut": (n) => `已推出 ${n} 個`,
+          "modal.dlcHere": (n) => `這裡有 ${n} 個`,
+          "modal.latest": "最新版本",
+          "modal.format": "檔案格式",
+          "modal.players1": "1 人",
+          "modal.playersN": (n) => `最多 ${n} 人`,
+          "modal.languages": "支援語言",
+          "modal.noDescSub": "請參考下方資訊。",
+          "pill.korean": "韓文",
+          "pill.score": (n) => `評分 ${n}`,
+          "pill.price": (p) => `eShop ${p}`,
+          "pill.discount": (p) => `特價 ${p}`,
+          "install.head": "要安裝的項目",
+          "install.base": "本體",
+          "install.update": "更新",
+          "install.required": "必要",
+          "install.latest": "最新",
+          "region.kr": "韓國",
+          "region.jp": "日本",
+          "region.us": "北美",
+          "region.eu": "歐洲",
+          "region.asia": "亞洲",
+          "region.br": "巴西",
+          "region.world": "全球",
+          "retro.from.jp": "日版",
+          "retro.from.us": "美版",
+          "retro.from.eu": "歐版",
+          "retro.from.world": "世界版",
+          "retro.official": "正式版",
+          "retro.patched": "韓文補丁",
+          "retro.pillBezelOwn": "專屬邊框",
+          "retro.pillBezelDefault": "預設邊框",
+          "retro.maker": "發行商",
+          "retro.forwarder": "HOME 選單捷徑",
+          "retro.forwarderWith": "隨遊戲附上",
+          "retro.installAt": "安裝位置",
+          "retro.versionsCount": (n) => `版本 ${n}`,
         },
       };
 
@@ -1948,12 +2125,32 @@
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
         return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + u[i];
       };
+      // "2017.03.03" as the client shows it; anything but a plausible YYYYMMDD is "".
       const fmtDate = (yyyymmdd) => {
-        const s = String(yyyymmdd || ""); if (!/^\d{8}$/.test(s)) return "—";
+        const s = String(yyyymmdd || ""); if (!/^\d{8}$/.test(s) || +s < 19500000 || +s > 21001231) return "";
         // A year alone comes as YYYY0000, a month without its day as YYYYMM00.
-        if (s.slice(4) === "0000") return s.slice(0, 4);
-        if (s.slice(6) === "00") return `${s.slice(0,4)}-${s.slice(4,6)}`;
-        return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+        if (s.slice(4, 6) === "00") return s.slice(0, 4);
+        if (s.slice(6) === "00") return `${s.slice(0,4)}.${s.slice(4,6)}`;
+        return `${s.slice(0,4)}.${s.slice(4,6)}.${s.slice(6,8)}`;
+      };
+      // A title version as people read it: the shop's own display version, else
+      // major.minor.micro from the packed number (v65536 → v0.0.1); a base game's 0 stays v0.
+      const fmtVersion = (v, name) => {
+        if (name) return "v" + String(name).replace(/^v/i, "");
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0) return "";
+        if (n === 0) return "v0";
+        return `v${Math.floor(n / 2 ** 26)}.${Math.floor(n / 2 ** 20) & 0x3f}.${Math.floor(n / 2 ** 16) & 0xf}`;
+      };
+      const fmtPlayers = (n) => (!Number.isFinite(n) || n < 1 ? "" : n === 1 ? t("modal.players1") : t("modal.playersN", n));
+      // A file's extension as a label: "NSP", "ZIP".
+      const fmtExt = (file) => (String(file || "").split(/[?#]/)[0].match(/\.([a-z0-9]{1,5})$/i)?.[1] || "").toUpperCase();
+      // Region codes (kr, jp, us, eu, asia, br, world) as a flag and a name.
+      const REGION_FLAGS = { kr: "🇰🇷", jp: "🇯🇵", us: "🇺🇸", eu: "🇪🇺", asia: "🌏", br: "🇧🇷", world: "🌐" };
+      const regionName = (code) => (REGION_FLAGS[code] ? t("region." + code) : code || "");
+      // A language code as its name in the page language ("ko" → "한국어").
+      const langName = (code) => {
+        try { return new Intl.DisplayNames([lang], { type: "language" }).of(code) || code; } catch { return code; }
       };
       const toast = (msg) => {
         const el = document.createElement("div");
@@ -2114,6 +2311,7 @@
       let scoreOf = new Map(); // base title id → { score, count, label }
       let scoreNames = {};     // score label key → { en, ko, ja, zh }
       let sectionOf = new Map(); // base title id → its sections item (rank, players, languages, price)
+      let sectionFiles = new Map(); // "TITLEID:version" → the sections item of any file (an update's version_name)
       let featuredRows = [];     // sections.featured, the admin's picks
 
       // ─── skeleton placeholders ─────────────────────────────────────────────
@@ -2355,8 +2553,10 @@
           const next = new Map();
           const scores = new Map();
           const items = new Map();
+          const files = new Map();
           for (const section of body.sections || []) {
             for (const item of section.items || []) {
+              if (item.title_id) files.set(String(item.title_id).toUpperCase() + ":" + (item.app_version ?? 0), item);
               if (item.app_type !== "base" || !item.title_id) continue;
               const tid = String(item.title_id).toUpperCase();
               items.set(tid, item);
@@ -2367,6 +2567,7 @@
           genreOf = next;
           scoreOf = scores;
           sectionOf = items;
+          sectionFiles = files;
           featuredRows = Array.isArray(body.featured) ? body.featured : [];
           genreNames = body.genres && typeof body.genres === "object" ? body.genres : {};
           scoreNames = body.score_labels && typeof body.score_labels === "object" ? body.score_labels : {};
@@ -2925,7 +3126,9 @@
         return { show, close };
       })();
 
-      // A game's patches in its detail: required ones first, as the console shows them.
+      // A game's patches in its detail, as the console shows them: the ones it needs
+      // to run as a notice at the top; the group of the others is returned for
+      // the "what to install" panel (null when there are none).
       function renderModalPatches(list) {
         const box = $("modal-patches");
         const group = (cls, title, items, note) => {
@@ -2939,11 +3142,9 @@
         };
         const need = list.filter((p) => p.required === true);
         const rest = list.filter((p) => p.required !== true);
-        box.replaceChildren(
-          ...(need.length ? [group("need", t("patches.need"), need, t("patches.needNote"))] : []),
-          ...(rest.length ? [group("", t("patches.related"), rest)] : []),
-        );
-        box.hidden = !list.length;
+        box.replaceChildren(...(need.length ? [group("need", t("patches.need"), need, t("patches.needNote"))] : []));
+        box.hidden = !need.length;
+        return rest.length ? group("", t("patches.related"), rest) : null;
       }
 
       // Patches and saves: one block per game with its files, filtered by a search.
@@ -3489,6 +3690,187 @@
       // Screenshot-sized shimmer while a detail is on its way.
       const shotSkeletons = () => [0, 1, 2].map(() => Object.assign(document.createElement("div"), { className: "shot-skel sk" }));
 
+      // ─── the detail window's parts, shared by Switch and retro games ───────
+      // Pills under the heading: [text, class]; an empty text is left out.
+      function fillPills(list) {
+        $("modal-pills").replaceChildren(...list.filter(([text]) => text).map(([text, cls]) => {
+          const p = document.createElement("span");
+          p.className = "pill" + (cls ? " " + cls : ""); p.textContent = text; p.title = text;
+          return p;
+        }));
+      }
+      // The info table, in the client's order: [label, value, mono]. A null value
+      // shimmers while the detail is on its way; an empty one leaves its cell out.
+      function fillMeta(rows) {
+        const box = $("modal-meta"); box.replaceChildren();
+        for (const [k, v, mono] of rows) {
+          if (v !== null && !v) continue;
+          const cell = document.createElement("div");
+          const label = document.createElement("span"); label.textContent = k;
+          const value = document.createElement("strong");
+          if (v === null) { value.className = "sk"; value.textContent = " "; } else { value.textContent = v; if (mono) value.className = "mono"; }
+          cell.append(label, value);
+          box.append(cell);
+        }
+      }
+      // The description; without one, a card saying so (and, for retro games, where to look instead).
+      function fillDesc(text, loading, sub = "") {
+        const desc = $("modal-desc"); desc.replaceChildren();
+        if (text) { desc.textContent = text; return; }
+        if (loading) { desc.append(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel sk" }))); return; }
+        const card = document.createElement("p"); card.className = "desc-empty";
+        const head = document.createElement("strong"); head.textContent = t("modal.noDesc");
+        card.append(head);
+        if (sub) card.append(document.createTextNode(sub));
+        desc.append(card);
+      }
+      // Chip lines under the table: [heading, [labels]], a line without labels left out.
+      function fillChips(lines) {
+        const box = $("modal-chips"); box.replaceChildren();
+        for (const [head, labels] of lines) {
+          if (!labels?.length) continue;
+          const line = document.createElement("div"); line.className = "chip-line";
+          const h = document.createElement("span"); h.className = "chips-head"; h.textContent = head;
+          line.append(h, ...labels.map((l) => Object.assign(document.createElement("span"), { className: "chip", textContent: l })));
+          box.append(line);
+        }
+      }
+      function fillShots(urls, loading) {
+        const scr = $("modal-screens"); scr.replaceChildren(...(loading ? shotSkeletons() : []));
+        for (const url of urls) {
+          const im = document.createElement("img");
+          im.loading = "lazy"; im.src = bustUrl(url); im.alt = "";
+          // A screenshot that is not on disk yet is hidden, never a broken-image glyph.
+          im.onerror = () => im.remove();
+          scr.append(im);
+        }
+      }
+      // One row of a list in the window: [mark?, flag?] name over a second line, size on the right.
+      function detailRow(el, { name, sub = "", size = 0, flag = "", mark = false, title = "" }) {
+        el.classList.add("extra-row");
+        const main = document.createElement("span"); main.className = "extra-main";
+        if (mark) main.append(Object.assign(document.createElement("span"), { className: "mark" }));
+        if (flag) main.append(Object.assign(document.createElement("span"), { className: "flag", textContent: flag }));
+        const text = document.createElement("span"); text.className = "extra-text";
+        const nameEl = document.createElement("span"); nameEl.className = "extra-name"; nameEl.textContent = name;
+        if (title) nameEl.title = title;
+        text.append(nameEl, Object.assign(document.createElement("span"), { className: "extra-sub", textContent: sub }));
+        main.append(text);
+        const sizeEl = document.createElement("span"); sizeEl.className = "extra-size"; sizeEl.textContent = size > 0 ? fmtBytes(size) : "";
+        el.append(main, sizeEl);
+        return el;
+      }
+
+      // A file's version from its `[v65536]` name stamp.
+      const fileVersion = (f) => Number((f.name || "").match(/\[v(\d+)\]/)?.[1] ?? 0);
+      // The shop's display version ("1.4.1") of one file, when it has read it.
+      const versionName = (titleId, version) => sectionFiles.get(String(titleId || "").toUpperCase() + ":" + version)?.version_name;
+
+      // What the window shows about a Switch game, from the list row, its sections
+      // item and (once fetched) its detail; detail wins over the sparse rows.
+      function switchFacts(r, detail, baseId) {
+        const f = r.item;
+        const td = { ...(r.tdb || {}), ...detail };
+        const m = sectionOf.get(baseId) || {};
+        const group = renderedItems.filter((x) => (x.item.baseTitleId || x.item.titleId || "").toUpperCase() === baseId);
+        const p = detail.price
+          ? { regular: detail.price.regular, discount: detail.price.discount, ends: detail.price.discountEnds }
+          : m.price_regular ? { regular: m.price_regular, discount: m.price_discount, ends: m.price_discount_ends } : null;
+        const sale = Boolean(p?.discount) && !(Date.parse(p.ends) <= Date.now());
+        const sc = Number.isFinite(td.score)
+          ? { score: td.score, count: td.scoreCount, key: td.scoreLabelKey, label: td.scoreLabel }
+          : scoreOf.has(baseId) ? { ...scoreOf.get(baseId), key: scoreOf.get(baseId).label, label: null } : null;
+        const latest = td.latestVersion ?? m.latest_version ?? null;
+        const latestFile = group.find((x) => x.kind === "update" && fileVersion(x.item) === latest);
+        return {
+          td, group,
+          name: pickName(r.kind === "base" ? (td.names || m.names) : null, cleanName(nameWithAlias(f.name || t("misc.unnamed"), td.aliases || []))),
+          publisher: td.publisher || m.publisher || "",
+          languages: td.languages || m.languages || [],
+          price: p ? { ...p, sale } : null,
+          score: sc,
+          genres: Array.isArray(td.categoryLabels) ? td.categoryLabels : (m.categories || []).map(genreLabel),
+          release: fmtDate(td.releaseDate || m.release_date),
+          players: fmtPlayers(Number(td.numberOfPlayers ?? m.players)),
+          baseSize: group.find((x) => x.kind === "base")?.size || (r.kind === "base" ? r.size : 0) || td.size || 0,
+          installSize: m.install_size || 0,
+          firmware: td.requiredFirmware || m.required_firmware || "",
+          rating: [td.rating != null ? String(td.rating) : "", (td.ratingContent || []).join(", ")].filter(Boolean).join(" · "),
+          dlcTotal: Number(td.dlcTotal ?? m.dlc_total) || 0,
+          dlcHere: group.filter((x) => x.kind === "dlc").length,
+          latest: latest != null ? fmtVersion(latest, latestFile && versionName(latestFile.item.titleId, latest)) : "",
+          region: td.region || m.region || "",
+        };
+      }
+
+      // Header, pills, notes, description, info table and chips of a Switch game.
+      function renderSwitchModal(r, detail, baseId, loading) {
+        const f = r.item;
+        const x = switchFacts(r, detail, baseId);
+        $("modal-title").textContent = x.name;
+        $("modal-publisher").textContent = x.publisher === "CookingFoil" ? "" : x.publisher;
+        const genreText = x.genres.join(", ");
+        fillPills([
+          [x.languages.includes("ko") ? t("pill.korean") : "", "need"],
+          [x.score ? t("pill.score", x.score.score) : ""],
+          [x.price ? (x.price.sale ? t("pill.discount", x.price.discount) : t("pill.price", x.price.regular)) : ""],
+          [genreText.length <= 24 ? genreText : ""],
+        ]);
+        $("modal-notes-text").textContent = x.td.notes || "";
+        $("modal-notes").hidden = !x.td.notes;
+        fillDesc(x.td.description, loading);
+        const known = (v) => (loading && !v ? null : v || "");
+        const dlc = [x.dlcTotal ? t("modal.dlcOut", x.dlcTotal) : "", x.dlcHere ? t("modal.dlcHere", x.dlcHere) : ""].filter(Boolean).join(" · ");
+        fillMeta([
+          [t("modal.price"), known(x.price ? (x.price.sale ? `${x.price.discount} (${x.price.regular})` : x.price.regular) : "")],
+          [x.score?.count ? t("modal.scoreN", x.score.count) : t("modal.score"), known(x.score ? scoreText(x.score.score, x.score.key, x.score.label) : "")],
+          [t("modal.release"), known(x.release)],
+          [t("modal.publisher"), known(x.publisher)],
+          [t("modal.players"), known(x.players)],
+          [t("modal.baseSize"), x.baseSize > 0 ? fmtBytes(x.baseSize) : ""],
+          [t("modal.installSize"), x.installSize > 0 ? fmtBytes(x.installSize) : ""],
+          [t("modal.firmware"), known(x.firmware)],
+          [t("modal.ageRating"), known(x.rating)],
+          [t("chip.dlc"), known(dlc)],
+          [t("modal.latest"), known(x.latest)],
+          [t("modal.format"), fmtExt(f.url || f.name)],
+          [t("modal.region"), known(x.region)],
+          [t("modal.titleId"), f.titleId || "", true],
+        ]);
+        fillChips([[t("modal.languages"), x.languages.map(langName)], [t("modal.category"), x.genres]]);
+        return x;
+      }
+
+      // "What to install", as the console's panel lists it: the base game, the
+      // newest update only, every DLC, then the patches that are not required.
+      function renderInstall(group, patchGroup) {
+        const box = $("modal-install");
+        const rows = [];
+        const link = (f) => {
+          const a = document.createElement("a");
+          a.href = f.url || "#"; a.target = "_blank"; a.rel = "noopener";
+          return a;
+        };
+        const base = group.find((x) => x.kind === "base");
+        if (base) {
+          const v = fileVersion(base.item);
+          rows.push(detailRow(link(base.item), { name: t("install.base"), sub: [fmtVersion(v, versionName(base.item.titleId, v)), t("install.required")].join(" · "), size: base.size }));
+        }
+        const update = group.filter((x) => x.kind === "update").sort((a, b) => fileVersion(b.item) - fileVersion(a.item))[0];
+        if (update) {
+          const v = fileVersion(update.item);
+          rows.push(detailRow(link(update.item), { name: t("install.update"), sub: [fmtVersion(v, versionName(update.item.titleId, v)), t("install.latest")].join(" · "), size: update.size }));
+        }
+        for (const d of group.filter((x) => x.kind === "dlc")) {
+          rows.push(detailRow(link(d.item), { name: cleanName(d.item.name || t("misc.unnamed")), sub: t("chip.dlc"), size: d.size }));
+        }
+        box.replaceChildren();
+        if (!rows.length && !patchGroup) { box.hidden = true; return; }
+        const head = document.createElement("div"); head.className = "extras-head"; head.textContent = t("install.head");
+        box.append(head, ...rows, ...(patchGroup ? [patchGroup] : []));
+        box.hidden = false;
+      }
+
       async function openModal(r) {
         currentModal = r;
         retroSeq++; // a retro detail still on its way must not land in this window
@@ -3497,24 +3879,20 @@
         const validBase = /^[0-9A-F]{16}$/.test(baseId);
         const modalEl = document.querySelector("#modal .modal");
         const iconUrl = f.icon_url || (validBase ? `/api/shop/icon/${baseId}` : "");
+        const cached = validBase ? detailCache.get(baseId + ":" + lang) : null;
 
         // Open at once with what the row already knows, shimmering where the
         // detail will land, instead of waiting on the network with nothing shown.
-        modalEl.classList.add("loading");
-        $("modal-title").textContent = cleanName(nameWithAlias(f.name || t("misc.unnamed"), r.tdb?.aliases || []));
-        $("modal-publisher").textContent = r.tdb?.publisher || "\u00a0";
+        modalEl.classList.toggle("loading", validBase && !cached);
         setCover(iconUrl);
         setPoster("");
+        $("modal-flag").hidden = true; $("modal-where").hidden = true;
         const bannerBox = $("modal-banner");
         bannerBox.dataset.want = ""; bannerBox.classList.remove("no-art"); bannerBox.style.backgroundImage = "";
-        $("modal-meta").replaceChildren(...Array.from({ length: 8 }, () => {
-          const cell = document.createElement("div");
-          cell.append(document.createElement("span"), Object.assign(document.createElement("strong"), { textContent: "—" }));
-          return cell;
-        }));
-        $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
-        $("modal-screens").replaceChildren(...shotSkeletons()); $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
-        $("modal-notes").hidden = true;
+        renderSwitchModal(r, cached ? cached.detail : {}, baseId, validBase && !cached);
+        fillShots([], validBase && !cached);
+        $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+        $("modal-install").replaceChildren(); $("modal-install").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
@@ -3528,80 +3906,38 @@
         // (best effort) so the modal shows full info instead of "—".
         let art = { icon: false, banner: false, screens: [] };
         let detail = {};
-        if (validBase) {
-          const cached = detailCache.get(baseId + ":" + lang);
-          if (cached) {
-            ({ art, detail } = cached);
-          } else {
-            const [ar, dr] = await Promise.all([
-              fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-              fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" } }).catch(() => null),
-            ]);
-            try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
-            try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
-            detailCache.set(baseId + ":" + lang, { art, detail });
-          }
+        if (cached) {
+          ({ art, detail } = cached);
+        } else if (validBase) {
+          const [ar, dr] = await Promise.all([
+            fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
+            fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" } }).catch(() => null),
+          ]);
+          try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
+          try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
+          detailCache.set(baseId + ":" + lang, { art, detail });
         }
         if (currentModal !== r) return; // another title was opened meanwhile
         modalEl.classList.remove("loading");
-        // detail (server titledb store) wins over the sparse per-row tdb.
-        const td = { ...(r.tdb || {}), ...detail };
+        const x = renderSwitchModal(r, detail, baseId, false);
 
-        $("modal-title").textContent = pickName(r.kind === "base" ? td.names : null, cleanName(nameWithAlias(f.name || t("misc.unnamed"), td.aliases || [])));
-        $("modal-publisher").textContent = td.publisher || (f.titleId ? t("modal.titleId") + " " + f.titleId : t("chip.custom"));
-
-        // Title image preview beside the heading — every title gets one. Falls
-        // back to the placeholder SVG (never a broken-image glyph) on 404.
-        const bannerUrl = td.bannerUrl || (validBase && art.banner ? `/api/shop/banner/${baseId}` : "");
+        // The banner, or the blurred icon when the game has none.
+        const bannerUrl = x.td.bannerUrl || (validBase && art.banner ? `/api/shop/banner/${baseId}` : "");
         setBanner(bannerUrl, iconUrl);
 
-        const metaBox = $("modal-meta"); metaBox.innerHTML = "";
-        const rows = [
-          [t("modal.size"),     fmtBytes(r.size)],
-          [t("modal.release"),  fmtDate(td.releaseDate)],
-          [t("modal.type"),     t("chip." + r.kind) || r.kind],
-          [t("modal.titleId"),  f.titleId || "—"],
-          [t("modal.region"),   td.region || "—"],
-          [t("modal.score"),    Number.isFinite(td.score) ? scoreText(td.score, td.scoreLabelKey, td.scoreLabel) + (td.scoreCount ? " · " + t("score.count", td.scoreCount) : "") : "—"],
-          [t("modal.rating"),   td.rating != null ? String(td.rating) : "—"],
-          [t("modal.category"), Array.isArray(td.categoryLabels) ? td.categoryLabels.join(", ") : (td.category || "—")],
-          [t("modal.players"),  td.numberOfPlayers != null ? String(td.numberOfPlayers) : "—"],
-        ];
-        for (const [k, v] of rows) {
-          const cell = document.createElement("div");
-          const label = document.createElement("span"); label.textContent = k;
-          const value = document.createElement("strong"); value.textContent = v;
-          if (k === t("modal.titleId")) value.className = "mono";
-          cell.append(label, value);
-          metaBox.appendChild(cell);
-        }
-        $("modal-notes-text").textContent = td.notes || "";
-        $("modal-notes").hidden = !td.notes;
-        renderModalPatches(Array.isArray(detail.patches) ? detail.patches : []);
-        $("modal-desc").textContent = td.description || t("modal.noDesc");
-
-        const scr = $("modal-screens"); scr.innerHTML = "";
-        const shots = [];
-        if (Array.isArray(td.screenshots)) shots.push(...td.screenshots);
+        const shots = Array.isArray(x.td.screenshots) ? [...x.td.screenshots] : [];
         if (validBase) for (const i of (art.screens || [])) shots.push(`/api/shop/screenshot/${baseId}/${i}`);
-        for (const url of shots) {
-          const im = document.createElement("img");
-          im.loading = "lazy"; im.src = bustUrl(url); im.alt = "";
-          // Icon route returns 404 when the asset isn't on disk yet —
-          // hide rather than show a broken-image glyph.
-          im.onerror = () => im.remove();
-          scr.appendChild(im);
-        }
+        fillShots(shots, false);
+
+        // The patches a game needs sit above its notes; the rest go with what to install.
+        const related = renderModalPatches(Array.isArray(detail.patches) ? detail.patches : []);
+        if (validBase) renderInstall(x.group, related);
 
         // Artwork edit controls — only when uploads are enabled.
         renderArtEditor(baseId, validBase, art);
 
-        // Extra (non-installable) files in the title's folder — web-only.
-        const extrasBox = $("modal-extras"); extrasBox.innerHTML = "";
-        if (validBase) loadExtras(baseId, extrasBox);
-
-        $("modal-download").href = f.url || "#";
-        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+        // The other files in the title's folder, which only the web lists.
+        if (validBase) loadExtras(baseId, $("modal-extras"));
       }
 
       // ─── artwork editor (upload / replace / remove) ────────────────────────
@@ -3817,102 +4153,107 @@
         });
       }
 
+      // Laid out as the console shows a retro game: a screenshot (else the box
+      // art, else the blurred icon) as the banner, the icon with its region flag,
+      // pills for what the file is, the description, the info table, where it
+      // installs, genres, screenshots and the versions to pick from.
       function renderRetroModal(g, sys, loading) {
         const modalEl = document.querySelector("#modal .modal");
-        modalEl.classList.remove("loading");
-        // The server drops the patch / version tags from the name and sends them as `variant`.
-        const patch = g.variant || "";
-        const withoutPatch = g.name;
-        const original = (withoutPatch.match(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/) || [])[1] || "";
+        modalEl.classList.toggle("loading", loading);
         const sysName = sys ? (sys.names?.[lang] || sys.name) : g.system;
-        $("modal-title").textContent = original ? withoutPatch.slice(0, withoutPatch.lastIndexOf("(" + original)).trim() || withoutPatch : withoutPatch;
-        $("modal-publisher").textContent = g.publisher || sysName;
+        // The original title, from the reply or the name's last "(…)"; shown only when it differs.
+        const tail = (g.name.match(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/) || [])[1] || "";
+        const title = tail && (!g.original || tail === g.original) ? g.name.slice(0, g.name.lastIndexOf("(" + tail)).trim() || g.name : g.name;
+        const original = g.original || tail;
+        $("modal-title").textContent = title;
+        $("modal-publisher").textContent = [original && original !== title ? original : "", sysName].filter(Boolean).join(" · ");
         setCover(g.iconUrl || "");
+        const flag = $("modal-flag");
+        flag.hidden = !REGION_FLAGS[g.region];
+        flag.textContent = REGION_FLAGS[g.region] || ""; flag.title = regionName(g.region);
+
+        const banner = $("modal-banner");
+        const shot = Array.isArray(g.screenshots) ? g.screenshots[0] : "";
+        if (loading) {
+          banner.dataset.want = ""; banner.classList.remove("no-art"); banner.style.backgroundImage = "";
+          setPoster("");
+        } else {
+          setBanner(shot || "", g.iconUrl || "");
+          setPoster(shot ? "" : g.boxartUrl || "");
+        }
+
+        const ed = g.edition || null;
         const own = g.bezel?.hasBezel && !g.bezel.generic;
-        setBanner(g.bezel?.hasBezel ? g.bezel.imageUrl : "", g.iconUrl || "");
-        setPoster(g.boxartUrl || "");
-        const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
+        const variant = g.variant && g.variant.length > 28 ? g.variant.slice(0, 27) + "…" : g.variant;
+        fillPills([
+          [fmtExt(g.file)],
+          [g.bezel?.hasBezel ? t(own ? "retro.pillBezelOwn" : "retro.pillBezelDefault") : ""],
+          [ed?.source ? t(ed.source === "official" ? "retro.official" : "retro.patched") : "", "need"],
+          [["jp", "us", "eu", "world"].includes(ed?.from) ? t(`retro.from.${ed.from}`) : ""],
+          [ed?.version || ""],
+          [!g.region && !ed ? variant : ""],
+          [Number.isFinite(g.rating) ? t("pill.score", g.rating) : ""],
+        ]);
+        fillDesc(g.description, loading, t("modal.noDescSub"));
+
         // A value only the game's own reply has shimmers until it arrives.
-        const known = (v) => (loading && !v ? null : v || "—");
-        const rows = [
+        const known = (v) => (loading && !v ? null : v || "");
+        fillMeta([
+          [g.ratingCount ? t("modal.scoreN", g.ratingCount) : t("modal.score"), Number.isFinite(g.rating) ? String(g.rating) : ""],
+          [t("modal.release"), known(fmtDate(g.releaseDate))],
+          [t("retro.maker"), known(g.publisher)],
+          [t("modal.developer"), g.developer && g.developer === g.publisher ? "" : known(g.developer)],
+          [t("modal.players"), known(fmtPlayers(Number(g.numberOfPlayers)))],
           [t("retro.system"), sysName],
-          [t("modal.size"), fmtBytes(g.size)],
-          [t("modal.release"), known(g.releaseDate ? fmtDate(g.releaseDate) : "")],
-          [t("modal.score"), Number.isFinite(g.rating) ? String(g.rating) + (g.ratingCount ? " · " + t("score.count", g.ratingCount) : "") : "—"],
-          [t("modal.category"), known(g.genres?.length ? g.genres.join(", ") : "")],
-          [t("modal.players"), known(g.numberOfPlayers != null ? String(g.numberOfPlayers) : "")],
-          [t("modal.developer"), known(g.developer)],
-          [t("retro.core"), g.core || "—"],
-          ...(discs ? [[t("retro.discCount"), String(discs)]] : []),
+          [t("retro.core"), g.core],
+          [t("modal.size"), g.size > 0 ? fmtBytes(g.size) : ""],
+          [t("modal.format"), fmtExt(g.file)],
+          [t("modal.region"), regionName(g.region)],
           [t("retro.bezelLabel"), own ? t("retro.bezelOwn") : g.bezel?.hasBezel ? t("retro.bezelDefault") : t("retro.bezelNone")],
-          [t("retro.added"), g.addedAt ? new Date(g.addedAt * 1000).toLocaleDateString(lang) : "—"],
-        ];
-        const metaBox = $("modal-meta"); metaBox.replaceChildren();
-        for (const [k, v] of rows) {
-          const cell = document.createElement("div");
-          const label = document.createElement("span"); label.textContent = k;
-          const value = document.createElement("strong");
-          if (v === null) { value.className = "sk"; value.textContent = "\u00a0"; } else value.textContent = v;
-          cell.append(label, value);
-          metaBox.append(cell);
-        }
-        const desc = $("modal-desc"); desc.replaceChildren();
-        if (g.description) {
-          const p = document.createElement("p"); p.className = "retro-desc"; p.textContent = g.description;
-          desc.append(p);
-        } else if (loading) {
-          desc.append(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel sk" })));
-        }
-        for (const [k, v] of [[t("retro.original"), original], [t("retro.patch"), patch], [t("retro.file"), g.file]]) {
-          if (!v) continue;
-          const line = document.createElement("div");
-          const b = document.createElement("strong"); b.textContent = k + " ";
-          line.append(b, document.createTextNode(v));
-          desc.append(line);
-        }
-        const scr = $("modal-screens"); scr.replaceChildren(...(loading && !g.screenshots ? shotSkeletons() : []));
-        for (const url of Array.isArray(g.screenshots) ? g.screenshots : []) {
-          const im = document.createElement("img");
-          im.loading = "lazy"; im.src = url; im.alt = "";
-          im.onerror = () => im.remove();
-          scr.append(im);
-        }
-        $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+          [t("retro.forwarder"), g.forwarderUrl ? t("retro.forwarderWith") : ""],
+        ]);
+        const where = $("modal-where");
+        where.replaceChildren();
+        if (g.install?.rom) where.append(document.createTextNode(t("retro.installAt") + " "), Object.assign(document.createElement("code"), { textContent: g.install.rom }));
+        where.hidden = !g.install?.rom;
+        fillChips([[t("modal.category"), g.genres || []]]);
+        fillShots(Array.isArray(g.screenshots) ? g.screenshots : [], loading && !g.screenshots);
+
+        $("modal-art").hidden = true;
         $("modal-notes").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
+        $("modal-install").replaceChildren(); $("modal-install").hidden = true;
         showRetroVersions(g, sys);
+        const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
         const dl = $("modal-download");
         dl.href = discs ? g.bundleUrl : g.romUrl;
         dl.setAttribute("download", "");
         dl.textContent = discs ? t("retro.downloadDiscs") : t("retro.downloadRom");
       }
 
-      // The other files of a game (a patch beside the official release, an arcade
-      // set's other regions): the list shows one card, the window picks among them.
+      // The files of a game (a patch beside the official release, an arcade set's
+      // other regions), one even when it is alone: the list shows one card, the
+      // window picks among them and redraws itself as the version picked.
       function showRetroVersions(g, sys) {
-        if (!Array.isArray(g.variants) || g.variants.length < 2) return;
         const box = $("modal-extras");
+        box.replaceChildren();
+        if (!Array.isArray(g.variants) || !g.variants.length) return;
         const head = document.createElement("div");
         head.className = "extras-head";
-        head.textContent = t("retro.versionsHead") + " (" + g.variants.length + ")";
-        box.replaceChildren(head);
+        head.textContent = t("retro.versionsCount", g.variants.length);
+        box.append(head);
         for (const v of g.variants) {
           const row = document.createElement("button");
           row.type = "button";
-          row.className = "extra-row version-row";
+          row.classList.add("version-row");
           const current = v.id === g.id;
           row.setAttribute("aria-pressed", String(current));
-          const nameEl = document.createElement("span");
-          nameEl.className = "extra-name";
-          const tags = [v.variant || v.region?.toUpperCase() || v.name];
-          if (v.representative) tags.push(t("retro.listed"));
-          if (current) tags.push(t("retro.current"));
-          if (v.missing) tags.push(t("retro.cantRun"));
-          nameEl.textContent = tags.join(" · ");
-          nameEl.title = v.file;
-          const sizeEl = document.createElement("span");
-          sizeEl.className = "extra-size"; sizeEl.textContent = fmtBytes(v.size);
-          row.append(nameEl, sizeEl);
+          const sub = [
+            v.edition?.korean ? t("pill.korean") : "",
+            v.representative && g.variants.length > 1 ? t("retro.listed") : "",
+            v.missing ? t("retro.cantRun") : "",
+          ].filter(Boolean).join(" · ");
+          detailRow(row, { name: v.variant || v.name, sub, size: v.size, flag: REGION_FLAGS[v.region] || "", mark: true, title: v.file });
           row.addEventListener("click", () => { if (!current) openRetroModal(v, sys); });
           box.append(row);
         }
