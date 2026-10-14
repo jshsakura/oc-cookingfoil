@@ -318,9 +318,16 @@ export async function adoptFolders(root) {
     if (hasManifest) continue;
     const nro = (await fsp.readdir(dir)).filter((f) => /\.nro$/i.test(f)).sort()[0];
     if (!nro) continue;
-    if ((await filesUnder(dir)).length < 2) continue;
+    const files = await filesUnder(dir);
+    if (files.length < 2) continue;
     if (!APP_NAME_RE.test(folder) || !APP_NAME_RE.test(nro)) {
       skipped.push({ folder, reason: "폴더나 .nro 이름에 영문, 숫자, - _ . 만 쓸 수 있습니다" });
+      continue;
+    }
+    // The same check every install goes through: guides are left out, any other name the card can't create stops it.
+    const problems = pathProblems(files.filter((r) => !leftOutOfFolder(r)).map((r) => `switch/${folder}/${r}`));
+    if (problems.length) {
+      skipped.push({ folder, reason: `콘솔 SD 에 만들 수 없는 이름이 있습니다: ${describeProblems(problems)}` });
       continue;
     }
     const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [] };

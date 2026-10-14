@@ -584,11 +584,16 @@ test("adoptFolders writes a folder manifest for a .nro with game files and leave
   fs.mkdirSync(path.join(root, "한글 폴더"));
   fs.writeFileSync(path.join(root, "한글 폴더", "a.nro"), fakeNro("A", "1.0"));
   fs.writeFileSync(path.join(root, "한글 폴더", "b.bin"), "x");
+  fs.mkdirSync(path.join(root, "kor-data", "Audio"), { recursive: true });
+  fs.writeFileSync(path.join(root, "kor-data", "game.nro"), fakeNro("K", "1.0"));
+  fs.writeFileSync(path.join(root, "kor-data", "Audio", "전투.ogg"), "x");
+  fs.writeFileSync(path.join(root, "my-game", "설치-스위치.md"), "a guide, left out rather than blocking");
 
   const result = await adoptFolders(root);
 
   assert.deepEqual(result.registered, ["my-game"]);
-  assert.deepEqual(result.skipped.map((s) => s.folder), ["한글 폴더"]);
+  assert.deepEqual(result.skipped.map((s) => s.folder), ["kor-data", "한글 폴더"]);
+  assert.match(result.skipped[0].reason, /Audio\/전투\.ogg/);
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "my-game", ".cookingfoil.json"), "utf8"));
   assert.equal(manifest.mode, "folder");
   assert.equal(manifest.nro, "MyGame.nro");
