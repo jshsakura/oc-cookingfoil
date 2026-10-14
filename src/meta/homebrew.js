@@ -26,6 +26,7 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
 import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
+import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
@@ -304,19 +305,36 @@ export async function scanManual(root) {
   }
   const out = [];
   const seen = new Set();
+  const held = [];
   for (const folder of folders.sort()) {
     try {
-      const entry = await readManual(root, folder, seen);
+      const entry = await readManual(root, folder, seen, held);
       if (entry) out.push(entry);
     } catch (err) {
       debug.error("homebrew: %s left out: %s", path.join(root, folder), err.message);
     }
   }
   await saveHashes(seen).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
+  heldBack = held;
   return out;
 }
 
-async function readManual(root, folder, seen = null) {
+// Hand-placed apps the last scan kept off the consoles' list, with why: [{ folder, reason }].
+let heldBack = [];
+const heldLogged = new Map(); // folder → the reason last logged, so a minutely rescan logs it once
+
+/** The hand-placed apps the last scan left out of the list, for the admin page. */
+export function heldManual() {
+  return heldBack;
+}
+
+function hold(held, folder, reason) {
+  held?.push({ folder, reason });
+  if (heldLogged.get(folder) !== reason) debug.error("homebrew: %s left out: %s", folder, reason);
+  heldLogged.set(folder, reason);
+}
+
+async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
   const names = await fsp.readdir(dir);
@@ -324,7 +342,7 @@ async function readManual(root, folder, seen = null) {
   if (!file) {
     // A folder holding a release zip as it is: served whole, never unpacked here.
     const zip = names.filter((f) => /\.zip$/i.test(f)).sort()[0];
-    return zip ? readManualZip(dir, folder, zip, seen) : null;
+    return zip ? readManualZip(dir, folder, zip, seen, held) : null;
   }
   const abs = path.join(dir, file);
   const meta = await readNro(abs);
@@ -343,6 +361,12 @@ async function readManual(root, folder, seen = null) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
       files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });
+    }
+    // A name the card can't create would fail at the very end of the install; the app waits until it is renamed.
+    const problems = pathProblems(files.map((f) => f.path));
+    if (problems.length) {
+      hold(held, folder, `콘솔 SD 에 만들 수 없는 이름이 있어 기기 목록에서 뺐습니다. 이름을 바꾸면 다시 나옵니다: ${describeProblems(problems)}`);
+      return null;
     }
     folderInstall = { install_dir: `switch/${folder}`, install_path: `switch/${folder}/${file}`, files };
   }
@@ -383,7 +407,7 @@ export async function forgetZipCopies(id) {
  * the name, version and icon, and the zip itself sent as `archive` with the map
  * of which entry goes where on the card.
  */
-async function readManualZip(dir, folder, zipName, seen) {
+async function readManualZip(dir, folder, zipName, seen, held = null) {
   const abs = path.join(dir, zipName);
   const st = await fsp.stat(abs);
   const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
@@ -397,14 +421,18 @@ async function readManualZip(dir, folder, zipName, seen) {
       known.layout = normalizeLayout(entries, { repoName: folder, maxFiles: Infinity });
       known.sizes = new Map(entries.map((e) => [e.name, e.size]));
       // A name the card can't take (spaces, other scripts, :?) would install only the .nro, or under a mangled path.
-      if (known.layout.reason === "unsafe-path") known.failed = `a path in it can't go on the card as it is${known.layout.nro ? ` (${known.layout.nro.path})` : ""}; app folder and .nro names take ASCII letters, digits, - _ and .`;
+      if (known.layout.reason === "console-path") known.failed = `the card can't create ${describeProblems(known.layout.problems)}`;
+      else if (known.layout.reason === "unsafe-path") known.failed = `a path in it can't go on the card as it is${known.layout.nro ? ` (${known.layout.nro.path})` : ""}; app folder and .nro names take ASCII letters, digits, - _ and .`;
       else if (!known.layout.nro) known.failed = "it holds no .nro for switch/<app>/";
     } catch (err) {
       known.failed = err.message;
     }
     if (known.failed) debug.error("homebrew: %s left out: %s", abs, known.failed);
   }
-  if (known.failed) return null;
+  if (known.failed) {
+    held?.push({ folder, reason: known.failed });
+    return null;
+  }
   const { layout } = known;
   const id = idFor("manual", folder);
   const hash = await cachedSha256(abs, st, seen);
@@ -625,7 +653,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       let install = { mode: "nro", reason: zipped ? null : "nro-release" };
       if (zipped) {
         const layout = normalizeLayout(await zipEntries(part), { repoName });
-        if (!layout.nro) throw new Error(`the zip has no usable .nro (${layout.reason})`);
+        if (!layout.nro) throw new Error(`the zip has no usable .nro (${layout.reason}${layout.problems ? `: ${describeProblems(layout.problems)}` : ""})`);
         const decided = { rules: layout.rules, excluded: layout.excluded };
         if (layout.mode === "folder") {
           await fsp.rm(pkgPart, { recursive: true, force: true });

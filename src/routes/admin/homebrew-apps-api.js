@@ -3,7 +3,8 @@
  * and saves, and the changes that list allows.
  *
  *   GET  /admin/api/homebrew/apps          { apps: [{ id, app, name, version, author, size, kind, source, repo_url,
- *                                            patches: [{ id, name, size, files }], saves: [same] }] }
+ *                                            patches: [{ id, name, size, files }], saves: [same] }],
+ *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
  *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  deletes a homebrew app's patch or save folder
  *   POST /admin/api/homebrew/manual/remove { id }  deletes a hand-placed app's folder (its patches and saves stay)
  */
@@ -13,7 +14,7 @@ import * as userPatches from "../../meta/user-patches.js";
 import { patchesDir, savesDir, homebrewDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService, manualApps, refreshManual } from "../homebrew.js";
-import { forgetZipCopies, installPathFor } from "../../meta/homebrew.js";
+import { forgetZipCopies, heldManual, installPathFor } from "../../meta/homebrew.js";
 import debug from "../../debug.js";
 
 const brief = ({ id, name, size, files }) => ({ id, name, size, files });
@@ -66,6 +67,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
           saves: extras.get(app)?.saves ?? [],
         };
       }),
+      held: heldManual(),
     });
   }));
 

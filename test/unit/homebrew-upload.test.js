@@ -231,6 +231,31 @@ test("a hand-placed app's install guides stay on the server; its own text data g
   ]);
 });
 
+test("a hand-placed app with a file the console can't create is kept off the list and shown to the admin", async () => {
+  const { scanManual, setManualHashFile, heldManual } = await import("../../src/meta/homebrew.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-ascii-"));
+  const app = path.join(root, "apps", "game");
+  fs.mkdirSync(path.join(app, "Audio"), { recursive: true });
+  fs.writeFileSync(path.join(app, "game.nro"), fakeNro("Game"));
+  fs.writeFileSync(path.join(app, "Audio", "전투.ogg"), "x");
+  fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder" }));
+  setManualHashFile(path.join(root, "hashes.json"));
+  assert.deepEqual(await scanManual(path.join(root, "apps")), []);
+  const [held] = heldManual();
+  assert.equal(held.folder, "game");
+  assert.match(held.reason, /Audio\/전투\.ogg/);
+  // Renamed, it comes back.
+  fs.renameSync(path.join(app, "Audio", "전투.ogg"), path.join(app, "Audio", "battle.ogg"));
+  assert.equal((await scanManual(path.join(root, "apps"))).length, 1);
+  assert.deepEqual(heldManual(), []);
+});
+
+test("an upload with a file the console can't create is refused, naming the path and why", async () => {
+  const { placeHomebrew, HomebrewUploadError } = await import("../../src/routes/admin/homebrew-upload.js");
+  const items = ["game/game.nro", "game/Audio/전투.ogg", "game/설치.md"].map((rel) => ({ rel, abs: `/nonexistent/${rel}` }));
+  await assert.rejects(placeHomebrew(items, "/nonexistent"), (err) => err instanceof HomebrewUploadError && /Audio\/전투\.ogg/.test(err.message) && !/설치\.md/.test(err.message));
+});
+
 test("an app kept as a zip is listed from inside it and sent whole, never unpacked on the server", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-zip-"));
   const dirs = Object.fromEntries(["data", "games", "homebrew", "patches", "saves"].map((k) => [k, path.join(root, k)]));

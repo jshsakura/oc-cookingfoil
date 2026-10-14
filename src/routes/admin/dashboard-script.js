@@ -38,7 +38,7 @@ async function api(url,opts={}){
 // ── tabs ──────────────────────────────────────────────────────────────
 // why a zip was served as its single .nro instead of a whole folder
 // why files of a release were left out of the install
-const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일'};
+const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일','doc':'PC 용 설치 안내문'};
 const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다','partial':'일부 파일을 빼고 설치합니다'};
 const TABS=['overview','users','devices','settings','alerts','logs','featured','library','upload','homebrew','retro'];
 function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
@@ -317,6 +317,8 @@ async function loadHomebrew(){
 let hbManual=[],hbSources=[];
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
 async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
+  const held=d.held||[];$('hb-held').hidden=!held.length;
+  $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
   const extraCell=(type,app,items)=>{const c=td();
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}

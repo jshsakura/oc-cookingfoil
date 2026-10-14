@@ -95,10 +95,27 @@ test("a lone .nro, links and escaping paths are never a folder install", () => {
 });
 
 test("hand-placed folders leave out guides and clutter, but not data below the top", () => {
-  for (const rel of ["설치-스위치.md", "INSTALL.txt", "index.html", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
+  for (const rel of ["설치-스위치.md", "INSTALL.txt", "설명.txt", "index.html", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
     assert.notEqual(leftOutOfFolder(rel), null, rel);
   }
-  for (const rel of ["game.nro", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini"]) {
+  for (const rel of ["game.nro", "items.txt", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini"]) {
     assert.equal(leftOutOfFolder(rel), null, rel);
   }
+});
+
+const entry = (name) => ({ name, size: 1, dir: false, link: false });
+
+test("a zip's install guide is left out and the rest goes to the console", () => {
+  const layout = normalizeLayout(["switch/game/game.nro", "switch/game/설치-스위치.md", "switch/game/items.txt", "switch/game/Data/a.txt"].map(entry), { repoName: "game" });
+  assert.equal(layout.mode, "folder");
+  assert.deepEqual(layout.files.map((f) => f.path), ["switch/game/Data/a.txt", "switch/game/game.nro", "switch/game/items.txt"]);
+  assert.ok(layout.excluded.some((x) => x.rule === "doc"));
+});
+
+test("a file the app runs on with a name the console can't create refuses the app, never renamed", () => {
+  const layout = normalizeLayout(["switch/game/game.nro", "switch/game/Audio/전투.ogg", "switch/game/Data/x.bin"].map(entry), { repoName: "game" });
+  assert.equal(layout.mode, null);
+  assert.equal(layout.reason, "console-path");
+  assert.equal(layout.nro, null, "nothing to install, so no caller can take the .nro alone");
+  assert.deepEqual(layout.problems.map((x) => x.path), ["switch/game/Audio/전투.ogg"]);
 });
