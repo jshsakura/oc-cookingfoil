@@ -11,7 +11,9 @@ import fs from "fs";
 import path from "path";
 import debug from "../../debug.js";
 
-const VERSION = 1;
+// 2: LaunchBox records carry `wiki` (fields.js). A version 1 file is kept and
+// served, but counts as never matched, so the first tick matches it again.
+const VERSION = 2;
 let file = null;
 let state = { builtAt: 0, games: {} };
 
@@ -19,7 +21,8 @@ export function load(dataDir) {
   file = path.join(dataDir, "retro-meta.json");
   try {
     const stored = JSON.parse(fs.readFileSync(file, "utf8"));
-    state = stored?.version === VERSION && stored.games ? { builtAt: Number(stored.builtAt) || 0, games: stored.games } : { builtAt: 0, games: {} };
+    const known = stored?.games && (stored.version === VERSION || stored.version === 1);
+    state = known ? { builtAt: stored.version === VERSION ? Number(stored.builtAt) || 0 : 0, games: stored.games } : { builtAt: 0, games: {} };
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("retro meta: cannot read %s: %s", file, err.message);
     state = { builtAt: 0, games: {} };

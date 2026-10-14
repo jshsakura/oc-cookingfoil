@@ -9,7 +9,7 @@ import readline from "readline";
 import { decode, titleKey } from "../art/titles.js";
 import { SHOT_TYPES } from "./fields.js";
 
-const GAME_FIELDS = ["DatabaseID", "Name", "Platform", "Overview", "Publisher", "Developer", "ReleaseDate", "ReleaseYear", "MaxPlayers", "Genres", "ReleaseType", "CommunityRatingCount"];
+const GAME_FIELDS = ["DatabaseID", "Name", "Platform", "Overview", "Publisher", "Developer", "ReleaseDate", "ReleaseYear", "MaxPlayers", "Genres", "ReleaseType", "CommunityRatingCount", "WikipediaURL"];
 const MAME_FIELDS = ["FileName", "Name", "CloneOf", "Publisher", "Developer", "Year", "Genre", "PlayMode"];
 const BLOCKS = new Set(["<Game>", "<GameAlternateName>", "<GameImage>", "<MameFile>"]);
 
