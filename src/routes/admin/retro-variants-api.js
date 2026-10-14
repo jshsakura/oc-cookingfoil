@@ -101,7 +101,7 @@ export function mountRetroVariantsApi(router, requireSession) {
     const game = req.body?.game == null ? null : String(req.body.game);
     if (game !== null && !group.members.some((g) => g.id === game)) return res.status(400).json({ error: "이 묶음의 파일이 아닙니다" });
     // A set that can't run would leave the group with nothing to list.
-    if (game !== null && group.members.find((g) => g.id === game).missing?.length) return res.status(400).json({ error: "실행되지 않는 세트는 대표로 정할 수 없습니다" });
+    if (game !== null && group.members.find((g) => g.id === game).missing?.length) return res.status(400).json({ error: "실행되지 않는 세트는 추천 버전으로 정할 수 없습니다" });
     picks.set(group.id, game === group.members[0].id ? null : game);
     debug.log("admin: retro group %s represented by %s", group.id, game ?? "(rule)");
     res.json({ ok: true, group: publicGroup(group, catalog.systems) });

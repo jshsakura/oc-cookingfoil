@@ -119,7 +119,7 @@ export function rankSets(members) {
     String(a.short).localeCompare(String(b.short)));
 }
 
-const REGION_KO = { kr: "한국판", world: "세계판", us: "미국판", eu: "유럽판", jp: "일본판", asia: "아시아판", hisp: "중남미판", br: "브라질판" };
+const REGION_KO = { kr: "한국판", world: "해외판", us: "북미판", eu: "유럽판", jp: "일본판", asia: "아시아판", hisp: "중남미판", br: "브라질판" };
 
 /** One line on why `best` (the first of rankSets) leads its group, in Korean. Pure. */
 export function reasonFor(ranked) {
