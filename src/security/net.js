@@ -9,6 +9,20 @@ export function isLoopbackIp(ip) {
   return ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || /^127\./.test(ip ?? "");
 }
 
+/** The socket peer's address, ::ffff: stripped. Never X-Forwarded-For. */
+export function socketIp(req) {
+  return String(req?.socket?.remoteAddress ?? "").replace(/^::ffff:/, "");
+}
+
+/**
+ * Whether the connection itself comes from this machine. Exemptions ("this is
+ * the operator's own box") ask this, never req.ip: behind a proxy req.ip comes
+ * from X-Forwarded-For, which a client can write as 127.0.0.1.
+ */
+export function isLoopbackSocket(req) {
+  return isLoopbackIp(socketIp(req));
+}
+
 /**
  * RFC1918 / CGNAT / link-local / unique-local — i.e. "someone already inside
  * the house". Not a security boundary on its own; used to decide what we're

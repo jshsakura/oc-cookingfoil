@@ -25,7 +25,7 @@ import * as store from "./store.js";
 import { lockoutRetryAfter, tooManyRequests } from "./retry-after.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
-import { isLoopbackIp } from "./net.js";
+import { isLoopbackSocket } from "./net.js";
 import { maxAuthFailures as MAX_FAILURES, trustLoopback } from "./limits.js";
 import { envNumber } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
@@ -47,8 +47,9 @@ export function clientIp(req) {
 // inherently trusted — they already have shell access. Excluding them stops
 // dev/test setups from locking themselves out on intentional auth failures.
 // Override with COOK_LOCKOUT_TRUST_LOOPBACK=false to enforce strictly.
-function isLoopback(ip) {
-  return trustLoopback && isLoopbackIp(ip);
+// The socket decides, not req.ip: a forwarded 127.0.0.1 is only a header.
+function isLoopback(req) {
+  return trustLoopback && isLoopbackSocket(req);
 }
 
 export default function authGuard() {
@@ -89,7 +90,7 @@ export default function authGuard() {
 
     // Loopback bypass — trusted caller, no lockout tracking. Still record
     // access on success so the operator's own sessions show in /admin.
-    if (isLoopback(ip)) {
+    if (isLoopback(req)) {
       return basicAuth(req, res, (err) => {
         if (err || !req.auth?.user) return next(err);
         afterSignIn(req, res, next, ip);
@@ -219,7 +220,7 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
   const login = deviceLogins.has(name);
   const ok = await (login ? deviceLogins.verifyAsync(name, password) : users.verifyAsync(name, password));
   if (!ok) {
-    if (!isLoopback(ip) && !repeatedPoll(ip, req.headers.authorization)) recordFailure(ip, req);
+    if (!isLoopback(req) && !repeatedPoll(ip, req.headers.authorization)) recordFailure(ip, req);
     return false;
   }
   store.clearFailure(ip);
@@ -249,10 +250,10 @@ function ownerIsAdmin(owner) {
 }
 
 function tokenLane(req, res, next, ip) {
-  if (!(trustLoopback && isLoopbackIp(ip)) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });
+  if (!isLoopback(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });
   const token = apiTokens.verify(req.headers.authorization);
   if (!token || !(req.path.startsWith("/admin/api/") || req.path === "/admin/guide.md") || !ownerIsAdmin(token.owner)) {
-    if (!(trustLoopback && isLoopbackIp(ip))) recordFailure(ip, req);
+    if (!isLoopback(req)) recordFailure(ip, req);
     return res.status(401).json({ error: "invalid token" });
   }
   req.apiToken = token;

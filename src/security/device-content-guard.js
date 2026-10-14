@@ -20,12 +20,13 @@ import { devicePairing } from "../helpers/envs.js";
 import * as users from "./users.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
-import { denyResponse, clientIp, DENY } from "./deny.js";
-import { isLoopbackIp } from "./net.js";
+import { denyResponse, DENY } from "./deny.js";
+import { isLoopbackSocket } from "./net.js";
 import { trustLoopback } from "./limits.js";
 
-function isLoopback(ip) {
-  return trustLoopback && isLoopbackIp(ip);
+// The socket, not req.ip: X-Forwarded-For: 127.0.0.1 is only a header.
+function isLoopback(req) {
+  return trustLoopback && isLoopbackSocket(req);
 }
 
 export default function deviceContentGuard() {
@@ -38,7 +39,7 @@ export default function deviceContentGuard() {
   return (req, res, next) => {
     if (users.hasUsers()) return next();
     if (req.pairedDevice) return next();
-    if (isLoopback(clientIp(req))) return next();
+    if (isLoopback(req)) return next();
     if (hasValidSession(req)) return next();
 
     const deviceKey = deviceKeyFromHeaders(req);

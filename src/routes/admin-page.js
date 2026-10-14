@@ -62,7 +62,7 @@ import { authLanes, configWarnings } from "../security/config-health.js";
 import { hintFor } from "../security/deny-reasons.js";
 import { recordDeny, clientIp, DENY } from "../security/deny.js";
 import { recordFailure } from "../security/auth-guard.js";
-import { isLoopbackIp } from "../security/net.js";
+import { isLoopbackSocket } from "../security/net.js";
 import { trustLoopback } from "../security/limits.js";
 import { isPrivateIp } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
@@ -225,7 +225,7 @@ export default function adminPageRouter() {
     // The admin password or the authenticator code, whichever the server has (either, when both).
     const mode = loginMode();
     const ip = clientIp(req);
-    const trusted = trustLoopback && isLoopbackIp(ip);
+    const trusted = trustLoopback && isLoopbackSocket(req);
     if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
     const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
     const byCode = !byPassword && mode !== "password" && req.body?.code !== undefined && (await verifyTotp(req.body.code));

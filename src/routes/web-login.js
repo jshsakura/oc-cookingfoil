@@ -29,7 +29,7 @@ import {
 } from "../security/user-session.js";
 import { CALLBACK_PATH, authUrl, checkClaims, exchangeCode, newAttempt, safeNext } from "../security/google-oauth.js";
 import { clientIp, recordFailure } from "../security/auth-guard.js";
-import { isLoopbackIp } from "../security/net.js";
+import { isLoopbackSocket } from "../security/net.js";
 import { trustLoopback } from "../security/limits.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
@@ -100,7 +100,7 @@ function mountPasswordLogin(router) {
     pageHeaders(res);
     const next = safeNext(req.body?.next);
     const ip = clientIp(req);
-    const trusted = trustLoopback && isLoopbackIp(ip);
+    const trusted = trustLoopback && isLoopbackSocket(req);
     if (!trusted && store.isLocked(ip)) return renderLogin(req, retryAfter(res, lockoutRetryAfter(ip)), { status: 429, next, error: "locked" });
     if (!csrfOk(req)) return renderLogin(req, res, { status: 403, next, error: "expired" });
     const name = String(req.body?.username ?? "").trim().slice(0, MAX_FIELD);
