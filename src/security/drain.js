@@ -21,6 +21,7 @@
  * (restartRetryAfter, restartGrace) that apply without a restart.
  */
 import crypto from "node:crypto";
+import path from "node:path";
 import * as env from "../helpers/envs.js";
 
 export const RESTART_HEADER = "X-CookingFoil-Restarting";
@@ -35,7 +36,20 @@ export const MESSAGE = Object.freeze({
 // A response this large, or any Range request, counts as a download in the status.
 const DOWNLOAD_BYTES = 1024 * 1024;
 
-const exempt = (p) => p === "/healthz" || p.startsWith("/admin/api/server/");
+// The exit code of a restart asked for on the admin page (EX_TEMPFAIL): non-zero,
+// so a supervisor that restarts only on failure (systemd Restart=on-failure)
+// brings the server back too. A stop by signal exits 0.
+export const RESTART_EXIT_CODE = 75;
+// Whatever the grace setting, the process is gone this long after the drain
+// starts, ahead of the SIGKILL that compose's stop_grace_period (40 s) sends.
+const HARD_DEADLINE_MS = 35_000;
+
+/** /healthz and the admin restart API stay open; matched as the router would see the path. */
+function exempt(raw) {
+  let p;
+  try { p = path.posix.normalize(decodeURIComponent(raw)); } catch { return false; }
+  return p === "/healthz" || p.startsWith("/admin/api/server/");
+}
 
 const page = (seconds) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
 <title>CookingFoil</title><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;color:#55555E">
@@ -45,12 +59,13 @@ const page = (seconds) => `<!doctype html><meta charset="utf-8"><meta name="view
  * One drain controller. `retryAfter` and `grace` return seconds; they are read
  * when the drain starts, so a setting saved on the admin page applies to the next one.
  */
-export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace = () => env.restartGrace } = {}) {
+export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace = () => env.restartGrace, hardDeadlineMs = HARD_DEADLINE_MS } = {}) {
   const active = new Set();
   let state = null;
   let idleWaiters = [];
   let restartHandler = null;
   let shuttingDown = null;
+  let signals = 0;
 
   const headerValue = () => `${state.retryAfter}; id=${state.id}`;
   const backBy = () => new Date(Date.now() + state.retryAfter * 1000).toISOString();
@@ -160,20 +175,39 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
 
   /**
    * The whole restart: drain, announce, wait for running requests (up to the
-   * grace limit), clean up and exit. Runs once; later calls get the same promise.
+   * grace limit), clean up and exit with `exitCode`. Runs once; later calls get
+   * the same promise. A hard deadline exits even if the cleanup hangs.
    */
-  function shutdown({ server, announce, cleanup, exit = (code) => process.exit(code), log = () => {} } = {}) {
+  function shutdown({ server, announce, cleanup, exitCode = 0, exit = (code) => process.exit(code), log = () => {} } = {}) {
     if (shuttingDown) return shuttingDown;
     start({ server });
+    let exited = false;
+    const finish = () => { if (!exited) { exited = true; clearTimeout(deadline); exit(exitCode); } };
+    const deadline = setTimeout(() => { log("restart: hard deadline reached, exiting"); finish(); }, Math.max(0, state.startedAt + hardDeadlineMs - Date.now()));
     shuttingDown = (async () => {
       try { announce?.(notice()); } catch (err) { log("restart: announce failed: %s", err.message); }
       log("restart: draining %d request(s), up to %ds", active.size, state.graceMs / 1000);
       const { cut } = await whenIdle();
       log(cut ? "restart: cut %d request(s) at the grace limit" : "restart: no request running, exiting", cut);
       try { await cleanup?.(); } catch (err) { log("restart: cleanup failed: %s", err.message); }
-      exit(0);
+      finish();
     })();
     return shuttingDown;
+  }
+
+  /**
+   * A SIGTERM/SIGINT: the first one drains (or joins a drain the admin page
+   * started), a second one exits at once through `force` (or `exit`).
+   */
+  function signal(sig, { force, ...opts } = {}) {
+    signals++;
+    if (signals > 1) {
+      (opts.log ?? (() => {}))("received %s again, exiting without waiting", sig);
+      if (force) return force();
+      return (opts.exit ?? ((code) => process.exit(code)))(0);
+    }
+    (opts.log ?? (() => {}))("received %s, draining before exit", sig);
+    return shutdown(opts);
   }
 
   /** The admin page's restart button calls this; index.js says what it does. */
@@ -184,7 +218,7 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
     return true;
   }
 
-  return { middleware, start, whenIdle, status, healthFields, notice: () => (state ? notice() : null), shutdown, onRestartRequest, requestRestart, hasRestartHandler: () => Boolean(restartHandler), isShuttingDown: () => Boolean(shuttingDown) };
+  return { middleware, start, whenIdle, status, healthFields, notice: () => (state ? notice() : null), shutdown, signal, onRestartRequest, requestRestart, hasRestartHandler: () => Boolean(restartHandler), isShuttingDown: () => Boolean(shuttingDown) };
 }
 
 /** The server's own drain. */

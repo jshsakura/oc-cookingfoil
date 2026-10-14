@@ -2,7 +2,10 @@
  * Safe restart from the admin page:
  *
  *   GET  /admin/api/server/status    { draining, restartId, startedAt, backBy, retryAfter, graceSeconds, inflight, downloads }
- *   POST /admin/api/server/restart   answers 202, then drains and exits; the container's restart policy starts it again
+ *   POST /admin/api/server/restart   answers 202, then drains and exits with code 75 (security/drain.js
+ *                                    RESTART_EXIT_CODE), so restart: always and Restart=on-failure both start it again
+ *
+ * Automation tokens may read the status but not restart (admin-page.js TOKEN_BLOCKED_RE).
  *
  * The status holds counts only: no addresses, keys or accounts. Both paths stay
  * open while the server drains (security/drain.js), so the page can watch it.

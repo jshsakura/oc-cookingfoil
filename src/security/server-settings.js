@@ -48,7 +48,8 @@ export const SETTINGS = {
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   restartRetryAfter: seconds(300),
-  restartGrace: seconds(600),
+  // Inside compose's stop_grace_period (40 s), so docker never kills a drain.
+  restartGrace: seconds(35),
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 

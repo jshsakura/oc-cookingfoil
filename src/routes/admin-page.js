@@ -108,8 +108,8 @@ function clientBuildWarnings() {
   }];
 }
 
-// What an automation token may not change: who can sign in and how.
-const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa)(\/|$)/;
+// What an automation token may not change: who can sign in and how, and whether the server runs.
+export const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa|server)(\/|$)/;
 
 function requireSession(req, res) {
   if (req.apiToken && req.method !== "GET" && TOKEN_BLOCKED_RE.test(req.path)) {

@@ -268,3 +268,73 @@ test("the dashboard shows the same notice once per restart, in its own language"
     assert.ok(bundle.includes(`"restart.notice": "${text}"`), `${lang} notice matches the 503 body`);
   }
 });
+
+// ── review follow-ups ────────────────────────────────────────────────────
+
+test("the grace limit stops at 35 s so it fits inside compose's 40 s stop_grace_period", () => {
+  assert.doesNotThrow(() => settings.save({ restartGrace: 35 }));
+  assert.throws(() => settings.save({ restartGrace: 36 }));
+  settings.save({ restartGrace: null });
+});
+
+test("a hard deadline exits even when the cleanup hangs", async () => {
+  const drainer = createDrainer({ grace: () => 0.05, hardDeadlineMs: 150 });
+  const exits = [];
+  const started = Date.now();
+  drainer.shutdown({ cleanup: () => new Promise(() => {}), exit: (code) => exits.push(code) });
+  await tick(250);
+  assert.deepEqual(exits, [0], "exits once, at the deadline");
+  assert.ok(Date.now() - started >= 150);
+});
+
+test("an admin-started restart exits non-zero; a signal exits 0", async () => {
+  const { RESTART_EXIT_CODE } = await import("../../src/security/drain.js");
+  assert.equal(RESTART_EXIT_CODE, 75);
+  const a = createDrainer();
+  let code = null;
+  await a.shutdown({ exitCode: RESTART_EXIT_CODE, exit: (c) => { code = c; } });
+  assert.equal(code, 75);
+  const b = createDrainer();
+  await b.signal("SIGTERM", { exit: (c) => { code = c; } });
+  assert.equal(code, 0);
+});
+
+test("a signal during an admin-started drain waits; only a second signal exits at once", async () => {
+  const { drainer, server, base } = await harness();
+  const exits = [];
+  const pending = get(`${base}/stream?ms=300`);
+  await tick(80);
+  const opts = { server, exit: (c) => exits.push(c) };
+  drainer.shutdown({ ...opts, exitCode: 75 });
+  drainer.signal("SIGTERM", opts);
+  await tick(50);
+  assert.deepEqual(exits, [], "the first signal joins the drain");
+  drainer.signal("SIGTERM", opts);
+  await tick(20);
+  assert.deepEqual(exits, [0], "the second signal exits now");
+  await pending;
+});
+
+test("the exempt paths are matched after decoding and normalising", async () => {
+  const { drainer, base } = await harness();
+  drainer.start();
+  assert.equal((await get(`${base}/admin/api/server/../../../fast`)).status, 503);
+  assert.equal((await get(`${base}/%61dmin/api/server/x/../../../../fast`)).status, 503);
+  assert.notEqual((await get(`${base}/%2e%2e/healthz`)).status, 503, "normalises to /healthz, so it is let through");
+  assert.equal((await get(`${base}/%E0%A4%A`)).status, 503, "a bad escape is not exempt");
+});
+
+test("an automation token cannot restart the server", async () => {
+  const { TOKEN_BLOCKED_RE } = await import("../../src/routes/admin-page.js");
+  assert.ok(TOKEN_BLOCKED_RE.test("/api/server/restart"));
+  assert.ok(TOKEN_BLOCKED_RE.test("/api/tokens"));
+  assert.ok(!TOKEN_BLOCKED_RE.test("/api/server-settings"));
+});
+
+test("the container health check skips the / probe while draining", async () => {
+  const { readFileSync } = await import("node:fs");
+  const docker = readFileSync(path.join(import.meta.dirname, "../../Dockerfile"), "utf-8");
+  const check = docker.slice(docker.indexOf("HEALTHCHECK"), docker.indexOf("\nCMD ["));
+  assert.match(check, /\.draining\)return/);
+  assert.match(check, /fetch\(b\+'\/'/, "the / probe stays for a normal check");
+});

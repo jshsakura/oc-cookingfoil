@@ -331,9 +331,9 @@ let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "")
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
 // Safe restart (security/drain.js): the Retry-After a new request is given while
 // the server drains, and how long running requests may take to finish before
-// they are cut. Keep the grace under compose's stop_grace_period.
+// they are cut. At most 35 s, inside compose's stop_grace_period of 40 s.
 let restartRetryAfter = envNumber("COOK_RESTART_RETRY_AFTER", 20, { min: 1, max: 300, integer: true });
-let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 600, integer: true });
+let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see

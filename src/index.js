@@ -37,7 +37,7 @@ import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
 import busyGuard from "./security/busy-guard.js";
-import drainer from "./security/drain.js";
+import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
@@ -375,30 +375,26 @@ const wsHandle = attachWs(server);
 // Safe restart on SIGTERM/SIGINT (docker stop, compose up) and from the admin
 // page: stop taking new requests, tell the dashboards, let running downloads
 // finish up to the grace limit, then flush the security state and exit. The
-// container's restart policy starts it again. A second signal exits at once.
-function restart() {
-  return drainer.shutdown({
-    server,
-    announce: (notice) => wsHandle.broadcast({ type: "restarting", ...notice }),
-    cleanup: async () => {
-      try { wsHandle.close(); } catch {}
-      telegramUpdates.stop().catch(() => {});
-      await securityStore.shutdown().catch(() => {});
-    },
-    log: debug.log,
-  });
-}
-drainer.onRestartRequest(restart);
+// container's restart policy starts it again. A second signal exits at once;
+// a signal during a drain the admin page started joins that drain instead.
+const restartOptions = (exitCode) => ({
+  server,
+  exitCode,
+  announce: (notice) => wsHandle.broadcast({ type: "restarting", ...notice }),
+  cleanup: async () => {
+    try { wsHandle.close(); } catch {}
+    telegramUpdates.stop().catch(() => {});
+    await securityStore.shutdown().catch(() => {});
+  },
+  log: debug.log,
+});
+// From the admin page: exit non-zero (75) so Restart=on-failure supervisors start it again too.
+drainer.onRestartRequest(() => drainer.shutdown(restartOptions(RESTART_EXIT_CODE)));
 for (const sig of ["SIGTERM", "SIGINT"]) {
-  process.on(sig, () => {
-    if (drainer.isShuttingDown()) {
-      debug.log("received %s again, exiting without waiting", sig);
-      securityStore.shutdown().catch(() => {}).finally(() => process.exit(0));
-      return;
-    }
-    debug.log("received %s, draining before exit", sig);
-    restart();
-  });
+  process.on(sig, () => drainer.signal(sig, {
+    ...restartOptions(0),
+    force: () => securityStore.shutdown().catch(() => {}).finally(() => process.exit(0)),
+  }));
 }
 
 export default server;
