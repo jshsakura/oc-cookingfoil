@@ -26,6 +26,13 @@ test('the web page shows one card per game and picks another version in its wind
   await expect(versions).toHaveCount(2);
   await expect(versions.first()).toContainText('추천');
   await expect(versions.first()).toHaveAttribute('aria-pressed', 'true');
+  // What only the game's own reply carries: its description, makers, release year and genre.
+  await expect(page.locator('#modal-desc')).toContainText('Joe Musashi returns');
+  await expect(page.locator('#modal-publisher')).toHaveText('Sega');
+  const meta = page.locator('#modal-meta');
+  await expect(meta).toContainText('1990');
+  await expect(meta).not.toContainText('1990-00');
+  await expect(meta).toContainText('개발사');
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/retro-versions.png' });
   await versions.nth(1).click();
