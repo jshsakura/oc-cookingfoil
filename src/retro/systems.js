@@ -11,11 +11,14 @@
  *   bezelDir    The Bezel Project's folder: overlays/GameBezels/<bezelDir>/
  *   folder      the system's one folder on the server: roms/<folder>/,
  *               thumbnails/<folder>/, bezels/<folder>/, icons/<folder>/ and
- *               system-icons/{color,mono}/<folder>.png. The id unless an
- *               operator names another.
+ *               system-icons/{color,mono}/<folder>.png (or <id>.png). The id,
+ *               or RetroArch's system name ("Atari - 2600") for the systems
+ *               added later, unless an operator names another. It may hold
+ *               spaces and dots; it never reaches the SD card.
  *   libretro    the libretro database name ("Nintendo - Game Boy Advance"). Only
  *               the art code reads it, to find the libretro-thumbnails repository
- *               box art comes from; it is a mapping, never a folder name.
+ *               box art comes from; it is a mapping, never a folder name. Left
+ *               out for systems libretro has no box art for.
  *
  * Each system is read from exactly one folder.
  *
@@ -124,11 +127,99 @@ const SYSTEMS = {
     extensions: [".zip", ".7z"], core: "fbneo", coreName: "FinalBurn Neo", bezelDir: "MAME",
     libretro: "FBNeo - Arcade Games",
   },
+  // Pre-registered: each one shows up (lists, home, menus, BIOS notices) only
+  // once roms/<folder>/ holds a game. Their server folder is RetroArch's own
+  // system name; the SD card keeps the short id.
+  neocd: {
+    names: { en: "Neo Geo CD", ko: "네오지오 CD", ja: "ネオジオCD", zh: "Neo Geo CD" },
+    extensions: [".chd", ".cue"], core: "neocd", coreName: "NeoCD", bezelDir: "NG-CD",
+    folder: "SNK - Neo Geo CD", libretro: "SNK - Neo Geo CD",
+  },
+  "32x": {
+    names: { en: "Sega 32X", ko: "슈퍼 32X", ja: "スーパー32X", zh: "世嘉 32X" },
+    extensions: [".32x", ".zip", ".7z"], core: "picodrive", coreName: "PicoDrive", bezelDir: "Sega32X",
+    folder: "Sega - 32X", libretro: "Sega - 32X",
+  },
+  sg: {
+    names: { en: "SG-1000", ko: "SG-1000", ja: "SG-1000", zh: "世嘉 SG-1000" },
+    extensions: [".sg", ".zip", ".7z"], core: "genesis_plus_gx", coreName: "Genesis Plus GX", bezelDir: "SG-1000",
+    folder: "Sega - SG-1000", libretro: "Sega - SG-1000",
+  },
+  a2600: {
+    names: { en: "Atari 2600", ko: "아타리 2600", ja: "アタリ2600", zh: "雅达利 2600" },
+    extensions: [".a26", ".bin", ".zip", ".7z"], core: "stella", coreName: "Stella", bezelDir: "Atari2600",
+    folder: "Atari - 2600", libretro: "Atari - 2600",
+  },
+  a7800: {
+    names: { en: "Atari 7800", ko: "아타리 7800", ja: "アタリ7800", zh: "雅达利 7800" },
+    extensions: [".a78", ".bin", ".zip", ".7z"], core: "prosystem", coreName: "ProSystem", bezelDir: "Atari7800",
+    folder: "Atari - 7800", libretro: "Atari - 7800",
+  },
+  lynx: {
+    names: { en: "Atari Lynx", ko: "아타리 링크스", ja: "アタリ リンクス", zh: "雅达利 Lynx" },
+    extensions: [".lnx", ".lyx", ".zip", ".7z"], core: "handy", coreName: "Handy", bezelDir: "AtariLynx",
+    folder: "Atari - Lynx", libretro: "Atari - Lynx",
+  },
+  col: {
+    names: { en: "ColecoVision", ko: "콜레코비전", ja: "コレコビジョン", zh: "ColecoVision" },
+    extensions: [".col", ".cv", ".zip", ".7z"], core: "gearcoleco", coreName: "Gearcoleco", bezelDir: "ColecoVision",
+    folder: "Coleco - ColecoVision", libretro: "Coleco - ColecoVision",
+  },
+  videopac: {
+    names: { en: "Odyssey² / Videopac", ko: "오디세이² / 비디오팩", ja: "オデッセイ² / ビデオパック", zh: "Odyssey² / Videopac" },
+    extensions: [".bin", ".zip", ".7z"], core: "o2em", coreName: "O2EM", bezelDir: "Videopac",
+    folder: "Magnavox - Odyssey2", libretro: "Magnavox - Odyssey2",
+  },
+  msx: {
+    names: { en: "MSX", ko: "MSX", ja: "MSX", zh: "MSX" },
+    extensions: [".rom", ".mx1", ".mx2", ".dsk", ".cas", ".zip", ".7z"], core: "bluemsx", coreName: "blueMSX", bezelDir: "MSX",
+    folder: "Microsoft - MSX", libretro: "Microsoft - MSX",
+  },
+  amstrad: {
+    names: { en: "Amstrad CPC", ko: "암스트래드 CPC", ja: "アムストラッドCPC", zh: "Amstrad CPC" },
+    extensions: [".dsk", ".sna", ".cdt", ".tap", ".cpr", ".m3u", ".zip"], core: "cap32", coreName: "Caprice32", bezelDir: "AmstradCPC",
+    folder: "Amstrad - CPC", libretro: "Amstrad - CPC",
+  },
+  c64: {
+    names: { en: "Commodore 64", ko: "코모도어 64", ja: "コモドール64", zh: "Commodore 64" },
+    extensions: [".d64", ".t64", ".tap", ".prg", ".crt", ".g64", ".m3u", ".zip"], core: "vice_x64", coreName: "VICE x64", bezelDir: "C64",
+    folder: "Commodore - 64", libretro: "Commodore - 64",
+  },
+  zxs: {
+    names: { en: "ZX Spectrum", ko: "ZX 스펙트럼", ja: "ZXスペクトラム", zh: "ZX Spectrum" },
+    extensions: [".tzx", ".tap", ".z80", ".sna", ".szx", ".dsk", ".trd", ".scl", ".zip"], core: "fuse", coreName: "Fuse", bezelDir: "ZXSpectrum",
+    folder: "Sinclair - ZX Spectrum", libretro: "Sinclair - ZX Spectrum",
+  },
+  vb: {
+    names: { en: "Virtual Boy", ko: "버추얼 보이", ja: "バーチャルボーイ", zh: "Virtual Boy" },
+    extensions: [".vb", ".vboy", ".zip", ".7z"], core: "mednafen_vb", coreName: "Beetle VB", bezelDir: "Virtualboy",
+    folder: "Nintendo - Virtual Boy", libretro: "Nintendo - Virtual Boy",
+  },
+  wsv: {
+    names: { en: "Watara Supervision", ko: "와타라 슈퍼비전", ja: "ワタラ スーパービジョン", zh: "Watara Supervision" },
+    extensions: [".sv", ".bin", ".zip", ".7z"], core: "potator", coreName: "Potator", bezelDir: "Supervision",
+    folder: "Watara - Supervision", libretro: "Watara - Supervision",
+  },
+  // The three below have neither a Bezel Project collection nor libretro box
+  // art, so they carry no bezelDir (the SD folder falls back to the id) or libretro.
+  pico8: {
+    names: { en: "PICO-8", ko: "PICO-8", ja: "PICO-8", zh: "PICO-8" },
+    extensions: [".p8", ".png"], core: "retro8", coreName: "Retro8", folder: "PICO-8",
+  },
+  chip8: {
+    names: { en: "CHIP-8", ko: "CHIP-8", ja: "CHIP-8", zh: "CHIP-8" },
+    extensions: [".ch8", ".sc8", ".xo8"], core: "jaxe", coreName: "JAXE", folder: "CHIP-8",
+  },
+  tama: {
+    names: { en: "Tamagotchi", ko: "다마고치", ja: "たまごっち", zh: "拓麻歌子" },
+    extensions: [".b", ".bin"], core: "tamalibretro", coreName: "TamaLIBretro", folder: "Bandai - Tamagotchi P1",
+  },
 };
 
 
-// A built-in system's folder is its id.
-export const DEFAULT_SYSTEMS = Object.fromEntries(Object.entries(SYSTEMS).map(([id, s]) => [id, { ...s, folder: id }]));
+// A built-in system's folder is its id unless it names one; without a Bezel
+// Project folder its SD overlay folder is the id too.
+export const DEFAULT_SYSTEMS = Object.fromEntries(Object.entries(SYSTEMS).map(([id, s]) => [id, { ...s, bezelDir: s.bezelDir ?? id, folder: s.folder ?? id }]));
 
 const ID_RE = /^[a-z0-9_-]{1,24}$/;
 

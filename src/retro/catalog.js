@@ -414,3 +414,10 @@ export function systemsOf({ systems, games: all, present }, games = all) {
     .sort(([a], [b]) => rank(a) - rank(b))
     .map(([id, s]) => ({ id, name: s.names.en ?? id, names: s.names, defaultCore: s.core, coreName: s.coreName, romCount: counts.get(id) ?? 0 }));
 }
+
+/**
+ * The systems a client may see: those with at least one game among `games`.
+ * A folder that exists but holds nothing, or a console only pre-registered in
+ * the system table, stays out of every list, home row and menu.
+ */
+export const visibleSystems = (cat, games = cat.games) => systemsOf(cat, games).filter((s) => s.romCount > 0);

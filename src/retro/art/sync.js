@@ -92,7 +92,7 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
       thumbRepo = console === "WS" ? "Bandai_-_WonderSwan" : "Bandai_-_WonderSwan_Color";
     }
     const boxDest = path.join(dir, "thumbnails", system.folder, "Named_Boxarts", `${rom}.png`);
-    if (!fs.existsSync(boxDest)) {
+    if (thumbRepo && !fs.existsSync(boxDest)) {
       jobs.push(async () => ["boxart", await download(`${THUMBS}/${thumbRepo}/master/${enc(`Named_Boxarts/${name}.png`)}`, boxDest, dry, encodeCover)]);
     }
     const bezelDest = path.join(bezelDir, `${rom}.png`);
@@ -222,7 +222,9 @@ const namesCache = new Map(); // system id → { at, names }
 export async function libretroNames(id, system, { token = "", fetchImpl = fetch } = {}) {
   const hit = namesCache.get(id);
   if (hit && Date.now() - hit.at < NAMES_TTL_MS) return hit.names;
-  const names = await boxartNames(repoOf(system.libretro), { token, fetchImpl });
+  const repo = repoOf(system.libretro);
+  if (!repo) return [];
+  const names = await boxartNames(repo, { token, fetchImpl });
   namesCache.set(id, { at: Date.now(), names });
   return names;
 }
@@ -245,10 +247,13 @@ export async function matchSystem(dir, id, system, roms, opts = {}) {
   return { matched: Object.keys(found), missed };
 }
 
-/** Matches, then downloads, for every system (or `only`). `roms` maps system id → ROM names. */
+/**
+ * Matches, then downloads, for every system (or `only`). `roms` maps system id → ROM names;
+ * a system without ROMs is skipped, so a pre-registered console leaves nothing on disk.
+ */
 export async function syncArt(dir, systems, roms, { only = null, onProgress = () => {}, ...opts } = {}) {
   const summary = {};
-  const ids = Object.keys(systems).filter((id) => (!only || id === only) && (roms[id]?.length || BEZEL_SOURCES[id]));
+  const ids = Object.keys(systems).filter((id) => (!only || id === only) && roms[id]?.length);
   for (const [i, id] of ids.entries()) {
     onProgress({ system: id, index: i, total: ids.length });
     const system = systems[id];
@@ -290,7 +295,7 @@ export async function candidates(id, system, query, opts = {}) {
 }
 
 /** The libretro box art address for a name, for previews. */
-export const libretroUrl = (system, name) => `${THUMBS}/${repoOf(system.libretro)}/master/${enc(`Named_Boxarts/${name}.png`)}`;
+export const libretroUrl = (system, name) => (system.libretro ? `${THUMBS}/${repoOf(system.libretro)}/master/${enc(`Named_Boxarts/${name}.png`)}` : null);
 
 /**
  * Sets one ROM's No-Intro name (null: it has no art) and replaces its box art and
