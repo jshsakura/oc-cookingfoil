@@ -1,6 +1,10 @@
 /**
  * GET /api/homebrew                every app the admin left on  { homebrew: [H…] }, with ETag
- * GET /api/homebrew/:id/icon       the app's icon from its NRO (404 before its first fetch)
+ * GET /api/homebrew/:id/icon?v=&size=sm|md   the app's icon from its NRO (404 before its first fetch):
+ *                                  at most 160 or 256 px (md, the default), never enlarged; WebP for
+ *                                  Accept: image/webp, else the NRO's own JPEG. icon_url carries
+ *                                  ?v= of the build: that v is immutable, anything else
+ *                                  `public, max-age=300` with an ETag
  * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
@@ -62,6 +66,9 @@ import fsp from "fs/promises";
 import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
+import { iconVariant } from "../meta/icon-variant.js";
+import { ART_PIPELINE } from "../meta/artwork-version.js";
+import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
@@ -211,7 +218,10 @@ export function start() {
   setInterval(run, POLL_MS).unref();
 }
 
-const isPng = (buf) => buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47;
+/** icon_url's v: 12 hex of the build's hash (the icon lives in the .nro), or null without one. */
+export function homebrewIconVersion(e) {
+  return e?.hash ? crypto.createHash("sha1").update(`${ART_PIPELINE}\0${e.hash}`).digest("hex").slice(0, 12) : null;
+}
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
 /**
@@ -258,7 +268,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       bundle_url: e.files ? `/api/homebrew/${e.id}/bundle` : null,
       // A zip kept as it is comes whole, with which entry goes where on the card.
       ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, url: `/api/homebrew/${e.id}/archive` } } : { archive: null }),
-      icon_url: `/api/homebrew/${e.id}/icon`,
+      icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
       download_url: `/api/homebrew/${e.id}/download`,
       ...(service.forwarderInfo?.(e) ?? NO_FORWARDER),
     }));
@@ -282,8 +292,18 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.get("/:id/icon", wrap(async (req, res) => {
     const icon = await service.icon(req.params.id);
     if (!icon) return res.status(404).json({ error: "no icon" });
-    res.set({ "Content-Type": isPng(icon) ? "image/png" : "image/jpeg", "Cache-Control": "private, max-age=3600" });
-    res.end(icon);
+    const v = homebrewIconVersion((await service.list()).find((e) => e.id === req.params.id));
+    const webp = (req.get("accept") || "").includes("image/webp");
+    const key = `${req.params.id}\0${v ?? crypto.createHash("sha1").update(icon).digest("hex")}`;
+    const { body, type } = await iconVariant(key, icon, { size: req.query.size, webp });
+    res.set({
+      "Content-Type": type,
+      "Cache-Control": v && req.query.v === v ? IMMUTABLE : UNVERSIONED,
+      ETag: `"${crypto.createHash("sha1").update(body).digest("base64url")}"`,
+      Vary: "Accept",
+    });
+    if (req.fresh) return res.status(304).end();
+    res.end(body);
   }));
 
   router.get("/:id/download", wrap(async (req, res) => {

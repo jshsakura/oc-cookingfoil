@@ -207,7 +207,20 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const small = await sharp(Buffer.from(await (await get(`${smw.iconUrl}&size=sm`)).arrayBuffer())).metadata();
     assert.deepEqual([small.width, small.height], [160, 160]);
     assert.equal((await get(smw.iconUrl.replace(/\?v=.*/, "?v=stale"))).headers.get("cache-control"), "private, no-cache");
-    assert.ok(Buffer.from(await (await get(smw.boxartUrl)).arrayBuffer()).equals(TALL_COVER), "the cover itself stays available");
+    assert.match(smw.boxartUrl, /\/boxart\?v=[0-9a-f]{12}$/);
+    assert.equal(smw.boxartUrl.split("v=")[1], smw.iconUrl.split("v=")[1], "one cover, one key");
+    const whole = await get(smw.boxartUrl);
+    assert.ok(Buffer.from(await whole.arrayBuffer()).equals(TALL_COVER), "the cover itself stays available");
+    assert.equal(whole.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    const box = await fetch(`${BASE}${smw.boxartUrl}&size=md`, { headers: { ...AUTH, Accept: "image/webp" } });
+    assert.equal(box.headers.get("content-type"), "image/webp");
+    assert.match(box.headers.get("vary") ?? "", /Accept/);
+    assert.equal(box.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    assert.equal((await get(smw.boxartUrl.replace(/\?v=.*/, ""))).headers.get("cache-control"), "private, no-cache", "unversioned: revalidated");
+    assert.match(snes.iconUrl, /\/icon\?v=[0-9a-f]{12}$/);
+    assert.match(snes.iconMonoUrl, /\/icon\?style=mono&v=[0-9a-f]{12}$/);
+    assert.equal((await get(snes.iconUrl)).headers.get("cache-control"), "public, max-age=31536000, immutable");
+    assert.equal((await get(snes.iconUrl.replace(/\?v=.*/, ""))).headers.get("cache-control"), "private, no-cache");
     assert.match(await (await get(smw.bezel.gameCfgUrl)).text(), /video_aspect_ratio_auto = "true"/);
     const r = await fetch(BASE + smw.romUrl, { headers: { ...AUTH, Range: "bytes=1-2" } });
     assert.equal(r.status, 206);
@@ -292,6 +305,26 @@ test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped
 
   await prewarm(artDir, []);
   assert.deepEqual(fs.readdirSync(artDir), [], "a removed game's square is dropped");
+});
+
+test("box art comes at the size the client shows, never enlarged, WebP only when asked, and is dropped with its game", async () => {
+  const { ensureBoxart, prewarm, artKey } = await import("../../src/retro/square-art.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-boxart-"));
+  const artDir = path.join(root, "art");
+  const cover = path.join(root, "cover.png");
+  fs.writeFileSync(cover, await sharp({ create: { width: 366, height: 512, channels: 3, background: "#30c030" } }).png().toBuffer());
+  const game = { id: "snes-0123456789", icon: cover };
+  const dims = async (file) => sharp(file).metadata().then((m) => [m.format, m.width, m.height]);
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "md", true)), ["webp", 183, 256], "fits within 256, keeps its shape");
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "sm", true)), ["webp", 114, 160]);
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "md", false)), ["png", 183, 256], "no WebP without Accept");
+  assert.ok((await ensureBoxart(artDir, game, "md", true)).includes(artKey(game)), "named by the cover's key");
+  const tiny = { id: "snes-0000000001", icon: path.join(root, "tiny.png") };
+  fs.writeFileSync(tiny.icon, TALL_COVER);
+  assert.deepEqual(await dims(await ensureBoxart(artDir, tiny, "md", true)), ["webp", 100, 140], "a small cover is not enlarged");
+  assert.equal(await ensureBoxart(artDir, tiny, "md", false), tiny.icon, "already small enough: the cover itself");
+  await prewarm(artDir, [tiny]);
+  assert.deepEqual(fs.readdirSync(path.join(artDir, "boxart")).filter((f) => f.startsWith(game.id)), [], "a removed game's box art is dropped");
 });
 
 test("disc names fold to one title", async () => {
