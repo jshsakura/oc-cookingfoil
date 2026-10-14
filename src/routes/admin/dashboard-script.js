@@ -246,7 +246,7 @@ async function loadDevices(){
   const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';
   table('devices',['이름','연결한 계정','마지막 접속','승인한 날','기기 키',''],(d.approved||[]).map((a)=>{const tr=el('tr');
     const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
-    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
+    tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('이름 바꾸기',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));

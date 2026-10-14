@@ -21,6 +21,8 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
     </div>
     <h3>받을 알림</h3>
     <div class="al-events" id="al-events"></div>
+    <h3>텔레그램에서 승인</h3>
+    <label class="al-event"><input type="checkbox" name="buttons"><b>버튼으로 승인합니다</b><small>기기와 구글 계정 승인 요청 알림에 승인, 거절 버튼을 붙입니다. 알림을 받는 대화에서만, 그룹이라면 그 그룹의 관리자만 누를 수 있습니다. 버튼은 한 번만 쓸 수 있고 24시간 뒤에 만료됩니다.</small></label>
     <div class="row">
       <button class="primary" type="submit">저장</button>
       <button type="button" id="al-test">시험 메시지 보내기</button>
@@ -58,7 +60,7 @@ async function loadAlerts(){
     :!d.chatId?['채팅 ID 가 없습니다','봇에게 말을 건 뒤 대화 찾기를 누릅니다.']
     :['켜져 있습니다',(d.bot?'@'+d.bot+' 가 ':'')+'채팅 '+d.chatId+' 로 보냅니다'+(d.source==='env'?' (환경변수)':'')+'.'];
   st.querySelector('strong').textContent=title;st.querySelector('span:not(.al-dot)').textContent=sub;
-  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';
+  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons!==false;
   $('al-events').replaceChildren(...d.events.map((e)=>{const l=el('label',null,'al-event');const b=document.createElement('input');b.type='checkbox';b.value=e.id;b.checked=e.on;
     l.append(b,el('b',e.label),el('small',e.desc));return l;}));
   const label=(id)=>(d.events.find((e)=>e.id===id)||{}).label||(id==='test'?'알림 시험':id);
@@ -68,7 +70,7 @@ async function loadAlerts(){
 }
 $('al-form').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.target;
   const events=[...$('al-events').querySelectorAll('input:checked')].map((b)=>b.value);
-  try{await api('/admin/api/alerts',{method:'POST',body:{botToken:f.botToken.value.trim(),chatId:f.chatId.value.trim(),events}});$('al-msg').textContent='';toast('저장했습니다.');loadAlerts();}
+  try{await api('/admin/api/alerts',{method:'POST',body:{botToken:f.botToken.value.trim(),chatId:f.chatId.value.trim(),events,buttons:f.buttons.checked}});$('al-msg').textContent='';toast('저장했습니다.');loadAlerts();}
   catch(err){$('al-msg').textContent=err.message;}});
 $('al-test').addEventListener('click',async()=>{$('al-msg').textContent='보내고 있습니다';
   try{const r=await api('/admin/api/alerts/test',{method:'POST',body:{}});$('al-msg').textContent=r.message;loadAlerts();}catch(err){$('al-msg').textContent=err.message;}});

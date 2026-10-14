@@ -64,6 +64,7 @@ import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
+import * as telegramUpdates from "./security/telegram-updates.js";
 import staticIndexHTML from "./staticIndexHTML.js";
 
 // Node gives each address of a host 250 ms before trying the next. Telegram,
@@ -262,6 +263,8 @@ expressApp.use(
 // ── lifecycle ───────────────────────────────────────────────────────────
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
 alert("server", "서버가 켜졌습니다.");
+// Presses on the approval alerts' buttons, while Telegram is set up and buttons are on.
+telegramUpdates.watch();
 
 // Disable Nagle on accepted sockets. Our hot responses are single Buffers
 // (pre-built shop body, encoded landing HTML, single small image variants);
@@ -359,6 +362,7 @@ for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
     debug.log("received %s — flushing security state", sig);
     try { wsHandle.close(); } catch {}
+    telegramUpdates.stop().catch(() => {});
     securityStore
       .shutdown()
       .catch(() => {})

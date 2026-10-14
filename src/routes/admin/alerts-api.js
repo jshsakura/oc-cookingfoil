@@ -1,8 +1,9 @@
 /**
  * The admin page's alerts tab (Telegram):
  *
- *   GET  /admin/api/alerts           { configured, source, tokenSet, chatId, bot, events: [{ id, label, desc, on }], history }
- *   POST /admin/api/alerts           { botToken?, chatId, events: [id…] }  save; an empty token keeps the saved one
+ *   GET  /admin/api/alerts           { configured, source, tokenSet, chatId, bot, buttons, events: [{ id, label, desc, on }], history }
+ *   POST /admin/api/alerts           { botToken?, chatId, events: [id…], buttons? }  save; an empty token keeps the saved one,
+ *                                    and buttons (approve from the alert) stays as it was when left out
  *   POST /admin/api/alerts/test      send a test message now: { ok, message }
  *   POST /admin/api/alerts/chats     { botToken? } the chats that wrote to the bot lately: { ok, chats, message }
  *   POST /admin/api/alerts/clear     forget what was saved (env vars apply again)
@@ -12,6 +13,7 @@
  */
 import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
+import * as updates from "../../security/telegram-updates.js";
 import debug from "../../debug.js";
 
 const TOKEN_RE = integrations.SERVICES.telegram.fields.botToken.re;
@@ -40,6 +42,7 @@ export function mountAlertsApi(router, requireSession) {
       tokenSet: d.fields.botToken.set,
       chatId,
       bot,
+      buttons: alerts.buttonsOn(),
       events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, desc: e.desc, on: on.has(id) })),
       history: alerts.recent(),
     });
@@ -47,10 +50,13 @@ export function mountAlertsApi(router, requireSession) {
 
   router.post("/api/alerts", guarded((req, res) => {
     const ids = Array.isArray(req.body?.events) ? req.body.events.map(String).filter((k) => k in alerts.EVENTS) : [];
+    const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn();
+    // Saving restarts or stops the button loop at once (telegram-updates.js follows integrations).
     integrations.save("telegram", {
       botToken: String(req.body?.botToken ?? ""),
       chatId: String(req.body?.chatId ?? ""),
       events: ids.length ? ids.join(",") : "-",
+      buttons: buttons ? "on" : "off",
     });
     debug.log("admin: alert settings saved (%s)", ids.join(",") || "none");
     res.json({ ok: true });
@@ -65,7 +71,7 @@ export function mountAlertsApi(router, requireSession) {
     if (!token) return res.json({ ok: false, message: "봇 토큰을 먼저 넣습니다" });
     if (!TOKEN_RE.test(token)) return res.json({ ok: false, message: "봇 토큰 형식이 맞지 않습니다" });
     try {
-      const chats = await alerts.recentChats(token);
+      const chats = await updates.recentChats(token);
       if (!chats) return res.json({ ok: false, message: "텔레그램이 이 토큰을 받아들이지 않았습니다" });
       res.json({ ok: true, chats, message: chats.length ? "" : "아직 봇에게 온 메시지가 없습니다. 알림을 받을 대화에서 봇에게 아무 말이나 보낸 뒤 다시 누릅니다" });
     } catch (err) {

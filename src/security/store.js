@@ -290,6 +290,11 @@ export function revokeDevice(deviceKey) {
   return removed;
 }
 
+/** Whether a console is still waiting in the approval queue. */
+export function isDevicePending(deviceKey) {
+  return state.pending.has(deviceKey);
+}
+
 /** The note a waiting console sent with its request, or null. */
 export function pendingMessage(deviceKey) {
   return state.pending.get(deviceKey)?.message ?? null;
@@ -312,7 +317,7 @@ export function recordPendingDevice(deviceKey, { message } = {}) {
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
   if (!prev || (message && message !== prev.message)) {
-    alert("device", `${note ? `메시지: ${note}\n` : ""}관리 화면의 기기 탭에서 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now });
+    alert("device", `${note ? `메시지: ${note}\n` : ""}관리 화면의 기기 탭에서 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }
 }
 

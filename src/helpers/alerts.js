@@ -13,12 +13,17 @@
  *
  * Alerts carry no passwords, keys, addresses or e-mail: only enough to know
  * what happened and that something may need doing on the admin page.
+ *
+ * An approval alert (a console, a Google account) also carries [승인] [거절]
+ * buttons unless the admin turned them off; each stands for a one-time token
+ * (approval-tokens.js) and telegram-updates.js receives the presses.
  */
 import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
 import { dataDir, publicBaseUrl } from "./envs.js";
 import * as integrations from "../security/integrations.js";
+import * as approvalTokens from "../security/approval-tokens.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
@@ -82,16 +87,33 @@ export function enabledEvents(list = integrations.get("telegram").events) {
 /** Whether the admin wants this event (see enabledEvents). */
 export const wanted = (event, list) => enabledEvents(list).includes(event);
 
-/** Sends one message; resolves to Telegram's answer ({ ok, description? }). */
-export async function sendTelegram({ botToken, chatId }, text) {
-  const r = await fetchImpl(`${API}/bot${botToken}/sendMessage`, {
+/** Whether approval alerts carry buttons: on unless the admin saved "off". */
+export const buttonsOn = (conf = integrations.get("telegram")) => conf.buttons !== "off";
+
+/**
+ * Calls one Bot API method; resolves to Telegram's answer ({ ok, result?, description? }).
+ * `signal` cuts it short as well as the timeout.
+ */
+export async function callTelegram(botToken, method, body, { timeoutMs = SEND_TIMEOUT_MS, signal } = {}) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const r = await fetchImpl(`${API}/bot${botToken}/${method}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
-    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    body: JSON.stringify(body),
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
   return r.json().catch(() => ({ ok: false, description: `HTTP ${r.status}` }));
 }
+
+/** Sends one message; resolves to Telegram's answer ({ ok, description? }). */
+export function sendTelegram({ botToken, chatId }, text, extra = {}) {
+  return callTelegram(botToken, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...extra });
+}
+
+/** The [승인] [거절] row for a request; each button carries "y:" or "n:" and the token. */
+export const approvalKeyboard = (token) => ({
+  inline_keyboard: [[{ text: "승인", callback_data: `y:${token}` }, { text: "거절", callback_data: `n:${token}` }]],
+});
 
 /** The bot's own name, to show which bot is set up; null when the token is refused. */
 export async function botName(botToken) {
@@ -100,15 +122,25 @@ export async function botName(botToken) {
   return d.ok ? d.result?.username ?? "" : null;
 }
 
-/** The chats that wrote to the bot lately, for filling in the chat id: [{ id, title }]. */
+/** The chat an update came from, as the alerts tab lists it: { id, title }, or null. */
+export function updateChat(u) {
+  const c = (u.message ?? u.channel_post ?? u.my_chat_member ?? u.callback_query?.message ?? {}).chat;
+  return c ? { id: String(c.id), title: c.title ?? c.first_name ?? c.username ?? "" } : null;
+}
+
+/**
+ * The chats that wrote to the bot lately, for filling in the chat id: [{ id, title }].
+ * Asks Telegram directly, so only for when the button loop isn't reading
+ * updates (telegram-updates.js answers from its own while it runs).
+ */
 export async function recentChats(botToken) {
   const r = await fetchImpl(`${API}/bot${botToken}/getUpdates`, { signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
   const d = await r.json().catch(() => ({ ok: false }));
   if (!d.ok) return null;
   const chats = new Map();
   for (const u of d.result ?? []) {
-    const c = (u.message ?? u.channel_post ?? u.my_chat_member ?? {}).chat;
-    if (c) chats.set(String(c.id), { id: String(c.id), title: c.title ?? c.first_name ?? c.username ?? "" });
+    const c = updateChat(u);
+    if (c) chats.set(c.id, c);
   }
   return [...chats.values()];
 }
@@ -116,10 +148,10 @@ export async function recentChats(botToken) {
 const link = () => (publicBaseUrl ? `\n${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 
 /** Sends now and records how it went. Resolves to the history entry. */
-async function deliver(event, text, now, title = EVENTS[event]?.label ?? event) {
+async function deliver(event, text, now, title = EVENTS[event]?.label ?? event, extra = {}) {
   const conf = integrations.get("telegram");
   try {
-    const d = await sendTelegram(conf, `[CookingFoil] ${title}\n${text}${link()}`);
+    const d = await sendTelegram(conf, `[CookingFoil] ${title}\n${text}${link()}`, extra);
     if (!d.ok) debug.log("alerts: telegram refused: %s", d.description ?? "unknown");
     return remember({ at: now, event, text, status: d.ok ? "sent" : "failed", ...(d.ok ? {} : { detail: d.description ?? "" }) });
   } catch (err) {
@@ -140,9 +172,10 @@ function flushDigest(event) {
 /**
  * Raises an alert. `subject` tells repeats apart (a device key, an address) and
  * is never sent. `digest: { path }` gathers the event as described at the top.
+ * `approval: { kind, ref }` names the request the buttons approve or refuse.
  * Fire and forget; returns whether a message is on its way.
  */
-export function alert(event, text, { subject = "", now = Date.now(), digest = null } = {}) {
+export function alert(event, text, { subject = "", now = Date.now(), digest = null, approval = null } = {}) {
   if (!(event in EVENTS)) return false;
   if (!integrations.configured("telegram")) return false;
   if (!wanted(event)) {
@@ -168,7 +201,8 @@ export function alert(event, text, { subject = "", now = Date.now(), digest = nu
     }
     lastSent.set(key, now);
   }
-  deliver(event, text, now);
+  const extra = approval && buttonsOn() ? { reply_markup: approvalKeyboard(approvalTokens.issue(approval.kind, approval.ref, now)) } : {};
+  deliver(event, text, now, undefined, extra);
   return true;
 }
 
@@ -187,6 +221,7 @@ export function setFetchForTests(impl) {
   for (const d of digests.values()) clearTimeout(d.timer);
   digests.clear();
   history = [];
+  approvalTokens.resetForTests();
 }
 
 /** Test-only: send a gathered digest now. */
