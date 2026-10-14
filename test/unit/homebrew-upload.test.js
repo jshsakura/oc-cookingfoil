@@ -212,6 +212,25 @@ test("a hand-placed app's file hashes are remembered on disk, so a restart doesn
   assert.equal(Object.keys(JSON.parse(fs.readFileSync(hashFile, "utf8"))).length, 1);
 });
 
+test("a hand-placed app's install guides stay on the server; its own text data goes to the console", async () => {
+  const { scanManual, setManualHashFile } = await import("../../src/meta/homebrew.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-docs-"));
+  const app = path.join(root, "apps", "game");
+  const put = (rel, body = "x") => {
+    fs.mkdirSync(path.dirname(path.join(app, rel)), { recursive: true });
+    fs.writeFileSync(path.join(app, rel), body);
+  };
+  put("game.nro", fakeNro("Game"));
+  for (const rel of ["설치-스위치.md", "README.txt", "guide.pdf", "Thumbs.db", "Plugins/CJK/README_CJK.md",
+    "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "Plugins/notes.md"]) put(rel);
+  fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder" }));
+  setManualHashFile(path.join(root, "hashes.json"));
+  const [entry] = await scanManual(path.join(root, "apps"));
+  assert.deepEqual(entry.files.map((f) => f.path), [
+    "switch/game/Data/ServerUrl.txt", "switch/game/Plugins/HotFixes/meta.txt", "switch/game/Plugins/notes.md", "switch/game/game.nro",
+  ]);
+});
+
 test("an app kept as a zip is listed from inside it and sent whole, never unpacked on the server", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-zip-"));
   const dirs = Object.fromEntries(["data", "games", "homebrew", "patches", "saves"].map((k) => [k, path.join(root, k)]));

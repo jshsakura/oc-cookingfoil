@@ -36,9 +36,27 @@ const SAFE_SEGMENT_RE = /^[^\0-\x1f/\\]+$/;
 const FOREIGN_FILE_RE = /\.(exe|dll|msi|bat|cmd|ps1|sh|so|dylib|dmg|pkg|app|apk|ipa|appimage|deb|rpm|jar)$/i;
 const JUNK_NAME_RE = /^(\.ds_store|thumbs\.db|desktop\.ini|\._.*)$/i;
 const DOC_NAME_RE = /^(readme|licen[cs]e|changelog|changes|copying|authors)([._-].*)?$/i;
+// Guides written for a person at a PC. Anywhere: these formats; at the top of
+// the app folder also .md/.txt/.html, the "how to install" note beside the
+// .nro. Deeper down a .txt or .md can be the game's own data (a plugin's
+// meta.txt, a server address), so it stays.
+const DOC_FORMAT_RE = /\.(pdf|docx?|rtf|odt)$/i;
+const TOP_DOC_RE = /\.(md|markdown|txt|html?)$/i;
 const isNro = (p) => /\.nro$/i.test(p);
 const base = (p) => path.posix.basename(p);
 const SAMPLE = 5;
+
+/**
+ * Why a file of a hand-placed app folder (path relative to the folder) does not
+ * go to the console: "junk", "doc", or null when it does. Pure.
+ */
+export function leftOutOfFolder(rel) {
+  const name = base(rel);
+  if (rel.split("/").includes("__MACOSX") || JUNK_NAME_RE.test(name)) return "junk";
+  if (DOC_NAME_RE.test(name) || DOC_FORMAT_RE.test(name)) return "doc";
+  if (!rel.includes("/") && TOP_DOC_RE.test(name)) return "doc";
+  return null;
+}
 
 /** "atmosphere/ (12)" style summaries of left-out paths, grouped by their top folder. Pure. */
 function summarize(paths) {

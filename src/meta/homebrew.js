@@ -25,7 +25,7 @@ import path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
-import { normalizeLayout } from "./homebrew-layout.js";
+import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
@@ -338,7 +338,8 @@ async function readManual(root, folder, seen = null) {
   let folderInstall = null;
   if (manifest?.mode === "folder" && APP_NAME_RE.test(folder) && APP_NAME_RE.test(file)) {
     const files = [];
-    for (const rel of await filesUnder(dir)) {
+    // Install guides and desktop clutter stay on the server; the console gets what the app runs on.
+    for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r))) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
       files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });

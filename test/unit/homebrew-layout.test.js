@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeLayout } from "../../src/meta/homebrew-layout.js";
+import { leftOutOfFolder, normalizeLayout } from "../../src/meta/homebrew-layout.js";
 
 const zip = (...names) => names.map((name) => ({ name, size: 10, dir: name.endsWith("/"), link: false }));
 const paths = (r) => r.files.map((f) => f.path);
@@ -92,4 +92,13 @@ test("a lone .nro, links and escaping paths are never a folder install", () => {
   const foreign = normalizeLayout(zip("switch/app/app.nro", "switch/app/x.bin", "switch/app/tool.exe"));
   assert.deepEqual(paths(foreign), ["switch/app/app.nro", "switch/app/x.bin"]);
   assert.ok(foreign.excluded.some((e) => e.rule === "foreign-file"));
+});
+
+test("hand-placed folders leave out guides and clutter, but not data below the top", () => {
+  for (const rel of ["설치-스위치.md", "INSTALL.txt", "index.html", "a/manual.pdf", "x/README_CJK.md", "LICENSE", "a/.DS_Store", "__MACOSX/a/b"]) {
+    assert.notEqual(leftOutOfFolder(rel), null, rel);
+  }
+  for (const rel of ["game.nro", "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "lang/ko.md", "Game.ini"]) {
+    assert.equal(leftOutOfFolder(rel), null, rel);
+  }
 });
