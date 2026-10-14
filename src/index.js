@@ -37,6 +37,7 @@ import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane from "./security/direct-lane.js";
+import * as directHealth from "./security/direct-health.js";
 import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
@@ -142,6 +143,7 @@ expressApp.get("/healthz", async (_req, res) => {
           loadedAt: tdb.loadedAt,
         },
         nameHealth,
+        directDownload: directHealth.status(),
         ...drainer.healthFields(),
       }));
     return;
@@ -331,6 +333,8 @@ shopCache.init().catch((err) =>
 userPatches.start({ onChange: () => shopCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
+// The direct address: checked now, then when lists ask; a change adds or drops the direct links in the lists.
+directHealth.start({ changed: () => shopCache.invalidate() });
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
