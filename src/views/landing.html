@@ -546,7 +546,8 @@
       .modal .modal-meta strong { display: block; color: var(--ink); font-size: 15px; font-weight: 700; margin-top: 3px; }
       /* a 16-digit title id must not break mid-way */
       .modal .modal-meta strong.mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; white-space: nowrap; }
-      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; max-height: 220px; overflow-y: auto; white-space: pre-line; }
+      /* full height: the modal is the one thing that scrolls, never a box inside it */
+      .modal .desc { font-size: 14.5px; color: var(--ink); line-height: 1.7; margin-bottom: 18px; white-space: pre-line; overflow-wrap: anywhere; }
       /* What the admin adds about a game (what to install with it): above the description, set apart. */
       .modal .modal-notes { border: 1px solid var(--butter); background: color-mix(in srgb, var(--butter) 10%, var(--surface)); border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; }
       .modal .modal-notes[hidden] { display: none; }

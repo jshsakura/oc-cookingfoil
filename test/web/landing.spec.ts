@@ -253,6 +253,36 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
 });
 
+test("a game's long description runs at full height, so only the modal scrolls", async ({ page }) => {
+  const description = Array.from({ length: 40 }, (_, i) => `${i + 1}번째 문단입니다. 이 게임의 긴 설명이 모달 안에서 따로 스크롤되지 않고 그대로 이어집니다.`).join('\n\n');
+  await page.route('**/api/title/0100000000010000*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, description, notes: '함께 설치할 것을 적은 메모입니다.\n'.repeat(12) } });
+  });
+  fs.mkdirSync('out/web', { recursive: true });
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 760 });
+    await page.goto('/');
+    await page.locator('.game').first().click();
+    const desc = page.locator('#modal-desc');
+    await expect(desc).toContainText('40번째 문단입니다');
+    const boxes = await page.evaluate(() => {
+      const inner = (id: string) => { const el = document.getElementById(id)!; return { scroll: el.scrollHeight, client: el.clientHeight, oy: getComputedStyle(el).overflowY }; };
+      const modal = document.querySelector('#modal .modal')!;
+      return { desc: inner('modal-desc'), notes: inner('modal-notes'), modal: { scroll: modal.scrollHeight, client: modal.clientHeight, sw: modal.scrollWidth, cw: modal.clientWidth } };
+    });
+    for (const box of [boxes.desc, boxes.notes]) {
+      expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
+      expect(box.oy).toBe('visible');
+    }
+    expect(boxes.modal.scroll).toBeGreaterThan(boxes.modal.client);
+    expect(boxes.modal.sw).toBeLessThanOrEqual(boxes.modal.cw);
+    await page.locator('#modal .modal').screenshot({ path: `out/web/modal-desc-${width}.png` });
+    await page.keyboard.press('Escape');
+  }
+});
+
 test('on a phone the search box and the sort box share the top row, the kind chips under them', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
