@@ -59,7 +59,7 @@ h2{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:40px 0 14px;displ
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
 .tile b{display:block;font-size:15px;font-weight:800;margin-bottom:4px}.tile p{margin:0;color:var(--secondary);font-size:14px}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .stat{background:var(--sunk);border-radius:14px;padding:14px 16px}
 .stat .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;background:var(--butter);color:var(--butter-ink);font-weight:800;font-size:13px;margin-bottom:8px}
 .stat b{display:block;font-weight:800;margin-bottom:2px}.stat p{margin:0;color:var(--secondary);font-size:13px}
@@ -82,7 +82,7 @@ footer nav{display:flex;gap:6px 18px;justify-content:center;flex-wrap:wrap;margi
 footer nav a{text-decoration:none;font-size:13px;font-weight:600;color:var(--ink)}footer nav a:hover{text-decoration:underline}
 footer p{color:var(--faint);font-size:13px;margin:0}
 
-@media (max-width:900px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+@media (max-width:900px){.grid,.steps{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
 @media (max-width:640px){
   .top .in{padding:16px 16px 0}.wrap{padding:16px 16px 0}footer .in{padding:40px 16px 48px}
   .wm{font-size:26px}.brand img{width:36px;height:36px}

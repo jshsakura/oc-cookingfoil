@@ -56,8 +56,7 @@ The web page, first-run setup, sign-in and device approval pages are in English,
 - **Admin page with a second factor.** The admin page asks again for an authenticator (TOTP) code or a separate admin password. Automation tokens let a script use the same API.
 - **Share inbox.** Signed-in users can leave files, a memo and links for the operator to sort later.
 - **Telegram alerts.** Device and account approval requests (with approve and reject buttons), lockouts, blocked attack probes, share inbox uploads and server starts.
-- **Safe restart.** On stop, the server stops taking new requests, answers them with `503` and `Retry-After`, and lets running downloads finish first.
-- **Optional direct download address.** A separate HTTPS address in front of the server that carries downloads only, opened by short-lived download tokens instead of a sign-in.
+- **Downloads that hold up.** On a restart, the server answers new requests with `503` and `Retry-After` and lets running downloads finish first. An optional direct download address carries downloads only, opened by short-lived download tokens instead of a sign-in.
 
 ## Quick start
 
