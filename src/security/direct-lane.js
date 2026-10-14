@@ -1,57 +1,53 @@
 /**
- * The signed lane: direct links (download-links.js), answered without the sign-in.
+ * The token lane: downloads on the direct address, answered without the sign-in.
  *
- * Direct links point at the direct address (publicDirectBaseUrl), a proxy on
- * this host that forwards only GET/HEAD requests carrying exp and sig, sets
- * X-Forwarded-For itself and fixes Host to that address. A request takes this
- * lane only when all of these hold; anything else goes on through the normal
- * stack and its sign-in, untouched:
+ * The direct address (publicDirectBaseUrl) is a proxy on this host that
+ * forwards only GET/HEAD requests carrying `Authorization: Bearer …`, sets
+ * X-Forwarded-For itself and fixes Host to that address. A request is the
+ * proxy's only when all of these hold; anything else goes on through the
+ * normal stack and its sign-in, untouched:
  *   - a direct address is set,
  *   - the socket peer is this machine (loopback or the container's gateway,
  *     local-hop.js): only the proxy on the host connects from there,
  *   - Host, and X-Forwarded-Host when present, is the direct address's host,
- *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP),
- *   - it carries exp and sig and is a GET or HEAD for a download: a file in the
- *     games folder (a game, update, DLC or a title's extra file) or one of
- *     DOWNLOAD_ROUTES.
- * A request that came from the proxy but is not one of those is a 404, so the
- * direct address carries nothing but the files its links point to.
+ *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP).
+ * Every request of the proxy is answered here. Only a GET or HEAD for a
+ * download is served: a file in the games folder (a game, update, DLC or a
+ * title's extra file) or one of DOWNLOAD_ROUTES; anything else is a 404, so
+ * the direct address carries nothing but downloads. Basic auth, device keys
+ * and sessions count for nothing here: only the download token does.
  *
  * The client is the rightmost X-Forwarded-For entry, the one the proxy wrote;
  * whatever a client sends to the left of it is ignored. That address is what
  * the ban (download-ban.js) counts and what the log names. The ban is a short
- * first line: the proxy logs every 403, and a firewall rule built on those
+ * first line: the proxy logs every refusal, and a firewall rule built on those
  * logs (CrowdSec) is the hard ban.
  *
- * On the lane the request is answered by the very routers the shop uses
- * (`routes`) and by the games folder with the same options as the shop's own
- * static handler, so ETag and Last-Modified match on both lanes and a resume
- * may switch between them. It never reaches pages, lists, the admin API,
- * uploads, sign-in or any write.
+ * The request is answered by the very routers the shop uses (`routes`) and by
+ * the games folder with the same options as the shop's own static handler, so
+ * ETag, Last-Modified, Range and If-Range behave the same on both lanes and a
+ * resume may switch between them. It never reaches pages, lists, the admin
+ * API, uploads, sign-in or any write.
  *
- * Refusals are 403 with X-CookingFoil-Link, so a client knows what to do:
- *   expired  the link ran out: read the list again
- *   used     the file was already delivered in full through this link: read the list again
- *   revoked  the account or console it was made for may no longer sign in
- *   invalid  not a link this server made
- *   blocked  this address sent too many invalid links and is shut out for a while
- * The client may then fall back to the item's `url`.
+ * Refusals carry X-CookingFoil-Token, so a client knows what to do:
+ *   401 invalid  no token, or not one this server made
+ *   401 expired  the token ran out: read any list again for the current one
+ *   401 revoked  the account or console it was made for may no longer sign in
+ *   403 blocked  this address sent too many invalid tokens and is shut out for a while
  */
 import express from "express";
 import net from "net";
-import * as links from "./download-links.js";
-import * as state from "./download-state.js";
+import * as tokens from "./download-token.js";
 import { stillAllowed } from "./link-identity.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
-import { createCoverage, deliveredBytes } from "./link-coverage.js";
 import { isLocalHop } from "./local-hop.js";
 import connectionHint from "../helpers/connection-hint.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 
-export const LINK_HEADER = "X-CookingFoil-Link";
+export const TOKEN_STATE_HEADER = "X-CookingFoil-Token";
 
-// The downloads a link may open besides games-folder files. Matched on the raw path, case and all.
+// The downloads the lane serves besides games-folder files. Matched on the raw path, case and all.
 const DOWNLOAD_ROUTES = [
   /^\/api\/retro\/games\/[^/]+\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg|forwarder\.nsp)$/,
   /^\/api\/retro\/base-pack(\/bundle)?$/,
@@ -104,14 +100,19 @@ export function viaDirectProxy(req) {
   return proxiedClient(req.get("x-forwarded-for"));
 }
 
-const rawQuery = (url) => (url.includes("?") ? url.slice(url.indexOf("?") + 1) : "");
-
-function refuse(res, verdict) {
-  res.set(LINK_HEADER, verdict);
-  return res.status(403).type("text/plain").send(`link ${verdict}`);
+/** The token of an `Authorization: Bearer <token>` header, or null for anything else. Pure. */
+export function bearerToken(header) {
+  const m = /^Bearer[ ]+([^\s]+)[ ]*$/i.exec(String(header ?? ""));
+  return m ? m[1] : null;
 }
 
-/** The routes and files a verified link may reach, and nothing else. */
+function refuse(res, status, verdict) {
+  res.set(TOKEN_STATE_HEADER, verdict);
+  if (status === 401) res.set("WWW-Authenticate", `Bearer error="invalid_token"`);
+  return res.status(status).type("text/plain").send(`token ${verdict}`);
+}
+
+/** The routes and files the lane may reach, and nothing else. */
 function laneRouter(root, routes) {
   const router = express.Router();
   router.use(connectionHint());
@@ -128,54 +129,37 @@ function laneRouter(root, routes) {
   return router;
 }
 
-/** Closes the link once its file has been delivered in full (link-coverage.js). */
-function trackDelivery(req, res, link, coverage) {
-  if (req.method !== "GET") return;
-  res.on("finish", () => {
-    // Handed to the operating system on a socket that has not failed (see link-coverage.js).
-    if (res.socket?.errored || req.socket?.errored) return;
-    const delivered = deliveredBytes(req.method, res.statusCode, res.getHeader("content-range"));
-    if (coverage.add(link.sig, link.exp, delivered)) state.markUsed(link.sig, link.exp, link.u);
-  });
-}
-
 function newBan() {
   return createBan({
-    onBan: (ip, count) => debug.error("direct lane: %s sent %d invalid links within %d minutes; blocked for %d minutes", ip, count, BAD_WINDOW_MS / 60000, BAN_MS / 60000),
+    onBan: (ip, count) => debug.error("direct lane: %s sent %d invalid tokens within %d minutes; blocked for %d minutes", ip, count, BAD_WINDOW_MS / 60000, BAN_MS / 60000),
   });
 }
 
-/** Whether a request from the proxy is one for the signed lane (see the list above). */
-function takesLane(req) {
-  if (req.method !== "GET" && req.method !== "HEAD") return false;
-  return links.hasSignature(rawQuery(req.url)) && laneOf(req.path) !== null;
-}
+const isDownload = (req) => (req.method === "GET" || req.method === "HEAD") && laneOf(req.path) !== null;
 
 /**
  * `root` is the games folder; `routes` maps a mount prefix to its router
  * ({ "/api/retro": retroRouter, … }), the same instances the shop mounts.
  */
-export default function directLane(root, { routes = {}, ban = newBan(), coverage = createCoverage() } = {}) {
+export default function directLane(root, { routes = {}, ban = newBan() } = {}) {
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
     const ip = viaDirectProxy(req);
     if (!ip) return next();
-    // The direct address answers links and nothing else.
-    if (!takesLane(req)) return res.set("Cache-Control", "no-store").status(404).end();
+    // The direct address answers downloads and nothing else.
+    if (!isDownload(req)) return res.set("Cache-Control", "no-store").status(404).end();
 
     res.set("Cache-Control", "private, no-store");
-    if (ban.isBanned(ip)) return refuse(res, "blocked");
+    if (ban.isBanned(ip)) return refuse(res, 403, "blocked");
 
-    const link = links.verifyRequest(req.path, rawQuery(req.url));
-    if (link.verdict === "bad") {
+    const token = tokens.verify(bearerToken(req.get("authorization")));
+    if (token.verdict === "invalid") {
       ban.recordBad(ip);
-      return refuse(res, "invalid");
+      return refuse(res, 401, "invalid");
     }
-    if (link.verdict === "expired") return refuse(res, "expired");
-    if (!link.u || !stillAllowed(state.identity(link.u))) return refuse(res, "revoked");
-    if (state.isUsed(link.sig)) return refuse(res, "used");
+    if (token.verdict === "expired") return refuse(res, 401, "expired");
+    if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
 
-    trackDelivery(req, res, link, coverage);
     lane(req, res, () => res.headersSent || res.status(404).end());
   };
 }

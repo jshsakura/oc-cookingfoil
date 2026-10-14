@@ -46,9 +46,8 @@
  * the NSP has been built, which happens in the background.
  *
  * Every download URL (download_url, bundle_url, archive.url, each file's url,
- * forwarder_url) has a direct twin (download_direct_url, bundle_direct_url,
- * direct_url, forwarder_direct_url) when the list was asked for by a signed-in
- * request and a direct address is set (security/download-links.js).
+ * forwarder_url) is on the direct address when a signed-in client asked for it
+ * and a direct address is set (security/download-links.js).
  *
  * `hash` changes whenever the build does; a client compares it with the one it
  * installed to show an update. A GitHub build announced but not yet fetched is
@@ -60,7 +59,7 @@ import express from "express";
 import debug from "../debug.js";
 import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
-import { directFields, forRequest } from "../security/download-links.js";
+import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
@@ -249,10 +248,10 @@ async function unchanged(files) {
   return true;
 }
 
-/** A URL field and its direct twin (when `link` is set); a null URL has none. */
-const withDirect = (name, url, link) => ({ [name]: url, ...(url ? directFields(name, url, link) : {}) });
+/** A URL field, on the direct address when `link` is set; a null URL stays null. */
+const withDirect = (name, url, link) => ({ [name]: directUrl(url, link) });
 
-/** The forwarder fields with forwarder_direct_url after forwarder_url when there is one. Pure. */
+/** The forwarder fields with forwarder_url on the direct address when `link` is set. Pure. */
 const forwarderWithDirect = ({ forwarder_url: url, ...rest }, link) => ({ ...withDirect("forwarder_url", url, link), ...rest });
 
 /** Ask for a retry once the folder has been read again. */

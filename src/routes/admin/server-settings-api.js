@@ -45,7 +45,7 @@ export function mountServerSettingsApi(router, requireSession) {
     } catch (err) {
       return res.status(400).json({ error: `${err.message} 값이 맞지 않습니다`, field: err.message });
     }
-    // A new direct address is not used until it has answered.
+    // A new direct address is checked at once, so the page shows whether it answers.
     if (changed.includes("publicDirectBaseUrl")) await directHealth.checkSoon();
     if (changed.some((k) => RESCAN.has(k))) {
       if (changed.includes("langPriority")) await titledbStore.load();

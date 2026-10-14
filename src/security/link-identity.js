@@ -1,14 +1,15 @@
 /**
- * Who a download link is made for: the console, with the account behind it.
+ * Who a download token is made for (download-token.js): the console, with the
+ * account behind it.
  *
- * One account may be signed in on two consoles at once, so a link belongs to
+ * One account may be signed in on two consoles at once, so a token belongs to
  * the device (the X-Device-Key or UID header CookingFoil and CyberFoil send),
  * together with the account (a shop account, a per-device login or a Google
  * account). A paired console with no account is its own identity. A request
  * with an account but no device id (a browser) is told apart by a hash of its
- * User-Agent. A request with neither was not signed in, and gets no link.
+ * User-Agent. A request with neither was not signed in, and gets no token.
  *
- * On the signed lane (direct-lane.js) the identity is checked again on every request:
+ * On the token lane (direct-lane.js) the identity is checked again on every request:
  * the account must still be allowed to sign in and, when the console was
  * approved (paired) at the time, it must still be approved.
  */
@@ -31,7 +32,7 @@ function accountOf(req) {
 
 /**
  * { acct, dev, agent, paired } for a request that signed in, or null.
- * `paired` is whether the console is approved now; the link then requires it.
+ * `paired` is whether the console is approved now; the token then requires it.
  */
 export function requester(req) {
   const acct = accountOf(req);
@@ -47,7 +48,7 @@ function accountAllowed({ kind, id }) {
   return users.isActive(id);
 }
 
-/** Whether links made for `who` may still be used. */
+/** Whether tokens made for `who` may still be used. */
 export function stillAllowed(who) {
   if (!who || (!who.acct && !who.paired)) return false;
   if (who.acct && !accountAllowed(who.acct)) return false;

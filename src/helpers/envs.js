@@ -330,11 +330,11 @@ let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "")
 // download.maxConnections), not enforced: the client opens up to this many.
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
 // The direct download address (security/download-links.js, direct-lane.js): a
-// proxy in front of this server that forwards only signed downloads. When set,
-// signed-in lists give every download a direct_url, a signed link on it that
-// stops working after downloadLinkTtl seconds.
+// proxy in front of this server that forwards only GET/HEAD downloads with a
+// Bearer token. When set, signed-in clients that declare direct-token get a
+// download token (valid downloadLinkTtl seconds) and their download URLs on it.
 let publicDirectBaseUrl = normalizeBaseUrl(pickEnv("COOK_PUBLIC_DIRECT_BASE_URL"));
-let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 43200, { min: 3600, max: 604800, integer: true });
+let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 21600, { min: 3600, max: 604800, integer: true });
 // Safe restart (security/drain.js): the Retry-After a new request is given while
 // the server drains, and how long running requests may take to finish before
 // they are cut. At most 35 s, inside compose's stop_grace_period of 40 s.

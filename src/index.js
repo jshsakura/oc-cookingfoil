@@ -38,6 +38,7 @@ import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane from "./security/direct-lane.js";
 import * as directHealth from "./security/direct-health.js";
+import { tokenHeader as downloadTokenHeader } from "./security/download-links.js";
 import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
@@ -157,7 +158,12 @@ expressApp.get("/healthz", async (_req, res) => {
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
 expressApp.use(busyGuard());
 expressApp.use(rateLimit());
-// The download routers, made once: the shop mounts them below and the signed lane shares them.
+// The direct address is watched while requests come in (at most once a minute; it only alerts).
+expressApp.use((_req, _res, next) => {
+  directHealth.touch();
+  next();
+});
+// The download routers, made once: the shop mounts them below and the token lane shares them.
 const downloadRouters = {
   "/api/patches": patchesRouter(),
   "/api/homebrew": homebrewRouter(),
@@ -165,8 +171,8 @@ const downloadRouters = {
   "/api/client": clientUpdateRouter(),
   "/api/retro": retroRouter(),
 };
-// Direct links (signed, through the direct address's proxy) are answered here,
-// without the sign-in; every other request goes on through the stack below.
+// Downloads on the direct address (through its proxy, with a download token) are
+// answered here, without the sign-in; every other request goes on through the stack below.
 expressApp.use(directLane(romsDirPath, { routes: downloadRouters }));
 
 if (adminEnabled) {
@@ -198,6 +204,8 @@ expressApp.use(webLoginRouter());
 // when COOK_DEVICE_PAIRING is off.
 expressApp.use(pairingGate());
 expressApp.use(authGuard());
+// Signed-in clients that declare direct-token get their download token on every response.
+expressApp.use(downloadTokenHeader());
 // Lists and downloads tell the client how many connections a download may use.
 expressApp.use(connectionHint());
 expressApp.use("/assets", webAssets);
@@ -333,8 +341,8 @@ shopCache.init().catch((err) =>
 userPatches.start({ onChange: () => shopCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
-// The direct address: checked now, then when lists ask; a change adds or drops the direct links in the lists.
-directHealth.start({ changed: () => shopCache.invalidate() });
+// The direct address: checked now, then while requests come in; a change is only told (log, Telegram).
+directHealth.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 

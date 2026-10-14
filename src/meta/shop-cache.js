@@ -65,12 +65,12 @@ const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
 // We derive an absolute-URL variant per distinct request origin and memoize
 // its identity/gzip/brotli/etag, so the expensive compression only runs once
 // per origin instead of per request. Realistic deployments see 1–2 origins;
-// the cap only guards against a flood of spoofed Host headers. Lists carrying
-// direct links are one variant per console, kept apart (DIRECT_MEMO_MAX) so a
-// household's consoles never push the plain variants out. Cleared on every
+// the cap only guards against a flood of spoofed Host headers. Lists on the
+// direct address (security/download-links.js) are one more variant per origin,
+// kept apart (DIRECT_MEMO_MAX) so they never push the plain ones out. Cleared on every
 // rebuild so variants never outlive the base snapshot they derive from.
 const ORIGIN_MEMO_MAX = 16;
-const DIRECT_MEMO_MAX = 32;
+const DIRECT_MEMO_MAX = 16;
 const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> { identity, gzip, brotli, etag }
 const originMemo = newMemo();
 
@@ -371,16 +371,15 @@ function pickVariant(variant, acceptedEncodings) {
 // Derive the absolute-URL variant for a single origin and compress it. The
 // rewrite reads serializedJson synchronously up front, so a concurrent
 // rebuild swapping the base buffers can't desync this variant's body/etag.
-// File URLs are anchored at the origin; with `link` (a signed-in list while a
-// direct address is set) each also gets its direct_url (security/download-links.js).
+// File URLs are anchored at the origin; with `link` (a client that asked for
+// the direct address) they are on the direct address instead (security/download-links.js).
 function rewriteDownloads(json, origin, link) {
   return rewriteDownloadOrigin(downloadLinks.withShopDirect(json, link), origin);
 }
 
-// The memo key: one variant per origin, and per link expiry step, console and
-// generation when the list carries direct links (a used link moves its console
-// to the next generation). Lists without direct links keep the plain origin key.
-const memoKey = (origin, link) => (link ? `${origin}|${link.base}|${link.exp}|${link.u}|${link.g}` : origin);
+// The memo key: one variant per origin, and one more per direct address. The
+// body never carries anything per console, so every console shares it.
+const memoKey = (origin, link) => (link ? `${origin}|${link.base}` : origin);
 
 async function encodeForOrigin(origin, link) {
   // Both artwork (`/api/shop/...`) and file-download (`../foo.nsp`) URLs are made
@@ -404,10 +403,10 @@ async function encodeForOrigin(origin, link) {
  * icons by curling the URL verbatim. A falsy origin falls back to the
  * host-relative payload (getEncoded) — correct for same-origin browser fetches
  * and any caller that can't determine a host. `link` (download-links.js
- * forRequest) adds that console's direct_url beside each file URL.
+ * forRequest) puts the file URLs on the direct address.
  */
 export async function getEncodedForOrigin(acceptedEncodings, origin, link = null) {
-  if (!origin) return getEncoded(acceptedEncodings);
+  if (!origin && !link) return getEncoded(acceptedEncodings);
   if (!cached) await build();
 
   const variant = await memoized(originMemo, origin, link, () => encodeForOrigin(origin, link));
@@ -442,7 +441,7 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin, lin
   if (!filesMap) await build();
   ensureSectionsIdentity();
 
-  if (!origin) {
+  if (!origin && !link) {
     if (!sectionsNoOriginVariant) {
       sectionsNoOriginVariant = await compressVariant(sectionsIdentity);
     }
