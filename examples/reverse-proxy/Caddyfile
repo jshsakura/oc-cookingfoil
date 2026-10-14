@@ -1,0 +1,8 @@
+# Caddy installed on the host, in front of the shop published on port 9080
+# (the default in docker-compose.yml). In .env: COOK_TRUST_PROXY=loopback, uniquelocal
+shop.example.org {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:9080 {
+		flush_interval -1
+	}
+}

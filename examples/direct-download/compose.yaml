@@ -1,0 +1,48 @@
+# The optional direct download address (README, "Optional direct download
+# address"): https://dl.example.org:8443 in front of the shop published on
+# port 9080 of the same machine.
+#
+#   1. cp env.example .env and fill it in; put the same COOK_DIRECT_EDGE_SECRET
+#      in the shop's .env
+#   2. point dl.example.org at your public address (DNS only, not proxied);
+#      the ddns service below keeps it current on a home connection
+#   3. forward TCP 8443 on your router to this machine
+#   4. docker compose up -d
+#   5. on the shop's admin page set the direct address to
+#      https://dl.example.org:8443 (or COOK_PUBLIC_DIRECT_BASE_URL in its .env)
+#
+# The proxy has to run on the same machine as the shop and reach it through
+# the published port: the shop accepts the direct lane only from this machine.
+services:
+  direct-proxy:
+    build: .
+    image: cookingfoil-direct-proxy:local
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+      - ./caddy/logs:/logs
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [all]
+    # The caddy binary carries a file capability; exec fails without it in the bounding set.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+
+  # Optional: keeps dl.example.org on your current public address.
+  ddns:
+    image: favonia/cloudflare-ddns:1.15.1
+    restart: unless-stopped
+    network_mode: host
+    read_only: true
+    cap_drop: [all]
+    security_opt: [no-new-privileges:true]
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CF_DNS_API_TOKEN}
+      DOMAINS: dl.example.org
+      PROXIED: "false"
+      IP6_PROVIDER: none
+      UPDATE_CRON: "@every 5m"
