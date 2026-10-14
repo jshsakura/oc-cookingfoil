@@ -21,9 +21,14 @@
  *
  * Files stream to a staging folder on disk (never into memory) and the entry
  * is renamed into place once complete; see meta/inbox.js for the layout.
+ * The bytes are counted as they arrive, across all files of the request, and
+ * held against the quota together with every other upload in flight: the
+ * moment one passes either limit it is answered and its connection closed,
+ * so an upload that never said its size can't fill the disk first.
  */
 import express from "express";
 import multer from "multer";
+import fs from "fs";
 import path from "path";
 import fsp from "fs/promises";
 
@@ -36,7 +41,7 @@ import debug from "../debug.js";
 
 export const RATE_MAX = 5;
 const RATE_WINDOW_MS = 60_000;
-const MAX_FILES = 1000;
+const MAX_FILES = 500;
 // Room for the multipart framing and the text fields over the files themselves.
 const FORM_OVERHEAD = 256 * 1024;
 
@@ -58,11 +63,78 @@ function overRate(key, now = Date.now()) {
 }
 
 const fail = (res, status, code, error) => res.status(status).json({ error, code });
+
+let inFlight = 0; // bytes of uploads being received, held against the quota
+
+/**
+ * The bytes one request may still take: at most maxBytes for the whole
+ * request, and no more than the quota leaves after the inbox and the other
+ * uploads in flight. take() returns an InboxError once a chunk won't fit.
+ */
+function budget(used) {
+  let mine = 0;
+  let over = null; // once over, every later chunk is refused too
+  return {
+    take(n) {
+      if (over) return over;
+      if (mine + n > envs.inboxMaxBytes) over = new inbox.InboxError(413, "too-big", tooBigMessage());
+      else if (used + inFlight + n > envs.inboxQuotaBytes) over = new inbox.InboxError(507, "full", fullMessage());
+      if (over) return over;
+      mine += n;
+      inFlight += n;
+      return null;
+    },
+    // Safe to call more than once: what is released is no longer held.
+    release() {
+      inFlight -= mine;
+      mine = 0;
+    },
+  };
+}
+
+/** Multer storage that writes each file to `work/in` and charges every chunk to the request's budget. */
+function countedStorage(work, money, onOver) {
+  let n = 0;
+  return {
+    _handleFile(_req, file, cb) {
+      const dest = path.join(work, "in", `f${n++}`);
+      const out = fs.createWriteStream(dest);
+      let size = 0;
+      let stopped = false;
+      const stop = (err) => {
+        if (stopped) return;
+        stopped = true;
+        file.stream.unpipe(out);
+        file.stream.resume();
+        out.destroy();
+        fs.rm(dest, { force: true }, () => cb(err));
+      };
+      file.stream.on("data", (chunk) => {
+        if (stopped) return;
+        const err = money.take(chunk.length);
+        if (err) {
+          onOver(err);
+          stop(err);
+        } else size += chunk.length;
+      });
+      out.on("error", stop);
+      // the connection was closed under it (cut off, or the browser went away)
+      file.stream.on("error", stop);
+      out.on("finish", () => { if (!stopped) cb(null, { path: dest, size }); });
+      file.stream.pipe(out);
+    },
+    _removeFile(_req, file, cb) {
+      fs.rm(file.path, { force: true }, cb);
+    },
+  };
+}
 const fullMessage = () => "임시 공유함이 가득 찼습니다. 관리자가 정리한 뒤 다시 올립니다";
 const tooBigMessage = () => `한 번에 ${inbox.fmtBytes(envs.inboxMaxBytes)}까지 올립니다`;
 
 export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => alert("inbox", text, { subject: id }) } = {}) {
   const router = express.Router();
+  // A server stopped mid-upload left its staging folder behind.
+  inbox.clearStaging();
 
   router.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
@@ -98,12 +170,23 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
     }
 
     const work = await inbox.newStaging();
-    let n = 0;
+    const money = budget(await inbox.usage());
+    // Over a limit mid-stream: drop what came in, answer now and close the connection instead of reading on.
+    let cut = false;
+    const cutOff = async (err) => {
+      if (cut) return;
+      cut = true;
+      money.release();
+      await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+      if (res.headersSent) return;
+      res.set("Connection", "close");
+      res.on("finish", () => req.socket?.destroy());
+      fail(res, err.status, err.code, err.message);
+    };
+    // However the request ends, what it held against the quota is let go.
+    res.on("close", () => money.release());
     const upload = multer({
-      storage: multer.diskStorage({
-        destination: (_req, _file, cb) => cb(null, path.join(work, "in")),
-        filename: (_req, _file, cb) => cb(null, `f${n++}`),
-      }),
+      storage: countedStorage(work, money, cutOff),
       limits: { fileSize: envs.inboxMaxBytes, files: MAX_FILES, fields: 10, fieldSize: 128 * 1024 },
     }).array("files", MAX_FILES);
     try {
@@ -122,20 +205,20 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       const links = inbox.parseLinks(req.body?.links);
       if (!files.length && !memo && !links.length) throw new inbox.InboxError(400, "empty", "파일, 메모, 링크 중 하나는 남깁니다");
       const bytes = received.reduce((sum, f) => sum + f.size, 0);
-      if (bytes > envs.inboxMaxBytes) throw new inbox.InboxError(413, "too-big", tooBigMessage());
-      // Measured again now the files are here: another upload may have filled it meanwhile.
-      if ((await inbox.usage()) > envs.inboxQuotaBytes) throw new inbox.InboxError(507, "full", fullMessage());
       const note = await inbox.create({ user: user.name, slug: user.slug, work, files, memo, links });
       debug.log("inbox: %s left %d files (%d bytes), %d links", user.slug, files.length, bytes, links.length);
       notify(inbox.alertText({ ...note, user: user.label }), note.id);
       res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes });
     } catch (err) {
       await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+      if (res.headersSent) return;
       if (err instanceof inbox.InboxError) return fail(res, err.status, err.code, err.message);
       if (err.code === "LIMIT_FILE_SIZE") return fail(res, 413, "too-big", tooBigMessage());
       if (err.code?.startsWith?.("LIMIT_")) return fail(res, 400, "limit", "파일이나 항목이 너무 많습니다");
       debug.error("inbox: upload failed: %s", err.message);
       fail(res, 500, "error", "올리지 못했습니다. 잠시 뒤에 다시 올립니다");
+    } finally {
+      money.release();
     }
   });
 

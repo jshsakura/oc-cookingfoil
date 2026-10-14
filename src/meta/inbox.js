@@ -7,7 +7,7 @@
  *     files/<original names, folders kept>
  *     note.json    { user, at (ISO), memo, links: [], files: [{ name, size, sha256 }] }
  *     status.json  { done: true, at }   only once the admin marks it 정리함
- *   <dataDir>/inbox/.staging/<random>/   uploads being received
+ *   <dataDir>/inbox/.staging/<random>/   uploads being received (cleared at startup)
  *
  * An upload is received into staging and renamed into place in one step, so a
  * half-finished one never shows up. Names keep what the person picked, cleaned
@@ -25,6 +25,9 @@ const NAME_MAX = 200;
 const MEMO_MAX = 10_000;
 const LINKS_MAX = 20;
 const LINK_MAX = 2000;
+// Control characters, and the bidi marks and overrides that could show x\u202Egpj.exe as xexe.jpg.
+const CONTROL_RE = /[\x00-\x1f\x7f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+const USAGE_TTL_MS = 60_000;
 const ID_RE = /^\d{8}-\d{6}-[A-Za-z0-9_-]{1,40}-[0-9a-f]{4}$/;
 
 /** A refusal the person can act on: an HTTP status, a code and a Korean message. */
@@ -38,7 +41,7 @@ export class InboxError extends Error {
 
 /** One path part as the person named it, made safe to write. Never empty. Pure. */
 export function fileNameOf(raw) {
-  let name = String(raw ?? "").normalize("NFC").split(/[/\\]/).pop().replace(/[\x00-\x1f\x7f]/g, "").trim();
+  let name = String(raw ?? "").normalize("NFC").split(/[/\\]/).pop().replace(CONTROL_RE, "").trim();
   if (!name || name === "." || name === "..") return "file";
   if (name.length > NAME_MAX) {
     const ext = path.extname(name).slice(0, 20);
@@ -110,6 +113,12 @@ export function entryId(user, date, hex) {
 
 export const isEntryId = (id) => typeof id === "string" && ID_RE.test(id);
 
+/** Drops what a stopped server left half-received. Runs once when the route is set up. */
+export function clearStaging() {
+  fs.rmSync(STAGING_DIR, { recursive: true, force: true });
+  fs.mkdirSync(STAGING_DIR, { recursive: true });
+}
+
 /** A new empty staging folder with an in/ for the incoming files. */
 export async function newStaging() {
   const work = path.join(STAGING_DIR, crypto.randomBytes(8).toString("hex"));
@@ -153,6 +162,7 @@ export async function create({ user, slug, work, files, memo = "", links = [], n
     }
   }
   await fsp.rm(work, { recursive: true, force: true });
+  renewUsage();
   return { id, ...note };
 }
 
@@ -166,8 +176,21 @@ async function sizeOf(dir) {
   return total;
 }
 
-/** Bytes the inbox holds, staging included (an upload in flight counts). */
-export const usage = () => sizeOf(INBOX_DIR);
+let usageCache = null; // { bytes, at }
+const renewUsage = () => { usageCache = null; };
+
+/**
+ * Bytes the inbox's entries hold (uploads in flight are counted by the route).
+ * Measured at most once a minute, and again after this module adds or removes
+ * an entry; `fresh` measures now.
+ */
+export async function usage({ fresh = false } = {}) {
+  if (!fresh && usageCache && Date.now() - usageCache.at < USAGE_TTL_MS) return usageCache.bytes;
+  let bytes = 0;
+  for (const name of (await fsp.readdir(INBOX_DIR).catch(() => [])).filter(isEntryId)) bytes += await sizeOf(path.join(INBOX_DIR, name));
+  usageCache = { bytes, at: Date.now() };
+  return bytes;
+}
 
 async function readEntry(id) {
   const dir = path.join(INBOX_DIR, id);
@@ -203,6 +226,7 @@ export async function setDone(id, done) {
   const file = path.join(dir, "status.json");
   if (done) await fsp.writeFile(file, `${JSON.stringify({ done: true, at: new Date().toISOString() })}\n`);
   else await fsp.rm(file, { force: true });
+  renewUsage();
   return true;
 }
 
@@ -211,6 +235,7 @@ export async function remove(id) {
   const dir = entryDir(id);
   if (!dir) return false;
   await fsp.rm(dir, { recursive: true, force: true });
+  renewUsage();
   return true;
 }
 

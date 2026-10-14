@@ -36,6 +36,12 @@ test("a file keeps its own name, without folders, control characters or a way ou
   assert.ok(long.length <= 200 && long.endsWith(".nro"));
 });
 
+test("bidi controls are dropped, so a name can't show its extension backwards", () => {
+  assert.equal(inbox.fileNameOf("x\u202Egpj.exe"), "xgpj.exe");
+  assert.equal(inbox.fileNameOf("\u200Ea\u200F\u202Ab\u202B\u202Cc\u202D\u2066d\u2067\u2068\u2069.txt"), "abcd.txt");
+  assert.equal(inbox.relPathOf("dir\u202E/x\u2066.bin"), "dir/x.bin");
+});
+
 test("a folder keeps its inner paths, each part cleaned, and never leaves files/", () => {
   assert.equal(inbox.relPathOf("my mod/romfs/data.bin"), "my mod/romfs/data.bin");
   assert.equal(inbox.relPathOf("../a/./b\\..\\c.txt"), "a/b/c.txt");
@@ -127,4 +133,20 @@ test("the alert tells who, how many files and how big, the link count and the me
   const text = inbox.alertText({ user: "alice", memo: "  \n  피크민 세이브입니다  \n둘째 줄", links: ["https://a.example/", "https://b.example/"], files: [{ size: 1024 }, { size: 2048 }] });
   assert.equal(text, "alice 님이 파일 2개(3.0 KB), 링크 2개를 올렸습니다.\n메모: 피크민 세이브입니다");
   assert.equal(inbox.alertText({ user: "bob", memo: "", links: [], files: [] }), "bob 님이 파일 0개(0 B), 링크 0개를 올렸습니다.");
+});
+
+test("leftovers in staging from a stopped server are cleared, and the usage figure is kept between changes", async () => {
+  const work = await inbox.newStaging();
+  fs.writeFileSync(path.join(work, "in", "f0"), "x".repeat(5000));
+  inbox.clearStaging();
+  assert.deepEqual(fs.readdirSync(path.join(data, "inbox", ".staging")), []);
+  const before = await inbox.usage();
+  // a file put there behind the server's back is not seen until the figure is renewed
+  const [entry] = await inbox.list();
+  fs.writeFileSync(path.join(data, "inbox", entry.id, "files", "extra.bin"), "y".repeat(100));
+  assert.equal(await inbox.usage(), before);
+  assert.equal(await inbox.usage({ fresh: true }), before + 100);
+  // its own changes renew it at once
+  await inbox.remove(entry.id);
+  assert.equal(await inbox.usage(), 0);
 });

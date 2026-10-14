@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import http from "node:http";
 
 // POST /api/inbox: signed-in web users only, with this browser's CSRF token,
 // inside the size limits and the quota, a few times a minute at most.
@@ -114,4 +115,59 @@ test("switched off on the admin page, the inbox says so and takes nothing", asyn
   assert.equal((await post(form({ memo: "x" }), headers("heidi"))).status, 404);
   settings.save({ inboxEnabled: null });
   assert.equal((await post(form({ memo: "x" }), headers("heidi"))).status, 201);
+});
+
+/** Streams a multipart body without Content-Length, a chunk at a time, until the server answers or cuts it off. */
+function chunked(user, chunks, size) {
+  return new Promise((resolve) => {
+    const boundary = "----cook" + Date.now();
+    const url = new URL(BASE);
+    const req = http.request({ host: url.hostname, port: url.port, path: url.pathname, method: "POST", headers: {
+      ...headers(user), "Content-Type": `multipart/form-data; boundary=${boundary}`, "Transfer-Encoding": "chunked",
+    } });
+    let written = 0, settled = false;
+    const end = (result) => { if (!settled) { settled = true; clearInterval(timer); resolve({ ...result, written }); } };
+    req.on("response", (res) => { let body = ""; res.on("data", (c) => { body += c; }); res.on("end", () => end({ status: res.statusCode, body })); });
+    req.on("error", (err) => end({ error: err.code }));
+    const parts = [];
+    for (let i = 0; i < chunks; i++) parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="f${i}.bin"\r\nContent-Type: application/octet-stream\r\n\r\n${"x".repeat(size)}\r\n`));
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    const timer = setInterval(() => {
+      if (settled) return;
+      const next = parts.shift();
+      if (!next) { clearInterval(timer); req.end(); return; }
+      written += next.length;
+      req.write(next);
+    }, 5);
+  });
+}
+
+test("a chunked upload with no announced size is cut off once it passes the limit, and nothing is kept", async () => {
+  const before = (await inbox.list()).length;
+  // 45 files of 900 bytes: each under the per-upload limit (1000), far over it together
+  const r = await chunked("ivan", 45, 900);
+  assert.ok(r.status === 413 || r.error, JSON.stringify(r));
+  if (r.status) assert.match(JSON.parse(r.body).error, /한 번에/);
+  assert.ok(r.written < 45 * 900, `the server read on until ${r.written} bytes`);
+  await new Promise((done) => setTimeout(done, 100));
+  assert.deepEqual(fs.readdirSync(path.join(data, "inbox", ".staging")), []);
+  assert.equal((await inbox.list()).length, before);
+});
+
+test("uploads in flight count against the quota, so two can't both pass a stale check", async () => {
+  settings.save({ inboxQuotaBytes: (await inbox.usage({ fresh: true })) + 1500, inboxMaxBytes: 1000 });
+  const [a, b] = await Promise.all([chunked("judy", 1, 900), chunked("ken", 1, 900)]);
+  const codes = [a.status ?? a.error, b.status ?? b.error].sort();
+  assert.equal(codes.filter((c) => c === 201).length, 1, JSON.stringify([a, b]));
+  assert.ok(codes.some((c) => c === 507 || typeof c === "string"));
+  settings.save({ inboxQuotaBytes: null, inboxMaxBytes: null });
+  assert.deepEqual(fs.readdirSync(path.join(data, "inbox", ".staging")), []);
+});
+
+test("more files than an upload may carry are refused", async () => {
+  const f = new FormData();
+  for (let i = 0; i < 501; i++) f.append("files", new Blob(["1"]), `f${i}.txt`);
+  const r = await post(f, headers("leo"));
+  assert.equal(r.status, 400);
+  assert.equal(fs.readdirSync(path.join(data, "inbox", ".staging")).length, 0);
 });
