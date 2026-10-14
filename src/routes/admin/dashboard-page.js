@@ -72,6 +72,10 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .pop-list .who{margin:0 0 4px;padding:8px 12px 10px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pop-list a,.pop-list button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:9px;background:none;text-decoration:none;color:var(--text);font:600 14px inherit;text-align:left;cursor:pointer}
 .pop-list a:hover,.pop-list button:hover{background:var(--sunk)}.pop-list #logout{color:var(--bad)}
+/* theme: the system setting, light or dark, the one in use ticked */
+.theme-pick{display:grid;gap:2px;padding:4px 0;margin:4px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pop-list .pop-label{margin:0;padding:6px 12px 2px;color:var(--muted);font-size:12px;font-weight:600}
+.theme-pick button[aria-checked="true"]::after{content:"";width:7px;height:12px;margin:-3px 3px 0 auto;border:solid var(--text);border-width:0 2px 2px 0;transform:rotate(45deg)}
 .howto{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:22px}
 .howto ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}.howto .copy-row code{background:var(--sunk)}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
@@ -196,6 +200,12 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
       <p class="who" id="who">불러오고 있습니다</p>
       <a role="menuitem" href="/">${icon("home")}웹 화면</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
+      <div class="theme-pick" role="group" aria-labelledby="theme-label">
+        <p class="pop-label" id="theme-label">테마</p>
+        <button role="menuitemradio" type="button" data-theme-choice="system" aria-checked="true">${icon("monitor")}시스템 설정 따르기</button>
+        <button role="menuitemradio" type="button" data-theme-choice="light" aria-checked="false">${icon("sun")}밝은 테마</button>
+        <button role="menuitemradio" type="button" data-theme-choice="dark" aria-checked="false">${icon("moon")}어두운 테마</button>
+      </div>
       <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
     </div>
   </div>

@@ -8,19 +8,54 @@ async function pickLang(page: Page, code: string) {
   await expect(page.locator('#lang-list')).toBeHidden();
 }
 
-test('landing follows the system light/dark setting and forgets a theme saved by the old button', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cookingfoil:theme', 'dark'));
+test('landing follows the system until a theme is picked in the account menu, then keeps it', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
+  const root = page.locator('html');
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+  const themeColor = () => page.locator('meta[name="theme-color"]').getAttribute('content');
+  await expect(root).not.toHaveAttribute('data-theme', /.+/);
   expect(await background()).toBe('rgb(242, 241, 238)');
-  await expect(page.locator('#theme-btn')).toHaveCount(0);
 
+  await page.locator('#acct-btn').click();
+  const choice = (name: string) => page.locator('#acct-list').getByRole('menuitemradio', { name });
+  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'true');
+  await choice('어두운 테마').click();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect(choice('어두운 테마')).toHaveAttribute('aria-checked', 'true');
+  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'false');
+  expect(await background()).toBe('rgb(22, 22, 26)');
+  await expect.poll(themeColor).toBe('#16161a');
+  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('dark');
+
+  // applied in the head, so the first paint is already dark
+  await page.reload();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect.poll(themeColor).toBe('#16161a');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#acct-btn').click();
+  await page.screenshot({ path: 'out/web/landing-dark.png' });
+
+  await choice('시스템 설정 따르기').click();
+  await expect(root).not.toHaveAttribute('data-theme', /.+/);
+  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBeNull();
+  await expect.poll(themeColor).toBe('#f2f1ee');
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(background).toBe('rgb(22, 22, 26)');
-  fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/landing-dark.png' });
+  await expect.poll(themeColor).toBe('#16161a');
+});
+
+test('a stored light theme wins over a dark system setting, and the menu labels follow the page language', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:theme', 'light'); localStorage.setItem('cookingfoil:lang', 'en'); } catch { /* none */ } });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#acct-list').getByRole('menuitemradio', { name: 'Light theme' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#acct-list').getByRole('menuitemradio')).toHaveText(['Match system setting', 'Light theme', 'Dark theme']);
 });
 
 test('landing names the shop, shows its status and links to the admin page', async ({ page }) => {
