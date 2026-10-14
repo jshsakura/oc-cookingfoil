@@ -16,7 +16,7 @@ import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir, ratingSync } from "../helpers/envs.js";
-import * as integrations from "../security/integrations.js";
+import * as igdb from "./igdb-client.js";
 import { pickScore } from "./scraper-ratings.js";
 
 const STORE_FILE = "ratings-own.json";
@@ -31,8 +31,6 @@ const PAUSE_MS = 500;
 const TIMEOUT_MS = 15_000;
 const STEAM_SEARCH = "https://store.steampowered.com/api/storesearch";
 const STEAM_REVIEWS = "https://store.steampowered.com/appreviews";
-const IGDB_TOKEN = "https://id.twitch.tv/oauth2/token";
-const IGDB_GAMES = "https://api.igdb.com/v4/games";
 const PLATFORM_ID = 130;
 // Steam's review summary wording, as the keys SCORE_LABELS uses.
 const STEAM_LABELS = new Set([
@@ -141,26 +139,11 @@ export async function steamRating(names, { fetchImpl = fetch } = {}) {
   return out;
 }
 
-let igdbToken = null; // { value, expiresAt }
-
-async function igdbAuth(fetchImpl) {
-  if (igdbToken && Date.now() < igdbToken.expiresAt - 30_000) return igdbToken.value;
-  const { clientId, clientSecret } = integrations.get("igdb");
-  const url = `${IGDB_TOKEN}?client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&grant_type=client_credentials`;
-  const body = await getJson(fetchImpl, url, { method: "POST" });
-  igdbToken = { value: body.access_token, expiresAt: Date.now() + Number(body.expires_in || 0) * 1000 };
-  return igdbToken.value;
-}
-
 /** IGDB's rating for this platform's release, or { miss }. Only when keys are set. */
 export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
-  const token = await igdbAuth(fetchImpl);
   const term = names[0].replace(/"/g, "");
   const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count; where platforms = (${PLATFORM_ID}); limit 5;`;
-  const games = await getJson(fetchImpl, IGDB_GAMES, {
-    method: "POST", body,
-    headers: { "Client-ID": integrations.get("igdb").clientId, Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
+  const games = await igdb.query("games", body, { fetchImpl });
   const best = bestMatch(names, games);
   if (!best || best.confidence < MATCH_MIN) return { miss: true };
   const g = best.item;
@@ -234,7 +217,7 @@ function save() {
 }
 
 export function providers() {
-  return integrations.configured("igdb") ? ["steam", "igdb"] : ["steam"];
+  return igdb.configured() ? ["steam", "igdb"] : ["steam"];
 }
 
 /** One paced batch. A network error leaves the title due so the next batch retries it. */
@@ -292,5 +275,5 @@ export function reset(store = {}, wantedList = []) {
   titles = store;
   wanted = new Map();
   track(wantedList);
-  igdbToken = null;
+  igdb.resetToken();
 }

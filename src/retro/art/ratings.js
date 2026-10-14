@@ -53,9 +53,9 @@ export async function readLaunchBox(input, wanted) {
   return { games, alternates };
 }
 
-/** ratings.json's content for every art-map of the retro dir, and per system "rated/mapped". Pure apart from reading art-map. */
-export function buildRatings(dir, { games, alternates }) {
-  const index = new Map(); // platform → title key → games
+/** platform → title key → LaunchBox games, over their names and alternate names. Pure. */
+export function titleIndex({ games, alternates }) {
+  const index = new Map();
   const add = (platform, title, g) => {
     const key = titleKey(title);
     if (!key) return;
@@ -68,19 +68,31 @@ export function buildRatings(dir, { games, alternates }) {
     const g = games.get(id);
     if (g) add(g.Platform, name, g);
   }
+  return index;
+}
+
+/** The distinct games a ROM's original title names on a system's platforms. Pure. */
+export function gamesFor(index, system, original) {
+  const key = titleKey(String(original).replace(/^WSC?:/, ""));
+  if (!key) return [];
+  const platforms = PLATFORMS[system] ?? [];
+  return [...new Map(platforms.flatMap((p) => index.get(p)?.get(key) ?? []).map((g) => [g.DatabaseID, g])).values()];
+}
+
+/** ratings.json's content for every art-map of the retro dir, and per system "rated/mapped". Pure apart from reading art-map. */
+export function buildRatings(dir, data) {
+  const index = titleIndex(data);
   const out = {};
   const summary = {};
   const mapDir = path.join(dir, "art-map");
   const files = fs.existsSync(mapDir) ? fs.readdirSync(mapDir).filter((f) => f.endsWith(".json")) : [];
   for (const file of files) {
     const system = path.basename(file, ".json");
-    const platforms = PLATFORMS[system] ?? [];
     const map = JSON.parse(fs.readFileSync(path.join(mapDir, file), "utf8"));
     let rated = 0;
     for (const [rom, original] of Object.entries(map)) {
       if (!original) continue;
-      const key = titleKey(original.replace(/^WSC?:/, ""));
-      const unique = [...new Map(platforms.flatMap((p) => index.get(p)?.get(key) ?? []).map((g) => [g.DatabaseID, g])).values()];
+      const unique = gamesFor(index, system, original);
       if (!unique.length) continue;
       const ratings = new Set(unique.map((g) => Math.round(Number(g.CommunityRating) * 20)));
       if (ratings.size !== 1) continue; // two different games share the title: don't guess
@@ -94,7 +106,7 @@ export function buildRatings(dir, { games, alternates }) {
 }
 
 /** Downloads Metadata.zip into `cacheDir` unless the copy there is current. Returns its path. */
-async function fetchMetadata(cacheDir, fetchImpl) {
+export async function fetchMetadata(cacheDir, fetchImpl = fetch) {
   const zip = path.join(cacheDir, "Metadata.zip");
   const have = await fsp.stat(zip).catch(() => null);
   const res = await fetchImpl(METADATA_URL, { headers: have ? { "If-Modified-Since": have.mtime.toUTCString() } : {} });
@@ -106,9 +118,9 @@ async function fetchMetadata(cacheDir, fetchImpl) {
   return zip;
 }
 
-/** Metadata.xml out of the zip, as a stream. */
-function xmlFrom(zip) {
-  const child = spawn("unzip", ["-p", zip, "Metadata.xml"], { stdio: ["ignore", "pipe", "ignore"] });
+/** One XML file (Metadata.xml, Mame.xml) out of the zip, as a stream. */
+export function xmlFrom(zip, entry = "Metadata.xml") {
+  const child = spawn("unzip", ["-p", zip, entry], { stdio: ["ignore", "pipe", "ignore"] });
   child.stdout.setEncoding("utf8");
   return child.stdout;
 }

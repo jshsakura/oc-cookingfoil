@@ -252,6 +252,10 @@ const ratingsUrl = envString("COOK_RATINGS_URL", "").trim();
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
 let ratingSync = envBool("COOK_RATING_SYNC", true);
+// Retro game details (description, publisher, release date, genres,
+// screenshots) collected slowly from LaunchBox, and IGDB with its keys.
+// false keeps what was collected and fetches nothing more.
+let retroMeta = envBool("COOK_RETRO_META", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -364,6 +368,7 @@ const ENV_SETTINGS = Object.freeze({
   eshopPopularity,
   eshopArtwork,
   ratingSync,
+  retroMeta,
   welcomeMessage,
   downloadMaxConnections,
   publicDirectBaseUrl: publicDirectBaseUrl || "",
@@ -392,6 +397,7 @@ function applyServerSettings(saved = {}) {
   eshopPopularity = v.eshopPopularity;
   eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
+  retroMeta = v.retroMeta;
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
   publicDirectBaseUrl = v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
@@ -460,6 +466,7 @@ export {
   homebrewCheckHours,
   ratingsUrl,
   ratingSync,
+  retroMeta,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,
