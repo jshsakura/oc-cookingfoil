@@ -5,25 +5,46 @@
  *                                         game_version, update_version, update_in_library }] }
  *   GET  /admin/api/patches/updates?titleId=  { updates: [{ version, date, display, in_library }] }  newest first
  *   POST /admin/api/patches/required   { id, required: boolean }  marks a patch the game does not start without
+ *   GET  /admin/api/patches/info       { patches: [{ id, key, title_id, homebrew, stored, info }], missing: [{ key, missing_since }] }
+ *                                      every patch, a game's or a homebrew app's, with its information; `stored` is
+ *                                      false while it shows the defaults; `missing` are entries kept for folders gone
+ *   PUT  /admin/api/patches/:id/info   { name, version?, game_version?, update_version?, author?, description?,
+ *                                        required?, ko?: { name?, description? } }  → { id, info }
+ *                                      replaces the text fields; `required`, `update_version` and `game_version`
+ *                                      stay as they were when left out. Limits as in meta/patch-info.js.
  *
  * `update_version` is the update a patch was made for. It is a reference: the
  * admin sees when the library lacks that update, nothing is hidden or held back.
  *
- * `required` lives in the patch's patch.json, beside the rest of its metadata.
+ * A patch's information, `required` with it, lives in the server's patch
+ * store (meta/patch-info.js), never in its patch.json. An edit shows in the
+ * lists at once: they lay the store over the scanned folders when served.
  */
-import fsp from "fs/promises";
 import * as userPatches from "../../meta/user-patches.js";
-import { patchesDir } from "../../helpers/envs.js";
-import { inside } from "./homebrew-apps-api.js";
+import * as patchInfo from "../../meta/patch-info.js";
 import { libraryGames } from "./upload-api.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbVersions from "../../meta/titledb-versions.js";
 import debug from "../../debug.js";
 
-/** patch.json with `required` set or cleared; other fields kept as they are. Pure. */
+/** Information with `required` set or cleared; other fields kept as they are. Pure. */
 export function withRequired(meta, required) {
   const { required: _old, ...rest } = meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {};
   return required ? { ...rest, required: true } : rest;
+}
+
+/**
+ * A patch's information after an edit, validated: the text fields as sent,
+ * `required`, `update_version` and `game_version` kept from `old` when the
+ * edit leaves them out. Throws patchInfo.InfoError. Pure.
+ */
+export function editedInfo(old, input) {
+  const body = input && typeof input === "object" && !Array.isArray(input) ? { ...input } : input;
+  if (body && typeof body === "object") {
+    if (body.required === undefined) body.required = old?.required === true;
+    for (const k of ["update_version", "game_version"]) if (!(k in body)) body[k] = old?.[k];
+  }
+  return patchInfo.validate(body);
 }
 
 // A shop name ends in "[<title id>][v<version>]".
@@ -94,18 +115,38 @@ export function mountPatchesApi(router, requireSession) {
     const id = String(req.body?.id ?? "");
     if (typeof req.body?.required !== "boolean") return res.status(400).json({ error: "required 는 true 나 false 입니다" });
     const where = userPatches.locate(id);
-    const dir = where && !where.dir.startsWith("homebrew/") ? inside(patchesDir, where.dir, where.folder) : null;
-    if (!dir) return res.status(404).json({ error: "목록에 없는 패치입니다" });
-    const file = `${dir}/patch.json`;
-    let meta = {};
-    try {
-      meta = JSON.parse(await fsp.readFile(file, "utf8"));
-    } catch (err) {
-      if (err.code !== "ENOENT") return res.status(409).json({ error: "patch.json 을 읽지 못했습니다. 파일을 고친 뒤 다시 합니다" });
-    }
-    await fsp.writeFile(file, `${JSON.stringify(withRequired(meta, req.body.required), null, 1)}\n`);
-    await userPatches.scan();
-    debug.log("admin: patch %s/%s required=%s", where.dir, where.folder, req.body.required);
+    if (!where?.key || where.dir.startsWith("homebrew/")) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    patchInfo.set(where.key, withRequired(userPatches.infoOf(id), req.body.required));
+    debug.log("admin: patch %s required=%s", where.key, req.body.required);
     res.json({ ok: true });
+  }));
+
+  router.get("/api/patches/info", handle(async (req, res) => {
+    const listed = await userPatches.list();
+    const keys = new Set();
+    const patches = listed.map((p) => {
+      const where = userPatches.locate(p.id);
+      if (where?.key) keys.add(where.key);
+      return { id: p.id, key: where?.key ?? null, title_id: p.title_id, homebrew: p.homebrew ?? null,
+        stored: Boolean(where?.key && patchInfo.has(where.key)), info: userPatches.infoOf(p.id) };
+    });
+    const missing = patchInfo.entries().filter((e) => e.missing_since && !keys.has(e.key)).map(({ key, missing_since }) => ({ key, missing_since }));
+    res.json({ patches, missing });
+  }));
+
+  router.put("/api/patches/:id/info", handle(async (req, res) => {
+    const id = String(req.params.id ?? "");
+    const where = userPatches.locate(id);
+    if (!where?.key) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    let info;
+    try {
+      info = editedInfo(userPatches.infoOf(id), req.body);
+    } catch (err) {
+      if (err instanceof patchInfo.InfoError) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+    patchInfo.set(where.key, info);
+    debug.log("admin: patch %s edited", where.key);
+    res.json({ id, info: patchInfo.get(where.key) });
   }));
 }

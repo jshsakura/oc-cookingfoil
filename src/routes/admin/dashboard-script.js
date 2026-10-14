@@ -322,6 +322,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
   $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
   const extraCell=(type,app,items)=>{const c=td();
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
+      if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
   table('hb-apps',['켜기','이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);

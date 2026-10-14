@@ -18,6 +18,12 @@ for (const [name, meta] of [['게임 데이터', { name: '게임 데이터', req
   fs.writeFileSync(`${dir}/atmosphere/contents/0100000000010000/romfs/data.bin`, 'x');
   fs.writeFileSync(`${dir}/patch.json`, JSON.stringify(meta));
 }
+// A homebrew app's patch with no patch.json, for the homebrew tab's edit dialog.
+fs.mkdirSync(`${process.env.COOK_PATCHES_DIR}/homebrew/handapp/Turbo mod`, { recursive: true });
+fs.writeFileSync(`${process.env.COOK_PATCHES_DIR}/homebrew/handapp/Turbo mod/config.ini`, 'speed=2');
+// The patch information store: imported again from the patch.json files above.
+fs.rmSync(`${process.env.COOK_DATA_DIR}/patches`, { recursive: true, force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/patches-cache.json`, { force: true });
 // One save for that game, for the admin's edit dialog.
 process.env.COOK_SAVES_DIR ??= '/tmp/cookingfoil-web-test-saves';
 fs.rmSync(process.env.COOK_SAVES_DIR, { recursive: true, force: true });

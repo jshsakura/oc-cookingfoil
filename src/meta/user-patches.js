@@ -11,7 +11,14 @@
  *
  * Every file must sit under a path the patch's own game owns; one stray file
  * (or a symlink, or a path ustar cannot hold) drops the whole patch from the
- * list and is only logged. patch.json is metadata and never ships.
+ * list and is only logged. patch.json never ships.
+ *
+ * A patch's name, version, author, description and the rest live on the
+ * server (meta/patch-info.js) and are edited on the admin page. A patch.json
+ * is only an import file: read once, the first time its folder is seen with no
+ * entry there, and ignored after that. A scan lists folders and files; the
+ * information is laid over the listing when it is served, so an edit shows at
+ * once without a rescan or rehash.
  *
  * The folder is scanned on a timer; content hashes are cached by
  * (size, mtime, inode) so a rescan only reads files that changed. The cache
@@ -33,6 +40,7 @@ import debug from "../debug.js";
 import { patchesDir, dataDir } from "../helpers/envs.js";
 import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 import { pathProblem } from "./console-paths.js";
+import * as patchInfo from "./patch-info.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -42,7 +50,6 @@ const CACHE_PATH = path.join(dataDir, "patches-cache.json");
 const READ_CHUNK = 1024 * 1024; // big sequential reads; the patches live on spinning disks
 const STALE_MS = 30_000;
 const MAX_FILES = 20_000;
-const FIELD_MAX = { name: 120, version: 40, game_version: 40, author: 120, description: 2000 };
 const KIND_ORDER = ["romfs", "exefs", "cheats", "exefs_patches", "fpslocker"];
 // Desktop clutter that rides along when a folder is copied by hand; never shipped.
 const JUNK_RE = /^(\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)$/i;
@@ -107,41 +114,9 @@ export function kindOf(relPath, titleId) {
   return null;
 }
 
-/**
- * patch.json fields as trimmed, length-capped strings; anything else dropped.
- * `required: true` marks a patch the game does not start without (its data
- * shipped apart from the package). `ko` holds the Korean name and description
- * when they differ from the default text (localizePatch picks by language).
- * `update_version` is the update the patch was made for (2097152 for v2097152),
- * shown for reference only; nothing is hidden or held back by it. Pure.
- */
-export function readMeta(raw) {
-  const out = strings(raw, FIELD_MAX);
-  if (raw?.required === true) out.required = true;
-  const update = updateVersionOf(raw?.update_version);
-  if (update) out.update_version = update;
-  const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
-  if (Object.keys(ko).length) out.ko = ko;
-  return out;
-}
-
-/** A positive update version number (from a number or a digit string), else null. Pure. */
-export function updateVersionOf(value) {
-  const n = typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value;
-  return Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff ? n : null;
-}
-
-function strings(raw, limits) {
-  const out = {};
-  for (const [key, max] of Object.entries(limits)) {
-    const v = raw?.[key];
-    if (typeof v === "string" || typeof v === "number") {
-      const s = String(v).trim().slice(0, max);
-      if (s) out[key] = s;
-    }
-  }
-  return out;
-}
+/** patch.json fields as the store keeps them (see patch-info.js normalize). Pure. */
+export const readMeta = patchInfo.normalize;
+export const updateVersionOf = patchInfo.updateVersionOf;
 
 /** A patch as one language sees it: the Korean name and description for "ko" when it has them. Pure. */
 export function localizePatch(patch, lang) {
@@ -211,13 +186,21 @@ async function contentHash(files, wait) {
   return complete ? content.digest("hex") : null;
 }
 
-async function readMetaFile(file, label) {
+/**
+ * A patch.json taken into the store, once: only when the store has no entry
+ * for the folder yet. One that can't be read is left for the next scan.
+ */
+async function importMeta(metaFile, dir, folder) {
+  const key = patchInfo.keyOf(dir, folder);
+  if (!metaFile || !key || patchInfo.has(key)) return;
+  let raw;
   try {
-    return readMeta(JSON.parse(await fsp.readFile(file.abs, "utf8")));
+    raw = JSON.parse(await fsp.readFile(metaFile.abs, "utf8"));
   } catch (err) {
-    debug.error("patches: %s: ignoring %s: %s", label, META_FILE, err.message);
-    return {};
+    debug.error("patches: %s/%s: ignoring %s: %s", dir, folder, META_FILE, err.message);
+    return;
   }
+  if (patchInfo.importOnce(key, raw)) debug.log("patches: %s/%s: %s imported", dir, folder, META_FILE);
 }
 
 /**
@@ -226,7 +209,6 @@ async function readMetaFile(file, label) {
  */
 /** A homebrew app's patch: every file goes under switch/<app>/. */
 async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
-  const label = `${HOMEBREW_DIR}/${app}/${folder}`;
   const all = await walk(path.join(root, HOMEBREW_DIR, app, folder));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).map((f) => ({ ...f, path: `switch/${app}/${f.path}` })).sort((a, b) => (a.path < b.path ? -1 : 1));
@@ -238,20 +220,13 @@ async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
     if (problem) throw new Rejected(`the console can't create ${f.path}: ${problem}`);
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
   }
-  const meta = metaFile ? await readMetaFile(metaFile, label) : {};
+  await importMeta(metaFile, `${HOMEBREW_DIR}/${app}`, folder);
   const hash = await contentHash(files, wait);
   return {
     patch: {
       id: homebrewPatchId(app, folder),
       title_id: null,
       homebrew: app,
-      name: meta.name ?? folder.normalize("NFC"),
-      version: meta.version ?? null,
-      game_version: meta.game_version ?? null,
-      author: meta.author ?? null,
-      description: meta.description ?? null,
-      required: meta.required === true,
-      ...(meta.ko ? { ko: meta.ko } : {}),
       kinds: ["homebrew"],
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
@@ -268,7 +243,6 @@ async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
 export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
   if (tidDir.startsWith(`${HOMEBREW_DIR}/`)) return readHomebrewPatch(root, tidDir.slice(HOMEBREW_DIR.length + 1), folder, { wait });
   const titleId = tidDir.toUpperCase();
-  const label = `${tidDir}/${folder}`;
   const all = await walk(path.join(root, tidDir, folder));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).sort((a, b) => (a.path < b.path ? -1 : 1));
@@ -283,21 +257,13 @@ export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
     if (f.size > MAX_FILE_SIZE) throw new Rejected(`file too large: ${f.path}`);
     if (kind) kinds.add(kind);
   }
-  const meta = metaFile ? await readMetaFile(metaFile, label) : {};
+  await importMeta(metaFile, tidDir, folder);
   const hash = await contentHash(files, wait);
   const updated = Math.max(...all.map((f) => f.mtimeMs));
   return {
     patch: {
       id: patchId(titleId, folder),
       title_id: titleId,
-      name: meta.name ?? folder.normalize("NFC"),
-      version: meta.version ?? null,
-      game_version: meta.game_version ?? null,
-      update_version: meta.update_version ?? null,
-      author: meta.author ?? null,
-      description: meta.description ?? null,
-      required: meta.required === true,
-      ...(meta.ko ? { ko: meta.ko } : {}),
       kinds: KIND_ORDER.filter((k) => kinds.has(k)),
       files: files.length,
       size: files.reduce((n, f) => n + f.size, 0),
@@ -320,7 +286,8 @@ async function subdirs(dir) {
   }
 }
 
-const sortPatches = (list) => list.sort((a, b) => (a.title_id ?? `~${a.homebrew}`).localeCompare(b.title_id ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
+const sortPatches = (list) => list.sort((a, b) => (a.title_id ?? `~${a.homebrew}`).localeCompare(b.title_id ?? `~${b.homebrew}`)
+  || String(a.name ?? a.folder).localeCompare(String(b.name ?? b.folder)));
 // Test-only: a pause per patch, to make a scan last long enough to watch requests during it.
 const SLOW_SCAN_MS = Number(process.env.COOK_TEST_SLOW_SCAN_MS) || 0;
 
@@ -366,7 +333,7 @@ export async function scanDir(root, { onFound = null, wait = true } = {}) {
   return sortPatches(out);
 }
 
-const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.name}:${p.updated_at}`).join("|");
+const signatureOf = (list) => list.map((p) => `${p.id}:${p.hash}:${p.folder}:${p.updated_at}`).join("|");
 
 /** Restore the last listing and the hash cache, so the first request is answered at once. */
 export function loadCache(file = CACHE_PATH) {
@@ -436,6 +403,8 @@ export function scan(options = {}) {
       patches = next;
       scannedAt = Date.now();
       forgetOld();
+      // Information of a folder this scan did not find is kept a while, then forgotten.
+      patchInfo.sweep(next.map((p) => patchInfo.keyOf(p.dir, p.folder)));
       if (cacheFile && (sig !== signature || first || !fs.existsSync(cacheFile))) saveCache(cacheFile);
       if (sig !== signature) {
         signature = sig;
@@ -517,17 +486,45 @@ export function start({ onChange } = {}) {
 export async function list(scanOptions = {}) {
   if (Date.now() - scannedAt > STALE_MS) scan(scanOptions).catch((err) => debug.error("patches: scan failed: %s", err.message));
   const scanning = !scannedAt && !signature;
-  return Object.assign((scanning ? provisional ?? [] : patches).map(publicFields), { scanning });
+  return Object.assign(sortPatches((scanning ? provisional ?? [] : patches).map(publicFields)), { scanning });
 }
 
-function publicFields({ dir: _dir, folder: _folder, unhashed: _unhashed, ...p }) {
-  // A listing cached before `required` existed reads as not required.
-  return { ...p, required: p.required === true };
+const INFO_FIELDS = ["name", "version", "game_version", "update_version", "author", "description", "required", "ko"];
+
+/**
+ * A listed patch with its information laid over it: the store's entry, else
+ * (a listing saved by an older version, before its first scan here) what the
+ * listing itself carried, else the defaults. Pure over the store.
+ */
+export function withInfo(p, own = patchInfo.get(patchInfo.keyOf(p.dir, p.folder))) {
+  const rest = { ...p };
+  const legacy = {};
+  for (const k of INFO_FIELDS) {
+    if (k in rest) legacy[k] = rest[k];
+    delete rest[k];
+  }
+  const info = own ?? patchInfo.normalize(legacy);
+  return {
+    ...rest,
+    name: info.name ?? String(p.folder ?? "").normalize("NFC"),
+    version: info.version ?? null,
+    game_version: info.game_version ?? null,
+    ...(p.title_id ? { update_version: info.update_version ?? null } : {}),
+    author: info.author ?? null,
+    description: info.description ?? null,
+    required: info.required === true,
+    ...(info.ko ? { ko: info.ko } : {}),
+  };
+}
+
+function publicFields(p) {
+  const { dir: _dir, folder: _folder, unhashed: _unhashed, ...shown } = withInfo(p);
+  return shown;
 }
 
 export function forTitle(titleId) {
   const tid = String(titleId ?? "").toUpperCase();
-  return patches.filter((p) => p.title_id === tid).map(publicFields);
+  return sortPatches(patches.filter((p) => p.title_id === tid).map(publicFields));
 }
 
 export function countFor(titleId) {
@@ -535,10 +532,22 @@ export function countFor(titleId) {
   return patches.reduce((n, p) => n + (p.title_id === tid), 0);
 }
 
-/** Where a listed patch sits under the root ({ dir, folder }), or null. */
+/** Where a listed patch sits under the root ({ dir, folder, key }), or null; key is its patch-info key. */
 export function locate(id) {
   const known = patches.find((p) => p.id === id);
-  return known ? { dir: known.dir, folder: known.folder } : null;
+  return known ? { dir: known.dir, folder: known.folder, key: patchInfo.keyOf(known.dir, known.folder) } : null;
+}
+
+/**
+ * A listed patch's information as the store keeps it: the store's entry, or
+ * what the patch shows now (the defaults) when it has none. null when the id
+ * is not listed.
+ */
+export function infoOf(id) {
+  const known = patches.find((p) => p.id === id);
+  if (!known) return null;
+  const key = patchInfo.keyOf(known.dir, known.folder);
+  return patchInfo.get(key) ?? patchInfo.normalize(withInfo(known, null));
 }
 
 /**
@@ -566,4 +575,5 @@ export function reset() {
   byStat.clear();
   rerun = null;
   pending.clear();
+  patchInfo.reset();
 }

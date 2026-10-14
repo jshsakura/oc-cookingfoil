@@ -6,26 +6,30 @@
  *   POST /admin/api/content/:kind/move        { id, titleId }  to another game; a patch's own paths follow it
  *   POST /admin/api/content/:kind/remove      { id }           delete it from disk
  *
- * :kind is patch or save. Only a game's own patches and saves are handled
- * here; a homebrew app's are on the homebrew tab. The metadata file
- * (patch.json, meta.json) is rewritten with the fields given and keeps the
- * others (a patch's `required`).
+ * :kind is patch or save. A game's own patches and saves are handled here;
+ * a homebrew app's patch has its information edited here too (from the
+ * homebrew tab), while moving and deleting it are on that tab. A patch's
+ * information goes into the server's patch store (meta/patch-info.js), which
+ * a move carries to the new game and a delete forgets; a save's meta.json is
+ * rewritten with the fields given.
  */
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
+import * as patchInfo from "../../meta/patch-info.js";
 import { SAVE_TYPES } from "../../meta/shop-saves.js";
 import { patchesDir, savesDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { inside } from "./homebrew-apps-api.js";
 import { libraryGames } from "./upload-api.js";
+import { editedInfo } from "./patches-api.js";
 import debug from "../../debug.js";
 
 const BASE_RE = /^[0-9A-F]{16}$/;
 const isBase = (tid) => BASE_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
-const LIMITS = { name: 120, nameKo: 120, description: 2000, descriptionKo: 2000, version: 40, author: 120, gameVersion: 40, sourceName: 120, sourceUrl: 300 };
+const LIMITS = { name: 120, nameKo: 120, description: 2000, descriptionKo: 2000, gameVersion: 40, sourceName: 120, sourceUrl: 300 };
 
 class ContentError extends Error {
   constructor(status, message) {
@@ -47,29 +51,28 @@ const withKo = (name, description) => {
 };
 
 /**
- * patch.json after an edit: the fields given, `required` kept. The game
- * version and the update the patch is for stay as they were when the edit
- * leaves them out. Pure.
+ * A patch's information after an edit from the dialog's fields (nameKo,
+ * gameVersion, updateVersion, ...): checked against the store's limits, empty
+ * fields dropped, `required` kept. The game version and the update the patch
+ * is for stay as they were when the edit leaves them out. Pure.
  */
 export function patchMeta(old, input) {
-  const t = texts(input);
-  if (!t.name) throw new ContentError(400, "이름을 적습니다");
-  const gameVersion = input?.gameVersion === undefined ? String(old?.game_version ?? "").trim().slice(0, LIMITS.gameVersion) : t.gameVersion;
-  const rawUpdate = input?.updateVersion === undefined ? old?.update_version : input.updateVersion;
-  const update = userPatches.updateVersionOf(rawUpdate);
-  if (!update && rawUpdate !== undefined && rawUpdate !== null && String(rawUpdate).trim() !== "") {
-    throw new ContentError(400, "필요한 업데이트는 v 뒤의 숫자(예: 2097152)로 고릅니다");
-  }
-  return {
-    name: t.name,
-    ...(t.version ? { version: t.version } : {}),
-    ...(gameVersion ? { game_version: gameVersion } : {}),
-    ...(update ? { update_version: update } : {}),
-    ...(t.author ? { author: t.author } : {}),
-    ...(t.description ? { description: t.description } : {}),
-    ...withKo(t.nameKo, t.descriptionKo),
-    ...(old?.required === true ? { required: true } : {}),
+  const str = (v) => (v === undefined || v === null ? undefined : String(v));
+  const body = {
+    name: str(input?.name) ?? "",
+    version: str(input?.version),
+    author: str(input?.author),
+    description: str(input?.description),
+    ko: { name: str(input?.nameKo), description: str(input?.descriptionKo) },
+    ...(input?.gameVersion === undefined ? {} : { game_version: str(input.gameVersion) }),
+    ...(input?.updateVersion === undefined ? {} : { update_version: input.updateVersion }),
   };
+  try {
+    return editedInfo(old, body);
+  } catch (err) {
+    if (err instanceof patchInfo.InfoError) throw new ContentError(400, err.message);
+    throw err;
+  }
 }
 
 /** meta.json after an edit. Pure. */
@@ -155,18 +158,26 @@ export function mountContentApi(router, requireSession) {
 
   router.post("/api/content/:kind/meta", handle(async (req, res) => {
     const { kind } = req.params;
+    if (kind === "patch") {
+      // A game's or a homebrew app's patch: into the store, shown at once.
+      const id = String(req.body?.id ?? "");
+      const where = userPatches.locate(id);
+      if (!where?.key) throw new ContentError(404, "목록에 없는 항목입니다");
+      patchInfo.set(where.key, patchMeta(userPatches.infoOf(id), req.body));
+      debug.log("admin: patch %s edited", where.key);
+      return res.json({ ok: true });
+    }
     const { dir } = await find(kind, String(req.body?.id ?? ""));
-    const file = path.join(dir, kind === "patch" ? "patch.json" : "meta.json");
+    const file = path.join(dir, "meta.json");
     let old = {};
     try {
       old = JSON.parse(await fsp.readFile(file, "utf8"));
     } catch (err) {
       if (err.code !== "ENOENT") throw new ContentError(409, `${path.basename(file)} 을 읽지 못했습니다. 파일을 고친 뒤 다시 합니다`);
     }
-    const next = kind === "patch" ? patchMeta(old, req.body) : saveMeta(old, req.body);
-    await fsp.writeFile(file, `${JSON.stringify(next, null, 1)}\n`);
+    await fsp.writeFile(file, `${JSON.stringify(saveMeta(old, req.body), null, 1)}\n`);
     await refreshed(kind);
-    debug.log("admin: %s %s edited", kind, path.relative(kind === "patch" ? patchesDir : savesDir, dir));
+    debug.log("admin: save %s edited", path.relative(savesDir, dir));
     res.json({ ok: true });
   }));
 
@@ -194,6 +205,8 @@ export function mountContentApi(router, requireSession) {
     }
     await fsp.rm(dir, { recursive: true, force: true });
     await fsp.rmdir(path.dirname(dir)).catch(() => {}); // the old game's folder, when it is left empty
+    // Before the rescan, so an old patch.json that travelled along is not imported over the edits.
+    if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
     res.json({ ok: true });
@@ -204,6 +217,7 @@ export function mountContentApi(router, requireSession) {
     const { dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
     await fsp.rm(dir, { recursive: true, force: true });
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
+    if (kind === "patch") patchInfo.remove(patchInfo.keyOf(titleId, folder));
     await refreshed(kind);
     debug.log("admin: %s %s/%s removed", kind, titleId, folder);
     res.json({ ok: true });

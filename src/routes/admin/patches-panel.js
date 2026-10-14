@@ -4,11 +4,13 @@
  * and optional with one press, and both edited, moved to another game or
  * deleted from one dialog. The game editor below lists the same rows for the
  * game it has open. Talks to /admin/api/patches, /admin/api/saves and
- * /admin/api/content.
+ * /admin/api/content. The homebrew tab opens the same dialog for a homebrew
+ * app's patch, with only its text (no update to pick, no move or delete).
+ * A patch's text is kept on the server, not in a patch.json in its folder.
  */
 
 export const PATCHES_HTML = `<h2>게임 패치</h2>
-  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 지웁니다.</p>
+  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 지웁니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다.</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
@@ -31,15 +33,15 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <label>설명 (모든 언어의 기본값)<textarea id="ct-desc" maxlength="2000"></textarea></label>
     <label>한국어 설명 (다를 때만)<textarea id="ct-desc-ko" maxlength="2000"></textarea></label>
     <div class="ct-pair" data-for="patch"><label>버전<input id="ct-version" maxlength="40"></label><label>만든 사람<input id="ct-author" maxlength="120"></label></div>
-    <div class="ct-pair" data-for="patch"><label>필요한 업데이트<select id="ct-update"><option value="">정하지 않습니다</option></select></label>
+    <div class="ct-pair" data-for="patch" data-game><label>필요한 업데이트<select id="ct-update"><option value="">정하지 않습니다</option></select></label>
       <label>게임 버전<input id="ct-p-game-version" maxlength="40" placeholder="1.0.32.0"></label></div>
-    <p class="muted ct-note" data-for="patch">이 패치가 만들어진 업데이트를 적어 두는 참고 정보입니다. 업데이트를 숨기거나 막지 않습니다.</p>
+    <p class="muted ct-note" data-for="patch" data-game>이 패치가 만들어진 업데이트를 적어 두는 참고 정보입니다. 업데이트를 숨기거나 막지 않습니다.</p>
     <div class="ct-pair" data-for="save"><label>게임 버전<input id="ct-game-version" maxlength="40"></label>
       <label>세이브 종류<select id="ct-save-type"><option value="">가리지 않습니다</option><option value="device">기기 공용 세이브</option><option value="account">계정별 세이브</option></select></label></div>
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
-    <label>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" list="gd-games" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
+    <label data-game>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" list="gd-games" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
     <div class="dialog-actions">
-      <button type="button" class="danger" id="ct-remove">지우기</button>
+      <button type="button" class="danger" id="ct-remove" data-game>지우기</button>
       <button type="button" id="ct-close">닫기</button>
       <button type="submit" class="primary">저장</button>
     </div>
@@ -61,7 +63,7 @@ export const PATCHES_CSS = `
 .pt-req:disabled{opacity:.6;cursor:progress}
 .pt-edit{padding:5px 12px;font-size:13px}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
-.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden]{display:none}.ct-note{margin:0;font-size:12.5px}
+.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden],#ct-form label[hidden],#ct-form button[hidden]{display:none}.ct-note{margin:0;font-size:12.5px}
 .pt-row .pt-name small.pt-miss{color:var(--warn)}
 .ct-move{display:flex;gap:8px;margin-top:4px}.ct-move input{flex:1;min-width:0}
 #ct-edit{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}
@@ -115,16 +117,19 @@ $('pt-q').addEventListener('input',ptRender);
 $('pt-only').addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
 
 // One dialog edits a patch or a save: its text, its game, or deletes it.
-let ctItem=null,ctKind='';
-function ctOpen(kind,x){ctKind=kind;ctItem=x;const tid=kind==='patch'?x.title_id:x.titleId;
+// A homebrew app's patch (x.homebrew) gets its text only; onDone reloads the tab that opened it.
+let ctItem=null,ctKind='',ctAfter=null;
+function ctOpen(kind,x,onDone){ctKind=kind;ctItem=x;ctAfter=onDone||null;const hb=Boolean(x.homebrew);
+  const tid=hb?'switch/'+x.homebrew+'/':kind==='patch'?x.title_id:x.titleId;
   $('ct-title').textContent=(kind==='patch'?'패치 편집: ':'세이브 편집: ')+x.name;
   $('ct-where').textContent=(x.game?x.game+' · ':'')+tid+' · 파일 '+x.files+'개, '+mb(x.size);
   for(const d of document.querySelectorAll('#ct-form [data-for]'))d.hidden=d.dataset.for!==kind;
+  for(const d of document.querySelectorAll('#ct-form [data-game]'))if(hb)d.hidden=true;else if(!d.dataset.for||d.dataset.for===kind)d.hidden=false;
   $('ct-name').value=x.name||'';$('ct-name-ko').value=x.ko?.name||'';$('ct-desc').value=x.description||'';$('ct-desc-ko').value=x.ko?.description||'';
   $('ct-version').value=x.version||'';$('ct-author').value=x.author||'';$('ct-game-version').value=x.gameVersion||'';$('ct-save-type').value=x.saveType||'';
   $('ct-source-name').value=x.source?.name||'';$('ct-source-url').value=x.source?.url||'';$('ct-move').value='';
   $('ct-p-game-version').value=x.game_version||'';
-  if(kind==='patch')ctUpdates(x);
+  if(kind==='patch'&&!hb)ctUpdates(x);
   $('ct-edit').showModal();}
 // The updates titledb lists for the game and the ones in the library; the patch's own stays selectable.
 let ctChoices=[];
@@ -139,12 +144,12 @@ async function ctUpdates(x){const s=$('ct-update');const keep=(list)=>{
   catch(err){toast(err.message);}}
 $('ct-update').addEventListener('change',()=>{const u=ctChoices.find((c)=>String(c.version)===$('ct-update').value);
   if(u&&u.display&&!$('ct-p-game-version').value)$('ct-p-game-version').value=u.display;});
-const ctDone=(msg)=>{$('ct-edit').close();toast(msg);loadPatches();};
+const ctDone=(msg)=>{$('ct-edit').close();toast(msg);if(ctAfter)ctAfter();else loadPatches();};
 $('ct-close').addEventListener('click',()=>$('ct-edit').close());
 $('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const body={id:ctItem.id,name:$('ct-name').value,nameKo:$('ct-name-ko').value,description:$('ct-desc').value,descriptionKo:$('ct-desc-ko').value,
     version:$('ct-version').value,author:$('ct-author').value,gameVersion:$(ctKind==='patch'?'ct-p-game-version':'ct-game-version').value,saveType:$('ct-save-type').value,
-    ...(ctKind==='patch'?{updateVersion:$('ct-update').value}:{}),
+    ...(ctKind==='patch'&&!ctItem.homebrew?{updateVersion:$('ct-update').value}:{}),
     sourceName:$('ct-source-name').value,sourceUrl:$('ct-source-url').value};
   try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
 $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);

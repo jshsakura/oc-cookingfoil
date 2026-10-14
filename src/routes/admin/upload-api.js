@@ -7,7 +7,9 @@
  *
  *     game    one .nsp/.nsz/.xci/.xcz          → <games>/<file name>
  *     retro   system; the ROM and its discs    → <retro>/roms/<console folder>/<file name>
- *     patch   titleId, name, required ("true" when the game won't start without it); a .zip or folder  → <patches>/<title id>/<name>/ in SD-root layout (+ patch.json)
+ *     patch   titleId (or homebrew), name, description, descriptionKo, required ("true" when the game won't start without it);
+ *             a .zip or folder                 → <patches>/<title id>/<name>/ in SD-root layout; the information goes
+ *                                              into the server's patch store (meta/patch-info.js), no patch.json
  *     save    titleId, name, description, descriptionKo, saveType (device|account); a .zip or the save folder
  *             (a save-keeper backup's .meta is read for saveType and left out)
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
@@ -29,6 +31,7 @@ import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath,
 import { resolveOrigin } from "../../helpers/origin.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
+import * as patchInfo from "../../meta/patch-info.js";
 import { SAVE_TYPES } from "../../meta/shop-saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
@@ -167,7 +170,10 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   const rels = app ? homebrewLayout(paths, app, fromFolder) : kind === "patch" ? patchLayout(paths, tid) : saveLayout(paths, fromFolder);
   const under = app ? `homebrew/${app}` : tid;
   const metaName = kind === "patch" ? "patch.json" : "meta.json";
-  if (rels.some((r) => r.toLowerCase() === metaName)) throw new UploadError(400, `${metaName} 는 서버가 만듭니다. 빼고 올립니다`);
+  if (rels.some((r) => r.toLowerCase() === metaName)) {
+    throw new UploadError(400, kind === "patch" ? "patch.json 은 빼고 올립니다. 패치 정보는 이 양식에 적고, 올린 뒤 관리 페이지에서 고칩니다"
+      : `${metaName} 는 서버가 만듭니다. 빼고 올립니다`);
+  }
   const dest = path.join(rootOf(kind), ...under.split("/"), name);
   mustBeFree(dest, `${under}/${name}`);
   const out = path.join(work, "out");
@@ -183,10 +189,14 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   const meta = kind === "patch"
     ? { name, ...text, ...(!app && body.required === "true" ? { required: true } : {}) }
     : { name, ...text, ...(saveType ? { saveType } : {}) };
-  await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
+  // A save keeps its meta.json; a patch's information lives in the store, set once the folder is in place.
+  if (kind !== "patch") await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.rename(out, dest);
-  if (kind === "patch") userPatches.scan().catch(() => {});
+  if (kind === "patch") {
+    patchInfo.set(patchInfo.keyOf(under, name), meta);
+    userPatches.scan().catch(() => {});
+  }
   return { where: `${under}/${name}`, files: rels.length };
 }
 

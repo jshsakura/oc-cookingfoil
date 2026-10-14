@@ -12,7 +12,8 @@ test("a homebrew app's patches and saves are grouped under it; game ones are lef
   const out = extrasByApp(patches, saves);
   assert.deepEqual([...out.keys()], ["wwhd"]);
   assert.deepEqual(out.get("wwhd"), {
-    patches: [{ id: "hb-aaaaaaaaaaaa-111111111111", name: "60fps", size: 10, files: 2 }],
+    patches: [{ id: "hb-aaaaaaaaaaaa-111111111111", name: "60fps", size: 10, files: 2, homebrew: "wwhd",
+      ko: null, description: null, version: null, author: null, game_version: null }],
     saves: [{ id: "hb-aaaaaaaaaaaa-333333333333", name: "100%", size: 3, files: 1 }],
   });
 });
