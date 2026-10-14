@@ -289,6 +289,10 @@ const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
 const telegramBotToken = envString("COOK_TELEGRAM_BOT_TOKEN", "").trim();
 const telegramChatId = envString("COOK_TELEGRAM_CHAT_ID", "").trim();
 const telegramEvents = envString("COOK_TELEGRAM_EVENTS", "").trim();
+// "on" puts [승인] [거절] buttons on approval alerts; off unless set.
+const telegramButtons = envString("COOK_TELEGRAM_BUTTONS", "").trim().toLowerCase();
+// Telegram user ids who may press them in a group chat (comma list).
+const telegramApprovers = envString("COOK_TELEGRAM_APPROVERS", "").replace(/\s+/g, "");
 // Hours between release checks of each followed repository; "check now" on the admin page ignores it.
 const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 });
 
@@ -398,6 +402,8 @@ export {
   telegramBotToken,
   telegramChatId,
   telegramEvents,
+  telegramButtons,
+  telegramApprovers,
   eshopAlgoliaAppId,
   eshopAlgoliaKey,
   eshopArtwork,

@@ -44,6 +44,10 @@ export const SERVICES = {
       chatId: { env: () => env.telegramChatId, re: /^(-?\d{1,20}|@[A-Za-z0-9_]{5,64})$/ },
       // Comma list of alert events; empty means all, "-" means none.
       events: { env: () => env.telegramEvents, re: /^(-|[a-z]+(,[a-z]+)*)$/, optional: true },
+      // Approve or refuse requests from the alert's buttons: only "on" turns it on.
+      buttons: { env: () => env.telegramButtons, re: /^(on|off)$/, optional: true },
+      // Telegram user ids who may press them in a group (comma list); a private chat needs none.
+      approvers: { env: () => env.telegramApprovers, re: /^\d{1,20}(,\d{1,20})*$/, optional: true },
     },
   },
 };
@@ -51,6 +55,23 @@ export const SERVICES = {
 export class IntegrationError extends Error {}
 
 let saved = null;
+const listeners = new Set();
+
+/** Calls `fn(service)` after each save or clear, so a running service can follow at once. */
+export function onChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function changed(service) {
+  for (const fn of listeners) {
+    try {
+      fn(service);
+    } catch {
+      // A listener's trouble must not undo the save.
+    }
+  }
+}
 
 function readSaved() {
   try {
@@ -107,6 +128,7 @@ export function save(service, input = {}) {
     next[k] = value || (f.secret ? current[k] : "");
   }
   persist({ ...all(), [service]: next });
+  changed(service);
   return describe()[service];
 }
 
@@ -115,6 +137,7 @@ export function clear(service) {
   if (!SERVICES[service]) throw new IntegrationError("알 수 없는 서비스입니다");
   const { [service]: _gone, ...rest } = all();
   persist(rest);
+  changed(service);
   return describe()[service];
 }
 
