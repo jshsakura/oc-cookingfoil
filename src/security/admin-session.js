@@ -17,7 +17,7 @@ import { adminSessionHours, adminEmail, adminPassword } from "../helpers/envs.js
 import { adminSecret, markEnrolled } from "./admin-secret.js";
 import * as savedPassword from "./admin-password.js";
 import debug from "../debug.js";
-import { webUser } from "./user-session.js";
+import { isHttps, webUser } from "./user-session.js";
 import * as googleAccounts from "./google-accounts.js";
 
 const COOKIE_NAME = "cf_admin";
@@ -146,19 +146,22 @@ function parseCookies(req) {
   return out;
 }
 
+// Secure over https, the same rule as the account session cookie (user-session.js).
+const secureFlag = (res) => (res.req && isHttps(res.req) ? "; Secure" : "");
+
 export function issueSession(res) {
   const exp = Date.now() + SESSION_MS;
   const token = sign(String(exp));
   res.setHeader(
     "Set-Cookie",
-    `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=${Math.floor(SESSION_MS / 1000)}`
+    `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=${Math.floor(SESSION_MS / 1000)}${secureFlag(res)}`
   );
 }
 
 export function clearSession(res) {
   res.setHeader(
     "Set-Cookie",
-    `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=0`
+    `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/admin; Max-Age=0${secureFlag(res)}`
   );
 }
 
