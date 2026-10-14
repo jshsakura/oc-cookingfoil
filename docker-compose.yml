@@ -4,19 +4,26 @@
 #   2. docker compose logs cookingfoil | grep "setup code"
 #   3. open http://<this machine>:9080/setup, enter the code, make the admin
 #      account and register an authenticator app
-#   4. outside-service keys (IGDB, SteamGridDB, Dropbox, GitHub …) go in the
-#      admin page's settings tab, each with where to get it
+#   4. everything else (devices, uploads, homebrew, outside-service keys such as
+#      IGDB, SteamGridDB, Dropbox and GitHub, Google sign-in, Telegram alerts) is
+#      set on the admin page, which says where to get each key
 #
-# Every option is optional and lives in .env (copy .env.example). The whole file
-# reaches the container; nothing has to be listed here.
+# Every option is optional and lives in .env (copy .env.example, which explains
+# each one). The whole file reaches the container through env_file, so nothing
+# has to be listed here. A value saved on the admin page wins over .env.
+#
+# Behind a reverse proxy or tunnel, set COOK_TRUST_PROXY in .env to the proxy's
+# hops only (for example "loopback, uniquelocal"). For the optional direct
+# download address, COOK_DIRECT_EDGE_SECRET also goes in .env, not in this
+# file. Update with: docker compose pull && docker compose up -d
 services:
   cookingfoil:
     image: ghcr.io/jshsakura/oc-cookingfoil:latest
     container_name: cookingfoil
     hostname: cookingfoil
     restart: unless-stopped
-    # A stop lets running downloads finish (COOK_RESTART_GRACE, 25 s) before the
-    # server exits; docker's own 10 s would cut them.
+    # A stop lets running downloads finish (COOK_RESTART_GRACE, 25 s by default,
+    # at most 35 s) before the server exits; docker's own 10 s would cut them.
     stop_grace_period: 40s
     env_file:
       - path: .env
@@ -42,10 +49,12 @@ services:
       #   games     packages (.nsp .nsz .xci .xcz)
       #   data      accounts, saved keys, caches. Back this one up
       #   keys      your own prod.keys, read-only
-      #   retro     retro ROMs by system
+      #   retro     retro ROMs, art and your RetroArch base pack
       #   patches   patches by base title id, and homebrew/<app>/
       #   saves     save files by title id, and homebrew/<app>/
       #   homebrew  .nro apps and app folders
+      # COOK_ROOT and the COOK_<NAME>_PATH values are host paths, for example
+      # COOK_ROOT=/path/to/cookingfoil.
       - ${COOK_GAMES_PATH:-${COOK_ROOT:-.}/games}:/games
       - ${COOK_DATA_PATH:-${COOK_ROOT:-.}/data}:/data
       - ${COOK_KEYS_PATH:-${COOK_ROOT:-.}/keys}:/keys:ro
@@ -53,6 +62,7 @@ services:
       - ${COOK_PATCHES_PATH:-${COOK_ROOT:-.}/patches}:/patches
       - ${COOK_SAVES_PATH:-${COOK_ROOT:-.}/saves}:/saves
       - ${COOK_HOMEBREW_PATH:-${COOK_ROOT:-.}/homebrew}:/homebrew
-      # Optional template overrides. Create the file first: if it is missing,
-      # Docker makes a directory in its place.
+      # Optional shop template, merged into shop.tfl (see shop_template.jsonc).
+      # Create the file first: if it is missing, Docker makes a directory in its
+      # place.
       # - ./shop_template.jsonc:/shop_template.jsonc:ro
