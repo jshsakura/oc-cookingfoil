@@ -1,7 +1,8 @@
 /**
  * The settings tab's "서버 동작" block: device approval, uploads, the share inbox, the public
- * address, names, titledb and the outside lookups, each saved the moment it is
- * changed and applied without a restart. Talks to /admin/api/server-settings.
+ * address, names, titledb, the outside lookups and the safe restart, each saved
+ * the moment it is changed and applied without a restart. Talks to
+ * /admin/api/server-settings, and to /admin/api/server/* for the restart button.
  */
 
 export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first">서버 동작</h2></div>
@@ -56,6 +57,10 @@ const SS_GROUPS=[
   ['내려받기',[
     ['downloadMaxConnections',[['1','1개'],['2','2개'],['3','3개'],['4','4개 (기본)'],['5','5개'],['6','6개'],['7','7개'],['8','8개']],'기기당 동시 연결','기기 하나가 파일 하나를 받을 때 동시에 여는 연결 수의 상한을 클라이언트에 알려 줍니다. 서버가 막지는 않으며, 줄이면 서버 부담이 줄고 늘리면 먼 곳에서 빨라질 수 있습니다.'],
   ]],
+  ['다시 시작',[
+    ['restartRetryAfter','sec','다시 오라고 알리는 시간','다시 시작하는 동안 새로 들어온 요청에 이만큼 뒤에 다시 오라고 알립니다(Retry-After). 서버가 꺼졌다가 켜지는 데 걸리는 시간에 맞춥니다.'],
+    ['restartGrace','sec','받던 것을 기다리는 시간','다시 시작할 때 이미 받고 있던 요청이 끝나기를 이만큼까지 기다리고, 그때도 남은 것은 끊습니다. compose 의 stop_grace_period 보다 짧게 둡니다.'],
+  ]],
   ['외부 정보',[
     ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],
     ['eshopPopularity','bool','인기순','인기순 정렬에 쓰는 순위를 받습니다.'],
@@ -76,6 +81,9 @@ function ssControl(key,kind,s,ph){
     const unit=el('span','GB','muted');
     i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(!(v>0)){toast('0 보다 큰 크기를 넣습니다.');i.value=ssGb(s.value);return;}ssSave({[key]:v});});
     const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,unit);return w;}
+  if(kind==='sec'){const i=el('input');i.type='number';i.min='1';i.step='1';i.inputMode='numeric';i.value=String(s.value);i.setAttribute('aria-label',key);
+    i.addEventListener('change',()=>{if(!/^[1-9][0-9]*$/.test(i.value)){toast('1 이상의 초를 넣습니다.');i.value=String(s.value);return;}ssSave({[key]:i.value});});
+    const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,el('span','초','muted'));return w;}
   if(Array.isArray(kind)){const sel=el('select');for(const [v,t] of kind){const o=el('option',t);o.value=v;sel.append(o);}sel.value=s.value;
     sel.addEventListener('change',()=>ssSave({[key]:sel.value}));return sel;}
   const i=el('input');i.type='text';i.spellcheck=false;i.autocomplete='off';i.maxLength=300;i.placeholder=ph||'';
@@ -93,6 +101,15 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();
       t.append(el('b','지금 새로 받기'),el('p',tdb.fetching?'받고 있습니다.':(tdb.titles?'게임 '+tdb.titles.toLocaleString()+'개의 정보가 있습니다'+(tdb.loadedAt?'. 마지막으로 읽은 때: '+fmt(tdb.loadedAt):'')+'.':'아직 받은 게임 정보가 없습니다.')));
       const c=el('div',null,'ss-ctl');c.append(btn('지금 받기',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
       r.append(t,c);g.append(r);}
+    if(title==='다시 시작')g.append(ssRestartRow());
     list.append(g);}}
+function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const note=el('p','지금 받고 있는 수를 읽고 있습니다.');
+  t.append(el('b','안전하게 다시 시작합니다'),note);
+  api('/admin/api/server/status').then((st)=>{note.textContent=st.draining?'다시 시작하고 있습니다. 남은 요청 '+st.inflight+'개가 끝나면 꺼졌다가 다시 켜집니다.'
+    :'새 요청은 잠시 뒤 다시 오라고 돌려보내고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 내려받기 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
+  const c=el('div',null,'ss-ctl');c.append(btn('다시 시작',async()=>{
+    if(!confirm('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
+    try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));
+  r.append(t,c);return r;}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;

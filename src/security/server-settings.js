@@ -1,8 +1,8 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
  * approval, uploads, the share inbox, the public address, where names come from,
- * titledb, the outside lookups and how many connections a console opens per
- * download. Saved in ${COOK_DATA_DIR}/security/server-settings.json
+ * titledb, the outside lookups, how many connections a console opens per
+ * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
@@ -21,6 +21,8 @@ const bool = { check: (v) => typeof v === "boolean" };
 const oneOf = (...values) => ({ check: (v) => values.includes(v) });
 // A byte count, whole and positive, up to 16 TiB.
 const bytes = { parse: (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), check: (v) => Number.isSafeInteger(v) && v > 0 && v <= 16 * 1024 ** 4 };
+// Whole seconds from 1 up to max; the page sends them as text.
+const seconds = (max) => ({ parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= max });
 const list = (re, max) => ({
   parse: (v) => (Array.isArray(v) ? v : String(v ?? "").split(",")).map((s) => String(s).trim()).filter(Boolean),
   check: (v) => Array.isArray(v) && v.length <= max && v.every((s) => re.test(s)) && new Set(v).size === v.length,
@@ -45,6 +47,8 @@ export const SETTINGS = {
   eshopArtwork: bool,
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
+  restartRetryAfter: seconds(300),
+  restartGrace: seconds(600),
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 

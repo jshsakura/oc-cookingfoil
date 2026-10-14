@@ -5,8 +5,9 @@
  *
  * Wire protocol (text frames, JSON):
  *   server → client
- *     { type: "hello",        version, etag, files, customs, titledbSize }
+ *     { type: "hello",        version, etag, files, customs, titledbSize, restarting }
  *     { type: "shop-updated", etag, files, customs, titledbSize, mode, buildMs }
+ *     { type: "restarting", restart_id, retry_after, back_by, message }   // safe restart began
  *     { type: "ping" }                                    // hb keepalive
  *   client → server
  *     { type: "pong" }                                    // optional ack
@@ -28,6 +29,7 @@ import * as users from "../security/users.js";
 import { webUser } from "../security/user-session.js";
 import pkg from "../package.js";
 import debug from "../debug.js";
+import drainer from "../security/drain.js";
 
 const HEARTBEAT_MS = 30_000;
 
@@ -125,6 +127,9 @@ export function attach(server) {
       files: stats.files,
       customs: 0, // exposed in updates, kept opaque here
       titledbSize: stats.titledbSize,
+      // The drain's notice while the server is restarting, else null: a page that
+      // reconnects mid-drain keeps its notice, one that reconnects after drops it.
+      restarting: drainer.notice(),
     });
 
     ws.on("pong", () => { ws.isAlive = true; });
@@ -169,6 +174,14 @@ export function attach(server) {
   });
 
   return {
+    /** Sends one message to every open dashboard. */
+    broadcast(obj) {
+      const msg = JSON.stringify(obj);
+      for (const ws of wss.clients) {
+        if (ws.readyState !== 1) continue;
+        try { ws.send(msg); } catch (err) { debug.error("ws: broadcast failed: %s", err.message); }
+      }
+    },
     close() {
       clearInterval(hbTimer);
       unsubscribe();

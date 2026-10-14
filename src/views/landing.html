@@ -656,6 +656,12 @@
         font-size: 14px; font-weight: 600; margin-top: 8px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
         animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
+      .restart-banner {
+        position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 210; max-width: calc(100vw - 32px);
+        background: var(--ink); color: var(--ground); padding: 10px 18px; border-radius: 14px;
+        font-size: 14px; font-weight: 600; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); pointer-events: none;
+      }
+      .restart-banner[hidden] { display: none; }
       @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
       .fab {
@@ -1003,6 +1009,7 @@
     </div>
 
     <div class="toast-rack" id="toasts"></div>
+    <div class="restart-banner" id="restart-banner" role="status" aria-live="polite" hidden></div>
 
     <button class="fab" id="upload-fab" type="button" aria-haspopup="dialog" aria-controls="upload-tray">
       <span aria-hidden="true">📤</span>
@@ -1229,6 +1236,7 @@
           "upload.failed": (m) => "업로드 실패: " + m,
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
+          "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.",
         },
         en: {
           "hero.desc": "The file manager that fits anywhere, smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
@@ -1438,6 +1446,7 @@
           "upload.failed": (m) => "Upload failed: " + m,
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
+          "restart.notice": "The server is restarting. Downloads will continue in a moment.",
         },
         ja: {
           "hero.desc": "バターのようにどこにでもなじむファイルマネージャー。<br>ファイル・メタデータ・アートワークを認証付きの単一ホストから、ディスクにキャッシュしながら配信します。",
@@ -1647,6 +1656,7 @@
           "upload.failed": (m) => "アップロード失敗: " + m,
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
+          "restart.notice": "サーバーを再起動しています。まもなく続きから受信します。",
         },
         zh: {
           "hero.desc": "像奶油一樣百搭的檔案管理器。<br>檔案、中繼資料與圖片由單一需驗證的主機提供，並快取在磁碟上。",
@@ -1856,6 +1866,7 @@
           "upload.failed": (m) => "上傳失敗：" + m,
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
+          "restart.notice": "伺服器正在重新啟動，稍後會接著下載。",
         },
       };
 
@@ -4154,6 +4165,16 @@
         if (wsReloadTimer) clearTimeout(wsReloadTimer);
         wsReloadTimer = setTimeout(() => { wsReloadTimer = null; loadShop(); }, 250);
       }
+      let restartShown = null;
+      function showRestart(notice) {
+        const id = notice.restart_id;
+        if (!id || id === restartShown) return;
+        restartShown = id;
+        const banner = $("restart-banner");
+        banner.textContent = t("restart.notice");
+        banner.hidden = false;
+      }
+      function hideRestart() { $("restart-banner").hidden = true; }
       function connectWs() {
         const proto = location.protocol === "https:" ? "wss:" : "ws:";
         try {
@@ -4171,6 +4192,9 @@
           let msg;
           try { msg = JSON.parse(ev.data); } catch { return; }
           if (msg.type === "shop-updated") scheduleReload();
+          // Safe restart: shown once per restart, gone when the server answers again.
+          if (msg.type === "restarting") showRestart(msg);
+          if (msg.type === "hello") { if (msg.restarting) showRestart(msg.restarting); else hideRestart(); }
         });
         ws.addEventListener("close", () => { ws = null; scheduleReconnect(); });
         ws.addEventListener("error", () => { /* close fires next */ });

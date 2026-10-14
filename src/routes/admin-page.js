@@ -10,6 +10,8 @@
  *   GET  /admin/api/devices         → approved + pending devices
  *   POST /admin/api/devices/approve → approve (or rotate the key of) a device
  *   POST /admin/api/devices/revoke  → revoke a device
+ *   GET  /admin/api/server/status   → safe restart state, requests in flight (counts only)
+ *   POST /admin/api/server/restart  → drain, then exit (the container comes back by its restart policy)
  *
  * The surface is always mounted: a TOTP secret is auto-provisioned when the
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
@@ -51,6 +53,7 @@ import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
+import { mountServerApi } from "./admin/server-api.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -393,6 +396,7 @@ export default function adminPageRouter() {
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
   mountInboxApi(router, requireSession);
+  mountServerApi(router, requireSession);
 
   return router;
 }

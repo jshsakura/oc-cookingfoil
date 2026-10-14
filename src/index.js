@@ -37,6 +37,7 @@ import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import connectionHint from "./helpers/connection-hint.js";
 import busyGuard from "./security/busy-guard.js";
+import drainer from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import deviceContentGuard from "./security/device-content-guard.js";
@@ -94,6 +95,9 @@ if (trustProxy) {
 //   4. access guard      (block probes / traversal / locked IPs)
 //   5. auth guard        (basic-auth + 5-strike lockout)
 expressApp.use(defensiveHeaders());
+// Safe restart: while the server drains, new requests get 503 + Retry-After and
+// running ones finish (security/drain.js). First, so nothing below starts new work.
+expressApp.use(drainer.middleware());
 
 // /healthz must answer WITHOUT basic-auth so Docker / Portainer / k8s
 // healthchecks don't have to embed credentials. Mounted before the rest
@@ -137,13 +141,14 @@ expressApp.get("/healthz", async (_req, res) => {
           loadedAt: tdb.loadedAt,
         },
         nameHealth,
+        ...drainer.healthFields(),
       }));
     return;
   }
   res
     .status(503)
     .type("application/json")
-    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth }));
+    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth, ...drainer.healthFields() }));
 });
 
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
@@ -367,16 +372,32 @@ if (adminTotpEnabled()) {
 // server so it shares port + auth context with the rest of the API.
 const wsHandle = attachWs(server);
 
-// Flush security state on graceful shutdown.
+// Safe restart on SIGTERM/SIGINT (docker stop, compose up) and from the admin
+// page: stop taking new requests, tell the dashboards, let running downloads
+// finish up to the grace limit, then flush the security state and exit. The
+// container's restart policy starts it again. A second signal exits at once.
+function restart() {
+  return drainer.shutdown({
+    server,
+    announce: (notice) => wsHandle.broadcast({ type: "restarting", ...notice }),
+    cleanup: async () => {
+      try { wsHandle.close(); } catch {}
+      telegramUpdates.stop().catch(() => {});
+      await securityStore.shutdown().catch(() => {});
+    },
+    log: debug.log,
+  });
+}
+drainer.onRestartRequest(restart);
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
-    debug.log("received %s — flushing security state", sig);
-    try { wsHandle.close(); } catch {}
-    telegramUpdates.stop().catch(() => {});
-    securityStore
-      .shutdown()
-      .catch(() => {})
-      .finally(() => process.exit(0));
+    if (drainer.isShuttingDown()) {
+      debug.log("received %s again, exiting without waiting", sig);
+      securityStore.shutdown().catch(() => {}).finally(() => process.exit(0));
+      return;
+    }
+    debug.log("received %s, draining before exit", sig);
+    restart();
   });
 }
 
