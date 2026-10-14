@@ -1,7 +1,8 @@
 /**
  * Server behaviour from the admin page's settings tab:
  *
- *   GET  /admin/api/server-settings                   { settings: { <name>: { value, source: "saved"|"env", envValue } }, titledb }
+ *   GET  /admin/api/server-settings                   { settings: { <name>: { value, source: "saved"|"env", envValue } }, titledb,
+ *                                                       directDownload: { configured, up, since, checkedAt } }
  *   POST /admin/api/server-settings                   { <name>: value | null }  save (null = back to compose); applies at once
  *   POST /admin/api/server-settings/titledb-refresh   fetch titledb now, in the background
  *
@@ -12,6 +13,7 @@ import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
 import debug from "../../debug.js";
+import * as directHealth from "../../security/direct-health.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "downloadLinkTtl"]);
@@ -31,7 +33,7 @@ export function mountServerSettingsApi(router, requireSession) {
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
     }
   };
-  const view = () => ({ settings: serverSettings.describe(), titledb: { ...titledbStore.status(), fetching: Boolean(fetching) } });
+  const view = () => ({ settings: serverSettings.describe(), titledb: { ...titledbStore.status(), fetching: Boolean(fetching) }, directDownload: directHealth.status() });
 
   router.get("/api/server-settings", handle((req, res) => res.json(view())));
 
@@ -43,6 +45,8 @@ export function mountServerSettingsApi(router, requireSession) {
     } catch (err) {
       return res.status(400).json({ error: `${err.message} 값이 맞지 않습니다`, field: err.message });
     }
+    // A new direct address is not used until it has answered.
+    if (changed.includes("publicDirectBaseUrl")) await directHealth.checkSoon();
     if (changed.some((k) => RESCAN.has(k))) {
       if (changed.includes("langPriority")) await titledbStore.load();
       shopCache.invalidate({ rescan: true });

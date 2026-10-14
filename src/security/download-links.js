@@ -11,9 +11,9 @@
  *   "direct_url": "https://dl.example.org:38443/Game%2Ffile.nsp?u=<tag>&g=<n>&exp=<unix>&sig=<mac>"
  *
  * (directName() gives the twin's name: url → direct_url, romUrl → romDirectUrl,
- * bundle_url → bundle_direct_url.) Without a direct address, or for a caller
- * who did not sign in, the field is left out and the lists are exactly what
- * they were.
+ * bundle_url → bundle_direct_url.) Without a direct address, while it does not
+ * answer (direct-health.js), or for a caller who did not sign in, the field is
+ * left out and the lists are exactly what they were.
  *
  * The signature covers the decoded path and the rest of the query in a fixed
  * order, never the host, so "/api/homebrew/x/file?path=…" opens that one file
@@ -38,6 +38,7 @@ import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as identity from "./link-identity.js";
 import * as state from "./download-state.js";
+import * as health from "./direct-health.js";
 
 const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
@@ -105,7 +106,8 @@ export function expiryFor(nowSec, ttlSec) {
  */
 export function current(nowMs = Date.now()) {
   const base = env.publicDirectBaseUrl;
-  if (!base) return null;
+  // While the direct address does not answer (or has not yet), lists carry no direct links.
+  if (!base || !health.isUp()) return null;
   try {
     signingKey();
   } catch (err) {

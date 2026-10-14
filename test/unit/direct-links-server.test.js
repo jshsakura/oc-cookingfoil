@@ -10,8 +10,9 @@ import path from "node:path";
 // url, and those links are answered without sign-in when they come through
 // the direct address's proxy (from loopback, Host fixed, X-Forwarded-For set).
 const PORT = 15900 + (process.pid % 500);
+const PROXY_PORT = PORT + 600;
 const BASE = `http://127.0.0.1:${PORT}`;
-const DL_HOST = "dl.test:38443";
+const DL_HOST = `localhost:${PROXY_PORT}`;
 const AUTH = "Basic " + Buffer.from("alice:alice-password").toString("base64");
 const KEY_A = "A1".repeat(32);
 const KEY_B = "B2".repeat(32);
@@ -36,20 +37,24 @@ put(saves, `${MK}/All Unlocked/save.dat`, "SAVE");
 put(patches, `${TID}/60fps/atmosphere/contents/${TID}/cheats/ABCDEF0123456789.txt`, "CHEAT");
 
 let child;
+// Stands in for the proxy as far as the health check sees it: it answers 404.
+const proxy = http.createServer((req, res) => res.writeHead(404).end());
 before(async () => {
+  await new Promise((r) => proxy.listen(PROXY_PORT, "127.0.0.1", r));
   child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_RETRO_DIR: retro,
       COOK_SAVES_DIR: saves, COOK_PATCHES_DIR: patches, COOK_HOMEBREW_DIR: path.join(data, "homebrew"),
       COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_RATING_SYNC: "false",
-      COOK_PUBLIC_DIRECT_BASE_URL: `https://${DL_HOST}`,
+      COOK_PUBLIC_DIRECT_BASE_URL: `http://${DL_HOST}`,
     },
     stdio: "ignore",
   });
   for (let i = 0; i < 80; i++) {
     try {
-      if ((await fetch(`${BASE}/healthz`)).ok) return;
+      const h = await fetch(`${BASE}/healthz`);
+      if (h.ok && (await h.json()).directDownload?.up) return;
     } catch {
       /* not up yet */
     }
@@ -57,7 +62,10 @@ before(async () => {
   }
   throw new Error("server did not start");
 });
-after(() => child?.kill("SIGKILL"));
+after(() => {
+  child?.kill("SIGKILL");
+  proxy.close();
+});
 
 const SIGNED_IN = { Authorization: AUTH, "X-Device-Key": KEY_A };
 const settle = () => new Promise((r) => setTimeout(r, 100));
@@ -97,7 +105,7 @@ test("the shop list carries direct_url beside url for a signed-in console", asyn
   const listed = await ready("/shop.json", SIGNED_IN, (b) => b.files?.length);
   const file = listed.files.find((f) => f.url.endsWith(".nsp"));
   assert.ok(file.url.startsWith(BASE), "url stays on the shop's own address");
-  assert.ok(file.direct_url.startsWith(`https://${DL_HOST}/`));
+  assert.ok(file.direct_url.startsWith(`http://${DL_HOST}/`));
   const sections = await (await fetch(`${BASE}/api/shop/sections`, { headers: SIGNED_IN })).text();
   assert.ok(sections.includes('"direct_url"'));
 });
@@ -109,6 +117,12 @@ test("a direct link opens through the proxy without sign-in, once; never through
   assert.notEqual(mine, theirs, "each console has its own link");
   // The same request through the tunnel goes to the normal stack: no sign-in, no file.
   assert.equal((await viaProxy(mine, { "cf-connecting-ip": "198.51.100.9" })).status, 401);
+  // The file's own url is served through the tunnel as before: no redirect anywhere.
+  const file = (await json("/shop.json", SIGNED_IN)).files.find((f) => f.url.endsWith(".nsp"));
+  assert.ok(file.url.startsWith(BASE));
+  const tunnel = await fetch(file.url, { headers: { ...SIGNED_IN, "CF-Connecting-IP": "198.51.100.9" }, redirect: "manual" });
+  assert.equal(tunnel.status, 200);
+  assert.equal(await tunnel.text(), "NSPDATA");
   const res = await viaProxy(mine);
   assert.equal(res.status, 200);
   assert.equal(res.body.toString(), "NSPDATA");
@@ -146,13 +160,13 @@ test("retro, saves, patches and extras get direct twins; artwork does not", asyn
 test("a signature opens nothing but downloads, and the shop's own pages keep their sign-in", async () => {
   const link = new URL((await json("/shop.json", SIGNED_IN)).files[0].direct_url);
   for (const p of ["/api/admin/users", "/api/retro/games", "/api/shop/sections", "/admin", "/api/inbox"]) {
-    assert.equal((await viaProxy(`https://${DL_HOST}${p}${link.search}`)).status, 404, p);
+    assert.equal((await viaProxy(`http://${DL_HOST}${p}${link.search}`)).status, 404, p);
   }
   // A signed request straight to the server (not from the proxy) goes through the sign-in.
   assert.equal((await fetch(`${BASE}${link.pathname}${link.search}`)).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`)).status, 401);
   assert.equal((await fetch(`${BASE}/api/shop/info`, { headers: { Authorization: AUTH } })).status, 200);
-  const forged = await viaProxy(`https://${DL_HOST}${link.pathname}${link.search.replace(/sig=[^&]+/, `sig=${"Q".repeat(22)}`)}`);
+  const forged = await viaProxy(`http://${DL_HOST}${link.pathname}${link.search.replace(/sig=[^&]+/, `sig=${"Q".repeat(22)}`)}`);
   assert.equal(forged.status, 403);
   assert.equal(forged.headers["x-cookingfoil-link"], "invalid");
 });

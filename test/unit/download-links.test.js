@@ -30,6 +30,7 @@ const { addRange, covers, deliveredBytes, createCoverage, MAX_INTERVALS } = awai
 const { createBan } = await import("../../src/security/download-ban.js");
 const { default: directLane, LINK_HEADER, laneOf, proxiedClient, viaDirectProxy } = await import("../../src/security/direct-lane.js");
 const { homebrewRouter } = await import("../../src/routes/homebrew.js");
+const health = await import("../../src/security/direct-health.js");
 
 const KEY_A = "A".repeat(64);
 const KEY_B = "B".repeat(64);
@@ -120,6 +121,10 @@ test("the direct address takes scheme, host and port only", () => {
   assert.throws(() => settings.save({ publicDirectBaseUrl: "https://dl.example.org/files" }), /publicDirectBaseUrl/);
   settings.save({ publicDirectBaseUrl: `https://${DL_HOST}/`, downloadLinkTtl: "3600" });
   assert.equal(env.publicDirectBaseUrl, `https://${DL_HOST}`);
+  // Not used until it has answered once.
+  assert.equal(links.current(), null);
+  health.setForTests(true);
+  assert.ok(links.current());
 });
 
 test("only signed-in requests get links, and each console gets its own", () => {
@@ -455,4 +460,127 @@ test("the homebrew list gives every download a direct twin when signed in and no
   assert.equal(JSON.stringify(off).includes("direct"), false);
   assert.deepEqual(Object.keys(off), Object.keys(on).filter((k) => !k.includes("direct")));
   settings.save({ publicDirectBaseUrl: `https://${DL_HOST}` });
+  health.setForTests(true);
+});
+
+/** The homebrew list as a signed-in console sees it. */
+async function homebrewList() {
+  const app = express();
+  app.use((req, _res, next) => {
+    req.auth = { user: "alice" };
+    next();
+  });
+  app.use("/api/homebrew", homebrewRouter({ service: fakeService }));
+  const server = http.createServer(app);
+  servers.push(server);
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const { port } = server.address();
+  return async () => JSON.parse((await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A } })).body).homebrew[0];
+}
+
+test("while the direct address is down lists carry no direct links; up again, they do; url never changes", async () => {
+  const changes = [];
+  health.setForTests(true, { changed: () => changes.push(health.isUp()) });
+  const list = await homebrewList();
+  const lookup = async () => ({ address: "127.0.0.1" });
+  const answer = async () => ({ status: 404, body: null });
+  const fail = async () => { throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } }); };
+
+  const up = await list();
+  assert.ok(up.download_direct_url);
+  assert.equal(up.download_url, "/api/homebrew/gh-0123456789ab/download");
+  await health.check({ lookup, fetchImpl: fail });
+  assert.equal(health.isUp(), true, "one failure is not enough");
+  await health.check({ lookup, fetchImpl: fail });
+  assert.equal(health.isUp(), false);
+  assert.equal(health.status().error, "ECONNREFUSED");
+  const down = await list();
+  assert.equal(JSON.stringify(down).includes("direct"), false);
+  assert.equal(down.download_url, up.download_url);
+  assert.deepEqual(Object.keys(down), Object.keys(up).filter((k) => !k.includes("direct")));
+  const json = JSON.stringify({ files: [{ url: `../${ENC}` }] });
+  assert.equal(links.withShopDirect(json, links.forRequest(listReq())), json, "shop lists too");
+
+  await health.check({ lookup: async () => { throw Object.assign(new Error("nx"), { code: "ENOTFOUND" }); }, fetchImpl: answer });
+  assert.equal(health.isUp(), false);
+  await health.check({ lookup, fetchImpl: answer });
+  assert.equal(health.isUp(), true, "one success brings it back");
+  assert.ok((await list()).download_direct_url);
+  assert.deepEqual(changes, [false, true], "each change once");
+});
+
+test("the probe looks the host up, asks base/, and counts any answer", async () => {
+  const asked = [];
+  await health.probe("https://dl.example.org:38443", { lookup: async (h) => asked.push(h), fetchImpl: async (url, o) => { asked.push(url, o.method); return { status: 404 }; } });
+  assert.deepEqual(asked, ["dl.example.org", "https://dl.example.org:38443/", "GET"]);
+  await assert.rejects(health.probe("https://dl.example.org", { lookup: async () => {}, fetchImpl: async () => { throw new Error("timeout"); } }));
+  assert.deepEqual(health.nextHealth({ up: false, since: null, fails: 3 }, true, 5), { up: true, since: 5, fails: 0, checkedAt: 5, error: null });
+});
+
+test("checks run only when asked and due: ten minutes apart, one minute after a first failure", async () => {
+  const t0 = Date.now();
+  let probes = 0;
+  const failing = { lookup: async () => {}, fetchImpl: async () => { probes++; throw new Error("down"); } };
+  const answering = { lookup: async () => {}, fetchImpl: async () => { probes++; return { status: 404 }; } };
+  health.setForTests(true, { options: failing, checkedAt: t0 });
+  assert.equal(health.isUp(t0 + 9 * 60_000), true);
+  await health.pending();
+  assert.equal(probes, 0, "not due yet");
+  assert.equal(health.isUp(t0 + 10 * 60_000), true, "the request goes on with what is known");
+  await health.pending();
+  assert.equal(probes, 1);
+  assert.equal(health.isUp(t0 + 10 * 60_000 + 30_000), true, "one failure is not enough");
+  await health.pending();
+  assert.equal(probes, 1, "the second check waits a minute");
+  health.isUp(t0 + 11 * 60_000 + 1000);
+  await health.pending();
+  assert.equal(probes, 2);
+  assert.equal(health.isUp(t0 + 11 * 60_000 + 2000), false, "two failures a minute apart");
+  await health.pending();
+  health.setForTests(false, { options: answering, checkedAt: t0 });
+  health.isUp(t0 + 10 * 60_000);
+  health.isUp(t0 + 10 * 60_000);
+  await health.pending();
+  assert.equal(probes, 3, "one at a time");
+  assert.equal(health.isUp(t0 + 10 * 60_000 + 1), true);
+  assert.equal(health.due({ up: true, fails: 0, checkedAt: null }, "a", "a", 0), true);
+  assert.equal(health.due({ up: true, fails: 0, checkedAt: 0 }, "b", "a", 0), true, "a new address");
+  health.setForTests(true);
+});
+
+test("a hung lookup or a 5xx is a failure, and the time limit covers the lookup too", async () => {
+  const started = Date.now();
+  await assert.rejects(health.probe("https://dl.example.org", { timeoutMs: 100, lookup: () => new Promise(() => {}), fetchImpl: async () => ({ status: 404 }) }), /timed out/);
+  assert.ok(Date.now() - started < 1000);
+  await assert.rejects(health.probe("https://dl.example.org", { lookup: async () => {}, fetchImpl: async () => ({ status: 502 }) }), /502/);
+  await health.probe("https://dl.example.org", { lookup: async () => {}, fetchImpl: async () => ({ status: 404 }) });
+  // A check whose lookup hangs still ends, so the next one can run.
+  health.setForTests(true, { options: { timeoutMs: 50, lookup: () => new Promise(() => {}) }, checkedAt: 0 });
+  health.isUp(20 * 60_000);
+  await health.pending();
+  assert.equal(health.status().error, "ETIMEDOUT");
+  health.setForTests(true, { options: {} });
+});
+
+test("a list's ETag changes with the direct state, so a 304 never hides it", async () => {
+  health.setForTests(true);
+  const app = express();
+  app.use((req, _res, next) => {
+    req.auth = { user: "alice" };
+    next();
+  });
+  app.use("/api/homebrew", homebrewRouter({ service: fakeService }));
+  const server = http.createServer(app);
+  servers.push(server);
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const { port } = server.address();
+  const ask = (etag) => get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...(etag ? { "if-none-match": etag } : {}) } });
+  const up = await ask();
+  assert.equal((await ask(up.headers.etag)).status, 304);
+  health.setForTests(false);
+  const down = await ask(up.headers.etag);
+  assert.equal(down.status, 200, "the old ETag no longer matches");
+  assert.equal(down.body.includes("direct"), false);
+  health.setForTests(true);
+  assert.equal((await ask(down.headers.etag)).status, 200);
 });
