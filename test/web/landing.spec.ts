@@ -8,7 +8,7 @@ async function pickLang(page: Page, code: string) {
   await expect(page.locator('#lang-list')).toBeHidden();
 }
 
-test('landing follows the system until a theme is picked in the account menu, then keeps it', async ({ page }) => {
+test('landing follows the system until the theme switch in the account menu is used, then keeps it', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
@@ -19,12 +19,11 @@ test('landing follows the system until a theme is picked in the account menu, th
   expect(await background()).toBe('rgb(242, 241, 238)');
 
   await page.locator('#acct-btn').click();
-  const choice = (name: string) => page.locator('#acct-list').getByRole('menuitemradio', { name });
-  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'true');
-  await choice('어두운 테마').click();
+  const dark = page.locator('#acct-list').getByRole('menuitemcheckbox', { name: '어두운 테마' });
+  await expect(dark).toHaveAttribute('aria-checked', 'false');
+  await dark.click();
   await expect(root).toHaveAttribute('data-theme', 'dark');
-  await expect(choice('어두운 테마')).toHaveAttribute('aria-checked', 'true');
-  await expect(choice('시스템 설정 따르기')).toHaveAttribute('aria-checked', 'false');
+  await expect(dark).toHaveAttribute('aria-checked', 'true');
   expect(await background()).toBe('rgb(22, 22, 26)');
   await expect.poll(themeColor).toBe('#16161a');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('dark');
@@ -35,15 +34,16 @@ test('landing follows the system until a theme is picked in the account menu, th
   await expect.poll(themeColor).toBe('#16161a');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#acct-btn').click();
+  await expect(dark).toHaveAttribute('aria-checked', 'true');
   await page.screenshot({ path: 'out/web/landing-dark.png' });
 
-  await choice('시스템 설정 따르기').click();
-  await expect(root).not.toHaveAttribute('data-theme', /.+/);
-  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBeNull();
-  await expect.poll(themeColor).toBe('#f2f1ee');
+  // switched off it is light, kept even when the system turns dark
+  await dark.click();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('light');
   await page.emulateMedia({ colorScheme: 'dark' });
-  await expect.poll(background).toBe('rgb(22, 22, 26)');
-  await expect.poll(themeColor).toBe('#16161a');
+  await expect.poll(background).toBe('rgb(242, 241, 238)');
+  await expect.poll(themeColor).toBe('#f2f1ee');
 });
 
 test('a stored light theme wins over a dark system setting, and the menu labels follow the page language', async ({ page }) => {
@@ -54,8 +54,17 @@ test('a stored light theme wins over a dark system setting, and the menu labels 
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
   await page.locator('#acct-btn').click();
-  await expect(page.locator('#acct-list').getByRole('menuitemradio', { name: 'Light theme' })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#acct-list').getByRole('menuitemradio')).toHaveText(['Match system setting', 'Light theme', 'Dark theme']);
+  await expect(page.locator('#acct-list').getByRole('menuitemcheckbox', { name: 'Dark theme' })).toHaveAttribute('aria-checked', 'false');
+});
+
+test('the web page has no upload: no floating button and no upload item in the menu', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('.fab')).toHaveCount(0);
+  await page.locator('#acct-btn').click();
+  await expect(page.locator('#acct-list [id^="upload"]')).toHaveCount(0);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/menu-390.png' });
 });
 
 test('the page shares a large image card whose image is an absolute URL on this server', async ({ page, request }) => {

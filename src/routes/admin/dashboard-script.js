@@ -704,14 +704,15 @@ function setAcct(open){$('acct-list').hidden=!open;$('acct-btn').setAttribute('a
 $('acct-btn').addEventListener('click',(e)=>{e.stopPropagation();setAcct($('acct-list').hidden);});
 document.addEventListener('click',(e)=>{if(!$('acct-list').hidden&&!e.target.closest('.acct-menu'))setAcct(false);});
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('acct-list').hidden){setAcct(false);$('acct-btn').focus();}});
-// Theme: the system setting until one is picked here or on the web page (same key).
+// Theme: the system setting until the switch is used here or on the web page (same key).
 const THEME_KEY='cookingfoil:theme';
-function syncThemeMenu(){const on=document.documentElement.dataset.theme||'system';
-  for(const b of document.querySelectorAll('[data-theme-choice]'))b.setAttribute('aria-checked',String(b.dataset.themeChoice===on));}
-$('acct-list').addEventListener('click',(e)=>{const v=e.target.closest('[data-theme-choice]')?.dataset.themeChoice;if(!v)return;
-  const picked=v==='light'||v==='dark';if(picked)document.documentElement.dataset.theme=v;else delete document.documentElement.dataset.theme;
-  try{if(picked)localStorage.setItem(THEME_KEY,v);else localStorage.removeItem(THEME_KEY);}catch{/* storage blocked: this visit only */}
+const systemLight=matchMedia('(prefers-color-scheme: light)');
+const currentTheme=()=>document.documentElement.dataset.theme||(systemLight.matches?'light':'dark');
+function syncThemeMenu(){$('theme-toggle').setAttribute('aria-checked',String(currentTheme()==='dark'));}
+$('theme-toggle').addEventListener('click',()=>{const v=currentTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=v;
+  try{localStorage.setItem(THEME_KEY,v);}catch{/* storage blocked: this visit only */}
   syncThemeMenu();});
+systemLight.addEventListener('change',syncThemeMenu);
 syncThemeMenu();
 // The address a console is given, for the how-to on the devices tab.
 function showShopUrl(){$('shop-url').textContent=origin.replace(/[/]$/,'')+'/shop.tfl';}
