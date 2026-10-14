@@ -52,6 +52,9 @@ test("patch.json fields are trimmed strings and anything else is dropped", () =>
   assert.deepEqual(readMeta({ name: " 60 FPS ", version: 1.2, author: {}, description: "" }), { name: "60 FPS", version: "1.2" });
   assert.deepEqual(readMeta({ name: "Data", required: true }), { name: "Data", required: true }, "a patch the game needs");
   assert.deepEqual(readMeta({ name: "Data", required: "true" }), { name: "Data" }, "only a real boolean");
+  assert.deepEqual(readMeta({ name: "Data", update_version: 2097152 }), { name: "Data", update_version: 2097152 }, "the update it was made for");
+  assert.deepEqual(readMeta({ name: "Data", update_version: "2097152" }), { name: "Data", update_version: 2097152 });
+  for (const bad of [0, -65536, 1.5, "v2097152", 2 ** 40, null]) assert.equal(readMeta({ update_version: bad }).update_version, undefined, String(bad));
 });
 
 test("ids are url safe and stable for a folder name", () => {
@@ -73,6 +76,7 @@ test("a valid patch is listed with its kinds, size and hash; patch.json never sh
   assert.equal(p.size, 22);
   assert.match(p.hash, /^[0-9a-f]{64}$/);
   assert.equal(p.game_version, "1.2.0");
+  assert.equal(p.update_version, null, "no update named");
 });
 
 test("one stray file, a symlink or a non-base folder drops the patch", async () => {
