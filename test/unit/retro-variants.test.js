@@ -60,8 +60,19 @@ test("the newest Korean patch leads: its version, then the date in its tags", ()
   assert.deepEqual(order(["슈퍼로봇대전 J (Super Robot Taisen J) [K]", "슈퍼로봇대전 J (Super Robot Taisen J) [J-K v20260805 v2.1.1]"])[0], "슈퍼로봇대전 J (Super Robot Taisen J) [J-K v20260805 v2.1.1]");
   assert.deepEqual(order(["요시의 쿠키 (Yoshi no Cookie) [J-K v20080101]", "요시의 쿠키 (Yoshi no Cookie) [J-K v20231030 v1.0]"])[0], "요시의 쿠키 (Yoshi no Cookie) [J-K v20231030 v1.0]");
   assert.deepEqual(order(["카이 (Kai) [J-K v20200101 v0.99b]", "카이 (Kai) [J-K v20210101 v0.99]"])[0], "카이 (Kai) [J-K v20200101 v0.99b]", "the version before the date");
-  // Without Korean: World, then USA, then Japan.
-  assert.deepEqual(order(["Gley Lancer (Japan)", "Gley Lancer (USA)", "Gley Lancer (World)"])[0], "Gley Lancer (World)");
+  // Without Korean: World, then USA, then Japan, from [tags] or No-Intro (tags), whichever file is newer.
+  assert.deepEqual(order(["Tetris (World)", "Tetris (Japan)"])[0], "Tetris (World)");
+  assert.deepEqual(order(["Gley Lancer (USA, Europe)", "Gley Lancer (Japan)"])[0], "Gley Lancer (USA, Europe)");
+  assert.deepEqual(order(["Gley Lancer (World)", "Gley Lancer (Japan, USA)", "Gley Lancer (Japan)"])[0], "Gley Lancer (World)");
+});
+
+test("a modified patch (개조, 핵롬, 이지, hack) ranks below a plain translation", () => {
+  const order = (names) => groupsOf(names.map((x) => game("gba", x)))[0][0];
+  assert.equal(order(["슈퍼로봇대전 - 오리지널 제네레이션 2 (Super Robot Taisen - Original Generation 2) [엑셀개조 버전 Korea-oatch J-K v20260802 v2]",
+    "슈퍼로봇대전 - 오리지널 제네레이션 2 (Super Robot Taisen - Original Generation 2) [J-K v20101001 v1.1]"]),
+  "슈퍼로봇대전 - 오리지널 제네레이션 2 (Super Robot Taisen - Original Generation 2) [J-K v20101001 v1.1]");
+  assert.equal(order(["오우거 배틀 64 (Ogre Battle 64) [J-K v20260803 이지버전]", "오우거 배틀 64 (Ogre Battle 64) [J-K v20260803 Final]"]), "오우거 배틀 64 (Ogre Battle 64) [J-K v20260803 Final]");
+  assert.equal(order(["역전용사 (Turnabout Hero) [J-K v2026413 v1.20 개조롬]", "역전용사 (Turnabout Hero) [K]"]), "역전용사 (Turnabout Hero) [K]");
 });
 
 test("an admin's pick wins while it is in the group", () => {
@@ -70,8 +81,20 @@ test("an admin's pick wins while it is in the group", () => {
   const [group] = buildGroups([a, b]).values();
   assert.equal(representative(group, b.id), b);
   assert.equal(representative(group, "nes-9999999999"), group.members[0]);
+  // A pick that can't run falls back to the rule's choice: the group never vanishes.
+  b.missing = ["parent"];
+  assert.equal(representative(group, b.id), group.members[0]);
+  delete b.missing;
   assert.equal(a.group, b.group);
   assert.match(a.group, /^nes~[0-9a-f]{10}$/);
+});
+
+test("a clone needs its parent only when the DAT says it loads the parent's ROMs", async () => {
+  const { needsOf } = await import("../../src/retro/arcade.js");
+  assert.equal(needsOf({ cloneOf: "kod", romOf: "kod" }), "kod");
+  assert.equal(needsOf({ cloneOf: "kod", romOf: null }), null, "a clone that carries its own ROMs");
+  assert.equal(needsOf({ cloneOf: "kod" }), "kod", "no romOf data: as before");
+  assert.equal(needsOf({ cloneOf: null, romOf: "neogeo" }), "neogeo");
 });
 
 test("arcade groups follow the DAT, never the title", () => {
@@ -154,6 +177,12 @@ test("lists show one card per game, every file stays reachable", async () => {
     const after = await get("/api/retro/games?system=md");
     assert.ok(after.games.some((g) => g.id === other.id));
     assert.ok(!after.games.some((g) => g.id === shinobi.id));
+    picks.set(shinobi.group, null);
+
+    // A corrupt picks file does not take the lists down.
+    fs.writeFileSync(path.join(root, "retro-variants.json"), "{ not json");
+    picks.reload();
+    assert.equal((await get("/api/retro/games?pageSize=50")).total, 4);
     picks.set(shinobi.group, null);
 
     const knightsj = all.games.find((g) => g.file === "knightsj.zip");

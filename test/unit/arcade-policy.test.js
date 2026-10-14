@@ -54,6 +54,19 @@ test("the representative follows Korea, then World, USA, Europe, Japan, and neve
   for (const [shorts, want] of cases) assert.equal(best(shorts), want, shorts.join(","));
 });
 
+test("only a set whose main region is Korea is Korean; content tags and older versions lose", () => {
+  const cls = (desc) => classifySet(desc);
+  assert.equal(cls("Some Game (Korea?)").region, null, "an uncertain region is no region");
+  assert.equal(cls(DAT.aerofgt[0]).region, "world", "a list of regions counts its first");
+  assert.equal(cls("Cookie & Bibi 2 (English / Korean)").region, null, "languages are not a release region");
+  assert.equal(cls("Air Gallet (older, Korea)").older, true);
+  const rank = (descs) => rankSets(descs.map((desc, i) => ({ short: `s${i}`, desc, parent: i === 0, runnable: true })))[0].desc;
+  assert.equal(rank(["Game (World / Korea)", "Game (USA)"]), "Game (World / Korea)", "World first, not Korean");
+  assert.equal(rank(["Game (Korea?)", "Game (USA)"]), "Game (USA)");
+  assert.equal(rank(["Game (Japan, adult)", "Game (Japan)"]), "Game (Japan)");
+  assert.equal(rank(["Air Gallet (older, Europe)", "Air Gallet (Europe)"]), "Air Gallet (Europe)", "the parent is the older one here");
+});
+
 test("a set that cannot run loses to one that can", () => {
   assert.equal(best(["gunbird", "gunbirdk"], { gunbirdk: false }), "gunbird");
   assert.equal(best(["knightsj", "knights"], { knights: false }), "knightsj");

@@ -13,9 +13,10 @@
  *
  * Representative for the others, first difference wins:
  *   1. an official Korean release
- *   2. a Korean patch, the newest first (its version, then the date in its tags)
+ *   2. a Korean patch, a plain translation before a modified one (개조, 핵롬,
+ *      이지, hack, mod), then the newest (its version, then the date in its tags)
  *   3. other Korean files
- *   4. by region: World > USA > Japan > others
+ *   4. by region, from [tags] or No-Intro (tags): World > USA > Japan > others
  *   5. the newest file, then the id
  *
  * The admin can name another representative (variant-picks.js); that wins.
@@ -102,15 +103,39 @@ export function tagDate(tags) {
 }
 
 const REGION_ORDER = ["world", "us", "jp"];
-/** What the representative rule reads of a game: edition, region, version and date. Pure. */
+const NO_INTRO_REGIONS = [["kr", /\bKorea\b/i], ["world", /\bWorld\b/i], ["us", /\bUSA\b|\bU\.S\.A\b/i], ["jp", /\bJapan\b/i], ["eu", /\bEurope\b/i]];
+
+/** The No-Intro region groups a name ends in ("Tetris (USA, Europe) (Rev 1)" → "USA, Europe Rev 1"), or "". Pure. */
+export function noIntroTags(name) {
+  let bare = withoutTags(name);
+  const found = [];
+  while (REGION_TAIL_RE.test(bare)) {
+    found.unshift(bare.match(REGION_TAIL_RE)[0].trim().slice(1, -1));
+    bare = bare.replace(REGION_TAIL_RE, "");
+  }
+  return found.join(" ");
+}
+
+/** The best region a No-Intro name names: Korea, World, USA, Japan, Europe; null for none. Pure. */
+function noIntroRegion(name) {
+  const text = noIntroTags(name);
+  return NO_INTRO_REGIONS.find(([, re]) => re.test(text))?.[0] ?? null;
+}
+
+// A patch that changes the game (difficulty, a romhack, an "Excel" mod) comes after a plain translation.
+const MODIFIED_RE = /개조|핵롬|핵(?:\s|$)|(?:^|[\s._-])(?:이지|easy)|\bhack\b|\bmod\b/i;
+
+/** What the representative rule reads of a game: edition, region, version, date and whether it is a modified patch. Pure. */
 export function traits(g) {
   const tags = tagsOf(g.name);
-  const edition = g.edition ?? editionOf(tags);
+  // An official release can also be named the No-Intro way: "Game (Korea)".
+  const edition = g.edition ?? editionOf(tags) ?? (noIntroRegion(g.name) === "kr" ? editionOf("Korea") : null);
   return {
     edition,
-    region: g.region ?? (edition ? "kr" : regionOf(tags)),
+    region: g.region ?? (edition ? "kr" : regionOf(tags) ?? noIntroRegion(g.name)),
     version: realVersion(edition?.version),
     date: tagDate(tags),
+    modified: MODIFIED_RE.test(tags ?? ""),
   };
 }
 
@@ -121,6 +146,7 @@ const regionRank = (r) => (REGION_ORDER.includes(r) ? REGION_ORDER.indexOf(r) : 
 export function compareTitles(a, b) {
   const [ta, tb] = [traits(a), traits(b)];
   return tier(ta) - tier(tb) ||
+    Number(ta.modified) - Number(tb.modified) ||
     (tier(ta) === 1 ? Number(!(ta.version || ta.date)) - Number(!(tb.version || tb.date)) : 0) ||
     (ta.version && tb.version ? compareVersions(tb.version, ta.version) : 0) ||
     tb.date - ta.date ||
@@ -167,9 +193,11 @@ export function buildGroups(games) {
   return byId;
 }
 
-/** The group's representative: the admin's pick when it is still a member, else the best. */
+/** The group's representative: the admin's pick while it is a member that runs, else the best. */
 export function representative(group, pickedId = null) {
-  return (pickedId && group.members.find((g) => g.id === pickedId)) || group.members[0];
+  const picked = pickedId && group.members.find((g) => g.id === pickedId);
+  // A pick that can't run (its parent zip went away since) would hide the whole group.
+  return picked && !picked.missing?.length ? picked : group.members[0];
 }
 
 /** Why a set is left out of the list by default, or null: it cannot run, or it is a bootleg, hack, prototype or demo. */

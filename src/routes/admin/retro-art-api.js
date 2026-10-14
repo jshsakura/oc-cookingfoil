@@ -84,9 +84,10 @@ function overview(catalog) {
   for (const g of catalog.games) {
     const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, borrowed: 0, bezel: 0 });
     s.games++;
-    if (g.icon) s.boxart++;
-    if (g.iconFrom) s.borrowed++;
-    else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
+    if (g.icon) {
+      s.boxart++;
+      if (g.iconFrom) s.borrowed++;
+    } else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
     if (g.bezel && !g.bezel.generic) s.bezel++;
   }
   return { systems: Object.values(systems), missing };

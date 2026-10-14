@@ -51,6 +51,12 @@ function writeJson(file, value) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
+/** Files under a trash entry other than its manifest. */
+async function filesIn(base) {
+  const all = await fsp.readdir(base, { recursive: true, withFileTypes: true }).catch(() => []);
+  return all.filter((e) => e.isFile() && !(e.name === "manifest.json" && path.resolve(e.parentPath ?? e.path) === path.resolve(base)));
+}
+
 /** Paths (relative to the retro dir) of the files that go with a game, existing or not. Pure. */
 export function filesOf(g, system) {
   const roms = [...(g.abs ? [g.rel] : []), ...(g.keepFileName ? [] : (g.extras ?? []).map((x) => x.rel))];
@@ -95,7 +101,18 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
   const artMap = map && !keep.key && Object.hasOwn(map, key) ? { system: g.system, key, value: map[key] } : null;
   // The manifest first: whatever happens after, the trash says where each file came from.
   writeJson(path.join(base, "manifest.json"), { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size, trashedAt: now.getTime(), files: present, artMap });
-  for (const rel of present) await move(path.join(dir, rel), path.join(base, rel));
+  const moved = [];
+  try {
+    for (const rel of present) {
+      await move(path.join(dir, rel), path.join(base, rel));
+      moved.push(rel);
+    }
+  } catch (err) {
+    // Half a game in the trash is worse than none: put back what went, newest first.
+    for (const rel of moved.reverse()) await move(path.join(base, rel), path.join(dir, rel)).catch(() => {});
+    if (!(await filesIn(base)).length) await fsp.rm(base, { recursive: true, force: true });
+    throw new TrashError(`옮기지 못해 되돌렸습니다: ${err.message}`);
+  }
   if (artMap) {
     const { [key]: _gone, ...rest } = map;
     writeJson(mapFile, rest);
@@ -123,16 +140,19 @@ export async function restoreEntry(dir, entry) {
   const base = path.join(dir, TRASH, entry);
   const m = readJson(path.join(base, "manifest.json"));
   if (!m) throw new TrashError("휴지통에 없는 항목입니다");
-  const files = (m.files ?? []).filter((rel) => inside(dir, path.join(dir, rel)) && inside(base, path.join(base, rel)));
+  // Only what the trash still holds: a file that went missing from it is not waited for.
+  const files = [];
+  for (const rel of m.files ?? []) {
+    if (inside(dir, path.join(dir, rel)) && inside(base, path.join(base, rel)) && (await exists(path.join(base, rel)))) files.push(rel);
+  }
   for (const rel of files) if (await exists(path.join(dir, rel))) throw new TrashError(`${rel} 자리에 다른 파일이 있습니다`);
-  for (const rel of files) if (await exists(path.join(base, rel))) await move(path.join(base, rel), path.join(dir, rel));
+  for (const rel of files) await move(path.join(base, rel), path.join(dir, rel));
   if (m.artMap?.key) {
     const mapFile = path.join(dir, "art-map", `${m.artMap.system}.json`);
     const map = readJson(mapFile) ?? {};
     if (!Object.hasOwn(map, m.artMap.key)) writeJson(mapFile, { ...map, [m.artMap.key]: m.artMap.value });
   }
   // Only the manifest and empty folders are left: those go, never a file.
-  const left = (await fsp.readdir(base, { recursive: true, withFileTypes: true })).filter((e) => e.isFile() && !(e.name === "manifest.json" && path.resolve(e.parentPath ?? e.path) === path.resolve(base)));
-  if (!left.length) await fsp.rm(base, { recursive: true });
+  if (!(await filesIn(base)).length) await fsp.rm(base, { recursive: true });
   return { id: m.id, files };
 }

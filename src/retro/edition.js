@@ -5,13 +5,13 @@
  *   korean   true when the game is in Korean
  *   source   "official" released in Korean (unlicensed Korean carts too),
  *            "patch" a Korean fan translation
- *   from     the region a translation was made from: "jp", "us"
+ *   from     the region a translation was made from: "jp", "us", "world", "eu"
  *   version  the patch version, "v1.1"
  *
  * Only what a tag says plainly is reported; anything else stays in `variant`.
  * File names on the SD card do not change.
  */
-const FROM = { J: "jp", U: "us" };
+const FROM = { J: "jp", U: "us", W: "world", E: "eu" };
 
 /** Flags for a game's joined tags ("J-K v20221128 v1.1", "Korea", "Korean Translation 911202"), or null. Pure. */
 export function editionOf(tags) {

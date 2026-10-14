@@ -74,12 +74,21 @@ function cleanNames(entry) {
   return Object.fromEntries(["ko", "ja", "zh"].filter((l) => typeof entry[l] === "string" && entry[l].trim()).map((l) => [l, entry[l].trim().slice(0, 200)]));
 }
 
+/**
+ * The set whose ROMs a set loads, or null. The DAT's `romof` says it: a clone
+ * that carries all its own ROMs (non-merged) has none, so it runs without its
+ * parent's zip. Without romof data, a clone loads its parent, as before. Pure.
+ */
+export function needsOf(info) {
+  return info.romOf !== undefined ? info.romOf ?? null : info.cloneOf ?? null;
+}
+
 /** The sets a game loads besides its own: its parent and BIOS, nearest first. */
 export function dependencies(shortName) {
   const out = [];
   let info = setInfo(shortName);
   for (let i = 0; info && i < MAX_CHAIN; i++) {
-    const next = info.cloneOf ?? info.romOf;
+    const next = needsOf(info);
     if (!next || out.includes(next)) break;
     out.push(next);
     info = setInfo(next);

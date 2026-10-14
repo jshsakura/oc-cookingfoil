@@ -6,6 +6,7 @@
  */
 import fs from "fs";
 import path from "path";
+import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 
 const FILE = path.join(dataDir, "retro-variants.json");
@@ -17,12 +18,19 @@ let saved = null;
 function all() {
   if (saved) return saved;
   try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const read = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    saved = read && typeof read === "object" && !Array.isArray(read) ? read : {};
   } catch (err) {
-    if (err.code !== "ENOENT") throw err;
+    // A broken file must not take the lists down: the rule's picks stand until the next save.
+    if (err.code !== "ENOENT") debug.error("retro: %s is unreadable, using no picks: %s", FILE, err.message);
     saved = {};
   }
   return saved;
+}
+
+/** Reads the file again on the next use. */
+export function reload() {
+  saved = null;
 }
 
 /** The game the admin picked for a group, or null. */

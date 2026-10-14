@@ -100,6 +100,8 @@ export function mountRetroVariantsApi(router, requireSession) {
     if (!group) return res.status(404).json({ error: "없는 묶음입니다" });
     const game = req.body?.game == null ? null : String(req.body.game);
     if (game !== null && !group.members.some((g) => g.id === game)) return res.status(400).json({ error: "이 묶음의 파일이 아닙니다" });
+    // A set that can't run would leave the group with nothing to list.
+    if (game !== null && group.members.find((g) => g.id === game).missing?.length) return res.status(400).json({ error: "실행되지 않는 세트는 대표로 정할 수 없습니다" });
     picks.set(group.id, game === group.members[0].id ? null : game);
     debug.log("admin: retro group %s represented by %s", group.id, game ?? "(rule)");
     res.json({ ok: true, group: publicGroup(group, catalog.systems) });
@@ -115,16 +117,25 @@ export function mountRetroVariantsApi(router, requireSession) {
     if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
     const dependents = dependentsOf(catalog, g);
     if (dependents.length && req.body?.force !== true) return res.status(409).json({ error: "다른 세트가 이 파일을 씁니다", dependents });
-    const result = await trashGame(retroDir, g, catalog.systems[g.system], { keep: stillUsed(g, catalog.games) });
-    await retroCatalog.scan(retroDir);
-    debug.log("admin: retro game %s moved to the trash (%d files)", g.id, result.files.length);
-    res.json({ ok: true, ...result });
+    try {
+      const result = await trashGame(retroDir, g, catalog.systems[g.system], { keep: stillUsed(g, catalog.games) });
+      debug.log("admin: retro game %s moved to the trash (%d files)", g.id, result.files.length);
+      await retroCatalog.rescan(retroDir);
+      res.json({ ok: true, ...result });
+    } finally {
+      // Whatever moved, the lists follow the folder at once.
+      retroCatalog.rescan(retroDir).catch(() => {});
+    }
   }));
 
   router.post("/api/retro-variants/restore", guarded(async (req, res) => {
-    const result = await restoreEntry(retroDir, String(req.body?.entry ?? ""));
-    await retroCatalog.scan(retroDir);
-    debug.log("admin: retro game %s restored from the trash", result.id);
-    res.json({ ok: true, ...result });
+    try {
+      const result = await restoreEntry(retroDir, String(req.body?.entry ?? ""));
+      debug.log("admin: retro game %s restored from the trash", result.id);
+      await retroCatalog.rescan(retroDir);
+      res.json({ ok: true, ...result });
+    } finally {
+      retroCatalog.rescan(retroDir).catch(() => {});
+    }
   }));
 }

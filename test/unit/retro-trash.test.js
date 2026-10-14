@@ -39,6 +39,7 @@ put("thumbnails/arcade/Named_Boxarts/Gunbird (Japan).png", "GJ");
 const catalog = await import("../../src/retro/catalog.js");
 const { listTrash, restoreEntry, stillUsed, trashGame } = await import("../../src/retro/trash.js");
 const { mountRetroVariantsApi } = await import("../../src/routes/admin/retro-variants-api.js");
+const { mountRetroArtApi } = await import("../../src/routes/admin/retro-art-api.js");
 
 test("a trashed game takes its ROM, box art, bezel files and art-map key, and comes back", async () => {
   const cat = await catalog.scan(retro);
@@ -66,6 +67,35 @@ test("a trashed game takes its ROM, box art, bezel files and art-map key, and co
   assert.equal(back.id, old.id, "the same id as before");
 });
 
+test("a move that fails half way puts back what it had moved", { skip: process.getuid?.() === 0 && "root ignores folder permissions" }, async () => {
+  const cat = await catalog.scan(retro);
+  const old = cat.games.find((g) => g.name === OLD);
+  const boxarts = path.join(retro, "thumbnails/md/Named_Boxarts");
+  fs.chmodSync(boxarts, 0o555);
+  try {
+    await assert.rejects(trashGame(retro, old, cat.systems.md));
+  } finally {
+    fs.chmodSync(boxarts, 0o755);
+  }
+  for (const rel of [`roms/md/${OLD}.zip`, `thumbnails/md/Named_Boxarts/${OLD}.png`, `bezels/md/${OLD}.png`, `bezels/md/${OLD}.cfg`]) assert.ok(has(rel), `${rel} is back`);
+  assert.ok(Object.hasOwn(JSON.parse(fs.readFileSync(path.join(retro, "art-map/md.json"), "utf8")), OLD), "the art-map key stays");
+  assert.deepEqual(await listTrash(retro), [], "no half entry is left in the trash");
+});
+
+test("a restore only checks and moves the files the trash still holds", async () => {
+  const cat = await catalog.scan(retro);
+  const old = cat.games.find((g) => g.name === OLD);
+  const { entry } = await trashGame(retro, old, cat.systems.md);
+  // The cfg went missing from the trash, and a new one was made in its place meanwhile.
+  fs.rmSync(path.join(retro, ".trash", entry, `bezels/md/${OLD}.cfg`));
+  put(`bezels/md/${OLD}.cfg`, "NEW CFG");
+  const { files } = await restoreEntry(retro, entry);
+  assert.ok(!files.includes(`bezels/md/${OLD}.cfg`));
+  assert.ok(has(`roms/md/${OLD}.zip`));
+  assert.equal(fs.readFileSync(path.join(retro, `bezels/md/${OLD}.cfg`), "utf8"), "NEW CFG");
+  put(`bezels/md/${OLD}.cfg`, "CFG");
+});
+
 test("a restore never overwrites a file that took the trashed one's place", async () => {
   const cat = await catalog.scan(retro);
   const old = cat.games.find((g) => g.name === OLD);
@@ -90,6 +120,7 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
   app.use(express.json());
   const router = express.Router();
   mountRetroVariantsApi(router, () => true);
+  mountRetroArtApi(router, () => true);
   app.use("/admin", router);
   const server = await new Promise((r) => { const s = app.listen(0, "127.0.0.1", () => r(s)); });
   const base = `http://127.0.0.1:${server.address().port}/admin/api/retro-variants`;
@@ -99,6 +130,12 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
   };
   try {
     await catalog.scan(retro);
+    // The art overview: games with art of their own or borrowed are not missing.
+    const overview = await (await fetch(base.replace("retro-variants", "retro-art"))).json();
+    // (The patch's art is still in the trash from the test before.)
+    assert.deepEqual(overview.missing.map((m) => m.system), ["md", "md"], "the arcade sets and the Comix Zone copy have art");
+    const arcade = overview.systems.find((x) => x.id === "arcade");
+    assert.deepEqual([arcade.boxart, arcade.borrowed], [2, 1]);
     const { groups } = await (await fetch(base)).json();
     const mw = groups.find((g) => g.system === "md");
     assert.deepEqual(mw.members.map((m) => [m.variant, m.representative]), [["Korea", true], ["U-K v20260701 v0.6", false]]);
@@ -123,6 +160,8 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
 
     const moved = await post("/trash", { game: patch.id });
     assert.equal(moved.status, 200);
+    const gone = (await (await fetch(base)).json()).groups.find((g) => g.system === "md");
+    assert.equal(gone, undefined, "the trashed file leaves the lists at once");
     const { items } = await (await fetch(`${base}/trash`)).json();
     assert.ok(items.some((i) => i.entry === moved.body.entry));
     assert.equal((await post("/restore", { entry: moved.body.entry })).status, 200);

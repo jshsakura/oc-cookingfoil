@@ -4,16 +4,19 @@
  * set's description tags and picks the set people should see first.
  *
  *   classifySet("Knights of the Round (Japan 911127, B-Board 91634B-2)")
- *     → { region: "jp", translation: false, date: 19911127, rev: null, set: null, flags: [], hardware: [] }
+ *     → { region: "jp", translation: false, older: false, content: false, date: 19911127, rev: null, set: null, flags: [], hardware: [] }
  *
  * Preference, first difference wins:
  *   1. it runs: its parent and BIOS zips are in the folder
  *   2. not a bootleg, hack, prototype or demo
  *   3. region: Korea > World > USA > Europe > Japan > Asia > others,
- *      a Korean release before a Korean translation
- *   4. the plain cabinet over a CPS Changer or a 3 / 4 player board
+ *      a Korean release before a Korean translation. Only the main region
+ *      counts: "(World / USA / Korea)" is a World board, "(Korea?)" none
+ *   4. the plain cabinet over a CPS Changer or a 3 / 4 player board,
+ *      and the plain release over one tagged adult or uncensored
  *   5. the original over a decrypted or "not encrypted" conversion
- *   6. the newest date, then the newest revision, then the lowest "set n"
+ *   6. not "older" / "earlier", then the newest date, the newest revision,
+ *      the lowest "set n"
  *   7. the DAT's parent, then the short name
  *
  * Text is never compared: two sets are one game only through the DAT.
@@ -21,7 +24,8 @@
 
 export const REGION_ORDER = ["kr", "world", "us", "eu", "jp", "asia", "hisp", "br"];
 const REGION_RES = [
-  ["kr", /\bKorea|\bKorean\b|Hangul/i],
+  // "Korea?" is the DAT unsure of the region: not a Korean release.
+  ["kr", /\bKorea(?!n?\?)|\bKorean\b(?!\?)|Hangul/i],
   ["world", /\bWorld\b/i],
   ["us", /\bUSA?\b|\bAmerica/i],
   ["eu", /\bEurope|\bEuro\b|\bGerman|\bFrance|\bSpain|\bItaly|\bUK\b/i],
@@ -31,6 +35,8 @@ const REGION_RES = [
   ["br", /\bBrazil/i],
 ];
 const BAD = [["bootleg", /\bbootleg\b/i], ["hack", /\bhack\b/i], ["prototype", /\bprototype\b|\bproto\b|\blocation test\b/i], ["demo", /\bdemo\b/i]];
+/** Content tags: the plain release goes first. */
+const CONTENT_RE = /\badult\b|\bnude\b|\bnudity\b|\bmature\b|\buncensored\b|\bcensored\b/i;
 const HARDWARE = [["cps-changer", /\bCPS Changer\b/i], ["4p", /\b4 ?Players?\b|\b4P\b/i], ["3p", /\b3 ?Players?\b|\b3P\b/i], ["resale", /\bResale\b/i]];
 /** Cabinets most people did not play; the plain board goes first. */
 const SPECIAL = new Set(["cps-changer", "4p", "3p"]);
@@ -39,6 +45,19 @@ export const BAD_FLAGS = BAD.map(([k]) => k);
 /** All the parenthesised tags of a description, joined ("Title (Japan 911127) (bootleg)" → "Japan 911127 bootleg"). Pure. */
 function tagText(desc) {
   return [...String(desc ?? "").matchAll(/\(([^()]*)\)/g)].map((m) => m[1]).join(" ");
+}
+
+/**
+ * The text a region is read from: in a list ("World / USA + Canada / Korea")
+ * only its first entry, the main region, counts. Pure.
+ */
+function regionText(desc) {
+  const LANGUAGE = /^\s*(?:English|Japanese|Korean|Chinese|Italian|Spanish|French|German)\s*$/i;
+  return [...String(desc ?? "").matchAll(/\(([^()]*)\)/g)]
+    .map((m) => m[1].split(" / "))
+    // A list of languages ("English / Korean") says nothing of where the board was sold.
+    .filter((parts) => !(parts.length > 1 && LANGUAGE.test(parts[0])))
+    .map((parts) => parts[0]).join(" ");
 }
 
 /** A six digit YYMMDD date as YYYYMMDD, or null. Pure. */
@@ -60,7 +79,8 @@ function revOf(text) {
 /** What a set's description tags say: region, date, revision, set number, quality flags and cabinet. Pure. */
 export function classifySet(desc) {
   const text = tagText(desc);
-  const regions = REGION_RES.filter(([, re]) => re.test(text)).map(([k]) => k);
+  const where = regionText(desc);
+  const regions = REGION_RES.filter(([, re]) => re.test(where)).map(([k]) => k);
   const set = text.match(/\bset\s*(\d+)\b/i);
   const flags = BAD.filter(([, re]) => re.test(text)).map(([k]) => k);
   if (/\bnot encrypted\b|\bdecrypted\b/i.test(text)) flags.push("decrypted");
@@ -69,7 +89,7 @@ export function classifySet(desc) {
   else if (/\bNGH-\d+/.test(text)) hardware.push("aes");
   // A fan translation ("Korean Translation 911127") is Korean, after a Korean release.
   const translation = /\bTranslation\b/i.test(text);
-  return { region: regions[0] ?? null, translation, date: dateOf(text), rev: revOf(text), set: set ? Number(set[1]) : null, flags, hardware };
+  return { region: regions[0] ?? null, translation, older: /\bolder\b|\bearlier\b|\bearliest\b/i.test(text), content: CONTENT_RE.test(text), date: dateOf(text), rev: revOf(text), set: set ? Number(set[1]) : null, flags, hardware };
 }
 
 /** True for a bootleg, hack, prototype or demo. Pure. */
@@ -89,7 +109,9 @@ export function rankSets(members) {
     regionRank(a.class.region) - regionRank(b.class.region) ||
     Number(a.class.translation) - Number(b.class.translation) ||
     special(a.class) - special(b.class) ||
+    Number(a.class.content) - Number(b.class.content) ||
     Number(a.class.flags.includes("decrypted")) - Number(b.class.flags.includes("decrypted")) ||
+    Number(a.class.older) - Number(b.class.older) ||
     (b.class.date ?? 0) - (a.class.date ?? 0) ||
     (b.class.rev ?? 0) - (a.class.rev ?? 0) ||
     (a.class.set ?? 0) - (b.class.set ?? 0) ||

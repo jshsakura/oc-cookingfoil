@@ -379,6 +379,21 @@ export function scan(dir) {
   return inFlight;
 }
 
+let queued = null;
+/**
+ * A scan that starts after this call: when one is running (and may have read
+ * the folder before a change) it waits for it, then scans again. Callers that
+ * just changed files use it so the lists show the change at once.
+ */
+export function rescan(dir) {
+  if (!inFlight) return scan(dir);
+  queued ??= inFlight.catch(() => {}).then(() => {
+    queued = null;
+    return scan(dir);
+  });
+  return queued;
+}
+
 /** The current catalog; the first call waits for a scan, later stale ones refresh in the background. */
 export async function current(dir) {
   if (state.dir !== dir || !state.scannedAt) return scan(dir);

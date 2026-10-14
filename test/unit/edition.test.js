@@ -5,9 +5,9 @@ import { editionOf } from "../../src/retro/edition.js";
 test("Korean patch tags become flags", () => {
   assert.deepEqual(editionOf("J-K v20221128 v1.1"), { korean: true, source: "patch", from: "jp", version: "v1.1" });
   assert.deepEqual(editionOf("U-K"), { korean: true, source: "patch", from: "us" });
-  // Made from a World or European release: a patch, with no from flag the client knows.
-  assert.deepEqual(editionOf("W-K v20250413 Rumble-patch"), { korean: true, source: "patch", version: "v20250413" });
-  assert.deepEqual(editionOf("E-K"), { korean: true, source: "patch" });
+  // Made from a World or European release.
+  assert.deepEqual(editionOf("W-K v20250413 Rumble-patch"), { korean: true, source: "patch", from: "world", version: "v20250413" });
+  assert.deepEqual(editionOf("E-K"), { korean: true, source: "patch", from: "eu" });
   assert.deepEqual(editionOf("K"), { korean: true, source: "patch" });
   assert.deepEqual(editionOf("K v1.0-260911"), { korean: true, source: "patch", version: "v1.0-260911" });
   assert.deepEqual(editionOf("GBA,SNES한글팬메이드"), { korean: true, source: "patch" });
