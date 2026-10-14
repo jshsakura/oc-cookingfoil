@@ -156,7 +156,7 @@ test("direct twins: names, the shop list form, and the signature over path and q
   assert.equal(d.searchParams.get("u"), link.u);
   assert.equal(out.ext.direct_url, undefined);
   // Made on another base, the same path and query still verify.
-  const other = new URL(links.directUrl(`/${ENC}`, { ...link, base: "http://192.168.0.136:38000" }));
+  const other = new URL(links.directUrl(`/${ENC}`, { ...link, base: "http://10.0.0.5:38000" }));
   assert.equal(other.search, d.search);
 
   const signed = new URL(links.directUrl("/api/homebrew/gh-0123456789ab/file?path=switch%2Fapp%2Fapp.nro", link));

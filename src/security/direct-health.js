@@ -36,6 +36,9 @@ let onChange = () => {};
 let checkedBase = null;
 let probeOptions = {};
 let running = null;
+// Bumped whenever the state is set from outside; a check that started before
+// then reports into a state that no longer exists, so its result is dropped.
+let epoch = 0;
 
 /**
  * Looks the host up and asks `base/`, both inside one `timeoutMs`; resolves
@@ -91,11 +94,14 @@ export async function check(options = probeOptions, nowMs = Date.now()) {
     checkedBase = base;
     health = { up: false, since: null, fails: 0, checkedAt: null, error: null };
   }
+  const started = epoch;
+  // Late answers (the address changed, or the state was reset meanwhile) are dropped.
+  const current = () => started === epoch && base === env.publicDirectBaseUrl;
   try {
     await probe(base, options);
-    apply(nextHealth(health, true, nowMs));
+    if (current()) apply(nextHealth(health, true, nowMs));
   } catch (err) {
-    apply(nextHealth(health, false, nowMs, err?.cause?.code ?? err?.code ?? err?.name ?? "error"));
+    if (current()) apply(nextHealth(health, false, nowMs, err?.cause?.code ?? err?.code ?? err?.name ?? "error"));
   }
   return health;
 }
@@ -154,4 +160,6 @@ export function setForTests(up, { changed, options, checkedAt = Date.now() } = {
   if (options) probeOptions = options;
   checkedBase = env.publicDirectBaseUrl;
   health = { up, since: checkedAt, fails: 0, checkedAt, error: null };
+  epoch += 1;
+  running = null;
 }
