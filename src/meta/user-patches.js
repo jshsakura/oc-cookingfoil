@@ -517,12 +517,16 @@ export function locate(id) {
   return known ? { dir: known.dir, folder: known.folder } : null;
 }
 
-/** A patch read afresh from disk for download, or null when it is gone or no longer valid. */
+/**
+ * A patch read afresh from disk for download, or null when it is gone or no
+ * longer valid. It never waits for hashing: a patch not hashed yet comes with
+ * `hash: null`, and its download is tagged by its files' sizes and times.
+ */
 export async function openForDownload(id, root = patchesDir) {
   const known = patches.find((p) => p.id === id);
   if (!known) return null;
   try {
-    return await readPatch(root, known.dir, known.folder);
+    return await readPatch(root, known.dir, known.folder, { wait: false });
   } catch (err) {
     if (err instanceof Rejected || err.code === "ENOENT") return null;
     throw err;

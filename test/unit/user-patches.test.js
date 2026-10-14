@@ -193,6 +193,18 @@ test("a patch still being hashed is listed at once and gets its hash afterwards"
   assert.notEqual(forTitle("0100000000010000")[0].hash, old);
 });
 
+test("a download never waits for the patch to be hashed", async () => {
+  const { root, cacheFile, put } = cacheRoot();
+  put(BIG, "aaaa");
+  await scan({ root, cacheFile });
+  const id = forTitle("0100000000010000")[0].id;
+  const early = await openForDownload(id, root);
+  assert.equal(early.patch.hash, null, "sent at once, before its hash exists");
+  assert.equal(early.entries.length, 1);
+  await hashed();
+  assert.match((await openForDownload(id, root)).patch.hash, /^[0-9a-f]{64}$/);
+});
+
 test("a renamed folder keeps its hashes, and a missing file's hash is kept for a week", async () => {
   const { root, cacheFile, put } = cacheRoot();
   put(BIG, "aaaa");
