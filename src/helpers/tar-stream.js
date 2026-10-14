@@ -45,17 +45,74 @@ function pieces(entries) {
   return out.filter((p) => (Buffer.isBuffer(p) ? p.length : p.size) > 0);
 }
 
-/** Bytes `start`..`end` (inclusive) of the archive; the whole of it by default. */
-export async function* archive(entries, start = 0, end = Infinity) {
+// Small file bodies are read whole, several at once, ahead of the one being sent.
+// A hard disk then gets the next reads together and orders its own seeks, instead
+// of waiting out one seek per file; big files stream as before.
+const SMALL_FILE = 1024 * 1024;
+const READ_AHEAD = 8; // at most 8 MiB held per download
+
+/** Bytes `from`..`to` (inclusive) of one file, or an error when it no longer has them. */
+async function readSlice(p, from, to) {
+  const len = to - from + 1;
+  const fh = await fs.promises.open(p.abs, "r");
+  try {
+    const buf = Buffer.allocUnsafe(len);
+    let got = 0;
+    while (got < len) {
+      const { bytesRead } = await fh.read(buf, got, len - got, from + got);
+      if (!bytesRead) break;
+      got += bytesRead;
+    }
+    if (got !== len) throw new Error(`${p.path} changed while sending`);
+    return buf;
+  } finally {
+    await fh.close();
+  }
+}
+
+/** The slices of the archive that bytes `start`..`end` cover: [piece, from, to]. Pure. */
+function plan(entries, start, end) {
+  const out = [];
   let at = 0;
   for (const p of pieces(entries)) {
     const len = Buffer.isBuffer(p) ? p.length : p.size;
     const from = Math.max(start - at, 0);
     const to = Math.min(end - at, len - 1);
     at += len;
-    if (to < from) continue;
+    if (to >= from) out.push([p, from, to]);
+    if (at > end) break;
+  }
+  return out;
+}
+
+/** Bytes `start`..`end` (inclusive) of the archive; the whole of it by default. */
+export async function* archive(entries, start = 0, end = Infinity) {
+  const slices = plan(entries, start, end);
+  const isSmall = ([p, from, to]) => !Buffer.isBuffer(p) && to - from + 1 <= SMALL_FILE;
+  const ahead = new Map(); // slice index → its bytes being read
+  let next = 0;
+  const fill = (from) => {
+    next = Math.max(next, from);
+    while (ahead.size < READ_AHEAD && next < slices.length) {
+      const i = next++;
+      if (!isSmall(slices[i])) continue;
+      const read = readSlice(...slices[i]);
+      read.catch(() => {}); // a download given up on leaves reads nobody waits for
+      ahead.set(i, read);
+    }
+  };
+  for (let i = 0; i < slices.length; i++) {
+    const [p, from, to] = slices[i];
     if (Buffer.isBuffer(p)) {
       yield p.subarray(from, to + 1);
+      continue;
+    }
+    fill(i);
+    if (ahead.has(i)) {
+      const buf = await ahead.get(i);
+      ahead.delete(i);
+      fill(i + 1);
+      yield buf;
       continue;
     }
     let sent = 0;
@@ -65,7 +122,6 @@ export async function* archive(entries, start = 0, end = Infinity) {
     }
     // A file that shrank mid-download would corrupt every later entry.
     if (sent !== to - from + 1) throw new Error(`${p.path} changed while sending`);
-    if (at > end) return;
   }
 }
 
