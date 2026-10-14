@@ -57,7 +57,7 @@ export const SETTINGS = {
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
-  publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && v.startsWith("https://") && bareOrigin(v)) },
   // An hour up to a week; the page sends one of its choices as text.
   downloadLinkTtl: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 3600 && v <= 604800 },
   restartRetryAfter: seconds(300),

@@ -11,10 +11,10 @@ import path from "node:path";
 // direct address's proxy (from loopback, Host fixed, X-Forwarded-For set)
 // forwards downloads with that token as a Bearer header.
 const PORT = 15900 + (process.pid % 500);
-const PROXY_PORT = PORT + 600;
 const BASE = `http://127.0.0.1:${PORT}`;
-const DL_HOST = `localhost:${PROXY_PORT}`;
+const DL_HOST = "dl.example.org:38443";
 const AUTH = "Basic " + Buffer.from("alice:alice-password").toString("base64");
+const EDGE = "edge-secret-for-tests";
 const KEY_A = "A1".repeat(32);
 const KEY_B = "B2".repeat(32);
 const TID = "0100F2C0115B6000";
@@ -38,24 +38,21 @@ put(saves, `${MK}/All Unlocked/save.dat`, "SAVE");
 put(patches, `${TID}/60fps/atmosphere/contents/${TID}/cheats/ABCDEF0123456789.txt`, "CHEAT");
 
 let child;
-// Stands in for the proxy as far as the health check sees it: it answers 404.
-const proxy = http.createServer((req, res) => res.writeHead(404).end());
 before(async () => {
-  await new Promise((r) => proxy.listen(PROXY_PORT, "127.0.0.1", r));
   child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_RETRO_DIR: retro,
       COOK_SAVES_DIR: saves, COOK_PATCHES_DIR: patches, COOK_HOMEBREW_DIR: path.join(data, "homebrew"),
       COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_RATING_SYNC: "false",
-      COOK_PUBLIC_DIRECT_BASE_URL: `http://${DL_HOST}`,
+      COOK_PUBLIC_DIRECT_BASE_URL: `https://${DL_HOST}`, COOK_DIRECT_EDGE_SECRET: EDGE, COOK_TRUST_PROXY: "loopback",
     },
     stdio: "ignore",
   });
   for (let i = 0; i < 80; i++) {
     try {
       const h = await fetch(`${BASE}/healthz`);
-      if (h.ok && (await h.json()).directDownload?.up) return;
+      if (h.ok) return;
     } catch {
       /* not up yet */
     }
@@ -65,12 +62,12 @@ before(async () => {
 });
 after(() => {
   child?.kill("SIGKILL");
-  proxy.close();
 });
 
 const SIGNED_IN = { Authorization: AUTH, "X-Device-Key": KEY_A };
-const DIRECT = { ...SIGNED_IN, "X-CookingFoil-Features": "direct-token" };
-const DL = `http://${DL_HOST}`;
+// As through the tunnel: the trusted proxy in front says the request came over https.
+const DIRECT = { ...SIGNED_IN, "X-CookingFoil-Features": "direct-token", "X-Forwarded-Proto": "https" };
+const DL = `https://${DL_HOST}`;
 
 /** GET a direct URL the way the proxy forwards it: to this server, Host fixed, the client in X-Forwarded-For. */
 function viaProxy(link, token, extra = {}) {
@@ -78,7 +75,7 @@ function viaProxy(link, token, extra = {}) {
   assert.equal(u.host, DL_HOST);
   const auth = token ? { authorization: `Bearer ${token}` } : {};
   return new Promise((resolve, reject) => {
-    const req = http.request({ port: PORT, host: "127.0.0.1", path: u.pathname + u.search, headers: { host: DL_HOST, "x-forwarded-for": "198.51.100.9", ...auth, ...extra } }, (res) => {
+    const req = http.request({ port: PORT, host: "127.0.0.1", path: u.pathname + u.search, headers: { host: DL_HOST, "x-forwarded-for": "198.51.100.9", "x-cookingfoil-edge": EDGE, ...auth, ...extra } }, (res) => {
       const chunks = [];
       res.on("data", (c) => chunks.push(c));
       res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
@@ -117,6 +114,9 @@ test("the shop list: fixed direct URLs and a token for direct-token clients, tod
   const res = await fetchOk("/shop.json", DIRECT);
   const token = tokenOf(res);
   assert.ok(token);
+  assert.match(res.headers.get("cache-control"), /^private\b/);
+  assert.match(res.headers.get("vary"), /X-CookingFoil-Features/i);
+  assert.match(plainRes.headers.get("vary"), /X-CookingFoil-Features/i);
   const listed = await res.json();
   const file = listed.files.find((f) => f.url.endsWith(".nsp"));
   assert.equal(file.url, `${DL}${new URL(plainFile.url).pathname}`);
@@ -138,6 +138,16 @@ test("the shop list: fixed direct URLs and a token for direct-token clients, tod
   const info = await fetchOk("/api/shop/info", DIRECT);
   assert.equal(tokenOf(info), token);
   assert.equal(tokenOf(await fetchOk("/api/shop/info", SIGNED_IN)), null);
+  // A console at home talking plain http to the server: same-origin URLs and no token, feature or not.
+  const lanRes = await fetchOk("/shop.json", { ...SIGNED_IN, "X-CookingFoil-Features": "direct-token" });
+  assert.equal(tokenOf(lanRes), null);
+  assert.ok((await lanRes.json()).files.find((f) => f.url.endsWith(".nsp")).url.startsWith(BASE), "http stays http on the same origin");
+  // Artwork never carries the token, whatever the client declares.
+  const icon = await fetch(`${BASE}/api/shop/icon/0100000000010000`, { headers: DIRECT });
+  assert.equal(tokenOf(icon), null);
+  const download = await fetch(`${BASE}${new URL(plainFile.url).pathname}`, { headers: DIRECT });
+  assert.equal(download.status, 200);
+  assert.equal(tokenOf(download), null);
 });
 
 test("a direct URL opens through the proxy with the token, never without it, never through the tunnel", async () => {
@@ -154,6 +164,7 @@ test("a direct URL opens through the proxy with the token, never without it, nev
   assert.equal(none.headers["x-cookingfoil-token"], "invalid");
   const basic = await viaProxy(url, null, { authorization: AUTH, "x-device-key": KEY_A });
   assert.equal(basic.status, 401, "basic auth is no good on the direct address");
+  assert.equal((await viaProxy(url, token, { "x-cookingfoil-edge": "guess" })).status, 404, "nor without the edge secret");
   // Through the tunnel the same request goes to the normal stack and its sign-in.
   assert.equal((await viaProxy(url, token, { "cf-connecting-ip": "198.51.100.9" })).status, 401);
   // The shop's own address serves the file as always.

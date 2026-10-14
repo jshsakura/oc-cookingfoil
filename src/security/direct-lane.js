@@ -10,8 +10,14 @@
  *   - the socket peer is this machine (loopback or the container's gateway,
  *     local-hop.js): only the proxy on the host connects from there,
  *   - Host, and X-Forwarded-Host when present, is the direct address's host,
- *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP).
- * Every request of the proxy is answered here. Only a GET or HEAD for a
+ *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP),
+ *   - it carries X-CookingFoil-Edge with the shared secret COOK_DIRECT_EDGE_SECRET
+ *     (compose only), so another container behind the same gateway can't pose
+ *     as the proxy. Without the secret configured the direct address serves
+ *     nothing (one warning in the log).
+ * Every request that looks like the proxy's (the first four) is answered here:
+ * without the right edge secret it is a 404. The edge header is removed before
+ * a request reaches the download routers. Only a GET or HEAD for a
  * download is served: a file in the games folder (a game, update, DLC or a
  * title's extra file) or one of DOWNLOAD_ROUTES; anything else is a 404, so
  * the direct address carries nothing but downloads. Basic auth, device keys
@@ -35,6 +41,7 @@
  *   401 revoked  the account or console it was made for may no longer sign in
  *   403 blocked  this address sent too many invalid tokens and is shut out for a while
  */
+import crypto from "crypto";
 import express from "express";
 import net from "net";
 import * as tokens from "./download-token.js";
@@ -46,6 +53,7 @@ import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 
 export const TOKEN_STATE_HEADER = "X-CookingFoil-Token";
+export const EDGE_HEADER = "X-CookingFoil-Edge";
 
 // The downloads the lane serves besides games-folder files. Matched on the raw path, case and all.
 const DOWNLOAD_ROUTES = [
@@ -88,17 +96,32 @@ export function proxiedClient(xff) {
   return net.isIP(last) ? last : null;
 }
 
+/** Whether a request is addressed like the proxy's: peer, Host and no tunnel (the first four above). */
+export function looksProxied(req) {
+  const host = directHost();
+  if (!host || req.get("cf-connecting-ip") || !isLocalHop(peerOf(req))) return false;
+  if (headerHost(req, "host") !== host) return false;
+  return req.get("x-forwarded-host") === undefined || headerHost(req, "x-forwarded-host") === host;
+}
+
+/** Whether `sent` is the edge secret; an empty secret matches nothing. Timing-safe. */
+export function edgeMatches(sent, secret) {
+  if (!secret || typeof sent !== "string") return false;
+  const a = crypto.createHash("sha256").update(sent).digest();
+  const b = crypto.createHash("sha256").update(secret).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
 /**
  * The client's address when a request came from the direct address's proxy
- * (see the list above), else null.
+ * (see the list above), else null. Only then is X-Forwarded-For trusted.
  */
-export function viaDirectProxy(req) {
-  const host = directHost();
-  if (!host || req.get("cf-connecting-ip") || !isLocalHop(peerOf(req))) return null;
-  if (headerHost(req, "host") !== host) return null;
-  if (req.get("x-forwarded-host") !== undefined && headerHost(req, "x-forwarded-host") !== host) return null;
+export function viaDirectProxy(req, secret = env.directEdgeSecret) {
+  if (!looksProxied(req) || !edgeMatches(req.get(EDGE_HEADER), secret)) return null;
   return proxiedClient(req.get("x-forwarded-for"));
 }
+
+let warnedNoSecret = false;
 
 /** The token of an `Authorization: Bearer <token>` header, or null for anything else. Pure. */
 export function bearerToken(header) {
@@ -141,11 +164,20 @@ const isDownload = (req) => (req.method === "GET" || req.method === "HEAD") && l
  * `root` is the games folder; `routes` maps a mount prefix to its router
  * ({ "/api/retro": retroRouter, … }), the same instances the shop mounts.
  */
-export default function directLane(root, { routes = {}, ban = newBan() } = {}) {
+export default function directLane(root, { routes = {}, ban = newBan(), edgeSecret = env.directEdgeSecret } = {}) {
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
-    const ip = viaDirectProxy(req);
-    if (!ip) return next();
+    if (!looksProxied(req)) {
+      delete req.headers[EDGE_HEADER.toLowerCase()];
+      return next();
+    }
+    if (!edgeSecret && !warnedNoSecret) {
+      warnedNoSecret = true;
+      debug.error("direct lane: COOK_DIRECT_EDGE_SECRET is not set, so the direct address %s serves nothing", env.publicDirectBaseUrl);
+    }
+    const ip = viaDirectProxy(req, edgeSecret);
+    delete req.headers[EDGE_HEADER.toLowerCase()];
+    if (!ip) return res.set("Cache-Control", "no-store").status(404).end();
     // The direct address answers downloads and nothing else.
     if (!isDownload(req)) return res.set("Cache-Control", "no-store").status(404).end();
 

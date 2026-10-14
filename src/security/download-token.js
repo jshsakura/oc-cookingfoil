@@ -6,7 +6,7 @@
  *   payload = { v: 1, sub, iat, exp }   (unix seconds)
  *
  * sub is the console it was made for, with the account behind it
- * (link-identity.js requester: { acct, dev, agent, paired }). The token opens
+ * (link-identity.js requester: { acct, dev, agent, paired, stamp, dstamp }). The token opens
  * any download on the direct address until exp, as long as that account and
  * console may still sign in (direct-lane.js checks that on every request).
  *
@@ -66,7 +66,14 @@ export function stepFor(nowSec, ttlSec) {
 
 /** The identity as it goes into a token: only the fields link-identity.js compares. Pure. */
 function subOf(who) {
-  return { acct: who.acct ? { kind: who.acct.kind, id: who.acct.id } : null, dev: who.dev ?? null, agent: who.agent ?? null, paired: Boolean(who.paired) };
+  return {
+    acct: who.acct ? { kind: who.acct.kind, id: who.acct.id } : null,
+    dev: who.dev ?? null,
+    agent: who.agent ?? null,
+    paired: Boolean(who.paired),
+    stamp: who.stamp ?? null,
+    dstamp: who.dstamp ?? null,
+  };
 }
 
 /** The token for `who` (link-identity.js requester) at `nowMs`. */
@@ -81,9 +88,9 @@ const isStrOrNull = (v) => v === null || (typeof v === "string" && v.length > 0 
 /** Whether a decoded sub has the shape issue() writes. Pure. */
 function validSub(sub) {
   if (!sub || typeof sub !== "object") return false;
-  const { acct, dev, agent, paired } = sub;
+  const { acct, dev, agent, paired, stamp, dstamp } = sub;
   if (acct !== null && !(acct && ACCOUNT_KINDS.has(acct.kind) && typeof acct.id === "string" && acct.id)) return false;
-  return isStrOrNull(dev) && isStrOrNull(agent) && typeof paired === "boolean";
+  return [dev, agent, stamp, dstamp].every(isStrOrNull) && typeof paired === "boolean";
 }
 
 /**

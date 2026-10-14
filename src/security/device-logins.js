@@ -110,6 +110,12 @@ export function has(name) {
   return logins.has(name);
 }
 
+/** A short fingerprint of the login's password, or null: a token sealed with it ends when it changes. */
+export function stamp(name) {
+  const record = logins.get(name);
+  return record ? crypto.createHash("sha256").update(String(record.hash)).digest("base64url").slice(0, 16) : null;
+}
+
 /** The login exists and its owner may still sign in. */
 export function isActive(name) {
   const record = logins.get(name);

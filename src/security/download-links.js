@@ -20,9 +20,15 @@
  * so a list is the same on every refresh and its ETag does not move with the
  * token. The client sends the token as a Bearer header there (direct-lane.js).
  *
+ * Only a request whose effective scheme is https takes this (effectiveScheme:
+ * X-Forwarded-Proto counts only from a peer the trust-proxy setting trusts,
+ * as in Express's req.protocol). A request over plain http (a console at home
+ * talking to the server's own address) is already on the short path: it keeps
+ * its same-origin URLs and gets no token.
+ *
  * Clients that don't declare the feature (Tinfoil, CyberFoil, browsers), a
- * request that did not sign in, or an empty setting: the lists and headers are
- * exactly what they were before direct downloads existed.
+ * request over http or one that did not sign in, or an empty setting: the
+ * lists and headers are exactly what they were before direct downloads existed.
  */
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -37,6 +43,25 @@ export const FEATURE = "direct-token";
 export function wantsDirect(req) {
   const raw = String(req.get?.(FEATURES_HEADER) ?? "");
   return raw.split(/[\s,]+/).some((f) => f.toLowerCase() === FEATURE);
+}
+
+/**
+ * The scheme a request was made with: the first X-Forwarded-Proto value when
+ * the immediate peer is a trusted proxy and sent one, else the socket's own.
+ * The same rule as Express's req.protocol. Pure.
+ */
+export function effectiveScheme({ encrypted = false, forwardedProto, peerTrusted = false } = {}) {
+  if (peerTrusted && forwardedProto) {
+    const first = String(forwardedProto).split(",")[0].trim().toLowerCase();
+    if (first) return first;
+  }
+  return encrypted ? "https" : "http";
+}
+
+function schemeOf(req) {
+  const trust = req.app?.get?.("trust proxy fn");
+  const peer = req.socket?.remoteAddress;
+  return effectiveScheme({ encrypted: Boolean(req.socket?.encrypted), forwardedProto: req.get?.("x-forwarded-proto"), peerTrusted: Boolean(trust?.(peer, 0)) });
 }
 
 let keyBroken = false;
@@ -54,13 +79,14 @@ function keyUsable() {
 }
 
 /**
- * { base, who } when this request's lists use the direct address: a direct
- * address is set, the client declared the feature, it signed in and a token
- * can be made. null otherwise, and everything stays as it was.
+ * { base, who } when this request's lists use the direct address: an https
+ * direct address is set, the request came over https, the client declared the
+ * feature, it signed in and a token can be made. null otherwise, and
+ * everything stays as it was.
  */
 export function forRequest(req) {
   const base = env.publicDirectBaseUrl;
-  if (!base || !wantsDirect(req)) return null;
+  if (!base || !base.startsWith("https://") || !wantsDirect(req) || schemeOf(req) !== "https") return null;
   const who = identity.requester(req);
   if (!who || !keyUsable()) return null;
   return { base, who };
@@ -81,11 +107,56 @@ export function withShopDirect(json, link) {
   return link ? json.replaceAll('"../', `"${link.base}/`) : json;
 }
 
-/** Sets the token header on every signed-in response to a client that asked for it. */
+// The lists and info a token rides on; never artwork or file downloads, whose
+// responses may be cached. Matched on the path as the app sees it.
+const TOKEN_PATHS = [
+  /^\/(shop\.json|shop\.tfl)?$/i,
+  /^\/api\/(shop|remote)\/(sections|info)$/,
+  /^\/api\/title\/[^/]+(\/extras)?$/,
+  /^\/api\/(homebrew|patches|saves)\/?$/,
+  /^\/api\/client\/latest$/,
+  /^\/api\/retro\/(systems|home|games)\/?$/,
+  /^\/api\/retro\/games\/[^/]+$/,
+  /^\/api\/retro\/base-pack\/manifest$/,
+];
+
+/** Whether `p` is a list or info response the token may ride on. Pure. */
+export const carriesToken = (p) => TOKEN_PATHS.some((re) => re.test(p));
+
+/** `value` with `private` in it (in place of `public`); "private, no-cache" when there is none. Pure. */
+export function privateCacheControl(value) {
+  const parts = String(value ?? "").split(",").map((d) => d.trim()).filter((d) => d && d.toLowerCase() !== "public");
+  if (!parts.length) return "private, no-cache";
+  return parts.some((d) => d.toLowerCase() === "private") ? parts.join(", ") : ["private", ...parts].join(", ");
+}
+
+/** Runs `fn` just before the response's headers go out, after the route has set its own. */
+function beforeHeaders(res, fn) {
+  const writeHead = res.writeHead;
+  res.writeHead = function patched(...args) {
+    res.writeHead = writeHead;
+    fn();
+    return writeHead.apply(this, args);
+  };
+}
+
+/**
+ * On the lists and info (carriesToken): while a direct address is set the body
+ * depends on the feature header, so the response says Vary on it; a signed-in
+ * client that asked for direct-token also gets its token, and that response is
+ * made private whatever the route set.
+ */
 export function tokenHeader() {
   return (req, res, next) => {
+    if (!env.publicDirectBaseUrl || !carriesToken(req.path)) return next();
     const link = forRequest(req);
-    if (link) res.set(TOKEN_HEADER, tokens.issue(link.who));
+    const token = link ? tokens.issue(link.who) : null;
+    beforeHeaders(res, () => {
+      res.vary(FEATURES_HEADER);
+      if (!token) return;
+      res.setHeader(TOKEN_HEADER, token);
+      res.setHeader("Cache-Control", privateCacheControl(res.getHeader("Cache-Control")));
+    });
     next();
   };
 }

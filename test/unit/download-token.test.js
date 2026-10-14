@@ -19,6 +19,8 @@ writeFileSync(nro, "NROBYTES");
 process.env.COOK_DATA_DIR = dir;
 process.env.COOK_PUBLIC_DIRECT_BASE_URL = "";
 process.env.COOK_RATING_SYNC = "false";
+process.env.COOK_DIRECT_EDGE_SECRET = "edge-secret-for-tests";
+const EDGE = "edge-secret-for-tests";
 const express = (await import("express")).default;
 const env = await import("../../src/helpers/envs.js");
 const settings = await import("../../src/security/server-settings.js");
@@ -28,7 +30,7 @@ const users = await import("../../src/security/users.js");
 const store = await import("../../src/security/store.js");
 const { defaultGateways, isLocalHop, setGatewaysForTests } = await import("../../src/security/local-hop.js");
 const { createBan } = await import("../../src/security/download-ban.js");
-const { default: directLane, TOKEN_STATE_HEADER, laneOf, proxiedClient, viaDirectProxy, bearerToken } = await import("../../src/security/direct-lane.js");
+const { default: directLane, TOKEN_STATE_HEADER, laneOf, proxiedClient, viaDirectProxy, bearerToken, edgeMatches } = await import("../../src/security/direct-lane.js");
 const { homebrewRouter } = await import("../../src/routes/homebrew.js");
 const health = await import("../../src/security/direct-health.js");
 
@@ -36,7 +38,8 @@ const KEY_A = "A".repeat(64);
 const KEY_B = "B".repeat(64);
 const DL_HOST = "dl.example.org:38443";
 const DL = `https://${DL_HOST}`;
-const FEATURES = { "x-cookingfoil-features": "direct-token" };
+// The list apps trust loopback, so this is a request that came in over https through a proxy.
+const FEATURES = { "x-cookingfoil-features": "direct-token", "x-forwarded-proto": "https" };
 const servers = [];
 after(() => { for (const s of servers) { s.closeAllConnections?.(); s.close(); } });
 
@@ -51,9 +54,9 @@ const fakeService = {
 };
 
 /** A fake request as a list route sees it after sign-in. */
-function listReq({ user = "alice", dev = KEY_A, paired = null, ua = "console", features = "direct-token" } = {}) {
+function listReq({ user = "alice", dev = KEY_A, paired = null, ua = "console", features = "direct-token", https = true } = {}) {
   const headers = { ...(dev ? { "x-device-key": dev } : {}), "user-agent": ua, ...(features ? { "x-cookingfoil-features": features } : {}) };
-  return { auth: user ? { user } : undefined, pairedDevice: paired ?? undefined, get: (h) => headers[h.toLowerCase()] };
+  return { auth: user ? { user } : undefined, pairedDevice: paired ?? undefined, socket: { encrypted: https }, get: (h) => headers[h.toLowerCase()] };
 }
 const tokenFor = (opts) => tokens.issue(links.forRequest(listReq(opts)).who);
 
@@ -64,11 +67,14 @@ async function listen(app) {
   return server.address().port;
 }
 
-async function start({ ban } = {}) {
+// Stands in for a download router: echoes the headers it was handed.
+const echo = express.Router().get("/:id/download", (req, res) => res.json(req.headers));
+
+async function start({ ban, edgeSecret } = {}) {
   const app = express();
   app.set("trust proxy", "loopback, uniquelocal");
   const hb = homebrewRouter({ service: fakeService });
-  app.use(directLane(games, { routes: { "/api/homebrew": hb }, ...(ban ? { ban } : {}) }));
+  app.use(directLane(games, { routes: { "/api/homebrew": hb, "/api/saves": echo }, ...(ban ? { ban } : {}), ...(edgeSecret !== undefined ? { edgeSecret } : {}) }));
   // The normal stack: tagged, and serving the games folder as index.js does.
   app.use((req, res, next) => next(res.set("x-lane", "main") && undefined));
   app.use(express.static(games));
@@ -79,6 +85,7 @@ async function start({ ban } = {}) {
 /** The homebrew list behind a sign-in and the token header, as index.js mounts them. */
 async function listApp() {
   const app = express();
+  app.set("trust proxy", "loopback");
   app.use((req, _res, next) => {
     req.auth = { user: "alice" };
     next();
@@ -89,7 +96,7 @@ async function listApp() {
 }
 
 /** A request as the proxy on the host sends it (from loopback, Host fixed, X-Forwarded-For written). */
-const PROXY = { host: DL_HOST, "x-forwarded-for": "198.51.100.9" };
+const PROXY = { host: DL_HOST, "x-forwarded-for": "198.51.100.9", "x-cookingfoil-edge": EDGE };
 const bearer = (token, extra = {}) => ({ headers: { ...PROXY, authorization: `Bearer ${token}`, ...extra } });
 
 function get(port, url, { method = "GET", headers = PROXY } = {}) {
@@ -124,8 +131,9 @@ test("with no direct address nothing changes: no token, normal URLs, the lane is
   assert.equal(r.body.includes("direct"), false);
 });
 
-test("the direct address takes scheme, host and port only", () => {
+test("the direct address takes an https scheme, host and port only", () => {
   assert.throws(() => settings.save({ publicDirectBaseUrl: "https://dl.example.org/files" }), /publicDirectBaseUrl/);
+  assert.throws(() => settings.save({ publicDirectBaseUrl: "http://dl.example.org:38443" }), /publicDirectBaseUrl/);
   settings.save({ publicDirectBaseUrl: `${DL}/`, downloadLinkTtl: "21600" });
   assert.equal(env.publicDirectBaseUrl, DL);
   assert.equal(env.downloadLinkTtl, 21600);
@@ -136,12 +144,37 @@ test("only signed-in clients that declare direct-token get a token and direct UR
   assert.equal(links.forRequest(listReq({ features: null })), null, "no feature header");
   assert.equal(links.forRequest(listReq({ features: "zstd, other" })), null, "other features");
   assert.ok(links.forRequest(listReq({ features: "zstd, Direct-Token" })), "listed among others, any case");
+  assert.equal(links.forRequest(listReq({ https: false })), null, "over http: same-origin URLs, no token");
   const link = links.forRequest(listReq());
   assert.equal(links.directUrl("/api/homebrew/x/file?path=a%2Fb", link), `${DL}/api/homebrew/x/file?path=a%2Fb`);
   assert.equal(links.directUrl(null, link), null);
   assert.equal(links.directUrl("https://cdn.example.org/a.png", link), "https://cdn.example.org/a.png");
   const json = JSON.stringify({ files: [{ url: `../${ENC}`, variants: [{ url: "../Game%2Fv.nsp" }] }], icon: "/api/shop/icon/x" });
   assert.equal(links.withShopDirect(json, link), JSON.stringify({ files: [{ url: `${DL}/${ENC}`, variants: [{ url: `${DL}/Game%2Fv.nsp` }] }], icon: "/api/shop/icon/x" }));
+});
+
+test("the effective scheme decides: https takes the direct address, http keeps same-origin URLs", () => {
+  const cases = [
+    ["LAN console over plain http", { encrypted: false }, "http"],
+    ["tunnel: X-Forwarded-Proto https from a trusted peer", { forwardedProto: "https", peerTrusted: true }, "https"],
+    ["X-Forwarded-Proto https from an untrusted peer", { forwardedProto: "https", peerTrusted: false }, "http"],
+    ["another proxy: X-Forwarded-Proto https, http", { forwardedProto: "HTTPS, http", peerTrusted: true }, "https"],
+    ["a trusted proxy that says http", { encrypted: true, forwardedProto: "http", peerTrusted: true }, "http"],
+    ["https straight to the socket", { encrypted: true }, "https"],
+    ["trusted peer without the header", { encrypted: false, peerTrusted: true }, "http"],
+  ];
+  for (const [name, input, want] of cases) assert.equal(links.effectiveScheme(input), want, name);
+});
+
+test("a list over http keeps today's URLs and carries no token, even with the feature header", async () => {
+  const port = await listApp();
+  const r = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, "x-cookingfoil-features": "direct-token" } });
+  assert.equal(r.headers["x-cookingfoil-download-token"], undefined);
+  assert.equal(JSON.parse(r.body).homebrew[0].download_url, "/api/homebrew/gh-0123456789ab/download");
+  // The same over https (a trusted proxy says so) takes the direct address.
+  const s2 = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...FEATURES } });
+  assert.ok(s2.headers["x-cookingfoil-download-token"]);
+  assert.equal(JSON.parse(s2.body).homebrew[0].download_url, `${DL}/api/homebrew/gh-0123456789ab/download`);
 });
 
 test("a token is stable inside a quarter of its lifetime, lives at least the full lifetime and names its console", () => {
@@ -157,7 +190,7 @@ test("a token is stable inside a quarter of its lifetime, lives at least the ful
   assert.notEqual(tokens.issue(links.forRequest(listReq({ dev: KEY_B })).who, now * 1000, ttl), a, "another console");
   assert.match(a, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
   const payload = JSON.parse(Buffer.from(a.split(".")[0], "base64url").toString());
-  assert.deepEqual(payload, { v: 1, sub: { acct: { kind: "user", id: "alice" }, dev: KEY_A, agent: null, paired: false }, iat, exp });
+  assert.deepEqual(payload, { v: 1, sub: { acct: { kind: "user", id: "alice" }, dev: KEY_A, agent: null, paired: false, stamp: users.sessionStamp("alice"), dstamp: null }, iat, exp });
   assert.equal(tokens.verify(a, now * 1000).verdict, "ok");
   assert.equal(tokens.verify(a, exp * 1000).verdict, "expired");
   // A changed payload or MAC, junk, nothing: invalid.
@@ -181,6 +214,24 @@ test("bearer headers are read strictly", () => {
   assert.equal(bearerToken("Bearer abc.def"), "abc.def");
   assert.equal(bearerToken("bearer abc.def"), "abc.def");
   for (const h of [undefined, "", "Bearer", "Basic YWxpY2U6eA==", "Bearer a b", "Token abc"]) assert.equal(bearerToken(h), null, String(h));
+});
+
+test("the direct address needs the edge secret, and the routers never see it", async () => {
+  const token = tokenFor();
+  const port = await start();
+  for (const edge of [undefined, "guess", `${EDGE}x`]) {
+    const { "x-cookingfoil-edge": _e, ...rest } = PROXY;
+    const r = await get(port, `/${ENC}`, { headers: { ...rest, ...(edge ? { "x-cookingfoil-edge": edge } : {}), authorization: `Bearer ${token}` } });
+    assert.equal(r.status, 404, String(edge));
+    assert.equal(r.headers["x-lane"], undefined, "not handed to the normal stack either");
+  }
+  const seen = JSON.parse((await get(port, "/api/saves/x/download", bearer(token))).body);
+  assert.equal(seen["x-cookingfoil-edge"], undefined);
+  assert.equal(seen.authorization, `Bearer ${token}`);
+  // Elsewhere (the tunnel) the header is dropped too.
+  assert.equal((await get(port, `/${ENC}`, { headers: { host: "shop.example.org", "x-cookingfoil-edge": EDGE } })).headers["x-lane"], "main");
+  const off = await start({ edgeSecret: "" });
+  assert.equal((await get(off, `/${ENC}`, bearer(token))).status, 404, "no secret configured: nothing is served");
 });
 
 test("which paths the lane can reach", () => {
@@ -207,7 +258,14 @@ test("only the proxy on this host is let in, and the client is the address it wr
   assert.equal(viaDirectProxy(req({ ...PROXY, "cf-connecting-ip": "198.51.100.9" }, "127.0.0.1")), null);
   assert.equal(viaDirectProxy(req({ ...PROXY, host: "shop.example.org" }, "127.0.0.1")), null);
   assert.equal(viaDirectProxy(req({ ...PROXY, "x-forwarded-host": "shop.example.org" }, "127.0.0.1")), null);
-  assert.equal(viaDirectProxy(req({ host: DL_HOST }, "127.0.0.1")), null);
+  assert.equal(viaDirectProxy(req({ host: DL_HOST, "x-cookingfoil-edge": EDGE }, "127.0.0.1")), null);
+  // Without the edge secret, or with the wrong one, it is not the proxy, whatever else matches.
+  const { "x-cookingfoil-edge": _edge, ...noEdge } = PROXY;
+  assert.equal(viaDirectProxy(req(noEdge, "172.17.0.1")), null);
+  assert.equal(viaDirectProxy(req({ ...PROXY, "x-cookingfoil-edge": "guess" }, "172.17.0.1")), null);
+  assert.equal(viaDirectProxy(req(PROXY, "172.17.0.1"), ""), null, "an empty secret matches nothing");
+  assert.equal(edgeMatches(EDGE, EDGE), true);
+  assert.equal(edgeMatches("", ""), false);
 });
 
 test("on the direct address a valid token opens downloads; nothing else is there", async () => {
@@ -259,12 +317,23 @@ test("missing, broken, expired and revoked tokens are 401 and say which", async 
   assert.equal(revoked.status, 401);
   assert.equal(tokenState(revoked), "revoked");
 
+  users.add("dave", "dave-password-12");
+  const dave = tokenFor({ user: "dave" });
+  assert.equal((await get(port, url, { method: "HEAD", ...bearer(dave) })).status, 200);
+  users.setPassword("dave", "dave-password-34");
+  assert.equal(tokenState(await get(port, url, bearer(dave))), "revoked", "a new password ends the old tokens");
+  assert.equal((await get(port, url, { method: "HEAD", ...bearer(tokenFor({ user: "dave" })) })).status, 200);
+
   const KEY_P = "C".repeat(64);
   store.approveDevice(KEY_P, { label: "living room", accessKeyHash: "h" });
   const paired = tokenFor({ user: null, dev: null, paired: KEY_P });
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(paired) })).status, 200);
+  store.approveDevice(KEY_P, { label: "living room", accessKeyHash: "h2" });
+  assert.equal(tokenState(await get(port, url, bearer(paired))), "revoked", "pairing again ends the old tokens");
+  const repaired = tokenFor({ user: null, dev: null, paired: KEY_P });
+  assert.equal((await get(port, url, { method: "HEAD", ...bearer(repaired) })).status, 200);
   store.revokeDevice(KEY_P);
-  assert.equal(tokenState(await get(port, url, bearer(paired))), "revoked");
+  assert.equal(tokenState(await get(port, url, bearer(repaired))), "revoked");
 });
 
 test("basic auth and device keys open nothing on the direct address", async () => {
@@ -316,7 +385,7 @@ test("a client that keeps sending invalid tokens is blocked by its own address",
   const port = await start({ ban });
   const good = tokenFor({ user: "bob", dev: KEY_B });
   const old = tokens.issue(links.forRequest(listReq()).who, Date.now() - 2 * 86400_000);
-  const from = (ip, token) => ({ method: "HEAD", headers: { host: DL_HOST, "x-forwarded-for": ip, authorization: `Bearer ${token}` } });
+  const from = (ip, token) => ({ method: "HEAD", headers: { ...PROXY, "x-forwarded-for": ip, authorization: `Bearer ${token}` } });
   for (let i = 0; i < 5; i++) await get(port, `/${ENC}`, from("198.51.100.77", old));
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.77", good))).status, 200, "expired tokens don't count");
   // Spoofed entries on the left change nothing: the proxy's own entry is the client.
@@ -342,9 +411,17 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
   const again = await ask(FEATURES);
   assert.equal(again.body.toString(), on.body.toString(), "the same on every refresh");
   assert.equal(again.headers.etag, on.headers.etag);
+  assert.match(on.headers["cache-control"], /^private\b/);
+  assert.match(on.headers.vary, /X-CookingFoil-Features/i);
   const cached = await ask({ ...FEATURES, "if-none-match": on.headers.etag });
   assert.equal(cached.status, 304);
   assert.equal(cached.headers["x-cookingfoil-download-token"], token);
+  assert.match(cached.headers["cache-control"], /^private\b/);
+  // Artwork and files never carry it.
+  for (const p of ["/api/homebrew/gh-0123456789ab/icon", "/api/homebrew/gh-0123456789ab/download"]) {
+    const r = await get(port, p, { headers: { "x-device-key": KEY_A, ...FEATURES } });
+    assert.equal(r.headers["x-cookingfoil-download-token"], undefined, p);
+  }
   // Another console, same account: same body and ETag, its own token.
   const other = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_B, ...FEATURES } });
   assert.equal(other.headers.etag, on.headers.etag);
@@ -352,6 +429,7 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
 
   const off = await ask({});
   assert.equal(off.headers["x-cookingfoil-download-token"], undefined);
+  assert.match(off.headers.vary, /X-CookingFoil-Features/i, "the body depends on the header either way");
   const plain = JSON.parse(off.body).homebrew[0];
   assert.equal(plain.download_url, "/api/homebrew/gh-0123456789ab/download");
   assert.deepEqual(Object.keys(plain), Object.keys(hb));
