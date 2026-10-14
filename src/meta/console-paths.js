@@ -7,8 +7,9 @@
  * characters FAT rejects.
  *
  *   letters    0x20-0x7E only; none of \ : * ? " < > |
- *   segments   not empty, no leading or trailing space or dot (".", ".." included),
- *              at most MAX_SEGMENT bytes
+ *   segments   not empty, not "." or "..", no leading space, no trailing space or
+ *              dot (FAT drops those), at most MAX_SEGMENT bytes. A leading dot
+ *              is fine: the client's own ".cf-<hash>.part" files are named so
  *   whole      at most MAX_PATH bytes, "/"-separated, relative
  *
  * A space inside a name is fine ("Battle wild.ogg" writes normally).
@@ -28,7 +29,8 @@ export function pathProblem(p) {
   if (s.length > MAX_PATH) return `전체 경로가 ${MAX_PATH}자를 넘습니다`;
   for (const seg of s.split("/")) {
     if (!seg) return "빈 폴더 이름이 있습니다";
-    if (/^[ .]|[ .]$/.test(seg)) return `"${seg}" 은 공백이나 점으로 시작하거나 끝납니다`;
+    if (seg === "." || seg === "..") return `"${seg}" 는 폴더 이름으로 쓸 수 없습니다`;
+    if (/^ |[ .]$/.test(seg)) return `"${seg}" 은 공백으로 시작하거나 공백이나 점으로 끝납니다`;
     if (seg.length > MAX_SEGMENT) return `이름 하나가 ${MAX_SEGMENT}자를 넘습니다`;
   }
   return null;
