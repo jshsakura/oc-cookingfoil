@@ -143,6 +143,15 @@ async function currentManifest() {
   return result === "pending" ? null : result;
 }
 
+/** Whether a manifest was read from exactly this listing (same paths, sizes, times, inodes). Pure. */
+export function manifestMatches(m, files) {
+  if (!m?.version || !m.sources || m.sources.size !== files.length) return false;
+  return files.every((f) => {
+    const s = m.sources.get(f.path);
+    return s && s.abs === f.abs && s.size === f.size && s.mtimeMs === f.mtimeMs && s.ino === f.ino;
+  });
+}
+
 /**
  * A console's icon file: system-icons/<style>/<folder>.png, else <id>.png (icons
  * are filed by the short id while the folder is RetroArch's long name), else
@@ -305,10 +314,12 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
 function bundleFiles(g, system) {
   const paths = sdPaths(g, system);
   const fileEntry = (sd, abs, size, mtimeMs) => ({ path: sd, abs, size, mtime: mtimeMs / 1000 });
-  const now = Date.now() / 1000;
+  // A generated file carries the game file's time, never the clock's: the bytes,
+  // and so the ETag a resumed download checks against, stay the same between requests.
+  const stable = Math.floor((g.mtimeMs ?? 0) / 1000);
   const made = (sd, text) => {
     const data = Buffer.from(text);
-    return { path: sd, data, size: data.length, mtime: now };
+    return { path: sd, data, size: data.length, mtime: stable };
   };
   // A .cue or .m3u is written out naming the files' new SD names; the rest is copied.
   const rom = g.sd?.romText !== undefined ? made(paths.rom, g.sd.romText) : fileEntry(paths.rom, g.abs, fs.statSync(g.abs).size, g.mtimeMs);
@@ -545,13 +556,17 @@ export default function retroRouter() {
   router.get(["/base-pack", "/base-pack/bundle"], wrap(async (req, res) => {
     const files = await listPack(packDir());
     if (!files.length) return res.status(404).json({ error: "the base pack is empty" });
+    // The manifest's version names these bytes only when it was read from this very
+    // listing; otherwise the ETag comes from the listing itself and the manifest catches up.
+    const snapshot = manifest;
+    const matches = manifestMatches(snapshot, files);
+    if (!matches) rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
     // A tar can't say "only if missing", so name those files for the client to skip.
     res.set("X-Retro-Once", files.filter((f) => f.once).map((f) => f.path).join(","));
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {
       filename: "retroarch-base-pack.tar",
-      etag: manifest?.version,
-      // The bytes follow from the manifest version alone, so a client resumes against it.
-      fixedTimes: Boolean(manifest?.version),
+      etag: matches ? snapshot.version : undefined,
+      fixedTimes: matches,
       label: "retro",
     });
   }));

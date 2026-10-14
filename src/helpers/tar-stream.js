@@ -9,7 +9,9 @@
  * A single byte range is served (206) so a client can resume a large download.
  * The ETag names the exact bytes: with `fixedTimes` every header carries mtime 0,
  * so the bytes follow only from paths and contents and the caller's content hash
- * is the ETag; otherwise the ETag also covers each entry's path, size and mtime.
+ * is the ETag; otherwise the ETag also covers each entry's path, size and mtime,
+ * and a generated entry's contents. Give generated entries a stable mtime, never
+ * the clock, or the ETag changes every second and no download can resume.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -125,13 +127,16 @@ export async function* archive(entries, start = 0, end = Infinity) {
   }
 }
 
+/** What decides one entry's bytes: path, size, time, and for a generated body its contents. Pure. */
+const entryKey = (e) => [e.path, e.size ?? 0, Math.floor(e.mtime ?? 0), ...(e.data ? [crypto.createHash("sha1").update(e.data).digest("hex")] : [])];
+
 /** Send `files` as a tar download, or the one byte range the request asks for. */
 export function sendTar(res, files, { filename, etag, label = "tar", fixedTimes = false }) {
   const entries = tarEntries(fixedTimes ? files.map((f) => ({ ...f, mtime: 0 })) : files);
   const total = archiveSize(entries);
   const tag = fixedTimes && etag
     ? etag
-    : crypto.createHash("sha1").update(JSON.stringify([etag ?? null, entries.map((e) => [e.path, e.size ?? 0, Math.floor(e.mtime ?? 0)])])).digest("hex");
+    : crypto.createHash("sha1").update(JSON.stringify([etag ?? null, entries.map(entryKey)])).digest("hex");
   res.header("Content-Type", "application/x-tar");
   res.header("Content-Disposition", `attachment; filename="${filename}"`);
   res.header("ETag", `"${tag}"`);
