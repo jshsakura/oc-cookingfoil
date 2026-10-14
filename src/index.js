@@ -1,5 +1,6 @@
 import express from "express";
 import net from "net";
+import { fileURLToPath } from "node:url";
 import serveIndex from "serve-index";
 // Settings saved on the admin page go over the compose ones before anything reads them.
 import "./security/server-settings.js";
@@ -154,6 +155,9 @@ expressApp.use(accessGuard());
 // Crawlers ask for this first; answering before sign-in keeps them out of the
 // failure log and tells them there is nothing to index.
 expressApp.get("/robots.txt", (_req, res) => res.type("text/plain").set("Cache-Control", "public, max-age=86400").send("User-agent: *\nDisallow: /\n"));
+// The share image: link previews fetch it without signing in.
+const OG_IMAGE = fileURLToPath(new URL("./views/assets/og-image.png", import.meta.url));
+expressApp.get("/assets/og-image.png", (_req, res) => res.sendFile(OG_IMAGE, { maxAge: "1d" }));
 // First run: until an admin account exists, browsers are sent to /setup.
 expressApp.use(setupRouter());
 

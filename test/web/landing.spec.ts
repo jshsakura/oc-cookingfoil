@@ -58,6 +58,17 @@ test('a stored light theme wins over a dark system setting, and the menu labels 
   await expect(page.locator('#acct-list').getByRole('menuitemradio')).toHaveText(['Match system setting', 'Light theme', 'Dark theme']);
 });
 
+test('the page shares a large image card whose image is an absolute URL on this server', async ({ page, request }) => {
+  await page.goto('/');
+  const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+  expect(image).toBe('http://127.0.0.1:3188/assets/og-image.png');
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', image!);
+  const res = await request.get(image!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toBe('image/png');
+});
+
 test('landing names the shop, shows its status and links to the admin page', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'CookingFoil', exact: true })).toBeVisible();
