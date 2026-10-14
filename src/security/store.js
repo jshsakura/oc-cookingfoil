@@ -33,6 +33,10 @@ const state = {
   // Consoles keep only what approval needs: no IP, no last-seen time, no client version.
   devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash }
   pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, message? } (when it asked, to order and trim the queue; its note)
+  // SHA-256 of the pairSecret a console sent with its request. Kept apart from
+  // `pending` because approval drops the pending row, and the secret must
+  // outlive it until the console takes its key.
+  pairSecrets: new Map(), // deviceKey → sha256 hex
   audit: [],
   denials: [],         // newest-last ring of refusals (see security/deny.js)
   denialCounts: {},    // reason → total ever, so the dashboard can show trends
@@ -48,6 +52,7 @@ function serialise() {
     access: Object.fromEntries(state.access),
     devices: Object.fromEntries(state.devices),
     pending: Object.fromEntries(state.pending),
+    pairSecrets: Object.fromEntries(state.pairSecrets),
     audit: state.audit,
     denials: state.denials,
     denialCounts: state.denialCounts,
@@ -100,6 +105,7 @@ export async function load() {
     state.access = new Map(Object.entries(parsed.access ?? {}));
     state.devices = new Map(Object.entries(parsed.devices ?? {}).map(([k, v]) => [k, deviceRecord(v)]));
     state.pending = new Map(Object.entries(parsed.pending ?? {}).map(([k, v]) => [k, pendingRecord(v)]));
+    state.pairSecrets = new Map(Object.entries(parsed.pairSecrets ?? {}).filter(([, v]) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v)));
     const tracked = (v) => ["lastIp", "lastSeenAt", "lastVersion", "count"].some((k) => k in v);
     if (Object.values(parsed.devices ?? {}).some(tracked) || Object.values(parsed.pending ?? {}).some((v) => "lastIp" in v)) scheduleFlush();
     state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
@@ -293,8 +299,9 @@ export function revokeDevice(deviceKey) {
   const removed = state.devices.delete(deviceKey);
   // Dismissing a request that was never approved must stick across a restart too.
   const dismissed = state.pending.delete(deviceKey);
+  const hadSecret = state.pairSecrets.delete(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
-  if (removed || dismissed) scheduleFlush();
+  if (removed || dismissed || hadSecret) scheduleFlush();
   return removed;
 }
 
@@ -310,7 +317,32 @@ export function pendingMessage(deviceKey) {
 
 /** Drop a console from the approval queue without approving it. */
 export function dismissPending(deviceKey) {
-  if (state.pending.delete(deviceKey)) scheduleFlush();
+  const dismissed = state.pending.delete(deviceKey);
+  if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
+}
+
+/**
+ * Remember the hash of the pairSecret a console asked with. The first one
+ * wins: a later request with a different secret never replaces it, so a
+ * stranger who learns the device key cannot swap in their own.
+ * @returns {"set" | "same" | "conflict"}
+ */
+export function registerPairSecret(deviceKey, secretHash) {
+  const prev = state.pairSecrets.get(deviceKey);
+  if (prev) return prev === secretHash ? "same" : "conflict";
+  state.pairSecrets.set(deviceKey, secretHash);
+  scheduleFlush();
+  return "set";
+}
+
+/** The stored pairSecret hash of a console, or null. */
+export function pairSecretHash(deviceKey) {
+  return state.pairSecrets.get(deviceKey) ?? null;
+}
+
+/** Forget a console's pairSecret (its key was taken). */
+export function clearPairSecret(deviceKey) {
+  if (state.pairSecrets.delete(deviceKey)) scheduleFlush();
 }
 
 /**
@@ -340,7 +372,10 @@ function evictOldestPending() {
       oldestKey = key;
     }
   }
-  if (oldestKey !== null) state.pending.delete(oldestKey);
+  if (oldestKey !== null) {
+    state.pending.delete(oldestKey);
+    if (!state.devices.has(oldestKey)) state.pairSecrets.delete(oldestKey);
+  }
 }
 
 // When each approved console last connected: memory only (never written to

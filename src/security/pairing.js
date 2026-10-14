@@ -55,6 +55,33 @@ export function verifyAccessKey(accessKey, expectedHash) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// ── Pair secret (proof of possession for the one-time delivery) ─────────────
+// The device key is no secret: anyone who learns it could poll /status first
+// and take the accessKey. So a client sends a random pairSecret with its
+// request; the server keeps only the SHA-256 and hands the accessKey only to
+// the caller that presents the same secret again.
+const PAIR_SECRET_RE = /^[0-9a-f]{64}$/;
+
+/** A 64-hex pairSecret (case ignored), lowercased, or null. */
+export function normalizePairSecret(raw) {
+  if (typeof raw !== "string") return null;
+  const secret = raw.trim().toLowerCase();
+  return PAIR_SECRET_RE.test(secret) ? secret : null;
+}
+
+export function hashPairSecret(secret) {
+  return crypto.createHash("sha256").update(String(secret)).digest("hex");
+}
+
+/** Constant-time compare of a presented pairSecret against a stored hash. */
+export function pairSecretMatches(secret, expectedHash) {
+  const presented = normalizePairSecret(secret);
+  if (!presented || typeof expectedHash !== "string") return false;
+  const a = Buffer.from(hashPairSecret(presented));
+  const b = Buffer.from(expectedHash);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 // ── One-time plaintext delivery (in-memory, not persisted) ──────────────────
 const oneTimeDelivery = new Map(); // deviceKey → plaintext accessKey
 
