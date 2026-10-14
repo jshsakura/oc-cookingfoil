@@ -1,6 +1,6 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the share inbox, the public address, where names come from,
+ * approval, uploads, the share inbox, the public address, the download-only address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
  * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
@@ -17,6 +17,14 @@ const URL_RE = /^https?:\/\/[^\s/]+[^\s]{0,300}$/;
 const LANG_RE = /^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?$/;
 const REGION_RE = /^[A-Z]{2}\.[a-z]{2}$/;
 
+const bareOrigin = (v) => {
+  try {
+    const u = new URL(v);
+    return u.pathname === "/" && !u.search && !u.hash && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+};
 const bool = { check: (v) => typeof v === "boolean" };
 const oneOf = (...values) => ({ check: (v) => values.includes(v) });
 // A byte count, whole and positive, up to 16 TiB.
@@ -47,6 +55,10 @@ export const SETTINGS = {
   eshopArtwork: bool,
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
+  // Scheme, host and port only: links are signed over the file path from the root.
+  downloadBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  // An hour up to a week; the page sends one of its choices as text.
+  downloadLinkTtl: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 3600 && v <= 604800 },
   restartRetryAfter: seconds(300),
   // Inside compose's stop_grace_period (40 s), so docker never kills a drain.
   restartGrace: seconds(35),
@@ -87,7 +99,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "downloadBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }
