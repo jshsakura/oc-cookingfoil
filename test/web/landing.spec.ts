@@ -198,7 +198,8 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await page.route('**/api/title/0100000000010000*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
-    await route.fulfill({ json: { ...body, patches: [patch('aaaaaaaaaaaa', '성능 패치', false), patch('bbbbbbbbbbbb', '게임 데이터', true)] } });
+    await route.fulfill({ json: { ...body, patches: [patch('aaaaaaaaaaaa', '성능 패치', false),
+      { ...patch('bbbbbbbbbbbb', '게임 데이터', true), update_version: 2097152, game_version: '1.0.32.0' }] } });
   });
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/');
@@ -207,6 +208,9 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   await expect(need.locator('h4')).toContainText('함께 설치해야 하는 패치');
   await expect(need.locator('.xname')).toHaveText(['게임 데이터']);
   await expect(need.locator('a.btn')).toHaveAttribute('href', '/api/patches/0100000000010000-bbbbbbbbbbbb/download');
+  // The update it was made for is a note only: every update stays listed and installable.
+  await expect(need.locator('.xmeta')).toContainText('v2097152 (1.0.32.0)용');
+  await expect(page.locator('#modal-patches .mp-group:not(.need) .xmeta')).not.toContainText('용');
   await expect(page.locator('#modal-patches .mp-group:not(.need) .xname')).toHaveText(['성능 패치']);
   // Above the description, so it isn't missed.
   const order = await page.evaluate(() => {
@@ -256,7 +260,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
   });
   const patch = { id: '0100000000010000-aaaaaaaaaaaa', title_id: '0100000000010000', name: '성능 패치', kinds: ['exefs_patches'], size: 4096, files: 3,
-    hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
+    hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game_version: '1.0.32.0', update_version: 2097152,
+    game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
   const hbPatch = { id: 'hb-bbbbbbbbbbbb', title_id: null, homebrew: 'portgame', name: 'HD 텍스처', kinds: ['romfs'], size: 8192, files: 2, hash: 'h', description: '' };
   await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [patch, hbPatch] } }));
   await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves: [] } }));
@@ -279,6 +284,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-title')).toHaveText('성능 패치');
   await expect(page.locator('#xm-sub')).toHaveText('Test Game');
   await expect(page.locator('#xm-desc')).toHaveText('프레임을 올립니다.');
+  await expect(page.locator('#xm-meta')).toContainText('맞는 업데이트');
+  await expect(page.locator('#xm-meta')).toContainText('v2097152');
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });

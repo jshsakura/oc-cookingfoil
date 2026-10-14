@@ -31,6 +31,9 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <label>설명 (모든 언어의 기본값)<textarea id="ct-desc" maxlength="2000"></textarea></label>
     <label>한국어 설명 (다를 때만)<textarea id="ct-desc-ko" maxlength="2000"></textarea></label>
     <div class="ct-pair" data-for="patch"><label>버전<input id="ct-version" maxlength="40"></label><label>만든 사람<input id="ct-author" maxlength="120"></label></div>
+    <div class="ct-pair" data-for="patch"><label>필요한 업데이트<select id="ct-update"><option value="">정하지 않습니다</option></select></label>
+      <label>게임 버전<input id="ct-p-game-version" maxlength="40" placeholder="1.0.32.0"></label></div>
+    <p class="muted ct-note" data-for="patch">이 패치가 만들어진 업데이트를 적어 두는 참고 정보입니다. 업데이트를 숨기거나 막지 않습니다.</p>
     <div class="ct-pair" data-for="save"><label>게임 버전<input id="ct-game-version" maxlength="40"></label>
       <label>세이브 종류<select id="ct-save-type"><option value="">가리지 않습니다</option><option value="device">기기 공용 세이브</option><option value="account">계정별 세이브</option></select></label></div>
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
@@ -58,7 +61,8 @@ export const PATCHES_CSS = `
 .pt-req:disabled{opacity:.6;cursor:progress}
 .pt-edit{padding:5px 12px;font-size:13px}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
-.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden]{display:none}
+.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden]{display:none}.ct-note{margin:0;font-size:12.5px}
+.pt-row .pt-name small.pt-miss{color:var(--warn)}
 .ct-move{display:flex;gap:8px;margin-top:4px}.ct-move input{flex:1;min-width:0}
 #ct-edit{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}
 #ct-form label,#ct-form .ct-pair>*{min-width:0}#ct-form input,#ct-form select,#ct-form textarea{width:100%;min-width:0;box-sizing:border-box}
@@ -69,8 +73,10 @@ export const PATCHES_CSS = `
 export const PATCHES_SCRIPT = /* js */ `
 let ptData=[],svData=[];
 const SAVE_TYPE_LABEL={device:'기기 공용',account:'계정별'};
+const ptUpdate=(p)=>'v'+p.update_version+(p.game_version?' ('+p.game_version+')':'');
 function ptRow(p){const r=el('div',null,'pt-row');const n=el('span',null,'pt-name');n.append(p.name);
   if(p.ko&&p.ko.name&&p.ko.name!==p.name)n.append(el('small',p.ko.name));
+  if(p.update_version)n.append(p.update_in_library?el('small',ptUpdate(p)+' 용 패치입니다'):el('small',ptUpdate(p)+' 용 패치인데, 그 업데이트가 라이브러리에 없습니다','pt-miss'));
   r.append(n,el('span',mb(p.size),'pt-size'));
   const b=el('button',p.required?'필수':'선택','pt-req');b.type='button';b.setAttribute('aria-pressed',String(p.required));
   b.setAttribute('aria-label',p.name+' 필수');b.title=p.required?'누르면 선택으로 바꿉니다':'누르면 필수로 바꿉니다';
@@ -90,8 +96,9 @@ function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){co
     const g=el('section',null,'pt-game');const h=el('header');h.append(el('b',items[0].game||'이름 모르는 게임'),el('span',tidOf(items[0])));g.append(h,...items.map(row));return g;});}
 function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
   const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
-  const req=ptData.filter((p)=>p.required).length;
-  $('pt-count').textContent=ptData.length?'게임 '+new Set(ptData.map((p)=>p.title_id)).size+'개에 패치 '+ptData.length+'개가 있고, 그중 필수는 '+req+'개입니다.':'';
+  const req=ptData.filter((p)=>p.required).length,miss=ptData.filter((p)=>p.update_version&&!p.update_in_library).length;
+  $('pt-count').textContent=ptData.length?'게임 '+new Set(ptData.map((p)=>p.title_id)).size+'개에 패치 '+ptData.length+'개가 있고, 그중 필수는 '+req+'개입니다.'
+    +(miss?' 맞는 업데이트가 라이브러리에 없는 패치가 '+miss+'개 있습니다.':''):'';
   const m=$('lib-patches');
   if(!ptData.length){m.replaceChildren(el('div','게임 패치가 없습니다. 업로드 탭에서 올립니다.','empty'));return;}
   const groups=ctGroups(ptData.filter(hit),(p)=>p.title_id,ptRow);
@@ -112,16 +119,32 @@ let ctItem=null,ctKind='';
 function ctOpen(kind,x){ctKind=kind;ctItem=x;const tid=kind==='patch'?x.title_id:x.titleId;
   $('ct-title').textContent=(kind==='patch'?'패치 편집: ':'세이브 편집: ')+x.name;
   $('ct-where').textContent=(x.game?x.game+' · ':'')+tid+' · 파일 '+x.files+'개, '+mb(x.size);
-  for(const d of document.querySelectorAll('#ct-form .ct-pair'))d.hidden=d.dataset.for!==kind;
+  for(const d of document.querySelectorAll('#ct-form [data-for]'))d.hidden=d.dataset.for!==kind;
   $('ct-name').value=x.name||'';$('ct-name-ko').value=x.ko?.name||'';$('ct-desc').value=x.description||'';$('ct-desc-ko').value=x.ko?.description||'';
   $('ct-version').value=x.version||'';$('ct-author').value=x.author||'';$('ct-game-version').value=x.gameVersion||'';$('ct-save-type').value=x.saveType||'';
   $('ct-source-name').value=x.source?.name||'';$('ct-source-url').value=x.source?.url||'';$('ct-move').value='';
+  $('ct-p-game-version').value=x.game_version||'';
+  if(kind==='patch')ctUpdates(x);
   $('ct-edit').showModal();}
+// The updates titledb lists for the game and the ones in the library; the patch's own stays selectable.
+let ctChoices=[];
+async function ctUpdates(x){const s=$('ct-update');const keep=(list)=>{
+  const opts=[el('option','정하지 않습니다')];opts[0].value='';
+  const has=new Set(list.map((u)=>u.version));
+  const all=x.update_version&&!has.has(x.update_version)?[{version:x.update_version,date:null,display:x.game_version||null,in_library:Boolean(x.update_in_library)},...list]:list;
+  for(const u of all){const o=el('option',['v'+u.version,u.display,u.date,u.in_library?'라이브러리에 있음':''].filter(Boolean).join(' · '));o.value=String(u.version);opts.push(o);}
+  s.replaceChildren(...opts);s.value=x.update_version?String(x.update_version):'';};
+  keep([]);ctChoices=[];
+  try{const r=await api('/admin/api/patches/updates?titleId='+encodeURIComponent(x.title_id));if(ctItem!==x)return;ctChoices=r.updates||[];keep(ctChoices);}
+  catch(err){toast(err.message);}}
+$('ct-update').addEventListener('change',()=>{const u=ctChoices.find((c)=>String(c.version)===$('ct-update').value);
+  if(u&&u.display&&!$('ct-p-game-version').value)$('ct-p-game-version').value=u.display;});
 const ctDone=(msg)=>{$('ct-edit').close();toast(msg);loadPatches();};
 $('ct-close').addEventListener('click',()=>$('ct-edit').close());
 $('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const body={id:ctItem.id,name:$('ct-name').value,nameKo:$('ct-name-ko').value,description:$('ct-desc').value,descriptionKo:$('ct-desc-ko').value,
-    version:$('ct-version').value,author:$('ct-author').value,gameVersion:$('ct-game-version').value,saveType:$('ct-save-type').value,
+    version:$('ct-version').value,author:$('ct-author').value,gameVersion:$(ctKind==='patch'?'ct-p-game-version':'ct-game-version').value,saveType:$('ct-save-type').value,
+    ...(ctKind==='patch'?{updateVersion:$('ct-update').value}:{}),
     sourceName:$('ct-source-name').value,sourceUrl:$('ct-source-url').value};
   try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
 $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);

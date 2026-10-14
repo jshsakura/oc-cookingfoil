@@ -946,6 +946,8 @@
           "xm.files": "파일",
           "xm.version": "버전",
           "xm.gameVersion": "게임 버전",
+          "xm.forUpdate": "맞는 업데이트",
+          "extras.forUpdate": (v) => `${v}용`,
           "xm.author": "만든 이",
           "xm.updated": "올린 날",
           "xm.required": "필수",
@@ -1128,6 +1130,8 @@
           "xm.files": "Files",
           "xm.version": "Version",
           "xm.gameVersion": "Game version",
+          "xm.forUpdate": "Made for update",
+          "extras.forUpdate": (v) => `for ${v}`,
           "xm.author": "Author",
           "xm.updated": "Updated",
           "xm.required": "Required",
@@ -1309,6 +1313,8 @@
           "xm.files": "ファイル",
           "xm.version": "バージョン",
           "xm.gameVersion": "ゲームバージョン",
+          "xm.forUpdate": "対応アップデート",
+          "extras.forUpdate": (v) => `${v}用`,
           "xm.author": "作者",
           "xm.updated": "更新日",
           "xm.required": "必須",
@@ -1490,6 +1496,8 @@
           "xm.files": "檔案",
           "xm.version": "版本",
           "xm.gameVersion": "遊戲版本",
+          "xm.forUpdate": "對應更新",
+          "extras.forUpdate": (v) => `適用 ${v}`,
           "xm.author": "作者",
           "xm.updated": "更新日期",
           "xm.required": "必要",
@@ -2644,6 +2652,7 @@
         const iconPath = (u) => { try { return new URL(u, location.href).pathname + "?size=sm"; } catch { return ""; } };
         const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
+        const updateLabel = (it) => `v${it.update_version}` + (it.game_version ? ` (${it.game_version})` : "");
         function itemRow(kind, it) {
           const row = document.createElement("div"); row.className = "xitem";
           const head = document.createElement("div");
@@ -2652,6 +2661,8 @@
           const pill = (text) => { const p = document.createElement("span"); p.className = "pill"; p.textContent = text; return p; };
           for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
           meta.append(document.createTextNode(`${fmtBytes(it.size)} · ${t("extras.files", it.files)}`));
+          // The update a patch was made for, as a reference; which update to install stays the reader's choice.
+          if (it.update_version) meta.append(document.createTextNode(` · ${t("extras.forUpdate", updateLabel(it))}`));
           head.append(name, meta);
           const dl = document.createElement("a");
           dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", "");
@@ -2692,6 +2703,7 @@
               [t("xm.files"), it.files],
               [t("xm.version"), it.version],
               [t("xm.gameVersion"), it.game_version || it.gameVersion],
+              [t("xm.forUpdate"), it.update_version ? `v${it.update_version}` : ""],
               [t("xm.author"), it.author],
               [t("xm.updated"), day(it.updatedAt || it.updated_at)],
             ],

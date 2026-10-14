@@ -46,13 +46,25 @@ const withKo = (name, description) => {
   return Object.keys(ko).length ? { ko } : {};
 };
 
-/** patch.json after an edit: the fields given, `required` kept. Pure. */
+/**
+ * patch.json after an edit: the fields given, `required` kept. The game
+ * version and the update the patch is for stay as they were when the edit
+ * leaves them out. Pure.
+ */
 export function patchMeta(old, input) {
   const t = texts(input);
   if (!t.name) throw new ContentError(400, "이름을 적습니다");
+  const gameVersion = input?.gameVersion === undefined ? String(old?.game_version ?? "").trim().slice(0, LIMITS.gameVersion) : t.gameVersion;
+  const rawUpdate = input?.updateVersion === undefined ? old?.update_version : input.updateVersion;
+  const update = userPatches.updateVersionOf(rawUpdate);
+  if (!update && rawUpdate !== undefined && rawUpdate !== null && String(rawUpdate).trim() !== "") {
+    throw new ContentError(400, "필요한 업데이트는 v 뒤의 숫자(예: 2097152)로 고릅니다");
+  }
   return {
     name: t.name,
     ...(t.version ? { version: t.version } : {}),
+    ...(gameVersion ? { game_version: gameVersion } : {}),
+    ...(update ? { update_version: update } : {}),
     ...(t.author ? { author: t.author } : {}),
     ...(t.description ? { description: t.description } : {}),
     ...withKo(t.nameKo, t.descriptionKo),

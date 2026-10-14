@@ -98,14 +98,24 @@ export function kindOf(relPath, titleId) {
  * patch.json fields as trimmed, length-capped strings; anything else dropped.
  * `required: true` marks a patch the game does not start without (its data
  * shipped apart from the package). `ko` holds the Korean name and description
- * when they differ from the default text (localizePatch picks by language). Pure.
+ * when they differ from the default text (localizePatch picks by language).
+ * `update_version` is the update the patch was made for (2097152 for v2097152),
+ * shown for reference only; nothing is hidden or held back by it. Pure.
  */
 export function readMeta(raw) {
   const out = strings(raw, FIELD_MAX);
   if (raw?.required === true) out.required = true;
+  const update = updateVersionOf(raw?.update_version);
+  if (update) out.update_version = update;
   const ko = strings(raw?.ko, { name: FIELD_MAX.name, description: FIELD_MAX.description });
   if (Object.keys(ko).length) out.ko = ko;
   return out;
+}
+
+/** A positive update version number (from a number or a digit string), else null. Pure. */
+export function updateVersionOf(value) {
+  const n = typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  return Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff ? n : null;
 }
 
 function strings(raw, limits) {
@@ -235,6 +245,7 @@ export async function readPatch(root, tidDir, folder) {
       name: meta.name ?? folder.normalize("NFC"),
       version: meta.version ?? null,
       game_version: meta.game_version ?? null,
+      update_version: meta.update_version ?? null,
       author: meta.author ?? null,
       description: meta.description ?? null,
       required: meta.required === true,
