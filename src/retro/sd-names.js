@@ -35,7 +35,7 @@ export function tagsOf(name) {
 }
 
 /** The last top-level "( … )" group of a string, nested parentheses kept. Pure. */
-function lastGroup(s) {
+export function lastGroup(s) {
   let depth = 0;
   let end = -1;
   for (let i = s.length - 1; i >= 0; i--) {

@@ -127,6 +127,25 @@ test("arcade bezels go by set name, falling back to the parent set's", () => {
   assert.equal(jobs.length, 2, "mslug itself and samsho2k through samsho2; the rest keep the default bezel");
 });
 
+test("arcade box art: the set's own libretro name, else the best set of its game that libretro has", () => {
+  const dir = tmp();
+  const system = { folder: "arcade", libretro: "FBNeo - Arcade Games" };
+  const names = ["Gunbird (World)", "Final Fight (Japan)", "Final Fight 30th Anniversary Edition (World, hack)", "Dungeons _ Dragons_ Shadow over Mystara (USA 960619)"];
+  const plan = art.arcadeBoxartPlan(dir, system, ["gunbirdj", "gunbird", "ffightu", "ddsom", "neogeo", "homemade"], names);
+  assert.deepEqual(plan.map((p) => [p.short, p.name]), [
+    ["gunbirdj", "Gunbird (World)"], // one download for the game, shown for both sets
+    ["ffightu", "Final Fight (Japan)"], // the Japanese set before a hack
+    // '&' and ':' are '_' in libretro names; libretro has the USA set, not the European parent.
+    ["ddsom", "Dungeons _ Dragons_ Shadow over Mystara (USA 960619)"],
+  ]);
+  assert.ok(plan[0].dest.endsWith(path.join("thumbnails", "arcade", "Named_Boxarts", "Gunbird (World).png")));
+  // Art already on disk for another set of the game: nothing to fetch.
+  fs.mkdirSync(path.join(dir, "thumbnails", "arcade", "Named_Boxarts"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "thumbnails", "arcade", "Named_Boxarts", "Final Fight (USA, set 1).png"), "x");
+  assert.deepEqual(art.arcadeBoxartPlan(dir, system, ["ffightj"], names).map((p) => p.short), ["ffightj"], "its own libretro art still comes");
+  assert.deepEqual(art.arcadeBoxartPlan(dir, system, ["ffightua"], names), []);
+});
+
 test("LaunchBox ratings: same platform, enough votes, and no guessing between different games", async () => {
   const { Readable } = await import("node:stream");
   const { buildRatings, readLaunchBox } = await import("../../src/retro/art/ratings.js");

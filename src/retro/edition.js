@@ -17,7 +17,7 @@ const FROM = { J: "jp", U: "us" };
 export function editionOf(tags) {
   const s = String(tags ?? "").trim();
   if (!s) return null;
-  const pair = s.match(/(?:^|[\s,])(J|U|Unl)-K\b|\bUnl-K\b/);
+  const pair = s.match(/(?:^|[\s,])(J|U|W|E|Unl)-K\b|\bUnl-K\b/);
   const patched = Boolean(pair) || /(?:^|\s)K(?:\s|$)|한글|\bko(?:-|\b)|\bKorean Translation\b|\bHangul\b/i.test(s);
   const released = /\bKorea\b|\bKorean release\b/i.test(s);
   if (!patched && !released) return null;

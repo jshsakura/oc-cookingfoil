@@ -28,6 +28,9 @@
  *   art-map/<system>.json   the original (No-Intro) title, which search also matches
  *   ratings.json            { "<system>": { "<ROM name>": { "rating": 0-100, "count": n } } }
  *
+ * Versions of one game share a `group` (variants.js); `groups` maps each group
+ * id to its members, best first.
+ *
  * Scanning only stats files, so it is cheap; the folder is rescanned when the
  * listing is older than a minute.
  */
@@ -37,7 +40,9 @@ import path from "path";
 import debug from "../debug.js";
 import { loadSystems } from "./systems.js";
 import { assignSdNames } from "./sd-names.js";
-import { applyArcade } from "./arcade.js";
+import { applyArcade, groupSets, setInfo } from "./arcade.js";
+import { buildGroups } from "./variants.js";
+import { rankSets } from "./arcade-policy.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -45,7 +50,7 @@ const IMAGE_EXTS = [".png", ".jpg", ".jpeg"];
 // libretro-thumbnails replaces these characters with "_" in file names.
 const THUMB_UNSAFE_RE = /[&*/:`<>?\\|"]/g;
 
-let state = { dir: null, scannedAt: 0, systems: {}, games: [], present: new Set(), byId: new Map() };
+let state = { dir: null, scannedAt: 0, systems: {}, games: [], present: new Set(), byId: new Map(), groups: new Map() };
 let inFlight = null;
 const listeners = [];
 
@@ -275,6 +280,39 @@ async function addExtras(dir, games) {
   }
 }
 
+const thumbNames = (name) => [name, name.replace(THUMB_UNSAFE_RE, "_")];
+
+/**
+ * An arcade set without box art of its own shows its game's: another set's in
+ * the folder, then any set of the game in the DAT whose art is on disk
+ * (libretro often has only one region's name), the best set first.
+ * Sets `icon` and `iconFrom` (the set short name it came from).
+ */
+async function borrowArcadeArt(games, art) {
+  const own = new Map(games.filter((g) => g.set && g.icon).map((g) => [g.set, g]));
+  for (const g of games) {
+    if (g.icon || !g.set) continue;
+    // Nearest first by the same preference that picks the representative (no hack's art before the World set's).
+    const sets = rankSets(groupSets(g.set).filter((s) => s !== g.set).map((s) => ({ short: s, desc: setInfo(s)?.desc ?? s, parent: !setInfo(s)?.cloneOf })))
+      .map((r) => r.short);
+    const present = sets.find((s) => own.has(s));
+    if (present) {
+      g.icon = own.get(present).icon;
+      g.iconFrom = present;
+      continue;
+    }
+    for (const s of sets) {
+      const desc = setInfo(s)?.desc;
+      const hit = desc && (await firstIn(art.thumbs, [...thumbNames(desc), s]));
+      if (hit) {
+        g.icon = hit;
+        g.iconFrom = s;
+        break;
+      }
+    }
+  }
+}
+
 /** Every game under `dir`, with the system table it was read with. */
 export async function scanDir(dir) {
   const systems = loadSystems(dir);
@@ -303,7 +341,8 @@ export async function scanDir(dir) {
     // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
     if (system.core === "fbneo") {
       own = applyArcade(own, await readJson(path.join(dir, "arcade-names.json")));
-      for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, [g.original, g.original.replace(THUMB_UNSAFE_RE, "_")]);
+      for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, thumbNames(g.original));
+      await borrowArcadeArt(own, art);
     }
     const listedGames = bestFormats(await groupDiscs(own, { systemId, system, romsDir, art }));
     games.push(...listedGames);
@@ -311,7 +350,7 @@ export async function scanDir(dir) {
   games.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
   await addExtras(dir, games);
   await assignSdNames(games);
-  return { systems, games, present };
+  return { systems, games, present, groups: buildGroups(games) };
 }
 
 /** Rescan now; one scan at a time. */
@@ -319,8 +358,8 @@ export function scan(dir) {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const { systems, games, present } = await scanDir(dir);
-      state = { dir, scannedAt: Date.now(), systems, games, present, byId: new Map(games.map((g) => [g.id, g])) };
+      const { systems, games, present, groups } = await scanDir(dir);
+      state = { dir, scannedAt: Date.now(), systems, games, present, groups, byId: new Map(games.map((g) => [g.id, g])) };
       for (const fn of listeners) fn(state);
       return state;
     } catch (err) {
@@ -343,8 +382,8 @@ export async function current(dir) {
 /** Systems listed before the rest, in this order; the others keep the system table's order. */
 const FIRST_SYSTEMS = ["arcade"];
 
-/** Systems that have a roms folder, with how many games each holds. */
-export function systemsOf({ systems, games, present }) {
+/** Systems that have a roms folder, with how many games each holds (of `games`: the listed ones, say). */
+export function systemsOf({ systems, games: all, present }, games = all) {
   const counts = new Map();
   for (const g of games) counts.set(g.system, (counts.get(g.system) ?? 0) + 1);
   const rank = (id) => (FIRST_SYSTEMS.includes(id) ? FIRST_SYSTEMS.indexOf(id) : FIRST_SYSTEMS.length);

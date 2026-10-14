@@ -76,11 +76,25 @@ test("arcade is listed before the other systems", async () => {
   assert.deepEqual(ids, ["arcade", "snes", "gba"]);
 });
 
-test("a Korean version is listed instead of its parent, which still travels with it", () => {
+test("a Korean version represents its game; the parent stays a version of it and travels with it", async () => {
+  const { buildGroups, representative } = await import("../../src/retro/variants.js");
   const games = applyArcade([zip("samsho2", 10), zip("samsho2k", 5), zip("mslug", 7), zip("neogeo", 1)]);
-  assert.deepEqual(games.map((g) => g.file).sort(), ["mslug.zip", "samsho2k.zip"]);
+  assert.deepEqual(games.map((g) => g.file).sort(), ["mslug.zip", "samsho2.zip", "samsho2k.zip"]);
   const k = games.find((g) => g.file === "samsho2k.zip");
   assert.deepEqual(k.extras.map((x) => x.rel), ["samsho2.zip", "neogeo.zip"]);
+  const groups = buildGroups(games);
+  const samsho = groups.get(k.group);
+  assert.deepEqual(samsho.members.map((g) => g.set), ["samsho2k", "samsho2"]);
+  assert.equal(representative(samsho).set, "samsho2k");
+  assert.equal(groups.size, 2);
+});
+
+test("a set whose parent or BIOS zip is missing names what it lacks", () => {
+  const [mslug] = applyArcade([zip("mslug")]);
+  assert.deepEqual(mslug.missing, ["neogeo"]);
+  const [knightsj] = applyArcade([zip("knightsj")]);
+  assert.deepEqual(knightsj.missing, ["knights"]);
+  assert.equal(knightsj.cloneOf, "knights");
 });
 
 test("the version tag becomes a region code for a flag", async () => {
