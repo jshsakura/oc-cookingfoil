@@ -1,19 +1,28 @@
 /**
- * Signed, expiring download links for the download-only address.
+ * Signed, expiring links for downloading straight over the home network.
  *
- * When the admin sets a download address (server-settings downloadBaseUrl, e.g.
- * https://dl.example.org:38443), the lists hand out game file URLs on that
- * address instead of the shop's own:
+ * Every download keeps its `url` on the shop's own address (the tunnel, with
+ * the usual sign-in). When the admin sets a direct address (server-settings
+ * directBaseUrl, e.g. http://192.168.0.136:38000) and a list is asked for from
+ * the home network (home-network.js), each download also gets a direct twin:
  *
- *   "../Game%2Ffile.nsp"  →  "https://dl.example.org:38443/Game%2Ffile.nsp?exp=<unix>&sig=<mac>"
+ *   "url": "https://shop.example/Game%2Ffile.nsp",
+ *   "direct_url": "http://192.168.0.136:38000/Game%2Ffile.nsp?u=<tag>&g=<n>&exp=<unix>&sig=<mac>"
  *
- * The download address answers only those URLs (see download-host.js): no
- * sign-in, no pages, no API. The signature covers the decoded file path and
- * the expiry, so a link opens that one file until it expires and nothing else.
+ * (directName() gives the twin's name: url → direct_url, romUrl → romDirectUrl,
+ * bundle_url → bundle_direct_url.) Outside the home network the field is left
+ * out and the lists are exactly what they were.
+ *
+ * The signature covers the decoded path and the rest of the query in a fixed
+ * order, so "/api/homebrew/x/file?path=…" opens that one file and nothing
+ * else. u is the console it was made for (link-identity.js) and g that
+ * console's generation (download-state.js); both are signed. direct-lane.js
+ * serves such a link only on a direct LAN connection, without the sign-in,
+ * and closes it once its file has been delivered in full.
  *
  * Expiries are rounded up to a step (a quarter of the lifetime) so every list
- * served inside one step is byte-identical and the per-origin memo in
- * shop-cache.js keeps working; a link always lives at least the full lifetime.
+ * served inside one step is byte-identical and the memo in shop-cache.js keeps
+ * working; a link always lives at least the full lifetime.
  *
  * The key is 32 random bytes in ${COOK_DATA_DIR}/security/download-link.key
  * (0600), made on first use. Deleting it ends every link handed out so far.
@@ -23,12 +32,17 @@ import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
+import * as identity from "./link-identity.js";
+import * as state from "./download-state.js";
+import { isHome } from "./home-network.js";
 
 const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
 // 22 base64url characters = 132 bits of the HMAC.
 const SIG_CHARS = 22;
 const MIN_STEP_SEC = 60;
+// 12 base64url characters = 72 bits: enough to tell a household's consoles apart.
+const TAG_CHARS = 12;
 
 let key = null;
 
@@ -57,8 +71,14 @@ export function resetKeyForTests() {
   key = null;
 }
 
-function mac(filePath, exp) {
-  return crypto.createHmac("sha256", signingKey()).update(`${exp}\n${filePath}`).digest("base64url").slice(0, SIG_CHARS);
+function mac(filePath, exp, pairs) {
+  const message = `v2\n${exp}\n${JSON.stringify([filePath, pairs])}`;
+  return crypto.createHmac("sha256", signingKey()).update(message).digest("base64url").slice(0, SIG_CHARS);
+}
+
+/** The query's pairs without exp and sig, by name (a name's values keep their order). Pure. */
+export function canonicalPairs(params) {
+  return [...params].filter(([k]) => k !== "exp" && k !== "sig").sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 function decodePath(p) {
@@ -76,57 +96,108 @@ export function expiryFor(nowSec, ttlSec) {
 }
 
 /**
- * The link settings in force now: { base, exp } when a download address is set,
- * null when lists keep the shop's own address. Without a usable key the lists
- * keep the shop's own address too, rather than failing.
+ * The link settings in force now: { base, exp } when a direct address is set,
+ * else null. Without a usable key there are no direct links either, rather
+ * than a failing list.
  */
 export function current(nowMs = Date.now()) {
-  if (!env.downloadBaseUrl) return null;
+  if (!env.directBaseUrl) return null;
   try {
     signingKey();
   } catch (err) {
-    debug.error("download links: no signing key, lists keep the shop address: %s", err.message);
+    debug.error("direct links: no signing key, lists carry no direct links: %s", err.message);
     return null;
   }
-  return { base: env.downloadBaseUrl, exp: expiryFor(Math.floor(nowMs / 1000), env.downloadLinkTtl) };
+  return { base: env.directBaseUrl, exp: expiryFor(Math.floor(nowMs / 1000), env.downloadLinkTtl) };
 }
 
-/** A signed link on `base` for one percent-encoded file path (no leading slash). */
-export function signedUrl(base, encodedPath, exp) {
-  const filePath = decodePath(`/${encodedPath}`);
-  if (filePath === null) return `${base}/${encodedPath}`;
-  return `${base}/${encodedPath}?exp=${exp}&sig=${mac(filePath, exp)}`;
-}
-
-/**
- * Turns every relative download URL in a serialized list ("../…") into a signed
- * link. Same anchor as helpers/origin.js rewriteDownloadOrigin, so artwork and
- * absolute custom URLs pass through untouched.
- */
-export function rewriteSigned(json, link) {
-  return json.replace(/"\.\.\/([^"]*)"/g, (_, enc) => `"${signedUrl(link.base, enc, link.exp)}"`);
+/** The identity tag of `who` (link-identity.js requester): stable, and reveals nothing about it. */
+export function tagFor(who) {
+  const parts = JSON.stringify([who.acct?.kind ?? null, who.acct?.id ?? null, who.dev, who.agent]);
+  return `i${crypto.createHmac("sha256", signingKey()).update(`id\n${parts}`).digest("base64url").slice(0, TAG_CHARS)}`;
 }
 
 /**
- * Checks a request on the download address: "ok", "expired" or "bad".
- * `rawPath` is the request path as sent (still percent-encoded).
+ * The link settings for one list request: { base, exp, u, g } when a direct
+ * address is set, the request comes from the home network and it signed in;
+ * null otherwise, and the list then carries no direct links.
  */
-export function verify(rawPath, exp, sig, nowMs = Date.now()) {
-  if (typeof exp !== "string" || !/^\d{1,12}$/.test(exp) || typeof sig !== "string" || sig.length !== SIG_CHARS) return "bad";
-  const filePath = decodePath(rawPath);
-  if (filePath === null) return "bad";
-  const want = Buffer.from(mac(filePath, Number(exp)));
+export function forRequest(req, nowMs = Date.now()) {
+  const link = current(nowMs);
+  if (!link || !isHome(req)) return null;
+  const who = identity.requester(req);
+  if (!who) return null;
+  const u = tagFor(who);
+  return { ...link, u, g: state.remember(u, who, nowMs) };
+}
+
+/** The signed direct link for `pathAndQuery` ("/api/…?…", percent-encoded), or null. */
+export function directUrl(pathAndQuery, link) {
+  if (!link) return null;
+  const q = pathAndQuery.indexOf("?");
+  const encPath = q < 0 ? pathAndQuery : pathAndQuery.slice(0, q);
+  const filePath = decodePath(encPath);
+  if (filePath === null) return null;
+  const params = new URLSearchParams(q < 0 ? "" : pathAndQuery.slice(q + 1));
+  for (const k of ["exp", "sig", "u", "g"]) params.delete(k);
+  params.append("u", link.u);
+  params.append("g", String(link.g));
+  return `${link.base}${encPath}?${params}&exp=${link.exp}&sig=${mac(filePath, link.exp, canonicalPairs(params))}`;
+}
+
+/** The name of a URL field's direct twin: url → direct_url, romUrl → romDirectUrl, bundle_url → bundle_direct_url. Pure. */
+export function directName(name) {
+  if (name === "url") return "direct_url";
+  if (name.endsWith("_url")) return `${name.slice(0, -4)}_direct_url`;
+  return `${name.replace(/Url$/, "")}DirectUrl`;
+}
+
+/** { [directName(name)]: link } to spread next to `name`, or {} when there is none. */
+export function directFields(name, pathAndQuery, link) {
+  const url = directUrl(pathAndQuery, link);
+  return url ? { [directName(name)]: url } : {};
+}
+
+/**
+ * Gives every file entry of a serialized shop list ("url":"../…") its
+ * direct_url. Only the "../" form our own files use is touched, so artwork and
+ * absolute custom URLs pass through. Runs before helpers/origin.js anchors the
+ * "../" URLs themselves at the origin.
+ */
+export function withShopDirect(json, link) {
+  if (!link) return json;
+  return json.replace(/"url":"\.\.\/([^"]*)"/g, (whole, enc) => {
+    const url = directUrl(`/${enc}`, link);
+    return url ? `${whole},"direct_url":${JSON.stringify(url)}` : whole;
+  });
+}
+
+/** Whether a raw query carries a link signature (exp and sig). */
+export function hasSignature(rawQuery) {
+  const params = new URLSearchParams(rawQuery ?? "");
+  return params.has("exp") && params.has("sig");
+}
+
+function check(filePath, exp, sig, pairs, nowMs) {
+  if (!/^\d{1,12}$/.test(exp) || sig.length !== SIG_CHARS) return "bad";
+  const want = Buffer.from(mac(filePath, Number(exp), pairs));
   const got = Buffer.from(sig);
   if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return "bad";
   return Number(exp) * 1000 < nowMs ? "expired" : "ok";
 }
 
-/** host[:port] of the download address, lower-cased; "" when none is set. */
-export function downloadHost() {
-  if (!env.downloadBaseUrl) return "";
-  try {
-    return new URL(env.downloadBaseUrl).host.toLowerCase();
-  } catch {
-    return "";
-  }
+/**
+ * Checks a signed request: `rawPath` and `rawQuery` as sent (percent-encoded).
+ * { verdict: "ok" | "expired" | "bad", sig, exp, u, g }; exactly one exp and
+ * one sig are accepted.
+ */
+export function verifyRequest(rawPath, rawQuery, nowMs = Date.now()) {
+  const params = new URLSearchParams(rawQuery ?? "");
+  const exps = params.getAll("exp");
+  const sigs = params.getAll("sig");
+  const filePath = decodePath(rawPath);
+  if (exps.length !== 1 || sigs.length !== 1 || filePath === null) return { verdict: "bad" };
+  const verdict = check(filePath, exps[0], sigs[0], canonicalPairs(params), nowMs);
+  if (verdict !== "ok") return { verdict };
+  return { verdict, sig: sigs[0], exp: Number(exps[0]), u: params.get("u"), g: params.get("g") };
 }

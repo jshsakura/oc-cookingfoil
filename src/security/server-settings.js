@@ -1,6 +1,6 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the share inbox, the public address, the download-only address, where names come from,
+ * approval, uploads, the share inbox, the public address, the home-network direct address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
  * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
@@ -9,6 +9,7 @@
  * Saving applies at once through envs.js applyServerSettings (live bindings).
  */
 import fs from "fs";
+import net from "net";
 import path from "path";
 import * as env from "../helpers/envs.js";
 
@@ -56,7 +57,8 @@ export const SETTINGS = {
   ratingSync: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
-  downloadBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  directBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  homePublicIp: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || net.isIP(v) !== 0 },
   // An hour up to a week; the page sends one of its choices as text.
   downloadLinkTtl: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 3600 && v <= 604800 },
   restartRetryAfter: seconds(300),
@@ -99,7 +101,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "downloadBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "directBaseUrl" || k === "homePublicIp" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }

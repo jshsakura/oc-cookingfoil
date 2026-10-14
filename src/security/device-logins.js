@@ -110,6 +110,12 @@ export function has(name) {
   return logins.has(name);
 }
 
+/** The login exists and its owner may still sign in. */
+export function isActive(name) {
+  const record = logins.get(name);
+  return Boolean(record) && ownerActive(record.owner);
+}
+
 function publicRow(name, r) {
   return {
     name,

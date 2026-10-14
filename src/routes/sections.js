@@ -20,6 +20,7 @@
 import * as shopCache from "../meta/shop-cache.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
+import * as downloadLinks from "../security/download-links.js";
 import debug from "../debug.js";
 
 export default async function sectionsRoute(req, res) {
@@ -28,7 +29,8 @@ export default async function sectionsRoute(req, res) {
     const origin = resolveOrigin(req, publicBaseUrl);
     payload = await shopCache.getSectionsEncodedForOrigin(
       req.acceptsEncodings(),
-      origin
+      origin,
+      downloadLinks.forRequest(req)
     );
   } catch (err) {
     debug.error("sections: build failed: %s", err.stack || err.message);

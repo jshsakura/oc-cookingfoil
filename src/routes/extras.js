@@ -14,6 +14,8 @@
  * Download: extras are already served by the games-dir static handler, so the
  * returned `url` is a root-absolute, per-segment-encoded path that resolves
  * straight to the file (behind the same auth perimeter as everything else).
+ * From the home network, with a direct address set, `direct_url` is beside it
+ * (security/download-links.js).
  */
 import path from "path";
 import fs from "fs/promises";
@@ -22,6 +24,7 @@ import { romsDirPath } from "../helpers/envs.js";
 import * as shopCache from "../meta/shop-cache.js";
 import { isGameFile } from "../create-index-content.js";
 import debug from "../debug.js";
+import { directFields, forRequest } from "../security/download-links.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // Server sidecars that may sit in a title folder but aren't user content.
@@ -54,6 +57,7 @@ export default async function extrasRoute(req, res) {
 
   const extras = [];
   const seen = new Set();
+  const link = forRequest(req);
   for (const dir of dirs) {
     const absDir = path.join(romsDirPath, dir);
     let entries;
@@ -81,6 +85,7 @@ export default async function extrasRoute(req, res) {
         size,
         ext: path.extname(name).slice(1).toLowerCase(),
         url: downloadUrl(rel),
+        ...directFields("url", downloadUrl(rel), link),
       });
     }
   }
