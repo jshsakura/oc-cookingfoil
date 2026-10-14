@@ -22,7 +22,7 @@
  * missing) are left out; ?variants=all lists them. romCount counts what the
  * lists show. Every id still resolves, listed or not, so installs and
  * forwarders made from another version keep working.
- *   V = { id, name, variant?, edition?, region?, size, file, representative: bool, missing?: [set] }
+ *   V = { id, name, variant?, edition?, region?, size, file, representative: bool, bezel: { kind }, missing?: [set] }
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
  *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
  *                                                WebP when the client sends Accept: image/webp;
@@ -43,7 +43,9 @@
  *
  * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       group, variants (a count in lists, the V list in a game's own reply),
- *       bezel: { hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
+ *       bezel: { kind, hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
+ *         kind: "game" (made for this game), "system" (the console's default), "none".
+ *         New kinds may be added later; hasBezel and generic stay for older clients.
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
  * Bundle and pack paths are relative to the SD root: roms/<system>/…,
@@ -200,6 +202,9 @@ export function listedGames(cat) {
 
 const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, members: [g] };
 
+/** "game", "system" or "none": which bezel a game installs with. Pure. */
+export const bezelKind = (g) => (!g.bezel ? "none" : g.bezel.generic ? "system" : "game");
+
 /** One version of a game, as a game's own reply lists them. */
 function publicVariant(g, rep, lang) {
   const p = publicGame(g, null, lang, { lean: true });
@@ -212,6 +217,7 @@ function publicVariant(g, rep, lang) {
     size: g.size,
     file: g.file,
     representative: g === rep,
+    bezel: { kind: bezelKind(g) },
     ...(g.missing?.length ? { missing: g.missing } : {}),
   };
 }
@@ -256,8 +262,8 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null } = {}) 
     romUrl: `${base}/rom`,
     bundleUrl: `${base}/bundle`,
     bezel: g.bezel
-      ? { hasBezel: true, generic: g.bezel.generic, imageUrl: `${base}/bezel.png`, overlayCfgUrl: `${base}/overlay.cfg`, gameCfgUrl: paths.gameCfg ? `${base}/game.cfg` : null }
-      : { hasBezel: false },
+      ? { kind: bezelKind(g), hasBezel: true, generic: g.bezel.generic, imageUrl: `${base}/bezel.png`, overlayCfgUrl: `${base}/overlay.cfg`, gameCfgUrl: paths.gameCfg ? `${base}/game.cfg` : null }
+      : { kind: "none", hasBezel: false },
     ...forwarderFields(g, system, base),
     install: {
       rom: paths.rom,

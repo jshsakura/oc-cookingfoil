@@ -195,6 +195,18 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(page.total, 1);
     assert.equal(smw.forwarderUrl, null);
     assert.equal(smw.bezel.hasBezel, true);
+    // Which bezel each game installs with, the same in lists, home rows and a game's own reply.
+    assert.equal(smw.bezel.kind, "game");
+    const all = (await (await get("/api/retro/games?pageSize=200")).json()).games;
+    const kinds = new Set(all.map((g) => g.bezel.kind));
+    assert.ok(kinds.has("system") && kinds.has("none"), [...kinds].join(","));
+    for (const g of all) assert.equal(g.bezel.kind, g.bezel.hasBezel ? (g.bezel.generic ? "system" : "game") : "none", g.name);
+    assert.ok(home.systems.every((s) => s.games.every((g) => ["game", "system", "none"].includes(g.bezel.kind))));
+    const own = await (await get(`/api/retro/games/${smw.id}`)).json();
+    assert.equal(own.bezel.kind, "game");
+    assert.ok(own.variants.every((v) => ["game", "system", "none"].includes(v.bezel.kind)));
+    const filtered = (await (await get("/api/retro/games?pageSize=200&bezel=1")).json()).games;
+    assert.ok(filtered.length && filtered.every((g) => g.bezel.kind === "game"), "bezel=1 still means a game's own bezel");
     assert.equal(smw.install.gameCfg, "retroarch/config/Snes9x/Super Mario World (USA).cfg");
     assert.equal(await (await get(smw.romUrl)).text(), "SMW");
     const tile = await get(smw.iconUrl);
