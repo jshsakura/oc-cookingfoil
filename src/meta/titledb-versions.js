@@ -14,6 +14,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import { firmwareString } from "./cnmt-parse.js";
+import { downloadToFile } from "./titledb-download.js";
 import { titledbBase } from "./titledb-fetcher.js";
 
 const SOURCES = ["versions.json", "cnmts.json"];
@@ -94,17 +95,40 @@ export async function hasIndex() {
 }
 
 async function download(name) {
-  const res = await fetch(`${titledbBase()}/${name}`, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${name} returned HTTP ${res.status}`);
-  return res.json();
+  const tmp = path.join(titledbCacheDir, `${name}.tmp`);
+  try {
+    const got = await downloadToFile(`${titledbBase()}/${name}`, tmp);
+    if (got.bytes === undefined) throw new Error(`${name} returned HTTP ${got.status}`);
+    return JSON.parse(await fs.readFile(tmp, "utf8"));
+  } finally {
+    await fs.unlink(tmp).catch(() => {});
+  }
+}
+
+// A mirror can answer 200 with the wrong file. An index with no updates, or
+// one that loses more than half of what the current one knows, is refused so
+// the update and firmware facts already on disk stay.
+export const MIN_TITLES = 10;
+
+/** Why `next` must not replace `current`, or null when it may. */
+export function rejectReason(next, current) {
+  const updates = Object.keys(next.updates).length;
+  const firmware = Object.keys(next.firmware).length;
+  if (updates < MIN_TITLES) return `versions.json has only ${updates} games`;
+  if (firmware < MIN_TITLES) return `cnmts.json has only ${firmware} entries`;
+  if (updates * 2 < Object.keys(current.updates).length) return `games with updates fell to ${updates}`;
+  if (firmware * 2 < Object.keys(current.firmware).length) return `firmware entries fell to ${firmware}`;
+  return null;
 }
 
 /** Downloads both sources and rewrites the index; keeps the old one on failure. */
 export async function refresh() {
   try {
+    await fs.mkdir(titledbCacheDir, { recursive: true });
     const [versionsJson, cnmtsJson] = await Promise.all(SOURCES.map(download));
     const next = buildIndex(versionsJson, cnmtsJson);
-    await fs.mkdir(titledbCacheDir, { recursive: true });
+    const reason = rejectReason(next, index);
+    if (reason) throw new Error(`refused, ${reason}`);
     const file = path.join(titledbCacheDir, INDEX_FILE);
     await fs.writeFile(`${file}.tmp`, JSON.stringify(next));
     await fs.rename(`${file}.tmp`, file);

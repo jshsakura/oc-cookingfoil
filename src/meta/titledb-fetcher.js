@@ -1,15 +1,16 @@
 /**
  * Download community titledb region files (blawar/titledb) to local cache.
  *
- * Atomic write: stream to .tmp, rename on success. Skips 404 regions silently
+ * Atomic write: stream to .tmp, check it is a region file, rename on success. Skips 404 regions silently
  * (not every region/lang pair exists upstream). All failures are non-fatal —
  * the merger just works with whatever files arrived (FINDINGS §7).
  */
-import { mkdir, rename, unlink, writeFile } from "fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { titledbRegions, titledbSource } from "../helpers/envs.js";
-import { slimPathFor, writeSlimFromRawPath } from "./titledb-slim.js";
+import { downloadToFile } from "./titledb-download.js";
+import { atomicWrite, slimFromJson, slimPathFor } from "./titledb-slim.js";
 
 export const DEFAULT_SOURCE = "https://raw.githubusercontent.com/blawar/titledb/master";
 
@@ -70,57 +71,73 @@ async function clearTombstone(destDir, region) {
   }
 }
 
+// A mirror can answer 200 with the wrong file (an error page, another JSON).
+// Saving that would replace a region's names with nothing, so a download is
+// kept only when it holds games and doesn't shrink the region to under half.
+export const MIN_ENTRIES = 10;
+
+async function previousCount(slimPath) {
+  try {
+    const slim = JSON.parse(await readFile(slimPath, "utf-8"));
+    return Object.keys(slim).filter((k) => k !== "_schemaVersion").length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Why a downloaded region must not replace the cached one, or null when it may. */
+export function rejectReason(count, before) {
+  if (count < MIN_ENTRIES) return `only ${count} games`;
+  if (count * 2 < before) return `${count} games, down from ${before}`;
+  return null;
+}
+
 export async function fetchRegion(region, destDir) {
   const url = regionUrl(region);
   const finalPath = path.join(destDir, `${region}.json`);
   const tmpPath = `${finalPath}.tmp`;
+  const slimPath = slimPathFor(finalPath);
 
   debug.log("titledb: GET %s", url);
-  let res;
+  let got;
   try {
-    res = await fetch(url, { redirect: "follow" });
+    got = await downloadToFile(url, tmpPath);
   } catch (err) {
-    debug.error("titledb: network error fetching %s: %s", region, err.message);
+    debug.error("titledb: download of %s failed: %s", region, err.message);
     return { region, ok: false, error: err.message };
   }
 
-  if (res.status === 404) {
+  if (got.status === 404) {
     debug.log("titledb: %s not available (404) — skipping", region);
     await writeTombstone(destDir, region);
     return { region, ok: false, status: 404 };
   }
-  if (!res.ok) {
-    debug.error("titledb: %s returned HTTP %d", region, res.status);
-    return { region, ok: false, status: res.status };
-  }
-
-  const sizeHeader = res.headers.get("content-length");
-  if (sizeHeader) {
-    debug.log("titledb: %s size %d bytes", region, sizeHeader);
+  if (got.bytes === undefined) {
+    debug.error("titledb: %s returned HTTP %d", region, got.status);
+    return { region, ok: false, status: got.status };
   }
 
   try {
-    const buf = Buffer.from(await res.arrayBuffer());
-    await mkdir(destDir, { recursive: true });
-    await writeFile(tmpPath, buf);
+    const { slim, count } = slimFromJson(JSON.parse(await readFile(tmpPath, "utf-8")));
+    const reason = rejectReason(count, await previousCount(slimPath));
+    if (reason) throw new Error(`refused, ${reason}`);
     await rename(tmpPath, finalPath);
     // Region is back — drop any stale absent-marker from a prior 404.
     await clearTombstone(destDir, region);
-    debug.log("titledb: %s saved (%d bytes)", region, buf.length);
+    debug.log("titledb: %s saved (%d bytes)", region, got.bytes);
     // Emit slim sibling so the next boot skips the multi-second raw parse.
     // Non-fatal: if it fails the store falls back to the raw file.
     try {
-      const slimPath = slimPathFor(finalPath);
-      const slim = await writeSlimFromRawPath(finalPath, slimPath);
-      debug.log("titledb: %s slim written (%d entries)", region, slim.count);
+      await atomicWrite(slimPath, slim);
+      debug.log("titledb: %s slim written (%d entries)", region, count);
     } catch (slimErr) {
       debug.error("titledb: slim write failed for %s: %s", region, slimErr.message);
     }
-    return { region, ok: true, bytes: buf.length, path: finalPath };
+    return { region, ok: true, bytes: got.bytes, path: finalPath };
   } catch (err) {
-    // best-effort cleanup of the .tmp file
+    // The cached file stays as it was; only the download is thrown away.
     try { await unlink(tmpPath); } catch (_) {}
-    debug.error("titledb: write error for %s: %s", region, err.message);
+    debug.error("titledb: %s not saved: %s", region, err.message);
     return { region, ok: false, error: err.message };
   }
 }
