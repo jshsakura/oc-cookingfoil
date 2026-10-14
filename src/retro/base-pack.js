@@ -6,6 +6,9 @@
  *   retroarch.cfg     → sdmc:/retroarch/retroarch.cfg   (written only if missing)
  *   anything else     → sdmc:/retroarch/<same path>      (cores/, assets/, system/, …)
  *
+ * except a NeoCD BIOS at the top of system/, which goes into system/neocd/
+ * where that core looks (bios.js consoleFirmwarePath).
+ *
  * The manifest lists each file with its size and SHA-256 so a client fetches
  * only what changed. Hashes are cached by (size, mtime, inode) in
  * <data dir>/retro-hashes.json, so a restart doesn't re-read the pack.
@@ -14,6 +17,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import { HashCache } from "../helpers/hash-cache.js";
+import { consoleFirmwarePath } from "./bios.js";
 
 export { HashCache };
 
@@ -24,6 +28,7 @@ export function sdPathOf(rel) {
   const parts = rel.split("/");
   if (parts.some((p) => !p || p === "." || p === ".." || p.startsWith("."))) return null;
   if (rel === "retroarch.nro") return "switch/retroarch_switch.nro";
+  if (parts[0] === "system" && parts.length > 1) return `retroarch/system/${consoleFirmwarePath(parts.slice(1).join("/"))}`;
   return `retroarch/${rel}`;
 }
 
@@ -45,15 +50,17 @@ async function walk(root, rel = "", out = []) {
 
 /** The pack's files with their SD paths and stats (no hashing). */
 export async function listPack(packDir) {
-  const files = [];
+  const bySd = new Map();
   for (const rel of await walk(packDir)) {
     const sd = sdPathOf(rel);
     if (!sd) continue;
+    // A moved file never replaces one the operator already put at that place.
+    if (bySd.has(sd) && sd !== `retroarch/${rel}`) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
-    files.push({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) });
+    bySd.set(sd, { path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) });
   }
-  return files.sort((a, b) => (a.path < b.path ? -1 : 1));
+  return [...bySd.values()].sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 /** { version, files: [{ path, size, sha256, once? }] } for the pack. */

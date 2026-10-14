@@ -348,6 +348,8 @@ function sendFile(res, abs, type, immutable = false) {
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 export default function retroRouter() {
+  // The first console after a restart shouldn't wait for the pack to be read.
+  if (retroEnabled()) rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
   const router = express.Router();
 
   // Draw square tiles ahead of time after every scan, starting with one at boot.

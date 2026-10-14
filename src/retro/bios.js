@@ -3,11 +3,15 @@
  * a game. The files are copyrighted, so the server never ships them; the admin
  * page only says which are missing, and only for consoles that have games.
  *
- *   BIOS[id] = { groups, anywhere? }
+ *   BIOS[id] = { groups, nested? }
  *     groups    every group must be met; a group is met by any one of its files
  *               (paths relative to retroarch/system/)
- *     anywhere  the core searches the whole system folder, so a file counts in
- *               any subfolder (NeoCD scans it recursively)
+ *     nested    the core searches the file's folder and every folder under it
+ *               (NeoCD reads system/neocd/ and its subfolders, by content)
+ *
+ * A NeoCD BIOS left at the top of the system folder, where most cores look,
+ * goes to the console in neocd/, where NeoCD looks (consoleFirmwarePath), so
+ * it counts as being there.
  *
  * Rules are keyed by system id and only apply while that system has games.
  */
@@ -15,7 +19,9 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 
-// NeoCD takes any one of these (front loader, top loader, CDZ, Universe BIOS).
+// NeoCD takes any one of these (front loader, top loader, CDZ, Universe BIOS),
+// from system/neocd/ only.
+const NEOCD_DIR = "neocd";
 const NEOCD = ["neocd_f.rom", "neocd_sf.rom", "front-sp1.bin", "neocd_t.rom", "neocd_st.rom", "top-sp1.bin",
   "neocd_z.rom", "neocd_sz.rom", "neocd.bin", "uni-bioscd.rom"];
 
@@ -23,13 +29,18 @@ export const BIOS = {
   col: { groups: [["colecovision.rom"]] },
   videopac: { groups: [["o2rom.bin"]] },
   msx: { groups: [["Machines/Shared Roms/MSX.rom"], ["Databases/msxromdb.xml"]] },
-  neocd: { groups: [NEOCD], anywhere: true },
+  neocd: { groups: [NEOCD.map((f) => `${NEOCD_DIR}/${f}`)], nested: true },
   pcecd: { groups: [["syscard3.pce"]] },
   // The core loads the BIOS of the disc's region; any one boots that region's discs.
   segacd: { groups: [["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"]] },
 };
 
 const MAX_DEPTH = 4;
+
+/** Where a file of the system folder goes on the console: a NeoCD BIOS at the top moves into neocd/. Pure. */
+export function consoleFirmwarePath(rel) {
+  return !rel.includes("/") && NEOCD.includes(rel) ? `${NEOCD_DIR}/${rel}` : rel;
+}
 
 /** retroarch/system/ (or base-pack/system/, the earlier name) under the retro folder. */
 export function firmwareDir(retroDir) {
@@ -55,9 +66,14 @@ export async function listFirmware(dir, depth = 0, prefix = "") {
  * each missing entry is one group, any one of whose files would do. Pure.
  */
 export function missingBios(systemIds, files, rules = BIOS) {
-  const have = new Set(files);
-  const names = new Set(files.map((f) => f.split("/").pop()));
-  const found = (rule, f) => have.has(f) || (rule.anywhere && names.has(f.split("/").pop()));
+  const placed = files.map(consoleFirmwarePath);
+  const have = new Set(placed);
+  const nameOf = (f) => f.split("/").pop();
+  const inside = (f) => {
+    const dir = f.slice(0, f.lastIndexOf("/") + 1);
+    return placed.some((x) => x.startsWith(dir) && nameOf(x) === nameOf(f));
+  };
+  const found = (rule, f) => have.has(f) || (rule.nested && inside(f));
   return [...new Set(systemIds)]
     .filter((id) => Object.hasOwn(rules, id))
     .map((id) => ({ id, missing: rules[id].groups.filter((g) => !g.some((f) => found(rules[id], f))) }))
