@@ -58,6 +58,7 @@ export const SETTINGS = {
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
   directBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
+  publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && bareOrigin(v)) },
   homePublicIp: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || net.isIP(v) !== 0 },
   // An hour up to a week; the page sends one of its choices as text.
   downloadLinkTtl: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 3600 && v <= 604800 },
@@ -101,7 +102,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "directBaseUrl" || k === "homePublicIp" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "directBaseUrl" || k === "publicDirectBaseUrl" || k === "homePublicIp" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }

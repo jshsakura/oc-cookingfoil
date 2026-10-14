@@ -29,7 +29,7 @@ const users = await import("../../src/security/users.js");
 const store = await import("../../src/security/store.js");
 const { addRange, covers, deliveredBytes, createCoverage } = await import("../../src/security/link-coverage.js");
 const { createBan } = await import("../../src/security/download-ban.js");
-const { default: directLane, LINK_HEADER, laneOf } = await import("../../src/security/direct-lane.js");
+const { default: directLane, LINK_HEADER, laneOf, arrivalOf } = await import("../../src/security/direct-lane.js");
 const { homebrewRouter } = await import("../../src/routes/homebrew.js");
 
 const KEY_A = "A".repeat(64);
@@ -70,7 +70,7 @@ async function start({ ban } = {}) {
 function get(port, url, { method = "GET", headers = {}, abortAfter = 0 } = {}) {
   const u = new URL(url, "http://x");
   return new Promise((resolve, reject) => {
-    const req = http.request({ port, path: u.pathname + u.search, method, headers: { "x-forwarded-for": "192.168.0.50", ...headers } }, (res) => {
+    const req = http.request({ port, path: u.pathname + u.search, method, headers }, (res) => {
       const chunks = [];
       let got = 0;
       res.on("data", (c) => {
@@ -128,7 +128,6 @@ test("home is a LAN address without the tunnel, or the house's public address th
   assert.equal(home.isHome(listReq({ ip: "127.0.0.1", cf: "203.0.113.7" })), true);
   assert.equal(home.isHome(listReq({ ip: "127.0.0.1", cf: "198.51.100.9" })), false);
   assert.equal(home.isHome(listReq({ ip: "198.51.100.9", cf: "203.0.113.7" })), false);
-  assert.equal(home.isDirectLan(listReq({ ip: "192.168.0.50", cf: "203.0.113.7" })), false);
   assert.equal(home.parsePublicIp("fl=1\nh=1.1.1.1\nip=203.0.113.8\nts=1"), "203.0.113.8");
   assert.equal(home.parsePublicIp("2001:db8::1\n"), "2001:db8::1");
   assert.equal(home.parsePublicIp("<html>"), null);
@@ -356,13 +355,14 @@ test("used links and generations survive a restart; expired ones are dropped", a
   assert.deepEqual(pruned, { ids: {}, used: {} });
 });
 
-test("an address that keeps sending forged links is blocked, expired links don't count", async () => {
+test("a client that keeps sending forged links through the public proxy is blocked by its own address", async () => {
+  settings.save({ publicDirectBaseUrl: "https://dl.example.org:38443" });
   const ban = createBan({ limit: 3 });
   const port = await start({ ban });
   const link = links.forRequest(listReq());
   const good = links.directUrl(`/${ENC}`, links.forRequest(listReq({ dev: KEY_B, user: "bob" })));
   const stale = links.directUrl(`/${ENC}`, { ...link, exp: 1000 });
-  const ip = { "x-forwarded-for": "192.168.0.77" };
+  const ip = { host: "dl.example.org:38443", "x-forwarded-for": "198.51.100.77" };
   for (let i = 0; i < 5; i++) await get(port, stale, { headers: ip });
   assert.equal((await get(port, good, { headers: ip, method: "HEAD" })).status, 200);
   const forged = good.replace(/sig=[^&]+/, `sig=${"B".repeat(22)}`);
@@ -370,7 +370,9 @@ test("an address that keeps sending forged links is blocked, expired links don't
   const blocked = await get(port, good, { headers: ip, method: "HEAD" });
   assert.equal(blocked.status, 403);
   assert.equal(blocked.headers[LINK_HEADER.toLowerCase()], "blocked");
-  assert.equal((await get(port, good, { method: "HEAD" })).status, 200, "other addresses are not");
+  assert.equal((await get(port, good, { method: "HEAD", headers: { host: "dl.example.org:38443", "x-forwarded-for": "198.51.100.78" } })).status, 200, "other clients are not");
+  assert.equal((await get(port, good, { method: "HEAD" })).status, 200, "nor the LAN");
+  settings.save({ publicDirectBaseUrl: null });
 });
 
 test("a file has the same ETag and Last-Modified on both lanes, so If-Range resumes across them", async () => {
@@ -433,4 +435,54 @@ test("the homebrew list gives every download a direct twin at home and none away
   const awayApp = await list({ "x-forwarded-for": "198.51.100.9" });
   assert.equal(JSON.stringify(awayApp).includes("direct"), false);
   assert.deepEqual(Object.keys(awayApp), Object.keys(homeApp).filter((k) => !k.includes("direct")));
+});
+
+test("outside the home the links go on the public direct address, and nowhere without one", () => {
+  const away = listReq({ ip: "198.51.100.9", cf: "198.51.100.9" });
+  assert.equal(links.forRequest(away), null);
+  settings.save({ publicDirectBaseUrl: "https://dl.example.org:38443/" });
+  assert.equal(links.forRequest(away).base, "https://dl.example.org:38443");
+  assert.equal(links.forRequest(listReq()).base, "http://192.168.0.136:38000", "home keeps the LAN address");
+  assert.equal(links.forRequest(listReq({ ip: "127.0.0.1", cf: "203.0.113.7" })).base, "http://192.168.0.136:38000");
+  assert.equal(links.forRequest({ ...away, auth: undefined }), null, "never for a caller who did not sign in");
+  assert.throws(() => settings.save({ publicDirectBaseUrl: "https://dl.example.org/x" }), /publicDirectBaseUrl/);
+  // One link opens on either address: the host is not signed.
+  const url = new URL(links.directUrl(`/${ENC}`, links.forRequest(away)));
+  assert.equal(links.verifyRequest(url.pathname, url.search.slice(1)).verdict, "ok");
+});
+
+test("how a request arrived: LAN peer, the public proxy, or neither", () => {
+  const req = (headers, peer) => ({ socket: { remoteAddress: peer }, get: (h) => headers[h.toLowerCase()] });
+  assert.equal(arrivalOf(req({}, "192.168.0.50")), "lan");
+  assert.equal(arrivalOf(req({}, "::ffff:127.0.0.1")), "lan");
+  assert.equal(arrivalOf(req({}, "198.51.100.9")), null);
+  assert.equal(arrivalOf(req({ "x-forwarded-for": "192.168.0.5" }, "192.168.0.50")), null, "a proxy hop is not the LAN");
+  assert.equal(arrivalOf(req({ host: "dl.example.org:38443", "x-forwarded-for": "198.51.100.9" }, "172.17.0.1")), "proxy");
+  assert.equal(arrivalOf(req({ host: "shop.example", "x-forwarded-host": "dl.example.org:38443" }, "127.0.0.1")), "proxy");
+  assert.equal(arrivalOf(req({ host: "dl.example.org:38443", "cf-connecting-ip": "198.51.100.9" }, "127.0.0.1")), null, "the tunnel never");
+  assert.equal(arrivalOf(req({ "cf-connecting-ip": "203.0.113.7" }, "127.0.0.1")), null);
+});
+
+test("through the public proxy a valid link opens, the tunnel never, and nothing else is on that address", async () => {
+  const port = await start();
+  const away = listReq({ ip: "198.51.100.9", cf: "198.51.100.9", dev: "F".repeat(64) });
+  const url = links.directUrl(`/${ENC}`, links.forRequest(away));
+  const viaProxy = { host: "dl.example.org:38443", "x-forwarded-for": "198.51.100.9" };
+  const head = await get(port, url, { method: "HEAD", headers: viaProxy });
+  assert.equal(head.status, 200);
+  assert.equal(head.headers["x-lane"], undefined);
+  const plain = await get(port, `/${ENC}`, { method: "HEAD" });
+  assert.equal(head.headers.etag, plain.headers.etag);
+  assert.equal(head.headers["last-modified"], plain.headers["last-modified"]);
+  // The same link through the tunnel goes to the normal stack (and its sign-in).
+  assert.equal((await get(port, url, { headers: { "cf-connecting-ip": "198.51.100.9" } })).headers["x-lane"], "main");
+  // The public address carries links and nothing else.
+  for (const p of ["/admin", `/api/shop/sections${new URL(url).search}`, `/${ENC}`]) {
+    const r = await get(port, p, { headers: viaProxy });
+    assert.equal(r.status, 404, p);
+    assert.equal(r.headers["x-lane"], undefined, p);
+  }
+  assert.equal((await get(port, url, { method: "POST", headers: viaProxy })).status, 404);
+  const ok = await get(port, url, { headers: viaProxy });
+  assert.equal(ok.body.toString(), "NSPDATA");
 });

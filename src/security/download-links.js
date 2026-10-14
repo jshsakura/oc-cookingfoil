@@ -10,8 +10,11 @@
  *   "direct_url": "http://192.168.0.136:38000/Game%2Ffile.nsp?u=<tag>&g=<n>&exp=<unix>&sig=<mac>"
  *
  * (directName() gives the twin's name: url → direct_url, romUrl → romDirectUrl,
- * bundle_url → bundle_direct_url.) Outside the home network the field is left
- * out and the lists are exactly what they were.
+ * bundle_url → bundle_direct_url.) Outside the home network the twin is on the
+ * public direct address instead (publicDirectBaseUrl, e.g.
+ * https://dl.example.org:38443, a proxy in front of this server) when the admin
+ * set one; without it the field is left out and the lists are exactly what
+ * they were. The host is not signed, so one link opens on either address.
  *
  * The signature covers the decoded path and the rest of the query in a fixed
  * order, so "/api/homebrew/x/file?path=…" opens that one file and nothing
@@ -98,17 +101,17 @@ export function expiryFor(nowSec, ttlSec) {
 /**
  * The link settings in force now: { base, exp } when a direct address is set,
  * else null. Without a usable key there are no direct links either, rather
- * than a failing list.
+ * than a failing list. `base` is the address the links go on.
  */
-export function current(nowMs = Date.now()) {
-  if (!env.directBaseUrl) return null;
+export function current(nowMs = Date.now(), base = env.directBaseUrl) {
+  if (!base) return null;
   try {
     signingKey();
   } catch (err) {
     debug.error("direct links: no signing key, lists carry no direct links: %s", err.message);
     return null;
   }
-  return { base: env.directBaseUrl, exp: expiryFor(Math.floor(nowMs / 1000), env.downloadLinkTtl) };
+  return { base, exp: expiryFor(Math.floor(nowMs / 1000), env.downloadLinkTtl) };
 }
 
 /** The identity tag of `who` (link-identity.js requester): stable, and reveals nothing about it. */
@@ -117,14 +120,19 @@ export function tagFor(who) {
   return `i${crypto.createHmac("sha256", signingKey()).update(`id\n${parts}`).digest("base64url").slice(0, TAG_CHARS)}`;
 }
 
+/** The direct address for a list request: the LAN one at home (the public one when there is none), else the public one. */
+export function baseFor(req) {
+  return (isHome(req) && env.directBaseUrl) || env.publicDirectBaseUrl || null;
+}
+
 /**
- * The link settings for one list request: { base, exp, u, g } when a direct
- * address is set, the request comes from the home network and it signed in;
- * null otherwise, and the list then carries no direct links.
+ * The link settings for one list request: { base, exp, u, g } when it signed
+ * in and baseFor() names an address; null otherwise, and the list then
+ * carries no direct links.
  */
 export function forRequest(req, nowMs = Date.now()) {
-  const link = current(nowMs);
-  if (!link || !isHome(req)) return null;
+  const link = current(nowMs, baseFor(req));
+  if (!link) return null;
   const who = identity.requester(req);
   if (!who) return null;
   const u = tagFor(who);

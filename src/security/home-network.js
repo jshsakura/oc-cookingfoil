@@ -35,11 +35,6 @@ export function homePublicIp() {
   return env.homePublicIp || detected;
 }
 
-/** A connection straight from the LAN: no tunnel in between, from a private or loopback address. */
-export function isDirectLan(req) {
-  return !cfClient(req) && isPrivateIp(clientIp(req));
-}
-
 export function isHome(req) {
   const cf = cfClient(req);
   if (!cf) return isPrivateIp(clientIp(req));

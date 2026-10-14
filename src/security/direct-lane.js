@@ -3,12 +3,22 @@
  *
  * A request takes this lane only when all of these hold; anything else goes
  * on through the normal stack and its sign-in, untouched:
- *   - direct links are on (server-settings directBaseUrl),
+ *   - direct links are on (server-settings directBaseUrl or publicDirectBaseUrl),
  *   - it carries exp and sig,
- *   - it is a direct LAN connection (no CF-Connecting-IP, from a private or
- *     loopback address): a signed request through the tunnel is not taken,
+ *   - it did not come through the Cloudflare tunnel (no CF-Connecting-IP), and
+ *     it is either a LAN connection (a private or loopback peer, no proxy hop:
+ *     no X-Forwarded-For) or it came from the public direct address's proxy
+ *     (Host or X-Forwarded-Host is that address's host),
  *   - it is a GET or HEAD for a download: a file in the games folder (a game,
  *     update, DLC or a title's extra file) or one of DOWNLOAD_ROUTES.
+ * Every other request for the public direct address's host is a 404, so that
+ * address carries nothing but the files its links point to.
+ *
+ * Who is counted for the ban: on the LAN the socket peer itself (headers can't
+ * move it); through the proxy req.ip, the client the proxy names in
+ * X-Forwarded-For (trust proxy must cover the proxy's address). Headers only
+ * choose between those two; no header turns an invalid signature into a
+ * valid one, and the link's own console and expiry still decide the rest.
  * On the lane the signature stands in for the sign-in. The request is answered
  * by the very routers the shop uses (`routes`) and by the games folder, and
  * never reaches pages, lists, the admin API, uploads, sign-in or any write.
@@ -25,11 +35,10 @@ import express from "express";
 import * as links from "./download-links.js";
 import * as state from "./download-state.js";
 import { stillAllowed } from "./link-identity.js";
-import { isDirectLan } from "./home-network.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { createCoverage, deliveredBytes } from "./link-coverage.js";
 import { clientIp } from "./deny.js";
-import { isLoopbackIp } from "./net.js";
+import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { trustLoopback } from "./limits.js";
 import connectionHint from "../helpers/connection-hint.js";
 import * as env from "../helpers/envs.js";
@@ -57,6 +66,34 @@ export function laneOf(rawPath) {
   if (rawPath.endsWith("/") || SHOP_PATHS.has(rawPath.toLowerCase())) return null;
   if (/^\/(api|admin|assets|pair|login|logout|setup)(\/|$)/i.test(rawPath)) return null;
   return "file";
+}
+
+const peerOf = (req) => String(req.socket?.remoteAddress ?? "").replace(/^::ffff:/, "");
+
+function requestHost(req) {
+  const forwarded = String(req.get("x-forwarded-host") || "").split(",")[0].trim();
+  return (forwarded || req.get("host") || "").toLowerCase();
+}
+
+function publicHost() {
+  if (!env.publicDirectBaseUrl) return "";
+  try {
+    return new URL(env.publicDirectBaseUrl).host.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * How a request reached the server: "lan" (straight from the LAN), "proxy"
+ * (through the public direct address's proxy), or null (the tunnel, or anything else).
+ */
+export function arrivalOf(req) {
+  if (req.get("cf-connecting-ip")) return null;
+  const host = publicHost();
+  if (host && requestHost(req) === host) return "proxy";
+  if (!req.get("x-forwarded-for") && isPrivateIp(peerOf(req))) return "lan";
+  return null;
 }
 
 const rawQuery = (url) => (url.includes("?") ? url.slice(url.indexOf("?") + 1) : "");
@@ -99,9 +136,10 @@ function newBan() {
 }
 
 /** Whether this request is one for the signed lane at all (see the list above). */
-function takesLane(req) {
-  if (!env.directBaseUrl || (req.method !== "GET" && req.method !== "HEAD")) return false;
-  return links.hasSignature(rawQuery(req.url)) && isDirectLan(req) && laneOf(req.path) !== null;
+function takesLane(req, arrival) {
+  if (!arrival || (!env.directBaseUrl && !env.publicDirectBaseUrl)) return false;
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
+  return links.hasSignature(rawQuery(req.url)) && laneOf(req.path) !== null;
 }
 
 /**
@@ -111,11 +149,16 @@ function takesLane(req) {
 export default function directLane(root, { routes = {}, ban = newBan(), coverage = createCoverage() } = {}) {
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
-    if (!takesLane(req)) return next();
+    const arrival = arrivalOf(req);
+    if (!takesLane(req, arrival)) {
+      // The public direct address answers links and nothing else.
+      if (arrival === "proxy") return res.set("Cache-Control", "no-store").status(404).end();
+      return next();
+    }
 
     res.set("Cache-Control", "private, no-store");
-    const ip = clientIp(req);
-    const exempt = trustLoopback && isLoopbackIp(ip);
+    const ip = arrival === "lan" ? peerOf(req) : clientIp(req);
+    const exempt = arrival === "lan" && trustLoopback && isLoopbackIp(ip);
     if (!exempt && ban.isBanned(ip)) return refuse(res, "blocked");
 
     const link = links.verifyRequest(req.path, rawQuery(req.url));

@@ -335,6 +335,9 @@ let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min
 // public address, for telling home requests through the tunnel apart; empty means
 // it is looked up (security/home-network.js).
 let directBaseUrl = normalizeBaseUrl(pickEnv("COOK_DIRECT_BASE_URL"));
+// The same links outside the home network, on a public address that forwards
+// only signed downloads to this server (security/direct-lane.js).
+let publicDirectBaseUrl = normalizeBaseUrl(pickEnv("COOK_PUBLIC_DIRECT_BASE_URL"));
 let homePublicIp = envString("COOK_HOME_PUBLIC_IP", "").trim();
 let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 43200, { min: 3600, max: 604800, integer: true });
 // Safe restart (security/drain.js): the Retry-After a new request is given while
@@ -369,6 +372,7 @@ const ENV_SETTINGS = Object.freeze({
   welcomeMessage,
   downloadMaxConnections,
   directBaseUrl: directBaseUrl || "",
+  publicDirectBaseUrl: publicDirectBaseUrl || "",
   homePublicIp,
   downloadLinkTtl,
   restartRetryAfter,
@@ -398,6 +402,7 @@ function applyServerSettings(saved = {}) {
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
   directBaseUrl = v.directBaseUrl ? normalizeBaseUrl(v.directBaseUrl) : null;
+  publicDirectBaseUrl = v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
   homePublicIp = v.homePublicIp || "";
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
@@ -408,6 +413,7 @@ export {
   ENV_SETTINGS,
   downloadMaxConnections,
   directBaseUrl,
+  publicDirectBaseUrl,
   homePublicIp,
   downloadLinkTtl,
   restartRetryAfter,
