@@ -5,6 +5,8 @@
  *   weekly     LaunchBox's Metadata.zip (the copy the ratings keep in
  *              <data dir>/launchbox/, fetched only when newer) matched to every game
  *   each tick  a few games LaunchBox has nothing on are asked of IGDB (with its keys),
+ *              a few games with an English Wikipedia article get Korean Wikipedia's
+ *              lead paragraph as their Korean description (meta/kowiki.js),
  *              then a few games' screenshots are downloaded
  *
  * All of it waits for the "레트로 게임 정보" setting (COOK_RETRO_META);
@@ -20,6 +22,7 @@ import { PLATFORMS } from "../art/titles.js";
 import { buildMeta, metaKey, titlesOf, wantedKeys } from "./build.js";
 import { readLaunchBoxMeta, readMame } from "./launchbox.js";
 import * as igdbMeta from "./igdb.js";
+import * as kowiki from "../../meta/kowiki.js";
 import { downloadShots, indexShots, removeShots, shotDir, wantedShots } from "./screenshots.js";
 import * as store from "./store.js";
 
@@ -30,6 +33,9 @@ const FIRST_RUN_MS = 20 * 60 * 1000;
 // A failed LaunchBox match is tried again after this, not every tick.
 const REFRESH_RETRY_MS = 6 * 60 * 60 * 1000;
 const IGDB_PER_TICK = 10;
+const KO_PER_TICK = kowiki.BATCH;
+// A game Korean Wikipedia has nothing on is asked again after this.
+export const KO_RETRY_MS = 30 * 24 * 60 * 60 * 1000;
 const SHOTS_PER_TICK = 10;
 const SHOT_RETRY_MS = 24 * 60 * 60 * 1000;
 const PAUSE_MS = 300;
@@ -42,13 +48,22 @@ let shotIndex = null; // { dir, at, counts: Map(game folder → screenshots on d
 /** One game per key (variants that share a file name share the record). */
 const uniqueByKey = (games) => [...new Map(games.map((g) => [metaKey(g), g])).values()];
 
+/** What `prev` learned from Korean Wikipedia, kept on `fresh` while both name the same article. Pure. */
+function koreanOf(prev, fresh) {
+  if (!prev?.wiki || prev.wiki !== fresh.wiki) return {};
+  if (prev.koFrom === "wikipedia" && prev.description?.ko) return { description: { ...fresh.description, ko: prev.description.ko }, koFrom: "wikipedia" };
+  return prev.koTriedAt ? { koTriedAt: prev.koTriedAt } : {};
+}
+
 /**
  * The records after a LaunchBox rebuild: LaunchBox's (and MAME's) for what it
- * matched, IGDB's earlier answers for the rest. Pure.
+ * matched, with the Korean descriptions already found for them; IGDB's earlier
+ * answers for the rest. Pure.
  */
 export function mergeRecords(previous, fresh) {
   const kept = Object.fromEntries(Object.entries(previous).filter(([k, r]) => !fresh[k] && r?.source === "igdb"));
-  return { ...kept, ...fresh };
+  const carried = Object.fromEntries(Object.entries(fresh).map(([k, r]) => [k, { ...r, ...koreanOf(previous[k], r) }]));
+  return { ...kept, ...carried };
 }
 
 /** Keys whose list of screenshots changed, so the files on disk are another game's or stale. Pure. */
@@ -118,6 +133,39 @@ export async function igdbBatch({ games, fetchImpl = fetch, now = Date.now, paus
   return Object.keys(answers).length;
 }
 
+/** Records with an English Wikipedia article, no Korean description yet, not asked lately. Pure. */
+export function koDue(records, now, limit = KO_PER_TICK) {
+  return Object.entries(records)
+    .filter(([, r]) => r?.wiki && !r.description?.ko && !(now - (r.koTriedAt ?? -Infinity) < KO_RETRY_MS))
+    .slice(0, limit);
+}
+
+/**
+ * Looks a few games up on Korean Wikipedia and saves what it has. Stops at the
+ * first failed request (the rest are asked next tick). Returns how many it settled.
+ */
+export async function koBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PAUSE_MS } = {}) {
+  const due = koDue(store.all(), now());
+  if (!due.length) return 0;
+  const titles = await kowiki.koreanTitles(due.map(([, r]) => r.wiki), { fetchImpl });
+  const answers = {};
+  for (const [key, r] of due) {
+    const ko = titles.get(kowiki.canonicalTitle(r.wiki));
+    let text = null;
+    try {
+      text = ko ? await kowiki.koreanSummary(ko, { fetchImpl }) : null;
+    } catch (err) {
+      debug.error("retro meta: Korean Wikipedia %s: %s", key, err.message);
+      break;
+    }
+    const { koTriedAt: _tried, ...rest } = r;
+    answers[key] = text ? { ...rest, description: { ...r.description, ko: text }, koFrom: "wikipedia" } : { ...r, koTriedAt: now() };
+    if (ko) await pause(pauseMs);
+  }
+  if (Object.keys(answers).length) store.replace({ ...store.all(), ...answers });
+  return Object.keys(answers).length;
+}
+
 /**
  * How many screenshots each game folder holds (screenshots.js indexShots), read
  * from the disk once a day, not once per game per tick; downloads and removals
@@ -178,8 +226,9 @@ export async function tick({
     }
     // IGDB only fills in after LaunchBox has had its say.
     const igdb = store.builtAt() ? await igdbBatch({ games, fetchImpl, now, pauseMs }) : 0;
+    const ko = store.builtAt() ? await koBatch({ fetchImpl, now, pauseMs }) : 0;
     const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now }) : 0;
-    return { igdb, shots };
+    return { igdb, ko, shots };
   })().finally(() => { running = null; });
   return running;
 }
@@ -193,7 +242,7 @@ export function start({ current, enabled = () => true }) {
   const run = () => (enabled() ? tick({ current }) : Promise.resolve(null))
     .then((r) => {
       if (r?.launchbox !== undefined) debug.log("retro meta: LaunchBox matched %d games", r.launchbox);
-      else if (r?.shots || r?.igdb) debug.log("retro meta: %d asked of IGDB, %d screenshots saved", r.igdb ?? 0, r.shots ?? 0);
+      else if (r?.shots || r?.igdb || r?.ko) debug.log("retro meta: %d asked of IGDB, %d of Korean Wikipedia, %d screenshots saved", r.igdb ?? 0, r.ko ?? 0, r.shots ?? 0);
     })
     .catch((err) => debug.error("retro meta: %s", err.message));
   setTimeout(run, FIRST_RUN_MS).unref();

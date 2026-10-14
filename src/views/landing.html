@@ -502,6 +502,12 @@
       .xgroup.xskel header i { display: block; width: 28px; height: 28px; border-radius: 8px; flex: none; }
       .xgroup.xskel header b { display: block; width: 40%; height: 14px; }
       .xgroup.xskel .xitem b { display: block; height: 12px; margin: 4px 0; }
+      .xrow.xapp.xskel > i { display: block; width: 48px; height: 48px; border-radius: 12px; }
+      .xrow.xapp.xskel b { display: block; height: 13px; margin: 5px 0; }
+      /* the detail window's cells, text and screenshots while they arrive */
+      .modal .modal-meta strong.sk { display: inline-block; width: 70%; }
+      .modal .retro-desc { margin: 0 0 14px; white-space: pre-line; }
+      .modal .screenshots .shot-skel { width: 240px; height: 135px; border-radius: 12px; flex-shrink: 0; }
       .stat .value.sk { display: inline-block; min-width: 60px; height: 28px; vertical-align: middle; }
       .stat .sub.sk   { display: inline-block; min-width: 78px; height: 11px; }
       #status-text.sk { display: inline-block; min-width: 150px; height: 13px; vertical-align: middle; }
@@ -674,6 +680,8 @@
       }
       .fab:hover { transform: translateY(-1px); }
       .fab.show { display: inline-flex; }
+      /* Over the retro cards the glow reads as a smudge; a flat button there. */
+      body[data-group="retro"] .fab { box-shadow: none; }
       .upload-tray {
         position: fixed; right: 24px; bottom: 92px; z-index: 95; width: 380px; max-width: calc(100vw - 48px);
         max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line);
@@ -1211,6 +1219,7 @@
           "modal.rating": "등급",
           "modal.category": "장르",
           "modal.players": "플레이어",
+          "modal.developer": "개발사",
           "modal.noDesc": "설명이 없습니다.",
           "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
@@ -1426,6 +1435,7 @@
           "modal.rating": "Rating",
           "modal.category": "Category",
           "modal.players": "Players",
+          "modal.developer": "Developer",
           "modal.noDesc": "No description available.",
           "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
@@ -1641,6 +1651,7 @@
           "modal.rating": "レーティング",
           "modal.category": "ジャンル",
           "modal.players": "プレイ人数",
+          "modal.developer": "開発元",
           "modal.noDesc": "説明がありません。",
           "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
@@ -1856,6 +1867,7 @@
           "modal.rating": "分級",
           "modal.category": "類型",
           "modal.players": "玩家人數",
+          "modal.developer": "開發商",
           "modal.noDesc": "沒有說明。",
           "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
@@ -1937,7 +1949,10 @@
         return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + u[i];
       };
       const fmtDate = (yyyymmdd) => {
-        const s = String(yyyymmdd || ""); if (s.length !== 8) return "—";
+        const s = String(yyyymmdd || ""); if (!/^\d{8}$/.test(s)) return "—";
+        // A year alone comes as YYYY0000, a month without its day as YYYYMM00.
+        if (s.slice(4) === "0000") return s.slice(0, 4);
+        if (s.slice(6) === "00") return `${s.slice(0,4)}-${s.slice(4,6)}`;
         return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
       };
       const toast = (msg) => {
@@ -3186,7 +3201,23 @@
           $(view + "-empty").textContent = t("homebrew.empty");
           $(view + "-list").setAttribute("aria-busy", "false");
         }
+        // Shimmering app rows in the list's shape while it loads.
+        function skeleton(view) {
+          const bar = (w) => { const b = document.createElement("b"); b.className = "sk"; b.style.width = w; return b; };
+          $(view + "-list").replaceChildren(...[0, 1, 2, 3, 4, 5].map(() => {
+            const g = document.createElement("section"); g.className = "xgroup xskel"; g.setAttribute("aria-hidden", "true");
+            const row = document.createElement("div"); row.className = "xrow xapp xskel";
+            const icon = document.createElement("i"); icon.className = "sk";
+            const info = document.createElement("div"); info.append(bar("46%"), bar("30%"), bar("72%"));
+            row.append(icon, info);
+            g.append(row);
+            return g;
+          }));
+          $(view + "-empty").hidden = true;
+          $(view + "-list").setAttribute("aria-busy", "true");
+        }
         async function open(view) {
+          if (!apps) skeleton(view);
           await load();
           render(view);
           const [p, s] = await Promise.all([extras.countFor("patches"), extras.countFor("saves")]);
@@ -3236,6 +3267,7 @@
           b.setAttribute("aria-selected", String(b.dataset.tab === group));
         }
         renderSubtabs(name);
+        document.body.dataset.group = group;
         $("status").hidden = group !== "games";
         // A fallback (the asked-for view isn't known yet) leaves the address and the memory alone.
         if (remember) {
@@ -3454,8 +3486,12 @@
         img.src = bustUrl(bannerUrl);
       }
 
+      // Screenshot-sized shimmer while a detail is on its way.
+      const shotSkeletons = () => [0, 1, 2].map(() => Object.assign(document.createElement("div"), { className: "shot-skel sk" }));
+
       async function openModal(r) {
         currentModal = r;
+        retroSeq++; // a retro detail still on its way must not land in this window
         const f = r.item;
         const baseId = (f.baseTitleId || f.titleId || "").toUpperCase();
         const validBase = /^[0-9A-F]{16}$/.test(baseId);
@@ -3477,7 +3513,7 @@
           return cell;
         }));
         $("modal-desc").replaceChildren(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel" })));
-        $("modal-screens").innerHTML = ""; $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
+        $("modal-screens").replaceChildren(...shotSkeletons()); $("modal-extras").innerHTML = ""; $("modal-art").hidden = true;
         $("modal-notes").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-download").href = f.url || "#";
@@ -3753,25 +3789,59 @@
       }
       // A retro game's details: the square art as cover, its bezel as the banner
       // (the blurred cover when it has none), and the name split into the
-      // original title and the patch notes the file name carries.
+      // original title and the patch notes the file name carries. It opens at
+      // once with what the list row carries, then fills in what only the game's
+      // own reply has: description, makers, release, genres, screenshots and its versions.
+      const retroDetailCache = new Map();
+      let retroSeq = 0;
+      function retroDetail(id) {
+        const key = id + ":" + lang;
+        if (!retroDetailCache.has(key)) {
+          const got = fetch(`/api/retro/games/${encodeURIComponent(id)}?lang=${encodeURIComponent(lang)}`, { headers: { Accept: "application/json" } })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+            .then((d) => { if (!d) retroDetailCache.delete(key); return d; });
+          retroDetailCache.set(key, got);
+        }
+        return retroDetailCache.get(key);
+      }
+
       function openRetroModal(g, sys) {
         currentModal = null;
+        const mine = ++retroSeq;
+        renderRetroModal(g, sys, true);
+        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+        retroDetail(g.id).then((d) => {
+          if (mine !== retroSeq) return;
+          renderRetroModal(d ? { ...g, ...d } : g, sys, false);
+        });
+      }
+
+      function renderRetroModal(g, sys, loading) {
         const modalEl = document.querySelector("#modal .modal");
         modalEl.classList.remove("loading");
         // The server drops the patch / version tags from the name and sends them as `variant`.
         const patch = g.variant || "";
         const withoutPatch = g.name;
         const original = (withoutPatch.match(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/) || [])[1] || "";
+        const sysName = sys ? (sys.names?.[lang] || sys.name) : g.system;
         $("modal-title").textContent = original ? withoutPatch.slice(0, withoutPatch.lastIndexOf("(" + original)).trim() || withoutPatch : withoutPatch;
-        $("modal-publisher").textContent = sys ? (sys.names?.[lang] || sys.name) : g.system;
+        $("modal-publisher").textContent = g.publisher || sysName;
         setCover(g.iconUrl || "");
         const own = g.bezel?.hasBezel && !g.bezel.generic;
         setBanner(g.bezel?.hasBezel ? g.bezel.imageUrl : "", g.iconUrl || "");
         setPoster(g.boxartUrl || "");
         const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
+        // A value only the game's own reply has shimmers until it arrives.
+        const known = (v) => (loading && !v ? null : v || "—");
         const rows = [
-          [t("retro.system"), sys ? (sys.names?.[lang] || sys.name) : g.system],
+          [t("retro.system"), sysName],
           [t("modal.size"), fmtBytes(g.size)],
+          [t("modal.release"), known(g.releaseDate ? fmtDate(g.releaseDate) : "")],
+          [t("modal.score"), Number.isFinite(g.rating) ? String(g.rating) + (g.ratingCount ? " · " + t("score.count", g.ratingCount) : "") : "—"],
+          [t("modal.category"), known(g.genres?.length ? g.genres.join(", ") : "")],
+          [t("modal.players"), known(g.numberOfPlayers != null ? String(g.numberOfPlayers) : "")],
+          [t("modal.developer"), known(g.developer)],
           [t("retro.core"), g.core || "—"],
           ...(discs ? [[t("retro.discCount"), String(discs)]] : []),
           [t("retro.bezelLabel"), own ? t("retro.bezelOwn") : g.bezel?.hasBezel ? t("retro.bezelDefault") : t("retro.bezelNone")],
@@ -3781,11 +3851,18 @@
         for (const [k, v] of rows) {
           const cell = document.createElement("div");
           const label = document.createElement("span"); label.textContent = k;
-          const value = document.createElement("strong"); value.textContent = v;
+          const value = document.createElement("strong");
+          if (v === null) { value.className = "sk"; value.textContent = "\u00a0"; } else value.textContent = v;
           cell.append(label, value);
           metaBox.append(cell);
         }
         const desc = $("modal-desc"); desc.replaceChildren();
+        if (g.description) {
+          const p = document.createElement("p"); p.className = "retro-desc"; p.textContent = g.description;
+          desc.append(p);
+        } else if (loading) {
+          desc.append(...[0, 1, 2].map(() => Object.assign(document.createElement("span"), { className: "desc-skel sk" })));
+        }
         for (const [k, v] of [[t("retro.original"), original], [t("retro.patch"), patch], [t("retro.file"), g.file]]) {
           if (!v) continue;
           const line = document.createElement("div");
@@ -3793,36 +3870,33 @@
           line.append(b, document.createTextNode(v));
           desc.append(line);
         }
-        $("modal-screens").replaceChildren(); $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+        const scr = $("modal-screens"); scr.replaceChildren(...(loading && !g.screenshots ? shotSkeletons() : []));
+        for (const url of Array.isArray(g.screenshots) ? g.screenshots : []) {
+          const im = document.createElement("img");
+          im.loading = "lazy"; im.src = url; im.alt = "";
+          im.onerror = () => im.remove();
+          scr.append(im);
+        }
+        $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
+        $("modal-notes").hidden = true;
+        $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         showRetroVersions(g, sys);
         const dl = $("modal-download");
         dl.href = discs ? g.bundleUrl : g.romUrl;
         dl.setAttribute("download", "");
         dl.textContent = discs ? t("retro.downloadDiscs") : t("retro.downloadRom");
-        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
       }
 
       // The other files of a game (a patch beside the official release, an arcade
       // set's other regions): the list shows one card, the window picks among them.
-      let retroVersionSeq = 0;
-      async function showRetroVersions(g, sys) {
-        const mine = ++retroVersionSeq;
-        if (!Array.isArray(g.variants) && !(g.variants > 1)) return;
-        let detail = g;
-        try {
-          if (!Array.isArray(g.variants)) {
-            const r = await fetch(`/api/retro/games/${encodeURIComponent(g.id)}`, { headers: { Accept: "application/json" } });
-            if (!r.ok) return;
-            detail = await r.json();
-          }
-        } catch { return; }
-        if (mine !== retroVersionSeq || !Array.isArray(detail.variants) || detail.variants.length < 2) return;
+      function showRetroVersions(g, sys) {
+        if (!Array.isArray(g.variants) || g.variants.length < 2) return;
         const box = $("modal-extras");
         const head = document.createElement("div");
         head.className = "extras-head";
-        head.textContent = t("retro.versionsHead") + " (" + detail.variants.length + ")";
+        head.textContent = t("retro.versionsHead") + " (" + g.variants.length + ")";
         box.replaceChildren(head);
-        for (const v of detail.variants) {
+        for (const v of g.variants) {
           const row = document.createElement("button");
           row.type = "button";
           row.className = "extra-row version-row";
@@ -3839,13 +3913,7 @@
           const sizeEl = document.createElement("span");
           sizeEl.className = "extra-size"; sizeEl.textContent = fmtBytes(v.size);
           row.append(nameEl, sizeEl);
-          row.addEventListener("click", async () => {
-            if (current) return;
-            try {
-              const r = await fetch(`/api/retro/games/${encodeURIComponent(v.id)}`, { headers: { Accept: "application/json" } });
-              if (r.ok) openRetroModal(await r.json(), sys);
-            } catch { /* keep the version on screen */ }
-          });
+          row.addEventListener("click", () => { if (!current) openRetroModal(v, sys); });
           box.append(row);
         }
       }

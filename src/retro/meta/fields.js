@@ -3,13 +3,19 @@
  * (src/routes/title-detail.js), from what LaunchBox, MAME and IGDB call things:
  *
  *   record = { source, id?, description?: { en, ko?, ja?, zh? }, publisher?, developer?,
- *              releaseDate?: YYYYMMDD, numberOfPlayers?, genres?: [genre key], shots?: [image URL] }
+ *              releaseDate?: YYYYMMDD, numberOfPlayers?, genres?: [genre key], shots?: [image URL],
+ *              wiki?: English Wikipedia title, koFrom?: "wikipedia", koTriedAt?: ms }
+ *
+ * description.ko comes from Korean Wikipedia (meta/kowiki.js, by `wiki`); koFrom
+ * says so, and the text is shown with Wikipedia's attribution. koTriedAt is
+ * when Korean Wikipedia last had nothing for the game.
  *
  * A field a source doesn't know is left out, never stored empty. Genres are
  * the keys of categories.js GENRE_LABELS, so every one has a label in en, ko,
  * ja and zh; a source's genre with no such key is dropped. Everything here is pure.
  */
 import { GENRE_LABELS, GENRE_LANGS, genreLabel } from "../../meta/categories.js";
+import { ATTRIBUTION, enwikiTitle } from "../../meta/kowiki.js";
 
 export const MAX_SHOTS = 8;
 const MAX_GENRES = 4;
@@ -83,6 +89,7 @@ export function fromLaunchBox(game, images = []) {
     numberOfPlayers: playersInt(game.MaxPlayers),
     genres: genreKeys(String(game.Genres ?? "").split(";")),
     shots: shots.length ? shots : null,
+    wiki: enwikiTitle(game.WikipediaURL),
   });
 }
 
@@ -129,10 +136,11 @@ export function fillFrom(base, extra) {
   return { ...rest, ...base };
 }
 
-/** The description in `lang`, else English; null without one. */
+/** The description in `lang`, else English; null without one. Wikipedia's text carries its attribution. */
 export function descriptionIn(record, lang) {
   const d = record?.description;
   if (!d) return null;
+  if (lang === "ko" && d.ko && record.koFrom === "wikipedia") return `${d.ko}\n\n${ATTRIBUTION}`;
   return (GENRE_LANGS.includes(lang) && d[lang]) || d.en || null;
 }
 

@@ -394,9 +394,9 @@ test("the background loop does nothing while its setting is off, and no screensh
     let read = 0;
     assert.equal(await sync.tick({ dir, current: async () => { read++; return current(); }, fetchImpl, settings: () => ({ on: false, art: true }) }), null);
     assert.equal(read, 0, "not even the catalog is read");
-    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: false }), pauseMs: 0 }), { igdb: 0, shots: 0 });
+    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: false }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 0 });
     assert.equal(asked.length, 0);
-    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: true }), pauseMs: 0 }), { igdb: 0, shots: 1 });
+    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: true }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 1 });
     assert.deepEqual(asked, ["https://images.launchbox-app.com/g.png"]);
   } finally {
     store.reset();
