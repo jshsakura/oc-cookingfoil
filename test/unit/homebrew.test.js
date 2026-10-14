@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { CHECK_INTERVAL_MS, parseRepo, pickAsset, safeFileName, scanManual, createTracker } from "../../src/meta/homebrew.js";
+import { CHECK_INTERVAL_MS, adoptFolders, parseRepo, pickAsset, safeFileName, scanManual, createTracker } from "../../src/meta/homebrew.js";
 
 /** A minimal NRO whose NACP carries a name, an author and a version. */
 function fakeNro(name, version, author = "someone") {
@@ -571,4 +571,29 @@ test("the check interval defaults to six hours and can be set per server", async
   now += 60 * 1000;
   await tracker.checkAll();
   assert.equal(gh.apiCalls().length, 2);
+});
+
+test("adoptFolders writes a folder manifest for a .nro with game files and leaves the rest alone", async () => {
+  const root = tmp("hb-adopt-");
+  fs.mkdirSync(path.join(root, "my-game"));
+  fs.writeFileSync(path.join(root, "my-game", "MyGame.nro"), fakeNro("My Game", "1.0"));
+  fs.mkdirSync(path.join(root, "my-game", "game"));
+  fs.writeFileSync(path.join(root, "my-game", "game", "data.bin"), "x");
+  fs.mkdirSync(path.join(root, "lone"));
+  fs.writeFileSync(path.join(root, "lone", "lone.nro"), fakeNro("Lone", "1.0"));
+  fs.mkdirSync(path.join(root, "한글 폴더"));
+  fs.writeFileSync(path.join(root, "한글 폴더", "a.nro"), fakeNro("A", "1.0"));
+  fs.writeFileSync(path.join(root, "한글 폴더", "b.bin"), "x");
+
+  const result = await adoptFolders(root);
+
+  assert.deepEqual(result.registered, ["my-game"]);
+  assert.deepEqual(result.skipped.map((s) => s.folder), ["한글 폴더"]);
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "my-game", ".cookingfoil.json"), "utf8"));
+  assert.equal(manifest.mode, "folder");
+  assert.equal(manifest.nro, "MyGame.nro");
+  assert.equal(fs.existsSync(path.join(root, "lone", ".cookingfoil.json")), false);
+  const listed = await scanManual(root);
+  assert.equal(listed.find((e) => e.id && e.name === "My Game").install_dir, "switch/my-game");
+  assert.deepEqual((await adoptFolders(root)).registered, []);
 });

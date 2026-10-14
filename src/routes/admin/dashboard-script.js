@@ -387,6 +387,10 @@ async function checkHb(repo){
   try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});toast(s?.error?s.error.message:'확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 $('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;
   try{await api('/admin/api/homebrew/check',{method:'POST',body:{}});toast('모두 확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}finally{b.disabled=false;}});
+$('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disabled=true;
+  try{const r=await api('/admin/api/homebrew/adopt',{method:'POST',body:{}});
+    toast(r.registered.length?r.registered.join(', ')+' 를 등록했습니다.':'새로 등록할 폴더가 없습니다.'+(r.skipped.length?' 건너뜀: '+r.skipped.map((x)=>x.folder+' ('+x.reason+')').join(', '):''));loadHomebrew();}
+  catch(err){toast(err.message);}finally{b.disabled=false;}});
 async function removeHb(repo){if(!confirm(repo+' 를 더 따라가지 않고 받아 둔 파일도 지웁니다.'))return;
   try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 

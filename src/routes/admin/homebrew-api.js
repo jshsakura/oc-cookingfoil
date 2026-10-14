@@ -6,6 +6,7 @@
  *   POST /admin/api/homebrew/recommended { repos: [] } follow several from the recommended list (checked in the background)
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
  *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the check interval (all when no repo)
+ *   POST /admin/api/homebrew/adopt                    register the folders put in the homebrew folder by hand  { registered, skipped }
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build
  *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
@@ -20,6 +21,8 @@ import * as descriptions from "../../meta/homebrew-descriptions.js";
 import * as disabled from "../../meta/homebrew-disabled.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
 import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
+import { adoptFolders } from "../../meta/homebrew.js";
+import { homebrewDir } from "../../helpers/envs.js";
 import debug from "../../debug.js";
 
 const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
@@ -119,6 +122,13 @@ export function mountHomebrewApi(router, requireSession) {
   router.post("/api/homebrew/description/reset", write(async (req, res) => {
     descriptions.reset(String(req.body?.id ?? ""));
     res.json({ ok: true });
+  }));
+
+  router.post("/api/homebrew/adopt", write(async (_req, res) => {
+    const result = await adoptFolders(homebrewDir);
+    await refreshManual();
+    debug.log("admin: homebrew folders registered: %s", result.registered.join(", ") || "none");
+    res.json(result);
   }));
 
   router.post("/api/homebrew/remove", write(async (req, res) => {

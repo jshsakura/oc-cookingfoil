@@ -295,6 +295,41 @@ async function filesUnder(dir, rel = "") {
   return out.sort();
 }
 
+/**
+ * Registers hand-placed folders that have no manifest yet: a folder holding a .nro
+ * plus other files becomes a folder install (everything in it goes to switch/<folder>/),
+ * so dropping a ported game into the homebrew folder and pressing the admin button is
+ * all it takes. A lone .nro needs nothing; unsafe names are reported, not guessed at.
+ * Returns { registered: [folder], skipped: [{ folder, reason }] }.
+ */
+export async function adoptFolders(root) {
+  const registered = [];
+  const skipped = [];
+  let folders;
+  try {
+    folders = (await fsp.readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
+  } catch (err) {
+    if (err.code === "ENOENT") return { registered, skipped };
+    throw err;
+  }
+  for (const folder of folders.sort()) {
+    const dir = path.join(root, folder);
+    const hasManifest = await fsp.stat(path.join(dir, MANIFEST)).then(() => true, () => false);
+    if (hasManifest) continue;
+    const nro = (await fsp.readdir(dir)).filter((f) => /\.nro$/i.test(f)).sort()[0];
+    if (!nro) continue;
+    if ((await filesUnder(dir)).length < 2) continue;
+    if (!APP_NAME_RE.test(folder) || !APP_NAME_RE.test(nro)) {
+      skipped.push({ folder, reason: "폴더나 .nro 이름에 영문, 숫자, - _ . 만 쓸 수 있습니다" });
+      continue;
+    }
+    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [] };
+    await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(manifest));
+    registered.push(folder);
+  }
+  return { registered, skipped };
+}
+
 export async function scanManual(root) {
   let folders;
   try {
