@@ -17,6 +17,7 @@ import landingRoute from "./routes/landing.js";
 import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
+import inboxRouter from "./routes/inbox.js";
 import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
@@ -181,6 +182,8 @@ expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
 expressApp.use("/api/uploads", uploadsRouter());
+// The temporary share inbox: files, a memo and links from people signed in on the web page.
+expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).
 expressApp.use("/api/art", artRouter());
 

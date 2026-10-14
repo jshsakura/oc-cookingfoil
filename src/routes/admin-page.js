@@ -49,6 +49,7 @@ import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
+import { mountInboxApi } from "./admin/inbox-api.js";
 import { clientBuildStatus } from "./client-update.js";
 import {
   normalizeDeviceKey,
@@ -404,6 +405,7 @@ export default function adminPageRouter() {
   mountServerSettingsApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
+  mountInboxApi(router, requireSession);
 
   return router;
 }

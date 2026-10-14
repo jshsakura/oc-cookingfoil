@@ -18,6 +18,7 @@ import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } fro
 import { LIBRARY_FILES_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
+import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -42,7 +43,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs{display:flex;gap:6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
-nav.tabs a{padding:10px 13px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
+nav.tabs a{padding:10px 11px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
 nav.tabs a:hover{color:var(--text)}
 nav.tabs a[aria-current="page"]{color:var(--bg);background:var(--text)}
 .count[hidden]{display:none}
@@ -185,7 +186,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${ICON_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${ICON_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
@@ -211,6 +212,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   <a href="#featured" data-tab="featured">${icon("star")}추천</a>
   <a href="#library" data-tab="library">${icon("folder")}라이브러리</a>
   <a href="#upload" data-tab="upload">${icon("upload")}업로드</a>
+  <a href="#inbox" data-tab="inbox">${icon("inbox")}임시 공유<span class="count" id="inbox-count" hidden></span></a>
   <a href="#homebrew" data-tab="homebrew">${icon("package")}홈브류</a>
   <a href="#retro" data-tab="retro">${icon("image")}레트로</a>
 </nav>
@@ -367,6 +369,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 
 ${RETRO_ART_HTML}
 ${ALERTS_HTML}
+${INBOX_HTML}
 <section id="tab-homebrew" hidden>
   <h2 class="first">GitHub 저장소 추가</h2>
   <form class="add" id="hb-add">
@@ -453,5 +456,5 @@ ${ALERTS_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}</script></body></html>`;
 }

@@ -64,8 +64,8 @@ test("dangerous access: the first hit at once, the rest in one summary", async (
   assert.ok(!sent.some((m) => /\d+\.\d+\.\d+\.\d+/.test(m.body.text)), "no address is ever sent");
 });
 
-test("defaults: the four on, server start off; '-' turns all off and a list picks", () => {
-  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe"]);
+test("defaults: the five on, server start off; '-' turns all off and a list picks", () => {
+  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe", "inbox"]);
   assert.deepEqual(alerts.enabledEvents("-"), []);
   assert.deepEqual(alerts.enabledEvents("server,lockout,nope"), ["server", "lockout"]);
   integrations.save("telegram", { botToken: "", chatId: "-100123", events: "lockout" });
@@ -105,4 +105,12 @@ test("recentChats lists each chat that wrote to the bot once", async () => {
   assert.deepEqual(await alerts.recentChats(TOKEN), [{ id: "42", title: "Me" }, { id: "-100", title: "Ops" }]);
   alerts.setFetchForTests(async () => ({ json: async () => ({ ok: false }) }));
   assert.equal(await alerts.recentChats(TOKEN), null);
+});
+
+test("each share-inbox upload is told at once, never held as a repeat of the last one", () => {
+  integrations.save("telegram", { botToken: "", chatId: "-100123", events: "inbox" });
+  capture();
+  assert.equal(alerts.alert("inbox", "alice 님이 파일 1개(1 B), 링크 0개를 올렸습니다.", { subject: "20261014-090000-alice-0001" }), true);
+  assert.equal(alerts.alert("inbox", "alice 님이 파일 1개(1 B), 링크 0개를 올렸습니다.", { subject: "20261014-090001-alice-0002" }), true);
+  assert.equal(alerts.EVENTS.inbox.label, "임시 공유");
 });

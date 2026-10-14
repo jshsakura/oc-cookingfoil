@@ -228,6 +228,11 @@ const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min:
 // Disable uploads by default — they need basic-auth AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
 let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
+// The temporary share inbox: signed-in web users leave files, a memo and links
+// for the operator. On by default; one upload and the whole inbox are capped.
+let inboxEnabled = envBool("COOK_INBOX_ENABLED", true);
+let inboxMaxBytes = envNumber("COOK_INBOX_MAX_BYTES", 2 * 1024 ** 3, { min: 1, integer: true });
+let inboxQuotaBytes = envNumber("COOK_INBOX_QUOTA_BYTES", 20 * 1024 ** 3, { min: 1, integer: true });
 // Base games in the sections list carry their eShop price, looked up in the
 // background from the public eShop price endpoint. Off for offline servers.
 let eshopPrices = envBool("COOK_ESHOP_PRICES", true);
@@ -327,6 +332,9 @@ const ENV_SETTINGS = Object.freeze({
   devicePairing,
   deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
   uploadsEnabled,
+  inboxEnabled,
+  inboxMaxBytes,
+  inboxQuotaBytes,
   publicBaseUrl,
   extractIcons,
   langPriority: [...langPriority],
@@ -347,6 +355,9 @@ function applyServerSettings(saved = {}) {
   deviceAutoApprove = v.deviceApproval !== "manual";
   deviceAutoApproveAll = v.deviceApproval === "all";
   uploadsEnabled = v.uploadsEnabled;
+  inboxEnabled = v.inboxEnabled;
+  inboxMaxBytes = v.inboxMaxBytes;
+  inboxQuotaBytes = v.inboxQuotaBytes;
   publicBaseUrl = v.publicBaseUrl ? normalizeBaseUrl(v.publicBaseUrl) : null;
   extractIcons = v.extractIcons;
   langPriority = [...v.langPriority];
@@ -393,6 +404,9 @@ export {
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  inboxEnabled,
+  inboxMaxBytes,
+  inboxQuotaBytes,
   eshopPrices,
   eshopPopularity,
   telegramBotToken,
