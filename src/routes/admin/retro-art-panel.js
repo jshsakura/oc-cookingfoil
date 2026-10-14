@@ -2,7 +2,9 @@
  * The admin page's retro tab: box art and bezel coverage per system, a button
  * that fetches what is missing, and a dialog to match one item by hand from
  * libretro names or SteamGridDB covers. Talks to /admin/api/retro-art.
+ * The versions block (retro-variants-panel.js) sits at the end of the tab.
  */
+import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 받기</button></div>
@@ -17,6 +19,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.</p>
   <div class="scroll" id="ra-missing"></div>
   <div class="ra-pager" id="ra-pager" hidden><button type="button" id="ra-prev">이전</button><span id="ra-page"></span><button type="button" id="ra-next">다음</button></div>
+${RETRO_VARIANTS_HTML}
 </section>
 <dialog id="ra-dialog" class="ra-dialog">
   <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
@@ -32,7 +35,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="row"><button type="button" id="ra-none" class="danger">표지 없음으로 두기</button></div>
 </dialog>`;
 
-export const RETRO_ART_CSS = `
+export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--text);padding:20px}
 .ra-dialog::backdrop{background:rgba(0,0,0,.5)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:16px}
 .ra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0;overflow:auto;max-height:52vh}
@@ -157,4 +160,4 @@ $('ra-dialog').addEventListener('paste',(e)=>{const f=[...(e.clipboardData?.file
 $('ra-search').addEventListener('submit',(e)=>{e.preventDefault();raSearch();});
 $('ra-sgdb-go').addEventListener('click',raSgdb);
 $('ra-none').addEventListener('click',()=>{if(confirm('이 항목은 표지 없이 두고 자동 맞춤에서도 뺄까요?'))raApply('/admin/api/retro-art/match',{game:raGame.id,name:null});});
-`;
+`+RETRO_VARIANTS_SCRIPT;

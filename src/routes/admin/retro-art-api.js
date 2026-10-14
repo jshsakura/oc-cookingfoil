@@ -73,12 +73,8 @@ function scheduleRatings() {
   ratingsTimer.unref();
 }
 
-/** The name a game's art is filed under: its file name, or its first disc's for a multi-disc game. */
-export function romKey(g) {
-  if (g.keepFileName) return path.basename(g.rel, path.extname(g.rel)); // arcade: the set name
-  const first = g.m3u ? g.extras[0]?.rel : null;
-  return first ? path.basename(first, path.extname(first)) : g.name;
-}
+// The name a game's art is filed under (kept here too for the upload tab).
+export const romKey = retroCatalog.romKey;
 
 const ghToken = () => integrations.get("github").token;
 

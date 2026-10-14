@@ -54,6 +54,13 @@ let state = { dir: null, scannedAt: 0, systems: {}, games: [], present: new Set(
 let inFlight = null;
 const listeners = [];
 
+/** The name a game's art is filed under: its file name, or its first disc's for a multi-disc game; an arcade set's short name. */
+export function romKey(g) {
+  if (g.keepFileName) return path.basename(g.rel, path.extname(g.rel)); // arcade: the set name
+  const first = g.m3u ? g.extras[0]?.rel : null;
+  return first ? path.basename(first, path.extname(first)) : g.name;
+}
+
 /** Run `fn(state)` after every scan (say, to draw artwork ahead of time). */
 export function onScan(fn) {
   listeners.push(fn);
@@ -280,7 +287,7 @@ async function addExtras(dir, games) {
   }
 }
 
-const thumbNames = (name) => [name, name.replace(THUMB_UNSAFE_RE, "_")];
+export const thumbNames = (name) => [name, name.replace(THUMB_UNSAFE_RE, "_")];
 
 /**
  * An arcade set without box art of its own shows its game's: another set's in
