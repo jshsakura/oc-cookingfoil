@@ -149,6 +149,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 | `COOK_ADMIN_TOTP_SECRET` | _(空)_ | 自己管理身份验证器密钥，代替 `/setup` |
 | `COOK_DIRECT_EDGE_SECRET` | _(空)_ | 直接下载代理的共享密钥。见[下文](#可选的直接下载地址) |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | 每个地址的速率限制，以及锁定前允许的登录失败次数 |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(空)_ | 即使解析到私有、回环或 CGNAT 地址，服务器也可以访问的主机名，例如 tailnet 内的评分服务器。管理页面中设置的其他地址如果指向内部网络，会被拒绝 |
 
 通常在管理页面（设置 (설정) 标签页）修改的设置，全部可以在 `.env` 中预设：
 

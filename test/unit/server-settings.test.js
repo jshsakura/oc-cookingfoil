@@ -67,11 +67,14 @@ test("titledb is read from the address set on the admin page, blawar/titledb whe
   // The next fetch goes there.
   const asked = [];
   const real = globalThis.fetch;
+  const guard = await import("../../src/security/outbound-guard.js");
   globalThis.fetch = async (url) => { asked.push(String(url)); return new Response("{}", { status: 200 }); };
+  guard.setLookupForTests(async () => [{ address: "203.0.113.30" }]);
   try {
     await fetchRegion("KR.ko", path.join(dir, "titledb"));
   } finally {
     globalThis.fetch = real;
+    guard.setLookupForTests(null);
   }
   assert.deepEqual(asked, ["https://mirror.example.org/titledb/KR.ko.json"]);
   settings.save({ titledbSource: "" });

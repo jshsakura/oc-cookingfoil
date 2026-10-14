@@ -56,6 +56,15 @@ test("refresh is off without a scraper URL and pages until has_next is false", a
     pages.push(page);
     return { ok: true, json: async () => ({ posts: [], pagination: { has_next: page < 3 } }) };
   };
-  assert.equal(await refresh({ baseUrl: "http://scraper.test", fetchImpl }), false); // no scores at all
+  const lookup = async () => [{ address: "203.0.113.20" }];
+  assert.equal(await refresh({ baseUrl: "http://scraper.test", fetchImpl, lookup }), false); // no scores at all
   assert.deepEqual(pages, [1, 2, 3]);
+});
+
+test("refresh refuses a scraper URL that resolves into the private network", async () => {
+  let asked = 0;
+  const fetchImpl = async () => { asked++; return { ok: true, json: async () => ({ posts: [] }) }; };
+  assert.equal(await refresh({ baseUrl: "http://scraper.test", fetchImpl, lookup: async () => [{ address: "192.168.1.20" }] }), false);
+  assert.equal(await refresh({ baseUrl: "http://169.254.169.254", fetchImpl }), false);
+  assert.equal(asked, 0, "nothing was fetched");
 });

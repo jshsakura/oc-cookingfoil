@@ -149,6 +149,7 @@ These have to be known before the admin page exists, or are kept out of it on pu
 | `COOK_ADMIN_TOTP_SECRET` | _(empty)_ | Manage the authenticator secret yourself instead of `/setup` |
 | `COOK_DIRECT_EDGE_SECRET` | _(empty)_ | Shared secret of the direct download proxy. See [below](#optional-direct-download-address) |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_AUTH_MAX_FAILURES` | `1200`, `5` | Per-address rate limit and failed sign-ins before a lockout |
+| `COOK_OUTBOUND_PRIVATE_HOSTS` | _(empty)_ | Host names the server may fetch even when they resolve to a private, loopback or CGNAT address, for example a ratings server on your tailnet. Any other admin-set address that points into a private network is refused |
 
 Settings you will usually change on the admin page (Settings tab), all of which can be preset in `.env`:
 

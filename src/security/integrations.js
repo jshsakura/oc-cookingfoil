@@ -36,7 +36,8 @@ export const SERVICES = {
     fields: { token: { env: () => env.githubToken, re: TOKEN_RE, secret: true } },
   },
   ratings: {
-    fields: { url: { env: () => env.ratingsUrl, re: URL_RE } },
+    // `outbound`: the server fetches it, so the admin API refuses private addresses (outbound-guard.js).
+    fields: { url: { env: () => env.ratingsUrl, re: URL_RE, outbound: true } },
   },
   telegram: {
     fields: {

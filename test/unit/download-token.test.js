@@ -284,7 +284,7 @@ test("which paths the lane can reach", () => {
 
 test("only the proxy on this host is let in, and the client is the address it wrote", () => {
   const req = (headers, peer) => ({ socket: { remoteAddress: peer }, get: (h) => headers[h.toLowerCase()] });
-  assert.deepEqual(defaultGateways("Iface\tDestination\tGateway\neth0\t00000000\t0100A8C0\neth0\t0000A8C0\t00000000\n"), ["192.168.0.1"]);
+  assert.deepEqual(defaultGateways("Iface\tDestination\tGateway\neth0\t00000000\t0100A8C0\neth0\t0000A8C0\t00000000\n"), ["192.168.1.1"]);
   assert.equal(isLocalHop("127.0.0.1"), true);
   assert.equal(isLocalHop("::ffff:172.17.0.1"), true);
   assert.equal(isLocalHop("10.0.0.50"), false);
@@ -492,11 +492,16 @@ test("lists never depend on whether the direct address answers", async () => {
   assert.ok(down.headers["x-cookingfoil-download-token"]);
 });
 
+// Documentation addresses stand in for the public ones a real lookup returns.
+const PUBLIC_LOOKUP = async () => [{ address: "203.0.113.10" }];
+
 test("the probe looks the host up, asks base/, and counts any answer", async () => {
   const asked = [];
-  await health.probe(DL, { lookup: async (h) => asked.push(h), fetchImpl: async (url, o) => { asked.push(url, o.method); return { status: 404 }; } });
+  await health.probe(DL, { lookup: async (h) => { asked.push(h); return [{ address: "203.0.113.10" }]; }, fetchImpl: async (url, o) => { asked.push(url, o.method); return { status: 404 }; } });
   assert.deepEqual(asked, ["dl.example.org", `${DL}/`, "GET"]);
-  await assert.rejects(health.probe("https://dl.example.org", { lookup: async () => {}, fetchImpl: async () => { throw new Error("timeout"); } }));
+  await assert.rejects(health.probe("https://dl.example.org", { lookup: PUBLIC_LOOKUP, fetchImpl: async () => { throw new Error("timeout"); } }));
+  // A name that resolves into the private network is refused before it is asked.
+  await assert.rejects(health.probe(DL, { lookup: async () => [{ address: "10.0.0.8" }], fetchImpl: async () => ({ status: 404 }) }), /내부망/);
   assert.deepEqual(health.nextHealth({ up: false, since: null, fails: 3 }, true, 5), { up: true, since: 5, fails: 0, checkedAt: 5, error: null });
 });
 
@@ -504,8 +509,8 @@ test("checks run only while requests come in, at most once a minute, one at a ti
   const { RECHECK_MS: recheck } = health;
   const t0 = Date.now();
   let probes = 0;
-  const failing = { lookup: async () => {}, fetchImpl: async () => { probes++; throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } }); } };
-  const answering = { lookup: async () => {}, fetchImpl: async () => { probes++; return { status: 404 }; } };
+  const failing = { lookup: PUBLIC_LOOKUP, fetchImpl: async () => { probes++; throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } }); } };
+  const answering = { lookup: PUBLIC_LOOKUP, fetchImpl: async () => { probes++; return { status: 404 }; } };
   health.setForTests(true, { options: failing, checkedAt: t0 });
   health.touch(t0 + recheck - 1000);
   await health.pending();
@@ -537,7 +542,7 @@ test("a hung lookup or a 5xx is a failure, and the time limit covers the lookup 
   const started = Date.now();
   await assert.rejects(health.probe("https://dl.example.org", { timeoutMs: 100, lookup: () => new Promise(() => {}), fetchImpl: async () => ({ status: 404 }) }), /timed out/);
   assert.ok(Date.now() - started < 1000);
-  await assert.rejects(health.probe("https://dl.example.org", { lookup: async () => {}, fetchImpl: async () => ({ status: 502 }) }), /502/);
+  await assert.rejects(health.probe("https://dl.example.org", { lookup: PUBLIC_LOOKUP, fetchImpl: async () => ({ status: 502 }) }), /502/);
   health.setForTests(true, { options: { timeoutMs: 50, lookup: () => new Promise(() => {}) }, checkedAt: 0 });
   health.touch(20 * 60_000);
   await health.pending();

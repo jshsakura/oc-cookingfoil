@@ -4,6 +4,7 @@
  *   GET  /admin/api/server-settings                   { settings: { <name>: { value, source: "saved"|"env", envValue } }, titledb,
  *                                                       directDownload: { configured, up, since, checkedAt } }
  *   POST /admin/api/server-settings                   { <name>: value | null }  save (null = back to compose); applies at once
+ *                                                     400 { error, field } when titledbSource or publicDirectBaseUrl points at a private network
  *   POST /admin/api/server-settings/titledb-refresh   fetch titledb now, in the background
  *
  * The names are security/server-settings.js SETTINGS.
@@ -14,9 +15,12 @@ import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
 import debug from "../../debug.js";
 import * as directHealth from "../../security/direct-health.js";
+import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "downloadLinkTtl"]);
+// Addresses the server fetches itself: refused when they point at a private network.
+const OUTBOUND = ["titledbSource", "publicDirectBaseUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 
@@ -39,6 +43,18 @@ export function mountServerSettingsApi(router, requireSession) {
 
   router.post("/api/server-settings", handle(async (req, res) => {
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    for (const field of OUTBOUND) {
+      const value = typeof body[field] === "string" ? body[field].trim().replace(/\/+$/, "") : "";
+      // Only a new address: saving another setting must not hinge on this one's DNS.
+      // A malformed value is left to save(), which names the field as usual.
+      if (!/^https?:\/\/\S+$/.test(value) || value === serverSettings.describe()[field]?.value) continue;
+      try {
+        await checkOutboundUrl(value);
+      } catch (err) {
+        if (!(err instanceof OutboundError)) throw err;
+        return res.status(400).json({ error: err.message, field });
+      }
+    }
     let changed;
     try {
       changed = serverSettings.save(body);
