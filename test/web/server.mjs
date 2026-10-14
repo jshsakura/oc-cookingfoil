@@ -45,6 +45,7 @@ for (const rel of ['roms/md/더 슈퍼 시노비 2 (Super Shinobi II, The) [J-K 
   fs.writeFileSync(`${process.env.COOK_RETRO_DIR}/${rel}`, 'x');
 }
 // What the retro metadata loop would have collected for the official release.
+fs.mkdirSync(process.env.COOK_DATA_DIR, { recursive: true });
 fs.writeFileSync(`${process.env.COOK_DATA_DIR}/retro-meta.json`, JSON.stringify({ version: 1, builtAt: Date.now(), games: {
   'md/더 슈퍼 시노비 2 (Super Shinobi II, The) [Japan, Korea]': {
     source: 'launchbox', description: { en: 'Joe Musashi returns to rescue his bride.' },
