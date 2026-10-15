@@ -8,7 +8,7 @@
  *   zipNames  the entries of a lone .zip, null when there is no zip or it can't be read
  *   systems   [{ id, extensions }] the retro consoles the server knows
  *
- * → { kind: game|retro|patch|save|homebrew|null, systems?, titleId?, name? }
+ * → { kind: game|retro|patch|save|homebrew|client|null, systems?, titleId?, name? }
  *   kind null means the files did not say; the admin picks it.
  */
 export function guessUpload({ names, paths = null, zipNames = null, systems = [] }) {
@@ -17,6 +17,7 @@ export function guessUpload({ names, paths = null, zipNames = null, systems = []
   if (!names.length) return { kind: null };
   const exts = names.map(ext);
   if (!paths && exts.every((e) => [".nsp", ".nsz", ".xci", ".xcz"].includes(e))) return { kind: "game" };
+  if (!paths && names.length === 1 && /^cookingfoil.*\.nro$/i.test(names[0])) return { kind: "client" };
   if (!paths && names.length === 1 && exts[0] === ".nro") return { kind: "homebrew" };
 
   const inside = paths ?? (names.length === 1 && exts[0] === ".zip" ? zipNames : null);

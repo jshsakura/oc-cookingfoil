@@ -12,6 +12,8 @@ const guess = (o) => guessUpload({ systems: SYSTEMS, ...o });
 test("packages and a lone .nro say what they are by name", () => {
   assert.deepEqual(guess({ names: ["Game [0100000000010000][v0].nsz", "Other.xci"] }), { kind: "game" });
   assert.deepEqual(guess({ names: ["app.nro"] }), { kind: "homebrew" });
+  assert.deepEqual(guess({ names: ["cookingfoil.nro"] }), { kind: "client" }, "the client build itself");
+  assert.deepEqual(guess({ names: ["CookingFoil-0.3.61.nro"] }), { kind: "client" });
   assert.deepEqual(guess({ names: [] }), { kind: null });
 });
 

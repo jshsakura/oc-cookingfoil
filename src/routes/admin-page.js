@@ -107,14 +107,9 @@ const BUILD_REASONS = {
 
 /** A rejected client build, as an overview warning. */
 function clientBuildWarnings() {
-  const { published, signed, rejected } = clientBuildStatus();
-  const unsigned = published && !signed ? [{
-    code: "client-build-unsigned", severity: "warn",
-    title: "내보내는 클라이언트에 서명이 없습니다",
-    detail: `data/client/cookingfoil.nro.sig.json 이 없거나 ${published.version} 의 버전, 크기, sha256 과 맞지 않습니다. 0.3.60 부터의 기기는 서명 없는 업데이트를 받지 않습니다.`,
-  }] : [];
-  if (!rejected) return unsigned;
-  return [...unsigned, {
+  const { published, rejected } = clientBuildStatus();
+  if (!rejected) return [];
+  return [{
     code: "client-build-rejected", severity: "warn",
     title: "새 클라이언트 파일을 내보내지 않았습니다",
     detail: `data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: ${BUILD_REASONS[rejected.code] ?? rejected.code} (${rejected.message}). ${published ? `기기에는 ${published.version} 을 계속 내보냅니다.` : "아직 내보내는 버전이 없습니다."}`,
