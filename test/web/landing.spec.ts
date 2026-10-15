@@ -559,6 +559,8 @@ test('the four charts share one row: composition, storage, recent months and gen
   await expect(cards.nth(3)).toContainText('장르');
   await expect(cards.nth(3).locator('.hbar')).toHaveCount(4);
   await expect(page.locator('#charts')).not.toContainText('Steam');
+  // measured once the cards have finished rising into place
+  await page.locator('#charts').evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   const tops = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
   fs.mkdirSync('out/web', { recursive: true });
