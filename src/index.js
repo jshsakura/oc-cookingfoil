@@ -43,6 +43,8 @@ import busyGuard from "./security/busy-guard.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
+import sessionGate from "./security/session-gate.js";
+import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
 import webLoginRouter from "./routes/web-login.js";
@@ -206,7 +208,10 @@ expressApp.use(webLoginRouter());
 // tags the request so authGuard skips the basic-auth challenge below. No-op
 // when COOK_DEVICE_PAIRING is off.
 expressApp.use(pairingGate());
+// Session lane: a console that traded its password for a session token (GET /api/session) sends only that.
+expressApp.use(sessionGate());
 expressApp.use(authGuard());
+expressApp.get("/api/session", sessionRoute);
 // Signed-in clients that declare direct-token get their download token on every response.
 expressApp.use(downloadTokenHeader());
 // Lists and downloads tell the client how many connections a download may use.
