@@ -11,6 +11,7 @@
  * gets, on every response after the sign-in (304s included),
  *
  *   X-CookingFoil-Download-Token: <token>          (download-token.js)
+ *   X-CookingFoil-Download-Origin: https://dl.example.org:38443   (where it goes, and nowhere else)
  *
  * and every download URL in its lists points at the direct address, with the
  * same path and query as the normal URL and nothing added:
@@ -44,6 +45,9 @@ import * as tokens from "./download-token.js";
 
 export const FEATURES_HEADER = "X-CookingFoil-Features";
 export const TOKEN_HEADER = "X-CookingFoil-Download-Token";
+// The one origin (scheme, host, port) the token may be sent to, so a client
+// never hands it to another https host a list names (a mirror, a homebrew release).
+export const ORIGIN_HEADER = "X-CookingFoil-Download-Origin";
 export const FEATURE = "direct-token";
 
 /** Whether the request declares the direct-token feature. */
@@ -183,6 +187,7 @@ export function tokenHeader() {
       res.vary("CF-IPCountry");
       if (!token) return;
       res.setHeader(TOKEN_HEADER, token);
+      res.setHeader(ORIGIN_HEADER, new URL(link.base).origin);
       res.setHeader("Cache-Control", privateCacheControl(res.getHeader("Cache-Control")));
     });
     next();

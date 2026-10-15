@@ -231,7 +231,7 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 1. 与容器位于同一台主机上的反向代理提供例如 `https://dl.example.org` 的地址。它只转发携带 `Authorization: Bearer …` 的 `GET` 和 `HEAD` 请求，自己设置 `X-Forwarded-For`，把 `Host` 设为直接地址（如果有端口，带上端口），并添加 `X-CookingFoil-Edge: <secret>`。它不能转发经过你主隧道而来的请求。
 2. 同一个密钥以 `COOK_DIRECT_EDGE_SECRET` 写入 `.env`。它永远不是管理页面上的设置。没有它，直接地址不提供任何内容。
 3. 地址填写在管理页面（设置 (설정)，下载）或 `COOK_PUBLIC_DIRECT_BASE_URL` 中，必须是 `https://`。
-4. 已登录、并通过 HTTPS 发送 `X-CookingFoil-Features: direct-token` 的客户端会收到 `X-CookingFoil-Download-Token` 响应头，它列表中的下载 URL 会指向直接地址。客户端在那里把令牌作为 Bearer 令牌发送。
+4. 已登录、并通过 HTTPS 发送 `X-CookingFoil-Features: direct-token` 的客户端会收到 `X-CookingFoil-Download-Token` 响应头，它列表中的下载 URL 会指向直接地址。同时返回的 `X-CookingFoil-Download-Origin` 是直接地址的 origin，客户端只在那里把令牌作为 Bearer 令牌发送。
 
 令牌由服务器签名（使用 `data/security/` 中随机密钥的 HMAC-SHA256），有效期为 `COOK_DOWNLOAD_LINK_TTL` 秒（默认 6 小时），一旦签发对象的账号或主机不能再登录，令牌就立即失效。拒绝响应带有 `X-CookingFoil-Token: invalid | expired | revoked | blocked`，发送过多无效令牌的地址会被暂时封禁。没有声明此功能的客户端（Tinfoil、CyberFoil、浏览器）以及通过普通 HTTP 的请求，看到的列表与以前完全相同。经过 Cloudflare 到达、且 `CF-IPCountry` 不是 `src/security/download-links.js` 中固定国家的请求，会保留普通 URL。
 

@@ -231,7 +231,7 @@ CookingFoil はプレーンな HTTP で動きます。自宅の外から使う�
 1. コンテナと同じホスト上のリバースプロキシが、たとえば `https://dl.example.org` を提供します。このプロキシは `Authorization: Bearer …` を持つ `GET` と `HEAD` のリクエストだけを転送し、`X-Forwarded-For` を自分で設定し、`Host` を直接アドレス (ポートがあればポート付き) にし、`X-CookingFoil-Edge: <secret>` を付けます。メインのトンネルを通ってきたリクエストは転送してはいけません。
 2. 同じシークレットを `.env` の `COOK_DIRECT_EDGE_SECRET` に入れます。これは管理ページの設定にはなりません。設定がないと、直接アドレスは何も返しません。
 3. アドレスは管理ページ (設定 (설정) タブのダウンロード) か `COOK_PUBLIC_DIRECT_BASE_URL` に入れます。`https://` である必要があります。
-4. HTTPS で `X-CookingFoil-Features: direct-token` を送るサインイン済みのクライアントは `X-CookingFoil-Download-Token` ヘッダーを受け取り、一覧のダウンロード URL が直接アドレスを指すようになります。クライアントはそこにトークンを Bearer トークンとして送ります。
+4. HTTPS で `X-CookingFoil-Features: direct-token` を送るサインイン済みのクライアントは `X-CookingFoil-Download-Token` ヘッダーを受け取り、一覧のダウンロード URL が直接アドレスを指すようになります。一緒に届く `X-CookingFoil-Download-Origin` は直接アドレスの origin で、クライアントはそこにだけトークンを Bearer トークンとして送ります。
 
 トークンはサーバーが署名し (`data/security/` にあるランダムな鍵による HMAC-SHA256)、`COOK_DOWNLOAD_LINK_TTL` 秒 (既定は 6 時間) 有効で、発行対象のアカウントや本体がサインインできなくなった時点で使えなくなります。拒否のレスポンスには `X-CookingFoil-Token: invalid | expired | revoked | blocked` が付き、無効なトークンを送りすぎたアドレスはしばらく締め出されます。この機能を宣言しないクライアント (Tinfoil、CyberFoil、ブラウザー) とプレーンな HTTP のリクエストには、これまでとまったく同じ一覧が返ります。Cloudflare 経由で届き、`CF-IPCountry` が `src/security/download-links.js` に固定された国以外のリクエストは、通常の URL のままです。
 
