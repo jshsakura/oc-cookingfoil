@@ -12,6 +12,7 @@
  *   POST /admin/api/devices/revoke  → revoke a device
  *   GET  /admin/api/server/status   → safe restart state, requests in flight (counts only)
  *   POST /admin/api/server/restart  → drain, then exit (the container comes back by its restart policy)
+ *   GET  /admin/api/transfers       → download records: open, recent, the last day per route
  *
  * Every POST/PUT/PATCH/DELETE refuses another site's Origin (403
  * { error: "origin mismatch" }) before its handler; GETs are untouched.
@@ -61,6 +62,7 @@ import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
 import { mountNszApi } from "./admin/nsz-api.js";
+import { mountTransfersApi } from "./admin/transfers-api.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -430,6 +432,7 @@ export default function adminPageRouter() {
   mountInboxApi(router, requireSession);
   mountServerApi(router, requireSession);
   mountNszApi(router, requireSession);
+  mountTransfersApi(router, requireSession);
 
   return router;
 }

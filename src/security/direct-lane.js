@@ -54,6 +54,7 @@ import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { isLocalHop } from "./local-hop.js";
 import connectionHint from "../helpers/connection-hint.js";
 import { largeFiles, GAME_FILE_RE } from "../helpers/file-send.js";
+import { trackTransfers } from "../helpers/transfer-track.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 
@@ -143,6 +144,8 @@ function refuse(res, status, verdict) {
 /** The routes and files the lane may reach, and nothing else. */
 function laneRouter(root, routes) {
   const router = express.Router();
+  // Everything that gets this far is a download: the records see it with route "direct".
+  router.use(trackTransfers());
   router.use(connectionHint());
   for (const [prefix, route] of Object.entries(routes)) router.use(prefix, route);
   const serve = express.static(root, { index: false, redirect: false, fallthrough: false });
@@ -200,6 +203,10 @@ export default function directLane(root, { routes = {}, ban = newBan(), edgeSecr
     if (token.verdict === "expired" || token.verdict === "stale") return refuse(res, 401, "expired");
     if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
 
+    // The download records (transfer-track.js): this lane, for whom, and the client the proxy named.
+    req.cookingfoilLane = "direct";
+    req.directSub = token.sub;
+    req.directClient = ip;
     lane(req, res, () => res.headersSent || res.status(404).end());
   };
 }
