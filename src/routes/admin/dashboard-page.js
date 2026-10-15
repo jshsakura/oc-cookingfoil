@@ -409,6 +409,7 @@ ${INBOX_HTML}
     <button type="button" data-kind="save"><b>세이브</b><span>게임이나 앱의 세이브</span></button>
     <button type="button" data-kind="homebrew"><b>홈브류</b><span>.nro, 앱 폴더</span></button>
     <button type="button" data-kind="port"><b>포트</b><span>옮겨 온 게임 앱</span></button>
+    <button type="button" data-kind="client"><b>클라이언트</b><span>cookingfoil.nro</span></button>
   </div>
   <p class="muted up-hint" id="up-hint"></p>
   <div class="up-drop" id="up-drop" tabindex="0" role="button" aria-label="올릴 파일 고르기">

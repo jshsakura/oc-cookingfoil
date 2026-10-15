@@ -9,7 +9,8 @@
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
  *   POST /api/client/log             a console's error log (see client-log.js)
  *
- * A build is published by dropping it at <data dir>/client/cookingfoil.nro
+ * A build is published by dropping it at <data dir>/client/cookingfoil.nro, or
+ * uploading it on the admin page (admin/upload-api.js, kind "client")
  * (written elsewhere and moved in; a .tmp beside it is never read). Whenever its
  * size or mtime changes it is checked (meta/client-build.js: NRO header and size,
  * ASET, NACP, an x.y.z version not lower than the last one). A build that passes
@@ -22,10 +23,9 @@
  * The build's signature is made where the build is (never on this server) and
  * dropped beside it as cookingfoil.nro.sig.json:
  *   { "version", "size", "sha256", "signature": <128 hex, Ed25519> }
- * It rides on /latest only while its version, size and sha256 are the build's
- * being offered; otherwise, or with no file, there is no signature, and a
- * client from 0.3.60 on does not take that build. The server never checks or
- * makes signatures: it holds no key, so a server taken over cannot sign one.
+ * It is optional: it rides on /latest only while its version, size and sha256
+ * are the build's being offered, and a build without one is offered all the
+ * same. The server never checks or makes signatures and holds no key.
  * Every route sits behind the same sign-in as the rest of the server.
  */
 import crypto from "crypto";

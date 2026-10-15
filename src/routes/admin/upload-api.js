@@ -1,7 +1,7 @@
 /**
  * /admin/api/upload — the operator adds files to the libraries from the admin page.
  *
- *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save|homebrew: { exists, writable } }, systems, games }
+ *   GET  /admin/api/upload/targets   { targets: { game|retro|patch|save|homebrew|client: { exists, writable } }, systems, games }
  *   POST /admin/api/upload/:kind     multipart: `files` (+ `paths`, a JSON list of folder-relative
  *                                    paths when a folder was picked) and the fields below
  *
@@ -15,10 +15,14 @@
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
  *     homebrew  port ("true" marks the placed app a port); a .nro, a release .zip or the app folder
  *                                              → <homebrew>/<app>/
+ *     client  the CookingFoil client build, one .nro → <data>/client/cookingfoil.nro, replacing the one
+ *             there; checked as client-update.js checks a dropped-in build (an NRO with a version not
+ *             lower than the one offered) and offered to consoles at once
  *
  * Behind the admin 2FA session and a same-origin check. Files are received into
  * a staging folder on the destination's own disk, checked, and moved into place
- * at once; a name that is already taken is refused, never overwritten. A new
+ * at once; a name that is already taken is refused, never overwritten (the
+ * client build is the one file that is replaced, by design). A new
  * retro ROM gets its box art and bezel fetched in the background.
  */
 import crypto from "crypto";
@@ -41,16 +45,18 @@ import { HomebrewUploadError, placeHomebrew } from "./homebrew-upload.js";
 import { defaultService } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
+import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
+import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
 import {
   GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk,
 } from "../../meta/library-upload.js";
 
-const KINDS = ["game", "retro", "patch", "save", "homebrew"];
+const KINDS = ["game", "retro", "patch", "save", "homebrew", "client"];
 const MAX_FILES = 5000;
 const FILE_NAME_TAIL_RE = /\s*\[[0-9A-F]{16}\]\[v\d+\]$/i;
 
-const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir })[kind];
+const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir, client: path.dirname(CLIENT_NRO) })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
 // are watched as they land, so theirs stays in the data folder.
 const stagingOf = (kind) => (kind === "game" ? path.join(dataDir, "uploads") : path.join(rootOf(kind), ".upload-staging"));
@@ -121,6 +127,25 @@ async function placeGame(items) {
   mustBeFree(dest, name);
   await moveFile(items[0].abs, dest);
   return { where: name, files: 1 };
+}
+
+/** The client build: checked before it replaces the one offered, then offered at once. */
+async function placeClient(items) {
+  if (items.length !== 1 || !/\.nro$/i.test(items[0].rel)) throw new UploadError(400, "클라이언트는 .nro 파일 하나만 받습니다");
+  let version;
+  try {
+    ({ version } = inspectNro(await fsp.readFile(items[0].abs)));
+  } catch (err) {
+    if (err instanceof ClientBuildError) throw new UploadError(400, `CookingFoil 빌드가 아닙니다: ${err.message}`);
+    throw err;
+  }
+  const before = clientBuildStatus().published;
+  if (before && compareVersions(version, before.version) < 0) throw new UploadError(400, `${version} 은 지금 내보내는 ${before.version} 보다 낮습니다`);
+  await fsp.rename(items[0].abs, CLIENT_NRO);
+  await latestBuild();
+  const { published, rejected } = clientBuildStatus();
+  if (published?.version !== version) throw new UploadError(400, `내보내지 못했습니다: ${rejected?.message ?? "검사를 통과하지 못했습니다"}`);
+  return { where: `client/cookingfoil.nro · ${version}`, files: 1, version };
 }
 
 async function placeRetro(items, body) {
@@ -224,6 +249,7 @@ export function mountUploadApi(router, guard) {
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
     const kind = req.params.kind;
     if (!KINDS.includes(kind)) return res.status(404).json({ error: "unknown kind" });
+    if (kind === "client") await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
     if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) {
       return res.status(409).json({ error: "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 바꿉니다" });
     }
@@ -247,6 +273,7 @@ export function mountUploadApi(router, guard) {
       const placed = kind === "game" ? await placeGame(items)
         : kind === "retro" ? await placeRetro(items, req.body)
         : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true" })
+        : kind === "client" ? await placeClient(items)
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
       body = { ok: true, kind, ...placed };

@@ -221,3 +221,58 @@ test("a save-keeper backup's .meta names the save's kind by its user_id", () => 
   assert.equal(backupSaveType("game.meta", "binary stuff"), null, "a game's own .meta file is not a backup's");
   assert.equal(backupSaveType("x.dat", "user_id=device"), null);
 });
+
+/** A minimal NRO: header, then an ASET block whose NACP carries `version` (as client-update.test.js builds it). */
+function fakeNro(version) {
+  const head = Buffer.alloc(0x100);
+  head.write("NRO0", 0x10);
+  head.writeUInt32LE(0x100, 0x18);
+  const aset = Buffer.alloc(0x38);
+  aset.write("ASET", 0);
+  aset.writeBigUInt64LE(0x38n, 0x18);
+  aset.writeBigUInt64LE(0x4000n, 0x20);
+  const nacp = Buffer.alloc(0x4000);
+  nacp.write("CookingFoil", 0);
+  nacp.write(version, 0x3060);
+  return Buffer.concat([head, aset, nacp]);
+}
+
+test("the admin uploads the client build and consoles are offered it at once, with no signature", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-upload-client-"));
+  const dirs = Object.fromEntries(["data", "games", "patches", "saves", "retro"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  const server = await boot(dirs);
+  try {
+    const login = await fetch(`${BASE}/admin/verify`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: ALICE },
+      body: JSON.stringify({ password: "admin-password-123" }),
+    });
+    const admin = { Authorization: ALICE, Cookie: login.headers.get("set-cookie").split(";")[0] };
+    const send = (name, data) => {
+      const fd = new FormData();
+      fd.append("files", new Blob([data]), name);
+      return fetch(`${BASE}/admin/api/upload/client`, { method: "POST", headers: admin, body: fd });
+    };
+    const latest = async () => (await fetch(`${BASE}/api/client/latest`, { headers: { Authorization: ALICE } })).json();
+
+    let r = await send("cookingfoil.nro", fakeNro("0.3.61"));
+    assert.equal(r.status, 201, await r.clone().text());
+    assert.equal((await r.json()).version, "0.3.61");
+    let offered = await latest();
+    assert.equal(offered.version, "0.3.61");
+    assert.equal(offered.signature, undefined, "no signature, offered all the same");
+
+    r = await send("cookingfoil.nro", fakeNro("0.3.62"));
+    assert.equal(r.status, 201, "the build is the one file that is replaced");
+    assert.equal((await latest()).version, "0.3.62");
+    assert.equal((await send("cookingfoil.nro", fakeNro("0.3.1"))).status, 400, "never a lower version");
+    assert.equal((await send("cookingfoil.nro", Buffer.from("not an nro"))).status, 400);
+    assert.equal((await send("other.zip", Buffer.from("PK"))).status, 400);
+    offered = await latest();
+    assert.equal(offered.version, "0.3.62", "a refused upload leaves the build offered as it was");
+    const overview = await (await fetch(`${BASE}/admin/api/stats`, { headers: admin })).json().catch(() => ({}));
+    assert.ok(!JSON.stringify(overview).includes("client-build-unsigned"), "no warning about a missing signature");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

@@ -424,6 +424,7 @@ const UP_HINT={
   patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
   save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
   homebrew:'.nro 하나나 릴리스 zip, 또는 앱 폴더를 올립니다. 감싼 폴더를 벗기고 switch/<앱>/ 하나로 정리하며, 그 밖의 파일(atmosphere/ 등)과 설명서는 빼고 무엇을 뺐는지 아래에 남깁니다.',
+  client:'직접 빌드한 cookingfoil.nro 하나를 올립니다. 지금 내보내는 것을 바꾸고, 기기는 다음에 앱을 켤 때 업데이트를 받습니다. 지금보다 낮은 버전은 받지 않습니다.',
   port:'포트 게임을 홈브류와 같은 방식으로 올리고 바로 포트로 등록합니다. .nro 나 릴리스 zip, 앱 폴더를 switch/<앱>/ 하나로 정리합니다. 포트의 패치와 세이브는 올린 뒤 그 앱을 골라 따로 올립니다.',
 };
 let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[];
