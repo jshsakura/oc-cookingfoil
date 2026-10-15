@@ -502,7 +502,28 @@ test("the probe looks the host up, asks base/, and counts any answer", async () 
   await assert.rejects(health.probe("https://dl.example.org", { lookup: PUBLIC_LOOKUP, fetchImpl: async () => { throw new Error("timeout"); } }));
   // A name that resolves into the private network is refused before it is asked.
   await assert.rejects(health.probe(DL, { lookup: async () => [{ address: "10.0.0.8" }], fetchImpl: async () => ({ status: 404 }) }), /내부망/);
-  assert.deepEqual(health.nextHealth({ up: false, since: null, fails: 3 }, true, 5), { up: true, since: 5, fails: 0, checkedAt: 5, error: null });
+  assert.deepEqual(health.nextHealth({ up: false, known: true, since: null, fails: 3 }, true, 5), { up: true, known: true, since: 5, fails: 0, checkedAt: 5, error: null });
+});
+
+test("the start alert says how the direct address answered", () => {
+  assert.equal(health.startLine({ configured: false, up: false }), "");
+  assert.match(health.startLine({ configured: true, up: true }), /응답합니다/);
+  assert.match(health.startLine({ configured: true, up: false }), /아직 응답하지 않습니다/);
+});
+
+test("a start or a new address that answers says nothing; one that does not is told once", () => {
+  const unknown = { up: false, known: false, since: null, fails: 0, checkedAt: null, error: null };
+  const answered = health.nextHealth(unknown, true, 1);
+  assert.equal(health.worthTelling(unknown, answered), false, "a restart is not a recovery");
+  const once = health.nextHealth(unknown, false, 1, "ECONNREFUSED");
+  assert.equal(once.known, false, "one failure does not settle it");
+  assert.equal(health.worthTelling(unknown, once), false);
+  const twice = health.nextHealth(once, false, 2, "ECONNREFUSED");
+  assert.deepEqual([twice.up, twice.known], [false, true]);
+  assert.equal(health.worthTelling(once, twice), true, "down found at start is told");
+  assert.equal(health.worthTelling(twice, health.nextHealth(twice, false, 3)), false, "and only once");
+  assert.equal(health.worthTelling(twice, health.nextHealth(twice, true, 4)), true, "a real recovery is told");
+  assert.equal(health.worthTelling(answered, health.nextHealth(health.nextHealth(answered, false, 5), false, 6)), true, "so is going down");
 });
 
 test("checks run only while requests come in, at most once a minute, one at a time", async () => {

@@ -6,7 +6,9 @@
  * (the proxy in front answers a plain 404 there); a failed lookup, connection,
  * TLS handshake, a 5xx or the time running out counts as a failure. One
  * success makes it up; it goes down only after FAILS_FOR_DOWN failures in a
- * row. It starts unknown (down) until the first check.
+ * row. It starts unknown (down) until the first check settles it: an answer
+ * then says nothing (a restart is not a recovery), and FAILS_FOR_DOWN
+ * failures say it is down.
  *
  * There is no timer. One check runs at start; after that a check runs only
  * while requests come in (touch) and the last one is at least RECHECK_MS old.
@@ -29,7 +31,8 @@ export const FAILS_FOR_DOWN = 2;
 const DOWN_TEXT = "외부 다운로드 전용 주소가 응답하지 않습니다.";
 const UP_TEXT = "외부 다운로드 전용 주소가 다시 응답합니다.";
 
-let health = { up: false, since: null, fails: 0, checkedAt: null, error: null };
+const UNKNOWN = { up: false, known: false, since: null, fails: 0, checkedAt: null, error: null };
+let health = UNKNOWN;
 let checkedBase = null;
 let probeOptions = {};
 let running = null;
@@ -68,16 +71,25 @@ export async function probe(base, { timeoutMs = CHECK_TIMEOUT_MS, fetchImpl = fe
 
 /** The state after one check: `ok` from the probe. Pure. */
 export function nextHealth(prev, ok, nowMs, error = null) {
-  if (ok) return { up: true, since: prev.up ? prev.since : nowMs, fails: 0, checkedAt: nowMs, error: null };
+  if (ok) return { up: true, known: true, since: prev.up ? prev.since : nowMs, fails: 0, checkedAt: nowMs, error: null };
   const fails = prev.fails + 1;
   const up = prev.up && fails < FAILS_FOR_DOWN;
-  return { up, since: up === prev.up ? prev.since : nowMs, fails, checkedAt: nowMs, error };
+  const known = prev.known || fails >= FAILS_FOR_DOWN;
+  return { up, known, since: up === prev.up && prev.known ? prev.since : nowMs, fails, checkedAt: nowMs, error };
+}
+
+/** Whether going from `prev` to `next` is worth telling: a change, or down found first. Pure. */
+export function worthTelling(prev, next) {
+  if (!next.known) return false;
+  return prev.known ? next.up !== prev.up : !next.up;
 }
 
 function apply(next) {
-  const changed = next.up !== health.up;
+  const settled = !health.known && next.known;
+  const tell = worthTelling(health, next);
   health = next;
-  if (!changed) return;
+  if (settled && !tell) debug.log("direct downloads: %s is answering", env.publicDirectBaseUrl);
+  if (!tell) return;
   debug.log("direct downloads: %s is %s%s", env.publicDirectBaseUrl, next.up ? "answering" : "not answering", next.error ? ` (${next.error})` : "");
   alert("direct", next.up ? UP_TEXT : DOWN_TEXT, { subject: next.up ? "up" : "down" });
 }
@@ -89,7 +101,7 @@ export async function check(options = probeOptions, nowMs = Date.now()) {
   // A new address starts over.
   if (base !== checkedBase) {
     checkedBase = base;
-    health = { up: false, since: null, fails: 0, checkedAt: null, error: null };
+    health = UNKNOWN;
   }
   const started = epoch;
   // Late answers (the address changed, or the state was reset meanwhile) are dropped.
@@ -143,17 +155,24 @@ export function checkSoon(waitMs = 5000) {
   return Promise.race([run, new Promise((resolve) => setTimeout(resolve, waitMs).unref())]);
 }
 
-/** One check now; later ones run while requests come in (touch). */
+/** One check now, which the returned promise waits for; later ones run while requests come in (touch). */
 export function start({ options = {} } = {}) {
   probeOptions = options;
   checkIfDue(Date.now());
+  return pending();
+}
+
+/** The line the start alert carries about the direct address, or "" when none is set. Pure. */
+export function startLine(s = status()) {
+  if (!s.configured) return "";
+  return s.up ? "외부 다운로드 전용 주소도 응답합니다." : "외부 다운로드 전용 주소는 아직 응답하지 않습니다.";
 }
 
 /** Tests set the state, the probe and the time of the last check directly. */
 export function setForTests(up, { options, checkedAt = Date.now() } = {}) {
   if (options) probeOptions = options;
   checkedBase = env.publicDirectBaseUrl;
-  health = { up, since: checkedAt, fails: 0, checkedAt, error: null };
+  health = { up, known: true, since: checkedAt, fails: 0, checkedAt, error: null };
   epoch += 1;
   running = null;
 }
