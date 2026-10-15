@@ -695,27 +695,30 @@
       .share-msg { min-height: 1.5em; font-size: 14px; margin-bottom: 12px; color: var(--secondary); }
       .share-msg.ok { color: var(--good); font-weight: 600; }
       .share-msg.bad { color: var(--bad); font-weight: 600; }
-      /* The client download: one long card on top of all games. */
+      /* The client download: one clean card on top of all games. */
       .client-card {
-        display: flex; align-items: center; gap: 22px; padding: 20px 24px; margin-bottom: 26px; border-radius: 22px;
-        color: #f2f1ee; background: radial-gradient(120% 160% at 0% 0%, #3a2c18 0%, var(--hero) 60%);
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+        display: flex; align-items: center; gap: 20px; padding: 18px 22px; margin-bottom: 24px;
+        border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line);
+        color: var(--ink);
       }
       .client-card[hidden] { display: none; }
-      .client-icon { width: 72px; height: 72px; border-radius: 18px; flex: none; object-fit: cover; background: #26262b; }
+      .client-icon { width: 64px; height: 64px; border-radius: 14px; flex: none; object-fit: cover; background: var(--sunk); }
       .client-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-      .client-text b { font-size: 19px; }
-      .client-meta { font-size: 15px; color: var(--butter); font-weight: 600; }
-      .client-hint { font-size: 14px; color: rgba(242, 241, 238, 0.72); word-break: keep-all; }
+      .client-text b { font-size: 17px; font-weight: 800; color: var(--ink); }
+      .client-meta { font-size: 13.5px; color: var(--secondary); font-weight: 600; }
+      .client-hint { font-size: 13.5px; color: var(--secondary); word-break: keep-all; line-height: 1.45; }
       .client-get {
-        flex: none; font: inherit; font-weight: 700; font-size: 16px; border: 0; border-radius: 12px; padding: 13px 20px;
+        flex: none; font: inherit; font-weight: 700; font-size: 15px; border: 0; border-radius: 12px; padding: 11px 18px;
         background: var(--butter); color: var(--butter-ink); cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
       }
-      .client-get:disabled { opacity: 0.6; cursor: wait; }
+      .client-get:hover { filter: brightness(1.04); transform: translateY(-1px); }
+      .client-get:active { transform: none; }
+      .client-get:disabled { opacity: 0.6; cursor: wait; transform: none; }
       .client-get:focus-visible { outline: 4px solid #0ab4e8; outline-offset: 3px; }
       @media (max-width: 640px) {
         .client-card { flex-wrap: wrap; gap: 14px; padding: 16px; }
-        .client-icon { width: 56px; height: 56px; border-radius: 14px; }
+        .client-icon { width: 52px; height: 52px; border-radius: 12px; }
         .client-get { width: 100%; }
       }
       .toast-rack { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; }
@@ -1069,10 +1072,10 @@
           "section.stats": "현황",
           "section.library": "모든 게임",
           "client.title": "CookingFoil 클라이언트",
-          "client.hint": "SD 카드 맨 위에 그대로 풀고 앱을 켜면 바로 연결됩니다. 받은 파일은 24시간 안에 한 번 연결할 수 있습니다.",
+          "client.hint": "SD 카드 최상위(루트)에 압축을 풀고 앱을 실행하면 바로 연결됩니다. (자동 연동 키 유효시간: 24시간)",
           "client.get": "받기",
           "client.version": (v, mb) => `버전 ${v} · ${mb} MB`,
-          "client.saved": "받았습니다. 24시간 안에 SD 카드에 풀고 앱을 켭니다.",
+          "client.saved": "다운로드 완료. 24시간 이내에 SD 카드 루트에 압축을 풀고 앱을 실행해 주세요.",
           "client.noBuild": "아직 올린 클라이언트가 없습니다.",
           "client.failed": "받지 못했습니다. 다시 시도합니다.",
           "tab.games": "모든 게임",
@@ -1314,10 +1317,10 @@
           "section.stats": "Stats",
           "section.library": "All games",
           "client.title": "CookingFoil client",
-          "client.hint": "Unzip it at the top of the SD card and open the app; it connects right away. A download connects once, within 24 hours.",
+          "client.hint": "Extract to the SD card root and launch the app to connect automatically. (One-time pairing key valid for 24 hours)",
           "client.get": "Download",
           "client.version": (v, mb) => `Version ${v} · ${mb} MB`,
-          "client.saved": "Downloaded. Unzip it to the SD card and open the app within 24 hours.",
+          "client.saved": "Downloaded. Extract to the SD card root and launch the app within 24 hours.",
           "client.noBuild": "No client has been uploaded yet.",
           "client.failed": "Could not download. Try again.",
           "section.recent": "Recently added",
@@ -1559,10 +1562,10 @@
           "section.stats": "状況",
           "section.library": "すべてのゲーム",
           "client.title": "CookingFoil クライアント",
-          "client.hint": "SD カードの一番上にそのまま展開してアプリを開くと、すぐにつながります。ダウンロードしたファイルは 24 時間以内に一度つなげます。",
+          "client.hint": "SD カードのルート（最上位）に解凍してアプリを起動すると自動接続されます。（初回連携キー有効期限: 24時間）",
           "client.get": "ダウンロード",
           "client.version": (v, mb) => `バージョン ${v} · ${mb} MB`,
-          "client.saved": "ダウンロードしました。24 時間以内に SD カードに展開してアプリを開きます。",
+          "client.saved": "ダウンロード完了。24時間以内に SD カードのルートに解凍してアプリを起動してください。",
           "client.noBuild": "まだクライアントがアップロードされていません。",
           "client.failed": "ダウンロードできませんでした。もう一度試します。",
           "section.recent": "最近の追加",
@@ -1804,10 +1807,10 @@
           "section.stats": "狀態",
           "section.library": "所有遊戲",
           "client.title": "CookingFoil 客戶端",
-          "client.hint": "直接解壓到 SD 卡根目錄並打開應用，即可立即連線。下載的檔案可在 24 小時內連線一次。",
+          "client.hint": "解壓至 SD 卡根目錄並開啟應用即可自動連線。（單次配對金鑰有效時間：24 小時）",
           "client.get": "下載",
           "client.version": (v, mb) => `版本 ${v} · ${mb} MB`,
-          "client.saved": "已下載。請在 24 小時內解壓到 SD 卡並打開應用。",
+          "client.saved": "下載完成。請於 24 小時內解壓至 SD 卡根目錄並開啟應用。",
           "client.noBuild": "尚未上傳客戶端。",
           "client.failed": "無法下載。請再試一次。",
           "section.recent": "最近新增",
