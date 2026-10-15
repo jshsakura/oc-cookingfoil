@@ -207,26 +207,37 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
     if (approveSignedInDevice(deviceKey, "auto")) debug.log("pair: auto-approved %s… (all consoles)", deviceKey.slice(0, 12));
     return true;
   }
-  if (!req.headers.authorization) return false;
+  const who = await pairSignIn(req);
+  if (!who) return false;
+  if (who.login && deviceLogins.claim(who.name, deviceKey) === "other-console") return false;
+  if (approveSignedInDevice(deviceKey, who.name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
+  return true;
+}
+
+/**
+ * The account a request to the pairing routes signed in with (Basic), checked
+ * the way the sign-in wall checks it, lockout included: { name, login } where
+ * `login` is whether it is a per-device login, or null.
+ */
+export async function pairSignIn(req) {
+  if (!req.headers.authorization) return null;
   const m = /^Basic\s+(\S+)$/i.exec(req.headers.authorization);
-  if (!m) return false;
+  if (!m) return null;
   const decoded = Buffer.from(m[1], "base64").toString("utf8");
   const sep = decoded.indexOf(":");
-  if (sep < 0) return false;
+  if (sep < 0) return null;
   const name = decoded.slice(0, sep);
   const password = decoded.slice(sep + 1);
   const ip = clientIp(req);
-  if (store.isLocked(ip)) return false;
+  if (store.isLocked(ip)) return null;
   const login = deviceLogins.has(name);
   const ok = await (login ? deviceLogins.verifyAsync(name, password) : users.verifyAsync(name, password));
   if (!ok) {
     if (!isLoopback(req) && !repeatedPoll(ip, req.headers.authorization)) recordFailure(ip, req);
-    return false;
+    return null;
   }
   store.clearFailure(ip);
-  if (login && deviceLogins.claim(name, deviceKey) === "other-console") return false;
-  if (approveSignedInDevice(deviceKey, name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), name);
-  return true;
+  return { name, login };
 }
 
 // A console polls its pairing status every few seconds with whatever account it

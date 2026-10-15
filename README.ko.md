@@ -291,6 +291,7 @@ server {
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드와 그 홈 메뉴 바로가기 |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다 |
+| `POST /api/pair/rebind` | 같은 기기를 새 기기 키로 옮깁니다(승인, 이름, 접근 키, 기기별 로그인의 기기 고정). 기기 키를 본체에서 만들어 내게 된 클라이언트가 씁니다. 옛 키의 접근 키, 또는 그 기기를 승인한 계정이나 그 기기에 고정된 기기별 로그인의 Basic 인증으로 증명합니다. 기능 이름은 `device-rebind` 입니다 |
 | `GET /healthz` | 상태 확인. 이미지의 `HEALTHCHECK` 가 씁니다 |
 
 클라이언트는 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 먼저 읽습니다. 관리 API(`/admin/api/*`)는 `/admin/guide` 의 운영 안내에 정리돼 있습니다.

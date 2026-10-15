@@ -187,6 +187,19 @@ export async function verifyAsync(name, password) {
  * Tinfoil may not send one) is let through.
  * @returns {"ok" | "other-console"}
  */
+/** The device key a login is locked to, or null (no such login, or not locked yet). */
+export function lockedTo(name) {
+  return logins.get(name)?.deviceKey ?? null;
+}
+
+/** Move a login's console lock from `from` to `to`; only a login locked to `from` moves. @returns {boolean} */
+export function reclaim(name, from, to) {
+  const record = logins.get(name);
+  if (!record || !from || !to || record.deviceKey !== from) return false;
+  commit(() => logins.set(name, { ...record, deviceKey: to }));
+  return true;
+}
+
 export function claim(name, deviceKey) {
   const record = logins.get(name);
   if (!record || !deviceKey) return "ok";

@@ -291,6 +291,7 @@ server {
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 自分で用意した RetroArch ベースパック |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` に置いた CookingFoil クライアントのビルドと、その HOME メニューのショートカット |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します |
+| `POST /api/pair/rebind` | 同じ本体を新しいデバイスキーに移します (承認、名前、アクセスキー、本体ごとのログインの本体固定)。デバイスキーを本体から作るようになったクライアントが使います。古いキーのアクセスキー、またはその本体を承認したアカウントか、その本体に固定された本体ごとのログインの Basic 認証で証明します。機能名は `device-rebind` です |
 | `GET /healthz` | ヘルスチェック。イメージの `HEALTHCHECK` が使います |
 
 クライアントは任意のフィールドを使う前に、`/api/shop/info` の `features` を読んでください。管理 API (`/admin/api/*`) は `/admin/guide` の運用ガイドに説明があります。

@@ -37,6 +37,7 @@ test("shop info lists the optional fields a client may rely on", () => {
 
 test("shop info lists device pairing when the server offers it", () => {
   assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-pairing"));
+  assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-rebind"));
 });
 
 test("shop info lists homebrew only while at least one app is listed", () => {
