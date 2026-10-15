@@ -302,7 +302,6 @@ expressApp.use(
 
 // ── lifecycle ───────────────────────────────────────────────────────────
 const server = expressApp.listen(appPort, afterStartFunction(appPort));
-alert("server", "서버가 켜졌습니다.");
 // Presses on the approval alerts' buttons, while Telegram is set up and buttons are on.
 telegramUpdates.watch();
 
@@ -345,7 +344,11 @@ userPatches.start({ onChange: () => shopCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
 // The direct address: checked now, then while requests come in; a change is only told (log, Telegram).
-directHealth.start();
+// The start alert waits for that first check (at most CHECK_TIMEOUT_MS) and says how it went.
+directHealth
+  .start()
+  .catch(() => {})
+  .then(() => alert("server", ["서버가 켜졌습니다.", directHealth.startLine()].filter(Boolean).join(" ")));
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 

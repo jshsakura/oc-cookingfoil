@@ -64,8 +64,8 @@ test("dangerous access: the first hit at once, the rest in one summary", async (
   assert.ok(!sent.some((m) => /\d+\.\d+\.\d+\.\d+/.test(m.body.text)), "no address is ever sent");
 });
 
-test("defaults: the six on, server start off; '-' turns all off and a list picks", () => {
-  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe", "inbox", "direct"]);
+test("defaults: all seven on; '-' turns all off and a list picks", () => {
+  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe", "inbox", "direct", "server"]);
   assert.deepEqual(alerts.enabledEvents("-"), []);
   assert.deepEqual(alerts.enabledEvents("server,lockout,nope"), ["server", "lockout"]);
   integrations.save("telegram", { botToken: "", chatId: "-100123", events: "lockout" });
