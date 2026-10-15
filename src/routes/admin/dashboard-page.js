@@ -43,7 +43,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-nav.tabs{display:flex;gap:6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+nav.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
 nav.tabs a{padding:10px 9px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
 nav.tabs a:hover{color:var(--text)}
 nav.tabs a[aria-current="page"]{color:var(--bg);background:var(--text)}
