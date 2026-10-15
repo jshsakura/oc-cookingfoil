@@ -270,6 +270,9 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   </form>
   <h2>승인 대기</h2><div class="scroll" id="pending"></div>
   <h2>승인된 기기</h2><div class="scroll" id="devices"></div>
+  <h2>웹에서 받은 클라이언트</h2>
+  <p class="muted">사용자가 웹 페이지에서 받은 CookingFoil 클라이언트입니다. 받을 때마다 그 사용자 계정의 일회용 연동 키가 들어가고, 24시간 안에 한 번 연결한 기기가 그 계정 아래로 승인됩니다. 키 값은 서버에 남지 않습니다.</p>
+  <div class="scroll" id="clients"></div>
   <h2>기기별 접속 정보 (CyberFoil·Tinfoil)</h2>
   <p class="muted">사용자가 기기 승인 화면(/pair)에서 기기마다 만든 아이디와 비밀번호입니다. 처음 접속한 기기에만 묶이고, 서버의 목록을 읽고 파일을 받는 것만 할 수 있습니다.</p>
   <form class="add" id="add-login">

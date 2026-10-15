@@ -75,7 +75,8 @@ export default async function shopInfoRoute(_req, res) {
     features: [
       ...FEATURES,
       "session-token",
-      ...(devicePairing ? ["device-pairing", "device-rebind"] : []),
+      // enroll: POST /api/pair/enroll spends a downloaded client's enrollment token.
+      ...(devicePairing ? ["device-pairing", "device-rebind", "enroll"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.

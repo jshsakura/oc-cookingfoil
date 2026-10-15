@@ -16,6 +16,14 @@
  *        → { status: "approved" }                             on later polls, or without the secret
  *        → 409 { error: "pairSecret mismatch" }               while pending, with a secret other than the first
  *
+ *   POST /api/pair/enroll  { token }  + X-Device-Key
+ *        A console spends the enrollment token its downloaded client carries
+ *        (security/enroll-tokens.js) for its own access key, approved under the
+ *        account that downloaded it. Once, within a day of the download.
+ *        → { status: "approved", accessKey, shopUrl }
+ *        → 401 { error } + X-CookingFoil-Enroll: invalid   unknown, spent, lapsed or withdrawn alike
+ *        → 409 { error }   the console is another account's, or the account may no longer sign in
+ *
  *   POST /api/pair/rebind  { from: <old 64hex>, accessKey? }  + X-Device-Key: <new 64hex>
  *        The same console under a new device key (a client that now makes its
  *        key from the console instead of keeping a random one): its approval,
@@ -49,6 +57,10 @@ import {
   verifyAccessKey,
 } from "../security/pairing.js";
 import * as deviceLogins from "../security/device-logins.js";
+import * as enrollTokens from "../security/enroll-tokens.js";
+import * as users from "../security/users.js";
+import * as googleAccounts from "../security/google-accounts.js";
+import { generateAccessKey, hashAccessKey } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -58,6 +70,17 @@ import { deliverAccessKey, registerPairSecret } from "../security/pairing-delive
 
 // What the server writes as `addedBy` for approvals no account made (admin page, COOK_DEVICE_AUTO_APPROVE=all, Telegram).
 const SYSTEM_APPROVERS = new Set(["admin", "auto", "telegram"]);
+
+/** Whether the account behind an approval may still sign in: "admin", a shop account, or "google:<email>". */
+function ownerAllowed(owner) {
+  if (owner === "admin") return true;
+  if (typeof owner !== "string") return false;
+  if (owner.startsWith("google:")) {
+    const email = owner.slice("google:".length);
+    return googleAccounts.list().some((a) => a.email === email && googleAccounts.isApproved(a.sub));
+  }
+  return users.isActive(owner);
+}
 
 function pendingResponse(req, deviceKey) {
   const link = issuePairLink(deviceKey);
@@ -154,6 +177,34 @@ export default function pairRouter() {
       debug.log("pair: delivered accessKey to %s…", deviceKey.slice(0, 12));
     }
     res.json(out);
+  });
+
+  router.post("/enroll", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const deviceKey = deviceKeyFromHeaders(req);
+    if (!deviceKey) {
+      res.status(400).json({ error: "invalid deviceKey" });
+      return;
+    }
+    // The console must be free, or already this account's (the same console enrolling again after a format).
+    const canEnroll = (owner) => ownerAllowed(owner) && (!store.isDeviceApproved(deviceKey) || store.deviceAddedBy(deviceKey) === owner);
+    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
+    if (!spent) {
+      res.set("X-CookingFoil-Enroll", "invalid");
+      res.status(401).json({ error: "the enrollment token has expired or is unknown" });
+      return;
+    }
+    if (spent.refused) {
+      res.status(409).json({ error: "this console belongs to another account" });
+      return;
+    }
+    const accessKey = generateAccessKey();
+    const fresh = !store.isDeviceApproved(deviceKey);
+    store.approveDevice(deviceKey, { label: fresh ? "웹에서 받은 클라이언트" : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+    store.clearPairSecret(deviceKey);
+    debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
+    const origin = resolveOrigin(req, publicBaseUrl);
+    res.json({ status: "approved", accessKey, shopUrl: origin ? `${origin}/shop.tfl` : null });
   });
 
   router.post("/rebind", async (req, res) => {

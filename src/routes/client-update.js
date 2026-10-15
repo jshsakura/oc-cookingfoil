@@ -5,6 +5,7 @@
  *                                    or 404 when no build is there; url and forwarder_url are on the
  *                                    direct address for a client that asked for it (security/download-links.js)
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
+ *   GET /api/client/icon             the build's own icon (for the web page's download card)
  *   GET /api/client/forwarder        the client's own HOME-menu shortcut NSP, starting
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
  *   POST /api/client/log             a console's error log (see client-log.js)
@@ -187,6 +188,9 @@ export async function latestBuild(file = CLIENT_NRO) {
   return { version: p.version, size: p.size, sha256: p.sha256, ...(signature ? { signature } : {}), url: URL_PATH };
 }
 
+/** Where the build being offered is kept (latestBuild says whether there is one). */
+export const publishedNroPath = () => PUBLISHED_NRO;
+
 /** For the admin page: what is offered, and the last file turned down (null once a good one replaced it). */
 export function clientBuildStatus() {
   const p = loadPublished();
@@ -214,6 +218,19 @@ export default function clientUpdateRouter() {
         forwarder_url: directUrl(forwarderUrl, link),
         ...forwarder,
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+  // The build's own icon, for the web page's download card.
+  router.get("/icon", async (req, res, next) => {
+    try {
+      const info = await latestBuild();
+      const icon = info ? (await parseAssets(PUBLISHED_NRO).catch(() => null))?.icon : null;
+      if (!icon) return res.status(404).end();
+      res.set({ "Cache-Control": "private, max-age=86400", ETag: `"icon-${info.sha256.slice(0, 16)}"` });
+      if (req.fresh) return res.status(304).end();
+      res.type(icon[0] === 0x89 ? "image/png" : "image/jpeg").send(icon);
     } catch (err) {
       next(err);
     }
