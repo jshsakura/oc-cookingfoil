@@ -156,6 +156,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 | 설정 | 변수 | 기본값 |
 |---|---|---|
 | QR 기기 연결 | `COOK_DEVICE_PAIRING` | `false` |
+| 비밀번호로 접속하는 콘솔(CyberFoil, Tinfoil) | `COOK_CONSOLE_PASSWORDS` | `true`. `false` 면 접근 키가 있는 콘솔(웹에서 받은 클라이언트, QR 연결)만 들어옵니다 |
 | 기기 승인 방식 | `COOK_DEVICE_AUTO_APPROVE` | `true` (로그인한 기기는 승인) |
 | 공개 주소 | `COOK_PUBLIC_BASE_URL` | 요청마다 알아냄 |
 | 웹 업로드 | `COOK_UPLOADS_ENABLED` | `false` |

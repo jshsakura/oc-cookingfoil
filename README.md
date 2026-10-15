@@ -156,6 +156,7 @@ Settings you will usually change on the admin page (Settings tab), all of which 
 | Setting | Variable | Default |
 |---|---|---|
 | QR device connection | `COOK_DEVICE_PAIRING` | `false` |
+| Consoles that sign in with a password (CyberFoil, Tinfoil) | `COOK_CONSOLE_PASSWORDS` | `true`; `false` lets in only consoles with an access key (a client downloaded from the web page, or QR pairing) |
 | How consoles are approved | `COOK_DEVICE_AUTO_APPROVE` | `true` (consoles that sign in are approved) |
 | Public address | `COOK_PUBLIC_BASE_URL` | derived from each request |
 | Web uploads | `COOK_UPLOADS_ENABLED` | `false` |

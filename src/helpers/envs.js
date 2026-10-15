@@ -312,6 +312,11 @@ const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 })
 // pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
 // basic-auth lane is disabled and an approved device is the sole way in.
 let devicePairing = envBool("COOK_DEVICE_PAIRING", false);
+// Consoles that sign in with an ID and password (Basic): CyberFoil, Tinfoil and
+// older CookingFoil builds. Off, only a console's access key or session token
+// (a client downloaded from the web page, or QR pairing) gets in; the web page
+// and the admin page sign in as before, and this machine itself still may.
+let consolePasswords = envBool("COOK_CONSOLE_PASSWORDS", true);
 // With pairing on: a console that signs in with an account or its device login
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set
@@ -361,6 +366,7 @@ let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, intege
  */
 const ENV_SETTINGS = Object.freeze({
   devicePairing,
+  consolePasswords,
   deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
   uploadsEnabled,
   inboxEnabled,
@@ -389,6 +395,7 @@ const ENV_SETTINGS = Object.freeze({
 function applyServerSettings(saved = {}) {
   const v = { ...ENV_SETTINGS, ...saved };
   devicePairing = v.devicePairing;
+  consolePasswords = v.consolePasswords;
   deviceAutoApprove = v.deviceApproval !== "manual";
   deviceAutoApproveAll = v.deviceApproval === "all";
   uploadsEnabled = v.uploadsEnabled;
@@ -486,6 +493,7 @@ export {
   steamGridDbKey,
   firstRunSetup,
   devicePairing,
+  consolePasswords,
   deviceAutoApprove,
   deviceAutoApproveAll,
 };

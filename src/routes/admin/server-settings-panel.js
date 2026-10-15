@@ -33,6 +33,7 @@ export const SERVER_SETTINGS_SCRIPT = /* js */ `
 const SS_GROUPS=[
   ['기기 연결',[
     ['devicePairing','bool','QR 로 기기 연결','CookingFoil 클라이언트가 QR 을 띄우고, 휴대폰으로 찍어 승인합니다. 끄면 아이디와 비밀번호로만 접속합니다.'],
+    ['consolePasswords','bool','비밀번호로 접속하는 콘솔','CyberFoil, Tinfoil, 예전 CookingFoil 처럼 아이디와 비밀번호로 붙는 콘솔을 받습니다. 끄면 웹 화면에서 받은 클라이언트나 QR 로 연결한 기기만 들어옵니다. 웹 화면과 관리 페이지 로그인은 그대로입니다. 지금 비밀번호로 붙는 콘솔을 새 클라이언트로 옮긴 뒤 끕니다.'],
     ['deviceApproval',[['manual','관리자가 하나씩 승인합니다'],['signin','계정으로 로그인한 기기는 바로 승인합니다'],['all','연결을 요청하는 기기를 모두 승인합니다']],'승인 방식','모두 승인은 내 기기만 닿을 수 있는 서버에서만 씁니다.'],
   ]],
   ['웹 화면',[
