@@ -559,8 +559,61 @@ test('the four charts share one row: composition, storage, recent months and gen
   await expect(cards.nth(3)).toContainText('장르');
   await expect(cards.nth(3).locator('.hbar')).toHaveCount(4);
   await expect(page.locator('#charts')).not.toContainText('Steam');
+  // measured once the cards have finished rising into place
+  await page.locator('#charts').evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   const tops = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#charts').screenshot({ path: 'out/web/charts-row.png' });
+});
+
+test('the chart row keeps four slots while the genres load, and the drawn cards stay in place when they arrive', async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/api/shop/sections', async (route) => {
+    await gate;
+    await route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [
+      { app_type: 'base', title_id: '0100000000010000', categories: ['Action', 'RPG'] },
+    ] }], genres: {} } });
+  });
+  await page.route('**/shop.json', (route) => route.fulfill({ json: { files: [
+    { url: 'a', name: 'Big Game [0100000000010000][v0].nsp', size: 8e9, kind: 'base', mtime: Date.now(), titleId: '0100000000010000' },
+  ], titledb: {} } }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  const cards = page.locator('#charts .chart');
+  await expect(page.locator('#charts .chart:not(.skel)')).toHaveCount(3);
+  await expect(cards).toHaveCount(4);
+  await expect(page.locator('#charts .chart.c3')).toHaveCount(4);
+  await expect(cards.nth(3)).toHaveClass(/skel/);
+  await expect(page.locator('#genre-chips .chip.skel').first()).toBeVisible();
+  await page.evaluate(() => { (document.querySelector('#charts .chart') as HTMLElement).dataset.kept = '1'; });
+
+  release();
+  await expect(page.locator('#charts .chart.skel')).toHaveCount(0);
+  await expect(cards).toHaveCount(4);
+  await expect(page.locator('#charts .chart.c3')).toHaveCount(4);
+  await expect(page.locator('#charts .chart').first()).toHaveAttribute('data-kept', '1');
+  await expect(page.locator('#genre-chips .chip.skel')).toHaveCount(0);
+});
+
+test("on a phone a game's window has a close button at the top right that closes it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#all');
+  await page.locator('#games .game:not(.skel)').first().click();
+  await expect(page.locator('#modal')).toHaveClass(/open/);
+  const x = page.locator('#modal .modal-x');
+  await expect(x).toBeVisible();
+  const box = (await x.boundingBox())!;
+  const sheet = (await page.locator('#modal .modal').boundingBox())!;
+  expect(box.y - sheet.y).toBeLessThan(24);
+  expect(sheet.x + sheet.width - (box.x + box.width)).toBeLessThan(24);
+  expect(await x.getAttribute('aria-label')).toBeTruthy();
+  // still there after scrolling the window to the bottom
+  await page.locator('#modal .modal').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await expect(x).toBeInViewport();
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/modal-phone-close.png' });
+  await x.click();
+  await expect(page.locator('#modal')).not.toHaveClass(/open/);
 });
