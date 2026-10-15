@@ -46,7 +46,7 @@ function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(wan
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
   if(tab==='settings'){loadServerSettings();loadIntegrations();loadTfa();loadGoogle();loadTokens();}
-  if(tab==='logs')loadClientLogs();
+  if(tab==='logs'){loadClientLogs();setTimeout(xfOpen);}
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();
   // After the whole script has run: the retro panel's state is declared further down.

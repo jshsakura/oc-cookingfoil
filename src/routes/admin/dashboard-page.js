@@ -20,6 +20,7 @@ import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATC
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
+import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -196,7 +197,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${ICON_CSS}
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ICON_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <div class="wrap">
 <header>
@@ -330,7 +331,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   ${TOKENS_HTML}
 </section>
 
-<section id="tab-logs" hidden>
+<section id="tab-logs" hidden>${TRANSFERS_HTML}
   <div class="hd"><h2>클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
   <div class="logs-view">
@@ -475,5 +476,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}</script></body></html>`;
 }

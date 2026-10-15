@@ -34,7 +34,11 @@ export const MESSAGE = Object.freeze({
 });
 
 // A response this large, or any Range request, counts as a download in the status.
-const DOWNLOAD_BYTES = 1024 * 1024;
+export const DOWNLOAD_BYTES = 1024 * 1024;
+
+/** Whether a request counts as a download: a Range request, or a response of DOWNLOAD_BYTES or more. */
+export const countsAsDownload = (req, res) =>
+  Boolean(req.headers.range) || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES;
 
 // The exit code of a restart asked for on the admin page (EX_TEMPFAIL): non-zero,
 // so a supervisor that restarts only on failure (systemd Restart=on-failure)
@@ -48,7 +52,7 @@ const HARD_DEADLINE_MS = 35_000;
 const RECENT_MS = 2 * 60 * 1000;
 const RECENT_MAX = 500;
 
-const isDownload = (req, res) => Boolean(req.headers.range) || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES;
+const isDownload = countsAsDownload;
 function requestPath(req) {
   try { return path.posix.normalize(decodeURIComponent(String(req.path ?? req.url ?? "").split("?")[0])); } catch { return null; }
 }

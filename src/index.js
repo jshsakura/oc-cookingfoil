@@ -37,7 +37,9 @@ import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
 import { largeFiles, GAME_FILE_RE } from "./helpers/file-send.js";
 import connectionHint from "./helpers/connection-hint.js";
-import directLane, { looksProxied } from "./security/direct-lane.js";
+import directLane, { looksProxied, laneOf } from "./security/direct-lane.js";
+import transferLog from "./helpers/transfer-log.js";
+import { trackTransfers } from "./helpers/transfer-track.js";
 import * as directHealth from "./security/direct-health.js";
 import { tokenHeader as downloadTokenHeader } from "./security/download-links.js";
 import busyGuard from "./security/busy-guard.js";
@@ -255,6 +257,9 @@ expressApp.get("/api/remote/icon/:titleId", iconRoute);
 // Tinfoil can't install but the dashboard can list + download.
 expressApp.get("/api/title/:baseTitleId/extras", extrasRoute);
 
+// Download records (helpers/transfer-log.js): the download routes and, below, the games folder.
+expressApp.use(Object.keys(downloadRouters), trackTransfers({ match: (p) => laneOf(p) === "route" }));
+
 // User patches (mods, cheats) a client installs onto the SD card itself.
 expressApp.use("/api/patches", downloadRouters["/api/patches"]);
 // Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
@@ -300,6 +305,7 @@ expressApp.use(deviceContentGuard());
 expressApp.use(shopFileBuilder());
 
 // File downloads + a directory listing for the games folder. Game files are read in large pieces (helpers/file-send.js).
+expressApp.use(trackTransfers({ match: (p) => !p.endsWith("/") }));
 expressApp.use(largeFiles(romsDirPath, GAME_FILE_RE));
 expressApp.use(express.static(romsDirPath));
 expressApp.use(
@@ -321,6 +327,10 @@ telegramUpdates.watch();
 // At LAN distances this is the difference between a snappy dashboard and
 // a perceptibly laggy one.
 server.on("connection", (socket) => socket.setNoDelay(true));
+
+transferLog
+  .load()
+  .catch((err) => debug.error("transfers load failed:", err.message));
 
 securityStore
   .load()
@@ -429,6 +439,7 @@ const restartOptions = (exitCode) => ({
     // A running conversion is stopped and waits again after the restart.
     await nszQueue.shutdown().catch(() => {});
     telegramUpdates.stop().catch(() => {});
+    await transferLog.shutdown().catch(() => {});
     await securityStore.shutdown().catch(() => {});
   },
   log: debug.log,
