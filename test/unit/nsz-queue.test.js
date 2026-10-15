@@ -91,7 +91,8 @@ test("a file is compressed, verified, swapped next to the original, and the byte
   assert.equal(q.totals().savedBytes, MIB);
   assert.deepEqual(swaps.map((s) => s.op), ["remove", "upsert"]);
   const args = JSON.parse(fs.readFileSync(process.env.NSZ_STUB_ARGS, "utf8"));
-  assert.deepEqual(args.slice(0, 6), ["-C", "-V", "-l", "18", "-t", "4"]);
+  assert.equal(args[0], "--keys");
+  assert.deepEqual(args.slice(2, 8), ["-C", "-V", "-l", "18", "-t", "4"]);
   assert.ok(!args.includes("-B"), "solid unless block compression is on");
   assert.ok(args[args.indexOf("-o") + 1].startsWith(path.join(games, WORK_DIR_NAME)));
   assert.deepEqual(fs.readdirSync(path.join(games, WORK_DIR_NAME)), []);
