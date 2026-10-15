@@ -2,9 +2,9 @@
 export const PAIR_TEXT = {
   ko: {
     clientTitle: "CookingFoil 클라이언트 받기",
-    clientLead: "앱과 이 서버의 연동 정보가 든 zip 을 받습니다. SD 카드 맨 위에 그대로 풀고 앱을 켜면 바로 연결됩니다.",
+    clientLead: "서버 접속 설정이 포함된 클라이언트(zip)를 다운로드합니다. SD 카드 최상위(루트)에 압축을 풀고 앱을 실행하면 바로 연결됩니다.",
     clientGet: "클라이언트 받기",
-    clientHint: "받은 파일의 연동 키는 24시간 안에 한 번만 쓸 수 있습니다. 시간이 지났으면 다시 받습니다.",
+    clientHint: "최초 등록용 일회성 연동 키는 24시간 동안 유효합니다. 만료되었을 경우 다시 다운로드해 주세요.",
     clientWaiting: "{time}까지 기다립니다",
     clientUsed: "연동했습니다",
     clientExpired: "쓰지 않고 만료됐습니다",
@@ -67,9 +67,9 @@ export const PAIR_TEXT = {
   },
   en: {
     clientTitle: "Get the CookingFoil client",
-    clientLead: "Download a zip with the app and this server's connection details. Unzip it at the top of the SD card and open the app; it connects right away.",
+    clientLead: "Download the client zip preconfigured with connection details. Extract to the SD card root and launch the app to connect automatically.",
     clientGet: "Download the client",
-    clientHint: "The connection key inside works once, within 24 hours. After that, download it again.",
+    clientHint: "The one-time pairing key is valid for 24 hours. If it expires, please download it again.",
     clientWaiting: "Waiting until {time}",
     clientUsed: "Connected",
     clientExpired: "Expired unused",
@@ -132,9 +132,9 @@ export const PAIR_TEXT = {
   },
   ja: {
     clientTitle: "CookingFoil クライアントを入手",
-    clientLead: "アプリとこのサーバーの接続情報が入った zip をダウンロードします。SD カードの一番上にそのまま展開してアプリを開くと、すぐにつながります。",
+    clientLead: "接続設定が含まれたクライアント（zip）をダウンロードします。SD カードのルート（最上位）に解凍してアプリを起動すると自動接続されます。",
     clientGet: "クライアントをダウンロード",
-    clientHint: "中の接続キーは 24 時間以内に一度だけ使えます。過ぎたらもう一度ダウンロードします。",
+    clientHint: "初回登録用のワンタイム連携キーは24時間有効です。有効期限が切れた場合は再度ダウンロードしてください。",
     clientWaiting: "{time} まで待っています",
     clientUsed: "接続しました",
     clientExpired: "使われずに期限切れになりました",
@@ -197,9 +197,9 @@ export const PAIR_TEXT = {
   },
   zh: {
     clientTitle: "获取 CookingFoil 客户端",
-    clientLead: "下载包含应用和本服务器连接信息的 zip。直接解压到 SD 卡根目录并打开应用，即可立即连接。",
+    clientLead: "下载预装本服务器连接信息的客户端 zip 包。解压到 SD 卡根目录并启动应用即可自动连接。",
     clientGet: "下载客户端",
-    clientHint: "其中的连接密钥只能在 24 小时内使用一次。过期后请重新下载。",
+    clientHint: "首次配对的一次性密钥在 24 小时内有效。如已过期，请重新下载。",
     clientWaiting: "等待至 {time}",
     clientUsed: "已连接",
     clientExpired: "未使用已过期",
