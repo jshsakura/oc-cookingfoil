@@ -6,8 +6,7 @@
  */
 
 export const RETRO_VARIANTS_HTML = `
-  <div class="hd"><h2 id="rv-title">같은 게임의 여러 버전</h2>
-    <div class="seg" role="group" aria-label="보기"><button type="button" data-rv="dups" class="active">중복</button><button type="button" data-rv="sets">아케이드 세트</button><button type="button" data-rv="trash">휴지통</button></div></div>
+  <div class="hd"><h2 class="first" id="rv-title">같은 게임의 여러 버전</h2></div>
   <p class="muted" id="rv-help"></p>
   <div class="row-actions" id="rv-tools"><input id="rv-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"><label id="rv-broken-wrap" hidden><input type="checkbox" id="rv-broken"> 못 도는 세트만</label></div>
   <p class="muted" id="rv-summary"></p>
@@ -55,8 +54,9 @@ function rvMemberRow(g,m,withSize){const tr=el('tr');
   if(withSize)tr.append(td(rvMb(m.size),'rv-nw'),td(rvDate(m.addedAt),'rv-nw'));
   tr.append(raCell(acts));return tr;}
 function rvMatch(g,q){return !q||g.members.some((m)=>(m.name+' '+m.file).toLowerCase().includes(q));}
+const RV_TITLE={dups:'같은 게임의 여러 버전',sets:'아케이드 세트',trash:'휴지통'};
 function rvShow(){
-  for(const b of document.querySelectorAll('[data-rv]'))b.classList.toggle('active',b.dataset.rv===rvView);
+  $('rv-title').textContent=RV_TITLE[rvView];
   $('rv-help').textContent=RV_HELP[rvView];$('rv-broken-wrap').hidden=rvView!=='sets';
   const q=$('rv-filter').value.trim().toLowerCase();
   if(rvView==='trash'){
@@ -99,7 +99,7 @@ async function rvTrash(m,force=false){
 async function rvRestore(i){
   try{await api('/admin/api/retro-variants/restore',{method:'POST',body:{entry:i.entry}});toast('되돌렸습니다.');rvData={};loadRetroVariants();}catch(err){toast(err.message);}
 }
-for(const b of document.querySelectorAll('[data-rv]'))b.addEventListener('click',()=>{rvView=b.dataset.rv;rvShow();loadRetroVariants();});
+
 let rvFilterT=0;$('rv-filter').addEventListener('input',()=>{clearTimeout(rvFilterT);rvFilterT=setTimeout(rvShow,200);});
 $('rv-broken').addEventListener('change',rvShow);
 `;

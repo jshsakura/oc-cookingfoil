@@ -93,6 +93,7 @@ test('the retro window fits a phone without scrolling sideways', async ({ page }
 test('the admin retro tab lists the versions of a game, picks the one shown and shows arcade sets', async ({ page, request }) => {
   await signIn(page);
   await page.getByRole('link', { name: '레트로' }).click();
+  await page.locator('#retro-subtabs [data-sub="dups"]').click();
   const list = page.locator('#rv-list');
   await expect(list).toContainText('공식 한국어판입니다');
   const patchRow = list.locator('tr', { hasText: 'J-K v20130609' });
@@ -104,9 +105,13 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await list.locator('tr', { hasText: 'Japan, Korea' }).getByRole('button', { name: '추천 버전으로 정합니다' }).click();
   await expect(list).toContainText('공식 한국어판입니다');
 
-  await page.locator('[data-rv="sets"]').click();
+  await page.locator('#retro-subtabs [data-sub="sets"]').click();
   await expect(page.locator('#rv-summary')).toContainText('게임 1개, 세트 2개입니다');
   await expect(list).toContainText('해외판입니다');
-  await page.locator('[data-rv="trash"]').click();
+  await page.locator('#retro-subtabs [data-sub="trash"]').click();
   await expect(list).toContainText('휴지통이 비어 있습니다');
+  // One sub-tab at a time: the covers are out of sight while the trash shows.
+  await expect(page.locator('#tab-retro [data-sub-panel="art"]')).toBeHidden();
+  await page.locator('#retro-subtabs [data-sub="art"]').click();
+  await expect(page.locator('#ra-systems')).toBeVisible();
 });
