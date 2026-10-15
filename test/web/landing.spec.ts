@@ -617,3 +617,48 @@ test("on a phone a game's window has a close button at the top right that closes
   await x.click();
   await expect(page.locator('#modal')).not.toHaveClass(/open/);
 });
+
+test('patches and homebrew open newest update first, and the order picked is kept', async ({ page }) => {
+  await page.route('**/api/shop/info*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
+  });
+  const patch = (id: string, tid: string, game: string, name: string, at: string, size: number) => ({
+    id, title_id: tid, name, kinds: ['romfs'], size, files: 1, hash: 'h', description: '', updated_at: at, game: { name: game } });
+  await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [
+    patch('a-1', '0100000000010000', 'Alpha', 'Alpha old', '2026-01-01T00:00:00Z', 10),
+    patch('b-1', '0100000000020000', 'Bravo', 'Bravo new', '2026-10-01T00:00:00Z', 5),
+    patch('a-2', '0100000000010000', 'Alpha', 'Alpha mid', '2026-05-01T00:00:00Z', 900),
+  ] } }));
+  await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves: [] } }));
+  const app = (id: string, name: string, at: string) => ({ id, app: id, name, kind: 'tool', size: 1, released_at: at, icon_url: '', download_url: '/x' });
+  await page.route('**/api/homebrew?*', (route) => route.fulfill({ json: { homebrew: [
+    app('zed', 'Zed Tool', '2026-09-01T00:00:00Z'), app('abc', 'Abc Tool', '2025-01-01T00:00:00Z'),
+  ] } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#patches');
+
+  const heads = page.locator('#patches-list .xgroup header strong');
+  await expect(heads).toHaveText(['Bravo', 'Alpha']);
+  await expect(page.locator('#patches-list .xgroup').nth(1).locator('.xname')).toHaveText(['Alpha mid', 'Alpha old']);
+  await expect(page.locator('#patches-sort')).toHaveValue('updated');
+  await page.locator('#patches-sort').selectOption('name');
+  await expect(heads).toHaveText(['Alpha', 'Bravo']);
+  await page.locator('#patches-sort').selectOption('size');
+  await expect(heads).toHaveText(['Alpha', 'Bravo']);
+  await expect(page.locator('#patches-list .xgroup').first().locator('.xname')).toHaveText(['Alpha mid', 'Alpha old']);
+
+  await page.goto('/#tools');
+  await expect(page.locator('#tools-list .xname')).toHaveText(['Zed Tool', 'Abc Tool']);
+  await page.locator('#tools-sort').selectOption('name');
+  await expect(page.locator('#tools-list .xname')).toHaveText(['Abc Tool', 'Zed Tool']);
+  await page.reload();
+  await expect(page.locator('#tools-sort')).toHaveValue('name');
+  await expect(page.locator('#tools-list .xname')).toHaveText(['Abc Tool', 'Zed Tool']);
+  await page.goto('/#patches');
+  await expect(page.locator('#patches-sort')).toHaveValue('size');
+  await page.setViewportSize({ width: 390, height: 844 });
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/patches-sort-phone.png' });
+});
