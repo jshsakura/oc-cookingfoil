@@ -133,6 +133,7 @@ test("with no direct address nothing changes: no token, normal URLs, the lane is
   const port = await listApp();
   const r = await get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...FEATURES } });
   assert.equal(r.headers["x-cookingfoil-download-token"], undefined);
+  assert.equal(r.headers["x-cookingfoil-download-origin"], undefined);
   const hb = JSON.parse(r.body).homebrew[0];
   assert.equal(hb.download_url, "/api/homebrew/gh-0123456789ab/download");
   assert.equal(r.body.includes("direct"), false);
@@ -446,6 +447,7 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
   const ask = (headers) => get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...headers } });
   const on = await ask(FEATURES);
   const token = on.headers["x-cookingfoil-download-token"];
+  assert.equal(on.headers["x-cookingfoil-download-origin"], DL, "the token says the one origin it goes to");
   assert.equal(tokens.verify(token).verdict, "ok");
   const hb = JSON.parse(on.body).homebrew[0];
   assert.equal(hb.download_url, `${DL}/api/homebrew/gh-0123456789ab/download`);

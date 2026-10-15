@@ -231,7 +231,7 @@ CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 H
 1. 컨테이너와 같은 호스트의 리버스 프록시가 예를 들어 `https://dl.example.org` 를 맡습니다. 이 프록시는 `Authorization: Bearer …` 가 붙은 `GET`, `HEAD` 요청만 넘기고, `X-Forwarded-For` 를 직접 쓰며, `Host` 를 직접 다운로드 주소(포트가 있으면 포트까지)로 정하고, `X-CookingFoil-Edge: <secret>` 을 붙입니다. 원래 쓰는 터널로 들어온 요청은 넘기지 않아야 합니다.
 2. 같은 시크릿을 `.env` 의 `COOK_DIRECT_EDGE_SECRET` 에 넣습니다. 이 값은 관리 페이지 설정이 아닙니다. 없으면 직접 다운로드 주소는 아무것도 내주지 않습니다.
 3. 주소는 관리 페이지(설정 탭의 다운로드)나 `COOK_PUBLIC_DIRECT_BASE_URL` 에 넣습니다. 반드시 `https://` 여야 합니다.
-4. HTTPS 로 `X-CookingFoil-Features: direct-token` 을 보내는 로그인한 클라이언트는 `X-CookingFoil-Download-Token` 헤더를 받고, 목록의 다운로드 주소가 직접 다운로드 주소를 가리킵니다. 클라이언트는 그곳에 토큰을 Bearer 토큰으로 보냅니다.
+4. HTTPS 로 `X-CookingFoil-Features: direct-token` 을 보내는 로그인한 클라이언트는 `X-CookingFoil-Download-Token` 헤더를 받고, 목록의 다운로드 주소가 직접 다운로드 주소를 가리킵니다. 함께 오는 `X-CookingFoil-Download-Origin` 은 직접 다운로드 주소의 origin 이고, 클라이언트는 그곳에만 토큰을 Bearer 토큰으로 보냅니다.
 
 토큰은 서버가 서명하고(`data/security/` 의 무작위 키로 HMAC-SHA256), `COOK_DOWNLOAD_LINK_TTL` 초(기본 6시간) 동안 유효하며, 토큰을 받은 계정이나 기기가 더는 로그인할 수 없게 되면 바로 쓸 수 없습니다. 거절에는 `X-CookingFoil-Token: invalid | expired | revoked | blocked` 가 붙고, 틀린 토큰을 너무 많이 보낸 주소는 한동안 막힙니다. 이 기능을 알리지 않는 클라이언트(Tinfoil, CyberFoil, 브라우저)와 일반 HTTP 요청은 전과 똑같은 목록을 봅니다. Cloudflare 를 거쳐 온 요청의 `CF-IPCountry` 가 `src/security/download-links.js` 에 정해 둔 나라가 아니면 원래 주소를 그대로 받습니다.
 
