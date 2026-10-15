@@ -15,7 +15,7 @@
 import crypto from "crypto";
 import expressBasicAuth from "express-basic-auth";
 import debug from "../debug.js";
-import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll } from "../helpers/envs.js";
+import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll, consolePasswords } from "../helpers/envs.js";
 import { approveSignedInDevice } from "./pairing-approve.js";
 import * as users from "./users.js";
 import * as deviceLogins from "./device-logins.js";
@@ -97,6 +97,13 @@ export default function authGuard() {
         if (err || !req.auth?.user) return next(err);
         afterSignIn(req, res, next, ip);
       });
+    }
+
+    // Passwords from consoles are switched off: Basic counts for nothing here
+    // (this machine itself, above, still may).
+    if (!consolePasswords && /^Basic\s/i.test(req.headers.authorization ?? "")) {
+      res.set("X-CookingFoil-Deny", DENY.CONSOLE_PASSWORDS_OFF);
+      return denyResponse(req, res, { reason: DENY.CONSOLE_PASSWORDS_OFF, status: 401, body: "Signing in with a password is switched off on this server. Download the client from the web page.\n" });
     }
 
     if (store.isLocked(ip)) {
@@ -223,6 +230,7 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
  */
 export async function pairSignIn(req) {
   if (!req.headers.authorization) return null;
+  if (!consolePasswords && !isLoopback(req)) return null;
   const m = /^Basic\s+(\S+)$/i.exec(req.headers.authorization);
   if (!m) return null;
   const decoded = Buffer.from(m[1], "base64").toString("utf8");

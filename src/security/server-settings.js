@@ -1,6 +1,6 @@
 /**
  * Server behaviour the admin page can change while the server runs: device
- * approval, uploads, the share inbox, the public address, the direct download address, where names come from,
+ * approval, whether consoles may sign in with a password, uploads, the share inbox, the public address, the direct download address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
  * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
@@ -40,6 +40,7 @@ const list = (re, max) => ({
 /** Each setting and what it accepts. `empty` is allowed for the ones that may be blank. */
 export const SETTINGS = {
   devicePairing: bool,
+  consolePasswords: bool,
   deviceApproval: oneOf("manual", "signin", "all"),
   uploadsEnabled: bool,
   inboxEnabled: bool,

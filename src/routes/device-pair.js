@@ -29,7 +29,7 @@ import * as store from "../security/store.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
 import { hasValidSession } from "../security/admin-session.js";
-import { devicePairing, publicBaseUrl } from "../helpers/envs.js";
+import { consolePasswords, devicePairing, publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 import { devicePairPage } from "./device-pair-page.js";
@@ -98,6 +98,7 @@ function mountMineApi(router) {
     if (!approver) return;
     // Device logins ride the password lane, which only exists while there are accounts.
     if (!users.hasUsers()) return res.status(409).json({ error: "device logins need shop accounts" });
+    if (!consolePasswords) return res.status(409).json({ error: "consoles cannot sign in with a password on this server" });
     try {
       const login = deviceLogins.create({ owner: approver, label: req.body?.label });
       const origin = resolveOrigin(req, publicBaseUrl);
@@ -200,7 +201,7 @@ export default function devicePairRouter() {
     pageHeaders(res);
     const approver = approverOf(req);
     res.type("html").send(devicePairPage({
-      view: approver ? "scan" : "signin", lang: requestLang(req), approver, pairing: devicePairing, logins: users.hasUsers(),
+      view: approver ? "scan" : "signin", lang: requestLang(req), approver, pairing: devicePairing, logins: users.hasUsers() && consolePasswords,
     }));
   });
 

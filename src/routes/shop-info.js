@@ -16,7 +16,7 @@ import pkg from "../package.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs.js";
+import { consolePasswords, devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as users from "../security/users.js";
@@ -77,7 +77,7 @@ export default async function shopInfoRoute(_req, res) {
       "session-token",
       // enroll: POST /api/pair/enroll spends a downloaded client's enrollment token.
       ...(devicePairing ? ["device-pairing", "device-rebind", "enroll"] : []),
-      ...(users.hasUsers() ? ["device-logins"] : []),
+      ...(users.hasUsers() && consolePasswords ? ["device-logins"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
       ...(retro ? ["retro"] : []),
