@@ -36,6 +36,9 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4
 button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(--soft);color:var(--bad);flex:none}
 #error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
 .back{display:block;text-align:center;margin:20px 0 0;color:var(--muted);font-size:15px}
+.client-card{display:flex;align-items:center;gap:16px;padding:16px;margin:0 0 16px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}
+.client-card img{width:64px;height:64px;border-radius:16px;flex:none;background:var(--card);object-fit:cover}
+.client-card div{display:flex;flex-direction:column;gap:2px;min-width:0}.client-card strong{font-size:18px}.client-card .hint{font-weight:600;margin:0}
 [hidden]{display:none!important}
 @media(max-width:420px){body{padding:16px}.card{padding:22px}}`;
 
@@ -47,8 +50,10 @@ ${withCode ? `<label for="code">${t.codeLabel}</label><input id="code" name="cod
 }
 
 function clientSection(t) {
-  return `<section class="block" id="client"><h2>${t.clientTitle}</h2><p>${t.clientLead}</p>
-<button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint}</p></section>`;
+  return `<section class="block" id="client"><h2>${t.clientTitle}</h2>
+<div class="client-card"><img id="client-icon" src="/api/client/icon" alt="" width="64" height="64" decoding="async">
+<div><strong>CookingFoil</strong><span class="hint" id="client-meta"></span></div></div>
+<p>${t.clientLead}</p><button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint}</p></section>`;
 }
 
 function loginsSection(t) {
@@ -192,6 +197,11 @@ if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=tru
     const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);loadMine();}
   catch{error.textContent=T.errNetwork;}finally{getClient.disabled=false;}});
 if(location.hash==='#client'&&getClient)getClient.scrollIntoView({block:'center'});
+// The build on offer: its version and size beside the icon; no build, no card.
+if(getClient)fetch('/api/client/latest',{credentials:'same-origin'}).then((r)=>r.ok?r.json():null).then((b)=>{
+  if(!b){document.getElementById('client').hidden=true;return;}
+  document.getElementById('client-meta').textContent='v'+b.version+' · '+(b.size/1048576).toFixed(1)+' MB';}).catch(()=>{});
+const clientIcon=document.getElementById('client-icon');if(clientIcon)clientIcon.addEventListener('error',()=>{clientIcon.style.visibility='hidden';});
 loadMine();
 `;
 

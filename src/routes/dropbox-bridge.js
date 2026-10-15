@@ -150,7 +150,7 @@ function page(res, status, lang, kind, detail = "") {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   res.status(status).set({ "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'" })
     .type("html").send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f2f1ee;color:#16161a;font:16px/1.6 system-ui,sans-serif}
+<style>body{margin:0;box-sizing:border-box;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#f2f1ee;color:#16161a;font:16px/1.6 system-ui,sans-serif}
 @media(prefers-color-scheme:dark){body{background:#16161a;color:#f2f1ee}.card{background:#1f1f24!important}}
 .card{background:#fff;border-radius:20px;padding:32px;max-width:420px;text-align:center}h1{font-size:22px;margin:12px 0 8px}p{margin:0;opacity:.75}</style></head>
 <body><main class="card"><img src="/assets/cookingfoil.svg" alt="" width="56" height="56"><h1>${esc(title)}</h1><p>${esc(body)}</p>${detail ? `<p>${esc(detail)}</p>` : ""}</main></body></html>`);

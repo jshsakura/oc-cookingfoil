@@ -2,25 +2,40 @@
  * The admin page's retro tab: box art and bezel coverage per system, a button
  * that fetches what is missing, and a dialog to match one item by hand from
  * libretro names or SteamGridDB covers. Talks to /admin/api/retro-art.
- * The versions block (retro-variants-panel.js) sits at the end of the tab.
+ * The tab is split by a bar of sub-tabs: covers and bezels, ratings, and the
+ * versions block (retro-variants-panel.js: duplicates, arcade sets, trash),
+ * one shown at a time.
  */
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
+  <nav class="subtabs" id="retro-subtabs" role="tablist" aria-label="레트로">
+    <button type="button" role="tab" data-sub="art">표지·베젤</button>
+    <button type="button" role="tab" data-sub="ratings">평점</button>
+    <button type="button" role="tab" data-sub="dups">중복 버전</button>
+    <button type="button" role="tab" data-sub="sets">아케이드 세트</button>
+    <button type="button" role="tab" data-sub="trash">휴지통</button>
+  </nav>
+  <div data-sub-panel="art">
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 받기</button></div>
   <p class="muted">파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다. 그 게임의 베젤이 없으면 같은 제목의 다른 지역판 베젤을, 그것도 없으면 시스템 기본 베젤을 씁니다. 아케이드 세트에 표지가 없으면 같은 게임의 다른 세트 표지를 보여 줍니다.</p>
   <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings">설정 탭</a>에서 넣을 수 있습니다.</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
-  <div class="hd"><h2>평점</h2><button type="button" id="ra-ratings">평점 갱신</button></div>
-  <p class="muted">LaunchBox 게임 데이터베이스의 사용자 평점을 원제로 맞춰 붙입니다. 자료 파일이 100MB 쯤이라 몇 분 걸립니다. 일주일마다 저절로 갱신합니다.</p>
-  <p class="muted" id="ra-ratings-state"></p>
   <div class="scroll" id="ra-systems"></div>
   <div class="hd"><h2 id="ra-list-title">표지가 없는 항목</h2><input id="ra-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"></div>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.</p>
   <div class="scroll" id="ra-missing"></div>
   <div class="ra-pager" id="ra-pager" hidden><button type="button" id="ra-prev">이전</button><span id="ra-page"></span><button type="button" id="ra-next">다음</button></div>
+  </div>
+  <div data-sub-panel="ratings" hidden>
+  <div class="hd"><h2 class="first">평점</h2><button type="button" id="ra-ratings">평점 갱신</button></div>
+  <p class="muted">LaunchBox 게임 데이터베이스의 사용자 평점을 원제로 맞춰 붙입니다. 자료 파일이 100MB 쯤이라 몇 분 걸립니다. 일주일마다 저절로 갱신합니다.</p>
+  <p class="muted" id="ra-ratings-state"></p>
+  </div>
+  <div data-sub-panel="versions" hidden>
 ${RETRO_VARIANTS_HTML}
+  </div>
 </section>
 <dialog id="ra-dialog" class="ra-dialog">
   <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
@@ -37,6 +52,11 @@ ${RETRO_VARIANTS_HTML}
 </dialog>`;
 
 export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
+.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.subtabs::-webkit-scrollbar{display:none}
+.subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
+.subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
+.subtabs button:hover{color:var(--text)}
 .ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--text);padding:20px}
 .ra-dialog::backdrop{background:rgba(0,0,0,.5)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:16px}
 .ra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0;overflow:auto;max-height:52vh}
@@ -52,6 +72,18 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 
 export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
+// One sub-tab at a time; the choice is remembered in this browser only.
+// var, not let: the tab can open while the page's script is still being read.
+var RETRO_SUBS=['art','ratings','dups','sets','trash'];
+var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
+function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
+  try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
+  for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
+  const panel=retroSub==='art'||retroSub==='ratings'?retroSub:'versions';
+  for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
+  if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
+for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
+function retroOpen(){loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
 function raCell(node){const c=el('td');c.append(node);return c;}
 async function loadRetroArt(){
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
