@@ -22,7 +22,7 @@ function bootServer(data) {
   return spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
-      ...process.env,
+      ...process.env, COOK_CONSOLE_PASSWORDS: "true",
       COOK_PORT: String(PORT),
       COOK_DATA_DIR: data,
       COOK_GAMES_DIR: games,

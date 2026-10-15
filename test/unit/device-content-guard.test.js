@@ -49,10 +49,10 @@ function runProbe({ env = {}, headers = {} } = {}) {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
     cwd: import.meta.dirname,
     env: {
-      ...process.env,
+      ...process.env, COOK_CONSOLE_PASSWORDS: "true",
       COOK_DATA_DIR: mkdtempSync(path.join(tmpdir(), "cf-dcg-")),
       COOK_AUTH_USERS: "",
-      COOK_DEVICE_PAIRING: "",
+      COOK_DEVICE_PAIRING: "false",
       COOK_LOCKOUT_TRUST_LOOPBACK: "false",
       PROBE_HEADERS: JSON.stringify(headers),
       ...env,
@@ -101,7 +101,7 @@ test("basic-auth configured: the guard steps aside entirely (authGuard owns this
 });
 
 test("pairing off: no enforcement at all", () => {
-  const r = runProbe({ env: { COOK_DEVICE_PAIRING: "", COOK_AUTH_USERS: "" } });
+  const r = runProbe({ env: { COOK_DEVICE_PAIRING: "false", COOK_AUTH_USERS: "" } });
   assert.equal(r.passedThrough, true);
   assert.equal(r.status, null);
 });

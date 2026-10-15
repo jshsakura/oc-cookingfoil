@@ -155,8 +155,8 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 
 | 設定 | 変数 | 既定値 |
 |---|---|---|
-| QR による本体接続 | `COOK_DEVICE_PAIRING` | `false` |
-| パスワードで接続する本体 (CyberFoil、Tinfoil) | `COOK_CONSOLE_PASSWORDS` | `true`。`false` ならアクセスキーを持つ本体 (Web からダウンロードしたクライアント、QR 接続) だけが入れます |
+| QR による本体接続 | `COOK_DEVICE_PAIRING` | `true` |
+| パスワードで接続する本体 (CyberFoil、Tinfoil) | `COOK_CONSOLE_PASSWORDS` | `false`。アクセスキーを持つ本体 (Web からダウンロードしたクライアント、QR 接続) だけが入れます。`true` なら ID とパスワードで接続する本体も受け付けます |
 | 本体の承認方法 | `COOK_DEVICE_AUTO_APPROVE` | `true` (サインインした本体は承認されます) |
 | 公開アドレス | `COOK_PUBLIC_BASE_URL` | リクエストごとに導出 |
 | Web アップロード | `COOK_UPLOADS_ENABLED` | `false` |
