@@ -1,0 +1,47 @@
+/**
+ * The server's own NSZ conversion queue (nsz-queue.js), wired to the games
+ * folder, the live settings, the download tracking of the safe restart
+ * (security/drain.js), the library cache and the Telegram alerts.
+ */
+import path from "path";
+import { createNszQueue } from "./nsz-queue.js";
+import * as env from "../helpers/envs.js";
+import * as shopCache from "./shop-cache.js";
+import drainer from "../security/drain.js";
+import { alert } from "../helpers/alerts.js";
+
+/** The queue's settings as they are right now (envs.js live bindings). */
+export const currentSettings = () => ({
+  enabled: env.nszEnabled,
+  autoQueue: env.nszAutoQueue,
+  level: env.nszLevel,
+  threads: env.nszThreads,
+  workers: env.nszWorkers,
+  minSizeMb: env.nszMinSizeMb,
+  diskFloorGb: env.nszDiskFloorGb,
+  block: env.nszBlock,
+  xci: env.nszXci,
+});
+
+const queue = createNszQueue({
+  gamesDir: env.romsDirPath,
+  stateFile: path.join(env.dataDir, "nsz-queue.json"),
+  settings: currentSettings,
+  downloads: () => drainer.downloads(),
+  // Games are served at their path under the games folder, on both download lanes.
+  fileInUse: (rel) => drainer.pathInUse(`/${rel.split(path.sep).join("/")}`),
+  catalog: () => shopCache.files(),
+  onSwapped: (changes) => shopCache.noteFileChanges(changes),
+  alert: (text, subject) => alert("nsz", text, { subject }),
+});
+
+let started = false;
+/** Cleans the work folder, resumes a run left going, and queues new files after each library rebuild. */
+export function start() {
+  if (started) return;
+  started = true;
+  queue.init().catch(() => {});
+  shopCache.onUpdate(() => queue.onLibraryUpdate());
+}
+
+export default queue;

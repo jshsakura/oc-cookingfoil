@@ -60,6 +60,7 @@ import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dr
 import patchesRouter from "./routes/patches.js";
 import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
 import * as userPatches from "./meta/user-patches.js";
+import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
 import { loadPrices } from "./meta/eshop-price.js";
 import * as ratingSync from "./meta/rating-sync.js";
 import * as securityStore from "./security/store.js";
@@ -361,6 +362,9 @@ directHealth
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
+// The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
+startNszQueue();
+
 // Seed the custom-art override index from disk so the icon/banner/screenshot
 // routes can do a zero-syscall "is there an override?" check on the hot path.
 customArt.init().then(() => shopCache.invalidate()).catch((err) =>
@@ -422,6 +426,8 @@ const restartOptions = (exitCode) => ({
   announce: (notice) => wsHandle.broadcast({ type: "restarting", ...notice }),
   cleanup: async () => {
     try { wsHandle.close(); } catch {}
+    // A running conversion is stopped and waits again after the restart.
+    await nszQueue.shutdown().catch(() => {});
     telegramUpdates.stop().catch(() => {});
     await securityStore.shutdown().catch(() => {});
   },
@@ -432,7 +438,7 @@ drainer.onRestartRequest(() => drainer.shutdown(restartOptions(RESTART_EXIT_CODE
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => drainer.signal(sig, {
     ...restartOptions(0),
-    force: () => securityStore.shutdown().catch(() => {}).finally(() => process.exit(0)),
+    force: () => (nszQueue.killNow(), securityStore.shutdown()).catch(() => {}).finally(() => process.exit(0)),
   }));
 }
 
