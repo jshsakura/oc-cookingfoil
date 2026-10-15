@@ -956,7 +956,14 @@
 
         <div data-tab-panel="patches" hidden>
           <h2><span data-i18n="tab.patches"></span><span class="rule"></span><span class="count" id="patches-count">0</span></h2>
-          <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" /></div>
+          <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" />
+          <select class="sort-select" id="patches-sort" data-xsort="patches">
+            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="name" data-i18n="sort.name_asc"></option>
+            <option value="name-desc" data-i18n="sort.name_desc"></option>
+            <option value="size" data-i18n="sort.size_desc"></option>
+          </select>
+          </div>
           <div class="xlist" id="patches-list" aria-busy="true"></div>
           <p class="empty" id="patches-empty" hidden></p>
           <div class="pager" id="patches-pager"></div>
@@ -964,7 +971,14 @@
 
         <div data-tab-panel="saves" hidden>
           <h2><span data-i18n="tab.saves"></span><span class="rule"></span><span class="count" id="saves-count">0</span></h2>
-          <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" /></div>
+          <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" />
+          <select class="sort-select" id="saves-sort" data-xsort="saves">
+            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="name" data-i18n="sort.name_asc"></option>
+            <option value="name-desc" data-i18n="sort.name_desc"></option>
+            <option value="size" data-i18n="sort.size_desc"></option>
+          </select>
+          </div>
           <div class="xlist" id="saves-list" aria-busy="true"></div>
           <p class="empty" id="saves-empty" hidden></p>
           <div class="pager" id="saves-pager"></div>
@@ -972,14 +986,28 @@
 
         <div data-tab-panel="tools" hidden>
           <h2><span data-i18n="tab.tools"></span><span class="rule"></span><span class="count" id="tools-count">0</span></h2>
-          <div class="toolbar"><input class="search" id="tools-search" type="search" autocomplete="off" /></div>
+          <div class="toolbar"><input class="search" id="tools-search" type="search" autocomplete="off" />
+          <select class="sort-select" id="tools-sort" data-xsort="tools">
+            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="name" data-i18n="sort.name_asc"></option>
+            <option value="name-desc" data-i18n="sort.name_desc"></option>
+            <option value="size" data-i18n="sort.size_desc"></option>
+          </select>
+          </div>
           <div class="xlist" id="tools-list" aria-busy="true"></div>
           <p class="empty" id="tools-empty" hidden></p>
         </div>
 
         <div data-tab-panel="ports" hidden>
           <h2><span data-i18n="tab.ports"></span><span class="rule"></span><span class="count" id="ports-count">0</span></h2>
-          <div class="toolbar"><input class="search" id="ports-search" type="search" autocomplete="off" /></div>
+          <div class="toolbar"><input class="search" id="ports-search" type="search" autocomplete="off" />
+          <select class="sort-select" id="ports-sort" data-xsort="ports">
+            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="name" data-i18n="sort.name_asc"></option>
+            <option value="name-desc" data-i18n="sort.name_desc"></option>
+            <option value="size" data-i18n="sort.size_desc"></option>
+          </select>
+          </div>
           <div class="xlist" id="ports-list" aria-busy="true"></div>
           <p class="empty" id="ports-empty" hidden></p>
         </div>
@@ -1248,6 +1276,7 @@
           "sort.size_desc": "정렬: 크기(큰 것부터)",
           "sort.size_asc": "정렬: 크기(작은 것부터)",
           "sort.release_desc": "정렬: 출시일(최신순)",
+          "sort.updated_desc": "정렬: 최근 업데이트순",
           "empty.loading": "타이틀 라이브러리 로딩 중…",
           "empty.none": "조건에 맞는 타이틀이 없습니다.<br>검색·필터를 비워보세요.",
           "empty.err": "/shop.json 로드 실패 — 콘솔 확인",
@@ -1490,6 +1519,7 @@
           "sort.size_desc": "Sort: Size (large)",
           "sort.size_asc": "Sort: Size (small)",
           "sort.release_desc": "Sort: Release (newest)",
+          "sort.updated_desc": "Sort: Recently updated",
           "empty.loading": "Loading title library…",
           "empty.none": "No matches.<br>Try clearing search or filter.",
           "empty.err": "Failed to load /shop.json — check console.",
@@ -1735,6 +1765,7 @@
           "sort.size_desc": "並び替え: サイズ (大きい順)",
           "sort.size_asc": "並び替え: サイズ (小さい順)",
           "sort.release_desc": "並び替え: 発売日 (新しい順)",
+          "sort.updated_desc": "並び替え: 更新が新しい順",
           "sort.score_desc": "並び替え: 評価が高い順",
           "empty.loading": "ライブラリを読み込んでいます…",
           "empty.none": "一致するゲームがありません。<br>検索やフィルターを解除してみてください。",
@@ -1980,6 +2011,7 @@
           "sort.size_desc": "排序：大小 (大→小)",
           "sort.size_asc": "排序：大小 (小→大)",
           "sort.release_desc": "排序：發售日 (新→舊)",
+          "sort.updated_desc": "排序：最近更新",
           "sort.score_desc": "排序：評分最高",
           "empty.loading": "正在載入遊戲庫…",
           "empty.none": "沒有符合的遊戲。<br>請清除搜尋或篩選。",
@@ -3214,6 +3246,21 @@
       }
 
       // Patches and saves: one block per game with its files, filtered by a search.
+      // Patches, saves, tools and ports open newest update first; the order picked is kept per list.
+      const XSORT_KEY = "cookingfoil:xsort:";
+      const xsortOf = (view) => { try { return localStorage.getItem(XSORT_KEY + view) || "updated"; } catch { return "updated"; } };
+      const timeOf = (v) => { if (v == null || v === "") return 0; const n = typeof v === "number" ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
+      for (const sel of document.querySelectorAll("select[data-xsort]")) {
+        const view = sel.dataset.xsort;
+        sel.value = xsortOf(view);
+        if (!sel.value) sel.value = "updated";
+        sel.addEventListener("change", () => {
+          try { localStorage.setItem(XSORT_KEY + view, sel.value); } catch { /* this visit only */ }
+          if (view === "patches" || view === "saves") extras.resort(view); else homebrew.resort(view);
+        });
+      }
+      const xorder = (view) => $(view + "-sort").value || "updated";
+
       const extras = (() => {
         const data = {};   // kind → items
         const loadedLang = {};
@@ -3322,9 +3369,29 @@
         function render(kind) {
           const list = $(kind + "-list");
           const q = folded($(kind + "-search").value.trim());
-          const items = (data[kind] ?? [])
-            .filter((it) => !q || [gameName(it), it.name, it.description].some((x) => folded(x).includes(q)))
-            .sort((a, b) => gameName(a).localeCompare(gameName(b), lang, { numeric: true }) || String(a.name).localeCompare(String(b.name), lang, { numeric: true }));
+          const byName = (a, b) => String(a).localeCompare(String(b), lang, { numeric: true });
+          const updated = (it) => timeOf(it.updated_at ?? it.updatedAt);
+          // A game's items stay together: the games are ordered by the pick (newest item, name, total size), then its items.
+          const order = xorder(kind);
+          const games = new Map();
+          for (const it of (data[kind] ?? []).filter((it) => !q || [gameName(it), it.name, it.description].some((x) => folded(x).includes(q)))) {
+            const tid = it.titleId || it.title_id || "hb:" + it.homebrew;
+            if (!games.has(tid)) games.set(tid, []);
+            games.get(tid).push(it);
+          }
+          const gameKey = (list) => ({ updated: Math.max(...list.map(updated)), size: list.reduce((n, it) => n + (Number(it.size) || 0), 0) });
+          const ranked = [...games.values()].map((list) => ({ list, name: gameName(list[0]), ...gameKey(list) }));
+          ranked.sort((a, b) =>
+            order === "updated" ? b.updated - a.updated || byName(a.name, b.name)
+            : order === "size" ? b.size - a.size || byName(a.name, b.name)
+            : order === "name-desc" ? byName(b.name, a.name)
+            : byName(a.name, b.name));
+          const within = (a, b) =>
+            order === "updated" ? updated(b) - updated(a) || byName(a.name, b.name)
+            : order === "size" ? (Number(b.size) || 0) - (Number(a.size) || 0) || byName(a.name, b.name)
+            : order === "name-desc" ? byName(b.name, a.name)
+            : byName(a.name, b.name);
+          const items = ranked.flatMap((g) => [...g.list].sort(within));
           const pages = Math.max(1, Math.ceil(items.length / PAGE));
           const page = Math.min(pageOf[kind], pages);
           pageOf[kind] = page;
@@ -3376,6 +3443,7 @@
           }
           render(kind);
         }
+        const resort = (kind) => { pageOf[kind] = 1; if (data[kind]) render(kind); };
         for (const kind of ["patches", "saves"]) {
           $(kind + "-search").addEventListener("input", debounce(() => { pageOf[kind] = 1; render(kind); }, 120));
         }
@@ -3394,7 +3462,7 @@
           return n;
         };
         const itemsOf = (kind, app) => (data[kind] ?? []).filter((it) => it.homebrew === app);
-        return { open, countFor, itemsOf, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
+        return { open, resort, countFor, itemsOf, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
@@ -3461,7 +3529,13 @@
           const list = (apps ?? [])
             .filter((a) => (a.kind === "port" ? "port" : "tool") === kind)
             .filter((a) => !q || [a.name, a.app, a.author, a.description].some((x) => folded(x).includes(q)))
-            .sort((x, y) => String(x.name || x.app).localeCompare(String(y.name || y.app), lang, { numeric: true }));
+            .sort((x, y) => {
+              const byName = (a, b) => String(a.name || a.app).localeCompare(String(b.name || b.app), lang, { numeric: true });
+              const order = xorder(view);
+              if (order === "updated") return timeOf(y.released_at) - timeOf(x.released_at) || byName(x, y);
+              if (order === "size") return (Number(y.size) || 0) - (Number(x.size) || 0) || byName(x, y);
+              return order === "name-desc" ? byName(y, x) : byName(x, y);
+            });
           $(view + "-list").replaceChildren(...list.map(card));
           $(view + "-count").textContent = list.length.toLocaleString();
           $(view + "-empty").hidden = list.length > 0;
@@ -3494,6 +3568,7 @@
         for (const view of ["tools", "ports"]) $(view + "-search").addEventListener("input", debounce(() => render(view), 120));
         return {
           load, open,
+          resort(view) { if (apps) render(view); },
           nameOf: (app) => byApp(app)?.name || app,
           iconOf: (app) => byApp(app)?.icon_url || "",
           relabel() { apps = null; if (current === "tools" || current === "ports") open(current); },
