@@ -169,3 +169,13 @@ deploy/.env
 /docs/
 /deploy/
 /scripts/readme-screenshots.mjs
+
+# Local agent and editor tooling (may hold keys), never published
+/.claude/
+/.mcp.json
+/mcp/
+/repos.txt
+.env.*
+!.env.example
+*.sig.json
+*.pem
