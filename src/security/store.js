@@ -305,6 +305,35 @@ export function revokeDevice(deviceKey) {
   return removed;
 }
 
+/** Who approved a console ("admin", an account name, "auto"), or null. */
+export function deviceAddedBy(deviceKey) {
+  return state.devices.get(deviceKey)?.addedBy ?? null;
+}
+
+/**
+ * The same console under a new device key (a client that now makes its key
+ * from the console): its approval, name and access key move from `from` to
+ * `to`, and `from` is gone. When `to` was approved meanwhile, its own record
+ * stays and only takes the old name if it has none of its own.
+ * @returns {boolean} whether there was anything to move
+ */
+export function rebindDevice(from, to) {
+  const rec = state.devices.get(from);
+  if (!rec || from === to) return false;
+  const into = state.devices.get(to);
+  const unnamed = !into?.label || into.label === "자동 등록";
+  state.devices.set(to, into ? { ...into, label: unnamed ? rec.label : into.label } : rec);
+  state.devices.delete(from);
+  state.pending.delete(from);
+  state.pending.delete(to);
+  state.pairSecrets.delete(from);
+  if (lastSeen.has(from)) lastSeen.set(to, Math.max(lastSeen.get(from), lastSeen.get(to) ?? 0));
+  lastSeen.delete(from);
+  appendAudit({ kind: "device-rebind", deviceKey: to, from, at: Date.now() });
+  scheduleFlush();
+  return true;
+}
+
 /** Whether a console is still waiting in the approval queue. */
 export function isDevicePending(deviceKey) {
   return state.pending.has(deviceKey);

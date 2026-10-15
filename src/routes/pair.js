@@ -16,6 +16,20 @@
  *        → { status: "approved" }                             on later polls, or without the secret
  *        → 409 { error: "pairSecret mismatch" }               while pending, with a secret other than the first
  *
+ *   POST /api/pair/rebind  { from: <old 64hex>, accessKey? }  + X-Device-Key: <new 64hex>
+ *        The same console under a new device key (a client that now makes its
+ *        key from the console instead of keeping a random one): its approval,
+ *        name and access key, and the lock of its per-device login, move to
+ *        the new key. Proof that it is that console, either of:
+ *          - the old key's accessKey (body or X-Access-Key)
+ *          - Basic with the account that approved it, or with the per-device
+ *            login locked to it (lockout counted as at the sign-in wall)
+ *        The new key must be free: not waiting for approval, and not approved
+ *        except by the same account, so call this before using the new key.
+ *        → { status: "moved" | "kept", deviceKey }   kept: nothing was there to move
+ *        → 400 invalid key, 401 no proof, 403 the old key belongs to someone else,
+ *          409 the new key is already in use
+ *
  * The accessKey is handed down exactly once (first poll after approval that
  * presents the pairSecret the console asked with); the device persists it and
  * presents it on every future request. The server keeps only the secret's
@@ -32,13 +46,18 @@ import {
   normalizeDeviceKey,
   deviceKeyFromHeaders,
   pairMessage,
+  verifyAccessKey,
 } from "../security/pairing.js";
+import * as deviceLogins from "../security/device-logins.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
-import { autoApproveFromPairRequest } from "../security/auth-guard.js";
+import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
 import { deliverAccessKey, registerPairSecret } from "../security/pairing-delivery.js";
+
+// What the server writes as `addedBy` for approvals no account made (admin page, COOK_DEVICE_AUTO_APPROVE=all, Telegram).
+const SYSTEM_APPROVERS = new Set(["admin", "auto", "telegram"]);
 
 function pendingResponse(req, deviceKey) {
   const link = issuePairLink(deviceKey);
@@ -135,6 +154,54 @@ export default function pairRouter() {
       debug.log("pair: delivered accessKey to %s…", deviceKey.slice(0, 12));
     }
     res.json(out);
+  });
+
+  router.post("/rebind", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const to = deviceKeyFromHeaders(req);
+    const from = normalizeDeviceKey(req.body?.from);
+    if (!to || !from || from === to) {
+      res.status(400).json({ error: "invalid deviceKey" });
+      return;
+    }
+    const hash = store.getDeviceAccessKeyHash(from);
+    const keyProof = Boolean(hash && verifyAccessKey(req.body?.accessKey ?? req.get("X-Access-Key"), hash));
+    const who = await pairSignIn(req);
+    if (!keyProof && !who) {
+      res.status(401).json({ error: "sign in, or show the old access key" });
+      return;
+    }
+    // A per-device login proves only the console it is locked to, exactly, and
+    // only one it approved itself: anyone can lock a fresh login to a key by
+    // presenting it, so the lock alone proves nothing.
+    const loginMoves = Boolean(
+      who?.login && deviceLogins.lockedTo(who.name) === from && (!store.isDeviceApproved(from) || store.deviceAddedBy(from) === who.name),
+    );
+    if (who?.login && !loginMoves && !keyProof) {
+      res.status(403).json({ error: "that login belongs to another console" });
+      return;
+    }
+    // An account proves only the consoles it approved itself; the markers the
+    // server writes for other approvals ("admin", "auto", "telegram") are no
+    // account's, whatever an account is called.
+    const approvedBy = store.deviceAddedBy(from);
+    const accountOwns = Boolean(who && !who.login && approvedBy === who.name && !SYSTEM_APPROVERS.has(approvedBy));
+    if (store.isDeviceApproved(from) && !keyProof && !loginMoves && !accountOwns) {
+      res.status(403).json({ error: "that console is not this account's" });
+      return;
+    }
+    // The new key must be free: not waiting in the queue, and approved, if at
+    // all, only by the same account (a console that signed in with it already).
+    const toBy = store.deviceAddedBy(to);
+    const toFree = !store.isDevicePending(to) && (!store.isDeviceApproved(to) || (who && toBy === who.name && !SYSTEM_APPROVERS.has(toBy)));
+    if (!toFree) {
+      res.status(409).json({ error: "the new device key is already in use" });
+      return;
+    }
+    const moved = store.rebindDevice(from, to);
+    if (loginMoves) deviceLogins.reclaim(who.name, from, to);
+    debug.log("pair: rebind %s… → %s… (%s)", from.slice(0, 12), to.slice(0, 12), moved ? "moved" : "nothing to move");
+    res.json({ status: moved ? "moved" : "kept", deviceKey: to });
   });
 
   return router;

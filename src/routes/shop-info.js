@@ -70,9 +70,10 @@ export default async function shopInfoRoute(_req, res) {
     apiVersion: API_VERSION,
     // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
     // device-logins: signed-in users issue per-console IDs and passwords at /pair.
+    // device-rebind: POST /api/pair/rebind moves a console to a new device key.
     features: [
       ...FEATURES,
-      ...(devicePairing ? ["device-pairing"] : []),
+      ...(devicePairing ? ["device-pairing", "device-rebind"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
