@@ -46,6 +46,11 @@ ${withCode ? `<label for="code">${t.codeLabel}</label><input id="code" name="cod
 <button type="submit">${t.approve}</button></form>`;
 }
 
+function clientSection(t) {
+  return `<section class="block" id="client"><h2>${t.clientTitle}</h2><p>${t.clientLead}</p>
+<button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint}</p></section>`;
+}
+
 function loginsSection(t) {
   return `<section class="block" id="logins"><h2>${t.loginsTitle}</h2><p>${t.loginsLead}</p>
 <form id="new-login" novalidate><label for="login-label">${t.nameLabel} <span>${t.optional}</span></label>
@@ -77,7 +82,7 @@ ${pairing ? `<div id="viewer" class="viewer" hidden><video id="video" playsinlin
 <p id="camera-note" class="hint" hidden></p>
 <button type="button" id="scan">${t.scan}</button>
 <div class="divider">${t.or}</div>${form(t, { withCode: true })}<p id="status" class="ok" role="status"></p>` : ""}
-${logins ? loginsSection(t) : ""}${mineSection(t)}`;
+${pairing ? clientSection(t) : ""}${logins ? loginsSection(t) : ""}${mineSection(t)}`;
   }
 }
 
@@ -85,7 +90,8 @@ ${logins ? loginsSection(t) : ""}${mineSection(t)}`;
 function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
     "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr", "kindLogin",
-    "notUsed", "connected", "revoke", "revokeConfirm", "errCreate", "unnamed"];
+    "notUsed", "connected", "revoke", "revokeConfirm", "errCreate", "unnamed",
+    "kindClient", "clientWaiting", "clientUsed", "clientExpired", "clientRevoked", "errNoBuild", "clientCancelConfirm", "cancel"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
@@ -141,7 +147,18 @@ window.addEventListener('pagehide',stopCamera);
 const mine=document.getElementById('mine'),newLogin=document.getElementById('new-login');
 const post=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body||{})});
 const when=(ms)=>ms?new Date(ms).toLocaleString(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}):null;
-function row(item){const li=document.createElement('li');const info=document.createElement('div');
+const CLIENT_STATE={used:T.clientUsed,expired:T.clientExpired,revoked:T.clientRevoked};
+function clientRow(item){const li=document.createElement('li');const info=document.createElement('div');
+  const name=document.createElement('strong');name.textContent=T.kindClient+' · '+when(item.createdAt);
+  const meta=document.createElement('span');meta.className='hint';
+  meta.textContent=item.state==='waiting'?T.clientWaiting.replace('{time}',when(item.expiresAt)):[CLIENT_STATE[item.state],item.code,item.state==='used'?when(item.usedAt):null].filter(Boolean).join(' · ');
+  info.append(name,meta);li.append(info);
+  if(item.state==='waiting'){const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.cancel;
+    b.addEventListener('click',async()=>{if(!confirm(T.clientCancelConfirm))return;b.disabled=true;
+      const r=await post('/pair/api/clients/'+item.id+'/revoke').catch(()=>null);if(r&&r.ok)loadMine();else{b.disabled=false;error.textContent=T.errOther;}});
+    li.append(b);}
+  return li;}
+function row(item){if(item.kind==='client')return clientRow(item);const li=document.createElement('li');const info=document.createElement('div');
   const name=document.createElement('strong');name.textContent=item.label||(item.kind==='login'?item.name:T.unnamed);
   const meta=document.createElement('span');meta.className='hint';
   meta.textContent=item.kind==='login'?[T.kindLogin+' · '+item.name,item.locked?T.connected:T.notUsed].join(' · '):[T.kindQr,when(item.addedAt)].join(' · ');
@@ -151,7 +168,7 @@ function row(item){const li=document.createElement('li');const info=document.cre
     if(r&&r.ok)loadMine();else{b.disabled=false;error.textContent=T.errOther;}});
   li.append(info,b);return li;}
 async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/mine',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();
-  const items=[...d.devices.map((x)=>({...x,kind:'qr'})),...d.logins.map((x)=>({...x,kind:'login'}))];
+  const items=[...(d.clients||[]).map((x)=>({...x,kind:'client'})),...d.devices.map((x)=>({...x,kind:'qr'})),...d.logins.map((x)=>({...x,kind:'login'}))];
   mine.replaceChildren(...(items.length?items.map(row):[Object.assign(document.createElement('li'),{className:'hint',textContent:T.mineEmpty})]));}catch{}}
 if(newLogin)newLogin.addEventListener('submit',async(e)=>{e.preventDefault();const button=newLogin.querySelector('button');button.disabled=true;error.textContent='';
   try{const r=await post('/pair/api/logins',{label:document.getElementById('login-label').value});if(!r.ok)throw new Error();const d=await r.json();
@@ -166,6 +183,15 @@ if(configButton)configButton.addEventListener('click',()=>{if(!lastLogin)return;
     language:document.documentElement.lang,installTarget:'sd'};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));
   a.download='config.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+// The client with this server and a one-day connection key inside, as one zip.
+const getClient=document.getElementById('get-client');
+if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;error.textContent='';
+  try{const r=await post('/pair/api/client-bundle');
+    if(!r.ok){error.textContent=r.status===404?T.errNoBuild:T.errOther;return;}
+    const name=((r.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)||[])[1]||'CookingFoil.zip';
+    const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);loadMine();}
+  catch{error.textContent=T.errNetwork;}finally{getClient.disabled=false;}});
+if(location.hash==='#client'&&getClient)getClient.scrollIntoView({block:'center'});
 loadMine();
 `;
 

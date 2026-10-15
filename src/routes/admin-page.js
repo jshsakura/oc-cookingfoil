@@ -20,6 +20,8 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
+import { clientRows } from "./device-pair.js";
+import * as enrollTokens from "../security/enroll-tokens.js";
 import express from "express";
 
 import * as store from "../security/store.js";
@@ -333,7 +335,13 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), since: Date.now() - Math.round(process.uptime() * 1000) });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows(), since: Date.now() - Math.round(process.uptime() * 1000) });
+  });
+
+  router.post("/api/clients/:id/revoke", (req, res) => {
+    if (!requireSession(req, res)) return;
+    if (!/^[0-9a-f]{8}$/.test(req.params.id) || !enrollTokens.revoke(req.params.id)) return res.status(404).json({ error: "no such download waiting" });
+    res.json({ ok: true });
   });
 
   router.post("/api/devices/approve", (req, res) => {

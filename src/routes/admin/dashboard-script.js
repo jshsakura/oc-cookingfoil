@@ -251,7 +251,15 @@ async function loadDevices(){
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('이름 바꾸기',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
-    act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');}
+    act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');
+  const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
+  table('clients',['받은 계정','받은 시각','상태','기기 코드','연동 시각',''],(d.clients||[]).map((c)=>{const tr=el('tr');
+    const state=td(STATE[c.state]||c.state,c.state==='used'?'':'dim');if(c.state==='waiting')state.title=fmt(c.expiresAt)+'까지 연결할 수 있습니다';
+    tr.append(td(String(c.owner||'—').replace(/^google:/,'')),td(fmt(c.createdAt)),state,td(c.code||'—','ip'),td(c.usedAt?fmt(c.usedAt):'—',c.usedAt?'':'dim'));
+    const act=td();if(c.state==='waiting'){const box=el('div',null,'row-actions');box.append(btn('취소',()=>cancelClient(c.id),'danger'));act.append(box);}
+    tr.append(act);return tr;}),'웹에서 받은 클라이언트가 없습니다.');}
+async function cancelClient(id){if(!confirm('이 다운로드로는 이제 연동할 수 없게 합니다.'))return;
+  try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast('취소했습니다.');loadDevices();}catch(err){toast(err.message);}}
 $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
     toast('승인했습니다. 기기가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}

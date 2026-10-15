@@ -15,6 +15,12 @@
  *   POST /pair/api/logins       { label? } → { name, password, shopUrl }  (password shown once)
  *   POST /pair/api/logins/<name>/revoke
  *   POST /pair/api/devices/revoke  { deviceKey }  a QR console this account approved
+ *
+ * The CookingFoil client, ready to connect (needs device pairing):
+ *   POST /pair/api/client-bundle           a zip of switch/cookingfoil/cookingfoil.nro and a config.json
+ *                                          holding this server and a one-day enrollment token
+ *   POST /pair/api/clients/<id>/revoke     withdraw a download's token before a console used it
+ *   /pair/api/mine lists the downloads too (no token in it: id, when, state, the console's code)
  */
 import express from "express";
 import { createRequire } from "node:module";
@@ -31,6 +37,11 @@ import * as users from "../security/users.js";
 import * as deviceLogins from "../security/device-logins.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import debug from "../debug.js";
+import * as enrollTokens from "../security/enroll-tokens.js";
+import { deviceCode } from "../security/pairing-link.js";
+import { latestBuild, publishedNroPath } from "./client-update.js";
+import { zipStore } from "../helpers/zip-store.js";
+import fs from "node:fs";
 
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -63,6 +74,10 @@ function guardWrite(req, res) {
   return approver;
 }
 
+/** The downloads of the client, for a list: no token, the console only by its code. */
+export const clientRows = (filter) =>
+  enrollTokens.list(filter).map(({ deviceKey, ...row }) => ({ ...row, code: deviceKey ? deviceCode(deviceKey) : null }));
+
 function mountMineApi(router) {
   const json = express.json({ limit: "4kb" });
 
@@ -75,7 +90,7 @@ function mountMineApi(router) {
       .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt }));
     const logins = deviceLogins.list({ owner: approver })
       .map(({ name, label, createdAt, deviceKey }) => ({ name, label, createdAt, locked: Boolean(deviceKey) }));
-    res.json({ devices, logins });
+    res.json({ devices, logins, clients: clientRows({ owner: approver }) });
   });
 
   router.post("/api/logins", json, (req, res) => {
@@ -102,6 +117,47 @@ function mountMineApi(router) {
     } catch {
       res.status(404).json({ error: "no such device login" });
     }
+  });
+
+  router.post("/api/client-bundle", async (req, res) => {
+    const approver = guardWrite(req, res);
+    if (!approver) return;
+    if (!devicePairing) return res.status(409).json({ error: "device pairing is off on this server" });
+    const origin = resolveOrigin(req, publicBaseUrl);
+    if (!origin) return res.status(503).json({ error: "server origin unavailable" });
+    const build = await latestBuild().catch(() => null);
+    if (!build) return res.status(404).json({ error: "no client build on this server" });
+    let nro;
+    try {
+      nro = await fs.promises.readFile(publishedNroPath());
+    } catch {
+      return res.status(404).json({ error: "no client build on this server" });
+    }
+    const { token, id, expiresAt } = enrollTokens.issue(approver);
+    const config = {
+      servers: [{ title: new URL(origin).hostname, url: origin, username: "", password: "", enrollToken: token, cfClientId: "", cfClientSecret: "", enabled: true }],
+      language: requestLang(req),
+      installTarget: "sd",
+    };
+    const zip = zipStore([
+      { name: "switch/cookingfoil/cookingfoil.nro", data: nro },
+      { name: "switch/cookingfoil/config.json", data: Buffer.from(JSON.stringify(config, null, 2) + "\n") },
+    ]);
+    debug.log("pair: %s downloaded the client %s (download %s)", approver, build.version, id);
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="CookingFoil-${String(build.version).replace(/[^0-9A-Za-z.-]/g, "")}.zip"`,
+      "X-CookingFoil-Download-Id": id,
+      "X-CookingFoil-Expires-At": String(expiresAt),
+    });
+    res.send(zip);
+  });
+
+  router.post("/api/clients/:id/revoke", (req, res) => {
+    const approver = guardWrite(req, res);
+    if (!approver) return;
+    if (!/^[0-9a-f]{8}$/.test(req.params.id) || !enrollTokens.revoke(req.params.id, { owner: approver })) return res.status(404).json({ error: "no such download waiting" });
+    res.json({ ok: true });
   });
 
   router.post("/api/devices/revoke", json, (req, res) => {
