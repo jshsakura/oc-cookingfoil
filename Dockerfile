@@ -56,6 +56,7 @@ LABEL org.opencontainers.image.title="CookingFoil" \
       org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production \
+    UV_THREADPOOL_SIZE=16 \
     COOK_PORT=80 \
     COOK_GAMES_DIR=/games \
     COOK_DATA_DIR=/data \

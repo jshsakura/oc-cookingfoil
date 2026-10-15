@@ -138,13 +138,11 @@ export async function load() {
       a.region.localeCompare(b.region)
   );
 
-  // Phase 1: read + parse every region file in parallel. The fs reads
-  // overlap (saves wall-clock time on cold disk caches), and the JSON
-  // parses still serialize on the event loop — but cooperatively, so the
-  // server stays responsive during boot instead of pegging on one huge
-  // synchronous read.
-  const parsed = await Promise.all(
-    regionFiles.map(async ({ file, region, slim }) => {
+  // One region file at a time: read, parse, merge, and let it go before the
+  // next. Parsing them all at once held every region in memory together
+  // (about 2.8 GB at peak for 17 files of 30-58 MB), enough to kill a small
+  // host or a memory-capped container at boot.
+  const loadOne = async ({ file, region, slim }) => {
       const fullPath = path.join(titledbCacheDir, file);
       try {
         const text = await readFile(fullPath, "utf-8");
@@ -169,13 +167,12 @@ export async function load() {
       } catch (err) {
         return { file, region, slim, json: null, error: err };
       }
-    })
-  );
+  };
 
-  // Phase 2: merge sequentially in `langPriority` order (priIndex already
-  // sorted `regionFiles`, and `Promise.all` preserves input order) so the
-  // "first defined value per field wins" rule stays intact.
-  for (const { file, region, slim, json, error } of parsed) {
+  // Merged in `langPriority` order (priIndex already sorted `regionFiles`) so
+  // the "first defined value per field wins" rule stays intact.
+  for (const item of regionFiles) {
+    const { file, region, slim, json, error } = await loadOne(item);
     if (error) {
       debug.error("titledb store: parse error in %s: %s", file, error.message);
       continue;

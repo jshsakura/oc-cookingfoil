@@ -4393,7 +4393,7 @@
 
       // ─── uploads on the server ──────────────────────────────────────────
       // Files are put into the library from the admin page. The artwork controls in a
-      // game's window are shown only when the server takes uploads (503 when it doesn't).
+      // game's window are shown only to admin accounts, and only when the server takes uploads (503 when it doesn't, 403 for anyone else).
       let uploadsEnabled = false;
       fetch("/api/uploads", { headers: { Accept: "application/json" } })
         .then((r) => { uploadsEnabled = r.ok; })

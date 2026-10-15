@@ -16,6 +16,8 @@
 
 import { trustsForwardedHeaders } from "./trust-proxy.js";
 
+const HOST_RE = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?$/;
+
 // Proxy/Host headers are comma-joined lists when several hops are in play;
 // the left-most value is the original client-facing one.
 function firstHeaderValue(value) {
@@ -43,9 +45,11 @@ export function resolveOrigin(req, publicBaseUrl, { trusted = trustsForwardedHea
   if (publicBaseUrl) return publicBaseUrl;
   const header = (name) => (typeof req.get === "function" ? req.get(name) : req.headers?.[name]);
   const host = (trusted && firstHeaderValue(header("x-forwarded-host"))) || header("host");
-  if (!host) return "";
+  // A host goes into URLs and into JSON as it is: names, IPv4, [IPv6] and a port only.
+  if (!host || !HOST_RE.test(host)) return "";
   const own = req.protocol || (req.socket?.encrypted ? "https" : "http");
-  const proto = (trusted && firstHeaderValue(header("x-forwarded-proto"))) || own;
+  const forwardedProto = trusted ? firstHeaderValue(header("x-forwarded-proto")).toLowerCase() : "";
+  const proto = forwardedProto === "http" || forwardedProto === "https" ? forwardedProto : own;
   return `${proto}://${host}`;
 }
 
