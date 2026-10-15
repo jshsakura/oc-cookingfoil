@@ -289,7 +289,7 @@ server {
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 存档文件 |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建及其 HOME 菜单快捷方式 |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建及其 HOME 菜单快捷方式。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
 | `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方 |
 | `GET /api/session` | 用主机的密码（二维码连接的设备用访问密钥）换取 12 小时的会话令牌，之后以同一设备密钥只发送 `Authorization: Bearer cfs_…`。会话不能自行续期；修改密码、撤销登录或设备、锁定都会立即使其失效。功能名为 `session-token` |
 | `POST /api/pair/rebind` | 把同一台设备迁移到新的设备密钥（批准状态、名称、访问密钥以及按设备登录的设备绑定）。供改为从主机生成设备密钥的客户端使用。用旧密钥的访问密钥，或批准该设备的账户、绑定到该设备的按设备登录的 Basic 认证来证明。功能名为 `device-rebind` |

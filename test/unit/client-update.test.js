@@ -132,3 +132,38 @@ test("a console's error log is kept per console, newest 50, with a header line",
     server.kill("SIGKILL");
   }
 });
+
+test("a build's signature rides on /latest only while it matches the build offered", async () => {
+  const { signatureFor } = await import("../../src/routes/client-update.js");
+  const build = { version: "0.3.60", size: 17646240, sha256: "a".repeat(64) };
+  const sig = { ...build, signature: "B".repeat(128) };
+  assert.equal(signatureFor(build, sig), "b".repeat(128));
+  assert.equal(signatureFor(build, { ...sig, sha256: "A".repeat(64) }), "b".repeat(128), "hex case does not matter");
+  assert.equal(signatureFor(build, { ...sig, version: "0.3.59" }), null);
+  assert.equal(signatureFor(build, { ...sig, size: 1 }), null);
+  assert.equal(signatureFor(build, { ...sig, sha256: "c".repeat(64) }), null);
+  assert.equal(signatureFor(build, { ...sig, signature: "zz" }), null);
+  assert.equal(signatureFor(build, null), null);
+  assert.equal(signatureFor(null, sig), null);
+});
+
+test("/latest carries the signature file's signature for the build being offered", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-sig-"));
+  const server = await boot(data);
+  try {
+    const nro = path.join(data, "client", "cookingfoil.nro");
+    fs.mkdirSync(path.dirname(nro));
+    const buf = fakeNro("0.3.60");
+    fs.writeFileSync(nro, buf);
+    const latest = async () => (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json();
+    assert.equal((await latest()).signature, undefined, "no file, no signature");
+    const sha256 = crypto.createHash("sha256").update(buf).digest("hex");
+    const signature = "e".repeat(128);
+    fs.writeFileSync(`${nro}.sig.json`, JSON.stringify({ version: "0.3.60", size: buf.length, sha256, signature }));
+    assert.equal((await latest()).signature, signature);
+    fs.writeFileSync(`${nro}.sig.json`, JSON.stringify({ version: "0.3.60", size: buf.length + 1, sha256, signature }));
+    assert.equal((await latest()).signature, undefined, "a signature for other bytes is dropped");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

@@ -1,7 +1,7 @@
 /**
  * The CookingFoil client updating itself.
  *
- *   GET /api/client/latest           { version, size, sha256, url, forwarder_url, forwarder_title_id, forwarder_size },
+ *   GET /api/client/latest           { version, size, sha256, signature?, url, forwarder_url, forwarder_title_id, forwarder_size },
  *                                    or 404 when no build is there; url and forwarder_url are on the
  *                                    direct address for a client that asked for it (security/download-links.js)
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
@@ -18,6 +18,14 @@
  * that fails is logged and shown on the admin page, and the last good one stays. The forwarder
  * fields are null when this server can't build shortcuts (no prod.keys or
  * hacBrewPack); forwarder_size is null until the NSP is built in the background.
+ *
+ * The build's signature is made where the build is (never on this server) and
+ * dropped beside it as cookingfoil.nro.sig.json:
+ *   { "version", "size", "sha256", "signature": <128 hex, Ed25519> }
+ * It rides on /latest only while its version, size and sha256 are the build's
+ * being offered; otherwise, or with no file, there is no signature, and a
+ * client from 0.3.60 on does not take that build. The server never checks or
+ * makes signatures: it holds no key, so a server taken over cannot sign one.
  * Every route sits behind the same sign-in as the rest of the server.
  */
 import crypto from "crypto";
@@ -138,16 +146,51 @@ async function examine(file) {
   return promise;
 }
 
+const SIG_MAX_BYTES = 4096;
+const SIG_RE = /^[0-9a-f]{128}$/i;
+let sigSeen = null; // { key, value } of the signature file last read
+
+/** The signature file's contents, read again only when its size or mtime changes; null when there is none or it is unreadable. */
+function readSignature(file) {
+  let st;
+  try {
+    st = fs.statSync(file);
+  } catch {
+    sigSeen = null;
+    return null;
+  }
+  const key = `${file}\0${st.size}\0${st.mtimeMs}`;
+  if (sigSeen?.key === key) return sigSeen.value;
+  let value = null;
+  try {
+    if (st.isFile() && st.size <= SIG_MAX_BYTES) value = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    debug.error("client update: %s unreadable: %s", path.basename(file), err.message);
+  }
+  sigSeen = { key, value };
+  return value;
+}
+
+/** The signature for build `p` from `sig` (the file's contents), or null unless version, size and sha256 all match. Pure. */
+export function signatureFor(p, sig) {
+  if (!p || !sig || typeof sig !== "object") return null;
+  if (sig.version !== p.version || sig.size !== p.size || String(sig.sha256 ?? "").toLowerCase() !== p.sha256) return null;
+  return typeof sig.signature === "string" && SIG_RE.test(sig.signature) ? sig.signature.toLowerCase() : null;
+}
+
 /** The build being offered, or null when none has passed the checks. */
 export async function latestBuild(file = CLIENT_NRO) {
   await examine(file);
   const p = loadPublished();
-  return p ? { version: p.version, size: p.size, sha256: p.sha256, url: URL_PATH } : null;
+  if (!p) return null;
+  const signature = signatureFor(p, readSignature(`${file}.sig.json`));
+  return { version: p.version, size: p.size, sha256: p.sha256, ...(signature ? { signature } : {}), url: URL_PATH };
 }
 
 /** For the admin page: what is offered, and the last file turned down (null once a good one replaced it). */
 export function clientBuildStatus() {
-  return { published: loadPublished(), rejected };
+  const p = loadPublished();
+  return { published: p, signed: Boolean(signatureFor(p, readSignature(`${CLIENT_NRO}.sig.json`))), rejected };
 }
 
 const RECHECK_MS = 60_000;
