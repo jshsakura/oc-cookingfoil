@@ -28,6 +28,7 @@
  *     eShop CDN URLs, so the client app gets locally-cached
  *     bytes (offline-friendly) and we control retention.
  */
+import { GAME_FILE_RE } from "./helpers/file-send.js";
 import fs from "fs/promises";
 import path from "path";
 import FastGlob from "fast-glob";
@@ -93,7 +94,7 @@ import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
 // up clean state then, and nobody pays the bandwidth tax in between.
 
 const SCAN_PATTERNS = ["**/*.nsp", "**/*.nsz", "**/*.xci", "**/*.xcz", "**/*.nro"];
-const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
+export { GAME_FILE_RE };
 
 export function isGameFile(relOrAbsPath) {
   return GAME_FILE_RE.test(relOrAbsPath);

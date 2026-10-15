@@ -35,6 +35,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
+import { largeFiles, GAME_FILE_RE } from "./helpers/file-send.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane, { looksProxied } from "./security/direct-lane.js";
 import * as directHealth from "./security/direct-health.js";
@@ -297,7 +298,8 @@ expressApp.use(deviceContentGuard());
 // Dynamic shop index for Tinfoil/CookingFoil-compatible clients.
 expressApp.use(shopFileBuilder());
 
-// File downloads + a directory listing for the games folder.
+// File downloads + a directory listing for the games folder. Game files are read in large pieces (helpers/file-send.js).
+expressApp.use(largeFiles(romsDirPath, GAME_FILE_RE));
 expressApp.use(express.static(romsDirPath));
 expressApp.use(
   serveIndex(romsDirPath, {

@@ -53,6 +53,7 @@ import { stillAllowed } from "./link-identity.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { isLocalHop } from "./local-hop.js";
 import connectionHint from "../helpers/connection-hint.js";
+import { largeFiles, GAME_FILE_RE } from "../helpers/file-send.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 
@@ -145,7 +146,8 @@ function laneRouter(root, routes) {
   router.use(connectionHint());
   for (const [prefix, route] of Object.entries(routes)) router.use(prefix, route);
   const serve = express.static(root, { index: false, redirect: false, fallthrough: false });
-  router.use((req, res, next) => (laneOf(req.path) === "file" ? serve(req, res, next) : next()));
+  const large = largeFiles(root, GAME_FILE_RE);
+  router.use((req, res, next) => (laneOf(req.path) === "file" ? large(req, res, () => serve(req, res, next)) : next()));
   router.use((req, res) => res.status(404).end());
   router.use((err, req, res, _next) => {
     if (res.headersSent) return;
