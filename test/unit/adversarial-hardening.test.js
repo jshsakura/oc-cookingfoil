@@ -63,7 +63,7 @@ test("a user-role account reads the shop but cannot change artwork or see upload
   const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
-    env: { ...process.env, COOK_PORT: String(port), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_UPLOADS_ENABLED: "true", COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
+    env: { ...process.env, COOK_CONSOLE_PASSWORDS: "true", COOK_PORT: String(port), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_UPLOADS_ENABLED: "true", COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
     stdio: "ignore",
   });
   try {

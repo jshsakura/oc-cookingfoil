@@ -155,8 +155,8 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 
 | 设置 | 变量 | 默认值 |
 |---|---|---|
-| 二维码设备连接 | `COOK_DEVICE_PAIRING` | `false` |
-| 用密码连接的主机（CyberFoil、Tinfoil） | `COOK_CONSOLE_PASSWORDS` | `true`；`false` 时只有持有访问密钥的主机（从网页下载的客户端、二维码连接）可以进入 |
+| 二维码设备连接 | `COOK_DEVICE_PAIRING` | `true` |
+| 用密码连接的主机（CyberFoil、Tinfoil） | `COOK_CONSOLE_PASSWORDS` | `false`，只有持有访问密钥的主机（从网页下载的客户端、二维码连接）可以进入；`true` 时也接受用账号和密码连接的主机 |
 | 主机的批准方式 | `COOK_DEVICE_AUTO_APPROVE` | `true`（已登录的主机自动批准） |
 | 公开地址 | `COOK_PUBLIC_BASE_URL` | 由每个请求推断 |
 | 网页上传 | `COOK_UPLOADS_ENABLED` | `false` |

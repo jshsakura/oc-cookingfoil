@@ -307,16 +307,17 @@ const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 })
 
 // Device pairing lane (CyberFoil). Opt-in and ADDITIVE: when on, the public
 // /api/pair/* endpoints go live and an approved (deviceKey + accessKey) pair is
-// accepted as an alternative to basic-auth. Basic-auth (Tinfoil) always keeps
-// working regardless. Off by default so upgrades don't change behavior. For a
-// pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
+// accepted as an alternative to basic-auth. On unless set to false: QR (and the
+// client downloaded from the web page) is how a console connects by default.
+// For a pairing-ONLY server ("아무나 못붙음"), leave COOK_AUTH_USERS empty so the
 // basic-auth lane is disabled and an approved device is the sole way in.
-let devicePairing = envBool("COOK_DEVICE_PAIRING", false);
+let devicePairing = envBool("COOK_DEVICE_PAIRING", true);
 // Consoles that sign in with an ID and password (Basic): CyberFoil, Tinfoil and
 // older CookingFoil builds. Off, only a console's access key or session token
 // (a client downloaded from the web page, or QR pairing) gets in; the web page
 // and the admin page sign in as before, and this machine itself still may.
-let consolePasswords = envBool("COOK_CONSOLE_PASSWORDS", true);
+// Off unless set to true: turn it on for Tinfoil, CyberFoil or older builds.
+let consolePasswords = envBool("COOK_CONSOLE_PASSWORDS", false);
 // With pairing on: a console that signs in with an account or its device login
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set

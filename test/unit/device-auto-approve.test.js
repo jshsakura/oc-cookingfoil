@@ -17,7 +17,7 @@ async function boot(autoApprove) {
   fs.mkdirSync(path.join(data, "games"));
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
-    env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
+    env: { ...process.env, COOK_CONSOLE_PASSWORDS: "true", COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
       COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true",
       COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false",
       ...(autoApprove === undefined ? {} : { COOK_DEVICE_AUTO_APPROVE: autoApprove }) },

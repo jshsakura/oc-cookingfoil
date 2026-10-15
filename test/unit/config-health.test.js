@@ -22,10 +22,10 @@ function runProbe(env) {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
     cwd: import.meta.dirname,
     env: {
-      ...process.env,
+      ...process.env, COOK_CONSOLE_PASSWORDS: "true",
       COOK_DATA_DIR: mkdtempSync(path.join(tmpdir(), "cf-cfg-")),
       COOK_AUTH_USERS: "",
-      COOK_DEVICE_PAIRING: "",
+      COOK_DEVICE_PAIRING: "false",
       COOK_ADMIN_TOTP_SECRET: "",
       ...env,
     },

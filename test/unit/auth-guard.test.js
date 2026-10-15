@@ -70,10 +70,10 @@ function runProbe({ ip = "127.0.0.1", socket = "", authUsers = CREDS, authHeader
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
     cwd: import.meta.dirname,
     env: {
-      ...process.env,
+      ...process.env, COOK_CONSOLE_PASSWORDS: "true",
       COOK_DATA_DIR: mkdtempSync(path.join(tmpdir(), "cf-ag-")),
       COOK_AUTH_USERS: authUsers,
-      COOK_DEVICE_PAIRING: "",
+      COOK_DEVICE_PAIRING: "false",
       DEBUG: "",
       PROBE_IP: ip,
       PROBE_SOCKET: socket,

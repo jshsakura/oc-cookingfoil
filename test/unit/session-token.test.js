@@ -58,7 +58,7 @@ async function boot() {
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
-      ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games,
+      ...process.env, COOK_CONSOLE_PASSWORDS: "true", COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games,
       COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true",
       COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false",
     },
