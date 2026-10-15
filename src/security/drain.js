@@ -44,6 +44,15 @@ export const RESTART_EXIT_CODE = 75;
 // starts, ahead of the SIGKILL that compose's stop_grace_period (40 s) sends.
 const HARD_DEADLINE_MS = 35_000;
 
+// How long a downloaded path counts as in use after its last piece, and how many are remembered.
+const RECENT_MS = 2 * 60 * 1000;
+const RECENT_MAX = 500;
+
+const isDownload = (req, res) => Boolean(req.headers.range) || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES;
+function requestPath(req) {
+  try { return path.posix.normalize(decodeURIComponent(String(req.path ?? req.url ?? "").split("?")[0])); } catch { return null; }
+}
+
 /** /healthz and the admin restart API stay open; matched as the router would see the path. */
 function exempt(raw) {
   let p;
@@ -66,6 +75,10 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
   let restartHandler = null;
   let shuttingDown = null;
   let signals = 0;
+  // When the last download ended, and which paths were downloaded lately (path -> ms),
+  // so background work (the NSZ queue) leaves the disks to consoles.
+  let lastDownloadEnd = 0;
+  const recentPaths = new Map();
 
   const headerValue = () => `${state.retryAfter}; id=${state.id}`;
   const backBy = () => new Date(Date.now() + state.retryAfter * 1000).toISOString();
@@ -91,8 +104,23 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
     };
     res.once("close", () => {
       active.delete(entry);
+      if (isDownload(req, res)) noteDownload(req);
       if (state) settle();
     });
+  }
+
+  function noteDownload(req) {
+    const now = Date.now();
+    lastDownloadEnd = now;
+    const p = requestPath(req);
+    if (!p) return;
+    recentPaths.delete(p);
+    recentPaths.set(p, now);
+    // Oldest first: drop what is past the window, and never keep more than RECENT_MAX.
+    for (const [k, t] of recentPaths) {
+      if (recentPaths.size <= RECENT_MAX && now - t < RECENT_MS) break;
+      recentPaths.delete(k);
+    }
   }
 
   function refuse(req, res) {
@@ -154,11 +182,25 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
     });
   }
 
+  /** Downloads running now and when the last one ended (ms, 0 for never). */
+  function downloads() {
+    let running = 0;
+    for (const { req, res } of active) if (isDownload(req, res)) running++;
+    return { active: running, lastEndedAt: lastDownloadEnd };
+  }
+
+  /**
+   * Whether a file is being downloaded, or was within `withinMs`: a console
+   * downloads in Range pieces, so a moment between two pieces still counts.
+   * `urlPath` is the decoded path the file is served at ("/dir/Game.nsp").
+   */
+  function pathInUse(urlPath, withinMs = RECENT_MS) {
+    for (const { req } of active) if (requestPath(req) === urlPath) return true;
+    const t = recentPaths.get(urlPath);
+    return t !== undefined && Date.now() - t < withinMs;
+  }
+
   function status() {
-    let downloads = 0;
-    for (const { req, res } of active) {
-      if (req.headers.range || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES) downloads++;
-    }
     return {
       draining: Boolean(state),
       restartId: state?.id ?? null,
@@ -167,7 +209,7 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
       retryAfter: state?.retryAfter ?? retryAfter(),
       graceSeconds: state ? state.graceMs / 1000 : grace(),
       inflight: active.size,
-      downloads,
+      downloads: downloads().active,
     };
   }
 
@@ -218,7 +260,7 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
     return true;
   }
 
-  return { middleware, start, whenIdle, status, healthFields, notice: () => (state ? notice() : null), shutdown, signal, onRestartRequest, requestRestart, hasRestartHandler: () => Boolean(restartHandler), isShuttingDown: () => Boolean(shuttingDown) };
+  return { middleware, start, whenIdle, status, downloads, pathInUse, healthFields, notice: () => (state ? notice() : null), shutdown, signal, onRestartRequest, requestRestart, hasRestartHandler: () => Boolean(restartHandler), isShuttingDown: () => Boolean(shuttingDown) };
 }
 
 /** The server's own drain. */

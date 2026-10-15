@@ -338,3 +338,24 @@ test("the container health check skips the / probe while draining", async () => 
   assert.match(check, /\.draining\)return/);
   assert.match(check, /fetch\(b\+'\/'/, "the / probe stays for a normal check");
 });
+
+test("downloads are counted while they run, and their paths count as in use for a while after", async () => {
+  const { drainer, base } = await harness();
+  assert.deepEqual(drainer.downloads(), { active: 0, lastEndedAt: 0 });
+  const pending = get(`${base}/stream?ms=200`, { Range: "bytes=0-5" });
+  await tick(80);
+  assert.equal(drainer.downloads().active, 1);
+  assert.equal(drainer.pathInUse("/stream"), true);
+  await pending;
+  await tick(20);
+  const d = drainer.downloads();
+  assert.equal(d.active, 0);
+  assert.ok(Date.now() - d.lastEndedAt < 1000);
+  // Between two Range pieces the file is still in use; long after, it is not.
+  assert.equal(drainer.pathInUse("/stream"), true);
+  assert.equal(drainer.pathInUse("/stream", 0), false);
+  assert.equal(drainer.pathInUse("/other"), false);
+  // A small page is not a download.
+  await get(`${base}/fast`);
+  assert.equal(drainer.pathInUse("/fast"), false);
+});

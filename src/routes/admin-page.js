@@ -60,6 +60,7 @@ import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
+import { mountNszApi } from "./admin/nsz-api.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -428,6 +429,7 @@ export default function adminPageRouter() {
   mountLibraryFilesApi(router, requireSession);
   mountInboxApi(router, requireSession);
   mountServerApi(router, requireSession);
+  mountNszApi(router, requireSession);
 
   return router;
 }

@@ -2,7 +2,7 @@
  * Server behaviour the admin page can change while the server runs: device
  * approval, whether consoles may sign in with a password, uploads, the share inbox, the public address, the direct download address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
- * download and how a safe restart waits. Saved in ${COOK_DATA_DIR}/security/server-settings.json
+ * download, how a safe restart waits and the NSZ conversion queue. Saved in ${COOK_DATA_DIR}/security/server-settings.json
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
@@ -32,6 +32,8 @@ const oneOf = (...values) => ({ check: (v) => values.includes(v) });
 const bytes = { parse: (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), check: (v) => Number.isSafeInteger(v) && v > 0 && v <= 16 * 1024 ** 4 };
 // Whole seconds from 1 up to max; the page sends them as text.
 const seconds = (max) => ({ parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= max });
+// A whole number from min to max; the page may send it as text.
+const whole = (min, max) => ({ parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= min && v <= max });
 const list = (re, max) => ({
   parse: (v) => (Array.isArray(v) ? v : String(v ?? "").split(",")).map((s) => String(s).trim()).filter(Boolean),
   check: (v) => Array.isArray(v) && v.length <= max && v.every((s) => re.test(s)) && new Set(v).size === v.length,
@@ -65,6 +67,16 @@ export const SETTINGS = {
   restartRetryAfter: seconds(300),
   // Inside compose's stop_grace_period (40 s), so docker never kills a drain.
   restartGrace: seconds(35),
+  // The NSZ conversion queue (meta/nsz-queue.js).
+  nszEnabled: bool,
+  nszAutoQueue: bool,
+  nszLevel: whole(1, 22),
+  nszThreads: whole(1, 32),
+  nszWorkers: whole(1, 3),
+  nszMinSizeMb: whole(1, 1048576),
+  nszDiskFloorGb: whole(0, 1048576),
+  nszBlock: bool,
+  nszXci: bool,
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 

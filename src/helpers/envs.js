@@ -358,6 +358,22 @@ const directEdgeSecret = envString("COOK_DIRECT_EDGE_SECRET", "").trim();
 // they are cut. At most 35 s, inside compose's stop_grace_period of 40 s.
 let restartRetryAfter = envNumber("COOK_RESTART_RETRY_AFTER", 20, { min: 1, max: 300, integer: true });
 let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, integer: true });
+// NSZ conversion queue (meta/nsz-queue.js): compresses .nsp files in the games
+// folder to .nsz, run from the admin page's 변환 tab. Off until turned on there.
+let nszEnabled = envBool("COOK_NSZ_ENABLED", false);
+// New .nsp files the library finds are queued by themselves while the queue is on.
+let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
+// nsz -l (zstd level) and -t (threads); workers is how many files at once.
+let nszLevel = envNumber("COOK_NSZ_LEVEL", 18, { min: 1, max: 22, integer: true });
+let nszThreads = envNumber("COOK_NSZ_THREADS", 4, { min: 1, max: 32, integer: true });
+let nszWorkers = envNumber("COOK_NSZ_WORKERS", 1, { min: 1, max: 3, integer: true });
+// Files smaller than this are left as they are; below the free space floor the queue pauses.
+let nszMinSizeMb = envNumber("COOK_NSZ_MIN_SIZE_MB", 100, { min: 1, max: 1048576, integer: true });
+let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 150, { min: 0, max: 1048576, integer: true });
+// nsz -B: block compression instead of solid. Off: the client is as fast with solid files.
+let nszBlock = envBool("COOK_NSZ_BLOCK", false);
+// .xci to .xcz as well. Off: the client's .xcz install is not verified on a device yet.
+let nszXci = envBool("COOK_NSZ_XCI", false);
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -390,6 +406,15 @@ const ENV_SETTINGS = Object.freeze({
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
+  nszEnabled,
+  nszAutoQueue,
+  nszLevel,
+  nszThreads,
+  nszWorkers,
+  nszMinSizeMb,
+  nszDiskFloorGb,
+  nszBlock,
+  nszXci,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -420,6 +445,15 @@ function applyServerSettings(saved = {}) {
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;
+  nszEnabled = v.nszEnabled;
+  nszAutoQueue = v.nszAutoQueue;
+  nszLevel = v.nszLevel;
+  nszThreads = v.nszThreads;
+  nszWorkers = v.nszWorkers;
+  nszMinSizeMb = v.nszMinSizeMb;
+  nszDiskFloorGb = v.nszDiskFloorGb;
+  nszBlock = v.nszBlock;
+  nszXci = v.nszXci;
 }
 
 export {
@@ -430,6 +464,15 @@ export {
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
+  nszEnabled,
+  nszAutoQueue,
+  nszLevel,
+  nszThreads,
+  nszWorkers,
+  nszMinSizeMb,
+  nszDiskFloorGb,
+  nszBlock,
+  nszXci,
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,

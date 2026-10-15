@@ -11,6 +11,7 @@
  */
 import * as serverSettings from "../../security/server-settings.js";
 import * as shopCache from "../../meta/shop-cache.js";
+import nszQueue from "../../meta/nsz-service.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
 import debug from "../../debug.js";
@@ -69,6 +70,8 @@ export function mountServerSettingsApi(router, requireSession) {
     } else if (changed.some((k) => REBUILD.has(k))) {
       shopCache.invalidate();
     }
+    // The conversion queue stops when turned off and looks again after any of its settings.
+    if (changed.some((k) => k.startsWith("nsz"))) await nszQueue.settingsChanged();
     if (changed.length) debug.log("admin: server settings changed: %s", changed.join(", "));
     res.json({ ok: true, changed, ...view() });
   }));

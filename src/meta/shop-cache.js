@@ -296,10 +296,23 @@ export async function get() {
   return build();
 }
 
-/** Every scanned game file: { rel, name, size, kind, titleId } ([] before the first build). */
+/** Every scanned game file: { rel, name, size, kind, titleId, baseTitleId } ([] before the first build). */
 export function files() {
   if (!filesMap) return [];
-  return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null }));
+  return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null, baseTitleId: i.baseTitleId ?? null }));
+}
+
+/**
+ * Files this process changed itself ([{ rel, op: "upsert" | "remove" }]):
+ * queued like the watcher's events, so several land in one incremental
+ * rebuild. The watcher may report the same paths again; that costs nothing.
+ */
+export function noteFileChanges(changes) {
+  for (const { rel, op } of changes) {
+    if (!isGameFile(rel)) continue;
+    pendingFileDeltas.set(rel, op === "remove" ? "remove" : "upsert");
+  }
+  if (filesMap) scheduleRebuild(`${changes.length} file change(s)`);
 }
 
 /**
