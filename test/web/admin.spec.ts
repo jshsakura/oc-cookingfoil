@@ -459,7 +459,7 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   const boxes = page.locator('#al-events input');
   await expect(boxes).toHaveCount(7);
   await expect(page.locator('#al-events .al-event', { hasText: '위험한 접근' }).locator('input')).toBeChecked();
-  await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).not.toBeChecked();
+  await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).toBeChecked();
   await expect(page.locator('#al-history')).toContainText('아직 알림이 없습니다');
 
   // Only the chat and the events: still off without a token, and the choice is kept.
@@ -468,7 +468,7 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await page.locator('#al-events .al-event', { hasText: '구글 계정' }).click();
   await page.getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue('915733248');
-  await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).toBeChecked();
+  await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).not.toBeChecked();
   await expect(page.locator('#al-events .al-event', { hasText: '구글 계정' }).locator('input')).not.toBeChecked();
   await page.getByRole('button', { name: '시험 메시지 보내기' }).click();
   await expect(page.locator('#al-msg')).toHaveText('봇 토큰과 채팅 ID 를 먼저 넣습니다');
