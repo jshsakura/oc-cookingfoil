@@ -119,7 +119,7 @@ function send(ws, obj) {
 }
 
 export function attach(server) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
   server.on("upgrade", (req, socket, head) => {
     // Single path — anything else gets 404'd here, not silently dropped,

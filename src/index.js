@@ -44,6 +44,7 @@ import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import sessionGate from "./security/session-gate.js";
+import adminOnly from "./security/admin-only.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
@@ -224,11 +225,12 @@ expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
-expressApp.use("/api/uploads", uploadsRouter());
+// Uploads and artwork change what everyone sees: admin accounts only (the upload list too).
+expressApp.use("/api/uploads", adminOnly({ reads: true }), uploadsRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).
-expressApp.use("/api/art", artRouter());
+expressApp.use("/api/art", adminOnly(), artRouter());
 
 // Locally-cached artwork. First request fetches from the eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.

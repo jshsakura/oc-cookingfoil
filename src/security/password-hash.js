@@ -7,7 +7,10 @@ import crypto from "crypto";
 import { promisify } from "util";
 
 const SCRYPT_KEYLEN = 32;
-const MAX_CONCURRENT_HASHES = 4;
+// scrypt runs on libuv's thread pool, which also carries file reads (every
+// game download), dns and zlib. Half of it at most, so a burst of wrong
+// passwords never stalls downloads; the image also widens the pool.
+const MAX_CONCURRENT_HASHES = 2;
 const scryptAsync = promisify(crypto.scrypt);
 
 export function hashPassword(password) {

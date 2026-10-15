@@ -50,5 +50,9 @@ export function isPrivateIp(ip) {
  */
 export function isPrivateCaller(req) {
   const forwarded = String(req?.ip || "").replace(/^::ffff:/, "");
-  return isPrivateIp(socketIp(req)) && (!forwarded || isPrivateIp(forwarded));
+  if (!isPrivateIp(socketIp(req)) || (forwarded && !isPrivateIp(forwarded))) return false;
+  // Every hop the request names: a proxy that appends (Cloudflare does) keeps
+  // the client's own entries on the left, and req.ip may be one of those.
+  const hops = String(req?.headers?.["x-forwarded-for"] ?? "").split(",").map((h) => h.trim().replace(/^::ffff:/, "")).filter(Boolean);
+  return hops.every(isPrivateIp);
 }
