@@ -71,8 +71,10 @@ export default async function shopInfoRoute(_req, res) {
     // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
     // device-logins: signed-in users issue per-console IDs and passwords at /pair.
     // device-rebind: POST /api/pair/rebind moves a console to a new device key.
+    // session-token: GET /api/session trades the password for a token the console sends instead.
     features: [
       ...FEATURES,
+      "session-token",
       ...(devicePairing ? ["device-pairing", "device-rebind"] : []),
       ...(users.hasUsers() ? ["device-logins"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),

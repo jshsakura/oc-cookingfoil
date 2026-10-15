@@ -291,6 +291,7 @@ Except for pairing and `/healthz`, every endpoint sits behind the same sign-in a
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | The RetroArch base pack you supplied |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | The CookingFoil client build kept in `data/client/`, and its HOME menu shortcut |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on). The console sends a random `pairSecret` (64 hex) with its request and the same value as `X-Pair-Secret` when it polls; the access key goes only to that caller |
+| `GET /api/session` | Trades the console's password (or a paired console's access key) for a 12-hour session token, sent afterwards as `Authorization: Bearer cfs_…` from the same device key. A session cannot renew itself; a password change, a revoked login or console, or a lockout ends it at once. Feature `session-token` |
 | `POST /api/pair/rebind` | Moves a console to a new device key (its approval, name, access key and per-device login lock), for a client that now derives the key from the console. Proof is the old key's access key, or Basic with the account that approved it or the per-device login locked to it. Feature `device-rebind` |
 | `GET /healthz` | Health check, used by the image's `HEALTHCHECK` |
 

@@ -69,6 +69,8 @@ export default function authGuard() {
     // Device lane already authenticated this request (CyberFoil pairing) — skip
     // the basic-auth challenge entirely. Set by pairingGate upstream.
     if (req.pairedDevice) return next();
+    // Signed in by its session token (sessionGate upstream).
+    if (req.sessionLane) return next();
 
     const ip = clientIp(req);
 
