@@ -275,8 +275,19 @@
       .hero .eyebrow { color: var(--butter); font-weight: 700; font-size: 15px; }
       .hero .hero-title { font-size: clamp(26px, 3.4vw, 42px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
       .hero .hero-pub { color: rgba(242, 241, 238, 0.75); font-size: 16px; }
-      .hero .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-      .hero .hero-tags span { padding: 7px 14px; border-radius: 100px; background: rgba(255, 255, 255, 0.12); font-size: 13px; font-weight: 600; }
+      /* At most two rows: a tag that would start a third is left out whole, never cut. */
+      .hero .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; max-height: 76px; overflow: hidden; }
+      .hero .hero-tags span {
+        padding: 7px 14px; border-radius: 100px; font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap;
+        background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
+        -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
+      }
+      /* the same five score bands as the cards */
+      .hero .hero-tags span.score { border-color: transparent; background: #cc3e34; }
+      .hero .hero-tags span.score.s90 { background: #0d6e40; }
+      .hero .hero-tags span.score.s80 { background: #22965a; }
+      .hero .hero-tags span.score.s70 { background: #768c1c; }
+      .hero .hero-tags span.score.s50 { background: #c47c00; }
 
       /* SECTION HEADINGS: bold and plain, like the client's rows */
       h2 {
@@ -804,7 +815,8 @@
         body { padding: 16px 16px 80px; }
         .wordmark { font-size: 26px; }
         .logo { width: 36px; height: 36px; }
-        .hero { flex-direction: column; align-items: flex-start; gap: 20px; padding: 24px; }
+        .hero { flex-direction: column; align-items: flex-start; gap: 20px; padding: 24px 24px 48px; }
+        .hero .hero-tags { max-height: 118px; }
         .hero .hero-cover { width: 132px; height: 132px; }
         .games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
         .recent { grid-auto-columns: 140px; }
@@ -3002,14 +3014,23 @@
         $("hero-title").textContent = localName(r, cleanName(nameWithAlias(r.item.name || "", aliases)));
         $("hero-pub").textContent = r.tdb?.publisher || "";
         const tags = $("hero-tags"); tags.innerHTML = "";
-        const addTag = (text) => { const el = document.createElement("span"); el.textContent = text; tags.appendChild(el); };
-        addTag(fmtBytes(r.size));
-        if (r.updateCount) addTag(t("hero.updates", r.updateCount));
-        if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
+        const addTag = (text) => { const el = document.createElement("span"); el.textContent = text; tags.appendChild(el); return el; };
+        const m = metaOf(r);
         const sc = scoreFor(r);
-        if (sc) addTag(scoreText(sc.score, sc.label));
+        // A bare number reads as nothing, so the score says what it is when Steam gave no label.
+        if (sc) addTag(sc.label ? scoreText(sc.score, sc.label) : `${t("modal.score")} ${sc.score}`).classList.add("score", scoreTier(sc));
         const sale = saleOf(r);
         if (sale) addTag(t("hero.discount", sale.price) + (sale.ends ? " · " + t("hero.until", sale.ends) : ""));
+        // What a download decides on first; on a narrow screen the later ones give way.
+        if ((m.languages || []).includes("ko")) addTag(t("pill.korean"));
+        addTag(fmtBytes(r.size));
+        for (const g of (m.categories || []).slice(0, 2)) addTag(genreLabel(g));
+        const players = Number(r.tdb?.numberOfPlayers ?? m.players);
+        if (players > 1) addTag(fmtPlayers(players));
+        const released = fmtDate(r.tdb?.releaseDate || m.release_date);
+        if (released) addTag(released);
+        if (r.updateCount) addTag(t("hero.updates", r.updateCount));
+        if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
         $("hero").onclick = () => openModal(r);
         const dots = $("hero-dots");
         dots.hidden = heroSlides.length < 2;
