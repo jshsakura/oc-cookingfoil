@@ -278,7 +278,7 @@
       /* At most two rows: a tag that would start a third is left out whole, never cut. */
       .hero .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; max-height: 76px; overflow: hidden; }
       .hero .hero-tags span {
-        padding: 7px 14px; border-radius: 100px; font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap;
+        padding: 7px 14px; border-radius: 100px; font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
         background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
         -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
       }
@@ -1230,6 +1230,7 @@
           "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}까지`,
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
+          "hero.released": (d) => `${d} 출시`,
           "sort.added_desc": "정렬: 최근 추가순",
           "sort.score_desc": "정렬: 평점 높은순",
           "modal.score": "평점",
@@ -1476,6 +1477,7 @@
           "hero.until": (d) => `until ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => (n === 1 ? "1 update" : `${n} updates`),
           "hero.dlc": (n) => `${n} DLC`,
+          "hero.released": (d) => `Released ${d}`,
           "sort.added_desc": "Sort: Recently added",
           "action.refresh": "↻ Refresh",
           "action.copy": "Copy",
@@ -1722,6 +1724,7 @@
           "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}まで`,
           "hero.updates": (n) => `アップデート${n}件`,
           "hero.dlc": (n) => `DLC ${n}件`,
+          "hero.released": (d) => `${d} 発売`,
           "sort.added_desc": "並び替え: 追加が新しい順",
           "action.refresh": "↻ 更新",
           "action.copy": "コピー",
@@ -1968,6 +1971,7 @@
           "hero.until": (d) => `至 ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => `${n} 個更新`,
           "hero.dlc": (n) => `${n} 個 DLC`,
+          "hero.released": (d) => `${d} 發售`,
           "sort.added_desc": "排序：最近新增",
           "action.refresh": "↻ 重新整理",
           "action.copy": "複製",
@@ -3028,7 +3032,7 @@
         const players = Number(r.tdb?.numberOfPlayers ?? m.players);
         if (players > 1) addTag(fmtPlayers(players));
         const released = fmtDate(r.tdb?.releaseDate || m.release_date);
-        if (released) addTag(released);
+        if (released) addTag(t("hero.released", released));
         if (r.updateCount) addTag(t("hero.updates", r.updateCount));
         if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
         $("hero").onclick = () => openModal(r);
