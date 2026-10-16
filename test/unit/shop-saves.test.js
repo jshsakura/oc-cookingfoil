@@ -146,3 +146,29 @@ test("a homebrew app's save with a name the card can't create is left out; a gam
   await assert.rejects(readSave(root, "homebrew/portgame", "bad", cache), /can't create/);
   await assert.doesNotReject(readSave(root, "homebrew/portgame", "good", cache));
 });
+
+test("a stale listing comes back at once and is refreshed behind it; a change made here is waited for", async () => {
+  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-stale-"));
+  const put = (folder) => {
+    fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });
+    fs.writeFileSync(path.join(root, "0100000000010000", folder, "save.bin"), "x");
+  };
+  put("one");
+  const realNow = Date.now;
+  try {
+    const cat = createCatalog({ root, cacheFile: path.join(root, "hashes.json") });
+    assert.equal((await cat.list()).length, 1);
+    put("two");
+    Date.now = () => realNow() + 10 * 60_000;
+    assert.equal((await cat.list()).length, 1, "the stale listing, not a wait");
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal((await cat.list()).length, 2, "refreshed behind it");
+    put("three");
+    cat.invalidate();
+    assert.equal((await cat.list()).length, 3, "a change made here is read before answering");
+  } finally {
+    Date.now = realNow;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

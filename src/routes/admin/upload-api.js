@@ -37,6 +37,7 @@ import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { SAVE_TYPES } from "../../meta/shop-saves.js";
+import { savesCatalog } from "../saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
@@ -276,6 +277,8 @@ export function mountUploadApi(router, guard) {
         : kind === "client" ? await placeClient(items)
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
+      // The saves listing is refreshed in the background; one uploaded here shows on the next list.
+      if (kind === "save") savesCatalog().invalidate();
       body = { ok: true, kind, ...placed };
     } catch (err) {
       status = err instanceof UploadError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
