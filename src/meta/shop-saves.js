@@ -173,6 +173,8 @@ export async function scanDir(root, cache) {
   const job = activity.begin("scan:saves", { title: "세이브 폴더를 읽습니다", total: dirs.length });
   let done = 0;
   for (const tidDir of dirs) {
+    // Stopped: the listing kept from the last whole scan stays, not a half-read one.
+    if (job.stopped) { job.discard(); throw new activity.JobStopped(); }
     job.step(done++, tidDir);
     for (const folder of await subdirs(path.join(root, tidDir))) {
       try {

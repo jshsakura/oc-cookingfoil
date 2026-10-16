@@ -308,6 +308,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
   let job = null;
   async function worker() {
     while (cursor < queue.length) {
+      if (job?.stopped) break;
       const tid = queue[cursor++];
       job?.step(cursor);
       const cp = cachePathFor(tid, "icon");

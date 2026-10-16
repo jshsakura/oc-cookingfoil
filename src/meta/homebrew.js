@@ -358,6 +358,8 @@ export async function scanManual(root) {
   const job = activity.begin("scan:homebrew", { title: "홈브류 폴더를 읽습니다", total: folders.length });
   let n = 0;
   for (const folder of folders.sort()) {
+    // Stopped: the list kept from the last whole scan stays, not a half-read one.
+    if (job.stopped) { job.discard(); throw new activity.JobStopped(); }
     job.step(n++, folder);
     try {
       const entry = await readManual(root, folder, seen, held);
@@ -922,6 +924,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       };
       try {
         for (const [i, id] of ids.entries()) {
+          if (job?.stopped) break;
           await checkOne(id, { force, onAsk });
           job?.step(i + 1, wanted.get(id));
         }

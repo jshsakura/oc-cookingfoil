@@ -18,6 +18,14 @@
  */
 import debug from "../debug.js";
 
+/** Thrown by a job that stops partway because the admin asked, so its half-done result is not kept. */
+export class JobStopped extends Error {
+  constructor() {
+    super("중지했습니다");
+    this.name = "JobStopped";
+  }
+}
+
 export const KINDS = Object.freeze([
   "sync", "scan:games", "scan:homebrew", "scan:saves", "scan:patches", "scan:retro",
   "backup", "nsz", "titledb", "ratings", "eshop", "retro-meta", "retro-art",
@@ -118,16 +126,19 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
   /** Starts one job. Its handle's methods do nothing once it has ended. */
   function begin(kind, { title, total = null, detail = null, probe = null, cancel = null } = {}) {
     const id = `a${++seq}`;
-    const cancellable = typeof cancel === "function";
+    // Every job can be stopped: one without its own cancel() sees `stopped` and winds down at its next step.
+    const cancellable = true;
     running.set(id, {
       id, kind: String(kind), title: text(title) ?? String(kind), detail: text(detail),
       current: 0, total: count(total), startedAt: now(), state: "running", cancellable,
     });
     if (typeof probe === "function") { probes.set(id, probe); syncProbeTimer(); }
-    if (cancellable) cancels.set(id, cancel);
+    cancels.set(id, typeof cancel === "function" ? cancel : () => {});
     changed();
     return {
       id,
+      /** True once the admin asked this job to stop. */
+      get stopped() { return Boolean(running.get(id)?.stopping); },
       step(n, stepDetail) {
         const e = running.get(id);
         if (!e) return;
@@ -156,7 +167,8 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
       job.done(summary(result));
       return result;
     } catch (err) {
-      job.fail(err);
+      if (err instanceof JobStopped) job.discard();
+      else job.fail(err);
       throw err;
     }
   }

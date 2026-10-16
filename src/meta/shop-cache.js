@@ -182,14 +182,15 @@ async function build() {
       if (!filesMap || needsFullRescan) {
         // Only a full read shows up as a job: the incremental passes run on every file change.
         scanJob = activity.begin("scan:games", { title: "게임 폴더를 읽습니다" });
+        // Cleared before the read: a rescan asked while it runs builds again afterwards.
+        needsFullRescan = false;
+        needsRename = false;
         const r = await scanLibrary();
         filesMap = r.filesMap;
         customs = r.customs;
         // Any queued deltas were just absorbed by the full scan.
         pendingFileDeltas.clear();
         pendingCustomsReload = false;
-        needsFullRescan = false;
-        needsRename = false;
         mode = filesMap.size === 0 && customs.length === 0 ? "full-empty" : "full";
       } else {
         const delta = await applyPendingDeltas();
@@ -291,6 +292,9 @@ async function build() {
       throw err;
     } finally {
       building = null;
+      // Asked for while this build ran (a rescan, new names, file events): build() handed those
+      // callers this build, which may have read the folder before their change, so build again.
+      if (needsFullRescan || needsRename || pendingFileDeltas.size || pendingCustomsReload) scheduleRebuild("changes during the last build");
     }
   })();
   return building;
