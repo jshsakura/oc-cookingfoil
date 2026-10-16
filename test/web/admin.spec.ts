@@ -65,6 +65,7 @@ test.afterEach(async ({ request }) => {
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
   await page.getByRole('link', { name: '라이브러리' }).click();
+  await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
   await page.getByRole('button', { name: '다시 스캔', exact: true }).click();
   await expect(page.locator('#toast')).toContainText('다시 스캔을 시작했습니다');
@@ -136,7 +137,7 @@ test('files dropped into the upload box pick their own kind and go in one by one
 
 test('the admin writes a game description that the title detail shows instead of titledb', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library');
+  await page.goto('/admin#library/info');
   await page.locator('#gd-game').fill('Test Game [0100000000010000]');
   await page.locator('#gd-game').dispatchEvent('change');
   await expect(page.locator('#gd-body')).toBeVisible();
@@ -162,7 +163,7 @@ test('the admin writes a game description that the title detail shows instead of
 
 test('a patch is switched between required and optional from the patch list and from its game', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library');
+  await page.goto('/admin#library/patches');
   const required = async (name: string) =>
     ((await (await request.get('/api/patches')).json()).patches as { name: string; required: boolean }[]).find((p) => p.name === name)?.required;
   const group = page.locator('#lib-patches .pt-game', { hasText: '0100000000010000' });
@@ -185,20 +186,22 @@ test('a patch is switched between required and optional from the patch list and 
   await page.locator('#pt-only').click();
 
   // The game editor lists the same game's patches with the same switch.
+  await page.getByRole('tab', { name: '이름과 소개' }).click();
   await page.locator('#gd-game').fill('Test Game [0100000000010000]');
   await page.locator('#gd-game').dispatchEvent('change');
   const inGame = page.locator('#gd-patches').getByRole('switch', { name: '게임 데이터 필수' });
   await expect(inGame).toHaveAttribute('aria-checked', 'false');
   await inGame.click();
   await expect(inGame).toHaveAttribute('aria-checked', 'true');
+  await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
+  await page.getByRole('tab', { name: '패치' }).click();
   await expect(data).toHaveAttribute('aria-checked', 'true');
   expect(await required('게임 데이터')).toBe(true);
-  await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
 });
 
 test('an uploaded patch and save are edited, moved to another game and deleted from the library tab', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library');
+  await page.goto('/admin#library/patches');
   const patches = async (lang: string) => (await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as { name: string; title_id: string; description: string | null }[];
   const row = page.locator('#lib-patches .pt-row', { hasText: '한글패치' });
   await row.getByRole('button', { name: '한글패치 편집' }).click();
@@ -228,6 +231,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await expect(page.locator('#lib-patches')).not.toContainText('Korean patch');
   expect((await patches('en')).some((p) => p.name === 'Korean patch')).toBe(false);
 
+  await page.getByRole('tab', { name: '세이브' }).click();
   const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' });
   await save.getByRole('button', { name: 'All unlocked 편집' }).click();
   await page.locator('#ct-name-ko').fill('전부 열림');
@@ -265,7 +269,7 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   expect(await patch('en')).toMatchObject({ name: 'Turbo', description: 'Doubles the speed.', version: '1.1' });
   expect((await patch('ko'))?.description).toBe('속도를 두 배로 올립니다.');
   // A game patch opened afterwards gets its full dialog back.
-  await page.goto('/admin#library');
+  await page.goto('/admin#library/patches');
   await page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' }).getByRole('button', { name: '게임 데이터 편집' }).click();
   await expect(page.locator('#ct-update')).toBeVisible();
   await expect(page.locator('#ct-remove')).toBeVisible();
@@ -309,7 +313,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
 
 test('a game is renamed from the game editor and every list shows the new name', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library');
+  await page.goto('/admin#library/info');
   await page.locator('#gd-game').fill('Test Game [0100000000010000]');
   await page.locator('#gd-game').dispatchEvent('change');
   await page.locator('#gd-name-ko').fill('고친 이름');

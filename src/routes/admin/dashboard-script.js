@@ -75,7 +75,8 @@ async function api(url,opts={}){
 const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 폴더','other-folder':'앱 폴더 밖','junk':'설명서와 시스템 파일','foreign-file':'다른 기기용 실행 파일','doc':'PC 용 설치 안내문'};
 const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다','partial':'일부 파일을 빼고 설치합니다'};
 const TABS=['overview','users','devices','settings','alerts','logs','featured','library','nsz','upload','inbox','homebrew','retro'];
-function showTab(){const want=location.hash.slice(1);const tab=TABS.includes(want)?want:'overview';
+function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=TABS.includes(want)?want:'overview';
+  if(tab==='library'&&sub)libShowSub(sub,true);
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
@@ -748,8 +749,18 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
   try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
+// The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
+const LIB_SUBS=['files','verify','patches','saves','info','server'];let libSub='files';
+function libLoadSub(){
+  if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();
+  else if(libSub==='info')loadDescGames();}
+function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
+  for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
+  for(const p of document.querySelectorAll('#tab-library [data-lib-panel]'))p.hidden=p.dataset.libPanel!==sub;
+  if(!quiet)libLoadSub();}
+for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.addEventListener('click',()=>libShowSub(b.dataset.lsub));
 async function loadLibrary(){
-  loadPatches();loadDescGames();lvLoad();lbLoad();
+  libLoadSub();
   const d=await api('/admin/api/library');if(d.origin){origin=d.origin;showShopUrl();}
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};

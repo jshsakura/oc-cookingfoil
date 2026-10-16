@@ -74,7 +74,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 }
 `;
 
-export const LIB_BROWSER_HTML = `<h2>파일</h2>
+export const LIB_BROWSER_HTML = `<h2 class="first">파일</h2>
   <p class="muted">서버가 내주는 파일을 종류별로 나눠 보여 줍니다. 기타는 게임 폴더에 있지만 게임 파일이 아닌 것입니다. 검색과 정렬은 고른 종류 안에서만 적용됩니다.</p>
   <div id="lib-files">
     <div class="lb-kinds" id="lb-kinds" role="tablist" aria-label="파일 종류">
