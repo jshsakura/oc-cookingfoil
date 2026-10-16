@@ -10,13 +10,10 @@
  * a Google account turned off in /admin ends its sessions at once.
  */
 import crypto from "crypto";
-import path from "path";
-import { dataDir } from "../helpers/envs.js";
 import * as accounts from "./google-accounts.js";
 import * as users from "./users.js";
 import { readSecret, writeSecret } from "../db/security-stores.js";
 
-const KEY_FILE = path.join(dataDir, "security", "user-session.key");
 export const SESSION_COOKIE = "cf_user";
 export const CSRF_COOKIE = "cf_csrf";
 export const OAUTH_COOKIE = "cf_oauth";
@@ -26,7 +23,7 @@ export const OAUTH_MS = 10 * 60 * 1000;
 let key = null;
 function signingKey() {
   if (key) return key;
-  key = readSecret("user-session", { legacyFile: KEY_FILE });
+  key = readSecret("user-session");
   if (key && key.length >= 32) return key;
   key = crypto.randomBytes(32);
   writeSecret("user-session", key);

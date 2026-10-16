@@ -17,16 +17,13 @@
  * anything can ask for it.
  */
 import crypto from "crypto";
-import path from "path";
 
-import { dataDir, adminTotpSecret as envSecret } from "../helpers/envs.js";
+import { adminTotpSecret as envSecret } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { deleteSecret, readSecretJson, writeSecretJson } from "../db/security-stores.js";
 import { SecretKeyError } from "./secret-box.js";
 
-const SECRET_PATH = path.join(dataDir, "security", "admin-totp.json");
 // A candidate under enrollment, on disk so a restart mid-way doesn't void the scanned code.
-const PENDING_PATH = path.join(dataDir, "security", "admin-totp-pending.json");
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const SECRET_BYTES = 20; // 160-bit, the RFC 4226 recommendation
 
@@ -48,7 +45,7 @@ function toBase32(buf) {
 
 function readPersisted() {
   try {
-    const parsed = readSecretJson("admin-totp", { legacyFile: SECRET_PATH });
+    const parsed = readSecretJson("admin-totp");
     if (typeof parsed?.secret === "string" && parsed.secret.length >= 16) return parsed;
   } catch (err) {
     // A secret that will not open (another key) must stop the server, not be replaced by a new one.
@@ -158,7 +155,7 @@ function savePending(next) {
 function loadPending() {
   if (pending) return pending;
   try {
-    const saved = readSecretJson("admin-totp-pending", { legacyFile: PENDING_PATH });
+    const saved = readSecretJson("admin-totp-pending");
     if (typeof saved?.secret === "string" && Number.isFinite(saved?.at)) pending = saved;
   } catch (err) {
     // Sealed with another key: stop, so a new enrollment is never started over it.

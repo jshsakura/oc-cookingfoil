@@ -18,11 +18,9 @@
  * (0600), made on first use. Deleting it ends every token handed out so far.
  */
 import crypto from "crypto";
-import path from "path";
 import * as env from "../helpers/envs.js";
 import { readSecret, writeSecret } from "../db/security-stores.js";
 
-const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
 const MIN_STEP_SEC = 60;
 const MAX_TOKEN_CHARS = 4096;
@@ -34,7 +32,7 @@ let key = null;
 // size is an error, so a key is never replaced behind the operator's back.
 export function signingKey() {
   if (key) return key;
-  const raw = readSecret("download-link", { legacyFile: KEY_FILE });
+  const raw = readSecret("download-link");
   if (raw) {
     if (raw.length !== KEY_BYTES) throw new Error(`the download-link key is not ${KEY_BYTES} bytes`);
     return (key = raw);

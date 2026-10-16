@@ -19,17 +19,12 @@
  * Request-path checks use verifyAsync so a wrong password never blocks the
  * event loop, and unknown names pay the same cost as known ones.
  */
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 import debug from "../debug.js";
-import { dataDir } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
 import { hashPassword, DECOY_HASH, matches, matchesAsync } from "./password-hash.js";
 import { done, markDone, recordStore } from "../db/security-stores.js";
 
-const USERS_DIR = path.join(dataDir, "security");
-const USERS_PATH = path.join(USERS_DIR, "users.json");
 const NAME_RE = /^[A-Za-z0-9._-]{1,32}$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 128;
@@ -64,16 +59,7 @@ function remember(key) {
 
 let store = null;
 const records = () =>
-  (store ??= recordStore("user", {
-    legacy: {
-      file: USERS_PATH,
-      entries(json) {
-        // Fail closed: starting with no accounts would silently open the server.
-        if (!json || typeof json.users !== "object" || json.users === null) throw new Error(`users: ${USERS_PATH} has no "users" object; fix or restore it before starting`);
-        return Object.entries(json.users);
-      },
-    },
-  }));
+  (store ??= recordStore("user"));
 
 function persist() {
   records().sync(accounts);
@@ -100,7 +86,7 @@ function load() {
   for (const [name, record] of kept) accounts.set(name, record);
   if (kept.length) markDone("users-seeded");
   // Seeded from COOK_AUTH_USERS once: an admin who removes every account later does not get them back.
-  if (kept.length || done("users-seeded") || fs.existsSync(USERS_PATH)) return;
+  if (kept.length || done("users-seeded")) return;
   const fromEnv = getUsersFromEnv() ?? {};
   const now = Date.now();
   for (const [name, password] of Object.entries(fromEnv)) {

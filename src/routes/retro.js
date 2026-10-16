@@ -125,7 +125,7 @@ let building = null;
 
 function rebuildManifest() {
   if (building) return building;
-  hashCache ??= new HashCache(hashStore(appDb(), "retro", { legacyFile: path.join(dataDir, "retro-hashes.json") }));
+  hashCache ??= new HashCache(hashStore(appDb(), "retro"));
   building = buildManifest(packDir(), hashCache)
     .then((m) => (manifest = { ...m, builtAt: Date.now() }))
     .finally(() => (building = null));

@@ -1,0 +1,154 @@
+/**
+ * The schema of both SQLite files and how a file is opened and brought up to
+ * date. Nothing here reads the server's settings, so a test can make a file
+ * before the server starts.
+ */
+import fs from "fs";
+import path from "path";
+import { DatabaseSync } from "node:sqlite";
+
+export const DB_FILE = "cookingfoil.db";
+export const SECURITY_DB_FILE = path.join("security", "security.db");
+
+// Each step runs once, in order; user_version counts the steps done.
+export const INDEX_MIGRATIONS = [
+  `CREATE TABLE catalog_items (
+     catalog TEXT NOT NULL,
+     id TEXT NOT NULL,
+     data TEXT NOT NULL,
+     PRIMARY KEY (catalog, id)
+   ) WITHOUT ROWID;
+   CREATE TABLE catalog_scans (
+     catalog TEXT PRIMARY KEY,
+     scanned_at INTEGER NOT NULL
+   );
+   CREATE TABLE file_hashes (
+     scope TEXT NOT NULL,
+     path TEXT NOT NULL,
+     key TEXT NOT NULL,
+     hash TEXT NOT NULL,
+     PRIMARY KEY (scope, path)
+   ) WITHOUT ROWID;
+   CREATE TABLE imports (
+     source TEXT PRIMARY KEY,
+     at INTEGER NOT NULL
+   );`,
+];
+
+// One row per record (an account, a console login, a token), JSON as the module
+// keeps it; settings one row each; secrets only ever sealed (security/secret-box.js).
+export const SECURITY_MIGRATIONS = [
+  `CREATE TABLE records (
+     kind TEXT NOT NULL,
+     id TEXT NOT NULL,
+     data TEXT NOT NULL,
+     PRIMARY KEY (kind, id)
+   ) WITHOUT ROWID;
+   CREATE TABLE settings (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );
+   CREATE TABLE secrets (
+     name TEXT PRIMARY KEY,
+     sealed TEXT NOT NULL CHECK (sealed LIKE 'cfsec:v1:%')
+   );
+   CREATE TABLE imports (
+     source TEXT PRIMARY KEY,
+     at INTEGER NOT NULL
+   );`,
+  // Append-only logs kept to a length (the audit log, refusals), oldest dropped first.
+  `CREATE TABLE events (
+     seq INTEGER PRIMARY KEY AUTOINCREMENT,
+     log TEXT NOT NULL,
+     data TEXT NOT NULL
+   );
+   CREATE INDEX events_log ON events (log, seq);`,
+  // LIKE ignores case; the prefix is compared exactly.
+  `CREATE TABLE secrets_sealed (
+     name TEXT PRIMARY KEY,
+     sealed TEXT NOT NULL CHECK (substr(sealed, 1, 9) = 'cfsec:v1:')
+   );
+   INSERT INTO secrets_sealed (name, sealed) SELECT name, sealed FROM secrets;
+   DROP TABLE secrets;
+   ALTER TABLE secrets_sealed RENAME TO secrets;`,
+];
+
+/**
+ * Opens (and brings up to date) the database at `file`; ":memory:" for tests.
+ * `private` keeps the file and its journal readable by the server's account only.
+ */
+export function openDatabase(file, { migrations = INDEX_MIGRATIONS, private: own = false } = {}) {
+  if (file !== ":memory:") {
+    fs.mkdirSync(path.dirname(file), { recursive: true, ...(own ? { mode: 0o700 } : {}) });
+    // SQLite gives the -wal and -shm files the mode of the database file.
+    if (own) {
+      fs.chmodSync(path.dirname(file), 0o700);
+      fs.closeSync(fs.openSync(file, "a", 0o600));
+      fs.chmodSync(file, 0o600);
+    }
+  }
+  const db = new DatabaseSync(file);
+  // The wait first: another process opening the same file holds it for a moment.
+  db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+  const version = () => db.prepare("PRAGMA user_version").get().user_version;
+  if (version() < migrations.length) {
+    // Holds the write lock while it reads the version again, so two processes never run a step twice.
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      for (let i = version(); i < migrations.length; i++) {
+        db.exec(migrations[i]);
+        db.exec(`PRAGMA user_version = ${i + 1}`);
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      rollback(db);
+      throw err;
+    }
+  }
+  return db;
+}
+
+const depth = new WeakMap(); // db → how many transaction() calls are open on it
+
+/**
+ * Runs `fn` in one transaction: all of it lands, or none. Inside another, it
+ * joins that one: then only the outermost call decides, and a caller that
+ * catches an inner failure commits what the inner part wrote.
+ */
+export function transaction(db, fn) {
+  if (depth.get(db)) {
+    depth.set(db, depth.get(db) + 1);
+    try {
+      return fn();
+    } finally {
+      depth.set(db, depth.get(db) - 1);
+    }
+  }
+  depth.set(db, 1);
+  try {
+    return outermost(db, fn);
+  } finally {
+    depth.delete(db);
+  }
+}
+
+function outermost(db, fn) {
+  db.exec("BEGIN");
+  try {
+    const out = fn();
+    db.exec("COMMIT");
+    return out;
+  } catch (err) {
+    rollback(db);
+    throw err;
+  }
+}
+
+/** Rolls back what is open; SQLite has already done it after a full disk or an I/O error. */
+function rollback(db) {
+  try {
+    db.exec("ROLLBACK");
+  } catch {
+    // Nothing was open any more: the error that led here is the one to report.
+  }
+}

@@ -48,7 +48,7 @@ test("only admin accounts change artwork or see uploads; consoles never do", () 
 
 test("a user-role account reads the shop but cannot change artwork or see uploads", async () => {
   const { spawn } = await import("node:child_process");
-  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const { mkdtempSync, mkdirSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const path = (await import("node:path")).default;
   const { hashPassword } = await import("../../src/security/password-hash.js");
@@ -58,7 +58,8 @@ test("a user-role account reads the shop but cannot change artwork or see upload
   mkdirSync(path.join(data, "security"), { recursive: true });
   const now = Date.now();
   const user = (role, password) => ({ hash: hashPassword(password), enabled: true, role, createdAt: now, updatedAt: now });
-  writeFileSync(path.join(data, "security", "users.json"), JSON.stringify({ version: 1, users: { alice: user("admin", "alice-password"), bob: user("user", "bob-password-1") } }));
+  const { seedRecords } = await import("../support/security-db.js");
+  await seedRecords(data, "user", { alice: user("admin", "alice-password"), bob: user("user", "bob-password-1") });
   const port = 19400 + (process.pid % 400);
   const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ["./src/index.js"], {

@@ -66,6 +66,8 @@ import clientUpdateRouter from "./routes/client-update.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
+import * as folderSync from "./meta/folder-sync.js";
+import * as backups from "./db/backup.js";
 import * as userPatches from "./meta/user-patches.js";
 import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
 import { loadPrices } from "./meta/eshop-price.js";
@@ -398,6 +400,8 @@ startNszQueue();
 if (savesEnabled()) {
   savesCatalog().warm();
   watchSaves();
+  folderSync.start();
+  backups.start();
 }
 
 // Seed the custom-art override index from disk so the icon/banner/screenshot

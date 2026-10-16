@@ -7,11 +7,9 @@
  * Secrets never leave this module except to the service they belong to:
  * describe() reports only whether one is set.
  */
-import path from "path";
 import * as env from "../helpers/envs.js";
 import { readSecretJson, writeSecretJson } from "../db/security-stores.js";
 
-const FILE = path.join(env.dataDir, "security", "integrations.json");
 const TOKEN_RE = /^[\x21-\x7e]{8,300}$/;
 const URL_RE = /^https?:\/\/[^\s]{3,300}$/;
 
@@ -76,7 +74,7 @@ function changed(service) {
 
 function readSaved() {
   try {
-    const parsed = readSecretJson("integrations", { legacyFile: FILE });
+    const parsed = readSecretJson("integrations");
     return parsed && typeof parsed.services === "object" && parsed.services ? parsed.services : {};
   } catch (err) {
     if (err.code !== "ENOENT") throw err;

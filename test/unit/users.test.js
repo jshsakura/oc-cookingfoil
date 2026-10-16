@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { everything, records } from "../support/security-db.js";
@@ -114,10 +114,12 @@ test("env passwords keep everything after the first colon", () => {
   assert.equal(out, true);
 });
 
-test("a users file without a users object refuses to start instead of opening the server", () => {
-  const dataDir = mkdtempSync(path.join(tmpdir(), "cf-users-"));
-  mkdirSync(path.join(dataDir, "security"), { recursive: true });
-  writeFileSync(path.join(dataDir, "security", "users.json"), JSON.stringify({ version: 1 }));
+test("an account row that does not read refuses to start instead of opening the server", async () => {
+  const { dataDir } = run(`users.add("first", "first-pass-1", "admin"); return null;`);
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(path.join(dataDir, "security", "security.db"));
+  db.prepare("UPDATE records SET data = '{bad' WHERE kind = 'user'").run();
+  db.close();
   assert.throws(() => run(`return users.hasUsers();`, { COOK_DATA_DIR: dataDir }));
 });
 

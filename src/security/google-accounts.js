@@ -7,13 +7,10 @@
  * Only what is needed to tell accounts apart is kept: Google's account id
  * (`sub`) and the verified email. Stored in the security database (db/database.js).
  */
-import path from "path";
-import { adminEmail, dataDir } from "../helpers/envs.js";
+import { adminEmail } from "../helpers/envs.js";
 import { recordStore } from "../db/security-stores.js";
 import { alert } from "../helpers/alerts.js";
 
-const DIR = path.join(dataDir, "security");
-const FILE = path.join(DIR, "google-accounts.json");
 const MAX_ACCOUNTS = 1000;
 export const STATUSES = ["pending", "approved", "disabled"];
 export const ROLES = ["admin", "user"];
@@ -22,7 +19,7 @@ const accounts = new Map(); // sub → { sub, email, status, createdAt, approved
 
 let store = null;
 const records = () =>
-  (store ??= recordStore("google-account", { legacy: { file: FILE, entries: (json) => Object.values(json?.accounts ?? {}).filter((a) => a?.sub).map((a) => [a.sub, a]) } }));
+  (store ??= recordStore("google-account"));
 
 function load() {
   for (const [, a] of records().load()) {

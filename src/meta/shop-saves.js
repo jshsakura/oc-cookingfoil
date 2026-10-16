@@ -188,13 +188,10 @@ export async function scanDir(root, cache) {
 /** By title id (homebrew apps last), then name. Pure. */
 const sortSaves = (list) => list.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 
-/**
- * The saves under `root`, kept in the index: `db` an index (db/database.js),
- * `legacy` the { list, hashes } JSON files an earlier version kept, taken over once.
- */
-export function createCatalog({ root, db, legacy = {} }) {
-  const cache = new HashCache(hashStore(db, "saves", { legacyFile: legacy.hashes }));
-  const store = catalogStore(db, "saves", { legacyFile: legacy.list, legacyField: "saves" });
+/** The saves under `root`, kept in the index `db` (db/database.js). */
+export function createCatalog({ root, db }) {
+  const cache = new HashCache(hashStore(db, "saves"));
+  const store = catalogStore(db, "saves");
   const kept = store.load();
   let saves = kept ? sortSaves(kept.items) : [];
   let scannedAt = kept?.at ?? 0;

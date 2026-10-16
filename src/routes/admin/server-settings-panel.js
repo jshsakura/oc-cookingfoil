@@ -65,6 +65,10 @@ const SS_GROUPS=[
     ['restartRetryAfter','sec','다시 오라고 알리는 시간','다시 시작하는 동안 새로 들어온 요청에 이만큼 뒤에 다시 오라고 알립니다(Retry-After). 서버가 꺼졌다가 켜지는 데 걸리는 시간에 맞춥니다.'],
     ['restartGrace','sec','받던 것을 기다리는 시간','다시 시작할 때 이미 받고 있던 요청이 끝나기를 이만큼까지 기다리고, 그때도 남은 것은 끊습니다. compose 의 stop_grace_period(40초) 안에 들도록 35초까지 넣습니다.'],
   ]],
+  ['동기화와 백업',[
+    ['syncHours',[['0','누를 때만'],['1','1시간마다'],['3','3시간마다'],['6','6시간마다 (기본)'],['12','12시간마다'],['24','하루마다']],'모든 폴더 다시 읽기','게임, 홈브류, 세이브, 패치, 레트로 폴더를 이 주기로 처음부터 다시 읽습니다. 넣은 파일은 폴더 감시가 바로 잡으니, 이것은 놓친 것을 채우는 용도입니다.'],
+    ['backupDays',[['0','하지 않습니다'],['7','7일'],['14','14일 (기본)'],['30','30일'],['90','90일']],'매일 백업 보관','계정, 기기, 토큰, 설정, 감사 기록, 다운로드 기록, 손으로 고친 이름과 설명을 하루에 한 번 데이터 폴더의 backups 에 복사하고, 이 기간이 지난 것은 지웁니다. 롬과 이미지처럼 다시 받을 수 있는 것은 넣지 않습니다.'],
+  ]],
   ['외부 정보',[
     ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],
     ['eshopPopularity','bool','인기순','인기순 정렬에 쓰는 순위를 받습니다.'],
@@ -108,6 +112,7 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();
       const c=el('div',null,'ss-ctl');c.append(btn('지금 받기',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
       r.append(t,c);g.append(r);}
     if(title==='다시 시작')g.append(ssRestartRow());
+    if(title==='동기화와 백업')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
     list.append(g);}}
 function ssDirectNote(h){return h.up?'외부 다운로드 전용 주소가 지금 응답합니다.'+(h.since?' '+fmt(h.since)+'부터 응답하고 있습니다.':'')
   :'외부 다운로드 전용 주소가 지금 응답하지 않습니다. 요청이 오는 동안 1분마다 다시 확인하고, 상태가 바뀌면 알립니다.';}
@@ -118,6 +123,17 @@ function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const 
   const c=el('div',null,'ss-ctl');c.append(btn('다시 시작',async()=>{
     if(!confirm('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
     try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));
+  r.append(t,c);return r;}
+function ssSyncRow(st){const r=el('div',null,'ss-row');const t=el('div');
+  const parts=(st.last?.parts||[]).map((p)=>({games:'게임',homebrew:'홈브류',saves:'세이브',patches:'패치',retro:'레트로'}[p.name]||p.name)+(p.error?' 실패':''));
+  t.append(el('b','지금 동기화'),el('p',st.running?'모든 폴더를 다시 읽고 있습니다.':st.last?'마지막으로 다 읽은 때: '+fmt(st.last.at)+' ('+Math.max(1,Math.round(st.last.ms/1000))+'초, '+parts.join(', ')+')'+(st.next?'. 다음은 '+fmt(st.next)+'입니다.':'.'):'서버를 켠 뒤로 아직 다시 읽지 않았습니다. 켤 때 한 번 읽었습니다.'));
+  const c=el('div',null,'ss-ctl');c.append(btn('지금 동기화',async()=>{try{const x=await api('/admin/api/server-settings/sync-now',{method:'POST',body:{}});toast(x.message);loadServerSettings();setTimeout(loadServerSettings,5000);}catch(err){toast(err.message);}}));
+  r.append(t,c);return r;}
+function ssBackupRow(st){const r=el('div',null,'ss-row');const t=el('div');const kept=st.kept||[];
+  const total=kept.reduce((a,b)=>a+b.bytes,0);
+  t.append(el('b','지금 백업'),el('p',st.last?.error?'마지막 백업이 실패했습니다: '+st.last.error
+    :kept.length?'백업 '+kept.length+'개를 두고 있습니다(모두 '+(total/1048576).toFixed(1)+' MB). 가장 최근: '+kept[0].day+'.':'아직 만든 백업이 없습니다.'));
+  const c=el('div',null,'ss-ctl');c.append(btn('지금 백업',async()=>{try{const x=await api('/admin/api/server-settings/backup-now',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;

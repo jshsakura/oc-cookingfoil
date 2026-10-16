@@ -36,27 +36,6 @@ test("catalogs share the file but not their items", () => {
   assert.equal(catalogStore(db, "two").load(), null);
 });
 
-test("a listing kept as JSON by an earlier version is taken over once, and the file is left as it was", () => {
-  const dir = tmp();
-  const legacyFile = path.join(dir, "list.json");
-  const body = JSON.stringify({ version: 1, at: 500, saves: [{ id: "x" }] });
-  fs.writeFileSync(legacyFile, body);
-  const db = openDatabase(path.join(dir, "index.db"));
-  assert.deepEqual(catalogStore(db, "saves", { legacyFile, legacyField: "saves" }).load(), { at: 500, items: [{ id: "x" }] });
-  assert.equal(fs.readFileSync(legacyFile, "utf8"), body);
-  // Once taken over, the old file no longer counts, even when the catalog empties later.
-  catalogStore(db, "saves").replace([], 900);
-  assert.deepEqual(catalogStore(db, "saves", { legacyFile, legacyField: "saves" }).load(), { at: 900, items: [] });
-});
-
-test("a broken or missing legacy file is skipped", () => {
-  const dir = tmp();
-  fs.writeFileSync(path.join(dir, "bad.json"), "{nope");
-  const db = openDatabase(":memory:");
-  assert.equal(catalogStore(db, "a", { legacyFile: path.join(dir, "bad.json") }).load(), null);
-  assert.equal(catalogStore(db, "b", { legacyFile: path.join(dir, "none.json") }).load(), null);
-});
-
 test("file hashes are written through, survive a reopen, and are pruned to the files still there", () => {
   const dir = tmp();
   const file = path.join(dir, "index.db");
@@ -69,15 +48,6 @@ test("file hashes are written through, survive a reopen, and are pruned to the f
   assert.equal(again.get("/a"), undefined);
   assert.equal(hashStore(openDatabase(file), "s").size, 1);
   assert.equal(hashStore(openDatabase(file), "other").size, 0, "scopes are apart");
-});
-
-test("hashes kept as JSON by an earlier version are taken over", () => {
-  const dir = tmp();
-  const legacyFile = path.join(dir, "h.json");
-  fs.writeFileSync(legacyFile, JSON.stringify({ "/a": { key: "k", hash: "h" }, "/bad": {} }));
-  const store = hashStore(openDatabase(":memory:"), "s", { legacyFile });
-  assert.deepEqual(store.get("/a"), { key: "k", hash: "h" });
-  assert.equal(store.size, 1);
 });
 
 test("an index opened again is not migrated twice", () => {

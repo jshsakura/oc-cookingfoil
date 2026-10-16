@@ -13,9 +13,7 @@
  * HISTORY_MS; an account holds at most WAITING_PER_OWNER unspent ones (a new
  * download drops the oldest), and the file at most MAX_KEPT.
  */
-import path from "path";
 import crypto from "crypto";
-import { dataDir } from "../helpers/envs.js";
 import { recordStore } from "../db/security-stores.js";
 
 export const TTL_MS = 24 * 60 * 60 * 1000;
@@ -24,7 +22,6 @@ export const PREFIX = "cfe_";
 const TOKEN_RE = /^cfe_[A-Za-z0-9_-]{43}$/;
 const WAITING_PER_OWNER = 3;
 const MAX_KEPT = 500;
-const FILE = path.join(dataDir, "security", "enroll-tokens.json");
 
 let saved = null; // sha256(token) → { id, owner, createdAt, expiresAt, usedAt?, deviceKey?, revokedAt? }
 
@@ -32,9 +29,7 @@ const hash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 let store = null;
 const records = () =>
-  (store ??= recordStore("enroll-token", {
-    legacy: { file: FILE, lenient: true, entries: (json) => Object.entries(json && typeof json.tokens === "object" && json.tokens ? json.tokens : {}) },
-  }));
+  (store ??= recordStore("enroll-token"));
 
 const read = () => Object.fromEntries(records().load());
 
