@@ -85,7 +85,7 @@ export const LIB_BROWSER_HTML = `<h2>파일</h2>
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" placeholder="이름, 경로, 타이틀 ID" aria-label="이 종류에서 찾기"></label>
       <button type="submit" id="lb-go">${svg("search")}<span>찾기</span></button>
       <select id="lb-sort" aria-label="정렬 기준"><option value="name">이름순</option><option value="size">크기순</option><option value="mtime">수정한 날짜순</option></select>
-      <button type="button" id="lb-order" aria-label="정렬 방향: 오름차순" title="정렬 방향을 바꿉니다"><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">오름차순</span></button>
+      <button type="button" id="lb-order" aria-label="정렬 방향: 오름차순" title="정렬 방향을 변경합니다"><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">오름차순</span></button>
     </form>
     <p class="muted lb-count" id="lb-count" aria-live="polite"></p>
     <div class="lb-list" id="lb-list" role="tabpanel" aria-labelledby="lb-tab-base"></div>
