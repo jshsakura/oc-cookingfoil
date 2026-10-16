@@ -35,3 +35,23 @@ test("an item is reported once, after its writes stop", async () => {
   await w.close();
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("a copy still writing deep inside an item, below what the watch sees, puts the report off", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-watch-"));
+  const deep = path.join(root, "port", "data", "levels");
+  fs.mkdirSync(deep, { recursive: true });
+  const seen = [];
+  const w = watchItems(root, { depth: 1, quietMs: 300, onItem: (i) => seen.push(i) });
+  await w.ready;
+  fs.writeFileSync(path.join(root, "port", "port.nro"), "x");
+  // Deeper than the watch: no events, but the files keep changing for a while.
+  for (let i = 0; i < 6; i++) {
+    fs.appendFileSync(path.join(deep, "l1.bin"), "x".repeat(1000));
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.deepEqual(seen, [], "not reported while the deep copy writes");
+  for (let i = 0; i < 40 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(seen, ["port"]);
+  await w.close();
+  fs.rmSync(root, { recursive: true, force: true });
+});
