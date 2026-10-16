@@ -548,6 +548,8 @@
       .xgroup.xskel header b { display: block; width: 40%; height: 14px; }
       .xgroup.xskel .xitem b { display: block; height: 12px; margin: 4px 0; }
       .xrow.xapp.xskel > i { display: block; width: 48px; height: 48px; border-radius: 12px; }
+      .xbody .xrow.xskel { pointer-events: none; display: block; }
+      .xbody .xrow.xskel b { display: block; height: 13px; margin: 6px 0; }
       .xrow.xapp.xskel b { display: block; height: 13px; margin: 5px 0; }
       /* the detail window's cells, text and screenshots while they arrive */
       .modal .modal-meta strong.sk { display: inline-block; width: 70%; }
@@ -3435,21 +3437,48 @@
           $(kind + "-empty").hidden = true;
           $(kind + "-pager").replaceChildren();
         }
+        // Saves come by game (saves-by-game): the games and their counts first, a game's saves when its card opens.
+        const summary = {};       // kind → [{ key, titleId, homebrew?, game?, count, size, updatedAt }]
+        const perGame = {};       // kind → Map(key → items)
+        const keyOf = (it) => it.titleId || it.title_id || "hb:" + it.homebrew;
+        const byGameMode = (kind) => kind === "saves" && summary[kind];
+        async function getList(url, field) {
+          const r = await fetch(url, { headers: { Accept: "application/json" } });
+          return r.ok ? (await r.json())[field] ?? [] : [];
+        }
+        // Loading rows inside a card that opens before its items are here.
+        function loadingRows() {
+          return ["58%", "42%"].map((w) => {
+            const row = document.createElement("div"); row.className = "xrow xskel"; row.setAttribute("aria-hidden", "true");
+            const b = document.createElement("b"); b.className = "sk"; b.style.width = w; row.append(b);
+            return row;
+          });
+        }
         function render(kind) {
           const list = $(kind + "-list");
           const q = folded($(kind + "-search").value.trim());
+          // A search looks inside every save, so it reads the whole list once.
+          if (q && byGameMode(kind) && !data[kind]) {
+            skeleton(kind);
+            getList(`/api/saves?lang=${encodeURIComponent(lang)}`, kind).catch(() => []).then((all) => { data[kind] = all; render(kind); });
+            return;
+          }
           const byName = (a, b) => String(a).localeCompare(String(b), lang, { numeric: true });
           const updated = (it) => timeOf(it.updated_at ?? it.updatedAt);
           // A game's items stay together: the games are ordered by the pick (newest item, name, total size), then its items.
           const order = xorder(kind);
-          const games = new Map();
-          for (const it of (data[kind] ?? []).filter((it) => !q || [gameName(it), it.name, it.description].some((x) => folded(x).includes(q)))) {
-            const tid = it.titleId || it.title_id || "hb:" + it.homebrew;
-            if (!games.has(tid)) games.set(tid, []);
-            games.get(tid).push(it);
+          let ranked;
+          if (byGameMode(kind) && !q) {
+            ranked = summary[kind].map((row) => ({ key: row.key, sample: row, name: gameName(row), updated: updated(row), size: Number(row.size) || 0, count: row.count, items: perGame[kind]?.get(row.key) ?? null }));
+          } else {
+            const games = new Map();
+            for (const it of (data[kind] ?? []).filter((it) => !q || [gameName(it), it.name, it.description].some((x) => folded(x).includes(q)))) {
+              if (!games.has(keyOf(it))) games.set(keyOf(it), []);
+              games.get(keyOf(it)).push(it);
+            }
+            ranked = [...games.values()].map((own) => ({ key: keyOf(own[0]), sample: own[0], name: gameName(own[0]), updated: Math.max(...own.map(updated)),
+              size: own.reduce((n, it) => n + (Number(it.size) || 0), 0), count: own.length, items: own }));
           }
-          const gameKey = (list) => ({ updated: Math.max(...list.map(updated)), size: list.reduce((n, it) => n + (Number(it.size) || 0), 0) });
-          const ranked = [...games.values()].map((list) => ({ list, name: gameName(list[0]), ...gameKey(list) }));
           ranked.sort((a, b) =>
             order === "updated" ? b.updated - a.updated || byName(a.name, b.name)
             : order === "size" ? b.size - a.size || byName(a.name, b.name)
@@ -3460,42 +3489,59 @@
             : order === "size" ? (Number(b.size) || 0) - (Number(a.size) || 0) || byName(a.name, b.name)
             : order === "name-desc" ? byName(b.name, a.name)
             : byName(a.name, b.name);
-          const items = ranked.flatMap((g) => g.list);
+          const total = ranked.reduce((n, g) => n + g.count, 0);
           // Pages hold whole games, so a game with many items never runs across pages.
           const pages = Math.max(1, Math.ceil(ranked.length / PAGE));
           const page = Math.min(pageOf[kind], pages);
           pageOf[kind] = page;
           const from = (page - 1) * PAGE;
-          list.replaceChildren(...ranked.slice(from, from + PAGE).map(({ list: own }) => {
-            const its = [...own].sort(within);
-            const tid = its[0].titleId || its[0].title_id || "hb:" + its[0].homebrew;
+          list.replaceChildren(...ranked.slice(from, from + PAGE).map((grp) => {
+            const first = grp.sample;
             const g = document.createElement("section"); g.className = "xgroup";
             const head = document.createElement("button"); head.type = "button"; head.className = "xhead";
             const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
-            const icon = its[0].homebrew ? homebrew.iconOf(its[0].homebrew) : its[0].game?.icon;
-            if (icon) img.src = its[0].homebrew ? icon : iconPath(icon);
+            const icon = first.homebrew ? homebrew.iconOf(first.homebrew) : first.game?.icon;
+            if (icon) img.src = first.homebrew ? icon : iconPath(icon);
             img.addEventListener("error", () => { img.style.visibility = "hidden"; });
-            const name = document.createElement("strong"); name.textContent = gameName(its[0]);
-            const n = document.createElement("span"); n.className = "n"; n.textContent = its.length;
+            const name = document.createElement("strong"); name.textContent = grp.name;
+            const n = document.createElement("span"); n.className = "n"; n.textContent = grp.count;
             head.append(img, name, n);
             const body = document.createElement("div"); body.className = "xbody";
             // A search opens every game it found; otherwise a game stays as the reader left it.
-            const isOpen = Boolean(q) || opened[kind].has(tid);
+            const isOpen = Boolean(q) || opened[kind].has(grp.key);
             body.hidden = !isOpen;
             head.setAttribute("aria-expanded", String(isOpen));
-            const fill = () => { if (!body.childElementCount) body.append(...its.map((it) => listRow(kind, it))); };
+            let filling = false;
+            const fill = async () => {
+              if (body.childElementCount && !body.querySelector(".xskel")) return;
+              if (grp.items) { body.replaceChildren(...[...grp.items].sort(within).map((it) => listRow(kind, it))); return; }
+              if (filling) return;
+              filling = true;
+              body.replaceChildren(...loadingRows());
+              head.setAttribute("aria-busy", "true");
+              try {
+                grp.items = await getList(`/api/saves?game=${encodeURIComponent(grp.key)}&lang=${encodeURIComponent(lang)}`, kind);
+                (perGame[kind] ??= new Map()).set(grp.key, grp.items);
+              } catch {
+                grp.items = null;
+              }
+              filling = false;
+              head.removeAttribute("aria-busy");
+              if (grp.items) body.replaceChildren(...[...grp.items].sort(within).map((it) => listRow(kind, it)));
+              else body.replaceChildren();
+            };
             if (isOpen) fill();
             head.addEventListener("click", () => {
               const now = body.hidden;
-              if (now) { fill(); opened[kind].add(tid); } else opened[kind].delete(tid);
+              if (now) { fill(); opened[kind].add(grp.key); } else opened[kind].delete(grp.key);
               body.hidden = !now;
               head.setAttribute("aria-expanded", String(now));
             });
             g.append(head, body);
             return g;
           }));
-          $(kind + "-count").textContent = items.length.toLocaleString();
-          $(kind + "-empty").hidden = items.length > 0;
+          $(kind + "-count").textContent = total.toLocaleString();
+          $(kind + "-empty").hidden = total > 0;
           $(kind + "-empty").textContent = t("extras.empty");
           renderPager($(kind + "-pager"), page, pages, ranked.length, from + 1, Math.min(from + PAGE, ranked.length), (next) => {
             pageOf[kind] = next;
@@ -3508,21 +3554,29 @@
           // Saves come in the reader's language; patches don't vary by it.
           const want = kind === "saves" ? lang : "any";
           if (loadedLang[kind] !== want) {
+            const relabel = loadedLang[kind] !== undefined;
             loadedLang[kind] = want;
             $(kind + "-list").setAttribute("aria-busy", "true");
             skeleton(kind);
             try {
-              const url = kind === "patches" ? "/api/patches" : `/api/saves?lang=${encodeURIComponent(lang)}`;
-              const r = await fetch(url, { headers: { Accept: "application/json" } });
-              data[kind] = r.ok ? (await r.json())[kind] ?? [] : [];
-              if (data[kind].some((it) => it.homebrew)) await homebrew.load();
+              if (kind === "saves") {
+                // A new language: names and descriptions change, so the saves are read again.
+                if (relabel) data[kind] = null;
+                perGame[kind] = new Map();
+                summary[kind] = await getList("/api/saves?view=games", "games");
+                if (summary[kind].some((row) => row.homebrew)) await homebrew.load();
+              } else {
+                data[kind] = await getList("/api/patches", kind);
+                if (data[kind].some((it) => it.homebrew)) await homebrew.load();
+              }
             } catch {
-              data[kind] = [];
+              if (kind === "saves") summary[kind] = [];
+              else data[kind] = [];
             }
           }
           render(kind);
         }
-        const resort = (kind) => { pageOf[kind] = 1; if (data[kind]) render(kind); };
+        const resort = (kind) => { pageOf[kind] = 1; if (data[kind] || summary[kind]) render(kind); };
         for (const kind of ["patches", "saves"]) {
           $(kind + "-search").addEventListener("input", debounce(() => { pageOf[kind] = 1; render(kind); }, 120));
         }

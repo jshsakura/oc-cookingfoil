@@ -84,6 +84,8 @@ export default async function shopInfoRoute(_req, res) {
       ...(retro ? ["retro"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
+      // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
+      ...(savesEnabled() ? ["saves-by-game"] : []),
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.

@@ -105,6 +105,12 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
     assert.equal(s.size, 9);
     assert.match(s.hash, /^[0-9a-f]{64}$/);
     assert.equal(s.url, `/api/saves/${s.id}/download`);
+    // By game: a summary row per game, then that game's saves alone.
+    assert.ok((await (await get("/api/shop/info")).json()).features.includes("saves-by-game"));
+    const { games } = await (await get("/api/saves?view=games")).json();
+    assert.deepEqual(games.map((g) => [g.key, g.titleId, g.count, g.size]), [[MK, MK, 1, 9]]);
+    assert.equal((await (await get(`/api/saves?game=${MK}&lang=ko`)).json()).saves[0].id, s.id);
+    assert.deepEqual((await (await get("/api/saves?game=0100000000990000")).json()).saves, []);
     // fetch() adds Cache-Control: no-cache to conditional requests, so ask the way a console does.
     const status = await new Promise((resolve, reject) => {
       http.get(`${BASE}/api/saves?lang=ko`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag") } }, (r) => {

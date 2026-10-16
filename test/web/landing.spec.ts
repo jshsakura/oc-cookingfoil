@@ -671,7 +671,7 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await page.screenshot({ path: 'out/web/patches-sort-phone.png' });
 });
 
-test('saves page by game, so a game with many saves stays on one page and opens under its card', async ({ page }) => {
+test('saves page by game, so a game with many saves stays on one page and loads under its card when opened', async ({ page }) => {
   await page.route('**/api/shop/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
@@ -681,7 +681,24 @@ test('saves page by game, so a game with many saves stays on one page and opens 
     description: '', size: 1024, files: 1, hash: 'h', updatedAt: 1_790_000_000 - n, game: { name: game }, url: '/x' });
   const saves = Array.from({ length: 30 }, (_, n) => save('0100000000010000', 'Big Game', n));
   for (let g = 0; g < 21; g++) saves.push(save(`0100000002${String(g).padStart(2, '0')}0000`, `Game ${String(g).padStart(2, '0')}`, 100 + g));
-  await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves } }));
+  // saves-by-game: the games first, one game's saves when its card opens.
+  const asked: string[] = [];
+  await page.route('**/api/saves*', async (route) => {
+    const url = new URL(route.request().url());
+    asked.push(url.search);
+    const key = url.searchParams.get('game');
+    if (url.searchParams.get('view') === 'games') {
+      const rows = new Map<string, { key: string; titleId: string; game: { name: string }; count: number; size: number; updatedAt: number }>();
+      for (const s of saves) {
+        const row = rows.get(s.titleId) ?? { key: s.titleId, titleId: s.titleId, game: s.game, count: 0, size: 0, updatedAt: 0 };
+        row.count++; row.size += s.size; row.updatedAt = Math.max(row.updatedAt, s.updatedAt);
+        rows.set(s.titleId, row);
+      }
+      return route.fulfill({ json: { games: [...rows.values()] } });
+    }
+    if (key) { await new Promise((r) => setTimeout(r, 300)); return route.fulfill({ json: { saves: saves.filter((s) => s.titleId === key) } }); }
+    return route.fulfill({ json: { saves } });
+  });
   await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [] } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#saves');
@@ -690,8 +707,16 @@ test('saves page by game, so a game with many saves stays on one page and opens 
   await expect(page.locator('#saves-pager .info')).toHaveText('1–20 / 총 22');
   const big = page.locator('#saves-list .xhead', { hasText: 'Big Game' });
   await expect(big.locator('.n')).toHaveText('30');
+  expect(asked.some((q) => q.includes('game='))).toBe(false);
   await big.click();
-  await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xrow')).toHaveCount(30);
+  // Its saves are fetched when it opens, with loading rows meanwhile.
+  await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xrow.xskel').first()).toBeVisible();
+  await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xrow:not(.xskel)')).toHaveCount(30);
+  expect(asked.filter((q) => q.includes('game=0100000000010000'))).toHaveLength(1);
   await big.click();
   await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xbody')).toBeHidden();
+  // A search reads the whole list once and opens what it found.
+  await page.locator('#saves-search').fill('save 101');
+  await expect(page.locator('#saves-list .xgroup')).toHaveCount(1);
+  await expect(page.locator('#saves-list .xrow')).toHaveText([/Game 01 save 101/]);
 });
