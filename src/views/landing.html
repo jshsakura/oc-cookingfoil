@@ -590,7 +590,8 @@
       }
       /* The card clips to its rounded edge and an inner box scrolls, so the scroll bar stays inside the card
          (a card that scrolls itself draws its bar over its own corners, standing off the card). */
-      .modal-scroll { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; }
+      /* none, not contain: contain still lets the box itself rubber-band (trackpads, iOS), and the close button bounces with it. */
+      .modal-scroll { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: none; }
       .modal-scroll::-webkit-scrollbar { width: 14px; }
       .modal-scroll::-webkit-scrollbar-track { background: transparent; margin: 22px 0; }
       .modal-scroll::-webkit-scrollbar-thumb { background: var(--line2); border: 4px solid transparent; border-radius: 14px; background-clip: padding-box; }
@@ -1369,7 +1370,7 @@
           "art.failed": "처리 실패",
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
-          "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.",
+          "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
           "modal.price": "eShop 가격",
           "modal.scoreN": (n) => `평점 · ${n.toLocaleString()}명`,
           "modal.publisher": "퍼블리셔",
@@ -1620,7 +1621,7 @@
           "art.failed": "Failed",
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
-          "restart.notice": "The server is restarting. Downloads will continue in a moment.",
+          "restart.notice": "The server is restarting. This page reconnects in a moment.",
           "modal.price": "eShop price",
           "modal.scoreN": (n) => `Score · ${n.toLocaleString()} reviews`,
           "modal.publisher": "Publisher",
@@ -1871,7 +1872,7 @@
           "art.failed": "失敗しました",
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
-          "restart.notice": "サーバーを再起動しています。まもなく続きから受信します。",
+          "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
           "modal.price": "eShop 価格",
           "modal.scoreN": (n) => `評価 · ${n.toLocaleString()}件`,
           "modal.publisher": "パブリッシャー",
@@ -2122,7 +2123,7 @@
           "art.failed": "失敗",
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
-          "restart.notice": "伺服器正在重新啟動，稍後會接著下載。",
+          "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
           "modal.price": "eShop 價格",
           "modal.scoreN": (n) => `評分 · ${n.toLocaleString()} 則`,
           "modal.publisher": "發行商",
