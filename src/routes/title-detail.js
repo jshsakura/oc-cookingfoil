@@ -34,6 +34,25 @@ import * as userPatches from "../meta/user-patches.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 import { forRequest } from "../security/download-links.js";
 import { withPatchDirect } from "./patches.js";
+import * as shopCache from "../meta/shop-cache.js";
+import { integrityOf } from "../meta/file-integrity.js";
+import path from "path";
+
+/**
+ * What the file check found in this title's files (base, updates, DLC), only
+ * those with something to say: [{ file, kind, titleId, verdict }] with the
+ * file's name, "base" | "update" | "dlc", and "modified" | "damaged".
+ * Informational; every file is offered all the same.
+ */
+export function integrityFor(base, files = shopCache.files()) {
+  const out = [];
+  for (const f of files) {
+    if (f.baseTitleId !== base) continue;
+    const verdict = integrityOf(f.rel);
+    if (verdict) out.push({ file: path.basename(f.rel), kind: f.kind ?? null, titleId: f.titleId ?? null, verdict });
+  }
+  return out;
+}
 
 const ownName = (own, lang) => (own ? (lang === "ko" ? own.ko ?? own.en : own.en ?? own.ko) : null);
 
@@ -152,5 +171,7 @@ export default async function titleDetailRoute(req, res) {
     scoreLabelKey: score?.label ?? null,
     // User patches for this game, as in /api/patches.
     patches: userPatches.forTitle(base).map((p) => withPatchDirect(p, link)),
+    // Files of this title the file check found modified or damaged (see integrityFor).
+    integrity: integrityFor(base),
   });
 }

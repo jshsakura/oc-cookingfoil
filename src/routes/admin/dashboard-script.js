@@ -687,7 +687,7 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 async function loadLibrary(){
-  loadPatches();loadDescGames();
+  loadPatches();loadDescGames();lvLoad();
   const d=await api('/admin/api/library');if(d.origin){origin=d.origin;showShopUrl();}
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};

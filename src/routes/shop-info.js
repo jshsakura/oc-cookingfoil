@@ -36,6 +36,7 @@ const FEATURES = [
   "item-categories",      // sections item.categories and item.languages
   "item-version-name",    // update item.version_name ("1.4.1")
   "item-install-size",    // item.install_size, the unpacked size (NSP/NSZ only)
+  "item-integrity",       // item.integrity "modified" | "damaged" from the file check; absent when it passed or was not checked. Informational only
   "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal

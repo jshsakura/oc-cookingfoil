@@ -704,6 +704,11 @@
       /* What the admin adds about a game (what to install with it): above the description, set apart. */
       .modal .modal-notes { border: 1px solid var(--butter); background: color-mix(in srgb, var(--butter) 10%, var(--surface)); border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; }
       .modal .modal-notes[hidden] { display: none; }
+      /* What the file check found in a file: a quiet line, butter only for a damaged one. Informational. */
+      .modal .modal-integrity { margin: 0 0 14px; display: grid; gap: 6px; }
+      .modal .modal-integrity[hidden] { display: none; }
+      .modal .modal-integrity p { margin: 0; padding: 7px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; border: 1px solid var(--line); background: var(--surface); color: var(--secondary); overflow-wrap: anywhere; }
+      .modal .modal-integrity p.damaged { border-color: var(--butter); background: color-mix(in srgb, var(--butter) 18%, var(--surface)); color: var(--ink); }
       .modal .modal-notes h4 { margin: 0 0 4px; font-size: 13px; font-weight: 800; }
       .modal .modal-notes p { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
       /* No description: a quiet card instead of an empty gap. */
@@ -1226,6 +1231,7 @@
           <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div></div>
           <div class="xm-pills" id="modal-pills"></div>
           <div class="modal-patches" id="modal-patches" hidden></div>
+          <div class="modal-integrity" id="modal-integrity" hidden></div>
           <section class="modal-notes" id="modal-notes" hidden><h4 data-i18n="modal.notes"></h4><p id="modal-notes-text"></p></section>
           <div class="desc" id="modal-desc"></div>
           <div class="modal-meta" id="modal-meta"></div>
@@ -1557,6 +1563,8 @@
           "pill.price": (p) => `eShop ${p}`,
           "pill.discount": (p) => `할인 ${p}`,
           "install.head": "설치할 항목",
+          "integrity.modified": (what) => `${what}: 수정된 파일입니다. 개조나 한글패치처럼 원본과 다를 수 있습니다.`,
+          "integrity.damaged": (what) => `${what}: 손상되었을 수 있는 파일입니다. 설치하거나 실행하지 못할 수 있습니다.`,
           "install.base": "기본 게임",
           "install.update": "업데이트",
           "install.required": "필수",
@@ -1835,6 +1843,8 @@
           "pill.price": (p) => `eShop ${p}`,
           "pill.discount": (p) => `Sale ${p}`,
           "install.head": "What to install",
+          "integrity.modified": (what) => `${what}: This file has been modified. Like a mod or a translation patch, it may differ from the original.`,
+          "integrity.damaged": (what) => `${what}: This file may be damaged. It may fail to install or run.`,
           "install.base": "Base game",
           "install.update": "Update",
           "install.required": "Required",
@@ -2113,6 +2123,8 @@
           "pill.price": (p) => `eShop ${p}`,
           "pill.discount": (p) => `セール ${p}`,
           "install.head": "インストールするもの",
+          "integrity.modified": (what) => `${what}：改変されたファイルです。改造や翻訳パッチのように元のファイルと異なる場合があります。`,
+          "integrity.damaged": (what) => `${what}：破損している可能性があるファイルです。インストールや起動ができない場合があります。`,
           "install.base": "本編",
           "install.update": "アップデート",
           "install.required": "必須",
@@ -2391,6 +2403,8 @@
           "pill.price": (p) => `eShop ${p}`,
           "pill.discount": (p) => `特價 ${p}`,
           "install.head": "要安裝的項目",
+          "integrity.modified": (what) => `${what}：這是經過修改的檔案。如同改造或中文化補丁，可能與原版不同。`,
+          "integrity.damaged": (what) => `${what}：此檔案可能已損壞，可能無法安裝或執行。`,
           "install.base": "本體",
           "install.update": "更新",
           "install.required": "必要",
@@ -4766,6 +4780,20 @@
         box.hidden = false;
       }
 
+      // What the file check found in this title's files ([{ file, kind, titleId, verdict }] from the
+      // detail): one quiet line per file, named by what it is. It only informs; the download stays.
+      function renderIntegrity(group, list) {
+        const box = $("modal-integrity");
+        box.replaceChildren();
+        for (const { file, kind, titleId, verdict } of Array.isArray(list) ? list : []) {
+          if (verdict !== "modified" && verdict !== "damaged") continue;
+          const dlc = kind === "dlc" ? group.find((x) => x.kind === "dlc" && (x.item.titleId || "").toUpperCase() === String(titleId || "").toUpperCase()) : null;
+          const what = kind === "base" ? t("install.base") : kind === "update" ? t("install.update") : dlc ? cleanName(dlc.item.name || t("chip.dlc")) : file;
+          box.append(Object.assign(document.createElement("p"), { className: verdict, textContent: t(`integrity.${verdict}`, what), title: file }));
+        }
+        box.hidden = !box.childElementCount;
+      }
+
       async function openModal(r) {
         currentModal = r;
         retroSeq++; // a retro detail still on its way must not land in this window
@@ -4789,6 +4817,7 @@
         $("modal-extras").replaceChildren(); $("modal-art").hidden = true;
         $("modal-install").replaceChildren(); $("modal-install").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
+        $("modal-integrity").replaceChildren(); $("modal-integrity").hidden = true;
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
@@ -4827,6 +4856,7 @@
         // The patches a game needs sit above its notes; the rest go with what to install.
         const related = renderModalPatches(Array.isArray(detail.patches) ? detail.patches : []);
         if (validBase) renderInstall(x.group, related);
+        renderIntegrity(x.group, detail.integrity);
 
         // Artwork edit controls — only when uploads are enabled.
         renderArtEditor(baseId, validBase, art);
@@ -5094,6 +5124,7 @@
 
         $("modal-art").hidden = true;
         $("modal-notes").hidden = true;
+        $("modal-integrity").replaceChildren(); $("modal-integrity").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-install").replaceChildren(); $("modal-install").hidden = true;
         showRetroVersions(g, sys);

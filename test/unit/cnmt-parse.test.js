@@ -44,7 +44,7 @@ function buildCnmt({ extendedHeaderSize = 0, contents = [] } = {}) {
 
   contents.forEach((c, i) => {
     const off = contentStart + i * CONTENT_INFO_SIZE;
-    // Sha256Hash left zeroed — unused by the parser.
+    if (c.sha256Hex) Buffer.from(c.sha256Hex, "hex").copy(buf, off);
     Buffer.from(c.ncaIdHex, "hex").copy(buf, off + 0x20);
     buf.writeUIntLE(c.size ?? 0, off + 0x30, 6);
     buf.writeUInt8(c.contentType, off + 0x36);
@@ -123,10 +123,24 @@ test("listContents returns ncaId/contentType/idOffset for every content record",
 
   const result = listContents(buf);
 
+  const zero = "0".repeat(64);
   assert.deepEqual(result, [
-    { ncaId: programId, contentType: CONTENT_TYPE_PROGRAM, idOffset: 0 },
-    { ncaId: controlId, contentType: CONTENT_TYPE_CONTROL, idOffset: 1 },
+    { ncaId: programId, contentType: CONTENT_TYPE_PROGRAM, idOffset: 0, size: 0, sha256: zero },
+    { ncaId: controlId, contentType: CONTENT_TYPE_CONTROL, idOffset: 1, size: 0, sha256: zero },
   ]);
+});
+
+test("listContents reads each record's SHA-256 from offset 0 and its 48-bit size", () => {
+  const hash = "ab".repeat(16) + "cd".repeat(16);
+  const buf = buildCnmt({
+    extendedHeaderSize: 0x10,
+    contents: [{ ncaIdHex: "11112222333344445555666677778888", contentType: CONTENT_TYPE_PROGRAM, size: 0x123456789a, sha256Hex: hash }],
+  });
+
+  const [record] = listContents(buf);
+
+  assert.equal(record.sha256, hash);
+  assert.equal(record.size, 0x123456789a);
 });
 
 test("listContents returns an empty array for a header-only buffer with zero content count", () => {

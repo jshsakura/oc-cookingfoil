@@ -56,8 +56,9 @@ export function findControlNcaId(buf) {
 }
 
 /**
- * Read all (NcaId, ContentType) pairs. Used by tests and the future debug
- * surface — the extractor itself only needs the Control entry.
+ * Read every content record: its NcaId, ContentType, IdOffset, size and the
+ * SHA-256 (hex) of the plain NCA, which the file check (file-verify.js)
+ * compares against the bytes in the container.
  */
 export function listContents(buf) {
   if (!Buffer.isBuffer(buf) || buf.length < HEADER_SIZE) return [];
@@ -72,6 +73,8 @@ export function listContents(buf) {
       ncaId: buf.subarray(off + 0x20, off + 0x30).toString("hex").toLowerCase(),
       contentType: buf[off + 0x36],
       idOffset: buf[off + 0x37],
+      size: buf.readUIntLE(off + 0x30, 6),
+      sha256: buf.subarray(off, off + 0x20).toString("hex"),
     });
   }
   return out;
