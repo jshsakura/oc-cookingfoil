@@ -11,11 +11,19 @@
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
  * GET /api/homebrew/:id/archive    the zip of an app the admin keeps zipped, as it is (Range, ETag = its sha256)
  * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
+ * GET /api/homebrew/:id/banner?v=  the wide picture behind the app's header (WebP, meta/homebrew-media.js);
+ *                                  banner_url is null when it has none
+ * GET /api/homebrew/:id/screenshot/:n?v=   one of its screenshots (WebP), as listed in `screenshots`
  *
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
  *       install_path, install_dir, files, bundle_url, archive,
- *       forwarder_url, forwarder_title_id, forwarder_size, install_type, title_id }
+ *       forwarder_url, forwarder_title_id, forwarder_size, install_type, title_id,
+       banner_url, screenshots }
+
+ * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
+ * app out as a game: a wide picture behind its header, screenshots under its
+ * description (meta/homebrew-media.js).
 
  * `install_type` is "file" (copied to the card at install_path) or "title": an
  * app built as an installable NSP (nx.js apps and the like), installed from
@@ -71,6 +79,7 @@ import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
+import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
@@ -280,6 +289,8 @@ export function start() {
   // Always scheduled: the admin can add a repository at any time.
   const run = () => githubTracker().checkAll()
     .then(() => githubTracker().fetchDescriptions())
+    // Ports get a picture behind their header from SteamGridDB, when its key is set.
+    .then(async () => media.fillPorts(await defaultService.list(), { apiKey: integrations.get("steamgriddb").apiKey }))
     .catch((err) => debug.error("homebrew: check failed: %s", err.message));
   run();
   setInterval(run, POLL_MS).unref();
@@ -340,6 +351,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       files: null,
       archive: null,
       icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
+      ...media.urls(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...NO_FORWARDER,
     } : {
@@ -358,6 +370,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       // A zip kept as it is comes whole, with which entry goes where on the card.
       ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
       icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
+      ...media.urls(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
     });
@@ -393,6 +406,21 @@ export function homebrewRouter({ service = defaultService } = {}) {
     });
     if (req.fresh) return res.status(304).end();
     res.end(body);
+  }));
+
+  // The app's pictures: immutable under the ?v= the listing gives, revalidated otherwise.
+  const sendPicture = (req, res, file, v, tag = v) => {
+    if (!v || !fs.existsSync(file)) return res.status(404).json({ error: "no picture" });
+    res.set({ "Content-Type": "image/webp", "Cache-Control": req.query.v === v ? IMMUTABLE : UNVERSIONED, ETag: `"${tag}"` });
+    if (req.fresh) return res.status(304).end();
+    res.sendFile(file, { etag: false, lastModified: false });
+  };
+  router.get("/:id/banner", wrap(async (req, res) => sendPicture(req, res, media.bannerPath(req.params.id), media.bannerVersion(req.params.id))));
+  router.get("/:id/screenshot/:n", wrap(async (req, res) => {
+    const n = Number(req.params.n);
+    const s = media.record(req.params.id).shots;
+    if (!Number.isInteger(n) || !s?.count || n < 1 || n > s.count) return res.status(404).json({ error: "no picture" });
+    sendPicture(req, res, media.shotPath(req.params.id, n), s.at.toString(36), `${s.at.toString(36)}-${n}`);
   }));
 
   router.get("/:id/download", wrap(async (req, res) => {

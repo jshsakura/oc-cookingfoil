@@ -241,6 +241,17 @@
       /* No banner here, so a two-tone head marks the top of the dialog. */
       .modal.xmodal .modal-head { margin: -26px -30px 22px; padding: 26px 30px 22px; background: var(--surface); border-bottom: 1px solid var(--line); }
       .modal.xmodal .modal-cover[hidden] { display: none; }
+      /* An app's picture behind its header (ports from SteamGridDB, or one the admin uploaded): a wide band,
+         the icon over its lower edge, as the game window does with its banner. */
+      .modal.xmodal .xm-banner { aspect-ratio: 1920 / 620; max-height: 30vh; }
+      .modal.xmodal .xm-banner[hidden] { display: none; }
+      .modal.xmodal.has-banner .modal-head .modal-cover { margin-top: -62px; position: relative; z-index: 1; border: 4px solid var(--surface); }
+      /* Pulled past the top, the window shows the colour of what is at its top, not a band of another one. */
+      .modal.xmodal .modal-head { box-shadow: 0 -60vh 0 0 var(--surface); }
+      .modal.xmodal.has-banner .modal-head { box-shadow: none; }
+      /* Side by side, the title lines up with the icon's foot, not its top (which is up in the banner). */
+      @media (min-width: 641px) { .modal.xmodal.has-banner .modal-head-text { align-self: flex-end; } }
+      .modal .banner { box-shadow: 0 -60vh 0 0 #121214; }
       .modal .xm-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
       .modal .xm-pills:empty { display: none; }
       .modal.xmodal .xm-section { margin: 0 0 16px; }
@@ -580,6 +591,12 @@
         animation: fadeIn 0.2s ease;
       }
       .modal-backdrop.open { display: flex; }
+      .modal:focus { outline: none; }
+      /* A double tap on a dialog never zooms the page. */
+      .modal-backdrop, .modal-backdrop button, .modal-backdrop a { touch-action: manipulation; }
+      /* While a dialog is open the page behind it stays put (iOS scrolls the body under overflow: hidden, so it is pinned). */
+      html.sheet-open, html.sheet-open body { overflow: hidden; }
+      html.sheet-open body { position: fixed; left: 0; right: 0; width: 100%; }
       .modal {
         --surface: var(--modal-panel); --sunk: var(--modal-sunk); --line: var(--modal-line);
         background: var(--modal-bg); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh;
@@ -753,6 +770,8 @@
         width: 100%; resize: vertical; min-height: 64px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
         background: var(--surface); color: var(--ink); font: 400 14px/1.55 var(--font-body);
       }
+      /* Below 16px iOS zooms the page in when the field is focused. */
+      @media (pointer: coarse) { .share-field textarea, .share-field input { font-size: 16px; } }
       .share-field textarea:focus { outline: none; border-color: var(--butter); box-shadow: 0 0 0 3px rgba(var(--butter-rgb), 0.3); }
       .share-field small { font-weight: 400; color: var(--faint); font-size: 12px; }
       .share-progress[hidden] { display: none; }
@@ -1107,8 +1126,9 @@
     </div>
 
     <div class="modal-backdrop" id="xmodal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="xm-title">
-      <div class="modal xmodal" onclick="event.stopPropagation()"><div class="modal-scroll">
+      <div class="modal xmodal" tabindex="-1" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="banner xm-banner" id="xm-banner" hidden></div>
         <div class="body">
           <div class="modal-head">
             <img class="modal-cover" id="xm-icon" alt="" decoding="async">
@@ -1120,6 +1140,7 @@
           <div class="xm-pills" id="xm-pills"></div>
           <div class="modal-meta" id="xm-meta"></div>
           <div class="desc" id="xm-desc"></div>
+          <div class="screenshots" id="xm-screens"></div>
           <p class="xm-source" id="xm-source" hidden></p>
           <p class="xm-source xm-where" id="xm-where" hidden></p>
           <div id="xm-sections"></div>
@@ -1132,7 +1153,7 @@
     </div>
 
     <div class="modal-backdrop" id="share-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="share-title">
-      <div class="modal share-modal" onclick="event.stopPropagation()"><div class="modal-scroll">
+      <div class="modal share-modal" tabindex="-1" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <form class="body" id="share-form" novalidate>
           <h3 id="share-title" data-i18n="share.title"></h3>
@@ -2279,6 +2300,27 @@
           button.disabled = false;
         }
       });
+      const finePointer = () => matchMedia("(hover: hover) and (pointer: fine)").matches;
+      // While any dialog is open the page behind it is pinned where it was, and put back when the last one closes.
+      (() => {
+        let pinnedAt = null;
+        const sync = () => {
+          const open = Boolean(document.querySelector(".modal-backdrop.open"));
+          if (open && pinnedAt === null) {
+            pinnedAt = window.scrollY;
+            document.body.style.top = `-${pinnedAt}px`;
+            document.documentElement.classList.add("sheet-open");
+          } else if (!open && pinnedAt !== null) {
+            document.documentElement.classList.remove("sheet-open");
+            document.body.style.top = "";
+            // Instant: the page's smooth scrolling would glide down from the top on every close.
+            window.scrollTo({ top: pinnedAt, behavior: "instant" });
+            pinnedAt = null;
+          }
+        };
+        const watch = new MutationObserver(sync);
+        for (const el of document.querySelectorAll(".modal-backdrop")) watch.observe(el, { attributes: true, attributeFilter: ["class"] });
+      })();
       // Shows a dialog; one that was closed opens at its top, one already open keeps its place.
       function openSheet(id) {
         const el = $(id);
@@ -3293,7 +3335,17 @@
       // One patch, save or homebrew app in detail, opened from its list row.
       const xmodal = (() => {
         const node = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null }) {
+        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [] }) {
+          // An app's pictures, laid out as a game's: the banner behind its header, screenshots under its description.
+          const band = $("xm-banner");
+          band.hidden = !banner;
+          band.style.setProperty("--hero", banner ? `url("${banner}")` : "none");
+          $("xmodal").querySelector(".modal").classList.toggle("has-banner", Boolean(banner));
+          $("xm-screens").replaceChildren(...shots.map((url) => {
+            const im = document.createElement("img"); im.loading = "lazy"; im.src = url; im.alt = "";
+            im.onerror = () => im.remove();
+            return im;
+          }));
           const img = $("xm-icon");
           img.hidden = !icon; if (icon) img.src = icon; else img.removeAttribute("src");
           img.onerror = () => { img.hidden = true; };
@@ -3323,8 +3375,11 @@
           dl.hidden = !download;
           if (download) dl.href = download;
           openSheet("xmodal");
-          // Focus the X at the top: the close button at the bottom would scroll the window down to it.
-          $("xmodal").querySelector(".modal-x").focus({ preventScroll: true });
+          // Keyboard users start on the X at the top (the close button at the bottom would scroll the window
+          // down to it); a touch screen gets no focus at all, so nothing is zoomed or outlined.
+          // Touch screens (screen readers among them) get the dialog itself: no zoom, no outline.
+          if (finePointer()) $("xmodal").querySelector(".modal-x").focus({ preventScroll: true });
+          else $("xmodal").querySelector(".modal").focus({ preventScroll: true });
         }
         function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); }
         $("xmodal").addEventListener("click", (e) => { if (e.target === $("xmodal")) close(); });
@@ -3682,6 +3737,8 @@
             ],
             // A folder app is its whole folder (or the zip it is kept as); the .nro alone would not run.
             download: a.bundle_url || a.archive?.url || a.download_url,
+            banner: a.banner_url || null,
+            shots: Array.isArray(a.screenshots) ? a.screenshots : [],
           };
         }
         function card(a) {
@@ -4738,7 +4795,8 @@
           setAcctMenu(false);
           say(""); relabel();
           openSheet("share-modal");
-          $("share-memo").focus();
+          if (finePointer()) $("share-memo").focus();
+          else $("share-modal").querySelector(".modal").focus({ preventScroll: true });
         }
         function close() { $("share-modal").classList.remove("open"); $("share-modal").setAttribute("aria-hidden", "true"); }
         // A dropped folder arrives as an entry to walk; its files keep their paths inside it.

@@ -331,6 +331,24 @@ export async function sgdbCovers(gameId, apiKey, { fetchImpl = fetch } = {}) {
   return (body.data ?? []).slice(0, CANDIDATES).map((g) => ({ url: g.url, thumb: g.thumb }));
 }
 
+/** Wide backgrounds (heroes) SteamGridDB has for one of its games: [{ url, thumb }]. */
+export async function sgdbHeroes(gameId, apiKey, { fetchImpl = fetch } = {}) {
+  const res = await fetchImpl(`${SGDB}/heroes/game/${Number(gameId)}?types=static`, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new Error(`SteamGridDB ${res.status}`);
+  const body = await res.json();
+  return (body.data ?? []).slice(0, CANDIDATES).map((g) => ({ url: g.url, thumb: g.thumb }));
+}
+
+/** An image from SteamGridDB's own image host, at most MAX_COVER_BYTES; anything else throws. */
+export async function fetchSgdbImage(url, { fetchImpl = fetch } = {}) {
+  if (!SGDB_CDN_RE.test(String(url))) throw new Error("SteamGridDB 이미지 주소가 아닙니다");
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`image ${res.status}`);
+  const body = Buffer.from(await res.arrayBuffer());
+  if (body.length > MAX_COVER_BYTES) throw new Error("image too large");
+  return body;
+}
+
 /** Saves a SteamGridDB cover as one ROM's box art (PNG). Only SteamGridDB's own image host is accepted. */
 export async function saveCover(dir, system, rom, url, { fetchImpl = fetch } = {}) {
   if (!SGDB_CDN_RE.test(String(url))) throw new Error("SteamGridDB 이미지 주소가 아닙니다");

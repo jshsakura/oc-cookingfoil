@@ -34,6 +34,8 @@ fs.writeFileSync(`${process.env.COOK_SAVES_DIR}/0100000000010000/All unlocked/sa
 process.env.COOK_HOMEBREW_DIR ??= '/tmp/cookingfoil-web-test-homebrew';
 fs.rmSync(process.env.COOK_HOMEBREW_DIR, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/disabled.json`, { force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/media`, { recursive: true, force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/media.json`, { force: true });
 fs.mkdirSync(`${process.env.COOK_HOMEBREW_DIR}/handapp`, { recursive: true });
 {
   // The smallest .nro the server reads: header, asset header and a control block naming the app.
