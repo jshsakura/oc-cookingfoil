@@ -238,7 +238,9 @@ export function mountUploadApi(router, guard) {
     const systems = fs.existsSync(retroDir)
       ? Object.entries(loadSystems(retroDir)).map(([id, s]) => ({ id, name: s.names?.ko ?? s.name, extensions: s.extensions }))
       : [];
+    // An installable title (.nsp) has no switch/<app>/ folder for patches and saves to go under.
     const homebrew = (await defaultService.list("ko").catch(() => []))
+      .filter((e) => e.install_type !== "title")
       .map((e) => ({ app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1], name: e.name, kind: e.kind }))
       .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "port" ? -1 : 1));
     res.json({ targets, systems, games: await libraryGames().catch(() => []), homebrew, maxBytes: uploadMaxBytes });

@@ -183,7 +183,11 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   await runNstool(bin, ["-k", KEYS_PATH, "-x", cnmtDir, path.join(pfs0Dir, cnmtName)], { timeoutMs });
   const cnmtFile = await findFirstRecursive(cnmtDir, (n) => /\.cnmt$/i.test(n));
   if (!cnmtFile) return null;
-  const controlId = findControlNcaId(await fs.readFile(cnmtFile));
+  const cnmtBuf = await fs.readFile(cnmtFile);
+  const controlId = findControlNcaId(cnmtBuf);
+  // The cnmt starts with its title id (u64 LE) and, at 0x0C, the content meta type (0x80 application).
+  const titleId = cnmtBuf.length >= 0x10 ? cnmtBuf.readBigUInt64LE(0).toString(16).padStart(16, "0").toUpperCase() : null;
+  const metaType = cnmtBuf.length >= 0x10 ? cnmtBuf[0x0C] : null;
   if (!controlId || !(await ensureNca(`${controlId}.nca`))) return null;
   await fs.mkdir(ctrlDir, { recursive: true });
   await runNstool(bin, ["-k", KEYS_PATH, "-x", ctrlDir, path.join(pfs0Dir, `${controlId}.nca`)], { timeoutMs });
@@ -193,7 +197,7 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   if (nacpBuf.length < NACP_TOTAL_BYTES) return null;
   const meta = decodeNacp(nacpBuf, langPriority);
   if (!meta) return null;
-  return { meta, iconBuffer: await pickIconForLangs(ctrlDir, langPriority), iconsByLang: await iconsByLang(ctrlDir) };
+  return { meta, titleId, metaType, iconBuffer: await pickIconForLangs(ctrlDir, langPriority), iconsByLang: await iconsByLang(ctrlDir) };
 }
 
 /**
@@ -228,6 +232,7 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
     if (!found) return null;
     const { meta, iconBuffer, iconsByLang: langIcons } = found;
     return { id: baseTitleId, name: meta.name, publisher: meta.publisher, version: meta.version,
+      titleId: found.titleId, metaType: found.metaType,
       source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer, iconsByLang: langIcons };
   } catch (err) {
     debug.log("pfs0 extractor: %s — %s", path.basename(absPath), err.message);

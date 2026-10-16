@@ -3648,7 +3648,8 @@
         async function load() {
           if (apps) return apps;
           try {
-            const r = await fetch(`/api/homebrew?lang=${encodeURIComponent(lang)}`, { headers: { Accept: "application/json" } });
+            // with=titles: apps built as installable titles (.nsp) too; the page only offers them to download.
+            const r = await fetch(`/api/homebrew?lang=${encodeURIComponent(lang)}&with=titles`, { headers: { Accept: "application/json" } });
             apps = r.ok ? (await r.json()).homebrew ?? [] : [];
           } catch {
             apps = [];

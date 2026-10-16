@@ -339,10 +339,13 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
     b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
     const n=td();n.append(el('b',a.name||a.app));
-    n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · switch/'+a.app+'/','muted'));
+    const where=a.install_type==='title'?'설치형 NSP · '+a.title_id:'switch/'+a.app+'/';
+    n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · '+where,'muted'));
     const manual=hbManual.find((m)=>m.id===a.id);
     const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
-    tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));tr.append(k,td(mb(a.size)),extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));
+    tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));tr.append(k,td(mb(a.size)));
+    // An installable title has no switch/<app>/ folder for patches and saves to go under.
+    if(a.app)tr.append(extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));else tr.append(td('—'),td('—'));
     const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
     const repo=(a.repo_url||'').replace('https://github.com/','');
     if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));

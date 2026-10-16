@@ -1,11 +1,12 @@
 /**
- * GET /api/homebrew                every app the admin left on  { homebrew: [H…] }, with ETag
+ * GET /api/homebrew                every app the admin left on  { homebrew: [H…] }, with ETag;
+ *                                  ?with=titles also lists the installable titles (install_type "title")
  * GET /api/homebrew/:id/icon?v=&size=sm|md   the app's icon from its NRO (404 before its first fetch):
  *                                  at most 160 or 256 px (md, the default), never enlarged; WebP for
  *                                  Accept: image/webp, else the NRO's own JPEG. icon_url carries
  *                                  ?v= of the build: that v is immutable, anything else
  *                                  `public, max-age=300` with an ETag
- * GET /api/homebrew/:id/download   the .nro (Content-Length, ETag = its sha256)
+ * GET /api/homebrew/:id/download   the .nro, or the .nsp of a title (Content-Length, Range, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
  * GET /api/homebrew/:id/archive    the zip of an app the admin keeps zipped, as it is (Range, ETag = its sha256)
@@ -14,7 +15,14 @@
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
  *       install_path, install_dir, files, bundle_url, archive,
- *       forwarder_url, forwarder_title_id, forwarder_size }
+ *       forwarder_url, forwarder_title_id, forwarder_size, install_type, title_id }
+
+ * `install_type` is "file" (copied to the card at install_path) or "title": an
+ * app built as an installable NSP (nx.js apps and the like), installed from
+ * download_url as the games folder's files are, with `title_id` from its cnmt.
+ * A title has no install_path, app, files, archive or forwarder (it is its own
+ * HOME menu entry), and is listed only with ?with=titles: a client from before
+ * would copy the .nsp to sdmc:/switch/.
  *
  * `size` is what lands on the card: every file of a folder install (the .nro
  * alone is then `nro_size`), or the .nro.
@@ -68,7 +76,7 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, installPathFor, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -185,7 +193,8 @@ let prewarming = null;
 function prewarmShortcuts(entries) {
   prewarming ??= (async () => {
     const apps = [];
-    for (const e of entries) apps.push({ ...forwarderApp(e), icon: await defaultService.icon(e.id).catch(() => null) });
+    // An installable title (.nsp) is its own HOME menu entry already: no shortcut for it.
+    for (const e of entries.filter((x) => x.install_type !== "title")) apps.push({ ...forwarderApp(e), icon: await defaultService.icon(e.id).catch(() => null) });
     await prewarmForwarders(forwarderDir, apps, keysDir);
   })().catch((err) => debug.error("homebrew: shortcuts: %s", err.message)).finally(() => { prewarming = null; });
   return prewarming;
@@ -194,7 +203,7 @@ function prewarmShortcuts(entries) {
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
-    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, folder: _f, ...e }) => ({
+    const manualList = (await manualEntries()).map(({ path: _p, sha256: _s, install: _i, folder: _f, key: _k, ...e }) => ({
       ...e,
       files: e.files ? e.files.map(({ abs: _a, key: _k, ...f }) => f) : null,
       ...(e.archive ? { archive: (({ abs: _a, key: _k, ...a }) => a)(e.archive) } : {}),
@@ -226,12 +235,13 @@ export const defaultService = {
       ? (await manualEntries()).find((e) => e.id === id)?.path
       : githubTracker().cachedPath(id);
     if (!file) return null;
+    if (/\.nsp$/i.test(file)) return manualNspIcon(file).catch(() => null);
     return (await parseAssets(file).catch(() => null))?.icon ?? null;
   },
   async download(id) {
     if (id.startsWith("m-")) {
       const e = (await manualEntries()).find((x) => x.id === id);
-      return e ? { path: e.path, sha256: e.sha256, file_name: e.file_name } : null;
+      return e ? { path: e.path, sha256: e.sha256, file_name: e.file_name, key: e.key ?? null } : null;
     }
     const e = githubTracker().entries().find((x) => x.id === id);
     if (!e) return null;
@@ -318,10 +328,25 @@ export function homebrewRouter({ service = defaultService } = {}) {
 
   router.get("/", wrap(async (req, res) => {
     const link = forRequest(req);
-    // An app the admin turned off is left out.
-    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false).map(({ enabled: _on, ...e }) => ({
+    // An app the admin turned off is left out. Installable titles (.nsp) go only to a client that
+    // asks for them (?with=titles): an older one would copy the file to sdmc:/switch/ instead.
+    const titles = String(req.query.with ?? "").split(",").includes("titles");
+    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => e.install_type === "title" ? {
       description: null,
       install_dir: null,
+      ...e,
+      install_path: null,
+      app: null,
+      files: null,
+      archive: null,
+      icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
+      ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
+      ...NO_FORWARDER,
+    } : {
+      description: null,
+      install_dir: null,
+      install_type: "file",
+      title_id: null,
       ...e,
       // A folder install is everything that lands on the card; nro_size is the .nro alone.
       ...(e.files ? { size: e.files.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size } : {}),
@@ -335,7 +360,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
-    }));
+    });
     const body = JSON.stringify({ homebrew: list });
     res.set({
       "Content-Type": "application/json",
@@ -379,6 +404,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       return res.status(502).json({ error: "the build could not be fetched" });
     }
     if (!file) return res.status(404).json({ error: "no such homebrew" });
+    // A title (.nsp) is big enough to be resumed: bytes from a file replaced since the scan never go out under its old sha256.
+    if (file.key && !(await unchanged([{ abs: file.path, key: file.key }]))) return changedSinceScan(res);
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(file.file_name);
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
