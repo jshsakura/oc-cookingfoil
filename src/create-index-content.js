@@ -54,6 +54,7 @@ import { iconLangs } from "./meta/localized-art.js";
 import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
+import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import {
   shouldAutoExtract,
@@ -193,6 +194,11 @@ export function ownDisplayName(own, priority) {
   return lang !== "en" && own.en && !name.toLowerCase().includes(own.en.toLowerCase()) ? `${name} (${own.en})` : name;
 }
 
+/** The titles the game's own file carries: the one read for its language order, and its English one. */
+function fileTitles(titleId, nacpEnglish = contentMeta.get(titleId, 0)?.englishName) {
+  return [extractedMeta.get(titleId)?.name, nacpEnglish];
+}
+
 function baseDisplayName(parsed, fromDb) {
   const baseId = parsed.groupTitleId;
   const own = baseId ? gameDescriptions.names(baseId) : null;
@@ -205,8 +211,10 @@ function baseDisplayName(parsed, fromDb) {
   // "Dead Cells" while "데드 셀" sits right there (measured: 52 titles).
   const sibling = baseId ? titledbStore.preferredSibling(baseId) : null;
   const source = sibling ?? fromDb;
-  const rawName = source?.name || extracted?.name || parsed.name;
   const nacpEnglish = baseId ? contentMeta.get(baseId, 0)?.englishName : null;
+  // A Korean or English title in the file beats titledb's when titledb has only later languages (a Japan-only release).
+  const fromFile = baseId && !sibling ? pickFileName(titledbStore.namesOf(baseId), fileTitles(baseId, nacpEnglish), langPriority) : null;
+  const rawName = fromFile || source?.name || extracted?.name || parsed.name;
   return decorateNameWithAlias(rawName, source ?? fromDb, nacpEnglish);
 }
 
@@ -329,8 +337,9 @@ export function composeResponse(filesMap, customs) {
       // some forks fall back to the titledb section's name for search.
       // Decorate this one too so the English alias is reachable from
       // both code paths.
-      const decoratedTitledbName = proxied?.name
-        ? decorateNameWithAlias(proxied.name, fromDb)
+      const fromFile = pickFileName(titledbStore.namesOf(baseId), fileTitles(baseId), langPriority);
+      const decoratedTitledbName = fromFile || proxied?.name
+        ? decorateNameWithAlias(fromFile || proxied.name, fromDb)
         : null;
       // Fallback layer (NACP/NRO extraction). Lower priority than titledb
       // but higher than nothing — fills in name/publisher/version for
@@ -495,8 +504,10 @@ function buildSectionItem(relPath, wireItem) {
       // The name in each language titledb has (client feature "item-names").
       // A game titledb does not list still has the English name its own file carries.
       const nacpEnglish = contentMeta.get(parsed.titleId, 0)?.englishName;
-      const names = titledbStore.namesOf(parsed.titleId) ?? (nacpEnglish ? { en: nacpEnglish } : null);
-      if (names) item.names = names;
+      const fromDbNames = titledbStore.namesOf(parsed.titleId);
+      // The file's own titles fill the languages titledb lacks, so a Korean client finds the Korean one.
+      const names = { ...fileNamesOver(fromDbNames, fileTitles(parsed.titleId, nacpEnglish), langPriority), ...(fromDbNames ?? {}) };
+      if (Object.keys(names).length) item.names = names;
       // Box art per language where it differs from icon_url (feature "item-icons").
       const langs = iconLangs(parsed.titleId);
       if (langs.length) {
