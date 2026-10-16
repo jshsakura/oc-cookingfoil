@@ -20,7 +20,7 @@ export const SERVER_SETTINGS_CSS = `
 .ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
 .ss-src{grid-column:1/-1;font-size:12px;color:var(--muted)}.ss-src button{font-size:12px;padding:2px 8px;margin-left:6px}
 .ss-switch{position:relative;display:inline-block;vertical-align:middle;width:46px;height:26px;flex:none}
-.ss-switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.ss-switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
 .ss-switch span{position:absolute;inset:0;border-radius:100px;background:var(--sunk);border:1px solid var(--line);transition:background .15s}
 .ss-switch span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
 .ss-switch input:checked+span{background:var(--accent);border-color:var(--accent)}

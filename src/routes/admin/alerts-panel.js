@@ -53,7 +53,6 @@ export const ALERTS_CSS = `
 @media(max-width:640px){#al-form .add button,#al-form .row button{flex:1 1 auto}}
 .al-events{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:14px}
 .al-event{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer}
-.al-event:has(input:checked){border-color:var(--accent,#4c8dff)}
 .al-event input{margin-top:3px;width:18px;height:18px}.al-event b{font-size:14px}.al-event small{grid-column:2;color:var(--muted);font-size:12.5px;line-height:1.5}
 .al-st{font-size:12px;font-weight:700;padding:2px 9px;border-radius:100px;background:var(--sunk);color:var(--muted);white-space:nowrap}
 .al-st.sent{color:var(--good)}.al-st.failed{color:var(--bad,#d33)}
