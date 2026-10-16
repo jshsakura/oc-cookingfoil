@@ -68,7 +68,8 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, installPathFor, scanManual, setManualHashFile } from "../meta/homebrew.js";
+import { createTracker, installPathFor, scanManual, scanManualOne, setManualHashFile } from "../meta/homebrew.js";
+import { watchItems } from "../meta/folder-watch.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 import { iconVariant } from "../meta/icon-variant.js";
@@ -77,8 +78,9 @@ import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
-const MANUAL_STALE_MS = 10 * 60_000;
-const MANUAL_RESCAN_MS = 10 * 60_000; // keeps the "homebrew" feature flag current
+const MANUAL_STALE_MS = 6 * 60 * 60_000;
+// The folder watch reports changes as they land; the full rescan is only the backstop.
+const MANUAL_RESCAN_MS = 6 * 60 * 60_000;
 
 let tracker = null;
 setManualHashFile(path.join(dataDir, "homebrew", "manual-hashes.json"));
@@ -128,6 +130,17 @@ export function refreshManual() {
     })
     .finally(() => { manualScan = null; });
   return manualScan;
+}
+
+/** One hand-placed app changed (the folder watch): read it alone and put it in the list. */
+export async function refreshManualApp(folder) {
+  // A full scan running now, or none done yet, covers it (and reads again after, see refreshManual).
+  if (manualScan || !manual.at) return refreshManual();
+  const { id, entry } = await scanManualOne(homebrewDir, folder);
+  const rest = manual.entries.filter((e) => e.id !== id);
+  manual = { at: manual.at, entries: entry ? [...rest, entry] : rest };
+  keepManual(manual).catch((err) => debug.error("homebrew: could not keep the list: %s", err.message));
+  debug.log("homebrew: %s %s", folder, entry ? "read again" : "left the list");
 }
 
 /**
@@ -248,9 +261,12 @@ export const defaultService = {
  * Scans the hand-placed folder now and every minute, and checks the
  * repositories now and every 15 minutes (each one asks GitHub at most once per COOK_HOMEBREW_CHECK_HOURS).
  */
+let watch = null;
 export function start() {
   const scan = () => refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   scan();
+  // An app copied into the folder by hand shows up once its copy has been quiet for a while.
+  watch ??= watchItems(homebrewDir, { depth: 1, label: "homebrew", onItem: (folder) => refreshManualApp(folder) });
   setInterval(scan, MANUAL_RESCAN_MS).unref();
   // Always scheduled: the admin can add a repository at any time.
   const run = () => githubTracker().checkAll()

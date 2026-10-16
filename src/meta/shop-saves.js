@@ -42,7 +42,9 @@ import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
-const STALE_MS = 30 * 60_000;
+// The folder watch (routes/saves.js) brings changes in as they land; the full rescan is only the backstop.
+const STALE_MS = 6 * 60 * 60_000;
+const APP_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/;
 const MAX_FILES = 5000;
 const MAX_BYTES = 1024 ** 3;
 const FIELD_MAX = { name: 120, description: 2000, gameVersion: 40 };
@@ -164,7 +166,7 @@ export async function scanDir(root, cache) {
   const dirs = [];
   for (const tidDir of await subdirs(root)) {
     if (tidDir === "homebrew") {
-      for (const app of await subdirs(path.join(root, "homebrew"))) if (/^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/.test(app)) dirs.push(`homebrew/${app}`);
+      for (const app of await subdirs(path.join(root, "homebrew"))) if (APP_RE.test(app)) dirs.push(`homebrew/${app}`);
     } else if (isBase(tidDir.toUpperCase())) dirs.push(tidDir);
   }
   for (const tidDir of dirs) {
@@ -180,8 +182,11 @@ export async function scanDir(root, cache) {
     }
   }
   cache.save(seen);
-  return out.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
+  return sortSaves(out);
 }
+
+/** By title id (homebrew apps last), then name. Pure. */
+const sortSaves = (list) => list.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 
 /** The listing a previous scan kept in `file`: { saves, at }, or null. */
 function readList(file) {
@@ -240,6 +245,41 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
       await this.list();
       const known = saves.find((s) => s.id === id);
       return known ? { dir: known.dir, folder: known.folder } : null;
+    },
+    /**
+     * One item changed on disk (the folder watch): "<title id>/<save>" is read
+     * again alone, "homebrew/<app>" with every save of that app. Without a
+     * listing yet, the first scan covers it.
+     */
+    async refreshItem(item) {
+      if (inFlight) await inFlight.catch(() => {});
+      if (!current) return;
+      const [top, name] = String(item).split("/");
+      let targets;
+      let next;
+      if (top === "homebrew") {
+        if (!APP_RE.test(name ?? "")) return;
+        const dir = `homebrew/${name}`;
+        targets = (await subdirs(path.join(root, dir))).map((folder) => [dir, folder]);
+        next = saves.filter((s) => s.dir !== dir);
+      } else {
+        if (!isBase(String(top).toUpperCase()) || !name) return;
+        targets = [[top, name]];
+        next = saves.filter((s) => !(s.dir === top && s.folder === name));
+      }
+      for (const [dir, folder] of targets) {
+        try {
+          const { save } = await readSave(root, dir, folder, cache);
+          next.push({ ...save, dir, folder });
+        } catch (err) {
+          if (err.code === "ENOENT") continue;
+          if (!(err instanceof Rejected)) throw err;
+          debug.error("saves: %s/%s left out: %s", dir, folder, err.message);
+        }
+      }
+      saves = sortSaves(next);
+      writeList(listFile, saves, scannedAt).catch((err) => debug.error("saves: could not keep the listing: %s", err.message));
+      debug.log("saves: %s read again", item);
     },
     /** Read the folder again on the next list (after a change made here). */
     invalidate() {
