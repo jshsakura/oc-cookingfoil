@@ -11,6 +11,10 @@
  *                                   its files are restored into that folder of the SD card
  *                                   url is on the direct address for a client that asked for it
  *                                   (security/download-links.js)
+ *   GET /api/saves?view=games       one row per game instead: { games: [{ key, titleId, homebrew?,
+ *                                     game?, count, size, updatedAt }] }, with ETag. `key` is the
+ *                                     title id, or "hb:<app>" for a homebrew app
+ *   GET /api/saves?game=<key>       only that game's saves, in the shape above
  *   GET /api/saves/:id/download     the save folder's contents as an uncompressed ustar,
  *                                   paths relative to the save's root, directories first
  */
@@ -30,6 +34,27 @@ const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
 export const savesEnabled = () => fs.existsSync(savesDir);
 
+/** The game a save belongs to: its title id, or "hb:<app>" for a homebrew app's save. Pure. */
+export const gameKey = (s) => s.titleId ?? `hb:${s.homebrew}`;
+
+/** One row per game, in listing order: how many saves, their total size and the newest. */
+export function byGame(saves, origin = "") {
+  const rows = new Map();
+  for (const s of saves) {
+    const key = gameKey(s);
+    let row = rows.get(key);
+    if (!row) {
+      const game = s.titleId ? gameOf(s.titleId, origin) : null;
+      row = { key, titleId: s.titleId ?? null, ...(s.homebrew ? { homebrew: s.homebrew } : {}), ...(game ? { game } : {}), count: 0, size: 0, updatedAt: 0 };
+      rows.set(key, row);
+    }
+    row.count++;
+    row.size += s.size;
+    row.updatedAt = Math.max(row.updatedAt, s.updatedAt ?? 0);
+  }
+  return [...rows.values()];
+}
+
 let shared = null;
 /** The one catalog of the saves folder, shared with the admin page. */
 export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json"), listFile: path.join(dataDir, "saves-list.json") }));
@@ -46,11 +71,18 @@ export default function savesRouter() {
     const origin = resolveOrigin(req, publicBaseUrl);
     const lang = requestLang(req);
     const link = forRequest(req);
-    const saves = (await catalog.list()).map((s) => {
-      const game = s.titleId ? gameOf(s.titleId, origin) : null;
-      return { ...localize(s, lang), ...(game ? { game } : {}), url: directUrl(`/api/saves/${s.id}/download`, link) };
-    });
-    const body = JSON.stringify({ saves });
+    const want = typeof req.query.game === "string" ? req.query.game : null;
+    const all = (await catalog.list()).filter((s) => !want || gameKey(s) === want);
+    let body;
+    if (req.query.view === "games") {
+      body = JSON.stringify({ games: byGame(all, origin) });
+    } else {
+      const saves = all.map((s) => {
+        const game = s.titleId ? gameOf(s.titleId, origin) : null;
+        return { ...localize(s, lang), ...(game ? { game } : {}), url: directUrl(`/api/saves/${s.id}/download`, link) };
+      });
+      body = JSON.stringify({ saves });
+    }
     res.type("application/json");
     res.set("ETag", `"${crypto.createHash("sha1").update(body).digest("hex")}"`);
     res.set("Cache-Control", "private, max-age=0, must-revalidate");
