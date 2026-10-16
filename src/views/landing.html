@@ -461,9 +461,47 @@
 
 
       /* RECENT ROW + LIBRARY: square art with the name under it */
-      .recent { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 18px; overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0; scroll-padding-inline: 12px; scroll-snap-type: x proximity; }
-      .recent .game { scroll-snap-align: start; }
-      .home-row { margin-bottom: 26px; }
+      /* A shelf, as the client's home draws it: whole cards and the next one cut at the right edge, card 150 on a 170 pitch.
+         The client shows six at 1280; here the picture scales with the shelf's width, and a narrower shelf shows fewer cards (--n) in the same shape. */
+      .recent {
+        --n: 6; --pitch: calc((100cqw + 12px) / (var(--n) + 0.247)); --card: calc(var(--pitch) * 0.8824); --gap: calc(var(--pitch) * 0.1176);
+        display: grid; grid-auto-flow: column; grid-auto-columns: var(--card); gap: var(--gap); overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0;
+        scroll-padding-inline: 12px; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+      }
+      @container (max-width: 899px) { .recent { --n: 5; } }
+      @container (max-width: 639px) { .recent { --n: 4; } }
+      @container (max-width: 479px) { .recent { --n: 3; } }
+      .recent::-webkit-scrollbar { display: none; }
+      .recent > .game { scroll-snap-align: start; }
+      /* Shelf cards carry the size (top left) and the score (top right) only; the other labels belong to the list. */
+      .recent > .game .sub { display: none; }
+      .recent > .game .meta { gap: 0; }
+      .recent > .game .poster-badge { top: calc(var(--card) * 0.053); height: clamp(16px, calc(var(--card) * 0.147), 22px); padding: 0 calc(var(--card) * 0.047); font-size: clamp(10px, calc(var(--card) * 0.087), 13px); line-height: clamp(16px, calc(var(--card) * 0.147), 22px); }
+      .recent > .game .size-badge { left: calc(var(--card) * 0.053); }
+      .recent > .game .score-badge { right: calc(var(--card) * 0.053); }
+      .recent > .game .cover { border-radius: calc(var(--card) * 0.0933); }
+      .recent > .game .name { -webkit-line-clamp: 1; min-height: 0; font-size: clamp(12px, calc(var(--card) * 0.12), 17px); }
+      /* "See all": the shelf opened out into rows, every card at the same size. */
+      .recent.expanded { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, var(--card)); grid-auto-columns: auto; justify-content: start; overflow: visible; scroll-snap-type: none; row-gap: 22px; }
+      .recent > .see-all .face {
+        aspect-ratio: 1; border-radius: calc(var(--card) * 0.0933); background: #fff; color: #16161a; display: grid; place-content: center; justify-items: center; gap: 8px;
+        font: 700 14px var(--font-body); box-shadow: 0 2px 10px rgba(var(--shadow-rgb), 0.1);
+      }
+      .recent > .see-all .face .bi { width: 30px; height: 30px; }
+      .recent > .see-all .name { visibility: hidden; }
+      .home-row { position: relative; margin-bottom: 26px; container-type: inline-size; }
+      .home-row .row-actions { position: absolute; right: 0; top: 34px; display: flex; gap: 6px; align-items: center; }
+      .home-row .row-btn {
+        display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 100px; cursor: pointer;
+        font: 600 13px var(--font-body); background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
+        transition: color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      }
+      .home-row .row-btn[hidden] { display: none; }
+      .home-row .row-btn.icon-only { width: 32px; padding: 0; justify-content: center; }
+      .home-row .row-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
+      .home-row .row-btn:active:not(:disabled) { transform: scale(0.95); }
+      .home-row .row-btn:disabled { opacity: 0.35; cursor: default; }
+      .home-row .row-btn .bi { width: 16px; height: 16px; }
       .home-row h2 { margin-bottom: 4px; display: flex; align-items: baseline; gap: 10px; }
       .home-row .row-count { font-size: 14px; font-weight: 600; color: var(--secondary); font-variant-numeric: tabular-nums; }
       .toolbar {
@@ -1075,7 +1113,6 @@
         .hero .hero-tags { max-height: 118px; }
         .hero .hero-cover { width: 132px; height: 132px; }
         .games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
-        .recent { grid-auto-columns: 140px; }
         .modal-backdrop { padding: 0; align-items: flex-end; }
         /* dvh: the height left between the browser's bars. iOS counts vh under them, which pushed the sheet's top off screen. */
         .modal { border-radius: 24px 24px 0 0; max-height: 94vh; max-height: 94dvh; }
@@ -1492,6 +1529,7 @@
           "retro.cantRun": "실행 불가",
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
+          "row.seeAll": "모두 보기", "row.collapse": "접기",
           "row.sale": "할인 중",
           "row.new": "신작",
           "row.updated": "최근 업데이트",
@@ -1785,6 +1823,7 @@
           "retro.listed": "Recommended",
           "retro.cantRun": "Won't run",
           "row.recent": "Recently added",
+          "row.seeAll": "See all", "row.collapse": "Show less",
           "row.sale": "On sale",
           "row.new": "New releases",
           "row.updated": "Recently updated",
@@ -2078,6 +2117,7 @@
           "retro.listed": "おすすめ",
           "retro.cantRun": "起動できません",
           "row.recent": "最近の追加",
+          "row.seeAll": "すべて見る", "row.collapse": "たたむ",
           "row.sale": "セール中",
           "row.new": "新作",
           "row.updated": "最近のアップデート",
@@ -2371,6 +2411,7 @@
           "retro.listed": "推薦",
           "retro.cantRun": "無法執行",
           "row.recent": "最近新增",
+          "row.seeAll": "查看全部", "row.collapse": "收合",
           "row.sale": "特價中",
           "row.new": "新作",
           "row.updated": "最近更新",
@@ -3001,6 +3042,45 @@
       // row. Replaced by real cards once /shop.json resolves; never shown again
       // after that.
       const BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      // ─── shelves ──────────────────────────────────────────────────────────
+      // The client's home shows up to 30 games a row and, after them, one "See all" card.
+      const SHELF_MAX = 30, SHELF_CHUNK = 60;
+      const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const iconButton = (cls, iconName, label, text = "") => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "row-btn" + (text ? "" : " icon-only") + (cls ? " " + cls : "");
+        b.innerHTML = BTN_ICONS[iconName] || "";
+        if (text) b.append(text); else { b.setAttribute("aria-label", label); b.title = label; }
+        return b;
+      };
+      // Arrow buttons that move a shelf by one page (the whole cards in view), and a "See all" chip.
+      function shelfControls(block, list, seeAll) {
+        const box = document.createElement("div"); box.className = "row-actions";
+        const prev = iconButton("", "chevleft", t("pager.prev")), next = iconButton("", "chevright", t("pager.next"));
+        if (seeAll) box.append(seeAll);
+        box.append(prev, next);
+        block.append(box);
+        const pitch = () => { const c = list.querySelectorAll(":scope > .game"); return c.length > 1 ? c[1].offsetLeft - c[0].offsetLeft : 170; };
+        const whole = () => Number.parseInt(getComputedStyle(list).getPropertyValue("--n"), 10) || 6;
+        const page = (dir) => list.scrollBy({ left: dir * whole() * pitch(), behavior: reducedMotion() ? "auto" : "smooth" });
+        prev.addEventListener("click", () => page(-1)); next.addEventListener("click", () => page(1));
+        const sync = () => {
+          const expanded = list.classList.contains("expanded");
+          prev.hidden = next.hidden = expanded;
+          prev.disabled = list.scrollLeft <= 1;
+          next.disabled = list.scrollLeft + list.clientWidth >= list.scrollWidth - 1;
+        };
+        list.addEventListener("scroll", sync, { passive: true });
+        new ResizeObserver(sync).observe(list);
+        return sync;
+      }
+      const seeAllCard = (onClick) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "game see-all";
+        b.innerHTML = '<span class="face">' + (BTN_ICONS.arrowright || "") + "<span></span></span><span class=\"meta\"><span class=\"name\">&nbsp;</span></span>";
+        b.querySelector(".face span").textContent = t("row.seeAll");
+        b.addEventListener("click", onClick);
+        return b;
+      };
       function skeletonCards(n) {
         return Array.from({ length: n }, () => {
           const card = document.createElement("div");
@@ -3589,20 +3669,37 @@
           const block = document.createElement("div"); block.className = "home-row";
           const h = document.createElement("h2"); h.textContent = row.title;
           const list = document.createElement("div"); list.className = "recent";
-          let drawn = 0;
-          const more = () => {
-            for (const r of row.items.slice(drawn, drawn + ROW_LIMIT)) list.appendChild(makeCard(r));
-            drawn = Math.min(row.items.length, drawn + ROW_LIMIT);
+          const shelf = row.items.slice(0, SHELF_MAX);
+          list.append(...shelf.map(makeCard));
+          // "See all" opens the shelf out into every game of the row, a chunk at a time.
+          let all = null, drawn = 0, sync = () => {};
+          const chip = row.items.length > 0 ? iconButton("", "arrowright", "", t("row.seeAll")) : null;
+          const expand = (on) => {
+            list.classList.toggle("expanded", on);
+            list.replaceChildren();
+            if (!on) { list.append(...shelf.map(makeCard), seeAllCard(() => expand(true))); chip.lastChild.textContent = t("row.seeAll"); list.scrollLeft = 0; sync(); return; }
+            drawn = 0; chip.lastChild.textContent = t("row.collapse");
+            const more = () => {
+              list.querySelector(":scope > .more")?.remove();
+              for (const r of row.items.slice(drawn, drawn + SHELF_CHUNK)) list.appendChild(makeCard(r));
+              drawn = Math.min(row.items.length, drawn + SHELF_CHUNK);
+              if (drawn < row.items.length) {
+                const b = document.createElement("button"); b.type = "button"; b.className = "game see-all more";
+                b.innerHTML = '<span class="face"><span></span></span><span class="meta"><span class="name">&nbsp;</span></span>';
+                b.querySelector(".face span").textContent = (row.items.length - drawn).toLocaleString() + " +";
+                b.addEventListener("click", more); list.appendChild(b);
+              }
+            };
+            more(); sync();
           };
-          more();
-          list.addEventListener("scroll", () => {
-            if (drawn < row.items.length && list.scrollLeft + list.clientWidth > list.scrollWidth - 600) more();
-          }, { passive: true });
+          list.append(seeAllCard(() => expand(true)));
+          if (chip) chip.addEventListener("click", () => expand(!list.classList.contains("expanded")));
           if (row.items.length > ROW_LIMIT) {
             const n = document.createElement("span"); n.className = "row-count"; n.textContent = row.items.length.toLocaleString();
             h.appendChild(n);
           }
           block.append(h, list);
+          sync = shelfControls(block, list, chip);
           box.appendChild(block);
         }
       }
@@ -3822,11 +3919,20 @@
               const n = document.createElement("span"); n.className = "row-count"; n.textContent = s.romCount.toLocaleString();
               h.append(n);
               const list = document.createElement("div"); list.className = "recent";
-              list.append(...s.games.map(card));
+              list.append(...s.games.slice(0, SHELF_MAX).map(card));
+              // "See all" is that console's list.
+              const toList = () => { showTab("retro"); this.showSystem(s.id); };
+              list.append(seeAllCard(toList));
               block.append(h, list);
+              shelfControls(block, list, (() => { const c = iconButton("", "arrowright", "", t("row.seeAll")); c.addEventListener("click", toList); return c; })());
               return block;
             }));
             rows.setAttribute("aria-busy", "false");
+          },
+          async showSystem(id) {
+            if (!systems) await this.open();
+            system = id; page = 1;
+            renderSystems(); reload();
           },
           relabel() {
             if (systems) renderSystems();

@@ -15,9 +15,9 @@ import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./inte
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
-import { LIBRARY_FILES_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIBRARY_FILES_HTML, LIBRARY_VERIFY_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
-import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT } from "./patches-panel.js";
+import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT, SAVES_HTML } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
@@ -423,10 +423,21 @@ ${POLISH_CSS}</style></head><body>
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <div class="cards" id="lib-cards"></div>
-  ${LIB_BROWSER_HTML}
-  ${LIBRARY_FILES_HTML}
-  ${PATCHES_HTML}
-  <h2>게임 이름, 소개, 추가 정보</h2>
+  <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
+    <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
+    <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
+    <button type="button" role="tab" data-lsub="patches" aria-selected="false">${icon("package")}패치</button>
+    <button type="button" role="tab" data-lsub="saves" aria-selected="false">${icon("save")}세이브</button>
+    <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}이름과 소개</button>
+    <button type="button" role="tab" data-lsub="server" aria-selected="false">${icon("sliders")}서버</button>
+  </div>
+  <div data-lib-panel="files">${LIB_BROWSER_HTML}
+  ${LIBRARY_FILES_HTML}</div>
+  <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
+  <div data-lib-panel="patches" hidden>${PATCHES_HTML}</div>
+  <div data-lib-panel="saves" hidden>${SAVES_HTML}</div>
+  <div data-lib-panel="info" hidden>
+  <h2 class="first">게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
     <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
@@ -446,9 +457,12 @@ ${POLISH_CSS}</style></head><body>
       <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
     </div>
   </form>
-  <h2>서버 설정</h2>
+  </div>
+  <div data-lib-panel="server" hidden>
+  <h2 class="first">서버 설정</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">바꿀 수 있는 설정은 설정 탭의 서버 동작에 있습니다.</p>
+  </div>
 </section>
 
 ${RETRO_ART_HTML}

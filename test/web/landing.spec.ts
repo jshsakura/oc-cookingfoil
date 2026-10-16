@@ -832,3 +832,41 @@ test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count a
     await expect(page.locator('#modal')).not.toHaveClass(/open/);
   }
 });
+
+test('a preview shelf shows whole cards and a cut next one (six wide, three on a phone), pages with the arrows and opens out with See all', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const id = (i: number) => `01000000000${String(10 + i).padStart(2, '0')}000`;
+  const files = Array.from({ length: 40 }, (_, i) => ({ url: `g${i}.nsp`, name: `Game ${i} [${id(i)}][v0]`, size: 1e9, kind: 'base', mtime: 1000 + i, titleId: id(i), baseTitleId: id(i) }));
+  await page.route('**/shop.json', (route) => route.fulfill({ json: { files, titledb: {} } }));
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [] }], genres: {} } }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#preview');
+  const shelf = page.locator('.home-row').first();
+  const cards = shelf.locator('.recent > .game');
+  await expect(cards).toHaveCount(31); // 30 games and the See all card
+  // The client's picture: six whole cards and the seventh cut at the edge; a phone shows three and a cut fourth.
+  for (const [width, whole] of [[1280, 6], [768, 5], [390, 3]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    const edge = await shelf.locator('.recent').evaluate((el) => el.getBoundingClientRect().right - 12);
+    const box = await cards.evaluateAll((els) => els.slice(0, 8).map((e) => ({ left: e.getBoundingClientRect().left, right: e.getBoundingClientRect().right })));
+    expect(box[whole - 1].right, `card ${whole} whole at ${width}px`).toBeLessThanOrEqual(edge + 12);
+    expect(box[whole].right, `card ${whole + 1} cut at ${width}px`).toBeGreaterThan(edge + 12);
+    expect(box[whole].left, `card ${whole + 1} starts inside at ${width}px`).toBeLessThan(edge + 12);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // The card shows its size, not the list's labels.
+  await expect(cards.first().locator('.size-badge')).toBeVisible();
+  await expect(cards.first().locator('.sub')).toBeHidden();
+  // The arrows page by six cards and stop at the ends.
+  const prev = shelf.getByRole('button', { name: '이전' }), next = shelf.getByRole('button', { name: '다음' });
+  await expect(prev).toBeDisabled();
+  await next.click();
+  await expect.poll(() => shelf.locator('.recent').evaluate((el) => el.scrollLeft)).toBeGreaterThan(500);
+  await expect(prev).toBeEnabled();
+  // See all opens the row out; the arrows step aside, and it folds back.
+  await shelf.locator('.row-btn', { hasText: '모두 보기' }).click();
+  await expect(cards).toHaveCount(39);
+  await expect(next).toBeHidden();
+  await shelf.getByRole('button', { name: '접기' }).click();
+  await expect(cards).toHaveCount(31);
+});

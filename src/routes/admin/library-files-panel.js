@@ -9,8 +9,9 @@ export const LIBRARY_FILES_HTML = `<h2>게임 파일</h2>
   <p class="muted">라이브러리의 게임, 업데이트, DLC 파일을 찾아 삭제합니다. 지우면 서버의 games 폴더에서 사라지고 목록을 다시 읽습니다.</p>
   <div class="pt-tools"><input id="lf-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 파일 이름" aria-label="게임 파일 찾기"></div>
   <p class="muted" id="lf-count"></p>
-  <div class="scroll" id="lf-list"></div>
-  <div class="hd"><h2>파일 검사</h2><button type="button" id="lv-hash-all">전체 해시 검사</button></div>
+  <div class="scroll" id="lf-list"></div>`;
+
+export const LIBRARY_VERIFY_HTML = `  <div class="hd"><h2 class="first">파일 검사</h2><button type="button" id="lv-hash-all">전체 해시 검사</button></div>
   <p class="muted">게임 파일의 서명을 모두 확인하고, 새로 들어온 파일은 해시까지 확인합니다. 결과는 안내로만 보여 주고 다운로드는 막지 않습니다. 수정된 파일은 개조나 한글패치처럼 원본과 다른 파일이고, 손상된 파일은 설치나 실행이 안 될 수 있습니다.</p>
   <p class="muted" id="lv-state"></p>
   <div class="cards" id="lv-cards"></div>

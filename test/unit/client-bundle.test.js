@@ -169,3 +169,28 @@ test("a downloaded client connects once, under the account that downloaded it", 
     server.kill("SIGKILL");
   }
 });
+
+test("a console that asks for approval with its download's token is approved under that account at once", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-enroll-req-"));
+  const server = await boot(data);
+  try {
+    const token = await tokenIn(await bundle(ALICE), data);
+    const KEY = "D4".repeat(32);
+    const SECRET = "e5".repeat(32);
+    const ask = await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: KEY, pairSecret: SECRET, enrollToken: token }) });
+    assert.deepEqual(await ask.json(), { status: "approved" });
+    const st = await (await fetch(`${BASE}/api/pair/status?deviceKey=${KEY}`, { headers: { "X-Pair-Secret": SECRET } })).json();
+    assert.equal(st.status, "approved");
+    assert.ok(st.accessKey, "the key goes to the console that asked");
+    const mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: { Authorization: ALICE } })).json();
+    assert.ok(mine.devices.some((d) => d.deviceKey === KEY), "under alice, not in the admin's queue");
+    assert.equal(mine.clients[0].state, "used");
+
+    // A spent token asks like any console: it waits.
+    const other = "F6".repeat(32);
+    const late = await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: other, enrollToken: token }) });
+    assert.equal((await late.json()).status, "pending");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

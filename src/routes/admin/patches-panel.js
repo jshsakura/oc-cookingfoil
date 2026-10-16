@@ -9,15 +9,16 @@
  * A patch's text is kept on the server, not in a patch.json in its folder.
  */
 
-export const PATCHES_HTML = `<h2>게임 패치</h2>
+export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다.</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
   </div>
   <p class="muted" id="pt-count"></p>
-  <div id="lib-patches"></div>
-  <h2>게임 세이브</h2>
+  <div id="lib-patches"></div>`;
+
+export const SAVES_HTML = `  <h2 class="first">게임 세이브</h2>
   <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다.</p>
   <div id="lib-saves"></div>`;
 

@@ -46,6 +46,7 @@ test('the library tab shows the file check counts and its full hash button', asy
   await page.getByRole('button', { name: '들어가기', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
   await page.getByRole('link', { name: '라이브러리' }).click();
+  await page.getByRole('tab', { name: '검사' }).click();
   await expect(page.getByRole('heading', { name: '파일 검사' })).toBeVisible();
   await expect(page.locator('#lv-cards .card')).toHaveCount(4);
   await expect(page.locator('#lv-list')).toContainText('수정되거나 손상된 파일이 없습니다.');

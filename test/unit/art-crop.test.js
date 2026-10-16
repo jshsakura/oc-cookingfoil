@@ -185,3 +185,19 @@ test("an item's pictures are cut, kept, cut again and taken out alike", async ()
   const left = fs.readdirSync(path.join(data, "items", "media", ID)).filter((f) => f.includes(".orig."));
   assert.deepEqual(left, []);
 });
+
+test("the small picture the list shows follows a new cut at once", async () => {
+  const { serveImage } = await import("../../src/meta/image-cache.js");
+  const small = async () => {
+    let sent = null;
+    const res = { set() { return this; }, type() { return this; }, sendFile(p) { sent = p; } };
+    await serveImage({ query: { size: "sm" }, headers: {}, get: () => "" }, res, {
+      cachePath: path.join(data, "no-upstream.jpg"), overridePath: customArt.pathFor(BASE, "icon", null),
+    });
+    return color(sent);
+  };
+  await post(`/${BASE}/icon`, form(await halves(), { x: 0.5, y: 0, w: 0.5, h: 1 }));
+  assert.ok(isBlue(await small()));
+  assert.equal((await postJson(`/${BASE}/icon/crop`, { crop: { x: 0, y: 0, w: 0.5, h: 1 } })).status, 200);
+  assert.ok(isRed(await small()), "not the thumbnail of the old cut");
+});

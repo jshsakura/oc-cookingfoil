@@ -28,7 +28,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { mkdir, rename, writeFile, stat as statAsync } from "fs/promises";
+import { mkdir, readFile, rename, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
@@ -170,7 +170,9 @@ async function ensureVariant(originalPath, variant) {
   if (!pending) {
     pending = (async () => {
       const tmp = `${variant.path}.tmp.${process.pid}`;
-      let pipeline = sharp(originalPath, { failOn: "none" });
+      // Read as bytes: an uploaded picture is rewritten under the same name, and libvips would
+      // answer a path it decoded before from its cache.
+      let pipeline = sharp(await readFile(originalPath), { failOn: "none" });
       if (variant.resize && variant.wide) {
         pipeline = pipeline.resize({ width: variant.resize, withoutEnlargement: true });
       } else if (variant.resize) {
