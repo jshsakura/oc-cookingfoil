@@ -22,6 +22,8 @@ export const DENY = {
   DEVICE_LOGIN_OTHER_CONSOLE: "device-login-other-console",
   SESSION_REFUSED: "session-refused",
   CONSOLE_PASSWORDS_OFF: "console-passwords-off",
+  PASSWORD_LOGIN_OFF: "password-login-off",
+  CONSOLE_PASSWORDS_LAN_ONLY: "console-passwords-lan-only",
   ADMIN_NO_SESSION: "admin-no-session",
   ADMIN_BAD_TOTP: "admin-bad-totp",
 };
@@ -47,6 +49,10 @@ const HINTS = {
     "A per-device login was used from a different console than the one it is locked to. Issue that console its own login.",
   [DENY.CONSOLE_PASSWORDS_OFF]:
     "A console signed in with an ID and password while that is switched off. Give it a client downloaded from the web page (or pair it by QR), or turn console passwords back on in Settings.",
+  [DENY.PASSWORD_LOGIN_OFF]:
+    "An account's own password was sent while ID and password sign-in is off. People sign in with Google; consoles use their per-device logins (cf-…).",
+  [DENY.CONSOLE_PASSWORDS_LAN_ONLY]:
+    "A console sent a password from outside the home network (a tunnel or public address) while console passwords are allowed at home only.",
   [DENY.SESSION_REFUSED]:
     "A console's session token was not one this server made, came from another console, or was made for an account or console that may no longer sign in. The console signs in again by itself; many of these from one address is someone guessing.",
   [DENY.ADMIN_NO_SESSION]: "Admin request without a valid 2FA session.",

@@ -22,6 +22,7 @@ import * as users from "./users.js";
 import * as deviceLogins from "./device-logins.js";
 import * as googleAccounts from "./google-accounts.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
+import { passwordOwnerOk } from "./password-policy.js";
 
 const AGENT_CHARS = 12;
 
@@ -72,7 +73,8 @@ export function requester(req) {
 function accountAllowed({ kind, id }) {
   if (kind === "login") return deviceLogins.isActive(id);
   if (kind === "google") return googleAccounts.isApproved(id);
-  return users.isActive(id);
+  // Session and download tokens traded for an account's password stop while that sign-in is off.
+  return passwordOwnerOk() && users.isActive(id);
 }
 
 /** Whether tokens made for `who` may still be used. */

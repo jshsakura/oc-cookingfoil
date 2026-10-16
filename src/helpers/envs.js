@@ -318,6 +318,16 @@ let devicePairing = envBool("COOK_DEVICE_PAIRING", true);
 // and the admin page sign in as before, and this machine itself still may.
 // Off unless set to true: turn it on for Tinfoil, CyberFoil or older builds.
 let consolePasswords = envBool("COOK_CONSOLE_PASSWORDS", false);
+// The ID and password sign-in: the web page's form, and accounts' own passwords sent by consoles
+// (Basic). Off, people sign in with Google only and consoles with their per-device logins (cf-…),
+// which stay as they are; this machine itself still may. On unless set to false.
+let passwordLogin = envBool("COOK_PASSWORD_LOGIN", true);
+// Console passwords (Basic) from the home network only: through a tunnel or a public address they are
+// refused, so no password crosses the internet. Off unless set to true.
+let consolePasswordsLanOnly = envBool("COOK_CONSOLE_PASSWORDS_LAN_ONLY", false);
+// The way back in when Google sign-in breaks while passwords are off: true turns ID and password
+// sign-in on whatever the admin page saved. Compose only, on purpose.
+const passwordLoginForced = envBool("COOK_PASSWORD_LOGIN_FORCE", false);
 // With pairing on: a console that signs in with an account or its device login
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set
@@ -394,6 +404,8 @@ let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: tru
 const ENV_SETTINGS = Object.freeze({
   devicePairing,
   consolePasswords,
+  passwordLogin,
+  consolePasswordsLanOnly,
   deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
   uploadsEnabled,
   inboxEnabled,
@@ -435,6 +447,8 @@ function applyServerSettings(saved = {}) {
   const v = { ...ENV_SETTINGS, ...saved };
   devicePairing = v.devicePairing;
   consolePasswords = v.consolePasswords;
+  passwordLogin = v.passwordLogin;
+  consolePasswordsLanOnly = v.consolePasswordsLanOnly;
   deviceAutoApprove = v.deviceApproval !== "manual";
   deviceAutoApproveAll = v.deviceApproval === "all";
   uploadsEnabled = v.uploadsEnabled;
@@ -556,6 +570,9 @@ export {
   firstRunSetup,
   devicePairing,
   consolePasswords,
+  passwordLogin,
+  consolePasswordsLanOnly,
+  passwordLoginForced,
   deviceAutoApprove,
   deviceAutoApproveAll,
 };

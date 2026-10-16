@@ -27,6 +27,8 @@ const TEXT = {
     pendingLead: "{email} 계정은 관리자의 승인을 기다리고 있습니다. 승인되면 다시 로그인합니다.",
     disabledLead: "{email} 계정은 관리자가 사용을 중지했습니다.",
     errWrong: "아이디나 비밀번호가 맞지 않습니다.",
+    googleOnly: "이 서버는 Google 계정으로 로그인합니다.",
+    errPasswordsOff: "아이디와 비밀번호 로그인은 꺼져 있습니다. Google 계정으로 로그인합니다.",
     errLocked: "로그인에 너무 여러 번 실패해 잠겼습니다. 관리자에게 해제를 요청합니다.",
     errStale: "화면이 오래돼 다시 불러왔습니다. 한 번 더 로그인합니다.",
     errGoogle: "구글로 로그인하지 못했습니다. 다시 시도합니다.",
@@ -63,6 +65,8 @@ const TEXT = {
     pendingLead: "{email} is waiting for the admin's approval. Sign in again once it is approved.",
     disabledLead: "The admin has turned off {email}.",
     errWrong: "Wrong username or password.",
+    googleOnly: "This server signs in with a Google account.",
+    errPasswordsOff: "Signing in with an ID and password is switched off. Sign in with Google.",
     errLocked: "Locked after too many failed sign-ins. Ask the admin to unlock it.",
     errStale: "The page was stale and has been reloaded. Sign in once more.",
     errGoogle: "Couldn't sign in with Google. Try again.",
@@ -99,6 +103,8 @@ const TEXT = {
     pendingLead: "{email} は管理者の承認を待っています。承認されたらもう一度ログインします。",
     disabledLead: "{email} は管理者が利用を停止しました。",
     errWrong: "ID またはパスワードが違います。",
+    googleOnly: "このサーバーは Google アカウントでログインします。",
+    errPasswordsOff: "ID とパスワードでのログインはオフになっています。Google でログインしてください。",
     errLocked: "ログインに何度も失敗したためロックされました。管理者に解除を依頼します。",
     errStale: "画面が古くなったため読み込み直しました。もう一度ログインします。",
     errGoogle: "Google でログインできませんでした。もう一度試します。",
@@ -135,6 +141,8 @@ const TEXT = {
     pendingLead: "{email} 正在等待管理员批准。批准后请重新登录。",
     disabledLead: "管理员已停用 {email}。",
     errWrong: "账号或密码不正确。",
+    googleOnly: "此服务器使用 Google 帐户登录。",
+    errPasswordsOff: "已关闭账号和密码登录，请使用 Google 登录。",
     errLocked: "登录失败次数过多，已被锁定。请联系管理员解除。",
     errStale: "页面已过期，已重新载入。请再登录一次。",
     errGoogle: "无法使用 Google 登录，请重试。",
@@ -203,13 +211,17 @@ function whoBar(t, user, csrf) {
   return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${escapeHtml(t.signOut)}</button></div>`;
 }
 
-export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null } = {}) {
+export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, passwords = true } = {}) {
   const t = textFor(lang);
-  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle }[error];
+  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle, passwordsOff: t.errPasswordsOff }[error];
   const note = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
-  const googleBlock = google
-    ? `<div class="divider">${escapeHtml(t.or)}</div><a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`
-    : "";
+  const googleButton = `<a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`;
+  // ID and password sign-in switched off: the Google button alone.
+  if (!passwords) {
+    return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}<p>${escapeHtml(t.googleOnly)}</p>
+${errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : ""}${google ? googleButton : ""}`);
+  }
+  const googleBlock = google ? `<div class="divider">${escapeHtml(t.or)}</div>${googleButton}` : "";
   return shell(lang, t.signinTitle, `${note ? `<p class="note">${fill(note, googleEmail)}</p>` : ""}
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
