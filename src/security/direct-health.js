@@ -16,7 +16,9 @@
  *
  * The state only shows on /healthz and the admin page, and a change is logged
  * once and told on Telegram (helpers/alerts.js event "direct"). Lists, URLs
- * and tokens never depend on it: there is no fallback and nothing restarts.
+ * and tokens never depend on it: there is no fallback to the public address
+ * (it is metered) and nothing restarts. Only the admin's switch
+ * (directDownloads) takes downloads off the direct address.
  */
 import dns from "dns/promises";
 import { checkOutboundUrl } from "./outbound-guard.js";
@@ -137,11 +139,6 @@ export function touch(nowMs = Date.now()) {
 /** Whether the last checks found the address answering. */
 export function isUp() {
   return Boolean(env.publicDirectBaseUrl) && health.up && checkedBase === env.publicDirectBaseUrl;
-}
-
-/** Whether the checks have found the address not answering (not merely unchecked yet). */
-export function knownDown() {
-  return Boolean(env.publicDirectBaseUrl) && checkedBase === env.publicDirectBaseUrl && health.known && !health.up;
 }
 
 /** The check running now, if any (tests wait for it). */

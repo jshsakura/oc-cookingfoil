@@ -508,7 +508,7 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
   assert.notEqual(off.headers.etag, on.headers.etag);
 });
 
-test("while the direct address is down no token or origin is given, so clients use the server itself", async () => {
+test("a direct address that fails its checks still gets the token and origin: only the switch takes them away", async () => {
   const port = await listApp();
   const ask = () => get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...FEATURES } });
   health.setForTests(true);
@@ -517,8 +517,8 @@ test("while the direct address is down no token or origin is given, so clients u
   assert.ok(up.headers["x-cookingfoil-download-origin"]);
   health.setForTests(false);
   const down = await ask();
-  assert.equal(down.headers["x-cookingfoil-download-token"], undefined);
-  assert.equal(down.headers["x-cookingfoil-download-origin"], undefined);
+  assert.ok(down.headers["x-cookingfoil-download-token"], "no fallback to the metered public address");
+  assert.ok(down.headers["x-cookingfoil-download-origin"]);
   health.setForTests(true);
 });
 
