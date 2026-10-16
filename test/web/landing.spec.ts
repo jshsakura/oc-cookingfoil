@@ -487,7 +487,13 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#patches');
 
+  // A game is an accordion: its items show once its card is opened.
   const row = page.locator('#patches-list .xrow', { hasText: '성능 패치' });
+  const head = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
+  await expect(head).toHaveAttribute('aria-expanded', 'false');
+  await expect(row).toHaveCount(0);
+  await head.click();
+  await expect(head).toHaveAttribute('aria-expanded', 'true');
   await expect(row).toBeVisible();
   await expect(row.locator('.btn')).toHaveCount(0);
   await expect(row.locator('.more')).toHaveText('자세히');
@@ -527,6 +533,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   // On a phone the rows and the detail still fit the width.
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/#patches');
+  await page.locator('#patches-list .xhead').first().click();
   await page.locator('#patches-list .xrow').first().click();
   await expect(page.locator('#xm-title')).toBeVisible();
   await page.waitForTimeout(450); // the modal's rise animation
@@ -639,8 +646,9 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#patches');
 
-  const heads = page.locator('#patches-list .xgroup header strong');
+  const heads = page.locator('#patches-list .xgroup .xhead strong');
   await expect(heads).toHaveText(['Bravo', 'Alpha']);
+  await page.locator('#patches-list .xhead', { hasText: 'Alpha' }).click();
   await expect(page.locator('#patches-list .xgroup').nth(1).locator('.xname')).toHaveText(['Alpha mid', 'Alpha old']);
   await expect(page.locator('#patches-sort')).toHaveValue('updated');
   await page.locator('#patches-sort').selectOption('name');
@@ -661,4 +669,29 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await page.setViewportSize({ width: 390, height: 844 });
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/patches-sort-phone.png' });
+});
+
+test('saves page by game, so a game with many saves stays on one page and opens under its card', async ({ page }) => {
+  await page.route('**/api/shop/info*', async (route) => {
+    const res = await route.fetch();
+    const body = res.ok() ? await res.json() : {};
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'shop-saves'] } });
+  });
+  const save = (tid: string, game: string, n: number) => ({ id: `${tid}-${String(n).padStart(12, '0')}`, titleId: tid, name: `${game} save ${n}`,
+    description: '', size: 1024, files: 1, hash: 'h', updatedAt: 1_790_000_000 - n, game: { name: game }, url: '/x' });
+  const saves = Array.from({ length: 30 }, (_, n) => save('0100000000010000', 'Big Game', n));
+  for (let g = 0; g < 21; g++) saves.push(save(`0100000002${String(g).padStart(2, '0')}0000`, `Game ${String(g).padStart(2, '0')}`, 100 + g));
+  await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves } }));
+  await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [] } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#saves');
+  await page.locator('#saves-sort').selectOption('name');
+  await expect(page.locator('#saves-list .xgroup')).toHaveCount(20);
+  await expect(page.locator('#saves-pager .info')).toHaveText('1–20 / 총 22');
+  const big = page.locator('#saves-list .xhead', { hasText: 'Big Game' });
+  await expect(big.locator('.n')).toHaveText('30');
+  await big.click();
+  await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xrow')).toHaveCount(30);
+  await big.click();
+  await expect(page.locator('#saves-list .xgroup', { hasText: 'Big Game' }).locator('.xbody')).toBeHidden();
 });

@@ -182,10 +182,18 @@
       /* PATCHES / SAVES: one block per game, its files under it */
       .xlist { display: grid; gap: 18px; margin-top: 22px; }
       .xgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; min-width: 0; }
-      .xgroup header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
-      .xgroup header img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
-      .xgroup header strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-      .xgroup header .n { margin-left: auto; color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+      .xgroup header, .xgroup .xhead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; min-width: 0; }
+      .xgroup header img, .xgroup .xhead img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
+      .xgroup header strong, .xgroup .xhead strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .xgroup header .n, .xgroup .xhead .n { margin-left: auto; color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+      /* A game's card is an accordion: its header opens the items under it. */
+      .xgroup .xhead { width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+      .xgroup .xhead::after { content: "›"; font-size: 22px; line-height: 1; color: var(--secondary); transition: transform 0.2s ease; flex-shrink: 0; }
+      .xgroup .xhead[aria-expanded="true"]::after { transform: rotate(90deg); }
+      .xgroup .xhead:focus-visible { outline: 2px solid var(--butter); outline-offset: 4px; border-radius: 12px; }
+      .xgroup .xbody { margin-top: 12px; }
+      .xgroup .xbody[hidden] { display: none; }
+      .xgroup .xbody > .xrow:first-child { margin-top: 0; }
       .xitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: start; padding: 12px 0 0; border-top: 1px solid var(--line); margin-top: 12px; }
       .xgroup header + .xitem { border-top: none; margin-top: 0; padding-top: 4px; }
       .xitem .xname { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
@@ -277,8 +285,9 @@
       .hero .hero-pub { color: rgba(242, 241, 238, 0.75); font-size: 16px; }
       /* At most two rows: a tag that would start a third is left out whole, never cut. */
       .hero .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; max-height: 76px; overflow: hidden; }
+      .hero .hero-tags span[hidden] { display: none; }
       .hero .hero-tags span {
-        padding: 7px 14px; border-radius: 100px; font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+        padding: 7px 14px; border-radius: 100px; font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap;
         background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
         -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
       }
@@ -3002,6 +3011,24 @@
         }
       }
 
+      // Tags keep to their rows (max-height) and never wrap inside: from the first
+      // one that would start a row past them, or is wider than the box, the rest go.
+      function fitHeroTags() {
+        const box = $("hero-tags");
+        const tags = [...box.children];
+        for (const el of tags) el.hidden = false;
+        const top = box.getBoundingClientRect().top;
+        const limit = parseFloat(getComputedStyle(box).maxHeight);
+        if (!box.clientWidth || !Number.isFinite(limit)) return;
+        let cut = false;
+        for (const el of tags) {
+          const r = el.getBoundingClientRect();
+          cut ||= r.bottom - top > limit + 0.5 || r.width > box.clientWidth;
+          el.hidden = cut;
+        }
+      }
+      window.addEventListener("resize", debounce(() => { if (!$("hero").hidden) fitHeroTags(); }, 150));
+
       function showHero(n, animate = true) {
         heroIndex = (n + heroSlides.length) % heroSlides.length;
         heroAt = Date.now();
@@ -3035,6 +3062,7 @@
         if (released) addTag(t("hero.released", released));
         if (r.updateCount) addTag(t("hero.updates", r.updateCount));
         if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
+        fitHeroTags();
         $("hero").onclick = () => openModal(r);
         const dots = $("hero-dots");
         dots.hidden = heroSlides.length < 2;
@@ -3373,8 +3401,9 @@
           row.addEventListener("click", () => xmodal.show(detail(kind, it)));
           return row;
         }
-        const PAGE = 20;   // items per page; a game's items stay together within a page
+        const PAGE = 20;   // games per page
         const pageOf = { patches: 1, saves: 1 };
+        const opened = { patches: new Set(), saves: new Set() };   // games the reader opened
         // Shimmering groups in the list's shape while it loads.
         function skeleton(kind) {
           const bar = (w) => { const b = document.createElement("b"); b.className = "sk"; b.style.width = w; return b; };
@@ -3416,34 +3445,44 @@
             : order === "size" ? (Number(b.size) || 0) - (Number(a.size) || 0) || byName(a.name, b.name)
             : order === "name-desc" ? byName(b.name, a.name)
             : byName(a.name, b.name);
-          const items = ranked.flatMap((g) => [...g.list].sort(within));
-          const pages = Math.max(1, Math.ceil(items.length / PAGE));
+          const items = ranked.flatMap((g) => g.list);
+          // Pages hold whole games, so a game with many items never runs across pages.
+          const pages = Math.max(1, Math.ceil(ranked.length / PAGE));
           const page = Math.min(pageOf[kind], pages);
           pageOf[kind] = page;
           const from = (page - 1) * PAGE;
-          const groups = new Map();
-          for (const it of items.slice(from, from + PAGE)) {
-            const tid = it.titleId || it.title_id || "hb:" + it.homebrew;
-            if (!groups.has(tid)) groups.set(tid, []);
-            groups.get(tid).push(it);
-          }
-          list.replaceChildren(...[...groups.values()].map((items) => {
+          list.replaceChildren(...ranked.slice(from, from + PAGE).map(({ list: own }) => {
+            const its = [...own].sort(within);
+            const tid = its[0].titleId || its[0].title_id || "hb:" + its[0].homebrew;
             const g = document.createElement("section"); g.className = "xgroup";
-            const head = document.createElement("header");
+            const head = document.createElement("button"); head.type = "button"; head.className = "xhead";
             const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
-            const icon = items[0].homebrew ? homebrew.iconOf(items[0].homebrew) : items[0].game?.icon;
-            if (icon) img.src = items[0].homebrew ? icon : iconPath(icon);
+            const icon = its[0].homebrew ? homebrew.iconOf(its[0].homebrew) : its[0].game?.icon;
+            if (icon) img.src = its[0].homebrew ? icon : iconPath(icon);
             img.addEventListener("error", () => { img.style.visibility = "hidden"; });
-            const name = document.createElement("strong"); name.textContent = gameName(items[0]);
-            const n = document.createElement("span"); n.className = "n"; n.textContent = items.length;
+            const name = document.createElement("strong"); name.textContent = gameName(its[0]);
+            const n = document.createElement("span"); n.className = "n"; n.textContent = its.length;
             head.append(img, name, n);
-            g.append(head, ...items.map((it) => listRow(kind, it)));
+            const body = document.createElement("div"); body.className = "xbody";
+            // A search opens every game it found; otherwise a game stays as the reader left it.
+            const isOpen = Boolean(q) || opened[kind].has(tid);
+            body.hidden = !isOpen;
+            head.setAttribute("aria-expanded", String(isOpen));
+            const fill = () => { if (!body.childElementCount) body.append(...its.map((it) => listRow(kind, it))); };
+            if (isOpen) fill();
+            head.addEventListener("click", () => {
+              const now = body.hidden;
+              if (now) { fill(); opened[kind].add(tid); } else opened[kind].delete(tid);
+              body.hidden = !now;
+              head.setAttribute("aria-expanded", String(now));
+            });
+            g.append(head, body);
             return g;
           }));
           $(kind + "-count").textContent = items.length.toLocaleString();
           $(kind + "-empty").hidden = items.length > 0;
           $(kind + "-empty").textContent = t("extras.empty");
-          renderPager($(kind + "-pager"), page, pages, items.length, from + 1, Math.min(from + PAGE, items.length), (next) => {
+          renderPager($(kind + "-pager"), page, pages, ranked.length, from + 1, Math.min(from + PAGE, ranked.length), (next) => {
             pageOf[kind] = next;
             render(kind);
             $(kind + "-list").scrollIntoView({ block: "start", behavior: "smooth" });
