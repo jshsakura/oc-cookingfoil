@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import fs from 'node:fs';
+import { acceptAsks } from './ask';
 
 // The admin page's 변환 tab: off by default, turned on from its settings, a
 // library check queues a big enough .nsp, and the row actions work.
@@ -23,7 +24,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('the conversion queue is off by default, turns on from its settings and queues a library file', async ({ page }) => {
-  page.on('dialog', (dialog) => dialog.accept());
+  await acceptAsks(page);
   await signIn(page);
   await page.getByRole('link', { name: '변환' }).click();
   await expect(page.locator('#nz-state')).toHaveText('꺼짐');

@@ -90,10 +90,10 @@ async function rvPick(g,m){
   try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 바꿨습니다.');loadRetroVariants();}catch(err){toast(err.message);}
 }
 async function rvTrash(m,force=false){
-  if(!force&&!confirm(m.file+' 파일을 휴지통으로 옮깁니다. 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 가고, 휴지통에서 되돌릴 수 있습니다.'))return;
+  if(!force&&!await ask(m.file+' 파일을 휴지통으로 옮깁니다. 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 가고, 휴지통에서 되돌릴 수 있습니다.'))return;
   try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast('휴지통으로 옮겼습니다. 파일 '+r.files.length+'개');rvData={};loadRetroVariants();}
   catch(err){if(/다른 세트/.test(err.message)&&!force){
-      if(confirm('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 옮기면 그 세트는 실행되지 않습니다. 그래도 옮길까요?'))rvTrash(m,true);return;}
+      if(await ask('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 옮기면 그 세트는 실행되지 않습니다. 그래도 옮길까요?'))rvTrash(m,true);return;}
     toast(err.message);}
 }
 async function rvRestore(i){

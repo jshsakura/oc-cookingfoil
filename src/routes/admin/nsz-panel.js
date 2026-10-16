@@ -115,7 +115,7 @@ function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;
   const acts=el('div',null,'nz-acts');
   if(it.state==='waiting'||it.state==='busy')acts.append(btn('위로',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},'맨 앞으로 옮겼습니다.')));
   if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(btn('재시도',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},'다시 대기열에 넣었습니다.')));
-  acts.append(btn('빼기',()=>{if(it.state==='running'&&!confirm(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.'))return;
+  acts.append(btn('빼기',async()=>{if(it.state==='running'&&!await ask(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.'))return;
     nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},'대기열에서 뺐습니다.');},'danger'));
   r.append(nzIcon(it),main,info,acts);return r;}
 /** Puts the rows in order, keeping the nodes whose row did not change. */
@@ -187,7 +187,7 @@ $('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').textContent
 $('nz-scan').addEventListener('click',()=>nzAct('/admin/api/nsz/scan',{method:'POST',body:{}},(d)=>d.added?d.added+'개('+nzSize(d.bytes)+')를 대기열에 넣었습니다.':'새로 넣을 파일이 없습니다.'));
 $('nz-all').addEventListener('click',async()=>{let p;try{p=await api('/admin/api/nsz/preview');}catch(err){toast(err.message);return;}
   if(!p.files){toast('변환할 파일이 없습니다.');return;}
-  if(!confirm('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 다운로드하는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
+  if(!await ask('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 다운로드하는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
   nzAct('/admin/api/nsz/convert-all',{method:'POST',body:{}},'전체 변환을 시작했습니다.');});
 $('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 지웠습니다.':'지울 것이 없습니다.'));
 $('nz-retry-all').addEventListener('click',()=>nzAct('/admin/api/nsz/items/all/retry',{method:'POST',body:{}},'실패한 파일을 다시 대기열에 넣었습니다.'));

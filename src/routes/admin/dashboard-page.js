@@ -126,6 +126,8 @@ dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;b
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
 dialog{border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:15px;line-height:1.55;overflow-wrap:anywhere}
+button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}
 #hb-apps tr.hb-off td:not(:first-child){opacity:.5}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
@@ -472,6 +474,11 @@ ${NSZ_HTML}
 </section>
 </div>
 
+<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">
+  <p id="ask-text"></p>
+  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>
+  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>
+</dialog>
 <dialog id="cred-dialog" aria-labelledby="cred-title">
   <h3 id="cred-title"></h3>
   <p class="muted">이 비밀번호는 지금만 볼 수 있습니다. 창을 닫기 전에 전달합니다.</p>

@@ -115,11 +115,11 @@ function raRow(m,withArt){const tr=el('tr');
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
 // The name clients show; the ROM file keeps its own (box art and configs are found by it).
-async function raName(m){const ko=prompt(m.name+' 의 한국어 이름을 넣습니다. 비우면 파일 이름을 씁니다.',m.title?.ko||'');if(ko===null)return;
-  const en=prompt('영어 이름을 넣습니다 (다른 언어의 기본값). 비워 둬도 됩니다.',m.title?.en||'');if(en===null)return;
+async function raName(m){const ko=await askText(m.name+' 의 한국어 이름을 넣습니다. 비우면 파일 이름을 씁니다.',m.title?.ko||'');if(ko===null)return;
+  const en=await askText('영어 이름을 넣습니다 (다른 언어의 기본값). 비워 둬도 됩니다.',m.title?.en||'');if(en===null)return;
   try{const r=await api('/admin/api/retro-art/games/name',{method:'POST',body:{game:m.id,ko,en}});m.title=r.title;toast(r.title?'이름을 정했습니다.':'파일 이름으로 돌렸습니다.');raShow();}catch(err){toast(err.message);}}
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
-async function raRemove(m){if(!confirm(m.name+' ('+m.system+') 롬 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
+async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
   try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('지웠습니다. 파일 '+r.files+'개');
     raRows=raRows.filter((x)=>x.id!==m.id);raShow();}catch(err){toast(err.message);}}
 // Empty: the games without box art. A name: every game that matches, so art can be replaced too.
@@ -198,5 +198,5 @@ for(const t of ['dragenter','dragover','dragleave','drop'])$('ra-dialog').addEve
 $('ra-dialog').addEventListener('paste',(e)=>{const f=[...(e.clipboardData?.files||[])].find((x)=>(x.type||'').startsWith('image/'));if(f){e.preventDefault();raUpload(f);}});
 $('ra-search').addEventListener('submit',(e)=>{e.preventDefault();raSearch();});
 $('ra-sgdb-go').addEventListener('click',raSgdb);
-$('ra-none').addEventListener('click',()=>{if(confirm('이 항목은 표지 없이 두고 자동 맞춤에서도 뺄까요?'))raApply('/admin/api/retro-art/match',{game:raGame.id,name:null});});
+$('ra-none').addEventListener('click',async()=>{if(await ask('이 항목은 표지 없이 두고 자동 맞춤에서도 뺄까요?'))raApply('/admin/api/retro-art/match',{game:raGame.id,name:null});});
 `+RETRO_VARIANTS_SCRIPT;

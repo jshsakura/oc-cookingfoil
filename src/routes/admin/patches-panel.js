@@ -58,10 +58,15 @@ export const PATCHES_CSS = `
 .pt-row:first-of-type{border-top:0}
 .pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:12px}
 .pt-row .pt-size{font-size:12.5px;color:var(--muted);white-space:nowrap}
-.pt-req{min-width:64px;padding:5px 12px;border-radius:100px;font-size:13px;font-weight:700;background:var(--sunk);color:var(--muted);border:1px solid var(--line);cursor:pointer}
-.pt-req[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pt-req{height:34px;min-width:92px;padding:0 10px 0 12px;gap:8px;justify-content:space-between;color:var(--muted)}
+.pt-req .switch{position:relative;flex:none;width:30px;height:18px;border-radius:100px;background:var(--line);transition:background .15s}
+.pt-req .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.pt-req[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
+.pt-req[aria-checked="true"] .switch{background:var(--accent)}
+.pt-req[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pt-req:disabled{opacity:.6;cursor:progress}
-.pt-edit{padding:5px 12px;font-size:13px}
+@media (prefers-reduced-motion:reduce){.pt-req .switch,.pt-req .switch::after{transition:none}}
+.pt-edit{width:34px;height:34px;padding:0;position:relative}.pt-edit>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
 .ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden],#ct-form label[hidden],#ct-form button[hidden]{display:none}.ct-note{margin:0;font-size:12.5px}
 .pt-row .pt-name small.pt-miss{color:var(--warn)}
@@ -80,8 +85,10 @@ function ptRow(p){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   if(p.ko&&p.ko.name&&p.ko.name!==p.name)n.append(el('small',p.ko.name));
   if(p.update_version)n.append(p.update_in_library?el('small',ptUpdate(p)+' 용 패치입니다'):el('small',ptUpdate(p)+' 용 패치인데, 그 업데이트가 라이브러리에 없습니다','pt-miss'));
   r.append(n,el('span',mb(p.size),'pt-size'));
-  const b=el('button',p.required?'필수':'선택','pt-req');b.type='button';b.setAttribute('aria-pressed',String(p.required));
-  b.setAttribute('aria-label',p.name+' 필수');b.title=p.required?'누르면 선택으로 바꿉니다':'누르면 필수로 바꿉니다';
+  // The words the shop and the console show: 필수 when the game needs it, 비필수 otherwise.
+  const b=el('button',p.required?'필수':'비필수','pt-req');b.type='button';b.setAttribute('role','switch');b.setAttribute('aria-checked',String(p.required));
+  b.append(el('span',null,'switch'));b.setAttribute('aria-label',p.name+' 필수');
+  b.title=p.required?'게임에 필수 패치로 나옵니다. 누르면 끕니다':'누르면 게임에 필수 패치로 나옵니다';
   b.addEventListener('click',()=>ptToggle(p,b));
   const e=btn('편집',()=>ctOpen('patch',p),'pt-edit');e.setAttribute('aria-label',p.name+' 편집');
   r.append(b,e);return r;}
@@ -91,11 +98,11 @@ function svRow(s){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   r.append(n,el('span',mb(s.size),'pt-size'),e);return r;}
 async function ptToggle(p,b){const next=!p.required;b.disabled=true;
   try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:next}});
-    ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 표시했습니다':'선택으로 바꿨습니다');ptRender();ptGame();}
+    ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 바꿨습니다':'비필수로 바꿨습니다');ptRender();ptGame();}
   catch(err){toast(err.message);b.disabled=false;}}
 function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){const t=tidOf(x);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(x);}
   return [...groups.values()].sort((a,b)=>(a[0].game||tidOf(a[0])).localeCompare(b[0].game||tidOf(b[0]))).map((items)=>{
-    const g=el('section',null,'pt-game');const h=el('header');h.append(el('b',items[0].game||'이름 모르는 게임'),el('span',tidOf(items[0])));g.append(h,...items.map(row));return g;});}
+    const g=el('section',null,'pt-game');const h=el('header');h.append(el('b',items[0].game||'titledb 에 없는 게임'),el('span',tidOf(items[0])));g.append(h,...items.map(row));return g;});}
 function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
   const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
   const req=ptData.filter((p)=>p.required).length,miss=ptData.filter((p)=>p.update_version&&!p.update_in_library).length;
@@ -154,8 +161,8 @@ $('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
 $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);
   if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
-  if(!confirm(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
+  if(!await ask(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
   try{await api('/admin/api/content/'+ctKind+'/move',{method:'POST',body:{id:ctItem.id,titleId:to}});ctDone('옮겼습니다.');}catch(err){toast(err.message);}});
-$('ct-remove').addEventListener('click',async()=>{if(!confirm(ctItem.name+' 을(를) 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
+$('ct-remove').addEventListener('click',async()=>{if(!await ask(ctItem.name+' 을(를) 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
   try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('지웠습니다.');}catch(err){toast(err.message);}});
 `;

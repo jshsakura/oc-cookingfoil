@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import fs from 'node:fs';
+import { acceptAsks } from './ask';
 
 // The share inbox end to end: a signed-in user leaves files, a note and links
 // from the account menu, and the admin finds them in the 임시 공유 tab.
@@ -31,7 +32,7 @@ test('signed-out visitors are not offered the share inbox', async ({ page }) => 
 });
 
 test('a signed-in user shares files, a note and links, and the admin sorts them in the 임시 공유 tab', async ({ page }) => {
-  page.on('dialog', (dialog) => dialog.accept());
+  await acceptAsks(page);
   await adminSignIn(page);
   expect((await page.request.post('/admin/api/users', { data: { name: NAME, password: PASSWORD, role: 'admin' } })).status()).toBe(201);
 
