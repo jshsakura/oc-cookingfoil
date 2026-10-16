@@ -125,8 +125,17 @@ export function refreshManual() {
  * Hand-placed apps. Only a first scan with nothing kept on disk is waited for;
  * after that a stale list is answered at once while a rescan runs behind it.
  */
+// The longest a list waits for a first scan; past it the GitHub apps go out alone and the
+// hand-placed ones follow on the next list (a busy disk can hold a scan for minutes).
+const FIRST_SCAN_WAIT_MS = 3000;
+
 async function manualEntries() {
-  if (!manual.at) await refreshManual();
+  if (!manual.at) {
+    let timer;
+    const scan = refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
+    await Promise.race([scan, new Promise((r) => { timer = setTimeout(r, FIRST_SCAN_WAIT_MS); timer.unref?.(); })]);
+    clearTimeout(timer);
+  }
   else if (Date.now() - manual.at > MANUAL_STALE_MS) refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   return manual.entries;
 }
