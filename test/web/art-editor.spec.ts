@@ -19,6 +19,13 @@ async function choose(page: Page, tile: ReturnType<Page['locator']>, file: strin
   await (await chooser).setFiles(file);
 }
 
+// The gear left of the X swaps the detail for the edit page.
+async function editPage(page: Page, modal: string) {
+  await page.locator(`${modal} .modal-gear`).click();
+  await expect(page.locator(`${modal} .modal-gear`)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(`${modal} .edit-facts form`)).toBeVisible();
+}
+
 test('an admin edits a homebrew app and a patch with the same card', async ({ page }) => {
   const icon = await png('icon.png', 512, 512, 230, 170, 40);
   const banner = await png('banner.png', 1920, 620, 40, 90, 160);
@@ -30,6 +37,7 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
     await page.setViewportSize(viewport);
     await page.goto('/#tools');
     await page.locator('#tools-list .xrow', { hasText: 'Hand App' }).click();
+    await editPage(page, '#xmodal');
     const card = page.locator('#xm-art .arted');
     await expect(card).toBeVisible();
     await expect(card.locator('.arted-head h4')).toHaveText('아트워크');
@@ -62,6 +70,7 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#tools');
   await page.locator('#tools-list .xrow', { hasText: 'Hand App' }).click();
+  await editPage(page, '#xmodal');
   await page.locator('#xm-art .atile.a-shot').first().locator('.reset').click();
   await expect(page.locator('#xm-art .atile.a-shot')).toHaveCount(1);
   await page.locator('#xm-art .atile.a-banner .reset').click();
@@ -77,6 +86,7 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
   const gameHead = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
   if ((await gameHead.getAttribute('aria-expanded')) !== 'true') await gameHead.click();
   await page.locator('#patches-list .xrow').first().click();
+  await editPage(page, '#xmodal');
   const pcard = page.locator('#xm-art .arted');
   await expect(pcard).toBeVisible();
   await choose(page, pcard.locator('.atile.a-banner'), banner);
@@ -90,9 +100,63 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
 test('the game window uses the same card', async ({ page }) => {
   await page.goto('/#all');
   await page.locator('#games .game').first().click();
+  await editPage(page, '#modal');
   const card = page.locator('#modal-art .arted');
   await expect(card).toBeVisible();
   await expect(card.locator('.atile.a-icon')).toBeVisible();
   await expect(card.locator('.atile.a-banner')).toBeVisible();
   await expect(card.locator('.atile.a-add')).toBeVisible();
+});
+
+test('the edit page saves a patch, a homebrew app and a game, and the detail shows it afterwards', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  // A patch: its Korean name and whether the game needs it.
+  await page.goto('/#patches');
+  const gameHead = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
+  if ((await gameHead.getAttribute('aria-expanded')) !== 'true') await gameHead.click();
+  await page.locator('#patches-list .xrow').first().click();
+  await editPage(page, '#xmodal');
+  const form = page.locator('#xmodal .edit-facts form');
+  await expect(page.locator('#xm-desc')).toBeHidden();
+  await form.locator('[name="nameKo"]').fill('편집한 패치');
+  const required = form.getByRole('switch', { name: /필수 패치/ });
+  const was = await required.isChecked();
+  await required.setChecked(!was);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'out/web/edit-page-patch.png' });
+  await form.getByRole('button', { name: '저장' }).click();
+  await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
+  await page.locator('#xmodal .modal-gear').click();
+  await expect(page.locator('#xmodal .modal-gear')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#xm-title')).toHaveText('편집한 패치');
+  await expect(page.locator('#xm-desc')).toBeVisible();
+  const listed = (await (await page.request.get('/api/patches?lang=ko')).json()).patches as { name: string; required: boolean }[];
+  const edited = listed.find((p) => p.name === '편집한 패치');
+  expect(edited?.required).toBe(!was);
+  await page.locator('#xmodal .modal-x').click();
+
+  // A homebrew app: its Korean description.
+  await page.goto('/#tools');
+  await page.locator('#tools-list .xrow', { hasText: 'Hand App' }).click();
+  await editPage(page, '#xmodal');
+  await page.locator('#xmodal .edit-facts [name="descKo"]').fill('손으로 고친 설명입니다.');
+  await page.locator('#xmodal .edit-facts').getByRole('button', { name: '저장' }).click();
+  await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
+  await page.locator('#xmodal .modal-gear').click();
+  await expect(page.locator('#xm-desc')).toHaveText('손으로 고친 설명입니다.');
+  await page.locator('#xmodal .modal-x').click();
+
+  // A game: its Korean description, shown once the edit page is left.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#all');
+  await page.locator('#games .game').first().click();
+  await editPage(page, '#modal');
+  await page.locator('#modal .edit-facts [name="descKo"]').fill('관리자가 쓴 게임 소개입니다.');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'out/web/edit-page-game-390.png' });
+  await page.locator('#modal .edit-facts').getByRole('button', { name: '저장' }).click();
+  await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
+  await page.locator('#modal .modal-gear').click();
+  await expect(page.locator('#modal-desc')).toContainText('관리자가 쓴 게임 소개입니다.');
 });

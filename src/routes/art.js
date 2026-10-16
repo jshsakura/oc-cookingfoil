@@ -17,6 +17,13 @@
  *   DELETE /api/art/:kind/:id/icon|banner        → remove it (the app's own icon comes back)
  *   DELETE /api/art/:kind/:id/screenshot/:n      → remove one (n from 1); the rest close up
  *
+ * The facts the detail window's edit page changes, beside the pictures:
+ *   GET|POST /api/art/:baseTitleId/meta    { name, description, notes } each { en, ko } (both empty forgets it)
+ *   POST     /api/art/:baseTitleId/meta/reset   back to titledb's for all three
+ *   GET|POST /api/art/homebrew/:id/meta    { description: { en, ko }, kind: "tool" | "port" }
+ *   POST     /api/art/homebrew/:id/meta/reset   back to the repository's description
+ *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required }
+ *
  * Uploaded bytes are re-encoded by custom-art (sharp: resize cap + mozjpeg +
  * metadata strip), so a bad/huge image is rejected here rather than served.
  * The stored override wins over the titledb CDN proxy and NACP extraction in
@@ -38,6 +45,13 @@ import patchMedia from "../meta/patch-media.js";
 import { MediaImageError } from "../meta/item-media.js";
 import { defaultService as homebrewService } from "./homebrew.js";
 import * as userPatches from "../meta/user-patches.js";
+import * as patchInfo from "../meta/patch-info.js";
+import * as titledbStore from "../meta/titledb-store.js";
+import * as extractedMeta from "../meta/extracted-meta-store.js";
+import * as homebrewKinds from "../meta/homebrew-kinds.js";
+import * as homebrewDescriptions from "../meta/homebrew-descriptions.js";
+import { patchMeta } from "./admin/content-api.js";
+import { withRequired } from "./admin/patches-api.js";
 
 // Images are small relative to game files; 16 MiB is plenty for a 4K banner
 // and keeps a single decode bounded.
@@ -118,6 +132,80 @@ export default function artRouter() {
     }
   };
   router.get("/:kind(homebrew|patch)/:id", itemRoute(async (_req, res, { store, id }) => res.json(state(store, id))));
+
+  // The facts beside the pictures. A JSON body, small: names and a few paragraphs.
+  const metaJson = express.json({ limit: "32kb" });
+  const both = (v) => (v && typeof v === "object" ? { en: typeof v.en === "string" ? v.en : null, ko: typeof v.ko === "string" ? v.ko : null } : null);
+  const patchFacts = (id) => {
+    const info = userPatches.infoOf(id) ?? {};
+    return { name: info.name ?? "", nameKo: info.ko?.name ?? "", version: info.version ?? "", author: info.author ?? "",
+      gameVersion: info.game_version ?? "", description: info.description ?? "", descriptionKo: info.ko?.description ?? "",
+      required: info.required === true, homebrew: Boolean(userPatches.locate(id)?.dir.startsWith("homebrew/")) };
+  };
+  const homebrewFacts = (id) => ({ description: homebrewDescriptions.get(id) ?? null, kind: homebrewKinds.kindOf(id) });
+  const metaRoute = (fn) => itemRoute(async (req, res, it) => {
+    try {
+      await fn(req, res, it);
+    } catch (err) {
+      if (err.status === 400 || err instanceof patchInfo.InfoError) return badRequest(res, err.message);
+      throw err;
+    }
+  });
+  router.get("/:kind(homebrew|patch)/:id/meta", metaRoute(async (req, res, { id }) =>
+    res.json(req.params.kind === "patch" ? patchFacts(id) : homebrewFacts(id))));
+  router.post("/:kind(homebrew|patch)/:id/meta", metaJson, metaRoute(async (req, res, { id }) => {
+    const body = req.body ?? {};
+    if (req.params.kind === "homebrew") {
+      const d = both(body.description);
+      if (d) homebrewDescriptions.set(id, d);
+      if (body.kind !== undefined && !homebrewKinds.set(id, String(body.kind))) return badRequest(res, "kind is tool or port");
+      debug.log("art: homebrew %s facts saved", id);
+      return res.json(homebrewFacts(id));
+    }
+    const where = userPatches.locate(id);
+    if (!where?.key) return void res.status(404).json({ error: "no such item" });
+    let next = patchMeta(userPatches.infoOf(id), body);
+    // A homebrew app's patch is never required: only a game waits on one.
+    if (typeof body.required === "boolean" && !where.dir.startsWith("homebrew/")) next = withRequired(next, body.required);
+    patchInfo.set(where.key, next);
+    if (typeof body.required === "boolean") invalidate();
+    debug.log("art: patch %s facts saved", where.key);
+    res.json(patchFacts(id));
+  }));
+  router.post("/:kind(homebrew)/:id/meta/reset", metaRoute(async (_req, res, { id }) => {
+    homebrewDescriptions.reset(id);
+    res.json(homebrewFacts(id));
+  }));
+
+  const gameFacts = (base) => {
+    const own = gameDescriptions.get(base) ?? {};
+    return { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null,
+      original: { name: titledbStore.get(base)?.name ?? extractedMeta.get(base)?.name ?? null,
+        description: titledbStore.get(base)?.description ?? extractedMeta.get(base)?.description ?? null } };
+  };
+  router.get("/:baseTitleId/meta", (req, res) => {
+    const base = requireBase(req, res);
+    if (base) res.json(gameFacts(base));
+  });
+  router.post("/:baseTitleId/meta", metaJson, (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    for (const field of gameDescriptions.FIELDS) {
+      const v = both(req.body?.[field]);
+      if (v) gameDescriptions.set(base, field, v);
+    }
+    // A changed name is baked into the list the server hands out: build it again.
+    if (req.body?.name) invalidate({ rescan: true });
+    debug.log("art: facts of %s saved", base);
+    res.json(gameFacts(base));
+  });
+  router.post("/:baseTitleId/meta/reset", (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    gameDescriptions.reset(base, null);
+    invalidate({ rescan: true });
+    res.json(gameFacts(base));
+  });
   router.post("/:kind(homebrew|patch)/:id/:slot(icon|banner|screenshot)", single, itemRoute(async (req, res, { store, id }) => {
     if (!req.file?.buffer) return badRequest(res, "missing file field");
     const slot = req.params.slot;

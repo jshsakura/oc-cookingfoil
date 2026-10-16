@@ -739,13 +739,6 @@
       .modal .art-edit .art-head { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
       .modal .art-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
       .modal .art-row:last-child { margin-bottom: 0; }
-      .modal .art-desc-form { display: grid; gap: 6px; margin-bottom: 8px; flex: 1; min-width: 220px; }
-      .modal .art-desc-form .art-desc-hint { color: var(--secondary); font-size: 11.5px; }
-      .modal .art-desc-form .art-desc-actions { display: flex; gap: 8px; }
-      .modal .art-desc-form textarea {
-        width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; max-height: 240px;
-        font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 9px;
-      }
       .modal .art-row .art-label { width: 64px; flex-shrink: 0; color: var(--secondary); font-size: 12px; }
       .modal .art-thumb { border-radius: 8px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
       .modal .art-shot { position: relative; display: inline-flex; }
@@ -812,13 +805,54 @@
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       /* A close button that stays at the top right while the window scrolls (the one at the bottom is a long way down on a phone).
          The bar has no height, so it sits over the banner without moving anything. */
-      .modal-x-bar { position: sticky; top: 0; height: 0; z-index: 6; display: flex; justify-content: flex-end; }
+      .modal-x-bar { position: sticky; top: 0; height: 0; z-index: 6; display: flex; justify-content: flex-end; gap: 8px; }
       .modal-x {
         margin: 12px 12px 0 0; width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
         display: grid; place-items: center; color: #fff; background: rgba(12, 12, 14, 0.5);
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .15s ease, transform .15s ease;
       }
-      .modal-x:hover { background: rgba(12, 12, 14, 0.72); }
+      .modal-x:hover, .modal-gear:hover { background: rgba(12, 12, 14, 0.72); }
+      /* The admin's gear, left of the X: it swaps the detail for the edit page and back. */
+      .modal-gear {
+        margin: 12px 0 0; width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+        display: grid; place-items: center; color: #fff; background: rgba(12, 12, 14, 0.5);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .15s ease, transform .15s ease;
+      }
+      .modal-gear[hidden] { display: none; }
+      .modal-gear:active { transform: scale(.92); }
+      .modal-gear:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .modal-gear svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .modal-gear[aria-pressed="true"], .modal-gear[aria-pressed="true"]:hover { background: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      /* Editing: the header stays, the detail under it gives way to the edit page. */
+      .modal.editing .body > :not(.modal-head):not(.edit-pane):not(.modal-actions) { display: none !important; }
+      .modal.editing #modal-download, .modal.editing #xm-download { display: none; }
+      .edit-pane { animation: edit-in .22s ease; }
+      @keyframes edit-in { from { opacity: 0; transform: translateY(8px); } }
+      .ef-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .ef-field { display: grid; gap: 6px; min-width: 0; margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
+      .ef-field.wide { grid-column: 1 / -1; }
+      .ef-field input, .ef-field textarea, .ef-field select {
+        width: 100%; box-sizing: border-box; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line);
+        background: var(--sunk); color: var(--ink); font: 500 16px/1.45 var(--font-body); transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .ef-field textarea { min-height: 112px; resize: vertical; }
+      .ef-field input:focus, .ef-field textarea:focus, .ef-field select:focus { outline: none; border-color: var(--butter); box-shadow: 0 0 0 3px color-mix(in srgb, var(--butter) 28%, transparent); }
+      .ef-field input::placeholder, .ef-field textarea::placeholder { color: var(--secondary); opacity: .7; }
+      .ef-switch { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-radius: 14px; background: var(--sunk); color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+      .ef-switch small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--secondary); }
+      .ef-switch input { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 44px; height: 26px; margin: 0; border-radius: 100px; background: var(--line2); cursor: pointer; transition: background .15s ease; }
+      .ef-switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .15s ease; }
+      .ef-switch input:checked { background: var(--butter); }
+      .ef-switch input:checked::after { transform: translateX(18px); }
+      .ef-switch input:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .ef-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .ef-actions .btn { flex: none; padding: 11px 20px; font-size: 14px; border-radius: 12px; }
+      .ef-actions .btn:disabled { opacity: .55; cursor: progress; }
+      /* The facts card says its rule under the heading: the corner is where the window's buttons float. */
+      .edit-facts .arted-head { display: grid; gap: 4px; justify-content: start; }
+      .edit-facts .ef-msg { margin: 0; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); color: var(--secondary); font-size: 14px; }
+      @media (max-width: 640px) { .ef-grid { grid-template-columns: 1fr; } }
+      @media (prefers-reduced-motion: reduce) { .edit-pane { animation: none; } .ef-switch input, .ef-switch input::after { transition: none; } }
       .modal-x:active { transform: scale(.92); }
       .modal-x:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .modal-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
@@ -1163,7 +1197,7 @@
 
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="modal" onclick="event.stopPropagation()"><div class="modal-scroll">
-        <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="modal-x-bar"><button class="modal-gear" type="button" aria-pressed="false" hidden></button><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="banner" id="modal-banner">
           <img class="banner-poster" id="modal-poster" alt="" decoding="async">
           <div class="banner-empty" aria-hidden="true">
@@ -1182,6 +1216,7 @@
               <p class="publisher" id="modal-publisher">—</p>
             </div>
           </div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div></div>
           <div class="xm-pills" id="modal-pills"></div>
           <div class="modal-patches" id="modal-patches" hidden></div>
           <section class="modal-notes" id="modal-notes" hidden><h4 data-i18n="modal.notes"></h4><p id="modal-notes-text"></p></section>
@@ -1192,7 +1227,6 @@
           <div class="screenshots" id="modal-screens"></div>
           <div class="extras" id="modal-extras"></div>
           <div class="extras modal-install" id="modal-install" hidden></div>
-          <div class="art-edit" id="modal-art" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
@@ -1203,7 +1237,7 @@
 
     <div class="modal-backdrop" id="xmodal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="xm-title">
       <div class="modal xmodal" tabindex="-1" onclick="event.stopPropagation()"><div class="modal-scroll">
-        <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="modal-x-bar"><button class="modal-gear" type="button" aria-pressed="false" hidden></button><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="banner xm-banner" id="xm-banner" hidden></div>
         <div class="body">
           <div class="modal-head">
@@ -1213,6 +1247,7 @@
               <p class="publisher" id="xm-sub"></p>
             </div>
           </div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div id="xm-art" hidden></div></div>
           <div class="xm-pills" id="xm-pills"></div>
           <div class="modal-meta" id="xm-meta"></div>
           <div class="desc" id="xm-desc"></div>
@@ -1220,7 +1255,6 @@
           <p class="xm-source" id="xm-source" hidden></p>
           <p class="xm-source xm-where" id="xm-where" hidden></p>
           <div id="xm-sections"></div>
-          <div id="xm-art" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="xm-download" href="#" download data-i18n="extras.download"></a>
             <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
@@ -1458,15 +1492,30 @@
           "modal.extras": "추가 파일",
           "art.head": "아트워크",
           "art.hint": "누르거나 이미지를 끌어다 놓아 바꿉니다.",
+          "edit.open": "편집",
+          "edit.back": "상세로 돌아가기",
+          "edit.facts": "정보",
+          "edit.hint": "비워 두면 원래 정보를 씁니다.",
+          "edit.save": "저장",
+          "edit.reset": "원래대로",
+          "edit.saved": "저장했습니다.",
+          "edit.restored": "원래 정보로 돌렸습니다.",
+          "edit.failed": "저장하지 못했습니다.",
+          "edit.loading": "불러오는 중입니다.",
+          "edit.name": "이름",
+          "edit.nameKo": "한국어 이름",
+          "edit.desc": "소개",
+          "edit.descKo": "한국어 소개",
+          "edit.notes": "추가 정보",
+          "edit.version": "버전",
+          "edit.author": "만든 이",
+          "edit.gameVersion": "게임 버전",
+          "edit.kind": "분류",
+          "edit.required": "필수 패치",
+          "edit.requiredNote": "켜면 게임과 함께 설치해야 하는 패치로 나옵니다.",
           "art.reset": "되돌리기",
           "art.empty": "그림 없음",
           "art.change": "바꾸기",
-          "art.desc": "게임 설명 (직접 쓰기)",
-          "art.desc.edit": "편집",
-          "art.desc.save": "저장",
-          "art.desc.cancel": "취소",
-          "art.desc.clear": "지우기",
-          "art.desc.hint": "줄바꿈은 그대로 표시됩니다. 비워 두면 저장해도 그 언어 글은 없어집니다.",
           "art.icon": "아이콘",
           "art.banner": "배너",
           "art.screens": "스크린샷",
@@ -1720,15 +1769,30 @@
           "modal.extras": "Extras",
           "art.head": "Artwork",
           "art.hint": "Click or drop an image to replace it.",
+          "edit.open": "Edit",
+          "edit.back": "Back to details",
+          "edit.facts": "Details",
+          "edit.hint": "Leave a field empty to use the original.",
+          "edit.save": "Save",
+          "edit.reset": "Restore original",
+          "edit.saved": "Saved.",
+          "edit.restored": "Restored the original.",
+          "edit.failed": "Could not save.",
+          "edit.loading": "Loading…",
+          "edit.name": "Name",
+          "edit.nameKo": "Korean name",
+          "edit.desc": "Description",
+          "edit.descKo": "Korean description",
+          "edit.notes": "Notes",
+          "edit.version": "Version",
+          "edit.author": "Author",
+          "edit.gameVersion": "Game version",
+          "edit.kind": "Category",
+          "edit.required": "Required mod",
+          "edit.requiredNote": "When on, the game lists it as a mod to install with it.",
           "art.reset": "Reset",
           "art.empty": "No image",
           "art.change": "Change",
-          "art.desc": "Description (write your own)",
-          "art.desc.edit": "Edit",
-          "art.desc.save": "Save",
-          "art.desc.cancel": "Cancel",
-          "art.desc.clear": "Clear",
-          "art.desc.hint": "Line breaks show as written. An empty field saves as no text for that language.",
           "art.icon": "Icon",
           "art.banner": "Banner",
           "art.screens": "Screenshots",
@@ -1982,15 +2046,30 @@
           "modal.extras": "追加ファイル",
           "art.head": "アートワーク",
           "art.hint": "クリックするか画像をドロップして差し替えます。",
+          "edit.open": "編集",
+          "edit.back": "詳細に戻る",
+          "edit.facts": "情報",
+          "edit.hint": "空欄なら元の情報を使います。",
+          "edit.save": "保存",
+          "edit.reset": "元に戻す",
+          "edit.saved": "保存しました。",
+          "edit.restored": "元の情報に戻しました。",
+          "edit.failed": "保存できませんでした。",
+          "edit.loading": "読み込み中です。",
+          "edit.name": "名前",
+          "edit.nameKo": "韓国語の名前",
+          "edit.desc": "説明",
+          "edit.descKo": "韓国語の説明",
+          "edit.notes": "追加情報",
+          "edit.version": "バージョン",
+          "edit.author": "作者",
+          "edit.gameVersion": "ゲームバージョン",
+          "edit.kind": "分類",
+          "edit.required": "必須パッチ",
+          "edit.requiredNote": "オンにすると、ゲームと一緒に入れるパッチとして表示します。",
           "art.reset": "元に戻す",
           "art.empty": "画像なし",
           "art.change": "変更",
-          "art.desc": "説明 (自分で書く)",
-          "art.desc.edit": "編集",
-          "art.desc.save": "保存",
-          "art.desc.cancel": "キャンセル",
-          "art.desc.clear": "消す",
-          "art.desc.hint": "改行はそのまま表示されます。空欄のまま保存するとその言語の文はなくなります。",
           "art.icon": "アイコン",
           "art.banner": "バナー",
           "art.screens": "スクリーンショット",
@@ -2244,15 +2323,30 @@
           "modal.extras": "附加檔案",
           "art.head": "圖片",
           "art.hint": "點選或拖放圖片即可更換。",
+          "edit.open": "編輯",
+          "edit.back": "返回詳情",
+          "edit.facts": "資訊",
+          "edit.hint": "留空則使用原始資訊。",
+          "edit.save": "儲存",
+          "edit.reset": "還原",
+          "edit.saved": "已儲存。",
+          "edit.restored": "已還原原始資訊。",
+          "edit.failed": "無法儲存。",
+          "edit.loading": "載入中…",
+          "edit.name": "名稱",
+          "edit.nameKo": "韓文名稱",
+          "edit.desc": "簡介",
+          "edit.descKo": "韓文簡介",
+          "edit.notes": "附加資訊",
+          "edit.version": "版本",
+          "edit.author": "作者",
+          "edit.gameVersion": "遊戲版本",
+          "edit.kind": "分類",
+          "edit.required": "必要補丁",
+          "edit.requiredNote": "開啟後，遊戲會將其列為需一起安裝的補丁。",
           "art.reset": "還原",
           "art.empty": "沒有圖片",
           "art.change": "更換",
-          "art.desc": "說明 (自行撰寫)",
-          "art.desc.edit": "編輯",
-          "art.desc.save": "儲存",
-          "art.desc.cancel": "取消",
-          "art.desc.clear": "清除",
-          "art.desc.hint": "換行會如實顯示。欄位留空儲存即該語言無文字。",
           "art.icon": "圖示",
           "art.banner": "橫幅",
           "art.screens": "截圖",
@@ -3465,6 +3559,179 @@
         };
       })();
 
+      // The admin's edit page inside a detail window: the gear left of the X swaps the detail
+      // for the item's facts and pictures, and back. Nobody else sees the gear.
+      const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+      const BACK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
+      async function artJson(path, body) {
+        const init = body === undefined ? { headers: { Accept: "application/json" } }
+          : { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) };
+        const r = await fetch("/api/art" + path, init);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || t("edit.failed"));
+        return d;
+      }
+      // One window's edit page. offer() hands it what the open item edits (or null): { key, build, changed }.
+      // build(markChanged) makes the facts card; changed() runs when the page is left after a save.
+      function editPage(rootId) {
+        const root = $(rootId), win = root.querySelector(".modal"), gear = root.querySelector(".modal-gear");
+        const pane = root.querySelector(".edit-pane"), facts = pane.querySelector(".edit-facts");
+        let spec = null, dirty = false, seq = 0;
+        const editing = () => win.classList.contains("editing");
+        function face(on) {
+          gear.innerHTML = on ? BACK_SVG : GEAR_SVG;
+          gear.setAttribute("aria-pressed", String(on));
+          gear.setAttribute("aria-label", t(on ? "edit.back" : "edit.open"));
+          gear.title = t(on ? "edit.back" : "edit.open");
+        }
+        async function fill() {
+          const mine = ++seq;
+          facts.replaceChildren(Object.assign(document.createElement("p"), { className: "ef-msg", textContent: t("edit.loading") }));
+          try {
+            // Each save tells the page what changed (a new title, say); leaving it hands that on.
+            const card = await spec.build((info) => { dirty = { ...(dirty || {}), ...(info || {}) }; }, fill);
+            if (mine === seq) facts.replaceChildren(card);
+          } catch (err) {
+            if (mine === seq) facts.replaceChildren(Object.assign(document.createElement("p"), { className: "ef-msg", textContent: err.message || t("edit.failed") }));
+          }
+        }
+        function set(on) {
+          win.classList.toggle("editing", on);
+          pane.hidden = !on;
+          face(on);
+          win.querySelector(".modal-scroll").scrollTo({ top: 0, behavior: "instant" });
+          if (on) { fill(); return; }
+          seq++;
+          if (dirty) { const info = dirty; dirty = false; spec?.changed?.(info); }
+        }
+        gear.addEventListener("click", () => set(!editing()));
+        face(false);
+        return {
+          offer(next) {
+            // The same item drawn again (a picture changed): the page stays open, typed text and all.
+            if (next && spec && next.key === spec.key && editing()) { spec = next; return; }
+            if (editing()) set(false);
+            spec = next; dirty = false;
+            gear.hidden = !next || !uploadsEnabled;
+          },
+          leave() { if (editing()) set(false); },
+        };
+      }
+      // The facts card: labelled fields two to a row, then save (and restore, when there is an original).
+      function factsCard({ fields, save, reset = null }) {
+        const card = document.createElement("section"); card.className = "arted";
+        const head = document.createElement("div"); head.className = "arted-head";
+        head.append(Object.assign(document.createElement("h4"), { textContent: t("edit.facts") }), Object.assign(document.createElement("span"), { textContent: t("edit.hint") }));
+        const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
+        for (const f of fields) {
+          if (f.check) {
+            const lab = document.createElement("label"); lab.className = "ef-switch";
+            const text = document.createElement("span"); text.textContent = f.label;
+            if (f.note) text.append(Object.assign(document.createElement("small"), { textContent: f.note }));
+            const box = document.createElement("input"); box.type = "checkbox"; box.name = f.name; box.checked = Boolean(f.value); box.setAttribute("role", "switch");
+            lab.append(text, box); form.append(lab);
+            continue;
+          }
+          const lab = document.createElement("label"); lab.className = "ef-field" + (f.wide ? " wide" : "");
+          lab.append(document.createTextNode(f.label));
+          let input;
+          if (f.options) {
+            input = document.createElement("select");
+            for (const [v, text] of f.options) input.append(Object.assign(document.createElement("option"), { value: v, textContent: text, selected: v === f.value }));
+          } else {
+            input = document.createElement(f.area ? "textarea" : "input");
+            if (!f.area) input.type = "text";
+            input.value = f.value ?? "";
+            if (f.placeholder) input.placeholder = f.placeholder;
+          }
+          input.name = f.name; input.autocomplete = "off";
+          lab.append(input); form.append(lab);
+        }
+        const actions = document.createElement("div"); actions.className = "ef-actions";
+        const saveBtn = Object.assign(document.createElement("button"), { type: "submit", className: "btn", textContent: t("edit.save") });
+        if (reset) {
+          const back = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: t("edit.reset") });
+          back.addEventListener("click", async () => {
+            back.disabled = true;
+            try { await reset(); toast(t("edit.restored")); } catch (err) { toast(err.message); back.disabled = false; }
+          });
+          actions.append(back);
+        }
+        actions.append(saveBtn);
+        form.append(actions);
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const values = {};
+          for (const el of form.elements) if (el.name) values[el.name] = el.type === "checkbox" ? el.checked : el.value;
+          saveBtn.disabled = true;
+          try { await save(values); toast(t("edit.saved")); } catch (err) { toast(err.message); } finally { saveBtn.disabled = false; }
+        });
+        card.append(head, form);
+        return card;
+      }
+      const pairOf = (v) => ({ ko: v?.ko ?? "", en: v?.en ?? "" });
+      // A game: its names, description and notes in Korean and English; empty ones fall back to titledb's.
+      async function gameFacts(baseId, changed, refill) {
+        const d = await artJson(`/${baseId}/meta`);
+        const name = pairOf(d.name), desc = pairOf(d.description), notes = pairOf(d.notes);
+        return factsCard({
+          fields: [
+            { name: "nameKo", label: t("edit.name") + " · 한국어", value: name.ko, placeholder: d.original?.name || "" },
+            { name: "nameEn", label: t("edit.name") + " · English", value: name.en, placeholder: d.original?.name || "" },
+            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
+            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true, placeholder: d.original?.description || "" },
+            { name: "notesKo", label: t("edit.notes") + " · 한국어", value: notes.ko, area: true },
+            { name: "notesEn", label: t("edit.notes") + " · English", value: notes.en, area: true },
+          ],
+          async save(v) {
+            const body = { description: { ko: v.descKo, en: v.descEn }, notes: { ko: v.notesKo, en: v.notesEn } };
+            // The name only when it changed: a new name rebuilds the whole list.
+            if (v.nameKo !== name.ko || v.nameEn !== name.en) body.name = { ko: v.nameKo, en: v.nameEn };
+            const next = await artJson(`/${baseId}/meta`, body);
+            Object.assign(name, pairOf(next.name));
+            changed();
+          },
+          reset: d.name || d.description || d.notes ? async () => { await artJson(`/${baseId}/meta/reset`, {}); changed(); refill(); } : null,
+        });
+      }
+      // A homebrew app: its description in Korean and English, and whether it is a tool or a port.
+      async function homebrewFacts(id, changed, refill) {
+        const d = await artJson(`/homebrew/${encodeURIComponent(id)}/meta`);
+        const desc = pairOf(d.description);
+        return factsCard({
+          fields: [
+            { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
+            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
+            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
+          ],
+          async save(v) {
+            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind });
+            changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo });
+          },
+          reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
+        });
+      }
+      // A patch: what the console lists about it, and whether its game needs it.
+      async function patchFacts(id, changed) {
+        const d = await artJson(`/patch/${encodeURIComponent(id)}/meta`);
+        return factsCard({
+          fields: [
+            { name: "name", label: t("edit.name"), value: d.name },
+            { name: "nameKo", label: t("edit.nameKo"), value: d.nameKo },
+            { name: "version", label: t("edit.version"), value: d.version },
+            { name: "author", label: t("edit.author"), value: d.author },
+            ...(d.homebrew ? [] : [{ name: "gameVersion", label: t("edit.gameVersion"), value: d.gameVersion, wide: true }]),
+            { name: "description", label: t("edit.desc"), value: d.description, area: true, wide: true },
+            { name: "descriptionKo", label: t("edit.descKo"), value: d.descriptionKo, area: true, wide: true },
+            ...(d.homebrew ? [] : [{ name: "required", label: t("edit.required"), note: t("edit.requiredNote"), value: d.required, check: true }]),
+          ],
+          async save(v) {
+            const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, v);
+            changed({ title: lang === "ko" ? next.nameKo || next.name : next.name });
+          },
+        });
+      }
+
       // One patch, save or homebrew app in detail, opened from its list row.
       const xmodal = (() => {
         const node = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -3526,9 +3793,19 @@
           }
           draw();
         }
+        const edit = editPage("xmodal");
         function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
           paintPictures({ icon, banner, shots });
           paintArt(art, icon);
+          edit.offer(art ? {
+            key: art.kind + ":" + art.id,
+            build: (mark, refill) => (art.kind === "patch" ? patchFacts(art.id, mark) : homebrewFacts(art.id, mark, refill)),
+            changed(info) {
+              window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
+              if (info.title) $("xm-title").textContent = info.title;
+              if (info.desc !== undefined) $("xm-desc").textContent = info.desc || t("modal.noDesc");
+            },
+          } : null);
           $("xm-title").textContent = title || "—";
           $("xm-sub").textContent = sub || "";
           $("xm-pills").replaceChildren(...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
@@ -3561,7 +3838,7 @@
           if (finePointer()) $("xmodal").querySelector(".modal-x").focus({ preventScroll: true });
           else $("xmodal").querySelector(".modal").focus({ preventScroll: true });
         }
-        function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); }
+        function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); edit.leave(); }
         $("xmodal").addEventListener("click", (e) => { if (e.target === $("xmodal")) close(); });
         $("xm-close").addEventListener("click", close);
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("xmodal").classList.contains("open")) close(); });
@@ -4538,13 +4815,6 @@
         if (validBase) loadExtras(baseId, $("modal-extras"));
       }
 
-      // ─── artwork editor (upload / replace / remove) ────────────────────────
-      function artBtn(label, cls, onClick) {
-        const b = document.createElement("button");
-        b.type = "button"; b.className = "btn " + cls + " tiny"; b.textContent = label;
-        b.addEventListener("click", onClick);
-        return b;
-      }
       // ── the artwork editor (admins): games, homebrew and patches use this one card ──
       // slots: { icon?: { url, custom }, banner?: { url, custom }, shots: [{ url, removable }], maxShots }
       // upload(slot, file) and remove(slot, n?) return promises; the caller repaints when they settle.
@@ -4617,9 +4887,15 @@
         card.append(grid);
         return card;
       }
+      const gameEdit = editPage("modal");
       function renderArtEditor(baseId, validBase, art) {
         const box = $("modal-art");
         box.replaceChildren(); box.hidden = true;
+        gameEdit.offer(uploadsEnabled && validBase ? {
+          key: baseId,
+          build: (mark, refill) => gameFacts(baseId, mark, refill),
+          changed: () => refreshAfterDesc(baseId),
+        } : null);
         if (!uploadsEnabled || !validBase) return;
         box.hidden = false;
         // A game's screenshots from titledb stay as they are; the ones an admin added can be taken out.
@@ -4633,65 +4909,12 @@
           upload: (slot, file) => uploadArt(baseId, slot, file),
           remove: (slot, n) => removeArt(baseId, slot, n),
         });
-        card.append(artDescRow(baseId, art));
         box.append(card);
-      }
-      // The game's own text: edit it in place, Korean and English apart; what
-      // the admin wrote replaces titledb's description, line breaks included.
-      function artDescRow(baseId, art) {
-        const row = document.createElement("div"); row.className = "art-row";
-        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = t("art.desc");
-        const showButtons = () => {
-          row.replaceChildren(lab);
-          row.appendChild(artBtn(t("art.desc.edit"), "", () => showForm()));
-          if (art.description) row.appendChild(artBtn(t("art.desc.clear"), "ghost", () => clearDesc(baseId)));
-        };
-        const showForm = () => {
-          const form = document.createElement("div"); form.className = "art-desc-form";
-          const hint = document.createElement("div"); hint.className = "art-desc-hint"; hint.textContent = t("art.desc.hint");
-          form.appendChild(hint);
-          const fields = [["ko", "한국어"], ["en", "English"]].map(([code, label]) => {
-            const ta = document.createElement("textarea");
-            ta.value = art.description?.[code] || ""; ta.placeholder = label; ta.setAttribute("aria-label", label);
-            form.appendChild(ta);
-            return ta;
-          });
-          const actions = document.createElement("div"); actions.className = "art-desc-actions";
-          actions.append(
-            artBtn(t("art.desc.save"), "", async () => {
-              try {
-                const res = await fetch(`/api/art/${baseId}/description`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", Accept: "application/json" },
-                  body: JSON.stringify({ ko: fields[0].value, en: fields[1].value }),
-                });
-                const d = await res.json().catch(() => ({}));
-                if (!res.ok) { toast(d.error || t("art.failed")); return; }
-                toast(t("art.saved"));
-                refreshAfterDesc(baseId);
-              } catch { toast(t("art.failed")); }
-            }),
-            artBtn(t("art.desc.cancel"), "ghost", showButtons),
-          );
-          form.appendChild(actions);
-          row.replaceChildren(lab, form);
-          fields[0].focus();
-        };
-        showButtons();
-        return row;
-      }
-      async function clearDesc(baseId) {
-        try {
-          const res = await fetch(`/api/art/${baseId}/description`, { method: "DELETE" });
-          if (!res.ok) { toast(t("art.failed")); return; }
-          toast(t("art.removed"));
-          refreshAfterDesc(baseId);
-        } catch { toast(t("art.failed")); }
       }
       // Drop the cached detail of every language, then repaint the open modal.
       function refreshAfterDesc(baseId) {
         for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
-        if (currentModal) openModal(currentModal);
+        if (currentModal && $("modal").classList.contains("open")) openModal(currentModal);
       }
       async function uploadArt(baseId, kind, file) {
         const fd = new FormData(); fd.append("file", file, file.name);
@@ -4889,7 +5112,7 @@
         }
       }
 
-      function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); }
+      function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); gameEdit.leave(); }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
       $("modal-close").addEventListener("click", closeModal);
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
