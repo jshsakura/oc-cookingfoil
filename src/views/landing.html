@@ -3323,7 +3323,8 @@
           dl.hidden = !download;
           if (download) dl.href = download;
           openSheet("xmodal");
-          $("xm-close").focus();
+          // Focus the X at the top: the close button at the bottom would scroll the window down to it.
+          $("xmodal").querySelector(".modal-x").focus({ preventScroll: true });
         }
         function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); }
         $("xmodal").addEventListener("click", (e) => { if (e.target === $("xmodal")) close(); });
