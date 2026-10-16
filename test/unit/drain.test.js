@@ -257,7 +257,7 @@ test("without a restart handler the admin restart says it cannot", async () => {
   assert.equal(r.status, 503);
 });
 
-test("the dashboard shows the same notice once per restart, in its own language", async () => {
+test("the dashboard shows its own notice once per restart, in its own language", async () => {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync(path.join(import.meta.dirname, "../../src/views/landing.html"), "utf-8");
   assert.match(html, /msg\.type === "restarting"/);
@@ -265,7 +265,10 @@ test("the dashboard shows the same notice once per restart, in its own language"
   for (const [lang, text] of Object.entries(MESSAGE)) {
     const start = html.indexOf(`        ${lang}: {`);
     const bundle = html.slice(start, html.indexOf("\n        },\n", start));
-    assert.ok(bundle.includes(`"restart.notice": "${text}"`), `${lang} notice matches the 503 body`);
+    // The 503 body speaks to a client whose download resumes; the page only reconnects, so it says that.
+    const notice = bundle.match(/"restart\.notice": "([^"]+)"/)?.[1];
+    assert.ok(notice, `${lang} has a notice`);
+    assert.notEqual(notice, text, `${lang} notice is the page's own, not the download wording`);
   }
 });
 
