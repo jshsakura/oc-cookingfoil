@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { missingRegions } from "../../src/meta/titledb-bootstrap.js";
+import { isRegionFile, missingRegions } from "../../src/meta/titledb-bootstrap.js";
 
 // A partial titledb cache (e.g. only KR.ko landed on first boot) must still be
 // recognized as INCOMPLETE so the missing regions — notably US.en, the source
@@ -60,4 +60,12 @@ test("Europe comes from GB.en, the file titledb actually has; an old EU.en setti
     if (before === undefined) delete process.env.COOK_TITLEDB_REGIONS;
     else process.env.COOK_TITLEDB_REGIONS = before;
   }
+});
+
+test("only the region files count toward the cache's age; ratings and prices kept beside them do not", () => {
+  assert.equal(isRegionFile("KR.ko.json", CONFIGURED), true);
+  assert.equal(isRegionFile("US.en.slim.json", CONFIGURED), true);
+  assert.equal(isRegionFile("ratings-own.json", CONFIGURED), false);
+  assert.equal(isRegionFile("prices.json", CONFIGURED), false);
+  assert.equal(isRegionFile("FR.fr.json", CONFIGURED), false);
 });

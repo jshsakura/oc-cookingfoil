@@ -72,3 +72,31 @@ test('a running job draws its bar and count; the menu reads the API while the so
   await pop.screenshot({ path: 'out/web/admin-activity.png' });
   await page.keyboard.press('Escape');
 });
+
+test('a job that can be stopped gets a stop button that asks first, then posts the cancel', async ({ page }) => {
+  const started = Date.now() - 5000;
+  const job = { id: 'a7', kind: 'verify', title: '게임 파일을 검사합니다', detail: 'Test Game.nsp', current: 1, total: 4, startedAt: started, state: 'running', cancellable: true };
+  const other = { id: 'a8', kind: 'titledb', title: 'titledb 를 받습니다', detail: null, current: 0, total: null, startedAt: started, state: 'running', cancellable: false };
+  const posted: string[] = [];
+  await page.routeWebSocket(/\/admin\/ws$/, (ws) => ws.close({ code: 1011 }));
+  await page.route('**/admin/api/activity', (route) => route.fulfill({ json: { running: [job, other], recent: [] } }));
+  await page.route('**/admin/api/activity/*/cancel', (route) => {
+    posted.push(new URL(route.request().url()).pathname);
+    return route.fulfill({ json: { ok: true } });
+  });
+  await signIn(page);
+  await page.getByRole('button', { name: /서버 활동/ }).click();
+  const pop = page.getByRole('dialog', { name: '서버 활동' });
+  const row = pop.locator('#act-running .act-row', { hasText: '게임 파일을 검사합니다' });
+  await expect(pop.locator('#act-running .act-row', { hasText: 'titledb' }).getByRole('button', { name: '중지' })).toHaveCount(0);
+
+  await row.getByRole('button', { name: '중지' }).click();
+  await expect(page.locator('#ask-text')).toHaveText('이 작업을 중지할까요?');
+  await page.locator('#ask-no').click();
+  expect(posted).toEqual([]);
+
+  if (await pop.isHidden()) await page.getByRole('button', { name: /서버 활동/ }).click();
+  await row.getByRole('button', { name: '중지' }).click();
+  await page.locator('#ask-ok').click();
+  await expect.poll(() => posted).toEqual(['/admin/api/activity/a7/cancel']);
+});

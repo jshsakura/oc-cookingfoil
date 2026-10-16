@@ -103,12 +103,22 @@ async function presentRegionFiles() {
   }
 }
 
+/**
+ * Whether `file` is one of the region files a refresh rewrites. Other files share
+ * the folder (ratings, prices) and are never rewritten by it: counting them made
+ * the cache look a day old forever, so every restart fetched all regions again.
+ */
+export function isRegionFile(file, regions) {
+  return regions.some((r) => file === `${r}.json` || file === `${r}.slim.json`);
+}
+
 async function oldestCacheMtime() {
   try {
     const files = await readdir(titledbCacheDir);
+    const regions = getRegionsFromEnv();
     let oldest = Infinity;
     for (const f of files) {
-      if (!f.endsWith(".json")) continue;
+      if (!isRegionFile(f, regions)) continue;
       const s = await stat(path.join(titledbCacheDir, f));
       if (s.mtimeMs < oldest) oldest = s.mtimeMs;
     }

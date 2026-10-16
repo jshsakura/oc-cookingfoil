@@ -80,6 +80,7 @@ export const SETTINGS = {
   nszXci: bool,
   backupDays: whole(0, 365),
   syncHours: whole(0, 168),
+  verifyHours: oneOf(...env.VERIFY_HOURS),
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 

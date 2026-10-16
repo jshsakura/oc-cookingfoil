@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createVerifyQueue } from "../../src/meta/verify-queue.js";
+import { createVerifyQueue, msUntilHours } from "../../src/meta/verify-queue.js";
 
 // The file check queue against a stub verifier and an in-memory store: what it
 // checks first, when it hashes, when it waits, and what it keeps.
@@ -353,4 +353,62 @@ test("after the stop for failures the queue tries again by itself", async () => 
   assert.equal(calls.length, 10);
   assert.equal(q.view().status, "idle");
   assert.equal(q.view().resumeAt, null);
+});
+
+test("outside the admin's hours nothing is read; a file the admin asks for goes at once", async () => {
+  addFile("a.nsp");
+  addFile("b.nsp");
+  const q = makeQueue(memoryStore(), { msUntilAllowed: () => HOUR });
+  await settle(q);
+  assert.equal(calls.length, 0);
+  assert.equal(q.view().status, "schedule");
+
+  q.recheck("b.nsp");
+  await q.idle();
+  assert.deepEqual(calls.map((c) => c.rel), ["b.nsp"]);
+  q.shutdown();
+});
+
+test("the hours: inside is now, outside waits for the start, a window may run past midnight, off never", () => {
+  const at = (h, m = 0) => new Date(2026, 9, 16, h, m);
+  assert.equal(msUntilHours("always", at(15)), 0);
+  assert.equal(msUntilHours("2-7", at(3)), 0);
+  assert.equal(msUntilHours("2-7", at(1, 30)), 30 * 60_000);
+  assert.equal(msUntilHours("2-7", at(7)), 19 * HOUR);
+  assert.equal(msUntilHours("22-6", at(23)), 0);
+  assert.equal(msUntilHours("22-6", at(5)), 0);
+  assert.equal(msUntilHours("22-6", at(12)), 10 * HOUR);
+  assert.equal(msUntilHours("off", at(3)), Infinity);
+});
+
+test("stopping from the activity menu aborts the file in progress and starts nothing until the next library update", async () => {
+  addFile("a.nsp", { ageMs: 3 * HOUR });
+  addFile("b.nsp", { ageMs: 2 * HOUR });
+  addFile("c.nsp", { ageMs: HOUR });
+  const store = memoryStore();
+  const q = makeQueue(store);
+  let first = true;
+  hooks["c.nsp"] = async ({ signal }) => {
+    if (!first) return { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "skip" } };
+    first = false;
+    jobs[0].o.cancel();
+    assert.equal(signal.aborted, true);
+    throw Object.assign(new Error("aborted"), { name: "AbortError" });
+  };
+
+  await settle(q);
+
+  assert.deepEqual(calls.map((c) => c.rel), ["c.nsp"]);
+  assert.equal(store.rows()["c.nsp"].verdict, undefined);
+  assert.deepEqual(jobs[0].ended, ["discard"]);
+  assert.equal(q.view().status, "stopped");
+  q.pump();
+  await q.idle();
+  assert.equal(calls.length, 1);
+
+  q.onLibraryUpdate();
+  await new Promise((r) => setTimeout(r, 20));
+  await q.idle();
+  assert.deepEqual(calls.map((c) => c.rel), ["c.nsp", "c.nsp", "b.nsp", "a.nsp"]);
+  assert.equal(q.view().status, "idle");
 });

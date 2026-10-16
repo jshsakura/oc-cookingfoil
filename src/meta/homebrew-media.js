@@ -135,6 +135,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
     const job = activity.begin("homebrew-art", { title: "포트 그림을 찾습니다", total: todo.length });
     let got = 0;
     for (const [i, e] of todo.entries()) {
+      if (job.stopped) break;
       job.step(i, e.name);
       let names = searchNames(e);
       // Each part on its own: a banner that fails never keeps the screenshots from being looked for.

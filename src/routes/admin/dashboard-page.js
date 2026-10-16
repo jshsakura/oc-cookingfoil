@@ -230,6 +230,20 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;f
 .pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .pg-gap{color:var(--faint)}
 @media (max-width:600px){.pg-q{max-width:none;flex-basis:100%}.pg-nav{margin-left:0;width:100%;justify-content:center}}
+.logs-view{align-items:stretch}
+.logs-list summary{align-items:center}.logs-list summary>b{display:grid;gap:1px;min-width:0;font-weight:700}
+.logs-list summary>b small{font:500 11px ui-monospace,monospace;color:var(--muted);letter-spacing:.02em}
+.logs-list button{gap:10px}.logs-list button span{white-space:nowrap;font-variant-numeric:tabular-nums}
+.logs-list summary span{white-space:nowrap}
+.logs-body{min-height:320px}
+.logs-body pre{flex:1}.logs-body pre[hidden],.logs-head[hidden]{display:none}
+.logs-empty{flex:1;display:grid;place-content:center;justify-items:center;gap:6px;padding:30px 20px;text-align:center;color:var(--muted)}
+.logs-empty b{color:var(--text);font-size:15px}.logs-empty span{font-size:13px}
+.logs-empty[hidden]{display:none}.logs-empty-ico{width:38px;height:38px;color:var(--faint);stroke-width:1.5;margin-bottom:4px}
+#bug-reports table{width:100%}#bug-reports td,#bug-reports th{white-space:nowrap}#bug-reports td:nth-child(3){white-space:normal}
+.rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
+.rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
 ${POLISH_CSS}</style></head><body>
 <div class="wrap">
 <header>
@@ -365,21 +379,36 @@ ${POLISH_CSS}</style></head><body>
   ${TOKENS_HTML}
 </section>
 
-<section id="tab-logs" hidden>${TRANSFERS_HTML}
-  <div class="hd"><h2>클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
+<section id="tab-logs" hidden>
+  <div class="subtabs" id="logs-subtabs" role="tablist" aria-label="로그 종류">
+    <button type="button" role="tab" data-lsub="xfer" aria-selected="true">${icon("download")}다운로드 기록</button>
+    <button type="button" role="tab" data-lsub="client" aria-selected="false">${icon("device")}클라이언트 로그</button>
+    <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}차단과 거부</button>
+  </div>
+  <div data-logs-panel="xfer">${TRANSFERS_HTML}</div>
+  <div data-logs-panel="client" hidden>
+  <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
   <h3 class="sub-h">버그 리포트 순위</h3>
   <p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
   <div class="scroll" id="bug-reports"></div>
+  <h3 class="sub-h">기기별 기록</h3>
   <div class="logs-view">
     <div class="logs-list" id="cl-list"></div>
-    <div class="logs-body"><div class="logs-head" id="cl-head">왼쪽에서 기록을 고릅니다.</div><pre id="cl-text" tabindex="0"></pre></div>
+    <div class="logs-body">
+      <div class="logs-head" id="cl-head" hidden></div>
+      <div class="logs-empty" id="cl-empty">${icon("log", "ico logs-empty-ico")}<b>기록을 고르면 여기에 내용이 나옵니다</b><span>왼쪽 기기에서 기록 하나를 누릅니다.</span></div>
+      <pre id="cl-text" tabindex="0" hidden></pre>
+    </div>
   </div>
-  <div class="hd"><h2>차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
+  </div>
+  <div data-logs-panel="deny" hidden>
+  <div class="hd"><h2 class="first">차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
   <div class="scroll" id="lockouts"></div>
   <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 삭제</button></div>
   <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
   <div class="scroll" id="denials"></div>
+  </div>
 </section>
 
 <section id="tab-featured" hidden>

@@ -46,6 +46,7 @@ async function run(reason) {
   debug.log("sync: reading every folder again (%s)", reason);
   const job = activity.begin("sync", { title: "모든 폴더를 다시 읽습니다", total: PARTS.length });
   for (const [name, read] of PARTS) {
+    if (job.stopped) break;
     job.step(parts.length, PART_TITLES[name]);
     const t = Date.now();
     try {

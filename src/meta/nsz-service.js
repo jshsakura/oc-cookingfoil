@@ -42,7 +42,10 @@ const queue = createNszQueue({
       last = p.current || last;
       return { ...p, current: last };
     };
-    return activity.begin("nsz", { title: "NSZ 로 변환합니다", detail: item.name || path.basename(item.rel), probe: steady });
+    // Stopping one conversion from the activity menu pauses the queue, like the 변환 tab's pause:
+    // the running files wait again and nothing starts until the admin starts it.
+    const cancel = () => queue.pause().catch(() => {});
+    return activity.begin("nsz", { title: "NSZ 로 변환합니다", detail: item.name || path.basename(item.rel), probe: steady, cancel });
   },
 });
 

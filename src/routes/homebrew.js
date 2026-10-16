@@ -283,8 +283,11 @@ export const defaultService = {
  */
 let watch = null;
 export function start() {
-  const scan = () => refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
-  scan();
+  // A kept list younger than MANUAL_STALE_MS is served as it is: the watch below catches what changes,
+  // and reading every app again on each restart kept a busy disk busy for minutes.
+  if (!manual.at || Date.now() - manual.at > MANUAL_STALE_MS) {
+    refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
+  }
   // An app copied into the folder by hand shows up once its copy has been quiet for a while.
   watch ??= watchItems(homebrewDir, { depth: 1, label: "homebrew", onItem: (folder) => refreshManualApp(folder) });
   // Always scheduled: the admin can add a repository at any time.

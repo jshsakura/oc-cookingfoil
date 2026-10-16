@@ -75,6 +75,7 @@ var SKIP='.ib,.icon-btn,[aria-pressed],[role=tab],[role=menuitem],[role=menuitem
 function pick(b){
   if(b.id==='ra-prev')return 'chevleft';if(b.id==='ra-next')return 'chevright';
   var t=(b.textContent||'').trim();if(!t)return null;
+  if(/^[0-9]+$/.test(t))return null;
   for(var i=0;i<RULES.length;i++)if(RULES[i][0].test(t))return RULES[i][1];
   return ${JSON.stringify(FALLBACK)};
 }

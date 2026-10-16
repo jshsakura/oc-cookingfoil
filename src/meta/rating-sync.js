@@ -229,6 +229,7 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
     const due = dueTitles(wanted, titles, now(), { providers: providers() });
     const job = due.length ? activity.begin("ratings", { title: "평점을 모읍니다", total: due.length }) : null;
     for (const [i, { tid, providers: todo }] of due.entries()) {
+      if (job?.stopped) break;
       job?.step(i);
       const info = wanted.get(tid);
       for (const p of todo) {

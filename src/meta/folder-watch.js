@@ -9,14 +9,24 @@
  * longer than that is read early and read again when it goes on. Names that
  * start with a dot are ignored (work folders, editor files).
  *
+ * Only the item folders and what sits right in them are watched, not the whole
+ * tree: a ported game holds thousands of files, and watching each one walked the
+ * whole folder on every start. A copy deep inside an item still writes, so before
+ * an item is reported its folder is looked over once, and a file written within
+ * the quiet time puts the report off again.
+ *
  * The watch is only a shortcut: the catalogs still rescan in full on their own
  * long schedule, for anything the watch missed (a mount that drops events).
  */
 import path from "path";
+import fsp from "fs/promises";
 import chokidar from "chokidar";
 import debug from "../debug.js";
 
 export const QUIET_MS = 30_000;
+// An item is read again at most this often: a folder that keeps changing (a log, a big copy
+// pausing now and then) is not read over and over.
+export const COOLDOWN_MS = 2 * 60_000;
 
 /** The item an event under `root` belongs to: its first `depth` path parts, or null. Pure. */
 export function itemOf(root, file, depth) {
@@ -27,15 +37,51 @@ export function itemOf(root, file, depth) {
   return parts.slice(0, depth).join("/");
 }
 
+/** The newest mtime of any file under `dir` (ms), 0 when there is none or it is gone. */
+export async function newestUnder(dir) {
+  let newest = 0;
+  let entries;
+  try {
+    entries = await fsp.readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) newest = Math.max(newest, await newestUnder(p));
+    else if (e.isFile()) newest = Math.max(newest, (await fsp.stat(p).catch(() => null))?.mtimeMs ?? 0);
+  }
+  return newest;
+}
+
 /**
  * Starts watching `root`. `depth` is how many path parts name an item (2 for
  * <title id>/<save>, 1 for <app>); `onItem(item)` is called after the quiet
  * time. Returns { close }.
  */
-export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, label = "watch" }) {
+export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, cooldownMs = COOLDOWN_MS, label = "watch" }) {
   const timers = new Map();
-  const fire = (item) => {
+  const lastRead = new Map(); // item → when it was last reported
+  const arm = (item, ms) => {
+    clearTimeout(timers.get(item));
+    const t = setTimeout(fire, ms, item);
+    t.unref?.();
+    timers.set(item, t);
+  };
+  const fire = async (item) => {
     timers.delete(item);
+    // Still being written somewhere below what the watch sees: look again once it has been quiet.
+    const age = Date.now() - (await newestUnder(path.join(root, ...item.split("/"))));
+    if (age < quietMs) {
+      if (!timers.has(item)) arm(item, quietMs - age);
+      return;
+    }
+    const wait = (lastRead.get(item) ?? -Infinity) + cooldownMs - Date.now();
+    if (wait > 0) {
+      if (!timers.has(item)) arm(item, wait);
+      return;
+    }
+    lastRead.set(item, Date.now());
     Promise.resolve()
       .then(() => onItem(item))
       .catch((err) => debug.error("%s: %s failed: %s", label, item, err.message));
@@ -43,15 +89,14 @@ export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, label = "w
   const touch = (file) => {
     const item = itemOf(root, file, depth);
     if (!item) return;
-    clearTimeout(timers.get(item));
-    const t = setTimeout(fire, quietMs, item);
-    t.unref?.();
-    timers.set(item, t);
+    arm(item, quietMs);
   };
   const watcher = chokidar.watch(root, {
     // The server's own timers and sockets keep it running; the watch alone never should.
     persistent: false,
     ignoreInitial: true,
+    // The item folders and the files right in them: `depth` levels below the root.
+    depth,
     ignored: (p) => path.basename(p).startsWith("."),
   });
   watcher

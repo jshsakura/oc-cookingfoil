@@ -11,8 +11,20 @@
  * FLUSH_MS, however often the jobs step. A job that cannot count its own steps
  * may pass `probe()` → { current?, total?, detail? }, which is read every PROBE_MS
  * while anyone listens (the NSZ conversion reads the size of its output file).
+ *
+ * A job the admin may stop passes `cancel()`: its entry carries `cancellable`,
+ * and `cancel(id)` calls it once and marks the entry "중지하는 중". However the
+ * job then ends (done, fail or discard), it lands in recent as "stopped".
  */
 import debug from "../debug.js";
+
+/** Thrown by a job that stops partway because the admin asked, so its half-done result is not kept. */
+export class JobStopped extends Error {
+  constructor() {
+    super("중지했습니다");
+    this.name = "JobStopped";
+  }
+}
 
 export const KINDS = Object.freeze([
   "sync", "scan:games", "scan:homebrew", "scan:saves", "scan:patches", "scan:retro",
@@ -32,6 +44,7 @@ const count = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
 export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = PROBE_MS, recentMax = RECENT_MAX, recentMs = RECENT_MS } = {}) {
   const running = new Map(); // id → entry
   const probes = new Map(); // id → probe()
+  const cancels = new Map(); // id → cancel(), until it is called
   let recent = []; // newest first
   const listeners = new Set();
   let seq = 0;
@@ -97,31 +110,40 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
     if (!e) return;
     running.delete(id);
     probes.delete(id);
+    cancels.delete(id);
     syncProbeTimer();
+    // Stopped by the admin: that is what it shows, whatever way the job wound down.
+    const { stopping, ...entry } = e;
+    if (stopping) patch = { state: "stopped", result: patch?.result ?? null, detail: null };
     if (patch) {
       const endedAt = now();
-      recent.unshift({ ...e, ...patch, endedAt, ms: endedAt - e.startedAt });
+      recent.unshift({ ...entry, ...patch, endedAt, ms: endedAt - e.startedAt });
       prune();
     }
     changed();
   }
 
   /** Starts one job. Its handle's methods do nothing once it has ended. */
-  function begin(kind, { title, total = null, detail = null, probe = null } = {}) {
+  function begin(kind, { title, total = null, detail = null, probe = null, cancel = null } = {}) {
     const id = `a${++seq}`;
+    // Every job can be stopped: one without its own cancel() sees `stopped` and winds down at its next step.
+    const cancellable = true;
     running.set(id, {
       id, kind: String(kind), title: text(title) ?? String(kind), detail: text(detail),
-      current: 0, total: count(total), startedAt: now(), state: "running",
+      current: 0, total: count(total), startedAt: now(), state: "running", cancellable,
     });
     if (typeof probe === "function") { probes.set(id, probe); syncProbeTimer(); }
+    cancels.set(id, typeof cancel === "function" ? cancel : () => {});
     changed();
     return {
       id,
+      /** True once the admin asked this job to stop. */
+      get stopped() { return Boolean(running.get(id)?.stopping); },
       step(n, stepDetail) {
         const e = running.get(id);
         if (!e) return;
         if (n !== undefined && n !== null) e.current = count(n) ?? e.current;
-        if (stepDetail !== undefined) e.detail = text(stepDetail);
+        if (stepDetail !== undefined && !e.stopping) e.detail = text(stepDetail);
         changed();
       },
       total(n) {
@@ -145,9 +167,23 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
       job.done(summary(result));
       return result;
     } catch (err) {
-      job.fail(err);
+      if (err instanceof JobStopped) job.discard();
+      else job.fail(err);
       throw err;
     }
+  }
+
+  /** Asks a running job to stop. False when it is not running or cannot be stopped (or was asked already). */
+  function cancel(id) {
+    const e = running.get(id);
+    const fn = cancels.get(id);
+    if (!e || !fn) return false;
+    cancels.delete(id);
+    Object.assign(e, { cancellable: false, stopping: true, detail: "중지하는 중" });
+    // The job may end inside its own cancel(): end() then records it as stopped.
+    try { fn(); } catch (err) { debug.error("activity: cancel of %s threw: %s", e.kind, err.message); }
+    changed();
+    return true;
   }
 
   /** Calls `fn(snapshot)` after each change (at most every flushMs). Returns the unsubscribe. */
@@ -166,7 +202,7 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
     return snapshot();
   }
 
-  return { begin, track, list, subscribe, flush };
+  return { begin, track, list, subscribe, flush, cancel };
 }
 
 const shared = createActivity();
@@ -174,4 +210,5 @@ export const begin = shared.begin;
 export const track = shared.track;
 export const list = shared.list;
 export const subscribe = shared.subscribe;
+export const cancel = shared.cancel;
 export default shared;

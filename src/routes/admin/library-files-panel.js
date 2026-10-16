@@ -31,7 +31,7 @@ async function lfRemove(f){if(!await ask(f.rel+' 파일을 서버에서 삭제�
 $('lf-q').addEventListener('input',()=>{clearTimeout(lfTimer);lfTimer=setTimeout(lfSearch,250);});
 const LV_VERDICT={modified:'수정됨',damaged:'손상됨'};
 const LV_REASON={'signature-fail':'NCA 서명이 맞지 않습니다','hash-mismatch':'내용 해시가 맞지 않습니다','missing-content':'목록에 있는 NCA 가 없습니다','unreadable':'파일을 읽지 못했습니다'};
-const LV_STATUS={running:'검사하는 중입니다',waiting:'검사할 파일이 기다리고 있습니다',downloads:'다운로드가 끝나면 이어서 검사합니다',tool:'nstool 이나 키가 없어 검사하지 않습니다',paused:'잇달아 실패해 멈췄습니다. 다시 검사를 누르면 이어 갑니다',idle:'모두 검사했습니다'};
+const LV_STATUS={running:'검사하는 중입니다',waiting:'검사할 파일이 기다리고 있습니다',downloads:'다운로드가 끝나면 이어서 검사합니다',schedule:'설정한 검사 시간에 이어서 합니다',tool:'nstool 이나 키가 없어 검사하지 않습니다',paused:'잇달아 실패해 멈췄습니다. 다시 검사를 누르면 이어 갑니다',stopped:'검사를 중지했습니다. 라이브러리가 바뀌거나 다시 검사를 누르면 이어 갑니다',idle:'모두 검사했습니다'};
 async function lvLoad(){let d;try{d=await api('/admin/api/library/verify');}catch(err){toast(err.message);return;}
   const c=d.counts||{};const cards=$('lv-cards');cards.replaceChildren();
   const card=(l,v,cls)=>{const e=el('div',null,'card'+(cls?' '+cls:''));e.append(el('div',num(v),'v'),el('div',l,'l'));return e;};

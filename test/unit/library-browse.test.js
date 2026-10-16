@@ -33,7 +33,7 @@ const sample = () => [
 
 test("game files keep their kind, drop the id tail from the name and carry version and the file check", () => {
   const [alpha, update, beta, , nro] = gameItems();
-  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", version: 0, integrity: "modified" });
+  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", version: 0, integrity: "modified", id: null, source: null, repo: null });
   assert.equal(update.version, 65536);
   assert.equal(update.integrity, "unchecked");
   assert.equal(beta.integrity, "damaged");
@@ -170,6 +170,22 @@ test("the stray file scan skips game files, hidden files, symlinks and nested fo
   assert.ok((await rels()).includes("later.log"));
 });
 
+test("peek answers at once: nothing during the first walk, then the last scan even when it is stale", async () => {
+  const g = path.join(root, "peek-games");
+  fs.mkdirSync(g, { recursive: true });
+  fs.writeFileSync(path.join(g, "a.txt"), "x");
+  let clock = 0;
+  const scanner = lb.createOtherScanner({ root: g, ttlMs: 60_000, now: () => clock });
+  assert.equal(scanner.peek(), null);
+  const first = await scanner.list();
+  assert.deepEqual(scanner.peek().map((f) => f.rel), ["a.txt"]);
+  fs.writeFileSync(path.join(g, "b.txt"), "x");
+  scanner.invalidate();
+  assert.equal(scanner.peek(), first);
+  await scanner.list();
+  assert.deepEqual(scanner.peek().map((f) => f.rel).sort(), ["a.txt", "b.txt"]);
+});
+
 // The route: session, JSON errors with a machine code, and every listing in one answer.
 let updated = null;
 const app = express();
@@ -218,4 +234,39 @@ test("a library rebuild drops the cached stray file list", () => {
   assert.equal(typeof updated, "function");
   updated();
   assert.equal(updated, "invalidated");
+});
+
+// Deleting a stray file: only a plain, visible, non-game file inside the games folder.
+test("a stray file can be deleted, but not a game file, a hidden file, a linked folder's file or a path outside", async () => {
+  const { mountLibraryFilesApi } = await import("../../src/routes/admin/library-files-api.js");
+  const gamesDir = process.env.COOK_GAMES_DIR;
+  const outside = path.join(root, "outside-dir");
+  fs.mkdirSync(path.join(gamesDir, "notes"), { recursive: true });
+  fs.mkdirSync(outside, { recursive: true });
+  fs.writeFileSync(path.join(gamesDir, "notes", "a.txt"), "x");
+  fs.writeFileSync(path.join(gamesDir, "Game [0100000000010000][v0].nsp"), "x");
+  fs.writeFileSync(path.join(gamesDir, ".hidden.txt"), "x");
+  fs.writeFileSync(path.join(outside, "secret.txt"), "x");
+  fs.symlinkSync(outside, path.join(gamesDir, "linked"));
+  const api = express();
+  api.use(express.json());
+  const r = express.Router();
+  mountLibraryFilesApi(r, () => true, { view: () => ({}) });
+  api.use("/admin", r);
+  const srv = api.listen(0, "127.0.0.1");
+  await new Promise((ok) => srv.once("listening", ok));
+  try {
+    const post = (rel) => fetch(`http://127.0.0.1:${srv.address().port}/admin/api/library/other/remove`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rel }),
+    });
+    for (const rel of ["Game [0100000000010000][v0].nsp", ".hidden.txt", "linked/secret.txt", "../outside-dir/secret.txt", "nothing.txt", ""]) {
+      assert.equal((await post(rel)).status, 404, rel);
+    }
+    assert.ok(fs.existsSync(path.join(outside, "secret.txt")));
+    assert.ok(fs.existsSync(path.join(gamesDir, "Game [0100000000010000][v0].nsp")));
+    assert.equal((await post("notes/a.txt")).status, 200);
+    assert.equal(fs.existsSync(path.join(gamesDir, "notes")), false, "the folder it left empty goes too");
+  } finally {
+    srv.close();
+  }
 });

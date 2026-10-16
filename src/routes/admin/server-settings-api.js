@@ -112,6 +112,8 @@ export function mountServerSettingsApi(router, requireSession) {
     } else if (changed.some((k) => REBUILD.has(k))) {
       shopCache.invalidate();
     }
+    // The file check waiting for its hours looks again at once.
+    if (changed.includes("verifyHours")) import("../../meta/verify-service.js").then((m) => m.default.pump()).catch(() => {});
     // The conversion queue stops when turned off and looks again after any of its settings.
     if (changed.some((k) => k.startsWith("nsz"))) await nszQueue.settingsChanged();
     if (changed.length) debug.log("admin: server settings changed: %s", changed.join(", "));

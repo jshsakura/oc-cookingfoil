@@ -107,17 +107,30 @@ function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table
     for(let j=0;j<3;j++){const c=td();c.append(el('span'));tr.append(c);}t.append(tr);}m.append(t);}
 function lbAnimate(){const m=$('lb-list');m.classList.remove('lb-in');void m.offsetWidth;m.classList.add('lb-in');}
 function lbCols(kind){
-  if(kind==='base'||kind==='update'||kind==='dlc')return ['파일','타이틀 ID','버전','크기','수정한 날짜','검사'];
-  if(kind==='patch'||kind==='save')return ['파일','타이틀 ID','크기','수정한 날짜'];
-  if(kind==='homebrew')return ['파일','버전','크기','수정한 날짜'];
-  return ['파일','크기','수정한 날짜'];}
+  if(kind==='base'||kind==='update'||kind==='dlc')return ['파일','타이틀 ID','버전','크기','수정한 날짜','검사',''];
+  if(kind==='patch'||kind==='save')return ['파일','타이틀 ID','크기','수정한 날짜',''];
+  if(kind==='homebrew')return ['파일','버전','크기','수정한 날짜',''];
+  return ['파일','크기','수정한 날짜',''];}
 function lbRow(f,kind){const tr=el('tr');const n=td();n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));tr.append(n);
   const game=kind==='base'||kind==='update'||kind==='dlc';
   if(game||kind==='patch'||kind==='save')tr.append(td(f.titleId||'-','mono lb-num'));
   if(game||kind==='homebrew')tr.append(td(f.version!=null?(game?'v'+f.version:String(f.version)):'-','lb-num'));
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
   if(game){const c=td();const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(v[0],v[1]));tr.append(c);}
+  const act=td();const del=btn('삭제',()=>lbRemove(f,kind),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' 삭제');act.append(del);tr.append(act);
   return tr;}
+// Every kind deletes through its own endpoint; the list loads again afterwards.
+function lbRemoveCall(f,kind){
+  if(kind==='base'||kind==='update'||kind==='dlc')return api('/admin/api/library/files/remove',{method:'POST',body:{rel:f.rel}});
+  if(kind==='other')return api('/admin/api/library/other/remove',{method:'POST',body:{rel:f.rel}});
+  if(kind==='patch'||kind==='save')return api('/admin/api/content/'+kind+'/remove',{method:'POST',body:{id:f.id}});
+  if(f.source==='manual')return api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:f.id}});
+  if(f.repo)return api('/admin/api/homebrew/remove',{method:'POST',body:{repo:f.repo}});
+  return Promise.reject(new Error('이 항목은 여기서 지울 수 없습니다.'));}
+async function lbRemove(f,kind){
+  const name=f.name||f.rel||'이 파일';
+  if(!await ask(name+' 을(를) 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
+  try{await lbRemoveCall(f,kind);toast('삭제했습니다.');lbLoad();}catch(err){toast(err.message);}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
   if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',label+' 페이지');}else{b.textContent=String(page);b.setAttribute('aria-label',page+' 페이지');}
   if(current)b.setAttribute('aria-current','page');
@@ -139,7 +152,9 @@ async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty);lbAnimate();
   const from=d.total?(d.page-1)*d.perPage+1:0,to=Math.min(d.total,d.page*d.perPage);
   $('lb-count').textContent=d.total?LB_KIND[kind]+' '+num(d.total)+'개 중 '+num(from)+'에서 '+num(to)+'번째를 보여 줍니다.':'';
-  lbPager(d);lbIndicator();}
+  lbPager(d);lbIndicator();
+  // The first walk of a big folder is still running on the server: ask again, once it may be done.
+  if(d.pending){clearTimeout(lb.again);lb.again=setTimeout(()=>{if(n===lb.seq)lbLoad();},4000);}}
 function lbSelect(kind){if(kind===lb.kind)return;lb.kind=kind;lb.page=1;
   for(const b of $('lb-kinds').querySelectorAll('button[role=tab]')){const on=b.dataset.kind===kind;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;}
   $('lb-list').setAttribute('aria-labelledby','lb-tab-'+kind);lbIndicator();lbLoad();}

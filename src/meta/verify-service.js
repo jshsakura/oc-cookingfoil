@@ -4,7 +4,7 @@
  * (security/drain.js), the library cache and the activity list.
  */
 import path from "path";
-import { createVerifyQueue } from "./verify-queue.js";
+import { createVerifyQueue, msUntilHours } from "./verify-queue.js";
 import { createVerifier } from "./file-verify.js";
 import * as fileIntegrity from "./file-integrity.js";
 import * as env from "../helpers/envs.js";
@@ -37,8 +37,9 @@ const queue = createVerifyQueue({
   // Games are served at their path under the games folder, on both download lanes.
   fileInUse: (rel) => drainer.pathInUse(`/${rel.split(path.sep).join("/")}`),
   // A notice appeared or went away: the shop list and the sections carry it.
-  onVerdict: () => shopCache.invalidate(),
+  onVerdict: () => shopCache.invalidate({ background: true }),
   track: (opts) => activity.begin("verify", opts),
+  msUntilAllowed: () => msUntilHours(env.verifyHours),
 });
 
 fileIntegrity.provide((rel) => queue.integrityOf(rel));
