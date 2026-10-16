@@ -50,7 +50,7 @@ font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:var
 </div>
 <div class="ok" id="ok"></div>
 <details><summary>고급: otpauth:// 주소</summary><div class="uri">${safeUri}</div>
-<div class="muted" style="margin-top:8px">키는 <span class="mono">&lt;data&gt;/security/admin-totp.json</span> 에 저장됩니다.
+<div class="muted" style="margin-top:8px">키는 <span class="mono">&lt;data&gt;/security/security.db</span> 에 암호화해 저장합니다.
 직접 관리하려면 <span class="mono">COOK_ADMIN_TOTP_SECRET</span> 을 설정합니다. 처음으로 코드가 맞으면 이 화면은 더 나오지 않습니다.</div>
 </details></div>
 <script>

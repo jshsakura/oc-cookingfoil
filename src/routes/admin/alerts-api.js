@@ -11,7 +11,7 @@
  *   POST /admin/api/alerts/clear     forget what was saved (env vars apply again)
  *
  * The token and chat are stored as the "telegram" integration, so the secret
- * stays in integrations.json and is only ever reported as set or not set.
+ * stays sealed in the security database and is only ever reported as set or not set.
  */
 import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";

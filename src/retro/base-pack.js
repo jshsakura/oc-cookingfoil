@@ -10,8 +10,8 @@
  * where that core looks (bios.js consoleFirmwarePath).
  *
  * The manifest lists each file with its size and SHA-256 so a client fetches
- * only what changed. Hashes are cached by (size, mtime, inode) in
- * <data dir>/retro-hashes.json, so a restart doesn't re-read the pack.
+ * only what changed. Hashes are cached by (size, mtime, inode) in the index
+ * (db/stores.js hashStore), so a restart doesn't re-read the pack.
  */
 import crypto from "crypto";
 import fsp from "fs/promises";
