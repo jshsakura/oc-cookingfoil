@@ -75,6 +75,24 @@ function restat(row, st) {
  * `onVerdict()` after a notice-worthy verdict changes, and `track(opts)` an
  * activity job ({ step, total, done, fail, discard }).
  */
+/**
+ * How long until `hours` allows a check: 0 inside the window, Infinity when off.
+ * `hours` is "always", "off" or "<from>-<to>" in whole local hours (it may run past midnight). Pure.
+ */
+export function msUntilHours(hours, date = new Date()) {
+  if (!hours || hours === "always") return 0;
+  const m = /^(\d{1,2})-(\d{1,2})$/.exec(hours);
+  if (!m) return Infinity;
+  const [from, to] = [Number(m[1]), Number(m[2])];
+  const h = date.getHours();
+  const inside = from < to ? h >= from && h < to : h >= from || h < to;
+  if (inside) return 0;
+  const start = new Date(date);
+  start.setHours(from, 0, 0, 0);
+  if (start <= date) start.setDate(start.getDate() + 1);
+  return start - date;
+}
+
 export function createVerifyQueue({
   gamesDir,
   store,
@@ -85,6 +103,8 @@ export function createVerifyQueue({
   fileInUse = () => false,
   onVerdict = () => {},
   track = () => null,
+  // How long until a check may read the library (the admin's hours); a file the admin asked for goes at once.
+  msUntilAllowed = () => 0,
   stat = (abs) => fsp.stat(abs),
   now = Date.now,
   idleMs = IDLE_MS,
@@ -286,6 +306,13 @@ export function createVerifyQueue({
           waitingFor = null;
           if (Number.isFinite(soonest)) wake(soonest);
           endBatch();
+          break;
+        }
+        const until = urgent.has(row.path) ? 0 : msUntilAllowed();
+        if (until > 0) {
+          waitingFor = "schedule";
+          endBatch();
+          if (Number.isFinite(until)) wake(until);
           break;
         }
         const quiet = quietFor();

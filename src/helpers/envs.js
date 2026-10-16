@@ -394,6 +394,9 @@ let nszXci = envBool("COOK_NSZ_XCI", false);
 let backupDays = envNumber("COOK_BACKUP_DAYS", 14, { min: 0, max: 365, integer: true });
 // Every folder read again in full this often (meta/folder-sync.js), behind the folder watch; 0 only on request.
 let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: true });
+// When the background file check (meta/verify-queue.js) may read the library: "always", "off", or "<from>-<to>" hours.
+export const VERIFY_HOURS = Object.freeze(["always", "off", "0-6", "1-7", "2-7", "3-8", "22-6"]);
+let verifyHours = VERIFY_HOURS.includes(process.env.COOK_VERIFY_HOURS) ? process.env.COOK_VERIFY_HOURS : "2-7";
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -440,6 +443,7 @@ const ENV_SETTINGS = Object.freeze({
   nszXci,
   backupDays,
   syncHours,
+  verifyHours,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -484,6 +488,7 @@ function applyServerSettings(saved = {}) {
   nszXci = v.nszXci;
   backupDays = v.backupDays;
   syncHours = v.syncHours;
+  verifyHours = v.verifyHours;
 }
 
 export {
@@ -505,6 +510,7 @@ export {
   nszXci,
   backupDays,
   syncHours,
+  verifyHours,
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,
