@@ -226,3 +226,32 @@ test("the direct address opens nothing but downloads, and the shop's own pages k
   const junk = await viaProxy(`${DL}/${encodeURIComponent("Game/readme.txt")}`, "forged.token");
   assert.equal(junk.headers["x-cookingfoil-token"], "invalid");
 });
+
+test("nothing inside a dot-folder is served or listed, on the shop or the direct address, encoded or not", async () => {
+  // The NSZ conversion's work folder sits inside the games folder (made while a conversion runs).
+  put(games, ".cookingfoil-nsz-work/x/Game.nsz", "WORKDATA");
+  const token = tokenOf(await fetchOk("/api/shop/info", DIRECT));
+  const paths = ["/.cookingfoil-nsz-work/x/Game.nsz", "/%2ecookingfoil-nsz-work/x/Game.nsz", "/%2Ecookingfoil-nsz-work/x/Game.nsz", "/Game/..%2f.cookingfoil-nsz-work/x/Game.nsz", "/.cookingfoil-nsz-work/x/", "/.cookingfoil-nsz-work/"];
+  for (const p of paths) {
+    const shop = await fetch(`${BASE}${p}`, { headers: SIGNED_IN, redirect: "manual" });
+    assert.equal(shop.status, 404, `shop ${p}`);
+    assert.ok(!(await shop.text()).includes("WORKDATA"));
+    const direct = await viaProxy(`${DL}${p}`, token);
+    assert.equal(direct.status, 404, `direct ${p}`);
+    assert.ok(!direct.body.includes(Buffer.from("WORKDATA")));
+  }
+  // The listing of the games folder leaves it out, and real files still open.
+  assert.ok(!(await (await fetch(`${BASE}/Game/`, { headers: SIGNED_IN })).text()).includes("cookingfoil-nsz-work"));
+  assert.equal(await (await fetchOk(`/${encodeURIComponent("Game/readme.txt")}`, SIGNED_IN)).text(), "README");
+});
+
+test("/healthz tells callers from outside only whether it is up; the home network and the admin see the detail", async () => {
+  const home = await (await fetch(`${BASE}/healthz`)).json();
+  assert.equal(home.ok, true);
+  assert.ok("files" in home && "directDownload" in home && "nameHealth" in home, "full detail on loopback");
+  for (const headers of [{ "X-Forwarded-For": "203.0.113.9" }, { "CF-Connecting-IP": "203.0.113.9" }, { "X-Forwarded-For": "10.0.0.1, 203.0.113.9" }]) {
+    const r = await fetch(`${BASE}/healthz`, { headers });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { ok: true }, JSON.stringify(headers));
+  }
+});

@@ -84,6 +84,14 @@ test("a user-role account reads the shop but cannot change artwork or see upload
     assert.equal((await write(bob)).status, 403, "bob cannot rewrite a description");
     assert.equal((await fetch(`${base}/api/uploads`, { headers: alice })).status, 200, "alice sees the upload list");
     assert.notEqual((await write(alice)).status, 403, "alice gets past the gate");
+    // Another site's page (a sibling subdomain carries the Lax cookie) is refused before the gate; a client with no Origin is not.
+    const fromSite = (url, origin) => fetch(`${base}${url}`, { method: "POST", headers: { ...alice, "Content-Type": "application/json", ...(origin ? { Origin: origin } : {}) }, body: JSON.stringify({ description: "x" }) });
+    for (const url of ["/api/art/0100000000010000/description", "/api/uploads/x/apply", "/api/uploads"]) {
+      const r = await fromSite(url, "https://evil.example.org");
+      assert.equal(r.status, 403, url);
+      assert.equal((await r.json()).error, "origin mismatch", url);
+    }
+    assert.notEqual((await fromSite("/api/art/0100000000010000/description", null)).status, 403, "no Origin: judged by its sign-in alone");
   } finally {
     child.kill("SIGKILL");
   }

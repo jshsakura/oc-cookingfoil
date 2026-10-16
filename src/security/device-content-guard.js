@@ -16,6 +16,7 @@
  * never touches /admin, /api/*, or the landing page.
  */
 import * as store from "./store.js";
+import { recordPending } from "./pending-limit.js";
 import { devicePairing } from "../helpers/envs.js";
 import * as users from "./users.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
@@ -44,7 +45,7 @@ export default function deviceContentGuard() {
 
     const deviceKey = deviceKeyFromHeaders(req);
     if (deviceKey && !store.isDeviceApproved(deviceKey)) {
-      store.recordPendingDevice(deviceKey);
+      recordPending(req, deviceKey);
     }
 
     // A client with NO device key can never pair — stock Tinfoil is the case

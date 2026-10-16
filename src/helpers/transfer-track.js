@@ -26,7 +26,6 @@ import transferLog from "./transfer-log.js";
 import { countsAsDownload, DOWNLOAD_BYTES } from "../security/drain.js";
 import { isLoopbackIp, isPrivateIp, socketIp } from "../security/net.js";
 import { accountOf } from "../security/link-identity.js";
-import { deviceKeyFromHeaders } from "../security/pairing.js";
 import * as store from "../security/store.js";
 
 const CLIENT_CHARS = 80;
@@ -66,12 +65,15 @@ function deviceLabel(dev) {
 
 /**
  * Who asked: the console's device key, else the account (per-device login, a
- * shop account, a Google account), else the client's address. `key` groups
- * requests and never leaves memory; `id` and `label` are what is kept and shown.
+ * shop account, a Google account), else the client's address. Only a device
+ * key the console proved counts (its access key, or a session made for it:
+ * req.pairedDevice); an X-Device-Key header alone is anyone's to write, so
+ * without that proof the account or the address names the request. `key`
+ * groups requests and never leaves memory; `id` and `label` are what is kept and shown.
  */
 export function requesterOf(req, clientIp) {
   const sub = req.cookingfoilLane === "direct" ? req.directSub : null;
-  const dev = sub ? sub.dev : (req.pairedDevice ?? deviceKeyFromHeaders(req));
+  const dev = sub ? sub.dev : (req.pairedDevice ?? null);
   const acct = sub ? sub.acct : accountOf(req);
   if (dev) {
     const { prefix, label } = deviceLabel(dev);

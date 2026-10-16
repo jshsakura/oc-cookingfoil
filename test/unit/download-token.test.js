@@ -70,11 +70,11 @@ async function listen(app) {
 // Stands in for a download router: echoes the headers it was handed.
 const echo = express.Router().get("/:id/download", (req, res) => res.json(req.headers));
 
-async function start({ ban, edgeSecret } = {}) {
+async function start({ ban, staleBan, edgeSecret } = {}) {
   const app = express();
   app.set("trust proxy", "loopback, uniquelocal");
   const hb = homebrewRouter({ service: fakeService });
-  app.use(directLane(games, { routes: { "/api/homebrew": hb, "/api/saves": echo }, ...(ban ? { ban } : {}), ...(edgeSecret !== undefined ? { edgeSecret } : {}) }));
+  app.use(directLane(games, { routes: { "/api/homebrew": hb, "/api/saves": echo }, ...(ban ? { ban } : {}), ...(staleBan ? { staleBan } : {}), ...(edgeSecret !== undefined ? { edgeSecret } : {}) }));
   // The normal stack: tagged, and serving the games folder as index.js does.
   app.use((req, res, next) => next(res.set("x-lane", "main") && undefined));
   app.use(express.static(games));
@@ -440,6 +440,21 @@ test("a client that keeps sending invalid tokens is blocked by its own address",
   assert.equal(blocked.status, 403);
   assert.equal(tokenState(blocked), "blocked");
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.78", good))).status, 200, "other clients are not");
+});
+
+test("tokens of our shape with a failing MAC are told to refresh, but a run of them is blocked too", async () => {
+  const staleBan = createBan({ limit: 4 });
+  const port = await start({ staleBan });
+  const good = tokenFor({ user: "bob", dev: KEY_B });
+  const forged = `${good.split(".")[0]}.${"Q".repeat(43)}`;
+  const from = (ip, token) => ({ method: "HEAD", headers: { ...PROXY, "x-forwarded-for": ip, authorization: `Bearer ${token}` } });
+  for (let i = 0; i < 3; i++) assert.equal(tokenState(await get(port, `/${ENC}`, from("198.51.100.80", forged))), "expired");
+  assert.equal((await get(port, `/${ENC}`, from("198.51.100.80", good))).status, 200, "a few stale tokens are a replaced key, not a guesser");
+  await get(port, `/${ENC}`, from("198.51.100.80", forged));
+  const blocked = await get(port, `/${ENC}`, from("198.51.100.80", good));
+  assert.equal(blocked.status, 403);
+  assert.equal(tokenState(blocked), "blocked");
+  assert.equal((await get(port, `/${ENC}`, from("198.51.100.81", good))).status, 200, "other clients are not");
 });
 
 test("a list for a direct-token client: fixed direct URLs, a token header (on 304 too), an ETag of the body alone", async () => {

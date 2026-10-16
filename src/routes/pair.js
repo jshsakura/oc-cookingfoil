@@ -8,6 +8,8 @@
  *        → { status: "pending" }  (or { status: "approved" } if already done)
  *        → 400 { error: "invalid pairSecret" } when one is sent but is not 64 hex
  *        → 409 { error: "pairSecret mismatch" } when another secret already asked for this device
+ *        → 429 + Retry-After when this address put too many new devices in the queue lately
+ *          (security/pending-limit.js); /status answers the same for a new device
  *
  *   GET  /api/pair/status?deviceKey=<64hex>   (or the X-Device-Key header)
  *        + the same pairSecret as the X-Pair-Secret header (or ?pairSecret=)
@@ -59,6 +61,7 @@ import {
 import * as deviceLogins from "../security/device-logins.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
 import * as users from "../security/users.js";
+import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { generateAccessKey, hashAccessKey } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -67,9 +70,10 @@ import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
 import { deliverAccessKey, registerPairSecret } from "../security/pairing-delivery.js";
+import { recordPending } from "../security/pending-limit.js";
+import { tooManyRequests } from "../security/retry-after.js";
+import { recordDeny, DENY } from "../security/deny.js";
 
-// What the server writes as `addedBy` for approvals no account made (admin page, COOK_DEVICE_AUTO_APPROVE=all, Telegram).
-const SYSTEM_APPROVERS = new Set(["admin", "auto", "telegram"]);
 
 /** Whether the account behind an approval may still sign in: "admin", a shop account, or "google:<email>". */
 function ownerAllowed(owner) {
@@ -80,6 +84,18 @@ function ownerAllowed(owner) {
     return googleAccounts.list().some((a) => a.email === email && googleAccounts.isApproved(a.sub));
   }
   return users.isActive(owner);
+}
+
+/**
+ * Whether a download's enrollment token made by `owner` may take this console:
+ * it must be free, or already this account's (the same console enrolling again
+ * after a format). The markers the server writes for other approvals ("admin",
+ * "auto", "telegram") are no account's, whatever an account is called.
+ */
+export function mayEnroll(deviceKey, owner) {
+  if (!ownerAllowed(owner)) return false;
+  if (!store.isDeviceApproved(deviceKey)) return true;
+  return store.deviceAddedBy(deviceKey) === owner && !SYSTEM_APPROVERS.has(owner);
 }
 
 function pendingResponse(req, deviceKey) {
@@ -98,6 +114,12 @@ function pendingResponse(req, deviceKey) {
 // than show a QR the admin might approve for someone else.
 function secretConflict(res) {
   res.status(409).json({ error: "pairSecret mismatch" });
+}
+
+// This address put too many new consoles in the queue lately (security/pending-limit.js).
+function tooManyConsoles(req, res, deviceKey, retryAfterSec) {
+  recordDeny(req, { reason: DENY.RATE_LIMITED, status: 429, deviceKey, detail: "pair-request" });
+  tooManyRequests(res, retryAfterSec).json({ error: "too many new devices from this address; try again later" });
 }
 
 export default function pairRouter() {
@@ -142,7 +164,8 @@ export default function pairRouter() {
     }
     // The console's own note, so the admin can tell which one asks; a request without one keeps the last.
     const message = req.body && "message" in req.body ? pairMessage(req.body.message) : undefined;
-    store.recordPendingDevice(deviceKey, { message });
+    const queued = recordPending(req, deviceKey, { message });
+    if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
     debug.log("pair: request from %s…", deviceKey.slice(0, 12));
     res.json(pendingResponse(req, deviceKey));
   });
@@ -163,7 +186,8 @@ export default function pairRouter() {
       // Polling doubles as the knock: record the device as pending so a
       // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the
       // admin dashboard without a separate /request call.
-      store.recordPendingDevice(deviceKey);
+      const queued = recordPending(req, deviceKey);
+      if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
       res.json(pendingResponse(req, deviceKey));
       return;
     }
@@ -186,8 +210,7 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
-    // The console must be free, or already this account's (the same console enrolling again after a format).
-    const canEnroll = (owner) => ownerAllowed(owner) && (!store.isDeviceApproved(deviceKey) || store.deviceAddedBy(deviceKey) === owner);
+    const canEnroll = (owner) => mayEnroll(deviceKey, owner);
     const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
     if (!spent) {
       res.set("X-CookingFoil-Enroll", "invalid");

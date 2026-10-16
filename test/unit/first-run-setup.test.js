@@ -116,6 +116,20 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     assert.equal((await viaToken("/admin/api/users", { method: "POST", body: JSON.stringify({ name: "x", password: "long-enough-pass" }) })).status, 403);
     assert.equal((await viaToken("/admin/api/tokens", { method: "POST", body: "{}" })).status, 403, "tokens never mint tokens");
     assert.equal((await viaToken("/admin/api/2fa/start", { method: "POST", body: "{}" })).status, 403);
+    // Nor who may sign in: console approval, per-device logins, the alerts with approval buttons.
+    for (const url of ["/admin/api/devices/approve", "/admin/api/Devices/approve", "/admin/api/device-logins", "/admin/api/integrations/telegram", "/admin/api/alerts", "/admin/api/pair/0123/approve", "/admin/api/clients/01234567/revoke"]) {
+      assert.equal((await viaToken(url, { method: "POST", body: JSON.stringify({ code: "ABCD2345", label: "x" }) })).status, 403, url);
+    }
+    assert.equal((await viaToken("/admin/api/devices")).status, 200, "reading stays open");
+    for (const key of ["deviceApproval", "devicePairing", "consolePasswords", "publicBaseUrl", "publicDirectBaseUrl", "downloadLinkTtl"]) {
+      const refused = await viaToken("/admin/api/server-settings", { method: "POST", body: JSON.stringify({ [key]: null, welcomeMessage: "hi" }) });
+      assert.equal(refused.status, 403, key);
+      assert.equal((await refused.json()).field, key);
+    }
+    const allowed = await viaToken("/admin/api/server-settings", { method: "POST", body: JSON.stringify({ welcomeMessage: "hello" }) });
+    assert.equal(allowed.status, 200, "other settings still change");
+    assert.deepEqual((await allowed.json()).changed, ["welcomeMessage"]);
+    assert.equal((await viaToken("/admin/api/library/rescan", { method: "POST", body: "{}" })).status < 400, true, "library work still runs");
     assert.equal((await viaToken("/api/shop/info")).status, 401, "nothing outside the admin API");
     assert.equal((await viaToken("/admin/api/integrations", {}, made.token.slice(0, -2) + "xx")).status, 401);
     await post(`/admin/api/tokens/${made.id}/revoke`, {});

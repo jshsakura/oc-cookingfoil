@@ -41,7 +41,8 @@
  * Refusals carry X-CookingFoil-Token, so a client knows what to do:
  *   401 invalid  no token, or not one this server made
  *   401 expired  the token ran out, or was signed with a key since replaced:
- *                read any list again for the current one (not counted toward the ban)
+ *                read any list again for the current one (a token that ran out never
+ *                counts toward the ban; one whose MAC fails does, at STALE_BAN_LIMIT)
  *   401 revoked  the account or console it was made for may no longer sign in
  *   403 blocked  this address sent too many invalid tokens and is shut out for a while
  */
@@ -53,7 +54,7 @@ import { stillAllowed } from "./link-identity.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { isLocalHop } from "./local-hop.js";
 import connectionHint from "../helpers/connection-hint.js";
-import { largeFiles, GAME_FILE_RE } from "../helpers/file-send.js";
+import { largeFiles, hasHiddenSegment, GAME_FILE_RE } from "../helpers/file-send.js";
 import { trackTransfers } from "../helpers/transfer-track.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -148,9 +149,14 @@ function laneRouter(root, routes) {
   router.use(trackTransfers());
   router.use(connectionHint());
   for (const [prefix, route] of Object.entries(routes)) router.use(prefix, route);
-  const serve = express.static(root, { index: false, redirect: false, fallthrough: false });
+  const serve = express.static(root, { index: false, redirect: false, fallthrough: false, dotfiles: "ignore" });
   const large = largeFiles(root, GAME_FILE_RE);
-  router.use((req, res, next) => (laneOf(req.path) === "file" ? large(req, res, () => serve(req, res, next)) : next()));
+  // Nothing inside a dot-folder (the NSZ work folder), "%2e" or not: the shop's own handlers refuse it too.
+  router.use((req, res, next) => {
+    if (laneOf(req.path) !== "file") return next();
+    if (hasHiddenSegment(req.path)) return res.status(404).end();
+    large(req, res, () => serve(req, res, next));
+  });
   router.use((req, res) => res.status(404).end());
   router.use((err, req, res, _next) => {
     if (res.headersSent) return;
@@ -161,9 +167,16 @@ function laneRouter(root, routes) {
   return router;
 }
 
-function newBan() {
+// Tokens shaped like ours whose MAC fails ("stale"): what a console holds after the key was
+// replaced, so they are told to read their lists again, and only this many in the window ban.
+// A console that keeps its old token goes back to its lists after one 401; a guesser that
+// copies our shape does not.
+export const STALE_BAN_LIMIT = 50;
+
+function newBan({ limit, what = "invalid" } = {}) {
   return createBan({
-    onBan: (ip, count) => debug.error("direct lane: %s sent %d invalid tokens within %d minutes; blocked for %d minutes", ip, count, BAD_WINDOW_MS / 60000, BAN_MS / 60000),
+    ...(limit ? { limit } : {}),
+    onBan: (ip, count) => debug.error("direct lane: %s sent %d %s tokens within %d minutes; blocked for %d minutes", ip, count, what, BAD_WINDOW_MS / 60000, BAN_MS / 60000),
   });
 }
 
@@ -173,7 +186,7 @@ const isDownload = (req) => (req.method === "GET" || req.method === "HEAD") && l
  * `root` is the games folder; `routes` maps a mount prefix to its router
  * ({ "/api/retro": retroRouter, … }), the same instances the shop mounts.
  */
-export default function directLane(root, { routes = {}, ban = newBan(), edgeSecret = env.directEdgeSecret } = {}) {
+export default function directLane(root, { routes = {}, ban = newBan(), staleBan = newBan({ limit: STALE_BAN_LIMIT, what: "stale" }), edgeSecret = env.directEdgeSecret } = {}) {
   const lane = laneRouter(root, routes);
   return (req, res, next) => {
     if (!looksProxied(req)) {
@@ -193,14 +206,18 @@ export default function directLane(root, { routes = {}, ban = newBan(), edgeSecr
     if (!isDownload(req)) return res.set("Cache-Control", "no-store").status(404).end();
 
     res.set("Cache-Control", "private, no-store");
-    if (ban.isBanned(ip)) return refuse(res, 403, "blocked");
+    if (ban.isBanned(ip) || staleBan.isBanned(ip)) return refuse(res, 403, "blocked");
 
     const token = tokens.verify(bearerToken(req.get("authorization")));
     if (token.verdict === "invalid") {
       ban.recordBad(ip);
       return refuse(res, 401, "invalid");
     }
-    if (token.verdict === "expired" || token.verdict === "stale") return refuse(res, 401, "expired");
+    if (token.verdict === "stale") {
+      staleBan.recordBad(ip);
+      return refuse(res, 401, "expired");
+    }
+    if (token.verdict === "expired") return refuse(res, 401, "expired");
     if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
 
     // The download records (transfer-track.js): this lane, for whom, and the client the proxy named.

@@ -21,6 +21,8 @@ after(() => { for (const s of servers) { s.closeAllConnections?.(); s.close(); }
 /** A server that records with `log` and answers /file/<size> slowly, honouring one Range. */
 async function harness(log) {
   const app = express();
+  // Stands in for pairingGate: these consoles proved their device key.
+  app.use((req, _res, next) => next((req.pairedDevice = req.get("x-device-key")) && undefined));
   app.use(trackTransfers({ log }));
   app.get("/file/:size", (req, res) => {
     const size = Number(req.params.size);
@@ -92,6 +94,10 @@ test("who: the device key (as an 8-character prefix), else the account, else the
   assert.equal(requesterOf(req({ cookingfoilLane: "direct", directSub: { dev: null, acct: { kind: "google", id: "1234567890123" } } }), "203.0.113.4").label, "Google 12345678");
   const ip = requesterOf(req({}), "203.0.113.4");
   assert.deepEqual([ip.kind, ip.label], ["ip", "203.0.113.4"]);
+  // A device key the caller only wrote in a header names nobody: anyone can send another console's.
+  const claimed = { headers: { "x-device-key": DEVICE } };
+  assert.equal(requesterOf(req({ ...claimed, auth: { user: "kim" } }), "10.0.0.3").label, "kim");
+  assert.deepEqual([requesterOf(req(claimed), "203.0.113.4").kind, requesterOf(req(claimed), "203.0.113.4").id], ["ip", "203.0.113.4"]);
 });
 
 test("parallel Range requests for one file are one transfer, with the whole file and the peak", async () => {

@@ -1,4 +1,4 @@
-import { test, after } from "node:test";
+import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,6 +17,9 @@ const pairing = await import("../../src/security/pairing.js");
 const { approveWaitingDevice } = await import("../../src/security/pairing-approve.js");
 const { registerPairSecret, deliverAccessKey } = await import("../../src/security/pairing-delivery.js");
 const pairRouter = (await import("../../src/routes/pair.js")).default;
+const pendingLimit = await import("../../src/security/pending-limit.js");
+// Every test here knocks with new consoles from one address; the per-address limit is tested on its own.
+beforeEach(() => pendingLimit.resetForTests());
 
 const app = express();
 app.use("/api/pair", pairRouter());

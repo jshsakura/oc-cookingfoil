@@ -23,8 +23,10 @@ import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
   adminTotpEnabled,
+  hasValidSession,
   selfTest as adminSelfTest,
 } from "./security/admin-session.js";
+import { isPrivateCaller } from "./security/net.js";
 import {
   isEnrolled as adminEnrolled,
   secretSource as adminSecretSource,
@@ -35,7 +37,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
-import { largeFiles, GAME_FILE_RE } from "./helpers/file-send.js";
+import { largeFiles, hiddenPaths, GAME_FILE_RE } from "./helpers/file-send.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane, { looksProxied, laneOf } from "./security/direct-lane.js";
 import transferLog from "./helpers/transfer-log.js";
@@ -48,6 +50,7 @@ import authGuard from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import sessionGate from "./security/session-gate.js";
 import adminOnly from "./security/admin-only.js";
+import { sameOriginWrites } from "./security/same-origin.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
@@ -118,8 +121,16 @@ expressApp.use("/healthz", (req, res, next) => (looksProxied(req) ? res.status(4
 // auth-guard. Returns 200 once the shop cache has produced a snapshot
 // (cold boot returns 503 — that's the period during which orchestrators
 // SHOULD keep the container in "starting" state, not declare it healthy).
-expressApp.get("/healthz", async (_req, res) => {
+// Callers from outside (through a tunnel, a public address) learn only whether it is up:
+// the counts, titledb regions, keys and the direct address's state stay on the
+// home network and the admin page (its session cookie).
+expressApp.get("/healthz", async (req, res) => {
   const s = shopCache.stats();
+  const outside = Boolean(req.get("cf-connecting-ip")) || !isPrivateCaller(req);
+  if (outside && !hasValidSession(req)) {
+    res.status(s.cached ? 200 : 503).set("Cache-Control", "no-store").json({ ok: Boolean(s.cached) });
+    return;
+  }
   // titledb diagnostics live here too — a quick at-a-glance of WHICH
   // region files actually landed (US.en presence / size matters for the
   // English-alias decoration on CJK display names). Lazy-imported to
@@ -230,11 +241,12 @@ expressApp.use(["/api/shop", "/api/remote", "/api/title", "/api/uploads", "/api/
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
 // Uploads and artwork change what everyone sees: admin accounts only (the upload list too).
-expressApp.use("/api/uploads", adminOnly({ reads: true }), uploadsRouter());
+// The sign-in cookie rides along on a sibling site's POST (SameSite=Lax), so another site's Origin is refused first.
+expressApp.use("/api/uploads", sameOriginWrites(), adminOnly({ reads: true }), uploadsRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).
-expressApp.use("/api/art", adminOnly(), artRouter());
+expressApp.use("/api/art", sameOriginWrites(), adminOnly(), artRouter());
 
 // Locally-cached artwork. First request fetches from the eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.
@@ -305,9 +317,11 @@ expressApp.use(deviceContentGuard());
 expressApp.use(shopFileBuilder());
 
 // File downloads + a directory listing for the games folder. Game files are read in large pieces (helpers/file-send.js).
+// Nothing inside a dot-folder (the NSZ work folder, .git, ...) is served or listed, encoded or not.
+expressApp.use(hiddenPaths());
 expressApp.use(trackTransfers({ match: (p) => !p.endsWith("/") }));
 expressApp.use(largeFiles(romsDirPath, GAME_FILE_RE));
-expressApp.use(express.static(romsDirPath));
+expressApp.use(express.static(romsDirPath, { dotfiles: "ignore" }));
 expressApp.use(
   serveIndex(romsDirPath, {
     icons: true,
