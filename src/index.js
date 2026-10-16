@@ -39,6 +39,7 @@ import { logConfigHealth } from "./security/config-health.js";
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
 import rateLimit from "./security/rate-limit.js";
+import noCrawl from "./security/no-crawl.js";
 import { largeFiles, hiddenPaths, GAME_FILE_RE } from "./helpers/file-send.js";
 import connectionHint from "./helpers/connection-hint.js";
 import directLane, { looksProxied, laneOf } from "./security/direct-lane.js";
@@ -208,6 +209,8 @@ expressApp.use(accessGuard());
 // Crawlers ask for this first; answering before sign-in keeps them out of the
 // failure log and tells them there is nothing to index.
 expressApp.get("/robots.txt", (_req, res) => res.type("text/plain").set("Cache-Control", "public, max-age=86400").send("User-agent: *\nDisallow: /\n"));
+// Crawlers that say who they are get nothing past robots.txt, not even the sign-in page.
+expressApp.use(noCrawl());
 // The share image: link previews fetch it without signing in.
 const OG_IMAGE = fileURLToPath(new URL("./views/assets/og-image.png", import.meta.url));
 expressApp.get("/assets/og-image.png", (_req, res) => res.sendFile(OG_IMAGE, { maxAge: "1d" }));
