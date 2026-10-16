@@ -292,7 +292,7 @@ CookingFoil is made to sit on the internet behind your own proxy, so it starts l
 | Admin | An account with the admin role, plus an authenticator code or the admin password | Everything on the admin page. The admin session lasts `COOK_ADMIN_SESSION_HOURS` |
 | Paired console | Its device key and access key, then a 12-hour session token bound to the same device key | Read the lists and download |
 | Console with a password | An account, or a per-console login locked to one console. Only while console passwords are on | Read the lists and download. A per-console login never reaches the pages that approve consoles or make logins |
-| Automation token | `Authorization: Bearer cft_…` | The admin API under `/admin/api/`, as the admin who made it. It cannot make or revoke tokens or change the admin sign-in |
+| Automation token | `Authorization: Bearer cft_…` | The admin API under `/admin/api/`, as the admin who made it. It cannot make or revoke tokens, change the admin sign-in, approve consoles, issue per-console logins, change the alerts, or change the sign-in and address settings |
 | Direct download address | A short-lived download token, through the local proxy that holds the edge secret | `GET` and `HEAD` downloads only |
 
 Changing what everyone sees (artwork, descriptions, files in the games folder) and the upload list are for admin accounts only. A user account, a per-console login and a paired console only read.

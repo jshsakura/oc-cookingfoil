@@ -359,3 +359,23 @@ test("downloads are counted while they run, and their paths count as in use for 
   await get(`${base}/fast`);
   assert.equal(drainer.pathInUse("/fast"), false);
 });
+
+test("a Range request that is refused, or not answered yet, is no download and holds nothing back", async () => {
+  const drainer = createDrainer({ retryAfter: () => 20, grace: () => 2 });
+  const app = express();
+  app.use(drainer.middleware());
+  app.get("/locked", (_req, res) => res.status(401).set("WWW-Authenticate", "Basic").end());
+  app.get("/slow-auth", (_req, res) => setTimeout(() => res.status(403).end(), 150));
+  const server = app.listen(0, "127.0.0.1");
+  servers.push(server);
+  await new Promise((r) => server.once("listening", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  for (let i = 0; i < 5; i++) assert.equal((await get(`${base}/locked`, { range: "bytes=0-0" })).status, 401);
+  const pending = get(`${base}/slow-auth`, { range: "bytes=0-0" });
+  await tick(50);
+  assert.equal(drainer.downloads().active, 0, "a request still being checked is not a download");
+  await pending;
+  await tick(20);
+  assert.deepEqual(drainer.downloads(), { active: 0, lastEndedAt: 0 }, "refusals never count as a download that just ended");
+  assert.equal(drainer.pathInUse("/locked"), false);
+});

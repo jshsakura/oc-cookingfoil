@@ -5,6 +5,7 @@
  *                                                       directDownload: { configured, up, since, checkedAt } }
  *   POST /admin/api/server-settings                   { <name>: value | null }  save (null = back to compose); applies at once
  *                                                     400 { error, field } when titledbSource or publicDirectBaseUrl points at a private network
+ *                                                     403 { error, field } from an automation token naming a TOKEN_LOCKED setting
  *   POST /admin/api/server-settings/titledb-refresh   fetch titledb now, in the background
  *
  * The names are security/server-settings.js SETTINGS.
@@ -24,6 +25,8 @@ const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publ
 const OUTBOUND = ["titledbSource", "publicDirectBaseUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
+// Who may sign in and how, and the addresses consoles are sent to: never changed with an automation token.
+export const TOKEN_LOCKED = ["devicePairing", "consolePasswords", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "downloadLinkTtl"];
 
 let fetching = null;
 
@@ -44,6 +47,8 @@ export function mountServerSettingsApi(router, requireSession) {
 
   router.post("/api/server-settings", handle(async (req, res) => {
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    const locked = req.apiToken ? TOKEN_LOCKED.filter((k) => k in body) : [];
+    if (locked.length) return res.status(403).json({ error: "automation tokens cannot change sign-in or address settings", field: locked[0] });
     for (const field of OUTBOUND) {
       const value = typeof body[field] === "string" ? body[field].trim().replace(/\/+$/, "") : "";
       // Only a new address: saving another setting must not hinge on this one's DNS.

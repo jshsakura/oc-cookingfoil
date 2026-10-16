@@ -9,6 +9,11 @@
  *   - a digest event (dangerous access) sends its first hit at once, then
  *     gathers the rest for DIGEST_MS and sends one summary with the count, the
  *     number of addresses and the paths tried most.
+ *   - approval alerts (a console, a Google account) send the first
+ *     APPROVAL_BURST of each APPROVAL_WINDOW_MS at once, buttons and all; the
+ *     rest are counted and told in one summary without buttons when the window
+ *     ends, so a flood of strangers can neither bury the chat nor use up the
+ *     buttons a real console needs.
  * Every alert, sent or not, lands in a short history the alerts tab shows.
  *
  * Alerts carry no passwords, keys, addresses or e-mail: only enough to know
@@ -38,6 +43,10 @@ export const EVENTS = {
 };
 export const DEDUPE_MS = 30 * 60 * 1000;
 export const DIGEST_MS = 10 * 60 * 1000;
+export const APPROVAL_BURST = 3;
+export const APPROVAL_WINDOW_MS = 10 * 60 * 1000;
+// The repeat guard forgets a subject after DEDUPE_MS, and never holds more than this many.
+export const DEDUPE_MAX = 1000;
 const SEND_TIMEOUT_MS = 10_000;
 const HISTORY_MAX = 50;
 const API = "https://api.telegram.org";
@@ -45,6 +54,7 @@ const HISTORY_FILE = path.join(dataDir, "security", "alerts-history.json");
 
 const lastSent = new Map();
 const digests = new Map(); // event → { since, count, subjects: Set, paths: Map, timer }
+const bursts = new Map(); // event → { since, sent, held, timer }
 let fetchImpl = (...args) => fetch(...args);
 let history = null;
 
@@ -172,6 +182,44 @@ function flushDigest(event) {
   deliver(event, `지난 ${mins}분 동안 ${d.count}건을 더 막았습니다. 주소 ${d.subjects.size}곳에서 왔고, 많이 노린 경로는 ${top} 입니다.`, Date.now());
 }
 
+/** Forgets subjects told longer ago than DEDUPE_MS, then the oldest beyond DEDUPE_MAX. */
+function pruneLastSent(now) {
+  for (const [key, at] of lastSent) if (now - at >= DEDUPE_MS) lastSent.delete(key);
+  while (lastSent.size > DEDUPE_MAX) lastSent.delete(lastSent.keys().next().value);
+}
+
+/** Ends an approval window: the requests held back in it are told in one summary, with no buttons. */
+function flushBurst(event) {
+  const b = bursts.get(event);
+  bursts.delete(event);
+  if (!b) return;
+  clearTimeout(b.timer);
+  if (!b.held) return;
+  const what = event === "account" ? "계정이" : "기기가";
+  deliver(event, `${b.held}개 ${what} 더 승인을 기다립니다. 관리 페이지에서 확인합니다.`, Date.now());
+}
+
+/** Whether an approval alert may go out now with its buttons, or waits for the window's summary. */
+function burstAllows(event, now) {
+  let b = bursts.get(event);
+  if (b && now - b.since >= APPROVAL_WINDOW_MS) {
+    flushBurst(event);
+    b = null;
+  }
+  if (!b) {
+    const timer = setTimeout(() => flushBurst(event), APPROVAL_WINDOW_MS);
+    timer.unref?.();
+    b = { since: now, sent: 0, held: 0, timer };
+    bursts.set(event, b);
+  }
+  if (b.sent < APPROVAL_BURST) {
+    b.sent++;
+    return true;
+  }
+  b.held++;
+  return false;
+}
+
 /**
  * Raises an alert. `subject` tells repeats apart (a device key, an address) and
  * is never sent. `digest: { path }` gathers the event as described at the top.
@@ -202,7 +250,13 @@ export function alert(event, text, { subject = "", now = Date.now(), digest = nu
       remember({ at: now, event, text, status: "held", detail: "같은 일을 30분 안에 이미 알렸습니다" });
       return false;
     }
+    lastSent.delete(key);
     lastSent.set(key, now);
+    pruneLastSent(now);
+  }
+  if (approval && !burstAllows(event, now)) {
+    remember({ at: now, event, text, status: "held", detail: "승인 요청이 몰려 창이 끝날 때 한 번에 알립니다" });
+    return false;
   }
   const extra = approval && buttonsOn() ? { reply_markup: approvalKeyboard(approvalTokens.issue(approval.kind, approval.ref, now)) } : {};
   deliver(event, text, now, undefined, extra);
@@ -223,9 +277,14 @@ export function setFetchForTests(impl) {
   lastSent.clear();
   for (const d of digests.values()) clearTimeout(d.timer);
   digests.clear();
+  for (const b of bursts.values()) clearTimeout(b.timer);
+  bursts.clear();
   history = [];
   approvalTokens.resetForTests();
 }
 
-/** Test-only: send a gathered digest now. */
-export const flushForTests = (event) => flushDigest(event);
+/** Test-only: send a gathered digest, or end an approval window, now. */
+export const flushForTests = (event) => (bursts.has(event) ? flushBurst(event) : flushDigest(event));
+
+/** Test-only: how many subjects the repeat guard holds. */
+export const dedupeSizeForTests = () => lastSent.size;

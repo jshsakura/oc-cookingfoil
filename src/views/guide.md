@@ -71,7 +71,7 @@ AI 도우미는 관리 페이지가 쓰는 것과 같은 API 를 부릅니다. �
 2. 도우미에게 서버 주소, 토큰, 이 문서(`/admin/guide.md`)를 건넵니다.
 3. 다 쓰면 같은 곳에서 토큰을 지웁니다.
 
-토큰은 만든 관리자 계정으로 동작하고 `/admin/api/` 아래에서만 통합니다. 계정, 로그인 방식, 토큰은 바꿀 수 없습니다. 토큰이 새면 바로 지웁니다.
+토큰은 만든 관리자 계정으로 동작하고 `/admin/api/` 아래에서만 통합니다. 계정, 로그인 방식, 토큰, 기기 승인과 기기별 접속 정보, 알림 설정은 바꿀 수 없고, 서버 동작 중 기기 승인·접속 방식과 공개 주소에 관한 값도 바꿀 수 없습니다. 이런 일은 사람이 관리 페이지에서 합니다. 토큰이 새면 바로 지웁니다.
 
 ### 도우미를 위한 요약
 
@@ -99,12 +99,11 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 게임 파일 찾기, 지우기 | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }` |
 | 레트로 게임 이름 정하기 (파일 이름은 그대로, 둘 다 비우면 파일 이름으로) | `POST /admin/api/retro-art/games/name` `{ "game": "<id>", "ko", "en" }` |
 | 레트로 게임 롬 지우기 (표지는 남음) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
-| 서버 동작 보기, 바꾸기 (null 이면 compose 값으로), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "devicePairing": true }`, `POST /admin/api/server-settings/titledb-refresh` |
+| 서버 동작 보기, 바꾸기 (null 이면 compose 값으로, 기기 승인·접속 방식·공개 주소·다운로드 링크 수명은 제외), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "welcomeMessage": "…" }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` |
 | 게임 세이브 목록, 패치·세이브 편집, 다른 게임으로 옮기기, 지우기 | `GET /admin/api/saves`, `POST /admin/api/content/<patch\|save>/meta` `{ "id", "name", "nameKo", "description", "descriptionKo", … }`, `…/move` `{ "id", "titleId" }`, `…/remove` `{ "id" }` |
 | 게임 이름, 소개, 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "name": { "ko", "en" }, "description": { "ko", "en" }, "notes": { "ko", "en" } }`, `POST …/<타이틀 ID>/reset` |
-| 기기 목록, 승인, 이름, 끊기, 승인 요청 거절 | `GET /admin/api/devices`, `POST /admin/api/devices/approve` `{ "code": "<기기 코드>" }`, `…/label`, `…/revoke` (기다리는 기기에 쓰면 요청을 지움) |
-| 기기별 접속 정보 | `GET /admin/api/device-logins`, `POST /admin/api/device-logins` `{ "label" }`, `POST …/<이름>/revoke` |
+| 기기 목록, 기기별 접속 정보 (보기만 합니다) | `GET /admin/api/devices`, `GET /admin/api/device-logins` |
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |
 | 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |

@@ -83,9 +83,31 @@ export function sendLargeFile(req, res, abs, st) {
 }
 
 /**
+ * Whether a request path, once decoded the way express.static decodes it, has a
+ * segment starting with "." (".cookingfoil-nsz-work", ".git", "..", "%2e…").
+ * A path that does not decode counts as hidden too. Pure.
+ */
+export function hasHiddenSegment(rawPath) {
+  let rel;
+  try { rel = decodeURIComponent(String(rawPath ?? "")); } catch { return true; }
+  return rel.includes("\0") || rel.split(/[/\\]/).some((s) => s.startsWith("."));
+}
+
+/**
+ * Middleware: a 404 for any path with a hidden segment, ahead of the games
+ * folder's file handlers and its listing. express.static (send) checks only the
+ * last segment by default, so a file inside a dot-folder (the NSZ work folder)
+ * would otherwise be served, and serve-index would list the folder.
+ */
+export function hiddenPaths() {
+  return (req, res, next) => (hasHiddenSegment(req.path) ? res.status(404).end() : next());
+}
+
+/**
  * Middleware for the files under root whose names match `match`; anything else
  * (other files, folders, missing paths) falls through to the next handler.
- * Hidden segments and paths that leave root are left to express.static, which refuses them.
+ * Hidden segments (checked on the decoded path) and paths that leave root fall
+ * through too: hiddenPaths(), mounted ahead, answers those with a 404.
  */
 export function largeFiles(root, match) {
   const base = path.resolve(root);
@@ -93,7 +115,7 @@ export function largeFiles(root, match) {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     let rel;
     try { rel = decodeURIComponent(req.path); } catch { return next(); }
-    if (!match.test(rel) || rel.includes("\0") || rel.split("/").some((s) => s.startsWith("."))) return next();
+    if (!match.test(rel) || hasHiddenSegment(req.path)) return next();
     const abs = path.resolve(base, "." + rel);
     if (!abs.startsWith(base + path.sep)) return next();
     fs.stat(abs, (err, st) => {

@@ -377,15 +377,16 @@ export function clearPairSecret(deviceKey) {
 /**
  * A console asking for approval; only when it asked is kept, plus the note it
  * sent, if any (a later note replaces it; a request without one keeps it).
+ * `quiet` records it without an alert (pending-limit.js, past its hourly cap).
  */
-export function recordPendingDevice(deviceKey, { message } = {}) {
+export function recordPendingDevice(deviceKey, { message, quiet = false } = {}) {
   const now = Date.now();
   const prev = state.pending.get(deviceKey);
   const note = message === undefined ? prev?.message ?? null : message;
   state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, ...(note ? { message: note } : {}) });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
-  if (!prev || (message && message !== prev.message)) {
+  if (!quiet && (!prev || (message && message !== prev.message))) {
     // The code is what the console shows on its screen; the note is the console's own words.
     alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }

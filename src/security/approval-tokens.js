@@ -16,7 +16,8 @@ import { dataDir } from "../helpers/envs.js";
 
 export const TTL_MS = 24 * 60 * 60 * 1000;
 export const TOKEN_RE = /^[A-Za-z0-9_-]{22}$/;
-const MAX_KEPT = 500;
+// Above what the alerts can issue in a TTL: three per ten minutes for each kind of request (alerts.js).
+const MAX_KEPT = 1000;
 const FILE = path.join(dataDir, "security", "telegram-approvals.json");
 
 let saved = null; // hash → { kind, ref, at }

@@ -35,6 +35,13 @@ const MAX_PASSWORD = 128;
 const GENERATED_BYTES = 18; // 24 base64url characters
 const VERIFIED_MAX = 1000;
 
+/**
+ * What the server writes as a console's `addedBy` for approvals no account made
+ * (the admin page, COOK_DEVICE_AUTO_APPROVE=all, Telegram). No account may take
+ * one of these names, or it would own those consoles.
+ */
+export const SYSTEM_APPROVERS = new Set(["admin", "auto", "telegram"]);
+
 const accounts = new Map(); // name → { hash, enabled, createdAt, updatedAt }
 const verified = new Set(); // sha256(name \0 password) of recent successful checks
 
@@ -114,6 +121,9 @@ function validateName(name) {
   // Per-device logins are named cf-xxxxxx; an account must never shadow one.
   if (/^cf-/i.test(name)) {
     throw new UserError("invalid-name", "Names starting with cf- are reserved for device logins.");
+  }
+  if (SYSTEM_APPROVERS.has(name.toLowerCase())) {
+    throw new UserError("invalid-name", `"${name}" is reserved for the server's own approvals.`);
   }
 }
 

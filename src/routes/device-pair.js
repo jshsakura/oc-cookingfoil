@@ -55,6 +55,17 @@ export function approverOf(req) {
 }
 
 /**
+ * Whether a console approved by `addedBy` is this approver's own. A shop account
+ * never owns the markers the server writes for other approvals ("admin",
+ * "auto", "telegram"), whatever it is called; only the admin's own session owns "admin".
+ */
+export function ownsApproval(req, approver, addedBy) {
+  if (!approver || addedBy !== approver) return false;
+  if (!users.SYSTEM_APPROVERS.has(addedBy)) return true;
+  return addedBy === "admin" && !req.auth?.user;
+}
+
+/**
  * A change made from the browser: someone to act as, and the same origin (the
  * browser re-sends basic-auth on its own, so anything cross-site is refused).
  * Returns the approver, or null after answering.
@@ -86,7 +97,7 @@ function mountMineApi(router) {
     const approver = approverOf(req);
     if (!approver) return res.status(401).json({ error: "sign in first" });
     const devices = store.devicesSnapshot().approved
-      .filter((d) => d.addedBy === approver)
+      .filter((d) => ownsApproval(req, approver, d.addedBy))
       .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt }));
     const logins = deviceLogins.list({ owner: approver })
       .map(({ name, label, createdAt, deviceKey }) => ({ name, label, createdAt, locked: Boolean(deviceKey) }));
@@ -165,7 +176,7 @@ function mountMineApi(router) {
     const approver = guardWrite(req, res);
     if (!approver) return;
     const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
-    const mine = deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && d.addedBy === approver);
+    const mine = deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && ownsApproval(req, approver, d.addedBy));
     if (!mine) return res.status(404).json({ error: "no such device" });
     store.revokeDevice(deviceKey);
     res.json({ ok: true });

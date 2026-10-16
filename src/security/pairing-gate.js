@@ -15,6 +15,7 @@
  * No-op passthrough when COOK_DEVICE_PAIRING is off.
  */
 import * as store from "./store.js";
+import { recordPending } from "./pending-limit.js";
 import { devicePairing } from "../helpers/envs.js";
 import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
 import { recordDeny, DENY } from "./deny.js";
@@ -41,7 +42,7 @@ export default function pairingGate() {
     // A console signing in with a password (an account or its own device
     // login) is not asking for QR approval, so it stays out of the queue.
     if (!store.isDeviceApproved(deviceKey)) {
-      if (!req.headers.authorization) store.recordPendingDevice(deviceKey);
+      if (!req.headers.authorization) recordPending(req, deviceKey);
     } else if (req.get("X-Access-Key")) {
       // Only a key that was presented and is wrong; an approved console that
       // signs in with a password (auto-approval, CyberFoil) sends none.

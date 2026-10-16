@@ -36,9 +36,15 @@ export const MESSAGE = Object.freeze({
 // A response this large, or any Range request, counts as a download in the status.
 export const DOWNLOAD_BYTES = 1024 * 1024;
 
-/** Whether a request counts as a download: a Range request, or a response of DOWNLOAD_BYTES or more. */
+/**
+ * Whether a request counts as a download: a Range request, or a response of
+ * DOWNLOAD_BYTES or more, once it is being answered with 200 or 206. Anyone can
+ * send a Range header before sign-in; a refusal (401, 403, 404, 416, ...) or a
+ * request not answered yet never counts, so it cannot hold the NSZ queue back.
+ */
 export const countsAsDownload = (req, res) =>
-  Boolean(req.headers.range) || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES;
+  res.headersSent && (res.statusCode === 200 || res.statusCode === 206) &&
+  (Boolean(req.headers.range) || Number(res.getHeader("content-length")) >= DOWNLOAD_BYTES);
 
 // The exit code of a restart asked for on the admin page (EX_TEMPFAIL): non-zero,
 // so a supervisor that restarts only on failure (systemd Restart=on-failure)

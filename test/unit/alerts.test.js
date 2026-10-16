@@ -114,3 +114,49 @@ test("each share-inbox upload is told at once, never held as a repeat of the las
   assert.equal(alerts.alert("inbox", "alice 님이 파일 1개(1 B), 링크 0개를 올렸습니다.", { subject: "20261014-090001-alice-0002" }), true);
   assert.equal(alerts.EVENTS.inbox.label, "임시 공유");
 });
+
+test("a flood of new consoles sends a few buttons at once, then one summary without buttons", async () => {
+  integrations.save("telegram", { botToken: "", chatId: "-100123", events: "" });
+  const sent = capture();
+  const t0 = 5_000_000;
+  let accepted = 0;
+  for (let i = 0; i < 300; i++) {
+    if (alerts.alert("device", `기기 코드 ${i}`, { subject: `KEY-${i}`, now: t0 + i, approval: { kind: "device", ref: `KEY-${i}` } })) accepted++;
+  }
+  await settle();
+  assert.equal(accepted, alerts.APPROVAL_BURST);
+  assert.equal(sent.length, alerts.APPROVAL_BURST, "the rest wait for the summary");
+  assert.ok(sent.every((m) => m.body.reply_markup?.inline_keyboard), "the first ones carry buttons");
+  alerts.flushForTests("device");
+  await settle();
+  assert.equal(sent.length, alerts.APPROVAL_BURST + 1);
+  const summary = sent.at(-1).body;
+  assert.match(summary.text, new RegExp(`${300 - alerts.APPROVAL_BURST}개 기기가 더 승인을 기다립니다`));
+  assert.equal(summary.reply_markup, undefined, "the summary has no buttons");
+  // The next window starts with buttons again, and a single console is told as before.
+  const next = t0 + alerts.APPROVAL_WINDOW_MS + 1;
+  assert.equal(alerts.alert("device", "기기 코드 X", { subject: "KEY-X", now: next, approval: { kind: "device", ref: "KEY-X" } }), true);
+  await settle();
+  assert.ok(sent.at(-1).body.reply_markup?.inline_keyboard);
+});
+
+test("the repeat guard forgets old subjects and holds a bounded number", () => {
+  integrations.save("telegram", { botToken: "", chatId: "-100123", events: "lockout" });
+  capture();
+  const t0 = 9_000_000;
+  for (let i = 0; i < alerts.DEDUPE_MAX + 200; i++) alerts.alert("lockout", "x", { subject: `ip-${i}`, now: t0 });
+  assert.equal(alerts.dedupeSizeForTests(), alerts.DEDUPE_MAX);
+  alerts.alert("lockout", "x", { subject: "later", now: t0 + alerts.DEDUPE_MS });
+  assert.equal(alerts.dedupeSizeForTests(), 1, "subjects past the window are forgotten");
+});
+
+test("a console queued quietly (past the hourly cap) raises no alert", async () => {
+  integrations.save("telegram", { botToken: "", chatId: "-100123", events: "" });
+  const sent = capture();
+  const store = await import("../../src/security/store.js");
+  store.recordPendingDevice("Q".repeat(64), { quiet: true });
+  assert.equal(store.isDevicePending("Q".repeat(64)), true);
+  store.recordPendingDevice("R".repeat(64));
+  await settle();
+  assert.equal(sent.length, 1, "only the console that was not held back");
+});

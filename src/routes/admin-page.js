@@ -121,8 +121,10 @@ function clientBuildWarnings() {
   }];
 }
 
-// What an automation token may not change: who can sign in and how, and whether the server runs.
-export const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa|server)(\/|$)/;
+// What an automation token may not change: who can sign in and how (accounts, consoles and
+// their approval, per-device logins, client downloads), the alerts that carry the approval
+// buttons, and whether the server runs. Routes match case-insensitively, so this does too.
+export const TOKEN_BLOCKED_RE = /^\/api\/(users|accounts|google|tokens|2fa|admin-password|server|devices|device-logins|pair|clients|alerts|integrations\/telegram)(\/|$)/i;
 
 function requireSession(req, res) {
   if (req.apiToken && req.method !== "GET" && TOKEN_BLOCKED_RE.test(req.path)) {
