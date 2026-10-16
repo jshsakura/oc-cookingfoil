@@ -189,6 +189,21 @@ td[data-label=""]{grid-template-columns:1fr}td[data-label=""]::before{display:no
 td:first-child{grid-template-columns:1fr;padding-top:10px}td:first-child::before{display:none}td:first-child b{font-size:15px}
 td .row-actions{display:flex;gap:8px}td .row-actions button,td[data-label=""]>button{flex:1 1 0;min-width:0}
 td .xline{margin-bottom:8px}td>button{width:100%}
+.hb-banner{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:20px;box-shadow:0 30px 60px var(--shadow)}
+.hb-banner::backdrop{background:rgba(0,0,0,.55)}
+.hb-banner-now{margin:12px 0;border-radius:14px;overflow:hidden;background:var(--sunk);aspect-ratio:1920/620;display:grid;place-items:center}
+.hb-banner-now img{width:100%;height:100%;object-fit:cover;display:block}.hb-banner-now img[hidden]{display:none}
+.hb-banner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:10px 0}
+.hb-banner-grid button{padding:0;border:2px solid transparent;border-radius:12px;overflow:hidden;background:var(--sunk);cursor:pointer;aspect-ratio:1920/620}
+.hb-banner-grid button:hover,.hb-banner-grid button:focus-visible{border-color:var(--accent)}
+.hb-banner-grid img{width:100%;height:100%;object-fit:cover;display:block}
+.hb-banner-grid figcaption{font-size:12px;color:var(--muted);padding:4px 2px 0;text-align:left}
+.hb-banner h4{margin:18px 0 6px}
+.hb-shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:8px 0}
+.hb-shots figure{position:relative;margin:0;border-radius:10px;overflow:hidden;background:var(--sunk);aspect-ratio:16/9}
+.hb-shots img{width:100%;height:100%;object-fit:cover;display:block}
+.hb-shots button{position:absolute;top:6px;right:6px;width:28px;height:28px;padding:0;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer}
+.btn-like{display:inline-flex;align-items:center;padding:8px 14px;border:1px solid var(--line2);border-radius:10px;font-weight:600;cursor:pointer}
 /* A labelled cell holding several things (a list and its button) keeps them all beside the label. */
 td:not(:first-child):not([data-label=""])>*{grid-column:2}
 }
@@ -462,6 +477,27 @@ ${NSZ_HTML}
   <div class="dialog-actions">
     <button type="button" id="cred-config">CookingFoil 설정 파일 받기</button>
     <button type="button" class="primary" id="cred-close">닫기</button>
+  </div>
+</dialog>
+<dialog id="hb-banner" class="hb-banner" aria-labelledby="hb-banner-title">
+  <h3 id="hb-banner-title"></h3>
+  <p class="muted">게임처럼 앱 정보 위쪽에 넓은 배경 그림을, 아래에 스크린샷을 보여 줍니다. 포트는 배경을 SteamGridDB 에서, 스크린샷을 IGDB 에서(키가 있을 때) 자동으로 찾아 둡니다.</p>
+  <h4>배경 그림</h4>
+  <div class="hb-banner-now" id="hb-banner-now"><img id="hb-banner-img" alt="지금 그림"><p class="muted" id="hb-banner-none">지금은 그림이 없습니다.</p></div>
+  <form class="add" id="hb-banner-search"><input id="hb-banner-q" aria-label="검색어" placeholder="영어 게임 이름"><button class="primary">SteamGridDB 에서 찾기</button></form>
+  <p class="muted" id="hb-banner-state" aria-live="polite"></p>
+  <div class="hb-banner-grid" id="hb-banner-results"></div>
+  <div class="row-actions">
+    <label class="btn-like" for="hb-banner-file">배경 올리기</label><input type="file" id="hb-banner-file" accept="image/*" hidden>
+    <button type="button" id="hb-banner-remove" class="danger">배경 빼기</button>
+  </div>
+  <h4>스크린샷 <span class="muted" id="hb-shots-count"></span></h4>
+  <div class="hb-shots" id="hb-shots"></div>
+  <p class="muted" id="hb-shots-state" aria-live="polite"></p>
+  <div class="dialog-actions">
+    <label class="btn-like" for="hb-shots-file">스크린샷 올리기</label><input type="file" id="hb-shots-file" accept="image/*" multiple hidden>
+    <button type="button" id="hb-shots-clear" class="danger">스크린샷 모두 빼기</button>
+    <button type="button" id="hb-banner-close">닫기</button>
   </div>
 </dialog>
 <dialog id="hb-desc" aria-labelledby="hb-desc-title">

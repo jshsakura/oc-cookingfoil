@@ -348,9 +348,55 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     if(a.app)tr.append(extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));else tr.append(td('—'),td('—'));
     const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
     const repo=(a.repo_url||'').replace('https://github.com/','');
+    box.append(btn('그림',()=>openHbBanner(a)));
     if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
     else if(repo)box.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
     act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.');}
+// The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
+let hbBannerApp=null;
+function hbBannerShow(url){const img=$('hb-banner-img');img.hidden=!url;if(url)img.src=url;$('hb-banner-none').hidden=Boolean(url);$('hb-banner-remove').hidden=!url;
+  // An app turned off is not served publicly: its preview says so instead of a broken picture.
+  img.onerror=()=>{img.hidden=true;$('hb-banner-none').hidden=false;$('hb-banner-none').textContent='앱이 꺼져 있어 미리 볼 수 없습니다. 그림은 그대로 있습니다.';};
+  $('hb-banner-none').textContent='지금은 그림이 없습니다.';}
+function hbShotsShow(urls){const n=(urls||[]).length;$('hb-shots-count').textContent=n?n+'장':'없음';$('hb-shots-clear').hidden=!n;
+  $('hb-shots').replaceChildren(...(urls||[]).map((u,i)=>{const f=el('figure');const img=el('img');img.src=u;img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
+    const x=btn('✕',()=>hbShotRemove(i+1));x.setAttribute('aria-label',(i+1)+'번째 스크린샷 빼기');f.append(img,x);return f;}));}
+// The dialog stays open while pictures change; the list behind it is read again when it closes.
+async function hbMediaReload(){const d=await api('/admin/api/homebrew/apps');const a=(d.apps||[]).find((x)=>x.id===hbBannerApp.id);
+  if(a){hbBannerApp=a;hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);}}
+async function hbShotRemove(n){if(!confirm(n+'번째 스크린샷을 뺍니다.'))return;
+  try{await api('/admin/api/homebrew/shots/remove',{method:'POST',body:{id:hbBannerApp.id,n}});await hbMediaReload();}catch(err){toast(err.message);}}
+function openHbBanner(a){hbBannerApp=a;$('hb-banner-title').textContent=(a.name||a.app)+' 그림';hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);$('hb-shots-state').textContent='';
+  $('hb-banner-q').value='';$('hb-banner-results').replaceChildren();$('hb-banner-state').textContent='';$('hb-banner').showModal();hbBannerSearch();}
+async function hbBannerSearch(){const st=$('hb-banner-state');st.textContent='찾고 있습니다';$('hb-banner-results').replaceChildren();
+  try{const d=await api('/admin/api/homebrew/banner/candidates?id='+encodeURIComponent(hbBannerApp.id)+'&q='+encodeURIComponent($('hb-banner-q').value.trim()));
+    $('hb-banner-q').value=d.q||'';st.textContent=d.items.length?'고르면 바로 바뀝니다.':'"'+d.q+'" 로 찾은 그림이 없습니다. 영어 이름으로 다시 찾습니다.';
+    $('hb-banner-results').replaceChildren(...d.items.map((it)=>{const b=el('button');b.type='button';b.setAttribute('aria-label',it.game.name+' 그림 고르기');
+      const img=el('img');img.src=it.thumb;img.alt='';img.loading='lazy';b.append(img);b.addEventListener('click',()=>hbBannerPick(it));
+      const f=el('figure');f.style.margin='0';f.append(b,el('figcaption',it.game.name));return f;}));}
+  catch(err){st.textContent=err.message;}}
+async function hbBannerPick(it){$('hb-banner-state').textContent='받고 있습니다';
+  try{await api('/admin/api/homebrew/banner',{method:'POST',body:{id:hbBannerApp.id,url:it.url,game:it.game}});toast('배경 그림을 바꿨습니다.');await hbMediaReload();}
+  catch(err){$('hb-banner-state').textContent=err.message;}}
+$('hb-banner-search').addEventListener('submit',(e)=>{e.preventDefault();hbBannerSearch();});
+$('hb-banner-close').addEventListener('click',()=>$('hb-banner').close());
+$('hb-banner').addEventListener('close',()=>loadHbApps());
+$('hb-shots-clear').addEventListener('click',async()=>{if(!confirm('스크린샷을 모두 뺍니다. 포트도 다시 자동으로 채우지 않습니다.'))return;
+  try{await api('/admin/api/homebrew/shots/remove',{method:'POST',body:{id:hbBannerApp.id}});await hbMediaReload();}catch(err){toast(err.message);}});
+$('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-shots-file').files];$('hb-shots-file').value='';if(!files.length)return;
+  const st=$('hb-shots-state');let done=0;
+  for(const file of files){st.textContent='올리고 있습니다 ('+(done+1)+'/'+files.length+')';
+    try{const r=await fetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');done++;}
+    catch(err){st.textContent=file.name+': '+err.message;break;}}
+  if(done===files.length)st.textContent=done+'장을 올렸습니다.';await hbMediaReload();});
+$('hb-banner-remove').addEventListener('click',async()=>{if(!confirm('배경 그림을 뺍니다. 포트도 다시 자동으로 채우지 않습니다.'))return;
+  try{await api('/admin/api/homebrew/banner/remove',{method:'POST',body:{id:hbBannerApp.id}});toast('배경 그림을 뺐습니다.');await hbMediaReload();}catch(err){toast(err.message);}});
+$('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-file').files[0];$('hb-banner-file').value='';if(!file)return;
+  $('hb-banner-state').textContent='올리고 있습니다';
+  try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
+    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
+  catch(err){$('hb-banner-state').textContent=err.message;}});
 async function removeHbExtra(type,id,name){if(!confirm(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 지웁니다.'))return;
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('지웠습니다.');loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
