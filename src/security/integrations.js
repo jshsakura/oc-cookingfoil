@@ -7,9 +7,9 @@
  * Secrets never leave this module except to the service they belong to:
  * describe() reports only whether one is set.
  */
-import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
+import { readSealedJson, writeSealedJson } from "./secret-box.js";
 
 const FILE = path.join(env.dataDir, "security", "integrations.json");
 const TOKEN_RE = /^[\x21-\x7e]{8,300}$/;
@@ -76,7 +76,7 @@ function changed(service) {
 
 function readSaved() {
   try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const parsed = readSealedJson(FILE);
     return parsed && typeof parsed.services === "object" && parsed.services ? parsed.services : {};
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
@@ -110,10 +110,7 @@ export function describe() {
 }
 
 function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, services: next }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, FILE);
+  writeSealedJson(FILE, { version: 1, services: next });
   saved = next;
 }
 

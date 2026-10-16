@@ -28,7 +28,10 @@ test("boot logs no TOTP secret and replaces one an older version logged", async 
     for (let i = 0; i < 60 && !out.includes("2FA not enrolled"); i++) await new Promise((r) => setTimeout(r, 250));
     assert.match(out, /2FA not enrolled yet/);
     assert.ok(!/otpauth:/i.test(out), "no otpauth URI in the log");
-    const now = JSON.parse(fs.readFileSync(path.join(data, "security", "admin-totp.json"), "utf8"));
+    const file = path.join(data, "security", "admin-totp.json");
+    assert.match(fs.readFileSync(file, "utf8"), /^cfsec:v1:/, "the secret is sealed on disk, the plain one from before included");
+    const { readSealedJson } = await import("../../src/security/secret-box.js");
+    const now = readSealedJson(file);
     assert.notEqual(now.secret, OLD, "the logged secret was replaced");
     assert.ok(!out.includes(now.secret) && !out.includes(OLD), "neither secret appears in the log");
     assert.equal(now.enrolled, false);

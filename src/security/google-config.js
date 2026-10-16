@@ -7,9 +7,9 @@
  * them. The secret never leaves this module except to Google's token endpoint:
  * describe() reports only whether one is set.
  */
-import fs from "fs";
 import path from "path";
 import { dataDir, googleClientId as envId, googleClientSecret as envSecret } from "../helpers/envs.js";
+import { readSealedJson, writeSealedJson } from "./secret-box.js";
 
 const FILE = path.join(dataDir, "security", "google-oauth.json");
 const ID_RE = /^[A-Za-z0-9._-]{8,200}$/;
@@ -18,13 +18,9 @@ const SECRET_RE = /^[\x21-\x7e]{8,200}$/;
 let current = null;
 
 function load() {
-  try {
-    const saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    return { enabled: saved.enabled === true, clientId: String(saved.clientId ?? ""), clientSecret: String(saved.clientSecret ?? ""), source: "admin" };
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    return { enabled: Boolean(envId && envSecret), clientId: envId, clientSecret: envSecret, source: envId || envSecret ? "env" : "none" };
-  }
+  const saved = readSealedJson(FILE);
+  if (saved) return { enabled: saved.enabled === true, clientId: String(saved.clientId ?? ""), clientSecret: String(saved.clientSecret ?? ""), source: "admin" };
+  return { enabled: Boolean(envId && envSecret), clientId: envId, clientSecret: envSecret, source: envId || envSecret ? "env" : "none" };
 }
 
 function settings() {
@@ -49,10 +45,7 @@ export function describe() {
 export class GoogleConfigError extends Error {}
 
 function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, enabled: next.enabled, clientId: next.clientId, clientSecret: next.clientSecret }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, FILE);
+  writeSealedJson(FILE, { version: 1, enabled: next.enabled, clientId: next.clientId, clientSecret: next.clientSecret });
   current = { ...next, source: "admin" };
 }
 

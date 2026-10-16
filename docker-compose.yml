@@ -31,6 +31,8 @@ services:
         required: false
     environment:
       DEBUG: ${DEBUG:-oc-cookingfoil*}
+      # Required: seals the secrets kept in the data folder. Put it in .env.
+      COOK_SECRET_KEY: ${COOK_SECRET_KEY:?set COOK_SECRET_KEY in .env (openssl rand -base64 32)}
       # Inside the container these never move; choose the host folders below.
       COOK_PORT: 80
       COOK_GAMES_DIR: /games

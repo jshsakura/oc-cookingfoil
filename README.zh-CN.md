@@ -66,6 +66,7 @@ CookingFoil 客户端不在 GitHub 上发布。服务器的 `data/client/` 中�
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
+sed -i "s|^COOK_SECRET_KEY=.*|COOK_SECRET_KEY=$(openssl rand -base64 32)|" .env
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -142,6 +143,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
+| `COOK_SECRET_KEY` | _(必填)_ | 加密数据目录中保存的密钥类信息(AES-256-GCM)。用 `openssl rand -base64 32` 生成并妥善保存，新密钥无法打开旧密钥加密的内容 |
 | `COOK_HOST_PORT` | `9080` | 主机端口 |
 | `COOK_ROOT` | `.` | 创建上述文件夹所在的主机目录 |
 | `COOK_TRUST_PROXY` | _(空)_ | 允许设置客户端地址的代理跳点，例如 `loopback, uniquelocal` |

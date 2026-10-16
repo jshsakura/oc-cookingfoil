@@ -26,6 +26,7 @@ const env = await import("../../src/helpers/envs.js");
 const settings = await import("../../src/security/server-settings.js");
 const links = await import("../../src/security/download-links.js");
 const tokens = await import("../../src/security/download-token.js");
+const { readSealed } = await import("../../src/security/secret-box.js");
 const users = await import("../../src/security/users.js");
 const store = await import("../../src/security/store.js");
 const { defaultGateways, isLocalHop, setGatewaysForTests } = await import("../../src/security/local-hop.js");
@@ -250,7 +251,8 @@ test("the key is kept private and survives a reload", () => {
   const token = tokenFor();
   const file = path.join(dir, "security", "download-link.key");
   assert.equal(statSync(file).mode & 0o777, 0o600);
-  assert.equal(readFileSync(file).length, 32);
+  assert.match(readFileSync(file, "utf8"), /^cfsec:v1:/, "sealed on disk");
+  assert.equal(readSealed(file).length, 32);
   tokens.resetKeyForTests();
   assert.equal(tokens.verify(token).verdict, "ok");
   assert.equal(existsSync(path.join(dir, "security", "download-links.json")), false, "no per-link state is written");

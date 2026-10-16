@@ -66,6 +66,7 @@ Web ページ、初回セットアップ、サインイン、本体承認のペ�
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
+sed -i "s|^COOK_SECRET_KEY=.*|COOK_SECRET_KEY=$(openssl rand -base64 32)|" .env
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -142,6 +143,7 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 
 | 変数 | 既定値 | 用途 |
 |---|---|---|
+| `COOK_SECRET_KEY` | _(必須)_ | データフォルダに置く秘密情報を暗号化します(AES-256-GCM)。`openssl rand -base64 32` で作り、大切に保管します。新しいキーでは古いキーで封じた値を開けません |
 | `COOK_HOST_PORT` | `9080` | ホスト側のポート |
 | `COOK_ROOT` | `.` | 上のフォルダーを作るホスト側のフォルダー |
 | `COOK_TRUST_PROXY` | _(空)_ | クライアントのアドレスを設定してよいプロキシのホップ。例: `loopback, uniquelocal` |
