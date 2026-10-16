@@ -147,6 +147,16 @@ test("the direct address takes an https scheme, host and port only", () => {
   assert.equal(env.downloadLinkTtl, 21600);
 });
 
+test("the direct address switch rests the address without losing it", () => {
+  settings.save({ directDownloads: false });
+  assert.equal(env.publicDirectBaseUrl, null);
+  assert.equal(links.forRequest(listReq({})), null, "off: list URLs, no token");
+  assert.equal(settings.describe().publicDirectBaseUrl.value, DL, "the address is kept");
+  settings.save({ directDownloads: true });
+  assert.equal(env.publicDirectBaseUrl, DL);
+  assert.ok(links.forRequest(listReq({})));
+});
+
 test("only signed-in clients that declare direct-token get a token and direct URLs", () => {
   assert.equal(links.forRequest(listReq({ user: null })), null, "not signed in");
   assert.equal(links.forRequest(listReq({ features: null })), null, "no feature header");
