@@ -169,10 +169,11 @@ async function writeArt(base, kind, idx, optimized) {
   setSlot(base, kind, idx, true);
   // Drop the stale original + thumbnails from the cache's existence memo.
   forget(dest);
-  for (const v of thumbVariantPaths(dest)) {
+  // Gone before this returns: the page asks for the small picture right after the save.
+  await Promise.all(thumbVariantPaths(dest).map((v) => {
     forget(v);
-    fs.rm(v, { force: true }).catch(() => {});
-  }
+    return fs.rm(v, { force: true }).catch(() => {});
+  }));
   debug.log("custom-art: stored %s (%d bytes)", path.basename(dest), optimized.length);
   return { path: dest, bytes: optimized.length };
 }
