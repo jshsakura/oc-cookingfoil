@@ -55,3 +55,22 @@ test("a copy still writing deep inside an item, below what the watch sees, puts 
   await w.close();
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("an item that changes again soon after it was read waits out the cooldown", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-watch-"));
+  const seen = [];
+  const w = watchItems(root, { depth: 1, quietMs: 100, cooldownMs: 800, onItem: (i) => seen.push([i, Date.now()]) });
+  await w.ready;
+  fs.mkdirSync(path.join(root, "app"));
+  fs.writeFileSync(path.join(root, "app", "a.nro"), "x");
+  for (let i = 0; i < 40 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(seen.length, 1);
+  fs.writeFileSync(path.join(root, "app", "a.nro"), "xy");
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(seen.length, 1, "not read again inside the cooldown");
+  for (let i = 0; i < 40 && seen.length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(seen.length, 2, "read once the cooldown is over");
+  assert.ok(seen[1][1] - seen[0][1] >= 750);
+  await w.close();
+  fs.rmSync(root, { recursive: true, force: true });
+});

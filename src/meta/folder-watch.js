@@ -24,6 +24,9 @@ import chokidar from "chokidar";
 import debug from "../debug.js";
 
 export const QUIET_MS = 30_000;
+// An item is read again at most this often: a folder that keeps changing (a log, a big copy
+// pausing now and then) is not read over and over.
+export const COOLDOWN_MS = 2 * 60_000;
 
 /** The item an event under `root` belongs to: its first `depth` path parts, or null. Pure. */
 export function itemOf(root, file, depth) {
@@ -56,8 +59,9 @@ export async function newestUnder(dir) {
  * <title id>/<save>, 1 for <app>); `onItem(item)` is called after the quiet
  * time. Returns { close }.
  */
-export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, label = "watch" }) {
+export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, cooldownMs = COOLDOWN_MS, label = "watch" }) {
   const timers = new Map();
+  const lastRead = new Map(); // item → when it was last reported
   const arm = (item, ms) => {
     clearTimeout(timers.get(item));
     const t = setTimeout(fire, ms, item);
@@ -72,6 +76,12 @@ export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, label = "w
       if (!timers.has(item)) arm(item, quietMs - age);
       return;
     }
+    const wait = (lastRead.get(item) ?? -Infinity) + cooldownMs - Date.now();
+    if (wait > 0) {
+      if (!timers.has(item)) arm(item, wait);
+      return;
+    }
+    lastRead.set(item, Date.now());
     Promise.resolve()
       .then(() => onItem(item))
       .catch((err) => debug.error("%s: %s failed: %s", label, item, err.message));

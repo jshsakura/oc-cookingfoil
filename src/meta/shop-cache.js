@@ -55,6 +55,10 @@ const gzipAsync = promisify(zlib.gzip);
 const brotliAsync = promisify(zlib.brotliCompress);
 
 const REBUILD_DEBOUNCE_MS = 800;
+// Background news (a name read from a file, a price, a check verdict) comes in bursts: one rebuild
+// and one write of the kept copy per this long at most. A change someone made still goes at once.
+const BACKGROUND_COOLDOWN_MS = 15_000;
+let lastBuiltAt = 0;
 // Sweet spot for multi-MB JSON: similar size to gzip-6, similar wall-clock
 // when run in parallel with gzip on libuv's thread pool. Levels >= 6 are
 // slower than the debounce window for very large libraries.
@@ -112,6 +116,7 @@ let lastBuildMs = 0;
 let buildCount = 0;
 let watcher = null;
 let debounceTimer = null;
+let debounceDueAt = 0;
 
 // ── Build-event subscribers ─────────────────────────────────────────────
 // The realtime ws layer wants to push a "shop-updated" message every time
@@ -239,6 +244,7 @@ async function build() {
 
       lastBuildMs = Date.now() - start;
       buildCount += 1;
+      lastBuiltAt = Date.now();
       debug.log(
         "shop cache: built in %dms [%s] (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
         lastBuildMs,
@@ -508,21 +514,25 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin, lin
  * That asymmetry is exactly how this was caught — CyberFoil showed
  * "데드 셀" while stock Tinfoil got "Dead Cells".)
  */
-export function invalidate({ rescan = false, rename = false } = {}) {
+export function invalidate({ rescan = false, rename = false, background = false } = {}) {
   if (rescan) needsFullRescan = true;
   if (rename) needsRename = true;
-  scheduleRebuild(rescan ? "invalidate+rescan" : rename ? "invalidate+rename" : "invalidate");
+  scheduleRebuild(rescan ? "invalidate+rescan" : rename ? "invalidate+rename" : "invalidate", { background });
 }
 
-function scheduleRebuild(reason) {
+function scheduleRebuild(reason, { background = false } = {}) {
+  const delay = background ? Math.max(REBUILD_DEBOUNCE_MS, lastBuiltAt + BACKGROUND_COOLDOWN_MS - Date.now()) : REBUILD_DEBOUNCE_MS;
+  // A rebuild already due sooner covers this one.
+  if (debounceTimer && background && debounceDueAt <= Date.now() + delay) return;
   if (debounceTimer) clearTimeout(debounceTimer);
+  debounceDueAt = Date.now() + delay;
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
     debug.log("shop cache: rebuilding after %s", reason);
     build().catch((err) =>
       debug.error("shop cache: rebuild failed: %s", err.message)
     );
-  }, REBUILD_DEBOUNCE_MS);
+  }, delay);
   // Don't block process exit just to debounce a rebuild.
   if (debounceTimer.unref) debounceTimer.unref();
 }
@@ -581,15 +591,15 @@ export async function init() {
   // /shop.json + propagates to ws subscribers without the user having
   // to touch a file.
   nacpExtractor.onExtracted(({ baseTitleId }) => {
-    scheduleRebuild(`nacp-extracted ${baseTitleId}`);
+    scheduleRebuild(`nacp-extracted ${baseTitleId}`, { background: true });
   });
   // Install facts (size, firmware, update display versions) arrive in batches
   // from a background read; load what earlier runs found before the first build.
   await contentMeta.load();
-  contentMeta.onExtracted(() => scheduleRebuild("content-meta"));
+  contentMeta.onExtracted(() => scheduleRebuild("content-meta", { background: true }));
   // Prices arrive from the eShop after the list is built, and go stale after
   // 12 h; a rebuild re-composes the list, which asks again for stale ones.
-  onPricesChanged(() => scheduleRebuild("eshop-prices"));
+  onPricesChanged(() => scheduleRebuild("eshop-prices", { background: true }));
   featured.onChange(() => scheduleRebuild("featured"));
   setInterval(() => scheduleRebuild("eshop-prices refresh"), PRICE_REFRESH_MS).unref();
 
