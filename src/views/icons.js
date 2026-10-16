@@ -59,3 +59,8 @@ export function icon(name, cls = "ico") {
 
 /** The CSS that draws them. */
 export const ICON_CSS = ".ico{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em}";
+
+/** The named icons as ready-made <svg class="bi"> strings, for a page that draws them itself. Pure. */
+export function iconSet(names) {
+  return Object.fromEntries(names.filter((n) => PATHS[n]).map((n) => [n, icon(n, "bi")]));
+}

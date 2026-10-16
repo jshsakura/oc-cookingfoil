@@ -324,9 +324,18 @@ test("a game's detail lays out what the console shows, in the console's order", 
     await expect(page.locator('#modal-chips .chip-line').nth(1).locator('.chip')).toHaveText(['액션', 'RPG']);
     // What to install: the base, the newest update only, then every DLC.
     const install = page.locator('#modal-install .extra-row');
-    await expect(install.locator('.extra-name')).toHaveText(['기본 게임', '업데이트', 'Test Game Extra Map']);
-    await expect(install.locator('.extra-sub')).toHaveText(['v0 · 필수', 'v1.2.0 · 최신', 'DLC']);
+    await expect(install.locator('.type-tag')).toHaveText(['본편', '업데이트', 'DLC']);
+    await expect(install.locator('.extra-name')).toHaveText(['Test Game', 'Test Game', 'Test Game Extra Map']);
+    await expect(install.nth(0).locator('.mini')).toHaveText(['v0', '필수']);
+    await expect(install.nth(1).locator('.mini')).toHaveText(['v1.2.0', '최신']);
+    await expect(install.nth(2).locator('.mini')).toHaveCount(0);
+    await expect(install.nth(2).locator('.extra-name')).toHaveCSS('-webkit-line-clamp', '2');
     await expect(install.nth(1)).toHaveAttribute('href', 'c.nsp');
+    // Every labelled button has its icon before the words, and the words stay as they were.
+    await expect(page.locator('#modal-download svg.bi')).toHaveCount(1);
+    await expect(page.locator('#modal-download')).toHaveText('다운로드');
+    await expect(page.locator('#modal-close svg.bi')).toHaveCount(1);
+    await expect(page.locator('#modal-close')).toHaveText('닫기');
     await page.waitForTimeout(450); // the modal's rise animation
     const over = await page.evaluate(() => {
       const m = document.querySelector('#modal .modal')!;
@@ -737,4 +746,18 @@ test('saves page by game, so a game with many saves stays on one page and loads 
   await page.locator('#saves-search').fill('save 101');
   await expect(page.locator('#saves-list .xgroup')).toHaveCount(1);
   await expect(page.locator('#saves-list .xrow')).toHaveText([/Game 01 save 101/]);
+});
+
+test('the labelled buttons keep their icon after the page language changes', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/');
+  const refresh = page.locator('#refresh-btn');
+  await expect(refresh.locator('svg.bi')).toHaveCount(1);
+  await expect(refresh).toHaveText('새로고침');
+  await page.locator('#lang-btn').click();
+  await page.locator('[data-lang="en"]').click();
+  await expect(refresh).toHaveText('Refresh');
+  await expect(refresh.locator('svg.bi')).toHaveCount(1);
+  // Icon-only buttons stay as they were.
+  await expect(page.locator('#acct-btn svg')).toHaveCount(1);
 });

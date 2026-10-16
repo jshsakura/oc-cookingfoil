@@ -42,6 +42,7 @@
         /* Dialogs sit a step above the page so a dark dialog never melts into a dark page. */
         --modal-bg: #232329; --modal-panel: #2d2d34; --modal-sunk: #35353d; --modal-line: #3e3e47;
         --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
+        --dlc: #9aa7ff; --dlc-rgb: 154, 167, 255;
         --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
         color-scheme: dark;
       }
@@ -52,6 +53,7 @@
           --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
           --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
           --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+          --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
           --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
           color-scheme: light;
         }
@@ -62,6 +64,7 @@
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
         --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
         --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+        --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
         --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
         color-scheme: light;
       }
@@ -380,6 +383,9 @@
       .btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
       .btn:active { transform: none; }
       .btn.ghost { background: var(--sunk); color: var(--ink); }
+      /* The icon in front of a button's words: the admin page's set, in the text colour. */
+      .bi { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .h2-action:has(.bi), .client-get:has(.bi), button.reset:has(.bi) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
       .btn.ghost:hover { background: var(--line); }
       .hint { font-size: 13px; color: var(--secondary); line-height: 1.65; margin-top: 12px; }
       .hint code { font-family: var(--font-mono); background: var(--sunk); padding: 2px 8px; border-radius: 6px; font-size: 12.5px; }
@@ -741,6 +747,23 @@
       .modal .extras .extra-text { display: grid; gap: 2px; min-width: 0; }
       .modal .extras .extra-sub { font-size: 12px; color: var(--secondary); }
       .modal .extras .extra-sub:empty { display: none; }
+      /* What the file is: a coloured badge in front of the name, the version and its state as small badges under it. */
+      .modal .extras .type-tag {
+        flex: none; min-width: 78px; text-align: center; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 800; line-height: 1.4;
+        border: 1px solid transparent; letter-spacing: .01em;
+      }
+      .modal .extras .type-tag.base { background: var(--butter); color: var(--butter-ink); }
+      .modal .extras .type-tag.update { background: rgba(var(--good-rgb), .16); border-color: rgba(var(--good-rgb), .5); color: var(--good); }
+      .modal .extras .type-tag.dlc { background: rgba(var(--dlc-rgb), .16); border-color: rgba(var(--dlc-rgb), .5); color: var(--dlc); }
+      .modal .extras .extra-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .modal .extras .mini {
+        padding: 1px 8px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+        background: var(--sunk); border: 1px solid var(--line); color: var(--secondary);
+      }
+      .modal .extras .mini.need { background: rgba(var(--butter-rgb), .18); border-color: rgba(var(--butter-rgb), .6); color: var(--ink); }
+      .modal .extras .mini.latest { background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      /* A long DLC name takes two lines at most. */
+      .modal .extras .extra-name.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: normal; overflow-wrap: anywhere; }
       .modal .extras .mark { width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line2); }
       .modal .extras .version-row[aria-pressed="true"] .mark { border-color: var(--butter); background: radial-gradient(circle, var(--butter) 45%, transparent 50%); }
       .modal .extras .flag { font-size: 16px; line-height: 1; flex-shrink: 0; }
@@ -1457,7 +1480,7 @@
           "sort.score_desc": "정렬: 평점 높은순",
           "modal.score": "평점",
           "score.count": (n) => `${n.toLocaleString()}명`,
-          "action.refresh": "↻ 새로고침",
+          "action.refresh": "새로고침",
           "action.copy": "복사",
           "action.language": "언어",
           "action.menu": "메뉴",
@@ -1610,6 +1633,7 @@
           "install.update": "업데이트",
           "install.required": "필수",
           "install.latest": "최신",
+          "install.tag.base": "본편", "install.tag.update": "업데이트", "install.tag.dlc": "DLC",
           "region.kr": "한국",
           "region.jp": "일본",
           "region.us": "북미",
@@ -1741,7 +1765,7 @@
           "hero.dlc": (n) => `${n} DLC`,
           "hero.released": (d) => `Released ${d}`,
           "sort.added_desc": "Sort: Recently added",
-          "action.refresh": "↻ Refresh",
+          "action.refresh": "Refresh",
           "action.copy": "Copy",
           "action.language": "Language",
           "action.menu": "Menu",
@@ -1897,6 +1921,7 @@
           "install.update": "Update",
           "install.required": "Required",
           "install.latest": "Latest",
+          "install.tag.base": "Base", "install.tag.update": "Update", "install.tag.dlc": "DLC",
           "region.kr": "Korea",
           "region.jp": "Japan",
           "region.us": "North America",
@@ -2028,7 +2053,7 @@
           "hero.dlc": (n) => `DLC ${n}件`,
           "hero.released": (d) => `${d} 発売`,
           "sort.added_desc": "並び替え: 追加が新しい順",
-          "action.refresh": "↻ 更新",
+          "action.refresh": "更新",
           "action.copy": "コピー",
           "action.language": "言語",
           "action.menu": "メニュー",
@@ -2184,6 +2209,7 @@
           "install.update": "アップデート",
           "install.required": "必須",
           "install.latest": "最新",
+          "install.tag.base": "本編", "install.tag.update": "アップデート", "install.tag.dlc": "DLC",
           "region.kr": "韓国",
           "region.jp": "日本",
           "region.us": "北米",
@@ -2315,7 +2341,7 @@
           "hero.dlc": (n) => `${n} 個 DLC`,
           "hero.released": (d) => `${d} 發售`,
           "sort.added_desc": "排序：最近新增",
-          "action.refresh": "↻ 重新整理",
+          "action.refresh": "重新整理",
           "action.copy": "複製",
           "action.language": "語言",
           "action.menu": "菜单",
@@ -2471,6 +2497,7 @@
           "install.update": "更新",
           "install.required": "必要",
           "install.latest": "最新",
+          "install.tag.base": "本體", "install.tag.update": "更新", "install.tag.dlc": "DLC",
           "region.kr": "韓國",
           "region.jp": "日本",
           "region.us": "北美",
@@ -2505,6 +2532,33 @@
         const v = bundle[key] ?? I18N.en[key] ?? key;
         return typeof v === "function" ? v(...args) : v;
       }
+      // Every labelled button carries an icon before its words. The page keeps rewriting button text
+      // (language switches, rebuilt lists), which drops the icon, so an observer puts it back.
+      const BTN_ICONS = __BUTTON_ICONS__;
+      const BTN_ICON_FOR = {
+        "action.download": "download", "extras.download": "download", "client.get": "download", "action.close": "x",
+        "action.refresh": "refresh", "share.pick_files": "file", "share.pick_folder": "folder", "share.send": "upload",
+        "edit.save": "save", "edit.reset": "undo",
+      };
+      const BTN_SELECTOR = ".btn, .h2-action, .client-get, [data-icon]";
+      function decorateButton(b) {
+        if (b.querySelector(":scope > svg") || !(b.textContent || "").trim()) return;
+        const name = b.dataset.icon || BTN_ICON_FOR[b.dataset.i18n] || "arrowright";
+        if (BTN_ICONS[name]) b.insertAdjacentHTML("afterbegin", BTN_ICONS[name]);
+      }
+      function decorateIn(root) {
+        if (root.nodeType !== 1) return;
+        if (root.matches(BTN_SELECTOR)) decorateButton(root);
+        for (const b of root.querySelectorAll(BTN_SELECTOR)) decorateButton(b);
+      }
+      new MutationObserver((list) => {
+        for (const m of list) {
+          if (m.target.nodeType === 1 && m.target.matches(BTN_SELECTOR)) decorateButton(m.target);
+          for (const n of m.addedNodes) decorateIn(n);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+      decorateIn(document.body);
+
       function applyI18n() {
         document.documentElement.setAttribute("lang", lang);
         document.documentElement.setAttribute("data-lang", lang);
@@ -3752,8 +3806,10 @@
         }
         const actions = document.createElement("div"); actions.className = "ef-actions";
         const saveBtn = Object.assign(document.createElement("button"), { type: "submit", className: "btn", textContent: t("edit.save") });
+        saveBtn.dataset.icon = "save";
         if (reset) {
           const back = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: t("edit.reset") });
+          back.dataset.icon = "undo";
           back.addEventListener("click", async () => {
             back.disabled = true;
             try { await reset(); toast(t("edit.restored")); } catch (err) { toast(err.message); back.disabled = false; }
@@ -4015,7 +4071,7 @@
           if (it.update_version) meta.append(document.createTextNode(` · ${t("extras.forUpdate", updateLabel(it))}`));
           head.append(name, meta);
           const dl = document.createElement("a");
-          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", "");
+          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", ""); dl.dataset.icon = "download";
           dl.href = kind === "patches" ? `/api/patches/${encodeURIComponent(it.id)}/download` : it.url;
           row.append(head, dl);
           // Saves credit their source on the description's last line; show it as a link instead.
@@ -4743,15 +4799,24 @@
         }
       }
       // One row of a list in the window: [mark?, flag?] name over a second line, size on the right.
-      function detailRow(el, { name, sub = "", size = 0, flag = "", mark = false, title = "" }) {
+      // `tag` ({ kind, text }) puts a coloured badge before the name; `chips` ([{ text, tone }]) replaces `sub` with small badges.
+      function detailRow(el, { name, sub = "", size = 0, flag = "", mark = false, title = "", tag = null, chips = null, clamp = false }) {
         el.classList.add("extra-row");
         const main = document.createElement("span"); main.className = "extra-main";
         if (mark) main.append(Object.assign(document.createElement("span"), { className: "mark" }));
         if (flag) main.append(Object.assign(document.createElement("span"), { className: "flag", textContent: flag }));
+        if (tag) main.append(Object.assign(document.createElement("span"), { className: `type-tag ${tag.kind}`, textContent: tag.text }));
         const text = document.createElement("span"); text.className = "extra-text";
-        const nameEl = document.createElement("span"); nameEl.className = "extra-name"; nameEl.textContent = name;
-        if (title) nameEl.title = title;
-        text.append(nameEl, Object.assign(document.createElement("span"), { className: "extra-sub", textContent: sub }));
+        const nameEl = document.createElement("span"); nameEl.className = clamp ? "extra-name clamp" : "extra-name"; nameEl.textContent = name;
+        if (title || clamp) nameEl.title = title || name;
+        const subEl = document.createElement("span");
+        if (chips) {
+          subEl.className = "extra-chips";
+          for (const c of chips.filter((x) => x && x.text)) subEl.append(Object.assign(document.createElement("span"), { className: `mini ${c.tone || ""}`.trim(), textContent: c.text }));
+        } else {
+          subEl.className = "extra-sub"; subEl.textContent = sub;
+        }
+        text.append(nameEl, subEl);
         main.append(text);
         const sizeEl = document.createElement("span"); sizeEl.className = "extra-size"; sizeEl.textContent = size > 0 ? fmtBytes(size) : "";
         el.append(main, sizeEl);
@@ -4851,15 +4916,15 @@
         const base = group.find((x) => x.kind === "base");
         if (base) {
           const v = fileVersion(base.item);
-          rows.push(detailRow(link(base.item), { name: t("install.base"), sub: [fmtVersion(v, versionName(base.item.titleId, v)), t("install.required")].join(" · "), size: base.size }));
+          rows.push(detailRow(link(base.item), { name: cleanName(base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips: [{ text: fmtVersion(v, versionName(base.item.titleId, v)) }, { text: t("install.required"), tone: "need" }], size: base.size, clamp: true }));
         }
         const update = group.filter((x) => x.kind === "update").sort((a, b) => fileVersion(b.item) - fileVersion(a.item))[0];
         if (update) {
           const v = fileVersion(update.item);
-          rows.push(detailRow(link(update.item), { name: t("install.update"), sub: [fmtVersion(v, versionName(update.item.titleId, v)), t("install.latest")].join(" · "), size: update.size }));
+          rows.push(detailRow(link(update.item), { name: cleanName(update.item.name || t("install.update")), tag: { kind: "update", text: t("install.tag.update") }, chips: [{ text: fmtVersion(v, versionName(update.item.titleId, v)) }, { text: t("install.latest"), tone: "latest" }], size: update.size, clamp: true }));
         }
         for (const d of group.filter((x) => x.kind === "dlc")) {
-          rows.push(detailRow(link(d.item), { name: cleanName(d.item.name || t("misc.unnamed")), sub: t("chip.dlc"), size: d.size }));
+          rows.push(detailRow(link(d.item), { name: cleanName(d.item.name || t("misc.unnamed")), tag: { kind: "dlc", text: t("install.tag.dlc") }, size: d.size, clamp: true }));
         }
         box.replaceChildren();
         if (!rows.length && !patchGroup) { box.hidden = true; return; }
@@ -5027,7 +5092,7 @@
           fig.append(frame);
           if (reset) {
             const r = document.createElement("button"); r.type = "button"; r.className = "reset";
-            r.textContent = kind === "shot" ? "✕" : resetLabel; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
+            r.textContent = kind === "shot" ? "✕" : resetLabel; if (kind !== "shot") r.dataset.icon = "undo"; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
             r.addEventListener("click", async (e) => {
               e.stopPropagation();
               fig.classList.add("busy");

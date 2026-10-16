@@ -9,6 +9,7 @@
  * short-circuit to 304 + 0 bytes when the binary hasn't changed.
  */
 import { readFile } from "node:fs/promises";
+import { iconSet } from "../views/icons.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
@@ -21,6 +22,8 @@ import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon).
+const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright"];
 const TEMPLATE_PATH = path.join(__dirname, "../views/landing.html");
 
 const gzipAsync = promisify(zlib.gzip);
@@ -42,7 +45,9 @@ async function loadTemplate() {
   preparing = (async () => {
     try {
       const raw = await readFile(TEMPLATE_PATH, "utf-8");
-      template = raw.replace(/id="version">v\?/g, `id="version">v${pkg.version}`);
+      template = raw
+        .replace(/id="version">v\?/g, `id="version">v${pkg.version}`)
+        .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)));
       return template;
     } finally {
       preparing = null;
