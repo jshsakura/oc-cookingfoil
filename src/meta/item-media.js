@@ -182,6 +182,16 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
     artCrop.removeOriginal(iconPath(id));
     put(id, "icon", { off: true });
   }
+  /** Forgets the item altogether: its pictures, their kept originals and its record (no "removed by hand" mark stays). */
+  function forget(id) {
+    check(id);
+    for (const file of [iconPath(id), bannerPath(id), ...Array.from({ length: MAX_SHOTS }, (_, i) => shotPath(id, i + 1))]) {
+      rmBoth(file);
+      artCrop.removeOriginal(file);
+    }
+    const { [id]: _gone, ...rest } = all();
+    persist(rest);
+  }
   function removeBanner(id) {
     check(id);
     rmBoth(bannerPath(id));
@@ -300,7 +310,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
     idRe, put, record, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
     saveIcon: one(saveIcon), saveBanner: one(saveBanner), removeIcon: one(removeIcon), removeBanner: one(removeBanner),
     saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
-    recrop: one(recrop), original, originals,
+    recrop: one(recrop), forget: one(forget), original, originals,
     /** Test seam. */
     resetForTests() { saved = null; },
   };

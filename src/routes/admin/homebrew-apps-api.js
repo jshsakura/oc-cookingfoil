@@ -11,7 +11,7 @@
  *
  * A homebrew app's patch has its information edited with the game patches' dialog
  * (POST /admin/api/content/patch/meta).
- *   POST /admin/api/homebrew/manual/remove { id }  deletes a hand-placed app's folder (its patches and saves stay)
+ *   POST /admin/api/homebrew/manual/remove { id }  deletes a hand-placed app's folder and what was added to it by hand (its patches and saves stay)
  *
  * An app's pictures, laid out as a game's (meta/homebrew-media.js); apps carry banner_url, screenshots
  * and media: { banner, shots } (where each came from):
@@ -34,6 +34,7 @@ import { forgetZipCopies, heldManual, installPathFor } from "../../meta/homebrew
 import * as media from "../../meta/homebrew-media.js";
 import * as integrations from "../../security/integrations.js";
 import { resolveOrigin } from "../../helpers/origin.js";
+import { forgetExtras } from "../../meta/homebrew-forget.js";
 import debug from "../../debug.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -209,6 +210,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
     if (!dir || path.dirname(dir) !== path.resolve(homebrewDir)) return res.status(404).json({ error: "직접 넣은 앱 목록에 없습니다" });
     await fsp.rm(dir, { recursive: true, force: true });
     await forgetZipCopies(id);
+    await forgetExtras(id);
     await refreshManual();
     debug.log("admin: removed hand-placed homebrew %s", path.basename(dir));
     res.json({ ok: true });

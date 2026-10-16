@@ -212,7 +212,7 @@ export default function devicePairRouter() {
     pageHeaders(res);
     const approver = approverOf(req);
     res.type("html").send(devicePairPage({
-      view: approver ? "scan" : "signin", lang: requestLang(req), approver, pairing: devicePairing, logins: users.hasUsers() && consolePasswords,
+      view: approver ? "scan" : "signin", lang: requestLang(req), approver, pairing: devicePairing,
     }));
   });
 
