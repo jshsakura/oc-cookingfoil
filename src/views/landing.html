@@ -760,17 +760,21 @@
       .arted-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
       .arted-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
       .arted-head span { font-size: 12px; color: var(--secondary); }
-      .arted-top { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 14px; align-items: start; }
+      .arted { --art-h: 140px; }
+      .arted-top { display: grid; grid-template-columns: var(--art-h) minmax(0, 1fr); gap: 14px; align-items: start; }
       .arted-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
-      .arted-label { margin: 18px 0 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
-      .atile { position: relative; display: grid; gap: 6px; margin: 0; min-width: 0; }
+      .arted-label, .atile figcaption { margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
+      .arted-label { margin-top: 18px; }
+      .atile { display: grid; gap: 8px; margin: 0; min-width: 0; align-content: start; }
+      .atile .frame { position: relative; min-width: 0; }
       .atile .face {
         position: relative; display: grid; place-items: center; width: 100%; padding: 0; overflow: hidden; cursor: pointer;
         border-radius: 14px; border: 1.5px dashed var(--line2); background: var(--sunk); color: var(--secondary); font: inherit;
         transition: border-color .15s ease, transform .15s ease;
       }
-      .atile.a-icon .face { aspect-ratio: 1; border-radius: 22px; }
-      .atile.a-banner .face { aspect-ratio: 1920 / 620; }
+      /* The icon and the banner stand the same height, side by side. */
+      .atile.a-icon .face { width: var(--art-h); height: var(--art-h); }
+      .atile.a-banner .face { height: var(--art-h); }
       .atile.a-shot .face, .atile.a-add .face { aspect-ratio: 16 / 9; }
       .atile.has .face { border-style: solid; border-color: transparent; }
       .atile .face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -790,17 +794,18 @@
         border: 3px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: arted-spin .8s linear infinite;
       }
       @keyframes arted-spin { to { transform: rotate(360deg); } }
-      .atile figcaption { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--secondary); }
-      .atile .reset {
+            .atile .reset {
         position: absolute; top: 8px; right: 8px; z-index: 3; height: 26px; padding: 0 10px; border: 0; border-radius: 100px; cursor: pointer;
         background: rgba(12, 12, 14, 0.62); color: #fff; font: 600 11.5px var(--font-body);
         backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
       }
       .atile.a-shot .reset { width: 26px; padding: 0; font-size: 13px; }
-      .atile.a-add .face { color: var(--ink); }
+      .atile.a-add .face:hover { color: var(--ink); border-color: var(--secondary); }
+      .atile.a-add .face::after { display: none; }
       @media (max-width: 640px) {
         .arted { padding: 14px; }
-        .arted-top { grid-template-columns: 84px minmax(0, 1fr); gap: 10px; }
+        .arted { --art-h: 96px; }
+        .arted-top { gap: 10px; }
         .arted-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
       @media (prefers-reduced-motion: reduce) { .atile .face { transition: none; } .atile.busy .face::before { animation: none; } }
@@ -4583,7 +4588,9 @@
               if (file) run(file);
             });
           }
-          fig.append(face);
+          const frame = document.createElement("div"); frame.className = "frame"; frame.append(face);
+          if (caption) fig.append(Object.assign(document.createElement("figcaption"), { textContent: caption }));
+          fig.append(frame);
           if (reset) {
             const r = document.createElement("button"); r.type = "button"; r.className = "reset";
             r.textContent = kind === "shot" ? "✕" : resetLabel; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
@@ -4592,9 +4599,8 @@
               fig.classList.add("busy");
               try { await reset(); } finally { fig.classList.remove("busy"); }
             });
-            fig.append(r);
+            frame.append(r);
           }
-          if (caption) fig.append(Object.assign(document.createElement("figcaption"), { textContent: caption }));
           return fig;
         }
         if (slots.icon || slots.banner) {
