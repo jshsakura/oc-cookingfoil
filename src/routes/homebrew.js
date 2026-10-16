@@ -408,12 +408,14 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.end(body);
   }));
 
-  // The app's pictures: immutable under the ?v= the listing gives, revalidated otherwise.
-  const sendPicture = (req, res, file, v, tag = v) => {
+  // The app's pictures: immutable under the ?v= the listing gives, revalidated otherwise. WebP for a
+  // client that says it reads it (browsers, the CookingFoil client), else a JPEG made once from it.
+  const sendPicture = async (req, res, file, v, tag = v) => {
     if (!v || !fs.existsSync(file)) return res.status(404).json({ error: "no picture" });
-    res.set({ "Content-Type": "image/webp", "Cache-Control": req.query.v === v ? IMMUTABLE : UNVERSIONED, ETag: `"${tag}"` });
+    const webp = (req.get("accept") || "").includes("image/webp");
+    res.set({ "Content-Type": webp ? "image/webp" : "image/jpeg", "Cache-Control": req.query.v === v ? IMMUTABLE : UNVERSIONED, ETag: `"${tag}${webp ? "" : "-jpg"}"`, Vary: "Accept" });
     if (req.fresh) return res.status(304).end();
-    res.sendFile(file, { etag: false, lastModified: false });
+    res.sendFile(webp ? file : await media.jpegOf(file), { etag: false, lastModified: false });
   };
   router.get("/:id/banner", wrap(async (req, res) => sendPicture(req, res, media.bannerPath(req.params.id), media.bannerVersion(req.params.id))));
   router.get("/:id/screenshot/:n", wrap(async (req, res) => {

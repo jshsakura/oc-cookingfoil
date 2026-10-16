@@ -114,6 +114,20 @@ function writeAtomic(file, buf) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
+/**
+ * The JPEG twin of a stored WebP, for clients that cannot read WebP (older consoles,
+ * CyberFoil): made the first time one asks, then kept beside it until the WebP changes.
+ */
+export async function jpegOf(webpFile) {
+  const jpg = webpFile.replace(/\.webp$/, ".jpg");
+  const src = fs.statSync(webpFile);
+  try {
+    if (fs.statSync(jpg).mtimeMs >= src.mtimeMs) return jpg;
+  } catch { /* not made yet */ }
+  writeAtomic(jpg, await sharp(webpFile).jpeg({ quality: 82, mozjpeg: true }).toBuffer());
+  return jpg;
+}
+
 /** Saves `raw` as the app's banner. Returns the bytes written. */
 export async function saveBanner(id, raw, { source = "upload", game = null, now = Date.now() } = {}) {
   check(id);
@@ -132,6 +146,7 @@ export async function saveBannerFromSgdb(id, url, game = null, { fetchImpl = fet
 export function removeBanner(id) {
   check(id);
   fs.rmSync(bannerPath(id), { force: true });
+  fs.rmSync(bannerPath(id).replace(/\.webp$/, ".jpg"), { force: true });
   put(id, "banner", { off: true });
 }
 
@@ -152,7 +167,7 @@ export async function saveShots(id, raws, { source = "upload", game = null, now 
   }
   if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
   encoded.forEach((buf, i) => writeAtomic(shotPath(id, i + 1), buf));
-  for (let n = encoded.length + 1; n <= MAX_SHOTS; n++) fs.rmSync(shotPath(id, n), { force: true });
+  for (let n = encoded.length + 1; n <= MAX_SHOTS; n++) for (const f of [shotPath(id, n), shotPath(id, n).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
   put(id, "shots", { source, count: encoded.length, ...(game ? { game } : {}), at: now });
   return encoded.length;
 }
@@ -174,7 +189,7 @@ export function removeShots(id, n = null) {
   check(id);
   const s = record(id).shots;
   if (n == null || !s?.count || s.count <= 1) {
-    for (let i = 1; i <= MAX_SHOTS; i++) fs.rmSync(shotPath(id, i), { force: true });
+    for (let i = 1; i <= MAX_SHOTS; i++) for (const f of [shotPath(id, i), shotPath(id, i).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
     put(id, "shots", { off: true });
     return 0;
   }
@@ -183,7 +198,7 @@ export function removeShots(id, n = null) {
   const keep = [];
   for (let i = 1; i <= s.count; i++) if (i !== n && fs.existsSync(shotPath(id, i))) keep.push(fs.readFileSync(shotPath(id, i)));
   keep.forEach((buf, i) => writeAtomic(shotPath(id, i + 1), buf));
-  for (let i = keep.length + 1; i <= MAX_SHOTS; i++) fs.rmSync(shotPath(id, i), { force: true });
+  for (let i = keep.length + 1; i <= MAX_SHOTS; i++) for (const f of [shotPath(id, i), shotPath(id, i).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
   put(id, "shots", keep.length ? { ...s, count: keep.length, at: Date.now() } : { off: true });
   return keep.length;
 }

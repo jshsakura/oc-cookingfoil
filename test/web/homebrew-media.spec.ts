@@ -32,6 +32,16 @@ test('an app with pictures opens like a game, and the page behind stays put', as
   expect(after.banner_url).toMatch(/\/banner\?v=/);
   expect(after.screenshots).toHaveLength(3);
   expect(after.media).toEqual({ banner: 'upload', shots: 'upload' });
+  // A console that cannot read WebP gets the same pictures as JPEG; browsers get WebP.
+  for (const url of [after.banner_url, after.screenshots[0]]) {
+    const jpg = await page.request.get(url, { headers: { Accept: 'image/jpeg,*/*' } });
+    expect(jpg.headers()['content-type']).toBe('image/jpeg');
+    expect((await jpg.body()).subarray(0, 2).toString('hex')).toBe('ffd8');
+    const webp = await page.request.get(url, { headers: { Accept: 'image/webp,*/*' } });
+    expect(webp.headers()['content-type']).toBe('image/webp');
+    expect(webp.headers()['cache-control']).toContain('immutable');
+    expect(webp.headers().vary).toContain('Accept');
+  }
   fs.mkdirSync('out/web', { recursive: true });
 
   for (const [label, viewport, touch] of [['phone', { width: 390, height: 844 }, true], ['desktop', { width: 1280, height: 900 }, false]] as const) {
