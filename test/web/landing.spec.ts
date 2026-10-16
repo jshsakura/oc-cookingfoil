@@ -421,7 +421,7 @@ test('while the library loads, placeholders in the cards\' shape hold the grid, 
   release();
   await expect(page.locator('.skel')).toHaveCount(0);
   await expect(page.locator('#hero')).not.toHaveClass(/skel/);
-  await page.locator('#subtabs button', { hasText: '목록' }).click();
+  await page.locator('#subtabs button', { hasText: '전체' }).click();
   await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'false');
   const card = page.locator('#games .game').first();
   await expect(card).toBeVisible();
