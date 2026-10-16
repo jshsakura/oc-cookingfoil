@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { everything } from "../support/security-db.js";
 
 // CyberFoil and Tinfoil can't scan a QR, so a signed-in user issues each
 // console its own ID and password. The login reads the shop only, locks to the
@@ -77,7 +78,7 @@ test("a per-device login reads the shop from its own console only", async () => 
     assert.match(login.name, /^cf-[a-z2-9]{6}$/);
     assert.match(login.password, /^[a-z2-9]{12}$/);
     assert.equal(login.shopUrl, `${BASE}/`);
-    const stored = readFileSync(path.join(data, "security", "device-logins.json"), "utf8");
+    const stored = everything(data);
     assert.ok(!stored.includes(login.password), "only the hash is kept");
 
     // First console locks it; another console is refused; no ID is let through.

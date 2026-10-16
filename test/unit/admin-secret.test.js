@@ -4,6 +4,7 @@ import { execFileSync as run } from "node:child_process";
 import { mkdtempSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { everything, sealedSecret, securityDbFile } from "../support/security-db.js";
 
 // /admin used to 404 unless COOK_ADMIN_TOTP_SECRET was set by hand, so a server
 // running device pairing could end up with no way to approve any device. The
@@ -46,13 +47,15 @@ test("the generated secret persists across restarts (a restart must not orphan t
   assert.equal(second.source, "file");
 });
 
-test("the secret file is written owner-only", () => {
+test("the secret is kept sealed in a database only the server's account reads", () => {
   const dataDir = freshDataDir();
-  probe(REPORT, { COOK_DATA_DIR: dataDir });
-  const file = path.join(dataDir, "security", "admin-totp.json");
+  const r = probe(REPORT, { COOK_DATA_DIR: dataDir });
+  const file = securityDbFile(dataDir);
 
   assert.ok(existsSync(file));
   assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.match(sealedSecret(dataDir, "admin-totp"), /^cfsec:v1:/);
+  assert.ok(!everything(dataDir).includes(r.secret), "never in the clear");
 });
 
 test("enrollment survives a restart, so the QR is served exactly once", () => {

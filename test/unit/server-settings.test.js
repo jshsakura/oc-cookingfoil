@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { savedSettings, securityDbFile } from "../support/security-db.js";
 
 // Server behaviour set on the admin page: saved over compose, applied at once
 // to every module that imported it, and back to compose when cleared.
@@ -34,9 +35,8 @@ test("a saved value applies at once to importers and is kept in a private file",
   assert.equal(env.deviceAutoApproveAll, false);
   assert.equal(env.uploadsEnabled, true);
   assert.equal(env.publicBaseUrl, "https://files.example.org");
-  const file = path.join(dir, "security", "server-settings.json");
-  assert.equal(JSON.parse(readFileSync(file, "utf8")).settings.devicePairing, true);
-  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.equal(savedSettings(dir).devicePairing, true);
+  assert.equal(statSync(securityDbFile(dir)).mode & 0o777, 0o600);
   const d = settings.describe().devicePairing;
   assert.deepEqual([d.value, d.source, d.envValue], [true, "saved", false]);
 });

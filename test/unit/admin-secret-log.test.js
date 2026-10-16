@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { sealedSecret } from "../support/security-db.js";
 
 // The admin TOTP secret never goes to the log, and an unenrolled secret that an
 // older version printed is replaced at boot.
@@ -28,10 +29,11 @@ test("boot logs no TOTP secret and replaces one an older version logged", async 
     for (let i = 0; i < 60 && !out.includes("2FA not enrolled"); i++) await new Promise((r) => setTimeout(r, 250));
     assert.match(out, /2FA not enrolled yet/);
     assert.ok(!/otpauth:/i.test(out), "no otpauth URI in the log");
-    const file = path.join(data, "security", "admin-totp.json");
-    assert.match(fs.readFileSync(file, "utf8"), /^cfsec:v1:/, "the secret is sealed on disk, the plain one from before included");
-    const { readSealedJson } = await import("../../src/security/secret-box.js");
-    const now = readSealedJson(file);
+    const sealed = sealedSecret(data, "admin-totp");
+    assert.match(sealed, /^cfsec:v1:/, "the secret is sealed, the plain one from before included");
+    assert.match(fs.readFileSync(path.join(data, "security", "admin-totp.json"), "utf8"), /^cfsec:v1:/, "the old file is sealed in place");
+    const { open } = await import("../../src/security/secret-box.js");
+    const now = JSON.parse(open(sealed).toString("utf8"));
     assert.notEqual(now.secret, OLD, "the logged secret was replaced");
     assert.ok(!out.includes(now.secret) && !out.includes(OLD), "neither secret appears in the log");
     assert.equal(now.enrolled, false);

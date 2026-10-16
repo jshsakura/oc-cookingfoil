@@ -7,13 +7,13 @@
  * A token acts as the admin account that made it, only on /admin/api/*, and
  * stops working when that account stops being an admin. It cannot make or
  * revoke tokens, nor change the admin page's two-step login. Only a SHA-256 of
- * the secret is kept, in ${COOK_DATA_DIR}/security/api-tokens.json (0600); the
+ * the secret is kept, in the security database (0600); the
  * token itself is shown once, when it is made.
  */
 import crypto from "crypto";
-import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import { recordStore } from "../db/security-stores.js";
 
 const FILE = path.join(dataDir, "security", "api-tokens.json");
 const TOKEN_RE = /^Bearer\s+cft_([a-f0-9]{8})_([A-Za-z0-9_-]{32,64})$/i;
@@ -25,21 +25,15 @@ let tokens = null;
 
 const sha = (s) => crypto.createHash("sha256").update(s).digest();
 
+let store = null;
+const records = () => (store ??= recordStore("api-token", { legacy: { file: FILE, entries: (json) => (json?.tokens ?? []).map((t) => [t.id, t]) } }));
+
 function load() {
-  if (tokens) return tokens;
-  try {
-    tokens = JSON.parse(fs.readFileSync(FILE, "utf8")).tokens ?? [];
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    tokens = [];
-  }
-  return tokens;
+  return (tokens ??= records().load().map(([, t]) => t).sort((a, b) => a.createdAt - b.createdAt));
 }
 
 function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ version: 1, tokens: next }, null, 2), { mode: 0o600 });
-  fs.renameSync(`${FILE}.tmp`, FILE);
+  records().sync(next.map((t) => [t.id, t]));
   tokens = next;
 }
 
@@ -85,4 +79,5 @@ export function revoke(id) {
 /** Test-only. */
 export function resetForTests() {
   tokens = null;
+  store = null;
 }

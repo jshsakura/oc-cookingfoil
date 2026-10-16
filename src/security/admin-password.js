@@ -1,13 +1,13 @@
 /**
  * The admin password set on the admin page, kept as a scrypt hash in
- * ${COOK_DATA_DIR}/security/admin-password.json (0600). It works beside
+ * the security database (db/database.js). It works beside
  * COOK_ADMIN_PASSWORD: either one opens the admin page. The plain password is
  * never stored or sent back.
  */
-import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import { hashPassword, matches as hashMatches } from "./password-hash.js";
+import { recordStore } from "../db/security-stores.js";
 
 const FILE = path.join(dataDir, "security", "admin-password.json");
 export const MIN_LENGTH = 12;
@@ -15,14 +15,12 @@ export const MAX_LENGTH = 200;
 
 let saved; // undefined until read; null when there is none
 
+let store = null;
+const records = () => (store ??= recordStore("admin-password", { legacy: { file: FILE, entries: (json) => (json?.hash ? [["admin", json]] : []) } }));
+
 function hash() {
   if (saved !== undefined) return saved;
-  try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8")).hash ?? null;
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    saved = null;
-  }
+  saved = records().load()[0]?.[1]?.hash ?? null;
   return saved;
 }
 
@@ -39,14 +37,12 @@ export function set(password) {
   if (typeof password !== "string" || password.length < MIN_LENGTH || password.length > MAX_LENGTH) {
     throw new Error(`password must be ${MIN_LENGTH} to ${MAX_LENGTH} characters`);
   }
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ version: 1, hash: hashPassword(password), setAt: Date.now() }), { mode: 0o600 });
-  fs.renameSync(`${FILE}.tmp`, FILE);
+  records().sync([["admin", { hash: hashPassword(password), setAt: Date.now() }]]);
   saved = undefined;
 }
 
 export function clear() {
-  fs.rmSync(FILE, { force: true });
+  records().sync([]);
   saved = undefined;
 }
 

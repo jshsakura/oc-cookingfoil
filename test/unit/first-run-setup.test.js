@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { generate } from "otplib";
+import { records } from "../support/security-db.js";
 
 // A fresh server: browsers land on /setup, the code from the log unlocks it, the
 // first admin account and its authenticator are made there, and the admin page
@@ -69,7 +70,7 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     assert.equal((await post("/setup/api/account", { name: "boss", password: "short" })).status, 400);
     r = await post("/setup/api/account", { name: "boss", password: "long-enough-pass" });
     assert.deepEqual(await r.json(), { ok: true, next: "otp" });
-    const users = JSON.parse(readFileSync(path.join(data, "security", "users.json"), "utf8")).users;
+    const users = records(data, "user");
     assert.equal(users.boss.role, "admin");
     assert.ok(!JSON.stringify(users).includes("long-enough-pass"), "only a hash is stored");
 

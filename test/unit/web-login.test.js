@@ -5,6 +5,8 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { sealedSecret, securityDbFile } from "../support/security-db.js";
+import { open } from "../../src/security/secret-box.js";
 
 // The server and this test share one data folder, so sessions sealed here are the server's.
 const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-weblogin-"));
@@ -199,8 +201,8 @@ test("people sign in with a form; consoles keep Basic; Google is an optional ext
     assert.match((await get("/auth/google/callback?state=x&code=y")).headers.get("location"), /^\/login\?error=1/, "no attempt cookie, no sign-in");
     g = await (await adminPost("/admin/api/google", { enabled: true, clientId: "test-client.apps.googleusercontent.com", clientSecret: "" })).json();
     assert.equal(g.active, true, "an empty secret field keeps the saved secret");
-    assert.ok(!fs.readFileSync(path.join(data, "security", "google-oauth.json"), "utf8").includes("undefined"));
-    assert.equal((fs.statSync(path.join(data, "security", "google-oauth.json")).mode & 0o777), 0o600);
+    assert.ok(!open(sealedSecret(data, "google-oauth")).toString("utf8").includes("undefined"));
+    assert.equal((fs.statSync(securityDbFile(data)).mode & 0o777), 0o600);
 
     // Google accounts: approved ones sign in to the web; waiting ones are told so.
     assert.equal((await get("/", { ...PAGE, Cookie: googleCookie("ok1") })).status, 200);

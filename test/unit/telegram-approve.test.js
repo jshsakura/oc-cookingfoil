@@ -1,8 +1,9 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, statSync } from "node:fs";
+import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { everything, records, securityDbFile } from "../support/security-db.js";
 
 // Approving from Telegram: approval alerts carry [승인] [거절] buttons that stand
 // for one-time tokens, a long-poll loop reads the presses, and a press acts only
@@ -322,12 +323,11 @@ test("a new token waits for the old loop's last request to end", async () => {
   await updates.stop();
 });
 
-test("the token file is written 0600 even over a loose leftover", () => {
-  const dir = path.join(process.env.COOK_DATA_DIR, "security");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(path.join(dir, "telegram-approvals.json.tmp"), "{}", { mode: 0o644 });
-  tokens.issue("device", newKey());
-  assert.equal(statSync(path.join(dir, "telegram-approvals.json")).mode & 0o777, 0o600);
+test("approval tokens are kept only as hashes, in a database only the server's account reads", () => {
+  const token = tokens.issue("device", newKey());
+  assert.ok(Object.keys(records(process.env.COOK_DATA_DIR, "approval")).length >= 1);
+  assert.ok(!everything(process.env.COOK_DATA_DIR).includes(token));
+  assert.equal(statSync(securityDbFile(process.env.COOK_DATA_DIR)).mode & 0o777, 0o600);
 });
 
 test("without the loop the chat finder still asks Telegram", async () => {

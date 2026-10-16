@@ -7,7 +7,7 @@
  * exists:
  *
  *   1. COOK_ADMIN_TOTP_SECRET   — operator-managed, treated as already enrolled
- *   2. ${COOK_DATA_DIR}/security/admin-totp.json — generated on first boot
+ *   2. the security database, sealed — generated on first boot
  *
  * Until the first successful code entry the secret is UNENROLLED, and the
  * dashboard is allowed to show its QR to LAN callers so the operator can adopt
@@ -17,12 +17,11 @@
  * anything can ask for it.
  */
 import crypto from "crypto";
-import fs from "fs";
 import path from "path";
 
 import { dataDir, adminTotpSecret as envSecret } from "../helpers/envs.js";
 import debug from "../debug.js";
-import { readSealedJson, writeSealedJson } from "./secret-box.js";
+import { deleteSecret, readSecretJson, writeSecretJson } from "../db/security-stores.js";
 
 const SECRET_PATH = path.join(dataDir, "security", "admin-totp.json");
 // A candidate under enrollment, on disk so a restart mid-way doesn't void the scanned code.
@@ -48,7 +47,7 @@ function toBase32(buf) {
 
 function readPersisted() {
   try {
-    const parsed = readSealedJson(SECRET_PATH);
+    const parsed = readSecretJson("admin-totp", { legacyFile: SECRET_PATH });
     if (typeof parsed?.secret === "string" && parsed.secret.length >= 16) return parsed;
   } catch (err) {
     // A secret that will not open (another key) must stop the server, not be replaced by a new one.
@@ -60,7 +59,7 @@ function readPersisted() {
 
 function persist(record) {
   try {
-    writeSealedJson(SECRET_PATH, record);
+    writeSecretJson("admin-totp", record);
   } catch (err) {
     debug.error("admin secret: persist failed: %s", err.message);
   }
@@ -90,7 +89,7 @@ function resolve() {
   };
   persist(record);
   cached = { ...record, source: "generated" };
-  debug.log("admin secret: generated a new TOTP secret at %s", SECRET_PATH);
+  debug.log("admin secret: generated a new TOTP secret");
   return cached;
 }
 
@@ -146,9 +145,9 @@ function savePending(next) {
   pending = next;
   try {
     if (next) {
-      writeSealedJson(PENDING_PATH, next);
+      writeSecretJson("admin-totp-pending", next);
     } else {
-      fs.rmSync(PENDING_PATH, { force: true });
+      deleteSecret("admin-totp-pending");
     }
   } catch (err) {
     debug.error("admin secret: pending enrollment not saved: %s", err.message);
@@ -158,7 +157,7 @@ function savePending(next) {
 function loadPending() {
   if (pending) return pending;
   try {
-    const saved = readSealedJson(PENDING_PATH);
+    const saved = readSecretJson("admin-totp-pending", { legacyFile: PENDING_PATH });
     if (typeof saved?.secret === "string" && Number.isFinite(saved?.at)) pending = saved;
   } catch {
     /* none started */

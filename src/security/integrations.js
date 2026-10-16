@@ -1,6 +1,6 @@
 /**
  * Keys for outside services, set from the admin page (settings tab) and kept in
- * ${COOK_DATA_DIR}/security/integrations.json (0600). They apply at once, no
+ * the security database, sealed. They apply at once, no
  * restart. A service with nothing saved falls back to its env vars, so compose
  * files that already set them keep working.
  *
@@ -9,7 +9,7 @@
  */
 import path from "path";
 import * as env from "../helpers/envs.js";
-import { readSealedJson, writeSealedJson } from "./secret-box.js";
+import { readSecretJson, writeSecretJson } from "../db/security-stores.js";
 
 const FILE = path.join(env.dataDir, "security", "integrations.json");
 const TOKEN_RE = /^[\x21-\x7e]{8,300}$/;
@@ -76,7 +76,7 @@ function changed(service) {
 
 function readSaved() {
   try {
-    const parsed = readSealedJson(FILE);
+    const parsed = readSecretJson("integrations", { legacyFile: FILE });
     return parsed && typeof parsed.services === "object" && parsed.services ? parsed.services : {};
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
@@ -110,7 +110,7 @@ export function describe() {
 }
 
 function persist(next) {
-  writeSealedJson(FILE, { version: 1, services: next });
+  writeSecretJson("integrations", { version: 1, services: next });
   saved = next;
 }
 

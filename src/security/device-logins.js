@@ -13,14 +13,14 @@
  *   - can be revoked at any time by its owner or the admin.
  *
  * The password is shown once and only its scrypt hash is kept, in
- * ${COOK_DATA_DIR}/security/device-logins.json.
+ * the security database (db/database.js).
  */
-import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { dataDir } from "../helpers/envs.js";
 import { hashPassword, matchesAsync } from "./password-hash.js";
 import * as users from "./users.js";
+import { recordStore } from "../db/security-stores.js";
 
 const DIR = path.join(dataDir, "security");
 const FILE = path.join(DIR, "device-logins.json");
@@ -55,12 +55,12 @@ function randomText(length) {
   return out + randomText(length - out.length);
 }
 
+let store = null;
+// Fail closed (a file that does not read stops the start) rather than silently dropping everyone's revocations.
+const records = () => (store ??= recordStore("device-login", { legacy: { file: FILE, entries: (json) => Object.entries(json?.logins ?? {}) } }));
+
 function persist() {
-  fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, logins: Object.fromEntries(logins) }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, FILE);
-  fs.chmodSync(FILE, 0o600);
+  records().sync(logins);
 }
 
 
@@ -79,17 +79,9 @@ function commit(change) {
 }
 
 function load() {
-  if (!fs.existsSync(FILE)) return;
-  let parsed;
-  try {
-    parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
-  } catch (err) {
-    // Fail closed rather than silently dropping everyone's revocations.
-    throw new Error(`device-logins: cannot read ${FILE} (${err.message}); fix or restore it before starting`);
-  }
   // Earlier versions also kept each login's IP, last-seen time and client version; they are dropped here.
   let scrubbed = false;
-  for (const [name, record] of Object.entries(parsed?.logins ?? {})) {
+  for (const [name, record] of records().load()) {
     const { hash, owner, label, createdAt, deviceKey } = record;
     logins.set(name, { hash, owner, label, createdAt, deviceKey: deviceKey ?? null });
     scrubbed ||= Object.keys(record).some((k) => !["hash", "owner", "label", "createdAt", "deviceKey"].includes(k));

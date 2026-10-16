@@ -8,16 +8,15 @@
  *   id      8 hex characters                   what lists show; names nothing secret
  *
  * A token works once, within TTL_MS of its download. Only the token's SHA-256
- * is kept, in ${COOK_DATA_DIR}/security/enroll-tokens.json (0600), so the file
+ * is kept, in the security database (0600), so the file
  * alone enrolls nothing. Spent and lapsed ones stay as history for
  * HISTORY_MS; an account holds at most WAITING_PER_OWNER unspent ones (a new
  * download drops the oldest), and the file at most MAX_KEPT.
  */
-import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
+import { recordStore } from "../db/security-stores.js";
 
 export const TTL_MS = 24 * 60 * 60 * 1000;
 export const HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
@@ -31,23 +30,18 @@ let saved = null; // sha256(token) → { id, owner, createdAt, expiresAt, usedAt
 
 const hash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
-function read() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    return parsed && typeof parsed.tokens === "object" && parsed.tokens ? parsed.tokens : {};
-  } catch (err) {
-    if (err.code !== "ENOENT") debug.error("enroll tokens: %s unreadable: %s", FILE, err.message);
-    return {};
-  }
-}
+let store = null;
+const records = () =>
+  (store ??= recordStore("enroll-token", {
+    legacy: { file: FILE, lenient: true, entries: (json) => Object.entries(json && typeof json.tokens === "object" && json.tokens ? json.tokens : {}) },
+  }));
+
+const read = () => Object.fromEntries(records().load());
 
 const all = () => (saved ??= read());
 
 function persist() {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  fs.rmSync(`${FILE}.tmp`, { force: true });
-  fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ version: 1, tokens: saved }), { mode: 0o600 });
-  fs.renameSync(`${FILE}.tmp`, FILE);
+  records().sync(Object.entries(saved));
 }
 
 /** "waiting" | "used" | "expired" | "revoked" for a record at `now`. Pure. */

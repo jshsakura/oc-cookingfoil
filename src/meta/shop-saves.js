@@ -32,7 +32,6 @@
  * too). Content hashes are cached by (size, mtime, inode) in the index.
  */
 import crypto from "crypto";
-import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";

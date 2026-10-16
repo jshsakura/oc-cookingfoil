@@ -14,13 +14,13 @@
  * out inside one step is the same token, and it lives at least the full
  * lifetime from the moment it was handed out.
  *
- * The key is 32 random bytes in ${COOK_DATA_DIR}/security/download-link.key
+ * The key is 32 random bytes, sealed in the security database
  * (0600), made on first use. Deleting it ends every token handed out so far.
  */
 import crypto from "crypto";
 import path from "path";
 import * as env from "../helpers/envs.js";
-import { readSealed, writeSealed } from "./secret-box.js";
+import { readSecret, writeSecret } from "../db/security-stores.js";
 
 const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
@@ -34,13 +34,13 @@ let key = null;
 // size is an error, so a key is never replaced behind the operator's back.
 export function signingKey() {
   if (key) return key;
-  const raw = readSealed(KEY_FILE);
+  const raw = readSecret("download-link", { legacyFile: KEY_FILE });
   if (raw) {
-    if (raw.length !== KEY_BYTES) throw new Error(`${KEY_FILE} is not a ${KEY_BYTES}-byte key`);
+    if (raw.length !== KEY_BYTES) throw new Error(`the download-link key is not ${KEY_BYTES} bytes`);
     return (key = raw);
   }
   const fresh = crypto.randomBytes(KEY_BYTES);
-  writeSealed(KEY_FILE, fresh);
+  writeSecret("download-link", fresh);
   return (key = fresh);
 }
 

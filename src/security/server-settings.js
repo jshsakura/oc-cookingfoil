@@ -2,16 +2,16 @@
  * Server behaviour the admin page can change while the server runs: device
  * approval, whether consoles may sign in with a password, uploads, the share inbox, the public address, the direct download address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
- * download, how a safe restart waits and the NSZ conversion queue. Saved in ${COOK_DATA_DIR}/security/server-settings.json
+ * download, how a safe restart waits and the NSZ conversion queue. Saved in the security database (one row a setting)
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
  * Saving applies at once through envs.js applyServerSettings (live bindings).
  */
-import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
+import { settingsStore } from "../db/security-stores.js";
 
 const FILE = path.join(env.dataDir, "security", "server-settings.json");
 const URL_RE = /^https?:\/\/[^\s/]+[^\s]{0,300}$/;
@@ -91,29 +91,25 @@ function warnRetired(what) {
   debug.error("settings: %s is no longer used and is ignored; set publicDirectBaseUrl (COOK_PUBLIC_DIRECT_BASE_URL) instead", what);
 }
 
+let store = null;
+const settingsRows = () => (store ??= settingsStore({ legacyFile: FILE }));
+
 function read() {
   if (process.env.COOK_DOWNLOAD_BASE_URL) warnRetired("COOK_DOWNLOAD_BASE_URL");
-  try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    const out = {};
-    for (const [k, v] of Object.entries(parsed?.settings ?? {})) {
-      if (SETTINGS[k]?.check(v)) out[k] = v;
-    }
-    if (parsed?.settings?.downloadBaseUrl) warnRetired("the saved downloadBaseUrl");
-    return out;
-  } catch {
-    return {};
+  const all = settingsRows().load();
+  const out = {};
+  for (const [k, v] of Object.entries(all)) {
+    if (SETTINGS[k]?.check(v)) out[k] = v;
   }
+  if (all.downloadBaseUrl) warnRetired("the saved downloadBaseUrl");
+  return out;
 }
 
 function write(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, settings: next }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, FILE);
+  settingsRows().save(next);
 }
 
-/** Reads the saved file and applies it. Runs once on import; tests call it again. */
+/** Reads the saved settings and applies them. Runs once on import; tests call it again. */
 export function load() {
   saved = read();
   env.applyServerSettings(saved);
