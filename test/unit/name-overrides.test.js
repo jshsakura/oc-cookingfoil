@@ -7,7 +7,7 @@ import path from "node:path";
 // Names the admin gives games and retro games, over titledb's and the file's.
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-names-"));
 const gameDescriptions = await import("../../src/meta/game-descriptions.js");
-const { ownDisplayName } = await import("../../src/create-index-content.js");
+const { ownDisplayName, rebuildFileItem } = await import("../../src/create-index-content.js");
 const titledbStore = await import("../../src/meta/titledb-store.js");
 const retroNames = await import("../../src/retro/names.js");
 
@@ -40,4 +40,16 @@ test("a description saved by an older version, languages at the top, still reads
   const read = gameDescriptions.normalize({ "0100B00B51230000": { en: "A port.", ko: "포팅판입니다." }, "0100000000020000": { notes: { ko: "메모" } } });
   assert.deepEqual(read["0100B00B51230000"], { description: { en: "A port.", ko: "포팅판입니다." } });
   assert.deepEqual(read["0100000000020000"], { notes: { ko: "메모" } });
+});
+
+test("a file item built again from the one held picks up a new name and keeps its size and date", () => {
+  const rel = `Some Game [${TID}][v0].nsp`;
+  const held = rebuildFileItem(rel, { size: 1234, mtime: 1700000000 });
+  gameDescriptions.set(TID, "name", { ko: "새 이름", en: "" });
+  const again = rebuildFileItem(rel, held);
+  gameDescriptions.set(TID, "name", { ko: "", en: "" });
+  assert.match(again.name, /^새 이름 \[/);
+  assert.notEqual(again.name, held.name);
+  assert.equal(again.size, 1234);
+  assert.equal(again.mtime, 1700000000);
 });

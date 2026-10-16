@@ -56,14 +56,14 @@ async function doFetch(regions) {
       const scoresOk = await ratings.refresh();
       const okCount = results.filter((r) => r.ok).length;
       debug.log("titledb fetch: ok=%d/%d", okCount, results.length);
-      if (okCount === 0 && (versionsOk || ranksOk || scoresOk)) shopCache.invalidate({ rescan: true });
+      if (okCount === 0 && (versionsOk || ranksOk || scoresOk)) shopCache.invalidate({ rename: true });
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
-        // Fresh titledb → stale shop cache. rescan:true because each
+        // Fresh titledb → stale shop cache. rename:true because each
         // filesMap entry baked its display name at scan time; without it
         // the rebuild goes incremental (+0/-0) and re-serves those names.
-        shopCache.invalidate({ rescan: true });
+        shopCache.invalidate({ rename: true });
       }
       job.done(`지역 ${okCount}/${results.length}`);
       return results;
@@ -152,10 +152,10 @@ export async function bootstrap() {
   await ratings.load();
   // The shop-cache init runs concurrently and might have already built a
   // response while titledb-store was still loading from disk (race on cold
-  // start). rescan:true so the per-file items are rebuilt against the store
+  // start). rename:true so the per-file items are rebuilt against the store
   // we just loaded — a plain invalidate finds +0/-0 files changed and
   // re-composes the same filename-derived names.
-  shopCache.invalidate({ rescan: true });
+  shopCache.invalidate({ rename: true });
   const autoFetch = titledbAutoFetch;
   const haveCache = store.size() > 0;
   // A partial cache is the common real-world state: an early boot (or a once-
@@ -174,18 +174,18 @@ export async function bootstrap() {
 
   if (autoFetch && haveCache && !(await popularity.hasStore())) {
     popularity.refresh()
-      .then((ok) => ok && shopCache.invalidate({ rescan: true }))
+      .then((ok) => ok && shopCache.invalidate({ rename: true }))
       .catch(onFetchFail("popularity"));
   }
   if (autoFetch && !(await ratings.hasStore())) {
     ratings.refresh()
-      .then((ok) => ok && shopCache.invalidate({ rescan: true }))
+      .then((ok) => ok && shopCache.invalidate({ rename: true }))
       .catch(onFetchFail("ratings"));
   }
   if (autoFetch && haveCache && !(await titledbVersions.hasIndex())) {
     // Upgrade from a release without the update/DLC index: fetch just that.
     titledbVersions.refresh()
-      .then((ok) => ok && shopCache.invalidate({ rescan: true }))
+      .then((ok) => ok && shopCache.invalidate({ rename: true }))
       .catch(onFetchFail("versions index"));
   }
 

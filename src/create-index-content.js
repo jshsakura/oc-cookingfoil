@@ -285,6 +285,11 @@ export async function readOneFile(relPath) {
   }
 }
 
+/** The file item again from one already built, for when only the names it carries changed. */
+export function rebuildFileItem(relPath, item) {
+  return buildFileItem(relPath, item.size, item.mtime ? item.mtime * 1000 : undefined);
+}
+
 /**
  * Full library scan + custom-entries load. Returns the primitive state
  * (`filesMap` keyed by relative path, plus `customs` array) that the

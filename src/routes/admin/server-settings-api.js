@@ -108,7 +108,7 @@ export function mountServerSettingsApi(router, requireSession) {
     if (changed.includes("publicDirectBaseUrl")) await directHealth.checkSoon();
     if (changed.some((k) => RESCAN.has(k))) {
       if (changed.includes("langPriority")) await titledbStore.load();
-      shopCache.invalidate({ rescan: true });
+      shopCache.invalidate({ rename: true });
     } else if (changed.some((k) => REBUILD.has(k))) {
       shopCache.invalidate();
     }

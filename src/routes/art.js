@@ -195,7 +195,7 @@ export default function artRouter() {
       if (v) gameDescriptions.set(base, field, v);
     }
     // A changed name is baked into the list the server hands out: build it again.
-    if (req.body?.name) invalidate({ rescan: true });
+    if (req.body?.name) invalidate({ rename: true });
     debug.log("art: facts of %s saved", base);
     res.json(gameFacts(base));
   });
@@ -203,7 +203,7 @@ export default function artRouter() {
     const base = requireBase(req, res);
     if (!base) return;
     gameDescriptions.reset(base, null);
-    invalidate({ rescan: true });
+    invalidate({ rename: true });
     res.json(gameFacts(base));
   });
   router.post("/:kind(homebrew|patch)/:id/:slot(icon|banner|screenshot)", single, itemRoute(async (req, res, { store, id }) => {

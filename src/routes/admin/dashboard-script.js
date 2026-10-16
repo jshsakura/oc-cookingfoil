@@ -323,15 +323,57 @@ async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회�
 async function renameDevice(deviceKey,label){const next=await askText('이 기기의 이름을 정합니다',label||'');if(next===null)return;
   try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 변경했습니다.');loadDevices();}catch(err){toast(err.message);}}
 
+// ── paged lists: search, how many per page, page buttons ──────────────
+// The data is already in the browser, so this only slices it. A list of ten or fewer shows no bar.
+const PG_SIZES=[10,25,50,100],pgState={};
+function pgSize(key,def){try{const v=Number(localStorage.getItem('pg-'+key));if(PG_SIZES.includes(v))return v;}catch(e){}return def;}
+function pgPages(page,pages){const out=[];let last=0;
+  for(let n=1;n<=pages;n++){if(n===1||n===pages||Math.abs(n-page)<=1){if(last&&n-last>1)out.push(0);out.push(n);last=n;}}return out;}
+// mount: the element the rows go in. opts: key, items, match(item,q), def, render(slice,filtered), placeholder
+function paged(mount,opts){
+  const st=pgState[opts.key]||(pgState[opts.key]={q:'',page:1,per:pgSize(opts.key,opts.def||25)});
+  let bar=document.getElementById(mount.id+'-bar');
+  if(!bar){bar=el('div',null,'pg-bar');bar.id=mount.id+'-bar';mount.before(bar);}
+  const run=()=>{
+    const q=st.q.trim().toLowerCase();
+    const list=q?opts.items.filter((it)=>opts.match(it,q)):opts.items;
+    const pages=Math.max(1,Math.ceil(list.length/st.per));if(st.page>pages)st.page=pages;
+    const from=(st.page-1)*st.per;
+    opts.render(list.slice(from,from+st.per),list,q);
+    bar.hidden=opts.items.length<=PG_SIZES[0];bar.replaceChildren();if(bar.hidden)return;
+    const find=el('input',null,'pg-q');find.type='search';find.value=st.q;find.placeholder=opts.placeholder||'이름으로 찾기';find.setAttribute('aria-label',(opts.label||'목록')+' 찾기');
+    find.addEventListener('input',()=>{st.q=find.value;st.page=1;run();find.focus();});
+    const per=el('select',null,'pg-per');per.setAttribute('aria-label',(opts.label||'목록')+' 몇 개씩 볼지');
+    for(const n of PG_SIZES){const o=el('option',n+'개씩');o.value=n;per.append(o);}per.value=st.per;
+    per.addEventListener('change',()=>{st.per=Number(per.value);st.page=1;try{localStorage.setItem('pg-'+opts.key,String(st.per));}catch(e){}run();});
+    const info=el('span',list.length?(from+1)+'-'+Math.min(list.length,from+st.per)+' / '+num(list.length)+'개':'찾은 것이 없습니다','pg-info');
+    const nav=el('div',null,'pg-nav');nav.setAttribute('role','navigation');nav.setAttribute('aria-label',(opts.label||'목록')+' 페이지');
+    const go=(n)=>{st.page=n;run();};
+    const prev=btn('이전',()=>go(st.page-1));prev.disabled=st.page<=1;
+    const next=btn('다음',()=>go(st.page+1));next.disabled=st.page>=pages;
+    nav.append(prev);
+    if(pages>1)for(const n of pgPages(st.page,pages)){
+      if(!n){nav.append(el('span','…','pg-gap'));continue;}
+      const b=btn(String(n),()=>go(n));b.dataset.noicon='1';b.setAttribute('aria-label',n+' 쪽');b.classList.add('pg-n');
+      if(n===st.page)b.setAttribute('aria-current','page');nav.append(b);}
+    nav.append(next);
+    bar.append(find,per,info,nav);};
+  run();}
 // ── homebrew ──────────────────────────────────────────────────────────
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
 async function loadHomebrew(){
   const d=await api('/admin/api/homebrew');
-  const reco=$('hb-reco');reco.replaceChildren();
-  for(const r of d.recommended||[]){const l=el('label');const c=el('input');c.type='checkbox';c.value=r.repo;c.disabled=r.added;
-    l.classList.toggle('added',r.added);const t=el('div');t.append(el('b',r.repo),el('span',(r.purpose.ko||r.purpose.en)+(r.added?' · 추가됨':'')));
-    l.append(c,t);reco.append(l);}
-  table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],(d.sources||[]).map((s)=>{const tr=el('tr');
+  const reco=$('hb-reco');hbReco=d.recommended||[];
+  paged(reco,{key:'hb-reco',label:'추천 홈브류',def:12,items:d.recommended||[],
+    match:(r,q)=>(r.repo+' '+(r.purpose.ko||'')+' '+(r.purpose.en||'')).toLowerCase().includes(q),
+    render:(rows)=>{reco.replaceChildren();
+      for(const r of rows){const l=el('label');const c=el('input');c.type='checkbox';c.value=r.repo;c.disabled=r.added;c.checked=!r.added&&hbPicked.has(r.repo);
+        c.addEventListener('change',()=>{if(c.checked)hbPicked.add(r.repo);else hbPicked.delete(r.repo);});
+        l.classList.toggle('added',r.added);const t=el('div');t.append(el('b',r.repo),el('span',(r.purpose.ko||r.purpose.en)+(r.added?' · 추가됨':'')));
+        l.append(c,t);reco.append(l);}}});
+  paged($('hb-sources'),{key:'hb-sources',label:'따라가는 저장소',def:25,items:d.sources||[],
+    match:(s,q)=>(s.repo+' '+(s.description?.github||'')+' '+(s.description?.custom?.ko||'')).toLowerCase().includes(q),
+    render:(rows,list,q)=>table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],rows.map((s)=>{const tr=el('tr');
     const name=td();const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';name.append(a);
     const shown=s.description?.custom?(s.description.custom.ko||s.description.custom.en||'설명 없음'):s.description?.github;
     if(shown)name.append(el('div',shown,'desc'));
@@ -357,9 +399,9 @@ async function loadHomebrew(){
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
     box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
-    '따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.');
+    q?'찾은 저장소가 없습니다.':'따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.')});
   hbManual=d.manual||[];hbSources=d.sources||[];loadHbApps();}
-let hbManual=[],hbSources=[];
+let hbManual=[],hbSources=[],hbReco=[];const hbPicked=new Set();
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
 async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
   const held=d.held||[];$('hb-held').hidden=!held.length;
@@ -369,7 +411,9 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
-  table('hb-apps',['켜기','이름','분류','크기','패치','세이브',''],(d.apps||[]).map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
+  paged($('hb-apps'),{key:'hb-apps',label:'앱',def:25,items:d.apps||[],
+    match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
+    render:(rows,list,q)=>table('hb-apps',['켜기','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
     const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
     b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
     const n=td();n.append(el('b',a.name||a.app));
@@ -385,7 +429,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     box.append(btn('그림',()=>openHbBanner(a)));
     if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
     else if(repo)box.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
-    act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.');}
+    act.append(box);tr.append(act);return tr;}),q?'찾은 앱이 없습니다.':'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.')});}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
 function hbBannerShow(url){const img=$('hb-banner-img');img.hidden=!url;if(url)img.src=url;$('hb-banner-none').hidden=Boolean(url);$('hb-banner-remove').hidden=!url;
@@ -469,9 +513,9 @@ async function addHbRecommended(repos){
   if(!repos.length){toast('추가할 것을 고릅니다.');return;}
   try{const r=await api('/admin/api/homebrew/recommended',{method:'POST',body:{repos}});
     toast(r.added.length+'개를 추가했습니다. 첫 빌드를 받는 동안 잠시 걸립니다.');loadHomebrew();setTimeout(loadHomebrew,8000);}catch(err){toast(err.message);}}
-$('hb-add-picked').addEventListener('click',()=>addHbRecommended([...document.querySelectorAll('#hb-reco input:checked')].map((c)=>c.value)));
+$('hb-add-picked').addEventListener('click',()=>{const repos=[...hbPicked];hbPicked.clear();addHbRecommended(repos);});
 $('hb-add-all').addEventListener('click',async()=>{if(!await ask('추천 홈브류를 모두 추가합니다.'))return;
-  addHbRecommended([...document.querySelectorAll('#hb-reco input:not(:disabled)')].map((c)=>c.value));});
+  hbPicked.clear();addHbRecommended(hbReco.filter((r)=>!r.added).map((r)=>r.repo));});
 $('hb-add').addEventListener('submit',async(e)=>{e.preventDefault();const b=e.submitter;if(b)b.disabled=true;
   try{const s=await api('/admin/api/homebrew',{method:'POST',body:{repo:$('hb-repo').value,asset:$('hb-asset').value}});
     $('hb-repo').value='';$('hb-asset').value='';toast(s?.error?'추가했지만 확인하지 못했습니다: '+s.error.message:'추가했습니다.');loadHomebrew();}

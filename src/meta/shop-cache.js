@@ -34,6 +34,7 @@ import {
   composeResponse,
   composeSections,
   readOneFile,
+  rebuildFileItem,
   loadCustoms,
   isGameFile,
 } from "../create-index-content.js";
@@ -142,6 +143,7 @@ let customs = [];                           // last loaded custom_entries
 const pendingFileDeltas = new Map();        // relPath -> "upsert" | "remove"
 let pendingCustomsReload = false;
 let needsFullRescan = false;                // dir-level event fallback
+let needsRename = false;                    // names changed, files did not: rebuild items in memory
 
 async function applyPendingDeltas() {
   let upserts = 0, removes = 0;
@@ -182,6 +184,7 @@ async function build() {
         pendingFileDeltas.clear();
         pendingCustomsReload = false;
         needsFullRescan = false;
+        needsRename = false;
         mode = filesMap.size === 0 && customs.length === 0 ? "full-empty" : "full";
       } else {
         const delta = await applyPendingDeltas();
@@ -190,6 +193,12 @@ async function build() {
           pendingCustomsReload = false;
         }
         mode = `incremental(+${delta.upserts}/-${delta.removes})`;
+        if (needsRename) {
+          // The path, size and mtime are already held, so new names need no trip to the disk.
+          needsRename = false;
+          for (const [relPath, item] of filesMap) filesMap.set(relPath, rebuildFileItem(relPath, item));
+          mode += "+rename";
+        }
       }
 
       const r = composeResponse(filesMap, customs);
@@ -483,23 +492,26 @@ export async function getSectionsEncodedForOrigin(acceptedEncodings, origin, lin
  * no request ever has to wait through a fresh scan just because something
  * changed in the background.
  *
- * Pass `{ rescan: true }` when the change invalidates the per-file items
+ * Pass `{ rename: true }` when the change invalidates the per-file items
  * THEMSELVES rather than the library contents — titledb finishing its load
  * is the case that matters. Each `filesMap` entry bakes in its display name
  * at scan time, so a plain rebuild takes the incremental path, finds
  * `+0/-0` files changed, and re-composes the very same stale names. On a
  * small/fast library the cold scan beats titledb's ~1s load every time, and
  * the catalog then serves filename-derived names until some file happens to
- * change. `rescan` forces the items to be rebuilt against the loaded store.
+ * change. `rename` rebuilds the items against the loaded store from what is
+ * already held (path, size, mtime), without reading the games folder again.
+ * `rescan` reads every file again: only for changes on disk a watch may miss.
  *
  * (The native sections view never had this bug: composeSections re-derives
  * each item from its path on every build, so it always saw fresh titledb.
  * That asymmetry is exactly how this was caught — CyberFoil showed
  * "데드 셀" while stock Tinfoil got "Dead Cells".)
  */
-export function invalidate({ rescan = false } = {}) {
+export function invalidate({ rescan = false, rename = false } = {}) {
   if (rescan) needsFullRescan = true;
-  scheduleRebuild(rescan ? "invalidate+rescan" : "invalidate");
+  if (rename) needsRename = true;
+  scheduleRebuild(rescan ? "invalidate+rescan" : rename ? "invalidate+rename" : "invalidate");
 }
 
 function scheduleRebuild(reason) {
