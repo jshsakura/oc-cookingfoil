@@ -229,12 +229,16 @@
       .xrow.xapp { grid-template-columns: 48px minmax(0, 1fr) auto; margin: 0; padding: 0; border-color: transparent; background: none; }
       .xrow.xapp > img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
       .xrow.xapp .xname { font-size: 16px; }
-      .xrow .pill, .modal .xm-pills .pill {
+      /* A game's card in the patch list: its name over the kinds its patches hold. */
+      .xgroup .xhead .xtitle { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+      .xgroup .xhead .xbadges { display: flex; gap: 5px; overflow: hidden; }
+      .xgroup .xhead .xbadges:empty { display: none; }
+      .xrow .pill, .xhead .pill, .modal .xm-pills .pill {
         padding: 2px 9px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap;
         background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
       }
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
-      .xrow .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
       .modal.xmodal .modal-head .modal-cover { margin-top: 0; width: 72px; height: 72px; }
@@ -260,6 +264,15 @@
       .modal.xmodal .xm-where code { font: 600 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink);
         background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; }
       .modal.xmodal .desc:empty { display: none; }
+      /* An install path stays on one line: on a phone its middle gives way (sdmc:/…/contents/<id>/), never its end. */
+      .path-code { white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+      .path-code .p-short { display: none; }
+      @media (max-width: 640px) {
+        /* Out of sight but still read aloud: a screen reader says the whole path, never the shortened one. */
+        .path-code .p-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+        .path-code .p-short { display: inline; }
+        .xm-where, .modal .modal-where { white-space: nowrap; }
+      }
       .xitem.xapp { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; border-top: none; margin-top: 0; padding-top: 0; }
       .xitem.xapp > img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
       .xitem.xapp .xname { font-size: 16px; }
@@ -599,7 +612,7 @@
       html.sheet-open body { position: fixed; left: 0; right: 0; width: 100%; }
       .modal {
         --surface: var(--modal-panel); --sunk: var(--modal-sunk); --line: var(--modal-line);
-        background: var(--modal-bg); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh;
+        background: var(--modal-bg); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh; max-height: 90dvh;
         display: flex; flex-direction: column; overflow: hidden; animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.25);
         /* Every dialog draws its own edge, so it reads as a card over the page, not a floating sheet. */
@@ -871,7 +884,8 @@
         .games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
         .recent { grid-auto-columns: 140px; }
         .modal-backdrop { padding: 0; align-items: flex-end; }
-        .modal { border-radius: 24px 24px 0 0; max-height: 94vh; }
+        /* dvh: the height left between the browser's bars. iOS counts vh under them, which pushed the sheet's top off screen. */
+        .modal { border-radius: 24px 24px 0 0; max-height: 94vh; max-height: 94dvh; }
         .modal .body { padding: 22px 20px; }
         .modal .modal-head { flex-direction: column; gap: 10px; }
         .modal .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
@@ -1193,11 +1207,11 @@
           "section.library": "모든 게임",
           "client.title": "CookingFoil 클라이언트",
           "client.hint": "SD 카드 최상위(루트)에 압축을 풀고 앱을 실행하면 바로 연결됩니다. (자동 연동 키 유효시간: 24시간)",
-          "client.get": "받기",
+          "client.get": "다운로드",
           "client.version": (v, mb) => `버전 ${v} · ${mb} MB`,
-          "client.saved": "다운로드 완료. 24시간 이내에 SD 카드 루트에 압축을 풀고 앱을 실행해 주세요.",
+          "client.saved": "다운로드했습니다. 24시간 안에 SD 카드 루트에 압축을 풀고 앱을 실행합니다.",
           "client.noBuild": "아직 올린 클라이언트가 없습니다.",
-          "client.failed": "받지 못했습니다. 다시 시도합니다.",
+          "client.failed": "다운로드하지 못했습니다. 다시 시도합니다.",
           "tab.games": "모든 게임",
           "tab.pair": "기기 승인",
           "tab.admin": "관리",
@@ -1212,9 +1226,9 @@
           "tab.patches": "패치",
           "tab.saves": "세이브",
           "extras.search": "게임 이름이나 파일 이름으로 찾기…",
-          "extras.download": "받기",
+          "extras.download": "다운로드",
           "patches.need": "함께 설치해야 하는 패치",
-          "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 받습니다.",
+          "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 다운로드합니다.",
           "patches.related": "관련 패치",
           "modal.notes": "추가 정보",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
@@ -1252,15 +1266,15 @@
           "extras.files": (n) => `파일 ${n}개`,
           "retro.bezel": "베젤",
           "retro.discs": "여러 디스크",
-          "retro.download": "받기",
+          "retro.download": "다운로드",
           "retro.system": "기종",
           "retro.core": "코어",
           "retro.bezelLabel": "베젤",
           "retro.bezelOwn": "전용",
           "retro.bezelDefault": "기본",
           "retro.bezelNone": "없음",
-          "retro.downloadRom": "롬 받기",
-          "retro.downloadDiscs": "디스크 묶음 받기",
+          "retro.downloadRom": "롬 다운로드",
+          "retro.downloadDiscs": "디스크 묶음 다운로드",
           "retro.versions": (n) => `버전 ${n}개`,
           "retro.listed": "추천",
           "retro.cantRun": "실행 불가",
@@ -2300,6 +2314,18 @@
           button.disabled = false;
         }
       });
+      // An install path as code: whole, and shortened in the middle for phones (the start and the last two folders).
+      function pathCode(p) {
+        const full = String(p);
+        const parts = full.split("/");
+        const tail = full.endsWith("/") ? 3 : 2;
+        const short = parts.length > tail + 1 ? `${parts[0]}/…/${parts.slice(-tail).join("/")}` : full;
+        const code = document.createElement("code"); code.className = "path-code"; code.title = full;
+        if (short === full) { code.textContent = full; return code; }
+        code.append(Object.assign(document.createElement("span"), { className: "p-full", textContent: full }),
+          Object.assign(document.createElement("span"), { className: "p-short", textContent: short, ariaHidden: "true" }));
+        return code;
+      }
       const finePointer = () => matchMedia("(hover: hover) and (pointer: fine)").matches;
       // While any dialog is open the page behind it is pinned where it was, and put back when the last one closes.
       (() => {
@@ -3367,7 +3393,7 @@
           // Where it lands on the console's SD card, as the client shows it.
           const at = $("xm-where");
           at.hidden = !where;
-          if (where) { at.replaceChildren(document.createTextNode(t("xm.where") + ": ")); at.append(node("code", null, where)); }
+          if (where) { at.replaceChildren(document.createTextNode(t("xm.where") + ": ")); at.append(pathCode(where)); }
           $("xm-sections").replaceChildren(...sections.filter((x) => x.items.length).map((x) => {
             const sec = node("section", "xm-section"); sec.append(node("h4", null, x.title), ...x.items); return sec;
           }));
@@ -3602,7 +3628,16 @@
             img.addEventListener("error", () => { img.style.visibility = "hidden"; });
             const name = document.createElement("strong"); name.textContent = grp.name;
             const n = document.createElement("span"); n.className = "n"; n.textContent = grp.count;
-            head.append(img, name, n);
+            // What the game's patches are, before it is opened: required first, then each kind once.
+            const title = document.createElement("span"); title.className = "xtitle";
+            const badges = document.createElement("span"); badges.className = "xbadges";
+            if (kind === "patches" && grp.items) {
+              const pill = (text, cls) => Object.assign(document.createElement("span"), { className: "pill" + (cls ? " " + cls : ""), textContent: text });
+              if (grp.items.some((it) => it.required === true)) badges.append(pill(t("xm.required"), "need"));
+              for (const k of [...new Set(grp.items.flatMap((it) => it.kinds ?? []))].slice(0, 3)) badges.append(pill(t("kind." + k)));
+            }
+            title.append(name, badges);
+            head.append(img, title, n);
             const body = document.createElement("div"); body.className = "xbody";
             // A search opens every game it found; otherwise a game stays as the reader left it.
             const isOpen = Boolean(q) || opened[kind].has(grp.key);
@@ -4594,7 +4629,7 @@
         ]);
         const where = $("modal-where");
         where.replaceChildren();
-        if (g.install?.rom) where.append(document.createTextNode(t("retro.installAt") + " "), Object.assign(document.createElement("code"), { textContent: g.install.rom }));
+        if (g.install?.rom) where.append(document.createTextNode(t("retro.installAt") + " "), pathCode(g.install.rom));
         where.hidden = !g.install?.rom;
         fillChips([[t("modal.category"), g.genres || []]]);
         fillShots(Array.isArray(g.screenshots) ? g.screenshots : [], loading && !g.screenshots);

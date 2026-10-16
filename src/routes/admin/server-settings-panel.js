@@ -51,11 +51,11 @@ const SS_GROUPS=[
     ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
   ]],
   ['게임 정보',[
-    ['titledbAutoFetch','bool','자동으로 받기','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
+    ['titledbAutoFetch','bool','자동으로 다운로드','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
     ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
-    ['titledbSource','text','받을 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 바꿉니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
+    ['titledbSource','text','다운로드 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 바꿉니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
   ]],
-  ['내려받기',[
+  ['다운로드',[
     ['downloadMaxConnections',[['1','1개'],['2','2개'],['3','3개'],['4','4개 (기본)'],['5','5개'],['6','6개'],['7','7개'],['8','8개']],'기기당 동시 연결','기기 하나가 파일 하나를 받을 때 동시에 여는 연결 수의 상한을 클라이언트에 알려 줍니다. 서버가 막지는 않으며, 줄이면 서버 부담이 줄고 늘리면 먼 곳에서 빨라질 수 있습니다.'],
     ['directDownloads','bool','외부 다운로드 전용 주소 사용','끄면 아래 주소를 지우지 않고 쉬게 합니다. 모든 기기가 목록에 적힌 공개 주소(터널)로 받습니다. 두 경로의 속도를 비교할 때 씁니다.'],
     ['publicDirectBaseUrl','text','외부 다운로드 전용 주소','https 주소만 넣을 수 있습니다. 넣으면 이 기능을 지원하는 클라이언트가 https 로 로그인했을 때 다운로드 토큰을 함께 받고, 목록의 다운로드 주소가 이 주소로 바뀝니다. 집 안에서 http 로 서버에 바로 붙은 기기는 지금처럼 그 주소로 받습니다. 이 주소 앞의 프록시는 Bearer 토큰이 붙은 GET/HEAD 요청만 이 서버로 넘겨야 하고, 이 주소로는 다운로드만 받을 수 있습니다. 다른 클라이언트와 브라우저는 지금처럼 받습니다. 비우면 쓰지 않습니다.','https://dl.example.org:38443'],
@@ -108,8 +108,8 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();
         src.append(btn('compose 값으로',()=>ssSave({[key]:null},'compose 값으로 돌렸습니다.')));}
       r.append(t,c);if(src.childNodes.length)r.append(src);g.append(r);}
     if(title==='게임 정보'){const r=el('div',null,'ss-row');const t=el('div');const tdb=d.titledb||{};
-      t.append(el('b','지금 새로 받기'),el('p',tdb.fetching?'받고 있습니다.':(tdb.titles?'게임 '+tdb.titles.toLocaleString()+'개의 정보가 있습니다'+(tdb.loadedAt?'. 마지막으로 읽은 때: '+fmt(tdb.loadedAt):'')+'.':'아직 받은 게임 정보가 없습니다.')));
-      const c=el('div',null,'ss-ctl');c.append(btn('지금 받기',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
+      t.append(el('b','지금 새로 다운로드'),el('p',tdb.fetching?'다운로드하고 있습니다.':(tdb.titles?'게임 '+tdb.titles.toLocaleString()+'개의 정보가 있습니다'+(tdb.loadedAt?'. 마지막으로 읽은 때: '+fmt(tdb.loadedAt):'')+'.':'아직 받은 게임 정보가 없습니다.')));
+      const c=el('div',null,'ss-ctl');c.append(btn('지금 다운로드',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
       r.append(t,c);g.append(r);}
     if(title==='다시 시작')g.append(ssRestartRow());
     if(title==='동기화와 백업')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
@@ -119,7 +119,7 @@ function ssDirectNote(h){return h.up?'외부 다운로드 전용 주소가 지�
 function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const note=el('p','지금 받고 있는 수를 읽고 있습니다.');
   t.append(el('b','안전하게 다시 시작합니다'),note);
   api('/admin/api/server/status').then((st)=>{note.textContent=st.draining?'다시 시작하고 있습니다. 남은 요청 '+st.inflight+'개가 끝나면 꺼졌다가 다시 켜집니다.'
-    :'새 요청은 잠시 뒤 다시 오라고 돌려보내고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 내려받기 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
+    :'새 요청은 잠시 뒤 다시 오라고 돌려보내고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 다운로드 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
   const c=el('div',null,'ss-ctl');c.append(btn('다시 시작',async()=>{
     if(!confirm('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
     try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));

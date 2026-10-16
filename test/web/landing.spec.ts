@@ -491,6 +491,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   const row = page.locator('#patches-list .xrow', { hasText: '성능 패치' });
   const head = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
   await expect(head).toHaveAttribute('aria-expanded', 'false');
+  // The closed card already says what its patches are: required first, then each kind once.
+  await expect(head.locator('.xbadges .pill')).toHaveText(['필수', '코드 패치']);
   await expect(row).toHaveCount(0);
   await head.click();
   await expect(head).toHaveAttribute('aria-expanded', 'true');
@@ -507,7 +509,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-meta')).toContainText('맞는 업데이트');
   await expect(page.locator('#xm-meta')).toContainText('v2097152');
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
-  await expect(page.locator('#xm-where')).toHaveText('설치 위치: sdmc:/atmosphere/contents/0100000000010000/');
+  await expect(page.locator('#xm-where .p-full')).toHaveText('sdmc:/atmosphere/contents/0100000000010000/');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });
   await page.keyboard.press('Escape');
@@ -540,12 +542,21 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   // On a phone the rows and the detail still fit the width.
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/#patches');
-  await page.locator('#patches-list .xhead').first().click();
-  await page.locator('#patches-list .xrow').first().click();
+  // The card stays as it was left, so it is opened only when closed.
+  const gameHead = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
+  if ((await gameHead.getAttribute('aria-expanded')) !== 'true') await gameHead.click();
+  await page.locator('#patches-list .xrow', { hasText: '성능 패치' }).click();
   await expect(page.locator('#xm-title')).toBeVisible();
   await page.waitForTimeout(450); // the modal's rise animation
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
+  // On a phone the install path keeps to one line, its middle shortened, its whole form on hold.
+  const where = page.locator('#xm-where .path-code');
+  await expect(where.locator('.p-short')).toHaveText('sdmc:/…/contents/0100000000010000/');
+  await expect(where.locator('.p-short')).toHaveAttribute('aria-hidden', 'true');
+  await expect(where).toHaveAttribute('title', 'sdmc:/atmosphere/contents/0100000000010000/');
+  const lines = await where.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
+  expect(lines).toBe(1);
   await page.screenshot({ path: 'out/web/patch-detail-phone.png' });
 });
 

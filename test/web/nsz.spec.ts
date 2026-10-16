@@ -31,7 +31,7 @@ test('the conversion queue is off by default, turns on from its settings and que
   await expect(page.locator('#nz-cards .card')).toHaveCount(5);
   await expect(page.locator('#nz-settings')).toContainText('블록 압축');
   await expect(page.locator('.ss-row[data-key="nszXci"]')).toContainText('기기에서 확인하지 않았으니');
-  await expect(page.locator('.ss-row[data-key="nszWorkers"]')).toContainText('내려받기가 느려집니다');
+  await expect(page.locator('.ss-row[data-key="nszWorkers"]')).toContainText('다운로드하는 콘솔이 느려집니다');
 
   await page.locator('.ss-row[data-key="nszEnabled"] .ss-switch').click();
   await expect(page.locator('#nz-state')).toHaveText('쉬는 중');
