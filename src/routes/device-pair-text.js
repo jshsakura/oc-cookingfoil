@@ -1,9 +1,9 @@
 /** Wording for the signed-in device-approval page (/pair), in the four interface languages. */
 export const PAIR_TEXT = {
   ko: {
-    clientTitle: "CookingFoil 클라이언트 받기",
+    clientTitle: "CookingFoil 클라이언트 다운로드",
     clientLead: "서버 접속 설정이 포함된 클라이언트(zip)를 다운로드합니다. SD 카드 최상위(루트)에 압축을 풀고 앱을 실행하면 바로 연결됩니다.",
-    clientGet: "클라이언트 받기",
+    clientGet: "클라이언트 다운로드",
     clientHint: "최초 등록용 일회성 연동 키는 24시간 동안 유효합니다. 만료되었을 경우 다시 다운로드해 주세요.",
     clientWaiting: "{time}까지 기다립니다",
     clientUsed: "연동했습니다",
@@ -30,7 +30,7 @@ export const PAIR_TEXT = {
     revoke: "폐기",
     revokeConfirm: "이 기기의 접속을 끊습니다. 다시 쓰려면 새로 승인합니다.",
     errCreate: "접속 정보를 만들지 못했습니다. 다시 시도합니다.",
-    configFile: "CookingFoil 설정 파일 받기",
+    configFile: "CookingFoil 설정 파일 다운로드",
     configHint: "받은 config.json 을 SD 카드의 switch/cookingfoil/ 에 넣으면 QR 없이 바로 연결합니다.",
     title: "기기 승인",
     lead: "기기 화면의 QR 코드를 찍으면 이 계정으로 기기를 연결합니다.",

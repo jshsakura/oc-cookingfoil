@@ -116,6 +116,6 @@ export function mountServerSettingsApi(router, requireSession) {
         .catch((err) => debug.error("admin: titledb fetch failed: %s", err.message))
         .finally(() => { fetching = null; });
     }
-    res.status(202).json({ ok: true, message: "게임 정보를 받기 시작했습니다. 몇 분 걸릴 수 있습니다." });
+    res.status(202).json({ ok: true, message: "게임 정보를 다운로드하기 시작했습니다. 몇 분 걸릴 수 있습니다." });
   }));
 }

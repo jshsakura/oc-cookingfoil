@@ -387,7 +387,7 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await expect(source).toContainText('여기서 정한 값입니다');
   await source.locator('input').fill('not a url');
   await source.locator('input').press('Enter');
-  await expect(page.locator('#toast')).toContainText('받을 주소 값이 맞지 않습니다');
+  await expect(page.locator('#toast')).toContainText('다운로드 주소 값이 맞지 않습니다');
   await source.getByRole('button', { name: 'compose 값으로' }).click();
   await expect(source.locator('.ss-src')).toHaveCount(0);
 

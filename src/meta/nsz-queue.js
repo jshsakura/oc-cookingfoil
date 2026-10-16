@@ -393,7 +393,7 @@ export function createNszQueue({
     if (st.size < s.minSizeMb * MIB) return finish(item, { state: "skipped", reason: "최소 크기보다 작습니다." });
     Object.assign(item, { size: st.size, mtimeMs: st.mtimeMs });
     if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
-    if (fileInUse(item.rel)) return finish(item, BUSY("내려받는 중이라 나중에 다시 합니다."));
+    if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
     if (Date.now() - st.mtimeMs < recentWriteMs) return finish(item, BUSY("파일이 방금 바뀌어 나중에 다시 합니다."));
     const nsz = bin();
     if (!nsz) return finish(item, { state: "failed", reason: "nsz 를 찾지 못했습니다. COOK_NSZ_BIN 을 확인합니다." });
@@ -415,7 +415,7 @@ export function createNszQueue({
     const again = await fsp.stat(abs).catch(() => null);
     if (!again) return finish(item, { state: "skipped", reason: "변환하는 동안 파일이 사라졌습니다." });
     if (changed(again, item)) return finish(item, BUSY("변환하는 동안 파일이 바뀌어 나중에 다시 합니다."));
-    if (fileInUse(item.rel)) return finish(item, BUSY("내려받는 중이라 나중에 다시 합니다."));
+    if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
     if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
 
     await fsp.rename(out, target);

@@ -12,7 +12,7 @@
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="hd"><h2 class="first">NSZ 변환</h2>
     <div class="actions"><button type="button" id="nz-scan">라이브러리 검사</button><button type="button" id="nz-all">전체 변환</button><button type="button" class="primary" id="nz-toggle" disabled>시작</button></div></div>
-  <p class="muted">게임 폴더의 .nsp 를 .nsz 로 압축하고 검증한 뒤 원본과 바꿉니다. 콘솔이 내려받는 동안에는 새 파일을 시작하지 않고, 내려받기가 30초 동안 없으면 이어서 합니다.</p>
+  <p class="muted">게임 폴더의 .nsp 를 .nsz 로 압축하고 검증한 뒤 원본과 바꿉니다. 콘솔이 다운로드하는 동안에는 새 파일을 시작하지 않고, 다운로드가 30초 동안 없으면 이어서 합니다.</p>
   <div class="nz-head">
     <div class="nz-state"><span class="pill nz-sk" id="nz-state">불러오고 있습니다</span><span class="muted" id="nz-note"></span></div>
     <div class="bar nz-overall" aria-hidden="true"><i id="nz-overall"></i></div>
@@ -92,7 +92,7 @@ const NZ_SETTINGS=[
   ['nszAutoQueue','bool','새 파일 자동 추가','라이브러리에 새로 들어온 .nsp 를 대기열에 알아서 넣습니다. 시작해 두었다면 바로 변환합니다.'],
   ['nszLevel',NZ_LEVELS,'압축 수준','높을수록 작아지지만 오래 걸립니다.'],
   ['nszThreads',[1,32,'개'],'스레드','파일 하나를 압축할 때 쓰는 CPU 스레드 수입니다.'],
-  ['nszWorkers',[['1','1개 (기본)'],['2','2개'],['3','3개']],'동시에 변환할 파일','늘리면 빨리 끝나지만 같은 디스크에서 받는 콘솔의 내려받기가 느려집니다.'],
+  ['nszWorkers',[['1','1개 (기본)'],['2','2개'],['3','3개']],'동시에 변환할 파일','늘리면 빨리 끝나지만 같은 디스크에서 다운로드하는 콘솔이 느려집니다.'],
   ['nszMinSizeMb',[1,1048576,'MB'],'최소 크기','이보다 작은 파일은 변환하지 않습니다.'],
   ['nszDiskFloorGb',[0,1048576,'GB'],'더 남길 공간','파일 하나를 변환할 때는 그 파일 크기만큼의 작업 공간이 있으면 시작합니다. 여기 넣은 만큼은 그와 별도로 늘 비워 둡니다. 0 이면 작업 공간만 확인합니다.'],
   ['nszBlock','bool','블록 압축','블록 압축은 콘솔이 여러 코어로 풀 수 있게 하는 방식이며 지금 클라이언트는 솔리드와 속도 차이가 없으니 꺼 둡니다.'],
@@ -141,7 +141,7 @@ function nzCards(t){const cards=[['대기',num(t.waiting+t.busy),nzSize(t.waitin
 function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const [label,kind]=d.status==='off'?['꺼짐','']:d.status==='running'?['실행 중','on']:d.status==='idle'?['쉬는 중','']:['일시정지','warn'];st.textContent=label;st.className='pill'+(kind?' '+kind:'');
   const notes={disk:'변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 시작합니다.',failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
-  let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 내려받고 있어 기다립니다. 30초 동안 내려받기가 없으면 다음 파일을 시작합니다.':d.active.length?'':'사용 중인 파일만 남아 잠시 뒤에 다시 확인합니다.'):d.status==='idle'?(d.totals.waiting+d.totals.busy?'시작을 누르면 대기열을 차례로 변환합니다.':'할 일이 없어 쉬고 있습니다.')+(d.autoQueue?' 새 게임이 들어오면 저절로 시작합니다.':''):'시작을 누르면 대기열을 차례로 변환합니다.';
+  let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 다운로드하고 있어 기다립니다. 30초 동안 다운로드가 없으면 다음 파일을 시작합니다.':d.active.length?'':'사용 중인 파일만 남아 잠시 뒤에 다시 확인합니다.'):d.status==='idle'?(d.totals.waiting+d.totals.busy?'시작을 누르면 대기열을 차례로 변환합니다.':'할 일이 없어 쉬고 있습니다.')+(d.autoQueue?' 새 게임이 들어오면 저절로 시작합니다.':''):'시작을 누르면 대기열을 차례로 변환합니다.';
   if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
   $('nz-all').disabled=d.status==='off';
@@ -187,7 +187,7 @@ $('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').textContent
 $('nz-scan').addEventListener('click',()=>nzAct('/admin/api/nsz/scan',{method:'POST',body:{}},(d)=>d.added?d.added+'개('+nzSize(d.bytes)+')를 대기열에 넣었습니다.':'새로 넣을 파일이 없습니다.'));
 $('nz-all').addEventListener('click',async()=>{let p;try{p=await api('/admin/api/nsz/preview');}catch(err){toast(err.message);return;}
   if(!p.files){toast('변환할 파일이 없습니다.');return;}
-  if(!confirm('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 내려받는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
+  if(!confirm('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 다운로드하는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
   nzAct('/admin/api/nsz/convert-all',{method:'POST',body:{}},'전체 변환을 시작했습니다.');});
 $('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 지웠습니다.':'지울 것이 없습니다.'));
 $('nz-retry-all').addEventListener('click',()=>nzAct('/admin/api/nsz/items/all/retry',{method:'POST',body:{}},'실패한 파일을 다시 대기열에 넣었습니다.'));
