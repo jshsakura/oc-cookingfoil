@@ -21,7 +21,11 @@ async function choose(page: Page, tile: ReturnType<Page['locator']>, file: strin
 
 // The gear left of the X swaps the detail for the edit page.
 async function editPage(page: Page, modal: string) {
+  // The window keeps its height across the switch: nothing jumps.
+  await page.waitForTimeout(350);
+  const before = (await page.locator(`${modal} .modal`).boundingBox())!.height;
   await page.locator(`${modal} .modal-gear`).click();
+  expect(Math.abs((await page.locator(`${modal} .modal`).boundingBox())!.height - before)).toBeLessThan(2);
   await expect(page.locator(`${modal} .modal-gear`)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator(`${modal} .edit-facts form`)).toBeVisible();
 }

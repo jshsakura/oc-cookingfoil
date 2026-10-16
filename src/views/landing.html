@@ -633,6 +633,7 @@
       /* The card clips to its rounded edge and an inner box scrolls, so the scroll bar stays inside the card
          (a card that scrolls itself draws its bar over its own corners, standing off the card). */
       /* none, not contain: contain still lets the box itself rubber-band (trackpads, iOS), and the close button bounces with it. */
+      .modal.can-edit { height: 90vh; height: 90dvh; }
       .modal-scroll { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: none; }
       .modal-scroll::-webkit-scrollbar { width: 14px; }
       .modal-scroll::-webkit-scrollbar-track { background: transparent; margin: 22px 0; }
@@ -987,6 +988,7 @@
         .modal-backdrop { padding: 0; align-items: flex-end; }
         /* dvh: the height left between the browser's bars. iOS counts vh under them, which pushed the sheet's top off screen. */
         .modal { border-radius: 24px 24px 0 0; max-height: 94vh; max-height: 94dvh; }
+        .modal.can-edit { height: 94vh; height: 94dvh; }
         .modal .body { padding: 22px 20px; }
         .modal .modal-head { flex-direction: column; gap: 10px; }
         .modal .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
@@ -3571,7 +3573,8 @@
       // The admin's edit page inside a detail window: the gear left of the X swaps the detail
       // for the item's facts and pictures, and back. Nobody else sees the gear.
       const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-      const BACK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
+      // Back to the detail: an eye, "look at it" rather than an arrow.
+      const VIEW_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
       async function artJson(path, body) {
         const init = body === undefined ? { headers: { Accept: "application/json" } }
           : { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) };
@@ -3588,7 +3591,7 @@
         let spec = null, dirty = false, seq = 0;
         const editing = () => win.classList.contains("editing");
         function face(on) {
-          gear.innerHTML = on ? BACK_SVG : GEAR_SVG;
+          gear.innerHTML = on ? VIEW_SVG : GEAR_SVG;
           gear.setAttribute("aria-pressed", String(on));
           gear.setAttribute("aria-label", t(on ? "edit.back" : "edit.open"));
           gear.title = t(on ? "edit.back" : "edit.open");
@@ -3622,6 +3625,8 @@
             if (editing()) set(false);
             spec = next; dirty = false;
             gear.hidden = !next || !uploadsEnabled;
+            // A window that can switch keeps one height, so the detail and the edit page swap without a jolt.
+            win.classList.toggle("can-edit", !gear.hidden);
           },
           leave() { if (editing()) set(false); },
         };
