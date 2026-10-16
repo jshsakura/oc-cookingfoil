@@ -38,7 +38,9 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
       await expect(page.locator('#xm-art .atile.a-icon .reset')).toBeVisible();
       await choose(page, page.locator('#xm-art .atile.a-banner'), banner);
       await expect(page.locator('#xm-banner')).toBeVisible();
+      // One upload at a time: a tile ignores a click while its picture is still on the way.
       await choose(page, page.locator('#xm-art .atile.a-add'), shot);
+      await expect(page.locator('#xm-art .atile.a-shot')).toHaveCount(1);
       await choose(page, page.locator('#xm-art .atile.a-add'), shot);
       await expect(page.locator('#xm-art .atile.a-shot')).toHaveCount(2);
       await expect(page.locator('#xm-screens img')).toHaveCount(2);
