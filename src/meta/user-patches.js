@@ -532,6 +532,12 @@ export function countFor(titleId) {
   return patches.reduce((n, p) => n + (p.title_id === tid), 0);
 }
 
+/** How many of a game's patches it does not start without (marked required by the admin). */
+export function requiredFor(titleId) {
+  const tid = String(titleId ?? "").toUpperCase();
+  return patches.reduce((n, p) => n + (p.title_id === tid && patchInfo.get(patchInfo.keyOf(p.dir, p.folder))?.required === true), 0);
+}
+
 /** Where a listed patch sits under the root ({ dir, folder, key }), or null; key is its patch-info key. */
 export function locate(id) {
   const known = patches.find((p) => p.id === id);

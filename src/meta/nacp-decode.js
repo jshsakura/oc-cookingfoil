@@ -87,6 +87,18 @@ export function slotPriorityOrder(langPriority) {
   return order;
 }
 
+// SupportedLanguageFlag (u32 at 0x302C): bit i is NACP language slot i.
+const NACP_LANGUAGE_FLAG = 0x302c;
+const SLOT_LANGUAGES = ["en", "en", "ja", "fr", "de", "es", "es", "it", "nl", "fr", "pt", "ru", "ko", "zh", "zh", "pt"];
+
+/** The languages a NACP says it supports, as codes ("ko", "en" …), or null when it names none. */
+export function nacpLanguages(nacp) {
+  if (!Buffer.isBuffer(nacp) || nacp.length < NACP_LANGUAGE_FLAG + 4) return null;
+  const flag = nacp.readUInt32LE(NACP_LANGUAGE_FLAG);
+  const codes = [...new Set(SLOT_LANGUAGES.filter((_, i) => flag & (1 << i)))];
+  return codes.length ? codes : null;
+}
+
 /**
  * Pick name + publisher + version out of a NACP blob.
  * Returns `null` if no slot carries a non-empty name (treat as "no
@@ -110,5 +122,5 @@ export function decodeNacp(nacp, langPriority = ["en", "ja", "ko"]) {
   if (!name) return null;
 
   const version = readNullPaddedUtf8(nacp, 0x3060, 0x10).trim() || null;
-  return { name, publisher, version, pickedSlot };
+  return { name, publisher, version, pickedSlot, languages: nacpLanguages(nacp) };
 }

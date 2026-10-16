@@ -70,7 +70,7 @@ test("a port gets a banner from SteamGridDB and screenshots from IGDB under Stea
   const meta = await sharp(fs.readFileSync(media.shotPath(PORT.id, 1))).metadata();
   assert.equal(meta.format, "webp");
   assert.ok(meta.width <= 1280);
-  assert.deepEqual(media.urls(TOOL.id), { banner_url: null, screenshots: [] });
+  assert.deepEqual(media.urls(TOOL.id), { custom_icon_url: null, banner_url: null, screenshots: [] });
   assert.equal(calls.filter((c) => c.includes("Tool")).length, 0, "a tool is never searched");
 });
 
@@ -89,9 +89,9 @@ test("without keys nothing is asked; a search in vain is not repeated for a whil
 test("what the admin removed is not filled in again", async () => {
   const web = fakeWeb();
   await media.fillPorts([PORT], { apiKey: KEY, fetchImpl: web.fetchImpl, pauseMs: 0, igdbReady: () => true });
-  media.removeBanner(PORT.id);
-  media.removeShots(PORT.id);
-  assert.deepEqual(media.urls(PORT.id), { banner_url: null, screenshots: [] });
+  await media.removeBanner(PORT.id);
+  await media.removeShots(PORT.id);
+  assert.deepEqual(media.urls(PORT.id), { custom_icon_url: null, banner_url: null, screenshots: [] });
   assert.equal(fs.existsSync(media.bannerPath(PORT.id)), false);
   assert.equal(fs.existsSync(media.shotPath(PORT.id, 1)), false);
   const before = web.calls.length;
@@ -105,11 +105,18 @@ test("uploaded screenshots add up to eight, one can be taken out and the rest cl
   assert.equal(media.record(TOOL.id).shots.count, 3);
   assert.equal(media.record(TOOL.id).shots.source, "upload");
   const third = fs.readFileSync(media.shotPath(TOOL.id, 3));
-  assert.equal(media.removeShots(TOOL.id, 2), 2);
+  assert.equal(await media.removeShots(TOOL.id, 2), 2);
   assert.deepEqual(fs.readFileSync(media.shotPath(TOOL.id, 2)), third, "the third moved up");
   assert.equal(fs.existsSync(media.shotPath(TOOL.id, 3)), false);
   await assert.rejects(media.addShots(TOOL.id, Array(7).fill(shot)), /8장/);
-  assert.throws(() => media.removeShots(TOOL.id, 5), media.MediaImageError);
+  await assert.rejects(media.removeShots(TOOL.id, 5), media.MediaImageError);
+});
+
+test("two screenshots uploaded at the same moment both stay", async () => {
+  const [a, b] = [await img(800, 450, 40), await img(800, 450, 50)];
+  await Promise.all([media.addShots(TOOL.id, [a]), media.addShots(TOOL.id, [b])]);
+  assert.equal(media.record(TOOL.id).shots.count, 2);
+  assert.notDeepEqual(fs.readFileSync(media.shotPath(TOOL.id, 1)), fs.readFileSync(media.shotPath(TOOL.id, 2)));
 });
 
 test("only SteamGridDB's image host is fetched, and broken images or bad ids are refused", async () => {

@@ -4,203 +4,44 @@
  * from SteamGridDB's "heroes", screenshots from IGDB when its key is set); any
  * app may get both uploaded from the admin page.
  *
- *   ${COOK_DATA_DIR}/homebrew/media/<id>/banner.webp     at most BANNER_W × BANNER_H
- *   ${COOK_DATA_DIR}/homebrew/media/<id>/shot-<n>.webp   n = 1 … MAX_SHOTS, at most SHOT_W × SHOT_H
- *   ${COOK_DATA_DIR}/homebrew/media.json                 { <id>: { banner?, shots? } }
+ *   ${COOK_DATA_DIR}/homebrew/media/<id>/…   the store's files (meta/item-media.js)
+ *   ${COOK_DATA_DIR}/homebrew/media.json     { <id>: { icon?, banner?, shots? } }
  *
- * banner / shots: { source: "sgdb" | "igdb" | "upload", game?, count?, at }, or
- * { miss: at } (a search that found nothing, tried again after MISS_RETRY_MS), or
- * { off: true } (removed by the admin: never filled in automatically again).
+ * A search that found nothing is { miss: at } and is tried again after MISS_RETRY_MS.
  */
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
 import { dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as activity from "../tasks/activity.js";
 import * as igdb from "./igdb-client.js";
 import { fetchSgdbImage, sgdbHeroes, sgdbSearch } from "../retro/art/sync.js";
+import { createMediaStore, MediaImageError, MAX_SHOTS, jpegOf } from "./item-media.js";
 
-const DIR = path.join(dataDir, "homebrew", "media");
-const FILE = path.join(dataDir, "homebrew", "media.json");
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
-const BANNER_W = 1280;
-const BANNER_H = 720;
-const SHOT_W = 1280;
-const SHOT_H = 720;
-export const MAX_SHOTS = 8;
 const AUTO_SHOTS = 6;
 const MISS_RETRY_MS = 30 * 24 * 3_600_000;
 const PAUSE_MS = 1000;
 const IGDB_IMAGES = "https://images.igdb.com/igdb/image/upload/t_screenshot_big/";
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
-export class MediaImageError extends Error {}
-
-let saved = null;
-function all() {
-  if (saved) return saved;
-  try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-  } catch (err) {
-    if (err.code && err.code !== "ENOENT") throw err;
-    // A file that no longer parses is kept aside, not left to break every listing.
-    if (!err.code) {
-      debug.error("homebrew media: %s does not parse (%s); kept as .corrupt, starting empty", FILE, err.message);
-      try { fs.renameSync(FILE, `${FILE}.corrupt`); } catch { /* gone already */ }
-    }
-    saved = {};
-  }
-  return saved;
-}
-
-function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
-}
-
-/** Sets one part ("banner" | "shots") of an app's record. */
-function put(id, part, value) {
-  const cur = all();
-  persist({ ...cur, [id]: { ...cur[id], [part]: value } });
-}
-
-const check = (id) => {
-  if (!ID_RE.test(String(id))) throw new MediaImageError("앱 번호가 맞지 않습니다");
-};
-
-const dirOf = (id) => path.join(DIR, id);
-export const bannerPath = (id) => path.join(dirOf(id), "banner.webp");
-export const shotPath = (id, n) => path.join(dirOf(id), `shot-${n}.webp`);
-
-/** What is on file for one app: { banner?, shots? }. */
-export const record = (id) => all()[id] ?? {};
-
-const stamp = (part) => (part?.source && part.at ? part.at.toString(36) : null);
-
-/** The banner's version (?v=), or null when the app has none. */
-export const bannerVersion = (id) => stamp(record(id).banner);
-
-/** The app's screenshot addresses, in order: [] when it has none. */
-export function shotUrls(id) {
-  const s = record(id).shots;
-  const v = stamp(s);
-  return v ? Array.from({ length: s.count }, (_, i) => `/api/homebrew/${id}/screenshot/${i + 1}?v=${v}`) : [];
-}
-
-/** What the listing carries for an app. */
-export function urls(id) {
-  const v = bannerVersion(id);
-  return { banner_url: v ? `/api/homebrew/${id}/banner?v=${v}` : null, screenshots: shotUrls(id) };
-}
-
-async function encode(raw, w, h) {
-  try {
-    return await sharp(raw, { failOn: "none", limitInputPixels: 50e6 })
-      .rotate()
-      .resize({ width: w, height: h, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80, effort: 5 })
-      .toBuffer();
-  } catch (err) {
-    throw new MediaImageError(`이미지를 읽지 못했습니다: ${err.message}`);
-  }
-}
-
-function writeAtomic(file, buf) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(`${file}.tmp`, buf);
-  fs.renameSync(`${file}.tmp`, file);
-}
-
-/**
- * The JPEG twin of a stored WebP, for clients that cannot read WebP (older consoles,
- * CyberFoil): made the first time one asks, then kept beside it until the WebP changes.
- */
-export async function jpegOf(webpFile) {
-  const jpg = webpFile.replace(/\.webp$/, ".jpg");
-  const src = fs.statSync(webpFile);
-  try {
-    if (fs.statSync(jpg).mtimeMs >= src.mtimeMs) return jpg;
-  } catch { /* not made yet */ }
-  writeAtomic(jpg, await sharp(webpFile).jpeg({ quality: 82, mozjpeg: true }).toBuffer());
-  return jpg;
-}
-
-/** Saves `raw` as the app's banner. Returns the bytes written. */
-export async function saveBanner(id, raw, { source = "upload", game = null, now = Date.now() } = {}) {
-  check(id);
-  const webp = await encode(raw, BANNER_W, BANNER_H);
-  writeAtomic(bannerPath(id), webp);
-  put(id, "banner", { source, ...(game ? { game } : {}), at: now });
-  return webp.length;
-}
+const store = createMediaStore({
+  dir: path.join(dataDir, "homebrew", "media"),
+  file: path.join(dataDir, "homebrew", "media.json"),
+  idRe: ID_RE,
+  urlBase: (id) => `/api/homebrew/${id}`,
+  label: "homebrew media",
+});
+const put = store.put;
+export { MediaImageError, MAX_SHOTS, jpegOf };
+export const {
+  idRe, record, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
+  saveIcon, saveBanner, removeIcon, removeBanner, saveShots, addShots, removeShots,
+} = store;
 
 /** Saves a SteamGridDB picture (its own image host only) as the banner. */
 export async function saveBannerFromSgdb(id, url, game = null, { fetchImpl = fetch } = {}) {
   return saveBanner(id, await fetchSgdbImage(url, { fetchImpl }), { source: "sgdb", game });
-}
-
-/** Removes the banner; it is not filled in automatically again. */
-export function removeBanner(id) {
-  check(id);
-  fs.rmSync(bannerPath(id), { force: true });
-  fs.rmSync(bannerPath(id).replace(/\.webp$/, ".jpg"), { force: true });
-  put(id, "banner", { off: true });
-}
-
-/**
- * Sets the app's screenshots to `raws`, in that order (replacing the ones it had).
- * Images that cannot be read are skipped; none readable throws.
- */
-export async function saveShots(id, raws, { source = "upload", game = null, now = Date.now() } = {}) {
-  check(id);
-  const encoded = [];
-  for (const raw of raws.slice(0, MAX_SHOTS)) {
-    try {
-      encoded.push(await encode(raw, SHOT_W, SHOT_H));
-    } catch (err) {
-      if (raws.length === 1) throw err;
-      debug.error("homebrew media: %s: a screenshot left out: %s", id, err.message);
-    }
-  }
-  if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
-  encoded.forEach((buf, i) => writeAtomic(shotPath(id, i + 1), buf));
-  for (let n = encoded.length + 1; n <= MAX_SHOTS; n++) for (const f of [shotPath(id, n), shotPath(id, n).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
-  put(id, "shots", { source, count: encoded.length, ...(game ? { game } : {}), at: now });
-  return encoded.length;
-}
-
-/** Adds uploaded screenshots after the ones the app has (up to MAX_SHOTS); those stay as they are, never encoded again. */
-export async function addShots(id, raws, { now = Date.now() } = {}) {
-  check(id);
-  const have = record(id).shots?.count ?? 0;
-  if (have + raws.length > MAX_SHOTS) throw new MediaImageError(`스크린샷은 ${MAX_SHOTS}장까지 둡니다`);
-  const encoded = [];
-  for (const raw of raws) encoded.push(await encode(raw, SHOT_W, SHOT_H));
-  encoded.forEach((buf, i) => writeAtomic(shotPath(id, have + i + 1), buf));
-  put(id, "shots", { source: "upload", count: have + encoded.length, at: now });
-  return have + encoded.length;
-}
-
-/** Removes one screenshot (n from 1), or all of them with n = null; removing all stops automatic filling. */
-export function removeShots(id, n = null) {
-  check(id);
-  const s = record(id).shots;
-  if (n == null || !s?.count || s.count <= 1) {
-    for (let i = 1; i <= MAX_SHOTS; i++) for (const f of [shotPath(id, i), shotPath(id, i).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
-    put(id, "shots", { off: true });
-    return 0;
-  }
-  if (!Number.isInteger(n) || n < 1 || n > s.count) throw new MediaImageError("없는 스크린샷입니다");
-  // The ones left, in order, from what is actually on disk: a missing file never leaves the set out of step.
-  const keep = [];
-  for (let i = 1; i <= s.count; i++) if (i !== n && fs.existsSync(shotPath(id, i))) keep.push(fs.readFileSync(shotPath(id, i)));
-  keep.forEach((buf, i) => writeAtomic(shotPath(id, i + 1), buf));
-  for (let i = keep.length + 1; i <= MAX_SHOTS; i++) for (const f of [shotPath(id, i), shotPath(id, i).replace(/\.webp$/, ".jpg")]) fs.rmSync(f, { force: true });
-  put(id, "shots", keep.length ? { ...s, count: keep.length, at: Date.now() } : { off: true });
-  return keep.length;
 }
 
 async function download(url, fetchImpl) {
@@ -346,6 +187,6 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
 
 /** Test seam. */
 export function resetForTests() {
-  saved = null;
+  store.resetForTests();
   filling = null;
 }

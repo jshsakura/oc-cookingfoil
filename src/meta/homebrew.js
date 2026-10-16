@@ -32,10 +32,13 @@ import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
 import { extractFromPfs0 } from "./extract-providers/nsp.js";
 import * as activity from "../tasks/activity.js";
+import { firmwareString } from "./cnmt-parse.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MAX_NRO_BYTES = 128 * 1024 * 1024;
+const RELEASE_NOTES_MAX = 6000;
+const REPO_FACTS_MS = 7 * 24 * 60 * 60 * 1000;
 // Bumped whenever how a release is laid out changes (homebrew-layout.js), so every cached build is decided again once.
 const LAYOUT_RULES = 3;
 const MAX_ZIP_BYTES = 256 * 1024 * 1024;
@@ -241,7 +244,7 @@ export async function extractNro(zip, repo, dest, maxBytes = MAX_NRO_BYTES) {
 export async function readNro(file) {
   const assets = await parseAssets(file).catch(() => null);
   const meta = assets?.nacp ? decodeNacp(assets.nacp) : null;
-  return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version } : null;
+  return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version, languages: meta.languages ?? null } : null;
 }
 
 // abs path → { key, hash }, so a rescan only reads changed files. Kept in the
@@ -420,7 +423,8 @@ async function readNspFacts(abs, st) {
   const known = nspFacts.get(abs);
   if (known?.key === key && (known.meta || Date.now() < known.retryAt)) return known.meta;
   const r = await nspReader(abs).catch(() => null);
-  const meta = r ? { titleId: r.titleId ?? null, metaType: r.metaType ?? null, name: r.name ?? null, publisher: r.publisher ?? null, version: r.version ?? null, iconBuffer: r.iconBuffer ?? null } : null;
+  const meta = r ? { titleId: r.titleId ?? null, metaType: r.metaType ?? null, name: r.name ?? null, publisher: r.publisher ?? null, version: r.version ?? null,
+    languages: r.languages ?? null, requiredFirmware: r.requiredSystemVersion ? firmwareString(r.requiredSystemVersion) : null, iconBuffer: r.iconBuffer ?? null } : null;
   nspFacts.set(abs, { key, meta, retryAt: meta ? 0 : Date.now() + NSP_RETRY_MS });
   return meta;
 }
@@ -463,6 +467,8 @@ async function readManualNsp(dir, folder, file, seen, held) {
     name: meta.name ?? folder,
     version: meta.version ?? file.match(/v(\d+(?:\.\d+)+)/i)?.[1] ?? null,
     author: meta.publisher ?? null,
+    languages: meta.languages ?? null,
+    required_firmware: meta.requiredFirmware ?? null,
     size: st.size,
     hash,
     file_name: safeNspName(file, folder),
@@ -521,6 +527,7 @@ async function readManual(root, folder, seen = null, held = null) {
     name: meta.name ?? folder,
     version: meta.version,
     author: meta.author,
+    languages: meta.languages ?? null,
     size: st.size,
     hash,
     file_name: safeFileName(file, folder),
@@ -713,6 +720,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       checked_at: now(),
       tag: release.tag_name,
       released_at: release.published_at ?? null,
+      // What changed in this release, as its page says (markdown, cut short).
+      release_notes: String(release.body ?? "").trim().slice(0, RELEASE_NOTES_MAX) || null,
       asset: brief(asset),
       candidates: candidates.map(brief),
       candidate_key: candidateKey && prev?.candidate_key === candidateKey ? candidateKey : null,
@@ -921,12 +930,21 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
   async function fetchDescriptions() {
     for (const [id, repo] of [...wanted]) {
       const s = states.get(id);
-      if (!s || s.repo_description !== undefined) continue;
+      // Description, stars, licence and last push, looked at again once a week.
+      if (!s || (s.repo_description !== undefined && s.repo_checked_at && now() - s.repo_checked_at < REPO_FACTS_MS)) continue;
       try {
         const res = await fetchImpl(`https://api.github.com/repos/${repo}`, { headers: headers(), signal: AbortSignal.timeout(API_TIMEOUT_MS) });
+        // Out of quota: the release checks share it, so the rest wait for the next round.
+        if (res.status === 403 || res.status === 429) return;
         if (!res.ok) continue;
-        const text = String((await res.json()).description ?? "").trim();
-        if (wanted.has(id)) save(id, { ...states.get(id), repo_description: text ? text.slice(0, 2000) : null });
+        const body = await res.json();
+        const text = String(body.description ?? "").trim();
+        const license = String(body.license?.spdx_id ?? "").trim();
+        if (wanted.has(id)) save(id, { ...states.get(id), repo_description: text ? text.slice(0, 2000) : null,
+          stars: Number.isSafeInteger(body.stargazers_count) ? body.stargazers_count : null,
+          license: license && license !== "NOASSERTION" ? license.slice(0, 40) : null,
+          pushed_at: typeof body.pushed_at === "string" ? body.pushed_at : null,
+          repo_checked_at: now() });
       } catch {
         // tried again next time
       }
@@ -963,6 +981,11 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         description: s.repo_description ?? null,
         released_at: s.released_at,
         repo_url: `https://github.com/${repo}`,
+        languages: s.cached.languages ?? null,
+        release_notes: fresh ? s.release_notes ?? null : null,
+        stars: s.stars ?? null,
+        license: s.license ?? null,
+        updated_at: s.pushed_at ?? null,
       });
     }
     return out;

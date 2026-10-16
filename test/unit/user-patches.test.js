@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 
 // The patch information store lives in the data dir: a fresh one for this file.
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "patches-data-"));
-const { kindOf, readMeta, patchId, scanDir: scanRaw, scan, list, forTitle, countFor, openForDownload, reset, loadCache, hashed, withInfo } =
+const { kindOf, readMeta, patchId, scanDir: scanRaw, scan, list, forTitle, countFor, requiredFor, locate, infoOf, openForDownload, reset, loadCache, hashed, withInfo } =
   await import("../../src/meta/user-patches.js");
 const { splitPath, fitsUstar, header, archiveSize } = await import("../../src/helpers/ustar.js");
 const { tarEntries } = await import("../../src/routes/patches.js");
@@ -117,6 +117,17 @@ test("the listing, per-title view and count follow the scan", async () => {
   assert.equal(forTitle(TID).length, 2);
   assert.equal((await list()).length, 2);
   assert.equal("folder" in forTitle(TID)[0], false);
+});
+
+test("a game counts the patches marked required as the ones it does not start without", async () => {
+  const patchInfo = await import("../../src/meta/patch-info.js");
+  const root = makeRoot({ [`${TID}/a/${CHEAT}`]: "x", [`${TID}/b/${CHEAT}`]: "y" });
+  await scan({ root });
+  assert.equal(requiredFor(TID), 0);
+  const [first] = await list();
+  patchInfo.set(locate(first.id).key, { ...infoOf(first.id), required: true });
+  assert.equal(requiredFor(TID.toLowerCase()), 1);
+  assert.equal(countFor(TID), 2);
 });
 
 test("ustar keeps long paths in the prefix field and refuses what cannot fit", () => {
