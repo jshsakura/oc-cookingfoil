@@ -257,7 +257,7 @@ test("without a restart handler the admin restart says it cannot", async () => {
   assert.equal(r.status, 503);
 });
 
-test("the admin page stops a running job that can be stopped, and only that", async () => {
+test("the admin page stops any running job once; an unknown one is a 404", async () => {
   const { createActivity } = await import("../../src/tasks/activity.js");
   const activity = createActivity();
   let asked = 0;
@@ -274,8 +274,9 @@ test("the admin page stops a running job that can be stopped, and only that", as
   const post = (id, headers = { "x-admin": "1" }) => fetch(url(id), { method: "POST", headers });
 
   assert.equal((await post(job.id, {})).status, 401);
-  assert.equal((await post(plain.id)).status, 404);
   assert.equal((await post("a999")).status, 404);
+  assert.equal((await post(plain.id)).status, 200, "a job without its own cancel() still stops");
+  assert.equal(plain.stopped, true);
   const r = await post(job.id);
   assert.equal(r.status, 200);
   assert.deepEqual(await r.json(), { ok: true });
