@@ -232,37 +232,27 @@ export async function readNro(file) {
   return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version } : null;
 }
 
-// abs path → { key, hash }, so a rescan only reads changed files. Kept on disk
-// (setManualHashFile), so a restart doesn't read a large app's data again.
+// abs path → { key, hash }, so a rescan only reads changed files. Kept in the
+// index (useManualHashes), so a restart doesn't read a large app's data again.
 let manualHashes = null;
-let hashFile = null;
-let hashesChanged = false;
+let workDir = null;
 
-/** Where hand-placed apps' file hashes are remembered across restarts. */
-export function setManualHashFile(file) {
-  hashFile = file;
-  manualHashes = null;
+/**
+ * Where hand-placed apps' file hashes are remembered (a hashStore) and the
+ * folder for files made from them (the .nro copied out of a zip).
+ */
+export function useManualHashes(store, dir) {
+  manualHashes = store;
+  workDir = dir;
 }
 
-function hashes() {
-  if (manualHashes) return manualHashes;
-  manualHashes = new Map();
-  try {
-    if (hashFile) for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(hashFile, "utf8")))) manualHashes.set(k, v);
-  } catch (err) {
-    if (err.code !== "ENOENT") debug.error("homebrew: %s unreadable, hashing again: %s", hashFile, err.message);
-  }
-  return manualHashes;
-}
+const memoryHashes = new Map();
+const hashes = () => manualHashes ?? memoryHashes;
 
-/** Saves the remembered hashes; with `seen`, those of files no longer there are dropped first. */
-async function saveHashes(seen) {
-  if (seen) for (const k of [...hashes().keys()]) if (!seen.has(k)) { hashes().delete(k); hashesChanged = true; }
-  if (!hashFile || !hashesChanged) return;
-  hashesChanged = false;
-  await fsp.mkdir(path.dirname(hashFile), { recursive: true });
-  await fsp.writeFile(`${hashFile}.tmp`, JSON.stringify(Object.fromEntries(hashes())));
-  await fsp.rename(`${hashFile}.tmp`, hashFile);
+/** Forgets the hashes of files no longer there (`seen`, a Set of paths). */
+function pruneHashes(seen) {
+  if (manualHashes) manualHashes.prune(seen);
+  else for (const k of [...memoryHashes.keys()]) if (!seen.has(k)) memoryHashes.delete(k);
 }
 
 async function cachedSha256(file, st, seen = null) {
@@ -272,7 +262,6 @@ async function cachedSha256(file, st, seen = null) {
   if (known?.key === key) return known.hash;
   const hash = await sha256File(file);
   hashes().set(file, { key, hash });
-  hashesChanged = true;
   return hash;
 }
 
@@ -358,7 +347,11 @@ export async function scanManual(root) {
       debug.error("homebrew: %s left out: %s", path.join(root, folder), err.message);
     }
   }
-  await saveHashes(seen).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
+  try {
+    pruneHashes(seen);
+  } catch (err) {
+    debug.error("homebrew: hashes not pruned: %s", err.message);
+  }
   heldBack = held;
   return out;
 }
@@ -375,7 +368,6 @@ export async function scanManualOne(root, folder) {
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("homebrew: %s left out: %s", path.join(root, folder), err.message);
   }
-  await saveHashes(null).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
   return { id, entry };
 }
 
@@ -452,8 +444,8 @@ async function readManual(root, folder, seen = null, held = null) {
 // once: its listing, and a zip that could not be used stays skipped until it changes.
 const zipLayouts = new Map();
 
-/** Where the .nro of a kept zip is copied for its name and icon: beside the hash file, or a folder of this process in tests. */
-const zipNroDir = () => path.join(hashFile ? path.dirname(hashFile) : path.join(os.tmpdir(), `cookingfoil-${process.pid}`), "zip-nro");
+/** Where the .nro of a kept zip is copied for its name and icon: the work folder, or a folder of this process in tests. */
+const zipNroDir = () => path.join(workDir ?? path.join(os.tmpdir(), `cookingfoil-${process.pid}`), "zip-nro");
 
 /** Forget the .nro copies of a removed app, so a new app in the same folder starts clean. */
 export async function forgetZipCopies(id) {

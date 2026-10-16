@@ -68,7 +68,9 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, installPathFor, scanManual, scanManualOne, setManualHashFile } from "../meta/homebrew.js";
+import { createTracker, installPathFor, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { appDb } from "../db/database.js";
+import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
@@ -83,24 +85,22 @@ const MANUAL_STALE_MS = 6 * 60 * 60_000;
 const MANUAL_RESCAN_MS = 6 * 60 * 60_000;
 
 let tracker = null;
-setManualHashFile(path.join(dataDir, "homebrew", "manual-hashes.json"));
-// The last scan is kept on disk: the folder sits on disks other jobs keep busy, where a
+useManualHashes(
+  hashStore(appDb(), "homebrew", { legacyFile: path.join(dataDir, "homebrew", "manual-hashes.json") }),
+  path.join(dataDir, "homebrew"),
+);
+// The last scan is kept in the index: the folder sits on disks other jobs keep busy, where a
 // scan takes minutes, and a restart would otherwise wait for one before listing anything.
-const MANUAL_LIST_FILE = path.join(dataDir, "homebrew-manual.json");
-function keptManual() {
+const manualStore = catalogStore(appDb(), "homebrew-manual", { legacyFile: path.join(dataDir, "homebrew-manual.json") });
+const keep = (write) => {
   try {
-    const kept = JSON.parse(fs.readFileSync(MANUAL_LIST_FILE, "utf8"));
-    return Array.isArray(kept?.entries) && Number.isFinite(kept.at) ? { at: kept.at, entries: kept.entries } : null;
-  } catch {
-    return null;
+    write();
+  } catch (err) {
+    debug.error("homebrew: could not keep the list: %s", err.message);
   }
-}
-async function keepManual(m) {
-  const tmp = `${MANUAL_LIST_FILE}.tmp`;
-  await fsp.writeFile(tmp, JSON.stringify({ version: 1, ...m }));
-  await fsp.rename(tmp, MANUAL_LIST_FILE);
-}
-let manual = keptManual() ?? { at: 0, entries: [] };
+};
+const kept = manualStore.load();
+let manual = kept ? { at: kept.at, entries: kept.items } : { at: 0, entries: [] };
 let manualScan = null;
 
 /**
@@ -126,7 +126,7 @@ export function refreshManual() {
   manualScan = scanManual(homebrewDir)
     .then((entries) => {
       manual = { at: Date.now(), entries };
-      keepManual(manual).catch((err) => debug.error("homebrew: could not keep the list: %s", err.message));
+      keep(() => manualStore.replace(entries, manual.at));
     })
     .finally(() => { manualScan = null; });
   return manualScan;
@@ -139,7 +139,7 @@ export async function refreshManualApp(folder) {
   const { id, entry } = await scanManualOne(homebrewDir, folder);
   const rest = manual.entries.filter((e) => e.id !== id);
   manual = { at: manual.at, entries: entry ? [...rest, entry] : rest };
-  keepManual(manual).catch((err) => debug.error("homebrew: could not keep the list: %s", err.message));
+  keep(() => (entry ? manualStore.put(entry) : manualStore.remove(id)));
   debug.log("homebrew: %s %s", folder, entry ? "read again" : "left the list");
 }
 
