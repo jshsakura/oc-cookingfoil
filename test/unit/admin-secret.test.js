@@ -78,10 +78,7 @@ test("COOK_ADMIN_TOTP_SECRET wins and is never persisted to disk", () => {
   assert.equal(r.secret, "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP");
   assert.equal(r.source, "env");
   assert.equal(r.enrolled, true, "an operator-set secret is adopted by definition");
-  assert.ok(
-    !existsSync(path.join(dataDir, "security", "admin-totp.json")),
-    "we must not copy an operator-managed secret into the data dir"
-  );
+  assert.equal(sealedSecret(dataDir, "admin-totp"), undefined, "we must not copy an operator-managed secret into the data dir");
 });
 
 test("the generated secret actually drives TOTP verification end to end", () => {
