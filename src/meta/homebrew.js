@@ -255,8 +255,9 @@ function hashes() {
   return manualHashes;
 }
 
+/** Saves the remembered hashes; with `seen`, those of files no longer there are dropped first. */
 async function saveHashes(seen) {
-  for (const k of [...hashes().keys()]) if (!seen.has(k)) { hashes().delete(k); hashesChanged = true; }
+  if (seen) for (const k of [...hashes().keys()]) if (!seen.has(k)) { hashes().delete(k); hashesChanged = true; }
   if (!hashFile || !hashesChanged) return;
   hashesChanged = false;
   await fsp.mkdir(path.dirname(hashFile), { recursive: true });
@@ -360,6 +361,22 @@ export async function scanManual(root) {
   await saveHashes(seen).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
   heldBack = held;
   return out;
+}
+
+/**
+ * One hand-placed app read again (the folder watch saw it change):
+ * { id, entry }, entry null when the folder is gone, is no app, or is held back.
+ */
+export async function scanManualOne(root, folder) {
+  const id = idFor("manual", folder);
+  let entry = null;
+  try {
+    if ((await fsp.stat(path.join(root, folder))).isDirectory()) entry = await readManual(root, folder);
+  } catch (err) {
+    if (err.code !== "ENOENT") debug.error("homebrew: %s left out: %s", path.join(root, folder), err.message);
+  }
+  await saveHashes(null).catch((err) => debug.error("homebrew: hashes not saved: %s", err.message));
+  return { id, entry };
 }
 
 // Hand-placed apps the last scan kept off the consoles' list, with why: [{ folder, reason }].

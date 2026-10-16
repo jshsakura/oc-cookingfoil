@@ -166,7 +166,7 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
     const cat = createCatalog({ root, cacheFile: path.join(root, "hashes.json") });
     assert.equal((await cat.list()).length, 1);
     put("two");
-    Date.now = () => realNow() + 60 * 60_000;
+    Date.now = () => realNow() + 7 * 60 * 60_000;
     assert.equal((await cat.list()).length, 1, "the stale listing, not a wait");
     await new Promise((r) => setTimeout(r, 50));
     assert.equal((await cat.list()).length, 2, "refreshed behind it");
@@ -198,7 +198,7 @@ test("the last listing is kept on disk and served at once after a restart, then 
     put("two");
     const restarted = createCatalog({ root: path.join(root, "saves"), cacheFile: path.join(root, "h.json"), listFile });
     assert.equal((await restarted.list()).length, 1, "the kept listing, no scan");
-    Date.now = () => realNow() + 60 * 60_000;
+    Date.now = () => realNow() + 7 * 60 * 60_000;
     await restarted.warm();
     assert.equal((await restarted.list()).length, 2, "a stale kept listing is rescanned");
   } finally {
@@ -222,6 +222,31 @@ test("a change made while a scan runs is in the listing that follows", async () 
   cat.invalidate();
   await first;
   assert.equal((await cat.list()).length, 2);
+  await new Promise((r) => setTimeout(r, 50));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("one save read again by itself: added, changed and removed without a full scan", async () => {
+  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-item-"));
+  const put = (folder, body = "x") => {
+    fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });
+    fs.writeFileSync(path.join(root, "0100000000010000", folder, "save.bin"), body);
+  };
+  put("one");
+  const cat = createCatalog({ root, cacheFile: path.join(root, "h.json") });
+  assert.equal((await cat.list()).length, 1);
+  put("two", "xyz");
+  await cat.refreshItem("0100000000010000/two");
+  assert.deepEqual((await cat.list()).map((s) => [s.name, s.size]), [["one", 1], ["two", 3]]);
+  put("two", "abcdef");
+  await cat.refreshItem("0100000000010000/two");
+  assert.equal((await cat.list()).find((s) => s.name === "two").size, 6);
+  fs.rmSync(path.join(root, "0100000000010000", "one"), { recursive: true });
+  await cat.refreshItem("0100000000010000/one");
+  assert.deepEqual((await cat.list()).map((s) => s.name), ["two"]);
+  await cat.refreshItem("not-a-title/x");
+  assert.equal((await cat.list()).length, 1);
   await new Promise((r) => setTimeout(r, 50));
   fs.rmSync(root, { recursive: true, force: true });
 });
