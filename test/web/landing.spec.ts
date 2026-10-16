@@ -375,7 +375,7 @@ test("a game's long description runs at full height, so only the modal scrolls",
     await expect(desc).toContainText('40번째 문단입니다');
     const boxes = await page.evaluate(() => {
       const inner = (id: string) => { const el = document.getElementById(id)!; return { scroll: el.scrollHeight, client: el.clientHeight, oy: getComputedStyle(el).overflowY }; };
-      const modal = document.querySelector('#modal .modal')!;
+      const modal = document.querySelector('#modal .modal-scroll')!;
       return { desc: inner('modal-desc'), notes: inner('modal-notes'), modal: { scroll: modal.scrollHeight, client: modal.clientHeight, sw: modal.scrollWidth, cw: modal.clientWidth } };
     });
     for (const box of [boxes.desc, boxes.notes]) {
