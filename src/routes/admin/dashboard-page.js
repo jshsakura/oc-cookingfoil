@@ -318,7 +318,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
     <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
     <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
     <button class="primary" type="submit">저장</button>
-    <button type="button" id="g-clear" class="danger">키 지우기</button>
+    <button type="button" id="g-clear" class="danger">키 삭제</button>
   </form>
   <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
   <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
@@ -349,7 +349,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
       <input id="ap-new" type="password" autocomplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" minlength="12" maxlength="200">
       <input id="ap-new2" type="password" autocomplete="new-password" placeholder="새 비밀번호 한 번 더" aria-label="새 비밀번호 확인" maxlength="200">
     </div>
-    <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 지우기</button></div>
+    <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 삭제</button></div>
   </form>
   ${TOKENS_HTML}
 </section>
@@ -363,7 +363,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
   </div>
   <div class="hd"><h2>차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
   <div class="scroll" id="lockouts"></div>
-  <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 지우기</button></div>
+  <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 삭제</button></div>
   <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
   <div class="scroll" id="denials"></div>
 </section>
@@ -420,7 +420,7 @@ ${NSZ_HTML}
   </form>
   <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 따라가는 저장소 목록에서 고릅니다.</p>
   <div class="hd"><h2>앱</h2><button type="button" id="hb-adopt">폴더 등록</button></div>
-  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 지웁니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 지웁니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>
+  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>
   <div id="hb-held" class="hb-held" hidden></div>
   <div class="scroll" id="hb-apps"></div>
   <div class="hd"><h2>추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>

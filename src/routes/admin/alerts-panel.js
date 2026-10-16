@@ -29,7 +29,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
     <div class="row">
       <button class="primary" type="submit">저장</button>
       <button type="button" id="al-test">시험 메시지 보내기</button>
-      <button type="button" class="danger" id="al-clear">지우기</button>
+      <button type="button" class="danger" id="al-clear">삭제</button>
     </div>
     <p class="muted" id="al-msg"></p>
   </form>
@@ -92,6 +92,6 @@ $('al-chats').addEventListener('click',async()=>{$('al-msg').textContent='찾고
     if(r.ok&&r.chats.length){f.chatId.value=r.chats[0].id;const list=r.chats.map((x)=>x.title?x.title+' ('+x.id+')':x.id).join(', ');
       $('al-msg').textContent=r.chats.length>1?'대화가 여럿이라 첫 번째를 넣었습니다: '+list+'. 다른 대화라면 고쳐 넣습니다.':'채팅 ID 를 넣었습니다: '+list+'. 저장합니다.';}
     else $('al-msg').textContent=r.message;}catch(err){$('al-msg').textContent=err.message;}});
-$('al-clear').addEventListener('click',async()=>{if(!await ask('저장한 알림 설정을 지울까요? 환경변수에 넣은 값이 있으면 그 값으로 돌아갑니다.'))return;
-  try{await api('/admin/api/alerts/clear',{method:'POST',body:{}});toast('지웠습니다.');loadAlerts();}catch(err){$('al-msg').textContent=err.message;}});
+$('al-clear').addEventListener('click',async()=>{if(!await ask('저장한 알림 설정을 삭제할까요? 환경변수에 넣은 값이 있으면 그 값으로 돌아갑니다.'))return;
+  try{await api('/admin/api/alerts/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadAlerts();}catch(err){$('al-msg').textContent=err.message;}});
 `;

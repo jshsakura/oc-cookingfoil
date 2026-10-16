@@ -254,7 +254,7 @@ export function mountUploadApi(router, guard) {
     if (!KINDS.includes(kind)) return res.status(404).json({ error: "unknown kind" });
     if (kind === "client") await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
     if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) {
-      return res.status(409).json({ error: "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 바꿉니다" });
+      return res.status(409).json({ error: "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 변경합니다" });
     }
     const work = path.join(stagingOf(kind), crypto.randomBytes(8).toString("hex"));
     await fsp.mkdir(path.join(work, "in"), { recursive: true });

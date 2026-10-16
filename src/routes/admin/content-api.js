@@ -188,7 +188,7 @@ export function mountContentApi(router, requireSession) {
     if (!isBase(to)) throw new ContentError(400, "옮길 게임의 타이틀 ID(16자리, 본편)를 고릅니다");
     if (to === titleId) throw new ContentError(400, "이미 그 게임에 있습니다");
     const dest = inside(root, to, folder);
-    if (!dest || fs.existsSync(dest)) throw new ContentError(409, "그 게임에 같은 이름의 폴더가 이미 있습니다. 이름을 바꾸거나 그쪽을 먼저 지웁니다");
+    if (!dest || fs.existsSync(dest)) throw new ContentError(409, "그 게임에 같은 이름의 폴더가 이미 있습니다. 이름을 바꾸거나 그쪽을 먼저 삭제합니다");
     // Built beside the destination, then renamed into place in one step.
     const work = path.join(root, to, `.moving-${crypto.randomBytes(4).toString("hex")}`);
     await fsp.mkdir(work, { recursive: true });
