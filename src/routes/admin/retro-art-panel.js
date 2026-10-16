@@ -57,8 +57,8 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
 .subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
 .subtabs button:hover{color:var(--text)}
-.ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--text);padding:20px}
-.ra-dialog::backdrop{background:rgba(0,0,0,.5)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:16px}
+.ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:20px;box-shadow:0 30px 60px var(--shadow)}
+.ra-dialog::backdrop{background:rgba(0,0,0,.55)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:16px}
 .ra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0;overflow:auto;max-height:52vh}
 .ra-grid button{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:6px;text-align:left;font-size:12px;font-weight:500;background:var(--panel)}
 .ra-grid img{width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--sunk);border-radius:8px}

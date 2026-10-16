@@ -120,7 +120,7 @@ td .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;
 td.dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
-dialog{border:1px solid var(--line);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
+dialog{border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 #hb-apps tr.hb-off td:not(:first-child){opacity:.5}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
