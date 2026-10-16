@@ -179,3 +179,10 @@ deploy/.env
 !.env.example
 *.sig.json
 *.pem
+
+# Local leftovers: per-session test configs, game engine data, a stray cache folder
+/playwright.web[0-9]*.config.ts
+/Cache/
+*.rsdk
+# a linked node_modules (git worktrees) is a file to git, not a folder
+/node_modules
