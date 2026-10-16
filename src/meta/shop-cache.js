@@ -48,6 +48,7 @@ import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
 import { rewriteArtworkOrigin, rewriteDownloadOrigin } from "../helpers/origin.js";
 import * as downloadLinks from "../security/download-links.js";
 import debug from "../debug.js";
+import * as activity from "../tasks/activity.js";
 
 const gzipAsync = promisify(zlib.gzip);
 const brotliAsync = promisify(zlib.brotliCompress);
@@ -166,11 +167,14 @@ async function applyPendingDeltas() {
 async function build() {
   if (building) return building;
   const start = Date.now();
+  let scanJob = null;
   building = (async () => {
     try {
       // Pick the cheapest valid path to fresh state.
       let mode;
       if (!filesMap || needsFullRescan) {
+        // Only a full read shows up as a job: the incremental passes run on every file change.
+        scanJob = activity.begin("scan:games", { title: "게임 폴더를 읽습니다" });
         const r = await scanLibrary();
         filesMap = r.filesMap;
         customs = r.customs;
@@ -249,6 +253,8 @@ async function build() {
       // critical-path measurement and so the consumer's `await build()`
       // resolves the moment the response Buffers are ready.
       setImmediate(() => schedulePrewarm(r));
+      scanJob?.done(`파일 ${filesMap.size}개`);
+      scanJob = null;
 
       // Push to ws subscribers so dashboards open across the network see
       // library changes within ~debounce + ~build_ms instead of having to
@@ -264,6 +270,10 @@ async function build() {
       });
 
       return r;
+    } catch (err) {
+      scanJob?.fail(err);
+      scanJob = null;
+      throw err;
     } finally {
       building = null;
     }

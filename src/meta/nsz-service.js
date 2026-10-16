@@ -9,6 +9,7 @@ import * as env from "../helpers/envs.js";
 import * as shopCache from "./shop-cache.js";
 import drainer from "../security/drain.js";
 import { alert } from "../helpers/alerts.js";
+import * as activity from "../tasks/activity.js";
 
 /** The queue's settings as they are right now (envs.js live bindings). */
 export const currentSettings = () => ({
@@ -33,6 +34,16 @@ const queue = createNszQueue({
   catalog: () => shopCache.files(),
   onSwapped: (changes) => shopCache.noteFileChanges(changes),
   alert: (text, subject) => alert("nsz", text, { subject }),
+  track: (item, probe) => {
+    // The output leaves the work folder just before the run ends: keep the last size read, not 0.
+    let last = 0;
+    const steady = () => {
+      const p = probe();
+      last = p.current || last;
+      return { ...p, current: last };
+    };
+    return activity.begin("nsz", { title: "NSZ 로 변환합니다", detail: item.name || path.basename(item.rel), probe: steady });
+  },
 });
 
 let started = false;

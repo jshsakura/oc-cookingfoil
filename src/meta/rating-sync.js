@@ -18,6 +18,7 @@ import debug from "../debug.js";
 import { titledbCacheDir, ratingSync } from "../helpers/envs.js";
 import * as igdb from "./igdb-client.js";
 import { pickScore } from "./scraper-ratings.js";
+import * as activity from "../tasks/activity.js";
 
 const STORE_FILE = "ratings-own.json";
 const STORE_VERSION = 1;
@@ -225,7 +226,10 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
   if (running) return running;
   running = (async () => {
     let changed = 0;
-    for (const { tid, providers: todo } of dueTitles(wanted, titles, now(), { providers: providers() })) {
+    const due = dueTitles(wanted, titles, now(), { providers: providers() });
+    const job = due.length ? activity.begin("ratings", { title: "평점을 모읍니다", total: due.length }) : null;
+    for (const [i, { tid, providers: todo }] of due.entries()) {
+      job?.step(i);
       const info = wanted.get(tid);
       for (const p of todo) {
         try {
@@ -239,7 +243,13 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
         if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
       }
     }
-    if (changed) save();
+    try {
+      if (changed) save();
+    } catch (err) {
+      job?.fail(err);
+      throw err;
+    }
+    job?.done(`${changed}개 바뀜`);
     return changed;
   })().finally(() => { running = null; });
   return running;

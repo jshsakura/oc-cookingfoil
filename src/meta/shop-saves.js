@@ -39,6 +39,7 @@ import { fitsUstar } from "../helpers/ustar.js";
 import { HashCache } from "../helpers/hash-cache.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
+import * as activity from "../tasks/activity.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -169,19 +170,28 @@ export async function scanDir(root, cache) {
       for (const app of await subdirs(path.join(root, "homebrew"))) if (APP_RE.test(app)) dirs.push(`homebrew/${app}`);
     } else if (isBase(tidDir.toUpperCase())) dirs.push(tidDir);
   }
+  const job = activity.begin("scan:saves", { title: "세이브 폴더를 읽습니다", total: dirs.length });
+  let done = 0;
   for (const tidDir of dirs) {
+    job.step(done++, tidDir);
     for (const folder of await subdirs(path.join(root, tidDir))) {
       try {
         const { save, entries } = await readSave(root, tidDir, folder, cache);
         for (const e of entries) seen.add(e.abs);
         out.push({ ...save, dir: tidDir, folder });
       } catch (err) {
-        if (!(err instanceof Rejected)) throw err;
+        if (!(err instanceof Rejected)) { job.fail(err); throw err; }
         debug.error("saves: %s/%s left out: %s", tidDir, folder, err.message);
       }
     }
   }
-  cache.save(seen);
+  try {
+    cache.save(seen);
+  } catch (err) {
+    job.fail(err);
+    throw err;
+  }
+  job.done(`세이브 ${out.length}개`);
   return sortSaves(out);
 }
 

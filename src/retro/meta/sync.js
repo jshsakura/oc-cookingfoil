@@ -25,6 +25,7 @@ import * as igdbMeta from "./igdb.js";
 import * as kowiki from "../../meta/kowiki.js";
 import { downloadShots, indexShots, removeShots, shotDir, wantedShots } from "./screenshots.js";
 import * as store from "./store.js";
+import * as activity from "../../tasks/activity.js";
 
 const REFRESH_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LOOP_MS = 2 * 60 * 1000;
@@ -217,19 +218,35 @@ export async function tick({
   if (running) return running;
   const { on, art } = settings();
   if (!on) return null;
+  // The job appears with the first source asked: a tick with nothing to do never shows.
+  let job = null;
+  const at = (source) => {
+    job ??= activity.begin("retro-meta", { title: "레트로 정보를 모읍니다" });
+    job.step(null, source);
+  };
   running = (async () => {
     const { games, systems } = await current();
     if (!games.length) return { idle: true };
     if (now() - store.builtAt() >= REFRESH_AGE_MS && now() - refreshTriedAt >= REFRESH_RETRY_MS) {
       refreshTriedAt = now();
+      at("LaunchBox");
       return { launchbox: await refreshLaunchBox({ dir, cacheDir, games, systems, fetchImpl, now }) };
     }
     // IGDB only fills in after LaunchBox has had its say.
+    if (store.builtAt() && igdbDue(games, store.all(), now()).length) at("IGDB");
     const igdb = store.builtAt() ? await igdbBatch({ games, fetchImpl, now, pauseMs }) : 0;
+    if (store.builtAt() && koDue(store.all(), now()).length) at("한국어 위키백과");
     const ko = store.builtAt() ? await koBatch({ fetchImpl, now, pauseMs }) : 0;
     const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now }) : 0;
     return { igdb, ko, shots };
-  })().finally(() => { running = null; });
+  })()
+    .then((r) => {
+      if (r.launchbox !== undefined) job?.done(`LaunchBox ${r.launchbox}개`);
+      else if (job && (r.igdb || r.ko || r.shots)) job.done(`IGDB ${r.igdb ?? 0} · 위키 ${r.ko ?? 0} · 스크린샷 ${r.shots ?? 0}`);
+      else job?.discard();
+      return r;
+    }, (err) => { job?.fail(err); throw err; })
+    .finally(() => { running = null; });
   return running;
 }
 

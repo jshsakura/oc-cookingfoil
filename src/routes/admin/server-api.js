@@ -2,6 +2,8 @@
  * Safe restart from the admin page:
  *
  *   GET  /admin/api/server/status    { draining, restartId, startedAt, backBy, retryAfter, graceSeconds, inflight, downloads }
+ *   GET  /admin/api/activity         { running, recent }: what the server is doing (tasks/activity.js); the page
+ *                                    gets the same over /admin/ws and reads this only while that is down
  *   POST /admin/api/server/restart   answers 202, then drains and exits with code 75 (security/drain.js
  *                                    RESTART_EXIT_CODE), so restart: always and Restart=on-failure both start it again
  *
@@ -13,9 +15,15 @@
 import defaultDrainer from "../../security/drain.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { publicBaseUrl } from "../../helpers/envs.js";
+import * as defaultActivity from "../../tasks/activity.js";
 import debug from "../../debug.js";
 
-export function mountServerApi(router, requireSession, { drainer = defaultDrainer } = {}) {
+export function mountServerApi(router, requireSession, { drainer = defaultDrainer, activity = defaultActivity } = {}) {
+  router.get("/api/activity", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store").json(activity.list());
+  });
+
   router.get("/api/server/status", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store").json({ ...drainer.status(), uptime: Math.round(process.uptime()) });

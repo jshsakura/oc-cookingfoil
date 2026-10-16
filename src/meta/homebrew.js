@@ -30,6 +30,7 @@ import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
+import * as activity from "../tasks/activity.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -339,7 +340,10 @@ export async function scanManual(root) {
   const out = [];
   const seen = new Set();
   const held = [];
+  const job = activity.begin("scan:homebrew", { title: "홈브류 폴더를 읽습니다", total: folders.length });
+  let n = 0;
   for (const folder of folders.sort()) {
+    job.step(n++, folder);
     try {
       const entry = await readManual(root, folder, seen, held);
       if (entry) out.push(entry);
@@ -353,6 +357,7 @@ export async function scanManual(root) {
     debug.error("homebrew: hashes not pruned: %s", err.message);
   }
   heldBack = held;
+  job.done(`앱 ${out.length}개`);
   return out;
 }
 
@@ -576,7 +581,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return { "User-Agent": USER_AGENT, Accept: "application/vnd.github+json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...extra };
   };
 
-  async function check(id, { force = false } = {}) {
+  async function check(id, { force = false, onAsk = null } = {}) {
     const repo = wanted.get(id);
     const prev = states.get(id);
     // A failing repository is retried hourly (not on every poll), a healthy one once per check interval.
@@ -587,6 +592,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     const pattern = patterns.get(id) ?? null;
     // A changed pattern needs the release itself, not a 304.
     const conditional = !force && !legacy && prev?.etag && (prev.pattern ?? null) === pattern;
+    onAsk?.();
     const res = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
       headers: headers(conditional ? { "If-None-Match": prev.etag } : {}),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
@@ -779,7 +785,24 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
   /** Checks every repository that is due (all of them with `force`); a call while one runs joins it. */
   function checkAll({ force = false } = {}) {
     checking ??= (async () => {
-      for (const id of [...wanted.keys()]) await checkOne(id, { force });
+      // The job appears with the first repository actually asked: most polls find none due.
+      const ids = [...wanted.keys()];
+      let job = null;
+      let asked = 0;
+      const onAsk = () => {
+        asked++;
+        job ??= activity.begin("homebrew-github", { title: "홈브류 새 버전을 확인합니다", total: ids.length });
+      };
+      try {
+        for (const [i, id] of ids.entries()) {
+          await checkOne(id, { force, onAsk });
+          job?.step(i + 1, wanted.get(id));
+        }
+      } catch (err) {
+        job?.fail(err);
+        throw err;
+      }
+      job?.done(`${asked}곳 확인`);
     })().finally(() => { checking = null; });
     return checking;
   }

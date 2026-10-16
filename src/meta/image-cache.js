@@ -33,6 +33,7 @@ import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
+import * as activity from "../tasks/activity.js";
 
 // libvips operation cache lives in C-land — bumping it pays for itself the
 // first time a hot icon's WebP variant is regenerated, since the source
@@ -303,9 +304,12 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
   // Cursor instead of `.shift()` (O(n) per pop on an Array). For a 5k-title
   // library that's 25M array-element moves over the prewarm pass.
   let cursor = 0;
+  // The job appears with the first icon that needs work: most passes find every one cached.
+  let job = null;
   async function worker() {
     while (cursor < queue.length) {
       const tid = queue[cursor++];
+      job?.step(cursor);
       const cp = cachePathFor(tid, "icon");
       // Client app cards (sm and md) as JPEG for older clients and WebP for the CookingFoil client and browsers.
       const variants = [
@@ -320,6 +324,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
 
       const url = getUpstreamForBase(tid);
       if (!url && !haveOriginal) { skipped++; continue; }
+      job ??= activity.begin("prewarm", { title: "게임 아이콘을 미리 받습니다", total: queue.length });
 
       try {
         if (!haveOriginal) {
@@ -340,7 +345,15 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     }
   }
   const t0 = Date.now();
-  await Promise.all(Array(concurrency).fill(0).map(worker));
+  try {
+    await Promise.all(Array(concurrency).fill(0).map(worker));
+  } catch (err) {
+    job?.fail(err);
+    throw err;
+  }
+  // Icons whose address is gone fail on every pass: a pass that made nothing new leaves no trace.
+  if (done + thumbs) job?.done(`새로 ${done}개${failed ? ` · 실패 ${failed}개` : ""}`);
+  else job?.discard();
   debug.log(
     "image cache: prewarm done — %d new, %d thumbs, %d skipped, %d failed (%dms)",
     done, thumbs, skipped, failed, Date.now() - t0

@@ -96,7 +96,7 @@ async function loadRetroArt(){
   $('ra-ratings').disabled=rRunning;
   $('ra-ratings-state').textContent=rRunning?'평점을 받고 있습니다':rj&&rj.error?'실패했습니다: '+rj.error:
     (r.updatedAt?'마지막 갱신: '+fmt(r.updatedAt):'아직 받은 평점이 없습니다')+(rj&&rj.summary?' · '+Object.entries(rj.summary).map(([k,v])=>k+' '+v).join(', '):'');
-  clearTimeout(raTimer);if((j&&!j.finishedAt)||rRunning)raTimer=setTimeout(loadRetroArt,3000);
+  clearTimeout(raTimer);if((j&&!j.finishedAt&&!actLive)||rRunning)raTimer=setTimeout(loadRetroArt,3000);
   table('ra-systems',['시스템','항목','표지','다른 세트 표지','베젤',''],raData.systems.map((s)=>{const tr=el('tr');
     const b=el('button','이 시스템만 받기');b.type='button';b.addEventListener('click',()=>raSync(s.id));
     const pct=(n)=>n+' ('+Math.round(n*100/Math.max(1,s.games))+'%)';

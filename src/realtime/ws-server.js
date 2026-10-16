@@ -12,6 +12,13 @@
  *   client → server
  *     { type: "pong" }                                    // optional ack
  *
+ * Endpoint: `/admin/ws` (the admin page; under /admin so its 2FA cookie rides along)
+ *   server → client
+ *     { type: "activity", running: [...], recent: [...] }   // on connect, then after each change
+ *     { type: "ping" }
+ *   Only this site's own page (an Origin is required), signed in as an admin
+ *   account and past the admin's second step. No Basic: scripts poll the API.
+ *
  * The client typically just listens for `shop-updated` and re-fetches
  * /shop.json (the etag short-circuits to 304 when the body hasn't really
  * changed, so this stays cheap). We never push the body itself —
@@ -38,6 +45,10 @@ import { clientAddress } from "../helpers/trust-proxy.js";
 import pkg from "../package.js";
 import debug from "../debug.js";
 import drainer from "../security/drain.js";
+import { hasValidSession } from "../security/admin-session.js";
+import { mayAdminister } from "../security/admin-actor.js";
+import * as activity from "../tasks/activity.js";
+import { recordDeny, DENY } from "../security/deny.js";
 
 const HEARTBEAT_MS = 30_000;
 // Upgrades per address per window, checked before any credential: a page
@@ -106,6 +117,15 @@ export async function authorize(req) {
   return (await users.verifyAsync(creds.user, creds.pass)) ? "ok" : "bad-credentials";
 }
 
+export const ADMIN_PATH = "/admin/ws";
+
+/** The admin channel: the admin page's own Origin, an admin account, and the 2FA session. */
+export function authorizeAdmin(req) {
+  if (sameHost(req) !== true) return false;
+  req.webUser = webUser(req);
+  return mayAdminister(req) && hasValidSession(req);
+}
+
 function refuse(socket, statusLine, extra = "") {
   socket.write(`HTTP/1.1 ${statusLine}\r\n${extra}\r\n`);
   socket.destroy();
@@ -121,9 +141,12 @@ function send(ws, obj) {
 export function attach(server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
+  const adminWss = new WebSocketServer({ noServer: true, maxPayload: 1024 });
+
   server.on("upgrade", (req, socket, head) => {
-    // Single path — anything else gets 404'd here, not silently dropped,
+    // Known paths only — anything else gets 404'd here, not silently dropped,
     // so misconfigured clients see the failure.
+    if (req.url === ADMIN_PATH) return upgradeAdmin(req, socket, head);
     if (req.url !== "/ws/library") {
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
       socket.destroy();
@@ -159,6 +182,34 @@ export function attach(server) {
       debug.error("ws: auth check failed: %s", err.message);
       if (!socket.destroyed) refuse(socket, "500 Internal Server Error");
     });
+  });
+
+  function upgradeAdmin(req, socket, head) {
+    const ip = clientIp(req);
+    if (!isLoopback(req) && securityStore.isLocked(ip)) return refuse(socket, "403 Forbidden");
+    const wait = upgradeWait(ip);
+    if (wait) return refuse(socket, "429 Too Many Requests", `Retry-After: ${wait}\r\n`);
+    if (sameHost(req) !== true) return refuse(socket, "403 Forbidden");
+    let ok = false;
+    try { ok = authorizeAdmin(req); } catch (err) { debug.error("ws: admin auth check failed: %s", err.message); }
+    if (!ok) {
+      // The same record the HTTP gate leaves, with the address it would see.
+      recordDeny({ ip, method: "GET", originalUrl: ADMIN_PATH, get: (name) => req.headers[String(name).toLowerCase()] }, { reason: DENY.ADMIN_NO_SESSION, status: 401 });
+      return refuse(socket, "401 Unauthorized");
+    }
+    adminWss.handleUpgrade(req, socket, head, (ws) => adminWss.emit("connection", ws, req));
+  }
+
+  adminWss.on("connection", (ws, req) => {
+    ws.isAlive = true;
+    // Checked again on every heartbeat: a demoted account or an expired 2FA session stops receiving.
+    ws.stillAllowed = () => { try { return authorizeAdmin(req); } catch { return false; } };
+    send(ws, { type: "activity", ...activity.list() });
+    const off = activity.subscribe((snap) => send(ws, { type: "activity", ...snap }));
+    ws.on("pong", () => { ws.isAlive = true; });
+    ws.on("message", () => {});
+    ws.on("close", off);
+    ws.on("error", (err) => debug.error("ws: admin client error: %s", err.message));
   });
 
   wss.on("connection", (ws, req) => {
@@ -197,8 +248,8 @@ export function attach(server) {
   // responded to the previous ping. Avoids piling up half-closed sockets
   // behind NAT routers / sleeping laptops.
   const hbTimer = setInterval(() => {
-    for (const ws of wss.clients) {
-      if (ws.isAlive === false) {
+    for (const ws of [...wss.clients, ...adminWss.clients]) {
+      if (ws.isAlive === false || (ws.stillAllowed && !ws.stillAllowed())) {
         debug.log("ws: terminating unresponsive client");
         try { ws.terminate(); } catch {}
         continue;
@@ -234,8 +285,9 @@ export function attach(server) {
     close() {
       clearInterval(hbTimer);
       unsubscribe();
-      for (const ws of wss.clients) { try { ws.terminate(); } catch {} }
+      for (const ws of [...wss.clients, ...adminWss.clients]) { try { ws.terminate(); } catch {} }
       wss.close();
+      adminWss.close();
     },
     clients: () => wss.clients.size,
   };
