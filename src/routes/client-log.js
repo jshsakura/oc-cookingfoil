@@ -6,6 +6,9 @@
  *                           X-Log-Reason: a short, URL-encoded reason; Version: the app version
  *                           → 204, or 429 past 5 a minute per console
  *
+ * A log sent with the reason "bug report" (the player pressed the button, not a crash the app
+ * sends by itself) is also counted per console, for the admin's leaderboard (bugReports()).
+ *
  * Kept at <data dir>/client/logs/<first 8 of the device key>/<YYYYMMDD-HHMMSS>.txt
  * (UTC) plus latest.txt, the newest 50 per console. Files take the owner of
  * the client folder, so the host user can read them. Same sign-in as the rest.
@@ -25,6 +28,8 @@ import { deviceKeyFromHeaders } from "../security/pairing.js";
 import debug from "../debug.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { ownerKey } from "../security/link-identity.js";
+import { appDb } from "../db/database.js";
+import { catalogStore } from "../db/stores.js";
 
 export const LOGS_DIR = path.join(dataDir, "client", "logs");
 const MAX_BYTES = 64 * 1024;
@@ -77,6 +82,30 @@ export async function trimTotal(maxBytes = MAX_TOTAL_BYTES) {
     await fsp.rm(f.file, { force: true });
     total -= f.size;
   }
+}
+
+// Bug reports a player sent by hand, per console: { prefix, owner, count, first, last }.
+let reports = null;
+const reportStore = () => (reports ??= catalogStore(appDb(), "bug-reports", { idOf: (r) => r.prefix }));
+const BUG_REPORT_RE = /^bug[ _-]?report$/i;
+
+/** Whether a log's reason is a bug report the player sent (not a crash the app sends on its own). Pure. */
+export const isBugReport = (reason) => BUG_REPORT_RE.test(String(reason ?? "").trim());
+
+/** Counts one bug report from console `prefix`, sent by `owner`. */
+export function countBugReport(prefix, owner, now = Date.now()) {
+  const store = reportStore();
+  const saved = store.load();
+  const old = (saved?.items ?? []).find((r) => r.prefix === prefix);
+  const next = { prefix, owner, count: (old?.count ?? 0) + 1, first: old?.first ?? now, last: now };
+  // The catalog reads back only once it has been filled in full: the first report does that.
+  if (saved) store.put(next);
+  else store.replace([next], now);
+}
+
+/** Every console's bug report count, most first. */
+export function bugReports() {
+  return [...(reportStore().load()?.items ?? [])].sort((a, b) => b.count - a.count || b.last - a.last);
 }
 
 /** The reason header, decoded, one line, at most REASON_MAX characters. Pure. */
@@ -137,7 +166,8 @@ export function mountClientLog(router) {
       if (refusal) return tooManyRequests(res, 3600).json({ error: refusal });
       const now = new Date();
       const version = String(req.get("Version") ?? "").replace(/[^\w.+-]/g, "").slice(0, 40) || "unknown";
-      const head = `# received ${now.toISOString()} · version ${version} · reason ${cleanReason(req.get("X-Log-Reason")) || "-"}\n`;
+      const reason = cleanReason(req.get("X-Log-Reason"));
+      const head = `# received ${now.toISOString()} · version ${version} · reason ${reason || "-"}\n`;
       const dir = path.join(LOGS_DIR, prefix);
       const fresh = !fs.existsSync(dir);
       await fsp.mkdir(dir, { recursive: true });
@@ -157,6 +187,7 @@ export function mountClientLog(router) {
       }
       await keepNewest(dir);
       await trimTotal();
+      if (isBugReport(reason)) countBugReport(prefix, owner, now.getTime());
       debug.log("client log: %s… sent %d bytes (%s)", prefix, Buffer.byteLength(req.body), version);
       res.status(204).end();
     } catch (err) {

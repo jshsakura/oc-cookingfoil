@@ -98,6 +98,17 @@ test("admin accounts run the admin page; nobody locks themselves out; console lo
     assert.match(text, /reason crash/);
     assert.match(text, /boom at line 3/);
     assert.equal((await call("GET", `/admin/api/client-logs/${c.prefix}/..%2F..%2Fsecurity%2Fusers.json`)).status, 400);
+
+    // Bug reports the player sent by hand are counted per console; a crash log is not.
+    assert.deepEqual(logs.bugReports, []);
+    for (const reason of ["bug report", "bug%20report"]) {
+      const r = await fetch(`${BASE}/api/client/log`, { method: "POST", headers: { "X-Device-Key": KEY, "X-Access-Key": accessKey, "Content-Type": "text/plain", "X-Log-Reason": reason }, body: "it froze\n" });
+      assert.equal(r.status, 204);
+    }
+    const ranked = (await (await call("GET", "/admin/api/client-logs")).json()).bugReports;
+    assert.equal(ranked.length, 1);
+    assert.deepEqual([ranked[0].prefix, ranked[0].label, ranked[0].count], [KEY.slice(0, 8).toLowerCase(), "안방", 2]);
+    assert.ok(ranked[0].last >= ranked[0].first);
     assert.equal((await call("GET", `/admin/api/client-logs/${c.prefix}/latest.txt`)).status, 200);
     assert.equal((await fetch(`${BASE}/admin/api/client-logs`, { headers: { Authorization: ALICE } })).status, 401, "admin session only");
 

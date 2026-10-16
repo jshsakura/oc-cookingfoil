@@ -132,6 +132,7 @@ button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;fon
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
 dialog h3{margin:0 0 6px;font-size:18px}
+h3.sub-h{margin:18px 0 4px;font-size:15px}
 .cred{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 12px;align-items:center;margin:16px 0}
 .cred .v{font-family:ui-monospace,monospace;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:7px 10px;word-break:break-all}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
@@ -357,6 +358,9 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <section id="tab-logs" hidden>${TRANSFERS_HTML}
   <div class="hd"><h2>클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
+  <h3 class="sub-h">버그 리포트 순위</h3>
+  <p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
+  <div class="scroll" id="bug-reports"></div>
   <div class="logs-view">
     <div class="logs-list" id="cl-list"></div>
     <div class="logs-body"><div class="logs-head" id="cl-head">왼쪽에서 기록을 고릅니다.</div><pre id="cl-text" tabindex="0"></pre></div>

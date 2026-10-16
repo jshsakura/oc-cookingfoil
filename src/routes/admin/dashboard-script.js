@@ -493,6 +493,9 @@ async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 �
 const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
 async function loadClientLogs(){
   const d=await api('/admin/api/client-logs');const box=$('cl-list');box.replaceChildren();
+  table('bug-reports',['순위','사용자','기기','보낸 횟수','마지막으로 보낸 때'],(d.bugReports||[]).map((r,i)=>{const tr=el('tr');
+    tr.append(td(String(i+1)),td(r.owner||'—',r.owner?'':'dim'),td(r.label||r.prefix,r.label?'':'ip'),td(num(r.count)+'번'),td(ago(r.last)));
+    tr.lastChild.title=fmt(r.last);return tr;}),'아직 받은 버그 리포트가 없습니다.');
   if(!(d.consoles||[]).length){box.append(el('div','아직 받은 로그가 없습니다.','empty'));return;}
   for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
     const sum=el('summary',c.label||c.prefix);sum.append(el('span',c.files.length+'개'));det.append(sum);
