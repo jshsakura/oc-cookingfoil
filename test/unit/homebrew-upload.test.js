@@ -357,3 +357,25 @@ test("a zip that can't go on the card as it is stays out of the list, and the sc
   const zip = path.join(apps, "good", "d.zip");
   await assert.rejects(extractNro(zip, "x/good", path.join(root, "missing", "dir", "good.nro")));
 });
+
+test("a folder app whose launcher names its own SD folder is installed into that folder", async () => {
+  const { scanManual, useManualHashes } = await import("../../src/meta/homebrew.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-dir-"));
+  const app = path.join(root, "apps", "my-game");
+  fs.mkdirSync(path.join(app, ".engine"), { recursive: true });
+  const launcher = Buffer.concat([fakeNro("My Game"), Buffer.from('\0"sdmc:/switch/MyGame/.engine/core.nro"\0sdmc:/switch/MyGame/game/data.pak\0', "latin1")]);
+  fs.writeFileSync(path.join(app, "mygame.nro"), launcher);
+  fs.writeFileSync(path.join(app, ".engine", "core.nro"), "x");
+  fs.writeFileSync(path.join(app, "launch.cfg"), 'system_directory = "sdmc:/switch/MyGame/system"\n');
+  fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "mygame.nro", mode: "folder" }));
+  useManualHashes(hashStore(openDatabase(":memory:"), "homebrew"), path.dirname(path.join(root, "hashes.json")));
+  let [entry] = await scanManual(path.join(root, "apps"));
+  assert.equal(entry.install_dir, "switch/MyGame");
+  assert.equal(entry.install_path, "switch/MyGame/mygame.nro");
+  assert.deepEqual(entry.files.map((f) => f.path), ["switch/MyGame/.engine/core.nro", "switch/MyGame/launch.cfg", "switch/MyGame/mygame.nro"]);
+
+  // The admin's own choice in the manifest wins.
+  fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "mygame.nro", mode: "folder", dir: "Chosen" }));
+  [entry] = await scanManual(path.join(root, "apps"));
+  assert.equal(entry.install_dir, "switch/Chosen");
+});

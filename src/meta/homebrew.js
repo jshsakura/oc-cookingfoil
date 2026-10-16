@@ -482,6 +482,35 @@ async function readManualNsp(dir, folder, file, seen, held) {
   };
 }
 
+// A launcher with its install folder written into it ("sdmc:/switch/DragonballZrpg/..."): the files must
+// land in that folder, not one named after the server's. Read from the .nro and the small config files
+// next to it; kept per file version, so a rescan does not read them again.
+const SD_APP_DIR_RE = /sdmc:\/switch\/([A-Za-z0-9_.-]+)\//g;
+const CONFIG_FILE_RE = /\.(cfg|ini|json|txt)$/i;
+const CONFIG_MAX_BYTES = 64 * 1024;
+const expectedDirs = new Map();
+
+/** The switch/<name> folder an app's own files name, when they agree on one other than `folder`; else null. */
+export async function expectedAppDir(dir, nro, folder, names) {
+  const nroAbs = path.join(dir, nro);
+  const st = await fsp.stat(nroAbs);
+  const key = `${nroAbs}:${st.size}:${st.mtimeMs}`;
+  if (expectedDirs.has(key)) return expectedDirs.get(key);
+  const counts = new Map();
+  const tally = (text) => { for (const m of text.matchAll(SD_APP_DIR_RE)) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1); };
+  tally((await fsp.readFile(nroAbs)).toString("latin1"));
+  for (const name of names.filter((n) => CONFIG_FILE_RE.test(n) && n !== MANIFEST)) {
+    const cst = await fsp.stat(path.join(dir, name)).catch(() => null);
+    if (cst?.isFile() && cst.size <= CONFIG_MAX_BYTES) tally(await fsp.readFile(path.join(dir, name), "latin1"));
+  }
+  const ranked = [...counts].filter(([name]) => APP_NAME_RE.test(name)).sort((a, b) => b[1] - a[1]);
+  // Only a clear answer: one name, or one named far more often than the next (others are paths it merely mentions).
+  const pick = ranked.length && (ranked.length === 1 || ranked[0][1] >= 2 * ranked[1][1]) ? ranked[0][0] : null;
+  const found = pick && pick !== folder ? pick : null;
+  expectedDirs.set(key, found);
+  return found;
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
@@ -505,12 +534,14 @@ async function readManual(root, folder, seen = null, held = null) {
   // An uploaded folder install lists every file of switch/<folder>/; a hand-placed folder is its .nro alone.
   let folderInstall = null;
   if (manifest?.mode === "folder" && APP_NAME_RE.test(folder) && APP_NAME_RE.test(file)) {
+    // The folder on the card: the manifest's `dir` when the admin set one, else the one the app itself expects.
+    const appDir = (APP_NAME_RE.test(manifest.dir ?? "") ? manifest.dir : null) ?? (await expectedAppDir(dir, file, folder, names)) ?? folder;
     const files = [];
     // Install guides and desktop clutter stay on the server; the console gets what the app runs on.
     for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r))) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
-      files.push({ path: `switch/${folder}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });
+      files.push({ path: `switch/${appDir}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });
     }
     // A name the card can't create would fail at the very end of the install; the app waits until it is renamed.
     const problems = pathProblems(files.map((f) => f.path));
@@ -518,7 +549,7 @@ async function readManual(root, folder, seen = null, held = null) {
       hold(held, folder, `콘솔 SD 에 만들 수 없는 이름이 있어 기기 목록에서 뺐습니다. 이름을 바꾸면 다시 나옵니다: ${describeProblems(problems)}`);
       return null;
     }
-    folderInstall = { install_dir: `switch/${folder}`, install_path: `switch/${folder}/${file}`, files };
+    folderInstall = { install_dir: `switch/${appDir}`, install_path: `switch/${appDir}/${file}`, files };
   }
   return {
     ...(folderInstall ?? {}),
