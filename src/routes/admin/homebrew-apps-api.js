@@ -67,13 +67,15 @@ export function mountHomebrewAppsApi(router, requireSession) {
     ]);
     const extras = extrasByApp(patches, saves);
     res.json({
-      apps: apps.map(({ id, name, version, author, size, kind, enabled, source, repo_url, install_path, file_name }) => {
-        // The switch/<app>/ folder name, as the public listing gives it.
-        const app = (install_path ?? installPathFor(file_name)).split("/")[1];
+      apps: apps.map(({ id, name, version, author, size, kind, enabled, source, repo_url, install_path, file_name, install_type, title_id }) => {
+        // The switch/<app>/ folder name, as the public listing gives it; an installable title (.nsp) has none.
+        const title = install_type === "title";
+        const app = title ? null : (install_path ?? installPathFor(file_name)).split("/")[1];
         return {
           id, app, name, version, author, size, kind, enabled: enabled !== false, source, repo_url,
-          patches: extras.get(app)?.patches ?? [],
-          saves: extras.get(app)?.saves ?? [],
+          install_type: title ? "title" : "file", title_id: title ? title_id : null,
+          patches: (app && extras.get(app)?.patches) || [],
+          saves: (app && extras.get(app)?.saves) || [],
         };
       }),
       held: heldManual(),

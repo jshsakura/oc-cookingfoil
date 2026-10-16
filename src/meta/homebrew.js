@@ -30,6 +30,7 @@ import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
+import { extractFromPfs0 } from "./extract-providers/nsp.js";
 import * as activity from "../tasks/activity.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
@@ -138,6 +139,16 @@ export async function zipEntries(zip) {
 }
 
 const APP_NAME_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
+const NSP_FILE_RE = /^[A-Za-z0-9_.-]+\.nsp$/i;
+const TITLE_ID_IN_NAME_RE = /\[([0-9A-Fa-f]{16})\]/;
+const META_APPLICATION = 0x80;
+
+/** `name` when it is a plain .nsp file name, else `<fallback>.nsp`. Pure. */
+export function safeNspName(name, fallback) {
+  if (NSP_FILE_RE.test(name ?? "") && !name.startsWith(".")) return name;
+  const base = String(fallback ?? "").replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^[.-]+|[.-]+$/g, "").slice(0, 60);
+  return `${base || "app"}.nsp`;
+}
 
 /**
  * Where the console keeps an app: always its own folder, switch/<app>/<file>.nro.
@@ -252,6 +263,7 @@ const hashes = () => manualHashes ?? memoryHashes;
 
 /** Forgets the hashes of files no longer there (`seen`, a Set of paths). */
 function pruneHashes(seen) {
+  for (const k of [...nspFacts.keys()]) if (!seen.has(k)) nspFacts.delete(k);
   if (manualHashes) manualHashes.prune(seen);
   else for (const k of [...memoryHashes.keys()]) if (!seen.has(k)) memoryHashes.delete(k);
 }
@@ -391,6 +403,79 @@ function hold(held, folder, reason) {
   heldLogged.set(folder, reason);
 }
 
+// NSP path → { key, meta, retryAt }: the title's facts are read from the file once, again only when it
+// changes; a read that failed (nstool busy, keys not mounted yet) is tried again after NSP_RETRY_MS.
+const nspFacts = new Map();
+const NSP_RETRY_MS = 10 * 60_000;
+let nspReader = (abs) => extractFromPfs0({ absPath: abs, baseTitleId: null }, { langPriority: ["ko", "en", "ja"] });
+/** Test seam: how an NSP's { titleId, metaType, name, publisher, version, iconBuffer } is read. */
+export function useNspReader(fn) {
+  nspReader = fn;
+  nspFacts.clear();
+}
+
+/** What is kept of one read: the facts and the one icon the app shows, not every language's. */
+async function readNspFacts(abs, st) {
+  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  const known = nspFacts.get(abs);
+  if (known?.key === key && (known.meta || Date.now() < known.retryAt)) return known.meta;
+  const r = await nspReader(abs).catch(() => null);
+  const meta = r ? { titleId: r.titleId ?? null, metaType: r.metaType ?? null, name: r.name ?? null, publisher: r.publisher ?? null, version: r.version ?? null, iconBuffer: r.iconBuffer ?? null } : null;
+  nspFacts.set(abs, { key, meta, retryAt: meta ? 0 : Date.now() + NSP_RETRY_MS });
+  return meta;
+}
+
+/** The icon of a hand-placed NSP (its control NCA), read again when the server has not read it yet. */
+export async function manualNspIcon(abs) {
+  const st = await fsp.stat(abs).catch(() => null);
+  return st ? (await readNspFacts(abs, st))?.iconBuffer ?? null : null;
+}
+
+/**
+ * A folder holding an .nsp (an app built as an installable title, like nx.js apps):
+ * installed as a title, like the games folder's files, never copied to sdmc:/switch/.
+ * Needs nstool and the keys to read its title id, unless the file name carries [TITLEID].
+ */
+async function readManualNsp(dir, folder, file, seen, held) {
+  const abs = path.join(dir, file);
+  const st = await fsp.stat(abs);
+  // Seen even when held back below, so its cached facts (and retry time) survive the prune.
+  seen?.add(abs);
+  const meta = (await readNspFacts(abs, st)) ?? {};
+  const fromName = file.match(TITLE_ID_IN_NAME_RE)?.[1]?.toUpperCase() ?? null;
+  // Without the cnmt only a base title's id (…000) from the file name is trusted: updates end in 800, DLC elsewhere.
+  const titleId = meta.titleId ?? (fromName?.endsWith("000") ? fromName : null);
+  if (!titleId) {
+    hold(held, folder, "NSP 의 타이틀 ID 를 읽지 못해 기기 목록에서 뺐습니다. 서버에 nstool 과 키가 있는지 확인하거나 파일 이름에 [타이틀ID] 를 붙입니다.");
+    return null;
+  }
+  if (meta.metaType != null && meta.metaType !== META_APPLICATION) {
+    hold(held, folder, "업데이트나 DLC NSP 는 홈브류로 등록하지 않습니다. 게임 폴더에 넣습니다.");
+    return null;
+  }
+  const hash = await cachedSha256(abs, st, seen);
+  return {
+    install: null,
+    install_type: "title",
+    title_id: titleId,
+    install_path: null,
+    id: idFor("manual", folder),
+    name: meta.name ?? folder,
+    version: meta.version ?? file.match(/v(\d+(?:\.\d+)+)/i)?.[1] ?? null,
+    author: meta.publisher ?? null,
+    size: st.size,
+    hash,
+    file_name: safeNspName(file, folder),
+    source: "manual",
+    released_at: new Date(st.mtimeMs).toISOString(),
+    repo_url: null,
+    path: abs,
+    sha256: hash,
+    // The download checks it, so a file replaced since the scan is never sent under the old sha256.
+    key: `${st.size}:${st.mtimeMs}:${st.ino}`,
+  };
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
@@ -399,7 +484,9 @@ async function readManual(root, folder, seen = null, held = null) {
   if (!file) {
     // A folder holding a release zip as it is: served whole, never unpacked here.
     const zip = names.filter((f) => /\.zip$/i.test(f)).sort()[0];
-    return zip ? readManualZip(dir, folder, zip, seen, held) : null;
+    if (zip) return readManualZip(dir, folder, zip, seen, held);
+    const nsp = names.filter((f) => /\.nsp$/i.test(f)).sort()[0];
+    return nsp ? readManualNsp(dir, folder, nsp, seen, held) : null;
   }
   const abs = path.join(dir, file);
   const meta = await readNro(abs);

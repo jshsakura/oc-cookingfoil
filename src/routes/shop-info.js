@@ -87,7 +87,8 @@ export default async function shopInfoRoute(_req, res) {
       // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
       ...(savesEnabled() ? ["saves-by-game"] : []),
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
-      ...(homebrewEnabled() ? ["homebrew", "homebrew-folders"] : []),
+      // homebrew-titles: GET /api/homebrew?with=titles also lists .nsp apps (install_type "title") to install like a game.
+      ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
