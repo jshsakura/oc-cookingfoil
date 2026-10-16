@@ -246,6 +246,8 @@
       .modal.xmodal .xm-section { margin: 0 0 16px; }
       .modal.xmodal .xm-section h4 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
       .modal.xmodal .xm-source { font-size: 13px; color: var(--secondary); margin: 0 0 16px; overflow-wrap: anywhere; }
+      .modal.xmodal .xm-where code { font: 600 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink);
+        background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; }
       .modal.xmodal .desc:empty { display: none; }
       .xitem.xapp { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; border-top: none; margin-top: 0; padding-top: 0; }
       .xitem.xapp > img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
@@ -1118,6 +1120,7 @@
           <div class="modal-meta" id="xm-meta"></div>
           <div class="desc" id="xm-desc"></div>
           <p class="xm-source" id="xm-source" hidden></p>
+          <p class="xm-source xm-where" id="xm-where" hidden></p>
           <div id="xm-sections"></div>
           <div class="modal-actions">
             <a class="btn" id="xm-download" href="#" download data-i18n="extras.download"></a>
@@ -1209,6 +1212,9 @@
           "xm.author": "만든 이",
           "xm.updated": "마지막 수정일",
           "xm.released": "이 버전 출시일",
+          "xm.latest": "최신 버전",
+          "xm.kind": "종류",
+          "xm.where": "설치 위치",
           "xm.required": "필수",
           "xm.appPatches": "이 앱의 패치",
           "xm.appSaves": "이 앱의 세이브",
@@ -1458,6 +1464,9 @@
           "xm.author": "Author",
           "xm.updated": "Last changed",
           "xm.released": "Version released",
+          "xm.latest": "Latest version",
+          "xm.kind": "Type",
+          "xm.where": "Installs to",
           "xm.required": "Required",
           "xm.appPatches": "Patches for this app",
           "xm.appSaves": "Saves for this app",
@@ -1706,6 +1715,9 @@
           "xm.author": "作者",
           "xm.updated": "最終更新日",
           "xm.released": "このバージョンの公開日",
+          "xm.latest": "最新バージョン",
+          "xm.kind": "種類",
+          "xm.where": "インストール先",
           "xm.required": "必須",
           "xm.appPatches": "このアプリのパッチ",
           "xm.appSaves": "このアプリのセーブ",
@@ -1954,6 +1966,9 @@
           "xm.author": "作者",
           "xm.updated": "最後修改日期",
           "xm.released": "此版本發布日期",
+          "xm.latest": "最新版本",
+          "xm.kind": "類型",
+          "xm.where": "安裝位置",
           "xm.required": "必要",
           "xm.appPatches": "此應用程式的補丁",
           "xm.appSaves": "此應用程式的存檔",
@@ -2269,6 +2284,12 @@
         if (!el.classList.contains("open")) { const sc = el.querySelector(".modal-scroll"); if (sc) sc.scrollTop = 0; }
         el.classList.add("open"); el.setAttribute("aria-hidden", "false");
       }
+      // A date as the client writes it, YYYY.MM.DD; Unix seconds, milliseconds or an ISO string.
+      const ymd = (at) => {
+        if (!at) return "";
+        const d = new Date(typeof at === "number" && at < 1e12 ? at * 1000 : at);
+        return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+      };
       const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
       // Inline placeholder SVGs for the "icon missing" state. We swap the
@@ -3271,7 +3292,7 @@
       // One patch, save or homebrew app in detail, opened from its list row.
       const xmodal = (() => {
         const node = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, sections = [], download = null }) {
+        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null }) {
           const img = $("xm-icon");
           img.hidden = !icon; if (icon) img.src = icon; else img.removeAttribute("src");
           img.onerror = () => { img.hidden = true; };
@@ -3290,6 +3311,10 @@
             if (source.url) { const a = node("a", null, source.name); a.href = source.url; a.target = "_blank"; a.rel = "noopener noreferrer"; src.append(a); }
             else src.append(document.createTextNode(source.name));
           }
+          // Where it lands on the console's SD card, as the client shows it.
+          const at = $("xm-where");
+          at.hidden = !where;
+          if (where) { at.replaceChildren(document.createTextNode(t("xm.where") + ": ")); at.append(node("code", null, where)); }
           $("xm-sections").replaceChildren(...sections.filter((x) => x.items.length).map((x) => {
             const sec = node("section", "xm-section"); sec.append(node("h4", null, x.title), ...x.items); return sec;
           }));
@@ -3385,7 +3410,7 @@
           return row;
         }
         // Patch and save dates come as Unix seconds; an ISO string or milliseconds also read right.
-        const day = (at) => (at ? new Date(typeof at === "number" && at < 1e12 ? at * 1000 : at).toLocaleDateString(lang) : "");
+        const day = (at) => ymd(at);
         // What a patch or save shows in its detail.
         function detail(kind, it) {
           const icon = it.homebrew ? homebrew.iconOf(it.homebrew) : it.game?.icon ? iconPath(it.game.icon).replace("size=sm", "size=md") : "";
@@ -3394,7 +3419,7 @@
             icon,
             title: it.name,
             sub: gameName(it),
-            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)])],
+            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
             meta: [
               [t("xm.size"), fmtBytes(it.size)],
               [t("xm.files"), it.files],
@@ -3404,8 +3429,11 @@
               [t("xm.author"), it.author],
               [t("xm.updated"), day(it.updatedAt || it.updated_at)],
             ],
-            desc: text,
+            desc: text || t("modal.noDesc"),
             source: kind === "saves" && it.source ? { label: t("extras.source"), name: it.source.name, url: it.source.url } : null,
+            // A game's patch lands in atmosphere/contents/<title id>/; a homebrew app's patch and save in its own folder.
+            where: it.homebrew ? `sdmc:/switch/${it.homebrew}/`
+              : kind === "patches" && (it.title_id || it.titleId) ? `sdmc:/atmosphere/contents/${it.title_id || it.titleId}/` : null,
             download: kind === "patches" ? `/api/patches/${encodeURIComponent(it.id)}/download` : it.url,
           };
         }
@@ -3631,13 +3659,19 @@
           return {
             icon: a.icon_url,
             title: a.name || a.app,
-            sub: a.author || "",
+            // As on the client: who made it and the latest version under the name, then what it is and its size.
+            sub: [a.author, a.version && "v" + a.version].filter(Boolean).join(" · "),
+            pills: [[t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
             meta: [
-              [t("xm.version"), a.version && "v" + a.version],
+              [t("xm.latest"), a.version && "v" + a.version],
+              [t("xm.author"), a.author],
               [t("xm.size"), fmtBytes(a.size)],
-              [t("xm.released"), a.released_at ? new Date(a.released_at).toLocaleDateString(lang) : ""],
+              [t("xm.released"), ymd(a.released_at)],
+              [t("xm.kind"), t(a.kind === "port" ? "tab.ports" : "tab.tools")],
+              [t("xm.files"), Array.isArray(a.files) ? a.files.length : (a.archive?.entries?.length || "")],
             ],
-            desc: a.description,
+            desc: a.description || t("modal.noDesc"),
+            where: a.install_dir ? `sdmc:/${a.install_dir}/` : a.install_path ? `sdmc:/${a.install_path}` : null,
             source: a.repo_url ? { label: t("xm.repo"), name: a.repo_url.replace(/^https?:\/\/(www\.)?/, ""), url: a.repo_url } : null,
             sections: [
               { title: t("xm.appPatches"), items: extras.itemsOf("patches", a.app).map((it) => extras.row("patches", it)) },

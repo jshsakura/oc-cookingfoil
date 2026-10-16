@@ -482,7 +482,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.route('**/api/homebrew?*', (route) => route.fulfill({ json: { homebrew: [{
     id: 'm-aaaaaaaaaaaa', app: 'portgame', name: 'Port Game', version: '2.0', author: 'someone', kind: 'port', size: 1048576,
     description: '다른 기종에서 옮겨 온 게임입니다.', icon_url: '', download_url: '/api/homebrew/m-aaaaaaaaaaaa/download', repo_url: null,
-    bundle_url: '/api/homebrew/m-aaaaaaaaaaaa/bundle',
+    bundle_url: '/api/homebrew/m-aaaaaaaaaaaa/bundle', install_dir: 'switch/portgame', released_at: '2026-09-01T00:00:00Z',
   }] } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#patches');
@@ -507,6 +507,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-meta')).toContainText('맞는 업데이트');
   await expect(page.locator('#xm-meta')).toContainText('v2097152');
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
+  await expect(page.locator('#xm-where')).toHaveText('설치 위치: sdmc:/atmosphere/contents/0100000000010000/');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });
   await page.keyboard.press('Escape');
@@ -522,6 +523,12 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(app).toContainText('패치 1개');
   await app.click();
   await expect(page.locator('#xm-title')).toHaveText('Port Game');
+  // The same facts the client shows: maker and version, type and size, and where it installs.
+  await expect(page.locator('#xm-sub')).toHaveText('someone · v2.0');
+  await expect(page.locator('#xm-pills')).toContainText('포트');
+  await expect(page.locator('#xm-pills')).toContainText('1.00 MB');
+  await expect(page.locator('#xm-meta')).toContainText('2026.09.01');
+  await expect(page.locator('#xm-where')).toHaveText('설치 위치: sdmc:/switch/portgame/');
   await expect(page.locator('#xm-sections h4')).toHaveText(['이 앱의 패치']);
   await expect(page.locator('#xm-sections .xname')).toHaveText(['HD 텍스처']);
   // A folder app downloads as its whole folder, not the .nro alone.
