@@ -37,7 +37,8 @@ async function halves(w = 400, h = 200) {
   return sharp({ create: { width: w, height: h, channels: 3, background: "#ff0000" } }).composite([{ input: blue, left: w / 2, top: 0 }]).png().toBuffer();
 }
 async function color(buf) {
-  const { dominant } = await sharp(buf).stats();
+  // Read as bytes: a path the server just rewrote must not be answered from an earlier decode.
+  const { dominant } = await sharp(typeof buf === "string" ? fs.readFileSync(buf) : buf).stats();
   return dominant;
 }
 const isBlue = (c) => c.b > 150 && c.r < 100;

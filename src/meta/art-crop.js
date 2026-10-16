@@ -13,8 +13,6 @@
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-// Art is rewritten in place under the same name: libvips must not answer from a decode of the old file.
-sharp.cache({ files: 0 });
 
 export const ORIG_MAX = 2048;
 const ORIG_QUALITY = 85;

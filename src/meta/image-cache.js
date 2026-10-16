@@ -30,8 +30,6 @@ import fs from "fs";
 import path from "path";
 import { mkdir, rename, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
-// Art is rewritten in place under the same name: libvips must not answer from a decode of the old file.
-sharp.cache({ files: 0 });
 import debug from "../debug.js";
 import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
