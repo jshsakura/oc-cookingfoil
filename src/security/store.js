@@ -69,7 +69,8 @@ async function flush() {
     try {
       await mkdir(STATE_DIR, { recursive: true });
       const tmp = `${STATE_PATH}.tmp.${process.pid}`;
-      await writeFile(tmp, JSON.stringify(serialise()));
+      // Device key hashes and the access log: readable by the server's account only.
+      await writeFile(tmp, JSON.stringify(serialise()), { mode: 0o600 });
       await rename(tmp, STATE_PATH);
     } catch (err) {
       debug.error("security: state flush failed: %s", err.message);

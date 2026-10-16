@@ -66,6 +66,7 @@ CookingFoil 클라이언트는 GitHub 에 공개하지 않습니다. 서버의 `
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
+sed -i "s|^COOK_SECRET_KEY=.*|COOK_SECRET_KEY=$(openssl rand -base64 32)|" .env
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -142,6 +143,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 
 | 변수 | 기본값 | 용도 |
 |---|---|---|
+| `COOK_SECRET_KEY` | _(필수)_ | 데이터 폴더에 두는 비밀값을 암호화합니다(AES-256-GCM). `openssl rand -base64 32` 로 만들고 잘 보관합니다. 새 키로는 예전 키가 잠근 값을 열 수 없습니다 |
 | `COOK_HOST_PORT` | `9080` | 호스트 포트 |
 | `COOK_ROOT` | `.` | 위 폴더들을 만들 호스트 폴더 |
 | `COOK_TRUST_PROXY` | _(비어 있음)_ | 클라이언트 주소를 정해도 되는 프록시 단계. 예: `loopback, uniquelocal` |

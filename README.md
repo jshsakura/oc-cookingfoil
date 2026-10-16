@@ -66,6 +66,7 @@ The web page, first-run setup, sign-in and device approval pages are in English,
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/.env.example
+sed -i "s|^COOK_SECRET_KEY=.*|COOK_SECRET_KEY=$(openssl rand -base64 32)|" .env
 docker compose up -d
 docker compose logs cookingfoil | grep "setup code"
 ```
@@ -142,6 +143,7 @@ These have to be known before the admin page exists, or are kept out of it on pu
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `COOK_SECRET_KEY` | _(required)_ | Seals the secrets kept in the data folder (AES-256-GCM). Make it with `openssl rand -base64 32` and keep it: a new key cannot open what the old one sealed |
 | `COOK_HOST_PORT` | `9080` | Host port |
 | `COOK_ROOT` | `.` | Host folder the folders above are made under |
 | `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops allowed to set the client address, for example `loopback, uniquelocal` |

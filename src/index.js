@@ -1,3 +1,5 @@
+// First: the server does not run without the key its secrets are sealed with.
+import "./security/require-secret-key.js";
 import express from "express";
 import net from "net";
 import { fileURLToPath } from "node:url";

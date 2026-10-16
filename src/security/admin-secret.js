@@ -22,6 +22,7 @@ import path from "path";
 
 import { dataDir, adminTotpSecret as envSecret } from "../helpers/envs.js";
 import debug from "../debug.js";
+import { readSealedJson, writeSealedJson } from "./secret-box.js";
 
 const SECRET_PATH = path.join(dataDir, "security", "admin-totp.json");
 // A candidate under enrollment, on disk so a restart mid-way doesn't void the scanned code.
@@ -47,18 +48,19 @@ function toBase32(buf) {
 
 function readPersisted() {
   try {
-    const parsed = JSON.parse(fs.readFileSync(SECRET_PATH, "utf-8"));
+    const parsed = readSealedJson(SECRET_PATH);
     if (typeof parsed?.secret === "string" && parsed.secret.length >= 16) return parsed;
   } catch (err) {
-    if (err.code !== "ENOENT") debug.error("admin secret: read failed: %s", err.message);
+    // A secret that will not open (another key) must stop the server, not be replaced by a new one.
+    if (err.name === "SecretKeyError") throw err;
+    debug.error("admin secret: read failed: %s", err.message);
   }
   return null;
 }
 
 function persist(record) {
   try {
-    fs.mkdirSync(path.dirname(SECRET_PATH), { recursive: true });
-    fs.writeFileSync(SECRET_PATH, JSON.stringify(record), { mode: 0o600 });
+    writeSealedJson(SECRET_PATH, record);
   } catch (err) {
     debug.error("admin secret: persist failed: %s", err.message);
   }
@@ -144,8 +146,7 @@ function savePending(next) {
   pending = next;
   try {
     if (next) {
-      fs.mkdirSync(path.dirname(PENDING_PATH), { recursive: true });
-      fs.writeFileSync(PENDING_PATH, JSON.stringify(next), { mode: 0o600 });
+      writeSealedJson(PENDING_PATH, next);
     } else {
       fs.rmSync(PENDING_PATH, { force: true });
     }
@@ -157,7 +158,7 @@ function savePending(next) {
 function loadPending() {
   if (pending) return pending;
   try {
-    const saved = JSON.parse(fs.readFileSync(PENDING_PATH, "utf8"));
+    const saved = readSealedJson(PENDING_PATH);
     if (typeof saved?.secret === "string" && Number.isFinite(saved?.at)) pending = saved;
   } catch {
     /* none started */

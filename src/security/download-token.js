@@ -18,9 +18,9 @@
  * (0600), made on first use. Deleting it ends every token handed out so far.
  */
 import crypto from "crypto";
-import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
+import { readSealed, writeSealed } from "./secret-box.js";
 
 const KEY_FILE = path.join(env.dataDir, "security", "download-link.key");
 const KEY_BYTES = 32;
@@ -34,19 +34,13 @@ let key = null;
 // size is an error, so a key is never replaced behind the operator's back.
 export function signingKey() {
   if (key) return key;
-  let raw = null;
-  try {
-    raw = fs.readFileSync(KEY_FILE);
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-  }
+  const raw = readSealed(KEY_FILE);
   if (raw) {
     if (raw.length !== KEY_BYTES) throw new Error(`${KEY_FILE} is not a ${KEY_BYTES}-byte key`);
     return (key = raw);
   }
   const fresh = crypto.randomBytes(KEY_BYTES);
-  fs.mkdirSync(path.dirname(KEY_FILE), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(KEY_FILE, fresh, { mode: 0o600, flag: "wx" });
+  writeSealed(KEY_FILE, fresh);
   return (key = fresh);
 }
 

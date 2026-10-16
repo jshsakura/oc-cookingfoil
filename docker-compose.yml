@@ -26,6 +26,7 @@ services:
     # A stop lets running downloads finish (COOK_RESTART_GRACE, 25 s by default,
     # at most 35 s) before the server exits; docker's own 10 s would cut them.
     stop_grace_period: 40s
+    # .env reaches the container whole, COOK_SECRET_KEY (required) included.
     env_file:
       - path: .env
         required: false

@@ -73,7 +73,7 @@ function remember(entry) {
   if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
   try {
     fs.mkdirSync(path.dirname(HISTORY_FILE), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(`${HISTORY_FILE}.tmp`, JSON.stringify(history));
+    fs.writeFileSync(`${HISTORY_FILE}.tmp`, JSON.stringify(history), { mode: 0o600 });
     fs.renameSync(`${HISTORY_FILE}.tmp`, HISTORY_FILE);
   } catch (err) {
     debug.log("alerts: history not saved: %s", err.message);
