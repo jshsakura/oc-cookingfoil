@@ -26,8 +26,8 @@
  * A hash mismatch on an NCA whose own signature already failed is the
  * modification itself, so it stays "modified".
  *
- * The cnmt is read on every check (a few KB), so a missing NCA is found even
- * without the whole-file hash pass.
+ * Every cnmt is read on every check (a few KB each; a multi-title XCI has
+ * several), so a missing NCA is found even without the whole-file hash pass.
  */
 import { spawn } from "child_process";
 import fsp from "fs/promises";
@@ -133,24 +133,37 @@ export function createVerifier({
     return SIGNATURE_FAIL_RE.test(out);
   }
 
-  /** The cnmt's content records, or null when there is no cnmt NCA or it cannot be unpacked. */
-  async function readCnmt(t, absPath, entries, dir, signal) {
-    const entry = entries.find((e) => /\.cnmt\.nca$/i.test(e.name));
-    if (!entry) return null;
-    const nca = path.join(dir, "meta.nca");
-    const out = path.join(dir, "cnmt");
-    await copyPfs0Entry(absPath, entry, nca);
-    await fsp.mkdir(out, { recursive: true });
-    await nstool(t.bin, ["-k", t.keys, "-x", out, nca], { signal });
-    const file = await findFirstRecursive(out, (n) => /\.cnmt$/i.test(n));
-    return file ? listContents(await fsp.readFile(file)) : null;
+  /**
+   * The content records of every cnmt in the container (a multi-title XCI has
+   * one per title), merged by NCA id; null when there is none or none unpacks.
+   */
+  async function readCnmts(t, absPath, entries, dir, signal) {
+    const metas = entries.filter((e) => /\.cnmt\.nca$/i.test(e.name));
+    const merged = new Map();
+    let read = 0;
+    for (const [i, entry] of metas.entries()) {
+      const nca = path.join(dir, `meta-${i}.nca`);
+      const out = path.join(dir, `cnmt-${i}`);
+      await copyPfs0Entry(absPath, entry, nca);
+      await fsp.mkdir(out, { recursive: true });
+      await nstool(t.bin, ["-k", t.keys, "-x", out, nca], { signal });
+      const file = await findFirstRecursive(out, (n) => /\.cnmt$/i.test(n));
+      if (!file) continue;
+      read++;
+      for (const r of listContents(await fsp.readFile(file))) if (!merged.has(r.ncaId)) merged.set(r.ncaId, r);
+    }
+    return read ? [...merged.values()] : null;
   }
 
   /**
    * Checks the file at `absPath`. `hash`: also stream every NCA through
-   * SHA-256 (plain containers only). Returns { verdict, reason, checks }.
+   * SHA-256 (plain containers only). `known` ({ ncaId: true | false }) holds
+   * NCAs already hashed (matched or not), which are not read again; each new
+   * result goes to `onHashed(ncaId, matched)` so a stopped run can resume.
+   * When `known` covers every NCA, its results stand in for the hash pass
+   * even without `hash`. Returns { verdict, reason, checks }.
    */
-  async function verify(absPath, { hash: wantHash = false, signal } = {}) {
+  async function verify(absPath, { hash: wantHash = false, known = {}, onHashed = () => {}, signal } = {}) {
     const t = await tools();
     const container = await listContainer(absPath);
     const st = await fsp.stat(absPath);
@@ -165,16 +178,22 @@ export function createVerifier({
       for (const e of ncas) if (await signatureFailed(t, absPath, e, dir, signal)) failedIds.push(ncaIdOf(e.name));
       const facts = { signature: failedIds.length ? "fail" : "pass", failedIds };
 
-      const records = (await readCnmt(t, absPath, ncas, dir, signal))?.filter((r) => r.contentType !== CONTENT_TYPE_DELTA);
+      const records = (await readCnmts(t, absPath, ncas, dir, signal))?.filter((r) => r.contentType !== CONTENT_TYPE_DELTA);
       if (!records) return decide(facts);
       const byId = new Map(ncas.map((e) => [ncaIdOf(e.name), e]));
       facts.missing = records.filter((r) => !byId.has(r.ncaId)).map((r) => r.ncaId);
-      if (!wantHash || container.compressed || facts.missing.length) return decide(facts);
+      const complete = records.every((r) => typeof known[r.ncaId] === "boolean");
+      if ((!wantHash && !complete) || container.compressed || facts.missing.length) return decide(facts);
 
       facts.mismatched = [];
       for (const r of records) {
-        const e = byId.get(r.ncaId);
-        if (e.size !== r.size || (await hash(absPath, e.offset, e.size, { signal })) !== r.sha256) facts.mismatched.push(r.ncaId);
+        let matched = known[r.ncaId];
+        if (typeof matched !== "boolean") {
+          const e = byId.get(r.ncaId);
+          matched = e.size === r.size && (await hash(absPath, e.offset, e.size, { signal })) === r.sha256;
+          onHashed(r.ncaId, matched);
+        }
+        if (!matched) facts.mismatched.push(r.ncaId);
       }
       facts.hash = facts.mismatched.length ? "fail" : "pass";
       return decide(facts);

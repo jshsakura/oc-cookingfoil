@@ -12,18 +12,29 @@
  *     the very first start every file already there is recorded as seen
  *     without a hash, so a deploy does not read a multi-TB library; the admin
  *     can ask for a full hash pass;
- *   - a file whose size or mtime changed is a new file: checked again, hash
- *     included.
+ *   - a file whose size changed is a new file: checked again, hash included.
+ *     One whose mtime alone changed gets its signatures again and keeps its
+ *     hash results;
+ *   - a file that turns up under a new path with the size and mtime of one
+ *     that went away (a rename or move) takes that one's record over instead
+ *     of being hashed again. Records that went away are kept for that in a
+ *     second catalog ("file-verdicts-gone", up to GONE_MAX);
+ *   - when a library look finds fewer than half the files known (and at least
+ *     PRUNE_GUARD_MIN are known), nothing is forgotten: that is a folder that
+ *     could not be read, not files deleted.
  *
  * A file is started only while no console is downloading and none has for
  * IDLE_MS (the games sit on spinning disks); a hash under way stops when a
  * download starts and the file waits again. A file in use or written in the
- * last minute waits. After MAX_FAILS unexpected errors in a row the queue
- * stops until the admin asks for something again.
+ * last minute waits. A hash keeps its progress per NCA ({ ncaId: matched }),
+ * so a run stopped for a download resumes after the NCAs already read. After
+ * MAX_FAILS unexpected errors in a row the queue stops, and starts again by
+ * itself after RESUME_MS or when the admin asks for something.
  *
  * Records live in the index database (catalog "file-verdicts"), keyed by the
  * games-folder relative path:
- *   { path, size, mtimeMs, verdict?, reason?, checks?, at?, wantHash, hashDone }
+ *   { path, size, mtimeMs, verdict?, reason?, checks?, at?, wantHash, hashDone,
+ *     ncaHashes?, stale? }   stale: the mtime changed, the signatures run again
  */
 import fsp from "fs/promises";
 import path from "path";
@@ -36,13 +47,26 @@ const BUSY_RETRY_MS = 10 * 60_000;
 const YIELD_POLL_MS = 2000;
 const AUTO_DELAY_MS = 2000;
 const MAX_FAILS = 5;
+const RESUME_MS = 30 * 60_000;
+const GONE_MAX = 10_000;
+const PRUNE_GUARD_MIN = 10;
 const FLAGGED_MAX = 200;
 
 export const NOTICE = new Set(["modified", "damaged"]);
 const notice = (row) => (row && NOTICE.has(row.verdict) ? row.verdict : null);
-const needsWork = (row) => !row.verdict || (row.wantHash && !row.hashDone);
-const changed = (st, row) => row.mtimeMs != null && (st.size !== row.size || Math.round(st.mtimeMs) !== Math.round(row.mtimeMs));
+const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone);
+const sizeChanged = (st, row) => row.mtimeMs != null && st.size !== row.size;
+const mtimeChanged = (st, row) => row.mtimeMs != null && Math.round(st.mtimeMs) !== Math.round(row.mtimeMs);
 const fresh = (rel, st, wantHash) => ({ path: rel, size: st.size, mtimeMs: st.mtimeMs, wantHash, hashDone: false });
+// The same bytes under another path: size and mtime (rename and move keep both).
+const keyOf = (row) => (row.mtimeMs == null ? null : `${row.size}:${Math.round(row.mtimeMs)}`);
+
+/** What a file's record becomes after a stat: replaced, touched (mtime only) or as it was. */
+function restat(row, st) {
+  if (sizeChanged(st, row)) return fresh(row.path, st, true);
+  if (mtimeChanged(st, row)) return { ...row, mtimeMs: st.mtimeMs, stale: true };
+  return row;
+}
 
 /**
  * One queue. Everything outside the folder comes in, so tests can drive it:
@@ -54,6 +78,7 @@ const fresh = (rel, st, wantHash) => ({ path: rel, size: st.size, mtimeMs: st.mt
 export function createVerifyQueue({
   gamesDir,
   store,
+  goneStore = null,
   verifier,
   catalog = () => [],
   downloads = () => ({ active: 0, lastEndedAt: 0 }),
@@ -67,6 +92,7 @@ export function createVerifyQueue({
   busyRetryMs = BUSY_RETRY_MS,
   autoDelayMs = AUTO_DELAY_MS,
   yieldPollMs = YIELD_POLL_MS,
+  resumeMs = RESUME_MS,
 }) {
   const rows = new Map(); // rel → record
   const pending = new Set(); // rels that need a check
@@ -87,6 +113,9 @@ export function createVerifyQueue({
   let autoTimer = null;
   let syncing = null;
   let batch = null; // { job, done }
+  let resumeTimer = null;
+  let resumeAt = null;
+  const gone = new Map(); // size:mtime → a record that went away, oldest first
 
   const abs = (rel) => path.join(gamesDir, rel);
 
@@ -100,6 +129,25 @@ export function createVerifyQueue({
       rows.set(row.path, row);
       if (needsWork(row)) pending.add(row.path);
     }
+    for (const row of goneStore?.load()?.items ?? []) {
+      const key = row?.path && keyOf(row);
+      if (key) gone.set(key, row);
+    }
+  }
+
+  /** Keeps records that went away, for a rename that brings them back. */
+  function bury(list) {
+    if (!goneStore) return;
+    for (const row of list) {
+      const key = keyOf(row);
+      if (!key) continue;
+      gone.delete(key);
+      gone.set(key, row);
+      goneStore.put(row);
+    }
+    const extra = [...gone.entries()].slice(0, Math.max(0, gone.size - GONE_MAX));
+    for (const [key] of extra) gone.delete(key);
+    if (extra.length) goneStore.remove(...extra.map(([, r]) => r.path));
   }
 
   function put(row) {
@@ -126,6 +174,10 @@ export function createVerifyQueue({
     const next = new Map(files.map((f) => [f.rel, f.size]));
     const seeding = firstRun;
     const seeded = [];
+    // Records whose path is not in the library now: a new path with the same bytes takes one over.
+    const leaving = new Map();
+    for (const [rel, row] of rows) if (!next.has(rel) && keyOf(row)) leaving.set(keyOf(row), row);
+    const moved = new Set();
     for (const f of files) {
       // Only what is new since the last look (all of it after a start) is stat'ed.
       if (seen.get(f.rel) === f.size && rows.has(f.rel)) continue;
@@ -135,11 +187,18 @@ export function createVerifyQueue({
       const row = rows.get(f.rel);
       if (!row) {
         const r = fresh(f.rel, st, !seeding);
-        if (seeding) { rows.set(f.rel, r); pending.add(f.rel); seeded.push(r); } else put(r);
-      } else if (changed(st, row)) {
-        put(fresh(f.rel, st, true));
-      } else if (row.mtimeMs == null) {
-        put({ ...row, size: st.size, mtimeMs: st.mtimeMs });
+        const key = keyOf(r);
+        const was = seeding ? null : leaving.get(key) ?? gone.get(key);
+        if (was) {
+          // A rename or move: the record (verdict, hash progress) follows the file.
+          if (leaving.get(key) === was) { leaving.delete(key); moved.add(was.path); }
+          else { gone.delete(key); goneStore?.remove(was.path); }
+          put({ ...was, path: f.rel });
+          debug.log("verify: %s kept the record of %s", f.rel, was.path);
+        } else if (seeding) { rows.set(f.rel, r); pending.add(f.rel); seeded.push(r); } else put(r);
+      } else {
+        const r = row.mtimeMs == null ? { ...row, size: st.size, mtimeMs: st.mtimeMs } : restat(row, st);
+        if (r !== row) put(r);
       }
     }
     if (seeding) {
@@ -148,17 +207,31 @@ export function createVerifyQueue({
       firstRun = false;
       debug.log("verify: recorded %d library file(s) on the first start", seeded.length);
     }
-    if (files.length) {
-      const gone = [...rows.keys()].filter((rel) => !next.has(rel));
-      if (gone.length) {
-        const flagged = gone.some((rel) => notice(rows.get(rel)));
-        for (const rel of gone) { rows.delete(rel); pending.delete(rel); later.delete(rel); urgent.delete(rel); }
-        store.remove(...gone);
-        if (flagged) onVerdict();
-      }
-    }
+    if (files.length) prune(next, files.length, moved);
     seen = next;
     pump();
+  }
+
+  /** Forgets the records of files gone from the library, unless the look itself looks broken. */
+  function prune(next, count, moved) {
+    const known = [...rows.keys()].filter((rel) => !moved.has(rel)).length;
+    const leftRels = [...rows.keys()].filter((rel) => !next.has(rel));
+    if (!leftRels.length) return;
+    const forget = (list) => {
+      const flagged = list.some((rel) => notice(rows.get(rel)));
+      const buried = list.filter((rel) => !moved.has(rel)).map((rel) => rows.get(rel));
+      for (const rel of list) { rows.delete(rel); pending.delete(rel); later.delete(rel); urgent.delete(rel); }
+      store.remove(...list);
+      bury(buried);
+      if (flagged) onVerdict();
+    };
+    if (known >= PRUNE_GUARD_MIN && count < known * 0.5) {
+      // Fewer than half the files: a folder that could not be read. Only the moved records go.
+      debug.log("verify: the library lists %d of %d known file(s); keeping the records of the missing ones", count, known);
+      forget(leftRels.filter((rel) => moved.has(rel)));
+      return;
+    }
+    forget(leftRels);
   }
 
   /** After a library rebuild: look at the files again (coalesced). */
@@ -257,8 +330,18 @@ export function createVerifyQueue({
     const age = now() - st.mtimeMs;
     if (age < recentWriteMs) { later.set(rel, now() + (recentWriteMs - age)); return; }
     later.delete(rel);
-    const base = changed(st, row) ? fresh(rel, st, true) : { ...row, size: st.size, mtimeMs: st.mtimeMs };
+    const base = row.mtimeMs == null ? { ...row, size: st.size, mtimeMs: st.mtimeMs } : restat(row, st);
     const hash = Boolean(base.wantHash && !base.hashDone);
+    // NCAs already hashed (by a run a download stopped, or a full pass before an mtime change).
+    let ncaHashes = { ...(base.ncaHashes ?? {}) };
+    const onHashed = (id, matched) => {
+      ncaHashes = { ...ncaHashes, [id]: matched };
+      const cur = rows.get(rel);
+      if (!cur) return;
+      const saved = { ...cur, ncaHashes };
+      rows.set(rel, saved);
+      store.put(saved);
+    };
 
     beginBatch();
     batch.job?.total(batch.done + pending.size);
@@ -269,9 +352,10 @@ export function createVerifyQueue({
     const poll = hash ? setInterval(() => { if (downloads().active) abort.abort("yield"); }, yieldPollMs) : null;
     poll?.unref?.();
     try {
-      const r = await verifier.verify(abs(rel), { hash, signal: abort.signal });
+      const r = await verifier.verify(abs(rel), { hash, known: ncaHashes, onHashed, signal: abort.signal });
       fails = 0;
-      put({ ...base, verdict: r.verdict, reason: r.reason, checks: r.checks, at: now(), hashDone: base.hashDone || hash });
+      const { stale: _s, ...done } = base;
+      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, at: now(), hashDone: base.hashDone || hash });
       batch.done++;
       if (NOTICE.has(r.verdict)) debug.log("verify: %s is %s (%s)", rel, r.verdict, r.reason);
     } catch (err) {
@@ -282,9 +366,16 @@ export function createVerifyQueue({
       debug.error("verify: %s not checked: %s", rel, err.message);
       if (fails >= MAX_FAILS) {
         pausedReason = "failures";
-        debug.log("verify: stopped after %d failures in a row", MAX_FAILS);
+        debug.log("verify: stopped after %d failures in a row; trying again in %d min", MAX_FAILS, Math.round(resumeMs / 60_000));
         batch?.job?.fail(`${MAX_FAILS}번 잇달아 검사하지 못해 멈췄습니다: ${err.message}`);
         batch = null;
+        resumeAt = now() + resumeMs;
+        resumeTimer = setTimeout(() => {
+          debug.log("verify: trying again after the stop for failures");
+          resume();
+          pump();
+        }, resumeMs);
+        resumeTimer.unref?.();
       }
     } finally {
       clearInterval(poll);
@@ -294,6 +385,9 @@ export function createVerifyQueue({
 
   /** The admin asked for something: a stop after failures ends and every file may be tried again. */
   function resume() {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+    resumeAt = null;
     pausedReason = null;
     fails = 0;
     failedNow.clear();
@@ -327,7 +421,7 @@ export function createVerifyQueue({
     load();
     const row = rows.get(rel);
     if (!row) return false;
-    const { verdict: _v, reason: _r, checks: _c, at: _a, ...rest } = row;
+    const { verdict: _v, reason: _r, checks: _c, at: _a, ncaHashes: _n, stale: _s, ...rest } = row;
     put({ ...rest, wantHash: true, hashDone: false });
     later.delete(rel);
     urgent.add(rel);
@@ -340,6 +434,7 @@ export function createVerifyQueue({
     closed = true;
     clearTimeout(wakeTimer);
     clearTimeout(autoTimer);
+    clearTimeout(resumeTimer);
     running?.abort.abort("shutdown");
   }
 
@@ -363,6 +458,7 @@ export function createVerifyQueue({
     return {
       status: pausedReason ? "paused" : running ? "running" : waitingFor ?? (pending.size ? "waiting" : "idle"),
       pausedReason,
+      resumeAt,
       current: running ? { path: running.rel, hash: running.hash } : null,
       total: rows.size,
       counts,

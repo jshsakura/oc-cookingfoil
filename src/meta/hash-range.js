@@ -25,11 +25,18 @@ export function hashRangeHere(file, start, size) {
   });
 }
 
+// A child that takes longer than this is killed: ten minutes plus the range read at 2 MB/s,
+// slow enough for a niced read on a busy spinning disk, short enough that a hung read ends.
+const BASE_TIMEOUT_MS = 10 * 60_000;
+const SLOWEST_BYTES_PER_MS = (2 * 1024 * 1024) / 1000;
+export const hashTimeoutMs = (size) => Math.round(BASE_TIMEOUT_MS + Math.max(0, size) / SLOWEST_BYTES_PER_MS);
+
 /**
  * The same in a child. Rejects with an AbortError when `signal` aborts (the
- * child is killed) and with the child's message when it fails.
+ * child is killed), with a timeout error after `timeoutMs` (the child is
+ * killed too) and with the child's message when it fails.
  */
-export async function hashRange(file, start, size, { signal, lowPriority = true } = {}) {
+export async function hashRange(file, start, size, { signal, lowPriority = true, timeoutMs = hashTimeoutMs(size) } = {}) {
   // Imported here so the child itself loads nothing but this file.
   const prefix = lowPriority ? (await import("./nsz-runner.js")).lowPriorityPrefix() : [];
   const argv = [...prefix, process.execPath, SELF, file, String(start), String(size)];
@@ -38,13 +45,18 @@ export async function hashRange(file, start, size, { signal, lowPriority = true 
     const child = spawn(argv[0], argv.slice(1), { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
+    let timedOut = false;
     const abort = () => { try { child.kill("SIGKILL"); } catch { /* already gone */ } };
+    const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs);
+    timer.unref?.();
     signal?.addEventListener("abort", abort, { once: true });
     child.stdout.on("data", (c) => { out += c; });
     child.stderr.on("data", (c) => { err = (err + c).slice(-500); });
-    child.once("error", (e) => { signal?.removeEventListener("abort", abort); reject(e); });
+    child.once("error", (e) => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(e); });
     child.once("close", (code) => {
+      clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
+      if (timedOut) return reject(new Error(`hash timeout after ${timeoutMs} ms`));
       if (signal?.aborted) return reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
       const hex = out.trim();
       if (code === 0 && /^[0-9a-f]{64}$/.test(hex)) resolve(hex);

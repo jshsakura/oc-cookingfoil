@@ -19,6 +19,7 @@ const DELTA = "d".repeat(32);
 
 function setup({ cnmt = null, tools = true } = {}) {
   const calls = [];
+  const hashed = [];
   const nstool = async (bin, args) => {
     calls.push(args);
     if (args[0] === "-y") {
@@ -28,16 +29,18 @@ function setup({ cnmt = null, tools = true } = {}) {
       return { code: 0, out: `${failed ? "NCA Header Main Signature: FAIL" : "NCA Header Main Signature: GOOD"}\n[WARNING] NCA Partition 0 not readable\n` };
     }
     const out = args[args.indexOf("-x") + 1];
-    if (cnmt) fs.writeFileSync(path.join(out, "Application_0100000000010000.cnmt"), cnmt);
+    // `cnmt` may map a mark inside the meta NCA to its own cnmt (a multi-title XCI).
+    const pick = Buffer.isBuffer(cnmt) || !cnmt ? cnmt : Object.entries(cnmt).find(([mark]) => fs.readFileSync(args[args.length - 1]).includes(Buffer.from(mark)))?.[1];
+    if (pick) fs.writeFileSync(path.join(out, "Application_0100000000010000.cnmt"), pick);
     return { code: 0, out: "" };
   };
   const verifier = createVerifier({
     tools: async () => (tools ? { bin: "nstool", keys: "/keys/prod.keys" } : null),
     nstool,
-    hash: async (file, start, size) => hashRangeHere(file, start, size),
+    hash: async (file, start, size) => { hashed.push(start); return hashRangeHere(file, start, size); },
     tmpRoot: root,
   });
-  return { verifier, calls };
+  return { verifier, calls, hashed };
 }
 
 let n = 0;
@@ -163,6 +166,41 @@ test("without nstool or keys a readable file stays unchecked", async () => {
   assert.equal(r.verdict, "unchecked");
   assert.deepEqual(r.checks, { signature: "skip", hash: "skip" });
   assert.equal(calls.length, 0);
+});
+
+test("a multi-title XCI reads every cnmt and merges their records", async () => {
+  const meta2 = fakeNca("META2", 0x100);
+  const two = [...files(), { name: `${"f".repeat(32)}.cnmt.nca`, data: meta2 }];
+  const cnmts = (extra) => ({ GOOD: buildCnmt([{ ncaId: PROGRAM, data: program, type: 1 }]), META2: buildCnmt([{ ncaId: CONTROL, data: control, type: 3 }, ...extra]) });
+  const { verifier } = setup({ cnmt: cnmts([]) });
+  assert.deepEqual(await verifier.verify(write("xci", buildXci(two)), { hash: true }), { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
+
+  // Only the second title's cnmt lists the missing NCA, so finding it proves both were read.
+  const missing = setup({ cnmt: cnmts([{ ncaId: "e".repeat(32), data: Buffer.alloc(4), type: 2 }]) });
+  assert.equal((await missing.verifier.verify(write("xci", buildXci(two)))).reason, "missing-content");
+});
+
+test("a hash run skips the NCAs already hashed and reports each new one", async () => {
+  const { verifier, hashed } = setup({ cnmt: buildCnmt(records()) });
+  const seen = [];
+  const r = await verifier.verify(write("nsp", buildPfs0(files())), { hash: true, known: { [PROGRAM]: true }, onHashed: (id, ok) => seen.push([id, ok]) });
+  assert.equal(r.checks.hash, "pass");
+  assert.equal(hashed.length, 1);
+  assert.deepEqual(seen, [[CONTROL, true]]);
+});
+
+test("without hash, results known for every NCA stand in for the hash pass; a known mismatch still counts", async () => {
+  const { verifier, hashed } = setup({ cnmt: buildCnmt(records()) });
+  const file = write("nsp", buildPfs0(files()));
+  assert.equal((await verifier.verify(file, { known: { [PROGRAM]: true, [CONTROL]: true } })).checks.hash, "pass");
+  assert.equal((await verifier.verify(file, { known: { [PROGRAM]: false, [CONTROL]: true } })).reason, "hash-mismatch");
+  assert.equal((await verifier.verify(file, { known: { [PROGRAM]: true } })).checks.hash, "skip");
+  assert.equal(hashed.length, 0);
+});
+
+test("hashRange kills a child that runs past its timeout", async () => {
+  const file = write("bin", Buffer.alloc(1024));
+  await assert.rejects(hashRange(file, 0, 1024, { lowPriority: false, timeoutMs: 1 }), /hash timeout/);
 });
 
 test("hashRange hashes one byte range in a child process, like hashing it here", async () => {

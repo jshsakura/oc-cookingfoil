@@ -24,7 +24,7 @@ function memoryStore(initial = null) {
   };
 }
 
-let games, verdicts, calls, toolsReady, dl, inUse, verdictChanges, jobs;
+let games, verdicts, calls, toolsReady, dl, inUse, verdictChanges, jobs, hooks, knowns;
 beforeEach(() => {
   games = fs.mkdtempSync(path.join(root, "games-"));
   verdicts = {};
@@ -34,6 +34,8 @@ beforeEach(() => {
   inUse = new Set();
   verdictChanges = 0;
   jobs = [];
+  hooks = {};
+  knowns = [];
 });
 
 function addFile(rel, { size = 100, ageMs = HOUR } = {}) {
@@ -53,9 +55,12 @@ function makeQueue(store, opts = {}) {
     store,
     verifier: {
       tools: async () => (toolsReady ? { bin: "nstool", keys: "k" } : null),
-      verify: async (abs, { hash }) => {
+      verify: async (abs, opts) => {
+        const { hash } = opts;
         const rel = path.relative(games, abs);
         calls.push({ rel, hash });
+        knowns.push(opts.known);
+        if (hooks[rel]) return hooks[rel](opts);
         if (verdicts[rel] === "throw") throw new Error("nstool exit 1");
         const verdict = verdicts[rel] ?? "ok";
         return { verdict, reason: verdict, checks: { signature: verdict === "modified" ? "fail" : "pass", hash: hash ? "pass" : "skip" } };
@@ -122,7 +127,7 @@ test("a restart keeps the records: nothing is checked again and a file added whi
   assert.deepEqual(calls, [{ rel: "while-down.nsp", hash: true }]);
 });
 
-test("a replaced file (size or mtime changed) is checked again, hash included", async () => {
+test("a replaced file (size changed) is checked again, hash included", async () => {
   addFile("game.nsp", { size: 100 });
   const store = memoryStore();
   const q = makeQueue(store);
@@ -133,13 +138,112 @@ test("a replaced file (size or mtime changed) is checked again, hash included", 
   await settle(q);
   assert.deepEqual(calls, [{ rel: "game.nsp", hash: true }]);
   assert.equal(store.rows()["game.nsp"].size, 200);
+});
+
+test("an mtime-only change runs the signatures again and keeps the hash results", async () => {
+  addFile("old.nsp");
+  const store = memoryStore();
+  await settle(makeQueue(store));
+  addFile("game.nsp", { size: 200 });
+  hooks["game.nsp"] = ({ onHashed }) => { onHashed("aa", true); return { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } }; };
+  const q = makeQueue(store);
+  await settle(q);
+  assert.equal(store.rows()["game.nsp"].hashDone, true);
+  calls = [];
+  knowns = [];
 
   // Same size, new mtime: a restart (which looks at every file) finds it.
-  calls = [];
   addFile("game.nsp", { size: 200, ageMs: 2 * HOUR });
   const q2 = makeQueue(store);
   await settle(q2);
-  assert.deepEqual(calls, [{ rel: "game.nsp", hash: true }]);
+  assert.deepEqual(calls, [{ rel: "game.nsp", hash: false }]);
+  assert.deepEqual(knowns, [{ aa: true }]);
+  assert.equal(store.rows()["game.nsp"].hashDone, true);
+  assert.equal(store.rows()["game.nsp"].stale, undefined);
+});
+
+test("a renamed file keeps its record instead of being hashed again", async () => {
+  addFile("old.nsp");
+  const store = memoryStore();
+  const gone = memoryStore();
+  const q = makeQueue(store, { goneStore: gone });
+  await settle(q);
+  addFile("game.nsp");
+  verdicts["game.nsp"] = "modified";
+  await settle(q);
+  calls = [];
+
+  fs.mkdirSync(path.join(games, "moved"));
+  fs.renameSync(path.join(games, "game.nsp"), path.join(games, "moved/game.nsp"));
+  await settle(q);
+
+  assert.deepEqual(calls, []);
+  assert.equal(store.rows()["moved/game.nsp"].verdict, "modified");
+  assert.equal(store.rows()["moved/game.nsp"].hashDone, true);
+  assert.equal(store.rows()["game.nsp"], undefined);
+  assert.equal(q.integrityOf("moved/game.nsp"), "modified");
+});
+
+test("a file that went away and comes back later, even after a restart, takes its old record back", async () => {
+  addFile("keep.nsp");
+  const store = memoryStore();
+  const gone = memoryStore();
+  const q = makeQueue(store, { goneStore: gone });
+  await settle(q);
+  addFile("game.nsp");
+  await settle(q);
+  const parked = path.join(root, `parked-${path.basename(games)}`);
+  fs.renameSync(path.join(games, "game.nsp"), parked);
+  await settle(q);
+  assert.equal(store.rows()["game.nsp"], undefined);
+  calls = [];
+
+  fs.renameSync(parked, path.join(games, "back.nsp"));
+  const q2 = makeQueue(store, { goneStore: gone });
+  await settle(q2);
+  assert.deepEqual(calls, []);
+  assert.equal(store.rows()["back.nsp"].hashDone, true);
+  assert.deepEqual(gone.rows(), {});
+});
+
+test("when a look lists fewer than half the known files, nothing is forgotten", async () => {
+  for (let i = 0; i < 12; i++) addFile(`d${i < 8 ? "/lost" : ""}/g${i}.nsp`);
+  const store = memoryStore();
+  const q = makeQueue(store);
+  await settle(q);
+  fs.rmSync(path.join(games, "d/lost"), { recursive: true });
+  await settle(q);
+  assert.equal(Object.keys(store.rows()).length, 12);
+
+  // A smaller drop is a real removal.
+  for (let i = 8; i < 10; i++) fs.rmSync(path.join(games, `d/g${i}.nsp`));
+  for (let i = 0; i < 8; i++) addFile(`d/lost/g${i}.nsp`);
+  await settle(q);
+  assert.equal(Object.keys(store.rows()).length, 10);
+});
+
+test("a hash stopped for a download resumes after the NCAs it already read", async () => {
+  addFile("old.nsp");
+  const store = memoryStore();
+  const q = makeQueue(store, { yieldPollMs: 5 });
+  await settle(q);
+  addFile("big.nsp");
+  let first = true;
+  hooks["big.nsp"] = async ({ onHashed, signal, known }) => {
+    if (!first) return { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" }, known };
+    first = false;
+    onHashed("aa", true);
+    dl = { active: 1, lastEndedAt: 0 };
+    await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+    setTimeout(() => { dl = { active: 0, lastEndedAt: 0 }; }, 20);
+    throw Object.assign(new Error("aborted"), { name: "AbortError" });
+  };
+  await settle(q);
+  await new Promise((r) => setTimeout(r, 80));
+  await q.idle();
+  assert.deepEqual(calls.filter((c) => c.rel === "big.nsp"), [{ rel: "big.nsp", hash: true }, { rel: "big.nsp", hash: true }]);
+  assert.deepEqual(knowns.at(-1), { aa: true });
+  assert.equal(store.rows()["big.nsp"].hashDone, true);
 });
 
 test("a modified or damaged verdict is kept, exposed, and tells the shop to rebuild; a removed file is forgotten", async () => {
@@ -234,4 +338,19 @@ test("after five failures in a row the queue stops until the admin asks again", 
   assert.deepEqual(calls[5], { rel: "f5.nsp", hash: true });
   assert.equal(q.get("f5.nsp").verdict, "ok");
   assert.equal(calls.length, 11);
+  q.shutdown();
+});
+
+test("after the stop for failures the queue tries again by itself", async () => {
+  for (let i = 0; i < 5; i++) { addFile(`f${i}.nsp`); verdicts[`f${i}.nsp`] = "throw"; }
+  const q = makeQueue(memoryStore(), { resumeMs: 30 });
+  await settle(q);
+  assert.equal(q.view().status, "paused");
+  assert.ok(q.view().resumeAt > Date.now() - 1000);
+  for (let i = 0; i < 5; i++) verdicts[`f${i}.nsp`] = "ok";
+  await new Promise((r) => setTimeout(r, 80));
+  await q.idle();
+  assert.equal(calls.length, 10);
+  assert.equal(q.view().status, "idle");
+  assert.equal(q.view().resumeAt, null);
 });

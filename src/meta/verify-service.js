@@ -15,18 +15,22 @@ import { appDb } from "../db/database.js";
 import { catalogStore } from "../db/stores.js";
 
 // Opened on first use, so importing this module does not open the database.
-let opened = null;
-const records = () => (opened ??= catalogStore(appDb(), "file-verdicts", { idOf: (v) => v.path }));
-const store = {
-  load: () => records().load(),
-  replace: (items, at) => records().replace(items, at),
-  put: (item) => records().put(item),
-  remove: (...ids) => records().remove(...ids),
-};
+// The second catalog keeps records of files that went away, for a rename that brings them back.
+function lazyStore(name) {
+  let opened = null;
+  const records = () => (opened ??= catalogStore(appDb(), name, { idOf: (v) => v.path }));
+  return {
+    load: () => records().load(),
+    replace: (items, at) => records().replace(items, at),
+    put: (item) => records().put(item),
+    remove: (...ids) => records().remove(...ids),
+  };
+}
 
 const queue = createVerifyQueue({
   gamesDir: env.romsDirPath,
-  store,
+  store: lazyStore("file-verdicts"),
+  goneStore: lazyStore("file-verdicts-gone"),
   verifier: createVerifier(),
   catalog: () => shopCache.files(),
   downloads: () => drainer.downloads(),
