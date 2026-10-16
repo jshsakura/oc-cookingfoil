@@ -3,6 +3,7 @@
  * Live only when COOK_DEVICE_PAIRING=true; otherwise the router 404s.
  *
  *   POST /api/pair/request  { deviceKey, pairSecret?, label?, message? }  message: a one-line note for the admin (100 chars)
+ *        enrollToken (or X-Enroll-Token): the token a downloaded client carries; a working one approves the console under that account at once
  *        pairSecret: 64 hex the client generated (32 random bytes), or the X-Pair-Secret header
  *        → records the device as "pending" for the admin to approve.
  *        → { status: "pending" }  (or { status: "approved" } if already done)
@@ -63,7 +64,7 @@ import * as enrollTokens from "../security/enroll-tokens.js";
 import * as users from "../security/users.js";
 import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
-import { generateAccessKey, hashAccessKey } from "../security/pairing.js";
+import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -94,6 +95,25 @@ function ownerAllowed(owner) {
  * after a format). The markers the server writes for other approvals ("admin",
  * "auto", "telegram") are no account's, whatever an account is called.
  */
+/**
+ * A console that asks with the download token its client carries is approved under the
+ * account that downloaded it, the way /enroll would, with its key staged for the next
+ * status poll. Without one, or with one that no longer works, it waits like any other.
+ */
+function enrollFromRequest(req, deviceKey) {
+  const token = req.body?.enrollToken ?? req.get("x-enroll-token");
+  if (!token || store.isDeviceApproved(deviceKey)) return;
+  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner) });
+  if (!spent || spent.refused) {
+    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : "unknown, spent or lapsed");
+    return;
+  }
+  const accessKey = generateAccessKey();
+  store.approveDevice(deviceKey, { label: "웹에서 받은 클라이언트", addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+  stageAccessKeyDelivery(deviceKey, accessKey);
+  debug.log("pair: %s… enrolled by %s's download %s (from its request)", deviceKey.slice(0, 12), spent.owner, spent.id);
+}
+
 export function mayEnroll(deviceKey, owner) {
   if (!ownerAllowed(owner)) return false;
   if (!store.isDeviceApproved(deviceKey)) return true;
@@ -159,6 +179,7 @@ export default function pairRouter() {
       return;
     }
     if (registered === "conflict") return secretConflict(res);
+    enrollFromRequest(req, deviceKey);
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
       res.json({ status: "approved" });
@@ -182,6 +203,7 @@ export default function pairRouter() {
     const secret = pairSecretOf(req, req.query?.pairSecret);
     // A GET-only client asks here, so its secret registers here too (a malformed one is ignored).
     if (registerPairSecret(deviceKey, secret) === "conflict") return secretConflict(res);
+    enrollFromRequest(req, deviceKey);
     // A console that knocks with its account is approved right here (COOK_DEVICE_AUTO_APPROVE).
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (!store.isDeviceApproved(deviceKey)) {
@@ -215,11 +237,13 @@ export default function pairRouter() {
     const canEnroll = (owner) => mayEnroll(deviceKey, owner);
     const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
     if (!spent) {
+      debug.log("pair: %s… enroll refused: the download token is unknown, spent or lapsed", deviceKey.slice(0, 12));
       res.set("X-CookingFoil-Enroll", "invalid");
       res.status(401).json({ error: "the enrollment token has expired or is unknown" });
       return;
     }
     if (spent.refused) {
+      debug.log("pair: %s… enroll refused: the console is another account's", deviceKey.slice(0, 12));
       res.status(409).json({ error: "this console belongs to another account" });
       return;
     }
