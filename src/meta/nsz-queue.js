@@ -38,6 +38,8 @@ import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason } fr
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
 const MIB = 1024 ** 2;
 const GIB = 1024 ** 3;
+// Room left over beyond the file itself: nsz's own scratch and the filesystem's reserve.
+const SPACE_SLACK = GIB;
 const IDLE_MS = 30_000;
 const BUSY_RETRY_MS = 10 * 60_000;
 const RECENT_WRITE_MS = 60_000;
@@ -304,13 +306,14 @@ export function createNszQueue({
         return;
       }
       waitingFor = null;
-      const floor = s.diskFloorGb * GIB;
-      if (floor > 0) {
-        const free = await freeBytes(gamesDir);
-        if (free < floor) {
-          pauseFor("disk", `남은 공간이 ${gb(free)}로 하한 ${s.diskFloorGb} GB 보다 적어 변환을 멈췄습니다. 공간을 비운 뒤 변환 탭에서 다시 시작합니다.`);
-          return;
-        }
+      // The output never outgrows the original, so a file needs its own size free (plus what
+      // the files already running may still write, and a little slack), and the optional floor on top.
+      const busy = [...runs.keys()].reduce((n, id) => n + (find(id)?.size || 0), 0);
+      const need = (item.size || 0) + busy + SPACE_SLACK + s.diskFloorGb * GIB;
+      const free = await freeBytes(gamesDir);
+      if (free < need) {
+        pauseFor("disk", `남은 공간이 ${gb(free)}라 ${item.name || path.basename(item.rel)}(${gb(item.size || 0)})를 변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 변환 탭에서 다시 시작합니다.`);
+        return;
       }
       startItem(item, s);
     }
