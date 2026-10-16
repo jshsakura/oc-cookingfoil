@@ -84,6 +84,8 @@ import { tagsOf, withoutTags } from "../retro/sd-names.js";
 import { editionOf } from "../retro/edition.js";
 import { regionOf } from "../retro/arcade.js";
 import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
+import { appDb } from "../db/database.js";
+import { hashStore } from "../db/stores.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
 import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
@@ -123,7 +125,7 @@ let building = null;
 
 function rebuildManifest() {
   if (building) return building;
-  hashCache ??= new HashCache(path.join(dataDir, "retro-hashes.json"));
+  hashCache ??= new HashCache(hashStore(appDb(), "retro", { legacyFile: path.join(dataDir, "retro-hashes.json") }));
   building = buildManifest(packDir(), hashCache)
     .then((m) => (manifest = { ...m, builtAt: Date.now() }))
     .finally(() => (building = null));

@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { openDatabase } from "../../src/db/database.js";
+import { hashStore } from "../../src/db/stores.js";
 
 // 6. An admin's homebrew upload goes through the same normalization as a GitHub
 // release, and what /api/homebrew then lists is pinned down exactly.
@@ -185,35 +187,36 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
   }
 });
 
-test("a hand-placed app's file hashes are remembered on disk, so a restart doesn't read them again", async () => {
-  const { scanManual, setManualHashFile } = await import("../../src/meta/homebrew.js");
+test("a hand-placed app's file hashes are remembered in the index, so a restart doesn't read them again", async () => {
+  const { scanManual, useManualHashes } = await import("../../src/meta/homebrew.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-hash-"));
   const app = path.join(root, "apps", "big");
   fs.mkdirSync(path.join(app, "data"), { recursive: true });
   fs.writeFileSync(path.join(app, "big.nro"), fakeNro("Big"));
   fs.writeFileSync(path.join(app, "data", "x.bin"), "X");
   fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "big.nro", mode: "folder" }));
-  const hashFile = path.join(root, "hashes.json");
-  setManualHashFile(hashFile);
+  const dbFile = path.join(root, "index.db");
+  const rows = (db) => db.prepare("SELECT path FROM file_hashes WHERE scope = 'homebrew'").all();
+  const db = openDatabase(dbFile);
+  useManualHashes(hashStore(db, "homebrew"), root);
   const [first] = await scanManual(path.join(root, "apps"));
   assert.deepEqual([first.install_dir, first.files.map((f) => f.path)], ["switch/big", ["switch/big/big.nro", "switch/big/data/x.bin"]]);
-  const saved = JSON.parse(fs.readFileSync(hashFile, "utf8"));
-  assert.equal(Object.keys(saved).length, 2);
-  // A fresh process: the hash comes from the file, not from reading x.bin (planted to prove it).
+  assert.equal(rows(db).length, 2);
+  // A fresh process: the hash comes from the index, not from reading x.bin (planted to prove it).
   const xbin = path.join(app, "data", "x.bin");
-  saved[xbin].hash = "remembered";
-  fs.writeFileSync(hashFile, JSON.stringify(saved));
-  setManualHashFile(hashFile);
+  db.prepare("UPDATE file_hashes SET hash = 'remembered' WHERE path = ?").run(xbin);
+  const reopened = openDatabase(dbFile);
+  useManualHashes(hashStore(reopened, "homebrew"), root);
   const [again] = await scanManual(path.join(root, "apps"));
   assert.equal(again.files.find((f) => f.path === "switch/big/data/x.bin").sha256, "remembered");
   // A file gone is forgotten.
   fs.rmSync(xbin);
   await scanManual(path.join(root, "apps"));
-  assert.equal(Object.keys(JSON.parse(fs.readFileSync(hashFile, "utf8"))).length, 1);
+  assert.equal(rows(reopened).length, 1);
 });
 
 test("a hand-placed app's install guides stay on the server; its own text data goes to the console", async () => {
-  const { scanManual, setManualHashFile } = await import("../../src/meta/homebrew.js");
+  const { scanManual, useManualHashes } = await import("../../src/meta/homebrew.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-docs-"));
   const app = path.join(root, "apps", "game");
   const put = (rel, body = "x") => {
@@ -224,7 +227,7 @@ test("a hand-placed app's install guides stay on the server; its own text data g
   for (const rel of ["설치-스위치.md", "README.txt", "guide.pdf", "Thumbs.db", "Plugins/CJK/README_CJK.md",
     "Data/ServerUrl.txt", "Plugins/HotFixes/meta.txt", "Plugins/notes.md"]) put(rel);
   fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder" }));
-  setManualHashFile(path.join(root, "hashes.json"));
+  useManualHashes(hashStore(openDatabase(":memory:"), "homebrew"), path.dirname(path.join(root, "hashes.json")));
   const [entry] = await scanManual(path.join(root, "apps"));
   assert.deepEqual(entry.files.map((f) => f.path), [
     "switch/game/Data/ServerUrl.txt", "switch/game/Plugins/HotFixes/meta.txt", "switch/game/Plugins/notes.md", "switch/game/game.nro",
@@ -232,14 +235,14 @@ test("a hand-placed app's install guides stay on the server; its own text data g
 });
 
 test("a hand-placed app with a file the console can't create is kept off the list and shown to the admin", async () => {
-  const { scanManual, setManualHashFile, heldManual } = await import("../../src/meta/homebrew.js");
+  const { scanManual, useManualHashes, heldManual } = await import("../../src/meta/homebrew.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-ascii-"));
   const app = path.join(root, "apps", "game");
   fs.mkdirSync(path.join(app, "Audio"), { recursive: true });
   fs.writeFileSync(path.join(app, "game.nro"), fakeNro("Game"));
   fs.writeFileSync(path.join(app, "Audio", "전투.ogg"), "x");
   fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder" }));
-  setManualHashFile(path.join(root, "hashes.json"));
+  useManualHashes(hashStore(openDatabase(":memory:"), "homebrew"), path.dirname(path.join(root, "hashes.json")));
   assert.deepEqual(await scanManual(path.join(root, "apps")), []);
   const [held] = heldManual();
   assert.equal(held.folder, "game");
@@ -334,11 +337,11 @@ test("an app kept as a zip is listed from inside it and sent whole, never unpack
 });
 
 test("a zip that can't go on the card as it is stays out of the list, and the scan goes on", async () => {
-  const { scanManual, setManualHashFile, extractNro } = await import("../../src/meta/homebrew.js");
+  const { scanManual, useManualHashes, extractNro } = await import("../../src/meta/homebrew.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-badzip-"));
   const apps = path.join(root, "apps");
   const put = (folder, name, bytes) => { fs.mkdirSync(path.join(apps, folder), { recursive: true }); fs.writeFileSync(path.join(apps, folder, name), bytes); };
-  setManualHashFile(path.join(root, "data", "hashes.json"));
+  useManualHashes(hashStore(openDatabase(":memory:"), "homebrew"), path.dirname(path.join(root, "data", "hashes.json")));
   // A space in the app folder would install only the .nro, under a name the card may refuse.
   put("spaced", "a.zip", makeZip(root, { "switch/My App/My App.nro": fakeNro("Spaced"), "switch/My App/data.bin": "D" }));
   // Not a zip at all.

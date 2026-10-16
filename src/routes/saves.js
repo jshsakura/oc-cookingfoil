@@ -24,6 +24,7 @@ import path from "path";
 import express from "express";
 import { savesDir, dataDir, publicBaseUrl } from "../helpers/envs.js";
 import { createCatalog, localize } from "../meta/shop-saves.js";
+import { appDb } from "../db/database.js";
 import { watchItems } from "../meta/folder-watch.js";
 import { requestLang } from "../meta/categories.js";
 import { gameOf } from "../meta/game-info.js";
@@ -58,7 +59,7 @@ export function byGame(saves, origin = "") {
 
 let shared = null;
 /** The one catalog of the saves folder, shared with the admin page. */
-export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json"), listFile: path.join(dataDir, "saves-list.json") }));
+export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, db: appDb(), legacy: { list: path.join(dataDir, "saves-list.json"), hashes: path.join(dataDir, "saves-hashes.json") } }));
 
 let watch = null;
 /** Follows the saves folder: a save copied in by hand shows up once its copy has been quiet for a while. */

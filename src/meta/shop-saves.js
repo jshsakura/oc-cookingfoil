@@ -23,13 +23,13 @@
  * bytes is left out and only logged.
  *
  * The folder holds tens of thousands of small files on disks other jobs keep
- * busy, so a scan can take a minute. The last listing is kept on disk and
- * served at once, also right after a restart; it is rescanned in the
- * background when older than STALE_MS. Only a catalog with no listing yet, or
+ * busy, so a scan can take a minute. The last listing is kept in the index
+ * (db/database.js, one row per save) and served at once, also right after a
+ * restart; it is rescanned in the background when older than STALE_MS. Only a catalog with no listing yet, or
  * one told of a change made here, waits for a scan. A scan reads one entry at
  * a time so it holds one of libuv's threads, not all of them (with every
  * thread waiting on a busy disk, every other file read of the server waits
- * too). Content hashes are cached by (size, mtime, inode) on disk.
+ * too). Content hashes are cached by (size, mtime, inode) in the index.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -38,6 +38,7 @@ import path from "path";
 import debug from "../debug.js";
 import { fitsUstar } from "../helpers/ustar.js";
 import { HashCache } from "../helpers/hash-cache.js";
+import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
@@ -188,28 +189,15 @@ export async function scanDir(root, cache) {
 /** By title id (homebrew apps last), then name. Pure. */
 const sortSaves = (list) => list.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 
-/** The listing a previous scan kept in `file`: { saves, at }, or null. */
-function readList(file) {
-  if (!file) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    return Array.isArray(parsed?.saves) && Number.isFinite(parsed.at) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-async function writeList(file, saves, at) {
-  if (!file) return;
-  const tmp = `${file}.tmp`;
-  await fsp.writeFile(tmp, JSON.stringify({ version: 1, at, saves }));
-  await fsp.rename(tmp, file);
-}
-
-export function createCatalog({ root, cacheFile, listFile = null }) {
-  const cache = new HashCache(cacheFile);
-  const kept = readList(listFile);
-  let saves = kept?.saves ?? [];
+/**
+ * The saves under `root`, kept in the index: `db` an index (db/database.js),
+ * `legacy` the { list, hashes } JSON files an earlier version kept, taken over once.
+ */
+export function createCatalog({ root, db, legacy = {} }) {
+  const cache = new HashCache(hashStore(db, "saves", { legacyFile: legacy.hashes }));
+  const store = catalogStore(db, "saves", { legacyFile: legacy.list, legacyField: "saves" });
+  const kept = store.load();
+  let saves = kept ? sortSaves(kept.items) : [];
   let scannedAt = kept?.at ?? 0;
   let current = Boolean(kept); // false with no listing yet, and after a change made here
   let changes = 0; // bumped by invalidate(): a scan that began before a change does not make the listing current
@@ -221,11 +209,18 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
         saves = next;
         scannedAt = Date.now();
         current = seen === changes;
-        writeList(listFile, saves, scannedAt).catch((err) => debug.error("saves: could not keep the listing: %s", err.message));
+        keep(() => store.replace(saves, scannedAt));
         return saves;
       })
       .finally(() => (inFlight = null));
     return inFlight;
+  };
+  const keep = (write) => {
+    try {
+      write();
+    } catch (err) {
+      debug.error("saves: could not keep the listing: %s", err.message);
+    }
   };
   const publicFields = ({ dir: _dir, folder: _folder, ...s }) => s;
   return {
@@ -256,29 +251,34 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
       if (!current) return;
       const [top, name] = String(item).split("/");
       let targets;
-      let next;
+      let isOld;
       if (top === "homebrew") {
         if (!APP_RE.test(name ?? "")) return;
         const dir = `homebrew/${name}`;
         targets = (await subdirs(path.join(root, dir))).map((folder) => [dir, folder]);
-        next = saves.filter((s) => s.dir !== dir);
+        isOld = (s) => s.dir === dir;
       } else {
         if (!isBase(String(top).toUpperCase()) || !name) return;
         targets = [[top, name]];
-        next = saves.filter((s) => !(s.dir === top && s.folder === name));
+        isOld = (s) => s.dir === top && s.folder === name;
       }
+      const fresh = [];
       for (const [dir, folder] of targets) {
         try {
           const { save } = await readSave(root, dir, folder, cache);
-          next.push({ ...save, dir, folder });
+          fresh.push({ ...save, dir, folder });
         } catch (err) {
           if (err.code === "ENOENT") continue;
           if (!(err instanceof Rejected)) throw err;
           debug.error("saves: %s/%s left out: %s", dir, folder, err.message);
         }
       }
-      saves = sortSaves(next);
-      writeList(listFile, saves, scannedAt).catch((err) => debug.error("saves: could not keep the listing: %s", err.message));
+      const old = saves.filter(isOld);
+      saves = sortSaves([...saves.filter((s) => !isOld(s)), ...fresh]);
+      keep(() => {
+        store.remove(...old.map((s) => s.id).filter((id) => !fresh.some((s) => s.id === id)));
+        for (const s of fresh) store.put(s);
+      });
       debug.log("saves: %s read again", item);
     },
     /** Read the folder again on the next list (after a change made here). */

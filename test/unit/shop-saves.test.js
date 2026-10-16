@@ -6,6 +6,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { localize, readMeta, readSave, saveId } from "../../src/meta/shop-saves.js";
+import { openDatabase } from "../../src/db/database.js";
 
 const MK = "0100152000022000";
 const PORT = 15400 + (process.pid % 500);
@@ -163,7 +164,7 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
   put("one");
   const realNow = Date.now;
   try {
-    const cat = createCatalog({ root, cacheFile: path.join(root, "hashes.json") });
+    const cat = createCatalog({ root, db: openDatabase(":memory:") });
     assert.equal((await cat.list()).length, 1);
     put("two");
     Date.now = () => realNow() + 7 * 60 * 60_000;
@@ -175,7 +176,6 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
     assert.equal((await cat.list()).length, 3, "a change made here is read before answering");
   } finally {
     Date.now = realNow;
-    await new Promise((r) => setTimeout(r, 50)); // the kept listing's write
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
@@ -183,7 +183,7 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
 test("the last listing is kept on disk and served at once after a restart, then rescanned behind it", async () => {
   const { createCatalog } = await import("../../src/meta/shop-saves.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-kept-"));
-  const listFile = path.join(root, "list.json");
+  const db = openDatabase(path.join(root, "index.db"));
   const put = (folder) => {
     fs.mkdirSync(path.join(root, "saves", "0100000000010000", folder), { recursive: true });
     fs.writeFileSync(path.join(root, "saves", "0100000000010000", folder, "save.bin"), "x");
@@ -191,19 +191,18 @@ test("the last listing is kept on disk and served at once after a restart, then 
   put("one");
   const realNow = Date.now;
   try {
-    const first = createCatalog({ root: path.join(root, "saves"), cacheFile: path.join(root, "h.json"), listFile });
+    const first = createCatalog({ root: path.join(root, "saves"), db });
     assert.equal((await first.list()).length, 1);
     await new Promise((r) => setTimeout(r, 50));
-    assert.ok(fs.existsSync(listFile), "the listing is kept");
+    assert.equal(db.prepare("SELECT count(*) AS n FROM catalog_items WHERE catalog = 'saves'").get().n, 1, "the listing is kept");
     put("two");
-    const restarted = createCatalog({ root: path.join(root, "saves"), cacheFile: path.join(root, "h.json"), listFile });
+    const restarted = createCatalog({ root: path.join(root, "saves"), db: openDatabase(path.join(root, "index.db")) });
     assert.equal((await restarted.list()).length, 1, "the kept listing, no scan");
     Date.now = () => realNow() + 7 * 60 * 60_000;
     await restarted.warm();
     assert.equal((await restarted.list()).length, 2, "a stale kept listing is rescanned");
   } finally {
     Date.now = realNow;
-    await new Promise((r) => setTimeout(r, 50)); // the kept listing's write
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
@@ -216,7 +215,7 @@ test("a change made while a scan runs is in the listing that follows", async () 
     fs.writeFileSync(path.join(root, "0100000000010000", folder, "save.bin"), "x");
   };
   put("one");
-  const cat = createCatalog({ root, cacheFile: path.join(root, "h.json") });
+  const cat = createCatalog({ root, db: openDatabase(":memory:") });
   const first = cat.list();
   put("two");
   cat.invalidate();
@@ -234,7 +233,7 @@ test("one save read again by itself: added, changed and removed without a full s
     fs.writeFileSync(path.join(root, "0100000000010000", folder, "save.bin"), body);
   };
   put("one");
-  const cat = createCatalog({ root, cacheFile: path.join(root, "h.json") });
+  const cat = createCatalog({ root, db: openDatabase(":memory:") });
   assert.equal((await cat.list()).length, 1);
   put("two", "xyz");
   await cat.refreshItem("0100000000010000/two");
