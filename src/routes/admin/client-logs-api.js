@@ -1,7 +1,8 @@
 /**
  * The logs consoles send in (POST /api/client/log), for the admin to read.
  *
- *   GET /admin/api/client-logs                    [{ prefix, label, files: [{ name, size, at }] }] newest first
+ *   GET /admin/api/client-logs                    { consoles: [{ prefix, label, files: [{ name, size, at }] }] newest first,
+ *                                                   bugReports: [{ prefix, label, owner, count, first, last }] most first }
  *   GET /admin/api/client-logs/<prefix>/<file>    the log as text/plain
  *
  * A console is named by the label it was approved under when one matches its
@@ -10,7 +11,7 @@
 import fsp from "fs/promises";
 import path from "path";
 import * as store from "../../security/store.js";
-import { LOGS_DIR } from "../client-log.js";
+import { LOGS_DIR, bugReports } from "../client-log.js";
 
 const PREFIX_RE = /^[0-9a-f]{8}$/;
 const FILE_RE = /^(\d{8}-\d{6}(-\d+)?|latest)\.txt$/;
@@ -35,6 +36,8 @@ export function mountClientLogsApi(router, requireSession) {
     const consoles = await Promise.all(prefixes.map(async (prefix) => ({ prefix, label: labels.get(prefix) ?? null, files: await filesOf(prefix) })));
     res.json({
       consoles: consoles.filter((c) => c.files.length).sort((a, b) => (b.files[0]?.at ?? 0) - (a.files[0]?.at ?? 0)),
+      // Who pressed "send a bug report" how often: the account without its kind ("user:", "google:").
+      bugReports: bugReports().map((r) => ({ ...r, label: labels.get(r.prefix) ?? null, owner: String(r.owner ?? "").replace(/^[a-z]+:/, "") })),
     });
   });
 
