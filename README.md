@@ -305,7 +305,7 @@ Changing what everyone sees (artwork, descriptions, files in the games folder) a
 - Console access keys and automation tokens are kept as SHA-256 hashes only. The plain value is shown once, when it is made.
 - Secrets the server has to read back (the admin authenticator secret, the session and download-token signing keys, the Google and IGDB client secrets) are sealed with AES-256-GCM under `COOK_SECRET_KEY`. The key lives in `.env`, not in the data folder, so a copy of the data folder alone opens none of them.
 - Keep a copy of `COOK_SECRET_KEY`. Without it the server does not start, and a new key cannot open what the old one sealed.
-- Accounts, per-console logins, tokens, saved settings and the sealed secrets are kept in `data/security/security.db` (SQLite), readable by the server's account only (0600). Back it up with the data folder: unlike the index below, it cannot be rebuilt.
+- Accounts, approved consoles, per-console logins, tokens, saved settings, the audit log and the sealed secrets are kept in `data/security/security.db` (SQLite), readable by the server's account only (0600). Back it up with the data folder: unlike the index below, it cannot be rebuilt.
 - What a scan of the saves, homebrew and retro folders found, and the content hashes of their files, are kept in `data/cookingfoil.db` (SQLite), so a restart lists them at once. It is only an index of the folders: delete it and the server reads the folders again.
 
 ### How consoles are approved

@@ -1,8 +1,9 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from "node:fs";
+import { mkdtempSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { persistedState } from "../support/security-db.js";
 
 // `src/security/store.js` reads COOK_DATA_DIR (via helpers/envs.js) at
 // module-eval time, and both are singletons cached by the ESM loader for the
@@ -17,9 +18,7 @@ const store = await import("../../src/security/store.js");
 
 const STATE_PATH = path.join(DATA_DIR, "security", "state.json");
 
-function readPersisted() {
-  return JSON.parse(readFileSync(STATE_PATH, "utf-8"));
-}
+const readPersisted = () => persistedState(DATA_DIR);
 
 // A handful of tests need deterministic ordering of Date.now()-derived
 // timestamps (pending eviction, lastSeen sort order). Real wall-clock calls
@@ -40,9 +39,9 @@ after(async () => {
   await store.shutdown();
 });
 
-// ── load(): missing / corrupt / valid state file ────────────────────────────
-// These run first, before any mutation, so the temp dataDir's state.json is
-// guaranteed not to exist yet.
+// ── load() ──────────────────────────────────────────────────────────────────
+// Taking over a state.json from before is in store-takeover.test.js (it happens
+// once per data folder, so it needs a process of its own).
 
 test("load() with no state file on disk leaves all maps empty and does not throw", async () => {
   assert.equal(existsSync(STATE_PATH), false);
@@ -50,49 +49,6 @@ test("load() with no state file on disk leaves all maps empty and does not throw
   assert.deepEqual(store.devicesSnapshot(), { approved: [], pending: [] });
   assert.deepEqual(store.snapshot(), { failures: [], lockouts: [], audit: [] });
   assert.deepEqual(store.accessSnapshot(), []);
-});
-
-test("load() with corrupt JSON on disk does not throw and leaves state untouched", async () => {
-  mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  writeFileSync(STATE_PATH, "{ not valid json ]]]");
-  await assert.doesNotReject(store.load());
-  // JSON.parse throws before any state.* assignment runs, so the previous
-  // (still-empty) in-memory state must survive untouched.
-  assert.deepEqual(store.devicesSnapshot(), { approved: [], pending: [] });
-  assert.deepEqual(store.snapshot().failures, []);
-  assert.deepEqual(store.snapshot().lockouts, []);
-});
-
-test("load() with a valid state file fully repopulates failures/lockouts/access/audit", async () => {
-  const fixture = {
-    failures: { "9.9.9.9": { count: 3, firstAt: 1, lastAt: 2, lastUser: "bob" } },
-    lockouts: { "9.9.9.9": { lockedAt: 1, until: null, reason: "too many failures" } },
-    access: { alice: { firstAt: 1, lastAt: 2, count: 5, lastIp: "1.1.1.1", ips: { "1.1.1.1": 2 } } },
-    devices: {},
-    pending: {},
-    audit: [{ kind: "fixture", at: 1 }],
-    savedAt: 123,
-  };
-  writeFileSync(STATE_PATH, JSON.stringify(fixture));
-  await store.load();
-
-  assert.equal(store.getFailure("9.9.9.9").count, 3);
-  assert.equal(store.isLocked("9.9.9.9"), true);
-  assert.deepEqual(
-    store.accessSnapshot().map((a) => a.user),
-    ["alice"]
-  );
-  assert.equal(store.accessSnapshot()[0].count, 5);
-  assert.deepEqual(
-    store.snapshot().audit.map((a) => a.kind),
-    ["fixture"]
-  );
-
-  // Clean slate for the rest of the suite: devices/pending were seeded empty
-  // by this fixture, and we now clear failures/lockouts/audit explicitly.
-  store.unlock("9.9.9.9"); // removes the lockout AND the failure entry
-  assert.equal(store.getFailure("9.9.9.9"), null);
-  assert.equal(store.isLocked("9.9.9.9"), false);
 });
 
 test("load() with COOK_RESET_LOCKOUTS=true clears failures+lockouts and appends a reset audit entry", async () => {
@@ -397,7 +353,7 @@ test("recordPendingDevice evicts the single oldest entry once the pool exceeds P
 
 // ── persistence: flush()/shutdown() actually write serialise()'d state ──────
 
-test("shutdown() forces an immediate flush: state.json exists on disk with the current in-memory shape", async () => {
+test("shutdown() forces an immediate flush: the console is in the database at once", async () => {
   store.approveDevice(
     "5555000000000000000000000000000000000000000000000000000000005E",
     { label: "persisted-device", addedBy: "admin", accessKeyHash: "persisted-hash" }
@@ -405,14 +361,12 @@ test("shutdown() forces an immediate flush: state.json exists on disk with the c
 
   await store.shutdown();
 
-  assert.equal(existsSync(STATE_PATH), true);
   const persisted = readPersisted();
   assert.ok(persisted.devices["5555000000000000000000000000000000000000000000000000000000005E"]);
   assert.equal(
     persisted.devices["5555000000000000000000000000000000000000000000000000000000005E"].label,
     "persisted-device"
   );
-  assert.ok(typeof persisted.savedAt === "number");
 
   store.revokeDevice("5555000000000000000000000000000000000000000000000000000000005E");
 });
@@ -467,22 +421,4 @@ test("dismissing a request that was never approved is saved, so it does not come
   // No forced flush: the dismissal must schedule its own save.
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(readPersisted().pending[key], undefined);
-});
-
-test("load() drops the IP, last-seen time and version older versions kept for consoles", async () => {
-  mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  writeFileSync(STATE_PATH, JSON.stringify({
-    devices: { [DK1]: { label: "tv", addedAt: 1, addedBy: "admin", accessKeyHash: "h", lastSeenAt: 5, lastIp: "203.0.113.9", lastVersion: "1.0" } },
-    pending: { [DK2]: { firstSeenAt: 1, lastSeenAt: 2, count: 3, lastIp: "203.0.113.10", lastVersion: "1.0" } },
-  }));
-  await store.load();
-  const snap = store.devicesSnapshot();
-  assert.deepEqual(snap.approved[0], { deviceKey: DK1, label: "tv", addedAt: 1, addedBy: "admin", lastSeenAt: null }, "the old last-seen time isn't brought back");
-  assert.deepEqual(snap.pending[0], { deviceKey: DK2, firstSeenAt: 1, lastSeenAt: 2 });
-  // A console seen now shows on the admin page, but its last-seen time stays in memory.
-  store.touchDevice(DK1);
-  assert.ok(store.devicesSnapshot().approved[0].lastSeenAt > 0);
-  await store.shutdown();
-  assert.ok(!readFileSync(STATE_PATH, "utf8").includes("203.0.113"), "the old addresses are gone from disk");
-  assert.equal(readPersisted().devices[DK1].lastSeenAt, undefined, "last-seen never reaches the disk");
 });

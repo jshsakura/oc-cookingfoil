@@ -29,3 +29,19 @@ export const savedSettings = (dataDir) => Object.fromEntries(query(dataDir, "SEL
 /** Every value in the file, as text, so a test can check a plain secret is in none of them. */
 export const everything = (dataDir) =>
   ["records", "settings", "secrets"].flatMap((t) => query(dataDir, `SELECT * FROM ${t}`).map((r) => Object.values(r).join(" "))).join("\n");
+
+/** The entries of an append-only log, oldest first. */
+export const events = (dataDir, log) => query(dataDir, "SELECT data FROM events WHERE log = ? ORDER BY seq", log).map((r) => JSON.parse(r.data));
+
+/** What security/store.js kept, in the shape state.json had. */
+export const persistedState = (dataDir) => ({
+  failures: records(dataDir, "failure"),
+  lockouts: records(dataDir, "lockout"),
+  access: records(dataDir, "access"),
+  devices: records(dataDir, "device"),
+  pending: records(dataDir, "pending-device"),
+  pairSecrets: records(dataDir, "pair-secret"),
+  denialCounts: records(dataDir, "denial-count"),
+  audit: events(dataDir, "audit"),
+  denials: events(dataDir, "denials"),
+});

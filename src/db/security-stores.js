@@ -32,7 +32,24 @@ function readLegacy(file) {
   }
 }
 
-/** Runs `take()` the first time `db` sees `source`, in the same transaction as noting it. */
+/**
+ * Runs `take()` the first time `db` sees `source`, in the same transaction as
+ * noting it; `take` returns the name of what it took over, or null.
+ */
+export function takeOverOnce(source, take, { db = securityDb() } = {}) {
+  importOnce(db, source, take);
+}
+
+/** The parsed JSON in `file`, or null when there is none or it does not read (logged). */
+export function readLegacyLenient(file) {
+  try {
+    return readLegacy(file);
+  } catch (err) {
+    debug.error("security: %s", err.message);
+    return null;
+  }
+}
+
 function importOnce(db, source, take) {
   if (db.prepare("SELECT 1 FROM imports WHERE source = ?").get(source)) return;
   transaction(db, () => {
@@ -83,6 +100,10 @@ export function recordStore(kind, { db = securityDb(), legacy = null } = {}) {
         for (const [id, data] of next) if (written.get(id) !== data) upsert.run(kind, id, data);
       });
       written = next;
+    },
+    /** After a failed write around a sync(): read the table again before the next one. */
+    forget() {
+      written = null;
     },
   };
 }
@@ -165,4 +186,27 @@ export const done = (step, { db = securityDb() } = {}) => Boolean(db.prepare("SE
 /** Notes `step` as done. */
 export function markDone(step, { db = securityDb() } = {}) {
   db.prepare("INSERT OR IGNORE INTO imports (source, at) VALUES (?, ?)").run(`done:${step}`, Date.now());
+}
+
+/**
+ * An append-only log called `name`, kept to its last `max` entries.
+ */
+export function eventLog(name, { max, db = securityDb() }) {
+  const insert = db.prepare("INSERT INTO events (log, data) VALUES (?, ?)");
+  const trim = db.prepare("DELETE FROM events WHERE log = ? AND seq <= (SELECT seq FROM events WHERE log = ? ORDER BY seq DESC LIMIT 1 OFFSET ?)");
+  return {
+    /** The kept entries, oldest first. */
+    load: () => db.prepare("SELECT data FROM (SELECT seq, data FROM events WHERE log = ? ORDER BY seq DESC LIMIT ?) ORDER BY seq").all(name, max).map((r) => JSON.parse(r.data)),
+    /** Adds `entries` (oldest first) and drops what falls past `max`. */
+    append(entries) {
+      if (!entries.length) return;
+      transaction(db, () => {
+        for (const e of entries) insert.run(name, JSON.stringify(e));
+        trim.run(name, name, max);
+      });
+    },
+    clear() {
+      db.prepare("DELETE FROM events WHERE log = ?").run(name);
+    },
+  };
 }

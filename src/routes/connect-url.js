@@ -54,7 +54,7 @@ export default function connectUrlRoute(req, res) {
   });
 }
 
-// A portable profile for the client. Pairing credentials belong to state.json;
+// A portable profile for the client. Pairing credentials belong to the security database;
 // the exported user config contains no password, access key or CF secret.
 export function clientConfigRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);

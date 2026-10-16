@@ -68,6 +68,13 @@ export const SECURITY_MIGRATIONS = [
      source TEXT PRIMARY KEY,
      at INTEGER NOT NULL
    );`,
+  // Append-only logs kept to a length (the audit log, refusals), oldest dropped first.
+  `CREATE TABLE events (
+     seq INTEGER PRIMARY KEY AUTOINCREMENT,
+     log TEXT NOT NULL,
+     data TEXT NOT NULL
+   );
+   CREATE INDEX events_log ON events (log, seq);`,
 ];
 
 /**
@@ -84,19 +91,47 @@ export function openDatabase(file, { migrations = INDEX_MIGRATIONS, private: own
     }
   }
   const db = new DatabaseSync(file);
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;");
-  const done = db.prepare("PRAGMA user_version").get().user_version;
-  for (let i = done; i < migrations.length; i++) {
-    transaction(db, () => {
-      db.exec(migrations[i]);
-      db.exec(`PRAGMA user_version = ${i + 1}`);
-    });
+  // The wait first: another process opening the same file holds it for a moment.
+  db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+  const version = () => db.prepare("PRAGMA user_version").get().user_version;
+  if (version() < migrations.length) {
+    // Holds the write lock while it reads the version again, so two processes never run a step twice.
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      for (let i = version(); i < migrations.length; i++) {
+        db.exec(migrations[i]);
+        db.exec(`PRAGMA user_version = ${i + 1}`);
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
   }
   return db;
 }
 
-/** Runs `fn` in one transaction: all of it lands, or none. */
+const depth = new WeakMap(); // db → how many transaction() calls are open on it
+
+/** Runs `fn` in one transaction: all of it lands, or none. Inside another, it joins that one. */
 export function transaction(db, fn) {
+  if (depth.get(db)) {
+    depth.set(db, depth.get(db) + 1);
+    try {
+      return fn();
+    } finally {
+      depth.set(db, depth.get(db) - 1);
+    }
+  }
+  depth.set(db, 1);
+  try {
+    return outermost(db, fn);
+  } finally {
+    depth.delete(db);
+  }
+}
+
+function outermost(db, fn) {
   db.exec("BEGIN");
   try {
     const out = fn();

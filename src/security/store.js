@@ -1,29 +1,31 @@
 /**
  * Persistent security state — failures, lockouts, and a bounded audit log.
  *
- * Persisted under ${COOK_DATA_DIR}/security/state.json with atomic writes
- * (tmp + rename). Writes are debounced so a burst of auth failures doesn't
- * thrash the disk. State survives container restarts so attackers can't
- * just bounce us to reset their failure count.
+ * Kept in the security database (db/database.js): the approved consoles, the
+ * approval queue, failures, lockouts and per-user access a row each, the audit
+ * log and the refusals as append-only logs. Writes are debounced so a burst of
+ * auth failures doesn't thrash the disk, and a write touches only the rows that
+ * changed and the log lines added since the last one. State survives container
+ * restarts so attackers can't just bounce us to reset their failure count.
  */
-import fs from "fs";
 import path from "path";
-import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
+import { eventLog, readLegacyLenient, recordStore, takeOverOnce } from "../db/security-stores.js";
+import { securityDb, transaction } from "../db/database.js";
 
-const STATE_DIR = path.join(dataDir, "security");
-const STATE_PATH = path.join(STATE_DIR, "state.json");
+// Where an earlier version kept all of it, taken over once.
+const STATE_PATH = path.join(dataDir, "security", "state.json");
 const FLUSH_DEBOUNCE_MS = 500;
 const AUDIT_MAX = 1000;
 // Bound the pending-device map so a flood of pair/requests from random device
-// keys can't balloon state.json. Oldest-seen entries are evicted first.
+// keys can't balloon the state. Oldest-seen entries are evicted first.
 const PENDING_MAX = 200;
 // Denials are the operator's debugging trail — keep enough to see a pattern,
-// few enough that a scanner can't grow state.json without bound.
+// few enough that a scanner can't grow the state without bound.
 const DENIALS_MAX = 300;
 
 const state = {
@@ -42,43 +44,50 @@ const state = {
   denialCounts: {},    // reason → total ever, so the dashboard can show trends
 };
 
-let flushTimer = null;
-let inFlightWrite = null;
+// The map of `state` each kind of record mirrors.
+const KINDS = { failures: "failure", lockouts: "lockout", access: "access", devices: "device", pending: "pending-device", pairSecrets: "pair-secret" };
 
-function serialise() {
-  return {
-    failures: Object.fromEntries(state.failures),
-    lockouts: Object.fromEntries(state.lockouts),
-    access: Object.fromEntries(state.access),
-    devices: Object.fromEntries(state.devices),
-    pending: Object.fromEntries(state.pending),
-    pairSecrets: Object.fromEntries(state.pairSecrets),
-    audit: state.audit,
-    denials: state.denials,
-    denialCounts: state.denialCounts,
-    savedAt: Date.now(),
-  };
+let tables = null;
+const db = () => {
+  if (tables) return tables;
+  const rows = Object.fromEntries(Object.entries(KINDS).map(([field, kind]) => [field, recordStore(kind)]));
+  return (tables = {
+    rows,
+    denialCounts: recordStore("denial-count"),
+    audit: eventLog("audit", { max: AUDIT_MAX }),
+    denials: eventLog("denials", { max: DENIALS_MAX }),
+  });
+};
+
+// Log lines added (and whether the refusals were cleared) since the last write.
+let unsaved = { audit: 0, denials: 0, denialsCleared: false };
+
+let flushTimer = null;
+
+/** The last `n` entries of `list` (none for 0). Pure. */
+const tail = (list, n) => (n > 0 ? list.slice(-Math.min(n, list.length)) : []);
+
+function write() {
+  const t = db();
+  transaction(securityDb(), () => {
+    for (const field of Object.keys(KINDS)) t.rows[field].sync(state[field]);
+    t.denialCounts.sync(Object.entries(state.denialCounts));
+    if (unsaved.denialsCleared) t.denials.clear();
+    t.audit.append(tail(state.audit, unsaved.audit));
+    t.denials.append(tail(state.denials, unsaved.denials));
+  });
+  unsaved = { audit: 0, denials: 0, denialsCleared: false };
 }
 
+// One synchronous transaction, so two flushes never overlap.
 async function flush() {
-  if (inFlightWrite) {
-    await inFlightWrite;
-    return;
+  try {
+    write();
+  } catch (err) {
+    // The transaction rolled back: what each table holds is read again before the next write.
+    if (tables) for (const store of [...Object.values(tables.rows), tables.denialCounts]) store.forget();
+    debug.error("security: state flush failed: %s", err.message);
   }
-  inFlightWrite = (async () => {
-    try {
-      await mkdir(STATE_DIR, { recursive: true });
-      const tmp = `${STATE_PATH}.tmp.${process.pid}`;
-      // Device key hashes and the access log: readable by the server's account only.
-      await writeFile(tmp, JSON.stringify(serialise()), { mode: 0o600 });
-      await rename(tmp, STATE_PATH);
-    } catch (err) {
-      debug.error("security: state flush failed: %s", err.message);
-    } finally {
-      inFlightWrite = null;
-    }
-  })();
-  await inFlightWrite;
 }
 
 function scheduleFlush() {
@@ -96,31 +105,50 @@ const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHas
   ({ label, addedAt, addedBy, accessKeyHash });
 const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null } = {}) =>
   ({ firstSeenAt, lastSeenAt, ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}) });
+const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
+
+/** The state.json of an earlier version, once, into the tables. */
+function takeOverStateFile() {
+  takeOverOnce("state", () => {
+    const parsed = readLegacyLenient(STATE_PATH);
+    if (!parsed) return null;
+    const t = db();
+    const entries = (o, map = (v) => v, keep = () => true) => Object.entries(o ?? {}).filter(([, v]) => keep(v)).map(([k, v]) => [k, map(v)]);
+    t.rows.failures.sync(entries(parsed.failures));
+    t.rows.lockouts.sync(entries(parsed.lockouts));
+    t.rows.access.sync(entries(parsed.access));
+    t.rows.devices.sync(entries(parsed.devices, deviceRecord));
+    t.rows.pending.sync(entries(parsed.pending, pendingRecord));
+    t.rows.pairSecrets.sync(entries(parsed.pairSecrets, (v) => v, isSecretHash));
+    t.denialCounts.sync(Object.entries(parsed.denialCounts ?? {}));
+    t.audit.append(Array.isArray(parsed.audit) ? parsed.audit.slice(-AUDIT_MAX) : []);
+    t.denials.append(Array.isArray(parsed.denials) ? parsed.denials.slice(-DENIALS_MAX) : []);
+    return "state.json";
+  });
+}
 
 export async function load() {
   try {
-    const raw = await readFile(STATE_PATH, "utf-8");
-    const parsed = JSON.parse(raw);
-    state.failures = new Map(Object.entries(parsed.failures ?? {}));
-    state.lockouts = new Map(Object.entries(parsed.lockouts ?? {}));
-    state.access = new Map(Object.entries(parsed.access ?? {}));
-    state.devices = new Map(Object.entries(parsed.devices ?? {}).map(([k, v]) => [k, deviceRecord(v)]));
-    state.pending = new Map(Object.entries(parsed.pending ?? {}).map(([k, v]) => [k, pendingRecord(v)]));
-    state.pairSecrets = new Map(Object.entries(parsed.pairSecrets ?? {}).filter(([, v]) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v)));
-    const tracked = (v) => ["lastIp", "lastSeenAt", "lastVersion", "count"].some((k) => k in v);
-    if (Object.values(parsed.devices ?? {}).some(tracked) || Object.values(parsed.pending ?? {}).some((v) => "lastIp" in v)) scheduleFlush();
-    state.audit = Array.isArray(parsed.audit) ? parsed.audit : [];
-    state.denials = Array.isArray(parsed.denials) ? parsed.denials : [];
-    state.denialCounts = parsed.denialCounts ?? {};
+    takeOverStateFile();
+    const t = db();
+    const rows = (field, map = (v) => v) => new Map(t.rows[field].load().map(([k, v]) => [k, map(v)]));
+    state.failures = rows("failures");
+    state.lockouts = rows("lockouts");
+    state.access = rows("access");
+    state.devices = rows("devices", deviceRecord);
+    state.pending = rows("pending", pendingRecord);
+    state.pairSecrets = new Map([...rows("pairSecrets")].filter(([, v]) => isSecretHash(v)));
+    state.audit = t.audit.load();
+    state.denials = t.denials.load();
+    state.denialCounts = Object.fromEntries(t.denialCounts.load());
+    unsaved = { audit: 0, denials: 0, denialsCleared: false };
     debug.log(
       "security: state loaded (%d failure tracker(s), %d lockout(s))",
       state.failures.size,
       state.lockouts.size
     );
   } catch (err) {
-    if (err.code !== "ENOENT") {
-      debug.error("security: state load failed: %s", err.message);
-    }
+    debug.error("security: state load failed: %s", err.message);
   }
 
   // One-shot reset switch: COOK_RESET_LOCKOUTS=true clears all lockouts on
@@ -138,6 +166,7 @@ export async function load() {
 
 export function appendAudit(entry) {
   state.audit.push(entry);
+  unsaved.audit++;
   if (state.audit.length > AUDIT_MAX) {
     state.audit.splice(0, state.audit.length - AUDIT_MAX);
   }
@@ -150,6 +179,7 @@ export function appendAudit(entry) {
 
 export function recordDenial(entry) {
   state.denials.push(entry);
+  unsaved.denials++;
   if (state.denials.length > DENIALS_MAX) {
     state.denials.splice(0, state.denials.length - DENIALS_MAX);
   }
@@ -174,6 +204,7 @@ export function denialsSnapshot({ limit = 100, sinceMs = null } = {}) {
 
 export function clearDenials() {
   state.denials = [];
+  unsaved = { ...unsaved, denials: 0, denialsCleared: true };
   scheduleFlush();
 }
 
