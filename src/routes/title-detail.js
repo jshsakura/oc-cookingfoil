@@ -21,7 +21,9 @@ import { iconSource, bannerSource, iconLangs } from "../meta/localized-art.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl } from "../helpers/envs.js";
+import { langPriority, publicBaseUrl } from "../helpers/envs.js";
+import * as contentMeta from "../meta/content-meta.js";
+import { fileNamesOver } from "../meta/name-pick.js";
 import { titleVideos } from "../meta/title-videos.js";
 import { normalizeCategories, normalizeGenres, genreLabel, requestLang } from "../meta/categories.js";
 import * as scores from "../meta/ratings.js";
@@ -89,13 +91,18 @@ export default async function titleDetailRoute(req, res) {
   const queryLang = String(req.query?.lang ?? "").toLowerCase();
   const asked = LOCALIZED_LANGS.includes(queryLang) ? queryLang : null;
   const descriptions = titledbStore.descriptionsOf(base);
-  const names = titledbStore.namesOf(base);
+  // The language asked for (?lang=) first, then the server's order; the file's own titles fill the languages titledb lacks.
+  const priority = asked ? [asked, ...langPriority] : langPriority;
+  const fromDbNames = titledbStore.namesOf(base);
+  const fileTitles = [(extracted ?? extractedMeta.get(base))?.name, contentMeta.get(base, 0)?.englishName];
+  const names = { ...fileNamesOver(fromDbNames, fileTitles, priority), ...(fromDbNames ?? {}) };
+  const nameLang = priority.map((l) => String(l).split("-")[0]).find((l) => names[l]);
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
     id: base,
     // The admin's own name for the game wins, in the reader's language when they wrote one.
-    name: ownName(gameDescriptions.names(base), lang) ?? fromDb?.name ?? extracted?.name ?? null,
+    name: ownName(gameDescriptions.names(base), lang) ?? (nameLang ? names[nameLang] : null) ?? fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     // What the admin wrote wins over every source; descriptionCustom says they did.
     description: customDesc ?? ((asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null)),
@@ -104,7 +111,7 @@ export default async function titleDetailRoute(req, res) {
     // version); kept apart from the description, which titledb may refresh.
     notes,
     // The name and description in each language titledb has them in.
-    names: names ?? null,
+    names: Object.keys(names).length ? names : null,
     descriptionLang: asked && descriptions?.[asked] ? asked : null,
     intro: fromDb?.intro ?? null,
     // categories are English keys (as in sections); category and categoryLabels
