@@ -7,6 +7,7 @@ fs.rmSync(`${process.env.COOK_DATA_DIR}/game-descriptions.json`, { force: true }
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/server-settings.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/admin-password.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/inbox`, { recursive: true, force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/backups`, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/nsz-queue.json`, { force: true });
 // One base game so the featured picker has something to offer.
 fs.writeFileSync(`${process.env.COOK_GAMES_DIR}/Test Game [0100000000010000][v0].nsp`, '');
