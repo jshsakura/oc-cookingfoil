@@ -140,7 +140,7 @@ function nzCards(t){const cards=[['대기',num(t.waiting+t.busy),nzSize(t.waitin
   $('nz-cards').replaceChildren(...cards.map(([l,v,sub,cls])=>{const c=el('div',null,'card'+(cls?' '+cls:''));c.append(el('div',v,'v'),el('div',l+(sub?' · '+sub:''),'l'));return c;}));}
 function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const [label,kind]=d.status==='off'?['꺼짐','']:d.status==='running'?['실행 중','on']:['일시정지','warn'];st.textContent=label;st.className='pill'+(kind?' '+kind:'');
-  const notes={disk:'남은 공간이 하한보다 적어 멈췄습니다. 공간을 비운 뒤 시작합니다.',failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
+  const notes={disk:'변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 시작합니다.',failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
   let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 내려받고 있어 기다립니다. 30초 동안 내려받기가 없으면 다음 파일을 시작합니다.':d.active.length?'':'대기 중인 파일이 없습니다. 새 파일이 들어오면 이어서 합니다.'):'시작을 누르면 대기열을 차례로 변환합니다.';
   if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
