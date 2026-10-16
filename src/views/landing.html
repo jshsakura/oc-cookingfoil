@@ -983,6 +983,22 @@
       .ef-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
       .ef-actions .btn { flex: none; padding: 11px 20px; font-size: 14px; border-radius: 12px; }
       .ef-actions .btn:disabled { opacity: .55; cursor: progress; }
+      /* The edit page's last row: delete, apart from save, as a red button. */
+      .edit-danger { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; }
+      .edit-danger[hidden] { display: none; }
+      .btn.danger { background: var(--bad); color: #fff; }
+      .btn:disabled { opacity: .55; cursor: progress; }
+      /* A question inside the page (never the browser's confirm()), above the windows and the gallery. */
+      .confirm-backdrop { position: fixed; inset: 0; z-index: 160; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(8, 8, 10, 0.6); }
+      .confirm-backdrop.open { display: flex; animation: gallery-in 0.18s ease both; }
+      .confirm-box { width: min(420px, 100%); border-radius: 20px; padding: 22px; background: var(--modal-bg, var(--surface)); color: var(--ink); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); animation: confirm-pop 0.2s ease both; }
+      @keyframes confirm-pop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+      .confirm-box h3 { margin: 0 0 10px; font-size: 18px; }
+      .confirm-box .confirm-name { margin: 0 0 6px; font-weight: 700; overflow-wrap: anywhere; }
+      .confirm-box .confirm-text { margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: var(--secondary); }
+      .confirm-box .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .confirm-box .confirm-actions .btn { padding: 11px 18px; border-radius: 12px; font-size: 14px; }
+      @media (prefers-reduced-motion: reduce) { .confirm-backdrop.open, .confirm-box { animation: none !important; } }
       /* The facts card says its rule under the heading: the corner is where the window's buttons float. */
       .edit-facts .arted-head { display: grid; gap: 4px; justify-content: start; }
       .edit-facts .ef-msg { margin: 0; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); color: var(--secondary); font-size: 14px; }
@@ -1350,7 +1366,7 @@
               <p class="publisher" id="modal-publisher">—</p>
             </div>
           </div>
-          <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div></div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div><div class="edit-danger" hidden></div></div>
           <div class="xm-pills" id="modal-pills"></div>
           <div class="modal-patches" id="modal-patches" hidden></div>
           <div class="modal-integrity" id="modal-integrity" hidden></div>
@@ -1382,7 +1398,7 @@
               <p class="publisher" id="xm-sub"></p>
             </div>
           </div>
-          <div class="edit-pane" hidden><div class="edit-facts"></div><div id="xm-art" hidden></div></div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div id="xm-art" hidden></div><div class="edit-danger" hidden></div></div>
           <div class="xm-pills" id="xm-pills"></div>
           <div class="modal-meta" id="xm-meta"></div>
           <div class="desc" id="xm-desc"></div>
@@ -1433,6 +1449,18 @@
         <button class="g-btn g-prev" id="gallery-prev" type="button"></button>
         <button class="g-btn g-next" id="gallery-next" type="button"></button>
         <button class="g-btn g-close" id="gallery-close" type="button"></button>
+      </div>
+    </div>
+
+    <div class="confirm-backdrop" id="confirm" role="alertdialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <div class="confirm-box">
+        <h3 id="confirm-title"></h3>
+        <p class="confirm-name" id="confirm-name"></p>
+        <p class="confirm-text" id="confirm-text"></p>
+        <div class="confirm-actions">
+          <button class="btn ghost" id="confirm-no" type="button" data-icon="x"></button>
+          <button class="btn danger" id="confirm-yes" type="button" data-icon="trash"></button>
+        </div>
       </div>
     </div>
 
@@ -1651,6 +1679,16 @@
           "edit.saved": "저장했습니다.",
           "edit.restored": "원래 정보로 돌렸습니다.",
           "edit.failed": "저장하지 못했습니다.",
+          "edit.delete": "삭제",
+          "edit.deleted": "삭제했습니다.",
+          "edit.deleteSignIn": "관리자 화면에서 로그인한 뒤에 지울 수 있습니다.",
+          "edit.deleteNone": "이 항목은 여기서 지울 수 없습니다.",
+          "confirm.title": "정말 삭제할까요?",
+          "confirm.cancel": "취소",
+          "del.hbRepo": "저장소 연동을 끊고 받아 둔 파일을 지웁니다. 손으로 넣은 그림, 소개, 분류도 함께 지웁니다.",
+          "del.hbManual": "서버에 직접 넣은 앱 파일을 지웁니다. 손으로 넣은 그림, 소개, 분류도 함께 지웁니다.",
+          "del.patch": "이 패치 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.",
+          "del.game": (n, size) => `이 게임의 파일 ${n}개(${size})를 서버에서 지웁니다. 본편, 업데이트, DLC가 모두 들어 있고 되돌릴 수 없습니다.`,
           "edit.loading": "불러오는 중입니다.",
           "edit.name": "이름",
           "edit.nameKo": "한국어 이름",
@@ -1945,6 +1983,16 @@
           "edit.saved": "Saved.",
           "edit.restored": "Restored the original.",
           "edit.failed": "Could not save.",
+          "edit.delete": "Delete",
+          "edit.deleted": "Deleted.",
+          "edit.deleteSignIn": "Sign in on the admin page first, then delete.",
+          "edit.deleteNone": "This item cannot be deleted here.",
+          "confirm.title": "Delete this for real?",
+          "confirm.cancel": "Cancel",
+          "del.hbRepo": "Stops following the repository and deletes the downloaded files. Pictures, description and kind added by hand go too.",
+          "del.hbManual": "Deletes the app's files from the server. Pictures, description and kind added by hand go too.",
+          "del.patch": "Deletes this patch's files from the server. This cannot be undone.",
+          "del.game": (n, size) => `Deletes ${n} ${n === 1 ? "file" : "files"} of this game (${size}) from the server: base game, updates and DLC. This cannot be undone.`,
           "edit.loading": "Loading…",
           "edit.name": "Name",
           "edit.nameKo": "Korean name",
@@ -2239,6 +2287,16 @@
           "edit.saved": "保存しました。",
           "edit.restored": "元の情報に戻しました。",
           "edit.failed": "保存できませんでした。",
+          "edit.delete": "削除",
+          "edit.deleted": "削除しました。",
+          "edit.deleteSignIn": "管理画面でログインしてから削除してください。",
+          "edit.deleteNone": "ここでは削除できません。",
+          "confirm.title": "本当に削除しますか？",
+          "confirm.cancel": "キャンセル",
+          "del.hbRepo": "リポジトリの追跡をやめ、受け取ったファイルを削除します。手動で付けた画像、説明、分類も一緒に削除します。",
+          "del.hbManual": "サーバー上のアプリのファイルを削除します。手動で付けた画像、説明、分類も一緒に削除します。",
+          "del.patch": "このパッチのファイルをサーバーから削除します。元に戻せません。",
+          "del.game": (n, size) => `このゲームのファイル${n}個(${size})をサーバーから削除します。本編、アップデート、DLCがすべて含まれ、元に戻せません。`,
           "edit.loading": "読み込み中です。",
           "edit.name": "名前",
           "edit.nameKo": "韓国語の名前",
@@ -2533,6 +2591,16 @@
           "edit.saved": "已儲存。",
           "edit.restored": "已還原原始資訊。",
           "edit.failed": "無法儲存。",
+          "edit.delete": "刪除",
+          "edit.deleted": "已刪除。",
+          "edit.deleteSignIn": "請先在管理頁面登入，再刪除。",
+          "edit.deleteNone": "無法在此刪除。",
+          "confirm.title": "確定要刪除嗎？",
+          "confirm.cancel": "取消",
+          "del.hbRepo": "停止追蹤此儲存庫並刪除已下載的檔案。手動加入的圖片、說明與分類也會一併刪除。",
+          "del.hbManual": "刪除伺服器上此應用程式的檔案。手動加入的圖片、說明與分類也會一併刪除。",
+          "del.patch": "從伺服器刪除此修補檔的檔案，無法復原。",
+          "del.game": (n, size) => `從伺服器刪除此遊戲的 ${n} 個檔案(${size})，包含本體、更新與 DLC，無法復原。`,
           "edit.loading": "載入中…",
           "edit.name": "名稱",
           "edit.nameKo": "韓文名稱",
@@ -2801,6 +2869,43 @@
         const row = [...img.parentElement.querySelectorAll("img")].filter((x) => x.src);
         galleryOpen(row.map((x) => x.getAttribute("src") || x.src), row.indexOf(img));
       }, true); // capture: the detail window stops its clicks from bubbling up
+
+      // ─── a question inside the page ───────────────────────────────────────
+      // Resolves to true for the red button, false for cancel, the dark area or Esc. Cancel starts focused.
+      let confirmDone = null, confirmFrom = null;
+      function confirmAsk({ name = "", text = "" }) {
+        return new Promise((resolve) => {
+          confirmFrom = document.activeElement;
+          $("confirm-title").textContent = t("confirm.title");
+          $("confirm-name").textContent = name; $("confirm-name").hidden = !name;
+          $("confirm-text").textContent = text;
+          $("confirm-no").textContent = t("confirm.cancel");
+          $("confirm-yes").textContent = t("edit.delete");
+          $("confirm").classList.add("open"); $("confirm").setAttribute("aria-hidden", "false");
+          confirmDone = (answer) => {
+            confirmDone = null;
+            $("confirm").classList.remove("open"); $("confirm").setAttribute("aria-hidden", "true");
+            if (confirmFrom && confirmFrom.isConnected) confirmFrom.focus({ preventScroll: true });
+            resolve(answer);
+          };
+          $("confirm-no").focus({ preventScroll: true });
+        });
+      }
+      $("confirm-no").addEventListener("click", () => confirmDone?.(false));
+      $("confirm-yes").addEventListener("click", () => confirmDone?.(true));
+      $("confirm").addEventListener("click", (e) => { if (e.target === $("confirm")) confirmDone?.(false); });
+      // Capture phase, so the windows behind never see the keys; Tab stays between the two buttons.
+      document.addEventListener("keydown", (e) => {
+        if (!confirmDone) return;
+        if (e.key === "Escape") confirmDone(false);
+        else if (e.key === "Tab") {
+          const first = $("confirm-no"), last = $("confirm-yes");
+          if (e.shiftKey && document.activeElement === first) last.focus();
+          else if (!e.shiftKey && document.activeElement === last) first.focus();
+          else return;
+        } else return;
+        e.preventDefault(); e.stopImmediatePropagation();
+      }, true);
 
       // ─── the client download ─────────────────────────────────────────────
       // Each press makes a new zip: the app and this server with a one-day,
@@ -3954,13 +4059,35 @@
         if (!r.ok) throw new Error(d.error || t("edit.failed"));
         return d;
       }
+      // The admin page's own endpoints, for what only an admin session may do (deleting). Not signed in there: a hint, not "2fa required".
+      async function adminPost(path, body) {
+        const r = await fetch("/admin/api" + path, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 401 || r.status === 403) throw new Error(t("edit.deleteSignIn"));
+        if (!r.ok) throw new Error(d.message || d.error || t("edit.failed"));
+        return d;
+      }
       // One window's edit page. offer() hands it what the open item edits (or null): { key, build, changed }.
       // build(markChanged) makes the facts card; changed() runs when the page is left after a save.
       function editPage(rootId) {
         const root = $(rootId), win = root.querySelector(".modal"), gear = root.querySelector(".modal-gear");
         const pane = root.querySelector(".edit-pane"), facts = pane.querySelector(".edit-facts");
+        const danger = pane.querySelector(".edit-danger");
         let spec = null, dirty = false, seq = 0;
         const editing = () => win.classList.contains("editing");
+        // spec.remove = { name, text(), run(), done() }: a red delete button at the page's end, asking first.
+        function drawDanger(r) {
+          danger.replaceChildren(); danger.hidden = !r;
+          if (!r) return;
+          const b = Object.assign(document.createElement("button"), { type: "button", className: "btn danger", textContent: t("edit.delete") });
+          b.dataset.icon = "trash";
+          b.addEventListener("click", async () => {
+            if (!await confirmAsk({ name: r.name, text: r.text() })) return;
+            b.disabled = true; b.setAttribute("aria-busy", "true");
+            try { await r.run(); toast(t("edit.deleted")); await r.done(); } catch (err) { toast(err.message || t("edit.failed")); b.disabled = false; b.removeAttribute("aria-busy"); }
+          });
+          danger.append(b);
+        }
         function face(on) {
           gear.innerHTML = on ? VIEW_SVG : GEAR_SVG;
           gear.setAttribute("aria-pressed", String(on));
@@ -4011,6 +4138,7 @@
             if (editing()) set(false);
             spec = next; dirty = false;
             gear.hidden = !next || !uploadsEnabled;
+            drawDanger(next?.remove ?? null);
           },
           leave() { if (editing()) set(false); },
         };
@@ -4210,6 +4338,7 @@
           paintArt(art, icon);
           edit.offer(art ? {
             key: art.kind + ":" + art.id,
+            remove: art.remove ?? null,
             build: (mark, refill) => (art.kind === "patch" ? patchFacts(art.id, mark) : homebrewFacts(art.id, mark, refill)),
             changed(info) {
               window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
@@ -4293,6 +4422,30 @@
       }
       const xorder = (view) => $(view + "-sort").value || "updated";
 
+      // What the delete button on an edit page does, per kind. text() is read when the question opens, so it follows the language.
+      // After a delete the window closes and the list behind it is read again.
+      function patchRemove(it) {
+        return {
+          name: it.name,
+          text: () => t("del.patch"),
+          run: () => adminPost("/content/patch/remove", { id: it.id }),
+          async done() { xmodal.close(); window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: { kind: "patch", id: it.id } })); extras.relabel(); },
+        };
+      }
+      function homebrewRemove(a) {
+        const manual = a.source === "manual";
+        const repo = String(a.repo_url || "").replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\/$/, "");
+        return {
+          name: a.name || a.app,
+          text: () => t(manual ? "del.hbManual" : "del.hbRepo"),
+          run: () => {
+            if (manual) return adminPost("/homebrew/manual/remove", { id: a.id });
+            if (!repo) throw new Error(t("edit.deleteNone"));
+            return adminPost("/homebrew/remove", { repo });
+          },
+          async done() { xmodal.close(); window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: { kind: "homebrew", id: a.id } })); homebrew.relabel(); },
+        };
+      }
       const extras = (() => {
         const data = {};   // kind → items
         const loadedLang = {};
@@ -4346,7 +4499,7 @@
             icon,
             banner: kind === "patches" ? it.banner_url || null : null,
             shots: kind === "patches" && Array.isArray(it.screenshots) ? it.screenshots : [],
-            art: kind === "patches" ? { kind: "patch", id: it.id } : null,
+            art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it) } : null,
             title: it.name,
             sub: gameName(it),
             pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
@@ -4642,7 +4795,7 @@
             download: a.bundle_url || a.archive?.url || a.download_url,
             banner: a.banner_url || null,
             shots: Array.isArray(a.screenshots) ? a.screenshots : [],
-            art: { kind: "homebrew", id: a.id },
+            art: { kind: "homebrew", id: a.id, remove: homebrewRemove(a) },
           };
         }
         function card(a) {
@@ -5253,7 +5406,7 @@
         renderIntegrity(x.group, detail.integrity);
 
         // Artwork edit controls — only when uploads are enabled.
-        renderArtEditor(baseId, validBase, art);
+        renderArtEditor(baseId, validBase, art, x.group, x.name);
 
         // The other files in the title's folder, which only the web lists.
         if (validBase) loadExtras(baseId, $("modal-extras"));
@@ -5363,14 +5516,28 @@
         card.append(grid);
         return card;
       }
+      // A game is every file of its title: the base game, the updates and the DLC. The file's own path is its address, undone from the wire format.
+      const relOfUrl = (url) => decodeURIComponent(String(url || "").replace(/^\.\.\//, "").split("#")[0]);
+      function gameRemove(group, gameName) {
+        const files = group.map((g) => ({ rel: relOfUrl(g.item.url), size: Number(g.item.size) || 0 })).filter((f) => f.rel);
+        if (!files.length) return null;
+        const total = files.reduce((n, f) => n + f.size, 0);
+        return {
+          name: gameName,
+          text: () => t("del.game", files.length, fmtBytes(total)),
+          async run() { for (const f of files) await adminPost("/library/files/remove", { rel: f.rel }); },
+          async done() { closeModal(); await loadShop(); },
+        };
+      }
       const gameEdit = editPage("modal");
-      function renderArtEditor(baseId, validBase, art) {
+      function renderArtEditor(baseId, validBase, art, group = [], gameName = "") {
         const box = $("modal-art");
         box.replaceChildren(); box.hidden = true;
         gameEdit.offer(uploadsEnabled && validBase ? {
           key: baseId,
           build: (mark, refill) => gameFacts(baseId, mark, refill),
           changed: () => refreshAfterDesc(baseId),
+          remove: gameRemove(group, gameName),
         } : null);
         if (!uploadsEnabled || !validBase) return;
         box.hidden = false;

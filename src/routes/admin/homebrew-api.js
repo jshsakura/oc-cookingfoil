@@ -7,7 +7,7 @@
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
  *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the check interval (all when no repo)
  *   POST /admin/api/homebrew/adopt                    register the folders put in the homebrew folder by hand  { registered, skipped }
- *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build
+ *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build and what was added by hand (pictures, description, kind)
  *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own
@@ -23,6 +23,7 @@ import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
 import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
 import { adoptFolders } from "../../meta/homebrew.js";
 import { homebrewDir } from "../../helpers/envs.js";
+import { forgetExtras } from "../../meta/homebrew-forget.js";
 import debug from "../../debug.js";
 
 const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
@@ -133,9 +134,13 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/remove", write(async (req, res) => {
     const s = sources.list().find((x) => x.repo.toLowerCase() === String(req.body?.repo ?? "").toLowerCase());
-    if (!s || !sources.remove(s.repo)) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+    if (!s) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+    const id = statusOf(s.repo)?.id;
+    if (!sources.remove(s.repo)) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
     await sourcesChanged();
     await githubTracker().forget(s.repo);
+    // The pictures, description and kind put on it by hand go with it.
+    if (id) await forgetExtras(id);
     debug.log("admin: stopped following homebrew %s", s.repo);
     res.json({ ok: true });
   }));
