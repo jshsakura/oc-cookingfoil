@@ -267,6 +267,8 @@ test("new library files at least the minimum size are queued by themselves; smal
   const lib = [{ rel: "Big.nsp", size: 200 * MIB, name: "Big Game", titleId: "0100000000020000", baseTitleId: "0100000000020000" }, { rel: "Small.nsp", size: 5 * MIB }, { rel: "Big.nsz", size: 300 * MIB }];
   const q = make({ catalog: () => lib });
   await q.init();
+  // Paused by the admin, so the new file only waits (an idle queue would start it).
+  await q.pause();
   q.onLibraryUpdate();
   await until(() => q.view().total === 1);
   const i = q.view().items[0];
@@ -342,4 +344,54 @@ test("turned off, nothing starts", async () => {
   await run(q);
   assert.equal(q.view().status, "off");
   assert.ok(exists("A.nsp") && !exists("A.nsz"));
+});
+
+test("a run ends once the queue is empty and nothing keeps going", async () => {
+  put("A.nsp");
+  const q = make();
+  await run(q);
+  assert.equal(item(q, "A.nsp").state, "done");
+  const v = q.view();
+  assert.deepEqual([v.running, v.status, v.pausedReason], [false, "idle", null]);
+  await until(() => fs.existsSync(stateFile) && JSON.parse(fs.readFileSync(stateFile, "utf8")).running === false);
+});
+
+test("a new library file starts an idle queue; an admin pause keeps it stopped", async () => {
+  const lib = [];
+  const q = make({ catalog: () => lib });
+  await q.init();
+  put("A.nsp");
+  lib.push({ rel: "A.nsp", size: 2 * MIB });
+  q.onLibraryUpdate();
+  await until(() => item(q, "A.nsp")?.state === "done");
+  await q.idle();
+  assert.equal(q.view().status, "idle");
+  await q.pause();
+  put("B.nsp");
+  lib.push({ rel: "B.nsp", size: 2 * MIB });
+  q.onLibraryUpdate();
+  await until(() => item(q, "B.nsp"));
+  await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual([item(q, "B.nsp").state, q.view().status], ["waiting", "paused"]);
+});
+
+test("a failed file is never tried again by itself, only by 재시도", async () => {
+  put("A.nsp");
+  const lib = [{ rel: "A.nsp", size: 2 * MIB }];
+  const q = make({ catalog: () => lib });
+  process.env.NSZ_STUB_MODE = "nogain";
+  await run(q);
+  assert.equal(item(q, "A.nsp").state, "failed");
+  delete process.env.NSZ_STUB_MODE;
+  // Library rebuilds and a library scan leave it failed.
+  q.onLibraryUpdate();
+  await new Promise((r) => setTimeout(r, 50));
+  await q.scan();
+  await q.idle();
+  assert.equal(item(q, "A.nsp").state, "failed");
+  assert.match(item(q, "A.nsp").reason, /줄어들지 않습니다/);
+  assert.equal(q.retry(item(q, "A.nsp").id), 1);
+  await q.pump();
+  await q.idle();
+  assert.equal(item(q, "A.nsp").state, "done");
 });
