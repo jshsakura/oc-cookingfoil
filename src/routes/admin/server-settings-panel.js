@@ -125,7 +125,7 @@ function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const 
   api('/admin/api/server/status').then((st)=>{note.textContent=st.draining?'다시 시작하고 있습니다. 남은 요청 '+st.inflight+'개가 끝나면 꺼졌다가 다시 켜집니다.'
     :'새 요청은 잠시 뒤 다시 오라고 돌려보내고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 다운로드 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
   const c=el('div',null,'ss-ctl');c.append(btn('다시 시작',async()=>{
-    if(!confirm('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
+    if(!await ask('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
     try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
 function ssSyncRow(st){const r=el('div',null,'ss-row');const t=el('div');

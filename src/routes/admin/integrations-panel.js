@@ -129,7 +129,7 @@ document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const m
     try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast('저장했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent='확인하고 있습니다';
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
-  c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!confirm('저장한 키를 지울까요?'))return;
+  c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask('저장한 키를 지울까요?'))return;
     try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('지웠습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
 });
 `;

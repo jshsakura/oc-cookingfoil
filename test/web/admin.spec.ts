@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import fs from 'node:fs';
+import { acceptAsks } from './ask';
 
 const SECRET = 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU';
 const NAME = 'e2e-user';
@@ -19,7 +20,7 @@ async function signIn(page: Page) {
 }
 
 test('an account created in the admin page signs in at /login and works for basic auth; removing it reopens the server', async ({ page, request }) => {
-  page.on('dialog', (dialog) => dialog.accept());
+  await acceptAsks(page);
   await signIn(page);
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-overview.png' });
@@ -148,7 +149,7 @@ test('the admin writes a game description that the title detail shows instead of
   const detail = await (await request.get('/api/title/0100000000010000?lang=ko')).json();
   expect(detail.description).toBe('필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.');
   expect(detail.notes).toBe('게임 데이터 패치를 함께 설치해야 실행됩니다.');
-  page.on('dialog', (d) => d.accept());
+  await acceptAsks(page);
   await page.getByRole('button', { name: '소개를 titledb 것으로 되돌리기' }).click();
   await expect(page.locator('#gd-original')).not.toHaveText('직접 쓴 소개를 보여 주고 있습니다.');
   await expect(page.locator('#gd-notes-ko')).toHaveValue('게임 데이터 패치를 함께 설치해야 실행됩니다.');
@@ -166,14 +167,14 @@ test('a patch is switched between required and optional from the patch list and 
     ((await (await request.get('/api/patches')).json()).patches as { name: string; required: boolean }[]).find((p) => p.name === name)?.required;
   const group = page.locator('#lib-patches .pt-game', { hasText: '0100000000010000' });
   await expect(group.locator('.pt-row')).toHaveCount(2);
-  const data = group.getByRole('button', { name: '게임 데이터 필수' });
-  await expect(data).toHaveAttribute('aria-pressed', 'true');
+  const data = group.getByRole('switch', { name: '게임 데이터 필수' });
+  await expect(data).toHaveAttribute('aria-checked', 'true');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#lib-patches').screenshot({ path: 'out/web/admin-patches.png' });
 
   await data.click();
-  await expect(data).toHaveAttribute('aria-pressed', 'false');
-  await expect(data).toHaveText('선택');
+  await expect(data).toHaveAttribute('aria-checked', 'false');
+  await expect(data).toHaveText('비필수');
   expect(await required('게임 데이터')).toBe(false);
 
   await page.locator('#pt-q').fill('한글');
@@ -186,11 +187,11 @@ test('a patch is switched between required and optional from the patch list and 
   // The game editor lists the same game's patches with the same switch.
   await page.locator('#gd-game').fill('Test Game [0100000000010000]');
   await page.locator('#gd-game').dispatchEvent('change');
-  const inGame = page.locator('#gd-patches').getByRole('button', { name: '게임 데이터 필수' });
-  await expect(inGame).toHaveAttribute('aria-pressed', 'false');
+  const inGame = page.locator('#gd-patches').getByRole('switch', { name: '게임 데이터 필수' });
+  await expect(inGame).toHaveAttribute('aria-checked', 'false');
   await inGame.click();
-  await expect(inGame).toHaveAttribute('aria-pressed', 'true');
-  await expect(data).toHaveAttribute('aria-pressed', 'true');
+  await expect(inGame).toHaveAttribute('aria-checked', 'true');
+  await expect(data).toHaveAttribute('aria-checked', 'true');
   expect(await required('게임 데이터')).toBe(true);
   await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
 });
@@ -215,7 +216,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await expect.poll(async () => (await patches('ko')).find((p) => p.name === '한글패치')?.description).toBe('글자를 한국어로 바꿉니다.');
   expect((await patches('en')).find((p) => p.description === 'Turns the text Korean.')?.name).toBe('Korean patch');
 
-  page.on('dialog', (d) => d.accept());
+  await acceptAsks(page);
   await page.locator('#lib-patches .pt-row', { hasText: 'Korean patch' }).getByRole('button', { name: 'Korean patch 편집' }).click();
   await page.locator('#ct-move').fill('0100000000020000');
   await page.locator('#ct-move-go').click();
@@ -299,7 +300,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
     await page.locator('#lf-q').fill('Throwaway');
     return page.locator('#lf-list tr', { hasText: 'Throwaway' }).count();
   }, { timeout: 15000 }).toBe(1);
-  page.on('dialog', (d) => d.accept());
+  await acceptAsks(page);
   await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 지우기' }).click();
   await expect(page.locator('#toast')).toContainText('지웠습니다');
   expect(fs.existsSync(file)).toBe(false);
@@ -325,7 +326,7 @@ test('a game is renamed from the game editor and every list shows the new name',
 });
 
 test('the admin password is set, changed and removed on the settings tab, and opens the admin page', async ({ page, browser }) => {
-  page.on('dialog', (d) => d.accept());
+  await acceptAsks(page);
   await signIn(page);
   await page.goto('/admin#settings');
   await expect(page.locator('#ap-status')).toContainText('아직 관리자 비밀번호가 없습니다');
@@ -507,8 +508,19 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   expect(overflow).toBe(0);
   await page.screenshot({ path: 'out/web/admin-alerts-phone.png' });
 
-  page.once('dialog', (d) => d.accept());
+  // The question is asked in the page's own dialog; cancelling keeps what is saved.
+  await page.removeLocatorHandler(page.locator('#ask-dialog'));
+  const chat = await page.locator('#al-form [name="chatId"]').inputValue();
   await page.getByRole('button', { name: '지우기' }).click();
+  const ask = page.getByRole('dialog', { name: /저장한 알림 설정을 지울까요/ });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByRole('button', { name: '취소' })).toBeFocused();
+  await page.screenshot({ path: 'out/web/admin-ask.png' });
+  await ask.getByRole('button', { name: '취소' }).click();
+  await expect(ask).toBeHidden();
+  await expect(page.locator('#al-form [name="chatId"]')).toHaveValue(chat);
+  await page.getByRole('button', { name: '지우기' }).click();
+  await ask.getByRole('button', { name: '확인' }).click();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue('');
 });
 

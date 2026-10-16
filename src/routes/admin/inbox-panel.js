@@ -47,7 +47,7 @@ function ibCard(e){const card=el('article',null,'ib-entry'+(e.done?' done':''));
   const acts=el('div',null,'row-actions');
   acts.append(btn(e.done?'정리할 것으로 되돌리기':'정리함으로',async()=>{try{await api('/admin/api/inbox/'+e.id+'/done',{method:'POST',body:{done:!e.done}});
     toast(e.done?'정리할 것으로 되돌렸습니다.':'정리함으로 옮겼습니다.');loadInbox();}catch(err){toast(err.message);}}));
-  acts.append(btn('삭제',async()=>{if(!confirm(e.user+' 님이 남긴 것을 파일까지 지울까요? 되돌릴 수 없습니다.'))return;
+  acts.append(btn('삭제',async()=>{if(!await ask(e.user+' 님이 남긴 것을 파일까지 지울까요? 되돌릴 수 없습니다.'))return;
     try{await api('/admin/api/inbox/'+e.id,{method:'DELETE'});toast('지웠습니다.');loadInbox();}catch(err){toast(err.message);}},'danger'));
   card.append(acts);return card;}
 async function loadInbox(){let d;try{d=await api('/admin/api/inbox?show='+ibShow);}catch(err){toast(err.message);return;}

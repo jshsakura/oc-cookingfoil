@@ -19,7 +19,7 @@ async function lfSearch(){const q=$('lf-q').value.trim();const n=++lfFind;
   table('lf-list',['파일','종류','크기',''],d.files.map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.name));n.append(el('div',f.rel,'muted'));
     const del=btn('지우기',()=>lfRemove(f),'danger');del.setAttribute('aria-label',f.rel+' 지우기');const a=td();a.append(del);
     tr.append(n,td(LF_KIND[f.kind]||'—'),td(mb(f.size)),a);return tr;}),'맞는 파일이 없습니다.');}
-async function lfRemove(f){if(!confirm(f.rel+' 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
+async function lfRemove(f){if(!await ask(f.rel+' 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
   try{await api('/admin/api/library/files/remove',{method:'POST',body:{rel:f.rel}});toast('지웠습니다.');setTimeout(lfSearch,1500);}catch(err){toast(err.message);}}
 $('lf-q').addEventListener('input',()=>{clearTimeout(lfTimer);lfTimer=setTimeout(lfSearch,250);});
 `;

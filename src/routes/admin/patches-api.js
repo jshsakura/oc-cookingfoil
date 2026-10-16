@@ -25,6 +25,7 @@ import * as patchInfo from "../../meta/patch-info.js";
 import { libraryGames } from "./upload-api.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbVersions from "../../meta/titledb-versions.js";
+import { gameOf } from "../../meta/game-info.js";
 import debug from "../../debug.js";
 
 /** Information with `required` set or cleared; other fields kept as they are. Pure. */
@@ -81,6 +82,12 @@ export function libraryUpdates(files) {
 
 const libraryFiles = async () => (await shopCache.get().catch(() => null))?.files ?? [];
 
+/** A game the library does not hold is still named from titledb or the patch's own files (Korean first). */
+function nameOf(titleId) {
+  const game = gameOf(titleId);
+  return game ? game.names?.ko ?? game.name : null;
+}
+
 export function mountPatchesApi(router, requireSession) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
@@ -99,7 +106,7 @@ export function mountPatchesApi(router, requireSession) {
     const owned = libraryUpdates(files);
     res.json({
       patches: patches.filter((p) => p.title_id).map(({ id, title_id, name, ko, description, version, author, size, files, required, game_version, update_version }) =>
-        ({ id, title_id, game: names.get(title_id) ?? null, name, ko: ko ?? null, description, version, author, size, files, required,
+        ({ id, title_id, game: names.get(title_id) ?? nameOf(title_id), name, ko: ko ?? null, description, version, author, size, files, required,
           game_version: game_version ?? null, update_version: update_version ?? null,
           update_in_library: update_version ? Boolean(owned.get(title_id)?.has(update_version)) : null })),
     });

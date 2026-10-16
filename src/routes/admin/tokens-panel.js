@@ -19,7 +19,7 @@ async function loadTokens(){
   try{const d=await api('/admin/api/tokens');
     table('tok-list',['이름','만든 계정','만든 때','마지막 사용',''],d.tokens.map((t)=>{const tr=el('tr');
       const b=el('button','지우기','danger');b.type='button';
-      b.addEventListener('click',async()=>{if(!confirm('이 토큰을 지울까요? 이 토큰을 쓰던 곳은 바로 막힙니다.'))return;
+      b.addEventListener('click',async()=>{if(!await ask('이 토큰을 지울까요? 이 토큰을 쓰던 곳은 바로 막힙니다.'))return;
         try{await api('/admin/api/tokens/'+t.id+'/revoke',{method:'POST',body:{}});toast('지웠습니다.');loadTokens();}catch(err){toast(err.message);}});
       const c=el('td');c.append(b);
       tr.append(td(t.label||'—'),td(String(t.owner).replace(/^google:.*/,'구글 계정')),td(fmt(t.createdAt)),td(fmt(t.lastUsedAt)),c);return tr;}),'아직 토큰이 없습니다.');
