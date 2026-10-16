@@ -139,6 +139,11 @@ export function isUp() {
   return Boolean(env.publicDirectBaseUrl) && health.up && checkedBase === env.publicDirectBaseUrl;
 }
 
+/** Whether the checks have found the address not answering (not merely unchecked yet). */
+export function knownDown() {
+  return Boolean(env.publicDirectBaseUrl) && checkedBase === env.publicDirectBaseUrl && health.known && !health.up;
+}
+
 /** The check running now, if any (tests wait for it). */
 export const pending = () => running ?? Promise.resolve();
 
