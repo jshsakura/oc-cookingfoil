@@ -22,6 +22,7 @@ import path from "path";
 import { dataDir, adminTotpSecret as envSecret } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { deleteSecret, readSecretJson, writeSecretJson } from "../db/security-stores.js";
+import { SecretKeyError } from "./secret-box.js";
 
 const SECRET_PATH = path.join(dataDir, "security", "admin-totp.json");
 // A candidate under enrollment, on disk so a restart mid-way doesn't void the scanned code.
@@ -51,7 +52,7 @@ function readPersisted() {
     if (typeof parsed?.secret === "string" && parsed.secret.length >= 16) return parsed;
   } catch (err) {
     // A secret that will not open (another key) must stop the server, not be replaced by a new one.
-    if (err.name === "SecretKeyError") throw err;
+    if (err instanceof SecretKeyError) throw err;
     debug.error("admin secret: read failed: %s", err.message);
   }
   return null;
@@ -159,8 +160,10 @@ function loadPending() {
   try {
     const saved = readSecretJson("admin-totp-pending", { legacyFile: PENDING_PATH });
     if (typeof saved?.secret === "string" && Number.isFinite(saved?.at)) pending = saved;
-  } catch {
-    /* none started */
+  } catch (err) {
+    // Sealed with another key: stop, so a new enrollment is never started over it.
+    if (err instanceof SecretKeyError) throw err;
+    debug.error("admin secret: pending enrollment unreadable: %s", err.message);
   }
   return pending;
 }

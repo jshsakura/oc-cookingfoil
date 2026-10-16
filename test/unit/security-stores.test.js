@@ -43,7 +43,7 @@ test("a file from before is taken over once and left in place", () => {
   assert.deepEqual(recordStore("user", { db, legacy }).load(), [], "not taken over again once the records changed");
 });
 
-test("a file from before that does not read stops the start, unless it only holds what lapses", () => {
+test("a file from before that does not read stops the start, unless starting without it is safe", () => {
   const dir = tmp();
   const file = path.join(dir, "broken.json");
   fs.writeFileSync(file, "{nope");
@@ -88,16 +88,17 @@ test("secrets are kept sealed only, and the table refuses anything else", () => 
   assert.throws(() => db.prepare("INSERT INTO secrets (name, sealed) VALUES ('p', 'plain')").run(), /CHECK/);
 });
 
-test("a secret file from before, sealed or not, is taken over; one sealed with another key stops", () => {
+test("a sealed secret file from before is taken over as it is; one in the clear or sealed with another key stops", () => {
   const dir = tmp();
-  const plainFile = path.join(dir, "plain.key");
-  fs.writeFileSync(plainFile, "abc");
   const sealedFile = path.join(dir, "sealed.json");
   fs.writeFileSync(sealedFile, seal(JSON.stringify({ s: 1 })) + "\n");
+  const plainFile = path.join(dir, "plain.key");
+  fs.writeFileSync(plainFile, "abc");
   const db = fresh();
-  assert.equal(readSecret("p", { db, legacyFile: plainFile }).toString(), "abc");
-  assert.match(fs.readFileSync(plainFile, "utf8"), /^cfsec:v1:/, "the plain file is sealed in place");
   assert.deepEqual(readSecretJson("s", { db, legacyFile: sealedFile }), { s: 1 });
+  assert.throws(() => readSecret("p", { db, legacyFile: plainFile }), { name: "SecretKeyError", message: /plain\.key/ });
+  assert.equal(fs.readFileSync(plainFile, "utf8"), "abc", "never rewritten");
+  assert.equal(done("x", { db }), false);
 
   const other = path.join(dir, "other.json");
   fs.writeFileSync(other, seal("x") + "\n");
@@ -105,12 +106,43 @@ test("a secret file from before, sealed or not, is taken over; one sealed with a
   try {
     process.env.COOK_SECRET_KEY = Buffer.alloc(32, 7).toString("base64");
     resetKeyForTests();
-    assert.throws(() => readSecret("o", { db, legacyFile: other }), /COOK_SECRET_KEY/);
+    assert.throws(() => readSecret("o", { db, legacyFile: other }), { name: "SecretKeyError" });
   } finally {
     process.env.COOK_SECRET_KEY = saved;
     resetKeyForTests();
   }
-  assert.equal(readSecret("o", { db, legacyFile: other }).toString(), "x", "tried again with the right key");
+  assert.equal(readSecret("o", { db, legacyFile: other }).toString(), "x", "not noted as taken over, so tried again with the right key");
+});
+
+test("the secrets table takes the sealed prefix exactly, case included", () => {
+  const db = fresh();
+  for (const bad of ["plain", "CFSEC:V1:abc", "cfsec:v2:abc"]) {
+    assert.throws(() => db.prepare("INSERT INTO secrets (name, sealed) VALUES ('p', ?)").run(bad), /CHECK/, bad);
+  }
+});
+
+test("a file that may wait (settings, one-time links) is skipped for now when it does not read, and taken over once it does", () => {
+  const dir = tmp();
+  const file = path.join(dir, "s.json");
+  fs.writeFileSync(file, "{");
+  const db = fresh();
+  assert.deepEqual(settingsStore({ db, legacyFile: file }).load(), {});
+  assert.deepEqual(recordStore("approval", { db, legacy: { file, lenient: true, entries: (j) => Object.entries(j.requests) } }).load(), []);
+  fs.writeFileSync(file, JSON.stringify({ settings: { a: 1 }, requests: { h: { at: 1 } } }));
+  assert.deepEqual(settingsStore({ db, legacyFile: file }).load(), { a: 1 });
+  assert.deepEqual(recordStore("approval", { db, legacy: { file, lenient: true, entries: (j) => Object.entries(j.requests) } }).load(), [["h", { at: 1 }]]);
+});
+
+test("a record that does not parse stops the load before anything is trusted", () => {
+  const db = fresh();
+  const store = recordStore("device", { db });
+  store.sync([["a", { n: 1 }], ["b", { n: 2 }]]);
+  db.prepare("UPDATE records SET data = '{bad' WHERE id = 'b'").run();
+  const again = recordStore("device", { db });
+  assert.throws(() => again.load());
+  // Nothing was taken as written, so a later sync still sees both rows.
+  again.sync([["a", { n: 1 }]]);
+  assert.equal(rows(db).length, 1);
 });
 
 test("one-time steps are noted", () => {

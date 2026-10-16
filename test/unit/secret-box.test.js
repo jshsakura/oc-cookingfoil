@@ -6,8 +6,7 @@ import os from "node:os";
 import path from "node:path";
 
 // Secrets at rest: sealed with the key from COOK_SECRET_KEY, never readable
-// with another key, plain files from before sealed on first read, and no
-// server without the key.
+// with another key, and no server without the key.
 const box = await import("../../src/security/secret-box.js");
 const KEY_A = Buffer.alloc(32, 1).toString("base64");
 const KEY_B = Buffer.alloc(32, 2).toString("hex");
@@ -23,6 +22,7 @@ test("keys are 32 bytes in base64 or hex; anything else is refused", () => {
   assert.equal(box.parseKey(KEY_B).length, 32);
   for (const bad of [undefined, "", "short", Buffer.alloc(16).toString("base64"), "z".repeat(64)]) assert.equal(box.parseKey(bad), null, String(bad));
   withKey("", () => assert.throws(() => box.assertKey(), box.SecretKeyError));
+  withKey("", () => assert.throws(() => box.assertKey(), { name: "SecretKeyError" }));
 });
 
 test("a sealed value opens with its key only, and differs every time", () => {
@@ -36,22 +36,6 @@ test("a sealed value opens with its key only, and differs every time", () => {
   withKey(KEY_B, () => assert.throws(() => box.open(sealed), box.SecretKeyError));
   const tampered = sealed.slice(0, -4) + (sealed.endsWith("AAAA") ? "BBBB" : "AAAA");
   withKey(KEY_A, () => assert.throws(() => box.open(tampered)));
-});
-
-test("a plain file from before is read once and sealed in place", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-seal-"));
-  const file = path.join(dir, "integrations.json");
-  fs.writeFileSync(file, JSON.stringify({ version: 1, services: { igdb: { clientSecret: "plain-before" } } }));
-  withKey(KEY_A, () => {
-    assert.equal(box.readSealedJson(file).services.igdb.clientSecret, "plain-before");
-    const text = fs.readFileSync(file, "utf8");
-    assert.match(text, /^cfsec:v1:/);
-    assert.ok(!text.includes("plain-before"));
-    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-    assert.equal(box.readSealedJson(file).services.igdb.clientSecret, "plain-before");
-    assert.equal(box.readSealedJson(path.join(dir, "missing.json")), null);
-  });
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("the server does not start without the key", () => {

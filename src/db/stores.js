@@ -25,13 +25,14 @@ function readLegacy(file) {
 
 /** Calls `take(json)` with `file`'s content the first time this index sees `source`. */
 function importOnce(db, source, file, take) {
-  if (!file || db.prepare("SELECT 1 FROM imports WHERE source = ?").get(source)) return;
-  const json = readLegacy(file);
+  if (!file) return;
   transaction(db, () => {
+    if (db.prepare("SELECT 1 FROM imports WHERE source = ?").get(source)) return;
+    const json = readLegacy(file);
     if (json) take(json);
     db.prepare("INSERT INTO imports (source, at) VALUES (?, ?)").run(source, Date.now());
+    if (json) debug.log("index: took over %s", path.basename(file));
   });
-  if (json) debug.log("index: took over %s", path.basename(file));
 }
 
 /**

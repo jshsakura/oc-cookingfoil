@@ -147,3 +147,9 @@ test("the very first account is an admin whatever was asked", () => {
   const { out } = run(`return users.add("solo", "long-enough-1", "user").role;`);
   assert.equal(out, "admin");
 });
+
+test("accounts made on the admin page and then all removed are not brought back from COOK_AUTH_USERS", () => {
+  const { dataDir } = run(`users.add("first", "first-pass-1", "admin"); users.remove("first", { allowEmpty: true }); return null;`);
+  const { out } = run(`return users.list().map((u) => u.name);`, { COOK_DATA_DIR: dataDir, COOK_AUTH_USERS: "bob:bob-password-1" });
+  assert.deepEqual(out, []);
+});

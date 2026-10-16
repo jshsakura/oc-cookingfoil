@@ -348,9 +348,12 @@ transferLog
   .load()
   .catch((err) => debug.error("transfers load failed:", err.message));
 
-securityStore
-  .load()
-  .catch((err) => debug.error("security store load failed:", err.message));
+// Without its state (approved consoles, lockouts) the server must not serve: it would let
+// the next save write an empty state over the one it could not read.
+securityStore.load().catch((err) => {
+  debug.error("security store load failed, stopping: %s", err.message);
+  process.exit(1);
+});
 
 // Hydrate any previously-extracted NACP metadata before the shop cache
 // runs its first compose, so the fallback layer is already populated.

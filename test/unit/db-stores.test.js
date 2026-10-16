@@ -87,3 +87,13 @@ test("an index opened again is not migrated twice", () => {
   assert.equal(db.prepare("PRAGMA user_version").get().user_version, 1);
   assert.equal(db.prepare("PRAGMA journal_mode").get().journal_mode, "wal");
 });
+
+test("a broken index is deleted and started again; it only holds what the folders can tell again", async () => {
+  const { openIndex } = await import("../../src/db/database.js");
+  const file = path.join(tmp(), "index.db");
+  fs.writeFileSync(file, "this is not a database at all, just bytes ".repeat(200));
+  const db = openIndex(file);
+  assert.equal(catalogStore(db, "x").load(), null);
+  catalogStore(db, "x").replace([{ id: "a" }], 1);
+  assert.equal(catalogStore(openIndex(file), "x").load().items.length, 1, "a sound one is kept");
+});

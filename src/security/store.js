@@ -14,12 +14,14 @@ import { dataDir } from "../helpers/envs.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
-import { eventLog, readLegacyLenient, recordStore, takeOverOnce } from "../db/security-stores.js";
+import { eventLog, readLegacy, recordStore, takeOverOnce } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
 
 // Where an earlier version kept all of it, taken over once.
 const STATE_PATH = path.join(dataDir, "security", "state.json");
 const FLUSH_DEBOUNCE_MS = 500;
+// Steady traffic keeps pushing the debounce back; a change waits at most this long.
+const FLUSH_MAX_WAIT_MS = 5000;
 const AUDIT_MAX = 1000;
 // Bound the pending-device map so a flood of pair/requests from random device
 // keys can't balloon the state. Oldest-seen entries are evicted first.
@@ -63,11 +65,15 @@ const db = () => {
 let unsaved = { audit: 0, denials: 0, denialsCleared: false };
 
 let flushTimer = null;
+let firstUnflushedAt = null;
+// Writes wait until load() read the tables: an empty state written over them would delete every row.
+let loaded = false;
 
 /** The last `n` entries of `list` (none for 0). Pure. */
 const tail = (list, n) => (n > 0 ? list.slice(-Math.min(n, list.length)) : []);
 
 function write() {
+  if (!loaded) return;
   const t = db();
   transaction(securityDb(), () => {
     for (const field of Object.keys(KINDS)) t.rows[field].sync(state[field]);
@@ -92,10 +98,13 @@ async function flush() {
 
 function scheduleFlush() {
   if (flushTimer) clearTimeout(flushTimer);
+  firstUnflushedAt ??= Date.now();
+  const wait = Math.max(0, Math.min(FLUSH_DEBOUNCE_MS, firstUnflushedAt + FLUSH_MAX_WAIT_MS - Date.now()));
   flushTimer = setTimeout(() => {
     flushTimer = null;
+    firstUnflushedAt = null;
     flush().catch(() => {});
-  }, FLUSH_DEBOUNCE_MS);
+  }, wait);
   if (flushTimer.unref) flushTimer.unref();
 }
 
@@ -110,7 +119,8 @@ const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 /** The state.json of an earlier version, once, into the tables. */
 function takeOverStateFile() {
   takeOverOnce("state", () => {
-    const parsed = readLegacyLenient(STATE_PATH);
+    // One that does not read stops the start: starting empty would lose every approved console for good.
+    const parsed = readLegacy(STATE_PATH);
     if (!parsed) return null;
     const t = db();
     const entries = (o, map = (v) => v, keep = () => true) => Object.entries(o ?? {}).filter(([, v]) => keep(v)).map(([k, v]) => [k, map(v)]);
@@ -127,29 +137,27 @@ function takeOverStateFile() {
   });
 }
 
+/** Reads the state from the tables (taking over a state.json once). Throws when it cannot: the server must not start without it. */
 export async function load() {
-  try {
-    takeOverStateFile();
-    const t = db();
-    const rows = (field, map = (v) => v) => new Map(t.rows[field].load().map(([k, v]) => [k, map(v)]));
-    state.failures = rows("failures");
-    state.lockouts = rows("lockouts");
-    state.access = rows("access");
-    state.devices = rows("devices", deviceRecord);
-    state.pending = rows("pending", pendingRecord);
-    state.pairSecrets = new Map([...rows("pairSecrets")].filter(([, v]) => isSecretHash(v)));
-    state.audit = t.audit.load();
-    state.denials = t.denials.load();
-    state.denialCounts = Object.fromEntries(t.denialCounts.load());
-    unsaved = { audit: 0, denials: 0, denialsCleared: false };
-    debug.log(
-      "security: state loaded (%d failure tracker(s), %d lockout(s))",
-      state.failures.size,
-      state.lockouts.size
-    );
-  } catch (err) {
-    debug.error("security: state load failed: %s", err.message);
-  }
+  takeOverStateFile();
+  const t = db();
+  const rows = (field, map = (v) => v) => new Map(t.rows[field].load().map(([k, v]) => [k, map(v)]));
+  state.failures = rows("failures");
+  state.lockouts = rows("lockouts");
+  state.access = rows("access");
+  state.devices = rows("devices", deviceRecord);
+  state.pending = rows("pending", pendingRecord);
+  state.pairSecrets = new Map([...rows("pairSecrets")].filter(([, v]) => isSecretHash(v)));
+  state.audit = t.audit.load();
+  state.denials = t.denials.load();
+  state.denialCounts = Object.fromEntries(t.denialCounts.load());
+  unsaved = { audit: 0, denials: 0, denialsCleared: false };
+  loaded = true;
+  debug.log(
+    "security: state loaded (%d failure tracker(s), %d lockout(s))",
+    state.failures.size,
+    state.lockouts.size
+  );
 
   // One-shot reset switch: COOK_RESET_LOCKOUTS=true clears all lockouts on
   // boot. Useful if the admin loses access. Failure counters also clear so
@@ -472,5 +480,7 @@ export function devicesSnapshot() {
 
 export async function shutdown() {
   if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = null;
+  firstUnflushedAt = null;
   await flush();
 }
