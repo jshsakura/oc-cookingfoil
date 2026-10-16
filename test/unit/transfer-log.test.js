@@ -248,3 +248,20 @@ test("downloaders counts each console once while it downloads, and lets it go a 
   assert.equal(log.downloaders(), 1, "after a few quiet seconds it no longer does");
   log.end(a1, { download: true, sent: 2_000_000, size: 4_000_000 });
 });
+
+test("speed is over the wall time: the gaps while a response drains through the proxy count", () => {
+  let clock = 1_000_000;
+  const { log } = memoryLog({ now: () => clock });
+  const meta = { key: "k", route: "direct", file: { path: "/g.nsp", name: "g.nsp" }, client: "", who: { kind: "ip", id: "x", label: "x" }, remote: { scope: "public" }, ranged: true };
+  // Each 8 MB range leaves this server in 1 s, and the next one comes 9 s later.
+  for (let i = 0; i < 3; i++) {
+    const h = log.begin(meta);
+    clock += 1000;
+    log.end(h, { download: true, sent: 8e6, size: 24e6, start: i * 8e6 });
+    clock += 9000;
+  }
+  log.sweep(clock + 1_000_000);
+  const [rec] = log.snapshot().recent;
+  assert.equal(rec.activeMs, 21_000);
+  assert.equal(rec.mbps, 1.1);
+});
