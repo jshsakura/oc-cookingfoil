@@ -94,6 +94,7 @@ import { parseAssets } from "../meta/extract-providers/nro.js";
 import { iconVariant } from "../meta/icon-variant.js";
 import { ART_PIPELINE } from "../meta/artwork-version.js";
 import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
+import { mountPictures } from "../helpers/send-picture.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
@@ -296,6 +297,17 @@ export function start() {
   setInterval(run, POLL_MS).unref();
 }
 
+/** The app's icon address: an uploaded one's version first, else the build's. */
+const iconUrlOf = (e) => {
+  const v = media.iconVersion(e.id) ?? homebrewIconVersion(e);
+  return `/api/homebrew/${e.id}/icon${v ? `?v=${v}` : ""}`;
+};
+/** banner_url and screenshots (the uploaded icon goes through icon_url). */
+const pictures = (id) => {
+  const { custom_icon_url: _icon, ...rest } = media.urls(id);
+  return rest;
+};
+
 /** icon_url's v: 12 hex of the build's hash (the icon lives in the .nro), or null without one. */
 export function homebrewIconVersion(e) {
   return e?.hash ? crypto.createHash("sha1").update(`${ART_PIPELINE}\0${e.hash}`).digest("hex").slice(0, 12) : null;
@@ -350,8 +362,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       app: null,
       files: null,
       archive: null,
-      icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
-      ...media.urls(e.id),
+      icon_url: iconUrlOf(e),
+      ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...NO_FORWARDER,
     } : {
@@ -369,8 +381,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       ...withDirect("bundle_url", e.files ? `/api/homebrew/${e.id}/bundle` : null, link),
       // A zip kept as it is comes whole, with which entry goes where on the card.
       ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
-      icon_url: `/api/homebrew/${e.id}/icon${homebrewIconVersion(e) ? `?v=${homebrewIconVersion(e)}` : ""}`,
-      ...media.urls(e.id),
+      icon_url: iconUrlOf(e),
+      ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
     });
@@ -392,9 +404,11 @@ export function homebrewRouter({ service = defaultService } = {}) {
   });
 
   router.get("/:id/icon", wrap(async (req, res) => {
-    const icon = await service.icon(req.params.id);
+    // An icon the admin uploaded replaces the one read from the app.
+    const custom = media.iconVersion(req.params.id) && fs.existsSync(media.iconPath(req.params.id));
+    const icon = custom ? fs.readFileSync(media.iconPath(req.params.id)) : await service.icon(req.params.id);
     if (!icon) return res.status(404).json({ error: "no icon" });
-    const v = homebrewIconVersion((await service.list()).find((e) => e.id === req.params.id));
+    const v = custom ? media.iconVersion(req.params.id) : homebrewIconVersion((await service.list()).find((e) => e.id === req.params.id));
     const webp = (req.get("accept") || "").includes("image/webp");
     const key = `${req.params.id}\0${v ?? crypto.createHash("sha1").update(icon).digest("hex")}`;
     const { body, type } = await iconVariant(key, icon, { size: req.query.size, webp });
@@ -408,22 +422,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.end(body);
   }));
 
-  // The app's pictures: immutable under the ?v= the listing gives, revalidated otherwise. WebP for a
-  // client that says it reads it (browsers, the CookingFoil client), else a JPEG made once from it.
-  const sendPicture = async (req, res, file, v, tag = v) => {
-    if (!v || !fs.existsSync(file)) return res.status(404).json({ error: "no picture" });
-    const webp = (req.get("accept") || "").includes("image/webp");
-    res.set({ "Content-Type": webp ? "image/webp" : "image/jpeg", "Cache-Control": req.query.v === v ? IMMUTABLE : UNVERSIONED, ETag: `"${tag}${webp ? "" : "-jpg"}"`, Vary: "Accept" });
-    if (req.fresh) return res.status(304).end();
-    res.sendFile(webp ? file : await media.jpegOf(file), { etag: false, lastModified: false });
-  };
-  router.get("/:id/banner", wrap(async (req, res) => sendPicture(req, res, media.bannerPath(req.params.id), media.bannerVersion(req.params.id))));
-  router.get("/:id/screenshot/:n", wrap(async (req, res) => {
-    const n = Number(req.params.n);
-    const s = media.record(req.params.id).shots;
-    if (!Number.isInteger(n) || !s?.count || n < 1 || n > s.count) return res.status(404).json({ error: "no picture" });
-    sendPicture(req, res, media.shotPath(req.params.id, n), s.at.toString(36), `${s.at.toString(36)}-${n}`);
-  }));
+  // Its banner and screenshots (meta/homebrew-media.js); its icon below prefers the one an admin uploaded.
+  mountPictures(router, media, wrap);
 
   router.get("/:id/download", wrap(async (req, res) => {
     let file;

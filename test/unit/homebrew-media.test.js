@@ -70,7 +70,7 @@ test("a port gets a banner from SteamGridDB and screenshots from IGDB under Stea
   const meta = await sharp(fs.readFileSync(media.shotPath(PORT.id, 1))).metadata();
   assert.equal(meta.format, "webp");
   assert.ok(meta.width <= 1280);
-  assert.deepEqual(media.urls(TOOL.id), { banner_url: null, screenshots: [] });
+  assert.deepEqual(media.urls(TOOL.id), { custom_icon_url: null, banner_url: null, screenshots: [] });
   assert.equal(calls.filter((c) => c.includes("Tool")).length, 0, "a tool is never searched");
 });
 
@@ -91,7 +91,7 @@ test("what the admin removed is not filled in again", async () => {
   await media.fillPorts([PORT], { apiKey: KEY, fetchImpl: web.fetchImpl, pauseMs: 0, igdbReady: () => true });
   media.removeBanner(PORT.id);
   media.removeShots(PORT.id);
-  assert.deepEqual(media.urls(PORT.id), { banner_url: null, screenshots: [] });
+  assert.deepEqual(media.urls(PORT.id), { custom_icon_url: null, banner_url: null, screenshots: [] });
   assert.equal(fs.existsSync(media.bannerPath(PORT.id)), false);
   assert.equal(fs.existsSync(media.shotPath(PORT.id, 1)), false);
   const before = web.calls.length;

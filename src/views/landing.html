@@ -260,6 +260,8 @@
       .modal .xm-pills:empty { display: none; }
       .modal.xmodal .xm-section { margin: 0 0 16px; }
       .modal.xmodal .xm-section h4 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
+      .modal.xmodal .xm-notes { margin: 0; max-height: 220px; overflow: auto; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+        font-size: 13px; line-height: 1.6; color: var(--secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
       .modal.xmodal .xm-source { font-size: 13px; color: var(--secondary); margin: 0 0 16px; overflow-wrap: anywhere; }
       .modal.xmodal .xm-where code { font: 600 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink);
         background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; }
@@ -596,6 +598,10 @@
       .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
       .pager-btn.current { background: var(--ink); color: var(--ground); border-color: var(--ink); }
       .pager-ellipsis { color: var(--faint); padding: 0 4px; }
+      .pager-btn.prev, .pager-btn.next { gap: 4px; }
+      .pager-btn.prev { padding-left: 10px; }
+      .pager-btn.next { padding-right: 10px; }
+      .pager-btn svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
       /* DETAIL MODAL: dark header band over a light body, as on the client */
       .modal-backdrop {
@@ -747,6 +753,56 @@
         border: none; cursor: pointer; padding: 0; background: var(--bad); color: #fff; font-size: 11px; line-height: 20px;
       }
       .btn.tiny { padding: 6px 12px; font-size: 12px; border-radius: 9px; }
+      /* ARTWORK EDITOR (admins): one card for games, homebrew and patches alike. Each picture is a tile in its
+         own shape: tap or drop an image to replace it, the corner button puts the original back. */
+      .arted { margin: 4px 0 22px; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+      .arted-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+      .arted-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
+      .arted-head span { font-size: 12px; color: var(--secondary); }
+      .arted-top { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 14px; align-items: start; }
+      .arted-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
+      .arted-label { margin: 18px 0 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
+      .atile { position: relative; display: grid; gap: 6px; margin: 0; min-width: 0; }
+      .atile .face {
+        position: relative; display: grid; place-items: center; width: 100%; padding: 0; overflow: hidden; cursor: pointer;
+        border-radius: 14px; border: 1.5px dashed var(--line2); background: var(--sunk); color: var(--secondary); font: inherit;
+        transition: border-color .15s ease, transform .15s ease;
+      }
+      .atile.a-icon .face { aspect-ratio: 1; border-radius: 22px; }
+      .atile.a-banner .face { aspect-ratio: 1920 / 620; }
+      .atile.a-shot .face, .atile.a-add .face { aspect-ratio: 16 / 9; }
+      .atile.has .face { border-style: solid; border-color: transparent; }
+      .atile .face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .atile .face .a-empty { display: grid; justify-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
+      .atile .face .a-empty svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .atile .face::after {
+        content: attr(data-action); position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity .15s ease;
+        background: rgba(12, 12, 14, 0.55); color: #fff; font: 700 13px var(--font-body);
+      }
+      @media (hover: hover) { .atile .face:hover::after { opacity: 1; } }
+      .atile .face:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .atile .face:focus-visible::after, .atile.drop .face::after { opacity: 1; }
+      .atile.drop .face { border-color: var(--butter); border-style: solid; transform: scale(1.02); }
+      .atile.busy .face::after { content: ""; opacity: 1; }
+      .atile.busy .face::before {
+        content: ""; position: absolute; z-index: 2; width: 26px; height: 26px; border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: arted-spin .8s linear infinite;
+      }
+      @keyframes arted-spin { to { transform: rotate(360deg); } }
+      .atile figcaption { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--secondary); }
+      .atile .reset {
+        position: absolute; top: 8px; right: 8px; z-index: 3; height: 26px; padding: 0 10px; border: 0; border-radius: 100px; cursor: pointer;
+        background: rgba(12, 12, 14, 0.62); color: #fff; font: 600 11.5px var(--font-body);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      }
+      .atile.a-shot .reset { width: 26px; padding: 0; font-size: 13px; }
+      .atile.a-add .face { color: var(--ink); }
+      @media (max-width: 640px) {
+        .arted { padding: 14px; }
+        .arted-top { grid-template-columns: 84px minmax(0, 1fr); gap: 10px; }
+        .arted-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (prefers-reduced-motion: reduce) { .atile .face { transition: none; } .atile.busy .face::before { animation: none; } }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       /* A close button that stays at the top right while the window scrolls (the one at the bottom is a long way down on a phone).
          The bar has no height, so it sits over the banner without moving anything. */
@@ -1158,6 +1214,7 @@
           <p class="xm-source" id="xm-source" hidden></p>
           <p class="xm-source xm-where" id="xm-where" hidden></p>
           <div id="xm-sections"></div>
+          <div id="xm-art" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="xm-download" href="#" download data-i18n="extras.download"></a>
             <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
@@ -1250,6 +1307,12 @@
           "xm.released": "이 버전 출시일",
           "xm.latest": "최신 버전",
           "xm.kind": "종류",
+          "xm.languages": "지원 언어",
+          "xm.firmware": "필요 펌웨어",
+          "xm.stars": "GitHub 별",
+          "xm.license": "라이선스",
+          "xm.repoUpdated": "저장소 업데이트",
+          "xm.releaseNotes": "이 버전의 변경 내역",
           "xm.where": "설치 위치",
           "xm.required": "필수",
           "xm.appPatches": "이 앱의 패치",
@@ -1386,7 +1449,11 @@
           "modal.noDesc": "소개 글이 아직 없습니다.",
           "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
-          "art.head": "아트워크 (직접 올리기)",
+          "art.head": "아트워크",
+          "art.hint": "누르거나 이미지를 끌어다 놓아 바꿉니다.",
+          "art.reset": "되돌리기",
+          "art.empty": "그림 없음",
+          "art.change": "바꾸기",
           "art.desc": "게임 설명 (직접 쓰기)",
           "art.desc.edit": "편집",
           "art.desc.save": "저장",
@@ -1398,11 +1465,11 @@
           "art.screens": "스크린샷",
           "art.upload": "업로드",
           "art.replace": "교체",
-          "art.remove": "삭제",
+          "art.remove": "빼기",
           "art.add": "추가",
-          "art.saved": "저장됨",
-          "art.removed": "삭제됨",
-          "art.failed": "처리 실패",
+          "art.saved": "바꿨습니다.",
+          "art.removed": "뺐습니다.",
+          "art.failed": "처리하지 못했습니다.",
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -1502,6 +1569,12 @@
           "xm.released": "Version released",
           "xm.latest": "Latest version",
           "xm.kind": "Type",
+          "xm.languages": "Languages",
+          "xm.firmware": "Required firmware",
+          "xm.stars": "GitHub stars",
+          "xm.license": "License",
+          "xm.repoUpdated": "Repository updated",
+          "xm.releaseNotes": "What changed in this version",
           "xm.where": "Installs to",
           "xm.required": "Required",
           "xm.appPatches": "Patches for this app",
@@ -1637,7 +1710,11 @@
           "modal.noDesc": "No introduction yet.",
           "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
-          "art.head": "Artwork (upload your own)",
+          "art.head": "Artwork",
+          "art.hint": "Click or drop an image to replace it.",
+          "art.reset": "Reset",
+          "art.empty": "No image",
+          "art.change": "Change",
           "art.desc": "Description (write your own)",
           "art.desc.edit": "Edit",
           "art.desc.save": "Save",
@@ -1753,6 +1830,12 @@
           "xm.released": "このバージョンの公開日",
           "xm.latest": "最新バージョン",
           "xm.kind": "種類",
+          "xm.languages": "対応言語",
+          "xm.firmware": "必要ファームウェア",
+          "xm.stars": "GitHub スター",
+          "xm.license": "ライセンス",
+          "xm.repoUpdated": "リポジトリ更新",
+          "xm.releaseNotes": "このバージョンの変更点",
           "xm.where": "インストール先",
           "xm.required": "必須",
           "xm.appPatches": "このアプリのパッチ",
@@ -1888,7 +1971,11 @@
           "modal.noDesc": "紹介文はまだありません。",
           "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
-          "art.head": "アートワーク (自分でアップロード)",
+          "art.head": "アートワーク",
+          "art.hint": "クリックするか画像をドロップして差し替えます。",
+          "art.reset": "元に戻す",
+          "art.empty": "画像なし",
+          "art.change": "変更",
           "art.desc": "説明 (自分で書く)",
           "art.desc.edit": "編集",
           "art.desc.save": "保存",
@@ -2004,6 +2091,12 @@
           "xm.released": "此版本發布日期",
           "xm.latest": "最新版本",
           "xm.kind": "類型",
+          "xm.languages": "支援語言",
+          "xm.firmware": "所需韌體",
+          "xm.stars": "GitHub 星數",
+          "xm.license": "授權",
+          "xm.repoUpdated": "儲存庫更新",
+          "xm.releaseNotes": "此版本的變更",
           "xm.where": "安裝位置",
           "xm.required": "必要",
           "xm.appPatches": "此應用程式的補丁",
@@ -2139,7 +2232,11 @@
           "modal.noDesc": "尚無介紹。",
           "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
-          "art.head": "圖片 (自行上傳)",
+          "art.head": "圖片",
+          "art.hint": "點選或拖放圖片即可更換。",
+          "art.reset": "還原",
+          "art.empty": "沒有圖片",
+          "art.change": "更換",
           "art.desc": "說明 (自行撰寫)",
           "art.desc.edit": "編輯",
           "art.desc.save": "儲存",
@@ -3361,8 +3458,8 @@
       // One patch, save or homebrew app in detail, opened from its list row.
       const xmodal = (() => {
         const node = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [] }) {
-          // An app's pictures, laid out as a game's: the banner behind its header, screenshots under its description.
+        // An item's pictures, laid out as a game's: the banner behind its header, screenshots under its description.
+        function paintPictures({ icon, banner, shots }) {
           const band = $("xm-banner");
           band.hidden = !banner;
           band.style.setProperty("--hero", banner ? `url("${banner}")` : "none");
@@ -3375,6 +3472,51 @@
           const img = $("xm-icon");
           img.hidden = !icon; if (icon) img.src = icon; else img.removeAttribute("src");
           img.onerror = () => { img.hidden = true; };
+        }
+        // Admins edit the item's pictures right here, with the same card as a game's (artEditor).
+        let artSeq = 0;
+        async function paintArt(art, fallbackIcon) {
+          const box = $("xm-art");
+          const mine = ++artSeq;
+          box.replaceChildren(); box.hidden = true;
+          if (!art || !uploadsEnabled) return;
+          const base = `/api/art/${art.kind}/${encodeURIComponent(art.id)}`;
+          let st;
+          try { const r = await fetch(base, { headers: { Accept: "application/json" } }); if (!r.ok) return; st = await r.json(); } catch { return; }
+          if (mine !== artSeq) return;
+          const apply = (next) => {
+            st = next;
+            paintPictures({ icon: st.icon || fallbackIcon, banner: st.banner, shots: st.screenshots });
+            window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
+            draw();
+          };
+          const send = async (method, path, body) => {
+            try {
+              const r = await fetch(base + path, { method, body, headers: { Accept: "application/json" } });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) { toast(d.error || t("art.failed")); return; }
+              toast(method === "DELETE" ? t("art.removed") : t("art.saved"));
+              apply(d);
+            } catch { toast(t("art.failed")); }
+          };
+          function draw() {
+            box.replaceChildren(artEditor({
+              slots: {
+                icon: { url: st.icon || fallbackIcon || null, custom: Boolean(st.icon) },
+                banner: { url: st.banner, custom: Boolean(st.banner) },
+                shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1 })),
+                maxShots: 8,
+              },
+              upload: (slot, file) => { const fd = new FormData(); fd.append("file", file, file.name); return send("POST", `/${slot}`, fd); },
+              remove: (slot, n) => send("DELETE", slot === "screenshot" ? `/screenshot/${n}` : `/${slot}`),
+            }));
+            box.hidden = false;
+          }
+          draw();
+        }
+        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
+          paintPictures({ icon, banner, shots });
+          paintArt(art, icon);
           $("xm-title").textContent = title || "—";
           $("xm-sub").textContent = sub || "";
           $("xm-pills").replaceChildren(...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
@@ -3496,10 +3638,15 @@
         const day = (at) => ymd(at);
         // What a patch or save shows in its detail.
         function detail(kind, it) {
-          const icon = it.homebrew ? homebrew.iconOf(it.homebrew) : it.game?.icon ? iconPath(it.game.icon).replace("size=sm", "size=md") : "";
+          const gameIcon = it.homebrew ? homebrew.iconOf(it.homebrew) : it.game?.icon ? iconPath(it.game.icon).replace("size=sm", "size=md") : "";
+          // A patch may have its own icon, banner and screenshots (an admin uploads them); else its game's icon.
+          const icon = (kind === "patches" && it.icon_url) || gameIcon;
           const text = kind === "saves" && it.source ? String(it.description || "").split("\n").slice(0, -1).join("\n") : it.description;
           return {
             icon,
+            banner: kind === "patches" ? it.banner_url || null : null,
+            shots: kind === "patches" && Array.isArray(it.screenshots) ? it.screenshots : [],
+            art: kind === "patches" ? { kind: "patch", id: it.id } : null,
             title: it.name,
             sub: gameName(it),
             pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
@@ -3727,12 +3874,20 @@
           return n;
         };
         const itemsOf = (kind, app) => (data[kind] ?? []).filter((it) => it.homebrew === app);
+        // A patch's pictures changed: its list is read again the next time it shows.
+        addEventListener("cf-art-changed", (e) => {
+          if (e.detail?.kind !== "patch") return;
+          loadedLang.patches = undefined;
+          if (current === "patches") open("patches");
+        });
         return { open, resort, countFor, itemsOf, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
       const homebrew = (() => {
         let apps = null;
+        // An app's pictures changed: the list is read again the next time it is needed.
+        addEventListener("cf-art-changed", (e) => { if (e.detail?.kind === "homebrew") apps = null; });
         let counts = { patches: new Map(), saves: new Map() };
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         async function load() {
@@ -3762,11 +3917,18 @@
               [t("xm.released"), ymd(a.released_at)],
               [t("xm.kind"), t(a.kind === "port" ? "tab.ports" : "tab.tools")],
               [t("xm.files"), Array.isArray(a.files) ? a.files.length : (a.archive?.entries?.length || "")],
+              [t("xm.languages"), Array.isArray(a.languages) ? a.languages.map(langName).join(", ") : ""],
+              [t("xm.firmware"), a.required_firmware],
+              [t("xm.stars"), Number.isFinite(a.stars) ? a.stars.toLocaleString() : ""],
+              [t("xm.license"), a.license],
+              [t("xm.repoUpdated"), ymd(a.updated_at)],
             ],
             desc: a.description || t("modal.noDesc"),
             where: a.install_dir ? `sdmc:/${a.install_dir}/` : a.install_path ? `sdmc:/${a.install_path}` : null,
             source: a.repo_url ? { label: t("xm.repo"), name: a.repo_url.replace(/^https?:\/\/(www\.)?/, ""), url: a.repo_url } : null,
             sections: [
+              // The release's own notes, as GitHub shows them (plain text: the markdown is not rendered).
+              { title: t("xm.releaseNotes"), items: a.release_notes ? [Object.assign(document.createElement("p"), { className: "xm-notes", textContent: a.release_notes })] : [] },
               { title: t("xm.appPatches"), items: extras.itemsOf("patches", a.app).map((it) => extras.row("patches", it)) },
               { title: t("xm.appSaves"), items: extras.itemsOf("saves", a.app).map((it) => extras.row("saves", it)) },
             ],
@@ -3774,6 +3936,7 @@
             download: a.bundle_url || a.archive?.url || a.download_url,
             banner: a.banner_url || null,
             shots: Array.isArray(a.screenshots) ? a.screenshots : [],
+            art: { kind: "homebrew", id: a.id },
           };
         }
         function card(a) {
@@ -4020,14 +4183,16 @@
 
         const mkBtn = (label, target, opts = {}) => {
           const b = document.createElement("button");
-          b.className = "pager-btn" + (opts.current ? " current" : "");
+          b.className = "pager-btn" + (opts.current ? " current" : "") + (opts.dir ? " " + opts.dir : "");
           b.type = "button"; b.textContent = label;
+          // Prev and next carry an arrow on their outer side.
+          if (opts.dir) b.insertAdjacentHTML(opts.dir === "prev" ? "afterbegin" : "beforeend", PAGER_ARROW[opts.dir]);
           if (opts.disabled) b.disabled = true;
           else b.addEventListener("click", () => go(target));
           return b;
         };
 
-        p.appendChild(mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1 }));
+        p.appendChild(mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1, dir: "prev" }));
 
         const window = 2; // pages around current
         const pages = new Set();
@@ -4046,9 +4211,13 @@
           prev = n;
         }
 
-        p.appendChild(mkBtn(t("pager.next"), current + 1, { disabled: current >= total }));
+        p.appendChild(mkBtn(t("pager.next"), current + 1, { disabled: current >= total, dir: "next" }));
       }
 
+      const PAGER_ARROW = {
+        prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+        next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+      };
       // ─── modal ─────────────────────────────────────────────────────────────
       // Bumped after every artwork edit; appended to image URLs so a replaced
       // override repaints immediately despite HTTP caching.
@@ -4362,64 +4531,95 @@
         b.addEventListener("click", onClick);
         return b;
       }
-      function pickAndUpload(baseId, kind) {
-        const input = document.createElement("input");
-        input.type = "file"; input.accept = "image/*";
-        input.addEventListener("change", () => {
-          if (input.files && input.files[0]) uploadArt(baseId, kind, input.files[0]);
-        });
-        input.click();
-      }
-      // A small live preview thumbnail. Hides itself on 404 so empty slots
-      // (no custom art and no titledb art) just show no image.
-      function artThumb(url, w, h) {
-        const img = document.createElement("img");
-        img.className = "art-thumb"; img.loading = "lazy"; img.alt = "";
-        img.style.width = w + "px"; img.style.height = h + "px";
-        img.onerror = () => { img.style.display = "none"; };
-        img.src = bustUrl(url);
-        return img;
-      }
-      function artSlotRow(baseId, kind, label, hasCustom) {
-        const row = document.createElement("div"); row.className = "art-row";
-        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = label;
-        row.appendChild(lab);
-        const url = kind === "icon"
-          ? `/api/shop/icon/${baseId}?size=sm`
-          : `/api/shop/banner/${baseId}`;
-        row.appendChild(kind === "icon" ? artThumb(url, 42, 42) : artThumb(url, 72, 40));
-        row.appendChild(artBtn(hasCustom ? t("art.replace") : t("art.upload"), "", () => pickAndUpload(baseId, kind)));
-        if (hasCustom) row.appendChild(artBtn(t("art.remove"), "ghost", () => removeArt(baseId, kind)));
-        return row;
-      }
-      function artScreensRow(baseId, screens) {
-        const row = document.createElement("div"); row.className = "art-row";
-        const lab = document.createElement("span"); lab.className = "art-label"; lab.textContent = t("art.screens");
-        row.appendChild(lab);
-        row.appendChild(artBtn(t("art.add"), "", () => pickAndUpload(baseId, "screenshot")));
-        for (const i of screens) {
-          const wrap = document.createElement("div"); wrap.className = "art-shot";
-          wrap.appendChild(artThumb(`/api/shop/screenshot/${baseId}/${i}`, 64, 36));
-          const x = document.createElement("button");
-          x.type = "button"; x.className = "art-shot-x"; x.textContent = "✕"; x.title = t("art.remove");
-          x.addEventListener("click", () => removeArt(baseId, "screenshot", i));
-          wrap.appendChild(x);
-          row.appendChild(wrap);
+      // ── the artwork editor (admins): games, homebrew and patches use this one card ──
+      // slots: { icon?: { url, custom }, banner?: { url, custom }, shots: [{ url, removable }], maxShots }
+      // upload(slot, file) and remove(slot, n?) return promises; the caller repaints when they settle.
+      const ART_EMPTY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>';
+      const ART_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+      function artEditor({ slots, upload, remove }) {
+        const card = document.createElement("section"); card.className = "arted";
+        const head = document.createElement("div"); head.className = "arted-head";
+        head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
+        card.append(head);
+        const pick = (onFile) => {
+          const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
+          input.addEventListener("change", () => { if (input.files && input.files[0]) onFile(input.files[0]); });
+          input.click();
+        };
+        // One tile: its face shows the picture (or an empty mark), takes a click or a dropped image.
+        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset") }) {
+          const fig = document.createElement("figure"); fig.className = "atile a-" + kind + (has ? " has" : "");
+          // A screenshot is shown, not replaced: its face is a picture, its corner button takes it out.
+          const face = document.createElement(onFile ? "button" : "div"); face.className = "face";
+          if (onFile) { face.type = "button"; face.dataset.action = action; face.setAttribute("aria-label", (caption + " " + action).trim()); }
+          if (url) {
+            const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.src = bustUrl(url);
+            img.onerror = () => { img.remove(); fig.classList.remove("has"); face.insertAdjacentHTML("beforeend", `<span class="a-empty">${ART_EMPTY}<span>${t("art.empty")}</span></span>`); };
+            face.append(img);
+          } else {
+            face.insertAdjacentHTML("beforeend", `<span class="a-empty">${kind === "add" ? ART_PLUS : ART_EMPTY}<span>${kind === "add" ? t("art.add") : t("art.empty")}</span></span>`);
+          }
+          const run = async (file) => {
+            if (fig.classList.contains("busy")) return;
+            fig.classList.add("busy");
+            try { await onFile(file); } finally { fig.classList.remove("busy"); }
+          };
+          if (onFile) {
+            face.addEventListener("click", () => pick(run));
+            face.addEventListener("dragover", (e) => { e.preventDefault(); fig.classList.add("drop"); });
+            face.addEventListener("dragleave", () => fig.classList.remove("drop"));
+            face.addEventListener("drop", (e) => {
+              e.preventDefault(); fig.classList.remove("drop");
+              const file = [...(e.dataTransfer?.files || [])].find((f) => /^image\//.test(f.type));
+              if (file) run(file);
+            });
+          }
+          fig.append(face);
+          if (reset) {
+            const r = document.createElement("button"); r.type = "button"; r.className = "reset";
+            r.textContent = kind === "shot" ? "✕" : resetLabel; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
+            r.addEventListener("click", async (e) => {
+              e.stopPropagation();
+              fig.classList.add("busy");
+              try { await reset(); } finally { fig.classList.remove("busy"); }
+            });
+            fig.append(r);
+          }
+          if (caption) fig.append(Object.assign(document.createElement("figcaption"), { textContent: caption }));
+          return fig;
         }
-        return row;
+        if (slots.icon || slots.banner) {
+          const top = document.createElement("div"); top.className = "arted-top";
+          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: (f) => upload("icon", f), reset: slots.icon.custom ? () => remove("icon") : null }));
+          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: (f) => upload("banner", f), reset: slots.banner.custom ? () => remove("banner") : null }));
+          card.append(top);
+        }
+        const shots = slots.shots || [];
+        card.append(Object.assign(document.createElement("p"), { className: "arted-label", textContent: `${t("art.screens")} ${shots.length}/${slots.maxShots ?? 8}` }));
+        const grid = document.createElement("div"); grid.className = "arted-shots";
+        shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove") })));
+        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: (f) => upload("screenshot", f) }));
+        card.append(grid);
+        return card;
       }
       function renderArtEditor(baseId, validBase, art) {
         const box = $("modal-art");
-        box.innerHTML = ""; box.hidden = true;
+        box.replaceChildren(); box.hidden = true;
         if (!uploadsEnabled || !validBase) return;
         box.hidden = false;
-        const head = document.createElement("div");
-        head.className = "art-head"; head.textContent = t("art.head");
-        box.appendChild(head);
-        box.appendChild(artSlotRow(baseId, "icon", t("art.icon"), art.icon));
-        box.appendChild(artSlotRow(baseId, "banner", t("art.banner"), art.banner));
-        box.appendChild(artScreensRow(baseId, art.screens || []));
-        box.appendChild(artDescRow(baseId, art));
+        // A game's screenshots from titledb stay as they are; the ones an admin added can be taken out.
+        const card = artEditor({
+          slots: {
+            icon: { url: `/api/shop/icon/${baseId}?size=md`, custom: art.icon },
+            banner: { url: `/api/shop/banner/${baseId}`, custom: art.banner },
+            shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i })),
+            maxShots: 8,
+          },
+          upload: (slot, file) => uploadArt(baseId, slot, file),
+          remove: (slot, n) => removeArt(baseId, slot, n),
+        });
+        card.append(artDescRow(baseId, art));
+        box.append(card);
       }
       // The game's own text: edit it in place, Korean and English apart; what
       // the admin wrote replaces titledb's description, line breaks included.

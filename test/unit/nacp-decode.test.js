@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   decodeNacp,
+  nacpLanguages,
   slotPriorityOrder,
   NACP_TOTAL_BYTES,
   NACP_LANG_SLOTS,
@@ -50,7 +51,17 @@ test("decodeNacp reads name, publisher, version and pickedSlot from the preferre
     publisher: "Acme Studio",
     version: "1.2.3",
     pickedSlot: NACP_LANG_SLOTS["en"],
+    languages: null,
   });
+});
+
+test("nacpLanguages reads the supported-language flag as codes, once each", () => {
+  const buf = Buffer.alloc(NACP_TOTAL_BYTES);
+  // Slots 0 (en-US), 1 (en-GB), 2 (ja) and 12 (ko).
+  buf.writeUInt32LE((1 << 0) | (1 << 1) | (1 << 2) | (1 << 12), 0x302c);
+  assert.deepEqual(nacpLanguages(buf), ["en", "ja", "ko"]);
+  assert.equal(nacpLanguages(Buffer.alloc(NACP_TOTAL_BYTES)), null, "no flag, no languages");
+  assert.equal(nacpLanguages(Buffer.alloc(10)), null);
 });
 
 test("decodeNacp prefers an earlier langPriority slot over a later one when both are filled", () => {

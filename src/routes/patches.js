@@ -12,6 +12,8 @@
  *                                  For a client that asked for the direct address, each P
  *                                  carries url: its download there (security/download-links.js).
  * GET /api/patches/:id/download    one patch as an uncompressed ustar archive
+ * GET /api/patches/:id/icon|banner|screenshot/:n?v=   its pictures (meta/patch-media.js): each P carries
+ *                                  icon_url (its own, or null for its game's), banner_url and screenshots
  *
  * Archive paths are relative to the SD card root, directories first, so a
  * client can unpack straight onto the card while it reads. Content-Length is
@@ -26,6 +28,8 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { directUrl, forRequest } from "../security/download-links.js";
+import patchMedia from "../meta/patch-media.js";
+import { mountPictures, sendPicture } from "../helpers/send-picture.js";
 
 export { tarEntries, gameOf };
 
@@ -44,7 +48,8 @@ async function listRoute(req, res) {
   const body = JSON.stringify({
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
-      const own = withPatchDirect(userPatches.localizePatch(p, lang), link);
+      const { custom_icon_url: iconUrl, ...pictures } = patchMedia.urls(p.id);
+      const own = { ...withPatchDirect(userPatches.localizePatch(p, lang), link), icon_url: iconUrl, ...pictures };
       return game ? { ...own, game } : own;
     }),
     ...(listing.scanning ? { scanning: true } : {}),
@@ -84,5 +89,8 @@ export default function patchesRouter() {
   const router = express.Router();
   router.get("/", wrap(listRoute));
   router.get("/:id/download", wrap(downloadRoute));
+  router.param("id", (req, res, next, id) => (ID_RE.test(id) ? next() : res.status(400).json({ error: "invalid patch id" })));
+  router.get("/:id/icon", wrap(async (req, res) => sendPicture(req, res, patchMedia.iconPath(req.params.id), patchMedia.iconVersion(req.params.id))));
+  mountPictures(router, patchMedia, wrap);
   return router;
 }
