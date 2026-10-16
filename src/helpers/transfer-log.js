@@ -23,6 +23,8 @@ import debug from "../debug.js";
 import { DOWNLOAD_BYTES as LIVE_BYTES } from "../security/drain.js";
 
 export const QUIET_MS = 20_000;
+// A downloader still counts this long after its last piece (see downloaders()).
+export const BUSY_WITHIN_MS = 5_000;
 export const MAX_RECENT = 500;
 // Open transfers kept at once; past this the quietest is closed early.
 export const MAX_OPEN = 256;
@@ -328,8 +330,18 @@ export function createTransferLog({
     };
   }
 
+  /**
+   * How many consoles (or accounts, or addresses) are downloading right now: a request in
+   * flight, or one that ended within `withinMs` (a console pauses between Range pieces).
+   */
+  function downloaders(at = now(), withinMs = BUSY_WITHIN_MS) {
+    const who = new Set();
+    for (const t of open.values()) if (t.inflight > 0 || at - t.lastAt < withinMs) who.add(`${t.who.kind}:${t.who.id}`);
+    return who.size;
+  }
+
   return {
-    begin, end, sweep, flush, load, shutdown, snapshot, active,
+    begin, end, sweep, flush, load, shutdown, snapshot, active, downloaders,
     openCount: () => open.size,
     recentCount: () => recent.length,
   };

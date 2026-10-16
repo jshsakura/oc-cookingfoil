@@ -225,3 +225,20 @@ test("pure helpers: spans, extents, names, the summary and units", () => {
   assert.equal(logLine({ file: { name: "g.nsp" }, bytes: 2_100_000_000, activeMs: 300_000, mbps: 7, route: "tunnel", peakConnections: 4, requests: 120, complete: true, who: { label: "기기 ab12cd34" }, client: "CookingFoil/0.3.72" }),
     "transfer: g.nsp 2.10 GB in 300 s = 7.0 MB/s, route tunnel, 4 connections (peak), 120 requests, whole file, 기기 ab12cd34, client CookingFoil/0.3.72");
 });
+
+test("downloaders counts each console once while it downloads, and lets it go a few seconds after its last piece", () => {
+  let t = 1_000_000;
+  const log = createTransferLog({ file: null, now: () => t, log: () => {} });
+  const meta = (key, id) => ({ key, route: "direct", file: { path: `/${key}.nsz`, name: `${key}.nsz` }, client: "CookingFoil", who: { kind: "device", id, label: id }, remote: { scope: "public", country: "KR" } });
+  assert.equal(log.downloaders(), 0);
+  const a1 = log.begin(meta("a1", "aaaa"));
+  log.begin(meta("a2", "aaaa"));
+  const b = log.begin(meta("b", "bbbb"));
+  assert.equal(log.downloaders(), 2, "two pieces of one console count once");
+  log.end(b, { download: true, sent: 2_000_000, size: 4_000_000 });
+  t += 3_000;
+  assert.equal(log.downloaders(), 2, "between pieces it still counts");
+  t += 3_000;
+  assert.equal(log.downloaders(), 1, "after a few quiet seconds it no longer does");
+  log.end(a1, { download: true, sent: 2_000_000, size: 4_000_000 });
+});
