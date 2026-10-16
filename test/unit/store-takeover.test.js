@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { everything, persistedState, securityDbFile } from "../support/security-db.js";
+import { everything, persistedState, records, securityDbFile } from "../support/security-db.js";
 
 // The security state of an earlier version (one state.json) is taken over once
 // per data folder, so each case runs the store in a fresh process.
@@ -83,9 +83,28 @@ test("the IP, last-seen time and version older versions kept for consoles are no
   assert.equal(persistedState(dataDir).devices[DK1].lastSeenAt, undefined, "last-seen never reaches the disk");
 });
 
-test("a state.json that does not read starts the store empty instead of stopping it", () => {
-  const { dataDir } = withState("{ not valid json ]]]");
-  assert.deepEqual(run(dataDir, `return [store.devicesSnapshot(), store.snapshot()];`), [{ approved: [], pending: [] }, { failures: [], lockouts: [], audit: [] }]);
+test("a state.json that does not read stops the start and is taken over once it reads", () => {
+  const { dataDir, file } = withState("{ not valid json ]]]");
+  assert.throws(() => run(dataDir, `return null;`), /cannot be read/);
+  writeFileSync(file, JSON.stringify({ devices: { [DK1]: { label: "tv", accessKeyHash: "h" } } }));
+  assert.deepEqual(run(dataDir, `return store.devicesSnapshot().approved.map((d) => d.deviceKey);`), [DK1]);
+});
+
+test("a stored row that does not parse stops the start; nothing is written over the tables", () => {
+  const { dataDir } = withState({ devices: { [DK1]: { label: "tv", accessKeyHash: "h" } }, access: { a: { count: 1 } } });
+  run(dataDir, `return null;`);
+  const { DatabaseSync } = process.getBuiltinModule("node:sqlite");
+  const db = new DatabaseSync(securityDbFile(dataDir));
+  db.prepare("UPDATE records SET data = '{bad' WHERE kind = 'access'").run();
+  db.close();
+  assert.throws(() => run(dataDir, `return null;`), /JSON/);
+  // Even a caller that goes on after the failed load writes nothing over the tables.
+  const script = `const store = await import(${JSON.stringify(path.join(ROOT, "src/security/store.js"))});
+await store.load().catch(() => {});
+store.setFailure("1.1.1.1", { count: 1 });
+await store.shutdown();`;
+  execFileSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script], { env: { ...process.env, COOK_DATA_DIR: dataDir } });
+  assert.ok(records(dataDir, "device")[DK1], "the approved console is still there");
 });
 
 test("only the log lines added since the last write are written, and the logs keep their length", () => {

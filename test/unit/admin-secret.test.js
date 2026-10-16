@@ -102,3 +102,12 @@ test("the generated secret actually drives TOTP verification end to end", () => 
   assert.equal(r.good, true);
   assert.equal(r.bad, false);
 });
+
+test("with another COOK_SECRET_KEY the server stops instead of making a new secret over the saved one", () => {
+  const dataDir = freshDataDir();
+  const first = probe(REPORT, { COOK_DATA_DIR: dataDir });
+  const sealed = sealedSecret(dataDir, "admin-totp");
+  assert.throws(() => probe(REPORT, { COOK_DATA_DIR: dataDir, COOK_SECRET_KEY: Buffer.alloc(32, 9).toString("base64") }), /SecretKeyError|COOK_SECRET_KEY/);
+  assert.equal(sealedSecret(dataDir, "admin-totp"), sealed, "the saved secret is untouched");
+  assert.equal(probe(REPORT, { COOK_DATA_DIR: dataDir }).secret, first.secret, "the right key opens it again");
+});

@@ -422,3 +422,18 @@ test("dismissing a request that was never approved is saved, so it does not come
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(readPersisted().pending[key], undefined);
 });
+
+test("steady changes cannot put the save off for ever: it happens within the longest wait", async () => {
+  const ip = "192.0.2.77";
+  const started = Date.now();
+  let saved = false;
+  // A change every 200 ms keeps restarting the 500 ms debounce.
+  while (!saved && Date.now() - started < 8000) {
+    store.setFailure(ip, { count: Date.now(), firstAt: 1, lastAt: 1 });
+    await new Promise((r) => setTimeout(r, 200));
+    saved = Boolean(readPersisted().failures[ip]);
+  }
+  assert.ok(saved, "saved while changes kept coming");
+  assert.ok(Date.now() - started < 6500, `saved after ${Date.now() - started} ms`);
+  store.clearFailure(ip);
+});

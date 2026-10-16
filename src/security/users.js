@@ -77,6 +77,8 @@ const records = () =>
 
 function persist() {
   records().sync(accounts);
+  // Once there were accounts, COOK_AUTH_USERS never brings any back, even after every one is removed.
+  if (accounts.size) markDone("users-seeded");
 }
 
 /** Applies a change to memory and disk together, or not at all. */
@@ -96,6 +98,7 @@ function commit(change) {
 function load() {
   const kept = records().load();
   for (const [name, record] of kept) accounts.set(name, record);
+  if (kept.length) markDone("users-seeded");
   // Seeded from COOK_AUTH_USERS once: an admin who removes every account later does not get them back.
   if (kept.length || done("users-seeded") || fs.existsSync(USERS_PATH)) return;
   const fromEnv = getUsersFromEnv() ?? {};

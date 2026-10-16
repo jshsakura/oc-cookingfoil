@@ -327,7 +327,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 - **아직 쓰지 않은 클라이언트 다운로드:** 기기 탭이나 `/pair` 에서 거둡니다. 이미 쓴 것은 다른 기기와 똑같이 다룹니다.
 - **계정:** 사용자 탭에서 끄거나 지웁니다. 그 계정의 기기별 접속 정보, 세션 토큰, 다운로드 토큰이 함께 멈춥니다. 비밀번호를 바꿔도 세션이 끝납니다. 그 계정이 승인한 기기도 기기 탭에서 함께 거둡니다.
 - **자동화 토큰:** 설정 탭에서 거둡니다.
-- **모든 토큰을 한꺼번에:** `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => s.deleteSecret("download-link"))'` 를 실행하고 서버를 다시 시작합니다. 모든 세션과 다운로드 토큰이 끝나고, 기기는 접근 키로 다시 로그인합니다.
+- **모든 토큰을 한꺼번에:** `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => ["download-link", "user-session"].forEach((n) => s.deleteSecret(n)))'` 를 실행하고 서버를 다시 시작합니다. 웹 로그인을 포함해 모든 세션과 다운로드 토큰이 끝나고, 기기는 접근 키로 다시 로그인합니다.
 - **잠긴 주소:** 로그 탭에서 풉니다.
 
 ### 기본으로 들어 있는 보호 장치

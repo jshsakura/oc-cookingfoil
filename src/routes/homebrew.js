@@ -100,7 +100,8 @@ const keep = (write) => {
   }
 };
 const kept = manualStore.load();
-let manual = kept ? { at: kept.at, entries: kept.items } : { at: 0, entries: [] };
+// In folder order, as a scan lists them.
+let manual = kept ? { at: kept.at, entries: kept.items.sort((a, b) => (a.folder < b.folder ? -1 : a.folder > b.folder ? 1 : 0)) } : { at: 0, entries: [] };
 let manualScan = null;
 
 /**

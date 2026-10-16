@@ -327,7 +327,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机发送�
 - **尚未使用的客户端下载：** 在设备 (기기) 标签页或 `/pair` 撤回。已经用过的下载就和其他主机一样处理。
 - **账号：** 在用户 (사용자) 标签页停用或删除。该账号的按主机登录信息、会话令牌和下载令牌都会随之失效。修改密码也会结束它的会话。请同时在设备 (기기) 标签页撤销它批准过的主机。
 - **自动化令牌：** 在设置 (설정) 标签页撤销。
-- **一次性作废所有令牌：** 运行 `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => s.deleteSecret("download-link"))'`，然后重新启动服务器。所有会话令牌和下载令牌都会失效，主机会用访问密钥重新登录。
+- **一次性作废所有令牌：** 运行 `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => ["download-link", "user-session"].forEach((n) => s.deleteSecret(n)))'`，然后重新启动服务器。包括网页登录在内，所有会话令牌和下载令牌都会失效，主机会用访问密钥重新登录。
 - **被锁定的地址：** 在日志 (로그) 标签页解锁。
 
 ### 内置的防护
