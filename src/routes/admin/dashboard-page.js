@@ -222,7 +222,15 @@ export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}
-nav.tabs a{display:inline-flex;align-items:center;gap:7px}${POLISH_CSS}</style></head><body>
+nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 10px}.pg-bar[hidden]{display:none}
+.pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
+.pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+.pg-n{min-width:38px;padding-left:10px;padding-right:10px;font-variant-numeric:tabular-nums}
+.pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.pg-gap{color:var(--faint)}
+@media (max-width:600px){.pg-q{max-width:none;flex-basis:100%}.pg-nav{margin-left:0;width:100%;justify-content:center}}
+${POLISH_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
