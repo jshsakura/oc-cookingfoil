@@ -299,6 +299,14 @@ CookingFoil is made to sit on the internet behind your own proxy, so it starts l
 
 Changing what everyone sees (artwork, descriptions, files in the games folder) and the upload list are for admin accounts only. A user account, a per-console login and a paired console only read.
 
+### What is kept on disk
+
+- Passwords of accounts and per-console logins are kept as scrypt hashes only.
+- Console access keys and automation tokens are kept as SHA-256 hashes only. The plain value is shown once, when it is made.
+- Secrets the server has to read back (the admin authenticator secret, the session and download-token signing keys, the Google and IGDB client secrets) are sealed with AES-256-GCM under `COOK_SECRET_KEY`. The key lives in `.env`, not in the data folder, so a copy of the data folder alone opens none of them.
+- Keep a copy of `COOK_SECRET_KEY`. Without it the server does not start, and a new key cannot open what the old one sealed.
+- The files under `data/security/` are readable by the server's account only (0600).
+
 ### How consoles are approved
 
 A QR approval by a signed-in user and a client downloaded from the web page always approve the console under that user's account, whatever the mode. Anyone who holds an account can therefore add consoles, so give accounts only to people you trust. The approval mode on the Settings tab decides about every other console:
