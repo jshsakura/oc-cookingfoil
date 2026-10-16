@@ -8,17 +8,14 @@
  * token's SHA-256, so buttons sent before a restart still work and the file
  * alone can't be replayed.
  */
-import path from "path";
 import crypto from "crypto";
 import debug from "../debug.js";
-import { dataDir } from "../helpers/envs.js";
 import { recordStore } from "../db/security-stores.js";
 
 export const TTL_MS = 24 * 60 * 60 * 1000;
 export const TOKEN_RE = /^[A-Za-z0-9_-]{22}$/;
 // Above what the alerts can issue in a TTL: three per ten minutes for each kind of request (alerts.js).
 const MAX_KEPT = 1000;
-const FILE = path.join(dataDir, "security", "telegram-approvals.json");
 
 let saved = null; // hash → { kind, ref, at }
 
@@ -26,9 +23,7 @@ const hash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 let store = null;
 const records = () =>
-  (store ??= recordStore("approval", {
-    legacy: { file: FILE, lenient: true, entries: (json) => Object.entries(json && typeof json.requests === "object" && json.requests ? json.requests : {}) },
-  }));
+  (store ??= recordStore("approval"));
 
 const read = () => Object.fromEntries(records().load());
 

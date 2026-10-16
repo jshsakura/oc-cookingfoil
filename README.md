@@ -175,6 +175,7 @@ Settings you will usually change on the admin page (Settings tab), all of which 
 | Connections per download | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | Direct download address, token lifetime | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | off, `21600` s |
 | Safe restart | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` s, `25` s |
+| Folder sync, daily backups | `COOK_SYNC_HOURS`, `COOK_BACKUP_DAYS` | every `6` h, kept `14` days (`0` turns each off) |
 
 Keys for outside services (IGDB, SteamGridDB, Dropbox, GitHub, a ratings server), Google sign-in and Telegram alerts are entered on the admin page, which also says where to get each one. All of them are optional. Without one, only the feature that needs it is off.
 
@@ -307,6 +308,8 @@ Changing what everyone sees (artwork, descriptions, files in the games folder) a
 - Keep a copy of `COOK_SECRET_KEY`. Without it the server does not start, and a new key cannot open what the old one sealed.
 - Accounts, approved consoles, per-console logins, tokens, saved settings, the audit log and the sealed secrets are kept in `data/security/security.db` (SQLite), readable by the server's account only (0600). Back it up with the data folder: unlike the index below, it cannot be rebuilt.
 - What a scan of the saves, homebrew and retro folders found, and the content hashes of their files, are kept in `data/cookingfoil.db` (SQLite), so a restart lists them at once. It is only an index of the folders: delete it and the server reads the folders again.
+- Every library folder is read again in full every `COOK_SYNC_HOURS` hours, and at once with **Sync now** on the Settings tab. The folder watches catch new files as they land; this fills in anything they miss.
+- Once a day the security database and the hand-kept files (download and alert logs, the NSZ queue, descriptions, names fixed by hand, homebrew sources, uploaded artwork) are copied to `data/backups/<date>/` (0700), kept `COOK_BACKUP_DAYS` days. **Back up now** on the Settings tab makes one at once. ROMs, images and caches are left out, as they come back by themselves. Copy `data/backups` to another disk for protection against a disk failure.
 
 ### How consoles are approved
 

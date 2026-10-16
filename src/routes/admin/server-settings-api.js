@@ -7,6 +7,10 @@
  *                                                     400 { error, field } when titledbSource or publicDirectBaseUrl points at a private network
  *                                                     403 { error, field } from an automation token naming a TOKEN_LOCKED setting
  *   POST /admin/api/server-settings/titledb-refresh   fetch titledb now, in the background
+ *   POST /admin/api/server-settings/sync-now          read every library folder again now; { sync }
+ *   POST /admin/api/server-settings/backup-now        make today's backup now; { backup }
+ *
+ * The GET also carries sync (meta/folder-sync.js status) and backup (db/backup.js status).
  *
  * The names are security/server-settings.js SETTINGS.
  */
@@ -17,6 +21,8 @@ import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
 import debug from "../../debug.js";
 import * as directHealth from "../../security/direct-health.js";
+import * as folderSync from "../../meta/folder-sync.js";
+import * as backups from "../../db/backup.js";
 import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
@@ -41,9 +47,31 @@ export function mountServerSettingsApi(router, requireSession) {
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
     }
   };
-  const view = () => ({ settings: serverSettings.describe(), titledb: { ...titledbStore.status(), fetching: Boolean(fetching) }, directDownload: directHealth.status() });
+  const view = () => ({
+    settings: serverSettings.describe(),
+    titledb: { ...titledbStore.status(), fetching: Boolean(fetching) },
+    directDownload: directHealth.status(),
+    sync: folderSync.status(),
+    backup: backups.status(),
+  });
 
   router.get("/api/server-settings", handle((req, res) => res.json(view())));
+
+  // The folders are read in the background; the page asks again for the result.
+  router.post("/api/server-settings/sync-now", handle((req, res) => {
+    folderSync.syncNow("admin").catch(() => {});
+    res.json({ sync: folderSync.status(), message: "모든 폴더를 다시 읽고 있습니다. 끝나면 목록에 바로 보입니다." });
+  }));
+
+  router.post("/api/server-settings/backup-now", handle((req, res) => {
+    try {
+      const made = backups.backupNow();
+      res.json({ backup: backups.status(), message: `${made.day} 백업을 만들었습니다.` });
+    } catch (err) {
+      debug.error("admin: backup failed: %s", err.message);
+      res.status(500).json({ error: "백업을 만들지 못했습니다. 서버 기록을 봅니다" });
+    }
+  }));
 
   router.post("/api/server-settings", handle(async (req, res) => {
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};

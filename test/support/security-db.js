@@ -45,3 +45,15 @@ export const persistedState = (dataDir) => ({
   audit: events(dataDir, "audit"),
   denials: events(dataDir, "denials"),
 });
+
+/** Writes records of one kind into ${dataDir}/security/security.db before a server starts. */
+export async function seedRecords(dataDir, kind, entries) {
+  const { openDatabase, SECURITY_MIGRATIONS } = await import("../../src/db/schema.js");
+  const db = openDatabase(securityDbFile(dataDir), { migrations: SECURITY_MIGRATIONS, private: true });
+  try {
+    const put = db.prepare("INSERT OR REPLACE INTO records (kind, id, data) VALUES (?, ?, ?)");
+    for (const [id, record] of Object.entries(entries)) put.run(kind, id, JSON.stringify(record));
+  } finally {
+    db.close();
+  }
+}

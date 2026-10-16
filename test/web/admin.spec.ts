@@ -398,6 +398,30 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   expect(await features()).toContain('device-pairing');
 });
 
+test('the settings tab syncs every folder and makes a backup with one press each, and keeps their schedules', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#settings');
+  const sync = page.locator('.ss-row').filter({ hasText: '지금 동기화' });
+  await sync.getByRole('button', { name: '지금 동기화' }).click();
+  await expect(page.locator('#toast')).toContainText('모든 폴더를 다시 읽고 있습니다');
+  await expect(sync).toContainText('마지막으로 다 읽은 때', { timeout: 15000 });
+  await expect(sync).toContainText('게임, 홈브류, 세이브, 패치, 레트로');
+
+  const backup = page.locator('.ss-row').filter({ hasText: '지금 백업' });
+  await backup.getByRole('button', { name: '지금 백업' }).click();
+  await expect(page.locator('#toast')).toContainText('백업을 만들었습니다');
+  await expect(backup).toContainText('백업 1개를 두고 있습니다');
+
+  const days = page.locator('.ss-row[data-key="backupDays"] select');
+  await days.selectOption('30');
+  await expect(page.locator('.ss-row[data-key="backupDays"]')).toContainText('여기서 정한 값입니다. compose 값은 14일 (기본) 입니다.');
+  await page.locator('.ss-row[data-key="backupDays"]').getByRole('button', { name: 'compose 값으로' }).click();
+  await page.locator('.ss-row[data-key="syncHours"] select').selectOption('0');
+  await expect(page.locator('.ss-row[data-key="syncHours"]')).toContainText('여기서 정한 값입니다');
+  await page.locator('.ss-row[data-key="syncHours"]').getByRole('button', { name: 'compose 값으로' }).click();
+  await expect(page.locator('.ss-row[data-key="syncHours"] .ss-src')).toHaveCount(0);
+});
+
 test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings');

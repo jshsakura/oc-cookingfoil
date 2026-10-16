@@ -15,15 +15,11 @@
  * The password is shown once and only its scrypt hash is kept, in
  * the security database (db/database.js).
  */
-import path from "path";
 import crypto from "crypto";
-import { dataDir } from "../helpers/envs.js";
 import { hashPassword, matchesAsync } from "./password-hash.js";
 import * as users from "./users.js";
 import { recordStore } from "../db/security-stores.js";
 
-const DIR = path.join(dataDir, "security");
-const FILE = path.join(DIR, "device-logins.json");
 export const NAME_PREFIX = "cf-";
 // Easy to read off a phone and type on the console keyboard: no 0/o, 1/l/i.
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -56,8 +52,7 @@ function randomText(length) {
 }
 
 let store = null;
-// Fail closed (a file that does not read stops the start) rather than silently dropping everyone's revocations.
-const records = () => (store ??= recordStore("device-login", { legacy: { file: FILE, entries: (json) => Object.entries(json?.logins ?? {}) } }));
+const records = () => (store ??= recordStore("device-login"));
 
 function persist() {
   records().sync(logins);

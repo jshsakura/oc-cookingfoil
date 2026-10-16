@@ -380,6 +380,10 @@ let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 0, { min: 0, max: 10485
 let nszBlock = envBool("COOK_NSZ_BLOCK", false);
 // .xci to .xcz as well. Off: the client's .xcz install is not verified on a device yet.
 let nszXci = envBool("COOK_NSZ_XCI", false);
+// Daily backups of the security database and the hand-kept files (db/backup.js), kept this many days; 0 makes none.
+let backupDays = envNumber("COOK_BACKUP_DAYS", 14, { min: 0, max: 365, integer: true });
+// Every folder read again in full this often (meta/folder-sync.js), behind the folder watch; 0 only on request.
+let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -422,6 +426,8 @@ const ENV_SETTINGS = Object.freeze({
   nszDiskFloorGb,
   nszBlock,
   nszXci,
+  backupDays,
+  syncHours,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -462,6 +468,8 @@ function applyServerSettings(saved = {}) {
   nszDiskFloorGb = v.nszDiskFloorGb;
   nszBlock = v.nszBlock;
   nszXci = v.nszXci;
+  backupDays = v.backupDays;
+  syncHours = v.syncHours;
 }
 
 export {
@@ -481,6 +489,8 @@ export {
   nszDiskFloorGb,
   nszBlock,
   nszXci,
+  backupDays,
+  syncHours,
   applyServerSettings,
   titledbAutoFetch,
   titledbRegions,

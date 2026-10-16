@@ -48,22 +48,3 @@ test("boot logs no TOTP secret; the one it makes is kept sealed", async () => {
     run.child.kill();
   }
 });
-
-test("a TOTP secret an older version left in the clear stops the start, naming the file and never logging it", async () => {
-  const data = dataDir();
-  const OLD = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
-  const file = path.join(data, "security", "admin-totp.json");
-  fs.writeFileSync(file, JSON.stringify({ secret: OLD, enrolled: false, createdAt: 1 }));
-  const run = boot(data);
-  try {
-    for (let i = 0; i < 80 && run.exited === null; i++) await new Promise((r) => setTimeout(r, 250));
-    assert.notEqual(run.exited, null, "the server stopped");
-    assert.notEqual(run.exited, 0);
-    assert.match(run.out, /admin-totp\.json/);
-    assert.ok(!run.out.includes(OLD), "the old secret is not logged");
-    assert.equal(sealedSecret(data, "admin-totp"), undefined, "nothing new was made over it");
-    assert.equal(fs.readFileSync(file, "utf8").includes(OLD), true, "the file is left for the operator");
-  } finally {
-    run.child.kill();
-  }
-});

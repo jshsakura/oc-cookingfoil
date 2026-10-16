@@ -5,7 +5,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { sealedSecret, securityDbFile } from "../support/security-db.js";
+import { sealedSecret, securityDbFile, seedRecords } from "../support/security-db.js";
 import { open } from "../../src/security/secret-box.js";
 
 // The server and this test share one data folder, so sessions sealed here are the server's.
@@ -13,10 +13,10 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-weblogin-"));
 fs.mkdirSync(path.join(data, "games"));
 fs.mkdirSync(path.join(data, "security"));
 const now = Date.now();
-fs.writeFileSync(path.join(data, "security", "google-accounts.json"), JSON.stringify({ version: 1, accounts: {
+await seedRecords(data, "google-account", {
   ok1: { sub: "ok1", email: "friend@example.com", status: "approved", createdAt: now, approvedAt: now, lastAt: now },
   wait1: { sub: "wait1", email: "new@example.com", status: "pending", createdAt: now, lastAt: now },
-} }));
+});
 process.env.COOK_DATA_DIR = data;
 process.env.COOK_ADMIN_EMAIL = "owner@example.com";
 const oauth = await import("../../src/security/google-oauth.js");

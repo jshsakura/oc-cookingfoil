@@ -8,12 +8,10 @@
  *
  * Saving applies at once through envs.js applyServerSettings (live bindings).
  */
-import path from "path";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import { settingsStore } from "../db/security-stores.js";
 
-const FILE = path.join(env.dataDir, "security", "server-settings.json");
 const URL_RE = /^https?:\/\/[^\s/]+[^\s]{0,300}$/;
 const LANG_RE = /^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?$/;
 const REGION_RE = /^[A-Z]{2}\.[a-z]{2}$/;
@@ -78,6 +76,8 @@ export const SETTINGS = {
   nszDiskFloorGb: whole(0, 1048576),
   nszBlock: bool,
   nszXci: bool,
+  backupDays: whole(0, 365),
+  syncHours: whole(0, 168),
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
 };
 
@@ -92,7 +92,7 @@ function warnRetired(what) {
 }
 
 let store = null;
-const settingsRows = () => (store ??= settingsStore({ legacyFile: FILE }));
+const settingsRows = () => (store ??= settingsStore());
 
 function read() {
   if (process.env.COOK_DOWNLOAD_BASE_URL) warnRetired("COOK_DOWNLOAD_BASE_URL");

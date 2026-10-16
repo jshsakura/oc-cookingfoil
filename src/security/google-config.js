@@ -7,18 +7,16 @@
  * them. The secret never leaves this module except to Google's token endpoint:
  * describe() reports only whether one is set.
  */
-import path from "path";
-import { dataDir, googleClientId as envId, googleClientSecret as envSecret } from "../helpers/envs.js";
+import { googleClientId as envId, googleClientSecret as envSecret } from "../helpers/envs.js";
 import { readSecretJson, writeSecretJson } from "../db/security-stores.js";
 
-const FILE = path.join(dataDir, "security", "google-oauth.json");
 const ID_RE = /^[A-Za-z0-9._-]{8,200}$/;
 const SECRET_RE = /^[\x21-\x7e]{8,200}$/;
 
 let current = null;
 
 function load() {
-  const saved = readSecretJson("google-oauth", { legacyFile: FILE });
+  const saved = readSecretJson("google-oauth");
   if (saved) return { enabled: saved.enabled === true, clientId: String(saved.clientId ?? ""), clientSecret: String(saved.clientSecret ?? ""), source: "admin" };
   return { enabled: Boolean(envId && envSecret), clientId: envId, clientSecret: envSecret, source: envId || envSecret ? "env" : "none" };
 }

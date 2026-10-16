@@ -4,87 +4,14 @@
  *   recordStore   one kind of record (accounts, console logins, tokens), a row each
  *   settingsStore the admin's saved settings, a row each
  *   secret*       values the server reads back, only ever sealed (secret-box.js)
- *
- * Each takes over the JSON file an earlier version kept, once, on first use;
- * the file is left where it is. A file that is there but does not read stops
- * the server rather than starting it with nothing (no accounts would leave it
- * open, no revocations would let a revoked console back in). Where starting
- * without it is safe (settings fall back to compose, one-time links lapse), it
- * is skipped for this start and tried again on the next; it is only noted as
- * taken over once it was read.
  */
-import fs from "fs";
-import path from "path";
-import debug from "../debug.js";
 import { securityDb, transaction } from "./database.js";
-import { isSealed, open, seal, SecretKeyError } from "../security/secret-box.js";
+import { isSealed, open, seal } from "../security/secret-box.js";
 
-/** The parsed JSON in `file`, null when there is none. Throws when it is there but does not parse. */
-function readLegacy(file) {
-  let text;
-  try {
-    text = fs.readFileSync(file, "utf8");
-  } catch (err) {
-    if (err.code === "ENOENT") return null;
-    throw err;
-  }
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    throw new Error(`${file} cannot be read (${err.message}); fix or restore it before starting`);
-  }
-}
-
-/** What a take-over step returns when it could not read its file this time: not noted, tried again next start. */
-export const NOT_NOW = Symbol("not now");
-
-/**
- * Runs `take()` the first time `db` sees `source`, in the same transaction as
- * noting it. `take` returns the name of what it took over, null when there was
- * nothing, or NOT_NOW; it throws to stop the start.
- */
-export function takeOverOnce(source, take, { db = securityDb() } = {}) {
-  importOnce(db, source, take);
-}
-
-export { readLegacy };
-
-/** readLegacy, but a file that does not read is logged and gives NOT_NOW. */
-function readLegacyOrLater(file) {
-  try {
-    return readLegacy(file);
-  } catch (err) {
-    debug.error("security: %s; it is tried again on the next start", err.message);
-    return NOT_NOW;
-  }
-}
-
-function importOnce(db, source, take) {
-  transaction(db, () => {
-    if (db.prepare("SELECT 1 FROM imports WHERE source = ?").get(source)) return;
-    const took = take();
-    if (took === NOT_NOW) return;
-    db.prepare("INSERT INTO imports (source, at) VALUES (?, ?)").run(source, Date.now());
-    if (took) debug.log("security: took over %s", took);
-  });
-}
-
-/**
- * The records of one `kind`. `legacy` is { file, entries(json) → [[id, record]],
- * lenient? } for the file an earlier version kept; `lenient` skips a file that
- * does not read (for records that only lapse, such as one-time links).
- */
-export function recordStore(kind, { db = securityDb(), legacy = null } = {}) {
+/** The records of one `kind`. */
+export function recordStore(kind, { db = securityDb() } = {}) {
   const upsert = db.prepare("INSERT OR REPLACE INTO records (kind, id, data) VALUES (?, ?, ?)");
   const drop = db.prepare("DELETE FROM records WHERE kind = ? AND id = ?");
-  if (legacy) {
-    importOnce(db, `records:${kind}`, () => {
-      const json = legacy.lenient ? readLegacyOrLater(legacy.file) : readLegacy(legacy.file);
-      if (!json || json === NOT_NOW) return json;
-      for (const [id, record] of legacy.entries(json)) upsert.run(kind, String(id), JSON.stringify(record));
-      return path.basename(legacy.file);
-    });
-  }
   const read = () => new Map(db.prepare("SELECT id, data FROM records WHERE kind = ?").all(kind).map((r) => [r.id, r.data]));
   // What the table holds, as last read or written: sync() writes only what differs from it.
   let written = null;
@@ -114,18 +41,9 @@ export function recordStore(kind, { db = securityDb(), legacy = null } = {}) {
   };
 }
 
-/** The admin's saved settings: { load() → { key: value }, save(values) }. `legacyFile` is { settings: {...} }. */
-export function settingsStore({ db = securityDb(), legacyFile = null } = {}) {
+/** The admin's saved settings: { load() → { key: value }, save(values) }. */
+export function settingsStore({ db = securityDb() } = {}) {
   const upsert = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
-  if (legacyFile) {
-    importOnce(db, "settings", () => {
-      // Settings fall back to the compose values meanwhile, as a broken file always did.
-      const json = readLegacyOrLater(legacyFile);
-      if (!json || json === NOT_NOW) return json;
-      for (const [k, v] of Object.entries(json.settings ?? {})) upsert.run(k, JSON.stringify(v));
-      return path.basename(legacyFile);
-    });
-  }
   return {
     load: () => Object.fromEntries(db.prepare("SELECT key, value FROM settings").all().map((r) => [r.key, JSON.parse(r.value)])),
     /** Makes the table hold exactly `values`. */
@@ -139,28 +57,10 @@ export function settingsStore({ db = securityDb(), legacyFile = null } = {}) {
 }
 
 /**
- * The plain bytes of secret `name`, or null when there is none. `legacyFile` is
- * the file an earlier version kept it in (sealed or not); it is taken over once.
- * A secret sealed with another key throws (SecretKeyError), never reads as missing.
+ * The plain bytes of secret `name`, or null when there is none. A secret sealed
+ * with another key throws (SecretKeyError), never reads as missing.
  */
-export function readSecret(name, { db = securityDb(), legacyFile = null } = {}) {
-  if (legacyFile) {
-    importOnce(db, `secret:${name}`, () => {
-      let text;
-      try {
-        text = fs.readFileSync(legacyFile, "utf8").trim();
-      } catch (err) {
-        if (err.code === "ENOENT") return null;
-        throw err;
-      }
-      // Only ever sealed (a file in the clear is not taken); open() checks it was sealed with this key.
-      // Stops the start like a wrong key would: nothing is made anew over it.
-      if (!isSealed(text)) throw new SecretKeyError(`${path.basename(legacyFile)} 이(가) 암호화되어 있지 않아 가져오지 않습니다. 이 파일을 지우면 새 값으로 시작합니다.`);
-      open(text);
-      db.prepare("INSERT OR REPLACE INTO secrets (name, sealed) VALUES (?, ?)").run(name, text);
-      return path.basename(legacyFile);
-    });
-  }
+export function readSecret(name, { db = securityDb() } = {}) {
   const row = db.prepare("SELECT sealed FROM secrets WHERE name = ?").get(name);
   if (!row) return null;
   if (!isSealed(row.sealed)) throw new Error(`secret ${name} is not sealed`);

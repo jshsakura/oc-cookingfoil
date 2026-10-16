@@ -11,11 +11,8 @@
  * token itself is shown once, when it is made.
  */
 import crypto from "crypto";
-import path from "path";
-import { dataDir } from "../helpers/envs.js";
 import { recordStore } from "../db/security-stores.js";
 
-const FILE = path.join(dataDir, "security", "api-tokens.json");
 const TOKEN_RE = /^Bearer\s+cft_([a-f0-9]{8})_([A-Za-z0-9_-]{32,64})$/i;
 const LABEL_MAX = 64;
 const MAX_TOKENS = 20;
@@ -26,7 +23,7 @@ let tokens = null;
 const sha = (s) => crypto.createHash("sha256").update(s).digest();
 
 let store = null;
-const records = () => (store ??= recordStore("api-token", { legacy: { file: FILE, entries: (json) => (json?.tokens ?? []).map((t) => [t.id, t]) } }));
+const records = () => (store ??= recordStore("api-token"));
 
 function load() {
   return (tokens ??= records().load().map(([, t]) => t).sort((a, b) => a.createdAt - b.createdAt));

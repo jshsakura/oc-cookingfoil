@@ -81,17 +81,15 @@ import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
 const MANUAL_STALE_MS = 6 * 60 * 60_000;
-// The folder watch reports changes as they land; the full rescan is only the backstop.
-const MANUAL_RESCAN_MS = 6 * 60 * 60_000;
 
 let tracker = null;
 useManualHashes(
-  hashStore(appDb(), "homebrew", { legacyFile: path.join(dataDir, "homebrew", "manual-hashes.json") }),
+  hashStore(appDb(), "homebrew"),
   path.join(dataDir, "homebrew"),
 );
 // The last scan is kept in the index: the folder sits on disks other jobs keep busy, where a
 // scan takes minutes, and a restart would otherwise wait for one before listing anything.
-const manualStore = catalogStore(appDb(), "homebrew-manual", { legacyFile: path.join(dataDir, "homebrew-manual.json") });
+const manualStore = catalogStore(appDb(), "homebrew-manual");
 const keep = (write) => {
   try {
     write();
@@ -259,8 +257,9 @@ export const defaultService = {
 };
 
 /**
- * Scans the hand-placed folder now and every minute, and checks the
- * repositories now and every 15 minutes (each one asks GitHub at most once per COOK_HOMEBREW_CHECK_HOURS).
+ * Scans the hand-placed folder now and watches it (the full rescan after that is
+ * meta/folder-sync.js), and checks the repositories now and every 15 minutes
+ * (each one asks GitHub at most once per COOK_HOMEBREW_CHECK_HOURS).
  */
 let watch = null;
 export function start() {
@@ -268,7 +267,6 @@ export function start() {
   scan();
   // An app copied into the folder by hand shows up once its copy has been quiet for a while.
   watch ??= watchItems(homebrewDir, { depth: 1, label: "homebrew", onItem: (folder) => refreshManualApp(folder) });
-  setInterval(scan, MANUAL_RESCAN_MS).unref();
   // Always scheduled: the admin can add a repository at any time.
   const run = () => githubTracker().checkAll()
     .then(() => githubTracker().fetchDescriptions())

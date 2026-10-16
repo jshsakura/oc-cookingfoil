@@ -8,17 +8,13 @@
  * changed and the log lines added since the last one. State survives container
  * restarts so attackers can't just bounce us to reset their failure count.
  */
-import path from "path";
 import debug from "../debug.js";
-import { dataDir } from "../helpers/envs.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
-import { eventLog, readLegacy, recordStore, takeOverOnce } from "../db/security-stores.js";
+import { eventLog, recordStore } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
 
-// Where an earlier version kept all of it, taken over once.
-const STATE_PATH = path.join(dataDir, "security", "state.json");
 const FLUSH_DEBOUNCE_MS = 500;
 // Steady traffic keeps pushing the debounce back; a change waits at most this long.
 const FLUSH_MAX_WAIT_MS = 5000;
@@ -116,30 +112,8 @@ const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null }
   ({ firstSeenAt, lastSeenAt, ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}) });
 const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 
-/** The state.json of an earlier version, once, into the tables. */
-function takeOverStateFile() {
-  takeOverOnce("state", () => {
-    // One that does not read stops the start: starting empty would lose every approved console for good.
-    const parsed = readLegacy(STATE_PATH);
-    if (!parsed) return null;
-    const t = db();
-    const entries = (o, map = (v) => v, keep = () => true) => Object.entries(o ?? {}).filter(([, v]) => keep(v)).map(([k, v]) => [k, map(v)]);
-    t.rows.failures.sync(entries(parsed.failures));
-    t.rows.lockouts.sync(entries(parsed.lockouts));
-    t.rows.access.sync(entries(parsed.access));
-    t.rows.devices.sync(entries(parsed.devices, deviceRecord));
-    t.rows.pending.sync(entries(parsed.pending, pendingRecord));
-    t.rows.pairSecrets.sync(entries(parsed.pairSecrets, (v) => v, isSecretHash));
-    t.denialCounts.sync(Object.entries(parsed.denialCounts ?? {}));
-    t.audit.append(Array.isArray(parsed.audit) ? parsed.audit.slice(-AUDIT_MAX) : []);
-    t.denials.append(Array.isArray(parsed.denials) ? parsed.denials.slice(-DENIALS_MAX) : []);
-    return "state.json";
-  });
-}
-
-/** Reads the state from the tables (taking over a state.json once). Throws when it cannot: the server must not start without it. */
+/** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
 export async function load() {
-  takeOverStateFile();
   const t = db();
   const rows = (field, map = (v) => v) => new Map(t.rows[field].load().map(([k, v]) => [k, map(v)]));
   state.failures = rows("failures");

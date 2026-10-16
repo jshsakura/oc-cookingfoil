@@ -4,19 +4,16 @@
  * COOK_ADMIN_PASSWORD: either one opens the admin page. The plain password is
  * never stored or sent back.
  */
-import path from "path";
-import { dataDir } from "../helpers/envs.js";
 import { hashPassword, matches as hashMatches } from "./password-hash.js";
 import { recordStore } from "../db/security-stores.js";
 
-const FILE = path.join(dataDir, "security", "admin-password.json");
 export const MIN_LENGTH = 12;
 export const MAX_LENGTH = 200;
 
 let saved; // undefined until read; null when there is none
 
 let store = null;
-const records = () => (store ??= recordStore("admin-password", { legacy: { file: FILE, entries: (json) => (json?.hash ? [["admin", json]] : []) } }));
+const records = () => (store ??= recordStore("admin-password"));
 
 function hash() {
   if (saved !== undefined) return saved;
