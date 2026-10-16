@@ -101,3 +101,45 @@ test("long text is cut and bad counts are dropped", () => {
   assert.equal(e.total, null);
   assert.equal(e.current, 0);
 });
+
+test("a job begun with cancel() can be stopped once, and ends in recent as stopped", () => {
+  const a = createActivity();
+  let asked = 0;
+  const job = a.begin("verify", { title: "게임 파일을 검사합니다", total: 10, cancel: () => { asked++; } });
+  const plain = a.begin("backup");
+  let snap = a.list();
+  assert.equal(snap.running.find((e) => e.id === job.id).cancellable, true);
+  assert.equal(snap.running.find((e) => e.id === plain.id).cancellable, false);
+
+  assert.equal(a.cancel(plain.id), false);
+  assert.equal(a.cancel("a999"), false);
+  assert.equal(a.cancel(job.id), true);
+  assert.equal(a.cancel(job.id), false);
+  assert.equal(asked, 1);
+  snap = a.list();
+  const e = snap.running.find((x) => x.id === job.id);
+  assert.equal(e.detail, "중지하는 중");
+  assert.equal(e.cancellable, false);
+  job.step(3, "next.nsp");
+  assert.equal(a.list().running.find((x) => x.id === job.id).detail, "중지하는 중");
+
+  job.done("3개");
+  const ended = a.list().recent[0];
+  assert.equal(ended.state, "stopped");
+  assert.equal(ended.result, "3개");
+  assert.equal(ended.detail, null);
+  assert.equal("stopping" in ended, false);
+  assert.equal(a.cancel(job.id), false);
+});
+
+test("a stopped job that is discarded or fails still shows as stopped", () => {
+  const a = createActivity();
+  const one = a.begin("verify", { cancel: () => {} });
+  const two = a.begin("nsz", { cancel: () => { two.fail(new Error("killed")); } });
+  a.cancel(one.id);
+  one.discard();
+  a.cancel(two.id);
+  const { running, recent } = a.list();
+  assert.equal(running.length, 0);
+  assert.deepEqual(recent.map((e) => [e.kind, e.state, e.error]), [["nsz", "stopped", undefined], ["verify", "stopped", undefined]]);
+});

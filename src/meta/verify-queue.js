@@ -31,6 +31,10 @@
  * MAX_FAILS unexpected errors in a row the queue stops, and starts again by
  * itself after RESUME_MS or when the admin asks for something.
  *
+ * The admin may stop a check from the activity menu (`stop()`): the file in
+ * progress is aborted and keeps waiting, and nothing more starts until the next
+ * library update, a restart or another request from the admin page.
+ *
  * Records live in the index database (catalog "file-verdicts"), keyed by the
  * games-folder relative path:
  *   { path, size, mtimeMs, verdict?, reason?, checks?, at?, wantHash, hashDone,
@@ -135,6 +139,7 @@ export function createVerifyQueue({
   let batch = null; // { job, done }
   let resumeTimer = null;
   let resumeAt = null;
+  let stopped = false; // the admin stopped the check: nothing starts until the next library update or request
   const gone = new Map(); // size:mtime → a record that went away, oldest first
 
   const abs = (rel) => path.join(gamesDir, rel);
@@ -257,7 +262,7 @@ export function createVerifyQueue({
   /** After a library rebuild: look at the files again (coalesced). */
   function onLibraryUpdate() {
     if (closed || autoTimer) return;
-    autoTimer = setTimeout(() => { autoTimer = null; sync(); }, autoDelayMs);
+    autoTimer = setTimeout(() => { autoTimer = null; stopped = false; sync(); }, autoDelayMs);
     autoTimer.unref?.();
   }
 
@@ -301,6 +306,7 @@ export function createVerifyQueue({
     try {
       for (;;) {
         if (closed || pausedReason) break;
+        if (stopped) { waitingFor = "stopped"; endBatch(); break; }
         const { row, soonest } = pickNext();
         if (!row) {
           waitingFor = null;
@@ -338,7 +344,7 @@ export function createVerifyQueue({
 
   function beginBatch() {
     if (batch) return;
-    batch = { job: track({ title: "게임 파일을 검사합니다", total: pending.size }), done: 0 };
+    batch = { job: track({ title: "게임 파일을 검사합니다", total: pending.size, cancel: stop }), done: 0 };
   }
 
   function endBatch() {
@@ -416,8 +422,16 @@ export function createVerifyQueue({
     resumeTimer = null;
     resumeAt = null;
     pausedReason = null;
+    stopped = false;
     fails = 0;
     failedNow.clear();
+  }
+
+  /** The admin stopped the check: the file in progress is aborted and waits, and the batch ends. */
+  function stop() {
+    stopped = true;
+    running?.abort.abort("stop");
+    if (!running && !pumping) endBatch();
   }
 
   // ── what the admin page does ─────────────────────────────────────────
@@ -497,7 +511,7 @@ export function createVerifyQueue({
   }
 
   return {
-    init, sync, onLibraryUpdate, hashAll, recheck, shutdown, integrityOf, view, pump,
+    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, view, pump,
     get: (rel) => rows.get(rel) ?? null,
     /** Test-only: resolves once nothing runs or is being started. */
     async idle() {

@@ -7,6 +7,9 @@
  * The panels that used to poll on their own (conversion, retro art) read again
  * when a job of theirs steps or ends, and fall back to their timers while the
  * socket is down (`actLive`).
+ *
+ * A running job that can be stopped (`cancellable`) gets a stop button, which asks
+ * first and then posts /admin/api/activity/:id/cancel.
  */
 import { icon } from "../../views/icons.js";
 
@@ -24,7 +27,7 @@ export const ACTIVITY_CSS = /* css */ `
 .act-live{color:var(--faint);font-size:12px;font-weight:600}
 .act-live.on{color:var(--good)}
 .act-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
-.act-row{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:8px 10px;border-radius:10px}
+.act-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:2px 10px;align-items:center;padding:8px 10px;border-radius:10px}
 .act-row:hover{background:var(--sunk)}
 .act-row .ic{grid-row:span 2;display:grid;place-items:center;width:26px;height:26px;border-radius:100px;background:var(--sunk);color:var(--muted)}
 .act-row .ic .ico{width:14px;height:14px}
@@ -33,11 +36,14 @@ export const ACTIVITY_CSS = /* css */ `
 .act-row.failed .ic{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
 .act-row .t{font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act-row .n{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
-.act-row .d{grid-column:2 / 4;color:var(--muted);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-row .d{grid-column:2 / -1;color:var(--muted);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act-row.failed .d{color:var(--bad)}
-.act-bar{grid-column:2 / 4;position:relative;height:4px;margin-top:4px;border-radius:100px;background:var(--sunk);overflow:hidden}
+.act-bar{grid-column:2 / -1;position:relative;height:4px;margin-top:4px;border-radius:100px;background:var(--sunk);overflow:hidden}
 .act-bar>i{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:var(--accent);transition:width .4s ease}
 .act-bar.ind>i{width:30%;animation:act-slide 1.4s ease-in-out infinite}
+.act-row .act-stop{grid-column:4;grid-row:1;width:28px;height:28px;margin-left:2px}
+.act-row .act-stop .ico{width:13px;height:13px}
+.act-row .act-stop:hover{color:var(--bad);border-color:var(--bad)}
 .act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:13px}
 .act-empty[hidden]{display:none}
 @keyframes act-spin{to{transform:rotate(360deg)}}
@@ -62,7 +68,8 @@ export const ACTIVITY_SCRIPT = /* js */ `
 // ── activity menu ──
 var actLive=false;
 let actWs=null,actRetry=1000,actPoll=null,actSnap={running:[],recent:[]},actTick=null;
-const ACT_ICON={running:${JSON.stringify(icon("activity"))},done:${JSON.stringify(icon("check"))},failed:${JSON.stringify(icon("x"))}};
+const ACT_ICON={running:${JSON.stringify(icon("activity"))},done:${JSON.stringify(icon("check"))},failed:${JSON.stringify(icon("x"))},stopped:${JSON.stringify(icon("stop"))}};
+const ACT_STOP=${JSON.stringify(icon("stop"))};
 const actGb=(n)=>(n/1073741824).toFixed(n>=10737418240?0:1)+' GB';
 function actDur(ms){const s=Math.max(0,Math.round(ms/1000));if(s<60)return s+'초';const m=Math.floor(s/60);if(m<60)return m+'분 '+(s%60)+'초';return Math.floor(m/60)+'시간 '+(m%60)+'분';}
 function actAgo(t){const s=Math.round((Date.now()-t)/1000);return s<60?'방금':Math.floor(s/60)+'분 전';}
@@ -80,6 +87,10 @@ function actFillRunning(li,e){
   li.querySelector('.d').textContent=e.detail||'';li.querySelector('.d').hidden=!e.detail;
   const bar=li.querySelector('.act-bar');const pct=e.total?Math.min(100,e.current/e.total*100):null;
   bar.classList.toggle('ind',pct==null);bar.firstChild.style.width=pct==null?'':pct+'%';
+  let stop=li.querySelector('.act-stop');
+  if(e.cancellable&&!stop){stop=el('button',null,'icon-btn act-stop');stop.type='button';stop.innerHTML=ACT_STOP;
+    stop.setAttribute('aria-label','중지');stop.title='중지';stop.addEventListener('click',(ev)=>{ev.stopPropagation();actCancel(e.id);});li.append(stop);}
+  else if(!e.cancellable&&stop)stop.remove();
   bar.setAttribute('role','progressbar');bar.setAttribute('aria-label',e.title);if(pct!=null)bar.setAttribute('aria-valuenow',String(Math.round(pct)));else bar.removeAttribute('aria-valuenow');}
 function actRender(){
   const {running,recent}=actSnap;
@@ -92,7 +103,7 @@ function actRender(){
   box.replaceChildren(...rows);$('act-idle').hidden=running.length>0;
   const rbox=$('act-recent');rbox.replaceChildren(...recent.map((e)=>{const li=actRow(e,false);
     li.querySelector('.n').textContent=actDur(e.ms)+' · '+actAgo(e.endedAt);
-    const d=e.state==='failed'?(e.error||'실패했습니다'):(e.result||e.detail||'');li.querySelector('.d').textContent=d;li.querySelector('.d').hidden=!d;return li;}));
+    const d=e.state==='failed'?(e.error||'실패했습니다'):e.state==='stopped'?'중지했습니다'+(e.result?' ('+e.result+')':''):(e.result||e.detail||'');li.querySelector('.d').textContent=d;li.querySelector('.d').hidden=!d;return li;}));
   $('act-none').hidden=recent.length>0;}
 // The panels that follow a job read again when it steps or ends, at most every two seconds.
 const actQ={};
@@ -113,6 +124,9 @@ function actFollow(prev,next){
   for(const f of ACT_FOLLOW){
     const hit=f.kinds.some((k)=>ended.includes(k)||(!f.ended&&live.includes(k)));
     if(hit&&f.when())actSoon(f.kinds[0],f.run);}}
+async function actCancel(id){if(!await ask('이 작업을 중지할까요?'))return;
+  try{await api('/admin/api/activity/'+encodeURIComponent(id)+'/cancel',{method:'POST'});toast('작업을 중지합니다.');}
+  catch(err){if(err.message!=='session')toast(err.message);}}
 function actApply(snap){const prev=actSnap;actSnap={running:snap.running||[],recent:snap.recent||[]};actRender();actFollow(prev,actSnap);}
 function actSetLive(on){actLive=on;const l=$('act-live');l.classList.toggle('on',on);l.textContent=on?'실시간':'15초마다 확인합니다';}
 async function actPollOnce(){if(document.visibilityState!=='visible')return;

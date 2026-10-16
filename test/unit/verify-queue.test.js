@@ -380,3 +380,35 @@ test("the hours: inside is now, outside waits for the start, a window may run pa
   assert.equal(msUntilHours("22-6", at(12)), 10 * HOUR);
   assert.equal(msUntilHours("off", at(3)), Infinity);
 });
+
+test("stopping from the activity menu aborts the file in progress and starts nothing until the next library update", async () => {
+  addFile("a.nsp", { ageMs: 3 * HOUR });
+  addFile("b.nsp", { ageMs: 2 * HOUR });
+  addFile("c.nsp", { ageMs: HOUR });
+  const store = memoryStore();
+  const q = makeQueue(store);
+  let first = true;
+  hooks["c.nsp"] = async ({ signal }) => {
+    if (!first) return { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "skip" } };
+    first = false;
+    jobs[0].o.cancel();
+    assert.equal(signal.aborted, true);
+    throw Object.assign(new Error("aborted"), { name: "AbortError" });
+  };
+
+  await settle(q);
+
+  assert.deepEqual(calls.map((c) => c.rel), ["c.nsp"]);
+  assert.equal(store.rows()["c.nsp"].verdict, undefined);
+  assert.deepEqual(jobs[0].ended, ["discard"]);
+  assert.equal(q.view().status, "stopped");
+  q.pump();
+  await q.idle();
+  assert.equal(calls.length, 1);
+
+  q.onLibraryUpdate();
+  await new Promise((r) => setTimeout(r, 20));
+  await q.idle();
+  assert.deepEqual(calls.map((c) => c.rel), ["c.nsp", "c.nsp", "b.nsp", "a.nsp"]);
+  assert.equal(q.view().status, "idle");
+});

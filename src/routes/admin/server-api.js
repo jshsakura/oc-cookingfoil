@@ -4,6 +4,8 @@
  *   GET  /admin/api/server/status    { draining, restartId, startedAt, backBy, retryAfter, graceSeconds, inflight, downloads }
  *   GET  /admin/api/activity         { running, recent }: what the server is doing (tasks/activity.js); the page
  *                                    gets the same over /admin/ws and reads this only while that is down
+ *   POST /admin/api/activity/:id/cancel  asks a running job that can be stopped to stop: { ok: true },
+ *                                    404 when it is not running or cannot be stopped
  *   POST /admin/api/server/restart   answers 202, then drains and exits with code 75 (security/drain.js
  *                                    RESTART_EXIT_CODE), so restart: always and Restart=on-failure both start it again
  *
@@ -22,6 +24,14 @@ export function mountServerApi(router, requireSession, { drainer = defaultDraine
   router.get("/api/activity", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store").json(activity.list());
+  });
+
+  router.post("/api/activity/:id/cancel", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    if (!activity.cancel(String(req.params.id))) return res.status(404).json({ error: "not-cancellable", message: "중지할 수 있는 작업이 아닙니다." });
+    debug.log("admin: job %s asked to stop", req.params.id);
+    res.json({ ok: true });
   });
 
   router.get("/api/server/status", (req, res) => {

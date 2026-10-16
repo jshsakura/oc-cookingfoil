@@ -257,6 +257,32 @@ test("without a restart handler the admin restart says it cannot", async () => {
   assert.equal(r.status, 503);
 });
 
+test("the admin page stops a running job that can be stopped, and only that", async () => {
+  const { createActivity } = await import("../../src/tasks/activity.js");
+  const activity = createActivity();
+  let asked = 0;
+  const job = activity.begin("verify", { cancel: () => { asked++; } });
+  const plain = activity.begin("backup");
+  const app = express();
+  const router = express.Router();
+  mountServerApi(router, (req, res) => (req.get("x-admin") ? true : (res.status(401).json({ error: "2fa required" }), false)), { drainer: createDrainer(), activity });
+  app.use("/admin", router);
+  const server = app.listen(0, "127.0.0.1");
+  servers.push(server);
+  await new Promise((r) => server.once("listening", r));
+  const url = (id) => `http://127.0.0.1:${server.address().port}/admin/api/activity/${id}/cancel`;
+  const post = (id, headers = { "x-admin": "1" }) => fetch(url(id), { method: "POST", headers });
+
+  assert.equal((await post(job.id, {})).status, 401);
+  assert.equal((await post(plain.id)).status, 404);
+  assert.equal((await post("a999")).status, 404);
+  const r = await post(job.id);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true });
+  assert.equal((await post(job.id)).status, 404, "asked once already");
+  assert.equal(asked, 1);
+});
+
 test("the dashboard shows its own notice once per restart, in its own language", async () => {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync(path.join(import.meta.dirname, "../../src/views/landing.html"), "utf-8");
