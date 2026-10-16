@@ -77,12 +77,28 @@ import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
-const MANUAL_STALE_MS = 30_000;
-const MANUAL_RESCAN_MS = 60_000; // keeps the "homebrew" feature flag current
+const MANUAL_STALE_MS = 10 * 60_000;
+const MANUAL_RESCAN_MS = 10 * 60_000; // keeps the "homebrew" feature flag current
 
 let tracker = null;
 setManualHashFile(path.join(dataDir, "homebrew", "manual-hashes.json"));
-let manual = { at: 0, entries: [] };
+// The last scan is kept on disk: the folder sits on disks other jobs keep busy, where a
+// scan takes minutes, and a restart would otherwise wait for one before listing anything.
+const MANUAL_LIST_FILE = path.join(dataDir, "homebrew-manual.json");
+function keptManual() {
+  try {
+    const kept = JSON.parse(fs.readFileSync(MANUAL_LIST_FILE, "utf8"));
+    return Array.isArray(kept?.entries) && Number.isFinite(kept.at) ? { at: kept.at, entries: kept.entries } : null;
+  } catch {
+    return null;
+  }
+}
+async function keepManual(m) {
+  const tmp = `${MANUAL_LIST_FILE}.tmp`;
+  await fsp.writeFile(tmp, JSON.stringify({ version: 1, ...m }));
+  await fsp.rename(tmp, MANUAL_LIST_FILE);
+}
+let manual = keptManual() ?? { at: 0, entries: [] };
 let manualScan = null;
 
 /**
@@ -97,14 +113,17 @@ export function homebrewEnabled() {
 /** Rescans the hand-placed folder now (one scan at a time). */
 export function refreshManual() {
   manualScan ??= scanManual(homebrewDir)
-    .then((entries) => { manual = { at: Date.now(), entries }; })
+    .then((entries) => {
+      manual = { at: Date.now(), entries };
+      keepManual(manual).catch((err) => debug.error("homebrew: could not keep the list: %s", err.message));
+    })
     .finally(() => { manualScan = null; });
   return manualScan;
 }
 
 /**
- * Hand-placed apps. Only the very first scan is waited for; after that a stale
- * list (older than 30 seconds) is answered at once while a rescan runs behind it.
+ * Hand-placed apps. Only a first scan with nothing kept on disk is waited for;
+ * after that a stale list is answered at once while a rescan runs behind it.
  */
 async function manualEntries() {
   if (!manual.at) await refreshManual();
