@@ -22,13 +22,17 @@
  * A save with a symlink, a path ustar cannot hold, too many files or too many
  * bytes is left out and only logged.
  *
- * The listing is rescanned when it is older than STALE_MS, in the background:
- * a request gets the listing in hand at once (only the first one, and the one
- * after a change made here, waits for a scan). A folder holds tens of
- * thousands of small files, so each folder's entries are stat'ed together,
- * and content hashes are cached by (size, mtime, inode) on disk.
+ * The folder holds tens of thousands of small files on disks other jobs keep
+ * busy, so a scan can take a minute. The last listing is kept on disk and
+ * served at once, also right after a restart; it is rescanned in the
+ * background when older than STALE_MS. Only a catalog with no listing yet, or
+ * one told of a change made here, waits for a scan. A scan reads one entry at
+ * a time so it holds one of libuv's threads, not all of them (with every
+ * thread waiting on a busy disk, every other file read of the server waits
+ * too). Content hashes are cached by (size, mtime, inode) on disk.
  */
 import crypto from "crypto";
+import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
@@ -38,7 +42,7 @@ import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
-const STALE_MS = 5 * 60_000;
+const STALE_MS = 30 * 60_000;
 const MAX_FILES = 5000;
 const MAX_BYTES = 1024 ** 3;
 const FIELD_MAX = { name: 120, description: 2000, gameVersion: 40 };
@@ -82,17 +86,14 @@ export function readMeta(raw) {
 }
 
 async function walk(root, rel = "", out = []) {
-  const entries = (await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })).filter((e) => !JUNK_RE.test(e.name));
-  if (out.length + entries.length > MAX_FILES) throw new Rejected(`more than ${MAX_FILES} files`);
-  // One folder's entries are stat'ed together; one at a time, a big save takes seconds.
-  const stats = await Promise.all(entries.map((entry) => {
+  for (const entry of await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })) {
+    if (JUNK_RE.test(entry.name)) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
-    return fsp.lstat(path.join(root, relPath)).then((st) => ({ relPath, st }));
-  }));
-  for (const { relPath, st } of stats) {
+    const abs = path.join(root, relPath);
+    const st = await fsp.lstat(abs);
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);
     if (st.isDirectory()) await walk(root, relPath, out);
-    else if (st.isFile()) out.push({ path: relPath, abs: path.join(root, relPath), size: st.size, mtimeMs: st.mtimeMs, ino: st.ino });
+    else if (st.isFile()) out.push({ path: relPath, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino });
     else throw new Rejected(`not a regular file: ${relPath}`);
     if (out.length > MAX_FILES) throw new Rejected(`more than ${MAX_FILES} files`);
   }
@@ -182,11 +183,30 @@ export async function scanDir(root, cache) {
   return out.sort((a, b) => (a.titleId ?? `~${a.homebrew}`).localeCompare(b.titleId ?? `~${b.homebrew}`) || a.name.localeCompare(b.name));
 }
 
-export function createCatalog({ root, cacheFile }) {
+/** The listing a previous scan kept in `file`: { saves, at }, or null. */
+function readList(file) {
+  if (!file) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    return Array.isArray(parsed?.saves) && Number.isFinite(parsed.at) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeList(file, saves, at) {
+  if (!file) return;
+  const tmp = `${file}.tmp`;
+  await fsp.writeFile(tmp, JSON.stringify({ version: 1, at, saves }));
+  await fsp.rename(tmp, file);
+}
+
+export function createCatalog({ root, cacheFile, listFile = null }) {
   const cache = new HashCache(cacheFile);
-  let saves = [];
-  let scannedAt = 0;
-  let current = false; // false until the first scan, and after a change made here
+  const kept = readList(listFile);
+  let saves = kept?.saves ?? [];
+  let scannedAt = kept?.at ?? 0;
+  let current = Boolean(kept); // false with no listing yet, and after a change made here
   let inFlight = null;
   const scan = () => {
     inFlight ??= scanDir(root, cache)
@@ -194,6 +214,7 @@ export function createCatalog({ root, cacheFile }) {
         saves = next;
         scannedAt = Date.now();
         current = true;
+        writeList(listFile, saves, scannedAt).catch((err) => debug.error("saves: could not keep the listing: %s", err.message));
         return saves;
       })
       .finally(() => (inFlight = null));
@@ -206,8 +227,9 @@ export function createCatalog({ root, cacheFile }) {
       else if (Date.now() - scannedAt > STALE_MS) scan().catch((err) => debug.error("saves: rescan failed: %s", err.message));
       return saves.map(publicFields);
     },
-    /** Scans now (on start), so the first request finds a listing. */
+    /** On start: scans when there is no kept listing or it is stale, in the background. */
     warm() {
+      if (current && Date.now() - scannedAt <= STALE_MS) return Promise.resolve();
       return scan().catch((err) => debug.error("saves: scan failed: %s", err.message));
     },
     /** Where a listed save sits under the root ({ dir, folder }), or null. */

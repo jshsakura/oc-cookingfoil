@@ -160,7 +160,7 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
     const cat = createCatalog({ root, cacheFile: path.join(root, "hashes.json") });
     assert.equal((await cat.list()).length, 1);
     put("two");
-    Date.now = () => realNow() + 10 * 60_000;
+    Date.now = () => realNow() + 60 * 60_000;
     assert.equal((await cat.list()).length, 1, "the stale listing, not a wait");
     await new Promise((r) => setTimeout(r, 50));
     assert.equal((await cat.list()).length, 2, "refreshed behind it");
@@ -169,6 +169,35 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
     assert.equal((await cat.list()).length, 3, "a change made here is read before answering");
   } finally {
     Date.now = realNow;
+    await new Promise((r) => setTimeout(r, 50)); // the kept listing's write
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the last listing is kept on disk and served at once after a restart, then rescanned behind it", async () => {
+  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-kept-"));
+  const listFile = path.join(root, "list.json");
+  const put = (folder) => {
+    fs.mkdirSync(path.join(root, "saves", "0100000000010000", folder), { recursive: true });
+    fs.writeFileSync(path.join(root, "saves", "0100000000010000", folder, "save.bin"), "x");
+  };
+  put("one");
+  const realNow = Date.now;
+  try {
+    const first = createCatalog({ root: path.join(root, "saves"), cacheFile: path.join(root, "h.json"), listFile });
+    assert.equal((await first.list()).length, 1);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.ok(fs.existsSync(listFile), "the listing is kept");
+    put("two");
+    const restarted = createCatalog({ root: path.join(root, "saves"), cacheFile: path.join(root, "h.json"), listFile });
+    assert.equal((await restarted.list()).length, 1, "the kept listing, no scan");
+    Date.now = () => realNow() + 60 * 60_000;
+    await restarted.warm();
+    assert.equal((await restarted.list()).length, 2, "a stale kept listing is rescanned");
+  } finally {
+    Date.now = realNow;
+    await new Promise((r) => setTimeout(r, 50)); // the kept listing's write
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

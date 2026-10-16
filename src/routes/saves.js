@@ -32,7 +32,7 @@ export const savesEnabled = () => fs.existsSync(savesDir);
 
 let shared = null;
 /** The one catalog of the saves folder, shared with the admin page. */
-export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json") }));
+export const savesCatalog = () => (shared ??= createCatalog({ root: savesDir, cacheFile: path.join(dataDir, "saves-hashes.json"), listFile: path.join(dataDir, "saves-list.json") }));
 
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
