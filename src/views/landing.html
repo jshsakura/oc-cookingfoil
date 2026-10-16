@@ -38,6 +38,8 @@
         --ground: #16161a; --surface: #1f1f24; --sunk: #26262c; --ink: #f2f1ee;
         --line: #303037; --line2: #41414a; --secondary: #a9a8a3; --faint: #75747c;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #0c0c0e;
+        /* Dialogs sit a step above the page so a dark dialog never melts into a dark page. */
+        --modal-bg: #232329; --modal-panel: #2d2d34; --modal-sunk: #35353d; --modal-line: #3e3e47;
         --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
         --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
         color-scheme: dark;
@@ -47,6 +49,7 @@
           --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
           --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
           --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
+          --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
           --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
           --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
           color-scheme: light;
@@ -56,6 +59,7 @@
         --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
         --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
+        --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
         --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
         --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
         color-scheme: light;
@@ -234,6 +238,8 @@
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
       .modal.xmodal .modal-head .modal-cover { margin-top: 0; width: 72px; height: 72px; }
+      /* No banner here, so a two-tone head marks the top of the dialog. */
+      .modal.xmodal .modal-head { margin: -26px -30px 22px; padding: 26px 30px 22px; background: var(--surface); border-bottom: 1px solid var(--line); }
       .modal.xmodal .modal-cover[hidden] { display: none; }
       .modal .xm-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
       .modal .xm-pills:empty { display: none; }
@@ -565,15 +571,18 @@
 
       /* DETAIL MODAL: dark header band over a light body, as on the client */
       .modal-backdrop {
-        position: fixed; inset: 0; background: rgba(12, 12, 14, 0.6); backdrop-filter: blur(6px);
+        position: fixed; inset: 0; background: rgba(8, 8, 10, 0.7); backdrop-filter: blur(6px);
         display: none; align-items: center; justify-content: center; z-index: 100; padding: 24px;
         animation: fadeIn 0.2s ease;
       }
       .modal-backdrop.open { display: flex; }
       .modal {
-        background: var(--ground); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh;
+        --surface: var(--modal-panel); --sunk: var(--modal-sunk); --line: var(--modal-line);
+        background: var(--modal-bg); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh;
         overflow: hidden auto; animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.25);
+        /* Every dialog draws its own edge, so it reads as a card over the page, not a floating sheet. */
+        border: 1px solid var(--line2);
       }
       /* capped so a zoomed-in or short window still shows the title and details */
       .modal .banner {
