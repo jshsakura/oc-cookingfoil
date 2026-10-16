@@ -39,6 +39,7 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 import { devicePage, loginPage } from "./login-page.js";
 import debug from "../debug.js";
+import { accountPasswordsOk } from "../security/password-policy.js";
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
 const MAX_FIELD = 200;
@@ -82,6 +83,7 @@ function renderLogin(req, res, { status = 200, next, error = null }) {
     google: googleConfig.googleConfigured(),
     googleState: google && google.status !== "approved" ? google.status : null,
     googleEmail: google?.email ?? null,
+    passwords: accountPasswordsOk(req),
     error,
   }));
 }
@@ -103,6 +105,7 @@ function mountPasswordLogin(router) {
     const trusted = trustLoopback && isLoopbackSocket(req);
     if (!trusted && store.isLocked(ip)) return renderLogin(req, retryAfter(res, lockoutRetryAfter(ip)), { status: 429, next, error: "locked" });
     if (!csrfOk(req)) return renderLogin(req, res, { status: 403, next, error: "expired" });
+    if (!accountPasswordsOk(req)) return renderLogin(req, res, { status: 403, next, error: "passwordsOff" });
     const name = String(req.body?.username ?? "").trim().slice(0, MAX_FIELD);
     const password = String(req.body?.password ?? "").slice(0, MAX_FIELD);
     // Accounts only: a console's own login (cf-…) never opens the web pages.

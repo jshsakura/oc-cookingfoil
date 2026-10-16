@@ -24,6 +24,8 @@ import * as directHealth from "../../security/direct-health.js";
 import * as folderSync from "../../meta/folder-sync.js";
 import * as backups from "../../db/backup.js";
 import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.js";
+import { googleReady } from "../../security/password-policy.js";
+import * as envs from "../../helpers/envs.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
@@ -32,7 +34,7 @@ const OUTBOUND = ["titledbSource", "publicDirectBaseUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 // Who may sign in and how, and the addresses consoles are sent to: never changed with an automation token.
-export const TOKEN_LOCKED = ["devicePairing", "consolePasswords", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"];
+export const TOKEN_LOCKED = ["devicePairing", "consolePasswords", "passwordLogin", "consolePasswordsLanOnly", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"];
 
 let fetching = null;
 
@@ -87,6 +89,13 @@ export function mountServerSettingsApi(router, requireSession) {
       } catch (err) {
         if (!(err instanceof OutboundError)) throw err;
         return res.status(400).json({ error: err.message, field });
+      }
+    }
+    // Without Google sign-in and an approved Google admin, switching passwords off would lock everyone out of /admin.
+    const wantsOff = body.passwordLogin === false || body.passwordLogin === "false" || (body.passwordLogin === null && envs.ENV_SETTINGS.passwordLogin === false);
+    if (wantsOff) {
+      if (!googleReady()) {
+        return res.status(409).json({ error: "Google 로그인이 켜져 있고 관리자로 승인된 Google 계정이 있어야 끌 수 있습니다. 끄면 아이디와 비밀번호로는 관리 페이지에 들어올 수 없습니다.", field: "passwordLogin" });
       }
     }
     let changed;

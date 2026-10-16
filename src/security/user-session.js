@@ -13,6 +13,7 @@ import crypto from "crypto";
 import * as accounts from "./google-accounts.js";
 import * as users from "./users.js";
 import { readSecret, writeSecret } from "../db/security-stores.js";
+import { accountPasswordsOk } from "./password-policy.js";
 
 export const SESSION_COOKIE = "cf_user";
 export const CSRF_COOKIE = "cf_csrf";
@@ -104,6 +105,8 @@ export function sessionAccount(req) {
 export function webUser(req) {
   const v = unseal(cookies(req)[SESSION_COOKIE]);
   if (v?.user) {
+    // A password session ends when ID and password sign-in is switched off.
+    if (!accountPasswordsOk(req)) return null;
     const stamp = users.sessionStamp(v.user);
     return stamp && stamp === v.s ? { kind: "password", name: v.user, approver: v.user } : null;
   }

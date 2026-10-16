@@ -49,6 +49,7 @@ import { hasValidSession } from "../security/admin-session.js";
 import { mayAdminister } from "../security/admin-actor.js";
 import * as activity from "../tasks/activity.js";
 import { recordDeny, DENY } from "../security/deny.js";
+import { basicRefusal } from "../security/password-policy.js";
 
 const HEARTBEAT_MS = 30_000;
 // Upgrades per address per window, checked before any credential: a page
@@ -114,6 +115,8 @@ export async function authorize(req) {
   if (!req.headers["authorization"] && sameHost(req) === true && webUser(req)) return "ok";
   const creds = decodeBasicAuth(req.headers["authorization"]);
   if (!creds) return "denied";
+  // Accounts' own passwords off, or from outside while console passwords are home only.
+  if (basicRefusal(req, creds.user)) return "denied";
   return (await users.verifyAsync(creds.user, creds.pass)) ? "ok" : "bad-credentials";
 }
 

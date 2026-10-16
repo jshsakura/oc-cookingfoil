@@ -41,6 +41,8 @@ const list = (re, max) => ({
 export const SETTINGS = {
   devicePairing: bool,
   consolePasswords: bool,
+  passwordLogin: bool,
+  consolePasswordsLanOnly: bool,
   deviceApproval: oneOf("manual", "signin", "all"),
   uploadsEnabled: bool,
   inboxEnabled: bool,

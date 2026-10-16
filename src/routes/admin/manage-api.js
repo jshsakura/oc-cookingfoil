@@ -16,6 +16,7 @@ import {
 import pkg from "../../package.js";
 import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
+import * as envs from "../../helpers/envs.js";
 
 const USER_ERROR_STATUS = {
   "invalid-name": 400, "weak-password": 400, "invalid-role": 400, "not-found": 404, exists: 409, "last-user": 409,
@@ -107,6 +108,10 @@ export function mountManageApi(router, guard) {
   }));
 
   router.delete("/api/users/:name", change((req, res) => {
+    // Google-only with no password account left would read as "no accounts": the server would open up.
+    if (!envs.passwordLogin && users.list().length === 1 && users.list()[0].name === req.params.name) {
+      return res.status(409).json({ error: "Google 로 로그인하는 동안에는 마지막 비밀번호 계정을 지울 수 없습니다. 지우면 서버가 비밀번호 없이 열립니다." });
+    }
     notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });
     debug.log("admin: removed user %s", req.params.name);

@@ -73,6 +73,7 @@ import { deliverAccessKey, registerPairSecret } from "../security/pairing-delive
 import { recordPending } from "../security/pending-limit.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { recordDeny, DENY } from "../security/deny.js";
+import { passwordOwnerOk } from "../security/password-policy.js";
 
 
 /** Whether the account behind an approval may still sign in: "admin", a shop account, or "google:<email>". */
@@ -83,7 +84,8 @@ function ownerAllowed(owner) {
     const email = owner.slice("google:".length);
     return googleAccounts.list().some((a) => a.email === email && googleAccounts.isApproved(a.sub));
   }
-  return users.isActive(owner);
+  // An enrollment an ID-and-password account made is not spent while that sign-in is off.
+  return passwordOwnerOk() && users.isActive(owner);
 }
 
 /**

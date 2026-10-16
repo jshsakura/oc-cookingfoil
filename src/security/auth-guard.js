@@ -32,6 +32,7 @@ import { alert } from "../helpers/alerts.js";
 import { webUser } from "./user-session.js";
 import * as apiTokens from "./api-tokens.js";
 import * as googleAccounts from "./google-accounts.js";
+import { basicRefusal, passwordOwnerOk } from "./password-policy.js";
 
 const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
@@ -92,7 +93,9 @@ export default function authGuard() {
 
     // Loopback bypass — trusted caller, no lockout tracking. Still record
     // access on success so the operator's own sessions show in /admin.
-    if (isLoopback(req)) {
+    // Loopback is trusted for the lockout, but a loopback socket a proxy forwarded is the internet:
+    // the password policy decides for it as for anyone (password-policy.js trustedHere).
+    if (isLoopback(req) && !basicRefusal(req)) {
       return basicAuth(req, res, (err) => {
         if (err || !req.auth?.user) return next(err);
         afterSignIn(req, res, next, ip);
@@ -104,6 +107,15 @@ export default function authGuard() {
     if (!consolePasswords && /^Basic\s/i.test(req.headers.authorization ?? "")) {
       res.set("X-CookingFoil-Deny", DENY.CONSOLE_PASSWORDS_OFF);
       return denyResponse(req, res, { reason: DENY.CONSOLE_PASSWORDS_OFF, status: 401, body: "Signing in with a password is switched off on this server. Download the client from the web page.\n" });
+    }
+
+    // Accounts' own passwords off, or console passwords at home only (security/password-policy.js).
+    const refused = basicRefusal(req);
+    if (refused) {
+      res.set("X-CookingFoil-Deny", refused);
+      return denyResponse(req, res, { reason: refused, status: 401, body: refused === DENY.CONSOLE_PASSWORDS_LAN_ONLY
+        ? "Signing in with a password works on the home network only. Use the CookingFoil client (QR pairing) from outside.\n"
+        : "This server signs in with Google; consoles use their own device login. Ask the administrator for one.\n" });
     }
 
     if (store.isLocked(ip)) {
@@ -238,6 +250,7 @@ export async function pairSignIn(req) {
   if (sep < 0) return null;
   const name = decoded.slice(0, sep);
   const password = decoded.slice(sep + 1);
+  if (basicRefusal(req, name)) return null;
   const ip = clientIp(req);
   if (store.isLocked(ip)) return null;
   const login = deviceLogins.has(name);
@@ -267,7 +280,8 @@ export function repeatedPoll(ip, authorization, now = Date.now()) {
 
 /** Owner ids are an account name, or "google:<sub>" for a Google admin. */
 function ownerIsAdmin(owner) {
-  return owner.startsWith("google:") ? googleAccounts.isAdmin(owner.slice(7)) : users.isActive(owner) && users.isAdmin(owner);
+  // An ID-and-password admin's tokens stop while ID and password sign-in is off.
+  return owner.startsWith("google:") ? googleAccounts.isAdmin(owner.slice(7)) : passwordOwnerOk() && users.isActive(owner) && users.isAdmin(owner);
 }
 
 function tokenLane(req, res, next, ip) {
