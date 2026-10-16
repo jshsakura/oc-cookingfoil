@@ -633,7 +633,6 @@
       /* The card clips to its rounded edge and an inner box scrolls, so the scroll bar stays inside the card
          (a card that scrolls itself draws its bar over its own corners, standing off the card). */
       /* none, not contain: contain still lets the box itself rubber-band (trackpads, iOS), and the close button bounces with it. */
-      .modal.can-edit { height: 90vh; height: 90dvh; }
       .modal-scroll { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: none; }
       .modal-scroll::-webkit-scrollbar { width: 14px; }
       .modal-scroll::-webkit-scrollbar-track { background: transparent; margin: 22px 0; }
@@ -988,7 +987,6 @@
         .modal-backdrop { padding: 0; align-items: flex-end; }
         /* dvh: the height left between the browser's bars. iOS counts vh under them, which pushed the sheet's top off screen. */
         .modal { border-radius: 24px 24px 0 0; max-height: 94vh; max-height: 94dvh; }
-        .modal.can-edit { height: 94vh; height: 94dvh; }
         .modal .body { padding: 22px 20px; }
         .modal .modal-head { flex-direction: column; gap: 10px; }
         .modal .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
@@ -3607,9 +3605,24 @@
             if (mine === seq) facts.replaceChildren(Object.assign(document.createElement("p"), { className: "ef-msg", textContent: err.message || t("edit.failed") }));
           }
         }
+        // The window eases from its old height to the new one instead of jumping (and never sits half empty).
+        function morph(change) {
+          const from = win.offsetHeight;
+          change();
+          if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+          win.style.transition = "none"; win.style.height = "";
+          const to = win.offsetHeight;
+          if (Math.abs(to - from) < 2) return;
+          win.style.height = from + "px";
+          void win.offsetHeight;
+          win.style.transition = "height .26s cubic-bezier(.2, .8, .2, 1)";
+          win.style.height = to + "px";
+          const done = () => { win.style.height = ""; win.style.transition = ""; };
+          win.addEventListener("transitionend", done, { once: true });
+          setTimeout(done, 400);
+        }
         function set(on) {
-          win.classList.toggle("editing", on);
-          pane.hidden = !on;
+          morph(() => { win.classList.toggle("editing", on); pane.hidden = !on; });
           face(on);
           win.querySelector(".modal-scroll").scrollTo({ top: 0, behavior: "instant" });
           if (on) { fill(); return; }
@@ -3625,8 +3638,6 @@
             if (editing()) set(false);
             spec = next; dirty = false;
             gear.hidden = !next || !uploadsEnabled;
-            // A window that can switch keeps one height, so the detail and the edit page swap without a jolt.
-            win.classList.toggle("can-edit", !gear.hidden);
           },
           leave() { if (editing()) set(false); },
         };
