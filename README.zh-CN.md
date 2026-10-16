@@ -246,7 +246,7 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 3. 地址填写在管理页面（设置 (설정)，下载）或 `COOK_PUBLIC_DIRECT_BASE_URL` 中，必须是 `https://`。
 4. 已登录、并通过 HTTPS 发送 `X-CookingFoil-Features: direct-token` 的客户端会收到 `X-CookingFoil-Download-Token` 响应头，它列表中的下载 URL 会指向直接地址。同时返回的 `X-CookingFoil-Download-Origin` 是直接地址的 origin，客户端只在那里把令牌作为 Bearer 令牌发送。
 
-令牌由服务器签名（使用 `data/security/` 中随机密钥的 HMAC-SHA256），有效期为 `COOK_DOWNLOAD_LINK_TTL` 秒（默认 6 小时），一旦签发对象的账号或主机不能再登录，令牌就立即失效。拒绝响应带有 `X-CookingFoil-Token: invalid | expired | revoked | blocked`，发送过多无效令牌的地址会被暂时封禁。没有声明此功能的客户端（Tinfoil、CyberFoil、浏览器）以及通过普通 HTTP 的请求，看到的列表与以前完全相同。经过 Cloudflare 到达、且 `CF-IPCountry` 不是 `src/security/download-links.js` 中固定国家的请求，会保留普通 URL。
+令牌由服务器签名（使用加密保存在 `data/security/security.db` 中的随机密钥的 HMAC-SHA256），有效期为 `COOK_DOWNLOAD_LINK_TTL` 秒（默认 6 小时），一旦签发对象的账号或主机不能再登录，令牌就立即失效。拒绝响应带有 `X-CookingFoil-Token: invalid | expired | revoked | blocked`，发送过多无效令牌的地址会被暂时封禁。没有声明此功能的客户端（Tinfoil、CyberFoil、浏览器）以及通过普通 HTTP 的请求，看到的列表与以前完全相同。经过 Cloudflare 到达、且 `CF-IPCountry` 不是 `src/security/download-links.js` 中固定国家的请求，会保留普通 URL。
 
 包含 DNS 证书和 DDNS 的完整 Caddy 配置在 [`examples/direct-download/`](examples/direct-download/) 中。
 
@@ -305,7 +305,7 @@ CookingFoil 的设计前提是放在你自己的代理后面、面向互联网�
 - 主机访问密钥和自动化令牌只保存 SHA-256 哈希。原始值只在创建时显示一次。
 - 服务器需要读回的密钥类信息(管理员身份验证器密钥、会话和下载令牌的签名密钥、Google 与 IGDB 客户端密钥)用 `COOK_SECRET_KEY` 以 AES-256-GCM 加密保存。密钥放在 `.env` 而不是数据目录中，只复制数据目录无法打开其中任何一项。
 - 请另外保存 `COOK_SECRET_KEY`。没有它服务器无法启动，新密钥也无法打开旧密钥加密的内容。
-- `data/security/` 下的文件只有服务器账户可以读取(0600)。
+- 账号、主机专用登录、令牌、保存的设置和加密的密钥保存在 `data/security/security.db`（SQLite）中，只有服务器账户可以读取(0600)。它和下面的索引不同，无法重建，请与数据文件夹一起备份。
 - 读取存档、自制软件和复古游戏文件夹得到的列表及文件哈希保存在 `data/cookingfoil.db`（SQLite）中，所以重启后也能立刻列出。它只是文件夹的索引，删除后服务器会重新读取文件夹。
 
 ### 主机的批准方式
@@ -327,7 +327,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机发送�
 - **尚未使用的客户端下载：** 在设备 (기기) 标签页或 `/pair` 撤回。已经用过的下载就和其他主机一样处理。
 - **账号：** 在用户 (사용자) 标签页停用或删除。该账号的按主机登录信息、会话令牌和下载令牌都会随之失效。修改密码也会结束它的会话。请同时在设备 (기기) 标签页撤销它批准过的主机。
 - **自动化令牌：** 在设置 (설정) 标签页撤销。
-- **一次性作废所有令牌：** 停止服务器，删除 `data/security/download-link.key`，然后重新启动。所有会话令牌和下载令牌都会失效，主机会用访问密钥重新登录。
+- **一次性作废所有令牌：** 运行 `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => s.deleteSecret("download-link"))'`，然后重新启动服务器。所有会话令牌和下载令牌都会失效，主机会用访问密钥重新登录。
 - **被锁定的地址：** 在日志 (로그) 标签页解锁。
 
 ### 内置的防护

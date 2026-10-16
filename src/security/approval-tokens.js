@@ -4,15 +4,15 @@
  * a Google account) stays here, so a pressed button can't name anything else.
  * A token works once and lapses after TTL_MS.
  *
- * Kept in ${COOK_DATA_DIR}/security/telegram-approvals.json (0600) under the
+ * Kept in the security database (0600) under the
  * token's SHA-256, so buttons sent before a restart still work and the file
  * alone can't be replayed.
  */
-import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
+import { recordStore } from "../db/security-stores.js";
 
 export const TTL_MS = 24 * 60 * 60 * 1000;
 export const TOKEN_RE = /^[A-Za-z0-9_-]{22}$/;
@@ -24,24 +24,19 @@ let saved = null; // hash → { kind, ref, at }
 
 const hash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
-function read() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    return parsed && typeof parsed.requests === "object" && parsed.requests ? parsed.requests : {};
-  } catch {
-    return {};
-  }
-}
+let store = null;
+const records = () =>
+  (store ??= recordStore("approval", {
+    legacy: { file: FILE, lenient: true, entries: (json) => Object.entries(json && typeof json.requests === "object" && json.requests ? json.requests : {}) },
+  }));
+
+const read = () => Object.fromEntries(records().load());
 
 const all = () => (saved ??= read());
 
 function persist() {
   try {
-    fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
-    // A leftover .tmp would keep its own mode, so it goes first.
-    fs.rmSync(`${FILE}.tmp`, { force: true });
-    fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ version: 1, requests: saved }), { mode: 0o600 });
-    fs.renameSync(`${FILE}.tmp`, FILE);
+    records().sync(Object.entries(saved));
   } catch (err) {
     debug.log("approval tokens: not saved: %s", err.message);
   }

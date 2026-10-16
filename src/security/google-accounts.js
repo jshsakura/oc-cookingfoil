@@ -5,11 +5,11 @@
  * sign-in. Other accounts are regular users until the admin makes them admins.
  *
  * Only what is needed to tell accounts apart is kept: Google's account id
- * (`sub`) and the verified email. Stored in ${COOK_DATA_DIR}/security/google-accounts.json.
+ * (`sub`) and the verified email. Stored in the security database (db/database.js).
  */
-import fs from "fs";
 import path from "path";
 import { adminEmail, dataDir } from "../helpers/envs.js";
+import { recordStore } from "../db/security-stores.js";
 import { alert } from "../helpers/alerts.js";
 
 const DIR = path.join(dataDir, "security");
@@ -20,22 +20,18 @@ export const ROLES = ["admin", "user"];
 
 const accounts = new Map(); // sub → { sub, email, status, createdAt, approvedAt?, lastAt }
 
+let store = null;
+const records = () =>
+  (store ??= recordStore("google-account", { legacy: { file: FILE, entries: (json) => Object.values(json?.accounts ?? {}).filter((a) => a?.sub).map((a) => [a.sub, a]) } }));
+
 function load() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    for (const a of Object.values(parsed.accounts ?? {})) {
-      if (a?.sub && STATUSES.includes(a.status)) accounts.set(a.sub, a);
-    }
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
+  for (const [, a] of records().load()) {
+    if (a?.sub && STATUSES.includes(a.status)) accounts.set(a.sub, a);
   }
 }
 
 function persist() {
-  fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, accounts: Object.fromEntries(accounts) }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, FILE);
+  records().sync(accounts);
 }
 
 /** Replace one account on disk and in memory together. */

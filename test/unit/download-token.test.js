@@ -1,9 +1,10 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, statSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, statSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import path from "node:path";
+import { sealedSecret, securityDbFile } from "../support/security-db.js";
 
 // Download tokens: a signed-in client that declares direct-token gets a token
 // header and fixed download URLs on the direct address; the direct address's
@@ -26,7 +27,7 @@ const env = await import("../../src/helpers/envs.js");
 const settings = await import("../../src/security/server-settings.js");
 const links = await import("../../src/security/download-links.js");
 const tokens = await import("../../src/security/download-token.js");
-const { readSealed } = await import("../../src/security/secret-box.js");
+const { open } = await import("../../src/security/secret-box.js");
 const users = await import("../../src/security/users.js");
 const store = await import("../../src/security/store.js");
 const { defaultGateways, isLocalHop, setGatewaysForTests } = await import("../../src/security/local-hop.js");
@@ -249,10 +250,10 @@ test("a token is stable inside a quarter of its lifetime, lives at least the ful
 
 test("the key is kept private and survives a reload", () => {
   const token = tokenFor();
-  const file = path.join(dir, "security", "download-link.key");
-  assert.equal(statSync(file).mode & 0o777, 0o600);
-  assert.match(readFileSync(file, "utf8"), /^cfsec:v1:/, "sealed on disk");
-  assert.equal(readSealed(file).length, 32);
+  assert.equal(statSync(securityDbFile(dir)).mode & 0o777, 0o600);
+  const sealed = sealedSecret(dir, "download-link");
+  assert.match(sealed, /^cfsec:v1:/, "sealed on disk");
+  assert.equal(open(sealed).length, 32);
   tokens.resetKeyForTests();
   assert.equal(tokens.verify(token).verdict, "ok");
   assert.equal(existsSync(path.join(dir, "security", "download-links.json")), false, "no per-link state is written");

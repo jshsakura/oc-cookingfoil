@@ -246,7 +246,7 @@ How it works:
 3. The address goes into the admin page (Settings, downloads) or `COOK_PUBLIC_DIRECT_BASE_URL`. It must be `https://`.
 4. A signed-in client that sends `X-CookingFoil-Features: direct-token` over HTTPS gets an `X-CookingFoil-Download-Token` header, and the download URLs in its lists point at the direct address. With it comes `X-CookingFoil-Download-Origin`, the direct address's origin; the client sends the token there as a Bearer token, and to no other host.
 
-Tokens are signed by the server (HMAC-SHA256 with a random key in `data/security/`), last `COOK_DOWNLOAD_LINK_TTL` seconds (6 hours by default), and stop working as soon as the account or console they were made for can no longer sign in. Refusals carry `X-CookingFoil-Token: invalid | expired | revoked | blocked`, and an address that sends too many invalid tokens is shut out for a while. Clients that do not declare the feature (Tinfoil, CyberFoil, browsers), and requests over plain HTTP, see exactly the same lists as before. A request that arrives through Cloudflare with a `CF-IPCountry` other than the one fixed in `src/security/download-links.js` keeps the normal URLs.
+Tokens are signed by the server (HMAC-SHA256 with a random key kept sealed in `data/security/security.db`), last `COOK_DOWNLOAD_LINK_TTL` seconds (6 hours by default), and stop working as soon as the account or console they were made for can no longer sign in. Refusals carry `X-CookingFoil-Token: invalid | expired | revoked | blocked`, and an address that sends too many invalid tokens is shut out for a while. Clients that do not declare the feature (Tinfoil, CyberFoil, browsers), and requests over plain HTTP, see exactly the same lists as before. A request that arrives through Cloudflare with a `CF-IPCountry` other than the one fixed in `src/security/download-links.js` keeps the normal URLs.
 
 A complete Caddy setup with a DNS certificate and DDNS is in [`examples/direct-download/`](examples/direct-download/).
 
@@ -305,7 +305,7 @@ Changing what everyone sees (artwork, descriptions, files in the games folder) a
 - Console access keys and automation tokens are kept as SHA-256 hashes only. The plain value is shown once, when it is made.
 - Secrets the server has to read back (the admin authenticator secret, the session and download-token signing keys, the Google and IGDB client secrets) are sealed with AES-256-GCM under `COOK_SECRET_KEY`. The key lives in `.env`, not in the data folder, so a copy of the data folder alone opens none of them.
 - Keep a copy of `COOK_SECRET_KEY`. Without it the server does not start, and a new key cannot open what the old one sealed.
-- The files under `data/security/` are readable by the server's account only (0600).
+- Accounts, per-console logins, tokens, saved settings and the sealed secrets are kept in `data/security/security.db` (SQLite), readable by the server's account only (0600). Back it up with the data folder: unlike the index below, it cannot be rebuilt.
 - What a scan of the saves, homebrew and retro folders found, and the content hashes of their files, are kept in `data/cookingfoil.db` (SQLite), so a restart lists them at once. It is only an index of the folders: delete it and the server reads the folders again.
 
 ### How consoles are approved
@@ -327,7 +327,7 @@ CookingFoil itself speaks plain HTTP. Over `http://`, anything a console sends c
 - **A client download not used yet:** withdraw it on the Devices tab or on `/pair`. A used one is a console like any other.
 - **An account:** disable or delete it on the Users tab. Its per-console logins, session tokens and download tokens stop working with it. A password change ends its sessions too. Revoke the consoles it approved on the Devices tab as well.
 - **An automation token:** revoke it in Settings.
-- **Every token at once:** stop the server, delete `data/security/download-link.key` and start it again. Every session and download token ends, and consoles sign in again with their access keys.
+- **Every token at once:** run `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => s.deleteSecret("download-link"))'` and restart the server. Every session and download token ends, and consoles sign in again with their access keys.
 - **A locked address:** unlock it on the Logs tab.
 
 ### Built-in protections

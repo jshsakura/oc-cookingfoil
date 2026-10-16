@@ -246,7 +246,7 @@ CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 H
 3. 주소는 관리 페이지(설정 탭의 다운로드)나 `COOK_PUBLIC_DIRECT_BASE_URL` 에 넣습니다. 반드시 `https://` 여야 합니다.
 4. HTTPS 로 `X-CookingFoil-Features: direct-token` 을 보내는 로그인한 클라이언트는 `X-CookingFoil-Download-Token` 헤더를 받고, 목록의 다운로드 주소가 직접 다운로드 주소를 가리킵니다. 함께 오는 `X-CookingFoil-Download-Origin` 은 직접 다운로드 주소의 origin 이고, 클라이언트는 그곳에만 토큰을 Bearer 토큰으로 보냅니다.
 
-토큰은 서버가 서명하고(`data/security/` 의 무작위 키로 HMAC-SHA256), `COOK_DOWNLOAD_LINK_TTL` 초(기본 6시간) 동안 유효하며, 토큰을 받은 계정이나 기기가 더는 로그인할 수 없게 되면 바로 쓸 수 없습니다. 거절에는 `X-CookingFoil-Token: invalid | expired | revoked | blocked` 가 붙고, 틀린 토큰을 너무 많이 보낸 주소는 한동안 막힙니다. 이 기능을 알리지 않는 클라이언트(Tinfoil, CyberFoil, 브라우저)와 일반 HTTP 요청은 전과 똑같은 목록을 봅니다. Cloudflare 를 거쳐 온 요청의 `CF-IPCountry` 가 `src/security/download-links.js` 에 정해 둔 나라가 아니면 원래 주소를 그대로 받습니다.
+토큰은 서버가 서명하고(`data/security/security.db` 에 암호화해 둔 무작위 키로 HMAC-SHA256), `COOK_DOWNLOAD_LINK_TTL` 초(기본 6시간) 동안 유효하며, 토큰을 받은 계정이나 기기가 더는 로그인할 수 없게 되면 바로 쓸 수 없습니다. 거절에는 `X-CookingFoil-Token: invalid | expired | revoked | blocked` 가 붙고, 틀린 토큰을 너무 많이 보낸 주소는 한동안 막힙니다. 이 기능을 알리지 않는 클라이언트(Tinfoil, CyberFoil, 브라우저)와 일반 HTTP 요청은 전과 똑같은 목록을 봅니다. Cloudflare 를 거쳐 온 요청의 `CF-IPCountry` 가 `src/security/download-links.js` 에 정해 둔 나라가 아니면 원래 주소를 그대로 받습니다.
 
 DNS 인증서와 DDNS 까지 갖춘 Caddy 설정 전체는 [`examples/direct-download/`](examples/direct-download/) 에 있습니다.
 
@@ -305,7 +305,7 @@ CookingFoil 은 내 프록시 뒤에서 인터넷에 놓이는 것을 전제로 
 - 기기 접근 키와 자동화 토큰은 SHA-256 해시로만 남깁니다. 원래 값은 만들 때 한 번만 보여 줍니다.
 - 서버가 다시 읽어야 하는 비밀값(관리자 인증 앱 시크릿, 세션과 다운로드 토큰 서명 키, 구글과 IGDB 클라이언트 시크릿)은 `COOK_SECRET_KEY` 로 AES-256-GCM 암호화해 둡니다. 키는 데이터 폴더가 아니라 `.env` 에 있어서, 데이터 폴더만 복사해 가서는 아무것도 열 수 없습니다.
 - `COOK_SECRET_KEY` 는 따로 보관합니다. 키가 없으면 서버가 시작하지 않고, 새 키로는 예전 키가 잠근 값을 열 수 없습니다.
-- `data/security/` 아래 파일은 서버 계정만 읽을 수 있습니다(0600).
+- 계정, 기기 전용 로그인, 토큰, 저장한 설정, 암호화한 비밀값은 `data/security/security.db`(SQLite)에 두고, 서버 계정만 읽을 수 있습니다(0600). 아래의 색인과 달리 다시 만들 수 없으니 데이터 폴더와 함께 백업합니다.
 - 세이브, 홈브류, 레트로 폴더를 읽은 목록과 파일 해시는 `data/cookingfoil.db`(SQLite)에 둡니다. 그래서 재시작한 뒤에도 바로 목록을 보여 줍니다. 폴더의 색인일 뿐이라 지우면 서버가 폴더를 다시 읽습니다.
 
 ### 기기를 승인하는 방식
@@ -327,7 +327,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 - **아직 쓰지 않은 클라이언트 다운로드:** 기기 탭이나 `/pair` 에서 거둡니다. 이미 쓴 것은 다른 기기와 똑같이 다룹니다.
 - **계정:** 사용자 탭에서 끄거나 지웁니다. 그 계정의 기기별 접속 정보, 세션 토큰, 다운로드 토큰이 함께 멈춥니다. 비밀번호를 바꿔도 세션이 끝납니다. 그 계정이 승인한 기기도 기기 탭에서 함께 거둡니다.
 - **자동화 토큰:** 설정 탭에서 거둡니다.
-- **모든 토큰을 한꺼번에:** 서버를 멈추고 `data/security/download-link.key` 를 지운 뒤 다시 켭니다. 모든 세션과 다운로드 토큰이 끝나고, 기기는 접근 키로 다시 로그인합니다.
+- **모든 토큰을 한꺼번에:** `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => s.deleteSecret("download-link"))'` 를 실행하고 서버를 다시 시작합니다. 모든 세션과 다운로드 토큰이 끝나고, 기기는 접근 키로 다시 로그인합니다.
 - **잠긴 주소:** 로그 탭에서 풉니다.
 
 ### 기본으로 들어 있는 보호 장치

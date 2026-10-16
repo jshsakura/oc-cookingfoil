@@ -1,10 +1,10 @@
 /**
  * Basic-auth accounts, managed from /admin.
  *
- * Persisted under ${COOK_DATA_DIR}/security/users.json with scrypt hashes. On
- * the first start the file does not exist yet, so the COOK_AUTH_USERS accounts
- * are imported with their current passwords — existing clients keep working.
- * From then on the file is the source of truth and the env is ignored.
+ * Persisted in the security database (one row an account) with scrypt hashes. On
+ * the first start there are none yet, so the COOK_AUTH_USERS accounts are
+ * imported with their current passwords — existing clients keep working.
+ * From then on the database is the source of truth and the env is ignored.
  *
  * No accounts means no password lane, so the last account is only removed when
  * the operator explicitly asks for an open server.
@@ -26,6 +26,7 @@ import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { getUsersFromEnv } from "../authUsersParser.js";
 import { hashPassword, DECOY_HASH, matches, matchesAsync } from "./password-hash.js";
+import { done, markDone, recordStore } from "../db/security-stores.js";
 
 const USERS_DIR = path.join(dataDir, "security");
 const USERS_PATH = path.join(USERS_DIR, "users.json");
@@ -61,13 +62,21 @@ function remember(key) {
   verified.add(key);
 }
 
+let store = null;
+const records = () =>
+  (store ??= recordStore("user", {
+    legacy: {
+      file: USERS_PATH,
+      entries(json) {
+        // Fail closed: starting with no accounts would silently open the server.
+        if (!json || typeof json.users !== "object" || json.users === null) throw new Error(`users: ${USERS_PATH} has no "users" object; fix or restore it before starting`);
+        return Object.entries(json.users);
+      },
+    },
+  }));
+
 function persist() {
-  fs.mkdirSync(USERS_DIR, { recursive: true, mode: 0o700 });
-  const body = { version: 1, users: Object.fromEntries(accounts) };
-  const tmp = `${USERS_PATH}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(body, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, USERS_PATH);
-  fs.chmodSync(USERS_PATH, 0o600);
+  records().sync(accounts);
 }
 
 /** Applies a change to memory and disk together, or not at all. */
@@ -85,20 +94,10 @@ function commit(change) {
 }
 
 function load() {
-  if (fs.existsSync(USERS_PATH)) {
-    let parsed;
-    try {
-      parsed = JSON.parse(fs.readFileSync(USERS_PATH, "utf8"));
-    } catch (err) {
-      // Fail closed: starting with no accounts would silently open the server.
-      throw new Error(`users: cannot read ${USERS_PATH} (${err.message}); fix or restore it before starting`);
-    }
-    if (!parsed || typeof parsed.users !== "object" || parsed.users === null) {
-      throw new Error(`users: ${USERS_PATH} has no "users" object; fix or restore it before starting`);
-    }
-    for (const [name, record] of Object.entries(parsed.users)) accounts.set(name, record);
-    return;
-  }
+  const kept = records().load();
+  for (const [name, record] of kept) accounts.set(name, record);
+  // Seeded from COOK_AUTH_USERS once: an admin who removes every account later does not get them back.
+  if (kept.length || done("users-seeded") || fs.existsSync(USERS_PATH)) return;
   const fromEnv = getUsersFromEnv() ?? {};
   const now = Date.now();
   for (const [name, password] of Object.entries(fromEnv)) {
@@ -110,7 +109,8 @@ function load() {
   }
   if (accounts.size) {
     persist();
-    debug.log("users: imported %d account(s) from COOK_AUTH_USERS into %s", accounts.size, USERS_PATH);
+    markDone("users-seeded");
+    debug.log("users: imported %d account(s) from COOK_AUTH_USERS", accounts.size);
   }
 }
 

@@ -3,7 +3,7 @@
  * cookie `cf_user`; `cf_oauth` carries one Google attempt across Google, and
  * `cf_csrf` holds the token every form and write must echo back.
  *
- * All are HMAC-signed with a key kept in ${COOK_DATA_DIR}/security/user-session.key,
+ * All are HMAC-signed with a key kept sealed in the security database,
  * so a session survives restarts. The cookie names the account only (an ID
  * plus a fingerprint of its password, or a Google id); whether it may still
  * act is looked up on every request, so a new password, a disabled account or
@@ -14,7 +14,7 @@ import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import * as accounts from "./google-accounts.js";
 import * as users from "./users.js";
-import { readSealed, writeSealed } from "./secret-box.js";
+import { readSecret, writeSecret } from "../db/security-stores.js";
 
 const KEY_FILE = path.join(dataDir, "security", "user-session.key");
 export const SESSION_COOKIE = "cf_user";
@@ -26,10 +26,10 @@ export const OAUTH_MS = 10 * 60 * 1000;
 let key = null;
 function signingKey() {
   if (key) return key;
-  key = readSealed(KEY_FILE);
+  key = readSecret("user-session", { legacyFile: KEY_FILE });
   if (key && key.length >= 32) return key;
   key = crypto.randomBytes(32);
-  writeSealed(KEY_FILE, key);
+  writeSecret("user-session", key);
   return key;
 }
 

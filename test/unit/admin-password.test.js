@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { everything, records, securityDbFile } from "../support/security-db.js";
 
 // The admin password set on the admin page: hashed on disk, works beside the compose one.
 const dir = mkdtempSync(path.join(tmpdir(), "cook-adminpw-"));
@@ -18,9 +19,9 @@ test("no password at first; a saved one opens the admin page and is stored only 
   assert.equal(session.adminPasswordMode(), true);
   assert.equal(session.verifyPassword("long-enough-pass"), true);
   assert.equal(session.verifyPassword("long-enough-pasS"), false);
-  const file = path.join(dir, "security", "admin-password.json");
-  assert.doesNotMatch(readFileSync(file, "utf8"), /long-enough-pass/);
-  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.ok(records(dir, "admin-password").admin.hash, "a hash is kept");
+  assert.doesNotMatch(everything(dir), /long-enough-pass/);
+  assert.equal(statSync(securityDbFile(dir)).mode & 0o777, 0o600);
 });
 
 test("the compose password keeps working beside it, and clearing leaves only that", () => {

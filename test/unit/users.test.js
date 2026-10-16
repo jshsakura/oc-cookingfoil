@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { everything, records } from "../support/security-db.js";
 
 // The user store seeds itself from COOK_AUTH_USERS at module load, so every
 // scenario runs in its own child process with the env pinned up front.
@@ -29,7 +30,7 @@ test("existing COOK_AUTH_USERS accounts keep their passwords after the first sta
   assert.deepEqual(out.list, ["tinfoil", "cc"]);
   assert.equal(out.ok, true);
   assert.equal(out.bad, false);
-  const saved = readFileSync(path.join(dataDir, "security", "users.json"), "utf8");
+  const saved = everything(dataDir);
   assert.ok(!saved.includes("pw-cc-123"), "passwords are stored hashed, never in plain text");
 });
 
@@ -49,7 +50,7 @@ test("no env users and no file means auth stays off until an account is added", 
   assert.equal(out.after, true);
   assert.ok(out.password.length >= 16, "a generated password is long enough to be the only factor");
   assert.equal(out.ok, true);
-  assert.ok(existsSync(path.join(dataDir, "security", "users.json")));
+  assert.equal(Object.keys(records(dataDir, "user")).length, 1);
 });
 
 test("password reset, disable and remove take effect immediately, even for a cached login", () => {

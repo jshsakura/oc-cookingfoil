@@ -4,6 +4,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { everything } from "../support/security-db.js";
 
 // The web page hands a signed-in user the client and this server in one zip,
 // with a one-day, one-use enrollment token in its config; the console spends
@@ -46,7 +47,7 @@ test("an enrollment token works once, within its day, and lists show no secret",
   assert.ok(!JSON.stringify(rows).includes("cfe_"), "no token in a list");
   assert.deepEqual(rows.map((r) => r.state).sort(), ["expired", "used", "used"]);
   assert.equal(rows.find((r) => r.id === a.id).deviceKey, KEY_A);
-  const stored = fs.readFileSync(path.join(dir, "security", "enroll-tokens.json"), "utf8");
+  const stored = everything(dir);
   assert.ok(!stored.includes(a.token) && !stored.includes(late.token), "only hashes are kept");
 
   // At most three waiting per account; a new download withdraws the oldest.
