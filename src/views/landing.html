@@ -380,12 +380,40 @@
         background: var(--butter); color: var(--butter-ink); border: none; cursor: pointer;
         text-decoration: none; white-space: nowrap; transition: transform 0.15s ease, filter 0.15s ease;
       }
-      .btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
+      .btn:hover { filter: brightness(1.04); }
       .btn:active { transform: none; }
       .btn.ghost { background: var(--sunk); color: var(--ink); }
       /* The icon in front of a button's words: the admin page's set, in the text colour. */
       .bi { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .h2-action:has(.bi), .client-get:has(.bi), button.reset:has(.bi) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+      /* Full-screen picture viewer: screenshots of a game, app or patch. Sits above the detail window. */
+      .gallery { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; background: rgba(8, 8, 10, 0.92); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+      .gallery.open { display: flex; animation: gallery-in 0.2s ease both; }
+      @keyframes gallery-in { from { opacity: 0; } to { opacity: 1; } }
+      .gallery .g-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; padding: 56px 64px; box-sizing: border-box; }
+      .gallery .g-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; user-select: none; -webkit-user-drag: none; }
+      .gallery .g-img.slide-next { animation: gallery-next 0.22s ease both; }
+      .gallery .g-img.slide-prev { animation: gallery-prev 0.22s ease both; }
+      @keyframes gallery-next { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+      @keyframes gallery-prev { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+      .gallery .g-btn {
+        position: absolute; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 100px; cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(30, 30, 34, 0.72); color: #fff; transition: background 0.15s ease, transform 0.1s ease;
+      }
+      .gallery .g-btn:hover { background: rgba(60, 60, 66, 0.9); }
+      .gallery .g-btn:active { transform: scale(0.95); }
+      .gallery .g-btn:disabled { opacity: 0.3; cursor: default; }
+      .gallery .g-btn .bi { width: 22px; height: 22px; }
+      .gallery .g-close { top: 12px; right: 12px; }
+      .gallery .g-prev { left: 12px; top: 50%; margin-top: -22px; }
+      .gallery .g-next { right: 12px; top: 50%; margin-top: -22px; }
+      .gallery .g-count { position: absolute; top: 20px; left: 16px; padding: 4px 12px; border-radius: 100px; font: 700 13px var(--font-body); color: #fff; background: rgba(30, 30, 34, 0.72); font-variant-numeric: tabular-nums; }
+      .gallery.single .g-prev, .gallery.single .g-next, .gallery.single .g-count { display: none; }
+      @media (max-width: 640px) {
+        .gallery .g-stage { padding: 64px 8px; }
+        .gallery .g-prev { left: 6px; } .gallery .g-next { right: 6px; }
+      }
+      @media (prefers-reduced-motion: reduce) { .gallery.open, .gallery .g-img { animation: none !important; } }
       .btn.ghost:hover { background: var(--line); }
       .hint { font-size: 13px; color: var(--secondary); line-height: 1.65; margin-top: 12px; }
       .hint code { font-family: var(--font-mono); background: var(--sunk); padding: 2px 8px; border-radius: 6px; font-size: 12.5px; }
@@ -975,7 +1003,7 @@
         background: var(--butter); color: var(--butter-ink); cursor: pointer;
         transition: transform 0.15s ease, filter 0.15s ease;
       }
-      .client-get:hover { filter: brightness(1.04); transform: translateY(-1px); }
+      .client-get:hover { filter: brightness(1.04); }
       .client-get:active { transform: none; }
       .client-get:disabled { opacity: 0.6; cursor: wait; transform: none; }
       .client-get:focus-visible { outline: 4px solid #0ab4e8; outline-offset: 3px; }
@@ -1361,6 +1389,16 @@
       </div></div>
     </div>
 
+    <div class="gallery" id="gallery" role="dialog" aria-modal="true" aria-hidden="true" aria-label="">
+      <div class="g-stage" id="gallery-stage">
+        <img class="g-img" id="gallery-img" alt="" draggable="false">
+        <span class="g-count" id="gallery-count" aria-live="polite"></span>
+        <button class="g-btn g-prev" id="gallery-prev" type="button"></button>
+        <button class="g-btn g-next" id="gallery-next" type="button"></button>
+        <button class="g-btn g-close" id="gallery-close" type="button"></button>
+      </div>
+    </div>
+
     <div class="toast-rack" id="toasts"></div>
     <div class="restart-banner" id="restart-banner" role="status" aria-live="polite" hidden></div>
 
@@ -1509,6 +1547,7 @@
           "share.failed": (msg) => `올리지 못했습니다. ${msg}`,
           "action.download": "다운로드",
           "action.close": "닫기",
+          "gallery.title": "사진", "gallery.prev": "이전 사진", "gallery.next": "다음 사진",
           "stat.games": "게임",
           "stat.games_sub": "기본 게임",
           "stat.updates": "업데이트",
@@ -1794,6 +1833,7 @@
           "share.failed": (msg) => `Could not send. ${msg}`,
           "action.download": "Download",
           "action.close": "Close",
+          "gallery.title": "Pictures", "gallery.prev": "Previous picture", "gallery.next": "Next picture",
           "stat.games": "Games",
           "stat.games_sub": "base games",
           "stat.updates": "Updates",
@@ -2082,6 +2122,7 @@
           "share.failed": (msg) => `送信できませんでした。${msg}`,
           "action.download": "ダウンロード",
           "action.close": "閉じる",
+          "gallery.title": "写真", "gallery.prev": "前の写真", "gallery.next": "次の写真",
           "stat.games": "ゲーム",
           "stat.games_sub": "本編",
           "stat.updates": "アップデート",
@@ -2370,6 +2411,7 @@
           "share.failed": (msg) => `发送失败。${msg}`,
           "action.download": "下載",
           "action.close": "關閉",
+          "gallery.title": "圖片", "gallery.prev": "上一張", "gallery.next": "下一張",
           "stat.games": "遊戲",
           "stat.games_sub": "本體遊戲",
           "stat.updates": "更新",
@@ -2626,6 +2668,83 @@
         $("toasts").appendChild(el);
         setTimeout(() => el.remove(), 2400);
       };
+      // ─── gallery ──────────────────────────────────────────────────────────
+      // Full-screen gallery for the pictures in a detail window (a game's, an app's or a patch's):
+      // arrows, swipe, ← → and Esc, and "n / total".
+      const gallery = { urls: [], at: 0, open: false, from: null };
+      function galleryShow(dir) {
+        const img = $("gallery-img");
+        img.className = "g-img" + (dir ? " slide-" + dir : "");
+        img.src = gallery.urls[gallery.at];
+        $("gallery-count").textContent = `${gallery.at + 1} / ${gallery.urls.length}`;
+        $("gallery-prev").disabled = gallery.at <= 0;
+        $("gallery-next").disabled = gallery.at >= gallery.urls.length - 1;
+        for (const n of [gallery.at - 1, gallery.at + 1]) if (gallery.urls[n]) new Image().src = gallery.urls[n];
+      }
+      function galleryMove(step) {
+        const to = gallery.at + step;
+        if (to < 0 || to >= gallery.urls.length) return;
+        gallery.at = to;
+        galleryShow(step > 0 ? "next" : "prev");
+      }
+      function galleryOpen(urls, at) {
+        if (!urls.length) return;
+        const box = $("gallery");
+        gallery.urls = urls; gallery.at = Math.min(Math.max(at, 0), urls.length - 1); gallery.open = true;
+        gallery.from = document.activeElement;
+        box.setAttribute("aria-label", t("gallery.title"));
+        $("gallery-prev").setAttribute("aria-label", t("gallery.prev")); $("gallery-prev").title = t("gallery.prev");
+        $("gallery-next").setAttribute("aria-label", t("gallery.next")); $("gallery-next").title = t("gallery.next");
+        $("gallery-close").setAttribute("aria-label", t("action.close")); $("gallery-close").title = t("action.close");
+        $("gallery-prev").innerHTML = BTN_ICONS.chevleft; $("gallery-next").innerHTML = BTN_ICONS.chevright; $("gallery-close").innerHTML = BTN_ICONS.x;
+        box.classList.toggle("single", urls.length < 2);
+        box.classList.add("open"); box.setAttribute("aria-hidden", "false");
+        galleryShow("");
+        $("gallery-close").focus({ preventScroll: true });
+      }
+      function galleryClose() {
+        if (!gallery.open) return;
+        gallery.open = false;
+        $("gallery").classList.remove("open"); $("gallery").setAttribute("aria-hidden", "true");
+        $("gallery-img").removeAttribute("src");
+        if (gallery.from && gallery.from.isConnected) gallery.from.focus({ preventScroll: true });
+      }
+      $("gallery-prev").addEventListener("click", () => galleryMove(-1));
+      $("gallery-next").addEventListener("click", () => galleryMove(1));
+      $("gallery-close").addEventListener("click", galleryClose);
+      // A tap on the dark area closes it; the picture and the buttons keep their own clicks.
+      $("gallery").addEventListener("click", (e) => { if (!gallery.dragged && (e.target === $("gallery") || e.target === $("gallery-stage"))) galleryClose(); });
+      // Capture phase: with the gallery open, the keys belong to it and never reach the window under it.
+      document.addEventListener("keydown", (e) => {
+        if (!gallery.open) return;
+        if (e.key === "Escape") galleryClose();
+        else if (e.key === "ArrowLeft") galleryMove(-1);
+        else if (e.key === "ArrowRight") galleryMove(1);
+        else if (e.key === "Tab") $("gallery-close").focus();
+        else return;
+        e.preventDefault(); e.stopImmediatePropagation();
+      }, true);
+      // Swipe: a mostly horizontal drag of 50px or more turns the page.
+      let swipeFrom = null;
+      $("gallery").addEventListener("pointerdown", (e) => { swipeFrom = { x: e.clientX, y: e.clientY }; gallery.dragged = false; });
+      $("gallery").addEventListener("pointerup", (e) => {
+        if (!swipeFrom) return;
+        const dx = e.clientX - swipeFrom.x, dy = e.clientY - swipeFrom.y;
+        swipeFrom = null;
+        // A drag is not a tap: the click a mouse sends after it must not close the viewer.
+        gallery.dragged = Math.abs(dx) > 10 || Math.abs(dy) > 10;
+        if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) galleryMove(dx < 0 ? 1 : -1);
+      });
+      $("gallery").addEventListener("pointercancel", () => { swipeFrom = null; });
+      $("gallery").addEventListener("dragstart", (e) => e.preventDefault());
+      // Any picture in a detail window's screenshot row opens the gallery at that picture.
+      document.addEventListener("click", (e) => {
+        const img = e.target instanceof Element ? e.target.closest(".screenshots img") : null;
+        if (!img || !img.src) return;
+        const row = [...img.parentElement.querySelectorAll("img")].filter((x) => x.src);
+        galleryOpen(row.map((x) => x.getAttribute("src") || x.src), row.indexOf(img));
+      }, true); // capture: the detail window stops its clicks from bubbling up
+
       // ─── the client download ─────────────────────────────────────────────
       // Each press makes a new zip: the app and this server with a one-day,
       // one-use connection key for the account signed in here.

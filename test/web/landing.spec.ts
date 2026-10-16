@@ -761,3 +761,74 @@ test('the labelled buttons keep their icon after the page language changes', asy
   // Icon-only buttons stay as they were.
   await expect(page.locator('#acct-btn svg')).toHaveCount(1);
 });
+
+test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count and a close button", async ({ page }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  await page.route('**/zz-shot-*.png', (route) => route.fulfill({ body: png, contentType: 'image/png' }));
+  await page.route('**/api/title/0100000000010000*', (route) => route.fulfill({ json: {
+    id: '0100000000010000', name: 'Test Game', names: { ko: '테스트 게임', en: 'Test Game' }, publisher: 'Nintendo',
+    description: '바다를 건너는 모험입니다.', notes: '업데이트를 함께 설치합니다.', releaseDate: 20170303, region: 'KR', rating: 12, ratingContent: ['폭력'],
+    numberOfPlayers: 4, categories: ['Action', 'RPG'], categoryLabels: ['액션', 'RPG'],
+    price: { country: 'KR', regular: '64,800원', discount: '32,400원', discountEnds: '2999-01-01T00:00:00Z' },
+    latestVersion: 131072, updates: [{ version: 65536, date: 20170401 }, { version: 131072, date: 20170501 }], dlcTotal: 3,
+    requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
+    screenshots: ['/zz-shot-1.png', '/zz-shot-2.png', '/zz-shot-3.png'], patches: [],
+  } }));
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+    sections: [{ id: 'all', title: 'All', items: [
+      { app_type: 'base', title_id: '0100000000010000', app_version: 0, languages: ['ko', 'en'], install_size: 9e9 },
+      { app_type: 'update', title_id: '0100000000010800', app_version: 131072, version_name: '1.2.0' },
+    ] }],
+    genres: {},
+  } }));
+  await page.route('**/shop.json', (route) => route.fulfill({ json: { files: [
+    { url: 'a.nsp', name: 'Test Game [0100000000010000][v0]', size: 8e9, kind: 'base', mtime: 1, titleId: '0100000000010000', baseTitleId: '0100000000010000' },
+    { url: 'b.nsp', name: 'Test Game [0100000000010800][v65536]', size: 5e8, kind: 'update', mtime: 1, titleId: '0100000000010800', baseTitleId: '0100000000010000' },
+    { url: 'c.nsp', name: 'Test Game [0100000000010800][v131072]', size: 1e9, kind: 'update', mtime: 1, titleId: '0100000000010800', baseTitleId: '0100000000010000' },
+    { url: 'd.nsp', name: 'Test Game Extra Map [0100000000011001][v0]', size: 5e8, kind: 'dlc', mtime: 1, titleId: '0100000000011001', baseTitleId: '0100000000010000' },
+  ], titledb: {} } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  fs.mkdirSync('out/web', { recursive: true });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    await page.locator('#games .game').first().click();
+    const shots = page.locator('#modal-screens img');
+    await expect(shots).toHaveCount(3);
+    await shots.nth(1).click();
+    const gallery = page.locator('#gallery');
+    await expect(gallery).toHaveClass(/open/);
+    await expect(page.locator('#gallery-count')).toHaveText('2 / 3');
+    await expect(page.locator('#gallery-img')).toHaveAttribute('src', /zz-shot-2\.png/);
+    // Buttons and keys move through the pictures, and stop at the ends.
+    await page.locator('#gallery-next').click();
+    await expect(page.locator('#gallery-count')).toHaveText('3 / 3');
+    await expect(page.locator('#gallery-next')).toBeDisabled();
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#gallery-count')).toHaveText('2 / 3');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#gallery-count')).toHaveText('1 / 3');
+    await expect(page.locator('#gallery-prev')).toBeDisabled();
+    // Swipe left goes on, swipe right comes back.
+    const box = (await page.locator('#gallery-stage').boundingBox())!;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width * 0.7, y); await page.mouse.down(); await page.mouse.move(box.x + box.width * 0.3, y, { steps: 4 }); await page.mouse.up();
+    await expect(page.locator('#gallery-count')).toHaveText('2 / 3');
+    await page.mouse.move(box.x + box.width * 0.3, y); await page.mouse.down(); await page.mouse.move(box.x + box.width * 0.7, y, { steps: 4 }); await page.mouse.up();
+    await expect(page.locator('#gallery-count')).toHaveText('1 / 3');
+    // The buttons carry icons and names.
+    await expect(page.locator('#gallery-close svg.bi')).toHaveCount(1);
+    await expect(page.locator('#gallery-close')).toHaveAttribute('aria-label', '닫기');
+    await page.screenshot({ path: `out/web/gallery-${width}.png` });
+    // Esc closes the gallery only; the detail window stays until the next Esc.
+    await page.keyboard.press('Escape');
+    await expect(gallery).not.toHaveClass(/open/);
+    await expect(page.locator('#modal')).toHaveClass(/open/);
+    await shots.nth(0).click();
+    await page.locator('#gallery-close').click();
+    await expect(gallery).not.toHaveClass(/open/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#modal')).not.toHaveClass(/open/);
+  }
+});
