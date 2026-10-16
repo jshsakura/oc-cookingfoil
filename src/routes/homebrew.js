@@ -83,6 +83,7 @@ import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
+import { addForwarderSource } from "../tasks/forwarder-schedule.js";
 import fs from "fs";
 import fsp from "fs/promises";
 import { createTracker, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
@@ -201,6 +202,24 @@ const forwarderApp = (e) => ({
   artKey: [e.hash, media.iconVersion(e.id) ?? null],
 });
 
+/** forwarderApp with its icon: the one an admin uploaded wins over the app file's, as on the card. */
+async function shortcutApp(e) {
+  const custom = media.iconVersion(e.id) && fs.existsSync(media.iconPath(e.id));
+  return { ...forwarderApp(e), icon: custom ? media.iconPath(e.id) : await defaultService.icon(e.id).catch(() => null) };
+}
+
+// The nightly pass builds the shortcuts no one downloaded yet. An installable title (.nsp) is its own HOME menu entry: none for it.
+addForwarderSource("homebrew", {
+  dir: forwarderDir,
+  keysDir,
+  apps: async () => {
+    const entries = (await defaultService.list()).filter((e) => e.install_type !== "title");
+    const apps = [];
+    for (const e of entries) apps.push(await shortcutApp(e));
+    return apps;
+  },
+});
+
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
@@ -228,9 +247,7 @@ export const defaultService = {
     if (!forwardersAvailable(keysDir)) return null;
     const e = (await this.list()).find((x) => x.id === id);
     if (!e) return null;
-    // The icon an admin uploaded wins over the one in the app file, as on the card.
-    const custom = media.iconVersion(id) && fs.existsSync(media.iconPath(id));
-    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir);
+    return ensureForwarder(forwarderDir, await shortcutApp(e), keysDir);
   },
   async icon(id) {
     const file = id.startsWith("m-")
