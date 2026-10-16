@@ -3,8 +3,12 @@
  *
  *   GET  /admin/api/library/files?q=        { files: [{ rel, name, size, kind, titleId }], total }  up to 100 matches
  *   POST /admin/api/library/files/remove    { rel }  delete one file from the games folder
+ *   GET  /admin/api/library/verify          the file check: { status, counts, pending, hashPending, flagged, … }
+ *   POST /admin/api/library/verify/hash-all every file gets the whole-file hash it has not had   { queued }
+ *   POST /admin/api/library/verify/recheck  { rel }  check one file again, hash included
  *
  * Only a file the library listed can be removed, and only from inside the games folder.
+ * The file check only informs: nothing here hides or refuses a file because of it.
  */
 import fsp from "fs/promises";
 import path from "path";
@@ -12,10 +16,11 @@ import * as shopCache from "../../meta/shop-cache.js";
 import { romsDirPath } from "../../helpers/envs.js";
 import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
+import verifyQueue from "../../meta/verify-service.js";
 
 const LIMIT = 100;
 
-export function mountLibraryFilesApi(router, requireSession) {
+export function mountLibraryFilesApi(router, requireSession, verify = verifyQueue) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
@@ -48,6 +53,16 @@ export function mountLibraryFilesApi(router, requireSession) {
     }
     shopCache.invalidate({ rescan: true });
     debug.log("admin: library file removed: %s", rel);
+    res.json({ ok: true });
+  }));
+
+  router.get("/api/library/verify", handle((req, res) => res.json(verify.view())));
+
+  router.post("/api/library/verify/hash-all", handle((req, res) => res.json({ ok: true, queued: verify.hashAll() })));
+
+  router.post("/api/library/verify/recheck", handle((req, res) => {
+    const rel = String(req.body?.rel ?? "");
+    if (!rel || !verify.recheck(rel)) return res.status(404).json({ error: "검사 기록이 없는 파일입니다" });
     res.json({ ok: true });
   }));
 }

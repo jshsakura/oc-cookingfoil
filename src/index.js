@@ -71,6 +71,7 @@ import * as folderSync from "./meta/folder-sync.js";
 import * as backups from "./db/backup.js";
 import * as userPatches from "./meta/user-patches.js";
 import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
+import verifyQueue, { start as startVerifyQueue } from "./meta/verify-service.js";
 import { loadPrices } from "./meta/eshop-price.js";
 import * as ratingSync from "./meta/rating-sync.js";
 import * as securityStore from "./security/store.js";
@@ -398,6 +399,8 @@ ratingSync.start({ onChange: () => shopCache.invalidate() });
 
 // The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
 startNszQueue();
+// The file check: signatures of every game file, the whole-file hash of new ones; it only informs.
+startVerifyQueue();
 
 // The saves folder holds tens of thousands of files: read it once now, not on the first request.
 if (savesEnabled()) {
@@ -470,6 +473,7 @@ const restartOptions = (exitCode) => ({
     try { wsHandle.close(); } catch {}
     // A running conversion is stopped and waits again after the restart.
     await nszQueue.shutdown().catch(() => {});
+    await verifyQueue.shutdown().catch(() => {});
     telegramUpdates.stop().catch(() => {});
     await transferLog.shutdown().catch(() => {});
     await securityStore.shutdown().catch(() => {});

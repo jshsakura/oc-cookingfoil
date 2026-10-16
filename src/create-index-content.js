@@ -56,6 +56,7 @@ import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
+import { integrityOf } from "./meta/file-integrity.js";
 import {
   shouldAutoExtract,
   isSliceable,
@@ -546,6 +547,10 @@ function attachContentMeta(item, relPath, parsed) {
     if (dlcTotal) item.dlc_total = dlcTotal;
   }
   if (parsed.contentType === "update" && meta?.displayVersion) item.version_name = meta.displayVersion;
+  // What the file check found, only when there is something to say (feature "item-integrity").
+  // It informs; the file is offered all the same.
+  const integrity = integrityOf(relPath);
+  if (integrity) item.integrity = integrity;
   if (extractIcons !== "off") {
     contentMeta.enqueue({
       absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId,

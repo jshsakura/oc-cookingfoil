@@ -17,7 +17,7 @@ import debug from "../debug.js";
 export const KINDS = Object.freeze([
   "sync", "scan:games", "scan:homebrew", "scan:saves", "scan:patches", "scan:retro",
   "backup", "nsz", "titledb", "ratings", "eshop", "retro-meta", "retro-art",
-  "homebrew-github", "homebrew-art", "prewarm", "optimize", "cleanup",
+  "homebrew-github", "homebrew-art", "prewarm", "optimize", "cleanup", "verify",
 ]);
 
 const RECENT_MAX = 50;
