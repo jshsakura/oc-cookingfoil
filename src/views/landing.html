@@ -581,17 +581,19 @@
       .modal {
         --surface: var(--modal-panel); --sunk: var(--modal-sunk); --line: var(--modal-line);
         background: var(--modal-bg); border-radius: 26px; max-width: 760px; width: 100%; max-height: 90vh;
-        overflow: hidden auto; animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex; flex-direction: column; overflow: hidden; animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.25);
         /* Every dialog draws its own edge, so it reads as a card over the page, not a floating sheet. */
         border: 1px solid var(--line2);
       }
-      /* The dialog scrolls itself: a slim bar kept inside its rounded edge, not one standing off the card. */
-      .modal::-webkit-scrollbar { width: 14px; }
-      .modal::-webkit-scrollbar-track { background: transparent; margin: 26px 0; }
-      .modal::-webkit-scrollbar-thumb { background: var(--line2); border: 4px solid transparent; border-radius: 14px; background-clip: padding-box; }
-      .modal::-webkit-scrollbar-thumb:hover { background-color: var(--faint); }
-      @supports not selector(::-webkit-scrollbar) { .modal { scrollbar-width: thin; scrollbar-color: var(--line2) transparent; } }
+      /* The card clips to its rounded edge and an inner box scrolls, so the scroll bar stays inside the card
+         (a card that scrolls itself draws its bar over its own corners, standing off the card). */
+      .modal-scroll { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; }
+      .modal-scroll::-webkit-scrollbar { width: 14px; }
+      .modal-scroll::-webkit-scrollbar-track { background: transparent; margin: 22px 0; }
+      .modal-scroll::-webkit-scrollbar-thumb { background: var(--line2); border: 4px solid transparent; border-radius: 14px; background-clip: padding-box; }
+      .modal-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--faint); }
+      @supports not selector(::-webkit-scrollbar) { .modal-scroll { scrollbar-width: thin; scrollbar-color: var(--line2) transparent; } }
       /* capped so a zoomed-in or short window still shows the title and details */
       .modal .banner {
         position: relative; overflow: hidden; display: grid; place-items: center;
@@ -1062,7 +1064,7 @@
     </div>
 
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
-      <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="banner" id="modal-banner">
           <img class="banner-poster" id="modal-poster" alt="" decoding="async">
@@ -1098,11 +1100,11 @@
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
           </div>
         </div>
-      </div>
+      </div></div>
     </div>
 
     <div class="modal-backdrop" id="xmodal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="xm-title">
-      <div class="modal xmodal" onclick="event.stopPropagation()">
+      <div class="modal xmodal" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="body">
           <div class="modal-head">
@@ -1122,11 +1124,11 @@
             <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
           </div>
         </div>
-      </div>
+      </div></div>
     </div>
 
     <div class="modal-backdrop" id="share-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="share-title">
-      <div class="modal share-modal" onclick="event.stopPropagation()">
+      <div class="modal share-modal" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <form class="body" id="share-form" novalidate>
           <h3 id="share-title" data-i18n="share.title"></h3>
@@ -1150,7 +1152,7 @@
             <button class="btn ghost" type="button" id="share-close" data-i18n="action.close"></button>
           </div>
         </form>
-      </div>
+      </div></div>
     </div>
 
     <div class="toast-rack" id="toasts"></div>
@@ -1205,7 +1207,8 @@
           "xm.forUpdate": "맞는 업데이트",
           "extras.forUpdate": (v) => `${v}용`,
           "xm.author": "만든 이",
-          "xm.updated": "올린 날",
+          "xm.updated": "마지막 수정일",
+          "xm.released": "이 버전 출시일",
           "xm.required": "필수",
           "xm.appPatches": "이 앱의 패치",
           "xm.appSaves": "이 앱의 세이브",
@@ -1453,7 +1456,8 @@
           "xm.forUpdate": "Made for update",
           "extras.forUpdate": (v) => `for ${v}`,
           "xm.author": "Author",
-          "xm.updated": "Updated",
+          "xm.updated": "Last changed",
+          "xm.released": "Version released",
           "xm.required": "Required",
           "xm.appPatches": "Patches for this app",
           "xm.appSaves": "Saves for this app",
@@ -1700,7 +1704,8 @@
           "xm.forUpdate": "対応アップデート",
           "extras.forUpdate": (v) => `${v}用`,
           "xm.author": "作者",
-          "xm.updated": "更新日",
+          "xm.updated": "最終更新日",
+          "xm.released": "このバージョンの公開日",
           "xm.required": "必須",
           "xm.appPatches": "このアプリのパッチ",
           "xm.appSaves": "このアプリのセーブ",
@@ -1947,7 +1952,8 @@
           "xm.forUpdate": "對應更新",
           "extras.forUpdate": (v) => `適用 ${v}`,
           "xm.author": "作者",
-          "xm.updated": "更新日期",
+          "xm.updated": "最後修改日期",
+          "xm.released": "此版本發布日期",
           "xm.required": "必要",
           "xm.appPatches": "此應用程式的補丁",
           "xm.appSaves": "此應用程式的存檔",
@@ -2257,6 +2263,12 @@
           button.disabled = false;
         }
       });
+      // Shows a dialog; one that was closed opens at its top, one already open keeps its place.
+      function openSheet(id) {
+        const el = $(id);
+        if (!el.classList.contains("open")) { const sc = el.querySelector(".modal-scroll"); if (sc) sc.scrollTop = 0; }
+        el.classList.add("open"); el.setAttribute("aria-hidden", "false");
+      }
       const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
       // Inline placeholder SVGs for the "icon missing" state. We swap the
@@ -3284,7 +3296,7 @@
           const dl = $("xm-download");
           dl.hidden = !download;
           if (download) dl.href = download;
-          $("xmodal").classList.add("open"); $("xmodal").setAttribute("aria-hidden", "false");
+          openSheet("xmodal");
           $("xm-close").focus();
         }
         function close() { $("xmodal").classList.remove("open"); $("xmodal").setAttribute("aria-hidden", "true"); }
@@ -3623,7 +3635,7 @@
             meta: [
               [t("xm.version"), a.version && "v" + a.version],
               [t("xm.size"), fmtBytes(a.size)],
-              [t("xm.updated"), a.released_at ? new Date(a.released_at).toLocaleDateString(lang) : ""],
+              [t("xm.released"), a.released_at ? new Date(a.released_at).toLocaleDateString(lang) : ""],
             ],
             desc: a.description,
             source: a.repo_url ? { label: t("xm.repo"), name: a.repo_url.replace(/^https?:\/\/(www\.)?/, ""), url: a.repo_url } : null,
@@ -4171,7 +4183,7 @@
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
-        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+        openSheet("modal");
 
         // Rich metadata (description, publisher, screenshots, release, region,
         // rating, players) lives behind /api/title/:id because the shop
@@ -4420,7 +4432,7 @@
         currentModal = null;
         const mine = ++retroSeq;
         renderRetroModal(g, sys, true);
-        $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false");
+        openSheet("modal");
         retroDetail(g.id).then((d) => {
           if (mine !== retroSeq) return;
           renderRetroModal(d ? { ...g, ...d } : g, sys, false);
@@ -4688,7 +4700,7 @@
         function open() {
           setAcctMenu(false);
           say(""); relabel();
-          $("share-modal").classList.add("open"); $("share-modal").setAttribute("aria-hidden", "false");
+          openSheet("share-modal");
           $("share-memo").focus();
         }
         function close() { $("share-modal").classList.remove("open"); $("share-modal").setAttribute("aria-hidden", "true"); }
