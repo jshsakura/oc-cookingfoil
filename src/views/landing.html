@@ -190,6 +190,11 @@
       .xgroup header img, .xgroup .xhead img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); flex-shrink: 0; }
       .xgroup header strong, .xgroup .xhead strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .xgroup header .n, .xgroup .xhead .n { margin-left: auto; color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+      /* How many a game has, as a soft capsule beside the arrow. */
+      .xgroup .xhead .n { padding: 4px 11px; border-radius: 100px; background: var(--sunk); border: 1px solid var(--line); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.3; }
+      .xgroup .xhead .xicon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; overflow: hidden; border-radius: 14px; background: var(--sunk); border: 1px solid var(--line); color: var(--secondary); }
+      .xgroup .xhead .xicon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+      .xgroup .xhead .xicon img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; background: var(--sunk); }
       /* A game's card is an accordion: its header opens the items under it. */
       .xgroup .xhead { width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
       .xgroup .xhead::after { content: "›"; font-size: 22px; line-height: 1; color: var(--secondary); transition: transform 0.2s ease; flex-shrink: 0; }
@@ -1336,6 +1341,7 @@
           "homebrew.search": "앱 이름으로 찾기…",
           "homebrew.empty": "이 조건에 맞는 앱이 없습니다.",
           "homebrew.extras": (p, s) => `패치 ${p}개 · 세이브 ${s}개`,
+          "xgroup.count": (n) => `${n}개`,
           "xm.size": "크기",
           "xm.files": "파일",
           "xm.version": "버전",
@@ -1614,6 +1620,7 @@
           "homebrew.search": "Search by app name…",
           "homebrew.empty": "No app matches.",
           "homebrew.extras": (p, s) => `${p} patches · ${s} saves`,
+          "xgroup.count": (n) => `${n}`,
           "xm.size": "Size",
           "xm.files": "Files",
           "xm.version": "Version",
@@ -1891,6 +1898,7 @@
           "homebrew.search": "アプリ名で検索…",
           "homebrew.empty": "該当するアプリがありません。",
           "homebrew.extras": (p, s) => `パッチ ${p} 件 · セーブ ${s} 件`,
+          "xgroup.count": (n) => `${n} 件`,
           "xm.size": "サイズ",
           "xm.files": "ファイル",
           "xm.version": "バージョン",
@@ -2168,6 +2176,7 @@
           "homebrew.search": "依應用名稱搜尋…",
           "homebrew.empty": "沒有符合的應用。",
           "homebrew.extras": (p, s) => `補丁 ${p} 個 · 存檔 ${s} 個`,
+          "xgroup.count": (n) => `${n} 個`,
           "xm.size": "大小",
           "xm.files": "檔案",
           "xm.version": "版本",
@@ -3977,6 +3986,7 @@
           row.addEventListener("click", () => xmodal.show(detail(kind, it)));
           return row;
         }
+        const XICON_EMPTY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>';
         const PAGE = 20;   // games per page
         const pageOf = { patches: 1, saves: 1 };
         const opened = { patches: new Set(), saves: new Set() };   // games the reader opened
@@ -4058,12 +4068,17 @@
             const first = grp.sample;
             const g = document.createElement("section"); g.className = "xgroup";
             const head = document.createElement("button"); head.type = "button"; head.className = "xhead";
-            const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+            // The game's icon in a rounded tile; without one the tile keeps a quiet picture mark.
+            const img = document.createElement("span"); img.className = "xicon"; img.innerHTML = XICON_EMPTY;
             const icon = first.homebrew ? homebrew.iconOf(first.homebrew) : first.game?.icon;
-            if (icon) img.src = first.homebrew ? icon : iconPath(icon);
-            img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+            if (icon) {
+              const pic = document.createElement("img"); pic.alt = ""; pic.loading = "lazy"; pic.decoding = "async";
+              pic.src = first.homebrew ? icon : iconPath(icon);
+              pic.addEventListener("error", () => pic.remove());
+              img.append(pic);
+            }
             const name = document.createElement("strong"); name.textContent = grp.name;
-            const n = document.createElement("span"); n.className = "n"; n.textContent = grp.count;
+            const n = document.createElement("span"); n.className = "n"; n.textContent = t("xgroup.count", grp.count);
             // What the game's patches are, before it is opened: required first, then each kind once.
             const title = document.createElement("span"); title.className = "xtitle";
             const badges = document.createElement("span"); badges.className = "xbadges";

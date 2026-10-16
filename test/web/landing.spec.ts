@@ -724,7 +724,7 @@ test('saves page by game, so a game with many saves stays on one page and loads 
   await expect(page.locator('#saves-list .xgroup')).toHaveCount(20);
   await expect(page.locator('#saves-pager .info')).toHaveText('1–20 / 총 22');
   const big = page.locator('#saves-list .xhead', { hasText: 'Big Game' });
-  await expect(big.locator('.n')).toHaveText('30');
+  await expect(big.locator('.n')).toHaveText('30개');
   expect(asked.some((q) => q.includes('game='))).toBe(false);
   await big.click();
   // Its saves are fetched when it opens, with loading rows meanwhile.
