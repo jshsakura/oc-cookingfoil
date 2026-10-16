@@ -9,8 +9,12 @@
  * others, which are saved to ${COOK_DATA_DIR}/transfers.json (debounced, tmp +
  * rename) and read back on start.
  *
- * Speed is bytes over active time: the wall time during which at least one of
- * its requests was in flight, so a pause between two tries does not count.
+ * Speed is bytes over the transfer's wall time, from its first request to the
+ * end of its last one. Counting only the time a request is in flight here
+ * overstates it many times over: behind the direct proxy a response is handed
+ * to loopback and proxy buffers in a second or two and then drains to the
+ * console for many more, while no request of ours is open. A pause longer than
+ * QUIET_MS closes the transfer, so it never counts.
  *
  * The request side (what a request is, who sent it, which route) is in
  * transfer-track.js; this file only adds up what it is told. Nothing here runs
@@ -191,7 +195,7 @@ export function createTransferLog({
     const t1 = now();
     t.inflight = Math.max(0, t.inflight - 1);
     if (t.inflight === 0 && t.activeSince != null) {
-      t.activeMs += t1 - t.activeSince;
+      t.activeMs = t1 - t.startedAt;
       t.activeSince = null;
     }
     t.lastAt = t1;
@@ -212,7 +216,7 @@ export function createTransferLog({
   }
 
   function activeMsOf(t, at) {
-    return t.activeMs + (t.activeSince != null ? at - t.activeSince : 0);
+    return t.activeSince != null ? at - t.startedAt : t.activeMs;
   }
 
   function recordOf(t, endedAt) {
