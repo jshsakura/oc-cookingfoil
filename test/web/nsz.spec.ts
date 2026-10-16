@@ -34,7 +34,7 @@ test('the conversion queue is off by default, turns on from its settings and que
   await expect(page.locator('.ss-row[data-key="nszWorkers"]')).toContainText('내려받기가 느려집니다');
 
   await page.locator('.ss-row[data-key="nszEnabled"] .ss-switch').click();
-  await expect(page.locator('#nz-state')).toHaveText('일시정지');
+  await expect(page.locator('#nz-state')).toHaveText('쉬는 중');
   await expect(page.locator('#nz-toggle')).toBeEnabled();
   const min = page.locator('.ss-row[data-key="nszMinSizeMb"] input');
   await min.fill('1');

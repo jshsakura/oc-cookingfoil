@@ -22,6 +22,12 @@
  * downloads. A file already running finishes. Below the free space floor the
  * run pauses, as it does after MAX_FAILS failures in a row.
  *
+ * A run ends by itself once nothing is left to start or running: the queue
+ * then sits idle with no timer and no folder scan. It starts again only when
+ * the admin presses 시작 or, with auto-queue on, when the library gains a new
+ * file (unless the admin paused it). Failed files keep their reason and wait
+ * for 재시도; nothing retries them by itself.
+ *
  * The queue is kept in ${COOK_DATA_DIR}/nsz-queue.json (written atomically,
  * coalesced). A file that was running when the server stopped waits again, and
  * the work folder is emptied on start. Pause, a setting turned off and a
@@ -63,7 +69,7 @@ const FILTERS = {
   failed: new Set(["failed", "skipped"]),
 };
 
-const emptyState = () => ({ version: 1, running: false, pausedReason: null, items: [], dismissed: [], failures: [], stats: { converted: 0, savedBytes: 0, inBytes: 0, outBytes: 0 } });
+const emptyState = () => ({ version: 1, running: false, held: false, pausedReason: null, items: [], dismissed: [], failures: [], stats: { converted: 0, savedBytes: 0, inBytes: 0, outBytes: 0 } });
 
 /**
  * One queue. Everything outside the folder and the state file comes in, so
@@ -221,10 +227,15 @@ export function createNszQueue({
       const s2 = settings();
       if (closed || !s2.enabled || !s2.autoQueue) return;
       const r = addFiles(catalog().map((f) => ({ rel: f.rel, size: f.size })));
-      if (r.added) {
-        debug.log("nsz: queued %d new file(s) from the library", r.added);
-        pump();
+      if (!r.added) return;
+      debug.log("nsz: queued %d new file(s) from the library", r.added);
+      // A new file starts an idle queue; a pause by the admin or for disk or failures stays.
+      if (!state.running && !state.held && !state.pausedReason) {
+        state.running = true;
+        fails = 0;
+        save();
       }
+      pump();
     }, autoDelayMs);
     autoTimer.unref?.();
   }
@@ -319,7 +330,12 @@ export function createNszQueue({
     }
   }
 
+  /** Nothing left to start or running: the run ends, leaving no timer behind. */
   function drained() {
+    if (state.running) {
+      state.running = false;
+      save();
+    }
     if (!cycle.done && !cycle.failed) return;
     const text = `변환 대기열을 모두 처리했습니다. ${cycle.done}개를 변환해 ${gb(cycle.saved)}를 확보했습니다.${cycle.failed ? ` 실패 ${cycle.failed}개는 변환 탭에서 확인합니다.` : ""}`;
     cycle = { done: 0, saved: 0, failed: 0 };
@@ -431,6 +447,7 @@ export function createNszQueue({
 
   function start() {
     state.running = true;
+    state.held = false;
     state.pausedReason = null;
     fails = 0;
     save();
@@ -439,6 +456,7 @@ export function createNszQueue({
 
   async function pause() {
     state.running = false;
+    state.held = true;
     state.pausedReason = null;
     save();
     await stopAll();
@@ -466,6 +484,8 @@ export function createNszQueue({
       Object.assign(i, { state: "waiting", reason: null, retryAt: null, finishedAt: null });
     }
     if (id !== "all" && !list.length) return 0;
+    // 재시도 is the admin's go: an idle queue starts, a paused one stays paused.
+    if (list.length && !state.running && !state.held && !state.pausedReason) state.running = true;
     save();
     pump();
     return list.length;
@@ -545,7 +565,8 @@ export function createNszQueue({
     return {
       enabled: s.enabled,
       running: state.running,
-      status: !s.enabled ? "off" : state.running ? "running" : "paused",
+      status: !s.enabled ? "off" : state.running ? "running" : state.held || state.pausedReason ? "paused" : "idle",
+      autoQueue: Boolean(s.autoQueue),
       pausedReason: state.pausedReason,
       waitingFor,
       tool: Boolean(bin()),
