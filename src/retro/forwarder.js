@@ -13,9 +13,10 @@
  * Title IDs are 05 + 44 bits of sha256(game id) + 000: the same game always
  * gets the same ID, so reinstalling replaces the old shortcut.
  *
- * NSPs are built after each catalog scan and kept in <data dir>/retro-forwarders/,
- * named by a key over everything that goes into them, so a changed name,
- * cover, core or ROM path builds a new one (under the same title ID).
+ * NSPs are built when one is asked for, not ahead of time, and kept in
+ * <data dir>/retro-forwarders/, named by a key over everything that goes into
+ * them, so a changed name, cover, core or ROM path builds a new one (under the
+ * same title ID) and the old one is dropped.
  */
 import crypto from "crypto";
 import { execFile } from "child_process";
@@ -32,7 +33,6 @@ const TITLE_ENTRY = 0x300; // name 0x200 + publisher 0x100, UTF-8
 const LANGUAGES = 16;
 const ICON_MAX = 0x20000;
 const BUILD_TIMEOUT_MS = 60_000;
-const CONCURRENCY = 2;
 // Bump when the NSP's contents change in a way the key below can't see.
 const FORMAT = 1;
 
@@ -232,6 +232,16 @@ export async function buildForwarder(spec, icon, dest, keysDir) {
 
 const inFlight = new Map();
 
+/** Removes the item's earlier builds (another name, cover or path) once a new one is made. */
+async function dropOlder(outDir, id, keep) {
+  const prefix = `${id}-`;
+  for (const f of await fsp.readdir(outDir).catch(() => [])) {
+    if (f.startsWith(prefix) && /^[0-9a-f]{12}\.nsp$/.test(f.slice(prefix.length)) && f !== path.basename(keep)) {
+      await fsp.rm(path.join(outDir, f), { force: true });
+    }
+  }
+}
+
 /** The NSP for one game, built now if it isn't on disk. `game` as for forwarderSpec, plus `icon`. */
 export async function ensureForwarder(outDir, game, keysDir) {
   const spec = forwarderSpec(game);
@@ -239,52 +249,10 @@ export async function ensureForwarder(outDir, game, keysDir) {
   const dest = forwarderPath(outDir, game.id, spec);
   if (fs.existsSync(dest)) return { path: dest, spec };
   if (!inFlight.has(dest)) {
-    inFlight.set(dest, buildForwarder(spec, game.icon, dest, keysDir).finally(() => inFlight.delete(dest)));
+    inFlight.set(dest, buildForwarder(spec, game.icon, dest, keysDir)
+      .then(() => dropOlder(outDir, game.id, dest))
+      .finally(() => inFlight.delete(dest)));
   }
   await inFlight.get(dest);
   return { path: dest, spec };
-}
-
-const running = new Map(); // outDir → the build in progress there
-
-/** Build every missing NSP and remove the ones no game uses any more. */
-export function prewarmForwarders(outDir, games, keysDir) {
-  if (running.has(outDir)) return running.get(outDir);
-  const job = (async () => {
-    const wanted = new Set();
-    const todo = [];
-    const owners = new Map();
-    for (const g of games) {
-      const spec = forwarderSpec(g);
-      if (!spec) continue;
-      if (owners.has(spec.titleId)) debug.error("retro: forwarder title ID %s is shared by %s and %s", spec.titleId, owners.get(spec.titleId), g.id);
-      owners.set(spec.titleId, g.id);
-      const dest = forwarderPath(outDir, g.id, spec);
-      wanted.add(path.basename(dest));
-      if (!fs.existsSync(dest)) todo.push(g);
-    }
-    let made = 0;
-    let next = 0;
-    await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
-      while (next < todo.length) {
-        const g = todo[next++];
-        try {
-          await ensureForwarder(outDir, g, keysDir);
-          made++;
-        } catch (err) {
-          debug.error("retro: forwarder for %s failed: %s", g.id, err.message);
-        }
-      }
-    }));
-    let removed = 0;
-    for (const f of await fsp.readdir(outDir).catch(() => [])) {
-      if (f.endsWith(".nsp") && !wanted.has(f)) {
-        await fsp.rm(path.join(outDir, f), { force: true });
-        removed++;
-      }
-    }
-    if (made || removed) debug.log("forwarders in %s: %d built, %d removed", path.basename(outDir), made, removed);
-  })().finally(() => running.delete(outDir));
-  running.set(outDir, job);
-  return job;
 }
