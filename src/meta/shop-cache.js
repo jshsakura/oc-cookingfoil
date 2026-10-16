@@ -306,10 +306,10 @@ export async function get() {
   return build();
 }
 
-/** Every scanned game file: { rel, name, size, kind, titleId, baseTitleId } ([] before the first build). */
+/** Every scanned game file: { rel, name, size, kind, titleId, baseTitleId, mtime } ([] before the first build); mtime in epoch seconds or null. */
 export function files() {
   if (!filesMap) return [];
-  return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null, baseTitleId: i.baseTitleId ?? null }));
+  return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null, baseTitleId: i.baseTitleId ?? null, mtime: i.mtime ?? null }));
 }
 
 /**

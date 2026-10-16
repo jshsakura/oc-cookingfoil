@@ -16,11 +16,13 @@ import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-pan
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { LIBRARY_FILES_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
+import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 
 const PAGE_CSS = /* css */ `
@@ -219,8 +221,8 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${ICON_CSS}
-nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
+<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}
+nav.tabs a{display:inline-flex;align-items:center;gap:7px}${POLISH_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
@@ -384,6 +386,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}</style></head><body>
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <div class="cards" id="lib-cards"></div>
+  ${LIB_BROWSER_HTML}
   ${LIBRARY_FILES_HTML}
   ${PATCHES_HTML}
   <h2>게임 이름, 소개, 추가 정보</h2>
@@ -529,5 +532,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}</script></body></html>`;
 }

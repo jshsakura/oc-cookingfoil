@@ -97,6 +97,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 홈브류 앱 켜기·끄기 (끄면 기기 목록에서만 빠짐), 저장소 빼기, 직접 넣은 앱 삭제 | `POST /admin/api/homebrew/enabled` `{ "id", "enabled": false }`, `POST /admin/api/homebrew/remove` `{ "repo" }`, `POST /admin/api/homebrew/manual/remove` `{ "id" }` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
 | 게임 파일 찾기, 삭제 | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }` |
+| 라이브러리 파일을 종류별로 보기 (읽기만 합니다. 아래 "파일 목록 API" 참조) | `GET /admin/api/library/browse?kind=base&page=1&perPage=50` |
 | 레트로 게임 이름 정하기 (파일 이름은 그대로, 둘 다 비우면 파일 이름으로) | `POST /admin/api/retro-art/games/name` `{ "game": "<id>", "ko", "en" }` |
 | 레트로 게임 롬 삭제 (표지는 남음) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
 | 서버 동작 보기, 변경 (null 이면 compose 값으로, 기기 승인·접속 방식·공개 주소·다운로드 링크 수명은 제외), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "welcomeMessage": "…" }`, `POST /admin/api/server-settings/titledb-refresh` |
@@ -108,3 +109,30 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |
 | 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |
 | 임시 공유 정리함으로 보내기, 되돌리기, 삭제 | `POST /admin/api/inbox/<id>/done` `{ "done": true }`, `DELETE /admin/api/inbox/<id>` |
+
+### 파일 목록 API
+
+`GET /admin/api/library/browse` 는 서버가 내주는 파일을 종류별로 나눠 페이지로 돌려줍니다. 응답에는 언제나 `total`(조건에 맞는 수)과 `counts`(종류별 수)가 들어 있습니다. `counts` 에는 종류를 뺀 나머지 조건이 모두 적용됩니다.
+
+| 매개변수 | 값 |
+|---|---|
+| `kind` | `base` `update` `dlc` `patch` `save` `homebrew` `other` 중 하나 이상, 쉼표로 나눕니다 (기본 `base`). `other` 는 게임 폴더에 있지만 게임 파일이 아닌 것입니다 |
+| `q` | 이름, 경로, 타이틀 ID 에서 찾을 글자 (200자까지) |
+| `ext` | 확장자, 쉼표로 나눕니다 (예: `nsp,xci`) |
+| `minSize` `maxSize` | 바이트 |
+| `modifiedSince` | epoch 초나 ISO 날짜 |
+| `integrity` | `ok` `modified` `damaged` `unchecked` 중 하나 이상. 게임 파일에만 값이 있습니다 |
+| `sort` `order` | `name` `size` `mtime`, `asc` `desc` (기본 이름 오름차순) |
+| `page` `perPage` | 1부터, 한 페이지 1에서 500개 (기본 50). 마지막 페이지를 넘으면 마지막 페이지를 돌려줍니다 |
+| `fields` | 받을 항목만 쉼표로 고릅니다 (예: `rel,size,kind`) |
+| `counts_only` | `1` 이면 `{ counts, total }` 만 돌려줍니다 |
+
+항목은 늘 같은 모양이고 모르는 값은 `null` 입니다: `{ name, kind, rel, size, mtime, ext, titleId, version, integrity }`. `rel` 은 그 종류의 폴더 안 경로이고 `mtime` 은 epoch 초입니다. 응답 바깥은 `{ items, total, page, perPage, pages, sort, order, counts }` 입니다. 잘못된 매개변수는 400 `{ "error": "…", "code": "bad-param", "param": "<이름>" }` 으로 옵니다.
+
+| 하는 일 | 요청 |
+|---|---|
+| 종류별 파일 수 | `GET /admin/api/library/browse?counts_only=1` |
+| 손상된 게임 파일 목록 | `GET /admin/api/library/browse?kind=base,update,dlc&integrity=damaged&fields=rel,size,integrity&perPage=500` |
+| 큰 파일 찾기 (10GB 이상, 큰 것부터) | `GET /admin/api/library/browse?kind=base,update,dlc&minSize=10737418240&sort=size&order=desc&fields=rel,size` |
+| 게임이 아닌 파일 정리 대상 | `GET /admin/api/library/browse?kind=other&perPage=500&fields=rel,size,mtime` |
+| 하루 사이에 들어온 업데이트 | `GET /admin/api/library/browse?kind=update&modifiedSince=<epoch 초>&sort=mtime&order=desc` |

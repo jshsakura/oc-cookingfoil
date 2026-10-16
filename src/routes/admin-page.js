@@ -59,6 +59,7 @@ import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
+import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
 import { mountNszApi } from "./admin/nsz-api.js";
@@ -431,6 +432,7 @@ export default function adminPageRouter() {
   mountServerSettingsApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
+  mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);
   mountServerApi(router, requireSession);
   mountNszApi(router, requireSession);
