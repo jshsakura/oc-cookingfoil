@@ -59,7 +59,7 @@ export function mountDescriptionsApi(router, requireSession) {
       if (v && typeof v === "object") gameDescriptions.set(id, field, { en: text(v.en), ko: text(v.ko) });
     }
     // A changed name is baked into the list the server hands out: build it again.
-    if (req.body?.name) shopCache.invalidate({ rescan: true });
+    if (req.body?.name) shopCache.invalidate({ rename: true });
     debug.log("admin: description of %s saved", id);
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
@@ -69,7 +69,7 @@ export function mountDescriptionsApi(router, requireSession) {
     if (!id) return;
     const field = gameDescriptions.FIELDS.includes(req.body?.field) ? req.body.field : null;
     gameDescriptions.reset(id, field);
-    if (!field || field === "name") shopCache.invalidate({ rescan: true });
+    if (!field || field === "name") shopCache.invalidate({ rename: true });
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
 }
