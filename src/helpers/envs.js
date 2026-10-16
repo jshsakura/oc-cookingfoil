@@ -348,6 +348,11 @@ if (publicDirectBaseUrl && !publicDirectBaseUrl.startsWith("https://")) {
   process.stderr.write(`[oc-cookingfoil] COOK_PUBLIC_DIRECT_BASE_URL must be an https address; it is ignored.\n`);
   publicDirectBaseUrl = null;
 }
+// Off: the address above is kept but not used, so every download takes the
+// list's own URL (the tunnel), and turning it back on needs no retyping.
+const envDirectBaseUrl = publicDirectBaseUrl;
+let directDownloads = envBool("COOK_DIRECT_DOWNLOADS", true);
+if (!directDownloads) publicDirectBaseUrl = null;
 let downloadLinkTtl = envNumber("COOK_DOWNLOAD_LINK_TTL", 21600, { min: 3600, max: 604800, integer: true });
 // The secret the direct address's proxy sends as X-CookingFoil-Edge (direct-lane.js),
 // so another container on the docker bridge can't pose as it. Compose only, never
@@ -403,7 +408,8 @@ const ENV_SETTINGS = Object.freeze({
   retroMeta,
   welcomeMessage,
   downloadMaxConnections,
-  publicDirectBaseUrl: publicDirectBaseUrl || "",
+  publicDirectBaseUrl: envDirectBaseUrl || "",
+  directDownloads,
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
@@ -442,7 +448,8 @@ function applyServerSettings(saved = {}) {
   retroMeta = v.retroMeta;
   welcomeMessage = v.welcomeMessage || null;
   downloadMaxConnections = v.downloadMaxConnections;
-  publicDirectBaseUrl = v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
+  directDownloads = v.directDownloads;
+  publicDirectBaseUrl = v.directDownloads && v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;

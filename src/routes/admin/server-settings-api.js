@@ -20,13 +20,13 @@ import * as directHealth from "../../security/direct-health.js";
 import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
-const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "downloadLinkTtl"]);
+const REBUILD = new Set(["publicBaseUrl", "welcomeMessage", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
 // Addresses the server fetches itself: refused when they point at a private network.
 const OUTBOUND = ["titledbSource", "publicDirectBaseUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 // Who may sign in and how, and the addresses consoles are sent to: never changed with an automation token.
-export const TOKEN_LOCKED = ["devicePairing", "consolePasswords", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "downloadLinkTtl"];
+export const TOKEN_LOCKED = ["devicePairing", "consolePasswords", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"];
 
 let fetching = null;
 
