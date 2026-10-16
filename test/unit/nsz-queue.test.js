@@ -178,16 +178,22 @@ test("a .nsz already beside the original fails without touching either", async (
   assert.equal(fs.readFileSync(path.join(games, "A.nsz"), "utf8"), "old");
 });
 
-test("below the free space floor the run pauses with the reason and an alert", async () => {
+test("a file starts when its own size fits in the free space, and the run pauses when it does not", async () => {
   put("A.nsp");
-  S.diskFloorGb = 150;
-  const q = make({ freeBytes: async () => 10 * 1024 ** 3 });
+  const q = make({ freeBytes: async () => 512 * 1024 ** 2 });
   await run(q);
   const v = q.view();
   assert.equal(v.running, false);
   assert.equal(v.pausedReason, "disk");
   assert.equal(item(q, "A.nsp").state, "waiting");
-  assert.match(alerts.at(-1).text, /남은 공간/);
+  assert.match(alerts.at(-1).text, /작업 공간이 모자라/);
+});
+
+test("with room for the file and no floor, a small disk still converts", async () => {
+  put("A.nsp");
+  const q = make({ freeBytes: async () => 2 * 1024 ** 3 });
+  await run(q);
+  assert.equal(item(q, "A.nsp").state, "done");
 });
 
 test("no new file starts while a console downloads; one already running finishes", async () => {

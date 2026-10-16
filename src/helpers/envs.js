@@ -367,9 +367,10 @@ let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
 let nszLevel = envNumber("COOK_NSZ_LEVEL", 18, { min: 1, max: 22, integer: true });
 let nszThreads = envNumber("COOK_NSZ_THREADS", 4, { min: 1, max: 32, integer: true });
 let nszWorkers = envNumber("COOK_NSZ_WORKERS", 1, { min: 1, max: 3, integer: true });
-// Files smaller than this are left as they are; below the free space floor the queue pauses.
+// Files smaller than this are left as they are. A file starts only with its own size free (plus 1 GB);
+// the floor, 0 unless set, keeps that much more free on top.
 let nszMinSizeMb = envNumber("COOK_NSZ_MIN_SIZE_MB", 100, { min: 1, max: 1048576, integer: true });
-let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 150, { min: 0, max: 1048576, integer: true });
+let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 0, { min: 0, max: 1048576, integer: true });
 // nsz -B: block compression instead of solid. Off: the client is as fast with solid files.
 let nszBlock = envBool("COOK_NSZ_BLOCK", false);
 // .xci to .xcz as well. Off: the client's .xcz install is not verified on a device yet.
