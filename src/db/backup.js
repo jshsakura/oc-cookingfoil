@@ -24,6 +24,7 @@ import path from "path";
 import debug from "../debug.js";
 import * as env from "../helpers/envs.js";
 import { securityDb } from "./database.js";
+import * as activity from "../tasks/activity.js";
 
 export const BACKUP_DIR = "backups";
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -123,13 +124,14 @@ let last = null; // { at, day, files, bytes, ms } or { at, error }
 /** Makes today's backup now (replacing one made earlier today). Returns what it wrote. */
 export function backupNow(now = Date.now()) {
   const started = Date.now();
+  const job = activity.begin("backup", { title: "DB 를 백업합니다" });
   const day = dayOf(now);
-  fs.mkdirSync(root(), { recursive: true, mode: 0o700 });
-  fs.chmodSync(root(), 0o700);
   const work = path.join(root(), `.${day}.partial`);
-  fs.rmSync(work, { recursive: true, force: true });
-  fs.mkdirSync(path.join(work, "security"), { recursive: true, mode: 0o700 });
   try {
+    fs.mkdirSync(root(), { recursive: true, mode: 0o700 });
+    fs.chmodSync(root(), 0o700);
+    fs.rmSync(work, { recursive: true, force: true });
+    fs.mkdirSync(path.join(work, "security"), { recursive: true, mode: 0o700 });
     const dbCopy = path.join(work, "security", "security.db");
     securityDb().prepare("VACUUM INTO ?").run(dbCopy);
     fs.chmodSync(dbCopy, 0o600);
@@ -142,10 +144,12 @@ export function backupNow(now = Date.now()) {
     last = { at: Date.now(), day, files, bytes: sizeOf(done), ms: Date.now() - started };
     debug.log("backup: %s, %d file(s), %d bytes in %d ms", day, files, last.bytes, last.ms);
     if (env.backupDays > 0) prune(env.backupDays);
+    job.done(`파일 ${files}개`);
     return last;
   } catch (err) {
     fs.rmSync(work, { recursive: true, force: true });
     last = { at: Date.now(), error: err.message };
+    job.fail(err);
     throw err;
   }
 }

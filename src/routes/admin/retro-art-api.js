@@ -33,6 +33,7 @@ import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import * as retroNames from "../../retro/names.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
+import * as activity from "../../tasks/activity.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
 let ratingsJob = null; // { startedAt, finishedAt?, summary?, error? }
@@ -137,9 +138,10 @@ export function mountRetroArtApi(router, requireSession) {
     job = { system: only, startedAt: Date.now(), progress: null };
     res.status(202).json({ job });
     const current = job;
-    art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; } })
-      .then((summary) => { current.summary = summary; })
-      .catch((err) => { current.error = err.message; })
+    const act = activity.begin("retro-art", { title: only ? `레트로 그림을 정리합니다 (${only})` : "레트로 그림을 정리합니다" });
+    art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; act.total(p.total); act.step(p.index, p.system); } })
+      .then((summary) => { current.summary = summary; act.done(); })
+      .catch((err) => { current.error = err.message; act.fail(err); })
       .finally(async () => {
         current.finishedAt = Date.now();
         await retroCatalog.scan(retroDir).catch(() => {});

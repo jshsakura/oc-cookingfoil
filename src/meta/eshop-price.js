@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
+import * as activity from "../tasks/activity.js";
 
 const ENDPOINT = "https://api.ec.nintendo.com/v1/price";
 const COUNTRIES = [["KR", "ko"], ["US", "en"], ["JP", "ja"]];
@@ -169,13 +170,17 @@ export function warmPrices(nsuIds, opts = {}) {
   const now = opts.now ?? Date.now;
   const stale = nsuIds.filter((id) => NSU_ID_RE.test(String(id)) && !isFresh(cache.get(String(id)), now()));
   if (!stale.length) return Promise.resolve(0);
+  const job = activity.begin("eshop", { title: "eShop 가격을 받습니다", detail: `${stale.length}개` });
   warming = fetchPrices(stale, opts)
     .then((changed) => {
       savePrices(); // also keeps the refreshed timestamps of unchanged prices
       if (changed) for (const fn of listeners) fn();
+      // Runs after every build: one that changed nothing (or could not reach the eShop) leaves no trace.
+      if (changed) job.done(`${changed}개 바뀜`);
+      else job.discard();
       return changed;
     })
-    .catch(() => 0)
+    .catch((err) => { job.fail(err); return 0; })
     .finally(() => { warming = null; });
   return warming;
 }

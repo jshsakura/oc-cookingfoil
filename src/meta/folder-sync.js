@@ -15,6 +15,7 @@ import * as userPatches from "./user-patches.js";
 import * as retroCatalog from "../retro/catalog.js";
 import { refreshManual } from "../routes/homebrew.js";
 import { savesCatalog } from "../routes/saves.js";
+import * as activity from "../tasks/activity.js";
 
 // How often the schedule looks whether a sync is due (the setting can change any time).
 const CHECK_MS = 5 * 60_000;
@@ -29,9 +30,12 @@ const PARTS = [
     saves.invalidate();
     await saves.list();
   }],
-  ["patches", () => userPatches.scan({ onChange: () => shopCache.invalidate() })],
-  ["retro", () => retroCatalog.rescan(env.retroDir)],
+  // Patches are read every minute and retro on its own changes: only this full read shows up as a job.
+  ["patches", () => activity.track("scan:patches", { title: "패치 폴더를 읽습니다" }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
+  ["retro", () => activity.track("scan:retro", { title: "레트로 폴더를 읽습니다" }, () => retroCatalog.rescan(env.retroDir))],
 ];
+
+const PART_TITLES = { games: "게임", homebrew: "홈브류", saves: "세이브", patches: "패치", retro: "레트로" };
 
 let running = null;
 let last = null; // { at, ms, parts: [{ name, ms, error? }] }
@@ -40,7 +44,9 @@ async function run(reason) {
   const started = Date.now();
   const parts = [];
   debug.log("sync: reading every folder again (%s)", reason);
+  const job = activity.begin("sync", { title: "모든 폴더를 다시 읽습니다", total: PARTS.length });
   for (const [name, read] of PARTS) {
+    job.step(parts.length, PART_TITLES[name]);
     const t = Date.now();
     try {
       await read();
@@ -52,6 +58,9 @@ async function run(reason) {
   }
   last = { at: Date.now(), ms: Date.now() - started, parts };
   debug.log("sync: done in %d ms", last.ms);
+  const failed = parts.filter((p) => p.error);
+  if (failed.length) job.fail(failed.map((p) => `${PART_TITLES[p.name]}: ${p.error}`).join(", "));
+  else job.done(`${parts.length}곳`);
   return last;
 }
 

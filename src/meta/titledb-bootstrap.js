@@ -22,6 +22,7 @@ import * as shopCache from "./shop-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
 import { envNumber } from "../helpers/env-read.js";
 import { titledbAutoFetch } from "../helpers/envs.js";
+import * as activity from "../tasks/activity.js";
 
 // `Number` here so "0.01" (~36 s) works for tests; clamped to >= 0.
 const REFRESH_HOURS = Math.max(
@@ -44,6 +45,7 @@ async function doFetch(regions) {
   const existing = inFlightByKey.get(key);
   if (existing) return existing;
 
+  const job = activity.begin("titledb", { title: "titledb 를 받습니다", detail: key });
   const p = (async () => {
     try {
       const results = await fetchAll(target, titledbCacheDir);
@@ -63,7 +65,11 @@ async function doFetch(regions) {
         // the rebuild goes incremental (+0/-0) and re-serves those names.
         shopCache.invalidate({ rescan: true });
       }
+      job.done(`지역 ${okCount}/${results.length}`);
       return results;
+    } catch (err) {
+      job.fail(err);
+      throw err;
     } finally {
       inFlightByKey.delete(key);
     }

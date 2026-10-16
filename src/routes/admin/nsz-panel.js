@@ -177,8 +177,10 @@ async function loadNsz(){clearTimeout(nzTimer);nzTimer=null;let d;
   try{d=await api('/admin/api/nsz?filter='+nzFilter+'&offset='+nzOffset+'&limit='+NZ_LIMIT);}catch(err){toast(err.message);return;}
   if(d.offset>0&&d.offset>=d.total){nzOffset=Math.max(0,Math.floor((d.total-1)/NZ_LIMIT)*NZ_LIMIT);return loadNsz();}
   nzHeader(d);nzCards(d.totals);nzRenderActive(d.active);nzPatch($('nz-list'),d.items);nzPager(d);nzRenderSettings(d.settings);
-  // Read again only while someone is looking and the queue has something going.
-  if(nzVisible()&&d.status==='running'&&!nzTimer)nzTimer=setTimeout(loadNsz,NZ_POLL_MS);}
+  // Read again only while someone is looking and the queue has something going; with the
+  // activity socket up, its conversion job reads again instead (activity-panel.js).
+  // Between files (a retry wait, the start delay) there is no job to follow, so the timer runs then too.
+  if(nzVisible()&&d.status==='running'&&!nzTimer&&(!actLive||!(d.active||[]).length))nzTimer=setTimeout(loadNsz,NZ_POLL_MS);}
 document.addEventListener('visibilitychange',()=>{if(nzVisible())loadNsz();});
 $('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').textContent==='일시정지';
   nzAct('/admin/api/nsz/'+(on?'pause':'start'),{method:'POST',body:{}},on?'일시정지했습니다. 진행 중이던 파일은 대기로 돌아갑니다.':'변환을 시작했습니다.');});

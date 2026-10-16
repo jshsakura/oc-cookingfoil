@@ -94,6 +94,8 @@ export function createNszQueue({
   killGraceMs = 3000,
   autoDelayMs = AUTO_DELAY_MS,
   lowPriority = true,
+  // One running file as a job on the admin page's activity list: (item, probe) → { done, fail, discard } | null.
+  track = () => null,
 }) {
   const workDir = path.join(gamesDir, WORK_DIR_NAME);
   let state = emptyState();
@@ -349,11 +351,18 @@ export function createNszQueue({
     const run = { stop: null, done: null, outDir, stopping: false };
     runs.set(item.id, run);
     record(item, { state: "running", startedAt: Date.now(), finishedAt: null, reason: null, attempts: (item.attempts ?? 0) + 1 });
+    const job = track(item, () => {
+      const p = progressOf(item);
+      return { current: p.outBytes, total: p.expectedBytes };
+    });
     run.done = convert(item, s, run)
       .catch((err) => finish(item, { state: "failed", reason: trimReason(err.message) || "알 수 없는 오류입니다." }))
       .finally(async () => {
         await fsp.rm(outDir, { recursive: true, force: true }).catch(() => {});
         runs.delete(item.id);
+        if (item.state === "done") job?.done(item.savedBytes ? `${gb(item.savedBytes)} 줄임` : null);
+        else if (item.state === "failed") job?.fail(item.reason);
+        else job?.discard();
         pump();
       });
   }
