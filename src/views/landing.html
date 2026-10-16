@@ -984,8 +984,8 @@
       .ef-actions .btn { flex: none; padding: 11px 20px; font-size: 14px; border-radius: 12px; }
       .ef-actions .btn:disabled { opacity: .55; cursor: progress; }
       /* The edit page's last row: delete, apart from save, as a red button. */
-      .edit-danger { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; }
-      .edit-danger[hidden] { display: none; }
+      .edit-danger { display: contents; }
+      .edit-danger[hidden], .modal:not(.editing) .edit-danger { display: none; }
       .btn.danger { background: var(--bad); color: #fff; }
       .btn:disabled { opacity: .55; cursor: progress; }
       /* A question inside the page (never the browser's confirm()), above the windows and the gallery. */
@@ -1366,7 +1366,7 @@
               <p class="publisher" id="modal-publisher">—</p>
             </div>
           </div>
-          <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div><div class="edit-danger" hidden></div></div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div class="art-edit" id="modal-art" hidden></div></div>
           <div class="xm-pills" id="modal-pills"></div>
           <div class="modal-patches" id="modal-patches" hidden></div>
           <div class="modal-integrity" id="modal-integrity" hidden></div>
@@ -1380,6 +1380,7 @@
           <div class="extras modal-install" id="modal-install" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
+            <div class="edit-danger" hidden></div>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
           </div>
         </div>
@@ -1398,7 +1399,7 @@
               <p class="publisher" id="xm-sub"></p>
             </div>
           </div>
-          <div class="edit-pane" hidden><div class="edit-facts"></div><div id="xm-art" hidden></div><div class="edit-danger" hidden></div></div>
+          <div class="edit-pane" hidden><div class="edit-facts"></div><div id="xm-art" hidden></div></div>
           <div class="xm-pills" id="xm-pills"></div>
           <div class="modal-meta" id="xm-meta"></div>
           <div class="desc" id="xm-desc"></div>
@@ -1408,6 +1409,7 @@
           <div id="xm-sections"></div>
           <div class="modal-actions">
             <a class="btn" id="xm-download" href="#" download data-i18n="extras.download"></a>
+            <div class="edit-danger" hidden></div>
             <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
           </div>
         </div>
@@ -4072,10 +4074,10 @@
       function editPage(rootId) {
         const root = $(rootId), win = root.querySelector(".modal"), gear = root.querySelector(".modal-gear");
         const pane = root.querySelector(".edit-pane"), facts = pane.querySelector(".edit-facts");
-        const danger = pane.querySelector(".edit-danger");
+        const danger = root.querySelector(".modal-actions .edit-danger");
         let spec = null, dirty = false, seq = 0;
         const editing = () => win.classList.contains("editing");
-        // spec.remove = { name, text(), run(), done() }: a red delete button at the page's end, asking first.
+        // spec.remove = { name, text(), run(), done() }: a red delete button beside Close, asking first.
         function drawDanger(r) {
           danger.replaceChildren(); danger.hidden = !r;
           if (!r) return;
