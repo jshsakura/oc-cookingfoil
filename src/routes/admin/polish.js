@@ -79,7 +79,7 @@ function pick(b){
   return ${JSON.stringify(FALLBACK)};
 }
 function decorate(b){
-  if(b.matches(SKIP)||b.querySelector(':scope>svg'))return;
+  if(b.matches(SKIP)||b.querySelector('svg'))return;
   var n=pick(b);if(!n)return;
   b.insertAdjacentHTML('afterbegin',SVG[n]);
 }
