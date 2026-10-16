@@ -535,19 +535,34 @@ async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 �
 
 // ── client logs ───────────────────────────────────────────────────────
 const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
+// Today shows the time alone, any other day month.day and time: short enough for one line.
+function fmtShort(t){if(!t)return '—';const d=new Date(t),n=new Date();
+  const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return d.toDateString()===n.toDateString()?hm:(d.getMonth()+1)+'.'+d.getDate()+' '+hm;}
+let logsSub='xfer';
+function logsShowSub(sub){logsSub=sub;
+  for(const b of document.querySelectorAll('#logs-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
+  for(const p of document.querySelectorAll('#tab-logs [data-logs-panel]'))p.hidden=p.dataset.logsPanel!==sub;}
+for(const b of document.querySelectorAll('#logs-subtabs [data-lsub]'))b.addEventListener('click',()=>logsShowSub(b.dataset.lsub));
 async function loadClientLogs(){
   const d=await api('/admin/api/client-logs');const box=$('cl-list');box.replaceChildren();
-  table('bug-reports',['순위','사용자','기기','보낸 횟수','마지막으로 보낸 때'],(d.bugReports||[]).map((r,i)=>{const tr=el('tr');
-    tr.append(td(String(i+1)),td(r.owner||'—',r.owner?'':'dim'),td(r.label||r.prefix,r.label?'':'ip'),td(num(r.count)+'번'),td(ago(r.last)));
+  table('bug-reports',['순위','사용자','기기','보낸 횟수','최근'],(d.bugReports||[]).map((r,i)=>{const tr=el('tr');
+    const rk=td();rk.append(el('span',String(i+1),'rk'+(i<3?' r'+(i+1):'')));
+    const dev=td();dev.append(el('span',r.label||r.prefix,r.label?'':'ip'));if(r.label)dev.append(el('span',r.prefix,'rk-key'));
+    tr.append(rk,td(r.owner||'—',r.owner?'':'dim'),dev,td(num(r.count)+'번'),td(ago(r.last)));
     tr.lastChild.title=fmt(r.last);return tr;}),'아직 받은 버그 리포트가 없습니다.');
   if(!(d.consoles||[]).length){box.append(el('div','아직 받은 로그가 없습니다.','empty'));return;}
   for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
-    const sum=el('summary',c.label||c.prefix);sum.append(el('span',c.files.length+'개'));det.append(sum);
-    for(const f of c.files){const b=btn('',()=>openLog(c,f,b));b.append(el('span',fmt(f.at)),el('span',kb(f.size),'muted'));det.append(b);}
+    const sum=el('summary');const name=el('b',c.label||c.prefix);
+    // Several consoles can share one name ("자동 등록"): the key's first 8 characters tell them apart.
+    if(c.label)name.append(el('small',c.prefix));
+    sum.append(name,el('span',c.files.length+'개'));det.append(sum);
+    for(const f of c.files){const b=btn('',()=>openLog(c,f,b));b.dataset.noicon='1';const t=el('span',fmtShort(f.at));t.title=fmt(f.at);b.append(t,el('span',kb(f.size),'muted'));det.append(b);}
     box.append(det);}}
 async function openLog(c,f,button){
   for(const b of document.querySelectorAll('#cl-list button'))b.setAttribute('aria-pressed',String(b===button));
-  $('cl-head').textContent=(c.label?c.label+' · ':'')+c.prefix+' · '+fmt(f.at);
+  const head=$('cl-head');head.hidden=false;$('cl-empty').hidden=true;$('cl-text').hidden=false;
+  head.textContent=(c.label?c.label+' · ':'')+c.prefix+' · '+fmt(f.at);
   const r=await fetch('/admin/api/client-logs/'+c.prefix+'/'+encodeURIComponent(f.name));
   $('cl-text').textContent=r.ok?await r.text():'기록을 읽지 못했습니다.';}
 $('cl-refresh').addEventListener('click',loadClientLogs);

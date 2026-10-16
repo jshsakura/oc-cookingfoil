@@ -9,7 +9,9 @@
  *                       (anything not .nsp/.nsz/.xci/.xcz/.nro), found here
  *
  * Every item has the same fields, null when unknown:
- *   { name, kind, rel, size, mtime, ext, titleId, version, integrity }
+ *   { name, kind, rel, size, mtime, ext, titleId, version, integrity, id, source, repo }
+ * `id` (patch, save, homebrew), `source` ("github" | "manual") and `repo` (a followed GitHub repository)
+ * are what the delete buttons need to name the item to its own remove endpoint.
  * `rel` is relative to the kind's own folder, never absolute. `mtime` is in
  * epoch seconds. `integrity` (ok | modified | damaged | unchecked) is only set
  * for game files.
@@ -22,7 +24,7 @@ import FastGlob from "fast-glob";
 import { GAME_FILE_RE } from "../helpers/file-send.js";
 
 export const KINDS = ["base", "update", "dlc", "patch", "save", "homebrew", "other"];
-export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "version", "integrity"];
+export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "version", "integrity", "id", "source", "repo"];
 export const INTEGRITY = ["ok", "modified", "damaged", "unchecked"];
 const SORTS = ["name", "size", "mtime"];
 export const PER_PAGE_DEFAULT = 50;
@@ -120,7 +122,7 @@ export function safeRel(rel) {
 const extOf = (rel) => path.posix.extname(rel ?? "").toLowerCase() || null;
 
 /** One item in the browser's shape: every field present, null when unknown. Pure. */
-export function item(kind, { name, rel, size, mtime, titleId = null, version = null, integrity = null }) {
+export function item(kind, { name, rel, size, mtime, titleId = null, version = null, integrity = null, id = null, source = null, repo = null }) {
   const safe = safeRel(rel);
   const time = mtime == null ? NaN : Number(mtime);
   const bytes = size == null || size === "" ? NaN : Number(size);
@@ -134,6 +136,9 @@ export function item(kind, { name, rel, size, mtime, titleId = null, version = n
     titleId: titleId ?? null,
     version: version ?? null,
     integrity: integrity ?? null,
+    id: id ?? null,
+    source: source ?? null,
+    repo: repo ?? null,
   };
 }
 
@@ -236,22 +241,34 @@ export function createOtherScanner({ root, ignore = [], ttlMs = 60_000, now = Da
       if (rel === "custom_entries.jsonc") continue;
       out.push({ rel, size: e.stats?.size ?? null, mtime: e.stats ? Math.floor(e.stats.mtimeMs / 1000) : null });
     }
-    if (seen === generation) {
-      cached = out;
-      at = now();
-    }
+    // A change that came in while walking leaves this result stale, but still better than nothing for peek.
+    cached = out;
+    at = seen === generation ? now() : -Infinity;
     return out;
   }
+
+  const refresh = () => {
+    inFlight ??= scan().finally(() => { inFlight = null; });
+    return inFlight;
+  };
 
   return {
     async list() {
       if (cached && now() - at < ttlMs) return cached;
-      inFlight ??= scan().finally(() => { inFlight = null; });
-      return inFlight;
+      return refresh();
+    },
+    /**
+     * What a request that must not wait can use: the last scan, even a stale
+     * one (a fresh scan starts behind it), or null while the very first scan is
+     * still walking the folder.
+     */
+    peek() {
+      if (!cached || now() - at >= ttlMs) refresh().catch(() => {});
+      return cached;
     },
     invalidate() {
       generation++;
-      cached = null;
+      at = -Infinity;
     },
   };
 }

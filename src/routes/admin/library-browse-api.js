@@ -6,6 +6,7 @@
  *     { items: [{ name, kind, rel, size, mtime, ext, titleId, version, integrity }],
  *       total, page, perPage, pages, sort, order, counts: { base, update, dlc, patch, save, homebrew, other } }
  *     counts_only=1 → { counts, total }
+ *     "pending": true → the stray-file ("other") scan of a big folder has not finished its first pass; ask again shortly
  *     a wrong parameter → 400 { error, code: "bad-param", param }
  *
  * Read only. The item shape and the parameters are in meta/library-browse.js.
@@ -40,7 +41,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
         const where = userPatches.locate(p.id);
         return item("patch", {
           name: p.name, rel: where ? `${where.dir}/${where.folder}` : null, size: p.size, mtime: p.updated_at,
-          titleId: p.title_id ?? null, version: p.version ?? null,
+          titleId: p.title_id ?? null, version: p.version ?? null, id: p.id,
         });
       });
     },
@@ -52,7 +53,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
         const where = await catalog.locate(s.id);
         out.push(item("save", {
           name: s.name, rel: where ? `${where.dir}/${where.folder}` : null, size: s.size, mtime: s.updatedAt,
-          titleId: s.titleId ?? null, version: s.gameVersion ?? null,
+          titleId: s.titleId ?? null, version: s.gameVersion ?? null, id: s.id,
         }));
       }
       return out;
@@ -63,6 +64,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
         return item("homebrew", {
           name: e.name, rel: e.install_dir ?? e.install_path ?? e.file_name ?? null, size: e.size,
           mtime: Number.isFinite(when) ? when / 1000 : null, titleId: e.title_id ?? null, version: e.version ?? null,
+          id: e.id, source: e.source ?? null, repo: String(e.repo_url ?? "").replace(/^https:\/\/github\.com\//, "") || null,
         });
       });
     },
@@ -84,14 +86,20 @@ export function mountLibraryBrowseApi(router, requireSession, {
   });
 
   async function everything() {
+    let pending = false;
     const [games, patches, saves, homebrew, others] = await Promise.all([
       safely("games", () => sources.games()),
       safely("patches", () => sources.patches()),
       safely("saves", () => sources.saves()),
       safely("homebrew", () => sources.homebrew()),
-      safely("other", async () => (await other.list()).map((f) => item("other", f))),
+      safely("other", async () => {
+        // Walking the whole folder takes a while on a big library, so a request never waits for it.
+        const found = other.peek ? other.peek() : await other.list();
+        if (!found) pending = true;
+        return (found ?? []).map((f) => item("other", f));
+      }),
     ]);
-    return [...games, ...patches, ...saves, ...homebrew, ...others];
+    return { items: [...games, ...patches, ...saves, ...homebrew, ...others], pending };
   }
 
   router.get("/api/library/browse", async (req, res) => {
@@ -105,7 +113,8 @@ export function mountLibraryBrowseApi(router, requireSession, {
       throw err;
     }
     try {
-      res.json(browse(await everything(), query));
+      const { items, pending } = await everything();
+      res.json(pending ? { ...browse(items, query), pending: true } : browse(items, query));
     } catch (err) {
       debug.error("admin: library browse: %s", err.message);
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다", code: "failed" });

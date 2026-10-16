@@ -3,6 +3,7 @@
  *
  *   GET  /admin/api/library/files?q=        { files: [{ rel, name, size, kind, titleId }], total }  up to 100 matches
  *   POST /admin/api/library/files/remove    { rel }  delete one file from the games folder
+ *   POST /admin/api/library/other/remove    { rel }  delete one stray file (not a game file) from the games folder
  *   GET  /admin/api/library/verify          the file check: { status, counts, pending, hashPending, flagged, … }
  *   POST /admin/api/library/verify/hash-all every file gets the whole-file hash it has not had   { queued }
  *   POST /admin/api/library/verify/recheck  { rel }  check one file again, hash included
@@ -13,7 +14,9 @@
 import fsp from "fs/promises";
 import path from "path";
 import * as shopCache from "../../meta/shop-cache.js";
-import { romsDirPath } from "../../helpers/envs.js";
+import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir } from "../../helpers/envs.js";
+import { GAME_FILE_RE } from "../../helpers/file-send.js";
+import { nestedDirs } from "../../meta/library-browse.js";
 import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
 import verifyQueue from "../../meta/verify-service.js";
@@ -53,6 +56,26 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     }
     shopCache.invalidate({ rescan: true });
     debug.log("admin: library file removed: %s", rel);
+    res.json({ ok: true });
+  }));
+
+  // A stray file is anything in the games folder that is not a game file, outside the folders the server manages itself.
+  router.post("/api/library/other/remove", handle(async (req, res) => {
+    const rel = String(req.body?.rel ?? "");
+    const abs = inside(romsDirPath, rel);
+    const hidden = rel.split("/").some((part) => part.startsWith("."));
+    const managed = nestedDirs(romsDirPath, [patchesDir, savesDir, homebrewDir, retroDir, dataDir]).some((d) => rel === d || rel.startsWith(`${d}/`));
+    const stat = abs && !hidden && !managed && !GAME_FILE_RE.test(rel) ? await fsp.lstat(abs).catch(() => null) : null;
+    // A folder that is a link could lead out of the games folder: the real path must stay inside it.
+    const real = stat?.isFile() ? await fsp.realpath(abs).catch(() => null) : null;
+    const realBase = real ? await fsp.realpath(romsDirPath).catch(() => null) : null;
+    if (!real || !realBase || !real.startsWith(realBase + path.sep)) return res.status(404).json({ error: "라이브러리에 없는 파일입니다" });
+    await fsp.rm(abs, { force: true });
+    for (let dir = path.dirname(abs); dir !== path.resolve(romsDirPath) && dir.startsWith(path.resolve(romsDirPath)); dir = path.dirname(dir)) {
+      if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
+    }
+    shopCache.invalidate({ rescan: true });
+    debug.log("admin: stray file removed: %s", rel);
     res.json({ ok: true });
   }));
 
