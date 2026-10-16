@@ -21,6 +21,7 @@
     <meta name="twitter:image" content="__ORIGIN__/assets/og-image.png" />
     <link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/fonts.css" />
+    <script src="/assets/crop.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
@@ -41,6 +42,7 @@
         /* Dialogs sit a step above the page so a dark dialog never melts into a dark page. */
         --modal-bg: #232329; --modal-panel: #2d2d34; --modal-sunk: #35353d; --modal-line: #3e3e47;
         --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
+        --dlc: #9aa7ff; --dlc-rgb: 154, 167, 255;
         --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
         color-scheme: dark;
       }
@@ -51,6 +53,7 @@
           --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
           --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
           --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+          --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
           --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
           color-scheme: light;
         }
@@ -61,6 +64,7 @@
         --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
         --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
         --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
+        --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
         --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
         color-scheme: light;
       }
@@ -376,9 +380,40 @@
         background: var(--butter); color: var(--butter-ink); border: none; cursor: pointer;
         text-decoration: none; white-space: nowrap; transition: transform 0.15s ease, filter 0.15s ease;
       }
-      .btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
+      .btn:hover { filter: brightness(1.04); }
       .btn:active { transform: none; }
       .btn.ghost { background: var(--sunk); color: var(--ink); }
+      /* The icon in front of a button's words: the admin page's set, in the text colour. */
+      .bi { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .h2-action:has(.bi), .client-get:has(.bi), button.reset:has(.bi) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+      /* Full-screen picture viewer: screenshots of a game, app or patch. Sits above the detail window. */
+      .gallery { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; background: rgba(8, 8, 10, 0.92); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+      .gallery.open { display: flex; animation: gallery-in 0.2s ease both; }
+      @keyframes gallery-in { from { opacity: 0; } to { opacity: 1; } }
+      .gallery .g-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; padding: 56px 64px; box-sizing: border-box; }
+      .gallery .g-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; user-select: none; -webkit-user-drag: none; }
+      .gallery .g-img.slide-next { animation: gallery-next 0.22s ease both; }
+      .gallery .g-img.slide-prev { animation: gallery-prev 0.22s ease both; }
+      @keyframes gallery-next { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+      @keyframes gallery-prev { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+      .gallery .g-btn {
+        position: absolute; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 100px; cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(30, 30, 34, 0.72); color: #fff; transition: background 0.15s ease, transform 0.1s ease;
+      }
+      .gallery .g-btn:hover { background: rgba(60, 60, 66, 0.9); }
+      .gallery .g-btn:active { transform: scale(0.95); }
+      .gallery .g-btn:disabled { opacity: 0.3; cursor: default; }
+      .gallery .g-btn .bi { width: 22px; height: 22px; }
+      .gallery .g-close { top: 12px; right: 12px; }
+      .gallery .g-prev { left: 12px; top: 50%; margin-top: -22px; }
+      .gallery .g-next { right: 12px; top: 50%; margin-top: -22px; }
+      .gallery .g-count { position: absolute; top: 20px; left: 16px; padding: 4px 12px; border-radius: 100px; font: 700 13px var(--font-body); color: #fff; background: rgba(30, 30, 34, 0.72); font-variant-numeric: tabular-nums; }
+      .gallery.single .g-prev, .gallery.single .g-next, .gallery.single .g-count { display: none; }
+      @media (max-width: 640px) {
+        .gallery .g-stage { padding: 64px 8px; }
+        .gallery .g-prev { left: 6px; } .gallery .g-next { right: 6px; }
+      }
+      @media (prefers-reduced-motion: reduce) { .gallery.open, .gallery .g-img { animation: none !important; } }
       .btn.ghost:hover { background: var(--line); }
       .hint { font-size: 13px; color: var(--secondary); line-height: 1.65; margin-top: 12px; }
       .hint code { font-family: var(--font-mono); background: var(--sunk); padding: 2px 8px; border-radius: 6px; font-size: 12.5px; }
@@ -740,6 +775,23 @@
       .modal .extras .extra-text { display: grid; gap: 2px; min-width: 0; }
       .modal .extras .extra-sub { font-size: 12px; color: var(--secondary); }
       .modal .extras .extra-sub:empty { display: none; }
+      /* What the file is: a coloured badge in front of the name, the version and its state as small badges under it. */
+      .modal .extras .type-tag {
+        flex: none; min-width: 78px; text-align: center; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 800; line-height: 1.4;
+        border: 1px solid transparent; letter-spacing: .01em;
+      }
+      .modal .extras .type-tag.base { background: var(--butter); color: var(--butter-ink); }
+      .modal .extras .type-tag.update { background: rgba(var(--good-rgb), .16); border-color: rgba(var(--good-rgb), .5); color: var(--good); }
+      .modal .extras .type-tag.dlc { background: rgba(var(--dlc-rgb), .16); border-color: rgba(var(--dlc-rgb), .5); color: var(--dlc); }
+      .modal .extras .extra-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .modal .extras .mini {
+        padding: 1px 8px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+        background: var(--sunk); border: 1px solid var(--line); color: var(--secondary);
+      }
+      .modal .extras .mini.need { background: rgba(var(--butter-rgb), .18); border-color: rgba(var(--butter-rgb), .6); color: var(--ink); }
+      .modal .extras .mini.latest { background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      /* A long DLC name takes two lines at most. */
+      .modal .extras .extra-name.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: normal; overflow-wrap: anywhere; }
       .modal .extras .mark { width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line2); }
       .modal .extras .version-row[aria-pressed="true"] .mark { border-color: var(--butter); background: radial-gradient(circle, var(--butter) 45%, transparent 50%); }
       .modal .extras .flag { font-size: 16px; line-height: 1; flex-shrink: 0; }
@@ -812,6 +864,41 @@
         .arted-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
       @media (prefers-reduced-motion: reduce) { .atile .face { transition: none; } .atile.busy .face::before { animation: none; } }
+      .atile .recrop {
+        position: absolute; left: 8px; bottom: 8px; z-index: 3; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+        border: 0; border-radius: 50%; cursor: pointer; background: rgba(12, 12, 14, 0.62); color: #fff;
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      }
+      .atile .recrop svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .atile .recrop:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      /* The crop view takes the card's place while the admin picks the part to keep. */
+      .arted.cropping > :not(.crop) { display: none; }
+      .crop { display: grid; gap: 12px; outline: none; }
+      .crop-head { display: grid; gap: 4px; }
+      .crop-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
+      .crop-head span { font-size: 12px; color: var(--secondary); }
+      .crop-stage {
+        position: relative; justify-self: center; max-width: 100%; line-height: 0; overflow: hidden; border-radius: 12px;
+        background: var(--sunk); touch-action: none; user-select: none; -webkit-user-select: none;
+      }
+      .crop-stage img { display: block; max-width: 100%; max-height: min(60vh, 460px); pointer-events: none; opacity: 0; transition: opacity .2s ease; }
+      .crop.ready .crop-stage img { opacity: 1; }
+      .crop-box {
+        position: absolute; box-sizing: border-box; border: 2px solid var(--butter); cursor: move; touch-action: none; outline: none;
+        box-shadow: 0 0 0 9999px rgba(12, 12, 14, 0.55);
+      }
+      .crop:not(.ready) .crop-box { display: none; }
+      .crop-box:focus-visible { border-color: var(--ink); }
+      .crop.dragging .crop-box { cursor: grabbing; }
+      /* Corner brackets inside the box; the hit area reaches past them for a finger. */
+      .crop-h { position: absolute; width: 18px; height: 18px; box-sizing: border-box; border: 0 solid var(--butter); }
+      .crop-h::before { content: ""; position: absolute; inset: -12px; }
+      .crop-h.nw { left: -2px; top: -2px; border-width: 5px 0 0 5px; cursor: nwse-resize; }
+      .crop-h.ne { right: -2px; top: -2px; border-width: 5px 5px 0 0; cursor: nesw-resize; }
+      .crop-h.sw { left: -2px; bottom: -2px; border-width: 0 0 5px 5px; cursor: nesw-resize; }
+      .crop-h.se { right: -2px; bottom: -2px; border-width: 0 5px 5px 0; cursor: nwse-resize; }
+      .crop-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+      @media (prefers-reduced-motion: reduce) { .crop-stage img { transition: none; } }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       /* A close button that stays at the top right while the window scrolls (the one at the bottom is a long way down on a phone).
          The bar has no height, so it sits over the banner without moving anything. */
@@ -916,7 +1003,7 @@
         background: var(--butter); color: var(--butter-ink); cursor: pointer;
         transition: transform 0.15s ease, filter 0.15s ease;
       }
-      .client-get:hover { filter: brightness(1.04); transform: translateY(-1px); }
+      .client-get:hover { filter: brightness(1.04); }
       .client-get:active { transform: none; }
       .client-get:disabled { opacity: 0.6; cursor: wait; transform: none; }
       .client-get:focus-visible { outline: 4px solid #0ab4e8; outline-offset: 3px; }
@@ -1302,6 +1389,16 @@
       </div></div>
     </div>
 
+    <div class="gallery" id="gallery" role="dialog" aria-modal="true" aria-hidden="true" aria-label="">
+      <div class="g-stage" id="gallery-stage">
+        <img class="g-img" id="gallery-img" alt="" draggable="false">
+        <span class="g-count" id="gallery-count" aria-live="polite"></span>
+        <button class="g-btn g-prev" id="gallery-prev" type="button"></button>
+        <button class="g-btn g-next" id="gallery-next" type="button"></button>
+        <button class="g-btn g-close" id="gallery-close" type="button"></button>
+      </div>
+    </div>
+
     <div class="toast-rack" id="toasts"></div>
     <div class="restart-banner" id="restart-banner" role="status" aria-live="polite" hidden></div>
 
@@ -1421,7 +1518,7 @@
           "sort.score_desc": "정렬: 평점 높은순",
           "modal.score": "평점",
           "score.count": (n) => `${n.toLocaleString()}명`,
-          "action.refresh": "↻ 새로고침",
+          "action.refresh": "새로고침",
           "action.copy": "복사",
           "action.language": "언어",
           "action.menu": "메뉴",
@@ -1450,6 +1547,9 @@
           "share.failed": (msg) => `올리지 못했습니다. ${msg}`,
           "action.download": "다운로드",
           "action.close": "닫기",
+          "gallery.title": "사진",
+          "gallery.prev": "이전 사진",
+          "gallery.next": "다음 사진",
           "stat.games": "게임",
           "stat.games_sub": "기본 게임",
           "stat.updates": "업데이트",
@@ -1538,6 +1638,13 @@
           "art.saved": "변경했습니다.",
           "art.removed": "뺐습니다.",
           "art.failed": "처리하지 못했습니다.",
+          "art.recrop": "다시 자르기",
+          "art.cropTitle": "남길 부분을 고릅니다",
+          "art.cropHint": "상자를 끌어 옮기고 모서리를 끌어 크기를 바꿉니다.",
+          "art.cropBox": "남길 영역",
+          "art.cropApply": "적용",
+          "art.cropCancel": "취소",
+          "art.cropped": "다시 잘랐습니다.",
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -1567,6 +1674,9 @@
           "install.update": "업데이트",
           "install.required": "필수",
           "install.latest": "최신",
+          "install.tag.base": "본편",
+          "install.tag.update": "업데이트",
+          "install.tag.dlc": "DLC",
           "region.kr": "한국",
           "region.jp": "일본",
           "region.us": "북미",
@@ -1698,7 +1808,7 @@
           "hero.dlc": (n) => `${n} DLC`,
           "hero.released": (d) => `Released ${d}`,
           "sort.added_desc": "Sort: Recently added",
-          "action.refresh": "↻ Refresh",
+          "action.refresh": "Refresh",
           "action.copy": "Copy",
           "action.language": "Language",
           "action.menu": "Menu",
@@ -1727,6 +1837,9 @@
           "share.failed": (msg) => `Could not send. ${msg}`,
           "action.download": "Download",
           "action.close": "Close",
+          "gallery.title": "Pictures",
+          "gallery.prev": "Previous picture",
+          "gallery.next": "Next picture",
           "stat.games": "Games",
           "stat.games_sub": "base games",
           "stat.updates": "Updates",
@@ -1818,6 +1931,13 @@
           "art.saved": "Saved",
           "art.removed": "Removed",
           "art.failed": "Failed",
+          "art.recrop": "Crop again",
+          "art.cropTitle": "Choose the part to keep",
+          "art.cropHint": "Drag the box to move it, or a corner to resize it.",
+          "art.cropBox": "Area to keep",
+          "art.cropApply": "Apply",
+          "art.cropCancel": "Cancel",
+          "art.cropped": "Cropped",
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -1847,6 +1967,9 @@
           "install.update": "Update",
           "install.required": "Required",
           "install.latest": "Latest",
+          "install.tag.base": "Base",
+          "install.tag.update": "Update",
+          "install.tag.dlc": "DLC",
           "region.kr": "Korea",
           "region.jp": "Japan",
           "region.us": "North America",
@@ -1978,7 +2101,7 @@
           "hero.dlc": (n) => `DLC ${n}件`,
           "hero.released": (d) => `${d} 発売`,
           "sort.added_desc": "並び替え: 追加が新しい順",
-          "action.refresh": "↻ 更新",
+          "action.refresh": "更新",
           "action.copy": "コピー",
           "action.language": "言語",
           "action.menu": "メニュー",
@@ -2007,6 +2130,9 @@
           "share.failed": (msg) => `送信できませんでした。${msg}`,
           "action.download": "ダウンロード",
           "action.close": "閉じる",
+          "gallery.title": "写真",
+          "gallery.prev": "前の写真",
+          "gallery.next": "次の写真",
           "stat.games": "ゲーム",
           "stat.games_sub": "本編",
           "stat.updates": "アップデート",
@@ -2098,6 +2224,13 @@
           "art.saved": "保存しました",
           "art.removed": "削除しました",
           "art.failed": "失敗しました",
+          "art.recrop": "切り抜き直す",
+          "art.cropTitle": "残す部分を選びます",
+          "art.cropHint": "枠をドラッグして移動し、角をドラッグして大きさを変えます。",
+          "art.cropBox": "残す範囲",
+          "art.cropApply": "適用",
+          "art.cropCancel": "キャンセル",
+          "art.cropped": "切り抜き直しました",
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2127,6 +2260,9 @@
           "install.update": "アップデート",
           "install.required": "必須",
           "install.latest": "最新",
+          "install.tag.base": "本編",
+          "install.tag.update": "アップデート",
+          "install.tag.dlc": "DLC",
           "region.kr": "韓国",
           "region.jp": "日本",
           "region.us": "北米",
@@ -2258,7 +2394,7 @@
           "hero.dlc": (n) => `${n} 個 DLC`,
           "hero.released": (d) => `${d} 發售`,
           "sort.added_desc": "排序：最近新增",
-          "action.refresh": "↻ 重新整理",
+          "action.refresh": "重新整理",
           "action.copy": "複製",
           "action.language": "語言",
           "action.menu": "菜单",
@@ -2287,6 +2423,9 @@
           "share.failed": (msg) => `发送失败。${msg}`,
           "action.download": "下載",
           "action.close": "關閉",
+          "gallery.title": "圖片",
+          "gallery.prev": "上一張",
+          "gallery.next": "下一張",
           "stat.games": "遊戲",
           "stat.games_sub": "本體遊戲",
           "stat.updates": "更新",
@@ -2378,6 +2517,13 @@
           "art.saved": "已儲存",
           "art.removed": "已刪除",
           "art.failed": "失敗",
+          "art.recrop": "重新裁切",
+          "art.cropTitle": "選擇要保留的部分",
+          "art.cropHint": "拖曳方框即可移動，拖曳角落即可調整大小。",
+          "art.cropBox": "保留範圍",
+          "art.cropApply": "套用",
+          "art.cropCancel": "取消",
+          "art.cropped": "已重新裁切",
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -2407,6 +2553,9 @@
           "install.update": "更新",
           "install.required": "必要",
           "install.latest": "最新",
+          "install.tag.base": "本體",
+          "install.tag.update": "更新",
+          "install.tag.dlc": "DLC",
           "region.kr": "韓國",
           "region.jp": "日本",
           "region.us": "北美",
@@ -2441,6 +2590,33 @@
         const v = bundle[key] ?? I18N.en[key] ?? key;
         return typeof v === "function" ? v(...args) : v;
       }
+      // Every labelled button carries an icon before its words. The page keeps rewriting button text
+      // (language switches, rebuilt lists), which drops the icon, so an observer puts it back.
+      const BTN_ICONS = __BUTTON_ICONS__;
+      const BTN_ICON_FOR = {
+        "action.download": "download", "extras.download": "download", "client.get": "download", "action.close": "x",
+        "action.refresh": "refresh", "share.pick_files": "file", "share.pick_folder": "folder", "share.send": "upload",
+        "edit.save": "save", "edit.reset": "undo",
+      };
+      const BTN_SELECTOR = ".btn, .h2-action, .client-get, [data-icon]";
+      function decorateButton(b) {
+        if (b.querySelector(":scope > svg") || !(b.textContent || "").trim()) return;
+        const name = b.dataset.icon || BTN_ICON_FOR[b.dataset.i18n] || "arrowright";
+        if (BTN_ICONS[name]) b.insertAdjacentHTML("afterbegin", BTN_ICONS[name]);
+      }
+      function decorateIn(root) {
+        if (root.nodeType !== 1) return;
+        if (root.matches(BTN_SELECTOR)) decorateButton(root);
+        for (const b of root.querySelectorAll(BTN_SELECTOR)) decorateButton(b);
+      }
+      new MutationObserver((list) => {
+        for (const m of list) {
+          if (m.target.nodeType === 1 && m.target.matches(BTN_SELECTOR)) decorateButton(m.target);
+          for (const n of m.addedNodes) decorateIn(n);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+      decorateIn(document.body);
+
       function applyI18n() {
         document.documentElement.setAttribute("lang", lang);
         document.documentElement.setAttribute("data-lang", lang);
@@ -2508,6 +2684,83 @@
         $("toasts").appendChild(el);
         setTimeout(() => el.remove(), 2400);
       };
+      // ─── gallery ──────────────────────────────────────────────────────────
+      // Full-screen gallery for the pictures in a detail window (a game's, an app's or a patch's):
+      // arrows, swipe, ← → and Esc, and "n / total".
+      const gallery = { urls: [], at: 0, open: false, from: null };
+      function galleryShow(dir) {
+        const img = $("gallery-img");
+        img.className = "g-img" + (dir ? " slide-" + dir : "");
+        img.src = gallery.urls[gallery.at];
+        $("gallery-count").textContent = `${gallery.at + 1} / ${gallery.urls.length}`;
+        $("gallery-prev").disabled = gallery.at <= 0;
+        $("gallery-next").disabled = gallery.at >= gallery.urls.length - 1;
+        for (const n of [gallery.at - 1, gallery.at + 1]) if (gallery.urls[n]) new Image().src = gallery.urls[n];
+      }
+      function galleryMove(step) {
+        const to = gallery.at + step;
+        if (to < 0 || to >= gallery.urls.length) return;
+        gallery.at = to;
+        galleryShow(step > 0 ? "next" : "prev");
+      }
+      function galleryOpen(urls, at) {
+        if (!urls.length) return;
+        const box = $("gallery");
+        gallery.urls = urls; gallery.at = Math.min(Math.max(at, 0), urls.length - 1); gallery.open = true;
+        gallery.from = document.activeElement;
+        box.setAttribute("aria-label", t("gallery.title"));
+        $("gallery-prev").setAttribute("aria-label", t("gallery.prev")); $("gallery-prev").title = t("gallery.prev");
+        $("gallery-next").setAttribute("aria-label", t("gallery.next")); $("gallery-next").title = t("gallery.next");
+        $("gallery-close").setAttribute("aria-label", t("action.close")); $("gallery-close").title = t("action.close");
+        $("gallery-prev").innerHTML = BTN_ICONS.chevleft; $("gallery-next").innerHTML = BTN_ICONS.chevright; $("gallery-close").innerHTML = BTN_ICONS.x;
+        box.classList.toggle("single", urls.length < 2);
+        box.classList.add("open"); box.setAttribute("aria-hidden", "false");
+        galleryShow("");
+        $("gallery-close").focus({ preventScroll: true });
+      }
+      function galleryClose() {
+        if (!gallery.open) return;
+        gallery.open = false;
+        $("gallery").classList.remove("open"); $("gallery").setAttribute("aria-hidden", "true");
+        $("gallery-img").removeAttribute("src");
+        if (gallery.from && gallery.from.isConnected) gallery.from.focus({ preventScroll: true });
+      }
+      $("gallery-prev").addEventListener("click", () => galleryMove(-1));
+      $("gallery-next").addEventListener("click", () => galleryMove(1));
+      $("gallery-close").addEventListener("click", galleryClose);
+      // A tap on the dark area closes it; the picture and the buttons keep their own clicks.
+      $("gallery").addEventListener("click", (e) => { if (!gallery.dragged && (e.target === $("gallery") || e.target === $("gallery-stage"))) galleryClose(); });
+      // Capture phase: with the gallery open, the keys belong to it and never reach the window under it.
+      document.addEventListener("keydown", (e) => {
+        if (!gallery.open) return;
+        if (e.key === "Escape") galleryClose();
+        else if (e.key === "ArrowLeft") galleryMove(-1);
+        else if (e.key === "ArrowRight") galleryMove(1);
+        else if (e.key === "Tab") $("gallery-close").focus();
+        else return;
+        e.preventDefault(); e.stopImmediatePropagation();
+      }, true);
+      // Swipe: a mostly horizontal drag of 50px or more turns the page.
+      let swipeFrom = null;
+      $("gallery").addEventListener("pointerdown", (e) => { swipeFrom = { x: e.clientX, y: e.clientY }; gallery.dragged = false; });
+      $("gallery").addEventListener("pointerup", (e) => {
+        if (!swipeFrom) return;
+        const dx = e.clientX - swipeFrom.x, dy = e.clientY - swipeFrom.y;
+        swipeFrom = null;
+        // A drag is not a tap: the click a mouse sends after it must not close the viewer.
+        gallery.dragged = Math.abs(dx) > 10 || Math.abs(dy) > 10;
+        if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) galleryMove(dx < 0 ? 1 : -1);
+      });
+      $("gallery").addEventListener("pointercancel", () => { swipeFrom = null; });
+      $("gallery").addEventListener("dragstart", (e) => e.preventDefault());
+      // Any picture in a detail window's screenshot row opens the gallery at that picture.
+      document.addEventListener("click", (e) => {
+        const img = e.target instanceof Element ? e.target.closest(".screenshots img") : null;
+        if (!img || !img.src) return;
+        const row = [...img.parentElement.querySelectorAll("img")].filter((x) => x.src);
+        galleryOpen(row.map((x) => x.getAttribute("src") || x.src), row.indexOf(img));
+      }, true); // capture: the detail window stops its clicks from bubbling up
+
       // ─── the client download ─────────────────────────────────────────────
       // Each press makes a new zip: the app and this server with a one-day,
       // one-use connection key for the account signed in here.
@@ -3688,8 +3941,10 @@
         }
         const actions = document.createElement("div"); actions.className = "ef-actions";
         const saveBtn = Object.assign(document.createElement("button"), { type: "submit", className: "btn", textContent: t("edit.save") });
+        saveBtn.dataset.icon = "save";
         if (reset) {
           const back = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: t("edit.reset") });
+          back.dataset.icon = "undo";
           back.addEventListener("click", async () => {
             back.disabled = true;
             try { await reset(); toast(t("edit.restored")); } catch (err) { toast(err.message); back.disabled = false; }
@@ -3808,24 +4063,35 @@
             paintPictures({ icon: st.icon || fallbackIcon, banner: st.banner, shots: st.screenshots });
             draw();
           };
-          const send = async (method, path, body) => {
+          // Where the item's pictures are served: grid rows and the window use these addresses.
+          const pub = art.kind === "homebrew" ? `/api/homebrew/${art.id}` : `/api/patches/${art.id}`;
+          const send = async (method, path, body, json = false) => {
             try {
-              const r = await fetch(base + path, { method, body, headers: { Accept: "application/json" } });
+              const headers = json ? { Accept: "application/json", "Content-Type": "application/json" } : { Accept: "application/json" };
+              const r = await fetch(base + path, { method, body: json ? JSON.stringify(body) : body, headers });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) { toast(d.error || t("art.failed")); return; }
-              toast(method === "DELETE" ? t("art.removed") : t("art.saved"));
+              toast(method === "DELETE" ? t("art.removed") : json ? t("art.cropped") : t("art.saved"));
+              refreshArtImages(`${pub}/icon`, d.icon);
+              refreshArtImages(`${pub}/banner`, d.banner);
               apply(d);
             } catch { toast(t("art.failed")); }
           };
+          const kept = (crop, path) => (crop ? { src: base + path, crop } : null);
           function draw() {
             box.replaceChildren(artEditor({
               slots: {
-                icon: { url: st.icon || fallbackIcon || null, custom: Boolean(st.icon) },
-                banner: { url: st.banner, custom: Boolean(st.banner) },
-                shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1 })),
+                icon: { url: st.icon || fallbackIcon || null, custom: Boolean(st.icon), original: kept(st.originals?.icon, "/icon/original") },
+                banner: { url: st.banner, custom: Boolean(st.banner), original: kept(st.originals?.banner, "/banner/original") },
+                shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1, original: kept(st.originals?.screenshots?.[i], `/screenshot/${i + 1}/original`) })),
                 maxShots: 8,
               },
-              upload: (slot, file) => { const fd = new FormData(); fd.append("file", file, file.name); return send("POST", `/${slot}`, fd); },
+              upload: (slot, file, crop) => {
+                const fd = new FormData(); fd.append("file", file, file.name);
+                if (crop) fd.append("crop", JSON.stringify(crop));
+                return send("POST", `/${slot}`, fd);
+              },
+              recrop: (slot, n, crop) => send("POST", slot === "screenshot" ? `/screenshot/${n}/crop` : `/${slot}/crop`, { crop }, true),
               remove: (slot, n) => send("DELETE", slot === "screenshot" ? `/screenshot/${n}` : `/${slot}`),
             }));
             box.hidden = false;
@@ -3940,7 +4206,7 @@
           if (it.update_version) meta.append(document.createTextNode(` · ${t("extras.forUpdate", updateLabel(it))}`));
           head.append(name, meta);
           const dl = document.createElement("a");
-          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", "");
+          dl.className = "btn"; dl.textContent = t("extras.download"); dl.setAttribute("download", ""); dl.dataset.icon = "download";
           dl.href = kind === "patches" ? `/api/patches/${encodeURIComponent(it.id)}/download` : it.url;
           row.append(head, dl);
           // Saves credit their source on the description's last line; show it as a link instead.
@@ -4442,6 +4708,8 @@
         if (r.item.icon_url) {
           const sep = r.item.icon_url.includes("?") ? "&" : "?";
           cover.src = r.item.icon_url + sep + "size=lg";
+          // The address stays on the card when a missing icon falls back to the placeholder, so a new upload can take its place.
+          cover.dataset.art = cover.getAttribute("src");
         } else {
           cover.src = coverPlaceholder();
         }
@@ -4666,15 +4934,24 @@
         }
       }
       // One row of a list in the window: [mark?, flag?] name over a second line, size on the right.
-      function detailRow(el, { name, sub = "", size = 0, flag = "", mark = false, title = "" }) {
+      // `tag` ({ kind, text }) puts a coloured badge before the name; `chips` ([{ text, tone }]) replaces `sub` with small badges.
+      function detailRow(el, { name, sub = "", size = 0, flag = "", mark = false, title = "", tag = null, chips = null, clamp = false }) {
         el.classList.add("extra-row");
         const main = document.createElement("span"); main.className = "extra-main";
         if (mark) main.append(Object.assign(document.createElement("span"), { className: "mark" }));
         if (flag) main.append(Object.assign(document.createElement("span"), { className: "flag", textContent: flag }));
+        if (tag) main.append(Object.assign(document.createElement("span"), { className: `type-tag ${tag.kind}`, textContent: tag.text }));
         const text = document.createElement("span"); text.className = "extra-text";
-        const nameEl = document.createElement("span"); nameEl.className = "extra-name"; nameEl.textContent = name;
-        if (title) nameEl.title = title;
-        text.append(nameEl, Object.assign(document.createElement("span"), { className: "extra-sub", textContent: sub }));
+        const nameEl = document.createElement("span"); nameEl.className = clamp ? "extra-name clamp" : "extra-name"; nameEl.textContent = name;
+        if (title || clamp) nameEl.title = title || name;
+        const subEl = document.createElement("span");
+        if (chips) {
+          subEl.className = "extra-chips";
+          for (const c of chips.filter((x) => x && x.text)) subEl.append(Object.assign(document.createElement("span"), { className: `mini ${c.tone || ""}`.trim(), textContent: c.text }));
+        } else {
+          subEl.className = "extra-sub"; subEl.textContent = sub;
+        }
+        text.append(nameEl, subEl);
         main.append(text);
         const sizeEl = document.createElement("span"); sizeEl.className = "extra-size"; sizeEl.textContent = size > 0 ? fmtBytes(size) : "";
         el.append(main, sizeEl);
@@ -4774,15 +5051,15 @@
         const base = group.find((x) => x.kind === "base");
         if (base) {
           const v = fileVersion(base.item);
-          rows.push(detailRow(link(base.item), { name: t("install.base"), sub: [fmtVersion(v, versionName(base.item.titleId, v)), t("install.required")].join(" · "), size: base.size }));
+          rows.push(detailRow(link(base.item), { name: cleanName(base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips: [{ text: fmtVersion(v, versionName(base.item.titleId, v)) }, { text: t("install.required"), tone: "need" }], size: base.size, clamp: true }));
         }
         const update = group.filter((x) => x.kind === "update").sort((a, b) => fileVersion(b.item) - fileVersion(a.item))[0];
         if (update) {
           const v = fileVersion(update.item);
-          rows.push(detailRow(link(update.item), { name: t("install.update"), sub: [fmtVersion(v, versionName(update.item.titleId, v)), t("install.latest")].join(" · "), size: update.size }));
+          rows.push(detailRow(link(update.item), { name: cleanName(update.item.name || t("install.update")), tag: { kind: "update", text: t("install.tag.update") }, chips: [{ text: fmtVersion(v, versionName(update.item.titleId, v)) }, { text: t("install.latest"), tone: "latest" }], size: update.size, clamp: true }));
         }
         for (const d of group.filter((x) => x.kind === "dlc")) {
-          rows.push(detailRow(link(d.item), { name: cleanName(d.item.name || t("misc.unnamed")), sub: t("chip.dlc"), size: d.size }));
+          rows.push(detailRow(link(d.item), { name: cleanName(d.item.name || t("misc.unnamed")), tag: { kind: "dlc", text: t("install.tag.dlc") }, size: d.size, clamp: true }));
         }
         box.replaceChildren();
         if (!rows.length && !patchGroup) { box.hidden = true; return; }
@@ -4881,8 +5158,34 @@
       // upload(slot, file) and remove(slot, n?) return promises; the caller repaints when they settle.
       const ART_EMPTY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>';
       const ART_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-      function artEditor({ slots, upload, remove }) {
+      // The shape each slot is cut to: a square icon, wide banners and screenshots (as they are stored and shown).
+      const ART_ASPECT = { icon: 1, banner: 16 / 9, screenshot: 16 / 9 };
+      const ART_CROP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
+      // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
+      function artEditor({ slots, upload, remove, recrop = null }) {
         const card = document.createElement("section"); card.className = "arted";
+        // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
+        async function cropIn(slot, src, crop = null) {
+          if (typeof window.cfCrop !== "function") return false;
+          card.classList.add("cropping");
+          try {
+            return await window.cfCrop({ host: card, src, aspect: ART_ASPECT[slot], crop,
+              labels: { title: t("art.cropTitle"), hint: t("art.cropHint"), box: t("art.cropBox"), apply: t("art.cropApply"), cancel: t("art.cropCancel") } });
+          } finally { card.classList.remove("cropping"); }
+        }
+        const cutAndUpload = (slot) => async (file) => {
+          const src = URL.createObjectURL(file);
+          try {
+            const crop = await cropIn(slot, src);
+            if (crop !== null) await upload(slot, file, crop || null);
+          } finally { URL.revokeObjectURL(src); }
+        };
+        const recut = (slot, n, original) => (original && recrop ? async (fig) => {
+          const crop = await cropIn(slot, `${original.src}?_=${Date.now().toString(36)}`, original.crop);
+          if (!crop) return;
+          fig.classList.add("busy");
+          try { await recrop(slot, n, crop); } finally { fig.classList.remove("busy"); }
+        } : null);
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
         card.append(head);
@@ -4892,7 +5195,7 @@
           input.click();
         };
         // One tile: its face shows the picture (or an empty mark), takes a click or a dropped image.
-        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset") }) {
+        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset"), again = null }) {
           const fig = document.createElement("figure"); fig.className = "atile a-" + kind + (has ? " has" : "");
           // A screenshot is shown, not replaced: its face is a picture, its corner button takes it out.
           const face = document.createElement(onFile ? "button" : "div"); face.className = "face";
@@ -4924,7 +5227,7 @@
           fig.append(frame);
           if (reset) {
             const r = document.createElement("button"); r.type = "button"; r.className = "reset";
-            r.textContent = kind === "shot" ? "✕" : resetLabel; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
+            r.textContent = kind === "shot" ? "✕" : resetLabel; if (kind !== "shot") r.dataset.icon = "undo"; r.title = resetLabel; r.setAttribute("aria-label", caption + " " + resetLabel);
             r.addEventListener("click", async (e) => {
               e.stopPropagation();
               fig.classList.add("busy");
@@ -4932,19 +5235,25 @@
             });
             frame.append(r);
           }
+          if (again) {
+            const b = document.createElement("button"); b.type = "button"; b.className = "recrop"; b.innerHTML = ART_CROP;
+            b.title = t("art.recrop"); b.setAttribute("aria-label", (caption + " " + t("art.recrop")).trim());
+            b.addEventListener("click", (e) => { e.stopPropagation(); again(fig); });
+            frame.append(b);
+          }
           return fig;
         }
         if (slots.icon || slots.banner) {
           const top = document.createElement("div"); top.className = "arted-top";
-          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: (f) => upload("icon", f), reset: slots.icon.custom ? () => remove("icon") : null }));
-          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: (f) => upload("banner", f), reset: slots.banner.custom ? () => remove("banner") : null }));
+          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
+          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: cutAndUpload("banner"), reset: slots.banner.custom ? () => remove("banner") : null, again: recut("banner", null, slots.banner.original) }));
           card.append(top);
         }
         const shots = slots.shots || [];
         card.append(Object.assign(document.createElement("p"), { className: "arted-label", textContent: `${t("art.screens")} ${shots.length}/${slots.maxShots ?? 8}` }));
         const grid = document.createElement("div"); grid.className = "arted-shots";
-        shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove") })));
-        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: (f) => upload("screenshot", f) }));
+        shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove"), again: recut("screenshot", sh.n ?? i + 1, sh.original) })));
+        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: cutAndUpload("screenshot") }));
         card.append(grid);
         return card;
       }
@@ -4960,14 +5269,16 @@
         if (!uploadsEnabled || !validBase) return;
         box.hidden = false;
         // A game's screenshots from titledb stay as they are; the ones an admin added can be taken out.
+        const kept = (crop, path) => (crop ? { src: `/api/art/${baseId}${path}`, crop } : null);
         const card = artEditor({
           slots: {
-            icon: { url: `/api/shop/icon/${baseId}?size=md`, custom: art.icon },
-            banner: { url: `/api/shop/banner/${baseId}`, custom: art.banner },
-            shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i })),
+            icon: { url: `/api/shop/icon/${baseId}?size=md`, custom: art.icon, original: art.icon ? kept(art.originals?.icon, "/icon/original") : null },
+            banner: { url: `/api/shop/banner/${baseId}`, custom: art.banner, original: art.banner ? kept(art.originals?.banner, "/banner/original") : null },
+            shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i, original: kept(art.originals?.screens?.[i], `/screenshot/${i}/original`) })),
             maxShots: 8,
           },
-          upload: (slot, file) => uploadArt(baseId, slot, file),
+          upload: (slot, file, crop) => uploadArt(baseId, slot, file, crop),
+          recrop: (slot, n, crop) => recropArt(baseId, slot, n, crop),
           remove: (slot, n) => removeArt(baseId, slot, n),
         });
         box.append(card);
@@ -4977,28 +5288,64 @@
         for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
         if (currentModal && $("modal").classList.contains("open")) openModal(currentModal);
       }
-      async function uploadArt(baseId, kind, file) {
-        const fd = new FormData(); fd.append("file", file, file.name);
+      // A changed picture shows at once wherever the page has it: grid cards, section rows, slides and
+      // the window behind the edit page. `url` is its new address with the server's ?v= when there is one;
+      // otherwise the address gets a fresh _a so the browser asks again.
+      function refreshArtImages(path, url) {
+        const bump = Date.now().toString(36);
+        const fresh = url ? new URL(url, location.href).searchParams.get("v") : null;
+        const swap = (old) => {
+          let u;
+          try { u = new URL(old, location.href); } catch { return null; }
+          if (u.pathname !== path) return null;
+          if (fresh) { u.searchParams.set("v", fresh); u.searchParams.delete("_a"); } else u.searchParams.set("_a", bump);
+          return u.pathname + u.search;
+        };
+        for (const img of document.querySelectorAll("img[src]")) {
+          const next = swap(img.dataset.art || img.getAttribute("src"));
+          if (!next || next === img.getAttribute("src")) continue;
+          img.style.visibility = "";
+          if (img.dataset.art) {
+            img.dataset.art = next;
+            img.onerror = () => { img.onerror = null; img.src = coverPlaceholder(); };
+          }
+          img.src = next;
+        }
+        for (const node of document.querySelectorAll(`[style*="${path}"]`)) {
+          node.setAttribute("style", node.getAttribute("style").replace(/url\((['"]?)([^'")]+)\1\)/g, (m, q, u) => { const next = swap(u); return next ? `url(${q}${next}${q})` : m; }));
+        }
+        // The list the grid is drawn from carries the new address too, so a later redraw keeps it.
+        renderedItems = renderedItems.map((r) => {
+          const icon = r.item.icon_url && swap(r.item.icon_url), banner = r.item.banner_url && swap(r.item.banner_url);
+          return icon || banner ? { ...r, item: { ...r.item, ...(icon ? { icon_url: icon } : {}), ...(banner ? { banner_url: banner } : {}) } } : r;
+        });
+      }
+      // After a game's picture changed: every copy of it on the page, then the open window with fresh art.
+      async function artChanged(baseId, request, done) {
         try {
-          const res = await fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd });
+          const res = await request;
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { toast(d.error || t("art.failed")); return; }
-          toast(t("art.saved"));
+          toast(done);
           artVersion++;
-          if (currentModal) openModal(currentModal); // re-render with fresh art + cache-bust
+          for (const k of ["icon", "banner"]) refreshArtImages(`/api/shop/${k}/${baseId}`, d.urls?.[k]);
+          refreshAfterDesc(baseId);
         } catch { toast(t("art.failed")); }
       }
-      async function removeArt(baseId, kind, idx) {
+      function uploadArt(baseId, kind, file, crop = null) {
+        const fd = new FormData(); fd.append("file", file, file.name);
+        if (crop) fd.append("crop", JSON.stringify(crop));
+        return artChanged(baseId, fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd }), t("art.saved"));
+      }
+      function recropArt(baseId, kind, idx, crop) {
+        const url = kind === "screenshot" ? `/api/art/${baseId}/screenshot/${idx}/crop` : `/api/art/${baseId}/${kind}/crop`;
+        return artChanged(baseId, fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ crop }) }), t("art.cropped"));
+      }
+      function removeArt(baseId, kind, idx) {
         const url = kind === "screenshot"
           ? `/api/art/${baseId}/screenshot/${idx}`
           : `/api/art/${baseId}/${kind}`;
-        try {
-          const res = await fetch(url, { method: "DELETE" });
-          if (!res.ok) { toast(t("art.failed")); return; }
-          toast(t("art.removed"));
-          artVersion++;
-          if (currentModal) openModal(currentModal);
-        } catch { toast(t("art.failed")); }
+        return artChanged(baseId, fetch(url, { method: "DELETE" }), t("art.removed"));
       }
 
       // Fetch + render a title's auxiliary files (mods/patches/zips). Best

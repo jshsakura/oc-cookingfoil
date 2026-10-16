@@ -128,9 +128,9 @@ test('files dropped into the upload box pick their own kind and go in one by one
   } finally {
     for (const name of names) fs.rmSync(`/tmp/cookingfoil-web-test-games/${name}`, { force: true });
     fs.rmSync(dir, { recursive: true, force: true });
-    // Later specs count the library's games: wait until it is back to the one it started with.
+    // Later specs count the library's games: wait until the two uploads have left it (other specs may add their own meanwhile).
     await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
-    await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
+    await expect.poll(async () => (await (await request.get('/admin/api/library/files?q=E2E%20Up', { headers: { Cookie: adminCookie } })).json()).matched, { timeout: 15000 }).toBe(0);
   }
 });
 

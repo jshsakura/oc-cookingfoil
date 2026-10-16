@@ -17,6 +17,8 @@ async function choose(page: Page, tile: ReturnType<Page['locator']>, file: strin
   const chooser = page.waitForEvent('filechooser');
   await tile.locator('.face').click();
   await (await chooser).setFiles(file);
+  // Every new picture goes through the crop view; the whole-fit box is applied as it comes.
+  await page.locator('.crop .crop-actions .btn:not(.ghost)').click();
 }
 
 // The gear left of the X swaps the detail for the edit page.

@@ -13,6 +13,7 @@
  *   <BASE>.icon.jpg
  *   <BASE>.banner.jpg
  *   <BASE>.screen.<n>.jpg
+ *   <BASE>.<slot>.orig.webp/.orig.json   the upload kept for cutting again (meta/art-crop.js)
  *
  * Uploads are re-encoded through sharp (resize cap + mozjpeg + metadata strip)
  * so we store a sane, optimized JPEG regardless of what was uploaded — and so a
@@ -25,6 +26,7 @@ import sharp from "sharp";
 import { customArtDir } from "../helpers/envs.js";
 import { forget, thumbVariantPaths } from "./image-cache.js";
 import debug from "../debug.js";
+import * as artCrop from "./art-crop.js";
 
 export const KINDS = ["icon", "banner", "screenshot"];
 export const MAX_SCREENSHOTS = 8;
@@ -158,13 +160,7 @@ async function optimize(kind, inputBuffer) {
     .toBuffer();
 }
 
-/**
- * Validate + optimize + store an uploaded image for a slot. Throws on a bad
- * image (caller maps to 400). Invalidates the cache's memoized state for the
- * file and its thumbnails so the next request reflects the new bytes.
- */
-export async function put(base, kind, idx, inputBuffer) {
-  const optimized = await optimize(kind, inputBuffer);
+async function writeArt(base, kind, idx, optimized) {
   await fs.mkdir(customArtDir, { recursive: true });
   const dest = pathFor(base, kind, idx);
   const tmp = `${dest}.tmp.${process.pid}`;
@@ -181,10 +177,53 @@ export async function put(base, kind, idx, inputBuffer) {
   return { path: dest, bytes: optimized.length };
 }
 
-/** Remove a slot's override (and its thumbnails). No-op when absent. */
+/**
+ * Validate + optimize + store an uploaded image for a slot. Throws on a bad
+ * image (caller maps to 400). Invalidates the cache's memoized state for the
+ * file and its thumbnails so the next request reflects the new bytes.
+ * `crop` ({ x, y, w, h }, 0..1, or null for all of it) is the area kept; the
+ * upload itself is kept smaller beside the art so the area can change later.
+ */
+export async function put(base, kind, idx, inputBuffer, crop = null) {
+  const optimized = await optimize(kind, await artCrop.cropOf(inputBuffer, crop));
+  const original = await artCrop.shrinkOriginal(inputBuffer);
+  const r = await writeArt(base, kind, idx, optimized);
+  artCrop.keepOriginal(r.path, original, crop);
+  return r;
+}
+
+/** Cuts the slot again from the original kept at upload. Throws CropError when none is kept. */
+export async function recrop(base, kind, idx, crop) {
+  const dest = pathFor(base, kind, idx);
+  const kept = hasOverride(base, kind, idx) ? artCrop.readOriginal(dest) : null;
+  if (!kept) throw new artCrop.CropError("다시 자를 원본이 없습니다");
+  const raw = await fs.readFile(kept.image);
+  const r = await writeArt(base, kind, idx, await optimize(kind, await artCrop.cropOf(raw, crop)));
+  artCrop.writeCrop(dest, crop);
+  return r;
+}
+
+/** The original kept for a slot: { image, crop }, or null. */
+export function original(base, kind, idx) {
+  return hasOverride(base, kind, idx) ? artCrop.readOriginal(pathFor(base, kind, idx)) : null;
+}
+
+/** The area each kept original was cut to: { icon, banner, screens: { <idx>: crop } } (null when none is kept). */
+export function originals(base) {
+  const e = list(base);
+  const screens = {};
+  for (const i of e.screens) {
+    const o = original(base, "screenshot", i);
+    if (o) screens[i] = o.crop;
+  }
+  return { icon: original(base, "icon", null)?.crop ?? null, banner: original(base, "banner", null)?.crop ?? null, screens };
+}
+
+/** Remove a slot's override (and its thumbnails and kept original). No-op when absent. */
 export async function remove(base, kind, idx) {
   const dest = pathFor(base, kind, idx);
   await fs.rm(dest, { force: true });
+  artCrop.removeOriginal(dest);
   forget(dest);
   for (const v of thumbVariantPaths(dest)) {
     forget(v);
