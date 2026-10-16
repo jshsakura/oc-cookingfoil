@@ -59,7 +59,7 @@ import setupRouter from "./routes/setup.js";
 import { needsSetup, setupCode } from "./security/setup.js";
 import devicePairRouter from "./routes/device-pair.js";
 import retroRouter from "./routes/retro.js";
-import savesRouter from "./routes/saves.js";
+import savesRouter, { savesCatalog, savesEnabled } from "./routes/saves.js";
 import clientUpdateRouter from "./routes/client-update.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
@@ -388,6 +388,9 @@ ratingSync.start({ onChange: () => shopCache.invalidate() });
 
 // The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
 startNszQueue();
+
+// The saves folder holds tens of thousands of files: read it once now, not on the first request.
+if (savesEnabled()) savesCatalog().warm();
 
 // Seed the custom-art override index from disk so the icon/banner/screenshot
 // routes can do a zero-syscall "is there an override?" check on the hot path.

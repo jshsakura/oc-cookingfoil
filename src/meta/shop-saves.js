@@ -22,8 +22,11 @@
  * A save with a symlink, a path ustar cannot hold, too many files or too many
  * bytes is left out and only logged.
  *
- * The folder is small, so it is rescanned when the listing is older than half
- * a minute; content hashes are cached by (size, mtime, inode) on disk.
+ * The listing is rescanned when it is older than STALE_MS, in the background:
+ * a request gets the listing in hand at once (only the first one, and the one
+ * after a change made here, waits for a scan). A folder holds tens of
+ * thousands of small files, so each folder's entries are stat'ed together,
+ * and content hashes are cached by (size, mtime, inode) on disk.
  */
 import crypto from "crypto";
 import fsp from "fs/promises";
@@ -35,7 +38,7 @@ import { pathProblem } from "./console-paths.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
-const STALE_MS = 30_000;
+const STALE_MS = 5 * 60_000;
 const MAX_FILES = 5000;
 const MAX_BYTES = 1024 ** 3;
 const FIELD_MAX = { name: 120, description: 2000, gameVersion: 40 };
@@ -79,14 +82,17 @@ export function readMeta(raw) {
 }
 
 async function walk(root, rel = "", out = []) {
-  for (const entry of await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })) {
-    if (JUNK_RE.test(entry.name)) continue;
+  const entries = (await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })).filter((e) => !JUNK_RE.test(e.name));
+  if (out.length + entries.length > MAX_FILES) throw new Rejected(`more than ${MAX_FILES} files`);
+  // One folder's entries are stat'ed together; one at a time, a big save takes seconds.
+  const stats = await Promise.all(entries.map((entry) => {
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
-    const abs = path.join(root, relPath);
-    const st = await fsp.lstat(abs);
+    return fsp.lstat(path.join(root, relPath)).then((st) => ({ relPath, st }));
+  }));
+  for (const { relPath, st } of stats) {
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);
     if (st.isDirectory()) await walk(root, relPath, out);
-    else if (st.isFile()) out.push({ path: relPath, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino });
+    else if (st.isFile()) out.push({ path: relPath, abs: path.join(root, relPath), size: st.size, mtimeMs: st.mtimeMs, ino: st.ino });
     else throw new Rejected(`not a regular file: ${relPath}`);
     if (out.length > MAX_FILES) throw new Rejected(`more than ${MAX_FILES} files`);
   }
@@ -180,12 +186,14 @@ export function createCatalog({ root, cacheFile }) {
   const cache = new HashCache(cacheFile);
   let saves = [];
   let scannedAt = 0;
+  let current = false; // false until the first scan, and after a change made here
   let inFlight = null;
   const scan = () => {
     inFlight ??= scanDir(root, cache)
       .then((next) => {
         saves = next;
         scannedAt = Date.now();
+        current = true;
         return saves;
       })
       .finally(() => (inFlight = null));
@@ -194,8 +202,13 @@ export function createCatalog({ root, cacheFile }) {
   const publicFields = ({ dir: _dir, folder: _folder, ...s }) => s;
   return {
     async list() {
-      if (Date.now() - scannedAt > STALE_MS) await scan();
+      if (!current) await scan();
+      else if (Date.now() - scannedAt > STALE_MS) scan().catch((err) => debug.error("saves: rescan failed: %s", err.message));
       return saves.map(publicFields);
+    },
+    /** Scans now (on start), so the first request finds a listing. */
+    warm() {
+      return scan().catch((err) => debug.error("saves: scan failed: %s", err.message));
     },
     /** Where a listed save sits under the root ({ dir, folder }), or null. */
     async locate(id) {
@@ -205,7 +218,7 @@ export function createCatalog({ root, cacheFile }) {
     },
     /** Read the folder again on the next list (after a change made here). */
     invalidate() {
-      scannedAt = 0;
+      current = false;
     },
     /** A save read afresh for download, or null when it is gone or no longer valid. */
     async open(id) {
