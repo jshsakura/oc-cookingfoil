@@ -170,7 +170,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const n = req.body?.n == null ? null : Number(req.body.n);
     if (n !== null && !Number.isInteger(n)) return res.status(400).json({ error: "없는 스크린샷입니다" });
     try {
-      res.json({ ok: true, count: media.removeShots(app.id, n) });
+      res.json({ ok: true, count: await media.removeShots(app.id, n) });
     } catch (err) {
       imageError(res, err);
     }
@@ -179,7 +179,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
   router.post("/api/homebrew/banner/remove", handle(async (req, res) => {
     const app = await appOf(req.body?.id);
     if (!app) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    media.removeBanner(app.id);
+    await media.removeBanner(app.id);
     res.json({ ok: true });
   }));
 

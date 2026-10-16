@@ -101,6 +101,16 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
     persist({ ...cur, [id]: { ...cur[id], [part]: value } });
   }
 
+  // Writes to one item run one at a time: two uploads at once would both pick the same next screenshot number.
+  const queues = new Map();
+  function serial(id, fn) {
+    const run = (queues.get(id) ?? Promise.resolve()).then(fn, fn);
+    const tail = run.catch(() => {});
+    queues.set(id, tail);
+    tail.then(() => { if (queues.get(id) === tail) queues.delete(id); });
+    return run;
+  }
+
   const check = (id) => {
     if (!idRe.test(String(id))) throw new MediaImageError("번호가 맞지 않습니다");
   };
@@ -207,9 +217,11 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
     return keep.length;
   }
 
+  const one = (fn) => (id, ...args) => serial(String(id), () => fn(id, ...args));
   return {
     idRe, put, record, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
-    saveIcon, saveBanner, removeIcon, removeBanner, saveShots, addShots, removeShots,
+    saveIcon: one(saveIcon), saveBanner: one(saveBanner), removeIcon: one(removeIcon), removeBanner: one(removeBanner),
+    saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
     /** Test seam. */
     resetForTests() { saved = null; },
   };

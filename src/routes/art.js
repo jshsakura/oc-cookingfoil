@@ -127,14 +127,14 @@ export default function artRouter() {
     res.status(201).json(state(store, id));
   }));
   router.delete("/:kind(homebrew|patch)/:id/:slot(icon|banner)", itemRoute(async (req, res, { store, id }) => {
-    if (req.params.slot === "icon") store.removeIcon(id);
-    else store.removeBanner(id);
+    if (req.params.slot === "icon") await store.removeIcon(id);
+    else await store.removeBanner(id);
     res.json(state(store, id));
   }));
   router.delete("/:kind(homebrew|patch)/:id/screenshot/:n", itemRoute(async (req, res, { store, id }) => {
     const n = Number(req.params.n);
     if (!Number.isInteger(n)) return badRequest(res, "invalid screenshot");
-    store.removeShots(id, n);
+    await store.removeShots(id, n);
     res.json(state(store, id));
   }));
 

@@ -518,6 +518,7 @@
       }
       .game .sub .pill.base { display: none; }
       .game .sub .pill.update, .game .sub .pill.dlc { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+      .game .sub .pill.need { background: color-mix(in srgb, var(--butter) 22%, transparent); border-color: var(--butter); color: var(--ink); }
       .game .sub .pill.sale { background: var(--butter); border-color: var(--butter); color: var(--butter-ink); }
       .game .sub .pill.custom { background: rgba(var(--butter-rgb), 0.25); border-color: transparent; color: var(--ink); }
       .game .sub .pill.mono { font-family: var(--font-mono); font-weight: 500; }
@@ -1417,6 +1418,7 @@
           "chip.custom": "커스텀",
           "pill.sale": "할인",
           "pill.update": "업데이트",
+          "pill.needPatch": "필수 패치",
           "misc.unnamed": "(이름 없음)",
           "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
           "sort.name_desc": "정렬: 이름 ㅎ→ㄱ",
@@ -1675,6 +1677,7 @@
           "chip.custom": "Custom",
           "pill.sale": "Sale",
           "pill.update": "Update",
+          "pill.needPatch": "Mod required",
           "misc.unnamed": "(unnamed)",
           "sort.name_asc": "Sort: Name (A→Z)",
           "sort.name_desc": "Sort: Name (Z→A)",
@@ -1936,6 +1939,7 @@
           "chip.custom": "カスタム",
           "pill.sale": "セール",
           "pill.update": "アップデート",
+          "pill.needPatch": "パッチ必須",
           "misc.unnamed": "(名前なし)",
           "sort.name_asc": "並び替え: 名前 (昇順)",
           "sort.name_desc": "並び替え: 名前 (降順)",
@@ -2197,6 +2201,7 @@
           "chip.custom": "自訂",
           "pill.sale": "特價",
           "pill.update": "更新",
+          "pill.needPatch": "需要補丁",
           "misc.unnamed": "(未命名)",
           "sort.name_asc": "排序：名稱 (A→Z)",
           "sort.name_desc": "排序：名稱 (Z→A)",
@@ -3486,8 +3491,10 @@
           if (mine !== artSeq) return;
           const apply = (next) => {
             st = next;
-            paintPictures({ icon: st.icon || fallbackIcon, banner: st.banner, shots: st.screenshots });
             window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
+            // An upload that lands after another window opened only refreshes the lists, not that window.
+            if (mine !== artSeq) return;
+            paintPictures({ icon: st.icon || fallbackIcon, banner: st.banner, shots: st.screenshots });
             draw();
           };
           const send = async (method, path, body) => {
@@ -4148,6 +4155,8 @@
         // Korean uses the chip label "업데이트" so the rollup matches the
         // filter chip across the toolbar.
         if (r.kind === "base" && saleOf(r)) addPill(t("pill.sale"), "sale");
+        // A patch the game does not start without, marked on the patches page.
+        if (r.kind === "base" && sectionOf.get((r.item.titleId || "").toUpperCase())?.required_patches) addPill(t("pill.needPatch"), "need");
         if (r.updateCount) addPill(t("pill.update"), "update");
         if (r.dlcCount)    addPill("DLC " + r.dlcCount, "dlc");
         const poster = document.createElement("div"); poster.className = "poster";

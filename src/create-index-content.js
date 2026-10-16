@@ -516,6 +516,8 @@ function buildSectionItem(relPath, wireItem) {
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);
       if (patchCount) item.patches = patchCount;
+      const required = patchCount ? userPatches.requiredFor(parsed.titleId) : 0;
+      if (required) item.required_patches = required;
     }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);

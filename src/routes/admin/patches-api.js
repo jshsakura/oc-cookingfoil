@@ -118,6 +118,7 @@ export function mountPatchesApi(router, requireSession) {
     if (!where?.key || where.dir.startsWith("homebrew/")) return res.status(404).json({ error: "목록에 없는 패치입니다" });
     patchInfo.set(where.key, withRequired(userPatches.infoOf(id), req.body.required));
     debug.log("admin: patch %s required=%s", where.key, req.body.required);
+    shopCache.invalidate(); // the game's card and the consoles' shop carry required_patches
     res.json({ ok: true });
   }));
 

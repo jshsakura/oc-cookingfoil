@@ -116,6 +116,9 @@ form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transpare
 td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 /* On a wide screen the buttons sit side by side and the column is as wide as they are. */
 @media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}td>.row-actions{flex-wrap:nowrap}}
+button.ib svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media (min-width:641px){td .row-actions button.ib{width:36px;height:36px;padding:0;position:relative}
+  td .row-actions button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 td .pills{display:flex;flex-wrap:wrap;gap:6px}
 td .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
 td.dim{color:var(--faint)}

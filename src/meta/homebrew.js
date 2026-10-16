@@ -934,6 +934,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       if (!s || (s.repo_description !== undefined && s.repo_checked_at && now() - s.repo_checked_at < REPO_FACTS_MS)) continue;
       try {
         const res = await fetchImpl(`https://api.github.com/repos/${repo}`, { headers: headers(), signal: AbortSignal.timeout(API_TIMEOUT_MS) });
+        // Out of quota: the release checks share it, so the rest wait for the next round.
+        if (res.status === 403 || res.status === 429) return;
         if (!res.ok) continue;
         const body = await res.json();
         const text = String(body.description ?? "").trim();
