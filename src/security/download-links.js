@@ -42,6 +42,7 @@ import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as identity from "./link-identity.js";
 import * as tokens from "./download-token.js";
+import { knownDown } from "./direct-health.js";
 
 export const FEATURES_HEADER = "X-CookingFoil-Features";
 export const TOKEN_HEADER = "X-CookingFoil-Download-Token";
@@ -118,6 +119,9 @@ function keyUsable() {
 export function forRequest(req) {
   const base = env.publicDirectBaseUrl;
   if (!base || !base.startsWith("https://") || !wantsDirect(req) || !routesDirect(routeInputs(req))) return null;
+  // Clients send every download to the direct address once they are given it, with no
+  // fallback (its traffic may be metered elsewhere), so it is not given while it is down.
+  if (knownDown()) return null;
   const who = identity.requester(req);
   if (!who || !keyUsable()) return null;
   return { base, who };

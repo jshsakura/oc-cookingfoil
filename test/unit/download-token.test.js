@@ -483,15 +483,18 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
   assert.notEqual(off.headers.etag, on.headers.etag);
 });
 
-test("lists never depend on whether the direct address answers", async () => {
+test("while the direct address is down no token or origin is given, so clients use the server itself", async () => {
   const port = await listApp();
   const ask = () => get(port, "/api/homebrew", { headers: { "x-device-key": KEY_A, ...FEATURES } });
   health.setForTests(true);
   const up = await ask();
+  assert.ok(up.headers["x-cookingfoil-download-token"]);
+  assert.ok(up.headers["x-cookingfoil-download-origin"]);
   health.setForTests(false);
   const down = await ask();
-  assert.equal(down.body.toString(), up.body.toString());
-  assert.ok(down.headers["x-cookingfoil-download-token"]);
+  assert.equal(down.headers["x-cookingfoil-download-token"], undefined);
+  assert.equal(down.headers["x-cookingfoil-download-origin"], undefined);
+  health.setForTests(true);
 });
 
 // Documentation addresses stand in for the public ones a real lookup returns.
