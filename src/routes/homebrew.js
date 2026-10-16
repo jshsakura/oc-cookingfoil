@@ -110,9 +110,18 @@ export function homebrewEnabled() {
   return manual.entries.length > 0 || githubTracker().entries().length > 0;
 }
 
-/** Rescans the hand-placed folder now (one scan at a time). */
+let rescan = null;
+/**
+ * Rescans the hand-placed folder now (one scan at a time). Asked while a scan
+ * runs, it waits for that one and then scans again: the running scan may have
+ * read the folder before the change that asked (an upload) landed.
+ */
 export function refreshManual() {
-  manualScan ??= scanManual(homebrewDir)
+  if (manualScan) {
+    rescan ??= manualScan.catch(() => {}).then(() => { rescan = null; return refreshManual(); });
+    return rescan;
+  }
+  manualScan = scanManual(homebrewDir)
     .then((entries) => {
       manual = { at: Date.now(), entries };
       keepManual(manual).catch((err) => debug.error("homebrew: could not keep the list: %s", err.message));

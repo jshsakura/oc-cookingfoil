@@ -207,13 +207,15 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
   let saves = kept?.saves ?? [];
   let scannedAt = kept?.at ?? 0;
   let current = Boolean(kept); // false with no listing yet, and after a change made here
+  let changes = 0; // bumped by invalidate(): a scan that began before a change does not make the listing current
   let inFlight = null;
   const scan = () => {
+    const seen = changes;
     inFlight ??= scanDir(root, cache)
       .then((next) => {
         saves = next;
         scannedAt = Date.now();
-        current = true;
+        current = seen === changes;
         writeList(listFile, saves, scannedAt).catch((err) => debug.error("saves: could not keep the listing: %s", err.message));
         return saves;
       })
@@ -223,7 +225,8 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
   const publicFields = ({ dir: _dir, folder: _folder, ...s }) => s;
   return {
     async list() {
-      if (!current) await scan();
+      // A scan already running when a change was made is waited out, then a fresh one runs.
+      if (!current) for (let i = 0; !current && i < 3; i++) await scan();
       else if (Date.now() - scannedAt > STALE_MS) scan().catch((err) => debug.error("saves: rescan failed: %s", err.message));
       return saves.map(publicFields);
     },
@@ -241,6 +244,7 @@ export function createCatalog({ root, cacheFile, listFile = null }) {
     /** Read the folder again on the next list (after a change made here). */
     invalidate() {
       current = false;
+      changes++;
     },
     /** A save read afresh for download, or null when it is gone or no longer valid. */
     async open(id) {

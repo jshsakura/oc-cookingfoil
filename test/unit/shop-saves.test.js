@@ -207,3 +207,21 @@ test("the last listing is kept on disk and served at once after a restart, then 
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a change made while a scan runs is in the listing that follows", async () => {
+  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-race-"));
+  const put = (folder) => {
+    fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });
+    fs.writeFileSync(path.join(root, "0100000000010000", folder, "save.bin"), "x");
+  };
+  put("one");
+  const cat = createCatalog({ root, cacheFile: path.join(root, "h.json") });
+  const first = cat.list();
+  put("two");
+  cat.invalidate();
+  await first;
+  assert.equal((await cat.list()).length, 2);
+  await new Promise((r) => setTimeout(r, 50));
+  fs.rmSync(root, { recursive: true, force: true });
+});
