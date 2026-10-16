@@ -21,6 +21,7 @@
     <meta name="twitter:image" content="__ORIGIN__/assets/og-image.png" />
     <link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/fonts.css" />
+    <script src="/assets/crop.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
@@ -812,6 +813,41 @@
         .arted-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
       @media (prefers-reduced-motion: reduce) { .atile .face { transition: none; } .atile.busy .face::before { animation: none; } }
+      .atile .recrop {
+        position: absolute; left: 8px; bottom: 8px; z-index: 3; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+        border: 0; border-radius: 50%; cursor: pointer; background: rgba(12, 12, 14, 0.62); color: #fff;
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      }
+      .atile .recrop svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .atile .recrop:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      /* The crop view takes the card's place while the admin picks the part to keep. */
+      .arted.cropping > :not(.crop) { display: none; }
+      .crop { display: grid; gap: 12px; outline: none; }
+      .crop-head { display: grid; gap: 4px; }
+      .crop-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
+      .crop-head span { font-size: 12px; color: var(--secondary); }
+      .crop-stage {
+        position: relative; justify-self: center; max-width: 100%; line-height: 0; overflow: hidden; border-radius: 12px;
+        background: var(--sunk); touch-action: none; user-select: none; -webkit-user-select: none;
+      }
+      .crop-stage img { display: block; max-width: 100%; max-height: min(60vh, 460px); pointer-events: none; opacity: 0; transition: opacity .2s ease; }
+      .crop.ready .crop-stage img { opacity: 1; }
+      .crop-box {
+        position: absolute; box-sizing: border-box; border: 2px solid var(--butter); cursor: move; touch-action: none; outline: none;
+        box-shadow: 0 0 0 9999px rgba(12, 12, 14, 0.55);
+      }
+      .crop:not(.ready) .crop-box { display: none; }
+      .crop-box:focus-visible { border-color: var(--ink); }
+      .crop.dragging .crop-box { cursor: grabbing; }
+      /* Corner brackets inside the box; the hit area reaches past them for a finger. */
+      .crop-h { position: absolute; width: 18px; height: 18px; box-sizing: border-box; border: 0 solid var(--butter); }
+      .crop-h::before { content: ""; position: absolute; inset: -12px; }
+      .crop-h.nw { left: -2px; top: -2px; border-width: 5px 0 0 5px; cursor: nwse-resize; }
+      .crop-h.ne { right: -2px; top: -2px; border-width: 5px 5px 0 0; cursor: nesw-resize; }
+      .crop-h.sw { left: -2px; bottom: -2px; border-width: 0 0 5px 5px; cursor: nesw-resize; }
+      .crop-h.se { right: -2px; bottom: -2px; border-width: 0 5px 5px 0; cursor: nwse-resize; }
+      .crop-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+      @media (prefers-reduced-motion: reduce) { .crop-stage img { transition: none; } }
       .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       /* A close button that stays at the top right while the window scrolls (the one at the bottom is a long way down on a phone).
          The bar has no height, so it sits over the banner without moving anything. */
@@ -1538,6 +1574,13 @@
           "art.saved": "변경했습니다.",
           "art.removed": "뺐습니다.",
           "art.failed": "처리하지 못했습니다.",
+          "art.recrop": "다시 자르기",
+          "art.cropTitle": "남길 부분을 고릅니다",
+          "art.cropHint": "상자를 끌어 옮기고 모서리를 끌어 크기를 바꿉니다.",
+          "art.cropBox": "남길 영역",
+          "art.cropApply": "적용",
+          "art.cropCancel": "취소",
+          "art.cropped": "다시 잘랐습니다.",
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -1818,6 +1861,13 @@
           "art.saved": "Saved",
           "art.removed": "Removed",
           "art.failed": "Failed",
+          "art.recrop": "Crop again",
+          "art.cropTitle": "Choose the part to keep",
+          "art.cropHint": "Drag the box to move it, or a corner to resize it.",
+          "art.cropBox": "Area to keep",
+          "art.cropApply": "Apply",
+          "art.cropCancel": "Cancel",
+          "art.cropped": "Cropped",
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -2098,6 +2148,13 @@
           "art.saved": "保存しました",
           "art.removed": "削除しました",
           "art.failed": "失敗しました",
+          "art.recrop": "切り抜き直す",
+          "art.cropTitle": "残す部分を選びます",
+          "art.cropHint": "枠をドラッグして移動し、角をドラッグして大きさを変えます。",
+          "art.cropBox": "残す範囲",
+          "art.cropApply": "適用",
+          "art.cropCancel": "キャンセル",
+          "art.cropped": "切り抜き直しました",
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2378,6 +2435,13 @@
           "art.saved": "已儲存",
           "art.removed": "已刪除",
           "art.failed": "失敗",
+          "art.recrop": "重新裁切",
+          "art.cropTitle": "選擇要保留的部分",
+          "art.cropHint": "拖曳方框即可移動，拖曳角落即可調整大小。",
+          "art.cropBox": "保留範圍",
+          "art.cropApply": "套用",
+          "art.cropCancel": "取消",
+          "art.cropped": "已重新裁切",
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -3808,24 +3872,35 @@
             paintPictures({ icon: st.icon || fallbackIcon, banner: st.banner, shots: st.screenshots });
             draw();
           };
-          const send = async (method, path, body) => {
+          // Where the item's pictures are served: grid rows and the window use these addresses.
+          const pub = art.kind === "homebrew" ? `/api/homebrew/${art.id}` : `/api/patches/${art.id}`;
+          const send = async (method, path, body, json = false) => {
             try {
-              const r = await fetch(base + path, { method, body, headers: { Accept: "application/json" } });
+              const headers = json ? { Accept: "application/json", "Content-Type": "application/json" } : { Accept: "application/json" };
+              const r = await fetch(base + path, { method, body: json ? JSON.stringify(body) : body, headers });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) { toast(d.error || t("art.failed")); return; }
-              toast(method === "DELETE" ? t("art.removed") : t("art.saved"));
+              toast(method === "DELETE" ? t("art.removed") : json ? t("art.cropped") : t("art.saved"));
+              refreshArtImages(`${pub}/icon`, d.icon);
+              refreshArtImages(`${pub}/banner`, d.banner);
               apply(d);
             } catch { toast(t("art.failed")); }
           };
+          const kept = (crop, path) => (crop ? { src: base + path, crop } : null);
           function draw() {
             box.replaceChildren(artEditor({
               slots: {
-                icon: { url: st.icon || fallbackIcon || null, custom: Boolean(st.icon) },
-                banner: { url: st.banner, custom: Boolean(st.banner) },
-                shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1 })),
+                icon: { url: st.icon || fallbackIcon || null, custom: Boolean(st.icon), original: kept(st.originals?.icon, "/icon/original") },
+                banner: { url: st.banner, custom: Boolean(st.banner), original: kept(st.originals?.banner, "/banner/original") },
+                shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1, original: kept(st.originals?.screenshots?.[i], `/screenshot/${i + 1}/original`) })),
                 maxShots: 8,
               },
-              upload: (slot, file) => { const fd = new FormData(); fd.append("file", file, file.name); return send("POST", `/${slot}`, fd); },
+              upload: (slot, file, crop) => {
+                const fd = new FormData(); fd.append("file", file, file.name);
+                if (crop) fd.append("crop", JSON.stringify(crop));
+                return send("POST", `/${slot}`, fd);
+              },
+              recrop: (slot, n, crop) => send("POST", slot === "screenshot" ? `/screenshot/${n}/crop` : `/${slot}/crop`, { crop }, true),
               remove: (slot, n) => send("DELETE", slot === "screenshot" ? `/screenshot/${n}` : `/${slot}`),
             }));
             box.hidden = false;
@@ -4442,6 +4517,8 @@
         if (r.item.icon_url) {
           const sep = r.item.icon_url.includes("?") ? "&" : "?";
           cover.src = r.item.icon_url + sep + "size=lg";
+          // The address stays on the card when a missing icon falls back to the placeholder, so a new upload can take its place.
+          cover.dataset.art = cover.getAttribute("src");
         } else {
           cover.src = coverPlaceholder();
         }
@@ -4881,8 +4958,34 @@
       // upload(slot, file) and remove(slot, n?) return promises; the caller repaints when they settle.
       const ART_EMPTY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>';
       const ART_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-      function artEditor({ slots, upload, remove }) {
+      // The shape each slot is cut to: a square icon, wide banners and screenshots (as they are stored and shown).
+      const ART_ASPECT = { icon: 1, banner: 16 / 9, screenshot: 16 / 9 };
+      const ART_CROP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
+      // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
+      function artEditor({ slots, upload, remove, recrop = null }) {
         const card = document.createElement("section"); card.className = "arted";
+        // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
+        async function cropIn(slot, src, crop = null) {
+          if (typeof window.cfCrop !== "function") return false;
+          card.classList.add("cropping");
+          try {
+            return await window.cfCrop({ host: card, src, aspect: ART_ASPECT[slot], crop,
+              labels: { title: t("art.cropTitle"), hint: t("art.cropHint"), box: t("art.cropBox"), apply: t("art.cropApply"), cancel: t("art.cropCancel") } });
+          } finally { card.classList.remove("cropping"); }
+        }
+        const cutAndUpload = (slot) => async (file) => {
+          const src = URL.createObjectURL(file);
+          try {
+            const crop = await cropIn(slot, src);
+            if (crop !== null) await upload(slot, file, crop || null);
+          } finally { URL.revokeObjectURL(src); }
+        };
+        const recut = (slot, n, original) => (original && recrop ? async (fig) => {
+          const crop = await cropIn(slot, `${original.src}?_=${Date.now().toString(36)}`, original.crop);
+          if (!crop) return;
+          fig.classList.add("busy");
+          try { await recrop(slot, n, crop); } finally { fig.classList.remove("busy"); }
+        } : null);
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
         card.append(head);
@@ -4892,7 +4995,7 @@
           input.click();
         };
         // One tile: its face shows the picture (or an empty mark), takes a click or a dropped image.
-        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset") }) {
+        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset"), again = null }) {
           const fig = document.createElement("figure"); fig.className = "atile a-" + kind + (has ? " has" : "");
           // A screenshot is shown, not replaced: its face is a picture, its corner button takes it out.
           const face = document.createElement(onFile ? "button" : "div"); face.className = "face";
@@ -4932,19 +5035,25 @@
             });
             frame.append(r);
           }
+          if (again) {
+            const b = document.createElement("button"); b.type = "button"; b.className = "recrop"; b.innerHTML = ART_CROP;
+            b.title = t("art.recrop"); b.setAttribute("aria-label", (caption + " " + t("art.recrop")).trim());
+            b.addEventListener("click", (e) => { e.stopPropagation(); again(fig); });
+            frame.append(b);
+          }
           return fig;
         }
         if (slots.icon || slots.banner) {
           const top = document.createElement("div"); top.className = "arted-top";
-          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: (f) => upload("icon", f), reset: slots.icon.custom ? () => remove("icon") : null }));
-          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: (f) => upload("banner", f), reset: slots.banner.custom ? () => remove("banner") : null }));
+          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
+          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: cutAndUpload("banner"), reset: slots.banner.custom ? () => remove("banner") : null, again: recut("banner", null, slots.banner.original) }));
           card.append(top);
         }
         const shots = slots.shots || [];
         card.append(Object.assign(document.createElement("p"), { className: "arted-label", textContent: `${t("art.screens")} ${shots.length}/${slots.maxShots ?? 8}` }));
         const grid = document.createElement("div"); grid.className = "arted-shots";
-        shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove") })));
-        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: (f) => upload("screenshot", f) }));
+        shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove"), again: recut("screenshot", sh.n ?? i + 1, sh.original) })));
+        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: cutAndUpload("screenshot") }));
         card.append(grid);
         return card;
       }
@@ -4960,14 +5069,16 @@
         if (!uploadsEnabled || !validBase) return;
         box.hidden = false;
         // A game's screenshots from titledb stay as they are; the ones an admin added can be taken out.
+        const kept = (crop, path) => (crop ? { src: `/api/art/${baseId}${path}`, crop } : null);
         const card = artEditor({
           slots: {
-            icon: { url: `/api/shop/icon/${baseId}?size=md`, custom: art.icon },
-            banner: { url: `/api/shop/banner/${baseId}`, custom: art.banner },
-            shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i })),
+            icon: { url: `/api/shop/icon/${baseId}?size=md`, custom: art.icon, original: art.icon ? kept(art.originals?.icon, "/icon/original") : null },
+            banner: { url: `/api/shop/banner/${baseId}`, custom: art.banner, original: art.banner ? kept(art.originals?.banner, "/banner/original") : null },
+            shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i, original: kept(art.originals?.screens?.[i], `/screenshot/${i}/original`) })),
             maxShots: 8,
           },
-          upload: (slot, file) => uploadArt(baseId, slot, file),
+          upload: (slot, file, crop) => uploadArt(baseId, slot, file, crop),
+          recrop: (slot, n, crop) => recropArt(baseId, slot, n, crop),
           remove: (slot, n) => removeArt(baseId, slot, n),
         });
         box.append(card);
@@ -4977,28 +5088,64 @@
         for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
         if (currentModal && $("modal").classList.contains("open")) openModal(currentModal);
       }
-      async function uploadArt(baseId, kind, file) {
-        const fd = new FormData(); fd.append("file", file, file.name);
+      // A changed picture shows at once wherever the page has it: grid cards, section rows, slides and
+      // the window behind the edit page. `url` is its new address with the server's ?v= when there is one;
+      // otherwise the address gets a fresh _a so the browser asks again.
+      function refreshArtImages(path, url) {
+        const bump = Date.now().toString(36);
+        const fresh = url ? new URL(url, location.href).searchParams.get("v") : null;
+        const swap = (old) => {
+          let u;
+          try { u = new URL(old, location.href); } catch { return null; }
+          if (u.pathname !== path) return null;
+          if (fresh) { u.searchParams.set("v", fresh); u.searchParams.delete("_a"); } else u.searchParams.set("_a", bump);
+          return u.pathname + u.search;
+        };
+        for (const img of document.querySelectorAll("img[src]")) {
+          const next = swap(img.dataset.art || img.getAttribute("src"));
+          if (!next || next === img.getAttribute("src")) continue;
+          img.style.visibility = "";
+          if (img.dataset.art) {
+            img.dataset.art = next;
+            img.onerror = () => { img.onerror = null; img.src = coverPlaceholder(); };
+          }
+          img.src = next;
+        }
+        for (const node of document.querySelectorAll(`[style*="${path}"]`)) {
+          node.setAttribute("style", node.getAttribute("style").replace(/url\((['"]?)([^'")]+)\1\)/g, (m, q, u) => { const next = swap(u); return next ? `url(${q}${next}${q})` : m; }));
+        }
+        // The list the grid is drawn from carries the new address too, so a later redraw keeps it.
+        renderedItems = renderedItems.map((r) => {
+          const icon = r.item.icon_url && swap(r.item.icon_url), banner = r.item.banner_url && swap(r.item.banner_url);
+          return icon || banner ? { ...r, item: { ...r.item, ...(icon ? { icon_url: icon } : {}), ...(banner ? { banner_url: banner } : {}) } } : r;
+        });
+      }
+      // After a game's picture changed: every copy of it on the page, then the open window with fresh art.
+      async function artChanged(baseId, request, done) {
         try {
-          const res = await fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd });
+          const res = await request;
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { toast(d.error || t("art.failed")); return; }
-          toast(t("art.saved"));
+          toast(done);
           artVersion++;
-          if (currentModal) openModal(currentModal); // re-render with fresh art + cache-bust
+          for (const k of ["icon", "banner"]) refreshArtImages(`/api/shop/${k}/${baseId}`, d.urls?.[k]);
+          refreshAfterDesc(baseId);
         } catch { toast(t("art.failed")); }
       }
-      async function removeArt(baseId, kind, idx) {
+      function uploadArt(baseId, kind, file, crop = null) {
+        const fd = new FormData(); fd.append("file", file, file.name);
+        if (crop) fd.append("crop", JSON.stringify(crop));
+        return artChanged(baseId, fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd }), t("art.saved"));
+      }
+      function recropArt(baseId, kind, idx, crop) {
+        const url = kind === "screenshot" ? `/api/art/${baseId}/screenshot/${idx}/crop` : `/api/art/${baseId}/${kind}/crop`;
+        return artChanged(baseId, fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ crop }) }), t("art.cropped"));
+      }
+      function removeArt(baseId, kind, idx) {
         const url = kind === "screenshot"
           ? `/api/art/${baseId}/screenshot/${idx}`
           : `/api/art/${baseId}/${kind}`;
-        try {
-          const res = await fetch(url, { method: "DELETE" });
-          if (!res.ok) { toast(t("art.failed")); return; }
-          toast(t("art.removed"));
-          artVersion++;
-          if (currentModal) openModal(currentModal);
-        } catch { toast(t("art.failed")); }
+        return artChanged(baseId, fetch(url, { method: "DELETE" }), t("art.removed"));
       }
 
       // Fetch + render a title's auxiliary files (mods/patches/zips). Best
