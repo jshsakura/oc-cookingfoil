@@ -109,8 +109,8 @@ function raBios(list){
   $('ra-bios').replaceChildren(...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
 }
 function raRow(m,withArt){const tr=el('tr');
-  const b=el('button',m.boxart?'바꾸기':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
-  const del=el('button','지우기','danger');del.type='button';del.setAttribute('aria-label',m.name+' 지우기');del.addEventListener('click',()=>raRemove(m));
+  const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
+  const del=el('button','삭제','danger');del.type='button';del.setAttribute('aria-label',m.name+' 삭제');del.addEventListener('click',()=>raRemove(m));
   const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');const box=el('div',null,'row-actions');box.append(b,nm,del);
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
@@ -119,8 +119,8 @@ async function raName(m){const ko=await askText(m.name+' 의 한국어 이름을
   const en=await askText('영어 이름을 넣습니다 (다른 언어의 기본값). 비워 둬도 됩니다.',m.title?.en||'');if(en===null)return;
   try{const r=await api('/admin/api/retro-art/games/name',{method:'POST',body:{game:m.id,ko,en}});m.title=r.title;toast(r.title?'이름을 정했습니다.':'파일 이름으로 돌렸습니다.');raShow();}catch(err){toast(err.message);}}
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
-async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
-  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('지웠습니다. 파일 '+r.files+'개');
+async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
+  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('삭제했습니다. 파일 '+r.files+'개');
     raRows=raRows.filter((x)=>x.id!==m.id);raShow();}catch(err){toast(err.message);}}
 // Empty: the games without box art. A name: every game that matches, so art can be replaced too.
 let raFind=0,raRows=[],raAt=0,raFound=false;
@@ -147,7 +147,7 @@ async function raUpload(file){
     const d=await r.json().catch(()=>({}));
     if(!r.ok){$('ra-msg').textContent=d.error||('HTTP '+r.status);return;}
     const kb=(n)=>Math.max(1,Math.round(n/1024))+' KB';
-    $('ra-dialog').close();toast('표지를 바꿨습니다. '+kb(d.from)+' → '+kb(d.bytes));loadRetroArt();
+    $('ra-dialog').close();toast('표지를 변경했습니다. '+kb(d.from)+' → '+kb(d.bytes));loadRetroArt();
   }catch(err){$('ra-msg').textContent=err.message;}
 }
 async function raSync(system){
@@ -181,7 +181,7 @@ async function raCovers(id){
 }
 async function raApply(url,body){
   $('ra-msg').textContent='적용하고 있습니다';
-  try{await api(url,{method:'POST',body});$('ra-dialog').close();toast('바꿨습니다.');loadRetroArt();}catch(err){$('ra-msg').textContent=err.message;}
+  try{await api(url,{method:'POST',body});$('ra-dialog').close();toast('변경했습니다.');loadRetroArt();}catch(err){$('ra-msg').textContent=err.message;}
 }
 $('ra-sync').addEventListener('click',()=>raSync(null));
 $('ra-ratings').addEventListener('click',async()=>{try{await api('/admin/api/retro-art/ratings',{method:'POST',body:{}});toast('평점 다운로드를 시작했습니다.');loadRetroArt();}catch(err){toast(err.message);}});

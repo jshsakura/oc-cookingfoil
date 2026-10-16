@@ -10,8 +10,8 @@ const { patchMeta, saveMeta, movedPatchPath } = await import("../../src/routes/a
 const { readMeta, localizePatch } = await import("../../src/meta/user-patches.js");
 
 test("a patch edit keeps required and drops emptied fields", () => {
-  const next = patchMeta({ name: "old", required: true, author: "x" }, { name: " 한글패치 ", nameKo: "", description: "Korean text", descriptionKo: "한국어로 바꿉니다", version: "1.2", author: "" });
-  assert.deepEqual(next, { name: "한글패치", version: "1.2", description: "Korean text", ko: { description: "한국어로 바꿉니다" }, required: true });
+  const next = patchMeta({ name: "old", required: true, author: "x" }, { name: " 한글패치 ", nameKo: "", description: "Korean text", descriptionKo: "한국어로 변경합니다", version: "1.2", author: "" });
+  assert.deepEqual(next, { name: "한글패치", version: "1.2", description: "Korean text", ko: { description: "한국어로 변경합니다" }, required: true });
   assert.throws(() => patchMeta({}, { name: "  " }), /이름/);
 });
 
@@ -44,7 +44,7 @@ test("a moved patch takes its game's folders along, program offsets kept", () =>
 });
 
 test("a patch's Korean text is shown in Korean only", () => {
-  const p = { id: "x", name: "Korean patch", description: "Turns the text Korean", ...readMeta({ ko: { name: "한글패치", description: "한국어로 바꿉니다" } }) };
-  assert.deepEqual([localizePatch(p, "ko").name, localizePatch(p, "ko").description], ["한글패치", "한국어로 바꿉니다"]);
+  const p = { id: "x", name: "Korean patch", description: "Turns the text Korean", ...readMeta({ ko: { name: "한글패치", description: "한국어로 변경합니다" } }) };
+  assert.deepEqual([localizePatch(p, "ko").name, localizePatch(p, "ko").description], ["한글패치", "한국어로 변경합니다"]);
   assert.deepEqual([localizePatch(p, "en").name, localizePatch(p, "en").ko], ["Korean patch", undefined]);
 });

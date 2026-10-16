@@ -19,8 +19,8 @@ const PENCIL='<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>';
 const CROSS='<path d="M6 6l12 12M18 6L6 18"/>';
 const BAN='<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>';
 const ROTATE='<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
-const ICONS={'삭제':TRASH,'지우기':TRASH,'줄 삭제':TRASH,'폐기':TRASH,'휴지통으로 옮깁니다':TRASH,
-  '편집':PENCIL,'이름':PENCIL,'이름 바꾸기':PENCIL,
+const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,'휴지통으로 옮깁니다':TRASH,
+  '편집':PENCIL,'이름':PENCIL,'이름 변경':PENCIL,
   '승인':'<path d="M5 12.5l4.5 4.5L19 7.5"/>','거절':CROSS,'취소':CROSS,'빼기':'<path d="M5 12h14"/>',
   '접근 키 회수':BAN,'사용 중지':BAN,'해제':BAN,
   '키 재발급':'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
@@ -36,7 +36,7 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
   b.addEventListener('click',fn);return b;}
 // Asks in a dialog that looks like the rest of the page, instead of the browser's confirm().
 // Removing, revoking and the like get a red button, and the cancel button starts focused.
-const ASK_DANGER=/지웁|지울까|삭제|폐기|회수|중지|되돌릴 수 없|휴지통|멈추고|끄면|끕니다/;
+const ASK_DANGER=/삭제|폐기|회수|중지|되돌릴 수 없|휴지통|멈추고|끄면|끕니다/;
 // askText(msg,value) asks for a line of text the same way, resolving to it or null (like await askText()).
 function askDialog(msg,value){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
   const typing=value!==undefined,danger=!typing&&ASK_DANGER.test(msg);
@@ -211,15 +211,15 @@ async function resetPassword(name){if(!await ask(name+' 의 비밀번호를 새�
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
     showCredential(name+' 의 새 비밀번호',cred);loadStats();}catch(err){toast(err.message);}}
 async function setRole(name,role){
-  if(!await ask(role==='admin'?name+' 계정을 관리자로 바꿉니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 바꿉니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.'))return;
-  try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast('역할을 바꿨습니다.');loadStats();}catch(err){toast(errText(err));}}
+  if(!await ask(role==='admin'?name+' 계정을 관리자로 변경합니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 변경합니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.'))return;
+  try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast('역할을 변경했습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function setEnabled(name,enabled){
   if(!enabled&&!await ask(name+' 계정을 사용 중지합니다. 이 계정으로는 접속할 수 없게 됩니다.'))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/enabled',{method:'POST',body:{enabled}});
     toast(enabled?'다시 사용합니다.':'사용을 중지했습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function removeUser(name){
   const last=(await api('/admin/api/users')).users.length===1;
-  const msg=last?name+' 은 마지막 계정입니다. 지우면 비밀번호 없이 누구나 이 서버에 접속하고 파일을 받습니다. 정말 지울까요?'
+  const msg=last?name+' 은 마지막 계정입니다. 지우면 비밀번호 없이 누구나 이 서버에 접속하고 파일을 받습니다. 정말 삭제할까요?'
     :name+' 계정을 삭제합니다. 이 계정으로 접속하던 기기는 더 접속할 수 없습니다.';
   if(!await ask(msg))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+(last?'?allowEmpty=1':''),{method:'DELETE'});toast('삭제했습니다.');loadStats();}
@@ -230,7 +230,7 @@ async function unlock(ip){if(!await ask(ip+' 의 차단을 해제합니다.'))re
   try{await api('/admin/api/unlock',{method:'POST',body:{ip}});toast('차단을 해제했습니다.');loadStats();}catch(err){toast(err.message);}}
 $('unlock-all').addEventListener('click',async()=>{if(!await ask('차단된 IP 를 모두 해제합니다.'))return;
   try{const r=await api('/admin/api/unlock',{method:'POST',body:{ip:'all'}});toast(r.unlocked+'개를 해제했습니다.');loadStats();}catch(err){toast(err.message);}});
-$('clrdeny').addEventListener('click',async()=>{if(!await ask('거부 기록을 지웁니다.'))return;
+$('clrdeny').addEventListener('click',async()=>{if(!await ask('거부 기록을 삭제합니다.'))return;
   try{await api('/admin/api/denials/clear',{method:'POST',body:{}});loadStats();}catch(err){toast(err.message);}});
 
 // ── Google accounts ─────────────────────────────────────────────────
@@ -250,12 +250,12 @@ async function loadAccounts(){
     if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
     act.append(box);tr.append(act);return tr;}),'아직 로그인한 계정이 없습니다.');}
 async function setAccountRole(sub,email,role){
-  if(!await ask(role==='admin'?email+' 계정을 관리자로 바꿉니다.':email+' 계정을 일반 사용자로 바꿉니다.'))return;
-  try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 바꿨습니다.');loadAccounts();}catch(err){toast(errText(err));}}
+  if(!await ask(role==='admin'?email+' 계정을 관리자로 변경합니다.':email+' 계정을 일반 사용자로 변경합니다.'))return;
+  try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 변경했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function setAccount(sub,status){
   try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
-async function removeAccount(sub,email){if(!await ask(email+' 계정을 지웁니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
-  try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('지웠습니다.');loadAccounts();}catch(err){toast(errText(err));}}
+async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
+  try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('삭제했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 
 async function loadGoogle(){
   const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
@@ -266,7 +266,7 @@ $('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
     toast('저장했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
 $('g-clear').addEventListener('click',async()=>{if(!await ask('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.'))return;
-  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('지웠습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
+  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
 $('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast('복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}});
 
 // ── devices ───────────────────────────────────────────────────────────
@@ -286,7 +286,7 @@ async function loadDevices(){
     tr.append(td(a.label||'—'),td(a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'')),seen,td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('이름 바꾸기',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
+    box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);return tr;}),'승인된 기기가 없습니다.');
   const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
   table('clients',['받은 계정','받은 시각','상태','기기 코드','연동 시각',''],(d.clients||[]).map((c)=>{const tr=el('tr');
@@ -301,8 +301,8 @@ $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
     toast('승인했습니다. 기기가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
   catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 기기 화면의 코드를 다시 확인합니다.':err.message);}});
 // Drops a request without approving it; the console shows up again only if it asks again.
-async function dismissDevice(deviceKey,code){if(!await ask((code||'이')+' 기기의 승인 요청을 지웁니다. 기기가 다시 요청하면 또 나옵니다.'))return;
-  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('요청을 지웠습니다.');loadDevices();}catch(err){toast(err.message);}}
+async function dismissDevice(deviceKey,code){if(!await ask((code||'이')+' 기기의 승인 요청을 삭제합니다. 기기가 다시 요청하면 또 나옵니다.'))return;
+  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('요청을 삭제했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function loadLogins(){
   const d=await api('/admin/api/device-logins');$('add-login').hidden=!d.enabled;
   table('logins',['이름','아이디','만든 계정','묶인 기기','만든 날',''],(d.logins||[]).map((l)=>{const tr=el('tr');
@@ -321,7 +321,7 @@ async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급�
 async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 비밀번호 없이는 접속할 수 없습니다.'))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function renameDevice(deviceKey,label){const next=await askText('이 기기의 이름을 정합니다',label||'');if(next===null)return;
-  try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 바꿨습니다.');loadDevices();}catch(err){toast(err.message);}}
+  try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 변경했습니다.');loadDevices();}catch(err){toast(err.message);}}
 
 // ── homebrew ──────────────────────────────────────────────────────────
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
@@ -410,7 +410,7 @@ async function hbBannerSearch(){const st=$('hb-banner-state');st.textContent='�
       const f=el('figure');f.style.margin='0';f.append(b,el('figcaption',it.game.name));return f;}));}
   catch(err){st.textContent=err.message;}}
 async function hbBannerPick(it){$('hb-banner-state').textContent='받고 있습니다';
-  try{await api('/admin/api/homebrew/banner',{method:'POST',body:{id:hbBannerApp.id,url:it.url,game:it.game}});toast('배경 그림을 바꿨습니다.');await hbMediaReload();}
+  try{await api('/admin/api/homebrew/banner',{method:'POST',body:{id:hbBannerApp.id,url:it.url,game:it.game}});toast('배경 그림을 변경했습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}}
 $('hb-banner-search').addEventListener('submit',(e)=>{e.preventDefault();hbBannerSearch();});
 $('hb-banner-close').addEventListener('click',()=>$('hb-banner').close());
@@ -431,8 +431,8 @@ $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-
   try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
-async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 지웁니다.'))return;
-  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('지웠습니다.');loadHbApps();}catch(err){toast(err.message);}}
+async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 삭제합니다.'))return;
+  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('삭제했습니다.');loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
   catch(err){toast(err.message);loadHbApps();}}
@@ -440,12 +440,12 @@ async function setHbEnabled(id,enabled,name){
 async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 저장소 주소나 owner/name 을 넣습니다. 서버가 그 저장소의 새 버전을 따라갑니다.');
   if(!input||!input.trim())return;
   try{const s=await api('/admin/api/homebrew',{method:'POST',body:{repo:input.trim()}});
-    if(s&&!s.error&&await ask(s.repo+' 을(를) 따라갑니다. 직접 넣은 '+(a.name||a.app)+' 사본을 지울까요? 이 앱의 패치와 세이브는 남습니다.')){
-      await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 바꿨습니다.');}
+    if(s&&!s.error&&await ask(s.repo+' 을(를) 따라갑니다. 직접 넣은 '+(a.name||a.app)+' 사본을 삭제할까요? 이 앱의 패치와 세이브는 남습니다.')){
+      await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 변경했습니다.');}
     else toast(s?.error?.message?s.repo+' 을(를) 따라가지만 확인에 실패했습니다: '+s.error.message:'저장소를 추가했습니다.');
     loadHomebrew();}catch(err){toast(err.message);}}
-async function removeManualHb(id,name){if(!await ask(name+' 앱 폴더를 서버에서 지웁니다. 이 앱의 패치와 세이브는 남습니다.'))return;
-  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+async function removeManualHb(id,name){if(!await ask(name+' 앱 폴더를 서버에서 삭제합니다. 이 앱의 패치와 세이브는 남습니다.'))return;
+  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 let upPending=null;
 function uploadFor(kind,app){upPending={kind,app};if(location.hash==='#upload')loadUpload();else location.hash='upload';}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.
@@ -477,7 +477,7 @@ $('hb-add').addEventListener('submit',async(e)=>{e.preventDefault();const b=e.su
     $('hb-repo').value='';$('hb-asset').value='';toast(s?.error?'추가했지만 확인하지 못했습니다: '+s.error.message:'추가했습니다.');loadHomebrew();}
   catch(err){toast(err.message);}finally{if(b)b.disabled=false;}});
 async function setHbAsset(repo,asset){
-  try{const s=await api('/admin/api/homebrew/asset',{method:'POST',body:{repo,asset}});toast(s?.error?s.error.message:'쓸 파일을 바꿨습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+  try{const s=await api('/admin/api/homebrew/asset',{method:'POST',body:{repo,asset}});toast(s?.error?s.error.message:'쓸 파일을 변경했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 async function checkHb(repo){
   try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});toast(s?.error?s.error.message:'확인했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 $('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;
@@ -486,8 +486,8 @@ $('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disable
   try{const r=await api('/admin/api/homebrew/adopt',{method:'POST',body:{}});
     toast(r.registered.length?r.registered.join(', ')+' 를 등록했습니다.':'새로 등록할 폴더가 없습니다.'+(r.skipped.length?' 건너뜀: '+r.skipped.map((x)=>x.folder+' ('+x.reason+')').join(', '):''));loadHomebrew();}
   catch(err){toast(err.message);}finally{b.disabled=false;}});
-async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 지웁니다.'))return;
-  try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('지웠습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 삭제합니다.'))return;
+  try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 
 // ── client logs ───────────────────────────────────────────────────────
 const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
@@ -723,7 +723,7 @@ function renderFeatured(){const box=$('f-list');box.replaceChildren();
     banner.addEventListener('change',()=>{c.bannerTitleId=banner.value||null;markDirty();});
     top.append(title,banner,btn('▲',()=>{move(featured,ci,-1);markDirty();renderFeatured();}),
       btn('▼',()=>{move(featured,ci,1);markDirty();renderFeatured();}),
-      btn('줄 삭제',async()=>{if(!await ask('"'+(c.title||'제목 없음')+'" 줄을 지웁니다.'))return;featured.splice(ci,1);markDirty();renderFeatured();},'danger'));
+      btn('줄 삭제',async()=>{if(!await ask('"'+(c.title||'제목 없음')+'" 줄을 삭제합니다.'))return;featured.splice(ci,1);markDirty();renderFeatured();},'danger'));
     card.append(top);
     const ul=el('ul',null,'fgames');
     c.titleIds.forEach((id,gi)=>{const li=el('li');const img=el('img');img.src='/api/shop/icon/'+id+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
@@ -773,9 +773,9 @@ $('ap-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const password=$('ap-new').value;if(password!==$('ap-new2').value){toast('새 비밀번호 두 칸이 다릅니다.');return;}
   try{const s=await api('/admin/api/admin-password',{method:'POST',body:{current:$('ap-current').value,password}});
     for(const id of ['ap-current','ap-new','ap-new2'])$(id).value='';toast('관리자 비밀번호를 정했습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
-$('ap-clear').addEventListener('click',async()=>{if(!await ask('여기서 정한 관리자 비밀번호를 지웁니다.'))return;
+$('ap-clear').addEventListener('click',async()=>{if(!await ask('여기서 정한 관리자 비밀번호를 삭제합니다.'))return;
   try{const s=await api('/admin/api/admin-password/clear',{method:'POST',body:{current:$('ap-current').value}});
-    $('ap-current').value='';toast('비밀번호를 지웠습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
+    $('ap-current').value='';toast('비밀번호를 삭제했습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
 async function startTfa(){
   try{const d=await api('/admin/api/2fa/start',{method:'POST',body:{}});
     $('tfa-qr').innerHTML=d.qr||'';$('tfa-key').textContent=grouped(d.secret);

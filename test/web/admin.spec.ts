@@ -207,13 +207,13 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await page.locator('#ct-name').fill('Korean patch');
   await page.locator('#ct-name-ko').fill('한글패치');
   await page.locator('#ct-desc').fill('Turns the text Korean.');
-  await page.locator('#ct-desc-ko').fill('글자를 한국어로 바꿉니다.');
+  await page.locator('#ct-desc-ko').fill('글자를 한국어로 변경합니다.');
   await page.locator('#ct-author').fill('누군가');
   fs.mkdirSync('out/web', { recursive: true });
   await dialog.screenshot({ path: 'out/web/admin-content-edit.png' });
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect.poll(async () => (await patches('ko')).find((p) => p.name === '한글패치')?.description).toBe('글자를 한국어로 바꿉니다.');
+  await expect.poll(async () => (await patches('ko')).find((p) => p.name === '한글패치')?.description).toBe('글자를 한국어로 변경합니다.');
   expect((await patches('en')).find((p) => p.description === 'Turns the text Korean.')?.name).toBe('Korean patch');
 
   await acceptAsks(page);
@@ -301,8 +301,8 @@ test('a game file is found by name and deleted from the library tab', async ({ p
     return page.locator('#lf-list tr', { hasText: 'Throwaway' }).count();
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
-  await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 지우기' }).click();
-  await expect(page.locator('#toast')).toContainText('지웠습니다');
+  await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 삭제' }).click();
+  await expect(page.locator('#toast')).toContainText('삭제했습니다');
   expect(fs.existsSync(file)).toBe(false);
   await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
 });
@@ -354,7 +354,7 @@ test('the admin password is set, changed and removed on the settings tab, and op
   await expect(page.locator('#toast')).toContainText('관리자 비밀번호를 정했습니다');
 
   await page.locator('#ap-current').fill('second-password-456');
-  await page.getByRole('button', { name: '여기서 정한 비밀번호 지우기' }).click();
+  await page.getByRole('button', { name: '여기서 정한 비밀번호 삭제' }).click();
   await expect(page.locator('#ap-status')).toContainText('아직 관리자 비밀번호가 없습니다');
 });
 
@@ -511,15 +511,15 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   // The question is asked in the page's own dialog; cancelling keeps what is saved.
   await page.removeLocatorHandler(page.locator('#ask-dialog'));
   const chat = await page.locator('#al-form [name="chatId"]').inputValue();
-  await page.getByRole('button', { name: '지우기' }).click();
-  const ask = page.getByRole('dialog', { name: /저장한 알림 설정을 지울까요/ });
+  await page.getByRole('button', { name: '삭제' }).click();
+  const ask = page.getByRole('dialog', { name: /저장한 알림 설정을 삭제할까요/ });
   await expect(ask).toBeVisible();
   await expect(ask.getByRole('button', { name: '취소' })).toBeFocused();
   await page.screenshot({ path: 'out/web/admin-ask.png' });
   await ask.getByRole('button', { name: '취소' }).click();
   await expect(ask).toBeHidden();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue(chat);
-  await page.getByRole('button', { name: '지우기' }).click();
+  await page.getByRole('button', { name: '삭제' }).click();
   await ask.getByRole('button', { name: '확인' }).click();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue('');
 });

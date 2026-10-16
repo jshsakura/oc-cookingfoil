@@ -87,7 +87,7 @@ async function loadRetroVariants(){
     const d=await api(url);if(n!==rvSeq)return;rvData[rvView]=d;rvShow();}catch(err){toast(err.message);}
 }
 async function rvPick(g,m){
-  try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 바꿨습니다.');loadRetroVariants();}catch(err){toast(err.message);}
+  try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 변경했습니다.');loadRetroVariants();}catch(err){toast(err.message);}
 }
 async function rvTrash(m,force=false){
   if(!force&&!await ask(m.file+' 파일을 휴지통으로 옮깁니다. 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 가고, 휴지통에서 되돌릴 수 있습니다.'))return;

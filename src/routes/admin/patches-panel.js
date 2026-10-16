@@ -10,7 +10,7 @@
  */
 
 export const PATCHES_HTML = `<h2>게임 패치</h2>
-  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 지웁니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다.</p>
+  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다.</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
@@ -18,7 +18,7 @@ export const PATCHES_HTML = `<h2>게임 패치</h2>
   <p class="muted" id="pt-count"></p>
   <div id="lib-patches"></div>
   <h2>게임 세이브</h2>
-  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 지웁니다.</p>
+  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다.</p>
   <div id="lib-saves"></div>`;
 
 export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
@@ -41,7 +41,7 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
     <label data-game>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" list="gd-games" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
     <div class="dialog-actions">
-      <button type="button" class="danger" id="ct-remove" data-game>지우기</button>
+      <button type="button" class="danger" id="ct-remove" data-game>삭제</button>
       <button type="button" id="ct-close">닫기</button>
       <button type="submit" class="primary">저장</button>
     </div>
@@ -98,7 +98,7 @@ function svRow(s){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   r.append(n,el('span',mb(s.size),'pt-size'),e);return r;}
 async function ptToggle(p,b){const next=!p.required;b.disabled=true;
   try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:next}});
-    ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 바꿨습니다':'비필수로 바꿨습니다');ptRender();ptGame();}
+    ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 변경했습니다':'비필수로 변경했습니다');ptRender();ptGame();}
   catch(err){toast(err.message);b.disabled=false;}}
 function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){const t=tidOf(x);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(x);}
   return [...groups.values()].sort((a,b)=>(a[0].game||tidOf(a[0])).localeCompare(b[0].game||tidOf(b[0]))).map((items)=>{
@@ -163,6 +163,6 @@ $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.ma
   if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
   if(!await ask(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
   try{await api('/admin/api/content/'+ctKind+'/move',{method:'POST',body:{id:ctItem.id,titleId:to}});ctDone('옮겼습니다.');}catch(err){toast(err.message);}});
-$('ct-remove').addEventListener('click',async()=>{if(!await ask(ctItem.name+' 을(를) 서버에서 지웁니다. 되돌릴 수 없습니다.'))return;
-  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('지웠습니다.');}catch(err){toast(err.message);}});
+$('ct-remove').addEventListener('click',async()=>{if(!await ask(ctItem.name+' 을(를) 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
+  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('삭제했습니다.');}catch(err){toast(err.message);}});
 `;

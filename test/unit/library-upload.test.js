@@ -101,14 +101,14 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(r.status, 201, await r.clone().text());
     assert.equal(fs.readFileSync(path.join(dirs.retro, "roms", "snes", "슈퍼 마리오 월드 (Super Mario World).sfc"), "utf8"), "SMW");
 
-    r = await send("patch", { titleId: MK, name: "한글패치", descriptionKo: "한국어로 바꿉니다" }, [["patch.zip", fs.readFileSync(zip)]]);
+    r = await send("patch", { titleId: MK, name: "한글패치", descriptionKo: "한국어로 변경합니다" }, [["patch.zip", fs.readFileSync(zip)]]);
     assert.equal(r.status, 201, await r.clone().text());
     const patchDir = path.join(dirs.patches, MK, "한글패치");
     assert.equal(fs.readFileSync(path.join(patchDir, "atmosphere", "contents", MK, "romfs", "text.bin"), "utf8"), "KO");
     // The information goes into the server's patch store; no patch.json is written.
     assert.equal(fs.existsSync(path.join(patchDir, "patch.json")), false);
     const store = () => JSON.parse(fs.readFileSync(path.join(dirs.data, "patches", "info.json"), "utf8")).patches;
-    assert.deepEqual(store()[`${MK}/한글패치`].info, { name: "한글패치", description: "한국어로 바꿉니다" });
+    assert.deepEqual(store()[`${MK}/한글패치`].info, { name: "한글패치", description: "한국어로 변경합니다" });
 
     // A patch the game can't start without: marked on upload, changed later from the admin page.
     r = await send("patch", { titleId: MK, name: "게임 데이터", required: "true" }, [["patch.zip", fs.readFileSync(zip)]]);

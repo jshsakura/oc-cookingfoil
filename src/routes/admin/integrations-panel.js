@@ -80,7 +80,7 @@ const card = (s) => `<div class="intg" data-svc="${s.id}">
     ${s.fields.map(([k, label, secret]) => `<input name="${k}" ${secret ? 'type="password" autocomplete="new-password"' : 'spellcheck="false"'} placeholder="${label}" aria-label="${label}" maxlength="300">`).join("")}
     <button class="primary" type="submit">저장</button>
     <button type="button" data-test>연결 확인</button>
-    <button type="button" class="danger" data-clear>지우기</button>
+    <button type="button" class="danger" data-clear>삭제</button>
   </form>
   <p class="muted" data-msg></p>
 </div>`;
@@ -129,7 +129,7 @@ document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const m
     try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast('저장했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent='확인하고 있습니다';
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
-  c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask('저장한 키를 지울까요?'))return;
-    try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('지웠습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
+  c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask('저장한 키를 삭제할까요?'))return;
+    try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
 });
 `;
