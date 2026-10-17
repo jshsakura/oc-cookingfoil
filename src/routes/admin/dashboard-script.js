@@ -276,8 +276,9 @@ async function loadDevices(){
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 설정 탭의 서버 동작에서 QR 로 기기 연결을 켭니다.';
   const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
-  table('pending',['기기 코드','메시지','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;tr.append(td(p.code||'—','ip'),td(p.message||'—',p.message?'':'dim'),k,td(fmt(p.lastSeenAt)));
+  table('pending',['기기 코드','메시지','요청한 곳','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+f.place+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div','같은 주소의 계정: '+f.accounts.slice(0,3).join(', ')+(f.accounts.length>3?' 외 '+(f.accounts.length-3)+'명':''),'dim'));if(f.app)who.append(el('div','앱: '+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title='서버를 다시 켠 뒤로는 보이지 않습니다';}
+    tr.append(td(p.code||'—','ip'),td(p.message||'—',p.message?'':'dim'),who,k,td(fmt(p.lastSeenAt)));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('승인',()=>approve(p.deviceKey),'primary'),btn('거절',()=>dismissDevice(p.deviceKey,p.code),'danger'));act.append(box);tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
   // Last seen is kept in memory only, so it starts empty after a restart.

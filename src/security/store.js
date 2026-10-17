@@ -304,7 +304,7 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
     addedBy: addedBy ?? prev?.addedBy ?? null,
     accessKeyHash,
   });
-  state.pending.delete(deviceKey);
+  dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
   scheduleFlush();
 }
@@ -313,7 +313,7 @@ export function revokeDevice(deviceKey) {
   lastSeen.delete(deviceKey);
   const removed = state.devices.delete(deviceKey);
   // Dismissing a request that was never approved must stick across a restart too.
-  const dismissed = state.pending.delete(deviceKey);
+  const dismissed = dropPending(deviceKey);
   const hadSecret = state.pairSecrets.delete(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
   if (removed || dismissed || hadSecret) scheduleFlush();
@@ -339,8 +339,8 @@ export function rebindDevice(from, to) {
   const unnamed = !into?.label || into.label === "자동 등록";
   state.devices.set(to, into ? { ...into, label: unnamed ? rec.label : into.label } : rec);
   state.devices.delete(from);
-  state.pending.delete(from);
-  state.pending.delete(to);
+  dropPending(from);
+  dropPending(to);
   state.pairSecrets.delete(from);
   if (lastSeen.has(from)) lastSeen.set(to, Math.max(lastSeen.get(from), lastSeen.get(to) ?? 0));
   lastSeen.delete(from);
@@ -361,7 +361,7 @@ export function pendingMessage(deviceKey) {
 
 /** Drop a console from the approval queue without approving it. */
 export function dismissPending(deviceKey) {
-  const dismissed = state.pending.delete(deviceKey);
+  const dismissed = dropPending(deviceKey);
   if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
 }
 
@@ -389,6 +389,13 @@ export function clearPairSecret(deviceKey) {
   if (state.pairSecrets.delete(deviceKey)) scheduleFlush();
 }
 
+// Where each waiting console asked from: memory only, never written to disk (like lastSeen).
+const pendingFrom = new Map();
+function dropPending(deviceKey) {
+  pendingFrom.delete(deviceKey);
+  return state.pending.delete(deviceKey);
+}
+
 const SAME_ADDRESS_MS = 30 * 24 * 60 * 60 * 1000;
 const SAME_ADDRESS_MAX = 3;
 const AGENT_MAX = 80;
@@ -407,18 +414,26 @@ export function addressPlace(ip) {
  * it named itself as. A console asks before it has any account, so this is the
  * best guess the server has; the admin still checks the code on the screen.
  */
-export function requesterLines({ ip = null, agent = null } = {}, now = Date.now()) {
-  const lines = [];
-  if (ip) lines.push(`보낸 곳: ${ip} (${addressPlace(ip)})`);
+export function requesterFacts({ ip = null, agent = null } = {}, now = Date.now()) {
   const names = ip
     ? Array.from(state.access.entries())
         .filter(([, v]) => (v.ips?.[ip] ?? 0) >= now - SAME_ADDRESS_MS)
         .sort(([, a], [, b]) => b.ips[ip] - a.ips[ip])
         .map(([user]) => (user.startsWith("google:") ? "구글 계정" : user))
     : [];
-  const unique = [...new Set(names)];
-  if (unique.length) lines.push(`같은 주소에서 접속한 계정: ${unique.slice(0, SAME_ADDRESS_MAX).join(", ")}${unique.length > SAME_ADDRESS_MAX ? ` 외 ${unique.length - SAME_ADDRESS_MAX}명` : ""}`);
-  const app = String(agent ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, AGENT_MAX);
+  return {
+    ip: ip || null,
+    place: ip ? addressPlace(ip) : null,
+    accounts: [...new Set(names)],
+    app: String(agent ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, AGENT_MAX) || null,
+  };
+}
+
+export function requesterLines(from = {}, now = Date.now()) {
+  const { ip, place, accounts, app } = requesterFacts(from, now);
+  const lines = [];
+  if (ip) lines.push(`보낸 곳: ${ip} (${place})`);
+  if (accounts.length) lines.push(`같은 주소에서 접속한 계정: ${accounts.slice(0, SAME_ADDRESS_MAX).join(", ")}${accounts.length > SAME_ADDRESS_MAX ? ` 외 ${accounts.length - SAME_ADDRESS_MAX}명` : ""}`);
   if (app) lines.push(`앱: ${app}`);
   return lines;
 }
@@ -434,6 +449,7 @@ export function recordPendingDevice(deviceKey, { message, quiet = false, from = 
   const prev = state.pending.get(deviceKey);
   const note = message === undefined ? prev?.message ?? null : message;
   state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, ...(note ? { message: note } : {}) });
+  if (from.ip || from.agent) pendingFrom.set(deviceKey, { ip: from.ip ?? null, agent: from.agent ?? null });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
   if (!quiet && (!prev || (message && message !== prev.message))) {
@@ -454,7 +470,7 @@ function evictOldestPending() {
     }
   }
   if (oldestKey !== null) {
-    state.pending.delete(oldestKey);
+    dropPending(oldestKey);
     if (!state.devices.has(oldestKey)) state.pairSecrets.delete(oldestKey);
   }
 }
@@ -484,7 +500,8 @@ export function devicesSnapshot() {
       .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null }))
+      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null,
+        ...(pendingFrom.has(deviceKey) ? { from: requesterFacts(pendingFrom.get(deviceKey)) } : {}) }))
       .sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
   };
 }
