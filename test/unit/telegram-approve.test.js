@@ -94,6 +94,45 @@ test("the device alert shows the code to compare with the console's screen", asy
   assert.ok(!text.includes(key), "the key itself is never sent");
 });
 
+test("the device alert says where the request came from and who signed in from there", async () => {
+  useChat("42");
+  const tg = fakeTelegram();
+  store.recordAccess("alice", "203.0.113.7");
+  store.recordAccess("bob", "198.51.100.9");
+  store.recordPendingDevice(newKey(), { from: { ip: "203.0.113.7", agent: "CookingFoil/0.3.156\nx" } });
+  await settle();
+  const text = tg.of("sendMessage")[0].body.text;
+  assert.match(text, /보낸 곳: 203\.0\.113\.7 \(집 밖\)/);
+  assert.match(text, /같은 주소에서 접속한 계정: alice\n/);
+  assert.ok(!text.includes("bob"), "an account seen only elsewhere is not named");
+  assert.match(text, /앱: CookingFoil\/0\.3\.156 x/);
+});
+
+test("where an address sits", () => {
+  assert.equal(store.addressPlace("127.0.0.1"), "이 서버");
+  assert.equal(store.addressPlace("192.0.2.1"), "집 밖");
+  assert.equal(store.addressPlace("10.0.0.5"), "집 안");
+  assert.equal(store.addressPlace("::ffff:192.168.1.20"), "집 안");
+  assert.equal(store.addressPlace("100.100.1.2"), "Tailscale");
+});
+
+test("the Google account alert names the account", async () => {
+  useChat("42");
+  const tg = fakeTelegram();
+  accounts.signIn({ sub: "sub-who-1", email: "guest@example.org" });
+  await settle();
+  const text = tg.of("sendMessage")[0].body.text;
+  assert.match(text, /계정: gu\*\*\*@example\.org/);
+  assert.ok(!text.includes("guest@"), "the whole address stays home");
+});
+
+test("maskEmail keeps a hint of the name and the domain", () => {
+  assert.equal(accounts.maskEmail("guest@example.org"), "gu***@example.org");
+  assert.equal(accounts.maskEmail("ab@example.org"), "a***@example.org");
+  assert.equal(accounts.maskEmail("x@example.org"), "x***@example.org");
+  assert.equal(accounts.maskEmail("nope"), "알 수 없음");
+});
+
 test("only the approval alerts carry buttons, and only while buttons are on", async () => {
   useChat("42");
   const tg = fakeTelegram();
@@ -215,7 +254,7 @@ test("refusing a console drops its request; an account is turned off or approved
   assert.equal(accounts.get("g-no").status, "disabled");
   accounts.signIn({ sub: "g-yes", email: "yes@example.com" });
   await settle();
-  assert.ok(!JSON.stringify(tg.of("sendMessage").at(-1).body).includes("yes@example.com"), "no e-mail is sent");
+  assert.ok(!JSON.stringify(tg.of("sendMessage").at(-1).body).includes("yes@example.com"), "the whole e-mail is never sent");
   assert.equal(await handleCallback(press(tg.tokenOf())), "approved");
   assert.equal(accounts.get("g-yes").status, "approved");
 });
