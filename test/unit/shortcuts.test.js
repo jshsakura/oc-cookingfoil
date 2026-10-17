@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 
 // HOME-menu shortcuts for homebrew apps and for the CookingFoil client itself,
 // built with a stand-in hacBrewPack that writes <nspdir>/<titleid>.nsp naming the title ID.
@@ -51,7 +52,7 @@ mkdir -p "$nsp" && echo "NSP $tid" > "$nsp/$tid.nsp"
     cwd: path.join(import.meta.dirname, "../.."),
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(root, "games"),
       COOK_HOMEBREW_DIR: path.join(root, "homebrew"), COOK_KEYS_DIR: keys, COOK_HACBREWPACK_BIN: bin,
-      COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false" },
+      COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false", COOK_UPLOADS_ENABLED: "true" },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -77,24 +78,28 @@ async function until(p, ok) {
   throw new Error(`${p} never got there`);
 }
 
-test("the client and each homebrew app come with a HOME-menu shortcut, and apps carry the admin's description", async () => {
+test("the client and each homebrew app come with a HOME-menu shortcut built on its first download, and apps carry the admin's description", async () => {
   const server = await boot();
   try {
-    const latest = await until("/api/client/latest", (b) => b.forwarder_size !== null);
+    const latest = await until("/api/client/latest", (b) => b.forwarder_url);
+    assert.equal(latest.forwarder_size, null, "nothing is built ahead of time");
     assert.equal(latest.forwarder_url, "/api/client/forwarder");
     assert.equal(latest.forwarder_title_id, "0512BCE4CF34D000", "a fixed title ID, so it is installed once");
     const nsp = await get(latest.forwarder_url);
     assert.equal(nsp.status, 200);
     assert.equal((await nsp.text()).trim(), "NSP 0512bce4cf34d000");
     assert.equal(nsp.headers.get("x-forwarder-title-id"), "0512BCE4CF34D000");
+    assert.ok((await (await get("/api/client/latest")).json()).forwarder_size > 0, "its size once built");
 
-    const list = await until("/api/homebrew", (b) => b.homebrew[0]?.forwarder_size !== null);
+    const list = await until("/api/homebrew", (b) => b.homebrew[0]?.forwarder_url);
     const [app] = list.homebrew;
+    assert.equal(app.forwarder_size, null);
     assert.equal(app.name, "My Tool");
     assert.match(app.forwarder_title_id, /^05[0-9A-F]{11}000$/);
     assert.equal(app.forwarder_url, `/api/homebrew/${app.id}/forwarder`);
     assert.equal(app.description, null);
     assert.equal((await (await get(app.forwarder_url)).text()).trim(), `NSP ${app.forwarder_title_id.toLowerCase()}`);
+    assert.ok((await (await get("/api/homebrew")).json()).homebrew[0].forwarder_size > 0);
     assert.equal((await get("/api/homebrew/m-000000000000/forwarder")).status, 404);
 
     // The admin writes a description: English for everyone, Korean for Korean readers.
@@ -109,6 +114,19 @@ test("the client and each homebrew app come with a HOME-menu shortcut, and apps 
     assert.deepEqual(admin.manual[0].description, { custom: { en: "Handy tool.", ko: "쓸모 있는 도구입니다." }, github: null });
     await post("/admin/api/homebrew/description/reset", { id: app.id });
     assert.equal((await (await get("/api/homebrew")).json()).homebrew[0].description, null);
+
+    // A new icon from the admin page makes the next download a new shortcut, and the old build goes.
+    const fwdDir = path.join(root, "data", "homebrew-forwarders");
+    const before = fs.readdirSync(fwdDir).filter((f) => f.startsWith(`homebrew-${app.id}-`));
+    assert.equal(before.length, 1);
+    const form = new FormData();
+    form.append("file", new Blob([await sharp({ create: { width: 64, height: 64, channels: 3, background: "#c33" } }).png().toBuffer()], { type: "image/png" }), "icon.png");
+    const up = await fetch(`${BASE}/api/art/homebrew/${app.id}/icon`, { method: "POST", headers: { Authorization: ALICE, Cookie: A.Cookie }, body: form });
+    assert.equal(up.status, 201);
+    assert.equal((await get(app.forwarder_url)).status, 200);
+    const after = fs.readdirSync(fwdDir).filter((f) => f.startsWith(`homebrew-${app.id}-`));
+    assert.equal(after.length, 1);
+    assert.notEqual(after[0], before[0]);
   } finally {
     server.kill("SIGKILL");
   }

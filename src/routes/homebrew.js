@@ -82,7 +82,8 @@ import * as kinds from "../meta/homebrew-kinds.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
+import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
+import { addForwarderSource } from "../tasks/forwarder-schedule.js";
 import fs from "fs";
 import fsp from "fs/promises";
 import { createTracker, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
@@ -195,20 +196,29 @@ export async function sourcesChanged(repo = null) {
 const forwarderDir = path.join(dataDir, "homebrew-forwarders");
 const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null };
 
-/** What the forwarder module needs to know about an app. */
-const forwarderApp = (e) => ({ id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name, e.install_path), artKey: e.hash });
+/** What the forwarder module needs to know about an app; an uploaded icon is part of its key. */
+const forwarderApp = (e) => ({
+  id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name, e.install_path),
+  artKey: [e.hash, media.iconVersion(e.id) ?? null],
+});
 
-let prewarming = null;
-/** Builds the shortcuts that are missing (icons read from each app's .nro), and drops stale ones. */
-function prewarmShortcuts(entries) {
-  prewarming ??= (async () => {
-    const apps = [];
-    // An installable title (.nsp) is its own HOME menu entry already: no shortcut for it.
-    for (const e of entries.filter((x) => x.install_type !== "title")) apps.push({ ...forwarderApp(e), icon: await defaultService.icon(e.id).catch(() => null) });
-    await prewarmForwarders(forwarderDir, apps, keysDir);
-  })().catch((err) => debug.error("homebrew: shortcuts: %s", err.message)).finally(() => { prewarming = null; });
-  return prewarming;
+/** forwarderApp with its icon: the one an admin uploaded wins over the app file's, as on the card. */
+async function shortcutApp(e) {
+  const custom = media.iconVersion(e.id) && fs.existsSync(media.iconPath(e.id));
+  return { ...forwarderApp(e), icon: custom ? media.iconPath(e.id) : await defaultService.icon(e.id).catch(() => null) };
 }
+
+// The nightly pass builds the shortcuts no one downloaded yet. An installable title (.nsp) is its own HOME menu entry: none for it.
+addForwarderSource("homebrew", {
+  dir: forwarderDir,
+  keysDir,
+  apps: async () => {
+    const entries = (await defaultService.list()).filter((e) => e.install_type !== "title");
+    const apps = [];
+    for (const e of entries) apps.push(await shortcutApp(e));
+    return apps;
+  },
+});
 
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
@@ -219,7 +229,6 @@ export const defaultService = {
       ...(e.archive ? { archive: (({ abs: _a, key: _k, ...a }) => a)(e.archive) } : {}),
     }));
     const entries = [...githubTracker().entries(), ...manualList];
-    if (forwardersAvailable(keysDir) && entries.some((e) => !this.forwarderInfo(e).forwarder_size && forwarderSpec(forwarderApp(e)))) prewarmShortcuts(entries);
     return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }));
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
@@ -238,7 +247,7 @@ export const defaultService = {
     if (!forwardersAvailable(keysDir)) return null;
     const e = (await this.list()).find((x) => x.id === id);
     if (!e) return null;
-    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: await this.icon(id) }, keysDir);
+    return ensureForwarder(forwarderDir, await shortcutApp(e), keysDir);
   },
   async icon(id) {
     const file = id.startsWith("m-")

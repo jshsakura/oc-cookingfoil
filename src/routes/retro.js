@@ -98,7 +98,8 @@ import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, prewarmForwarders } from "../retro/forwarder.js";
+import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
+import { addForwarderSource } from "../tasks/forwarder-schedule.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -355,13 +356,17 @@ export default function retroRouter() {
   const router = express.Router();
 
   // Draw square tiles ahead of time after every scan, starting with one at boot.
-  // Forwarders come after: their icon is the square tile.
-  catalog.onScan((state) =>
-    prewarm(artDir, state.games)
-      .catch((err) => debug.error("retro: square art: %s", err.message))
-      .then(() => forwardersAvailable(keysDir) && prewarmForwarders(forwarderDir, state.games.map((g) => forwarderGame(g, state.systems[g.system])), keysDir))
-      .catch((err) => debug.error("retro: forwarders: %s", err.message)),
-  );
+  // A forwarder is built when it is downloaded, from the square of that moment; the nightly pass fills in the rest.
+  catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
+  addForwarderSource("retro", {
+    dir: forwarderDir,
+    keysDir,
+    apps: async () => {
+      if (!retroEnabled()) return [];
+      const state = await catalog.current(retroDir);
+      return state.games.map((g) => forwarderGame(g, state.systems[g.system]));
+    },
+  });
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.

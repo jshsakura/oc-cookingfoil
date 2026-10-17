@@ -34,7 +34,8 @@ import fs from "fs";
 import path from "path";
 import express from "express";
 import { dataDir, keysDir } from "../helpers/envs.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget, prewarmForwarders } from "../retro/forwarder.js";
+import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
+import { addForwarderSource } from "../tasks/forwarder-schedule.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-build.js";
 import debug from "../debug.js";
@@ -58,7 +59,7 @@ async function withIcon(info) {
   return { ...clientApp(info), icon: (await parseAssets(PUBLISHED_NRO).catch(() => null))?.icon ?? null };
 }
 
-/** forwarder_url, forwarder_title_id, forwarder_size; starts a build when it's missing. */
+/** forwarder_url, forwarder_title_id, forwarder_size (null until the first download builds it). */
 async function forwarderFields(info) {
   if (!forwardersAvailable(keysDir)) return NO_FORWARDER;
   const spec = forwarderSpec(clientApp(info));
@@ -75,13 +76,20 @@ async function forwarderFields(info) {
     }
   } catch {
     size = null;
-    // Build it (and drop the previous build's) in the background.
-    withIcon(info).then((app) => prewarmForwarders(FORWARDER_DIR, [app], keysDir)).catch((err) => debug.error("client update: shortcut: %s", err.message));
   }
   return { forwarder_url: "/api/client/forwarder", forwarder_title_id: spec.titleId, forwarder_size: size };
 }
 
 let published; // { version, size, sha256, at } of the build being offered, or null
+// The nightly pass builds the published client's own shortcut when no one downloaded it yet.
+addForwarderSource("client", {
+  dir: FORWARDER_DIR,
+  keysDir,
+  apps: async () => {
+    const info = loadPublished();
+    return info ? [await withIcon(info)] : [];
+  },
+});
 let rejected = null; // { code, message, size, at } for the file last turned down
 let lastKey = null; // size + mtime of the file last examined
 let inFlight = null;
