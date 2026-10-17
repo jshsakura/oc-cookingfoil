@@ -146,23 +146,23 @@ test("the client and each homebrew app come with a HOME-menu shortcut built on i
     assert.deepEqual([...sent.subarray(nroSize + iconOff, nroSize + iconOff + 3)], [0xff, 0xd8, 0xff], "a JPEG icon");
     assert.equal(sent.subarray(nroSize + Number(sent.readBigUInt64LE(nroSize + 0x18))).toString("latin1", 0, 7), "My Tool", "the NACP kept");
 
-    // CPU cores are the server's per-app setting, sent with the app: 4 builds the shortcut again at once, and its key moves.
-    assert.equal(rebuilt.forwarder_cores, 3);
+    // CPU cores are the server's per-app setting, sent with the app (4 by default): 3 builds the shortcut again at once, and its key moves.
+    assert.equal(rebuilt.forwarder_cores, 4);
     assert.match(rebuilt.forwarder_key, /^[0-9a-f]{12}$/);
     assert.equal((await post("/admin/api/homebrew/cores", { id: app.id, cores: 5 })).status, 400);
-    assert.equal((await post("/admin/api/homebrew/cores", { id: app.id, cores: 4 })).status, 200);
+    assert.equal((await post("/admin/api/homebrew/cores", { id: app.id, cores: 3 })).status, 200);
     let quad = null;
     for (let i = 0; i < 40; i++) {
       quad = (await (await get("/api/homebrew")).json()).homebrew[0];
       if (quad.forwarder_key !== rebuilt.forwarder_key && quad.forwarder_size > 0) break;
       await new Promise((r) => setTimeout(r, 150));
     }
-    assert.equal(quad.forwarder_cores, 4);
+    assert.equal(quad.forwarder_cores, 3);
     assert.notEqual(quad.forwarder_key, rebuilt.forwarder_key);
     assert.ok(quad.forwarder_size > 0, "built without a download");
     assert.equal(quad.forwarder_title_id, app.forwarder_title_id);
     const apps = await (await fetch(`${BASE}/admin/api/homebrew/apps`, { headers: A })).json();
-    assert.equal(apps.apps.find((a) => a.id === app.id).cores, 4);
+    assert.equal(apps.apps.find((a) => a.id === app.id).cores, 3);
   } finally {
     server.kill("SIGKILL");
   }
