@@ -8,12 +8,14 @@ import path from "node:path";
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-fwd-test-"));
 const fakeBin = path.join(root, "hacbrewpack");
 fs.writeFileSync(fakeBin, `#!/bin/sh
-tid=""; nsp=""
+tid=""; nsp=""; exefs=""
 while [ $# -gt 0 ]; do
-  case "$1" in --titleid) tid="$2"; shift ;; --nspdir) nsp="$2"; shift ;; esac
+  case "$1" in --titleid) tid="$2"; shift ;; --nspdir) nsp="$2"; shift ;; --exefsdir) exefs="$2"; shift ;; esac
   shift
 done
 mkdir -p "$nsp" && echo "NSP $tid" > "$nsp/$tid.nsp"
+[ -n "$FWD_NPDM_OUT" ] && cp "$exefs/main.npdm" "$FWD_NPDM_OUT"
+exit 0
 `, { mode: 0o755 });
 process.env.COOK_HACBREWPACK_BIN = fakeBin;
 const keysDir = path.join(root, "keys");
@@ -92,4 +94,33 @@ test("without prod.keys there are no forwarders", () => {
   fwd.resetAvailability();
   assert.equal(fwd.forwardersAvailable(path.join(root, "no-keys")), false);
   fwd.resetAvailability();
+});
+
+test("the shortcut's CPU cores are written into its NPDM, as Sphaira does, and only 4 changes the build", async () => {
+  const npdm = fs.readFileSync(path.join(fwd.EXEFS_DIR, "main.npdm"));
+  assert.ok(fwd.npdmForCores(npdm, 3).equals(npdm), "the shipped NPDM already is the 3-core one");
+  const four = fwd.npdmForCores(npdm, 4);
+  const changed = [...npdm.keys()].filter((i) => npdm[i] !== four[i]);
+  assert.equal(changed.length, 4, "one capability word in ACI0 and one in ACID");
+  for (const at of [768, 960]) assert.equal(four.readUInt32LE(at), 0x030073f7, "cores 0-3, priority 28-63");
+  assert.throws(() => fwd.npdmForCores(npdm, 2), /3 or 4/);
+  assert.throws(() => fwd.npdmForCores(Buffer.alloc(0x100), 4), /not an NPDM/);
+
+  const plain = fwd.forwarderSpec(game());
+  assert.equal(fwd.forwarderSpec(game({ cores: 3 })).key, plain.key, "the default keeps every NSP already built");
+  const quad = fwd.forwarderSpec(game({ cores: 4 }));
+  assert.notEqual(quad.key, plain.key);
+  assert.equal(quad.titleId, plain.titleId, "same title: installing it replaces the other");
+
+  const out = path.join(root, "cores-out");
+  const packed = path.join(root, "packed.npdm");
+  process.env.FWD_NPDM_OUT = packed;
+  try {
+    await fwd.ensureForwarder(out, game({ cores: 4 }), keysDir);
+    assert.ok(fs.readFileSync(packed).equals(four), "the NSP was packed with the 4-core NPDM");
+    await fwd.ensureForwarder(out, game(), keysDir);
+    assert.ok(fs.readFileSync(packed).equals(npdm), "and the default one is the shipped NPDM");
+  } finally {
+    delete process.env.FWD_NPDM_OUT;
+  }
 });

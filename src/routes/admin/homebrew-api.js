@@ -10,6 +10,7 @@
  *   POST /admin/api/homebrew/rescan                   read every hand-placed app again now (in the background; the activity menu shows it)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build and what was added by hand (pictures, description, kind)
  *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
+ *   POST /admin/api/homebrew/cores  { id, cores }      CPU cores its HOME-menu shortcut may use: 3 (default) or 4; the shortcut is built again at once
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own
  *
@@ -18,10 +19,11 @@
  */
 import * as sources from "../../meta/homebrew-sources.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
+import * as cores from "../../meta/homebrew-cores.js";
 import * as descriptions from "../../meta/homebrew-descriptions.js";
 import * as disabled from "../../meta/homebrew-disabled.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
-import { githubTracker, manualApps, sourcesChanged, refreshManual, totalSize } from "../homebrew.js";
+import { githubTracker, manualApps, sourcesChanged, refreshManual, rebuildHomebrewShortcut, totalSize } from "../homebrew.js";
 import { adoptFolders } from "../../meta/homebrew.js";
 import { homebrewDir } from "../../helpers/envs.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
@@ -103,6 +105,16 @@ export function mountHomebrewApi(router, requireSession) {
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
     descriptions.set(id, { en: req.body?.en, ko: req.body?.ko });
     res.json({ ok: true, custom: descriptions.get(id) });
+  }));
+
+  router.post("/api/homebrew/cores", write(async (req, res) => {
+    const id = String(req.body?.id ?? "");
+    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!cores.set(id, Number(req.body?.cores))) return res.status(400).json({ error: "코어 수는 3 이나 4 입니다" });
+    debug.log("admin: homebrew %s shortcut cores %d", id, cores.coresOf(id));
+    // Built now, not on the next download: the list then carries the new shortcut's address.
+    rebuildHomebrewShortcut(id);
+    res.json({ ok: true, cores: cores.coresOf(id) });
   }));
 
   router.post("/api/homebrew/kind", write(async (req, res) => {
