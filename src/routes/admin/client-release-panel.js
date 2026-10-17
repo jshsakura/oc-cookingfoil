@@ -1,5 +1,5 @@
 /**
- * The settings tab's client build block: how the CookingFoil client build
+ * The overview tab's client build block: how the CookingFoil client build
  * reaches this server (uploaded by hand, or also followed on GitHub), the
  * release followed, what consoles are offered and from where, and a button to
  * look right away. Talks to /admin/api/client-release (client-release-api.js)

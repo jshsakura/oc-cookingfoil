@@ -297,6 +297,7 @@ ${POLISH_CSS}</style></head><body>
   <div class="lanes" id="health"></div>
   <p class="muted" id="health-hint" hidden></p>
   <div class="cards" id="cards"></div>
+  ${CLIENT_RELEASE_HTML}
   <p class="muted" id="ts"></p>
 </section>
 
@@ -339,7 +340,6 @@ ${POLISH_CSS}</style></head><body>
 
 <section id="tab-settings" hidden>
   ${SERVER_SETTINGS_HTML}
-  ${CLIENT_RELEASE_HTML}
   ${INTEGRATIONS_HTML}
   <div class="hd"><h2>구글 로그인 설정</h2></div>
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
