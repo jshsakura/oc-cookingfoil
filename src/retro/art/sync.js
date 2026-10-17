@@ -66,6 +66,17 @@ export const boxartPath = (dir, system, rom) => path.join(dir, "thumbnails", sys
 export const bezelPath = (dir, system, rom) => path.join(dir, "bezels", system.folder, `${rom}.png`);
 
 /**
+ * The names a game's box art and bezel are found by: both its map target (the
+ * libretro title), except for ScummVM, whose bezels are filed under the game's
+ * ScummVM id, which is its ROM name ("monkey2"). A "|<anything>" after a
+ * ScummVM target is ignored. Pure.
+ */
+export function targetNames(id, rom, target) {
+  if (id !== "scummvm") return { art: target, bezel: target };
+  return { art: String(target).split("|")[0], bezel: rom };
+}
+
+/**
  * Download jobs for what a system is missing: its default bezel, then each mapped
  * ROM's box art and bezel. With `indexes` (repo → bezel names, see bezelIndexes)
  * a bezel the Bezel Project lacks under that exact name falls back to the same
@@ -84,7 +95,8 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
   }
   for (const [rom, target] of Object.entries(map)) {
     if (!target) continue;
-    let name = target;
+    const names = targetNames(id, rom, target);
+    let name = names.art;
     let thumbRepo = repoOf(system.libretro);
     if (id === "ws") {
       const [console, ...rest] = target.split(":");
@@ -97,7 +109,7 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
     }
     const bezelDest = path.join(bezelDir, `${rom}.png`);
     if (sources.length && !fs.existsSync(bezelDest)) {
-      const urls = indexes ? [bezelUrl(sources, indexes, name)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, name));
+      const urls = indexes ? [bezelUrl(sources, indexes, names.bezel)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, names.bezel));
       if (urls.length) jobs.push(async () => ["bezel", await firstOf(urls, bezelDest, dry)]);
     }
   }
@@ -308,9 +320,10 @@ export async function applyMatch(dir, id, system, rom, name) {
   await Promise.all([box, bezel].map((f) => fsp.rm(f, { force: true })));
   if (!name) return { boxart: "removed", bezel: "removed" };
   const sources = BEZEL_SOURCES[id] ?? [];
+  const names = targetNames(id, rom, name);
   const [boxart, bez] = await Promise.all([
-    download(libretroUrl(system, name), box, false, encodeCover),
-    sources.length ? bezelIndexes(id).then((ix) => firstOf(ix ? [bezelUrl(sources, ix, name)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, name)), bezel, false)) : "none",
+    download(libretroUrl(system, names.art), box, false, encodeCover),
+    sources.length ? bezelIndexes(id).then((ix) => firstOf(ix ? [bezelUrl(sources, ix, names.bezel)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, names.bezel)), bezel, false)) : "none",
   ]);
   return { boxart, bezel: bez };
 }
