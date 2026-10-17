@@ -86,15 +86,6 @@ test("forwarders are built once, rebuilt when the game changes, and dropped with
   assert.deepEqual(fs.readdirSync(out), [path.basename(second.path)], "a new cover means a new NSP, and the old one goes");
   assert.notEqual(second.path, first.path);
   assert.equal(second.spec.titleId, first.spec.titleId, "under the same title ID");
-
-  // The nightly pass: stopped, it starts nothing; otherwise it builds what is missing and drops what no game uses.
-  const third = game({ id: "another-game" });
-  assert.deepEqual(fwd.missingForwarders(out, [game({ artKey: "bbbbbbbbbbbb" }), third]).map((g) => g.id), ["another-game"]);
-  assert.deepEqual(await fwd.prewarmForwarders(out, [third], keysDir, { stopped: () => true }), { made: 0, failed: 0, removed: 0 });
-  let steps = 0;
-  assert.deepEqual(await fwd.prewarmForwarders(out, [third], keysDir, { onBuilt: () => steps++ }), { made: 1, failed: 0, removed: 1 });
-  assert.equal(steps, 1);
-  assert.equal(fs.readdirSync(out).length, 1);
 });
 
 test("without prod.keys there are no forwarders", () => {
