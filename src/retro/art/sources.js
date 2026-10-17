@@ -51,6 +51,8 @@ export const BEZEL_SOURCES = {
   zxs: [["bezelproject-ZXSpectrum", "ZXSpectrum", "Sinclair-ZX-Spectrum"]],
   vb: [["bezelproject-Virtualboy", "Virtualboy", "Nintendo-Virtual-Boy"]],
   wsv: [["bezelproject-Supervision", "Supervision", "Watara-Supervision"]],
+  // ScummVM: bezels are filed under the game's ScummVM id, not under its libretro title (see targetNames in sync.js).
+  scummvm: [["bezelproject-ScummVM", "ScummVM", "ScummVM"]],
   // psp: none. Its 16:9 screen fills the console's, so there is nothing to frame.
   // pico8, chip8, tama: The Bezel Project has no collection for them.
 };

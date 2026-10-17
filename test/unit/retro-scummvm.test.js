@@ -80,3 +80,24 @@ test("two .scummvm files in one folder are two games, neither taking the other a
   assert.deepEqual(sv.map((g) => g.name).sort(), ["a", "b"]);
   for (const g of sv) assert.deepEqual(g.extras.map((x) => x.rel), ["pack/data.000"]);
 });
+
+test("a ScummVM game's box art uses its libretro title and its bezel its ScummVM id", async () => {
+  const art = await import("../../src/retro/art/sync.js");
+  assert.deepEqual(art.targetNames("scummvm", "Monkey Island 2_ LeChuck's Revenge (DOS)|monkey2"), { art: "Monkey Island 2_ LeChuck's Revenge (DOS)", bezel: "monkey2" });
+  assert.deepEqual(art.targetNames("scummvm", "Full Throttle"), { art: "Full Throttle", bezel: "Full Throttle" }, "no bar: one name for both");
+  assert.deepEqual(art.targetNames("snes", "A|B"), { art: "A|B", bezel: "A|B" }, "other systems keep the target whole");
+
+  const dir = tmp();
+  const seen = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => { seen.push(String(url)); return new Response("", { status: 404 }); };
+  try {
+    const jobs = art.jobsFor(dir, "scummvm", DEFAULT_SYSTEMS.scummvm, { monkey2: "Monkey Island 2_ LeChuck's Revenge (DOS)|monkey2" }, false);
+    for (const job of jobs) await job();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(seen.some((u) => u.includes("/libretro-thumbnails/ScummVM/master/Named_Boxarts/Monkey%20Island%202_%20LeChuck's%20Revenge%20(DOS).png")), seen.join("\n"));
+  assert.ok(seen.some((u) => u.includes("/bezelproject-ScummVM/master/retroarch/overlay/GameBezels/ScummVM/monkey2.png")), seen.join("\n"));
+  assert.ok(seen.some((u) => u.includes("/bezelproject-ScummVM/master/retroarch/overlay/ScummVM.png")), "the system's default bezel");
+});
