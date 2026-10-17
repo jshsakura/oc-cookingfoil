@@ -52,22 +52,36 @@ test("a .scummvm file with no folder of its own takes nothing along", async () =
   assert.equal(loose.size, 1);
 });
 
-test("a ScummVM game goes to its own SD folder with its files' names and subfolders kept", async () => {
+test("a ScummVM game goes to an SD folder named by its game id, its files' names and subfolders kept", async () => {
   const dir = tmp();
-  put(dir, "roms/ScummVM/Monkey Island 1/monkey1.scummvm", "monkey1\n");
+  put(dir, "roms/ScummVM/Monkey Island 1/원숭이섬의 비밀 (The Secret of Monkey Island).scummvm", "scumm:monkey\n");
   put(dir, "roms/ScummVM/Monkey Island 1/MONSTER.SOU");
   put(dir, "roms/ScummVM/Monkey Island 1/audio/track1.ogg");
-  put(dir, "roms/ScummVM/Monkey Island 2/monkey2.scummvm", "monkey2\n");
+  put(dir, "roms/ScummVM/Monkey Island 2/Monkey Island 2.scummvm", "monkey2\n");
   put(dir, "roms/ScummVM/Monkey Island 2/MONSTER.SOU");
   put(dir, "roms/ScummVM/Monkey Island 2/한글.fnt");
 
   const { games } = await scanDir(dir);
   const sv = games.filter((g) => g.system === "scummvm");
   await assignSdNames(sv);
-  const plan = (name) => { const g = sv.find((x) => x.name === name); return [g.sd.rom, ...[...g.sd.extras.values()].map((x) => x.sd)].sort(); };
-  assert.deepEqual(plan("monkey1"), ["roms/scummvm/monkey1/MONSTER.SOU", "roms/scummvm/monkey1/audio/track1.ogg", "roms/scummvm/monkey1/monkey1.scummvm"]);
-  assert.deepEqual(plan("monkey2"), ["roms/scummvm/monkey2/MONSTER.SOU", "roms/scummvm/monkey2/monkey2 (extra 2).fnt", "roms/scummvm/monkey2/monkey2.scummvm"],
+  const plan = (id) => { const g = sv.find((x) => x.scummvmId === id); return [g.sd.rom, ...[...g.sd.extras.values()].map((x) => x.sd)].sort(); };
+  assert.deepEqual(plan("monkey"), ["roms/scummvm/monkey/MONSTER.SOU", "roms/scummvm/monkey/The Secret of Monkey Island.scummvm", "roms/scummvm/monkey/audio/track1.ogg"]);
+  assert.deepEqual(plan("monkey2"), ["roms/scummvm/monkey2/MONSTER.SOU", "roms/scummvm/monkey2/Monkey Island 2 (extra 2).fnt", "roms/scummvm/monkey2/Monkey Island 2.scummvm"],
     "a name the console can't create is renamed, the rest kept");
+});
+
+test("two copies of one ScummVM game get two SD folders", async () => {
+  const dir = tmp();
+  put(dir, "roms/ScummVM/kor/Monkey Island 2 [K].scummvm", "monkey2\n");
+  put(dir, "roms/ScummVM/kor/MONKEY2.000");
+  put(dir, "roms/ScummVM/eng/Monkey Island 2.scummvm", "monkey2\n");
+  put(dir, "roms/ScummVM/eng/MONKEY2.000");
+  const { games } = await scanDir(dir);
+  const sv = games.filter((g) => g.system === "scummvm");
+  await assignSdNames(sv);
+  const folders = sv.map((g) => path.posix.dirname(g.sd.rom));
+  assert.equal(new Set(folders).size, 2, folders.join(", "));
+  assert.ok(folders.every((f) => f.startsWith("roms/scummvm/monkey2")));
 });
 
 test("two .scummvm files in one folder are two games, neither taking the other along", async () => {
