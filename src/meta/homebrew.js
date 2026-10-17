@@ -55,7 +55,7 @@ const API_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 
 const digestOf = (text) => crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
-const idFor = (source, key) => `${source === "github" ? "gh" : "m"}-${digestOf(key.toLowerCase())}`;
+export const idFor = (source, key) => `${source === "github" ? "gh" : "m"}-${digestOf(key.toLowerCase())}`;
 
 /** "owner/name" from "owner/name" or a github.com address, else null. Pure. */
 export function parseRepo(text) {

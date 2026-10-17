@@ -85,7 +85,7 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -348,7 +348,7 @@ export const defaultService = {
     if (copy?.rel === relPath) return { path: copy.path, sha256: copy.sha256, size: copy.size };
     if (!id.startsWith("m-")) return githubTracker().packageFile(id, relPath);
     const f = (await manualEntries()).find((x) => x.id === id)?.files?.find((x) => x.path === relPath);
-    return f ? { path: f.abs, sha256: f.sha256, size: f.size } : null;
+    return f ? { path: f.abs, sha256: f.sha256, size: f.size, key: f.key ?? null } : null;
   },
 };
 
@@ -419,8 +419,20 @@ const withDirect = (name, url, link) => ({ [name]: directUrl(url, link) });
 const forwarderWithDirect = ({ forwarder_url: url, ...rest }, link) => ({ ...withDirect("forwarder_url", url, link), ...rest });
 
 /** Ask for a retry once the folder has been read again. */
-function changedSinceScan(res) {
-  refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
+/** The folder (its name under the homebrew folder) a hand-placed app was read from, or null. */
+function manualFolderOf(e) {
+  const rel = e ? path.relative(homebrewDir, e.folder ?? e.path) : "";
+  const folder = rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel.split(path.sep)[0] : null;
+  return folder && idFor("manual", folder) === e.id ? folder : null;
+}
+
+/**
+ * Files changed since the list was made: the app is read again (only that app,
+ * so the client's retry finds it done instead of waiting for the whole folder).
+ */
+function changedSinceScan(res, id) {
+  const folder = id?.startsWith("m-") ? manualFolderOf(manual.entries.find((e) => e.id === id)) : null;
+  (folder ? refreshManualApp(folder) : refreshManual()).catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   res.set("Retry-After", "5");
   return res.status(503).json({ error: "the files changed since they were listed; list again in a few seconds" });
 }
@@ -514,7 +526,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
     }
     if (!file) return res.status(404).json({ error: "no such homebrew" });
     // A title (.nsp) is big enough to be resumed: bytes from a file replaced since the scan never go out under its old sha256.
-    if (file.key && !(await unchanged([{ abs: file.path, key: file.key }]))) return changedSinceScan(res);
+    if (file.key && !(await unchanged([{ abs: file.path, key: file.key }]))) return changedSinceScan(res, req.params.id);
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(file.file_name);
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
@@ -523,6 +535,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.get("/:id/file", wrap(async (req, res) => {
     const file = typeof req.query.path === "string" ? await service.file?.(req.params.id, req.query.path) : null;
     if (!file) return res.status(404).json({ error: "no such file" });
+    // The list's size and sha256 must describe the bytes that go out, as for the whole download.
+    if (file.key && !(await unchanged([{ abs: file.path, key: file.key }]))) return changedSinceScan(res, req.params.id);
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(path.posix.basename(req.query.path));
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
@@ -531,7 +545,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.get("/:id/archive", wrap(async (req, res) => {
     const zip = await service.archive?.(req.params.id);
     if (!zip) return res.status(404).json({ error: "no zip for this homebrew" });
-    if (!(await unchanged([zip]))) return changedSinceScan(res);
+    if (!(await unchanged([zip]))) return changedSinceScan(res, req.params.id);
     res.set({ "Cache-Control": "no-cache", ETag: `"${zip.sha256}"` });
     res.attachment(zip.file_name);
     res.sendFile(zip.path, { etag: false, lastModified: false, acceptRanges: true });
@@ -540,7 +554,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.get("/:id/bundle", wrap(async (req, res) => {
     const files = await service.bundle?.(req.params.id);
     if (!files?.length) return res.status(404).json({ error: "no folder install" });
-    if (!(await unchanged(files))) return changedSinceScan(res);
+    if (!(await unchanged(files))) return changedSinceScan(res, req.params.id);
     // The bytes follow from the paths and contents alone, so their hashes are the ETag.
     const etag = crypto.createHash("sha1").update(JSON.stringify(files.map((f) => [f.path, f.sha256]))).digest("hex");
     const app = files[0].path.split("/")[1] || req.params.id;

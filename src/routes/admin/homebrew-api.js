@@ -7,6 +7,7 @@
  *   POST /admin/api/homebrew/asset  { repo, asset }    which release file to use ("" lets the server choose)
  *   POST /admin/api/homebrew/check  { repo? }          check now, ignoring the check interval (all when no repo)
  *   POST /admin/api/homebrew/adopt                    register the folders put in the homebrew folder by hand  { registered, skipped }
+ *   POST /admin/api/homebrew/rescan                   read every hand-placed app again now (in the background; the activity menu shows it)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build and what was added by hand (pictures, description, kind)
  *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
@@ -122,6 +123,14 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/description/reset", write(async (req, res) => {
     descriptions.reset(String(req.body?.id ?? ""));
+    res.json({ ok: true });
+  }));
+
+  // Folder installs change files several folders down, which the folder watch does not follow:
+  // after copying files in by hand the admin asks for a read here.
+  router.post("/api/homebrew/rescan", write(async (_req, res) => {
+    refreshManual().catch((err) => debug.error("admin: homebrew rescan failed: %s", err.message));
+    debug.log("admin: homebrew rescan requested");
     res.json({ ok: true });
   }));
 

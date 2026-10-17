@@ -108,6 +108,18 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     assert.equal((await fetch(BASE + e.bundle_url, { headers: { Authorization: ALICE } })).status, 503);
     for (let i = 0; i < 40 && (await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size !== 2; i++) await new Promise((r) => setTimeout(r, 250));
     assert.equal((await fetch(BASE + e.bundle_url, { headers: { Authorization: ALICE } })).status, 200);
+    // One file of the folder install, changed since the listing, is refused the same way: its listed
+    // size and sha256 would not describe the bytes. Only that app is read again.
+    fs.appendFileSync(path.join(dirs.homebrew, "myapp", "data", "a.bin"), "C");
+    assert.equal((await fetch(BASE + e.files[0].url, { headers: { Authorization: ALICE } })).status, 503);
+    for (let i = 0; i < 40 && (await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size !== 3; i++) await new Promise((r) => setTimeout(r, 250));
+    assert.equal(await (await fetch(BASE + e.files[0].url, { headers: { Authorization: ALICE } })).text(), "ABC");
+    // A file changed deep inside the folder, which the folder watch does not follow, shows up once the admin asks for a read.
+    fs.appendFileSync(path.join(dirs.homebrew, "myapp", "data", "a.bin"), "D");
+    const rescan = await fetch(`${BASE}/admin/api/homebrew/rescan`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(rescan.status, 200);
+    for (let i = 0; i < 40 && (await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size !== 4; i++) await new Promise((r) => setTimeout(r, 250));
+    assert.equal((await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size, 4);
     e = await listed("myapp");
     assert.ok(!fs.existsSync(path.join(dirs.homebrew, "myapp", "atmosphere")), "nothing outside switch/<app>/ is kept");
     assert.deepEqual(fs.readdirSync(dirs.homebrew).filter((n) => !n.startsWith(".")), ["myapp"]);
