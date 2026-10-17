@@ -140,11 +140,15 @@ async function placeClient(items) {
     if (err instanceof ClientBuildError) throw new UploadError(400, `CookingFoil 빌드가 아닙니다: ${err.message}`);
     throw err;
   }
+  // Older than the manual build on offer is an old file picked by mistake; a newer GitHub build is no reason to refuse.
   const before = clientBuildStatus().published;
-  if (before && compareVersions(version, before.version) < 0) throw new UploadError(400, `${version} 은 지금 내보내는 ${before.version} 보다 낮습니다`);
+  if (before?.source === "manual" && compareVersions(version, before.version) < 0) throw new UploadError(400, `${version} 은 지금 내보내는 ${before.version} 보다 낮습니다`);
   await fsp.rename(items[0].abs, CLIENT_NRO);
   await latestBuild();
   const { published, rejected } = clientBuildStatus();
+  if (published?.source === "github" && compareVersions(published.version, version) > 0) {
+    return { where: `client/cookingfoil.nro · ${version} (GitHub 의 ${published.version} 이 더 새로워 그것을 내보냅니다)`, files: 1, version };
+  }
   if (published?.version !== version) throw new UploadError(400, `내보내지 못했습니다: ${rejected?.message ?? "검사를 통과하지 못했습니다"}`);
   return { where: `client/cookingfoil.nro · ${version}`, files: 1, version };
 }

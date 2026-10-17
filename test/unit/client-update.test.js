@@ -26,12 +26,20 @@ function fakeNro(version) {
   return Buffer.concat([head, aset, nacp]);
 }
 
-async function boot(data) {
+/** Kills a booted server and waits until it is gone, so the next test's server never meets it on the same port. */
+async function stop(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const gone = new Promise((r) => child.once("exit", r));
+  child.kill("SIGKILL");
+  await gone;
+}
+
+async function boot(data, extraEnv = {}) {
   fs.mkdirSync(path.join(data, "games"), { recursive: true });
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
-      COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false" },
+      COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", ...extraEnv },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -93,7 +101,7 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
     fs.writeFileSync(path.join(data, "client", ".cookingfoil.nro.tmp"), fakeNro("9.9.9"));
     assert.equal((await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json()).version, "0.1.124", "a file still being written is not looked at");
   } finally {
-    server.kill("SIGKILL");
+    await stop(server);
   }
 });
 
@@ -129,7 +137,7 @@ test("a console's error log is kept per console, newest 50, with a header line",
     assert.ok(!kept.includes("20200101-000000.txt"), "the oldest went first");
     assert.ok(fs.existsSync(path.join(dir, "latest.txt")));
   } finally {
-    server.kill("SIGKILL");
+    await stop(server);
   }
 });
 
@@ -164,6 +172,52 @@ test("/latest carries the signature file's signature for the build being offered
     fs.writeFileSync(`${nro}.sig.json`, JSON.stringify({ version: "0.3.60", size: buf.length + 1, sha256, signature }));
     assert.equal((await latest()).signature, undefined, "a signature for other bytes is dropped");
   } finally {
-    server.kill("SIGKILL");
+    await stop(server);
+  }
+});
+
+const latestOf = async () => (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json();
+const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+
+test("in GitHub mode the newer of the manual and fetched builds is offered, the manual one on a tie", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const manual = path.join(data, "client", "cookingfoil.nro");
+  const github = path.join(data, "client", "github", "cookingfoil.nro");
+  fs.mkdirSync(path.dirname(github), { recursive: true });
+  fs.writeFileSync(manual, fakeNro("0.1.5"));
+  const fetched = fakeNro("0.1.7");
+  fs.writeFileSync(github, fetched);
+  // A repository name the follower refuses before asking anyone: no network in tests.
+  const server = await boot(data, { COOK_CLIENT_SOURCE: "github", COOK_CLIENT_RELEASE_REPO: "not-a-repo" });
+  try {
+    let latest = await latestOf();
+    assert.equal(latest.version, "0.1.7");
+    assert.equal(latest.sha256, sha(fetched), "the fetched build, as fetched");
+    // The same version, other bytes (a name inside the NACP).
+    const tie = fakeNro("0.1.7");
+    tie.write("Manual", 0x100 + 0x38 + 0x100);
+    fs.writeFileSync(manual, tie);
+    latest = await latestOf();
+    assert.equal(latest.sha256, sha(tie), "a manual build of the same version wins");
+    assert.deepEqual(fs.readFileSync(github), fetched, "the fetched file is never touched by the manual one");
+  } finally {
+    await stop(server);
+  }
+});
+
+test("in manual mode a fetched build is not looked at", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const github = path.join(data, "client", "github", "cookingfoil.nro");
+  fs.mkdirSync(path.dirname(github), { recursive: true });
+  const manual = fakeNro("0.1.5");
+  fs.writeFileSync(path.join(data, "client", "cookingfoil.nro"), manual);
+  fs.writeFileSync(github, fakeNro("0.9.0"));
+  const server = await boot(data, { COOK_CLIENT_SOURCE: "manual" });
+  try {
+    const latest = await latestOf();
+    assert.equal(latest.version, "0.1.5");
+    assert.equal(latest.sha256, sha(manual));
+  } finally {
+    await stop(server);
   }
 });

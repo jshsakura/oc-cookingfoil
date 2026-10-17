@@ -1,33 +1,34 @@
 /**
- * Follows the CookingFoil client's GitHub release instead of waiting for a
- * build to be dropped in by hand.
+ * Follows the CookingFoil client's GitHub release, for a server whose admin
+ * does not build the client (clientSource "github"; routes/client-update.js
+ * then offers whichever of this file and the manual one is newer).
  *
- * The client is shipped to one fixed release tag (client-latest) whose single
- * asset, cookingfoil.nro, is replaced in place (gh release upload --clobber),
- * so a new build shows as a new asset digest, not a new tag. The release is
- * asked for with If-None-Match, and a build is only taken when:
+ * The client is shipped to one fixed release tag (client-latest) whose asset,
+ * cookingfoil.nro, is replaced in place (gh release upload --clobber), so a new
+ * build shows as a new asset digest, not a new tag. The release is asked for
+ * with If-None-Match, and a build is only taken when:
  *   - the asset exists and GitHub gives its sha256 digest,
  *   - the downloaded bytes have exactly the asset's size and that digest,
  *   - it is a CookingFoil NRO whose NACP version reads (meta/client-build.js),
- *   - that version is not lower than the build being offered.
- * The checked bytes are written beside the drop-in path and renamed onto it, so
- * the usual publishing (routes/client-update.js) picks them up whole; a device
- * mid-download never gets half a file. A missing asset (the moment --clobber
- * deletes it), a failed check or GitHub being down all leave the offered build
- * as it is.
+ *   - that version is not lower than the build fetched before.
+ * The checked bytes go to their own file (data/client/github/), never the
+ * manual one, written beside it and renamed onto it, so a device mid-download
+ * never gets half a file. A missing asset (the moment --clobber deletes it), a
+ * failed check or GitHub being down all leave the fetched file as it is.
  */
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { ClientBuildError, compareVersions, inspectNro } from "./client-build.js";
 
-export const RELEASE_TAG = "client-latest";
-export const RELEASE_ASSET = "cookingfoil.nro";
 const USER_AGENT = "oc-cookingfoil";
 const API_TIMEOUT_MS = 20_000;
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
 // owner/name, neither of them "." or ".." (they would walk out of /repos/ in the URL).
 export const REPO_RE = /^(?!\.\.?\/)[A-Za-z0-9_.-]+\/(?!\.\.?$)[A-Za-z0-9_.-]+$/;
+// A release tag and an asset name, as GitHub allows them in a URL path segment.
+export const TAG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+export const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.nro$/i;
 
 /** A release whose build itself was turned down: remembered by digest so it isn't downloaded again. */
 class Refused extends Error {
@@ -45,14 +46,16 @@ export function digestHex(digest) {
 
 /**
  * repo()      the "owner/name" to follow, or "" to follow nothing
- * dest        the drop-in path (data/client/cookingfoil.nro)
+ * tag()       the release tag (client-latest)
+ * asset()     the asset's file name (cookingfoil.nro)
+ * dest        where the fetched build is kept (data/client/github/cookingfoil.nro)
  * stateFile   where the ETag and the last fetched build are kept
- * current()   the build being offered ({ version, size, sha256 }) or null
- * publish()   runs the usual publishing over dest and resolves when done
+ * current()   the build already at dest ({ version, size, sha256 }) or null
+ * publish()   lets client-update.js choose what to offer again, once dest changed
  * token()     an optional GitHub token
  * maxBytes    the largest build accepted
  */
-export function createClientRelease({ repo, dest, stateFile, current, publish, token = () => null, fetchImpl = fetch, now = Date.now, maxBytes = 128 * 1024 * 1024 }) {
+export function createClientRelease({ repo, tag = () => "client-latest", asset: assetName = () => "cookingfoil.nro", dest, stateFile, current, publish, token = () => null, fetchImpl = fetch, now = Date.now, maxBytes = 128 * 1024 * 1024 }) {
   let state = null;
   let running = null;
 
@@ -93,49 +96,59 @@ export function createClientRelease({ repo, dest, stateFile, current, publish, t
     return buf;
   }
 
+  /** The release followed right now: its repository, tag and asset name, as one key the saved state belongs to. */
+  const followed = () => ({ name: repo(), tagName: tag(), file: assetName() });
+  const keyOf = ({ name, tagName, file }) => `${name}#${tagName}#${file}`;
+
   async function run(force) {
     const prev = load();
-    const name = repo();
+    const f = followed();
+    const { name, tagName, file } = f;
     if (!name) return prev.error ? save({ ...prev, error: null }) : undefined;
     if (!REPO_RE.test(name)) throw new Error(`"${name}" is not an owner/name repository`);
-    // A different repository needs its release, not a 304 for the old one.
-    const conditional = !force && prev.etag && prev.repo === name;
-    const res = await fetchImpl(`https://api.github.com/repos/${name}/releases/tags/${RELEASE_TAG}`, {
+    if (!TAG_RE.test(tagName)) throw new Error(`"${tagName}" is not a release tag`);
+    if (!ASSET_RE.test(file)) throw new Error(`"${file}" is not an .nro file name`);
+    const key = keyOf(f);
+    // Another repository, tag or asset needs its release, not a 304 for the old one.
+    const same = prev.source === key;
+    const conditional = !force && prev.etag && same;
+    const res = await fetchImpl(`https://api.github.com/repos/${name}/releases/tags/${tagName}`, {
       headers: headers(conditional ? { "If-None-Match": prev.etag } : {}),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
     // The same release: a build refused before stays refused.
     if (res.status === 304) return save({ ...prev, checked_at: now(), error: prev.refused ? prev.error : null });
-    if (res.status === 404) throw new Error(`${name} has no ${RELEASE_TAG} release`);
+    if (res.status === 404) throw new Error(`${name} has no ${tagName} release`);
     if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
     const release = await res.json();
-    const asset = (release.assets ?? []).find((a) => a.name === RELEASE_ASSET);
+    const asset = (release.assets ?? []).find((a) => a.name === file);
     // Not saving the ETag means the next check reads the release again.
-    if (!asset) throw new Error(`${RELEASE_TAG} has no ${RELEASE_ASSET} right now`);
+    if (!asset) throw new Error(`${tagName} has no ${file} right now`);
     const want = digestHex(asset.digest);
-    if (!want) throw new Error(`GitHub gave no sha256 for ${RELEASE_ASSET}`);
-    if (!(asset.size > 0) || asset.size > maxBytes) throw new Error(`${RELEASE_ASSET} is ${asset.size} bytes`);
-    const done = { repo: name, etag: res.headers.get("etag"), checked_at: now(), error: null, refused: null };
-    const offered = current();
+    if (!want) throw new Error(`GitHub gave no sha256 for ${file}`);
+    if (!(asset.size > 0) || asset.size > maxBytes) throw new Error(`${file} is ${asset.size} bytes`);
+    const done = { source: key, etag: res.headers.get("etag"), checked_at: now(), error: null, refused: null };
+    const fetched = same ? prev.fetched ?? null : null;
     // Downloading a refused build again would only refuse it again (every check, up to maxBytes).
-    if (!force && prev.repo === name && prev.refused === want) return save({ ...prev, ...done, error: prev.error, refused: want });
-    if (offered?.sha256 === want) return save({ ...prev, ...done, fetched: prev.fetched?.sha256 === want ? prev.fetched : { version: offered.version, sha256: want, at: now() } });
+    if (!force && same && prev.refused === want) return save({ ...prev, ...done, error: prev.error, refused: want });
+    const have = current();
+    if (have?.sha256 === want) return save({ ...prev, ...done, fetched: fetched?.sha256 === want ? fetched : { version: have.version, sha256: want, at: now() } });
     const buf = await download(asset, want);
     let version;
     try {
       ({ version } = inspectNro(buf));
     } catch (err) {
-      if (err instanceof ClientBuildError) throw Object.assign(new Refused(`${RELEASE_ASSET} is not a CookingFoil build: ${err.message}`, want), { done });
+      if (err instanceof ClientBuildError) throw Object.assign(new Refused(`${file} is not a CookingFoil build: ${err.message}`, want), { done });
       throw err;
     }
-    if (offered && compareVersions(version, offered.version) < 0) throw Object.assign(new Refused(`${version} is older than the offered ${offered.version}`, want), { done });
-    const part = `${dest}.release-part`;
+    // Only against the build fetched before from this same release (or one whose state was lost): the manual one is chosen apart.
+    if ((same || !prev.source) && have && compareVersions(version, have.version) < 0) throw Object.assign(new Refused(`${version} is older than the ${have.version} fetched before`, want), { done });
+    const part = `${dest}.part`;
     await fs.promises.mkdir(path.dirname(dest), { recursive: true });
     await fs.promises.writeFile(part, buf);
     await fs.promises.rename(part, dest);
-    await publish();
-    if (current()?.sha256 !== want) throw Object.assign(new Refused(`${version} was fetched but not published`, want), { done });
     save({ ...prev, ...done, fetched: { version, sha256: want, at: now() } });
+    await publish();
   }
 
   /** Checks the release now; one check at a time. Resolves to status(); a failure is kept in status().error. */
@@ -144,7 +157,7 @@ export function createClientRelease({ repo, dest, stateFile, current, publish, t
     if (force && running) await running;
     running ??= run(force)
       .catch((err) => {
-        const error = { message: err.message, at: now(), repo: repo() || null };
+        const error = { message: err.message, at: now(), source: keyOf(followed()) };
         const next = err instanceof Refused ? { ...load(), ...err.done, error, refused: err.sha256 } : { ...load(), checked_at: now(), error };
         // A disk that can't take the state file must not turn into an unhandled rejection.
         try {
@@ -158,11 +171,14 @@ export function createClientRelease({ repo, dest, stateFile, current, publish, t
     return status();
   }
 
-  /** What the admin page shows: the repository, when it was last asked, the last build taken from it, the last error. */
+  /** What the admin page shows: the release followed, when it was last asked, the last build taken from it, the last error. */
   function status() {
     const s = load();
-    const name = repo();
-    return { repo: name || null, tag: RELEASE_TAG, asset: RELEASE_ASSET, checked_at: s.checked_at ?? null, fetched: s.repo === name || !name ? s.fetched ?? null : null, error: name && s.error && (s.error.repo ?? name) === name ? s.error : null };
+    const f = followed();
+    const same = s.source === keyOf(f);
+    // A failure is saved with the release it was for; the rest belongs to the release last read.
+    const error = s.error?.source === keyOf(f) ? s.error : null;
+    return { repo: f.name || null, tag: f.tagName, asset: f.file, checked_at: same ? s.checked_at ?? null : error?.at ?? null, fetched: same ? s.fetched ?? null : null, error };
   }
 
   return { check, status };

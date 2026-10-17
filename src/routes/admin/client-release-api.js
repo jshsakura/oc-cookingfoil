@@ -1,18 +1,21 @@
 /**
- * The settings tab's client update block (client-release-panel.js):
+ * The settings tab's client build block (client-release-panel.js):
  *
- *   GET  /admin/api/client-release        { repo, tag, asset, checked_at, fetched, error, offered, rejected }
- *   POST /admin/api/client-release/check  ask GitHub now, ignoring the saved ETag; answers like GET
+ *   GET  /admin/api/client-release        { mode, repo, tag, asset, checked_at, fetched, error, offered, rejected, manual, github }
+ *   POST /admin/api/client-release/check  read both files again and, in "github" mode, ask GitHub now
+ *                                         (ignoring the saved ETag); answers like GET
  *
- * `offered` is the build consoles are told about, wherever it came from (the
- * release, an upload or a file dropped in); `fetched` is the last build taken
- * from the release. The repository itself is the clientReleaseRepo server setting.
+ * `offered` is the build consoles are told about, with its `source` ("manual"
+ * or "github"); `manual` and `github` are the version each file holds;
+ * `fetched` is the last build taken from the release. The mode and the release
+ * are the clientSource, clientReleaseRepo, clientReleaseTag and
+ * clientReleaseAsset server settings.
  */
-import { clientBuildStatus, clientRelease } from "../client-update.js";
+import { clientBuildStatus, clientRelease, latestBuild } from "../client-update.js";
 
 const view = (status) => {
-  const { published, rejected } = clientBuildStatus();
-  return { ...status, offered: published, rejected };
+  const { published, rejected, mode, manual, github } = clientBuildStatus();
+  return { ...status, mode, offered: published, rejected, manual, github };
 };
 
 export function mountClientReleaseApi(router, requireSession) {
@@ -23,7 +26,9 @@ export function mountClientReleaseApi(router, requireSession) {
   router.post("/api/client-release/check", async (req, res, next) => {
     if (!requireSession(req, res)) return;
     try {
-      res.set("Cache-Control", "no-store").json(view(await clientRelease.check({ force: true })));
+      const status = await clientRelease.check({ force: true });
+      await latestBuild();
+      res.set("Cache-Control", "no-store").json(view(status));
     } catch (err) {
       next(err);
     }
