@@ -20,6 +20,7 @@ import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library
 import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT, SAVES_HTML } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
+import { connectHowto } from "./connect-howto.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
@@ -48,10 +49,14 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-nav.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 6px;padding:6px;margin-bottom:22px;overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px}
-nav.tabs a{padding:10px 9px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:11px;white-space:nowrap}
+/* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
+nav.tabs{display:flex;gap:4px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
+nav.tabs::-webkit-scrollbar{display:none}
+/* Too narrow for one row but not a phone: two even rows rather than one tab left alone on the second. */
+@media (min-width:641px) and (max-width:1060px){nav.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible}nav.tabs a{padding:9px 4px}}
+nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 10px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
-nav.tabs a[aria-current="page"]{color:var(--bg);background:var(--text)}
+nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
 .count[hidden]{display:none}
 .count{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:100px;font-size:11px;background:rgba(var(--bad-rgb),.18);color:var(--bad)}
 section[hidden]{display:none}
@@ -284,11 +289,7 @@ ${POLISH_CSS}</style></head><body>
   <h2 class="first">연결</h2>
   <div class="howto">
     <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-    <ul>
-      <li><b>CookingFoil</b>: 위 주소를 넣으면 기기 화면에 승인 요청이 뜹니다. 계정이 맞으면 바로 승인되고, 아니면 기기 탭의 승인 대기에서 승인합니다. 비밀번호를 기기에 남기지 않습니다.</li>
-      <li><b>CyberFoil</b>: 설정의 주소(URL) 칸에 위 주소를 넣습니다. 사용자 이름과 비밀번호 칸에는 계정 비밀번호 대신 기기 탭의 '기기별 접속 정보'에서 만든 것을 넣습니다. 그 기기 하나에만 묶이고 언제든 끊을 수 있습니다.</li>
-      <li><b>Tinfoil</b>(호환): File Browser 에서 + 로 위 주소를 넣습니다. 목록을 읽고 받는 호환 경로만 제공합니다.</li>
-    </ul>
+    <ul>${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>
   </div>
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
