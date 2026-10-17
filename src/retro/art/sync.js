@@ -66,14 +66,14 @@ export const boxartPath = (dir, system, rom) => path.join(dir, "thumbnails", sys
 export const bezelPath = (dir, system, rom) => path.join(dir, "bezels", system.folder, `${rom}.png`);
 
 /**
- * The names a map target stands for: box art's libretro title and the bezel's name. They are
- * one name, except for ScummVM, whose bezels are filed under the game's id ("monkey2"): its
- * target is "<libretro title>|<bezel name>", and a target without the bar serves for both. Pure.
+ * The names a game's box art and bezel are found by: both its map target (the
+ * libretro title), except for ScummVM, whose bezels are filed under the game's
+ * ScummVM id, which is its ROM name ("monkey2"). A "|<anything>" after a
+ * ScummVM target is ignored. Pure.
  */
-export function targetNames(id, target) {
+export function targetNames(id, rom, target) {
   if (id !== "scummvm") return { art: target, bezel: target };
-  const [art, bezel] = String(target).split("|");
-  return { art, bezel: bezel || art };
+  return { art: String(target).split("|")[0], bezel: rom };
 }
 
 /**
@@ -95,7 +95,7 @@ export function jobsFor(dir, id, system, map, dry, indexes = null) {
   }
   for (const [rom, target] of Object.entries(map)) {
     if (!target) continue;
-    const names = targetNames(id, target);
+    const names = targetNames(id, rom, target);
     let name = names.art;
     let thumbRepo = repoOf(system.libretro);
     if (id === "ws") {
@@ -320,7 +320,7 @@ export async function applyMatch(dir, id, system, rom, name) {
   await Promise.all([box, bezel].map((f) => fsp.rm(f, { force: true })));
   if (!name) return { boxart: "removed", bezel: "removed" };
   const sources = BEZEL_SOURCES[id] ?? [];
-  const names = targetNames(id, name);
+  const names = targetNames(id, rom, name);
   const [boxart, bez] = await Promise.all([
     download(libretroUrl(system, names.art), box, false, encodeCover),
     sources.length ? bezelIndexes(id).then((ix) => firstOf(ix ? [bezelUrl(sources, ix, names.bezel)].filter(Boolean) : sources.map(([repo, folder]) => gameBezelUrl(repo, folder, names.bezel)), bezel, false)) : "none",

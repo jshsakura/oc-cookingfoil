@@ -83,16 +83,16 @@ test("two .scummvm files in one folder are two games, neither taking the other a
 
 test("a ScummVM game's box art uses its libretro title and its bezel its ScummVM id", async () => {
   const art = await import("../../src/retro/art/sync.js");
-  assert.deepEqual(art.targetNames("scummvm", "Monkey Island 2_ LeChuck's Revenge (DOS)|monkey2"), { art: "Monkey Island 2_ LeChuck's Revenge (DOS)", bezel: "monkey2" });
-  assert.deepEqual(art.targetNames("scummvm", "Full Throttle"), { art: "Full Throttle", bezel: "Full Throttle" }, "no bar: one name for both");
-  assert.deepEqual(art.targetNames("snes", "A|B"), { art: "A|B", bezel: "A|B" }, "other systems keep the target whole");
+  assert.deepEqual(art.targetNames("scummvm", "ft", "Full Throttle"), { art: "Full Throttle", bezel: "ft" });
+  assert.deepEqual(art.targetNames("scummvm", "monkey2", "Monkey Island 2_ LeChuck's Revenge|monkey2"), { art: "Monkey Island 2_ LeChuck's Revenge", bezel: "monkey2" }, "a bar and what follows it are ignored");
+  assert.deepEqual(art.targetNames("snes", "smw", "A|B"), { art: "A|B", bezel: "A|B" }, "other systems keep the target whole");
 
   const dir = tmp();
   const seen = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => { seen.push(String(url)); return new Response("", { status: 404 }); };
   try {
-    const jobs = art.jobsFor(dir, "scummvm", DEFAULT_SYSTEMS.scummvm, { monkey2: "Monkey Island 2_ LeChuck's Revenge (DOS)|monkey2" }, false);
+    const jobs = art.jobsFor(dir, "scummvm", DEFAULT_SYSTEMS.scummvm, { monkey2: "Monkey Island 2_ LeChuck's Revenge (DOS)" }, false);
     for (const job of jobs) await job();
   } finally {
     globalThis.fetch = realFetch;
