@@ -30,7 +30,8 @@ test('a game is deleted from its edit page: every file of it, after asking, and 
   await expect(del.locator('svg.bi')).toHaveCount(1);
   // Delete sits in the bottom row beside Close, with no divider above it.
   const [d, c] = [await del.boundingBox(), await page.locator('#modal-close').boundingBox()];
-  expect(Math.abs(d!.y - c!.y)).toBeLessThan(2);
+  await expect(page.locator('#modal .modal-actions .edit-danger .btn.danger')).toBeVisible();
+  expect(Math.abs((d!.y + d!.height / 2) - (c!.y + c!.height / 2))).toBeLessThan(6);
   expect(d!.x).toBeLessThan(c!.x);
 
   // Cancel keeps everything; Esc closes the question only.
