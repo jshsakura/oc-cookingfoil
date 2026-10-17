@@ -21,7 +21,7 @@ import * as kinds from "../../meta/homebrew-kinds.js";
 import * as descriptions from "../../meta/homebrew-descriptions.js";
 import * as disabled from "../../meta/homebrew-disabled.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
-import { githubTracker, manualApps, sourcesChanged, refreshManual } from "../homebrew.js";
+import { githubTracker, manualApps, sourcesChanged, refreshManual, totalSize } from "../homebrew.js";
 import { adoptFolders } from "../../meta/homebrew.js";
 import { homebrewDir } from "../../helpers/envs.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
@@ -49,8 +49,8 @@ export function mountHomebrewApi(router, requireSession) {
   router.get("/api/homebrew", write(async (req, res) => {
     await refreshManual().catch(() => {});
     const followed = new Set(sources.list().map((s) => s.repo.toLowerCase()));
-    const manual = (await manualApps()).map(({ id, name, version, author, size, file_name }) => ({
-      id, name, version, author, size, file_name, kind: kinds.kindOf(id), description: { custom: descriptions.get(id), github: null },
+    const manual = (await manualApps()).map(({ id, name, version, author, file_name, ...e }) => ({
+      id, name, version, author, size: totalSize(e), file_name, kind: kinds.kindOf(id), description: { custom: descriptions.get(id), github: null },
     }));
     res.json({
       sources: statuses(),

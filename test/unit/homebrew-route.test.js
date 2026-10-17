@@ -184,3 +184,17 @@ test("a folder install also comes as one tar in listed order, resumable with If-
     close();
   }
 });
+
+test("one size everywhere: a folder install or kept zip counts every file; the list goes out newest first", async () => {
+  const { totalSize, byRecent } = await import("../../src/routes/homebrew.js");
+  assert.equal(totalSize({ size: 5, files: [{ size: 30 }, { size: 5 }] }), 35);
+  assert.equal(totalSize({ size: 5, archive: { entries: [{ size: 10 }, { size: 20 }] } }), 30);
+  assert.equal(totalSize({ size: 5 }), 5);
+  const apps = [
+    { name: "B", released_at: "2026-10-01T00:00:00Z" },
+    { name: "A", updated_at: "2026-10-05T00:00:00Z" },
+    { name: "C", released_at: "2026-10-05T00:00:00Z" },
+    { name: "D" },
+  ];
+  assert.deepEqual([...apps].sort(byRecent).map((a) => a.name), ["A", "C", "B", "D"]);
+});

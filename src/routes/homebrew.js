@@ -32,8 +32,10 @@
  * HOME menu entry), and is listed only with ?with=titles: a client from before
  * would copy the .nsp to sdmc:/switch/.
  *
- * `size` is what lands on the card: every file of a folder install (the .nro
- * alone is then `nro_size`), or the .nro.
+ * `size` is what lands on the card: every file of a folder install or every
+ * entry of a kept zip (the .nro alone is then `nro_size`), or the .nro. The
+ * admin page and the web show the same number. Apps go out most recently
+ * updated first (updated_at, else released_at), then by name.
  *
  * `install_path` is where the console keeps the .nro: always its own folder,
  * switch/<app>/<file>.nro, which the shortcut also starts. A client that finds
@@ -277,6 +279,23 @@ async function withIconNro(e) {
   return { ...e, size: copy.size, hash: copy.sha256 };
 }
 
+/**
+ * The bytes an app puts on the card: every file of a folder install, every entry
+ * of a kept zip, else the .nro (or .nsp) itself. Every screen (the web, the admin
+ * page, the client) shows this one number. Pure.
+ */
+export function totalSize(e) {
+  const sum = (list) => list.reduce((n, f) => n + (f.size ?? 0), 0);
+  return e.files ? sum(e.files) : e.archive?.entries ? sum(e.archive.entries) : e.size;
+}
+
+/** `size` as totalSize and, when that is more than the .nro, `nro_size` as the .nro alone. Pure. */
+const sizeFields = (e) => (e.files || e.archive?.entries ? { size: totalSize(e), nro_size: e.size } : {});
+
+const timeOf = (e) => Date.parse(e.updated_at ?? e.released_at ?? "") || 0;
+/** Most recently updated first, then by name: the order the list goes out in. Pure. */
+export const byRecent = (a, b) => timeOf(b) - timeOf(a) || String(a.name ?? "").localeCompare(String(b.name ?? ""), "ko");
+
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
@@ -286,7 +305,9 @@ export const defaultService = {
       ...(e.archive ? { archive: (({ abs: _a, key: _k, ...a }) => a)(e.archive) } : {}),
     }));
     const entries = await Promise.all([...githubTracker().entries(), ...manualList].map(withIconNro));
-    return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }));
+    return entries
+      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }))
+      .sort(byRecent);
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
   forwarderInfo(e) {
@@ -465,15 +486,13 @@ export function homebrewRouter({ service = defaultService } = {}) {
       install_type: "file",
       title_id: null,
       ...e,
-      // A folder install is everything that lands on the card; nro_size is the .nro alone.
-      ...(e.files ? { size: e.files.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size } : {}),
       install_path: e.install_path ?? installPathFor(e.file_name),
       // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
       files: e.files ? e.files.map((f) => ({ ...f, ...withDirect("url", `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}`, link) })) : null,
       ...withDirect("bundle_url", e.files ? `/api/homebrew/${e.id}/bundle` : null, link),
       // A zip kept as it is comes whole, with which entry goes where on the card.
-      ...(e.archive ? { size: e.archive.entries.reduce((n, f) => n + (f.size ?? 0), 0), nro_size: e.size, archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
+      ...(e.archive ? { archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
       icon_url: iconUrlOf(e),
       ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
