@@ -85,7 +85,7 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -270,7 +270,9 @@ async function withIconNro(e) {
   const copy = await iconNro(e.id);
   if (!copy) return e;
   if (copy.rel) {
-    return { ...e, size: copy.size, hash: copy.sha256, files: e.files?.map((f) => (f.path === copy.rel ? { ...f, size: copy.size, sha256: copy.sha256 } : f)) ?? e.files };
+    const files = e.files?.map((f) => (f.path === copy.rel ? { ...f, size: copy.size, sha256: copy.sha256 } : f)) ?? e.files;
+    // A folder install's hash covers every file, the icon copy included.
+    return { ...e, size: copy.size, hash: files ? folderHash(files) : copy.sha256, files };
   }
   return { ...e, size: copy.size, hash: copy.sha256 };
 }

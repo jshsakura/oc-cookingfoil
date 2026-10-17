@@ -603,3 +603,35 @@ test("adoptFolders writes a folder manifest for a .nro with game files and leave
   assert.equal(listed.find((e) => e.id && e.name === "My Game").install_dir, "switch/my-game");
   assert.deepEqual((await adoptFolders(root)).registered, []);
 });
+test("a folder install's hash moves when a data file changes, even if the .nro does not", async () => {
+  const root = tmp("hb-folderhash-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(dir, "data.bin"), "one");
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+
+  const [a] = await scanManual(root);
+  assert.equal((await scanManual(root))[0].hash, a.hash, "unchanged folder keeps its hash");
+
+  fs.writeFileSync(path.join(dir, "data.bin"), "two");
+  const [b] = await scanManual(root);
+  assert.notEqual(b.hash, a.hash, "a changed data file moves the hash");
+  assert.equal(b.sha256, a.sha256, "the .nro's own hash is untouched");
+
+  fs.writeFileSync(path.join(dir, "extra.pak"), "new");
+  const [c] = await scanManual(root);
+  assert.notEqual(c.hash, b.hash, "an added file moves the hash");
+});
+
+test("a folder install's hash does not depend on the order the files are listed in", async () => {
+  const root = tmp("hb-folderhash-order-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  for (const f of ["b.bin", "a.bin", "sub/c.bin"]) fs.writeFileSync(path.join(dir, f), f);
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+  const hashes = new Set();
+  for (let i = 0; i < 3; i++) hashes.add((await scanManual(root))[0].hash);
+  assert.equal(hashes.size, 1);
+});

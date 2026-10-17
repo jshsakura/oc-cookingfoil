@@ -513,6 +513,13 @@ export async function expectedAppDir(dir, nro, folder, names) {
   return found;
 }
 
+/** One digest over every file's path and content, so any file added, removed or changed moves it. Sorted by path, so the same folder always gives the same digest. */
+export function folderHash(files) {
+  const h = crypto.createHash("sha256");
+  for (const f of [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) h.update(`${f.path}\0${f.sha256}\n`);
+  return h.digest("hex");
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
@@ -553,6 +560,8 @@ async function readManual(root, folder, seen = null, held = null) {
     }
     folderInstall = { install_dir: `switch/${appDir}`, install_path: `switch/${appDir}/${file}`, files };
   }
+  // A folder install changes when any of its files does, not only its .nro.
+  const entryHash = folderInstall ? folderHash(folderInstall.files) : hash;
   return {
     ...(folderInstall ?? {}),
     install: manifest ? { mode: manifest.mode, reason: manifest.reason ?? null, rules: manifest.rules ?? [], excluded: manifest.excluded ?? [] } : null,
@@ -562,7 +571,7 @@ async function readManual(root, folder, seen = null, held = null) {
     author: meta.author,
     languages: meta.languages ?? null,
     size: st.size,
-    hash,
+    hash: entryHash,
     file_name: safeFileName(file, folder),
     source: "manual",
     released_at: new Date(st.mtimeMs).toISOString(),
