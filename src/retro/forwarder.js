@@ -120,6 +120,42 @@ function exefsVersion() {
   return exefsHash;
 }
 
+// The NPDM thread-info capability (kernel capability ending in 0b0111): which CPU
+// cores and priorities the forwarder's threads may use. Sphaira writes the same two
+// values for its "CPU Cores" choice (source/owo.cpp npdm_kernel_flags).
+const THREAD_CAP = { 3: 0x020073b7, 4: 0x030073f7 }; // cores 0-2 and priority 28-59 / cores 0-3 and 28-63
+const THREAD_CAP_MASK = 0xf;
+const THREAD_CAP_TAG = 0x7;
+
+/**
+ * The NPDM with its thread capability, in both ACI0 and ACID, set for `cores`
+ * (3, the default, or 4: core 3 is shared with system services, so only for an
+ * app that starts a thread there). Throws when the NPDM has no such capability. Pure.
+ */
+export function npdmForCores(npdm, cores) {
+  const want = THREAD_CAP[cores];
+  if (!want) throw new Error(`cores must be 3 or 4, not ${cores}`);
+  const out = Buffer.from(npdm);
+  if (out.toString("latin1", 0, 4) !== "META") throw new Error("not an NPDM");
+  const aci0 = out.readUInt32LE(0x70);
+  const acid = out.readUInt32LE(0x78);
+  const areas = [
+    [aci0 + out.readUInt32LE(aci0 + 0x30), out.readUInt32LE(aci0 + 0x34)],
+    [acid + out.readUInt32LE(acid + 0x230), out.readUInt32LE(acid + 0x234)],
+  ];
+  for (const [at, size] of areas) {
+    let found = false;
+    for (let i = 0; i + 4 <= size; i += 4) {
+      if ((out.readUInt32LE(at + i) & THREAD_CAP_MASK) !== THREAD_CAP_TAG) continue;
+      out.writeUInt32LE(want, at + i);
+      found = true;
+      break;
+    }
+    if (!found) throw new Error("the NPDM has no thread capability");
+  }
+  return out;
+}
+
 /**
  * Whether forwarders can be built here: the exefs, hacBrewPack and prod.keys.
  * Checked once; a missing piece is logged and turns the feature off.
@@ -147,17 +183,19 @@ export function resetAvailability() {
 /**
  * Everything one game's NSP is made of, or null when it can't have one.
  * `game` carries { id, name, core, romSdPath, artKey, publisher }, or a ready
- * `target` ({ nroPath, argv }) in place of core and romSdPath.
+ * `target` ({ nroPath, argv }) in place of core and romSdPath, and `cores`
+ * (4 lets its threads use CPU core 3; anything else is the default 3).
  */
 export function forwarderSpec(game) {
   const target = game.target ?? launchTarget(game.core, game.romSdPath);
   if (!target) return null;
   const titleId = forwarderTitleId(game.id);
   const name = displayName(game.name);
-  const key = crypto.createHash("sha1")
-    .update(JSON.stringify([FORMAT, exefsVersion(), titleId, name, game.publisher, target, game.artKey ?? null]))
-    .digest("hex").slice(0, 12);
-  return { titleId, name, publisher: game.publisher, target, key };
+  const cores = game.cores === 4 ? 4 : 3;
+  // The default leaves the key as it always was, so the NSPs already built stay valid.
+  const parts = [FORMAT, exefsVersion(), titleId, name, game.publisher, target, game.artKey ?? null, ...(cores === 4 ? [{ cores }] : [])];
+  const key = crypto.createHash("sha1").update(JSON.stringify(parts)).digest("hex").slice(0, 12);
+  return { titleId, name, publisher: game.publisher, target, key, cores };
 }
 
 export const forwarderPath = (outDir, gameId, spec) => path.join(outDir, `${gameId}-${spec.key}.nsp`);
@@ -207,7 +245,7 @@ export async function buildForwarder(spec, icon, dest, keysDir) {
     const keys = packingKeys(await fsp.readFile(path.join(keysDir, "prod.keys"), "utf8"));
     await Promise.all([
       fsp.copyFile(path.join(EXEFS_DIR, "main"), path.join(dir("exefs"), "main")),
-      fsp.copyFile(path.join(EXEFS_DIR, "main.npdm"), path.join(dir("exefs"), "main.npdm")),
+      fsp.readFile(path.join(EXEFS_DIR, "main.npdm")).then((npdm) => fsp.writeFile(path.join(dir("exefs"), "main.npdm"), spec.cores === 4 ? npdmForCores(npdm, 4) : npdm)),
       fsp.writeFile(dir("keys.dat"), keys, { mode: 0o600 }),
       fsp.writeFile(path.join(dir("romfs"), "nextNroPath"), spec.target.nroPath),
       fsp.writeFile(path.join(dir("romfs"), "nextArgv"), spec.target.argv),

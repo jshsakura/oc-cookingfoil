@@ -18,7 +18,9 @@
  * H = { id, name, version, author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
  *       install_path, install_dir, files, bundle_url, archive,
- *       forwarder_url, forwarder_title_id, forwarder_size, install_type, title_id,
+ *       forwarder_url, forwarder_title_id, forwarder_size, forwarder_key (changes with
+ *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
+ *       for it may use, also for one a client builds itself), install_type, title_id,
        banner_url, screenshots }
 
  * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
@@ -81,6 +83,7 @@ import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
+import * as cores from "../meta/homebrew-cores.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
@@ -196,12 +199,12 @@ export async function sourcesChanged(repo = null) {
 }
 
 const forwarderDir = path.join(dataDir, "homebrew-forwarders");
-const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null };
+const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null, forwarder_key: null };
 
 /** What the forwarder module needs to know about an app; an uploaded icon is part of its key. */
 const forwarderApp = (e) => ({
   id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name, e.install_path),
-  artKey: [e.hash, media.iconVersion(e.id) ?? null],
+  artKey: [e.hash, media.iconVersion(e.id) ?? null], cores: cores.coresOf(e.id),
 });
 
 /**
@@ -306,7 +309,7 @@ export const defaultService = {
     }));
     const entries = await Promise.all([...githubTracker().entries(), ...manualList].map(withIconNro));
     return entries
-      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }))
+      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), enabled: !disabled.isDisabled(e.id) }))
       .sort(byRecent);
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
@@ -319,7 +322,8 @@ export const defaultService = {
     } catch {
       // built in the background
     }
-    return { forwarder_url: `/api/homebrew/${e.id}/forwarder`, forwarder_title_id: spec.titleId, forwarder_size: size };
+    // forwarder_key changes with every build (icon, name, cores …): a client compares it with the one it installed.
+    return { forwarder_url: `/api/homebrew/${e.id}/forwarder`, forwarder_title_id: spec.titleId, forwarder_size: size, forwarder_key: spec.key };
   },
   async forwarder(id) {
     if (!forwardersAvailable(keysDir)) return null;

@@ -29,10 +29,13 @@ test('a game is deleted from its edit page: every file of it, after asking, and 
   await expect(del).toHaveText('삭제');
   await expect(del.locator('svg.bi')).toHaveCount(1);
   // Delete sits in the bottom row beside Close, with no divider above it.
-  const [d, c] = [await del.boundingBox(), await page.locator('#modal-close').boundingBox()];
   await expect(page.locator('#modal .modal-actions .edit-danger .btn.danger')).toBeVisible();
-  expect(Math.abs((d!.y + d!.height / 2) - (c!.y + c!.height / 2))).toBeLessThan(6);
-  expect(d!.x).toBeLessThan(c!.x);
+  // Measured once the modal has finished opening: during its animation the two boxes move.
+  const gap = async () => {
+    const [d, c] = [await del.boundingBox(), await page.locator('#modal-close').boundingBox()];
+    return d && c && d.x < c.x ? Math.abs((d.y + d.height / 2) - (c.y + c.height / 2)) : Infinity;
+  };
+  await expect.poll(gap).toBeLessThan(6);
 
   // Cancel keeps everything; Esc closes the question only.
   await del.click();
