@@ -43,6 +43,7 @@ import * as deviceLogins from "../security/device-logins.js";
 import { mountManageApi } from "./admin/manage-api.js";
 import { mountAccountsApi } from "./admin/accounts-api.js";
 import { mountClientLogsApi } from "./admin/client-logs-api.js";
+import { mountClientReleaseApi } from "./admin/client-release-api.js";
 import { mountHomebrewApi } from "./admin/homebrew-api.js";
 import { mountHomebrewAppsApi } from "./admin/homebrew-apps-api.js";
 import { mountPatchesApi } from "./admin/patches-api.js";
@@ -418,6 +419,7 @@ export default function adminPageRouter() {
   mountManageApi(router, requireSession);
   mountAccountsApi(router, requireSession);
   mountClientLogsApi(router, requireSession);
+  mountClientReleaseApi(router, requireSession);
   mountHomebrewApi(router, requireSession);
   mountHomebrewAppsApi(router, requireSession);
   mountPatchesApi(router, requireSession);

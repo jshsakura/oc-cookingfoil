@@ -80,7 +80,7 @@ function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
-  if(tab==='settings'){loadServerSettings();loadIntegrations();loadTfa();loadGoogle();loadTokens();}
+  if(tab==='settings'){loadServerSettings();loadClientRelease();loadIntegrations();loadTfa();loadGoogle();loadTokens();}
   if(tab==='logs'){loadClientLogs();setTimeout(xfOpen);}
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();

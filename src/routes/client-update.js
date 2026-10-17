@@ -21,6 +21,10 @@
  * fields are null when this server can't build shortcuts (no prod.keys or
  * hacBrewPack); forwarder_size is null until the NSP is built in the background.
  *
+ * The build can also come from GitHub: the server follows the client-latest
+ * release of the repository set on the admin page (clientReleaseRepo), checks
+ * the asset and moves it onto the drop-in path above (meta/client-release.js).
+ *
  * The build's signature is made where the build is (never on this server) and
  * dropped beside it as cookingfoil.nro.sig.json:
  *   { "version", "size", "sha256", "signature": <128 hex, Ed25519> }
@@ -33,7 +37,10 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import express from "express";
+import * as env from "../helpers/envs.js";
 import { dataDir, keysDir } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
+import { createClientRelease } from "../meta/client-release.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-build.js";
@@ -82,7 +89,7 @@ async function forwarderFields(info) {
 let published; // { version, size, sha256, at } of the build being offered, or null
 let rejected = null; // { code, message, size, at } for the file last turned down
 let lastKey = null; // size + mtime of the file last examined
-let inFlight = null;
+let queue = Promise.resolve();
 
 function loadPublished() {
   if (published !== undefined) return published;
@@ -112,8 +119,7 @@ function reject(code, message, size) {
   debug.error("client update: %s not offered (%s: %s); keeping %s", CLIENT_NRO, code, message, published?.version ?? "nothing");
 }
 
-/** Checks the dropped-in build if it changed since last time, publishing or rejecting it. */
-async function examine(file) {
+async function examineNow(file) {
   let st;
   try {
     st = await fs.promises.stat(file);
@@ -123,26 +129,32 @@ async function examine(file) {
   if (!st.isFile()) return;
   const key = `${st.size}\0${st.mtimeMs}`;
   if (key === lastKey) return;
-  if (inFlight?.key === key) return inFlight.promise;
-  const promise = (async () => {
-    lastKey = key;
-    if (st.size > MAX_BUILD_BYTES) return reject("too-large", `${st.size} bytes`, st.size);
-    // Check and hash the very bytes that will be served.
-    const buf = await fs.promises.readFile(file);
-    let version;
-    try {
-      ({ version } = inspectNro(buf));
-    } catch (err) {
-      if (!(err instanceof ClientBuildError)) throw err;
-      return reject(err.code, err.message, buf.length);
-    }
-    const before = loadPublished();
-    if (before && compareVersions(version, before.version) < 0) return reject("downgrade", `${version} is older than ${before.version}`, buf.length);
-    if (before?.version === version && before.size === buf.length && crypto.createHash("sha256").update(buf).digest("hex") === before.sha256) return;
-    await publish(buf, version);
-  })().finally(() => { inFlight = null; });
-  inFlight = { key, promise };
-  return promise;
+  lastKey = key;
+  if (st.size > MAX_BUILD_BYTES) return reject("too-large", `${st.size} bytes`, st.size);
+  // Check and hash the very bytes that will be served.
+  const buf = await fs.promises.readFile(file);
+  let version;
+  try {
+    ({ version } = inspectNro(buf));
+  } catch (err) {
+    if (!(err instanceof ClientBuildError)) throw err;
+    return reject(err.code, err.message, buf.length);
+  }
+  const before = loadPublished();
+  if (before && compareVersions(version, before.version) < 0) return reject("downgrade", `${version} is older than ${before.version}`, buf.length);
+  if (before?.version === version && before.size === buf.length && crypto.createHash("sha256").update(buf).digest("hex") === before.sha256) return;
+  await publish(buf, version);
+}
+
+/**
+ * Checks the dropped-in build if it changed since last time, publishing or rejecting it.
+ * One check at a time: the minute loop, an upload and the release follower can
+ * all ask at once, and an older read must never publish over a newer file.
+ */
+function examine(file) {
+  const next = queue.then(() => examineNow(file));
+  queue = next.catch(() => {});
+  return next;
 }
 
 const SIG_MAX_BYTES = 4096;
@@ -196,6 +208,18 @@ export function clientBuildStatus() {
 }
 
 const RECHECK_MS = 60_000;
+const RELEASE_CHECK_MS = 15 * 60_000;
+
+/** The GitHub release follower; one per process. */
+export const clientRelease = createClientRelease({
+  repo: () => env.clientReleaseRepo,
+  dest: CLIENT_NRO,
+  stateFile: path.join(dataDir, "client", "release.json"),
+  current: () => loadPublished(),
+  publish: () => latestBuild(),
+  token: () => integrations.get("github").token,
+  maxBytes: MAX_BUILD_BYTES,
+});
 
 export default function clientUpdateRouter() {
   const router = express.Router();
@@ -203,6 +227,15 @@ export default function clientUpdateRouter() {
   const check = () => latestBuild().catch((err) => debug.error("client update: %s", err.message));
   check();
   setInterval(check, RECHECK_MS).unref();
+  // A release that keeps failing the same way is logged once, not every check.
+  let lastError = null;
+  const follow = () => clientRelease.check().then((s) => {
+    const message = s.error?.message ?? null;
+    if (message && message !== lastError) debug.error("client update: release: %s", message);
+    lastError = message;
+  }).catch((err) => debug.error("client update: release: %s", err.message));
+  setTimeout(follow, 5_000).unref();
+  setInterval(follow, RELEASE_CHECK_MS).unref();
   router.get("/latest", async (req, res, next) => {
     try {
       const info = await latestBuild();

@@ -8,6 +8,7 @@
  *
  * Saving applies at once through envs.js applyServerSettings (live bindings).
  */
+import { REPO_RE } from "../meta/client-release.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import { settingsStore } from "../db/security-stores.js";
@@ -82,6 +83,8 @@ export const SETTINGS = {
   syncHours: whole(0, 168),
   verifyHours: oneOf(...env.VERIFY_HOURS),
   welcomeMessage: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 300 && !/[\r\n]/.test(v) },
+  // owner/name of the client's GitHub release (meta/client-release.js); empty follows nothing.
+  clientReleaseRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || (v.length <= 140 && REPO_RE.test(v)) },
 };
 
 let saved = {};
@@ -124,7 +127,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "publicDirectBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "welcomeMessage" || k === "titledbSource" || k === "publicDirectBaseUrl" || k === "clientReleaseRepo" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }
