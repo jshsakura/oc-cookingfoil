@@ -50,11 +50,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
-nav.tabs{display:flex;gap:4px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
+nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
 nav.tabs::-webkit-scrollbar{display:none}
 /* Too narrow for one row but not a phone: two even rows rather than one tab left alone on the second. */
 @media (min-width:641px) and (max-width:1060px){nav.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible}nav.tabs a{padding:9px 4px}}
-nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 10px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
+nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
 nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
 .count[hidden]{display:none}
