@@ -12,7 +12,7 @@
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
     "lint": "eslint .",
     "test": "playwright test",
-    "test:unit": "d=$(mktemp -d) && COOK_CLIENT_RELEASE_REPO= COOK_SECRET_KEY=${COOK_SECRET_KEY:-dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=} TMPDIR=$d node --test test/unit/*.test.js; s=$?; rm -rf \"$d\"; exit $s",
+    "test:unit": "d=$(mktemp -d) && COOK_SECRET_KEY=${COOK_SECRET_KEY:-dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=} TMPDIR=$d node --test test/unit/*.test.js; s=$?; rm -rf \"$d\"; exit $s",
     "test:web": "playwright test --config playwright.web.config.ts",
     "test:pairing": "node scripts/local-pairing.mjs",
     "test:basic": "node scripts/local-basic-auth.mjs",

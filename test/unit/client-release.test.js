@@ -46,26 +46,33 @@ function fakeGitHub({ body, digest = `sha256:${sha(body)}`, size = body.length, 
   return { fetchImpl, calls };
 }
 
-/** A tracker over a temp folder whose publish() offers whatever valid build lands at dest. */
-function setup(fetchImpl, { offered = null, repo = "owner/client" } = {}) {
+/** A tracker over a temp folder; `have` is a build already fetched to dest, and publish() counts the choices. */
+function setup(fetchImpl, { have = null, repo = "owner/client", tag = "client-latest", asset = "cookingfoil.nro" } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "client-release-"));
-  const dest = path.join(dir, "cookingfoil.nro");
-  let current = offered;
+  const dest = path.join(dir, "github", "cookingfoil.nro");
+  if (have) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, have);
+  }
   let published = 0;
   const tracker = createClientRelease({
     repo: () => repo,
+    tag: () => tag,
+    asset: () => asset,
     dest,
-    stateFile: path.join(dir, "release.json"),
-    current: () => current,
+    stateFile: path.join(dir, "github", "release.json"),
+    current: () => {
+      if (!fs.existsSync(dest)) return null;
+      const buf = fs.readFileSync(dest);
+      return { version: inspectNro(buf).version, size: buf.length, sha256: sha(buf) };
+    },
     publish: async () => {
       published++;
-      const buf = fs.readFileSync(dest);
-      current = { version: inspectNro(buf).version, size: buf.length, sha256: sha(buf) };
     },
     fetchImpl,
     maxBytes: 1024 * 1024,
   });
-  return { tracker, dest, dir, offered: () => current, published: () => published };
+  return { tracker, dest, dir, published: () => published };
 }
 
 test("digestHex reads GitHub's sha256 digest and nothing else", () => {
@@ -77,13 +84,13 @@ test("digestHex reads GitHub's sha256 digest and nothing else", () => {
 test("takes a newer build from the release and publishes it whole", async () => {
   const body = fakeNro("0.3.157");
   const gh = fakeGitHub({ body });
-  const t = setup(gh.fetchImpl, { offered: { version: "0.3.156", size: 1, sha256: "b".repeat(64) } });
+  const t = setup(gh.fetchImpl, { have: fakeNro("0.3.156") });
   const s = await t.tracker.check();
   assert.equal(s.error, null);
   assert.equal(s.fetched.version, "0.3.157");
-  assert.equal(t.offered().sha256, sha(body));
+  assert.equal(t.published(), 1, "the offered build is chosen again");
   assert.deepEqual(fs.readFileSync(t.dest), body);
-  assert.equal(fs.existsSync(`${t.dest}.release-part`), false);
+  assert.equal(fs.existsSync(`${t.dest}.part`), false);
 });
 
 test("an unchanged release answers 304 and downloads nothing", async () => {
@@ -97,10 +104,10 @@ test("an unchanged release answers 304 and downloads nothing", async () => {
   assert.equal(t.published(), 1);
 });
 
-test("the build already offered is not downloaded again", async () => {
+test("the build already fetched is not downloaded again", async () => {
   const body = fakeNro("0.3.157");
   const gh = fakeGitHub({ body });
-  const t = setup(gh.fetchImpl, { offered: { version: "0.3.157", size: body.length, sha256: sha(body) } });
+  const t = setup(gh.fetchImpl, { have: body });
   const s = await t.tracker.check();
   assert.equal(gh.calls.download, 0);
   assert.equal(s.fetched.version, "0.3.157");
@@ -113,7 +120,7 @@ test("bytes that don't match the release digest are not used", async () => {
   const s = await t.tracker.check();
   assert.match(s.error.message, /sha256/);
   assert.equal(fs.existsSync(t.dest), false);
-  assert.equal(t.offered(), null);
+  assert.equal(t.published(), 0);
 });
 
 test("a body longer than the release says is cut off", async () => {
@@ -125,25 +132,26 @@ test("a body longer than the release says is cut off", async () => {
   assert.equal(fs.existsSync(t.dest), false);
 });
 
-test("a missing asset keeps the offered build and is asked for again next time", async () => {
+test("a missing asset keeps the fetched build and is asked for again next time", async () => {
   const body = fakeNro("0.3.157");
   const gh = fakeGitHub({ body, assetName: null });
-  const offered = { version: "0.3.156", size: 1, sha256: "b".repeat(64) };
-  const t = setup(gh.fetchImpl, { offered });
+  const have = fakeNro("0.3.156");
+  const t = setup(gh.fetchImpl, { have });
   const s = await t.tracker.check();
   assert.match(s.error.message, /no cookingfoil\.nro/);
   await t.tracker.check();
   assert.equal(gh.calls.conditional, 0);
-  assert.equal(t.offered(), offered);
+  assert.deepEqual(fs.readFileSync(t.dest), have);
 });
 
-test("an older build than the one offered is refused", async () => {
+test("an older build than the one fetched before is refused", async () => {
   const body = fakeNro("0.3.100");
   const gh = fakeGitHub({ body });
-  const t = setup(gh.fetchImpl, { offered: { version: "0.3.156", size: 1, sha256: "b".repeat(64) } });
+  const have = fakeNro("0.3.156");
+  const t = setup(gh.fetchImpl, { have });
   const s = await t.tracker.check();
   assert.match(s.error.message, /older/);
-  assert.equal(fs.existsSync(t.dest), false);
+  assert.deepEqual(fs.readFileSync(t.dest), have);
 });
 
 test("a file that isn't a CookingFoil NRO is refused", async () => {
@@ -173,7 +181,7 @@ test("a repository without the release reports it", async () => {
 test("a refused build is not downloaded again until the release changes or a forced check", async () => {
   const body = fakeNro("0.3.100");
   const gh = fakeGitHub({ body });
-  const t = setup(gh.fetchImpl, { offered: { version: "0.3.156", size: 1, sha256: "b".repeat(64) } });
+  const t = setup(gh.fetchImpl, { have: fakeNro("0.3.156") });
   await t.tracker.check();
   const again = await t.tracker.check();
   assert.equal(gh.calls.download, 1);
@@ -196,4 +204,39 @@ test("repository names can't walk out of /repos/", () => {
   assert.ok(REPO_RE.test("owner/oc-cookingfoil"));
   assert.ok(REPO_RE.test("o.wner/na.me"));
   for (const bad of ["../..", "owner/..", "./x", "owner", "a/b/c", "owner/na me"]) assert.equal(REPO_RE.test(bad), false, bad);
+});
+
+test("the tag and asset name are the ones set", async () => {
+  const body = fakeNro("0.3.157");
+  const urls = [];
+  const fetchImpl = async (url) => {
+    urls.push(url);
+    if (url === DOWNLOAD) return new Response(body);
+    return new Response(JSON.stringify({ assets: [{ name: "client-nx.nro", size: body.length, digest: `sha256:${sha(body)}`, browser_download_url: DOWNLOAD }] }), { headers: { etag: '"e"' } });
+  };
+  const t = setup(fetchImpl, { tag: "nightly", asset: "client-nx.nro" });
+  const s = await t.tracker.check();
+  assert.equal(s.error, null);
+  assert.ok(urls[0].endsWith("/repos/owner/client/releases/tags/nightly"));
+  assert.equal(s.tag, "nightly");
+  assert.equal(s.asset, "client-nx.nro");
+});
+
+test("a tag or asset name that doesn't fit is refused before asking", async () => {
+  const gh = fakeGitHub({ body: fakeNro("0.3.157") });
+  assert.match((await setup(gh.fetchImpl, { tag: "../x" }).tracker.check()).error.message, /not a release tag/);
+  assert.match((await setup(gh.fetchImpl, { asset: "x.zip" }).tracker.check()).error.message, /not an \.nro/);
+  assert.equal(gh.calls.api, 0);
+});
+
+test("pickBuild offers the newer build, and the manual one on a tie", async () => {
+  const { pickBuild } = await import("../../src/routes/client-update.js");
+  const m = (version) => ({ version, source: "manual" });
+  const g = (version) => ({ version, source: "github" });
+  assert.equal(pickBuild([m("0.3.1"), g("0.3.2")]).source, "github");
+  assert.equal(pickBuild([m("0.3.2"), g("0.3.2")]).source, "manual");
+  assert.equal(pickBuild([g("0.3.2"), m("0.3.2")]).source, "manual");
+  assert.equal(pickBuild([m("0.3.10"), g("0.3.9")]).source, "manual");
+  assert.equal(pickBuild([null, g("0.1.0")]).source, "github");
+  assert.equal(pickBuild([null, null]), null);
 });

@@ -21,9 +21,14 @@
  * fields are null when this server can't build shortcuts (no prod.keys or
  * hacBrewPack); forwarder_size is null until the NSP is built in the background.
  *
- * The build can also come from GitHub: the server follows the client-latest
- * release of the repository set on the admin page (clientReleaseRepo), checks
- * the asset and moves it onto the drop-in path above (meta/client-release.js).
+ * The build can also come from GitHub (clientSource "github"): the server
+ * follows a release (clientReleaseRepo, clientReleaseTag, clientReleaseAsset)
+ * and keeps what it fetched apart, in client/github/cookingfoil.nro
+ * (meta/client-release.js), so it never touches the manual file. Then the newer
+ * of the two is offered, the manual one when they are the same version, so a
+ * build uploaded by hand goes out at once. In "manual" mode (the default)
+ * GitHub is not asked and only the manual file counts. `source` in the offered
+ * build's facts says which one it is.
  *
  * The build's signature is made where the build is (never on this server) and
  * dropped beside it as cookingfoil.nro.sig.json:
@@ -49,6 +54,7 @@ import { mountClientLog } from "./client-log.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
+export const GITHUB_NRO = path.join(dataDir, "client", "github", "cookingfoil.nro");
 const PUBLISHED_DIR = path.join(dataDir, "client", ".published");
 const PUBLISHED_NRO = path.join(PUBLISHED_DIR, "cookingfoil.nro");
 const PUBLISHED_INFO = path.join(PUBLISHED_DIR, "build.json");
@@ -86,10 +92,11 @@ async function forwarderFields(info) {
   return { forwarder_url: "/api/client/forwarder", forwarder_title_id: spec.titleId, forwarder_size: size };
 }
 
-let published; // { version, size, sha256, at } of the build being offered, or null
-let rejected = null; // { code, message, size, at } for the file last turned down
-let lastKey = null; // size + mtime of the file last examined
+let published; // { version, size, sha256, at, source } of the build being offered, or null
+let rejected = null; // { code, message, size, at } for the manual file last turned down
 let queue = Promise.resolve();
+// Per source: the size + mtime last read, and what that file was ({ version, size, sha256 } or a problem).
+const seen = { manual: { key: null, info: null }, github: { key: null, info: null } };
 
 function loadPublished() {
   if (published !== undefined) return published;
@@ -102,16 +109,16 @@ function loadPublished() {
   return published;
 }
 
-async function publish(buf, version) {
-  const info = { version, size: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex"), at: Date.now() };
+async function publish(buf, version, source) {
+  const info = { version, size: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex"), at: Date.now(), source };
   await fs.promises.mkdir(PUBLISHED_DIR, { recursive: true });
   await fs.promises.writeFile(`${PUBLISHED_NRO}.tmp`, buf);
   await fs.promises.rename(`${PUBLISHED_NRO}.tmp`, PUBLISHED_NRO);
   await fs.promises.writeFile(`${PUBLISHED_INFO}.tmp`, JSON.stringify(info));
   await fs.promises.rename(`${PUBLISHED_INFO}.tmp`, PUBLISHED_INFO);
   published = info;
-  rejected = null;
-  debug.log("client update: published %s (%d bytes, sha256 %s)", version, buf.length, info.sha256.slice(0, 12));
+  if (source === "manual") rejected = null;
+  debug.log("client update: published %s from %s (%d bytes, sha256 %s)", version, source, buf.length, info.sha256.slice(0, 12));
 }
 
 function reject(code, message, size) {
@@ -119,40 +126,69 @@ function reject(code, message, size) {
   debug.error("client update: %s not offered (%s: %s); keeping %s", CLIENT_NRO, code, message, published?.version ?? "nothing");
 }
 
-async function examineNow(file) {
+/** Reads one source's file again if its size or mtime changed; seen[source].info is what it holds, or null. */
+async function look(source, file) {
   let st;
   try {
     st = await fs.promises.stat(file);
   } catch {
+    seen[source] = { key: null, info: null };
     return;
   }
   if (!st.isFile()) return;
   const key = `${st.size}\0${st.mtimeMs}`;
-  if (key === lastKey) return;
-  lastKey = key;
-  if (st.size > MAX_BUILD_BYTES) return reject("too-large", `${st.size} bytes`, st.size);
-  // Check and hash the very bytes that will be served.
+  if (key === seen[source].key) return;
+  seen[source] = { key, info: null };
+  if (st.size > MAX_BUILD_BYTES) return source === "manual" && reject("too-large", `${st.size} bytes`, st.size);
+  // Check and hash the very bytes that may be served.
   const buf = await fs.promises.readFile(file);
-  let version;
   try {
-    ({ version } = inspectNro(buf));
+    const { version } = inspectNro(buf);
+    seen[source].info = { version, size: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex"), source, file };
   } catch (err) {
     if (!(err instanceof ClientBuildError)) throw err;
-    return reject(err.code, err.message, buf.length);
+    if (source === "manual") reject(err.code, err.message, buf.length);
   }
+}
+
+/** Of the builds there are, the one to offer: the newer version, the manual one on a tie. Pure. */
+export function pickBuild(candidates) {
+  return candidates.filter(Boolean).reduce((best, c) => {
+    if (!best) return c;
+    const order = compareVersions(c.version, best.version);
+    return order > 0 || (order === 0 && c.source === "manual") ? c : best;
+  }, null);
+}
+
+async function chooseNow() {
+  await look("manual", CLIENT_NRO);
+  const github = env.clientSource === "github";
+  if (github) await look("github", GITHUB_NRO);
+  const best = pickBuild([seen.manual.info, github ? seen.github.info : null]);
+  if (!best) return;
   const before = loadPublished();
-  if (before && compareVersions(version, before.version) < 0) return reject("downgrade", `${version} is older than ${before.version}`, buf.length);
-  if (before?.version === version && before.size === buf.length && crypto.createHash("sha256").update(buf).digest("hex") === before.sha256) return;
-  await publish(buf, version);
+  if (before?.sha256 === best.sha256 && (before.source ?? "manual") === best.source) return;
+  // A manual file older than the manual build offered before is an old one dropped in by mistake.
+  if (best.source === "manual" && (before?.source ?? "manual") === "manual" && before && compareVersions(best.version, before.version) < 0) {
+    if (rejected?.code !== "downgrade") reject("downgrade", `${best.version} is older than ${before.version}`, best.size);
+    return;
+  }
+  const buf = await fs.promises.readFile(best.file);
+  // The file changed after it was read: the next look reads it again.
+  if (crypto.createHash("sha256").update(buf).digest("hex") !== best.sha256) {
+    seen[best.source].key = null;
+    return;
+  }
+  await publish(buf, best.version, best.source);
 }
 
 /**
- * Checks the dropped-in build if it changed since last time, publishing or rejecting it.
- * One check at a time: the minute loop, an upload and the release follower can
+ * Chooses the build to offer again if a file changed since last time.
+ * One choice at a time: the minute loop, an upload and the release follower can
  * all ask at once, and an older read must never publish over a newer file.
  */
-function examine(file) {
-  const next = queue.then(() => examineNow(file));
+function choose() {
+  const next = queue.then(() => chooseNow());
   queue = next.catch(() => {});
   return next;
 }
@@ -190,32 +226,46 @@ export function signatureFor(p, sig) {
 }
 
 /** The build being offered, or null when none has passed the checks. */
-export async function latestBuild(file = CLIENT_NRO) {
-  await examine(file);
+export async function latestBuild() {
+  await choose();
   const p = loadPublished();
   if (!p) return null;
-  const signature = signatureFor(p, readSignature(`${file}.sig.json`));
+  const signature = signatureFor(p, readSignature(`${CLIENT_NRO}.sig.json`));
   return { version: p.version, size: p.size, sha256: p.sha256, ...(signature ? { signature } : {}), url: URL_PATH };
 }
 
 /** Where the build being offered is kept (latestBuild says whether there is one). */
 export const publishedNroPath = () => PUBLISHED_NRO;
 
-/** For the admin page: what is offered, and the last file turned down (null once a good one replaced it). */
+/**
+ * For the admin page: what is offered (with its source), the manual file turned
+ * down last (null once a good one replaced it), and the version each source holds.
+ */
 export function clientBuildStatus() {
   const p = loadPublished();
-  return { published: p, signed: Boolean(signatureFor(p, readSignature(`${CLIENT_NRO}.sig.json`))), rejected };
+  const brief = (i) => (i ? { version: i.version, size: i.size } : null);
+  return {
+    published: p ? { ...p, source: p.source ?? "manual" } : null,
+    signed: Boolean(signatureFor(p, readSignature(`${CLIENT_NRO}.sig.json`))),
+    rejected,
+    mode: env.clientSource,
+    manual: brief(seen.manual.info),
+    github: brief(seen.github.info),
+  };
 }
 
 const RECHECK_MS = 60_000;
-const RELEASE_CHECK_MS = 15 * 60_000;
+const RELEASE_CHECK_MS = 30 * 60_000;
 
-/** The GitHub release follower; one per process. */
+/** The GitHub release follower; one per process. It only runs in "github" mode. */
 export const clientRelease = createClientRelease({
-  repo: () => env.clientReleaseRepo,
-  dest: CLIENT_NRO,
-  stateFile: path.join(dataDir, "client", "release.json"),
-  current: () => loadPublished(),
+  repo: () => (env.clientSource === "github" ? env.clientReleaseRepo : ""),
+  tag: () => env.clientReleaseTag,
+  asset: () => env.clientReleaseAsset,
+  dest: GITHUB_NRO,
+  stateFile: path.join(dataDir, "client", "github", "release.json"),
+  current: () => seen.github.info,
+  // Choosing reads the fetched file again (its mtime changed), inside the one-at-a-time queue.
   publish: () => latestBuild(),
   token: () => integrations.get("github").token,
   maxBytes: MAX_BUILD_BYTES,

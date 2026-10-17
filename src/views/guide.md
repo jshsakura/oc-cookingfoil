@@ -107,7 +107,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 기기 목록, 기기별 접속 정보 (보기만 합니다) | `GET /admin/api/devices`, `GET /admin/api/device-logins` |
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |
-| 클라이언트 업데이트 상태, 지금 가져오기 (저장소는 서버 동작의 `clientReleaseRepo`) | `GET /admin/api/client-release`, `POST /admin/api/client-release/check` |
+| 클라이언트 빌드 상태(받는 방식, 내려주는 빌드와 출처), 지금 가져오기 (설정은 서버 동작의 `clientSource` `clientReleaseRepo` `clientReleaseTag` `clientReleaseAsset`) | `GET /admin/api/client-release`, `POST /admin/api/client-release/check` |
 | 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |
 | 임시 공유 정리함으로 보내기, 되돌리기, 삭제 | `POST /admin/api/inbox/<id>/done` `{ "done": true }`, `DELETE /admin/api/inbox/<id>` |
 
