@@ -74,6 +74,6 @@ export function resetForTests() {
 export function recordPending(req, deviceKey, { message } = {}, now = Date.now()) {
   const verdict = limit.admit(clientIp(req), deviceKey, now);
   if (!verdict.ok) return verdict;
-  store.recordPendingDevice(deviceKey, { message, quiet: verdict.quiet });
+  store.recordPendingDevice(deviceKey, { message, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null } });
   return { ok: true };
 }

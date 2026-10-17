@@ -45,6 +45,16 @@ function put(record) {
   return record;
 }
 
+/**
+ * An address shortened for an alert: enough for the admin to tell who it is,
+ * without the whole address leaving for Telegram. "guest@example.org" -> "gu***@example.org". Pure.
+ */
+export function maskEmail(email) {
+  const [local, domain] = String(email ?? "").split("@");
+  if (!domain) return "알 수 없음";
+  return `${local.slice(0, Math.min(2, Math.max(1, local.length - 1)))}***@${domain}`;
+}
+
 const isOwner = (email) => Boolean(adminEmail) && email.toLowerCase() === adminEmail.toLowerCase();
 
 /**
@@ -56,7 +66,7 @@ export function signIn({ sub, email }, now = Date.now()) {
   if (known) return put({ ...known, email, lastAt: now });
   if (accounts.size >= MAX_ACCOUNTS) return null;
   const owner = isOwner(email);
-  if (!owner) alert("account", "새 구글 계정이 들어왔습니다. 관리 화면의 사용자 탭에서 승인합니다.", { subject: sub, now, approval: { kind: "account", ref: sub } });
+  if (!owner) alert("account", `새 구글 계정이 들어왔습니다.\n계정: ${maskEmail(email)}\n관리 화면의 사용자 탭에서 승인합니다.`, { subject: sub, now, approval: { kind: "account", ref: sub } });
   return put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
 }
 

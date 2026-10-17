@@ -32,8 +32,8 @@ import * as approvalTokens from "../security/approval-tokens.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
-  device: { label: "기기 승인 요청", desc: "처음 보는 기기가 승인을 기다릴 때 알립니다. 기기가 남긴 메시지도 함께 보냅니다.", on: true },
-  account: { label: "구글 계정 승인 요청", desc: "새 구글 계정이 들어와 승인을 기다릴 때 알립니다.", on: true },
+  device: { label: "기기 승인 요청", desc: "처음 보는 기기가 승인을 기다릴 때 알립니다. 기기가 남긴 메시지, 요청을 보낸 주소, 그 주소에서 최근 접속한 계정도 함께 보냅니다.", on: true },
+  account: { label: "구글 계정 승인 요청", desc: "새 구글 계정이 들어와 승인을 기다릴 때 알립니다. 메일 주소는 앞 두 글자와 도메인만 보냅니다.", on: true },
   lockout: { label: "로그인 실패 잠금", desc: "아이디나 비밀번호를 여러 번 틀린 주소를 잠갔을 때 알립니다. 우리 기기라면 로그 탭에서 풉니다.", on: true },
   probe: { label: "위험한 접근", desc: "알려진 공격 경로나 도구를 로그인 전에 막았을 때 알립니다. 첫 건은 바로, 이어지는 것은 10분씩 모아 한 번에 보냅니다.", on: true },
   inbox: { label: "임시 공유", desc: "로그인한 사용자가 임시 공유함에 파일, 메모, 링크를 남기면 바로 알립니다. 올린 사람, 파일 수와 크기, 링크 수, 메모 첫 줄을 보냅니다.", on: true },

@@ -12,6 +12,7 @@ import debug from "../debug.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
+import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { eventLog, recordStore } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
 
@@ -388,12 +389,47 @@ export function clearPairSecret(deviceKey) {
   if (state.pairSecrets.delete(deviceKey)) scheduleFlush();
 }
 
+const SAME_ADDRESS_MS = 30 * 24 * 60 * 60 * 1000;
+const SAME_ADDRESS_MAX = 3;
+const AGENT_MAX = 80;
+
+/** Where an address sits, for an alert line. Pure. */
+export function addressPlace(ip) {
+  const v4 = String(ip ?? "").replace(/^::ffff:/, "");
+  if (isLoopbackIp(v4)) return "이 서버";
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4)) return "Tailscale";
+  return isPrivateIp(v4) ? "집 안" : "집 밖";
+}
+
+/**
+ * Who an approval request seems to come from, as alert lines: the address it
+ * came from, the accounts that signed in from that address lately, and the app
+ * it named itself as. A console asks before it has any account, so this is the
+ * best guess the server has; the admin still checks the code on the screen.
+ */
+export function requesterLines({ ip = null, agent = null } = {}, now = Date.now()) {
+  const lines = [];
+  if (ip) lines.push(`보낸 곳: ${ip} (${addressPlace(ip)})`);
+  const names = ip
+    ? Array.from(state.access.entries())
+        .filter(([, v]) => (v.ips?.[ip] ?? 0) >= now - SAME_ADDRESS_MS)
+        .sort(([, a], [, b]) => b.ips[ip] - a.ips[ip])
+        .map(([user]) => (user.startsWith("google:") ? "구글 계정" : user))
+    : [];
+  const unique = [...new Set(names)];
+  if (unique.length) lines.push(`같은 주소에서 접속한 계정: ${unique.slice(0, SAME_ADDRESS_MAX).join(", ")}${unique.length > SAME_ADDRESS_MAX ? ` 외 ${unique.length - SAME_ADDRESS_MAX}명` : ""}`);
+  const app = String(agent ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, AGENT_MAX);
+  if (app) lines.push(`앱: ${app}`);
+  return lines;
+}
+
 /**
  * A console asking for approval; only when it asked is kept, plus the note it
  * sent, if any (a later note replaces it; a request without one keeps it).
  * `quiet` records it without an alert (pending-limit.js, past its hourly cap).
+ * `from` ({ ip, agent }) is the request, named in the alert (requesterLines).
  */
-export function recordPendingDevice(deviceKey, { message, quiet = false } = {}) {
+export function recordPendingDevice(deviceKey, { message, quiet = false, from = {} } = {}) {
   const now = Date.now();
   const prev = state.pending.get(deviceKey);
   const note = message === undefined ? prev?.message ?? null : message;
@@ -402,7 +438,8 @@ export function recordPendingDevice(deviceKey, { message, quiet = false } = {}) 
   scheduleFlush();
   if (!quiet && (!prev || (message && message !== prev.message))) {
     // The code is what the console shows on its screen; the note is the console's own words.
-    alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
+    const who = requesterLines(from, now).map((line) => `${line}\n`).join("");
+    alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}${who}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }
 }
 
