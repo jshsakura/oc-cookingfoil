@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -115,7 +116,7 @@ test("the client and each homebrew app come with a HOME-menu shortcut built on i
     await post("/admin/api/homebrew/description/reset", { id: app.id });
     assert.equal((await (await get("/api/homebrew")).json()).homebrew[0].description, null);
 
-    // A new icon from the admin page makes the next download a new shortcut, and the old build goes.
+    // A new icon from the admin page builds the shortcut again at once (same title ID), and the old build goes.
     const fwdDir = path.join(root, "data", "homebrew-forwarders");
     const before = fs.readdirSync(fwdDir).filter((f) => f.startsWith(`homebrew-${app.id}-`));
     assert.equal(before.length, 1);
@@ -123,10 +124,27 @@ test("the client and each homebrew app come with a HOME-menu shortcut built on i
     form.append("file", new Blob([await sharp({ create: { width: 64, height: 64, channels: 3, background: "#c33" } }).png().toBuffer()], { type: "image/png" }), "icon.png");
     const up = await fetch(`${BASE}/api/art/homebrew/${app.id}/icon`, { method: "POST", headers: { Authorization: ALICE, Cookie: A.Cookie }, body: form });
     assert.equal(up.status, 201);
-    assert.equal((await get(app.forwarder_url)).status, 200);
-    const after = fs.readdirSync(fwdDir).filter((f) => f.startsWith(`homebrew-${app.id}-`));
+    let after = [];
+    for (let i = 0; i < 40; i++) {
+      after = fs.readdirSync(fwdDir).filter((f) => f.startsWith(`homebrew-${app.id}-`) && f.endsWith(".nsp"));
+      if (after.length === 1 && after[0] !== before[0]) break;
+      await new Promise((r) => setTimeout(r, 150));
+    }
     assert.equal(after.length, 1);
-    assert.notEqual(after[0], before[0]);
+    assert.notEqual(after[0], before[0], "built again without a download");
+    const rebuilt = (await (await get("/api/homebrew")).json()).homebrew[0];
+    assert.equal(rebuilt.forwarder_title_id, app.forwarder_title_id, "the same title ID, so HOME keeps one shortcut");
+    assert.ok(rebuilt.forwarder_size > 0);
+
+    // The .nro itself carries the same icon: the list's size and hash are the copy's, and that copy is what is sent.
+    assert.notEqual(rebuilt.hash, app.hash);
+    const sent = Buffer.from(await (await get(rebuilt.download_url)).arrayBuffer());
+    assert.equal(sent.length, rebuilt.size);
+    assert.equal(crypto.createHash("sha256").update(sent).digest("hex"), rebuilt.hash);
+    const nroSize = sent.readUInt32LE(0x18);
+    const iconOff = Number(sent.readBigUInt64LE(nroSize + 0x08));
+    assert.deepEqual([...sent.subarray(nroSize + iconOff, nroSize + iconOff + 3)], [0xff, 0xd8, 0xff], "a JPEG icon");
+    assert.equal(sent.subarray(nroSize + Number(sent.readBigUInt64LE(nroSize + 0x18))).toString("latin1", 0, 7), "My Tool", "the NACP kept");
   } finally {
     server.kill("SIGKILL");
   }

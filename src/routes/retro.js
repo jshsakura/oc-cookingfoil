@@ -99,7 +99,6 @@ import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
-import { addForwarderSource } from "../tasks/forwarder-schedule.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -190,13 +189,35 @@ const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 function forwarderGame(g, system) {
   return {
     id: g.id,
-    name: g.name,
+    // A name the admin gave wins over the file's, as in the list.
+    name: retroNames.get(g.id)?.ko || retroNames.get(g.id)?.en || g.name,
     core: g.core,
     romSdPath: sdPaths(g, system).rom,
     artKey: artKey(g),
     publisher: `RetroArch · ${system.names?.ko ?? system.name ?? g.system}`,
     icon: squarePath(artDir, g, "md"),
   };
+}
+
+/**
+ * Builds a game's shortcut again after its cover or name changed on the web,
+ * from the square of that moment (same title ID). Never throws.
+ */
+export async function rebuildRetroShortcut(gameId) {
+  if (!forwardersAvailable(keysDir)) return null;
+  try {
+    const state = await catalog.current(retroDir);
+    const g = state.byId.get(gameId);
+    const system = g && state.systems[g.system];
+    if (!system) return null;
+    await ensureSquare(artDir, g, "md").catch(() => null);
+    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system), keysDir);
+    if (built) debug.log("retro: shortcut for %s built again", gameId);
+    return built;
+  } catch (err) {
+    debug.error("retro: shortcut for %s: %s", gameId, err.message);
+    return null;
+  }
 }
 
 /** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
@@ -356,17 +377,8 @@ export default function retroRouter() {
   const router = express.Router();
 
   // Draw square tiles ahead of time after every scan, starting with one at boot.
-  // A forwarder is built when it is downloaded, from the square of that moment; the nightly pass fills in the rest.
+  // Forwarders are built only when one is downloaded, from the square of that moment.
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
-  addForwarderSource("retro", {
-    dir: forwarderDir,
-    keysDir,
-    apps: async () => {
-      if (!retroEnabled()) return [];
-      const state = await catalog.current(retroDir);
-      return state.games.map((g) => forwarderGame(g, state.systems[g.system]));
-    },
-  });
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch(() => {}));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.

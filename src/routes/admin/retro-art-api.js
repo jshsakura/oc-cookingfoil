@@ -31,6 +31,7 @@ import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import * as retroNames from "../../retro/names.js";
+import { rebuildRetroShortcut } from "../retro.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
@@ -190,6 +191,7 @@ export function mountRetroArtApi(router, requireSession) {
     if (!found) return res.status(404).json({ error: "없는 항목입니다" });
     await art.saveCover(retroDir, found.system, romKey(found.g), String(req.body?.url ?? ""));
     await retroCatalog.scan(retroDir);
+    rebuildRetroShortcut(found.g.id);
     res.json({ boxart: "ok" });
   }));
 
@@ -206,6 +208,7 @@ export function mountRetroArtApi(router, requireSession) {
     try {
       const bytes = await art.saveCoverImage(retroDir, found.system, romKey(found.g), req.body);
       await retroCatalog.scan(retroDir);
+      rebuildRetroShortcut(found.g.id);
       debug.log("admin retro-art: %s cover uploaded (%d → %d bytes)", found.g.id, req.body.length, bytes);
       res.json({ boxart: "ok", from: req.body.length, bytes });
     } catch (err) {
@@ -233,6 +236,8 @@ export function mountRetroArtApi(router, requireSession) {
     const g = catalog.byId.get(String(req.body?.game ?? ""));
     if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
     retroNames.set(g.id, { ko: req.body?.ko, en: req.body?.en });
+    // The shortcut carries the name too: built again in the background.
+    rebuildRetroShortcut(g.id);
     debug.log("admin: retro game %s named", g.id);
     res.json({ ok: true, title: retroNames.get(g.id) });
   }));

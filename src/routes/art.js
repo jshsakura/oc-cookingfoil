@@ -58,7 +58,7 @@ import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
 import patchMedia from "../meta/patch-media.js";
 import { MediaImageError } from "../meta/item-media.js";
-import { defaultService as homebrewService } from "./homebrew.js";
+import { defaultService as homebrewService, rebuildHomebrewShortcut } from "./homebrew.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as patchInfo from "../meta/patch-info.js";
 import * as titledbStore from "../meta/titledb-store.js";
@@ -148,6 +148,8 @@ export default function artRouter() {
       res.status(500).json({ error: "could not save the picture" });
     }
   };
+  // A homebrew app's HOME-menu shortcut carries its icon: built again in the background with the new one.
+  const iconChanged = (req, id) => { if (req.params.kind === "homebrew") rebuildHomebrewShortcut(id); };
   router.get("/:kind(homebrew|patch)/:id", itemRoute(async (_req, res, { store, id }) => res.json(state(store, id))));
 
   // The facts beside the pictures. A JSON body, small: names and a few paragraphs.
@@ -227,7 +229,10 @@ export default function artRouter() {
     if (!req.file?.buffer) return badRequest(res, "missing file field");
     const slot = req.params.slot;
     const crop = parseCrop(req.body?.crop);
-    if (slot === "icon") await store.saveIcon(id, req.file.buffer, { crop });
+    if (slot === "icon") {
+      await store.saveIcon(id, req.file.buffer, { crop });
+      iconChanged(req, id);
+    }
     else if (slot === "banner") await store.saveBanner(id, req.file.buffer, { crop });
     else await store.addShots(id, [req.file.buffer], { crop });
     res.status(201).json(state(store, id));
@@ -248,10 +253,14 @@ export default function artRouter() {
       const [part, n] = itemPart(req);
       if (!store.original(id, part, n)) return void res.status(404).json({ error: "no original kept" });
       await store.recrop(id, part, n, crop);
+      if (part === "icon") iconChanged(req, id);
       res.json(state(store, id));
     }));
   router.delete("/:kind(homebrew|patch)/:id/:slot(icon|banner)", itemRoute(async (req, res, { store, id }) => {
-    if (req.params.slot === "icon") await store.removeIcon(id);
+    if (req.params.slot === "icon") {
+      await store.removeIcon(id);
+      iconChanged(req, id);
+    }
     else await store.removeBanner(id);
     res.json(state(store, id));
   }));
