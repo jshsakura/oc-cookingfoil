@@ -128,7 +128,7 @@ const GAME_FOLDER_MAX_DEPTH = 6;
 
 /**
  * Every file in the folder of `rel`, below it too (relative to `romsDir`, "/"-separated),
- * except `rel` itself and hidden or non-regular files. For a game made of a folder of files
+ * except .scummvm files (`rel` among them) and hidden or non-regular files. For a game made of a folder of files
  * (ScummVM) rather than one ROM; empty when the file is not inside a folder of its own.
  */
 async function folderFilesOf(romsDir, rel) {
@@ -146,7 +146,8 @@ async function folderFilesOf(romsDir, rel) {
       if (e.name.startsWith(".") || out.length >= GAME_FOLDER_MAX_FILES) continue;
       const childRel = `${dirRel}/${e.name}`;
       if (e.isDirectory() && depth < GAME_FOLDER_MAX_DEPTH) await walk(childRel, depth + 1);
-      else if (e.isFile() && childRel !== rel) out.push(childRel);
+      // Another .scummvm here is a game of its own, not a file of this one.
+      else if (e.isFile() && path.extname(e.name).toLowerCase() !== ".scummvm") out.push(childRel);
     }
   };
   await walk(base, 1);

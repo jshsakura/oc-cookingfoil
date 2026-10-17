@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { DEFAULT_SYSTEMS } from "../../src/retro/systems.js";
 import { scanDir } from "../../src/retro/catalog.js";
+import { assignSdNames } from "../../src/retro/sd-names.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "retro-scummvm-"));
 function put(root, rel, body = "x") {
@@ -49,4 +50,33 @@ test("a .scummvm file with no folder of its own takes nothing along", async () =
   const loose = games.find((g) => g.name === "loose");
   assert.deepEqual(loose.extras, []);
   assert.equal(loose.size, 1);
+});
+
+test("a ScummVM game goes to its own SD folder with its files' names and subfolders kept", async () => {
+  const dir = tmp();
+  put(dir, "roms/ScummVM/Monkey Island 1/monkey1.scummvm", "monkey1\n");
+  put(dir, "roms/ScummVM/Monkey Island 1/MONSTER.SOU");
+  put(dir, "roms/ScummVM/Monkey Island 1/audio/track1.ogg");
+  put(dir, "roms/ScummVM/Monkey Island 2/monkey2.scummvm", "monkey2\n");
+  put(dir, "roms/ScummVM/Monkey Island 2/MONSTER.SOU");
+  put(dir, "roms/ScummVM/Monkey Island 2/한글.fnt");
+
+  const { games } = await scanDir(dir);
+  const sv = games.filter((g) => g.system === "scummvm");
+  await assignSdNames(sv);
+  const plan = (name) => { const g = sv.find((x) => x.name === name); return [g.sd.rom, ...[...g.sd.extras.values()].map((x) => x.sd)].sort(); };
+  assert.deepEqual(plan("monkey1"), ["roms/scummvm/monkey1/MONSTER.SOU", "roms/scummvm/monkey1/audio/track1.ogg", "roms/scummvm/monkey1/monkey1.scummvm"]);
+  assert.deepEqual(plan("monkey2"), ["roms/scummvm/monkey2/MONSTER.SOU", "roms/scummvm/monkey2/monkey2 (extra 2).fnt", "roms/scummvm/monkey2/monkey2.scummvm"],
+    "a name the console can't create is renamed, the rest kept");
+});
+
+test("two .scummvm files in one folder are two games, neither taking the other along", async () => {
+  const dir = tmp();
+  put(dir, "roms/ScummVM/pack/a.scummvm", "a\n");
+  put(dir, "roms/ScummVM/pack/b.scummvm", "b\n");
+  put(dir, "roms/ScummVM/pack/data.000");
+  const { games } = await scanDir(dir);
+  const sv = games.filter((g) => g.system === "scummvm");
+  assert.deepEqual(sv.map((g) => g.name).sort(), ["a", "b"]);
+  for (const g of sv) assert.deepEqual(g.extras.map((x) => x.rel), ["pack/data.000"]);
 });

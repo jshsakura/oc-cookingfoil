@@ -8,6 +8,7 @@
  *   roms/<system>/<stem><ext>              the ROM (a .cue or .m3u rewritten to name its new files)
  *   roms/<system>/<stem> (Track n).bin     a .cue's tracks (just <stem>.bin when there is one)
  *   roms/<system>/<stem> (Disc n)<ext>     a multi-disc game's discs
+ *   roms/<system>/<stem>/…                 a ScummVM game's folder, its files' own names kept
  *
  * Patch variants of one game would share a stem; all but the first by id get
  * " (<last 6 of the id>)" so none overwrites another.
@@ -112,6 +113,20 @@ export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "u
       if (byRel.has(rel)) extras.set(rel, { sd: `${dir}/${name}` });
     });
     return rewriteCue(text, renames);
+  }
+
+  // A ScummVM game is its folder: ScummVM finds the data by its original names
+  // and subfolders, and two games' files must not meet in one folder.
+  if (romExt === ".scummvm") {
+    const gameDir = `${dir}/${stem}`;
+    const base = path.posix.dirname(g.rel);
+    for (const [i, x] of g.extras.entries()) {
+      const inner = path.posix.relative(base, x.rel);
+      const ext = path.extname(x.rel).toLowerCase();
+      const fallback = `${stem} (extra ${i + 1})${/^\.[a-z0-9]+$/.test(ext) ? ext : ""}`;
+      extras.set(x.rel, { sd: `${gameDir}/${pathProblem(inner) ? fallback : inner}` });
+    }
+    return { stem, rom: `${gameDir}/${stem}${romExt}`, extras };
   }
 
   let romText;
