@@ -106,6 +106,7 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .up-drop.has span{color:var(--text);font-weight:600}
 .up-drop .pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 .up-go{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ended-box{margin-top:12px}.ended-box summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600;margin-bottom:8px}
 .up-more summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600}
 .up-more[open]{display:grid;gap:12px}.up-more[hidden]{display:none}
 .up-more label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
@@ -326,6 +327,7 @@ ${POLISH_CSS}</style></head><body>
   <h2>웹에서 받은 클라이언트</h2>
   <p class="muted">웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 일회용 자동 연동 키(유효시간 24시간)가 포함되며, 기기에서 앱을 최초 실행하면 해당 계정의 기기로 자동 승인됩니다. 키 원본은 서버에 저장되지 않습니다.</p>
   <div class="scroll" id="clients"></div>
+  <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended"></div></details>
   <h2>기기별 접속 정보 (CyberFoil·Tinfoil)</h2>
   <p class="muted">사용자가 기기 승인 화면(/pair)에서 기기마다 만든 아이디와 비밀번호입니다. 처음 접속한 기기에만 묶이고, 서버의 목록을 읽고 파일을 받는 것만 할 수 있습니다.</p>
   <form class="add" id="add-login">
