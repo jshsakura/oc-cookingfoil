@@ -8,6 +8,8 @@
  *   roms/<system>/<stem><ext>              the ROM (a .cue or .m3u rewritten to name its new files)
  *   roms/<system>/<stem> (Track n).bin     a .cue's tracks (just <stem>.bin when there is one)
  *   roms/<system>/<stem> (Disc n)<ext>     a multi-disc game's discs
+ *   roms/<system>/<id>/…                   a ScummVM game's folder, named by its ScummVM game id
+ *                                          (not the title), its files' own names kept
  *
  * Patch variants of one game would share a stem; all but the first by id get
  * " (<last 6 of the id>)" so none overwrites another.
@@ -93,7 +95,7 @@ const cueRefs = (text) => [...text.matchAll(/^\s*FILE\s+(?:"([^"]+)"|(\S+))/gim)
  * Plan one game's SD files. `readText(abs)` reads a .cue or .m3u from disk.
  * Returns { stem, rom, romText?, extras: Map(source rel → { sd, text? }) }.
  */
-export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "utf8")) {
+export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "utf8"), folder = stem) {
   const dir = `roms/${g.system}`;
   const extras = new Map();
   const byRel = new Map(g.extras.map((x) => [x.rel, x]));
@@ -112,6 +114,20 @@ export async function planGame(g, stem, readText = (abs) => fsp.readFile(abs, "u
       if (byRel.has(rel)) extras.set(rel, { sd: `${dir}/${name}` });
     });
     return rewriteCue(text, renames);
+  }
+
+  // A ScummVM game is its folder: ScummVM finds the data by its original names
+  // and subfolders, and two games' files must not meet in one folder.
+  if (romExt === ".scummvm") {
+    const gameDir = `${dir}/${folder}`;
+    const base = path.posix.dirname(g.rel);
+    for (const [i, x] of g.extras.entries()) {
+      const inner = path.posix.relative(base, x.rel);
+      const ext = path.extname(x.rel).toLowerCase();
+      const fallback = `${stem} (extra ${i + 1})${/^\.[a-z0-9]+$/.test(ext) ? ext : ""}`;
+      extras.set(x.rel, { sd: `${gameDir}/${pathProblem(inner) ? fallback : inner}` });
+    }
+    return { stem, rom: `${gameDir}/${stem}${romExt}`, extras };
   }
 
   let romText;
@@ -155,11 +171,17 @@ export async function assignSdNames(games, readText) {
     const key = `${g.system}\0${base.toLowerCase()}`;
     groups.set(key, [...(groups.get(key) ?? []), { g, base }]);
   }
+  // A ScummVM game's folder is its game id; two copies of one game (a patched
+  // and an original) get the later one's id suffix, like stems do.
+  const folders = new Set();
   for (const members of groups.values()) {
     members.sort((a, b) => a.g.id.localeCompare(b.g.id));
     for (const [i, { g, base }] of members.entries()) {
       const stem = i === 0 ? base : `${base} (${g.id.slice(-6)})`;
-      g.sd = await planGame(g, stem, readText);
+      let folder = g.scummvmId ?? stem;
+      if (folders.has(`${g.system}\0${folder.toLowerCase()}`)) folder = `${folder}-${g.id.slice(-6)}`;
+      folders.add(`${g.system}\0${folder.toLowerCase()}`);
+      g.sd = await planGame(g, stem, readText, folder);
     }
   }
 }
