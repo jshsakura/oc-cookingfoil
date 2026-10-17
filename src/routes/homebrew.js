@@ -201,6 +201,17 @@ const forwarderApp = (e) => ({
   artKey: [e.hash, media.iconVersion(e.id) ?? null],
 });
 
+/**
+ * Builds an app's shortcut again after its icon changed on the web, so the next
+ * download carries the new picture (same title ID). Never throws.
+ */
+export function rebuildHomebrewShortcut(id) {
+  if (!forwardersAvailable(keysDir)) return Promise.resolve(null);
+  return defaultService.forwarder(id)
+    .then((built) => { if (built) debug.log("homebrew: shortcut for %s built again", id); return built; })
+    .catch((err) => { debug.error("homebrew: shortcut for %s: %s", id, err.message); return null; });
+}
+
 /** The service backed by this server's folders and repositories. */
 export const defaultService = {
   async list(lang = "en") {
