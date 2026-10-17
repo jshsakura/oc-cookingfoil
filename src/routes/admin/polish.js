@@ -46,8 +46,8 @@ button[aria-busy="true"]>.bi{animation:polish-spin .8s linear infinite}
 /* The selected tab is one pill that slides to the next tab. */
 nav.tabs{position:relative}
 nav.tabs a{position:relative;z-index:1;transition:color .2s}
-nav.tabs.has-pill a[aria-current="page"]{background:transparent}
-.tab-pill{position:absolute;left:0;top:0;z-index:0;border-radius:11px;background:var(--text);pointer-events:none;
+nav.tabs.has-pill a[aria-current="page"]{background:transparent;box-shadow:none}
+.tab-pill{position:absolute;left:0;top:0;z-index:0;border-radius:12px;background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2);pointer-events:none;
   transition:transform .28s cubic-bezier(.3,.8,.3,1),width .28s cubic-bezier(.3,.8,.3,1),height .28s cubic-bezier(.3,.8,.3,1)}
 
 /* A section fades in as its tab opens. */
