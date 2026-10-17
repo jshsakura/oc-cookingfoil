@@ -50,6 +50,7 @@ import { rewriteArtworkOrigin, rewriteDownloadOrigin } from "../helpers/origin.j
 import * as downloadLinks from "../security/download-links.js";
 import debug from "../debug.js";
 import * as activity from "../tasks/activity.js";
+import { isIncoming } from "./library-organize.js";
 
 const gzipAsync = promisify(zlib.gzip);
 const brotliAsync = promisify(zlib.brotliCompress);
@@ -643,7 +644,8 @@ export async function init() {
     // Ignore dotfiles by BASENAME only. Using a regex against the full path
     // catches directories whose names happen to start with a dot (the
     // watch root itself, in dev), which would silently mute every change.
-    ignored: (filePath) => path.basename(filePath).startsWith("."),
+    // The drop box (meta/library-organize.js) is sorted into the library; its files are not listed.
+    ignored: (filePath) => path.basename(filePath).startsWith(".") || isIncoming(path.relative(romsDirPath, filePath)),
   });
 
   watcher

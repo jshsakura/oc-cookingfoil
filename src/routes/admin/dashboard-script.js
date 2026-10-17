@@ -870,9 +870,9 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
-const LIB_SUBS=['files','verify','patches','saves','info','server'];let libSub='files';
+const LIB_SUBS=['files','organize','verify','patches','saves','info','server'];let libSub='files';
 function libLoadSub(){
-  if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();
+  if(libSub==='files')lbLoad();else if(libSub==='organize')loLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();
   else if(libSub==='info')loadDescGames();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
   for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));

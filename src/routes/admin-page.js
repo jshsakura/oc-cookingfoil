@@ -63,6 +63,7 @@ import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
+import { mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
@@ -448,6 +449,7 @@ export default function adminPageRouter() {
   mountKeysApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
+  mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);
   mountServerApi(router, requireSession);

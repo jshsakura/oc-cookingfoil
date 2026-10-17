@@ -125,3 +125,30 @@ export function firmwareString(version) {
   const micro = (version >>> 16) & 0xf;
   return major ? `${major}.${minor}.${micro}` : null;
 }
+
+const META_DELTA = 0x83;
+const hex16 = (v) => v.toString(16).toUpperCase().padStart(16, "0");
+
+/**
+ * What a package is, from its .cnmt: its own title id, its numeric version,
+ * its kind ("base" | "update" | "dlc" | "delta") and the base game it belongs
+ * to. A patch and an add-on carry their application id at the start of the
+ * extended header, so a DLC's base comes from there instead of from id
+ * arithmetic. Null when the buffer is not a cnmt of one of those kinds.
+ */
+export function readCnmtIdentity(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < HEADER_SIZE) return null;
+  const titleId = hex16(buf.readBigUInt64LE(0x00));
+  const version = buf.readUInt32LE(0x08);
+  const type = buf[0x0C];
+  const kind = { [META_APPLICATION]: "base", [META_PATCH]: "update", [META_ADD_ON]: "dlc", [META_DELTA]: "delta" }[type];
+  if (!kind) return null;
+  const extendedHeaderSize = buf.readUInt16LE(0x0E);
+  const ownApp = kind === "update" || kind === "dlc" || kind === "delta";
+  const baseTitleId = kind === "base"
+    ? titleId
+    : ownApp && extendedHeaderSize >= 8 && buf.length >= HEADER_SIZE + 8
+      ? hex16(buf.readBigUInt64LE(HEADER_SIZE))
+      : null;
+  return { titleId, version, kind, baseTitleId };
+}
