@@ -1,5 +1,6 @@
 // First: the server does not run without the key its secrets are sealed with.
 import "./security/require-secret-key.js";
+import { SHARE_LANGS, shareImagePath } from "./views/share-meta.js";
 import express from "express";
 import net from "net";
 import { fileURLToPath } from "node:url";
@@ -212,9 +213,12 @@ expressApp.use(accessGuard());
 expressApp.get("/robots.txt", (_req, res) => res.type("text/plain").set("Cache-Control", "public, max-age=86400").send("User-agent: *\nDisallow: /\n"));
 // Crawlers that say who they are get nothing past robots.txt, not even the sign-in page.
 expressApp.use(noCrawl());
-// The share image: link previews fetch it without signing in.
-const OG_IMAGE = fileURLToPath(new URL("./views/assets/og-image.png", import.meta.url));
-expressApp.get("/assets/og-image.png", (_req, res) => res.sendFile(OG_IMAGE, { maxAge: "1d" }));
+// The share images, one per language: link previews fetch them without signing in.
+for (const lang of SHARE_LANGS) {
+  const where = shareImagePath(lang);
+  const file = fileURLToPath(new URL(`./views${where}`, import.meta.url));
+  expressApp.get(where, (_req, res) => res.sendFile(file, { maxAge: "1d" }));
+}
 // First run: until an admin account exists, browsers are sent to /setup.
 expressApp.use(setupRouter());
 
