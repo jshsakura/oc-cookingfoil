@@ -214,6 +214,13 @@ const SYSTEMS = {
     names: { en: "Tamagotchi", ko: "다마고치", ja: "たまごっち", zh: "拓麻歌子" },
     extensions: [".b", ".bin"], core: "tamalibretro", coreName: "TamaLIBretro", folder: "Bandai - Tamagotchi P1",
   },
+  // A ScummVM game is a folder of the original game's files with a small
+  // <name>.scummvm file in it; the whole folder goes to the console (catalog.js).
+  scummvm: {
+    names: { en: "ScummVM", ko: "ScummVM (어드벤처)", ja: "ScummVM", zh: "ScummVM" },
+    extensions: [".scummvm"], core: "scummvm", coreName: "ScummVM", bezelDir: "ScummVM", folder: "ScummVM",
+    libretro: "ScummVM",
+  },
 };
 
 

@@ -17,6 +17,9 @@
  * "game name" is the ROM file name without its extension, which is also what
  * RetroArch calls the content when it looks for per-game configs.
  *
+ * A ScummVM game: its .scummvm file sits in the game's own folder, and every file
+ * of that folder (and below it) rides along, since ScummVM finds its data there.
+ *
  * Disc images: a .cue or .m3u lists the files it needs; those ride along in
  * the game's bundle and count toward its size, but are not listed on their own.
  * Discs named "… (Disc 1)" / "… [K Disc 2]" in one folder become one game with
@@ -120,6 +123,36 @@ async function listFiles(root, rel = "", depth = 1, out = []) {
   return out;
 }
 
+const GAME_FOLDER_MAX_FILES = 5000;
+const GAME_FOLDER_MAX_DEPTH = 6;
+
+/**
+ * Every file in the folder of `rel`, below it too (relative to `romsDir`, "/"-separated),
+ * except `rel` itself and hidden or non-regular files. For a game made of a folder of files
+ * (ScummVM) rather than one ROM; empty when the file is not inside a folder of its own.
+ */
+async function folderFilesOf(romsDir, rel) {
+  const base = path.posix.dirname(rel);
+  if (base === ".") return [];
+  const out = [];
+  const walk = async (dirRel, depth) => {
+    let entries;
+    try {
+      entries = await fsp.readdir(path.join(romsDir, dirRel), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      if (e.name.startsWith(".") || out.length >= GAME_FOLDER_MAX_FILES) continue;
+      const childRel = `${dirRel}/${e.name}`;
+      if (e.isDirectory() && depth < GAME_FOLDER_MAX_DEPTH) await walk(childRel, depth + 1);
+      else if (e.isFile() && childRel !== rel) out.push(childRel);
+    }
+  };
+  await walk(base, 1);
+  return out;
+}
+
 /** <dir>/<sub>/<folder> when it is a folder, else null. */
 async function systemDir(dir, sub, folder) {
   const abs = path.join(dir, sub, folder);
@@ -167,6 +200,12 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
       const refRel = path.posix.join(path.posix.dirname(rel), ref.replaceAll("\\", "/"));
       const refSt = await statFile(path.join(romsDir, refRel));
       if (refSt) extras.push({ abs: path.join(romsDir, refRel), rel: refRel, size: refSt.size, mtimeMs: refSt.mtimeMs });
+    }
+  }
+  if (ext === ".scummvm") {
+    for (const fileRel of await folderFilesOf(romsDir, rel)) {
+      const fileSt = await statFile(path.join(romsDir, fileRel));
+      if (fileSt) extras.push({ abs: path.join(romsDir, fileRel), rel: fileRel, size: fileSt.size, mtimeMs: fileSt.mtimeMs });
     }
   }
   const thumbName = name.replace(THUMB_UNSAFE_RE, "_");
