@@ -88,7 +88,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
         const title = install_type === "title";
         const app = title ? null : (install_path ?? installPathFor(file_name)).split("/")[1];
         return {
-          id, app, name, version, author, size, kind, cores: forwarder_cores ?? 3, enabled: enabled !== false, source, repo_url,
+          id, app, name, version, author, size, kind, cores: forwarder_cores ?? 4, enabled: enabled !== false, source, repo_url,
           install_type: title ? "title" : "file", title_id: title ? title_id : null,
           ...media.urls(id), media: { banner: media.record(id).banner?.source ?? null, shots: media.record(id).shots?.source ?? null },
           patches: (app && extras.get(app)?.patches) || [],

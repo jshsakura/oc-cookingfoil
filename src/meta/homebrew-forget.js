@@ -18,7 +18,7 @@ export async function forgetExtras(id) {
     () => media.forget(key),
     () => descriptions.reset(key),
     () => kinds.set(key, "tool"),
-    () => cores.set(key, 3),
+    () => cores.set(key, 4),
     () => disabled.setEnabled(key, true),
   ];
   for (const step of steps) {

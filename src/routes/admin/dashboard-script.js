@@ -506,12 +506,11 @@ function hbKind(id,kind){const sel=el('select');sel.setAttribute('aria-label','�
   for(const [v,t] of [['tool','도구'],['port','포트']]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
   sel.addEventListener('change',async()=>{try{await api('/admin/api/homebrew/kind',{method:'POST',body:{id,kind:sel.value}});toast(sel.value==='port'?'포트로 옮겼습니다.':'도구로 옮겼습니다.');}catch(err){toast(err.message);loadHomebrew();}});
   return sel;}
-// CPU cores for the app's HOME-menu shortcut: 4 only for an app that starts a thread on core 3.
+// CPU cores for the app's HOME-menu shortcut: 4 (the default) lets it start a thread on core 3.
 function hbCores(id,cores,name){const sel=el('select','', 'hb-cores');sel.setAttribute('aria-label',name+' 바로가기 CPU 코어');
-  for(const [v,t] of [[3,'코어 3 (기본)'],[4,'코어 4']]){const o=el('option',t);o.value=String(v);if(v===cores)o.selected=true;sel.append(o);}
+  for(const [v,t] of [[4,'코어 4 (기본)'],[3,'코어 3']]){const o=el('option',t);o.value=String(v);if(v===cores)o.selected=true;sel.append(o);}
   sel.addEventListener('change',async()=>{const want=Number(sel.value);
-    if(want===4&&!await ask('코어 3 은 시스템 서비스와 같이 씁니다. 코어 3 에 스레드를 만드는 앱에만 켭니다. 아무 앱에나 켜면 기기가 느려지거나 불안정할 수 있습니다.')){sel.value='3';return;}
-    try{await api('/admin/api/homebrew/cores',{method:'POST',body:{id,cores:want}});toast(want===4?'바로가기를 코어 4 로 다시 만듭니다.':'바로가기를 기본 코어로 다시 만듭니다.');}catch(err){toast(err.message);loadHomebrew();}});
+    try{await api('/admin/api/homebrew/cores',{method:'POST',body:{id,cores:want}});toast(want===4?'바로가기를 기본 코어(0~3)로 다시 만듭니다.':'바로가기를 코어 0~2 로 다시 만듭니다.');}catch(err){toast(err.message);loadHomebrew();}});
   return sel;}
 let hbDescId=null;
 function editHbDesc(id,name,d){hbDescId=id;
