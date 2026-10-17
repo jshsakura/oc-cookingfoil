@@ -17,8 +17,10 @@
  * "game name" is the ROM file name without its extension, which is also what
  * RetroArch calls the content when it looks for per-game configs.
  *
- * A ScummVM game: its .scummvm file sits in the game's own folder, and every file
- * of that folder (and below it) rides along, since ScummVM finds its data there.
+ * A ScummVM game: <id>/<id>.scummvm, the id being ScummVM's game id (monkey2),
+ * which the file also holds (RetroArch's ScummVM core reads it). Every file of
+ * that folder (and below it) rides along, since ScummVM finds its data there. The
+ * id is the game's name; its title is given like any game's (retro/names.js).
  *
  * Disc images: a .cue or .m3u lists the files it needs; those ride along in
  * the game's bundle and count toward its size, but are not listed on their own.
@@ -154,17 +156,6 @@ async function folderFilesOf(romsDir, rel) {
   return out;
 }
 
-/**
- * The ScummVM game id a .scummvm file names ("monkey2", or "scumm:monkey2"):
- * lower-case letters, digits and - _ only, or null. It names the game's SD
- * folder, apart from the title shown.
- */
-async function scummvmIdOf(abs) {
-  const text = await fsp.readFile(abs, "utf8").catch(() => "");
-  const id = text.split(/\r?\n/)[0].trim().split(":").pop().toLowerCase();
-  return /^[a-z0-9][a-z0-9_-]{0,39}$/.test(id) ? id : null;
-}
-
 /** <dir>/<sub>/<folder> when it is a folder, else null. */
 async function systemDir(dir, sub, folder) {
   const abs = path.join(dir, sub, folder);
@@ -214,9 +205,7 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
       if (refSt) extras.push({ abs: path.join(romsDir, refRel), rel: refRel, size: refSt.size, mtimeMs: refSt.mtimeMs });
     }
   }
-  let scummvmId = null;
   if (ext === ".scummvm") {
-    scummvmId = await scummvmIdOf(abs);
     for (const fileRel of await folderFilesOf(romsDir, rel)) {
       const fileSt = await statFile(path.join(romsDir, fileRel));
       if (fileSt) extras.push({ abs: path.join(romsDir, fileRel), rel: fileRel, size: fileSt.size, mtimeMs: fileSt.mtimeMs });
@@ -237,7 +226,6 @@ async function readGame({ systemId, system, romsDir, art }, rel) {
     mtimeMs: st.mtimeMs,
     extras,
     core: system.core,
-    ...(scummvmId ? { scummvmId } : {}),
     icon: await firstIn(art.thumbs, [name, thumbName]),
     bezel: await findBezel(art.bezels, name),
   };
