@@ -85,6 +85,7 @@ function renderLogin(req, res, { status = 200, next, error = null }) {
     googleEmail: google?.email ?? null,
     passwords: accountPasswordsOk(req),
     error,
+    origin: resolveOrigin(req, publicBaseUrl),
   }));
 }
 
