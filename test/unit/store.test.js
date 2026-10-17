@@ -437,3 +437,16 @@ test("steady changes cannot put the save off for ever: it happens within the lon
   assert.ok(Date.now() - started < 6500, `saved after ${Date.now() - started} ms`);
   store.clearFailure(ip);
 });
+
+test("a waiting console's address and app are shown to the admin from memory, and go when it is dismissed", () => {
+  const dk = "FFFF000000000000000000000000000000000000000000000000000000006F";
+  store.recordPendingDevice(dk, { quiet: true, from: { ip: "192.0.2.10", agent: "CyberFoil/1.2" } });
+  const p = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
+  assert.deepEqual({ ip: p.from.ip, place: p.from.place, app: p.from.app, accounts: p.from.accounts }, { ip: "192.0.2.10", place: "집 밖", app: "CyberFoil/1.2", accounts: [] });
+  assert.equal(JSON.stringify(readPersisted()).includes("192.0.2.10"), false, "never written to disk");
+  store.revokeDevice(dk);
+  assert.equal(store.devicesSnapshot().pending.some((x) => x.deviceKey === dk), false);
+  store.recordPendingDevice(dk, { quiet: true });
+  assert.equal("from" in store.devicesSnapshot().pending.find((x) => x.deviceKey === dk), false, "a request without an address shows none");
+  store.revokeDevice(dk);
+});
