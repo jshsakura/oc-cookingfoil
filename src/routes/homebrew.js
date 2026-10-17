@@ -91,6 +91,7 @@ import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
 import * as sources from "../meta/homebrew-sources.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
+import * as nroIcon from "../meta/homebrew-nro-icon.js";
 import { iconVariant } from "../meta/icon-variant.js";
 import { ART_PIPELINE } from "../meta/artwork-version.js";
 import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
@@ -205,11 +206,73 @@ const forwarderApp = (e) => ({
  * Builds an app's shortcut again after its icon changed on the web, so the next
  * download carries the new picture (same title ID). Never throws.
  */
-export function rebuildHomebrewShortcut(id) {
-  if (!forwardersAvailable(keysDir)) return Promise.resolve(null);
+export async function rebuildHomebrewShortcut(id) {
+  // The .nro with the new icon first (or none, the icon gone): the shortcut and the app then match.
+  if (!media.iconVersion(id)) await nroIcon.dropOlder(id);
+  else await iconNro(id);
+  if (!forwardersAvailable(keysDir)) return null;
   return defaultService.forwarder(id)
     .then((built) => { if (built) debug.log("homebrew: shortcut for %s built again", id); return built; })
     .catch((err) => { debug.error("homebrew: shortcut for %s: %s", id, err.message); return null; });
+}
+
+const isNro = (p) => /\.nro$/i.test(p ?? "");
+
+/** The app's .nro on this server as { path, rel }: rel is its path in a folder install, null for a single file. */
+async function nroSource(id) {
+  if (id.startsWith("m-")) {
+    const e = (await manualEntries()).find((x) => x.id === id);
+    if (!e || e.archive) return null;
+    if (e.files) {
+      const f = e.files.find((x) => isNro(x.path) && path.posix.basename(x.path) === e.file_name);
+      return f ? { path: f.abs, rel: f.path } : null;
+    }
+    return isNro(e.path) ? { path: e.path, rel: null } : null;
+  }
+  const e = githubTracker().entries().find((x) => x.id === id);
+  if (!e) return null;
+  const pkg = githubTracker().packageFiles(id);
+  if (pkg) {
+    const f = pkg.find((x) => isNro(x.path) && path.posix.basename(x.path) === e.file_name);
+    return f ? { path: f.abs, rel: f.path } : null;
+  }
+  const file = githubTracker().cachedPath(id);
+  return isNro(file) ? { path: file, rel: null } : null;
+}
+
+/**
+ * The app's .nro with the uploaded icon in it ({ path, size, sha256, rel }), made
+ * now when it is missing, or null when the app keeps its own icon. What the list
+ * says and what is sent are both this copy, so they always agree.
+ */
+async function iconNro(id) {
+  const version = media.iconVersion(id);
+  if (!version || !fs.existsSync(media.iconPath(id))) return null;
+  const src = await nroSource(id);
+  if (!src) return null;
+  let st;
+  try {
+    st = fs.statSync(src.path);
+  } catch {
+    return null;
+  }
+  const key = crypto.createHash("sha256").update(`${src.path}\0${st.size}\0${st.mtimeMs}`).digest("hex");
+  const copy = await nroIcon.ensureCopy(id, src.path, key, media.iconPath(id), version).catch((err) => {
+    debug.error("homebrew: icon for %s's .nro: %s", id, err.message);
+    return null;
+  });
+  return copy ? { ...copy, rel: src.rel } : null;
+}
+
+/** An entry as listed, its .nro's size and sha256 (and `hash`) those of the copy with the uploaded icon. */
+async function withIconNro(e) {
+  if (e.install_type === "title" || e.archive) return e;
+  const copy = await iconNro(e.id);
+  if (!copy) return e;
+  if (copy.rel) {
+    return { ...e, size: copy.size, hash: copy.sha256, files: e.files?.map((f) => (f.path === copy.rel ? { ...f, size: copy.size, sha256: copy.sha256 } : f)) ?? e.files };
+  }
+  return { ...e, size: copy.size, hash: copy.sha256 };
 }
 
 /** The service backed by this server's folders and repositories. */
@@ -220,7 +283,7 @@ export const defaultService = {
       files: e.files ? e.files.map(({ abs: _a, key: _k, ...f }) => f) : null,
       ...(e.archive ? { archive: (({ abs: _a, key: _k, ...a }) => a)(e.archive) } : {}),
     }));
-    const entries = [...githubTracker().entries(), ...manualList];
+    const entries = await Promise.all([...githubTracker().entries(), ...manualList].map(withIconNro));
     return entries.map((e) => ({ ...e, description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), enabled: !disabled.isDisabled(e.id) }));
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
@@ -252,6 +315,11 @@ export const defaultService = {
     return (await parseAssets(file).catch(() => null))?.icon ?? null;
   },
   async download(id) {
+    const copy = await iconNro(id);
+    if (copy) {
+      const e = id.startsWith("m-") ? (await manualEntries()).find((x) => x.id === id) : githubTracker().entries().find((x) => x.id === id);
+      if (e) return { path: copy.path, sha256: copy.sha256, file_name: e.file_name, key: null };
+    }
     if (id.startsWith("m-")) {
       const e = (await manualEntries()).find((x) => x.id === id);
       return e ? { path: e.path, sha256: e.sha256, file_name: e.file_name, key: e.key ?? null } : null;
@@ -267,12 +335,17 @@ export const defaultService = {
   },
   /** Every file of a folder install as { path, size, sha256, abs }, in listed order, or null. */
   async bundle(id) {
-    if (!id.startsWith("m-")) return githubTracker().packageFiles(id);
-    const files = (await manualEntries()).find((x) => x.id === id)?.files;
-    return files ? files.map(({ path: p, size, sha256, abs, key }) => ({ path: p, size, sha256, abs, key })) : null;
+    const files = id.startsWith("m-")
+      ? (await manualEntries()).find((x) => x.id === id)?.files?.map(({ path: p, size, sha256, abs, key }) => ({ path: p, size, sha256, abs, key }))
+      : githubTracker().packageFiles(id);
+    if (!files) return null;
+    const copy = await iconNro(id);
+    return copy?.rel ? files.map((f) => (f.path === copy.rel ? { path: f.path, size: copy.size, sha256: copy.sha256, abs: copy.path, key: null } : f)) : files;
   },
   /** One file of a folder install, or null. */
   async file(id, relPath) {
+    const copy = isNro(relPath) ? await iconNro(id) : null;
+    if (copy?.rel === relPath) return { path: copy.path, sha256: copy.sha256, size: copy.size };
     if (!id.startsWith("m-")) return githubTracker().packageFile(id, relPath);
     const f = (await manualEntries()).find((x) => x.id === id)?.files?.find((x) => x.path === relPath);
     return f ? { path: f.abs, sha256: f.sha256, size: f.size } : null;

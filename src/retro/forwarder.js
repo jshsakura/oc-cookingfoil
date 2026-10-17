@@ -163,7 +163,7 @@ export function forwarderSpec(game) {
 export const forwarderPath = (outDir, gameId, spec) => path.join(outDir, `${gameId}-${spec.key}.nsp`);
 
 /** The 256-px icon as a baseline JPEG without metadata, as the HOME menu wants it. */
-async function iconJpeg(src) {
+export async function iconJpeg(src) {
   for (const quality of [90, 80, 70]) {
     const buf = await sharp(src, { failOn: "none" })
       .resize(256, 256, { fit: "cover" })
