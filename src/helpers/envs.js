@@ -345,6 +345,9 @@ let titledbRegions = envString("COOK_TITLEDB_REGIONS", "").split(",").map((s) =>
 // Where titledb is read from: a base address holding <region>.json files. Empty is
 // blawar/titledb itself; a fork or mirror goes here if that one ever stops.
 let titledbSource = envString("COOK_TITLEDB_URL", "").trim().replace(/\/+$/, "");
+// The GitHub repository whose client-latest release carries the client build
+// (meta/client-release.js). Set but empty follows nothing, so it is read as is.
+let clientReleaseRepo = (process.env.COOK_CLIENT_RELEASE_REPO ?? "jshsakura/oc-cookingfoil").trim();
 // How many connections one console may open for one download (Range requests
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
 // download.maxConnections), not enforced: the client opens up to this many.
@@ -426,6 +429,7 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   retroMeta,
   welcomeMessage,
+  clientReleaseRepo,
   downloadMaxConnections,
   publicDirectBaseUrl: envDirectBaseUrl || "",
   directDownloads,
@@ -471,6 +475,7 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
   welcomeMessage = v.welcomeMessage || null;
+  clientReleaseRepo = v.clientReleaseRepo;
   downloadMaxConnections = v.downloadMaxConnections;
   directDownloads = v.directDownloads;
   publicDirectBaseUrl = v.directDownloads && v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
@@ -512,6 +517,7 @@ export {
   syncHours,
   verifyHours,
   applyServerSettings,
+  clientReleaseRepo,
   titledbAutoFetch,
   titledbRegions,
   titledbSource,
