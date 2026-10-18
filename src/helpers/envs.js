@@ -359,7 +359,7 @@ let nszMinSizeMb = envNumber("COOK_NSZ_MIN_SIZE_MB", 100, { min: 1, max: 1048576
 let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 0, { min: 0, max: 1048576, integer: true });
 // nsz -B: block compression instead of solid. Off: the client is as fast with solid files.
 let nszBlock = envBool("COOK_NSZ_BLOCK", false);
-// .xci to .xcz as well. Off: the client's .xcz install is not verified on a device yet.
+// .xci to .xcz as well.
 let nszXci = envBool("COOK_NSZ_XCI", false);
 // Daily backups of the security database and the hand-kept files (db/backup.js), kept this many days; 0 makes none.
 let backupDays = envNumber("COOK_BACKUP_DAYS", 14, { min: 0, max: 365, integer: true });
