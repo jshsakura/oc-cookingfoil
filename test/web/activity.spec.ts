@@ -92,3 +92,28 @@ test('a job that can be stopped gets a stop button that asks first, then posts t
   await page.locator('#ask-ok').click();
   await expect.poll(() => posted).toEqual(['/admin/api/activity/a7/cancel']);
 });
+
+test('the stop button takes every press while live updates arrive', async ({ page }) => {
+  // A row taken out of the page between press and release loses the click: with frames every
+  // 200 ms, a re-drawn list let only about one press in five through.
+  const started = Date.now() - 5000;
+  let n = 0;
+  const job = () => ({ id: 'a9', kind: 'nsz', title: 'NSZ 로 변환합니다', detail: 'Test Game.nsp', current: ++n * 1e6, total: 6e9, startedAt: started, state: 'running', cancellable: true });
+  await page.routeWebSocket(/\/admin\/ws$/, (ws) => {
+    const t = setInterval(() => { try { ws.send(JSON.stringify({ type: 'activity', running: [job()], recent: [] })); } catch { clearInterval(t); } }, 200);
+  });
+  await signIn(page);
+  await page.getByRole('button', { name: /서버 활동/ }).click();
+  const stop = page.locator('#act-running .act-row').getByRole('button', { name: '중지' });
+  await expect(stop).toBeVisible();
+  for (let i = 0; i < 5; i++) {
+    const box = (await stop.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    await page.mouse.up();
+    await expect(page.locator('#ask-text')).toHaveText('이 작업을 중지할까요?');
+    await page.locator('#ask-no').click();
+    if (await page.locator('#act-pop').isHidden()) await page.getByRole('button', { name: /서버 활동/ }).click();
+  }
+});
