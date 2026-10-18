@@ -23,6 +23,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import * as env from "../helpers/envs.js";
+import { requestLang } from "../meta/categories.js";
 
 export const RESTART_HEADER = "X-CookingFoil-Restarting";
 
@@ -70,9 +71,33 @@ function exempt(raw) {
   return p === "/healthz" || p.startsWith("/admin/api/server/");
 }
 
-const page = (seconds) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
-<title>CookingFoil</title><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;color:#55555E">
-<p>${MESSAGE.ko}<br>${MESSAGE.en}</p></body>`;
+// What a browser is told, in its own language: it waits on this page, which reloads itself.
+const PAGE_TEXT = Object.freeze({
+  ko: ["서버를 다시 시작하고 있습니다", "잠시 뒤 이 페이지를 다시 엽니다."],
+  en: ["The server is restarting", "This page reloads in a moment."],
+  ja: ["サーバーを再起動しています", "まもなくこのページを再読み込みします。"],
+  zh: ["伺服器正在重新啟動", "稍後會自動重新載入此頁面。"],
+});
+
+// Self-contained: while the server drains, its stylesheets and fonts are refused too.
+const page = (seconds, lang) => {
+  const [title, body] = PAGE_TEXT[lang] ?? PAGE_TEXT.en;
+  return `<!doctype html><html lang="${lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
+<title>CookingFoil</title><style>
+:root{--ground:#f2f1ee;--surface:#fff;--ink:#16161a;--secondary:#55555e;--line:#e2e0da;--butter:#ffc23d;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--ground:#16161a;--surface:#1f1f24;--ink:#f2f1ee;--secondary:#a9a8a3;--line:#303037}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--ground);color:var(--ink);
+font-family:Inter,"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{width:100%;max-width:400px;padding:36px 28px;border:1px solid var(--line);border-radius:18px;background:var(--surface);text-align:center}
+.brand{font-weight:800;letter-spacing:-.01em;font-size:15px;color:var(--secondary)}
+.spin{width:40px;height:40px;margin:24px auto;border-radius:50%;border:4px solid var(--line);border-top-color:var(--butter);animation:r 1s linear infinite}
+@keyframes r{to{transform:rotate(1turn)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-color:var(--butter)}}
+h1{margin:0 0 8px;font-size:20px;line-height:1.35}
+p{margin:0;color:var(--secondary);font-size:15px;line-height:1.5}
+</style><main><div class="brand">CookingFoil</div><div class="spin" aria-hidden="true"></div><h1>${title}</h1><p>${body}</p></main></html>`;
+};
 
 /**
  * One drain controller. `retryAfter` and `grace` return seconds; they are read
@@ -140,7 +165,7 @@ export function createDrainer({ retryAfter = () => env.restartRetryAfter, grace 
       "Cache-Control": "no-store",
       [RESTART_HEADER]: headerValue(),
     });
-    if ((req.headers.accept || "").includes("text/html")) return res.status(503).type("html").send(page(state.retryAfter));
+    if ((req.headers.accept || "").includes("text/html")) return res.status(503).type("html").send(page(state.retryAfter, requestLang(req)));
     res.status(503).json(notice());
   }
 
