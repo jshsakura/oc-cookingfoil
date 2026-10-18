@@ -60,7 +60,6 @@ function startSplash(langListeners) {
   const butter = document.querySelector("#butter .butter");
   const bar = document.getElementById("bar");
   const line = document.getElementById("line");
-  const chimeBtn = document.getElementById("chime");
   if (!butter || !bar || !line) return;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -91,23 +90,25 @@ function startSplash(langListeners) {
   if (still) setInterval(next, 4000);
   else bar.addEventListener("animationiteration", next);
 
+  // The chime rings on a landing once per visit. A browser that blocks sound before the
+  // first gesture gets it on the landing after the first click or key press instead.
   const audio = new Audio();
-  audio.preload = "none";
+  audio.preload = "auto";
   audio.src = audio.canPlayType("audio/ogg; codecs=vorbis") ? "sound/start-chime.ogg" : "sound/start-chime.mp3";
-  let armed = false;
+  const seen = () => { try { return sessionStorage.getItem("chimed") === "1"; } catch { return false; } };
+  const mark = () => { try { sessionStorage.setItem("chimed", "1"); } catch { /* private mode */ } };
+  let armed = !seen();
+  const gesture = ["pointerdown", "keydown", "touchstart"];
+  const onGesture = () => { for (const e of gesture) removeEventListener(e, onGesture, true); armed = true; if (still) ring(); };
   const ring = () => {
     armed = false;
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().then(mark, (err) => {
+      if (err?.name !== "NotAllowedError") return;
+      for (const e of gesture) addEventListener(e, onGesture, { capture: true, once: true });
+    });
   };
-  const arm = () => {
-    audio.load();
-    if (still) ring();
-    else armed = true;
-  };
+  if (still && armed) ring();
   butter.addEventListener("animationiteration", () => { if (armed) ring(); });
-  audio.addEventListener("play", () => chimeBtn?.setAttribute("aria-pressed", "true"));
-  audio.addEventListener("ended", () => chimeBtn?.setAttribute("aria-pressed", "false"));
-  document.getElementById("butter").addEventListener("click", arm);
-  chimeBtn?.addEventListener("click", arm);
+  document.getElementById("butter").addEventListener("click", () => { armed = true; if (still) ring(); });
 }

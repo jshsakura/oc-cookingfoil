@@ -45,7 +45,7 @@ code{font:500 13px "JetBrains Mono",ui-monospace,SFMono-Regular,monospace;backgr
 @keyframes float{50%{transform:translateY(-8px)}}
 .splash{display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 20px;border-radius:24px;background:var(--ground)}
 .stage{position:relative;width:180px;height:170px;border:0;padding:0;background:none;cursor:pointer;display:block}
-.stage:focus-visible,.chime:focus-visible{outline:3px solid var(--butter);outline-offset:4px;border-radius:16px}
+.stage:focus-visible{outline:3px solid var(--butter);outline-offset:4px;border-radius:16px}
 .butter{position:absolute;left:20px;bottom:18px;width:140px;height:140px;transform-origin:50% 78%;animation:bounce 1s cubic-bezier(.3,0,.7,1) infinite}
 .shadow{position:absolute;left:50%;bottom:8px;width:96px;height:12px;margin-left:-48px;border-radius:50%;background:rgba(var(--shadow-rgb),.14);animation:shadow 1s cubic-bezier(.3,0,.7,1) infinite}
 @keyframes bounce{0%{transform:translateY(0) scale(1.14,.84)}12%{transform:translateY(-10px) scale(.94,1.08)}50%{transform:translateY(-58px) scale(1,1)}88%{transform:translateY(-6px) scale(.96,1.05)}100%{transform:translateY(0) scale(1.14,.84)}}
@@ -56,8 +56,6 @@ code{font:500 13px "JetBrains Mono",ui-monospace,SFMono-Regular,monospace;backgr
 .line{margin:0;min-height:3.2em;max-width:300px;text-align:center;font-weight:700;font-size:16px;line-height:1.6;color:var(--ink);display:grid;place-items:center}
 .line.swap{animation:pop .35s cubic-bezier(.3,1.6,.6,1)}
 @keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:none;opacity:1}}
-.chime{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--line2);border-radius:100px;background:var(--surface);color:var(--secondary);font:600 13px inherit;font-family:inherit;cursor:pointer}
-.chime:hover{color:var(--ink);border-color:var(--ink)}.chime[aria-pressed="true"]{background:var(--butter);border-color:var(--butter);color:var(--butter-ink)}
 .hero-info{min-width:0}
 .eyebrow{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--butter-deep)}
 .hero h1.wm{margin:0 0 6px;font-size:clamp(46px,6.4vw,84px);letter-spacing:-.03em;line-height:1;padding-top:0}
