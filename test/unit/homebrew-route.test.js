@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { homebrewRouter } from "../../src/routes/homebrew.js";
+import { homebrewRouter, readsFilesUrl } from "../../src/routes/homebrew.js";
 
 const ID = "gh-0123456789ab";
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -120,6 +120,44 @@ test("the listing names where each app goes and, for a folder install, every fil
     assert.equal(await got.text(), "font");
     assert.equal((await fetch(`${base}/${ID}/file?path=switch/acnh_editor/../../etc/passwd`)).status, 404);
     assert.equal((await fetch(`${base}/${ID}/file`)).status, 404);
+  } finally {
+    close();
+  }
+});
+
+test("CookingFoil 0.3.191 and later read a folder install's files from files_url", () => {
+  for (const ua of ["CookingFoil/0.3.191", "CookingFoil/0.3.200", "CookingFoil/0.4.0", "CookingFoil/1.0.0"]) assert.equal(readsFilesUrl(ua), true, ua);
+  for (const ua of ["CookingFoil/0.3.190", "CookingFoil/0.3.72", "CookingFoil/0.2.999", "Mozilla/5.0", "", undefined]) assert.equal(readsFilesUrl(ua), false, String(ua));
+});
+
+test("a new client gets a folder install's file count and size in the list and its files from files_url", async () => {
+  const files = [{ path: "switch/zelda3/zelda3.nro", size: 9, sha256: "a".repeat(64) }, { path: "switch/zelda3/data/a b.bin", size: 4, sha256: "b".repeat(64) }];
+  const folder = {
+    ...fakeService(fs.mkdtempSync(path.join(os.tmpdir(), "hb-route-"))),
+    list: async () => [
+      { id: ID, name: "Zelda3", file_name: "zelda3.nro", hash: "h1", size: 9, install_dir: "switch/zelda3", install_path: "switch/zelda3/zelda3.nro", files },
+      { id: "m-0123456789ab", name: "Plain", file_name: "ftpd.nro", hash: "h2", size: 3 },
+    ],
+  };
+  const { base, close } = await serve(folder);
+  const list = async (ua) => (await (await fetch(base, { headers: { "User-Agent": ua } })).json()).homebrew;
+  try {
+    const [zelda, plain] = await list("CookingFoil/0.3.191");
+    assert.equal("files" in zelda, false);
+    assert.deepEqual([zelda.files_count, zelda.files_size, zelda.files_url, zelda.bundle_url, zelda.install_path, zelda.hash],
+      [2, 13, `/api/homebrew/${ID}/files`, `/api/homebrew/${ID}/bundle`, "switch/zelda3/zelda3.nro", "h1"]);
+    assert.deepEqual([plain.files, plain.files_count], [null, undefined]);
+
+    const [old] = await list("CookingFoil/0.3.190");
+    assert.equal(old.files.length, 2);
+    assert.equal(old.files_count, 2);
+
+    const res = await fetch(`http://127.0.0.1:${new URL(base).port}${zelda.files_url}`);
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).files, old.files);
+    assert.equal(old.files[1].url, `/api/homebrew/${ID}/file?path=switch%2Fzelda3%2Fdata%2Fa%20b.bin`);
+    assert.equal((await fetch(`${base}/m-0123456789ab/files`)).status, 404);
+    assert.equal((await fetch(`${base}/m-ffffffffffff/files`)).status, 404);
   } finally {
     close();
   }

@@ -8,6 +8,7 @@
  *                                  `public, max-age=300` with an ETag
  * GET /api/homebrew/:id/download   the .nro, or the .nsp of a title (Content-Length, Range, ETag = its sha256)
  * GET /api/homebrew/:id/file?path=  one file of a folder install, by its listed path
+ * GET /api/homebrew/:id/files      { files: [{ path, size, sha256, url }] } of a folder install, as the list has them
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
  * GET /api/homebrew/:id/archive    the zip of an app the admin keeps zipped, as it is (Range, ETag = its sha256)
  * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
@@ -48,6 +49,11 @@
  * of that folder as { path, size, sha256, url }, the .nro among them, and
  * `install_dir` is that folder; `download_url` still serves just the .nro, so a
  * client that ignores `files` keeps working.
+ *
+ * A folder install also carries `files_count`, `files_size` (what its files put
+ * on the card) and `files_url`. CookingFoil 0.3.191 and later (by User-Agent) get
+ * no `files` in the list: thousands of entries (a port's data) would not fit the
+ * console's heap, so it reads them from files_url just before installing.
  *
  * `bundle_url` (null for a single .nro) sends the same files in one request, in
  * `files` order after their folders, so a console over a slow round trip does not
@@ -442,6 +448,20 @@ async function unchanged(files) {
 /** A URL field, on the direct address when `link` is set; a null URL stays null. */
 const withDirect = (name, url, link) => ({ [name]: directUrl(url, link) });
 
+/** A folder install's files, each with the address it is fetched from. Pure. */
+const fileListOf = (e, link) => e.files.map((f) => ({ ...f, ...withDirect("url", `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}`, link) }));
+
+/** The first CookingFoil that reads a folder install's files from files_url instead of the list. */
+const LAZY_FILES_SINCE = [0, 3, 191];
+/** Whether this client takes files_url in place of `files`: CookingFoil 0.3.191 or later. Pure. */
+export function readsFilesUrl(agent) {
+  const m = /CookingFoil\/(\d+)\.(\d+)\.(\d+)/.exec(agent ?? "");
+  if (!m) return false;
+  const v = m.slice(1).map(Number);
+  const i = v.findIndex((n, k) => n !== LAZY_FILES_SINCE[k]);
+  return i === -1 || v[i] > LAZY_FILES_SINCE[i];
+}
+
 /** The forwarder fields with forwarder_url on the direct address when `link` is set. Pure. */
 const forwarderWithDirect = ({ forwarder_url: url, ...rest }, link) => ({ ...withDirect("forwarder_url", url, link), ...rest });
 
@@ -472,6 +492,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
     // An app the admin turned off is left out. Installable titles (.nsp) go only to a client that
     // asks for them (?with=titles): an older one would copy the file to sdmc:/switch/ instead.
     const titles = String(req.query.with ?? "").split(",").includes("titles");
+    const lazy = readsFilesUrl(req.get("user-agent"));
     const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => e.install_type === "title" ? {
       description: null,
       install_dir: null,
@@ -489,11 +510,12 @@ export function homebrewRouter({ service = defaultService } = {}) {
       install_dir: null,
       install_type: "file",
       title_id: null,
-      ...e,
+      ...(e.files && lazy ? (({ files: _f, ...rest }) => rest)(e) : e),
       install_path: e.install_path ?? installPathFor(e.file_name),
       // Its switch/<app>/ folder name: what its patches and saves are filed under (`homebrew` on them).
       app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1],
-      files: e.files ? e.files.map((f) => ({ ...f, ...withDirect("url", `/api/homebrew/${e.id}/file?path=${encodeURIComponent(f.path)}`, link) })) : null,
+      ...(e.files && lazy ? {} : { files: e.files ? fileListOf(e, link) : null }),
+      ...(e.files ? { files_count: e.files.length, files_size: totalSize(e), files_url: `/api/homebrew/${e.id}/files` } : {}),
       ...withDirect("bundle_url", e.files ? `/api/homebrew/${e.id}/bundle` : null, link),
       // A zip kept as it is comes whole, with which entry goes where on the card.
       ...(e.archive ? { archive: { ...e.archive, ...withDirect("url", `/api/homebrew/${e.id}/archive`, link) } } : { archive: null }),
@@ -507,7 +529,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       "Content-Type": "application/json",
       ETag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`,
       "Cache-Control": "private, max-age=0, must-revalidate",
-      Vary: "Accept-Language",
+      Vary: "Accept-Language, User-Agent",
     });
     if (req.fresh) return res.status(304).end();
     res.status(200).end(body);
@@ -565,6 +587,13 @@ export function homebrewRouter({ service = defaultService } = {}) {
     res.set({ "Cache-Control": "no-cache", ETag: `"${file.sha256}"` });
     res.attachment(path.posix.basename(req.query.path));
     res.sendFile(file.path, { etag: false, lastModified: false, acceptRanges: true });
+  }));
+
+  router.get("/:id/files", wrap(async (req, res) => {
+    const e = (await service.list()).find((x) => x.id === req.params.id && x.enabled !== false && x.install_type !== "title");
+    if (!e?.files?.length) return res.status(404).json({ error: "no folder install" });
+    res.set("Cache-Control", "no-cache");
+    res.json({ files: fileListOf(e, forRequest(req)) });
   }));
 
   router.get("/:id/archive", wrap(async (req, res) => {
