@@ -1,0 +1,341 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { generate } from "otplib";
+import { webSession } from "../support/web-session.js";
+
+// End-to-end HTTP exercise of the pairing lane against a real server process.
+// Drives the whole arc: a device knocks →
+// admin (real TOTP session) approves → device polls and receives its one-time
+// accessKey → device pulls content with (X-Device-Key + X-Access-Key) → revoke locks it
+// back out. Runs pairing as the SOLE lane (COOK_AUTH_USERS empty) so
+// deviceContentGuard enforcement is what's under test.
+
+const TOTP_SECRET = "KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU"; // valid base32, 20 bytes (≥16)
+const DEVICE_KEY = "A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90";
+const PORT = 13100 + (process.pid % 500);
+const BASE = `http://127.0.0.1:${PORT}`;
+
+function bootServer(overrides = {}) {
+  const data = mkdtempSync(path.join(tmpdir(), "cook-flow-data-"));
+  const games = path.join(data, "games");
+  mkdirSync(games, { recursive: true });
+  const child = spawn(process.execPath, ["./src/index.js"], {
+    cwd: path.join(import.meta.dirname, "../.."),
+    env: {
+      ...process.env,
+      COOK_PORT: String(PORT),
+      COOK_DATA_DIR: data,
+      COOK_GAMES_DIR: games,
+      COOK_AUTH_USERS: "", // no accounts → pairing is the sole lane
+      COOK_DEVICE_PAIRING: "true",
+      COOK_ADMIN_TOTP_SECRET: TOTP_SECRET,
+      COOK_TITLEDB_AUTO_FETCH: "false",
+      // Treat 127.0.0.1 as a real remote so the content guard actually enforces
+      // (loopback is trusted by default for dev/docker-host convenience).
+      COOK_LOCKOUT_TRUST_LOOPBACK: "false",
+      ...overrides,
+    },
+    stdio: "ignore",
+  });
+  return child;
+}
+
+async function waitReady() {
+  for (let i = 0; i < 60; i++) {
+    try {
+      const r = await fetch(`${BASE}/healthz`);
+      if (r.ok) return;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((res) => setTimeout(res, 250));
+  }
+  throw new Error("server did not become ready");
+}
+
+test("pairing lane: request → approve → deliver key → access → revoke", async () => {
+  const server = bootServer();
+  try {
+    await waitReady();
+
+    // 1) Device knocks → pending.
+    let r = await fetch(`${BASE}/api/pair/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceKey: DEVICE_KEY }),
+    });
+    assert.equal(r.status, 200);
+    const pending = await r.json();
+    assert.equal(pending.status, "pending");
+    assert.match(pending.pairUrl, /\/pair\/[a-f0-9]{32}$/);
+    assert.ok(!pending.pairUrl.includes("/admin/"), "the QR opens the signed-in user's approval page");
+    assert.ok(!pending.pairUrl.includes(DEVICE_KEY));
+
+    // 2) Content is locked before approval (sole lane, no creds) → 403.
+    for (const route of ["/api/shop/sections", "/api/title/0100000000000000", "/api/uploads", "/api/art/0100000000000000"]) {
+      r = await fetch(BASE + route, { headers: { "X-Device-Key": DEVICE_KEY } });
+      assert.equal(r.status, 403, `${route} must not bypass pairing-only approval`);
+    }
+
+    // 3) Admin mints a real TOTP session cookie.
+    const code = await generate({ secret: TOTP_SECRET });
+    r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    assert.equal(r.status, 200, "TOTP verify should succeed");
+    const setCookie = r.headers.get("set-cookie") || "";
+    const cookie = setCookie.split(";")[0];
+    assert.match(cookie, /^cf_admin=/, "should mint cf_admin cookie");
+
+    // 4) Admin approves the device.
+    r = await fetch(`${BASE}/admin/api/devices/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ deviceKey: DEVICE_KEY, label: "friend console" }),
+    });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).ok, true);
+
+    // 5) Device polls status → receives its one-time accessKey.
+    r = await fetch(`${BASE}/api/pair/status?deviceKey=${DEVICE_KEY}`);
+    const status = await r.json();
+    assert.equal(status.status, "approved");
+    assert.ok(status.accessKey, "accessKey delivered once");
+    const accessKey = status.accessKey;
+
+    // 6) Second poll no longer leaks the key (one-time delivery).
+    r = await fetch(`${BASE}/api/pair/status?deviceKey=${DEVICE_KEY}`);
+    assert.equal((await r.json()).accessKey, undefined);
+
+    // 7) Device pulls content with (device key + accessKey) → allowed.
+    r = await fetch(`${BASE}/api/shop/sections`, {
+      headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": accessKey },
+    });
+    assert.equal(r.status, 200, "approved device passes the content guard");
+
+    // 8) Wrong accessKey → blocked.
+    r = await fetch(`${BASE}/api/shop/sections`, {
+      headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": "wrong" },
+    });
+    assert.equal(r.status, 403);
+
+    // 9) Revoke → the same key no longer works.
+    r = await fetch(`${BASE}/admin/api/devices/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ deviceKey: DEVICE_KEY }),
+    });
+    assert.equal(r.status, 200);
+    r = await fetch(`${BASE}/api/shop/sections`, {
+      headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": accessKey },
+    });
+    assert.equal(r.status, 403, "revoked device is locked back out");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("pair endpoints accept the device key from the header the client already sends", async () => {
+  // oc-cookfoil-sdl stamps X-Device-Key on every request via buildCfHeaders.
+  // Requiring the query param *as well* made these endpoints fail in a way that
+  // looked like "pairing is broken" rather than "wrong parameter shape".
+  const server = bootServer();
+  try {
+    await waitReady();
+
+    let r = await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": DEVICE_KEY } });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).status, "pending", "a header-only poll still knocks");
+
+    // …and the knock reached the admin queue, so it can actually be approved.
+    const code = await generate({ secret: TOTP_SECRET });
+    r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+    r = await fetch(`${BASE}/admin/api/devices`, { headers: { Cookie: cookie } });
+    const devices = await r.json();
+    assert.ok(
+      devices.pending.some((p) => p.deviceKey === DEVICE_KEY),
+      "header-only poll must surface in the pending queue"
+    );
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("QR approval authenticates the admin and delivers the key only to the device", async () => {
+  const server = bootServer();
+  try {
+    await waitReady();
+    const headers = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    const again = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.equal(again.pairUrl, pending.pairUrl);
+    assert.match(pending.pairCode, /^[A-F0-9]{8}$/);
+    const token = pending.pairUrl.split("/").pop();
+    const endpoint = `${BASE}/admin/api/pair/${token}/approve`;
+    // No accounts on this shop, so the QR page hands over to the admin's own sign-in.
+    const page = await fetch(pending.pairUrl);
+    assert.ok(page.url.endsWith(`/admin/pair/${token}`));
+    assert.equal(page.headers.get("cache-control"), "no-store");
+    const html = await page.text();
+    assert.ok(html.includes(pending.pairCode));
+    assert.ok(!html.includes(DEVICE_KEY));
+    assert.ok(html.includes('id="verify"'));
+    let r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(r.status, 401);
+    assert.equal((await fetch(`${BASE}/admin/pair/${"0".repeat(32)}`)).status, 410);
+    const code = await generate({ secret: TOTP_SECRET });
+    r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }),
+    });
+    const cookie = r.headers.get("set-cookie").split(";")[0];
+    const auth = { "Content-Type": "application/json", Cookie: cookie };
+    assert.ok((await (await fetch(pending.pairUrl, { headers: auth })).text()).includes('id="approve"'));
+    assert.ok((await (await fetch(page.url, { headers: auth })).text()).includes('id="approve"'));
+    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: "https://other.example" }, body: "{}" });
+    assert.equal(r.status, 403);
+    r = await fetch(endpoint, { method: "POST", headers: { ...auth, Origin: BASE }, body: JSON.stringify({ label: "Living room" }) });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { ok: true });
+    r = await fetch(endpoint, { method: "POST", headers: auth, body: "{}" });
+    assert.equal(r.status, 409, "replaying the QR must not rotate the key");
+    const approvedPage = await (await fetch(page.url, { headers: auth })).text();
+    assert.ok(approvedPage.includes("서버 연결을 승인했습니다."));
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.ok(approved.accessKey);
+    assert.ok(!approvedPage.includes(approved.accessKey));
+    assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers })).json()).accessKey, undefined);
+    r = await fetch(`${BASE}/api/shop/sections`, { headers: { ...headers, "X-Access-Key": approved.accessKey } });
+    assert.equal(r.status, 200);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("a console pairs by QR on a shop with accounts, and never carries a password", async () => {
+  const server = bootServer({ COOK_AUTH_USERS: "operator:test-password" });
+  try {
+    await waitReady();
+    const deviceHeaders = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers: deviceHeaders })).json();
+    assert.equal(pending.status, "pending", "the console needs no credentials to pair");
+    const phone = await webSession(BASE, "operator", "test-password");
+    const phoneHeaders = { ...phone, "Content-Type": "application/json" };
+    const profile = await (await fetch(`${BASE}/api/client-config`, { headers: phoneHeaders })).json();
+    assert.equal(profile.servers[0].username, "");
+    assert.equal(profile.servers[0].password, "");
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: phoneHeaders, body: JSON.stringify({ code }) });
+    assert.equal(r.status, 200);
+    const admin = r.headers.getSetCookie().find((c) => c.startsWith("cf_admin="))?.split(";")[0];
+    const token = pending.pairUrl.split("/").pop();
+    r = await fetch(`${BASE}/admin/api/pair/${token}/approve`, {
+      method: "POST", headers: { ...phoneHeaders, Cookie: `${phone.Cookie}; ${admin}` }, body: "{}",
+    });
+    assert.equal(r.status, 200);
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers: deviceHeaders })).json();
+    r = await fetch(`${BASE}/api/shop/sections`, {
+      headers: { ...deviceHeaders, "X-Access-Key": approved.accessKey },
+    });
+    assert.equal(r.status, 200, "the device keys are the console's only credential");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("a refused request is visible on the admin dashboard, with a reason and a hint", async () => {
+  // The regression that started all this: content refusals left no trace, so a
+  // client that failed silently was undiagnosable from the server side.
+  const server = bootServer();
+  try {
+    await waitReady();
+
+    // A request with no device key and no credentials.
+    const refused = await fetch(`${BASE}/api/shop/sections`, { headers: { "User-Agent": "SomeClient/1.0" } });
+    assert.equal(refused.status, 403);
+    assert.equal(
+      refused.headers.get("x-cookingfoil-deny"),
+      "no-device-key",
+      "the response itself must say why"
+    );
+
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+
+    r = await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: cookie } });
+    const stats = await r.json();
+
+    const denial = stats.denials.recent.find((d) => d.reason === "no-device-key");
+    assert.ok(denial, "the refusal must appear in the denial log");
+    assert.equal(denial.path, "/api/shop/sections");
+    assert.equal(denial.ua, "SomeClient/1.0");
+    assert.match(denial.hint, /pairs by QR/, "the row must state the fix");
+    assert.ok(stats.totals.denied24h >= 1);
+
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("the admin approves a waiting console by the code on its screen", async () => {
+  const server = bootServer();
+  try {
+    await waitReady();
+    const headers = { "X-Device-Key": DEVICE_KEY };
+    const pending = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    const code = await generate({ secret: TOTP_SECRET });
+    let r = await fetch(`${BASE}/admin/verify`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }),
+    });
+    const auth = { "Content-Type": "application/json", Cookie: r.headers.get("set-cookie").split(";")[0] };
+    const devices = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(devices.pending.find((p) => p.deviceKey === DEVICE_KEY).code, pending.pairCode);
+    const approveBy = (body) => fetch(`${BASE}/admin/api/devices/approve`, { method: "POST", headers: auth, body: JSON.stringify(body) });
+    assert.equal((await approveBy({ code: "00000000" })).status, 404);
+    r = await approveBy({ code: ` ${pending.pairCode.slice(0, 4).toLowerCase()}-${pending.pairCode.slice(4)}`, label: "TV" });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).deviceKey, DEVICE_KEY);
+    const approved = await (await fetch(`${BASE}/api/pair/status`, { headers })).json();
+    assert.ok(approved.accessKey);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("a console's note shows in the admin queue, the latest one wins, and names it on approval", async () => {
+  const server = bootServer();
+  const key = "E5".repeat(32);
+  try {
+    await waitReady();
+    const ask = (body) => fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: key, ...body }) });
+    assert.equal((await ask({ message: "철수 기기" })).status, 200);
+    assert.equal((await ask({ message: "철수\n거실 기기" })).status, 200);
+    await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key } });
+    await ask({});
+    const code = await generate({ secret: TOTP_SECRET });
+    const r = await fetch(`${BASE}/admin/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const auth = { "Content-Type": "application/json", Cookie: r.headers.get("set-cookie").split(";")[0] };
+    const devices = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(devices.pending.find((p) => p.deviceKey === key).message, "철수 거실 기기", "the latest note, one line; polls and requests without one keep it");
+    assert.equal((await fetch(`${BASE}/admin/api/devices/approve`, { method: "POST", headers: auth, body: JSON.stringify({ deviceKey: key }) })).status, 200);
+    const after = await (await fetch(`${BASE}/admin/api/devices`, { headers: auth })).json();
+    assert.equal(after.approved.find((d) => d.deviceKey === key).label, "철수 거실 기기");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

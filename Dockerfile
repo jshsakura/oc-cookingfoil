@@ -1,0 +1,121 @@
+# syntax=docker/dockerfile:1.7
+# CookingFoil: a personal, self-hosted homebrew file server.
+
+# ---- deps: install production dependencies only ----
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+# --ignore-scripts prevents playwright (devDependency) lifecycle hooks
+# from pulling browsers during production install.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev --ignore-scripts
+
+# ---- nstool: build jakcron/nstool from source ----
+# Used by the NSP/XCI keyed extractor to dump container contents so we
+# can read the Control NCA's NACP + icon. Building from source keeps us
+# arch-portable through buildx's QEMU emulation — the same Dockerfile
+# produces a working binary for both linux/amd64 and linux/arm64.
+#
+# Two-step build per upstream BUILDING.md: make deps (builds the bundled
+# libpietendo / libtoolchain / libfmt / liblz4 / libmbedtls submodules),
+# then make (compiles nstool linking against those). Output lands at
+# bin/nstool.
+FROM alpine:3.20 AS nstool-builder
+RUN apk add --no-cache git build-base linux-headers
+WORKDIR /build
+ARG NSTOOL_REF=v1.9.2
+RUN git clone --depth 1 --branch "${NSTOOL_REF}" --recurse-submodules \
+        https://github.com/jakcron/nstool.git
+WORKDIR /build/nstool
+RUN make -j"$(nproc)" deps && \
+    make -j"$(nproc)" && \
+    cp bin/nstool /nstool && \
+    strip /nstool
+
+# ---- hacbrewpack: packs each retro game's home-screen forwarder NSP ----
+# GPL-2.0, run as a separate program (src/retro/forwarder.js). The original
+# The-4n repository is gone; this is its v3.05 at a pinned commit of the
+# mirror. musl has no *64 stdio names, so they're mapped to the plain ones.
+FROM alpine:3.20 AS hacbrewpack-builder
+RUN apk add --no-cache git build-base
+WORKDIR /build
+ARG HACBREWPACK_REF=745b16ecfc9ce055743067d200572204cb2aac6c
+RUN git clone https://github.com/rlaphoenix/hacBrewPack.git && \
+    cd hacBrewPack && git checkout -q "${HACBREWPACK_REF}" && \
+    git archive --format=tar.gz --prefix=hacBrewPack/ HEAD > /hacBrewPack-source.tar.gz && \
+    cp config.mk.template config.mk && \
+    make -j"$(nproc)" CFLAGS="-O2 -std=gnu11 -fPIC -D_GNU_SOURCE -Dfseeko64=fseeko -Dftello64=ftello -Dfopen64=fopen" && \
+    cp hacbrewpack /hacbrewpack && \
+    strip /hacbrewpack
+
+# ---- runtime ----
+FROM node:22-alpine AS runtime
+
+LABEL org.opencontainers.image.title="CookingFoil" \
+      org.opencontainers.image.description="Personal, self-hosted homebrew file server (CookingFoil)" \
+      org.opencontainers.image.source="https://github.com/jshsakura/oc-cookingfoil" \
+      org.opencontainers.image.licenses="MIT"
+
+ENV NODE_ENV=production \
+    UV_THREADPOOL_SIZE=16 \
+    COOK_PORT=80 \
+    COOK_GAMES_DIR=/games \
+    COOK_DATA_DIR=/data \
+    COOK_KEYS_DIR=/keys \
+    COOK_NSTOOL_BIN=/usr/local/bin/nstool \
+    COOK_HACBREWPACK_BIN=/usr/local/bin/hacbrewpack \
+    COOK_NSZ_BIN=/usr/bin/nsz \
+    # Info + errors by default; bump to `oc-cookingfoil*` for full traces
+    # (incl. per-icon cache I/O during prewarm — chatty on big libraries).
+    DEBUG=oc-cookingfoil,oc-cookingfoil:err
+
+WORKDIR /app
+
+# Pre-create the bind-mount targets so the user doesn't have to.
+# Runs as root (USER directive intentionally omitted): the legacy
+# vinicioslc/tinfoil-hat image ran as root too, so drop-in swaps don't
+# trip over host UID mismatches on bind-mounted /games. Users who want
+# non-root should set `user: "1000:1000"` (or their host uid:gid) in
+# their docker-compose.yml.
+RUN mkdir -p /games /data /keys
+
+# nstool — copied from the builder stage. Single static binary, ~1-2 MB.
+COPY --from=nstool-builder /nstool /usr/local/bin/nstool
+COPY --from=hacbrewpack-builder /hacbrewpack /usr/local/bin/hacbrewpack
+
+# License texts for this project and every bundled binary. hacBrewPack is
+# GPL-2.0, so its exact source ships next to the binary it was built from.
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/cookingfoil/
+COPY licenses/ /usr/share/licenses/cookingfoil/
+COPY --from=hacbrewpack-builder /hacBrewPack-source.tar.gz /usr/share/licenses/cookingfoil/
+
+# nsz — decompresses .nsz / .xcz wrappers into .nsp / .xci so the NSP
+# extractor can run against the inner container. Pure Python (uses the
+# zstandard library), installed via pip. --break-system-packages is
+# required on Alpine 3.20+'s PEP 668 environment; the image is single-
+# tenant and we own the Python install, so this is safe.
+# unzip opens the patch and save zips uploaded from the admin page.
+RUN apk add --no-cache python3 py3-pip unzip && \
+    pip3 install --no-cache-dir --break-system-packages nsz && \
+    # Drop pip caches & build deps to keep the runtime layer lean.
+    rm -rf /root/.cache /tmp/* /var/cache/apk/*
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY src ./src
+# Box art and bezel fetchers, run for a console after a retro ROM is uploaded.
+COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/
+# The forwarder's prebuilt exefs (see forwarder/build.sh).
+COPY forwarder/exefs ./forwarder/exefs
+
+EXPOSE 80
+
+# /healthz alone only proves the process is alive: it sits in front of the
+# guards, so in v0.8.2 it answered 200 for an hour while every real request
+# 500'd and the container sat there reporting "healthy". Probe the guarded root
+# too and treat 5xx as unhealthy — 401/403 are correct answers, not failures.
+# While a safe restart drains, / answers 503 on purpose, so that probe is skipped.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "const b='http://127.0.0.1:'+(process.env.COOK_PORT||80);(async()=>{const h=await fetch(b+'/healthz');if(!h.ok)process.exit(1);if((await h.json()).draining)return;const r=await fetch(b+'/',{redirect:'manual'});if(r.status>=500)process.exit(1)})().catch(()=>process.exit(1))"
+
+CMD ["node", "src/index.js"]

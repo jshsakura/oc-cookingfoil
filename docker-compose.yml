@@ -1,0 +1,66 @@
+# CookingFoil: a personal, self-hosted homebrew file server.
+#
+#   1. docker compose up -d
+#   2. docker compose logs cookingfoil | grep "setup code"
+#   3. open http://<this machine>:9080/setup, enter the code, make the admin
+#      account and register an authenticator app
+#   4. everything else (devices, uploads, homebrew, outside-service keys such as
+#      IGDB, SteamGridDB, Dropbox and GitHub, Google sign-in, Telegram alerts) is
+#      set on the admin page, which says where to get each key
+#
+# Every option is optional and lives in .env (copy .env.example, which explains
+# each one). The whole file reaches the container through env_file, so nothing
+# has to be listed here. A value saved on the admin page wins over .env.
+#
+# Behind a reverse proxy or tunnel, set COOK_TRUST_PROXY in .env to the proxy's
+# hops only (for example "loopback, uniquelocal"). For the optional direct
+# download address, COOK_DIRECT_EDGE_SECRET also goes in .env, not in this
+# file. Ready-made Caddy, nginx, Cloudflare Tunnel and direct-download setups
+# are in examples/. Update with: docker compose pull && docker compose up -d
+services:
+  cookingfoil:
+    image: ghcr.io/jshsakura/oc-cookingfoil:latest
+    container_name: cookingfoil
+    hostname: cookingfoil
+    restart: unless-stopped
+    # A stop lets running downloads finish (COOK_RESTART_GRACE, 25 s by default,
+    # at most 35 s) before the server exits; docker's own 10 s would cut them.
+    stop_grace_period: 40s
+    # .env reaches the container whole, COOK_SECRET_KEY (required) included.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DEBUG: ${DEBUG:-oc-cookingfoil*}
+      # Inside the container these never move; choose the host folders below.
+      COOK_PORT: 80
+      COOK_GAMES_DIR: /games
+      COOK_DATA_DIR: /data
+      COOK_KEYS_DIR: /keys
+      COOK_RETRO_DIR: /retro
+      COOK_PATCHES_DIR: /patches
+      COOK_SAVES_DIR: /saves
+      COOK_HOMEBREW_DIR: /homebrew
+    ports:
+      # Host:container. Change the host side freely; the container side stays 80.
+      - "${COOK_HOST_PORT:-9080}:80"
+    volumes:
+      # Host folders. Set COOK_ROOT in .env and every folder below is made under
+      # it (Docker creates the missing ones); set COOK_<NAME>_PATH to put one
+      # folder somewhere else. With nothing set they sit beside this file.
+      #   games     packages (.nsp .nsz .xci .xcz)
+      #   data      accounts, saved keys, caches. Back this one up
+      #   keys      your own prod.keys, read-only
+      #   retro     retro ROMs, art and your RetroArch base pack
+      #   patches   patches by base title id, and homebrew/<app>/
+      #   saves     save files by title id, and homebrew/<app>/
+      #   homebrew  .nro apps and app folders
+      # COOK_ROOT and the COOK_<NAME>_PATH values are host paths, for example
+      # COOK_ROOT=/path/to/cookingfoil.
+      - ${COOK_GAMES_PATH:-${COOK_ROOT:-.}/games}:/games
+      - ${COOK_DATA_PATH:-${COOK_ROOT:-.}/data}:/data
+      - ${COOK_KEYS_PATH:-${COOK_ROOT:-.}/keys}:/keys:ro
+      - ${COOK_RETRO_PATH:-${COOK_ROOT:-.}/retro}:/retro
+      - ${COOK_PATCHES_PATH:-${COOK_ROOT:-.}/patches}:/patches
+      - ${COOK_SAVES_PATH:-${COOK_ROOT:-.}/saves}:/saves
+      - ${COOK_HOMEBREW_PATH:-${COOK_ROOT:-.}/homebrew}:/homebrew

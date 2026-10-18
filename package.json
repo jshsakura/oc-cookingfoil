@@ -1,0 +1,54 @@
+{
+  "name": "oc-cookingfoil",
+  "version": "0.8.4",
+  "description": "CookingFoil: a personal, self-hosted homebrew file server, with names and icons.",
+  "main": "./src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node ./src/index.js",
+    "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
+    "lint": "eslint .",
+    "test": "npm run test:unit && npm run test:web",
+    "test:unit": "d=$(mktemp -d) && COOK_SECRET_KEY=${COOK_SECRET_KEY:-dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=} TMPDIR=$d node --test test/unit/*.test.js; s=$?; rm -rf \"$d\"; exit $s",
+    "test:web": "playwright test --config playwright.web.config.ts",
+    "test:pairing": "node scripts/local-pairing.mjs",
+    "test:ui": "playwright test --config playwright.web.config.ts --ui",
+    "test:setup": "playwright install --with-deps",
+    "hooks:install": "node scripts/install-hooks.cjs"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "debug": "^4.3.4",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "fast-glob": "^3.2.12",
+    "json5": "^2.2.3",
+    "jsqr": "^1.4.0",
+    "local-ip-address": "^1.0.0",
+    "multer": "^2.1.1",
+    "otplib": "^13.4.1",
+    "sharp": "^0.35.5",
+    "uqr": "0.1.2",
+    "urlencode": "^1.1.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.1",
+    "@types/node": "^20.14.10",
+    "eslint": "^10.8.1",
+    "globals": "^17.9.0",
+    "nodemon": "^3.1.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jshsakura/oc-cookingfoil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jshsakura/oc-cookingfoil/issues"
+  },
+  "homepage": "https://github.com/jshsakura/oc-cookingfoil#readme",
+  "license": "MIT"
+}

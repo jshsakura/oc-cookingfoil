@@ -1,0 +1,101 @@
+/**
+ * GET /api/shop/info
+ *
+ * What this server can do, so a client can tell an older server from a newer
+ * one by asking instead of guessing from missing fields. Each feature names a
+ * field or endpoint the client may rely on once the name is listed; a server
+ * that answers 404 here predates the list and offers none of the optional ones.
+ *
+ * `download.maxConnections` is how many connections one console may open for
+ * one download (parallel Range requests): the admin's setting, 4 by default.
+ * The same number rides on list and download responses as
+ * X-CookingFoil-Max-Connections. It is a hint; the server does not enforce it.
+ */
+import fs from "fs";
+import pkg from "../package.js";
+import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
+import * as shopCache from "../meta/shop-cache.js";
+import * as contentMeta from "../meta/content-meta.js";
+import { devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs.js";
+import * as integrations from "../security/integrations.js";
+import * as retroCatalog from "../retro/catalog.js";
+import { retroEnabled } from "./retro.js";
+import { savesEnabled } from "./saves.js";
+import { homebrewEnabled } from "./homebrew.js";
+
+export const API_VERSION = 1;
+
+const FEATURES = [
+  "sections-etag",        // /api/shop/sections answers If-None-Match with 304
+  "title-detail",         // /api/title/:id with description, screenshots, categories
+  "title-price",          // detail.price { regular, discount, country } when the eShop knows it
+  "title-videos",         // detail.videos
+  "title-rating-content", // detail.ratingContent, the reasons behind detail.rating
+  "item-rank",            // sections item.rank and item.players
+  "item-categories",      // sections item.categories and item.languages
+  "item-version-name",    // update item.version_name ("1.4.1")
+  "item-install-size",    // item.install_size, the unpacked size (NSP/NSZ only)
+  "item-integrity",       // item.integrity "modified" | "damaged" from the file check; absent when it passed or was not checked. Informational only
+  "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
+  "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
+  "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
+  "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
+  "item-score",           // base item.score, score_count, score_source, score_label (+ score_labels map)
+  "genre-keys",           // categories are English keys; sections.genres maps them per language
+  "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
+  "image-sizes",
+  "user-patches",
+  "item-icons",           // base item.icons { ko?, en?, ja?, zh? } and ?lang= on icon/banner; detail iconUrl/bannerUrl follow ?lang=
+  "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
+  "active-downloads", // X-CookingFoil-Active-Downloads: consoles downloading now, the caller included
+  "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
+];
+
+/** Retro is offered only while there is at least one ROM to play (the client hides its menu otherwise). */
+async function hasRetroGames() {
+  if (!retroEnabled()) return false;
+  try {
+    return (await retroCatalog.current(retroDir)).games.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export default async function shopInfoRoute(_req, res) {
+  const retro = await hasRetroGames();
+  const stats = shopCache.stats();
+  res.header("Cache-Control", "private, max-age=60");
+  res.json({
+    name: "CookingFoil",
+    version: pkg.version,
+    apiVersion: API_VERSION,
+    // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
+    // device-rebind: POST /api/pair/rebind moves a console to a new device key.
+    // session-token: GET /api/session trades the access key for a token the console sends instead.
+    // pair-password-only: an ID and password count only on /api/pair/*, once, to approve a console;
+    // everywhere else a Basic header authenticates nothing, so the client may forget it once approved.
+    features: [
+      ...FEATURES,
+      "session-token",
+      "pair-password-only",
+      // enroll: POST /api/pair/enroll spends a downloaded client's enrollment token.
+      ...(devicePairing ? ["device-pairing", "device-rebind", "enroll"] : []),
+      ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
+      // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
+      ...(retro ? ["retro"] : []),
+      // shop-saves: /api/saves hands out save files to restore on the console.
+      ...(savesEnabled() ? ["shop-saves"] : []),
+      // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
+      ...(savesEnabled() ? ["saves-by-game"] : []),
+      // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
+      // homebrew-titles: GET /api/homebrew?with=titles also lists .nsp apps (install_type "title") to install like a game.
+      ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
+      // client-update: /api/client/latest names the CookingFoil client build to update to.
+      ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
+    ],
+    // How many connections one console may open per download (a hint, not enforced; admin setting).
+    download: { maxConnections: downloadMaxConnections },
+    files: stats.files,
+    contentMeta: contentMeta.progress(),
+  });
+}

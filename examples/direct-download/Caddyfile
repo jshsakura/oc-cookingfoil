@@ -1,0 +1,52 @@
+# Download-only address for CookingFoil. Only GET and HEAD requests carrying a
+# download token are passed on; the shop checks the token and the path, and
+# refuses everything else on this address.
+{
+	admin off
+	auto_https disable_redirects
+	servers {
+		# TCP only, so a firewall rule for the port covers everything (no HTTP/3 over UDP).
+		protocols h1 h2
+		strict_sni_host on
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+dl.example.org:8443 {
+	# JSON access log, for example for CrowdSec (crowdsecurity/caddy). Caddy
+	# already masks the Authorization header.
+	log {
+		output file /logs/access.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+		format json
+	}
+	header -Server
+	tls {
+		dns cloudflare {env.CF_DNS_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+
+	@download {
+		host dl.example.org
+		method GET HEAD
+		not path /healthz /robots.txt /admin* /api/admin* /setup* /auth* /pair*
+		header_regexp bearer Authorization ^Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$
+	}
+	handle @download {
+		reverse_proxy 127.0.0.1:9080 {
+			# Host must be the direct address exactly as set on the admin page, port included.
+			header_up Host dl.example.org:8443
+			header_up X-Forwarded-Host dl.example.org:8443
+			header_up X-CookingFoil-Edge {env.COOK_DIRECT_EDGE_SECRET}
+			flush_interval -1
+		}
+	}
+	handle {
+		respond 404
+	}
+}
