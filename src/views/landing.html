@@ -240,7 +240,7 @@
       .xrow.xapp .xname { font-size: 16px; }
       /* A game's card in the patch list: its name over the kinds its patches hold. */
       .xgroup .xhead .xtitle { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-      .xgroup .xhead .xbadges { display: flex; gap: 5px; overflow: hidden; }
+      .xgroup .xhead .xbadges { display: flex; flex-wrap: wrap; gap: 5px; }
       .xgroup .xhead .xbadges:empty { display: none; }
       .xrow .pill, .xhead .pill, .modal .xm-pills .pill {
         padding: 2px 9px; border-radius: 100px; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap;
@@ -248,6 +248,7 @@
       }
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .xhead .pill.server-present { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
       .modal.xmodal .modal-head .modal-cover { margin-top: 0; width: 72px; height: 72px; }
@@ -1523,6 +1524,12 @@
           "modal.notes": "추가 정보",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
+          "extras.serverPresent": "서버에 있음",
+          "extras.serverMissing": "서버에 없음",
+          "extras.serverUnknown": "서버 확인 전",
+          "extras.savePresent": "세이브 있음",
+          "extras.saveMissing": "세이브 없음",
+          "extras.saveUnknown": "세이브 확인 전",
           "tab.homebrew": "홈브류",
           "tab.tools": "도구",
           "tab.ports": "포트",
@@ -1828,6 +1835,12 @@
           "modal.notes": "Notes",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
+          "extras.serverPresent": "On server",
+          "extras.serverMissing": "Not on server",
+          "extras.serverUnknown": "Server unverified",
+          "extras.savePresent": "Saves available",
+          "extras.saveMissing": "No saves",
+          "extras.saveUnknown": "Saves unverified",
           "tab.homebrew": "Homebrew",
           "tab.tools": "Tools",
           "tab.ports": "Ports",
@@ -2132,6 +2145,12 @@
           "modal.notes": "追加情報",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
+          "extras.serverPresent": "サーバーにあり",
+          "extras.serverMissing": "サーバーになし",
+          "extras.serverUnknown": "サーバー未確認",
+          "extras.savePresent": "セーブあり",
+          "extras.saveMissing": "セーブなし",
+          "extras.saveUnknown": "セーブ未確認",
           "tab.homebrew": "自作アプリ",
           "tab.tools": "ツール",
           "tab.ports": "移植",
@@ -2436,6 +2455,12 @@
           "modal.notes": "補充資訊",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
+          "extras.serverPresent": "服务器上有",
+          "extras.serverMissing": "服务器上没有",
+          "extras.serverUnknown": "服务器未确认",
+          "extras.savePresent": "有存档",
+          "extras.saveMissing": "无存档",
+          "extras.saveUnknown": "存档未确认",
           "tab.homebrew": "自製軟體",
           "tab.tools": "工具",
           "tab.ports": "移植",
@@ -3320,6 +3345,7 @@
 
       function renderAll(shop, { quiet = false } = {}) {
         const featuredChanged = indexSections(shop);
+        extras.refreshAvailability();
         const files = catalogFiles(shop);
 
         const baseFiles   = files.filter(f => (f.kind || "base") === "base");
@@ -4487,6 +4513,35 @@
       const extras = (() => {
         const data = {};   // kind → items
         const loadedLang = {};
+        let saveKeys = null;
+        // Only a base game in the server catalog counts. Metadata, updates and DLC do not.
+        function refreshAvailability() {
+          for (const badge of document.querySelectorAll(".server-availability")) {
+            const present = badge.dataset.app ? homebrew.hasApp(badge.dataset.app)
+              : shopData ? sectionOf.has(badge.dataset.titleId) : null;
+            badge.classList.toggle("server-present", present === true);
+            badge.textContent = t(present === null ? "extras.serverUnknown" : present ? "extras.serverPresent" : "extras.serverMissing");
+          }
+          for (const badge of document.querySelectorAll(".save-availability")) {
+            const present = saveKeys?.has(badge.dataset.key) ?? null;
+            badge.textContent = t(present === null ? "extras.saveUnknown" : present ? "extras.savePresent" : "extras.saveMissing");
+          }
+        }
+        // The small per-game save index also works before a game's saves are expanded.
+        async function loadSaveGames() {
+          try {
+            const r = await fetch("/api/saves?view=games", { headers: { Accept: "application/json" } });
+            if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+            const games = r.ok ? (await r.json()).games ?? [] : [];
+            saveKeys = new Set(games.map((it) => normalizedKey(it)));
+            refreshAvailability();
+            return games;
+          } catch {
+            saveKeys = null;
+            refreshAvailability();
+            return [];
+          }
+        }
         const iconPath = (u) => { try { return new URL(u, location.href).pathname + "?size=sm"; } catch { return ""; } };
         const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
@@ -4603,6 +4658,7 @@
         const summary = {};       // kind → [{ key, titleId, homebrew?, game?, count, size, updatedAt }]
         const perGame = {};       // kind → Map(key → items)
         const keyOf = (it) => it.titleId || it.title_id || "hb:" + it.homebrew;
+        const normalizedKey = (it) => it.homebrew ? "hb:" + it.homebrew : String(it.titleId || it.title_id || it.key || "").toUpperCase();
         const byGameMode = (kind) => kind === "saves" && summary[kind];
         async function getList(url, field) {
           const r = await fetch(url, { headers: { Accept: "application/json" } });
@@ -4675,6 +4731,15 @@
             // What the game's patches are, before it is opened: required first, then each kind once.
             const title = document.createElement("span"); title.className = "xtitle";
             const badges = document.createElement("span"); badges.className = "xbadges";
+            const availability = document.createElement("span"); availability.className = "pill server-availability";
+            if (first.homebrew) availability.dataset.app = first.homebrew;
+            else availability.dataset.titleId = String(first.titleId || first.title_id || "").toUpperCase();
+            badges.append(availability);
+            if (kind === "patches") {
+              const saves = document.createElement("span"); saves.className = "pill save-availability";
+              saves.dataset.key = normalizedKey(first);
+              badges.append(saves);
+            }
             if (kind === "patches" && grp.items) {
               const pill = (text, cls) => Object.assign(document.createElement("span"), { className: "pill" + (cls ? " " + cls : ""), textContent: text });
               if (grp.items.some((it) => it.required === true)) badges.append(pill(t("xm.required"), "need"));
@@ -4716,6 +4781,7 @@
             g.append(head, body);
             return g;
           }));
+          refreshAvailability();
           $(kind + "-count").textContent = total.toLocaleString();
           $(kind + "-empty").hidden = total > 0;
           $(kind + "-empty").textContent = t("extras.empty");
@@ -4739,11 +4805,13 @@
                 // A new language: names and descriptions change, so the saves are read again.
                 if (relabel) data[kind] = null;
                 perGame[kind] = new Map();
-                summary[kind] = await getList("/api/saves?view=games", "games");
+                summary[kind] = await loadSaveGames();
                 if (summary[kind].some((row) => row.homebrew)) await homebrew.load();
               } else {
                 data[kind] = await getList("/api/patches", kind);
                 if (data[kind].some((it) => it.homebrew)) await homebrew.load();
+                // Do not hold the patch list behind the save index request.
+                loadSaveGames();
               }
             } catch {
               if (kind === "saves") summary[kind] = [];
@@ -4777,12 +4845,13 @@
           loadedLang.patches = undefined;
           if (current === "patches") open("patches");
         });
-        return { open, resort, countFor, itemsOf, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
+        return { open, resort, countFor, itemsOf, refreshAvailability, row: itemRow, relabel() { if (current === "patches" || current === "saves") open(current); } };
       })();
 
       // Homebrew: one card per app, tools and ports apart, with how many patches and saves it has.
       const homebrew = (() => {
         let apps = null;
+        let loadFailed = false;
         // An app's pictures changed: the list is read again the next time it is needed.
         addEventListener("cf-art-changed", (e) => { if (e.detail?.kind === "homebrew") apps = null; });
         let counts = { patches: new Map(), saves: new Map() };
@@ -4793,8 +4862,10 @@
             // with=titles: apps built as installable titles (.nsp) too; the page only offers them to download.
             const r = await fetch(`/api/homebrew?lang=${encodeURIComponent(lang)}&with=titles`, { headers: { Accept: "application/json" } });
             apps = r.ok ? (await r.json()).homebrew ?? [] : [];
+            loadFailed = !r.ok;
           } catch {
             apps = [];
+            loadFailed = true;
           }
           return apps;
         }
@@ -4904,6 +4975,7 @@
           load, open,
           resort(view) { if (apps) render(view); },
           nameOf: (app) => byApp(app)?.name || app,
+          hasApp: (app) => apps === null || loadFailed ? null : Boolean(byApp(app)),
           iconOf: (app) => byApp(app)?.icon_url || "",
           relabel() { apps = null; if (current === "tools" || current === "ports") open(current); },
         };
