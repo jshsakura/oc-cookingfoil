@@ -54,6 +54,8 @@ nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scr
 nav.tabs::-webkit-scrollbar{display:none}
 /* Too narrow for one row but not a phone: two even rows rather than one tab left alone on the second. */
 @media (min-width:641px) and (max-width:1060px){nav.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible}nav.tabs a{padding:9px 4px}}
+/* Wide screens: every tab in one row, icon over label, so none hides past the right edge. */
+@media (min-width:1061px){nav.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible}nav.tabs a{flex-direction:column;gap:4px;padding:8px 2px;font-size:12.5px}}
 nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
 nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
