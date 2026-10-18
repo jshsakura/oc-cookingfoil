@@ -41,9 +41,11 @@ export const ACTIVITY_CSS = /* css */ `
 .act-bar{grid-column:2 / -1;position:relative;height:4px;margin-top:4px;border-radius:100px;background:var(--sunk);overflow:hidden}
 .act-bar>i{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:var(--accent);transition:width .4s ease}
 .act-bar.ind>i{width:30%;animation:act-slide 1.4s ease-in-out infinite}
-.act-row .act-stop{grid-column:4;grid-row:1;width:28px;height:28px;margin-left:2px}
-.act-row .act-stop .ico{width:13px;height:13px}
-.act-row .act-stop:hover{color:var(--bad);border-color:var(--bad)}
+.act-row .act-stop{grid-column:4;grid-row:1;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;margin-left:2px;border-radius:100px;
+  border:1px solid rgba(var(--bad-rgb),.55);background:rgba(var(--bad-rgb),.1);color:var(--bad);font-family:inherit;font-size:12.5px;font-weight:600;line-height:1;cursor:pointer}
+.act-row .act-stop .ico{width:12px;height:12px}
+.act-row .act-stop:hover{background:var(--bad);border-color:var(--bad);color:#fff}
+.act-row .act-stop:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
 .act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:13px}
 .act-empty[hidden]{display:none}
 @keyframes act-spin{to{transform:rotate(360deg)}}
@@ -88,8 +90,8 @@ function actFillRunning(li,e){
   const bar=li.querySelector('.act-bar');const pct=e.total?Math.min(100,e.current/e.total*100):null;
   bar.classList.toggle('ind',pct==null);bar.firstChild.style.width=pct==null?'':pct+'%';
   let stop=li.querySelector('.act-stop');
-  if(e.cancellable&&!stop){stop=el('button',null,'icon-btn act-stop');stop.type='button';stop.innerHTML=ACT_STOP;
-    stop.setAttribute('aria-label','중지');stop.title='중지';stop.addEventListener('click',(ev)=>{ev.stopPropagation();actCancel(e.id);});li.append(stop);}
+  if(e.cancellable&&!stop){stop=el('button',null,'act-stop');stop.type='button';stop.innerHTML=ACT_STOP+'<span>중지</span>';
+    stop.title='이 작업을 중지합니다';stop.addEventListener('click',(ev)=>{ev.stopPropagation();actCancel(e.id);});li.append(stop);}
   else if(!e.cancellable&&stop)stop.remove();
   bar.setAttribute('role','progressbar');bar.setAttribute('aria-label',e.title);if(pct!=null)bar.setAttribute('aria-valuenow',String(Math.round(pct)));else bar.removeAttribute('aria-valuenow');}
 function actRender(){
@@ -99,8 +101,11 @@ function actRender(){
   btnEl.title=running.length?'서버 활동: '+running.length+'개 진행 중':'서버 활동';
   // Running rows are kept by id, so a bar moves instead of being drawn again.
   const box=$('act-running');const keep=new Map([...box.children].map((li)=>[li.dataset.id,li]));
-  const rows=running.map((e)=>{const li=keep.get(e.id)||actRow(e,true);actFillRunning(li,e);return li;});
-  box.replaceChildren(...rows);$('act-idle').hidden=running.length>0;
+  // A row is moved only when its place changes: one taken out of the page, even for a moment, loses the click being pressed on it.
+  const rows=running.map((e)=>{const li=keep.get(e.id)||actRow(e,true);keep.delete(e.id);actFillRunning(li,e);return li;});
+  for(const li of keep.values())li.remove();
+  rows.forEach((li,i)=>{if(box.children[i]!==li)box.insertBefore(li,box.children[i]||null);});
+  $('act-idle').hidden=running.length>0;
   const rbox=$('act-recent');rbox.replaceChildren(...recent.map((e)=>{const li=actRow(e,false);
     li.querySelector('.n').textContent=actDur(e.ms)+' · '+actAgo(e.endedAt);
     const d=e.state==='failed'?(e.error||'실패했습니다'):e.state==='stopped'?'중지했습니다'+(e.result?' ('+e.result+')':''):(e.result||e.detail||'');li.querySelector('.d').textContent=d;li.querySelector('.d').hidden=!d;return li;}));
