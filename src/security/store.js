@@ -109,8 +109,20 @@ function scheduleFlush() {
 // version; dropping them here clears them from disk at the next save.
 const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null } = {}) =>
   ({ label, addedAt, addedBy, accessKeyHash });
-const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null } = {}) =>
-  ({ firstSeenAt, lastSeenAt, ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}) });
+const DOWNLOAD_STATES = new Set(["waiting", "used", "expired", "revoked"]);
+const pendingDownloadRecord = (d) =>
+  d && typeof d.owner === "string" && d.owner && DOWNLOAD_STATES.has(d.state)
+    ? { owner: d.owner.slice(0, 200), id: String(d.id ?? "").slice(0, 16), state: d.state }
+    : null;
+const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null, name = null, download = null } = {}) => {
+  const owned = pendingDownloadRecord(download);
+  return {
+    firstSeenAt, lastSeenAt,
+    ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}),
+    ...(typeof name === "string" && name ? { name: name.slice(0, 64) } : {}),
+    ...(owned ? { download: owned } : {}),
+  };
+};
 const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 
 /** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
@@ -359,6 +371,16 @@ export function pendingMessage(deviceKey) {
   return state.pending.get(deviceKey)?.message ?? null;
 }
 
+/** The download a waiting console holds, { owner, id, state }, or null: who it came from though its token no longer works. */
+export function pendingDownload(deviceKey) {
+  return state.pending.get(deviceKey)?.download ?? null;
+}
+
+/** The name the console goes by (its own system nickname), or null. */
+export function pendingName(deviceKey) {
+  return state.pending.get(deviceKey)?.name ?? null;
+}
+
 /** Drop a console from the approval queue without approving it. */
 export function dismissPending(deviceKey) {
   const dismissed = dropPending(deviceKey);
@@ -438,23 +460,44 @@ export function requesterLines(from = {}, now = Date.now()) {
   return lines;
 }
 
+const DOWNLOAD_WORDS = { used: "다른 기기에서 이미 쓴 다운로드", expired: "기한이 지난 다운로드", revoked: "취소된 다운로드", waiting: "다운로드" };
+
+/** The account a download belongs to, as the admin knows it: a Google account by its address. Pure. */
+export function ownerName(owner) {
+  return String(owner ?? "").replace(/^google:/, "");
+}
+
+/** Which console and whose, as alert lines: the console's own name and the account its download came from. Pure. */
+export function pendingLines({ name, download } = {}) {
+  const lines = [];
+  if (name) lines.push(`기기 이름: ${name}`);
+  if (download) lines.push(`받은 계정: ${ownerName(download.owner)} (${DOWNLOAD_WORDS[download.state] ?? "다운로드"})`);
+  return lines;
+}
+
 /**
  * A console asking for approval; only when it asked is kept, plus the note it
  * sent, if any (a later note replaces it; a request without one keeps it).
  * `quiet` records it without an alert (pending-limit.js, past its hourly cap).
  * `from` ({ ip, agent }) is the request, named in the alert (requesterLines).
+ * `name` is the console's own nickname and `download` ({ owner, id, state })
+ * the download its token came from though the token no longer works; both are
+ * kept while it waits, so the admin sees which console it is and whose.
  */
-export function recordPendingDevice(deviceKey, { message, quiet = false, from = {} } = {}) {
+export function recordPendingDevice(deviceKey, { message, name, download, quiet = false, from = {} } = {}) {
   const now = Date.now();
   const prev = state.pending.get(deviceKey);
   const note = message === undefined ? prev?.message ?? null : message;
-  state.pending.set(deviceKey, { firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, ...(note ? { message: note } : {}) });
+  const next = pendingRecord({ firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, message: note,
+    name: name || prev?.name, download: download ?? prev?.download });
+  state.pending.set(deviceKey, next);
   if (from.ip || from.agent) pendingFrom.set(deviceKey, { ip: from.ip ?? null, agent: from.agent ?? null });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
-  if (!quiet && (!prev || (message && message !== prev.message))) {
+  const learned = Boolean(next.download && !prev?.download) || Boolean(next.name && !prev?.name);
+  if (!quiet && (!prev || learned || (message && message !== prev.message))) {
     // The code is what the console shows on its screen; the note is the console's own words.
-    const who = requesterLines(from, now).map((line) => `${line}\n`).join("");
+    const who = [...pendingLines(next), ...requesterLines(from, now)].map((line) => `${line}\n`).join("");
     alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}${who}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }
 }
@@ -500,7 +543,8 @@ export function devicesSnapshot() {
       .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null,
+      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), ...(v.name ? { name: v.name } : {}),
+        ...(v.download ? { download: { ...v.download, owner: ownerName(v.download.owner) } } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null,
         ...(pendingFrom.has(deviceKey) ? { from: requesterFacts(pendingFrom.get(deviceKey)) } : {}) }))
       .sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
   };

@@ -71,9 +71,9 @@ export function resetForTests() {
  * the limits above. Returns { ok: true } when it was recorded (perhaps without
  * an alert), or { ok: false, retryAfterSec } when this address asked too often.
  */
-export function recordPending(req, deviceKey, { message } = {}, now = Date.now()) {
+export function recordPending(req, deviceKey, { message, name, download } = {}, now = Date.now()) {
   const verdict = limit.admit(clientIp(req), deviceKey, now);
   if (!verdict.ok) return verdict;
-  store.recordPendingDevice(deviceKey, { message, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null } });
+  store.recordPendingDevice(deviceKey, { message, name, download, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null } });
   return { ok: true };
 }

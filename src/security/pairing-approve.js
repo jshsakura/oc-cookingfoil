@@ -23,13 +23,16 @@ export function approveSignedInDevice(deviceKey, addedBy) {
 /**
  * Approve a console from the queue, or give an approved one a new key: mint its
  * access key and stage it for the console's next status poll. With no name
- * given, the note the console sent names it. Shared by the admin page's
- * devices tab and the Telegram alert's button.
+ * given, the console's own nickname names it, else the note it sent. A console
+ * that came with a download is approved under that download's account, as the
+ * download would have done. Shared by the admin page's devices tab and the
+ * Telegram alert's button.
  */
 export function approveWaitingDevice(deviceKey, { label = "", addedBy }) {
-  const name = (String(label ?? "").trim() || store.pendingMessage(deviceKey) || "").slice(0, 64).trim();
+  const name = (String(label ?? "").trim() || store.pendingName(deviceKey) || store.pendingMessage(deviceKey) || "").slice(0, 64).trim();
+  const owner = store.pendingDownload(deviceKey)?.owner;
   const accessKey = generateAccessKey();
-  store.approveDevice(deviceKey, { label: name, addedBy, accessKeyHash: hashAccessKey(accessKey) });
+  store.approveDevice(deviceKey, { label: name, addedBy: owner ?? addedBy, accessKeyHash: hashAccessKey(accessKey) });
   stageAccessKeyDelivery(deviceKey, accessKey);
   return name;
 }

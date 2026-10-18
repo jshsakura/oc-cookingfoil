@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { everything } from "../support/security-db.js";
-import { webSession } from "../support/web-session.js";
+import { webSession, adminSession } from "../support/web-session.js";
 
 // The web page hands a signed-in user the client and this server in one zip,
 // with a one-day, one-use enrollment token in its config; the console spends
@@ -110,7 +110,7 @@ async function boot(data, extra = {}) {
 }
 
 const bundle = (auth, origin = BASE) => fetch(`${BASE}/pair/api/client-bundle`, { method: "POST", headers: { ...auth, Origin: origin } });
-const enrollWith = (token, key) => fetch(`${BASE}/api/pair/enroll`, { method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": key }, body: JSON.stringify({ token }) });
+const enrollWith = (token, key, label) => fetch(`${BASE}/api/pair/enroll`, { method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": key }, body: JSON.stringify({ token, label }) });
 async function tokenIn(res, data) {
   const file = path.join(data, `got-${Date.now()}.zip`);
   fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
@@ -144,7 +144,7 @@ test("a downloaded client connects once, under the account that downloaded it", 
     assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 200, "the console is in, no password");
     e = await enrollWith(token, KEY_B);
     assert.equal(e.status, 401, "once");
-    assert.equal(e.headers.get("x-cookingfoil-enroll"), "invalid");
+    assert.equal(e.headers.get("x-cookingfoil-enroll"), "used", "says why");
 
     const mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
     assert.equal(mine.clients[0].state, "used");
@@ -195,6 +195,44 @@ test("a console that asks for approval with its download's token is approved und
     const other = "F6".repeat(32);
     const late = await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: other, enrollToken: token }) });
     assert.equal((await late.json()).status, "pending");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
+test("a second console from one download waits as that account's, by its own name, and is approved under it", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-enroll-second-"));
+  const server = await boot(data);
+  try {
+    const token = await tokenIn(await bundle(ALICE), data);
+    const KEY_C = "C3".repeat(32);
+    assert.equal((await enrollWith(token, KEY_A, "Living room")).status, 200);
+    let mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
+    assert.equal(mine.devices.find((d) => d.deviceKey === KEY_A)?.label, "Living room", "named by the console");
+
+    const second = await enrollWith(token, KEY_B, "Bedroom");
+    assert.equal(second.status, 401);
+    assert.equal(second.headers.get("x-cookingfoil-enroll"), "used");
+    const unknown = await enrollWith("cfe_" + "x".repeat(43), KEY_C);
+    assert.equal(unknown.headers.get("x-cookingfoil-enroll"), "invalid", "a token this server never made");
+    // The console then asks as any other does, without the token it dropped.
+    const ask = await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: KEY_B, message: "hello" }) });
+    assert.equal((await ask.json()).status, "pending");
+
+    const ADMIN = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")), "Content-Type": "application/json" };
+    const queue = (await (await fetch(`${BASE}/admin/api/devices`, { headers: ADMIN })).json()).pending;
+    const waiting = queue.find((p) => p.deviceKey === KEY_B);
+    assert.equal(waiting.name, "Bedroom");
+    assert.equal(waiting.message, "hello");
+    assert.deepEqual({ owner: waiting.download.owner, state: waiting.download.state }, { owner: "alice", state: "used" });
+    assert.ok(!queue.some((p) => p.deviceKey === KEY_C), "an unknown token names no one, and queues nothing");
+    assert.ok(!JSON.stringify(queue).includes("cfe_"));
+
+    assert.equal((await fetch(`${BASE}/admin/api/devices/approve`, { method: "POST", headers: ADMIN, body: JSON.stringify({ deviceKey: KEY_B }) })).status, 200);
+    mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
+    const approved = mine.devices.find((d) => d.deviceKey === KEY_B);
+    assert.ok(approved, "approved under alice, whose download it came with");
+    assert.equal(approved.label, "Bedroom");
   } finally {
     server.kill("SIGKILL");
   }

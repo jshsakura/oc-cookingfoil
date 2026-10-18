@@ -89,6 +89,18 @@ export function spend(token, deviceKey, { canEnroll = () => true, now = Date.now
   return { owner: r.owner, id: r.id };
 }
 
+/**
+ * What became of `token` that no longer works: { owner, id, state } for one
+ * this server issued ("used", "expired", "revoked", or "waiting"), else null.
+ * Spends nothing; a console that holds a spent download names its account
+ * with it while it waits for approval.
+ */
+export function lookup(token, now = Date.now()) {
+  if (typeof token !== "string" || !TOKEN_RE.test(token)) return null;
+  const r = all()[hash(token)];
+  return r ? { owner: r.owner, id: r.id, state: stateOf(r, now) } : null;
+}
+
 /** Withdraw an unspent token by its id; `owner` limits it to that account's. @returns {boolean} */
 export function revoke(id, { owner, now = Date.now() } = {}) {
   const found = Object.entries(all()).find(([, r]) => r.id === id && (owner === undefined || r.owner === owner) && stateOf(r, now) === "waiting");
