@@ -82,6 +82,18 @@ test("a browser gets a page that reloads itself after Retry-After", async () => 
   assert.match(r.body, /http-equiv="refresh" content="20"/);
 });
 
+test("the browser page speaks the browser's language, one language only", async () => {
+  const { drainer, base } = await harness();
+  drainer.start();
+  const ko = await get(`${base}/`, { accept: "text/html", "accept-language": "ko-KR,ko;q=0.9,en;q=0.8" });
+  assert.match(ko.body, /<html lang="ko">/);
+  assert.match(ko.body, /서버를 다시 시작하고 있습니다/);
+  assert.doesNotMatch(ko.body, /restarting/);
+  const other = await get(`${base}/`, { accept: "text/html", "accept-language": "fr-FR" });
+  assert.match(other.body, /<html lang="en">[\s\S]*The server is restarting/);
+  assert.doesNotMatch(other.body, /서버/);
+});
+
 test("each drain has its own id", () => {
   const a = createDrainer();
   const b = createDrainer();
