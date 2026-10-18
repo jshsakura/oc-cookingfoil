@@ -130,7 +130,6 @@ footer .in{max-width:1240px;margin:0 auto;padding:56px 32px 56px;text-align:cent
 footer nav{display:flex;gap:6px 18px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
 footer nav a{text-decoration:none;font-size:13px;font-weight:600;color:var(--ink)}footer nav a:hover{text-decoration:underline}
 footer p{color:var(--faint);font-size:13px;margin:0 auto;max-width:720px}
-footer p.thanks{color:var(--secondary);margin-bottom:8px}footer p.thanks a{color:var(--ink);font-weight:600}
 
 @media (max-width:1000px){.jump{display:none}.hero{grid-template-columns:1fr;gap:28px}.splash{max-width:420px;width:100%;justify-self:center}}
 @media (max-width:900px){.grid,.steps{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
