@@ -202,6 +202,7 @@ tr{background:var(--panel);border:1px solid var(--line);border-radius:14px;margi
 td{border:0;padding:6px 14px;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
 td::before{content:attr(data-label);color:var(--muted);font-size:12px}
 td[data-label=""]{grid-template-columns:1fr}td[data-label=""]::before{display:none}
+tr.group{background:none;border:0;margin:14px 0 2px;padding:0}
 /* The first cell is the card's title, full width, its details under it. */
 td:first-child{grid-template-columns:1fr;padding-top:10px}td:first-child::before{display:none}td:first-child b{font-size:15px}
 td .row-actions{display:flex;gap:8px}td .row-actions button,td[data-label=""]>button{flex:1 1 0;min-width:0}
@@ -250,6 +251,7 @@ nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;f
 .logs-empty b{color:var(--text);font-size:15px}.logs-empty span{font-size:13px}
 .logs-empty[hidden]{display:none}.logs-empty-ico{width:38px;height:38px;color:var(--faint);stroke-width:1.5;margin-bottom:4px}
 #bug-reports table{width:100%}#bug-reports td,#bug-reports th{white-space:nowrap}#bug-reports td:nth-child(3){white-space:normal}
+tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}

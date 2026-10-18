@@ -10,6 +10,7 @@
  * feature) so the client knows it may forget the password once approved.
  *
  *   POST /api/pair/request  { deviceKey, pairSecret?, label?, message? }  message: a one-line note for the admin (100 chars)
+ *        label: the console's own nickname, shown in the queue and naming it once approved
  *        enrollToken (or X-Enroll-Token): the token a downloaded client carries; a working one approves the console under that account at once
  *        pairSecret: 64 hex the client generated (32 random bytes), or the X-Pair-Secret header
  *        → records the device as "pending" for the admin to approve.
@@ -32,7 +33,11 @@
  *        (security/enroll-tokens.js) for its own access key, approved under the
  *        account that downloaded it. Once, within a day of the download.
  *        → { status: "approved", accessKey, shopUrl }
- *        → 401 { error } + X-CookingFoil-Enroll: invalid   unknown, spent, lapsed or withdrawn alike
+ *        label: the console's own nickname, which names it once approved
+ *        → 401 { error } + X-CookingFoil-Enroll: used | expired | revoked | invalid
+ *          (invalid: a token this server never made). A known one puts the console
+ *          in the approval queue under the download's account, so the admin sees
+ *          whose it is (two consoles from one download: the second waits there)
  *        → 409 { error }   the console is another account's, or the account may no longer sign in
  *
  *   POST /api/pair/rebind  { from: <old 64hex>, accessKey? }  + X-Device-Key: <new 64hex>
@@ -102,24 +107,42 @@ function ownerAllowed(owner) {
  * after a format). The markers the server writes for other approvals ("admin",
  * "auto", "telegram") are no account's, whatever an account is called.
  */
+/** The name the console goes by (its system nickname), sent as `label`; null when none. */
+function consoleName(req) {
+  return pairMessage(req.body?.label)?.slice(0, 64) ?? null;
+}
+
+const FROM_DOWNLOAD = "웹에서 받은 클라이언트";
+
 /**
  * A console that asks with the download token its client carries is approved under the
  * account that downloaded it, the way /enroll would, with its key staged for the next
- * status poll. Without one, or with one that no longer works, it waits like any other.
+ * status poll. Without one it waits like any other; with one that no longer works
+ * (another console spent it, its day passed) it waits too, and the download it names,
+ * { owner, id, state }, is returned so the queue shows whose console it is.
  */
 function enrollFromRequest(req, deviceKey) {
   const token = req.body?.enrollToken ?? req.get("x-enroll-token");
-  if (!token || store.isDeviceApproved(deviceKey)) return;
+  if (!token || store.isDeviceApproved(deviceKey)) return null;
   const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner) });
   if (!spent || spent.refused) {
-    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : "unknown, spent or lapsed");
-    return;
+    const known = enrollTokens.lookup(token);
+    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : known?.state ?? "unknown");
+    return known;
   }
   const accessKey = generateAccessKey();
-  store.approveDevice(deviceKey, { label: "웹에서 받은 클라이언트", addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+  store.approveDevice(deviceKey, { label: consoleName(req) ?? FROM_DOWNLOAD, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
   stageAccessKeyDelivery(deviceKey, accessKey);
   debug.log("pair: %s… enrolled by %s's download %s (from its request)", deviceKey.slice(0, 12), spent.owner, spent.id);
+  return null;
 }
+
+const ENROLL_REFUSED = {
+  used: "another console already used this download; this one waits for approval",
+  expired: "this download's day has passed; this console waits for approval",
+  revoked: "this download was withdrawn; this console waits for approval",
+  invalid: "the enrollment token has expired or is unknown",
+};
 
 export function mayEnroll(deviceKey, owner) {
   if (!ownerAllowed(owner)) return false;
@@ -187,7 +210,7 @@ export default function pairRouter() {
       return;
     }
     if (registered === "conflict") return secretConflict(res);
-    enrollFromRequest(req, deviceKey);
+    const download = enrollFromRequest(req, deviceKey);
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
       res.json({ status: "approved", passwordOnly: true });
@@ -195,7 +218,7 @@ export default function pairRouter() {
     }
     // The console's own note, so the admin can tell which one asks; a request without one keeps the last.
     const message = req.body && "message" in req.body ? pairMessage(req.body.message) : undefined;
-    const queued = recordPending(req, deviceKey, { message });
+    const queued = recordPending(req, deviceKey, { message, name: consoleName(req), download });
     if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
     debug.log("pair: request from %s…", deviceKey.slice(0, 12));
     res.json(pendingResponse(req, deviceKey));
@@ -211,14 +234,14 @@ export default function pairRouter() {
     const secret = pairSecretOf(req, req.query?.pairSecret);
     // A GET-only client asks here, so its secret registers here too (a malformed one is ignored).
     if (registerPairSecret(deviceKey, secret) === "conflict") return secretConflict(res);
-    enrollFromRequest(req, deviceKey);
+    const download = enrollFromRequest(req, deviceKey);
     // A console that knocks with its account is approved right here (COOK_DEVICE_AUTO_APPROVE).
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (!store.isDeviceApproved(deviceKey)) {
       // Polling doubles as the knock: record the device as pending so a
       // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the
       // admin dashboard without a separate /request call.
-      const queued = recordPending(req, deviceKey);
+      const queued = recordPending(req, deviceKey, { download });
       if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
       res.json(pendingResponse(req, deviceKey));
       return;
@@ -245,9 +268,13 @@ export default function pairRouter() {
     const canEnroll = (owner) => mayEnroll(deviceKey, owner);
     const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
     if (!spent) {
-      debug.log("pair: %s… enroll refused: the download token is unknown, spent or lapsed", deviceKey.slice(0, 12));
-      res.set("X-CookingFoil-Enroll", "invalid");
-      res.status(401).json({ error: "the enrollment token has expired or is unknown" });
+      // A download this server made still says whose it is: the console waits
+      // in the queue under that account's name, for the admin to approve.
+      const known = enrollTokens.lookup(req.body?.token);
+      debug.log("pair: %s… enroll refused: the download token is %s", deviceKey.slice(0, 12), known?.state ?? "unknown");
+      if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
+      res.set("X-CookingFoil-Enroll", known?.state ?? "invalid");
+      res.status(401).json({ error: ENROLL_REFUSED[known?.state] ?? ENROLL_REFUSED.invalid });
       return;
     }
     if (spent.refused) {
@@ -257,7 +284,7 @@ export default function pairRouter() {
     }
     const accessKey = generateAccessKey();
     const fresh = !store.isDeviceApproved(deviceKey);
-    store.approveDevice(deviceKey, { label: fresh ? "웹에서 받은 클라이언트" : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+    store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
     store.clearPairSecret(deviceKey);
     debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
     const origin = resolveOrigin(req, publicBaseUrl);
