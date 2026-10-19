@@ -20,6 +20,7 @@
  *                                                YYYY0000 for a year alone), numberOfPlayers, genres (labels in the
  *                                                request's language) and screenshots (at most 8 URLs with ?v=);
  *                                                an unknown one is left out. Versions of one game share them.
+ *   GET /api/retro/games/:id/achievements      its RetroAchievements list and the player's progress (retro-achievements.js)
  *   GET /api/retro/games/:id/screenshot/:n?v=    one of those screenshots (1-8), cached for a year with its ?v=
  *
  * Versions of one game (src/retro/variants.js: an arcade parent and its
@@ -97,6 +98,8 @@ import * as variantPicks from "../retro/variant-picks.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
+import * as retroAchievements from "../retro/achievements/sync.js";
+import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
 
@@ -394,8 +397,11 @@ export default function retroRouter() {
 
   // Details (description, publisher, screenshots …) collected in the background; requests only read them.
   retroMeta.start({ current: () => catalog.current(retroDir), enabled: retroEnabled });
+  // Which RetroAchievements game each ROM is, once the admin has saved a key.
+  retroAchievements.start({ current: () => catalog.current(retroDir), enabled: retroEnabled });
 
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
+  const gameAchievements = mountAchievements(router);
 
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
@@ -481,10 +487,16 @@ export default function retroRouter() {
     res.vary("Accept-Language").json({
       ...publicGame(game, systems, lang, { cat, link: forRequest(req) }),
       ...retroDetailFields({ dir: retroDir, systems, candidates: metaCandidates(game, rep, group), base: `/api/retro/games/${game.id}`, lang }),
+      ...achievementSummary(metaCandidates(game, rep, group)),
       representative: rep.id,
       variants: group.members.map((m) => publicVariant(m, rep, lang)),
     });
   });
+  router.get("/games/:id/achievements", gameAchievements((req) => {
+    const { game, cat } = req.retro;
+    const group = groupOf(cat, game);
+    return metaCandidates(game, representative(group, variantPicks.get(group.id)), group);
+  }));
   router.get("/games/:id/rom", (req, res) => {
     const { game, system } = req.retro;
     res.attachment(path.posix.basename(sdPaths(game, system).rom));

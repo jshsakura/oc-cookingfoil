@@ -27,6 +27,16 @@ const SERVICES = [
     fields: [["apiKey", "API 키", true]],
   },
   {
+    id: "retroAchievements",
+    title: "RetroAchievements 업적",
+    use: "레트로 게임마다 업적 목록과 플레이어의 달성 현황을 보여 줍니다. 키는 이 서버에 하나만 있으면 되고, 플레이어는 RetroAchievements 아이디만 등록합니다.",
+    steps: [
+      '<a href="https://retroachievements.org" target="_blank" rel="noopener">retroachievements.org</a> 에 가입하고 로그인합니다.',
+      '<a href="https://retroachievements.org/settings" target="_blank" rel="noopener">설정 화면</a>의 Keys 에서 Web API Key 를 복사해 아래에 넣습니다.',
+    ],
+    fields: [["apiKey", "Web API 키", true]],
+  },
+  {
     id: "dropbox",
     title: "Dropbox 세이브 동기화",
     use: "클라이언트가 세이브를 Dropbox 와 맞출 수 있게 로그인을 이어 줍니다. 앱 키만 쓰고 시크릿은 필요 없습니다.",

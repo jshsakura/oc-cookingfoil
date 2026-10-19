@@ -26,6 +26,10 @@ const TESTS = {
     const r = await fetchImpl("https://www.steamgriddb.com/api/v2/search/autocomplete/tetris", { headers: { Authorization: `Bearer ${v.apiKey}` } });
     return r.ok;
   },
+  async retroAchievements(v, fetchImpl) {
+    const r = await fetchImpl(`https://retroachievements.org/API/API_GetConsoleIDs.php?y=${encodeURIComponent(v.apiKey)}`);
+    return r.ok;
+  },
   async github(v, fetchImpl) {
     const r = await fetchImpl("https://api.github.com/rate_limit", { headers: { Authorization: `Bearer ${v.token}`, "User-Agent": "oc-cookingfoil" } });
     return r.ok;
