@@ -252,8 +252,18 @@
       }
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
-      .xrow .pill.verified, .modal .xm-pills .pill.verified { background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
-      .xname .pill.verified { vertical-align: 1px; margin-left: 2px; }
+      /* Tried on a console by the admin: a green pill with a shield. */
+      .xrow .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
+      .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
+      .xname .pill.verified { vertical-align: 2px; margin-left: 4px; }
+      /* Its switch in the edit panel turns green with it. */
+      .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
+      .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
+      .ef-switch.ef-verified:has(input:checked) { background: rgba(var(--good-rgb), .1); border-color: rgba(var(--good-rgb), .4); }
+      .ef-switch.ef-verified:has(input:checked) > span::before { background: var(--good); }
+      .ef-switch.ef-verified input:checked { background: var(--good); }
+      .ef-switch.ef-verified input:focus-visible { outline-color: var(--good); }
       .xhead .pill.server-present { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
@@ -4347,7 +4357,7 @@
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
         for (const f of fields) {
           if (f.check) {
-            const lab = document.createElement("label"); lab.className = "ef-switch";
+            const lab = document.createElement("label"); lab.className = "ef-switch" + (f.cls ? " " + f.cls : "");
             const text = document.createElement("span"); text.textContent = f.label;
             if (f.note) text.append(Object.assign(document.createElement("small"), { textContent: f.note }));
             const box = document.createElement("input"); box.type = "checkbox"; box.name = f.name; box.checked = Boolean(f.value); box.setAttribute("role", "switch");
@@ -4425,7 +4435,7 @@
         return factsCard({
           fields: [
             { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
-            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true },
+            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
             { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
             { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
           ],
