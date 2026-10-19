@@ -111,6 +111,8 @@ import { mountPictures } from "../helpers/send-picture.js";
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
 const MANUAL_STALE_MS = 6 * 60 * 60_000;
+const HOMEBREW_QUIET_MS = 5_000;
+const HOMEBREW_COOLDOWN_MS = 10_000;
 
 let tracker = null;
 useManualHashes(
@@ -414,8 +416,11 @@ export function start() {
   if (!manual.at || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
-  // An app copied into the folder by hand shows up once its copy has been quiet for a while.
-  watch ??= watchItems(homebrewDir, { depth: 1, label: "homebrew", onItem: (folder) => refreshManualApp(folder) });
+  // An app copied into the folder by hand, or any file changed deep inside one, is read again
+  // (only that app, only its changed files hashed) a few seconds after the writes stop, so a
+  // console fetches just what changed.
+  watch ??= watchItems(homebrewDir, { depth: 1, deep: true, quietMs: HOMEBREW_QUIET_MS, cooldownMs: HOMEBREW_COOLDOWN_MS,
+    label: "homebrew", onItem: (folder) => refreshManualApp(folder) });
   // Always scheduled: the admin can add a repository at any time.
   const run = () => githubTracker().checkAll()
     .then(() => githubTracker().fetchDescriptions())

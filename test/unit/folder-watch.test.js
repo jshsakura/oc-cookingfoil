@@ -74,3 +74,27 @@ test("an item that changes again soon after it was read waits out the cooldown",
   await w.close();
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("with deep on, a file replaced by mv deep inside an item, at the same size, reports that item", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-watch-"));
+  const deep = path.join(root, "cstrike", "cstrike", "gfx", "shell");
+  fs.mkdirSync(deep, { recursive: true });
+  fs.writeFileSync(path.join(deep, "splash.bmp"), "a".repeat(100));
+  const seen = [];
+  const w = watchItems(root, { depth: 1, deep: true, quietMs: 200, cooldownMs: 0, onItem: (i) => seen.push(i) });
+  await w.ready;
+  fs.writeFileSync(path.join(root, ".next.bmp"), "b".repeat(100));
+  fs.renameSync(path.join(root, ".next.bmp"), path.join(deep, "splash.bmp"));
+  for (let i = 0; i < 40 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(seen, ["cstrike"]);
+
+  // A folder made after the watch started is watched too.
+  fs.mkdirSync(path.join(root, "cstrike", "cstrike", "maps"));
+  await new Promise((r) => setTimeout(r, 400));
+  seen.length = 0;
+  fs.writeFileSync(path.join(root, "cstrike", "cstrike", "maps", "de_dust2.bsp"), "x");
+  for (let i = 0; i < 40 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(seen, ["cstrike"]);
+  await w.close();
+  fs.rmSync(root, { recursive: true, force: true });
+});
