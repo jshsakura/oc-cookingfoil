@@ -172,6 +172,16 @@ test("lists show one card per game, every file stays reachable", async () => {
     assert.equal(otherDetail.id, other.id, "a version that is not listed still resolves");
     assert.equal(otherDetail.representative, shinobi.id);
 
+    // A match on any version lists the game once, under the card everyone sees.
+    const raStore = await import("../../src/retro/achievements/store.js");
+    raStore.reset({ lists: { 1: { games: [{ id: 77, title: "The Super Shinobi II", count: 20, points: 200, hashes: [] }] } }, roms: { [other.id]: { ra: { id: 77, by: "hash" } } } });
+    const ra = await get("/api/retro/achievements/games");
+    assert.equal(ra.user, null);
+    assert.deepEqual(ra.list.map((r) => [r.gameId, r.raGameId, r.count, r.earned, r.matchedBy, r.system]), [[shinobi.id, 77, 20, 0, "hash", "md"]]);
+    assert.equal(ra.list[0].title, shinobi.name);
+    assert.equal(ra.list[0].iconUrl, shinobi.iconUrl);
+    raStore.reset();
+
     // The admin's pick shows at once, without a rescan.
     assert.equal(picks.set(shinobi.group, other.id), true);
     const after = await get("/api/retro/games?system=md");

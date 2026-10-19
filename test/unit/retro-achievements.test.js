@@ -264,3 +264,89 @@ test("many asking for a badge at once share one fetch, and all get the whole ima
     await new Promise((r) => server.close(r));
   }
 });
+
+test("the achievements list shows each matched game once, with the player's counts, the latest earned first", async () => {
+  players.reset();
+  resetCache();
+  store.reset({
+    lists: { 7: { at: 1, triedAt: 1, games: [
+      { id: 1, title: "Super Mario Bros.", count: 2, points: 15, hashes: [] },
+      { id: 3, title: "The Legend of Zelda", count: 40, points: 400, hashes: [] },
+      { id: 5, title: "Contra", count: 30, points: 300, hashes: [] },
+    ] } },
+    roms: {
+      "nes-1": { ra: { id: 1, by: "title" } },
+      "nes-1b": { ra: { id: 1, by: "hash" } },
+      "nes-2": { ra: { id: 3, by: "title" } },
+      "nes-4": { ra: { id: 5, by: "hash" } },
+      "nes-3": { ra: null },
+    },
+  });
+  const calls = [];
+  const fetchImpl = async (url) => {
+    const u = new URL(url);
+    calls.push(`${u.pathname}?${u.searchParams.get("o") ?? ""}`);
+    assert.equal(u.searchParams.get("u"), "Mario");
+    if (u.pathname.endsWith("API_GetUserProfile.php")) return new Response(JSON.stringify({ User: "Mario", TotalPoints: 1234 }), { status: 200 });
+    assert.equal(u.searchParams.get("c"), "500");
+    return new Response(JSON.stringify({ Count: 2, Total: 2, Results: [
+      { GameID: 3, NumAwarded: 4, NumAwardedHardcore: 1, MaxPossible: 40, MostRecentAwardedDate: "2026-10-02T10:00:00+00:00" },
+      { GameID: 5, NumAwarded: 2, NumAwardedHardcore: 2, MaxPossible: 30, MostRecentAwardedDate: "2026-10-03T10:00:00+00:00" },
+      { GameID: 99, NumAwarded: 1, NumAwardedHardcore: 0, MaxPossible: 9, MostRecentAwardedDate: "2026-10-04T10:00:00+00:00" },
+    ] }), { status: 200 });
+  };
+  const shownAsked = [];
+  const listed = ["nes-1", "nes-1b", "nes-2", "nes-3", "nes-4"].map((id) => ({
+    candidates: [{ id }],
+    shown: () => { shownAsked.push(id); return { id, name: `Game ${id}`, system: "nes", iconUrl: `/api/retro/games/${id}/icon?v=1` }; },
+  }));
+  const app = express();
+  app.use((req, _res, next) => { if (req.get("x-user")) req.auth = { user: req.get("x-user") }; next(); });
+  const router = express.Router();
+  mountAchievements(router, { fetchImpl, games: async () => listed });
+  app.use("/api/retro", router);
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  const get = (user) => fetch(`http://127.0.0.1:${server.address().port}/api/retro/achievements/games`, { headers: user ? { "x-user": user } : {} });
+  try {
+    const anonymous = await (await get()).json();
+    assert.equal(anonymous.user, null);
+    assert.deepEqual(anonymous.list.map((r) => [r.gameId, r.earned, r.lastEarnedAt]), [
+      ["nes-1b", 0, null], ["nes-2", 0, null], ["nes-4", 0, null],
+    ], "no name: nothing earned, by title");
+    assert.equal(calls.length, 0);
+    assert.ok(!shownAsked.includes("nes-3"), "only matched games are looked up");
+
+    players.register("user:viewer", "Mario");
+    const mine = await (await get("viewer")).json();
+    assert.deepEqual(mine.user, { username: "Mario", points: 1234 });
+    assert.deepEqual(mine.list, [
+      { gameId: "nes-4", title: "Game nes-4", system: "nes", raGameId: 5, count: 30, points: 300, earned: 2, earnedHardcore: 2,
+        lastEarnedAt: Date.parse("2026-10-03T10:00:00Z") / 1000, matchedBy: "hash", iconUrl: "/api/retro/games/nes-4/icon?v=1" },
+      { gameId: "nes-2", title: "Game nes-2", system: "nes", raGameId: 3, count: 40, points: 400, earned: 4, earnedHardcore: 1,
+        lastEarnedAt: Date.parse("2026-10-02T10:00:00Z") / 1000, matchedBy: "title", iconUrl: "/api/retro/games/nes-2/icon?v=1" },
+      { gameId: "nes-1b", title: "Game nes-1b", system: "nes", raGameId: 1, count: 2, points: 15, earned: 0, earnedHardcore: 0,
+        lastEarnedAt: null, matchedBy: "hash", iconUrl: "/api/retro/games/nes-1b/icon?v=1" },
+    ], "one row per RetroAchievements game, the hash match kept; a game not on this server is left out");
+    assert.deepEqual(calls.sort(), ["/API/API_GetUserCompletionProgress.php?0", "/API/API_GetUserProfile.php?"]);
+    await get("viewer");
+    assert.equal(calls.length, 2, "a player's list is kept a minute");
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+test("completion progress pages through 500 games at a time", async () => {
+  const client = await import("../../src/retro/achievements/client.js");
+  const offsets = [];
+  const fetchImpl = async (url) => {
+    const o = Number(new URL(url).searchParams.get("o"));
+    offsets.push(o);
+    const n = o === 0 ? 500 : 3;
+    return new Response(JSON.stringify({ Total: 503, Results: Array.from({ length: n }, (_, i) => ({ GameID: o + i + 1, NumAwarded: 1, NumAwardedHardcore: 0, MostRecentAwardedDate: null })) }), { status: 200 });
+  };
+  const out = await client.completionProgress("Mario", { fetchImpl });
+  assert.deepEqual(offsets, [0, 500]);
+  assert.equal(out.size, 503);
+  assert.deepEqual(out.get(503), { earned: 1, earnedHardcore: 0, lastEarnedAt: null });
+});

@@ -5,6 +5,9 @@
  *   PUT    /api/retro/achievements/account     { username }: registers a name RetroAchievements knows (404 when it does not)
  *   DELETE /api/retro/achievements/account     forgets it
  *   GET    /api/retro/achievements/account/lookup?username=   { username } as RetroAchievements spells it (404 when there is no such player)
+ *   GET    /api/retro/achievements/games          { user: { username, points } | null, list: [{ gameId, title, system, raGameId, count, points,
+ *                                                earned, earnedHardcore, matchedBy, lastEarnedAt, iconUrl }] }: every matched game,
+ *                                                one row per RetroAchievements game, the latest earned first, then by title
  *   GET    /api/retro/games/:id/achievements   { raGameId, title, matchedBy, count, points, user, list } (404 when no game matches)
  *   GET    /api/retro/achievements/badge/<n>.png, <n>_lock.png   a badge image, fetched once and kept
  *
@@ -96,6 +99,44 @@ async function progressOf(raId, username, opts) {
   return value;
 }
 
+const playerCache = new Map(); // name → { at, value: { user, earned } }
+
+/** A player's points and per-game counts: 2 calls (more past 500 games), kept a minute. */
+async function playerOf(username, opts) {
+  const hit = playerCache.get(username);
+  if (hit && Date.now() - hit.at < PLAYER_TTL_MS) return hit.value;
+  const [user, earned] = await Promise.all([client.playerSummary(username, opts), client.completionProgress(username, opts)]);
+  const value = { user, earned };
+  playerCache.delete(username);
+  playerCache.set(username, { at: Date.now(), value });
+  if (playerCache.size > CACHE_MAX) playerCache.delete(playerCache.keys().next().value);
+  return value;
+}
+
+const NONE = { earned: 0, earnedHardcore: 0, lastEarnedAt: null };
+
+/**
+ * One row per RetroAchievements game out of `games` ([{ candidates, shown }], shown() → { id, name, system, iconUrl },
+ * asked only of the matched),
+ * the first game listed for it kept, a hash match over a title match. Pure but for the stores.
+ */
+export function matchedRows(games, earned = new Map()) {
+  const rows = new Map();
+  for (const { candidates, shown } of games) {
+    const ra = matchOf(candidates);
+    const listed = ra ? store.game(ra.id) : null;
+    if (!listed) continue;
+    const kept = rows.get(ra.id);
+    if (kept && !(kept.matchedBy === "title" && ra.by === "hash")) continue;
+    const g = shown();
+    rows.set(ra.id, {
+      gameId: g.id, title: g.name, system: g.system, raGameId: ra.id, count: listed.count, points: listed.points,
+      ...(earned.get(ra.id) ?? NONE), matchedBy: ra.by, iconUrl: g.iconUrl,
+    });
+  }
+  return [...rows.values()].sort((a, b) => (b.lastEarnedAt ?? -1) - (a.lastEarnedAt ?? -1) || a.title.localeCompare(b.title));
+}
+
 /** The match of the first of `games` that has one: { id, by }, or null. */
 export function matchOf(games) {
   for (const g of games) {
@@ -184,8 +225,33 @@ function mountLink(router) {
   router.use("/achievements/link", r);
 }
 
-export function mountAchievements(router, { fetchImpl = fetch } = {}) {
+/**
+ * `games(req)` resolves to the listed games as [{ candidates, shown }] (see matchedRows);
+ * without it there is no /achievements/games.
+ */
+export function mountAchievements(router, { fetchImpl = fetch, games = null } = {}) {
   mountLink(router);
+  if (games) {
+    router.get("/achievements/games", async (req, res, next) => {
+      res.set("Cache-Control", "private, no-store");
+      try {
+        const owner = ownerOf(req);
+        const username = owner && client.configured() ? players.nameOf(owner) : null;
+        let player = { user: null, earned: new Map() };
+        if (username) {
+          try {
+            player = await playerOf(username, { fetchImpl });
+          } catch (err) {
+            debug.error("retro achievements: player list: %s", err.message);
+            return res.status(502).json({ error: "RetroAchievements did not answer" });
+          }
+        }
+        res.vary("Accept-Language").json({ user: player.user, list: matchedRows(await games(req), player.earned) });
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
   const account = ownerRouter();
   account.get("/", (req, res) => res.json({ enabled: client.configured(), username: players.nameOf(req.raOwner) }));
   // The name as RetroAchievements spells it, or a reply already sent (400, 503, 404).
@@ -256,4 +322,5 @@ export function mountAchievements(router, { fetchImpl = fetch } = {}) {
 /** For tests. */
 export function resetCache() {
   progress.clear();
+  playerCache.clear();
 }
