@@ -52,12 +52,54 @@ export async function playerName(username, opts) {
   }
 }
 
+const PROGRESS_PAGE = 500;
+const PROGRESS_PAGES_MAX = 20;
+
+/**
+ * Every game the player has earned something in, by RetroAchievements game id:
+ * Map id → { earned, earnedHardcore, lastEarnedAt }. One call per 500 games.
+ */
+export async function completionProgress(username, opts) {
+  const out = new Map();
+  for (let page = 0; page < PROGRESS_PAGES_MAX; page++) {
+    const body = await call("API_GetUserCompletionProgress", { u: username, c: PROGRESS_PAGE, o: page * PROGRESS_PAGE }, opts);
+    const rows = Array.isArray(body?.Results) ? body.Results : [];
+    for (const r of rows) {
+      const id = Number(r.GameID);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      out.set(id, {
+        earned: Number(r.NumAwarded) || 0,
+        earnedHardcore: Number(r.NumAwardedHardcore) || 0,
+        lastEarnedAt: unixSeconds(r.MostRecentAwardedDate),
+      });
+    }
+    if (rows.length < PROGRESS_PAGE || out.size >= (Number(body?.Total) || 0)) break;
+  }
+  return out;
+}
+
+/** The player's name and total points, or null when there is no such player. */
+export async function playerSummary(username, opts) {
+  try {
+    const p = await call("API_GetUserProfile", { u: username }, opts);
+    return typeof p?.User === "string" && p.User ? { username: p.User, points: Number(p.TotalPoints) || 0 } : null;
+  } catch (err) {
+    if (err.status === 404) return null;
+    throw err;
+  }
+}
+
 /** Where a badge image is on RetroAchievements' media server ("123" or "123_lock"). */
 export const badgeUrl = (file) => `${MEDIA}/Badge/${file}.png`;
 
-/** RetroAchievements' "YYYY-MM-DD HH:MM:SS" (UTC) as Unix seconds, or null. Pure. */
+/**
+ * A RetroAchievements date as Unix seconds, or null. Pure. Some calls give "YYYY-MM-DD HH:MM:SS"
+ * (UTC, no zone), others ISO 8601 with its offset.
+ */
 export function unixSeconds(text) {
-  const ms = typeof text === "string" && text ? Date.parse(`${text.replace(" ", "T")}Z`) : NaN;
+  if (typeof text !== "string" || !text) return null;
+  const iso = text.replace(" ", "T");
+  const ms = Date.parse(/(?:Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`);
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
 

@@ -401,7 +401,16 @@ export default function retroRouter() {
   retroAchievements.start({ current: () => catalog.current(retroDir), enabled: retroEnabled });
 
   router.use((req, res, next) => (retroEnabled() ? next() : res.status(404).json({ error: "retro games are not set up on this server" })));
-  const gameAchievements = mountAchievements(router);
+  const gameAchievements = mountAchievements(router, {
+    games: async (req) => {
+      const cat = await catalog.current(retroDir);
+      const lang = requestLang(req);
+      return listedGames(cat).map((g) => ({
+        candidates: metaCandidates(g, g, groupOf(cat, g)),
+        shown: () => ({ id: g.id, name: publicGame(g, null, lang, { lean: true }).name, system: g.system, iconUrl: g.icon ? `/api/retro/games/${g.id}/icon?v=${artKey(g)}` : null }),
+      }));
+    },
+  });
 
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
