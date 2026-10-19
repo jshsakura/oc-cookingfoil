@@ -33,7 +33,8 @@ test('the homebrew lists page, search and change how many show per page', async 
   await page.getByLabel('앱 찾기').fill('zzz');
   await expect(page.locator('#hb-apps .empty')).toHaveText('찾은 앱이 없습니다.');
 
-  // Recommended: 12 per page, and a pick survives a page change.
+  // Recommended: its own sub-tab, 12 per page, and a pick survives a page change.
+  await page.getByRole('tab', { name: '추천 홈브류' }).click();
   const cards = page.locator('#hb-reco label');
   await expect(cards).toHaveCount(12);
   await cards.nth(1).locator('input').check();

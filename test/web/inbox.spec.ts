@@ -3,6 +3,7 @@ import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import { acceptAsks } from './ask';
 import { removeAccount } from './web-session';
+import { reveal } from './fold';
 
 // The share inbox end to end: a signed-in user leaves files, a note and links
 // from the account menu, and the admin finds them in the 임시 공유 tab.
@@ -87,7 +88,7 @@ test('a signed-in user shares files, a note and links, and the admin sorts them 
 test('the settings tab switches the inbox and sets its sizes in GB', async ({ page }) => {
   await adminSignIn(page);
   await page.goto('/admin#settings');
-  const max = page.locator('.ss-row[data-key="inboxMaxBytes"] input');
+  const max = await reveal(page.locator('.ss-row[data-key="inboxMaxBytes"] input'));
   await expect(max).toHaveValue('2');
   await max.fill('0.5');
   await max.press('Tab');

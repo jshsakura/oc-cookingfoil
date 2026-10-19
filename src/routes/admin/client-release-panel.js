@@ -6,8 +6,7 @@
  * and saves the mode and the release as server settings.
  */
 
-export const CLIENT_RELEASE_HTML = `<div class="hd"><h2>클라이언트 빌드</h2></div>
-<p class="muted">기기에 내려줄 CookingFoil 클라이언트를 어디서 받을지 정합니다. 수동 업로드는 업로드 탭에서 올리거나 client 폴더에 넣은 빌드만 씁니다. 기본은 수동 업로드입니다. GitHub 릴리즈를 고르면 클라이언트 저장소의 최신 릴리즈를 30분마다 확인해 따로 받아 두고, 수동 빌드와 견줘 버전이 높은 쪽을 내려줍니다. 버전이 같으면 수동 빌드를 씁니다. 태그를 넣으면 최신 릴리즈 대신 그 태그의 릴리즈를 따릅니다.</p>
+export const CLIENT_RELEASE_HTML = `<p class="muted">기기에 내려줄 CookingFoil 클라이언트를 어디서 받을지 정합니다. 수동 업로드는 업로드 탭에서 올리거나 client 폴더에 넣은 빌드만 씁니다. 기본은 수동 업로드입니다. GitHub 릴리즈를 고르면 클라이언트 저장소의 최신 릴리즈를 30분마다 확인해 따로 받아 두고, 수동 빌드와 견줘 버전이 높은 쪽을 내려줍니다. 버전이 같으면 수동 빌드를 씁니다. 태그를 넣으면 최신 릴리즈 대신 그 태그의 릴리즈를 따릅니다.</p>
 <form class="add" id="cr-form" autocomplete="off">
   <select id="cr-mode" aria-label="클라이언트 받는 방식"><option value="manual">수동 업로드</option><option value="github">GitHub 릴리즈</option></select>
   <input id="cr-repo" placeholder="소유자/저장소 (jshsakura/oc-cookingfoil-client)" aria-label="저장소" maxlength="140" spellcheck="false">

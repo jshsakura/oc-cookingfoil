@@ -4,7 +4,7 @@ import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 export function forbiddenPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:36px 32px;width:min(380px,100%);text-align:center}
 h1{font-size:22px;margin:12px 0 8px}p{color:var(--muted);margin:0 0 20px}.row{display:grid;gap:10px}</style></head><body>

@@ -12,9 +12,11 @@ export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first">서버 �
 export const SERVER_SETTINGS_CSS = `
 .ss-list{display:grid;gap:14px;margin:10px 0 26px}
 .ss-group{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 16px}
-.ss-group>h3{margin:12px 0 2px;font-size:15px}
+.ss-group>summary{margin:0 -16px;padding:13px 16px}
+.ss-group>summary>h3{margin:0;font-size:15px;flex:none}
 .ss-row{display:grid;grid-template-columns:1fr minmax(180px,300px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
-.ss-group>h3+.ss-row{border-top:0}
+.ss-group>summary+.ss-row{border-top:0}
+.ss-list>details.fold.ss-group{margin:0}
 .ss-row b{font-size:14px}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
@@ -101,7 +103,7 @@ function ssControl(key,kind,s,ph){
   i.value=Array.isArray(s.value)?s.value.join(','):(s.value||'');
   i.addEventListener('change',()=>ssSave({[key]:i.value}));i.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();i.blur();}});return i;}
 function ssRender(d){const list=$('ss-list');list.replaceChildren();
-  for(const [title,rows] of SS_GROUPS){const g=el('section',null,'ss-group');g.append(el('h3',title));
+  for(const [title,rows] of SS_GROUPS){const g=foldEl('ss-'+title,title,rows.map((r)=>r[2]).join(' · '),false,'ss-group');
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',label),el('p',desc));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));

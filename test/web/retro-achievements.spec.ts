@@ -23,7 +23,7 @@ test('the account menu checks, saves and unlinks a RetroAchievements username', 
   await page.goto('/');
   await page.locator('#acct-btn').click();
   const menu = page.locator('#acct-list');
-  await expect(menu.getByRole('menuitem', { name: '관리자 대시보드' })).toBeHidden();
+  await expect(menu.getByRole('menuitem', { name: '서버 관리' })).toBeHidden();
   await menu.getByRole('menuitem', { name: '레트로 업적 설정' }).click();
 
   const dialog = page.locator('#ra-modal');
@@ -68,6 +68,6 @@ test('the menu leaves the achievements item out when the server has no RetroAchi
   await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
   await page.goto('/');
   await page.locator('#acct-btn').click();
-  await expect(page.locator('#acct-list').getByRole('menuitem', { name: '관리자 대시보드' })).toBeVisible();
+  await expect(page.locator('#acct-list').getByRole('menuitem', { name: '서버 관리' })).toBeVisible();
   await expect(page.locator('#ra-link')).toBeHidden();
 });
