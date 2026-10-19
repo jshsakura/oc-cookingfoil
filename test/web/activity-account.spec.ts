@@ -23,9 +23,22 @@ test('everyone can see activity in the web account menu, with no stop control fo
   await page.goto('/');
   const button = page.locator('#acct-btn');
   await expect(button).toHaveClass(/busy/);
-  await expect(button.locator('.act-user-icon')).toBeHidden();
-  await expect(button.locator('.act-busy-icon')).toBeVisible();
-  await expect(button.locator('#act-count')).toHaveText('1');
+  await expect(button.locator('svg')).toHaveCount(1);
+  const count = button.locator('#act-count');
+  await expect(count).toHaveText('1');
+  // The number sits in the middle of its dot, not riding on the top edge.
+  const [dot, digit] = await count.evaluate(el => {
+    const range = document.createRange(); range.selectNodeContents(el);
+    const d = el.getBoundingClientRect(), t = range.getBoundingClientRect();
+    return [d.top + d.height / 2, t.top + t.height / 2];
+  });
+  expect(Math.abs(dot - digit)).toBeLessThanOrEqual(1);
+  // The stats panel lists the running task for this ordinary account, with no stop control.
+  const board = page.locator('#act-board');
+  await expect(board).toBeVisible();
+  await expect(board.locator('.act-row .t')).toHaveText('NSZ 로 변환합니다');
+  await expect(board.locator('.act-row .n')).toContainText('50% · 3.0 GB / 6.0 GB');
+  await expect(board.locator('.act-stop')).toHaveCount(0);
   await button.click();
   const menu = page.locator('#acct-list');
   await expect(menu.getByRole('menuitemcheckbox', { name: '어두운 테마' })).toBeVisible();
@@ -46,8 +59,8 @@ test('everyone can see activity in the web account menu, with no stop control fo
   await page.screenshot({ path: 'out/web/web-account-activity-phone.png' });
   push([]);
   await expect(button).not.toHaveClass(/busy/);
-  await expect(button.locator('.act-user-icon')).toBeVisible();
-  await expect(button.locator('.act-busy-icon')).toBeHidden();
+  await expect(button.locator('#act-count')).toBeHidden();
+  await expect(page.locator('#act-board')).toBeHidden();
   await expect(page.locator('#act-idle')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
@@ -63,6 +76,12 @@ test('a verified admin can stop a task from the web menu after confirmation', as
     return route.fulfill({ json: { ok: true } });
   });
   await page.goto('/');
+  const boardStop = page.locator('#act-board .act-stop');
+  await expect(boardStop).toBeVisible();
+  await boardStop.click();
+  await expect(page.locator('#confirm-text')).toHaveText('이 작업을 중지할까요?');
+  await page.locator('#confirm-no').click();
+  expect(cancelled).toEqual([]);
   await page.locator('#acct-btn').click();
   const stop = page.locator('#act-running .act-stop');
   await expect(stop).toBeVisible();
@@ -85,4 +104,5 @@ test('a failed admin capability check leaves the public status visible without s
   await page.locator('#acct-btn').click();
   await expect(page.locator('#act-running .t')).toHaveText('NSZ 로 변환합니다');
   await expect(page.locator('#act-running .act-stop')).toHaveCount(0);
+  await expect(page.locator('#act-board .act-stop')).toHaveCount(0);
 });

@@ -18,7 +18,7 @@ export const ACTIVITY_CSS = /* css */ `
 .hdr-right{display:flex;align-items:center;gap:8px}
 .activity-account{position:relative}
 .activity-account>.pop-list{width:min(440px,calc(100vw - 24px));min-width:0;max-height:min(80dvh,760px);overflow:auto}
-.activity-account .ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.activity-account .ico,.act-board .ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .activity-account [hidden]{display:none!important}
 .activity-account .account-links{display:grid;gap:2px}
 .activity-account .pop-list *{white-space:normal}
@@ -26,7 +26,7 @@ export const ACTIVITY_CSS = /* css */ `
 .act-btn{position:relative}
 .act-btn.busy{color:var(--accent);border-color:rgba(var(--accent-rgb),.55)}
 .act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:100px;border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
-.act-count{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font:700 11px/18px inherit;text-align:center}
+.act-count{position:absolute;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .act-count[hidden]{display:none}
 .act-pop{max-height:min(45dvh,420px);overflow:auto;padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--line)}
 .act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:13px}
@@ -55,12 +55,23 @@ export const ACTIVITY_CSS = /* css */ `
 .act-row .act-stop:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
 .act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:13px}
 .act-empty[hidden]{display:none}
+.act-board{margin-top:10px;padding:10px 6px 4px;border-radius:14px;background:var(--sunk)}
+.act-board[hidden]{display:none}
+.act-board .act-h{padding-top:0}
+.act-board .act-row:hover{background:transparent}
 @keyframes act-spin{to{transform:rotate(360deg)}}
 @keyframes act-slide{from{left:-30%}to{left:100%}}
 @media (prefers-reduced-motion:reduce){.act-btn.busy::after{animation:none}.act-bar.ind>i{animation:none;width:100%;opacity:.5}.act-bar>i{transition:none}}
 `;
 
-export const ACTIVITY_BUTTON_HTML = `<span class="act-user-icon">${icon("account")}</span><span class="act-busy-icon" hidden>${icon("activity")}</span><span class="act-count" id="act-count" hidden></span>`;
+export const ACTIVITY_BUTTON_HTML = `${icon("account")}<span class="act-count" id="act-count" hidden></span>`;
+
+// The shop's stats panel lists the running tasks too, for every signed-in account; it is hidden while nothing runs.
+export const ACTIVITY_BOARD_HTML = /* html */ `
+    <section class="act-board" id="act-board" role="region" aria-labelledby="act-board-heading" hidden>
+      <div class="act-h"><b id="act-board-heading">지금 하는 일</b></div>
+      <ul class="act-list" id="act-board-list"></ul>
+    </section>`;
 
 export const ACTIVITY_HTML = /* html */ `
     <section class="act-pop" id="act-pop" role="region" aria-label="서버 활동">
@@ -116,7 +127,7 @@ const actText=(key)=>actWords[${web ? "lang" : "'ko'"}]?.[key]||actWords.en[key]
 const actApi=${web ? "(url,init)=>fetch(url,init).then(async(r)=>{if(!r.ok){const e=new Error(\"HTTP \"+r.status);e.status=r.status;throw e;}return r.json();})" : "api"};
 const actEl=${web ? "(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}" : "el"};
 const actNum=${web ? "(n)=>Number(n).toLocaleString(lang)" : "num"};
-let actWs=null,actRetry=1000,actPoll=null,actSnap={running:[],recent:[]},actTick=null;
+let actWs=null,actRetry=1000,actPoll=null,actSnap={running:[],recent:[]},actTick=null,actBoardTick=null;
 const ACT_ICON={running:${JSON.stringify(icon("activity"))},done:${JSON.stringify(icon("check"))},failed:${JSON.stringify(icon("x"))},stopped:${JSON.stringify(icon("stop"))}};
 const ACT_STOP=${JSON.stringify(icon("stop"))};
 const actGb=(n)=>(n/1073741824).toFixed(n>=10737418240?0:1)+' GB';
@@ -142,19 +153,24 @@ function actFillRunning(li,e){
   else if((!actCanCancel||!e.cancellable)&&stop){stop.remove();stop=null;}
   if(stop){stop.querySelector('span').textContent=actText('stop');stop.title=actText('stop');}
   bar.setAttribute('role','progressbar');bar.setAttribute('aria-label',e.title);if(pct!=null)bar.setAttribute('aria-valuenow',String(Math.round(pct)));else bar.removeAttribute('aria-valuenow');}
+// Running rows are kept by id, so a bar moves instead of being drawn again.
+function actSyncRunning(box,running){const keep=new Map([...box.children].map((li)=>[li.dataset.id,li]));
+  // A row is moved only when its place changes: one taken out of the page, even for a moment, loses the click being pressed on it.
+  const rows=running.map((e)=>{const li=keep.get(e.id)||actRow(e,true);keep.delete(e.id);actFillRunning(li,e);return li;});
+  for(const li of keep.values())li.remove();
+  rows.forEach((li,i)=>{if(box.children[i]!==li)box.insertBefore(li,box.children[i]||null);});}
 function actRender(){
   const {running,recent}=actSnap;
   const btnEl=$('acct-btn');btnEl.classList.toggle('busy',running.length>0);
   $('act-count').hidden=!running.length;$('act-count').textContent=running.length;
   btnEl.title=actText('menu')+(running.length?' ('+running.length+')':'');btnEl.setAttribute('aria-label',btnEl.title);$('acct-list').setAttribute('aria-label',actText('menu'));
-  btnEl.querySelector('.act-user-icon').hidden=running.length>0;btnEl.querySelector('.act-busy-icon').hidden=running.length===0;
   $('act-pop').setAttribute('aria-label',actText('label'));$('act-heading').textContent=actText('heading');$('act-recent-heading').textContent=actText('recent');$('act-idle').textContent=actText('idle');$('act-none').textContent=actText('none');
-  // Running rows are kept by id, so a bar moves instead of being drawn again.
-  const box=$('act-running');const keep=new Map([...box.children].map((li)=>[li.dataset.id,li]));
-  // A row is moved only when its place changes: one taken out of the page, even for a moment, loses the click being pressed on it.
-  const rows=running.map((e)=>{const li=keep.get(e.id)||actRow(e,true);keep.delete(e.id);actFillRunning(li,e);return li;});
-  for(const li of keep.values())li.remove();
-  rows.forEach((li,i)=>{if(box.children[i]!==li)box.insertBefore(li,box.children[i]||null);});
+  actSyncRunning($('act-running'),running);
+  const board=$('act-board');
+  if(board){board.hidden=!running.length;$('act-board-heading').textContent=actText('heading');actSyncRunning($('act-board-list'),running);
+    // The board's times move while it shows something; the menu keeps its own timer while open.
+    if(running.length&&!actBoardTick)actBoardTick=setInterval(()=>{if(!actTick)actRender();},1000);
+    else if(!running.length&&actBoardTick){clearInterval(actBoardTick);actBoardTick=null;}}
   $('act-idle').hidden=running.length>0;
   const rbox=$('act-recent');rbox.replaceChildren(...recent.map((e)=>{const li=actRow(e,false);
     li.querySelector('.n').textContent=actDur(e.ms)+' · '+actAgo(e.endedAt);
