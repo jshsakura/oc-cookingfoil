@@ -47,9 +47,9 @@ async function follow(after) {
     after = v.state;
     if (v.state === "done") return end(T.done, "ok");
     if (v.state === "failed") return end(T.failed, "bad");
-    if (v.state === "wrong") {
+    if (v.state === "wrong" || v.state === "unreadable") {
       $("send").disabled = false; $("password").value = ""; $("password").focus();
-      return say(T.wrongText.replace("{n}", v.triesLeft), "bad");
+      return say(v.state === "wrong" ? T.wrongText.replace("{n}", v.triesLeft) : T.unreadable, "bad");
     }
   }
 }
@@ -76,6 +76,15 @@ async function send(e) {
   }
 }
 
+// Which account and console asked, so a link someone else sent reads as theirs.
+function showAsker(r) {
+  const account = r?.account, device = r?.device;
+  const text = account && device ? T.askBoth : account ? T.askAccount : device ? T.askDevice : null;
+  if (text) $("ask-who").textContent = text.replace("{account}", account ?? "").replace("{device}", device ?? "");
+  else $("ask-who").hidden = true;
+  $("ask").hidden = false;
+}
+
 async function start() {
   if (location.protocol === "http:") $("http-warn").hidden = false;
   if (!code || !devicePk) return end(T.badLink, "bad");
@@ -84,6 +93,7 @@ async function start() {
     if (r.status === 410) return end(T.expired, "bad");
     const v = await r.json();
     if (v.username) $("username").value = v.username;
+    showAsker(v.requester);
     if (v.state === "done") return end(T.done, "ok");
     if (v.state === "failed") return end(T.failed, "bad");
     $("form").hidden = false;

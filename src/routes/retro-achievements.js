@@ -10,13 +10,16 @@
  *
  * The console's half of the phone sign-in (retro/achievements/link.js has the envelope):
  *   POST   /api/retro/achievements/link                 { publicKey } → 201 { code, expiresAt, path } (path: the page the QR opens)
- *   GET    /api/retro/achievements/link/<code>/sealed   waits up to 25 s: 200 { epk, iv, ct } once, 204 not yet, 410 gone
- *   POST   /api/retro/achievements/link/<code>/result   { ok, username } → { state }; ok registers the name, not ok lets the phone try again
+ *   GET    /api/retro/achievements/link/<code>/sealed   waits up to 25 s: 200 { epk, iv, ct } (again until the result, if a reply was lost), 204 not yet, 410 gone
+ *   POST   /api/retro/achievements/link/<code>/result   { ok, username } or { ok: false, reason: "unreadable" } → { state };
+ *          ok registers the name, not ok lets the phone try again (unreadable without spending a try)
+ * A link belongs to the console that opened it (its account and device key).
  *
  * The console signs in to RetroAchievements itself and writes retroarch.cfg;
  * only the public name comes here. A game's own reply carries a short summary
  * (achievementSummary) so it never waits on RetroAchievements.
  */
+import crypto from "crypto";
 import express from "express";
 import fs from "fs/promises";
 import path from "path";
@@ -28,6 +31,10 @@ import * as client from "../retro/achievements/client.js";
 import * as players from "../retro/achievements/players.js";
 import * as store from "../retro/achievements/store.js";
 import * as link from "../retro/achievements/link.js";
+import { accountOf } from "../security/link-identity.js";
+import { deviceKeyFromHeaders } from "../security/pairing.js";
+import * as securityStore from "../security/store.js";
+import * as googleAccounts from "../security/google-accounts.js";
 
 export const NAME_RE = /^[A-Za-z0-9_.-]{2,32}$/;
 // A console asks again after this; under the 30 s it gives up on a request.
@@ -42,6 +49,20 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const badgeDir = () => path.join(dataDir, "retro-achievements", "badges");
 const badgePath = (name, locked = false) => (name ? `/api/retro/achievements/badge/${name}${locked ? "_lock" : ""}.png` : null);
 
+const fetching = new Map(); // file → the fetch in flight, shared by everyone asking for it meanwhile
+
+async function fetchBadge(file, at, fetchImpl) {
+  const res = await fetchImpl(client.badgeUrl(file), { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) return null;
+  const body = Buffer.from(await res.arrayBuffer());
+  if (body.length > BADGE_MAX || !body.subarray(0, 4).equals(PNG_MAGIC)) return null;
+  await fs.mkdir(badgeDir(), { recursive: true });
+  const tmp = `${at}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  await fs.writeFile(tmp, body);
+  await fs.rename(tmp, at);
+  return body;
+}
+
 /** The bytes of a badge (`file` "123" or "123_lock"), from disk or fetched once and saved. */
 async function badgeBytes(file, fetchImpl) {
   const at = path.join(badgeDir(), `${file}.png`);
@@ -50,14 +71,8 @@ async function badgeBytes(file, fetchImpl) {
   } catch (err) {
     if (err.code !== "ENOENT") throw err;
   }
-  const res = await fetchImpl(client.badgeUrl(file), { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) return null;
-  const body = Buffer.from(await res.arrayBuffer());
-  if (body.length > BADGE_MAX || !body.subarray(0, 4).equals(PNG_MAGIC)) return null;
-  await fs.mkdir(badgeDir(), { recursive: true });
-  await fs.writeFile(`${at}.tmp`, body);
-  await fs.rename(`${at}.tmp`, at);
-  return body;
+  if (!fetching.has(file)) fetching.set(file, fetchBadge(file, at, fetchImpl).finally(() => fetching.delete(file)));
+  return fetching.get(file);
 }
 
 /** The reply's shape: badges as this server's paths, the RetroAchievements id named apart from ours. */
@@ -123,30 +138,45 @@ function closedSignal(res) {
   return ac.signal;
 }
 
+const deviceOf = (req) => req.pairedDevice || deviceKeyFromHeaders(req) || null;
+// One console: its account and its device key (a request without one is its own browser).
+const holderOf = (req) => `${req.raOwner}|${deviceOf(req) ?? "web"}`;
+
+/** Who is asking, as the phone page shows it: { account, device } names, each or null. */
+function requesterOf(req) {
+  const acct = accountOf(req);
+  const account = acct?.kind === "google" ? googleAccounts.maskEmail(googleAccounts.get(acct.id)?.email) : acct?.id ?? null;
+  const key = deviceOf(req);
+  const device = key ? securityStore.devicesSnapshot().approved.find((d) => d.deviceKey === key)?.label || null : null;
+  return { account, device };
+}
+
 function mountLink(router) {
   const r = ownerRouter();
   r.post("/", (req, res) => {
-    const opened = link.open(req.raOwner, req.body?.publicKey, { username: players.nameOf(req.raOwner) });
+    // Only a name a console of this account signed in with is filled in for the phone: a typed one may be anyone's.
+    const opened = link.open(holderOf(req), req.body?.publicKey, { requester: requesterOf(req), username: players.provenNameOf(req.raOwner) });
     if (!opened) return res.status(400).json({ error: "publicKey must be an uncompressed P-256 point, base64url" });
     res.status(201).json({ ...opened, path: `/ra-link?c=${opened.code}` });
   });
   r.get("/:code/sealed", async (req, res) => {
     const { code } = req.params;
-    if (!link.isOwner(code, req.raOwner)) return res.status(410).json({ error: "no such link" });
-    await link.wait(code, (l) => l.state === "sealed", LONG_WAIT_MS, closedSignal(res));
+    if (!link.isHolder(code, holderOf(req))) return res.status(410).json({ error: "no such link" });
+    await link.wait(code, (l) => l.state === "sealed" || l.state === "taken", LONG_WAIT_MS, closedSignal(res));
     if (res.writableEnded || res.destroyed) return;
-    const envelope = link.take(code, req.raOwner);
+    const envelope = link.take(code, holderOf(req));
     if (envelope === "gone") return res.status(410).json({ error: "no such link" });
     if (envelope === "none") return res.status(204).end();
     res.json(envelope);
   });
   r.post("/:code/result", (req, res) => {
     const ok = req.body?.ok === true;
+    const unreadable = !ok && req.body?.reason === "unreadable";
     const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
     if (ok && !NAME_RE.test(username)) return res.status(400).json({ error: "invalid username" });
-    const state = link.finish(req.params.code, req.raOwner, { ok, username });
+    const state = link.finish(req.params.code, holderOf(req), { ok, unreadable, username });
     if (!state) return res.status(410).json({ error: "no such link" });
-    if (ok) players.register(req.raOwner, username);
+    if (ok) players.register(req.raOwner, username, { proven: true });
     res.json({ state });
   });
   router.use("/achievements/link", r);

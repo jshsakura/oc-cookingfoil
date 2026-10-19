@@ -237,3 +237,30 @@ test("a game's own RetroArch config carries no cheevos_ key", async () => {
   const text = gameCfg(game, { folder: "snes", core: "snes9x_libretro" }) + overlayCfg(game);
   assert.doesNotMatch(text, /cheevos_/);
 });
+
+test("many asking for a badge at once share one fetch, and all get the whole image", async () => {
+  let fetches = 0;
+  const fetchImpl = async () => {
+    fetches++;
+    await new Promise((r) => setTimeout(r, 30));
+    return new Response(PNG, { status: 200 });
+  };
+  const app = express();
+  app.use((req, _res, next) => { req.auth = { user: "viewer" }; next(); });
+  const router = express.Router();
+  mountAchievements(router, { fetchImpl });
+  app.use("/api/retro", router);
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  const url = `http://127.0.0.1:${server.address().port}/api/retro/achievements/badge/987654.png`;
+  try {
+    const replies = await Promise.all(Array.from({ length: 5 }, () => fetch(url)));
+    assert.deepEqual(replies.map((r) => r.status), [200, 200, 200, 200, 200]);
+    for (const r of replies) assert.deepEqual(Buffer.from(await r.arrayBuffer()), PNG);
+    assert.equal(fetches, 1);
+    const dir = path.join(root, "retro-achievements", "badges");
+    assert.deepEqual(fs.readdirSync(dir).filter((f) => f.startsWith("987654")), ["987654.png"], "no temporary file is left behind");
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});

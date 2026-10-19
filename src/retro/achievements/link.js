@@ -3,11 +3,18 @@
  *
  * The console makes a P-256 key pair and opens a link (open). The phone page
  * encrypts { u, p } to the console's public key and leaves the envelope here
- * (seal); the console takes it once (take), signs in to RetroAchievements
- * itself and says how it went (finish). This server never has the key to open
- * the envelope, keeps it until it is taken, and forgets every link after
+ * (seal); the console takes it (take), signs in to RetroAchievements itself and
+ * says how it went (finish). This server never has the key to open the
+ * envelope. It keeps the envelope until the console reports, so a reply lost on
+ * the way can be taken again by the same console, and forgets every link after
  * LINK_TTL_MS. A wrong password reopens the same link for the phone, up to
- * MAX_TRIES envelopes.
+ * MAX_TRIES envelopes; one the console could not open (junk from someone who
+ * saw the code) reopens it without spending a try.
+ *
+ * A link belongs to one console (`holder`: its account and device), so two
+ * consoles of one account do not end each other's links. The phone is shown
+ * `requester` (which account and console asked) so a link someone else sends
+ * reads as theirs.
  *
  * Waiting is event driven: wait() parks a promise that the next change (or its
  * own timeout) settles, so a long request costs one timer and nothing else.
@@ -27,7 +34,9 @@ const MAX_CT_BYTES = 1024;
 
 // waiting: for the phone · sealed: an envelope for the console · taken: the console is signing in
 // done: signed in · wrong: the password was refused, the phone may try again · failed: out of tries
-const links = new Map(); // code → { owner, publicKey, username, state, envelope, tries, expiresAt, waiters, timer }
+// unreadable: the console could not open the envelope, the phone may send another
+const links = new Map(); // code → { holder, requester, username, state, envelope, tries, expiresAt, waiters, timer }
+const OPEN_FOR_ENVELOPE = new Set(["waiting", "wrong", "unreadable"]);
 
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const bytesOf = (text) => (typeof text === "string" && B64URL_RE.test(text) ? Buffer.from(text, "base64url") : null);
@@ -54,28 +63,32 @@ function drop(code) {
   notify(link);
 }
 
-/** A new link for `owner`, replacing that owner's earlier one: { code, expiresAt }, or null when publicKey is not a P-256 point. */
-export function open(owner, publicKey, { username = null, now = Date.now() } = {}) {
+/**
+ * A new link for the console `holder`, replacing its earlier one: { code, expiresAt },
+ * or null when publicKey is not a P-256 point. `requester` ({ account, device } names)
+ * and `username` (a name already proven by a sign-in) are shown to the phone.
+ */
+export function open(holder, publicKey, { requester = null, username = null, now = Date.now() } = {}) {
   if (!pointOf(publicKey)) return null;
-  for (const [code, l] of links) if (l.owner === owner) drop(code);
+  for (const [code, l] of links) if (l.holder === holder) drop(code);
   if (links.size >= MAX_LINKS) drop(links.keys().next().value);
   const code = crypto.randomBytes(16).toString("base64url");
   const expiresAt = now + LINK_TTL_MS;
   const timer = setTimeout(() => drop(code), LINK_TTL_MS);
   timer.unref?.();
-  links.set(code, { owner, publicKey, username, state: "waiting", envelope: null, tries: 0, expiresAt, waiters: new Set(), timer });
+  links.set(code, { holder, requester, username, state: "waiting", envelope: null, tries: 0, expiresAt, waiters: new Set(), timer });
   return { code, expiresAt };
 }
 
 const live = (code) => (typeof code === "string" ? links.get(code) ?? null : null);
 
-/** Whether `code` is a live link of `owner`'s. */
-export const isOwner = (code, owner) => live(code)?.owner === owner;
+/** Whether `code` is a live link of the console `holder`'s. */
+export const isHolder = (code, holder) => live(code)?.holder === holder;
 
-/** What the phone page may know: { state, username, triesLeft, expiresAt }, or null. */
+/** What the phone page may know: { state, requester, username, triesLeft, expiresAt }, or null. */
 export function view(code) {
   const l = live(code);
-  return l ? { state: l.state, username: l.username, triesLeft: MAX_TRIES - l.tries, expiresAt: l.expiresAt } : null;
+  return l ? { state: l.state, requester: l.requester, username: l.username, triesLeft: MAX_TRIES - l.tries, expiresAt: l.expiresAt } : null;
 }
 
 /**
@@ -86,7 +99,7 @@ export function seal(code, { epk, iv, ct } = {}) {
   if (!l) return "gone";
   const ivBytes = bytesOf(iv), ctBytes = bytesOf(ct);
   if (!pointOf(epk) || ivBytes?.length !== 12 || !ctBytes || ctBytes.length <= 16 || ctBytes.length > MAX_CT_BYTES) return "invalid";
-  if (l.state !== "waiting" && l.state !== "wrong") return "busy";
+  if (!OPEN_FOR_ENVELOPE.has(l.state)) return "busy";
   l.tries++;
   l.envelope = { epk, iv, ct };
   l.state = "sealed";
@@ -94,25 +107,35 @@ export function seal(code, { epk, iv, ct } = {}) {
   return "ok";
 }
 
-/** The console takes its envelope, once: the envelope, "none" yet, or "gone" (no such link, or not this owner's). */
-export function take(code, owner) {
+/**
+ * The console takes its envelope: the envelope, "none" yet, or "gone" (no such link,
+ * or not this console's). It stays until finish(), so a reply lost on the way is taken again.
+ */
+export function take(code, holder) {
   const l = live(code);
-  if (!l || l.owner !== owner) return "gone";
-  if (l.state !== "sealed") return "none";
-  const envelope = l.envelope;
-  l.envelope = null;
-  l.state = "taken";
-  notify(l);
-  return envelope;
+  if (!l || l.holder !== holder) return "gone";
+  if (l.state !== "sealed" && l.state !== "taken") return "none";
+  if (l.state === "sealed") {
+    l.state = "taken";
+    notify(l);
+  }
+  return l.envelope;
 }
 
-/** The console says how signing in went. → the new state, or null when there is no such link of this owner's. */
-export function finish(code, owner, { ok, username = null }) {
+/**
+ * The console says how signing in went: ok, or not (`unreadable` when it could not open
+ * the envelope, which spends no try). → the new state, or null when there is no such link of this console's.
+ */
+export function finish(code, holder, { ok, unreadable = false, username = null }) {
   const l = live(code);
-  if (!l || l.owner !== owner || l.state !== "taken") return null;
+  if (!l || l.holder !== holder || l.state !== "taken") return null;
+  l.envelope = null;
   if (ok) {
     l.state = "done";
     if (username) l.username = username;
+  } else if (unreadable) {
+    l.tries--;
+    l.state = "unreadable";
   } else {
     l.state = l.tries >= MAX_TRIES ? "failed" : "wrong";
   }

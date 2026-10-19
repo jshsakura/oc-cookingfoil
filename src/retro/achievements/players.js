@@ -19,8 +19,17 @@ function all() {
 /** The RetroAchievements name an owner registered, or null. */
 export const nameOf = (owner) => all().get(owner)?.username ?? null;
 
-export function register(owner, username, now = Date.now()) {
-  const next = new Map(all()).set(owner, { username, at: now });
+/** The name, only when a console of this owner signed in to RetroAchievements with it; else null. */
+export const provenNameOf = (owner) => (all().get(owner)?.proven ? all().get(owner).username : null);
+
+/**
+ * Registers `username` for `owner`. `proven`: a console signed in with it. Typing a
+ * name keeps it proven only when it is the same name.
+ */
+export function register(owner, username, { proven = false, now = Date.now() } = {}) {
+  const prev = all().get(owner);
+  const keep = prev?.proven && prev.username.toLowerCase() === username.toLowerCase();
+  const next = new Map(all()).set(owner, { username, at: now, ...(proven || keep ? { proven: true } : {}) });
   records().sync(next);
   names = next;
 }

@@ -24,7 +24,7 @@ import { RA_LINK_TEXT } from "./ra-link-text.js";
 
 const require = createRequire(import.meta.url);
 const SCRIPT_PATH = fileURLToPath(new URL("../views/ra-link.js", import.meta.url));
-const STATES = new Set(["waiting", "sealed", "taken", "done", "wrong", "failed"]);
+const STATES = new Set(["waiting", "sealed", "taken", "done", "wrong", "failed", "unreadable"]);
 
 const VENDOR = ["curves", "hashes", "ciphers"].map((name) => {
   const dir = path.dirname(require.resolve(`@noble/${name}/utils.js`));
@@ -39,7 +39,7 @@ const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#161
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;width:min(100%,460px)}
 .brand{display:flex;align-items:center;gap:12px;margin:0 0 24px;text-decoration:none;color:inherit}.brand .wm{font-weight:800;font-size:28px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
 h1{font-size:26px;margin:0 0 12px}p{font-size:16px;line-height:1.6;color:var(--muted);margin:0 0 14px;word-break:keep-all}
-.note{font-size:14px}.warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600}
+.note{font-size:14px}.ask{border:2px solid var(--accent);border-radius:12px;padding:12px 14px;margin:0 0 14px}.ask p{margin:0}#ask-who{color:var(--ink);font-weight:700;overflow-wrap:anywhere}.ask-check{font-size:14px;margin-top:6px!important}.warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600}
 label{display:block;font-size:15px;font-weight:600;margin:16px 0 8px}
 input{font:inherit;font-size:18px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
 button{display:block;font:inherit;font-weight:700;font-size:18px;width:100%;border:0;border-radius:10px;padding:15px;background:var(--accent);color:#16161A;margin:20px 0 0;cursor:pointer}
@@ -58,6 +58,7 @@ export function raLinkPage(lang) {
 <script type="importmap">${IMPORT_MAP}</script></head>
 <body><main class="card"><p class="brand"><span class="wm">cookingfoil<span class="dot">.</span></span></p>
 <h1>${escapeHtml(t.title)}</h1><p>${escapeHtml(t.lead)}</p><p class="note">${escapeHtml(t.note)}</p>
+<div class="ask" id="ask" hidden><p id="ask-who"></p><p class="ask-check">${escapeHtml(t.askCheck)}</p></div>
 <p class="warn" id="http-warn" role="alert" hidden>${escapeHtml(t.httpWarn)}</p>
 <form id="form" novalidate hidden>
 <label for="username">${escapeHtml(t.username)}</label><input id="username" maxlength="32" autocomplete="username" autocapitalize="off" spellcheck="false">
