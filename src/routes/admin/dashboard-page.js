@@ -340,9 +340,16 @@ ${POLISH_CSS}</style></head><body>
 </section>
 
 <section id="tab-settings" hidden>
-  ${SERVER_SETTINGS_HTML}
-  ${INTEGRATIONS_HTML}
-  <div class="hd"><h2>구글 로그인 설정</h2></div>
+  <div class="subtabs" id="set-subtabs" role="tablist" aria-label="설정 구역">
+    <button type="button" role="tab" data-ssub="server" aria-selected="true">${icon("sliders")}서버 동작</button>
+    <button type="button" role="tab" data-ssub="integrations" aria-selected="false">${icon("package")}외부 서비스</button>
+    <button type="button" role="tab" data-ssub="security" aria-selected="false">${icon("lock")}로그인과 보안</button>
+    <button type="button" role="tab" data-ssub="tokens" aria-selected="false">${icon("log")}자동화 토큰</button>
+  </div>
+  <div data-set-panel="server">${SERVER_SETTINGS_HTML}</div>
+  <div data-set-panel="integrations" hidden>${INTEGRATIONS_HTML}</div>
+  <div data-set-panel="security" hidden>
+  <div class="hd"><h2 class="first">구글 로그인 설정</h2></div>
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
     <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
@@ -382,7 +389,8 @@ ${POLISH_CSS}</style></head><body>
     </div>
     <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 삭제</button></div>
   </form>
-  ${TOKENS_HTML}
+  </div>
+  <div data-set-panel="tokens" hidden>${TOKENS_HTML}</div>
 </section>
 
 <section id="tab-logs" hidden>
@@ -467,7 +475,7 @@ ${POLISH_CSS}</style></head><body>
   <div data-lib-panel="server" hidden>
   <h2 class="first">서버 설정</h2>
   <dl class="kv" id="settings"></dl>
-  <p class="muted">바꿀 수 있는 설정은 설정 탭의 서버 동작에 있습니다.</p>
+  <p class="muted">바꿀 수 있는 설정은 <a href="#settings/server">설정 탭의 서버 동작</a>에 있습니다.</p>
   </div>
 </section>
 

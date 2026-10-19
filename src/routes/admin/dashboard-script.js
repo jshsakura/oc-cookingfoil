@@ -77,11 +77,12 @@ const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되
 const TABS=['overview','users','devices','settings','alerts','logs','featured','library','nsz','upload','inbox','homebrew','retro'];
 function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=TABS.includes(want)?want:'overview';
   if(tab==='library'&&sub)libShowSub(sub,true);
+  if(tab==='settings')setShowSub(sub||setSub,true);
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
   if(tab==='overview')loadClientRelease();
-  if(tab==='settings'){loadServerSettings();loadIntegrations();loadTfa();loadGoogle();loadTokens();}
+  if(tab==='settings')setLoadSub();
   if(tab==='logs'){loadClientLogs();setTimeout(xfOpen);}
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();
@@ -92,14 +93,24 @@ function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=
   if(tab==='inbox')loadInbox();
   if(tab==='nsz')setTimeout(loadNsz);}
 addEventListener('hashchange',showTab);
+// The settings tab shows one area at a time and loads only that one: #settings/security opens a given area.
+const SET_SUBS=['server','integrations','security','tokens'];let setSub='server';
+function setLoadSub(){
+  if(setSub==='server')loadServerSettings();else if(setSub==='integrations')loadIntegrations();
+  else if(setSub==='security'){loadTfa();loadGoogle();}else if(setSub==='tokens')loadTokens();}
+function setShowSub(sub,quiet){if(!SET_SUBS.includes(sub))return;setSub=sub;
+  for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.setAttribute('aria-selected',String(b.dataset.ssub===sub));
+  for(const p of document.querySelectorAll('#tab-settings [data-set-panel]'))p.hidden=p.dataset.setPanel!==sub;
+  if(!quiet)setLoadSub();}
+for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.addEventListener('click',()=>{history.replaceState(null,'','#settings/'+b.dataset.ssub);setShowSub(b.dataset.ssub);});
 
 
 // ── overview + users + security (one stats call) ──────────────────────
 let origin=location.origin;
 // The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
 const WARNINGS={
-  'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings']},
-  'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings']},
+  'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings/security']},
+  'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings/security']},
   'no-auth':{t:'주소를 아는 누구나 서버에 접속할 수 있습니다',d:'계정이 없고 기기 승인도 꺼져 있습니다. 사용자 탭에서 계정을 하나 만들면 그때부터 로그인이 필요합니다.',go:['계정 만들기','users']},
   'proxy-collapse':{t:'프록시를 거쳐 오는데 COOK_TRUST_PROXY 가 없습니다',d:'모든 접속이 프록시 하나의 IP 로 보여 한 사람의 로그인 실패가 모두를 잠글 수 있습니다. compose 에 COOK_TRUST_PROXY 를 넣고 프록시가 X-Forwarded-For 를 넘기게 합니다.'},
   'both-lanes':{t:'계정과 기기 승인을 함께 씁니다',d:'콘솔은 승인된 기기 키로 접속하고, 웹 화면은 계정으로 로그인합니다.'},

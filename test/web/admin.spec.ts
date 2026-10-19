@@ -330,7 +330,7 @@ test('a game is renamed from the game editor and every list shows the new name',
 test('the admin password is set, changed and removed on the settings tab, and opens the admin page', async ({ page, browser }) => {
   await acceptAsks(page);
   await signIn(page);
-  await page.goto('/admin#settings');
+  await page.goto('/admin#settings/security');
   await expect(page.locator('#ap-status')).toContainText('아직 관리자 비밀번호가 없습니다');
   await page.locator('#ap-new').fill('first-password-123');
   await page.locator('#ap-new2').fill('first-password-123');
@@ -427,7 +427,7 @@ test('the settings tab syncs every folder and makes a backup with one press each
 
 test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#settings');
+  await page.goto('/admin#settings/tokens');
   await expect(page.locator('#tok-form')).toBeVisible();
   await expect(page.locator('#tok-new')).toBeHidden();
 });
@@ -534,4 +534,23 @@ test('the overview says where game names come from', async ({ page }) => {
   await expect(page.locator('#health')).toContainText('NSP/XCI 추출');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#tab-overview').screenshot({ path: 'out/web/admin-overview-health.png' });
+});
+
+test('the settings tab shows one area at a time, opens the one in the address and keeps it on reload', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#settings');
+  await expect(page.locator('#ss-list')).toBeVisible();
+  await expect(page.locator('#tok-form')).toBeHidden();
+  await expect(page.locator('#ap-form')).toBeHidden();
+  await page.locator('#set-subtabs [data-ssub="tokens"]').click();
+  await expect(page.locator('#tok-form')).toBeVisible();
+  await expect(page.locator('#ss-list')).toBeHidden();
+  expect(page.url()).toContain('#settings/tokens');
+  await page.reload();
+  await expect(page.locator('#tok-form')).toBeVisible();
+  await expect(page.locator('#set-subtabs [data-ssub="tokens"]')).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/admin#settings/security');
+  await expect(page.locator('#ap-form')).toBeVisible();
+  await expect(page.locator('#ap-status')).not.toHaveText('불러오고 있습니다');
+  await page.screenshot({ path: 'out/web/admin-settings-tabs.png' });
 });
