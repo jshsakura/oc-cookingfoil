@@ -44,6 +44,11 @@ export default [
     },
   },
   {
+    // The phone page's script for the RetroAchievements hand-off, a browser module.
+    files: ["src/views/ra-link.js"],
+    languageOptions: { sourceType: "module", globals: { ...globals.browser } },
+  },
+  {
     // The GitHub Pages site runs in the browser, as a classic script.
     files: ["site/**/*.js"],
     languageOptions: { sourceType: "script", globals: { ...globals.browser } },

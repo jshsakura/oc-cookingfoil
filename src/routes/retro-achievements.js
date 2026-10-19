@@ -8,6 +8,11 @@
  *   GET    /api/retro/games/:id/achievements   { raGameId, title, matchedBy, count, points, user, list } (404 when no game matches)
  *   GET    /api/retro/achievements/badge/<n>.png, <n>_lock.png   a badge image, fetched once and kept
  *
+ * The console's half of the phone sign-in (retro/achievements/link.js has the envelope):
+ *   POST   /api/retro/achievements/link                 { publicKey } → 201 { code, expiresAt, path } (path: the page the QR opens)
+ *   GET    /api/retro/achievements/link/<code>/sealed   waits up to 25 s: 200 { epk, iv, ct } once, 204 not yet, 410 gone
+ *   POST   /api/retro/achievements/link/<code>/result   { ok, username } → { state }; ok registers the name, not ok lets the phone try again
+ *
  * The console signs in to RetroAchievements itself and writes retroarch.cfg;
  * only the public name comes here. A game's own reply carries a short summary
  * (achievementSummary) so it never waits on RetroAchievements.
@@ -22,8 +27,11 @@ import { ownerKey } from "../security/link-identity.js";
 import * as client from "../retro/achievements/client.js";
 import * as players from "../retro/achievements/players.js";
 import * as store from "../retro/achievements/store.js";
+import * as link from "../retro/achievements/link.js";
 
-const NAME_RE = /^[A-Za-z0-9_.-]{2,32}$/;
+export const NAME_RE = /^[A-Za-z0-9_.-]{2,32}$/;
+// A console asks again after this; under the 30 s it gives up on a request.
+export const LONG_WAIT_MS = 25_000;
 // RetroAchievements limits how often the one key may ask; a player's progress is asked again after a minute.
 const PLAYER_TTL_MS = 60 * 1000;
 const GAME_TTL_MS = 24 * 60 * 60 * 1000;
@@ -93,15 +101,60 @@ const ownerOf = (req) => {
   return owner === "anonymous" ? null : owner;
 };
 
-export function mountAchievements(router, { fetchImpl = fetch } = {}) {
-  const account = express.Router();
-  account.use(sameOriginWrites());
-  account.use(express.json({ limit: "1kb" }));
-  account.use((req, res, next) => {
+/** A router for one signed-in owner's requests: req.raOwner, no caching, small JSON bodies. */
+function ownerRouter() {
+  const r = express.Router();
+  r.use(sameOriginWrites());
+  r.use(express.json({ limit: "1kb" }));
+  r.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
     req.raOwner = ownerOf(req);
-    return req.raOwner ? next() : res.status(401).json({ error: "sign in first" });
+    // Past the sign-in wall already: a request with no account behind it is refused, not sent to sign in
+    // (the web page treats a 401 as a lost session and goes to /login).
+    return req.raOwner ? next() : res.status(403).json({ error: "this sign-in has no account" });
   });
+  return r;
+}
+
+/** An AbortSignal that fires when the client goes away. */
+function closedSignal(res) {
+  const ac = new AbortController();
+  res.on("close", () => ac.abort());
+  return ac.signal;
+}
+
+function mountLink(router) {
+  const r = ownerRouter();
+  r.post("/", (req, res) => {
+    const opened = link.open(req.raOwner, req.body?.publicKey, { username: players.nameOf(req.raOwner) });
+    if (!opened) return res.status(400).json({ error: "publicKey must be an uncompressed P-256 point, base64url" });
+    res.status(201).json({ ...opened, path: `/ra-link?c=${opened.code}` });
+  });
+  r.get("/:code/sealed", async (req, res) => {
+    const { code } = req.params;
+    if (!link.isOwner(code, req.raOwner)) return res.status(410).json({ error: "no such link" });
+    await link.wait(code, (l) => l.state === "sealed", LONG_WAIT_MS, closedSignal(res));
+    if (res.writableEnded || res.destroyed) return;
+    const envelope = link.take(code, req.raOwner);
+    if (envelope === "gone") return res.status(410).json({ error: "no such link" });
+    if (envelope === "none") return res.status(204).end();
+    res.json(envelope);
+  });
+  r.post("/:code/result", (req, res) => {
+    const ok = req.body?.ok === true;
+    const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+    if (ok && !NAME_RE.test(username)) return res.status(400).json({ error: "invalid username" });
+    const state = link.finish(req.params.code, req.raOwner, { ok, username });
+    if (!state) return res.status(410).json({ error: "no such link" });
+    if (ok) players.register(req.raOwner, username);
+    res.json({ state });
+  });
+  router.use("/achievements/link", r);
+}
+
+export function mountAchievements(router, { fetchImpl = fetch } = {}) {
+  mountLink(router);
+  const account = ownerRouter();
   account.get("/", (req, res) => res.json({ enabled: client.configured(), username: players.nameOf(req.raOwner) }));
   // The name as RetroAchievements spells it, or a reply already sent (400, 503, 404).
   async function knownName(wanted, res) {

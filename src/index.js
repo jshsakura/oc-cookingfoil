@@ -63,6 +63,7 @@ import webLoginRouter from "./routes/web-login.js";
 import setupRouter from "./routes/setup.js";
 import { needsSetup, setupCode } from "./security/setup.js";
 import devicePairRouter from "./routes/device-pair.js";
+import raLinkRouter from "./routes/ra-link.js";
 import retroRouter from "./routes/retro.js";
 import savesRouter, { savesCatalog, savesEnabled, watchSaves } from "./routes/saves.js";
 import clientUpdateRouter from "./routes/client-update.js";
@@ -227,6 +228,8 @@ expressApp.use(setupRouter());
 // rate-limiting + the probe access-guard. 404s unless COOK_DEVICE_PAIRING=true.
 // The only routes where a console's ID and password (Basic) count, once, to approve it.
 expressApp.use("/api/pair", pairRouter());
+// The phone page a console's RetroAchievements QR opens: the one-time code in the link is its only key.
+expressApp.use(raLinkRouter());
 // Past this point a Basic header is no credential: dropped, so the request is
 // judged by its keys, session token or cookie alone.
 expressApp.use(ignoreBasic);
