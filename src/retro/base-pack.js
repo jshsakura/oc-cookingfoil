@@ -9,6 +9,11 @@
  * except a NeoCD BIOS at the top of system/, which goes into system/neocd/
  * where that core looks (bios.js consoleFirmwarePath).
  *
+ * A config the pack sends (retroarch.cfg, config/<core>/*.cfg) goes out without
+ * its cheevos_ lines: the client writes the RetroAchievements sign-in into the
+ * console's own retroarch.cfg, and an override carrying them would undo it.
+ * The cleaned copy lives under <data dir>/retro-pack-clean/.
+ *
  * The manifest lists each file with its size and SHA-256 so a client fetches
  * only what changed. Hashes are cached by (size, mtime, inode) in the index
  * (db/stores.js hashStore), so a restart doesn't re-read the pack.
@@ -18,6 +23,7 @@ import fsp from "fs/promises";
 import path from "path";
 import { HashCache } from "../helpers/hash-cache.js";
 import { consoleFirmwarePath } from "./bios.js";
+import { dataDir } from "../helpers/envs.js";
 
 export { HashCache };
 
@@ -48,8 +54,31 @@ async function walk(root, rel = "", out = []) {
   return out;
 }
 
+const CHEEVOS_RE = /^[ \t]*cheevos_[^\n]*(\n|$)/gm;
+const CONFIG_MAX = 256 * 1024;
+const isConfig = (sd) => sd === "retroarch/retroarch.cfg" || (sd.startsWith("retroarch/config/") && sd.endsWith(".cfg"));
+
+/** A RetroArch config without its cheevos_ lines. Pure. */
+export const withoutCheevos = (text) => text.replace(CHEEVOS_RE, "");
+
+/** `entry` itself, or a copy of it without cheevos_ lines when it is a config that has them. */
+async function cleaned(entry, cleanDir) {
+  if (!isConfig(entry.path) || entry.size > CONFIG_MAX) return entry;
+  const text = await fsp.readFile(entry.abs, "utf8");
+  const clean = withoutCheevos(text);
+  if (clean === text) return entry;
+  const out = path.join(cleanDir, entry.path);
+  const old = await fsp.readFile(out, "utf8").catch(() => null);
+  if (old !== clean) {
+    await fsp.mkdir(path.dirname(out), { recursive: true });
+    await fsp.writeFile(out, clean);
+  }
+  const st = await fsp.stat(out);
+  return { ...entry, abs: out, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino };
+}
+
 /** The pack's files with their SD paths and stats (no hashing). */
-export async function listPack(packDir) {
+export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean") } = {}) {
   const bySd = new Map();
   for (const rel of await walk(packDir)) {
     const sd = sdPathOf(rel);
@@ -58,7 +87,7 @@ export async function listPack(packDir) {
     if (bySd.has(sd) && sd !== `retroarch/${rel}`) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
-    bySd.set(sd, { path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) });
+    bySd.set(sd, await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) }, cleanDir));
   }
   return [...bySd.values()].sort((a, b) => (a.path < b.path ? -1 : 1));
 }

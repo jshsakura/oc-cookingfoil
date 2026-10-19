@@ -22,6 +22,7 @@ const { mountAchievements, achievementSummary, resetCache } = await import("../.
 
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(24, 1)]);
 const md5 = (buf) => crypto.createHash("md5").update(buf).digest("hex");
 const rom = (n, seed = 7) => Buffer.from(Array.from({ length: n }, (_, i) => (i * seed + 3) & 0xff));
 
@@ -117,7 +118,7 @@ test("the sync reads each console's list weekly and hashes a ROM once, matching 
   assert.deepEqual(store.rom("nes-1").ra, { id: 1, by: "hash" });
   assert.deepEqual(store.rom("nes-2").ra, { id: 3, by: "title" });
   assert.equal(store.rom("nes-3").ra, null);
-  assert.deepEqual(achievementSummary([games[1]]), { achievements: { gameId: 3, count: 40, points: 400, matchedBy: "title" } });
+  assert.deepEqual(achievementSummary([games[1]]), { achievements: { raGameId: 3, count: 40, points: 400, matchedBy: "title" } });
 
   at += 60 * 60 * 1000;
   const again = await sync.tick(opts);
@@ -139,6 +140,10 @@ test("a player registers a name RetroAchievements knows, and sees their progress
   const fetchImpl = async (url) => {
     const u = new URL(url);
     calls.push(u.pathname);
+    if (u.hostname === "media.retroachievements.org") {
+      assert.equal(u.search, "", "the key never goes to the media server");
+      return u.pathname === "/Badge/123_lock.png" ? new Response(PNG, { status: 200 }) : new Response("<html>", { status: 200 });
+    }
     assert.equal(u.searchParams.get("y"), "A".repeat(32));
     if (u.pathname.endsWith("API_GetUserProfile.php")) {
       return u.searchParams.get("u").toLowerCase() === "mario"
@@ -175,18 +180,56 @@ test("a player registers a name RetroAchievements knows, and sees their progress
     const game = await (await as("GET", "/games/nes-1/achievements")).json();
     assert.equal(game.matchedBy, "title");
     assert.deepEqual(game.user, { username: "Mario", earned: 1, earnedHardcore: 0, points: 5 });
-    assert.deepEqual(game.list.map((a) => [a.id, a.earned, a.badge]), [
-      [11, true, "https://media.retroachievements.org/Badge/123.png"],
-      [12, false, "https://media.retroachievements.org/Badge/124.png"],
+    assert.equal(game.raGameId, 1);
+    assert.deepEqual(game.list.map((a) => [a.id, a.earned, a.earnedAt, a.badge, a.badgeLocked]), [
+      [11, true, Date.parse("2026-10-01T10:00:00Z") / 1000, "/api/retro/achievements/badge/123.png", "/api/retro/achievements/badge/123_lock.png"],
+      [12, false, null, "/api/retro/achievements/badge/124.png", "/api/retro/achievements/badge/124_lock.png"],
     ]);
+    assert.equal("badgeName" in game.list[0], false);
     const before = calls.length;
     await as("GET", "/games/nes-1/achievements");
     assert.equal(calls.length, before, "a player's progress is kept for a few minutes");
     assert.equal((await as("GET", "/games/nes-9/achievements")).status, 404);
+
+    const badge = await as("GET", "/achievements/badge/123_lock.png");
+    assert.equal(badge.status, 200);
+    assert.deepEqual(Buffer.from(await badge.arrayBuffer()), PNG);
+    const fetched = calls.length;
+    assert.equal((await as("GET", "/achievements/badge/123_lock.png")).status, 200);
+    assert.equal(calls.length, fetched, "a badge is fetched once and kept");
+    assert.equal((await as("GET", "/achievements/badge/124.png")).status, 404, "a reply that is not a PNG is not kept");
+    assert.equal((await as("GET", "/achievements/badge/..%2Fx.png")).status, 404);
 
     assert.deepEqual(await (await as("DELETE", "/achievements/account")).json(), { enabled: true, username: null });
     assert.equal(players.nameOf("user:viewer"), null);
   } finally {
     await new Promise((r) => server.close(r));
   }
+});
+
+test("the base pack never sends cheevos_ lines in a config, so an override cannot undo the console's sign-in", async () => {
+  const { listPack, withoutCheevos } = await import("../../src/retro/base-pack.js");
+  const dir = fs.mkdtempSync(path.join(root, "pack-"));
+  const cleanDir = path.join(root, "pack-clean");
+  const put = (rel, body) => { fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+  put("retroarch.cfg", 'video_driver = "gl"\ncheevos_enable = "false"\ncheevos_username = ""\nmenu_driver = "ozone"\n');
+  put("config/ScummVM/ScummVM.cfg", 'video_threaded = "false"\n  cheevos_hardcore_mode_enable = "true"');
+  put("config/Snes9x/Snes9x.cfg", 'video_smooth = "true"\n');
+  put("cores/readme.txt", "cheevos_enable = 1\n");
+  const files = new Map((await listPack(dir, { cleanDir })).map((f) => [f.path, f]));
+  const read = (sd) => fs.readFileSync(files.get(sd).abs, "utf8");
+  assert.equal(read("retroarch/retroarch.cfg"), 'video_driver = "gl"\nmenu_driver = "ozone"\n');
+  assert.equal(read("retroarch/config/ScummVM/ScummVM.cfg"), 'video_threaded = "false"\n');
+  assert.equal(files.get("retroarch/retroarch.cfg").size, Buffer.byteLength(read("retroarch/retroarch.cfg")));
+  assert.equal(files.get("retroarch/config/Snes9x/Snes9x.cfg").abs, path.join(dir, "config/Snes9x/Snes9x.cfg"), "a clean config is sent as it is");
+  assert.equal(files.get("retroarch/cores/readme.txt").abs, path.join(dir, "cores/readme.txt"), "only configs are touched");
+  assert.ok(files.get("retroarch/retroarch.cfg").once);
+  assert.equal(withoutCheevos("a = 1\ncheevos_x = 2"), "a = 1\n");
+});
+
+test("a game's own RetroArch config carries no cheevos_ key", async () => {
+  const { gameCfg, overlayCfg } = await import("../../src/retro/bezel-config.js");
+  const game = { system: "snes", name: "Test", rel: "snes/Test.zip", sd: { stem: "Test" } };
+  const text = gameCfg(game, { folder: "snes", core: "snes9x_libretro" }) + overlayCfg(game);
+  assert.doesNotMatch(text, /cheevos_/);
 });

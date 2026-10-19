@@ -4,14 +4,18 @@
  *   GET    /api/retro/achievements/account     { enabled, username }: whether the server has a key, and the name this account registered
  *   PUT    /api/retro/achievements/account     { username }: registers a name RetroAchievements knows (404 when it does not)
  *   DELETE /api/retro/achievements/account     forgets it
- *   GET    /api/retro/games/:id/achievements   { gameId, title, matchedBy, count, points, user, list } (404 when no game matches)
+ *   GET    /api/retro/games/:id/achievements   { raGameId, title, matchedBy, count, points, user, list } (404 when no game matches)
+ *   GET    /api/retro/achievements/badge/<n>.png, <n>_lock.png   a badge image, fetched once and kept
  *
  * The console signs in to RetroAchievements itself and writes retroarch.cfg;
  * only the public name comes here. A game's own reply carries a short summary
  * (achievementSummary) so it never waits on RetroAchievements.
  */
 import express from "express";
+import fs from "fs/promises";
+import path from "path";
 import debug from "../debug.js";
+import { dataDir } from "../helpers/envs.js";
 import { sameOriginWrites } from "../security/same-origin.js";
 import { ownerKey } from "../security/link-identity.js";
 import * as client from "../retro/achievements/client.js";
@@ -19,9 +23,40 @@ import * as players from "../retro/achievements/players.js";
 import * as store from "../retro/achievements/store.js";
 
 const NAME_RE = /^[A-Za-z0-9_.-]{2,32}$/;
-const PLAYER_TTL_MS = 5 * 60 * 1000;
+// RetroAchievements limits how often the one key may ask; a player's progress is asked again after a minute.
+const PLAYER_TTL_MS = 60 * 1000;
 const GAME_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX = 500;
+const BADGE_RE = /^(\d{1,10}(?:_lock)?)\.png$/;
+const BADGE_MAX = 512 * 1024;
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+const badgeDir = () => path.join(dataDir, "retro-achievements", "badges");
+const badgePath = (name, locked = false) => (name ? `/api/retro/achievements/badge/${name}${locked ? "_lock" : ""}.png` : null);
+
+/** The bytes of a badge (`file` "123" or "123_lock"), from disk or fetched once and saved. */
+async function badgeBytes(file, fetchImpl) {
+  const at = path.join(badgeDir(), `${file}.png`);
+  try {
+    return await fs.readFile(at);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  const res = await fetchImpl(client.badgeUrl(file), { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) return null;
+  const body = Buffer.from(await res.arrayBuffer());
+  if (body.length > BADGE_MAX || !body.subarray(0, 4).equals(PNG_MAGIC)) return null;
+  await fs.mkdir(badgeDir(), { recursive: true });
+  await fs.writeFile(`${at}.tmp`, body);
+  await fs.rename(`${at}.tmp`, at);
+  return body;
+}
+
+/** The reply's shape: badges as this server's paths, the RetroAchievements id named apart from ours. */
+const forClient = (p, by) => ({
+  ...p,
+  matchedBy: by,
+  list: p.list.map(({ badgeName, ...a }) => ({ ...a, badge: badgePath(badgeName), badgeLocked: badgePath(badgeName, true) })),
+});
 
 const progress = new Map(); // "<ra id>:<name>" → { at, value }
 
@@ -49,7 +84,7 @@ export function matchOf(games) {
 export function achievementSummary(games) {
   const ra = matchOf(games);
   const listed = ra ? store.game(ra.id) : null;
-  return listed ? { achievements: { gameId: listed.id, count: listed.count, points: listed.points, matchedBy: ra.by } } : {};
+  return listed ? { achievements: { raGameId: listed.id, count: listed.count, points: listed.points, matchedBy: ra.by } } : {};
 }
 
 const ownerOf = (req) => {
@@ -86,6 +121,19 @@ export function mountAchievements(router, { fetchImpl = fetch } = {}) {
   });
   router.use("/achievements/account", account);
 
+  router.get("/achievements/badge/:file", async (req, res) => {
+    const file = BADGE_RE.exec(req.params.file)?.[1];
+    if (!file) return res.status(404).json({ error: "no such badge" });
+    try {
+      const body = await badgeBytes(file, fetchImpl);
+      if (!body) return res.status(404).json({ error: "no such badge" });
+      res.set("Cache-Control", "private, max-age=31536000, immutable").type("png").send(body);
+    } catch (err) {
+      debug.error("retro achievements: badge %s: %s", file, err.message);
+      res.status(502).json({ error: "RetroAchievements did not answer" });
+    }
+  });
+
   // `candidates(req)` lists the game and the versions that share its details, best first.
   return function gameAchievements(candidates) {
     return async (req, res) => {
@@ -96,7 +144,7 @@ export function mountAchievements(router, { fetchImpl = fetch } = {}) {
       const owner = ownerOf(req);
       const username = owner ? players.nameOf(owner) : null;
       try {
-        res.json({ ...(await progressOf(ra.id, username, { fetchImpl })), matchedBy: ra.by });
+        res.json(forClient(await progressOf(ra.id, username, { fetchImpl }), ra.by));
       } catch (err) {
         debug.error("retro achievements: game %d: %s", ra.id, err.message);
         res.status(502).json({ error: "RetroAchievements did not answer" });

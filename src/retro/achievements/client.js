@@ -52,11 +52,18 @@ export async function playerName(username, opts) {
   }
 }
 
-const badge = (name, locked = false) => (name ? `${MEDIA}/Badge/${name}${locked ? "_lock" : ""}.png` : null);
+/** Where a badge image is on RetroAchievements' media server ("123" or "123_lock"). */
+export const badgeUrl = (file) => `${MEDIA}/Badge/${file}.png`;
+
+/** RetroAchievements' "YYYY-MM-DD HH:MM:SS" (UTC) as Unix seconds, or null. Pure. */
+export function unixSeconds(text) {
+  const ms = typeof text === "string" && text ? Date.parse(`${text.replace(" ", "T")}Z`) : NaN;
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
 
 /**
  * A game's achievements, with the player's progress when `username` is given:
- * { gameId, title, count, points, user, list }.
+ * { raGameId, title, count, points, user, list }, each achievement with its `badgeName`.
  */
 export async function gameProgress(gameId, username, opts) {
   const body = username
@@ -69,15 +76,14 @@ export async function gameProgress(gameId, username, opts) {
       title: String(a.Title ?? ""),
       description: String(a.Description ?? ""),
       points: Number(a.Points) || 0,
-      badge: badge(a.BadgeName),
-      badgeLocked: badge(a.BadgeName, true),
+      badgeName: /^\d{1,10}$/.test(String(a.BadgeName ?? "")) ? String(a.BadgeName) : null,
       earned: Boolean(a.DateEarned),
       earnedHardcore: Boolean(a.DateEarnedHardcore),
-      earnedAt: a.DateEarnedHardcore || a.DateEarned || null,
+      earnedAt: unixSeconds(a.DateEarnedHardcore || a.DateEarned),
     }));
   const earned = list.filter((a) => a.earned);
   return {
-    gameId: Number(body?.ID) || Number(gameId),
+    raGameId: Number(body?.ID) || Number(gameId),
     title: String(body?.Title ?? ""),
     count: list.length,
     points: list.reduce((n, a) => n + a.points, 0),
