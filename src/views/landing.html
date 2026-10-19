@@ -1527,9 +1527,6 @@
           "extras.serverPresent": "서버에 있음",
           "extras.serverMissing": "서버에 없음",
           "extras.serverUnknown": "서버 확인 전",
-          "extras.savePresent": "세이브 있음",
-          "extras.saveMissing": "세이브 없음",
-          "extras.saveUnknown": "세이브 확인 전",
           "tab.homebrew": "홈브류",
           "tab.tools": "도구",
           "tab.ports": "포트",
@@ -1838,9 +1835,6 @@
           "extras.serverPresent": "On server",
           "extras.serverMissing": "Not on server",
           "extras.serverUnknown": "Server unverified",
-          "extras.savePresent": "Saves available",
-          "extras.saveMissing": "No saves",
-          "extras.saveUnknown": "Saves unverified",
           "tab.homebrew": "Homebrew",
           "tab.tools": "Tools",
           "tab.ports": "Ports",
@@ -2148,9 +2142,6 @@
           "extras.serverPresent": "サーバーにあり",
           "extras.serverMissing": "サーバーになし",
           "extras.serverUnknown": "サーバー未確認",
-          "extras.savePresent": "セーブあり",
-          "extras.saveMissing": "セーブなし",
-          "extras.saveUnknown": "セーブ未確認",
           "tab.homebrew": "自作アプリ",
           "tab.tools": "ツール",
           "tab.ports": "移植",
@@ -2458,9 +2449,6 @@
           "extras.serverPresent": "服务器上有",
           "extras.serverMissing": "服务器上没有",
           "extras.serverUnknown": "服务器未确认",
-          "extras.savePresent": "有存档",
-          "extras.saveMissing": "无存档",
-          "extras.saveUnknown": "存档未确认",
           "tab.homebrew": "自製軟體",
           "tab.tools": "工具",
           "tab.ports": "移植",
@@ -4513,7 +4501,6 @@
       const extras = (() => {
         const data = {};   // kind → items
         const loadedLang = {};
-        let saveKeys = null;
         // Only a base game in the server catalog counts. Metadata, updates and DLC do not.
         function refreshAvailability() {
           for (const badge of document.querySelectorAll(".server-availability")) {
@@ -4521,25 +4508,6 @@
               : shopData ? sectionOf.has(badge.dataset.titleId) : null;
             badge.classList.toggle("server-present", present === true);
             badge.textContent = t(present === null ? "extras.serverUnknown" : present ? "extras.serverPresent" : "extras.serverMissing");
-          }
-          for (const badge of document.querySelectorAll(".save-availability")) {
-            const present = saveKeys?.has(badge.dataset.key) ?? null;
-            badge.textContent = t(present === null ? "extras.saveUnknown" : present ? "extras.savePresent" : "extras.saveMissing");
-          }
-        }
-        // The small per-game save index also works before a game's saves are expanded.
-        async function loadSaveGames() {
-          try {
-            const r = await fetch("/api/saves?view=games", { headers: { Accept: "application/json" } });
-            if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
-            const games = r.ok ? (await r.json()).games ?? [] : [];
-            saveKeys = new Set(games.map((it) => normalizedKey(it)));
-            refreshAvailability();
-            return games;
-          } catch {
-            saveKeys = null;
-            refreshAvailability();
-            return [];
           }
         }
         const iconPath = (u) => { try { return new URL(u, location.href).pathname + "?size=sm"; } catch { return ""; } };
@@ -4658,7 +4626,6 @@
         const summary = {};       // kind → [{ key, titleId, homebrew?, game?, count, size, updatedAt }]
         const perGame = {};       // kind → Map(key → items)
         const keyOf = (it) => it.titleId || it.title_id || "hb:" + it.homebrew;
-        const normalizedKey = (it) => it.homebrew ? "hb:" + it.homebrew : String(it.titleId || it.title_id || it.key || "").toUpperCase();
         const byGameMode = (kind) => kind === "saves" && summary[kind];
         async function getList(url, field) {
           const r = await fetch(url, { headers: { Accept: "application/json" } });
@@ -4735,11 +4702,6 @@
             if (first.homebrew) availability.dataset.app = first.homebrew;
             else availability.dataset.titleId = String(first.titleId || first.title_id || "").toUpperCase();
             badges.append(availability);
-            if (kind === "patches") {
-              const saves = document.createElement("span"); saves.className = "pill save-availability";
-              saves.dataset.key = normalizedKey(first);
-              badges.append(saves);
-            }
             if (kind === "patches" && grp.items) {
               const pill = (text, cls) => Object.assign(document.createElement("span"), { className: "pill" + (cls ? " " + cls : ""), textContent: text });
               if (grp.items.some((it) => it.required === true)) badges.append(pill(t("xm.required"), "need"));
@@ -4805,13 +4767,11 @@
                 // A new language: names and descriptions change, so the saves are read again.
                 if (relabel) data[kind] = null;
                 perGame[kind] = new Map();
-                summary[kind] = await loadSaveGames();
+                summary[kind] = await getList("/api/saves?view=games", "games");
                 if (summary[kind].some((row) => row.homebrew)) await homebrew.load();
               } else {
                 data[kind] = await getList("/api/patches", kind);
                 if (data[kind].some((it) => it.homebrew)) await homebrew.load();
-                // Do not hold the patch list behind the save index request.
-                loadSaveGames();
               }
             } catch {
               if (kind === "saves") summary[kind] = [];

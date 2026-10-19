@@ -497,7 +497,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   const head = page.locator('#patches-list .xhead', { hasText: 'Test Game' });
   await expect(head).toHaveAttribute('aria-expanded', 'false');
   // The closed card already says what its patches are: required first, then each kind once.
-  await expect(head.locator('.xbadges .pill:not(.server-availability):not(.save-availability)')).toHaveText(['필수', '코드 패치']);
+  await expect(head.locator('.xbadges .pill:not(.server-availability)')).toHaveText(['필수', '코드 패치']);
   await expect(row).toHaveCount(0);
   await head.click();
   await expect(head).toHaveAttribute('aria-expanded', 'true');
