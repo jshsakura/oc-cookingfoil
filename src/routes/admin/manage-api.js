@@ -136,6 +136,8 @@ export function mountManageApi(router, guard) {
       cached: cache.cached,
       buildCount: cache.buildCount,
       lastBuildMs: cache.lastBuildMs,
+      scan: cache.scan,
+      now: Date.now(),
       titledb: titledbStore.status(),
       settings: { devicePairing, uploadsEnabled, extractIcons, langPriority, publicBaseUrl: publicBaseUrl || null },
     });
@@ -154,8 +156,11 @@ export function mountManageApi(router, guard) {
   }));
 
   router.post("/api/library/rescan", change((req, res) => {
-    shopCache.invalidate({ rescan: true });
-    debug.log("admin: library rescan requested");
-    res.json({ ok: true });
+    // Pressed again while one waits or runs: that read already covers it.
+    const { scan } = shopCache.stats();
+    const already = scan.fullPending;
+    if (!already) shopCache.invalidate({ rescan: true });
+    debug.log("admin: library rescan requested%s", already ? " (one already pending)" : "");
+    res.json({ ok: true, already, requestedAt: Date.now() });
   }));
 }

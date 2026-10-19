@@ -26,7 +26,8 @@ import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
-import { FOLD_CSS, FOLD_SCRIPT, fold } from "./folds.js";
+import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
+import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -72,7 +73,7 @@ section[hidden]{display:none}
 .scroll{overflow-x:auto}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .hd h2{margin:22px 0 10px}
-form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
 form.add input{flex:1;min-width:150px}
 form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;font-weight:600}
 form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
@@ -121,27 +122,27 @@ form.up{display:grid;gap:12px;background:var(--panel);border:1px solid var(--lin
 form.up[hidden]{display:none}
 form.up label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 form.up label[hidden]{display:none}
-form.up label.check,td label.check{display:flex;gap:8px;align-items:center;color:var(--text)}
+form.up label.check,:is(td,.gc) label.check{display:flex;gap:8px;align-items:center;color:var(--text)}
 form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:72px;resize:vertical}
 .bar{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .up-log{display:grid;gap:6px;margin-top:14px}
-td .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+:is(td,.gc) .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 /* On a wide screen the buttons sit side by side and the column is as wide as they are. */
-@media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}td>.row-actions{flex-wrap:nowrap}}
+@media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}:is(td,.gc)>.row-actions{flex-wrap:nowrap}}
 button.ib svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-@media (min-width:641px){td .row-actions button.ib{width:36px;height:36px;padding:0;position:relative}
-  td .row-actions button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
-td .pills{display:flex;flex-wrap:wrap;gap:6px}
-td .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
-td.dim{color:var(--faint)}
+@media (min-width:641px){:is(td,.gc) .row-actions button.ib{width:36px;height:36px;padding:0;position:relative}
+  :is(td,.gc) .row-actions button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+:is(td,.gc) .pills{display:flex;flex-wrap:wrap;gap:6px}
+:is(td,.gc) .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
+:is(td,.gc).dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
 dialog{border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:15px;line-height:1.55;overflow-wrap:anywhere}
 button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}
-#hb-apps tr.hb-off td:not(:first-child){opacity:.5}
+#hb-apps tr.hb-off td:not(:first-child),#hb-apps .tabulator-row.hb-off .tabulator-cell:not(:nth-child(-n+2)){opacity:.5}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
 dialog h3{margin:0 0 6px;font-size:18px}
@@ -169,13 +170,13 @@ h2.first{margin-top:0}
 .hb-reco label.added{opacity:.6;cursor:default}
 .hb-reco input{margin-top:3px;width:16px;height:16px;flex:none;padding:0}
 .hb-reco b{display:block;font-size:13px;word-break:break-all}.hb-reco span{color:var(--muted);font-size:12px}
-td select{max-width:220px}
-td .err{color:var(--bad);font-size:12px;margin-top:4px}
-td .muted{color:var(--muted);font-size:12px;margin-top:4px}
-td a{color:var(--text);text-underline-offset:3px}
+:is(td,.gc) select{max-width:220px}
+:is(td,.gc) .err{color:var(--bad);font-size:12px;margin-top:4px}
+:is(td,.gc) .muted{color:var(--muted);font-size:12px;margin-top:4px}
+:is(td,.gc) a{color:var(--text);text-underline-offset:3px}
 .desc-form{display:grid;gap:12px}#gd-body{display:grid;gap:12px}#gd-body h3{margin:6px 0 0;font-size:15px}#gd-body[hidden]{display:none}#gd-form{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
-td .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:is(td,.gc) .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 form.add select{flex:none}
 .logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
 .logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
@@ -233,8 +234,8 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}${FOLD_CSS}
-nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 10px}.pg-bar[hidden]{display:none}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
@@ -298,13 +299,13 @@ ${POLISH_CSS}</style></head><body>
 <section id="tab-overview">
   <h2 class="first">연결</h2>
   <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-  ${fold("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3" })}
+  ${box("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3" })}
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
   <div class="lanes" id="health"></div>
   <p class="muted" id="health-hint" hidden></p>
   <div class="cards" id="cards"></div>
-  ${fold("client-release", "클라이언트 빌드", CLIENT_RELEASE_HTML, { meta: "기기에 내려줄 CookingFoil 을 받는 곳" })}
+  ${box("client-release", "클라이언트 빌드", CLIENT_RELEASE_HTML, { meta: "기기에 내려줄 CookingFoil 을 받는 곳" })}
   <p class="muted" id="ts"></p>
 </section>
 
@@ -321,7 +322,7 @@ ${POLISH_CSS}</style></head><body>
     <button class="primary" type="submit">사용자 추가</button>
   </form>
   <div class="scroll" id="users"></div>
-  ${fold("users-help", "계정 안내", `<p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>`, { level: "h3" })}
+  ${box("users-help", "계정 안내", `<p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>`, { level: "h3" })}
   </div>
   <div data-sub-panel="google" hidden>
   <p class="muted" id="accounthint"></p>
@@ -363,7 +364,7 @@ ${POLISH_CSS}</style></head><body>
   <div data-set-panel="integrations" hidden>${INTEGRATIONS_HTML}</div>
   <div data-set-panel="security" hidden>
   <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
-  ${fold("sec-google", "구글 로그인", `
+  ${box("sec-google", "구글 로그인", `
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
     <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
@@ -376,7 +377,7 @@ ${POLISH_CSS}</style></head><body>
   <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
   <p class="muted" id="g-status"></p>
   `, { meta: "로그인 화면의 구글 버튼" })}
-  ${fold("sec-tfa", "관리 페이지 2단계 인증", `
+  ${box("sec-tfa", "관리 페이지 2단계 인증", `
   <div class="tfa" id="tfa">
     <p id="tfa-status" class="muted">불러오고 있습니다</p>
     <div class="row" id="tfa-actions"></div>
@@ -394,7 +395,7 @@ ${POLISH_CSS}</style></head><body>
     </div>
   </div>
   `, { open: true, meta: "인증 앱 코드" })}
-  ${fold("sec-password", "관리자 비밀번호", `
+  ${box("sec-password", "관리자 비밀번호", `
   <form class="tfa" id="ap-form" autocomplete="off">
     <p id="ap-status" class="muted">불러오고 있습니다</p>
     <div class="row">
@@ -419,7 +420,7 @@ ${POLISH_CSS}</style></head><body>
   <div data-logs-panel="client" hidden>
   <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
-  ${fold("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
+  ${box("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
   <div class="scroll" id="bug-reports"></div>`, { level: "h3", open: true })}
   <h3 class="sub-h">기기별 기록</h3>
   <div class="logs-view">
@@ -451,6 +452,7 @@ ${POLISH_CSS}</style></head><body>
 
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
+  <p class="muted" id="scan-status" aria-live="polite"></p>
   <div class="cards" id="lib-cards"></div>
   <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
@@ -507,7 +509,7 @@ ${NSZ_HTML}
   <div data-sub-panel="apps">
   <div class="hd"><h2 class="first">앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
   <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다.</p>
-  ${fold("hb-apps-help", "앱 관리 안내", `<p class="muted">앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>`, { level: "h3" })}
+  ${box("hb-apps-help", "앱 관리 안내", `<p class="muted">앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>`, { level: "h3" })}
   <div id="hb-held" class="hb-held" hidden></div>
   <div class="scroll" id="hb-apps"></div>
   </div>
@@ -624,5 +626,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${FOLD_SCRIPT}</script></body></html>`;
+<script>${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
 }

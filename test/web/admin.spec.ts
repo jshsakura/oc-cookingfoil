@@ -48,7 +48,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
   await page.getByRole('link', { name: '사용자' }).click();
-  const row = page.locator('#users tr', { hasText: NAME });
+  const row = page.locator('#users .tabulator-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
   await row.getByRole('button', { name: '삭제', exact: true }).click();
@@ -66,8 +66,14 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
   await page.getByRole('link', { name: '라이브러리' }).click();
   await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
-  await page.getByRole('button', { name: '다시 스캔', exact: true }).click();
+  const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
+  await rescan.click();
   await expect(page.locator('#toast')).toContainText('다시 스캔을 시작했습니다');
+  // Pressed once, it stays pressed until the read ends, then says how long it took.
+  await expect(rescan).toBeDisabled();
+  await expect(page.locator('#toast')).toContainText('다시 스캔을 마쳤습니다', { timeout: 15000 });
+  await expect(rescan).toBeEnabled();
+  await expect(page.locator('#scan-status')).toContainText('마지막으로 전부 읽은 때는');
 });
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
@@ -247,7 +253,7 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   const patch = async (lang: string) => ((await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as
     { homebrew: string | null; name: string; description: string | null; version: string | null }[]).find((p) => p.homebrew === 'handapp');
   await expect.poll(async () => (await patch('en'))?.name).toBe('Turbo mod');
-  const row = page.locator('#hb-apps tr', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .tabulator-row', { hasText: 'Hand App' });
   await row.getByRole('button', { name: 'Turbo mod 편집' }).click();
   const dialog = page.locator('#ct-edit');
   await expect(dialog).toBeVisible();
@@ -279,7 +285,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   await page.goto('/admin#homebrew');
   const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
   await expect.poll(listed).toContain('handapp.nro');
-  const row = page.locator('#hb-apps tr', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .tabulator-row', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
   // The apps open first; the GitHub form leads the followed repositories.
   await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -303,7 +309,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   await expect.poll(async () => {
     await page.locator('#lf-q').fill('');
     await page.locator('#lf-q').fill('Throwaway');
-    return page.locator('#lf-list tr', { hasText: 'Throwaway' }).count();
+    return page.locator('#lf-list .tabulator-row', { hasText: 'Throwaway' }).count();
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
   await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 삭제' }).click();
@@ -368,8 +374,9 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await page.goto('/admin#settings');
   const features = async () => (await (await request.get('/api/shop/info')).json()).features as string[];
   expect(await features()).toContain('device-pairing');
-  // Each group folds; a closed group still names what is inside it.
-  await expect(page.locator('details.ss-group', { hasText: '기기 연결' }).locator('summary')).toContainText('QR 로 기기 연결');
+  // One group shows at a time, the first one to begin with.
+  await expect(page.locator('#ss-jump').getByRole('tab', { name: '기기 연결' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.ss-row[data-key="langPriority"]')).toBeHidden();
   const row = await reveal(page.locator('.ss-row[data-key="devicePairing"]'));
   await expect(row.getByRole('button', { name: 'compose 값으로' })).toHaveCount(0);
   fs.mkdirSync('out/web', { recursive: true });
@@ -399,7 +406,7 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await source.getByRole('button', { name: 'compose 값으로' }).click();
   await expect(source.locator('.ss-src')).toHaveCount(0);
 
-  await row.getByRole('button', { name: 'compose 값으로' }).click();
+  await (await reveal(row)).getByRole('button', { name: 'compose 값으로' }).click();
   await expect(row.locator('.ss-src')).toHaveCount(0);
   await page.locator('.ss-row[data-key="deviceApproval"]').getByRole('button', { name: 'compose 값으로' }).click();
   await expect(page.locator('.ss-row[data-key="deviceApproval"] .ss-src')).toHaveCount(0);
@@ -570,12 +577,13 @@ test('the devices tab shows one area at a time, and the address opens a given on
   await expect(page).toHaveURL(/#devices\/pending$/);
 });
 
-test('a folded section stays open after a reload once it was opened', async ({ page }) => {
+test('server behaviour shows one group at a time and keeps the one picked after a reload', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#settings/security');
-  await expect(page.locator('#google-form')).toBeHidden();
-  await page.getByRole('heading', { name: '구글 로그인', exact: true }).click();
-  await expect(page.locator('#google-form')).toBeVisible();
+  await page.goto('/admin#settings/server');
+  await page.locator('#ss-jump').getByRole('tab', { name: '다운로드' }).click();
+  await expect(page.locator('.ss-row[data-key="devicePairing"]')).toBeHidden();
+  await expect(page.locator('#ss-list .ss-group:not([hidden])')).toHaveCount(1);
   await page.reload();
-  await expect(page.locator('#google-form')).toBeVisible();
+  await expect(page.locator('#ss-jump').getByRole('tab', { name: '다운로드' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.ss-row[data-key="devicePairing"]')).toBeHidden();
 });

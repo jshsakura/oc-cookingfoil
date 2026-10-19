@@ -58,7 +58,7 @@ input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;bor
 :where(input[type=checkbox]):focus-visible{outline:none;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3)}
 :where(input[type=checkbox]):disabled{opacity:.45;cursor:default}
 button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.empty{color:var(--faint);padding:20px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:16px}
+.empty{color:var(--faint);padding:20px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:16px;margin-bottom:20px}
 .note{border-radius:16px;padding:16px 18px;margin-bottom:12px;border:1px solid var(--line);background:var(--panel)}
 .note.warn{border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.12)}
 .note .t{font-weight:700;margin-bottom:4px}

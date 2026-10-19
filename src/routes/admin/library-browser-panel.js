@@ -48,9 +48,9 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-list{min-height:120px}
 #lib-files .lb-list.lb-in{animation:lb-in .26s ease-out}
 @keyframes lb-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-#lib-files td b{word-break:break-all}
-#lib-files td .muted{word-break:break-all}
-#lib-files td.lb-num{white-space:nowrap;font-variant-numeric:tabular-nums}
+#lib-files :is(td,.gc) b{word-break:break-all}
+#lib-files :is(td,.gc) .muted{word-break:break-all}
+#lib-files :is(td,.gc).lb-num{white-space:nowrap;font-variant-numeric:tabular-nums}
 #lib-files .lb-skel td span{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--sunk) 0%,var(--line) 50%,var(--sunk) 100%);background-size:200% 100%;animation:lb-shimmer 1.2s linear infinite}
 #lib-files .lb-skel td span.w2{width:40%;margin-top:6px;height:10px}
 @keyframes lb-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
@@ -95,7 +95,7 @@ export const LIB_BROWSER_HTML = `<h2 class="first">파일</h2>
 export const LIB_BROWSER_SCRIPT = /* js */ `
 const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next"), asc: svg("asc"), desc: svg("desc") })};
 const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
-const LB_PER=50;
+const LB_PER=25;
 const LB_CHECK={ok:['정상','on'],modified:['수정됨','warn'],damaged:['손상됨','off'],unchecked:['검사 전','']};
 const lb={kind:'base',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};

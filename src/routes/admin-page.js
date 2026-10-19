@@ -47,7 +47,7 @@ import { mountHomebrewApi } from "./admin/homebrew-api.js";
 import { mountHomebrewAppsApi } from "./admin/homebrew-apps-api.js";
 import { mountPatchesApi } from "./admin/patches-api.js";
 import { mountDescriptionsApi } from "./admin/descriptions-api.js";
-import { adminActor, mayAdminister } from "../security/admin-actor.js";
+import { adminActor, adminApprover, mayAdminister } from "../security/admin-actor.js";
 import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
@@ -88,6 +88,7 @@ import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sameOriginWrites } from "../security/same-origin.js";
+import { sendVendor } from "./admin/grid.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 // One authenticator secret guards /admin, so its wrong codes share one account counter.
@@ -221,10 +222,15 @@ export default function adminPageRouter() {
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl))
       return res.status(403).json({ error: "origin mismatch" });
-    const result = approvePairLink(req.params.token, { label: req.body?.label, addedBy: "admin" });
+    const result = approvePairLink(req.params.token, { label: req.body?.label, addedBy: adminApprover(req) });
     if (result === "expired") return res.status(410).json({ error: "pair link expired" });
     if (result === "used") return res.status(409).json({ error: "pair link already approved" });
     res.json({ ok: true });
+  });
+
+  router.get("/vendor/:file", (req, res) => {
+    if (!hasValidSession(req)) return res.status(401).send("sign in");
+    sendVendor(req, res);
   });
 
   router.get("/", async (req, res) => {
@@ -378,7 +384,7 @@ export default function adminPageRouter() {
     }
     // Mint a fresh accessKey, persist only its hash, stage the plaintext for the
     // device's next status poll (one-time, in-memory). Re-approving rotates it.
-    const label = approveWaitingDevice(deviceKey, { label: req.body?.label, addedBy: "admin" });
+    const label = approveWaitingDevice(deviceKey, { label: req.body?.label, addedBy: adminApprover(req) });
     debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), label || "no label");
     res.json({ ok: true, deviceKey });
   });

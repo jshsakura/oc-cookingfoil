@@ -17,6 +17,13 @@ export function adminActor(req) {
   return name ? { kind: "password", name } : null;
 }
 
+/** What a device approved from /admin records as its approver: the signed-in account, else "admin". */
+export function adminApprover(req) {
+  const actor = adminActor(req);
+  if (actor?.kind === "google") return `google:${actor.email}`;
+  return actor?.name ?? "admin";
+}
+
 export function mayAdminister(req) {
   if (!users.hasUsers()) return true;
   const actor = adminActor(req);

@@ -17,7 +17,7 @@ test('the homebrew lists page, search and change how many show per page', async 
   await signIn(page);
   await page.locator('nav.tabs a[data-tab="homebrew"]').click();
 
-  const rows = page.locator('#hb-apps tr:not(:has(th))');
+  const rows = page.locator('#hb-apps .tabulator-row:not(.tabulator-group)');
   await expect(rows).toHaveCount(25);
   await expect(page.locator('#hb-apps-bar .pg-info')).toContainText('1-25 / 30개');
 

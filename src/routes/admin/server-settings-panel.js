@@ -7,16 +7,15 @@
 
 export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first">서버 동작</h2></div>
   <p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다. 여기서 바꾸지 않은 것은 compose 의 값을 그대로 씁니다.</p>
+  <div class="box-jump" id="ss-jump" role="tablist" aria-label="서버 동작 묶음"></div>
   <div id="ss-list" class="ss-list"></div>`;
 
 export const SERVER_SETTINGS_CSS = `
 .ss-list{display:grid;gap:14px;margin:10px 0 26px}
-.ss-group{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 16px}
-.ss-group>summary{margin:0 -16px;padding:13px 16px}
-.ss-group>summary>h3{margin:0;font-size:15px;flex:none}
+.ss-list>.box{margin:0;scroll-margin-top:12px}
+.ss-group>.box-b{padding-top:2px;padding-bottom:4px}
 .ss-row{display:grid;grid-template-columns:1fr minmax(180px,300px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
-.ss-group>summary+.ss-row{border-top:0}
-.ss-list>details.fold.ss-group{margin:0}
+.ss-group .ss-row:first-child{border-top:0}
 .ss-row b{font-size:14px}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
@@ -102,8 +101,9 @@ function ssControl(key,kind,s,ph){
   const i=el('input');i.type='text';i.spellcheck=false;i.autocomplete='off';i.maxLength=300;i.placeholder=ph||'';
   i.value=Array.isArray(s.value)?s.value.join(','):(s.value||'');
   i.addEventListener('change',()=>ssSave({[key]:i.value}));i.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();i.blur();}});return i;}
-function ssRender(d){const list=$('ss-list');list.replaceChildren();
-  for(const [title,rows] of SS_GROUPS){const g=foldEl('ss-'+title,title,rows.map((r)=>r[2]).join(' · '),false,'ss-group');
+function ssRender(d){const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
+  for(const [title,rows] of SS_GROUPS){const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),title,'','ss-group');const g=box.querySelector('.box-b');
+    const a=el('button',title);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',label),el('p',desc));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
@@ -117,7 +117,13 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();
       r.append(t,c);g.append(r);}
     if(title==='다시 시작')g.append(ssRestartRow());
     if(title==='동기화와 백업')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
-    list.append(g);}}
+    list.append(box);}
+  ssShowGroup(ssGroup());}
+// One group on screen at a time; the last one picked comes back after a reload.
+function ssGroup(){try{const g=localStorage.getItem('ss-group');if(SS_GROUPS.some((x)=>x[0]===g))return g;}catch(e){}return SS_GROUPS[0][0];}
+function ssShowGroup(title){try{localStorage.setItem('ss-group',title);}catch(e){}
+  for(const b of $('ss-jump').children)b.setAttribute('aria-selected',String(b.dataset.group===title));
+  for(const g of $('ss-list').children)g.hidden=g.dataset.group!==title;}
 function ssDirectNote(h){return h.up?'외부 다운로드 전용 주소가 지금 응답합니다.'+(h.since?' '+fmt(h.since)+'부터 응답하고 있습니다.':'')
   :'외부 다운로드 전용 주소가 지금 응답하지 않습니다. 요청이 오는 동안 1분마다 다시 확인하고, 상태가 바뀌면 알립니다.';}
 function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const note=el('p','지금 받고 있는 수를 읽고 있습니다.');

@@ -50,11 +50,7 @@ const ask=(msg)=>askDialog(msg);
 const askText=(msg,value='')=>askDialog(msg,value);
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
-function table(mount,cols,rows,empty){const m=$(mount);m.replaceChildren();
-  if(!rows.length){m.append(el('div',empty,'empty'));return;}
-  const t=el('table');const hr=el('tr');for(const c of cols)hr.append(el('th',c));t.append(hr);
-  // Each cell carries its column name: on a phone the table becomes labelled cards.
-  for(const r of rows){[...r.children].forEach((c,i)=>{c.dataset.label=cols[i]??'';});t.append(r);}m.append(t);}
+// table(mount,cols,rows,empty) is in grid.js.
 
 const ERRORS={self:'지금 로그인한 계정은 정지, 강등, 삭제할 수 없습니다.','last-admin':'관리자 계정이 하나는 남아 있어야 합니다.'};
 const errText=(err)=>ERRORS[err.code]||err.message;
@@ -813,10 +809,22 @@ async function loadLibrary(){
     card('마지막 빌드',d.lastBuildMs!=null?num(d.lastBuildMs)+'ms':'—'),card('가동 시간',uptime(d.uptime)));
   const rows=[['버전','v'+d.version],['공개 주소',d.origin||'—'],
     ['읽어 둔 titledb 지역',(d.titledb?.regions||[]).map((r)=>r.region||r).join(', ')||'—']];
-  const dl=$('settings');dl.replaceChildren();for(const [k,v] of rows)dl.append(el('dt',k),el('dd',String(v)));}
+  const dl=$('settings');dl.replaceChildren();for(const [k,v] of rows)dl.append(el('dt',k),el('dd',String(v)));
+  scanShow(d.scan||{});return d;}
+// The rescan button stays pressed while a whole read of the games folder waits or runs.
+const scanBusy=(s)=>s.state==='running'||s.fullPending;
+const scanTook=(f)=>'파일 '+num(f.files)+'개, '+(f.ms/1000).toFixed(1)+'초';
+function scanShow(s){const b=$('rescan');b.disabled=scanBusy(s);b.setAttribute('aria-busy',String(scanBusy(s)));
+  $('scan-status').textContent=s.state==='running'?'게임 폴더를 읽고 있습니다.':s.fullPending?'곧 게임 폴더를 다시 읽습니다.'
+    :s.lastFull?'마지막으로 전부 읽은 때는 '+fmt(s.lastFull.at)+'입니다. '+scanTook(s.lastFull)+' 걸렸습니다.':'';}
+async function scanWatch(since){
+  while(!$('tab-library').hidden){await new Promise((r)=>setTimeout(r,1000));
+    let d;try{d=await loadLibrary();}catch{return;}const s=d.scan||{};
+    if(!scanBusy(s)&&s.lastFull&&s.lastFull.at>=since){toast('다시 스캔을 마쳤습니다. '+scanTook(s.lastFull)+' 걸렸습니다.');return;}}}
 $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
-  try{await api('/admin/api/library/rescan',{method:'POST',body:{}});toast('다시 스캔을 시작했습니다. 끝나면 숫자가 바뀝니다.');
-    setTimeout(loadLibrary,3000);}catch(err){toast(err.message);}finally{$('rescan').disabled=false;}});
+  try{const r=await api('/admin/api/library/rescan',{method:'POST',body:{}});
+    toast(r.already?'이미 다시 스캔을 기다리고 있습니다.':'다시 스캔을 시작했습니다.');scanShow({fullPending:true});scanWatch(r.requestedAt);}
+  catch(err){toast(err.message);$('rescan').disabled=false;}});
 
 // ── featured ──────────────────────────────────────────────────────────
 let featured=[],names=new Map(),featuredDirty=false;
