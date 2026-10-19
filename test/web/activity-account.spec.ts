@@ -106,3 +106,23 @@ test('a failed admin capability check leaves the public status visible without s
   await expect(page.locator('#act-running .act-stop')).toHaveCount(0);
   await expect(page.locator('#act-board .act-stop')).toHaveCount(0);
 });
+
+test('the signed-in address is a plain label that a phone cannot turn into a mail link', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
+  await page.route('**/auth/me', route => route.fulfill({ json: { user: 'player@example.com', kind: 'google', admin: false } }));
+  await page.route('**/api/inbox', route => route.fulfill({ json: { enabled: false } }));
+  await page.route('**/api/activity', route => route.fulfill({ json: { running: [], recent: [] } }));
+  await page.routeWebSocket(/\/ws\/library$/, ws => ws.close());
+  await page.goto('/');
+  await expect(page.locator('meta[name="format-detection"]')).toHaveAttribute('content', /email=no/);
+  await page.locator('#acct-btn').click();
+  const who = page.locator('#acct-who');
+  await expect(who).toHaveText('player@example.com');
+  await expect(who.locator('a')).toHaveCount(0);
+  expect(await who.evaluate(el => {
+    const s = getComputedStyle(el);
+    return [s.pointerEvents, s.userSelect, s.whiteSpace, s.borderRadius];
+  })).toEqual(['none', 'none', 'nowrap', '100px']);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#acct-list').screenshot({ path: 'out/web/web-account-label.png' });
+});

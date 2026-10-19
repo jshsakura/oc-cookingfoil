@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
     <meta name="theme-color" content="#f2f1ee" />
     <title>CookingFoil</title>
     <meta name="description" content="A private library manager, just for you." />
@@ -144,7 +145,8 @@
         box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22);
       }
       .pop-list[hidden], .pop-list [hidden] { display: none; }
-      .pop-list .who { padding: 8px 12px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); color: var(--secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+      /* The signed-in account as a plain label: phones must not turn an email address into a mail link. */
+      .pop-list p.who { display: block; box-sizing: border-box; width: fit-content; max-width: calc(100% - 8px); margin: 4px 6px 10px; padding: 5px 11px; border: 0; border-radius: 100px; background: var(--sunk); font-size: 12.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; color: var(--secondary); }
       .pop-list a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; text-decoration: none; color: var(--ink); font: 600 14px var(--font-body); }
       .pop-list a:hover, .pop-list a:focus-visible { background: var(--sunk); outline: none; }
       .pop-list a svg { width: 16px; height: 16px; color: var(--secondary); }
