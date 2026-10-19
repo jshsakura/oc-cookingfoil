@@ -169,7 +169,7 @@ test("a player registers a name RetroAchievements knows, and sees their progress
     method, headers: { "x-user": user, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined,
   });
   try {
-    assert.equal((await fetch(`${base}/achievements/account`)).status, 401);
+    assert.equal((await fetch(`${base}/achievements/account`)).status, 403);
     assert.deepEqual(await (await as("GET", "/achievements/account")).json(), { enabled: true, username: null });
     assert.equal((await as("PUT", "/achievements/account", { username: "nobody" })).status, 404);
     assert.equal((await as("PUT", "/achievements/account", { username: "bad name!" })).status, 400);

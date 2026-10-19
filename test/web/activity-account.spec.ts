@@ -113,6 +113,7 @@ test('the signed-in address is a plain label that a phone cannot turn into a mai
   await page.route('**/auth/me', route => route.fulfill({ json: { user: 'player@example.com', kind: 'google', admin: false } }));
   await page.route('**/api/inbox', route => route.fulfill({ json: { enabled: false } }));
   await page.route('**/api/activity', route => route.fulfill({ json: { running: [], recent: [] } }));
+  await page.route('**/api/retro/achievements/account', route => route.fulfill({ json: { enabled: false, username: null } }));
   await page.routeWebSocket(/\/ws\/library$/, ws => ws.close());
   await page.goto('/');
   await expect(page.locator('meta[name="format-detection"]')).toHaveAttribute('content', /email=no/);
