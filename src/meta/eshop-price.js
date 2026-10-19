@@ -13,7 +13,13 @@ import * as activity from "../tasks/activity.js";
 const ENDPOINT = "https://api.ec.nintendo.com/v1/price";
 const COUNTRIES = [["KR", "ko"], ["US", "en"], ["JP", "ja"]];
 const FOUND_TTL_MS = 12 * 60 * 60 * 1000;
-const MISSING_TTL_MS = 6 * 60 * 60 * 1000;
+// A title no checked eShop sells rarely comes back on sale, and it costs three requests to ask.
+const MISSING_TTL_MS = 24 * 60 * 60 * 1000;
+// After a failed ask the endpoint is left alone this long, however often the list is rebuilt.
+const FAILED_RETRY_MS = 30 * 60 * 1000;
+// A saved price the library no longer asks about (the title left, or its titledb record moved to
+// another nsuId) is dropped once it is this old.
+const UNUSED_DROP_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 3000;
 const NSU_ID_RE = /^\d{14}$/;
 // The price endpoint answers up to 50 ids per request.
@@ -22,6 +28,7 @@ const BATCH_PACE_MS = 300;
 
 const STORE_VERSION = 1;
 const cache = new Map();
+const failedAt = new Map(); // nsuId → when asking for it last failed; memory only
 const listeners = [];
 let warming = null;
 let storeFile = null; // set by loadPrices(); tests leave it off and never touch disk
@@ -63,14 +70,15 @@ function priceFrom(entry, country) {
 }
 
 /**
- * Resolve the price, or null when no checked eShop sells it. Network errors
- * are not cached so a flaky moment does not hide prices for hours.
+ * Resolve the price, or null when no checked eShop sells it. A network error
+ * is not saved as "not sold", so a flaky moment does not hide prices for a day;
+ * the id is only left alone for FAILED_RETRY_MS.
  */
 export async function eshopPrice(nsuId, { fetchImpl = fetch, now = Date.now } = {}) {
   const id = String(nsuId ?? "");
   if (!NSU_ID_RE.test(id)) return null;
   const hit = cache.get(id);
-  if (hit && now() - hit.at < (hit.value ? FOUND_TTL_MS : MISSING_TTL_MS)) return hit.value;
+  if (isFresh(hit, now()) || coolingDown(id, now())) return hit?.value ?? null;
   let failed = false;
   for (const [country, lang] of COUNTRIES) {
     try {
@@ -82,22 +90,29 @@ export async function eshopPrice(nsuId, { fetchImpl = fetch, now = Date.now } = 
       const value = priceFrom(body?.prices?.[0], country);
       if (value) {
         cache.set(id, { at: now(), value });
+        failedAt.delete(id);
         return value;
       }
     } catch {
       failed = true;
     }
   }
-  if (!failed) cache.set(id, { at: now(), value: null });
+  if (failed) failedAt.set(id, now());
+  else {
+    cache.set(id, { at: now(), value: null });
+    failedAt.delete(id);
+  }
   return null;
 }
 
 export function clearPriceCache() {
   cache.clear();
+  failedAt.clear();
   storeFile = null;
 }
 
-const isFresh = (hit, now) => hit && now - hit.at < (hit.value ? FOUND_TTL_MS : MISSING_TTL_MS);
+const isFresh = (hit, now) => Boolean(hit) && now - hit.at < (hit.value ? FOUND_TTL_MS : MISSING_TTL_MS);
+const coolingDown = (id, now) => failedAt.has(id) && now - failedAt.get(id) < FAILED_RETRY_MS;
 
 /**
  * The cached price without asking the price endpoint: the price, null when no eShop
@@ -125,7 +140,7 @@ async function fetchBatch(ids, country, lang, fetchImpl) {
 /**
  * Looks up many titles in batches, KR first, then US and JP for the rest.
  * Titles no eShop sells are cached as null; a batch that fails leaves its ids
- * unknown so the next warm retries them. Returns how many prices changed.
+ * unknown, and a warm asks for them again after FAILED_RETRY_MS. Returns how many prices changed.
  */
 export async function fetchPrices(nsuIds, { fetchImpl = fetch, now = Date.now, paceMs = BATCH_PACE_MS } = {}) {
   let pending = [...new Set(nsuIds.map(String))].filter((id) => NSU_ID_RE.test(id));
@@ -148,6 +163,7 @@ export async function fetchPrices(nsuIds, { fetchImpl = fetch, now = Date.now, p
         if (!value) { unsold.push(id); continue; }
         if (JSON.stringify(cache.get(id)?.value) !== JSON.stringify(value)) changed++;
         cache.set(id, { at: now(), value });
+        failedAt.delete(id);
       }
       if (paceMs) await new Promise((resolve) => setTimeout(resolve, paceMs));
     }
@@ -157,8 +173,23 @@ export async function fetchPrices(nsuIds, { fetchImpl = fetch, now = Date.now, p
     if (failed.has(id)) continue;
     if (cache.get(id)?.value) changed++;
     cache.set(id, { at: now(), value: null });
+    failedAt.delete(id);
   }
+  for (const id of failed) failedAt.set(id, now());
   return changed;
+}
+
+/** Forgets old prices the library no longer asks about; how many went. */
+function dropUnused(nsuIds, now) {
+  const wanted = new Set(nsuIds.map(String));
+  let dropped = 0;
+  for (const [id, hit] of cache) {
+    if (!wanted.has(id) && now - hit.at > UNUSED_DROP_MS) {
+      cache.delete(id);
+      dropped++;
+    }
+  }
+  return dropped;
 }
 
 /**
@@ -168,8 +199,12 @@ export async function fetchPrices(nsuIds, { fetchImpl = fetch, now = Date.now, p
 export function warmPrices(nsuIds, opts = {}) {
   if (warming) return warming;
   const now = opts.now ?? Date.now;
-  const stale = nsuIds.filter((id) => NSU_ID_RE.test(String(id)) && !isFresh(cache.get(String(id)), now()));
-  if (!stale.length) return Promise.resolve(0);
+  const dropped = dropUnused(nsuIds, now());
+  const stale = nsuIds.filter((id) => NSU_ID_RE.test(String(id)) && !isFresh(cache.get(String(id)), now()) && !coolingDown(String(id), now()));
+  if (!stale.length) {
+    if (dropped) savePrices();
+    return Promise.resolve(0);
+  }
   const job = activity.begin("eshop", { title: "eShop 가격을 받습니다", detail: `${stale.length}개` });
   warming = fetchPrices(stale, opts)
     .then((changed) => {
