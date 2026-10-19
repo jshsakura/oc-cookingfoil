@@ -19,7 +19,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 다운로드</button></div>
   <p class="muted">파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다. 그 게임의 베젤이 없으면 같은 제목의 다른 지역판 베젤을, 그것도 없으면 시스템 기본 베젤을 씁니다. 아케이드 세트에 표지가 없으면 같은 게임의 다른 세트 표지를 보여 줍니다.</p>
-  <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings">설정 탭</a>에서 넣을 수 있습니다.</p>
+  <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings/integrations">설정 탭</a>에서 넣을 수 있습니다.</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
   <div class="scroll" id="ra-systems"></div>

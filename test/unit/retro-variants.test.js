@@ -180,6 +180,9 @@ test("lists show one card per game, every file stays reachable", async () => {
     assert.deepEqual(ra.list.map((r) => [r.gameId, r.raGameId, r.count, r.earned, r.matchedBy, r.system]), [[shinobi.id, 77, 20, 0, "hash", "md"]]);
     assert.equal(ra.list[0].title, shinobi.name);
     assert.equal(ra.list[0].iconUrl, shinobi.iconUrl);
+    const card = (await get("/api/retro/games?system=md")).games.find((g) => g.id === shinobi.id);
+    assert.deepEqual(card.achievements, { raGameId: 77, count: 20, points: 200, matchedBy: "hash" }, "a list card says it has achievements");
+    assert.equal((await get("/api/retro/games?system=md")).games.find((g) => g.file === "Comix Zone (USA).zip").achievements, undefined);
     raStore.reset();
 
     // The admin's pick shows at once, without a rescan.

@@ -1,7 +1,8 @@
 /**
  * Which LaunchBox game each retro game is, by the same title matching the
  * ratings use (art/ratings.js gamesFor): a ROM's original No-Intro / Redump
- * title (art-map), else the English title in its file name; an arcade set's
+ * title (art-map), else its English title (a ScummVM game's title.json; its file
+ * name is only the ScummVM id), else the English title in its file name; an arcade set's
  * MAME name, else its parent's. Everything here is pure.
  */
 import path from "path";
@@ -25,7 +26,7 @@ const latinTitle = (name) => (/[^\p{Script=Latin}\p{N}\p{P}\p{S}\s]/u.test(name)
 export function titlesOf(g, mame = new Map()) {
   const names = g.set
     ? [mame.get(g.set)?.Name, g.cloneOf && mame.get(g.cloneOf)?.Name, setInfo(g.set)?.base]
-    : [g.original, latinTitle(g.name)];
+    : [g.original, g.names?.en, latinTitle(g.name)];
   return [...new Set(names.filter((n) => typeof n === "string" && n.trim()))];
 }
 

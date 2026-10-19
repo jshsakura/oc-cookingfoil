@@ -320,6 +320,8 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     ...(group ? { group: group.id, variants: group.members.length } : {}),
+    // Lists mark the games with achievements; matchedBy says whether this ROM earns them.
+    ...(group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {}),
     file: g.file,
     system: g.system,
     core: g.core,
@@ -496,7 +498,6 @@ export default function retroRouter() {
     res.vary("Accept-Language").json({
       ...publicGame(game, systems, lang, { cat, link: forRequest(req) }),
       ...retroDetailFields({ dir: retroDir, systems, candidates: metaCandidates(game, rep, group), base: `/api/retro/games/${game.id}`, lang }),
-      ...achievementSummary(metaCandidates(game, rep, group)),
       representative: rep.id,
       variants: group.members.map((m) => publicVariant(m, rep, lang)),
     });

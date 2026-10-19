@@ -229,6 +229,26 @@ test("games match LaunchBox by their original title, alternate names and MAME na
   assert.equal(metaKey({ system: "ps1", name: "Game", m3u: true, extras: [{ rel: "Game/Game (Disc 1).chd" }] }), "ps1/Game (Disc 1)");
 });
 
+test("a ScummVM game is found by the English title in its title.json, not its ScummVM id", async () => {
+  const { PLATFORMS } = await import("../../src/retro/art/titles.js");
+  const xml = `<?xml version="1.0"?>
+<LaunchBox>
+  <Game>
+    <Name>The Secret of Monkey Island</Name>
+    <DatabaseID>77</DatabaseID>
+    <Platform>ScummVM</Platform>
+    <Overview>Become a pirate.</Overview>
+    <Developer>Lucasfilm Games</Developer>
+  </Game>
+</LaunchBox>`;
+  const data = await readLaunchBoxMeta(() => Readable.from([xml]), new Set(PLATFORMS.scummvm));
+  const game = { system: "scummvm", name: "monkey", names: { en: "The Secret of Monkey Island", ko: "원숭이 섬의 비밀" } };
+  const record = buildMeta([game], data)[metaKey(game)];
+  assert.equal(metaKey(game), "scummvm/monkey");
+  assert.equal(record.id, "77");
+  assert.equal(record.description.en, "Become a pirate.");
+});
+
 test("screenshots are downloaded once, at most 8, and served with a ?v= of their file", async () => {
   const dir = tmp("retro-shots-");
   const record = { shots: [...Array.from({ length: 10 }, (_, i) => `https://images.launchbox-app.com/${i}.png`)] };

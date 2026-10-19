@@ -129,3 +129,36 @@ test('a console chip row too wide for the page has arrows, so a mouse reaches ev
   })).toBe(true);
   await expect(next).toBeHidden();
 });
+
+test('a game with achievements says so under its name: gold when its ROM earns them, grey when only its title matched', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const withAch = (g: { name: string }) => ({
+    ...g,
+    achievements: g.name.includes('시노비')
+      ? { raGameId: 1, count: 40, points: 400, matchedBy: 'hash' }
+      : { raGameId: 2, count: 12, points: 100, matchedBy: 'title' },
+  });
+  await page.route(/\/api\/retro\/games(\?|\/[^/?]+(\?|$))/, async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    await route.fulfill({ response: res, json: body.games ? { ...body, games: body.games.map(withAch) } : withAch(body) });
+  });
+  await page.goto('/#retro');
+  const cards = page.locator('#retro-games .game');
+  await expect(cards).toHaveCount(2);
+  const gold = cards.filter({ hasText: '슈퍼 시노비' }).locator('.pill.ach');
+  await expect(gold).toHaveText('업적 40');
+  await expect(gold).not.toHaveClass(/title-only/);
+  await expect(gold).toHaveAttribute('title', '원본 롬이라 기기에서 업적이 쌓입니다');
+  await expect(gold.locator('svg')).toHaveCount(1);
+  const grey = cards.filter({ hasNotText: '슈퍼 시노비' }).locator('.pill.ach.title-only');
+  await expect(grey).toHaveText('업적 12');
+  // It leads the line, so a narrow card never drops it.
+  await expect(cards.first().locator('.sub .pill').first()).toHaveClass(/ach/);
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/retro-achievement-pills.png' });
+
+  await cards.filter({ hasText: '슈퍼 시노비' }).click();
+  await expect(page.locator('#modal-pills .pill.ach')).toHaveText('업적 40');
+  await expect(page.locator('#modal-meta div', { hasText: '업적' }).locator('strong')).toHaveText('40개 · 400점 · 원본 롬이라 기기에서 업적이 쌓입니다');
+});
