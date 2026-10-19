@@ -8,6 +8,7 @@
  *     { type: "hello",        version, etag, files, customs, restarting }
  *     { type: "shop-updated", etag, files, customs, mode, buildMs }
  *     { type: "restarting", restart_id, retry_after, back_by, message }   // safe restart began
+ *     { type: "activity", running: [...], recent: [...] }   // read-only task status
  *     { type: "ping" }                                    // hb keepalive
  *   client → server
  *     { type: "pong" }                                    // optional ack
@@ -186,6 +187,10 @@ export function attach(server) {
       // reconnects mid-drain keeps its notice, one that reconnects after drops it.
       restarting: drainer.notice(),
     });
+    // Read-only activity shares the shop's existing browser channel.
+    send(ws, { type: "activity", ...activity.list() });
+    const offActivity = activity.subscribe((snap) => send(ws, { type: "activity", ...snap }));
+    ws.on("close", offActivity);
 
     ws.on("pong", () => { ws.isAlive = true; });
     ws.on("message", (raw) => {

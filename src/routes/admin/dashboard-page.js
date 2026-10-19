@@ -25,7 +25,7 @@ import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
-import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
+import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -259,16 +259,19 @@ ${POLISH_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
-  <div class="hdr-right">${ACTIVITY_HTML}
-  <div class="acct-menu">
-    <button class="icon-btn" id="acct-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="계정 메뉴" title="계정 메뉴">${icon("account")}</button>
-    <div class="pop-list" id="acct-list" role="menu" hidden>
+  <div class="hdr-right">
+  <div class="acct-menu activity-account">
+    <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
+    <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
+      <div class="account-links" role="menu">
       <p class="who" id="who">불러오고 있습니다</p>
       <a role="menuitem" href="/">${icon("home")}웹 화면</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
       <div class="menu-sep" role="separator"></div>
       <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}어두운 테마<span class="switch" aria-hidden="true"></span></button>
       <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
+      </div>
+      ${ACTIVITY_HTML}
     </div>
   </div>
   </div>

@@ -338,6 +338,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 | `GET /shop.json` | 给自动化用的扁平文件目录：`{ files: [...] }`，每个文件名都带 `[TITLEID][vN]` 标记。只有在管理页面创建的自动化令牌（`Authorization: Bearer cft_…`）可以读取 |
 | `GET /api/shop/sections` | 给 CookingFoil 客户端和网页的分区列表 |
 | `GET /api/shop/info` | 服务器版本、下载提示，以及客户端可以依赖的 `features` |
+| `GET /api/activity` | 已登录用户可查看运行中和最近的任务。只有管理员可以通过管理 API 停止任务。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 单个条目的详情及其附加文件 |
 | `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | 图片 |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）及其 HOME 菜单快捷方式。在管理页面上关闭的应用不会列出 |

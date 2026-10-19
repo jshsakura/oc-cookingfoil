@@ -338,6 +338,7 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 | `GET /shop.json` | 自動化向けのファイルの一覧: `{ files: [...] }`。各ファイルの名前には `[TITLEID][vN]` が付きます。管理ページで作った自動化トークン (`Authorization: Bearer cft_…`) だけが読めます |
 | `GET /api/shop/sections` | CookingFoil クライアントと Web 画面向けのセクション分けされた一覧 |
 | `GET /api/shop/info` | サーバーのバージョン、ダウンロードのヒント、クライアントが前提にしてよい `features` |
+| `GET /api/activity` | ログイン済みのユーザーは実行中と最近の作業を閲覧できます。停止は管理者のみ管理 API で実行できます。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 1 件の詳細と、その追加ファイル |
 | `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | アートワーク |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体) と、その HOME メニューのショートカット。管理ページでオフにしたアプリは含まれません |

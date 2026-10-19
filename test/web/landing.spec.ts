@@ -171,7 +171,7 @@ test('the language menu opens on demand, shows the current code and closes on Es
   await expect(page.locator('#lang-list [data-lang="ja"]')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.locator('#lang-list')).toBeHidden();
-  await expect(page.locator('#acct-btn')).toHaveAttribute('aria-label', 'メニュー');
+  await expect(page.locator('#acct-btn')).toHaveAttribute('aria-label', 'アカウントメニューとサーバーの動作');
 });
 
 test('card names follow the page language from the sections names, falling back to English', async ({ page }) => {
@@ -721,8 +721,8 @@ test('the labelled buttons keep their icon after the page language changes', asy
   await page.locator('[data-lang="en"]').click();
   await expect(refresh).toHaveText('Refresh');
   await expect(refresh.locator('svg.bi')).toHaveCount(1);
-  // Icon-only buttons stay as they were.
-  await expect(page.locator('#acct-btn svg')).toHaveCount(1);
+  // The account menu shows one icon at a time (account or running activity).
+  await expect(page.locator('#acct-btn svg:visible')).toHaveCount(1);
 });
 
 test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count and a close button", async ({ page }) => {

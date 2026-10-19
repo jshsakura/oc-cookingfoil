@@ -19,8 +19,13 @@ import { resolveOrigin } from "../../helpers/origin.js";
 import { publicBaseUrl } from "../../helpers/envs.js";
 import * as defaultActivity from "../../tasks/activity.js";
 import debug from "../../debug.js";
+import { hasValidSession } from "../../security/admin-session.js";
 
 export function mountServerApi(router, requireSession, { drainer = defaultDrainer, activity = defaultActivity } = {}) {
+  // The router already checks the admin account. Probe the second step without a denial log.
+  router.get("/api/activity/access", (req, res) => {
+    res.set("Cache-Control", "no-store").json({ canCancel: hasValidSession(req) });
+  });
   router.get("/api/activity", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store").json(activity.list());
