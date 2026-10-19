@@ -37,11 +37,40 @@ test("eshopPrice caches results and rejects bad ids", async () => {
   assert.equal(await eshopPrice(null, { fetchImpl }), null);
 });
 
-test("eshopPrice does not cache network failures", async () => {
+test("a network failure is not saved as unsold, and is asked again only after half an hour", async () => {
   let calls = 0;
-  const fetchImpl = async () => { calls++; throw new Error("offline"); };
-  assert.equal(await eshopPrice("70010000000003", { fetchImpl }), null);
-  assert.equal(await eshopPrice("70010000000003", { fetchImpl }), null);
+  let offline = true;
+  let at = Date.parse("2026-10-19T00:00:00Z");
+  const now = () => at;
+  const fetchImpl = async () => {
+    calls++;
+    if (offline) throw new Error("offline");
+    return { ok: true, json: async () => ({ prices: [{ sales_status: "onsale", regular_price: { amount: "1원" } }] }) };
+  };
+  assert.equal(await eshopPrice("70010000000003", { fetchImpl, now }), null);
+  assert.equal(calls, 3);
+  assert.equal(cachedPrice("70010000000003"), undefined, "unknown, not unsold");
+  at += 29 * 60_000;
+  assert.equal(await eshopPrice("70010000000003", { fetchImpl, now }), null);
+  assert.equal(calls, 3, "left alone within the half hour");
+  at += 2 * 60_000;
+  offline = false;
+  assert.equal((await eshopPrice("70010000000003", { fetchImpl, now })).regular, "1원");
+  assert.equal(calls, 4);
+});
+
+test("a title no eShop sells is asked again after a day, not every six hours", async () => {
+  let calls = 0;
+  let at = Date.parse("2026-10-19T00:00:00Z");
+  const now = () => at;
+  const fetchImpl = async () => { calls++; return { ok: true, json: async () => ({ prices: [{ title_id: 70010000000004, sales_status: "not_found" }] }) }; };
+  await warmPrices(["70010000000004"], { fetchImpl, now, paceMs: 0 });
+  assert.equal(calls, 3);
+  at += 23 * 3_600_000;
+  await warmPrices(["70010000000004"], { fetchImpl, now, paceMs: 0 });
+  assert.equal(calls, 3);
+  at += 2 * 3_600_000;
+  await warmPrices(["70010000000004"], { fetchImpl, now, paceMs: 0 });
   assert.equal(calls, 6);
 });
 
@@ -65,10 +94,50 @@ test("fetchPrices asks 50 ids per request and falls back per id to the next regi
   assert.equal(cachedPrice("70010000009999"), undefined, "never asked is unknown, not missing");
 });
 
-test("a failed batch stays unknown so the next warm retries it", async () => {
+test("a failed batch stays unknown, and rebuilds leave it alone for half an hour", async () => {
   const ids = ["70010000000200"];
-  await fetchPrices(ids, { fetchImpl: async () => ({ ok: false }), paceMs: 0 });
+  let calls = 0;
+  let at = Date.parse("2026-10-19T00:00:00Z");
+  const now = () => at;
+  const fetchImpl = async () => { calls++; return { ok: false }; };
+  await warmPrices(ids, { fetchImpl, now, paceMs: 0 });
   assert.equal(cachedPrice(ids[0]), undefined);
+  const first = calls;
+  for (let i = 0; i < 5; i++) {
+    at += 15_000;
+    await warmPrices(ids, { fetchImpl, now, paceMs: 0 });
+  }
+  assert.equal(calls, first, "a rebuild every 15 seconds asks nothing");
+  at += 30 * 60_000;
+  await warmPrices(ids, { fetchImpl, now, paceMs: 0 });
+  assert.ok(calls > first);
+});
+
+test("old prices the library no longer asks about are dropped from the saved cache", async () => {
+  const { loadPrices } = await import("../../src/meta/eshop-price.js");
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "prices-")), "prices.json");
+  const at = Date.parse("2026-10-19T00:00:00Z");
+  const old = at - 8 * 24 * 3_600_000;
+  const price = { country: "KR", regular: "1원", discount: null, discountEnds: null };
+  fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [
+    ["70010000000500", { at: old, value: price }],
+    ["70010000000501", { at: at - 3_600_000, value: price }],
+    ["70010000000502", { at: old - 1, value: price }],
+  ] }));
+  loadPrices(file);
+  let calls = 0;
+  const fetchImpl = async () => { calls++; return { ok: true, json: async () => ({ prices: [] }) }; };
+  // 500 is old but still in the library, so it is refreshed, not dropped; 502 is old and gone.
+  await warmPrices(["70010000000500", "70010000000501"], { fetchImpl, now: () => at, paceMs: 0 });
+  assert.ok(calls > 0);
+  const saved = new Map(JSON.parse(fs.readFileSync(file, "utf8")).entries);
+  assert.ok(saved.has("70010000000500"));
+  assert.ok(saved.has("70010000000501"));
+  assert.equal(saved.has("70010000000502"), false);
+  clearPriceCache();
 });
 
 test("warmPrices tells listeners only when a price changed, and skips fresh ones", async () => {
