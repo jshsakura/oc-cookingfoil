@@ -48,14 +48,18 @@ function sealFor(publicKey, code, plain) {
   return { epk: eph.getPublicKey().toString("base64url"), iv: iv.toString("base64url"), ct: ct.toString("base64url") };
 }
 
-test("a link takes one envelope at a time, hands it to its console once, and reopens after a wrong password", async () => {
+test("a link takes one envelope at a time, keeps it for its console until the result, and reopens after a wrong password", async () => {
   const dev = consoleKeys();
   assert.equal(link.open("user:a", "not-a-key"), null);
   assert.equal(link.open("user:a", Buffer.alloc(65, 1).toString("base64url")), null, "an uncompressed point starts with 0x04");
-  const first = link.open("user:a", dev.publicKey, { username: "Mario" });
-  const { code } = link.open("user:a", dev.publicKey, { username: "Mario" });
-  assert.equal(link.view(first.code), null, "a new link replaces the owner's earlier one");
-  assert.deepEqual(link.view(code), { state: "waiting", username: "Mario", triesLeft: 3, expiresAt: link.view(code).expiresAt });
+  const asker = { account: "viewer", device: "Living room" };
+  const first = link.open("user:a", dev.publicKey, { requester: asker, username: "Mario" });
+  const { code } = link.open("user:a", dev.publicKey, { requester: asker, username: "Mario" });
+  assert.equal(link.view(first.code), null, "a new link replaces the console's earlier one");
+  const other = link.open("user:a|another console", dev.publicKey);
+  assert.equal(link.view(code).state, "waiting", "another console of the account keeps its own link");
+  assert.equal(link.view(other.code).state, "waiting");
+  assert.deepEqual(link.view(code), { state: "waiting", requester: asker, username: "Mario", triesLeft: 3, expiresAt: link.view(code).expiresAt });
 
   assert.equal(link.take(code, "user:a"), "none");
   assert.equal(link.seal(code, { epk: "x", iv: "y", ct: "z" }), "invalid");
@@ -66,9 +70,14 @@ test("a link takes one envelope at a time, hands it to its console once, and reo
   assert.equal(link.take(code, "user:b"), "gone", "only the console that opened the link takes it");
   const taken = link.take(code, "user:a");
   assert.deepEqual(dev.open(code, taken), { u: "Mario", p: "pw" });
-  assert.equal(link.take(code, "user:a"), "none", "an envelope is handed over once");
+  assert.deepEqual(link.take(code, "user:a"), taken, "a reply lost on the way is taken again until the result");
   assert.throws(() => dev.open("another-code", taken), "the code is bound in: an envelope from another link does not open");
 
+  assert.equal(link.finish(code, "user:a", { ok: false, unreadable: true }), "unreadable");
+  assert.equal(link.view(code).triesLeft, 3, "an envelope the console could not open spends no try");
+  assert.equal(link.take(code, "user:a"), "none", "the envelope goes with the result");
+  assert.equal(link.seal(code, env), "ok");
+  link.take(code, "user:a");
   assert.equal(link.finish(code, "user:a", { ok: false }), "wrong");
   assert.equal(link.view(code).triesLeft, 2);
   for (const left of [1, 0]) {
@@ -130,7 +139,9 @@ test("the console and the phone hand a password over through the server, which r
     assert.equal((await fetch(`${base}/ra-link/vendor/curves@2.4.0/package.json`)).status, 404, "only scripts are served");
     assert.equal((await fetch(`${base}/ra-link/app.js`)).status, 200);
 
-    assert.deepEqual(await (await asPhone("GET", `/${code}`)).json(), { state: "waiting", username: "Mario", triesLeft: 3, expiresAt: (await (await asPhone("GET", `/${code}`)).json()).expiresAt });
+    const shown = await (await asPhone("GET", `/${code}`)).json();
+    assert.deepEqual(shown, { state: "waiting", requester: { account: "viewer", device: null }, username: null, triesLeft: 3, expiresAt: shown.expiresAt },
+      "the phone sees who asked; a name only typed in (maybe someone else's) is not filled in");
     assert.equal((await asPhone("GET", "/unknown")).status, 410);
 
     // The console waits; the phone's envelope wakes it.
@@ -139,7 +150,9 @@ test("the console and the phone hand a password over through the server, which r
     assert.equal((await asPhone("POST", `/${code}`, sealFor(dev.publicKey, code, { u: "Mario", p: "wrong" }))).status, 202);
     const first = await waiting;
     assert.equal(first.status, 200);
-    assert.deepEqual(dev.open(code, await first.json()), { u: "Mario", p: "wrong" });
+    const envelope = await first.json();
+    assert.deepEqual(dev.open(code, envelope), { u: "Mario", p: "wrong" });
+    assert.deepEqual(await (await asConsole("GET", `/link/${code}/sealed`)).json(), envelope, "a console whose reply was lost takes it again");
     assert.equal((await asPhone("POST", `/${code}`, sealFor(dev.publicKey, code, { u: "Mario", p: "x" }))).status, 409);
 
     // The phone waits for the result; the console reports a wrong password, then a right one.
@@ -152,6 +165,25 @@ test("the console and the phone hand a password over through the server, which r
     assert.deepEqual(await (await asConsole("POST", `/link/${code}/result`, { ok: true, username: "Mario" })).json(), { state: "done" });
     assert.equal((await (await asPhone("GET", `/${code}?after=taken`)).json()).state, "done");
     assert.equal(players.nameOf("user:viewer"), "Mario");
+    const again = await (await asConsole("POST", "/link", { publicKey: dev.publicKey })).json();
+    assert.equal((await (await asPhone("GET", `/${again.code}`)).json()).username, "Mario", "a name a console signed in with is filled in next time");
+
+    // Someone who types another player's name gets no pre-filled link out of it.
+    players.register("user:other", "Mario");
+    const theirs = await (await fetch(`${base}/api/retro/achievements/link`, {
+      method: "POST", headers: { "x-user": "other", "Content-Type": "application/json" }, body: JSON.stringify({ publicKey: dev.publicKey }),
+    })).json();
+    assert.deepEqual(await (await asPhone("GET", `/${theirs.code}`)).json().then((v) => [v.username, v.requester.account]), [null, "other"]);
+
+    // Two consoles of one account each keep their own link.
+    const onConsole = (key) => fetch(`${base}/api/retro/achievements/link`, {
+      method: "POST", headers: { "x-user": "viewer", "X-Device-Key": key, "Content-Type": "application/json" }, body: JSON.stringify({ publicKey: dev.publicKey }),
+    }).then((r) => r.json());
+    const [a, b] = [await onConsole("a".repeat(64)), await onConsole("b".repeat(64))];
+    assert.equal((await asPhone("GET", `/${a.code}`)).status, 200);
+    assert.equal((await asPhone("GET", `/${b.code}`)).status, 200);
+    assert.equal((await fetch(`${base}/api/retro/achievements/link/${a.code}/sealed`, { headers: { "x-user": "viewer", "X-Device-Key": "b".repeat(64) } })).status, 410,
+      "another console of the same account does not take it");
 
     assert.equal((await fetch(`${base}/api/retro/achievements/link/${code}/sealed`, { headers: { "x-user": "other" } })).status, 410, "another account's console gets nothing");
     link.reset();

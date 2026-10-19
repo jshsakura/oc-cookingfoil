@@ -1,6 +1,11 @@
 /** Wording for the phone page that hands a RetroAchievements password to the console (/ra-link), in the four interface languages. */
 export const RA_LINK_TEXT = {
   ko: {
+    askBoth: "{account} 계정의 기기 '{device}' 가 요청했습니다.",
+    askAccount: "{account} 계정의 기기가 요청했습니다.",
+    askDevice: "기기 '{device}' 가 요청했습니다.",
+    askCheck: "지금 내가 기기에 띄운 QR 이 아니면 비밀번호를 넣지 않습니다.",
+    unreadable: "기기가 받은 내용을 풀지 못했습니다. 다시 입력합니다. 남은 횟수는 줄지 않았습니다.",
     title: "레트로 업적 연결",
     lead: "기기에서 RetroAchievements 에 로그인합니다. 여기서 친 비밀번호는 기기만 열 수 있게 잠가서 보내고, 서버는 내용을 볼 수 없고 저장하지도 않습니다.",
     note: "업적은 원본 롬으로 할 때만 쌓입니다. 한글 패치 같은 수정 롬에서는 쌓이지 않습니다.",
@@ -20,6 +25,11 @@ export const RA_LINK_TEXT = {
     network: "서버에 닿지 못했습니다. 잠시 뒤에 다시 합니다.",
   },
   en: {
+    askBoth: "Asked by the console '{device}' of the account {account}.",
+    askAccount: "Asked by a console of the account {account}.",
+    askDevice: "Asked by the console '{device}'.",
+    askCheck: "If you did not just show this QR on your own console, do not enter your password.",
+    unreadable: "The console could not open what it received. Enter it again; this did not use up a try.",
     title: "Connect retro achievements",
     lead: "The console signs in to RetroAchievements. The password you type here is locked so only the console can open it; the server cannot read it and does not keep it.",
     note: "Achievements only count with original ROMs, not with modified ones such as translation patches.",
@@ -39,6 +49,11 @@ export const RA_LINK_TEXT = {
     network: "Could not reach the server. Try again in a moment.",
   },
   ja: {
+    askBoth: "{account} アカウントの本体「{device}」からの依頼です。",
+    askAccount: "{account} アカウントの本体からの依頼です。",
+    askDevice: "本体「{device}」からの依頼です。",
+    askCheck: "いま自分の本体に表示した QR でなければ、パスワードを入力しないでください。",
+    unreadable: "本体が受け取った内容を開けませんでした。もう一度入力してください。残り回数は減っていません。",
     title: "レトロ実績の連携",
     lead: "本体が RetroAchievements にログインします。ここで入力したパスワードは本体だけが開けるように鍵をかけて送り、サーバーは中身を見られず、保存もしません。",
     note: "実績はオリジナルの ROM で遊んだときだけ記録されます。翻訳パッチなどの改変 ROM では記録されません。",
@@ -58,6 +73,11 @@ export const RA_LINK_TEXT = {
     network: "サーバーに接続できませんでした。少し後でもう一度試してください。",
   },
   zh: {
+    askBoth: "账号 {account} 的主机“{device}”发出的请求。",
+    askAccount: "账号 {account} 的主机发出的请求。",
+    askDevice: "主机“{device}”发出的请求。",
+    askCheck: "如果这不是你刚在自己主机上显示的二维码，请不要输入密码。",
+    unreadable: "主机无法解开收到的内容。请重新输入，剩余次数没有减少。",
     title: "连接复古游戏成就",
     lead: "由主机登录 RetroAchievements。你在这里输入的密码会加密后发送，只有主机能解开；服务器看不到内容，也不会保存。",
     note: "成就只在使用原版 ROM 时记录，汉化补丁等修改过的 ROM 不会记录。",

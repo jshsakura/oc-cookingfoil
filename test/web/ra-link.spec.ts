@@ -19,33 +19,40 @@ test('the phone page seals the password so only the console opens it, and follow
   };
 
   const envelopes: { epk: string; iv: string; ct: string }[] = [];
-  const results = ['wrong', 'done'];
+  const results = ['unreadable', 'wrong', 'done'];
+  const requester = { account: 'viewer', device: '<b>Living room</b>' };
   let state = 'waiting', triesLeft = 3;
   await page.route(`**/ra-link/api/${code}*`, async route => {
     const req = route.request();
     if (req.method() === 'POST') {
       envelopes.push(req.postDataJSON());
       state = 'sealed';
-      return route.fulfill({ status: 202, json: { state, username: 'Mario', triesLeft, expiresAt: 0 } });
+      return route.fulfill({ status: 202, json: { state, requester, username: 'Mario', triesLeft, expiresAt: 0 } });
     }
-    // The console takes the envelope and answers: first a wrong password, then the right one.
+    // The console takes the envelope and answers: one it could not open, a wrong password, then the right one.
     if (new URL(req.url()).searchParams.get('after') === 'sealed') {
       state = results.shift()!;
       if (state === 'wrong') triesLeft--;
     }
-    return route.fulfill({ json: { state, username: 'Mario', triesLeft, expiresAt: 0 } });
+    return route.fulfill({ json: { state, requester, username: 'Mario', triesLeft, expiresAt: 0 } });
   });
 
   await page.setViewportSize({ width: 393, height: 800 });
   await page.goto(`/ra-link?c=${code}&lang=ko#k=${ecdh.getPublicKey().toString('base64url')}`);
   await expect(page.getByRole('heading', { name: '레트로 업적 연결' })).toBeVisible();
   await expect(page.locator('#http-warn')).toBeVisible();
+  // Who asked, as plain text (a console name is the user's own words).
+  await expect(page.locator('#ask-who')).toHaveText("viewer 계정의 기기 '<b>Living room</b>' 가 요청했습니다.");
+  await expect(page.locator('#ask')).toContainText('지금 내가 기기에 띄운 QR 이 아니면');
   await expect(page.locator('#username')).toHaveValue('Mario');
   await expect(page.locator('#password')).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/ra-link-phone.png' });
 
+  await page.locator('#password').fill('first-try');
+  await page.locator('#send').click();
+  await expect(page.locator('#msg')).toHaveText('기기가 받은 내용을 풀지 못했습니다. 다시 입력합니다. 남은 횟수는 줄지 않았습니다.');
   await page.locator('#password').fill('first-try');
   await page.locator('#send').click();
   await expect(page.locator('#msg')).toHaveText('비밀번호가 맞지 않습니다. 다시 입력합니다. (남은 횟수 2번)');
@@ -57,8 +64,8 @@ test('the phone page seals the password so only the console opens it, and follow
   await page.locator('#send').click();
   await expect(page.locator('#msg')).toHaveText('연결했습니다. 이제 기기에서 업적이 쌓입니다. 이 창은 닫아도 됩니다.');
   await expect(page.locator('#form')).toBeHidden();
-  expect(open(envelopes[1])).toEqual({ u: 'Mario', p: 'pässwörd 🔑' });
-  expect(envelopes[1].epk).not.toBe(envelopes[0].epk);
+  expect(open(envelopes[2])).toEqual({ u: 'Mario', p: 'pässwörd 🔑' });
+  expect(envelopes[2].epk).not.toBe(envelopes[1].epk);
 });
 
 test('a QR without the console key, or a gone link, says so instead of taking a password', async ({ page }) => {
