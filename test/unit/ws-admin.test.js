@@ -62,6 +62,31 @@ function upgrade(headers = {}) {
 
 const both = () => `${userCookie("owner")}; ${adminCookie()}`;
 
+test("an ordinary shop user receives activity over the library channel without an admin session", async () => {
+  let cancelled = 0;
+  const job = activity.begin("nsz", { title: "Public progress", total: 100, cancel: () => cancelled++ });
+  const client = new WebSocket(`ws://127.0.0.1:${port}/ws/library`, {
+    headers: { Origin: ORIGIN, Cookie: userCookie("guest") },
+  });
+  try {
+    const snapshot = await new Promise((resolve, reject) => {
+      client.on("error", reject);
+      client.on("message", raw => {
+        const message = JSON.parse(raw.toString());
+        if (message.type === "activity") resolve(message);
+      });
+    });
+    assert.ok(snapshot.running.some(entry => entry.id === job.id));
+    client.send(JSON.stringify({ type: "cancel", id: job.id }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(cancelled, 0);
+    assert.ok(activity.list().running.some(entry => entry.id === job.id));
+  } finally {
+    client.terminate();
+    job.discard();
+  }
+});
+
 test("an admin past the second step on this site's page upgrades", async () => {
   assert.equal(await upgrade({ Origin: ORIGIN, Cookie: both() }), 101);
 });

@@ -17,6 +17,7 @@ import crypto from "node:crypto";
 import { promisify } from "node:util";
 
 import pkg from "../package.js";
+import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } from "./admin/activity-panel.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
@@ -47,7 +48,11 @@ async function loadTemplate() {
       const raw = await readFile(TEMPLATE_PATH, "utf-8");
       template = raw
         .replace(/id="version">v\?/g, `id="version">v${pkg.version}`)
-        .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)));
+        .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)))
+        .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS)
+        .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
+        .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
+        .replace("__ACTIVITY_SCRIPT__", () => activityScript({ web: true }));
       return template;
     } finally {
       preparing = null;

@@ -128,6 +128,8 @@
       .lang-list button:hover:not(.active) { background: var(--sunk); }
       .lang-list button.active { background: var(--ink); color: var(--ground); }
 
+      __ACTIVITY_CSS__
+      .activity-account { --accent: var(--butter); --accent-rgb: var(--butter-rgb); --accent-ink: var(--butter-ink); --text: var(--ink); --bg: var(--ground); --panel: var(--surface); --muted: var(--secondary); }
       /* ACCOUNT MENU: a person in a circle on the right, as on the admin page, that opens devices, admin and sign out */
       .acct-menu { position: relative; }
       .icon-btn {
@@ -1190,11 +1192,10 @@
             <button type="button" role="menuitemradio" data-lang="zh" lang="zh">中文</button>
           </div>
         </div>
-        <div class="acct-menu" id="acct-menu">
-          <button class="icon-btn" id="acct-btn" type="button" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
-          </button>
-          <div class="pop-list" id="acct-list" role="menu" hidden>
+        <div class="acct-menu activity-account" id="acct-menu">
+          <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false">__ACTIVITY_BUTTON__</button>
+          <div class="pop-list" id="acct-list" role="dialog" hidden>
+            <div class="account-links" role="menu">
             <p class="who" id="acct-who" hidden></p>
             <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
             <a role="menuitem" id="inbox-link" href="#share" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="share.open"></span></a>
@@ -1202,6 +1203,8 @@
             <div class="menu-sep" role="separator"></div>
             <button type="button" role="menuitemcheckbox" class="menu-toggle" id="theme-toggle" aria-checked="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="theme.dark"></span><span class="switch" aria-hidden="true"></span></button>
             <a role="menuitem" id="logout-link" href="/login" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span data-i18n="action.logout"></span></a>
+            </div>
+            __ACTIVITY_HTML__
           </div>
         </div>
       </div>
@@ -2906,14 +2909,14 @@
       // ─── a question inside the page ───────────────────────────────────────
       // Resolves to true for the red button, false for cancel, the dark area or Esc. Cancel starts focused.
       let confirmDone = null, confirmFrom = null;
-      function confirmAsk({ name = "", text = "" }) {
+      function confirmAsk({ name = "", text = "", title = t("confirm.title"), action = t("edit.delete") }) {
         return new Promise((resolve) => {
           confirmFrom = document.activeElement;
-          $("confirm-title").textContent = t("confirm.title");
+          $("confirm-title").textContent = title;
           $("confirm-name").textContent = name; $("confirm-name").hidden = !name;
           $("confirm-text").textContent = text;
           $("confirm-no").textContent = t("confirm.cancel");
-          $("confirm-yes").textContent = t("edit.delete");
+          $("confirm-yes").textContent = action;
           $("confirm").classList.add("open"); $("confirm").setAttribute("aria-hidden", "false");
           confirmDone = (answer) => {
             confirmDone = null;
@@ -3132,6 +3135,7 @@
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           session = d;
+          activityMenu.permissions(d);
           $("logout-link").hidden = !d;
           if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           // Only admin accounts can open the admin page; don't offer it to the others.
@@ -5916,6 +5920,7 @@
         renderSteamChips();
         retro.relabel();
         extras.relabel();
+        activityMenu.relabel();
         homebrew.relabel();
         share.relabel();
         if (current) renderSubtabs(current);
@@ -5928,6 +5933,8 @@
       function setAcctMenu(open) {
         acctList.hidden = !open;
         $("acct-btn").setAttribute("aria-expanded", String(open));
+        activityMenu.setOpen(open);
+        if (open) activityMenu.permissions(session);
         if (open) acctList.querySelector("a:not([hidden])")?.focus();
       }
       $("acct-btn").addEventListener("click", (e) => { e.stopPropagation(); setLangMenu(false); setAcctMenu(acctList.hidden); });
@@ -6102,6 +6109,8 @@
         .then((r) => { uploadsEnabled = r.ok; })
         .catch(() => { /* off for this visit */ });
 
+      __ACTIVITY_SCRIPT__
+
       // ─── realtime: WebSocket library push ─────────────────────────────────
       // The dashboard re-fetches /api/shop/sections on every shop-updated event so
       // additions, removals and metadata refreshes appear without a manual
@@ -6145,17 +6154,19 @@
         }
         ws.addEventListener("open", () => {
           wsRetry = 0;
+          activityMenu.setLive(true);
           console.info("[CookingFoil] ws connected");
         });
         ws.addEventListener("message", (ev) => {
           let msg;
           try { msg = JSON.parse(ev.data); } catch { return; }
+          if (msg.type === "activity") activityMenu.apply(msg);
           if (msg.type === "shop-updated") scheduleReload();
           // Safe restart: shown once per restart, gone when the server answers again.
           if (msg.type === "restarting") showRestart(msg);
           if (msg.type === "hello") { if (msg.restarting) showRestart(msg.restarting); else hideRestart(); }
         });
-        ws.addEventListener("close", () => { ws = null; scheduleReconnect(); });
+        ws.addEventListener("close", () => { ws = null; activityMenu.setLive(false); scheduleReconnect(); });
         ws.addEventListener("error", () => { /* close fires next */ });
       }
       function scheduleReconnect() {

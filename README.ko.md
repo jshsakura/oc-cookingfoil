@@ -339,6 +339,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 | `GET /shop.json` | 자동화용 평평한 파일 목록 `{ files: [...] }`. 파일마다 `[TITLEID][vN]` 표식이 붙은 이름이 있습니다. 관리 페이지에서 만든 자동화 토큰(`Authorization: Bearer cft_…`)만 읽습니다 |
 | `GET /api/shop/sections` | CookingFoil 클라이언트와 웹 화면이 읽는 섹션 목록 |
 | `GET /api/shop/info` | 서버 버전, 다운로드 힌트, 클라이언트가 믿고 쓸 수 있는 `features` |
+| `GET /api/activity` | 로그인한 사용자는 실행 중인 작업과 최근 작업을 조회합니다. 중지는 관리자 API에서 관리자만 할 수 있습니다. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 항목 하나의 자세한 정보와 추가 파일 |
 | `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | 그림 |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<app>/` 폴더 전체)과 홈 메뉴 바로가기. 관리 페이지에서 끈 앱은 빠집니다 |

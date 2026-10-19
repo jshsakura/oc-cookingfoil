@@ -18,6 +18,7 @@ import titleDetailRoute from "./routes/title-detail.js";
 import clientConfigRoute from "./routes/client-config.js";
 import shopJsonRoute from "./routes/shop-json.js";
 import landingRoute from "./routes/landing.js";
+import activityRouter from "./routes/activity.js";
 import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
@@ -247,6 +248,7 @@ expressApp.get("/api/session", sessionRoute);
 expressApp.use(downloadTokenHeader());
 // Lists and downloads tell the client how many connections a download may use.
 expressApp.use(connectionHint());
+expressApp.use("/api/activity", activityRouter());
 expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.

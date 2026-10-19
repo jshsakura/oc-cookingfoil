@@ -10,7 +10,7 @@ test('a sync started from the settings tab ends in the activity menu', async ({ 
   await signIn(page);
   const btn = page.getByRole('button', { name: /서버 활동/ });
   await btn.click();
-  const pop = page.getByRole('dialog', { name: '서버 활동' });
+  const pop = page.getByRole('region', { name: '서버 활동' });
   await expect(pop).toBeVisible();
   await expect(pop.locator('#act-live')).toHaveText('실시간');
 
@@ -45,7 +45,7 @@ test('a running job draws its bar and count; the menu reads the API while the so
   await expect(btn).toHaveClass(/busy/);
   await expect(page.locator('#act-count')).toHaveText('2');
   await btn.click();
-  const pop = page.getByRole('dialog', { name: '서버 활동' });
+  const pop = page.getByRole('region', { name: '서버 활동' });
   await expect(pop.locator('#act-live')).toHaveText('15초마다 확인합니다');
 
   const nsz = pop.locator('#act-running .act-row', { hasText: 'NSZ 로 변환합니다' });
@@ -78,7 +78,7 @@ test('a job that can be stopped gets a stop button that asks first, then posts t
   });
   await signIn(page);
   await page.getByRole('button', { name: /서버 활동/ }).click();
-  const pop = page.getByRole('dialog', { name: '서버 활동' });
+  const pop = page.getByRole('region', { name: '서버 활동' });
   const row = pop.locator('#act-running .act-row', { hasText: '게임 파일을 검사합니다' });
   await expect(pop.locator('#act-running .act-row', { hasText: 'titledb' }).getByRole('button', { name: '중지' })).toHaveCount(0);
 
@@ -116,4 +116,42 @@ test('the stop button takes every press while live updates arrive', async ({ pag
     await page.locator('#ask-no').click();
     if (await page.locator('#act-pop').isHidden()) await page.getByRole('button', { name: /서버 활동/ }).click();
   }
+});
+
+test('mobile activity stays inside the screen and gives conversion progress its own line', async ({ page }) => {
+  const snap = {
+    running: [{ id: 'mobile-nsz', kind: 'nsz', title: 'NSZ 로 변환합니다',
+      detail: 'A very long game title with a regional variant [0100ABCD00000000].nsp',
+      current: 123 * 2 ** 30, total: 256 * 2 ** 30, startedAt: Date.now() - 3_665_000,
+      state: 'running', cancellable: true }],
+    recent: [{ id: 'mobile-failed', kind: 'nsz', title: 'NSZ 로 변환합니다', state: 'failed',
+      error: 'The conversion could not finish: ' + 'long-file-name-'.repeat(12),
+      endedAt: Date.now(), ms: 15_000 }],
+  };
+  await page.routeWebSocket(/\/admin\/ws$/, ws => ws.send(JSON.stringify({ type: 'activity', ...snap })));
+  await signIn(page);
+  await page.getByRole('button', { name: /서버 활동/ }).click();
+  const pop = page.getByRole('region', { name: '서버 활동' });
+  await expect(pop.locator('#act-running .act-row')).toHaveCount(1);
+  for (const width of [320, 393, 480, 640]) {
+    await page.setViewportSize({ width, height: 800 });
+    const bounds = await pop.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(12);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width - 12);
+    const row = pop.locator('#act-running .act-row');
+    const title = (await row.locator('.t').boundingBox())!;
+    const progress = (await row.locator('.n').boundingBox())!;
+    const stop = (await row.getByRole('button', { name: '중지' }).boundingBox())!;
+    expect(progress.y).toBeGreaterThanOrEqual(title.y + title.height);
+    expect(title.x + title.width).toBeLessThanOrEqual(stop.x);
+    const fits = await pop.evaluate(el => el.scrollWidth <= el.clientWidth);
+    expect(fits).toBe(true);
+    await expect(row.locator('.t')).toHaveText('NSZ 로 변환합니다');
+  }
+  await page.setViewportSize({ width: 393, height: 800 });
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.screenshot({ path: 'out/web/admin-activity-phone.png', fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(pop).toBeHidden();
+  await expect(page.getByRole('button', { name: /서버 활동/ })).toBeFocused();
 });

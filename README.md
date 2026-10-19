@@ -339,6 +339,7 @@ Except for pairing, enrollment and `/healthz`, every endpoint needs a paired con
 | `GET /shop.json` | Flat file catalog for automation: `{ files: [...] }`, each file named with its `[TITLEID][vN]` stamp. Only an automation token (`Authorization: Bearer cft_…`) made on the admin page reads it |
 | `GET /api/shop/sections` | Sectioned list for the CookingFoil client and the web page |
 | `GET /api/shop/info` | Server version, download hints and the `features` a client may rely on |
+| `GET /api/activity` | Signed-in users can read running tasks and recent activity. Only admins can stop tasks through the admin API. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | Detail for one entry, and its extra files |
 | `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | Artwork |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder) and their HOME menu shortcut. Apps turned off on the admin page are left out |
