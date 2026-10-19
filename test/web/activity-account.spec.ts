@@ -9,6 +9,7 @@ async function prepare(page: Page, admin: boolean) {
   await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
   await page.route('**/auth/me', route => route.fulfill({ json: { user: admin ? 'Owner' : 'Viewer', admin } }));
   await page.route('**/api/inbox', route => route.fulfill({ json: { enabled: false } }));
+  await page.route('**/api/retro/achievements/account', route => route.fulfill({ json: { enabled: false, username: null } }));
   await page.route('**/api/activity', route => route.fulfill({ json: { running: [job], recent: [] } }));
   await page.route('**/admin/api/activity/access', route => route.fulfill({ json: { canCancel: admin } }));
 }

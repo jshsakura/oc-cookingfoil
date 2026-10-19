@@ -24,7 +24,7 @@ import debug from "../debug.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon).
-const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash"];
+const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash", "check"];
 const TEMPLATE_PATH = path.join(__dirname, "../views/landing.html");
 
 const gzipAsync = promisify(zlib.gzip);

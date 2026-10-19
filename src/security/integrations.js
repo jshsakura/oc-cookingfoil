@@ -24,6 +24,9 @@ export const SERVICES = {
   steamgriddb: {
     fields: { apiKey: { env: () => env.steamGridDbKey, re: /^[A-Za-z0-9]{16,100}$/, secret: true } },
   },
+  retroAchievements: {
+    fields: { apiKey: { env: () => env.raApiKey, re: /^[A-Za-z0-9]{16,64}$/, secret: true } },
+  },
   dropbox: {
     fields: {
       appKey: { env: () => env.dropboxAppKey, re: /^[A-Za-z0-9]{8,100}$/ },

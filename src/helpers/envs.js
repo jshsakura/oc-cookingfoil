@@ -248,6 +248,8 @@ const igdbClientSecret = envString("COOK_IGDB_CLIENT_SECRET", "").trim();
 // the admin. false keeps an account-less server open (LAN-only servers, tests).
 const firstRunSetup = envBool("COOK_FIRST_RUN_SETUP", true);
 const steamGridDbKey = envString("COOK_STEAMGRIDDB_KEY", "").trim();
+// RetroAchievements web API key (the admin page integrations override it).
+const raApiKey = envString("COOK_RA_API_KEY", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
@@ -547,6 +549,7 @@ export {
   igdbClientId,
   igdbClientSecret,
   steamGridDbKey,
+  raApiKey,
   firstRunSetup,
   devicePairing,
   passwordLogin,
