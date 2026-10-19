@@ -26,6 +26,7 @@ export const PLATFORMS = {
   ws: ["WonderSwan Color", "WonderSwan"],
   arcade: ["Arcade"],
   neocd: ["SNK Neo Geo CD"],
+  scummvm: ["ScummVM"],
   "32x": ["Sega 32X"],
   sg: ["Sega SG-1000"],
   a2600: ["Atari 2600"],
