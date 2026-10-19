@@ -41,6 +41,7 @@ Add or update tests with every change in behaviour. Unit tests live in `test/uni
 - **Settings belong on the admin page.** A new setting gets a control on the admin page, is saved under `data/`, applies without a restart, and falls back to its environment variable. Document the variable in `.env.example`.
 - **Nothing copyrighted.** Never add games, keys, firmware, BIOS files, RetroArch builds or artwork you have no right to share, not even in tests.
 - **No private data.** Use `example.org` names and documentation addresses (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`) in code, tests and docs.
+- **Content caches key on something the content moves.** A cache of a file's hash or contents keys on a value that changes whenever the content does: ctime, or a hash of the content. Size and mtime alone are not enough, because a copy that overwrites in place keeps the inode and can put the mtime back.
 - **Writing style.** Plain and precise. Do not join sentences with em dashes or en dashes. Korean text uses 합니다체, Japanese uses です/ます.
 
 ### Commits and pull requests
@@ -86,6 +87,7 @@ npm run test:web
 - **설정은 관리 페이지에.** 새 설정은 관리 페이지에 조절 장치를 두고, `data/` 에 저장하며, 다시 띄우지 않아도 적용되고, 환경 변수를 기본값으로 씁니다. 그 변수는 `.env.example` 에 설명합니다.
 - **저작물은 넣지 않습니다.** 게임, 키, 펌웨어, BIOS 파일, RetroArch 빌드, 공유할 권리가 없는 이미지는 테스트에도 넣지 않습니다.
 - **개인 정보는 넣지 않습니다.** 코드, 테스트, 문서에는 `example.org` 이름과 문서용 주소(`192.0.2.x`, `198.51.100.x`, `203.0.113.x`)를 씁니다.
+- **내용 캐시의 키는 내용이 바뀌면 반드시 바뀌는 값을 포함합니다.** 파일의 해시나 내용을 캐시할 때는 ctime 이나 내용 해시처럼 내용이 바뀌면 반드시 바뀌는 값을 키에 넣습니다. 크기와 mtime 만으로는 안 됩니다. 제자리에 덮어쓰는 복사는 inode 를 그대로 두고 mtime 을 되돌릴 수 있습니다.
 - **문체.** 쉽고 정확하게 씁니다. 엠대시나 엔대시로 문장을 잇지 않습니다. 한국어는 합니다체, 일본어는 です/ます 로 씁니다.
 
 ### 커밋과 풀 리퀘스트
@@ -131,6 +133,7 @@ npm run test:web
 - **設定は管理ページに。** 新しい設定は管理ページに操作を置き、`data/` に保存し、再起動なしで反映され、環境変数を既定値として使います。その変数は `.env.example` で説明します。
 - **著作物は入れません。** ゲーム、キー、ファームウェア、BIOS ファイル、RetroArch のビルド、共有する権利のない画像は、テストにも入れません。
 - **個人情報は入れません。** コード、テスト、ドキュメントでは `example.org` の名前とドキュメント用アドレス(`192.0.2.x`、`198.51.100.x`、`203.0.113.x`)を使います。
+- **内容キャッシュのキーには、内容が変われば必ず変わる値を含めます。** ファイルのハッシュや内容をキャッシュするときは、ctime や内容のハッシュをキーに入れます。サイズと mtime だけでは足りません。その場で上書きするコピーは inode をそのまま残し、mtime を元に戻せるからです。
 - **文体。** わかりやすく正確に書きます。エムダッシュやエンダッシュで文をつなぎません。韓国語は 합니다体、日本語は です/ます で書きます。
 
 ### コミットとプルリクエスト
@@ -176,6 +179,7 @@ npm run test:web
 - **设置放在管理页面。** 新设置要在管理页面有对应的控件，保存在 `data/` 下，无需重启即可生效，并以环境变量作为默认值。请在 `.env.example` 中说明该变量。
 - **不放受版权保护的内容。** 不要加入游戏、密钥、固件、BIOS 文件、RetroArch 构建或你无权分享的图片，测试中也不行。
 - **不放个人信息。** 代码、测试和文档中请使用 `example.org` 域名和文档专用地址(`192.0.2.x`、`198.51.100.x`、`203.0.113.x`)。
+- **内容缓存的键必须包含内容一变就会变的值。** 缓存文件的哈希或内容时，键中要放 ctime 或内容哈希。只用大小和 mtime 不够，因为原地覆盖的复制会保留 inode，并可能把 mtime 改回去。
 - **写作风格。** 简明准确。不要用破折号连接句子。韩语用 합니다体，日语用 です/ます。
 
 ### 提交与拉取请求
