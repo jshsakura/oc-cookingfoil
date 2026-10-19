@@ -4,6 +4,7 @@
  *   GET    /api/retro/achievements/account     { enabled, username }: whether the server has a key, and the name this account registered
  *   PUT    /api/retro/achievements/account     { username }: registers a name RetroAchievements knows (404 when it does not)
  *   DELETE /api/retro/achievements/account     forgets it
+ *   GET    /api/retro/achievements/account/lookup?username=   { username } as RetroAchievements spells it (404 when there is no such player)
  *   GET    /api/retro/games/:id/achievements   { raGameId, title, matchedBy, count, points, user, list } (404 when no game matches)
  *   GET    /api/retro/achievements/badge/<n>.png, <n>_lock.png   a badge image, fetched once and kept
  *
@@ -102,13 +103,27 @@ export function mountAchievements(router, { fetchImpl = fetch } = {}) {
     return req.raOwner ? next() : res.status(401).json({ error: "sign in first" });
   });
   account.get("/", (req, res) => res.json({ enabled: client.configured(), username: players.nameOf(req.raOwner) }));
+  // The name as RetroAchievements spells it, or a reply already sent (400, 503, 404).
+  async function knownName(wanted, res) {
+    const text = typeof wanted === "string" ? wanted.trim() : "";
+    if (!NAME_RE.test(text)) return void res.status(400).json({ error: "invalid username" });
+    if (!client.configured()) return void res.status(503).json({ error: "RetroAchievements is not set up on this server" });
+    const name = await client.playerName(text, { fetchImpl });
+    if (!name) return void res.status(404).json({ error: "no such RetroAchievements player" });
+    return name;
+  }
+  account.get("/lookup", async (req, res, next) => {
+    try {
+      const name = await knownName(req.query.username, res);
+      if (name) res.json({ username: name });
+    } catch (err) {
+      next(err);
+    }
+  });
   account.put("/", async (req, res, next) => {
     try {
-      const wanted = typeof req.body?.username === "string" ? req.body.username.trim() : "";
-      if (!NAME_RE.test(wanted)) return res.status(400).json({ error: "invalid username" });
-      if (!client.configured()) return res.status(503).json({ error: "RetroAchievements is not set up on this server" });
-      const name = await client.playerName(wanted, { fetchImpl });
-      if (!name) return res.status(404).json({ error: "no such RetroAchievements player" });
+      const name = await knownName(req.body?.username, res);
+      if (!name) return;
       players.register(req.raOwner, name);
       res.json({ enabled: true, username: name });
     } catch (err) {

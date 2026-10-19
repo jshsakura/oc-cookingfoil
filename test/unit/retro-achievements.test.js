@@ -173,6 +173,10 @@ test("a player registers a name RetroAchievements knows, and sees their progress
     assert.deepEqual(await (await as("GET", "/achievements/account")).json(), { enabled: true, username: null });
     assert.equal((await as("PUT", "/achievements/account", { username: "nobody" })).status, 404);
     assert.equal((await as("PUT", "/achievements/account", { username: "bad name!" })).status, 400);
+    assert.deepEqual(await (await as("GET", "/achievements/account/lookup?username=mario")).json(), { username: "Mario" });
+    assert.equal((await as("GET", "/achievements/account/lookup?username=nobody")).status, 404);
+    assert.equal((await as("GET", "/achievements/account/lookup?username=x")).status, 400);
+    assert.equal(players.nameOf("user:viewer"), null, "a lookup registers nothing");
     assert.deepEqual(await (await as("PUT", "/achievements/account", { username: "mario" })).json(), { enabled: true, username: "Mario" });
     assert.equal(players.nameOf("user:viewer"), "Mario");
     assert.equal(players.nameOf("user:other"), null, "each account has its own name");
