@@ -131,10 +131,10 @@ form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transpare
 /* On a wide screen the buttons sit side by side and the column is as wide as they are. */
 @media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}:is(td,.gc)>.row-actions{flex-wrap:nowrap}}
 button.ib svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-@media (min-width:641px){:is(td,.gc) .row-actions button.ib{width:36px;height:36px;padding:0;position:relative}
-  :is(td,.gc) .row-actions button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+@media (min-width:641px){:is(td,.gc) button.ib{width:36px;height:36px;padding:0;position:relative}
+  :is(td,.gc) button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 :is(td,.gc) .pills{display:flex;flex-wrap:wrap;gap:6px}
-:is(td,.gc) .xline{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px}
+:is(td,.gc) .xline{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:13px}:is(td,.gc) .xline>span{flex:1;min-width:0}
 :is(td,.gc).dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 dl.kv dt{color:var(--muted);font-size:13px}dl.kv dd{margin:0;font-size:13px;word-break:break-all}
@@ -170,14 +170,14 @@ h2.first{margin-top:0}
 .hb-reco label.added{opacity:.6;cursor:default}
 .hb-reco input{margin-top:3px;width:16px;height:16px;flex:none;padding:0}
 .hb-reco b{display:block;font-size:13px;word-break:break-all}.hb-reco span{color:var(--muted);font-size:12px}
-:is(td,.gc) select{max-width:220px}
+:is(td,.gc) select{max-width:none;flex:none}:is(td,.gc) select.hb-cores{min-width:10em}
 :is(td,.gc) .err{color:var(--bad);font-size:12px;margin-top:4px}
 :is(td,.gc) .muted{color:var(--muted);font-size:12px;margin-top:4px}
 :is(td,.gc) a{color:var(--text);text-underline-offset:3px}
 .desc-form{display:grid;gap:12px}#gd-body{display:grid;gap:12px}#gd-body h3{margin:6px 0 0;font-size:15px}#gd-body[hidden]{display:none}#gd-form{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.desc-form label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
 :is(td,.gc) .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-form.add select{flex:none}
+form.add select{flex:none;min-width:9em}
 .logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
 .logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
 .logs-list details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}

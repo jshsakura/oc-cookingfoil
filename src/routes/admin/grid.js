@@ -37,6 +37,7 @@ export const GRID_CSS = /* css */ `
 .tabulator-row .tabulator-cell{display:inline-flex;align-items:center;padding:8px 12px;border-right:0}
 .tabulator-row .tabulator-cell .gc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .gc>*{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:720px){.tabulator-row .tabulator-cell{white-space:normal}.tabulator-row .tabulator-cell .gc,.gc>*{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}}
 .gc .muted,.gc .sub{display:block;font-size:12px;color:var(--muted)}
 .gc .row-actions{display:flex;gap:6px;justify-content:flex-end}
 .gc .xline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -70,9 +71,18 @@ function gridCell(td){const d=el('div',null,'gc'+(td.className?' '+td.className:
   while(td.firstChild)d.append(td.firstChild);return d;}
 // A column holding buttons must fit them; a hidden tab has no layout to measure, so count them. 0: none.
 // The actions sit in one line, so their widths add up; elsewhere buttons wrap, so the widest one counts.
+let gridCtx=null;
+const gridText=(s,mono)=>{gridCtx??=document.createElement('canvas').getContext('2d');
+  const f=getComputedStyle(document.body);gridCtx.font=mono?'12px ui-monospace,SFMono-Regular,Menlo,monospace':'600 13px '+f.fontFamily;
+  return gridCtx.measureText(s).width;};
 const gridButton=(b)=>b.classList.contains('ib')&&!GRID_NARROW.matches?40:Math.max(86,(b.textContent.trim().length||1)*12+54);
-function gridButtonWidth(data,i,inLine){let w=0;for(const r of data){const bs=r._n[i]?[...r._n[i].querySelectorAll('button,a.btn')]:[];if(!bs.length)continue;
-  w=Math.max(w,(inLine?bs.reduce((s,b)=>s+gridButton(b),0)+(bs.length-1)*6:Math.max(...bs.map(gridButton)))+32);}
+// Selects sit side by side, each as wide as its longest choice.
+const gridSelect=(s)=>Math.max(...[...s.options].map((o)=>gridText(o.textContent.trim(),false)),0)+76;
+function gridButtonWidth(data,i,inLine){let w=0;for(const r of data){const n=r._n[i];if(!n)continue;
+  const bs=[...n.querySelectorAll('button,a.btn')],ss=[...n.querySelectorAll('select')];if(!bs.length&&!ss.length)continue;
+  const buttons=!bs.length?0:inLine?bs.reduce((s,b)=>s+gridButton(b),0)+(bs.length-1)*6:Math.max(...bs.map(gridButton));
+  const selects=ss.reduce((s,x)=>s+gridSelect(x),0)+Math.max(0,ss.length-1)*8;
+  w=Math.max(w,Math.max(buttons,selects)+32);}
   return w;}
 // mount: id of the box the grid goes in. cols: column titles, '' for the actions column.
 // rows: <tr> elements. A row whose only cell spans the table starts a group under that heading.
@@ -86,6 +96,9 @@ function table(mount,cols,rows,empty){const m=$(mount);
   // Width follows what a column holds: long text gets room, short numbers do not.
   const avg=(i)=>{let n=0;for(const r of data)n+=Math.min(60,(r._n[i]?.textContent||'').length);return n/Math.max(1,data.length);};
   const grow=(i)=>Math.min(4,Math.max(0.6,Math.max(avg(i),cols[i].length*1.6)/12));
+  // A column of short values (ids, sizes, dates) is never cut: as wide as its widest value, measured in its font.
+  const fit=(i)=>{let w=0;for(const r of data){const n=r._n[i],s=(n?.textContent||'').trim();if(s.length>24)return 0;
+    if(s)w=Math.max(w,gridText(s,n.classList.contains('mono')));}return w?Math.ceil(w)+30:0;};
   // On a phone the column that stays is the one with the most to say among the first three.
   const lead=[0,1,2].filter((i)=>i<cols.length&&cols[i]!=='').sort((x,y)=>avg(y)-avg(x))[0]??0;
   const columnsFor=(narrow)=>cols.map((title,i)=>{const act=title===''&&i===cols.length-1,bw=gridButtonWidth(data,i,act);
@@ -94,13 +107,15 @@ function table(mount,cols,rows,empty){const m=$(mount);
       // Hidden from the highest number down: a phone keeps the lead column and folds the rest, actions too.
       responsive:i===lead?0:act?(narrow?cols.length+1:0):i+1,
       ...(act?{width:Math.max(60,bw),minWidth:Math.max(60,bw),widthGrow:0,hozAlign:'right'}
-        :{minWidth:Math.max(i===lead?140:92,title.length*15+28,Math.min(130,avg(i)*7+24),bw),widthGrow:grow(i)}),
+        :{minWidth:Math.max(i===lead?140:92,title.length*15+28,Math.min(130,avg(i)*7+24),fit(i),bw),widthGrow:grow(i)}),
       formatter:(cell)=>{const n=cell.getData()._n[i];if(!n)return '';const e=cell.getElement();
         if(e&&e.dataset){e.dataset.label=title;if(!act&&n.textContent.length>24)e.title=n.textContent.trim();}return n;}};});
   const t=el('div');m.append(t);m.classList.add('grid-mount');
   const build=()=>{const narrow=GRID_NARROW.matches;
     const g=new Tabulator(t,{data,index:'_k',layout:'fitColumns',renderVertical:'basic',
-    responsiveLayout:narrow?'collapse':false,responsiveLayoutCollapseStartOpen:false,
+    // Columns that do not fit fold under their row instead of running off the edge: open on a wide
+    // screen (no toggle there), behind the toggle on a phone.
+    responsiveLayout:'collapse',responsiveLayoutCollapseStartOpen:!narrow,
     columns:narrow?[{formatter:'responsiveCollapse',width:38,minWidth:38,headerSort:false,resizable:false,hozAlign:'center',vertAlign:'middle',responsive:0},...columnsFor(true)]:columnsFor(false),
     ...(heads.size?{groupBy:'_g',groupToggleElement:false,groupHeader:(v)=>heads.get(v)||''}:{}),
     rowFormatter:(row)=>{const e=row.getElement(),d=row.getData();
