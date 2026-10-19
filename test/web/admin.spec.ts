@@ -3,6 +3,7 @@ import { signIn as adminSignIn } from './admin-sign-in';
 import fs from 'node:fs';
 import { acceptAsks } from './ask';
 import { removeAccount } from './web-session';
+import { reveal } from './fold';
 
 const NAME = 'e2e-user';
 const PASSWORD = 'e2e-password-123';
@@ -45,7 +46,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
   await page.screenshot({ path: 'out/web/login.png' });
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
-  await expect(page.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
   await page.getByRole('link', { name: '사용자' }).click();
   const row = page.locator('#users tr', { hasText: NAME });
   await expect(row).toContainText('사용 중');
@@ -273,14 +274,16 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   await expect(page.locator('#ct-remove')).toBeVisible();
 });
 
-test('a homebrew app is turned off and on from the homebrew tab, and the GitHub form sits at the top', async ({ page, request }) => {
+test('a homebrew app is turned off and on from the homebrew tab, which opens on the apps', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#homebrew');
   const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
   await expect.poll(listed).toContain('handapp.nro');
   const row = page.locator('#hb-apps tr', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
-  await expect(page.locator('#tab-homebrew h2').first()).toHaveText('GitHub 저장소 추가');
+  // The apps open first; the GitHub form leads the followed repositories.
+  await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('[data-sub-panel="sources"]')).toBeHidden();
   await row.locator('.ss-switch').click();
   await expect(row).toHaveClass(/hb-off/);
   expect(await listed()).not.toContain('handapp.nro');
@@ -343,7 +346,7 @@ test('the admin password is set, changed and removed on the settings tab, and op
   await other.getByRole('button', { name: '관리자 비밀번호', exact: true }).click();
   await other.getByLabel('관리자 비밀번호').fill('first-password-123');
   await other.getByRole('button', { name: '들어가기', exact: true }).click();
-  await expect(other.getByRole('heading', { name: 'CookingFoil 관리', exact: true })).toBeVisible();
+  await expect(other.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
   await other.close();
 
   await page.locator('#ap-current').fill('wrong-password-000');
@@ -365,7 +368,9 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await page.goto('/admin#settings');
   const features = async () => (await (await request.get('/api/shop/info')).json()).features as string[];
   expect(await features()).toContain('device-pairing');
-  const row = page.locator('.ss-row[data-key="devicePairing"]');
+  // Each group folds; a closed group still names what is inside it.
+  await expect(page.locator('details.ss-group', { hasText: '기기 연결' }).locator('summary')).toContainText('QR 로 기기 연결');
+  const row = await reveal(page.locator('.ss-row[data-key="devicePairing"]'));
   await expect(row.getByRole('button', { name: 'compose 값으로' })).toHaveCount(0);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#ss-list').screenshot({ path: 'out/web/admin-server-settings.png' });
@@ -378,13 +383,13 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await approval.selectOption('manual');
   await expect(page.locator('.ss-row[data-key="deviceApproval"]')).toContainText('여기서 정한 값입니다');
 
-  const lang = page.locator('.ss-row[data-key="langPriority"] input');
+  const lang = await reveal(page.locator('.ss-row[data-key="langPriority"] input'));
   await lang.fill('ko;bad');
   await lang.press('Enter');
   await expect(page.locator('#toast')).toContainText('이름 언어 순서 값이 맞지 않습니다');
 
   // The titledb address: a fork or mirror is set here, and cleared back to blawar/titledb.
-  const source = page.locator('.ss-row[data-key="titledbSource"]');
+  const source = await reveal(page.locator('.ss-row[data-key="titledbSource"]'));
   await source.locator('input').fill('https://raw.githubusercontent.com/someone/titledb/master');
   await source.locator('input').press('Enter');
   await expect(source).toContainText('여기서 정한 값입니다');
@@ -404,7 +409,7 @@ test('server behaviour is switched on the settings tab, applies at once and goes
 test('the settings tab syncs every folder and makes a backup with one press each, and keeps their schedules', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings');
-  const sync = page.locator('.ss-row').filter({ hasText: '지금 동기화' });
+  const sync = await reveal(page.locator('.ss-row').filter({ hasText: '지금 동기화' }));
   await sync.getByRole('button', { name: '지금 동기화' }).click();
   await expect(page.locator('#toast')).toContainText('모든 폴더를 다시 읽고 있습니다');
   await expect(sync).toContainText('마지막으로 다 읽은 때', { timeout: 15000 });
@@ -553,4 +558,24 @@ test('the settings tab shows one area at a time, opens the one in the address an
   await expect(page.locator('#ap-form')).toBeVisible();
   await expect(page.locator('#ap-status')).not.toHaveText('불러오고 있습니다');
   await page.screenshot({ path: 'out/web/admin-settings-tabs.png' });
+});
+
+test('the devices tab shows one area at a time, and the address opens a given one', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#devices/approved');
+  await expect(page.locator('[data-sub-panel="approved"]')).toBeVisible();
+  await expect(page.locator('#approve-code')).toBeHidden();
+  await page.getByRole('tab', { name: '승인 대기' }).click();
+  await expect(page.locator('#approve-code')).toBeVisible();
+  await expect(page).toHaveURL(/#devices\/pending$/);
+});
+
+test('a folded section stays open after a reload once it was opened', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#settings/security');
+  await expect(page.locator('#google-form')).toBeHidden();
+  await page.getByRole('heading', { name: '구글 로그인', exact: true }).click();
+  await expect(page.locator('#google-form')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#google-form')).toBeVisible();
 });

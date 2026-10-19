@@ -7,6 +7,11 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <h2 class="first">텔레그램 알림</h2>
   <p class="muted">처리할 일이나 위험한 접근이 생기면 텔레그램으로 알립니다. 같은 일은 30분에 한 번만, 위험한 접근은 10분씩 모아 보냅니다. 비밀번호, 주소, 이메일은 담지 않습니다.</p>
   <div class="al-status" id="al-status"><span class="al-dot"></span><div><strong>불러오고 있습니다</strong><span></span></div></div>
+  <div class="subtabs" id="alerts-subtabs" role="tablist" aria-label="알림 구역">
+    <button type="button" role="tab" data-sub="setup" aria-selected="true">설정</button>
+    <button type="button" role="tab" data-sub="history" aria-selected="false">최근 알림</button>
+  </div>
+  <div data-sub-panel="setup">
   <form id="al-form" autocomplete="off">
     <h3>연결</h3>
     <ol class="intg-steps">
@@ -33,9 +38,11 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
     </div>
     <p class="muted" id="al-msg"></p>
   </form>
-  <h3>최근 알림</h3>
+  </div>
+  <div data-sub-panel="history" hidden>
   <p class="muted">보낸 것과 보내지 않은 것을 함께 남깁니다. 최근 50건입니다.</p>
   <div class="scroll" id="al-history"></div>
+  </div>
 </section>`;
 
 export const ALERTS_CSS = `
@@ -77,9 +84,9 @@ async function loadAlerts(){
   $('al-events').replaceChildren(...d.events.map((e)=>{const l=el('label',null,'al-event');const b=document.createElement('input');b.type='checkbox';b.value=e.id;b.checked=e.on;
     l.append(b,el('b',e.label),el('small',e.desc));return l;}));
   const label=(id)=>(d.events.find((e)=>e.id===id)||{}).label||(id==='test'?'알림 시험':id);
-  table('al-history',['시각','알림','내용','결과'],d.history.map((h)=>{const tr=el('tr');const w=td(ago(h.at));w.title=fmt(h.at);
+  pagedTable('al-history',['시각','알림','내용','결과'],d.history,(h)=>{const tr=el('tr');const w=td(ago(h.at));w.title=fmt(h.at);
     const r=td();r.append(el('span',AL_STATUS[h.status]||h.status,'al-st '+h.status));if(h.detail)r.append(el('div',h.detail,'muted'));
-    tr.append(w,td(label(h.event)),td(h.text),r);return tr;}),'아직 알림이 없습니다.');
+    tr.append(w,td(label(h.event)),td(h.text),r);return tr;},'아직 알림이 없습니다.',{label:'최근 알림',placeholder:'알림 내용으로 찾기',def:10});
 }
 $('al-form').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.target;
   const events=[...$('al-events').querySelectorAll('input:checked')].map((b)=>b.value);

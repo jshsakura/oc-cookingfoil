@@ -26,6 +26,7 @@ import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
+import { FOLD_CSS, FOLD_SCRIPT, fold } from "./folds.js";
 
 const PAGE_CSS = /* css */ `
 body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
@@ -94,8 +95,8 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .menu-toggle[aria-checked="true"] .switch{background:var(--text)}
 .menu-toggle[aria-checked="true"] .switch::after{transform:translateX(14px)}
 @media (prefers-reduced-motion:reduce){.menu-toggle .switch,.menu-toggle .switch::after{transition:none}}
-.howto{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:22px}
-.howto ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}.howto .copy-row code{background:var(--sunk)}
+.howto-list{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.6}
+#tab-overview>.copy-row{margin-bottom:12px}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
 .up-kinds button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;text-align:left;padding:12px 14px;border-radius:14px}
@@ -232,7 +233,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}${FOLD_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 10px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
@@ -259,7 +260,7 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 ${POLISH_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <h1 class="brand" aria-label="CookingFoil 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <h1 class="brand" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
@@ -278,7 +279,7 @@ ${POLISH_CSS}</style></head><body>
   </div>
 </header>
 
-<nav class="tabs" aria-label="관리 메뉴">
+<nav class="tabs" aria-label="서버 관리 메뉴">
   <a href="#overview" data-tab="overview">${icon("dashboard")}개요</a>
   <a href="#users" data-tab="users">${icon("users")}사용자<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
@@ -296,47 +297,59 @@ ${POLISH_CSS}</style></head><body>
 
 <section id="tab-overview">
   <h2 class="first">연결</h2>
-  <div class="howto">
-    <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-    <ul>${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>
-  </div>
+  <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
+  ${fold("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3" })}
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
   <div class="lanes" id="health"></div>
   <p class="muted" id="health-hint" hidden></p>
   <div class="cards" id="cards"></div>
-  ${CLIENT_RELEASE_HTML}
+  ${fold("client-release", "클라이언트 빌드", CLIENT_RELEASE_HTML, { meta: "기기에 내려줄 CookingFoil 을 받는 곳" })}
   <p class="muted" id="ts"></p>
 </section>
 
 <section id="tab-users" hidden>
-  <h2 class="first">계정</h2>
+  <div class="subtabs" id="users-subtabs" role="tablist" aria-label="사용자 구역">
+    <button type="button" role="tab" data-sub="local" aria-selected="true">${icon("users")}계정</button>
+    <button type="button" role="tab" data-sub="google" aria-selected="false">${icon("lock")}구글 로그인 계정<span class="count" id="account-sub-count" hidden></span></button>
+  </div>
+  <div data-sub-panel="local">
   <form class="add" id="add-user">
     <input id="new-name" autocomplete="off" placeholder="사용자 이름 (영문, 숫자, . _ -)" aria-label="사용자 이름" required maxlength="32">
     <input id="new-pass" type="password" autocomplete="new-password" placeholder="비밀번호 (비우면 자동 생성)" aria-label="비밀번호" maxlength="128">
     <select id="new-role" aria-label="역할"><option value="user">일반 사용자</option><option value="admin">관리자</option></select>
     <button class="primary" type="submit">사용자 추가</button>
   </form>
-  <p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>
   <div class="scroll" id="users"></div>
-  <h2>구글 로그인 계정</h2>
+  ${fold("users-help", "계정 안내", `<p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>`, { level: "h3" })}
+  </div>
+  <div data-sub-panel="google" hidden>
   <p class="muted" id="accounthint"></p>
   <div class="scroll" id="accounts"></div>
+  </div>
 </section>
 
 <section id="tab-devices" hidden>
+  <div class="subtabs" id="devices-subtabs" role="tablist" aria-label="기기 구역">
+    <button type="button" role="tab" data-sub="pending" aria-selected="true">${icon("bell")}승인 대기<span class="count" id="pending-sub-count" hidden></span></button>
+    <button type="button" role="tab" data-sub="approved" aria-selected="false">${icon("device")}승인된 기기</button>
+    <button type="button" role="tab" data-sub="clients" aria-selected="false">${icon("download")}웹에서 받은 클라이언트</button>
+  </div>
+  <div data-sub-panel="pending">
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">
     <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
     <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
     <button class="primary" type="submit">기기 코드로 승인</button>
   </form>
-  <h2>승인 대기</h2><div class="scroll" id="pending"></div>
-  <h2>승인된 기기</h2><div class="scroll" id="devices"></div>
-  <h2>웹에서 받은 클라이언트</h2>
+  <div class="scroll" id="pending"></div>
+  </div>
+  <div data-sub-panel="approved" hidden><div class="scroll" id="devices"></div></div>
+  <div data-sub-panel="clients" hidden>
   <p class="muted">웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 일회용 자동 연동 키(유효시간 24시간)가 포함되며, 기기에서 앱을 최초 실행하면 해당 계정의 기기로 자동 승인됩니다. 키 원본은 서버에 저장되지 않습니다.</p>
   <div class="scroll" id="clients"></div>
   <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended"></div></details>
+  </div>
 </section>
 
 <section id="tab-settings" hidden>
@@ -349,7 +362,8 @@ ${POLISH_CSS}</style></head><body>
   <div data-set-panel="server">${SERVER_SETTINGS_HTML}</div>
   <div data-set-panel="integrations" hidden>${INTEGRATIONS_HTML}</div>
   <div data-set-panel="security" hidden>
-  <div class="hd"><h2 class="first">구글 로그인 설정</h2></div>
+  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
+  ${fold("sec-google", "구글 로그인", `
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
     <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
@@ -361,7 +375,8 @@ ${POLISH_CSS}</style></head><body>
   <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
   <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
   <p class="muted" id="g-status"></p>
-  <div class="hd"><h2>관리 페이지 2단계 인증</h2></div>
+  `, { meta: "로그인 화면의 구글 버튼" })}
+  ${fold("sec-tfa", "관리 페이지 2단계 인증", `
   <div class="tfa" id="tfa">
     <p id="tfa-status" class="muted">불러오고 있습니다</p>
     <div class="row" id="tfa-actions"></div>
@@ -378,8 +393,8 @@ ${POLISH_CSS}</style></head><body>
       </div>
     </div>
   </div>
-  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
-  <div class="hd"><h2>관리자 비밀번호</h2></div>
+  `, { open: true, meta: "인증 앱 코드" })}
+  ${fold("sec-password", "관리자 비밀번호", `
   <form class="tfa" id="ap-form" autocomplete="off">
     <p id="ap-status" class="muted">불러오고 있습니다</p>
     <div class="row">
@@ -389,6 +404,7 @@ ${POLISH_CSS}</style></head><body>
     </div>
     <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 삭제</button></div>
   </form>
+  `, { open: true, meta: "관리 페이지에 들어갈 때 넣는 비밀번호" })}
   </div>
   <div data-set-panel="tokens" hidden>${TOKENS_HTML}</div>
 </section>
@@ -403,9 +419,8 @@ ${POLISH_CSS}</style></head><body>
   <div data-logs-panel="client" hidden>
   <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
-  <h3 class="sub-h">버그 리포트 순위</h3>
-  <p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
-  <div class="scroll" id="bug-reports"></div>
+  ${fold("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
+  <div class="scroll" id="bug-reports"></div>`, { level: "h3", open: true })}
   <h3 class="sub-h">기기별 기록</h3>
   <div class="logs-view">
     <div class="logs-list" id="cl-list"></div>
@@ -484,22 +499,34 @@ ${ALERTS_HTML}
 ${INBOX_HTML}
 ${NSZ_HTML}
 <section id="tab-homebrew" hidden>
-  <h2 class="first">GitHub 저장소 추가</h2>
+  <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
+    <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
+    <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
+    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}따라가는 저장소</button>
+  </div>
+  <div data-sub-panel="apps">
+  <div class="hd"><h2 class="first">앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
+  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다.</p>
+  ${fold("hb-apps-help", "앱 관리 안내", `<p class="muted">앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>`, { level: "h3" })}
+  <div id="hb-held" class="hb-held" hidden></div>
+  <div class="scroll" id="hb-apps"></div>
+  </div>
+  <div data-sub-panel="reco" hidden>
+  <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
+  <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
+  <div class="hb-reco" id="hb-reco"></div>
+  </div>
+  <div data-sub-panel="sources" hidden>
+  <div class="hd"><h2 class="first">GitHub 저장소 추가</h2></div>
   <form class="add" id="hb-add">
     <input id="hb-repo" autocomplete="off" spellcheck="false" placeholder="GitHub 주소 또는 owner/name" aria-label="GitHub 저장소" required maxlength="200">
     <input id="hb-asset" autocomplete="off" spellcheck="false" placeholder="쓸 파일 이름 (선택, 예: *-classic.nro)" aria-label="쓸 파일 이름" maxlength="100">
     <button class="primary" type="submit">추가</button>
   </form>
-  <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 따라가는 저장소 목록에서 고릅니다.</p>
-  <div class="hd"><h2>앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
-  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다. 앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>
-  <div id="hb-held" class="hb-held" hidden></div>
-  <div class="scroll" id="hb-apps"></div>
-  <div class="hd"><h2>추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
-  <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
-  <div class="hb-reco" id="hb-reco"></div>
+  <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
   <div class="hd"><h2>따라가는 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
   <div class="scroll" id="hb-sources"></div>
+  </div>
 </section>
 
 <section id="tab-upload" hidden>
@@ -597,5 +624,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}</script></body></html>`;
+<script>${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${FOLD_SCRIPT}</script></body></html>`;
 }

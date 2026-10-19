@@ -78,6 +78,7 @@ const TABS=['overview','users','devices','settings','alerts','logs','featured','
 function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=TABS.includes(want)?want:'overview';
   if(tab==='library'&&sub)libShowSub(sub,true);
   if(tab==='settings')setShowSub(sub||setSub,true);
+  if(SUBTABS[tab])SUBTABS[tab].show(sub||SUBTABS[tab].cur);
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
     const a=document.querySelector('[data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(tab==='library')loadLibrary();
@@ -93,6 +94,15 @@ function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=
   if(tab==='inbox')loadInbox();
   if(tab==='nsz')setTimeout(loadNsz);}
 addEventListener('hashchange',showTab);
+// Tabs inside a tab that only show and hide: #devices/approved opens a given area, the area last opened stays.
+const SUBTABS={};
+function subtabs(tab){const bar=$(tab+'-subtabs');const subs=[...bar.querySelectorAll('[data-sub]')].map((b)=>b.dataset.sub);
+  const st={cur:subs[0],show(sub){if(!subs.includes(sub))return;st.cur=sub;
+    for(const b of bar.querySelectorAll('[data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===sub));
+    for(const p of $('tab-'+tab).querySelectorAll('[data-sub-panel]'))p.hidden=p.dataset.subPanel!==sub;}};
+  for(const b of bar.querySelectorAll('[data-sub]'))b.addEventListener('click',()=>{history.replaceState(null,'','#'+tab+'/'+b.dataset.sub);st.show(b.dataset.sub);});
+  SUBTABS[tab]=st;}
+for(const tab of ['users','devices','homebrew','alerts'])subtabs(tab);
 // The settings tab shows one area at a time and loads only that one: #settings/security opens a given area.
 const SET_SUBS=['server','integrations','security','tokens'];let setSub='server';
 function setLoadSub(){
@@ -146,7 +156,7 @@ function nameCell(name,self){const c=td();const s=el('span',name);if(self){const
 const isMe=(kind,id)=>Boolean(me)&&me.kind===kind&&(kind==='google'?me.sub===id:me.name===id);
 function renderUsers(list){
   const configured=list.filter((u)=>u.configured);
-  const rows=configured.map((u)=>{const tr=el('tr');const self=isMe('password',u.user);
+  const row=(u)=>{const tr=el('tr');const self=isMe('password',u.user);
     tr.append(nameCell(u.user,self));
     tr.append(td(u.role==='admin'?'관리자':'일반 사용자'));
     const st=td();st.append(u.enabled?pill(u.lastAt?'사용 중':'접속 기록 없음',u.lastAt?'on':''):pill('사용 중지','off'));tr.append(st);
@@ -158,8 +168,8 @@ function renderUsers(list){
     if(!self)box.append(btn(u.enabled?'사용 중지':'다시 사용',()=>setEnabled(u.user,!u.enabled)));
     // Removing the very last account opens the server, so nobody is locked out by it.
     if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
-    act.append(box);tr.append(act);return tr;});
-  table('users',['이름','역할','상태','마지막 접속','마지막 IP',''],rows,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.');}
+    act.append(box);tr.append(act);return tr;};
+  pagedTable('users',['이름','역할','상태','마지막 접속','마지막 IP',''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
 // What each refusal means, for the log tab (the server's own codes and English hints are for curl and the server log).
 const DENY_KO={
   'rate-limited':['요청 과다','짧은 시간에 요청이 너무 많아 잠시 쉬게 했습니다. 승인된 기기와 로그인한 브라우저는 이 제한을 받지 않습니다.'],
@@ -176,17 +186,17 @@ function renderSecurity(d){
   const locks=d.lockouts||[];const lockedNow=new Set(locks.map((l)=>l.ip));
   $('lock-count').hidden=!locks.length;$('lock-count').textContent=locks.length;
   $('unlock-all').disabled=!locks.length;
-  table('lockouts',['IP','이유','차단 시각','해제 예정',''],locks.map((l)=>{const tr=el('tr');
+  pagedTable('lockouts',['IP','이유','차단 시각','해제 예정',''],locks,(l)=>{const tr=el('tr');
     tr.append(td(l.ip,'ip'),td(l.reason||'—'),td(fmt(l.lockedAt)),td(l.until?fmt(l.until):'직접 해제할 때까지'));
-    const act=td();act.append(btn('해제',()=>unlock(l.ip)));tr.append(act);return tr;}),'차단된 IP 가 없습니다.');
-  table('denials',['시각','이유','클라이언트','경로','IP'],(d.denials?.recent||[]).map((x)=>{const tr=el('tr');
+    const act=td();act.append(btn('해제',()=>unlock(l.ip)));tr.append(act);return tr;},'차단된 IP 가 없습니다.',{label:'차단된 IP',placeholder:'IP 로 찾기'});
+  pagedTable('denials',['시각','이유','클라이언트','경로','IP'],d.denials?.recent||[],(x)=>{const tr=el('tr');
     const w=td(ago(x.at));w.title=fmt(x.at);tr.append(w);
     const [label,hint]=DENY_KO[x.reason]||[x.reason,x.hint||''];
     const r=td();r.append(pill(label,'warn'));if(x.status)r.append(' ',pill(String(x.status)));
     // A lock that has since been lifted is history, not a live block.
     if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill('지금은 풀림'));
     if(hint)r.append(el('div',hint,'muted'));tr.append(r);
-    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;}),'거부된 요청이 없습니다.');}
+    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;},'거부된 요청이 없습니다.',{label:'거부 기록',placeholder:'IP, 경로, 클라이언트로 찾기'});}
 async function loadStats(){
   const d=await api('/admin/api/stats');
   me=d.me||null;const a=d.lanes.admin;
@@ -248,8 +258,9 @@ async function loadAccounts(){
   const d=await api('/admin/api/accounts');const list=d.accounts||[];
   $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 기기 화면의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
     :'구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.';
-  const waiting=list.filter((a)=>a.status==='pending').length;$('account-count').hidden=!waiting;$('account-count').textContent=waiting;
-  table('accounts',['이메일','역할','상태','처음 로그인','마지막 로그인',''],list.map((a)=>{const tr=el('tr');const self=isMe('google',a.sub);
+  const waiting=list.filter((a)=>a.status==='pending').length;
+  for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
+  pagedTable('accounts',['이메일','역할','상태','처음 로그인','마지막 로그인',''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
     tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(fmt(a.createdAt)),td(ago(a.lastAt)));
     const act=td();const box=el('div',null,'row-actions');
@@ -257,7 +268,7 @@ async function loadAccounts(){
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
     if(a.status==='approved'&&!self)box.append(btn('사용 중지',async()=>{if(await ask(a.email+' 계정의 사용을 중지합니다. 다시 승인하기 전까지 로그인하지 못합니다.'))setAccount(a.sub,'disabled');}));
     if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
-    act.append(box);tr.append(act);return tr;}),'아직 로그인한 계정이 없습니다.');}
+    act.append(box);tr.append(act);return tr;},'아직 로그인한 계정이 없습니다.',{label:'구글 로그인 계정',placeholder:'이메일로 찾기'});}
 async function setAccountRole(sub,email,role){
   if(!await ask(role==='admin'?email+' 계정을 관리자로 변경합니다.':email+' 계정을 일반 사용자로 변경합니다.'))return;
   try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 변경했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
@@ -284,7 +295,8 @@ async function loadDevices(){
   const d=await api('/admin/api/devices');
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
     :'기기 승인이 꺼져 있습니다. 설정 탭의 서버 동작에서 QR 로 기기 연결을 켭니다.';
-  const pending=d.pending||[];$('pending-count').hidden=!pending.length;$('pending-count').textContent=pending.length;
+  const pending=d.pending||[];
+  for(const id of ['pending-count','pending-sub-count']){$(id).hidden=!pending.length;$(id).textContent=pending.length;}
   table('pending',['기기 코드','기기 이름·메시지','요청한 곳','기기 키','요청 시각',''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+f.place+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div','같은 주소의 계정: '+f.accounts.slice(0,3).join(', ')+(f.accounts.length>3?' 외 '+(f.accounts.length-3)+'명':''),'dim'));if(f.app)who.append(el('div','앱: '+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title='서버를 다시 켠 뒤로는 보이지 않습니다';}
     if(p.download){const w=who.textContent==='—';if(w){who.textContent='';who.className='';}who.prepend(el('div','받은 계정: '+p.download.owner+' ('+(DOWNLOAD_WORDS[p.download.state]||'다운로드')+')'));}
@@ -298,16 +310,18 @@ async function loadDevices(){
   const whose=(a)=>a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'');
   const approved=[...(d.approved||[])].sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
   const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
-  const devRows=[];let group=null;
-  for(const a of approved){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=5;h.append(c);devRows.push(h);}
+  const devRows=(slice)=>{const rows=[];let group=null;
+  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=5;h.append(c);rows.push(h);}
     const tr=el('tr');
     const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
     tr.append(td(a.label||'—'),seen,td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
-    act.append(box);tr.append(act);devRows.push(tr);}
-  table('devices',['이름','마지막 접속','승인한 날','기기 키',''],devRows,'승인된 기기가 없습니다.');
+    act.append(box);tr.append(act);rows.push(tr);}
+  return rows;};
+  pagedTable('devices',['이름','마지막 접속','승인한 날','기기 키',''],approved,devRows,'승인된 기기가 없습니다.',{label:'승인된 기기',placeholder:'이름이나 계정으로 찾기',slice:true,
+    match:(a,q)=>(a.label+' '+whose(a)+' '+a.deviceKey).toLowerCase().includes(q)});
   const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
   const clientRow=(c)=>{const tr=el('tr');
     const state=td(STATE[c.state]||c.state,c.state==='used'?'':'dim');if(c.state==='waiting')state.title=fmt(c.expiresAt)+'까지 연결할 수 있습니다';
@@ -318,7 +332,7 @@ async function loadDevices(){
   const COLS=['받은 계정','받은 시각','상태','기기 코드','연동 시각',''];
   const all=d.clients||[];const live=all.filter((c)=>c.state==='waiting'||c.state==='used').sort((a,b)=>(a.state==='waiting'?0:1)-(b.state==='waiting'?0:1));
   const ended=all.filter((c)=>c.state!=='waiting'&&c.state!=='used');
-  table('clients',COLS,live.map(clientRow),'기다리거나 연동한 클라이언트가 없습니다.');
+  pagedTable('clients',COLS,live,clientRow,'기다리거나 연동한 클라이언트가 없습니다.',{label:'받은 클라이언트',placeholder:'계정이나 기기 코드로 찾기'});
   $('clients-ended-box').hidden=!ended.length;$('clients-ended-count').textContent=ended.length;
   table('clients-ended',COLS,ended.map(clientRow),'');}
 async function cancelClient(id){if(!await ask('이 다운로드로는 이제 연동할 수 없게 합니다.'))return;
@@ -375,6 +389,12 @@ function paged(mount,opts){
     nav.append(next);
     bar.append(find,per,info,nav);};
   run();}
+// A table whose rows are made per item, paged the same way. row(item) makes one row, or with
+// opts.slice row(items) makes the rows of a whole page (for group headings inside a page).
+function pagedTable(id,cols,items,row,empty,opts={}){
+  paged($(id),{key:id,label:opts.label,def:opts.def||25,items,placeholder:opts.placeholder,
+    match:opts.match||((it,q)=>JSON.stringify(it).toLowerCase().includes(q)),
+    render:(page,list,q)=>table(id,cols,opts.slice?row(page):page.map(row),q?'찾은 것이 없습니다.':empty)});}
 // ── homebrew ──────────────────────────────────────────────────────────
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
 async function loadHomebrew(){
@@ -572,11 +592,11 @@ function logsShowSub(sub){logsSub=sub;
 for(const b of document.querySelectorAll('#logs-subtabs [data-lsub]'))b.addEventListener('click',()=>logsShowSub(b.dataset.lsub));
 async function loadClientLogs(){
   const d=await api('/admin/api/client-logs');const box=$('cl-list');box.replaceChildren();
-  table('bug-reports',['순위','사용자','기기','보낸 횟수','최근'],(d.bugReports||[]).map((r,i)=>{const tr=el('tr');
-    const rk=td();rk.append(el('span',String(i+1),'rk'+(i<3?' r'+(i+1):'')));
+  pagedTable('bug-reports',['순위','사용자','기기','보낸 횟수','최근'],(d.bugReports||[]).map((r,i)=>({...r,rank:i+1})),(r)=>{const tr=el('tr');
+    const rk=td();rk.append(el('span',String(r.rank),'rk'+(r.rank<=3?' r'+r.rank:'')));
     const dev=td();dev.append(el('span',r.label||r.prefix,r.label?'':'ip'));if(r.label)dev.append(el('span',r.prefix,'rk-key'));
     tr.append(rk,td(r.owner||'—',r.owner?'':'dim'),dev,td(num(r.count)+'번'),td(ago(r.last)));
-    tr.lastChild.title=fmt(r.last);return tr;}),'아직 받은 버그 리포트가 없습니다.');
+    tr.lastChild.title=fmt(r.last);return tr;},'아직 받은 버그 리포트가 없습니다.',{label:'버그 리포트',placeholder:'사용자나 기기로 찾기',def:10});
   if(!(d.consoles||[]).length){box.append(el('div','아직 받은 로그가 없습니다.','empty'));return;}
   for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
     const sum=el('summary');const name=el('b',c.label||c.prefix);

@@ -20,7 +20,7 @@ export function enrollPage({ secret, uri, owner }) {
   const safeOwner = escapeHtml(owner || "admin");
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 관리 설정</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
+<title>CookingFoil 서버 관리 설정</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;width:min(460px,100%);
 box-shadow:0 30px 60px var(--shadow)}

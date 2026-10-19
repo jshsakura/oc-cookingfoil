@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import { acceptAsks } from './ask';
+import { reveal } from './fold';
 
 // The admin page's 변환 tab: off by default, turned on from its settings, a
 // library check queues a big enough .nsp, and the row actions work.
@@ -27,7 +28,7 @@ test('the conversion queue is off by default, turns on from its settings and que
   await expect(page.locator('.ss-row[data-key="nszXci"]')).toContainText('XCI 파일도 XCZ 로 압축합니다');
   await expect(page.locator('.ss-row[data-key="nszWorkers"]')).toContainText('다운로드하는 콘솔이 느려집니다');
 
-  await page.locator('.ss-row[data-key="nszEnabled"] .ss-switch').click();
+  await (await reveal(page.locator('.ss-row[data-key="nszEnabled"] .ss-switch'))).click();
   await expect(page.locator('#nz-state')).toHaveText('쉬는 중');
   await expect(page.locator('#nz-toggle')).toBeEnabled();
   const min = page.locator('.ss-row[data-key="nszMinSizeMb"] input');

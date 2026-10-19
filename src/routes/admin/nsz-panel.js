@@ -9,6 +9,8 @@
  * read again every few seconds; only rows that changed are redrawn.
  */
 
+import { fold } from "./folds.js";
+
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="hd"><h2 class="first">NSZ 변환</h2>
     <div class="actions"><button type="button" id="nz-scan">라이브러리 검사</button><button type="button" id="nz-all">전체 변환</button><button type="button" class="primary" id="nz-toggle" disabled>시작</button></div></div>
@@ -32,9 +34,8 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   </div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
-  <h2>변환 설정</h2>
-  <p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
-  <div class="ss-list"><section class="ss-group" id="nz-settings"></section></div>
+  ${fold("nsz-settings", "변환 설정", `<p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
+  <div class="ss-list"><section class="ss-group" id="nz-settings"></section></div>`)}
 </section>`;
 
 export const NSZ_CSS = `

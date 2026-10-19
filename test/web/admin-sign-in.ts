@@ -3,7 +3,7 @@ import { generate } from 'otplib';
 
 export const SECRET = 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU';
 const STEP = 30;
-const heading = (page: Page) => page.getByRole('heading', { name: 'CookingFoil 관리', exact: true });
+const heading = (page: Page) => page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true });
 
 // The server takes each authenticator code once: a code is good only for a later
 // time step than the last one it took. Specs share one worker, so this module
