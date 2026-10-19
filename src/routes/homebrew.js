@@ -154,8 +154,11 @@ export function refreshManual() {
   }
   manualScan = scanManual(homebrewDir)
     .then((entries) => {
+      const before = manual.entries;
       manual = { at: Date.now(), entries };
       keep(() => manualStore.replace(entries, manual.at));
+      // Not on the first scan: the list kept from before a restart says nothing changed.
+      if (before.length) rebuildChanged(before, entries);
     })
     .finally(() => { manualScan = null; });
   return manualScan;
@@ -166,10 +169,24 @@ export async function refreshManualApp(folder) {
   // A full scan running now, or none done yet, covers it (and reads again after, see refreshManual).
   if (manualScan || !manual.at) return refreshManual();
   const { id, entry } = await scanManualOne(homebrewDir, folder);
-  const rest = manual.entries.filter((e) => e.id !== id);
+  const before = manual.entries;
+  const rest = before.filter((e) => e.id !== id);
   manual = { at: manual.at, entries: entry ? [...rest, entry] : rest };
   keep(() => (entry ? manualStore.put(entry) : manualStore.remove(id)));
   debug.log("homebrew: %s %s", folder, entry ? "read again" : "left the list");
+  if (entry) rebuildChanged(before, [entry]);
+}
+
+/** The ids of the apps in `after` whose files differ from what `before` listed. Pure. */
+export function changedApps(before, after) {
+  const had = new Map(before.map((e) => [e.id, e.hash]));
+  return after.filter((e) => had.has(e.id) && had.get(e.id) !== e.hash).map((e) => e.id);
+}
+// Their .nro with the uploaded icon and their shortcut are made now, one after another,
+// not on the next download, so the list already carries what a console would get.
+let rebuilding = Promise.resolve();
+function rebuildChanged(before, after) {
+  for (const id of changedApps(before, after)) rebuilding = rebuilding.then(() => rebuildHomebrewShortcut(id));
 }
 
 /**

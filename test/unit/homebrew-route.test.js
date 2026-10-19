@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { homebrewRouter, readsFilesUrl } from "../../src/routes/homebrew.js";
+import { changedApps, homebrewRouter, readsFilesUrl } from "../../src/routes/homebrew.js";
 
 const ID = "gh-0123456789ab";
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -235,4 +235,10 @@ test("one size everywhere: a folder install or kept zip counts every file; the l
     { name: "D" },
   ];
   assert.deepEqual([...apps].sort(byRecent).map((a) => a.name), ["A", "C", "B", "D"]);
+});
+
+test("an app whose files changed on disk is picked for its icon copy and shortcut now; new and gone ones are not", () => {
+  const before = [{ id: "m-aaaaaaaaaaaa", hash: "1" }, { id: "m-bbbbbbbbbbbb", hash: "2" }, { id: "m-cccccccccccc", hash: "3" }];
+  const after = [{ id: "m-aaaaaaaaaaaa", hash: "1" }, { id: "m-bbbbbbbbbbbb", hash: "2b" }, { id: "m-dddddddddddd", hash: "4" }];
+  assert.deepEqual(changedApps(before, after), ["m-bbbbbbbbbbbb"]);
 });
