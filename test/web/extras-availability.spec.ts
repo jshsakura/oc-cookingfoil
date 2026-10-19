@@ -32,19 +32,21 @@ async function setup(page: Page) {
   ] } }));
 }
 
-test('patch cards show server games and server saves independently, including ports and update-only titles', async ({ page }) => {
+test('patch cards show only server title availability, including ports and update-only titles', async ({ page }) => {
   await setup(page);
+  const saveRequests: string[] = [];
+  page.on('request', request => { if (new URL(request.url()).pathname === '/api/saves') saveRequests.push(request.url()); });
   await page.goto('/#patches');
   const card = (name: string) => page.locator('#patches-list .xhead').filter({ has: page.locator('strong', { hasText: name }) });
-  for (const [name, game, saves] of [
-    ['Owned game', '서버에 있음', '세이브 있음'],
-    ['Absent game', '서버에 없음', '세이브 있음'],
-    ['Update alone', '서버에 없음', '세이브 없음'],
-    ['Present port', '서버에 있음', '세이브 없음'],
-    ['missingport', '서버에 없음', '세이브 있음'],
+  for (const [name, game] of [
+    ['Owned game', '서버에 있음'],
+    ['Absent game', '서버에 없음'],
+    ['Update alone', '서버에 없음'],
+    ['Present port', '서버에 있음'],
+    ['missingport', '서버에 없음'],
   ]) {
     await expect(card(name).locator('.server-availability')).toHaveText(game);
-    await expect(card(name).locator('.save-availability')).toHaveText(saves);
+    await expect(card(name).locator('.save-availability')).toHaveCount(0);
   }
   await card('Owned game').focus();
   await page.keyboard.press('Enter');
@@ -59,14 +61,15 @@ test('patch cards show server games and server saves independently, including po
   }
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/extras-availability-phone.png', fullPage: true });
-  for (const [code, game, saves] of [
-    ['en', 'On server', 'Saves available'], ['ja', 'サーバーにあり', 'セーブあり'], ['zh', '服务器上有', '有存档'],
+  for (const [code, game] of [
+    ['en', 'On server'], ['ja', 'サーバーにあり'], ['zh', '服务器上有'],
   ]) {
     await page.locator('#lang-btn').click();
     await page.locator(`#lang-list [data-lang="${code}"]`).click();
     await expect(card('Owned game').locator('.server-availability')).toHaveText(game);
-    await expect(card('Owned game').locator('.save-availability')).toHaveText(saves);
+    await expect(card('Owned game').locator('.save-availability')).toHaveCount(0);
   }
+  expect(saveRequests).toEqual([]);
 });
 
 test('save game summaries show whether the game itself is on the server', async ({ page }) => {
@@ -79,14 +82,14 @@ test('save game summaries show whether the game itself is on the server', async 
   await expect(absent.locator('.server-availability')).toHaveText('서버에 없음');
 });
 
-test('failed catalog or save requests stay unverified instead of claiming files are missing', async ({ page }) => {
+test('failed catalog requests stay unverified instead of claiming titles are missing', async ({ page }) => {
   await setup(page);
   await page.route('**/api/shop/sections', route => route.fulfill({ status: 503, json: {} }));
   await page.route('**/api/saves*', route => route.fulfill({ status: 503, json: {} }));
   await page.route('**/api/homebrew?*', route => route.fulfill({ status: 503, json: {} }));
   await page.goto('/#patches');
   await expect(page.locator('#patches-list .server-availability')).toHaveText(Array(5).fill('서버 확인 전'));
-  await expect(page.locator('#patches-list .save-availability')).toHaveText(Array(5).fill('세이브 확인 전'));
+  await expect(page.locator('#patches-list .save-availability')).toHaveCount(0);
 });
 
 test('a slow server catalog updates existing badges after the patch cards are already visible', async ({ page }) => {
