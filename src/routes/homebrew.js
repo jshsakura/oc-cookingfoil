@@ -22,6 +22,7 @@
  *       forwarder_url, forwarder_title_id, forwarder_size, forwarder_key (changes with
  *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
  *       for it may use, also for one a client builds itself), install_type, title_id,
+ *       verified (the admin tried it on a console: a 검수됨 badge), verified_at (ISO, or null),
        banner_url, screenshots }
 
  * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
@@ -90,6 +91,7 @@ import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as cores from "../meta/homebrew-cores.js";
+import * as verified from "../meta/homebrew-verified.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
@@ -334,7 +336,7 @@ export const defaultService = {
     }));
     const entries = await Promise.all([...githubTracker().entries(), ...manualList].map(withIconNro));
     return entries
-      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), enabled: !disabled.isDisabled(e.id) }))
+      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), ...verified.fields(e.id), enabled: !disabled.isDisabled(e.id) }))
       .sort(byRecent);
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */

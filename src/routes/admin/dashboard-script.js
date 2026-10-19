@@ -445,9 +445,12 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
   paged($('hb-apps'),{key:'hb-apps',label:'앱',def:25,items:d.apps||[],
     match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
-    render:(rows,list,q)=>table('hb-apps',['켜기','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
+    render:(rows,list,q)=>table('hb-apps',['켜기','검수','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
     const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
     b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
+    // Tried on a console: the shop and the client show a 검수됨 badge on it.
+    const ok=td();const vw=el('label',null,'ss-switch');const v=el('input');v.type='checkbox';v.checked=a.verified;v.setAttribute('aria-label',(a.name||a.app)+' 검수됨');
+    v.addEventListener('change',()=>setHbVerified(a.id,v.checked,a.name||a.app));vw.append(v,el('span'));ok.append(vw);tr.append(ok);
     const n=td();n.append(el('b',a.name||a.app));
     const where=a.install_type==='title'?'설치형 NSP · '+a.title_id:'switch/'+a.app+'/';
     n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · '+where,'muted'));
@@ -511,6 +514,9 @@ async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('삭제했습니다.');loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
+  catch(err){toast(err.message);loadHbApps();}}
+async function setHbVerified(id,verified,name){
+  try{await api('/admin/api/homebrew/verified',{method:'POST',body:{id,verified}});toast(verified?name+' 에 검수됨 배지를 붙였습니다.':name+' 의 검수됨 배지를 뗐습니다.');loadHbApps();}
   catch(err){toast(err.message);loadHbApps();}}
 // A hand-placed app linked to its GitHub repository: the server follows the repository, then the hand-placed copy can go.
 async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 저장소 주소나 owner/name 을 넣습니다. 서버가 그 저장소의 새 버전을 따라갑니다.');

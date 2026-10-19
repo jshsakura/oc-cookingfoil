@@ -488,6 +488,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
     id: 'm-aaaaaaaaaaaa', app: 'portgame', name: 'Port Game', version: '2.0', author: 'someone', kind: 'port', size: 1048576,
     description: '다른 기종에서 옮겨 온 게임입니다.', icon_url: '', download_url: '/api/homebrew/m-aaaaaaaaaaaa/download', repo_url: null,
     bundle_url: '/api/homebrew/m-aaaaaaaaaaaa/bundle', install_dir: 'switch/portgame', released_at: '2026-09-01T00:00:00Z',
+    verified: true, verified_at: '2026-10-20T00:00:00.000Z',
   }] } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#patches');
@@ -528,7 +529,10 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.goto('/#ports');
   const app = page.locator('#ports-list .xrow', { hasText: 'Port Game' });
   await expect(app).toContainText('패치 1개');
+  // The admin tried it on a console: a 검수됨 badge beside its name and among its facts.
+  await expect(app.locator('.xname .pill.verified')).toHaveText('검수됨');
   await app.click();
+  await expect(page.locator('#xm-pills .pill.verified')).toHaveText('검수됨');
   await expect(page.locator('#xm-title')).toHaveText('Port Game');
   // The same facts the client shows: maker and version, type and size, and where it installs.
   await expect(page.locator('#xm-sub')).toHaveText('someone · v2.0');

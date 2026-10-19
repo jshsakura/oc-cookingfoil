@@ -252,6 +252,8 @@
       }
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .xrow .pill.verified, .modal .xm-pills .pill.verified { background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .xname .pill.verified { vertical-align: 1px; margin-left: 2px; }
       .xhead .pill.server-present { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
@@ -1599,6 +1601,7 @@
           "kind.exefs_patches": "코드 패치",
           "kind.cheats": "치트",
           "kind.homebrew": "홈브류",
+          "hb.verified": "검수됨",
           "action.admin": "서버 관리",
           "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
@@ -1928,6 +1931,7 @@
           "kind.exefs_patches": "Code patch",
           "kind.cheats": "Cheats",
           "kind.homebrew": "Homebrew",
+          "hb.verified": "Verified",
           "action.admin": "Server admin",
           "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
@@ -2256,6 +2260,7 @@
           "kind.exefs_patches": "コードパッチ",
           "kind.cheats": "チート",
           "kind.homebrew": "自作アプリ",
+          "hb.verified": "動作確認済み",
           "action.admin": "サーバー管理",
           "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
@@ -2584,6 +2589,7 @@
           "kind.exefs_patches": "程式修補",
           "kind.cheats": "金手指",
           "kind.homebrew": "自製軟體",
+          "hb.verified": "已驗證",
           "action.admin": "服务器管理",
           "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
@@ -4967,7 +4973,7 @@
             title: a.name || a.app,
             // As on the client: who made it and the latest version under the name, then what it is and its size.
             sub: [a.author, a.version && "v" + a.version].filter(Boolean).join(" · "),
-            pills: [[t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
+            pills: [...(a.verified ? [[t("hb.verified"), "verified"]] : []), [t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
             meta: [
               [t("xm.latest"), a.version && "v" + a.version],
               [t("xm.author"), a.author],
@@ -5006,6 +5012,8 @@
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
           const info = document.createElement("div");
           const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
+          // Tried on a console by the admin.
+          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(" ", v); }
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;
