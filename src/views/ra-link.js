@@ -47,6 +47,7 @@ async function follow(after) {
     after = v.state;
     if (v.state === "done") return end(T.done, "ok");
     if (v.state === "failed") return end(T.failed, "bad");
+    if (v.state === "stopped") return end(T.stopped, "bad");
     if (v.state === "wrong" || v.state === "unreadable") {
       $("send").disabled = false; $("password").value = ""; $("password").focus();
       return say(v.state === "wrong" ? T.wrongText.replace("{n}", v.triesLeft) : T.unreadable, "bad");
@@ -96,6 +97,7 @@ async function start() {
     showAsker(v.requester);
     if (v.state === "done") return end(T.done, "ok");
     if (v.state === "failed") return end(T.failed, "bad");
+    if (v.state === "stopped") return end(T.stopped, "bad");
     $("form").hidden = false;
     $("form").addEventListener("submit", send);
     if (v.state === "sealed" || v.state === "taken") { $("send").disabled = true; say(T.waiting); follow(v.state); }

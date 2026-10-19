@@ -1,6 +1,7 @@
 /** Wording for the phone page that hands a RetroAchievements password to the console (/ra-link), in the four interface languages. */
 export const RA_LINK_TEXT = {
   ko: {
+    stopped: "기기에서 연결하지 못했습니다. 비밀번호 문제는 아닙니다. 기기 화면의 안내를 확인합니다.",
     askBoth: "{account} 계정의 기기 '{device}' 가 요청했습니다.",
     askAccount: "{account} 계정의 기기가 요청했습니다.",
     askDevice: "기기 '{device}' 가 요청했습니다.",
@@ -25,6 +26,7 @@ export const RA_LINK_TEXT = {
     network: "서버에 닿지 못했습니다. 잠시 뒤에 다시 합니다.",
   },
   en: {
+    stopped: "The console could not finish connecting. It is not about the password; check the console's screen.",
     askBoth: "Asked by the console '{device}' of the account {account}.",
     askAccount: "Asked by a console of the account {account}.",
     askDevice: "Asked by the console '{device}'.",
@@ -49,6 +51,7 @@ export const RA_LINK_TEXT = {
     network: "Could not reach the server. Try again in a moment.",
   },
   ja: {
+    stopped: "本体で連携できませんでした。パスワードの問題ではありません。本体の画面を確認してください。",
     askBoth: "{account} アカウントの本体「{device}」からの依頼です。",
     askAccount: "{account} アカウントの本体からの依頼です。",
     askDevice: "本体「{device}」からの依頼です。",
@@ -73,6 +76,7 @@ export const RA_LINK_TEXT = {
     network: "サーバーに接続できませんでした。少し後でもう一度試してください。",
   },
   zh: {
+    stopped: "主机未能完成连接，不是密码的问题。请查看主机屏幕上的提示。",
     askBoth: "账号 {account} 的主机“{device}”发出的请求。",
     askAccount: "账号 {account} 的主机发出的请求。",
     askDevice: "主机“{device}”发出的请求。",

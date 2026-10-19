@@ -11,8 +11,9 @@
  * The console's half of the phone sign-in (retro/achievements/link.js has the envelope):
  *   POST   /api/retro/achievements/link                 { publicKey } → 201 { code, expiresAt, path } (path: the page the QR opens)
  *   GET    /api/retro/achievements/link/<code>/sealed   waits up to 25 s: 200 { epk, iv, ct } (again until the result, if a reply was lost), 204 not yet, 410 gone
- *   POST   /api/retro/achievements/link/<code>/result   { ok, username } or { ok: false, reason: "unreadable" } → { state };
- *          ok registers the name, not ok lets the phone try again (unreadable without spending a try)
+ *   POST   /api/retro/achievements/link/<code>/result   { ok, username } or { ok: false, reason?: "unreadable" | "console" } → { state };
+ *          ok registers the name, not ok lets the phone try again (unreadable without spending a try);
+ *          "console" (the console failed on its own side) ends the link and tells the phone to look at the console
  * A link belongs to the console that opened it (its account and device key).
  *
  * The console signs in to RetroAchievements itself and writes retroarch.cfg;
@@ -172,9 +173,10 @@ function mountLink(router) {
   r.post("/:code/result", (req, res) => {
     const ok = req.body?.ok === true;
     const unreadable = !ok && req.body?.reason === "unreadable";
+    const stopped = !ok && req.body?.reason === "console";
     const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
     if (ok && !NAME_RE.test(username)) return res.status(400).json({ error: "invalid username" });
-    const state = link.finish(req.params.code, holderOf(req), { ok, unreadable, username });
+    const state = link.finish(req.params.code, holderOf(req), { ok, unreadable, stopped, username });
     if (!state) return res.status(410).json({ error: "no such link" });
     if (ok) players.register(req.raOwner, username, { proven: true });
     res.json({ state });

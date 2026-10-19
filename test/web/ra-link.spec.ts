@@ -77,3 +77,21 @@ test('a QR without the console key, or a gone link, says so instead of taking a 
   await page.goto(`/ra-link?c=gone&lang=en#k=${key.getPublicKey().toString('base64url')}`);
   await expect(page.locator('#msg')).toHaveText('This QR has expired. Show the QR on the console again.');
 });
+
+test('when the console gives up on its own side, the phone says to look at the console, not that the password was wrong', async ({ page }) => {
+  const key = crypto.createECDH('prime256v1');
+  key.generateKeys();
+  let state = 'waiting';
+  await page.route('**/ra-link/api/stopcode*', route => {
+    if (route.request().method() === 'POST') { state = 'sealed'; return route.fulfill({ status: 202, json: { state, triesLeft: 3 } }); }
+    if (new URL(route.request().url()).searchParams.get('after') === 'sealed') state = 'stopped';
+    return route.fulfill({ json: { state, requester: { account: 'viewer', device: null }, username: null, triesLeft: 3, expiresAt: 0 } });
+  });
+  await page.goto(`/ra-link?c=stopcode&lang=ko#k=${key.getPublicKey().toString('base64url')}`);
+  await expect(page.locator('#ask-who')).toHaveText('viewer 계정의 기기가 요청했습니다.');
+  await page.locator('#username').fill('Mario');
+  await page.locator('#password').fill('pw');
+  await page.locator('#send').click();
+  await expect(page.locator('#msg')).toHaveText('기기에서 연결하지 못했습니다. 비밀번호 문제는 아닙니다. 기기 화면의 안내를 확인합니다.');
+  await expect(page.locator('#form')).toBeHidden();
+});
