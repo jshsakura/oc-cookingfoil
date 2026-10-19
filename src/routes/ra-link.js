@@ -24,7 +24,7 @@ import { RA_LINK_TEXT } from "./ra-link-text.js";
 
 const require = createRequire(import.meta.url);
 const SCRIPT_PATH = fileURLToPath(new URL("../views/ra-link.js", import.meta.url));
-const STATES = new Set(["waiting", "sealed", "taken", "done", "wrong", "failed", "unreadable"]);
+const STATES = new Set(["waiting", "sealed", "taken", "done", "wrong", "failed", "unreadable", "stopped"]);
 
 const VENDOR = ["curves", "hashes", "ciphers"].map((name) => {
   const dir = path.dirname(require.resolve(`@noble/${name}/utils.js`));

@@ -86,6 +86,13 @@ test("a link takes one envelope at a time, keeps it for its console until the re
     assert.equal(link.finish(code, "user:a", { ok: false }), left ? "wrong" : "failed");
   }
   assert.equal(link.seal(code, env), "busy", "three wrong passwords end the link");
+
+  const next = link.open("user:a", dev.publicKey);
+  link.seal(next.code, env);
+  link.take(next.code, "user:a");
+  assert.equal(link.finish(next.code, "user:a", { ok: false, stopped: true }), "stopped");
+  assert.deepEqual([link.view(next.code).state, link.view(next.code).triesLeft], ["stopped", 3], "a console's own failure blames no password");
+  assert.equal(link.seal(next.code, env), "busy", "and ends the link");
 });
 
 test("a wait costs nothing until the link changes, and ends at its timeout or when the client leaves", async () => {
@@ -158,6 +165,7 @@ test("the console and the phone hand a password over through the server, which r
     // The phone waits for the result; the console reports a wrong password, then a right one.
     const result = asPhone("GET", `/${code}?after=taken`);
     assert.deepEqual(await (await asConsole("POST", `/link/${code}/result`, { ok: false })).json(), { state: "wrong" });
+    assert.equal((await asConsole("POST", `/link/${code}/result`, { ok: false, reason: "console" })).status, 410, "a result counts only while the console holds an envelope");
     assert.deepEqual(await (await result).json().then((v) => [v.state, v.triesLeft]), ["wrong", 2]);
     await asPhone("POST", `/${code}`, sealFor(dev.publicKey, code, { u: "Mario", p: "right" }));
     assert.deepEqual(dev.open(code, await (await asConsole("GET", `/link/${code}/sealed`)).json()), { u: "Mario", p: "right" });

@@ -35,6 +35,7 @@ const MAX_CT_BYTES = 1024;
 // waiting: for the phone · sealed: an envelope for the console · taken: the console is signing in
 // done: signed in · wrong: the password was refused, the phone may try again · failed: out of tries
 // unreadable: the console could not open the envelope, the phone may send another
+// stopped: the console gave up on its own side (RetroAchievements unreachable, the SD card not writable)
 const links = new Map(); // code → { holder, requester, username, state, envelope, tries, expiresAt, waiters, timer }
 const OPEN_FOR_ENVELOPE = new Set(["waiting", "wrong", "unreadable"]);
 
@@ -124,15 +125,19 @@ export function take(code, holder) {
 
 /**
  * The console says how signing in went: ok, or not (`unreadable` when it could not open
- * the envelope, which spends no try). → the new state, or null when there is no such link of this console's.
+ * the envelope, which spends no try; `stopped` when it gave up on its own side, which ends
+ * the link and blames no password). → the new state, or null when there is no such link of this console's.
  */
-export function finish(code, holder, { ok, unreadable = false, username = null }) {
+export function finish(code, holder, { ok, unreadable = false, stopped = false, username = null }) {
   const l = live(code);
   if (!l || l.holder !== holder || l.state !== "taken") return null;
   l.envelope = null;
   if (ok) {
     l.state = "done";
     if (username) l.username = username;
+  } else if (stopped) {
+    l.tries--;
+    l.state = "stopped";
   } else if (unreadable) {
     l.tries--;
     l.state = "unreadable";
