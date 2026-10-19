@@ -138,8 +138,8 @@ export function wait(code, ready, ms, signal) {
       if (!links.has(code) || ready(l)) settle();
       else l.waiters.add(check);
     };
+    // Held, unlike a link's own timer: a wait stands for a request still open.
     const timer = setTimeout(settle, ms);
-    timer.unref?.();
     signal?.addEventListener("abort", settle, { once: true });
     l.waiters.add(check);
   });
