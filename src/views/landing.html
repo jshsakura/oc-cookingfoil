@@ -1786,6 +1786,8 @@
           "edit.kind": "분류",
           "edit.required": "필수 패치",
           "edit.requiredNote": "켜면 게임과 함께 설치해야 하는 패치로 나옵니다.",
+          "edit.verified": "검수됨",
+          "edit.verifiedNote": "기기에서 직접 돌려 보고 확인했으면 켭니다. 목록과 상세에 검수됨 배지가 붙습니다.",
           "art.reset": "되돌리기",
           "art.empty": "그림 없음",
           "art.change": "변경",
@@ -2115,6 +2117,8 @@
           "edit.kind": "Category",
           "edit.required": "Required mod",
           "edit.requiredNote": "When on, the game lists it as a mod to install with it.",
+          "edit.verified": "Verified",
+          "edit.verifiedNote": "Turn on once you have tried it on a console. The list and its detail show a Verified badge.",
           "art.reset": "Reset",
           "art.empty": "No image",
           "art.change": "Change",
@@ -2444,6 +2448,8 @@
           "edit.kind": "分類",
           "edit.required": "必須パッチ",
           "edit.requiredNote": "オンにすると、ゲームと一緒に入れるパッチとして表示します。",
+          "edit.verified": "動作確認済み",
+          "edit.verifiedNote": "本体で動かして確認したらオンにします。一覧と詳細に動作確認済みバッジが付きます。",
           "art.reset": "元に戻す",
           "art.empty": "画像なし",
           "art.change": "変更",
@@ -2773,6 +2779,8 @@
           "edit.kind": "分類",
           "edit.required": "必要補丁",
           "edit.requiredNote": "開啟後，遊戲會將其列為需一起安裝的補丁。",
+          "edit.verified": "已驗證",
+          "edit.verifiedNote": "在主機上實際執行確認後開啟。列表與詳細資料會顯示已驗證標章。",
           "art.reset": "還原",
           "art.empty": "沒有圖片",
           "art.change": "更換",
@@ -4417,11 +4425,12 @@
         return factsCard({
           fields: [
             { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
+            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true },
             { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
             { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
           ],
           async save(v) {
-            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind });
+            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind, verified: v.verified });
             changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo });
           },
           reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
