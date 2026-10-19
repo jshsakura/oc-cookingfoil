@@ -635,3 +635,26 @@ test("a folder install's hash does not depend on the order the files are listed 
   for (let i = 0; i < 3; i++) hashes.add((await scanManual(root))[0].hash);
   assert.equal(hashes.size, 1);
 });
+
+test("a data file overwritten in place at the same size with its mtime put back (an SMB copy) still moves the hash", async () => {
+  const root = tmp("hb-ctime-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(path.join(dir, "gfx"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  const data = path.join(dir, "gfx", "splash.bmp");
+  fs.writeFileSync(data, "AAAA");
+  fs.utimesSync(data, 1_700_000_000, 1_700_000_000);
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+  const [a] = await scanManual(root);
+  const before = fs.statSync(data);
+  await new Promise((r) => setTimeout(r, 20));
+  // Same inode (written in place), same size, mtime set back: only ctime tells.
+  fs.writeFileSync(data, "BBBB");
+  fs.utimesSync(data, 1_700_000_000, 1_700_000_000);
+  const after = fs.statSync(data);
+  assert.equal(after.ino, before.ino);
+  assert.equal(after.mtimeMs, before.mtimeMs);
+  const [b] = await scanManual(root);
+  assert.notEqual(b.hash, a.hash);
+  assert.notEqual(b.files.find((f) => f.path.endsWith("splash.bmp")).sha256, a.files.find((f) => f.path.endsWith("splash.bmp")).sha256);
+});

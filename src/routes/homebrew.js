@@ -98,7 +98,7 @@ import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, fileKey, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -415,7 +415,10 @@ let watch = null;
 export function start() {
   // A kept list younger than MANUAL_STALE_MS is served as it is: the watch below catches what changes,
   // and reading every app again on each restart kept a busy disk busy for minutes.
-  if (!manual.at || Date.now() - manual.at > MANUAL_STALE_MS) {
+  // A list kept with the keys before ctime joined them (three parts) is read again once, so no
+  // download meets an old key and is turned away while its app is read again.
+  const oldKeys = manual.entries.some((e) => [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
+  if (!manual.at || oldKeys || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
   // An app copied into the folder by hand, or any file changed deep inside one, is read again
@@ -462,7 +465,7 @@ async function unchanged(files) {
   for (let i = 0; i < keyed.length; i += 64) {
     const same = await Promise.all(keyed.slice(i, i + 64).map(async (f) => {
       const st = await fsp.stat(f.abs).catch(() => null);
-      return st && `${st.size}:${st.mtimeMs}:${st.ino}` === f.key;
+      return st && fileKey(st) === f.key;
     }));
     if (same.includes(false)) return false;
   }
