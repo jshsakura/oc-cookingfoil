@@ -35,6 +35,7 @@ files are in [`licenses/`](./licenses) in this repository.
 | dotenv | BSD-2-Clause |
 | sharp | Apache-2.0 |
 | jsqr (served to the browser as `/pair/qr.js`) | Apache-2.0 |
+| tabulator-tables (served to the admin page as `/admin/vendor/tabulator.min.*`) | MIT |
 
 Most transitive dependencies are MIT, ISC, BSD-2-Clause, BSD-3-Clause or Apache-2.0. The
 exceptions are the prebuilt `@img/sharp-libvips-*` binaries (LGPL-3.0-or-later, see above) and

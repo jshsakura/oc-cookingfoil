@@ -113,6 +113,8 @@ let serializedBrotli = null; // Buffer: brotli variant for Accept-Encoding: br
 let serializedEtag = null;   // Strong ETag — shared across all encodings
 let building = null;
 let lastBuildMs = 0;
+let lastMode = null;
+let lastFullScan = null; // { at, ms, files } of the last read of the whole games folder
 let buildCount = 0;
 let watcher = null;
 let debounceTimer = null;
@@ -246,6 +248,8 @@ async function build() {
       lastBuildMs = Date.now() - start;
       buildCount += 1;
       lastBuiltAt = Date.now();
+      lastMode = mode;
+      if (mode.startsWith("full")) lastFullScan = { at: lastBuiltAt, ms: lastBuildMs, files: filesMap.size };
       debug.log(
         "shop cache: built in %dms [%s] (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
         lastBuildMs,
@@ -664,8 +668,15 @@ export function stats() {
   return {
     cached: cached !== null,
     lastBuildMs,
+    lastMode,
     buildCount,
     files: cached?.files?.length ?? 0,
+    // What a rescan button needs: whether a read is waiting or running, and when the last whole one ended.
+    scan: {
+      state: building ? "running" : debounceTimer ? "queued" : "idle",
+      fullPending: needsFullRescan,
+      lastFull: lastFullScan,
+    },
     bytes: {
       identity: serializedJson?.length ?? 0,
       gzip: serializedGzip?.length ?? 0,

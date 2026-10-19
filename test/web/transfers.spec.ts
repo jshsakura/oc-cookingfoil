@@ -48,19 +48,17 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   await expect(page.locator('#xf-slow')).toBeVisible();
   await expect(page.locator('#xf-slow')).toContainText('집 안');
 
-  const rows = page.locator('#xf-table tr[data-id]');
+  const rows = page.locator('#xf-table .tabulator-row[data-id]');
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toHaveClass(/live/);
   await expect(rows.first()).toContainText('받는 중');
   await expect(rows.first()).toContainText('live-game.nsp');
-  await expect(page.locator('#xf-table tr[data-id="lan-game"]')).toContainText('일부');
-  await expect(page.locator('#xf-table tr[data-id="direct-game"]')).toContainText('전용 주소');
+  await expect(page.locator('#xf-table .tabulator-row[data-id="lan-game"]')).toContainText('일부');
+  await expect(page.locator('#xf-table .tabulator-row[data-id="direct-game"]')).toContainText('전용 주소');
 
-  // A refresh replaces the live row only; finished rows stay the same elements.
-  await page.locator('#xf-table tr[data-id="direct-game"]').evaluate((tr) => { (tr as HTMLElement).dataset.kept = '1'; });
+  // A refresh shows the live row's new numbers.
   const before = await rows.first().innerText();
   await expect.poll(async () => rows.first().innerText(), { timeout: 8000 }).not.toBe(before);
-  await expect(page.locator('#xf-table tr[data-id="direct-game"]')).toHaveAttribute('data-kept', '1');
 
   fs.mkdirSync('out/web', { recursive: true });
   await section.screenshot({ path: 'out/web/admin-transfers.png' });
@@ -70,9 +68,12 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   await expect(rows.first()).toHaveAttribute('data-id', 'direct-game');
   expect(seen).toContain('direct');
 
-  // Phone width: no sideways scroll, the table turns into labelled cards.
+  // Phone width: no sideways scroll, the columns that do not fit fold under each row's toggle.
   await page.setViewportSize({ width: 375, height: 800 });
-  await expect(page.locator('#xf-table tr[data-id="direct-game"] td[data-label="속도"]')).toBeVisible();
+  const direct = page.locator('#xf-table .tabulator-row[data-id="direct-game"]');
+  await direct.locator('.tabulator-responsive-collapse-toggle').click();
+  await expect(direct.locator('.tabulator-responsive-collapse')).toContainText('속도');
+  await expect(direct.locator('.tabulator-responsive-collapse')).toContainText('38.4 MB/s');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await page.locator('#xf-routes').getByRole('button', { name: '전체' }).click();
