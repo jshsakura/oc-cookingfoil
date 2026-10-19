@@ -15,9 +15,15 @@
  * an item is reported its folder is looked over once, and a file written within
  * the quiet time puts the report off again.
  *
+ * With `deep`, every folder under the root is watched instead (one inotify watch
+ * per folder, not per file: a few thousand folders cost megabytes, where chokidar
+ * watching each file of the same tree cost hundreds), so a file replaced deep
+ * inside an app is seen too.
+ *
  * The watch is only a shortcut: the catalogs still rescan in full on their own
  * long schedule, for anything the watch missed (a mount that drops events).
  */
+import fs from "fs";
 import path from "path";
 import fsp from "fs/promises";
 import chokidar from "chokidar";
@@ -55,11 +61,54 @@ export async function newestUnder(dir) {
 }
 
 /**
+ * Watches every folder under `root` (dot names skipped), new ones as they appear,
+ * and calls `onPath(path)` for what changed in any of them. Returns { close, ready }.
+ */
+function watchFolders(root, onPath, label) {
+  const watchers = new Map();
+  let closed = false;
+  const add = async (dir) => {
+    if (closed || watchers.has(dir)) return;
+    let w;
+    try {
+      w = fs.watch(dir, { persistent: false }, (_event, name) => {
+        if (!name || String(name).startsWith(".")) return;
+        const p = path.join(dir, String(name));
+        onPath(p);
+        // A folder made or moved in: watch it and what is under it.
+        fsp.stat(p).then((st) => { if (st.isDirectory()) return add(p); }).catch(() => {});
+      });
+    } catch {
+      return;
+    }
+    w.on("error", () => { w.close(); watchers.delete(dir); });
+    watchers.set(dir, w);
+    let entries = [];
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch (err) {
+      if (dir === root) debug.error("%s: watch error: %s", label, err.message);
+    }
+    for (const e of entries) if (e.isDirectory() && !e.name.startsWith(".")) await add(path.join(dir, e.name));
+  };
+  const ready = add(root);
+  return {
+    ready,
+    close: async () => {
+      closed = true;
+      await ready.catch(() => {});
+      for (const w of watchers.values()) w.close();
+      watchers.clear();
+    },
+  };
+}
+
+/**
  * Starts watching `root`. `depth` is how many path parts name an item (2 for
  * <title id>/<save>, 1 for <app>); `onItem(item)` is called after the quiet
- * time. Returns { close }.
+ * time; `deep` watches every folder below the items too. Returns { close }.
  */
-export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, cooldownMs = COOLDOWN_MS, label = "watch" }) {
+export function watchItems(root, { depth, deep = false, onItem, quietMs = QUIET_MS, cooldownMs = COOLDOWN_MS, label = "watch" }) {
   const timers = new Map();
   const lastRead = new Map(); // item → when it was last reported
   const arm = (item, ms) => {
@@ -91,6 +140,18 @@ export function watchItems(root, { depth, onItem, quietMs = QUIET_MS, cooldownMs
     if (!item) return;
     arm(item, quietMs);
   };
+  if (deep) {
+    const folders = watchFolders(root, touch, label);
+    folders.ready.then(() => debug.log("%s: watching %s for changes, every folder", label, root));
+    return {
+      async close() {
+        for (const t of timers.values()) clearTimeout(t);
+        timers.clear();
+        await folders.close();
+      },
+      ready: folders.ready,
+    };
+  }
   const watcher = chokidar.watch(root, {
     // The server's own timers and sockets keep it running; the watch alone never should.
     persistent: false,

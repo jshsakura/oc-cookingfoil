@@ -110,7 +110,7 @@ function raBios(list){
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
-  const del=el('button','삭제','danger');del.type='button';del.setAttribute('aria-label',m.name+' 삭제');del.addEventListener('click',()=>raRemove(m));
+  const del=btn('삭제',()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' 삭제');
   const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');const box=el('div',null,'row-actions');box.append(b,nm,del);
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
