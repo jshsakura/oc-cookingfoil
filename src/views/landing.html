@@ -252,6 +252,18 @@
       }
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      /* Tried on a console by the admin: a green pill with a shield. */
+      .xrow .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
+      .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
+      .xname .pill.verified { vertical-align: 2px; margin-left: 4px; }
+      /* Its switch in the edit panel turns green with it. */
+      .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
+      .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
+      .ef-switch.ef-verified:has(input:checked) { background: rgba(var(--good-rgb), .1); border-color: rgba(var(--good-rgb), .4); }
+      .ef-switch.ef-verified:has(input:checked) > span::before { background: var(--good); }
+      .ef-switch.ef-verified input:checked { background: var(--good); }
+      .ef-switch.ef-verified input:focus-visible { outline-color: var(--good); }
       .xhead .pill.server-present { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       /* The detail of one patch, save or app: the game modal's frame without its banner. */
       .modal.xmodal .body { padding-top: 26px; }
@@ -1599,6 +1611,7 @@
           "kind.exefs_patches": "코드 패치",
           "kind.cheats": "치트",
           "kind.homebrew": "홈브류",
+          "hb.verified": "검수됨",
           "action.admin": "서버 관리",
           "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
@@ -1783,6 +1796,8 @@
           "edit.kind": "분류",
           "edit.required": "필수 패치",
           "edit.requiredNote": "켜면 게임과 함께 설치해야 하는 패치로 나옵니다.",
+          "edit.verified": "검수됨",
+          "edit.verifiedNote": "기기에서 직접 돌려 보고 확인했으면 켭니다. 목록과 상세에 검수됨 배지가 붙습니다.",
           "art.reset": "되돌리기",
           "art.empty": "그림 없음",
           "art.change": "변경",
@@ -1928,6 +1943,7 @@
           "kind.exefs_patches": "Code patch",
           "kind.cheats": "Cheats",
           "kind.homebrew": "Homebrew",
+          "hb.verified": "Verified",
           "action.admin": "Server admin",
           "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
@@ -2111,6 +2127,8 @@
           "edit.kind": "Category",
           "edit.required": "Required mod",
           "edit.requiredNote": "When on, the game lists it as a mod to install with it.",
+          "edit.verified": "Verified",
+          "edit.verifiedNote": "Turn on once you have tried it on a console. The list and its detail show a Verified badge.",
           "art.reset": "Reset",
           "art.empty": "No image",
           "art.change": "Change",
@@ -2256,6 +2274,7 @@
           "kind.exefs_patches": "コードパッチ",
           "kind.cheats": "チート",
           "kind.homebrew": "自作アプリ",
+          "hb.verified": "動作確認済み",
           "action.admin": "サーバー管理",
           "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
@@ -2439,6 +2458,8 @@
           "edit.kind": "分類",
           "edit.required": "必須パッチ",
           "edit.requiredNote": "オンにすると、ゲームと一緒に入れるパッチとして表示します。",
+          "edit.verified": "動作確認済み",
+          "edit.verifiedNote": "本体で動かして確認したらオンにします。一覧と詳細に動作確認済みバッジが付きます。",
           "art.reset": "元に戻す",
           "art.empty": "画像なし",
           "art.change": "変更",
@@ -2584,6 +2605,7 @@
           "kind.exefs_patches": "程式修補",
           "kind.cheats": "金手指",
           "kind.homebrew": "自製軟體",
+          "hb.verified": "已驗證",
           "action.admin": "服务器管理",
           "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
@@ -2767,6 +2789,8 @@
           "edit.kind": "分類",
           "edit.required": "必要補丁",
           "edit.requiredNote": "開啟後，遊戲會將其列為需一起安裝的補丁。",
+          "edit.verified": "已驗證",
+          "edit.verifiedNote": "在主機上實際執行確認後開啟。列表與詳細資料會顯示已驗證標章。",
           "art.reset": "還原",
           "art.empty": "沒有圖片",
           "art.change": "更換",
@@ -4333,7 +4357,7 @@
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
         for (const f of fields) {
           if (f.check) {
-            const lab = document.createElement("label"); lab.className = "ef-switch";
+            const lab = document.createElement("label"); lab.className = "ef-switch" + (f.cls ? " " + f.cls : "");
             const text = document.createElement("span"); text.textContent = f.label;
             if (f.note) text.append(Object.assign(document.createElement("small"), { textContent: f.note }));
             const box = document.createElement("input"); box.type = "checkbox"; box.name = f.name; box.checked = Boolean(f.value); box.setAttribute("role", "switch");
@@ -4411,11 +4435,12 @@
         return factsCard({
           fields: [
             { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
+            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
             { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
             { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
           ],
           async save(v) {
-            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind });
+            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind, verified: v.verified });
             changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo });
           },
           reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
@@ -4967,7 +4992,7 @@
             title: a.name || a.app,
             // As on the client: who made it and the latest version under the name, then what it is and its size.
             sub: [a.author, a.version && "v" + a.version].filter(Boolean).join(" · "),
-            pills: [[t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
+            pills: [...(a.verified ? [[t("hb.verified"), "verified"]] : []), [t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
             meta: [
               [t("xm.latest"), a.version && "v" + a.version],
               [t("xm.author"), a.author],
@@ -5006,6 +5031,8 @@
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
           const info = document.createElement("div");
           const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
+          // Tried on a console by the admin.
+          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(" ", v); }
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;

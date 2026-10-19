@@ -290,12 +290,12 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   // The apps open first; the GitHub form leads the followed repositories.
   await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('[data-sub-panel="sources"]')).toBeHidden();
-  await row.locator('.ss-switch').click();
+  await row.getByLabel('Hand App 켜기').locator('xpath=..').click();
   await expect(row).toHaveClass(/hb-off/);
   expect(await listed()).not.toContain('handapp.nro');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#hb-apps').screenshot({ path: 'out/web/admin-homebrew-apps.png' });
-  await row.locator('.ss-switch').click();
+  await row.getByLabel('Hand App 켜기').locator('xpath=..').click();
   await expect(row).not.toHaveClass(/hb-off/);
   expect(await listed()).toContain('handapp.nro');
 });

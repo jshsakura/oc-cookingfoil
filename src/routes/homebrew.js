@@ -22,6 +22,7 @@
  *       forwarder_url, forwarder_title_id, forwarder_size, forwarder_key (changes with
  *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
  *       for it may use, also for one a client builds itself), install_type, title_id,
+ *       verified (the admin tried it on a console: a 검수됨 badge), verified_at (ISO, or null),
        banner_url, screenshots }
 
  * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
@@ -90,13 +91,14 @@ import { requestLang } from "../meta/categories.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as cores from "../meta/homebrew-cores.js";
+import * as verified from "../meta/homebrew-verified.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, fileKey, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -334,7 +336,7 @@ export const defaultService = {
     }));
     const entries = await Promise.all([...githubTracker().entries(), ...manualList].map(withIconNro));
     return entries
-      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), enabled: !disabled.isDisabled(e.id) }))
+      .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), ...verified.fields(e.id), enabled: !disabled.isDisabled(e.id) }))
       .sort(byRecent);
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
@@ -413,7 +415,10 @@ let watch = null;
 export function start() {
   // A kept list younger than MANUAL_STALE_MS is served as it is: the watch below catches what changes,
   // and reading every app again on each restart kept a busy disk busy for minutes.
-  if (!manual.at || Date.now() - manual.at > MANUAL_STALE_MS) {
+  // A list kept with the keys before ctime joined them (three parts) is read again once, so no
+  // download meets an old key and is turned away while its app is read again.
+  const oldKeys = manual.entries.some((e) => [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
+  if (!manual.at || oldKeys || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
   // An app copied into the folder by hand, or any file changed deep inside one, is read again
@@ -460,7 +465,7 @@ async function unchanged(files) {
   for (let i = 0; i < keyed.length; i += 64) {
     const same = await Promise.all(keyed.slice(i, i + 64).map(async (f) => {
       const st = await fsp.stat(f.abs).catch(() => null);
-      return st && `${st.size}:${st.mtimeMs}:${st.ino}` === f.key;
+      return st && fileKey(st) === f.key;
     }));
     if (same.includes(false)) return false;
   }

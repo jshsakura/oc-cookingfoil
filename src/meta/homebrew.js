@@ -271,9 +271,16 @@ function pruneHashes(seen) {
   else for (const k of [...memoryHashes.keys()]) if (!seen.has(k)) memoryHashes.delete(k);
 }
 
+/**
+ * What says a file is unchanged: size, mtime, ctime and inode. ctime is in it because a
+ * copy that overwrites in place and puts the mtime back (SMB, Windows) keeps the other
+ * three; the kernel moves ctime on every write and nothing can set it back. Pure.
+ */
+export const fileKey = (st) => `${st.size}:${st.mtimeMs}:${st.ctimeMs}:${st.ino}`;
+
 async function cachedSha256(file, st, seen = null) {
   seen?.add(file);
-  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  const key = fileKey(st);
   const known = hashes().get(file);
   if (known?.key === key) return known.hash;
   const hash = await sha256File(file);
@@ -421,7 +428,7 @@ export function useNspReader(fn) {
 
 /** What is kept of one read: the facts and the one icon the app shows, not every language's. */
 async function readNspFacts(abs, st) {
-  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  const key = fileKey(st);
   const known = nspFacts.get(abs);
   if (known?.key === key && (known.meta || Date.now() < known.retryAt)) return known.meta;
   const r = await nspReader(abs).catch(() => null);
@@ -480,7 +487,7 @@ async function readManualNsp(dir, folder, file, seen, held) {
     path: abs,
     sha256: hash,
     // The download checks it, so a file replaced since the scan is never sent under the old sha256.
-    key: `${st.size}:${st.mtimeMs}:${st.ino}`,
+    key: fileKey(st),
   };
 }
 
@@ -550,7 +557,7 @@ async function readManual(root, folder, seen = null, held = null) {
     for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r))) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
-      files.push({ path: `switch/${appDir}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: `${fst.size}:${fst.mtimeMs}:${fst.ino}` });
+      files.push({ path: `switch/${appDir}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: fileKey(fst) });
     }
     // A name the card can't create would fail at the very end of the install; the app waits until it is renamed.
     const problems = pathProblems(files.map((f) => f.path));
@@ -603,7 +610,7 @@ export async function forgetZipCopies(id) {
 async function readManualZip(dir, folder, zipName, seen, held = null) {
   const abs = path.join(dir, zipName);
   const st = await fsp.stat(abs);
-  const key = `${st.size}:${st.mtimeMs}:${st.ino}`;
+  const key = fileKey(st);
   let known = zipLayouts.get(abs);
   if (known?.key !== key) {
     known = { key, layout: null, sizes: null, failed: null };

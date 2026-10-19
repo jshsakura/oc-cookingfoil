@@ -34,7 +34,7 @@
  * The facts the detail window's edit page changes, beside the pictures:
  *   GET|POST /api/art/:baseTitleId/meta    { name, description, notes } each { en, ko } (both empty forgets it)
  *   POST     /api/art/:baseTitleId/meta/reset   back to titledb's for all three
- *   GET|POST /api/art/homebrew/:id/meta    { description: { en, ko }, kind: "tool" | "port" }
+ *   GET|POST /api/art/homebrew/:id/meta    { description: { en, ko }, kind: "tool" | "port", verified: true | false (the 검수됨 badge) }
  *   POST     /api/art/homebrew/:id/meta/reset   back to the repository's description
  *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required }
  *
@@ -64,6 +64,7 @@ import * as patchInfo from "../meta/patch-info.js";
 import * as titledbStore from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as homebrewKinds from "../meta/homebrew-kinds.js";
+import * as homebrewVerified from "../meta/homebrew-verified.js";
 import * as homebrewDescriptions from "../meta/homebrew-descriptions.js";
 import { patchMeta } from "./admin/content-api.js";
 import { withRequired } from "./admin/patches-api.js";
@@ -161,7 +162,7 @@ export default function artRouter() {
       gameVersion: info.game_version ?? "", description: info.description ?? "", descriptionKo: info.ko?.description ?? "",
       required: info.required === true, homebrew: Boolean(userPatches.locate(id)?.dir.startsWith("homebrew/")) };
   };
-  const homebrewFacts = (id) => ({ description: homebrewDescriptions.get(id) ?? null, kind: homebrewKinds.kindOf(id) });
+  const homebrewFacts = (id) => ({ description: homebrewDescriptions.get(id) ?? null, kind: homebrewKinds.kindOf(id), verified: homebrewVerified.verifiedAt(id) !== null });
   const metaRoute = (fn) => itemRoute(async (req, res, it) => {
     try {
       await fn(req, res, it);
@@ -178,6 +179,10 @@ export default function artRouter() {
       const d = both(body.description);
       if (d) homebrewDescriptions.set(id, d);
       if (body.kind !== undefined && !homebrewKinds.set(id, String(body.kind))) return badRequest(res, "kind is tool or port");
+      if (body.verified !== undefined) {
+        if (typeof body.verified !== "boolean") return badRequest(res, "verified is true or false");
+        homebrewVerified.set(id, body.verified);
+      }
       debug.log("art: homebrew %s facts saved", id);
       return res.json(homebrewFacts(id));
     }

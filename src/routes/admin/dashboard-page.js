@@ -142,6 +142,14 @@ dialog{border:1px solid var(--line2);border-radius:22px;background:var(--panel);
 dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:15px;line-height:1.55;overflow-wrap:anywhere}
 button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}
+.hb-verify{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:100px;border:1px dashed var(--line);background:transparent;color:var(--faint);font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.hb-verify svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hb-verify:hover{border-color:rgba(var(--good-rgb),.6);color:var(--good)}
+.hb-verify[aria-pressed=true]{border:1px solid rgba(var(--good-rgb),.5);background:rgba(var(--good-rgb),.14);color:var(--good);box-shadow:inset 0 0 0 1px rgba(var(--good-rgb),.08)}
+.hb-verify[aria-pressed=true] svg{fill:rgba(var(--good-rgb),.22)}
+.hb-verify:disabled{opacity:.6;cursor:progress}
+.hb-verify:focus-visible{outline:2px solid var(--good);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.hb-verify{transition:none}}
 #hb-apps tr.hb-off td:not(:first-child),#hb-apps .tabulator-row.hb-off .tabulator-cell:not(:nth-child(-n+2)){opacity:.5}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
