@@ -1,16 +1,23 @@
 /**
- * Every admin table is drawn by Tabulator (MIT, vendored from node_modules and served
- * behind the admin sign-in). Panels still build plain <tr> rows; table() lifts each cell
- * into the grid, so a row keeps its buttons and listeners. On a narrow screen the grid
- * keeps the first column and the actions, and folds the rest under a toggle per row.
+ * Every admin table is drawn by AG Grid Community (MIT, vendored from node_modules and served
+ * behind the admin sign-in). Panels still build plain <tr> rows; table() lifts each cell into
+ * the grid, so a row keeps its buttons and listeners. Rows are one fixed height, columns sort
+ * by their text, a long list pages, and a narrow screen scrolls the columns sideways.
  */
 import fs from "node:fs";
+import path from "node:path";
 import { createRequire } from "node:module";
 
-const resolve = createRequire(import.meta.url).resolve;
+// The package exports no dist paths, so its folder is found from its main entry.
+const req = createRequire(import.meta.url);
+const resolve = (p) => {
+  const [name, ...rest] = p.split("/");
+  let dir = path.dirname(req.resolve(name));
+  while (path.basename(dir) !== name) dir = path.dirname(dir);
+  return path.join(dir, ...rest);
+};
 const VENDOR = {
-  "tabulator.min.js": ["tabulator-tables/dist/js/tabulator.min.js", "text/javascript"],
-  "tabulator.min.css": ["tabulator-tables/dist/css/tabulator.min.css", "text/css"],
+  "ag-grid.min.js": ["ag-grid-community/dist/ag-grid-community.min.js", "text/javascript"],
 };
 const cache = new Map();
 
@@ -22,112 +29,93 @@ export function sendVendor(req, res) {
   res.set("Cache-Control", "private, max-age=86400").type(v[1]).send(cache.get(req.params.file));
 }
 
-export const GRID_HEAD = `<link rel="stylesheet" href="/admin/vendor/tabulator.min.css"><script src="/admin/vendor/tabulator.min.js"></script>`;
+export const GRID_HEAD = `<script src="/admin/vendor/ag-grid.min.js"></script>`;
 
 export const GRID_CSS = /* css */ `
-.grid-mount{min-width:0;max-width:100%}
-.tabulator{max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;font-size:13px;color:var(--text);margin:0 0 20px}
-.tabulator .tabulator-header{background:var(--sunk);border-bottom:1px solid var(--line);color:var(--muted);font-weight:600}
-.tabulator .tabulator-header .tabulator-col{background:transparent;border-right:0}
-.tabulator .tabulator-header .tabulator-col .tabulator-col-content{padding:9px 12px}
-.tabulator .tabulator-tableholder .tabulator-table{background:transparent;color:var(--text)}
-.tabulator-row,.tabulator-row.tabulator-row-even{background:var(--panel);border-bottom:1px solid var(--line);min-height:42px}
-.tabulator-row:last-child{border-bottom:0}
-.tabulator-row.tabulator-selectable:hover,.tabulator-row:hover{background:var(--sunk)}
-.tabulator-row .tabulator-cell{display:inline-flex;align-items:center;padding:8px 12px;border-right:0}
-.tabulator-row .tabulator-cell .gc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.gc>*{max-width:100%;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:720px){.tabulator-row .tabulator-cell{white-space:normal}.tabulator-row .tabulator-cell .gc,.gc>*{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}}
-.gc .muted,.gc .sub{display:block;font-size:12px;color:var(--muted)}
-.gc .row-actions{display:flex;gap:6px;justify-content:flex-end}
-.gc .xline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.grid-mount{min-width:0;max-width:100%;margin:0 0 20px}
+.grid-tools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.grid-tools input{flex:1;min-width:0;max-width:360px}
+.grid-tools .grid-count{margin-left:auto;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.ag-theme-cook{border-radius:14px}
+.ag-cell{display:flex;align-items:center;overflow:hidden;line-height:1.35}
+/* Only as tall as its rows: no blank block under a short list. */
+.grid-mount .ag-grid-scrolling-rows.ag-layout-auto-height{min-height:0!important}
+.ag-cell .gc{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.gc>*{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc .muted,.gc .sub{display:block;font-size:12px;color:var(--muted);line-height:1.3}
+.gc .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.gc .xline,.gc .pills{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
 .gc.ip,.gc.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .gc.dim{color:var(--muted)}
-.tabulator .tabulator-row.tabulator-group{background:var(--sunk);border-bottom:1px solid var(--line);border-top:0;padding:8px 12px;font-weight:700;color:var(--text)}
-.tabulator .tabulator-row.tabulator-group:hover{background:var(--sunk);cursor:default}
-.tabulator .tabulator-row.tabulator-group .tabulator-group-toggle{display:none}
-.tabulator .tabulator-row.tabulator-group span{color:var(--muted);margin-left:0}
-.tabulator-row .tabulator-responsive-collapse{border:0;padding:0 12px 10px 40px}
-.tabulator-row .tabulator-responsive-collapse table{display:table;width:100%;border:0;background:none;border-radius:0;font-size:13px}
-.tabulator-row .tabulator-responsive-collapse tr{display:table-row;border:0;background:none;margin:0;padding:0}
-.tabulator-row .tabulator-responsive-collapse td{display:table-cell;width:auto;border:0;padding:4px 10px 4px 0;vertical-align:top;white-space:normal}
-.tabulator-row .tabulator-responsive-collapse td *{flex-wrap:wrap;white-space:normal}
-.tabulator-row .tabulator-responsive-collapse td::before{content:none}
-.tabulator-row .tabulator-responsive-collapse td:first-child{color:var(--muted);white-space:nowrap;width:1%;padding-top:5px}
-.tabulator-row .tabulator-responsive-collapse td:first-child strong{font-weight:500}
-.tabulator-row .tabulator-responsive-collapse .row-actions{display:flex;flex-wrap:wrap;gap:6px}
-.tabulator-row .tabulator-cell .tabulator-responsive-collapse-toggle{background:var(--sunk);color:var(--text);border:1px solid var(--line);width:22px;height:22px;border-radius:7px}
-.tabulator-row .tabulator-cell .tabulator-responsive-collapse-toggle svg{stroke:var(--text)}
-.tabulator-row.live,.tabulator-row.live:hover{background:rgba(var(--accent-rgb),.06)}
+.ag-cell button.ib,.ag-cell .row-actions button{height:34px}
+.ag-cell select{padding-top:6px;padding-bottom:6px}
+.ag-full-width-row .grid-group{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;background:var(--sunk);font-weight:700}
+.ag-full-width-row .grid-group .muted{font-weight:500;color:var(--muted)}
+.ag-cell.tall{align-items:flex-start;padding-top:9px;padding-bottom:9px;line-height:1.4}
+.ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
+.ag-row.live{background:rgba(var(--accent-rgb),.06)}
 `;
 
 export const GRID_SCRIPT = /* js */ `
-// On a phone the columns that do not fit fold under each row; wider, they only get narrower.
-const GRID_NARROW=matchMedia('(max-width:720px)');
-GRID_NARROW.addEventListener('change',()=>{for(const m of document.querySelectorAll('.grid-mount'))
-  if(m._grid&&m._build&&m._grid._narrow!==GRID_NARROW.matches){m._grid.destroy();m._grid=null;m._build();}});
+if(window.agGrid&&agGrid.ModuleRegistry&&agGrid.AllCommunityModule)agGrid.ModuleRegistry.registerModules([agGrid.AllCommunityModule]);
+const GRID_ROW=52,GRID_PAGE=50;
+const GRID_THEME=window.agGrid?agGrid.themeQuartz.withParams({
+  backgroundColor:'var(--panel)',foregroundColor:'var(--text)',headerBackgroundColor:'var(--sunk)',headerTextColor:'var(--muted)',
+  borderColor:'var(--line)',rowHoverColor:'var(--sunk)',oddRowBackgroundColor:'var(--panel)',accentColor:'var(--accent)',
+  chromeBackgroundColor:'var(--panel)',fontFamily:'inherit',fontSize:13,headerFontSize:12.5,headerFontWeight:600,
+  wrapperBorderRadius:14,spacing:6,cellHorizontalPadding:12,rowBorder:{color:'var(--line)'},columnBorder:false,
+  inputBackgroundColor:'var(--sunk)',inputBorder:false}):undefined;
+const GRID_TEXT={page:'쪽',to:'-',of:'/',more:'더',firstPage:'처음',previousPage:'이전',nextPage:'다음',lastPage:'끝',
+  pageSizeSelectorLabel:'한 쪽에',noRowsToShow:'찾은 것이 없습니다.',ariaRowSelect:'',ariaSortableColumn:'눌러서 정렬합니다'};
 // One cell of a built row, moved into the grid with its classes, title and listeners.
 function gridCell(td){const d=el('div',null,'gc'+(td.className?' '+td.className:''));if(td.title)d.title=td.title;
   while(td.firstChild)d.append(td.firstChild);return d;}
-// A column holding buttons must fit them; a hidden tab has no layout to measure, so count them. 0: none.
-// The actions sit in one line, so their widths add up; elsewhere buttons wrap, so the widest one counts.
+// A column holding buttons or selects must fit them in one line.
 let gridCtx=null;
 const gridText=(s,mono)=>{gridCtx??=document.createElement('canvas').getContext('2d');
-  const f=getComputedStyle(document.body);gridCtx.font=mono?'12px ui-monospace,SFMono-Regular,Menlo,monospace':'600 13px '+f.fontFamily;
+  gridCtx.font=mono?'12px ui-monospace,SFMono-Regular,Menlo,monospace':'600 13px '+getComputedStyle(document.body).fontFamily;
   return gridCtx.measureText(s).width;};
-const gridButton=(b)=>b.classList.contains('ib')&&!GRID_NARROW.matches?40:Math.max(86,(b.textContent.trim().length||1)*12+54);
-// Selects sit side by side, each as wide as its longest choice.
-const gridSelect=(s)=>Math.max(...[...s.options].map((o)=>gridText(o.textContent.trim(),false)),0)+76;
-function gridButtonWidth(data,i,inLine){let w=0;for(const r of data){const n=r._n[i];if(!n)continue;
-  const bs=[...n.querySelectorAll('button,a.btn')],ss=[...n.querySelectorAll('select')];if(!bs.length&&!ss.length)continue;
-  const buttons=!bs.length?0:inLine?bs.reduce((s,b)=>s+gridButton(b),0)+(bs.length-1)*6:Math.max(...bs.map(gridButton));
-  const selects=ss.reduce((s,x)=>s+gridSelect(x),0)+Math.max(0,ss.length-1)*8;
-  w=Math.max(w,Math.max(buttons,selects)+32);}
+const gridButton=(b)=>b.classList.contains('ib')?40:gridText(b.textContent.trim(),false)+(b.querySelector('svg')?52:34);
+const gridSelect=(s)=>Math.max(...[...s.options].map((o)=>gridText(o.textContent.trim(),false)),0)+60;
+function gridControlsWidth(data,i){let w=0;for(const r of data){const n=r._n[i];if(!n)continue;
+  const cs=[...n.querySelectorAll('button,a.btn,select')];if(!cs.length)continue;
+  w=Math.max(w,cs.reduce((s,c)=>s+(c.tagName==='SELECT'?gridSelect(c):gridButton(c)),0)+(cs.length-1)*6+28);}
   return w;}
 // mount: id of the box the grid goes in. cols: column titles, '' for the actions column.
 // rows: <tr> elements. A row whose only cell spans the table starts a group under that heading.
-function table(mount,cols,rows,empty){const m=$(mount);
-  if(m._grid){m._grid.destroy();m._grid=null;}if(m._wait){m._wait.disconnect();m._wait=null;}m.replaceChildren();
+// opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
+// (for a list the server already pages); opts.tall lets a row grow to hold lists inside its cells.
+function table(mount,cols,rows,empty,opts={}){const m=$(mount);
+  if(m._grid){m._grid.destroy();m._grid=null;}m.replaceChildren();m.classList.add('grid-mount');
   if(!rows.length){m.append(el('div',empty,'empty'));return;}
-  const data=[],heads=new Map();let group=null;
+  const data=[];let groups=false;
   for(const r of rows){const cs=[...r.children];
-    if(cs.length===1&&cs[0].colSpan>1){group='g'+heads.size;heads.set(group,gridCell(cs[0]));continue;}
-    data.push({_k:data.length,_g:group,_n:cs.map(gridCell),_cls:r.className,_ds:{...r.dataset}});}
-  // Width follows what a column holds: long text gets room, short numbers do not.
-  const avg=(i)=>{let n=0;for(const r of data)n+=Math.min(60,(r._n[i]?.textContent||'').length);return n/Math.max(1,data.length);};
-  const grow=(i)=>Math.min(4,Math.max(0.6,Math.max(avg(i),cols[i].length*1.6)/12));
-  // A column of short values (ids, sizes, dates) is never cut: as wide as its widest value, measured in its font.
-  const fit=(i)=>{let w=0;for(const r of data){const n=r._n[i],s=(n?.textContent||'').trim();if(s.length>24)return 0;
+    if(cs.length===1&&cs[0].colSpan>1){groups=true;const h=gridCell(cs[0]);h.className='grid-group';data.push({_k:data.length,_head:h});continue;}
+    data.push({_k:data.length,_n:cs.map(gridCell),_cls:r.className,_id:r.dataset.id});}
+  const items=data.filter((d)=>!d._head);
+  const avg=(i)=>{let n=0;for(const r of items)n+=Math.min(60,(r._n[i]?.textContent||'').trim().length);return n/Math.max(1,items.length);};
+  // A column of short values (ids, sizes, dates) is never cut: as wide as its widest value.
+  const fit=(i)=>{let w=0;for(const r of items){const n=r._n[i],s=(n?.textContent||'').trim();if(s.length>28)return 0;
     if(s)w=Math.max(w,gridText(s,n.classList.contains('mono')));}return w?Math.ceil(w)+30:0;};
-  // On a phone the column that stays is the one with the most to say among the first three.
-  const lead=[0,1,2].filter((i)=>i<cols.length&&cols[i]!=='').sort((x,y)=>avg(y)-avg(x))[0]??0;
-  const columnsFor=(narrow)=>cols.map((title,i)=>{const act=title===''&&i===cols.length-1,bw=gridButtonWidth(data,i,act);
-    // A folded column shows only when it has a title, so the actions get a blank one on a phone.
-    return {title:act&&narrow?'\u00a0':title,field:'_c'+i,headerSort:false,resizable:!act,vertAlign:'middle',
-      // Hidden from the highest number down: a phone keeps the lead column and folds the rest, actions too.
-      responsive:i===lead?0:act?(narrow?cols.length+1:0):i+1,
-      ...(act?{width:Math.max(60,bw),minWidth:Math.max(60,bw),widthGrow:0,hozAlign:'right'}
-        :{minWidth:Math.max(i===lead?140:92,title.length*15+28,Math.min(130,avg(i)*7+24),fit(i),bw),widthGrow:grow(i)}),
-      formatter:(cell)=>{const n=cell.getData()._n[i];if(!n)return '';const e=cell.getElement();
-        if(e&&e.dataset){e.dataset.label=title;if(!act&&n.textContent.length>24)e.title=n.textContent.trim();}return n;}};});
-  const t=el('div');m.append(t);m.classList.add('grid-mount');
-  const build=()=>{const narrow=GRID_NARROW.matches;
-    const g=new Tabulator(t,{data,index:'_k',layout:'fitColumns',renderVertical:'basic',
-    // Columns that do not fit fold under their row instead of running off the edge: open on a wide
-    // screen (no toggle there), behind the toggle on a phone.
-    responsiveLayout:'collapse',responsiveLayoutCollapseStartOpen:!narrow,
-    columns:narrow?[{formatter:'responsiveCollapse',width:38,minWidth:38,headerSort:false,resizable:false,hozAlign:'center',vertAlign:'middle',responsive:0},...columnsFor(true)]:columnsFor(false),
-    ...(heads.size?{groupBy:'_g',groupToggleElement:false,groupHeader:(v)=>heads.get(v)||''}:{}),
-    rowFormatter:(row)=>{const e=row.getElement(),d=row.getData();
-      for(const c of String(d._cls||'').split(' '))if(c)e.classList.add(c);Object.assign(e.dataset,d._ds);}});
-    // A narrow grid moves a column's cells into each row's fold; widening it shows the column
-    // again without formatting its cells anew, so the cells are taken back here.
-    g.on('columnVisibilityChanged',(col,visible)=>{if(!visible)return;const i=Number(String(col.getField()).slice(2));
-      for(const c of col.getCells()){const e=c.getElement(),n=c.getData()._n[i];if(n&&n.parentNode!==e)e.replaceChildren(n);}});
-    m._grid=g;g._narrow=narrow;};
-  m._build=build;
-  // A grid laid out inside a hidden tab gets no widths and clipped rows: wait until it shows.
-  if(t.offsetWidth){build();return;}
-  const ro=new ResizeObserver(()=>{if(!t.isConnected){ro.disconnect();return;}if(t.offsetWidth){ro.disconnect();build();}});ro.observe(t);
-  m._wait=ro;}
+  const columnDefs=cols.map((title,i)=>{const act=title===''&&i===cols.length-1,controls=gridControlsWidth(items,i);
+    const base={headerName:title,colId:'c'+i,suppressMovable:true,resizable:!act,sortable:!act&&!groups&&!controls,
+      ...(opts.tall?{autoHeight:true,wrapText:true,cellClass:'tall'}:{}),
+      valueGetter:(p)=>p.data?._n?.[i]?.textContent.trim()||'',
+      cellRenderer:(p)=>{const n=p.data?._n?.[i];if(!n)return '';if(!act&&!n.title&&n.textContent.trim().length>24)n.title=n.textContent.trim();return n;}};
+    if(act)return {...base,width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
+    if(controls)return {...base,width:Math.max(controls,title.length*14+32),minWidth:controls};
+    const w=fit(i);if(w)return {...base,width:Math.max(w,title.length*14+32),minWidth:Math.max(72,title.length*14+24)};
+    return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32)};});
+  const many=!groups&&opts.paging!==false&&items.length>GRID_PAGE;
+  let tools=null;
+  if(opts.search&&items.length>10){tools=el('div',null,'grid-tools');const q=el('input');q.type='search';
+    q.placeholder=opts.placeholder||'이름으로 찾기';q.setAttribute('aria-label',(opts.label||'목록')+' 찾기');
+    q.addEventListener('input',()=>m._grid?.setGridOption('quickFilterText',q.value));tools.append(q);m.append(tools);}
+  const box=el('div');m.append(box);
+  m._grid=agGrid.createGrid(box,{theme:GRID_THEME,rowData:data,columnDefs,domLayout:'autoHeight',
+    rowHeight:GRID_ROW,headerHeight:40,suppressCellFocus:true,suppressColumnVirtualisation:true,enableCellTextSelection:true,
+    localeText:GRID_TEXT,overlayNoRowsTemplate:'<span>찾은 것이 없습니다.</span>',
+    getRowId:(p)=>p.data._id||'k'+p.data._k,
+    getRowClass:(p)=>p.data._cls||'',
+    isFullWidthRow:(p)=>!!p.rowNode.data?._head,fullWidthCellRenderer:(p)=>p.data._head,
+    ...(many?{pagination:true,paginationPageSize:GRID_PAGE,paginationPageSizeSelector:[25,50,100]}:{})});}
 `;

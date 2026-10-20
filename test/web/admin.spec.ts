@@ -48,7 +48,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
   await page.getByRole('link', { name: '사용자' }).click();
-  const row = page.locator('#users .tabulator-row', { hasText: NAME });
+  const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
   await row.getByRole('button', { name: '삭제', exact: true }).click();
@@ -63,7 +63,7 @@ test.afterEach(async ({ request }) => {
 
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '라이브러리' }).click();
+  await page.getByRole('link', { name: '게임', exact: true }).click();
   await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
   const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
@@ -78,7 +78,8 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '추천' }).click();
+  await page.getByRole('link', { name: '게임', exact: true }).click();
+  await page.getByRole('link', { name: '홈 추천' }).click();
   await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
   await page.getByLabel('줄 제목').fill('이번 주 추천');
   await page.getByLabel('추가할 게임').fill('Test Game · 0100000000010000');
@@ -253,7 +254,7 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   const patch = async (lang: string) => ((await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as
     { homebrew: string | null; name: string; description: string | null; version: string | null }[]).find((p) => p.homebrew === 'handapp');
   await expect.poll(async () => (await patch('en'))?.name).toBe('Turbo mod');
-  const row = page.locator('#hb-apps .tabulator-row', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .ag-row', { hasText: 'Hand App' });
   await row.getByRole('button', { name: 'Turbo mod 편집' }).click();
   const dialog = page.locator('#ct-edit');
   await expect(dialog).toBeVisible();
@@ -285,7 +286,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   await page.goto('/admin#homebrew');
   const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
   await expect.poll(listed).toContain('handapp.nro');
-  const row = page.locator('#hb-apps .tabulator-row', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .ag-row', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
   // The apps open first; the GitHub form leads the followed repositories.
   await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -309,7 +310,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   await expect.poll(async () => {
     await page.locator('#lf-q').fill('');
     await page.locator('#lf-q').fill('Throwaway');
-    return page.locator('#lf-list .tabulator-row', { hasText: 'Throwaway' }).count();
+    return page.locator('#lf-list .ag-row', { hasText: 'Throwaway' }).count();
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
   await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 삭제' }).click();

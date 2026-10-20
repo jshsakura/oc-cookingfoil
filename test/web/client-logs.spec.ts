@@ -27,7 +27,7 @@ test('the logs tab splits into sub-tabs and the client log list stays short and 
   await page.route('**/admin/api/client-logs', (route) => route.fulfill({ json: payload }));
   await page.route('**/admin/api/client-logs/aaaa1111/*', (route) => route.fulfill({ body: 'line one\nline two', contentType: 'text/plain' }));
   await signIn(page);
-  await page.locator('nav.tabs a[data-tab="logs"]').click();
+  await page.locator('nav.tabs a[data-group="ops"]').click();
 
   // Only the download records show at first; the other two groups wait behind their sub-tabs.
   await expect(page.locator('[data-logs-panel="xfer"]')).toBeVisible();

@@ -39,7 +39,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
     await expect(page.locator('#lb-list')).not.toContainText('Test Game');
 
     await page.locator('#lb-tab-other').click();
-    await expect(page.locator('#lb-list .tabulator-row', { hasText: 'note-' })).toHaveCount(25);
+    await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(25);
     await expect(page.locator('#lb-pager')).toBeVisible();
     await expect(page.locator('#lb-count')).toContainText('1에서 25번째');
     await page.getByRole('button', { name: '다음 페이지' }).click();
@@ -50,7 +50,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
 
     // Biggest first.
     await page.locator('#lb-sort').selectOption('size');
-    await expect(page.locator('#lb-list .tabulator-row').first()).toContainText('note-54.txt');
+    await expect(page.locator('#lb-list .ag-row').first()).toContainText('note-54.txt');
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: 'light' });
@@ -67,14 +67,14 @@ test('the library tab lists files by kind with counts, pages and a search inside
     await expect(page.locator('#lb-pager')).toBeHidden();
     await page.locator('#lb-q').fill('note-07');
     await page.locator('#lb-go').click();
-    await expect(page.locator('#lb-list .tabulator-row', { hasText: 'note-' })).toHaveCount(1);
+    await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(1);
     await expect(page.locator('#lb-n-other')).toHaveText('1');
 
     await page.locator('#lb-q').fill('');
     await page.locator('#lb-go').click();
     await page.locator('#lb-sort').selectOption('name');
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.locator('#lb-list .tabulator-row', { hasText: 'note-' })).toHaveCount(25);
+    await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(25);
     await page.emulateMedia({ colorScheme: 'light' });
     await page.locator('#lib-files').screenshot({ path: 'out/web/library-files-390-light.png', animations: 'disabled' });
     await page.emulateMedia({ colorScheme: 'dark' });

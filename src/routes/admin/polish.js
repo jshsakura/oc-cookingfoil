@@ -17,7 +17,11 @@ const BY_LABEL = [
   [/다운로드/, "download"],
   [/올리기|올립니다|업로드/, "upload"],
   [/되돌리/, "undo"],
-  [/새로 고침|갱신|다시 스캔|다시 고르기|재시도|다시 시작|검사|지금 확인/, "refresh"],
+  [/새로 고침|갱신|다시 스캔|다시 읽기|다시 고르기|재시도|다시 시작|검사|지금 확인/, "refresh"],
+  [/가져오기|받기/, "download"],
+  [/시작|실행/, "play"],
+  [/멈추|중지/, "stop"],
+  [/맞추기/, "search"],
   [/찾기|검색/, "search"],
   [/시험|보내기/, "send"],
   [/로그인|들어가기/, "login"],
@@ -31,8 +35,8 @@ const BY_LABEL = [
   [/^다음$/, "chevright"],
   [/확인|승인|했습니다/, "check"],
 ];
-const FALLBACK = "arrowright";
-const NAMES = [...new Set([...BY_LABEL.map(([, n]) => n), FALLBACK])];
+// A label nothing matches gets no icon, rather than an arrow that says nothing.
+const NAMES = [...new Set(BY_LABEL.map(([, n]) => n))];
 
 export const POLISH_CSS = /* css */ `
 /* Buttons: an icon in front of the label, and a press that gives a little. */
@@ -77,7 +81,7 @@ function pick(b){
   var t=(b.textContent||'').trim();if(!t)return null;
   if(/^[0-9]+$/.test(t))return null;
   for(var i=0;i<RULES.length;i++)if(RULES[i][0].test(t))return RULES[i][1];
-  return ${JSON.stringify(FALLBACK)};
+  return null;
 }
 function decorate(b){
   if(b.matches(SKIP)||b.querySelector('svg'))return;

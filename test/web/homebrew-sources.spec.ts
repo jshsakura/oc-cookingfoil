@@ -24,6 +24,6 @@ test('registered GitHub repositories show as cards with their buttons in the foo
   const foot = first.locator('.src-foot');
   for (const name of ['설명', '지금 확인', '삭제']) await expect(foot.getByRole('button', { name })).toBeVisible();
   await expect(cards.nth(1).getByRole('combobox', { name: '쓸 파일' })).toBeVisible();
-  await expect(page.locator('#hb-sources .tabulator')).toHaveCount(0);
+  await expect(page.locator('#hb-sources .ag-root')).toHaveCount(0);
   await page.locator('#hb-sources').screenshot({ path: '/tmp/claude-3000/-home-jshsakura-workspace-oc-cookingfoil/8928e3b4-daee-45b4-852d-917d970b82c9/scratchpad/sources.png' });
 });

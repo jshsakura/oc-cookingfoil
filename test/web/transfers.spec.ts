@@ -40,7 +40,7 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
     } });
   });
 
-  await page.locator('nav.tabs a[data-tab="logs"]').click();
+  await page.locator('nav.tabs a[data-group="ops"]').click();
   const section = page.locator('#tab-logs');
   await expect(section.getByRole('heading', { name: '다운로드 기록' })).toBeVisible();
   await expect(page.locator('#xf-cards .card')).toHaveCount(3);
@@ -48,13 +48,13 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   await expect(page.locator('#xf-slow')).toBeVisible();
   await expect(page.locator('#xf-slow')).toContainText('집 안');
 
-  const rows = page.locator('#xf-table .tabulator-row[data-id]');
+  const rows = page.locator('#xf-table .ag-row[row-id]');
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toHaveClass(/live/);
   await expect(rows.first()).toContainText('받는 중');
   await expect(rows.first()).toContainText('live-game.nsp');
-  await expect(page.locator('#xf-table .tabulator-row[data-id="lan-game"]')).toContainText('일부');
-  await expect(page.locator('#xf-table .tabulator-row[data-id="direct-game"]')).toContainText('전용 주소');
+  await expect(page.locator('#xf-table .ag-row[row-id="lan-game"]')).toContainText('일부');
+  await expect(page.locator('#xf-table .ag-row[row-id="direct-game"]')).toContainText('전용 주소');
 
   // A refresh shows the live row's new numbers.
   const before = await rows.first().innerText();
@@ -65,15 +65,13 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
 
   await page.locator('#xf-routes').getByRole('button', { name: '전용 주소' }).click();
   await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toHaveAttribute('data-id', 'direct-game');
+  await expect(rows.first()).toHaveAttribute('row-id', 'direct-game');
   expect(seen).toContain('direct');
 
-  // Phone width: no sideways scroll, the columns that do not fit fold under each row's toggle.
+  // Phone width: the page does not scroll sideways; the grid scrolls its own columns and still holds every value.
   await page.setViewportSize({ width: 375, height: 800 });
-  const direct = page.locator('#xf-table .tabulator-row[data-id="direct-game"]');
-  await direct.locator('.tabulator-responsive-collapse-toggle').click();
-  await expect(direct.locator('.tabulator-responsive-collapse')).toContainText('속도');
-  await expect(direct.locator('.tabulator-responsive-collapse')).toContainText('38.4 MB/s');
+  const direct = page.locator('#xf-table .ag-row[row-id="direct-game"]');
+  await expect(direct).toContainText('38.4 MB/s');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await page.locator('#xf-routes').getByRole('button', { name: '전체' }).click();

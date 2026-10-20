@@ -88,13 +88,13 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await page.locator('#retro-subtabs [data-sub="dups"]').click();
   const list = page.locator('#rv-list');
   await expect(list).toContainText('공식 한국어판입니다');
-  const patchRow = list.locator('.tabulator-row', { hasText: 'J-K v20130609' });
+  const patchRow = list.locator('.ag-row', { hasText: 'J-K v20130609' });
   await patchRow.getByRole('button', { name: '추천 버전으로 정합니다' }).click();
   await expect(list).toContainText('관리자가 정했습니다');
   const listed = await (await request.get('/api/retro/games?system=md')).json();
   expect(listed.games.map((g: { variant: string }) => g.variant)).toEqual(['J-K v20130609']);
   await page.screenshot({ path: 'out/web/admin-retro-versions.png', fullPage: true });
-  await list.locator('.tabulator-row', { hasText: 'Japan, Korea' }).getByRole('button', { name: '추천 버전으로 정합니다' }).click();
+  await list.locator('.ag-row', { hasText: 'Japan, Korea' }).getByRole('button', { name: '추천 버전으로 정합니다' }).click();
   await expect(list).toContainText('공식 한국어판입니다');
 
   await page.locator('#retro-subtabs [data-sub="sets"]').click();
