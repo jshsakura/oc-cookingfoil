@@ -37,7 +37,7 @@ import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { readXciSecureEntries } from "./hfs0.js";
 import { listContents } from "./cnmt-parse.js";
 import { hashRange } from "./hash-range.js";
-import { resolveBinary, keysAvailable, findFirstRecursive, KEYS_PATH } from "./extract-providers/nsp.js";
+import { resolveBinary, keysAvailable, findFirstRecursive, keysFile } from "./extract-providers/nsp.js";
 import { lowPriorityPrefix } from "./nsz-runner.js";
 
 export const VERIFY_RE = /\.(nsp|nsz|xci|xcz)$/i;
@@ -209,5 +209,5 @@ export function createVerifier({
 async function defaultTools() {
   const bin = await resolveBinary();
   if (!bin || !(await keysAvailable())) return null;
-  return { bin, keys: KEYS_PATH };
+  return { bin, keys: keysFile() };
 }

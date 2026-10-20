@@ -10,7 +10,8 @@
  *
  * Provider runs ONLY when both of the following are true at startup:
  *   1. `COOK_NSTOOL_BIN` (or `nstool` in PATH) resolves to an executable.
- *   2. `COOK_PROD_KEYS_PATH` (default: `/keys/prod.keys`) exists.
+ *   2. prod.keys exists: an upload, or `COOK_PROD_KEYS_PATH` (security/prod-keys.js).
+ *      Both are checked on every call, so new keys apply without a restart.
  *
  * If either is missing, extract() returns null and `auto.js` falls back
  * to the stub — extracted-meta stays empty for these container types.
@@ -45,10 +46,10 @@ import {
 } from "../nacp-decode.js";
 import { findControlNcaId, readCnmtFacts } from "../cnmt-parse.js";
 import { envNumber, envString } from "../../helpers/env-read.js";
+import { keysFile } from "../../security/prod-keys.js";
 
 const NSP_RE = /\.(nsp|xci)$/i;
 const DEFAULT_TIMEOUT_MS = envNumber("COOK_EXTRACT_TIMEOUT_MS", 600_000, { min: 1000 });
-const KEYS_PATH = envString("COOK_PROD_KEYS_PATH", "/keys/prod.keys");
 
 // Detected once at module load. resolveBinary() returns null when both
 // `COOK_NSTOOL_BIN` is unset and no `nstool` lives in PATH.
@@ -85,7 +86,7 @@ async function resolveBinary() {
 
 async function keysAvailable() {
   try {
-    await fs.access(KEYS_PATH, fs.constants.R_OK);
+    await fs.access(keysFile(), fs.constants.R_OK);
     return true;
   } catch {
     return false;
@@ -180,7 +181,7 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   const cnmtName = cnmtNames.find((n) => /\.cnmt\.nca$/i.test(n));
   if (!cnmtName || !(await ensureNca(cnmtName))) return null;
   await fs.mkdir(cnmtDir, { recursive: true });
-  await runNstool(bin, ["-k", KEYS_PATH, "-x", cnmtDir, path.join(pfs0Dir, cnmtName)], { timeoutMs });
+  await runNstool(bin, ["-k", keysFile(), "-x", cnmtDir, path.join(pfs0Dir, cnmtName)], { timeoutMs });
   const cnmtFile = await findFirstRecursive(cnmtDir, (n) => /\.cnmt$/i.test(n));
   if (!cnmtFile) return null;
   const cnmtBuf = await fs.readFile(cnmtFile);
@@ -191,7 +192,7 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   const requiredSystemVersion = readCnmtFacts(cnmtBuf)?.requiredSystemVersion ?? null;
   if (!controlId || !(await ensureNca(`${controlId}.nca`))) return null;
   await fs.mkdir(ctrlDir, { recursive: true });
-  await runNstool(bin, ["-k", KEYS_PATH, "-x", ctrlDir, path.join(pfs0Dir, `${controlId}.nca`)], { timeoutMs });
+  await runNstool(bin, ["-k", keysFile(), "-x", ctrlDir, path.join(pfs0Dir, `${controlId}.nca`)], { timeoutMs });
   const nacpFile = await findFirstRecursive(ctrlDir, (n) => n.toLowerCase() === "control.nacp");
   if (!nacpFile) return null;
   const nacpBuf = await fs.readFile(nacpFile);
@@ -259,7 +260,7 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
     const pfs0Dir = path.join(tmpRoot, "pfs0");
     await fs.mkdir(pfs0Dir, { recursive: true });
     // XCI (or a PFS0 the slicer could not read): dump the container whole.
-    await runNstool(bin, ["-k", KEYS_PATH, "-x", pfs0Dir, absPath], { timeoutMs });
+    await runNstool(bin, ["-k", keysFile(), "-x", pfs0Dir, absPath], { timeoutMs });
     const ensureNca = async (name) => {
       try { await fs.access(path.join(pfs0Dir, name)); return true; } catch { return false; }
     };
@@ -285,8 +286,9 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
   }
 }
 
-/** Test seam: reset the cached binary lookup. */
-export function resetForTests() { cachedBinary = undefined; }
+/** Looks for nstool again on the next call (new keys may come with a new binary). */
+export function recheck() { cachedBinary = undefined; }
+export const resetForTests = recheck;
 
 /** Diagnostics surface for the future /api/admin/status endpoint. */
 export async function status() {
@@ -299,4 +301,4 @@ export async function status() {
 
 // Shared with the update display-version reader, which runs the same nstool
 // steps on single NCAs cut out of the container instead of a full dump.
-export { resolveBinary, keysAvailable, runNstool, findFirstRecursive, KEYS_PATH, DEFAULT_TIMEOUT_MS };
+export { resolveBinary, keysAvailable, runNstool, findFirstRecursive, keysFile, DEFAULT_TIMEOUT_MS };
