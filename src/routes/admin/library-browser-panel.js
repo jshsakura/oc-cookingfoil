@@ -45,6 +45,8 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-kinds button:not(:disabled):hover{box-shadow:none}
 #lib-files button:not(:disabled):active{transform:scale(.96)}
 #lib-files .lb-count{margin:0}
+#lib-files .lb-for{display:flex;gap:10px;align-items:center}#lib-files .lb-for>div{min-width:0}
+#lib-files .lb-gw{width:36px;height:36px;flex:none;border-radius:9px;overflow:hidden;background:var(--sunk);border:1px solid var(--line)}#lib-files .lb-gi{display:block;width:100%;height:100%;object-fit:cover}
 #lib-files .lb-list{min-height:120px}
 #lib-files .lb-list.lb-in{animation:lb-in .26s ease-out}
 @keyframes lb-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -111,7 +113,14 @@ function lbCols(kind){
   if(kind==='patch'||kind==='save')return ['파일','타이틀 ID','크기','수정한 날짜',''];
   if(kind==='homebrew')return ['파일','버전','크기','수정한 날짜',''];
   return ['파일','크기','수정한 날짜',''];}
-function lbRow(f,kind){const tr=el('tr');const n=td();n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));tr.append(n);
+// A patch or save leads with its game, icon and name, so the list says which game each one is for.
+function lbRow(f,kind){const tr=el('tr');const n=td();
+  if(kind==='patch'||kind==='save'){const row=el('div',null,'lb-for');const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';
+    ico.style.visibility='hidden';ico.onload=()=>{ico.style.visibility='';};
+    if(/^[0-9A-F]{16}$/i.test(f.titleId||''))ico.src='/api/shop/icon/'+f.titleId+'?size=sm';
+    const t=el('div');const pic=el('span',null,'lb-gw');pic.append(ico);t.append(el('b',f.game||'알 수 없는 게임'),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));row.append(pic,t);n.append(row);}
+  else{n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));}
+  tr.append(n);
   const game=kind==='base'||kind==='update'||kind==='dlc';
   if(game||kind==='patch'||kind==='save')tr.append(td(f.titleId||'-','mono lb-num'));
   if(game||kind==='homebrew')tr.append(td(f.version!=null?(game?'v'+f.version:String(f.version)):'-','lb-num'));

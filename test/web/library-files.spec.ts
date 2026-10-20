@@ -36,7 +36,10 @@ test('the library tab lists files by kind with counts, pages and a search inside
     await page.locator('#lb-tab-patch').click();
     await expect(page.locator('#lb-tab-patch')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#lb-list')).toContainText('게임 데이터');
-    await expect(page.locator('#lb-list')).not.toContainText('Test Game');
+    // Each patch leads with the game it is for; the game's own file is not listed here.
+    await expect(page.locator('#lb-list .lb-for', { hasText: '게임 데이터' }).locator('b')).toHaveText('Test Game');
+    await expect(page.locator('#lb-list')).not.toContainText('.nsp');
+    await page.locator('#lib-files').screenshot({ path: 'out/web/admin-library-patches.png' });
 
     await page.locator('#lb-tab-other').click();
     await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(25);
