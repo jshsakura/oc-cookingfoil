@@ -194,7 +194,7 @@ function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden)
   const prev=btn('이전',()=>{nzOffset=Math.max(0,nzOffset-NZ_LIMIT);loadNsz();});prev.disabled=page<=1;
   const next=btn('다음',()=>{nzOffset+=NZ_LIMIT;loadNsz();});next.disabled=page>=pages;
   p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
-const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],failed:['실패','off']};
+const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],failed:['실패','off'],restored:['되돌림','']}; // restored: lines written before 되돌리기 was dropped
 const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',cleared:'끝난 것 삭제로 지웠습니다.',missing:'파일이 이미 없었습니다.'};
 function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
   main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));

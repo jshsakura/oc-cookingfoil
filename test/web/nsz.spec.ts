@@ -125,5 +125,5 @@ test('two waiting rows run by themselves, a kept row says when its original goes
   await expect(log).toContainText('Kept Game');
   await expect(log).toContainText('-25%');
   // A line from the old 되돌리기 still renders, as its plain event name.
-  await expect(log.locator('.nz-row', { hasText: 'Old Game' })).toContainText('restored');
+  await expect(log.locator('.nz-row', { hasText: 'Old Game' })).toContainText('되돌림');
 });
