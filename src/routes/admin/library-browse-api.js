@@ -3,7 +3,7 @@
  *
  *   GET /admin/api/library/browse?kind=&q=&ext=&minSize=&maxSize=&modifiedSince=&integrity=
  *                                &sort=&order=&page=&perPage=&fields=&counts_only=
- *     { items: [{ name, kind, rel, size, mtime, ext, titleId, version, integrity }],
+ *     { items: [{ name, kind, rel, size, mtime, ext, titleId, game, version, integrity }],
  *       total, page, perPage, pages, sort, order, counts: { base, update, dlc, patch, save, homebrew, other } }
  *     counts_only=1 → { counts, total }
  *     "pending": true → the stray-file ("other") scan of a big folder has not finished its first pass; ask again shortly
@@ -14,8 +14,10 @@
  */
 import * as shopCache from "../../meta/shop-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
+import * as titledb from "../../meta/titledb-store.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService as homebrewService } from "../homebrew.js";
+import { installPathFor } from "../../meta/homebrew.js";
 import verifyQueue from "../../meta/verify-service.js";
 import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir } from "../../helpers/envs.js";
 import {
@@ -24,6 +26,24 @@ import {
 import debug from "../../debug.js";
 
 const OTHER_TTL_MS = 60_000;
+
+/**
+ * The name of the game a patch or save is for: titledb's Korean name first, then English,
+ * then the name the library's own base file gives it. A patch made for an update keeps its base id.
+ */
+export function gameNameOf(titleId, libraryNames = new Map()) {
+  const id = String(titleId ?? "").toUpperCase();
+  if (!/^[0-9A-F]{16}$/.test(id)) return null;
+  const base = id.slice(0, 13) + "000";
+  for (const tid of id === base ? [id] : [id, base]) {
+    const names = titledb.namesOf(tid);
+    const name = names?.ko || names?.en || titledb.get(tid)?.name || libraryNames.get(tid);
+    if (name) return name;
+  }
+  return null;
+}
+
+const libraryNames = () => new Map(shopCache.files().filter((f) => f.titleId && f.kind !== "update" && f.kind !== "dlc").map((f) => [String(f.titleId).toUpperCase(), f.name]));
 
 /** The server's own listings, each in the browser's item shape. */
 export function defaultSources({ verify = verifyQueue } = {}) {
@@ -37,23 +57,28 @@ export function defaultSources({ verify = verifyQueue } = {}) {
       return shopCache.files().map((f) => gameItem(f, verdictOf));
     },
     async patches() {
+      const names = libraryNames();
+      // A homebrew app's patch has no title id; its app's name says what it is for.
+      const apps = new Map((await homebrewService.list()).filter((e) => e.install_type !== "title")
+        .map((e) => [(e.install_path ?? installPathFor(e.file_name)).split("/")[1], e.name]));
       return (await userPatches.list()).map((p) => {
         const where = userPatches.locate(p.id);
         return item("patch", {
           name: p.name, rel: where ? `${where.dir}/${where.folder}` : null, size: p.size, mtime: p.updated_at,
-          titleId: p.title_id ?? null, version: p.version ?? null, id: p.id,
+          titleId: p.title_id ?? null, game: p.homebrew ? apps.get(p.homebrew) ?? p.homebrew : gameNameOf(p.title_id, names), version: p.version ?? null, id: p.id,
         });
       });
     },
     async saves() {
       if (!savesEnabled()) return [];
       const catalog = savesCatalog();
+      const names = libraryNames();
       const out = [];
       for (const s of await catalog.list()) {
         const where = await catalog.locate(s.id);
         out.push(item("save", {
           name: s.name, rel: where ? `${where.dir}/${where.folder}` : null, size: s.size, mtime: s.updatedAt,
-          titleId: s.titleId ?? null, version: s.gameVersion ?? null, id: s.id,
+          titleId: s.titleId ?? null, game: gameNameOf(s.titleId, names), version: s.gameVersion ?? null, id: s.id,
         }));
       }
       return out;

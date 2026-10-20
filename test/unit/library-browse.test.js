@@ -12,7 +12,7 @@ process.env.COOK_GAMES_DIR = path.join(root, "games");
 fs.mkdirSync(process.env.COOK_GAMES_DIR, { recursive: true });
 const express = (await import("express")).default;
 const lb = await import("../../src/meta/library-browse.js");
-const { mountLibraryBrowseApi } = await import("../../src/routes/admin/library-browse-api.js");
+const { mountLibraryBrowseApi, gameNameOf } = await import("../../src/routes/admin/library-browse-api.js");
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const games = [
@@ -26,14 +26,14 @@ const verdicts = { "B/Beta [0100000000020000][v0].xci": "damaged", "A/Alpha [010
 const gameItems = () => games.map((g) => lb.gameItem(g, (rel) => verdicts[rel] ?? null));
 const sample = () => [
   ...gameItems(),
-  lb.item("patch", { name: "한글패치", rel: "0100000000010000/한글패치", size: 20, mtime: 4000, titleId: "0100000000010000" }),
+  lb.item("patch", { name: "한글패치", rel: "0100000000010000/한글패치", size: 20, mtime: 4000, titleId: "0100000000010000", game: "Alpha" }),
   lb.item("save", { name: "All unlocked", rel: "0100000000010000/All unlocked", size: 1, mtime: 500, titleId: "0100000000010000" }),
   lb.item("other", { rel: "A/readme.txt", size: 2, mtime: 10 }),
 ];
 
 test("game files keep their kind, name, version and the file check", () => {
   const [alpha, update, beta, , nro] = gameItems();
-  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", version: 0, integrity: "modified", id: null, source: null, repo: null });
+  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", game: null, version: 0, integrity: "modified", id: null, source: null, repo: null });
   assert.equal(update.version, 65536);
   assert.equal(update.integrity, "unchecked");
   assert.equal(beta.integrity, "damaged");
@@ -63,6 +63,17 @@ test("search looks at name, path and title id, and the counts follow the search"
   assert.equal(r.counts.dlc, 0);
   assert.equal(lb.browse(sample(), lb.parseQuery({ q: "0100000000020000" })).total, 1);
   assert.equal(lb.browse(sample(), lb.parseQuery({ q: "한글", kind: "patch" })).total, 1);
+});
+
+test("a patch or save names its game, and searching by the game finds it", () => {
+  const r = lb.browse(sample(), lb.parseQuery({ q: "alpha", kind: "patch" }));
+  assert.deepEqual(r.items.map((i) => [i.name, i.game]), [["한글패치", "Alpha"]]);
+  // Without titledb the library's own base file names the game, an update's id included.
+  const names = new Map([["0100000000010000", "Alpha"]]);
+  assert.equal(gameNameOf("0100000000010000", names), "Alpha");
+  assert.equal(gameNameOf("0100000000010800", names), "Alpha");
+  assert.equal(gameNameOf("0100000000099000", names), null);
+  assert.equal(gameNameOf("not an id", names), null);
 });
 
 test("sorts by size and date either way, unknown values last", () => {
