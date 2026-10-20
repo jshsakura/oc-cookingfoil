@@ -475,6 +475,7 @@ async function readManualNsp(dir, folder, file, seen, held) {
     id: idFor("manual", folder),
     name: meta.name ?? folder,
     version: meta.version ?? file.match(/v(\d+(?:\.\d+)+)/i)?.[1] ?? null,
+    nacp_version: meta.version ?? null,
     author: meta.publisher ?? null,
     languages: meta.languages ?? null,
     required_firmware: meta.requiredFirmware ?? null,
@@ -575,6 +576,7 @@ async function readManual(root, folder, seen = null, held = null) {
     id: idFor("manual", folder),
     name: meta.name ?? folder,
     version: meta.version,
+    nacp_version: meta.version ?? null,
     author: meta.author,
     languages: meta.languages ?? null,
     size: st.size,
@@ -669,6 +671,7 @@ async function readManualZip(dir, folder, zipName, seen, held = null) {
     id,
     name: meta.name ?? folder,
     version: meta.version,
+    nacp_version: meta.version ?? null,
     author: meta.author,
     size: nroSt.size,
     hash,
@@ -1018,6 +1021,8 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         id,
         name: s.cached.name ?? repo.split("/")[1],
         version: fresh && s.cached.version ? s.cached.version : String(s.tag ?? "").replace(/^v/i, "") || null,
+        // The build's own NACP version, for a client to compare with the one it reads off the card; unknown until fetched.
+        nacp_version: fresh ? s.cached.version ?? null : null,
         author: s.cached.author,
         // A zipped build is served as the .nro inside it.
         size: /\.zip$/i.test(s.asset.name) ? s.cached.size ?? s.asset.size : s.asset.size,
