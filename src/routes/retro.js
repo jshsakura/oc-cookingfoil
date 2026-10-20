@@ -13,14 +13,19 @@
  *                       &variants=all                every file, as before versions were grouped (old clients, admin)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
  *   GET /api/retro/index?page=&pageSize=         { version, total, page, pageSize, games: [I…] }: every version of every listed
- *                                                game, ordered by id, 500 a page (the most), gzipped when asked, ETag/304 per
- *                                                page. version (16 hex) names the whole list: a page with another version
- *                                                means the list changed while paging, so start over. Same for every console.
- *       I = { id, group, representative?: true, system, name, names?, original?, variant?, region?, edition?,
- *             rom_hash?, rom_size? (left out when it equals size; null for a made-up .m3u), size, addedAt, rating?, ratingCount?,
- *             ownBezel?: true, icon? (the v of /api/retro/games/:id/icon?v=), verified?: true,
+ *                                                game, ordered by id, 500 a page (the most), gzipped when asked, ETag/304.
+ *                                                version (16 hex) names the whole list: a page with another one means the
+ *                                                list changed while paging, so start over (src/retro/list-index.js).
+ *   GET /api/retro/index?since=<version>         { version, since, changed: [I…], removed: [id…] }: only what changed since
+ *                                                a version this server still remembers; else { version, reset: true },
+ *                                                and the client pages again. since = version gives empty lists.
+ *       I = { id ("<system>-<10 hex>", so the system is the part before the last "-"), group? (the same 10 hex for
+ *             versions of one game; absent for a game with one version), representative?: true (the version a
+ *             group shows), name, names?, original?, variant?, region?, edition?, rom_hash?,
+ *             rom_size? (left out when it equals size; null for a made-up .m3u), size, addedAt (s), rating?,
+ *             ratingCount?, ownBezel?: true, icon? (the v of /api/retro/games/:id/icon?v=), verified?: true,
  *             votes? { up, down } (only when any), achievements? (how many) }
- *             A missing field is its default: no hash, not the representative, no votes and so on.
+ *             A missing field is its default. Same for every console: no my_vote, no download URL.
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
@@ -123,6 +128,7 @@ import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import * as retroAchievements from "../retro/achievements/sync.js";
 import * as romHashes from "../retro/rom-hash.js";
+import { createIndexCache, delta } from "../retro/list-index.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
@@ -382,15 +388,16 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
 }
 
 /**
- * Every version of every listed game for /index, ordered by id: the keys a
- * client merging servers matches on and what a list card draws, nothing more.
- * A field at its default is left out (see the route's notes). No my_vote and no
- * download URL, so a page is the same for every console.
+ * Every version of every listed game for /index: the keys a client merging
+ * servers matches on and what a list card draws, nothing more. A field at its
+ * default is left out, and so is what the id already says (its system). No
+ * my_vote and no download URL, so the list is the same for every console.
  */
 function indexGames(cat, lang) {
   const out = [];
   for (const rep of listedGames(cat)) {
     const group = groupOf(cat, rep);
+    const shared = group.members.length > 1;
     const ra = achievementSummary(metaCandidates(rep, rep, group)).achievements;
     for (const g of group.members) {
       const { name, names, original, variant, edition, region } = titleOf(g, lang);
@@ -398,9 +405,9 @@ function indexGames(cat, lang) {
       const votes = itemVotes.tally("retro", g.id);
       out.push({
         id: g.id,
-        group: group.id,
-        ...(g === rep ? { representative: true } : {}),
-        system: g.system,
+        // Only versions of one game carry their group, as the part after "<system>~".
+        ...(shared ? { group: group.id.slice(group.id.indexOf("~") + 1) } : {}),
+        ...(shared && g === rep ? { representative: true } : {}),
         name,
         ...(names ? { names } : {}),
         ...(original ? { original } : {}),
@@ -421,42 +428,36 @@ function indexGames(cat, lang) {
       });
     }
   }
-  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return out;
 }
 
-const INDEX_PAGE_DEFAULT = 500;
 const INDEX_PAGE_MAX = 500;
-// The list is built at most once per INDEX_FRESH_MS per language, and again at
-// once after a rescan; votes, checks and hashes that land between show up after it.
-const INDEX_FRESH_MS = 3000;
-const indexCache = new Map(); // lang → { cat, at, games, version, pages: Map }
+const GZIP_MIN = 1024;
+// Built at most once per 3 s per language and at once after a rescan; votes,
+// checks and hashes that land between show up after it.
+const retroIndex = createIndexCache(indexGames);
 
-function indexOf(cat, lang, now = Date.now()) {
-  const hit = indexCache.get(lang);
-  if (hit && hit.cat === cat && now - hit.at < INDEX_FRESH_MS) return hit;
-  const games = indexGames(cat, lang);
-  const version = crypto.createHash("sha1").update(JSON.stringify(games)).digest("hex").slice(0, 16);
-  // Unchanged: keep the pages (and their gzip) already made.
-  const entry = hit?.version === version ? { ...hit, cat, at: now } : { cat, at: now, games, version, pages: new Map() };
-  indexCache.set(lang, entry);
-  return entry;
+/** A JSON body with its ETag, and its gzip once asked for. */
+const jsonReply = (body) => ({ body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, gz: null });
+
+/** One page of the index; the full-size pages within the list are kept per version. */
+function indexPage(entry, page, pageSize) {
+  const { games, version } = entry.snap;
+  const keep = pageSize === INDEX_PAGE_MAX && (page - 1) * pageSize < Math.max(1, games.length);
+  const kept = keep ? entry.pages.get(page) : null;
+  if (kept) return kept;
+  const made = jsonReply(JSON.stringify({ version, total: games.length, page, pageSize, games: games.slice((page - 1) * pageSize, page * pageSize) }));
+  if (keep) entry.pages.set(page, made);
+  return made;
 }
 
-/** One page of the index as { body, etag, gz }; the default size's pages within the list are kept per version. */
-function indexPage(index, page, pageSize) {
-  const keep = pageSize === INDEX_PAGE_DEFAULT && (page - 1) * pageSize < Math.max(1, index.games.length);
-  const kept = keep ? index.pages.get(page) : null;
-  if (kept) return kept;
-  const body = JSON.stringify({
-    version: index.version,
-    total: index.games.length,
-    page,
-    pageSize,
-    games: index.games.slice((page - 1) * pageSize, page * pageSize),
-  });
-  const made = { body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, gz: null };
-  if (keep) index.pages.set(page, made);
-  return made;
+/** What changed since `since`, or reset when that version is gone or too much changed to send at once. */
+function indexDelta(entry, lang, since) {
+  const { version } = entry.snap;
+  const older = retroIndex.hashesOf(lang, since);
+  const changes = older ? delta(older, entry.snap) : null;
+  if (!changes || changes.changed.length > INDEX_PAGE_MAX) return jsonReply(JSON.stringify({ version, reset: true }));
+  return jsonReply(JSON.stringify({ version, since, changed: changes.changed, removed: changes.removed }));
 }
 
 /** Every file of one game's bundle, SD-relative. */
@@ -601,10 +602,12 @@ export default function retroRouter() {
   }));
 
   router.get("/index", wrap(async (req, res) => {
-    const index = indexOf(await catalog.current(retroDir), requestLang(req));
-    const pageSize = Math.min(INDEX_PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || INDEX_PAGE_DEFAULT));
+    const lang = requestLang(req);
+    const entry = retroIndex.get(await catalog.current(retroDir), lang);
+    const since = typeof req.query.since === "string" ? req.query.since : "";
+    const pageSize = Math.min(INDEX_PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || INDEX_PAGE_MAX));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
-    const out = indexPage(index, page, pageSize);
+    const out = since ? indexDelta(entry, lang, since) : indexPage(entry, page, pageSize);
     res.set({
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "private, max-age=0, must-revalidate",
@@ -612,7 +615,8 @@ export default function retroRouter() {
       ETag: out.etag,
     });
     if (req.fresh) return res.status(304).end();
-    if (!req.acceptsEncodings("gzip")) return res.send(out.body);
+    // A small change list goes as it is; gzip would only add to it.
+    if (out.body.length < GZIP_MIN || !req.acceptsEncodings("gzip")) return res.send(out.body);
     out.gz ??= zlib.gzipSync(out.body);
     res.set("Content-Encoding", "gzip").send(out.gz);
   }));
