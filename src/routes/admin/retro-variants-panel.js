@@ -8,7 +8,7 @@
 export const RETRO_VARIANTS_HTML = `
   <div class="hd"><h2 class="first" id="rv-title">같은 게임의 여러 버전</h2></div>
   <p class="muted" id="rv-help"></p>
-  <div class="row-actions" id="rv-tools"><input id="rv-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"><label id="rv-broken-wrap" hidden><input type="checkbox" id="rv-broken"> 못 도는 세트만</label></div>
+  <div class="row-actions" id="rv-tools"><input id="rv-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"><label id="rv-broken-wrap" hidden><input type="checkbox" id="rv-broken"> 구동 불가 세트만 보기</label></div>
   <p class="muted" id="rv-summary"></p>
   <div class="scroll" id="rv-list"></div>`;
 
@@ -47,7 +47,7 @@ function rvHead(text,sub,cols){const tr=el('tr','', 'rv-head');const c=el('td');
 function rvMemberRow(g,m,withSize){const tr=el('tr');
   const n=td();n.append(m.name);n.append(el('div',m.file,'muted'));
   const acts=el('div',null,'row-actions');
-  const pick=btn(m.representative?'추천 버전입니다':'추천 버전으로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;
+  const pick=btn(m.representative?'추천 버전입니다':'추천 버전으로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;pick.classList.toggle('picked',m.representative);
   const trash=btn('휴지통으로 옮깁니다',()=>rvTrash(m),'danger');
   acts.append(pick,trash);
   tr.append(n,td(m.variant||'—'),raCell(rvTags(m)),td(rvEdition(m)));
@@ -73,7 +73,7 @@ function rvShow(){
     const only=$('rv-broken').checked;
     const groups=d.groups.filter((g)=>rvMatch(g,q)&&(!only||g.members.some((m)=>m.missing)));
     const rows=groups.flatMap((g)=>[rvHead(g.members[0].name,(g.listed?'':'목록에 나오지 않습니다. ')+g.reason,5),...g.members.map((m)=>rvMemberRow(g,m,false))]);
-    table('rv-list',['이름','버전','태그','지역',''],rows,only?'못 도는 세트가 없습니다.':'아케이드 세트가 없습니다.');
+    table('rv-list',['이름','버전','태그','지역',''],rows,only?'구동할 수 없는 세트가 없습니다.':'아케이드 세트가 없습니다.');
     return;}
   const d=rvData.dups;if(!d){$('rv-list').replaceChildren();return;}
   const groups=d.groups.filter((g)=>rvMatch(g,q));

@@ -6,15 +6,16 @@
  * versions block (retro-variants-panel.js: duplicates, arcade sets, trash),
  * one shown at a time.
  */
+import { icon } from "../../views/icons.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs" id="retro-subtabs" role="tablist" aria-label="레트로">
-    <button type="button" role="tab" data-sub="art">표지·베젤</button>
-    <button type="button" role="tab" data-sub="ratings">평점</button>
-    <button type="button" role="tab" data-sub="dups">중복 버전</button>
-    <button type="button" role="tab" data-sub="sets">아케이드 세트</button>
-    <button type="button" role="tab" data-sub="trash">휴지통</button>
+    <button type="button" role="tab" data-sub="art">${icon("image")}표지·베젤</button>
+    <button type="button" role="tab" data-sub="ratings">${icon("star")}평점</button>
+    <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
+    <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
+    <button type="button" role="tab" data-sub="trash">${icon("trash")}휴지통</button>
   </nav>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 다운로드</button></div>

@@ -131,6 +131,21 @@ form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transpare
 /* On a wide screen the buttons sit side by side and the column is as wide as they are. */
 @media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}:is(td,.gc)>.row-actions{flex-wrap:nowrap}}
 button.ib svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* The recommended version: a small star, filled on the one already picked. */
+button.ib.picked{color:var(--accent);opacity:1}button.ib.picked svg{fill:currentColor}
+/* Registered GitHub repositories as cards: facts in the middle, the buttons in the footer. */
+.src-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:12px;margin:0 0 20px}
+.src-card{display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.src-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
+.src-head a{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-ver{flex:none;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.src-desc{margin:0;color:var(--muted);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.src-facts{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:0}
+.src-facts dt{font-size:11.5px;color:var(--muted);margin-bottom:3px}.src-facts dd{margin:0;font-size:13px;min-width:0}
+.src-facts select{width:100%}
+.src-state{display:grid;gap:6px;font-size:12.5px}
+.src-foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.src-foot select{width:auto}.src-foot .danger{margin-left:auto}
 @media (min-width:641px){:is(td,.gc) button.ib{width:36px;height:36px;padding:0;position:relative}
   :is(td,.gc) button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 :is(td,.gc) .pills{display:flex;flex-wrap:wrap;gap:6px}
