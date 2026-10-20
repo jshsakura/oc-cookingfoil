@@ -307,16 +307,19 @@ async function loadDevices(){
   const approved=[...(d.approved||[])].sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
   const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
   const devRows=(slice)=>{const rows=[];let group=null;
-  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=5;h.append(c);rows.push(h);}
+  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=6;h.append(c);rows.push(h);}
     const tr=el('tr');
     const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
     tr.append(td(a.label||'—'),seen,td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
+    // An admin device may change item settings from the console; off by default.
+    const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||'기기')+' 관리자 기기');
+    b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||'이 기기'));w.append(b,el('span'));adm.append(w);tr.append(adm);
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);rows.push(tr);}
   return rows;};
-  pagedTable('devices',['이름','마지막 접속','승인한 날','기기 키',''],approved,devRows,'승인된 기기가 없습니다.',{label:'승인된 기기',placeholder:'이름이나 계정으로 찾기',slice:true,
+  pagedTable('devices',['이름','마지막 접속','승인한 날','기기 키','관리자 기기',''],approved,devRows,'승인된 기기가 없습니다.',{label:'승인된 기기',placeholder:'이름이나 계정으로 찾기',slice:true,
     match:(a,q)=>(a.label+' '+whose(a)+' '+a.deviceKey).toLowerCase().includes(q)});
   const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
   const clientRow=(c)=>{const tr=el('tr');
@@ -346,6 +349,8 @@ async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급�
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 접속할 수 없습니다.'))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
+async function setDeviceAdmin(deviceKey,admin,name){
+  try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?name+' 에서 항목 설정을 바꿀 수 있습니다.':name+' 은(는) 다시 읽기만 합니다.');loadDevices();}catch(err){toast(err.message);loadDevices();}}
 async function renameDevice(deviceKey,label){const next=await askText('이 기기의 이름을 정합니다',label||'');if(next===null)return;
   try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast('이름을 변경했습니다.');loadDevices();}catch(err){toast(err.message);}}
 

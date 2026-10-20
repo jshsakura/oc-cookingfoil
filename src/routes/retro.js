@@ -95,6 +95,7 @@ import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
 import { groupVisible, representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
+import * as itemVerified from "../meta/item-verified.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
@@ -319,6 +320,8 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...(edition ? { edition } : {}),
     ...(g.rating !== undefined ? { rating: g.rating } : {}),
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
+    // Tried on a console by the admin (a 검수됨 badge): verified, verified_at (ISO) or null.
+    ...itemVerified.fields("retro", g.id),
     ...(group ? { group: group.id, variants: group.members.length } : {}),
     // Lists mark the games with achievements; matchedBy says whether this ROM earns them.
     ...(group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {}),

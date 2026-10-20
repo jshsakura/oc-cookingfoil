@@ -23,6 +23,7 @@ import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
 import inboxRouter from "./routes/inbox.js";
+import adminItemsRouter from "./routes/admin-items.js";
 import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
@@ -263,6 +264,9 @@ expressApp.use(["/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/pat
 // Uploads and artwork change what everyone sees: admin accounts only (the upload list too).
 // The sign-in cookie rides along on a sibling site's POST (SameSite=Lax), so another site's Origin is refused first.
 expressApp.use("/api/uploads", sameOriginWrites(), adminOnly({ reads: true }), uploadsRouter());
+// Item settings changed from an admin device (a console the admin allowed); everyone else gets 403.
+// Not behind adminOnly: console lanes are exactly what it serves.
+expressApp.use("/api/admin/items", sameOriginWrites(), adminItemsRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).

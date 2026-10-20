@@ -15,6 +15,9 @@
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own
  *
+ * verified, cores, kind and enabled go through meta/item-fields.js, as an admin
+ * device's changes do, so each change is written to the history (admin-edits.jsonl).
+ *
  * status = { id, repo, pattern, tag, released_at, checked_at, assets, chosen, cached, error,
  *            description: { custom: { en, ko } | null, github } }
  */
@@ -23,16 +26,17 @@ import * as kinds from "../../meta/homebrew-kinds.js";
 import * as cores from "../../meta/homebrew-cores.js";
 import * as verified from "../../meta/homebrew-verified.js";
 import * as descriptions from "../../meta/homebrew-descriptions.js";
-import * as disabled from "../../meta/homebrew-disabled.js";
 import { RECOMMENDED } from "../../meta/homebrew-recommended.js";
-import { githubTracker, manualApps, sourcesChanged, refreshManual, rebuildHomebrewShortcut, totalSize } from "../homebrew.js";
+import { githubTracker, manualApps, sourcesChanged, refreshManual, totalSize } from "../homebrew.js";
 import { adoptFolders } from "../../meta/homebrew.js";
 import { homebrewDir } from "../../helpers/envs.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
+import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
 
 const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
 const statuses = () => githubTracker().status().map(withDescription);
+const DASHBOARD = { via: "dashboard", device: null, deviceName: null };
 const statusOf = (repo) => statuses().find((s) => s.repo.toLowerCase() === repo.toLowerCase()) ?? null;
 
 export function mountHomebrewApi(router, requireSession) {
@@ -42,6 +46,8 @@ export function mountHomebrewApi(router, requireSession) {
     try {
       await handler(req, res);
     } catch (err) {
+      // An installable title has no shortcut, so no cores to set: 400 from item-fields.
+      if (err instanceof FieldError) return res.status(err.status).json({ error: err.message });
       if (!(err instanceof sources.SourceError)) {
         debug.error("admin: homebrew change failed: %s", err.message);
         return res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
@@ -112,10 +118,11 @@ export function mountHomebrewApi(router, requireSession) {
   router.post("/api/homebrew/cores", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    if (!cores.set(id, Number(req.body?.cores))) return res.status(400).json({ error: "코어 수는 3 이나 4 입니다" });
+    const want = Number(req.body?.cores);
+    if (!cores.CORES.includes(want)) return res.status(400).json({ error: "코어 수는 3 이나 4 입니다" });
+    // item-fields builds the shortcut again at once, so the list carries the new shortcut's address.
+    await setField("homebrew", id, "cores", String(want), DASHBOARD);
     debug.log("admin: homebrew %s shortcut cores %d", id, cores.coresOf(id));
-    // Built now, not on the next download: the list then carries the new shortcut's address.
-    rebuildHomebrewShortcut(id);
     res.json({ ok: true, cores: cores.coresOf(id) });
   }));
 
@@ -123,7 +130,7 @@ export function mountHomebrewApi(router, requireSession) {
     const id = String(req.body?.id ?? "");
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
     if (typeof req.body?.verified !== "boolean") return res.status(400).json({ error: "verified 는 true 나 false 입니다" });
-    verified.set(id, req.body.verified);
+    await setField("homebrew", id, "verified", req.body.verified, DASHBOARD);
     debug.log("admin: homebrew %s %s", id, req.body.verified ? "verified" : "no longer verified");
     res.json({ ok: true, ...verified.fields(id) });
   }));
@@ -131,7 +138,8 @@ export function mountHomebrewApi(router, requireSession) {
   router.post("/api/homebrew/kind", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    if (!kinds.set(id, String(req.body?.kind ?? ""))) return res.status(400).json({ error: "tool 이나 port 여야 합니다" });
+    if (!kinds.KINDS.includes(String(req.body?.kind ?? ""))) return res.status(400).json({ error: "tool 이나 port 여야 합니다" });
+    await setField("homebrew", id, "kind", String(req.body.kind), DASHBOARD);
     res.json({ ok: true, kind: kinds.kindOf(id) });
   }));
 
@@ -139,7 +147,7 @@ export function mountHomebrewApi(router, requireSession) {
     const id = String(req.body?.id ?? "");
     if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: "enabled 는 true 나 false 입니다" });
     if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    disabled.setEnabled(id, req.body.enabled);
+    await setField("homebrew", id, "enabled", req.body.enabled, DASHBOARD);
     debug.log("admin: homebrew %s %s", id, req.body.enabled ? "on" : "off");
     res.json({ ok: true, enabled: req.body.enabled });
   }));

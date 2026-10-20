@@ -32,7 +32,7 @@ const state = {
   lockouts: new Map(), // ip → { lockedAt, until, reason }
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
   // Consoles keep only what approval needs: no IP, no last-seen time, no client version.
-  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash }
+  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, admin? }
   pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, message? } (when it asked, to order and trim the queue; its note)
   // SHA-256 of the pairSecret a console sent with its request. Kept apart from
   // `pending` because approval drops the pending row, and the secret must
@@ -107,8 +107,9 @@ function scheduleFlush() {
 
 // Earlier versions also kept each console's IP, last-seen time and client
 // version; dropping them here clears them from disk at the next save.
-const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null } = {}) =>
-  ({ label, addedAt, addedBy, accessKeyHash });
+// `admin` (an admin device, see device-admin.js) is kept only while it is on.
+const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null, admin = false } = {}) =>
+  ({ label, addedAt, addedBy, accessKeyHash, ...(admin === true ? { admin: true } : {}) });
 const DOWNLOAD_STATES = new Set(["waiting", "used", "expired", "revoked"]);
 const pendingDownloadRecord = (d) =>
   d && typeof d.owner === "string" && d.owner && DOWNLOAD_STATES.has(d.state)
@@ -310,12 +311,14 @@ export function getDeviceAccessKeyHash(deviceKey) {
 export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
   const now = Date.now();
   const prev = state.devices.get(deviceKey);
-  state.devices.set(deviceKey, {
+  // A new key for the same console keeps it an admin device.
+  state.devices.set(deviceKey, deviceRecord({
     label: label ?? prev?.label ?? "",
     addedAt: prev?.addedAt ?? now,
     addedBy: addedBy ?? prev?.addedBy ?? null,
     accessKeyHash,
-  });
+    admin: prev?.admin,
+  }));
   dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
   scheduleFlush();
@@ -341,7 +344,8 @@ export function deviceAddedBy(deviceKey) {
  * The same console under a new device key (a client that now makes its key
  * from the console): its approval, name and access key move from `from` to
  * `to`, and `from` is gone. When `to` was approved meanwhile, its own record
- * stays and only takes the old name if it has none of its own.
+ * stays and only takes the old name if it has none of its own (and keeps its
+ * own admin-device flag: the flag moves only with a record that moves whole).
  * @returns {boolean} whether there was anything to move
  */
 export function rebindDevice(from, to) {
@@ -528,6 +532,21 @@ export function touchDevice(deviceKey, now = Date.now()) {
   if (now - (lastSeen.get(deviceKey) ?? 0) >= SEEN_GRAIN_MS) lastSeen.set(deviceKey, now);
 }
 
+/** Whether an approved console is an admin device: one that may change item settings (device-admin.js). */
+export function isDeviceAdmin(deviceKey) {
+  return state.devices.get(deviceKey)?.admin === true;
+}
+
+/** Make an approved console an admin device or not. @returns {boolean} whether it exists */
+export function setDeviceAdmin(deviceKey, on) {
+  const d = state.devices.get(deviceKey);
+  if (!d) return false;
+  state.devices.set(deviceKey, deviceRecord({ ...d, admin: on === true }));
+  appendAudit({ kind: on === true ? "device-admin-on" : "device-admin-off", deviceKey, at: Date.now() });
+  scheduleFlush();
+  return true;
+}
+
 /** Rename an approved console. @returns {boolean} whether it exists */
 export function renameDevice(deviceKey, label) {
   const d = state.devices.get(deviceKey);
@@ -540,7 +559,7 @@ export function renameDevice(deviceKey, label) {
 export function devicesSnapshot() {
   return {
     approved: Array.from(state.devices.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
+      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, admin: v.admin === true, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
       .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), ...(v.name ? { name: v.name } : {}),

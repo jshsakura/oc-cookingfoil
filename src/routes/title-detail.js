@@ -31,6 +31,7 @@ import { eshopPrice } from "../meta/eshop-price.js";
 import * as titledbVersions from "../meta/titledb-versions.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
+import * as itemVerified from "../meta/item-verified.js";
 import { forRequest } from "../security/download-links.js";
 import { withPatchDirect } from "./patches.js";
 import * as shopCache from "../meta/shop-cache.js";
@@ -172,5 +173,7 @@ export default async function titleDetailRoute(req, res) {
     patches: userPatches.forTitle(base).map((p) => withPatchDirect(p, link)),
     // Files of this title the file check found modified or damaged (see integrityFor).
     integrity: integrityFor(base),
+    // Tried on a console by the admin (a 검수됨 badge): verified, verified_at (ISO) or null.
+    ...itemVerified.fields("game", base),
   });
 }
