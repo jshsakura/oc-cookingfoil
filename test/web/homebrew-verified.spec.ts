@@ -38,9 +38,15 @@ test('the shop edit panel turns 검수됨 on, and the list shows the badge', asy
   await page.locator('#xmodal .arted form button[type=submit]').first().click();
   await expect.poll(async () => (await (await page.request.get('/admin/api/homebrew/apps')).json()).apps
     .find((a: { name: string }) => a.name === 'Hand App')?.verified).toBe(true);
+  // No reload: back on the detail, its pills and the list behind it show the badge at once.
+  await page.locator('#xmodal .modal-gear').click();
+  await expect(page.locator('#xm-pills .pill.verified')).toHaveText('검수됨');
   await page.keyboard.press('Escape');
-  await page.reload();
-  await expect(page.locator('#tools-list .xrow', { hasText: 'Hand App' }).locator('.pill.verified')).toHaveText('검수됨');
+  const badge = page.locator('#tools-list .xrow', { hasText: 'Hand App' }).locator('.pill.verified');
+  await expect(badge).toHaveText('검수됨');
+  // The badge sits on the name's line, centred with it.
+  const [nb, bb] = await Promise.all([page.locator('#tools-list .xrow', { hasText: 'Hand App' }).locator('.xname-text').boundingBox(), badge.boundingBox()]);
+  expect(Math.abs((nb!.y + nb!.height / 2) - (bb!.y + bb!.height / 2))).toBeLessThan(1.5);
   // Back off, so other specs see the app as they left it.
   await page.request.post('/admin/api/homebrew/verified', { data: { id: (await (await page.request.get('/admin/api/homebrew/apps')).json()).apps
     .find((a: { name: string }) => a.name === 'Hand App').id, verified: false }, headers: { Origin: new URL(page.url()).origin } });

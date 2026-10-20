@@ -256,7 +256,9 @@
       .xrow .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
       .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
       .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
-      .xname .pill.verified { vertical-align: 2px; margin-left: 4px; }
+      .xrow .xname:has(.pill.verified) { display: flex; align-items: center; gap: 8px; }
+      .xrow .xname .xname-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      .xrow .xname .pill.verified { flex: none; }
       /* Its switch in the edit panel turns green with it. */
       .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
       .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -4441,7 +4443,7 @@
           ],
           async save(v) {
             await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind, verified: v.verified });
-            changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo });
+            changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo, verified: v.verified });
           },
           reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
         });
@@ -4551,6 +4553,11 @@
               window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
               if (info.title) $("xm-title").textContent = info.title;
               if (info.desc !== undefined) $("xm-desc").textContent = info.desc || t("modal.noDesc");
+              // The 검수됨 pill leads the detail's pills, as the list shows it.
+              if (info.verified !== undefined) {
+                $("xm-pills").querySelector(".pill.verified")?.remove();
+                if (info.verified) $("xm-pills").prepend(node("span", "pill verified", t("hb.verified")));
+              }
             },
           } : null);
           $("xm-title").textContent = title || "—";
@@ -4968,7 +4975,12 @@
         let apps = null;
         let loadFailed = false;
         // An app's pictures changed: the list is read again the next time it is needed.
-        addEventListener("cf-art-changed", (e) => { if (e.detail?.kind === "homebrew") apps = null; });
+        // What it says changed (pictures, kind, 검수됨): the list is read again, and the one on screen redrawn.
+        addEventListener("cf-art-changed", (e) => {
+          if (e.detail?.kind !== "homebrew") return;
+          apps = null;
+          if (current === "tools" || current === "ports") open(current);
+        });
         let counts = { patches: new Map(), saves: new Map() };
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         async function load() {
@@ -5030,9 +5042,11 @@
           if (a.icon_url) img.src = a.icon_url;
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
           const info = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
+          const name = document.createElement("div"); name.className = "xname";
+          const label = document.createElement("span"); label.className = "xname-text"; label.textContent = a.name || a.app;
+          name.append(label);
           // Tried on a console by the admin.
-          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(" ", v); }
+          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(v); }
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;
