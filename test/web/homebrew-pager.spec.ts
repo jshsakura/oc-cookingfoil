@@ -1,10 +1,11 @@
+import fs from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 
 const apps = Array.from({ length: 60 }, (_, i) => ({
   id: `app-${i}`, app: `app${i}`, name: `Sample App ${String(i).padStart(2, '0')}`, version: '1.0', source: 'manual',
-  enabled: true, kind: 'tool', install_type: 'nro', size: 1048576, patches: [], saves: [], banner_url: null, screenshots: [],
+  enabled: true, kind: 'tool', install_type: 'nro', size: 1048576, patches: i === 0 ? [{ id: 'p0', name: 'Korean text', size: 2048, verified: true }] : [], saves: [], banner_url: null, screenshots: [],
 }));
 const recommended = Array.from({ length: 30 }, (_, i) => ({
   repo: `example/tool-${i}`, added: i === 0, purpose: { ko: `도구 ${i}`, en: `Tool ${i}` },
@@ -20,6 +21,9 @@ test('homebrew app cards and recommended cards page and search', async ({ page }
   // Apps are cards, 24 to a page, with the list's own pager and search.
   const rows = page.locator('#hb-apps .src-card');
   await expect(rows).toHaveCount(24);
+  fs.mkdirSync('out/web', { recursive: true });
+  await rows.nth(0).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'out/web/admin-homebrew-cards.png' });
   await expect(page.locator('#hb-apps-bar .pg-info')).toContainText('1-24 / 60개');
   await page.locator('#hb-apps-bar').getByRole('button', { name: '3 쪽' }).click();
   await expect(rows).toHaveCount(12);
