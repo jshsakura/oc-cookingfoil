@@ -18,7 +18,7 @@ import { box } from "./boxes.js";
 
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="hd"><h2 class="first">NSZ 변환</h2>
-    <div class="actions"><button type="button" id="nz-scan">라이브러리 검사</button><button type="button" id="nz-all">전체 변환</button><button type="button" class="primary" id="nz-toggle" disabled>시작</button></div></div>
+    <div class="actions"><button type="button" id="nz-scan">라이브러리 검사</button><button type="button" class="primary" id="nz-toggle" disabled>시작</button></div></div>
   <p class="muted">게임 폴더의 .nsp 를 .nsz 로 압축하고 검증한 뒤 원본을 교체합니다. 콘솔이 다운로드하는 동안에는 새 파일을 시작하지 않고, 다운로드가 30초 동안 없으면 이어서 합니다.</p>
   <div class="nz-head">
     <div class="nz-state"><span class="pill nz-sk" id="nz-state">불러오고 있습니다</span><span class="muted" id="nz-note"></span></div>
@@ -182,7 +182,6 @@ function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   if(d.only&&d.status==='running')note='선택한 '+num(d.only)+'개만 변환합니다. '+note;
   if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
-  $('nz-all').disabled=d.status==='off';
   const t=d.totals,doneN=t.done+t.failed+t.skipped,all=doneN+t.waiting+t.busy+t.running;
   nzTabCount=nzFilter==='waiting'?t.waiting+t.busy:nzFilter==='failed'?t.failed+t.skipped:0;nzOff=d.status==='off';nzSelUpdate();
   $('nz-overall').style.width=all?Math.round(doneN/all*100)+'%':'0';
@@ -247,10 +246,6 @@ document.addEventListener('visibilitychange',()=>{if(nzVisible())loadNsz();});
 $('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').textContent==='일시정지';
   nzAct('/admin/api/nsz/'+(on?'pause':'start'),{method:'POST',body:{}},on?'일시정지했습니다. 진행 중이던 파일은 대기로 돌아갑니다.':'변환을 시작했습니다.');});
 $('nz-scan').addEventListener('click',()=>nzAct('/admin/api/nsz/scan',{method:'POST',body:{}},(d)=>d.added?d.added+'개('+nzSize(d.bytes)+')를 대기열에 넣었습니다.':'새로 넣을 파일이 없습니다.'));
-$('nz-all').addEventListener('click',async()=>{let p;try{p=await api('/admin/api/nsz/preview');}catch(err){toast(err.message);return;}
-  if(!p.files){toast('변환할 파일이 없습니다.');return;}
-  if(!await ask('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 다운로드하는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
-  nzAct('/admin/api/nsz/convert-all',{method:'POST',body:{}},'전체 변환을 시작했습니다.');});
 $('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 삭제했습니다.':'삭제할 것이 없습니다.'));
 $('nz-pick-all').addEventListener('change',()=>{const on=$('nz-pick-all').checked;
   for(const c of $('nz-list').querySelectorAll('.nz-lead input')){c.checked=on;const id=c.closest('.nz-row').dataset.id;if(on)nzSel.add(id);else nzSel.delete(id);}nzSelUpdate();});
