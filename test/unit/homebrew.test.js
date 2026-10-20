@@ -658,3 +658,25 @@ test("a data file overwritten in place at the same size with its mtime put back 
   assert.notEqual(b.hash, a.hash);
   assert.notEqual(b.files.find((f) => f.path.endsWith("splash.bmp")).sha256, a.files.find((f) => f.path.endsWith("splash.bmp")).sha256);
 });
+
+test("nacp_version is the NRO's own display version, never a release tag", async () => {
+  const gh = fakeGitHub("example/tagged");
+  // The tag says more than the build: a client comparing it with the card's NACP would see an update forever.
+  gh.publish("v2.1.0-beta", fakeNro("Tagged", "2.1.0"));
+  let now = 0;
+  const tracker = createTracker({ repos: ["example/tagged"], stateDir: tmp("hb-gh-"), fetchImpl: gh.fetchImpl, now: () => now });
+  await tracker.checkAll();
+  assert.equal(tracker.entries()[0].nacp_version, "2.1.0");
+
+  // A newer release not fetched yet: its tag is shown, but no NACP version is claimed for it.
+  gh.publish("v2.2.0", fakeNro("Tagged", "2.2.0"));
+  now += CHECK_INTERVAL_MS;
+  await tracker.checkAll();
+  assert.equal(tracker.entries()[0].version, "2.2.0");
+  assert.equal(tracker.entries()[0].nacp_version, null);
+
+  const root = tmp("hb-nacp-");
+  fs.mkdirSync(path.join(root, "tool"));
+  fs.writeFileSync(path.join(root, "tool", "tool.nro"), fakeNro("Tool", "1.4.0 (r7)", "Maker"));
+  assert.equal((await scanManual(root))[0].nacp_version, "1.4.0 (r7)");
+});

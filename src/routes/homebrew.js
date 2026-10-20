@@ -16,7 +16,8 @@
  *                                  banner_url is null when it has none
  * GET /api/homebrew/:id/screenshot/:n?v=   one of its screenshots (WebP), as listed in `screenshots`
  *
- * H = { id, name, version, author, description, size, hash, file_name, icon_url,
+ * H = { id, name, version (shown; a release tag until its build is fetched), nacp_version (the NRO's own
+ *       NACP display version as the console reads it off the card, or null), author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
  *       install_path, install_dir, files, bundle_url, archive,
  *       forwarder_url, forwarder_title_id, forwarder_size, forwarder_key (changes with
