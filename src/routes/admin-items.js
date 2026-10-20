@@ -8,13 +8,14 @@
  *   GET   /api/admin/items/:kind/:id/fields                  { fields: [F…] }
  *   PATCH /api/admin/items/:kind/:id/fields  { key, value }   { fields: [F…] } after the change
  *
- * kind  homebrew (id "m-…" | "gh-…"), retro (a retro game id), game (a base title id, 16 hex)
+ * kind  homebrew (id "m-…" | "gh-…"), retro (a retro game id), game (a base title id, 16 hex),
+ *       patch (an id from /api/patches), save (an id from /api/saves)
  * F     { key, type: "toggle", label: { ko, en, ja, zh }, value: true }
  *     | { key, type: "choice", label: { ko, en, ja, zh }, value: "tool",
  *         options: [{ value: "tool", label: { ko, en, ja, zh } }, …] }
  *
  * Fields: homebrew verified, enabled, kind ("tool" | "port"), cores ("3" | "4",
- * not on an installable title); retro and game verified.
+ * not on an installable title); retro, game, patch and save verified.
  *
  *   PATCH /api/admin/items/homebrew/m-0123456789ab/fields  {"key":"verified","value":true}
  *   → 200 {"fields":[{"key":"verified","type":"toggle","label":{"ko":"검수됨",…},"value":true}, …]}

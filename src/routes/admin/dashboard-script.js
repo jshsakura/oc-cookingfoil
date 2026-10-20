@@ -445,6 +445,9 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
   $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
   const extraCell=(type,app,items)=>{const c=td();
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
+      line.append(verifyPill(it.name,it.verified,async(next)=>{
+        try{await api('/admin/api/content/'+type+'/verified',{method:'POST',body:{id:it.id,verified:next}});toast(next?it.name+' 에 검수됨 배지를 붙였습니다.':it.name+' 의 검수됨 배지를 뗐습니다.');}
+        catch(err){toast(err.message);}loadHbApps();}));
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
@@ -519,12 +522,14 @@ async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
   catch(err){toast(err.message);loadHbApps();}}
-// A pill, not a second switch beside 켜기: green with a shield once someone tried the app on a console.
-function hbVerify(a){const name=a.name||a.app;const b=el('button',null,'hb-verify');b.type='button';
-  b.setAttribute('aria-pressed',String(Boolean(a.verified)));b.setAttribute('aria-label',name+' 검수됨');
-  b.title=a.verified?'눌러서 검수됨 배지를 뗍니다':'기기에서 돌려 봤으면 눌러서 검수됨 배지를 붙입니다';
-  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg>';b.append(el('span',a.verified?'검수됨':'검수 전'));
-  b.addEventListener('click',()=>{b.disabled=true;setHbVerified(a.id,!a.verified,name);});return b;}
+// A pill, not a second switch beside 켜기: green with a shield once someone tried the item on a console.
+// Patch and save rows use it too; onClick gets the value to set.
+function verifyPill(name,on,onClick){const b=el('button',null,'hb-verify');b.type='button';
+  b.setAttribute('aria-pressed',String(Boolean(on)));b.setAttribute('aria-label',name+' 검수됨');
+  b.title=on?'눌러서 검수됨 배지를 뗍니다':'기기에서 돌려 봤으면 눌러서 검수됨 배지를 붙입니다';
+  b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg>';b.append(el('span',on?'검수됨':'검수 전'));
+  b.addEventListener('click',()=>{b.disabled=true;onClick(!on);});return b;}
+function hbVerify(a){const name=a.name||a.app;return verifyPill(name,a.verified,(next)=>setHbVerified(a.id,next,name));}
 async function setHbVerified(id,verified,name){
   try{await api('/admin/api/homebrew/verified',{method:'POST',body:{id,verified}});toast(verified?name+' 에 검수됨 배지를 붙였습니다.':name+' 의 검수됨 배지를 뗐습니다.');loadHbApps();}
   catch(err){toast(err.message);loadHbApps();}}

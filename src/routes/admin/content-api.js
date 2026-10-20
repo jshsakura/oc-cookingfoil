@@ -1,17 +1,19 @@
 /**
  * Game patches and saves after they are uploaded, from the library tab:
  *
- *   GET  /admin/api/saves                     { saves: [{ id, titleId, game, name, ko, description, gameVersion, saveType, source, size, files }] }
+ *   GET  /admin/api/saves                     { saves: [{ id, titleId, game, name, ko, description, gameVersion, saveType, source, size, files, verified }] }
  *   POST /admin/api/content/:kind/meta        { id, name, nameKo, description, descriptionKo, version, author, gameVersion, saveType, sourceName, sourceUrl }
  *   POST /admin/api/content/:kind/move        { id, titleId }  to another game; a patch's own paths follow it
  *   POST /admin/api/content/:kind/remove      { id }           delete it from disk
+ *   POST /admin/api/content/:kind/verified    { id, verified } the 검수됨 badge on or off, kept in the edit history
  *
  * :kind is patch or save. A game's own patches and saves are handled here;
  * a homebrew app's patch has its information edited here too (from the
  * homebrew tab), while moving and deleting it are on that tab. A patch's
  * information goes into the server's patch store (meta/patch-info.js), which
  * a move carries to the new game and a delete forgets; a save's meta.json is
- * rewritten with the fields given.
+ * rewritten with the fields given. Moving or deleting one forgets its 검수됨
+ * mark: the id it was kept under is gone.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -25,6 +27,8 @@ import { savesCatalog, savesEnabled } from "../saves.js";
 import { inside } from "./homebrew-apps-api.js";
 import { libraryGames } from "./upload-api.js";
 import { editedInfo } from "./patches-api.js";
+import * as itemVerified from "../../meta/item-verified.js";
+import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
 
 const BASE_RE = /^[0-9A-F]{16}$/;
@@ -126,7 +130,7 @@ export function mountContentApi(router, requireSession) {
     try {
       await fn(req, res);
     } catch (err) {
-      if (err instanceof ContentError) return res.status(err.status).json({ error: err.message });
+      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.message });
       debug.error("admin: content: %s", err.message);
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
     }
@@ -152,7 +156,8 @@ export function mountContentApi(router, requireSession) {
     const names = new Map(games.map((g) => [g.titleId, g.name]));
     res.json({
       saves: saves.filter((s) => s.titleId).map(({ id, titleId, name, ko, description, gameVersion, saveType, source, size, files }) =>
-        ({ id, titleId, game: names.get(titleId) ?? null, name, ko, description, gameVersion, saveType: saveType ?? null, source, size, files })),
+        ({ id, titleId, game: names.get(titleId) ?? null, name, ko, description, gameVersion, saveType: saveType ?? null, source, size, files,
+          verified: itemVerified.verifiedAt("save", id) !== null })),
     });
   }));
 
@@ -207,6 +212,7 @@ export function mountContentApi(router, requireSession) {
     await fsp.rmdir(path.dirname(dir)).catch(() => {}); // the old game's folder, when it is left empty
     // Before the rescan, so an old patch.json that travelled along is not imported over the edits.
     if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
+    itemVerified.set(kind, String(req.body.id), false);
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
     res.json({ ok: true });
@@ -218,8 +224,19 @@ export function mountContentApi(router, requireSession) {
     await fsp.rm(dir, { recursive: true, force: true });
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
     if (kind === "patch") patchInfo.remove(patchInfo.keyOf(titleId, folder));
+    itemVerified.set(kind, String(req.body.id), false);
     await refreshed(kind);
     debug.log("admin: %s %s/%s removed", kind, titleId, folder);
     res.json({ ok: true });
+  }));
+
+  router.post("/api/content/:kind/verified", handle(async (req, res) => {
+    const { kind } = req.params;
+    if (kind !== "patch" && kind !== "save") throw new ContentError(404, "patch 나 save 여야 합니다");
+    if (typeof req.body?.verified !== "boolean") throw new ContentError(400, "verified 는 true 나 false 입니다");
+    const id = String(req.body?.id ?? "");
+    await setField(kind, id, "verified", req.body.verified, { via: "dashboard", device: null, deviceName: null });
+    debug.log("admin: %s %s %s", kind, id, req.body.verified ? "verified" : "no longer verified");
+    res.json({ ok: true, verified: req.body.verified });
   }));
 }

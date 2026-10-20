@@ -36,7 +36,7 @@
  *   POST     /api/art/:baseTitleId/meta/reset   back to titledb's for all three
  *   GET|POST /api/art/homebrew/:id/meta    { description: { en, ko }, kind: "tool" | "port", verified: true | false (the 검수됨 badge) }
  *   POST     /api/art/homebrew/:id/meta/reset   back to the repository's description
- *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required }
+ *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required, verified }
  *
  * Uploaded bytes are re-encoded by custom-art (sharp: resize cap + mozjpeg +
  * metadata strip), so a bad/huge image is rejected here rather than served.
@@ -65,6 +65,7 @@ import * as titledbStore from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as homebrewKinds from "../meta/homebrew-kinds.js";
 import * as homebrewVerified from "../meta/homebrew-verified.js";
+import * as itemVerified from "../meta/item-verified.js";
 import * as homebrewDescriptions from "../meta/homebrew-descriptions.js";
 import { patchMeta } from "./admin/content-api.js";
 import { withRequired } from "./admin/patches-api.js";
@@ -160,7 +161,8 @@ export default function artRouter() {
     const info = userPatches.infoOf(id) ?? {};
     return { name: info.name ?? "", nameKo: info.ko?.name ?? "", version: info.version ?? "", author: info.author ?? "",
       gameVersion: info.game_version ?? "", description: info.description ?? "", descriptionKo: info.ko?.description ?? "",
-      required: info.required === true, homebrew: Boolean(userPatches.locate(id)?.dir.startsWith("homebrew/")) };
+      required: info.required === true, homebrew: Boolean(userPatches.locate(id)?.dir.startsWith("homebrew/")),
+      verified: itemVerified.verifiedAt("patch", id) !== null };
   };
   const homebrewFacts = (id) => ({ description: homebrewDescriptions.get(id) ?? null, kind: homebrewKinds.kindOf(id), verified: homebrewVerified.verifiedAt(id) !== null });
   const metaRoute = (fn) => itemRoute(async (req, res, it) => {
@@ -188,10 +190,12 @@ export default function artRouter() {
     }
     const where = userPatches.locate(id);
     if (!where?.key) return void res.status(404).json({ error: "no such item" });
+    if (body.verified !== undefined && typeof body.verified !== "boolean") return badRequest(res, "verified is true or false");
     let next = patchMeta(userPatches.infoOf(id), body);
     // A homebrew app's patch is never required: only a game waits on one.
     if (typeof body.required === "boolean" && !where.dir.startsWith("homebrew/")) next = withRequired(next, body.required);
     patchInfo.set(where.key, next);
+    if (typeof body.verified === "boolean") itemVerified.set("patch", id, body.verified);
     if (typeof body.required === "boolean") invalidate();
     debug.log("art: patch %s facts saved", where.key);
     res.json(patchFacts(id));

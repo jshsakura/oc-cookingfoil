@@ -1,15 +1,17 @@
 /**
- * Which retro games and library games the admin has tried on a console, shown
- * as a 검수됨 badge like homebrew-verified.js does for homebrew. Kept in
+ * Which retro games, library games, patches and saves the admin has tried on a
+ * console, shown as a 검수됨 badge like homebrew-verified.js does for homebrew. Kept in
  * ${COOK_DATA_DIR}/verified-items.json as { "<kind>:<id>": <ms since epoch> };
  * an item not in it is not verified. Callers check that the item exists.
+ * A patch's or save's id carries its game's title id: moving one to another
+ * game or deleting it forgets the mark (routes/admin/content-api.js).
  */
 import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
 
 const FILE = path.join(dataDir, "verified-items.json");
-export const KINDS = ["retro", "game"];
+export const KINDS = ["retro", "game", "patch", "save"];
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 let saved = null;

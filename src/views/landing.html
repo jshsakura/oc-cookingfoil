@@ -253,12 +253,13 @@
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
       /* Tried on a console by the admin: a green pill with a shield. */
-      .xrow .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .xrow .pill.verified, .xitem .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
       .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
       .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
-      .xrow .xname:has(.pill.verified) { display: flex; align-items: center; gap: 8px; }
+      .xrow .xname:has(.pill.verified), .xitem .xname:has(.pill.verified) { display: flex; align-items: center; gap: 8px; }
       .xrow .xname .xname-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-      .xrow .xname .pill.verified { flex: none; }
+      .xrow .xname .pill.verified, .xitem .xname .pill.verified { flex: none; }
+      .xitem .pill.verified { padding: 2px 9px 2px 7px; border-radius: 100px; border: 1px solid; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
       /* Its switch in the edit panel turns green with it. */
       .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
       .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -4493,10 +4494,11 @@
             ...(d.homebrew ? [] : [{ name: "gameVersion", label: t("edit.gameVersion"), value: d.gameVersion, wide: true }]),
             { name: "descs", pair: true, label: t("edit.desc"), value: { ko: d.descriptionKo, en: d.description }, area: true, wide: true },
             ...(d.homebrew ? [] : [{ name: "required", label: t("edit.required"), note: t("edit.requiredNote"), value: d.required, check: true }]),
+            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
           ],
           async save({ names, descs, ...v }) {
             const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, { ...v, name: names.en, nameKo: names.ko, description: descs.en, descriptionKo: descs.ko });
-            changed({ title: lang === "ko" ? next.nameKo || next.name : next.name });
+            changed({ title: lang === "ko" ? next.nameKo || next.name : next.name, verified: next.verified });
           },
         });
       }
@@ -4589,6 +4591,7 @@
               if (info.verified !== undefined) {
                 $("xm-pills").querySelector(".pill.verified")?.remove();
                 if (info.verified) $("xm-pills").prepend(node("span", "pill verified", t("hb.verified")));
+                $("xm-pills").hidden = !$("xm-pills").children.length;
               }
             },
           } : null);
@@ -4708,10 +4711,18 @@
         const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         const updateLabel = (it) => `v${it.update_version}` + (it.game_version ? ` (${it.game_version})` : "");
+        // The name, with the 검수됨 pill beside it once the admin tried it on a console (as a homebrew row shows it).
+        function xnameOf(it) {
+          const name = document.createElement("div"); name.className = "xname";
+          const label = document.createElement("span"); label.className = "xname-text"; label.textContent = it.name;
+          name.append(label);
+          if (it.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(v); }
+          return name;
+        }
         function itemRow(kind, it) {
           const row = document.createElement("div"); row.className = "xitem";
           const head = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const name = xnameOf(it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text) => { const p = document.createElement("span"); p.className = "pill"; p.textContent = text; return p; };
           for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
@@ -4757,7 +4768,8 @@
             art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it) } : null,
             title: it.name,
             sub: gameName(it),
-            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
+            pills: [...(it.verified ? [[t("hb.verified"), "verified"]] : []), ...(it.required === true ? [[t("xm.required"), "need"]] : []),
+              ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
             meta: [
               [t("xm.size"), fmtBytes(it.size)],
               [t("xm.files"), it.files],
@@ -4779,7 +4791,7 @@
         function listRow(kind, it) {
           const row = document.createElement("button"); row.type = "button"; row.className = "xrow";
           const head = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const name = xnameOf(it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text, cls) => { const p = document.createElement("span"); p.className = "pill" + (cls ? " " + cls : ""); p.textContent = text; return p; };
           if (it.required === true) meta.append(pill(t("xm.required"), "need"));

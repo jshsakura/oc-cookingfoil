@@ -11,6 +11,8 @@
  *                                  so a client can label patches for games it doesn't list.
  *                                  For a client that asked for the direct address, each P
  *                                  carries url: its download there (security/download-links.js).
+ *                                  Each P carries verified (the admin tried it on a console) and
+ *                                  verified_at (ISO, or null).
  * GET /api/patches/:id/download    one patch as an uncompressed ustar archive
  * GET /api/patches/:id/icon|banner|screenshot/:n?v=   its pictures (meta/patch-media.js): each P carries
  *                                  icon_url (its own, or null for its game's), banner_url and screenshots
@@ -29,6 +31,7 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import patchMedia from "../meta/patch-media.js";
+import * as verified from "../meta/item-verified.js";
 import { mountPictures, sendPicture } from "../helpers/send-picture.js";
 
 export { tarEntries, gameOf };
@@ -49,7 +52,7 @@ async function listRoute(req, res) {
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
       const { custom_icon_url: iconUrl, ...pictures } = patchMedia.urls(p.id);
-      const own = { ...withPatchDirect(userPatches.localizePatch(p, lang), link), icon_url: iconUrl, ...pictures };
+      const own = { ...withPatchDirect(userPatches.localizePatch(p, lang), link), icon_url: iconUrl, ...pictures, ...verified.fields("patch", p.id) };
       return game ? { ...own, game } : own;
     }),
     ...(listing.scanning ? { scanning: true } : {}),

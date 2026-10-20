@@ -12,6 +12,8 @@
  *             verified, enabled, kind (tool | port), cores ("3" | "4", not for an installable title)
  *   retro     a game id of the retro catalog: verified
  *   game      a base title id (16 hex) in the library: verified
+ *   patch     a patch id as /api/patches lists it ("<title id>-<12 hex>" | "hb-<12 hex>-<12 hex>"): verified
+ *   save      a save id as /api/saves lists it, same shapes: verified
  */
 import fs from "fs";
 import { retroDir } from "../helpers/envs.js";
@@ -23,7 +25,9 @@ import * as itemVerified from "./item-verified.js";
 import * as edits from "./admin-edits.js";
 import * as shopCache from "./shop-cache.js";
 import * as retroCatalog from "../retro/catalog.js";
+import * as userPatches from "./user-patches.js";
 import { githubTracker, manualApps, rebuildHomebrewShortcut } from "../routes/homebrew.js";
+import { savesCatalog, savesEnabled } from "../routes/saves.js";
 
 /** A refusal with the HTTP status it answers with (404 no such kind or item, 400 bad key or value). */
 export class FieldError extends Error {
@@ -82,10 +86,20 @@ async function findGame(raw) {
   return shopCache.relPathsForBase(id).length ? { id } : null;
 }
 
+async function findPatch(id) {
+  return (await userPatches.list()).some((p) => p.id === id) ? { id } : null;
+}
+
+async function findSave(id) {
+  return savesEnabled() && (await savesCatalog().locate(id)) ? { id } : null;
+}
+
 const ITEMS = {
   homebrew: { find: findHomebrew, fields: HOMEBREW },
   retro: { find: findRetro, fields: [verifiedItem("retro")] },
   game: { find: findGame, fields: [verifiedItem("game")] },
+  patch: { find: findPatch, fields: [verifiedItem("patch")] },
+  save: { find: findSave, fields: [verifiedItem("save")] },
 };
 
 async function itemOf(kind, id) {
