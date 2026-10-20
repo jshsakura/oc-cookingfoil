@@ -54,6 +54,7 @@ import { trackTransfers } from "./helpers/transfer-track.js";
 import * as directHealth from "./security/direct-health.js";
 import { tokenHeader as downloadTokenHeader } from "./security/download-links.js";
 import busyGuard from "./security/busy-guard.js";
+import jsonCompression from "./helpers/json-compression.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard, { ignoreBasic } from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
@@ -123,6 +124,8 @@ expressApp.use(defensiveHeaders());
 // Safe restart: while the server drains, new requests get 503 + Retry-After and
 // running ones finish (security/drain.js). First, so nothing below starts new work.
 expressApp.use(drainer.middleware());
+// JSON replies over 1 KB go gzipped to a client that accepts it; files never are.
+expressApp.use(jsonCompression());
 // The direct address carries downloads only: the health page below is mounted
 // ahead of the token lane, so a request from that address's proxy never sees it.
 expressApp.use("/healthz", (req, res, next) => (looksProxied(req) ? res.status(404).end() : next()));
