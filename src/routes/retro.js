@@ -12,6 +12,15 @@
  *                       total counts what the filters left)
  *                       &variants=all                every file, as before versions were grouped (old clients, admin)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
+ *   GET /api/retro/index?page=&pageSize=         { version, total, page, pageSize, games: [I…] }: every version of every listed
+ *                                                game, ordered by id, 500 a page (the most), gzipped when asked, ETag/304 per
+ *                                                page. version (16 hex) names the whole list: a page with another version
+ *                                                means the list changed while paging, so start over. Same for every console.
+ *       I = { id, group, representative?: true, system, name, names?, original?, variant?, region?, edition?,
+ *             rom_hash?, rom_size? (left out when it equals size; null for a made-up .m3u), size, addedAt, rating?, ratingCount?,
+ *             ownBezel?: true, icon? (the v of /api/retro/games/:id/icon?v=), verified?: true,
+ *             votes? { up, down } (only when any), achievements? (how many) }
+ *             A missing field is its default: no hash, not the representative, no votes and so on.
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
@@ -84,6 +93,8 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
+import crypto from "crypto";
+import zlib from "zlib";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
@@ -308,7 +319,8 @@ function bezelFields(g, paths, base, link) {
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
 // `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
-function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
+/** How a game is titled in `lang`: name, names, original, and its tags as variant, edition and region. */
+function titleOf(g, lang) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
   const own = retroNames.get(g.id);
@@ -319,7 +331,12 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
   // The tags as flags: Korean or not, release or patch, patch version.
   const edition = g.edition ?? editionOf(variant);
   const region = g.region ?? (edition ? "kr" : regionOf(variant));
-  if (lean) return { name: localized ?? withoutTags(g.name), variant, edition, region };
+  return { name: localized ?? withoutTags(g.name), names, original, variant, edition, region };
+}
+
+function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
+  const { name, names, original, variant, edition, region } = titleOf(g, lang);
+  if (lean) return { name, variant, edition, region };
   const system = systems[g.system];
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
@@ -327,7 +344,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
-    name: localized ?? withoutTags(g.name),
+    name,
     ...(variant ? { variant } : {}),
     ...(original ? { original } : {}),
     // Arcade sets: the title in each language ({ en, ko, ja?, zh? }) and the
@@ -362,6 +379,84 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
       ...(g.bezel ? { bezelPng: paths.bezelPng, overlayCfg: paths.overlayCfg, gameCfg: paths.gameCfg } : {}),
     },
   };
+}
+
+/**
+ * Every version of every listed game for /index, ordered by id: the keys a
+ * client merging servers matches on and what a list card draws, nothing more.
+ * A field at its default is left out (see the route's notes). No my_vote and no
+ * download URL, so a page is the same for every console.
+ */
+function indexGames(cat, lang) {
+  const out = [];
+  for (const rep of listedGames(cat)) {
+    const group = groupOf(cat, rep);
+    const ra = achievementSummary(metaCandidates(rep, rep, group)).achievements;
+    for (const g of group.members) {
+      const { name, names, original, variant, edition, region } = titleOf(g, lang);
+      const { rom_hash: romHash, rom_size: romSize } = romFields(g);
+      const votes = itemVotes.tally("retro", g.id);
+      out.push({
+        id: g.id,
+        group: group.id,
+        ...(g === rep ? { representative: true } : {}),
+        system: g.system,
+        name,
+        ...(names ? { names } : {}),
+        ...(original ? { original } : {}),
+        ...(variant ? { variant } : {}),
+        ...(region ? { region } : {}),
+        ...(edition ? { edition } : {}),
+        ...(romHash ? { rom_hash: romHash } : {}),
+        ...(romSize !== null && romSize !== g.size ? { rom_size: romSize } : {}),
+        size: g.size,
+        addedAt: g.addedAt,
+        ...(g.rating !== undefined ? { rating: g.rating } : {}),
+        ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
+        ...(bezelKind(g) === "game" ? { ownBezel: true } : {}),
+        ...(g.icon ? { icon: artKey(g) } : {}),
+        ...(itemVerified.fields("retro", g.id).verified ? { verified: true } : {}),
+        ...(votes.up || votes.down ? { votes } : {}),
+        ...(ra ? { achievements: ra.count } : {}),
+      });
+    }
+  }
+  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+const INDEX_PAGE_DEFAULT = 500;
+const INDEX_PAGE_MAX = 500;
+// The list is built at most once per INDEX_FRESH_MS per language, and again at
+// once after a rescan; votes, checks and hashes that land between show up after it.
+const INDEX_FRESH_MS = 3000;
+const indexCache = new Map(); // lang → { cat, at, games, version, pages: Map }
+
+function indexOf(cat, lang, now = Date.now()) {
+  const hit = indexCache.get(lang);
+  if (hit && hit.cat === cat && now - hit.at < INDEX_FRESH_MS) return hit;
+  const games = indexGames(cat, lang);
+  const version = crypto.createHash("sha1").update(JSON.stringify(games)).digest("hex").slice(0, 16);
+  // Unchanged: keep the pages (and their gzip) already made.
+  const entry = hit?.version === version ? { ...hit, cat, at: now } : { cat, at: now, games, version, pages: new Map() };
+  indexCache.set(lang, entry);
+  return entry;
+}
+
+/** One page of the index as { body, etag, gz }; the default size's pages within the list are kept per version. */
+function indexPage(index, page, pageSize) {
+  const keep = pageSize === INDEX_PAGE_DEFAULT && (page - 1) * pageSize < Math.max(1, index.games.length);
+  const kept = keep ? index.pages.get(page) : null;
+  if (kept) return kept;
+  const body = JSON.stringify({
+    version: index.version,
+    total: index.games.length,
+    page,
+    pageSize,
+    games: index.games.slice((page - 1) * pageSize, page * pageSize),
+  });
+  const made = { body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, gz: null };
+  if (keep) index.pages.set(page, made);
+  return made;
 }
 
 /** Every file of one game's bundle, SD-relative. */
@@ -503,6 +598,23 @@ export default function retroRouter() {
       pageSize,
       games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link, voter })),
     });
+  }));
+
+  router.get("/index", wrap(async (req, res) => {
+    const index = indexOf(await catalog.current(retroDir), requestLang(req));
+    const pageSize = Math.min(INDEX_PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || INDEX_PAGE_DEFAULT));
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const out = indexPage(index, page, pageSize);
+    res.set({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "private, max-age=0, must-revalidate",
+      Vary: "Accept-Language, Accept-Encoding",
+      ETag: out.etag,
+    });
+    if (req.fresh) return res.status(304).end();
+    if (!req.acceptsEncodings("gzip")) return res.send(out.body);
+    out.gz ??= zlib.gzipSync(out.body);
+    res.set("Content-Encoding", "gzip").send(out.gz);
   }));
 
   // Everything below names one game; an unknown or malformed id is a 404.

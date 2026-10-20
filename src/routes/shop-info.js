@@ -19,6 +19,10 @@
  * `keys-upload` and `keys: { present }` go to an admin device only, too: it may
  * hand the server prod.keys through /api/admin/keys (routes/admin-keys.js).
  * Nobody else learns whether the server has keys.
+ *
+ * `server_id` is this installation's UUID (security/server-id.js): the same on
+ * every address the server answers on, so a client merging several servers
+ * sees two addresses of one server as one.
  */
 import fs from "fs";
 import pkg from "../package.js";
@@ -33,6 +37,7 @@ import { savesEnabled } from "./saves.js";
 import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
 import * as prodKeys from "../security/prod-keys.js";
+import { serverId } from "../security/server-id.js";
 
 export const API_VERSION = 1;
 
@@ -59,6 +64,7 @@ const FEATURES = [
   "item-icons",           // base item.icons { ko?, en?, ja?, zh? } and ?lang= on icon/banner; detail iconUrl/bannerUrl follow ?lang=
   "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
   "active-downloads", // X-CookingFoil-Active-Downloads: consoles downloading now, the caller included
+  "server-id",            // info.server_id, fixed per installation
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
@@ -81,6 +87,7 @@ export default async function shopInfoRoute(req, res) {
     name: "CookingFoil",
     version: pkg.version,
     apiVersion: API_VERSION,
+    server_id: serverId(),
     // dropbox-sync: /api/dropbox speaks oc-save-keeper's bridge protocol (sign-in only; saves go straight to Dropbox).
     // device-rebind: POST /api/pair/rebind moves a console to a new device key.
     // session-token: GET /api/session trades the access key for a token the console sends instead.
@@ -94,7 +101,8 @@ export default async function shopInfoRoute(req, res) {
       ...(devicePairing ? ["device-pairing", "device-rebind", "enroll"] : []),
       ...(integrations.get("dropbox").appKey ? ["dropbox-sync"] : []),
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
-      ...(retro ? ["retro"] : []),
+      // retro-index: GET /api/retro/index lists every game unsorted and light, for a client merging servers.
+      ...(retro ? ["retro", "retro-index"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
       ...(savesEnabled() ? ["shop-saves"] : []),
       // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.

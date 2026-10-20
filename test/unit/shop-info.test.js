@@ -33,6 +33,8 @@ test("shop info lists the optional fields a client may rely on", () => {
   }
   assert.ok(!info.features.includes("device-pairing"), "pairing is only listed when it is switched on");
   assert.deepEqual(info.contentMeta, { read: 0, pending: 0 });
+  assert.match(info.server_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, "an id for this installation");
+  assert.ok(info.features.includes("server-id"));
 });
 
 test("shop info lists admin-edit only to a console the admin flagged", () => {
