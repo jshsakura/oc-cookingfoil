@@ -41,13 +41,19 @@ test('a file that passed or was not checked shows nothing', async ({ page }) => 
 });
 
 test('the library tab shows the file check counts and its full hash button', async ({ page }) => {
+  // Whether a file is still waiting when the page asks depends on timing, so the waiting state is set here;
+  // the counts and the list are the server's own.
+  await page.route('**/admin/api/library/verify', async (route) => {
+    const res = await route.fetch();
+    route.fulfill({ response: res, json: { ...(await res.json()), status: 'tool', pending: 1 } });
+  });
   await signIn(page);
-  await page.getByRole('link', { name: '라이브러리' }).click();
+  await page.getByRole('link', { name: '게임', exact: true }).click();
   await page.getByRole('tab', { name: '검사' }).click();
   await expect(page.getByRole('heading', { name: '파일 검사' })).toBeVisible();
   await expect(page.locator('#lv-cards .card')).toHaveCount(4);
   await expect(page.locator('#lv-list')).toContainText('수정되거나 손상된 파일이 없습니다.');
-  // No nstool on the test server: the check says so instead of running.
+  // No nstool: the check says so instead of running.
   await expect(page.locator('#lv-state')).toContainText('nstool 이나 키가 없어');
   await expect(page.getByRole('button', { name: '전체 해시 검사' })).toBeVisible();
 });

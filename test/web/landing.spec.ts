@@ -864,3 +864,26 @@ test('the preview banner turns with a sideways swipe, and a swipe does not open 
   await page.mouse.up();
   await expect.poll(on).toBe(before);
 });
+
+test('on a phone the list pager fits one line under its count', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const items = Array.from({ length: 400 }, (_, i) => {
+    const tid = `0100${String(i).padStart(8, '0')}0000`;
+    return { url: `../G${i}%20%5B${tid}%5D%5Bv0%5D.nsp`, name: `Game ${i}`, size: 1e9, app_type: 'base', added_at: 1000 - i, title_id: tid, base_title_id: tid, app_version: 0, languages: ['ko'] };
+  });
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/#all');
+  const buttons = page.locator('#pager .pager-btn');
+  await expect(buttons.first()).toBeVisible();
+  await page.locator('#pager .pager-btn.next').click();
+  await page.locator('#pager .pager-btn.next').click();
+  await expect(page.locator('#pager .pager-btn.current')).toHaveText('3');
+  const tops = await buttons.evaluateAll((bs) => [...new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top)))]);
+  expect(tops).toHaveLength(1);
+  const over = await page.locator('#pager').evaluate((p) => p.scrollWidth - p.clientWidth);
+  expect(over).toBeLessThanOrEqual(0);
+  await expect(page.locator('#pager .pager-btn.next')).toHaveAttribute('aria-label', '다음');
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#pager').screenshot({ path: 'out/web/pager-phone.png' });
+});

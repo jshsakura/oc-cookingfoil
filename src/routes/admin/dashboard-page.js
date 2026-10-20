@@ -60,6 +60,14 @@ nav.tabs::-webkit-scrollbar{display:none}
 @media (min-width:1061px){nav.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible}nav.tabs a{flex-direction:column;gap:4px;padding:8px 2px;font-size:12.5px}}
 nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
+/* The second row: the pages inside the chosen menu, the current one filled like the console's sidebar. */
+.group-tabs{display:flex;gap:6px;margin:-4px 0 22px;overflow-x:auto;scrollbar-width:none}.group-tabs::-webkit-scrollbar{display:none}
+.group-tabs[hidden]{display:none}
+.group-tabs a{flex:none;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;color:var(--muted);font-weight:700;font-size:13.5px;text-decoration:none;position:relative}
+.group-tabs a svg{width:16px;height:16px}
+.group-tabs a:hover{color:var(--text);background:var(--sunk)}
+.group-tabs a[aria-current="page"]{background:var(--text);color:var(--panel)}
+.group-tabs a[hidden]{display:none}
 nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
 .count[hidden]{display:none}
 .count{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:100px;font-size:11px;background:rgba(var(--bad-rgb),.18);color:var(--bad)}
@@ -304,19 +312,27 @@ ${POLISH_CSS}</style></head><body>
 </header>
 
 <nav class="tabs" aria-label="서버 관리 메뉴">
-  <a href="#overview" data-tab="overview">${icon("dashboard")}개요</a>
-  <a href="#users" data-tab="users">${icon("users")}사용자<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
-  <a href="#settings" data-tab="settings">${icon("sliders")}설정</a>
-  <a href="#alerts" data-tab="alerts">${icon("bell")}알림</a>
-  <a href="#logs" data-tab="logs">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
-  <a href="#featured" data-tab="featured">${icon("star")}추천</a>
-  <a href="#library" data-tab="library">${icon("folder")}라이브러리</a>
-  <a href="#nsz" data-tab="nsz">${icon("shrink")}변환</a>
-  <a href="#upload" data-tab="upload">${icon("upload")}업로드</a>
-  <a href="#inbox" data-tab="inbox">${icon("inbox")}임시 공유<span class="count" id="inbox-count" hidden></span></a>
-  <a href="#homebrew" data-tab="homebrew">${icon("package")}홈브류</a>
-  <a href="#retro" data-tab="retro">${icon("image")}레트로</a>
+  <a href="#overview" data-group="overview">${icon("dashboard")}개요</a>
+  <a href="#library" data-group="games">${icon("folder")}게임<span class="count" data-sum="games" hidden></span></a>
+  <a href="#retro" data-group="retro">${icon("image")}레트로</a>
+  <a href="#homebrew" data-group="homebrew">${icon("package")}홈브류</a>
+  <a href="#users" data-group="people">${icon("users")}사용자<span class="count" data-sum="people" hidden></span></a>
+  <a href="#logs" data-group="ops">${icon("sliders")}운영<span class="count" data-sum="ops" hidden></span></a>
+</nav>
+<nav class="group-tabs" id="group-tabs" aria-label="세부 메뉴">
+  <a href="#library" data-tab="library" data-in="games">${icon("folder")}파일</a>
+  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}변환</a>
+  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}업로드</a>
+  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}임시 공유<span class="count" id="inbox-count" hidden></span></a>
+  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}홈 추천</a>
+  <a href="#users" data-tab="users" data-in="people">${icon("users")}계정<span class="count" id="account-count" hidden></span></a>
+  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
+  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
+  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}알림</a>
+  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}서버 설정</a>
+  <a href="#overview" data-tab="overview" data-in="overview" hidden></a>
+  <a href="#retro" data-tab="retro" data-in="retro" hidden></a>
+  <a href="#homebrew" data-tab="homebrew" data-in="homebrew" hidden></a>
 </nav>
 
 <section id="tab-overview">

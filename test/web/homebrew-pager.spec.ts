@@ -15,7 +15,7 @@ test('the homebrew app grid pages and searches, and the recommended cards page',
     ? route.fulfill({ json: { recommended, sources: [], manual: [] } }) : route.continue());
   await page.route('**/admin/api/homebrew/apps', (route) => route.fulfill({ json: { apps, held: [] } }));
   await signIn(page);
-  await page.locator('nav.tabs a[data-tab="homebrew"]').click();
+  await page.locator('nav.tabs a[data-group="homebrew"]').click();
 
   // The app grid: 50 to a page, the grid's own pager and search.
   const rows = page.locator('#hb-apps .ag-row:not(.ag-full-width-row)');

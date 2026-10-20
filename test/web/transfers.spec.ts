@@ -40,7 +40,7 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
     } });
   });
 
-  await page.locator('nav.tabs a[data-tab="logs"]').click();
+  await page.locator('nav.tabs a[data-group="ops"]').click();
   const section = page.locator('#tab-logs');
   await expect(section.getByRole('heading', { name: '다운로드 기록' })).toBeVisible();
   await expect(page.locator('#xf-cards .card')).toHaveCount(3);

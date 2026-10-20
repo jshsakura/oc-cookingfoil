@@ -1251,6 +1251,12 @@
         .modal .modal-head { flex-direction: column; gap: 10px; }
         .modal .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
         .pager .info { width: 100%; margin-bottom: 8px; text-align: center; }
+        /* A phone's pager fits one line: smaller buttons, prev and next as arrows only. */
+        .pager { gap: 4px; margin-top: 22px; }
+        .pager-btn { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 10px; font-size: 12.5px; }
+        .pager-btn.prev, .pager-btn.next { padding: 0; width: 34px; }
+        .pager-btn .lbl { display: none; }
+        .pager-ellipsis { padding: 0 1px; }
       }
     </style>
   </head>
@@ -5489,9 +5495,13 @@
         const mkBtn = (label, target, opts = {}) => {
           const b = document.createElement("button");
           b.className = "pager-btn" + (opts.current ? " current" : "") + (opts.dir ? " " + opts.dir : "");
-          b.type = "button"; b.textContent = label;
-          // Prev and next carry an arrow on their outer side.
-          if (opts.dir) b.insertAdjacentHTML(opts.dir === "prev" ? "afterbegin" : "beforeend", PAGER_ARROW[opts.dir]);
+          b.type = "button";
+          // Prev and next carry an arrow on their outer side; on a phone the arrow alone, its word kept as the label.
+          if (opts.dir) {
+            const word = document.createElement("span"); word.className = "lbl"; word.textContent = label;
+            b.append(word); b.setAttribute("aria-label", label);
+            b.insertAdjacentHTML(opts.dir === "prev" ? "afterbegin" : "beforeend", PAGER_ARROW[opts.dir]);
+          } else b.textContent = label;
           if (opts.disabled) b.disabled = true;
           else b.addEventListener("click", () => go(target));
           return b;
@@ -5499,7 +5509,7 @@
 
         p.appendChild(mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1, dir: "prev" }));
 
-        const window = 2; // pages around current
+        const window = matchMedia("(max-width: 640px)").matches ? 1 : 2; // pages around current, fewer on a phone
         const pages = new Set();
         pages.add(1); pages.add(total);
         for (let i = current - window; i <= current + window; i++) {
