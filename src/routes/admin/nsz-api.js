@@ -12,10 +12,9 @@
  *   POST   /admin/api/nsz/convert-all              scan, then start      409 while the queue is off
  *   POST   /admin/api/nsz/items/:id/top            move to the front
  *   POST   /admin/api/nsz/items/:id/retry          a failed or skipped one waits again ("all" for every one)
- *   DELETE /admin/api/nsz/items/:id                take it out (not queued by itself again)
- *   POST   /admin/api/nsz/items/:id/restore        put the kept original back, delete the .nsz
+ *   DELETE /admin/api/nsz/items/:id                take it out (not queued by itself again), with its kept original
  *   POST   /admin/api/nsz/purge-kept               delete every kept original now   { removed, bytes }
- *   POST   /admin/api/nsz/clear-finished           drop the done and skipped rows (kept ones stay)
+ *   POST   /admin/api/nsz/clear-finished           drop the done and skipped rows and their kept originals
  *   GET    /admin/api/nsz/log?offset=&limit=&q=     the conversion log, newest first
  *
  * The settings are server settings (nsz*), saved through /admin/api/server-settings.
@@ -27,13 +26,6 @@ import debug from "../../debug.js";
 const ID_RE = /^[0-9a-f]{12}$/;
 const OFF = { error: "off", message: "변환이 꺼져 있습니다. 아래 설정에서 먼저 켭니다." };
 const MAX_SELECTED = 1000;
-const RESTORE_REFUSED = {
-  unknown: [404, "대기열에 없는 항목입니다"],
-  "not-kept": [409, "보관 중인 원본이 없습니다"],
-  missing: [409, "보관한 원본 파일이 없어 기록을 정리했습니다"],
-  occupied: [409, "원래 자리에 같은 이름의 파일이 있어 되돌리지 않았습니다"],
-  "in-use": [409, "콘솔이 그 .nsz 를 받고 있어 나중에 되돌립니다"],
-};
 
 function nszSettings() {
   const all = serverSettings.describe();
@@ -91,14 +83,7 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
   router.post("/api/nsz/items/:id/top", item((id) => id !== "all" && queue.moveTop(id)));
   router.post("/api/nsz/items/:id/retry", item((id) => queue.retry(id) > 0 || id === "all"));
   router.delete("/api/nsz/items/:id", item((id) => id !== "all" && queue.remove(id)));
-  router.post("/api/nsz/items/:id/restore", handle(async (req, res) => {
-    const id = String(req.params.id);
-    const r = ID_RE.test(id) ? await queue.restore(id) : { error: "unknown" };
-    if (r.ok) return res.json({ ok: true });
-    const [status, error] = RESTORE_REFUSED[r.error] ?? [409, "되돌리지 못했습니다"];
-    res.status(status).json({ error, code: r.error });
-  }));
   router.post("/api/nsz/purge-kept", handle(async (req, res) => res.json({ ok: true, ...(await queue.purgeKept()) })));
   router.get("/api/nsz/log", handle((req, res) => res.json(queue.logPage({ offset: req.query.offset, limit: req.query.limit, q: String(req.query.q ?? "").slice(0, 200) }))));
-  router.post("/api/nsz/clear-finished", handle((req, res) => res.json({ ok: true, removed: queue.clearFinished() })));
+  router.post("/api/nsz/clear-finished", handle(async (req, res) => res.json({ ok: true, removed: await queue.clearFinished() })));
 }

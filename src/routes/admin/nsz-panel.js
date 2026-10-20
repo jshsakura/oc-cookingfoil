@@ -9,7 +9,7 @@
  * read again every few seconds; only rows that changed are redrawn.
  *
  * Waiting rows can be ticked and run by themselves (선택한 것만 변환). A done
- * row whose original is still kept offers 되돌리기, the header says how much
+ * row whose original is still kept says when it goes, the header says how much
  * is kept, and 변환 기록 pages through the conversion log with a name search.
  */
 
@@ -40,7 +40,7 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>선택한 것만 변환 (0)</button></div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
-  ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지우고 되돌린 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
+  ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지운 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
   <input type="search" id="nz-log-q" placeholder="이름으로 찾습니다" aria-label="변환 기록에서 찾기">
   <div class="nz-list" id="nz-log"></div><div class="nz-pager" id="nz-log-pager" hidden></div>`)}
   ${box("nsz-settings", "변환 설정", `<p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
@@ -112,7 +112,7 @@ const NZ_SETTINGS=[
   ['nszWorkers',[['1','1개 (기본)'],['2','2개'],['3','3개']],'동시에 변환할 파일','늘리면 빨리 끝나지만 같은 디스크에서 다운로드하는 콘솔이 느려집니다.'],
   ['nszMinSizeMb',[1,1048576,'MB'],'최소 크기','이보다 작은 파일은 변환하지 않습니다.'],
   ['nszDiskFloorGb',[0,1048576,'GB'],'더 남길 공간','파일 하나를 변환할 때는 그 파일 크기만큼의 작업 공간이 있으면 시작합니다. 여기 넣은 만큼은 그와 별도로 늘 비워 둡니다. 0 이면 작업 공간만 확인합니다.'],
-  ['nszKeepHours',[0,168,'시간'],'원본 보관 시간','변환한 뒤 원본을 이 시간만큼 숨은 폴더에 두어 되돌릴 수 있게 합니다. 0 이면 변환하자마자 지웁니다.'],
+  ['nszKeepHours',[0,168,'시간'],'원본 보관 시간','변환한 뒤 원본을 이 시간만큼 숨은 폴더에 두었다가 지웁니다. 0 이면 검증이 끝나는 즉시 지웁니다.'],
   ['nszKeepGb',[0,4096,'GB'],'원본 보관 한도','보관 중인 원본이 이보다 많아지면 오래된 것부터 지웁니다. 0 이면 한도 없이 보관 시간만 봅니다. 공간이 모자라면 한도와 상관없이 오래된 것부터 지우고 이어서 변환합니다.'],
   ['nszBlock','bool','블록 압축','블록 압축은 콘솔이 여러 코어로 풀 수 있게 하는 방식이며 지금 클라이언트는 솔리드와 속도 차이가 없으니 꺼 둡니다.'],
   ['nszXci','bool','XCI 도 XCZ 로 변환','XCI 파일도 XCZ 로 압축합니다.'],
@@ -129,26 +129,24 @@ function nzSelUpdate(){const b=$('nz-run-sel');b.textContent='선택한 것만 �
   const boxes=[...$('nz-list').querySelectorAll('.nz-lead input')];$('nz-pick-all').checked=boxes.length>0&&boxes.every((c)=>c.checked);}
 function nzProgress(it){return it.expectedBytes?Math.min(0.97,it.outBytes/it.expectedBytes):null;}
 async function nzAct(url,opts,msg){if(nzBusy)return;nzBusy=true;try{const d=await api(url,opts);if(msg)toast(typeof msg==='function'?msg(d):msg);}catch(err){toast(err.message);}finally{nzBusy=false;}loadNsz();}
-function nzRowSig(it){return [it.state,it.size,it.savedBytes,it.reason,it.name,it.titleId,it.state==='running'?Math.round(it.outBytes/1048576):0,it.restored,it.keptAt?Math.ceil(nzKeepLeft(it)/60000):''].join('|');}
+function nzRowSig(it){return [it.state,it.size,it.savedBytes,it.reason,it.name,it.titleId,it.state==='running'?Math.round(it.outBytes/1048576):0,it.keptAt?Math.ceil(nzKeepLeft(it)/60000):''].join('|');}
 function nzLead(it){const lead=el('div',null,'nz-lead');
   if(nzPickable()){if(nzSelectable(it)){const c=el('input');c.type='checkbox';c.checked=nzSel.has(it.id);c.setAttribute('aria-label',nzName(it)+' 선택');
     c.addEventListener('change',()=>{if(c.checked)nzSel.add(it.id);else nzSel.delete(it.id);nzSelUpdate();});lead.append(c);}else lead.append(el('span',null,'nz-cb-sp'));}
   lead.append(nzIcon(it));return lead;}
 function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;r.dataset.sig=nzRowSig(it);
   const main=el('div',null,'nz-main');main.append(el('b',nzName(it)),el('span',nzFile(it)));
-  if(it.reason&&it.state!=='done'&&!it.restored)main.append(el('span',it.reason,it.state==='failed'?'err':''));
+  if(it.reason&&it.state!=='done')main.append(el('span',it.reason,it.state==='failed'?'err':''));
   if(it.keptAt)main.append(el('span','원본 보관 중 · '+nzLeft(nzKeepLeft(it))+' 뒤 삭제'));
-  const info=el('div',null,'nz-info');const [label,kind]=it.restored?['되돌림','']:NZ_STATE[it.state]||[it.state,''];info.append(pill(label,kind));
+  const info=el('div',null,'nz-info');const [label,kind]=NZ_STATE[it.state]||[it.state,''];info.append(pill(label,kind));
   info.append(el('span',nzSize(it.size)));
   if(it.state==='done')info.append(el('span','-'+nzSize(it.savedBytes)+' ('+Math.round(it.savedBytes/it.size*100)+'%)'));
   if(it.state==='running'){const p=nzProgress(it);info.append(el('span',p==null?nzSize(it.outBytes)+' 씀':Math.round(p*100)+'%'));}
   const acts=el('div',null,'nz-acts');
   if(it.state==='waiting'||it.state==='busy')acts.append(btn('위로',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},'맨 앞으로 옮겼습니다.')));
-  if(it.keptAt)acts.append(btn('되돌리기',async()=>{if(!await ask(nzName(it)+' 의 원본을 원래 자리로 되돌리고 .nsz 를 지웁니다.'))return;
-    nzAct('/admin/api/nsz/items/'+it.id+'/restore',{method:'POST',body:{}},'원본으로 되돌렸습니다.');}));
   if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(btn('재시도',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},'다시 대기열에 넣었습니다.')));
   acts.append(btn('빼기',async()=>{if(it.state==='running'&&!await ask(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.'))return;
-    if(it.keptAt&&!await ask(nzName(it)+' 을 목록에서 빼면서 보관 중인 원본도 지웁니다. 지운 뒤에는 되돌릴 수 없습니다.'))return;
+    if(it.keptAt&&!await ask(nzName(it)+' 을 목록에서 빼면서 보관 중인 원본도 삭제합니다.'))return;
     nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},'대기열에서 뺐습니다.');},'danger'));
   r.append(nzLead(it),main,info,acts);return r;}
 /** Puts the rows in order, keeping the nodes whose row did not change. */
@@ -190,8 +188,8 @@ function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden)
   const prev=btn('이전',()=>{nzOffset=Math.max(0,nzOffset-NZ_LIMIT);loadNsz();});prev.disabled=page<=1;
   const next=btn('다음',()=>{nzOffset+=NZ_LIMIT;loadNsz();});next.disabled=page>=pages;
   p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
-const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],restored:['되돌림','warn'],failed:['실패','off']};
-const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',missing:'파일이 이미 없었습니다.'};
+const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],failed:['실패','off']};
+const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',cleared:'끝난 것 삭제로 지웠습니다.',missing:'파일이 이미 없었습니다.'};
 function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
   main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));
   if(e.reason)main.append(el('span',NZ_WHY[e.reason]||e.reason,e.event==='failed'?'err':''));
@@ -233,7 +231,7 @@ async function loadNsz(){clearTimeout(nzTimer);nzTimer=null;let d;
   if(d.kept)nzSkew=d.kept.now-Date.now();
   for(const it of d.items)if(!nzSelectable(it))nzSel.delete(it.id);
   nzHeader(d);nzCards(d.totals);nzRenderActive(d.active);nzPatch($('nz-list'),d.items);nzPager(d);nzRenderSettings(d.settings);
-  // The log is read again only when something finished, was restored or deleted.
+  // The log is read again only when something finished or was deleted.
   const t=d.totals,logSig=[t.done,t.failed,t.skipped,t.converted,d.kept&&d.kept.count,d.total].join('|');if(logSig!==nzLogSig){nzLogSig=logSig;loadNszLog();}
   // Read again only while someone is looking and the queue has something going; with the
   // activity socket up, its conversion job reads again instead (activity-panel.js).
