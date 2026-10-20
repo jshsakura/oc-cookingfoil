@@ -31,7 +31,7 @@
  * missing) are left out; ?variants=all lists them. romCount counts what the
  * lists show. Every id still resolves, listed or not, so installs and
  * forwarders made from another version keep working.
- *   V = { id, name, variant?, edition?, region?, size, file, representative: bool, bezel: { kind }, missing?: [set] }
+ *   V = { id, name, variant?, edition?, region?, size, file, rom_hash, rom_size, representative: bool, bezel: { kind }, missing?: [set] }
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
  *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
  *                                                WebP when the client sends Accept: image/webp;
@@ -50,12 +50,21 @@
  *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
  *                                                X-Retro-Once lists the files to skip when already on the card
  *
- * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
+ * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, rom_hash, rom_size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       group, variants (a count in lists, the V list in a game's own reply),
  *       bezel: { kind, hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
  *         kind: "game" (made for this game), "system" (the console's default), "none".
  *         New kinds may be added later; hasBezel and generic stay for older clients.
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
+ *
+ * size counts a game's extras too (a .cue's tracks); rom_size is its own file
+ * alone, null for a made-up .m3u. rom_hash names the ROM's content across
+ * servers: the 32-hex MD5 RetroArch sends to RetroAchievements (src/retro/rom-hash.js),
+ * of the ROM data without a copier header, an N64 ROM in big-endian order, the
+ * largest entry of a zip; of an arcade set, its name only. The same dump gives the
+ * same value under any file name or zip. null until the background pass has read
+ * the file, and always for discs, the DS, .7z, a bare file over 64 MB and
+ * anything unreadable.
  *
  * Every download URL (romUrl, bundleUrl, the bezel's imageUrl, overlayCfgUrl
  * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) is on
@@ -101,6 +110,7 @@ import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import * as retroAchievements from "../retro/achievements/sync.js";
+import * as romHashes from "../retro/rom-hash.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
@@ -258,6 +268,9 @@ const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members]
 /** "game", "system" or "none": which bezel a game installs with. Pure. */
 export const bezelKind = (g) => (!g.bezel ? "none" : g.bezel.generic ? "system" : "game");
 
+/** rom_hash and rom_size: what tells one ROM from another across servers. */
+const romFields = (g) => ({ rom_hash: romHashes.known(g), rom_size: g.abs ? g.fileSize ?? null : null });
+
 /** One version of a game, as a game's own reply lists them. */
 function publicVariant(g, rep, lang) {
   const p = publicGame(g, null, lang, { lean: true });
@@ -269,6 +282,7 @@ function publicVariant(g, rep, lang) {
     ...(p.region ? { region: p.region } : {}),
     size: g.size,
     file: g.file,
+    ...romFields(g),
     representative: g === rep,
     bezel: { kind: bezelKind(g) },
     ...(g.missing?.length ? { missing: g.missing } : {}),
@@ -333,6 +347,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     system: g.system,
     core: g.core,
     size: g.size,
+    ...romFields(g),
     addedAt: g.addedAt,
     iconUrl: g.icon ? `${base}/icon?v=${artKey(g)}` : null,
     boxartUrl: g.icon ? `${base}/boxart?v=${artKey(g)}` : null,
@@ -393,6 +408,8 @@ export default function retroRouter() {
   // Draw square tiles ahead of time after every scan, starting with one at boot.
   // Forwarders are built only when one is downloaded, from the square of that moment.
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
+  // Content hashes (rom_hash) of the new and changed files, one at a time.
+  catalog.onScan((state) => romHashes.queue(state.games));
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch((err) => debug.error("retro: first catalog scan failed: %s", err.message)));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.

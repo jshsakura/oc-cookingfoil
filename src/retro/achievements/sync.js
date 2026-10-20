@@ -9,7 +9,8 @@ import * as env from "../../helpers/envs.js";
 import * as activity from "../../tasks/activity.js";
 import { titlesOf } from "../meta/build.js";
 import * as client from "./client.js";
-import { CONSOLES, romHash } from "./hash.js";
+import * as romHashes from "../rom-hash.js";
+import { CONSOLES } from "./hash.js";
 import { consoleIndex, matchRom } from "./match.js";
 import * as store from "./store.js";
 
@@ -35,13 +36,18 @@ export function listsDue(consoleIds, now) {
     .sort((a, b) => (store.list(a)?.at ?? 0) - (store.list(b)?.at ?? 0));
 }
 
-/** The catalog games whose match is missing or stale. Pure. */
+/**
+ * The catalog games whose match is missing or stale: no match yet, the file's
+ * size or time moved, the list is newer, or the shared hash (rom-hash.js, which
+ * also sees an overwrite that put the mtime back) is no longer the matched one.
+ */
 export function romsDue(games) {
   return games.filter((g) => {
     const l = store.list(CONSOLES[g.system]);
     if (!l?.at) return false;
     const r = store.rom(g.id);
-    return !r || r.stamp !== stampOf(g) || r.listAt < l.at;
+    const shared = romHashes.known(g);
+    return !r || r.stamp !== stampOf(g) || r.listAt < l.at || (shared !== null && shared !== r.hash);
   });
 }
 
@@ -71,18 +77,10 @@ async function matchRoms(due, { now }) {
     const consoleId = CONSOLES[g.system];
     const l = store.list(consoleId);
     if (!indexes.has(consoleId)) indexes.set(consoleId, consoleIndex(l.games));
-    const prev = store.rom(g.id);
-    const stamp = stampOf(g);
-    let hash = prev?.stamp === stamp ? prev.hash : null;
-    if (prev?.stamp !== stamp) {
-      try {
-        hash = await romHash(g);
-      } catch (err) {
-        debug.error("retro achievements: hashing %s: %s", g.rel, err.message);
-      }
-    }
+    // Read once for the whole server: the shared hash, worked out now when the background pass hasn't yet.
+    const hash = await romHashes.hashOf(g);
     const ra = matchRom(indexes.get(consoleId), hash, titlesOf(g));
-    store.setRom(g.id, { stamp, hash, ra, listAt: l.at });
+    store.setRom(g.id, { stamp: stampOf(g), hash, ra, listAt: l.at });
     if (ra) matched++;
   }
   return matched;

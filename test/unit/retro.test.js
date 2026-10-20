@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -215,6 +216,18 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.ok(filtered.length && filtered.every((g) => g.bezel.kind === "game"), "bezel=1 still means a game's own bezel");
     assert.equal(smw.install.gameCfg, "retroarch/config/Snes9x/Super Mario World (USA).cfg");
     assert.equal(await (await get(smw.romUrl)).text(), "SMW");
+    // rom_hash: the content's MD5 once the background pass has read it; never for a disc game.
+    let hashed = await (await get(`/api/retro/games/${smw.id}`)).json();
+    for (let i = 0; i < 40 && !hashed.rom_hash; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      hashed = await (await get(`/api/retro/games/${smw.id}`)).json();
+    }
+    assert.equal(hashed.rom_hash, crypto.createHash("md5").update("SMW").digest("hex"));
+    assert.equal(hashed.rom_size, 3);
+    assert.equal(hashed.variants.find((v) => v.id === smw.id).rom_hash, hashed.rom_hash);
+    const discGame = all.find((g) => g.system === "ps1");
+    assert.equal(discGame.rom_hash, null);
+    assert.ok(discGame.size > discGame.rom_size, "size counts the tracks, rom_size the .cue alone");
     const tile = await get(smw.iconUrl);
     assert.equal(tile.headers.get("content-type"), "image/jpeg");
     const meta = await sharp(Buffer.from(await tile.arrayBuffer())).metadata();
