@@ -19,7 +19,7 @@ const mode = process.env.NSZ_STUB_MODE || "ok";
 if (process.env.NSZ_STUB_ARGS) fs.writeFileSync(process.env.NSZ_STUB_ARGS, JSON.stringify(args));
 const size = fs.statSync(src).size;
 const dest = path.join(out, path.basename(src).replace(/\\.nsp$/i, ".nsz").replace(/\\.xci$/i, ".xcz"));
-if (mode === "fail") { process.stderr.write("zstd error: something broke"); process.exit(2); }
+if (mode === "fail" || path.basename(src) === process.env.NSZ_STUB_FAIL) { process.stderr.write("zstd error: something broke"); process.exit(2); }
 fs.writeFileSync(dest, Buffer.alloc(mode === "nogain" ? size : Math.floor(size / 2)));
 if (mode === "verify") { process.stderr.write("VerificationException: Verification detected hash mismatch!"); process.exit(1); }
 if (mode === "touch") fs.appendFileSync(src, "x");
@@ -44,6 +44,7 @@ beforeEach(() => {
   dl = { active: 0, lastEndedAt: 0 };
   delete process.env.NSZ_STUB_MODE;
   delete process.env.NSZ_STUB_ARGS;
+  delete process.env.NSZ_STUB_FAIL;
 });
 after(async () => {
   for (const q of queues) await q.shutdown();
@@ -335,7 +336,7 @@ test("the list filters, pages, moves to the front, retries and clears finished r
   await q.pump();
   await q.idle();
   assert.equal(q.view({ filter: "done" }).total, 5);
-  assert.equal(q.clearFinished(), 5);
+  assert.equal(await q.clearFinished(), 5);
   assert.equal(q.view().total, 0);
 });
 
@@ -413,6 +414,38 @@ test("a selected run converts only the chosen rows and then stops; the rest keep
   assert.equal(q.runSelected(["0123456789ab"]), 0, "nothing waiting among them");
 });
 
+test("이 상태만 변환 runs the rows waiting now; one queued while they run keeps waiting", async () => {
+  for (const n of ["A", "B"]) put(`${n}.nsp`);
+  const q = make();
+  await q.init();
+  await q.scan();
+  assert.equal(q.runFilter("done"), 0);
+  assert.equal(q.runFilter("waiting"), 2);
+  put("C.nsp");
+  await q.scan();
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["A.nsp", "B.nsp", "C.nsp"].map((r) => item(q, r).state), ["done", "done", "waiting"]);
+  assert.equal(q.view().running, false);
+});
+
+test("이 상태만 변환 on 실패 tries the failed rows again and nothing else", async () => {
+  for (const n of ["A", "B"]) put(`${n}.nsp`);
+  const q = make();
+  await q.init();
+  await q.scan();
+  process.env.NSZ_STUB_MODE = "fail";
+  q.runSelected([item(q, "A.nsp").id]);
+  await q.pump();
+  await q.idle();
+  assert.equal(item(q, "A.nsp").state, "failed");
+  delete process.env.NSZ_STUB_MODE;
+  assert.equal(q.runFilter("failed"), 1);
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["A.nsp", "B.nsp"].map((r) => item(q, r).state), ["done", "waiting"]);
+});
+
 // ── kept originals ───────────────────────────────────────────────────
 const keptFile = (q, rel) => path.join(games, KEEP_DIR_NAME, item(q, rel).id, path.basename(rel));
 const logLines = () => fs.readFileSync(logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));
@@ -432,8 +465,30 @@ test("with a keep time the original moves into the keep folder, the library hear
   assert.deepEqual([line.event, line.from, line.to, line.sizeBefore, line.sizeAfter], ["converted", "Dir/A.nsp", "Dir/A.nsz", 2 * MIB, MIB]);
   // A library scan never queues the kept original.
   assert.equal((await q.scan()).added, 0);
-  // 끝난 것 삭제 leaves the kept row: it is where 되돌리기 is.
-  assert.equal(q.clearFinished(), 0);
+});
+
+test("끝난 것 삭제 clears a kept row and deletes its original with it", async () => {
+  S.keepHours = 6;
+  put("A.nsp");
+  const q = make();
+  await run(q);
+  const kept = keptFile(q, "A.nsp");
+  assert.equal(await q.clearFinished(), 1);
+  assert.ok(!fs.existsSync(path.dirname(kept)) && exists("A.nsz"));
+  assert.deepEqual([q.view().total, q.view().kept.count], [0, 0]);
+  const last = logLines().at(-1);
+  assert.deepEqual([last.event, last.reason], ["original-deleted", "cleared"]);
+});
+
+test("빼기 on a kept row deletes its original", async () => {
+  S.keepHours = 6;
+  put("A.nsp");
+  const q = make();
+  await run(q);
+  const kept = keptFile(q, "A.nsp");
+  assert.ok(await q.remove(item(q, "A.nsp").id));
+  assert.ok(!fs.existsSync(kept) && exists("A.nsz"));
+  assert.equal(logLines().at(-1).reason, "removed");
 });
 
 test("a keep time of 0 deletes the original at once", async () => {
@@ -510,44 +565,6 @@ test("short of space, kept originals are deleted oldest first before the run pau
   assert.equal(logLines().find((l) => l.event === "original-deleted").reason, "space");
 });
 
-test("되돌리기 puts the original back, deletes the .nsz and is not queued again by itself", async () => {
-  S.keepHours = 6;
-  put("A.nsp");
-  const lib = [{ rel: "A.nsp", size: 2 * MIB }];
-  const q = make({ catalog: () => lib });
-  await run(q);
-  swaps.length = 0;
-  assert.deepEqual(await q.restore(item(q, "A.nsp").id), { ok: true });
-  assert.ok(exists("A.nsp") && !exists("A.nsz"));
-  assert.deepEqual(swaps, [{ rel: "A.nsz", op: "remove" }, { rel: "A.nsp", op: "upsert" }]);
-  const i = item(q, "A.nsp");
-  assert.deepEqual([i.state, i.restored, i.keptAt], ["skipped", true, null]);
-  assert.equal(logLines().at(-1).event, "restored");
-  assert.equal(q.totals().savedBytes, 0);
-  q.onLibraryUpdate();
-  await new Promise((r) => setTimeout(r, 50));
-  assert.equal(item(q, "A.nsp").state, "skipped");
-});
-
-test("되돌리기 is refused when the path is taken or the .nsz is being downloaded; a missing kept file drops the record", async () => {
-  S.keepHours = 6;
-  put("A.nsp");
-  const q = make();
-  await run(q);
-  const id = item(q, "A.nsp").id;
-  fs.writeFileSync(path.join(games, "A.nsp"), "new");
-  assert.deepEqual(await q.restore(id), { error: "occupied" });
-  fs.rmSync(path.join(games, "A.nsp"));
-  inUse.add("A.nsz");
-  assert.deepEqual(await q.restore(id), { error: "in-use" });
-  assert.ok(exists("A.nsz"));
-  inUse.clear();
-  fs.rmSync(keptFile(q, "A.nsp"));
-  assert.deepEqual(await q.restore(id), { error: "missing" });
-  assert.equal(q.view().total, 0);
-  assert.equal(logLines().at(-1).reason, "missing");
-});
-
 test("지금 비우기 deletes every kept original", async () => {
   S.keepHours = 6;
   put("A.nsp");
@@ -557,6 +574,18 @@ test("지금 비우기 deletes every kept original", async () => {
   assert.deepEqual(await q.purgeKept(), { removed: 2, bytes: 4 * MIB });
   assert.deepEqual(fs.readdirSync(path.join(games, KEEP_DIR_NAME)), []);
   assert.equal(q.view().kept.count, 0);
+});
+
+test("a failed file keeps its original, is marked failed and the queue goes on with the next", async () => {
+  put("A.nsp", 3 * MIB);
+  put("B.nsp", 2 * MIB);
+  process.env.NSZ_STUB_FAIL = "A.nsp";
+  const q = make();
+  await run(q);
+  assert.deepEqual([item(q, "A.nsp").state, item(q, "B.nsp").state], ["failed", "done"]);
+  assert.ok(exists("A.nsp") && !exists("A.nsz"), "the original is untouched");
+  assert.ok(!exists("B.nsp") && exists("B.nsz"));
+  assert.equal(q.view().pausedReason, null, "one failure does not pause the run");
 });
 
 test("a failure goes to the log too", async () => {

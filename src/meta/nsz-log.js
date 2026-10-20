@@ -4,7 +4,8 @@
  * rows are cleared.
  *
  *   { at, id, rel, name, from, to, sizeBefore, sizeAfter, event, reason? }
- *   event: converted | original-deleted | restored | failed
+ *   event: converted | original-deleted | failed
+ *   (lines from older versions may also say restored)
  *
  * Appended as events happen; past `max` lines the file is written again with
  * the newest `max` (to a temporary file, then renamed).

@@ -43,16 +43,18 @@ test("the list has the state, totals and the queue's settings; off by default", 
   assert.equal(d.settings.nszXci.value, false);
   assert.equal(d.settings.nszLevel.value, 18);
   assert.equal(d.settings.nszWorkers.value, 1);
-  assert.equal(d.settings.nszKeepHours.value, 6);
+  assert.equal(d.settings.nszKeepHours.value, 0);
   assert.equal(d.settings.nszKeepGb.value, 0);
   assert.deepEqual([d.kept.count, d.kept.bytes], [0, 0]);
 });
 
-test("선택한 것만 변환 needs a list of rows and the queue on; restore, purge and the log answer", async () => {
+test("선택한 것만 변환 needs a list of rows and the queue on; restore is gone, purge and the log answer", async () => {
   assert.equal((await call("/run-selected", "POST", { ids: [] })).status, 400);
+  assert.equal((await call("/run-filter", "POST", { filter: "done" })).status, 400);
+  assert.equal((await call("/run-filter", "POST", { filter: "waiting" })).status, 409, "off first");
   assert.equal((await call("/run-selected", "POST", { ids: ["nothere"] })).status, 400);
   assert.equal((await call("/run-selected", "POST", { ids: ["0123456789ab"] })).status, 409, "off first");
-  assert.equal((await call("/items/0123456789ab/restore", "POST")).status, 404);
+  assert.equal((await call("/items/0123456789ab/restore", "POST")).status, 404, "no restore route");
   assert.deepEqual(await (await call("/purge-kept", "POST")).json(), { ok: true, removed: 0, bytes: 0 });
   assert.deepEqual((await (await call("/log?q=x")).json()).items, []);
 });

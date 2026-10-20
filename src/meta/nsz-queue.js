@@ -15,17 +15,22 @@
  *   - the original is stat'ed again: changed or in use, the result is dropped
  *     and the file waits ("busy") to be tried later;
  *   - the .nsz is renamed next to the original and the library told about both
- *     paths (coalesced into one incremental rebuild). The original is deleted,
- *     or with nszKeepHours above 0 moved (one rename) into
- *     <games>/.cookingfoil-nsz-keep/<id>/, another dot folder, so 되돌리기 can
- *     put it back.
+ *     paths (coalesced into one incremental rebuild). The original is deleted
+ *     at once by default; with nszKeepHours above 0 it is first moved (one
+ *     rename) into <games>/.cookingfoil-nsz-keep/<id>/, another dot folder,
+ *     and deleted once that time is up.
+ *
+ * A file that fails keeps its original untouched, is marked failed and the
+ * queue goes on with the next one. MAX_FAILS nsz failures in a row pause the
+ * run as a safety net (a broken nsz or keys would otherwise fail every file).
  *
  * A kept original is deleted, oldest first, once it is older than
  * nszKeepHours ("age"), while the kept total is over nszKeepGb when that is
- * above 0 ("cap"), and before a run would pause for free space ("space"). The
- * age timer is set from the state file again on start, past-due ones first.
- * Its row leaves the list then; every conversion, deletion, restore and
- * failure also goes to the conversion log (nsz-log.js).
+ * above 0 ("cap"), before a run would pause for free space ("space"), by
+ * 지금 비우기 ("manual") and with its row by 빼기 ("removed") or 끝난 것 삭제
+ * ("cleared"). The age timer is set from the state file again on start,
+ * past-due ones first. Its row leaves the list then; every conversion,
+ * deletion and failure also goes to the conversion log (nsz-log.js).
  *
  * 선택한 것만 변환 runs only the rows it names, in queue order, and ends the
  * run once none of them is left to start; the other rows keep waiting.
@@ -33,7 +38,7 @@
  * A new file is started only while no console is downloading and none has for
  * IDLE_MS: the games sit on spinning disks, and conversion would compete with
  * downloads. A file already running finishes. Below the free space floor the
- * run pauses, as it does after MAX_FAILS failures in a row.
+ * run pauses.
  *
  * A run ends by itself once nothing is left to start or running: the queue
  * then sits idle with no timer and no folder scan. It starts again only when
@@ -72,6 +77,8 @@ const AUTO_DELAY_MS = 2000;
 const PAGE_MAX = 100;
 
 const EXT = { nsp: ".nsz", xci: ".xcz" };
+// Rows a chosen run may take: failed and skipped ones wait again first.
+const RUNNABLE = new Set(["waiting", "busy", "failed", "skipped"]);
 const kindOf = (rel) => (/\.nsp$/i.test(rel) ? "nsp" : /\.xci$/i.test(rel) ? "xci" : null);
 const targetOf = (rel) => rel.replace(/\.(nsp|xci)$/i, (m) => EXT[m.slice(1).toLowerCase()]);
 const gb = (n) => `${(n / GIB).toFixed(1)} GB`;
@@ -479,7 +486,7 @@ export function createNszQueue({
   const keptItems = () => state.items.filter((i) => i.keptAt).sort((a, b) => a.keptAt - b.keptAt);
   const keptBytes = () => keptItems().reduce((n, i) => n + (i.keptBytes || 0), 0);
   const dueAt = (item, s = settings()) => item.keptAt + s.keepHours * HOUR;
-  // Deleting and restoring kept originals happen one at a time.
+  // Kept originals are deleted one at a time.
   const serial = (fn) => (keepChain = keepChain.catch(() => {}).then(fn));
 
   function logEvent(item, event, reason) {
@@ -551,40 +558,6 @@ export function createNszQueue({
   }
 
   /**
-   * 되돌리기: the kept original goes back to its path and the .nsz is deleted.
-   * { ok } or { error }: unknown, not-kept, missing (the record is dropped), occupied, in-use.
-   */
-  function restore(id) {
-    return serial(async () => {
-      const item = find(id);
-      if (!item) return { error: "unknown" };
-      if (!item.keptAt) return { error: "not-kept" };
-      const abs = path.join(gamesDir, item.rel);
-      const targetRel = targetOf(item.rel);
-      if (!fs.existsSync(keptPath(item))) {
-        await dropKept(item, "missing");
-        return { error: "missing" };
-      }
-      if (fs.existsSync(abs)) return { error: "occupied" };
-      if (fileInUse(targetRel)) return { error: "in-use" };
-      await fsp.rename(keptPath(item), abs);
-      await fsp.rm(path.join(gamesDir, targetRel), { force: true }).catch((err) => debug.error("nsz: %s not deleted: %s", targetRel, err.message));
-      await fsp.rm(path.join(keepDir, item.id), { recursive: true, force: true }).catch(() => {});
-      onSwapped([{ rel: targetRel, op: "remove" }, { rel: item.rel, op: "upsert" }]);
-      const st = state.stats;
-      Object.assign(st, { converted: Math.max(0, st.converted - 1), savedBytes: Math.max(0, st.savedBytes - (item.savedBytes || 0)) });
-      logEvent(item, "restored");
-      // Not queued again by itself; a library scan brings it back.
-      Object.assign(item, { state: "skipped", reason: "원본으로 되돌렸습니다.", restored: true, keptAt: null, keptBytes: null, finishedAt: Date.now() });
-      if (!state.dismissed.includes(item.rel)) state.dismissed.push(item.rel);
-      save();
-      scheduleKeep();
-      debug.log("nsz: %s restored", item.rel);
-      return { ok: true };
-    });
-  }
-
-  /**
    * On start: drop the records whose kept file is gone and the folders no record names. Without the
    * keep folder (the games disk not mounted yet) nothing is touched; a folder with no record (a lost
    * or unreadable state file, a kill before the record was saved) is only deleted once it is older
@@ -639,17 +612,21 @@ export function createNszQueue({
     pump();
   }
 
-  /** 선택한 것만 변환: runs these rows (waiting or busy) and nothing else. Returns how many. */
+  /** 선택한 것만 변환: runs these rows (waiting, busy, or failed/skipped ones, which wait again) and nothing else. Returns how many. */
   function runSelected(ids) {
     const want = new Set(ids);
-    const picked = state.items.filter((i) => want.has(i.id) && (i.state === "waiting" || i.state === "busy"));
+    const picked = state.items.filter((i) => want.has(i.id) && RUNNABLE.has(i.state));
     if (!picked.length) return 0;
+    for (const i of picked) if (i.state !== "waiting") Object.assign(i, { state: "waiting", reason: null, retryAt: null, finishedAt: null });
     Object.assign(state, { only: picked.map((i) => i.id), running: true, held: false, pausedReason: null });
     fails = 0;
     save();
     pump();
     return picked.length;
   }
+
+  /** 이 상태만 변환: every row of one filter (waiting or failed) as it is now; rows added while they run wait. Returns how many. */
+  const runFilter = (filter) => (filter === "waiting" || filter === "failed" ? runSelected(state.items.filter((i) => FILTERS[filter].has(i.state)).map((i) => i.id)) : 0);
 
   async function pause() {
     state.running = false;
@@ -709,13 +686,17 @@ export function createNszQueue({
     return true;
   }
 
-  function clearFinished() {
+  /** 끝난 것 삭제: clears done and skipped rows; a cleared row's kept original is deleted with it. */
+  async function clearFinished() {
+    const finished = (i) => i.state === "done" || i.state === "skipped";
+    let n = 0;
+    for (const i of state.items.filter((r) => finished(r) && r.keptAt)) if ((await serial(() => dropKept(i, "cleared"))) != null) n++;
     const before = state.items.length;
-    // A row whose original is kept stays: it is where 되돌리기 is.
-    state.items = state.items.filter((i) => (i.state !== "done" && i.state !== "skipped") || i.keptAt);
+    state.items = state.items.filter((i) => !finished(i) || i.keptAt);
     reindex();
     save();
-    return before - state.items.length;
+    scheduleKeep();
+    return n + before - state.items.length;
   }
 
   /** On shutdown: stop the children, keep the run state so it resumes after the restart. */
@@ -787,8 +768,8 @@ export function createNszQueue({
   }
 
   return {
-    init, start, runSelected, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
-    moveTop, retry, remove, clearFinished, restore, purgeKept, purgeDue, shutdown, killNow, view, totals,
+    init, start, runSelected, runFilter, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
+    moveTop, retry, remove, clearFinished, purgeKept, purgeDue, shutdown, killNow, view, totals,
     logPage: (q) => log.page(q), workDir, keepDir, find, pump,
     /** Test-only: resolves once nothing runs or starts. */
     async idle() {
