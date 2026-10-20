@@ -104,9 +104,30 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await signIn(page);
   await page.goto('/admin#upload');
   await expect(page.locator('#up-form')).toBeHidden();
-  // Before any file the kinds are on show, each saying what it takes.
-  await expect(page.locator('#up-kinds [data-kind="retro"]')).toContainText('레트로 롬');
-  await expect(page.locator('#up-hint')).toContainText('올릴 종류를 고르거나');
+  // Before any file the places are on show: the Switch kinds, then every retro console as its own tile.
+  await expect(page.locator('#up-hint')).toContainText('올릴 곳을 먼저 고릅니다');
+  const consoles = page.locator('#up-systems [data-kind="retro"]');
+  await expect(consoles.first()).toBeVisible();
+  const first = consoles.first();
+  const system = await first.getAttribute('data-system');
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#up-system')).toHaveValue(system!);
+  await expect(page.locator('#up-hint')).toContainText('레트로 · ');
+  // The other consoles fold away until "다른 기종" brings them back.
+  await expect(consoles.nth(1)).toBeHidden();
+  await page.locator('#up-systems .up-more-sys').click();
+  await expect(consoles.nth(1)).toBeVisible();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  // A file that looks like something else keeps the picked place and says so.
+  await page.locator('#up-file').setInputFiles({ name: 'Other [0100000000040000][v0].nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#up-hint')).toContainText('고른 곳과 다른 종류');
+  await expect(page.locator('#up-required-l')).toBeHidden();
+  await page.screenshot({ path: 'out/web/admin-upload-retro.png' });
+  await page.getByRole('button', { name: '다시 고르기' }).click();
+  await expect(consoles.first()).toHaveAttribute('aria-pressed', 'false');
+  await expect(consoles.nth(1)).toBeVisible();
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-upload-empty.png', fullPage: true });
 

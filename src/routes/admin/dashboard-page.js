@@ -55,9 +55,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 /* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
 nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
 nav.tabs::-webkit-scrollbar{display:none}
-/* Six menus fit one compact row: each as wide as its label, the icon beside it. */
-@media (min-width:641px){nav.tabs{display:inline-flex;max-width:100%;padding:4px;border-radius:14px}
-  nav.tabs a{flex:none;flex-direction:row;gap:7px;padding:8px 16px;font-size:13.5px;border-radius:10px}nav.tabs a svg{width:16px;height:16px}
+/* Six menus in one slim row across the full width, the icon beside each label. */
+@media (min-width:641px){nav.tabs{display:flex;padding:4px;border-radius:14px}
+  nav.tabs a{flex:1 1 0;min-width:0;flex-direction:row;gap:7px;padding:8px 10px;font-size:13.5px;border-radius:10px}nav.tabs a svg{width:16px;height:16px}
   nav.tabs .count{margin-left:2px}}
 nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
@@ -111,6 +111,15 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .up-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
 .up-kinds button{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:3px;text-align:left;padding:12px 14px;border-radius:14px}
 .up-kinds button span{font-size:12px;font-weight:400;color:var(--muted)}
+#up-form [hidden]{display:none!important}
+.up-group{margin:4px 0 8px;font-size:12.5px;font-weight:700;color:var(--muted)}
+/* Retro consoles as small tiles; once one is picked the rest fold away behind "다른 기종". */
+.up-systems{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}.up-systems[data-skel]:empty{min-height:120px}
+.up-systems button{flex-direction:row;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;min-height:42px}
+.up-systems button img{width:22px;height:22px;object-fit:contain;flex:none}
+.up-systems button b{min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.up-systems.folded button[data-system][aria-pressed="false"]{display:none}
+.up-systems .up-more-sys{justify-content:center;color:var(--muted);font-weight:700}
 .up-kinds button[aria-pressed="true"] span{color:inherit;opacity:.75}
 .up-hint{margin:0 0 12px;min-height:1.4em}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
@@ -582,14 +591,18 @@ ${NSZ_HTML}
 
 <section id="tab-upload" hidden>
   <div class="hd"><h2>업로드</h2></div>
-  <div class="up-kinds" id="up-kinds" role="group" aria-label="올릴 종류">
+  <div id="up-kinds" role="group" aria-label="올릴 곳">
+  <p class="up-group">스위치</p>
+  <div class="up-kinds">
     <button type="button" data-kind="game"><b>패키지</b><span>nsp · nsz · xci · xcz</span></button>
-    <button type="button" data-kind="retro"><b>레트로 롬</b><span>기종별 롬, CD 이미지</span></button>
     <button type="button" data-kind="patch"><b>패치</b><span>게임이나 앱에 덮는 파일</span></button>
     <button type="button" data-kind="save"><b>세이브</b><span>게임이나 앱의 세이브</span></button>
     <button type="button" data-kind="homebrew"><b>홈브류</b><span>.nro, 앱 폴더</span></button>
     <button type="button" data-kind="port"><b>포트</b><span>옮겨 온 게임 앱</span></button>
     <button type="button" data-kind="client"><b>클라이언트</b><span>cookingfoil.nro</span></button>
+  </div>
+  <p class="up-group">레트로 기종</p>
+  <div class="up-kinds up-systems" id="up-systems" data-skel></div>
   </div>
   <p class="muted up-hint" id="up-hint"></p>
   <div class="up-drop" id="up-drop" tabindex="0" role="button" aria-label="올릴 파일 고르기">
