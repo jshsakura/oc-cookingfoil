@@ -73,6 +73,7 @@
         --font-body: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
         --radius: 18px;
+        --shield-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E");
       }
       * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
       html { scroll-behavior: smooth; }
@@ -253,13 +254,46 @@
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
       /* Tried on a console by the admin: a green pill with a shield. */
-      .xrow .pill.verified, .xitem .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .xrow .pill.verified, .xitem .pill.verified, .game .sub .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
       .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
       .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
-      .xrow .xname:has(.pill.verified), .xitem .xname:has(.pill.verified) { display: flex; align-items: center; gap: 8px; }
+      .xrow .xname:has(.pill.verified, .pill.votes), .xitem .xname:has(.pill.verified, .pill.votes) { display: flex; align-items: center; gap: 8px; }
       .xrow .xname .xname-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-      .xrow .xname .pill.verified, .xitem .xname .pill.verified { flex: none; }
+      .xrow .xname .pill.verified, .xitem .xname .pill.verified, .xname .pill.votes { flex: none; }
       .xitem .pill.verified { padding: 2px 9px 2px 7px; border-radius: 100px; border: 1px solid; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+      /* How many said 잘 돼요, muted beside the name; hidden at none, shown once someone votes. */
+      .pill.votes { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; font-variant-numeric: tabular-nums; }
+      .pill.votes[hidden] { display: none; }
+      .xitem .pill.votes { padding: 2px 9px 2px 7px; border-radius: 100px; border: 1px solid var(--line); background: var(--surface); color: var(--secondary); font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+      .pill.votes svg, .check-chip svg, .check-pop svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .thumb-down { transform: rotate(180deg); }
+      /* The detail's 검수 chip: 검수됨 and the 잘 돼요 count in one button that opens the popover to vote. */
+      .xm-pills { position: relative; }
+      .check-chip { display: inline-flex; align-items: stretch; padding: 0; border-radius: 100px; border: 1px solid var(--line); background: var(--surface);
+        color: var(--secondary); font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.4; cursor: pointer; overflow: hidden; }
+      .check-chip[hidden] { display: none; }
+      .check-chip > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 11px 3px 8px; }
+      .check-chip .cc-verified { background: rgba(var(--good-rgb), .14); color: var(--good); }
+      .check-chip .cc-verified::before { content: ""; width: 14px; height: 14px; flex: none; background: currentColor; -webkit-mask: var(--shield-mask) center / contain no-repeat; mask: var(--shield-mask) center / contain no-repeat; }
+      .check-chip:has(.cc-verified) { border-color: rgba(var(--good-rgb), .45); }
+      .check-chip .cc-verified + .cc-up { border-left: 1px solid rgba(var(--good-rgb), .35); }
+      .check-chip .cc-up.mine { color: var(--ink); }
+      .check-chip:hover, .check-chip[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(var(--good-rgb), .14); }
+      .check-chip:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
+      .check-pop { position: absolute; z-index: 30; width: min(300px, 100%); padding: 14px; display: grid; gap: 10px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22); font-size: 13px; }
+      .check-pop p { margin: 0; }
+      .check-pop .cp-verified { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--good); }
+      .check-pop .cp-verified::before { content: ""; width: 16px; height: 16px; flex: none; background: currentColor; -webkit-mask: var(--shield-mask) center / contain no-repeat; mask: var(--shield-mask) center / contain no-repeat; }
+      .check-pop .cp-sub { color: var(--secondary); font-size: 12.5px; }
+      .check-pop .cp-counts { color: var(--secondary); font-variant-numeric: tabular-nums; }
+      .check-pop .cp-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .check-pop .cp-votes button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px; border-radius: 100px;
+        border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+      .check-pop .cp-votes button svg { width: 15px; height: 15px; }
+      .check-pop .cp-votes button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+      .check-pop .cp-votes button:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
+      .check-pop .cp-votes button:disabled { opacity: .6; cursor: wait; }
       /* Its switch in the edit panel turns green with it. */
       .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
       .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -1626,6 +1660,13 @@
           "kind.cheats": "치트",
           "kind.homebrew": "홈브류",
           "hb.verified": "검수됨",
+          "check.label": "검수 정보",
+          "check.works": "잘 돼요",
+          "check.broken": "안 돼요",
+          "check.byAdmin": "관리자 확인",
+          "check.worksN": (n) => `잘 돼요 ${n}`,
+          "check.counts": (up, down) => `잘 돼요 ${up} · 안 돼요 ${down}`,
+          "check.failed": "투표를 저장하지 못했습니다.",
           "action.admin": "서버 관리",
           "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
@@ -1957,6 +1998,13 @@
           "kind.cheats": "Cheats",
           "kind.homebrew": "Homebrew",
           "hb.verified": "Verified",
+          "check.label": "Check status",
+          "check.works": "Works",
+          "check.broken": "Doesn't work",
+          "check.byAdmin": "Checked by the admin",
+          "check.worksN": (n) => `Works: ${n}`,
+          "check.counts": (up, down) => `Works ${up} · Doesn't work ${down}`,
+          "check.failed": "Could not save your vote.",
           "action.admin": "Server admin",
           "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
@@ -2287,6 +2335,13 @@
           "kind.cheats": "チート",
           "kind.homebrew": "自作アプリ",
           "hb.verified": "動作確認済み",
+          "check.label": "動作確認の情報",
+          "check.works": "動きます",
+          "check.broken": "動きません",
+          "check.byAdmin": "管理者が確認",
+          "check.worksN": (n) => `動きます ${n}`,
+          "check.counts": (up, down) => `動きます ${up} · 動きません ${down}`,
+          "check.failed": "投票を保存できませんでした。",
           "action.admin": "サーバー管理",
           "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
@@ -2617,6 +2672,13 @@
           "kind.cheats": "金手指",
           "kind.homebrew": "自製軟體",
           "hb.verified": "已驗證",
+          "check.label": "驗證資訊",
+          "check.works": "能玩",
+          "check.broken": "不能玩",
+          "check.byAdmin": "管理員已確認",
+          "check.worksN": (n) => `能玩 ${n}`,
+          "check.counts": (up, down) => `能玩 ${up} · 不能玩 ${down}`,
+          "check.failed": "無法儲存投票。",
           "action.admin": "服务器管理",
           "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
@@ -3292,7 +3354,7 @@
           if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
-          if (d) { share.check(); raAccount.check(); }
+          if (d) { share.check(); raAccount.check(); checks.repaint(); }
         })
         .catch(() => {});
       $("logout-link").addEventListener("click", async (e) => {
@@ -4080,6 +4142,152 @@
         if (animate) { const h = $("hero"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap"); }
       }
 
+      // ─── 검수 칩 ────────────────────────────────────────────────────────────
+      // What is known about a homebrew app, retro game, patch or save from people who
+      // tried it: 검수됨 (the admin, on a console) and 잘 돼요 / 안 돼요 from signed-in
+      // accounts and consoles (/api/votes). A list shows both on the name's line; a
+      // detail shows one chip that opens a small popover to vote in. A vote redraws
+      // every place the item shows, without a reload.
+      const checks = (() => {
+        // Lucide thumbs-up (ISC); thumbs-down is the same turned over.
+        const THUMB = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>'; // privacy-ok: SVG path data
+        const THUMB_DOWN = THUMB.replace("<svg ", '<svg class="thumb-down" ');
+        const known = new Map();   // "kind:id" → { verified, at, up, down, mine }
+        const voted = new Set();   // voted on here: a list fetched before keeps its older counts out
+        const keyOf = (kind, id) => kind + ":" + id;
+        const canVote = () => Boolean(session);
+        const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+        function note(kind, it) {
+          const key = keyOf(kind, it.id);
+          const had = known.get(key);
+          const fresh = { up: it.votes?.up ?? 0, down: it.votes?.down ?? 0, mine: it.my_vote ?? null };
+          known.set(key, { verified: Boolean(it.verified), at: it.verified_at ?? null, ...(had && voted.has(key) ? { up: had.up, down: had.down, mine: had.mine } : fresh) });
+          return known.get(key);
+        }
+        function paintVotes(p, s) {
+          p.hidden = !(s.up > 0);
+          p.innerHTML = THUMB;
+          p.append(String(s.up));
+          p.title = t("check.worksN", s.up);
+          p.setAttribute("aria-label", t("check.worksN", s.up));
+        }
+        // The name line's pills: 검수됨, then the 잘 돼요 count (kept hidden at none, so a vote can show it).
+        function namePills(kind, it) {
+          const s = note(kind, it);
+          const out = [];
+          if (s.verified) out.push(el("span", "pill verified", t("hb.verified")));
+          const p = el("span", "pill votes"); p.dataset.check = keyOf(kind, it.id);
+          paintVotes(p, s);
+          out.push(p);
+          return out;
+        }
+        function paintChip(b, s) {
+          const showUp = s.up > 0 || canVote();
+          b.hidden = !s.verified && !showUp;
+          b.replaceChildren();
+          if (s.verified) b.append(el("span", "cc-verified", t("hb.verified")));
+          if (showUp) { const u = el("span", "cc-up" + (s.mine === "up" ? " mine" : "")); u.innerHTML = THUMB; u.append(String(s.up)); b.append(u); }
+          b.setAttribute("aria-label", [t("check.label"), s.verified ? t("hb.verified") : "", t("check.worksN", s.up)].filter(Boolean).join(", "));
+        }
+        let pop = null;   // { box, chip, key, kind, id }
+        function close(focus = false) {
+          if (!pop) return;
+          const { box, chip } = pop;
+          pop = null;
+          box.remove();
+          chip.setAttribute("aria-expanded", "false");
+          if (focus) chip.focus();
+        }
+        function fillPop() {
+          const s = known.get(pop.key);
+          const parts = [];
+          if (s.verified) {
+            parts.push(el("p", "cp-verified", t("hb.verified")));
+            parts.push(el("p", "cp-sub", [t("check.byAdmin"), ymd(s.at)].filter(Boolean).join(" · ")));
+          }
+          parts.push(el("p", "cp-counts", t("check.counts", s.up, s.down)));
+          if (canVote()) {
+            const row = el("div", "cp-votes");
+            for (const [v, label, icon] of [["up", t("check.works"), THUMB], ["down", t("check.broken"), THUMB_DOWN]]) {
+              const b = el("button"); b.type = "button"; b.dataset.vote = v;
+              b.setAttribute("aria-pressed", String(s.mine === v));
+              b.innerHTML = icon; b.append(label);
+              b.addEventListener("click", () => send(s.mine === v ? null : v, v));
+              row.append(b);
+            }
+            parts.push(row);
+          }
+          pop.box.replaceChildren(...parts);
+        }
+        function place() {
+          const { box, chip } = pop;
+          const host = box.parentElement;
+          box.style.top = chip.offsetTop + chip.offsetHeight + 6 + "px";
+          box.style.left = Math.max(0, Math.min(chip.offsetLeft, host.clientWidth - box.offsetWidth)) + "px";
+        }
+        function open(chip, kind, id) {
+          if (pop?.chip === chip) return close(true);
+          close();
+          const box = el("div", "check-pop");
+          box.setAttribute("role", "dialog"); box.setAttribute("aria-label", t("check.label"));
+          box.addEventListener("click", (e) => e.stopPropagation());
+          pop = { box, chip, key: keyOf(kind, id), kind, id };
+          fillPop();
+          chip.after(box);
+          chip.setAttribute("aria-expanded", "true");
+          place();
+          (box.querySelector('[aria-pressed="true"]') || box.querySelector("button"))?.focus();
+        }
+        // Every chip, name pill and open popover of the item, as it now stands.
+        function redraw(key) {
+          const s = known.get(key);
+          for (const n of document.querySelectorAll(".pill.votes[data-check], .check-chip[data-check]")) {
+            if (n.dataset.check !== key) continue;
+            if (n.classList.contains("check-chip")) paintChip(n, s); else paintVotes(n, s);
+          }
+          if (pop?.key === key && pop.box.isConnected) { fillPop(); place(); }
+        }
+        // Pressing the pressed one takes the vote back; focus stays on the button pressed.
+        async function send(v, pressed) {
+          const { kind, id, key, box } = pop;
+          for (const b of box.querySelectorAll("button")) b.disabled = true;
+          try {
+            const r = await fetch(`/api/votes/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
+              method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ vote: v }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || "");
+            voted.add(key);
+            known.set(key, { ...known.get(key), up: d.up, down: d.down, mine: d.mine });
+            redraw(key);
+            pop?.box.querySelector(`[data-vote="${pressed}"]`)?.focus();
+          } catch {
+            toast(t("check.failed"));
+            for (const b of box.querySelectorAll("button")) b.disabled = false;
+          }
+        }
+        // The detail's chip, or a hidden one when there is nothing to show (a later vote or edit fills it).
+        function chip(kind, it) {
+          const s = note(kind, it);
+          const b = el("button", "check-chip"); b.type = "button"; b.dataset.check = keyOf(kind, it.id);
+          b.setAttribute("aria-haspopup", "dialog"); b.setAttribute("aria-expanded", "false");
+          paintChip(b, s);
+          b.addEventListener("click", (e) => { e.stopPropagation(); open(b, kind, it.id); });
+          return b;
+        }
+        // The edit panel turned 검수됨 on or off.
+        function setVerified(kind, id, on) {
+          const key = keyOf(kind, id);
+          known.set(key, { ...(known.get(key) ?? { up: 0, down: 0, mine: null }), verified: on, at: on ? known.get(key)?.at ?? new Date().toISOString() : null });
+          redraw(key);
+        }
+        // Signing in shows the chip where it had nothing to show.
+        const repaint = () => { for (const n of document.querySelectorAll(".check-chip[data-check]")) if (known.has(n.dataset.check)) paintChip(n, known.get(n.dataset.check)); };
+        document.addEventListener("click", (e) => { if (pop && !pop.box.contains(e.target) && e.target !== pop.chip && !pop.chip.contains(e.target)) close(); }, true);
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop) { e.stopPropagation(); close(true); } }, true);
+        return { namePills, chip, setVerified, repaint, close };
+      })();
+
       // ─── retro games (/api/retro) ───────────────────────────────────────────
       // One chip per console, square tiles the server draws, pages loaded as
       // the list scrolls. A multi-disc game downloads as its bundle (discs + .m3u).
@@ -4141,7 +4349,9 @@
           const name = document.createElement("div"); name.className = "name"; name.textContent = g.name; name.title = g.name;
           const sub = document.createElement("div"); sub.className = "sub";
           const pill = (text, cls = "") => { const p = document.createElement("span"); p.className = "pill " + cls; p.textContent = text; return p; };
-          // Achievements lead the line: gold when this ROM earns them, grey when only its title matched.
+          // 검수됨 and the 잘 돼요 count lead the line.
+          sub.append(...checks.namePills("retro", g));
+          // Achievements next: gold when this ROM earns them, grey when only its title matched.
           if (g.achievements) {
             const byHash = g.achievements.matchedBy === "hash";
             const p = pill(t("retro.ach", g.achievements.count), byHash ? "ach" : "ach title-only");
@@ -4576,7 +4786,7 @@
           draw();
         }
         const edit = editPage("xmodal");
-        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
+        function show({ icon, title, sub, pills = [], check = null, meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
           paintPictures({ icon, banner, shots });
           paintArt(art, icon);
           edit.offer(art ? {
@@ -4587,18 +4797,15 @@
               window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
               if (info.title) $("xm-title").textContent = info.title;
               if (info.desc !== undefined) $("xm-desc").textContent = info.desc || t("modal.noDesc");
-              // The 검수됨 pill leads the detail's pills, as the list shows it.
-              if (info.verified !== undefined) {
-                $("xm-pills").querySelector(".pill.verified")?.remove();
-                if (info.verified) $("xm-pills").prepend(node("span", "pill verified", t("hb.verified")));
-                $("xm-pills").hidden = !$("xm-pills").children.length;
-              }
+              // The 검수 chip leading the detail's pills, and the list's name line, follow it.
+              if (info.verified !== undefined) checks.setVerified(art.kind, art.id, info.verified);
             },
           } : null);
           $("xm-title").textContent = title || "—";
           $("xm-sub").textContent = sub || "";
-          $("xm-pills").replaceChildren(...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
-          $("xm-pills").hidden = !pills.length;
+          checks.close();
+          $("xm-pills").replaceChildren(...(check ? [checks.chip(check.kind, check.it)] : []), ...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
+          $("xm-pills").hidden = !$("xm-pills").children.length;
           $("xm-meta").replaceChildren(...meta.filter(([, v]) => v != null && v !== "").map(([k, v]) => {
             const d = node("div", null, k); d.append(node("strong", null, String(v))); return d;
           }));
@@ -4711,18 +4918,18 @@
         const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         const updateLabel = (it) => `v${it.update_version}` + (it.game_version ? ` (${it.game_version})` : "");
-        // The name, with the 검수됨 pill beside it once the admin tried it on a console (as a homebrew row shows it).
-        function xnameOf(it) {
+        const checkKind = (kind) => (kind === "patches" ? "patch" : "save");
+        // The name, with the 검수됨 pill and the 잘 돼요 count beside it (as a homebrew row shows them).
+        function xnameOf(kind, it) {
           const name = document.createElement("div"); name.className = "xname";
           const label = document.createElement("span"); label.className = "xname-text"; label.textContent = it.name;
-          name.append(label);
-          if (it.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(v); }
+          name.append(label, ...checks.namePills(checkKind(kind), it));
           return name;
         }
         function itemRow(kind, it) {
           const row = document.createElement("div"); row.className = "xitem";
           const head = document.createElement("div");
-          const name = xnameOf(it);
+          const name = xnameOf(kind, it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text) => { const p = document.createElement("span"); p.className = "pill"; p.textContent = text; return p; };
           for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
@@ -4768,7 +4975,8 @@
             art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it) } : null,
             title: it.name,
             sub: gameName(it),
-            pills: [...(it.verified ? [[t("hb.verified"), "verified"]] : []), ...(it.required === true ? [[t("xm.required"), "need"]] : []),
+            check: { kind: checkKind(kind), it },
+            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []),
               ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
             meta: [
               [t("xm.size"), fmtBytes(it.size)],
@@ -4791,7 +4999,7 @@
         function listRow(kind, it) {
           const row = document.createElement("button"); row.type = "button"; row.className = "xrow";
           const head = document.createElement("div");
-          const name = xnameOf(it);
+          const name = xnameOf(kind, it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text, cls) => { const p = document.createElement("span"); p.className = "pill" + (cls ? " " + cls : ""); p.textContent = text; return p; };
           if (it.required === true) meta.append(pill(t("xm.required"), "need"));
@@ -5048,7 +5256,8 @@
             title: a.name || a.app,
             // As on the client: who made it and the latest version under the name, then what it is and its size.
             sub: [a.author, a.version && "v" + a.version].filter(Boolean).join(" · "),
-            pills: [...(a.verified ? [[t("hb.verified"), "verified"]] : []), [t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
+            check: { kind: "homebrew", it: a },
+            pills: [[t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
             meta: [
               [t("xm.latest"), a.version && "v" + a.version],
               [t("xm.author"), a.author],
@@ -5088,9 +5297,8 @@
           const info = document.createElement("div");
           const name = document.createElement("div"); name.className = "xname";
           const label = document.createElement("span"); label.className = "xname-text"; label.textContent = a.name || a.app;
-          name.append(label);
-          // Tried on a console by the admin.
-          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(v); }
+          // Tried on a console by the admin, and how many said 잘 돼요.
+          name.append(label, ...checks.namePills("homebrew", a));
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;
@@ -6010,6 +6218,9 @@
           [Number.isFinite(g.rating) ? t("pill.score", g.rating) : ""],
           [g.achievements ? t(g.achievements.matchedBy === "hash" ? "retro.ach" : "retro.achTitleShort", g.achievements.count) : "", g.achievements?.matchedBy === "hash" ? "ach" : "ach title-only"],
         ]);
+        // The 검수 chip leads the pills, as in a homebrew app's or patch's detail.
+        checks.close();
+        $("modal-pills").prepend(checks.chip("retro", g));
         fillDesc(g.description, loading, t("modal.noDescSub"));
 
         // A value only the game's own reply has shimmers until it arrives.

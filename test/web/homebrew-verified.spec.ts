@@ -40,7 +40,7 @@ test('the shop edit panel turns 검수됨 on, and the list shows the badge', asy
     .find((a: { name: string }) => a.name === 'Hand App')?.verified).toBe(true);
   // No reload: back on the detail, its pills and the list behind it show the badge at once.
   await page.locator('#xmodal .modal-gear').click();
-  await expect(page.locator('#xm-pills .pill.verified')).toHaveText('검수됨');
+  await expect(page.locator('#xm-pills .check-chip .cc-verified')).toHaveText('검수됨');
   await page.keyboard.press('Escape');
   const badge = page.locator('#tools-list .xrow', { hasText: 'Hand App' }).locator('.pill.verified');
   await expect(badge).toHaveText('검수됨');

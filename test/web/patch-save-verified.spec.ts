@@ -46,7 +46,7 @@ test('the 검수 pill on a patch row and a save row marks them for the shop and 
   const row = page.locator('#saves-list .xrow', { hasText: /All unlocked|전부 열림/ });
   await expect(row.locator('.xname .pill.verified')).toHaveText('검수됨');
   await row.click();
-  await expect(page.locator('#xm-pills .pill').first()).toHaveText('검수됨');
+  await expect(page.locator('#xm-pills > :first-child .cc-verified')).toHaveText('검수됨');
   await unmark(page, 'save', await idOf(page, 'saves', 'All unlocked'));
 });
 
@@ -64,7 +64,7 @@ test("a patch's edit panel in the shop turns 검수됨 on, and the list shows th
   await page.locator('#xmodal .arted form button[type=submit]').first().click();
   await expect.poll(() => listed(page, 'patches', '게임 데이터')).toBe(true);
   await page.locator('#xmodal .modal-gear').click();
-  await expect(page.locator('#xm-pills .pill').first()).toHaveText('검수됨');
+  await expect(page.locator('#xm-pills > :first-child .cc-verified')).toHaveText('검수됨');
   await page.keyboard.press('Escape');
   const badge = row().locator('.pill.verified');
   await expect(badge).toHaveText('검수됨');
