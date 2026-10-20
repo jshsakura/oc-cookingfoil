@@ -185,6 +185,13 @@ export async function refreshManualApp(folder) {
   if (entry) rebuildChanged(before, [entry]);
 }
 
+/**
+ * Whether a kept list predates what the server now serves, so it is read again on start: file keys
+ * without ctime (a same-size overwrite could keep an old hash) or no nacp_version. Hashes stay cached. Pure.
+ */
+export const keptListOutdated = (entries) => entries.some((e) => !("nacp_version" in e)
+  || [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
+
 /** The ids of the apps in `after` whose files differ from what `before` listed. Pure. */
 export function changedApps(before, after) {
   const had = new Map(before.map((e) => [e.id, e.hash]));
@@ -421,8 +428,7 @@ export function start() {
   // and reading every app again on each restart kept a busy disk busy for minutes.
   // A list kept with the keys before ctime joined them (three parts) is read again once, so no
   // download meets an old key and is turned away while its app is read again.
-  const oldKeys = manual.entries.some((e) => [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
-  if (!manual.at || oldKeys || Date.now() - manual.at > MANUAL_STALE_MS) {
+  if (!manual.at || keptListOutdated(manual.entries) || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
   // An app copied into the folder by hand, or any file changed deep inside one, is read again

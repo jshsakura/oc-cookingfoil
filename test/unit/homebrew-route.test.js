@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { changedApps, homebrewRouter, readsFilesUrl } from "../../src/routes/homebrew.js";
+import { changedApps, homebrewRouter, keptListOutdated, readsFilesUrl } from "../../src/routes/homebrew.js";
 
 const ID = "gh-0123456789ab";
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -241,4 +241,13 @@ test("an app whose files changed on disk is picked for its icon copy and shortcu
   const before = [{ id: "m-aaaaaaaaaaaa", hash: "1" }, { id: "m-bbbbbbbbbbbb", hash: "2" }, { id: "m-cccccccccccc", hash: "3" }];
   const after = [{ id: "m-aaaaaaaaaaaa", hash: "1" }, { id: "m-bbbbbbbbbbbb", hash: "2b" }, { id: "m-dddddddddddd", hash: "4" }];
   assert.deepEqual(changedApps(before, after), ["m-bbbbbbbbbbbb"]);
+});
+
+test("a kept list is read again on start when it lacks ctime keys or nacp_version", () => {
+  const now = { id: "m-1", key: "1:2:3:4", nacp_version: "1.0", files: [{ key: "1:2:3:4" }] };
+  assert.equal(keptListOutdated([now]), false);
+  assert.equal(keptListOutdated([{ ...now, nacp_version: null }]), false);
+  assert.equal(keptListOutdated([{ id: "m-1", key: "1:2:3:4" }]), true);
+  assert.equal(keptListOutdated([{ ...now, files: [{ key: "1:2:4" }] }]), true);
+  assert.equal(keptListOutdated([]), false);
 });
