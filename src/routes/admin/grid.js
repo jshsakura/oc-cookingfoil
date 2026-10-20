@@ -33,6 +33,15 @@ export const GRID_HEAD = `<script src="/admin/vendor/ag-grid.min.js"></script>`;
 
 export const GRID_CSS = /* css */ `
 .grid-mount{min-width:0;max-width:100%;margin:0 0 20px}
+/* A list that has not arrived yet: rows that shimmer in its place. Anything rendered into it (rows, a card,
+   an empty note) replaces them. */
+[data-skel]:empty{min-height:212px;border-radius:14px;margin:0 0 20px;
+  background:linear-gradient(90deg,transparent 0,rgba(127,127,127,.10) 50%,transparent 100%) 0 0/40% 100% no-repeat,
+    repeating-linear-gradient(var(--panel) 0 44px,var(--panel) 44px 52px) ;
+  -webkit-mask:repeating-linear-gradient(#000 0 44px,transparent 44px 52px);mask:repeating-linear-gradient(#000 0 44px,transparent 44px 52px);
+  animation:skel-sweep 1.2s ease-in-out infinite}
+@keyframes skel-sweep{from{background-position:-40% 0,0 0}to{background-position:140% 0,0 0}}
+@media (prefers-reduced-motion:reduce){[data-skel]:empty{animation:none}}
 .grid-tools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.grid-tools input{flex:1;min-width:0;max-width:360px}
 .grid-tools .grid-count{margin-left:auto;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
 .ag-theme-cook{border-radius:14px}
@@ -48,18 +57,23 @@ export const GRID_CSS = /* css */ `
 .gc.dim{color:var(--muted)}
 .ag-cell button.ib,.ag-cell .row-actions button{height:34px}
 .ag-cell select{padding-top:6px;padding-bottom:6px}
-.ag-full-width-row .grid-group{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;background:var(--sunk);font-weight:700}
+.ag-full-width-row .grid-group{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
 .ag-full-width-row .grid-group .muted{font-weight:500;color:var(--muted)}
 .ag-cell.tall{align-items:flex-start;padding-top:9px;padding-bottom:9px;line-height:1.4}
 .ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
+.ag-header-cell-text{font-size:12px;letter-spacing:.02em}
+/* Scrollbars in the page's colours, thin, in both themes. */
+.grid-mount *{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.grid-mount ::-webkit-scrollbar{width:8px;height:8px}.grid-mount ::-webkit-scrollbar-track{background:transparent}
+.grid-mount ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}.grid-mount ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .ag-row.live{background:rgba(var(--accent-rgb),.06)}
 `;
 
 export const GRID_SCRIPT = /* js */ `
 if(window.agGrid&&agGrid.ModuleRegistry&&agGrid.AllCommunityModule)agGrid.ModuleRegistry.registerModules([agGrid.AllCommunityModule]);
-const GRID_ROW=52,GRID_PAGE=50;
+const GRID_ROW=52,GRID_PAGE=20;
 const GRID_THEME=window.agGrid?agGrid.themeQuartz.withParams({
-  backgroundColor:'var(--panel)',foregroundColor:'var(--text)',headerBackgroundColor:'var(--sunk)',headerTextColor:'var(--muted)',
+  backgroundColor:'var(--panel)',foregroundColor:'var(--text)',headerBackgroundColor:'var(--panel)',headerTextColor:'var(--muted)',headerColumnResizeHandleColor:'transparent',headerRowBorder:{color:'var(--line)'},
   borderColor:'var(--line)',rowHoverColor:'var(--sunk)',oddRowBackgroundColor:'var(--panel)',accentColor:'var(--accent)',
   chromeBackgroundColor:'var(--panel)',fontFamily:'inherit',fontSize:13,headerFontSize:12.5,headerFontWeight:600,
   wrapperBorderRadius:14,spacing:6,cellHorizontalPadding:12,rowBorder:{color:'var(--line)'},columnBorder:false,
@@ -104,7 +118,12 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     if(act)return {...base,width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
     if(controls)return {...base,width:Math.max(controls,title.length*14+32),minWidth:controls};
     const w=fit(i);if(w)return {...base,width:Math.max(w,title.length*14+32),minWidth:Math.max(72,title.length*14+24)};
-    return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32)};});
+    // Long text shares the spare width; it is cut only past what a cell can reasonably hold.
+    const text=Math.max(...items.map((r)=>gridText((r._n[i]?.textContent||'').trim().slice(0,60),false)),0)+30;
+    return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32,Math.min(text,320))};});
+  // The grid always fills its width: with no long-text column, the widest plain one takes the rest.
+  if(!columnDefs.some((c)=>c.flex)){const pick=columnDefs.filter((c,i)=>!(cols[i]===''&&i===cols.length-1)&&!gridControlsWidth(items,i))
+    .sort((a,b)=>(b.width||0)-(a.width||0))[0];if(pick){pick.minWidth=pick.width;delete pick.width;pick.flex=1;}}
   const many=!groups&&opts.paging!==false&&items.length>GRID_PAGE;
   let tools=null;
   if(opts.search&&items.length>10){tools=el('div',null,'grid-tools');const q=el('input');q.type='search';
@@ -117,5 +136,5 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     getRowId:(p)=>p.data._id||'k'+p.data._k,
     getRowClass:(p)=>p.data._cls||'',
     isFullWidthRow:(p)=>!!p.rowNode.data?._head,fullWidthCellRenderer:(p)=>p.data._head,
-    ...(many?{pagination:true,paginationPageSize:GRID_PAGE,paginationPageSizeSelector:[25,50,100]}:{})});}
+    ...(many?{pagination:true,paginationPageSize:GRID_PAGE,paginationPageSizeSelector:[20,50,100]}:{})});}
 `;

@@ -17,11 +17,11 @@ export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
   </div>
   <p class="muted" id="pt-count"></p>
-  <div id="lib-patches"></div>`;
+  <div id="lib-patches" data-skel></div>`;
 
 export const SAVES_HTML = `  <h2 class="first">게임 세이브</h2>
   <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다. 기기에서 넣어 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
-  <div id="lib-saves"></div>`;
+  <div id="lib-saves" data-skel></div>`;
 
 export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
       <div id="gd-patches"></div>`;

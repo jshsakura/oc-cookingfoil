@@ -256,7 +256,7 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   const patch = async (lang: string) => ((await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as
     { homebrew: string | null; name: string; description: string | null; version: string | null }[]).find((p) => p.homebrew === 'handapp');
   await expect.poll(async () => (await patch('en'))?.name).toBe('Turbo mod');
-  const row = page.locator('#hb-apps .ag-row', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .src-card', { hasText: 'Hand App' });
   await row.getByRole('button', { name: 'Turbo mod 편집' }).click();
   const dialog = page.locator('#ct-edit');
   await expect(dialog).toBeVisible();
@@ -288,7 +288,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   await page.goto('/admin#homebrew');
   const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
   await expect.poll(listed).toContain('handapp.nro');
-  const row = page.locator('#hb-apps .ag-row', { hasText: 'Hand App' });
+  const row = page.locator('#hb-apps .src-card', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
   // The apps open first; the GitHub form leads the followed repositories.
   await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');

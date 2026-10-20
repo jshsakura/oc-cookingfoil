@@ -465,33 +465,43 @@ let hbManual=[],hbSources=[],hbReco=[];const hbPicked=new Set();
 async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}
   const held=d.held||[];$('hb-held').hidden=!held.length;
   $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
-  const extraCell=(type,app,items)=>{const c=td();
+  const extras=(type,app,items)=>{const c=el('div',null,'hb-extras');c.append(el('dt',type==='patch'?'패치':'세이브'));const dd=el('dd');
     for(const it of items){const line=el('div',null,'xline');line.append(el('span',it.name+' · '+mb(it.size)));
       line.append(verifyPill(it.name,it.verified,async(next)=>{
         try{await api('/admin/api/content/'+type+'/verified',{method:'POST',body:{id:it.id,verified:next}});toast(next?it.name+' 에 검수됨 배지를 붙였습니다.':it.name+' 의 검수됨 배지를 뗐습니다.');}
         catch(err){toast(err.message);}loadHbApps();}));
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
-      line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
-    c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
-  {const rows=d.apps||[];table('hb-apps',['켜기','검수','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
-    const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
-    b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
-    // Tried on a console: the shop and the client show a 검수됨 badge on it.
-    const ok=td();ok.append(hbVerify(a));tr.append(ok);
-    const n=td();n.append(el('b',a.name||a.app));
-    const where=a.install_type==='title'?'설치형 NSP · '+a.title_id:'switch/'+a.app+'/';
-    n.append(el('div',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · '+where,'muted'));
-    const manual=hbManual.find((m)=>m.id===a.id);
-    const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
-    tr.append(n);const k=td();k.append(hbKind(a.id,a.kind));if(a.install_type!=='title')k.append(hbCores(a.id,a.cores,a.name||a.app));tr.append(k,td(mb(a.size)));
-    // An installable title has no switch/<app>/ folder for patches and saves to go under.
-    if(a.app)tr.append(extraCell('patch',a.app,a.patches),extraCell('save',a.app,a.saves));else tr.append(td('—'),td('—'));
-    const act=td();const box=el('div',null,'row-actions');box.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)));
-    const repo=(a.repo_url||'').replace('https://github.com/','');
-    box.append(btn('그림',()=>openHbBanner(a)));
-    if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
-    else if(repo)box.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
-    act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.',{search:true,label:'앱',tall:true});}}
+      line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));dd.append(line);}
+    dd.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));c.append(dd);return c;};
+  paged($('hb-apps'),{key:'hb-apps',label:'앱',def:24,items:d.apps||[],
+    match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
+    render:(rows,list,q)=>{const m=$('hb-apps');
+      if(!rows.length){m.replaceChildren(el('div',q?'찾은 앱이 없습니다.':'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.','empty'));return;}
+      const grid=el('div',null,'src-cards');grid.append(...rows.map((a)=>hbAppCard(a,extras)));m.replaceChildren(grid);}});}
+// One app as a card: on/off and name on top, kind and size, its patches and saves, the buttons in the footer.
+function hbAppCard(a,extras){const card=el('article',null,'src-card hb-app'+(a.enabled?'':' hb-off'));
+  const head=el('div',null,'src-head');
+  const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
+  b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));
+  const title=el('div',null,'hb-title');title.append(el('b',a.name||a.app));
+  const where=a.install_type==='title'?'설치형 NSP · '+a.title_id:'switch/'+a.app+'/';
+  title.append(el('span',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):'직접 넣음')+' · '+where,'muted'));
+  // Tried on a console: the shop and the client show a 검수됨 badge on it.
+  head.append(w,title,hbVerify(a));card.append(head);
+  const facts=el('dl',null,'src-facts hb-facts');
+  const kind=el('div');kind.append(el('dt','분류'));const kd=el('dd',null,'hb-kind');kd.append(hbKind(a.id,a.kind));
+  if(a.install_type!=='title')kd.append(hbCores(a.id,a.cores,a.name||a.app));kind.append(kd);
+  const size=el('div');size.append(el('dt','크기'),el('dd',mb(a.size)));facts.append(kind,size);
+  // An installable title has no switch/<app>/ folder for patches and saves to go under.
+  if(a.app)facts.append(extras('patch',a.app,a.patches),extras('save',a.app,a.saves));
+  card.append(facts);
+  const manual=hbManual.find((m)=>m.id===a.id);
+  const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
+  const repo=(a.repo_url||'').replace('https://github.com/','');
+  const foot=el('div',null,'src-foot');foot.append(btn('설명',()=>editHbDesc(a.id,a.name||a.app,desc)),btn('그림',()=>openHbBanner(a)));
+  if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
+  else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
+  card.append(foot);return card;}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
 function hbBannerShow(url){const img=$('hb-banner-img');img.hidden=!url;if(url)img.src=url;$('hb-banner-none').hidden=Boolean(url);$('hb-banner-remove').hidden=!url;

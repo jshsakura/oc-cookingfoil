@@ -10,7 +10,7 @@ export const RETRO_VARIANTS_HTML = `
   <p class="muted" id="rv-help"></p>
   <div class="row-actions" id="rv-tools"><input id="rv-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"><label id="rv-broken-wrap" hidden><input type="checkbox" id="rv-broken"> 구동 불가 세트만 보기</label></div>
   <p class="muted" id="rv-summary"></p>
-  <div class="scroll" id="rv-list"></div>`;
+  <div class="scroll" id="rv-list" data-skel></div>`;
 
 export const RETRO_VARIANTS_CSS = `
 #rv-list tr.rv-head td{background:var(--sunk);font-weight:700}

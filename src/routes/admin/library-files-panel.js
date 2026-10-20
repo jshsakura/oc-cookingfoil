@@ -15,7 +15,7 @@ export const LIBRARY_VERIFY_HTML = `  <div class="hd"><h2 class="first">파일 �
   <p class="muted">게임 파일의 서명을 모두 확인하고, 새로 들어온 파일은 해시까지 확인합니다. 결과는 안내로만 보여 주고 다운로드는 막지 않습니다. 수정된 파일은 개조나 한글패치처럼 원본과 다른 파일이고, 손상된 파일은 설치나 실행이 안 될 수 있습니다.</p>
   <p class="muted" id="lv-state"></p>
   <div class="cards" id="lv-cards"></div>
-  <div class="scroll" id="lv-list"></div>`;
+  <div class="scroll" id="lv-list" data-skel></div>`;
 
 export const LIBRARY_FILES_SCRIPT = /* js */ `
 const LF_KIND={base:'본편',update:'업데이트',dlc:'DLC'};

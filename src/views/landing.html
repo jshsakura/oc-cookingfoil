@@ -528,11 +528,17 @@
       @container (max-width: 479px) { .recent { --n: 3; } }
       .recent::-webkit-scrollbar { display: none; }
       .recent > .game { scroll-snap-align: start; }
-      /* Shelf cards carry the size (top left) and the score (top right) only; the other labels belong to the list. */
-      .recent > .game .sub { display: none; }
-      .recent > .game .meta { gap: 0; }
+      /* Shelf cards follow the console's card: the size top left, the score top right, and under the name
+         one line of labels in its order (필수 패치, 할인, 업데이트, DLC), without the kind label every card shares. */
+      .recent > .game .sub { display: flex; flex-wrap: nowrap; overflow: hidden; gap: 4px; }
+      .recent > .game .sub .pill { flex: none; background: var(--line); color: var(--ink); border-color: transparent; border-radius: 7px; }
+      .recent > .game .sub .pill.base { display: none; }
+      .recent > .game .sub .pill.need { order: 1; } .recent > .game .sub .pill.sale { order: 2; }
+      .recent > .game .sub .pill.update { order: 3; } .recent > .game .sub .pill.dlc { order: 4; }
+      .recent > .game .sub:not(:has(.pill:not(.base))) { display: none; }
+      .recent > .game .meta { gap: 4px; }
       .recent > .game .poster-badge { top: calc(var(--card) * 0.053); height: clamp(16px, calc(var(--card) * 0.147), 22px); padding: 0 calc(var(--card) * 0.047); font-size: clamp(10px, calc(var(--card) * 0.087), 13px); line-height: clamp(16px, calc(var(--card) * 0.147), 22px); }
-      .recent > .game .size-badge { top: auto; bottom: calc(var(--card) * 0.053); left: calc(var(--card) * 0.053); }
+      .recent > .game .size-badge { top: calc(var(--card) * 0.053); bottom: auto; left: calc(var(--card) * 0.053); }
       .recent > .game .score-badge { right: calc(var(--card) * 0.053); }
       .recent > .game .cover { border-radius: calc(var(--card) * 0.0933); }
       .recent > .game .name { -webkit-line-clamp: 1; min-height: 0; font-size: clamp(12px, calc(var(--card) * 0.12), 17px); }
@@ -657,8 +663,8 @@
         color: #fff; font: 700 13px/22px var(--font-body); font-variant-numeric: tabular-nums;
         white-space: nowrap; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
       }
-      /* The size sits bottom-left, off the title: the art is cropped from the top down, so a logo is usually up there. */
-      .game .size-badge { top: auto; bottom: 8px; left: 8px; background: rgba(22, 22, 26, 0.78); }
+      /* The size sits top left, the score top right, as on the console's card. */
+      .game .size-badge { top: 8px; bottom: auto; left: 8px; background: rgba(22, 22, 26, 0.78); }
       .game .score-badge { right: 8px; min-width: 22px; text-align: center; background: #cc3e34; }
       /* five score bands, the same colours the client app uses */
       .game .score-badge.s90 { background: #0d6e40; }

@@ -43,7 +43,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   </div>
   <div data-sub-panel="history" hidden>
   <p class="muted">보낸 것과 보내지 않은 것을 함께 남깁니다. 최근 50건입니다.</p>
-  <div class="scroll" id="al-history"></div>
+  <div class="scroll" id="al-history" data-skel></div>
   </div>
 </section>`;
 

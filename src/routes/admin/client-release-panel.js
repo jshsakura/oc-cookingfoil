@@ -16,7 +16,7 @@ export const CLIENT_RELEASE_HTML = `<p class="muted">기기에 내려줄 Cooking
   <button class="primary" type="button" id="cr-check">지금 가져오기</button>
 </form>
 <p class="muted" id="cr-token-hint" hidden>비공개 저장소라면 연동의 GitHub 토큰을 씁니다. 공개 저장소는 토큰 없이 받습니다.</p>
-<div class="scroll" id="cr-status"></div>`;
+<div class="scroll" id="cr-status" data-skel></div>`;
 
 export const CLIENT_RELEASE_SCRIPT = /* js */ `
 const CR_SOURCE={manual:'수동',github:'GitHub'};
