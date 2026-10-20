@@ -1757,6 +1757,11 @@
           "share.sending": (pct) => `올리고 있습니다 ${pct}%`,
           "share.too_big": (size) => `한 번에 ${size}까지 올립니다.`,
           "share.failed": (msg) => `올리지 못했습니다. ${msg}`,
+          "share.signin": "로그인한 뒤에 보냅니다.",
+          "share.off": "임시 공유가 꺼져 있습니다.",
+          "share.limit": "파일이나 항목이 너무 많습니다.",
+          "share.server": "서버에서 받지 못했습니다. 잠시 뒤에 다시 보냅니다.",
+          "share.network": "연결이 끊겼습니다.",
           "action.download": "다운로드",
           "action.close": "닫기",
           "gallery.title": "사진",
@@ -2076,6 +2081,11 @@
           "share.sending": (pct) => `Uploading ${pct}%`,
           "share.too_big": (size) => `Up to ${size} per upload.`,
           "share.failed": (msg) => `Could not send. ${msg}`,
+          "share.signin": "Sign in to send.",
+          "share.off": "Sharing is turned off.",
+          "share.limit": "Too many files or items.",
+          "share.server": "The server could not take it. Try again in a moment.",
+          "share.network": "The connection dropped.",
           "action.download": "Download",
           "action.close": "Close",
           "gallery.title": "Pictures",
@@ -2398,6 +2408,11 @@
           "share.sending": (pct) => `送信中 ${pct}%`,
           "share.too_big": (size) => `一度に ${size} まで送れます。`,
           "share.failed": (msg) => `送信できませんでした。${msg}`,
+          "share.signin": "ログインしてから送ります。",
+          "share.off": "一時共有はオフになっています。",
+          "share.limit": "ファイルや項目が多すぎます。",
+          "share.server": "サーバーが受け取れませんでした。少し待ってからもう一度送ります。",
+          "share.network": "接続が切れました。",
           "action.download": "ダウンロード",
           "action.close": "閉じる",
           "gallery.title": "写真",
@@ -2720,6 +2735,11 @@
           "share.sending": (pct) => `正在上传 ${pct}%`,
           "share.too_big": (size) => `每次最多 ${size}。`,
           "share.failed": (msg) => `发送失败。${msg}`,
+          "share.signin": "请登录后再发送。",
+          "share.off": "临时分享已关闭。",
+          "share.limit": "文件或项目太多。",
+          "share.server": "服务器未能接收，请稍后再试。",
+          "share.network": "连接已中断。",
           "action.download": "下載",
           "action.close": "關閉",
           "gallery.title": "圖片",
@@ -2927,6 +2947,8 @@
       }).observe(document.documentElement, { childList: true, subtree: true });
       decorateIn(document.body);
 
+      // Text drawn once outside the data-i18n attributes and the shop render redraws itself here on a language switch.
+      const onLang = [];
       function applyI18n() {
         document.documentElement.setAttribute("lang", lang);
         document.documentElement.setAttribute("data-lang", lang);
@@ -2950,6 +2972,7 @@
         }
         $("lang-current").textContent = lang.toUpperCase();
         $("lang-btn").setAttribute("aria-label", t("action.language"));
+        for (const redraw of onLang) redraw();
         if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
       }
 
@@ -3115,7 +3138,9 @@
         const r = await fetch("/api/client/latest", { headers: { Accept: "application/json" } }).catch(() => null);
         if (!r || !r.ok) return;
         const build = await r.json();
-        $("client-meta").textContent = t("client.version", build.version, (build.size / 1048576).toFixed(1));
+        const meta = () => { $("client-meta").textContent = t("client.version", build.version, (build.size / 1048576).toFixed(1)); };
+        meta();
+        onLang.push(meta);
         $("client-icon").src = `/api/client/icon?v=${encodeURIComponent(build.sha256.slice(0, 12))}`;
         $("client-card").hidden = false;
       }
@@ -4471,6 +4496,7 @@
           gear.setAttribute("aria-label", t(on ? "edit.back" : "edit.open"));
           gear.title = t(on ? "edit.back" : "edit.open");
         }
+        onLang.push(() => face(editing()));
         async function fill() {
           const mine = ++seq;
           facts.replaceChildren(Object.assign(document.createElement("p"), { className: "ef-msg", textContent: t("edit.loading") }));
@@ -6432,7 +6458,8 @@
         const badLinks = (text) => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).some((l) => {
           try { const u = new URL(l); return u.protocol !== "http:" && u.protocol !== "https:"; } catch { return true; }
         });
-        const ERR = { empty: "share.empty", "bad-link": "share.bad_link", "too-many-links": "share.bad_link", "memo-too-long": "share.memo_long", full: "share.full", rate: "share.rate" };
+        const ERR = { empty: "share.empty", "bad-link": "share.bad_link", "too-many-links": "share.bad_link", "memo-too-long": "share.memo_long", full: "share.full", rate: "share.rate",
+          signin: "share.signin", off: "share.off", limit: "share.limit", error: "share.server" };
         function send() {
           const memo = $("share-memo").value.trim(), links = $("share-links").value.trim();
           if (!picked.length && !memo && !links) return say(t("share.empty"), "bad");
@@ -6467,7 +6494,7 @@
             if (body.code === "too-big") return say(t("share.too_big", fmtBytes(maxBytes)), "bad");
             say(ERR[body.code] ? t(ERR[body.code]) : t("share.failed", body.error || "HTTP " + xhr.status), "bad");
           });
-          xhr.addEventListener("error", () => { finish(); say(t("share.failed", "network error"), "bad"); });
+          xhr.addEventListener("error", () => { finish(); say(t("share.failed", t("share.network")), "bad"); });
           xhr.send(fd);
         }
         $("inbox-link").addEventListener("click", (e) => { e.preventDefault(); open(); });

@@ -27,6 +27,7 @@ import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-pan
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 
 const PAGE_CSS = /* css */ `
@@ -296,21 +297,23 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}</style></head><body>
+${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <h1 class="brand" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
     <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
       <div class="account-links" role="menu">
       <p class="who" id="who">불러오고 있습니다</p>
-      <a role="menuitem" href="/">${icon("home")}웹 화면</a>
-      <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
+      <a role="menuitem" href="/">${icon("home")}${top("web")}</a>
+      <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}${top("guide")}</a>
       <div class="menu-sep" role="separator"></div>
-      <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}어두운 테마<span class="switch" aria-hidden="true"></span></button>
-      <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
+      <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}${top("dark")}<span class="switch" aria-hidden="true"></span></button>
+      <button role="menuitem" type="button" id="logout">${icon("logout")}${top("logout")}</button>
+      <div class="menu-sep" role="separator"></div>
+      ${TOP_LANG_HTML}
       </div>
       ${ACTIVITY_HTML}
     </div>
@@ -318,25 +321,25 @@ ${POLISH_CSS}</style></head><body>
   </div>
 </header>
 
-<nav class="tabs" aria-label="서버 관리 메뉴">
-  <a href="#overview" data-group="overview">${icon("dashboard")}개요</a>
-  <a href="#library" data-group="games">${icon("folder")}게임<span class="count" data-sum="games" hidden></span></a>
-  <a href="#retro" data-group="retro">${icon("image")}레트로</a>
-  <a href="#homebrew" data-group="homebrew">${icon("package")}홈브류</a>
-  <a href="#users" data-group="people">${icon("users")}사용자<span class="count" data-sum="people" hidden></span></a>
-  <a href="#logs" data-group="ops">${icon("sliders")}운영<span class="count" data-sum="ops" hidden></span></a>
+<nav class="tabs" data-top-label="nav" aria-label="서버 관리 메뉴">
+  <a href="#overview" data-group="overview">${icon("dashboard")}${top("g.overview")}</a>
+  <a href="#library" data-group="games">${icon("folder")}${top("g.games")}<span class="count" data-sum="games" hidden></span></a>
+  <a href="#retro" data-group="retro">${icon("image")}${top("g.retro")}</a>
+  <a href="#homebrew" data-group="homebrew">${icon("package")}${top("g.homebrew")}</a>
+  <a href="#users" data-group="people">${icon("users")}${top("g.people")}<span class="count" data-sum="people" hidden></span></a>
+  <a href="#logs" data-group="ops">${icon("sliders")}${top("g.ops")}<span class="count" data-sum="ops" hidden></span></a>
 </nav>
-<nav class="group-tabs" id="group-tabs" aria-label="세부 메뉴">
-  <a href="#library" data-tab="library" data-in="games">${icon("folder")}파일</a>
-  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}변환</a>
-  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}업로드</a>
-  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}임시 공유<span class="count" id="inbox-count" hidden></span></a>
-  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}홈 추천</a>
-  <a href="#users" data-tab="users" data-in="people">${icon("users")}계정<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
-  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
-  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}알림</a>
-  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}서버 설정</a>
+<nav class="group-tabs" id="group-tabs" data-top-label="subnav" aria-label="세부 메뉴">
+  <a href="#library" data-tab="library" data-in="games">${icon("folder")}${top("s.library")}</a>
+  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
+  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}${top("s.upload")}</a>
+  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
+  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
+  <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
+  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
+  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
+  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}${top("s.alerts")}</a>
+  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}${top("s.settings")}</a>
   <a href="#overview" data-tab="overview" data-in="overview" hidden></a>
   <a href="#retro" data-tab="retro" data-in="retro" hidden></a>
   <a href="#homebrew" data-tab="homebrew" data-in="homebrew" hidden></a>
@@ -672,5 +675,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
 }
