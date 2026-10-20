@@ -408,7 +408,7 @@ async function loadHomebrew(){
         c.addEventListener('change',()=>{if(c.checked)hbPicked.add(r.repo);else hbPicked.delete(r.repo);});
         l.classList.toggle('added',r.added);const t=el('div');t.append(el('b',r.repo),el('span',(r.purpose.ko||r.purpose.en)+(r.added?' · 추가됨':'')));
         l.append(c,t);reco.append(l);}}});
-  paged($('hb-sources'),{key:'hb-sources',label:'따라가는 저장소',def:25,items:d.sources||[],
+  paged($('hb-sources'),{key:'hb-sources',label:'등록된 GitHub 저장소',def:25,items:d.sources||[],
     match:(s,q)=>(s.repo+' '+(s.description?.github||'')+' '+(s.description?.custom?.ko||'')).toLowerCase().includes(q),
     render:(rows,list,q)=>table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],rows.map((s)=>{const tr=el('tr');
     const name=td();const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';name.append(a);
@@ -436,7 +436,7 @@ async function loadHomebrew(){
     tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
     const act=td();const box=el('div',null,'row-actions');
     box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
-    q?'찾은 저장소가 없습니다.':'따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.')});
+    q?'찾은 저장소가 없습니다.':'등록된 GitHub 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.')});
   hbManual=d.manual||[];hbSources=d.sources||[];loadHbApps();}
 let hbManual=[],hbSources=[],hbReco=[];const hbPicked=new Set();
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.

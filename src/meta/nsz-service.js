@@ -30,6 +30,7 @@ const queue = createNszQueue({
   gamesDir: env.romsDirPath,
   stateFile: path.join(env.dataDir, "nsz-queue.json"),
   logFile: path.join(env.dataDir, "nsz-log.jsonl"),
+  logKeepMs: () => env.logKeepDays * 24 * 60 * 60 * 1000,
   settings: currentSettings,
   downloads: () => drainer.downloads(),
   // Games are served at their path under the games folder, on both download lanes.

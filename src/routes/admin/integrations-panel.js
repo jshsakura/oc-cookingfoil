@@ -72,7 +72,7 @@ const KEYLESS = [
   ["libretro", "레트로 표지", "레트로 게임의 표지와 스크린샷을 받습니다.", "github.com/libretro-thumbnails", "https://github.com/libretro-thumbnails"],
   ["bezel", "레트로 베젤", "레트로 게임 화면 둘레의 베젤 그림을 받습니다.", "github.com/thebezelproject", "https://github.com/thebezelproject"],
   ["launchbox", "레트로 평점", "레트로 게임 평점을 LaunchBox Games Database 에서 받습니다.", "gamesdb.launchbox-app.com", "https://gamesdb.launchbox-app.com"],
-  ["releases", "홈브류 새 버전", "따라가는 저장소의 GitHub 릴리스를 확인합니다. 키 없이도 되지만 위 GitHub 토큰을 넣으면 한도가 넉넉해집니다.", "api.github.com", null],
+  ["releases", "홈브류 새 버전", "등록된 GitHub 저장소의 릴리스를 확인합니다. 키 없이도 되지만 위 GitHub 토큰을 넣으면 한도가 넉넉해집니다.", "api.github.com", null],
   ["google", "구글 로그인", "웹 로그인에 씁니다. 클라이언트 ID 와 시크릿은 이 탭 아래의 구글 로그인 설정에서 넣습니다.", "accounts.google.com", null],
 ];
 

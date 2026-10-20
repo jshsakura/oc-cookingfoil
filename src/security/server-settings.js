@@ -80,6 +80,7 @@ export const SETTINGS = {
   nszBlock: bool,
   nszXci: bool,
   backupDays: whole(0, 365),
+  logKeepDays: whole(1, 365),
   syncHours: whole(0, 168),
   verifyHours: oneOf(...env.VERIFY_HOURS),
   // Where the client build comes from, and the GitHub release followed in "github" mode (meta/client-release.js).

@@ -36,12 +36,12 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
       <button type="button" data-filter="done" aria-pressed="false">완료</button>
       <button type="button" data-filter="failed" aria-pressed="false">실패</button>
     </div>
-    <div class="actions"><button type="button" id="nz-clear">끝난 것 삭제</button></div>
+    <div class="actions"><button type="button" id="nz-clear">완료건 삭제</button><button type="button" class="primary" id="nz-run-sel" disabled>변환할 파일을 고릅니다</button></div>
   </div>
-  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>변환할 파일을 고릅니다</button></div>
+  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label></div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
-  ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지운 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
+  ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지운 일을 최근 것부터 보여 줍니다. 완료건 삭제로 대기열을 비워도 기록은 남습니다.</p>
   <input type="search" id="nz-log-q" placeholder="이름으로 찾습니다" aria-label="변환 기록에서 찾기">
   <div class="nz-list" id="nz-log"></div><div class="nz-pager" id="nz-log-pager" hidden></div>`)}
   ${box("nsz-settings", "변환 설정", `<p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
@@ -81,7 +81,8 @@ export const NSZ_CSS = `
 .nz-skel{grid-template-columns:40px 1fr}.nz-skel .nz-main span{width:60%}
 .nz-lead{display:flex;align-items:center;gap:10px}
 .nz-lead input,.nz-chk input{width:18px;height:18px;margin:0;accent-color:var(--accent)}.nz-cb-sp{width:18px;flex:none}
-.nz-pick{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap}.nz-pick[hidden],.nz-kept[hidden]{display:none}
+/* The select-all box sits right above the rows' boxes (row border 1px + padding 12px). */
+.nz-pick{display:flex;align-items:center;margin-top:10px;padding-left:13px}.nz-pick[hidden],.nz-kept[hidden]{display:none}
 .nz-chk{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
 .nz-kept{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 #box-nsz-log{margin-top:16px}#nz-log-q{width:100%;margin:4px 0 8px}
@@ -162,7 +163,7 @@ function nzPatch(list,items){const old=new Map([...list.children].filter((c)=>c.
     if(!n||n.dataset.sig!==nzRowSig(it)){const fresh=nzRow(it);if(n){if(n===at)at=fresh;n.replaceWith(fresh);}n=fresh;}
     if(n===at)at=at.nextSibling;else list.insertBefore(n,at);}
   for(const n of old.values())n.remove();
-  $('nz-pick').hidden=!nzPickable()||!items.some(nzSelectable);nzSelUpdate();
+  $('nz-pick').hidden=!nzPickable()||!items.some(nzSelectable);$('nz-run-sel').hidden=$('nz-pick').hidden;nzSelUpdate();
   if(!items.length)list.append(el('div',nzFilter==='all'?'대기열이 비어 있습니다. 라이브러리 검사로 변환할 파일을 찾습니다.':'이 상태의 파일이 없습니다.','empty'));}
 function nzRunCard(it){const c=el('article',null,'nz-run');c.dataset.id=it.id;
   const body=el('div');body.style.minWidth='0';const meta=el('div',null,'nz-meta');const bar=el('div',null,'nz-bar');bar.append(el('i'));
@@ -194,7 +195,7 @@ function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden)
   const next=btn('다음',()=>{nzOffset+=NZ_LIMIT;loadNsz();});next.disabled=page>=pages;
   p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
 const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],failed:['실패','off'],restored:['되돌림','']}; // restored: lines written before 되돌리기 was dropped
-const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',cleared:'끝난 것 삭제로 지웠습니다.',missing:'파일이 이미 없었습니다.'};
+const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',cleared:'완료건 삭제로 지웠습니다.',missing:'파일이 이미 없었습니다.'};
 function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
   main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));
   if(e.reason)main.append(el('span',NZ_WHY[e.reason]||e.reason,e.event==='failed'?'err':''));

@@ -23,3 +23,16 @@ test("lines past the cap are dropped oldest first, and pages come newest first w
 test("no file yet reads as empty", () => {
   assert.deepEqual(createNszLog(path.join(root, "none.jsonl")).page(), { items: [], total: 0, offset: 0, limit: 50 });
 });
+
+test("lines older than the keep period are not shown and are dropped from the file", () => {
+  let clock = 10_000;
+  const log = createNszLog(path.join(root, "keep.jsonl"), { keepMs: () => 1000, now: () => clock });
+  log.append({ id: "old", rel: "Old.nsp", event: "converted" });
+  clock += 2000;
+  log.append({ id: "new", rel: "New.nsp", event: "converted" });
+  assert.deepEqual(log.page().items.map((e) => e.id), ["new"], "past the period, not shown");
+  clock += 60 * 60 * 1000; // the next hourly pass rewrites the file
+  log.append({ id: "newer", rel: "Newer.nsp", event: "converted" });
+  const ids = fs.readFileSync(log.file, "utf8").trim().split("\n").map((l) => JSON.parse(l).id);
+  assert.deepEqual(ids, ["newer"]);
+});

@@ -6,7 +6,7 @@
  * same requester on the same route are grouped into one transfer. A transfer
  * stays open while its requests keep coming and closes QUIET_MS after the last
  * one ended; it is then logged in one line and kept with the last MAX_RECENT
- * others, which are saved to ${COOK_DATA_DIR}/transfers.json (debounced, tmp +
+ * others no older than the admin's 기록 보관 기간 (logKeepDays), which are saved to ${COOK_DATA_DIR}/transfers.json (debounced, tmp +
  * rename) and read back on start.
  *
  * Speed is bytes over the transfer's wall time, from its first request to the
@@ -22,7 +22,7 @@
  */
 import path from "node:path";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dataDir } from "./envs.js";
+import * as env from "./envs.js";
 import debug from "../debug.js";
 import { DOWNLOAD_BYTES as LIVE_BYTES } from "../security/drain.js";
 
@@ -108,10 +108,12 @@ const isRecord = (r) => r && typeof r === "object" && typeof r.id === "string" &
  * the clock, `log` where the finished-transfer line goes.
  */
 export function createTransferLog({
-  file = path.join(dataDir, "transfers.json"),
+  file = path.join(env.dataDir, "transfers.json"),
   now = Date.now,
   quietMs = QUIET_MS,
   maxRecent = MAX_RECENT,
+  // How long a finished transfer is kept: the admin's 기록 보관 기간.
+  keepMs = () => env.logKeepDays * DAY_MS,
   maxOpen = MAX_OPEN,
   persistDelayMs = PERSIST_DELAY_MS,
   log = (line) => debug.log("%s", line),
@@ -240,6 +242,7 @@ export function createTransferLog({
     const rec = recordOf(t, t.inflight > 0 ? now() : t.lastAt);
     recent.unshift(rec);
     if (recent.length > maxRecent) recent.length = maxRecent;
+    dropExpired();
     try { log(logLine(rec)); } catch { /* a log sink never stops the record */ }
     schedulePersist();
     return rec;
@@ -294,6 +297,7 @@ export function createTransferLog({
     const seen = new Set(recent.map((r) => r.id));
     const saved = (Array.isArray(parsed?.transfers) ? parsed.transfers : []).filter((r) => isRecord(r) && !seen.has(r.id));
     recent = [...recent, ...saved].sort((a, b) => b.endedAt - a.endedAt).slice(0, maxRecent);
+    dropExpired();
     return saved.length;
   }
 
@@ -321,8 +325,19 @@ export function createTransferLog({
       .sort((a, b) => b.startedAt - a.startedAt);
   }
 
+  /** Drops the records older than the keep period (newest first, so from the end). */
+  function dropExpired(at = now()) {
+    const cutoff = at - keepMs();
+    let n = recent.length;
+    while (n > 0 && recent[n - 1].endedAt < cutoff) n -= 1;
+    if (n === recent.length) return;
+    recent.length = n;
+    schedulePersist();
+  }
+
   /** What the admin page shows: open transfers, recent ones (optionally of one route) and the last day per route. */
   function snapshot({ route = null, limit = 200, at = now() } = {}) {
+    dropExpired(at);
     const list = route ? recent.filter((r) => r.route === route) : recent;
     const live = active(at);
     return {

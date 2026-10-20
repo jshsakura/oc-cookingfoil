@@ -512,7 +512,7 @@ ${NSZ_HTML}
   <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
-    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}따라가는 저장소</button>
+    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
   </div>
   <div data-sub-panel="apps">
   <div class="hd"><h2 class="first">앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
@@ -534,7 +534,7 @@ ${NSZ_HTML}
     <button class="primary" type="submit">추가</button>
   </form>
   <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
-  <div class="hd"><h2>따라가는 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
+  <div class="hd"><h2>등록된 GitHub 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
   <div class="scroll" id="hb-sources"></div>
   </div>
 </section>

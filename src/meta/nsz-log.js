@@ -7,8 +7,9 @@
  *   event: converted | original-deleted | failed
  *   (lines from older versions may also say restored)
  *
- * Appended as events happen; past `max` lines the file is written again with
- * the newest `max` (to a temporary file, then renamed).
+ * Appended as events happen; past `max` lines, or once an hour when the oldest
+ * line is past `keepMs` (the admin's 기록 보관 기간), the file is written again
+ * with what is left (to a temporary file, then renamed). Reads skip expired lines.
  */
 import fs from "fs";
 import path from "path";
@@ -16,8 +17,14 @@ import debug from "../debug.js";
 
 const PAGE_MAX = 100;
 
-export function createNszLog(file, { max = 5000 } = {}) {
+const PRUNE_EVERY_MS = 60 * 60 * 1000;
+
+export function createNszLog(file, { max = 5000, keepMs = () => Infinity, now = Date.now } = {}) {
   let count = null;
+  let prunedAt = 0;
+  const fresh = (line, cutoff) => {
+    try { return JSON.parse(line).at >= cutoff; } catch { return false; }
+  };
 
   function readLines() {
     try {
@@ -31,9 +38,14 @@ export function createNszLog(file, { max = 5000 } = {}) {
     try {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       count ??= readLines().length;
-      fs.appendFileSync(file, `${JSON.stringify({ at: Date.now(), ...entry })}\n`);
-      if (++count <= max) return;
-      const keep = readLines().slice(-max);
+      fs.appendFileSync(file, `${JSON.stringify({ at: now(), ...entry })}\n`);
+      const due = now() - prunedAt >= PRUNE_EVERY_MS;
+      if (++count <= max && !due) return;
+      prunedAt = now();
+      const cutoff = now() - keepMs();
+      const lines = readLines();
+      const keep = lines.filter((l) => fresh(l, cutoff)).slice(-max);
+      if (keep.length === lines.length) return;
       const tmp = `${file}.tmp`;
       fs.writeFileSync(tmp, `${keep.join("\n")}\n`);
       fs.renameSync(tmp, file);
@@ -46,10 +58,12 @@ export function createNszLog(file, { max = 5000 } = {}) {
   /** One page, newest first; `q` matches the file path or the name, any case. */
   function page({ offset = 0, limit = 50, q = "" } = {}) {
     const needle = String(q ?? "").trim().toLowerCase();
+    const cutoff = now() - keepMs();
     const rows = [];
     for (const line of readLines().reverse()) {
       let e;
       try { e = JSON.parse(line); } catch { continue; }
+      if (!(e.at >= cutoff)) continue;
       if (needle && !`${e.rel ?? ""}\n${e.name ?? ""}`.toLowerCase().includes(needle)) continue;
       rows.push(e);
     }

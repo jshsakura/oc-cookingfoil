@@ -27,7 +27,7 @@
  * A kept original is deleted, oldest first, once it is older than
  * nszKeepHours ("age"), while the kept total is over nszKeepGb when that is
  * above 0 ("cap"), before a run would pause for free space ("space"), by
- * 지금 비우기 ("manual") and with its row by 빼기 ("removed") or 끝난 것 삭제
+ * 지금 비우기 ("manual") and with its row by 빼기 ("removed") or 완료건 삭제
  * ("cleared"). The age timer is set from the state file again on start,
  * past-due ones first. Its row leaves the list then; every conversion,
  * deletion and failure also goes to the conversion log (nsz-log.js).
@@ -105,6 +105,8 @@ export function createNszQueue({
   gamesDir,
   stateFile,
   logFile = path.join(path.dirname(stateFile), "nsz-log.jsonl"),
+  // How long the conversion log keeps a line (the admin's 기록 보관 기간).
+  logKeepMs = () => Infinity,
   settings,
   bin = resolveNsz,
   downloads = () => ({ active: 0, lastEndedAt: 0 }),
@@ -125,7 +127,7 @@ export function createNszQueue({
 }) {
   const workDir = path.join(gamesDir, WORK_DIR_NAME);
   const keepDir = path.join(gamesDir, KEEP_DIR_NAME);
-  const log = createNszLog(logFile);
+  const log = createNszLog(logFile, { keepMs: logKeepMs, now });
   let state = emptyState();
   const runs = new Map(); // id -> { stop, done, outDir, stopping }
   const removing = new Set();
@@ -686,7 +688,7 @@ export function createNszQueue({
     return true;
   }
 
-  /** 끝난 것 삭제: clears done and skipped rows; a cleared row's kept original is deleted with it. */
+  /** 완료건 삭제: clears done and skipped rows; a cleared row's kept original is deleted with it. */
   async function clearFinished() {
     const finished = (i) => i.state === "done" || i.state === "skipped";
     let n = 0;
