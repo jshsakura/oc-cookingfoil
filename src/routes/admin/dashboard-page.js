@@ -31,7 +31,7 @@ import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 
 const PAGE_CSS = /* css */ `
-body{padding:28px 24px 60px}.wrap{max-width:1100px;margin:0 auto}
+body{padding:28px 32px 80px}.wrap{max-width:1240px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
 .brand{margin:0}.brand a{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}
 .logo{width:44px;height:44px;flex:none}
@@ -238,7 +238,7 @@ form.add select{flex:none;min-width:9em}
 .me{margin-left:6px}
 /* Phones: tables turn into one card per row, each cell labelled. */
 @media (max-width:640px){
-body{padding:16px 12px 48px}header{margin-bottom:12px}
+body{padding:16px 16px 80px}header{margin-bottom:12px}
 .brand .wm{font-size:24px}.brand img{width:32px;height:32px}
 /* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
 nav.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
