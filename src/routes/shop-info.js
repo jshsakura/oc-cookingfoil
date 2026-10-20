@@ -10,6 +10,11 @@
  * one download (parallel Range requests): the admin's setting, 4 by default.
  * The same number rides on list and download responses as
  * X-CookingFoil-Max-Connections. It is a hint; the server does not enforce it.
+ *
+ * `admin-edit` is listed only to a console the admin made an admin device (on
+ * the devices tab): it may then read and change item settings through
+ * /api/admin/items (routes/admin-items.js). The answer is per console, hence
+ * Cache-Control: private.
  */
 import fs from "fs";
 import pkg from "../package.js";
@@ -22,6 +27,7 @@ import * as retroCatalog from "../retro/catalog.js";
 import { retroEnabled } from "./retro.js";
 import { savesEnabled } from "./saves.js";
 import { homebrewEnabled } from "./homebrew.js";
+import { adminDeviceOf } from "../security/device-admin.js";
 
 export const API_VERSION = 1;
 
@@ -61,7 +67,7 @@ async function hasRetroGames() {
   }
 }
 
-export default async function shopInfoRoute(_req, res) {
+export default async function shopInfoRoute(req, res) {
   const retro = await hasRetroGames();
   const stats = shopCache.stats();
   res.header("Cache-Control", "private, max-age=60");
@@ -90,6 +96,8 @@ export default async function shopInfoRoute(_req, res) {
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
       // homebrew-titles: GET /api/homebrew?with=titles also lists .nsp apps (install_type "title") to install like a game.
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
+      // admin-edit: this console is an admin device; /api/admin/items/:kind/:id/fields reads and changes item settings.
+      ...(adminDeviceOf(req) ? ["admin-edit"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],

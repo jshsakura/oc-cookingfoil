@@ -54,6 +54,8 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     // A paired console's session needs pairing to still be on.
     if (!sub.acct && !devicePairing) return refuse(req, res, "revoked");
     req.sessionLane = true;
+    // The console the token was made for, checked against its header above (device-admin.js).
+    req.sessionDevice = sub.dev;
     store.touchDevice(sub.dev);
     if (!sub.acct) {
       req.pairedDevice = sub.dev;

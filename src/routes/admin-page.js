@@ -10,6 +10,9 @@
  *   GET  /admin/api/devices         → approved + pending devices
  *   POST /admin/api/devices/approve → approve (or rotate the key of) a device
  *   POST /admin/api/devices/revoke  → revoke a device
+ *   POST /admin/api/devices/admin   → { deviceKey, admin } make an approved console an admin device (it may
+ *                                     change item settings, routes/admin-items.js) or not
+ *   GET  /admin/api/admin-edits?limit=100 → item setting changes, newest first (meta/admin-edits.js)
  *   GET  /admin/api/server/status   → safe restart state, requests in flight (counts only)
  *   POST /admin/api/server/restart  → drain, then exit (the container comes back by its restart policy)
  *   GET  /admin/api/transfers       → download records: open, recent, the last day per route
@@ -76,6 +79,7 @@ import { isPrivateCaller, trustedHere } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
+import * as adminEdits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -406,6 +410,22 @@ export default function adminPageRouter() {
     const removed = store.revokeDevice(deviceKey);
     debug.log("admin: revoke device %s… → %s", deviceKey.slice(0, 12), removed);
     res.json({ ok: true, revoked: removed ? 1 : 0 });
+  });
+
+  // An admin device may change item settings from the console (security/device-admin.js). Off by default.
+  router.post("/api/devices/admin", (req, res) => {
+    if (!requireSession(req, res)) return;
+    if (typeof req.body?.admin !== "boolean") return res.status(400).json({ error: "admin must be true or false" });
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey || !store.setDeviceAdmin(deviceKey, req.body.admin)) return res.status(404).json({ error: "no such device" });
+    debug.log("admin: device %s… admin device %s", deviceKey.slice(0, 12), req.body.admin ? "on" : "off");
+    res.json({ ok: true, admin: store.isDeviceAdmin(deviceKey) });
+  });
+
+  router.get("/api/admin-edits", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    res.json({ edits: adminEdits.recent(req.query.limit) });
   });
 
   mountManageApi(router, requireSession);

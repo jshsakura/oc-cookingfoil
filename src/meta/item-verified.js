@@ -1,0 +1,57 @@
+/**
+ * Which retro games and library games the admin has tried on a console, shown
+ * as a 검수됨 badge like homebrew-verified.js does for homebrew. Kept in
+ * ${COOK_DATA_DIR}/verified-items.json as { "<kind>:<id>": <ms since epoch> };
+ * an item not in it is not verified. Callers check that the item exists.
+ */
+import fs from "fs";
+import path from "path";
+import { dataDir } from "../helpers/envs.js";
+
+const FILE = path.join(dataDir, "verified-items.json");
+export const KINDS = ["retro", "game"];
+const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+let saved = null;
+
+function all() {
+  if (saved) return saved;
+  try {
+    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+    saved = {};
+  }
+  return saved;
+}
+
+const keyOf = (kind, id) => `${kind}:${id}`;
+
+/** When the item was marked verified (ms), or null. */
+export const verifiedAt = (kind, id) => {
+  const at = all()[keyOf(kind, id)];
+  return Number.isFinite(at) ? at : null;
+};
+
+/** { verified, verified_at } for a public listing. */
+export function fields(kind, id) {
+  const at = verifiedAt(kind, id);
+  return { verified: at !== null, verified_at: at === null ? null : new Date(at).toISOString() };
+}
+
+/** Marks or unmarks an item; marking one already marked keeps its date. False for an unknown kind or malformed id. */
+export function set(kind, id, on, now = Date.now()) {
+  if (!KINDS.includes(kind) || !ID_RE.test(String(id))) return false;
+  const { [keyOf(kind, id)]: had, ...rest } = all();
+  const next = on ? { ...rest, [keyOf(kind, id)]: Number.isFinite(had) ? had : now } : rest;
+  fs.mkdirSync(path.dirname(FILE), { recursive: true });
+  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
+  fs.renameSync(`${FILE}.tmp`, FILE);
+  saved = next;
+  return true;
+}
+
+/** For tests. */
+export function reset() {
+  saved = null;
+}

@@ -6,14 +6,14 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-function probe(env, before = "") {
+function probe(env, before = "", req = "{}") {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", `
     import route from "../../src/routes/shop-info.js";
     ${before}
     const res = { headers: {} };
     res.header = (k, v) => { res.headers[k] = v; return res; };
     res.json = (body) => { res.body = body; return res; };
-    await route({}, res);
+    await route(${req}, res);
     process.stdout.write(JSON.stringify(res.body));
   `], {
     cwd: import.meta.dirname,
@@ -33,6 +33,20 @@ test("shop info lists the optional fields a client may rely on", () => {
   }
   assert.ok(!info.features.includes("device-pairing"), "pairing is only listed when it is switched on");
   assert.deepEqual(info.contentMeta, { read: 0, pending: 0 });
+});
+
+test("shop info lists admin-edit only to a console the admin flagged", () => {
+  const KEY = "AB".repeat(32);
+  const setup = `
+    const store = await import("../../src/security/store.js");
+    await store.load();
+    store.approveDevice("${KEY}", { label: "a", addedBy: "admin", accessKeyHash: "h" });
+    store.approveDevice("${"CD".repeat(32)}", { label: "b", addedBy: "admin", accessKeyHash: "h" });
+    store.setDeviceAdmin("${KEY}", true);`;
+  const env = { COOK_DEVICE_PAIRING: "true" };
+  assert.ok(probe(env, setup, `{ pairedDevice: "${KEY}" }`).features.includes("admin-edit"));
+  assert.ok(!probe(env, setup, `{ pairedDevice: "${"CD".repeat(32)}" }`).features.includes("admin-edit"));
+  assert.ok(!probe(env, setup, `{ auth: { user: "alice" } }`).features.includes("admin-edit"), "a browser");
 });
 
 test("shop info lists device pairing when the server offers it", () => {

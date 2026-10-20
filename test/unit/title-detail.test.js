@@ -38,6 +38,7 @@ const PROBE = `
     screens: ok.body?.screenshots, artworkOnly,
     videos: ok.body?.videos, category: ok.body?.category, categories: ok.body?.categories,
     ratingContent: ok.body?.ratingContent,
+    verified: [ok.body?.verified, ok.body?.verified_at, artworkOnly.body?.verified, artworkOnly.body?.verified_at],
   }));
 `;
 
@@ -45,6 +46,8 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   const data = mkdtempSync(path.join(tmpdir(), "cook-detail-"));
   mkdirSync(path.join(data, "titledb"), { recursive: true });
   mkdirSync(path.join(data, "custom-art"));
+  // Marked tried on a console from an admin device (meta/item-verified.js).
+  writeFileSync(path.join(data, "verified-items.json"), JSON.stringify({ "game:0100000000ABC000": Date.UTC(2026, 0, 2) }));
   for (const file of ["0100000000ABC000.screen.4.jpg", "0100000000DDD000.banner.jpg", "0100000000DDD000.screen.2.jpg"]) {
     writeFileSync(path.join(data, "custom-art", file), "indexed artwork fixture");
   }
@@ -75,6 +78,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   const r = JSON.parse(out);
 
   assert.equal(r.okCode, 200);
+  assert.deepEqual(r.verified, [true, "2026-01-02T00:00:00.000Z", false, null]);
   assert.equal(r.name, "Test Title");
   assert.equal(r.publisher, "OpenCourse");
   assert.ok(r.descLen > 10, "description surfaced");

@@ -577,6 +577,30 @@ test('the devices tab shows one area at a time, and the address opens a given on
   await expect(page).toHaveURL(/#devices\/pending$/);
 });
 
+test('an approved console gets a 관리자 기기 switch, off until the admin turns it on', async ({ page, request }) => {
+  const KEY = 'E7'.repeat(32);
+  await signIn(page);
+  const origin = { Origin: new URL(page.url()).origin };
+  const pending = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
+  expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '관리 콘솔' }, headers: origin })).status()).toBe(200);
+  const flag = async () => (await (await page.request.get('/admin/api/devices')).json()).approved.find((d: { deviceKey: string }) => d.deviceKey === KEY)?.admin;
+  try {
+    // A new load: the list was read when the page opened, before the approval.
+    await page.goto('/admin#devices/approved');
+    await page.reload();
+    const sw = page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' });
+    await expect(sw).not.toBeChecked();
+    await sw.check({ force: true });
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 에서 항목 설정을 바꿀 수 있습니다.');
+    await expect.poll(flag).toBe(true);
+    await page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' }).uncheck({ force: true });
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 은(는) 다시 읽기만 합니다.');
+    await expect.poll(flag).toBe(false);
+  } finally {
+    await page.request.post('/admin/api/devices/revoke', { data: { deviceKey: KEY }, headers: origin });
+  }
+});
+
 test('server behaviour shows one group at a time and keeps the one picked after a reload', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings/server');

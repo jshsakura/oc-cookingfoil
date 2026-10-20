@@ -229,7 +229,7 @@ test("approveDevice on a brand-new device stores label/addedBy/hash and audits i
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
   assert.equal(approved.label, "kid console");
   assert.equal(approved.addedBy, "admin");
-  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "deviceKey", "label", "lastSeenAt"], "no IP or version");
+  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "admin", "deviceKey", "label", "lastSeenAt"], "no IP or version");
   assert.equal(approved.lastSeenAt, null, "not seen since this start");
 
   const kinds = store.snapshot().audit.map((a) => a.kind);
@@ -259,6 +259,39 @@ test("re-approving an existing device preserves addedAt/addedBy/label when new v
   assert.equal(after.label, before.label, "label falls back to the previous value");
   assert.equal(after.addedBy, before.addedBy, "addedBy falls back to the previous value");
   assert.equal(store.getDeviceAccessKeyHash(DK1), "hash-1-rotated", "hash is always overwritten");
+});
+
+test("an approved console is no admin device until set; the flag survives a new key and clears on revoke", () => {
+  const dk = "EEEE000000000000000000000000000000000000000000000000000000005E";
+  const flag = () => store.devicesSnapshot().approved.find((d) => d.deviceKey === dk)?.admin;
+  assert.equal(store.setDeviceAdmin(dk, true), false, "unknown console");
+  store.approveDevice(dk, { label: "living room", addedBy: "admin", accessKeyHash: "hash-e" });
+  assert.equal(store.isDeviceAdmin(dk), false);
+  assert.equal(flag(), false);
+  assert.equal(store.setDeviceAdmin(dk, true), true);
+  assert.equal(store.isDeviceAdmin(dk), true);
+  assert.equal(flag(), true);
+  store.approveDevice(dk, { accessKeyHash: "hash-e2" });
+  assert.equal(store.isDeviceAdmin(dk), true, "a new key keeps it");
+  store.setDeviceAdmin(dk, false);
+  assert.equal(store.isDeviceAdmin(dk), false);
+  store.setDeviceAdmin(dk, true);
+  store.revokeDevice(dk);
+  assert.equal(store.isDeviceAdmin(dk), false);
+  store.approveDevice(dk, { label: "again", addedBy: "admin", accessKeyHash: "hash-e3" });
+  assert.equal(store.isDeviceAdmin(dk), false, "approved again: off until set again");
+  store.revokeDevice(dk);
+});
+
+test("rebindDevice moves the admin flag with the record that moves whole", () => {
+  const from = "F1F1000000000000000000000000000000000000000000000000000000006F";
+  const to = "F2F2000000000000000000000000000000000000000000000000000000007F";
+  store.approveDevice(from, { label: "old", addedBy: "admin", accessKeyHash: "hash-f" });
+  store.setDeviceAdmin(from, true);
+  assert.equal(store.rebindDevice(from, to), true);
+  assert.equal(store.isDeviceAdmin(from), false);
+  assert.equal(store.isDeviceAdmin(to), true);
+  store.revokeDevice(to);
 });
 
 test("revokeDevice removes an approved device and its pending trace, returns true then false", () => {
