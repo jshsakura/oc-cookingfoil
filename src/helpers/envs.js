@@ -369,6 +369,8 @@ let nszBlock = envBool("COOK_NSZ_BLOCK", false);
 let nszXci = envBool("COOK_NSZ_XCI", false);
 // Daily backups of the security database and the hand-kept files (db/backup.js), kept this many days; 0 makes none.
 let backupDays = envNumber("COOK_BACKUP_DAYS", 14, { min: 0, max: 365, integer: true });
+// The conversion log (meta/nsz-log.js) and the download records (helpers/transfer-log.js) keep this many days.
+let logKeepDays = envNumber("COOK_LOG_KEEP_DAYS", 30, { min: 1, max: 365, integer: true });
 // Every folder read again in full this often (meta/folder-sync.js), behind the folder watch; 0 only on request.
 let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: true });
 // When the background file check (meta/verify-queue.js) may read the library: "always", "off", or "<from>-<to>" hours.
@@ -422,6 +424,7 @@ const ENV_SETTINGS = Object.freeze({
   nszBlock,
   nszXci,
   backupDays,
+  logKeepDays,
   syncHours,
   verifyHours,
 });
@@ -470,6 +473,7 @@ function applyServerSettings(saved = {}) {
   nszBlock = v.nszBlock;
   nszXci = v.nszXci;
   backupDays = v.backupDays;
+  logKeepDays = v.logKeepDays;
   syncHours = v.syncHours;
   verifyHours = v.verifyHours;
 }
@@ -495,6 +499,7 @@ export {
   nszBlock,
   nszXci,
   backupDays,
+  logKeepDays,
   syncHours,
   verifyHours,
   applyServerSettings,

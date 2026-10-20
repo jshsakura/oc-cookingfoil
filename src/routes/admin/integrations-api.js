@@ -74,7 +74,7 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
     if (!(service in integrations.SERVICES)) throw new integrations.IntegrationError("알 수 없는 서비스입니다");
     if (!integrations.configured(service)) return res.json({ ok: false, message: "키가 아직 없습니다" });
     const test = TESTS[service];
-    if (!test) return res.json({ ok: true, message: "저장돼 있습니다. 이 서비스는 연결 확인을 하지 않습니다" });
+    if (!test) return res.json({ ok: true, message: "저장되어 있습니다. 이 서비스는 연결 확인을 하지 않습니다" });
     const timed = (url, opts = {}) => fetchImpl(url, { ...opts, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) });
     try {
       const ok = await test(integrations.get(service), timed);

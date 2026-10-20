@@ -131,6 +131,21 @@ form.up textarea{padding:10px 14px;border-radius:12px;border:1px solid transpare
 /* On a wide screen the buttons sit side by side and the column is as wide as they are. */
 @media (min-width:641px){td:has(>.row-actions){width:1%;white-space:nowrap}:is(td,.gc)>.row-actions{flex-wrap:nowrap}}
 button.ib svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* The recommended version: a small star, filled on the one already picked. */
+button.ib.picked{color:var(--accent);opacity:1}button.ib.picked svg{fill:currentColor}
+/* Registered GitHub repositories as cards: facts in the middle, the buttons in the footer. */
+.src-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:12px;margin:0 0 20px}
+.src-card{display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.src-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
+.src-head a{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-ver{flex:none;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.src-desc{margin:0;color:var(--muted);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.src-facts{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:0}
+.src-facts dt{font-size:11.5px;color:var(--muted);margin-bottom:3px}.src-facts dd{margin:0;font-size:13px;min-width:0}
+.src-facts select{width:100%}
+.src-state{display:grid;gap:6px;font-size:12.5px}
+.src-foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.src-foot select{width:auto}.src-foot .danger{margin-left:auto}
 @media (min-width:641px){:is(td,.gc) button.ib{width:36px;height:36px;padding:0;position:relative}
   :is(td,.gc) button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 :is(td,.gc) .pills{display:flex;flex-wrap:wrap;gap:6px}
@@ -375,7 +390,7 @@ ${POLISH_CSS}</style></head><body>
   ${box("sec-google", "구글 로그인", `
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
-    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
+    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인(OAuth) 사용</label>
     <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
     <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
     <button class="primary" type="submit">저장</button>
@@ -512,7 +527,7 @@ ${NSZ_HTML}
   <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
-    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}따라가는 저장소</button>
+    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
   </div>
   <div data-sub-panel="apps">
   <div class="hd"><h2 class="first">앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
@@ -534,7 +549,7 @@ ${NSZ_HTML}
     <button class="primary" type="submit">추가</button>
   </form>
   <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
-  <div class="hd"><h2>따라가는 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
+  <div class="hd"><h2>등록된 GitHub 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
   <div class="scroll" id="hb-sources"></div>
   </div>
 </section>

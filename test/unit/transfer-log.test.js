@@ -265,3 +265,21 @@ test("speed is over the wall time: the gaps while a response drains through the 
   assert.equal(rec.activeMs, 21_000);
   assert.equal(rec.mbps, 1.1);
 });
+
+test("records older than the keep period drop off", () => {
+  let clock = 1_000_000;
+  const { log } = memoryLog({ quietMs: 10, now: () => clock, keepMs: () => 10_000 });
+  const meta = (i) => ({ key: `k${i}`, route: "lan", file: { path: `/g${i}.nsp`, name: `g${i}.nsp` }, who: { kind: "ip", id: "10.0.0.1", label: "10.0.0.1" }, remote: { scope: "private" } });
+  const finish = (i) => {
+    log.end(log.begin(meta(i)), { download: true, sent: 2_000_000, size: 2_000_000 });
+    clock += 20;
+    log.sweep();
+  };
+  finish(1);
+  clock += 5_000;
+  finish(2);
+  assert.equal(log.snapshot().total, 2);
+  clock += 7_000; // the first is now 12 s old, the second 7 s
+  assert.equal(log.snapshot().total, 1);
+  assert.equal(log.recentCount(), 1, "dropped, not only hidden");
+});

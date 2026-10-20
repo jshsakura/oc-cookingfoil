@@ -467,7 +467,7 @@ test("with a keep time the original moves into the keep folder, the library hear
   assert.equal((await q.scan()).added, 0);
 });
 
-test("끝난 것 삭제 clears a kept row and deletes its original with it", async () => {
+test("완료건 삭제 clears a kept row and deletes its original with it", async () => {
   S.keepHours = 6;
   put("A.nsp");
   const q = make();

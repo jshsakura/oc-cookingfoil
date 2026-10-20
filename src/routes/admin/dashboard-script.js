@@ -18,6 +18,7 @@ const TRASH='<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>';
 const PENCIL='<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>';
 const CROSS='<path d="M6 6l12 12M18 6L6 18"/>';
 const BAN='<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>';
+const STAR='<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>';
 const ROTATE='<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
 const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,'휴지통으로 옮깁니다':TRASH,
   '편집':PENCIL,'이름':PENCIL,'이름 변경':PENCIL,
@@ -26,7 +27,8 @@ const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,'휴지통으로 �
   '키 재발급':'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
   '재시도':ROTATE,'다시 시작':ROTATE,'되돌립니다':'<path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
   '복사':'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
-  '설명':'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
+  '설명':'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>','지금 확인':ROTATE,
+  '추천 버전입니다':STAR,'추천 버전으로 정합니다':STAR,
   '그림':'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 8"/>',
   '지금 다운로드':'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>'};
 function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const icon=ICONS[txt];
@@ -408,36 +410,42 @@ async function loadHomebrew(){
         c.addEventListener('change',()=>{if(c.checked)hbPicked.add(r.repo);else hbPicked.delete(r.repo);});
         l.classList.toggle('added',r.added);const t=el('div');t.append(el('b',r.repo),el('span',(r.purpose.ko||r.purpose.en)+(r.added?' · 추가됨':'')));
         l.append(c,t);reco.append(l);}}});
-  paged($('hb-sources'),{key:'hb-sources',label:'따라가는 저장소',def:25,items:d.sources||[],
+  paged($('hb-sources'),{key:'hb-sources',label:'등록된 GitHub 저장소',def:25,items:d.sources||[],
     match:(s,q)=>(s.repo+' '+(s.description?.github||'')+' '+(s.description?.custom?.ko||'')).toLowerCase().includes(q),
-    render:(rows,list,q)=>table('hb-sources',['저장소','버전','쓰는 파일','상태','마지막 확인',''],rows.map((s)=>{const tr=el('tr');
-    const name=td();const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';name.append(a);
-    const shown=s.description?.custom?(s.description.custom.ko||s.description.custom.en||'설명 없음'):s.description?.github;
-    if(shown)name.append(el('div',shown,'desc'));
-    tr.append(name,td(s.cached?.version||s.tag||'—'));
-    const file=td();
-    if((s.assets||[]).length>1||s.pattern){const sel=el('select');sel.setAttribute('aria-label','쓸 파일');
-      const auto=el('option','자동 ('+(s.chosen||'없음')+')');auto.value='';sel.append(auto);
-      for(const n of s.assets){const o=el('option',n);o.value=n;sel.append(o);}
-      if(s.pattern&&!s.assets.includes(s.pattern)){const o=el('option',s.pattern);o.value=s.pattern;sel.append(o);}
-      sel.value=s.pattern||'';sel.addEventListener('change',()=>setHbAsset(s.repo,sel.value));file.append(sel);}
-    else file.textContent=s.chosen||'—';
-    tr.append(file);
-    const st=td();const pills=el('div',null,'pills');st.append(pills);
-    if(s.error){pills.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
-    else if(s.cached)pills.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
-    else pills.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
-    if(s.install){const folder=s.install.mode==='folder';
-      const how=pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null);
-      if(!folder&&HB_REASON[s.install.reason])how.title=HB_REASON[s.install.reason];
-      pills.append(how);
-      for(const x of s.install.excluded||[])st.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'muted'));
-      if(s.install.rules?.length){const d=el('details');d.append(el('summary','판단 근거'),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
-    tr.append(st);const w=td(ago(s.checked_at));w.title=fmt(s.checked_at);tr.append(w);
-    const act=td();const box=el('div',null,'row-actions');
-    box.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));act.append(box);tr.append(act);return tr;}),
-    q?'찾은 저장소가 없습니다.':'따라가는 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.')});
+    render:(rows,list,q)=>{const m=$('hb-sources');if(m._grid){m._grid.destroy();m._grid=null;}
+      if(!rows.length){m.replaceChildren(el('div',q?'찾은 저장소가 없습니다.':'등록된 GitHub 저장소가 없습니다. 위에서 추천 홈브류를 고르거나 주소로 추가합니다.','empty'));return;}
+      const grid=el('div',null,'src-cards');grid.append(...rows.map(hbSourceCard));m.replaceChildren(grid);}});
   hbManual=d.manual||[];hbSources=d.sources||[];loadHbApps();}
+// One registered repository as a card: name and description on top, the file, state and last check in the
+// middle, the buttons in the footer.
+function hbSourceCard(s){const card=el('article',null,'src-card');
+  const head=el('div',null,'src-head');const a=el('a',s.repo);a.href='https://github.com/'+s.repo;a.target='_blank';a.rel='noopener';
+  head.append(a,el('span',s.cached?.version||s.tag||'—','src-ver'));card.append(head);
+  const shown=s.description?.custom?(s.description.custom.ko||s.description.custom.en||'설명 없음'):s.description?.github;
+  if(shown)card.append(el('p',shown,'src-desc'));
+  const facts=el('dl',null,'src-facts');const fact=(k,v)=>{const d=el('div');d.append(el('dt',k));const dd=el('dd');dd.append(v);d.append(dd);facts.append(d);};
+  if((s.assets||[]).length>1||s.pattern){const sel=el('select');sel.setAttribute('aria-label','쓸 파일');
+    const auto=el('option','자동 ('+(s.chosen||'없음')+')');auto.value='';sel.append(auto);
+    for(const n of s.assets){const o=el('option',n);o.value=n;sel.append(o);}
+    if(s.pattern&&!s.assets.includes(s.pattern)){const o=el('option',s.pattern);o.value=s.pattern;sel.append(o);}
+    sel.value=s.pattern||'';sel.addEventListener('change',()=>setHbAsset(s.repo,sel.value));fact('쓰는 파일',sel);}
+  else fact('쓰는 파일',s.chosen||'—');
+  const when=el('span',ago(s.checked_at));when.title=fmt(s.checked_at);fact('마지막 확인',when);
+  card.append(facts);
+  const st=el('div',null,'src-state');const pills=el('div',null,'pills');st.append(pills);
+  if(s.error){pills.append(pill('오류','off'));st.append(el('div',s.error.message,'err'));}
+  else if(s.cached)pills.append(pill(s.cached.current?'받아 둠 · '+mb(s.cached.size):'새 버전 있음',s.cached.current?'on':'warn'));
+  else pills.append(pill(s.checked_at?'아직 받지 않음':'확인 전'));
+  if(s.install){const folder=s.install.mode==='folder';
+    const how=pill(folder?'폴더 설치 · '+s.folder_files+'개 파일':'nro 만',folder?'on':null);
+    if(!folder&&HB_REASON[s.install.reason])how.title=HB_REASON[s.install.reason];
+    pills.append(how);
+    for(const x of s.install.excluded||[])st.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'muted'));
+    if(s.install.rules?.length){const d=el('details');d.append(el('summary','판단 근거'),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
+  card.append(st);
+  const foot=el('div',null,'src-foot');
+  foot.append(hbKind(s.id,s.kind),btn('설명',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),btn('지금 확인',()=>checkHb(s.repo)),btn('삭제',()=>removeHb(s.repo),'danger'));
+  card.append(foot);return card;}
 let hbManual=[],hbSources=[],hbReco=[];const hbPicked=new Set();
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
 async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}catch(err){toast(err.message);return;}

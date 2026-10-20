@@ -3,13 +3,15 @@
  * test message and what was told lately. Talks to /admin/api/alerts.
  */
 
+import { icon } from "../../views/icons.js";
+
 export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <h2 class="first">텔레그램 알림</h2>
   <p class="muted">처리할 일이나 위험한 접근이 생기면 텔레그램으로 알립니다. 같은 일은 30분에 한 번만, 위험한 접근은 10분씩 모아 보냅니다. 비밀번호, 주소, 이메일은 담지 않습니다.</p>
   <div class="al-status" id="al-status"><span class="al-dot"></span><div><strong>불러오고 있습니다</strong><span></span></div></div>
   <div class="subtabs" id="alerts-subtabs" role="tablist" aria-label="알림 구역">
-    <button type="button" role="tab" data-sub="setup" aria-selected="true">설정</button>
-    <button type="button" role="tab" data-sub="history" aria-selected="false">최근 알림</button>
+    <button type="button" role="tab" data-sub="setup" aria-selected="true">${icon("sliders")}설정</button>
+    <button type="button" role="tab" data-sub="history" aria-selected="false">${icon("bell")}최근 알림</button>
   </div>
   <div data-sub-panel="setup">
   <form id="al-form" autocomplete="off">
@@ -77,7 +79,7 @@ async function loadAlerts(){
     :!d.chatId?['채팅 ID 가 없습니다','봇에게 말을 건 뒤 대화 찾기를 누릅니다.']
     :['켜져 있습니다',(d.bot?'@'+d.bot+' 가 ':'')+'채팅 '+d.chatId+' 로 보냅니다'+(d.source==='env'?' (환경변수)':'')+'.'];
   st.querySelector('strong').textContent=title;st.querySelector('span:not(.al-dot)').textContent=sub;
-  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.approvers.value=(d.approvers||[]).join(',');
+  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장되어 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.approvers.value=(d.approvers||[]).join(',');
   // People the bot heard from lately; a click adds one to the list.
   $('al-users').replaceChildren(...(d.users||[]).length?[el('span','최근 봇에게 말을 건 사람:','muted'),...d.users.map((u)=>btn((u.name||'이름 없음')+' ('+u.id+')',()=>{
     const ids=f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean);if(!ids.includes(u.id))f.approvers.value=[...ids,u.id].join(',');}))]:[]);
