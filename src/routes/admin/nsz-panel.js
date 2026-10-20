@@ -7,6 +7,10 @@
  *
  * While the tab is open in a visible window and the queue runs, the list is
  * read again every few seconds; only rows that changed are redrawn.
+ *
+ * Waiting rows can be ticked and run by themselves (선택한 것만 변환). A done
+ * row whose original is still kept offers 되돌리기, the header says how much
+ * is kept, and 변환 기록 pages through the conversion log with a name search.
  */
 
 import { box } from "./boxes.js";
@@ -19,6 +23,7 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
     <div class="nz-state"><span class="pill nz-sk" id="nz-state">불러오고 있습니다</span><span class="muted" id="nz-note"></span></div>
     <div class="bar nz-overall" aria-hidden="true"><i id="nz-overall"></i></div>
     <p class="muted" id="nz-overall-t"></p>
+    <div class="nz-kept" id="nz-kept" hidden><span class="muted" id="nz-kept-t"></span><button type="button" id="nz-purge">지금 비우기</button></div>
   </div>
   <div class="nz-cards" id="nz-cards">${'<div class="card nz-sk"><div class="v">0</div><div class="l">불러오고 있습니다</div></div>'.repeat(5)}</div>
   <div class="nz-active" id="nz-active"></div>
@@ -32,8 +37,12 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
     </div>
     <div class="actions"><button type="button" id="nz-retry-all">실패 모두 재시도</button><button type="button" id="nz-clear">끝난 것 삭제</button></div>
   </div>
+  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>선택한 것만 변환 (0)</button></div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
+  ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지우고 되돌린 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
+  <input type="search" id="nz-log-q" placeholder="이름으로 찾습니다" aria-label="변환 기록에서 찾기">
+  <div class="nz-list" id="nz-log"></div><div class="nz-pager" id="nz-log-pager" hidden></div>`)}
   ${box("nsz-settings", "변환 설정", `<p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
   <div class="ss-list"><section class="ss-group" id="nz-settings"></section></div>`)}
 </section>`;
@@ -59,7 +68,7 @@ export const NSZ_CSS = `
 .nz-sk{color:transparent!important;background:var(--sunk)!important;border-radius:8px;animation:nz-pulse 1.4s ease-in-out infinite}
 .nz-tools{margin-top:16px}.nz-tools .seg{margin:6px 0}
 .nz-list{display:grid;gap:8px;margin-top:8px}
-.nz-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.nz-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
 .nz-row.running{border-color:rgba(var(--accent-rgb),.6)}
 .nz-ico{width:40px;height:40px;border-radius:10px;background:var(--sunk);object-fit:cover;display:block;flex:none}
 .nz-main{min-width:0;display:grid;gap:2px}
@@ -69,20 +78,27 @@ export const NSZ_CSS = `
 .nz-info{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted)}
 .nz-acts{display:flex;gap:6px}.nz-acts button{padding:6px 10px}
 .nz-skel{grid-template-columns:40px 1fr}.nz-skel .nz-main span{width:60%}
+.nz-lead{display:flex;align-items:center;gap:10px}
+.nz-lead input,.nz-chk input{width:18px;height:18px;margin:0;accent-color:var(--accent)}.nz-cb-sp{width:18px;flex:none}
+.nz-pick{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap}.nz-pick[hidden],.nz-kept[hidden]{display:none}
+.nz-chk{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.nz-kept{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#box-nsz-log{margin-top:16px}#nz-log-q{width:100%;margin:4px 0 8px}
+.nz-lrow{grid-template-columns:minmax(0,1fr) auto}
 .nz-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0}
 .nz-pager[hidden],#nz-settings .ss-src[hidden]{display:none}
 #nz-settings .ss-row:first-child{border-top:0}
 @media (max-width:640px){
 .nz-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.nz-cards .card:last-child{grid-column:1/-1}
 .nz-run{grid-template-columns:48px 1fr}.nz-run .nz-ico{width:48px;height:48px}
-.nz-row{grid-template-columns:40px minmax(0,1fr)}.nz-info{grid-column:2;justify-content:flex-start}.nz-acts{grid-column:1/-1}.nz-acts button{flex:1}
+.nz-row{grid-template-columns:auto minmax(0,1fr)}.nz-lrow{grid-template-columns:minmax(0,1fr)}.nz-lrow .nz-info{grid-column:1}.nz-info{grid-column:2;justify-content:flex-start}.nz-acts{grid-column:1/-1}.nz-acts button{flex:1}
 .nz-tools .actions{width:100%}.nz-tools .actions button{flex:1}
 }
 @media (prefers-reduced-motion:reduce){.nz-sk,.nz-bar.ind>i{animation:none}.nz-bar>i{transition:none}}
 `;
 
 export const NSZ_SCRIPT = /* js */ `
-var nzFilter='all',nzOffset=0,nzTimer=null,nzSettingsSig='',nzBusy=false; // var: showTab() can run before this line
+var nzFilter='all',nzOffset=0,nzTimer=null,nzSettingsSig='',nzBusy=false,nzSel=new Set(),nzSkew=0,nzLogOff=0,nzLogQ='',nzLogSig='',nzLogTimer=null; // var: showTab() can run before this line
 const NZ_LIMIT=50,NZ_POLL_MS=3000;
 const nzSize=(n)=>{n=Number(n)||0;if(n<1024)return n+' B';const u=['KB','MB','GB','TB'];let i=-1;do{n/=1024;i++;}while(n>=1024&&i<3);return (n>=100?n.toFixed(0):n.toFixed(1))+' '+u[i];};
 const nzTime=(ms)=>{const s=Math.max(0,Math.round(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0');};
@@ -96,6 +112,8 @@ const NZ_SETTINGS=[
   ['nszWorkers',[['1','1개 (기본)'],['2','2개'],['3','3개']],'동시에 변환할 파일','늘리면 빨리 끝나지만 같은 디스크에서 다운로드하는 콘솔이 느려집니다.'],
   ['nszMinSizeMb',[1,1048576,'MB'],'최소 크기','이보다 작은 파일은 변환하지 않습니다.'],
   ['nszDiskFloorGb',[0,1048576,'GB'],'더 남길 공간','파일 하나를 변환할 때는 그 파일 크기만큼의 작업 공간이 있으면 시작합니다. 여기 넣은 만큼은 그와 별도로 늘 비워 둡니다. 0 이면 작업 공간만 확인합니다.'],
+  ['nszKeepHours',[0,168,'시간'],'원본 보관 시간','변환한 뒤 원본을 이 시간만큼 숨은 폴더에 두어 되돌릴 수 있게 합니다. 0 이면 변환하자마자 지웁니다.'],
+  ['nszKeepGb',[0,4096,'GB'],'원본 보관 한도','보관 중인 원본이 이보다 많아지면 오래된 것부터 지웁니다. 0 이면 한도 없이 보관 시간만 봅니다. 공간이 모자라면 한도와 상관없이 오래된 것부터 지우고 이어서 변환합니다.'],
   ['nszBlock','bool','블록 압축','블록 압축은 콘솔이 여러 코어로 풀 수 있게 하는 방식이며 지금 클라이언트는 솔리드와 속도 차이가 없으니 꺼 둡니다.'],
   ['nszXci','bool','XCI 도 XCZ 로 변환','XCI 파일도 XCZ 로 압축합니다.'],
 ];
@@ -103,22 +121,36 @@ function nzIcon(it,cls){if(!it.titleId){const i=el('i',null,'nz-ico'+(cls?' '+cl
   const img=el('img',null,'nz-ico'+(cls?' '+cls:''));img.alt='';img.loading='lazy';img.src='/api/shop/icon/'+it.titleId+'?size=sm';img.onerror=()=>{img.style.visibility='hidden';};return img;}
 const nzName=(it)=>it.name||it.rel.split('/').pop().replace(/\\.(nsp|xci)$/i,'');
 const nzFile=(it)=>it.rel.split('/').pop();
+const nzPickable=()=>nzFilter==='all'||nzFilter==='waiting';
+const nzSelectable=(it)=>it.state==='waiting'||it.state==='busy';
+const nzLeft=(ms)=>{const m=Math.max(0,Math.ceil(ms/60000));return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'');};
+const nzKeepLeft=(it)=>it.keepUntil-(Date.now()+nzSkew);
+function nzSelUpdate(){const b=$('nz-run-sel');b.textContent='선택한 것만 변환 ('+nzSel.size+')';b.disabled=!nzSel.size;
+  const boxes=[...$('nz-list').querySelectorAll('.nz-lead input')];$('nz-pick-all').checked=boxes.length>0&&boxes.every((c)=>c.checked);}
 function nzProgress(it){return it.expectedBytes?Math.min(0.97,it.outBytes/it.expectedBytes):null;}
 async function nzAct(url,opts,msg){if(nzBusy)return;nzBusy=true;try{const d=await api(url,opts);if(msg)toast(typeof msg==='function'?msg(d):msg);}catch(err){toast(err.message);}finally{nzBusy=false;}loadNsz();}
-function nzRowSig(it){return [it.state,it.size,it.savedBytes,it.reason,it.name,it.titleId,it.state==='running'?Math.round(it.outBytes/1048576):0].join('|');}
+function nzRowSig(it){return [it.state,it.size,it.savedBytes,it.reason,it.name,it.titleId,it.state==='running'?Math.round(it.outBytes/1048576):0,it.restored,it.keptAt?Math.ceil(nzKeepLeft(it)/60000):''].join('|');}
+function nzLead(it){const lead=el('div',null,'nz-lead');
+  if(nzPickable()){if(nzSelectable(it)){const c=el('input');c.type='checkbox';c.checked=nzSel.has(it.id);c.setAttribute('aria-label',nzName(it)+' 선택');
+    c.addEventListener('change',()=>{if(c.checked)nzSel.add(it.id);else nzSel.delete(it.id);nzSelUpdate();});lead.append(c);}else lead.append(el('span',null,'nz-cb-sp'));}
+  lead.append(nzIcon(it));return lead;}
 function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;r.dataset.sig=nzRowSig(it);
   const main=el('div',null,'nz-main');main.append(el('b',nzName(it)),el('span',nzFile(it)));
-  if(it.reason&&it.state!=='done')main.append(el('span',it.reason,it.state==='failed'?'err':''));
-  const info=el('div',null,'nz-info');const [label,kind]=NZ_STATE[it.state]||[it.state,''];info.append(pill(label,kind));
+  if(it.reason&&it.state!=='done'&&!it.restored)main.append(el('span',it.reason,it.state==='failed'?'err':''));
+  if(it.keptAt)main.append(el('span','원본 보관 중 · '+nzLeft(nzKeepLeft(it))+' 뒤 삭제'));
+  const info=el('div',null,'nz-info');const [label,kind]=it.restored?['되돌림','']:NZ_STATE[it.state]||[it.state,''];info.append(pill(label,kind));
   info.append(el('span',nzSize(it.size)));
   if(it.state==='done')info.append(el('span','-'+nzSize(it.savedBytes)+' ('+Math.round(it.savedBytes/it.size*100)+'%)'));
   if(it.state==='running'){const p=nzProgress(it);info.append(el('span',p==null?nzSize(it.outBytes)+' 씀':Math.round(p*100)+'%'));}
   const acts=el('div',null,'nz-acts');
   if(it.state==='waiting'||it.state==='busy')acts.append(btn('위로',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},'맨 앞으로 옮겼습니다.')));
+  if(it.keptAt)acts.append(btn('되돌리기',async()=>{if(!await ask(nzName(it)+' 의 원본을 원래 자리로 되돌리고 .nsz 를 지웁니다.'))return;
+    nzAct('/admin/api/nsz/items/'+it.id+'/restore',{method:'POST',body:{}},'원본으로 되돌렸습니다.');}));
   if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(btn('재시도',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},'다시 대기열에 넣었습니다.')));
   acts.append(btn('빼기',async()=>{if(it.state==='running'&&!await ask(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.'))return;
+    if(it.keptAt&&!await ask(nzName(it)+' 을 목록에서 빼면서 보관 중인 원본도 지웁니다. 지운 뒤에는 되돌릴 수 없습니다.'))return;
     nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},'대기열에서 뺐습니다.');},'danger'));
-  r.append(nzIcon(it),main,info,acts);return r;}
+  r.append(nzLead(it),main,info,acts);return r;}
 /** Puts the rows in order, keeping the nodes whose row did not change. */
 function nzPatch(list,items){const old=new Map([...list.children].filter((c)=>c.dataset.id).map((c)=>[c.dataset.id,c]));
   for(const c of [...list.children])if(!c.dataset.id)c.remove();
@@ -127,6 +159,7 @@ function nzPatch(list,items){const old=new Map([...list.children].filter((c)=>c.
     if(!n||n.dataset.sig!==nzRowSig(it)){const fresh=nzRow(it);if(n){if(n===at)at=fresh;n.replaceWith(fresh);}n=fresh;}
     if(n===at)at=at.nextSibling;else list.insertBefore(n,at);}
   for(const n of old.values())n.remove();
+  $('nz-pick').hidden=!nzPickable()||!items.some(nzSelectable);nzSelUpdate();
   if(!items.length)list.append(el('div',nzFilter==='all'?'대기열이 비어 있습니다. 라이브러리 검사로 변환할 파일을 찾습니다.':'이 상태의 파일이 없습니다.','empty'));}
 function nzRunCard(it){const c=el('article',null,'nz-run');c.dataset.id=it.id;
   const body=el('div');body.style.minWidth='0';const meta=el('div',null,'nz-meta');const bar=el('div',null,'nz-bar');bar.append(el('i'));
@@ -143,16 +176,36 @@ function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const [label,kind]=d.status==='off'?['꺼짐','']:d.status==='running'?['실행 중','on']:d.status==='idle'?['쉬는 중','']:['일시정지','warn'];st.textContent=label;st.className='pill'+(kind?' '+kind:'');
   const notes={disk:'변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 시작합니다.',failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
   let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 다운로드하고 있어 기다립니다. 30초 동안 다운로드가 없으면 다음 파일을 시작합니다.':d.active.length?'':'사용 중인 파일만 남아 잠시 뒤에 다시 확인합니다.'):d.status==='idle'?(d.totals.waiting+d.totals.busy?'시작을 누르면 대기열을 차례로 변환합니다.':'할 일이 없어 쉬고 있습니다.')+(d.autoQueue?' 새 게임이 들어오면 저절로 시작합니다.':''):'시작을 누르면 대기열을 차례로 변환합니다.';
+  if(d.only&&d.status==='running')note='선택한 '+num(d.only)+'개만 변환합니다. '+note;
   if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
   $('nz-all').disabled=d.status==='off';
   const t=d.totals,doneN=t.done+t.failed+t.skipped,all=doneN+t.waiting+t.busy+t.running;
   $('nz-overall').style.width=all?Math.round(doneN/all*100)+'%':'0';
+  const k=d.kept||{};$('nz-kept').hidden=!k.count;
+  if(k.count)$('nz-kept-t').textContent='보관 중인 원본 '+num(k.count)+'개 · '+nzSize(k.bytes)+(k.capBytes?' / 한도 '+nzSize(k.capBytes):'')+(k.nextAt?' · 가장 오래된 것 '+nzLeft(k.nextAt-k.now)+' 뒤 삭제':'');
   $('nz-overall-t').textContent=all?'전체 '+num(all)+'개 중 '+num(doneN)+'개를 처리했습니다. 남은 크기는 '+nzSize(t.waitingBytes)+'입니다.':'대기열에 파일이 없습니다.';}
 function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden){p.replaceChildren();return;}
   const page=Math.floor(d.offset/d.limit)+1,pages=Math.ceil(d.total/d.limit);
   const prev=btn('이전',()=>{nzOffset=Math.max(0,nzOffset-NZ_LIMIT);loadNsz();});prev.disabled=page<=1;
   const next=btn('다음',()=>{nzOffset+=NZ_LIMIT;loadNsz();});next.disabled=page>=pages;
+  p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
+const NZ_EVENT={converted:['변환','on'],'original-deleted':['원본 삭제',''],restored:['되돌림','warn'],failed:['실패','off']};
+const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:'지금 비우기로 지웠습니다.',removed:'대기열에서 뺐습니다.',missing:'파일이 이미 없었습니다.'};
+function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
+  main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));
+  if(e.reason)main.append(el('span',NZ_WHY[e.reason]||e.reason,e.event==='failed'?'err':''));
+  const info=el('div',null,'nz-info');const [label,kind]=NZ_EVENT[e.event]||[e.event,''];info.append(pill(label,kind));
+  if(e.event==='converted'&&e.sizeBefore&&e.sizeAfter)info.append(el('span',nzSize(e.sizeBefore)+' → '+nzSize(e.sizeAfter)+' (-'+Math.round((1-e.sizeAfter/e.sizeBefore)*100)+'%)'));
+  else if(e.sizeBefore)info.append(el('span',nzSize(e.sizeBefore)));
+  info.append(el('span',new Date(e.at).toLocaleString('ko-KR')));r.append(main,info);return r;}
+async function loadNszLog(){let d;try{d=await api('/admin/api/nsz/log?offset='+nzLogOff+'&limit='+NZ_LIMIT+'&q='+encodeURIComponent(nzLogQ));}catch(err){toast(err.message);return;}
+  $('nz-log').replaceChildren(...d.items.map(nzLogRow));
+  if(!d.items.length)$('nz-log').append(el('div',nzLogQ?'찾는 이름의 기록이 없습니다.':'아직 기록이 없습니다.','empty'));
+  const p=$('nz-log-pager');p.hidden=d.total<=d.limit;if(p.hidden){p.replaceChildren();return;}
+  const page=Math.floor(d.offset/d.limit)+1,pages=Math.ceil(d.total/d.limit);
+  const prev=btn('이전',()=>{nzLogOff=Math.max(0,nzLogOff-NZ_LIMIT);loadNszLog();});prev.disabled=page<=1;
+  const next=btn('다음',()=>{nzLogOff+=NZ_LIMIT;loadNszLog();});next.disabled=page>=pages;
   p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
 async function nzSave(key,value){try{await api('/admin/api/server-settings',{method:'POST',body:{[key]:value}});toast('저장했습니다.');}catch(err){toast(err.message);nzSettingsSig='';}loadNsz();}
 function nzControl(key,kind,s){
@@ -177,7 +230,11 @@ const nzVisible=()=>location.hash==='#nsz'&&document.visibilityState==='visible'
 async function loadNsz(){clearTimeout(nzTimer);nzTimer=null;let d;
   try{d=await api('/admin/api/nsz?filter='+nzFilter+'&offset='+nzOffset+'&limit='+NZ_LIMIT);}catch(err){toast(err.message);return;}
   if(d.offset>0&&d.offset>=d.total){nzOffset=Math.max(0,Math.floor((d.total-1)/NZ_LIMIT)*NZ_LIMIT);return loadNsz();}
+  if(d.kept)nzSkew=d.kept.now-Date.now();
+  for(const it of d.items)if(!nzSelectable(it))nzSel.delete(it.id);
   nzHeader(d);nzCards(d.totals);nzRenderActive(d.active);nzPatch($('nz-list'),d.items);nzPager(d);nzRenderSettings(d.settings);
+  // The log is read again only when something finished, was restored or deleted.
+  const t=d.totals,logSig=[t.done,t.failed,t.skipped,t.converted,d.kept&&d.kept.count,d.total].join('|');if(logSig!==nzLogSig){nzLogSig=logSig;loadNszLog();}
   // Read again only while someone is looking and the queue has something going; with the
   // activity socket up, its conversion job reads again instead (activity-panel.js).
   // Between files (a retry wait, the start delay) there is no job to follow, so the timer runs then too.
@@ -192,6 +249,13 @@ $('nz-all').addEventListener('click',async()=>{let p;try{p=await api('/admin/api
   nzAct('/admin/api/nsz/convert-all',{method:'POST',body:{}},'전체 변환을 시작했습니다.');});
 $('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 삭제했습니다.':'삭제할 것이 없습니다.'));
 $('nz-retry-all').addEventListener('click',()=>nzAct('/admin/api/nsz/items/all/retry',{method:'POST',body:{}},'실패한 파일을 다시 대기열에 넣었습니다.'));
+$('nz-pick-all').addEventListener('change',()=>{const on=$('nz-pick-all').checked;
+  for(const c of $('nz-list').querySelectorAll('.nz-lead input')){c.checked=on;const id=c.closest('.nz-row').dataset.id;if(on)nzSel.add(id);else nzSel.delete(id);}nzSelUpdate();});
+$('nz-run-sel').addEventListener('click',()=>{const ids=[...nzSel];if(!ids.length)return;
+  nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return '선택한 '+d.count+'개를 변환합니다.';});});
+$('nz-purge').addEventListener('click',async()=>{if(!await ask('보관 중인 원본을 지금 모두 지웁니다. 지운 뒤에는 되돌릴 수 없습니다.'))return;
+  nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>d.removed+'개('+nzSize(d.bytes)+')를 지웠습니다.');});
+$('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
 $('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;
   for(const x of $('nz-filter').querySelectorAll('button')){const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));}
   $('nz-list').replaceChildren();loadNsz();});

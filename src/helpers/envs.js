@@ -359,6 +359,10 @@ let nszWorkers = envNumber("COOK_NSZ_WORKERS", 1, { min: 1, max: 3, integer: tru
 // the floor, 0 unless set, keeps that much more free on top.
 let nszMinSizeMb = envNumber("COOK_NSZ_MIN_SIZE_MB", 100, { min: 1, max: 1048576, integer: true });
 let nszDiskFloorGb = envNumber("COOK_NSZ_DISK_FLOOR_GB", 0, { min: 0, max: 1048576, integer: true });
+// After a swap the original is kept this many hours for 되돌리기 (0 deletes it at once), and in all at most
+// nszKeepGb (0 = no cap). Kept ones are also deleted, oldest first, before the queue would pause for space.
+let nszKeepHours = envNumber("COOK_NSZ_KEEP_HOURS", 6, { min: 0, max: 168, integer: true });
+let nszKeepGb = envNumber("COOK_NSZ_KEEP_GB", 0, { min: 0, max: 4096, integer: true });
 // nsz -B: block compression instead of solid. Off: the client is as fast with solid files.
 let nszBlock = envBool("COOK_NSZ_BLOCK", false);
 // .xci to .xcz as well.
@@ -413,6 +417,8 @@ const ENV_SETTINGS = Object.freeze({
   nszWorkers,
   nszMinSizeMb,
   nszDiskFloorGb,
+  nszKeepHours,
+  nszKeepGb,
   nszBlock,
   nszXci,
   backupDays,
@@ -459,6 +465,8 @@ function applyServerSettings(saved = {}) {
   nszWorkers = v.nszWorkers;
   nszMinSizeMb = v.nszMinSizeMb;
   nszDiskFloorGb = v.nszDiskFloorGb;
+  nszKeepHours = v.nszKeepHours;
+  nszKeepGb = v.nszKeepGb;
   nszBlock = v.nszBlock;
   nszXci = v.nszXci;
   backupDays = v.backupDays;
@@ -482,6 +490,8 @@ export {
   nszWorkers,
   nszMinSizeMb,
   nszDiskFloorGb,
+  nszKeepHours,
+  nszKeepGb,
   nszBlock,
   nszXci,
   backupDays,
