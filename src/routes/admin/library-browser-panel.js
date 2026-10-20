@@ -88,7 +88,7 @@ export const LIB_BROWSER_HTML = `<h2 class="first">파일</h2>
       <button type="button" id="lb-order" aria-label="정렬 방향: 오름차순" title="정렬 방향을 변경합니다"><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">오름차순</span></button>
     </form>
     <p class="muted lb-count" id="lb-count" aria-live="polite"></p>
-    <div class="lb-list" id="lb-list" role="tabpanel" aria-labelledby="lb-tab-base"></div>
+    <div class="lb-list" id="lb-list" data-skel role="tabpanel" aria-labelledby="lb-tab-base"></div>
     <nav class="lb-pager" id="lb-pager" aria-label="페이지" hidden></nav>
   </div>`;
 
@@ -149,7 +149,7 @@ async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   for(const k of Object.keys(LB_KIND))$('lb-n-'+k).textContent=num(d.counts[k]);
   lb.page=d.page;
   const empty=lb.q?'이 종류에는 맞는 파일이 없습니다.':LB_KIND[kind]+' 파일이 없습니다.';
-  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty);lbAnimate();
+  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false});lbAnimate();
   const from=d.total?(d.page-1)*d.perPage+1:0,to=Math.min(d.total,d.page*d.perPage);
   $('lb-count').textContent=d.total?LB_KIND[kind]+' '+num(d.total)+'개 중 '+num(from)+'에서 '+num(to)+'번째를 보여 줍니다.':'';
   lbPager(d);lbIndicator();

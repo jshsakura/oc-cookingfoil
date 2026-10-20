@@ -10,24 +10,25 @@ const recommended = Array.from({ length: 30 }, (_, i) => ({
   repo: `example/tool-${i}`, added: i === 0, purpose: { ko: `도구 ${i}`, en: `Tool ${i}` },
 }));
 
-test('the homebrew app grid pages and searches, and the recommended cards page', async ({ page }) => {
+test('homebrew app cards and recommended cards page and search', async ({ page }) => {
   await page.route('**/admin/api/homebrew', (route) => route.request().method() === 'GET'
     ? route.fulfill({ json: { recommended, sources: [], manual: [] } }) : route.continue());
   await page.route('**/admin/api/homebrew/apps', (route) => route.fulfill({ json: { apps, held: [] } }));
   await signIn(page);
   await page.locator('nav.tabs a[data-group="homebrew"]').click();
 
-  // The app grid: 50 to a page, the grid's own pager and search.
-  const rows = page.locator('#hb-apps .ag-row:not(.ag-full-width-row)');
-  await expect(rows).toHaveCount(50);
-  await expect(page.locator('#hb-apps .ag-paging-row-summary-panel')).toContainText('60');
-  await page.locator('#hb-apps .ag-paging-button[aria-label="다음"]').click();
-  await expect(rows).toHaveCount(10);
+  // Apps are cards, 24 to a page, with the list's own pager and search.
+  const rows = page.locator('#hb-apps .src-card');
+  await expect(rows).toHaveCount(24);
+  await expect(page.locator('#hb-apps-bar .pg-info')).toContainText('1-24 / 60개');
+  await page.locator('#hb-apps-bar').getByRole('button', { name: '3 쪽' }).click();
+  await expect(rows).toHaveCount(12);
 
   await page.getByLabel('앱 찾기').fill('app 07');
   await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator('.src-foot').getByRole('button', { name: '설명' })).toBeVisible();
   await page.getByLabel('앱 찾기').fill('zzz');
-  await expect(rows).toHaveCount(0);
+  await expect(page.locator('#hb-apps .empty')).toHaveText('찾은 앱이 없습니다.');
 
   // Recommended: its own sub-tab, 12 per page, and a pick survives a page change.
   await page.getByRole('tab', { name: '추천 홈브류' }).click();

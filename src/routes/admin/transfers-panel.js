@@ -19,7 +19,7 @@ export const TRANSFERS_HTML = `
   <p class="muted">기기가 받은 게임과 패치, 홈브류, 세이브, 레트로 파일입니다. 같은 파일을 여러 연결로 나눠 받은 것은 한 줄로 묶고, 요청이 <span id="xf-quiet">20</span>초 동안 없으면 끝난 것으로 봅니다. 속도는 실제로 보낸 양을 받는 동안의 시간으로 나눈 값입니다.</p>
   <div class="cards xf-cards" id="xf-cards"></div>
   <div class="note warn" id="xf-slow" hidden></div>
-  <div class="xf-table" id="xf-table" aria-label="다운로드 기록"></div>
+  <div class="xf-table" id="xf-table" data-skel aria-label="다운로드 기록"></div>
   <p class="muted" id="xf-foot"></p>`;
 
 export const TRANSFERS_CSS = `

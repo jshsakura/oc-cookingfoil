@@ -27,6 +27,7 @@ import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-pan
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 
 const PAGE_CSS = /* css */ `
@@ -54,10 +55,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 /* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
 nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
 nav.tabs::-webkit-scrollbar{display:none}
-/* Too narrow for one row but not a phone: two even rows rather than one tab left alone on the second. */
-@media (min-width:641px) and (max-width:1060px){nav.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible}nav.tabs a{padding:9px 4px}}
-/* Wide screens: every tab in one row, icon over label, so none hides past the right edge. */
-@media (min-width:1061px){nav.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible}nav.tabs a{flex-direction:column;gap:4px;padding:8px 2px;font-size:12.5px}}
+/* Six menus fit one compact row: each as wide as its label, the icon beside it. */
+@media (min-width:641px){nav.tabs{display:inline-flex;max-width:100%;padding:4px;border-radius:14px}
+  nav.tabs a{flex:none;flex-direction:row;gap:7px;padding:8px 16px;font-size:13.5px;border-radius:10px}nav.tabs a svg{width:16px;height:16px}
+  nav.tabs .count{margin-left:2px}}
 nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
 nav.tabs a:hover{color:var(--text)}
 /* The second row: the pages inside the chosen menu, the current one filled like the console's sidebar. */
@@ -173,7 +174,14 @@ button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;fon
 .hb-verify:disabled{opacity:.6;cursor:progress}
 .hb-verify:focus-visible{outline:2px solid var(--good);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.hb-verify{transition:none}}
-#hb-apps .ag-row.hb-off .ag-cell:not([col-id=c0]):not([col-id=c7]){opacity:.5}
+.hb-app.hb-off>:not(.src-head){opacity:.5}.hb-app.hb-off .hb-title{opacity:.6}
+.hb-app .src-head{align-items:center;justify-content:flex-start}.hb-app .src-head>.ss-switch{flex:none}
+.hb-title{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.hb-title b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-title .muted{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-facts{grid-template-columns:minmax(0,1fr) auto}.hb-facts .hb-extras{grid-column:1/-1}
+.hb-kind{display:flex;gap:6px;flex-wrap:wrap}.hb-kind select{width:auto}
+.hb-extras dd{display:grid;gap:6px;justify-items:start}.hb-extras .xline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.src-foot .danger{margin-left:auto}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
 dialog h3{margin:0 0 6px;font-size:18px}
@@ -289,21 +297,23 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}</style></head><body>
+${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <h1 class="brand" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
     <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
       <div class="account-links" role="menu">
       <p class="who" id="who">불러오고 있습니다</p>
-      <a role="menuitem" href="/">${icon("home")}웹 화면</a>
-      <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}운영 안내</a>
+      <a role="menuitem" href="/">${icon("home")}${top("web")}</a>
+      <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}${top("guide")}</a>
       <div class="menu-sep" role="separator"></div>
-      <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}어두운 테마<span class="switch" aria-hidden="true"></span></button>
-      <button role="menuitem" type="button" id="logout">${icon("logout")}로그아웃</button>
+      <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}${top("dark")}<span class="switch" aria-hidden="true"></span></button>
+      <button role="menuitem" type="button" id="logout">${icon("logout")}${top("logout")}</button>
+      <div class="menu-sep" role="separator"></div>
+      ${TOP_LANG_HTML}
       </div>
       ${ACTIVITY_HTML}
     </div>
@@ -311,25 +321,25 @@ ${POLISH_CSS}</style></head><body>
   </div>
 </header>
 
-<nav class="tabs" aria-label="서버 관리 메뉴">
-  <a href="#overview" data-group="overview">${icon("dashboard")}개요</a>
-  <a href="#library" data-group="games">${icon("folder")}게임<span class="count" data-sum="games" hidden></span></a>
-  <a href="#retro" data-group="retro">${icon("image")}레트로</a>
-  <a href="#homebrew" data-group="homebrew">${icon("package")}홈브류</a>
-  <a href="#users" data-group="people">${icon("users")}사용자<span class="count" data-sum="people" hidden></span></a>
-  <a href="#logs" data-group="ops">${icon("sliders")}운영<span class="count" data-sum="ops" hidden></span></a>
+<nav class="tabs" data-top-label="nav" aria-label="서버 관리 메뉴">
+  <a href="#overview" data-group="overview">${icon("dashboard")}${top("g.overview")}</a>
+  <a href="#library" data-group="games">${icon("folder")}${top("g.games")}<span class="count" data-sum="games" hidden></span></a>
+  <a href="#retro" data-group="retro">${icon("image")}${top("g.retro")}</a>
+  <a href="#homebrew" data-group="homebrew">${icon("package")}${top("g.homebrew")}</a>
+  <a href="#users" data-group="people">${icon("users")}${top("g.people")}<span class="count" data-sum="people" hidden></span></a>
+  <a href="#logs" data-group="ops">${icon("sliders")}${top("g.ops")}<span class="count" data-sum="ops" hidden></span></a>
 </nav>
-<nav class="group-tabs" id="group-tabs" aria-label="세부 메뉴">
-  <a href="#library" data-tab="library" data-in="games">${icon("folder")}파일</a>
-  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}변환</a>
-  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}업로드</a>
-  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}임시 공유<span class="count" id="inbox-count" hidden></span></a>
-  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}홈 추천</a>
-  <a href="#users" data-tab="users" data-in="people">${icon("users")}계정<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}기기<span class="count" id="pending-count" hidden></span></a>
-  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}로그<span class="count" id="lock-count" hidden></span></a>
-  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}알림</a>
-  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}서버 설정</a>
+<nav class="group-tabs" id="group-tabs" data-top-label="subnav" aria-label="세부 메뉴">
+  <a href="#library" data-tab="library" data-in="games">${icon("folder")}${top("s.library")}</a>
+  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
+  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}${top("s.upload")}</a>
+  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
+  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
+  <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
+  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
+  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
+  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}${top("s.alerts")}</a>
+  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}${top("s.settings")}</a>
   <a href="#overview" data-tab="overview" data-in="overview" hidden></a>
   <a href="#retro" data-tab="retro" data-in="retro" hidden></a>
   <a href="#homebrew" data-tab="homebrew" data-in="homebrew" hidden></a>
@@ -360,12 +370,12 @@ ${POLISH_CSS}</style></head><body>
     <select id="new-role" aria-label="역할"><option value="user">일반 사용자</option><option value="admin">관리자</option></select>
     <button class="primary" type="submit">사용자 추가</button>
   </form>
-  <div class="scroll" id="users"></div>
+  <div class="scroll" id="users" data-skel></div>
   ${box("users-help", "계정 안내", `<p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>`, { level: "h3" })}
   </div>
   <div data-sub-panel="google" hidden>
   <p class="muted" id="accounthint"></p>
-  <div class="scroll" id="accounts"></div>
+  <div class="scroll" id="accounts" data-skel></div>
   </div>
 </section>
 
@@ -382,13 +392,13 @@ ${POLISH_CSS}</style></head><body>
     <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
     <button class="primary" type="submit">기기 코드로 승인</button>
   </form>
-  <div class="scroll" id="pending"></div>
+  <div class="scroll" id="pending" data-skel></div>
   </div>
-  <div data-sub-panel="approved" hidden><div class="scroll" id="devices"></div></div>
+  <div data-sub-panel="approved" hidden><div class="scroll" id="devices" data-skel></div></div>
   <div data-sub-panel="clients" hidden>
   <p class="muted">웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 일회용 자동 연동 키(유효시간 24시간)가 포함되며, 기기에서 앱을 최초 실행하면 해당 계정의 기기로 자동 승인됩니다. 키 원본은 서버에 저장되지 않습니다.</p>
-  <div class="scroll" id="clients"></div>
-  <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended"></div></details>
+  <div class="scroll" id="clients" data-skel></div>
+  <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended" data-skel></div></details>
   </div>
 </section>
 
@@ -460,7 +470,7 @@ ${POLISH_CSS}</style></head><body>
   <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
   <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
   ${box("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
-  <div class="scroll" id="bug-reports"></div>`, { level: "h3", open: true })}
+  <div class="scroll" id="bug-reports" data-skel></div>`, { level: "h3", open: true })}
   <h3 class="sub-h">기기별 기록</h3>
   <div class="logs-view">
     <div class="logs-list" id="cl-list"></div>
@@ -473,10 +483,10 @@ ${POLISH_CSS}</style></head><body>
   </div>
   <div data-logs-panel="deny" hidden>
   <div class="hd"><h2 class="first">차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
-  <div class="scroll" id="lockouts"></div>
+  <div class="scroll" id="lockouts" data-skel></div>
   <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 삭제</button></div>
   <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
-  <div class="scroll" id="denials"></div>
+  <div class="scroll" id="denials" data-skel></div>
   </div>
 </section>
 
@@ -550,12 +560,12 @@ ${NSZ_HTML}
   <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다.</p>
   ${box("hb-apps-help", "앱 관리 안내", `<p class="muted">앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>`, { level: "h3" })}
   <div id="hb-held" class="hb-held" hidden></div>
-  <div class="scroll" id="hb-apps"></div>
+  <div class="scroll" id="hb-apps" data-skel></div>
   </div>
   <div data-sub-panel="reco" hidden>
   <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
   <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
-  <div class="hb-reco" id="hb-reco"></div>
+  <div class="hb-reco" id="hb-reco" data-skel></div>
   </div>
   <div data-sub-panel="sources" hidden>
   <div class="hd"><h2 class="first">GitHub 저장소 추가</h2></div>
@@ -566,7 +576,7 @@ ${NSZ_HTML}
   </form>
   <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
   <div class="hd"><h2>등록된 GitHub 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
-  <div class="scroll" id="hb-sources"></div>
+  <div class="scroll" id="hb-sources" data-skel></div>
   </div>
 </section>
 
@@ -665,5 +675,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
 }
