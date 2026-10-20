@@ -315,6 +315,48 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   }
 });
 
+test("the retro index lists every version of every listed game, light, the same for every console", async () => {
+  const dir = fixture();
+  const server = await boot(dir);
+  try {
+    assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
+    const info = await (await get("/api/shop/info")).json();
+    assert.ok(info.features.includes("retro-index"));
+    const res = await get("/api/retro/index");
+    assert.equal(res.status, 200);
+    const { games } = await res.json();
+    const listed = (await (await get("/api/retro/games?pageSize=200")).json()).games;
+    assert.deepEqual(games.filter((g) => g.representative).map((g) => g.id).sort(), listed.map((g) => g.id).sort(), "one representative per listed game");
+    for (const g of games) assert.ok(listed.some((r) => r.group === g.group), `${g.id} belongs to a listed game`);
+
+    const zelda = games.find((g) => g.variant === "K");
+    assert.equal(zelda.system, "snes");
+    assert.equal(zelda.original, "Zelda no Densetsu - Kamigami no Triforce (Japan)");
+    assert.deepEqual(zelda.edition, { korean: true, source: "patch" });
+    assert.equal(zelda.region, "kr");
+    assert.equal(zelda.rom_size, 1);
+    assert.ok("rom_hash" in zelda);
+    assert.equal(zelda.verified, false);
+    assert.deepEqual(zelda.votes, { up: 0, down: 0 });
+    const chrono = games.find((g) => g.name.startsWith("Chrono"));
+    assert.equal(chrono.rating, 95);
+    assert.equal(chrono.ratingCount, 40);
+    const mario = games.find((g) => g.name.startsWith("Super Mario"));
+    assert.equal(mario.bezel, "game");
+    assert.match(mario.iconUrl, /^\/api\/retro\/games\/[^/]+\/icon\?v=/, "a path on this server, as in the lists");
+    for (const g of games) {
+      for (const key of ["my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
+    }
+
+    // Unchanged, it answers 304 to the ETag it gave (fetch would add no-cache to a conditional request otherwise).
+    const again = await fetch(`${BASE}/api/retro/index`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag"), "Cache-Control": "max-age=0" } });
+    assert.equal(again.status, 304);
+    assert.equal(res.headers.get("cache-control"), "private, max-age=0, must-revalidate");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
 test("without a retro folder the API is off", async () => {
   const server = await boot(path.join(os.tmpdir(), "no-such-retro-dir-" + process.pid));
   try {

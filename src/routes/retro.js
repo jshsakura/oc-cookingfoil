@@ -12,6 +12,11 @@
  *                       total counts what the filters left)
  *                       &variants=all                every file, as before versions were grouped (old clients, admin)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
+ *   GET /api/retro/index                         { games: [I…] }: every version of every listed game, unsorted and
+ *                                                unfiltered, with ETag/304; the same body for every console (no my_vote)
+ *       I = { id, group, representative, variants, system, name, names?, original?, variant?, region?, edition?, file,
+ *             rom_hash, rom_size, size, addedAt, rating?, ratingCount?, bezel ("game" | "system" | "none"),
+ *             iconUrl, verified, votes { up, down }, achievements? { count, points } }
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
@@ -84,6 +89,7 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
+import crypto from "crypto";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
@@ -308,7 +314,8 @@ function bezelFields(g, paths, base, link) {
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
 // `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
-function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
+/** How a game is titled in `lang`: name, names, original, and its tags as variant, edition and region. */
+function titleOf(g, lang) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
   const own = retroNames.get(g.id);
@@ -319,7 +326,12 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
   // The tags as flags: Korean or not, release or patch, patch version.
   const edition = g.edition ?? editionOf(variant);
   const region = g.region ?? (edition ? "kr" : regionOf(variant));
-  if (lean) return { name: localized ?? withoutTags(g.name), variant, edition, region };
+  return { name: localized ?? withoutTags(g.name), names, original, variant, edition, region };
+}
+
+function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
+  const { name, names, original, variant, edition, region } = titleOf(g, lang);
+  if (lean) return { name, variant, edition, region };
   const system = systems[g.system];
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
@@ -327,7 +339,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
-    name: localized ?? withoutTags(g.name),
+    name,
     ...(variant ? { variant } : {}),
     ...(original ? { original } : {}),
     // Arcade sets: the title in each language ({ en, ko, ja?, zh? }) and the
@@ -362,6 +374,47 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
       ...(g.bezel ? { bezelPng: paths.bezelPng, overlayCfg: paths.overlayCfg, gameCfg: paths.gameCfg } : {}),
     },
   };
+}
+
+/**
+ * Every version of every listed game, light and unsorted, for /index: what a
+ * list card draws and what a client merging servers matches on. No my_vote and
+ * no download URL, so the body (and its ETag) is the same for every console.
+ */
+function indexGames(cat, lang) {
+  const out = [];
+  for (const rep of listedGames(cat)) {
+    const group = groupOf(cat, rep);
+    const achievements = achievementSummary(metaCandidates(rep, rep, group)).achievements;
+    for (const g of group.members) {
+      const { name, names, original, variant, edition, region } = titleOf(g, lang);
+      out.push({
+        id: g.id,
+        group: group.id,
+        representative: g === rep,
+        variants: group.members.length,
+        system: g.system,
+        name,
+        ...(names ? { names } : {}),
+        ...(original ? { original } : {}),
+        ...(variant ? { variant } : {}),
+        ...(region ? { region } : {}),
+        ...(edition ? { edition } : {}),
+        file: g.file,
+        ...romFields(g),
+        size: g.size,
+        addedAt: g.addedAt,
+        ...(g.rating !== undefined ? { rating: g.rating } : {}),
+        ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
+        bezel: bezelKind(g),
+        iconUrl: g.icon ? `/api/retro/games/${g.id}/icon?v=${artKey(g)}` : null,
+        verified: itemVerified.fields("retro", g.id).verified,
+        votes: itemVotes.tally("retro", g.id),
+        ...(achievements ? { achievements: { count: achievements.count, points: achievements.points } } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 /** Every file of one game's bundle, SD-relative. */
@@ -503,6 +556,19 @@ export default function retroRouter() {
       pageSize,
       games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link, voter })),
     });
+  }));
+
+  router.get("/index", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const body = JSON.stringify({ games: indexGames(cat, requestLang(req)) });
+    res.set({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "private, max-age=0, must-revalidate",
+      Vary: "Accept-Language",
+      ETag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`,
+    });
+    if (req.fresh) return res.status(304).end();
+    res.send(body);
   }));
 
   // Everything below names one game; an unknown or malformed id is a 404.

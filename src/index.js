@@ -40,6 +40,7 @@ import {
   rotateUnenrolledSecret,
 } from "./security/admin-secret.js";
 import { logConfigHealth } from "./security/config-health.js";
+import { serverId } from "./security/server-id.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -433,6 +434,8 @@ customArt.init().then(() => shopCache.invalidate()).catch((err) =>
 // operator expects to work? Printed unconditionally — a silent misconfiguration
 // here is exactly what makes downloads "fail with no error".
 logConfigHealth();
+// Made on the first start, so the id exists before any client asks for it.
+serverId();
 
 // The compose file used to keep retro ROMs in data/retro; it now mounts its own folder.
 const oldRetro = oldRetroLeftBehind(dataDir, retroDir);
