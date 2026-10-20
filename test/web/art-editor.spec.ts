@@ -181,3 +181,66 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await page.locator('#modal .modal-gear').click();
   await expect(page.locator('#modal-desc')).toContainText('관리자가 쓴 게임 소개입니다.');
 });
+
+test('a slot finds pictures from the sources, and one click cuts and saves the picked one', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const picture = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: { r: 200, g: 60, b: 90 } } }).jpeg().toBuffer();
+  const asked: URLSearchParams[] = [];
+  await page.route('**/api/art/search?*', (route) => {
+    const q = new URL(route.request().url()).searchParams;
+    asked.push(q);
+    const slot = q.get('slot');
+    return route.fulfill({ json: {
+      q: q.get('q') || 'Test Game', errors: [], missing: ['igdb'],
+      items: [1, 2, 3].map((n) => ({ source: n === 1 ? 'eshop' : 'sgdb', game: { id: n, name: 'Test Game' }, label: n === 1 ? 'ko' : '',
+        thumb: `/api/art/remote?url=pic${slot}${n}`, url: `https://cdn2.steamgriddb.com/${slot}/${n}.jpg` })),
+    } });
+  });
+  let fetched = '';
+  await page.route('**/api/art/remote?*', (route) => {
+    fetched = new URL(route.request().url()).searchParams.get('url') || '';
+    return route.fulfill({ body: picture, contentType: 'image/jpeg' });
+  });
+
+  // A game: the finder asks with the game's id, offers the pictures and saves the picked one.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#all');
+  await page.locator('#games .game').first().click();
+  await editPage(page, '#modal');
+  const card = page.locator('#modal-art .arted');
+  await card.locator('.atile.a-banner .find').click();
+  const finder = card.locator('.arted-find');
+  await expect(finder.locator('h4')).toHaveText('배너 찾기');
+  await expect(finder.locator('.pick')).toHaveCount(3);
+  await expect(finder.locator('.state')).toContainText('IGDB 키가 없어');
+  expect(asked[0].get('slot')).toBe('banner');
+  expect(asked[0].get('base')).toMatch(/^[0-9A-F]{16}$/);
+  await expect(finder.locator('input')).toHaveValue('Test Game');
+  await finder.locator('.pick').nth(1).click();
+  await page.locator('#modal-art .crop').getByRole('button', { name: '적용' }).click();
+  expect(fetched).toBe('https://cdn2.steamgriddb.com/banner/2.jpg');
+  await expect(card.locator('.atile.a-banner .reset')).toBeVisible();
+  await expect(finder).toHaveCount(0);
+
+  // A new name searches again; closing brings the card back as it was.
+  await card.locator('.atile.a-add .find').click();
+  await card.locator('.arted-find input').fill('Other Name');
+  await card.locator('.arted-find .go').click();
+  await expect.poll(() => asked.at(-1)?.get('q')).toBe('Other Name');
+  expect(asked.at(-1)?.get('slot')).toBe('screenshot');
+  await page.screenshot({ path: 'out/web/art-finder.png' });
+  await card.locator('.arted-find .close').click();
+  await expect(card.locator('.atile.a-icon')).toBeVisible();
+  await card.locator('.atile.a-banner .reset').click();
+  await expect(card.locator('.atile.a-banner .reset')).toHaveCount(0);
+  await page.locator('#modal .modal-x').click();
+
+  // A homebrew app searches by its own name, without a title id.
+  await page.goto('/#tools');
+  await page.locator('#tools-list .xrow', { hasText: 'Hand App' }).click();
+  await editPage(page, '#xmodal');
+  await page.locator('#xm-art .atile.a-icon .find').click();
+  await expect(page.locator('#xm-art .arted-find .pick')).toHaveCount(3);
+  expect(asked.at(-1)?.get('q')).toBe('Hand App');
+  expect(asked.at(-1)?.has('base')).toBe(false);
+});
