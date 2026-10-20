@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
+import zlib from "node:zlib";
 import os from "node:os";
 import path from "node:path";
 import { referencedFiles, gameId, scanDir } from "../../src/retro/catalog.js";
@@ -326,7 +327,7 @@ test("the retro index pages every version of every listed game by id, trimmed, a
     assert.ok((await (await get("/api/shop/info")).json()).features.includes("retro-index"));
     const res = await get("/api/retro/index");
     assert.equal(res.status, 200);
-    assert.equal(res.headers.get("content-encoding"), "gzip", "fetch asks for gzip and gets it");
+    assert.equal(res.headers.get("content-encoding"), "gzip", "fetch takes gzip, not brotli");
     const first = await res.json();
     const { games } = first;
     assert.equal(first.page, 1);
@@ -368,6 +369,19 @@ test("the retro index pages every version of every listed game by id, trimmed, a
     for (const g of games) {
       for (const key of ["system", "my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl", "iconUrl", "file", "variants"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
     }
+
+    const gz = await new Promise((resolve, reject) => {
+      http.get(`${BASE}/api/retro/index`, { headers: { ...AUTH, "Accept-Encoding": "gzip" } }, (r) => resolve(r.resume().headers["content-encoding"])).on("error", reject);
+    });
+    assert.equal(gz, "gzip", "a client without brotli gets gzip");
+    const br = await new Promise((resolve, reject) => {
+      http.get(`${BASE}/api/retro/index`, { headers: { ...AUTH, "Accept-Encoding": "gzip, deflate, br" } }, (r) => {
+        const chunks = [];
+        r.on("data", (c) => chunks.push(c)).on("end", () => resolve({ encoding: r.headers["content-encoding"], body: Buffer.concat(chunks) }));
+      }).on("error", reject);
+    });
+    assert.equal(br.encoding, "br", "brotli first, whatever order the client lists");
+    assert.ok(JSON.parse(zlib.brotliDecompressSync(br.body)).games.length > 0);
 
     // Without gzip asked for, plain JSON.
     const plain = await new Promise((resolve, reject) => {

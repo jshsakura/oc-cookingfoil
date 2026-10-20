@@ -100,6 +100,7 @@ import path from "path";
 import express from "express";
 import crypto from "crypto";
 import zlib from "zlib";
+import { promisify } from "util";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
@@ -129,6 +130,7 @@ import * as retroMeta from "../retro/meta/sync.js";
 import * as retroAchievements from "../retro/achievements/sync.js";
 import * as romHashes from "../retro/rom-hash.js";
 import { createIndexCache, delta } from "../retro/list-index.js";
+import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
@@ -432,13 +434,20 @@ function indexGames(cat, lang) {
 }
 
 const INDEX_PAGE_MAX = 500;
-const GZIP_MIN = 1024;
+const ENCODE_MIN = 1024;
+const brotliAsync = promisify(zlib.brotliCompress);
+const gzipAsync = promisify(zlib.gzip);
+// Made once per version and kept, so the best ratio is worth its time.
+const ENCODERS = {
+  br: (body) => brotliAsync(body, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: body.length } }),
+  gzip: (body) => gzipAsync(body, { level: 9 }),
+};
 // Built at most once per 3 s per language and at once after a rescan; votes,
 // checks and hashes that land between show up after it.
 const retroIndex = createIndexCache(indexGames);
 
 /** A JSON body with its ETag, and its gzip once asked for. */
-const jsonReply = (body) => ({ body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, gz: null });
+const jsonReply = (body) => ({ body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, encoded: {} });
 
 /** One page of the index; the full-size pages within the list are kept per version. */
 function indexPage(entry, page, pageSize) {
@@ -615,10 +624,11 @@ export default function retroRouter() {
       ETag: out.etag,
     });
     if (req.fresh) return res.status(304).end();
-    // A small change list goes as it is; gzip would only add to it.
-    if (out.body.length < GZIP_MIN || !req.acceptsEncodings("gzip")) return res.send(out.body);
-    out.gz ??= zlib.gzipSync(out.body);
-    res.set("Content-Encoding", "gzip").send(out.gz);
+    // A small change list goes as it is; compressing would only add to it. Brotli when the client takes it.
+    const encoding = out.body.length < ENCODE_MIN ? null : pickEncoding(req.headers["accept-encoding"]);
+    if (!encoding) return res.send(out.body);
+    out.encoded[encoding] ??= ENCODERS[encoding](out.body);
+    res.set("Content-Encoding", encoding).send(await out.encoded[encoding]);
   }));
 
   // Everything below names one game; an unknown or malformed id is a 404.
