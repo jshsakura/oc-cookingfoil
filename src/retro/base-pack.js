@@ -74,7 +74,7 @@ async function cleaned(entry, cleanDir) {
     await fsp.writeFile(out, clean);
   }
   const st = await fsp.stat(out);
-  return { ...entry, abs: out, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino };
+  return { ...entry, abs: out, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino };
 }
 
 /** The pack's files with their SD paths and stats (no hashing). */
@@ -87,7 +87,7 @@ export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-p
     if (bySd.has(sd) && sd !== `retroarch/${rel}`) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
-    bySd.set(sd, await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, once: ONCE.has(sd) }, cleanDir));
+    bySd.set(sd, await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino, once: ONCE.has(sd) }, cleanDir));
   }
   return [...bySd.values()].sort((a, b) => (a.path < b.path ? -1 : 1));
 }
