@@ -174,6 +174,8 @@ test('a patch is switched between required and optional from the patch list and 
     ((await (await request.get('/api/patches')).json()).patches as { name: string; required: boolean }[]).find((p) => p.name === name)?.required;
   const group = page.locator('#lib-patches .pt-game', { hasText: '0100000000010000' });
   await expect(group.locator('.pt-row')).toHaveCount(2);
+  // The game's icon heads its group (the test server has none, so its tile stays empty).
+  await expect(group.locator('header img.pt-ico')).toHaveCount(1);
   const data = group.getByRole('switch', { name: '게임 데이터 필수' });
   await expect(data).toHaveAttribute('aria-checked', 'true');
   fs.mkdirSync('out/web', { recursive: true });

@@ -54,8 +54,10 @@ export const PATCHES_CSS = `
 .pt-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.pt-tools input{flex:1 1 240px;min-width:0}
 .pt-tools button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .pt-game{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px;margin:0 0 10px}
-.pt-game>header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 0 4px}
-.pt-game>header b{font-size:15px}.pt-game>header span{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace}
+.pt-game>header{display:flex;align-items:center;gap:12px;padding:10px 0 6px}
+.pt-game>header>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pt-game>header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace}
+.pt-ico{width:44px;height:44px;border-radius:11px;background:var(--sunk);object-fit:cover;flex:none}
 .pt-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .pt-row:first-of-type{border-top:0}
 .pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:12px}
@@ -112,7 +114,12 @@ async function ptToggle(p,b){const next=!p.required;b.disabled=true;
   catch(err){toast(err.message);b.disabled=false;}}
 function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){const t=tidOf(x);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(x);}
   return [...groups.values()].sort((a,b)=>(a[0].game||tidOf(a[0])).localeCompare(b[0].game||tidOf(b[0]))).map((items)=>{
-    const g=el('section',null,'pt-game');const h=el('header');h.append(el('b',items[0].game||'titledb 에 없는 게임'),el('span',tidOf(items[0])));g.append(h,...items.map(row));return g;});}
+    const g=el('section',null,'pt-game'),h=el('header'),tid=tidOf(items[0]),name=el('div');
+    name.append(el('b',items[0].game||'titledb 에 없는 게임'),el('span',tid));
+    // The game's own icon in front, like the console's list; an empty tile when the server has none.
+    const ico=el('img',null,'pt-ico');ico.alt='';ico.loading='lazy';
+    if(/^[0-9A-F]{16}$/i.test(tid)){ico.src='/api/shop/icon/'+tid+'?size=sm';ico.onerror=()=>ico.removeAttribute('src');}
+    h.append(ico,name);g.append(h,...items.map(row));return g;});}
 function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
   const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
   const req=ptData.filter((p)=>p.required).length,miss=ptData.filter((p)=>p.update_version&&!p.update_in_library).length;
