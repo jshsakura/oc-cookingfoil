@@ -23,6 +23,7 @@
  *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
  *       for it may use, also for one a client builds itself), install_type, title_id,
  *       verified (the admin tried it on a console: a 검수됨 badge), verified_at (ISO, or null),
+ *       votes: { up, down } (잘 돼요 / 안 돼요), my_vote ("up" | "down" | null: this voter's, see /api/votes),
        banner_url, screenshots }
 
  * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
@@ -92,6 +93,7 @@ import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as cores from "../meta/homebrew-cores.js";
 import * as verified from "../meta/homebrew-verified.js";
+import * as votes from "../meta/item-votes.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
@@ -520,7 +522,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
     // asks for them (?with=titles): an older one would copy the file to sdmc:/switch/ instead.
     const titles = String(req.query.with ?? "").split(",").includes("titles");
     const lazy = readsFilesUrl(req.get("user-agent"));
-    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => e.install_type === "title" ? {
+    const voter = votes.voterOf(req);
+    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
       description: null,
       install_dir: null,
       ...e,
@@ -550,7 +553,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
-    });
+    }), ...votes.fields("homebrew", e.id, voter) }));
     const body = JSON.stringify({ homebrew: list });
     res.set({
       "Content-Type": "application/json",

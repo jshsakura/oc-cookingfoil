@@ -6,6 +6,8 @@
  *   POST /admin/api/content/:kind/move        { id, titleId }  to another game; a patch's own paths follow it
  *   POST /admin/api/content/:kind/remove      { id }           delete it from disk
  *   POST /admin/api/content/:kind/verified    { id, verified } the 검수됨 badge on or off, kept in the edit history
+ *   POST /admin/api/votes/clear               { kind, id }     drops the item's 잘 돼요 / 안 돼요 votes
+ *                                             (kind homebrew | retro | patch | save)
  *
  * :kind is patch or save. A game's own patches and saves are handled here;
  * a homebrew app's patch has its information edited here too (from the
@@ -13,7 +15,7 @@
  * information goes into the server's patch store (meta/patch-info.js), which
  * a move carries to the new game and a delete forgets; a save's meta.json is
  * rewritten with the fields given. Moving or deleting one forgets its 검수됨
- * mark: the id it was kept under is gone.
+ * mark and its votes: the id they were kept under is gone.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -28,6 +30,7 @@ import { inside } from "./homebrew-apps-api.js";
 import { libraryGames } from "./upload-api.js";
 import { editedInfo } from "./patches-api.js";
 import * as itemVerified from "../../meta/item-verified.js";
+import * as itemVotes from "../../meta/item-votes.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
 
@@ -213,6 +216,7 @@ export function mountContentApi(router, requireSession) {
     // Before the rescan, so an old patch.json that travelled along is not imported over the edits.
     if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
     itemVerified.set(kind, String(req.body.id), false);
+    itemVotes.forget(kind, String(req.body.id));
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
     res.json({ ok: true });
@@ -225,6 +229,7 @@ export function mountContentApi(router, requireSession) {
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
     if (kind === "patch") patchInfo.remove(patchInfo.keyOf(titleId, folder));
     itemVerified.set(kind, String(req.body.id), false);
+    itemVotes.forget(kind, String(req.body.id));
     await refreshed(kind);
     debug.log("admin: %s %s/%s removed", kind, titleId, folder);
     res.json({ ok: true });
@@ -238,5 +243,15 @@ export function mountContentApi(router, requireSession) {
     await setField(kind, id, "verified", req.body.verified, { via: "dashboard", device: null, deviceName: null });
     debug.log("admin: %s %s %s", kind, id, req.body.verified ? "verified" : "no longer verified");
     res.json({ ok: true, verified: req.body.verified });
+  }));
+
+  router.post("/api/votes/clear", handle(async (req, res) => {
+    const kind = String(req.body?.kind ?? "");
+    const id = String(req.body?.id ?? "");
+    if (!itemVotes.KINDS.includes(kind)) throw new ContentError(404, "homebrew, retro, patch, save 중 하나여야 합니다");
+    const before = itemVotes.tally(kind, id);
+    itemVotes.forget(kind, id);
+    debug.log("admin: votes on %s:%s cleared (%d up, %d down)", kind, id.slice(0, 64), before.up, before.down);
+    res.json({ ok: true, up: 0, down: 0 });
   }));
 }

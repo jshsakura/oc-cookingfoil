@@ -24,6 +24,7 @@ import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
 import inboxRouter from "./routes/inbox.js";
 import adminItemsRouter from "./routes/admin-items.js";
+import votesRouter from "./routes/votes.js";
 import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
@@ -267,6 +268,8 @@ expressApp.use("/api/uploads", sameOriginWrites(), adminOnly({ reads: true }), u
 // Item settings changed from an admin device (a console the admin allowed); everyone else gets 403.
 // Not behind adminOnly: console lanes are exactly what it serves.
 expressApp.use("/api/admin/items", sameOriginWrites(), adminItemsRouter());
+// 잘 돼요 / 안 돼요 on homebrew, retro games, patches and saves: signed-in accounts and approved consoles.
+expressApp.use("/api/votes", sameOriginWrites(), votesRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).

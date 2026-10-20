@@ -7,7 +7,7 @@
  *                                            saves: [{ id, name, size, files, verified }] }],
  *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
  *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  deletes a homebrew app's patch or save folder
- *                                          (a patch's information in the patch store and the 검수됨 mark go with it)
+ *                                          (a patch's information in the patch store, the 검수됨 mark and the votes go with it)
  *
  * A homebrew app's patch has its information edited with the game patches' dialog
  * (POST /admin/api/content/patch/meta).
@@ -36,6 +36,7 @@ import * as integrations from "../../security/integrations.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
 import * as itemVerified from "../../meta/item-verified.js";
+import * as itemVotes from "../../meta/item-votes.js";
 import debug from "../../debug.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -201,6 +202,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
     }
     else savesCatalog().invalidate();
     itemVerified.set(type, id, false);
+    itemVotes.forget(type, id);
     debug.log("admin: removed homebrew %s %s/%s", type, where.dir, where.folder);
     res.json({ ok: true });
   }));

@@ -96,6 +96,7 @@ import { listFilter } from "../retro/list-filter.js";
 import { groupVisible, representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
 import * as itemVerified from "../meta/item-verified.js";
+import * as itemVotes from "../meta/item-votes.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
@@ -291,7 +292,8 @@ function bezelFields(g, paths, base, link) {
 }
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
-function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null } = {}) {
+// `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
+function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
   const variant = tagsOf(g.name);
   // A name the admin gave wins, language by language, over the file's and the arcade table's.
   const own = retroNames.get(g.id);
@@ -322,6 +324,8 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...(g.ratingCount ? { ratingCount: g.ratingCount } : {}),
     // Tried on a console by the admin (a 검수됨 badge): verified, verified_at (ISO) or null.
     ...itemVerified.fields("retro", g.id),
+    // 잘 돼요 / 안 돼요: votes { up, down } and my_vote ("up" | "down" | null).
+    ...itemVotes.fields("retro", g.id, voter),
     ...(group ? { group: group.id, variants: group.members.length } : {}),
     // Lists mark the games with achievements; matchedBy says whether this ROM earns them.
     ...(group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {}),
@@ -434,6 +438,7 @@ export default function retroRouter() {
     const bySystem = new Map();
     const listed = listedGames(cat);
     const link = forRequest(req);
+    const voter = itemVotes.voterOf(req);
     for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
@@ -441,7 +446,7 @@ export default function retroRouter() {
         .map((s) => ({
           ...s,
           ...systemIconUrls(s.id, cat.systems[s.id]),
-          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link })),
+          games: [...(bySystem.get(s.id) ?? [])].sort(SORTS.rating).slice(0, limit).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link, voter })),
         })),
     });
   }));
@@ -472,12 +477,13 @@ export default function retroRouter() {
       .filter((g) => (!system || g.system === system) && found(g) && keep(g))
       .sort(sort);
     const link = forRequest(req);
+    const voter = itemVotes.voterOf(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
       total: matches.length,
       page,
       pageSize,
-      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link })),
+      games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link, voter })),
     });
   }));
 
@@ -499,7 +505,7 @@ export default function retroRouter() {
     const group = groupOf(cat, game);
     const rep = representative(group, variantPicks.get(group.id));
     res.vary("Accept-Language").json({
-      ...publicGame(game, systems, lang, { cat, link: forRequest(req) }),
+      ...publicGame(game, systems, lang, { cat, link: forRequest(req), voter: itemVotes.voterOf(req) }),
       ...retroDetailFields({ dir: retroDir, systems, candidates: metaCandidates(game, rep, group), base: `/api/retro/games/${game.id}`, lang }),
       representative: rep.id,
       variants: group.members.map((m) => publicVariant(m, rep, lang)),

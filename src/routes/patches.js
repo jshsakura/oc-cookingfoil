@@ -12,7 +12,8 @@
  *                                  For a client that asked for the direct address, each P
  *                                  carries url: its download there (security/download-links.js).
  *                                  Each P carries verified (the admin tried it on a console) and
- *                                  verified_at (ISO, or null).
+ *                                  verified_at (ISO, or null), votes { up, down } and my_vote
+ *                                  ("up" | "down" | null for this voter; see routes/votes.js).
  * GET /api/patches/:id/download    one patch as an uncompressed ustar archive
  * GET /api/patches/:id/icon|banner|screenshot/:n?v=   its pictures (meta/patch-media.js): each P carries
  *                                  icon_url (its own, or null for its game's), banner_url and screenshots
@@ -32,6 +33,7 @@ import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import patchMedia from "../meta/patch-media.js";
 import * as verified from "../meta/item-verified.js";
+import * as votes from "../meta/item-votes.js";
 import { mountPictures, sendPicture } from "../helpers/send-picture.js";
 
 export { tarEntries, gameOf };
@@ -48,11 +50,12 @@ async function listRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);
   const lang = requestLang(req);
   const link = forRequest(req);
+  const voter = votes.voterOf(req);
   const body = JSON.stringify({
     patches: listing.map((p) => {
       const game = p.title_id ? gameOf(p.title_id, origin) : null;
       const { custom_icon_url: iconUrl, ...pictures } = patchMedia.urls(p.id);
-      const own = { ...withPatchDirect(userPatches.localizePatch(p, lang), link), icon_url: iconUrl, ...pictures, ...verified.fields("patch", p.id) };
+      const own = { ...withPatchDirect(userPatches.localizePatch(p, lang), link), icon_url: iconUrl, ...pictures, ...verified.fields("patch", p.id), ...votes.fields("patch", p.id, voter) };
       return game ? { ...own, game } : own;
     }),
     ...(listing.scanning ? { scanning: true } : {}),

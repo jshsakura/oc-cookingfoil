@@ -102,7 +102,8 @@ const ITEMS = {
   save: { find: findSave, fields: [verifiedItem("save")] },
 };
 
-async function itemOf(kind, id) {
+/** The item when the server has it ({ id, … }); throws FieldError 404 otherwise. Votes check items with it too. */
+export async function itemOf(kind, id) {
   if (!Object.hasOwn(ITEMS, kind)) throw new FieldError(404, "unknown kind");
   const item = await ITEMS[kind].find(String(id ?? ""));
   if (!item) throw new FieldError(404, "no such item");
