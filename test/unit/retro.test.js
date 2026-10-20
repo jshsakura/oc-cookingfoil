@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { referencedFiles, gameId, scanDir } from "../../src/retro/catalog.js";
@@ -348,8 +349,27 @@ test("the retro index lists every version of every listed game, light, the same 
       for (const key of ["my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
     }
 
+    // Asked for gzip, it comes gzipped (fetch unpacks it); without, as plain JSON.
+    assert.equal(res.headers.get("content-encoding"), "gzip");
+    const plain = await new Promise((resolve, reject) => {
+      http.get(`${BASE}/api/retro/index`, { headers: AUTH }, (r) => {
+        const chunks = [];
+        r.on("data", (c) => chunks.push(c)).on("end", () => resolve({ encoding: r.headers["content-encoding"], body: Buffer.concat(chunks).toString() }));
+      }).on("error", reject);
+    });
+    assert.equal(plain.encoding, undefined);
+    assert.ok(JSON.parse(plain.body).games.length === games.length);
+
     // Unchanged, it answers 304 to the ETag it gave (fetch would add no-cache to a conditional request otherwise).
-    const again = await fetch(`${BASE}/api/retro/index`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag"), "Cache-Control": "max-age=0" } });
+    // ROM hashes still being read change the body, so ask until it has settled.
+    let etag = res.headers.get("etag");
+    let again = null;
+    for (let i = 0; i < 50; i++) {
+      again = await fetch(`${BASE}/api/retro/index`, { headers: { ...AUTH, "If-None-Match": etag, "Cache-Control": "max-age=0" } });
+      if (again.status === 304) break;
+      etag = again.headers.get("etag");
+      await new Promise((r) => setTimeout(r, 100));
+    }
     assert.equal(again.status, 304);
     assert.equal(res.headers.get("cache-control"), "private, max-age=0, must-revalidate");
   } finally {

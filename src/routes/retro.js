@@ -90,6 +90,7 @@ import fs from "fs";
 import path from "path";
 import express from "express";
 import crypto from "crypto";
+import zlib from "zlib";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
@@ -417,6 +418,20 @@ function indexGames(cat, lang) {
   return out;
 }
 
+const etagOf = (body) => `"${crypto.createHash("sha1").update(body).digest("hex")}"`;
+
+// The last few gzipped index bodies by ETag (one per language in use).
+const GZ_KEEP = 4;
+const gzCache = new Map();
+function gzipped(etag, body) {
+  const hit = gzCache.get(etag);
+  if (hit) return hit;
+  const gz = zlib.gzipSync(body);
+  gzCache.set(etag, gz);
+  if (gzCache.size > GZ_KEEP) gzCache.delete(gzCache.keys().next().value);
+  return gz;
+}
+
 /** Every file of one game's bundle, SD-relative. */
 function bundleFiles(g, system) {
   const paths = sdPaths(g, system);
@@ -565,10 +580,14 @@ export default function retroRouter() {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "private, max-age=0, must-revalidate",
       Vary: "Accept-Language",
-      ETag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`,
+      ETag: etagOf(body),
     });
     if (req.fresh) return res.status(304).end();
-    res.send(body);
+    res.vary("Accept-Encoding");
+    if (!req.acceptsEncodings("gzip")) return res.send(body);
+    // Hundreds of KB of JSON: sent gzipped, compressed once per version and language.
+    const gz = gzipped(etagOf(body), body);
+    res.set("Content-Encoding", "gzip").send(gz);
   }));
 
   // Everything below names one game; an unknown or malformed id is a 404.
