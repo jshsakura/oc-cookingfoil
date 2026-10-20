@@ -316,41 +316,53 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   }
 });
 
-test("the retro index lists every version of every listed game, light, the same for every console", async () => {
+test("the retro index pages every version of every listed game by id, trimmed and gzipped", async () => {
   const dir = fixture();
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
-    const info = await (await get("/api/shop/info")).json();
-    assert.ok(info.features.includes("retro-index"));
+    assert.ok((await (await get("/api/shop/info")).json()).features.includes("retro-index"));
     const res = await get("/api/retro/index");
     assert.equal(res.status, 200);
-    const { games } = await res.json();
+    assert.equal(res.headers.get("content-encoding"), "gzip", "fetch asks for gzip and gets it");
+    const first = await res.json();
+    const { games } = first;
+    assert.equal(first.page, 1);
+    assert.equal(first.pageSize, 500);
+    assert.equal(first.total, games.length);
+    assert.match(first.version, /^[0-9a-f]{16}$/);
+    assert.deepEqual(games.map((g) => g.id), games.map((g) => g.id).sort(), "ordered by id, so pages don't shift");
+
     const listed = (await (await get("/api/retro/games?pageSize=200")).json()).games;
     assert.deepEqual(games.filter((g) => g.representative).map((g) => g.id).sort(), listed.map((g) => g.id).sort(), "one representative per listed game");
     for (const g of games) assert.ok(listed.some((r) => r.group === g.group), `${g.id} belongs to a listed game`);
+
+    // Paging: the same list, a page at a time, under the same version.
+    const p1 = await (await get("/api/retro/index?pageSize=2&page=1")).json();
+    const p2 = await (await get("/api/retro/index?pageSize=2&page=2")).json();
+    assert.equal(p1.games.length, 2);
+    assert.deepEqual([...p1.games, ...p2.games].map((g) => g.id), games.slice(0, 2 + p2.games.length).map((g) => g.id));
+    assert.equal((await (await get("/api/retro/index?pageSize=9999")).json()).pageSize, 500, "500 a page at most");
 
     const zelda = games.find((g) => g.variant === "K");
     assert.equal(zelda.system, "snes");
     assert.equal(zelda.original, "Zelda no Densetsu - Kamigami no Triforce (Japan)");
     assert.deepEqual(zelda.edition, { korean: true, source: "patch" });
     assert.equal(zelda.region, "kr");
-    assert.equal(zelda.rom_size, 1);
-    assert.ok("rom_hash" in zelda);
-    assert.equal(zelda.verified, false);
-    assert.deepEqual(zelda.votes, { up: 0, down: 0 });
+    assert.equal(zelda.size, 1);
     const chrono = games.find((g) => g.name.startsWith("Chrono"));
     assert.equal(chrono.rating, 95);
     assert.equal(chrono.ratingCount, 40);
     const mario = games.find((g) => g.name.startsWith("Super Mario"));
-    assert.equal(mario.bezel, "game");
-    assert.match(mario.iconUrl, /^\/api\/retro\/games\/[^/]+\/icon\?v=/, "a path on this server, as in the lists");
+    assert.equal(mario.ownBezel, true);
+    assert.match(mario.icon, /^[0-9a-f]{12}$/, "the icon's v, not the whole URL");
+    // Defaults are left out; per-console and download fields never appear.
+    for (const key of ["verified", "votes", "rom_size", "ownBezel"]) assert.ok(!(key in chrono), `chrono leaves ${key} out`);
     for (const g of games) {
-      for (const key of ["my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
+      for (const key of ["my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl", "iconUrl", "file"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
     }
 
-    // Asked for gzip, it comes gzipped (fetch unpacks it); without, as plain JSON.
-    assert.equal(res.headers.get("content-encoding"), "gzip");
+    // Without gzip asked for, plain JSON.
     const plain = await new Promise((resolve, reject) => {
       http.get(`${BASE}/api/retro/index`, { headers: AUTH }, (r) => {
         const chunks = [];
@@ -358,9 +370,9 @@ test("the retro index lists every version of every listed game, light, the same 
       }).on("error", reject);
     });
     assert.equal(plain.encoding, undefined);
-    assert.ok(JSON.parse(plain.body).games.length === games.length);
+    assert.equal(JSON.parse(plain.body).total, games.length);
 
-    // Unchanged, it answers 304 to the ETag it gave (fetch would add no-cache to a conditional request otherwise).
+    // Unchanged, a page answers 304 to its ETag (fetch would add no-cache to a conditional request otherwise).
     // ROM hashes still being read change the body, so ask until it has settled.
     let etag = res.headers.get("etag");
     let again = null;
@@ -368,7 +380,7 @@ test("the retro index lists every version of every listed game, light, the same 
       again = await fetch(`${BASE}/api/retro/index`, { headers: { ...AUTH, "If-None-Match": etag, "Cache-Control": "max-age=0" } });
       if (again.status === 304) break;
       etag = again.headers.get("etag");
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 200));
     }
     assert.equal(again.status, 304);
     assert.equal(res.headers.get("cache-control"), "private, max-age=0, must-revalidate");
