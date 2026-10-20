@@ -162,3 +162,15 @@ test('a game with achievements says so under its name: gold when its ROM earns t
   await expect(page.locator('#modal-pills .pill.ach')).toHaveText('업적 40');
   await expect(page.locator('#modal-meta div', { hasText: '업적' }).locator('strong')).toHaveText('40개 · 400점 · 원본 롬이라 기기에서 업적이 쌓입니다');
 });
+
+test('a preview shelf keeps its title, game count and buttons on one line, seven cards wide', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#retro-home');
+  const row = page.locator('#retro-rows .home-row:has(.row-count)').first();
+  await row.waitFor();
+  const mid = (q: string) => row.locator(q).first().evaluate((el) => { const b = el.getBoundingClientRect(); return b.top + b.height / 2; });
+  const title = await mid('h2');
+  for (const q of ['.row-count', '.row-actions .row-btn']) expect(Math.abs((await mid(q)) - title)).toBeLessThanOrEqual(2);
+  expect(await row.evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(await row.locator('h2').evaluate((el) => el.getBoundingClientRect().top), 0);
+  await expect(row.locator('.recent')).toHaveCSS('--n', '7');
+});

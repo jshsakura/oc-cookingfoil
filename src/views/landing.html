@@ -515,12 +515,13 @@
 
       /* RECENT ROW + LIBRARY: square art with the name under it */
       /* A shelf of whole cards only, card 150 on a 170 pitch: --n cards fill the width exactly, none cut at the edge.
-         Six at full width as on the client; a narrower shelf shows fewer cards (--n) in the same shape. */
+         Seven at full width; a narrower shelf shows fewer cards (--n) in the same shape. */
       .recent {
-        --n: 6; --pitch: calc(100cqw / (var(--n) - 0.1176)); --card: calc(var(--pitch) * 0.8824); --gap: calc(var(--pitch) * 0.1176);
+        --n: 7; --pitch: calc(100cqw / (var(--n) - 0.1176)); --card: calc(var(--pitch) * 0.8824); --gap: calc(var(--pitch) * 0.1176);
         display: grid; grid-auto-flow: column; grid-auto-columns: var(--card); gap: var(--gap); overflow-x: auto; padding: 14px 12px 14px; margin: -10px -12px 0;
         scroll-padding-inline: 12px; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
       }
+      @container (max-width: 1023px) { .recent { --n: 6; } }
       @container (max-width: 899px) { .recent { --n: 5; } }
       @container (max-width: 639px) { .recent { --n: 4; } }
       @container (max-width: 479px) { .recent { --n: 3; } }
@@ -542,7 +543,7 @@
       }
       .recent > .see-all .face .bi { width: 30px; height: 30px; }
       .recent > .see-all .name { visibility: hidden; }
-      .home-row { position: relative; margin-bottom: 26px; container-type: inline-size; }
+      .home-row { position: relative; margin-bottom: 40px; container-type: inline-size; }
       .home-row .row-actions { position: absolute; right: 0; top: 0; height: 34px; display: flex; gap: 6px; align-items: center; }
       :is(.home-row, .hscroll) .row-btn {
         display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 100px; cursor: pointer;
@@ -555,7 +556,8 @@
       :is(.home-row, .hscroll) .row-btn:active:not(:disabled) { transform: scale(0.95); }
       :is(.home-row, .hscroll) .row-btn:disabled { opacity: 0.35; cursor: default; }
       :is(.home-row, .hscroll) .row-btn .bi { width: 16px; height: 16px; }
-      .home-row h2 { margin-bottom: 4px; display: flex; align-items: baseline; gap: 10px; }
+      /* No top margin: the row is a container, so h2's margin would stay inside it and push the title below the buttons. */
+      .home-row h2 { margin: 0 0 6px; display: flex; align-items: baseline; gap: 10px; }
       /* The buttons sit on the title's line, clear of the cards below (a picked card's ring and hover lift included). */
       .home-row:has(> .row-actions) h2 { min-height: 34px; align-items: center; padding-right: 190px; }
       .home-row .row-actions .row-btn { height: 28px; }
@@ -565,7 +567,11 @@
         .home-row:has(> .row-actions) h2 { padding-right: 104px; }
         .home-row .row-actions .row-btn.icon-only { display: none; }
       }
-      .home-row .row-count { font-size: 14px; font-weight: 600; color: var(--secondary); font-variant-numeric: tabular-nums; }
+      /* The game count as a small square label, as the console app shows it. */
+      .home-row .row-count {
+        align-self: center; padding: 2px 7px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line);
+        font: 700 12px/1.4 var(--font-body); color: var(--secondary); font-variant-numeric: tabular-nums;
+      }
       .toolbar {
         display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
         padding: 10px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line);
@@ -3429,7 +3435,7 @@
         box.append(prev, next);
         block.append(box);
         const pitch = () => { const c = list.querySelectorAll(":scope > .game"); return c.length > 1 ? c[1].offsetLeft - c[0].offsetLeft : 170; };
-        const whole = () => Number.parseInt(getComputedStyle(list).getPropertyValue("--n"), 10) || 6;
+        const whole = () => Number.parseInt(getComputedStyle(list).getPropertyValue("--n"), 10) || 7;
         const page = (dir) => list.scrollBy({ left: dir * whole() * pitch(), behavior: reducedMotion() ? "auto" : "smooth" });
         prev.addEventListener("click", () => page(-1)); next.addEventListener("click", () => page(1));
         const sync = () => {

@@ -796,7 +796,7 @@ test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count a
   }
 });
 
-test('a preview shelf shows only whole cards (six wide, three on a phone), pages with the arrows and opens out with See all', async ({ page }) => {
+test('a preview shelf shows only whole cards (seven wide, three on a phone), pages with the arrows and opens out with See all', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   const id = (i: number) => `01000000000${String(10 + i).padStart(2, '0')}000`;
   const items = Array.from({ length: 40 }, (_, i) => ({ url: `g${i}.nsp`, name: `Game ${i}`, size: 1e9, app_type: 'base', added_at: 1000 + i, title_id: id(i), base_title_id: id(i), app_version: 0 }));
@@ -806,8 +806,8 @@ test('a preview shelf shows only whole cards (six wide, three on a phone), pages
   const shelf = page.locator('.home-row').first();
   const cards = shelf.locator('.recent > .game');
   await expect(cards).toHaveCount(31); // 30 games and the See all card
-  // Only whole cards: six fill the width exactly and the seventh starts past the visible edge; a phone shows three.
-  for (const [width, whole] of [[1280, 6], [768, 5], [390, 3]] as const) {
+  // Only whole cards: seven fill the width exactly and the eighth starts past the visible edge; a phone shows three.
+  for (const [width, whole] of [[1280, 7], [1040, 6], [768, 5], [390, 3]] as const) {
     await page.setViewportSize({ width, height: 900 });
     const edge = await shelf.locator('.recent').evaluate((el) => el.getBoundingClientRect().right - 12);
     const box = await cards.evaluateAll((els) => els.slice(0, 8).map((e) => ({ left: e.getBoundingClientRect().left, right: e.getBoundingClientRect().right })));
@@ -819,7 +819,7 @@ test('a preview shelf shows only whole cards (six wide, three on a phone), pages
   // The card shows its size, not the list's labels.
   await expect(cards.first().locator('.size-badge')).toBeVisible();
   await expect(cards.first().locator('.sub')).toBeHidden();
-  // The arrows page by six cards and stop at the ends.
+  // The arrows page by seven cards and stop at the ends.
   const prev = shelf.getByRole('button', { name: '이전' }), next = shelf.getByRole('button', { name: '다음' });
   await expect(prev).toBeDisabled();
   await next.click();
