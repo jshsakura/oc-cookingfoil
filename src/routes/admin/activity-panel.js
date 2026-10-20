@@ -31,6 +31,10 @@ export const ACTIVITY_CSS = /* css */ `
 .act-pop{max-height:min(45dvh,420px);overflow:auto;padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--line)}
 .act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:13px}
 .act-h.sub{margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
+/* In the account menu the rules run edge to edge across the menu's 6px padding; the content stays where it was. */
+.activity-account .pop-list .menu-sep{margin:4px -6px}
+.activity-account .act-pop{margin:6px -6px 0;padding:10px 6px 4px}
+.activity-account .act-h.sub{margin:6px -6px 0;padding:10px 16px 8px}
 .act-live{color:var(--faint);font-size:12px;font-weight:600}
 .act-live.on{color:var(--good)}
 .act-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}

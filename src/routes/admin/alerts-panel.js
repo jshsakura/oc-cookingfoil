@@ -77,7 +77,7 @@ async function loadAlerts(){
     :!d.chatId?['채팅 ID 가 없습니다','봇에게 말을 건 뒤 대화 찾기를 누릅니다.']
     :['켜져 있습니다',(d.bot?'@'+d.bot+' 가 ':'')+'채팅 '+d.chatId+' 로 보냅니다'+(d.source==='env'?' (환경변수)':'')+'.'];
   st.querySelector('strong').textContent=title;st.querySelector('span:not(.al-dot)').textContent=sub;
-  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.approvers.value=(d.approvers||[]).join(',');
+  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장되어 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.approvers.value=(d.approvers||[]).join(',');
   // People the bot heard from lately; a click adds one to the list.
   $('al-users').replaceChildren(...(d.users||[]).length?[el('span','최근 봇에게 말을 건 사람:','muted'),...d.users.map((u)=>btn((u.name||'이름 없음')+' ('+u.id+')',()=>{
     const ids=f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean);if(!ids.includes(u.id))f.approvers.value=[...ids,u.id].join(',');}))]:[]);

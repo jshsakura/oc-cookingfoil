@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
+import { signIn } from './admin-sign-in';
 
 const job = { id: 'public-conversion', kind: 'nsz', title: 'NSZ 로 변환합니다',
   detail: 'Test Game [0100ABCD00000000].nsp', current: 3 * 2 ** 30, total: 6 * 2 ** 30,
@@ -127,4 +128,20 @@ test('the signed-in address is a plain label that a phone cannot turn into a mai
   })).toEqual(['none', 'none', 'nowrap', '100px']);
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#acct-list').screenshot({ path: 'out/web/web-account-label.png' });
+});
+
+test('the account menu rules run edge to edge', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/');
+  await page.locator('#acct-btn').click();
+  const list = page.locator('#acct-list');
+  await expect(list).toBeVisible();
+  const insets = await list.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return ['.menu-sep', '.act-pop', '.act-h.sub'].map((q) => {
+      const b = el.querySelector(q)!.getBoundingClientRect();
+      return Math.max(b.left - box.left, box.right - b.right);
+    });
+  });
+  for (const inset of insets) expect(inset).toBeLessThanOrEqual(1); // the menu's own border
 });

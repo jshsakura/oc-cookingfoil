@@ -65,7 +65,7 @@ const SS_GROUPS=[
     ['downloadLinkTtl',[['3600','1시간'],['21600','6시간 (기본)'],['43200','12시간'],['86400','하루'],['259200','3일'],['604800','일주일']],'토큰 유효 시간','다운로드 토큰은 이 시간이 지나면 쓸 수 없습니다. 클라이언트는 목록을 다시 받을 때 새 토큰을 받습니다.'],
   ]],
   ['다시 시작',[
-    ['restartRetryAfter','sec','다시 오라고 알리는 시간','다시 시작하는 동안 새로 들어온 요청에 이만큼 뒤에 다시 오라고 알립니다(Retry-After). 서버가 꺼졌다가 켜지는 데 걸리는 시간에 맞춥니다.'],
+    ['restartRetryAfter','sec','재요청 대기 시간','다시 시작하는 동안 들어온 요청에 이 시간만큼 기다렸다가 다시 요청하라고 알립니다(Retry-After). 서버가 다시 켜지는 데 걸리는 시간에 맞춥니다.'],
     ['restartGrace','sec','받던 것을 기다리는 시간','다시 시작할 때 이미 받고 있던 요청이 끝나기를 이만큼까지 기다리고, 그때도 남은 것은 끊습니다. compose 의 stop_grace_period(40초) 안에 들도록 35초까지 넣습니다.'],
   ]],
   ['동기화와 백업',[
@@ -131,7 +131,7 @@ function ssDirectNote(h){return h.up?'외부 다운로드 전용 주소가 지�
 function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const note=el('p','지금 받고 있는 수를 읽고 있습니다.');
   t.append(el('b','안전하게 다시 시작합니다'),note);
   api('/admin/api/server/status').then((st)=>{note.textContent=st.draining?'다시 시작하고 있습니다. 남은 요청 '+st.inflight+'개가 끝나면 꺼졌다가 다시 켜집니다.'
-    :'새 요청은 잠시 뒤 다시 오라고 돌려보내고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 다운로드 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
+    :'새 요청에는 잠시 뒤 다시 요청하라고 알리고, 받고 있던 것은 끝까지 보낸 뒤 서버를 껐다가 켭니다. 지금 다운로드 '+st.downloads+'개, 요청 '+st.inflight+'개가 진행 중입니다.';}).catch(()=>{});
   const c=el('div',null,'ss-ctl');c.append(btn('다시 시작',async()=>{
     if(!await ask('서버를 안전하게 다시 시작합니다. 받고 있던 것이 끝나면 잠시 꺼졌다가 다시 켜집니다.'))return;
     try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));

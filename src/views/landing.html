@@ -1136,10 +1136,6 @@
         background: var(--surface); color: var(--ink); font: 400 15px var(--font-body);
       }
       .share-field input:focus { outline: none; border-color: var(--butter); box-shadow: 0 0 0 3px rgba(var(--butter-rgb), 0.3); }
-      .ra-now { margin-bottom: 14px; font-size: 14px; font-weight: 600; }
-      .ra-now:empty { display: none; }
-      .ra-actions { flex-wrap: wrap; }
-      .ra-actions .btn[hidden] { display: none; }
       .share-field textarea:focus { outline: none; border-color: var(--butter); box-shadow: 0 0 0 3px rgba(var(--butter-rgb), 0.3); }
       .share-field small { font-weight: 400; color: var(--faint); font-size: 12px; }
       .share-progress[hidden] { display: none; }
@@ -1293,7 +1289,6 @@
             <p class="who" id="acct-who" hidden></p>
             <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
             <a role="menuitem" id="inbox-link" href="#share" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="share.open"></span></a>
-            <a role="menuitem" id="ra-link" href="#achievements" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span data-i18n="ra.open"></span></a>
             <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
             <div class="menu-sep" role="separator"></div>
             <button type="button" role="menuitemcheckbox" class="menu-toggle" id="theme-toggle" aria-checked="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="theme.dark"></span><span class="switch" aria-hidden="true"></span></button>
@@ -1562,23 +1557,6 @@
       </div></div>
     </div>
 
-    <div class="modal-backdrop" id="ra-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ra-title">
-      <div class="modal share-modal" tabindex="-1" onclick="event.stopPropagation()"><div class="modal-scroll">
-        <div class="modal-x-bar"><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-        <form class="body" id="ra-form" novalidate>
-          <h3 id="ra-title" data-i18n="ra.title"></h3>
-          <p class="share-lead" data-i18n="ra.lead"></p>
-          <p class="ra-now" id="ra-now"></p>
-          <label class="share-field"><span data-i18n="ra.name"></span><input id="ra-name" type="text" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" /></label>
-          <p class="share-msg" id="ra-msg" role="status" aria-live="polite"></p>
-          <div class="modal-actions ra-actions">
-            <button class="btn ghost" type="button" id="ra-check" data-icon="check" data-i18n="ra.check"></button>
-            <button class="btn" type="submit" id="ra-save" data-i18n="edit.save"></button>
-            <button class="btn ghost" type="button" id="ra-remove" data-icon="trash" data-i18n="ra.remove" hidden></button>
-          </div>
-        </form>
-      </div></div>
-    </div>
 
     <div class="gallery" id="gallery" role="dialog" aria-modal="true" aria-hidden="true" aria-label="">
       <div class="g-stage" id="gallery-stage">
@@ -1765,21 +1743,6 @@
           "share.chosen": (n, size) => `파일 ${n}개, ${size}를 골랐습니다`,
           "share.sending": (pct) => `올리고 있습니다 ${pct}%`,
           "share.too_big": (size) => `한 번에 ${size}까지 올립니다.`,
-          "ra.open": "레트로 업적 설정",
-          "ra.title": "레트로 업적 설정",
-          "ra.lead": "RetroAchievements 아이디를 등록하면 레트로 게임의 업적과 진행 상황을 볼 수 있습니다. 업적은 원본 롬으로 할 때만 쌓이고, 한글 패치 같은 수정 롬에서는 쌓이지 않습니다. 기기에서 실제로 업적을 쌓으려면 CookingFoil 레트로 게임 화면에서 RetroAchievements 에 로그인해야 합니다. 여기서는 아이디만 받고 비밀번호는 받지 않습니다.",
-          "ra.name": "RetroAchievements 아이디",
-          "ra.check": "확인",
-          "ra.remove": "해제",
-          "ra.now": (name) => `지금 등록된 아이디는 ${name} 입니다.`,
-          "ra.none": "아직 등록한 아이디가 없습니다.",
-          "ra.found": (name) => `${name} 아이디가 RetroAchievements 에 있습니다. 저장하면 등록됩니다.`,
-          "ra.saved": (name) => `${name} 아이디를 등록했습니다.`,
-          "ra.removed": "아이디 등록을 해제했습니다.",
-          "ra.invalid": "아이디는 영문, 숫자, 밑줄, 점, 하이픈으로 2~32자입니다.",
-          "ra.unknown": "RetroAchievements 에 없는 아이디입니다. 철자를 확인합니다.",
-          "ra.off": "이 서버에는 아직 RetroAchievements 가 설정되지 않았습니다.",
-          "ra.failed": "RetroAchievements 에 묻지 못했습니다. 잠시 뒤에 다시 합니다.",
           "share.failed": (msg) => `올리지 못했습니다. ${msg}`,
           "action.download": "다운로드",
           "action.close": "닫기",
@@ -2099,21 +2062,6 @@
           "share.chosen": (n, size) => `${n} file${n === 1 ? "" : "s"}, ${size}`,
           "share.sending": (pct) => `Uploading ${pct}%`,
           "share.too_big": (size) => `Up to ${size} per upload.`,
-          "ra.open": "Retro achievements",
-          "ra.title": "Retro achievements",
-          "ra.lead": "Register your RetroAchievements username to see achievements and progress for retro games. Achievements only count with original ROMs, not with modified ones such as translation patches. To earn them on the console, sign in to RetroAchievements from the CookingFoil retro games screen. Only the username is kept here, never a password.",
-          "ra.name": "RetroAchievements username",
-          "ra.check": "Check",
-          "ra.remove": "Unlink",
-          "ra.now": (name) => `Registered as ${name}.`,
-          "ra.none": "No username registered yet.",
-          "ra.found": (name) => `${name} exists on RetroAchievements. Save to register it.`,
-          "ra.saved": (name) => `Registered ${name}.`,
-          "ra.removed": "Unlinked the username.",
-          "ra.invalid": "Use 2 to 32 letters, digits, underscores, dots or hyphens.",
-          "ra.unknown": "RetroAchievements has no such username. Check the spelling.",
-          "ra.off": "RetroAchievements is not set up on this server yet.",
-          "ra.failed": "Could not reach RetroAchievements. Try again in a moment.",
           "share.failed": (msg) => `Could not send. ${msg}`,
           "action.download": "Download",
           "action.close": "Close",
@@ -2436,21 +2384,6 @@
           "share.chosen": (n, size) => `ファイル ${n} 個、${size}`,
           "share.sending": (pct) => `送信中 ${pct}%`,
           "share.too_big": (size) => `一度に ${size} まで送れます。`,
-          "ra.open": "レトロ実績設定",
-          "ra.title": "レトロ実績設定",
-          "ra.lead": "RetroAchievements の ID を登録すると、レトロゲームの実績と進行状況を見られます。実績はオリジナルの ROM で遊んだときだけ記録され、翻訳パッチなどの改変 ROM では記録されません。本体で実績を記録するには、CookingFoil のレトロゲーム画面で RetroAchievements にログインします。ここでは ID だけを受け取り、パスワードは受け取りません。",
-          "ra.name": "RetroAchievements ID",
-          "ra.check": "確認",
-          "ra.remove": "解除",
-          "ra.now": (name) => `登録中の ID は ${name} です。`,
-          "ra.none": "まだ ID を登録していません。",
-          "ra.found": (name) => `${name} は RetroAchievements にあります。保存すると登録します。`,
-          "ra.saved": (name) => `${name} を登録しました。`,
-          "ra.removed": "ID の登録を解除しました。",
-          "ra.invalid": "ID は英数字、アンダースコア、ドット、ハイフンで 2〜32 文字です。",
-          "ra.unknown": "RetroAchievements にない ID です。綴りを確認します。",
-          "ra.off": "このサーバーではまだ RetroAchievements が設定されていません。",
-          "ra.failed": "RetroAchievements に問い合わせできませんでした。少し後でもう一度試します。",
           "share.failed": (msg) => `送信できませんでした。${msg}`,
           "action.download": "ダウンロード",
           "action.close": "閉じる",
@@ -2773,21 +2706,6 @@
           "share.chosen": (n, size) => `${n} 个文件，${size}`,
           "share.sending": (pct) => `正在上传 ${pct}%`,
           "share.too_big": (size) => `每次最多 ${size}。`,
-          "ra.open": "复古游戏成就设置",
-          "ra.title": "复古游戏成就设置",
-          "ra.lead": "登记 RetroAchievements 账号后，可以查看复古游戏的成就和进度。成就只在使用原版 ROM 时记录，汉化补丁等修改过的 ROM 不会记录。要在主机上获得成就，请在 CookingFoil 的复古游戏界面登录 RetroAchievements。这里只保存账号名，不保存密码。",
-          "ra.name": "RetroAchievements 账号",
-          "ra.check": "确认",
-          "ra.remove": "解除",
-          "ra.now": (name) => `当前登记的账号是 ${name}。`,
-          "ra.none": "还没有登记账号。",
-          "ra.found": (name) => `RetroAchievements 上有 ${name}。保存即可登记。`,
-          "ra.saved": (name) => `已登记 ${name}。`,
-          "ra.removed": "已解除账号登记。",
-          "ra.invalid": "账号为 2 到 32 个字母、数字、下划线、点或连字符。",
-          "ra.unknown": "RetroAchievements 上没有这个账号，请检查拼写。",
-          "ra.off": "这台服务器还没有设置 RetroAchievements。",
-          "ra.failed": "无法连接 RetroAchievements，请稍后再试。",
           "share.failed": (msg) => `发送失败。${msg}`,
           "action.download": "下載",
           "action.close": "關閉",
@@ -3374,7 +3292,7 @@
           if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
-          if (d) { share.check(); raAccount.check(); checks.repaint(); }
+          if (d) { share.check(); checks.repaint(); }
         })
         .catch(() => {});
       $("logout-link").addEventListener("click", async (e) => {
@@ -6543,87 +6461,6 @@
         $("share-form").addEventListener("submit", (e) => { e.preventDefault(); send(); });
         relabel();
         return { check, relabel, open };
-      })();
-
-      // ─── RetroAchievements username ───────────────────────────────────────
-      // The account menu offers it when the server has a RetroAchievements key. Only the
-      // public username comes here; the console signs in to RetroAchievements itself.
-      const raAccount = (() => {
-        const URL_ = "/api/retro/achievements/account";
-        let current = null;
-        function say(text, kind = "") { const m = $("ra-msg"); m.textContent = text; m.className = "share-msg" + (kind ? " " + kind : ""); }
-        function show(name) {
-          current = name;
-          $("ra-now").textContent = name ? t("ra.now", name) : t("ra.none");
-          $("ra-remove").hidden = !name;
-        }
-        async function check() {
-          try {
-            const r = await fetch(URL_, { headers: { Accept: "application/json" } });
-            const d = r.ok ? await r.json() : null;
-            $("ra-link").hidden = !d?.enabled;
-            if (d) show(d.username);
-          } catch { $("ra-link").hidden = true; }
-        }
-        const ERR = { 400: "ra.invalid", 404: "ra.unknown", 503: "ra.off" };
-        // One request, the buttons held while it runs; the reply's body, or null after saying why.
-        async function ask(method, url, body) {
-          const buttons = ["ra-check", "ra-save", "ra-remove"].map($);
-          buttons.forEach((b) => { b.disabled = true; });
-          try {
-            const r = await fetch(url, {
-              method,
-              headers: { Accept: "application/json", "X-CSRF-Token": session?.csrf ?? "", ...(body ? { "Content-Type": "application/json" } : {}) },
-              body: body ? JSON.stringify(body) : undefined,
-            });
-            if (r.ok) return await r.json();
-            say(t(ERR[r.status] || "ra.failed"), "bad");
-          } catch { say(t("ra.failed"), "bad"); }
-          finally { buttons.forEach((b) => { b.disabled = false; }); }
-          return null;
-        }
-        const typed = () => {
-          const name = $("ra-name").value.trim();
-          if (!/^[A-Za-z0-9_.-]{2,32}$/.test(name)) { say(t("ra.invalid"), "bad"); return null; }
-          return name;
-        };
-        async function lookup() {
-          const name = typed();
-          if (!name) return;
-          say("");
-          const d = await ask("GET", `${URL_}/lookup?username=${encodeURIComponent(name)}`);
-          if (d) { $("ra-name").value = d.username; say(t("ra.found", d.username), "ok"); }
-        }
-        async function save() {
-          const name = typed();
-          if (!name) return;
-          say("");
-          const d = await ask("PUT", URL_, { username: name });
-          if (d) { show(d.username); $("ra-name").value = d.username; say(t("ra.saved", d.username), "ok"); }
-        }
-        async function remove() {
-          say("");
-          const d = await ask("DELETE", URL_);
-          if (d) { show(null); $("ra-name").value = ""; say(t("ra.removed"), "ok"); }
-        }
-        function open() {
-          setAcctMenu(false);
-          say("");
-          show(current);
-          $("ra-name").value = current || "";
-          openSheet("ra-modal");
-          if (finePointer()) $("ra-name").focus();
-          else $("ra-modal").querySelector(".modal").focus({ preventScroll: true });
-        }
-        function close() { $("ra-modal").classList.remove("open"); $("ra-modal").setAttribute("aria-hidden", "true"); }
-        $("ra-link").addEventListener("click", (e) => { e.preventDefault(); open(); });
-        $("ra-modal").querySelector(".modal-x").addEventListener("click", close);
-        $("ra-modal").addEventListener("click", (e) => { if (e.target === $("ra-modal")) close(); });
-        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("ra-modal").classList.contains("open")) close(); });
-        $("ra-check").addEventListener("click", lookup);
-        $("ra-remove").addEventListener("click", remove);
-        $("ra-form").addEventListener("submit", (e) => { e.preventDefault(); save(); });
-        return { check, open };
       })();
 
       // ─── uploads on the server ──────────────────────────────────────────

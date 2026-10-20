@@ -121,7 +121,7 @@ async function loadIntegrations(){
     document.querySelectorAll('.intg').forEach((c)=>{const s=d[c.dataset.svc];if(!s)return;
       const st=c.querySelector('[data-state]');st.textContent=s.configured?'켜짐 · '+INTG_SOURCE[s.source]:INTG_SOURCE.none;st.classList.toggle('on',s.configured);
       for(const [k,f] of Object.entries(s.fields)){const i=c.querySelector('input[name="'+k+'"]');if(!i)continue;
-        if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?' (저장돼 있습니다. 바꿀 때만 넣습니다)':'');}}
+        if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?' (저장되어 있습니다. 바꿀 때만 넣습니다)':'');}}
       const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
     for(const [k,on] of Object.entries(d.keyless||{})){const st=document.querySelector('[data-free="'+k+'"] [data-free-state]');
       if(st){st.textContent=on?'키 필요 없음 · 켜짐':'꺼져 있음';st.classList.toggle('on',on);st.classList.toggle('off',!on);}}

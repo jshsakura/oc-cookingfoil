@@ -375,7 +375,7 @@ ${POLISH_CSS}</style></head><body>
   ${box("sec-google", "구글 로그인", `
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
   <form class="add google-form" id="google-form" autocomplete="off">
-    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인을 씁니다</label>
+    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인(OAuth) 사용</label>
     <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
     <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
     <button class="primary" type="submit">저장</button>
