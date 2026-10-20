@@ -6,6 +6,7 @@
  *                                                  the games still without box art; the running or last job;
  *                                                  bios: [{ id, name, missing: [[file…]] }] for consoles that have
  *                                                  games but lack firmware (src/retro/bios.js), never for the others
+ *                                                  unread: folder names under roms/ that no system reads
  *   POST /admin/api/retro-art/sync      { system? } match and download what is missing (one job at a time)
  *   GET  /admin/api/retro-art/candidates?game=&q=  libretro names to pick from, with preview addresses
  *   POST /admin/api/retro-art/match     { game, name }   use that name's box art and bezel (null: no art)
@@ -30,6 +31,7 @@ import { resolveOrigin } from "../../helpers/origin.js";
 import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
+import { unreadFolders } from "../../retro/systems.js";
 import * as retroNames from "../../retro/names.js";
 import { rebuildRetroShortcut } from "../retro.js";
 import * as art from "../../retro/art/sync.js";
@@ -126,7 +128,7 @@ export function mountRetroArtApi(router, requireSession) {
   router.get("/api/retro-art", guarded(async (_req, res) => {
     const age = ratingsAge();
     const catalog = await retroCatalog.current(retroDir);
-    res.json({ ...overview(catalog), bios: await biosNotices(catalog), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+    res.json({ ...overview(catalog), bios: await biosNotices(catalog), unread: unreadFolders(retroDir, catalog.systems), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {
