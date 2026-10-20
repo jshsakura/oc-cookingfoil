@@ -25,7 +25,7 @@ export const RETRO_VARIANTS_CSS = `
 export const RETRO_VARIANTS_SCRIPT = /* js */ `
 let rvView='dups',rvData={},rvSeq=0;
 const RV_HELP={
-  dups:'같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 휴지통으로 옮기면 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 갑니다.',
+  dups:'같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 삭제한 파일은 롬과 표지, 베젤까지 레트로 폴더의 .trash 로 가고, 휴지통 탭에서 되돌릴 수 있습니다.',
   sets:'아케이드는 FinalBurn Neo 의 부모 세트와 클론 세트를 한 게임으로 봅니다. 한국판, 해외판, 북미판, 유럽판, 일본판 순으로 돌아가는 정규 세트를 추천 버전으로 정합니다. 부모 롬이나 BIOS 가 roms/arcade 에 없으면 그 세트는 실행되지 않습니다.',
   trash:'휴지통으로 옮긴 파일입니다. 지우지 않고 보관하며, 되돌리면 원래 자리로 돌아갑니다.'};
 const RV_TAGS={bootleg:'부트렉',hack:'해킹',prototype:'시제품',demo:'데모',decrypted:'복호화판','cps-changer':'CPS 체인저','4p':'4인용','3p':'3인용',resale:'재판',mvs:'MVS',aes:'AES'};
@@ -48,7 +48,7 @@ function rvMemberRow(g,m,withSize){const tr=el('tr');
   const n=td();n.append(m.name);n.append(el('div',m.file,'muted'));
   const acts=el('div',null,'row-actions');
   const pick=btn(m.representative?'추천 버전입니다':'추천 버전으로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;pick.classList.toggle('picked',m.representative);
-  const trash=btn('휴지통으로 옮깁니다',()=>rvTrash(m),'danger');
+  const trash=btn('삭제',()=>rvTrash(m),'danger');trash.setAttribute('aria-label',m.file+' 삭제');
   acts.append(pick,trash);
   tr.append(n,td(m.variant||'—'),raCell(rvTags(m)),td(rvEdition(m)));
   if(withSize)tr.append(td(rvMb(m.size),'rv-nw'),td(rvDate(m.addedAt),'rv-nw'));
@@ -90,10 +90,10 @@ async function rvPick(g,m){
   try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 변경했습니다.');loadRetroVariants();}catch(err){toast(err.message);}
 }
 async function rvTrash(m,force=false){
-  if(!force&&!await ask(m.file+' 파일을 휴지통으로 옮깁니다. 롬과 표지, 베젤 파일이 레트로 폴더의 .trash 로 가고, 휴지통에서 되돌릴 수 있습니다.'))return;
-  try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast('휴지통으로 옮겼습니다. 파일 '+r.files.length+'개');rvData={};loadRetroVariants();}
+  if(!force&&!await ask(m.file+' 파일을 삭제합니다. 롬과 표지, 베젤 파일이 함께 지워지고, 휴지통 탭에서 되돌릴 수 있습니다.'))return;
+  try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast('삭제했습니다. 파일 '+r.files.length+'개');rvData={};loadRetroVariants();}
   catch(err){if(/다른 세트/.test(err.message)&&!force){
-      if(await ask('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 옮기면 그 세트는 실행되지 않습니다. 그래도 옮길까요?'))rvTrash(m,true);return;}
+      if(await ask('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 삭제하면 그 세트는 실행되지 않습니다. 그래도 삭제할까요?'))rvTrash(m,true);return;}
     toast(err.message);}
 }
 async function rvRestore(i){
