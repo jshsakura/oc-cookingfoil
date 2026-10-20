@@ -997,6 +997,35 @@
         .arted-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
       @media (prefers-reduced-motion: reduce) { .atile .face { transition: none; } .atile.busy .face::before { animation: none; } }
+      /* Find a picture: the eShop's, SteamGridDB's or IGDB's, in the card's place; one click cuts and saves it. */
+      .atile .find {
+        position: absolute; right: 8px; bottom: 8px; z-index: 3; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+        border: 0; border-radius: 50%; cursor: pointer; background: rgba(12, 12, 14, 0.62); color: #fff;
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      }
+      .atile .find svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+      .atile .find:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .arted.finding > :not(.arted-find) { display: none; }
+      .arted-find { display: grid; gap: 12px; }
+      .arted-find header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .arted-find h4 { margin: 0; font-size: 15px; font-weight: 800; }
+      .arted-find form { display: flex; gap: 8px; }
+      .arted-find input { flex: 1; min-width: 0; height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); font: 500 14px var(--font-body); }
+      .arted-find button.go, .arted-find button.close { height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 13.5px var(--font-body); cursor: pointer; }
+      .arted-find button.go { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+      .arted-find .state { margin: 0; color: var(--muted, #55555e); font-size: 13px; }
+      .arted-find .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pick-w, 168px), 1fr)); gap: 10px; max-height: 460px; overflow: auto; }
+      .arted-find.icon .results { --pick-w: 108px; }
+      .arted-find .pick { display: grid; gap: 4px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; color: var(--ink); }
+      .arted-find .pick img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; background: var(--line); transition: transform .15s, box-shadow .15s; }
+      .arted-find.icon .pick img { aspect-ratio: 1; }
+      .arted-find .pick:hover img, .arted-find .pick:focus-visible img { transform: translateY(-2px); box-shadow: 0 0 0 3px var(--butter); }
+      .arted-find .pick.busy { opacity: .5; pointer-events: none; }
+      .arted-find .pick.sk { aspect-ratio: 16 / 9; border-radius: 10px; background: linear-gradient(90deg, var(--line) 0, var(--ground) 50%, var(--line) 100%) 0 0 / 200% 100%; animation: find-sk 1.2s ease-in-out infinite; }
+      .arted-find.icon .pick.sk { aspect-ratio: 1; }
+      @keyframes find-sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+      @media (prefers-reduced-motion: reduce) { .arted-find .pick.sk { animation: none; } }
+      .arted-find .pick span { font-size: 11.5px; color: var(--muted, #55555e); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .atile .recrop {
         position: absolute; left: 8px; bottom: 8px; z-index: 3; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
         border: 0; border-radius: 50%; cursor: pointer; background: rgba(12, 12, 14, 0.62); color: #fff;
@@ -1819,6 +1848,15 @@
           "modal.noDesc": "소개 글이 아직 없습니다.",
           "modal.noImage": "아직 이미지가 없습니다",
           "modal.extras": "추가 파일",
+          "art.find": "찾기",
+          "art.findHead": (x) => `${x} 찾기`,
+          "art.findPlaceholder": "게임 이름 (영어 이름이 더 잘 찾습니다)",
+          "art.findClose": "닫기",
+          "art.findLoading": "찾고 있습니다.",
+          "art.findNone": "찾은 그림이 없습니다. 이름을 바꿔 다시 찾아 봅니다.",
+          "art.findMissing": (x) => `${x} 키가 없어 그쪽 그림은 빠졌습니다. 서버 관리의 연동에서 넣습니다.`,
+          "art.findErrors": (x) => `${x} 에서 그림을 받지 못했습니다.`,
+          "art.findFailed": "그림을 가져오지 못했습니다.",
           "art.head": "아트워크",
           "art.hint": "누르거나 이미지를 끌어다 놓아 변경합니다.",
           "edit.open": "편집",
@@ -2146,6 +2184,15 @@
           "modal.noDesc": "No introduction yet.",
           "modal.noImage": "No artwork yet",
           "modal.extras": "Extras",
+          "art.find": "Find",
+          "art.findHead": (x) => `Find ${x}`,
+          "art.findPlaceholder": "Game name (English names find more)",
+          "art.findClose": "Close",
+          "art.findLoading": "Searching.",
+          "art.findNone": "No pictures found. Try another name.",
+          "art.findMissing": (x) => `No ${x} key, so its pictures are left out. Add it under integrations in server admin.`,
+          "art.findErrors": (x) => `Could not reach ${x}.`,
+          "art.findFailed": "Could not fetch the picture.",
           "art.head": "Artwork",
           "art.hint": "Click or drop an image to replace it.",
           "edit.open": "Edit",
@@ -2473,6 +2520,15 @@
           "modal.noDesc": "紹介文はまだありません。",
           "modal.noImage": "画像はまだありません",
           "modal.extras": "追加ファイル",
+          "art.find": "検索",
+          "art.findHead": (x) => `${x}を検索`,
+          "art.findPlaceholder": "ゲーム名（英語名のほうがよく見つかります）",
+          "art.findClose": "閉じる",
+          "art.findLoading": "検索しています。",
+          "art.findNone": "画像が見つかりません。名前を変えてもう一度検索します。",
+          "art.findMissing": (x) => `${x} のキーがないため、その画像は含まれません。サーバー管理の連携で設定します。`,
+          "art.findErrors": (x) => `${x} から画像を取得できませんでした。`,
+          "art.findFailed": "画像を取得できませんでした。",
           "art.head": "アートワーク",
           "art.hint": "クリックするか画像をドロップして差し替えます。",
           "edit.open": "編集",
@@ -2800,6 +2856,15 @@
           "modal.noDesc": "尚無介紹。",
           "modal.noImage": "尚無圖片",
           "modal.extras": "附加檔案",
+          "art.find": "搜索",
+          "art.findHead": (x) => `搜索${x}`,
+          "art.findPlaceholder": "游戏名称（英文名称更容易找到）",
+          "art.findClose": "关闭",
+          "art.findLoading": "正在搜索。",
+          "art.findNone": "没有找到图片。请换个名称再试。",
+          "art.findMissing": (x) => `没有 ${x} 密钥，因此不含其图片。请在服务器管理的集成中添加。`,
+          "art.findErrors": (x) => `无法从 ${x} 获取图片。`,
+          "art.findFailed": "无法获取图片。",
           "art.head": "圖片",
           "art.hint": "點選或拖放圖片即可更換。",
           "edit.open": "編輯",
@@ -4750,6 +4815,7 @@
                 shots: st.screenshots.map((url, i) => ({ url, removable: true, n: i + 1, original: kept(st.originals?.screenshots?.[i], `/screenshot/${i + 1}/original`) })),
                 maxShots: 8,
               },
+              find: art.find || { q: "", base: null },
               upload: (slot, file, crop) => {
                 const fd = new FormData(); fd.append("file", file, file.name);
                 if (crop) fd.append("crop", JSON.stringify(crop));
@@ -4949,7 +5015,7 @@
             icon,
             banner: kind === "patches" ? it.banner_url || null : null,
             shots: kind === "patches" && Array.isArray(it.screenshots) ? it.screenshots : [],
-            art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it) } : null,
+            art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it), find: { q: it.game?.names?.en || it.game?.name || "", base: it.game ? (it.titleId || it.title_id || null) : null } } : null,
             title: it.name,
             sub: gameName(it),
             check: { kind: checkKind(kind), it },
@@ -5261,7 +5327,7 @@
             download: a.bundle_url || a.archive?.url || a.download_url,
             banner: a.banner_url || null,
             shots: Array.isArray(a.screenshots) ? a.screenshots : [],
-            art: { kind: "homebrew", id: a.id, remove: homebrewRemove(a) },
+            art: { kind: "homebrew", id: a.id, remove: homebrewRemove(a), find: { q: a.name || a.app || "", base: null } },
           };
         }
         function card(a) {
@@ -5903,7 +5969,9 @@
       const ART_ASPECT = { icon: 1, banner: 16 / 9, screenshot: 16 / 9 };
       const ART_CROP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
       // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
-      function artEditor({ slots, upload, remove, recrop = null }) {
+      // find: { q, base } offers a search beside each slot (meta/art-search.js on the server).
+      const ART_FIND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+      function artEditor({ slots, upload, remove, recrop = null, find = null }) {
         const card = document.createElement("section"); card.className = "arted";
         // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
         async function cropIn(slot, src, crop = null) {
@@ -5927,6 +5995,65 @@
           fig.classList.add("busy");
           try { await recrop(slot, n, crop); } finally { fig.classList.remove("busy"); }
         } : null);
+        // The finder in the card's place: a query, the pictures every source has, and one click to cut and save.
+        function openFinder(slot) {
+          const panel = document.createElement("div"); panel.className = "arted-find " + slot;
+          const close = () => { panel.remove(); card.classList.remove("finding"); };
+          const top = document.createElement("header");
+          const shut = Object.assign(document.createElement("button"), { type: "button", className: "close", textContent: t("art.findClose") });
+          shut.addEventListener("click", close);
+          top.append(Object.assign(document.createElement("h4"), { textContent: t("art.findHead", t(slot === "screenshot" ? "art.screens" : "art." + slot)) }), shut);
+          const form = document.createElement("form");
+          const input = Object.assign(document.createElement("input"), { type: "search", value: find.q || "", placeholder: t("art.findPlaceholder") });
+          input.setAttribute("aria-label", t("art.findPlaceholder"));
+          form.append(input, Object.assign(document.createElement("button"), { type: "submit", className: "go", textContent: t("art.find") }));
+          const state = Object.assign(document.createElement("p"), { className: "state" });
+          const results = document.createElement("div"); results.className = "results";
+          panel.append(top, form, state, results);
+          const SOURCE = { eshop: "eShop", sgdb: "SteamGridDB", igdb: "IGDB" };
+          let seq = 0;
+          async function search() {
+            const mine = ++seq;
+            state.textContent = t("art.findLoading"); state.hidden = false;
+            results.replaceChildren(...Array.from({ length: 6 }, () => Object.assign(document.createElement("div"), { className: "pick sk" })));
+            const qs = new URLSearchParams({ slot, q: input.value.trim() });
+            if (find.base) qs.set("base", find.base);
+            let d;
+            try { const r = await fetch("/api/art/search?" + qs, { headers: { Accept: "application/json" } }); d = await r.json(); if (!r.ok) throw new Error(d.error); }
+            catch { if (mine === seq) state.textContent = t("art.findFailed"); return; }
+            if (mine !== seq) return;
+            if (!input.value.trim() && d.q) input.value = d.q;
+            const notes = [];
+            if (!d.items.length) notes.push(t("art.findNone"));
+            if (d.missing?.length) notes.push(t("art.findMissing", d.missing.map((m) => SOURCE[m]).join(", ")));
+            if (d.errors?.length) notes.push(t("art.findErrors", d.errors.map((m) => SOURCE[m]).join(", ")));
+            state.textContent = notes.join(" ");
+            state.hidden = !notes.length;
+            results.replaceChildren(...d.items.map((c) => {
+              const b = document.createElement("button"); b.type = "button"; b.className = "pick";
+              const img = Object.assign(document.createElement("img"), { alt: "", loading: "lazy", src: c.thumb });
+              img.onerror = () => b.remove();
+              const label = [SOURCE[c.source], c.label ? c.label.toUpperCase() : "", c.game?.name || ""].filter(Boolean).join(" · ");
+              b.title = label; b.setAttribute("aria-label", label);
+              b.append(img, Object.assign(document.createElement("span"), { textContent: label }));
+              b.addEventListener("click", async () => {
+                b.classList.add("busy");
+                try {
+                  const r = await fetch("/api/art/remote?url=" + encodeURIComponent(c.url));
+                  if (!r.ok) throw new Error();
+                  const blob = await r.blob();
+                  const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+                  close();
+                  await cutAndUpload(slot)(new File([blob], `${slot}.${ext}`, { type: blob.type }));
+                } catch { b.classList.remove("busy"); toast(t("art.findFailed")); }
+              });
+              return b;
+            }));
+          }
+          form.addEventListener("submit", (e) => { e.preventDefault(); search(); });
+          card.classList.add("finding"); card.append(panel);
+          input.focus(); search();
+        }
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
         card.append(head);
@@ -5936,7 +6063,7 @@
           input.click();
         };
         // One tile: its face shows the picture (or an empty mark), takes a click or a dropped image.
-        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset"), again = null }) {
+        function tile(kind, { url = null, has = false, caption = "", action = t("art.change"), onFile = null, reset = null, resetLabel = t("art.reset"), again = null, slot = null }) {
           const fig = document.createElement("figure"); fig.className = "atile a-" + kind + (has ? " has" : "");
           // A screenshot is shown, not replaced: its face is a picture, its corner button takes it out.
           const face = document.createElement(onFile ? "button" : "div"); face.className = "face";
@@ -5976,6 +6103,12 @@
             });
             frame.append(r);
           }
+          if (find && slot) {
+            const b = document.createElement("button"); b.type = "button"; b.className = "find"; b.innerHTML = ART_FIND;
+            b.title = t("art.find"); b.setAttribute("aria-label", (caption + " " + t("art.find")).trim());
+            b.addEventListener("click", (e) => { e.stopPropagation(); openFinder(slot); });
+            frame.append(b);
+          }
           if (again) {
             const b = document.createElement("button"); b.type = "button"; b.className = "recrop"; b.innerHTML = ART_CROP;
             b.title = t("art.recrop"); b.setAttribute("aria-label", (caption + " " + t("art.recrop")).trim());
@@ -5986,15 +6119,15 @@
         }
         if (slots.icon || slots.banner) {
           const top = document.createElement("div"); top.className = "arted-top";
-          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
-          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), onFile: cutAndUpload("banner"), reset: slots.banner.custom ? () => remove("banner") : null, again: recut("banner", null, slots.banner.original) }));
+          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), slot: "icon", onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
+          if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), slot: "banner", onFile: cutAndUpload("banner"), reset: slots.banner.custom ? () => remove("banner") : null, again: recut("banner", null, slots.banner.original) }));
           card.append(top);
         }
         const shots = slots.shots || [];
         card.append(Object.assign(document.createElement("p"), { className: "arted-label", textContent: `${t("art.screens")} ${shots.length}/${slots.maxShots ?? 8}` }));
         const grid = document.createElement("div"); grid.className = "arted-shots";
         shots.forEach((sh, i) => grid.append(tile("shot", { url: sh.url, has: true, reset: sh.removable ? () => remove("screenshot", sh.n ?? i + 1) : null, resetLabel: t("art.remove"), again: recut("screenshot", sh.n ?? i + 1, sh.original) })));
-        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", onFile: cutAndUpload("screenshot") }));
+        if (shots.length < (slots.maxShots ?? 8)) grid.append(tile("add", { action: t("art.add"), caption: "", slot: "screenshot", onFile: cutAndUpload("screenshot") }));
         card.append(grid);
         return card;
       }
@@ -6032,6 +6165,7 @@
             shots: (art.screens || []).map((i) => ({ url: `/api/shop/screenshot/${baseId}/${i}`, removable: true, n: i, original: kept(art.originals?.screens?.[i], `/screenshot/${i}/original`) })),
             maxShots: 8,
           },
+          find: { q: "", base: baseId },
           upload: (slot, file, crop) => uploadArt(baseId, slot, file, crop),
           recrop: (slot, n, crop) => recropArt(baseId, slot, n, crop),
           remove: (slot, n) => removeArt(baseId, slot, n),
