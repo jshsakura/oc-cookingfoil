@@ -5,10 +5,10 @@
  *                                                  filter: all | waiting | running | done | failed
  *   GET    /admin/api/nsz/preview                  { files, bytes } a 전체 변환 would process
  *   POST   /admin/api/nsz/start                    start or resume       409 while the queue is off
- *   POST   /admin/api/nsz/run-selected { ids }     run only these waiting rows, then stop
+ *   POST   /admin/api/nsz/run-selected { ids }     run only these rows (waiting, or failed which wait again), then stop
  *                                                  409 while the queue is off, 400 when none of them waits
- *   POST   /admin/api/nsz/run-waiting              run the rows waiting now (not ones queued later), then stop
- *                                                  409 while the queue is off, 400 when nothing waits
+ *   POST   /admin/api/nsz/run-filter { filter }    every row of one filter as it is now (waiting, or failed which wait again), then stop
+ *                                                  409 while the queue is off, 400 for another filter or none in it
  *   POST   /admin/api/nsz/pause                    stop the running files; they wait again
  *   POST   /admin/api/nsz/scan                     queue every eligible file in the library
  *   POST   /admin/api/nsz/convert-all              scan, then start      409 while the queue is off
@@ -68,13 +68,15 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
     }
     if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
     const n = queue.runSelected(ids);
-    if (!n) return res.status(400).json({ error: "고른 파일 중 대기 중인 것이 없습니다" });
+    if (!n) return res.status(400).json({ error: "고른 파일 중 변환할 것이 없습니다" });
     res.json({ ok: true, count: n });
   }));
-  router.post("/api/nsz/run-waiting", handle((req, res) => {
+  router.post("/api/nsz/run-filter", handle((req, res) => {
+    const filter = req.body?.filter;
+    if (filter !== "waiting" && filter !== "failed") return res.status(400).json({ error: "대기 또는 실패를 고릅니다" });
     if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
-    const n = queue.runWaiting();
-    if (!n) return res.status(400).json({ error: "대기 중인 파일이 없습니다" });
+    const n = queue.runFilter(filter);
+    if (!n) return res.status(400).json({ error: "이 상태의 파일이 없습니다" });
     res.json({ ok: true, count: n });
   }));
   router.post("/api/nsz/pause", handle(async (req, res) => {

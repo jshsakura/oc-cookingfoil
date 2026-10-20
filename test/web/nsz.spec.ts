@@ -83,8 +83,8 @@ test('two waiting rows run by themselves, a kept row says when its original goes
     await route.fulfill({ json: { ...real, enabled: true, status: 'idle', items, total: items.length, offset: 0, limit: 50, totals: { ...real.totals, waiting: 3, busy: 0 },
       kept: { count: 1, bytes: 4 * 1024 ** 3, capBytes: 0, keepHours: 6, nextAt: now + 5 * 3600_000 + 30_000, now } } });
   });
-  let waitingRun = false;
-  await page.route('**/admin/api/nsz/run-waiting', async (route) => { waitingRun = true; await route.fulfill({ json: { ok: true, count: 3 } }); });
+  let filterRun: unknown = null;
+  await page.route('**/admin/api/nsz/run-filter', async (route) => { filterRun = route.request().postDataJSON(); await route.fulfill({ json: { ok: true, count: 3 } }); });
   await page.route('**/admin/api/nsz/run-selected', async (route) => { sent = route.request().postDataJSON(); await route.fulfill({ json: { ok: true, count: 2 } }); });
   await page.route(/\/admin\/api\/nsz\/log/, (route) => route.fulfill({ json: { offset: 0, limit: 50, total: 2, items: [
     { at: now, id: 'aaaaaaaaaaa4', rel: 'Kept [0100000000070000][v0].nsp', name: 'Kept Game', from: 'Kept [0100000000070000][v0].nsp', to: 'Kept [0100000000070000][v0].nsz', sizeBefore: 4 * 1024 ** 3, sizeAfter: 3 * 1024 ** 3, event: 'converted' },
@@ -95,18 +95,23 @@ test('two waiting rows run by themselves, a kept row says when its original goes
 
   const runSel = page.locator('#nz-run-sel');
   await expect(runSel).toBeDisabled();
+  await expect(runSel).toHaveText('변환할 파일을 고릅니다');
   await page.getByRole('checkbox', { name: /^One .* 선택$/ }).check();
   await page.getByRole('checkbox', { name: /^Three .* 선택$/ }).check();
-  await expect(runSel).toHaveText('선택한 것만 변환 (2)');
+  await expect(runSel).toHaveText('선택한 2개 변환');
   await runSel.click();
   await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다');
   expect(sent).toEqual({ ids: ['aaaaaaaaaaa1', 'aaaaaaaaaaa3'] });
-  await expect(page.locator('#nz-run-wait')).toHaveText('대기 중인 것만 변환 (3)');
-  await page.locator('#nz-run-wait').click();
-  await expect(page.locator('#toast')).toContainText('대기 중이던 3개를 변환합니다');
-  expect(waitingRun).toBe(true);
+
+  // With nothing ticked, the 대기 tab runs every file waiting now.
+  await page.locator('#nz-filter [data-filter="waiting"]').click();
+  await expect(runSel).toHaveText('대기 3개 모두 변환');
+  await runSel.click();
+  await expect(page.locator('#toast')).toContainText('대기 중인 3개를 변환합니다');
+  expect(filterRun).toEqual({ filter: 'waiting' });
+  await page.locator('#nz-filter [data-filter="all"]').click();
   await page.locator('#nz-pick-all').check();
-  await expect(runSel).toHaveText('선택한 것만 변환 (3)');
+  await expect(runSel).toHaveText('선택한 3개 변환');
 
   const kept = page.locator('#nz-list .nz-row', { hasText: 'Kept' });
   await expect(kept).toContainText('원본 보관 중 · 5시간 1분 뒤 삭제');

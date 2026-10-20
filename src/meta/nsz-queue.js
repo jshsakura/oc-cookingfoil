@@ -77,6 +77,8 @@ const AUTO_DELAY_MS = 2000;
 const PAGE_MAX = 100;
 
 const EXT = { nsp: ".nsz", xci: ".xcz" };
+// Rows a chosen run may take: failed and skipped ones wait again first.
+const RUNNABLE = new Set(["waiting", "busy", "failed", "skipped"]);
 const kindOf = (rel) => (/\.nsp$/i.test(rel) ? "nsp" : /\.xci$/i.test(rel) ? "xci" : null);
 const targetOf = (rel) => rel.replace(/\.(nsp|xci)$/i, (m) => EXT[m.slice(1).toLowerCase()]);
 const gb = (n) => `${(n / GIB).toFixed(1)} GB`;
@@ -610,11 +612,12 @@ export function createNszQueue({
     pump();
   }
 
-  /** 선택한 것만 변환: runs these rows (waiting or busy) and nothing else. Returns how many. */
+  /** 선택한 것만 변환: runs these rows (waiting, busy, or failed/skipped ones, which wait again) and nothing else. Returns how many. */
   function runSelected(ids) {
     const want = new Set(ids);
-    const picked = state.items.filter((i) => want.has(i.id) && (i.state === "waiting" || i.state === "busy"));
+    const picked = state.items.filter((i) => want.has(i.id) && RUNNABLE.has(i.state));
     if (!picked.length) return 0;
+    for (const i of picked) if (i.state !== "waiting") Object.assign(i, { state: "waiting", reason: null, retryAt: null, finishedAt: null });
     Object.assign(state, { only: picked.map((i) => i.id), running: true, held: false, pausedReason: null });
     fails = 0;
     save();
@@ -622,8 +625,8 @@ export function createNszQueue({
     return picked.length;
   }
 
-  /** 대기 중인 것만 변환: the rows waiting now, and none that are added while they run. Returns how many. */
-  const runWaiting = () => runSelected(state.items.filter((i) => i.state === "waiting" || i.state === "busy").map((i) => i.id));
+  /** 이 상태만 변환: every row of one filter (waiting or failed) as it is now; rows added while they run wait. Returns how many. */
+  const runFilter = (filter) => (filter === "waiting" || filter === "failed" ? runSelected(state.items.filter((i) => FILTERS[filter].has(i.state)).map((i) => i.id)) : 0);
 
   async function pause() {
     state.running = false;
@@ -765,7 +768,7 @@ export function createNszQueue({
   }
 
   return {
-    init, start, runSelected, runWaiting, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
+    init, start, runSelected, runFilter, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
     moveTop, retry, remove, clearFinished, purgeKept, purgeDue, shutdown, killNow, view, totals,
     logPage: (q) => log.page(q), workDir, keepDir, find, pump,
     /** Test-only: resolves once nothing runs or starts. */

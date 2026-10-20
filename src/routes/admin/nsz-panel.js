@@ -8,7 +8,8 @@
  * While the tab is open in a visible window and the queue runs, the list is
  * read again every few seconds; only rows that changed are redrawn.
  *
- * Waiting rows can be ticked and run by themselves (선택한 것만 변환). A done
+ * Waiting and failed rows can be ticked and run by themselves; with none ticked, the 대기 tab runs
+ * every file waiting now and the 실패 tab tries every failed one again (one run button). A done
  * row whose original is still kept says when it goes, the header says how much
  * is kept, and 변환 기록 pages through the conversion log with a name search.
  */
@@ -35,9 +36,9 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
       <button type="button" data-filter="done" aria-pressed="false">완료</button>
       <button type="button" data-filter="failed" aria-pressed="false">실패</button>
     </div>
-    <div class="actions"><button type="button" id="nz-retry-all">실패 모두 재시도</button><button type="button" id="nz-clear">끝난 것 삭제</button></div>
+    <div class="actions"><button type="button" id="nz-clear">끝난 것 삭제</button></div>
   </div>
-  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>선택한 것만 변환 (0)</button><button type="button" id="nz-run-wait" disabled>대기 중인 것만 변환 (0)</button></div>
+  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>변환할 파일을 고릅니다</button></div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
   ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지운 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
@@ -121,11 +122,15 @@ function nzIcon(it,cls){if(!it.titleId){const i=el('i',null,'nz-ico'+(cls?' '+cl
   const img=el('img',null,'nz-ico'+(cls?' '+cls:''));img.alt='';img.loading='lazy';img.src='/api/shop/icon/'+it.titleId+'?size=sm';img.onerror=()=>{img.style.visibility='hidden';};return img;}
 const nzName=(it)=>it.name||it.rel.split('/').pop().replace(/\\.(nsp|xci)$/i,'');
 const nzFile=(it)=>it.rel.split('/').pop();
-const nzPickable=()=>nzFilter==='all'||nzFilter==='waiting';
-const nzSelectable=(it)=>it.state==='waiting'||it.state==='busy';
+const nzPickable=()=>nzFilter==='all'||nzFilter==='waiting'||nzFilter==='failed';
+const nzSelectable=(it)=>['waiting','busy','failed','skipped'].includes(it.state);
 const nzLeft=(ms)=>{const m=Math.max(0,Math.ceil(ms/60000));return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'');};
 const nzKeepLeft=(it)=>it.keepUntil-(Date.now()+nzSkew);
-function nzSelUpdate(){const b=$('nz-run-sel');b.textContent='선택한 것만 변환 ('+nzSel.size+')';b.disabled=!nzSel.size;
+// One run button. Ticked rows go first; with none ticked, 대기 runs the files waiting now and 실패 tries the failed ones again.
+// Either way only those run, and files queued meanwhile wait.
+let nzTabCount=0,nzOff=false;
+const nzRunLabel=()=>nzSel.size?'선택한 '+num(nzSel.size)+'개 변환':nzFilter==='waiting'&&nzTabCount?'대기 '+num(nzTabCount)+'개 모두 변환':nzFilter==='failed'&&nzTabCount?'실패 '+num(nzTabCount)+'개 다시 변환':'변환할 파일을 고릅니다';
+function nzSelUpdate(){const b=$('nz-run-sel');b.textContent=nzRunLabel();b.disabled=nzOff||!(nzSel.size||((nzFilter==='waiting'||nzFilter==='failed')&&nzTabCount));
   const boxes=[...$('nz-list').querySelectorAll('.nz-lead input')];$('nz-pick-all').checked=boxes.length>0&&boxes.every((c)=>c.checked);}
 function nzProgress(it){return it.expectedBytes?Math.min(0.97,it.outBytes/it.expectedBytes):null;}
 async function nzAct(url,opts,msg){if(nzBusy)return;nzBusy=true;try{const d=await api(url,opts);if(msg)toast(typeof msg==='function'?msg(d):msg);}catch(err){toast(err.message);}finally{nzBusy=false;}loadNsz();}
@@ -179,7 +184,7 @@ function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
   $('nz-all').disabled=d.status==='off';
   const t=d.totals,doneN=t.done+t.failed+t.skipped,all=doneN+t.waiting+t.busy+t.running;
-  const rw=$('nz-run-wait');rw.textContent='대기 중인 것만 변환 ('+num(t.waiting+t.busy)+')';rw.disabled=d.status==='off'||!(t.waiting+t.busy);
+  nzTabCount=nzFilter==='waiting'?t.waiting+t.busy:nzFilter==='failed'?t.failed+t.skipped:0;nzOff=d.status==='off';nzSelUpdate();
   $('nz-overall').style.width=all?Math.round(doneN/all*100)+'%':'0';
   const k=d.kept||{};$('nz-kept').hidden=!k.count;
   if(k.count)$('nz-kept-t').textContent='보관 중인 원본 '+num(k.count)+'개 · '+nzSize(k.bytes)+(k.capBytes?' / 한도 '+nzSize(k.capBytes):'')+(k.nextAt?' · 가장 오래된 것 '+nzLeft(k.nextAt-k.now)+' 뒤 삭제':'');
@@ -247,17 +252,17 @@ $('nz-all').addEventListener('click',async()=>{let p;try{p=await api('/admin/api
   if(!await ask('파일 '+num(p.files)+'개, '+nzSize(p.bytes)+'를 변환합니다. 콘솔이 다운로드하는 동안에는 기다렸다가 이어서 합니다. 시작합니다.'))return;
   nzAct('/admin/api/nsz/convert-all',{method:'POST',body:{}},'전체 변환을 시작했습니다.');});
 $('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 삭제했습니다.':'삭제할 것이 없습니다.'));
-$('nz-retry-all').addEventListener('click',()=>nzAct('/admin/api/nsz/items/all/retry',{method:'POST',body:{}},'실패한 파일을 다시 대기열에 넣었습니다.'));
 $('nz-pick-all').addEventListener('change',()=>{const on=$('nz-pick-all').checked;
   for(const c of $('nz-list').querySelectorAll('.nz-lead input')){c.checked=on;const id=c.closest('.nz-row').dataset.id;if(on)nzSel.add(id);else nzSel.delete(id);}nzSelUpdate();});
-$('nz-run-sel').addEventListener('click',()=>{const ids=[...nzSel];if(!ids.length)return;
-  nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return '선택한 '+d.count+'개를 변환합니다.';});});
-$('nz-run-wait').addEventListener('click',async()=>{if(!await ask('지금 대기 중인 파일만 변환합니다. 변환하는 동안 새로 들어온 파일은 기다립니다.'))return;
-  nzAct('/admin/api/nsz/run-waiting',{method:'POST',body:{}},(d)=>'대기 중이던 '+d.count+'개를 변환합니다.');});
+$('nz-run-sel').addEventListener('click',async()=>{const ids=[...nzSel];
+  if(ids.length)return nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return '선택한 '+d.count+'개를 변환합니다.';});
+  const f=nzFilter,word=f==='failed'?'실패한':'대기 중인';
+  if(!await ask(word+' 파일 '+num(nzTabCount)+'개를 변환합니다. 그동안 새로 들어온 파일은 기다립니다.'))return;
+  nzAct('/admin/api/nsz/run-filter',{method:'POST',body:{filter:f}},(d)=>word+' '+d.count+'개를 변환합니다.');});
 $('nz-purge').addEventListener('click',async()=>{if(!await ask('보관 중인 원본을 지금 모두 지웁니다. 지운 뒤에는 되돌릴 수 없습니다.'))return;
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>d.removed+'개('+nzSize(d.bytes)+')를 지웠습니다.');});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
-$('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;
+$('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;nzSel.clear();
   for(const x of $('nz-filter').querySelectorAll('button')){const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));}
   $('nz-list').replaceChildren();loadNsz();});
 `;

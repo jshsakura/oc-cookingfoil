@@ -50,7 +50,8 @@ test("the list has the state, totals and the queue's settings; off by default", 
 
 test("선택한 것만 변환 needs a list of rows and the queue on; restore is gone, purge and the log answer", async () => {
   assert.equal((await call("/run-selected", "POST", { ids: [] })).status, 400);
-  assert.equal((await call("/run-waiting", "POST")).status, 409, "off first");
+  assert.equal((await call("/run-filter", "POST", { filter: "done" })).status, 400);
+  assert.equal((await call("/run-filter", "POST", { filter: "waiting" })).status, 409, "off first");
   assert.equal((await call("/run-selected", "POST", { ids: ["nothere"] })).status, 400);
   assert.equal((await call("/run-selected", "POST", { ids: ["0123456789ab"] })).status, 409, "off first");
   assert.equal((await call("/items/0123456789ab/restore", "POST")).status, 404, "no restore route");

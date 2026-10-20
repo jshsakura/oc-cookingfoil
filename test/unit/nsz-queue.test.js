@@ -414,18 +414,36 @@ test("a selected run converts only the chosen rows and then stops; the rest keep
   assert.equal(q.runSelected(["0123456789ab"]), 0, "nothing waiting among them");
 });
 
-test("대기 중인 것만 변환 runs the rows waiting now; one queued while they run keeps waiting", async () => {
+test("이 상태만 변환 runs the rows waiting now; one queued while they run keeps waiting", async () => {
   for (const n of ["A", "B"]) put(`${n}.nsp`);
   const q = make();
   await q.init();
   await q.scan();
-  assert.equal(q.runWaiting(), 2);
+  assert.equal(q.runFilter("done"), 0);
+  assert.equal(q.runFilter("waiting"), 2);
   put("C.nsp");
   await q.scan();
   await q.pump();
   await q.idle();
   assert.deepEqual(["A.nsp", "B.nsp", "C.nsp"].map((r) => item(q, r).state), ["done", "done", "waiting"]);
   assert.equal(q.view().running, false);
+});
+
+test("이 상태만 변환 on 실패 tries the failed rows again and nothing else", async () => {
+  for (const n of ["A", "B"]) put(`${n}.nsp`);
+  const q = make();
+  await q.init();
+  await q.scan();
+  process.env.NSZ_STUB_MODE = "fail";
+  q.runSelected([item(q, "A.nsp").id]);
+  await q.pump();
+  await q.idle();
+  assert.equal(item(q, "A.nsp").state, "failed");
+  delete process.env.NSZ_STUB_MODE;
+  assert.equal(q.runFilter("failed"), 1);
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["A.nsp", "B.nsp"].map((r) => item(q, r).state), ["done", "waiting"]);
 });
 
 // ── kept originals ───────────────────────────────────────────────────
