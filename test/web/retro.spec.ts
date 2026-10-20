@@ -107,6 +107,8 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await expect(page.locator('#tab-retro [data-sub-panel="art"]')).toBeHidden();
   await page.locator('#retro-subtabs [data-sub="art"]').click();
   await expect(page.locator('#ra-systems')).toBeVisible();
+  await expect(page.locator('#ra-bios')).toContainText('roms/ 안의 My Hacks 폴더는 어느 기종인지 몰라 읽지 않습니다');
+  await page.locator('#tab-retro').screenshot({ path: 'out/web/admin-retro-unread-folder.png' });
 });
 
 test('a console chip row too wide for the page has arrows, so a mouse reaches every chip', async ({ page }) => {

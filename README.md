@@ -131,7 +131,7 @@ retro/
 └── arcade-names.json                                  # optional arcade display names
 ```
 
-Each system has one folder named by its short id: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` `neocd`. Arcade games keep their FinalBurn Neo set names (for example `mslug.zip`). Box art is matched by the English title in the file name, so a name like `My Title (English Title)` works best.
+Each system has one folder named by its short id: `nes` `snes` `gb` `gbc` `gba` `n64` `nds` `md` `sms` `gg` `segacd` `saturn` `pce` `pcecd` `ps1` `psp` `ngp` `ws` `arcade` `neocd`. A collection already sorted for another front end works as it is: folders such as `SNES`, `psx`, `genesis` or `Nintendo - Game Boy Advance` are read as their system, and nothing is moved or renamed. A folder under `roms/` that matches no system is named on the admin page's retro tab. Arcade games keep their FinalBurn Neo set names (for example `mslug.zip`). Box art is matched by the English title in the file name, so a name like `My Title (English Title)` works best.
 
 The RetroArch base pack is what a console needs once before it can play: put `retroarch.nro`, `retroarch.cfg` and the folders RetroArch uses (`cores/`, `assets/`, `system/` and so on) under `retro/retroarch/`. The admin page tells you which BIOS files a system with games is missing. CookingFoil never ships them.
 

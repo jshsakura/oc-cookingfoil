@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_SYSTEMS, loadSystems } from "../../src/retro/systems.js";
+import { DEFAULT_SYSTEMS, loadSystems, folderKeys, unreadFolders } from "../../src/retro/systems.js";
 import { scanDir, visibleSystems } from "../../src/retro/catalog.js";
 import { BEZEL_SOURCES } from "../../src/retro/art/sources.js";
 import { PLATFORMS } from "../../src/retro/art/titles.js";
@@ -148,5 +148,65 @@ test("folders with spaces and dots work end to end; empty systems stay out of ev
     assert.match(msx.install.rom, /^roms\/msx\//);
   } finally {
     server.kill("SIGKILL");
+  }
+});
+
+test("a system folder named the way other front ends name it is read as that system", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
+  try {
+    put(root, "roms/SNES/Chrono Trigger.sfc");
+    put(root, "roms/Nintendo - Game Boy Advance/Golden Sun.gba");
+    put(root, "roms/genesis/Sonic.md");
+    put(root, "roms/psx/Xenogears.chd");
+    const s = loadSystems(root);
+    assert.equal(s.snes.folder, "SNES");
+    assert.equal(s.gba.folder, "Nintendo - Game Boy Advance");
+    assert.equal(s.md.folder, "genesis");
+    assert.equal(s.ps1.folder, "psx");
+    assert.equal(s.nes.folder, "nes", "a system with no folder keeps its own name, so an upload makes it");
+    const { games } = await scanDir(root);
+    assert.deepEqual(games.map((g) => g.system).sort(), ["gba", "md", "ps1", "snes"]);
+    assert.deepEqual(unreadFolders(root, s), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the system's own folder wins over a look-alike, which is then reported unread", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
+  try {
+    put(root, "roms/snes/a.sfc");
+    put(root, "roms/SNES/b.sfc");
+    put(root, "roms/My Hacks/c.sfc");
+    put(root, "roms/.trash/d.sfc");
+    put(root, "roms/loose.sfc");
+    const s = loadSystems(root);
+    assert.equal(s.snes.folder, "snes");
+    assert.deepEqual(unreadFolders(root, s), ["My Hacks", "SNES"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a folder named in systems.json is taken as written, never swapped for a look-alike", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
+  try {
+    put(root, "systems.json", JSON.stringify({ snes: { folder: "Super Famicom" } }));
+    put(root, "roms/SNES/a.sfc");
+    const s = loadSystems(root);
+    assert.equal(s.snes.folder, "Super Famicom");
+    assert.deepEqual(unreadFolders(root, s), ["SNES"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("no folder name points at two systems", () => {
+  const owner = new Map();
+  for (const id of Object.keys(DEFAULT_SYSTEMS)) {
+    for (const k of folderKeys(id, DEFAULT_SYSTEMS[id])) {
+      assert.ok(!owner.has(k) || owner.get(k) === id, `${k}: ${owner.get(k)} and ${id}`);
+      owner.set(k, id);
+    }
   }
 });

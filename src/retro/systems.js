@@ -20,7 +20,10 @@
  *               box art comes from; it is a mapping, never a folder name. Left
  *               out for systems libretro has no box art for.
  *
- * Each system is read from exactly one folder.
+ * Each system is read from exactly one folder. When its own folder is not
+ * under roms/, a folder named the way other front ends name it (SNES, psx,
+ * genesis, "Nintendo - Game Boy Advance", …) is read instead; anything else in
+ * roms/ is reported unread on the admin page.
  *
  * An operator can change any of this, or add a system, with
  * <retro dir>/systems.json: { "<id>": { core, coreName, extensions, names, bezelDir, folder, libretro } }.
@@ -230,6 +233,46 @@ export const DEFAULT_SYSTEMS = Object.fromEntries(Object.entries(SYSTEMS).map(([
 
 const ID_RE = /^[a-z0-9_-]{1,24}$/;
 
+// Folder names other front ends (ES-DE, Batocera, RetroArch playlists) give a system,
+// besides its id, its folder, its libretro name and its English name.
+const FOLDER_ALIASES = {
+  nes: ["famicom", "fc"], snes: ["sfc", "superfamicom", "supernes"], gb: ["gameboy"], gbc: ["gameboycolor"],
+  gba: ["gameboyadvance"], n64: ["nintendo64"], md: ["megadrive", "genesis", "segagenesis", "segamegadrive"],
+  sms: ["mastersystem", "segamastersystem"], gg: ["gamegear", "segagamegear"],
+  pce: ["pcengine", "tg16", "turbografx16", "turbografx"], segacd: ["megacd", "segamegacd"],
+  pcecd: ["pcenginecd", "tgcd", "turbografxcd"], ps1: ["psx", "playstation", "sonyplaystation"],
+  psp: ["playstationportable", "sonyplaystationportable"], nds: ["ds", "nintendods"],
+  ngp: ["ngpc", "neogeopocket", "neogeopocketcolor"], ws: ["wonderswan", "wonderswancolor", "wsc"],
+  saturn: ["segasaturn"], arcade: ["fbneo", "fba", "finalburnneo"], neocd: ["neogeocd"], "32x": ["sega32x"],
+  sg: ["sg1000"], a2600: ["atari2600"], a7800: ["atari7800"], lynx: ["atarilynx"], col: ["colecovision", "coleco"],
+  videopac: ["odyssey2", "videopac"], msx: ["msx1", "msx2"], amstrad: ["amstradcpc", "cpc"], c64: ["commodore64"],
+  zxs: ["zxspectrum"], vb: ["virtualboy"], wsv: ["supervision"], tama: ["tamagotchi"],
+};
+
+/** A folder name compared without case, spaces or punctuation ("Nintendo - SNES" → "nintendosnes"). Pure. */
+const keyOf = (name) => String(name ?? "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+/** The folder names a built-in system answers to, compared as keys. Pure. */
+export function folderKeys(id, s) {
+  return [...new Set([id, s.folder, s.libretro, s.names?.en, ...(FOLDER_ALIASES[id] ?? [])].filter(Boolean).map(keyOf))];
+}
+
+/** The visible folders directly under <retroDir>/roms. */
+function romFolders(retroDir) {
+  try {
+    return fs.readdirSync(path.join(retroDir, "roms"), { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name).sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Folders under roms/ that no system reads, by name. */
+export function unreadFolders(retroDir, systems) {
+  const read = new Set(Object.values(systems).map((s) => s.folder));
+  return romFolders(retroDir).filter((f) => !read.has(f));
+}
+
 /** A folder name an operator gave, or null when it isn't one plain name. Pure. */
 export function folderName(value) {
   if (typeof value !== "string") return null;
@@ -241,12 +284,11 @@ export function folderName(value) {
 export function loadSystems(retroDir) {
   const out = structuredClone(DEFAULT_SYSTEMS);
   const file = path.join(retroDir, "systems.json");
-  let custom;
+  let custom = {};
   try {
     custom = JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("retro: ignoring %s: %s", file, err.message);
-    return out;
   }
   for (const [id, raw] of Object.entries(custom ?? {})) {
     if (!ID_RE.test(id) || typeof raw !== "object" || raw === null) continue;
@@ -264,6 +306,21 @@ export function loadSystems(retroDir) {
       folder: folderName(raw.folder) ?? base.folder,
       libretro: text(raw.libretro, base.libretro),
     };
+  }
+  return withFoundFolders(out, romFolders(retroDir), new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder))));
+}
+
+/** Each built-in system whose folder is missing takes the first look-alike folder no other system reads. Pure. */
+function withFoundFolders(systems, folders, named) {
+  const taken = new Set(Object.values(systems).map((s) => s.folder).filter((f) => folders.includes(f)));
+  const out = { ...systems };
+  for (const [id, s] of Object.entries(systems)) {
+    if (named.has(id) || !DEFAULT_SYSTEMS[id] || folders.includes(s.folder)) continue;
+    const keys = new Set(folderKeys(id, DEFAULT_SYSTEMS[id]));
+    const found = folders.find((f) => !taken.has(f) && keys.has(keyOf(f)));
+    if (!found) continue;
+    taken.add(found);
+    out[id] = { ...s, folder: found };
   }
   return out;
 }
