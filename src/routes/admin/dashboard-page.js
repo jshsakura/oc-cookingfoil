@@ -72,7 +72,7 @@ section[hidden]{display:none}
 .lanes{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
 .scroll{overflow-x:auto}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.hd h2{margin:22px 0 10px}
+.hd{margin:24px 0 10px}.hd:first-child{margin-top:0}.hd h2,.hd h2.first{margin:0}
 form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
 form.add input{flex:1;min-width:150px}
 form.add label.toggle{flex-basis:100%;display:flex;align-items:center;gap:8px;font-weight:600}
@@ -100,7 +100,7 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 #tab-overview>.copy-row{margin-bottom:12px}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;user-select:all}
 .up-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
-.up-kinds button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;text-align:left;padding:12px 14px;border-radius:14px}
+.up-kinds button{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:3px;text-align:left;padding:12px 14px;border-radius:14px}
 .up-kinds button span{font-size:12px;font-weight:400;color:var(--muted)}
 .up-kinds button[aria-pressed="true"] span{color:inherit;opacity:.75}
 .up-hint{margin:0 0 12px;min-height:1.4em}
@@ -187,7 +187,6 @@ h3.sub-h{margin:18px 0 4px;font-size:15px}
 .fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
 h2.first{margin-top:0}
 .note .note-go{margin-top:10px}
-.hd h2.first{margin:0 0 10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
 .hb-reco label{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer}
 .hb-reco label.added{opacity:.6;cursor:default}
@@ -233,6 +232,10 @@ tr.group{background:none;border:0;margin:14px 0 2px;padding:0}
 td:first-child{grid-template-columns:1fr;padding-top:10px}td:first-child::before{display:none}td:first-child b{font-size:15px}
 td .row-actions{display:flex;gap:8px}td .row-actions button,td[data-label=""]>button{flex:1 1 0;min-width:0}
 td .xline{margin-bottom:8px}td>button{width:100%}
+/* A labelled cell holding several things (a list and its button) keeps them all beside the label. */
+td:not(:first-child):not([data-label=""])>*{grid-column:2}
+}
+/* The banner and screenshot dialogs, at every width. */
 .hb-banner{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:20px;box-shadow:0 30px 60px var(--shadow)}
 .hb-banner::backdrop{background:rgba(0,0,0,.55)}
 .hb-banner-now{margin:12px 0;border-radius:14px;overflow:hidden;background:var(--sunk);aspect-ratio:1920/620;display:grid;place-items:center}
@@ -248,9 +251,6 @@ td .xline{margin-bottom:8px}td>button{width:100%}
 .hb-shots img{width:100%;height:100%;object-fit:cover;display:block}
 .hb-shots button{position:absolute;top:6px;right:6px;width:28px;height:28px;padding:0;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer}
 .btn-like{display:inline-flex;align-items:center;padding:8px 14px;border:1px solid var(--line2);border-radius:10px;font-weight:600;cursor:pointer}
-/* A labelled cell holding several things (a list and its button) keeps them all beside the label. */
-td:not(:first-child):not([data-label=""])>*{grid-column:2}
-}
 `;
 
 

@@ -14,7 +14,7 @@ export const SERVER_SETTINGS_CSS = `
 .ss-list{display:grid;gap:14px;margin:10px 0 26px}
 .ss-list>.box{margin:0;scroll-margin-top:12px}
 .ss-group>.box-b{padding-top:2px;padding-bottom:4px}
-.ss-row{display:grid;grid-template-columns:1fr minmax(180px,300px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.ss-row{display:grid;grid-template-columns:1fr minmax(220px,420px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
 .ss-group .ss-row:first-child{border-top:0}
 .ss-row b{font-size:14px}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
