@@ -85,7 +85,8 @@ import fs from "fs";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { retroDir, dataDir, keysDir } from "../helpers/envs.js";
+import { retroDir, dataDir } from "../helpers/envs.js";
+import { keysDir } from "../security/prod-keys.js";
 import { requestLang } from "../meta/categories.js";
 import * as catalog from "../retro/catalog.js";
 import * as retroNames from "../retro/names.js";
@@ -221,14 +222,14 @@ function forwarderGame(g, system) {
  * from the square of that moment (same title ID). Never throws.
  */
 export async function rebuildRetroShortcut(gameId) {
-  if (!forwardersAvailable(keysDir)) return null;
+  if (!forwardersAvailable(keysDir())) return null;
   try {
     const state = await catalog.current(retroDir);
     const g = state.byId.get(gameId);
     const system = g && state.systems[g.system];
     if (!system) return null;
     await ensureSquare(artDir, g, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system), keysDir);
+    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system), keysDir());
     if (built) debug.log("retro: shortcut for %s built again", gameId);
     return built;
   } catch (err) {
@@ -239,7 +240,7 @@ export async function rebuildRetroShortcut(gameId) {
 
 /** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
 function forwarderFields(g, system, base, link) {
-  const spec = forwardersAvailable(keysDir) ? forwarderSpec(forwarderGame(g, system)) : null;
+  const spec = forwardersAvailable(keysDir()) ? forwarderSpec(forwarderGame(g, system)) : null;
   if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null };
   let size = null;
   try {
@@ -585,10 +586,10 @@ export default function retroRouter() {
     sendTar(res, bundleFiles(game, system), { filename: `${game.id}.tar`, label: "retro" });
   });
   router.get("/games/:id/forwarder.nsp", wrap(async (req, res) => {
-    if (!forwardersAvailable(keysDir)) return res.status(404).json({ error: "forwarders are not available on this server" });
+    if (!forwardersAvailable(keysDir())) return res.status(404).json({ error: "forwarders are not available on this server" });
     const { game, system } = req.retro;
     await ensureSquare(artDir, game, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system), keysDir);
+    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system), keysDir());
     if (!built) return res.status(404).json({ error: "this game can't have a forwarder" });
     res.attachment(`${built.spec.name}.nsp`);
     res.set("X-Forwarder-Title-Id", built.spec.titleId);

@@ -14,7 +14,7 @@ import { spawn, spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { envString } from "../helpers/env-read.js";
-import { keysDir } from "../helpers/envs.js";
+import { keysDir } from "../security/prod-keys.js";
 
 const TAIL_CHARS = 4000;
 export const REASON_CHARS = 300;
@@ -73,7 +73,7 @@ export function lowPriorityPrefix() {
 /** The nsz arguments for one file. Pure. */
 export function nszArgs({ level, threads, block }, workDir, src) {
   // nsz looks for prod.keys next to itself or in ~/.switch; the server keeps them in its keys folder.
-  return ["--keys", keysDir, "-C", "-V", "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
+  return ["--keys", keysDir(), "-C", "-V", "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
 }
 
 /** The text a failure is shown with: the last lines, at most REASON_CHARS. Pure. */

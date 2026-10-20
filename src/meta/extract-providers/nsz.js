@@ -24,7 +24,7 @@ import path from "path";
 import debug from "../../debug.js";
 import * as nsp from "./nsp.js";
 import { envNumber, envString } from "../../helpers/env-read.js";
-import { keysDir } from "../../helpers/envs.js";
+import { keysDir } from "../../security/prod-keys.js";
 
 const NSZ_RE = /\.(nsz|xcz)$/i;
 const DEFAULT_TIMEOUT_MS = envNumber("COOK_EXTRACT_TIMEOUT_MS", 600_000, { min: 1000 });
@@ -101,7 +101,7 @@ export async function extract({ absPath, baseTitleId, fileName }, opts = {}) {
     // input with the canonical inner extension, so the path is
     // predictable. -D = decompress, -o = output directory.
     // nsz finds prod.keys only next to itself or in ~/.switch; point it at the server's keys folder.
-    await runNsz(bin, ["--keys", keysDir, "-D", "-o", tmpRoot, absPath], { timeoutMs });
+    await runNsz(bin, ["--keys", keysDir(), "-D", "-o", tmpRoot, absPath], { timeoutMs });
     const candidate = path.join(tmpRoot, decompressedTargetName(path.basename(absPath)));
     try { await fs.access(candidate); }
     catch {

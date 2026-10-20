@@ -10,7 +10,8 @@
  *   POST /admin/api/server-settings/sync-now          read every library folder again now; { sync }
  *   POST /admin/api/server-settings/backup-now        make today's backup now; { backup }
  *
- * The GET also carries sync (meta/folder-sync.js status) and backup (db/backup.js status).
+ * The GET also carries sync (meta/folder-sync.js status), backup (db/backup.js status) and
+ * keys (security/prod-keys.js status; changed through admin/keys-api.js).
  *
  * The names are security/server-settings.js SETTINGS.
  */
@@ -26,6 +27,7 @@ import * as backups from "../../db/backup.js";
 import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.js";
 import { googleReady } from "../../security/password-policy.js";
 import * as envs from "../../helpers/envs.js";
+import * as prodKeys from "../../security/prod-keys.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
@@ -59,6 +61,7 @@ export function mountServerSettingsApi(router, requireSession) {
     directDownload: directHealth.status(),
     sync: folderSync.status(),
     backup: backups.status(),
+    keys: prodKeys.status(),
   });
 
   router.get("/api/server-settings", handle((req, res) => res.json(view())));

@@ -219,6 +219,11 @@ function pump() {
   }
 }
 
+/** Lets every title be tried again on the next rebuild (new prod.keys); titles already read stay skipped by enqueue(). */
+export function forgetTried() {
+  tried.clear();
+}
+
 export function pending() {
   return { queued: queue.length, active, tried: tried.size };
 }

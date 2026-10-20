@@ -86,7 +86,8 @@ import crypto from "crypto";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/envs.js";
+import { dataDir, homebrewDir, homebrewCheckHours } from "../helpers/envs.js";
+import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
@@ -253,7 +254,7 @@ export async function rebuildHomebrewShortcut(id) {
   // The .nro with the new icon first (or none, the icon gone): the shortcut and the app then match.
   if (!media.iconVersion(id)) await nroIcon.dropOlder(id);
   else await iconNro(id);
-  if (!forwardersAvailable(keysDir)) return null;
+  if (!forwardersAvailable(keysDir())) return null;
   return defaultService.forwarder(id)
     .then((built) => { if (built) debug.log("homebrew: shortcut for %s built again", id); return built; })
     .catch((err) => { debug.error("homebrew: shortcut for %s: %s", id, err.message); return null; });
@@ -352,7 +353,7 @@ export const defaultService = {
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
   forwarderInfo(e) {
-    const spec = forwardersAvailable(keysDir) ? forwarderSpec(forwarderApp(e)) : null;
+    const spec = forwardersAvailable(keysDir()) ? forwarderSpec(forwarderApp(e)) : null;
     if (!spec) return NO_FORWARDER;
     let size = null;
     try {
@@ -364,12 +365,12 @@ export const defaultService = {
     return { forwarder_url: `/api/homebrew/${e.id}/forwarder`, forwarder_title_id: spec.titleId, forwarder_size: size, forwarder_key: spec.key };
   },
   async forwarder(id) {
-    if (!forwardersAvailable(keysDir)) return null;
+    if (!forwardersAvailable(keysDir())) return null;
     const e = (await this.list()).find((x) => x.id === id);
     if (!e) return null;
     // The icon an admin uploaded wins over the one in the app file, as on the card.
     const custom = media.iconVersion(id) && fs.existsSync(media.iconPath(id));
-    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir);
+    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir());
   },
   async icon(id) {
     const file = id.startsWith("m-")

@@ -25,6 +25,7 @@ import uploadsRouter from "./routes/uploads.js";
 import inboxRouter from "./routes/inbox.js";
 import adminItemsRouter from "./routes/admin-items.js";
 import votesRouter from "./routes/votes.js";
+import adminKeysRouter from "./routes/admin-keys.js";
 import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
 import {
@@ -270,6 +271,8 @@ expressApp.use("/api/uploads", sameOriginWrites(), adminOnly({ reads: true }), u
 expressApp.use("/api/admin/items", sameOriginWrites(), adminItemsRouter());
 // 잘 돼요 / 안 돼요 on homebrew, retro games, patches and saves: signed-in accounts and approved consoles.
 expressApp.use("/api/votes", sameOriginWrites(), votesRouter());
+// prod.keys sealed from an admin device, same lane.
+expressApp.use("/api/admin/keys", sameOriginWrites(), adminKeysRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides (same opt-in flag as the upload tray).

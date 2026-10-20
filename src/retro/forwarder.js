@@ -158,25 +158,30 @@ export function npdmForCores(npdm, cores) {
 
 /**
  * Whether forwarders can be built here: the exefs, hacBrewPack and prod.keys.
- * Checked once; a missing piece is logged and turns the feature off.
+ * The tools are checked once; the keys on every call, since the admin can hand
+ * them in while the server runs. A missing piece is logged once.
  */
 let availability = null;
+let saidNoKeys = false;
 export function forwardersAvailable(keysDir) {
-  if (availability !== null) return availability;
-  const missing = [
-    [path.join(EXEFS_DIR, "main.npdm"), "forwarder exefs"],
-    [path.join(keysDir, "prod.keys"), "prod.keys"],
-  ].filter(([p]) => !fs.existsSync(p)).map(([, what]) => what);
-  const bin = HACBREWPACK.includes("/") ? HACBREWPACK : null;
-  if (bin && !fs.existsSync(bin)) missing.push("hacbrewpack");
-  availability = missing.length === 0;
-  if (!availability) debug.log("retro: home-screen forwarders off (missing %s)", missing.join(", "));
-  return availability;
+  if (availability === null) {
+    const missing = [[path.join(EXEFS_DIR, "main.npdm"), "forwarder exefs"]].filter(([p]) => !fs.existsSync(p)).map(([, what]) => what);
+    const bin = HACBREWPACK.includes("/") ? HACBREWPACK : null;
+    if (bin && !fs.existsSync(bin)) missing.push("hacbrewpack");
+    availability = missing.length === 0;
+    if (!availability) debug.log("retro: home-screen forwarders off (missing %s)", missing.join(", "));
+  }
+  if (!availability) return false;
+  const keys = fs.existsSync(path.join(keysDir, "prod.keys"));
+  if (!keys && !saidNoKeys) debug.log("retro: home-screen forwarders off until prod.keys is there");
+  saidNoKeys = !keys;
+  return keys;
 }
 
 /** Test hook: forget the availability check. */
 export function resetAvailability() {
   availability = null;
+  saidNoKeys = false;
   exefsHash = null;
 }
 

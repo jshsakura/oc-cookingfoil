@@ -25,7 +25,7 @@ import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { findControlNcaId, readCnmtFacts, firmwareString } from "./cnmt-parse.js";
 import { NACP_TOTAL_BYTES, decodeNacp } from "./nacp-decode.js";
 import {
-  resolveBinary, keysAvailable, runNstool, findFirstRecursive, KEYS_PATH, DEFAULT_TIMEOUT_MS,
+  resolveBinary, keysAvailable, runNstool, findFirstRecursive, keysFile, DEFAULT_TIMEOUT_MS,
 } from "./extract-providers/nsp.js";
 
 const STORE_PATH = path.join(extractedMetaDir, "content-meta.json");
@@ -176,7 +176,7 @@ export async function readContentMeta(absPath, { withNacp = false } = {}) {
   const cnmtEntry = entries?.find((e) => /\.cnmt\.nca$/i.test(e.name));
   if (!cnmtEntry) return null;
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "cook-meta-"));
-  const run = (args) => runNstool(bin, ["-k", KEYS_PATH, ...args], { timeoutMs: DEFAULT_TIMEOUT_MS });
+  const run = (args) => runNstool(bin, ["-k", keysFile(), ...args], { timeoutMs: DEFAULT_TIMEOUT_MS });
   try {
     const cnmtFile = await extractOne(run, absPath, cnmtEntry, tmp, "cnmt", (n) => /\.cnmt$/i.test(n));
     if (!cnmtFile) return null;
@@ -229,6 +229,20 @@ async function work() {
     if (queue.length) await new Promise((resolve) => setTimeout(resolve, PACE_MS));
   }
   running = false;
+}
+
+/** Forgets the files that could not be read, so the next rebuild queues them again (new prod.keys). Returns how many. */
+export function retryFailed() {
+  let n = 0;
+  for (const [key, record] of known) {
+    if (!record.failed) continue;
+    const { failed: _failed, ...rest } = record;
+    if (Object.keys(rest).length) known.set(key, rest);
+    else known.delete(key);
+    tried.delete(key);
+    n++;
+  }
+  return n;
 }
 
 /** How far the background read has come, for /api/shop/info. */

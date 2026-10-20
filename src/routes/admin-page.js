@@ -60,6 +60,7 @@ import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
+import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
@@ -131,7 +132,7 @@ function clientBuildWarnings() {
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
 // which release file of it, uploaded patches and which of them a game requires). Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */
 function decodedPath(raw) {
@@ -444,6 +445,7 @@ export default function adminPageRouter() {
   mountRetroVariantsApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
   mountServerSettingsApi(router, requireSession);
+  mountKeysApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
