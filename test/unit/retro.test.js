@@ -316,8 +316,10 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   }
 });
 
-test("the retro index pages every version of every listed game by id, trimmed and gzipped", async () => {
+test("the retro index pages every version of every listed game by id, trimmed, and syncs by changes", async () => {
   const dir = fixture();
+  // Enough games for a body worth gzipping (a small one goes as it is).
+  for (let i = 0; i < 30; i++) put(dir, `roms/gb/Filler ${i} (USA).gb`, `GB${i}`);
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
@@ -334,8 +336,13 @@ test("the retro index pages every version of every listed game by id, trimmed an
     assert.deepEqual(games.map((g) => g.id), games.map((g) => g.id).sort(), "ordered by id, so pages don't shift");
 
     const listed = (await (await get("/api/retro/games?pageSize=200")).json()).games;
-    assert.deepEqual(games.filter((g) => g.representative).map((g) => g.id).sort(), listed.map((g) => g.id).sort(), "one representative per listed game");
-    for (const g of games) assert.ok(listed.some((r) => r.group === g.group), `${g.id} belongs to a listed game`);
+    const systemOf = (id) => id.slice(0, id.lastIndexOf("-"));
+    for (const r of listed) {
+      const versions = games.filter((g) => systemOf(g.id) === r.system && (g.id === r.id || (g.group && r.group.endsWith(`~${g.group}`))));
+      assert.ok(versions.some((g) => g.id === r.id), `${r.id} is in the index`);
+      if (r.variants > 1) assert.equal(versions.filter((g) => g.representative).map((g) => g.id)[0], r.id, "the group shows the same version");
+    }
+    assert.equal(games.length, listed.reduce((n, r) => n + r.variants, 0), "every version of every listed game");
 
     // Paging: the same list, a page at a time, under the same version.
     const p1 = await (await get("/api/retro/index?pageSize=2&page=1")).json();
@@ -345,7 +352,7 @@ test("the retro index pages every version of every listed game by id, trimmed an
     assert.equal((await (await get("/api/retro/index?pageSize=9999")).json()).pageSize, 500, "500 a page at most");
 
     const zelda = games.find((g) => g.variant === "K");
-    assert.equal(zelda.system, "snes");
+    assert.equal(systemOf(zelda.id), "snes");
     assert.equal(zelda.original, "Zelda no Densetsu - Kamigami no Triforce (Japan)");
     assert.deepEqual(zelda.edition, { korean: true, source: "patch" });
     assert.equal(zelda.region, "kr");
@@ -356,10 +363,10 @@ test("the retro index pages every version of every listed game by id, trimmed an
     const mario = games.find((g) => g.name.startsWith("Super Mario"));
     assert.equal(mario.ownBezel, true);
     assert.match(mario.icon, /^[0-9a-f]{12}$/, "the icon's v, not the whole URL");
-    // Defaults are left out; per-console and download fields never appear.
-    for (const key of ["verified", "votes", "rom_size", "ownBezel"]) assert.ok(!(key in chrono), `chrono leaves ${key} out`);
+    // Defaults and what the id says are left out; per-console and download fields never appear.
+    for (const key of ["verified", "votes", "rom_size", "ownBezel", "group", "representative"]) assert.ok(!(key in chrono), `chrono leaves ${key} out`);
     for (const g of games) {
-      for (const key of ["my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl", "iconUrl", "file"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
+      for (const key of ["system", "my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl", "iconUrl", "file", "variants"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
     }
 
     // Without gzip asked for, plain JSON.
@@ -384,6 +391,26 @@ test("the retro index pages every version of every listed game by id, trimmed an
     }
     assert.equal(again.status, 304);
     assert.equal(res.headers.get("cache-control"), "private, max-age=0, must-revalidate");
+
+    // Changes only: nothing since the current version; one vote later, that game alone.
+    // First let every cartridge ROM get its hash, so nothing else changes meanwhile (discs never get one).
+    let settled = null;
+    for (let i = 0; i < 40; i++) {
+      settled = await (await get("/api/retro/index")).json();
+      if (settled.games.every((g) => g.rom_hash || systemOf(g.id) === "ps1")) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    assert.ok(settled.games.every((g) => g.rom_hash || systemOf(g.id) === "ps1"), "cartridge ROMs are hashed");
+    const none = await (await get(`/api/retro/index?since=${settled.version}`)).json();
+    assert.deepEqual(none, { version: settled.version, since: settled.version, changed: [], removed: [] });
+    const voted = await fetch(`${BASE}/api/votes/retro/${chrono.id}`, { method: "POST", headers: { ...AUTH, "Content-Type": "application/json" }, body: JSON.stringify({ vote: "up" }) });
+    assert.equal(voted.status, 200);
+    await new Promise((r) => setTimeout(r, 3100));
+    const after = await (await get(`/api/retro/index?since=${settled.version}`)).json();
+    assert.notEqual(after.version, settled.version);
+    assert.deepEqual(after.changed.map((g) => [g.id, g.votes]), [[chrono.id, { up: 1, down: 0 }]]);
+    assert.deepEqual(after.removed, []);
+    assert.deepEqual(await (await get("/api/retro/index?since=0000000000000000")).json(), { version: after.version, reset: true }, "a version it doesn't remember: page again");
   } finally {
     server.kill("SIGKILL");
   }
