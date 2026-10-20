@@ -20,6 +20,8 @@ export const currentSettings = () => ({
   workers: env.nszWorkers,
   minSizeMb: env.nszMinSizeMb,
   diskFloorGb: env.nszDiskFloorGb,
+  keepHours: env.nszKeepHours,
+  keepGb: env.nszKeepGb,
   block: env.nszBlock,
   xci: env.nszXci,
 });
@@ -27,6 +29,7 @@ export const currentSettings = () => ({
 const queue = createNszQueue({
   gamesDir: env.romsDirPath,
   stateFile: path.join(env.dataDir, "nsz-queue.json"),
+  logFile: path.join(env.dataDir, "nsz-log.jsonl"),
   settings: currentSettings,
   downloads: () => drainer.downloads(),
   // Games are served at their path under the games folder, on both download lanes.

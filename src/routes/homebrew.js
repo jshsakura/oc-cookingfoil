@@ -24,6 +24,7 @@
  *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
  *       for it may use, also for one a client builds itself), install_type, title_id,
  *       verified (the admin tried it on a console: a 검수됨 badge), verified_at (ISO, or null),
+ *       votes: { up, down } (잘 돼요 / 안 돼요), my_vote ("up" | "down" | null: this voter's, see /api/votes),
        banner_url, screenshots }
 
  * `banner_url` (or null) and `screenshots` (addresses, possibly none) lay an
@@ -85,7 +86,8 @@ import crypto from "crypto";
 import path from "path";
 import express from "express";
 import debug from "../debug.js";
-import { dataDir, homebrewDir, homebrewCheckHours, keysDir } from "../helpers/envs.js";
+import { dataDir, homebrewDir, homebrewCheckHours } from "../helpers/envs.js";
+import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/categories.js";
@@ -93,13 +95,15 @@ import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as cores from "../meta/homebrew-cores.js";
 import * as verified from "../meta/homebrew-verified.js";
+import * as votes from "../meta/item-votes.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
 import fs from "fs";
 import fsp from "fs/promises";
-import { createTracker, fileKey, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { createTracker, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
+import { fileKey } from "../helpers/hash-cache.js";
 import { appDb } from "../db/database.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { watchItems } from "../meta/folder-watch.js";
@@ -182,6 +186,13 @@ export async function refreshManualApp(folder) {
   if (entry) rebuildChanged(before, [entry]);
 }
 
+/**
+ * Whether a kept list predates what the server now serves, so it is read again on start: file keys
+ * without ctime (a same-size overwrite could keep an old hash) or no nacp_version. Hashes stay cached. Pure.
+ */
+export const keptListOutdated = (entries) => entries.some((e) => !("nacp_version" in e)
+  || [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
+
 /** The ids of the apps in `after` whose files differ from what `before` listed. Pure. */
 export function changedApps(before, after) {
   const had = new Map(before.map((e) => [e.id, e.hash]));
@@ -243,7 +254,7 @@ export async function rebuildHomebrewShortcut(id) {
   // The .nro with the new icon first (or none, the icon gone): the shortcut and the app then match.
   if (!media.iconVersion(id)) await nroIcon.dropOlder(id);
   else await iconNro(id);
-  if (!forwardersAvailable(keysDir)) return null;
+  if (!forwardersAvailable(keysDir())) return null;
   return defaultService.forwarder(id)
     .then((built) => { if (built) debug.log("homebrew: shortcut for %s built again", id); return built; })
     .catch((err) => { debug.error("homebrew: shortcut for %s: %s", id, err.message); return null; });
@@ -342,7 +353,7 @@ export const defaultService = {
   },
   /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
   forwarderInfo(e) {
-    const spec = forwardersAvailable(keysDir) ? forwarderSpec(forwarderApp(e)) : null;
+    const spec = forwardersAvailable(keysDir()) ? forwarderSpec(forwarderApp(e)) : null;
     if (!spec) return NO_FORWARDER;
     let size = null;
     try {
@@ -354,12 +365,12 @@ export const defaultService = {
     return { forwarder_url: `/api/homebrew/${e.id}/forwarder`, forwarder_title_id: spec.titleId, forwarder_size: size, forwarder_key: spec.key };
   },
   async forwarder(id) {
-    if (!forwardersAvailable(keysDir)) return null;
+    if (!forwardersAvailable(keysDir())) return null;
     const e = (await this.list()).find((x) => x.id === id);
     if (!e) return null;
     // The icon an admin uploaded wins over the one in the app file, as on the card.
     const custom = media.iconVersion(id) && fs.existsSync(media.iconPath(id));
-    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir);
+    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir());
   },
   async icon(id) {
     const file = id.startsWith("m-")
@@ -418,8 +429,7 @@ export function start() {
   // and reading every app again on each restart kept a busy disk busy for minutes.
   // A list kept with the keys before ctime joined them (three parts) is read again once, so no
   // download meets an old key and is turned away while its app is read again.
-  const oldKeys = manual.entries.some((e) => [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
-  if (!manual.at || oldKeys || Date.now() - manual.at > MANUAL_STALE_MS) {
+  if (!manual.at || keptListOutdated(manual.entries) || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
   // An app copied into the folder by hand, or any file changed deep inside one, is read again
@@ -521,7 +531,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
     // asks for them (?with=titles): an older one would copy the file to sdmc:/switch/ instead.
     const titles = String(req.query.with ?? "").split(",").includes("titles");
     const lazy = readsFilesUrl(req.get("user-agent"));
-    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => e.install_type === "title" ? {
+    const voter = votes.voterOf(req);
+    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
       description: null,
       install_dir: null,
       ...e,
@@ -551,7 +562,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
       ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
-    });
+    }), ...votes.fields("homebrew", e.id, voter) }));
     const body = JSON.stringify({ homebrew: list });
     res.set({
       "Content-Type": "application/json",

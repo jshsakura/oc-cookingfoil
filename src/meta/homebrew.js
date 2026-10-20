@@ -33,6 +33,7 @@ import { decodeNacp } from "./nacp-decode.js";
 import { extractFromPfs0 } from "./extract-providers/nsp.js";
 import * as activity from "../tasks/activity.js";
 import { firmwareString } from "./cnmt-parse.js";
+import { fileKey } from "../helpers/hash-cache.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -270,13 +271,6 @@ function pruneHashes(seen) {
   if (manualHashes) manualHashes.prune(seen);
   else for (const k of [...memoryHashes.keys()]) if (!seen.has(k)) memoryHashes.delete(k);
 }
-
-/**
- * What says a file is unchanged: size, mtime, ctime and inode. ctime is in it because a
- * copy that overwrites in place and puts the mtime back (SMB, Windows) keeps the other
- * three; the kernel moves ctime on every write and nothing can set it back. Pure.
- */
-export const fileKey = (st) => `${st.size}:${st.mtimeMs}:${st.ctimeMs}:${st.ino}`;
 
 async function cachedSha256(file, st, seen = null) {
   seen?.add(file);

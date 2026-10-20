@@ -92,7 +92,12 @@ test("forwarders are built once, rebuilt when the game changes, and dropped with
 
 test("without prod.keys there are no forwarders", () => {
   fwd.resetAvailability();
-  assert.equal(fwd.forwardersAvailable(path.join(root, "no-keys")), false);
+  const later = path.join(root, "no-keys");
+  assert.equal(fwd.forwardersAvailable(later), false);
+  fs.mkdirSync(later, { recursive: true });
+  fs.copyFileSync(path.join(keysDir, "prod.keys"), path.join(later, "prod.keys"));
+  assert.equal(fwd.forwardersAvailable(later), true, "keys handed in later count without a restart");
+  fs.rmSync(later, { recursive: true, force: true });
   fwd.resetAvailability();
 });
 

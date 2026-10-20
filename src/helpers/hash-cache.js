@@ -1,5 +1,5 @@
 /**
- * SHA-256 of files, remembered by (size, mtime, inode) in the index
+ * SHA-256 of files, remembered by fileKey (size, mtime, ctime, inode) in the index
  * (db/stores.js hashStore) so a restart doesn't re-read big folders.
  */
 import crypto from "crypto";
@@ -7,14 +7,21 @@ import fs from "fs";
 
 const READ_CHUNK = 1024 * 1024;
 
+/**
+ * What says a file is unchanged: size, mtime, ctime and inode. ctime is in it because a
+ * copy that overwrites in place and puts the mtime back (SMB, Windows) keeps the other
+ * three; the kernel moves ctime on every write and nothing can set it back. Pure.
+ */
+export const fileKey = (st) => `${st.size}:${st.mtimeMs}:${st.ctimeMs}:${st.ino}`;
+
 export class HashCache {
-  /** `store` is a hashStore. */
+  /** `store` is a hashStore. Each file passed to hash() carries abs and its stat's size, mtimeMs, ctimeMs and ino. */
   constructor(store) {
     this.store = store;
   }
 
   async hash(f) {
-    const key = `${f.size}:${f.mtimeMs}:${f.ino}`;
+    const key = fileKey(f);
     const hit = this.store.get(f.abs);
     if (hit?.key === key) return hit.hash;
     const h = crypto.createHash("sha256");

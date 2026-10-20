@@ -4,6 +4,7 @@ fs.mkdirSync(process.env.COOK_GAMES_DIR, { recursive: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/users.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/featured.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/game-descriptions.json`, { force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/verified-items.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/server-settings.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/admin-password.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/inbox`, { recursive: true, force: true });

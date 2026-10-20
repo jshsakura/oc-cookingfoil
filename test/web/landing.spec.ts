@@ -532,7 +532,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   // The admin tried it on a console: a 검수됨 badge beside its name and among its facts.
   await expect(app.locator('.xname .pill.verified')).toHaveText('검수됨');
   await app.click();
-  await expect(page.locator('#xm-pills .pill.verified')).toHaveText('검수됨');
+  await expect(page.locator('#xm-pills .check-chip .cc-verified')).toHaveText('검수됨');
   await expect(page.locator('#xm-title')).toHaveText('Port Game');
   // The same facts the client shows: maker and version, type and size, and where it installs.
   await expect(page.locator('#xm-sub')).toHaveText('someone · v2.0');

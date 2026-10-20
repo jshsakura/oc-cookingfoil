@@ -126,7 +126,8 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await editPage(page, '#xmodal');
   const form = page.locator('#xmodal .edit-facts form');
   await expect(page.locator('#xm-desc')).toBeHidden();
-  await form.locator('[name="nameKo"]').fill('편집한 패치');
+  // One name box: the Korean page edits the Korean name.
+  await form.locator('[name="names"]').fill('편집한 패치');
   const required = form.getByRole('switch', { name: /필수 패치/ });
   const was = await required.isChecked();
   await required.setChecked(!was);
@@ -148,11 +149,23 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await page.goto('/#tools');
   await page.locator('#tools-list .xrow', { hasText: 'Hand App' }).click();
   await editPage(page, '#xmodal');
-  await page.locator('#xmodal .edit-facts [name="descKo"]').fill('손으로 고친 설명입니다.');
+  const hbDesc = page.locator('#xmodal .edit-facts [name="desc"]');
+  await hbDesc.fill('손으로 고친 설명입니다.');
+  // The switch shows the English box; what was typed in Korean waits there until saved.
+  const langs = page.locator('#xmodal .edit-facts .ef-langs');
+  await expect(langs.getByRole('button', { name: '한국어' })).toHaveAttribute('aria-pressed', 'true');
+  await langs.getByRole('button', { name: 'English' }).click();
+  await expect(hbDesc).toHaveValue('');
+  await hbDesc.fill('Fixed by hand.');
+  await langs.getByRole('button', { name: '한국어' }).click();
+  await expect(hbDesc).toHaveValue('손으로 고친 설명입니다.');
   await page.locator('#xmodal .edit-facts').getByRole('button', { name: '저장' }).click();
   await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
   await page.locator('#xmodal .modal-gear').click();
   await expect(page.locator('#xm-desc')).toHaveText('손으로 고친 설명입니다.');
+  // Both languages went in the one save.
+  const hbId = (await (await page.request.get('/api/homebrew?with=titles')).json()).homebrew.find((a: { name: string }) => a.name === 'Hand App').id;
+  expect((await (await page.request.get(`/api/art/homebrew/${hbId}/meta`)).json()).description).toEqual({ ko: '손으로 고친 설명입니다.', en: 'Fixed by hand.' });
   await page.locator('#xmodal .modal-x').click();
 
   // A game: its Korean description, shown once the edit page is left.
@@ -160,7 +173,7 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await page.goto('/#all');
   await page.locator('#games .game').first().click();
   await editPage(page, '#modal');
-  await page.locator('#modal .edit-facts [name="descKo"]').fill('관리자가 쓴 게임 소개입니다.');
+  await page.locator('#modal .edit-facts [name="desc"]').fill('관리자가 쓴 게임 소개입니다.');
   await page.waitForTimeout(400);
   await page.screenshot({ path: 'out/web/edit-page-game-390.png' });
   await page.locator('#modal .edit-facts').getByRole('button', { name: '저장' }).click();

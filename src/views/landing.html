@@ -73,6 +73,7 @@
         --font-body: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
         --radius: 18px;
+        --shield-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E");
       }
       * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
       html { scroll-behavior: smooth; }
@@ -253,10 +254,46 @@
       .modal .xm-pills .pill { font-size: 12.5px; padding: 3px 11px; }
       .xrow .pill.need, .xhead .pill.need, .modal .xm-pills .pill.need { background: var(--butter); border-color: var(--butter); color: var(--butter-ink, #1a1a1a); }
       /* Tried on a console by the admin: a green pill with a shield. */
-      .xrow .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
+      .xrow .pill.verified, .xitem .pill.verified, .game .sub .pill.verified, .modal .xm-pills .pill.verified { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; background: rgba(var(--good-rgb), .14); border-color: rgba(var(--good-rgb), .45); color: var(--good); }
       .pill.verified::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
       .modal .xm-pills .pill.verified::before { width: 14px; height: 14px; }
-      .xname .pill.verified { vertical-align: 2px; margin-left: 4px; }
+      .xrow .xname:has(.pill.verified, .pill.votes), .xitem .xname:has(.pill.verified, .pill.votes) { display: flex; align-items: center; gap: 8px; }
+      .xrow .xname .xname-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      .xrow .xname .pill.verified, .xitem .xname .pill.verified, .xname .pill.votes { flex: none; }
+      .xitem .pill.verified { padding: 2px 9px 2px 7px; border-radius: 100px; border: 1px solid; font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+      /* How many said 잘 돼요, muted beside the name; hidden at none, shown once someone votes. */
+      .pill.votes { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; font-variant-numeric: tabular-nums; }
+      .pill.votes[hidden] { display: none; }
+      .xitem .pill.votes { padding: 2px 9px 2px 7px; border-radius: 100px; border: 1px solid var(--line); background: var(--surface); color: var(--secondary); font-size: 11.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+      .pill.votes svg, .check-chip svg, .check-pop svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .thumb-down { transform: rotate(180deg); }
+      /* The detail's 검수 chip: 검수됨 and the 잘 돼요 count in one button that opens the popover to vote. */
+      .xm-pills { position: relative; }
+      .check-chip { display: inline-flex; align-items: stretch; padding: 0; border-radius: 100px; border: 1px solid var(--line); background: var(--surface);
+        color: var(--secondary); font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.4; cursor: pointer; overflow: hidden; }
+      .check-chip[hidden] { display: none; }
+      .check-chip > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 11px 3px 8px; }
+      .check-chip .cc-verified { background: rgba(var(--good-rgb), .14); color: var(--good); }
+      .check-chip .cc-verified::before { content: ""; width: 14px; height: 14px; flex: none; background: currentColor; -webkit-mask: var(--shield-mask) center / contain no-repeat; mask: var(--shield-mask) center / contain no-repeat; }
+      .check-chip:has(.cc-verified) { border-color: rgba(var(--good-rgb), .45); }
+      .check-chip .cc-verified + .cc-up { border-left: 1px solid rgba(var(--good-rgb), .35); }
+      .check-chip .cc-up.mine { color: var(--ink); }
+      .check-chip:hover, .check-chip[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(var(--good-rgb), .14); }
+      .check-chip:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
+      .check-pop { position: absolute; z-index: 30; width: min(300px, 100%); padding: 14px; display: grid; gap: 10px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22); font-size: 13px; }
+      .check-pop p { margin: 0; }
+      .check-pop .cp-verified { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--good); }
+      .check-pop .cp-verified::before { content: ""; width: 16px; height: 16px; flex: none; background: currentColor; -webkit-mask: var(--shield-mask) center / contain no-repeat; mask: var(--shield-mask) center / contain no-repeat; }
+      .check-pop .cp-sub { color: var(--secondary); font-size: 12.5px; }
+      .check-pop .cp-counts { color: var(--secondary); font-variant-numeric: tabular-nums; }
+      .check-pop .cp-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .check-pop .cp-votes button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px; border-radius: 100px;
+        border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+      .check-pop .cp-votes button svg { width: 15px; height: 15px; }
+      .check-pop .cp-votes button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+      .check-pop .cp-votes button:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
+      .check-pop .cp-votes button:disabled { opacity: .6; cursor: wait; }
       /* Its switch in the edit panel turns green with it. */
       .ef-switch.ef-verified { border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
       .ef-switch.ef-verified > span::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: var(--secondary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z'/%3E%3Cpath d='M8.8 12.2l2.2 2.2 4.3-4.6'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -506,7 +543,7 @@
       .recent > .see-all .face .bi { width: 30px; height: 30px; }
       .recent > .see-all .name { visibility: hidden; }
       .home-row { position: relative; margin-bottom: 26px; container-type: inline-size; }
-      .home-row .row-actions { position: absolute; right: 0; top: 34px; display: flex; gap: 6px; align-items: center; }
+      .home-row .row-actions { position: absolute; right: 0; top: 0; height: 34px; display: flex; gap: 6px; align-items: center; }
       :is(.home-row, .hscroll) .row-btn {
         display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 100px; cursor: pointer;
         font: 600 13px var(--font-body); background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
@@ -519,9 +556,13 @@
       :is(.home-row, .hscroll) .row-btn:disabled { opacity: 0.35; cursor: default; }
       :is(.home-row, .hscroll) .row-btn .bi { width: 16px; height: 16px; }
       .home-row h2 { margin-bottom: 4px; display: flex; align-items: baseline; gap: 10px; }
+      /* The buttons sit on the title's line, clear of the cards below (a picked card's ring and hover lift included). */
+      .home-row:has(> .row-actions) h2 { min-height: 34px; align-items: center; padding-right: 190px; }
+      .home-row .row-actions .row-btn { height: 28px; }
+      .home-row .row-actions .row-btn.icon-only { width: 28px; }
       /* On a phone the shelf swipes, so the page arrows go and the title wraps clear of "See all". */
       @container (max-width: 560px) {
-        .home-row:has(> .row-actions) h2 { padding-right: 112px; }
+        .home-row:has(> .row-actions) h2 { padding-right: 104px; }
         .home-row .row-actions .row-btn.icon-only { display: none; }
       }
       .home-row .row-count { font-size: 14px; font-weight: 600; color: var(--secondary); font-variant-numeric: tabular-nums; }
@@ -1004,6 +1045,10 @@
       .modal.editing #modal-download, .modal.editing #xm-download { display: none; }
       .edit-pane { animation: edit-in .22s ease; }
       @keyframes edit-in { from { opacity: 0; transform: translateY(8px); } }
+      .arted-head .ef-langs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 100px; background: var(--sunk); }
+      .ef-langs button { font: 700 12.5px var(--font-body); padding: 5px 13px; border: 0; border-radius: 100px; background: transparent; color: var(--secondary); cursor: pointer; }
+      .ef-langs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
+      .ef-langs button:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .ef-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .ef-field { display: grid; gap: 6px; min-width: 0; margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
       .ef-field.wide { grid-column: 1 / -1; }
@@ -1012,6 +1057,13 @@
         background: var(--sunk); color: var(--ink); font: 500 16px/1.45 var(--font-body); transition: border-color .15s ease, box-shadow .15s ease;
       }
       .ef-field textarea { min-height: 112px; resize: vertical; }
+      /* The sort boxes' chevron, inset like the padding, instead of the browser's arrow on the edge. */
+      .ef-field select {
+        -webkit-appearance: none; appearance: none; padding-right: 42px; cursor: pointer;
+        background-image: linear-gradient(45deg, transparent 50%, var(--secondary) 50%), linear-gradient(135deg, var(--secondary) 50%, transparent 50%);
+        background-position: calc(100% - 22px) 52%, calc(100% - 16px) 52%;
+        background-size: 6px 6px, 6px 6px; background-repeat: no-repeat;
+      }
       .ef-field input:focus, .ef-field textarea:focus, .ef-field select:focus { outline: none; border-color: var(--butter); box-shadow: 0 0 0 3px color-mix(in srgb, var(--butter) 28%, transparent); }
       .ef-field input::placeholder, .ef-field textarea::placeholder { color: var(--secondary); opacity: .7; }
       .ef-switch { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-radius: 14px; background: var(--sunk); color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -1134,10 +1186,20 @@
       .live-dot.on  { background: var(--good); }
       .live-dot.off { background: var(--pending); }
 
-      .footer { margin-top: 48px; text-align: center; font-size: 13px; color: var(--faint); }
-      .footer code { font-family: var(--font-mono); }
-      .footer a { color: var(--ink); text-decoration: none; font-weight: 600; }
-      .footer a:hover { text-decoration: underline; }
+      /* One quiet row: the name with its version chip, then the source as a pill with GitHub's mark. */
+      .footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 13px; color: var(--secondary); }
+      .footer p { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+      .footer .foot-name { font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
+      .footer code { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 100px; background: var(--sunk); color: var(--secondary); }
+      .footer .foot-gh {
+        display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px 0 11px; border-radius: 100px;
+        border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 700;
+        transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+      }
+      .footer .foot-gh svg { width: 17px; height: 17px; fill: currentColor; flex: none; }
+      .footer .foot-gh:hover { border-color: var(--ink); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(var(--shadow-rgb), .14); }
+      .footer .foot-gh:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) { .footer .foot-gh { transition: none; } .footer .foot-gh:hover { transform: none; } }
 
       @media (max-width: 900px) {
         .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1389,8 +1451,8 @@
 
       <div class="footer">
         <p>
-          CookingFoil <code id="version">v?</code> ·
-          <a href="https://github.com/jshsakura/oc-cookingfoil" target="_blank" rel="noopener">GitHub</a>
+          <span class="foot-name">CookingFoil</span> <code id="version">v?</code>
+          <a class="foot-gh" href="https://github.com/jshsakura/oc-cookingfoil" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a><!-- privacy-ok: SVG path data -->
         </p>
       </div>
     </div>
@@ -1612,6 +1674,13 @@
           "kind.cheats": "치트",
           "kind.homebrew": "홈브류",
           "hb.verified": "검수됨",
+          "check.label": "검수 정보",
+          "check.works": "잘 돼요",
+          "check.broken": "안 돼요",
+          "check.byAdmin": "관리자 확인",
+          "check.worksN": (n) => `잘 돼요 ${n}`,
+          "check.counts": (up, down) => `잘 돼요 ${up} · 안 돼요 ${down}`,
+          "check.failed": "투표를 저장하지 못했습니다.",
           "action.admin": "서버 관리",
           "action.logout": "로그아웃",
           "extras.files": (n) => `파일 ${n}개`,
@@ -1769,6 +1838,7 @@
           "edit.back": "상세로 돌아가기",
           "edit.facts": "정보",
           "edit.hint": "비워 두면 원래 정보를 씁니다.",
+          "edit.lang": "고칠 언어",
           "edit.save": "저장",
           "edit.reset": "원래대로",
           "edit.saved": "저장했습니다.",
@@ -1786,9 +1856,7 @@
           "del.game": (n, size) => `이 게임의 파일 ${n}개(${size})를 서버에서 지웁니다. 본편, 업데이트, DLC가 모두 들어 있고 되돌릴 수 없습니다.`,
           "edit.loading": "불러오는 중입니다.",
           "edit.name": "이름",
-          "edit.nameKo": "한국어 이름",
           "edit.desc": "소개",
-          "edit.descKo": "한국어 소개",
           "edit.notes": "추가 정보",
           "edit.version": "버전",
           "edit.author": "만든 이",
@@ -1944,6 +2012,13 @@
           "kind.cheats": "Cheats",
           "kind.homebrew": "Homebrew",
           "hb.verified": "Verified",
+          "check.label": "Check status",
+          "check.works": "Works",
+          "check.broken": "Doesn't work",
+          "check.byAdmin": "Checked by the admin",
+          "check.worksN": (n) => `Works: ${n}`,
+          "check.counts": (up, down) => `Works ${up} · Doesn't work ${down}`,
+          "check.failed": "Could not save your vote.",
           "action.admin": "Server admin",
           "action.logout": "Sign out",
           "extras.files": (n) => `${n} files`,
@@ -2100,6 +2175,7 @@
           "edit.back": "Back to details",
           "edit.facts": "Details",
           "edit.hint": "Leave a field empty to use the original.",
+          "edit.lang": "Language to edit",
           "edit.save": "Save",
           "edit.reset": "Restore original",
           "edit.saved": "Saved.",
@@ -2117,9 +2193,7 @@
           "del.game": (n, size) => `Deletes ${n} ${n === 1 ? "file" : "files"} of this game (${size}) from the server: base game, updates and DLC. This cannot be undone.`,
           "edit.loading": "Loading…",
           "edit.name": "Name",
-          "edit.nameKo": "Korean name",
           "edit.desc": "Description",
-          "edit.descKo": "Korean description",
           "edit.notes": "Notes",
           "edit.version": "Version",
           "edit.author": "Author",
@@ -2275,6 +2349,13 @@
           "kind.cheats": "チート",
           "kind.homebrew": "自作アプリ",
           "hb.verified": "動作確認済み",
+          "check.label": "動作確認の情報",
+          "check.works": "動きます",
+          "check.broken": "動きません",
+          "check.byAdmin": "管理者が確認",
+          "check.worksN": (n) => `動きます ${n}`,
+          "check.counts": (up, down) => `動きます ${up} · 動きません ${down}`,
+          "check.failed": "投票を保存できませんでした。",
           "action.admin": "サーバー管理",
           "action.logout": "ログアウト",
           "extras.files": (n) => `${n}ファイル`,
@@ -2431,6 +2512,7 @@
           "edit.back": "詳細に戻る",
           "edit.facts": "情報",
           "edit.hint": "空欄なら元の情報を使います。",
+          "edit.lang": "編集する言語",
           "edit.save": "保存",
           "edit.reset": "元に戻す",
           "edit.saved": "保存しました。",
@@ -2448,9 +2530,7 @@
           "del.game": (n, size) => `このゲームのファイル${n}個(${size})をサーバーから削除します。本編、アップデート、DLCがすべて含まれ、元に戻せません。`,
           "edit.loading": "読み込み中です。",
           "edit.name": "名前",
-          "edit.nameKo": "韓国語の名前",
           "edit.desc": "説明",
-          "edit.descKo": "韓国語の説明",
           "edit.notes": "追加情報",
           "edit.version": "バージョン",
           "edit.author": "作者",
@@ -2606,6 +2686,13 @@
           "kind.cheats": "金手指",
           "kind.homebrew": "自製軟體",
           "hb.verified": "已驗證",
+          "check.label": "驗證資訊",
+          "check.works": "能玩",
+          "check.broken": "不能玩",
+          "check.byAdmin": "管理員已確認",
+          "check.worksN": (n) => `能玩 ${n}`,
+          "check.counts": (up, down) => `能玩 ${up} · 不能玩 ${down}`,
+          "check.failed": "無法儲存投票。",
           "action.admin": "服务器管理",
           "action.logout": "退出登录",
           "extras.files": (n) => `${n} 個檔案`,
@@ -2762,6 +2849,7 @@
           "edit.back": "返回詳情",
           "edit.facts": "資訊",
           "edit.hint": "留空則使用原始資訊。",
+          "edit.lang": "要編輯的語言",
           "edit.save": "儲存",
           "edit.reset": "還原",
           "edit.saved": "已儲存。",
@@ -2779,9 +2867,7 @@
           "del.game": (n, size) => `從伺服器刪除此遊戲的 ${n} 個檔案(${size})，包含本體、更新與 DLC，無法復原。`,
           "edit.loading": "載入中…",
           "edit.name": "名稱",
-          "edit.nameKo": "韓文名稱",
           "edit.desc": "簡介",
-          "edit.descKo": "韓文簡介",
           "edit.notes": "附加資訊",
           "edit.version": "版本",
           "edit.author": "作者",
@@ -3282,7 +3368,7 @@
           if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
-          if (d) { share.check(); raAccount.check(); }
+          if (d) { share.check(); raAccount.check(); checks.repaint(); }
         })
         .catch(() => {});
       $("logout-link").addEventListener("click", async (e) => {
@@ -4070,6 +4156,152 @@
         if (animate) { const h = $("hero"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap"); }
       }
 
+      // ─── 검수 칩 ────────────────────────────────────────────────────────────
+      // What is known about a homebrew app, retro game, patch or save from people who
+      // tried it: 검수됨 (the admin, on a console) and 잘 돼요 / 안 돼요 from signed-in
+      // accounts and consoles (/api/votes). A list shows both on the name's line; a
+      // detail shows one chip that opens a small popover to vote in. A vote redraws
+      // every place the item shows, without a reload.
+      const checks = (() => {
+        // Lucide thumbs-up (ISC); thumbs-down is the same turned over.
+        const THUMB = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>'; // privacy-ok: SVG path data
+        const THUMB_DOWN = THUMB.replace("<svg ", '<svg class="thumb-down" ');
+        const known = new Map();   // "kind:id" → { verified, at, up, down, mine }
+        const voted = new Set();   // voted on here: a list fetched before keeps its older counts out
+        const keyOf = (kind, id) => kind + ":" + id;
+        const canVote = () => Boolean(session);
+        const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+        function note(kind, it) {
+          const key = keyOf(kind, it.id);
+          const had = known.get(key);
+          const fresh = { up: it.votes?.up ?? 0, down: it.votes?.down ?? 0, mine: it.my_vote ?? null };
+          known.set(key, { verified: Boolean(it.verified), at: it.verified_at ?? null, ...(had && voted.has(key) ? { up: had.up, down: had.down, mine: had.mine } : fresh) });
+          return known.get(key);
+        }
+        function paintVotes(p, s) {
+          p.hidden = !(s.up > 0);
+          // Nothing inside at none, so the name line's text stays the name.
+          if (p.hidden) p.replaceChildren(); else { p.innerHTML = THUMB; p.append(String(s.up)); }
+          p.title = t("check.worksN", s.up);
+          p.setAttribute("aria-label", t("check.worksN", s.up));
+        }
+        // The name line's pills: 검수됨, then the 잘 돼요 count (kept hidden at none, so a vote can show it).
+        function namePills(kind, it) {
+          const s = note(kind, it);
+          const out = [];
+          if (s.verified) out.push(el("span", "pill verified", t("hb.verified")));
+          const p = el("span", "pill votes"); p.dataset.check = keyOf(kind, it.id);
+          paintVotes(p, s);
+          out.push(p);
+          return out;
+        }
+        function paintChip(b, s) {
+          const showUp = s.up > 0 || canVote();
+          b.hidden = !s.verified && !showUp;
+          b.replaceChildren();
+          if (s.verified) b.append(el("span", "cc-verified", t("hb.verified")));
+          if (showUp) { const u = el("span", "cc-up" + (s.mine === "up" ? " mine" : "")); u.innerHTML = THUMB; u.append(String(s.up)); b.append(u); }
+          b.setAttribute("aria-label", [t("check.label"), s.verified ? t("hb.verified") : "", t("check.worksN", s.up)].filter(Boolean).join(", "));
+        }
+        let pop = null;   // { box, chip, key, kind, id }
+        function close(focus = false) {
+          if (!pop) return;
+          const { box, chip } = pop;
+          pop = null;
+          box.remove();
+          chip.setAttribute("aria-expanded", "false");
+          if (focus) chip.focus();
+        }
+        function fillPop() {
+          const s = known.get(pop.key);
+          const parts = [];
+          if (s.verified) {
+            parts.push(el("p", "cp-verified", t("hb.verified")));
+            parts.push(el("p", "cp-sub", [t("check.byAdmin"), ymd(s.at)].filter(Boolean).join(" · ")));
+          }
+          parts.push(el("p", "cp-counts", t("check.counts", s.up, s.down)));
+          if (canVote()) {
+            const row = el("div", "cp-votes");
+            for (const [v, label, icon] of [["up", t("check.works"), THUMB], ["down", t("check.broken"), THUMB_DOWN]]) {
+              const b = el("button"); b.type = "button"; b.dataset.vote = v;
+              b.setAttribute("aria-pressed", String(s.mine === v));
+              b.innerHTML = icon; b.append(label);
+              b.addEventListener("click", () => send(s.mine === v ? null : v, v));
+              row.append(b);
+            }
+            parts.push(row);
+          }
+          pop.box.replaceChildren(...parts);
+        }
+        function place() {
+          const { box, chip } = pop;
+          const host = box.parentElement;
+          box.style.top = chip.offsetTop + chip.offsetHeight + 6 + "px";
+          box.style.left = Math.max(0, Math.min(chip.offsetLeft, host.clientWidth - box.offsetWidth)) + "px";
+        }
+        function open(chip, kind, id) {
+          if (pop?.chip === chip) return close(true);
+          close();
+          const box = el("div", "check-pop");
+          box.setAttribute("role", "dialog"); box.setAttribute("aria-label", t("check.label"));
+          box.addEventListener("click", (e) => e.stopPropagation());
+          pop = { box, chip, key: keyOf(kind, id), kind, id };
+          fillPop();
+          chip.after(box);
+          chip.setAttribute("aria-expanded", "true");
+          place();
+          (box.querySelector('[aria-pressed="true"]') || box.querySelector("button"))?.focus();
+        }
+        // Every chip, name pill and open popover of the item, as it now stands.
+        function redraw(key) {
+          const s = known.get(key);
+          for (const n of document.querySelectorAll(".pill.votes[data-check], .check-chip[data-check]")) {
+            if (n.dataset.check !== key) continue;
+            if (n.classList.contains("check-chip")) paintChip(n, s); else paintVotes(n, s);
+          }
+          if (pop?.key === key && pop.box.isConnected) { fillPop(); place(); }
+        }
+        // Pressing the pressed one takes the vote back; focus stays on the button pressed.
+        async function send(v, pressed) {
+          const { kind, id, key, box } = pop;
+          for (const b of box.querySelectorAll("button")) b.disabled = true;
+          try {
+            const r = await fetch(`/api/votes/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
+              method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ vote: v }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || "");
+            voted.add(key);
+            known.set(key, { ...known.get(key), up: d.up, down: d.down, mine: d.mine });
+            redraw(key);
+            pop?.box.querySelector(`[data-vote="${pressed}"]`)?.focus();
+          } catch {
+            toast(t("check.failed"));
+            for (const b of box.querySelectorAll("button")) b.disabled = false;
+          }
+        }
+        // The detail's chip, or a hidden one when there is nothing to show (a later vote or edit fills it).
+        function chip(kind, it) {
+          const s = note(kind, it);
+          const b = el("button", "check-chip"); b.type = "button"; b.dataset.check = keyOf(kind, it.id);
+          b.setAttribute("aria-haspopup", "dialog"); b.setAttribute("aria-expanded", "false");
+          paintChip(b, s);
+          b.addEventListener("click", (e) => { e.stopPropagation(); open(b, kind, it.id); });
+          return b;
+        }
+        // The edit panel turned 검수됨 on or off.
+        function setVerified(kind, id, on) {
+          const key = keyOf(kind, id);
+          known.set(key, { ...(known.get(key) ?? { up: 0, down: 0, mine: null }), verified: on, at: on ? known.get(key)?.at ?? new Date().toISOString() : null });
+          redraw(key);
+        }
+        // Signing in shows the chip where it had nothing to show.
+        const repaint = () => { for (const n of document.querySelectorAll(".check-chip[data-check]")) if (known.has(n.dataset.check)) paintChip(n, known.get(n.dataset.check)); };
+        document.addEventListener("click", (e) => { if (pop && !pop.box.contains(e.target) && e.target !== pop.chip && !pop.chip.contains(e.target)) close(); }, true);
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop) { e.stopPropagation(); close(true); } }, true);
+        return { namePills, chip, setVerified, repaint, close };
+      })();
+
       // ─── retro games (/api/retro) ───────────────────────────────────────────
       // One chip per console, square tiles the server draws, pages loaded as
       // the list scrolls. A multi-disc game downloads as its bundle (discs + .m3u).
@@ -4139,6 +4371,8 @@
             p.insertAdjacentHTML("afterbegin", '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>');
             sub.append(p);
           }
+          // Then 검수됨 and the 잘 돼요 count.
+          sub.append(...checks.namePills("retro", g));
           const sys = systems?.find((s) => s.id === g.system);
           if (!system && sys) {
             const p = pill(nameOf(sys), "sys-pill");
@@ -4350,11 +4584,40 @@
         };
       }
       // The facts card: labelled fields two to a row, then save (and restore, when there is an original).
+      // A `pair` field holds { ko, en } behind one input: the switch on top picks which one it shows,
+      // starting from the language the page is in, and what is typed in either is kept until saved.
+      const EDIT_LANGS = [["ko", "한국어"], ["en", "English"]];
       function factsCard({ fields, save, reset = null }) {
         const card = document.createElement("section"); card.className = "arted";
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("edit.facts") }), Object.assign(document.createElement("span"), { textContent: t("edit.hint") }));
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
+        const pairs = fields.filter((f) => f.pair);
+        const typed = Object.fromEntries(pairs.map((f) => [f.name, { ko: f.value?.ko ?? "", en: f.value?.en ?? "" }]));
+        let editLang = lang === "ko" ? "ko" : "en";
+        const pairInput = (f) => form.elements.namedItem(f.name);
+        const showLang = (next) => {
+          for (const f of pairs) {
+            const input = pairInput(f);
+            typed[f.name][editLang] = input.value;
+            input.value = typed[f.name][next];
+            const hint = typeof f.placeholder === "object" ? f.placeholder?.[next] : f.placeholder;
+            input.placeholder = hint || "";
+          }
+          editLang = next;
+          for (const b of switcher?.querySelectorAll("button") ?? []) b.setAttribute("aria-pressed", String(b.dataset.lang === next));
+        };
+        let switcher = null;
+        if (pairs.length) {
+          switcher = document.createElement("div"); switcher.className = "ef-langs"; switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", t("edit.lang"));
+          for (const [code, label] of EDIT_LANGS) {
+            const b = Object.assign(document.createElement("button"), { type: "button", textContent: label });
+            b.dataset.lang = code; b.setAttribute("aria-pressed", String(code === editLang));
+            b.addEventListener("click", () => { if (code !== editLang) showLang(code); });
+            switcher.append(b);
+          }
+          head.append(switcher);
+        }
         for (const f of fields) {
           if (f.check) {
             const lab = document.createElement("label"); lab.className = "ef-switch" + (f.cls ? " " + f.cls : "");
@@ -4373,8 +4636,9 @@
           } else {
             input = document.createElement(f.area ? "textarea" : "input");
             if (!f.area) input.type = "text";
-            input.value = f.value ?? "";
-            if (f.placeholder) input.placeholder = f.placeholder;
+            input.value = f.pair ? typed[f.name][editLang] : f.value ?? "";
+            const hint = f.pair && typeof f.placeholder === "object" ? f.placeholder?.[editLang] : f.placeholder;
+            if (hint) input.placeholder = hint;
           }
           input.name = f.name; input.autocomplete = "off";
           lab.append(input); form.append(lab);
@@ -4397,6 +4661,7 @@
           e.preventDefault();
           const values = {};
           for (const el of form.elements) if (el.name) values[el.name] = el.type === "checkbox" ? el.checked : el.value;
+          for (const f of pairs) values[f.name] = { ...typed[f.name], [editLang]: pairInput(f).value };
           saveBtn.disabled = true;
           try { await save(values); toast(t("edit.saved")); } catch (err) { toast(err.message); } finally { saveBtn.disabled = false; }
         });
@@ -4410,17 +4675,14 @@
         const name = pairOf(d.name), desc = pairOf(d.description), notes = pairOf(d.notes);
         return factsCard({
           fields: [
-            { name: "nameKo", label: t("edit.name") + " · 한국어", value: name.ko, placeholder: d.original?.name || "" },
-            { name: "nameEn", label: t("edit.name") + " · English", value: name.en, placeholder: d.original?.name || "" },
-            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
-            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true, placeholder: d.original?.description || "" },
-            { name: "notesKo", label: t("edit.notes") + " · 한국어", value: notes.ko, area: true },
-            { name: "notesEn", label: t("edit.notes") + " · English", value: notes.en, area: true },
+            { name: "name", pair: true, label: t("edit.name"), value: name, placeholder: d.original?.name || "", wide: true },
+            { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
+            { name: "notes", pair: true, label: t("edit.notes"), value: notes, area: true, wide: true },
           ],
           async save(v) {
-            const body = { description: { ko: v.descKo, en: v.descEn }, notes: { ko: v.notesKo, en: v.notesEn } };
+            const body = { description: v.desc, notes: v.notes };
             // The name only when it changed: a new name rebuilds the whole list.
-            if (v.nameKo !== name.ko || v.nameEn !== name.en) body.name = { ko: v.nameKo, en: v.nameEn };
+            if (v.name.ko !== name.ko || v.name.en !== name.en) body.name = v.name;
             const next = await artJson(`/${baseId}/meta`, body);
             Object.assign(name, pairOf(next.name));
             changed();
@@ -4436,12 +4698,11 @@
           fields: [
             { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
             { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
-            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
-            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
+            { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
           ],
           async save(v) {
-            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind, verified: v.verified });
-            changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo });
+            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: v.desc, kind: v.kind, verified: v.verified });
+            changed({ desc: (lang === "ko" ? v.desc.ko : v.desc.en) || v.desc.en || v.desc.ko, verified: v.verified });
           },
           reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
         });
@@ -4451,18 +4712,17 @@
         const d = await artJson(`/patch/${encodeURIComponent(id)}/meta`);
         return factsCard({
           fields: [
-            { name: "name", label: t("edit.name"), value: d.name },
-            { name: "nameKo", label: t("edit.nameKo"), value: d.nameKo },
+            { name: "names", pair: true, label: t("edit.name"), value: { ko: d.nameKo, en: d.name }, wide: true },
             { name: "version", label: t("edit.version"), value: d.version },
             { name: "author", label: t("edit.author"), value: d.author },
             ...(d.homebrew ? [] : [{ name: "gameVersion", label: t("edit.gameVersion"), value: d.gameVersion, wide: true }]),
-            { name: "description", label: t("edit.desc"), value: d.description, area: true, wide: true },
-            { name: "descriptionKo", label: t("edit.descKo"), value: d.descriptionKo, area: true, wide: true },
+            { name: "descs", pair: true, label: t("edit.desc"), value: { ko: d.descriptionKo, en: d.description }, area: true, wide: true },
             ...(d.homebrew ? [] : [{ name: "required", label: t("edit.required"), note: t("edit.requiredNote"), value: d.required, check: true }]),
+            { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
           ],
-          async save(v) {
-            const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, v);
-            changed({ title: lang === "ko" ? next.nameKo || next.name : next.name });
+          async save({ names, descs, ...v }) {
+            const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, { ...v, name: names.en, nameKo: names.ko, description: descs.en, descriptionKo: descs.ko });
+            changed({ title: lang === "ko" ? next.nameKo || next.name : next.name, verified: next.verified });
           },
         });
       }
@@ -4540,7 +4800,7 @@
           draw();
         }
         const edit = editPage("xmodal");
-        function show({ icon, title, sub, pills = [], meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
+        function show({ icon, title, sub, pills = [], check = null, meta = [], desc = "", source = null, where = null, sections = [], download = null, banner = null, shots = [], art = null }) {
           paintPictures({ icon, banner, shots });
           paintArt(art, icon);
           edit.offer(art ? {
@@ -4551,12 +4811,15 @@
               window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: art }));
               if (info.title) $("xm-title").textContent = info.title;
               if (info.desc !== undefined) $("xm-desc").textContent = info.desc || t("modal.noDesc");
+              // The 검수 chip leading the detail's pills, and the list's name line, follow it.
+              if (info.verified !== undefined) checks.setVerified(art.kind, art.id, info.verified);
             },
           } : null);
           $("xm-title").textContent = title || "—";
           $("xm-sub").textContent = sub || "";
-          $("xm-pills").replaceChildren(...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
-          $("xm-pills").hidden = !pills.length;
+          checks.close();
+          $("xm-pills").replaceChildren(...(check ? [checks.chip(check.kind, check.it)] : []), ...pills.map(([text, cls]) => node("span", "pill" + (cls ? " " + cls : ""), text)));
+          $("xm-pills").hidden = !$("xm-pills").children.length;
           $("xm-meta").replaceChildren(...meta.filter(([, v]) => v != null && v !== "").map(([k, v]) => {
             const d = node("div", null, k); d.append(node("strong", null, String(v))); return d;
           }));
@@ -4669,10 +4932,18 @@
         const gameName = (it) => (it.homebrew ? homebrew.nameOf(it.homebrew) : it.game?.names?.[lang] || it.game?.name || it.titleId || it.title_id);
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         const updateLabel = (it) => `v${it.update_version}` + (it.game_version ? ` (${it.game_version})` : "");
+        const checkKind = (kind) => (kind === "patches" ? "patch" : "save");
+        // The name, with the 검수됨 pill and the 잘 돼요 count beside it (as a homebrew row shows them).
+        function xnameOf(kind, it) {
+          const name = document.createElement("div"); name.className = "xname";
+          const label = document.createElement("span"); label.className = "xname-text"; label.textContent = it.name;
+          name.append(label, ...checks.namePills(checkKind(kind), it));
+          return name;
+        }
         function itemRow(kind, it) {
           const row = document.createElement("div"); row.className = "xitem";
           const head = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const name = xnameOf(kind, it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text) => { const p = document.createElement("span"); p.className = "pill"; p.textContent = text; return p; };
           for (const k of it.kinds ?? []) meta.append(pill(t("kind." + k)));
@@ -4718,7 +4989,9 @@
             art: kind === "patches" ? { kind: "patch", id: it.id, remove: patchRemove(it) } : null,
             title: it.name,
             sub: gameName(it),
-            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []), ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
+            check: { kind: checkKind(kind), it },
+            pills: [...(it.required === true ? [[t("xm.required"), "need"]] : []),
+              ...(it.kinds ?? []).map((k) => [t("kind." + k)]), [fmtBytes(it.size)]],
             meta: [
               [t("xm.size"), fmtBytes(it.size)],
               [t("xm.files"), it.files],
@@ -4740,7 +5013,7 @@
         function listRow(kind, it) {
           const row = document.createElement("button"); row.type = "button"; row.className = "xrow";
           const head = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const name = xnameOf(kind, it);
           const meta = document.createElement("div"); meta.className = "xmeta";
           const pill = (text, cls) => { const p = document.createElement("span"); p.className = "pill" + (cls ? " " + cls : ""); p.textContent = text; return p; };
           if (it.required === true) meta.append(pill(t("xm.required"), "need"));
@@ -4968,7 +5241,12 @@
         let apps = null;
         let loadFailed = false;
         // An app's pictures changed: the list is read again the next time it is needed.
-        addEventListener("cf-art-changed", (e) => { if (e.detail?.kind === "homebrew") apps = null; });
+        // What it says changed (pictures, kind, 검수됨): the list is read again, and the one on screen redrawn.
+        addEventListener("cf-art-changed", (e) => {
+          if (e.detail?.kind !== "homebrew") return;
+          apps = null;
+          if (current === "tools" || current === "ports") open(current);
+        });
         let counts = { patches: new Map(), saves: new Map() };
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         async function load() {
@@ -4992,7 +5270,8 @@
             title: a.name || a.app,
             // As on the client: who made it and the latest version under the name, then what it is and its size.
             sub: [a.author, a.version && "v" + a.version].filter(Boolean).join(" · "),
-            pills: [...(a.verified ? [[t("hb.verified"), "verified"]] : []), [t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
+            check: { kind: "homebrew", it: a },
+            pills: [[t(a.kind === "port" ? "tab.ports" : "tab.tools")], [fmtBytes(a.size)]],
             meta: [
               [t("xm.latest"), a.version && "v" + a.version],
               [t("xm.author"), a.author],
@@ -5030,9 +5309,10 @@
           if (a.icon_url) img.src = a.icon_url;
           img.addEventListener("error", () => { img.style.visibility = "hidden"; });
           const info = document.createElement("div");
-          const name = document.createElement("div"); name.className = "xname"; name.textContent = a.name || a.app;
-          // Tried on a console by the admin.
-          if (a.verified) { const v = document.createElement("span"); v.className = "pill verified"; v.textContent = t("hb.verified"); name.append(" ", v); }
+          const name = document.createElement("div"); name.className = "xname";
+          const label = document.createElement("span"); label.className = "xname-text"; label.textContent = a.name || a.app;
+          // Tried on a console by the admin, and how many said 잘 돼요.
+          name.append(label, ...checks.namePills("homebrew", a));
           const meta = document.createElement("div"); meta.className = "xmeta";
           const p = counts.patches.get(a.app) ?? 0;
           const s = counts.saves.get(a.app) ?? 0;
@@ -5952,6 +6232,9 @@
           [Number.isFinite(g.rating) ? t("pill.score", g.rating) : ""],
           [g.achievements ? t(g.achievements.matchedBy === "hash" ? "retro.ach" : "retro.achTitleShort", g.achievements.count) : "", g.achievements?.matchedBy === "hash" ? "ach" : "ach title-only"],
         ]);
+        // The 검수 chip leads the pills, as in a homebrew app's or patch's detail.
+        checks.close();
+        $("modal-pills").prepend(checks.chip("retro", g));
         fillDesc(g.description, loading, t("modal.noDescSub"));
 
         // A value only the game's own reply has shimmers until it arrives.

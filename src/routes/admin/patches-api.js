@@ -26,6 +26,7 @@ import { libraryGames } from "./upload-api.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbVersions from "../../meta/titledb-versions.js";
 import { gameOf } from "../../meta/game-info.js";
+import * as itemVerified from "../../meta/item-verified.js";
 import debug from "../../debug.js";
 
 /** Information with `required` set or cleared; other fields kept as they are. Pure. */
@@ -108,7 +109,8 @@ export function mountPatchesApi(router, requireSession) {
       patches: patches.filter((p) => p.title_id).map(({ id, title_id, name, ko, description, version, author, size, files, required, game_version, update_version }) =>
         ({ id, title_id, game: names.get(title_id) ?? nameOf(title_id), name, ko: ko ?? null, description, version, author, size, files, required,
           game_version: game_version ?? null, update_version: update_version ?? null,
-          update_in_library: update_version ? Boolean(owned.get(title_id)?.has(update_version)) : null })),
+          update_in_library: update_version ? Boolean(owned.get(title_id)?.has(update_version)) : null,
+          verified: itemVerified.verifiedAt("patch", id) !== null })),
     });
   }));
 

@@ -3,14 +3,16 @@
  * saves folder (COOK_SAVES_DIR, default /saves) exists.
  *
  *   GET /api/saves?lang=ko          { saves: [{ id, titleId, name, description, gameVersion, source,
- *                                     size, files, updatedAt, hash, game?, url }] }, with ETag.
+ *                                     size, files, updatedAt, hash, game?, url, verified, verified_at }] }, with ETag.
  *                                   Korean text for ko (?lang= or Accept-Language) when a save
  *                                   has it, English otherwise; source is { name, url? } or null
  *                                   A homebrew app's save has titleId null, `homebrew` (its
  *                                   switch/<app>/ folder name) and `installRoot` ("switch/<app>"):
  *                                   its files are restored into that folder of the SD card
  *                                   url is on the direct address for a client that asked for it
- *                                   (security/download-links.js)
+ *                                   (security/download-links.js). verified and verified_at (ISO or
+ *                                   null): the admin tried it on a console. votes { up, down } and
+ *                                   my_vote ("up" | "down" | null for this voter; routes/votes.js)
  *   GET /api/saves?view=games       one row per game instead: { games: [{ key, titleId, homebrew?,
  *                                     game?, count, size, updatedAt }] }, with ETag. `key` is the
  *                                     title id, or "hb:<app>" for a homebrew app
@@ -30,6 +32,8 @@ import { gameOf } from "../meta/game-info.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { sendTar } from "../helpers/tar-stream.js";
 import { directUrl, forRequest } from "../security/download-links.js";
+import * as verified from "../meta/item-verified.js";
+import * as votes from "../meta/item-votes.js";
 
 const ID_RE = /^([0-9A-F]{16}|hb-[0-9a-f]{12})-[0-9a-f]{12}$/;
 
@@ -85,9 +89,10 @@ export default function savesRouter() {
     if (req.query.view === "games") {
       body = JSON.stringify({ games: byGame(all, origin) });
     } else {
+      const voter = votes.voterOf(req);
       const saves = all.map((s) => {
         const game = s.titleId ? gameOf(s.titleId, origin) : null;
-        return { ...localize(s, lang), ...(game ? { game } : {}), url: directUrl(`/api/saves/${s.id}/download`, link) };
+        return { ...localize(s, lang), ...(game ? { game } : {}), url: directUrl(`/api/saves/${s.id}/download`, link), ...verified.fields("save", s.id), ...votes.fields("save", s.id, voter) };
       });
       body = JSON.stringify({ saves });
     }

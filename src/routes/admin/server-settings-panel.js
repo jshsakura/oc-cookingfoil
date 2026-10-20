@@ -52,6 +52,7 @@ const SS_GROUPS=[
     ['extractIcons',[['missing','목록에 없는 것만 파일에서 읽습니다'],['all','모든 파일에서 읽습니다'],['off','파일에서 읽지 않습니다']],'파일에서 이름과 아이콘 읽기','바꾸면 라이브러리를 다시 읽습니다.'],
     ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
   ]],
+  ['prod.keys',[]],
   ['게임 정보',[
     ['titledbAutoFetch','bool','자동으로 다운로드','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
     ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
@@ -115,6 +116,7 @@ function ssRender(d){const list=$('ss-list');list.replaceChildren();const jump=$
       t.append(el('b','지금 새로 다운로드'),el('p',tdb.fetching?'다운로드하고 있습니다.':(tdb.titles?'게임 '+tdb.titles.toLocaleString()+'개의 정보가 있습니다'+(tdb.loadedAt?'. 마지막으로 읽은 때: '+fmt(tdb.loadedAt):'')+'.':'아직 받은 게임 정보가 없습니다.')));
       const c=el('div',null,'ss-ctl');c.append(btn('지금 다운로드',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
       r.append(t,c);g.append(r);}
+    if(title==='prod.keys')g.append(ssKeysRow(d.keys||{}));
     if(title==='다시 시작')g.append(ssRestartRow());
     if(title==='동기화와 백업')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
     list.append(box);}
@@ -144,6 +146,21 @@ function ssBackupRow(st){const r=el('div',null,'ss-row');const t=el('div');const
   t.append(el('b','지금 백업'),el('p',st.last?.error?'마지막 백업이 실패했습니다: '+st.last.error
     :kept.length?'백업 '+kept.length+'개를 두고 있습니다(모두 '+(total/1048576).toFixed(1)+' MB). 가장 최근: '+kept[0].day+'.':'아직 만든 백업이 없습니다.'));
   const c=el('div',null,'ss-ctl');c.append(btn('지금 백업',async()=>{try{const x=await api('/admin/api/server-settings/backup-now',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
+  r.append(t,c);return r;}
+// The console keys: what the server has, a file to hand in, and removing an uploaded copy.
+function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';const t=el('div');
+  const line=!k.present?'없음':'있음 · '+(k.source==='upload'?'업로드'+(k.uploadedAt?' · '+fmt(k.uploadedAt):''):'서버에 둔 파일')+' · 키 '+k.keyCount+'개';
+  const st=el('p',line);st.id='keys-status';
+  t.append(el('b','prod.keys'),st,el('p','prod.keys 가 없어도 모든 파일을 내려 주고 titledb 의 게임 이름도 보이며, 키가 있으면 NSP/XCI 에서 이름과 아이콘을 읽고 NSZ 변환과 홈 화면 바로가기도 만듭니다.'),
+    el('p','자기 기기에서 덤프한 prod.keys 를 올립니다. 올린 것은 데이터 폴더에만 두고, 서버에 따로 둔 파일은 건드리지 않습니다.'));
+  const c=el('div',null,'ss-ctl');const f=el('input');f.type='file';f.accept='.keys,text/plain';f.setAttribute('aria-label','prod.keys 파일');
+  f.addEventListener('change',async()=>{const file=f.files[0];if(!file)return;
+    if(file.size>65536){toast('prod.keys 는 64 KB 를 넘을 수 없습니다.');f.value='';return;}
+    try{await api('/admin/api/keys',{method:'PUT',body:{text:await file.text()}});toast('prod.keys 를 넣었습니다. 라이브러리를 다시 읽습니다.');loadServerSettings();loadHealth();}
+    catch(err){toast(err.message);f.value='';}});
+  c.append(f);
+  if(k.source==='upload')c.append(btn('지우기',async()=>{if(!await ask('올린 prod.keys 를 지웁니다. 서버에 따로 둔 파일이 없으면 NSP/XCI 이름 읽기와 바로가기 만들기가 멈춥니다.'))return;
+    try{await api('/admin/api/keys',{method:'DELETE'});toast('올린 prod.keys 를 지웠습니다.');loadServerSettings();loadHealth();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;

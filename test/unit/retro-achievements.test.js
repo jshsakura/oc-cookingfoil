@@ -17,6 +17,7 @@ const { hashBytes, arcadeHash, romHash, CONSOLES } = await import("../../src/ret
 const { consoleIndex, matchRom } = await import("../../src/retro/achievements/match.js");
 const store = await import("../../src/retro/achievements/store.js");
 const sync = await import("../../src/retro/achievements/sync.js");
+const romHashes = await import("../../src/retro/rom-hash.js");
 const players = await import("../../src/retro/achievements/players.js");
 const { mountAchievements, achievementSummary, resetCache } = await import("../../src/routes/retro-achievements.js");
 
@@ -127,6 +128,29 @@ test("the sync reads each console's list weekly and hashes a ROM once, matching 
   at += 8 * 24 * 60 * 60 * 1000;
   await sync.tick(opts);
   assert.equal(asked.length, 2);
+});
+
+test("the sync and the background ROM hashes read each file once between them, and an overwrite is matched again", async () => {
+  store.reset();
+  sync.reset();
+  const dir = fs.mkdtempSync(path.join(root, "roms-"));
+  const abs = path.join(dir, "a.nes");
+  fs.writeFileSync(abs, rom(0x8000, 3));
+  const games = [{ id: "nes-s1", system: "nes", name: "Something Else", rel: "a.nes", file: "a.nes", abs, fileSize: 1, mtimeMs: 1 }];
+  const list = LIST.map((g) => ({ ID: g.id, Title: g.title, NumAchievements: g.count, Points: g.points, Hashes: g.id === 1 ? [md5(rom(0x8000, 3))] : g.id === 2 ? [md5(rom(0x8000, 5))] : g.hashes }));
+  const opts = { current: async () => ({ games }), fetchImpl: async () => new Response(JSON.stringify(list), { status: 200 }), now: () => Date.parse("2026-10-19T00:00:00Z"), pauseMs: 0 };
+  await sync.tick(opts);
+  assert.deepEqual(store.rom("nes-s1").ra, { id: 1, by: "hash" });
+  assert.equal(romHashes.known(games[0]), md5(rom(0x8000, 3)), "the sync's hash is the shared one");
+  assert.equal((await romHashes.pass(games, { pauseMs: 0 })).hashed, 0, "the background pass doesn't read it again");
+
+  // Overwritten in place, size and mtime put back (the sync's own stamp can't see it).
+  const st = fs.statSync(abs);
+  fs.writeFileSync(abs, rom(0x8000, 5));
+  fs.utimesSync(abs, st.atime, st.mtime);
+  assert.equal((await romHashes.pass(games, { pauseMs: 0 })).hashed, 1);
+  assert.equal((await sync.tick(opts)).roms, 1);
+  assert.deepEqual(store.rom("nes-s1").ra, { id: 2, by: "hash" });
 });
 
 test("a player registers a name RetroAchievements knows, and sees their progress on a matched game", async () => {

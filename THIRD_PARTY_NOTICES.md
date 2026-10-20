@@ -94,7 +94,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Lucide
 
-The line icons on the sign-in, device approval and admin pages (`src/views/icons.js`) use path data from [Lucide](https://lucide.dev).
+The line icons on the sign-in, device approval and admin pages (`src/views/icons.js`) and the shop's thumbs-up and thumbs-down in its 검수 chip (`src/views/landing.html`) use path data from [Lucide](https://lucide.dev).
 
 ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
 

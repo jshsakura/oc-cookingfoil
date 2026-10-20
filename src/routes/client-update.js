@@ -43,7 +43,8 @@ import fs from "fs";
 import path from "path";
 import express from "express";
 import * as env from "../helpers/envs.js";
-import { dataDir, keysDir } from "../helpers/envs.js";
+import { dataDir } from "../helpers/envs.js";
+import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { createClientRelease } from "../meta/client-release.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
@@ -73,7 +74,7 @@ async function withIcon(info) {
 
 /** forwarder_url, forwarder_title_id, forwarder_size (null until the first download builds it). */
 async function forwarderFields(info) {
-  if (!forwardersAvailable(keysDir)) return NO_FORWARDER;
+  if (!forwardersAvailable(keysDir())) return NO_FORWARDER;
   const spec = forwarderSpec(clientApp(info));
   if (!spec) return NO_FORWARDER;
   let size = null;
@@ -332,8 +333,8 @@ export default function clientUpdateRouter() {
   router.get("/forwarder", async (req, res, next) => {
     try {
       const info = await latestBuild();
-      if (!info || !forwardersAvailable(keysDir)) return res.status(404).json({ error: "no shortcut on this server" });
-      const built = await ensureForwarder(FORWARDER_DIR, await withIcon(info), keysDir);
+      if (!info || !forwardersAvailable(keysDir())) return res.status(404).json({ error: "no shortcut on this server" });
+      const built = await ensureForwarder(FORWARDER_DIR, await withIcon(info), keysDir());
       if (!built) return res.status(404).json({ error: "no shortcut on this server" });
       res.attachment("CookingFoil.nsp");
       res.set({ "Cache-Control": "no-cache", "X-Forwarder-Title-Id": built.spec.titleId });

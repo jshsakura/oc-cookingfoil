@@ -96,7 +96,7 @@ async function walk(root, rel = "", out = []) {
     const st = await fsp.lstat(abs);
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);
     if (st.isDirectory()) await walk(root, relPath, out);
-    else if (st.isFile()) out.push({ path: relPath, abs, size: st.size, mtimeMs: st.mtimeMs, ino: st.ino });
+    else if (st.isFile()) out.push({ path: relPath, abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino });
     else throw new Rejected(`not a regular file: ${relPath}`);
     if (out.length > MAX_FILES) throw new Rejected(`more than ${MAX_FILES} files`);
   }

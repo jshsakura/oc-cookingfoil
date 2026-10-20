@@ -7,10 +7,11 @@
  * /admin/api/content. The homebrew tab opens the same dialog for a homebrew
  * app's patch, with only its text (no update to pick, no move or delete).
  * A patch's text is kept on the server, not in a patch.json in its folder.
+ * Each row has the homebrew tab's 검수됨 pill (POST /admin/api/content/:kind/verified).
  */
 
 export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
-  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다.</p>
+  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다. 기기에서 돌려 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
@@ -19,7 +20,7 @@ export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <div id="lib-patches"></div>`;
 
 export const SAVES_HTML = `  <h2 class="first">게임 세이브</h2>
-  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다.</p>
+  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다. 기기에서 넣어 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
   <div id="lib-saves"></div>`;
 
 export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
@@ -92,11 +93,19 @@ function ptRow(p){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   b.title=p.required?'게임에 필수 패치로 나옵니다. 누르면 끕니다':'누르면 게임에 필수 패치로 나옵니다';
   b.addEventListener('click',()=>ptToggle(p,b));
   const e=btn('편집',()=>ctOpen('patch',p),'pt-edit');e.setAttribute('aria-label',p.name+' 편집');
-  r.append(b,e);return r;}
+  r.append(ctVerify('patch',p),b,e);return r;}
 function svRow(s){const r=el('div',null,'pt-row');const n=el('span',null,'pt-name');n.append(s.name);
   const sub=[s.ko&&s.ko.name&&s.ko.name!==s.name?s.ko.name:'',SAVE_TYPE_LABEL[s.saveType]||''].filter(Boolean).join(' · ');if(sub)n.append(el('small',sub));
   const e=btn('편집',()=>ctOpen('save',s),'pt-edit');e.setAttribute('aria-label',s.name+' 편집');
-  r.append(n,el('span',mb(s.size),'pt-size'),e);return r;}
+  r.append(n,el('span',mb(s.size),'pt-size'),ctVerify('save',s),e);return r;}
+// The 검수됨 pill, as on the homebrew tab: one press puts the shop's badge on or takes it off.
+function ctVerify(kind,x){return verifyPill(x.name,x.verified,async(next)=>{
+  try{await api('/admin/api/content/'+kind+'/verified',{method:'POST',body:{id:x.id,verified:next}});
+    const mark=(list)=>list.map((y)=>y.id===x.id?{...y,verified:next}:y);
+    if(kind==='patch')ptData=mark(ptData);else svData=mark(svData);
+    toast(next?x.name+' 에 검수됨 배지를 붙였습니다.':x.name+' 의 검수됨 배지를 뗐습니다.');}
+  catch(err){toast(err.message);}
+  ptRender();svRender();ptGame();});}
 async function ptToggle(p,b){const next=!p.required;b.disabled=true;
   try{await api('/admin/api/patches/required',{method:'POST',body:{id:p.id,required:next}});
     ptData=ptData.map((x)=>x.id===p.id?{...x,required:next}:x);toast(next?'필수로 변경했습니다':'비필수로 변경했습니다');ptRender();ptGame();}

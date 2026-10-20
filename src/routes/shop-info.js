@@ -15,6 +15,10 @@
  * the devices tab): it may then read and change item settings through
  * /api/admin/items (routes/admin-items.js). The answer is per console, hence
  * Cache-Control: private.
+ *
+ * `keys-upload` and `keys: { present }` go to an admin device only, too: it may
+ * hand the server prod.keys through /api/admin/keys (routes/admin-keys.js).
+ * Nobody else learns whether the server has keys.
  */
 import fs from "fs";
 import pkg from "../package.js";
@@ -28,6 +32,7 @@ import { retroEnabled } from "./retro.js";
 import { savesEnabled } from "./saves.js";
 import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
+import * as prodKeys from "../security/prod-keys.js";
 
 export const API_VERSION = 1;
 
@@ -70,6 +75,7 @@ async function hasRetroGames() {
 export default async function shopInfoRoute(req, res) {
   const retro = await hasRetroGames();
   const stats = shopCache.stats();
+  const adminDevice = Boolean(adminDeviceOf(req));
   res.header("Cache-Control", "private, max-age=60");
   res.json({
     name: "CookingFoil",
@@ -97,7 +103,9 @@ export default async function shopInfoRoute(req, res) {
       // homebrew-titles: GET /api/homebrew?with=titles also lists .nsp apps (install_type "title") to install like a game.
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
       // admin-edit: this console is an admin device; /api/admin/items/:kind/:id/fields reads and changes item settings.
-      ...(adminDeviceOf(req) ? ["admin-edit"] : []),
+      ...(adminDevice ? ["admin-edit"] : []),
+      // keys-upload: this console may hand the server prod.keys, sealed, through /api/admin/keys.
+      ...(adminDevice ? ["keys-upload"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
@@ -105,5 +113,6 @@ export default async function shopInfoRoute(req, res) {
     download: { maxConnections: downloadMaxConnections },
     files: stats.files,
     contentMeta: contentMeta.progress(),
+    ...(adminDevice ? { keys: { present: prodKeys.status().present } } : {}),
   });
 }

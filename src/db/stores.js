@@ -3,7 +3,7 @@
  *
  *   catalogStore   the items a scan of one folder found, one row each, with
  *                  when the folder was last read in full
- *   hashStore      content hashes of files, remembered by (size, mtime, inode)
+ *   hashStore      content hashes of files, remembered by fileKey (size, mtime, ctime, inode)
  */
 import { transaction } from "./database.js";
 

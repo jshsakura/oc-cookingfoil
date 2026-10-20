@@ -64,3 +64,56 @@ test('the queue tab fits a phone screen without sideways scrolling', async ({ pa
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-nsz-phone.png', fullPage: true });
 });
+
+// The queue's answers are stood in for here: a real conversion needs nsz and minutes.
+const row = (id: string, rel: string, state: string, extra = {}) => ({ id, rel, kind: 'nsp', size: 4 * 1024 ** 3, name: null, titleId: null, state, addedAt: 1, ...extra });
+
+test('two waiting rows run by themselves, a kept row offers 되돌리기 and the log lists entries', async ({ page }) => {
+  await acceptAsks(page);
+  const now = Date.now();
+  const items = [
+    row('aaaaaaaaaaa1', 'One [0100000000040000][v0].nsp', 'waiting'),
+    row('aaaaaaaaaaa2', 'Two [0100000000050000][v0].nsp', 'waiting'),
+    row('aaaaaaaaaaa3', 'Three [0100000000060000][v0].nsp', 'waiting'),
+    row('aaaaaaaaaaa4', 'Kept [0100000000070000][v0].nsp', 'done', { outSize: 3 * 1024 ** 3, savedBytes: 1024 ** 3, keptAt: now, keptBytes: 4 * 1024 ** 3, keepUntil: now + 5 * 3600_000 + 30_000 }),
+  ];
+  let sent: unknown = null;
+  let restored = '';
+  await page.route(/\/admin\/api\/nsz\?/, async (route) => {
+    const real = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...real, enabled: true, status: 'idle', items, total: items.length, offset: 0, limit: 50,
+      kept: { count: 1, bytes: 4 * 1024 ** 3, capBytes: 0, keepHours: 6, nextAt: now + 5 * 3600_000 + 30_000, now } } });
+  });
+  await page.route('**/admin/api/nsz/run-selected', async (route) => { sent = route.request().postDataJSON(); await route.fulfill({ json: { ok: true, count: 2 } }); });
+  await page.route('**/admin/api/nsz/items/*/restore', async (route) => { restored = route.request().url(); await route.fulfill({ json: { ok: true } }); });
+  await page.route(/\/admin\/api\/nsz\/log/, (route) => route.fulfill({ json: { offset: 0, limit: 50, total: 1, items: [
+    { at: now, id: 'aaaaaaaaaaa4', rel: 'Kept [0100000000070000][v0].nsp', name: 'Kept Game', from: 'Kept [0100000000070000][v0].nsp', to: 'Kept [0100000000070000][v0].nsz', sizeBefore: 4 * 1024 ** 3, sizeAfter: 3 * 1024 ** 3, event: 'converted' },
+  ] } }));
+  await signIn(page);
+  await page.goto('/admin#nsz');
+
+  const runSel = page.locator('#nz-run-sel');
+  await expect(runSel).toBeDisabled();
+  await page.getByRole('checkbox', { name: /^One .* 선택$/ }).check();
+  await page.getByRole('checkbox', { name: /^Three .* 선택$/ }).check();
+  await expect(runSel).toHaveText('선택한 것만 변환 (2)');
+  await runSel.click();
+  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다');
+  expect(sent).toEqual({ ids: ['aaaaaaaaaaa1', 'aaaaaaaaaaa3'] });
+  await page.locator('#nz-pick-all').check();
+  await expect(runSel).toHaveText('선택한 것만 변환 (3)');
+
+  const kept = page.locator('#nz-list .nz-row', { hasText: 'Kept' });
+  await expect(kept).toContainText('원본 보관 중 · 5시간 1분 뒤 삭제');
+  await expect(page.locator('#nz-kept')).toContainText('보관 중인 원본 1개 · 4.0 GB');
+  await expect(page.locator('#nz-purge')).toBeVisible();
+  fs.mkdirSync('out/web', { recursive: true });
+  await page.locator('#tab-nsz').screenshot({ path: 'out/web/admin-nsz-kept.png' });
+  await kept.getByRole('button', { name: '되돌리기' }).click();
+  await expect(page.locator('#toast')).toContainText('원본으로 되돌렸습니다');
+  expect(restored).toContain('/items/aaaaaaaaaaa4/restore');
+
+  const log = page.locator('#nz-log');
+  await expect(log).toContainText('Kept Game');
+  await expect(log).toContainText('-25%');
+});

@@ -370,6 +370,7 @@ test("an automation token cannot restart the server", async () => {
   const { TOKEN_BLOCKED_RE } = await import("../../src/routes/admin-page.js");
   assert.ok(TOKEN_BLOCKED_RE.test("/api/server/restart"));
   assert.ok(TOKEN_BLOCKED_RE.test("/api/tokens"));
+  assert.ok(TOKEN_BLOCKED_RE.test("/api/keys"), "prod.keys only from a person");
   assert.ok(!TOKEN_BLOCKED_RE.test("/api/server-settings"));
 });
 

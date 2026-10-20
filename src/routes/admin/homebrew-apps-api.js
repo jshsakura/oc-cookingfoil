@@ -3,11 +3,11 @@
  * and saves, and the changes that list allows.
  *
  *   GET  /admin/api/homebrew/apps          { apps: [{ id, app, name, version, author, size, kind, cores, verified, source, repo_url,
- *                                            patches: [{ id, name, size, files, ko, description, version, author, game_version }],
- *                                            saves: [{ id, name, size, files }] }],
+ *                                            patches: [{ id, name, size, files, verified, ko, description, version, author, game_version }],
+ *                                            saves: [{ id, name, size, files, verified }] }],
  *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
  *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  deletes a homebrew app's patch or save folder
- *                                          (a patch's information in the patch store goes with it)
+ *                                          (a patch's information in the patch store, the 검수됨 mark and the votes go with it)
  *
  * A homebrew app's patch has its information edited with the game patches' dialog
  * (POST /admin/api/content/patch/meta).
@@ -35,11 +35,13 @@ import * as media from "../../meta/homebrew-media.js";
 import * as integrations from "../../security/integrations.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
+import * as itemVerified from "../../meta/item-verified.js";
+import * as itemVotes from "../../meta/item-votes.js";
 import debug from "../../debug.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
-const brief = ({ id, name, size, files }) => ({ id, name, size, files });
+const brief = ({ id, name, size, files, verified }) => ({ id, name, size, files, verified: verified === true });
 // A patch also carries what the edit dialog shows.
 const patchBrief = (p) => ({ ...brief(p), homebrew: p.homebrew, ko: p.ko ?? null, description: p.description ?? null, version: p.version ?? null,
   author: p.author ?? null, game_version: p.game_version ?? null });
@@ -81,7 +83,8 @@ export function mountHomebrewAppsApi(router, requireSession) {
       userPatches.list(),
       savesEnabled() ? savesCatalog().list() : [],
     ]);
-    const extras = extrasByApp(patches, saves);
+    const mark = (kind) => (x) => ({ ...x, verified: itemVerified.verifiedAt(kind, x.id) !== null });
+    const extras = extrasByApp(patches.map(mark("patch")), saves.map(mark("save")));
     res.json({
       apps: apps.map(({ id, name, version, author, size, kind, forwarder_cores, verified, enabled, source, repo_url, install_path, file_name, install_type, title_id }) => {
         // The switch/<app>/ folder name, as the public listing gives it; an installable title (.nsp) has none.
@@ -198,6 +201,8 @@ export function mountHomebrewAppsApi(router, requireSession) {
       await userPatches.scan();
     }
     else savesCatalog().invalidate();
+    itemVerified.set(type, id, false);
+    itemVotes.forget(type, id);
     debug.log("admin: removed homebrew %s %s/%s", type, where.dir, where.folder);
     res.json({ ok: true });
   }));
