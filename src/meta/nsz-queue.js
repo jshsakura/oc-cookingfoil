@@ -14,8 +14,21 @@
  *   - the result must exist and be smaller than the original;
  *   - the original is stat'ed again: changed or in use, the result is dropped
  *     and the file waits ("busy") to be tried later;
- *   - the .nsz is renamed next to the original, the original deleted, and the
- *     library told about both paths (coalesced into one incremental rebuild).
+ *   - the .nsz is renamed next to the original and the library told about both
+ *     paths (coalesced into one incremental rebuild). The original is deleted,
+ *     or with nszKeepHours above 0 moved (one rename) into
+ *     <games>/.cookingfoil-nsz-keep/<id>/, another dot folder, so 되돌리기 can
+ *     put it back.
+ *
+ * A kept original is deleted, oldest first, once it is older than
+ * nszKeepHours ("age"), while the kept total is over nszKeepGb when that is
+ * above 0 ("cap"), and before a run would pause for free space ("space"). The
+ * age timer is set from the state file again on start, past-due ones first.
+ * Its row leaves the list then; every conversion, deletion, restore and
+ * failure also goes to the conversion log (nsz-log.js).
+ *
+ * 선택한 것만 변환 runs only the rows it names, in queue order, and ends the
+ * run once none of them is left to start; the other rows keep waiting.
  *
  * A new file is started only while no console is downloading and none has for
  * IDLE_MS: the games sit on spinning disks, and conversion would compete with
@@ -40,8 +53,11 @@ import path from "path";
 import FastGlob from "fast-glob";
 import debug from "../debug.js";
 import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason } from "./nsz-runner.js";
+import { createNszLog } from "./nsz-log.js";
 
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
+export const KEEP_DIR_NAME = ".cookingfoil-nsz-keep";
+const HOUR = 3600_000;
 const MIB = 1024 ** 2;
 const GIB = 1024 ** 3;
 // Room left over beyond the file itself: nsz's own scratch and the filesystem's reserve.
@@ -69,17 +85,19 @@ const FILTERS = {
   failed: new Set(["failed", "skipped"]),
 };
 
-const emptyState = () => ({ version: 1, running: false, held: false, pausedReason: null, items: [], dismissed: [], failures: [], stats: { converted: 0, savedBytes: 0, inBytes: 0, outBytes: 0 } });
+const emptyState = () => ({ version: 1, running: false, held: false, pausedReason: null, only: null, items: [], dismissed: [], failures: [], stats: { converted: 0, savedBytes: 0, inBytes: 0, outBytes: 0 } });
 
 /**
  * One queue. Everything outside the folder and the state file comes in, so
  * tests can drive it: `settings()` the live settings, `downloads()` and
  * `fileInUse(rel)` the download activity, `freeBytes(dir)`, `catalog()` the
- * library's names and title ids, `onSwapped(changes)` and `alert(text, subject)`.
+ * library's names and title ids, `onSwapped(changes)` and `alert(text, subject)`,
+ * `now()` the clock the kept originals age by.
  */
 export function createNszQueue({
   gamesDir,
   stateFile,
+  logFile = path.join(path.dirname(stateFile), "nsz-log.jsonl"),
   settings,
   bin = resolveNsz,
   downloads = () => ({ active: 0, lastEndedAt: 0 }),
@@ -94,10 +112,13 @@ export function createNszQueue({
   killGraceMs = 3000,
   autoDelayMs = AUTO_DELAY_MS,
   lowPriority = true,
+  now = Date.now,
   // One running file as a job on the admin page's activity list: (item, probe) → { done, fail, discard } | null.
   track = () => null,
 }) {
   const workDir = path.join(gamesDir, WORK_DIR_NAME);
+  const keepDir = path.join(gamesDir, KEEP_DIR_NAME);
+  const log = createNszLog(logFile);
   let state = emptyState();
   const runs = new Map(); // id -> { stop, done, outDir, stopping }
   const removing = new Set();
@@ -112,6 +133,8 @@ export function createNszQueue({
   let fails = 0;
   let cycle = { done: 0, saved: 0, failed: 0 };
   let byRel = new Map();
+  let keepTimer = null;
+  let keepChain = Promise.resolve();
 
   const reindex = () => { byRel = new Map(state.items.map((i) => [i.rel, i])); };
   const find = (id) => state.items.find((i) => i.id === id) ?? null;
@@ -255,8 +278,9 @@ export function createNszQueue({
   function pickNext(s) {
     const now = Date.now();
     let soonest = Infinity;
+    const only = state.only ? new Set(state.only) : null;
     for (const i of state.items) {
-      if (runs.has(i.id) || removing.has(i.id) || !eligibleKind(i.rel, s)) continue;
+      if (runs.has(i.id) || removing.has(i.id) || !eligibleKind(i.rel, s) || (only && !only.has(i.id))) continue;
       if (i.state === "waiting") return { item: i };
       if (i.state === "busy") {
         if ((i.retryAt ?? 0) <= now) return { item: i };
@@ -323,7 +347,12 @@ export function createNszQueue({
       // the files already running may still write, and a little slack), and the optional floor on top.
       const busy = [...runs.keys()].reduce((n, id) => n + (find(id)?.size || 0), 0);
       const need = (item.size || 0) + busy + SPACE_SLACK + s.diskFloorGb * GIB;
-      const free = await freeBytes(gamesDir);
+      let free = await freeBytes(gamesDir);
+      // Kept originals make room first, oldest first; the run pauses only when that is not enough.
+      while (free < need && keptItems().length) {
+        if ((await serial(() => dropKept(keptItems()[0], "space"))) == null) break;
+        free = await freeBytes(gamesDir);
+      }
       if (free < need) {
         pauseFor("disk", `남은 공간이 ${gb(free)}라 ${item.name || path.basename(item.rel)}(${gb(item.size || 0)})를 변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 변환 탭에서 다시 시작합니다.`);
         return;
@@ -334,8 +363,9 @@ export function createNszQueue({
 
   /** Nothing left to start or running: the run ends, leaving no timer behind. */
   function drained() {
-    if (state.running) {
+    if (state.running || state.only) {
       state.running = false;
+      state.only = null;
       save();
     }
     if (!cycle.done && !cycle.failed) return;
@@ -371,6 +401,7 @@ export function createNszQueue({
   function finish(item, patch, { counts = false } = {}) {
     record(item, { ...patch, finishedAt: Date.now(), retryAt: patch.state === "busy" ? Date.now() + busyRetryMs : null });
     if (patch.state === "failed") {
+      logEvent(item, "failed", item.reason);
       cycle.failed++;
       if (counts) fails++;
       if (fails >= MAX_FAILS) {
@@ -419,8 +450,14 @@ export function createNszQueue({
     if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
 
     await fsp.rename(out, target);
+    const keep = settings().keepHours > 0;
     try {
-      await fsp.unlink(abs);
+      if (keep) {
+        await fsp.mkdir(path.dirname(keptPath(item)), { recursive: true });
+        await fsp.rename(abs, keptPath(item));
+      } else {
+        await fsp.unlink(abs);
+      }
     } catch (err) {
       onSwapped([{ rel: targetOf(item.rel), op: "upsert" }]);
       return finish(item, { state: "failed", reason: `원본을 지우지 못했습니다: ${trimReason(err.message)}` });
@@ -432,7 +469,132 @@ export function createNszQueue({
     cycle.done++;
     cycle.saved += saved;
     debug.log("nsz: %s converted, %d bytes saved", item.rel, saved);
-    finish(item, { state: "done", outSize, savedBytes: saved, reason: null });
+    finish(item, { state: "done", outSize, savedBytes: saved, reason: null, ...(keep ? { keptAt: now(), keptBytes: item.size } : {}) });
+    logEvent(item, "converted");
+    if (keep) await purgeDue();
+  }
+
+  // ── kept originals ───────────────────────────────────────────────────
+  const keptPath = (item) => path.join(keepDir, item.id, path.basename(item.rel));
+  const keptItems = () => state.items.filter((i) => i.keptAt).sort((a, b) => a.keptAt - b.keptAt);
+  const keptBytes = () => keptItems().reduce((n, i) => n + (i.keptBytes || 0), 0);
+  const dueAt = (item, s = settings()) => item.keptAt + s.keepHours * HOUR;
+  // Deleting and restoring kept originals happen one at a time.
+  const serial = (fn) => (keepChain = keepChain.catch(() => {}).then(fn));
+
+  function logEvent(item, event, reason) {
+    log.append({
+      at: now(), id: item.id, rel: item.rel, name: item.name ?? null, from: item.rel, to: targetOf(item.rel),
+      sizeBefore: item.size ?? null, sizeAfter: item.outSize ?? null, event, ...(reason ? { reason } : {}),
+    });
+  }
+
+  /** Deletes one kept original and its row. Returns the bytes freed, or null when it could not be deleted. */
+  async function dropKept(item, reason) {
+    if (!item?.keptAt || !state.items.includes(item)) return 0;
+    const had = fs.existsSync(keptPath(item));
+    try {
+      await fsp.rm(path.join(keepDir, item.id), { recursive: true, force: true });
+    } catch (err) {
+      debug.error("nsz: kept original of %s not deleted: %s", item.rel, err.message);
+      return null;
+    }
+    if (!had) debug.log("nsz: kept original of %s was already gone", item.rel);
+    logEvent(item, "original-deleted", had ? reason : "missing");
+    state.items = state.items.filter((i) => i !== item);
+    reindex();
+    save();
+    return had ? item.keptBytes || 0 : 0;
+  }
+
+  /** Deletes the kept originals past their time, then the oldest while over the cap, and sets the next timer. */
+  function purgeDue() {
+    return serial(async () => {
+      const s = settings();
+      let n = 0;
+      for (const i of keptItems()) if (dueAt(i, s) <= now() && (await dropKept(i, "age")) != null) n++;
+      const cap = (s.keepGb || 0) * GIB;
+      if (cap > 0) {
+        for (const i of keptItems()) {
+          if (keptBytes() <= cap) break;
+          if ((await dropKept(i, "cap")) != null) n++;
+        }
+      }
+      scheduleKeep();
+      return n;
+    });
+  }
+
+  function scheduleKeep() {
+    clearTimeout(keepTimer);
+    keepTimer = null;
+    const oldest = keptItems()[0];
+    if (closed || !oldest) return;
+    keepTimer = setTimeout(() => { keepTimer = null; purgeDue(); }, Math.max(0, dueAt(oldest) - now()));
+    keepTimer.unref?.();
+  }
+
+  /** 지금 비우기: deletes every kept original. */
+  function purgeKept() {
+    return serial(async () => {
+      let removed = 0;
+      let bytes = 0;
+      for (const i of keptItems()) {
+        const b = await dropKept(i, "manual");
+        if (b == null) continue;
+        removed++;
+        bytes += b;
+      }
+      scheduleKeep();
+      return { removed, bytes };
+    });
+  }
+
+  /**
+   * 되돌리기: the kept original goes back to its path and the .nsz is deleted.
+   * { ok } or { error }: unknown, not-kept, missing (the record is dropped), occupied, in-use.
+   */
+  function restore(id) {
+    return serial(async () => {
+      const item = find(id);
+      if (!item) return { error: "unknown" };
+      if (!item.keptAt) return { error: "not-kept" };
+      const abs = path.join(gamesDir, item.rel);
+      const targetRel = targetOf(item.rel);
+      if (!fs.existsSync(keptPath(item))) {
+        await dropKept(item, "missing");
+        return { error: "missing" };
+      }
+      if (fs.existsSync(abs)) return { error: "occupied" };
+      if (fileInUse(targetRel)) return { error: "in-use" };
+      await fsp.rename(keptPath(item), abs);
+      await fsp.rm(path.join(gamesDir, targetRel), { force: true }).catch((err) => debug.error("nsz: %s not deleted: %s", targetRel, err.message));
+      await fsp.rm(path.join(keepDir, item.id), { recursive: true, force: true }).catch(() => {});
+      onSwapped([{ rel: targetRel, op: "remove" }, { rel: item.rel, op: "upsert" }]);
+      const st = state.stats;
+      Object.assign(st, { converted: Math.max(0, st.converted - 1), savedBytes: Math.max(0, st.savedBytes - (item.savedBytes || 0)) });
+      logEvent(item, "restored");
+      // Not queued again by itself; a library scan brings it back.
+      Object.assign(item, { state: "skipped", reason: "원본으로 되돌렸습니다.", restored: true, keptAt: null, keptBytes: null, finishedAt: Date.now() });
+      if (!state.dismissed.includes(item.rel)) state.dismissed.push(item.rel);
+      save();
+      scheduleKeep();
+      debug.log("nsz: %s restored", item.rel);
+      return { ok: true };
+    });
+  }
+
+  /** On start: drop the records whose kept file is gone and the folders no record names. */
+  async function reconcileKept() {
+    for (const i of keptItems()) if (!fs.existsSync(keptPath(i))) await dropKept(i, "missing");
+    const known = new Set(keptItems().map((i) => i.id));
+    let dirs = [];
+    try { dirs = await fsp.readdir(keepDir); } catch { /* none yet */ }
+    for (const d of dirs) {
+      if (known.has(d)) continue;
+      debug.log("nsz: kept folder %s has no record, deleted", d);
+      await fsp.rm(path.join(keepDir, d), { recursive: true, force: true }).catch(() => {});
+    }
   }
 
   /** Stops every running file; each goes back to waiting and its output is dropped. */
@@ -451,16 +613,31 @@ export function createNszQueue({
     if (load()) writeNow();
     // Whatever a previous process left in the work folder is partial output.
     await fsp.rm(workDir, { recursive: true, force: true }).catch((err) => debug.error("nsz: work folder not cleaned: %s", err.message));
+    await serial(reconcileKept);
+    await purgeDue();
     pump();
   }
 
   function start() {
+    state.only = null;
     state.running = true;
     state.held = false;
     state.pausedReason = null;
     fails = 0;
     save();
     pump();
+  }
+
+  /** 선택한 것만 변환: runs these rows (waiting or busy) and nothing else. Returns how many. */
+  function runSelected(ids) {
+    const want = new Set(ids);
+    const picked = state.items.filter((i) => want.has(i.id) && (i.state === "waiting" || i.state === "busy"));
+    if (!picked.length) return 0;
+    Object.assign(state, { only: picked.map((i) => i.id), running: true, held: false, pausedReason: null });
+    fails = 0;
+    save();
+    pump();
+    return picked.length;
   }
 
   async function pause() {
@@ -475,6 +652,7 @@ export function createNszQueue({
   /** A setting changed: turned off, the running files stop; otherwise the queue looks again. */
   async function settingsChanged() {
     if (!settings().enabled) await stopAll();
+    await purgeDue();
     pump();
   }
 
@@ -511,6 +689,8 @@ export function createNszQueue({
       await run.done;
     }
     removing.delete(id);
+    // Taking out a row whose original is kept deletes that original.
+    if (item.keptAt) return (await serial(() => dropKept(item, "removed"))) != null;
     state.items = state.items.filter((i) => i !== item);
     if (item.state !== "done" && !state.dismissed.includes(item.rel)) state.dismissed.push(item.rel);
     reindex();
@@ -520,7 +700,8 @@ export function createNszQueue({
 
   function clearFinished() {
     const before = state.items.length;
-    state.items = state.items.filter((i) => i.state !== "done" && i.state !== "skipped");
+    // A row whose original is kept stays: it is where 되돌리기 is.
+    state.items = state.items.filter((i) => (i.state !== "done" && i.state !== "skipped") || i.keptAt);
     reindex();
     save();
     return before - state.items.length;
@@ -531,6 +712,7 @@ export function createNszQueue({
     closed = true;
     clearTimeout(wakeTimer);
     clearTimeout(autoTimer);
+    clearTimeout(keepTimer);
     await stopAll();
     writeNow();
   }
@@ -570,7 +752,9 @@ export function createNszQueue({
     const rows = want ? state.items.filter((i) => want.has(i.state)) : state.items;
     const off = Math.max(0, Math.floor(Number(offset) || 0));
     const lim = Math.min(PAGE_MAX, Math.max(1, Math.floor(Number(limit) || 50)));
-    const page = rows.slice(off, off + lim).map((i) => (i.state === "running" ? { ...i, ...progressOf(i) } : { ...i }));
+    const page = rows.slice(off, off + lim).map((i) => (i.state === "running" ? { ...i, ...progressOf(i) } : i.keptAt ? { ...i, keepUntil: dueAt(i, s) } : { ...i }));
+    const kept = keptItems();
+    const only = state.only ? state.items.filter((i) => state.only.includes(i.id) && ["waiting", "busy", "running"].includes(i.state)).length : 0;
     return {
       enabled: s.enabled,
       running: state.running,
@@ -578,6 +762,8 @@ export function createNszQueue({
       autoQueue: Boolean(s.autoQueue),
       pausedReason: state.pausedReason,
       waitingFor,
+      only,
+      kept: { count: kept.length, bytes: keptBytes(), capBytes: (s.keepGb || 0) * GIB, keepHours: s.keepHours, nextAt: kept.length ? dueAt(kept[0], s) : null, now: now() },
       tool: Boolean(bin()),
       totals: totals(),
       active: state.items.filter((i) => runs.has(i.id)).map((i) => ({ ...i, ...progressOf(i) })),
@@ -590,9 +776,9 @@ export function createNszQueue({
   }
 
   return {
-    init, start, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
-    moveTop, retry, remove, clearFinished, shutdown, killNow, view, totals,
-    workDir, find, pump,
+    init, start, runSelected, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
+    moveTop, retry, remove, clearFinished, restore, purgeKept, purgeDue, shutdown, killNow, view, totals,
+    logPage: (q) => log.page(q), workDir, keepDir, find, pump,
     /** Test-only: resolves once nothing runs or starts. */
     async idle() {
       for (;;) {

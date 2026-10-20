@@ -26,7 +26,7 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((r) => server.once("listening", r));
 const BASE = `http://127.0.0.1:${server.address().port}/admin/api/nsz`;
 after(async () => { server.close(); await queue.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
-const call = (p, method = "GET") => fetch(BASE + p, { method, headers: { "x-admin": "1", "Content-Type": "application/json" }, body: method === "GET" || method === "DELETE" ? undefined : "{}" });
+const call = (p, method = "GET", body = {}) => fetch(BASE + p, { method, headers: { "x-admin": "1", "Content-Type": "application/json" }, body: method === "GET" || method === "DELETE" ? undefined : JSON.stringify(body) });
 
 test("only an admin session reads the queue", async () => {
   assert.equal((await fetch(BASE)).status, 401);
@@ -43,6 +43,18 @@ test("the list has the state, totals and the queue's settings; off by default", 
   assert.equal(d.settings.nszXci.value, false);
   assert.equal(d.settings.nszLevel.value, 18);
   assert.equal(d.settings.nszWorkers.value, 1);
+  assert.equal(d.settings.nszKeepHours.value, 6);
+  assert.equal(d.settings.nszKeepGb.value, 0);
+  assert.deepEqual([d.kept.count, d.kept.bytes], [0, 0]);
+});
+
+test("선택한 것만 변환 needs a list of rows and the queue on; restore, purge and the log answer", async () => {
+  assert.equal((await call("/run-selected", "POST", { ids: [] })).status, 400);
+  assert.equal((await call("/run-selected", "POST", { ids: ["nothere"] })).status, 400);
+  assert.equal((await call("/run-selected", "POST", { ids: ["0123456789ab"] })).status, 409, "off first");
+  assert.equal((await call("/items/0123456789ab/restore", "POST")).status, 404);
+  assert.deepEqual(await (await call("/purge-kept", "POST")).json(), { ok: true, removed: 0, bytes: 0 });
+  assert.deepEqual((await (await call("/log?q=x")).json()).items, []);
 });
 
 test("start and 전체 변환 are refused while the queue is off; a scan still queues", async () => {
@@ -72,4 +84,7 @@ test("turned on, 전체 변환 queues and starts; nsz missing fails the file wit
   const d = await (await call("?filter=failed")).json();
   assert.equal(d.total, 1);
   assert.match(d.items[0].reason, /nsz 를 찾지 못했습니다/);
+  assert.equal((await call("/run-selected", "POST", { ids: ["0123456789ab"] })).status, 400, "unknown rows");
+  const log = await (await call("/log")).json();
+  assert.deepEqual([log.total, log.items[0].event], [1, "failed"]);
 });

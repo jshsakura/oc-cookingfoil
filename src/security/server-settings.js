@@ -75,6 +75,8 @@ export const SETTINGS = {
   nszWorkers: whole(1, 3),
   nszMinSizeMb: whole(1, 1048576),
   nszDiskFloorGb: whole(0, 1048576),
+  nszKeepHours: whole(0, 168),
+  nszKeepGb: whole(0, 4096),
   nszBlock: bool,
   nszXci: bool,
   backupDays: whole(0, 365),
