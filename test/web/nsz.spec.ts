@@ -80,9 +80,11 @@ test('two waiting rows run by themselves, a kept row says when its original goes
   let sent: unknown = null;
   await page.route(/\/admin\/api\/nsz\?/, async (route) => {
     const real = await (await route.fetch()).json();
-    await route.fulfill({ json: { ...real, enabled: true, status: 'idle', items, total: items.length, offset: 0, limit: 50,
+    await route.fulfill({ json: { ...real, enabled: true, status: 'idle', items, total: items.length, offset: 0, limit: 50, totals: { ...real.totals, waiting: 3, busy: 0 },
       kept: { count: 1, bytes: 4 * 1024 ** 3, capBytes: 0, keepHours: 6, nextAt: now + 5 * 3600_000 + 30_000, now } } });
   });
+  let waitingRun = false;
+  await page.route('**/admin/api/nsz/run-waiting', async (route) => { waitingRun = true; await route.fulfill({ json: { ok: true, count: 3 } }); });
   await page.route('**/admin/api/nsz/run-selected', async (route) => { sent = route.request().postDataJSON(); await route.fulfill({ json: { ok: true, count: 2 } }); });
   await page.route(/\/admin\/api\/nsz\/log/, (route) => route.fulfill({ json: { offset: 0, limit: 50, total: 2, items: [
     { at: now, id: 'aaaaaaaaaaa4', rel: 'Kept [0100000000070000][v0].nsp', name: 'Kept Game', from: 'Kept [0100000000070000][v0].nsp', to: 'Kept [0100000000070000][v0].nsz', sizeBefore: 4 * 1024 ** 3, sizeAfter: 3 * 1024 ** 3, event: 'converted' },
@@ -99,6 +101,10 @@ test('two waiting rows run by themselves, a kept row says when its original goes
   await runSel.click();
   await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다');
   expect(sent).toEqual({ ids: ['aaaaaaaaaaa1', 'aaaaaaaaaaa3'] });
+  await expect(page.locator('#nz-run-wait')).toHaveText('대기 중인 것만 변환 (3)');
+  await page.locator('#nz-run-wait').click();
+  await expect(page.locator('#toast')).toContainText('대기 중이던 3개를 변환합니다');
+  expect(waitingRun).toBe(true);
   await page.locator('#nz-pick-all').check();
   await expect(runSel).toHaveText('선택한 것만 변환 (3)');
 

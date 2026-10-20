@@ -414,6 +414,20 @@ test("a selected run converts only the chosen rows and then stops; the rest keep
   assert.equal(q.runSelected(["0123456789ab"]), 0, "nothing waiting among them");
 });
 
+test("대기 중인 것만 변환 runs the rows waiting now; one queued while they run keeps waiting", async () => {
+  for (const n of ["A", "B"]) put(`${n}.nsp`);
+  const q = make();
+  await q.init();
+  await q.scan();
+  assert.equal(q.runWaiting(), 2);
+  put("C.nsp");
+  await q.scan();
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["A.nsp", "B.nsp", "C.nsp"].map((r) => item(q, r).state), ["done", "done", "waiting"]);
+  assert.equal(q.view().running, false);
+});
+
 // ── kept originals ───────────────────────────────────────────────────
 const keptFile = (q, rel) => path.join(games, KEEP_DIR_NAME, item(q, rel).id, path.basename(rel));
 const logLines = () => fs.readFileSync(logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));

@@ -622,6 +622,9 @@ export function createNszQueue({
     return picked.length;
   }
 
+  /** 대기 중인 것만 변환: the rows waiting now, and none that are added while they run. Returns how many. */
+  const runWaiting = () => runSelected(state.items.filter((i) => i.state === "waiting" || i.state === "busy").map((i) => i.id));
+
   async function pause() {
     state.running = false;
     state.held = true;
@@ -762,7 +765,7 @@ export function createNszQueue({
   }
 
   return {
-    init, start, runSelected, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
+    init, start, runSelected, runWaiting, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
     moveTop, retry, remove, clearFinished, purgeKept, purgeDue, shutdown, killNow, view, totals,
     logPage: (q) => log.page(q), workDir, keepDir, find, pump,
     /** Test-only: resolves once nothing runs or starts. */

@@ -7,6 +7,8 @@
  *   POST   /admin/api/nsz/start                    start or resume       409 while the queue is off
  *   POST   /admin/api/nsz/run-selected { ids }     run only these waiting rows, then stop
  *                                                  409 while the queue is off, 400 when none of them waits
+ *   POST   /admin/api/nsz/run-waiting              run the rows waiting now (not ones queued later), then stop
+ *                                                  409 while the queue is off, 400 when nothing waits
  *   POST   /admin/api/nsz/pause                    stop the running files; they wait again
  *   POST   /admin/api/nsz/scan                     queue every eligible file in the library
  *   POST   /admin/api/nsz/convert-all              scan, then start      409 while the queue is off
@@ -67,6 +69,12 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
     if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
     const n = queue.runSelected(ids);
     if (!n) return res.status(400).json({ error: "고른 파일 중 대기 중인 것이 없습니다" });
+    res.json({ ok: true, count: n });
+  }));
+  router.post("/api/nsz/run-waiting", handle((req, res) => {
+    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
+    const n = queue.runWaiting();
+    if (!n) return res.status(400).json({ error: "대기 중인 파일이 없습니다" });
     res.json({ ok: true, count: n });
   }));
   router.post("/api/nsz/pause", handle(async (req, res) => {

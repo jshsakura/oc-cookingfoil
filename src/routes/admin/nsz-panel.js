@@ -37,7 +37,7 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
     </div>
     <div class="actions"><button type="button" id="nz-retry-all">실패 모두 재시도</button><button type="button" id="nz-clear">끝난 것 삭제</button></div>
   </div>
-  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>선택한 것만 변환 (0)</button></div>
+  <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">모두 선택</label><button type="button" class="primary" id="nz-run-sel" disabled>선택한 것만 변환 (0)</button><button type="button" id="nz-run-wait" disabled>대기 중인 것만 변환 (0)</button></div>
   <div class="nz-list" id="nz-list">${'<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">불러오고 있습니다</b><span class="nz-sk">파일 이름</span></div></div>'.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
   ${box("nsz-log", "변환 기록", `<p class="muted">변환하고 원본을 지운 일을 최근 것부터 보여 줍니다. 끝난 것 삭제로 대기열을 비워도 기록은 남습니다.</p>
@@ -179,6 +179,7 @@ function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
   $('nz-all').disabled=d.status==='off';
   const t=d.totals,doneN=t.done+t.failed+t.skipped,all=doneN+t.waiting+t.busy+t.running;
+  const rw=$('nz-run-wait');rw.textContent='대기 중인 것만 변환 ('+num(t.waiting+t.busy)+')';rw.disabled=d.status==='off'||!(t.waiting+t.busy);
   $('nz-overall').style.width=all?Math.round(doneN/all*100)+'%':'0';
   const k=d.kept||{};$('nz-kept').hidden=!k.count;
   if(k.count)$('nz-kept-t').textContent='보관 중인 원본 '+num(k.count)+'개 · '+nzSize(k.bytes)+(k.capBytes?' / 한도 '+nzSize(k.capBytes):'')+(k.nextAt?' · 가장 오래된 것 '+nzLeft(k.nextAt-k.now)+' 뒤 삭제':'');
@@ -251,6 +252,8 @@ $('nz-pick-all').addEventListener('change',()=>{const on=$('nz-pick-all').checke
   for(const c of $('nz-list').querySelectorAll('.nz-lead input')){c.checked=on;const id=c.closest('.nz-row').dataset.id;if(on)nzSel.add(id);else nzSel.delete(id);}nzSelUpdate();});
 $('nz-run-sel').addEventListener('click',()=>{const ids=[...nzSel];if(!ids.length)return;
   nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return '선택한 '+d.count+'개를 변환합니다.';});});
+$('nz-run-wait').addEventListener('click',async()=>{if(!await ask('지금 대기 중인 파일만 변환합니다. 변환하는 동안 새로 들어온 파일은 기다립니다.'))return;
+  nzAct('/admin/api/nsz/run-waiting',{method:'POST',body:{}},(d)=>'대기 중이던 '+d.count+'개를 변환합니다.');});
 $('nz-purge').addEventListener('click',async()=>{if(!await ask('보관 중인 원본을 지금 모두 지웁니다. 지운 뒤에는 되돌릴 수 없습니다.'))return;
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>d.removed+'개('+nzSize(d.bytes)+')를 지웠습니다.');});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
