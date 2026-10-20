@@ -95,6 +95,13 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   const listed = await (await request.get('/api/retro/games?system=md')).json();
   expect(listed.games.map((g: { variant: string }) => g.variant)).toEqual(['J-K v20130609']);
   await page.screenshot({ path: 'out/web/admin-retro-versions.png', fullPage: true });
+  // A narrow window scrolls the columns sideways; the row's buttons stay in sight.
+  await page.setViewportSize({ width: 820, height: 900 });
+  const del = patchRow.getByRole('button', { name: /J-K v20130609.* 삭제$/ });
+  const [btnBox, gridBox] = [await del.boundingBox(), await list.boundingBox()];
+  expect(btnBox!.x + btnBox!.width).toBeLessThanOrEqual(gridBox!.x + gridBox!.width);
+  await page.screenshot({ path: 'out/web/admin-retro-versions-820.png' });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await list.locator('.ag-row', { hasText: 'Japan, Korea' }).getByRole('button', { name: '추천 버전으로 정합니다' }).click();
   await expect(list).toContainText('공식 한국어판입니다');
 

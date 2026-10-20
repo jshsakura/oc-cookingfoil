@@ -115,7 +115,8 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
       ...(opts.tall?{autoHeight:true,wrapText:true,cellClass:'tall'}:{}),
       valueGetter:(p)=>p.data?._n?.[i]?.textContent.trim()||'',
       cellRenderer:(p)=>{const n=p.data?._n?.[i];if(!n)return '';if(!act&&!n.title&&n.textContent.trim().length>24)n.title=n.textContent.trim();return n;}};
-    if(act)return {...base,width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
+    // The buttons stay pinned in sight while long columns scroll under them.
+    if(act)return {...base,pinned:'right',width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
     if(controls)return {...base,width:Math.max(controls,title.length*14+32),minWidth:controls};
     const w=fit(i);if(w)return {...base,width:Math.max(w,title.length*14+32),minWidth:Math.max(72,title.length*14+24)};
     // Long text shares the spare width; it is cut only past what a cell can reasonably hold.
