@@ -165,7 +165,7 @@ button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;fon
 .hb-verify:disabled{opacity:.6;cursor:progress}
 .hb-verify:focus-visible{outline:2px solid var(--good);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.hb-verify{transition:none}}
-#hb-apps tr.hb-off td:not(:first-child),#hb-apps .tabulator-row.hb-off .tabulator-cell:not(:nth-child(-n+2)){opacity:.5}
+#hb-apps .ag-row.hb-off .ag-cell:not([col-id=c0]):not([col-id=c7]){opacity:.5}
 .hb-held{border:1px solid var(--warn);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;overflow-wrap:anywhere}
 .hb-held p{margin:4px 0}.hb-held[hidden]{display:none}
 dialog h3{margin:0 0 6px;font-size:18px}

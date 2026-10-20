@@ -395,9 +395,7 @@ function paged(mount,opts){
 // A table whose rows are made per item, paged the same way. row(item) makes one row, or with
 // opts.slice row(items) makes the rows of a whole page (for group headings inside a page).
 function pagedTable(id,cols,items,row,empty,opts={}){
-  paged($(id),{key:id,label:opts.label,def:opts.def||25,items,placeholder:opts.placeholder,
-    match:opts.match||((it,q)=>JSON.stringify(it).toLowerCase().includes(q)),
-    render:(page,list,q)=>table(id,cols,opts.slice?row(page):page.map(row),q?'찾은 것이 없습니다.':empty)});}
+  table(id,cols,opts.slice?row(items):items.map(row),empty,{search:true,label:opts.label,placeholder:opts.placeholder});}
 // ── homebrew ──────────────────────────────────────────────────────────
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
 async function loadHomebrew(){
@@ -459,9 +457,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
       line.append(btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger'));c.append(line);}
     c.append(btn(type==='patch'?'패치 올리기':'세이브 올리기',()=>uploadFor(type,app)));return c;};
-  paged($('hb-apps'),{key:'hb-apps',label:'앱',def:25,items:d.apps||[],
-    match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
-    render:(rows,list,q)=>table('hb-apps',['켜기','검수','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
+  {const rows=d.apps||[];table('hb-apps',['켜기','검수','이름','분류','크기','패치','세이브',''],rows.map((a)=>{const tr=el('tr');tr.classList.toggle('hb-off',!a.enabled);
     const on=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',(a.name||a.app)+' 켜기');
     b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,a.name||a.app));w.append(b,el('span'));on.append(w);tr.append(on);
     // Tried on a console: the shop and the client show a 검수됨 badge on it.
@@ -479,7 +475,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
     box.append(btn('그림',()=>openHbBanner(a)));
     if(a.source==='manual')box.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,a.name||a.app),'danger'));
     else if(repo)box.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
-    act.append(box);tr.append(act);return tr;}),q?'찾은 앱이 없습니다.':'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.')});}
+    act.append(box);tr.append(act);return tr;}),'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.',{search:true,label:'앱',tall:true});}}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
 function hbBannerShow(url){const img=$('hb-banner-img');img.hidden=!url;if(url)img.src=url;$('hb-banner-none').hidden=Boolean(url);$('hb-banner-remove').hidden=!url;
