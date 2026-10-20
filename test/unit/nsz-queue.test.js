@@ -567,3 +567,38 @@ test("a failure goes to the log too", async () => {
   assert.equal(line.event, "failed");
   assert.match(line.reason, /압축하지 못했습니다/);
 });
+
+test("a lost state file does not delete kept originals until they pass the keep time", async () => {
+  S.keepHours = 6;
+  put("A.nsp");
+  const q = make();
+  await run(q);
+  const kept = keptFile(q, "A.nsp");
+  await q.shutdown();
+  fs.rmSync(stateFile);
+  await make().init();
+  assert.ok(fs.existsSync(kept));
+  clock += 7 * 3600_000;
+  await make().init();
+  assert.ok(!fs.existsSync(kept));
+});
+
+test("with the keep folder missing at start (the disk not mounted yet) the kept records stay", async () => {
+  S.keepHours = 6;
+  put("A.nsp");
+  const q = make();
+  await run(q);
+  const kept = keptFile(q, "A.nsp");
+  await q.shutdown();
+  const keepDir = path.join(games, KEEP_DIR_NAME), aside = `${games}-aside`;
+  fs.renameSync(keepDir, aside);
+  const q2 = make();
+  await q2.init();
+  assert.ok(item(q2, "A.nsp")?.keptAt);
+  await q2.shutdown();
+  fs.renameSync(aside, keepDir);
+  const q3 = make();
+  await q3.init();
+  assert.ok(fs.existsSync(kept));
+  assert.ok(item(q3, "A.nsp")?.keptAt);
+});

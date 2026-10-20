@@ -584,16 +584,27 @@ export function createNszQueue({
     });
   }
 
-  /** On start: drop the records whose kept file is gone and the folders no record names. */
+  /**
+   * On start: drop the records whose kept file is gone and the folders no record names. Without the
+   * keep folder (the games disk not mounted yet) nothing is touched; a folder with no record (a lost
+   * or unreadable state file, a kill before the record was saved) is only deleted once it is older
+   * than the keep time, like any kept original.
+   */
   async function reconcileKept() {
+    if (!fs.existsSync(keepDir)) {
+      if (keptItems().length) debug.log("nsz: keep folder missing, %d kept originals left as they are", keptItems().length);
+      return;
+    }
     for (const i of keptItems()) if (!fs.existsSync(keptPath(i))) await dropKept(i, "missing");
     const known = new Set(keptItems().map((i) => i.id));
-    let dirs = [];
-    try { dirs = await fsp.readdir(keepDir); } catch { /* none yet */ }
-    for (const d of dirs) {
+    const maxAge = settings().keepHours * HOUR;
+    for (const d of await fsp.readdir(keepDir).catch(() => [])) {
       if (known.has(d)) continue;
-      debug.log("nsz: kept folder %s has no record, deleted", d);
-      await fsp.rm(path.join(keepDir, d), { recursive: true, force: true }).catch(() => {});
+      const dir = path.join(keepDir, d);
+      const st = await fsp.stat(dir).catch(() => null);
+      if (!st || now() - st.mtimeMs < maxAge) continue;
+      debug.log("nsz: kept folder %s has no record and is past the keep time, deleted", d);
+      await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   }
 
