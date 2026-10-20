@@ -311,6 +311,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 <header>
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
+  ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
     <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
@@ -321,8 +322,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
       <div class="menu-sep" role="separator"></div>
       <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}${top("dark")}<span class="switch" aria-hidden="true"></span></button>
       <button role="menuitem" type="button" id="logout">${icon("logout")}${top("logout")}</button>
-      <div class="menu-sep" role="separator"></div>
-      ${TOP_LANG_HTML}
       </div>
       ${ACTIVITY_HTML}
     </div>

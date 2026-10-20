@@ -65,14 +65,26 @@ test('the admin top area follows the language picked on the web, and its account
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
   await expect(page).toHaveTitle('CookingFoil サーバー管理');
 
+  // The language chip sits left of the account button, as on the web page, not inside the account menu.
+  await expect(page.locator('#lang-current')).toHaveText('JA');
+  await expect(page.locator('#acct-list [data-admin-lang]')).toHaveCount(0);
+  const order = await page.evaluate(() => {
+    const chip = document.querySelector('.hdr-right .lang-menu')!.getBoundingClientRect();
+    const acct = document.getElementById('acct-btn')!.getBoundingClientRect();
+    return chip.right <= acct.left;
+  });
+  expect(order).toBe(true);
+  const pick = async (code: string) => { await page.locator('#lang-btn').click(); await page.locator(`#lang-list [data-admin-lang="${code}"]`).click(); };
   await page.locator('#acct-btn').click();
   await expect(page.locator('#acct-list #logout')).toHaveText('ログアウト');
-  await page.locator('#acct-list [data-admin-lang="en"]').click();
+  await page.keyboard.press('Escape');
+  await pick('en');
   await expect(games).toHaveText('Games');
   await expect(files).toContainText('Files');
-  await expect(page.locator('#acct-list #logout')).toHaveText('Sign out');
-  await expect(page.locator('#acct-list [data-admin-lang="en"]')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#acct-list [data-admin-lang="zh"]').click();
+  await expect(page.locator('#lang-current')).toHaveText('EN');
+  await expect(page.locator('#lang-list')).toBeHidden();
+  await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');
+  await pick('zh');
   await expect(games).toHaveText('游戏');
   await expect(page.locator('#act-heading')).toHaveText('正在运行');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:lang'))).toBe('zh');
@@ -80,6 +92,6 @@ test('the admin top area follows the language picked on the web, and its account
   expect(topText).not.toMatch(HANGUL);
 
   // Back to Korean for the specs that follow and read the admin by its Korean labels.
-  await page.locator('#acct-list [data-admin-lang="ko"]').click();
+  await pick('ko');
   await expect(games).toHaveText('게임');
 });

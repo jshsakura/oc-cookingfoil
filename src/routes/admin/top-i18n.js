@@ -37,14 +37,28 @@ export const TOP_WORDS = {
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
 
-export const TOP_LANG_HTML = /* html */ `<div class="top-langs" role="group" data-top-label="language" aria-label="${TOP_WORDS.ko.language}">${TOP_LANGS.map(([code, name]) =>
-  `<button type="button" data-admin-lang="${code}" lang="${code}" aria-pressed="false">${name}</button>`).join("")}</div>`;
+// The language chip left of the account button, the same as the web page's: the current code, a list on click.
+export const TOP_LANG_HTML = /* html */ `<div class="lang-menu">
+  <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false" data-top-label="language" aria-label="${TOP_WORDS.ko.language}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+    <span id="lang-current">KO</span>
+    <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div class="lang-list" id="lang-list" role="menu" hidden>${TOP_LANGS.map(([code, name]) =>
+    `<button type="button" role="menuitemradio" data-admin-lang="${code}" lang="${code}" aria-checked="false">${name}</button>`).join("")}</div>
+</div>`;
 
 export const TOP_LANG_CSS = /* css */ `
-.top-langs{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:2px 6px}
-.top-langs button{padding:6px 4px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;font-size:12.5px;cursor:pointer}
-.top-langs button:hover{background:var(--line)}
-.top-langs button[aria-pressed="true"]{background:var(--text);color:var(--panel)}
+.lang-menu{position:relative}
+.lang-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;cursor:pointer;border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit}
+.lang-btn:hover,.lang-btn[aria-expanded="true"]{border-color:var(--text)}
+.lang-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lang-btn .chev{width:13px;height:13px;color:var(--muted)}
+.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+.lang-list[hidden]{display:none}
+.lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
+.lang-list button:hover:not([aria-checked="true"]){background:var(--sunk)}
+.lang-list button[aria-checked="true"]{background:var(--text);color:var(--panel)}
 `;
 
 // Defined before the other admin scripts: the activity menu reads adminLang as it draws.
@@ -59,12 +73,19 @@ function applyTopI18n(relabelActivity=true){
   for(const el of document.querySelectorAll('[data-top]'))el.textContent=topText(el.dataset.top);
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
   const who=document.getElementById('who');if(who&&Object.values(topWords).some((w)=>w.loading===who.textContent))who.textContent=topText('loading');
-  for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-pressed',String(b.dataset.adminLang===adminLang));
+  for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
+  document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
   if(relabelActivity)activityMenu.relabel();}
+const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
+function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
+  if(open)langList.querySelector('[aria-checked="true"]')?.focus();}
+langBtn.addEventListener('click',(e)=>{e.stopPropagation();setLangMenu(langList.hidden);});
+document.addEventListener('click',(e)=>{if(!langList.hidden&&!e.target.closest('.lang-menu'))setLangMenu(false);});
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!langList.hidden){setLangMenu(false);langBtn.focus();}});
 for(const b of document.querySelectorAll('[data-admin-lang]'))b.addEventListener('click',()=>{
   adminLang=b.dataset.adminLang;
   try{localStorage.setItem(ADMIN_LANG_KEY,adminLang);}catch{/* storage blocked: this visit only */}
-  applyTopI18n();});
+  setLangMenu(false);langBtn.focus();applyTopI18n();});
 applyTopI18n(false);
 `;
