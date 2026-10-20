@@ -832,3 +832,35 @@ test('a preview shelf shows only whole cards (seven wide, three on a phone), pag
   await shelf.getByRole('button', { name: '접기' }).click();
   await expect(cards).toHaveCount(31);
 });
+
+test('the preview banner turns with a sideways swipe, and a swipe does not open the game', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  // Several games, so the banner has more than one slide.
+  const items = Array.from({ length: 6 }, (_, i) => {
+    const tid = `01000000000${i + 1}0000`;
+    return { url: `../G${i}%20%5B${tid}%5D%5Bv0%5D.nsp`, name: `Game ${i}`, size: 1e9 * (i + 1), app_type: 'base', added_at: 100 - i, title_id: tid, base_title_id: tid, app_version: 0, languages: ['ko'] };
+  });
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.goto('/#all');
+  await page.locator('#subtabs button', { hasText: '미리보기' }).click();
+  const hero = page.locator('#hero');
+  await expect(hero).not.toHaveClass(/skel/);
+  const dots = page.locator('#hero-dots button');
+  await expect.poll(() => dots.count()).toBeGreaterThan(1);
+  const on = () => page.locator('#hero-dots button.on').evaluate((b) => [...b.parentElement!.children].indexOf(b));
+  const before = await on();
+  const box = (await hero.boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width * 0.7, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.3, y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(on).toBe((before + 1) % (await dots.count()));
+  await expect(page.locator('#modal')).toBeHidden();
+  // and back the other way
+  await page.mouse.move(box.x + box.width * 0.3, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(on).toBe(before);
+});

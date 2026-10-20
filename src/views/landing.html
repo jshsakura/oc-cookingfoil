@@ -358,6 +358,7 @@
       .hero {
         display: flex; align-items: center; gap: 36px; padding: 36px 40px; margin-bottom: 34px;
         border-radius: 28px; color: #f2f1ee; cursor: pointer; position: relative; overflow: hidden;
+        touch-action: pan-y; user-select: none; -webkit-user-select: none;
         background: radial-gradient(120% 140% at 0% 0%, #3a2c18 0%, var(--hero) 55%);
         min-height: 260px;
       }
@@ -3845,7 +3846,7 @@
       const ROW_LIMIT = 12, ROW_VISIBLE = 6, TOP_POOL = 36, WIDE_POOL = 80;
       const GREAT_SCORE = 85, BIG_SIZE = 10 * 2 ** 30, PARTY = "Party";
       const CATEGORY_ROWS = 3, MIN_CATEGORY_GAMES = 4;
-      let heroSlides = [], heroIndex = 0, heroAt = 0, heroPaused = false;
+      let heroSlides = [], heroIndex = 0, heroAt = 0, heroPaused = false, heroDragged = false;
 
       // A per-day seed: the picks rotate daily but stay put while you browse.
       function seedFor(label) {
@@ -4066,7 +4067,7 @@
         if (r.updateCount) addTag(t("hero.updates", r.updateCount));
         if (r.dlcCount) addTag(t("hero.dlc", r.dlcCount));
         fitHeroTags();
-        $("hero").onclick = () => openModal(r);
+        $("hero").onclick = () => { if (!heroDragged) openModal(r); };
         const dots = $("hero-dots");
         dots.hidden = heroSlides.length < 2;
         dots.innerHTML = "";
@@ -5374,6 +5375,18 @@
       $("hero").addEventListener("mouseleave", () => { heroPaused = false; heroAt = Date.now(); });
       $("hero").addEventListener("focusin", () => { heroPaused = true; });
       $("hero").addEventListener("focusout", () => { heroPaused = false; heroAt = Date.now(); });
+      // Swiping sideways turns the banner, on a phone or with a mouse; a swipe is not a tap that opens the game.
+      let heroFrom = null;
+      $("hero").addEventListener("pointerdown", (e) => { heroFrom = { x: e.clientX, y: e.clientY }; heroDragged = false; });
+      $("hero").addEventListener("pointerup", (e) => {
+        if (!heroFrom) return;
+        const dx = e.clientX - heroFrom.x, dy = e.clientY - heroFrom.y;
+        heroFrom = null;
+        heroDragged = Math.abs(dx) > 10 || Math.abs(dy) > 10;
+        if (heroSlides.length > 1 && Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) showHero(heroIndex + (dx < 0 ? 1 : -1));
+      });
+      $("hero").addEventListener("pointercancel", () => { heroFrom = null; });
+      $("hero").addEventListener("dragstart", (e) => e.preventDefault());
       $("hero").addEventListener("keydown", (e) => {
         if (e.key === "Enter") openModal(heroSlides[heroIndex].r);
         else if (e.key === "ArrowRight") showHero(heroIndex + 1);
