@@ -675,7 +675,7 @@ const UP_HINT={
   client:'직접 빌드한 cookingfoil.nro 하나를 올립니다. 지금 내보내는 것을 바꾸고, 기기는 다음에 앱을 켤 때 업데이트를 받습니다. 지금보다 낮은 버전은 받지 않습니다.',
   port:'포트 게임을 홈브류와 같은 방식으로 올리고 바로 포트로 등록합니다. .nro 나 릴리스 zip, 앱 폴더를 switch/<앱>/ 하나로 정리합니다. 포트의 패치와 세이브는 올린 뒤 그 앱을 골라 따로 올립니다.',
 };
-let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[];
+let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[],upMismatch=false;
 ${guessUpload.toString()}
 // The entry names of a .zip, read from its central directory (no unpacking); null when it can't be read.
 async function zipNames(file){
@@ -703,9 +703,11 @@ async function droppedFiles(dt){
   for(const en of entries)await walk(en,'');
   return {files,paths};}
 function upHint(){const app=$('up-target').value;
-  let h=!upKind?(upFiles.length?'파일 이름만으로는 종류를 알 수 없습니다. 위에서 종류를 고릅니다.':'올릴 종류를 고르거나, 아래에 파일을 바로 놓습니다.'):app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
-  if(upKind==='retro'&&upSystems.length>1)h+=' 이 확장자는 여러 기종이 씁니다. 기종이 맞는지 확인합니다.';
+  let h=!upKind?(upFiles.length?'파일 이름만으로는 어디에 올릴지 알 수 없습니다. 위에서 올릴 곳을 고릅니다.':'올릴 곳을 먼저 고릅니다. 파일을 바로 놓으면 이름을 보고 알맞은 곳을 미리 골라 둡니다.'):app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
+  if(upKind==='retro'){const sys=(upInfo?.systems||[]).find((x)=>x.id===$('up-system').value);if(sys)h='레트로 · '+sys.name+' 에 올립니다. '+h;}
+  if(upKind==='retro'&&upSystems.length>1)h+=' 이 확장자는 여러 기종이 씁니다. 고른 기종이 맞는지 확인합니다.';
   if(upKind==='game'&&upFiles.length>1)h+=' 고른 '+upFiles.length+'개를 하나씩 차례로 올립니다.';
+  if(upMismatch&&upFiles.length)h+=' 파일 이름으로는 고른 곳과 다른 종류로 보입니다. 올릴 곳이 맞는지 확인합니다.';
   $('up-hint').textContent=h;}
 function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.size,0);
   $('up-drop').classList.toggle('has',n>0);$('up-form').hidden=!(n||$('up-target').value);
@@ -713,10 +715,13 @@ function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.
   $('up-chosen').textContent=n?(upPaths?upPaths[0].split('/')[0]+'/ · ':'')+(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB'
     :'놓은 파일의 이름을 보고 종류를 알아서 고릅니다';}
 function upSetKind(kind){upKind=kind;
-  for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
+  // A retro tile is one console: it is the one pressed only when that console is the chosen one.
+  for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind&&(!b.dataset.system||b.dataset.system===$('up-system').value)));
+  // A picked console folds the others away; another kind or a reset shows them all again.
+  const folded=kind==='retro'&&Boolean($('up-system').value);$('up-systems').classList.toggle('folded',folded);
+  const more=$('up-systems').querySelector('.up-more-sys');if(more)more.hidden=!folded;
   upHint();
   const ps=kind==='patch'||kind==='save';
-  $('up-system-l').hidden=kind!=='retro';
   $('up-name-l').hidden=$('up-target-l').hidden=!ps;
   $('up-game-l').hidden=!ps||$('up-target').value!=='';
   $('up-desc-l').hidden=!ps;
@@ -732,6 +737,13 @@ async function loadUploadInfo(){
   if(upInfo)return true;
   try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return false;}
   $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
+  // Every retro console is its own tile, so a ROM goes where it was meant to and not where its extension guesses.
+  $('up-systems').replaceChildren(...upInfo.systems.map((s)=>{const b=el('button');b.type='button';b.dataset.kind='retro';b.dataset.system=s.id;
+    const im=el('img');im.alt='';im.loading='lazy';im.src='/api/retro/systems/'+encodeURIComponent(s.id)+'/icon';im.onerror=()=>im.style.visibility='hidden';
+    b.append(im,el('b',s.name));b.title=s.name+' · '+s.extensions.join(' ');b.setAttribute('aria-label','레트로 · '+s.name);return b;}));
+  const more=el('button','다른 기종','up-more-sys');more.type='button';more.hidden=true;
+  more.addEventListener('click',()=>{$('up-systems').classList.remove('folded');more.hidden=true;});$('up-systems').append(more);
+  if(!upInfo.systems.length)$('up-systems').append(el('div','서버에 레트로 기종이 없습니다.','empty'));
   $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
   // A homebrew app's patch or save goes into its own switch/<app>/ folder.
   for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
@@ -746,23 +758,26 @@ async function upTake(files,paths){
   upFiles=files;upPaths=paths;
   const zip=!paths&&files.length===1&&/[.]zip$/i.test(files[0].name)?await zipNames(files[0]):null;
   const g=guessUpload({names:files.map((f)=>f.name),paths,zipNames:zip,systems:upInfo.systems});
-  // Picked from a homebrew app's row: its patch or save stays that.
-  const keep=$('up-target').value&&(upKind==='patch'||upKind==='save');
-  upSystems=g.systems||[];if(upSystems.length)$('up-system').value=upSystems[0];
+  // The place picked first wins; the names only pick one when nothing was picked yet.
+  const picked=upKind;const keep=Boolean(picked);
+  upSystems=g.systems||[];
+  if(!picked&&upSystems.length)$('up-system').value=upSystems[0];
+  upMismatch=Boolean(picked&&g.kind&&(g.kind!==picked&&!(picked==='port'&&g.kind==='homebrew')||picked==='retro'&&upSystems.length&&!upSystems.includes($('up-system').value)));
   if(g.name)$('up-name').value=g.name;
   if(g.titleId&&!keep){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
     $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}
   // Picked as a port: a homebrew guess stays a port.
   // A kind picked before the files stays when their names say nothing.
-  upSetKind(keep?upKind:upKind==='port'&&g.kind==='homebrew'?'port':g.kind??upKind);upChosen();}
-function upReset(){upFiles=[];upPaths=null;upSystems=[];
+  upSetKind(keep?upKind:g.kind??null);upChosen();}
+function upReset(){upFiles=[];upPaths=null;upSystems=[];upMismatch=false;
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
   $('up-required').checked=false;
   upSetKind(null);upChosen();}
 $('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';
   $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');
   $('up-required-l').hidden=!(upKind==='patch'&&$('up-target').value==='');upHint();});
-$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(b)upSetKind(b.dataset.kind);});
+$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b)return;
+  if(b.dataset.system)$('up-system').value=b.dataset.system;upSetKind(b.dataset.kind);});
 $('up-file-btn').addEventListener('click',()=>$('up-file').click());
 $('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
 $('up-drop').addEventListener('click',(e)=>{if(!e.target.closest('button'))$('up-file').click();});
