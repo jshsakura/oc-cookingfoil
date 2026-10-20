@@ -1006,6 +1006,10 @@
       .modal.editing #modal-download, .modal.editing #xm-download { display: none; }
       .edit-pane { animation: edit-in .22s ease; }
       @keyframes edit-in { from { opacity: 0; transform: translateY(8px); } }
+      .arted-head .ef-langs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 100px; background: var(--sunk); }
+      .ef-langs button { font: 700 12.5px var(--font-body); padding: 5px 13px; border: 0; border-radius: 100px; background: transparent; color: var(--secondary); cursor: pointer; }
+      .ef-langs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
+      .ef-langs button:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .ef-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .ef-field { display: grid; gap: 6px; min-width: 0; margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
       .ef-field.wide { grid-column: 1 / -1; }
@@ -1778,6 +1782,7 @@
           "edit.back": "상세로 돌아가기",
           "edit.facts": "정보",
           "edit.hint": "비워 두면 원래 정보를 씁니다.",
+          "edit.lang": "고칠 언어",
           "edit.save": "저장",
           "edit.reset": "원래대로",
           "edit.saved": "저장했습니다.",
@@ -1795,9 +1800,7 @@
           "del.game": (n, size) => `이 게임의 파일 ${n}개(${size})를 서버에서 지웁니다. 본편, 업데이트, DLC가 모두 들어 있고 되돌릴 수 없습니다.`,
           "edit.loading": "불러오는 중입니다.",
           "edit.name": "이름",
-          "edit.nameKo": "한국어 이름",
           "edit.desc": "소개",
-          "edit.descKo": "한국어 소개",
           "edit.notes": "추가 정보",
           "edit.version": "버전",
           "edit.author": "만든 이",
@@ -2109,6 +2112,7 @@
           "edit.back": "Back to details",
           "edit.facts": "Details",
           "edit.hint": "Leave a field empty to use the original.",
+          "edit.lang": "Language to edit",
           "edit.save": "Save",
           "edit.reset": "Restore original",
           "edit.saved": "Saved.",
@@ -2126,9 +2130,7 @@
           "del.game": (n, size) => `Deletes ${n} ${n === 1 ? "file" : "files"} of this game (${size}) from the server: base game, updates and DLC. This cannot be undone.`,
           "edit.loading": "Loading…",
           "edit.name": "Name",
-          "edit.nameKo": "Korean name",
           "edit.desc": "Description",
-          "edit.descKo": "Korean description",
           "edit.notes": "Notes",
           "edit.version": "Version",
           "edit.author": "Author",
@@ -2440,6 +2442,7 @@
           "edit.back": "詳細に戻る",
           "edit.facts": "情報",
           "edit.hint": "空欄なら元の情報を使います。",
+          "edit.lang": "編集する言語",
           "edit.save": "保存",
           "edit.reset": "元に戻す",
           "edit.saved": "保存しました。",
@@ -2457,9 +2460,7 @@
           "del.game": (n, size) => `このゲームのファイル${n}個(${size})をサーバーから削除します。本編、アップデート、DLCがすべて含まれ、元に戻せません。`,
           "edit.loading": "読み込み中です。",
           "edit.name": "名前",
-          "edit.nameKo": "韓国語の名前",
           "edit.desc": "説明",
-          "edit.descKo": "韓国語の説明",
           "edit.notes": "追加情報",
           "edit.version": "バージョン",
           "edit.author": "作者",
@@ -2771,6 +2772,7 @@
           "edit.back": "返回詳情",
           "edit.facts": "資訊",
           "edit.hint": "留空則使用原始資訊。",
+          "edit.lang": "要編輯的語言",
           "edit.save": "儲存",
           "edit.reset": "還原",
           "edit.saved": "已儲存。",
@@ -2788,9 +2790,7 @@
           "del.game": (n, size) => `從伺服器刪除此遊戲的 ${n} 個檔案(${size})，包含本體、更新與 DLC，無法復原。`,
           "edit.loading": "載入中…",
           "edit.name": "名稱",
-          "edit.nameKo": "韓文名稱",
           "edit.desc": "簡介",
-          "edit.descKo": "韓文簡介",
           "edit.notes": "附加資訊",
           "edit.version": "版本",
           "edit.author": "作者",
@@ -4359,11 +4359,40 @@
         };
       }
       // The facts card: labelled fields two to a row, then save (and restore, when there is an original).
+      // A `pair` field holds { ko, en } behind one input: the switch on top picks which one it shows,
+      // starting from the language the page is in, and what is typed in either is kept until saved.
+      const EDIT_LANGS = [["ko", "한국어"], ["en", "English"]];
       function factsCard({ fields, save, reset = null }) {
         const card = document.createElement("section"); card.className = "arted";
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("edit.facts") }), Object.assign(document.createElement("span"), { textContent: t("edit.hint") }));
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
+        const pairs = fields.filter((f) => f.pair);
+        const typed = Object.fromEntries(pairs.map((f) => [f.name, { ko: f.value?.ko ?? "", en: f.value?.en ?? "" }]));
+        let editLang = lang === "ko" ? "ko" : "en";
+        const pairInput = (f) => form.elements.namedItem(f.name);
+        const showLang = (next) => {
+          for (const f of pairs) {
+            const input = pairInput(f);
+            typed[f.name][editLang] = input.value;
+            input.value = typed[f.name][next];
+            const hint = typeof f.placeholder === "object" ? f.placeholder?.[next] : f.placeholder;
+            input.placeholder = hint || "";
+          }
+          editLang = next;
+          for (const b of switcher?.querySelectorAll("button") ?? []) b.setAttribute("aria-pressed", String(b.dataset.lang === next));
+        };
+        let switcher = null;
+        if (pairs.length) {
+          switcher = document.createElement("div"); switcher.className = "ef-langs"; switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", t("edit.lang"));
+          for (const [code, label] of EDIT_LANGS) {
+            const b = Object.assign(document.createElement("button"), { type: "button", textContent: label });
+            b.dataset.lang = code; b.setAttribute("aria-pressed", String(code === editLang));
+            b.addEventListener("click", () => { if (code !== editLang) showLang(code); });
+            switcher.append(b);
+          }
+          head.append(switcher);
+        }
         for (const f of fields) {
           if (f.check) {
             const lab = document.createElement("label"); lab.className = "ef-switch" + (f.cls ? " " + f.cls : "");
@@ -4382,8 +4411,9 @@
           } else {
             input = document.createElement(f.area ? "textarea" : "input");
             if (!f.area) input.type = "text";
-            input.value = f.value ?? "";
-            if (f.placeholder) input.placeholder = f.placeholder;
+            input.value = f.pair ? typed[f.name][editLang] : f.value ?? "";
+            const hint = f.pair && typeof f.placeholder === "object" ? f.placeholder?.[editLang] : f.placeholder;
+            if (hint) input.placeholder = hint;
           }
           input.name = f.name; input.autocomplete = "off";
           lab.append(input); form.append(lab);
@@ -4406,6 +4436,7 @@
           e.preventDefault();
           const values = {};
           for (const el of form.elements) if (el.name) values[el.name] = el.type === "checkbox" ? el.checked : el.value;
+          for (const f of pairs) values[f.name] = { ...typed[f.name], [editLang]: pairInput(f).value };
           saveBtn.disabled = true;
           try { await save(values); toast(t("edit.saved")); } catch (err) { toast(err.message); } finally { saveBtn.disabled = false; }
         });
@@ -4419,17 +4450,14 @@
         const name = pairOf(d.name), desc = pairOf(d.description), notes = pairOf(d.notes);
         return factsCard({
           fields: [
-            { name: "nameKo", label: t("edit.name") + " · 한국어", value: name.ko, placeholder: d.original?.name || "" },
-            { name: "nameEn", label: t("edit.name") + " · English", value: name.en, placeholder: d.original?.name || "" },
-            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
-            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true, placeholder: d.original?.description || "" },
-            { name: "notesKo", label: t("edit.notes") + " · 한국어", value: notes.ko, area: true },
-            { name: "notesEn", label: t("edit.notes") + " · English", value: notes.en, area: true },
+            { name: "name", pair: true, label: t("edit.name"), value: name, placeholder: d.original?.name || "", wide: true },
+            { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
+            { name: "notes", pair: true, label: t("edit.notes"), value: notes, area: true, wide: true },
           ],
           async save(v) {
-            const body = { description: { ko: v.descKo, en: v.descEn }, notes: { ko: v.notesKo, en: v.notesEn } };
+            const body = { description: v.desc, notes: v.notes };
             // The name only when it changed: a new name rebuilds the whole list.
-            if (v.nameKo !== name.ko || v.nameEn !== name.en) body.name = { ko: v.nameKo, en: v.nameEn };
+            if (v.name.ko !== name.ko || v.name.en !== name.en) body.name = v.name;
             const next = await artJson(`/${baseId}/meta`, body);
             Object.assign(name, pairOf(next.name));
             changed();
@@ -4445,12 +4473,11 @@
           fields: [
             { name: "kind", label: t("edit.kind"), value: d.kind, options: [["tool", t("tab.tools")], ["port", t("tab.ports")]], wide: true },
             { name: "verified", label: t("edit.verified"), note: t("edit.verifiedNote"), value: d.verified, check: true, cls: "ef-verified" },
-            { name: "descKo", label: t("edit.desc") + " · 한국어", value: desc.ko, area: true, wide: true },
-            { name: "descEn", label: t("edit.desc") + " · English", value: desc.en, area: true, wide: true },
+            { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
           ],
           async save(v) {
-            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: { ko: v.descKo, en: v.descEn }, kind: v.kind, verified: v.verified });
-            changed({ desc: (lang === "ko" ? v.descKo : v.descEn) || v.descEn || v.descKo, verified: v.verified });
+            await artJson(`/homebrew/${encodeURIComponent(id)}/meta`, { description: v.desc, kind: v.kind, verified: v.verified });
+            changed({ desc: (lang === "ko" ? v.desc.ko : v.desc.en) || v.desc.en || v.desc.ko, verified: v.verified });
           },
           reset: d.description ? async () => { await artJson(`/homebrew/${encodeURIComponent(id)}/meta/reset`, {}); changed(); refill(); } : null,
         });
@@ -4460,17 +4487,15 @@
         const d = await artJson(`/patch/${encodeURIComponent(id)}/meta`);
         return factsCard({
           fields: [
-            { name: "name", label: t("edit.name"), value: d.name },
-            { name: "nameKo", label: t("edit.nameKo"), value: d.nameKo },
+            { name: "names", pair: true, label: t("edit.name"), value: { ko: d.nameKo, en: d.name }, wide: true },
             { name: "version", label: t("edit.version"), value: d.version },
             { name: "author", label: t("edit.author"), value: d.author },
             ...(d.homebrew ? [] : [{ name: "gameVersion", label: t("edit.gameVersion"), value: d.gameVersion, wide: true }]),
-            { name: "description", label: t("edit.desc"), value: d.description, area: true, wide: true },
-            { name: "descriptionKo", label: t("edit.descKo"), value: d.descriptionKo, area: true, wide: true },
+            { name: "descs", pair: true, label: t("edit.desc"), value: { ko: d.descriptionKo, en: d.description }, area: true, wide: true },
             ...(d.homebrew ? [] : [{ name: "required", label: t("edit.required"), note: t("edit.requiredNote"), value: d.required, check: true }]),
           ],
-          async save(v) {
-            const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, v);
+          async save({ names, descs, ...v }) {
+            const next = await artJson(`/patch/${encodeURIComponent(id)}/meta`, { ...v, name: names.en, nameKo: names.ko, description: descs.en, descriptionKo: descs.ko });
             changed({ title: lang === "ko" ? next.nameKo || next.name : next.name });
           },
         });
