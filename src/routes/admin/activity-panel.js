@@ -127,7 +127,7 @@ export function activityScript({ web = false } = {}) {
 var actLive=false;
 let actCanCancel=${web ? "false" : "true"};
 const actWords=${JSON.stringify(ACTIVITY_WORDS)};
-const actText=(key)=>actWords[${web ? "lang" : "'ko'"}]?.[key]||actWords.en[key];
+const actText=(key)=>actWords[${web ? "lang" : "adminLang"}]?.[key]||actWords.en[key];
 const actApi=${web ? "(url,init)=>fetch(url,init).then(async(r)=>{if(!r.ok){const e=new Error(\"HTTP \"+r.status);e.status=r.status;throw e;}return r.json();})" : "api"};
 const actEl=${web ? "(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}" : "el"};
 const actNum=${web ? "(n)=>Number(n).toLocaleString(lang)" : "num"};
