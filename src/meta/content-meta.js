@@ -24,6 +24,7 @@ import { extractedMetaDir } from "../helpers/envs.js";
 import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { findControlNcaId, readCnmtFacts, readCnmtIdentity, firmwareString } from "./cnmt-parse.js";
 import { NACP_TOTAL_BYTES, decodeNacp } from "./nacp-decode.js";
+import { readCnmts } from "./nca-reader.js";
 import {
   resolveBinary, keysAvailable, runNstool, findFirstRecursive, keysFile, DEFAULT_TIMEOUT_MS,
 } from "./extract-providers/nsp.js";
@@ -126,13 +127,6 @@ export function recordFromFacts(facts, metaNcaSize, nacpFacts = null) {
   return record;
 }
 
-async function extractOne(run, absPath, entry, tmp, label, pick) {
-  const nca = path.join(tmp, `${label}.nca`);
-  await copyPfs0Entry(absPath, entry, nca);
-  await run(["-x", path.join(tmp, label), nca]);
-  return findFirstRecursive(path.join(tmp, label), pick);
-}
-
 async function extractNacp(run, absPath, entry, tmp) {
   const nca = path.join(tmp, "control.nca");
   await copyPfs0Entry(absPath, entry, nca);
@@ -172,39 +166,32 @@ async function readNacpFacts(run, absPath, entries, cnmt, tmp) {
 export async function readContentMeta(absPath, { withNacp = false } = {}) {
   const bin = await resolveBinary();
   if (!bin || !(await keysAvailable())) return null;
+  // The cnmt is read in place (nca-reader.js); nstool only unpacks the NACP.
+  const [first] = await readCnmts(absPath);
+  if (!first) return null;
+  const facts = readCnmtFacts(first.cnmt);
+  if (!facts) return null;
+  if (!withNacp) return recordFromFacts(facts, first.entry.size, null);
   const entries = await readPfs0Entries(absPath);
-  const cnmtEntry = entries?.find((e) => /\.cnmt\.nca$/i.test(e.name));
-  if (!cnmtEntry) return null;
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "cook-meta-"));
   const run = (args) => runNstool(bin, ["-k", keysFile(), ...args], { timeoutMs: DEFAULT_TIMEOUT_MS });
   try {
-    const cnmtFile = await extractOne(run, absPath, cnmtEntry, tmp, "cnmt", (n) => /\.cnmt$/i.test(n));
-    if (!cnmtFile) return null;
-    const cnmt = await fs.readFile(cnmtFile);
-    const facts = readCnmtFacts(cnmt);
-    if (!facts) return null;
-    const nacpFacts = withNacp ? await readNacpFacts(run, absPath, entries, cnmt, tmp) : null;
-    return recordFromFacts(facts, cnmtEntry.size, nacpFacts);
+    return recordFromFacts(facts, first.entry.size, await readNacpFacts(run, absPath, entries ?? [], first.cnmt, tmp));
   } finally {
     fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
   }
 }
 
-/** Title id, version, kind and base game of one NSP/NSZ from its cnmt; null when unreadable. */
+const KIND_RANK = { base: 0, update: 1, dlc: 2, delta: 3 };
+
+/**
+ * Title id, version, kind and base game of one NSP, NSZ, XCI or XCZ from its
+ * cnmt; null when unreadable. A cartridge that carries its update names the game.
+ */
 export async function readIdentity(absPath) {
-  const bin = await resolveBinary();
-  if (!bin || !(await keysAvailable())) return null;
-  const entries = await readPfs0Entries(absPath);
-  const cnmtEntry = entries?.find((e) => /\.cnmt\.nca$/i.test(e.name));
-  if (!cnmtEntry) return null;
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "cook-id-"));
-  const run = (args) => runNstool(bin, ["-k", keysFile(), ...args], { timeoutMs: DEFAULT_TIMEOUT_MS });
-  try {
-    const cnmtFile = await extractOne(run, absPath, cnmtEntry, tmp, "cnmt", (n) => /\.cnmt$/i.test(n));
-    return cnmtFile ? readCnmtIdentity(await fs.readFile(cnmtFile)) : null;
-  } finally {
-    fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
-  }
+  const ids = (await readCnmts(absPath)).map((x) => readCnmtIdentity(x.cnmt)).filter(Boolean);
+  ids.sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
+  return ids[0] ?? null;
 }
 
 /** Queues a file once per (title, version); XCI/XCZ are not PFS0 and are skipped. */

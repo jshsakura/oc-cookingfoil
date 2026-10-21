@@ -82,6 +82,32 @@ function readLenient(file) {
   return keys;
 }
 
+let cached = null;
+
+/**
+ * The keys the readers decrypt with, as name → hex; null when there is no
+ * prod.keys. Read again only when the file or its mtime changes.
+ */
+export function loadKeys() {
+  const file = keysFile();
+  let stat;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    cached = null;
+    return null;
+  }
+  if (cached?.file === file && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.keys;
+  if (stat.size > MAX_BYTES) return null;
+  try {
+    cached = { file, mtimeMs: stat.mtimeMs, size: stat.size, keys: readLenient(file) };
+  } catch (err) {
+    debug.error("prod.keys: cannot read %s: %s", file, err.code ?? err.message);
+    return null;
+  }
+  return cached.keys;
+}
+
 const NONE = { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0 };
 
 /** { present, source: "upload"|"file"|null, uploadedAt, keyCount, hasHeaderKey, titleKekCount }. No values. */
