@@ -46,8 +46,9 @@ test("names: tags are kept or added, folder names are made safe, a ticket names 
   assert.equal(folderNameOf("  .. "), null);
   assert.deepEqual(identityFromTicket(["a.nca", `${BASE.toLowerCase()}0000000000000012.tik`]), { titleId: BASE, version: null, kind: "base", baseTitleId: BASE });
   assert.equal(identityFromTicket(["a.nca"]), null);
-  assert.ok(isIncoming("incoming/x.nsp") && isIncoming("Incoming/a/b.nsp"));
-  assert.ok(!isIncoming("incomings/x.nsp") && !isIncoming("Game/incoming/x.nsp"));
+  assert.ok(isIncoming("incoming/x.nsp", "incoming") && isIncoming("Incoming/a/b.nsp", "incoming"));
+  assert.ok(!isIncoming("incomings/x.nsp", "incoming") && !isIncoming("Game/incoming/x.nsp", "incoming"));
+  assert.ok(!isIncoming("incoming/x.nsp", null), "a drop box outside the games folder hides nothing in it");
 });
 
 test("a new game gets a folder named after it; its update and DLC follow, each tagged", () => {
@@ -155,6 +156,7 @@ test("a sweep sorts the drop box into the games folder and leaves the rest", asy
     put("incoming/copying.nsp", Date.now());
     const reads = [];
     const org = createOrganizer({
+      incomingDir: path.join(roms, "incoming"),
       romsDir: roms,
       romsRels: async () => [`내 게임/a [${BASE}][v0].nsp`],
       ...createIdentifier({

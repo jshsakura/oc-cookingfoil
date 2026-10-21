@@ -66,14 +66,15 @@ test("a sweep copies ROMs and apps to their folders on another root and never re
     fs.utimesSync(abs, old, old);
   };
   try {
-    put("games/incoming/gba/Golden Sun.gba", "new");
-    put("games/incoming/snes/Kept.sfc", "dropped");
+    put("incoming/gba/Golden Sun.gba", "new");
+    put("incoming/snes/Kept.sfc", "dropped");
     put("retro/roms/snes/Kept.sfc", "already");
-    put("games/incoming/Tool.nro");
-    put("games/incoming/ps1/G/G.cue", 'FILE "G.bin" BINARY');
-    put("games/incoming/ps1/G/G.bin");
+    put("incoming/Tool.nro");
+    put("incoming/ps1/G/G.cue", 'FILE "G.bin" BINARY');
+    put("incoming/ps1/G/G.bin");
     let rescans = 0;
     const org = createOrganizer({
+      incomingDir: path.join(root, "incoming"),
       romsDir: path.join(root, "games"),
       retroDir: path.join(root, "retro"),
       homebrewDir: path.join(root, "homebrew"),
@@ -95,7 +96,7 @@ test("a sweep copies ROMs and apps to their folders on another root and never re
     assert.equal(fs.readFileSync(path.join(root, "retro/roms/snes/Kept.sfc"), "utf8"), "already", "never replaced");
     assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["snes/Kept.sfc", REASONS.taken]]);
     assert.equal(rescans, 2);
-    assert.deepEqual(fs.readdirSync(path.join(root, "games/incoming/snes")), ["Kept.sfc"]);
+    assert.deepEqual(fs.readdirSync(path.join(root, "incoming/snes")), ["Kept.sfc"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

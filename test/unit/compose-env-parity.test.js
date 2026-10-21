@@ -12,12 +12,15 @@ import path from "node:path";
 const ROOT = path.join(import.meta.dirname, "../..");
 const compose = readFileSync(path.join(ROOT, "docker-compose.yml"), "utf-8");
 
-// Fixed by the compose file's own volumes and port.
+// Fixed by the compose file's own volume and port. The folder variables are
+// blanked so an .env meant for running from source cannot move them.
 const FIXED = [
-  "PUID", "PGID",
-  "COOK_PORT", "COOK_GAMES_DIR", "COOK_DATA_DIR", "COOK_KEYS_DIR",
-  "COOK_RETRO_DIR", "COOK_PATCHES_DIR", "COOK_SAVES_DIR", "COOK_HOMEBREW_DIR",
+  "PUID", "PGID", "COOK_PORT", "COOK_STORAGE_DIR",
+  "COOK_GAMES_DIR", "COOK_DATA_DIR", "COOK_KEYS_DIR", "COOK_RETRO_DIR",
+  "COOK_PATCHES_DIR", "COOK_SAVES_DIR", "COOK_HOMEBREW_DIR", "COOK_INCOMING_DIR",
+  "COOK_PROD_KEYS_PATH",
 ];
+const BLANKED = FIXED.filter((k) => (k.endsWith("_DIR") && k !== "COOK_STORAGE_DIR") || k === "COOK_PROD_KEYS_PATH");
 
 test("the whole .env reaches the container, in the short form older Compose releases read", () => {
   assert.match(compose, /env_file:\s*\n\s*- \.env\s*\n/);
@@ -32,10 +35,22 @@ test("only the paths and port the compose file fixes are set in environment:", (
   assert.deepEqual(listed, [...FIXED].sort(), "anything else listed there would override .env");
 });
 
-test("every folder is mounted beside the compose file unless its own COOK_<NAME>_PATH says otherwise", () => {
+test("one storage folder is mounted, beside the compose file unless COOK_STORAGE_PATH says otherwise", () => {
+  assert.ok(compose.includes("- ${COOK_STORAGE_PATH:-./storage}:/storage"));
+  assert.match(compose, /^\s{6}COOK_STORAGE_DIR: \/storage$/m);
+});
+
+test("a new install mounts the storage folder alone", () => {
+  const mounts = [...compose.matchAll(/^\s{6}- (\S+:\/\S+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(mounts, ["${COOK_STORAGE_PATH:-./storage}:/storage"]);
+});
+
+test("the older layout's folders are an opt-in override, so an upgrade can keep them", () => {
+  const legacy = readFileSync(path.join(ROOT, "docker-compose.legacy.yml"), "utf-8");
   const dirs = { games: "/games", data: "/data", keys: "/keys:ro", retro: "/retro", patches: "/patches", saves: "/saves", homebrew: "/homebrew" };
   for (const [name, target] of Object.entries(dirs)) {
     const line = `- \${COOK_${name.toUpperCase()}_PATH:-./${name}}:${target}`;
-    assert.ok(compose.includes(line), line);
+    assert.ok(legacy.includes(line), line);
   }
+  assert.doesNotMatch(legacy, /\$\{[^}]*\$\{/);
 });

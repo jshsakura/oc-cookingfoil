@@ -107,13 +107,7 @@ services:
     ports:
       - "9080:80"
     volumes:
-      - ./games:/games
-      - ./data:/data
-      - ./keys:/keys:ro
-      - ./retro:/retro
-      - ./patches:/patches
-      - ./saves:/saves
-      - ./homebrew:/homebrew
+      - ./storage:/storage
 ```
 
 ### 群晖 NAS
@@ -121,7 +115,7 @@ services:
 1. 在套件中心安装 **Container Manager**(DSM 7.2 或更高版本)。
 2. 在 File Station 中创建 `docker/cookingfoil` 之类的文件夹，放入 `docker-compose.yml` 和 `.env`(`.env.example` 的副本)。在任意电脑上用 `openssl rand -base64 32` 生成密钥，填入 `.env` 的 `COOK_SECRET_KEY`。
 3. 把 `.env` 中的 `PUID` 和 `PGID` 设为文件夹所有者账户的值。通过 SSH 运行 `id <账户>` 可查看。第一个管理员账户通常是 `1026`，`users` 用户组是 `100`。
-4. 要把游戏放在已有的共享文件夹中，设置路径(例如 `COOK_GAMES_PATH=/volume1/games`)，并给该账户读写权限。
+4. 要把所有内容放在已有的共享文件夹中，设置路径(例如 `COOK_STORAGE_PATH=/volume1/cookingfoil`)，并给该账户读写权限。
 5. 在 Container Manager 中依次打开 **项目**、**新增**，选择第 2 步的文件夹，直接使用其中的 `docker-compose.yml`，完成向导。
 6. 设置码在 **容器**、`cookingfoil`、**日志** 中。打开 `http://<NAS 地址>:9080/`。如果开启了 DSM 防火墙，请放行 9080 端口。
 
@@ -131,16 +125,22 @@ services:
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # optional; defaults for the first start
-├── games/            # your packages (.nsp .nsz .xci .xcz)
-├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
-├── keys/             # optional, read-only: your own prod.keys
-├── retro/            # retro ROMs, art and the RetroArch base pack
-├── patches/          # patches by base title id, and homebrew/<app>/
-├── saves/            # save files by title id, and homebrew/<app>/
-└── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
+└── storage/          # the one folder mounted at /storage; the server makes the rest
+    ├── incoming/     # drop box: files put here are sorted into the folders below
+    ├── games/        # sorted Switch games, one folder per game with update/ and DLC/
+    ├── homebrew/     # .nro apps, app folders, or a release zip left in its own folder
+    ├── retro/        # retro ROMs, art and the RetroArch base pack
+    ├── patches/      # patches by base title id, and homebrew/<app>/
+    ├── saves/        # save files by title id, and homebrew/<app>/
+    ├── keys/         # recommended: your own prod.keys (or upload it on the admin page)
+    └── data/         # cache, accounts and every setting saved on the admin page. Back this one up
 ```
 
-缺少的文件夹由 Docker 在 `docker-compose.yml` 旁边自动创建。要放到别处，在 `.env` 中设置该文件夹的路径，例如 `COOK_GAMES_PATH=/path/to/games`。其余的是 `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH` 和 `COOK_HOMEBREW_PATH`。
+存储文件夹默认是 `docker-compose.yml` 旁边的 `./storage`，可用 `.env` 中的 `COOK_STORAGE_PATH` 修改。服务器启动时会在其中创建上面的文件夹，也可以用 `COOK_<名称>_DIR` 把其中某一个放到别处。
+
+要让服务器代为整理，把文件放进 `storage/incoming/`。文件一分钟内没有变化后，服务器从文件内的信息(没有 `prod.keys` 时用文件名或票据)读出标题 ID 和版本，在文件名中加上 `[TITLEID][vN]`，移到 `games/` 中每个游戏一个文件夹，本体旁边放 `update/` 和 `DLC/`。已有文件夹的游戏沿用原文件夹，新游戏以其名称新建文件夹。复古 ROM 放进以机种命名的文件夹(`incoming/snes/`)后移到 `retro/`，单独的 `.nro` 移到 `homebrew/`。不会覆盖任何文件，无法放置的文件留在 `incoming/`，原因显示在管理页面(游戏库，임시 폴더)。服务器按位置而不是名称或内容识别临时文件夹，因此不会把 `games/` 中的文件夹误当作待整理的内容。
+
+**从分开挂载的服务器迁移。** 新安装只挂载存储文件夹。文件仍在分开的文件夹(`./games`、`./data`、`./keys` 等，或 `COOK_<名称>_PATH` 指定的位置)中的服务器需同时使用 `docker-compose.legacy.yml`：用 `docker compose -f docker-compose.yml -f docker-compose.legacy.yml up -d` 启动，或在 `.env` 中写入 `COMPOSE_FILE=docker-compose.yml:docker-compose.legacy.yml`。不加这个文件启动时，这些文件夹不会被挂载，服务器以空状态启动，磁盘上的文件不受影响。加上后，有文件的旧文件夹继续使用，并在管理页面的概览中提示；空文件夹会被忽略。要完成迁移，先停止服务器，把各文件夹的内容按上面的名称移进存储文件夹，去掉 legacy 文件后再启动。迁移过程中不会覆盖任何文件；`games/incoming/` 中的内容在没有同名项且不在其他磁盘上时移到 `incoming/`，留下的会显示在概览中。
 
 服务器以用户 `PUID`、用户组 `PGID` 运行(`.env` 未设置时为 1000、1000)，因此它在这些文件夹中写入的文件归你所有。在主机上运行 `id` 可查看自己的值。启动时它把数据文件夹交给该用户；无法写入的游戏库文件夹会连同修复命令一起写进日志，其他内容不做改动。`PUID=0` 以 root 运行；在 compose 文件中写 `user:` 则按该用户原样运行。
 
@@ -395,7 +395,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 
 **我丢失了身份验证器。** 如果设置过管理员密码，用它登录。如果两者都丢失了，在 `.env` 中写入 `COOK_ADMIN_PASSWORD`（12 个字符以上），重启后用它登录。
 
-**名称显示成了文件名。** titledb 还在下载中，或者该标题不在 titledb 里。把你自己的 `prod.keys` 放进 `keys/`，以便从文件中读取名称和图标，并查看概览 (개요) 标签页上的名称状态面板。
+**名称显示成了文件名。** titledb 还在下载中，或者该标题不在 titledb 里。把你自己的 `prod.keys` 放进 `storage/keys/`，以便从文件中读取名称和图标，并查看概览 (개요) 标签页上的名称状态面板。
 
 **复古游戏缺少封面。** 在复古 (레트로) 标签页上使用"获取缺失项 (빠진 것 모두 받기)"，或手动匹配游戏。GitHub 令牌（设置 (설정)）可以解除 GitHub 每小时 60 次请求的限制。
 

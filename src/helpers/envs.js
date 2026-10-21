@@ -2,10 +2,9 @@ import dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 
 import path from "path";
-import fileDirName from "./helpers.js";
 import { envString, envNumber, envBool } from "./env-read.js";
+import { resolveLayout, oldIncoming } from "./storage-layout.js";
 
-const { __dirname } = fileDirName(import.meta);
 
 /**
  * Backward-compat env var reader.
@@ -39,11 +38,18 @@ for (const [v, where] of Object.entries(DEPRECATED_FEATURE_VARS)) {
   }
 }
 
-// Games library. Relative default resolves against CWD — Docker overrides
-// via ENV=/games. ROMS_DIR_FULLPATH is the legacy tinfoil-hat name.
-const gamesPath =
-  pickEnv("COOK_GAMES_DIR", "ROMS_DIR_FULLPATH") ?? "./games";
-const romsDirPath = path.resolve(gamesPath);
+// Every folder the server reads and writes (storage-layout.js decides them all).
+const layout = resolveLayout();
+const romsDirPath = layout.dirs.games;
+// The drop box (meta/library-organize.js): <storage>/incoming, or <games>/incoming without a storage folder.
+const incomingDir = layout.dirs.incoming;
+// The part of the games folder that is a drop box and not the library: the drop box itself
+// when it sits there, or the one a server had there before its storage folder (moved at start).
+const incomingInGames = (() => {
+  const rel = path.relative(romsDirPath, incomingDir);
+  if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) return rel.split(path.sep).join("/");
+  return oldIncoming(layout) ? "incoming" : null;
+})();
 
 const appPort = pickEnv("COOK_PORT", "TINFOIL_HAT_PORT") ?? "80";
 
@@ -55,9 +61,7 @@ const unauthorizedMessage =
 // --- Phase 2 additions ---
 
 // Persistent runtime data: extracted icons/metadata + titledb cache.
-const dataDir = path.resolve(
-  envString("COOK_DATA_DIR", path.join(__dirname, "/../../data/"))
-);
+const dataDir = layout.dirs.data;
 const iconCacheDir = path.join(dataDir, "extracted");
 const titledbCacheDir = path.join(dataDir, "titledb");
 // Operator-supplied artwork (icon/banner/screenshot) that overrides both the
@@ -141,7 +145,7 @@ const adminEmail = (() => {
 // Console keys, mounted read-only. Required for NACP extraction
 // (Phase 2c); the server runs fine without them — items just show without
 // extracted icons/names.
-const keysDir = envString("COOK_KEYS_DIR", "/keys");
+const keysDir = layout.dirs.keys;
 
 // Icon/metadata extraction policy (Phase 2c). Controls when we pull the
 // icon (and fallback name/publisher) straight out of the game container
@@ -252,16 +256,16 @@ const steamGridDbKey = envString("COOK_STEAMGRIDDB_KEY", "").trim();
 const raApiKey = envString("COOK_RA_API_KEY", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
-const patchesDir = path.resolve(envString("COOK_PATCHES_DIR", "/patches"));
+const patchesDir = layout.dirs.patches;
 // Save files the shop hands out (a save with everything unlocked, …). Off until this folder exists.
-const savesDir = path.resolve(envString("COOK_SAVES_DIR", "/saves"));
+const savesDir = layout.dirs.saves;
 // Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
-const retroDir = path.resolve(envString("COOK_RETRO_DIR", path.join(dataDir, "retro")));
+const retroDir = layout.dirs.retro;
 // Homebrew (.nro apps) for clients: hand-placed ones in <dir>/<app>/<app>.nro,
 // plus the latest release of each GitHub repository in COOK_HOMEBREW_REPOS
 // ("owner/name" or github.com addresses, separated by commas or spaces).
 // /api/shop/info lists the "homebrew" feature only while at least one app is listed.
-const homebrewDir = path.resolve(envString("COOK_HOMEBREW_DIR", "/homebrew"));
+const homebrewDir = layout.dirs.homebrew;
 const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .split(/[\s,]+/)
   .filter(Boolean);
@@ -480,6 +484,9 @@ function applyServerSettings(saved = {}) {
 }
 
 export {
+  layout,
+  incomingDir,
+  incomingInGames,
   ENV_SETTINGS,
   directEdgeSecret,
   directCountries,

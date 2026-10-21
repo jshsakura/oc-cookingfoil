@@ -15,6 +15,8 @@ import { secretSource, isEnrolled } from "./admin-secret.js";
 import { adminEmail } from "../helpers/envs.js";
 import { proxyCollapseObserved } from "./proxy-check.js";
 import { ready as keysReady } from "./prod-keys.js";
+import { layout as storageLayout } from "../helpers/envs.js";
+import { ROLES, oldIncoming } from "../helpers/storage-layout.js";
 
 export const SEVERITY = { WARN: "warn", INFO: "info" };
 
@@ -35,8 +37,33 @@ export function authLanes() {
   };
 }
 
-export function configWarnings(lanes = authLanes(), { keys = keysReady() } = {}) {
+/** The storage folder's warnings: roles still read from an old mount, and an old drop box left in the games folder. */
+export function storageWarnings(layout = storageLayout, leftBox = oldIncoming(layout)) {
   const out = [];
+  const kept = ROLES.filter((r) => layout.from[r] === "kept");
+  if (kept.length) {
+    out.push({
+      severity: SEVERITY.WARN,
+      code: "storage-kept",
+      title: "Some folders are still read from their old mounts",
+      detail: `The storage folder ${layout.root} is mounted, but ${kept.map((r) => `${r} (${layout.dirs[r]})`).join(", ")} still hold files at the old place, so the server keeps using them. Move their contents into ${layout.root}/<name> and drop the old mounts.`,
+      paths: kept.map((r) => ({ role: r, now: layout.dirs[r], want: `${layout.root}/${r}` })),
+    });
+  }
+  if (leftBox) {
+    out.push({
+      severity: SEVERITY.WARN,
+      code: "old-incoming",
+      title: "Files are left in the old drop box inside the games folder",
+      detail: `${leftBox} could not be moved into ${layout.dirs.incoming}: the same names are already there, or it is on another disk. They are not listed or sorted until moved by hand.`,
+      paths: [{ role: "incoming", now: leftBox, want: layout.dirs.incoming }],
+    });
+  }
+  return out;
+}
+
+export function configWarnings(lanes = authLanes(), { keys = keysReady() } = {}) {
+  const out = [...storageWarnings()];
 
   if (!keys) {
     out.push({

@@ -1,0 +1,23 @@
+# Only for an install from before the storage folder, whose files are still in
+# separate folders (./games, ./data, ./keys, ... or your COOK_<NAME>_PATH values).
+# A new install does not need this file.
+#
+# It mounts those folders next to /storage. A folder that holds files keeps being
+# used, and the admin page's overview names it; an empty one is ignored. Start with
+#
+#   docker compose -f docker-compose.yml -f docker-compose.legacy.yml up -d
+#
+# or put COMPOSE_FILE=docker-compose.yml:docker-compose.legacy.yml in .env so
+# every docker compose command includes it. When each folder's contents sit in
+# the storage folder under the same name (games, data, keys, retro, patches,
+# saves, homebrew), stop the server, drop this file and start again.
+services:
+  cookingfoil:
+    volumes:
+      - ${COOK_GAMES_PATH:-./games}:/games
+      - ${COOK_DATA_PATH:-./data}:/data
+      - ${COOK_KEYS_PATH:-./keys}:/keys:ro
+      - ${COOK_RETRO_PATH:-./retro}:/retro
+      - ${COOK_PATCHES_PATH:-./patches}:/patches
+      - ${COOK_SAVES_PATH:-./saves}:/saves
+      - ${COOK_HOMEBREW_PATH:-./homebrew}:/homebrew

@@ -107,13 +107,7 @@ services:
     ports:
       - "9080:80"
     volumes:
-      - ./games:/games
-      - ./data:/data
-      - ./keys:/keys:ro
-      - ./retro:/retro
-      - ./patches:/patches
-      - ./saves:/saves
-      - ./homebrew:/homebrew
+      - ./storage:/storage
 ```
 
 ### Synology NAS
@@ -121,7 +115,7 @@ services:
 1. Install **Container Manager** from Package Center (DSM 7.2 or later).
 2. In File Station, make a folder such as `docker/cookingfoil` and put `docker-compose.yml` and `.env` (a copy of `.env.example`) in it. Set `COOK_SECRET_KEY` in `.env` to a key made with `openssl rand -base64 32` on any computer.
 3. Set `PUID` and `PGID` in `.env` to the account that owns your folders. Over SSH, `id <account>` prints them. The first admin account is usually `1026` and the `users` group `100`.
-4. To keep games in a shared folder you already have, set its path, for example `COOK_GAMES_PATH=/volume1/games`, and give that account read and write permission on it.
+4. To keep everything in a shared folder you already have, set its path, for example `COOK_STORAGE_PATH=/volume1/cookingfoil`, and give that account read and write permission on it.
 5. In Container Manager, open **Project**, choose **Create**, pick the folder from step 2 and use the `docker-compose.yml` already in it. Finish the wizard.
 6. The setup code is under **Container**, `cookingfoil`, **Log**. Open `http://<NAS address>:9080/`. If the DSM firewall is on, allow port 9080.
 
@@ -131,21 +125,24 @@ services:
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # optional; defaults for the first start
-├── games/            # your packages (.nsp .nsz .xci .xcz)
-│   └── incoming/     # drop box: files put here are sorted into games/ by themselves
-├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
-├── keys/             # recommended, read-only: your own prod.keys (or upload it on the admin page)
-├── retro/            # retro ROMs, art and the RetroArch base pack
-├── patches/          # patches by base title id, and homebrew/<app>/
-├── saves/            # save files by title id, and homebrew/<app>/
-└── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
+└── storage/          # the one folder mounted at /storage; the server makes the rest
+    ├── incoming/     # drop box: files put here are sorted into the folders below
+    ├── games/        # sorted Switch games, one folder per game with update/ and DLC/
+    ├── homebrew/     # .nro apps, app folders, or a release zip left in its own folder
+    ├── retro/        # retro ROMs, art and the RetroArch base pack
+    ├── patches/      # patches by base title id, and homebrew/<app>/
+    ├── saves/        # save files by title id, and homebrew/<app>/
+    ├── keys/         # recommended: your own prod.keys (or upload it on the admin page)
+    └── data/         # cache, accounts and every setting saved on the admin page. Back this one up
 ```
 
-**`prod.keys` is recommended.** With your own console keys the server reads what every Switch game file is from the file itself: names, icons, NSZ conversion and home-screen shortcuts. Without them everything is still served, but a game file is known only by the `[TITLEID][vN]` in its name, and the admin page's overview warns about it. Mount it in `keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart.
+**`prod.keys` is recommended.** With your own console keys the server reads what every Switch game file is from the file itself: names, icons, NSZ conversion and home-screen shortcuts. Without them everything is still served, but a game file is known only by the `[TITLEID][vN]` in its name, and the admin page's overview warns about it. Put it in `storage/keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart.
 
-Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `games/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), adds `[TITLEID][vN]` to its name and moves it into one folder per game, with `update/` and `DLC/` beside the base game. A game that already has a folder keeps it; a new one gets a folder named after it. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, 임시 폴더).
+Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `storage/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), adds `[TITLEID][vN]` to its name and moves it into `games/`, one folder per game, with `update/` and `DLC/` beside the base game. A game that already has a folder keeps it; a new one gets a folder named after it. Retro ROMs go in a folder named after their system (`incoming/snes/`) and move to `retro/`, and a lone `.nro` moves to `homebrew/`. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, 임시 폴더). The server knows the drop box by its place, never by a folder's name or contents, so nothing in `games/` is ever treated as waiting to be sorted.
 
-Docker creates any folder that is missing, beside `docker-compose.yml`. To put one somewhere else, set its path in `.env`, for example `COOK_GAMES_PATH=/path/to/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
+The storage folder is `./storage` beside `docker-compose.yml` unless `COOK_STORAGE_PATH` in `.env` says otherwise. The server makes the folders above inside it on start, and `COOK_<NAME>_DIR` still puts one of them anywhere.
+
+**Upgrading from separate mounts.** A new install mounts the storage folder alone. An install whose files are still in separate folders (`./games`, `./data`, `./keys`, … or your `COOK_<NAME>_PATH` values) adds `docker-compose.legacy.yml`: `docker compose -f docker-compose.yml -f docker-compose.legacy.yml up -d`, or `COMPOSE_FILE=docker-compose.yml:docker-compose.legacy.yml` in `.env`. Without it those folders are not mounted and the server starts empty, though nothing on disk is touched. With it, a folder that holds files keeps being used and the admin page's overview names it, and an empty one is ignored. To finish moving, stop the server, move each folder's contents into the storage folder under the names above, drop the legacy file and start. Nothing is overwritten on the way, and what was in `games/incoming/` moves to `incoming/` unless the same name is already there or it sits on another disk; the overview lists what stayed.
 
 The server runs as the user `PUID` and the group `PGID` (1000 and 1000 unless `.env` says otherwise), so what it writes in these folders belongs to you. `id` on the host prints yours. At start it hands the data folder to that user. A library folder it cannot write is named in the log with the command that fixes it, and nothing else is changed. `PUID=0` runs as root, and a `user:` line in the compose file runs as that user unchanged.
 
@@ -401,7 +398,7 @@ A client should read `features` from `/api/shop/info` before it uses optional fi
 
 **I lost the authenticator.** Sign in with the admin password if you set one. If both are lost, put `COOK_ADMIN_PASSWORD` (12+ characters) in `.env`, restart, and sign in with it.
 
-**Names show as file names.** titledb is still downloading, or the title is not in titledb. Put your own `prod.keys` in `keys/` so names and icons can be read from the files, and check the name health panel on the Overview tab.
+**Names show as file names.** titledb is still downloading, or the title is not in titledb. Put your own `prod.keys` in `storage/keys/` so names and icons can be read from the files, and check the name health panel on the Overview tab.
 
 **Retro games are missing box art.** On the Retro tab, use "fetch missing" (빠진 것 모두 받기), or match a game by hand. A GitHub token (Settings) lifts GitHub's limit of 60 requests an hour.
 

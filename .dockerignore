@@ -37,3 +37,5 @@ games
 Dockerfile
 docker-compose*.yml
 .dockerignore
+# The storage folder docker-compose.yml makes beside itself.
+storage/

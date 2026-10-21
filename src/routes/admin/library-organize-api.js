@@ -17,6 +17,7 @@ import path from "path";
 import debug from "../../debug.js";
 
 export const defaultOrganizer = createOrganizer({
+  incomingDir: env.incomingDir,
   romsDir: env.romsDirPath,
   romsRels: async () => {
     await shopCache.get();

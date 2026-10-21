@@ -83,6 +83,8 @@ const env = {
   COOK_PORT: String(PORT),
   COOK_DATA_DIR: dataDir,
   COOK_GAMES_DIR: gamesDir,
+  // A storage folder from .env would hand this throwaway server the real drop box.
+  COOK_STORAGE_DIR: "",
   COOK_DEVICE_PAIRING: "true", // harness always exercises the pairing lane
   COOK_TITLEDB_AUTO_FETCH: process.env.COOK_TITLEDB_AUTO_FETCH ?? "false",
   COOK_LOCKOUT_TRUST_LOOPBACK: "false",
