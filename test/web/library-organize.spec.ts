@@ -15,6 +15,7 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
   put('incoming/받은 것/Drop Game [0100000000020000][v0].nsp', true);
   put('incoming/notes.txt', true);
   put('incoming/gba/Drop Quest.gba', true);
+  put('incoming/Loose Quest.gba', true);
   put('incoming/fresh [0100000000030000][v0].nsp', false);
   try {
     await signIn(page);
@@ -24,6 +25,10 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
     await expect(page.locator('#lo-recent')).toContainText('Drop Game/Drop Game [0100000000020000][v0].nsp');
     await expect(page.locator('#lo-held')).toContainText('어디로 보낼지 모르는 파일입니다');
     await expect(page.locator('#lo-recent')).toContainText('roms/gba/Drop Quest.gba');
+    // Outside a system folder a ROM stays, with what it looks like.
+    await expect(page.locator('#lo-held')).toContainText('기종 폴더에 넣어야 옮깁니다');
+    await page.locator('.lo-systems summary').click();
+    await expect(page.locator('#lo-systems')).toContainText('gba 게임보이 어드밴스');
     expect(fs.existsSync('/tmp/cookingfoil-web-test-retro/roms/gba/Drop Quest.gba')).toBe(true);
     await expect(page.locator('#lo-held')).toContainText('아직 복사 중인 파일입니다');
     expect(fs.existsSync(path.join(GAMES, 'Drop Game/Drop Game [0100000000020000][v0].nsp'))).toBe(true);

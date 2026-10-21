@@ -3,20 +3,22 @@
  * are not Switch packages: retro ROMs go to retro/roms/<system>/, a lone
  * homebrew .nro to homebrew/<name>/. Everything else stays, with why.
  *
- * A ROM's system is the folder it was dropped in, when that folder names one
- * (incoming/snes/, incoming/PlayStation/, …), else its extension when only one
- * system plays it (.sfc, .gba, …). A .cue or .m3u takes the files it names
- * along, into a folder of its own. ROMs keep their names.
+ * A ROM's system is the one the operator chose: the folder it was dropped in
+ * (incoming/snes/, incoming/PlayStation/, …). Nothing is guessed from an
+ * extension; it only tells what looks wrong (a .gba in snes/, a ROM outside
+ * any system folder) and the file stays with that warning. A .cue or .m3u
+ * takes the files it names along, into a folder of its own. ROMs keep their names.
  */
 import path from "path";
 import { systemOfFolder, systemOfExtension } from "../retro/systems.js";
 
-// Never picked by extension alone: a picture is no PICO-8 cart, a ScummVM game is a whole folder.
-const NOT_BY_EXTENSION = new Set([".png", ".scummvm"]);
+// Too common to hint at a system: a picture is rarely a PICO-8 cart.
+const NO_HINT = new Set([".png"]);
 const LISTS = new Set([".cue", ".m3u"]);
 
 export const EXTRA_REASONS = Object.freeze({
-  noSystem: "어느 기종의 롬인지 몰라 남겼습니다. incoming 안에 기종 이름 폴더(snes, gba, ps1 등)를 만들어 넣습니다",
+  noSystem: "기종 폴더에 넣어야 옮깁니다. incoming 안에 기종 이름 폴더(snes, gba, ps1 등)를 만들어 넣습니다",
+  wrongExtension: "이 기종에서 쓰지 않는 확장자라 옮기지 않았습니다. 기종 폴더가 맞는지 확인합니다",
   scummvm: "ScummVM 게임은 폴더째 업로드 탭에서 올립니다",
   homebrewFolder: "폴더째 쓰는 홈브류는 업로드 탭에서 올립니다",
   patch: "패치와 세이브는 업로드 탭에서 올립니다",
@@ -74,13 +76,20 @@ export function planExtras({ items = [], refs = new Map(), systems = {} }) {
       moves.push({ from: rel, root: "homebrew", to: `${folder}/${name}` });
       continue;
     }
-    const system = systemFromFolders(rel, systems) ?? (NOT_BY_EXTENSION.has(ext) ? null : systemOfExtension(ext, systems));
     if (ext === ".scummvm") { held.push({ rel, reason: EXTRA_REASONS.scummvm }); continue; }
+    const system = systemFromFolders(rel, systems);
+    const romLike = LISTS.has(ext) || Object.values(systems).some((s) => s.extensions.includes(ext));
+    // What the extension alone suggests, said in the warning and never acted on.
+    const hint = NO_HINT.has(ext) ? null : systemOfExtension(ext, systems);
+    const looks = hint && hint !== system ? `. ${systems[hint].names?.ko ?? hint} 롬으로 보입니다` : "";
     if (!system) {
-      held.push({ rel, reason: systems && Object.values(systems).some((s) => s.extensions.includes(ext)) ? EXTRA_REASONS.noSystem : EXTRA_REASONS.unknown });
+      held.push({ rel, reason: romLike ? EXTRA_REASONS.noSystem + looks : EXTRA_REASONS.unknown, system: null, hint });
       continue;
     }
-    if (!systems[system].extensions.includes(ext) && !LISTS.has(ext)) { held.push({ rel, reason: EXTRA_REASONS.unknown, system }); continue; }
+    if (!systems[system].extensions.includes(ext) && !LISTS.has(ext)) {
+      held.push({ rel, reason: romLike ? EXTRA_REASONS.wrongExtension + looks : EXTRA_REASONS.unknown, system, hint });
+      continue;
+    }
     const base = systems[system].folder;
     if (refs.has(rel)) {
       const parts = refs.get(rel);
