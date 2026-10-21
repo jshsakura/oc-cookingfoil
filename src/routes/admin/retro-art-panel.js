@@ -113,7 +113,7 @@ async function loadRetroCores(){let d;
 async function rcRemove(c,force=false){
   if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
   try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
-  catch(err){if(/게임 \d+개가/.test(err.message)&&!force){
+  catch(err){if(/게임 \\d+개가/.test(err.message)&&!force){
       if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
     toast(err.message);}}
 async function rcUpload(file,replace=false){
