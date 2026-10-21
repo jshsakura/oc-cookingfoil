@@ -29,6 +29,7 @@ import { trustedHere } from "./net.js";
 import { maxAuthFailures as MAX_FAILURES } from "./limits.js";
 import { envNumber } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
+import { noteFailure } from "./security-watch.js";
 import { webUser } from "./user-session.js";
 import * as apiTokens from "./api-tokens.js";
 import * as googleAccounts from "./google-accounts.js";
@@ -216,6 +217,7 @@ export function recordFailure(ip, req) {
     ip,
     req.path
   );
+  noteFailure(ip, next.count, req.path, MAX_FAILURES);
   if (next.count >= MAX_FAILURES) {
     store.lock(ip, { reason: "too many failed auth attempts", ttlMs: LOCKOUT_TTL_MS });
     alert("lockout", (t) => t("lockout"), { subject: ip });
