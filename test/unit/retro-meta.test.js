@@ -524,7 +524,7 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
     const res = await fetch(`${BASE}/api/retro/themes?rows=6`, { headers: { ...AUTH, "Accept-Language": "ko" } });
     assert.equal(res.headers.get("cache-control"), "no-store");
     const { themes } = await res.json();
-    assert.deepEqual(themes[0] && [themes[0].id, themes[0].name, themes[0].games.length], ["recent", "새로 들어온 게임", 11], "the ten that came today and the puzzle");
+    assert.deepEqual(themes[0] && [themes[0].id, themes[0].name, themes[0].games.length], ["recent", "최근 추가", 11], "the ten that came today and the puzzle");
     assert.equal(themes.length, 2, "then one row of the RPGs; a game is in one row only");
     assert.ok(["genre:rpg", "decade:1990", "decade:1990:genre:rpg"].includes(themes[1].id), themes[1].id);
     assert.equal(themes[1].games.length, 10);
