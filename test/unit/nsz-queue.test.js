@@ -1,3 +1,4 @@
+import { render } from "../../src/helpers/alert-messages.js";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -55,7 +56,7 @@ function make(opts = {}) {
   const q = createNszQueue({
     gamesDir: games, stateFile, logFile, now: () => clock, settings: () => S, lowPriority: false, recentWriteMs: 0, idleMs: 0, killGraceMs: 500,
     downloads: () => dl, fileInUse: (rel) => inUse.has(rel), freeBytes: async () => 1e15,
-    onSwapped: (c) => swaps.push(...c), alert: (text, subject) => alerts.push({ text, subject }), autoDelayMs: 10, ...opts,
+    onSwapped: (c) => swaps.push(...c), alert: (text, subject) => alerts.push({ text: render(text, "ko"), subject }), autoDelayMs: 10, ...opts,
   });
   queues.push(q);
   return q;

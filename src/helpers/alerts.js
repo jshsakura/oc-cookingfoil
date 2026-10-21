@@ -19,6 +19,9 @@
  * Alerts carry no passwords, keys, addresses or e-mail: only enough to know
  * what happened and that something may need doing on the admin page.
  *
+ * They are written in the language the admin picked (`lang`, alert-messages.js):
+ * callers pass a function of `t`, rendered once when the alert is raised.
+ *
  * An approval alert (a console, a Google account) also carries [승인] [거절]
  * buttons unless the admin turned them off; each stands for a one-time token
  * (approval-tokens.js) and telegram-updates.js receives the presses.
@@ -29,6 +32,7 @@ import debug from "../debug.js";
 import { dataDir, publicBaseUrl } from "./envs.js";
 import * as integrations from "../security/integrations.js";
 import * as approvalTokens from "../security/approval-tokens.js";
+import { DEFAULT_LANG, render, translator } from "./alert-messages.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
@@ -100,6 +104,9 @@ export function enabledEvents(list = integrations.get("telegram").events) {
 /** Whether the admin wants this event (see enabledEvents). */
 export const wanted = (event, list) => enabledEvents(list).includes(event);
 
+/** The language alerts are written in: the admin's pick, Korean by default. */
+export const alertLang = (conf = integrations.get("telegram")) => conf.lang || DEFAULT_LANG;
+
 /** Whether approval alerts carry buttons: on unless the admin saved "off". */
 export const buttonsOn = (conf = integrations.get("telegram")) => conf.buttons !== "off";
 
@@ -123,9 +130,9 @@ export function sendTelegram({ botToken, chatId }, text, extra = {}) {
   return callTelegram(botToken, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...extra });
 }
 
-/** The [승인] [거절] row for a request; each button carries "y:" or "n:" and the token. */
-export const approvalKeyboard = (token) => ({
-  inline_keyboard: [[{ text: "승인", callback_data: `y:${token}` }, { text: "거절", callback_data: `n:${token}` }]],
+/** The approve / refuse row for a request; each button carries "y:" or "n:" and the token. */
+export const approvalKeyboard = (token, t = translator(alertLang())) => ({
+  inline_keyboard: [[{ text: t("approveButton"), callback_data: `y:${token}` }, { text: t("refuseButton"), callback_data: `n:${token}` }]],
 });
 
 /** The bot's own name, to show which bot is set up; null when the token is refused. */
@@ -161,7 +168,7 @@ export async function recentChats(botToken) {
 const link = () => (publicBaseUrl ? `\n${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 
 /** Sends now and records how it went. Resolves to the history entry. */
-async function deliver(event, text, now, title = EVENTS[event]?.label ?? event, extra = {}) {
+async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {
   const conf = integrations.get("telegram");
   try {
     const d = await sendTelegram(conf, `[CookingFoil] ${title}\n${text}${link()}`, extra);
@@ -179,7 +186,7 @@ function flushDigest(event) {
   if (!d || !d.count) return;
   const top = [...d.paths].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([p, n]) => `${p} (${n})`).join(", ");
   const mins = Math.round(DIGEST_MS / 60000);
-  deliver(event, `지난 ${mins}분 동안 ${d.count}건을 더 막았습니다. 주소 ${d.subjects.size}곳에서 왔고, 많이 노린 경로는 ${top} 입니다.`, Date.now());
+  deliver(event, render((t) => t("probeDigest", { mins, count: d.count, addresses: d.subjects.size, top }), alertLang()), Date.now());
 }
 
 /** Forgets subjects told longer ago than DEDUPE_MS, then the oldest beyond DEDUPE_MAX. */
@@ -195,8 +202,7 @@ function flushBurst(event) {
   if (!b) return;
   clearTimeout(b.timer);
   if (!b.held) return;
-  const what = event === "account" ? "계정이" : "기기가";
-  deliver(event, `${b.held}개 ${what} 더 승인을 기다립니다. 관리 페이지에서 확인합니다.`, Date.now());
+  deliver(event, render((t) => t("moreWaiting", { count: b.held, kind: event }), alertLang()), Date.now());
 }
 
 /** Whether an approval alert may go out now with its buttons, or waits for the window's summary. */
@@ -226,9 +232,10 @@ function burstAllows(event, now) {
  * `approval: { kind, ref }` names the request the buttons approve or refuse.
  * Fire and forget; returns whether a message is on its way.
  */
-export function alert(event, text, { subject = "", now = Date.now(), digest = null, approval = null } = {}) {
+export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null } = {}) {
   if (!(event in EVENTS)) return false;
   if (!integrations.configured("telegram")) return false;
+  const text = render(message, alertLang());
   if (!wanted(event)) {
     remember({ at: now, event, text, status: "off" });
     return false;
@@ -266,8 +273,9 @@ export function alert(event, text, { subject = "", now = Date.now(), digest = nu
 /** Sends a test message now, whatever the events; resolves to { ok, message }. */
 export async function test() {
   if (!integrations.configured("telegram")) return { ok: false, message: "봇 토큰과 채팅 ID 를 먼저 넣습니다" };
-  const on = enabledEvents().map((k) => EVENTS[k].label).join(", ") || "없음";
-  const e = await deliver("test", `알림 연결을 확인했습니다. 지금 받는 알림: ${on}`, Date.now(), "알림 시험");
+  const t = translator(alertLang());
+  const on = enabledEvents().map((k) => t(`event.${k}`)).join(", ") || t("none");
+  const e = await deliver("test", t("testSent", { on }), Date.now());
   return e.status === "sent" ? { ok: true, message: "시험 메시지를 보냈습니다" } : { ok: false, message: e.detail || "보내지 못했습니다" };
 }
 

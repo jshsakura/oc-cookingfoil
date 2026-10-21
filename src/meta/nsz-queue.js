@@ -363,7 +363,7 @@ export function createNszQueue({
         free = await freeBytes(gamesDir);
       }
       if (free < need) {
-        pauseFor("disk", `남은 공간이 ${gb(free)}라 ${item.name || path.basename(item.rel)}(${gb(item.size || 0)})를 변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 변환 탭에서 다시 시작합니다.`);
+        pauseFor("disk", (t) => t("nszNoSpace", { free: gb(free), name: item.name || path.basename(item.rel), size: gb(item.size || 0) }));
         return;
       }
       startItem(item, s);
@@ -378,7 +378,8 @@ export function createNszQueue({
       save();
     }
     if (!cycle.done && !cycle.failed) return;
-    const text = `변환 대기열을 모두 처리했습니다. ${cycle.done}개를 변환해 ${gb(cycle.saved)}를 확보했습니다.${cycle.failed ? ` 실패 ${cycle.failed}개는 변환 탭에서 확인합니다.` : ""}`;
+    const { done, saved, failed } = cycle;
+    const text = (t) => t("nszDrained", { done, saved: gb(saved), failed });
     cycle = { done: 0, saved: 0, failed: 0 };
     debug.log("nsz: queue drained");
     // Each drain is its own alert; the 30 minute repeat guard is for the pauses.
@@ -415,7 +416,7 @@ export function createNszQueue({
       if (counts) fails++;
       if (fails >= MAX_FAILS) {
         fails = 0;
-        pauseFor("failures", `변환이 ${MAX_FAILS}번 잇달아 실패해 멈췄습니다. 마지막 이유: ${item.reason}`);
+        pauseFor("failures", (t) => t("nszFailures", { count: MAX_FAILS, reason: item.reason }));
       }
     } else if (patch.state === "done") {
       fails = 0;

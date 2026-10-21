@@ -12,14 +12,15 @@
  */
 import debug from "../debug.js";
 import * as alerts from "../helpers/alerts.js";
+import { translator } from "../helpers/alert-messages.js";
 import * as integrations from "./integrations.js";
 import * as approvalTokens from "./approval-tokens.js";
 import * as store from "./store.js";
 import * as accounts from "./google-accounts.js";
 import { approveWaitingDevice } from "./pairing-approve.js";
 
-export const SPENT = "이미 처리했거나 만료된 요청입니다";
-const HANDLED = "이미 관리 화면에서 처리한 요청입니다";
+
+export const SPENT = translator()("spent");
 
 /** What each kind of request is, and how the admin page approves or refuses it. */
 const KINDS = {
@@ -28,13 +29,13 @@ const KINDS = {
     approve: (key) => approveWaitingDevice(key, { addedBy: "telegram" }),
     // The devices tab's 거절: the request goes, and comes back if the console asks again.
     refuse: (key) => store.revokeDevice(key),
-    refused: "거절했습니다. 기기가 다시 요청하면 또 알립니다",
+    refused: "refusedDevice",
   },
   account: {
     waiting: (sub) => accounts.get(sub)?.status === "pending",
     approve: (sub) => accounts.setStatus(sub, "approved"),
     refuse: (sub) => accounts.setStatus(sub, "disabled"),
-    refused: "거절했습니다. 계정은 사용 중지 상태가 됩니다",
+    refused: "refusedAccount",
   },
 };
 
@@ -52,17 +53,17 @@ function mayDecide(conf, chat, from) {
   return String(conf.approvers ?? "").split(",").includes(String(from.id));
 }
 
-const who = (from) => String(from?.first_name || from?.username || "누군가").slice(0, 64);
+const who = (from, t) => String(from?.first_name || from?.username || t("someone")).slice(0, 64);
 
 /** Approves or refuses the request; resolves to the line to show, and whether it was acted on. */
-function decide(request, yes) {
+function decide(request, yes, t) {
   const kind = KINDS[request.kind];
-  if (!kind) return { done: false, line: SPENT };
-  if (!kind.waiting(request.ref)) return { done: false, line: HANDLED };
+  if (!kind) return { done: false, line: t("spent") };
+  if (!kind.waiting(request.ref)) return { done: false, line: t("handled") };
   if (yes) kind.approve(request.ref);
   else kind.refuse(request.ref);
   debug.log("telegram: a %s request was %s from the chat", request.kind, yes ? "approved" : "refused");
-  return { done: true, line: yes ? "승인했습니다" : kind.refused };
+  return { done: true, line: t(yes ? "approved" : kind.refused) };
 }
 
 /**
@@ -70,26 +71,27 @@ function decide(request, yes) {
  * "other-chat" | "not-allowed" | "spent" | "handled" | "approved" | "refused".
  */
 export async function handleCallback(q, conf = integrations.get("telegram")) {
+  const t = translator(alerts.alertLang(conf));
   const answer = (text) => alerts.callTelegram(conf.botToken, "answerCallbackQuery", { callback_query_id: q.id, text }).catch(() => {});
   const chat = q?.message?.chat;
   if (!sameChat(chat, conf.chatId)) {
-    await answer("이 대화에서는 처리할 수 없습니다");
+    await answer(t("otherChat"));
     return "other-chat";
   }
   if (!mayDecide(conf, chat, q.from)) {
-    await answer("승인할 수 있는 사용자로 등록되지 않았습니다");
+    await answer(t("notAllowed"));
     return "not-allowed";
   }
   const m = /^([yn]):(.+)$/.exec(String(q.data ?? ""));
   const request = m && approvalTokens.take(m[2]);
   if (!request) {
-    await answer(SPENT);
+    await answer(t("spent"));
     return "spent";
   }
   const yes = m[1] === "y";
-  const { done, line } = decide(request, yes);
+  const { done, line } = decide(request, yes, t);
   await answer(line);
-  const footer = done ? `${who(q.from)} 님이 ${line}.` : `${line}.`;
+  const footer = done ? t("decidedBy", { who: who(q.from, t), line }) : `${line}.`;
   await alerts.callTelegram(conf.botToken, "editMessageText", {
     chat_id: chat.id,
     message_id: q.message.message_id,

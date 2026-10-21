@@ -66,7 +66,7 @@ export function signIn({ sub, email }, now = Date.now()) {
   if (known) return put({ ...known, email, lastAt: now });
   if (accounts.size >= MAX_ACCOUNTS) return null;
   const owner = isOwner(email);
-  if (!owner) alert("account", `새 구글 계정이 들어왔습니다.\n계정: ${maskEmail(email)}\n관리 화면의 사용자 탭에서 승인합니다.`, { subject: sub, now, approval: { kind: "account", ref: sub } });
+  if (!owner) alert("account", (t) => t("account", { email: maskEmail(email) }), { subject: sub, now, approval: { kind: "account", ref: sub } });
   return put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
 }
 

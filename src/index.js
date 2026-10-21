@@ -414,7 +414,7 @@ startHomebrew();
 directHealth
   .start()
   .catch(() => {})
-  .then(() => alert("server", ["서버가 켜졌습니다.", directHealth.startLine()].filter(Boolean).join(" ")));
+  .then(() => alert("server", (t) => [t("serverStarted"), directHealth.startLine(t)].filter(Boolean).join(t("gap"))));
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 

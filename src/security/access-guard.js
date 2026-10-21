@@ -64,13 +64,6 @@ function clientIp(req) {
 
 
 // How each reason reads in an operator alert.
-const PROBE_KO = {
-  "uri-too-long": "지나치게 긴 주소",
-  "control-char": "주소 안의 제어 문자",
-  "path-traversal": "상위 폴더로 빠져나가려는 주소",
-  "bad-path": "알려진 공격 경로",
-  "bad-ua": "공격 도구",
-};
 
 function flag(req, reason) {
   const ip = clientIp(req);
@@ -78,7 +71,7 @@ function flag(req, reason) {
   recordDeny(req, { reason: DENY.PROBE, status: 404, detail: reason });
   debug.error("security: probe blocked from %s — %s (%s)", ip, reason, req.path);
   const where = String(req.path).slice(0, 80);
-  alert("probe", `${PROBE_KO[reason] ?? reason}: ${where} 를 로그인 전에 막았습니다.`, { subject: ip, digest: { path: where } });
+  alert("probe", (t) => t("probeBlocked", { what: t(`probe.${reason}`) === `probe.${reason}` ? reason : t(`probe.${reason}`), where }), { subject: ip, digest: { path: where } });
 
   // Probes burn the same budget as bad credentials. Several probes from
   // the same IP → lockout.

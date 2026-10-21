@@ -1,3 +1,4 @@
+import { render } from "../../src/helpers/alert-messages.js";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -20,7 +21,7 @@ const sent = [];
 const app = express();
 app.use("/api/inbox", inboxRouter({
   whoOf: (req) => (req.get("x-test-user") ? { name: req.get("x-test-user"), label: req.get("x-test-user"), slug: req.get("x-test-user") } : null),
-  notify: (text, id) => sent.push({ text, id }),
+  notify: (text, id) => sent.push({ text: render(text, "ko"), id }),
 }));
 const server = app.listen(0, "127.0.0.1");
 await new Promise((r) => server.once("listening", r));

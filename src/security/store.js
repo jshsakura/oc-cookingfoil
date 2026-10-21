@@ -8,6 +8,7 @@
  * changed and the log lines added since the last one. State survives container
  * restarts so attackers can't just bounce us to reset their failure count.
  */
+import { translator } from "../helpers/alert-messages.js";
 import debug from "../debug.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
@@ -427,11 +428,11 @@ const SAME_ADDRESS_MAX = 3;
 const AGENT_MAX = 80;
 
 /** Where an address sits, for an alert line. Pure. */
-export function addressPlace(ip) {
+export function addressPlace(ip, t = translator()) {
   const v4 = String(ip ?? "").replace(/^::ffff:/, "");
-  if (isLoopbackIp(v4)) return "이 서버";
-  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4)) return "Tailscale";
-  return isPrivateIp(v4) ? "집 안" : "집 밖";
+  if (isLoopbackIp(v4)) return t("place.server");
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4)) return t("place.tailscale");
+  return t(isPrivateIp(v4) ? "place.home" : "place.outside");
 }
 
 /**
@@ -455,16 +456,14 @@ export function requesterFacts({ ip = null, agent = null } = {}, now = Date.now(
   };
 }
 
-export function requesterLines(from = {}, now = Date.now()) {
-  const { ip, place, accounts, app } = requesterFacts(from, now);
+export function requesterLines(from = {}, now = Date.now(), t = translator()) {
+  const { ip, accounts, app } = requesterFacts(from, now);
   const lines = [];
-  if (ip) lines.push(`보낸 곳: ${ip} (${place})`);
-  if (accounts.length) lines.push(`같은 주소에서 접속한 계정: ${accounts.slice(0, SAME_ADDRESS_MAX).join(", ")}${accounts.length > SAME_ADDRESS_MAX ? ` 외 ${accounts.length - SAME_ADDRESS_MAX}명` : ""}`);
-  if (app) lines.push(`앱: ${app}`);
+  if (ip) lines.push(t("requesterFrom", { ip, place: addressPlace(ip, t) }));
+  if (accounts.length) lines.push(t("requesterAccounts", { names: accounts.slice(0, SAME_ADDRESS_MAX).join(", "), more: Math.max(0, accounts.length - SAME_ADDRESS_MAX) }));
+  if (app) lines.push(t("requesterApp", { app }));
   return lines;
 }
-
-const DOWNLOAD_WORDS = { used: "다른 기기에서 이미 쓴 다운로드", expired: "기한이 지난 다운로드", revoked: "취소된 다운로드", waiting: "다운로드" };
 
 /** The account a download belongs to, as the admin knows it: a Google account by its address. Pure. */
 export function ownerName(owner) {
@@ -472,10 +471,10 @@ export function ownerName(owner) {
 }
 
 /** Which console and whose, as alert lines: the console's own name and the account its download came from. Pure. */
-export function pendingLines({ name, download } = {}) {
+export function pendingLines({ name, download } = {}, t = translator()) {
   const lines = [];
-  if (name) lines.push(`기기 이름: ${name}`);
-  if (download) lines.push(`받은 계정: ${ownerName(download.owner)} (${DOWNLOAD_WORDS[download.state] ?? "다운로드"})`);
+  if (name) lines.push(t("deviceName", { name }));
+  if (download) lines.push(t("deviceOwner", { owner: ownerName(download.owner), how: t(`download.${DOWNLOAD_STATES.has(download.state) ? download.state : "waiting"}`) }));
   return lines;
 }
 
@@ -501,8 +500,8 @@ export function recordPendingDevice(deviceKey, { message, name, download, quiet 
   const learned = Boolean(next.download && !prev?.download) || Boolean(next.name && !prev?.name);
   if (!quiet && (!prev || learned || (message && message !== prev.message))) {
     // The code is what the console shows on its screen; the note is the console's own words.
-    const who = [...pendingLines(next), ...requesterLines(from, now)].map((line) => `${line}\n`).join("");
-    alert("device", `기기 코드 ${deviceCode(deviceKey)}\n${note ? `메시지: ${note}\n` : ""}${who}콘솔 화면의 코드와 같은지 확인한 뒤 승인합니다.`, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
+    const message = (t) => t("device", { code: deviceCode(deviceKey), note, lines: [...pendingLines(next, t), ...requesterLines(from, now, t)].map((line) => `${line}\n`).join("") });
+    alert("device", message, { subject: `${deviceKey}:${note ?? ""}`, now, approval: { kind: "device", ref: deviceKey } });
   }
 }
 

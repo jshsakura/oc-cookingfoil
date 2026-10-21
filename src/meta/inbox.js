@@ -264,6 +264,6 @@ export function fmtBytes(n) {
 /** The Telegram text for one upload: who, how many files and how big, links, the memo's first line. Pure. */
 export function alertText(note) {
   const bytes = note.files.reduce((n, f) => n + (Number(f.size) || 0), 0);
-  const first = note.memo.split("\n").map((s) => s.trim()).find(Boolean)?.slice(0, 120);
-  return `${note.user} 님이 파일 ${note.files.length}개(${fmtBytes(bytes)}), 링크 ${note.links.length}개를 올렸습니다.${first ? `\n메모: ${first}` : ""}`;
+  const memo = note.memo.split("\n").map((s) => s.trim()).find(Boolean)?.slice(0, 120);
+  return (t) => t("inbox", { user: note.user, files: note.files.length, size: fmtBytes(bytes), links: note.links.length, memo });
 }
