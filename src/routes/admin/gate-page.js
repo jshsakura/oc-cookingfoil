@@ -6,6 +6,7 @@
  *   "either"    one of the two, the admin's choice (both are set up)
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
+import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { escapeHtml } from "./escape.js";
 
 const LEAD = {
@@ -20,7 +21,7 @@ export function gatePage({ owner, mode = "code" } = {}) {
   const password = mode !== "code";
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:34px 30px;width:min(380px,100%);
 text-align:center;box-shadow:0 30px 60px var(--shadow)}
@@ -37,7 +38,7 @@ input{width:100%;padding:12px;font-size:16px}
 #go{margin-top:14px;width:100%;padding:14px;font-size:15px;border-radius:14px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
 .back{display:inline-block;margin-top:14px;color:var(--muted);font-size:13px}</style></head><body>
-<div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="56" height="56">
+<div class="box"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="56" height="56">
 <div class="step">${escapeHtml(owner || "admin")}</div><h1>관리 페이지 확인</h1>
 <p>${LEAD[mode] ?? LEAD.code}</p>
 ${either ? `<div class="seg" role="group" aria-label="확인 방법"><button type="button" data-use="code" aria-pressed="true">인증 앱 코드</button><button type="button" data-use="pw" aria-pressed="false">관리자 비밀번호</button></div>` : ""}

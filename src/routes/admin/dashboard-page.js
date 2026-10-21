@@ -9,6 +9,7 @@
  *   4. keep the library healthy without shell access
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
+import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 import { ICON_CSS, icon } from "../../views/icons.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
@@ -32,6 +33,7 @@ import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 
 const PAGE_CSS = /* css */ `
+${BRAND_MOTION_CSS}
 body{padding:28px 32px 80px}.wrap{max-width:1240px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
 .brand{margin:0}.brand a{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}
@@ -328,7 +330,7 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 <div class="wrap">
 <header>
-  <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
