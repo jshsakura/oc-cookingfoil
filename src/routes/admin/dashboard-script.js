@@ -141,7 +141,7 @@ const WARNINGS={
   'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings/security']},
   'no-auth':{t:'주소를 아는 누구나 서버에 접속할 수 있습니다',d:'계정이 없고 기기 승인도 꺼져 있습니다. 사용자 탭에서 계정을 하나 만들면 그때부터 로그인이 필요합니다.',go:['계정 만들기','users']},
   'proxy-collapse':{t:'프록시를 거쳐 오는데 COOK_TRUST_PROXY 가 없습니다',d:'모든 접속이 프록시 하나의 IP 로 보여 한 사람의 로그인 실패가 모두를 잠글 수 있습니다. compose 에 COOK_TRUST_PROXY 를 넣고 프록시가 X-Forwarded-For 를 넘기게 합니다.'},
-  'both-lanes':{t:'계정과 기기 승인을 함께 씁니다',d:'콘솔은 승인된 기기 키로 접속하고, 웹 화면은 계정으로 로그인합니다.'},
+  'both-lanes':{t:'계정과 기기 승인을 함께 씁니다',d:'콘솔은 승인된 기기 키로 접속하고, 대시보드는 계정으로 로그인합니다.'},
 };
 function renderWarnings(list){const box=$('warnings');box.replaceChildren();
   for(const w of list){const k=WARNINGS[w.code];const n=el('div',null,'note'+(w.severity==='warn'?' warn':''));
