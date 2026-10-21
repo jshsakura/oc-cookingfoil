@@ -1,5 +1,8 @@
 # CookingFoil: a personal, self-hosted homebrew file server.
 #
+# Needs Docker Compose v2 (`docker compose`); on a Synology NAS, Container
+# Manager on DSM 7.2 or later (Project, then Create, with this file).
+#
 #   1. docker compose up -d
 #   2. docker compose logs cookingfoil | grep "setup code"
 #   3. open http://<this machine>:9080/setup, enter the code, make the admin
@@ -28,9 +31,12 @@ services:
     stop_grace_period: 40s
     # .env reaches the container whole, COOK_SECRET_KEY (required) included.
     env_file:
-      - path: .env
-        required: false
+      - .env
     environment:
+      # The user the server runs as, so what it writes is yours. `id` on the host
+      # prints yours; on Synology the first admin is usually 1026 and users 100.
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       DEBUG: ${DEBUG:-oc-cookingfoil*}
       # Inside the container these never move; choose the host folders below.
       COOK_PORT: 80
@@ -45,9 +51,8 @@ services:
       # Host:container. Change the host side freely; the container side stays 80.
       - "${COOK_HOST_PORT:-9080}:80"
     volumes:
-      # Host folders. Set COOK_ROOT in .env and every folder below is made under
-      # it (Docker creates the missing ones); set COOK_<NAME>_PATH to put one
-      # folder somewhere else. With nothing set they sit beside this file.
+      # Host folders, beside this file unless COOK_<NAME>_PATH in .env puts one
+      # somewhere else (Docker creates the missing ones).
       #   games     packages (.nsp .nsz .xci .xcz)
       #   data      accounts, saved keys, caches. Back this one up
       #   keys      your own prod.keys, read-only
@@ -55,12 +60,13 @@ services:
       #   patches   patches by base title id, and homebrew/<app>/
       #   saves     save files by title id, and homebrew/<app>/
       #   homebrew  .nro apps and app folders
-      # COOK_ROOT and the COOK_<NAME>_PATH values are host paths, for example
-      # COOK_ROOT=/path/to/cookingfoil.
-      - ${COOK_GAMES_PATH:-${COOK_ROOT:-.}/games}:/games
-      - ${COOK_DATA_PATH:-${COOK_ROOT:-.}/data}:/data
-      - ${COOK_KEYS_PATH:-${COOK_ROOT:-.}/keys}:/keys:ro
-      - ${COOK_RETRO_PATH:-${COOK_ROOT:-.}/retro}:/retro
-      - ${COOK_PATCHES_PATH:-${COOK_ROOT:-.}/patches}:/patches
-      - ${COOK_SAVES_PATH:-${COOK_ROOT:-.}/saves}:/saves
-      - ${COOK_HOMEBREW_PATH:-${COOK_ROOT:-.}/homebrew}:/homebrew
+      # The COOK_<NAME>_PATH values are host paths, for example
+      # COOK_GAMES_PATH=/volume1/games. Plain ${VAR:-default} only, so older
+      # Compose releases such as the one in Synology Container Manager read it.
+      - ${COOK_GAMES_PATH:-./games}:/games
+      - ${COOK_DATA_PATH:-./data}:/data
+      - ${COOK_KEYS_PATH:-./keys}:/keys:ro
+      - ${COOK_RETRO_PATH:-./retro}:/retro
+      - ${COOK_PATCHES_PATH:-./patches}:/patches
+      - ${COOK_SAVES_PATH:-./saves}:/saves
+      - ${COOK_HOMEBREW_PATH:-./homebrew}:/homebrew
