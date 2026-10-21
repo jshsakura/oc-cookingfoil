@@ -14,9 +14,9 @@
 
 웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/ko/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-실제 클라이언트를 예제 데이터와 예제 그림으로 실행한 화면입니다.
+실제 영문 UI를 예제 데이터로 촬영했습니다. 아이콘이 없을 때는 앱이 제목 첫 글자 타일을 표시합니다.
 
 ## 목차
 

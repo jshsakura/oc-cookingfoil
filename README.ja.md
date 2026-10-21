@@ -14,9 +14,9 @@ Switch の自作ソフト向けの、個人用でセルフホストのファイ�
 
 Web サイト: <https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/en/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-サンプルデータと仮の画像で動かした実際のクライアント画面です。
+サンプルデータで動かした実際の英語 UI です。アイコンがない項目にはアプリ本来の頭文字タイルが表示されます。
 
 ## 目次
 

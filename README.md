@@ -14,9 +14,9 @@ A personal, self-hosted file server and shop for Switch homebrew. Keep your file
 
 Website: <https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/en/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-Actual client UI with fixture data and placeholder artwork.
+Actual English UI with sample data and native missing-icon tiles.
 
 ## Contents
 
