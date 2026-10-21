@@ -46,8 +46,9 @@ const THEME_NAMES = {
   },
 };
 
-/** A genre key as the API shows and takes it: lower case, spaces as "-". */
-export const genreSlug = (key) => key.toLowerCase().replace(/\s+/g, "-");
+/** A genre key as the API shows and takes it, [a-z0-9-]+: "Board Game" → "board-game", "Beat 'em Up" → "beat-em-up". */
+export const genreSlug = (key) => String(key).toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const REGION_RE = /^[a-z]+$/;
 
 const nameIn = (names, lang, arg) => {
   const n = names[lang] ?? names.en;
@@ -88,7 +89,7 @@ export function facetsOf(list, lang = "en") {
     for (const g of f.genres) bump(genres, g);
     const d = decadeOf(f.year);
     if (d) bump(decades, d);
-    if (f.region) bump(regions, f.region);
+    if (REGION_RE.test(f.region ?? "")) bump(regions, f.region);
     if (f.korean) korean++;
     if (f.achievements) achievements++;
   }

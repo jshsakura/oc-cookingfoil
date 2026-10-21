@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { factsOf, facetsOf, factsFilter, pickThemes } from "../../src/retro/themes.js";
+import { factsOf, facetsOf, factsFilter, pickThemes, genreSlug } from "../../src/retro/themes.js";
+import { GENRE_LABELS } from "../../src/meta/categories.js";
 
 const game = (i, over = {}) => ({ id: `g${i}`, work: `g${i}`, system: i % 2 ? "snes" : "gba", genres: ["RPG"], players: 1, year: 1995, korean: false, achievements: false, region: "jp", rating: 50 + (i % 50), ratingCount: 100, addedAt: i, ...over });
 
@@ -81,6 +82,23 @@ test("genre keys go out and come in as lower-case slugs", () => {
   const ids = pickThemes(list, { day: 1, rows: 20, per: 1, min: 1 }).map((r) => r.id);
   assert.ok(ids.includes("genre:board-game") && ids.includes("decade:1990:genre:board-game"), ids.join());
   assert.equal(list.filter(factsFilter({ genre: "board-game" })).length, 10);
+});
+
+test("every key the client receives has the agreed shape", () => {
+  const KEY = /^[a-z0-9-]+$/;
+  for (const key of Object.keys(GENRE_LABELS)) assert.match(genreSlug(key), KEY, key);
+  assert.equal(genreSlug("Beat 'em Up"), "beat-em-up");
+  const genres = Object.keys(GENRE_LABELS);
+  const list = Array.from({ length: 600 }, (_, i) => game(i, {
+    genres: [genres[i % genres.length]], players: i % 3 ? 1 : 2, korean: i % 5 === 0, achievements: i % 4 === 0,
+    year: 1980 + (i % 30), ratingCount: i % 7 ? 500 : 5, rating: 60 + (i % 40), region: ["kr", "jp", "us", "Bad Region"][i % 4],
+  }));
+  for (let day = 0; day < 30; day++) {
+    for (const r of pickThemes(list, { day })) assert.match(r.id, /^[a-z0-9-]+(:[a-z0-9-]+)*$/, r.id);
+  }
+  const f = facetsOf(list);
+  for (const g of f.genres) assert.match(g.key, KEY);
+  assert.deepEqual(f.regions.map((r) => r.value).sort(), ["jp", "kr", "us"]);
 });
 
 test("a theme with fewer than eight games is left out", () => {
