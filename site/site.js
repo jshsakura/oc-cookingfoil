@@ -7,17 +7,18 @@
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
   const documents = {
-    en: { file: "README.md", setup: "quick-start", connect: "connecting-a-client", security: "security" },
-    ko: { file: "README.ko.md", setup: "빠른-시작", connect: "클라이언트-연결", security: "보안" },
-    ja: { file: "README.ja.md", setup: "クイックスタート", connect: "クライアントの接続", security: "セキュリティ" },
-    zh: { file: "README.zh-CN.md", setup: "快速开始", connect: "连接客户端", security: "安全" },
+    en: { file: "README.md", setup: "quick-start", connect: "connecting-a-client", security: "security", report: "english" },
+    ko: { file: "README.ko.md", setup: "빠른-시작", connect: "클라이언트-연결", security: "보안", report: "한국어" },
+    ja: { file: "README.ja.md", setup: "クイックスタート", connect: "クライアントの接続", security: "セキュリティ", report: "日本語" },
+    zh: { file: "README.zh-CN.md", setup: "快速开始", connect: "连接客户端", security: "安全", report: "简体中文" },
   };
   const syncLinks = () => {
     const locale = root.dataset.lang;
     const guide = documents[locale];
     for (const link of document.querySelectorAll("a[data-doc]")) {
       const section = guide[link.dataset.doc];
-      link.href = `https://github.com/jshsakura/oc-cookingfoil/blob/main/${guide.file}${section ? `#${section}` : ""}`;
+      const file = link.dataset.doc === "report" ? "SECURITY.md" : guide.file;
+      link.href = `https://github.com/jshsakura/oc-cookingfoil/blob/main/${file}${section ? `#${section}` : ""}`;
     }
     for (const link of document.querySelectorAll('a[href="./"], a[href^="./?"], a[href^="privacy.html"], a[href^="terms.html"], a[data-site-page]')) {
       link.dataset.sitePage ??= link.getAttribute("href");

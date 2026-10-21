@@ -359,7 +359,7 @@ CookingFoil itself speaks plain HTTP. Over `http://`, anything a console sends c
 - Responses carry defensive headers (`nosniff`, `DENY` framing, no referrer). Every refusal is logged with its reason on the Logs tab and in the `X-CookingFoil-Deny` header.
 - Secrets saved on the admin page are never shown again. Web uploads are off until you turn them on.
 
-To report a vulnerability, see [SECURITY.md](./SECURITY.md). Please do not open a public issue.
+To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do not open a public issue.
 
 ## API
 

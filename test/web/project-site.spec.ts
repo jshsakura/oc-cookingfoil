@@ -5,10 +5,10 @@ import path from 'node:path';
 const origin = 'https://project.cookingfoil.test';
 const site = path.resolve(import.meta.dirname, '../../site');
 const guides = {
-  en: ['README.md', 'quick-start', 'connecting-a-client', 'security'],
-  ko: ['README.ko.md', '빠른-시작', '클라이언트-연결', '보안'],
-  ja: ['README.ja.md', 'クイックスタート', 'クライアントの接続', 'セキュリティ'],
-  zh: ['README.zh-CN.md', '快速开始', '连接客户端', '安全'],
+  en: ['README.md', 'quick-start', 'connecting-a-client', 'security', 'english'],
+  ko: ['README.ko.md', '빠른-시작', '클라이언트-연결', '보안', '한국어'],
+  ja: ['README.ja.md', 'クイックスタート', 'クライアントの接続', 'セキュリティ', '日本語'],
+  zh: ['README.zh-CN.md', '快速开始', '连接客户端', '安全', '简体中文'],
 };
 
 async function choose(page: Page, language: string) {
@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-for (const [language, [file, setup, connect, security]] of Object.entries(guides)) {
+for (const [language, [file, setup, connect, security, report]] of Object.entries(guides)) {
   test(`the ${language} site links to its own README sections`, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('lang', 'en'));
     await page.goto(`${origin}/?lang=${language}`);
@@ -43,6 +43,7 @@ for (const [language, [file, setup, connect, security]] of Object.entries(guides
       expect(target).toBe(`https://github.com/jshsakura/oc-cookingfoil/blob/main/${file}#${anchor}`);
     }
     await expect(page.locator('[data-doc="overview"]').first()).toHaveAttribute('href', `https://github.com/jshsakura/oc-cookingfoil/blob/main/${file}`);
+    expect(decodeURI(await page.locator('[data-doc="report"]').getAttribute('href'))).toBe(`https://github.com/jshsakura/oc-cookingfoil/blob/main/SECURITY.md#${report}`);
     const images = await page.locator('.app-shot img').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('src')));
     expect(images).toEqual(['screenshots/en/home-no-art.webp', 'screenshots/en/detail-no-art.webp', 'screenshots/en/downloads-no-art.webp']);
   });

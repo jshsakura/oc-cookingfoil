@@ -353,7 +353,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 - 响应带有防护性请求头（`nosniff`、`DENY` 框架限制、不发送 referrer）。每一次拒绝都会连同原因记录在日志 (로그) 标签页和 `X-CookingFoil-Deny` 响应头中。
 - 在管理页面上保存的密钥不会再次显示。网页上传在你开启之前一直关闭。
 
-如需报告漏洞，请参阅 [SECURITY.md](./SECURITY.md)。请不要公开提交 issue。
+如需报告漏洞，请参阅 [SECURITY.md](./SECURITY.md#简体中文)。请不要公开提交 issue。
 
 ## API
 
