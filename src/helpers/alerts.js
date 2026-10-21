@@ -167,7 +167,7 @@ export async function recentChats(botToken) {
 
 const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 // Each kind of alert leads with its own emoji, so the chat reads at a glance.
-const EVENT_ICON = { device: "🎮", account: "🙋", lockout: "🔒", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", test: "🔔" };
+const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
 async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {

@@ -42,7 +42,7 @@ test("an alert goes to the saved chat once per subject per half hour", async () 
   assert.equal(sent.length, 3);
   assert.match(sent[0].url, /\/sendMessage$/);
   assert.equal(sent[0].body.chat_id, "-100123");
-  assert.match(sent[0].body.text, /^🎮 기기 승인 요청 · CookingFoil\n\n메시지: 거실/);
+  assert.match(sent[0].body.text, /^💌 기기 승인 요청 · CookingFoil\n\n메시지: 거실/);
   assert.ok(!sent.some((m) => m.body.text.includes("DEVICE-KEY-SECRET")), "the subject is never sent");
   const h = alerts.recent();
   assert.deepEqual(h.map((x) => x.status), ["sent", "sent", "held", "sent"], "newest first, the held repeat recorded too");
