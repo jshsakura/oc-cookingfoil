@@ -1,4 +1,8 @@
-# CookingFoil
+<div align="center">
+  <img src="site/icon.svg" alt="CookingFoil" width="80" />
+  <h1>CookingFoil</h1>
+  <p><strong>Your files on your server. Your library on your console.</strong></p>
+</div>
 
 **English** | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
@@ -9,6 +13,10 @@
 A personal, self-hosted file server and shop for Switch homebrew. Keep your files on a machine at home, manage everything from one admin page, and install them on your console with the CookingFoil client.
 
 Website: <https://jshsakura.github.io/oc-cookingfoil/>
+
+![CookingFoil](site/screenshots/en/home.webp)
+
+Actual client UI with fixture data and placeholder artwork.
 
 ## Contents
 

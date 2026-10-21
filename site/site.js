@@ -54,61 +54,58 @@
   });
 })();
 
-// The client's start screen: the butter lands once a second, the bar fills over three landings,
-// and each full bar brings the next line. The chime waits for a landing, as it does on the console.
+// A successful chime is kept for this tab's visit, even after a reload. The
+// in-memory guard also covers browsers that refuse session storage.
 function startSplash(langListeners) {
-  const butter = document.querySelector("#butter .butter");
-  const bar = document.getElementById("bar");
-  const line = document.getElementById("line");
-  if (!butter || !bar || !line) return;
+  const stage = document.getElementById("butter");
+  const butter = stage?.querySelector(".butter");
+  if (!butter) return;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  let lines = [];
-  let at = 0;
-  const show = (animate) => {
-    const entry = lines[at];
-    if (!entry) return;
-    line.textContent = entry[document.documentElement.dataset.lang] ?? entry.en;
-    if (!animate) return;
-    line.classList.remove("swap");
-    void line.offsetWidth;
-    line.classList.add("swap");
+  const labels = {
+    ko: ["시작 소리 듣기", "시작 소리를 재생했습니다"],
+    en: ["Play the start chime", "Start chime played"],
+    ja: ["起動音を聴く", "起動音を再生しました"],
+    zh: ["播放启动音", "启动音已播放"],
   };
-  const next = () => {
-    if (lines.length < 2) return;
-    let n = at;
-    while (n === at) n = Math.floor(Math.random() * lines.length);
-    at = n;
-    show(true);
+  const seen = () => { try { return sessionStorage.getItem("chimed") === "1"; } catch { return false; } };
+  const mark = () => { try { sessionStorage.setItem("chimed", "1"); } catch { /* The memory guard still prevents another play. */ } };
+  let played = seen();
+  let pending = false;
+  let armed = !played;
+  const sync = () => {
+    const names = labels[document.documentElement.dataset.lang] ?? labels.en;
+    stage.disabled = played;
+    stage.setAttribute("aria-label", names[played ? 1 : 0]);
+    stage.title = names[played ? 1 : 0];
   };
-  fetch("splash-lines.json").then((r) => r.json()).then((all) => {
-    lines = all;
-    at = Math.floor(Math.random() * lines.length);
-    show(false);
-  }, () => {});
-  langListeners.push(() => show(false));
-  if (still) setInterval(next, 4000);
-  else bar.addEventListener("animationiteration", next);
+  langListeners.push(sync);
+  sync();
+  if (played) return;
 
-  // The chime rings on a landing once per visit. A browser that blocks sound before the
-  // first gesture gets it on the landing after the first click or key press instead.
   const audio = new Audio();
   audio.preload = "auto";
   audio.src = audio.canPlayType("audio/ogg; codecs=vorbis") ? "sound/start-chime.ogg" : "sound/start-chime.mp3";
-  const seen = () => { try { return sessionStorage.getItem("chimed") === "1"; } catch { return false; } };
-  const mark = () => { try { sessionStorage.setItem("chimed", "1"); } catch { /* private mode */ } };
-  let armed = !seen();
-  const gesture = ["pointerdown", "keydown", "touchstart"];
-  const onGesture = () => { for (const e of gesture) removeEventListener(e, onGesture, true); armed = true; if (still) ring(); };
+  const gestures = ["pointerdown", "keydown", "touchstart"];
+  const clearGestures = () => { for (const event of gestures) removeEventListener(event, onGesture, true); };
+  const onGesture = () => { clearGestures(); ring(); };
   const ring = () => {
+    if (played || pending) return;
     armed = false;
-    audio.currentTime = 0;
-    audio.play().then(mark, (err) => {
-      if (err?.name !== "NotAllowedError") return;
-      for (const e of gesture) addEventListener(e, onGesture, { capture: true, once: true });
+    pending = true;
+    audio.play().then(() => {
+      pending = false;
+      played = true;
+      mark();
+      clearGestures();
+      sync();
+    }, (error) => {
+      pending = false;
+      if (error?.name === "NotAllowedError") {
+        for (const event of gestures) addEventListener(event, onGesture, { capture: true, once: true });
+      }
     });
   };
-  if (still && armed) ring();
+  if (still) ring();
   butter.addEventListener("animationiteration", () => { if (armed) ring(); });
-  document.getElementById("butter").addEventListener("click", () => { armed = true; if (still) ring(); });
+  stage.addEventListener("click", ring);
 }
