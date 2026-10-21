@@ -38,6 +38,7 @@ import { resolveOrigin } from "../helpers/origin.js";
 import { requestLang } from "../meta/categories.js";
 import { devicePage, loginPage } from "./login-page.js";
 import debug from "../debug.js";
+import { gravatarUrl } from "../helpers/gravatar.js";
 import { accountPasswordsOk } from "../security/password-policy.js";
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -124,7 +125,8 @@ function mountPasswordLogin(router) {
     const who = webUser(req);
     if (!who) return res.status(401).json({ error: "not signed in" });
     const admin = who.kind === "password" ? users.isAdmin(who.name) : accounts.isAdmin(who.sub);
-    res.json({ user: who.kind === "password" ? who.name : who.email, kind: who.kind, admin, csrf: csrfToken(req, res) });
+    const avatar = who.kind === "google" ? gravatarUrl(who.email) : null;
+    res.json({ user: who.kind === "password" ? who.name : who.email, kind: who.kind, admin, avatar, csrf: csrfToken(req, res) });
   });
 
   router.post("/auth/logout", express.json({ limit: "1kb" }), (req, res) => {

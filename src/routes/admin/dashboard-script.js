@@ -218,7 +218,7 @@ function renderSecurity(d){
 async function loadStats(){
   const d=await api('/admin/api/stats');
   me=d.me||null;const a=d.lanes.admin;
-  $('who').textContent=me?(me.name||me.email):(a.email||a.owner||'admin');
+  $('who').textContent=me?(me.name||me.email):(a.email||a.owner||'admin');acctAvatar(me?.avatar);
   $('ts').textContent=fmt(d.generatedAt)+' 기준';
   renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);loadHealth();}
 

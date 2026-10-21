@@ -24,6 +24,7 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
+import { gravatarUrl } from "../helpers/gravatar.js";
 import { clientRows } from "./device-pair.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
 import express from "express";
@@ -194,6 +195,9 @@ function pendingKeyForCode(raw) {
   return store.devicesSnapshot().pending.find((p) => deviceCode(p.deviceKey) === code)?.deviceKey ?? null;
 }
 
+
+// A Google account shows its Gravatar on the account button.
+const withAvatar = (me) => (me?.kind === "google" ? { ...me, avatar: gravatarUrl(me.email) } : me);
 export default function adminPageRouter() {
   const router = express.Router();
   // Every change here (accounts, homebrew, integrations, ...) must come from
@@ -317,7 +321,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     res.json({
       generatedAt: Date.now(),
-      me: adminActor(req),
+      me: withAvatar(adminActor(req)),
       lanes,
       warnings: [...configWarnings(lanes), ...clientBuildWarnings()],
       users: userRows,

@@ -65,7 +65,7 @@ test("an upload with files, a memo and links lands in the inbox and tells the ad
   assert.equal(note.user, "alice");
   assert.deepEqual(note.links, ["https://a.example/x", "http://b.example/"]);
   assert.deepEqual(note.files.map((f) => f.name), ["a.txt", "b.bin"]);
-  assert.deepEqual(sent.at(-1), { id: d.id, text: "alice 님이 파일 2개(9 B), 링크 2개를 올렸습니다.\n메모: 피크민 세이브입니다" });
+  assert.deepEqual(sent.at(-1), { id: d.id, text: "📦 alice 님이 파일 2개(9 B), 링크 2개를 올렸습니다.\n📝 메모: 피크민 세이브입니다" });
 });
 
 test("a picked folder keeps its inner paths, cleaned", async () => {

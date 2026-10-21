@@ -3393,6 +3393,7 @@
           activityMenu.permissions(d);
           $("logout-link").hidden = !d;
           if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
+          acctAvatar(d?.avatar);
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
           if (d) { share.check(); checks.repaint(); }
