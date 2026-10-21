@@ -29,7 +29,7 @@ export class JobStopped extends Error {
 export const KINDS = Object.freeze([
   "sync", "scan:games", "scan:homebrew", "scan:saves", "scan:patches", "scan:retro",
   "backup", "nsz", "titledb", "ratings", "eshop", "retro-meta", "retro-art", "retro-achievements", "retro-hash",
-  "homebrew-github", "homebrew-art", "prewarm", "optimize", "cleanup", "verify",
+  "homebrew-github", "homebrew-art", "prewarm", "optimize", "cleanup", "verify", "organize",
 ]);
 
 const RECENT_MAX = 50;

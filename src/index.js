@@ -92,6 +92,7 @@ import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
 import { romsDirPath, appPort, dataDir, retroDir } from "./helpers/envs.js";
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
+import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -418,6 +419,8 @@ ratingSync.start({ onChange: () => shopCache.invalidate() });
 startNszQueue();
 // The file check: signatures of every game file, the whole-file hash of new ones; it only informs.
 startVerifyQueue();
+// The games folder's drop box (games/incoming): sorted into the library every minute.
+defaultOrganizer.start();
 
 // The saves folder holds tens of thousands of files: read it once now, not on the first request.
 if (savesEnabled()) {

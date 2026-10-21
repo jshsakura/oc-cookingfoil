@@ -18,6 +18,7 @@ import * as titledb from "../../meta/titledb-store.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService as homebrewService } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
+import { INCOMING } from "../../meta/library-organize.js";
 import verifyQueue from "../../meta/verify-service.js";
 import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir } from "../../helpers/envs.js";
 import {
@@ -98,7 +99,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
 
 export function mountLibraryBrowseApi(router, requireSession, {
   sources = defaultSources(),
-  other = createOtherScanner({ root: romsDirPath, ignore: nestedDirs(romsDirPath, [patchesDir, savesDir, homebrewDir, retroDir, dataDir]), ttlMs: OTHER_TTL_MS }),
+  other = createOtherScanner({ root: romsDirPath, ignore: [...nestedDirs(romsDirPath, [patchesDir, savesDir, homebrewDir, retroDir, dataDir]), INCOMING], ttlMs: OTHER_TTL_MS }),
   onLibraryUpdate = shopCache.onUpdate,
 } = {}) {
   // A rescan of the library also looks again for stray files.

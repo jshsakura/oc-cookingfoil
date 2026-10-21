@@ -108,6 +108,7 @@ cookingfoil/
 ├── docker-compose.yml
 ├── .env              # optional; defaults for the first start
 ├── games/            # your packages (.nsp .nsz .xci .xcz)
+│   └── incoming/     # drop box: files put here are sorted into games/ by themselves
 ├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
 ├── keys/             # optional, read-only: your own prod.keys
 ├── retro/            # retro ROMs, art and the RetroArch base pack
@@ -115,6 +116,8 @@ cookingfoil/
 ├── saves/            # save files by title id, and homebrew/<app>/
 └── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
+
+Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `games/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), adds `[TITLEID][vN]` to its name and moves it into one folder per game, with `update/` and `DLC/` beside the base game. A game that already has a folder keeps it; a new one gets a folder named after it. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, 임시 폴더).
 
 Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path/to/cookingfoil` in `.env`. To move just one, set its own path, for example `COOK_GAMES_PATH=/path/to/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
 

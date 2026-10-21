@@ -17,6 +17,7 @@ import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { LIBRARY_FILES_HTML, LIBRARY_VERIFY_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
+import { ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT, SAVES_HTML } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
@@ -527,6 +528,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
   <div class="cards" id="lib-cards"></div>
   <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
+    <button type="button" role="tab" data-lsub="organize" aria-selected="false">${icon("inbox")}임시 폴더</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
     <button type="button" role="tab" data-lsub="patches" aria-selected="false">${icon("package")}패치</button>
     <button type="button" role="tab" data-lsub="saves" aria-selected="false">${icon("save")}세이브</button>
@@ -535,6 +537,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
   </div>
   <div data-lib-panel="files">${LIB_BROWSER_HTML}
   ${LIBRARY_FILES_HTML}</div>
+  <div data-lib-panel="organize" hidden>${ORGANIZE_HTML}</div>
   <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
   <div data-lib-panel="patches" hidden>${PATCHES_HTML}</div>
   <div data-lib-panel="saves" hidden>${SAVES_HTML}</div>
@@ -701,5 +704,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
 }
