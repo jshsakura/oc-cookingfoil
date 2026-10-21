@@ -9,8 +9,9 @@
  * `work` is the game across consoles (its English title, folded), so Tetris on
  * the Game Boy and on the NES fill one place in the theme rows.
  *
- * Genres are categories.js GENRE_LABELS keys, the same key in every language,
- * so a theme row's id leads straight to its filter. Everything here is pure.
+ * Genres are categories.js GENRE_LABELS keys, the same key in every language.
+ * Outside they travel as slugs ("Board Game" → "board-game"), so a theme row's
+ * id leads straight to its filter. Everything here is pure.
  */
 import { genreLabel } from "../meta/categories.js";
 
@@ -44,6 +45,9 @@ const THEME_NAMES = {
     zh: (d) => `${String(d).slice(2)}年代经典`,
   },
 };
+
+/** A genre key as the API shows and takes it: lower case, spaces as "-". */
+export const genreSlug = (key) => key.toLowerCase().replace(/\s+/g, "-");
 
 const nameIn = (names, lang, arg) => {
   const n = names[lang] ?? names.en;
@@ -90,7 +94,7 @@ export function facetsOf(list, lang = "en") {
   }
   const players = PLAYER_STEPS.map((value) => ({ value, count: list.filter((f) => (f.players ?? 0) >= value).length })).filter((p) => p.count);
   return {
-    ...(genres.size ? { genres: counted(genres).map(([key, count]) => ({ key, name: genreLabel(key, lang), count })) } : {}),
+    ...(genres.size ? { genres: counted(genres).map(([key, count]) => ({ key: genreSlug(key), name: genreLabel(key, lang), count })) } : {}),
     ...(players.length ? { players } : {}),
     ...(decades.size ? { decades: [...decades].sort((a, b) => a[0] - b[0]).map(([value, count]) => ({ value, count })) } : {}),
     ...(regions.size ? { regions: counted(regions).map(([value, count]) => ({ value, count })) } : {}),
@@ -106,7 +110,7 @@ const intParam = (v) => (typeof v === "string" && /^\d+$/.test(v) ? Number(v) : 
  * (at least), decade (1990), region (kr), korean=1, achievements=1. Pure.
  */
 export function factsFilter(query) {
-  const genres = typeof query.genre === "string" && query.genre ? query.genre.split(",").map((s) => s.trim()).filter(Boolean) : null;
+  const genres = typeof query.genre === "string" && query.genre ? query.genre.split(",").map((s) => genreSlug(s.trim())).filter(Boolean) : null;
   const players = intParam(query.players);
   const decade = intParam(query.decade);
   const region = typeof query.region === "string" && query.region ? query.region.toLowerCase() : null;
@@ -116,7 +120,7 @@ export function factsFilter(query) {
   if (!any) return null;
   return (f) =>
     Boolean(f) &&
-    (!genres || f.genres.some((g) => genres.includes(g))) &&
+    (!genres || f.genres.some((g) => genres.includes(genreSlug(g)))) &&
     (players === null || (f.players ?? 0) >= players) &&
     (decade === null || decadeOf(f.year) === decade) &&
     (!region || f.region === region) &&
@@ -151,7 +155,7 @@ const shuffled = (list, rand) => {
 function candidates(list) {
   const out = [];
   const genres = new Set(list.flatMap((f) => f.genres));
-  for (const key of genres) out.push({ id: `genre:${key}`, kind: "genre", name: (lang) => genreLabel(key, lang), games: list.filter((f) => f.genres.includes(key)).sort(byRating) });
+  for (const key of genres) out.push({ id: `genre:${genreSlug(key)}`, kind: "genre", name: (lang) => genreLabel(key, lang), games: list.filter((f) => f.genres.includes(key)).sort(byRating) });
   const other = (id, names, games, arg) => out.push({ id, kind: "other", name: (lang) => nameIn(names, lang, arg), games });
   other("coop", THEME_NAMES.coop, list.filter((f) => (f.players ?? 0) >= 2).sort(byRating));
   other("korean", THEME_NAMES.korean, list.filter((f) => f.korean).sort(byRating));
@@ -167,7 +171,7 @@ function candidates(list) {
     // A decade and a genre together ("90년대 RPG").
     for (const key of genres) {
       const games = inDecade.filter((f) => f.genres.includes(key));
-      if (games.length) out.push({ id: `decade:${d}:genre:${key}`, kind: "other", name: (lang) => nameIn(THEME_NAMES.decadeGenre, lang, [d, genreLabel(key, lang)]), games: games.sort(byRating) });
+      if (games.length) out.push({ id: `decade:${d}:genre:${genreSlug(key)}`, kind: "other", name: (lang) => nameIn(THEME_NAMES.decadeGenre, lang, [d, genreLabel(key, lang)]), games: games.sort(byRating) });
     }
   }
   return out;

@@ -14,7 +14,7 @@ test("a game's facts come from its record and its versions, unknowns left empty"
 test("facets count what a system has and leave out what nobody has", () => {
   const list = [game(1, { genres: ["RPG", "Action"], players: 2, korean: true }), game(2, { players: 4, year: 1988, region: "us" }), game(3, { genres: [], year: null, achievements: true })];
   const f = facetsOf(list, "ko");
-  assert.deepEqual(f.genres.map((g) => [g.key, g.count]), [["RPG", 2], ["Action", 1]]);
+  assert.deepEqual(f.genres.map((g) => [g.key, g.count]), [["rpg", 2], ["action", 1]]);
   assert.equal(f.genres[1].name, "액션", "names in the asked language");
   assert.deepEqual(f.players, [{ value: 2, count: 2 }, { value: 3, count: 1 }, { value: 4, count: 1 }]);
   assert.deepEqual(f.decades, [{ value: 1980, count: 1 }, { value: 1990, count: 1 }]);
@@ -28,8 +28,8 @@ test("the filters combine with AND, genres within one filter with OR", () => {
   const list = [game(1, { genres: ["RPG"], players: 2 }), game(2, { genres: ["Action"], players: 1 }), game(3, { genres: ["Puzzle"], korean: true, year: 1988 })];
   const ids = (q) => list.filter(factsFilter(q)).map((f) => f.id);
   assert.equal(factsFilter({}), null, "no filter asked, none applied");
-  assert.deepEqual(ids({ genre: "RPG,Action" }), ["g1", "g2"]);
-  assert.deepEqual(ids({ genre: "RPG,Action", players: "2" }), ["g1"]);
+  assert.deepEqual(ids({ genre: "rpg,action" }), ["g1", "g2"]);
+  assert.deepEqual(ids({ genre: "rpg,action", players: "2" }), ["g1"]);
   assert.deepEqual(ids({ korean: "1" }), ["g3"]);
   assert.deepEqual(ids({ decade: "1980" }), ["g3"]);
   assert.deepEqual(ids({ region: "JP" }), ["g1", "g2", "g3"]);
@@ -62,7 +62,7 @@ test("theme rows: at most six, twelve each, no game twice, none under eight, gen
 test("a decade and a genre make one theme, named in the asked language", () => {
   const list = Array.from({ length: 10 }, (_, i) => game(i, { genres: ["RPG"], year: 1993 }));
   const rows = pickThemes(list, { day: 3, lang: "ko", rows: 20, per: 1, min: 1 });
-  const combo = rows.find((r) => r.id === "decade:1990:genre:RPG");
+  const combo = rows.find((r) => r.id === "decade:1990:genre:rpg");
   assert.ok(combo, rows.map((r) => r.id).join());
   assert.match(combo.name, /^90년대 /);
 });
@@ -73,6 +73,14 @@ test("one game on several consoles fills one place across the rows", () => {
   const works = rows.flatMap((r) => r.games.map((g) => g.work));
   assert.equal(works.filter((w) => w === "tetris").length, 1);
   assert.equal(new Set(works).size, works.length);
+});
+
+test("genre keys go out and come in as lower-case slugs", () => {
+  const list = Array.from({ length: 10 }, (_, i) => game(i, { genres: ["Board Game"] }));
+  assert.equal(facetsOf(list).genres[0].key, "board-game");
+  const ids = pickThemes(list, { day: 1, rows: 20, per: 1, min: 1 }).map((r) => r.id);
+  assert.ok(ids.includes("genre:board-game") && ids.includes("decade:1990:genre:board-game"), ids.join());
+  assert.equal(list.filter(factsFilter({ genre: "board-game" })).length, 10);
 });
 
 test("a theme with fewer than eight games is left out", () => {
