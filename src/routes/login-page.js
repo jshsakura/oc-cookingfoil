@@ -9,13 +9,10 @@
  *               done     that console is already approved
  *               expired  the QR is gone
  */
-import fs from "fs";
+import { BRAND_LOGO as LOGO, BRAND_MOTION_CSS } from "../views/brand-motion.js";
 import { escapeHtml } from "./admin/escape.js";
 import { ICON_CSS, icon } from "../views/icons.js";
 import { shareTags } from "../views/share-meta.js";
-
-// These pages sit outside the shop's sign-in, and /assets inside it, so the logo travels inline.
-const LOGO = `data:image/svg+xml;base64,${fs.readFileSync(new URL("../views/assets/cookingfoil.svg", import.meta.url)).toString("base64")}`;
 
 const TEXT = {
   ko: {
@@ -180,10 +177,9 @@ const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#161
 ${ICON_CSS}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;width:min(100%,400px);text-align:center}
 .brand{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0 0 24px}
-.brand img{display:block;width:60px;height:60px;transform-origin:50% 100%;animation:drop .7s cubic-bezier(.3,.7,.4,1) both,bob 4s ease-in-out 1.6s infinite}
+.brand img{display:block;width:60px;height:60px}
 .brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:28px;line-height:1;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
-@keyframes drop{0%{transform:translateY(-40px) scale(.9,1.1);opacity:0}45%{transform:translateY(0) scale(.95,1.05);opacity:1}60%{transform:translateY(0) scale(1.1,.85)}78%{transform:translateY(-6px) scale(.97,1.03)}100%{transform:none}}
-@keyframes bob{0%,88%,100%{transform:none}94%{transform:translateY(-3px)}}
+${BRAND_MOTION_CSS}
 h1{font-size:22px;line-height:1.3;margin:0 0 8px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 p{font-size:16px;line-height:1.6;color:var(--muted);margin:0 0 24px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
 .device-code{display:block;font:700 28px monospace;letter-spacing:3px;padding:16px;text-align:center;background:var(--soft);border-radius:12px;margin:0 0 24px}
@@ -211,7 +207,7 @@ const GOOGLE_G = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="t
 function shell(lang, title, body, script = "", { hideTitle = false, head = "" } = {}) {
   return `<!doctype html><html lang="${{ ko: "ko", ja: "ja", zh: "zh-Hans" }[lang] ?? "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow, noarchive">${head}
 <title>CookingFoil · ${escapeHtml(title)}</title><link rel="icon" href="${LOGO}" type="image/svg+xml"><style>${STYLE}</style></head>
-<body><main class="card"><div class="brand"><img src="${LOGO}" alt="" width="60" height="60"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
+<body><main class="card"><div class="brand"><img class="brand-motion" src="${LOGO}" alt="" width="60" height="60"><span class="wm">cookingfoil<span class="dot">.</span></span></div>
 <h1${hideTitle ? ' class="sr-only"' : ""}>${escapeHtml(title)}</h1>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
 }
 

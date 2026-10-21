@@ -24,6 +24,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import * as env from "../helpers/envs.js";
 import { requestLang } from "../meta/categories.js";
+import { BRAND_LOGO, BRAND_MOTION_CSS } from "../views/brand-motion.js";
 
 export const RESTART_HEADER = "X-CookingFoil-Restarting";
 
@@ -90,13 +91,12 @@ const page = (seconds, lang) => {
 body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--ground);color:var(--ink);
 font-family:Inter,"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 main{width:100%;max-width:400px;padding:36px 28px;border:1px solid var(--line);border-radius:18px;background:var(--surface);text-align:center}
-.brand{font-weight:800;letter-spacing:-.01em;font-size:15px;color:var(--secondary)}
-.spin{width:40px;height:40px;margin:24px auto;border-radius:50%;border:4px solid var(--line);border-top-color:var(--butter);animation:r 1s linear infinite}
-@keyframes r{to{transform:rotate(1turn)}}
-@media (prefers-reduced-motion:reduce){.spin{animation:none;border-color:var(--butter)}}
+.brand{font-weight:800;letter-spacing:-.01em;font-size:15px;color:var(--secondary);margin-bottom:20px}
+.restart-logo{display:block;width:80px;height:80px;margin:0 auto 12px}
+${BRAND_MOTION_CSS}
 h1{margin:0 0 8px;font-size:20px;line-height:1.35}
 p{margin:0;color:var(--secondary);font-size:15px;line-height:1.5}
-</style><main><div class="brand">CookingFoil</div><div class="spin" aria-hidden="true"></div><h1>${title}</h1><p>${body}</p></main></html>`;
+</style><main><img class="restart-logo brand-motion" src="${BRAND_LOGO}" alt="" width="80" height="80"><div class="brand">CookingFoil</div><h1>${title}</h1><p>${body}</p></main></html>`;
 };
 
 /**
