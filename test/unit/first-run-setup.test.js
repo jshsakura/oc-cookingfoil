@@ -66,6 +66,10 @@ test("before setup is finished /admin neither shows the authenticator secret nor
     assert.ok(!r.headers.getSetCookie().some((c) => c.startsWith("cf_admin=")), "no admin cookie before setup");
     r = await fetch(`${base}/admin/api/users`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base }, body: JSON.stringify({ name: "intruder", password: "long-enough-pass", role: "admin" }) });
     assert.ok(r.status >= 400, "no admin API before setup");
+    r = await fetch(`${base}/setup/api/unlock`, { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://setup.example.com" }, body: JSON.stringify({ code: "AAAA-0000" }) });
+    assert.deepEqual([r.status, (await r.json()).error], [403, "origin"], "a page on another address cannot drive setup");
+    const page = await (await fetch(`${base}/setup`, { headers: { Accept: "text/html", "Accept-Language": "en" } })).text();
+    assert.match(page, /COOK_TRUST_PROXY/, "the setup page says what to check when the address does not match");
   } finally {
     child.kill();
   }
