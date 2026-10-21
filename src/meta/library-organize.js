@@ -388,6 +388,8 @@ export function createOrganizer(deps) {
       heldCount: state.held.length,
       waiting: state.waiting,
       recent: state.recent,
+      // The folder names a ROM can be dropped under, one per system.
+      systems: Object.entries(deps.systems?.() ?? {}).map(([id, s]) => ({ folder: id, name: s.names?.ko ?? s.names?.en ?? id })),
     };
   }
 

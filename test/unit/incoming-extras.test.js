@@ -10,18 +10,26 @@ import { REASONS, createOrganizer } from "../../src/meta/library-organize.js";
 const items = (...rels) => rels.map((rel) => ({ rel }));
 const plan = (rels, refs = new Map()) => planExtras({ items: items(...rels), refs, systems: DEFAULT_SYSTEMS });
 
-test("a ROM goes to the system its folder names, else the one its extension belongs to", () => {
-  const p = plan(["snes/Chrono.zip", "PlayStation/Game.chd", "받은 것/Golden Sun.gba", "Super Nintendo/F-Zero.smc"]);
+test("a ROM goes to the system the folder it was dropped in chose", () => {
+  const p = plan(["snes/Chrono.zip", "PlayStation/Game.chd", "Super Nintendo/F-Zero.smc", "gba/받은 것/Golden Sun.gba"]);
   assert.deepEqual(p.moves.map((m) => [m.from, m.to]), [
+    ["gba/받은 것/Golden Sun.gba", "roms/gba/Golden Sun.gba"],
     ["PlayStation/Game.chd", "roms/ps1/Game.chd"],
     ["snes/Chrono.zip", "roms/snes/Chrono.zip"],
     ["Super Nintendo/F-Zero.smc", "roms/snes/F-Zero.smc"],
-    ["받은 것/Golden Sun.gba", "roms/gba/Golden Sun.gba"],
   ]);
   assert.ok(p.moves.every((m) => m.root === "retro"));
 });
 
-test("what a ROM's extension cannot place stays, and so does what is no ROM", () => {
+test("the extension never picks a system; it only warns when something looks wrong", () => {
+  const p = plan(["받은 것/Golden Sun.gba", "snes/Golden Sun.gba", "snes/Chrono.sfc"]);
+  const why = Object.fromEntries(p.held.map((h) => [h.rel, h.reason]));
+  assert.equal(why["받은 것/Golden Sun.gba"], `${EXTRA_REASONS.noSystem}. 게임보이 어드밴스 롬으로 보입니다`);
+  assert.equal(why["snes/Golden Sun.gba"], `${EXTRA_REASONS.wrongExtension}. 게임보이 어드밴스 롬으로 보입니다`);
+  assert.deepEqual(p.moves.map((m) => m.to), ["roms/snes/Chrono.sfc"]);
+});
+
+test("a ROM outside a system folder stays, and so does what is no ROM", () => {
   const p = plan(["loose.zip", "cover.png", "readme.txt", "snes/notes.txt", "Monkey/monkey.scummvm", "atmosphere/contents/0100AAAA00010000/romfs/a.bin"]);
   const why = Object.fromEntries(p.held.map((h) => [h.rel, h.reason]));
   assert.equal(why["loose.zip"], EXTRA_REASONS.noSystem);
@@ -58,7 +66,7 @@ test("a sweep copies ROMs and apps to their folders on another root and never re
   };
   try {
     put("games/incoming/gba/Golden Sun.gba", "new");
-    put("games/incoming/Kept.sfc", "dropped");
+    put("games/incoming/snes/Kept.sfc", "dropped");
     put("retro/roms/snes/Kept.sfc", "already");
     put("games/incoming/Tool.nro");
     put("games/incoming/ps1/G/G.cue", 'FILE "G.bin" BINARY');
@@ -85,9 +93,9 @@ test("a sweep copies ROMs and apps to their folders on another root and never re
     assert.ok(fs.existsSync(path.join(root, "retro/roms/ps1/G/G.bin")));
     assert.ok(fs.existsSync(path.join(root, "homebrew/Tool/Tool.nro")));
     assert.equal(fs.readFileSync(path.join(root, "retro/roms/snes/Kept.sfc"), "utf8"), "already", "never replaced");
-    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["Kept.sfc", REASONS.taken]]);
+    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["snes/Kept.sfc", REASONS.taken]]);
     assert.equal(rescans, 2);
-    assert.deepEqual(fs.readdirSync(path.join(root, "games/incoming")), ["Kept.sfc"]);
+    assert.deepEqual(fs.readdirSync(path.join(root, "games/incoming/snes")), ["Kept.sfc"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
