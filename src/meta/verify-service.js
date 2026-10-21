@@ -7,6 +7,7 @@ import path from "path";
 import { createVerifyQueue, msUntilHours } from "./verify-queue.js";
 import { createVerifier } from "./file-verify.js";
 import * as fileIntegrity from "./file-integrity.js";
+import { provideKnown } from "./file-identity.js";
 import * as env from "../helpers/envs.js";
 import * as shopCache from "./shop-cache.js";
 import drainer from "../security/drain.js";
@@ -43,6 +44,7 @@ const queue = createVerifyQueue({
 });
 
 fileIntegrity.provide((rel) => queue.integrityOf(rel));
+provideKnown((abs, st) => queue.identityOf(path.relative(env.romsDirPath, abs), st));
 
 let started = false;
 /** Loads the records and looks at the library after each rebuild. */

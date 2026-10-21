@@ -8,7 +8,7 @@ import { hashRange, hashRangeHere } from "../../src/meta/hash-range.js";
 import { buildPfs0, buildXci, buildCnmt, fakeNca } from "../support/switch-files.js";
 
 // The file check against fake containers and a stub nstool: header slices whose
-// marker reads "MOD" fail their signature, and -x unpacks the cnmt the test set.
+// marker reads "MOD" fail their signature, and each meta NCA reads as the cnmt the test set.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-verify-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
@@ -28,20 +28,25 @@ function setup({ cnmt = null, tools = true } = {}) {
       const failed = header.includes(Buffer.from("MOD"));
       return { code: 0, out: `${failed ? "NCA Header Main Signature: FAIL" : "NCA Header Main Signature: GOOD"}\n[WARNING] NCA Partition 0 not readable\n` };
     }
-    const out = args[args.indexOf("-x") + 1];
-    // `cnmt` may map a mark inside the meta NCA to its own cnmt (a multi-title XCI).
-    const pick = Buffer.isBuffer(cnmt) || !cnmt ? cnmt : Object.entries(cnmt).find(([mark]) => fs.readFileSync(args[args.length - 1]).includes(Buffer.from(mark)))?.[1];
-    if (pick) fs.writeFileSync(path.join(out, "Application_0100000000010000.cnmt"), pick);
     return { code: 0, out: "" };
   };
+  // `cnmt` may map a mark inside the meta NCA to its own cnmt (a multi-title XCI).
+  const cnmts = async (abs, metas) => metas.map((e) => {
+    if (Buffer.isBuffer(cnmt) || !cnmt) return cnmt;
+    const data = fs.readFileSync(abs).subarray(e.offset, e.offset + e.size);
+    return Object.entries(cnmt).find(([mark]) => data.includes(Buffer.from(mark)))?.[1];
+  }).filter(Boolean);
   const verifier = createVerifier({
     tools: async () => (tools ? { bin: "nstool", keys: "/keys/prod.keys" } : null),
     nstool,
+    cnmts,
     hash: async (file, start, size) => { hashed.push(start); return hashRangeHere(file, start, size); },
     tmpRoot: root,
   });
   return { verifier, calls, hashed };
 }
+
+const noId = ({ identity: _i, ...r }) => r;
 
 let n = 0;
 function write(ext, buf) {
@@ -91,7 +96,7 @@ test("an untouched NSP passes its signatures and, with hash on, its content hash
 
   const r = await verifier.verify(file, { hash: true });
 
-  assert.deepEqual(r, { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
+  assert.deepEqual(noId(r), { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
   assert.equal(calls.filter((a) => a[0] === "-y").length, 3);
   assert.deepEqual(calls[0].slice(0, 5), ["-y", "-t", "nca", "-k", "/keys/prod.keys"]);
 });
@@ -148,7 +153,7 @@ test("an NSZ gets its signatures checked but never its hashes (NCZ is compressed
 test("an XCI is read through its secure partition, hashes included", async () => {
   const { verifier } = setup({ cnmt: buildCnmt(records()) });
   const ok = await verifier.verify(write("xci", buildXci(files())), { hash: true });
-  assert.deepEqual(ok, { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
+  assert.deepEqual(noId(ok), { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
 
   const modded = await verifier.verify(write("xci", buildXci(files(fakeNca("MOD", 0x800)))));
   assert.equal(modded.verdict, "modified");
@@ -173,7 +178,7 @@ test("a multi-title XCI reads every cnmt and merges their records", async () => 
   const two = [...files(), { name: `${"f".repeat(32)}.cnmt.nca`, data: meta2 }];
   const cnmts = (extra) => ({ GOOD: buildCnmt([{ ncaId: PROGRAM, data: program, type: 1 }]), META2: buildCnmt([{ ncaId: CONTROL, data: control, type: 3 }, ...extra]) });
   const { verifier } = setup({ cnmt: cnmts([]) });
-  assert.deepEqual(await verifier.verify(write("xci", buildXci(two)), { hash: true }), { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
+  assert.deepEqual(noId(await verifier.verify(write("xci", buildXci(two)), { hash: true })), { verdict: "ok", reason: "ok", checks: { signature: "pass", hash: "pass" } });
 
   // Only the second title's cnmt lists the missing NCA, so finding it proves both were read.
   const missing = setup({ cnmt: cnmts([{ ncaId: "e".repeat(32), data: Buffer.alloc(4), type: 2 }]) });
@@ -209,4 +214,16 @@ test("hashRange hashes one byte range in a child process, like hashing it here",
   const ctrl = new AbortController();
   ctrl.abort();
   await assert.rejects(hashRange(file, 0, 4, { signal: ctrl.signal }), { name: "AbortError" });
+});
+
+test("the check says what the file is, every title a cartridge carries included", async () => {
+  const update = Buffer.from(buildCnmt(records()));
+  update.writeBigUInt64LE(0x0100000000010800n, 0);
+  update.writeUInt8(0x81, 0x0c);
+  const meta2 = fakeNca("META2", 0x100);
+  const { verifier } = setup({ cnmt: { GOOD: buildCnmt(records()), META2: update } });
+  const r = await verifier.verify(write("xci", buildXci([...files(), { name: `${"f".repeat(32)}.cnmt.nca`, data: meta2 }])));
+  assert.equal(r.identity.titleId, "0100000000010000");
+  assert.equal(r.identity.kind, "base");
+  assert.deepEqual(r.identity.titleIds, ["0100000000010000", "0100000000010800"]);
 });

@@ -5,8 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { readCnmtIdentity } from "../../src/meta/cnmt-parse.js";
 import {
-  REASONS, createOrganizer, moveNoReplace, folderNameOf, identityFromName, identityFromTicket, isIncoming, planOrganize, taggedName,
+  REASONS, createOrganizer, moveNoReplace, folderNameOf, isIncoming, planOrganize, taggedName,
 } from "../../src/meta/library-organize.js";
+import { createIdentifier, identityFromName, identityFromTicket } from "../../src/meta/file-identity.js";
 import { EXTRA_REASONS } from "../../src/meta/incoming-extras.js";
 
 const BASE = "0100AAAA00010000";
@@ -156,8 +157,10 @@ test("a sweep sorts the drop box into the games folder and leaves the rest", asy
     const org = createOrganizer({
       romsDir: roms,
       romsRels: async () => [`내 게임/a [${BASE}][v0].nsp`],
-      readIdentity: async (abs) => { reads.push(path.basename(abs)); return abs.endsWith("update.nsp") ? { titleId: UPD, version: 65536, kind: "update", baseTitleId: BASE } : null; },
-      readTicketNames: async () => [],
+      ...createIdentifier({
+        readIdentity: async (abs) => { reads.push(path.basename(abs)); return abs.endsWith("update.nsp") ? { titleId: UPD, version: 65536, kind: "update", baseTitleId: BASE } : null; },
+        readTicketNames: async () => [],
+      }),
       nameOf,
       retroDir: path.join(roms, "retro"),
       homebrewDir: path.join(roms, "homebrew"),

@@ -35,15 +35,20 @@
  * progress is aborted and keeps waiting, and nothing more starts until the next
  * library update, a restart or another request from the admin page.
  *
+ * Each check also keeps what the file is (its cnmt, file-identity.js), so the
+ * library is read for that once, and flags a file whose name carries another
+ * title id than its content ("misnamed"; it only informs, like the verdicts).
+ *
  * Records live in the index database (catalog "file-verdicts"), keyed by the
  * games-folder relative path:
  *   { path, size, mtimeMs, verdict?, reason?, checks?, at?, wantHash, hashDone,
- *     ncaHashes?, stale? }   stale: the mtime changed, the signatures run again
+ *     ncaHashes?, stale?, identity?, misnamed? }   stale: the mtime changed, the signatures run again
  */
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { VERIFY_RE } from "./file-verify.js";
+import { nameDisagrees } from "./file-identity.js";
 
 const IDLE_MS = 30_000;
 const RECENT_WRITE_MS = 60_000;
@@ -58,7 +63,8 @@ const FLAGGED_MAX = 200;
 
 export const NOTICE = new Set(["modified", "damaged"]);
 const notice = (row) => (row && NOTICE.has(row.verdict) ? row.verdict : null);
-const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone);
+// A record from before checks kept the identity is read again once, signatures only.
+const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone) || !("identity" in row);
 const sizeChanged = (st, row) => row.mtimeMs != null && st.size !== row.size;
 const mtimeChanged = (st, row) => row.mtimeMs != null && Math.round(st.mtimeMs) !== Math.round(row.mtimeMs);
 const fresh = (rel, st, wantHash) => ({ path: rel, size: st.size, mtimeMs: st.mtimeMs, wantHash, hashDone: false });
@@ -388,7 +394,8 @@ export function createVerifyQueue({
       const r = await verifier.verify(abs(rel), { hash, known: ncaHashes, onHashed, signal: abort.signal });
       fails = 0;
       const { stale: _s, ...done } = base;
-      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, at: now(), hashDone: base.hashDone || hash });
+      const identity = r.identity ?? null;
+      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, at: now(), hashDone: base.hashDone || hash, identity, misnamed: nameDisagrees(rel, identity) });
       batch.done++;
       if (NOTICE.has(r.verdict)) debug.log("verify: %s is %s (%s)", rel, r.verdict, r.reason);
     } catch (err) {
@@ -484,9 +491,15 @@ export function createVerifyQueue({
     return notice(rows.get(rel));
   }
 
+  /** What the check found the file to be, while its size and mtime still hold; else null. */
+  function identityOf(rel, { size, mtimeMs }) {
+    const row = rows.get(rel);
+    return row?.identity && !row.stale && row.size === size && row.mtimeMs === mtimeMs ? row.identity : null;
+  }
+
   function view() {
     load();
-    const counts = { ok: 0, modified: 0, damaged: 0, unchecked: 0 };
+    const counts = { ok: 0, modified: 0, damaged: 0, unchecked: 0, misnamed: 0 };
     let hashPending = 0;
     const flagged = [];
     for (const row of rows.values()) {
@@ -494,8 +507,13 @@ export function createVerifyQueue({
       counts[v] = (counts[v] ?? 0) + 1;
       if (row.wantHash && !row.hashDone) hashPending++;
       if (notice(row)) flagged.push({ path: row.path, verdict: row.verdict, reason: row.reason ?? null, checks: row.checks ?? null, at: row.at ?? null, size: row.size ?? null });
+      if (row.misnamed) {
+        counts.misnamed++;
+        flagged.push({ path: row.path, verdict: "misnamed", reason: "name-mismatch", contentId: row.identity?.titleId ?? null, at: row.at ?? null, size: row.size ?? null });
+      }
     }
-    flagged.sort((a, b) => (a.verdict === b.verdict ? a.path.localeCompare(b.path) : a.verdict === "damaged" ? -1 : 1));
+    const rank = { damaged: 0, modified: 1, misnamed: 2 };
+    flagged.sort((a, b) => rank[a.verdict] - rank[b.verdict] || a.path.localeCompare(b.path));
     return {
       status: pausedReason ? "paused" : running ? "running" : waitingFor ?? (pending.size ? "waiting" : "idle"),
       pausedReason,
@@ -511,7 +529,7 @@ export function createVerifyQueue({
   }
 
   return {
-    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, view, pump,
+    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, identityOf, view, pump,
     get: (rel) => rows.get(rel) ?? null,
     /** Test-only: resolves once nothing runs or is being started. */
     async idle() {

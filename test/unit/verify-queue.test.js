@@ -258,7 +258,7 @@ test("a modified or damaged verdict is kept, exposed, and tells the shop to rebu
   assert.equal(q.integrityOf("fine.nsp"), null);
   assert.equal(verdictChanges, 1);
   const v = q.view();
-  assert.deepEqual(v.counts, { ok: 1, modified: 1, damaged: 0, unchecked: 0 });
+  assert.deepEqual(v.counts, { ok: 1, modified: 1, damaged: 0, unchecked: 0, misnamed: 0 });
   assert.deepEqual(v.flagged.map((f) => f.path), ["mod.nsp"]);
 
   fs.rmSync(path.join(games, "mod.nsp"));
@@ -411,4 +411,37 @@ test("stopping from the activity menu aborts the file in progress and starts not
   await q.idle();
   assert.deepEqual(calls.map((c) => c.rel), ["c.nsp", "c.nsp", "b.nsp", "a.nsp"]);
   assert.equal(q.view().status, "idle");
+});
+
+test("each check keeps what the file is, and a file named for another title shows as misnamed", async () => {
+  const id = (titleId) => ({ titleId, version: 0, kind: "base", baseTitleId: titleId, titleIds: [titleId] });
+  const named = addFile("Game [0100000000010000][v0].nsp");
+  const wrong = addFile("Other [0100000000020000][v0].nsp");
+  const plain = addFile("no id.nsz");
+  hooks[named] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: id("0100000000010000") });
+  hooks[wrong] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: id("0100000000030000") });
+  hooks[plain] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: id("0100000000040000") });
+  const q = makeQueue(memoryStore());
+  await settle(q);
+
+  const v = q.view();
+  assert.equal(v.counts.misnamed, 1);
+  assert.deepEqual(v.flagged.map((f) => [f.path, f.verdict, f.contentId]), [[wrong, "misnamed", "0100000000030000"]]);
+  const st = fs.statSync(path.join(games, plain));
+  assert.equal(q.identityOf(plain, { size: st.size, mtimeMs: st.mtimeMs }).titleId, "0100000000040000");
+  assert.equal(q.identityOf(plain, { size: st.size + 1, mtimeMs: st.mtimeMs }), null, "a changed file is read again");
+});
+
+test("a record kept from before identities were read is checked once more, without a hash", async () => {
+  const rel = addFile("kept.nsp");
+  const st = fs.statSync(path.join(games, rel));
+  const store = memoryStore([{ path: rel, size: st.size, mtimeMs: st.mtimeMs, verdict: "ok", reason: "ok", checks: {}, at: 1, wantHash: false, hashDone: false }]);
+  hooks[rel] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: { titleId: "0100000000010000", version: 0, kind: "base", baseTitleId: "0100000000010000", titleIds: ["0100000000010000"] } });
+  const q = makeQueue(store);
+  await settle(q);
+  assert.deepEqual(calls, [{ rel, hash: false }]);
+  assert.equal(store.rows()[rel].identity.titleId, "0100000000010000");
+  calls = [];
+  await settle(q);
+  assert.deepEqual(calls, [], "read once");
 });
