@@ -11,7 +11,7 @@ export const INBOX_HTML = `<section id="tab-inbox" hidden>
       <button type="button" data-show="done" aria-pressed="false">정리함</button>
       <button type="button" data-show="all" aria-pressed="false">전체</button>
     </div></div>
-  <p class="muted">로그인한 사용자가 웹 화면에서 남긴 파일, 메모, 링크입니다. 패치, 세이브, 홈브류로 옮긴 것은 정리함으로 보내면 목록에서 숨깁니다. 서버의 data/inbox 폴더에도 그대로 있습니다.</p>
+  <p class="muted">로그인한 사용자가 대시보드에서 남긴 파일, 메모, 링크입니다. 패치, 세이브, 홈브류로 옮긴 것은 정리함으로 보내면 목록에서 숨깁니다. 서버의 data/inbox 폴더에도 그대로 있습니다.</p>
   <p class="muted" id="ib-usage"></p>
   <div class="ib-list" id="ib-list"></div>
 </section>`;

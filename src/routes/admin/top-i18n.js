@@ -5,7 +5,7 @@ export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本
 
 export const TOP_WORDS = {
   ko: {
-    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "웹 화면", guide: "운영 안내", dark: "어두운 테마",
+    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내", dark: "어두운 테마",
     logout: "로그아웃", language: "언어", nav: "서버 관리 메뉴", subnav: "세부 메뉴",
     "g.overview": "개요", "g.games": "게임", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "사용자", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "변환", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
