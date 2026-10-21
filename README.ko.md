@@ -11,7 +11,11 @@
 
 스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버이자 샵입니다. 파일은 집에 있는 서버에 두고, 관리 페이지 하나로 모두 관리하며, 기기에서는 CookingFoil 클라이언트로 설치합니다.
 
-웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
+<p align="center">
+  <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=ko"><img src="brand/buttons/website-ko.svg" alt="웹사이트" width="160" height="44" /></a>
+  <a href="README.ko.md#빠른-시작"><img src="brand/buttons/setup-ko.svg" alt="설치 안내" width="160" height="44" /></a>
+  <a href="README.ko.md#클라이언트-연결"><img src="brand/buttons/connect-ko.svg" alt="본체 연결" width="160" height="44" /></a>
+</p>
 
 ![CookingFoil](site/screenshots/en/home-no-art.webp)
 

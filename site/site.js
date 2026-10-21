@@ -6,17 +6,47 @@
   const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-  const langListeners = [];
-  const setLang = (l) => { root.dataset.lang = l; root.lang = l === "zh" ? "zh-Hans" : l; for (const f of langListeners) f(l); };
+  const documents = {
+    en: { file: "README.md", setup: "quick-start", connect: "connecting-a-client", security: "security" },
+    ko: { file: "README.ko.md", setup: "빠른-시작", connect: "클라이언트-연결", security: "보안" },
+    ja: { file: "README.ja.md", setup: "クイックスタート", connect: "クライアントの接続", security: "セキュリティ" },
+    zh: { file: "README.zh-CN.md", setup: "快速开始", connect: "连接客户端", security: "安全" },
+  };
+  const syncLinks = () => {
+    const locale = root.dataset.lang;
+    const guide = documents[locale];
+    for (const link of document.querySelectorAll("a[data-doc]")) {
+      const section = guide[link.dataset.doc];
+      link.href = `https://github.com/jshsakura/oc-cookingfoil/blob/main/${guide.file}${section ? `#${section}` : ""}`;
+    }
+    for (const link of document.querySelectorAll('a[href="./"], a[href^="./?"], a[href^="privacy.html"], a[href^="terms.html"], a[data-site-page]')) {
+      link.dataset.sitePage ??= link.getAttribute("href");
+      const target = new URL(link.dataset.sitePage, location.href);
+      target.searchParams.set("lang", locale);
+      link.href = target.href;
+    }
+  };
+  const langListeners = [syncLinks];
+  const setLang = (l) => {
+    root.dataset.lang = l;
+    root.lang = l === "zh" ? "zh-Hans" : l;
+    const address = new URL(location.href);
+    address.searchParams.set("lang", l);
+    history.replaceState(null, "", address);
+    for (const f of langListeners) f(l);
+  };
   const nav = (navigator.language || "").slice(0, 2).toLowerCase();
   const saved = read("lang");
-  setLang(saved in LANGS ? saved : nav in LANGS ? nav : "en");
+  const requested = new URLSearchParams(location.search).get("lang");
+  setLang(Object.hasOwn(LANGS, requested) ? requested : Object.hasOwn(LANGS, saved) ? saved : Object.hasOwn(LANGS, nav) ? nav : "en");
+  if (Object.hasOwn(LANGS, requested)) write("lang", requested);
 
   const setTheme = (t) => { root.dataset.theme = t; };
   const savedTheme = read("theme");
   setTheme(THEMES.includes(savedTheme) ? savedTheme : "light");
 
   addEventListener("DOMContentLoaded", () => {
+    syncLinks();
     const btn = document.getElementById("lang-btn");
     const menu = document.getElementById("lang-menu");
     const code = document.getElementById("lang-code");

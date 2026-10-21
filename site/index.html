@@ -24,8 +24,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="style.css?v=single-brand">
-<script src="site.js"></script>
+<link rel="stylesheet" href="style.css?v=locale-navigation">
+<script src="site.js?v=locale-navigation"></script>
 </head>
 <body class="home">
 <header class="top"><div class="in">
@@ -55,7 +55,7 @@
 <div class="btns"><a class="btn" href="#install"><span data-l="ko">시작하기</span>
 <span data-l="en">Get started</span>
 <span data-l="ja">はじめる</span>
-<span data-l="zh">开始使用</span></a><a class="text-link" href="#connect"><span data-l="ko">본체 연결하기</span>
+<span data-l="zh">开始使用</span></a><a class="btn btn-secondary" href="#connect"><span data-l="ko">본체 연결하기</span>
 <span data-l="en">Connect your console</span>
 <span data-l="ja">本体を接続</span>
 <span data-l="zh">连接主机</span> <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div>
@@ -174,7 +174,7 @@
 <p data-l="en">Get the Compose file and example settings from the repository. On the first visit, the server walks you through admin setup.</p>
 <p data-l="ja">リポジトリの Compose ファイルと設定例で起動。初回アクセス時に管理者の設定へ進みます。</p>
 <p data-l="zh">从仓库获取 Compose 文件和示例配置并启动，首次访问时会引导完成管理员设置。</p>
-<a class="text-link" href="https://github.com/jshsakura/oc-cookingfoil#quick-start"><span data-l="ko">서버 설치 안내</span>
+<a class="btn btn-secondary" data-doc="setup" href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.md#quick-start"><span data-l="ko">서버 설치 안내</span>
 <span data-l="en">Server setup guide</span>
 <span data-l="ja">サーバーの設置方法</span>
 <span data-l="zh">服务器安装指南</span></a></li>
@@ -186,7 +186,7 @@
 <p data-l="en">Sign in to your server’s web page, download cookingfoil.nro and copy it to switch/cookingfoil/. The operator must provide a client build first.</p>
 <p data-l="ja">サーバーの Web ページにログインし、cookingfoil.nro を入手して switch/cookingfoil/ にコピー。管理者がビルドを用意している必要があります。</p>
 <p data-l="zh">登录服务器网页，下载 cookingfoil.nro 并复制到 switch/cookingfoil/。管理员需要先提供客户端构建。</p>
-<a class="text-link" href="#connect"><span data-l="ko">최신 본체 연결하기</span>
+<a class="btn btn-secondary" href="#connect"><span data-l="ko">본체 연결 방법</span>
 <span data-l="en">Client connection guide</span>
 <span data-l="ja">最新の本体を接続</span>
 <span data-l="zh">客户端连接指南</span></a></li></ol>
@@ -202,16 +202,16 @@
 <p data-l="ja">サーバーから入手したクライアントには接続設定を含められます。手動で追加した場合は本体の QR をスマートフォンで承認。次からはアクセスキーを使い、本体にアカウントのパスワードを残しません。</p>
 <p data-l="zh">从服务器下载的客户端可以包含连接配置。手动添加服务器时，用手机扫码批准。批准后主机使用访问密钥连接，无需保留账号密码。</p>
 <p data-l="ko" class="section-note">CyberFoil과 Tinfoil 방식 클라이언트도 서버에 연결할 수 있습니다. 연결 방식은 서버 안내에서 확인합니다.</p><p data-l="en" class="section-note">CyberFoil and Tinfoil-style clients can also connect. See the server guide for their connection methods.</p><p data-l="ja" class="section-note">CyberFoil や Tinfoil 形式のクライアントも接続できます。方法はサーバーの案内を確認してください。</p><p data-l="zh" class="section-note">CyberFoil 和 Tinfoil 类客户端也能连接，具体方式见服务器指南。</p>
-<a class="text-link" href="https://github.com/jshsakura/oc-cookingfoil#connecting-a-client"><span data-l="ko">클라이언트 연결 안내</span><span data-l="en">Connection guide</span><span data-l="ja">接続ガイド</span><span data-l="zh">连接指南</span></a>
+<a class="btn btn-secondary" data-doc="connect" href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.md#connecting-a-client"><span data-l="ko">클라이언트 연결 안내</span><span data-l="en">Connection guide</span><span data-l="ja">接続ガイド</span><span data-l="zh">连接指南</span></a>
 </div></section>
 <section class="setup" id="security" aria-labelledby="security-heading"><div class="section-heading"><p class="eyebrow">YOUR SERVER</p><h2 id="security-heading"><span data-l="ko">접근 권한도,<br>내가 관리합니다.</span><span data-l="en">Your server.<br>Your access rules.</span><span data-l="ja">接続できる人も、<br>自分で管理。</span><span data-l="zh">访问权限，<br>也由你管理。</span></h2></div><div class="setup-body">
 <p data-l="ko">서버 로그의 코드로 처음 설정을 시작하고, 계정과 기기를 승인합니다. 필요하면 기기별 접근을 거둘 수 있습니다. 외부에서 연결할 때는 HTTPS를 준비하고, 서버의 보안 안내를 확인합니다.</p><p data-l="en">Start setup with the code from your server log, then approve accounts and consoles. Revoke a console’s access when needed. Set up HTTPS for outside access and read the server’s security guide.</p><p data-l="ja">サーバーログのコードで初期設定し、アカウントと本体を承認。必要なときは本体ごとに接続を取り消せます。外部からの接続には HTTPS を用意し、セキュリティガイドを確認してください。</p><p data-l="zh">使用服务器日志中的代码开始设置，批准账号与主机，需要时按主机撤销访问。外部连接请配置 HTTPS 并阅读服务器安全指南。</p>
-<a class="text-link" href="https://github.com/jshsakura/oc-cookingfoil#security"><span data-l="ko">보안과 운영 안내</span><span data-l="en">Security and operation</span><span data-l="ja">セキュリティと運用</span><span data-l="zh">安全与运维指南</span></a>
+<a class="btn btn-secondary" data-doc="security" href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.md#security"><span data-l="ko">보안과 운영 안내</span><span data-l="en">Security and operation</span><span data-l="ja">セキュリティと運用</span><span data-l="zh">安全与运维指南</span></a>
 <p data-l="ko" class="section-note">게임, 키, 펌웨어, BIOS, RetroArch는 포함하지 않습니다. 사용할 권리가 있는 콘텐츠를 직접 준비합니다.</p><p data-l="en" class="section-note">No games, keys, firmware, BIOS files or RetroArch are included. Supply content you have the right to use.</p><p data-l="ja" class="section-note">ゲーム、キー、ファームウェア、BIOS、RetroArch は含みません。利用する権利のあるコンテンツを用意してください。</p><p data-l="zh" class="section-note">不含游戏、密钥、固件、BIOS 或 RetroArch，请自行准备有权使用的内容。</p>
 </div></section>
 </main>
 <footer><div class="in">
-<nav><a href="https://github.com/jshsakura/oc-cookingfoil">GitHub</a><a href="privacy.html"><span data-l="ko">개인정보처리방침</span><span data-l="en">Privacy</span><span data-l="ja">プライバシー</span><span data-l="zh">隐私政策</span></a><a href="terms.html"><span data-l="ko">서비스 약관</span><span data-l="en">Terms</span><span data-l="ja">利用規約</span><span data-l="zh">服务条款</span></a><a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/SECURITY.md"><span data-l="ko">보안 제보</span><span data-l="en">Security</span><span data-l="ja">セキュリティ報告</span><span data-l="zh">安全报告</span></a><a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/LICENSE">MIT</a></nav>
+<nav><a data-doc="overview" href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.md">GitHub</a><a href="privacy.html"><span data-l="ko">개인정보처리방침</span><span data-l="en">Privacy</span><span data-l="ja">プライバシー</span><span data-l="zh">隐私政策</span></a><a href="terms.html"><span data-l="ko">서비스 약관</span><span data-l="en">Terms</span><span data-l="ja">利用規約</span><span data-l="zh">服务条款</span></a><a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/SECURITY.md"><span data-l="ko">보안 제보</span><span data-l="en">Security</span><span data-l="ja">セキュリティ報告</span><span data-l="zh">安全报告</span></a><a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/LICENSE">MIT</a></nav>
 </div></footer>
 </body>
 </html>
