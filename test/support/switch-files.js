@@ -93,3 +93,50 @@ export function fakeNca(mark = "GOOD", body = 0x400) {
   buf.write(mark, 0x200, "ascii");
   return buf;
 }
+
+const cipher = (algo, key, iv, data) => {
+  const c = crypto.createCipheriv(algo, key, iv);
+  c.setAutoPadding(false);
+  return Buffer.concat([c.update(data), c.final()]);
+};
+
+/**
+ * A meta NCA encrypted the way a console's is, holding `cnmt`: header in
+ * AES-XTS with `headerKey`, the PFS0 in AES-CTR under a key sealed with
+ * `keyAreaKey` (master key revision `generation - 1`, 0 meaning revision 0).
+ */
+export function buildMetaNca(cnmt, { headerKey, keyAreaKey, generation = 0, name = "Application_0100000000010000.cnmt" }) {
+  const ctrKey = crypto.randomBytes(16);
+  const upper = crypto.randomBytes(8);
+  const sectionAt = 0xc00;
+  const hashTable = Buffer.alloc(0x200, 0x22);
+  const pfs0 = buildPfs0([{ name, data: cnmt }]);
+  const plain = Buffer.concat([hashTable, pfs0, Buffer.alloc((0x200 - ((hashTable.length + pfs0.length) % 0x200)) % 0x200)]);
+  const header = Buffer.alloc(0xc00);
+  header.write("NCA3", 0x200, "ascii");
+  header[0x205] = 1;
+  header[0x220] = generation;
+  header.writeUInt32LE(sectionAt / 0x200, 0x240);
+  header.writeUInt32LE((sectionAt + plain.length) / 0x200, 0x244);
+  cipher("aes-128-ecb", keyAreaKey, null, ctrKey).copy(header, 0x320);
+  const fsh = header.subarray(0x400, 0x600);
+  fsh[0x02] = 1;
+  fsh[0x03] = 2;
+  fsh[0x04] = 3;
+  fsh.writeUInt32LE(2, 0x08 + 0x24);
+  fsh.writeBigUInt64LE(0n, 0x08 + 0x28);
+  fsh.writeBigUInt64LE(BigInt(hashTable.length), 0x08 + 0x30);
+  fsh.writeBigUInt64LE(BigInt(hashTable.length), 0x08 + 0x38);
+  fsh.writeBigUInt64LE(BigInt(pfs0.length), 0x08 + 0x40);
+  Buffer.from(upper).reverse().copy(fsh, 0x140);
+  const sealed = Buffer.alloc(0xc00);
+  for (let i = 0; i < 6; i++) {
+    const iv = Buffer.alloc(16);
+    iv.writeBigUInt64BE(BigInt(i), 8);
+    cipher("aes-128-xts", headerKey, iv, header.subarray(i * 0x200, (i + 1) * 0x200)).copy(sealed, i * 0x200);
+  }
+  const iv = Buffer.alloc(16);
+  upper.copy(iv, 0);
+  iv.writeBigUInt64BE(BigInt(sectionAt / 16), 8);
+  return Buffer.concat([sealed, cipher("aes-128-ctr", ctrKey, iv, plain)]);
+}
