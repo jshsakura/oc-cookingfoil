@@ -2,6 +2,8 @@
 import "./security/require-secret-key.js";
 import { SHARE_LANGS, shareImagePath } from "./views/share-meta.js";
 import express from "express";
+// Express 4 drops a rejected async handler on the floor and Node then exits; this hands it to the error handler.
+import "express-async-errors";
 import net from "net";
 import http from "http";
 import { fileURLToPath } from "node:url";

@@ -127,8 +127,11 @@ export function csrfToken(req, res) {
 export function csrfOk(req) {
   const want = cookies(req)[CSRF_COOKIE];
   const got = req.get("x-csrf-token") ?? req.body?.csrf;
-  if (typeof want !== "string" || typeof got !== "string" || !want || want.length !== got.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(want), Buffer.from(got));
+  if (typeof want !== "string" || typeof got !== "string" || !want) return false;
+  // Compared as bytes: two strings of one length can differ in UTF-8 length, which timingSafeEqual throws on.
+  const a = Buffer.from(want);
+  const b = Buffer.from(got);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 /** The signed-in account when it is approved, else null. */

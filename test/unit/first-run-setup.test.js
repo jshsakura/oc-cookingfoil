@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { generate } from "otplib";
@@ -222,5 +222,33 @@ test("the setup page warns before skipping the authenticator, in every language"
     const page = setupPage({ step: "otp", lang });
     assert.match(page, /data-api="otp\/skip" data-confirm="[^"]+"/, lang);
     assert.match(page, /class="warn">[^<]{40,}</, lang);
+  }
+});
+
+test("before setup nothing is served, and a malformed CSRF cookie on /login is refused without taking the server down", async () => {
+  const port = 23500 + (process.pid % 400);
+  const base = `http://127.0.0.1:${port}`;
+  const { child, data } = boot(port);
+  writeFileSync(path.join(data, "games", "marker.txt"), "PRIVATE");
+  try {
+    await ready(base);
+    const file = await fetch(`${base}/marker.txt`);
+    assert.equal(file.status, 503, "no file before the first account");
+    assert.deepEqual(await file.json(), { error: "setup-required" });
+    const page = await fetch(`${base}/marker.txt`, { headers: { Accept: "text/html" }, redirect: "manual" });
+    assert.equal(page.headers.get("location"), "/setup");
+
+    for (const csrf of ["%C3%A9", "%FF", ""]) {
+      const r = await fetch(`${base}/login`, {
+        method: "POST", redirect: "manual",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: `cf_csrf=${csrf}` },
+        body: "csrf=x&username=someone&password=whatever",
+      });
+      assert.ok(r.status >= 300 && r.status < 500, `csrf ${JSON.stringify(csrf)} gets ${r.status}`);
+    }
+    assert.equal(child.exitCode, null, "still running");
+    assert.equal((await fetch(`${base}/healthz`)).status, 200);
+  } finally {
+    child.kill();
   }
 });
