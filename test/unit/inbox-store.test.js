@@ -132,8 +132,8 @@ test("deleting removes one entry folder and nothing else", async () => {
 
 test("the alert tells who, how many files and how big, the link count and the memo's first line", () => {
   const text = render(inbox.alertText({ user: "alice", memo: "  \n  피크민 세이브입니다  \n둘째 줄", links: ["https://a.example/", "https://b.example/"], files: [{ size: 1024 }, { size: 2048 }] }), "ko");
-  assert.equal(text, "alice 님이 파일 2개(3.0 KB), 링크 2개를 올렸습니다.\n메모: 피크민 세이브입니다");
-  assert.equal(render(inbox.alertText({ user: "bob", memo: "", links: [], files: [] }), "ko"), "bob 님이 파일 0개(0 B), 링크 0개를 올렸습니다.");
+  assert.equal(text, "📦 alice 님이 파일 2개(3.0 KB), 링크 2개를 올렸습니다.\n📝 메모: 피크민 세이브입니다");
+  assert.equal(render(inbox.alertText({ user: "bob", memo: "", links: [], files: [] }), "ko"), "📦 bob 님이 파일 0개(0 B), 링크 0개를 올렸습니다.");
 });
 
 test("leftovers in staging from a stopped server are cleared, and the usage figure is kept between changes", async () => {

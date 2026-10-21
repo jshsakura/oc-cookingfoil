@@ -24,6 +24,8 @@ export const ACTIVITY_CSS = /* css */ `
 .activity-account .pop-list *{white-space:normal}
 @media (max-width:640px){.top-row,.wrap>header{position:relative}.acct-menu.activity-account{position:static}.activity-account>.pop-list{width:min(440px,100%)}}
 .act-btn{position:relative}
+.act-btn img.acct-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;display:block}
+.act-btn:has(img.acct-avatar){padding:0;overflow:visible}
 .act-btn.busy{color:var(--accent);border-color:rgba(var(--accent-rgb),.55)}
 .act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:100px;border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
 .act-count{position:absolute;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
@@ -203,6 +205,10 @@ const activityMenu={apply:actApply,setLive(on){actSetLive(on);if(on){clearInterv
   if(me&&!me.admin)return;
   try{const r=await fetch('/admin/api/activity/access',{headers:{Accept:'application/json'}});actCanCancel=r.ok&&Boolean((await r.json()).canCancel);actRender();}catch{}
 }};
+// A signed-in Google account wears its Gravatar on the account button; with none, the icon stays.
+function acctAvatar(url){if(!url)return;const b=document.getElementById('acct-btn');const svg=b?.querySelector('svg');if(!svg)return;
+  const img=new Image();img.className='acct-avatar';img.alt='';img.referrerPolicy='no-referrer';img.decoding='async';
+  img.onload=()=>{if(svg.isConnected)svg.replaceWith(img);};img.src=url;}
 actRender();actSetLive(false);
 ${web ? "actFallback();" : "actConnect();"}
 `;

@@ -42,7 +42,7 @@ test("an alert goes to the saved chat once per subject per half hour", async () 
   assert.equal(sent.length, 3);
   assert.match(sent[0].url, /\/sendMessage$/);
   assert.equal(sent[0].body.chat_id, "-100123");
-  assert.match(sent[0].body.text, /^\[CookingFoil\] 기기 승인 요청\n메시지: 거실/);
+  assert.match(sent[0].body.text, /^💌 기기 승인 요청 · CookingFoil\n\n메시지: 거실/);
   assert.ok(!sent.some((m) => m.body.text.includes("DEVICE-KEY-SECRET")), "the subject is never sent");
   const h = alerts.recent();
   assert.deepEqual(h.map((x) => x.status), ["sent", "sent", "held", "sent"], "newest first, the held repeat recorded too");
@@ -56,7 +56,7 @@ test("dangerous access: the first hit at once, the rest in one summary", async (
   }
   await settle();
   assert.equal(sent.length, 1);
-  assert.match(sent[0].body.text, /위험한 접근\n알려진 공격 경로: \/\.env/);
+  assert.match(sent[0].body.text, /^🚨 위험한 접근 · CookingFoil\n\n알려진 공격 경로: \/\.env/);
   alerts.flushForTests("probe");
   await settle();
   assert.equal(sent.length, 2);
@@ -81,7 +81,7 @@ test("a test message names the events that are on", async () => {
   integrations.save("telegram", { botToken: "", chatId: "-100123", events: "device,probe" });
   const sent = capture();
   assert.deepEqual(await alerts.test(), { ok: true, message: "시험 메시지를 보냈습니다" });
-  assert.match(sent[0].body.text, /^\[CookingFoil\] 알림 시험\n.*기기 승인 요청, 위험한 접근/);
+  assert.match(sent[0].body.text, /^🔔 알림 시험 · CookingFoil\n\n✅ .*기기 승인 요청, 위험한 접근/);
   alerts.setFetchForTests(async () => { throw new Error("ETIMEDOUT"); });
   assert.equal((await alerts.test()).ok, false);
   assert.equal(alerts.recent()[0].status, "failed");

@@ -142,7 +142,7 @@ test("only the approval alerts carry buttons, and only while buttons are on", as
   await settle();
   const [withButtons, plain] = tg.of("sendMessage").map((c) => c.body);
   const row = withButtons.reply_markup.inline_keyboard[0];
-  assert.deepEqual(row.map((b) => b.text), ["승인", "거절"]);
+  assert.deepEqual(row.map((b) => b.text), ["✅ 승인", "❌ 거절"]);
   assert.match(row[0].callback_data, /^y:[A-Za-z0-9_-]{22}$/);
   assert.equal(row[1].callback_data, `n:${row[0].callback_data.slice(2)}`, "one token for both buttons");
   assert.ok(row[0].callback_data.length <= 64, "within Telegram's callback_data limit");
