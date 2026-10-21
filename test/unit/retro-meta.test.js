@@ -484,6 +484,43 @@ test("GET /api/retro/games/:id carries the saved details and serves the screensh
   }
 });
 
+test("facets, fact filters and theme rows read the collected metadata", async () => {
+  const dir = tmp("retro-themes-");
+  const data = tmp("retro-themes-data-");
+  const meta = {};
+  for (let i = 0; i < 10; i++) {
+    put(dir, `roms/snes/Quest ${i} (USA).sfc`, `Q${i}`);
+    meta[`snes/Quest ${i} (USA)`] = { source: "launchbox", genres: ["RPG"], numberOfPlayers: i < 3 ? 2 : 1, releaseDate: 19950000 + i };
+  }
+  put(dir, "roms/snes/Puzzle (Japan).sfc", "P");
+  meta["snes/Puzzle (Japan)"] = { source: "launchbox", genres: ["Puzzle"], releaseDate: 19880000 };
+  put(data, "retro-meta.json", JSON.stringify({ version: 2, builtAt: Date.now(), games: meta }));
+  const server = await boot(dir, data);
+  try {
+    const facets = await (await fetch(`${BASE}/api/retro/systems/snes/facets`, { headers: { ...AUTH, "Accept-Language": "ko" } })).json();
+    assert.equal(facets.total, 11);
+    assert.deepEqual(facets.genres.map((g) => [g.key, g.count]), [["RPG", 10], ["Puzzle", 1]]);
+    assert.deepEqual(facets.players, [{ value: 2, count: 3 }]);
+    assert.deepEqual(facets.decades, [{ value: 1980, count: 1 }, { value: 1990, count: 10 }]);
+    assert.equal((await fetch(`${BASE}/api/retro/systems/nes/facets`, { headers: AUTH })).status, 404);
+
+    const two = await (await fetch(`${BASE}/api/retro/games?system=snes&genre=RPG&players=2`, { headers: AUTH })).json();
+    assert.equal(two.total, 3);
+    assert.deepEqual(two.games[0].genres, ["RPG"]);
+    assert.equal(two.games[0].players, 2);
+    assert.equal(two.games[0].year, 1995);
+    assert.equal((await (await fetch(`${BASE}/api/retro/games?decade=1980`, { headers: AUTH })).json()).total, 1);
+
+    const { themes } = await (await fetch(`${BASE}/api/retro/themes`, { headers: AUTH })).json();
+    const ids = themes.flatMap((t) => t.games.map((g) => g.id));
+    assert.ok(themes.length >= 1 && themes.length <= 6);
+    assert.equal(new Set(ids).size, ids.length, "no game in two rows");
+    for (const t of themes) assert.ok(t.games.length >= 8 && t.games.length <= 12, t.id);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
 test("the activity line says what was gathered, for which systems, and what is left", async () => {
   const { systemNames, tickSummary } = await import("../../src/retro/meta/sync.js");
   const systems = { snes: { names: { ko: "슈퍼 패미컴" } }, gba: { names: { ko: "게임보이 어드밴스" } } };
