@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="site/icon.svg" alt="CookingFoil" width="80" />
-  <h1>CookingFoil</h1>
+  <h1><img src="brand/cookingfoil-readme-256.png" alt="CookingFoil" width="192" height="192" /></h1>
   <p><strong>文件放在自己的服务器，收藏在主机上管理。</strong></p>
 </div>
 
