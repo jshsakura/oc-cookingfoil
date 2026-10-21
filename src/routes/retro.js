@@ -2,7 +2,8 @@
  * Retro games for RetroArch on the console. Off (404) until the retro folder
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
- *   GET /api/retro/systems                       { systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl }] }
+ *   GET /api/retro/systems                       { retroarch: "installed" | "missing", systems: [{ id, name, names, defaultCore, coreName, romCount,
+ *                                                iconUrl, iconMonoUrl, core: { id, state: "ready" | "core-missing" } }] }
  *                                                only consoles with at least one listed game; the others never appear
  *   GET /api/retro/systems/:id/icon[?style=mono][&v=] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
  *                                                <folder> being the system's server folder, else <id>.png);
@@ -145,6 +146,7 @@ import { createIndexCache, delta } from "../retro/list-index.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
+import { packDirOf, packStatus } from "../retro/pack-status.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
@@ -169,7 +171,7 @@ export const retroEnabled = () => fs.existsSync(retroDir);
 // RetroArch itself: <retro dir>/retroarch/ (or base-pack/, the earlier name).
 const artDir = path.join(dataDir, "retro-art");
 const forwarderDir = path.join(dataDir, "retro-forwarders");
-const packDir = () => (fs.existsSync(path.join(retroDir, "retroarch")) ? path.join(retroDir, "retroarch") : path.join(retroDir, "base-pack"));
+const packDir = () => packDirOf(retroDir);
 let hashCache = null;
 let manifest = null; // { version, files, sources, builtAt }
 let building = null;
@@ -612,10 +614,15 @@ export default function retroRouter() {
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+    // Whether this server can run them: RetroArch itself and each console's core files.
+    const pack = packStatus(packDir(), cat.games, cat.systems);
+    const ready = new Map(pack.systems.map((p) => [p.id, p.state]));
     res.json({
+      retroarch: pack.retroarch,
       systems: catalog.visibleSystems(cat, listedGames(cat)).map((s) => ({
         ...s,
         ...systemIconUrls(s.id, cat.systems[s.id]),
+        core: { id: s.defaultCore, state: ready.get(s.id) ?? "ready" },
       })),
     });
   }));
