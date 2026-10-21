@@ -9,8 +9,8 @@ import readline from "readline";
 import { decode, titleKey } from "../art/titles.js";
 import { SHOT_TYPES } from "./fields.js";
 
-const GAME_FIELDS = ["DatabaseID", "Name", "Platform", "Overview", "Publisher", "Developer", "ReleaseDate", "ReleaseYear", "MaxPlayers", "Genres", "ReleaseType", "CommunityRatingCount", "WikipediaURL"];
-const MAME_FIELDS = ["FileName", "Name", "CloneOf", "Publisher", "Developer", "Year", "Genre", "PlayMode"];
+const GAME_FIELDS = ["DatabaseID", "Name", "Platform", "Overview", "Publisher", "Developer", "ReleaseDate", "ReleaseYear", "MaxPlayers", "Genres", "ReleaseType", "CommunityRatingCount", "WikipediaURL", "Cooperative", "ESRB"];
+const MAME_FIELDS = ["FileName", "Name", "CloneOf", "Publisher", "Developer", "Year", "Genre", "PlayMode", "Series"];
 const BLOCKS = new Set(["<Game>", "<GameAlternateName>", "<GameImage>", "<MameFile>"]);
 
 /** Calls `onBlock(tag, fields)` for every block in an XML stream of LaunchBox's layout. */

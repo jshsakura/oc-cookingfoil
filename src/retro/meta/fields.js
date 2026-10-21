@@ -4,7 +4,16 @@
  *
  *   record = { source, id?, description?: { en, ko?, ja?, zh? }, publisher?, developer?,
  *              releaseDate?: YYYYMMDD, numberOfPlayers?, genres?: [genre key], shots?: [image URL],
- *              wiki?: English Wikipedia title, koFrom?: "wikipedia", koTriedAt?: ms }
+ *              wiki?: English Wikipedia title, koFrom?: "wikipedia", koTriedAt?: ms,
+ *              cooperative?: true, esrb?: "E" | "E10+" | "T" | "M" | "AO" | "EC" | "RP",
+ *              styles?: [style slug], simultaneous?: players at once, arcadeStyle?: style slug,
+ *              series? }
+ *
+ * styles are the finer genres a source names beside the big ones (LaunchBox's
+ * "Beat 'em Up"), arcadeStyle the MAME category of an arcade set (Mame.xml's
+ * catver-style "Shooter / Flying Vertical"), both as STYLE_NAMES keys.
+ * simultaneous is how many play at once ("4P sim"), against numberOfPlayers
+ * that counts turns too.
  *
  * description.ko comes from Korean Wikipedia (meta/kowiki.js, by `wiki`); koFrom
  * says so, and the text is shown with Wikipedia's attribution. koTriedAt is
@@ -28,6 +37,39 @@ const LAUNCHBOX_SHOT_TYPES = ["Screenshot - Gameplay", "Screenshot - Game Title"
 export const SHOT_TYPES = new Set(LAUNCHBOX_SHOT_TYPES);
 const LAUNCHBOX_IMAGES = "https://images.launchbox-app.com/";
 const IGDB_IMAGES = "https://images.igdb.com/igdb/image/upload/t_screenshot_big/";
+
+// Finer genres of LaunchBox → style slugs (lower case). Unlisted ones stay with their big genre only.
+const LAUNCHBOX_STYLES = {
+  "beat 'em up": "beat-em-up", "visual novel": "visual-novel", "construction and management simulation": "management-sim",
+  "life simulation": "life-sim", compilation: "compilation", stealth: "stealth", horror: "horror",
+};
+// MAME categories (Mame.xml Genre, "<group> / <kind>") → style slugs: the kind first, else the group.
+const MAME_STYLES = {
+  "fighter / versus": "versus-fighter", "fighter / versus co-op": "versus-fighter", "fighter / 2d": "versus-fighter",
+  "fighter / 2.5d": "versus-fighter", "fighter / 3d": "versus-fighter",
+  "shooter / flying vertical": "vertical-shmup", "shooter / flying horizontal": "horizontal-shmup",
+  "platform / fighter scrolling": "beat-em-up", "platform / shooter scrolling": "run-and-gun", "platform / run jump": "platformer",
+  "shooter / gun": "lightgun", puzzle: "puzzle", driving: "racing", sports: "sports", maze: "maze",
+};
+const ESRB = new Set(["EC", "E", "E10+", "T", "M", "AO", "RP"]);
+
+/** Style slugs of LaunchBox's genre names, known ones only, without repeats; null without any. */
+export function styleKeys(names) {
+  const keys = [...new Set((names ?? []).map((n) => LAUNCHBOX_STYLES[String(n).trim().toLowerCase()]).filter(Boolean))];
+  return keys.length ? keys : null;
+}
+
+/** The style slug of a MAME category; null for one with no style. */
+export function arcadeStyleOf(genre) {
+  const g = String(genre ?? "").trim().toLowerCase();
+  return MAME_STYLES[g] ?? MAME_STYLES[g.split("/")[0].trim()] ?? null;
+}
+
+/** "E10+ - Everyone 10+" → "E10+"; null for "Not Rated" and the unknown. */
+export function esrbOf(v) {
+  const code = String(v ?? "").split(" - ")[0].trim().toUpperCase();
+  return ESRB.has(code) ? code : null;
+}
 
 // Genre names of each source → GENRE_LABELS keys (lower case).
 const GENRE_MAP = {
@@ -88,6 +130,9 @@ export function fromLaunchBox(game, images = []) {
     releaseDate: releaseDateInt(game.ReleaseDate, game.ReleaseYear),
     numberOfPlayers: playersInt(game.MaxPlayers),
     genres: genreKeys(String(game.Genres ?? "").split(";")),
+    styles: styleKeys(String(game.Genres ?? "").split(";")),
+    cooperative: String(game.Cooperative).toLowerCase() === "true" ? true : null,
+    esrb: esrbOf(game.ESRB),
     shots: shots.length ? shots : null,
     wiki: enwikiTitle(game.WikipediaURL),
   });
@@ -96,6 +141,7 @@ export function fromLaunchBox(game, images = []) {
 /** A MAME entry from LaunchBox's Mame.xml → record (no description or pictures there). */
 export function fromMame(m) {
   const players = /(\d+)P/.exec(String(m.PlayMode ?? ""));
+  const together = /(\d+)P sim/i.exec(String(m.PlayMode ?? ""));
   return compact({
     source: "mame",
     publisher: text(m.Publisher),
@@ -103,6 +149,9 @@ export function fromMame(m) {
     releaseDate: /^\d{4}$/.test(String(m.Year ?? "")) ? releaseDateInt(null, m.Year) : null,
     numberOfPlayers: players ? playersInt(players[1]) : null,
     genres: genreKeys([String(m.Genre ?? "").split("/")[0]]),
+    simultaneous: together ? playersInt(together[1]) : null,
+    arcadeStyle: arcadeStyleOf(m.Genre),
+    series: text(m.Series),
   });
 }
 

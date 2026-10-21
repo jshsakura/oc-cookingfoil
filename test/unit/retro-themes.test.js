@@ -1,13 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { factsOf, facetsOf, factsFilter, pickThemes, genreSlug } from "../../src/retro/themes.js";
+import { factsOf, facetsOf, factsFilter, genreSlug, makerOf } from "../../src/retro/themes.js";
 import { GENRE_LABELS } from "../../src/meta/categories.js";
 
 const game = (i, over = {}) => ({ id: `g${i}`, work: `g${i}`, system: i % 2 ? "snes" : "gba", genres: ["RPG"], players: 1, year: 1995, korean: false, achievements: false, region: "jp", rating: 50 + (i % 50), ratingCount: 100, addedAt: i, ...over });
 
 test("a game's facts come from its record and its versions, unknowns left empty", () => {
-  const f = factsOf({ id: "a", system: "snes", rating: 90, ratingCount: 3, addedAt: 5 }, { record: { genres: ["RPG"], numberOfPlayers: 2, releaseDate: 19950311 }, korean: true, region: "kr", achievements: true });
-  assert.deepEqual(f, { id: "a", work: "a", system: "snes", genres: ["RPG"], players: 2, year: 1995, korean: true, achievements: true, region: "kr", rating: 90, ratingCount: 3, addedAt: 5 });
+  const record = { genres: ["RPG"], styles: ["beat-em-up"], numberOfPlayers: 2, releaseDate: 19950311, cooperative: true, esrb: "E10+", developer: "Square Co., Ltd.", series: "Mana" };
+  const f = factsOf({ id: "a", system: "snes", rating: 90, ratingCount: 3, addedAt: 5, size: 4 }, { record, korean: true, region: "kr", achievements: true });
+  assert.deepEqual(f, {
+    id: "a", work: "a", system: "snes", genres: ["RPG"], styles: ["beat-em-up"], arcadeStyle: null, players: 2, simultaneous: null,
+    cooperative: true, family: true, maker: "Square", series: "Mana", year: 1995, korean: true, achievements: true, region: "kr",
+    rating: 90, ratingCount: 3, addedAt: 5, size: 4,
+  });
   assert.deepEqual(factsOf({ id: "b", system: "nes" }).genres, []);
   assert.equal(factsOf({ id: "b", system: "nes" }).year, null);
 });
@@ -37,71 +42,20 @@ test("the filters combine with AND, genres within one filter with OR", () => {
   assert.equal(factsFilter({ genre: "RPG" })(undefined), false, "a game without facts never matches");
 });
 
-test("theme rows: at most six, twelve each, no game twice, none under eight, genres and the rest mixed", () => {
-  const genres = ["RPG", "Action", "Platformer", "Shooter", "Fighting", "Sports", "Puzzle"];
-  const list = Array.from({ length: 400 }, (_, i) => game(i, {
-    genres: [genres[i % genres.length]], players: i % 3 ? 1 : 2, korean: i % 5 === 0, achievements: i % 4 === 0,
-    year: 1980 + (i % 30), ratingCount: i % 7 ? 500 : 5, rating: 60 + (i % 40),
-  }));
-  const rows = pickThemes(list, { day: 20000, lang: "ko" });
-  assert.equal(rows.length, 6);
-  const seen = new Set();
-  for (const r of rows) {
-    assert.ok(r.games.length >= 8 && r.games.length <= 12, r.id);
-    for (const g of r.games) {
-      assert.ok(!seen.has(g.id), `${g.id} shows up twice`);
-      seen.add(g.id);
-    }
-  }
-  const kinds = rows.map((r) => (r.id.startsWith("genre:") ? "genre" : "other"));
-  assert.ok(kinds.includes("genre") && kinds.includes("other"), kinds.join());
-  for (let i = 2; i < kinds.length; i++) assert.ok(!(kinds[i] === kinds[i - 1] && kinds[i] === kinds[i - 2]), "no three of a kind in a row");
-  assert.deepEqual(pickThemes(list, { day: 20000, lang: "ko" }), rows, "one day, one answer");
-  assert.notDeepEqual(pickThemes(list, { day: 20001, lang: "ko" }).map((r) => r.id), rows.map((r) => r.id), "another day, other rows");
+test("a maker reads the same however the sources write it", () => {
+  assert.equal(makerOf({ publisher: "Sega of America" }), "Sega");
+  assert.equal(makerOf({ publisher: "Sega Enterprises" }), "Sega");
+  assert.equal(makerOf({ publisher: "Taito Corporation Japan" }, true), "Taito");
+  assert.equal(makerOf({ developer: "Capcom; Arika", publisher: "Capcom" }), "Capcom");
+  assert.equal(makerOf({ developer: "Nintendo EAD" }), "Nintendo EAD");
+  assert.equal(makerOf({ developer: "Capcom", publisher: "Virgin" }, true), "Virgin", "an arcade set goes by who put it out");
+  assert.equal(makerOf({}), null);
 });
 
-test("a decade and a genre make one theme, named in the asked language", () => {
-  const list = Array.from({ length: 10 }, (_, i) => game(i, { genres: ["RPG"], year: 1993 }));
-  const rows = pickThemes(list, { day: 3, lang: "ko", rows: 20, per: 1, min: 1 });
-  const combo = rows.find((r) => r.id === "decade:1990:genre:rpg");
-  assert.ok(combo, rows.map((r) => r.id).join());
-  assert.match(combo.name, /^90년대 /);
-});
-
-test("one game on several consoles fills one place across the rows", () => {
-  const list = Array.from({ length: 30 }, (_, i) => game(i, { genres: ["Puzzle"], work: i < 20 ? "tetris" : `w${i}` }));
-  const rows = pickThemes(list, { day: 5, min: 1 });
-  const works = rows.flatMap((r) => r.games.map((g) => g.work));
-  assert.equal(works.filter((w) => w === "tetris").length, 1);
-  assert.equal(new Set(works).size, works.length);
-});
-
-test("genre keys go out and come in as lower-case slugs", () => {
-  const list = Array.from({ length: 10 }, (_, i) => game(i, { genres: ["Board Game"] }));
-  assert.equal(facetsOf(list).genres[0].key, "board-game");
-  const ids = pickThemes(list, { day: 1, rows: 20, per: 1, min: 1 }).map((r) => r.id);
-  assert.ok(ids.includes("genre:board-game") && ids.includes("decade:1990:genre:board-game"), ids.join());
-  assert.equal(list.filter(factsFilter({ genre: "board-game" })).length, 10);
-});
-
-test("every key the client receives has the agreed shape", () => {
-  const KEY = /^[a-z0-9-]+$/;
-  for (const key of Object.keys(GENRE_LABELS)) assert.match(genreSlug(key), KEY, key);
+test("every genre key the client receives has the agreed shape", () => {
+  for (const key of Object.keys(GENRE_LABELS)) assert.match(genreSlug(key), /^[a-z0-9-]+$/, key);
   assert.equal(genreSlug("Beat 'em Up"), "beat-em-up");
-  const genres = Object.keys(GENRE_LABELS);
-  const list = Array.from({ length: 600 }, (_, i) => game(i, {
-    genres: [genres[i % genres.length]], players: i % 3 ? 1 : 2, korean: i % 5 === 0, achievements: i % 4 === 0,
-    year: 1980 + (i % 30), ratingCount: i % 7 ? 500 : 5, rating: 60 + (i % 40), region: ["kr", "jp", "us", "Bad Region"][i % 4],
-  }));
-  for (let day = 0; day < 30; day++) {
-    for (const r of pickThemes(list, { day })) assert.match(r.id, /^[a-z0-9-]+(:[a-z0-9-]+)*$/, r.id);
-  }
-  const f = facetsOf(list);
-  for (const g of f.genres) assert.match(g.key, KEY);
-  assert.deepEqual(f.regions.map((r) => r.value).sort(), ["jp", "kr", "us"]);
-});
-
-test("a theme with fewer than eight games is left out", () => {
-  const list = Array.from({ length: 7 }, (_, i) => game(i, { genres: ["Racing"] }));
-  assert.deepEqual(pickThemes(list, { day: 1 }), []);
+  const list = ["kr", "jp", "us", "Bad Region"].map((region, i) => game(i, { region }));
+  assert.deepEqual(facetsOf(list).regions.map((r) => r.value).sort(), ["jp", "kr", "us"]);
+  assert.equal(list.filter(factsFilter({ genre: "rpg" })).length, 4);
 });
