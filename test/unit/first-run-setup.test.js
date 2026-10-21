@@ -183,3 +183,44 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     child.kill();
   }
 });
+
+test("setup can skip the authenticator: the admin account's sign-in then opens the admin page, with a warning", async () => {
+  const port = 22900 + (process.pid % 500);
+  const base = `http://127.0.0.1:${port}`;
+  const { child, log } = boot(port);
+  const own = new Map();
+  const jarLine = () => [...own].map(([k, v]) => `${k}=${v}`).join("; ");
+  const keepOwn = (r) => { for (const c of r.headers.getSetCookie()) { const [kv] = c.split(";"); const i = kv.indexOf("="); own.set(kv.slice(0, i), kv.slice(i + 1)); } return r; };
+  const send = async (url, body) => keepOwn(await fetch(`${base}${url}`, {
+    method: "POST", headers: { "Content-Type": "application/json", Origin: base, Cookie: jarLine() }, body: JSON.stringify(body),
+  }));
+  try {
+    await ready(base);
+    const code = log().match(/setup code: ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
+    assert.equal((await send("/setup/api/otp/skip", {})).status, 401, "not before the setup code");
+    assert.equal((await send("/setup/api/unlock", { code })).status, 200);
+    assert.equal((await send("/setup/api/otp/skip", {})).status, 409, "not before the admin account exists");
+    assert.equal((await send("/setup/api/account", { name: "boss", password: "long-enough-pass" })).status, 200);
+    assert.deepEqual(await (await send("/setup/api/otp/skip", {})).json(), { ok: true, next: "done" });
+    assert.equal((await send("/setup/api/unlock", { code })).status, 410, "setup is closed");
+
+    let r = await fetch(`${base}/admin/`, { headers: { Accept: "text/html" }, redirect: "manual" });
+    assert.ok(r.status >= 300, "a stranger still has to sign in first");
+    r = await fetch(`${base}/admin/`, { headers: { Accept: "text/html", Cookie: jarLine() }, redirect: "manual" });
+    assert.equal(r.status, 200, "the admin account's sign-in opens the admin page");
+    assert.match(await r.text(), /CookingFoil 서버 관리/);
+    const lock = await (await fetch(`${base}/admin/api/2fa`, { headers: { Accept: "application/json", Cookie: jarLine() } })).json();
+    assert.equal(lock.skipped, true, "the settings card can warn about it");
+  } finally {
+    child.kill();
+  }
+});
+
+test("the setup page warns before skipping the authenticator, in every language", async () => {
+  const { setupPage } = await import("../../src/routes/setup-page.js");
+  for (const lang of ["ko", "en", "ja", "zh"]) {
+    const page = setupPage({ step: "otp", lang });
+    assert.match(page, /data-api="otp\/skip" data-confirm="[^"]+"/, lang);
+    assert.match(page, /class="warn">[^<]{40,}</, lang);
+  }
+});

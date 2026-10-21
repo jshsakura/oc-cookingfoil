@@ -16,6 +16,7 @@ const T = {
     otpH: "인증 앱 등록",
     otpP: "관리 페이지는 비밀번호에 더해 인증 앱의 6자리 코드를 한 번 더 묻습니다. Google Authenticator, 1Password 같은 앱으로 QR 을 찍거나 키를 직접 넣고, 앱에 나온 코드를 입력합니다.",
     otpCode: "6자리 코드",
+    skip: "인증 앱 없이 진행합니다", skipWarn: "권장하지 않습니다. 인증 앱 없이 마치면 관리자 계정 비밀번호만으로 관리 페이지가 열려, 비밀번호가 새면 누구든 이 서버를 관리할 수 있습니다. 인증 앱은 나중에 설정 탭에서 등록할 수 있고, 등록하기 전까지 서버가 계속 경고합니다.", skipBtn: "위험을 알고 건너뜁니다", skipAsk: "인증 앱 없이 셋업을 마칠까요? 관리자 계정 비밀번호만으로 관리 페이지가 열립니다.",
     doneH: "설정을 마쳤습니다",
     doneP: "관리 페이지의 설정 탭에서 외부 서비스 키를 넣을 수 있습니다. 키마다 어디서 발급하는지 안내가 붙어 있습니다. 넣지 않아도 서버는 동작합니다.",
     next: "다음", open: "관리 페이지 열기",
@@ -37,6 +38,7 @@ const T = {
     otpH: "Authenticator app",
     otpP: "On top of the password, the admin page asks for a 6-digit code from an authenticator app. Scan the QR with Google Authenticator, 1Password or similar (or type the key), then enter the code it shows.",
     otpCode: "6-digit code",
+    skip: "Continue without an authenticator", skipWarn: "Not recommended. Without an authenticator the admin page opens with the admin account's password alone, so anyone who learns it can run this server. You can register an authenticator later on the settings tab, and the server keeps warning until you do.", skipBtn: "Skip, I understand the risk", skipAsk: "Finish setup without an authenticator? The admin page will open with the account password alone.",
     doneH: "Setup is done",
     doneP: "Keys for outside services go in the admin page's settings tab, each with where to get it. The server works without them.",
     next: "Next", open: "Open the admin page",
@@ -58,6 +60,7 @@ const T = {
     otpH: "認証アプリの登録",
     otpP: "管理ページはパスワードに加えて認証アプリの6桁コードを確認します。Google Authenticator や 1Password などで QR を読み取るかキーを入力し、表示されたコードを入れます。",
     otpCode: "6桁コード",
+    skip: "認証アプリなしで進めます", skipWarn: "おすすめしません。認証アプリなしで終えると、管理者アカウントのパスワードだけで管理ページが開き、パスワードが漏れると誰でもこのサーバーを管理できます。認証アプリは後で設定タブから登録でき、登録するまでサーバーは警告を出し続けます。", skipBtn: "リスクを理解してスキップします", skipAsk: "認証アプリなしでセットアップを終えますか？管理者アカウントのパスワードだけで管理ページが開きます。",
     doneH: "設定が完了しました",
     doneP: "外部サービスのキーは管理ページの設定タブで入力できます。キーごとに取得先の案内があります。入れなくてもサーバーは動きます。",
     next: "次へ", open: "管理ページを開く",
@@ -79,6 +82,7 @@ const T = {
     otpH: "注册验证器",
     otpP: "管理页面除密码外还会要求验证器应用的 6 位验证码。用 Google Authenticator、1Password 等扫描二维码或手动输入密钥，然后输入应用显示的验证码。",
     otpCode: "6 位验证码",
+    skip: "不使用身份验证器继续", skipWarn: "不建议这样做。不登记身份验证器就完成时，只凭管理员账户的密码就能打开管理页面，密码一旦泄露，任何人都能管理这台服务器。之后可在设置标签中登记身份验证器，在登记之前服务器会一直发出警告。", skipBtn: "我了解风险，跳过", skipAsk: "不使用身份验证器完成设置吗？只凭账户密码就能打开管理页面。",
     doneH: "设置完成",
     doneP: "外部服务的密钥可在管理页面的设置选项卡中填写，每项都附有获取方法。不填写服务器也能运行。",
     next: "下一步", open: "打开管理页面",
@@ -108,6 +112,8 @@ form{display:flex;flex-direction:column;gap:10px}form input{width:100%}
 .key{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-family:ui-monospace,monospace;letter-spacing:2px;word-break:break-all;color:var(--accent);margin-bottom:12px}
 .err{color:var(--bad,#d33);font-size:13px;min-height:18px;margin:4px 0 0}
 a.btn{display:block;text-align:center;text-decoration:none}
+.skip{margin-top:18px;font-size:13px}.skip summary{cursor:pointer;color:var(--muted)}
+.step .skip p.warn{color:var(--bad,#d33);background:rgba(var(--bad-rgb),.08);border:1px solid rgba(var(--bad-rgb),.35);border-radius:10px;padding:10px 12px;margin:10px 0}
 </style></head><body>
 <main class="box">
 <img class="logo" src="/assets/cookingfoil.svg" alt="" width="52" height="52">
@@ -121,7 +127,9 @@ a.btn{display:block;text-align:center;text-decoration:none}
   <button class="primary">${t.next}</button></form></section>
 <section class="step" data-step="otp" hidden><h2>${t.otpH}</h2><p>${t.otpP}</p>
   <div class="qr" id="qr" role="img" aria-label="QR"></div><div class="key" id="key"></div>
-  <form data-api="otp/confirm"><input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" aria-label="${t.otpCode}" maxlength="6" required><button class="primary">${t.next}</button></form></section>
+  <form data-api="otp/confirm"><input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" aria-label="${t.otpCode}" maxlength="6" required><button class="primary">${t.next}</button></form>
+  <details class="skip"><summary>${t.skip}</summary><p class="warn">${t.skipWarn}</p>
+  <form data-api="otp/skip" data-confirm="${t.skipAsk}"><button class="danger">${t.skipBtn}</button></form></details></section>
 <section class="step" data-step="done" hidden><h2>${t.doneH}</h2><p>${t.doneP}</p><a class="btn primary" href="/admin#settings">${t.open}</a></section>
 <p class="err" id="err" role="alert"></p>
 </main>
@@ -134,6 +142,7 @@ async function show(step){document.querySelectorAll('.step').forEach((s)=>{s.hid
   const f=document.querySelector('.step:not([hidden]) input');if(f)f.focus();}
 function fail(e){$('err').textContent=S.err[e.message]||S.err.other;}
 document.querySelectorAll('form[data-api]').forEach((f)=>f.addEventListener('submit',async(ev)=>{ev.preventDefault();
+  if(f.dataset.confirm&&!confirm(f.dataset.confirm))return;
   const body=Object.fromEntries(new FormData(f));
   if(body.password2!==undefined){if(body.password!==body.password2)return fail(new Error('mismatch'));delete body.password2;}
   try{const d=await post(f.dataset.api,body);show(d.next);}catch(e){fail(e);}}));

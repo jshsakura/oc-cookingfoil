@@ -136,6 +136,7 @@ let origin=location.origin;
 // The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
 const WARNINGS={
   'no-prod-keys':{t:'prod.keys 가 없어 게임을 내주지 않습니다',d:'서버는 prod.keys 로 파일마다 어떤 게임인지 읽고 정리합니다. 키가 들어오기 전에는 기기와 웹 모두 게임 목록과 파일을 받지 못합니다. 설정 탭에서 자기 기기에서 덤프한 prod.keys 를 올리면 다시 시작하지 않아도 바로 열립니다.',go:['설정에서 올리기','settings']},
+  'admin-2fa-skipped':{t:'2단계 인증 없이 관리 페이지가 열립니다',d:'셋업에서 인증 앱을 건너뛰어 관리자 계정 비밀번호만 알면 누구든 이 서버를 관리할 수 있습니다. 설정 탭에서 인증 앱을 등록합니다.',go:['설정에서 등록','settings/security']},
   'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings/security']},
   'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings/security']},
   'no-auth':{t:'주소를 아는 누구나 서버에 접속할 수 있습니다',d:'계정이 없고 기기 승인도 꺼져 있습니다. 사용자 탭에서 계정을 하나 만들면 그때부터 로그인이 필요합니다.',go:['계정 만들기','users']},
@@ -959,13 +960,16 @@ addEventListener('beforeunload',(e)=>{if(featuredDirty)e.preventDefault();});
 const grouped=(s)=>String(s).replace(/(.{4})/g,'$1 ').trim();
 async function loadTfa(){
   let s;try{s=await api('/admin/api/2fa');}catch(e){$('tfa-status').textContent='불러오지 못했습니다: '+e.message;return;}
-  $('tfa-status').textContent=s.password
-    ?(s.authenticator?'관리자 비밀번호나 인증 앱 코드 중 하나로 들어갑니다. 휴대폰이 없을 때는 비밀번호로, 평소에는 코드로 들어가면 됩니다.':'관리자 비밀번호로 들어갑니다. 인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다.')
-    :(s.authenticator?'인증 앱 코드로 들어갑니다.':'인증 앱 코드로 들어갑니다. 아직 등록한 앱이 없습니다.');
+  // Registered: say so plainly, with the shield, instead of offering to register again.
+  $('tfa-ok').hidden=!s.authenticator;$('tfa-status').hidden=s.authenticator;
+  $('tfa-ok-sub').textContent=s.password?'관리 페이지에 들어올 때 앱의 6자리 코드를 묻습니다. 휴대폰이 없을 때는 관리자 비밀번호로도 들어갈 수 있습니다.':'관리 페이지에 들어올 때 앱의 6자리 코드를 묻습니다.';
+  $('tfa-status').textContent=s.skipped?'셋업에서 2단계 인증을 건너뛰었습니다. 지금은 관리자 계정 비밀번호만으로 관리 페이지에 들어옵니다. 비밀번호가 새면 누구든 서버를 관리할 수 있으니 인증 앱을 등록합니다.'
+    :s.password?'관리자 비밀번호로 들어갑니다. 인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다.':'아직 등록한 인증 앱이 없습니다.';
+  $('tfa-status').classList.toggle('tfa-warn',Boolean(s.skipped));
   renderAdminPassword(s);
   const box=$('tfa-actions');box.replaceChildren();
   if(!s.manageable){box.append(el('span','COOK_ADMIN_TOTP_SECRET 으로 고정돼 있어 여기서 바꿀 수 없습니다.','muted'));return;}
-  box.append(btn(s.authenticator?'인증 앱 다시 등록':'인증 앱 등록',startTfa,'primary'));
+  box.append(s.authenticator?btn('다른 앱으로 바꾸기',startTfa):btn('인증 앱 등록',startTfa,'primary'));
   if(s.password&&s.authenticator)box.append(btn('인증 앱 끄기',async()=>{
     if(!await ask('인증 앱을 끄면 관리자 비밀번호로만 들어갑니다. 끌까요?'))return;
     try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast('인증 앱을 껐습니다.');loadTfa();}catch(e){toast(e.message);}}));}

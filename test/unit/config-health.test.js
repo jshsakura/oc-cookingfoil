@@ -16,8 +16,8 @@ const PROBE = `
   process.stdout.write(JSON.stringify({ lanes, warnings: configWarnings(lanes) }));
 `;
 
-function runProbe(env) {
-  const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
+function runProbe(env, probe = PROBE) {
+  const out = execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
     cwd: import.meta.dirname,
     env: {
       ...process.env,
@@ -63,6 +63,20 @@ test("an auto-provisioned admin secret reports as unenrolled and warns", () => {
   assert.equal(r.lanes.admin.secretSource, "generated");
   assert.equal(r.lanes.admin.enrolled, false);
   assert.ok(codes(r).includes("admin-unenrolled"));
+});
+
+test("a setup that skipped the authenticator warns that the account password alone opens the admin page", () => {
+  const probe = `
+    import { skip } from "../../src/security/admin-2fa-skip.js";
+    skip();
+    ${PROBE}
+  `;
+  const r = runProbe({ COOK_AUTH_USERS: "console:foil" }, probe);
+  const w = r.warnings.find((x) => x.code === "admin-2fa-skipped");
+  assert.equal(w?.severity, "warn");
+  assert.ok(!codes(r).includes("admin-unenrolled"), "one warning, the stronger one");
+  const withPassword = runProbe({ COOK_AUTH_USERS: "console:foil", COOK_ADMIN_PASSWORD: "admin-password-123" }, probe);
+  assert.ok(!codes(withPassword).includes("admin-2fa-skipped"), "an admin password locks the page again");
 });
 
 test("with an admin password, an unenrolled authenticator is a hint, not a warning", () => {

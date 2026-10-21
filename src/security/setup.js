@@ -11,6 +11,7 @@ import crypto from "crypto";
 import * as users from "./users.js";
 import { isEnrolled, canManage } from "./admin-secret.js";
 import { adminPasswordMode } from "./admin-session.js";
+import * as twoFactorSkip from "./admin-2fa-skip.js";
 import { firstRunSetup } from "../helpers/envs.js";
 
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
@@ -35,7 +36,7 @@ export function adminAwaitsSetup() {
 
 /** Whether the authenticator step still has something to do. */
 export function needsAuthenticator() {
-  return canManage() && !isEnrolled() && !adminPasswordMode();
+  return canManage() && !isEnrolled() && !adminPasswordMode() && !twoFactorSkip.skipped();
 }
 
 /** Setup is open while there is no account, or right after one was made here and the authenticator is not yet registered. */
