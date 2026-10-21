@@ -28,6 +28,15 @@
  *             A missing field is its default. Same for every console: no my_vote, no download URL.
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
+ *   GET /api/retro/themes?limit=12              { day, themes: [{ id, name, games: [G…] }] } rows across consoles for the
+ *                                                day (retro/themes.js): at most 6, 12 games each, no game twice, none under
+ *                                                8; id is "genre:<key>", "decade:<1990>", "decade:<1990>:genre:<key>", "coop",
+ *                                                "korean", "achievements", "classic" (90+), "hidden" or "recent"
+ *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
+ *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
+ *                                                korean?: count, achievements?: count }; values no game has are left out
+ *   /api/retro/games filters by facts too: genre=<key>[,<key>] (any), players=<at least>, decade=1990,
+ *                                                region=kr, korean=1, achievements=1; G carries genres?, players?, year?
  *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
  *                                                and when known (src/retro/meta/): description (in the request's
  *                                                language, else English), publisher, developer, releaseDate (YYYYMMDD,
@@ -132,7 +141,9 @@ import * as romHashes from "../retro/rom-hash.js";
 import { createIndexCache, delta } from "../retro/list-index.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
-import { retroDetailFields, retroShotFile } from "../retro/meta/detail.js";
+import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
+import * as metaStore from "../retro/meta/store.js";
+import { factsOf, facetsOf, factsFilter, pickThemes, THEME_GAMES } from "../retro/themes.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -285,6 +296,32 @@ const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, m
 /** A game, then its group's representative, then its other versions: whose details it shows. */
 const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members])];
 
+// A game's facts (retro/themes.js) for every game of a catalog, made again when the
+// catalog, the collected metadata or the achievement matches change, or after FACTS_TTL_MS.
+const FACTS_TTL_MS = 10 * 60 * 1000;
+let factsMemo = null;
+
+/** The facts of `g`: its metadata (its versions share it), Korean when any version is, its region and achievements. */
+function gameFacts(cat, g) {
+  const group = groupOf(cat, g);
+  const candidates = metaCandidates(g, representative(group, variantPicks.get(group.id)), group);
+  return factsOf(g, {
+    record: metaOwner(candidates)?.record ?? null,
+    korean: group.members.some((m) => titleOf(m, "en").edition?.korean),
+    region: titleOf(g, "en").region ?? null,
+    achievements: Boolean(achievementSummary(candidates).achievements),
+  });
+}
+
+/** id → facts for the games of `cat` (every version, so variants=all filters too). */
+function factsById(cat) {
+  const now = Date.now();
+  if (factsMemo?.cat === cat && factsMemo.meta === metaStore.all() && now - factsMemo.at < FACTS_TTL_MS) return factsMemo.map;
+  const map = new Map(cat.games.map((g) => [g.id, gameFacts(cat, g)]));
+  factsMemo = { cat, meta: metaStore.all(), at: now, map };
+  return map;
+}
+
 /** "game", "system" or "none": which bezel a game installs with. Pure. */
 export const bezelKind = (g) => (!g.bezel ? "none" : g.bezel.generic ? "system" : "game");
 
@@ -324,6 +361,9 @@ function bezelFields(g, paths, base, link) {
     ...(paths.gameCfg ? withDirect("gameCfgUrl", `${base}/game.cfg`, link) : { gameCfgUrl: null }),
   };
 }
+
+/** The facts a list tile shows, the unknown ones left out. Pure. */
+const tileFacts = (f) => (f ? { ...(f.genres.length ? { genres: f.genres } : {}), ...(f.players ? { players: f.players } : {}), ...(f.year ? { year: f.year } : {}) } : {});
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
 // `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
@@ -369,6 +409,8 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...(group ? { group: group.id, variants: group.members.length } : {}),
     // Lists mark the games with achievements; matchedBy says whether this ROM earns them.
     ...(group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {}),
+    // From the collected metadata, for the tile and the filters: genre keys, players, release year.
+    ...(cat ? tileFacts(factsById(cat).get(g.id)) : {}),
     file: g.file,
     system: g.system,
     core: g.core,
@@ -574,6 +616,38 @@ export default function retroRouter() {
     });
   }));
 
+  // The values one system's list can be filtered by, with counts; a value no game has is left out.
+  router.get("/systems/:system/facets", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const id = req.params.system;
+    const facts = factsById(cat);
+    const list = listedGames(cat).filter((g) => g.system === id).map((g) => facts.get(g.id));
+    if (!list.length) return res.status(404).json({ error: "no such system" });
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+    res.json({ system: id, total: list.length, ...facetsOf(list, requestLang(req)) });
+  }));
+
+  // Rows across systems for the day ("무슨 게임하지?"): genres and other themes in turns, no game twice.
+  router.get("/themes", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const lang = requestLang(req);
+    const per = Math.min(THEME_GAMES, Math.max(1, Number.parseInt(req.query.limit, 10) || THEME_GAMES));
+    const facts = factsById(cat);
+    const byId = new Map(listedGames(cat).map((g) => [g.id, g]));
+    const day = Math.floor(Date.now() / 86_400_000);
+    const link = forRequest(req);
+    const voter = itemVotes.voterOf(req);
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+    res.json({
+      day,
+      themes: pickThemes([...byId.keys()].map((id) => facts.get(id)), { day, lang, per: THEME_GAMES }).map((t) => ({
+        id: t.id,
+        name: t.name,
+        games: t.games.slice(0, per).map((f) => publicGame(byId.get(f.id), cat.systems, lang, { cat, link, voter })),
+      })),
+    });
+  }));
+
   router.get("/systems/:system/icon", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     const id = req.params.system;
@@ -593,11 +667,13 @@ export default function retroRouter() {
     const pageSize = Math.min(PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const keep = listFilter(req.query);
+    const byFacts = factsFilter(req.query);
+    const facts = byFacts ? factsById(cat) : null;
     const all = req.query.variants === "all";
     // A search that finds any version of a game shows the game's representative.
     const found = (g) => !search || (all ? gameMatches(g, search) : groupOf(cat, g).members.some((m) => gameMatches(m, search)));
     const matches = (all ? cat.games : listedGames(cat))
-      .filter((g) => (!system || g.system === system) && found(g) && keep(g))
+      .filter((g) => (!system || g.system === system) && found(g) && keep(g) && (!byFacts || byFacts(facts.get(g.id))))
       .sort(sort);
     const link = forRequest(req);
     const voter = itemVotes.voterOf(req);
