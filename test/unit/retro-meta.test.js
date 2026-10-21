@@ -57,13 +57,19 @@ test("a LaunchBox game maps to the detail's fields; unknown ones are left out", 
     shots: ["https://images.launchbox-app.com/a.png", "https://images.launchbox-app.com/b.png"],
   });
   assert.equal("developer" in record, false);
+  const coop = fromLaunchBox({ DatabaseID: "2", Name: "y", Genres: "Action; Beat 'em Up", Cooperative: "true", ESRB: "E10+ - Everyone 10+" });
+  assert.deepEqual([coop.genres, coop.styles, coop.cooperative, coop.esrb], [["Action"], ["beat-em-up"], true, "E10+"]);
+  const plain = fromLaunchBox({ DatabaseID: "3", Name: "z", Genres: "RPG", Cooperative: "false", ESRB: "Not Rated" });
+  for (const k of ["styles", "cooperative", "esrb"]) assert.equal(k in plain, false, `${k} is left out when unknown`);
   const many = fromLaunchBox({ DatabaseID: "1", Name: "x" }, Array.from({ length: 12 }, (_, i) => ({ FileName: `${i}.png`, Type: "Screenshot - Gameplay" })));
   assert.equal(many.shots.length, MAX_SHOTS);
 });
 
 test("MAME and IGDB records use the same shapes", () => {
-  assert.deepEqual(fromMame({ Publisher: "Capcom", Year: "1991", Genre: "Fighter / Versus", PlayMode: "2P sim" }),
-    { source: "mame", publisher: "Capcom", releaseDate: 19910000, numberOfPlayers: 2, genres: ["Fighting"] });
+  assert.deepEqual(fromMame({ Publisher: "Capcom", Year: "1991", Genre: "Fighter / Versus", PlayMode: "2P sim", Series: "Street Fighter" }),
+    { source: "mame", publisher: "Capcom", releaseDate: 19910000, numberOfPlayers: 2, genres: ["Fighting"], simultaneous: 2, arcadeStyle: "versus-fighter", series: "Street Fighter" });
+  assert.equal(fromMame({ PlayMode: "2P alt" }).simultaneous, undefined, "taking turns is not playing at once");
+  assert.equal(fromMame({ Genre: "Puzzle / Drop" }).arcadeStyle, "puzzle", "a kind with no style of its own takes its group's");
   const igdb = fromIgdb({
     id: 7, summary: "A summary.", first_release_date: 700000000, genres: [{ name: "Platform" }, { name: "Indie" }],
     involved_companies: [{ company: { name: "Dev Co" }, developer: true }, { company: { name: "Pub Co" }, publisher: true }],
@@ -494,11 +500,15 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
   }
   put(dir, "roms/snes/Puzzle (Japan).sfc", "P");
   meta["snes/Puzzle (Japan)"] = { source: "launchbox", genres: ["Puzzle"], releaseDate: 19880000 };
+  // The RPGs came a year ago; ten other games came today.
+  const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  for (let i = 0; i < 10; i++) fs.utimesSync(path.join(dir, `roms/snes/Quest ${i} (USA).sfc`), yearAgo, yearAgo);
+  for (let i = 0; i < 10; i++) put(dir, `roms/snes/Fresh ${i} (USA).sfc`, `F${i}`);
   put(data, "retro-meta.json", JSON.stringify({ version: 2, builtAt: Date.now(), games: meta }));
   const server = await boot(dir, data);
   try {
     const facets = await (await fetch(`${BASE}/api/retro/systems/snes/facets`, { headers: { ...AUTH, "Accept-Language": "ko" } })).json();
-    assert.equal(facets.total, 11);
+    assert.equal(facets.total, 21);
     assert.deepEqual(facets.genres.map((g) => [g.key, g.count]), [["rpg", 10], ["puzzle", 1]]);
     assert.deepEqual(facets.players, [{ value: 2, count: 3 }]);
     assert.deepEqual(facets.decades, [{ value: 1980, count: 1 }, { value: 1990, count: 10 }]);
@@ -511,11 +521,15 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
     assert.equal(two.games[0].year, 1995);
     assert.equal((await (await fetch(`${BASE}/api/retro/games?decade=1980`, { headers: AUTH })).json()).total, 1);
 
-    const { themes } = await (await fetch(`${BASE}/api/retro/themes`, { headers: AUTH })).json();
-    const ids = themes.flatMap((t) => t.games.map((g) => g.id));
-    assert.ok(themes.length >= 1 && themes.length <= 6);
-    assert.equal(new Set(ids).size, ids.length, "no game in two rows");
-    for (const t of themes) assert.ok(t.games.length >= 8 && t.games.length <= 12, t.id);
+    const res = await fetch(`${BASE}/api/retro/themes?rows=6`, { headers: { ...AUTH, "Accept-Language": "ko" } });
+    assert.equal(res.headers.get("cache-control"), "no-store");
+    const { themes } = await res.json();
+    assert.deepEqual(themes[0] && [themes[0].id, themes[0].name, themes[0].games.length], ["recent", "새로 들어온 게임", 11], "the ten that came today and the puzzle");
+    assert.equal(themes.length, 2, "then one row of the RPGs; a game is in one row only");
+    assert.ok(["genre:rpg", "decade:1990", "decade:1990:genre:rpg"].includes(themes[1].id), themes[1].id);
+    assert.equal(themes[1].games.length, 10);
+    const one = await (await fetch(`${BASE}/api/retro/themes?rows=1&limit=3`, { headers: AUTH })).json();
+    assert.deepEqual(one.themes.map((t) => [t.id, t.games.length]), [["recent", 3]]);
   } finally {
     server.kill("SIGKILL");
   }

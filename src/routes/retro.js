@@ -28,10 +28,13 @@
  *             A missing field is its default. Same for every console: no my_vote, no download URL.
  *   GET /api/retro/home?limit=20                 { systems: [{ id, name, names, iconUrl, iconMonoUrl, defaultCore, romCount, games: [G…] }] }
  *                                                the best-rated games of every console that has any
- *   GET /api/retro/themes?limit=12              { day, themes: [{ id, name, games: [G…] }] } rows across consoles for the
- *                                                day (retro/themes.js): at most 6, 12 games each, no game twice, none under
- *                                                8; id is "genre:<slug>", "decade:<1990>", "decade:<1990>:genre:<slug>", "coop",
- *                                                "korean", "achievements", "classic" (90+), "hidden" or "recent"
+ *   GET /api/retro/themes?rows=6&limit=12      { themes: [{ id, name, games: [G…] }] } the home's rows (retro/menu.js), dealt
+ *                                                anew on every request and drawn in this order: at most `rows` (6, the most), no
+ *                                                game twice, none under 8. Ids are kinds and keys joined by ":" ([a-z0-9-]+):
+ *                                                recent, arcade:all, arcade:decade:1990, arcade:genre:<style>, players:2,
+ *                                                players:4, coop, coop:beat-em-up, versus, genre:<slug>, decade:1990,
+ *                                                decade:1990:genre:<slug>, classic, good, hidden, maker:<slug>, series:<slug>,
+ *                                                korean, achievements, family
  *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
  *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
  *                                                korean?: count, achievements?: count }; values no game has are left out
@@ -143,7 +146,8 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
-import { factsOf, facetsOf, factsFilter, pickThemes, genreSlug, THEME_GAMES } from "../retro/themes.js";
+import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
+import { menuRows, pickMenu, MENU_GAMES } from "../retro/menu.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -300,6 +304,18 @@ const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members]
 // catalog, the collected metadata or the achievement matches change, or after FACTS_TTL_MS.
 const FACTS_TTL_MS = 10 * 60 * 1000;
 let factsMemo = null;
+// Every row the home could show, made once per facts; each request only deals from it.
+let menuMemo = null;
+const MENU_ROWS = 6;
+
+function menuPool(cat) {
+  const facts = factsById(cat);
+  if (menuMemo?.facts !== facts) {
+    const list = listedGames(cat).map((g) => facts.get(g.id)).filter(Boolean);
+    menuMemo = { facts, rows: menuRows(list, Date.now()) };
+  }
+  return menuMemo.rows;
+}
 
 /** The facts of `g`: its metadata (its versions share it), Korean when any version is, its region and achievements. */
 function gameFacts(cat, g) {
@@ -310,7 +326,8 @@ function gameFacts(cat, g) {
     korean: group.members.some((m) => titleOf(m, "en").edition?.korean),
     region: titleOf(g, "en").region ?? null,
     achievements: Boolean(achievementSummary(candidates).achievements),
-    work: folded(titleOf(g, "en").name),
+    // An arcade set and its clones are one game; elsewhere the English title says so across consoles.
+    work: g.set ? `arcade:${g.cloneOf ?? g.set}` : folded(titleOf(g, "en").name),
   });
 }
 
@@ -632,19 +649,18 @@ export default function retroRouter() {
   router.get("/themes", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     const lang = requestLang(req);
-    const per = Math.min(THEME_GAMES, Math.max(1, Number.parseInt(req.query.limit, 10) || THEME_GAMES));
-    const facts = factsById(cat);
-    const byId = new Map(listedGames(cat).map((g) => [g.id, g]));
-    const day = Math.floor(Date.now() / 86_400_000);
+    const per = Math.min(MENU_GAMES, Math.max(1, Number.parseInt(req.query.limit, 10) || MENU_GAMES));
+    const count = Math.min(MENU_ROWS, Math.max(1, Number.parseInt(req.query.rows, 10) || MENU_ROWS));
+    const rows = pickMenu(menuPool(cat), { seed: crypto.randomInt(2 ** 32 - 1), count });
+    const byId = new Map(cat.games.map((g) => [g.id, g]));
     const link = forRequest(req);
     const voter = itemVotes.voterOf(req);
-    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+    res.set({ "Cache-Control": "no-store", Vary: "Accept-Language" });
     res.json({
-      day,
-      themes: pickThemes([...byId.keys()].map((id) => facts.get(id)), { day, lang, per: THEME_GAMES }).map((t) => ({
-        id: t.id,
-        name: t.name,
-        games: t.games.slice(0, per).map((f) => publicGame(byId.get(f.id), cat.systems, lang, { cat, link, voter })),
+      themes: rows.map((r) => ({
+        id: r.id,
+        name: r.name(lang),
+        games: r.games.slice(0, per).map((f) => publicGame(byId.get(f.id), cat.systems, lang, { cat, link, voter })),
       })),
     });
   }));
