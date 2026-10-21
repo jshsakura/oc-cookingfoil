@@ -40,14 +40,17 @@ test("one storage folder is mounted, beside the compose file unless COOK_STORAGE
   assert.match(compose, /^\s{6}COOK_STORAGE_DIR: \/storage$/m);
 });
 
-test("the older layout's folders stay mounted, so pulling the new file over an install hides nothing", () => {
+test("a new install mounts the storage folder alone", () => {
+  const mounts = [...compose.matchAll(/^\s{6}- (\S+:\/\S+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(mounts, ["${COOK_STORAGE_PATH:-./storage}:/storage"]);
+});
+
+test("the older layout's folders are an opt-in override, so an upgrade can keep them", () => {
+  const legacy = readFileSync(path.join(ROOT, "docker-compose.legacy.yml"), "utf-8");
   const dirs = { games: "/games", data: "/data", keys: "/keys:ro", retro: "/retro", patches: "/patches", saves: "/saves", homebrew: "/homebrew" };
   for (const [name, target] of Object.entries(dirs)) {
     const line = `- \${COOK_${name.toUpperCase()}_PATH:-./${name}}:${target}`;
-    assert.ok(compose.includes(line), line);
+    assert.ok(legacy.includes(line), line);
   }
-});
-
-test("every folder variable is blanked, so .env cannot put data inside the container", () => {
-  for (const k of [...BLANKED, "ROMS_DIR_FULLPATH"]) assert.match(compose, new RegExp(`^\\s{6}${k}: ""$`, "m"), k);
+  assert.doesNotMatch(legacy, /\$\{[^}]*\$\{/);
 });

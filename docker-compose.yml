@@ -72,14 +72,5 @@ services:
       # Plain ${VAR:-default} only, so older Compose releases such as the one in
       # Synology Container Manager read it.
       - ${COOK_STORAGE_PATH:-./storage}:/storage
-      # The separate folders of the older layout, so pulling this file over an
-      # existing install hides nothing: one that holds files keeps being used
-      # (the admin page's overview says which), an empty one is ignored. Once
-      # their contents sit in the storage folder, these lines can go.
-      - ${COOK_GAMES_PATH:-./games}:/games
-      - ${COOK_DATA_PATH:-./data}:/data
-      - ${COOK_KEYS_PATH:-./keys}:/keys:ro
-      - ${COOK_RETRO_PATH:-./retro}:/retro
-      - ${COOK_PATCHES_PATH:-./patches}:/patches
-      - ${COOK_SAVES_PATH:-./saves}:/saves
-      - ${COOK_HOMEBREW_PATH:-./homebrew}:/homebrew
+      # Upgrading an install that mounted /games, /data, /keys, ... separately?
+      # Add docker-compose.legacy.yml (see the file) until their contents are moved.
