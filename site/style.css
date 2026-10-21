@@ -100,12 +100,11 @@ footer p{color:var(--faint);font-size:13px;margin:0 auto;max-width:720px}
 :root[data-lang="ko"] [data-l="ko"],:root[data-lang="en"] [data-l="en"],:root[data-lang="ja"] [data-l="ja"],:root[data-lang="zh"] [data-l="zh"],:root:not([data-lang]) [data-l="en"]{display:revert}
 :root[data-lang="ja"] h1,:root[data-lang="ja"] h2{word-break:auto-phrase}
 
-.brand-moment{display:flex;align-items:center;gap:16px;margin-bottom:30px;min-height:44px}
-.stage{position:relative;width:48px;height:48px;border:0;padding:0;background:none;cursor:pointer;flex:none}
-.stage:disabled{cursor:default}.butter{width:48px;height:48px;transform-origin:50% 78%;animation:brand-hop 1s ease-in-out 3}
-@keyframes brand-hop{0%,100%{transform:translateY(0) scale(1.1,.9)}50%{transform:translateY(-10px) scale(.98,1.02)}}
-.bar{height:3px;width:150px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:100%;background:var(--butter);transform-origin:left;animation:brand-fill 3s linear both}
-@keyframes brand-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.home .line{color:var(--secondary);font-size:11px;margin-top:5px}
+.brand-home{display:inline-flex;color:inherit;text-decoration:none}
+.brand-chime{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:0;background:none;cursor:pointer}
+.brand-chime:disabled{cursor:default}
+.brand-chime .butter{display:block;width:100%;height:100%;transform-origin:50% 78%;animation:brand-hop 1s ease-in-out 3}
+@keyframes brand-hop{0%,100%{transform:translateY(0) scale(1.1,.9)}50%{transform:translateY(-6px) scale(.98,1.02)}}
+@media (max-width:640px){.brand-chime{width:30px;height:30px}}
 .setup-body>.text-link{display:inline-block;margin-top:20px}.home .setup-body>.section-note{font-size:12px;margin-top:18px}
-@media (prefers-reduced-motion:reduce){.butter,.bar i{animation:none}.bar i{transform:none}}
+@media (prefers-reduced-motion:reduce){.brand-chime .butter{animation:none}}
