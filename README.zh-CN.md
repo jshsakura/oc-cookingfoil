@@ -1,4 +1,8 @@
-# CookingFoil
+<div align="center">
+  <img src="site/icon.svg" alt="CookingFoil" width="80" />
+  <h1>CookingFoil</h1>
+  <p><strong>文件放在自己的服务器，收藏在主机上管理。</strong></p>
+</div>
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | **简体中文**
 
@@ -9,6 +13,10 @@
 一个面向 Switch 自制程序的个人自托管文件服务器和商店。把文件放在家里的机器上，用一个管理页面管理所有内容，再用主机上的 CookingFoil 客户端安装。
 
 网站：<https://jshsakura.github.io/oc-cookingfoil/>
+
+![CookingFoil](site/screenshots/en/home.webp)
+
+使用示例数据与占位图的客户端实际画面。
 
 ## 目录
 

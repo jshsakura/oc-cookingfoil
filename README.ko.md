@@ -1,4 +1,8 @@
-# CookingFoil
+<div align="center">
+  <img src="site/icon.svg" alt="CookingFoil" width="80" />
+  <h1>CookingFoil</h1>
+  <p><strong>파일은 서버에. 설치와 관리는 본체에서.</strong></p>
+</div>
 
 [English](README.md) | **한국어** | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
@@ -9,6 +13,10 @@
 스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버이자 샵입니다. 파일은 집에 있는 서버에 두고, 관리 페이지 하나로 모두 관리하며, 기기에서는 CookingFoil 클라이언트로 설치합니다.
 
 웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
+
+![CookingFoil](site/screenshots/ko/home.webp)
+
+실제 클라이언트를 예제 데이터와 예제 그림으로 실행한 화면입니다.
 
 ## 목차
 

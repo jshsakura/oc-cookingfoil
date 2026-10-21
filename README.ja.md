@@ -1,4 +1,8 @@
-# CookingFoil
+<div align="center">
+  <img src="site/icon.svg" alt="CookingFoil" width="80" />
+  <h1>CookingFoil</h1>
+  <p><strong>ファイルは自分のサーバーへ。管理は本体から。</strong></p>
+</div>
 
 [English](README.md) | [한국어](README.ko.md) | **日本語** | [简体中文](README.zh-CN.md)
 
@@ -9,6 +13,10 @@
 Switch の自作ソフト向けの、個人用でセルフホストのファイルサーバー兼ショップです。ファイルは自宅のマシンに置き、1 つの管理ページですべてを管理し、本体の CookingFoil クライアントからインストールします。
 
 Web サイト: <https://jshsakura.github.io/oc-cookingfoil/>
+
+![CookingFoil](site/screenshots/en/home.webp)
+
+サンプルデータと仮の画像で動かした実際のクライアント画面です。
 
 ## 目次
 
