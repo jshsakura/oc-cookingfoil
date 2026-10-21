@@ -3,8 +3,11 @@
  * values one system offers (facets), the /games filters on them, and the
  * day's theme rows ("무슨 게임하지?").
  *
- *   facts = { id, system, genres: [genre key], players, year, korean, achievements,
+ *   facts = { id, work, system, genres: [genre key], players, year, korean, achievements,
  *             region, rating, ratingCount, addedAt }
+ *
+ * `work` is the game across consoles (its English title, folded), so Tetris on
+ * the Game Boy and on the NES fill one place in the theme rows.
  *
  * Genres are categories.js GENRE_LABELS keys, the same key in every language,
  * so a theme row's id leads straight to its filter. Everything here is pure.
@@ -48,10 +51,11 @@ const nameIn = (names, lang, arg) => {
 };
 
 /** A listed game's facts from its metadata record and what its versions say. */
-export function factsOf(g, { record = null, korean = false, region = null, achievements = false } = {}) {
+export function factsOf(g, { record = null, korean = false, region = null, achievements = false, work = null } = {}) {
   const date = record?.releaseDate ?? null;
   return {
     id: g.id,
+    work: work ?? g.id,
     system: g.system,
     genres: record?.genres ?? [],
     players: record?.numberOfPlayers ?? null,
@@ -189,12 +193,13 @@ export function pickThemes(list, { day = 0, lang = "en", rows = THEME_ROWS, per 
   const out = [];
   for (const t of order) {
     if (out.length >= rows) break;
-    const fresh = t.games.filter((f) => !used.has(f.id));
+    const seen = new Set(used);
+    const fresh = t.games.filter((f) => !seen.has(f.work) && seen.add(f.work));
     // "recent" keeps its order; the rest shuffle their best by day.
     const pool = t.id === "recent" ? fresh : shuffled(fresh.slice(0, THEME_POOL), rand);
     const games = pool.slice(0, per);
     if (games.length < min) continue;
-    for (const f of games) used.add(f.id);
+    for (const f of games) used.add(f.work);
     out.push({ id: t.id, name: t.name(lang), games });
   }
   return out;

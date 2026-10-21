@@ -2,11 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { factsOf, facetsOf, factsFilter, pickThemes } from "../../src/retro/themes.js";
 
-const game = (i, over = {}) => ({ id: `g${i}`, system: i % 2 ? "snes" : "gba", genres: ["RPG"], players: 1, year: 1995, korean: false, achievements: false, region: "jp", rating: 50 + (i % 50), ratingCount: 100, addedAt: i, ...over });
+const game = (i, over = {}) => ({ id: `g${i}`, work: `g${i}`, system: i % 2 ? "snes" : "gba", genres: ["RPG"], players: 1, year: 1995, korean: false, achievements: false, region: "jp", rating: 50 + (i % 50), ratingCount: 100, addedAt: i, ...over });
 
 test("a game's facts come from its record and its versions, unknowns left empty", () => {
   const f = factsOf({ id: "a", system: "snes", rating: 90, ratingCount: 3, addedAt: 5 }, { record: { genres: ["RPG"], numberOfPlayers: 2, releaseDate: 19950311 }, korean: true, region: "kr", achievements: true });
-  assert.deepEqual(f, { id: "a", system: "snes", genres: ["RPG"], players: 2, year: 1995, korean: true, achievements: true, region: "kr", rating: 90, ratingCount: 3, addedAt: 5 });
+  assert.deepEqual(f, { id: "a", work: "a", system: "snes", genres: ["RPG"], players: 2, year: 1995, korean: true, achievements: true, region: "kr", rating: 90, ratingCount: 3, addedAt: 5 });
   assert.deepEqual(factsOf({ id: "b", system: "nes" }).genres, []);
   assert.equal(factsOf({ id: "b", system: "nes" }).year, null);
 });
@@ -65,6 +65,14 @@ test("a decade and a genre make one theme, named in the asked language", () => {
   const combo = rows.find((r) => r.id === "decade:1990:genre:RPG");
   assert.ok(combo, rows.map((r) => r.id).join());
   assert.match(combo.name, /^90년대 /);
+});
+
+test("one game on several consoles fills one place across the rows", () => {
+  const list = Array.from({ length: 30 }, (_, i) => game(i, { genres: ["Puzzle"], work: i < 20 ? "tetris" : `w${i}` }));
+  const rows = pickThemes(list, { day: 5, min: 1 });
+  const works = rows.flatMap((r) => r.games.map((g) => g.work));
+  assert.equal(works.filter((w) => w === "tetris").length, 1);
+  assert.equal(new Set(works).size, works.length);
 });
 
 test("a theme with fewer than eight games is left out", () => {

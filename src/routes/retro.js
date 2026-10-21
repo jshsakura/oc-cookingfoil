@@ -310,6 +310,7 @@ function gameFacts(cat, g) {
     korean: group.members.some((m) => titleOf(m, "en").edition?.korean),
     region: titleOf(g, "en").region ?? null,
     achievements: Boolean(achievementSummary(candidates).achievements),
+    work: folded(titleOf(g, "en").name),
   });
 }
 
