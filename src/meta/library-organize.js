@@ -1,6 +1,6 @@
 /**
- * The games folder's drop box: files put in <games>/incoming are sorted into
- * the games folder by themselves, one folder per base game:
+ * The drop box: files put in the incoming folder (storage-layout.js) are
+ * sorted into the games folder by themselves, one folder per base game:
  *
  *   base     <game>/<file>
  *   update   <game>/update/<file>
@@ -15,8 +15,8 @@
  * What a file is comes from its cnmt when the keys can read it (NSP/NSZ), else
  * from the id in its name, else from its ticket's name (NSP/NSZ without keys).
  * A file still being copied in waits until it has not changed for SETTLE_MS.
- * Moves are renames inside one mount, so they are immediate, and nothing is
- * ever overwritten. Files that cannot go anywhere stay, listed with why.
+ * Moves are renames when the drop box shares the mount, copies otherwise, and
+ * nothing is ever overwritten. Files that cannot go anywhere stay, listed with why.
  * Retro ROMs and lone homebrew .nro files go to their own folders
  * (incoming-extras.js), copied when those sit on another mount.
  */
@@ -26,8 +26,8 @@ import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
+import { incomingInGames } from "../helpers/envs.js";
 
-export const INCOMING = "incoming";
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
 export const SETTLE_MS = 60_000;
@@ -52,10 +52,12 @@ export const REASONS = Object.freeze({
 
 const SUB = { update: "update", dlc: "DLC" };
 
-/** True for a games-folder path inside the drop box ("incoming/…", any case). Pure. */
-export const isIncoming = (rel) => {
-  const top = String(rel ?? "").split(/[\\/]/)[0];
-  return top.toLowerCase() === INCOMING;
+/** True for a games-folder path inside a drop box there (`inGames`, any case). Pure. */
+export const isIncoming = (rel, inGames = incomingInGames) => {
+  if (!inGames) return false;
+  const p = String(rel ?? "").split(/[\\/]/).join("/").toLowerCase();
+  const box = inGames.toLowerCase();
+  return p === box || p.startsWith(`${box}/`);
 };
 
 /** A folder name made from a title, or null. Pure. */
@@ -247,8 +249,9 @@ export async function moveAcross(from, to) {
 
 /**
  * The drop box service: a sweep every SWEEP_MS (and on demand) that reads what
- * is in <romsDir>/incoming, moves what can go and keeps what cannot with why.
+ * is in the drop box, moves what can go and keeps what cannot with why.
  * `deps` are the outside world, so tests can stand in:
+ *   incomingDir        the drop box
  *   romsDir            the games folder
  *   romsRels()         every file the library lists (relative paths)
  *   identify(file), forget(abs)   file-identity.js (the shared one by default)
@@ -259,7 +262,7 @@ export async function moveAcross(from, to) {
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
  */
 export function createOrganizer(deps) {
-  const dir = path.join(deps.romsDir, INCOMING);
+  const dir = deps.incomingDir;
   const identify = deps.identify ?? sharedIdentify;
   const forget = deps.forget ?? sharedForget;
   let state = { held: [], recent: [], sweptAt: null, error: null, waiting: 0 };
@@ -311,7 +314,7 @@ export function createOrganizer(deps) {
       const to = path.join(rootDir[m.root], m.to);
       try {
         await fsp.mkdir(path.dirname(to), { recursive: true });
-        if (await (m.root === "games" ? moveNoReplace(from, to) : moveAcross(from, to))) {
+        if (await moveAcross(from, to)) {
           movedIn[m.root]++;
           forget(from);
           await dropEmptyDirs(dir, m.from);
@@ -345,7 +348,7 @@ export function createOrganizer(deps) {
 
   function view() {
     return {
-      incoming: INCOMING,
+      incoming: dir,
       sweptAt: state.sweptAt,
       error: state.error,
       running: Boolean(running),

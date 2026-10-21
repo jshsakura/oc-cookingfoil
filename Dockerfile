@@ -59,9 +59,9 @@ LABEL org.opencontainers.image.title="CookingFoil" \
 ENV NODE_ENV=production \
     UV_THREADPOOL_SIZE=16 \
     COOK_PORT=80 \
-    COOK_GAMES_DIR=/games \
-    COOK_DATA_DIR=/data \
-    COOK_KEYS_DIR=/keys \
+    # One storage folder holds every other folder (src/helpers/storage-layout.js).
+    # A server that still mounts /games, /data, /keys, ... separately keeps them.
+    COOK_STORAGE_DIR=/storage \
     COOK_NSTOOL_BIN=/usr/local/bin/nstool \
     COOK_HACBREWPACK_BIN=/usr/local/bin/hacbrewpack \
     COOK_NSZ_BIN=/usr/bin/nsz \
@@ -71,10 +71,10 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# Pre-create the bind-mount targets so the user doesn't have to. The
-# container starts as root only to hand the data folder to PUID:PGID
-# (docker/entrypoint.sh), then runs the server as that user.
-RUN mkdir -p /games /data /keys
+# No folder is made here: /storage (or an older /games, /data, ...) counts only
+# when it is mounted. The container starts as root to make the storage folder's
+# role folders and hand them to PUID:PGID (docker/entrypoint.sh), then runs the
+# server as that user.
 
 # nstool — copied from the builder stage. Single static binary, ~1-2 MB.
 COPY --from=nstool-builder /nstool /usr/local/bin/nstool

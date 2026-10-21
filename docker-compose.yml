@@ -38,35 +38,36 @@ services:
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       DEBUG: ${DEBUG:-oc-cookingfoil*}
-      # Inside the container these never move; choose the host folders below.
+      # Inside the container these never move; choose the host folder below.
       COOK_PORT: 80
-      COOK_GAMES_DIR: /games
-      COOK_DATA_DIR: /data
-      COOK_KEYS_DIR: /keys
-      COOK_RETRO_DIR: /retro
-      COOK_PATCHES_DIR: /patches
-      COOK_SAVES_DIR: /saves
-      COOK_HOMEBREW_DIR: /homebrew
+      COOK_STORAGE_DIR: /storage
+      # Folder settings meant for running from source (an .env copied from
+      # .env.example, or an older one) must not move data inside the container,
+      # where it would be lost with it: here every folder comes from /storage.
+      COOK_GAMES_DIR: ""
+      COOK_DATA_DIR: ""
+      COOK_KEYS_DIR: ""
+      COOK_RETRO_DIR: ""
+      COOK_PATCHES_DIR: ""
+      COOK_SAVES_DIR: ""
+      COOK_HOMEBREW_DIR: ""
+      COOK_INCOMING_DIR: ""
+      ROMS_DIR_FULLPATH: ""
     ports:
       # Host:container. Change the host side freely; the container side stays 80.
       - "${COOK_HOST_PORT:-9080}:80"
     volumes:
-      # Host folders, beside this file unless COOK_<NAME>_PATH in .env puts one
-      # somewhere else (Docker creates the missing ones).
-      #   games     packages (.nsp .nsz .xci .xcz)
-      #   data      accounts, saved keys, caches. Back this one up
-      #   keys      your own prod.keys, read-only
-      #   retro     retro ROMs, art and your RetroArch base pack
-      #   patches   patches by base title id, and homebrew/<app>/
-      #   saves     save files by title id, and homebrew/<app>/
+      # One host folder holds everything, beside this file unless COOK_STORAGE_PATH
+      # in .env puts it somewhere else (for example COOK_STORAGE_PATH=/volume1/cookingfoil).
+      # The server makes these inside it on the first start:
+      #   incoming  drop files here; the server sorts them into the folders below
+      #   games     sorted Switch games, one folder per game with update/ and DLC/
       #   homebrew  .nro apps and app folders
-      # The COOK_<NAME>_PATH values are host paths, for example
-      # COOK_GAMES_PATH=/volume1/games. Plain ${VAR:-default} only, so older
-      # Compose releases such as the one in Synology Container Manager read it.
-      - ${COOK_GAMES_PATH:-./games}:/games
-      - ${COOK_DATA_PATH:-./data}:/data
-      - ${COOK_KEYS_PATH:-./keys}:/keys:ro
-      - ${COOK_RETRO_PATH:-./retro}:/retro
-      - ${COOK_PATCHES_PATH:-./patches}:/patches
-      - ${COOK_SAVES_PATH:-./saves}:/saves
-      - ${COOK_HOMEBREW_PATH:-./homebrew}:/homebrew
+      #   retro     retro ROMs, art and your RetroArch base pack
+      #   patches   patches by base title id
+      #   saves     save files by title id
+      #   keys      your own prod.keys
+      #   data      accounts, settings and caches. Back this one up
+      # Plain ${VAR:-default} only, so older Compose releases such as the one in
+      # Synology Container Manager read it.
+      - ${COOK_STORAGE_PATH:-./storage}:/storage

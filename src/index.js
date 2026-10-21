@@ -92,7 +92,8 @@ import * as customArt from "./meta/custom-art.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
-import { romsDirPath, appPort, dataDir, retroDir } from "./helpers/envs.js";
+import { romsDirPath, appPort, dataDir, retroDir, layout, incomingDir } from "./helpers/envs.js";
+import { ROLES, ensureLayout, oldIncoming, moveOldIncoming } from "./helpers/storage-layout.js";
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
@@ -105,6 +106,22 @@ import * as telegramUpdates from "./security/telegram-updates.js";
 // GitHub and the CDNs sit far enough away on this line that every address
 // timed out in turn and the whole request failed after a second.
 net.setDefaultAutoSelectFamilyAttemptTimeout(3000);
+
+// The storage folder: its role folders made, and the drop box a server kept in its games folder moved out.
+for (const made of ensureLayout(layout)) debug.log("storage: made %s", made);
+for (const role of ROLES.filter((r) => layout.from[r] === "kept")) {
+  debug.error("storage: %s still has files, so %s stays in use instead of %s/%s; move them over", layout.dirs[role], role, layout.root, role);
+}
+const oldBox = oldIncoming(layout);
+if (oldBox) {
+  try {
+    const { moved, left } = moveOldIncoming(oldBox, incomingDir);
+    debug.log("storage: moved %d entries from %s to %s", moved, oldBox, incomingDir);
+    if (left.length) debug.error("storage: %d entries stay in %s, the same names are in %s", left.length, oldBox, incomingDir);
+  } catch (err) {
+    debug.error("storage: could not move %s to %s: %s", oldBox, incomingDir, err.message);
+  }
+}
 
 const expressApp = express();
 expressApp.disable("x-powered-by");

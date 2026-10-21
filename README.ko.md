@@ -103,13 +103,7 @@ services:
     ports:
       - "9080:80"
     volumes:
-      - ./games:/games
-      - ./data:/data
-      - ./keys:/keys:ro
-      - ./retro:/retro
-      - ./patches:/patches
-      - ./saves:/saves
-      - ./homebrew:/homebrew
+      - ./storage:/storage
 ```
 
 ### 시놀로지 NAS
@@ -117,7 +111,7 @@ services:
 1. 패키지 센터에서 **Container Manager** 를 설치합니다(DSM 7.2 이상).
 2. File Station 에서 `docker/cookingfoil` 같은 폴더를 만들고 `docker-compose.yml` 과 `.env`(`.env.example` 을 복사한 것)를 넣습니다. `.env` 의 `COOK_SECRET_KEY` 에는 아무 컴퓨터에서 `openssl rand -base64 32` 로 만든 키를 넣습니다.
 3. `.env` 의 `PUID`, `PGID` 를 폴더 주인 계정 값으로 맞춥니다. SSH 에서 `id <계정>` 으로 봅니다. 처음 만든 관리자 계정은 보통 `1026`, `users` 그룹은 `100` 입니다.
-4. 게임을 이미 있는 공유 폴더에 두려면 `COOK_GAMES_PATH=/volume1/games` 처럼 경로를 넣고, 그 계정에 그 폴더의 읽기·쓰기 권한을 줍니다.
+4. 모든 것을 이미 있는 공유 폴더에 두려면 `COOK_STORAGE_PATH=/volume1/cookingfoil` 처럼 경로를 넣고, 그 계정에 그 폴더의 읽기·쓰기 권한을 줍니다.
 5. Container Manager 에서 **프로젝트**, **생성** 을 차례로 누르고, 2단계의 폴더를 고른 뒤 그 안의 `docker-compose.yml` 을 그대로 씁니다. 마법사를 끝까지 진행합니다.
 6. 설정 코드는 **컨테이너**, `cookingfoil`, **로그** 에 있습니다. `http://<NAS 주소>:9080/` 을 엽니다. DSM 방화벽을 켰다면 9080 포트를 엽니다.
 
@@ -127,16 +121,22 @@ services:
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # optional; defaults for the first start
-├── games/            # your packages (.nsp .nsz .xci .xcz)
-├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
-├── keys/             # optional, read-only: your own prod.keys
-├── retro/            # retro ROMs, art and the RetroArch base pack
-├── patches/          # patches by base title id, and homebrew/<app>/
-├── saves/            # save files by title id, and homebrew/<app>/
-└── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
+└── storage/          # the one folder mounted at /storage; the server makes the rest
+    ├── incoming/     # drop box: files put here are sorted into the folders below
+    ├── games/        # sorted Switch games, one folder per game with update/ and DLC/
+    ├── homebrew/     # .nro apps, app folders, or a release zip left in its own folder
+    ├── retro/        # retro ROMs, art and the RetroArch base pack
+    ├── patches/      # patches by base title id, and homebrew/<app>/
+    ├── saves/        # save files by title id, and homebrew/<app>/
+    ├── keys/         # recommended: your own prod.keys (or upload it on the admin page)
+    └── data/         # cache, accounts and every setting saved on the admin page. Back this one up
 ```
 
-없는 폴더는 Docker 가 `docker-compose.yml` 옆에 만듭니다. 다른 곳에 두려면 `.env` 에 그 폴더의 경로를 넣습니다. 예를 들어 `COOK_GAMES_PATH=/path/to/games` 입니다. 나머지는 `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH` 입니다.
+저장 폴더는 `.env` 의 `COOK_STORAGE_PATH` 로 바꾸지 않으면 `docker-compose.yml` 옆의 `./storage` 입니다. 서버는 켤 때 그 안에 위 폴더들을 만들고, `COOK_<이름>_DIR` 로 그중 하나를 다른 곳에 둘 수도 있습니다.
+
+정리를 맡기려면 파일을 `storage/incoming/` 에 넣습니다. 1분 동안 바뀌지 않은 파일부터 파일 안의 정보(`prod.keys` 가 없으면 이름이나 티켓)로 타이틀 ID 와 버전을 읽어 이름에 `[TITLEID][vN]` 을 붙이고, `games/` 안에 게임마다 폴더 하나로 본편 옆에 `update/` 와 `DLC/` 를 두어 옮깁니다. 이미 폴더가 있는 게임은 그 폴더를 쓰고, 새 게임은 그 이름으로 폴더를 만듭니다. 레트로 롬은 기종 이름 폴더(`incoming/snes/`)에 넣으면 `retro/` 로, `.nro` 하나짜리는 `homebrew/` 로 갑니다. 덮어쓰는 일은 없고, 옮기지 못한 파일은 `incoming/` 에 남아 관리 페이지(라이브러리, 임시 폴더)에 이유가 나옵니다. 서버는 임시 폴더를 이름이나 내용이 아니라 위치로 알아보므로, `games/` 안의 폴더를 정리할 대상으로 착각하는 일은 없습니다.
+
+**따로 마운트하던 서버를 옮길 때.** `/games`, `/data`, `/keys`, `/retro` 등을 따로 마운트하는 compose 파일은 그대로 두어도 그대로 돌고, 임시 폴더는 `games/incoming/` 입니다. 하나로 모으려면 서버를 멈추고 그 폴더들을 위 이름으로 저장 폴더 안에 옮긴 뒤 저장 폴더만 마운트하고 켭니다. 옮기는 동안 덮어쓰는 일은 없습니다. 옛 마운트에 아직 파일이 남은 폴더는 그대로 쓰고 관리 페이지 개요에 알리며, `games/incoming/` 에 있던 것은 같은 이름이 없으면 `incoming/` 으로 옮깁니다.
 
 서버는 사용자 `PUID`, 그룹 `PGID` 로 돕니다(`.env` 에 없으면 1000, 1000). 그래서 이 폴더들에 서버가 쓰는 파일은 내 것이 됩니다. 내 값은 호스트에서 `id` 로 봅니다. 켤 때 데이터 폴더를 그 사용자에게 넘기고, 쓸 수 없는 라이브러리 폴더는 고치는 명령과 함께 로그에 알립니다. 그 밖에는 바꾸지 않습니다. `PUID=0` 이면 root 로 돌고, compose 파일에 `user:` 를 적으면 그 사용자로 그대로 돕니다.
 
@@ -392,7 +392,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 
 **인증 앱을 잃었습니다.** 관리자 비밀번호를 정해 두었다면 그것으로 들어갑니다. 둘 다 잃었다면 `.env` 에 `COOK_ADMIN_PASSWORD`(12자 이상)를 넣고 다시 켠 뒤 그 비밀번호로 들어갑니다.
 
-**이름이 파일 이름으로 나옵니다.** titledb 를 아직 받는 중이거나 titledb 에 없는 타이틀입니다. 직접 가진 `prod.keys` 를 `keys/` 에 넣으면 파일에서 이름과 아이콘을 읽습니다. 개요 탭의 이름 상태 패널도 확인합니다.
+**이름이 파일 이름으로 나옵니다.** titledb 를 아직 받는 중이거나 titledb 에 없는 타이틀입니다. 직접 가진 `prod.keys` 를 `storage/keys/` 에 넣으면 파일에서 이름과 아이콘을 읽습니다. 개요 탭의 이름 상태 패널도 확인합니다.
 
 **레트로 게임에 표지가 없습니다.** 레트로 탭에서 "빠진 것 모두 받기"를 누르거나 직접 맞춥니다. GitHub 토큰(설정 탭)을 넣으면 시간당 60회인 GitHub 한도가 풀립니다.
 

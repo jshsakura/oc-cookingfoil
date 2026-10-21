@@ -35,7 +35,7 @@ import FastGlob from "fast-glob";
 
 import debug from "./debug.js";
 import { parseFromFilename } from "./meta/filename-parser.js";
-import { INCOMING } from "./meta/library-organize.js";
+import { incomingInGames } from "./helpers/envs.js";
 import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
@@ -248,7 +248,7 @@ export async function scanLibrary() {
     caseSensitiveMatch: false,
     stats: true,
     // The drop box is sorted into the library; what waits there is not listed yet.
-    ignore: [`${INCOMING}/**`],
+    ignore: incomingInGames ? [`${incomingInGames}/**`] : [],
   });
   debug.log("scanned files: %d", entries.length);
 

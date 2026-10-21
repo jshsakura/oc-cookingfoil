@@ -103,13 +103,7 @@ services:
     ports:
       - "9080:80"
     volumes:
-      - ./games:/games
-      - ./data:/data
-      - ./keys:/keys:ro
-      - ./retro:/retro
-      - ./patches:/patches
-      - ./saves:/saves
-      - ./homebrew:/homebrew
+      - ./storage:/storage
 ```
 
 ### Synology NAS
@@ -117,7 +111,7 @@ services:
 1. パッケージセンターから **Container Manager** をインストールします(DSM 7.2 以降)。
 2. File Station で `docker/cookingfoil` などのフォルダーを作り、`docker-compose.yml` と `.env`(`.env.example` のコピー)を置きます。`.env` の `COOK_SECRET_KEY` には、どのパソコンでもよいので `openssl rand -base64 32` で作ったキーを入れます。
 3. `.env` の `PUID` と `PGID` を、フォルダーの持ち主のアカウントに合わせます。SSH で `id <アカウント>` を実行すると分かります。最初の管理者アカウントはたいてい `1026`、`users` グループは `100` です。
-4. ゲームを既存の共有フォルダーに置くには `COOK_GAMES_PATH=/volume1/games` のようにパスを設定し、そのアカウントに読み書き権限を与えます。
+4. すべてを既存の共有フォルダーに置くには `COOK_STORAGE_PATH=/volume1/cookingfoil` のようにパスを設定し、そのアカウントに読み書き権限を与えます。
 5. Container Manager で **プロジェクト**、**作成** の順に選び、手順 2 のフォルダーを選んで中の `docker-compose.yml` をそのまま使います。ウィザードを最後まで進めます。
 6. セットアップコードは **コンテナ**、`cookingfoil`、**ログ** にあります。`http://<NAS のアドレス>:9080/` を開きます。DSM のファイアウォールを有効にしているなら 9080 番ポートを許可します。
 
@@ -127,16 +121,22 @@ services:
 cookingfoil/
 ├── docker-compose.yml
 ├── .env              # optional; defaults for the first start
-├── games/            # your packages (.nsp .nsz .xci .xcz)
-├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
-├── keys/             # optional, read-only: your own prod.keys
-├── retro/            # retro ROMs, art and the RetroArch base pack
-├── patches/          # patches by base title id, and homebrew/<app>/
-├── saves/            # save files by title id, and homebrew/<app>/
-└── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
+└── storage/          # the one folder mounted at /storage; the server makes the rest
+    ├── incoming/     # drop box: files put here are sorted into the folders below
+    ├── games/        # sorted Switch games, one folder per game with update/ and DLC/
+    ├── homebrew/     # .nro apps, app folders, or a release zip left in its own folder
+    ├── retro/        # retro ROMs, art and the RetroArch base pack
+    ├── patches/      # patches by base title id, and homebrew/<app>/
+    ├── saves/        # save files by title id, and homebrew/<app>/
+    ├── keys/         # recommended: your own prod.keys (or upload it on the admin page)
+    └── data/         # cache, accounts and every setting saved on the admin page. Back this one up
 ```
 
-ないフォルダーは Docker が `docker-compose.yml` の隣に作ります。別の場所に置くには `.env` にそのフォルダーのパスを設定します。たとえば `COOK_GAMES_PATH=/path/to/games` です。ほかは `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH`、`COOK_HOMEBREW_PATH` です。
+保存フォルダーは、`.env` の `COOK_STORAGE_PATH` で変えない限り `docker-compose.yml` の隣の `./storage` です。サーバーは起動時にその中へ上のフォルダーを作ります。`COOK_<名前>_DIR` でそのうち一つを別の場所に置くこともできます。
+
+整理を任せるには、ファイルを `storage/incoming/` に入れます。1 分間変わらなかったファイルから、ファイルの中の情報(`prod.keys` がなければ名前やチケット)でタイトル ID とバージョンを読み、名前に `[TITLEID][vN]` を付けて、`games/` の中にゲームごとのフォルダーを一つ作り、本編の隣に `update/` と `DLC/` を置いて移します。フォルダーがすでにあるゲームはそのフォルダーを使い、新しいゲームはその名前でフォルダーを作ります。レトロ ROM は機種名のフォルダー(`incoming/snes/`)に入れると `retro/` へ、単独の `.nro` は `homebrew/` へ移ります。上書きはせず、移せなかったファイルは `incoming/` に残り、管理ページ(ライブラリー、임시 폴더)に理由が出ます。サーバーは一時フォルダーを名前や中身ではなく場所で見分けるので、`games/` の中のフォルダーを整理対象と取り違えることはありません。
+
+**別々にマウントしていたサーバーを移すとき。** `/games`、`/data`、`/keys`、`/retro` などを別々にマウントする compose ファイルは、そのままでもそのまま動き、一時フォルダーは `games/incoming/` です。一つにまとめるには、サーバーを止め、それらのフォルダーを上の名前で保存フォルダーの中に移し、保存フォルダーだけをマウントして起動します。移す途中で上書きはしません。古いマウントにまだファイルが残るフォルダーはそのまま使い、管理ページの概要で知らせます。`games/incoming/` にあったものは、同じ名前がなければ `incoming/` へ移します。
 
 サーバーはユーザー `PUID`、グループ `PGID` で動きます(`.env` になければ 1000、1000)。そのため、これらのフォルダーにサーバーが書いたファイルは自分のものになります。自分の値はホストで `id` を実行すると分かります。起動時にデータフォルダーをそのユーザーに渡し、書き込めないライブラリーフォルダーは直すコマンドと一緒にログに出します。それ以外は変えません。`PUID=0` なら root で動き、compose ファイルに `user:` を書けばそのユーザーのまま動きます。
 
@@ -391,7 +391,7 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 
 **認証アプリをなくしました。** 管理者パスワードを設定していれば、それでサインインします。両方なくした場合は、`.env` に `COOK_ADMIN_PASSWORD` (12 文字以上) を入れて再起動し、そのパスワードでサインインします。
 
-**名前がファイル名のまま表示されます。** titledb をまだダウンロード中か、そのタイトルが titledb にありません。自分の `prod.keys` を `keys/` に置けばファイルから名前とアイコンを読めます。概要 (개요) タブの名前の状態パネルも確認してください。
+**名前がファイル名のまま表示されます。** titledb をまだダウンロード中か、そのタイトルが titledb にありません。自分の `prod.keys` を `storage/keys/` に置けばファイルから名前とアイコンを読めます。概要 (개요) タブの名前の状態パネルも確認してください。
 
 **レトロゲームのボックスアートがありません。** レトロ (레트로) タブで「足りないものをすべて取得 (빠진 것 모두 받기)」を使うか、ゲームを手で照合します。GitHub トークン (設定 (설정) タブ) を入れると、GitHub の 1 時間 60 回の制限が緩和されます。
 
