@@ -58,6 +58,7 @@ const FEATURES = [
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
   "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
   "item-score",           // base item.score, score_count, score_source, score_label (+ score_labels map)
+  "card-labels",          // base item.labels (keys, or [key, value]) and sections.labels; retro games and lists the same
   "genre-keys",           // categories are English keys; sections.genres maps them per language
   "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
   "image-sizes",

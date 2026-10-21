@@ -144,10 +144,11 @@ import * as romHashes from "../retro/rom-hash.js";
 import { createIndexCache, delta } from "../retro/list-index.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
+import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
-import { menuRows, pickMenu, MENU_GAMES } from "../retro/menu.js";
+import { menuRows, pickMenu, rowIcon, MENU_GAMES } from "../retro/menu.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -407,6 +408,9 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
   const paths = sdPaths(g, system);
   const base = `/api/retro/games/${g.id}`;
   const group = cat ? groupOf(cat, g) : null;
+  const ra = group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {};
+  const tile = cat ? tileFacts(factsById(cat).get(g.id)) : {};
+  const labels = retroLabels({ achievements: ra.achievements, korean: edition?.korean, year: tile.year, players: tile.players });
   return {
     id: g.id,
     // Patch and version tags ("[J-K v20230715 font.galmuri]") move to `variant`.
@@ -426,9 +430,10 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...itemVotes.fields("retro", g.id, voter),
     ...(group ? { group: group.id, variants: group.members.length } : {}),
     // Lists mark the games with achievements; matchedBy says whether this ROM earns them.
-    ...(group ? achievementSummary(metaCandidates(g, representative(group, variantPicks.get(group.id)), group)) : {}),
+    ...ra,
     // From the collected metadata, for the tile and the filters: genre keys, players, release year.
-    ...(cat ? tileFacts(factsById(cat).get(g.id)) : {}),
+    ...tile,
+    ...(labels.length ? { labels } : {}),
     file: g.file,
     system: g.system,
     core: g.core,
@@ -625,6 +630,7 @@ export default function retroRouter() {
     for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
+      labels: RETRO_LABELS,
       systems: catalog.visibleSystems(cat, listed)
         .map((s) => ({
           ...s,
@@ -657,9 +663,11 @@ export default function retroRouter() {
     const voter = itemVotes.voterOf(req);
     res.set({ "Cache-Control": "no-store", Vary: "Accept-Language" });
     res.json({
+      labels: RETRO_LABELS,
       themes: rows.map((r) => ({
         id: r.id,
         name: r.name(lang),
+        icon: rowIcon(r.id),
         games: r.games.slice(0, per).map((f) => publicGame(byId.get(f.id), cat.systems, lang, { cat, link, voter })),
       })),
     });
@@ -696,6 +704,7 @@ export default function retroRouter() {
     const voter = itemVotes.voterOf(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({
+      labels: RETRO_LABELS,
       total: matches.length,
       page,
       pageSize,

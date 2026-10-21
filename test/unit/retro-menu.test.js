@@ -121,3 +121,11 @@ test("a menu for five thousand games is made quickly", () => {
   assert.ok(performance.now() - pooled < 50, `dealing took ${Math.round(performance.now() - pooled)} ms`);
   assert.ok(performance.now() - start < 1500, `${Math.round(performance.now() - start)} ms`);
 });
+
+test("every row has an icon from the client's set", async () => {
+  const { rowIcon } = await import("../../src/retro/menu.js");
+  const ids = menuRows(library(), NOW).map((r) => r.id);
+  assert.deepEqual(new Set(ids.map(rowIcon)).has("grid"), false, "no row falls through to the default");
+  assert.equal(rowIcon("arcade:genre:vertical-shmup"), "joystick");
+  assert.equal(rowIcon("coop:beat-em-up"), "users");
+});

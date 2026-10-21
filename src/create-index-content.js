@@ -42,6 +42,7 @@ import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
 import { normalizeGenres, GENRE_LABELS } from "./meta/categories.js";
 import { SCORE_LABELS } from "./meta/ratings.js";
+import { SWITCH_LABELS, attachSwitchLabels } from "./meta/card-labels.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
@@ -539,6 +540,7 @@ export function composeSections(filesMap, customs) {
     const item = buildSectionItemFromCustom(raw);
     if (item) items.push(item);
   }
+  attachSwitchLabels(items);
   const picks = featured.forSections();
   // Hand the library's base games to the rating collector (it works them through on its own pace).
   ratingSync.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({
@@ -551,6 +553,8 @@ export function composeSections(filesMap, customs) {
   body.genres = GENRE_LABELS;
   // score_label keys → their label per language.
   body.score_labels = SCORE_LABELS;
+  // Card label keys on base items → their text per language, tone, icon and order.
+  body.labels = SWITCH_LABELS;
   // Operator-picked home rows refer to items by base id (see meta/featured.js).
   if (picks.length) body.featured = picks;
   return body;
