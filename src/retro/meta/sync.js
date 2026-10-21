@@ -180,7 +180,7 @@ async function shotCounts(dir, now) {
 }
 
 /** Downloads the screenshots of a few games that lack theirs. Returns how many files it saved. */
-export async function shotsBatch({ dir, games, systems, fetchImpl = fetch, now = Date.now }) {
+export async function shotsBatch({ dir, games, systems, fetchImpl = fetch, now = Date.now, onStart = () => {} }) {
   const records = store.all();
   const counts = await shotCounts(dir, now());
   const lacking = (g, key) => {
@@ -192,6 +192,7 @@ export async function shotsBatch({ dir, games, systems, fetchImpl = fetch, now =
     const key = metaKey(g);
     return now() - (shotTried.get(key) ?? 0) >= SHOT_RETRY_MS && lacking(g, key);
   }).slice(0, SHOTS_PER_TICK);
+  if (due.length) onStart(due.map((g) => g.system));
   let saved = 0;
   for (const g of due) {
     const key = metaKey(g);
@@ -220,34 +221,53 @@ export async function tick({
   if (!on) return null;
   // The job appears with the first source asked: a tick with nothing to do never shows.
   let job = null;
-  const at = (source) => {
+  const touched = new Set();
+  const at = (what, systemIds = []) => {
     job ??= activity.begin("retro-meta", { title: "레트로 정보를 모읍니다" });
-    job.step(null, source);
+    for (const id of systemIds) touched.add(id);
+    job.step(null, [what, systemNames(systemIds, lastSystems)].filter(Boolean).join(" · "));
   };
+  let lastSystems = {};
   running = (async () => {
     const { games, systems } = await current();
+    lastSystems = systems;
     if (!games.length) return { idle: true };
     if (now() - store.builtAt() >= REFRESH_AGE_MS && now() - refreshTriedAt >= REFRESH_RETRY_MS) {
       refreshTriedAt = now();
-      at("LaunchBox");
+      at("LaunchBox 에서 게임 정보를 맞춥니다");
       return { launchbox: await refreshLaunchBox({ dir, cacheDir, games, systems, fetchImpl, now }) };
     }
     // IGDB only fills in after LaunchBox has had its say.
-    if (store.builtAt() && igdbDue(games, store.all(), now()).length) at("IGDB");
+    const igdbNext = store.builtAt() ? igdbDue(games, store.all(), now()) : [];
+    if (igdbNext.length) at("IGDB 에서 게임 정보를 찾습니다", igdbNext.map((g) => g.system));
     const igdb = store.builtAt() ? await igdbBatch({ games, fetchImpl, now, pauseMs }) : 0;
-    if (store.builtAt() && koDue(store.all(), now()).length) at("한국어 위키백과");
+    const koNext = store.builtAt() ? koDue(store.all(), now()) : [];
+    if (koNext.length) at("한국어 위키백과에서 한국어 설명을 찾습니다", koNext.map(([key]) => key.split("/")[0]));
     const ko = store.builtAt() ? await koBatch({ fetchImpl, now, pauseMs }) : 0;
-    const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now }) : 0;
-    return { igdb, ko, shots };
+    const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now, onStart: (ids) => at("스크린샷을 받습니다", ids) }) : 0;
+    const left = store.builtAt() ? igdbDue(games, store.all(), now(), Infinity).length + koDue(store.all(), now(), Infinity).length : 0;
+    return { igdb, ko, shots, left };
   })()
     .then((r) => {
       if (r.launchbox !== undefined) job?.done(`LaunchBox ${r.launchbox}개`);
-      else if (job && (r.igdb || r.ko || r.shots)) job.done(`IGDB ${r.igdb ?? 0} · 위키 ${r.ko ?? 0} · 스크린샷 ${r.shots ?? 0}`);
+      else if (job && (r.igdb || r.ko || r.shots)) job.done([tickSummary(r), systemNames([...touched], lastSystems)].filter(Boolean).join(" · "));
       else job?.discard();
       return r;
     }, (err) => { job?.fail(err); throw err; })
     .finally(() => { running = null; });
   return running;
+}
+
+/** "슈퍼 패미컴, 게임보이 어드밴스" for the systems a batch covers. Pure. */
+export function systemNames(ids, systems = {}) {
+  return [...new Set(ids)].map((id) => systems[id]?.names?.ko ?? systems[id]?.name ?? id).join(", ");
+}
+
+/** "한국어 설명 50개 · 스크린샷 31장 · 남은 2,310개": what one tick gathered, and what is left. Pure. */
+export function tickSummary({ igdb, ko, shots, left = 0 }) {
+  const parts = [igdb && `IGDB 게임 정보 ${igdb}개`, ko && `한국어 설명 ${ko}개`, shots && `스크린샷 ${shots}장`].filter(Boolean);
+  if (left) parts.push(`남은 ${left.toLocaleString("ko-KR")}개`);
+  return parts.join(" · ");
 }
 
 /** Loads the saved records and starts the loop. `current()` gives the catalog ({ games, systems }). */

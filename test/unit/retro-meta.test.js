@@ -415,9 +415,9 @@ test("the background loop does nothing while its setting is off, and no screensh
     let read = 0;
     assert.equal(await sync.tick({ dir, current: async () => { read++; return current(); }, fetchImpl, settings: () => ({ on: false, art: true }) }), null);
     assert.equal(read, 0, "not even the catalog is read");
-    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: false }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 0 });
+    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: false }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 0, left: 0 });
     assert.equal(asked.length, 0);
-    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: true }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 1 });
+    assert.deepEqual(await sync.tick({ dir, current, fetchImpl, settings: () => ({ on: true, art: true }), pauseMs: 0 }), { igdb: 0, ko: 0, shots: 1, left: 0 });
     assert.deepEqual(asked, ["https://images.launchbox-app.com/g.png"]);
   } finally {
     store.reset();
@@ -482,4 +482,12 @@ test("GET /api/retro/games/:id carries the saved details and serves the screensh
   } finally {
     server.kill("SIGKILL");
   }
+});
+
+test("the activity line says what was gathered, for which systems, and what is left", async () => {
+  const { systemNames, tickSummary } = await import("../../src/retro/meta/sync.js");
+  const systems = { snes: { names: { ko: "슈퍼 패미컴" } }, gba: { names: { ko: "게임보이 어드밴스" } } };
+  assert.equal(systemNames(["snes", "gba", "snes", "odd"], systems), "슈퍼 패미컴, 게임보이 어드밴스, odd");
+  assert.equal(tickSummary({ igdb: 0, ko: 50, shots: 31, left: 2310 }), "한국어 설명 50개 · 스크린샷 31장 · 남은 2,310개");
+  assert.equal(tickSummary({ igdb: 3, ko: 0, shots: 0 }), "IGDB 게임 정보 3개");
 });
