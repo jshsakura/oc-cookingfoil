@@ -267,6 +267,22 @@ function romFolders(retroDir) {
   }
 }
 
+/** The id of the system a folder name stands for (its folder, or a look-alike of a built-in one), or null. Pure. */
+export function systemOfFolder(name, systems) {
+  const k = keyOf(name);
+  if (!k) return null;
+  for (const [id, s] of Object.entries(systems)) {
+    if (keyOf(s.folder) === k || folderKeys(id, DEFAULT_SYSTEMS[id] ?? s).includes(k)) return id;
+  }
+  return null;
+}
+
+/** The id of the one system that plays files with this extension, or null when none or several do. Pure. */
+export function systemOfExtension(ext, systems) {
+  const hits = Object.entries(systems).filter(([, s]) => s.extensions.includes(String(ext).toLowerCase()));
+  return hits.length === 1 ? hits[0][0] : null;
+}
+
 /** Folders under roms/ that no system reads, by name. */
 export function unreadFolders(retroDir, systems) {
   const read = new Set(Object.values(systems).map((s) => s.folder));
