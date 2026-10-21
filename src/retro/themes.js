@@ -3,11 +3,15 @@
  * values one system offers (facets), the /games filters on them, and the
  * day's theme rows ("무슨 게임하지?").
  *
- *   facts = { id, system, genres: [genre key], players, year, korean, achievements,
+ *   facts = { id, work, system, genres: [genre key], players, year, korean, achievements,
  *             region, rating, ratingCount, addedAt }
  *
- * Genres are categories.js GENRE_LABELS keys, the same key in every language,
- * so a theme row's id leads straight to its filter. Everything here is pure.
+ * `work` is the game across consoles (its English title, folded), so Tetris on
+ * the Game Boy and on the NES fill one place in the theme rows.
+ *
+ * Genres are categories.js GENRE_LABELS keys, the same key in every language.
+ * Outside they travel as slugs ("Board Game" → "board-game"), so a theme row's
+ * id leads straight to its filter. Everything here is pure.
  */
 import { genreLabel } from "../meta/categories.js";
 
@@ -42,16 +46,21 @@ const THEME_NAMES = {
   },
 };
 
+/** A genre key as the API shows and takes it, [a-z0-9-]+: "Board Game" → "board-game", "Beat 'em Up" → "beat-em-up". */
+export const genreSlug = (key) => String(key).toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const REGION_RE = /^[a-z]+$/;
+
 const nameIn = (names, lang, arg) => {
   const n = names[lang] ?? names.en;
   return typeof n === "function" ? n(arg) : n;
 };
 
 /** A listed game's facts from its metadata record and what its versions say. */
-export function factsOf(g, { record = null, korean = false, region = null, achievements = false } = {}) {
+export function factsOf(g, { record = null, korean = false, region = null, achievements = false, work = null } = {}) {
   const date = record?.releaseDate ?? null;
   return {
     id: g.id,
+    work: work ?? g.id,
     system: g.system,
     genres: record?.genres ?? [],
     players: record?.numberOfPlayers ?? null,
@@ -80,13 +89,13 @@ export function facetsOf(list, lang = "en") {
     for (const g of f.genres) bump(genres, g);
     const d = decadeOf(f.year);
     if (d) bump(decades, d);
-    if (f.region) bump(regions, f.region);
+    if (REGION_RE.test(f.region ?? "")) bump(regions, f.region);
     if (f.korean) korean++;
     if (f.achievements) achievements++;
   }
   const players = PLAYER_STEPS.map((value) => ({ value, count: list.filter((f) => (f.players ?? 0) >= value).length })).filter((p) => p.count);
   return {
-    ...(genres.size ? { genres: counted(genres).map(([key, count]) => ({ key, name: genreLabel(key, lang), count })) } : {}),
+    ...(genres.size ? { genres: counted(genres).map(([key, count]) => ({ key: genreSlug(key), name: genreLabel(key, lang), count })) } : {}),
     ...(players.length ? { players } : {}),
     ...(decades.size ? { decades: [...decades].sort((a, b) => a[0] - b[0]).map(([value, count]) => ({ value, count })) } : {}),
     ...(regions.size ? { regions: counted(regions).map(([value, count]) => ({ value, count })) } : {}),
@@ -102,7 +111,7 @@ const intParam = (v) => (typeof v === "string" && /^\d+$/.test(v) ? Number(v) : 
  * (at least), decade (1990), region (kr), korean=1, achievements=1. Pure.
  */
 export function factsFilter(query) {
-  const genres = typeof query.genre === "string" && query.genre ? query.genre.split(",").map((s) => s.trim()).filter(Boolean) : null;
+  const genres = typeof query.genre === "string" && query.genre ? query.genre.split(",").map((s) => genreSlug(s.trim())).filter(Boolean) : null;
   const players = intParam(query.players);
   const decade = intParam(query.decade);
   const region = typeof query.region === "string" && query.region ? query.region.toLowerCase() : null;
@@ -112,7 +121,7 @@ export function factsFilter(query) {
   if (!any) return null;
   return (f) =>
     Boolean(f) &&
-    (!genres || f.genres.some((g) => genres.includes(g))) &&
+    (!genres || f.genres.some((g) => genres.includes(genreSlug(g)))) &&
     (players === null || (f.players ?? 0) >= players) &&
     (decade === null || decadeOf(f.year) === decade) &&
     (!region || f.region === region) &&
@@ -147,7 +156,7 @@ const shuffled = (list, rand) => {
 function candidates(list) {
   const out = [];
   const genres = new Set(list.flatMap((f) => f.genres));
-  for (const key of genres) out.push({ id: `genre:${key}`, kind: "genre", name: (lang) => genreLabel(key, lang), games: list.filter((f) => f.genres.includes(key)).sort(byRating) });
+  for (const key of genres) out.push({ id: `genre:${genreSlug(key)}`, kind: "genre", name: (lang) => genreLabel(key, lang), games: list.filter((f) => f.genres.includes(key)).sort(byRating) });
   const other = (id, names, games, arg) => out.push({ id, kind: "other", name: (lang) => nameIn(names, lang, arg), games });
   other("coop", THEME_NAMES.coop, list.filter((f) => (f.players ?? 0) >= 2).sort(byRating));
   other("korean", THEME_NAMES.korean, list.filter((f) => f.korean).sort(byRating));
@@ -163,7 +172,7 @@ function candidates(list) {
     // A decade and a genre together ("90년대 RPG").
     for (const key of genres) {
       const games = inDecade.filter((f) => f.genres.includes(key));
-      if (games.length) out.push({ id: `decade:${d}:genre:${key}`, kind: "other", name: (lang) => nameIn(THEME_NAMES.decadeGenre, lang, [d, genreLabel(key, lang)]), games: games.sort(byRating) });
+      if (games.length) out.push({ id: `decade:${d}:genre:${genreSlug(key)}`, kind: "other", name: (lang) => nameIn(THEME_NAMES.decadeGenre, lang, [d, genreLabel(key, lang)]), games: games.sort(byRating) });
     }
   }
   return out;
@@ -189,12 +198,13 @@ export function pickThemes(list, { day = 0, lang = "en", rows = THEME_ROWS, per 
   const out = [];
   for (const t of order) {
     if (out.length >= rows) break;
-    const fresh = t.games.filter((f) => !used.has(f.id));
+    const seen = new Set(used);
+    const fresh = t.games.filter((f) => !seen.has(f.work) && seen.add(f.work));
     // "recent" keeps its order; the rest shuffle their best by day.
     const pool = t.id === "recent" ? fresh : shuffled(fresh.slice(0, THEME_POOL), rand);
     const games = pool.slice(0, per);
     if (games.length < min) continue;
-    for (const f of games) used.add(f.id);
+    for (const f of games) used.add(f.work);
     out.push({ id: t.id, name: t.name(lang), games });
   }
   return out;

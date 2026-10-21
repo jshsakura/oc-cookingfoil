@@ -499,14 +499,14 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
   try {
     const facets = await (await fetch(`${BASE}/api/retro/systems/snes/facets`, { headers: { ...AUTH, "Accept-Language": "ko" } })).json();
     assert.equal(facets.total, 11);
-    assert.deepEqual(facets.genres.map((g) => [g.key, g.count]), [["RPG", 10], ["Puzzle", 1]]);
+    assert.deepEqual(facets.genres.map((g) => [g.key, g.count]), [["rpg", 10], ["puzzle", 1]]);
     assert.deepEqual(facets.players, [{ value: 2, count: 3 }]);
     assert.deepEqual(facets.decades, [{ value: 1980, count: 1 }, { value: 1990, count: 10 }]);
     assert.equal((await fetch(`${BASE}/api/retro/systems/nes/facets`, { headers: AUTH })).status, 404);
 
-    const two = await (await fetch(`${BASE}/api/retro/games?system=snes&genre=RPG&players=2`, { headers: AUTH })).json();
+    const two = await (await fetch(`${BASE}/api/retro/games?system=snes&genre=rpg&players=2`, { headers: AUTH })).json();
     assert.equal(two.total, 3);
-    assert.deepEqual(two.games[0].genres, ["RPG"]);
+    assert.deepEqual(two.games[0].genres, ["rpg"]);
     assert.equal(two.games[0].players, 2);
     assert.equal(two.games[0].year, 1995);
     assert.equal((await (await fetch(`${BASE}/api/retro/games?decade=1980`, { headers: AUTH })).json()).total, 1);

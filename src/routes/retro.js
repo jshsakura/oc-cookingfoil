@@ -30,7 +30,7 @@
  *                                                the best-rated games of every console that has any
  *   GET /api/retro/themes?limit=12              { day, themes: [{ id, name, games: [G…] }] } rows across consoles for the
  *                                                day (retro/themes.js): at most 6, 12 games each, no game twice, none under
- *                                                8; id is "genre:<key>", "decade:<1990>", "decade:<1990>:genre:<key>", "coop",
+ *                                                8; id is "genre:<slug>", "decade:<1990>", "decade:<1990>:genre:<slug>", "coop",
  *                                                "korean", "achievements", "classic" (90+), "hidden" or "recent"
  *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
  *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
@@ -143,7 +143,7 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
-import { factsOf, facetsOf, factsFilter, pickThemes, THEME_GAMES } from "../retro/themes.js";
+import { factsOf, facetsOf, factsFilter, pickThemes, genreSlug, THEME_GAMES } from "../retro/themes.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -310,6 +310,7 @@ function gameFacts(cat, g) {
     korean: group.members.some((m) => titleOf(m, "en").edition?.korean),
     region: titleOf(g, "en").region ?? null,
     achievements: Boolean(achievementSummary(candidates).achievements),
+    work: folded(titleOf(g, "en").name),
   });
 }
 
@@ -363,7 +364,7 @@ function bezelFields(g, paths, base, link) {
 }
 
 /** The facts a list tile shows, the unknown ones left out. Pure. */
-const tileFacts = (f) => (f ? { ...(f.genres.length ? { genres: f.genres } : {}), ...(f.players ? { players: f.players } : {}), ...(f.year ? { year: f.year } : {}) } : {});
+const tileFacts = (f) => (f ? { ...(f.genres.length ? { genres: f.genres.map(genreSlug) } : {}), ...(f.players ? { players: f.players } : {}), ...(f.year ? { year: f.year } : {}) } : {});
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
 // `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
