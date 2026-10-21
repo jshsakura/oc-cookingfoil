@@ -92,10 +92,13 @@ export function setRole(sub, role) {
   return true;
 }
 
-/** Every account, waiting ones first, then by email. */
+/** Every account: waiting ones first (newest request first), then the rest, most recently approved first. */
 export function list() {
-  const rank = { pending: 0, approved: 1, disabled: 2 };
-  return [...accounts.values()].map((a) => ({ ...a, role: a.role === "admin" ? "admin" : "user" })).sort((a, b) => rank[a.status] - rank[b.status] || a.email.localeCompare(b.email));
+  const waiting = (a) => a.status === "pending";
+  const when = (a) => (waiting(a) ? a.createdAt : a.approvedAt ?? a.createdAt) ?? 0;
+  return [...accounts.values()]
+    .map((a) => ({ ...a, role: a.role === "admin" ? "admin" : "user" }))
+    .sort((a, b) => waiting(b) - waiting(a) || when(b) - when(a));
 }
 
 export function pendingCount() {

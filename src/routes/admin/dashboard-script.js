@@ -278,9 +278,9 @@ async function loadAccounts(){
     :'구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.';
   const waiting=list.filter((a)=>a.status==='pending').length;
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
-  pagedTable('accounts',['이메일','역할','상태','처음 로그인','마지막 로그인',''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
+  pagedTable('accounts',['이메일','역할','상태','승인','처음 로그인','마지막 로그인',''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
-    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(fmt(a.createdAt)),td(ago(a.lastAt)));
+    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),td(ago(a.lastAt)));
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
