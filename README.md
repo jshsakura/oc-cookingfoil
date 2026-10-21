@@ -62,6 +62,8 @@ The web page, first-run setup, sign-in and device approval pages are in English,
 
 ## Quick start
 
+You need Docker with Compose v2 (`docker compose`, 2.9 or later). The image runs on amd64 and arm64. On a Synology NAS, follow [Synology NAS](#synology-nas) below.
+
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
@@ -87,8 +89,10 @@ services:
     restart: unless-stopped
     stop_grace_period: 40s
     env_file:
-      - path: .env
-        required: false
+      - .env
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     ports:
       - "9080:80"
     volumes:
@@ -100,6 +104,15 @@ services:
       - ./saves:/saves
       - ./homebrew:/homebrew
 ```
+
+### Synology NAS
+
+1. Install **Container Manager** from Package Center (DSM 7.2 or later).
+2. In File Station, make a folder such as `docker/cookingfoil` and put `docker-compose.yml` and `.env` (a copy of `.env.example`) in it. Set `COOK_SECRET_KEY` in `.env` to a key made with `openssl rand -base64 32` on any computer.
+3. Set `PUID` and `PGID` in `.env` to the account that owns your folders. Over SSH, `id <account>` prints them. The first admin account is usually `1026` and the `users` group `100`.
+4. To keep games in a shared folder you already have, set its path, for example `COOK_GAMES_PATH=/volume1/games`, and give that account read and write permission on it.
+5. In Container Manager, open **Project**, choose **Create**, pick the folder from step 2 and use the `docker-compose.yml` already in it. Finish the wizard.
+6. The setup code is under **Container**, `cookingfoil`, **Log**. Open `http://<NAS address>:9080/`. If the DSM firewall is on, allow port 9080.
 
 ## Folders
 
@@ -121,7 +134,9 @@ cookingfoil/
 
 Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `games/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), adds `[TITLEID][vN]` to its name and moves it into one folder per game, with `update/` and `DLC/` beside the base game. A game that already has a folder keeps it; a new one gets a folder named after it. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, 임시 폴더).
 
-Docker creates any folder that is missing. To keep them all somewhere else, set `COOK_ROOT=/path/to/cookingfoil` in `.env`. To move just one, set its own path, for example `COOK_GAMES_PATH=/path/to/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
+Docker creates any folder that is missing, beside `docker-compose.yml`. To put one somewhere else, set its path in `.env`, for example `COOK_GAMES_PATH=/path/to/games`. The others are `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH` and `COOK_HOMEBREW_PATH`.
+
+The server runs as the user `PUID` and the group `PGID` (1000 and 1000 unless `.env` says otherwise), so what it writes in these folders belongs to you. `id` on the host prints yours. At start it hands the data folder to that user. A library folder it cannot write is named in the log with the command that fixes it, and nothing else is changed. `PUID=0` runs as root, and a `user:` line in the compose file runs as that user unchanged.
 
 Inside `retro/`:
 
@@ -150,7 +165,7 @@ These have to be known before the admin page exists, or are kept out of it on pu
 |---|---|---|
 | `COOK_SECRET_KEY` | _(required)_ | Seals the secrets kept in the data folder (AES-256-GCM). Make it with `openssl rand -base64 32` and keep it: a new key cannot open what the old one sealed |
 | `COOK_HOST_PORT` | `9080` | Host port |
-| `COOK_ROOT` | `.` | Host folder the folders above are made under |
+| `PUID` / `PGID` | `1000` / `1000` | User and group the server runs as, so the files it writes are yours. `0` runs as root |
 | `COOK_TRUST_PROXY` | _(empty)_ | Proxy hops allowed to set the client address, for example `loopback, uniquelocal` |
 | `COOK_FIRST_RUN_SETUP` | `true` | `false` keeps a server without accounts open instead of sending browsers to `/setup` |
 | `COOK_AUTH_USERS` | _(empty)_ | Preset accounts, `user:pass,user2:pass2`, instead of `/setup`. The first is the admin, the rest are regular users |

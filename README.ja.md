@@ -62,6 +62,8 @@ Web ページ、初回セットアップ、サインイン、本体承認のペ�
 
 ## クイックスタート
 
+Docker と Compose v2(`docker compose`、2.9 以降)が必要です。イメージは amd64 と arm64 で動きます。Synology NAS では下の [Synology NAS](#synology-nas) に従います。
+
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
@@ -87,8 +89,10 @@ services:
     restart: unless-stopped
     stop_grace_period: 40s
     env_file:
-      - path: .env
-        required: false
+      - .env
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     ports:
       - "9080:80"
     volumes:
@@ -100,6 +104,15 @@ services:
       - ./saves:/saves
       - ./homebrew:/homebrew
 ```
+
+### Synology NAS
+
+1. パッケージセンターから **Container Manager** をインストールします(DSM 7.2 以降)。
+2. File Station で `docker/cookingfoil` などのフォルダーを作り、`docker-compose.yml` と `.env`(`.env.example` のコピー)を置きます。`.env` の `COOK_SECRET_KEY` には、どのパソコンでもよいので `openssl rand -base64 32` で作ったキーを入れます。
+3. `.env` の `PUID` と `PGID` を、フォルダーの持ち主のアカウントに合わせます。SSH で `id <アカウント>` を実行すると分かります。最初の管理者アカウントはたいてい `1026`、`users` グループは `100` です。
+4. ゲームを既存の共有フォルダーに置くには `COOK_GAMES_PATH=/volume1/games` のようにパスを設定し、そのアカウントに読み書き権限を与えます。
+5. Container Manager で **プロジェクト**、**作成** の順に選び、手順 2 のフォルダーを選んで中の `docker-compose.yml` をそのまま使います。ウィザードを最後まで進めます。
+6. セットアップコードは **コンテナ**、`cookingfoil`、**ログ** にあります。`http://<NAS のアドレス>:9080/` を開きます。DSM のファイアウォールを有効にしているなら 9080 番ポートを許可します。
 
 ## フォルダー構成
 
@@ -116,7 +129,9 @@ cookingfoil/
 └── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
 
-ないフォルダーは Docker が作ります。すべてを別の場所に置くには `.env` に `COOK_ROOT=/path/to/cookingfoil` を設定します。1 つだけ移すには、そのフォルダーのパスを設定します。たとえば `COOK_GAMES_PATH=/path/to/games` です。ほかは `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH`、`COOK_HOMEBREW_PATH` です。
+ないフォルダーは Docker が `docker-compose.yml` の隣に作ります。別の場所に置くには `.env` にそのフォルダーのパスを設定します。たとえば `COOK_GAMES_PATH=/path/to/games` です。ほかは `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH`、`COOK_HOMEBREW_PATH` です。
+
+サーバーはユーザー `PUID`、グループ `PGID` で動きます(`.env` になければ 1000、1000)。そのため、これらのフォルダーにサーバーが書いたファイルは自分のものになります。自分の値はホストで `id` を実行すると分かります。起動時にデータフォルダーをそのユーザーに渡し、書き込めないライブラリーフォルダーは直すコマンドと一緒にログに出します。それ以外は変えません。`PUID=0` なら root で動き、compose ファイルに `user:` を書けばそのユーザーのまま動きます。
 
 `retro/` の中身です。
 
@@ -145,7 +160,7 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 |---|---|---|
 | `COOK_SECRET_KEY` | _(必須)_ | データフォルダに置く秘密情報を暗号化します(AES-256-GCM)。`openssl rand -base64 32` で作り、大切に保管します。新しいキーでは古いキーで封じた値を開けません |
 | `COOK_HOST_PORT` | `9080` | ホスト側のポート |
-| `COOK_ROOT` | `.` | 上のフォルダーを作るホスト側のフォルダー |
+| `PUID` / `PGID` | `1000` / `1000` | サーバーが動くユーザーとグループ。サーバーが書いたファイルが自分のものになります。`0` なら root で動きます |
 | `COOK_TRUST_PROXY` | _(空)_ | クライアントのアドレスを設定してよいプロキシのホップ。例: `loopback, uniquelocal` |
 | `COOK_FIRST_RUN_SETUP` | `true` | `false` にすると、アカウントのないサーバーでもブラウザーを `/setup` に送らず開いたままにします |
 | `COOK_AUTH_USERS` | _(空)_ | `/setup` の代わりに用意するアカウント。`user:pass,user2:pass2`。最初のアカウントが管理者で、残りは一般ユーザーです |

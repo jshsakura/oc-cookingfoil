@@ -71,12 +71,9 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# Pre-create the bind-mount targets so the user doesn't have to.
-# Runs as root (USER directive intentionally omitted): the legacy
-# vinicioslc/tinfoil-hat image ran as root too, so drop-in swaps don't
-# trip over host UID mismatches on bind-mounted /games. Users who want
-# non-root should set `user: "1000:1000"` (or their host uid:gid) in
-# their docker-compose.yml.
+# Pre-create the bind-mount targets so the user doesn't have to. The
+# container starts as root only to hand the data folder to PUID:PGID
+# (docker/entrypoint.sh), then runs the server as that user.
 RUN mkdir -p /games /data /keys
 
 # nstool — copied from the builder stage. Single static binary, ~1-2 MB.
@@ -95,7 +92,8 @@ COPY --from=hacbrewpack-builder /hacBrewPack-source.tar.gz /usr/share/licenses/c
 # required on Alpine 3.20+'s PEP 668 environment; the image is single-
 # tenant and we own the Python install, so this is safe.
 # unzip opens the patch and save zips uploaded from the admin page.
-RUN apk add --no-cache python3 py3-pip unzip && \
+# su-exec drops from root to PUID:PGID in the entrypoint.
+RUN apk add --no-cache python3 py3-pip unzip su-exec && \
     pip3 install --no-cache-dir --break-system-packages nsz && \
     # Drop pip caches & build deps to keep the runtime layer lean.
     rm -rf /root/.cache /tmp/* /var/cache/apk/*
@@ -107,6 +105,7 @@ COPY src ./src
 COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/
 # The forwarder's prebuilt exefs (see forwarder/build.sh).
 COPY forwarder/exefs ./forwarder/exefs
+COPY docker/entrypoint.sh /usr/local/bin/cookingfoil-entrypoint
 
 EXPOSE 80
 
@@ -118,4 +117,6 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "const b='http://127.0.0.1:'+(process.env.COOK_PORT||80);(async()=>{const h=await fetch(b+'/healthz');if(!h.ok)process.exit(1);if((await h.json()).draining)return;const r=await fetch(b+'/',{redirect:'manual'});if(r.status>=500)process.exit(1)})().catch(()=>process.exit(1))"
 
-CMD ["node", "src/index.js"]
+ENTRYPOINT ["/usr/local/bin/cookingfoil-entrypoint"]
+# node:sqlite still prints an ExperimentalWarning on every start; it is stable enough here.
+CMD ["node", "--disable-warning=ExperimentalWarning", "src/index.js"]

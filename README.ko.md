@@ -62,6 +62,8 @@ CookingFoil 클라이언트는 GitHub 에 공개하지 않습니다. 서버의 `
 
 ## 빠른 시작
 
+Docker 와 Compose v2(`docker compose`, 2.9 이상)가 필요합니다. 이미지는 amd64 와 arm64 에서 돕니다. 시놀로지 NAS 는 아래 [시놀로지 NAS](#시놀로지-nas) 를 따릅니다.
+
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
@@ -87,8 +89,10 @@ services:
     restart: unless-stopped
     stop_grace_period: 40s
     env_file:
-      - path: .env
-        required: false
+      - .env
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     ports:
       - "9080:80"
     volumes:
@@ -100,6 +104,15 @@ services:
       - ./saves:/saves
       - ./homebrew:/homebrew
 ```
+
+### 시놀로지 NAS
+
+1. 패키지 센터에서 **Container Manager** 를 설치합니다(DSM 7.2 이상).
+2. File Station 에서 `docker/cookingfoil` 같은 폴더를 만들고 `docker-compose.yml` 과 `.env`(`.env.example` 을 복사한 것)를 넣습니다. `.env` 의 `COOK_SECRET_KEY` 에는 아무 컴퓨터에서 `openssl rand -base64 32` 로 만든 키를 넣습니다.
+3. `.env` 의 `PUID`, `PGID` 를 폴더 주인 계정 값으로 맞춥니다. SSH 에서 `id <계정>` 으로 봅니다. 처음 만든 관리자 계정은 보통 `1026`, `users` 그룹은 `100` 입니다.
+4. 게임을 이미 있는 공유 폴더에 두려면 `COOK_GAMES_PATH=/volume1/games` 처럼 경로를 넣고, 그 계정에 그 폴더의 읽기·쓰기 권한을 줍니다.
+5. Container Manager 에서 **프로젝트**, **생성** 을 차례로 누르고, 2단계의 폴더를 고른 뒤 그 안의 `docker-compose.yml` 을 그대로 씁니다. 마법사를 끝까지 진행합니다.
+6. 설정 코드는 **컨테이너**, `cookingfoil`, **로그** 에 있습니다. `http://<NAS 주소>:9080/` 을 엽니다. DSM 방화벽을 켰다면 9080 포트를 엽니다.
 
 ## 폴더
 
@@ -116,7 +129,9 @@ cookingfoil/
 └── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
 
-없는 폴더는 Docker 가 만듭니다. 전부 다른 곳에 두려면 `.env` 에 `COOK_ROOT=/path/to/cookingfoil` 을 넣습니다. 하나만 옮기려면 그 폴더의 경로를 따로 넣습니다. 예를 들어 `COOK_GAMES_PATH=/path/to/games` 입니다. 나머지는 `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH` 입니다.
+없는 폴더는 Docker 가 `docker-compose.yml` 옆에 만듭니다. 다른 곳에 두려면 `.env` 에 그 폴더의 경로를 넣습니다. 예를 들어 `COOK_GAMES_PATH=/path/to/games` 입니다. 나머지는 `COOK_DATA_PATH`, `COOK_KEYS_PATH`, `COOK_RETRO_PATH`, `COOK_PATCHES_PATH`, `COOK_SAVES_PATH`, `COOK_HOMEBREW_PATH` 입니다.
+
+서버는 사용자 `PUID`, 그룹 `PGID` 로 돕니다(`.env` 에 없으면 1000, 1000). 그래서 이 폴더들에 서버가 쓰는 파일은 내 것이 됩니다. 내 값은 호스트에서 `id` 로 봅니다. 켤 때 데이터 폴더를 그 사용자에게 넘기고, 쓸 수 없는 라이브러리 폴더는 고치는 명령과 함께 로그에 알립니다. 그 밖에는 바꾸지 않습니다. `PUID=0` 이면 root 로 돌고, compose 파일에 `user:` 를 적으면 그 사용자로 그대로 돕니다.
 
 `retro/` 안은 이렇게 생겼습니다.
 
@@ -145,7 +160,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 |---|---|---|
 | `COOK_SECRET_KEY` | _(필수)_ | 데이터 폴더에 두는 비밀값을 암호화합니다(AES-256-GCM). `openssl rand -base64 32` 로 만들고 잘 보관합니다. 새 키로는 예전 키가 잠근 값을 열 수 없습니다 |
 | `COOK_HOST_PORT` | `9080` | 호스트 포트 |
-| `COOK_ROOT` | `.` | 위 폴더들을 만들 호스트 폴더 |
+| `PUID` / `PGID` | `1000` / `1000` | 서버가 도는 사용자와 그룹입니다. 서버가 쓴 파일이 내 것이 됩니다. `0` 이면 root 로 돕니다 |
 | `COOK_TRUST_PROXY` | _(비어 있음)_ | 클라이언트 주소를 정해도 되는 프록시 단계. 예: `loopback, uniquelocal` |
 | `COOK_FIRST_RUN_SETUP` | `true` | `false` 면 계정이 없는 서버를 `/setup` 으로 보내지 않고 열어 둡니다 |
 | `COOK_AUTH_USERS` | _(비어 있음)_ | `/setup` 대신 미리 만들어 둘 계정. `user:pass,user2:pass2`. 첫 계정이 관리자이고 나머지는 일반 사용자입니다 |

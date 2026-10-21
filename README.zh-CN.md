@@ -62,6 +62,8 @@ CookingFoil 客户端不在 GitHub 上发布。服务器的 `data/client/` 中�
 
 ## 快速开始
 
+需要 Docker 和 Compose v2(`docker compose`，2.9 或更高版本)。镜像可在 amd64 和 arm64 上运行。群晖 NAS 请按下方 [群晖 NAS](#群晖-nas) 操作。
+
 ```bash
 mkdir cookingfoil && cd cookingfoil
 curl -O https://raw.githubusercontent.com/jshsakura/oc-cookingfoil/main/docker-compose.yml
@@ -87,8 +89,10 @@ services:
     restart: unless-stopped
     stop_grace_period: 40s
     env_file:
-      - path: .env
-        required: false
+      - .env
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     ports:
       - "9080:80"
     volumes:
@@ -100,6 +104,15 @@ services:
       - ./saves:/saves
       - ./homebrew:/homebrew
 ```
+
+### 群晖 NAS
+
+1. 在套件中心安装 **Container Manager**(DSM 7.2 或更高版本)。
+2. 在 File Station 中创建 `docker/cookingfoil` 之类的文件夹，放入 `docker-compose.yml` 和 `.env`(`.env.example` 的副本)。在任意电脑上用 `openssl rand -base64 32` 生成密钥，填入 `.env` 的 `COOK_SECRET_KEY`。
+3. 把 `.env` 中的 `PUID` 和 `PGID` 设为文件夹所有者账户的值。通过 SSH 运行 `id <账户>` 可查看。第一个管理员账户通常是 `1026`，`users` 用户组是 `100`。
+4. 要把游戏放在已有的共享文件夹中，设置路径(例如 `COOK_GAMES_PATH=/volume1/games`)，并给该账户读写权限。
+5. 在 Container Manager 中依次打开 **项目**、**新增**，选择第 2 步的文件夹，直接使用其中的 `docker-compose.yml`，完成向导。
+6. 设置码在 **容器**、`cookingfoil`、**日志** 中。打开 `http://<NAS 地址>:9080/`。如果开启了 DSM 防火墙，请放行 9080 端口。
 
 ## 文件夹
 
@@ -116,7 +129,9 @@ cookingfoil/
 └── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
 
-缺少的文件夹由 Docker 自动创建。要把它们全部放到别处，在 `.env` 中设置 `COOK_ROOT=/path/to/cookingfoil`。只移动其中一个时，单独设置它的路径，例如 `COOK_GAMES_PATH=/path/to/games`。其余的是 `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH` 和 `COOK_HOMEBREW_PATH`。
+缺少的文件夹由 Docker 在 `docker-compose.yml` 旁边自动创建。要放到别处，在 `.env` 中设置该文件夹的路径，例如 `COOK_GAMES_PATH=/path/to/games`。其余的是 `COOK_DATA_PATH`、`COOK_KEYS_PATH`、`COOK_RETRO_PATH`、`COOK_PATCHES_PATH`、`COOK_SAVES_PATH` 和 `COOK_HOMEBREW_PATH`。
+
+服务器以用户 `PUID`、用户组 `PGID` 运行(`.env` 未设置时为 1000、1000)，因此它在这些文件夹中写入的文件归你所有。在主机上运行 `id` 可查看自己的值。启动时它把数据文件夹交给该用户；无法写入的游戏库文件夹会连同修复命令一起写进日志，其他内容不做改动。`PUID=0` 以 root 运行；在 compose 文件中写 `user:` 则按该用户原样运行。
 
 `retro/` 的内部结构：
 
@@ -145,7 +160,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 |---|---|---|
 | `COOK_SECRET_KEY` | _(必填)_ | 加密数据目录中保存的密钥类信息(AES-256-GCM)。用 `openssl rand -base64 32` 生成并妥善保存，新密钥无法打开旧密钥加密的内容 |
 | `COOK_HOST_PORT` | `9080` | 主机端口 |
-| `COOK_ROOT` | `.` | 创建上述文件夹所在的主机目录 |
+| `PUID` / `PGID` | `1000` / `1000` | 服务器运行时使用的用户和用户组，它写入的文件归你所有。`0` 表示以 root 运行 |
 | `COOK_TRUST_PROXY` | _(空)_ | 允许设置客户端地址的代理跳点，例如 `loopback, uniquelocal` |
 | `COOK_FIRST_RUN_SETUP` | `true` | 设为 `false` 时，没有账号的服务器保持开放，而不是把浏览器引导到 `/setup` |
 | `COOK_AUTH_USERS` | _(空)_ | 预设账号 `user:pass,user2:pass2`，代替 `/setup`。第一个账号是管理员，其余为普通用户 |

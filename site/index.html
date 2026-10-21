@@ -83,8 +83,10 @@ docker compose logs cookingfoil | grep "setup code"</pre>
     restart: unless-stopped
     stop_grace_period: 40s
     env_file:
-      - path: .env
-        required: false
+      - .env
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     ports:
       - "9080:80"
     volumes:
@@ -96,6 +98,7 @@ docker compose logs cookingfoil | grep "setup code"</pre>
       - ./saves:/saves
       - ./homebrew:/homebrew</pre>
 <p data-l="ko" class="hint">모든 옵션은 저장소의 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/docker-compose.yml">docker-compose.yml</a> 과 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/.env.example">.env.example</a> 에 설명되어 있습니다. 대부분은 관리 페이지에서 바꾸고, 다시 켜지 않아도 바로 적용됩니다.</p><p data-l="en" class="hint">Every option is explained in the repository's <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/docker-compose.yml">docker-compose.yml</a> and <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/.env.example">.env.example</a>. Most of them are changed on the admin page and apply at once, with no restart.</p><p data-l="ja" class="hint">すべてのオプションはリポジトリの <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/docker-compose.yml">docker-compose.yml</a> と <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/.env.example">.env.example</a> で説明しています。ほとんどは管理ページで変えられ、再起動なしですぐ反映されます。</p><p data-l="zh" class="hint">所有选项都在仓库的 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/docker-compose.yml">docker-compose.yml</a> 和 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/.env.example">.env.example</a> 中说明。大多数可以在管理页面上修改，无需重启即可生效。</p>
+<p data-l="ko" class="hint">Docker Compose v2(2.9 이상)가 필요합니다. 서버는 <code>PUID</code>, <code>PGID</code> 사용자로 돌아 서버가 쓴 파일이 내 것이 됩니다. 호스트에서 <code>id</code> 로 본 값을 <code>.env</code> 에 넣습니다. 시놀로지는 Container Manager(DSM 7.2 이상)의 프로젝트로 띄우며, 순서는 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.ko.md#시놀로지-nas">README</a> 에 있습니다.</p><p data-l="en" class="hint">Needs Docker Compose v2 (2.9 or later). The server runs as the <code>PUID</code> and <code>PGID</code> user, so the files it writes are yours; put the values <code>id</code> prints on the host in <code>.env</code>. On Synology, run it as a Container Manager project (DSM 7.2 or later); the steps are in the <a href="https://github.com/jshsakura/oc-cookingfoil#synology-nas">README</a>.</p><p data-l="ja" class="hint">Docker Compose v2(2.9 以降)が必要です。サーバーは <code>PUID</code>、<code>PGID</code> のユーザーで動き、書いたファイルは自分のものになります。ホストで <code>id</code> を実行して出た値を <code>.env</code> に入れます。Synology では Container Manager(DSM 7.2 以降)のプロジェクトとして起動します。手順は <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.ja.md#synology-nas">README</a> にあります。</p><p data-l="zh" class="hint">需要 Docker Compose v2(2.9 或更高版本)。服务器以 <code>PUID</code>、<code>PGID</code> 用户运行，写入的文件归你所有；把在主机上运行 <code>id</code> 得到的值填入 <code>.env</code>。群晖请在 Container Manager(DSM 7.2 或更高版本)中以项目方式运行，步骤见 <a href="https://github.com/jshsakura/oc-cookingfoil/blob/main/README.zh-CN.md#群晖-nas">README</a>。</p>
 </div>
 <h2 id="connect"><span data-l="ko">기기 연결</span><span data-l="en">Connecting a console</span><span data-l="ja">本体の接続</span><span data-l="zh">连接主机</span></h2>
 <p data-l="ko" class="lead">CookingFoil 클라이언트는 두 가지 길로 연결하고, 어느 쪽이든 기기마다 자기 키를 받습니다. 기기에 비밀번호를 넣어 붙는 길은 없습니다.</p><p data-l="en" class="lead">The CookingFoil client connects in one of two ways, and either way each console gets a key of its own. No console ever signs in with a password.</p><p data-l="ja" class="lead">CookingFoil クライアントは 2 つの方法で接続し、どちらでも本体ごとに自分のキーを受け取ります。本体にパスワードを入れて接続する方法はありません。</p><p data-l="zh" class="lead">CookingFoil 客户端有两种连接方式，无论哪种，每台主机都会拿到自己的密钥。主机不会用密码登录。</p>

@@ -37,7 +37,7 @@ let cachedKey = null;
 function key() {
   if (cachedKey) return cachedKey;
   const parsed = parseKey(process.env.COOK_SECRET_KEY);
-  if (!parsed) throw new SecretKeyError("COOK_SECRET_KEY 가 없거나 32바이트 키가 아닙니다. `openssl rand -base64 32` 로 만든 값을 넣습니다.");
+  if (!parsed) throw new SecretKeyError("COOK_SECRET_KEY is missing or is not a 32-byte key. Put one in .env, made with `openssl rand -base64 32`.");
   return (cachedKey = parsed);
 }
 
@@ -71,6 +71,6 @@ export function open(text) {
   try {
     return Buffer.concat([decipher.update(raw.subarray(IV_BYTES + TAG_BYTES)), decipher.final()]);
   } catch {
-    throw new SecretKeyError("암호화된 비밀값을 열지 못했습니다. COOK_SECRET_KEY 가 이 데이터를 만든 키와 다릅니다.");
+    throw new SecretKeyError("A sealed secret did not open: COOK_SECRET_KEY is not the key this data was made with.");
   }
 }
