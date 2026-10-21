@@ -18,6 +18,8 @@ const APPROVAL = {
 
 const ONE_TIME_PASSWORD = " 앱에 아이디와 비밀번호를 넣어 두면 연결할 때 한 번만 확인해 바로 승인하고, 그 뒤로는 기기 키로만 접속합니다.";
 
+const SHORTCUT = "<b>처음 실행</b>: 홈브류 메뉴 등에서 처음 실행하면 앱이 홈 화면 바로가기 설치를 안내합니다. 바로가기를 설치한 뒤에는 그 바로가기로 다시 실행해야 합니다.";
+
 /** The <li> lines for the current settings. `s` stands in for the live settings in tests. */
 export function connectHowto(s = {
   devicePairing: env.devicePairing,
@@ -26,5 +28,5 @@ export function connectHowto(s = {
 }) {
   if (!s.devicePairing) return ["<b>CookingFoil</b>: QR 연결을 꺼 두어 지금은 콘솔이 접속할 수 없습니다. 설정 탭의 기기 연결에서 켭니다."];
   const password = s.deviceApproval === "signin" && s.accountPasswords ? ONE_TIME_PASSWORD : " 콘솔은 비밀번호를 쓰지 않습니다.";
-  return [`<b>CookingFoil</b>: 웹 페이지에서 받은 앱은 처음 실행하면 이 서버에 바로 연결됩니다. 앱에 위 주소를 직접 넣으면 기기 화면에 QR 이 뜨고, 휴대폰으로 찍어 로그인하면 승인됩니다.${password}${APPROVAL[s.deviceApproval] ?? ""}`];
+  return [`<b>CookingFoil</b>: 대시보드에서 받은 앱은 처음 실행하면 이 서버에 바로 연결됩니다. 앱에 위 주소를 직접 넣으면 기기 화면에 QR 이 뜨고, 휴대폰으로 찍어 로그인하면 승인됩니다.${password}${APPROVAL[s.deviceApproval] ?? ""}`, SHORTCUT];
 }

@@ -135,7 +135,7 @@ for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.addEventL
 let origin=location.origin;
 // The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
 const WARNINGS={
-  'no-prod-keys':{t:'prod.keys 가 없어 게임을 내주지 않습니다',d:'서버는 prod.keys 로 파일마다 어떤 게임인지 읽고 정리합니다. 키가 들어오기 전에는 기기와 웹 모두 게임 목록과 파일을 받지 못합니다. 설정 탭에서 자기 기기에서 덤프한 prod.keys 를 올리면 다시 시작하지 않아도 바로 열립니다.',go:['설정에서 올리기','settings']},
+  'no-prod-keys':{t:'prod.keys 가 없어 스위치 게임 파일을 분석할 수 없습니다',d:'지금은 파일 이름의 [타이틀ID][vN] 로만 게임을 알아봅니다. 이름에 ID 가 없는 파일은 어떤 게임인지 모르고, 파일에서 이름과 아이콘 읽기, NSZ 변환, 홈 화면 바로가기를 쓸 수 없습니다. 레트로, 홈브류, 세이브, 패치는 그대로 씁니다. 설정 탭에서 자기 기기에서 덤프한 prod.keys 를 올리면 다시 시작하지 않아도 바로 적용됩니다.',go:['설정에서 올리기','settings']},
   'admin-2fa-skipped':{t:'2단계 인증 없이 관리 페이지가 열립니다',d:'셋업에서 인증 앱을 건너뛰어 관리자 계정 비밀번호만 알면 누구든 이 서버를 관리할 수 있습니다. 설정 탭에서 인증 앱을 등록합니다.',go:['설정에서 등록','settings/security']},
   'admin-unenrolled':{t:'관리 페이지 2단계 인증이 아직 등록되지 않았습니다',d:'인증 앱을 등록하면 관리자 비밀번호 다음에 6자리 코드를 한 번 더 묻습니다. 설정 탭에서 QR 을 찍어 등록합니다.',go:['설정에서 등록','settings/security']},
   'admin-authenticator-optional':{t:'관리 페이지는 관리자 비밀번호로만 들어갑니다',d:'인증 앱을 등록하면 비밀번호 대신 6자리 코드로도 들어갈 수 있습니다. 꼭 해야 하는 것은 아닙니다.',go:['설정에서 등록','settings/security']},

@@ -4,10 +4,11 @@ import { connectHowto } from "../../src/routes/admin/connect-howto.js";
 
 const base = { devicePairing: true, deviceApproval: "signin", accountPasswords: true };
 
-test("one line, for the CookingFoil client only", () => {
+test("how to connect, then how to start it again from the home-screen shortcut", () => {
   const lines = connectHowto(base);
-  assert.equal(lines.length, 1);
+  assert.equal(lines.length, 2);
   assert.match(lines[0], /QR/);
+  assert.match(lines[1], /바로가기 설치를 안내합니다\. 바로가기를 설치한 뒤에는 그 바로가기로 다시 실행해야 합니다\./);
   assert.doesNotMatch(lines.join(" "), /Tinfoil|CyberFoil/);
 });
 

@@ -1,9 +1,9 @@
 /**
  * The console keys (prod.keys) this server reads what each game file is with
  * (file-identity.js), and NSP/XCI names and icons, NSZ conversion and
- * home-screen shortcuts. They are required: until the server has them it
- * serves no games (keys-gate.js), only the pages that let the admin hand them in.
- * COOK_REQUIRE_PROD_KEYS=false lifts that for development and tests.
+ * home-screen shortcuts. Without them the server still serves everything: a game
+ * file is then known by the [TITLEID][vN] in its name or its ticket's name, and the
+ * overview warns that the files cannot be read.
  *
  * Two places, the upload first:
  *   ${COOK_DATA_DIR}/keys/prod.keys   what the admin handed in (dashboard or an admin console),
@@ -20,7 +20,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { dataDir, keysDir as mountedDir } from "../helpers/envs.js";
-import { envString, envBool } from "../helpers/env-read.js";
+import { envString } from "../helpers/env-read.js";
 import * as edits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 
@@ -84,13 +84,11 @@ function readLenient(file) {
   return keys;
 }
 
-const REQUIRED = envBool("COOK_REQUIRE_PROD_KEYS", true);
-
 /** True when `keys` can decrypt NCAs: a header key and a key area or master key. Pure. */
 export const usable = (keys) => keys?.get("header_key")?.length === 64 && [...keys.keys()].some((name) => CONTENT_KEY_RE.test(name));
 
-/** True when the server may serve games: it has usable keys, or they are not required here. */
-export const ready = () => !REQUIRED || usable(loadKeys());
+/** True when the server has keys it can read game files with. */
+export const ready = () => usable(loadKeys());
 
 let cached = null;
 
