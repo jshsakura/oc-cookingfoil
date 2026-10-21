@@ -413,6 +413,8 @@ function buildSectionItem(relPath, wireItem) {
       if (patchCount) item.patches = patchCount;
       const required = patchCount ? userPatches.requiredFor(parsed.titleId) : 0;
       if (required) item.required_patches = required;
+      const korean = patchCount ? userPatches.koreanFor(parsed.titleId) : 0;
+      if (korean) item.korean_patches = korean;
     }
     item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);

@@ -532,6 +532,21 @@ export function countFor(titleId) {
   return patches.reduce((n, p) => n + (p.title_id === tid), 0);
 }
 
+// A Korean translation is named so, in its folder or the name the admin gave it ("한글패치", "한국어 음성 패치").
+const KOREAN_RE = /한글|한국어|korean/i;
+
+/** Whether a listed patch is a Korean translation, by its folder and its names. Pure over the store. */
+export function isKorean(p) {
+  const info = withInfo(p);
+  return [p.folder, info.name, info.ko?.name].some((s) => KOREAN_RE.test(String(s ?? "").normalize("NFC")));
+}
+
+/** How many of a game's patches are Korean translations. */
+export function koreanFor(titleId) {
+  const tid = String(titleId ?? "").toUpperCase();
+  return patches.reduce((n, p) => n + (p.title_id === tid && isKorean(p)), 0);
+}
+
 /** How many of a game's patches it does not start without (marked required by the admin). */
 export function requiredFor(titleId) {
   const tid = String(titleId ?? "").toUpperCase();
