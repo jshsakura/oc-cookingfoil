@@ -42,8 +42,8 @@ export function configWarnings(lanes = authLanes(), { keys = keysReady() } = {})
     out.push({
       severity: SEVERITY.WARN,
       code: "no-prod-keys",
-      title: "No prod.keys: the server serves no games until it has them",
-      detail: "Hand prod.keys in on the admin page's settings tab, or mount it at COOK_PROD_KEYS_PATH. It applies at once, no restart.",
+      title: "No prod.keys: Switch game files cannot be read",
+      detail: "Games are known only by the [TITLEID][vN] in their file names; names and icons from the files, NSZ conversion and home-screen shortcuts are unavailable. Retro, homebrew, saves and patches work as usual. Hand prod.keys in on the admin page's settings tab, or mount it at COOK_PROD_KEYS_PATH; it applies at once, no restart.",
     });
   }
 

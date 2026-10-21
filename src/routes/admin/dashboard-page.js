@@ -375,7 +375,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 <section id="tab-overview">
   <h2 class="first">연결</h2>
   <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-  ${box("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3" })}
+  ${box("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3", folded: true })}
   <div id="warnings"></div>
   <div class="lanes" id="lanes"></div>
   <div class="lanes" id="health"></div>

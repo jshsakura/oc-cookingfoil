@@ -130,14 +130,14 @@ cookingfoil/
 ├── games/            # your packages (.nsp .nsz .xci .xcz)
 │   └── incoming/     # drop box: files put here are sorted into games/ by themselves
 ├── data/             # cache, accounts and every setting saved on the admin page. Back this one up
-├── keys/             # required, read-only: your own prod.keys (or upload it on the admin page)
+├── keys/             # recommended, read-only: your own prod.keys (or upload it on the admin page)
 ├── retro/            # retro ROMs, art and the RetroArch base pack
 ├── patches/          # patches by base title id, and homebrew/<app>/
 ├── saves/            # save files by title id, and homebrew/<app>/
 └── homebrew/         # .nro apps, app folders, or a release zip left in its own folder
 ```
 
-**`prod.keys` is required.** The server reads what every game file is from the file itself with your own console keys, so until it has them it serves no games: the shop list, the files and the web library answer 503 with a note, while the admin page, sign-in and pairing stay open. Mount it in `keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart. `COOK_REQUIRE_PROD_KEYS=false` lifts this for development and tests only.
+**`prod.keys` is recommended.** With your own console keys the server reads what every Switch game file is from the file itself: names, icons, NSZ conversion and home-screen shortcuts. Without them everything is still served, but a game file is known only by the `[TITLEID][vN]` in its name, and the admin page's overview warns about it. Mount it in `keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart.
 
 Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `games/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), adds `[TITLEID][vN]` to its name and moves it into one folder per game, with `update/` and `DLC/` beside the base game. A game that already has a folder keeps it; a new one gets a folder named after it. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, 임시 폴더).
 
