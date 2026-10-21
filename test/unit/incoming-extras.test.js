@@ -6,6 +6,7 @@ import path from "node:path";
 import { DEFAULT_SYSTEMS } from "../../src/retro/systems.js";
 import { EXTRA_REASONS, planExtras, setFolderOf } from "../../src/meta/incoming-extras.js";
 import { REASONS, createOrganizer } from "../../src/meta/library-organize.js";
+import { createIdentifier } from "../../src/meta/file-identity.js";
 
 const items = (...rels) => rels.map((rel) => ({ rel }));
 const plan = (rels, refs = new Map()) => planExtras({ items: items(...rels), refs, systems: DEFAULT_SYSTEMS });
@@ -79,8 +80,7 @@ test("a sweep copies ROMs and apps to their folders on another root and never re
       systems: () => DEFAULT_SYSTEMS,
       readRefs: async () => ["G.bin"],
       romsRels: async () => [],
-      readIdentity: async () => null,
-      readTicketNames: async () => [],
+      ...createIdentifier({ readIdentity: async () => null, readTicketNames: async () => [] }),
       nameOf: () => null,
       begin: () => ({ step() {}, done() {} }),
       rescan: () => {},

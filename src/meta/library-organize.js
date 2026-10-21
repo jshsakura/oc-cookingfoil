@@ -24,11 +24,11 @@ import { constants } from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
+import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
 
 export const INCOMING = "incoming";
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
-const PFS0_RE = /\.(nsp|nsz)$/i;
 // A file younger than this may still be being copied into the drop box.
 export const SETTLE_MS = 60_000;
 export const SWEEP_MS = 60_000;
@@ -57,21 +57,6 @@ export const isIncoming = (rel) => {
   const top = String(rel ?? "").split(/[\\/]/)[0];
   return top.toLowerCase() === INCOMING;
 };
-
-/** What the name says: { titleId, version, kind, baseTitleId }, or null without an id. Pure. */
-export function identityFromName(rel) {
-  const p = parseFromFilename(rel);
-  if (!p.titleId) return null;
-  return { titleId: p.titleId, version: p.version ?? null, kind: p.contentType, baseTitleId: p.groupTitleId };
-}
-
-/** The id a ticket's name carries (<title id><key generation>.tik), with its kind; null without one. Pure. */
-export function identityFromTicket(names) {
-  const tik = names.map((n) => /^([0-9a-f]{16})[0-9a-f]{16}\.tik$/i.exec(n)).find(Boolean);
-  if (!tik) return null;
-  const id = identityFromName(`[${tik[1].toUpperCase()}]`);
-  return id && { ...id, version: null };
-}
 
 /** A folder name made from a title, or null. Pure. */
 export function folderNameOf(title) {
@@ -266,8 +251,7 @@ export async function moveAcross(from, to) {
  * `deps` are the outside world, so tests can stand in:
  *   romsDir            the games folder
  *   romsRels()         every file the library lists (relative paths)
- *   readIdentity(abs)  { titleId, version, kind, baseTitleId } from the cnmt, or null
- *   readTicketNames(abs)  the entry names of an NSP/NSZ, or null
+ *   identify(file), forget(abs)   file-identity.js (the shared one by default)
  *   nameOf(baseId)     the game's title, or null
  *   retroDir, homebrewDir, systems()   where the other files go, and loadSystems()
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
@@ -276,29 +260,11 @@ export async function moveAcross(from, to) {
  */
 export function createOrganizer(deps) {
   const dir = path.join(deps.romsDir, INCOMING);
-  const cache = new Map(); // abs → { size, mtimeMs, id, source }
+  const identify = deps.identify ?? sharedIdentify;
+  const forget = deps.forget ?? sharedForget;
   let state = { held: [], recent: [], sweptAt: null, error: null, waiting: 0 };
   let running = null;
   let timer = null;
-
-  async function identify(f) {
-    const hit = cache.get(f.abs);
-    if (hit && hit.size === f.size && hit.mtimeMs === f.mtimeMs) return hit;
-    let id = null;
-    let source = "name";
-    if (PFS0_RE.test(f.rel)) {
-      id = await deps.readIdentity(f.abs).catch(() => null);
-      if (id) source = "cnmt";
-    }
-    if (!id) id = identityFromName(f.rel);
-    if (!id && PFS0_RE.test(f.rel)) {
-      id = identityFromTicket((await deps.readTicketNames(f.abs).catch(() => null)) ?? []);
-      if (id) source = "ticket";
-    }
-    const out = { size: f.size, mtimeMs: f.mtimeMs, id, source };
-    cache.set(f.abs, out);
-    return out;
-  }
 
   /** Each settled .cue / .m3u in the drop box → the drop-box rels it names. */
   async function listRefs(files) {
@@ -315,7 +281,6 @@ export function createOrganizer(deps) {
   async function sweepOnce() {
     const files = await listFiles(dir);
     if (!files.length) {
-      cache.clear();
       state = { ...state, held: [], sweptAt: new Date().toISOString(), error: null, waiting: 0 };
       return { moved: 0 };
     }
@@ -348,7 +313,7 @@ export function createOrganizer(deps) {
         await fsp.mkdir(path.dirname(to), { recursive: true });
         if (await (m.root === "games" ? moveNoReplace(from, to) : moveAcross(from, to))) {
           movedIn[m.root]++;
-          cache.delete(from);
+          forget(from);
           await dropEmptyDirs(dir, m.from);
           state.recent = [{ ...m, at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
         } else failed.push({ rel: m.from, reason: REASONS.taken, titleId: m.titleId ?? null, kind: m.kind ?? null });

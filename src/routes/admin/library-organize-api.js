@@ -8,8 +8,6 @@ import * as env from "../../helpers/envs.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledb from "../../meta/titledb-store.js";
 import * as activity from "../../tasks/activity.js";
-import { readIdentity } from "../../meta/content-meta.js";
-import { readPfs0Entries } from "../../meta/pfs0.js";
 import { createOrganizer } from "../../meta/library-organize.js";
 import { loadSystems } from "../../retro/systems.js";
 import * as retroCatalog from "../../retro/catalog.js";
@@ -24,8 +22,6 @@ export const defaultOrganizer = createOrganizer({
     await shopCache.get();
     return shopCache.files().map((f) => f.rel);
   },
-  readIdentity,
-  readTicketNames: async (abs) => (await readPfs0Entries(abs))?.map((e) => e.name) ?? null,
   nameOf: (tid) => {
     const names = titledb.namesOf(tid);
     return names?.ko || names?.en || titledb.get(tid)?.name || null;

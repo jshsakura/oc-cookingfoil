@@ -22,7 +22,7 @@ import path from "path";
 import debug from "../debug.js";
 import { extractedMetaDir } from "../helpers/envs.js";
 import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
-import { findControlNcaId, readCnmtFacts, readCnmtIdentity, firmwareString } from "./cnmt-parse.js";
+import { findControlNcaId, readCnmtFacts, firmwareString } from "./cnmt-parse.js";
 import { NACP_TOTAL_BYTES, decodeNacp } from "./nacp-decode.js";
 import { readCnmts } from "./nca-reader.js";
 import {
@@ -180,18 +180,6 @@ export async function readContentMeta(absPath, { withNacp = false } = {}) {
   } finally {
     fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
   }
-}
-
-const KIND_RANK = { base: 0, update: 1, dlc: 2, delta: 3 };
-
-/**
- * Title id, version, kind and base game of one NSP, NSZ, XCI or XCZ from its
- * cnmt; null when unreadable. A cartridge that carries its update names the game.
- */
-export async function readIdentity(absPath) {
-  const ids = (await readCnmts(absPath)).map((x) => readCnmtIdentity(x.cnmt)).filter(Boolean);
-  ids.sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
-  return ids[0] ?? null;
 }
 
 /** Queues a file once per (title, version); XCI/XCZ are not PFS0 and are skipped. */

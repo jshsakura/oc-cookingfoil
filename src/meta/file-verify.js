@@ -20,24 +20,29 @@
  * A slice also prints "NCA Partition 0 not readable", which means nothing.
  *
  * Hashes (NSP and XCI only; an NCZ is compressed, so its bytes are not the
- * NCA's): the *.cnmt.nca is cut out and unpacked with nstool as the content
- * reader does (content-meta.js), and each NCA's bytes are streamed through
+ * NCA's): every *.cnmt.nca is read in place with the keys (nca-reader.js),
+ * and each NCA's bytes are streamed through
  * SHA-256 in a low-priority child (hash-range.js) and compared with its record.
  * A hash mismatch on an NCA whose own signature already failed is the
  * modification itself, so it stays "modified".
  *
  * Every cnmt is read on every check (a few KB each; a multi-title XCI has
  * several), so a missing NCA is found even without the whole-file hash pass.
+ * The same read says what the file is: `identity` in the result
+ * (file-identity.js), which needs the keys but not nstool.
  */
 import { spawn } from "child_process";
 import fsp from "fs/promises";
 import os from "os";
 import path from "path";
-import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
+import { readPfs0Entries } from "./pfs0.js";
 import { readXciSecureEntries } from "./hfs0.js";
-import { listContents } from "./cnmt-parse.js";
+import { listContents, readCnmtIdentity } from "./cnmt-parse.js";
+import { readCnmtAt } from "./nca-reader.js";
+import { loadKeys } from "../security/prod-keys.js";
+import { pickIdentity } from "./file-identity.js";
 import { hashRange } from "./hash-range.js";
-import { resolveBinary, keysAvailable, findFirstRecursive, keysFile } from "./extract-providers/nsp.js";
+import { resolveBinary, keysFile } from "./extract-providers/nsp.js";
 import { lowPriorityPrefix } from "./nsz-runner.js";
 
 export const VERIFY_RE = /\.(nsp|nsz|xci|xcz)$/i;
@@ -113,14 +118,33 @@ async function readSlice(absPath, position, length) {
   }
 }
 
+/** The cnmt bytes of each meta NCA entry, read in place; an entry that does not read is left out. */
+async function readCnmtsIn(absPath, metas) {
+  const keys = loadKeys();
+  if (!keys) return [];
+  const handle = await fsp.open(absPath, "r");
+  try {
+    const out = [];
+    for (const e of metas) {
+      const cnmt = await readCnmtAt(handle, e.offset, keys);
+      if (cnmt) out.push(cnmt);
+    }
+    return out;
+  } finally {
+    await handle.close();
+  }
+}
+
 /**
- * A verifier. Everything outside the file comes in, so tests can stub nstool:
- * `tools()` → { bin, keys } or null, `nstool(bin, args, opts)` → { code, out },
- * `hash(file, start, size, opts)` → hex.
+ * A verifier. Everything outside the file comes in, so tests can stub them:
+ * `tools()` → { bin, keys } with bin null when nstool is missing, or null
+ * without keys; `nstool(bin, args, opts)` → { code, out };
+ * `cnmts(absPath, metaEntries)` → [cnmt bytes]; `hash(file, start, size, opts)` → hex.
  */
 export function createVerifier({
   tools = defaultTools,
   nstool = runNstoolText,
+  cnmts = readCnmtsIn,
   hash = hashRange,
   tmpRoot = os.tmpdir(),
 } = {}) {
@@ -135,24 +159,14 @@ export function createVerifier({
 
   /**
    * The content records of every cnmt in the container (a multi-title XCI has
-   * one per title), merged by NCA id; null when there is none or none unpacks.
+   * one per title), merged by NCA id, and what the file is; records null when
+   * no cnmt reads.
    */
-  async function readCnmts(t, absPath, entries, dir, signal) {
-    const metas = entries.filter((e) => /\.cnmt\.nca$/i.test(e.name));
+  async function readMeta(absPath, entries) {
+    const read = await cnmts(absPath, entries.filter((e) => /\.cnmt\.nca$/i.test(e.name)));
     const merged = new Map();
-    let read = 0;
-    for (const [i, entry] of metas.entries()) {
-      const nca = path.join(dir, `meta-${i}.nca`);
-      const out = path.join(dir, `cnmt-${i}`);
-      await copyPfs0Entry(absPath, entry, nca);
-      await fsp.mkdir(out, { recursive: true });
-      await nstool(t.bin, ["-k", t.keys, "-x", out, nca], { signal });
-      const file = await findFirstRecursive(out, (n) => /\.cnmt$/i.test(n));
-      if (!file) continue;
-      read++;
-      for (const r of listContents(await fsp.readFile(file))) if (!merged.has(r.ncaId)) merged.set(r.ncaId, r);
-    }
-    return read ? [...merged.values()] : null;
+    for (const c of read) for (const r of listContents(c)) if (!merged.has(r.ncaId)) merged.set(r.ncaId, r);
+    return { records: read.length ? [...merged.values()] : null, identity: pickIdentity(read.map(readCnmtIdentity)) };
   }
 
   /**
@@ -161,7 +175,7 @@ export function createVerifier({
    * NCAs already hashed (matched or not), which are not read again; each new
    * result goes to `onHashed(ncaId, matched)` so a stopped run can resume.
    * When `known` covers every NCA, its results stand in for the hash pass
-   * even without `hash`. Returns { verdict, reason, checks }.
+   * even without `hash`. Returns { verdict, reason, checks, identity }.
    */
   async function verify(absPath, { hash: wantHash = false, known = {}, onHashed = () => {}, signal } = {}) {
     const t = await tools();
@@ -173,17 +187,20 @@ export function createVerifier({
     if (!t) return decide({});
 
     const dir = await fsp.mkdtemp(path.join(tmpRoot, "cook-verify-"));
+    const meta = await readMeta(absPath, ncas);
+    const withId = (r) => ({ ...r, identity: meta.identity });
+    const decideWith = (facts) => withId(decide(facts));
     try {
       const failedIds = [];
-      for (const e of ncas) if (await signatureFailed(t, absPath, e, dir, signal)) failedIds.push(ncaIdOf(e.name));
-      const facts = { signature: failedIds.length ? "fail" : "pass", failedIds };
+      if (t.bin) for (const e of ncas) if (await signatureFailed(t, absPath, e, dir, signal)) failedIds.push(ncaIdOf(e.name));
+      const facts = t.bin ? { signature: failedIds.length ? "fail" : "pass", failedIds } : {};
 
-      const records = (await readCnmts(t, absPath, ncas, dir, signal))?.filter((r) => r.contentType !== CONTENT_TYPE_DELTA);
-      if (!records) return decide(facts);
+      const records = meta.records?.filter((r) => r.contentType !== CONTENT_TYPE_DELTA);
+      if (!records) return decideWith(facts);
       const byId = new Map(ncas.map((e) => [ncaIdOf(e.name), e]));
       facts.missing = records.filter((r) => !byId.has(r.ncaId)).map((r) => r.ncaId);
       const complete = records.every((r) => typeof known[r.ncaId] === "boolean");
-      if ((!wantHash && !complete) || container.compressed || facts.missing.length) return decide(facts);
+      if ((!wantHash && !complete) || container.compressed || facts.missing.length) return decideWith(facts);
 
       facts.mismatched = [];
       for (const r of records) {
@@ -196,7 +213,7 @@ export function createVerifier({
         if (!matched) facts.mismatched.push(r.ncaId);
       }
       facts.hash = facts.mismatched.length ? "fail" : "pass";
-      return decide(facts);
+      return decideWith(facts);
     } finally {
       await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
@@ -205,9 +222,8 @@ export function createVerifier({
   return { verify, tools };
 }
 
-/** nstool and the keys, or null when either is missing. */
+/** nstool (null when missing) and the keys, or null without keys. */
 async function defaultTools() {
-  const bin = await resolveBinary();
-  if (!bin || !(await keysAvailable())) return null;
-  return { bin, keys: keysFile() };
+  if (!loadKeys()) return null;
+  return { bin: await resolveBinary(), keys: keysFile() };
 }

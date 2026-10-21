@@ -30,17 +30,17 @@ async function lfSearch(){const q=$('lf-q').value.trim();const n=++lfFind;
 async function lfRemove(f){if(!await ask(f.rel+' 파일을 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
   try{await api('/admin/api/library/files/remove',{method:'POST',body:{rel:f.rel}});toast('삭제했습니다.');setTimeout(lfSearch,1500);}catch(err){toast(err.message);}}
 $('lf-q').addEventListener('input',()=>{clearTimeout(lfTimer);lfTimer=setTimeout(lfSearch,250);});
-const LV_VERDICT={modified:'수정됨',damaged:'손상됨'};
-const LV_REASON={'signature-fail':'NCA 서명이 맞지 않습니다','hash-mismatch':'내용 해시가 맞지 않습니다','missing-content':'목록에 있는 NCA 가 없습니다','unreadable':'파일을 읽지 못했습니다'};
+const LV_VERDICT={modified:'수정됨',damaged:'손상됨',misnamed:'이름 다름'};
+const LV_REASON={'signature-fail':'NCA 서명이 맞지 않습니다','hash-mismatch':'내용 해시가 맞지 않습니다','missing-content':'목록에 있는 NCA 가 없습니다','unreadable':'파일을 읽지 못했습니다','name-mismatch':'파일 이름의 타이틀 ID 가 파일 안의 ID 와 다릅니다'};
 const LV_STATUS={running:'검사하는 중입니다',waiting:'검사할 파일이 기다리고 있습니다',downloads:'다운로드가 끝나면 이어서 검사합니다',schedule:'설정한 검사 시간에 이어서 합니다',tool:'nstool 이나 키가 없어 검사하지 않습니다',paused:'잇달아 실패해 멈췄습니다. 다시 검사를 누르면 이어 갑니다',stopped:'검사를 중지했습니다. 라이브러리가 바뀌거나 다시 검사를 누르면 이어 갑니다',idle:'모두 검사했습니다'};
 async function lvLoad(){let d;try{d=await api('/admin/api/library/verify');}catch(err){toast(err.message);return;}
   const c=d.counts||{};const cards=$('lv-cards');cards.replaceChildren();
   const card=(l,v,cls)=>{const e=el('div',null,'card'+(cls?' '+cls:''));e.append(el('div',num(v),'v'),el('div',l,'l'));return e;};
-  cards.append(card('정상',c.ok||0),card('수정됨',c.modified||0),card('손상됨',c.damaged||0,c.damaged?'alert':''),card('검사 전',c.unchecked||0));
+  cards.append(card('정상',c.ok||0),card('수정됨',c.modified||0),card('손상됨',c.damaged||0,c.damaged?'alert':''),card('검사 전',c.unchecked||0),card('이름 다름',c.misnamed||0));
   $('lv-state').textContent=(LV_STATUS[d.status]||'')+(d.current?' ('+d.current.path+')':'')+'. 남은 파일 '+num(d.pending)+'개, 해시를 기다리는 파일 '+num(d.hashPending)+'개입니다.';
   table('lv-list',['파일','결과','이유',''],(d.flagged||[]).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
     const again=btn('다시 검사',()=>lvRecheck(f));again.setAttribute('aria-label',f.path+' 다시 검사');const a=td();a.append(again);
-    tr.append(n,td(LV_VERDICT[f.verdict]||f.verdict),td(LV_REASON[f.reason]||f.reason||'—'),a);return tr;}),'수정되거나 손상된 파일이 없습니다.');}
+    tr.append(n,td(LV_VERDICT[f.verdict]||f.verdict),td((LV_REASON[f.reason]||f.reason||'—')+(f.contentId?'. 파일 안의 ID 는 '+f.contentId+' 입니다':'')),a);return tr;}),'수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');}
 async function lvRecheck(f){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rel:f.path}});toast('다시 검사합니다.');lvLoad();}catch(err){toast(err.message);}}
 $('lv-hash-all').addEventListener('click',async()=>{
   if(!await ask('아직 해시를 확인하지 않은 모든 게임 파일을 처음부터 끝까지 읽습니다. 라이브러리가 크면 며칠이 걸리고, 다운로드가 있으면 그동안 쉽니다.'))return;
