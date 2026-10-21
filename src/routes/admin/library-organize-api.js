@@ -11,6 +11,11 @@ import * as activity from "../../tasks/activity.js";
 import { readIdentity } from "../../meta/content-meta.js";
 import { readPfs0Entries } from "../../meta/pfs0.js";
 import { createOrganizer } from "../../meta/library-organize.js";
+import { loadSystems } from "../../retro/systems.js";
+import * as retroCatalog from "../../retro/catalog.js";
+import { refreshManual } from "../homebrew.js";
+import fsp from "fs/promises";
+import path from "path";
 import debug from "../../debug.js";
 
 export const defaultOrganizer = createOrganizer({
@@ -25,8 +30,14 @@ export const defaultOrganizer = createOrganizer({
     const names = titledb.namesOf(tid);
     return names?.ko || names?.en || titledb.get(tid)?.name || null;
   },
+  retroDir: env.retroDir,
+  homebrewDir: env.homebrewDir,
+  systems: () => loadSystems(env.retroDir),
+  readRefs: async (abs) => retroCatalog.referencedFiles(path.extname(abs).toLowerCase(), await fsp.readFile(abs, "utf8")),
   begin: activity.begin,
   rescan: () => shopCache.invalidate({ rescan: true }),
+  rescanRetro: () => retroCatalog.rescan(env.retroDir).catch((err) => debug.error("organize: retro rescan failed: %s", err.message)),
+  rescanHomebrew: () => refreshManual().catch((err) => debug.error("organize: homebrew rescan failed: %s", err.message)),
 });
 
 export function mountLibraryOrganizeApi(router, requireSession, organizer = defaultOrganizer) {

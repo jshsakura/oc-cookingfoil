@@ -7,6 +7,7 @@ import { readCnmtIdentity } from "../../src/meta/cnmt-parse.js";
 import {
   REASONS, createOrganizer, moveNoReplace, folderNameOf, identityFromName, identityFromTicket, isIncoming, planOrganize, taggedName,
 } from "../../src/meta/library-organize.js";
+import { EXTRA_REASONS } from "../../src/meta/incoming-extras.js";
 
 const BASE = "0100AAAA00010000";
 const UPD = "0100AAAA00010800";
@@ -158,8 +159,14 @@ test("a sweep sorts the drop box into the games folder and leaves the rest", asy
       readIdentity: async (abs) => { reads.push(path.basename(abs)); return abs.endsWith("update.nsp") ? { titleId: UPD, version: 65536, kind: "update", baseTitleId: BASE } : null; },
       readTicketNames: async () => [],
       nameOf,
+      retroDir: path.join(roms, "retro"),
+      homebrewDir: path.join(roms, "homebrew"),
+      systems: () => ({}),
+      readRefs: async () => [],
       begin: () => ({ step() {}, done() {} }),
       rescan: () => {},
+      rescanRetro: () => {},
+      rescanHomebrew: () => {},
     });
     const { moved } = await org.sweep();
     assert.equal(moved, 1);
@@ -167,7 +174,7 @@ test("a sweep sorts the drop box into the games folder and leaves the rest", asy
     assert.ok(!fs.existsSync(path.join(roms, "incoming/pack/update.nsp")));
     assert.deepEqual(reads, ["update.nsp"], "a file still being copied is not opened");
     const v = org.view();
-    assert.deepEqual(v.held.map((h) => [h.rel, h.reason]).sort(), [["copying.nsp", REASONS.settling], ["pack/notes.txt", REASONS.notGame]]);
+    assert.deepEqual(v.held.map((h) => [h.rel, h.reason]).sort(), [["copying.nsp", REASONS.settling], ["pack/notes.txt", EXTRA_REASONS.unknown]]);
     assert.equal(v.waiting, 1);
     assert.equal(v.recent[0].to, `내 게임/update/update [${UPD}][v65536].nsp`);
     await org.sweep();

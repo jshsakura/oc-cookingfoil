@@ -17,10 +17,14 @@
  * A file still being copied in waits until it has not changed for SETTLE_MS.
  * Moves are renames inside one mount, so they are immediate, and nothing is
  * ever overwritten. Files that cannot go anywhere stay, listed with why.
+ * Retro ROMs and lone homebrew .nro files go to their own folders
+ * (incoming-extras.js), copied when those sit on another mount.
  */
+import { constants } from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
+import { planExtras } from "./incoming-extras.js";
 
 export const INCOMING = "incoming";
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
@@ -234,6 +238,29 @@ export async function moveNoReplace(from, to) {
 }
 
 /**
+ * Moves `from` to `to` on another mount without replacing anything: a copy
+ * beside `to` that is then moved into place by moveNoReplace. Same mount: a
+ * plain moveNoReplace. False when `to` exists.
+ */
+export async function moveAcross(from, to) {
+  try {
+    return await moveNoReplace(from, to);
+  } catch (err) {
+    if (err.code !== "EXDEV") throw err;
+  }
+  if (await exists(to)) return false;
+  const part = `${to}.${process.pid}-${Date.now()}.part`;
+  try {
+    await fsp.copyFile(from, part, constants.COPYFILE_EXCL);
+    if (!(await moveNoReplace(part, to))) return false;
+  } finally {
+    await fsp.rm(part, { force: true });
+  }
+  await fsp.rm(from, { force: true });
+  return true;
+}
+
+/**
  * The drop box service: a sweep every SWEEP_MS (and on demand) that reads what
  * is in <romsDir>/incoming, moves what can go and keeps what cannot with why.
  * `deps` are the outside world, so tests can stand in:
@@ -242,8 +269,10 @@ export async function moveNoReplace(from, to) {
  *   readIdentity(abs)  { titleId, version, kind, baseTitleId } from the cnmt, or null
  *   readTicketNames(abs)  the entry names of an NSP/NSZ, or null
  *   nameOf(baseId)     the game's title, or null
+ *   retroDir, homebrewDir, systems()   where the other files go, and loadSystems()
+ *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
- *   rescan()           after files moved
+ *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
  */
 export function createOrganizer(deps) {
   const dir = path.join(deps.romsDir, INCOMING);
@@ -271,6 +300,18 @@ export function createOrganizer(deps) {
     return out;
   }
 
+  /** Each settled .cue / .m3u in the drop box → the drop-box rels it names. */
+  async function listRefs(files) {
+    const refs = new Map();
+    for (const f of files) {
+      if (!/\.(cue|m3u)$/i.test(f.rel) || f.size > 64 * 1024) continue;
+      const names = await deps.readRefs(f.abs).catch(() => []);
+      const at = path.posix.dirname(f.rel);
+      refs.set(f.rel, names.map((n) => path.posix.normalize(at === "." ? n.replace(/\\/g, "/") : `${at}/${n.replace(/\\/g, "/")}`)));
+    }
+    return refs;
+  }
+
   async function sweepOnce() {
     const files = await listFiles(dir);
     if (!files.length) {
@@ -280,35 +321,48 @@ export function createOrganizer(deps) {
     }
     const now = Date.now();
     const items = [];
+    const others = [];
+    const settling = [];
     for (const f of files) {
       // A file still being copied is not opened yet.
       const settled = now - f.mtimeMs >= SETTLE_MS;
+      if (!GAME_RE.test(f.rel)) {
+        if (settled) others.push(f);
+        else settling.push({ rel: f.rel, reason: REASONS.settling, titleId: null, kind: null });
+        continue;
+      }
       const read = settled ? await identify(f) : { id: identityFromName(f.rel), source: "name" };
       items.push({ rel: f.rel, mtimeMs: f.mtimeMs, id: read.id, source: read.source });
     }
     const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), nameOf: deps.nameOf, now });
-    let moved = 0;
-    const job = plan.moves.length ? deps.begin("organize", { title: "임시 폴더의 게임을 옮깁니다", total: plan.moves.length }) : null;
+    const extras = planExtras({ items: others, refs: await listRefs(others), systems: deps.systems() });
+    const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
+    const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
+    const movedIn = { games: 0, retro: 0, homebrew: 0 };
+    const job = moves.length ? deps.begin("organize", { title: "임시 폴더의 파일을 옮깁니다", total: moves.length }) : null;
     const failed = [];
-    for (const [i, m] of plan.moves.entries()) {
+    for (const [i, m] of moves.entries()) {
       const from = path.join(dir, m.from);
-      const to = path.join(deps.romsDir, m.to);
+      const to = path.join(rootDir[m.root], m.to);
       try {
         await fsp.mkdir(path.dirname(to), { recursive: true });
-        if (await moveNoReplace(from, to)) {
-          moved++;
+        if (await (m.root === "games" ? moveNoReplace(from, to) : moveAcross(from, to))) {
+          movedIn[m.root]++;
           cache.delete(from);
           await dropEmptyDirs(dir, m.from);
           state.recent = [{ ...m, at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
-        } else failed.push({ rel: m.from, reason: REASONS.taken, titleId: m.titleId, kind: m.kind });
+        } else failed.push({ rel: m.from, reason: REASONS.taken, titleId: m.titleId ?? null, kind: m.kind ?? null });
       } catch (err) {
-        failed.push({ rel: m.from, reason: `옮기지 못했습니다: ${err.code ?? err.message}`, titleId: m.titleId, kind: m.kind });
+        failed.push({ rel: m.from, reason: `옮기지 못했습니다: ${err.code ?? err.message}`, titleId: m.titleId ?? null, kind: m.kind ?? null });
       }
       job?.step(i + 1, m.to);
     }
+    const moved = movedIn.games + movedIn.retro + movedIn.homebrew;
     job?.done(`${moved}개 옮겼습니다`);
-    if (moved) deps.rescan();
-    const held = [...plan.held, ...failed];
+    if (movedIn.games) deps.rescan();
+    if (movedIn.retro) deps.rescanRetro();
+    if (movedIn.homebrew) deps.rescanHomebrew();
+    const held = [...settling, ...plan.held, ...extras.held, ...failed];
     state = { ...state, held, sweptAt: new Date().toISOString(), error: null, waiting: held.filter((h) => h.reason === REASONS.settling).length };
     return { moved };
   }
