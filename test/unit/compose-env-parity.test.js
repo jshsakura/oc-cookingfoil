@@ -18,8 +18,9 @@ const FIXED = [
   "PUID", "PGID", "COOK_PORT", "COOK_STORAGE_DIR",
   "COOK_GAMES_DIR", "COOK_DATA_DIR", "COOK_KEYS_DIR", "COOK_RETRO_DIR",
   "COOK_PATCHES_DIR", "COOK_SAVES_DIR", "COOK_HOMEBREW_DIR", "COOK_INCOMING_DIR",
+  "COOK_PROD_KEYS_PATH",
 ];
-const BLANKED = FIXED.filter((k) => k.endsWith("_DIR") && k !== "COOK_STORAGE_DIR");
+const BLANKED = FIXED.filter((k) => (k.endsWith("_DIR") && k !== "COOK_STORAGE_DIR") || k === "COOK_PROD_KEYS_PATH");
 
 test("the whole .env reaches the container, in the short form older Compose releases read", () => {
   assert.match(compose, /env_file:\s*\n\s*- \.env\s*\n/);
@@ -37,7 +38,14 @@ test("only the paths and port the compose file fixes are set in environment:", (
 test("one storage folder is mounted, beside the compose file unless COOK_STORAGE_PATH says otherwise", () => {
   assert.ok(compose.includes("- ${COOK_STORAGE_PATH:-./storage}:/storage"));
   assert.match(compose, /^\s{6}COOK_STORAGE_DIR: \/storage$/m);
-  assert.doesNotMatch(compose, /:\/(games|data|keys|retro|patches|saves|homebrew)\b/, "no separate folder mounts");
+});
+
+test("the older layout's folders stay mounted, so pulling the new file over an install hides nothing", () => {
+  const dirs = { games: "/games", data: "/data", keys: "/keys:ro", retro: "/retro", patches: "/patches", saves: "/saves", homebrew: "/homebrew" };
+  for (const [name, target] of Object.entries(dirs)) {
+    const line = `- \${COOK_${name.toUpperCase()}_PATH:-./${name}}:${target}`;
+    assert.ok(compose.includes(line), line);
+  }
 });
 
 test("every folder variable is blanked, so .env cannot put data inside the container", () => {

@@ -126,8 +126,9 @@ export function oldIncoming(layout, check = isDir) {
 
 /**
  * Moves what the old drop box held into the new one, entry by entry, never over
- * something already there. Returns { moved, left: [names] }; the old folder goes
- * once it is empty.
+ * something already there and only by rename: an entry on another disk stays
+ * for the admin to move rather than being copied during start. Returns
+ * { moved, left: [names] }; the old folder goes once it is empty.
  */
 export function moveOldIncoming(from, to) {
   const left = [];
@@ -152,6 +153,11 @@ export function moveOldIncoming(from, to) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const layout = resolveLayout();
-  ensureLayout(layout);
+  try {
+    ensureLayout(layout);
+  } catch (err) {
+    // A share root cannot write (root_squash, read-only): the server, running as PUID, makes them.
+    process.stderr.write(`[oc-cookingfoil] could not make the storage folders as root (${err.code ?? err.message}); the server will try\n`);
+  }
   for (const role of ROLES) process.stdout.write(`${role} ${layout.dirs[role]}\n`);
 }

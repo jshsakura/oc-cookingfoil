@@ -117,7 +117,7 @@ if (oldBox) {
   try {
     const { moved, left } = moveOldIncoming(oldBox, incomingDir);
     debug.log("storage: moved %d entries from %s to %s", moved, oldBox, incomingDir);
-    if (left.length) debug.error("storage: %d entries stay in %s, the same names are in %s", left.length, oldBox, incomingDir);
+    if (left.length) debug.error("storage: %d entries stay in %s (the same names are in %s, or another disk); move them by hand", left.length, oldBox, incomingDir);
   } catch (err) {
     debug.error("storage: could not move %s to %s: %s", oldBox, incomingDir, err.message);
   }
@@ -441,7 +441,7 @@ ratingSync.start({ onChange: () => shopCache.invalidate() });
 startNszQueue();
 // The file check: signatures of every game file, the whole-file hash of new ones; it only informs.
 startVerifyQueue();
-// The games folder's drop box (games/incoming): sorted into the library every minute.
+// The drop box (helpers/storage-layout.js): sorted into the library every minute.
 defaultOrganizer.start();
 
 // The saves folder holds tens of thousands of files: read it once now, not on the first request.

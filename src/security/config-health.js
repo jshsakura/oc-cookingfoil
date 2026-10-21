@@ -55,7 +55,7 @@ export function storageWarnings(layout = storageLayout, leftBox = oldIncoming(la
       severity: SEVERITY.WARN,
       code: "old-incoming",
       title: "Files are left in the old drop box inside the games folder",
-      detail: `${leftBox} could not be moved into ${layout.dirs.incoming} because the same names are already there. They are not listed or sorted until moved.`,
+      detail: `${leftBox} could not be moved into ${layout.dirs.incoming}: the same names are already there, or it is on another disk. They are not listed or sorted until moved by hand.`,
       paths: [{ role: "incoming", now: leftBox, want: layout.dirs.incoming }],
     });
   }

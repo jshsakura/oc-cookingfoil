@@ -227,7 +227,9 @@ export async function moveNoReplace(from, to) {
 /**
  * Moves `from` to `to` on another mount without replacing anything: a copy
  * beside `to` that is then moved into place by moveNoReplace. Same mount: a
- * plain moveNoReplace. False when `to` exists.
+ * plain moveNoReplace. False when `to` exists. A file that changed while it
+ * was copied is still being written: the copy is dropped, `from` stays, and
+ * the error's code is ECHANGED.
  */
 export async function moveAcross(from, to) {
   try {
@@ -238,7 +240,12 @@ export async function moveAcross(from, to) {
   if (await exists(to)) return false;
   const part = `${to}.${process.pid}-${Date.now()}.part`;
   try {
+    const before = await fsp.stat(from);
     await fsp.copyFile(from, part, constants.COPYFILE_EXCL);
+    const after = await fsp.stat(from);
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+      throw Object.assign(new Error(`${from} changed while it was copied`), { code: "ECHANGED" });
+    }
     if (!(await moveNoReplace(part, to))) return false;
   } finally {
     await fsp.rm(part, { force: true });
@@ -321,7 +328,8 @@ export function createOrganizer(deps) {
           state.recent = [{ ...m, at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
         } else failed.push({ rel: m.from, reason: REASONS.taken, titleId: m.titleId ?? null, kind: m.kind ?? null });
       } catch (err) {
-        failed.push({ rel: m.from, reason: `옮기지 못했습니다: ${err.code ?? err.message}`, titleId: m.titleId ?? null, kind: m.kind ?? null });
+        const reason = err.code === "ECHANGED" ? REASONS.settling : `옮기지 못했습니다: ${err.code ?? err.message}`;
+        failed.push({ rel: m.from, reason, titleId: m.titleId ?? null, kind: m.kind ?? null });
       }
       job?.step(i + 1, m.to);
     }
