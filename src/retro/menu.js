@@ -54,26 +54,28 @@ const STYLE_NAMES = {
 };
 
 const yy = (d) => String(d).slice(2);
+// The same words as the console's Switch home rows (최근 추가, 한국어 지원, 2인 이상 플레이, …)
+// where the idea is the same; the rest in the same plain style.
 const NAMES = {
-  recent: { en: "Just added", ko: "새로 들어온 게임", ja: "新しく追加", zh: "新加入" },
-  arcade: { en: "Back at the arcade", ko: "그 시절 오락실", ja: "あの頃のゲームセンター", zh: "当年的街机厅" },
-  arcadeDecade: { en: (d) => `'${yy(d)}s arcade hits`, ko: (d) => `${yy(d)}년대 오락실`, ja: (d) => `${yy(d)}年代のゲーセン`, zh: (d) => `${yy(d)}年代街机` },
-  arcadeStyle: { en: (s) => `Arcade ${s.toLowerCase()}`, ko: (s) => `오락실 ${s}`, ja: (s) => `ゲーセンの${s}`, zh: (s) => `街机${s}` },
-  players2: { en: "Two at once", ko: "둘이 동시에", ja: "ふたり同時プレイ", zh: "双人同玩" },
-  players4: { en: "Four at once", ko: "넷이 동시에", ja: "4人同時プレイ", zh: "四人同玩" },
-  coop: { en: "Play together", ko: "협력해서 깨기", ja: "協力プレイ", zh: "合作通关" },
-  versus: { en: "Head to head", ko: "붙어 보자 대전", ja: "対戦しよう", zh: "来对战" },
-  coopBeat: { en: "Beat 'em up together", ko: "같이 하는 벨트스크롤", ja: "協力ベルトスクロール", zh: "一起清版" },
-  classic: { en: "All-time greats", ko: "90점 넘는 명작", ja: "90点超えの名作", zh: "90分以上的经典" },
-  good: { en: "Well loved", ko: "80점대 수작", ja: "80点台の良作", zh: "80分段佳作" },
-  hidden: { en: "Hidden gems", ko: "숨은 명작", ja: "隠れた名作", zh: "隐藏佳作" },
-  korean: { en: "In Korean", ko: "한국어로 즐기기", ja: "韓国語で遊ぶ", zh: "韩文版" },
-  achievements: { en: "With achievements", ko: "업적 도전", ja: "実績に挑戦", zh: "挑战成就" },
-  family: { en: "For the whole family", ko: "온 가족이 함께", ja: "家族みんなで", zh: "全家同乐" },
+  recent: { en: "Recently added", ko: "최근 추가", ja: "最近追加", zh: "最近添加" },
+  arcade: { en: "Arcade games", ko: "오락실 게임", ja: "アーケードゲーム", zh: "街机游戏" },
+  arcadeDecade: { en: (d) => `'${yy(d)}s arcade`, ko: (d) => `${yy(d)}년대 오락실`, ja: (d) => `${yy(d)}年代のアーケード`, zh: (d) => `${yy(d)}年代街机` },
+  arcadeStyle: { en: (s) => `Arcade ${s.toLowerCase()}`, ko: (s) => `오락실 ${s}`, ja: (s) => `アーケードの${s}`, zh: (s) => `街机${s}` },
+  players2: { en: "2+ players", ko: "2인 이상 플레이", ja: "2人以上", zh: "2 人以上" },
+  players4: { en: "4+ players", ko: "4인 이상 플레이", ja: "4人以上", zh: "4 人以上" },
+  coop: { en: "Better together", ko: "함께 하면 더 재미있는 게임", ja: "みんなで遊ぶともっと楽しい", zh: "一起玩更有趣" },
+  versus: { en: "Versus", ko: "대전", ja: "対戦", zh: "对战" },
+  coopBeat: { en: "Beat 'em ups for two", ko: "2인 벨트스크롤", ja: "2人で遊ぶベルトスクロール", zh: "双人清版动作" },
+  classic: { en: "Classics", ko: "명작", ja: "名作", zh: "经典" },
+  good: { en: "Rated 80+", ko: "평점 80 이상", ja: "評価80以上", zh: "评分 80+" },
+  hidden: { en: "Hidden gems", ko: "숨은 명작", ja: "隠れた名作", zh: "隐藏经典" },
+  korean: { en: "Korean support", ko: "한국어 지원", ja: "韓国語対応", zh: "支持韩语" },
+  achievements: { en: "Achievements", ko: "업적 지원", ja: "実績対応", zh: "支持成就" },
+  family: { en: "Family games", ko: "가족 게임", ja: "ファミリーゲーム", zh: "家庭游戏" },
   decade: { en: (d) => `'${yy(d)}s classics`, ko: (d) => `${yy(d)}년대 명작`, ja: (d) => `${yy(d)}年代の名作`, zh: (d) => `${yy(d)}年代经典` },
   decadeGenre: { en: ([d, g]) => `'${yy(d)}s ${g}`, ko: ([d, g]) => `${yy(d)}년대 ${g}`, ja: ([d, g]) => `${yy(d)}年代の${g}`, zh: ([d, g]) => `${yy(d)}年代${g}` },
-  maker: { en: (m) => `Made by ${m}`, ko: (m) => `${m} 게임`, ja: (m) => `${m}のゲーム`, zh: (m) => `${m}出品` },
-  series: { en: (s) => `The ${s} series`, ko: (s) => `${s} 시리즈`, ja: (s) => `${s}シリーズ`, zh: (s) => `${s}系列` },
+  maker: { en: (m) => `${m} games`, ko: (m) => `${m} 게임`, ja: (m) => `${m}のゲーム`, zh: (m) => `${m}游戏` },
+  series: { en: (s) => `${s} series`, ko: (s) => `${s} 시리즈`, ja: (s) => `${s}シリーズ`, zh: (s) => `${s}系列` },
 };
 
 const nameIn = (names, lang, arg) => {

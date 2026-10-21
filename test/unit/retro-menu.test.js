@@ -101,7 +101,11 @@ test("the arcade and play-together rows fill themselves from the arcade facts", 
 test("rows are named in the asked language", () => {
   const rows = menuRows(library(), NOW);
   const name = (id) => rows.find((r) => r.id === id).name("ko");
-  assert.equal(name("players:4"), "넷이 동시에");
+  assert.equal(name("players:4"), "4인 이상 플레이");
+  for (const [id, home] of [["recent", "최근 추가"], ["korean", "한국어 지원"], ["players:2", "2인 이상 플레이"], ["coop", "함께 하면 더 재미있는 게임"], ["classic", "명작"], ["good", "평점 80 이상"]]) {
+    const row = rows.find((r) => r.id === id);
+    if (row) assert.equal(row.name("ko"), home, `${id} reads as the Switch home row does`);
+  }
   assert.equal(name("arcade:genre:vertical-shmup"), "오락실 종스크롤 슈팅");
   assert.equal(name("arcade:decade:1990"), "90년대 오락실");
   assert.equal(name("maker:capcom"), "Capcom 게임");
