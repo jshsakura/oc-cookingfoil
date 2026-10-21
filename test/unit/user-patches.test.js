@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 
 // The patch information store lives in the data dir: a fresh one for this file.
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "patches-data-"));
-const { kindOf, readMeta, patchId, scanDir: scanRaw, scan, list, forTitle, countFor, requiredFor, locate, infoOf, openForDownload, reset, loadCache, hashed, withInfo } =
+const { kindOf, readMeta, patchId, scanDir: scanRaw, scan, list, forTitle, countFor, requiredFor, koreanFor, locate, infoOf, openForDownload, reset, loadCache, hashed, withInfo } =
   await import("../../src/meta/user-patches.js");
 const { splitPath, fitsUstar, header, archiveSize } = await import("../../src/helpers/ustar.js");
 const { tarEntries } = await import("../../src/routes/patches.js");
@@ -128,6 +128,22 @@ test("a game counts the patches marked required as the ones it does not start wi
   patchInfo.set(locate(first.id).key, { ...infoOf(first.id), required: true });
   assert.equal(requiredFor(TID.toLowerCase()), 1);
   assert.equal(countFor(TID), 2);
+});
+
+test("a game counts its Korean translations by folder or by the name given to it", async () => {
+  const patchInfo = await import("../../src/meta/patch-info.js");
+  const root = makeRoot({
+    [`${TID}/한글패치/${CHEAT}`]: "x",
+    [`${TID}/한국어 음성 패치/${CHEAT}`]: "y",
+    [`${TID}/치트/${CHEAT}`]: "z",
+    [`${TID}/fps/${CHEAT}`]: "w",
+  });
+  await scan({ root });
+  assert.equal(koreanFor(TID.toLowerCase()), 2, "cheats and an fps lock are not translations");
+  const fps = (await list()).find((p) => p.name === "fps");
+  patchInfo.set(locate(fps.id).key, { ...infoOf(fps.id), ko: { name: "통합 모드 한글" } });
+  assert.equal(koreanFor(TID), 3, "a Korean name the admin gave counts");
+  assert.equal(koreanFor("0100000000001000"), 0);
 });
 
 test("ustar keeps long paths in the prefix field and refuses what cannot fit", () => {
