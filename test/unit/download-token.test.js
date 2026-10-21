@@ -1,3 +1,4 @@
+import { render } from "../../src/helpers/alert-messages.js";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, statSync, existsSync } from "node:fs";
@@ -542,9 +543,9 @@ test("the probe looks the host up, asks base/, and counts any answer", async () 
 });
 
 test("the start alert says how the direct address answered", () => {
-  assert.equal(health.startLine({ configured: false, up: false }), "");
-  assert.match(health.startLine({ configured: true, up: true }), /응답합니다/);
-  assert.match(health.startLine({ configured: true, up: false }), /아직 응답하지 않습니다/);
+  assert.equal(render((t) => health.startLine(t, { configured: false, up: false }), "ko"), "");
+  assert.match(render((t) => health.startLine(t, { configured: true, up: true }), "ko"), /정상적으로 응답하고 있습니다/);
+  assert.match(render((t) => health.startLine(t, { configured: true, up: false }), "ko"), /아직 응답하지 않습니다/);
 });
 
 test("a start or a new address that answers says nothing; one that does not is told once", () => {

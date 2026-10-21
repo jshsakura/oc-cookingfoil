@@ -210,7 +210,7 @@ export function recordFailure(ip, req) {
   );
   if (next.count >= MAX_FAILURES) {
     store.lock(ip, { reason: "too many failed auth attempts", ttlMs: LOCKOUT_TTL_MS });
-    alert("lockout", "아이디나 비밀번호를 여러 번 틀린 주소를 잠갔습니다. 우리 기기라면 관리 화면의 로그 탭에서 풉니다.", { subject: ip });
+    alert("lockout", (t) => t("lockout"), { subject: ip });
     debug.error(
       "security: %s LOCKED OUT after %d failures (ttl=%s)",
       ip,

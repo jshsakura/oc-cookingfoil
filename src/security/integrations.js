@@ -46,6 +46,8 @@ export const SERVICES = {
       buttons: { env: () => env.telegramButtons, re: /^(on|off)$/, optional: true },
       // Telegram user ids who may press them in a group (comma list); a private chat needs none.
       approvers: { env: () => env.telegramApprovers, re: /^\d{1,20}(,\d{1,20})*$/, optional: true },
+      // The language alerts are written in (alert-messages.js); Korean when empty.
+      lang: { env: () => env.telegramLang, re: /^(ko|en|ja|zh)$/, optional: true },
     },
   },
 };

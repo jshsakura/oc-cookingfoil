@@ -3,8 +3,8 @@
  *
  *   GET  /admin/api/alerts           { configured, source, tokenSet, chatId, bot, buttons, approvers, users: [{ id, name }],
  *                                      events: [{ id, label, desc, on }], history }
- *   POST /admin/api/alerts           { botToken?, chatId, events: [id…], buttons?, approvers? }  save; an empty token keeps
- *                                    the saved one, and buttons (approve from the alert) and approvers stay as they were
+ *   POST /admin/api/alerts           { botToken?, chatId, events: [id…], buttons?, approvers?, lang? }  save; an empty token keeps
+ *                                    the saved one, and buttons (approve from the alert), approvers and lang (ko, en, ja, zh) stay as they were
  *                                    when left out. `users` are the people the button loop saw, to pick approvers from.
  *   POST /admin/api/alerts/test      send a test message now: { ok, message }
  *   POST /admin/api/alerts/chats     { botToken? } the chats that wrote to the bot lately: { ok, chats, message }
@@ -13,6 +13,7 @@
  * The token and chat are stored as the "telegram" integration, so the secret
  * stays sealed in the security database and is only ever reported as set or not set.
  */
+import { LANGS } from "../../helpers/alert-messages.js";
 import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
@@ -45,6 +46,7 @@ export function mountAlertsApi(router, requireSession) {
       chatId,
       bot,
       buttons: alerts.buttonsOn(),
+      lang: alerts.alertLang(),
       approvers: approvers ? approvers.split(",") : [],
       users: updates.recentUsers(),
       events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, desc: e.desc, on: on.has(id) })),
@@ -56,6 +58,7 @@ export function mountAlertsApi(router, requireSession) {
     const ids = Array.isArray(req.body?.events) ? req.body.events.map(String).filter((k) => k in alerts.EVENTS) : [];
     const current = integrations.get("telegram");
     const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn(current);
+    const lang = LANGS.includes(req.body?.lang) ? req.body.lang : current.lang ?? "";
     const approvers = Array.isArray(req.body?.approvers) ? [...new Set(req.body.approvers.map((x) => String(x).trim()).filter(Boolean))].join(",") : current.approvers;
     // Saving restarts or stops the button loop at once (telegram-updates.js follows integrations).
     integrations.save("telegram", {
@@ -64,6 +67,7 @@ export function mountAlertsApi(router, requireSession) {
       events: ids.length ? ids.join(",") : "-",
       buttons: buttons ? "on" : "off",
       approvers,
+      lang,
     });
     debug.log("admin: alert settings saved (%s)", ids.join(",") || "none");
     res.json({ ok: true });

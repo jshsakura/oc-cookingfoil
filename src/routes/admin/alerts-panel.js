@@ -26,6 +26,8 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
       <input name="chatId" spellcheck="false" placeholder="채팅 ID" aria-label="채팅 ID" maxlength="70">
       <button type="button" id="al-chats">대화 찾기</button>
     </div>
+    <h3>알림 언어</h3>
+    <div class="add"><select name="lang" aria-label="알림 언어"><option value="ko">한국어</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option></select></div>
     <h3>받을 알림</h3>
     <div class="al-events" id="al-events"></div>
     <h3>텔레그램에서 승인</h3>
@@ -79,7 +81,7 @@ async function loadAlerts(){
     :!d.chatId?['채팅 ID 가 없습니다','봇에게 말을 건 뒤 대화 찾기를 누릅니다.']
     :['켜져 있습니다',(d.bot?'@'+d.bot+' 가 ':'')+'채팅 '+d.chatId+' 로 보냅니다'+(d.source==='env'?' (환경변수)':'')+'.'];
   st.querySelector('strong').textContent=title;st.querySelector('span:not(.al-dot)').textContent=sub;
-  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장되어 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.approvers.value=(d.approvers||[]).join(',');
+  const f=$('al-form');f.botToken.value='';f.botToken.placeholder='봇 토큰'+(d.tokenSet?' (저장되어 있습니다. 바꿀 때만 넣습니다)':'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.lang.value=d.lang||'ko';f.approvers.value=(d.approvers||[]).join(',');
   // People the bot heard from lately; a click adds one to the list.
   $('al-users').replaceChildren(...(d.users||[]).length?[el('span','최근 봇에게 말을 건 사람:','muted'),...d.users.map((u)=>btn((u.name||'이름 없음')+' ('+u.id+')',()=>{
     const ids=f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean);if(!ids.includes(u.id))f.approvers.value=[...ids,u.id].join(',');}))]:[]);
@@ -92,7 +94,7 @@ async function loadAlerts(){
 }
 $('al-form').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.target;
   const events=[...$('al-events').querySelectorAll('input:checked')].map((b)=>b.value);
-  try{await api('/admin/api/alerts',{method:'POST',body:{botToken:f.botToken.value.trim(),chatId:f.chatId.value.trim(),events,buttons:f.buttons.checked,approvers:f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean)}});$('al-msg').textContent='';toast('저장했습니다.');loadAlerts();}
+  try{await api('/admin/api/alerts',{method:'POST',body:{botToken:f.botToken.value.trim(),chatId:f.chatId.value.trim(),events,buttons:f.buttons.checked,lang:f.lang.value,approvers:f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean)}});$('al-msg').textContent='';toast('저장했습니다.');loadAlerts();}
   catch(err){$('al-msg').textContent=err.message;}});
 $('al-test').addEventListener('click',async()=>{$('al-msg').textContent='보내고 있습니다';
   try{const r=await api('/admin/api/alerts/test',{method:'POST',body:{}});$('al-msg').textContent=r.message;loadAlerts();}catch(err){$('al-msg').textContent=err.message;}});

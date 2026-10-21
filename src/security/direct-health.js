@@ -30,8 +30,6 @@ export const RECHECK_MS = 60 * 1000;
 export const CHECK_TIMEOUT_MS = 3000;
 export const FAILS_FOR_DOWN = 2;
 
-const DOWN_TEXT = "외부 다운로드 전용 주소가 응답하지 않습니다.";
-const UP_TEXT = "외부 다운로드 전용 주소가 다시 응답합니다.";
 
 const UNKNOWN = { up: false, known: false, since: null, fails: 0, checkedAt: null, error: null };
 let health = UNKNOWN;
@@ -93,7 +91,7 @@ function apply(next) {
   if (settled && !tell) debug.log("direct downloads: %s is answering", env.publicDirectBaseUrl);
   if (!tell) return;
   debug.log("direct downloads: %s is %s%s", env.publicDirectBaseUrl, next.up ? "answering" : "not answering", next.error ? ` (${next.error})` : "");
-  alert("direct", next.up ? UP_TEXT : DOWN_TEXT, { subject: next.up ? "up" : "down" });
+  alert("direct", (t) => t(next.up ? "directUp" : "directDown"), { subject: next.up ? "up" : "down" });
 }
 
 /** Runs one check now (when a direct address is set). */
@@ -164,10 +162,10 @@ export function start({ options = {} } = {}) {
   return pending();
 }
 
-/** The line the start alert carries about the direct address, or "" when none is set. Pure. */
-export function startLine(s = status()) {
+/** The line the start alert carries about the direct address, or "" when none is set (nothing to say). Pure. */
+export function startLine(t, s = status()) {
   if (!s.configured) return "";
-  return s.up ? "외부 다운로드 전용 주소도 응답합니다." : "외부 다운로드 전용 주소는 아직 응답하지 않습니다.";
+  return t(s.up ? "directStartUp" : "directStartDown");
 }
 
 /** Tests set the state, the probe and the time of the last check directly. */
