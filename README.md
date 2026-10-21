@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="site/icon.svg" alt="CookingFoil" width="80" />
-  <h1>CookingFoil</h1>
+  <h1><img src="brand/cookingfoil-readme-256.png" alt="CookingFoil" width="192" height="192" /></h1>
   <p><strong>Your files on your server. Your library on your console.</strong></p>
 </div>
 
@@ -14,9 +13,9 @@ A personal, self-hosted file server and shop for Switch homebrew. Keep your file
 
 Website: <https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/en/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-Actual client UI with fixture data and placeholder artwork.
+Actual English UI with sample data and native missing-icon tiles.
 
 ## Contents
 

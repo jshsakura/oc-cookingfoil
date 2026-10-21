@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="site/icon.svg" alt="CookingFoil" width="80" />
-  <h1>CookingFoil</h1>
+  <h1><img src="brand/cookingfoil-readme-256.png" alt="CookingFoil" width="192" height="192" /></h1>
   <p><strong>파일은 서버에. 설치와 관리는 본체에서.</strong></p>
 </div>
 
@@ -14,9 +13,9 @@
 
 웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/ko/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-실제 클라이언트를 예제 데이터와 예제 그림으로 실행한 화면입니다.
+실제 영문 UI를 예제 데이터로 촬영했습니다. 아이콘이 없을 때는 앱이 제목 첫 글자 타일을 표시합니다.
 
 ## 목차
 

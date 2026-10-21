@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="site/icon.svg" alt="CookingFoil" width="80" />
-  <h1>CookingFoil</h1>
+  <h1><img src="brand/cookingfoil-readme-256.png" alt="CookingFoil" width="192" height="192" /></h1>
   <p><strong>文件放在自己的服务器，收藏在主机上管理。</strong></p>
 </div>
 
@@ -14,9 +13,9 @@
 
 网站：<https://jshsakura.github.io/oc-cookingfoil/>
 
-![CookingFoil](site/screenshots/en/home.webp)
+![CookingFoil](site/screenshots/en/home-no-art.webp)
 
-使用示例数据与占位图的客户端实际画面。
+使用示例数据的实际英文界面，缺少图标时显示应用原本的首字母图块。
 
 ## 目录
 
