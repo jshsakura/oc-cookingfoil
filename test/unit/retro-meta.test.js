@@ -519,6 +519,8 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
     assert.deepEqual(two.games[0].genres, ["rpg"]);
     assert.equal(two.games[0].players, 2);
     assert.equal(two.games[0].year, 1995);
+    assert.deepEqual(two.games[0].labels, [["year", "1995"], ["players", "2"]], "the card's labels in the order to draw them");
+    assert.equal(two.labels.players.ko, "{0}인", "the list carries the label dictionary");
     assert.equal((await (await fetch(`${BASE}/api/retro/games?decade=1980`, { headers: AUTH })).json()).total, 1);
 
     const res = await fetch(`${BASE}/api/retro/themes?rows=6`, { headers: { ...AUTH, "Accept-Language": "ko" } });
@@ -528,6 +530,7 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
     assert.equal(themes.length, 2, "then one row of the RPGs; a game is in one row only");
     assert.ok(["genre:rpg", "decade:1990", "decade:1990:genre:rpg"].includes(themes[1].id), themes[1].id);
     assert.equal(themes[1].games.length, 10);
+    assert.deepEqual(themes.map((t) => t.icon), ["clock", { "genre:rpg": "tag", "decade:1990": "calendar", "decade:1990:genre:rpg": "calendar" }[themes[1].id]]);
     const one = await (await fetch(`${BASE}/api/retro/themes?rows=1&limit=3`, { headers: AUTH })).json();
     assert.deepEqual(one.themes.map((t) => [t.id, t.games.length]), [["recent", 3]]);
   } finally {

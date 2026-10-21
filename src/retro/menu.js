@@ -95,6 +95,15 @@ const groupBy = (list, keyOf) => {
   return map;
 };
 
+// A row's icon by its id, first match wins; names are from the client's icon set.
+const ROW_ICONS = [
+  [/^recent$/, "clock"], [/^arcade:/, "joystick"], [/^(players:|coop|versus)/, "users"], [/^genre:/, "tag"],
+  [/^decade:/, "calendar"], [/^classic$/, "star"], [/^good$/, "thumbs-up"], [/^hidden$/, "sparkle"],
+  [/^maker:/, "building"], [/^series:/, "layers"], [/^korean$/, "globe"], [/^achievements$/, "trophy"], [/^family$/, "home"],
+];
+
+export const rowIcon = (id) => ROW_ICONS.find(([re]) => re.test(id))?.[1] ?? "grid";
+
 /** Every row `list` could fill, before games are shared out: { id, group, name(lang), games ranked }. */
 export function menuRows(list, now) {
   const out = [];
