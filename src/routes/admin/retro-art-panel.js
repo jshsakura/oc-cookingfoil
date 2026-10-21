@@ -37,8 +37,8 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="muted" id="ra-ratings-state"></p>
   </div>
   <div data-sub-panel="cores" hidden>
-  <div class="hd"><h2 class="first">RetroArch 코어</h2><button type="button" id="rc-reload">${icon("refresh")}다시 읽기</button></div>
-  <p class="muted">retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch <span id="rc-official"></span> 번들과 파일 내용을 비교해 출처를 표시합니다. 공식과 다른 코어는 한글패치나 해크판을 위해 따로 받은 것일 수 있으니 서버가 바꾸지 않습니다.</p>
+  <div class="hd"><h2 class="first">RetroArch 코어</h2><button type="button" id="rc-reload">${icon("refresh")}다시 읽기</button><button type="button" class="primary" id="rc-up-pick">${icon("upload")}코어 올리기</button><input type="file" id="rc-up" accept=".nro" hidden></div>
+  <p class="muted">retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch <span id="rc-official"></span> 번들과 파일 내용을 비교해 출처를 표시합니다. 공식과 다른 코어는 한글패치나 해크판을 위해 따로 받은 것일 수 있으니 서버가 바꾸지 않습니다. 올린 코어는 <코어>_libretro_libnx.nro 이름의 Switch NRO 여야 하고, 바꾸거나 지운 코어는 휴지통 탭에서 되돌릴 수 있습니다.</p>
   <p class="muted" id="rc-nro"></p>
   <div class="scroll" id="rc-list" data-skel></div>
   </div>
@@ -105,11 +105,26 @@ async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
   $('rc-official').textContent=d.official;
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
-  table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256'],d.cores.map((c)=>{const tr=el('tr');
+  table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
-    tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+    const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
+    tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+async function rcRemove(c,force=false){
+  if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
+  try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
+  catch(err){if(/게임 \d+개가/.test(err.message)&&!force){
+      if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
+    toast(err.message);}}
+async function rcUpload(file,replace=false){
+  const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
+  const r=await fetch('/admin/api/upload/core',{method:'POST',body:fd});const d=await r.json().catch(()=>({}));
+  if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
+  if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
+  toast(d.where+' 에 올렸습니다.');loadRetroCores();}
 $('rc-reload').addEventListener('click',loadRetroCores);
+$('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
+$('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});
 async function loadRetroArt(){
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
   const j=raData.job;

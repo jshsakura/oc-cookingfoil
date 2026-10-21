@@ -15,6 +15,8 @@
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
  *     homebrew  port ("true" marks the placed app a port); a .nro, a release .zip or the app folder
  *                                              → <homebrew>/<app>/
+ *     core    one <core>_libretro_libnx.nro    → <retro>/retroarch/cores/; replace ("true") swaps a core of that
+ *             name, which goes to the retro trash first (retro/core-files.js)
  *     client  the CookingFoil client build, one .nro → <data>/client/cookingfoil.nro, replacing the one
  *             there; checked as client-update.js checks a dropped-in build (an NRO with a version not
  *             lower than the one offered) and offered to consoles at once
@@ -46,6 +48,8 @@ import { HomebrewUploadError, placeHomebrew } from "./homebrew-upload.js";
 import { defaultService } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
+import { CoreError, placeCore } from "../../retro/core-files.js";
+import { packDirOf } from "../../retro/pack-status.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
 import {
@@ -53,9 +57,9 @@ import {
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
 
-const KINDS = ["game", "retro", "patch", "save", "homebrew", "client"];
+const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
 
-const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir, client: path.dirname(CLIENT_NRO) })[kind];
+const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir, client: path.dirname(CLIENT_NRO), core: path.join(packDirOf(retroDir), "cores") })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
 // are watched as they land, so theirs stays in the data folder.
 const stagingOf = (kind) => (kind === "game" ? path.join(dataDir, "uploads") : path.join(rootOf(kind), ".upload-staging"));
@@ -149,6 +153,12 @@ async function placeClient(items) {
   }
   if (published?.version !== version) throw new UploadError(400, `내보내지 못했습니다: ${rejected?.message ?? "검사를 통과하지 못했습니다"}`);
   return { where: `client/cookingfoil.nro · ${version}`, files: 1, version };
+}
+
+async function placeCoreUpload(items, body) {
+  if (items.length !== 1) throw new UploadError(400, "코어는 .nro 파일 하나씩 올립니다");
+  const placed = await placeCore(retroDir, { abs: items[0].abs, name: path.posix.basename(items[0].rel) }, { replace: body?.replace === "true" });
+  return { where: `retroarch/${placed.file}`, files: 1, ...placed };
 }
 
 async function placeRetro(items, body) {
@@ -254,7 +264,7 @@ export function mountUploadApi(router, guard) {
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
     const kind = req.params.kind;
     if (!KINDS.includes(kind)) return res.status(404).json({ error: "unknown kind" });
-    if (kind === "client") await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
+    if (kind === "client" || (kind === "core" && fs.existsSync(retroDir))) await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
     if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) {
       return res.status(409).json({ error: "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 변경합니다" });
     }
@@ -279,13 +289,14 @@ export function mountUploadApi(router, guard) {
         : kind === "retro" ? await placeRetro(items, req.body)
         : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true" })
         : kind === "client" ? await placeClient(items)
+        : kind === "core" ? await placeCoreUpload(items, req.body)
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
       // The saves listing is refreshed in the background; one uploaded here shows on the next list.
       if (kind === "save") savesCatalog().invalidate();
       body = { ok: true, kind, ...placed };
     } catch (err) {
-      status = err instanceof UploadError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
+      status = err instanceof UploadError || err instanceof CoreError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
       if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
       body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err.message };
     }

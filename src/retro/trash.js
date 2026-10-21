@@ -93,17 +93,30 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
     if (inside(dir, abs) && (await exists(abs))) present.push(rel);
   }
   if (!present.some((rel) => roms.includes(rel))) throw new TrashError("롬 파일이 없습니다");
-  let entry = `${day(now)}/${g.id}`;
-  for (let i = 2; await exists(path.join(dir, TRASH, entry)); i++) entry = `${day(now)}/${g.id}-${i}`;
-  const base = path.join(dir, TRASH, entry);
   const mapFile = path.join(dir, "art-map", `${g.system}.json`);
   const map = readJson(mapFile);
   const artMap = map && !keep.key && Object.hasOwn(map, key) ? { system: g.system, key, value: map[key] } : null;
+  const out = await trashFiles(dir, { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size, artMap }, present, now);
+  if (artMap) {
+    const { [key]: _gone, ...rest } = map;
+    writeJson(mapFile, rest);
+  }
+  return out;
+}
+
+/**
+ * Moves `rels` (relative to the retro dir, all present) into a new trash entry
+ * named by `item.id` ("<word>-<10 hex>"), all or none. `item` goes into its manifest.
+ */
+export async function trashFiles(dir, item, rels, now = new Date()) {
+  let entry = `${day(now)}/${item.id}`;
+  for (let i = 2; await exists(path.join(dir, TRASH, entry)); i++) entry = `${day(now)}/${item.id}-${i}`;
+  const base = path.join(dir, TRASH, entry);
   // The manifest first: whatever happens after, the trash says where each file came from.
-  writeJson(path.join(base, "manifest.json"), { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size, trashedAt: now.getTime(), files: present, artMap });
+  writeJson(path.join(base, "manifest.json"), { ...item, trashedAt: now.getTime(), files: rels });
   const moved = [];
   try {
-    for (const rel of present) {
+    for (const rel of rels) {
       await move(path.join(dir, rel), path.join(base, rel));
       moved.push(rel);
     }
@@ -113,11 +126,7 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
     if (!(await filesIn(base)).length) await fsp.rm(base, { recursive: true, force: true });
     throw new TrashError(`옮기지 못해 되돌렸습니다: ${err.message}`);
   }
-  if (artMap) {
-    const { [key]: _gone, ...rest } = map;
-    writeJson(mapFile, rest);
-  }
-  return { entry, files: present };
+  return { entry, files: rels };
 }
 
 /** Everything in the trash, newest first: [{ entry, id, system, name, file, size, trashedAt, files }]. */

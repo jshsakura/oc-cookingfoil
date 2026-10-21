@@ -13,9 +13,11 @@
 import fs from "fs";
 import path from "path";
 
-/** <retro dir>/retroarch/, or base-pack/ (the earlier name) when only that exists. */
+/** <retro dir>/retroarch/, or base-pack/ (the earlier name) when only that exists; a new pack goes to retroarch/. */
 export const packDirOf = (retroDir) =>
-  fs.existsSync(path.join(retroDir, "retroarch")) ? path.join(retroDir, "retroarch") : path.join(retroDir, "base-pack");
+  !fs.existsSync(path.join(retroDir, "retroarch")) && fs.existsSync(path.join(retroDir, "base-pack"))
+    ? path.join(retroDir, "base-pack")
+    : path.join(retroDir, "retroarch");
 
 export const coreFile = (core) => `cores/${core}_libretro_libnx.nro`;
 
