@@ -7,6 +7,7 @@
  *
  * Rendered on the dashboard and printed once at boot.
  */
+import * as twoFactorSkip from "./admin-2fa-skip.js";
 import { devicePairing } from "../helpers/envs.js";
 import * as users from "./users.js";
 import { adminTotpEnabled, adminOwner, adminPasswordMode } from "./admin-session.js";
@@ -55,7 +56,14 @@ export function configWarnings(lanes = authLanes(), { keys = keysReady() } = {})
     });
   }
 
-  if (lanes.admin.enabled && !lanes.admin.enrolled && adminPasswordMode()) {
+  if (lanes.admin.enabled && !lanes.admin.enrolled && twoFactorSkip.skipped() && !adminPasswordMode()) {
+    out.push({
+      severity: SEVERITY.WARN,
+      code: "admin-2fa-skipped",
+      title: "Admin 2FA was skipped: the admin page opens with the account password alone",
+      detail: "Anyone who learns the admin account's password can run this server. Register an authenticator on the admin page's settings tab.",
+    });
+  } else if (lanes.admin.enabled && !lanes.admin.enrolled && adminPasswordMode()) {
     // The admin password already guards the page; an authenticator is an extra step.
     out.push({
       severity: SEVERITY.INFO,

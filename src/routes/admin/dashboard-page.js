@@ -177,6 +177,10 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:15px;line-height:1.55;overflow-wrap:anywhere}
 button.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}
 .hb-verify{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:100px;border:1px dashed var(--line);background:transparent;color:var(--faint);font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.tfa-warn{color:var(--bad,#d33)!important;font-weight:600}
+.tfa-ok{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:14px;border-radius:14px;border:1px solid rgba(var(--good-rgb),.45);background:rgba(var(--good-rgb),.12)}
+.tfa-ok svg{flex:none;width:30px;height:30px;fill:none;stroke:var(--good);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tfa-ok b{display:block;color:var(--good);font-size:14px}.tfa-ok span{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
 .hb-verify svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .hb-verify:hover{border-color:rgba(var(--good-rgb),.6);color:var(--good)}
 .hb-verify[aria-pressed=true]{border:1px solid rgba(var(--good-rgb),.5);background:rgba(var(--good-rgb),.14);color:var(--good);box-shadow:inset 0 0 0 1px rgba(var(--good-rgb),.08)}
@@ -451,6 +455,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
   `, { meta: "로그인 화면의 구글 버튼" })}
   ${box("sec-tfa", "관리 페이지 2단계 인증", `
   <div class="tfa" id="tfa">
+    <div class="tfa-ok" id="tfa-ok" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg><div><b>인증 앱이 등록되어 있습니다</b><span id="tfa-ok-sub"></span></div></div>
     <p id="tfa-status" class="muted">불러오고 있습니다</p>
     <div class="row" id="tfa-actions"></div>
     <div class="tfa-setup" id="tfa-setup" hidden>

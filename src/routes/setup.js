@@ -22,6 +22,7 @@ import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
 import { cookieLine, cookies, issuePasswordSession } from "../security/user-session.js";
 import { codeMatches as totpMatches, issueSession, provisioningUri } from "../security/admin-session.js";
 import { startEnrollment, pendingSecret, commitEnrollment } from "../security/admin-secret.js";
+import * as twoFactorSkip from "../security/admin-2fa-skip.js";
 import { recordFailure } from "../security/auth-guard.js";
 import { clientIp } from "../security/deny.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -134,6 +135,18 @@ export default function setupRouter() {
     tokens.clear();
     issueSession(res);
     debug.log("setup: authenticator registered, setup finished");
+    res.json({ ok: true, next: "done" });
+  });
+
+  // No authenticator for now: the admin account's password alone opens the admin
+  // page until one is registered, and the server warns about it everywhere.
+  router.post("/setup/api/otp/skip", (req, res) => {
+    if (!guard(req, res)) return;
+    if (setup.needsSetup() || !setup.needsAuthenticator()) return res.status(409).json({ error: "not-now" });
+    twoFactorSkip.skip();
+    setup.finish();
+    tokens.clear();
+    debug.log("setup: authenticator skipped; the admin page opens with the admin account's password alone");
     res.json({ ok: true, next: "done" });
   });
 

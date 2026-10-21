@@ -13,6 +13,7 @@
 import { renderSVG } from "uqr";
 import { adminPasswordMode, codeMatches, provisioningUri, verifyPassword } from "../../security/admin-session.js";
 import * as savedPassword from "../../security/admin-password.js";
+import * as twoFactorSkip from "../../security/admin-2fa-skip.js";
 import { adminPassword } from "../../helpers/envs.js";
 import {
   isEnrolled, canManage, startEnrollment, pendingSecret, commitEnrollment, disableEnrollment,
@@ -24,7 +25,7 @@ import debug from "../../debug.js";
 function status() {
   return {
     password: adminPasswordMode(), passwordSaved: savedPassword.has(), passwordEnv: Boolean(adminPassword),
-    authenticator: isEnrolled(), manageable: canManage(),
+    authenticator: isEnrolled(), manageable: canManage(), skipped: twoFactorSkip.skipped() && !isEnrolled(),
   };
 }
 
@@ -69,6 +70,7 @@ export function mountTwoFactorApi(router, { requireSession }) {
       return;
     }
     commitEnrollment();
+    twoFactorSkip.clear();
     res.json(status());
   }));
 

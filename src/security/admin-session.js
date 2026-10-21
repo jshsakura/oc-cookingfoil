@@ -14,7 +14,9 @@ import crypto from "crypto";
 import { generate, verify, generateURI } from "otplib";
 
 import { adminSessionHours, adminEmail, adminPassword } from "../helpers/envs.js";
-import { adminSecret, markEnrolled } from "./admin-secret.js";
+import { adminSecret, markEnrolled, isEnrolled } from "./admin-secret.js";
+import * as twoFactorSkip from "./admin-2fa-skip.js";
+import * as users from "./users.js";
 import * as savedPassword from "./admin-password.js";
 import debug from "../debug.js";
 import { isHttps, webUser } from "./user-session.js";
@@ -36,6 +38,14 @@ export function adminTotpEnabled() {
 /** The operator's identity for display + the authenticator account label. */
 export function adminOwner() {
   return adminEmail ?? "admin";
+}
+
+/**
+ * True when setup skipped the authenticator and nothing else locks /admin yet:
+ * an admin account's password sign-in is then enough on its own.
+ */
+export function accountOnlyMode() {
+  return twoFactorSkip.skipped() && !isEnrolled() && !adminPasswordMode();
 }
 
 /** True when /admin takes an admin password (COOK_ADMIN_PASSWORD or one set on the admin page). */
@@ -183,5 +193,6 @@ export function hasValidSession(req) {
   // A Google account the owner made admin already proved who it is at /login;
   // the admin password is a floor for everyone else, not a second hurdle for it.
   const who = webUser(req);
+  if (who?.kind === "password" && accountOnlyMode()) return users.isAdmin(who.name);
   return who?.kind === "google" && googleAccounts.isAdmin(who.sub);
 }

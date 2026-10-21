@@ -51,7 +51,7 @@ test("enroll an authenticator from the admin page, then either the password or a
     const as = (extra = {}) => ({ headers: { ...json, Cookie: cookie, Origin: BASE, ...extra } });
 
     let status = await (await fetch(`${BASE}/admin/api/2fa`, as())).json();
-    assert.deepEqual(status, { password: true, passwordSaved: false, passwordEnv: true, authenticator: false, manageable: true });
+    assert.deepEqual(status, { password: true, passwordSaved: false, passwordEnv: true, authenticator: false, manageable: true, skipped: false });
 
     const start = await (await fetch(`${BASE}/admin/api/2fa/start`, { method: "POST", body: "{}", ...as() })).json();
     assert.match(start.secret, /^[A-Z2-7]{32}$/);
