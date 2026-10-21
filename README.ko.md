@@ -11,7 +11,11 @@
 
 스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버이자 샵입니다. 파일은 집에 있는 서버에 두고, 관리 페이지 하나로 모두 관리하며, 기기에서는 CookingFoil 클라이언트로 설치합니다.
 
-웹사이트: <https://jshsakura.github.io/oc-cookingfoil/>
+<p align="center">
+  <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=ko"><img src="brand/buttons/website-ko.svg" alt="웹사이트" width="160" height="44" /></a>
+  <a href="README.ko.md#빠른-시작"><img src="brand/buttons/setup-ko.svg" alt="설치 안내" width="160" height="44" /></a>
+  <a href="README.ko.md#클라이언트-연결"><img src="brand/buttons/connect-ko.svg" alt="본체 연결" width="160" height="44" /></a>
+</p>
 
 ![CookingFoil](site/screenshots/en/home-no-art.webp)
 
@@ -350,7 +354,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 - 응답에는 방어용 헤더(`nosniff`, `DENY` 프레임 차단, 리퍼러 없음)가 붙습니다. 거절은 모두 이유와 함께 로그 탭과 `X-CookingFoil-Deny` 헤더에 남습니다.
 - 관리 페이지에 저장한 시크릿은 다시 보여 주지 않습니다. 웹 업로드는 켜기 전까지 꺼져 있습니다.
 
-취약점 제보는 [SECURITY.md](./SECURITY.md) 를 봅니다. 공개 이슈로 올리지 말아 주세요.
+취약점 제보는 [SECURITY.md](./SECURITY.md#한국어) 를 봅니다. 공개 이슈로 올리지 말아 주세요.
 
 ## API
 

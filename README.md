@@ -11,7 +11,11 @@
 
 A personal, self-hosted file server and shop for Switch homebrew. Keep your files on a machine at home, manage everything from one admin page, and install them on your console with the CookingFoil client.
 
-Website: <https://jshsakura.github.io/oc-cookingfoil/>
+<p align="center">
+  <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=en"><img src="brand/buttons/website-en.svg" alt="Website" width="160" height="44" /></a>
+  <a href="README.md#quick-start"><img src="brand/buttons/setup-en.svg" alt="Setup guide" width="160" height="44" /></a>
+  <a href="README.md#connecting-a-client"><img src="brand/buttons/connect-en.svg" alt="Connect console" width="160" height="44" /></a>
+</p>
 
 ![CookingFoil](site/screenshots/en/home-no-art.webp)
 
@@ -355,7 +359,7 @@ CookingFoil itself speaks plain HTTP. Over `http://`, anything a console sends c
 - Responses carry defensive headers (`nosniff`, `DENY` framing, no referrer). Every refusal is logged with its reason on the Logs tab and in the `X-CookingFoil-Deny` header.
 - Secrets saved on the admin page are never shown again. Web uploads are off until you turn them on.
 
-To report a vulnerability, see [SECURITY.md](./SECURITY.md). Please do not open a public issue.
+To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do not open a public issue.
 
 ## API
 
