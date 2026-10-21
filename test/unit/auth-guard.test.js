@@ -127,9 +127,16 @@ test("trust-loopback disabled still reaches isLoopbackIp without throwing", () =
 test("no auth configured short-circuits — the smoke test's blind spot", () => {
   // Documents WHY the outage shipped: with COOK_AUTH_USERS empty the guard
   // returns a pass-through before it ever touches the loopback helper.
-  const r = runProbe({ authUsers: "" });
+  const r = runProbe({ authUsers: "", env: { COOK_FIRST_RUN_SETUP: "false" } });
   assert.equal(r.error, null);
   assert.equal(r.passedThrough, true);
+});
+
+test("a fresh install with nothing configured serves nothing until setup has run", () => {
+  const r = runProbe({ authUsers: "", env: { COOK_FIRST_RUN_SETUP: "true", COOK_ADMIN_PASSWORD: "", COOK_ADMIN_TOTP_SECRET: "" } });
+  assert.equal(r.error, null);
+  assert.equal(r.passedThrough, false);
+  assert.equal(r.status, 503);
 });
 
 test("a request without credentials is refused, not counted as a failed login", () => {

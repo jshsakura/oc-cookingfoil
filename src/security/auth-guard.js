@@ -20,6 +20,7 @@ import debug from "../debug.js";
 import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll } from "../helpers/envs.js";
 import { approveSignedInDevice } from "./pairing-approve.js";
 import * as users from "./users.js";
+import { adminAwaitsSetup } from "./setup.js";
 import * as store from "./store.js";
 import { lockoutRetryAfter, tooManyRequests } from "./retry-after.js";
 import { denyResponse, DENY } from "./deny.js";
@@ -60,8 +61,9 @@ export default function authGuard() {
     // Automation tokens: the admin API and the /shop.json catalog only, acting as the admin who made them.
     if (apiTokens.presented(req)) return tokenLane(req, res, next, clientIp(req));
 
-    // Accounts are managed live from /admin: no accounts means no sign-in wall.
-    if (!users.hasUsers()) return next();
+    // Accounts are managed live from /admin: no accounts means no sign-in wall,
+    // except on a fresh install (nothing configured yet), where nothing is served until setup has run.
+    if (!users.hasUsers()) return adminAwaitsSetup() ? untilSetup(req, res) : next();
 
     // An approved console (pairingGate) or a console's session token (sessionGate).
     if (req.pairedDevice || req.sessionLane) return next();
@@ -97,6 +99,12 @@ export function isBrowser(req) {
 }
 
 /** Pages go to /login and come back; a page's own fetches get a plain 401 (no popup). */
+function untilSetup(req, res) {
+  res.set("Cache-Control", "no-store");
+  if (req.method === "GET" && /text\/html/.test(req.get("accept") ?? "")) return res.redirect(302, "/setup");
+  res.status(503).json({ error: "setup-required" });
+}
+
 function toLogin(req, res) {
   res.set("Cache-Control", "no-store");
   const navigate = req.method === "GET" && (req.get("sec-fetch-mode") ? req.get("sec-fetch-mode") === "navigate" : /text\/html/.test(req.get("accept") ?? ""));

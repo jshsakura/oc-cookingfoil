@@ -163,7 +163,11 @@ function parseCookies(req) {
   for (const part of raw.split(";")) {
     const eq = part.indexOf("=");
     if (eq < 0) continue;
-    out[part.slice(0, eq).trim()] = decodeURIComponent(part.slice(eq + 1).trim());
+    try {
+      out[part.slice(0, eq).trim()] = decodeURIComponent(part.slice(eq + 1).trim());
+    } catch {
+      /* a mangled cookie is no cookie */
+    }
   }
   return out;
 }
