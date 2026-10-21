@@ -23,7 +23,7 @@ const T = {
       "bad-code": "설정 코드가 맞지 않습니다.", "locked-out": "여러 번 틀려 잠시 막았습니다. 잠시 뒤 다시 시도합니다.",
       "invalid-name": "아이디 형식이 맞지 않습니다.", "weak-password": "비밀번호는 8자 이상이어야 합니다.", mismatch: "두 비밀번호가 다릅니다.",
       "bad-otp": "코드가 맞지 않습니다. 앱의 시간이 맞는지 확인합니다.", expired: "시간이 지났습니다. 화면을 새로 고칩니다.",
-      "setup-closed": "설정이 이미 끝났습니다.", locked: "설정 코드부터 넣습니다.", other: "처리하지 못했습니다. 다시 시도합니다.",
+      "setup-closed": "설정이 이미 끝났습니다.", locked: "설정 코드부터 넣습니다.", origin: "접속한 주소가 서버가 아는 주소와 다릅니다. 리버스 프록시나 터널 뒤라면 .env 의 COOK_TRUST_PROXY 를 확인합니다.", other: "처리하지 못했습니다. 다시 시도합니다.",
     },
   },
   en: {
@@ -44,7 +44,7 @@ const T = {
       "bad-code": "That setup code is wrong.", "locked-out": "Too many tries. Wait a while and try again.",
       "invalid-name": "That ID isn't allowed.", "weak-password": "Passwords need at least 8 characters.", mismatch: "The passwords differ.",
       "bad-otp": "That code doesn't match. Check the app's clock.", expired: "Time ran out. Reload the page.",
-      "setup-closed": "Setup is already finished.", locked: "Enter the setup code first.", other: "Something went wrong. Try again.",
+      "setup-closed": "Setup is already finished.", locked: "Enter the setup code first.", origin: "The address you opened is not the one the server sees. Behind a reverse proxy or tunnel, check COOK_TRUST_PROXY in .env.", other: "Something went wrong. Try again.",
     },
   },
   ja: {
@@ -65,7 +65,7 @@ const T = {
       "bad-code": "設定コードが違います。", "locked-out": "失敗が続いたため一時的に止めています。しばらくして再試行します。",
       "invalid-name": "IDの形式が正しくありません。", "weak-password": "パスワードは8文字以上必要です。", mismatch: "パスワードが一致しません。",
       "bad-otp": "コードが一致しません。アプリの時刻を確認します。", expired: "時間切れです。ページを再読み込みします。",
-      "setup-closed": "設定はすでに完了しています。", locked: "先に設定コードを入力します。", other: "処理できませんでした。再試行します。",
+      "setup-closed": "設定はすでに完了しています。", locked: "先に設定コードを入力します。", origin: "開いたアドレスがサーバーの認識するアドレスと違います。リバースプロキシやトンネルの後ろなら .env の COOK_TRUST_PROXY を確認します。", other: "処理できませんでした。再試行します。",
     },
   },
   zh: {
@@ -86,7 +86,7 @@ const T = {
       "bad-code": "设置码不正确。", "locked-out": "尝试次数过多，已暂时锁定。请稍后再试。",
       "invalid-name": "ID 格式不正确。", "weak-password": "密码至少需要 8 个字符。", mismatch: "两次输入的密码不一致。",
       "bad-otp": "验证码不匹配。请检查应用的时间。", expired: "已超时。请刷新页面。",
-      "setup-closed": "设置已经完成。", locked: "请先输入设置码。", other: "处理失败，请重试。",
+      "setup-closed": "设置已经完成。", locked: "请先输入设置码。", origin: "你打开的地址与服务器识别的地址不一致。如果在反向代理或隧道之后，请检查 .env 中的 COOK_TRUST_PROXY。", other: "处理失败，请重试。",
     },
   },
 };

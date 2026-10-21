@@ -46,7 +46,11 @@ function guard(req, res, { unlocked = true } = {}) {
   res.set("Cache-Control", "no-store");
   if (!setup.setupOpen()) return res.status(410).json({ error: "setup-closed" }), false;
   const origin = req.get("Origin");
-  if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin" }), false;
+  const expected = resolveOrigin(req, publicBaseUrl);
+  if (origin && origin !== expected) {
+    debug.log("setup: refused a request from %s, the server sees itself as %s; behind a proxy or tunnel, set COOK_TRUST_PROXY to its hops", origin, expected);
+    return res.status(403).json({ error: "origin" }), false;
+  }
   if (unlocked && !hasToken(req)) return res.status(401).json({ error: "locked" }), false;
   return true;
 }
