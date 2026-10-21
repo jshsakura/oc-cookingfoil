@@ -20,6 +20,7 @@ const M = {
   "event.inbox": { ko: "임시 공유", en: "Shared inbox", ja: "一時共有", zh: "临时共享" },
   "event.direct": { ko: "외부 다운로드 전용 주소", en: "External download address", ja: "外部ダウンロード専用アドレス", zh: "外部下载专用地址" },
   "event.nsz": { ko: "NSZ 변환", en: "NSZ conversion", ja: "NSZ 変換", zh: "NSZ 转换" },
+  "event.security": { ko: "보안 감시", en: "Security watch", ja: "セキュリティ監視", zh: "安全监控" },
   "event.server": { ko: "서버 시작", en: "Server started", ja: "サーバー起動", zh: "服务器启动" },
   "event.test": { ko: "알림 시험", en: "Alert test", ja: "通知テスト", zh: "通知测试" },
 
@@ -72,6 +73,19 @@ const M = {
     en: "🔒 An address that got the ID or password wrong several times is locked out. If it is one of yours, unlock it on the admin page's log tab.",
     ja: "🔒 ID かパスワードを何度も間違えたアドレスをロックしました。自分の機器なら管理画面のログタブで解除します。",
     zh: "🔒 多次输错账号或密码的地址已被锁定。如果是自己的设备，请在管理页面的日志标签中解除。",
+  },
+
+  securityTrying: {
+    ko: ({ ip, place, count, max, path }) => `👀 ${ip} (${place}) 에서 로그인을 ${count}번 틀렸습니다. ${max}번이 되면 이 주소를 막습니다.\n🎯 경로: ${path}`,
+    en: ({ ip, place, count, max, path }) => `👀 ${ip} (${place}) has failed to sign in ${count} times. At ${max} the address is locked out.\n🎯 Path: ${path}`,
+    ja: ({ ip, place, count, max, path }) => `👀 ${ip} (${place}) からのログインが ${count} 回失敗しました。${max} 回になるとこのアドレスをブロックします。\n🎯 パス: ${path}`,
+    zh: ({ ip, place, count, max, path }) => `👀 ${ip}（${place}）已登录失败 ${count} 次。达到 ${max} 次将封锁该地址。\n🎯 路径：${path}`,
+  },
+  securityDigest: {
+    ko: ({ hours, fails, ips, locks, denied, locked, top }) => `📊 지난 ${hours}시간 보안 요약\n❌ 틀린 로그인 ${fails}번 (주소 ${ips}곳)\n🔒 새로 잠근 주소 ${locks}곳 · 지금 잠긴 주소 ${locked}곳\n⛔ 거절한 요청 ${denied}건${top ? `\n🎯 가장 많이 틀린 주소: ${top}` : ""}`,
+    en: ({ hours, fails, ips, locks, denied, locked, top }) => `📊 Security summary, last ${hours} hours\n❌ Failed sign-ins: ${fails} (from ${ips} addresses)\n🔒 Newly locked: ${locks} · locked now: ${locked}\n⛔ Refused requests: ${denied}${top ? `\n🎯 Most failures: ${top}` : ""}`,
+    ja: ({ hours, fails, ips, locks, denied, locked, top }) => `📊 直近 ${hours} 時間のセキュリティ概要\n❌ ログイン失敗 ${fails} 回（アドレス ${ips} 件）\n🔒 新たにブロック ${locks} 件 · 現在ブロック中 ${locked} 件\n⛔ 拒否したリクエスト ${denied} 件${top ? `\n🎯 最も失敗の多いアドレス: ${top}` : ""}`,
+    zh: ({ hours, fails, ips, locks, denied, locked, top }) => `📊 过去 ${hours} 小时安全摘要\n❌ 登录失败 ${fails} 次（${ips} 个地址）\n🔒 新封锁 ${locks} 个 · 当前封锁 ${locked} 个\n⛔ 拒绝的请求 ${denied} 次${top ? `\n🎯 失败最多的地址：${top}` : ""}`,
   },
 
   account: {

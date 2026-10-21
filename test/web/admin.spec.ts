@@ -520,8 +520,9 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await page.goto('/admin#alerts');
   await expect(page.locator('#al-status strong')).toHaveText('꺼져 있습니다');
   const boxes = page.locator('#al-events input');
-  await expect(boxes).toHaveCount(8);
+  await expect(boxes).toHaveCount(9);
   await expect(page.locator('#al-events .al-event', { hasText: '위험한 접근' }).locator('input')).toBeChecked();
+  await expect(page.locator('#al-events .al-event', { hasText: '보안 감시' }).locator('input')).toBeChecked();
   await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).toBeChecked();
   await expect(page.locator('#al-history')).toContainText('아직 알림이 없습니다');
 

@@ -170,6 +170,11 @@ export function appendAudit(entry) {
   scheduleFlush();
 }
 
+/** Audit entries at or after `since` (ms), oldest first. */
+export function auditSince(since) {
+  return state.audit.filter((e) => (e.at ?? 0) >= since);
+}
+
 // ── Denials (the operator's "why was this refused?" trail) ─────────────────
 // Written exclusively through security/deny.js so every refusal in the app
 // lands here in one shape.

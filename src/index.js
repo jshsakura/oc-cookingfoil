@@ -99,6 +99,7 @@ import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
+import * as securityWatch from "./security/security-watch.js";
 import * as telegramUpdates from "./security/telegram-updates.js";
 
 // Node gives each address of a host 250 ms before trying the next. Telegram,
@@ -417,6 +418,8 @@ directHealth
   .start()
   .catch(() => {})
   .then(() => alert("server", (t) => [t("serverStarted"), directHealth.startLine(t)].filter(Boolean).join(t("gap"))));
+// Every six hours, a summary of failed sign-ins and lockouts, when there were any.
+securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
