@@ -1,6 +1,6 @@
 {
   "name": "oc-cookingfoil",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "CookingFoil: a personal, self-hosted homebrew file server, with names and icons.",
   "main": "./src/index.js",
   "type": "module",
