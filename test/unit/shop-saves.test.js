@@ -138,6 +138,18 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
   }
 });
 
+test("an empty saves folder is not offered to consoles", async () => {
+  const server = await boot(fs.mkdtempSync(path.join(os.tmpdir(), "saves-empty-")));
+  try {
+    const { features } = await (await get("/api/shop/info")).json();
+    assert.ok(!features.includes("shop-saves"));
+    assert.ok(!features.includes("user-patches"), "no patch to hand out either");
+    assert.deepEqual((await (await get("/api/saves")).json()).saves, [], "the API answers, with nothing in it");
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
+
 test("without a saves folder the API is off", async () => {
   const server = await boot(path.join(os.tmpdir(), "no-such-saves-" + process.pid));
   try {

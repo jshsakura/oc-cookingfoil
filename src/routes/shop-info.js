@@ -33,7 +33,8 @@ import { devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs
 import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import { retroEnabled } from "./retro.js";
-import { savesEnabled } from "./saves.js";
+import { savesCatalog, savesEnabled } from "./saves.js";
+import * as userPatches from "../meta/user-patches.js";
 import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
 import * as prodKeys from "../security/prod-keys.js";
@@ -60,7 +61,6 @@ const FEATURES = [
   "genre-keys",           // categories are English keys; sections.genres maps them per language
   "featured",             // sections.featured [{ id, title, banner_url?, title_ids }]
   "image-sizes",
-  "user-patches",
   "item-icons",           // base item.icons { ko?, en?, ja?, zh? } and ?lang= on icon/banner; detail iconUrl/bannerUrl follow ?lang=
   "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
   "active-downloads", // X-CookingFoil-Active-Downloads: consoles downloading now, the caller included
@@ -80,6 +80,9 @@ async function hasRetroGames() {
 
 export default async function shopInfoRoute(req, res) {
   const retro = await hasRetroGames();
+  // Saves and patches show on the console only once there is one to hand out; an empty folder is not a feature.
+  const saves = savesEnabled() && (await savesCatalog().list().catch(() => [])).length > 0;
+  const patches = (await userPatches.list()).length > 0;
   const stats = shopCache.stats();
   const adminDevice = Boolean(adminDeviceOf(req));
   res.header("Cache-Control", "private, max-age=60");
@@ -104,9 +107,11 @@ export default async function shopInfoRoute(req, res) {
       // retro-index: GET /api/retro/index lists every game unsorted and light, for a client merging servers.
       ...(retro ? ["retro", "retro-index"] : []),
       // shop-saves: /api/saves hands out save files to restore on the console.
-      ...(savesEnabled() ? ["shop-saves"] : []),
+      ...(saves ? ["shop-saves"] : []),
       // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
-      ...(savesEnabled() ? ["saves-by-game"] : []),
+      ...(saves ? ["saves-by-game"] : []),
+      // user-patches: /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches; while one is listed.
+      ...(patches ? ["user-patches"] : []),
       // homebrew: /api/homebrew lists .nro apps to keep in sdmc:/switch/<app>/.
       // homebrew-titles: GET /api/homebrew?with=titles also lists .nsp apps (install_type "title") to install like a game.
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
