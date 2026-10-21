@@ -13,6 +13,7 @@ import { adminTotpEnabled, adminOwner, adminPasswordMode } from "./admin-session
 import { secretSource, isEnrolled } from "./admin-secret.js";
 import { adminEmail } from "../helpers/envs.js";
 import { proxyCollapseObserved } from "./proxy-check.js";
+import { ready as keysReady } from "./prod-keys.js";
 
 export const SEVERITY = { WARN: "warn", INFO: "info" };
 
@@ -33,8 +34,17 @@ export function authLanes() {
   };
 }
 
-export function configWarnings(lanes = authLanes()) {
+export function configWarnings(lanes = authLanes(), { keys = keysReady() } = {}) {
   const out = [];
+
+  if (!keys) {
+    out.push({
+      severity: SEVERITY.WARN,
+      code: "no-prod-keys",
+      title: "No prod.keys: the server serves no games until it has them",
+      detail: "Hand prod.keys in on the admin page's settings tab, or mount it at COOK_PROD_KEYS_PATH. It applies at once, no restart.",
+    });
+  }
 
   if (!lanes.accounts.enabled && !lanes.pairing.enabled) {
     out.push({

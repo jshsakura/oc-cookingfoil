@@ -18,6 +18,7 @@ import titleDetailRoute from "./routes/title-detail.js";
 import clientConfigRoute from "./routes/client-config.js";
 import shopJsonRoute from "./routes/shop-json.js";
 import landingRoute from "./routes/landing.js";
+import { keysGate } from "./security/keys-gate.js";
 import activityRouter from "./routes/activity.js";
 import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
@@ -208,6 +209,8 @@ const downloadRouters = {
   "/api/client": clientUpdateRouter(),
   "/api/retro": retroRouter(),
 };
+// No games until the server has prod.keys; the admin page stays open to hand them in.
+expressApp.use(keysGate());
 // Downloads on the direct address (through its proxy, with a download token) are
 // answered here, without the sign-in; every other request goes on through the stack below.
 expressApp.use(directLane(romsDirPath, { routes: downloadRouters }));
