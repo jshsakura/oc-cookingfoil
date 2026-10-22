@@ -121,3 +121,13 @@ test("a backup copies only the data folder's own files, never a trash folder", a
   assert.ok(all.some((p) => p.endsWith(path.join("0100000000010000", "info.json"))), "the backup ran");
   assert.ok(!all.some((p) => p.includes(".cookingfoil-trash")));
 });
+
+test("a move's work folder, or one a stop left behind, is never listed as a patch or save", async () => {
+  const OTHER = "0100000000020000";
+  put("patches", `${OTHER}/.moving-0a1b2c3d/한글패치/atmosphere/contents/${OTHER}/romfs/a.bin`);
+  put("saves", `${OTHER}/.moving-0a1b2c3d/세이브/save.dat`);
+  const patches = await import("../../src/meta/user-patches.js");
+  assert.ok(!(await patches.scanDir(dirs.patches, { wait: false })).some((p) => p.folder.startsWith(".")));
+  const saves = await import("../../src/meta/shop-saves.js");
+  assert.ok(!(await saves.scanDir(dirs.saves, { hash: async (f) => `${f.path}:${f.size}`, save() {} })).some((s) => String(s.folder ?? s.name).startsWith(".")));
+});
