@@ -377,6 +377,10 @@ test("an automation token cannot restart the server", async () => {
   assert.ok(TOKEN_BLOCKED_RE.test("/api/tokens"));
   assert.ok(TOKEN_BLOCKED_RE.test("/api/keys"), "prod.keys only from a person");
   assert.ok(!TOKEN_BLOCKED_RE.test("/api/server-settings"));
+  assert.ok(TOKEN_BLOCKED_RE.test("/api/library/files/remove"), "a game file deleted for good only by a person");
+  assert.ok(TOKEN_BLOCKED_RE.test("/api/Library/Other/Remove/"));
+  assert.ok(!TOKEN_BLOCKED_RE.test("/api/library/files"), "finding files stays open");
+  assert.ok(!TOKEN_BLOCKED_RE.test("/api/library/rescan"));
 });
 
 test("the container health check skips the / probe while draining", async () => {

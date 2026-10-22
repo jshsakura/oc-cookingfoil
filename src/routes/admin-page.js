@@ -134,9 +134,10 @@ function clientBuildWarnings() {
 // their approval, client downloads), the alerts that carry the approval
 // buttons, whether the server runs, and the binaries every console installs (the client build
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
-// which release file of it, uploaded patches and which of them a game requires). Routes match
+// which release file of it, uploaded patches and which of them a game requires), and deleting
+// files from the game library, which has no trash to bring them back from. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */
 function decodedPath(raw) {
@@ -155,7 +156,7 @@ function requireSession(req, res) {
       return false;
     }
     if (TOKEN_BLOCKED_RE.test(path)) {
-      res.status(403).json({ error: "automation tokens cannot change accounts or sign-in" });
+      res.status(403).json({ error: "automation tokens cannot do this; sign in to the admin page" });
       return false;
     }
   }
