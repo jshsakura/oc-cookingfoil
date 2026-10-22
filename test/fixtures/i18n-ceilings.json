@@ -82,7 +82,7 @@
     "src/routes/admin/patches-api.js": 7,
     "src/routes/admin/patches-panel.js": 68,
     "src/routes/admin/retro-art-api.js": 21,
-    "src/routes/admin/retro-art-panel.js": 156,
+    "src/routes/admin/retro-art-panel.js": 146,
     "src/routes/admin/retro-cores-api.js": 2,
     "src/routes/admin/retro-pack-api.js": 13,
     "src/routes/admin/retro-variants-api.js": 6,

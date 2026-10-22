@@ -7,7 +7,7 @@ import * as storageGuide from "../helpers/storage-guide.js";
 
 const where = () => ({ layout: envs.layout, retroDir: envs.retroDir });
 
-export const LIBRARY = [
+export const libraryCapabilities = [
   defineCapability({
     id: "library_storage_guide",
     area: "library",

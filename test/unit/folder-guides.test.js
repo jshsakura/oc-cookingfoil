@@ -97,7 +97,9 @@ test("there is a guide for each role folder, retro/roms, every system folder, th
   for (const g of all) {
     for (const k of ["path", "dir", "role", "title", "purpose", "accepts", "structure", "naming", "server", "doNotPut", "text"]) assert.ok(k in g, `${g.path}: ${k}`);
     assert.equal(g.dir, path.join(layout.root, ...g.path.split("/")), "on a storage layout the path is relative to the storage root");
-    assert.ok(g.text.split("\n").length < 45, `${g.path}: ${g.text.split("\n").length} lines`);
+    // The BIOS folder's guide has one line per system bios.js knows; the rest of it stays short like the others.
+    const lines = g.text.split("\n").length - (g.role === "bios" ? g.bios.length : 0);
+    assert.ok(lines < 45, `${g.path}: ${lines} lines`);
     assert.ok(!/[—–]/.test(g.text), `${g.path} has a dash`);
     assert.ok(!/[가-힣]/.test(g.text), `${g.path} has Korean`);
   }
@@ -121,9 +123,10 @@ test("a system folder's guide comes from the system table: extensions, core, BIO
     file: "mgba_libretro_libnx.nro", folder: "retro/retroarch/cores", consolePath: "sdmc:/retroarch/cores/mgba_libretro_libnx.nro", note: folderGuides.CORE_NOTE,
   });
   assert.match(folderGuides.CORE_NOTE, /Switch \.nro built with libnx[^\n]*\.dll, \.so or \.dylib/);
-  assert.equal(gba.bios, null);
+  assert.deepEqual(gba.bios.required, [], "the GBA BIOS is optional");
+  assert.deepEqual(gba.bios.optional.map((g) => g.map((f) => f.file)), [["gba_bios.bin"]]);
   assert.match(gba.title, /^Game Boy Advance ROMs \(gba\)$/);
-  assert.ok(gba.text.includes("BIOS: none needed."));
+  assert.ok(gba.text.includes("BIOS, optional: `retro/retroarch/system/gba_bios.bin`"), gba.text);
   assert.ok(gba.text.includes("`retro/thumbnails/gba/Named_Boxarts/<ROM name>.png`") && gba.text.includes("`retro/bezels/gba/<ROM name>.png`"));
   assert.ok(gba.text.includes("`incoming/gba/`"));
   const segacd = byPath(all, "retro/roms/segacd");
@@ -153,16 +156,19 @@ test("the BIOS folder's guide lists every rule of bios.js and where it goes on t
 test("BIOS facts follow the real bios.js: every group of every system, and a NeoCD BIOS goes into neocd/", () => {
   for (const [id, rule] of Object.entries(BIOS)) {
     const b = folderGuides.biosFiles(id);
+    const extra = rule.extra ?? [];
     assert.deepEqual(b.required.map((g) => g.map((f) => f.file)), rule.groups, id);
-    for (const f of b.required.flat()) assert.equal(f.console, `sdmc:/retroarch/system/${f.file}`, `${id} ${f.file}`);
-    assert.deepEqual(b.optional, [], `${id}: this bios.js has no optional files`);
+    assert.deepEqual(b.optional.map((g) => g.map((f) => f.file)), extra.filter((x) => !x.required).map((x) => x.files), `${id}: optional`);
+    assert.deepEqual(b.forExt.map((g) => [g.ext, g.files.map((f) => f.file)]), extra.filter((x) => x.required && x.ext).map((x) => [x.ext, x.files]), `${id}: by extension`);
+    for (const f of [...b.required.flat(), ...b.optional.flat()]) assert.equal(f.console, `sdmc:/retroarch/system/${f.file}`, `${id} ${f.file}`);
   }
+  assert.ok(byPath(guidesOf(storageLayout(tmp())), "retro/roms/nes").text.includes("BIOS, required for .fds games: `retro/retroarch/system/disksys.rom`"), "the FDS BIOS is named with its games");
   assert.deepEqual(folderGuides.biosFiles("msx").required.map((g) => g.length), [1, 1], "two groups, each needed");
   assert.equal(folderGuides.biosFiles("segacd").required[0].length, 3, "one group met by any of three files");
   assert.ok(BIOS.neocd.groups[0].every((f) => f.startsWith("neocd/")));
   assert.equal(folderGuides.biosFiles("neocd").required[0][0].console, `sdmc:/retroarch/system/${BIOS.neocd.groups[0][0]}`);
-  assert.equal(folderGuides.biosFiles("gba"), null, "a system bios.js does not list needs none");
-  assert.ok(byPath(guidesOf(storageLayout(tmp())), "retro/roms/gba").text.includes("BIOS: none needed."));
+  assert.equal(folderGuides.biosFiles("snes"), null, "a system bios.js does not list needs none");
+  assert.ok(byPath(guidesOf(storageLayout(tmp())), "retro/roms/snes").text.includes("BIOS: none needed."));
 });
 
 test("the guides say deletes go to a trash only in the retro folder for now, from one constant", () => {

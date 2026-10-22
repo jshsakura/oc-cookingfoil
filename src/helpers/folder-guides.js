@@ -22,7 +22,7 @@
  * server does. Every function here is pure.
  */
 import path from "path";
-import { BIOS } from "../retro/bios.js";
+import { BIOS, ruleGroups } from "../retro/bios.js";
 import { biosSets, dependencies, firstNeeding } from "../retro/arcade.js";
 import { coreFile } from "../retro/pack-status.js";
 import { sdPathOf } from "../retro/base-pack.js";
@@ -68,8 +68,10 @@ const fileOf = (e) => (typeof e === "string" ? e : e?.file ?? e?.path ?? e?.name
 const asGroup = (g) => (Array.isArray(g) ? g : [g]);
 
 /**
- * The BIOS a system needs, from bios.js: { required: [[file]], optional: [[file]] } where a group is
- * met by any one of its files and each file is { file, console, md5 }. Null when the system needs none.
+ * The BIOS a system takes, from bios.js (ruleGroups): { required: [[file]], optional: [[file]],
+ * forExt: [{ ext, files: [file] }] } where a group is met by any one of its files and each file is
+ * { file, console, md5 }. `forExt` is needed only by games with those extensions (nes .fds, saturn
+ * .m3u). Null when bios.js has no rule for the system.
  */
 export function biosFiles(id, rules = BIOS) {
   const rule = rules[id];
@@ -82,8 +84,13 @@ export function biosFiles(id, rules = BIOS) {
     const file = fileOf(e);
     return file ? { file, console: onConsole(`system/${file}`), md5: md5Of(e, file) } : null;
   }).filter(Boolean);
-  const groups = (list) => (Array.isArray(list) ? list : []).map(files).filter((g) => g.length);
-  return { required: groups(rule.groups), optional: groups(rule.optional) };
+  const groups = (list) => list.map(files).filter((g) => g.length);
+  const all = ruleGroups(rule);
+  return {
+    required: groups(all.filter((g) => g.required && !g.ext).map((g) => g.files)),
+    optional: groups(all.filter((g) => !g.required).map((g) => g.files)),
+    forExt: all.filter((g) => g.required && g.ext).map((g) => ({ ext: g.ext, files: files(g.files) })).filter((g) => g.files.length),
+  };
 }
 
 /** One BIOS group as text: each file where it goes on the server (under `dir`) and on the console, md5 when known. */
@@ -94,9 +101,10 @@ function groupText(g, dir) {
 
 /** The BIOS lines of a system's guide, required before optional. */
 function biosLines(b, dir) {
-  if (!b || (!b.required.length && !b.optional.length)) return ["BIOS: none needed."];
+  if (!b || (!b.required.length && !b.optional.length && !b.forExt.length)) return ["BIOS: none needed."];
   return [
     ...b.required.map((g) => `BIOS, required: ${groupText(g, dir)}.`),
+    ...b.forExt.map((g) => `BIOS, required for ${g.ext.join(" ")} games: ${groupText(g.files, dir)}.`),
     ...b.optional.map((g) => `BIOS, optional: ${groupText(g, dir)}.`),
   ];
 }
@@ -397,12 +405,13 @@ function retroGuides({ layout, systems, runnable, retroDir, packDir }) {
     purpose: ["RetroArch on the console reads BIOS and firmware files from here; the server sends this folder to each console with the RetroArch pack."],
     consolePath: "sdmc:/retroarch/system/",
     bios: biosList,
-    holds: biosList.flatMap((b) => biosLines(b, "").map((l) => `${b.name} (\`${b.system}\`): ${l.replace(/^BIOS, /, "")}`)),
+    // One line per system, its groups after one another, so the guide stays short as bios.js grows.
+    holds: biosList.map((b) => `${b.name} (\`${b.system}\`): ${biosLines(b, "").map((l) => l.replace(/^BIOS, /, "")).join(" ")}`),
     structure: ["system/", ...biosList.map((b) => b.required[0]?.[0]?.file).filter(Boolean).map((file) => `  ${file}`)],
     naming: ["File names must match exactly, with the folder in front when one is shown. A required group is met by any one of its files."],
     server: [
       "Ships no BIOS of its own: the files are copyrighted. The retro tab lists the ones missing for systems that have games.",
-      "Sends every file here to the consoles as it is, and never renames or deletes one. A README.md at the top stays on the server.",
+      "Sends every file here to the consoles and never renames or deletes one. A file it knows by md5 under another name also goes, once, as the name the core reads. A README.md at the top stays on the server.",
     ],
     doNotPut: [`Cores: \`${pack}/cores/\`.`, "ROMs: `retro/roms/`."],
   }));

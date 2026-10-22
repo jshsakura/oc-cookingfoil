@@ -67,7 +67,7 @@ test("BIOS notices only name consoles that have games, and an any-of group is me
   assert.deepEqual(missingBios([], files), [], "no games, no notice");
   assert.deepEqual(missingBios(["snes", "segacd", "neocd"], files), [], "one region BIOS will do; NeoCD finds it in a subfolder");
   assert.deepEqual(missingBios(["col", "col", "msx"], files), [
-    { id: "col", missing: [["colecovision.rom"]] },
+    { id: "col", missing: [["colecovision.rom", "coleco.rom", "os7.u2"]] },
     { id: "msx", missing: [["Databases/msxromdb.xml"]] },
   ]);
   assert.deepEqual(missingBios(["segacd", "pcecd"], []), [
