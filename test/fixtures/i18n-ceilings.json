@@ -5,7 +5,6 @@
     "src/helpers/transfer-track.js": 1,
     "src/meta/art-crop.js": 10,
     "src/meta/art-search.js": 6,
-    "src/meta/categories.js": 3,
     "src/meta/console-paths.js": 11,
     "src/meta/custom-art.js": 1,
     "src/meta/eshop-price.js": 3,
@@ -34,7 +33,7 @@
     "src/meta/titledb-bootstrap.js": 2,
     "src/meta/verify-queue.js": 3,
     "src/retro/achievements/sync.js": 4,
-    "src/retro/arcade-policy.js": 15,
+    "src/retro/arcade-policy.js": 14,
     "src/retro/art/ratings.js": 2,
     "src/retro/art/sync.js": 5,
     "src/retro/core-files.js": 7,
@@ -43,7 +42,7 @@
     "src/retro/pack-bundle.js": 7,
     "src/retro/pack-fill.js": 13,
     "src/retro/rom-hash.js": 2,
-    "src/retro/shortcut-name.js": 2,
+    "src/retro/shortcut-name.js": 1,
     "src/retro/trash.js": 5,
     "src/retro/variants.js": 8,
     "src/routes/admin-page.js": 13,
@@ -107,13 +106,13 @@
     "src/security/pairing-approve.js": 1,
     "src/security/store.js": 2,
     "src/security/totp-guard.js": 1,
-    "src/tasks/activity.js": 3
+    "src/tasks/activity.js": 3,
+    "src/views/guide.md": 98
   },
-  "dictionaries": {
-    "src/meta/shop-saves.js": 1,
-    "src/retro/systems.js": 6,
-    "src/routes/dropbox-bridge.js": 1,
-    "src/security/drain.js": 2,
-    "src/views/landing.html": 1
+  "problems": {
+    "src/meta/shop-saves.js": 2,
+    "src/retro/systems.js": 41,
+    "src/routes/dropbox-bridge.js": 7,
+    "src/security/drain.js": 14
   }
 }

@@ -4,15 +4,18 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
-  ADMIN_LANGS, CLIENT_LANGS, ROOT, compare, countsOf, dictionaryProblems, readCeilings, scanSource, scanTree,
+  ADMIN_LANGS, CEILINGS_FILE, CLIENT_LANGS, ROOT, baseRef, compare, countsOf, dataLiteralProblems, dictionaryProblems,
+  lowerCeilings, newSince, readCeilings, readDataLiterals, renameHints, scanEntries, scanRef, scanSource, scanTree,
 } from "../../scripts/i18n-scan.mjs";
 
 // Korean a person reads belongs in a dictionary with every language: ko en ja zh on admin and web
 // pages, all twelve client languages for text a console shows. The panels written before this rule
-// are Korean only; test/fixtures/i18n-ceilings.json holds their counts so they only go down.
+// are Korean only; test/fixtures/i18n-ceilings.json holds their counts so they only go down, and
+// against the merge base with origin/main no file may gain a Korean string it did not have.
 
 const FIXTURES = path.join(import.meta.dirname, "../fixtures/i18n");
-const scanFixture = (name) => scanSource(readFileSync(path.join(FIXTURES, name), "utf-8"), name);
+const fixture = (name) => readFileSync(path.join(FIXTURES, name), "utf-8");
+const scanFixture = (name, options) => scanSource(fixture(name), name, options);
 
 test("Korean outside a dictionary is counted; comments, regexes, keys and dictionaries are not", () => {
   const { strays, dicts } = scanFixture("stray.js");
@@ -29,27 +32,133 @@ test("an HTML page counts its text and attributes, and reads its scripts as code
   assert.equal(dicts.length, 1);
 });
 
-test("a dictionary lacking a language or a key, or with an empty value or a dash, is broken", () => {
-  const { dicts } = scanFixture("broken-dict.js");
+test("each problem in a dictionary counts on its own: a missing language, a missing key, an empty value, a dash", () => {
+  const { dicts, problems } = scanFixture("broken-dict.js");
   assert.equal(dicts.length, 2, "objects without Korean text are not dictionaries");
   const [admin, client] = dicts.map(dictionaryProblems);
-  assert.ok(admin.includes("missing zh"), admin.join("; "));
-  assert.ok(admin.includes("en lacks bye"), admin.join("; "));
-  assert.ok(admin.includes("ja.hi is empty"), admin.join("; "));
-  assert.ok(admin.includes("en.hi has a dash"), admin.join("; "));
+  for (const p of ["missing zh", "en lacks bye", "ja.hi is empty", "en.hi has a dash"]) assert.ok(admin.includes(p), admin.join("; "));
   assert.equal(dicts[1].kind, "client", "a client-only language makes it a client dictionary");
-  assert.equal(client.length, 1);
-  assert.match(client[0], /^missing ja, zh, es, fr, de, it, pt, ru, nl$/);
+  assert.deepEqual(client, ["ja", "zh", "es", "fr", "de", "it", "pt", "ru", "nl"].map((l) => `missing ${l}`));
+  assert.equal(problems.length, admin.length + client.length);
+  assert.ok(problems.every((p) => p.key.startsWith("ADMIN: ") || p.key.startsWith("CLIENT: ")), "a problem is named by its dictionary");
 });
 
-test("the ratchet: a new file starts at 0, going over fails, dropping under asks to lower the ceiling", () => {
-  const counts = countsOf([{ file: "src/new.js", ...scanFixture("stray.js") }]);
-  assert.deepEqual(compare(counts, {}).over, [{ section: "strays", file: "src/new.js", n: 4, ceiling: 0 }]);
-  assert.deepEqual(compare(counts, { strays: { "src/new.js": 4 } }), { over: [], under: [] });
-  assert.deepEqual(compare(counts, { strays: { "src/new.js": 5 } }).under, [{ section: "strays", file: "src/new.js", n: 4, ceiling: 5 }]);
+test("a key added to ko alone in a dictionary that is already broken goes over the ceiling", () => {
+  const source = fixture("broken-dict.js");
+  const before = countsOf([{ file: "src/x.js", ...scanSource(source, "src/x.js") }]);
+  const after = countsOf([{ file: "src/x.js", ...scanSource(source.replace('bye: "안녕히 가세요"', 'bye: "안녕히 가세요", fresh: "새 문구"'), "src/x.js") }]);
+  assert.ok(after.problems["src/x.js"] > before.problems["src/x.js"]);
+  assert.equal(compare(after, before).over.length, 1);
 });
 
-// Lines this branch changed in a file, so a failure names the new strings rather than the whole backlog.
+test("properties beside the languages in a dictionary are read like any other code", () => {
+  const { strays, problems } = scanFixture("sibling.js");
+  assert.deepEqual(strays.map((s) => s.text), ["사전 옆에 숨긴 문구", "메서드 안의 문구"]);
+  assert.deepEqual(problems, []);
+});
+
+test("a translation left in Korean, or copied from ko, is a missing translation", () => {
+  const { dicts } = scanFixture("copied.js");
+  const [admin, client] = dicts.map(dictionaryProblems);
+  assert.deepEqual(admin, ["ja.save copies ko", "zh.open is Korean"]);
+  assert.deepEqual(client, ["es copies ko"]);
+  assert.equal(dicts.length, 2, "the language menu names Korean in Korean in every language");
+});
+
+test("against the base, a new Korean string fails even when another one went away", () => {
+  const base = scanEntries([{ file: "src/a.js", source: 'export const a = ["저장합니다", "열었습니다"];' }]);
+  const swapped = scanEntries([{ file: "src/a.js", source: 'export const a = ["저장합니다", "새 문구입니다"];' }]);
+  assert.deepEqual(compare(countsOf(swapped), countsOf(base)).over, [], "the count alone does not see a swap");
+  assert.deepEqual(newSince(swapped, base).map((n) => `${n.file}:${n.line} ${n.text}`), ["src/a.js:1 새 문구입니다"]);
+  const twice = scanEntries([{ file: "src/a.js", source: 'export const a = ["저장합니다", "저장합니다"];' }]);
+  assert.deepEqual(newSince(twice, base).map((n) => n.text), ["저장합니다"], "a second copy is a new string too");
+});
+
+test("against the base, text moved to another file or reformatted in HTML is not new", () => {
+  const base = scanEntries([{ file: "src/a.js", source: 'export const a = "저장합니다";\nexport const h = `<h3 class="x">코어</h3>`;' }]);
+  const moved = scanEntries([
+    { file: "src/a.js", source: 'export const h = `<h3 class="y" data-x="1">코어</h3>`;' },
+    { file: "src/b.js", source: 'export const a = "저장합니다";' },
+  ]);
+  assert.deepEqual(newSince(moved, base), []);
+  const added = scanEntries([{ file: "src/a.js", source: 'export const a = "저장합니다";\nexport const h = `<h3>코어</h3><button>받기</button>`;' }]);
+  assert.deepEqual(newSince(added, base).map((n) => n.text), ["코어 · 받기"], "a button added to a counted HTML line is new");
+});
+
+test("against the base, a new problem in a dictionary fails even when another was fixed", () => {
+  const base = scanEntries([{ file: "src/a.js", source: 'export const W = { ko: { a: "가", b: "나" }, en: { a: "A – x", b: "B" }, ja: { a: "あ", b: "い" }, zh: { a: "甲", b: "乙" } };' }]);
+  const swapped = scanEntries([{ file: "src/a.js", source: 'export const W = { ko: { a: "가", b: "나", c: "다" }, en: { a: "A", b: "B" }, ja: { a: "あ", b: "い", c: "う" }, zh: { a: "甲", b: "乙", c: "丙" } };' }]);
+  assert.deepEqual(compare(countsOf(swapped), countsOf(base)).over, []);
+  assert.deepEqual(newSince(swapped, base).map((n) => n.text), ["W: en lacks c"], "named by its dictionary");
+});
+
+test("a markdown doc counts its Korean lines until every admin language has the same document", () => {
+  const ko = "# 안내\n\n첫 줄입니다.\n\n## 둘\n\n- 항목\n";
+  const en = "# Guide\n\nFirst line.\n\n## Two\n\n- Item\n";
+  const alone = scanEntries([{ file: "src/views/guide.md", source: ko }]);
+  assert.deepEqual(alone[0].strays.map((s) => s.line), [1, 3, 5, 7]);
+  assert.deepEqual(alone[0].problems, []);
+  const guide = (results) => results.find((r) => r.file === "src/views/guide.md");
+  const partial = scanEntries([{ file: "src/views/guide.md", source: ko }, { file: "src/views/guide.en.md", source: en }]);
+  assert.equal(guide(partial).strays.length, 4, "the Korean still counts while a language is missing");
+  assert.deepEqual(guide(partial).problems.map((p) => p.text), ["missing ja", "missing zh"]);
+  const whole = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko })));
+  assert.deepEqual(whole.flatMap((r) => [...r.strays, ...r.problems]), [], "a translated doc is a dictionary of documents");
+  const longer = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko + "\n새 줄입니다.\n" })));
+  assert.deepEqual(guide(longer).problems.map((p) => p.text), ["en has 4 lines, ko 5", "ja has 4 lines, ko 5", "zh has 4 lines, ko 5"]);
+  const korean = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i === 2 ? ko : i ? en : ko })));
+  assert.equal(korean.find((r) => r.file === "src/views/guide.ja.md").strays.length, 4, "Korean in a translation counts");
+});
+
+test("a renamed or split file: the failure says how to move the ceiling, and --rename moves it without raising it", () => {
+  const ceilings = { strays: { "src/old.js": 10 }, problems: {} };
+  const counts = { strays: { "src/a.js": 6, "src/b.js": 3 }, problems: {} };
+  const hints = renameHints(counts, ceilings, new Set(["src/a.js", "src/b.js"]));
+  assert.deepEqual(hints, ["node scripts/i18n-scan.mjs --lower --rename src/old.js src/a.js --rename src/old.js src/b.js"]);
+  const moved = lowerCeilings(ceilings, counts, [["src/old.js", "src/a.js"], ["src/old.js", "src/b.js"]]);
+  assert.deepEqual(moved, { strays: { "src/a.js": 6, "src/b.js": 3 }, problems: {} });
+  const greedy = lowerCeilings(ceilings, { strays: { "src/a.js": 8, "src/b.js": 5 }, problems: {} }, [["src/old.js", "src/a.js"], ["src/old.js", "src/b.js"]]);
+  assert.deepEqual(greedy.strays, { "src/a.js": 8, "src/b.js": 2 }, "a rename never hands out more than the old ceiling");
+  const kept = lowerCeilings({ strays: { "src/old.js": 10 } }, { strays: { "src/old.js": 7, "src/a.js": 5 } }, [["src/old.js", "src/a.js"]]);
+  assert.deepEqual(kept.strays, { "src/a.js": 3, "src/old.js": 7 }, "a split keeps what stays behind");
+});
+
+test("data literals are exempt only by file and exact text or constant, each with a reason, and none goes stale", () => {
+  const exempt = [
+    { file: "data-literals.js", constant: "ALIASES", reason: "matching table" },
+    { file: "data-literals.js", literal: "한국판", reason: "edition marker" },
+    { file: "data-literals.js", literal: "정발", reason: "edition marker" },
+  ];
+  const r = scanFixture("data-literals.js", { exempt });
+  assert.deepEqual(r.strays.map((s) => s.text), ["북미판", "한글"]);
+  assert.equal(r.used.size, 3);
+  const results = [{ file: "data-literals.js", ...r }];
+  assert.deepEqual(dataLiteralProblems(exempt, results), []);
+  const bad = [...exempt, { file: "data-literals.js", literal: "없는 문구", reason: "x" }, { file: "data-literals.js", literal: "북미판" }, { file: "data-literals.js", reason: "y" }];
+  const checked = scanFixture("data-literals.js", { exempt: bad });
+  assert.deepEqual(dataLiteralProblems(bad, [{ file: "data-literals.js", ...checked }]), [
+    "data-literals.js 없는 문구: matches nothing",
+    "data-literals.js 북미판: needs a reason",
+    "data-literals.js: needs one of literal or constant",
+  ]);
+});
+
+// ---- The tree itself ----
+
+const exempt = readDataLiterals();
+const results = scanTree(ROOT, exempt);
+const byFile = new Map(results.map((r) => [r.file, r]));
+const ceilings = readCeilings();
+const counts = countsOf(results);
+const { over, under } = compare(counts, ceilings);
+const base = baseRef();
+const baseResults = base ? scanRef(base, exempt) : null;
+const fresh = baseResults ? newSince(results, baseResults) : null;
+const NO_BASE = "No merge base with origin/main (a shallow clone?): only the per-file counts were compared, so a string swapped for another is not caught here.";
+const hints = renameHints(counts, ceilings, new Set(results.map((r) => r.file)));
+const RENAME = hints.length ? `\nIf a file was renamed or split, move its ceiling instead of editing the JSON:\n  ${hints.join("\n  ")}` : "";
+
+// Lines this branch changed in a file, to point at new strings when there is no base to compare with.
 function changedLines(file) {
   try {
     const diff = execFileSync("git", ["diff", "-U0", "--merge-base", "origin/main", "--", file], { cwd: ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
@@ -63,28 +172,52 @@ function changedLines(file) {
   }
 }
 
-const results = scanTree();
-const byFile = new Map(results.map((r) => [r.file, r]));
-const { over, under } = compare(countsOf(results), readCeilings());
+const HOW = "Put new text in a dictionary with all its languages (ko en ja zh for admin, the twelve for clients). "
+  + "Admin page HTML uses ${top('key')} rather than Korean with a data-top attribute. "
+  + "A table that holds Korean as data goes in test/fixtures/i18n-data-literals.json with its reason.";
 
-test("no file has more Korean outside dictionaries, or more broken dictionaries, than its ceiling", () => {
+test("no file has more Korean outside dictionaries, or more dictionary problems, than its ceiling", () => {
   const report = over.map(({ section, file, n, ceiling }) => {
     const r = byFile.get(file);
-    if (section === "dictionaries") {
-      const broken = r.dicts.filter((d) => dictionaryProblems(d).length);
-      return `${file}: ${n} broken dictionaries, ceiling ${ceiling}\n` + broken.map((d) => `  ${file}:${d.line} ${dictionaryProblems(d).join("; ")}`).join("\n");
-    }
-    const changed = changedLines(file);
-    const fresh = changed?.size ? r.strays.filter((s) => changed.has(s.line)) : r.strays;
-    const shown = (fresh.length ? fresh : r.strays).slice(0, 40);
-    return `${file}: ${n} Korean strings outside a dictionary, ceiling ${ceiling}\n` + shown.map((s) => `  ${file}:${s.line} ${s.text}`).join("\n");
+    const items = section === "problems" ? r.problems : r.strays;
+    const changed = fresh ? null : changedLines(file);
+    const newer = fresh ? fresh.filter((f) => f.file === file && f.section === section) : items.filter((s) => changed?.has(s.line));
+    const shown = (newer.length ? newer : items).slice(0, 40);
+    const what = section === "problems" ? "dictionary problems" : "Korean strings outside a dictionary";
+    return `${file}: ${n} ${what}, ceiling ${ceiling}\n` + shown.map((s) => `  ${file}:${s.line} ${s.text}`).join("\n");
   });
-  assert.equal(over.length, 0, "Put new text in a dictionary with all its languages (ko en ja zh for admin, the twelve for clients):\n" + report.join("\n"));
+  assert.equal(over.length, 0, `${HOW}\n${report.join("\n")}${RENAME}${base ? "" : `\n${NO_BASE}`}`);
+});
+
+test("no file gains a Korean string or a dictionary problem it did not have at the merge base", (t) => {
+  if (!fresh) return t.diagnostic(NO_BASE);
+  const report = fresh.map((f) => `  ${f.file}:${f.line} ${f.section === "problems" ? "dictionary " : ""}${f.text}`);
+  assert.equal(fresh.length, 0, `${HOW}\nNew since ${base.slice(0, 7)}:\n${report.join("\n")}`);
 });
 
 test("a ceiling above its file's count is lowered, so the backlog only shrinks", () => {
   const report = under.map(({ section, file, n, ceiling }) => `  ${section} ${file}: ${n}, ceiling ${ceiling}`);
-  assert.equal(under.length, 0, "Lower the ceiling: run `node scripts/i18n-scan.mjs --lower` and commit test/fixtures/i18n-ceilings.json\n" + report.join("\n"));
+  assert.equal(under.length, 0, "Lower the ceiling: run `node scripts/i18n-scan.mjs --lower` and commit test/fixtures/i18n-ceilings.json\n" + report.join("\n") + RENAME);
+});
+
+test("the ceilings in total never rise above the merge base's", (t) => {
+  if (!base) return t.diagnostic(NO_BASE);
+  let before;
+  try {
+    before = JSON.parse(execFileSync("git", ["show", `${base}:${path.relative(ROOT, CEILINGS_FILE)}`], { cwd: ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }));
+  } catch {
+    return t.diagnostic("The merge base has no ceilings file yet.");
+  }
+  const total = (c, section) => Object.values(c[section] ?? {}).reduce((a, b) => a + b, 0);
+  for (const section of Object.keys(ceilings)) {
+    if (!(section in before)) continue;
+    assert.ok(total(ceilings, section) <= total(before, section), `${section} ceilings add up to more than at ${base.slice(0, 7)}: a ceiling was raised by hand`);
+  }
+});
+
+test("every data literal exemption has a reason and still matches something", () => {
+  const problems = dataLiteralProblems(exempt, results);
+  assert.deepEqual(problems, [], "Fix test/fixtures/i18n-data-literals.json:\n" + problems.join("\n"));
 });
 
 test("the scanner finds the known dictionaries and holds each to its languages", () => {
@@ -97,4 +230,6 @@ test("the scanner finds the known dictionaries and holds each to its languages",
   }
   const labels = dictsOf("src/meta/card-labels.js");
   assert.ok(labels.length >= 10 && labels.every((d) => d.kind === "client" && d.langs.size === CLIENT_LANGS.length));
+  assert.equal(ceilings.problems?.["src/views/landing.html"] ?? 0, 0, "the web page people see first has a whole dictionary");
+  assert.ok(byFile.get("src/views/guide.md")?.strays.length > 0, "the operator guide is read as text");
 });
