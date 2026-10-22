@@ -124,12 +124,12 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     const home = homeDir(id);
     const key = `${id}\0${home}`;
     if (settled.has(key)) return;
-    settled.add(key);
     const own = ownDir(id);
     let names;
     try {
       names = fs.readdirSync(own);
     } catch {
+      settled.add(key);
       return;
     }
     try {
@@ -143,26 +143,55 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
           artCrop.moveOriginal(path.join(own, name), anchor(id, slot));
         }
       }
-      if (home === own) return;
-      const kept = sidecar.read(own);
-      for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
-        if (!sidecar.adopt(p.file, home, p.slot, { ignore: ignored(id) })) artCrop.removeOriginal(anchor(id, p.slot));
+      if (home !== own) {
+        const kept = sidecar.read(own);
+        for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
+          try {
+            if (!sidecar.adopt(p.file, home, p.slot, { ignore: ignored(id) })) artCrop.removeOriginal(anchor(id, p.slot));
+          } catch (err) {
+            // Left here, and shown from here (pictures()); a name the item itself uses is not tried again.
+            if (!(err instanceof sidecar.SlotTaken)) throw err;
+          }
+        }
       }
+      settled.add(key);
     } catch (err) {
       debug.error("%s: %s: moving its pictures into %s: %s", label, id, home, err.message);
+      settled.add(key);
+    }
+  }
+
+  /** Writes a picture into the item's folder, or here when the item's own files use its name. Returns its version. */
+  function writePicture(id, slot, webp) {
+    try {
+      return sidecar.versionOfFile(sidecar.write(homeDir(id), slot, webp, { ignore: ignored(id) }));
+    } catch (err) {
+      if (!(err instanceof sidecar.SlotTaken)) throw err;
+      return sidecar.versionOfFile(sidecar.write(ownDir(id), slot, webp));
     }
   }
 
   // A picture put in by hand that is not .webp, or a slot holding two, is tidied once it is seen.
   const tidying = new Set();
-  function tidy(id) {
-    if (tidying.has(id)) return;
+  const failedTidy = new Map(); // id → the folder's pictures as they were when tidying them failed
+  function tidy(id, signature) {
+    if (tidying.has(id) || failedTidy.get(id) === signature) return;
     tidying.add(id);
+    let failed = false;
     serial(id, () => sidecar.normalize(homeDir(id), sizeOf, {
       ignore: ignored(id),
-      onError: (slot, err) => debug.error("%s: %s: %s left as it is: %s", label, id, slot, err.message),
-    })).catch((err) => debug.error("%s: %s: tidying its pictures: %s", label, id, err.message))
-      .finally(() => tidying.delete(id));
+      onError: (slot, err) => {
+        failed = true;
+        debug.error("%s: %s: %s left as it is: %s", label, id, slot, err.message);
+      },
+    })).catch((err) => {
+      failed = true;
+      debug.error("%s: %s: tidying its pictures: %s", label, id, err.message);
+    }).finally(() => {
+      tidying.delete(id);
+      if (failed) failedTidy.set(id, signature);
+      else failedTidy.delete(id);
+    });
   }
 
   /** What the item's folder holds now: { icon, banner, shots } (meta/art-sidecar.js read). */
@@ -170,7 +199,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     if (!idRe.test(String(id))) return { icon: null, banner: null, shots: [] };
     settle(id);
     const got = sidecar.read(homeDir(id), { ignore: ignored(id) });
-    if (got.untidy) tidy(id);
+    if (got.untidy) tidy(id, got.signature);
     if (homeDir(id) === ownDir(id)) return got;
     // One that could not be moved into the folder (a read-only one) is still shown from here.
     const spare = sidecar.read(ownDir(id));
@@ -211,8 +240,8 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     settle(id);
     const webp = await encode(await cut(raw, crop), sizeOf(part));
     const original = source === "upload" ? await shrink(raw) : null;
-    sidecar.write(homeDir(id), part, webp, { ignore: ignored(id) });
-    if (original) artCrop.keepOriginal(anchor(id, part), original, crop, now);
+    const version = writePicture(id, part, webp);
+    if (original) artCrop.keepOriginal(anchor(id, part), original, crop, now, version);
     else artCrop.removeOriginal(anchor(id, part));
     put(id, part, { source, ...(game ? { game } : {}), at: now });
     return webp.length;
@@ -225,6 +254,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     check(id);
     settle(id);
     sidecar.remove(homeDir(id), part, { ignore: ignored(id) });
+    sidecar.remove(ownDir(id), part);
     artCrop.removeOriginal(anchor(id, part));
     put(id, part, { off: true });
   }
@@ -236,6 +266,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   function clearShots(id) {
     for (const s of pictures(id).shots) {
       sidecar.remove(homeDir(id), s.slot, { ignore: ignored(id) });
+      sidecar.remove(ownDir(id), s.slot);
       artCrop.removeOriginal(anchor(id, s.slot));
     }
   }
@@ -272,7 +303,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     }
     if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
     clearShots(id);
-    encoded.forEach((buf, i) => sidecar.write(homeDir(id), sidecar.slotName("shot", i + 1), buf, { ignore: ignored(id) }));
+    encoded.forEach((buf, i) => writePicture(id, sidecar.slotName("shot", i + 1), buf));
     put(id, "shots", { source, ...(game ? { game } : {}), at: now });
     return encoded.length;
   }
@@ -293,8 +324,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     let next = Math.max(0, ...have.map((s) => Number(s.slot.slice("screenshot-".length))));
     encoded.forEach((buf, i) => {
       const slot = sidecar.slotName("shot", ++next);
-      sidecar.write(homeDir(id), slot, buf, { ignore: ignored(id) });
-      artCrop.keepOriginal(anchor(id, slot), originals[i], crop, now);
+      artCrop.keepOriginal(anchor(id, slot), originals[i], crop, now, writePicture(id, slot, buf));
     });
     put(id, "shots", { source: "upload", at: now });
     return have.length + encoded.length;
@@ -313,6 +343,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError("없는 스크린샷입니다");
     const gone = shots[n - 1].slot;
     sidecar.remove(homeDir(id), gone, { ignore: ignored(id) });
+    sidecar.remove(ownDir(id), gone);
     artCrop.removeOriginal(anchor(id, gone));
     // The ones left close up to screenshot-01 …, each original going with its picture.
     sidecar.renumberShots(homeDir(id), { ignore: ignored(id), onMove: (from, to) => artCrop.moveOriginal(anchor(id, from), anchor(id, to)) });
@@ -325,11 +356,12 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     return part === "icon" ? p.icon : part === "banner" ? p.banner : part === "shot" && Number.isInteger(n) ? p.shots[n - 1] ?? null : null;
   }
 
-  /** The original kept for one picture: { image, crop }, or null. */
+  /** The original kept for one picture: { image, crop }, or null; none once the picture was replaced by hand. */
   function original(id, part, n = null) {
     check(id);
     const pic = pictureOf(id, part, n);
-    return pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
+    const kept = pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
+    return kept && (!kept.of || kept.of === pic.version) ? kept : null;
   }
 
   /** The area each kept original was cut to: { icon, banner, screenshots: [crop | null] }. */
@@ -345,11 +377,10 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   async function recrop(id, part, n, crop, { now = Date.now() } = {}) {
     check(id);
     const pic = pictureOf(id, part, n);
-    const kept = pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
+    const kept = original(id, part, n);
     if (!kept) throw new MediaImageError("다시 자를 원본이 없습니다");
     const webp = await encode(await cut(fs.readFileSync(kept.image), crop), sizeOf(part));
-    sidecar.write(homeDir(id), pic.slot, webp, { ignore: ignored(id) });
-    artCrop.writeCrop(anchor(id, pic.slot), crop, now);
+    artCrop.writeCrop(anchor(id, pic.slot), crop, now, writePicture(id, pic.slot, webp));
     return webp.length;
   }
 
@@ -360,6 +391,6 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
     recrop: one(recrop), forget: one(forget), original, originals,
     /** Test seam. */
-    resetForTests() { saved = null; settled.clear(); },
+    resetForTests() { saved = null; settled.clear(); failedTidy.clear(); },
   };
 }

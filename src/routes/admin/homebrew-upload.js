@@ -9,7 +9,7 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../../debug.js";
 import { homebrewDir } from "../../helpers/envs.js";
-import { MANIFEST, extractPackage, readNro, zipEntries } from "../../meta/homebrew.js";
+import { MANIFEST, extractPackage, noteManualHome, readNro, zipEntries } from "../../meta/homebrew.js";
 import { normalizeLayout } from "../../meta/homebrew-layout.js";
 import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
@@ -70,6 +70,8 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   const previous = path.join(work, "previous");
   await fsp.rm(previous, { recursive: true, force: true });
   await fsp.rename(dest, previous).catch((err) => { if (err.code !== "ENOENT") throw err; });
+  // Known before the folder is in place, so nothing looking at its pictures meanwhile takes the release's own for them.
+  noteManualHome(app, dest, ownArt);
   await fsp.rename(built, dest);
   await keepPictures(previous, dest, new Set(ownArt));
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");

@@ -309,6 +309,8 @@ const manualHomes = new Map();
 export const manualHomeOf = (id) => manualHomes.get(id)?.dir ?? null;
 /** The picture-like files that came with a hand-placed app, or null. */
 export const manualOwnArtOf = (id) => manualHomes.get(id)?.own ?? null;
+/** Notes a hand-placed app's folder and its own picture-named files before it is read (an upload putting it in place). */
+export const noteManualHome = (folder, dir, ownArt) => manualHomes.set(idFor("manual", folder), { dir, own: new Set(ownArt) });
 
 /** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
 async function filesUnder(dir, rel = "") {
@@ -344,7 +346,7 @@ export async function adoptFolders(root) {
     if (hasManifest) continue;
     const nro = (await fsp.readdir(dir)).filter((f) => /\.nro$/i.test(f)).sort()[0];
     if (!nro) continue;
-    const files = (await filesUnder(dir)).filter((r) => !isArtSidecar(r));
+    const files = await filesUnder(dir);
     if (files.length < 2) continue;
     if (!APP_NAME_RE.test(folder) || !APP_NAME_RE.test(nro)) {
       skipped.push({ folder, reason: "폴더나 .nro 이름에 영문, 숫자, - _ . 만 쓸 수 있습니다" });
@@ -356,7 +358,9 @@ export async function adoptFolders(root) {
       skipped.push({ folder, reason: `콘솔 SD 에 만들 수 없는 이름이 있습니다: ${describeProblems(problems)}` });
       continue;
     }
-    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_art: [] };
+    // Picture-named files a folder holds when it is first taken in came with the app.
+    const ownArt = files.filter((r) => isArtSidecar(r) && !r.startsWith("."));
+    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_art: ownArt };
     await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(manifest));
     registered.push(folder);
   }

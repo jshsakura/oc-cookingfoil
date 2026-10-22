@@ -11,8 +11,9 @@
  *
  * Every file must sit under a path the patch's own game owns; one stray file
  * (or a symlink, or a path ustar cannot hold) drops the whole patch from the
- * list and is only logged. patch.json never ships, nor do the pictures at the
- * folder's root (meta/art-sidecar.js).
+ * list and is only logged. patch.json never ships, nor do the pictures at a
+ * game patch's folder root (meta/art-sidecar.js); a homebrew app's patch keeps
+ * its pictures on the server, its root being the app's folder on the card.
  *
  * A patch's name, version, author, description and the rest live on the
  * server (meta/patch-info.js) and are edited on the admin page. A patch.json
@@ -212,7 +213,8 @@ async function importMeta(metaFile, dir, folder) {
  */
 /** A homebrew app's patch: every file goes under switch/<app>/. */
 async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
-  const all = (await walk(path.join(root, HOMEBREW_DIR, app, folder))).filter((f) => !isArtSidecar(f.path));
+  // Its root is the app's folder on the card, so a picture-named file there is the patch's own content.
+  const all = await walk(path.join(root, HOMEBREW_DIR, app, folder));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).map((f) => ({ ...f, path: `switch/${app}/${f.path}` })).sort((a, b) => (a.path < b.path ? -1 : 1));
   if (!files.length) throw new Rejected("no files");
@@ -558,10 +560,10 @@ export function requiredFor(titleId) {
 }
 
 /** Where a listed patch sits under the root ({ dir, folder, key }), or null; key is its patch-info key. */
-/** A listed patch's own folder (its pictures live there, meta/patch-media.js), or null. */
+/** A listed game patch's own folder (its pictures live there, meta/patch-media.js), or null. */
 export function folderOf(id) {
   const known = patches.find((p) => p.id === id);
-  return known ? path.join(scannedRoot, known.dir, known.folder) : null;
+  return known && !known.dir.startsWith(`${HOMEBREW_DIR}/`) ? path.join(scannedRoot, known.dir, known.folder) : null;
 }
 
 export function locate(id) {

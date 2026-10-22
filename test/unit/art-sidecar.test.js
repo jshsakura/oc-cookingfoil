@@ -115,3 +115,37 @@ test("a picture that could not be moved into the item's folder is still shown fr
   fs.writeFileSync(path.join(data, "media.json"), "{}");
   assert.ok(store.iconPath(ID).startsWith(path.join(data, "media")));
 });
+
+test("a release's own file of a picture's name is never written over; the picture is kept on the server", async () => {
+  const data = tmp();
+  const home = tmp();
+  const ID = "m-0123456789ab";
+  put(path.join(home, "icon.webp"), Buffer.from("the release's own"), 60);
+  const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
+    urlBase: (id) => `/x/${id}`, homeOf: () => home, ignoreOf: () => new Set(["icon.webp"]) });
+  await store.saveIcon(ID, await img(64, 64, 10));
+  assert.equal(fs.readFileSync(path.join(home, "icon.webp"), "utf8"), "the release's own");
+  assert.equal(store.iconPath(ID), path.join(data, "media", ID, "icon.webp"));
+});
+
+test("a picture replaced by hand is no longer cut again from the upload it replaced", async () => {
+  const data = tmp();
+  const home = tmp();
+  const ID = "m-0123456789ab";
+  const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
+    urlBase: (id) => `/x/${id}`, homeOf: () => home });
+  await store.saveBanner(ID, await img(320, 180, 10));
+  assert.ok(store.original(ID, "banner"));
+  put(path.join(home, "banner.webp"), await img(320, 180, 200, "webp"));
+  assert.equal(store.original(ID, "banner"), null);
+  await assert.rejects(store.recrop(ID, "banner", null, { x: 0, y: 0, w: 1, h: 1 }), /원본이 없습니다/);
+});
+
+test("a picture left half written is no part of the item, and is cleared once it is old", async () => {
+  const dir = tmp();
+  assert.ok(sidecar.isArtSidecar(".icon.webp.123.tmp"));
+  put(path.join(dir, ".icon.webp.123.tmp"), Buffer.from("x"), 3600);
+  put(path.join(dir, ".banner.webp.124.tmp"), Buffer.from("x"));
+  assert.equal(sidecar.read(dir).icon, null);
+  assert.deepEqual(fs.readdirSync(dir), [".banner.webp.124.tmp"]);
+});

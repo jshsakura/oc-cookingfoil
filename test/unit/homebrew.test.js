@@ -704,12 +704,14 @@ test("a hand-placed folder install keeps its root pictures off the card and out 
   assert.equal((await scanManual(root))[0].hash, a.hash, "a picture alone is not an update");
 });
 
-test("a folder without a manifest is adopted by its content, pictures not counted", async () => {
+test("a folder without a manifest keeps the picture-named files it came with as its own", async () => {
   const root = tmp("hb-sidecar-adopt-");
   fs.mkdirSync(path.join(root, "solo"));
   fs.writeFileSync(path.join(root, "solo", "solo.nro"), fakeNro("Solo", "1.0"));
   fs.writeFileSync(path.join(root, "solo", "icon.jpg"), "pic");
-  assert.deepEqual((await adoptFolders(root)).registered, []);
+  assert.deepEqual((await adoptFolders(root)).registered, ["solo"], "a folder copied in whole is taken as the app brought it");
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "solo", ".cookingfoil.json"), "utf8")).own_art, ["icon.jpg"]);
+  assert.ok(sdFiles((await scanManual(root))[0]).includes("switch/solo/icon.jpg"));
 });
 
 test("a release's own picture-named files ship with it; the folder's other pictures stay on the server", async () => {

@@ -326,11 +326,11 @@ test("a picture below the root is the patch's own content, so it still has to si
   assert.equal((await list()).length, 0);
 });
 
-test("a homebrew app's patch ignores pictures at its root too", async () => {
-  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "pic", "homebrew/game/mod/screenshot-01.png": "pic" });
+test("a homebrew app's patch ships picture-named files at its root: that root is the app's folder", async () => {
+  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "the app's new icon" });
   await scan({ root });
   const [p] = await list();
-  assert.equal(p.files, 1);
+  assert.equal(p.files, 2);
   const opened = await openForDownload(p.id, root);
-  assert.deepEqual(opened.entries.map((e) => e.path), ["switch/game/data.bin"]);
+  assert.deepEqual(opened.entries.map((e) => e.path).sort(), ["switch/game/data.bin", "switch/game/icon.jpg"]);
 });

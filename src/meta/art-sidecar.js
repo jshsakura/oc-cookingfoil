@@ -20,13 +20,19 @@ import path from "path";
 import sharp from "sharp";
 
 const NAME_RE = /^(icon|banner|screenshot-(\d{2}))\.(webp|jpe?g|png)$/i;
+// A picture being written: never part of an item, and cleared when left behind.
+const TEMP_RE = /^\.(icon|banner|screenshot-\d{2})\.(webp|jpe?g|png)\.\d+\.tmp$/i;
+const STALE_TEMP_MS = 10 * 60_000;
 export const MAX_SHOTS = 8;
 
 /** Whether `rel`, a path relative to an item's folder, is one of its pictures (only at the root). Pure. */
 export function isArtSidecar(rel) {
+  if (TEMP_RE.test(rel)) return true;
   const m = NAME_RE.exec(rel);
   return Boolean(m) && m[2] !== "00";
 }
+
+export class SlotTaken extends Error {}
 
 /** The file name (without extension) of a part: "icon", "banner" or "screenshot-NN" for screenshot n. Pure. */
 export const slotName = (part, n = null) => (part === "shot" ? `screenshot-${String(n).padStart(2, "0")}` : part);
@@ -50,6 +56,10 @@ function filesBySlot(dir, ignore) {
   }
   const out = new Map();
   for (const name of names) {
+    if (TEMP_RE.test(name)) {
+      clearStaleTemp(path.join(dir, name));
+      continue;
+    }
     const m = NAME_RE.exec(name);
     if (!m || m[2] === "00" || ignore?.has(name)) continue;
     let st;
@@ -69,8 +79,14 @@ function filesBySlot(dir, ignore) {
   return out;
 }
 
+function clearStaleTemp(file) {
+  try {
+    if (Date.now() - fs.statSync(file).mtimeMs > STALE_TEMP_MS) fs.rmSync(file, { force: true });
+  } catch { /* gone already */ }
+}
+
 /**
- * What `dir` holds: { icon, banner, shots, untidy }, each picture { file, slot, ext, version }
+ * What `dir` holds: { icon, banner, shots, untidy, signature }, each picture { file, slot, ext, version }
  * or null, `shots` in their numbers' order (at most MAX_SHOTS). `untidy` is true when
  * normalize() has work to do: a picture that is not .webp, or a slot with more than one file.
  */
@@ -79,18 +95,31 @@ export function read(dir, { ignore = null } = {}) {
   const pick = (slot) => bySlot.get(slot)?.[0] ?? null;
   const shots = [...bySlot.keys()].filter((s) => s.startsWith("screenshot-")).sort().slice(0, MAX_SHOTS).map(pick);
   const untidy = [...bySlot.values()].some((list) => list.length > 1 || list[0].ext !== "webp");
-  return { icon: pick("icon"), banner: pick("banner"), shots, untidy };
+  // Every picture file there, so a tidy that failed is not tried again until one changes.
+  const signature = [...bySlot.values()].flat().map((f) => `${path.basename(f.file)}:${f.version}`).sort().join("|");
+  return { icon: pick("icon"), banner: pick("banner"), shots, untidy, signature };
 }
+
+/** The version of one picture file, as read() gives it. */
+export const versionOfFile = (file) => versionOf(fs.statSync(file));
 
 /** One version for a set of screenshots: changes when any of them does. Pure. */
 export const shotsVersion = (shots) =>
-  shots.length ? crypto.createHash("sha1").update(shots.map((s) => `${s.slot}:${s.version}`).join("|")).digest("base64url").slice(0, 12) : null;
+  shots.length ? crypto.createHash("sha1").update(shots.map((s) => `${s.slot}:${s.version}`).join("|")).digest("hex").slice(0, 12) : null;
+
+const tempOf = (file) => path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
 
 function writeAtomic(file, buf) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
+  const tmp = tempOf(file);
   fs.writeFileSync(tmp, buf);
   fs.renameSync(tmp, file);
+}
+
+// A name the item's own files use is never written over (a release's own icon.webp).
+function claim(dir, name, ignore) {
+  if (ignore?.has(name)) throw new SlotTaken(`${path.join(dir, name)} belongs to the item`);
+  return path.join(dir, name);
 }
 
 /** Removes every file of `slot` in `dir` but `keep`. */
@@ -100,7 +129,7 @@ function clearSlot(dir, slot, keep = null, ignore = null) {
 
 /** Writes `webp` as `slot` in `dir`, the slot's other files removed. Returns the file. */
 export function write(dir, slot, webp, { ignore = null } = {}) {
-  const file = path.join(dir, `${slot}.webp`);
+  const file = claim(dir, `${slot}.webp`, ignore);
   writeAtomic(file, webp);
   clearSlot(dir, slot, file, ignore);
   return file;
@@ -149,32 +178,38 @@ export function renumberShots(dir, { ignore = null, onMove = () => {} } = {}) {
   const { shots } = read(dir, { ignore });
   shots.forEach((s, i) => {
     const to = slotName("shot", i + 1);
-    if (s.slot === to) return;
-    const file = path.join(dir, `${to}.${s.ext}`);
-    fs.renameSync(s.file, file);
+    if (s.slot === to || ignore?.has(`${to}.${s.ext}`)) return;
+    fs.renameSync(s.file, path.join(dir, `${to}.${s.ext}`));
     onMove(s.slot, to);
   });
 }
 
 /**
  * Moves `from` (a file) into `dir` as `slot` unless the folder already has that
- * slot, which wins: the file there is the truth. `from` is gone either way.
- * Works across disks. Returns whether it moved.
+ * slot, which wins: the file there is the truth, and `from` is removed. A name the
+ * item's own files use leaves `from` where it is (SlotTaken). Works across disks.
+ * Returns whether it moved.
  */
 export function adopt(from, dir, slot, { ignore = null } = {}) {
-  const has = filesBySlot(dir, ignore).has(slot);
-  if (!has) {
-    const to = path.join(dir, `${slot}${path.extname(from).toLowerCase()}`);
-    fs.mkdirSync(dir, { recursive: true });
-    try {
-      fs.renameSync(from, to);
-      return true;
-    } catch (err) {
-      if (err.code !== "EXDEV") throw err;
-      fs.copyFileSync(from, `${to}.${process.pid}.tmp`);
-      fs.renameSync(`${to}.${process.pid}.tmp`, to);
-    }
+  if (filesBySlot(dir, ignore).has(slot)) {
+    fs.rmSync(from, { force: true });
+    return false;
   }
-  fs.rmSync(from, { force: true });
-  return !has;
+  const to = claim(dir, `${slot}${path.extname(from).toLowerCase()}`, ignore);
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    fs.renameSync(from, to);
+  } catch (err) {
+    if (err.code !== "EXDEV") throw err;
+    const tmp = tempOf(to);
+    try {
+      fs.copyFileSync(from, tmp);
+      fs.renameSync(tmp, to);
+    } catch (copyErr) {
+      fs.rmSync(tmp, { force: true });
+      throw copyErr;
+    }
+    fs.rmSync(from, { force: true });
+  }
+  return true;
 }
