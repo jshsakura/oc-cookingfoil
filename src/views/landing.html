@@ -3743,14 +3743,33 @@
       }
 
       // ─── filter / sort / paginate ─────────────────────────────────────────
+      // A game kept as several base files (an XCI and an NSP, or an older dump) is one card.
+      // The highest version stands for it, then the newest file; the card sorts by the newest
+      // file of the title. The detail still offers every file.
+      const titleKeyOf = (r) => (r.item.baseTitleId || r.item.titleId || "").toUpperCase();
+      const baseRank = (a, b) => fileVersion(b.item) - fileVersion(a.item) || b.added - a.added || a.idx - b.idx;
+      function oneCardPerTitle(list) {
+        const groups = new Map();
+        for (const r of list) {
+          const key = titleKeyOf(r) || "#" + r.idx;
+          if (groups.has(key)) groups.get(key).push(r); else groups.set(key, [r]);
+        }
+        return [...groups.values()].map((group) => {
+          if (group.length === 1) return group[0];
+          const [best] = [...group].sort(baseRank);
+          return { ...best, added: Math.max(...group.map((r) => r.added)) };
+        });
+      }
+
       function visibleSet() {
-        const list = renderedItems.filter(r => {
+        const matched = renderedItems.filter(r => {
           if (r.kind !== state.kind) return false;
           if (state.genre && !(genreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || []).includes(state.genre)) return false;
           if (state.steam && scoreFor(r)?.label !== state.steam) return false;
           if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
+        const list = state.kind === "base" ? oneCardPerTitle(matched) : matched;
         list.sort((a, b) => {
           switch (state.sort) {
             case "name-desc":    return b.item.name.localeCompare(a.item.name);
@@ -4145,7 +4164,7 @@
       }
 
       function renderShowcase() {
-        const bases = renderedItems.filter((r) => r.kind === "base");
+        const bases = oneCardPerTitle(renderedItems.filter((r) => r.kind === "base"));
         heroSlides = buildHeroSlides(bases);
         setHeroSkeleton(false);
         $("hero").hidden = !heroSlides.length;
@@ -5918,7 +5937,7 @@
           genres: Array.isArray(td.categoryLabels) ? td.categoryLabels : (m.categories || []).map(genreLabel),
           release: fmtDate(td.releaseDate || m.release_date),
           players: fmtPlayers(Number(td.numberOfPlayers ?? m.players)),
-          baseSize: group.find((x) => x.kind === "base")?.size || (r.kind === "base" ? r.size : 0) || td.size || 0,
+          baseSize: (r.kind === "base" ? r.size : 0) || group.find((x) => x.kind === "base")?.size || td.size || 0,
           installSize: m.install_size || 0,
           firmware: td.requiredFirmware || m.required_firmware || "",
           rating: [td.rating != null ? String(td.rating) : "", (td.ratingContent || []).join(", ")].filter(Boolean).join(" · "),
@@ -5977,11 +5996,15 @@
           a.href = f.url || "#"; a.target = "_blank"; a.rel = "noopener";
           return a;
         };
-        const base = group.find((x) => x.kind === "base");
-        if (base) {
+        // A game kept as several base files offers each, the one its card stands for first.
+        const bases = group.filter((x) => x.kind === "base").sort(baseRank);
+        bases.forEach((base, i) => {
           const v = fileVersion(base.item);
-          rows.push(detailRow(link(base.item), { name: (base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips: [{ text: fmtVersion(v, versionName(base.item.titleId, v)) }, { text: t("install.required"), tone: "need" }], size: base.size, clamp: true }));
-        }
+          const chips = [{ text: fmtVersion(v, versionName(base.item.titleId, v)) },
+            ...(bases.length > 1 ? [{ text: fmtExt(base.item.url || base.item.name) }] : []),
+            ...(i === 0 ? [{ text: t("install.required"), tone: "need" }] : [])];
+          rows.push(detailRow(link(base.item), { name: (base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips, size: base.size, clamp: true }));
+        });
         const update = group.filter((x) => x.kind === "update").sort((a, b) => fileVersion(b.item) - fileVersion(a.item))[0];
         if (update) {
           const v = fileVersion(update.item);

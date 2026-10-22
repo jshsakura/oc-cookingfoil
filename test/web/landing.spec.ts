@@ -887,3 +887,46 @@ test('on a phone the list pager fits one line under its count', async ({ page })
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#pager').screenshot({ path: 'out/web/pager-phone.png' });
 });
+
+test('a game kept as two base files shows one card everywhere, and its detail lists both files', async ({ page }) => {
+  const dup = { name: 'Dup Game', app_type: 'base', title_id: '0100000000030000', base_title_id: '0100000000030000', release_date: 20260101, languages: ['ko'], players: 2 };
+  const other = { name: 'Other Game', app_type: 'base', title_id: '0100000000040000', base_title_id: '0100000000040000', release_date: 20250101, languages: ['ko'], players: 2 };
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+    sections: [{ id: 'all', title: 'All', items: [
+      { ...dup, url: 'dup-v0.xci', size: 4e9, added_at: 3, app_version: 0 },
+      { ...dup, url: 'dup-v65536.nsp', size: 5e9, added_at: 2, app_version: 65536 },
+      { ...other, url: 'other.nsp', size: 1e9, added_at: 9, app_version: 0 },
+    ] }],
+    genres: {},
+  } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#all');
+  // The list: one card per title.
+  await expect(page.locator('#games .game .name')).toHaveCount(2);
+  expect((await page.locator('#games .game .name').allInnerTexts()).sort()).toEqual(['Dup Game', 'Other Game']);
+  await page.locator('#subtabs [data-view="preview"]').click();
+  const rows = page.locator('#home-rows .home-row');
+  await expect(rows.first()).toBeVisible();
+  // Every row (최근 추가, 신작 and the rest) holds each title once.
+  const rowNames = await rows.evaluateAll((els) => els.map((el) => [...el.querySelectorAll('.game:not(.see-all) .name')].map((n) => n.textContent)));
+  for (const names of rowNames) expect(names.length, names.join(', ')).toBe(new Set(names).size);
+  expect(rowNames.flat()).toContain('Dup Game');
+  // The hero never shows one title on two slides.
+  const heroTitles: string[] = [];
+  const dots = page.locator('#hero-dots button');
+  const slides = Math.max(1, await dots.count());
+  for (let i = 0; i < slides; i++) {
+    if (await dots.count()) await dots.nth(i).click();
+    heroTitles.push(await page.locator('#hero-title').innerText());
+  }
+  expect(heroTitles.length).toBe(new Set(heroTitles).size);
+  // The detail offers every file of the title, the newest version first.
+  await rows.locator('.game:not(.see-all)', { hasText: 'Dup Game' }).first().click();
+  const bases = page.locator('#modal-install .extra-row').filter({ has: page.locator('.type-tag', { hasText: '본편' }) });
+  await expect(bases).toHaveCount(2);
+  await expect(bases.nth(0)).toHaveAttribute('href', 'dup-v65536.nsp');
+  await expect(bases.nth(1)).toHaveAttribute('href', 'dup-v0.xci');
+  // Each says its format, so the two read apart; only the first is marked required.
+  await expect(bases.nth(1).locator('.mini')).toHaveText(['v0', 'XCI']);
+  await expect(page.locator('#modal-download')).toHaveAttribute('href', 'dup-v65536.nsp');
+});
