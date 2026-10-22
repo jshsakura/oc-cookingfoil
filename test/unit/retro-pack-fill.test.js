@@ -9,7 +9,7 @@ import { spawnSync } from "child_process";
 import { openDatabase, SECURITY_MIGRATIONS } from "../../src/db/database.js";
 import { packLedger } from "../../src/db/security-stores.js";
 import { downloadBundle, sevenZipBin } from "../../src/retro/pack-bundle.js";
-import { applyFill, commit, decide, describeFill, isProtected, REAL_PACK, wantedCores } from "../../src/retro/pack-fill.js";
+import { applyFill, commit, decide, describeFill, isProtected, REAL_IO, REAL_PACK, wantedCores } from "../../src/retro/pack-fill.js";
 import { BEZEL_CREDIT, bezelCredit } from "../../src/retro/credits.js";
 import { LANGS } from "../../src/meta/langs.js";
 
@@ -55,7 +55,9 @@ function makeBundle(version, files) {
       ],
     },
   };
-  return { archive, bytes, pack: { lock, official: { version, files: officialFiles } } };
+  const dirsOf = (top) => Object.keys(files).filter((r) => r.startsWith(`retroarch/${top}/`)).map((r) => r.slice(`retroarch/${top}/`.length)).sort();
+  const manifest = { version, dirs: { info: dirsOf("info"), assets: dirsOf("assets"), autoconfig: dirsOf("autoconfig") } };
+  return { archive, bytes, pack: { lock, official: { version, files: officialFiles }, manifest } };
 }
 
 const files = (tag, extra = {}) => ({
@@ -98,8 +100,8 @@ function world() {
   const dataDir = tmp();
   const packDir = path.join(tmp(), "retroarch");
   fs.mkdirSync(packDir, { recursive: true });
-  const ledger = packLedger({ db: openDatabase(":memory:", { migrations: SECURITY_MIGRATIONS }) });
-  return { dataDir, packDir, ledger };
+  const store = packLedger({ db: openDatabase(":memory:", { migrations: SECURITY_MIGRATIONS }) });
+  return { dataDir, packDir, store, ledger: store.forRoot("test-root") };
 }
 
 const snapshot = (dir) => {
@@ -114,6 +116,12 @@ const snapshot = (dir) => {
   if (fs.existsSync(dir)) walk("");
   return out;
 };
+
+test("the file list of the folders matches the lock and the bundle it was taken from", () => {
+  assert.equal(REAL_PACK.manifest.version, REAL_PACK.lock.version);
+  assert.deepEqual(Object.fromEntries(Object.entries(REAL_PACK.manifest.dirs).map(([k, v]) => [k, v.length])), { info: 292, assets: 2500, autoconfig: 127 });
+  assert.deepEqual(Object.keys(REAL_PACK.manifest.dirs), REAL_PACK.lock.paths.dirs.map((d) => d.to));
+});
 
 test("decide: only the server's own untouched file is ever replaced", () => {
   const entry = { sha256: "a" };
@@ -301,12 +309,7 @@ test("a step that fails midway puts the pack back and writes no ledger rows", op
     const before = snapshot(w.packDir);
     const rows = JSON.stringify([...w.ledger.all()]);
     let renames = 0;
-    const io = {
-      copyFile: (a, b) => fs.promises.copyFile(a, b),
-      rm: (a) => fs.promises.rm(a, { force: true }),
-      mkdir: (d) => fs.promises.mkdir(d, { recursive: true }),
-      rename: (a, b) => (++renames === 3 ? Promise.reject(new Error("disk full")) : fs.promises.rename(a, b)),
-    };
+    const io = { ...REAL_IO, rename: (a, b) => (++renames === 3 ? Promise.reject(new Error("disk full")) : fs.promises.rename(a, b)) };
     await assert.rejects(applyFill({ ...w, games: GAMES, url: s2.url, pack: v2.pack, bin, io }), (err) => err.rolledBack === true && /disk full/.test(err.message));
     assert.ok(renames >= 3, "it got past the first files before failing");
     assert.deepEqual(snapshot(w.packDir), before, "every file is as it was, no .cfpart left");
@@ -326,15 +329,11 @@ test("commit puts back a new file's absence when a later rename fails", async ()
   fs.writeFileSync(path.join(src, "b"), "B");
   const packDir = tmp();
   let n = 0;
-  const io = {
-    copyFile: (a, b) => fs.promises.copyFile(a, b),
-    rm: (a) => fs.promises.rm(a, { force: true }),
-    mkdir: (d) => fs.promises.mkdir(d, { recursive: true }),
-    rename: (a, b) => (++n === 2 ? Promise.reject(new Error("nope")) : fs.promises.rename(a, b)),
-  };
-  const ops = [{ rel: "x/a", abs: path.join(src, "a"), action: "install" }, { rel: "x/b", abs: path.join(src, "b"), action: "install" }];
-  await assert.rejects(commit(ops, { packDir, io }), (err) => err.rolledBack === true);
-  assert.deepEqual(snapshot(packDir), {});
+  const io = { ...REAL_IO, link: (a, b) => (++n === 2 ? Promise.reject(new Error("nope")) : fs.promises.link(a, b)) };
+  const ops = [{ rel: "x/a", abs: path.join(src, "a"), sha256: sha("A"), action: "install" }, { rel: "x/b", abs: path.join(src, "b"), sha256: sha("B"), action: "install" }];
+  await assert.rejects(commit(ops, { packDir, io }), (err) => err.rolledBack === true && /nope/.test(err.message));
+  assert.equal(n, 2, "it got as far as the second file");
+  assert.deepEqual(snapshot(packDir), {}, "the first file and every temporary name are gone");
 });
 
 test("the bezel credit comes in all twelve client languages and names the project", () => {
@@ -342,4 +341,143 @@ test("the bezel credit comes in all twelve client languages and names the projec
   assert.deepEqual(bezelCredit("ko"), { name: "The Bezel Project", url: "https://github.com/thebezelproject", text: BEZEL_CREDIT.text.ko });
   assert.equal(bezelCredit("xx").text, BEZEL_CREDIT.text.en, "an unknown language is English");
   for (const t of Object.values(BEZEL_CREDIT.text)) assert.doesNotMatch(t, /—/);
+});
+
+// ---- review of #95 ----
+
+/** The real file operations plus a hook that runs before `copy` (copyFile or copyExcl) and `place` (rename or link). */
+function hookedIo({ beforeCopy = async () => {}, beforePlace = async () => {}, failCopy = null } = {}) {
+  const fsp = fs.promises;
+  const copy = async (a, b) => {
+    await beforeCopy(a, b);
+    if (failCopy?.(a, b)) throw Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
+    return fsp.copyFile(a, b, fs.constants.COPYFILE_EXCL);
+  };
+  return {
+    copyFile: copy, copyExcl: copy,
+    rename: async (a, b) => { await beforePlace(a, b); return fsp.rename(a, b); },
+    link: async (a, b) => { await beforePlace(a, b); return fsp.link(a, b); },
+    rm: (a) => fsp.rm(a, { force: true }),
+    mkdir: (d) => fsp.mkdir(d, { recursive: true }),
+    lstat: (p) => fsp.lstat(p).catch(() => null),
+  };
+}
+
+const served = async (b) => { const srv = await serve(b.archive); return { srv, url: srv.url }; };
+
+test("B1: a core the operator puts there after the decision is kept, not overwritten or recorded", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    let once = true;
+    const io = hookedIo({ beforeCopy: async (src, dst) => {
+      if (once && dst.includes("cores")) { once = false; fs.mkdirSync(path.join(w.packDir, "cores"), { recursive: true }); fs.writeFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro"), nro("operator core")); }
+    } });
+    const out = await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin, io });
+    assert.deepEqual(fs.readFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro")), nro("operator core"));
+    assert.equal(w.ledger.all().has("cores/fceumm_libretro_libnx.nro"), false, "not recorded as the server's");
+    assert.ok(out.kept.some((k) => k.rel === "cores/fceumm_libretro_libnx.nro" && k.state === "operator"));
+    assert.ok(fs.existsSync(path.join(w.packDir, "cores/mgba_libretro_libnx.nro")), "the rest still went in");
+  } finally { srv.close(); }
+});
+
+test("B1: when a copy fails, a rollback does not delete the operator file that arrived", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    let n = 0;
+    const io = hookedIo({
+      beforeCopy: async () => { if (++n === 1) fs.writeFileSync(path.join(w.packDir, "retroarch.nro"), nro("operator body")); },
+      failCopy: () => n === 1,
+    });
+    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin, io }));
+    assert.deepEqual(fs.readFileSync(path.join(w.packDir, "retroarch.nro")), nro("operator body"));
+    assert.equal(w.ledger.all().size, 0);
+  } finally { srv.close(); }
+});
+
+test("B2: a leftover link under the old fixed temp name cannot make the run overwrite an operator core", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    fs.mkdirSync(path.join(w.packDir, "cores"), { recursive: true });
+    const core = path.join(w.packDir, "cores/fceumm_libretro_libnx.nro");
+    fs.writeFileSync(core, nro("operator core"));
+    fs.symlinkSync(core, path.join(w.packDir, "retroarch.nro.cfpart"));
+    await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin });
+    assert.deepEqual(fs.readFileSync(core), nro("operator core"));
+    assert.equal(fs.lstatSync(path.join(w.packDir, "retroarch.nro")).isSymbolicLink(), false);
+  } finally { srv.close(); }
+});
+
+test("B2: a link where a folder should be is refused and nothing is written outside the pack", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    const outside = tmp();
+    fs.symlinkSync(outside, path.join(w.packDir, "assets"));
+    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /링크/);
+    assert.deepEqual(fs.readdirSync(outside), []);
+    assert.equal(w.ledger.all().size, 0);
+    assert.ok(!fs.existsSync(path.join(w.packDir, "retroarch.nro")), "the whole run was undone");
+  } finally { srv.close(); }
+});
+
+test("B3: when the ledger write and the rollback both fail, it is not reported as rolled back", opts, async () => {
+  const v1 = makeBundle("1.0.0", files("a"));
+  const v2 = makeBundle("2.0.0", files("b"));
+  const s1 = await serve(v1.archive);
+  const s2 = await serve(v2.archive);
+  const w = world();
+  try {
+    await applyFill({ ...w, games: GAMES, url: s1.url, pack: v1.pack, bin });
+    const failing = { all: () => w.ledger.all(), put: () => { throw new Error("ledger full"); } };
+    const io = hookedIo({ failCopy: (src) => src.includes("retro-pack-prev") });
+    await assert.rejects(applyFill({ ...w, ledger: failing, games: GAMES, url: s2.url, pack: v2.pack, bin, io }), (err) => err.rolledBack !== true && Array.isArray(err.stuck) && err.stuck.includes("retroarch.nro"));
+    const rec = JSON.parse(fs.readFileSync(path.join(w.dataDir, "retro-pack-recovery.json"), "utf8"));
+    assert.ok(rec.stuck.includes("retroarch.nro"));
+    // And the next run refuses to go on until someone has looked.
+    await assert.rejects(applyFill({ ...w, games: GAMES, url: s2.url, pack: v2.pack, bin }), (err) => err.status === 409);
+  } finally { s1.close(); s2.close(); }
+});
+
+test("F1: a response longer than the lock's size is cut at once and the partial file is deleted", async () => {
+  const cacheDir = tmp();
+  let sent = 0;
+  const fetchImpl = async () => new Response(new ReadableStream({
+    pull(ctl) { if (sent > 4 * 1024 * 1024) return ctl.close(); sent += 64 * 1024; ctl.enqueue(new Uint8Array(64 * 1024)); },
+  }), { status: 200 });
+  await assert.rejects(downloadBundle({ url: "http://x.invalid/a", file: "RetroArch.7z", size: 16, sha256: "0".repeat(64), cacheDir, fetchImpl }), /크기|SHA/);
+  assert.ok(!fs.existsSync(path.join(cacheDir, "RetroArch.7z")));
+  assert.ok(sent < 1024 * 1024, `stopped early, ${sent} bytes were pulled`);
+});
+
+test("F3: a ledger kept for one pack folder does not make files in another folder the server's", async () => {
+  const w = world();
+  const a = w.store.forRoot("/pack-a");
+  a.put([{ rel: "retroarch.nro", sha256: "old", source: "bundle", lockVersion: "1.0.0" }]);
+  assert.equal(a.all().has("retroarch.nro"), true);
+  assert.equal(w.store.forRoot("/pack-b").all().size, 0, "another folder has no rows");
+});
+
+test("F4: a file missing from a folder that exists is filled in, with no bundle on disk", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin });
+    fs.rmSync(path.join(w.packDir, "info/fceumm_libretro.info"));
+    fs.rmSync(path.join(w.dataDir, "retro-pack-cache"), { recursive: true });
+    const plan = await describeFill({ ...w, games: GAMES, systems: {}, cacheDir: path.join(w.dataDir, "retro-pack-cache/1.0.0"), pack: b.pack });
+    assert.equal(plan.needsBundle, true);
+    assert.deepEqual(plan.missing, { info: 1, assets: 0, autoconfig: 0 });
+    const out = await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin });
+    assert.notEqual(out.skipped, true);
+    assert.equal(out.installed, 1);
+    assert.match(fs.readFileSync(path.join(w.packDir, "info/fceumm_libretro.info"), "utf8"), /NES/);
+  } finally { srv.close(); }
 });

@@ -71,9 +71,28 @@ export async function downloadBundle({ url, file = lock.bundle.file, size = lock
     // A server that ignores Range sends the whole file with 200: start over.
     const resume = at > 0 && res.status === 206 && Number(rangeFrom(res)) === at;
     if (!resume) at = 0;
+    // More than the lock says is a wrong file or a runaway server: say so before it fills the disk.
+    const promised = Number(res.headers.get("content-length"));
+    if (Number.isFinite(promised) && promised > 0 && at + promised > size) {
+      res.body.cancel().catch(() => {});
+      await fsp.rm(dest, { force: true });
+      throw new PackError("받는 번들이 lock 의 크기보다 큽니다. 받지 않습니다", { status: 502, hashMismatch: true });
+    }
     let done = at;
-    const count = new Transform({ transform(chunk, _enc, cb) { done += chunk.length; onProgress({ done, total: size }); cb(null, chunk); } });
-    await pipeline(Readable.fromWeb(res.body), count, fs.createWriteStream(dest, { flags: resume ? "a" : "w" }));
+    const count = new Transform({
+      transform(chunk, _enc, cb) {
+        done += chunk.length;
+        if (done > size) return cb(new PackError("받는 번들이 lock 의 크기보다 커서 멈췄습니다", { status: 502, hashMismatch: true }));
+        onProgress({ done, total: size });
+        cb(null, chunk);
+      },
+    });
+    try {
+      await pipeline(Readable.fromWeb(res.body), count, fs.createWriteStream(dest, { flags: resume ? "a" : "w" }));
+    } catch (err) {
+      if (err instanceof PackError) await fsp.rm(dest, { force: true });
+      throw err;
+    }
     break;
   }
   if ((await have()) !== size || (await sha256File(dest)) !== sha256) {

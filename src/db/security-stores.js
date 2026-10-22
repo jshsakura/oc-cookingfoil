@@ -58,17 +58,20 @@ export function settingsStore({ db = securityDb() } = {}) {
 }
 
 /**
- * The RetroArch pack files the server placed: { all() → Map rel → { sha256, source, lockVersion },
- * put(rows) in one transaction, drop(rel) }. A file without a row is the operator's.
+ * The RetroArch pack files the server placed, kept per pack folder: `forRoot(root)` gives
+ * { all() → Map rel → { sha256, source, lockVersion }, put(rows) in one transaction, drop(rel) }.
+ * A file without a row in that folder's ledger is the operator's, whatever other folders hold.
  */
 export function packLedger({ db = securityDb() } = {}) {
-  const upsert = db.prepare("INSERT OR REPLACE INTO retro_pack_ledger (rel, sha256, source, lock_version) VALUES (?, ?, ?, ?)");
+  const upsert = db.prepare("INSERT OR REPLACE INTO retro_pack_ledger (root, rel, sha256, source, lock_version) VALUES (?, ?, ?, ?, ?)");
   return {
-    all: () => new Map(db.prepare("SELECT rel, sha256, source, lock_version FROM retro_pack_ledger").all().map((r) => [r.rel, { sha256: r.sha256, source: r.source, lockVersion: r.lock_version }])),
-    put(rows) {
-      transaction(db, () => { for (const r of rows) upsert.run(r.rel, r.sha256, r.source, r.lockVersion); });
-    },
-    drop: (rel) => db.prepare("DELETE FROM retro_pack_ledger WHERE rel = ?").run(rel),
+    forRoot: (root) => ({
+      all: () => new Map(db.prepare("SELECT rel, sha256, source, lock_version FROM retro_pack_ledger WHERE root = ?").all(root).map((r) => [r.rel, { sha256: r.sha256, source: r.source, lockVersion: r.lock_version }])),
+      put(rows) {
+        transaction(db, () => { for (const r of rows) upsert.run(root, r.rel, r.sha256, r.source, r.lockVersion); });
+      },
+      drop: (rel) => db.prepare("DELETE FROM retro_pack_ledger WHERE root = ? AND rel = ?").run(root, rel),
+    }),
   };
 }
 

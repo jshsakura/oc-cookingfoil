@@ -16,14 +16,16 @@ import debug from "../../debug.js";
 import { dataDir, retroDir, retroPackUrl } from "../../helpers/envs.js";
 import { packLedger } from "../../db/security-stores.js";
 import * as retroCatalog from "../../retro/catalog.js";
-import { applyFill, describeFill, fillBusy } from "../../retro/pack-fill.js";
+import { applyFill, clearRecovery, describeFill, ledgerRoot, readRecovery } from "../../retro/pack-fill.js";
 import { lock, PackError } from "../../retro/pack-bundle.js";
 import { packDirOf } from "../../retro/pack-status.js";
 import { BEZEL_CREDIT } from "../../retro/credits.js";
 import * as activity from "../../tasks/activity.js";
 import { startArtSync } from "./retro-art-api.js";
 
-let last = null; // { startedAt, step, finishedAt?, result?, art?, error? }
+let last = null;
+// Held from the moment a start request is accepted to the end of the covers step; set before any await.
+let active = false; // { startedAt, step, finishedAt?, result?, art?, error? }
 
 /** What the covers and bezels step reports, boiled down to counts. */
 const artCounts = (summary = {}) => Object.values(summary).reduce((n, s) => ({ boxart: n.boxart + (s.boxart ?? 0), bezel: n.bezel + (s.bezel ?? 0), errors: n.errors + (s.errors ?? 0) + (s.error ? 1 : 0) }), { boxart: 0, bezel: 0, errors: 0 });
@@ -34,26 +36,42 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
     res.set("Cache-Control", "no-store");
     try {
       const catalog = await retroCatalog.current(retroDir);
-      const plan = await describeFill({ packDir: packDirOf(retroDir), ledger: ledger(), games: catalog.games, systems: catalog.systems, cacheDir: path.join(cacheRoot(), lock.version) });
-      res.json({ ...plan, job: last, busy: fillBusy(), credit: BEZEL_CREDIT });
+      const packDir = packDirOf(retroDir);
+      const plan = await describeFill({ packDir, ledger: ledger().forRoot(await ledgerRoot(packDir)), games: catalog.games, systems: catalog.systems, cacheDir: path.join(cacheRoot(), lock.version) });
+      res.json({ ...plan, job: last, busy: active, recovery: readRecovery(dataDir), credit: BEZEL_CREDIT });
     } catch (err) {
       debug.error("admin retro-pack: %s", err.message);
       res.status(502).json({ error: err.message });
     }
   });
 
+  // After someone has looked at the files the note lists, the note is deleted and filling is allowed again.
+  router.post("/api/retro-pack/recovery/dismiss", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    if (req.body?.confirm !== true) return res.status(400).json({ error: "확인이 필요합니다" });
+    clearRecovery(dataDir);
+    res.json({ ok: true });
+  });
+
   router.post("/api/retro-pack/fill", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     if (req.body?.confirm !== true) return res.status(400).json({ error: "확인이 필요합니다" });
-    if (fillBusy()) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
-    const catalog = await retroCatalog.current(retroDir);
-    const current = (last = { startedAt: Date.now(), step: "download" });
-    const act = activity.begin("retro-pack", { title: "RetroArch 팩을 채웁니다", total: 4 });
-    res.status(202).json({ job: current });
+    // Taken before the first await, so a second request in the same tick finds it held.
+    if (active) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
+    active = true;
+    let act = null;
+    let current = null;
     try {
+      const catalog = await retroCatalog.current(retroDir);
+      const packDir = packDirOf(retroDir);
+      const store = ledger().forRoot(await ledgerRoot(packDir, { create: true }));
+      current = last = { startedAt: Date.now(), step: "download" };
+      act = activity.begin("retro-pack", { title: "RetroArch 팩을 채웁니다", total: 4 });
+      res.status(202).json({ job: current });
       const result = await applyFill({
-        packDir: packDirOf(retroDir), dataDir, ledger: ledger(), games: catalog.games, systems: catalog.systems, url: retroPackUrl, fetchImpl,
+        packDir, dataDir, ledger: store, games: catalog.games, systems: catalog.systems, url: retroPackUrl, fetchImpl,
         onStep: (step, d) => {
           current.step = step;
           if (step === "download") act.step(0, d?.total ? `번들을 받는 중 ${Math.floor(((d.done ?? 0) / d.total) * 100)}%` : "번들을 받는 중");
@@ -68,12 +86,15 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
       else current.art = artCounts(await started.done.catch((err) => ({ x: { error: err.message } })));
       act.done(`설치 ${result.installed} · 교체 ${result.replaced} · 그대로 ${result.keptCount.operator + result.keptCount.modified}`);
     } catch (err) {
-      current.error = err instanceof PackError ? err.message : `처리하지 못했습니다: ${err.message}`;
+      const message = err instanceof PackError ? err.message : `처리하지 못했습니다: ${err.message}`;
+      if (!current) return res.status(502).json({ error: message });
+      current.error = message;
       if (err.stuck) current.stuck = err.stuck;
       debug.error("admin retro-pack: %s", err.message);
-      act.fail(err);
+      act?.fail(err);
     } finally {
-      current.finishedAt = Date.now();
+      if (current) current.finishedAt = Date.now();
+      active = false;
       await retroCatalog.scan(retroDir).catch((err) => debug.error("retro: rescan after a pack fill failed: %s", err.message));
     }
   });
