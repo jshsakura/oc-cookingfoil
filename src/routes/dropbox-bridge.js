@@ -141,15 +141,17 @@ const PAGE_TEXT = {
   ko: { ok: "Dropbox 를 연결했습니다", okBody: "기기로 돌아가면 곧 연결이 끝납니다. 이 창은 닫아도 됩니다.", fail: "Dropbox 연결에 실패했습니다", failBody: "기기에서 다시 시도합니다.", gone: "연결 요청이 만료됐습니다", goneBody: "기기에서 새 QR 을 띄워 다시 시도합니다." },
   en: { ok: "Dropbox connected", okBody: "Go back to your console; it finishes in a moment. You can close this window.", fail: "Dropbox was not connected", failBody: "Try again from your console.", gone: "This sign-in has expired", goneBody: "Show a new QR code on your console and try again." },
   ja: { ok: "Dropbox を接続しました", okBody: "本体に戻るとまもなく完了します。このウィンドウは閉じてかまいません。", fail: "Dropbox を接続できませんでした", failBody: "本体からもう一度試してください。", gone: "このサインインは期限切れです", goneBody: "本体で新しい QR コードを表示して、もう一度試してください。" },
-  zh: { ok: "已連接 Dropbox", okBody: "回到主機即可完成。可以關閉這個視窗。", fail: "未能連接 Dropbox", failBody: "請在主機上再試一次。", gone: "此登入已過期", goneBody: "請在主機上顯示新的 QR 碼再試一次。" },
+  zh: { ok: "已连接 Dropbox", okBody: "回到主机即可完成。可以关闭这个窗口。", fail: "未能连接 Dropbox", failBody: "请在主机上再试一次。", gone: "此登录已过期", goneBody: "请在主机上显示新的二维码再试一次。" },
+  "zh-Hant": { ok: "已連接 Dropbox", okBody: "回到主機即可完成。可以關閉這個視窗。", fail: "未能連接 Dropbox", failBody: "請在主機上再試一次。", gone: "此登入已過期", goneBody: "請在主機上顯示新的 QR 碼再試一次。" },
 };
 
 function page(res, status, lang, kind, detail = "") {
-  const t = PAGE_TEXT[lang] ?? PAGE_TEXT.en;
+  const shown = PAGE_TEXT[lang] ? lang : "en";
+  const t = PAGE_TEXT[shown];
   const title = t[kind], body = t[`${kind}Body`];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   res.status(status).set({ "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'" })
-    .type("html").send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
+    .type("html").send(`<!doctype html><html lang="${shown}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <style>body{margin:0;box-sizing:border-box;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#f2f1ee;color:#16161a;font:16px/1.6 system-ui,sans-serif}
 @media(prefers-color-scheme:dark){body{background:#16161a;color:#f2f1ee}.card{background:#1f1f24!important}}
 .card{background:#fff;border-radius:20px;padding:32px;max-width:420px;text-align:center}h1{font-size:22px;margin:12px 0 8px}p{margin:0;opacity:.75}</style></head>

@@ -32,7 +32,7 @@ import * as prodKeys from "../../security/prod-keys.js";
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
 // Addresses the server fetches itself: refused when they point at a private network.
-const OUTBOUND = ["titledbSource", "publicDirectBaseUrl"];
+const OUTBOUND = ["titledbSource", "publicDirectBaseUrl", "retroPackUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 // Who may sign in and how, the addresses consoles are sent to, and where the client build they

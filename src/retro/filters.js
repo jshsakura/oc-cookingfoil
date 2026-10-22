@@ -64,7 +64,7 @@ const SIZES = [
   { key: "under-10mb", params: { maxSize: String(10 * MB) }, label: text("Up to 10 MB", "10MB 이하", "10MB以下", "10MB 以下", { "zh-Hant": "10MB 以下", es: "Hasta 10 MB", fr: "Jusqu'à 10 Mo", de: "Bis 10 MB", it: "Fino a 10 MB", pt: "Até 10 MB", ru: "До 10 МБ", nl: "Tot 10 MB" }), keep: (s) => s <= 10 * MB },
   { key: "under-100mb", params: { maxSize: String(100 * MB) }, label: text("Up to 100 MB", "100MB 이하", "100MB以下", "100MB 以下", { "zh-Hant": "100MB 以下", es: "Hasta 100 MB", fr: "Jusqu'à 100 Mo", de: "Bis 100 MB", it: "Fino a 100 MB", pt: "Até 100 MB", ru: "До 100 МБ", nl: "Tot 100 MB" }), keep: (s) => s <= 100 * MB },
   { key: "under-1gb", params: { maxSize: String(1024 * MB) }, label: text("Up to 1 GB", "1GB 이하", "1GB以下", "1GB 以下", { "zh-Hant": "1GB 以下", es: "Hasta 1 GB", fr: "Jusqu'à 1 Go", de: "Bis 1 GB", it: "Fino a 1 GB", pt: "Até 1 GB", ru: "До 1 ГБ", nl: "Tot 1 GB" }), keep: (s) => s <= 1024 * MB },
-  { key: "over-1gb", params: { minSize: String(1024 * MB + 1) }, label: text("Over 1 GB", "1GB 초과", "1GB超", "1GB 以上", { "zh-Hant": "1GB 以上", es: "Más de 1 GB", fr: "Plus de 1 Go", de: "Über 1 GB", it: "Oltre 1 GB", pt: "Mais de 1 GB", ru: "Более 1 ГБ", nl: "Meer dan 1 GB" }), keep: (s) => s > 1024 * MB },
+  { key: "over-1gb", params: { minSize: String(1024 * MB + 1) }, label: text("Over 1 GB", "1GB 초과", "1GB超", "超过 1GB", { "zh-Hant": "超過 1GB", es: "Más de 1 GB", fr: "Plus de 1 Go", de: "Über 1 GB", it: "Oltre 1 GB", pt: "Mais de 1 GB", ru: "Более 1 ГБ", nl: "Meer dan 1 GB" }), keep: (s) => s > 1024 * MB },
 ];
 
 export const SORTS = [

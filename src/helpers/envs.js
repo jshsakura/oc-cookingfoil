@@ -232,6 +232,10 @@ let ratingSync = envBool("COOK_RATING_SYNC", true);
 // screenshots) collected slowly from LaunchBox, and IGDB with its keys.
 // false keeps what was collected and fetches nothing more.
 let retroMeta = envBool("COOK_RETRO_META", true);
+// Where the RetroArch bundle is downloaded from (retro/pack-fill.js). Empty is the
+// official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
+// must serve the same bytes, the lock's SHA-256 is checked either way.
+let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -407,6 +411,7 @@ const ENV_SETTINGS = Object.freeze({
   eshopArtwork,
   ratingSync,
   retroMeta,
+  retroPackUrl,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -456,6 +461,7 @@ function applyServerSettings(saved = {}) {
   eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
+  retroPackUrl = v.retroPackUrl;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -565,6 +571,7 @@ export {
   homebrewCheckHours,
   ratingSync,
   retroMeta,
+  retroPackUrl,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

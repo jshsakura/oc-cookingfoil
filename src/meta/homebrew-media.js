@@ -38,7 +38,7 @@ const put = store.put;
 export { MediaImageError, MAX_SHOTS };
 export const {
   idRe, record, pictures, iconPath, bannerPath, shotPath, shotCount, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
-  saveIcon, saveBanner, removeIcon, removeBanner, saveShots, addShots, removeShots, recrop, forget, original, originals,
+  saveIcon, saveBanner, removeIcon, removeBanner, saveShots, addShots, removeShots, recrop, forget, park, original, originals,
 } = store;
 
 /** Saves a SteamGridDB picture (its own image host only) as the banner. */

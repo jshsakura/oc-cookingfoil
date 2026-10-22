@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { CHECK_INTERVAL_MS, adoptFolders, parseRepo, pickAsset, safeFileName, scanManual, createTracker } from "../../src/meta/homebrew.js";
+import { CHECK_INTERVAL_MS, adoptFolders, parseRepo, pickAsset, safeFileName, scanManual, createTracker, idFor, manualHomeOf } from "../../src/meta/homebrew.js";
 
 /** A minimal NRO whose NACP carries a name, an author and a version. */
 function fakeNro(name, version, author = "someone") {
@@ -706,7 +706,7 @@ test("a hand-placed folder install keeps its metadata folder off the card and ou
 
 test("a folder taken in by hand keeps a metadata/ of the app's own and ships it; one of the server's stays", async () => {
   const root = tmp("hb-meta-adopt-");
-  for (const [app, file] of [["solo", "metadata/config.ini"], ["pics", "metadata/icon.jpg"]]) {
+  for (const [app, file] of [["solo", "metadata/config.ini"], ["pics", "metadata/icon.webp"]]) {
     fs.mkdirSync(path.join(root, app, "metadata"), { recursive: true });
     fs.writeFileSync(path.join(root, app, `${app}.nro`), fakeNro(app, "1.0"));
     fs.writeFileSync(path.join(root, app, file), "x");
@@ -730,4 +730,30 @@ test("an app folder from before metadata folders notes whether a metadata/ there
   const [e] = await scanManual(root);
   assert.ok(sdFiles(e).includes("switch/game/metadata/levels.dat"));
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, ".cookingfoil.json"), "utf8")).own_metadata, true);
+});
+
+test("an app's own metadata/ with names the server also uses is still the app's: shipped, and never written over", async () => {
+  const root = tmp("hb-own-meta-names-");
+  const legacy = path.join(root, "legacy");
+  fs.mkdirSync(path.join(legacy, "metadata"), { recursive: true });
+  fs.writeFileSync(path.join(legacy, "legacy.nro"), fakeNro("Legacy", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(legacy, "metadata", "config.json"), "{}");
+  fs.writeFileSync(path.join(legacy, "metadata", "icon.png"), "the app's icon");
+  fs.writeFileSync(path.join(legacy, ".cookingfoil.json"), JSON.stringify({ nro: "legacy.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+  const loose = path.join(root, "loose");
+  fs.mkdirSync(path.join(loose, "metadata"), { recursive: true });
+  fs.writeFileSync(path.join(loose, "loose.nro"), fakeNro("Loose", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(loose, "metadata", "icon.png"), "the app's icon");
+  const served = path.join(root, "served");
+  fs.mkdirSync(path.join(served, "metadata"), { recursive: true });
+  fs.writeFileSync(path.join(served, "served.nro"), fakeNro("Served", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(served, "metadata", "icon.webp"), "the server's");
+  fs.writeFileSync(path.join(served, "metadata", "banner.png"), "put by hand beside it");
+
+  const byDir = Object.fromEntries((await scanManual(root)).map((e) => [e.install_dir ?? e.id, e]));
+  assert.deepEqual(sdFiles(byDir["switch/legacy"]).filter((f) => f.includes("metadata")).sort(), ["switch/legacy/metadata/config.json", "switch/legacy/metadata/icon.png"]);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(legacy, ".cookingfoil.json"), "utf8")).own_metadata, true);
+  assert.equal(manualHomeOf(idFor("manual", "legacy")), null, "the server keeps this app's pictures on its own side");
+  assert.equal(manualHomeOf(idFor("manual", "loose")), null, "a folder without a manifest is judged by what its metadata/ holds");
+  assert.equal(manualHomeOf(idFor("manual", "served")), served, "a picture the server wrote keeps the folder the server's");
 });

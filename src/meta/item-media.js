@@ -157,6 +157,18 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     }
   }
 
+  /**
+   * Moves the server's pictures out of `from` (a metadata folder an item is giving up, such as the one its
+   * replaced release had) into the server's own folder for the item, where they are shown from next.
+   * What the server already keeps there of a slot wins.
+   */
+  function park(id, from) {
+    check(id);
+    const kept = sidecar.read(from);
+    for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) sidecar.adopt(p.file, ownDir(id), p.slot);
+    settled.clear();
+  }
+
   /** Writes a picture where the item keeps them. Returns its version. */
   const writePicture = (id, slot, webp) => sidecar.versionOfFile(sidecar.write(homeDir(id), slot, webp));
 
@@ -387,7 +399,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     idRe, put, record, pictures, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotCount, shotUrls, urls,
     saveIcon: one(saveIcon), saveBanner: one(saveBanner), removeIcon: one(removeIcon), removeBanner: one(removeBanner),
     saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
-    recrop: one(recrop), forget: one(forget), original, originals,
+    recrop: one(recrop), forget: one(forget), park: one(park), original, originals,
     /** Test seam. */
     resetForTests() { saved = null; settled.clear(); failedTidy.clear(); },
   };

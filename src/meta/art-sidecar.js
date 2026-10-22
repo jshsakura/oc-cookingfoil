@@ -31,10 +31,13 @@ export const MAX_SHOTS = 8;
 /** Whether `rel`, a "/"-separated path relative to an item's folder, is in its metadata folder. Pure. */
 export const isMetadata = (rel) => rel.split("/")[0].toLowerCase() === META_DIR;
 
-/** Whether `rel` is a file the server keeps in a metadata folder (a picture or a .json), not an app's own. Pure. */
+/**
+ * Whether `rel` can only be a file the server wrote into a metadata folder: a slot's .webp or one being
+ * written. A .png, .jpg or .json there may be an app's own, so it never proves the folder is the server's. Pure.
+ */
 export function isOurMetadata(rel) {
   const [top, name, more] = rel.split("/");
-  return top.toLowerCase() === META_DIR && more === undefined && (NAME_RE.test(name) || TEMP_RE.test(name) || /\.json$/i.test(name));
+  return top.toLowerCase() === META_DIR && more === undefined && ((NAME_RE.test(name) && /\.webp$/i.test(name)) || TEMP_RE.test(name));
 }
 
 /** The metadata folder of an item's folder. */

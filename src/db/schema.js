@@ -71,6 +71,17 @@ export const SECURITY_MIGRATIONS = [
    INSERT INTO secrets_sealed (name, sealed) SELECT name, sealed FROM secrets;
    DROP TABLE secrets;
    ALTER TABLE secrets_sealed RENAME TO secrets;`,
+  // Which files of the RetroArch pack the server placed itself (retro/pack-ledger.js). Kept here, not in the
+  // index, because the index is thrown away when broken and a lost ledger would turn every file into the operator's.
+  // A row belongs to one pack folder (root), so a file in another folder is never taken for the server's.
+  `CREATE TABLE retro_pack_ledger (
+     root TEXT NOT NULL,
+     rel TEXT NOT NULL,
+     sha256 TEXT NOT NULL,
+     source TEXT NOT NULL,
+     lock_version TEXT NOT NULL,
+     PRIMARY KEY (root, rel)
+   ) WITHOUT ROWID;`,
 ];
 
 /**

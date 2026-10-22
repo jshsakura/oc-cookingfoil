@@ -437,7 +437,13 @@ test("an app's pictures live in its folder, ship nowhere and stay when a new bui
     assert.equal((await sendApp({ "switch/artapp/artapp.nro": fakeNro("Art App"), "switch/artapp/data.bin": "F", "switch/artapp/metadata/maps.dat": "the release's" })).status, 201);
     assert.equal(JSON.parse(fs.readFileSync(path.join(folder, ".cookingfoil.json"), "utf8")).own_metadata, true);
     for (let i = 0; i < 40 && !(await listed()).files.some((f) => f.path.endsWith("maps.dat")); i++) await new Promise((r) => setTimeout(r, 250));
-    assert.ok((await listed()).files.some((f) => f.path === "switch/artapp/metadata/maps.dat"));
+    const own = await listed();
+    assert.ok(own.files.some((f) => f.path === "switch/artapp/metadata/maps.dat"));
+    assert.ok(!fs.existsSync(path.join(folder, "metadata", "banner.webp")), "the release's metadata/ holds only its own files");
+    assert.ok(own.banner_url, "the banner the server had is kept, now on the server's side");
+    const kept = await fetch(BASE + own.banner_url.replace(/^https?:\/\/[^/]+/, ""), { headers: ALICE });
+    assert.equal(kept.status, 200);
+    assert.equal(kept.headers.get("content-type"), "image/webp");
   } finally {
     server.kill();
   }

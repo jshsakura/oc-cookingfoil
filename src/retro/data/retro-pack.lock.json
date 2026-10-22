@@ -1,0 +1,31 @@
+{
+  "note": "The RetroArch pack the server can fill in by itself. Every hash line carries the marker privacy-ok: public release checksums, not secrets.",
+  "version": "1.22.2",
+  "bundle": {
+    "url": "https://buildbot.libretro.com/stable/1.22.2/nintendo/switch/libnx/RetroArch.7z",
+    "file": "RetroArch.7z",
+    "size": 308863490,
+    "sha256": "bce9764137b6bce974704c4edbe55f730ec5e101dcd0cfb9058f01c160e51ddb", "note": "privacy-ok public release hash"
+  },
+  "paths": {
+    "body": {
+      "from": "switch/retroarch_switch.nro",
+      "to": "retroarch.nro",
+      "size": 17106342,
+      "sha256": "a295010f1f282a63507fc48f97875dd0238a05d426b0393c63d57ffcb0ca53d2", "note": "privacy-ok public release hash",
+      "verified": true
+    },
+    "cores": {
+      "from": "retroarch/cores",
+      "to": "cores",
+      "hashes": "official-cores",
+      "verified": true
+    },
+    "dirs": [
+      { "from": "retroarch/info", "to": "info", "verified": true },
+      { "from": "retroarch/assets", "to": "assets", "verified": true },
+      { "from": "retroarch/autoconfig", "to": "autoconfig", "verified": true }
+    ]
+  },
+  "extras": []
+}

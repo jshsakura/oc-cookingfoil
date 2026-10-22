@@ -23,8 +23,11 @@ const until = async (ok) => {
 test("an item's metadata folder is told apart from its own files, and what the server keeps there by name", () => {
   for (const ok of ["metadata/icon.webp", "Metadata/notes.txt", "metadata/deep/x.bin"]) assert.ok(sidecar.isMetadata(ok), ok);
   for (const no of ["icon.webp", "romfs/metadata/icon.webp", "metadata.json"]) assert.ok(!sidecar.isMetadata(no), no);
-  for (const ok of ["metadata/icon.webp", "metadata/banner.jpg", "metadata/screenshot-12.jpeg", "metadata/game.json", "metadata/.icon.webp.12.tmp"]) assert.ok(sidecar.isOurMetadata(ok), ok);
-  for (const no of ["metadata/levels.dat", "metadata/sub/icon.webp", "icon.webp"]) assert.ok(!sidecar.isOurMetadata(no), no);
+  for (const ok of ["metadata/icon.webp", "metadata/screenshot-12.webp", "metadata/.icon.webp.12.tmp"]) assert.ok(sidecar.isOurMetadata(ok), ok);
+  // An app may bring these itself; they never prove the folder is the server's.
+  for (const no of ["metadata/levels.dat", "metadata/sub/icon.webp", "icon.webp", "metadata/icon.png", "metadata/banner.jpg", "metadata/config.json"]) {
+    assert.ok(!sidecar.isOurMetadata(no), no);
+  }
   assert.equal(sidecar.slotName("shot", 3), "screenshot-03");
 });
 

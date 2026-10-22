@@ -216,6 +216,11 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.ok(home.systems.every((s) => s.games.every((g) => ["game", "system", "none"].includes(g.bezel.kind))));
     const own = await (await get(`/api/retro/games/${smw.id}`)).json();
     assert.equal(own.bezel.kind, "game");
+    // Who made the bezel, worded in the request's language (the credit is additive: the other fields are unchanged).
+    assert.equal(own.bezel.credit.name, "The Bezel Project");
+    assert.match(own.bezel.credit.url, /^https:\/\/github\.com\//);
+    assert.ok(own.bezel.credit.text.length > 10);
+    assert.ok(all.filter((g) => g.bezel.kind === "none").every((g) => !("credit" in g.bezel)));
     assert.ok(own.variants.every((v) => ["game", "system", "none"].includes(v.bezel.kind)));
     const filtered = (await (await get("/api/retro/games?pageSize=200&bezel=1")).json()).games;
     assert.ok(filtered.length && filtered.every((g) => g.bezel.kind === "game"), "bezel=1 still means a game's own bezel");
