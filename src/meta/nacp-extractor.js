@@ -17,7 +17,7 @@
 import path from "path";
 import fs from "fs/promises";
 import * as extractedMeta from "./extracted-meta-store.js";
-import { cachePathFor } from "./image-cache.js";
+import { cachePathFor, dropVariants } from "./image-cache.js";
 import * as autoProvider from "./extract-providers/auto.js";
 import { iconCacheDir, extractPaceMs } from "../helpers/envs.js";
 import debug from "../debug.js";
@@ -112,6 +112,7 @@ async function persistLangIcons(baseTitleId, byLang, defaultIconPath) {
       const file = cachePathFor(baseTitleId, "icon-lang", lang);
       await fs.writeFile(`${file}.tmp.${process.pid}`, buf);
       await fs.rename(`${file}.tmp.${process.pid}`, file);
+      dropVariants(file);
       saved.push(lang);
     } catch (err) {
       debug.error("nacp-extractor: %s icon for %s not saved: %s", lang, baseTitleId, err.message);
@@ -164,6 +165,8 @@ async function workOne(job) {
         const tmp = `${iconPath}.tmp.${process.pid}`;
         await fs.writeFile(tmp, record.iconBuffer);
         await fs.rename(tmp, iconPath);
+        // Its WebP copies were drawn from the icon this one replaces.
+        dropVariants(iconPath);
         record.iconPath = iconPath;
       } catch (err) {
         debug.error("nacp-extractor: icon persist failed for %s: %s", job.baseTitleId, err.message);

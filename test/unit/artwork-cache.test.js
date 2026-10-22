@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -91,7 +91,7 @@ for (const [kind, url, size] of [
     assert.equal(hit.status, 200);
     assert.equal(hit.headers.get("cache-control"), IMMUTABLE);
     assert.equal(hit.headers.get("content-type"), "image/webp");
-    assert.match(hit.headers.get("vary") ?? "", /Accept/);
+    assert.doesNotMatch(hit.headers.get("vary") ?? "", /Accept/, "one format for every client");
 
     for (const stale of [url, `${url}?v=0.8`, `${url}?v=000000000000`]) {
       const r = await fetch(`${origin}${stale}`);
@@ -101,7 +101,28 @@ for (const [kind, url, size] of [
       assert.ok(etag, "an ETag to revalidate with");
       assert.equal((await fetch(`${origin}${stale}`, { headers: { "If-None-Match": etag, "Cache-Control": "max-age=0" } })).status, 304);
     }
-    const jpegOnly = await fetch(`${origin}${current}&size=${size}`);
-    assert.equal(jpegOnly.headers.get("content-type"), "image/jpeg", "no WebP without Accept: image/webp");
   });
 }
+
+// What the console client sends, what a browser's <img> sends, and a client that names nothing.
+const ACCEPTS = ["image/webp,image/*;q=0.8", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8", null];
+
+test("every image route answers WebP to the console, a browser and a client without Accept, at every size", async () => {
+  for (const url of [`/api/shop/icon/${BASE}`, `/api/shop/banner/${BASE}`, `/api/shop/screenshot/${BASE}/0`]) {
+    for (const size of [null, "sm", "md", "lg", "xl"]) {
+      for (const accept of ACCEPTS) {
+        const r = await fetch(`${origin}${versionedArtwork(url)}${size ? `&size=${size}` : ""}`, accept ? { headers: { Accept: accept } } : {});
+        const label = `${url} ${size ?? "full"} ${accept ?? "no Accept"}`;
+        assert.equal(r.status, 200, label);
+        assert.equal(r.headers.get("content-type"), "image/webp", label);
+        assert.doesNotMatch(r.headers.get("vary") ?? "", /Accept/, label);
+        assert.ok(r.headers.get("etag"), label);
+        assert.equal((await sharp(Buffer.from(await r.arrayBuffer())).metadata()).format, "webp", label);
+      }
+    }
+  }
+  const sources = [`${BASE}.jpg`, `${BASE}.banner.jpg`, `${BASE}.screen.0.jpg`, `${NO_DB}.jpg`];
+  assert.deepEqual(readdirSync(extracted).sort(), sources.sort(), "nothing written next to the cached originals");
+  const thumbs = readdirSync(path.join(data, "thumbs", "extracted"));
+  assert.ok(thumbs.length && thumbs.every((f) => f.endsWith(".webp")), `only WebP variants: ${thumbs.join(", ")}`);
+});

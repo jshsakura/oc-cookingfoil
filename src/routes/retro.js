@@ -66,11 +66,14 @@
  * forwarders made from another version keep working.
  *   V = { id, name, variant?, edition?, region?, size, file, rom_hash, rom_size, representative: bool, bezel: { kind }, missing?: [set] }
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
- *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px JPEG (default md),
- *                                                WebP when the client sends Accept: image/webp;
+ *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px WebP (default md);
  *                                                drawn ahead of time, cached for a year with the ?v= of iconUrl
- *   GET /api/retro/games/:id/boxart?v=&size=sm|md the box art as it is; with ?size= fitted within 160 or 256 px,
- *                                                its shape kept and never enlarged, WebP for Accept: image/webp
+ *   GET /api/retro/games/:id/boxart?v=&size=sm|md the box art as WebP, whole; with ?size= fitted within 160 or
+ *                                                256 px, its shape kept and never enlarged
+ * Every client gets WebP whatever its Accept. Left as they are: the bezel
+ * (bezel.png goes onto the SD card for RetroArch's overlay, which reads PNG and
+ * needs its transparency), the console icons (small PNGs whose transparency the
+ * client tints) and the screenshots (sent as they were saved).
  *
  * Every image URL in a list (iconUrl, boxartUrl, a console's iconUrl and
  * iconMonoUrl) ends in ?v=<12 hex> of the file it serves. That v gets
@@ -240,8 +243,6 @@ function systemIconUrls(id, system) {
     iconMonoUrl: mono ? `/api/retro/systems/${id}/icon?style=mono&v=${fileVersion(mono)}` : null,
   };
 }
-
-const wantsWebp = (req) => (req.get("accept") || "").includes("image/webp");
 
 /** Text for matching: NFC, lower case, no spaces. Pure. */
 const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
@@ -844,25 +845,20 @@ export default function retroRouter() {
   });
   router.get("/games/:id/icon", wrap(async (req, res) => {
     const size = Object.hasOwn(SQUARE_SIZES, req.query.size) ? req.query.size : "md";
-    const webp = wantsWebp(req);
-    const square = await (webp ? ensureSquareWebp : ensureSquare)(artDir, req.retro.game, size);
+    const square = await ensureSquareWebp(artDir, req.retro.game, size);
     if (!square) return res.status(404).json({ error: "no icon" });
-    res.set("Vary", "Accept");
     // ?v= names one version of the cover, so that URL never changes underneath a cache.
     const versioned = req.query.v && req.query.v === artKey(req.retro.game);
     res.set("Cache-Control", versioned ? IMMUTABLE : "private, no-cache");
-    res.type(webp ? "webp" : "jpeg");
+    res.type("webp");
     res.sendFile(square, { dotfiles: "allow" });
   }));
   router.get("/games/:id/boxart", wrap(async (req, res) => {
     const { game } = req.retro;
     if (!game.icon) return res.status(404).json({ error: "no box art" });
     const versioned = Boolean(req.query.v) && req.query.v === artKey(game);
-    if (!Object.hasOwn(BOXART_SIZES, req.query.size)) return sendFile(res, game.icon, null, versioned);
-    const webp = wantsWebp(req);
-    const file = await ensureBoxart(artDir, game, req.query.size, webp);
-    res.set("Vary", "Accept");
-    sendFile(res, file, webp ? "webp" : null, versioned);
+    const file = await ensureBoxart(artDir, game, Object.hasOwn(BOXART_SIZES, req.query.size) ? req.query.size : "full");
+    sendFile(res, file, "webp", versioned);
   }));
   router.get("/games/:id/screenshot/:n", (req, res) => {
     const { game, systems, cat } = req.retro;
