@@ -23,7 +23,7 @@ import debug from "../debug.js";
 import { extractedMetaDir } from "../helpers/envs.js";
 import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { findControlNcaId, readCnmtFacts, firmwareString } from "./cnmt-parse.js";
-import { NACP_TOTAL_BYTES, decodeNacp } from "./nacp-decode.js";
+import { NACP_TOTAL_BYTES, decodeNacp, garbled } from "./nacp-decode.js";
 import { readCnmts } from "./nca-reader.js";
 import {
   resolveBinary, keysAvailable, runNstool, findFirstRecursive, keysFile, DEFAULT_TIMEOUT_MS,
@@ -54,13 +54,18 @@ const CJK_RE = /[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
 
 const wantsNacp = (contentType) => contentType === "base" || contentType === "update";
 
+// An English name stored garbled (a compressed NACP read as plain text by an
+// older decoder) counts as a NACP not read yet.
+const nacpDone = (record) => Boolean(record?.nacpRead) && !garbled(record.englishName);
+
 // A record migrated from the legacy store has only displayVersion, and records
-// from before English names lack nacpRead; both are read again.
-function isComplete(record, contentType) {
+// from before English names lack nacpRead; both are read again, as is one
+// whose English name is garbled.
+export function isComplete(record, contentType) {
   if (!record) return false;
-  if (record.failed) return true;
+  if (record.failed) return !garbled(record.englishName);
   if (!record.installSize) return false;
-  return !wantsNacp(contentType) || Boolean(record.nacpRead);
+  return !wantsNacp(contentType) || nacpDone(record);
 }
 
 async function readJson(file) {
@@ -91,9 +96,13 @@ export async function load() {
   for (const job of early.splice(0)) enqueue(job);
 }
 
-/** The facts known so far for one file, or null. */
+/** The facts known so far for one file, or null. A garbled English name reads as missing. */
 export function get(titleId, version) {
-  return known.get(keyOf(titleId, version)) ?? null;
+  const record = known.get(keyOf(titleId, version));
+  if (!record) return null;
+  if (!garbled(record.englishName)) return record;
+  const { englishName: _garbled, ...rest } = record;
+  return rest;
 }
 
 export function onExtracted(fn) {
@@ -148,7 +157,8 @@ async function extractNacp(run, absPath, entry, tmp) {
 export function englishNameOf(nacp) {
   const picked = decodeNacp(nacp, ["en-US", "en-GB"]);
   if (!picked || (picked.pickedSlot !== NACP_SLOT_EN_US && picked.pickedSlot !== NACP_SLOT_EN_GB)) return null;
-  return LATIN_RE.test(picked.name) && !CJK_RE.test(picked.name) ? picked.name : null;
+  const { name } = picked;
+  return LATIN_RE.test(name) && !CJK_RE.test(name) && !garbled(name) ? name : null;
 }
 
 async function readNacpFacts(run, absPath, entries, cnmt, tmp) {
@@ -202,10 +212,13 @@ async function work() {
   running = true;
   while (queue.length) {
     const job = queue.shift();
-    const previous = known.get(job.key);
+    const stored = known.get(job.key);
+    const withNacp = wantsNacp(job.contentType) && !nacpDone(stored);
+    // A NACP read again replaces the English name, garbled or not.
+    const { englishName: _old, ...rest } = stored ?? {};
+    const previous = withNacp ? rest : stored;
     let record = null;
     try {
-      const withNacp = wantsNacp(job.contentType) && !previous?.nacpRead;
       record = await readContentMeta(job.absPath, { withNacp });
     } catch (err) {
       debug.log("content-meta: %s: %s", path.basename(job.absPath), err.message);
