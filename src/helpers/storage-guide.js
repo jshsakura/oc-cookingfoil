@@ -1,7 +1,7 @@
 /**
  * The storage guide and every folder's guide (helpers/folder-guides.js), from
- * memory: the admin API (routes/admin/storage-guide-api.js) and the MCP read
- * tools call these, so both say the same.
+ * memory: the admin API (routes/admin/storage-guide-api.js) and the read
+ * capabilities in capabilities/library.js call these, so both say the same.
  *
  * Each retro scan recomputes them from the systems it read (retro/scaffold.js
  * run, kept as its last run). Before the first scan they come from the built-in

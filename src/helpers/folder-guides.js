@@ -1,9 +1,9 @@
 /**
  * What goes in each folder the server owns or reads, as data: for the admin API
- * (routes/admin/storage-guide-api.js) and the MCP read tools, which both call
- * helpers/storage-guide.js. The server writes none of this to disk: no README
- * goes into any folder, and a README.md someone keeps there is theirs
- * (helpers/readme-name.js).
+ * (routes/admin/storage-guide-api.js) and the read capabilities in
+ * capabilities/library.js, which both call helpers/storage-guide.js. The
+ * server writes none of this to disk: no README goes into any folder, and a
+ * README.md someone keeps there is theirs (helpers/readme-name.js).
  *
  *   role folders    incoming, games, homebrew, retro, patches, saves, keys, data
  *                   (storage-layout.js ROLES, wherever each one lives)

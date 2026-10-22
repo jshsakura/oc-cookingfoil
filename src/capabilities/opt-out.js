@@ -88,7 +88,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/api/server-settings",
   "GET /admin/api/server/status",
   "GET /admin/api/stats",
-  "GET /admin/api/storage-guide",
   "GET /admin/api/tokens",
   "GET /admin/api/transfers",
   "GET /admin/api/upload/targets",

@@ -10,7 +10,7 @@
  *
  * A guide is helpers/folder-guides.js's: { path, dir, consolePath, role, system?, title, purpose, accepts,
  * structure, naming, server, doNotPut, core, bios, arcade, text }. The server writes none of this to disk.
- * Everything comes from memory (helpers/storage-guide.js, which the MCP read tools call too): the last scan's
+ * Everything comes from memory (helpers/storage-guide.js, which the capabilities in capabilities/library.js call too): the last scan's
  * guides, or before the first scan the built-in system table's. No request reads the disk.
  */
 import debug from "../../debug.js";
