@@ -64,7 +64,7 @@ test("an alias folder means no canonical folder, and its files are left as they 
   await runOn(layout);
   const names = roms(layout.dirs.retro);
   assert.ok(!names.includes("snes") && !names.includes("gba"));
-  assert.deepEqual(fs.readdirSync(snes).filter((n) => n !== scaffold.GUIDE_NAME), ["Game.sfc"], "only the folder guide is added");
+  assert.deepEqual(fs.readdirSync(snes), ["Game.sfc"]);
   assert.equal(loadSystems(layout.dirs.retro).snes.folder, "SNES", "the games are still read from the alias");
 });
 
@@ -126,7 +126,7 @@ test("a problem is handed out for logging once per path, however many runs see i
 
 test("the guide says how to stop a deleted folder from coming back", async () => {
   const r = await runOn(storageLayout(tmp()));
-  assert.match(r.text, /deleted folder comes back[^\n]*retroScaffold/);
+  assert.match(r.guide.text, /deleted folder comes back[^\n]*retroScaffold/);
 });
 
 test("a file where a folder would go is reported, not replaced", async () => {
@@ -150,13 +150,12 @@ test("a deleted system folder comes back at the next catalog scan", async () => 
   assert.equal(catalog.visibleSystems(await catalog.current(layout.dirs.retro)).length, 0, "empty folders show no system to clients");
 });
 
-test("turned off, nothing is made and no guide is written", async () => {
+test("turned off, nothing is made", async () => {
   const layout = storageLayout(tmp());
   const r = await runOn(layout, { enabled: false });
   assert.equal(fs.existsSync(path.join(layout.dirs.retro, "roms")), false);
-  assert.equal(fs.existsSync(path.join(layout.root, scaffold.GUIDE_NAME)), false);
   assert.equal(r.enabled, false);
-  assert.ok(r.text.includes("| Game Boy Advance |"), "the guide text is still there for the admin page");
+  assert.ok(r.guide.text.includes("| Game Boy Advance |"), "the guide text is still there for the admin page");
 });
 
 test("nothing is made while the old data/retro still waits to be moved over", async () => {
@@ -167,63 +166,42 @@ test("nothing is made while the old data/retro still waits to be moved over", as
   assert.equal(r.skipped, "old-retro");
 });
 
-test("the guide sits in the storage folder, lists each runnable system with its folder, extensions and BIOS", async () => {
+test("the guide lists each runnable system with its folder, extensions and BIOS, by its path in the storage folder", async () => {
   const layout = storageLayout(tmp());
-  await runOn(layout);
-  const text = fs.readFileSync(path.join(layout.root, "README.md"), "utf8");
-  assert.match(text.split("\n")[0], /^<!-- cookingfoil-guide sha256=[0-9a-f]{16} /);
+  const { text } = (await runOn(layout)).guide;
   assert.match(text, /\| Game Boy Advance \| gba \| `retro\/roms\/gba\/` \| \.gba \.zip \.7z \| none \|/);
   assert.match(text, /\| Sega CD \/ Mega-CD \| segacd \| `retro\/roms\/segacd\/` \|[^|]+\| one of `bios_CD_U\.bin`, `bios_CD_E\.bin`, `bios_CD_J\.bin` \|/);
   assert.match(text, /`retro\/retroarch\/system\/`/);
   assert.ok(!text.includes("Atari 2600"), "systems the Switch cannot run are left out");
   assert.ok(!text.includes("—"), "no em dashes");
+  assert.equal(fs.existsSync(path.join(layout.root, "README.md")), false, "no file is written");
 });
 
-test("with separate mounts the guide sits in the retro folder and names the other folders by their paths", async () => {
-  const base = tmp();
-  const layout = separateLayout(base);
-  await runOn(layout);
-  assert.ok(isDir(path.join(layout.dirs.retro, "roms", "snes")));
-  const text = fs.readFileSync(path.join(layout.dirs.retro, "README.md"), "utf8");
-  assert.ok(text.includes(`\`${layout.dirs.games}/\``));
-  assert.match(text, /\| Super Nintendo \| snes \| `roms\/snes\/` \|/);
-});
-
-test("the guide is written again when the system list changes", async () => {
-  const layout = storageLayout(tmp());
-  const file = path.join(layout.root, "README.md");
-  await runOn(layout);
-  assert.ok(!fs.readFileSync(file, "utf8").includes("Atari 2600"));
-  fs.mkdirSync(path.join(layout.dirs.retro, "retroarch", "cores"), { recursive: true });
-  fs.writeFileSync(path.join(layout.dirs.retro, "retroarch", "cores", "stella_libretro_libnx.nro"), "x");
-  const r = await runOn(layout);
-  assert.equal(r.guide.state, "written");
-  assert.ok(fs.readFileSync(file, "utf8").includes("| Atari 2600 |"));
-  assert.ok(isDir(path.join(layout.dirs.retro, "roms", "Atari - 2600")));
-  fs.rmSync(file);
-  assert.equal((await runOn(layout)).guide.state, "written", "a deleted guide comes back");
-  assert.equal((await runOn(layout)).guide.state, "current");
-});
-
-test("a guide the user edited, or a README of their own, is left alone", async () => {
-  const layout = storageLayout(tmp());
-  const file = path.join(layout.root, "README.md");
-  await runOn(layout);
-  const edited = fs.readFileSync(file, "utf8").replace("# CookingFoil storage", "# My server");
-  fs.writeFileSync(file, edited);
-  fs.mkdirSync(path.join(layout.dirs.retro, "retroarch", "cores"), { recursive: true });
-  fs.writeFileSync(path.join(layout.dirs.retro, "retroarch", "cores", "stella_libretro_libnx.nro"), "x");
-  assert.equal((await runOn(layout)).guide.state, "edited");
-  assert.equal(fs.readFileSync(file, "utf8"), edited);
-  fs.writeFileSync(file, "# notes of my own\n");
-  assert.equal((await runOn(layout)).guide.state, "foreign");
-  assert.equal(fs.readFileSync(file, "utf8"), "# notes of my own\n");
-});
-
-test("the guide in the retro folder is not read as a game or a system folder", async () => {
+test("with separate mounts the guide names each folder by where it is", async () => {
   const layout = separateLayout(tmp());
+  const { text } = (await runOn(layout)).guide;
+  assert.ok(isDir(path.join(layout.dirs.retro, "roms", "snes")));
+  assert.ok(text.includes(`\`${layout.dirs.games}\``));
+  assert.match(text, /\| Super Nintendo \| snes \| `retro\/roms\/snes\/` \|/);
+  assert.equal(fs.existsSync(path.join(layout.dirs.retro, "README.md")), false, "no file is written");
+});
+
+test("the guide changes with the system list", async () => {
+  const layout = storageLayout(tmp());
+  assert.ok(!(await runOn(layout)).guide.text.includes("Atari 2600"));
+  fs.mkdirSync(path.join(layout.dirs.retro, "retroarch", "cores"), { recursive: true });
+  fs.writeFileSync(path.join(layout.dirs.retro, "retroarch", "cores", "stella_libretro_libnx.nro"), "x");
+  assert.ok((await runOn(layout)).guide.text.includes("| Atari 2600 |"));
+  assert.ok(isDir(path.join(layout.dirs.retro, "roms", "Atari - 2600")));
+});
+
+test("a README.md of the user's own is never touched", async () => {
+  const layout = storageLayout(tmp());
+  const mine = [path.join(layout.root, "README.md"), path.join(layout.dirs.retro, "README.md")];
+  for (const f of mine) fs.writeFileSync(f, "# notes of my own\n");
   await runOn(layout);
-  assert.ok(fs.existsSync(path.join(layout.dirs.retro, "README.md")));
+  await runOn(layout);
+  for (const f of mine) assert.equal(fs.readFileSync(f, "utf8"), "# notes of my own\n");
   const cat = await catalog.scanDir(layout.dirs.retro);
   assert.equal(cat.games.length, 0);
   assert.deepEqual(unreadFolders(layout.dirs.retro, cat.systems), []);
@@ -251,7 +229,7 @@ test("the admin endpoint serves the guide from memory, without touching the disk
     assert.match(md.headers.get("content-type"), /text\/markdown/);
     assert.ok((await md.text()).includes("| Game Boy Advance |"));
     const st = await (await fetch(`http://127.0.0.1:${port}/admin/api/storage-guide?format=json`)).json();
-    assert.equal(st.guide.path, path.join(layout.root, "README.md"));
+    assert.ok(st.guides.length > 0);
     assert.ok(st.folders.some((f) => f.folder === "gba" && f.made));
     mock.restoreAll();
     assert.deepEqual(touched, []);

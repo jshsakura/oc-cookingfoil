@@ -100,7 +100,6 @@ import { ROLES, ensureLayout, oldIncoming, moveOldIncoming } from "./helpers/sto
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import * as retroCatalog from "./retro/catalog.js";
 import * as retroScaffold from "./retro/scaffold.js";
-import { loadSystems } from "./retro/systems.js";
 import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
@@ -119,24 +118,13 @@ for (const made of ensureLayout(layout)) debug.log("storage: made %s", made);
 for (const role of ROLES.filter((r) => layout.from[r] === "kept")) {
   debug.error("storage: %s still has files, so %s stays in use instead of %s/%s; move them over", layout.dirs[role], role, layout.root, role);
 }
-// Every retro scan (the first runs at start) makes the system folders and the storage guide that are missing.
+// Every retro scan (the first runs at start) makes the system folders that are missing and recomputes the folder guides (API only).
 retroCatalog.beforeScan(async (dir, systems) => {
   if (dir !== retroDir) return;
-  const r = await retroScaffold.run({ retroDir: dir, systems, layout, enabled: envs.retroScaffold, guides: envs.folderGuides });
+  const r = await retroScaffold.run({ retroDir: dir, systems, layout, enabled: envs.retroScaffold });
   if (r.made.length) debug.log("retro: made %d folders: %s", r.made.length, r.made.join(", "));
-  if (r.guide.state === "written") debug.log("storage: wrote the folder guide %s", r.guide.path);
-  const wrote = r.folderGuides.filter((g) => g.state === "written");
-  if (wrote.length) debug.log("storage: wrote %d folder guides", wrote.length);
-  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not write %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
+  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not make %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
 });
-// The role folders' guides, now: a retro scan, which writes the rest, may never come on a server without retro.
-retroScaffold.writeRoleGuides({ systems: loadSystems(retroDir), layout, retroDir, enabled: envs.folderGuides })
-  .then((rs) => {
-    const wrote = rs.filter((g) => g.state === "written").length;
-    if (wrote) debug.log("storage: wrote %d folder guides", wrote);
-    for (const g of rs.filter((x) => x.state === "failed" || x.state === "unreadable")) debug.error("storage: could not write %s: %s", g.path, g.error);
-  })
-  .catch((err) => debug.error("storage: folder guides failed: %s", err.message));
 const oldBox = oldIncoming(layout);
 if (oldBox) {
   try {

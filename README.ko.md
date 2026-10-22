@@ -199,8 +199,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 | 파일에서 아이콘 읽기 | `COOK_EXTRACT_ICONS` | `missing` |
 | 스토어 가격, 인기순, 그림 | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | 켜짐 |
 | 리뷰 점수, 레트로 게임 정보 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | 켜짐 |
-| 레트로 기종 폴더와 저장 폴더 안내(README.md) 만들기 | `COOK_RETRO_SCAFFOLD` | 켜짐 |
-| 서버가 쓰는 폴더마다 안내(README.md) 남기기 | `COOK_FOLDER_GUIDES` | 켜짐 |
+| 레트로 기종 폴더 만들기 | `COOK_RETRO_SCAFFOLD` | 켜짐 |
 | 다운로드당 연결 수 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | 직접 다운로드 주소, 토큰 수명 | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | 꺼짐, `21600` 초 |
 | 안전한 재시작 | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` 초, `25` 초 |

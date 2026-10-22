@@ -199,8 +199,7 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 | ファイルから読むアイコン | `COOK_EXTRACT_ICONS` | `missing` |
 | ストア価格、人気、アートワーク | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | オン |
 | レビュースコア、レトロゲーム情報 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | オン |
-| レトロ機種フォルダと保存フォルダの案内(README.md)の作成 | `COOK_RETRO_SCAFFOLD` | オン |
-| サーバーが使うフォルダごとの案内(README.md) | `COOK_FOLDER_GUIDES` | オン |
+| レトロ機種フォルダの作成 | `COOK_RETRO_SCAFFOLD` | オン |
 | 1 回のダウンロードの接続数 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | 直接ダウンロードアドレス、トークンの有効期間 | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | オフ、`21600` 秒 |
 | 安全な再起動 | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` 秒、`25` 秒 |

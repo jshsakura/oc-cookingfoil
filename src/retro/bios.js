@@ -18,7 +18,7 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { isGuideName } from "../helpers/guide-file.js";
+import { isReadme } from "../helpers/readme-name.js";
 
 // NeoCD takes any one of these (front loader, top loader, CDZ, Universe BIOS),
 // from system/neocd/ only.
@@ -49,14 +49,14 @@ export function firmwareDir(retroDir) {
   return dirs.find((d) => fs.existsSync(d)) ?? dirs[0];
 }
 
-/** Every file under `dir` as a "/"-separated relative path, the folder guide at its top left out; empty when it is missing. */
+/** Every file under `dir` as a "/"-separated relative path, a README.md at its top left out; empty when it is missing. */
 export async function listFirmware(dir, depth = 0, prefix = "") {
   const entries = await fsp.readdir(path.join(dir, prefix), { withFileTypes: true }).catch(() => []);
   const out = [];
   for (const e of entries) {
     const rel = prefix ? `${prefix}/${e.name}` : e.name;
     if (e.isDirectory() && depth < MAX_DEPTH) out.push(...(await listFirmware(dir, depth + 1, rel)));
-    else if (e.isFile() && !(depth === 0 && isGuideName(e.name))) out.push(rel);
+    else if (e.isFile() && !(depth === 0 && isReadme(e.name))) out.push(rel);
   }
   return out;
 }
