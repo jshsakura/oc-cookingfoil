@@ -11,8 +11,8 @@
  * took it out). BIOS (system/), retroarch.cfg and config/ are never written.
  *
  *   check(cat)            after every catalog scan: the missing cores of the consoles with games, in
- *                         one job (the activity menu shows it). A scan while a job runs is looked at
- *                         once when it ends. A core that fails waits for its backoff (30 min, doubling
+ *                         one job (the activity menu shows it). A scan while a job runs, or while
+ *                         another writer holds the pack, is looked at once when it lets go. A core that fails waits for its backoff (30 min, doubling
  *                         up to a day) unless the admin asks
  *   update()              the admin's "update installed cores": each core the server owns whose CRC-32
  *                         is not the index's is replaced in place (no copy of the old one is kept).
@@ -23,15 +23,17 @@
  *
  * A file is replaced or deleted only after it was moved aside (a rename in its folder) and the moved
  * bytes were hashed as the server's; anything else goes back. A user's file is never deleted. A file is
- * put in place with link(), which fails rather than overwrite; on a disk without hard links (exFAT,
- * CIFS) with a copy into a file created exclusively (O_EXCL), which fails the same way.
+ * put in place by no-clobber.js linkNoClobber: link(), which fails rather than overwrite, or on a disk
+ * without hard links (exFAT, CIFS) a copy into a hidden partial file that takes the name only when it
+ * is empty. A half-written core never shows under its real name.
  *
  * A crash or a lost race can leave files beside a core's place, hidden by a dot name, and a staging
- * folder in the data dir. recover() runs when the upkeep starts and before each job, under the pack
- * lock: staging and partial downloads (.cfpart) are deleted, a moved-aside file (.aside) of the
- * server's (by the ledger and its hash) is deleted, and a user's goes back to its name when the place
- * is empty. A user's file whose place is taken is held: never deleted, listed by hidden() for the
- * admin, and useUserVersion(core, { hidden }) puts it back (what is in its place goes to the trash).
+ * folder in the data dir. recover() runs when the upkeep starts, before and after each job and on each
+ * admin action, under the pack lock: staging and partial files (.cfpart) are deleted, a moved-aside
+ * file (.aside) of the server's (by the ledger and its hash) is deleted, and a user's goes back to its
+ * name when the place is empty. A user's file whose place is taken is held: never deleted, listed by
+ * hidden() for the admin (a read: it moves nothing), and useUserVersion(core, { hidden }) puts it back
+ * (what is in its place goes to the trash).
  *
  * Every download asks first that the data disk (the zip and its unpacked .nro) and the disk the
  * cores are written to each keep the NSZ floor (nszDiskFloorGb) plus 1 GiB free; the ledger gets
@@ -55,10 +57,10 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { pipeline } from "stream/promises";
 import debug from "../debug.js";
+import { besideName, linkNoClobber } from "./no-clobber.js";
 import { PackError, sha256File } from "./pack-bundle.js";
-import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PACK, serverOwns } from "./pack-fill.js";
+import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PACK, serverOwns, whenFillFree } from "./pack-fill.js";
 import { fetchCore, fetchIndex, INDEX_TIMEOUTS, NIGHTLY_BASE, nroName, TIMEOUTS } from "./nightly-cores.js";
 import { toTrash } from "./core-files.js";
 import { listTrash, restoreEntry } from "./trash.js";
@@ -142,38 +144,6 @@ async function trashedCores(retroDir) {
   return out;
 }
 
-/** A name beside `abs` in its folder, hidden from the pack listing (base-pack.js skips dot names). */
-const besideName = (abs, kind) => path.join(path.dirname(abs), `.${path.basename(abs)}.${crypto.randomBytes(6).toString("hex")}.${kind}`);
-
-/** link() errors of a disk that has no hard links (exFAT, CIFS, some FUSE), where a copy stands in. */
-const NO_LINKS = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "EXDEV", "ENOSYS"]);
-
-/**
- * `from`'s bytes at `to` only when nothing is there: fails with EEXIST when a file got to `to` first, so
- * nothing is ever overwritten. `from` stays. Without hard links the bytes are copied into a file this
- * opens with O_EXCL: the create is the same atomic check link() makes. COPYFILE_EXCL would be too, but
- * when it fails halfway the partial file cannot be told from one a user put there meanwhile; holding
- * the descriptor, this knows its inode and removes only that.
- */
-async function linkNoClobber(from, to) {
-  try {
-    await fsp.link(from, to);
-    return;
-  } catch (err) {
-    if (!NO_LINKS.has(err.code)) throw err;
-  }
-  const fh = await fsp.open(to, "wx");
-  const { ino, dev } = await fh.stat();
-  try {
-    await pipeline(fs.createReadStream(from), fh.createWriteStream());
-  } catch (err) {
-    await fh.close().catch(() => {});
-    const now = await fsp.lstat(to).catch(() => null);
-    if (now && now.ino === ino && now.dev === dev) await fsp.rm(to, { force: true });
-    throw err;
-  }
-}
-
 /**
  * Puts a file moved aside back at `dest`, never over a file that got there since. When one did, the
  * aside file is deleted only if it is the server's (`owned`); a user's stays, held (recover()).
@@ -193,8 +163,12 @@ async function putBack(aside, dest, owned) {
 
 const inside = (root, abs) => path.resolve(abs).startsWith(path.resolve(root) + path.sep);
 
-/** The retro trash's restore for restoreExact: today's refuses a taken place by itself, so `exactName` is not passed on. */
-const restoreCore = (dir, entry) => restoreEntry(dir, entry);
+/**
+ * The retro trash's restore for restoreExact, `opts` ({ exactName: true }) passed on: main's restoreEntry
+ * takes no third argument and refuses a taken place by itself; feat/shared-trash's takes { home, exactName }
+ * and with exactName refuses instead of putting the core beside under "name (2)".
+ */
+export const restoreCore = (dir, entry, opts) => restoreEntry(dir, entry, opts);
 
 const busy = () => new PackError("코어 작업이나 RetroArch 팩 채우기가 돌고 있습니다. 끝난 뒤 다시 합니다", { status: 409 });
 
@@ -214,7 +188,8 @@ export function createAutoCores({
   const file = path.join(dataDir, STATE_FILE);
   let saved = readState(file);
   let job = null; // { kind, cores: Set, startedAt, done }
-  let again = null; // the catalog a check saw while a job ran
+  let again = null; // { cat, force } a check saw while a job ran or the pack was held
+  let waiting = false; // a rerun waits for the pack (whenFillFree)
 
   const persist = () => {
     try {
@@ -415,6 +390,29 @@ export function createAutoCores({
     return { held };
   }
 
+  /**
+   * The user's files held beside a taken place, as recoverHeld() lists them, read only: nothing is moved
+   * or deleted and the pack is not held, so the admin's GET (and a token reading it) changes nothing.
+   * The server's own moved-aside files are left out by hash (the hash cache, keyed by size, mtime and inode).
+   */
+  async function heldNow() {
+    const dir = path.join(packDir(), "cores");
+    const names = (await fsp.readdir(dir).catch(() => [])).filter((n) => LEFTOVER_RE.exec(n)?.[3] === "aside").sort();
+    if (!names.length) return [];
+    const entries = (await store()).all();
+    const known = knownOfficial(pack);
+    const held = [];
+    for (const file of names) {
+      const [, name, core] = file.match(LEFTOVER_RE);
+      const st = await fsp.lstat(path.join(dir, file)).catch(() => null);
+      if (!st?.isFile() || !(await fsp.lstat(path.join(dir, name)).catch(() => null))) continue;
+      const sha = await hashOf(path.join(dir, file)).catch(() => null);
+      if (sha !== null && serverOwns(sha, entries.get(coreRel(core)), known)) continue;
+      held.push({ file, core, name, size: st.size, modifiedAt: st.mtimeMs });
+    }
+    return held;
+  }
+
   /** recoverHeld() under the pack lock; { held: [], busy: true } while a job or a fill runs. */
   async function recover() {
     if (job) return { held: [], busy: true };
@@ -449,14 +447,31 @@ export function createAutoCores({
         debug.error("retro: core %s job failed: %s", kind, err.message);
         return { error: err.message, reason: err.reason ?? null };
       } finally {
-        release();
+        await recoverHeld().catch((err) => debug.error("retro: core leftovers not cleared: %s", err.message));
         job = null;
-        const next = again;
-        again = null;
-        if (next) check(next).catch((err) => debug.error("retro: core check after a job: %s", err.message));
+        release();
+        rerun();
       }
     })();
     return job;
+  }
+
+  /** Keeps `cat` for one more check once the job ends or the pack is free, so a scan is never dropped. */
+  function queue(cat, force) {
+    again = { cat, force: force || Boolean(again?.force) };
+    if (job || waiting) return;
+    waiting = true;
+    whenFillFree().then(() => {
+      waiting = false;
+      rerun();
+    });
+  }
+
+  function rerun() {
+    if (!again || job) return;
+    const next = again;
+    again = null;
+    check(next.cat, { force: next.force }).catch((err) => debug.error("retro: core check after a wait: %s", err.message));
   }
 
   /** The cores of the consoles with games that are missing and due now (`force`: whatever the backoff). */
@@ -501,23 +516,20 @@ export function createAutoCores({
   async function check(cat, { force = false } = {}) {
     if (!force && !enabled()) return { started: false, reason: "off", cores: [] };
     if (job) {
-      again = cat;
+      queue(cat, force);
       return { started: false, reason: "busy", cores: [] };
     }
     if (readRecovery(dataDir)) return { started: false, reason: "recovery", cores: [] };
     await recover();
     const cores = await due(cat, force);
     if (!cores.length) return { started: false, reason: "nothing", cores };
-    if (job) {
-      again = cat;
-      return { started: false, reason: "busy", cores: [] };
-    }
     try {
       const started = start("install", cores, (act) => installAll(cores, act));
       return { started: true, cores, done: started.done };
     } catch (err) {
-      if (err.status === 409) return { started: false, reason: "busy", cores };
-      throw err;
+      if (err.status !== 409) throw err;
+      queue(cat, force);
+      return { started: false, reason: "busy", cores };
     }
   }
 
@@ -670,8 +682,8 @@ export function createAutoCores({
     useOfficial,
     useUserVersion,
     recover,
-    /** The user's files left hidden beside a taken place (recover()); [] while a job or a fill runs. */
-    hidden: async () => (await recover()).held,
+    /** The user's files left hidden beside a taken place (heldNow: a read, nothing moves). */
+    hidden: heldNow,
     /** The job now, the failures and the last result. */
     status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null }),
     /** Each console's state, with `present` (Map core → sha256 | null) read by the caller. */

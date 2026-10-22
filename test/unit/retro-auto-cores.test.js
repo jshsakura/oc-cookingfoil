@@ -7,18 +7,20 @@ import http from "http";
 import os from "os";
 import path from "path";
 import zlib from "zlib";
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
+import { Readable } from "stream";
 import { openDatabase, SECURITY_MIGRATIONS } from "../../src/db/database.js";
 import { hashStore } from "../../src/db/stores.js";
 import { packLedger } from "../../src/db/security-stores.js";
 import { HashCache } from "../../src/helpers/hash-cache.js";
 import { sevenZipBin, sha256File } from "../../src/retro/pack-bundle.js";
-import { claimFill } from "../../src/retro/pack-fill.js";
-import { coreStates, createAutoCores, STATE_FILE } from "../../src/retro/auto-cores.js";
+import { claimFill, fillBusy } from "../../src/retro/pack-fill.js";
+import { coreStates, createAutoCores, restoreCore, STATE_FILE } from "../../src/retro/auto-cores.js";
 import { forgetIndex, parseIndex } from "../../src/retro/nightly-cores.js";
 import { coreFiles, listPack, manifestView } from "../../src/retro/base-pack.js";
 import { forwarderSpec } from "../../src/retro/forwarder.js";
 import { listTrash, restoreEntry, TrashError } from "../../src/retro/trash.js";
+import { toTrash } from "../../src/retro/core-files.js";
 
 const bin = sevenZipBin();
 const opts = { skip: bin ? false : "7-Zip is not installed (COOK_7Z_BIN, 7z, 7zz or 7za)" };
@@ -89,6 +91,12 @@ function world({ free = 100 * GIB, enabled = true, hashCache = null } = {}) {
   return w;
 }
 
+/** What is left in the data dir's staging folder (gone entirely is nothing left). */
+const stagingLeft = (w) => {
+  const dir = path.join(w.dataDir, "retro-core-staging");
+  return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+};
+
 const SYSTEMS = { nes: { core: "fceumm" }, gba: { core: "mgba" }, snes: { core: "snes9x" } };
 const catalogOf = (...systems) => ({ systems: SYSTEMS, games: systems.map((system, i) => ({ id: `g${i}`, system, core: SYSTEMS[system].core })) });
 const BUILDS = { fceumm: nro("fceumm-a"), mgba: nro("mgba-a"), snes9x: nro("snes9x-a") };
@@ -115,7 +123,7 @@ test("a console that gets games gets its core, in one job, and only the cores of
     assert.equal(bot.hits.filter((h) => h.endsWith(".index-extended")).length, 1, "one index for the job");
     const row = w.ledger().all().get("cores/fceumm_libretro_libnx.nro");
     assert.deepEqual(row, { sha256: sha(BUILDS.fceumm), source: "nightly", lockVersion: "nightly", crc32: crc(BUILDS.fceumm), built: "2026-10-21" });
-    assert.equal(fs.existsSync(path.join(w.dataDir, "retro-core-staging")) && fs.readdirSync(path.join(w.dataDir, "retro-core-staging")).length, 0, "no staging left");
+    assert.deepEqual(stagingLeft(w), [], "no staging left");
   } finally { bot.close(); }
 });
 
@@ -170,7 +178,7 @@ test("the disk floor stops a download before it starts", opts, async () => {
     await (await auto.check(catalogOf("nes"))).done;
     assert.equal(fs.existsSync(w.core("fceumm")), false);
     assert.equal(auto.status().failures.fceumm.reason, "disk-floor");
-    assert.equal(fs.readdirSync(path.join(w.dataDir, "retro-core-staging")).length, 0);
+    assert.deepEqual(stagingLeft(w), []);
   } finally { bot.close(); }
 });
 
@@ -202,10 +210,8 @@ test("setting off: a scan does nothing; a core in the trash is not fetched again
     const [st] = await auto.states(catalogOf("nes"), new Map());
     assert.deepEqual([st.state, st.reason], ["missing", "auto-off"]);
     w.enabled = true;
-    const trashed = path.join(w.retroDir, ".trash", "2026-10-22", "core-0123456789");
-    fs.mkdirSync(path.join(trashed, "retroarch", "cores"), { recursive: true });
-    fs.writeFileSync(path.join(trashed, "retroarch", "cores", "fceumm_libretro_libnx.nro"), nro("old"));
-    fs.writeFileSync(path.join(trashed, "manifest.json"), JSON.stringify({ id: "core-0123456789", system: "core", name: "fceumm_libretro_libnx.nro", file: "retroarch/cores/fceumm_libretro_libnx.nro", files: ["retroarch/cores/fceumm_libretro_libnx.nro"], trashedAt: 1 }));
+    fs.writeFileSync(w.core("fceumm"), nro("old"));
+    await toTrash(w.retroDir, w.core("fceumm"), "fceumm_libretro_libnx.nro");
     assert.equal((await auto.check(catalogOf("nes"))).reason, "nothing");
     assert.equal((await auto.states(catalogOf("nes"), new Map()))[0].state, "held");
   } finally { bot.close(); }
@@ -397,23 +403,27 @@ test("switching back needs the core's own name free: a taken slot leaves the tra
   } finally { bot.close(); }
 });
 
-/** A restore that behaves like feat/shared-trash's restoreEntry: a taken place gets "name (2)"; `files` are the original paths. */
+/**
+ * A restore that behaves like feat/shared-trash's restoreEntry without `exactName`: a taken place gets
+ * "name (2)" and `files` are the original paths. Built on the trash's public listTrash and restoreEntry,
+ * so it runs the same whichever trash layout is merged.
+ */
 function sharedTrashRestore(occupy) {
-  const calls = [];
-  const fn = async (dir, entry, opts) => {
-    calls.push(opts);
+  const fn = async (dir, entry) => {
     await occupy?.();
-    const out = await restoreEntry(dir, entry, null).catch(() => null);
-    if (out) return { id: out.id, files: out.files, renamed: [] };
-    // The original place is taken: put the trash's file beside it, the way shared-trash freeName does.
-    const m = JSON.parse(fs.readFileSync(path.join(dir, ".trash", entry, "manifest.json"), "utf8"));
-    const rel = m.files[0];
+    const rel = (await listTrash(dir)).find((e) => e.entry === entry).files[0];
+    const abs = path.join(dir, ...rel.split("/"));
+    const parked = fs.existsSync(abs) ? path.join(dir, "parked-occupant") : null;
+    if (parked) fs.renameSync(abs, parked);
+    const out = await restoreEntry(dir, entry);
+    if (!parked) return { id: out.id, files: out.files, renamed: [] };
+    // The original place was taken: the trash's file goes beside it, the way shared-trash numbers names.
     const to = rel.replace(/\.nro$/, " (2).nro");
-    fs.renameSync(path.join(dir, ".trash", entry, rel), path.join(dir, to));
-    fs.rmSync(path.join(dir, ".trash", entry), { recursive: true });
-    return { id: m.id, files: [rel], renamed: [{ rel, to }] };
+    fs.renameSync(abs, path.join(dir, ...to.split("/")));
+    fs.renameSync(parked, abs);
+    return { id: out.id, files: [rel], renamed: [{ rel, to }] };
   };
-  return { fn, calls };
+  return { fn };
 }
 
 test("G1: a shared trash that restores beside as \"(2)\" (its real result shape) is undone and the pack never lists it", opts, async () => {
@@ -671,7 +681,11 @@ test("G3: a user's file left aside whose place is taken is held, shown, never de
     assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
     const trash = await listTrash(w.retroDir);
     assert.equal(trash.length, 1);
-    assert.deepEqual(fs.readFileSync(path.join(w.retroDir, ".trash", trash[0].entry, trash[0].files[0])), occupant);
+    // What went to the trash is the occupant's bytes: restored through the trash's own API to check.
+    fs.renameSync(w.core("fceumm"), path.join(w.retroDir, "parked"));
+    await restoreEntry(w.retroDir, trash[0].entry);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), occupant);
+    fs.renameSync(path.join(w.retroDir, "parked"), w.core("fceumm"));
     assert.deepEqual(await auto.hidden(), []);
   } finally { bot.close(); }
 });
@@ -691,5 +705,155 @@ test("G3: bringing back a held file over the server's own core deletes the serve
     assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
     assert.deepEqual(await listTrash(w.retroDir), [], "the server's core is not kept");
     assert.equal(w.ledger().all().has("cores/fceumm_libretro_libnx.nro"), false);
+  } finally { bot.close(); }
+});
+
+/** Waits for `cond()` to hold, failing after `ms`. */
+async function until(cond, ms = 10_000, what = "condition") {
+  const t0 = Date.now();
+  while (!(await cond())) {
+    if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
+test("the default restore asks the trash for the exact name: a place taken while it restores leaves the item as it was", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await officialOverUser(w, bot.base, nro("my-build"));
+    const other = nro("someone-else");
+    const restore = async (d, e, o) => {
+      fs.writeFileSync(w.core("fceumm"), other);
+      return restoreCore(d, e, o);
+    };
+    await assert.rejects(w.make(bot.base, { restore }).useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), other);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+    const trash = await listTrash(w.retroDir);
+    assert.equal(trash.length, 1);
+    assert.deepEqual(trash[0].files.map((f) => path.basename(f)), ["fceumm_libretro_libnx.nro"], "the item keeps its own name, never \"(2)\"");
+  } finally { bot.close(); }
+});
+
+test("H1: without hard links a copy cut short by a crash leaves only a hidden partial file; the next start fetches the core whole", { ...opts, timeout: 30_000 }, async () => {
+  const big = Buffer.concat([nro("fceumm-big"), Buffer.alloc(200_000, 7)]);
+  const bot = await buildbot({ fceumm: big });
+  try {
+    const w = world();
+    const dbFile = path.join(w.dataDir, "security.db");
+    const href = (p) => new URL(p, import.meta.url).href;
+    const child = spawn(process.execPath, ["--input-type=module", "-e", `
+      import fs from "fs"; import fsp from "fs/promises"; import { Readable } from "stream";
+      const [auto, db, sec, bundle, retroDir, dataDir, dbFile, base] = process.argv.slice(1);
+      const { createAutoCores } = await import(auto);
+      const { openDatabase, SECURITY_MIGRATIONS } = await import(db);
+      const { packLedger } = await import(sec);
+      const { sevenZipBin } = await import(bundle);
+      fsp.link = async () => { throw Object.assign(new Error("EPERM link"), { code: "EPERM" }); };
+      const orig = fs.createReadStream;
+      fs.createReadStream = (p, o) => String(p).endsWith(".cfpart")
+        ? new Readable({ read() { if (!this.sent) { this.sent = 1; this.push(fs.readFileSync(p).subarray(0, 4096)); } } })
+        : orig(p, o);
+      const store = packLedger({ db: openDatabase(dbFile, { migrations: SECURITY_MIGRATIONS }) });
+      const a = createAutoCores({ packDir: () => retroDir + "/retroarch", retroDir, dataDir, ledger: () => store, base: () => base, freeBytes: async () => 1e15, bin: sevenZipBin() });
+      await a.check({ systems: { nes: { core: "fceumm" } }, games: [{ id: "g", system: "nes", core: "fceumm" }] });
+      setInterval(() => {}, 1000);
+    `, href("../../src/retro/auto-cores.js"), href("../../src/db/database.js"), href("../../src/db/security-stores.js"), href("../../src/retro/pack-bundle.js"), w.retroDir, w.dataDir, dbFile, bot.base], { stdio: "ignore" });
+    const dir = path.join(w.packDir, "cores");
+    const stuck = () => fs.readdirSync(dir).some((n) => {
+      const size = fs.statSync(path.join(dir, n)).size;
+      return n === "fceumm_libretro_libnx.nro" ? size > 0 : n.endsWith(".cfpart") && size === 4096;
+    });
+    try {
+      await until(stuck, 20_000, "the copy to stall");
+      await new Promise((r) => setTimeout(r, 200));
+    } finally {
+      child.kill("SIGKILL");
+    }
+    await new Promise((r) => (child.exitCode !== null || child.signalCode !== null ? r() : child.once("exit", r)));
+    assert.deepEqual(coreNames(w).filter((n) => !n.startsWith(".")), [], "nothing under the real name after the crash");
+    assert.deepEqual((await listPack(w.packDir, { cleanDir: path.join(w.dataDir, "clean") })).filter((f) => f.path.includes("cores/")).map((f) => f.path), [], "the pack lists no partial file");
+    const store = packLedger({ db: openDatabase(dbFile, { migrations: SECURITY_MIGRATIONS }) });
+    forgetIndex();
+    const auto = createAutoCores({ packDir: () => w.packDir, retroDir: w.retroDir, dataDir: w.dataDir, ledger: () => store, base: () => bot.base, freeBytes: async () => 100 * GIB, bin });
+    assert.deepEqual((await auto.recover()).held, []);
+    assert.deepEqual(coreNames(w), [], "recover() deletes the partial file");
+    const c = await auto.check(catalogOf("nes"));
+    assert.equal(c.started, true);
+    assert.deepEqual((await c.done).installed, ["fceumm"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), big);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+  } finally { bot.close(); }
+});
+
+test("H1: without hard links the real name never shows a half-written core while the copy runs", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  const w = world();
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const seen = [];
+  const link = noHardLinks();
+  const orig = fs.createReadStream;
+  const read = mock.method(fs, "createReadStream", (p, o) => {
+    if (!String(p).endsWith(".cfpart")) return orig(p, o);
+    const inner = orig(p, o);
+    return new Readable({
+      async read() {
+        if (this.started) return;
+        this.started = true;
+        seen.push(coreNames(w));
+        await gate;
+        for await (const chunk of inner) this.push(chunk);
+        this.push(null);
+      },
+    });
+  });
+  try {
+    const c = await w.make(bot.base).check(catalogOf("nes"));
+    await until(() => seen.length > 0, 10_000, "the copy to start");
+    assert.ok(seen[0].every((n) => n.startsWith(".") && n.endsWith(".cfpart")), `only hidden partial files while copying: ${seen[0]}`);
+    release();
+    assert.deepEqual((await c.done).installed, ["fceumm"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+  } finally { release(); read.mock.restore(); link.mock.restore(); bot.close(); }
+});
+
+test("H2: the admin's listing of hidden files only reads: nothing is moved, deleted or put back", async () => {
+  const w = world();
+  fs.writeFileSync(w.core("fceumm"), nro("user-b"));
+  const held = leftover(w, "fceumm", "aside", nro("user-a"));
+  const back = leftover(w, "mgba", "aside", nro("user-c")); // its place is empty: recover() would put it back
+  const part = leftover(w, "snes9x", "cfpart", nro("half"));
+  const staging = path.join(w.dataDir, "retro-core-staging", "fceumm-abc");
+  fs.mkdirSync(staging, { recursive: true });
+  const before = coreNames(w);
+  const auto = w.make("http://127.0.0.1:1/");
+  assert.deepEqual((await auto.hidden()).map((h) => [h.core, h.file]), [["fceumm", path.basename(held)]]);
+  assert.deepEqual(coreNames(w), before);
+  assert.ok(fs.existsSync(back) && fs.existsSync(part) && fs.existsSync(staging));
+  // It reads while the pack is held too, instead of going blank.
+  const release = claimFill();
+  try {
+    assert.equal((await auto.hidden()).length, 1);
+  } finally { release(); }
+});
+
+test("H2: a scan that finds the pack held by another writer runs once it is free, not dropped", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    const auto = w.make(bot.base);
+    await until(() => !fillBusy(), 10_000, "the pack to be free");
+    const release = claimFill();
+    let out;
+    try {
+      out = await auto.check(catalogOf("nes"));
+    } finally { release(); }
+    assert.equal(out.started, false);
+    assert.equal(out.reason, "busy");
+    await until(() => fs.existsSync(w.core("fceumm")) && !auto.status().job, 10_000, "the queued scan to install the core");
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm);
   } finally { bot.close(); }
 });

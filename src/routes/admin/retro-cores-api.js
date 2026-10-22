@@ -24,7 +24,8 @@
  * Each systems[] entry carries coreState { id, core, state, reason?, message?, retryAt?, origin?, source?, built?,
  * crc32?, userVersion? } (src/retro/auto-cores.js coreStates), and `auto` is the upkeep's
  * { enabled, source, job, failures, last, hidden: [{ file, core, name, size, modifiedAt }] } (hidden: a user's
- * core left beside a taken place by a crash or a lost race, held for the admin).
+ * core left beside a taken place by a crash or a lost race, held for the admin). The GET only reads: it moves
+ * and deletes nothing; the leftovers are cleared when the upkeep starts and around each POST action.
  * Automation tokens may read all of it and start the install and the update (they write only the server's
  * own files), but not official or user-version, which move a user's core to or from the trash
  * (admin-page.js TOKEN_BLOCKED_RE).

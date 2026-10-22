@@ -39,15 +39,27 @@ export const REAL_PACK = Object.freeze({ lock: realLock, official: realOfficial,
 const NRO_MAGIC_AT = 0x10;
 
 let running = false;
+let waiters = [];
 export const fillBusy = () => running;
 
-/** Holds the pack for another writer (auto-cores.js): a release function, or null when a fill runs. */
+/** Frees the pack and wakes whoever waits for it (whenFillFree). */
+function free() {
+  running = false;
+  const woken = waiters;
+  waiters = [];
+  for (const wake of woken) wake();
+}
+
+/** Resolves once the pack is free: now, or when the fill or the writer holding it lets go. */
+export const whenFillFree = () => (running ? new Promise((wake) => waiters.push(wake)) : Promise.resolve());
+
+/** Holds the pack for another writer (auto-cores.js, core uploads): a release function, or null when someone holds it. */
 export function claimFill() {
   if (running) return null;
   running = true;
   let held = true;
   return () => {
-    if (held) running = false;
+    if (held) free();
     held = false;
   };
 }
@@ -439,7 +451,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     await fsp.rm(cacheRoot, { recursive: true, force: true }).catch(() => {});
     return { version: lock.version, installed: placed.done.filter((d) => d.op.action === "install").length, replaced: placed.done.filter((d) => d.op.action === "replace").length, current: tally.current, kept, keptCount };
   } finally {
-    running = false;
+    free();
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
   }
 }
