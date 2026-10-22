@@ -213,7 +213,7 @@ test("a sorted file is journaled and its move undone puts it back in the drop bo
         const a = rel(from);
         const b = rel(to);
         await journal.recordMove({ action, by: { type: "job", name: "organize" }, fromRoot: a.r, from: a.rel, toRoot: b.r, to: b.rel });
-      },
+      },      undone: () => journal.undoneHeld(roots, "incoming"),
     });
     assert.equal((await org.sweep()).moved, 1);
     const { items: [op] } = await journal.listJournal(roots);
@@ -221,6 +221,13 @@ test("a sorted file is journaled and its move undone puts it back in the drop bo
     await journal.undoMove(roots, op.id);
     assert.equal(fs.readFileSync(path.join(incoming, "pack/update.nsp"), "utf8"), "UPDATE");
     assert.ok(!fs.existsSync(path.join(roms, "내 게임/update")), "the folder the sort made goes with it");
+    // The next sweeps leave it where the admin put it back, and say why.
+    assert.equal((await org.sweep()).moved, 0);
+    assert.ok(fs.existsSync(path.join(incoming, "pack/update.nsp")));
+    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["pack/update.nsp", REASONS.undone]]);
+    // Once released it is sorted again.
+    await journal.releaseUndone(roots, op.id);
+    assert.equal((await org.sweep()).moved, 1);
   } finally {
     fs.rmSync(roms, { recursive: true, force: true });
     fs.rmSync(incoming, { recursive: true, force: true });

@@ -27,6 +27,7 @@ import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
 import { incomingInGames } from "../helpers/envs.js";
+import { moveNoClobber, partialOf } from "../library/safe-move.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
@@ -48,6 +49,7 @@ export const REASONS = Object.freeze({
   noFolder: "폴더 이름을 정하지 못했습니다",
   taken: "같은 이름의 파일이 이미 있습니다",
   notGame: "스위치 게임 파일(nsp, nsz, xci, xcz)이 아닙니다",
+  undone: "휴지통 탭에서 정리를 되돌린 파일이라 그대로 둡니다. 다시 정리하려면 휴지통 탭의 작업 기록에서 다시 정리 허용을 누릅니다",
 });
 
 const SUB = { update: "update", dlc: "DLC" };
@@ -206,23 +208,10 @@ async function exists(p) {
 }
 
 /**
- * Moves `from` to `to` unless something is already at `to`: a hard link fails
- * on an existing name where a rename would replace it. False when `to` exists.
+ * Moves `from` to `to` unless something is already at `to`, claiming the name in
+ * the same step (library/safe-move.js). False when `to` exists.
  */
-export async function moveNoReplace(from, to) {
-  try {
-    await fsp.link(from, to);
-  } catch (err) {
-    if (err.code === "EEXIST") return false;
-    if (err.code !== "EPERM" && err.code !== "ENOTSUP" && err.code !== "EOPNOTSUPP") throw err;
-    // A filesystem without hard links: check, then rename.
-    if (await exists(to)) return false;
-    await fsp.rename(from, to);
-    return true;
-  }
-  await fsp.unlink(from);
-  return true;
-}
+export const moveNoReplace = (from, to) => moveNoClobber(from, to);
 
 /**
  * Moves `from` to `to` on another mount without replacing anything: a copy
@@ -238,7 +227,8 @@ export async function moveAcross(from, to) {
     if (err.code !== "EXDEV") throw err;
   }
   if (await exists(to)) return false;
-  const part = `${to}.${process.pid}-${Date.now()}.part`;
+  // A dot name: no scanner reads a copy that is not finished.
+  const part = partialOf(to);
   try {
     const before = await fsp.stat(from);
     await fsp.copyFile(from, part, constants.COPYFILE_EXCL);
@@ -268,6 +258,8 @@ export async function moveAcross(from, to) {
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
  *   journal({ action, from, to })   notes each move (absolute paths) in the operations journal, so it can be undone
+ *   undone()           files an undo put back in the drop box: [{ rel, size, mtimeMs }]. Each stays where it
+ *                      is while it is that same file, until the admin releases it (library/journal.js)
  */
 export function createOrganizer(deps) {
   const dir = deps.incomingDir;
@@ -289,10 +281,23 @@ export function createOrganizer(deps) {
     return refs;
   }
 
+  /** The drop-box files an undo put back that must stay: rel → true while size and mtime still match. */
+  async function undoneSet(files) {
+    const list = await Promise.resolve(deps.undone?.() ?? []).catch(() => []);
+    const want = new Map(list.map((u) => [u.rel, u]));
+    return new Set(files.filter((f) => {
+      const u = want.get(f.rel);
+      return u && u.size === f.size && Math.round(u.mtimeMs) === Math.round(f.mtimeMs);
+    }).map((f) => f.rel));
+  }
+
   async function sweepOnce() {
-    const files = await listFiles(dir);
+    const all = await listFiles(dir);
+    const keep = await undoneSet(all);
+    const kept = all.filter((f) => keep.has(f.rel)).map((f) => ({ rel: f.rel, reason: REASONS.undone, titleId: null, kind: null }));
+    const files = all.filter((f) => !keep.has(f.rel));
     if (!files.length) {
-      state = { ...state, held: [], sweptAt: new Date().toISOString(), error: null, waiting: 0 };
+      state = { ...state, held: kept, sweptAt: new Date().toISOString(), error: null, waiting: 0 };
       return { moved: 0 };
     }
     const now = Date.now();
@@ -340,7 +345,7 @@ export function createOrganizer(deps) {
     if (movedIn.games) deps.rescan();
     if (movedIn.retro) deps.rescanRetro();
     if (movedIn.homebrew) deps.rescanHomebrew();
-    const held = [...settling, ...plan.held, ...extras.held, ...failed];
+    const held = [...kept, ...settling, ...plan.held, ...extras.held, ...failed];
     state = { ...state, held, sweptAt: new Date().toISOString(), error: null, waiting: held.filter((h) => h.reason === REASONS.settling).length };
     return { moved };
   }

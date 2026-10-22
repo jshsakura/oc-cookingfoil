@@ -14,7 +14,8 @@ import { top } from "./top-i18n.js";
 export const TRASH_HTML = `<section id="tab-trash" hidden>
   <div class="hd"><h2 class="first">${top("s.trash")}</h2>
     <div class="actions"><button type="button" class="danger" id="tr-empty-all">${top("t.emptyAll")}</button></div></div>
-  <p class="muted">${top("t.lead")}</p>
+  <p class="muted">${top("t.lead")} ${top("t.renamedFolder")}</p>
+  <p class="tr-old" id="tr-unavail" hidden></p>
   <p class="tr-old" id="tr-old" hidden></p>
   <div class="tr-cards" id="tr-cards"></div>
   <div class="hd tr-tools">
@@ -62,12 +63,15 @@ function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noti
   const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));
   main.append(meta);
   if(e.missing)main.append(el('span',trT('missing',{n:e.missing}),'err'));
+  if(e.incomplete)main.append(el('span',trT('incomplete',{n:e.incomplete}),'err'));
   const act=el('div',null,'tr-act');act.append(btn(trT('restore'),()=>trRestore([e.id])),btn(trT('emptyOne'),()=>trEmpty([e.id]),'danger'));
   r.append(c,main,act);return r;}
 function trCards(d){const cards=[[trT('total'),trSize(d.total.bytes),trT('count',{n:num(d.total.count)})],
     ...Object.entries(d.roots).map(([k,v])=>[trRoot(k),trSize(v.bytes),trT('count',{n:num(v.count)})])];
   $('tr-cards').replaceChildren(...cards.map(([l,v,sub])=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l+' · '+sub,'l'));return c;}));}
 function trRender(){if(!trData)return;const d=trData;trCards(d);
+  const un=d.unavailable||[];const u=$('tr-unavail');u.hidden=!un.length;
+  if(un.length)u.textContent=un.map((x)=>trT('unavailable',{where:trRoot(x.root)+' / '+x.home})).join(' ');
   const o=$('tr-old');o.hidden=!d.old.count;if(d.old.count)o.textContent=trT('old',{days:d.noticeDays,n:num(d.old.count),size:trSize(d.old.bytes)});
   for(const id of [...trSel])if(!d.items.some((e)=>e.id===id))trSel.delete(id);
   $('tr-list').replaceChildren(...(d.items.length?d.items.map(trRow):[el('p',trT('none'),'muted')]));trSelUpdate();trJournalRender();}
@@ -76,8 +80,11 @@ function trJournalRender(){if(!trJournal)return;const box=$('tr-journal');
   box.replaceChildren(...trJournal.items.map((o)=>{const r=el('div',null,'tr-row');const main=el('div',null,'tr-main');
     main.append(el('b',topWords.ko['t.j.'+o.action]?trT('j.'+o.action):o.action),el('span',trRoot(o.fromRoot)+' / '+o.from+'  →  '+trRoot(o.toRoot)+' / '+o.to));
     const meta=el('div',null,'tr-meta');meta.append(el('span',trWhen(o.at)),el('span',trBy(o.by)));
-    if(!o.undoable&&o.reason)meta.append(pill(topWords.ko['t.r.'+o.reason]?trT('r.'+o.reason):o.reason));main.append(meta);
+    const held=o.undone&&!o.released&&o.action==='organize';
+    if(held)meta.append(pill(trT('staysPut')));
+    else if(!o.undoable&&o.reason)meta.append(pill(topWords.ko['t.r.'+o.reason]?trT('r.'+o.reason):o.reason));main.append(meta);
     const act=el('div',null,'tr-act');if(o.undoable)act.append(btn(trT('undo'),()=>trUndo(o)));
+    if(held)act.append(btn(trT('release'),()=>trRelease(o)));
     r.append(el('span'),main,act);return r;}));}
 async function loadTrash(){try{[trData,trJournal]=await Promise.all([api('/admin/api/trash'),api('/admin/api/trash/journal?limit=100')]);trRender();}
   catch(err){if(err.message!=='session')toast(trT('loadFail',{err:err.message}));}}
@@ -91,11 +98,14 @@ async function trEmpty(ids){const all=ids==='all';const picked=all?trData.items:
   if(!picked.length)return toast(trT('pickFirst'));
   const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'');
   if(typed==null)return;if(typed.trim()!==word)return toast(trT('typedWrong'));
-  try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,confirm:'empty'}:{ids,confirm:'empty'}});
+  // Everything means what this list showed: its version goes along, and the server refuses if the trash changed since.
+  try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,version:trData.version,confirm:'empty'}:{ids,confirm:'empty'}});
     picked.forEach((e)=>trSel.delete(e.id));toast(trT('emptied',{n:num(d.removed),size:trSize(d.bytes)}));}
   catch(err){toast(err.message);}loadTrash();}
-async function trUndo(o){if(!await ask(trT('undoAsk',{to:o.to,from:o.from})))return;
+async function trUndo(o){if(!await ask(trT(o.action==='organize'?'undoAskOrganize':'undoAsk',{to:o.to,from:o.from})))return;
   try{await api('/admin/api/trash/undo',{method:'POST',body:{id:o.id}});toast(trT('undoneToast'));}catch(err){toast(err.message);}loadTrash();}
+async function trRelease(o){if(!await ask(trT('releaseAsk',{from:o.from})))return;
+  try{await api('/admin/api/trash/release',{method:'POST',body:{id:o.id}});toast(trT('releasedToast'));}catch(err){toast(err.message);}loadTrash();}
 $('tr-pick-all').addEventListener('change',()=>{const on=$('tr-pick-all').checked;trSel.clear();if(on&&trData)for(const e of trData.items)trSel.add(e.id);
   for(const c of $('tr-list').querySelectorAll('.tr-row>input'))c.checked=on;trSelUpdate();});
 $('tr-restore-sel').addEventListener('click',()=>trRestore([...trSel]));

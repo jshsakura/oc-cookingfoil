@@ -37,6 +37,7 @@ export const defaultOrganizer = createOrganizer({
   rescanRetro: () => retroCatalog.rescan(env.retroDir).catch((err) => debug.error("organize: retro rescan failed: %s", err.message)),
   rescanHomebrew: () => refreshManual().catch((err) => debug.error("organize: homebrew rescan failed: %s", err.message)),
   journal: ({ action, from, to }) => trashService.recordMove({ action, by: trashService.job("organize"), from, to }),
+  undone: () => trashService.undoneInDropBox(),
 });
 
 export function mountLibraryOrganizeApi(router, requireSession, organizer = defaultOrganizer) {
