@@ -1,9 +1,11 @@
 // The admin page's top area (brand, the six-group nav, the sub-page row and the account menu) in the
 // language the web page uses. The panels below stay Korean for now.
 
+import { TRASH_WORDS } from "./trash-words.js";
+
 export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"]];
 
-export const TOP_WORDS = {
+const BASE_WORDS = {
   ko: {
     title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내", dark: "어두운 테마",
     logout: "로그아웃", language: "언어", nav: "서버 관리 메뉴", subnav: "세부 메뉴",
@@ -490,6 +492,9 @@ export const TOP_WORDS = {
   },
 };
 
+// Each panel that speaks the four languages brings its own words; one table for the page.
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code] }]));
+
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
 
@@ -532,7 +537,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof trRender==='function')trRender();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}

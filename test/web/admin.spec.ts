@@ -356,7 +356,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
   await page.locator('#lb-list .ag-row', { hasText: 'Throwaway' }).getByRole('button', { name: /삭제$/ }).click();
-  await expect(page.locator('#toast')).toContainText('삭제했습니다');
+  await expect(page.locator('#toast')).toContainText('휴지통으로 옮겼습니다');
   expect(fs.existsSync(file)).toBe(false);
   await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);
 });

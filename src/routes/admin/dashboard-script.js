@@ -90,7 +90,7 @@ function sumGroupCounts(){for(const c of document.querySelectorAll('nav.tabs [da
   for(const x of document.querySelectorAll('#group-tabs [data-in="'+c.dataset.sum+'"] .count'))if(!x.hidden)n+=Number(x.textContent)||0;
   c.textContent=n;c.hidden=!n;}}
 new MutationObserver(sumGroupCounts).observe($('group-tabs'),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden']});
-const TABS=['overview','users','devices','settings','alerts','logs','featured','library','nsz','upload','inbox','homebrew','retro'];
+const TABS=['overview','users','devices','settings','alerts','logs','featured','library','nsz','upload','inbox','homebrew','retro','trash'];
 function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=TABS.includes(want)?want:'overview';
   if(tab==='library'&&sub)libShowSub(sub,true);
   if(tab==='settings')setShowSub(sub||setSub,true);
@@ -109,7 +109,9 @@ function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=
   if(tab==='featured')loadFeatured();
   if(tab==='upload')loadUpload();
   if(tab==='inbox')loadInbox();
-  if(tab==='nsz')setTimeout(loadNsz);}
+  if(tab==='nsz')setTimeout(loadNsz);
+  // Declared further down, with the trash panel.
+  if(tab==='trash')setTimeout(loadTrash);}
 addEventListener('hashchange',showTab);
 // Tabs inside a tab that only show and hide: #devices/approved opens a given area, the area last opened stays.
 const SUBTABS={};
@@ -565,8 +567,8 @@ $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-
   try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
-async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch'?'패치':'세이브')+'를 서버에서 삭제합니다.'))return;
-  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('삭제했습니다.');loadHbApps();}catch(err){toast(err.message);}}
+async function removeHbExtra(type,id,name){if(!await ask(name+' '+(type==='patch'?'패치':'세이브')+'를 휴지통으로 옮깁니다. 휴지통을 비우기 전까지는 휴지통 탭에서 되돌릴 수 있습니다.'))return;
+  try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast('휴지통으로 옮겼습니다.');loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
   catch(err){toast(err.message);loadHbApps();}}
@@ -589,8 +591,8 @@ async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 
       await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 변경했습니다.');}
     else toast(s?.error?.message?s.repo+' 을(를) 따라가지만 확인에 실패했습니다: '+s.error.message:'저장소를 추가했습니다.');
     loadHomebrew();}catch(err){toast(err.message);}}
-async function removeManualHb(id,name){if(!await ask(name+' 앱 폴더를 서버에서 삭제합니다. 이 앱의 패치와 세이브는 남습니다.'))return;
-  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+async function removeManualHb(id,name){if(!await ask(name+' 앱 폴더를 휴지통으로 옮깁니다. 휴지통을 비우기 전까지는 휴지통 탭에서 되돌릴 수 있습니다. 이 앱의 패치와 세이브는 남습니다.'))return;
+  try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast('휴지통으로 옮겼습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 let upPending=null;
 function uploadFor(kind,app){upPending={kind,app};if(location.hash==='#upload')loadUpload();else location.hash='upload';}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.

@@ -25,6 +25,7 @@ import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-pan
 import { connectHowto } from "./connect-howto.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
+import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
@@ -312,7 +313,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
@@ -374,6 +375,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
   <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
   <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
+  <a href="#trash" data-tab="trash" data-in="games">${icon("trash")}${top("s.trash")}</a>
   <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
   <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
@@ -593,6 +595,7 @@ ${RETRO_ART_HTML}
 ${ALERTS_HTML}
 ${INBOX_HTML}
 ${NSZ_HTML}
+${TRASH_HTML}
 <section id="tab-homebrew" hidden>
   <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
@@ -733,5 +736,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }
