@@ -1,36 +1,39 @@
 /**
- * On-disk image cache + lazy upstream fetcher + on-the-fly thumbnail/WebP
- * variant pipeline.
+ * On-disk image cache + lazy upstream fetcher + on-the-fly WebP variant pipeline.
  *
- * Variants live next to the original:
- *   <titleId>.jpg             ← upstream JPEG (eShop CDN)
+ * The originals stay as they came, in data/extracted/:
+ *   <titleId>.jpg             ← upstream JPEG (eShop CDN), or the game file's icon
  *   <titleId>.banner.jpg
  *   <titleId>.screen.<n>.jpg
- *   <titleId>.sm.jpg|webp     ← 160×160 cover (?size=sm, client list cards)
- *   <titleId>.thumb.jpg|webp  ← 256×256 cover (?size=md)
- *   <titleId>.md.jpg|webp     ← 512×512 cover (?size=lg|xl, browser cards)
- *   <…>.xl-wide.jpg|webp      ← banners and screenshots at screen width, 1280 (?size=xl)
  *
- * WebP variants are written as .q75.webp: quality 75 at the slowest effort, about
- * 35-40% under the JPEG. The full-screen xl is .q50.webp: at 1280 px quality 50
- * looks the same as 75 and weighs a quarter less (a screenshot 95 KB as JPEG,
- * 57 KB at 75, 42 KB at 50). The CookingFoil client decodes WebP and asks for
- * it with `Accept: image/webp`.
+ * What is sent is always WebP, drawn from them into data/thumbs/extracted/ (a
+ * cache: never backed up, made again on demand):
+ *   <titleId>.sm.q75.webp       ← 160×160 cover (?size=sm, client list cards)
+ *   <titleId>.thumb.q75.webp    ← 256×256 cover (?size=md)
+ *   <titleId>.md.q75.webp       ← 512×512 cover (?size=lg|xl, browser cards)
+ *   <…>.xl-wide.q50.webp        ← banners and screenshots at screen width, 1280 (?size=xl)
+ *   <…>.full.q75.webp           ← the picture at its own size (no ?size=)
  *
- * The client app's sizes (sm and md, as JPEG) are drawn ahead of time by
- * prewarmIcons, so a list never waits for a resize.
+ * Quality 75 at the slowest effort, about 35-40% under the JPEG. The
+ * full-screen xl is quality 50: at 1280 px it looks the same as 75 and weighs a
+ * quarter less (a screenshot 95 KB as JPEG, 57 KB at 75, 42 KB at 50). The
+ * console client links libwebp and every browser decodes WebP, so the bytes do
+ * not depend on Accept and nothing varies on it.
  *
- * The console client and browsers both send `Accept: image/webp` and get the
- * WebP variants; a client that does not gets JPEG.
+ * An older server wrote JPEG and WebP variants next to the originals;
+ * removeOldVariants() clears those at start by their exact names.
+ *
+ * The client app's sizes (sm and md) are drawn ahead of time by prewarmIcons,
+ * so a list never waits for a resize.
  *
  * Art kept in a game's folder (meta/game-meta.js) is WebP already, and its
- * variants are drawn elsewhere (`overrideThumbs`, under thumbs/games/), WebP
- * only, named after the picture's stamp: nothing is ever written into the
- * admin's folders, and a new picture gets new variants without a stat.
+ * variants are drawn elsewhere (`overrideThumbs`, under thumbs/games/), named
+ * after the picture's stamp: nothing is ever written into the admin's folders,
+ * and a new picture gets new variants without a stat.
  */
 import fs from "fs";
 import path from "path";
-import { mkdir, readFile, rename, writeFile, stat as statAsync } from "fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
 import debug from "../debug.js";
 import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
@@ -58,7 +61,8 @@ const WEBP_EXT = "q75.webp";
 const WEBP_OPTIONS = { quality: 75, effort: 6 };
 const XL_WEBP_EXT = "q50.webp";
 const XL_WEBP_OPTIONS = { quality: 50, effort: 6 };
-const JPEG_QUALITY = 80;
+// No ?size=: the picture at its own size.
+const FULL_SUFFIX = "full";
 export const IMMUTABLE = "public, max-age=31536000, immutable";
 export const UNVERSIONED = "public, max-age=300";
 const inFlightFetch = new Map();   // upstream-fetch coalescing
@@ -110,18 +114,75 @@ export function cachePathFor(titleId, kind, idx) {
   }
 }
 
-/** Build a variant filename next to the original: foo.jpg → foo.thumb.webp. */
-function variantPath(originalPath, suffix, ext) {
-  const dir = path.dirname(originalPath);
-  const base = path.basename(originalPath).replace(/\.[^.]+$/, "");
+/** A variant's filename beside `at`: foo.jpg → foo.thumb.q75.webp. */
+function variantPath(at, suffix, ext) {
+  const dir = path.dirname(at);
+  const base = path.basename(at).replace(/\.[^.]+$/, "");
   return path.join(dir, `${base}.${suffix}.${ext}`);
 }
 
-/** The thumbnail variant paths derived from an original: used by callers
- *  (custom-art's move out of custom-art/) that take the original away. */
+/** Where a cached original's variants are named from: data/extracted/X.jpg → data/thumbs/extracted/X.jpg. */
+function thumbBaseOf(source) {
+  const dir = path.dirname(source);
+  return path.join(path.dirname(dir), "thumbs", path.basename(dir), path.basename(source));
+}
+
+/** The names an older server gave the variants it wrote next to an original. */
+const OLD_SUFFIXES = [...new Set([...Object.values(SUFFIXES), ...Object.values(WIDE_SUFFIXES)])];
+const OLD_EXTS = ["jpg", "webp", WEBP_EXT, XL_WEBP_EXT];
+
+/** Those old variant paths of one original: custom-art's move out of custom-art/ removes them with it. */
 export function thumbVariantPaths(originalPath) {
-  const suffixes = new Set([...Object.values(SUFFIXES), ...Object.values(WIDE_SUFFIXES)]);
-  return [...suffixes].flatMap((s) => [variantPath(originalPath, s, "jpg"), variantPath(originalPath, s, "webp"), variantPath(originalPath, s, WEBP_EXT), variantPath(originalPath, s, XL_WEBP_EXT)]);
+  return OLD_SUFFIXES.flatMap((s) => OLD_EXTS.map((ext) => variantPath(originalPath, s, ext)));
+}
+
+// <titleId>[.banner|.screen.<n>|.icon.<lang>|.banner.<lang>].<old suffix>.<old ext>: exactly what
+// variantPath made next to a cachePathFor original, and nothing an original is ever called.
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const OLD_VARIANT_RE = new RegExp(
+  `^[0-9A-F]{16}(?:\\.banner|\\.screen\\.\\d+|\\.icon\\.[a-z]{2}|\\.banner\\.[a-z]{2})?` +
+  `\\.(?:${OLD_SUFFIXES.map(escape).join("|")})\\.(?:${OLD_EXTS.map(escape).join("|")})$`,
+);
+
+/**
+ * Removes the variants an older server wrote next to the originals in `dir`
+ * (JPEG and WebP, matched by their exact names); the originals stay. Returns
+ * how many went. Run at start: once they are gone a pass finds nothing.
+ */
+export async function removeOldVariants(dir = iconCacheDir) {
+  let names;
+  try {
+    names = await readdir(dir);
+  } catch (err) {
+    if (err.code === "ENOENT") return 0;
+    throw err;
+  }
+  let removed = 0;
+  for (const name of names) {
+    if (!OLD_VARIANT_RE.test(name)) continue;
+    await rm(path.join(dir, name), { force: true });
+    knownExists.delete(path.join(dir, name));
+    removed++;
+  }
+  if (removed) debug.log("image cache: removed %d old variants next to the originals", removed);
+  return removed;
+}
+
+/**
+ * Forgets and removes the WebP variants of a cached original rewritten under
+ * the same name (a game file's icon read again), so the next request draws
+ * them from the new bytes.
+ */
+export function dropVariants(cachePath) {
+  forget(cachePath);
+  const at = thumbBaseOf(cachePath);
+  for (const suffix of [...OLD_SUFFIXES, FULL_SUFFIX]) {
+    for (const ext of [WEBP_EXT, XL_WEBP_EXT]) {
+      const file = variantPath(at, suffix, ext);
+      forget(file);
+      fs.rmSync(file, { force: true });
+    }
+  }
 }
 
 /** Forget any memoized existence / in-flight state for a path. Call after
@@ -201,8 +262,7 @@ async function ensureVariant(originalPath, variant) {
       } else if (variant.resize) {
         pipeline = pipeline.resize(variant.resize, variant.resize, { fit: "cover", position: "center" });
       }
-      if (variant.format === "webp")  pipeline = pipeline.webp(variant.webp ?? WEBP_OPTIONS);
-      else if (variant.format === "jpeg") pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
+      pipeline = pipeline.webp(variant.webp ?? WEBP_OPTIONS);
       const t0 = Date.now();
       await pipeline.toFile(tmp);
       await rename(tmp, variant.path);
@@ -216,32 +276,22 @@ async function ensureVariant(originalPath, variant) {
   return variant.path;
 }
 
-function acceptsWebp(req) {
-  // The console client and modern browsers name `image/webp` in their Accept
-  // header. We only check the explicit mime: relying on a bare `*/*` to mean
-  // "supports webp" produces false positives for legacy HTTP clients.
-  const a = req.get("accept") || "";
-  return a.includes("image/webp");
-}
-
 function variantSuffix(size, wide) {
   return wide ? WIDE_SUFFIXES[size] : SUFFIXES[size];
 }
 
 /**
- * Serve a cached image. `?size=sm` (160 px), `?size=md` (256 px) and
- * `?size=lg|xl` (512 px) return a smaller square icon; banners and screenshots
- * (`wide`) come at 256, 512, 512 and 1280 px wide; the default returns the original. `wide` keeps the aspect
- * ratio (banners, screenshots) instead of cropping to a square (icons). When
- * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
- * `overrideThumbs` (custom-art.serveOptions) is where an override's variants go:
- * they are WebP whatever the client says; `overrideGone` is called when the
- * override is no longer there.
+ * Serve a cached image, always as WebP. `?size=sm` (160 px), `?size=md` (256 px)
+ * and `?size=lg|xl` (512 px) return a smaller square icon; banners and
+ * screenshots (`wide`) come at 256, 512, 512 and 1280 px wide, keeping their
+ * aspect ratio instead of being cropped to a square. Without a size the picture
+ * comes at its own size. `overrideThumbs` (custom-art.serveOptions) is where an
+ * override's variants go (a WebP override without a size is sent as it is);
+ * `overrideGone` is called when the override is no longer there.
  */
 export async function serveImage(req, res, opts) {
   const { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false } = opts;
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
-  const wantThumb = size !== null;
 
   // Operator-supplied art wins outright over the titledb CDN proxy / NACP
   // cache. When present we serve it (and derive thumbs from it) and never
@@ -280,26 +330,22 @@ export async function serveImage(req, res, opts) {
         : UNVERSIONED
   );
 
-  const sourceType = source.endsWith(".webp") ? "image/webp" : "image/jpeg";
-  if (!wantThumb) {
-    res.type(sourceType);
+  const sourceIsWebp = source.endsWith(".webp");
+  if (size === null && sourceIsWebp) {
+    res.type("image/webp");
     return send(source);
   }
 
   try {
-    const suffix = variantSuffix(size, wide);
-    const px = (wide ? WIDE_SIZES : SIZES)[size];
     const thumbs = fromOverride && overrideThumbs;
-    const at = thumbs || source;
-    const wantWebp = Boolean(thumbs) || acceptsWebp(req);
-    const variant = wantWebp
-      ? size === "xl"
-        ? { path: variantPath(at, suffix, XL_WEBP_EXT), resize: px, wide, format: "webp", webp: XL_WEBP_OPTIONS }
-        : { path: variantPath(at, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
-      : { path: variantPath(at, suffix, "jpg"), resize: px, wide, format: "jpeg" };
+    const at = thumbs || thumbBaseOf(source);
+    const variant = size === null
+      ? { path: variantPath(at, FULL_SUFFIX, WEBP_EXT), resize: null, wide }
+      : size === "xl"
+        ? { path: variantPath(at, variantSuffix(size, wide), XL_WEBP_EXT), resize: (wide ? WIDE_SIZES : SIZES)[size], wide, webp: XL_WEBP_OPTIONS }
+        : { path: variantPath(at, variantSuffix(size, wide), WEBP_EXT), resize: (wide ? WIDE_SIZES : SIZES)[size], wide };
     await ensureVariant(source, variant);
-    res.set("Vary", "Accept");
-    res.type(wantWebp ? "image/webp" : "image/jpeg");
+    res.type("image/webp");
     if (!fromOverride) return res.sendFile(variant.path);
     // A small copy found gone (thumbs/ pruned or cleared by hand) is made again, once; the
     // picture itself counts as gone only when that fails too.
@@ -307,8 +353,8 @@ export async function serveImage(req, res, opts) {
   } catch (err) {
     if (fromOverride && err.code === "ENOENT") return gone();
     debug.error("image cache: variant failed for %s: %s", source, err.message);
-    // Worst case: send the original full-size, still works.
-    res.type(sourceType);
+    // Worst case: a picture sharp cannot read goes out as it is, still better than nothing.
+    res.type(sourceIsWebp ? "image/webp" : "image/jpeg");
     return send(source);
   }
 }
@@ -345,9 +391,8 @@ export function normalizeTitleId(raw) {
 
 /**
  * Background prefetch of icons for the title IDs the user actually has
- * in their library. Only fetches the ORIGINAL JPEG — variant transcoding
- * is still on-demand (cheaper to defer than pre-generate both WebP+JPEG
- * sizes for thousands of titles).
+ * in their library: the original, and the two WebP card sizes the client
+ * app asks for first. Other sizes are drawn on demand.
  *
  * Concurrency capped so we don't hammer the eShop CDN; we also skip any
  * file already on disk so reruns are no-ops.
@@ -367,12 +412,11 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
       const tid = queue[cursor++];
       job?.step(cursor);
       const cp = cachePathFor(tid, "icon");
-      // Client app cards (sm and md) as JPEG for older clients and WebP for the CookingFoil client and browsers.
+      // The client app's cards (sm and md).
+      const at = thumbBaseOf(cp);
       const variants = [
-        { path: variantPath(cp, SUFFIXES.sm, "jpg"), resize: SIZES.sm, format: "jpeg" },
-        { path: variantPath(cp, SUFFIXES.md, "jpg"), resize: SIZES.md, format: "jpeg" },
-        { path: variantPath(cp, SUFFIXES.sm, WEBP_EXT), resize: SIZES.sm, format: "webp" },
-        { path: variantPath(cp, SUFFIXES.md, WEBP_EXT), resize: SIZES.md, format: "webp" },
+        { path: variantPath(at, SUFFIXES.sm, WEBP_EXT), resize: SIZES.sm },
+        { path: variantPath(at, SUFFIXES.md, WEBP_EXT), resize: SIZES.md },
       ];
       const haveOriginal = existsCached(cp);
       const missing = variants.filter((v) => !existsCached(v.path));

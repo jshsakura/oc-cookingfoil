@@ -26,6 +26,9 @@ function dataDir() {
   // A game's picture is kept; the small copies drawn from it are made again on demand.
   put("metadata/games/Game [0100000000010000]/icon.webp", "WEBP");
   put("thumbs/games/0100000000010000/icon.abc-1.thumb.q75.webp", "THUMB");
+  // The eShop and game-file pictures and their WebP copies come back by themselves.
+  put("extracted/0100000000010000.jpg", "JPG");
+  put("thumbs/extracted/0100000000010000.sm.q75.webp", "THUMB");
   put("titledb/KR.ko.json", "{}");
   put("cookingfoil.db", "index");
   return dir;

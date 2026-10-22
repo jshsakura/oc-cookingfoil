@@ -89,6 +89,7 @@ import * as securityStore from "./security/store.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
+import { removeOldVariants } from "./meta/image-cache.js";
 import * as customArt from "./meta/custom-art.js";
 import * as gameMeta from "./meta/game-meta.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
@@ -424,6 +425,9 @@ bootstrapTitledb()
       .then(({ moved }) => { if (moved) shopCache.invalidate(); })
       .catch((err) => debug.error("custom-art migration failed:", err.message));
   });
+
+// Variants an older server drew next to the cached eShop and game-file pictures; they live in thumbs/ now.
+removeOldVariants().catch((err) => debug.error("image cache: removing old variants failed:", err.message));
 
 // Saved eShop prices first, so the first sections build already has them.
 loadPrices();

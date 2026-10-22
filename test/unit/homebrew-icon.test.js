@@ -34,12 +34,12 @@ test("icon_url carries a 12-hex v that follows the build", async () => {
   assert.notEqual(await iconUrl(), url, "a new build, a new v");
 });
 
-test("WebP only with Accept: image/webp, at most 256 px, Vary: Accept, immutable only for the current v", async () => {
+test("WebP for every client, at most 256 px, no Vary on Accept, immutable only for the current v", async () => {
   const url = await iconUrl();
   const webp = await fetch(`http://127.0.0.1:${server.address().port}${url}&size=md`, { headers: { Accept: "image/webp,*/*" } });
   assert.equal(webp.headers.get("content-type"), "image/webp");
   assert.equal(webp.headers.get("cache-control"), IMMUTABLE);
-  assert.match(webp.headers.get("vary") ?? "", /Accept/);
+  assert.doesNotMatch(webp.headers.get("vary") ?? "", /Accept/);
   const meta = await sharp(Buffer.from(await webp.arrayBuffer())).metadata();
   assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 256, 256]);
 
@@ -47,8 +47,8 @@ test("WebP only with Accept: image/webp, at most 256 px, Vary: Accept, immutable
   assert.equal((await sharp(Buffer.from(await sm.arrayBuffer())).metadata()).width, 160);
 
   const plain = await fetch(`http://127.0.0.1:${server.address().port}${url}&size=md`);
-  assert.equal(plain.headers.get("content-type"), "image/jpeg", "Tinfoil-style clients keep JPEG");
-  assert.deepEqual(Buffer.from(await plain.arrayBuffer()), jpeg, "the NRO's own icon, untouched");
+  assert.equal(plain.headers.get("content-type"), "image/webp", "a client without Accept gets WebP too");
+  assert.equal((await sharp(Buffer.from(await plain.arrayBuffer())).metadata()).format, "webp");
 
   const old = await fetch(`${base}/${ID}/icon`);
   assert.equal(old.headers.get("cache-control"), "public, max-age=300");
