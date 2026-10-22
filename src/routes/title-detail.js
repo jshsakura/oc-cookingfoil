@@ -15,7 +15,7 @@
  * clients can curl them verbatim; a same-origin browser keeps the relative form.
  */
 import * as titledbStore from "../meta/titledb-store.js";
-import { iconSource, bannerSource, iconLangs } from "../meta/localized-art.js";
+import { iconSource, bannerSource, iconKnown, bannerKnown, iconLangs } from "../meta/localized-art.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as customArt from "../meta/custom-art.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -106,30 +106,37 @@ export default async function titleDetailRoute(req, res) {
   res.header("Vary", "Accept-Language");
   const categories = normalizeGenres(fromDb?.category);
   const lang = requestLang(req);
-  // An explicit ?lang= gets that language's text when titledb has it, else its
-  // fallbacks (meta/langs.js) before the server's order; an unknown one is English.
-  // Without one the detail keeps the merged (top-priority language) description.
-  const asked = req.query?.lang ? parseLang(req.query.lang) ?? "en" : null;
+  // A reader who names a language (?lang= or Accept-Language) gets text only in it or its fallbacks
+  // (meta/langs.js), an unknown one being English: never the server's first language. The file's own
+  // title stands in when titledb has none of them. Without one the detail keeps the server's order.
+  const asked = req.query?.lang || req.get?.("accept-language") ? lang : null;
   const descriptions = titledbStore.descriptionsOf(base);
   const descriptionLang = asked ? fallbacks(asked).find((l) => descriptions?.[l]) ?? null : null;
-  // The language asked for first, then the server's order; the file's own titles fill the languages titledb lacks.
-  const priority = asked ? [...fallbacks(asked), ...langPriority] : langPriority;
+  const priority = asked ? fallbacks(asked) : langPriority;
   const fromDbNames = titledbStore.namesOf(base);
   const fileTitles = [(extracted ?? extractedMeta.get(base))?.name, contentMeta.get(base, 0)?.englishName];
   const names = { ...fileNamesOver(fromDbNames, fileTitles, priority), ...(fromDbNames ?? {}) };
   const nameLang = priority.map((l) => parseLang(l) ?? l).find((l) => names[l]);
-  // The asked language's own box art, else its fallbacks' (a Spanish reader gets the English art, not the server's first).
-  const artIn = (source) => (asked ? fallbacks(asked).find((l) => source(base, l)) ?? null : null);
+  const own = gameDescriptions.get(base);
+  const ownDescription = asked ? pick(own?.description, asked) : customDesc;
+  // The asked language's box art, else its fallbacks'. A language whose art is the default one stops there.
+  const artIn = (source, known) => {
+    const l = asked ? fallbacks(asked).find((x) => source(base, x) || known(base, x)) : null;
+    return l && source(base, l) ? l : null;
+  };
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
     id: base,
     // The admin's own name for the game wins, in the reader's language when they wrote one.
-    name: ownName(gameDescriptions.names(base), lang) ?? (nameLang ? names[nameLang] : null) ?? fromDb?.name ?? extracted?.name ?? null,
+    name: (asked ? pick(gameDescriptions.names(base), asked) : ownName(gameDescriptions.names(base), lang)) ?? (nameLang ? names[nameLang] : null) ?? fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     // What the admin wrote wins over every source; descriptionCustom says they did.
-    description: customDesc ?? ((descriptionLang && descriptions[descriptionLang]) || (fromDb?.description ?? extracted?.description ?? null)),
-    descriptionCustom: Boolean(customDesc),
+    // titledb's text per language when it has them; one kept without languages (a game file's) is shown as it is.
+    description: ownDescription ?? (asked && descriptions && Object.keys(descriptions).length
+      ? (descriptionLang && descriptions[descriptionLang]) || null
+      : fromDb?.description ?? extracted?.description ?? null),
+    descriptionCustom: Boolean(ownDescription),
     // Extra information only the admin writes (what to install with it, space,
     // version); kept apart from the description, which titledb may refresh.
     notes,
@@ -150,9 +157,9 @@ export default async function titleDetailRoute(req, res) {
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     // With ?lang=, the icon and banner of that language's release when it has its own art.
-    iconUrl: art(`/api/shop/icon/${base}`, artIn(iconSource)),
+    iconUrl: art(`/api/shop/icon/${base}`, artIn(iconSource, iconKnown)),
     bannerUrl: fromDb?.bannerUrl || overrides.banner
-      ? art(`/api/shop/banner/${base}`, artIn(bannerSource))
+      ? art(`/api/shop/banner/${base}`, artIn(bannerSource, bannerKnown))
       : null,
     icons: iconLangs(base).length
       ? Object.fromEntries(iconLangs(base).map((l) => [l, art(`/api/shop/icon/${base}`, l)]))

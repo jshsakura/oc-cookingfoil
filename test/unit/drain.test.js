@@ -52,7 +52,7 @@ function get(url, headers = {}) {
   });
 }
 
-test("a draining server tells new requests to come back, with an id and a notice in four languages", async () => {
+test("a draining server tells new requests to come back, with an id and a notice in each language it has", async () => {
   const { drainer, base } = await harness();
   assert.equal((await get(`${base}/fast`)).status, 200);
   const st = drainer.start();
@@ -67,7 +67,7 @@ test("a draining server tells new requests to come back, with an id and a notice
   assert.equal(body.retry_after, 20);
   assert.equal(body.restart_id, st.id);
   assert.ok(Date.parse(body.back_by) > Date.now(), "back_by is a time ahead");
-  assert.deepEqual(Object.keys(body.message).sort(), ["en", "ja", "ko", "zh"]);
+  assert.deepEqual(Object.keys(body.message).sort(), ["en", "ja", "ko", "zh", "zh-Hant"]);
   assert.equal(body.message.ko, "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.");
   assert.deepEqual(body.message, MESSAGE);
   for (const text of Object.values(MESSAGE)) assert.doesNotMatch(text, /[—–]/);
@@ -92,6 +92,10 @@ test("the browser page speaks the browser's language, one language only", async 
   const other = await get(`${base}/`, { accept: "text/html", "accept-language": "fr-FR" });
   assert.match(other.body, /<html lang="en">[\s\S]*The server is restarting/);
   assert.doesNotMatch(other.body, /서버/);
+  const zh = await get(`${base}/`, { accept: "text/html", "accept-language": "zh-CN" });
+  assert.match(zh.body, /<html lang="zh">[\s\S]*服务器正在重新启动/, "zh is simplified");
+  const hant = await get(`${base}/`, { accept: "text/html", "accept-language": "zh-TW" });
+  assert.match(hant.body, /<html lang="zh-Hant">[\s\S]*伺服器正在重新啟動/);
 });
 
 test("each drain has its own id", () => {
@@ -301,7 +305,8 @@ test("the dashboard shows its own notice once per restart, in its own language",
   const html = readFileSync(path.join(import.meta.dirname, "../../src/views/landing.html"), "utf-8");
   assert.match(html, /msg\.type === "restarting"/);
   assert.match(html, /id === restartShown/);
-  for (const [lang, text] of Object.entries(MESSAGE)) {
+  // The landing page speaks ko, en, ja and zh.
+  for (const [lang, text] of Object.entries(MESSAGE).filter(([l]) => l !== "zh-Hant")) {
     const start = html.indexOf(`        ${lang}: {`);
     const bundle = html.slice(start, html.indexOf("\n        },\n", start));
     // The 503 body speaks to a client whose download resumes; the page only reconnects, so it says that.

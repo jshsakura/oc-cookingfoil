@@ -9,19 +9,28 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../../debug.js";
 import { homebrewDir } from "../../helpers/envs.js";
-import { MANIFEST, extractPackage, noteManualHome, readNro, zipEntries } from "../../meta/homebrew.js";
+import { MANIFEST, extractPackage, hasOwnMetadata, idFor, noteManualHome, readNro, zipEntries } from "../../meta/homebrew.js";
 import { META_DIR } from "../../meta/art-sidecar.js";
+import { park } from "../../meta/homebrew-media.js";
 import { normalizeLayout } from "../../meta/homebrew-layout.js";
 import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
 import { manualApps, refreshManual } from "../homebrew.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
 
-/** Moves the metadata folder of the folder an upload replaced into the new one. */
-async function keepMetadata(previous, dest) {
+/**
+ * Keeps the server's pictures from the folder an upload replaced: its metadata/ moves into the new
+ * folder, or, when the new release brings a metadata/ of its own, the pictures move to the server's side.
+ * Done before the replaced folder is deleted with the upload's work folder.
+ */
+async function keepMetadata(app, previous, dest, ownMetadata) {
   const before = await fsp.readFile(path.join(previous, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
-  if (before?.own_metadata) return;
-  await fsp.rename(path.join(previous, META_DIR), path.join(dest, META_DIR)).catch((err) => {
+  const from = path.join(previous, META_DIR);
+  const entries = await fsp.readdir(from).then((names) => names.map((n) => `${META_DIR}/${n}`), () => []);
+  // The replaced release's own metadata/ went with it.
+  if (before ? before.own_metadata : hasOwnMetadata(entries)) return;
+  if (ownMetadata) return park(idFor("manual", app), from);
+  await fsp.rename(from, path.join(dest, META_DIR)).catch((err) => {
     if (err.code !== "ENOENT") debug.error("upload: keeping %s's %s: %s", dest, META_DIR, err.message);
   });
 }
@@ -67,7 +76,7 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   // Known before the folder is in place, so nothing looking at its pictures meanwhile takes a release's own metadata/ for them.
   noteManualHome(app, dest, ownMetadata);
   await fsp.rename(built, dest);
-  if (!ownMetadata) await keepMetadata(previous, dest);
+  await keepMetadata(app, previous, dest, ownMetadata);
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
   await refreshManual();
   const placed = (await manualApps()).find((e) => path.dirname(e.path) === path.resolve(dest));

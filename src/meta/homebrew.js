@@ -26,7 +26,7 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
 import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
-import { isMetadata, isOurMetadata } from "./art-sidecar.js";
+import { META_DIR, isMetadata, isOurMetadata } from "./art-sidecar.js";
 import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
@@ -307,8 +307,14 @@ export const manualHomeOf = (id) => manualHomes.get(id) ?? null;
 /** Notes a hand-placed app's folder before it is read (an upload putting it in place). */
 export const noteManualHome = (folder, dir, ownMetadata) => manualHomes.set(idFor("manual", folder), ownMetadata ? null : dir);
 
-/** Whether files of an app folder (relative paths) hold a metadata/ that is the app's own, not the server's. Pure. */
-export const hasOwnMetadata = (files) => files.some((r) => isMetadata(r) && !isOurMetadata(r));
+/**
+ * Whether files of an app folder (relative paths) hold a metadata/ that is the app's own, not the server's:
+ * one with files, none of which only the server writes. Once the server has put a picture there it stays the server's. Pure.
+ */
+export function hasOwnMetadata(files) {
+  const meta = files.filter(isMetadata);
+  return meta.length > 0 && !meta.some(isOurMetadata);
+}
 
 /** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
 async function filesUnder(dir, rel = "") {
@@ -540,18 +546,29 @@ export function folderHash(files) {
   return h.digest("hex");
 }
 
-/** A manifest written before apps kept pictures in metadata/ says whether a metadata/ there is the app's own. */
+/**
+ * A manifest written before apps kept pictures in metadata/ says whether a metadata/ there is the app's own.
+ * The server wrote nothing there then, so any metadata/ such a folder has came with the app.
+ */
 async function withOwnMetadata(dir, manifest) {
   if (!manifest || typeof manifest !== "object" || typeof manifest.own_metadata === "boolean") return manifest;
-  const next = { ...manifest, own_metadata: hasOwnMetadata(await filesUnder(dir)) };
+  const next = { ...manifest, own_metadata: (await metadataEntries(dir)).length > 0 };
   await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(next)).catch((err) => debug.error("homebrew: %s: noting its metadata: %s", dir, err.message));
   return next;
+}
+
+/** The entries of a folder's metadata/, as relative paths; none when it has no such folder. */
+async function metadataEntries(dir) {
+  const names = await fsp.readdir(path.join(dir, META_DIR)).catch(() => []);
+  return names.map((n) => `${META_DIR}/${n}`);
 }
 
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await withOwnMetadata(dir, await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null));
-  manualHomes.set(idFor("manual", folder), manifest?.own_metadata ? null : dir);
+  // A folder dropped in without a manifest says nothing; a metadata/ holding anything the server never writes is the app's.
+  const own = manifest ? manifest.own_metadata : hasOwnMetadata(await metadataEntries(dir));
+  manualHomes.set(idFor("manual", folder), own ? null : dir);
   const names = await fsp.readdir(dir);
   const file = manifest?.nro && names.includes(manifest.nro) ? manifest.nro : names.filter((f) => /\.nro$/i.test(f)).sort()[0];
   if (!file) {

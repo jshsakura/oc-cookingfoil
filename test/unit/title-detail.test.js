@@ -106,29 +106,35 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
   const data = mkdtempSync(path.join(tmpdir(), "cook-detail-lang-"));
   mkdirSync(path.join(data, "titledb"), { recursive: true });
   mkdirSync(path.join(data, "custom-art"));
-  const region = (file, name, description) => writeFileSync(path.join(data, "titledb", file), JSON.stringify({
-    "70010000000002": { id: "0100000000ABE000", name, description, releaseDate: 20240101 },
+  const region = (file, name, description, iconUrl) => writeFileSync(path.join(data, "titledb", file), JSON.stringify({
+    "70010000000002": { id: "0100000000ABE000", name, description, releaseDate: 20240101, iconUrl },
   }));
-  region("KR.ko.json", "한국어 이름", "한국어 설명");
-  region("US.en.json", "English Name", "English text");
-  region("ES.es.json", "Nombre", "Texto");
-  region("CN.zh.json", "简体名", "简体说明");
-  region("HK.zh.json", "繁體名", "繁體說明");
+  // Korean and Hong Kong's box art is the default one; English and simplified Chinese have their own.
+  region("KR.ko.json", "한국어 이름", "한국어 설명", "https://img.example/default.jpg");
+  region("US.en.json", "English Name", "English text", "https://img.example/en.jpg");
+  region("ES.es.json", "Nombre", "Texto", "https://img.example/en.jpg");
+  region("CN.zh.json", "简体名", "简体说明", "https://img.example/zh.jpg");
+  region("HK.zh.json", "繁體名", "繁體說明", "https://img.example/default.jpg");
+  writeFileSync(path.join(data, "game-descriptions.json"), JSON.stringify({ "0100000000ABE000": { name: { ko: "관리자 이름" }, description: { ko: "관리자 설명" } } }));
   const probe = `
     import * as store from "../../src/meta/titledb-store.js";
     import route from "../../src/routes/title-detail.js";
     import * as art from "../../src/meta/custom-art.js";
     await store.load();
     await art.init();
-    const call = (lang) => {
+    const call = (lang, header) => {
       const r = { code: 200, body: null, headers: {} };
       r.status = (c) => { r.code = c; return r; };
       r.json = (o) => { r.body = o; return r; };
       r.header = () => r;
-      route({ params: { baseTitleId: "0100000000ABE000" }, query: lang ? { lang } : {}, get: () => undefined, protocol: "http" }, r);
-      return [r.body.name, r.body.description];
+      route({ params: { baseTitleId: "0100000000ABE000" }, query: lang ? { lang } : {}, get: (h) => (h === "accept-language" ? header : undefined), protocol: "http" }, r);
+      const art = new URL(r.body.iconUrl, "http://x").searchParams.get("lang");
+      return [r.body.name, r.body.description, art];
     };
-    process.stdout.write(JSON.stringify(Object.fromEntries(["es", "sv", "nl", "zh", "zh-Hant", "zh-TW", "ko", ""].map((l) => [l, call(l)]))));
+    const out = Object.fromEntries(["es", "sv", "nl", "zh", "zh-Hant", "zh-TW", "ko", ""].map((l) => [l, call(l)]));
+    out.headerEs = call("", "es-ES,es;q=0.9");
+    out.headerSv = call("", "sv-SE");
+    process.stdout.write(JSON.stringify(out));
   `;
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
     cwd: import.meta.dirname,
@@ -136,12 +142,14 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
     encoding: "utf-8",
   });
   const r = JSON.parse(out);
-  assert.deepEqual(r.es, ["Nombre", "Texto"]);
-  assert.deepEqual(r.sv, ["English Name", "English text"], "an unknown language is English");
-  assert.deepEqual(r.nl, ["English Name", "English text"], "a language titledb lacks falls back to English, not Korean");
-  assert.deepEqual(r.zh, ["简体名", "简体说明"]);
-  assert.deepEqual(r["zh-Hant"], ["繁體名", "繁體說明"], "Hong Kong's titledb is traditional");
-  assert.deepEqual(r["zh-TW"], ["繁體名", "繁體說明"]);
-  assert.deepEqual(r.ko, ["한국어 이름", "한국어 설명"]);
-  assert.equal(r[""][0], "한국어 이름", "without ?lang= the server's own order still decides");
+  assert.deepEqual(r.es, ["Nombre", "Texto", "es"], "the admin's Korean text does not beat titledb's Spanish");
+  assert.deepEqual(r.sv, ["English Name", "English text", "en"], "an unknown language is English");
+  assert.deepEqual(r.nl, ["English Name", "English text", "en"], "a language titledb lacks falls back to English, not Korean");
+  assert.deepEqual(r.zh, ["简体名", "简体说明", "zh"]);
+  assert.deepEqual(r["zh-Hant"], ["繁體名", "繁體說明", null], "Hong Kong's text is traditional, and its art the default one, not simplified's");
+  assert.deepEqual(r["zh-TW"], ["繁體名", "繁體說明", null]);
+  assert.deepEqual(r.ko, ["관리자 이름", "관리자 설명", null], "the admin's own Korean for a Korean reader; Korean art is the default");
+  assert.deepEqual(r.headerEs, ["Nombre", "Texto", "es"], "Accept-Language counts as asking");
+  assert.deepEqual(r.headerSv, ["English Name", "English text", "en"]);
+  assert.equal(r[""][0], "관리자 이름", "without a language the server's own order still decides");
 });

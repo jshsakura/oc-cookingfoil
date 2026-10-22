@@ -31,7 +31,7 @@ export const RETRO_LABELS = {
   "achievements-title": label(11, "neutral", "trophy", { en: "Achievements {0}", ko: "업적 {0}", ja: "実績 {0}", zh: "成就 {0}", "zh-Hant": "成就 {0}", es: "Logros {0}", fr: "Succès {0}", de: "Erfolge {0}", it: "Obiettivi {0}", pt: "Conquistas {0}", ru: "Достижения {0}", nl: "Prestaties {0}" }),
   korean: label(20, "neutral", null, { en: "Korean", ko: "한글", ja: "韓国語", zh: "韩文", "zh-Hant": "韓文", es: "Coreano", fr: "Coréen", de: "Koreanisch", it: "Coreano", pt: "Coreano", ru: "Корейский", nl: "Koreaans" }),
   year: label(30, "neutral", null, { en: "{0}", ko: "{0}", ja: "{0}", zh: "{0}", "zh-Hant": "{0}", es: "{0}", fr: "{0}", de: "{0}", it: "{0}", pt: "{0}", ru: "{0}", nl: "{0}" }),
-  players: label(40, "neutral", null, { en: "{0}P", ko: "{0}인", ja: "{0}人", zh: "{0}人", "zh-Hant": "{0}人", es: "{0} jug.", fr: "{0} j.", de: "{0} Sp.", it: "{0} gioc.", pt: "{0} jog.", ru: "{0} игр.", nl: "{0} sp." }),
+  players: label(40, "neutral", null, { en: "{0}P", ko: "{0}인", ja: "{0}人", zh: "{0}人", "zh-Hant": "{0}人", es: "{0} jug.", fr: "{0} j.", de: "{0} Sp.", it: "{0} gioc.", pt: "{0} jog.", ru: "Игроки: {0}", nl: "{0} sp." }),
 };
 
 const INTEGRITY_RANK = { modified: 1, damaged: 2 };
