@@ -34,7 +34,7 @@ const PARTS = [
   // Patches are read every minute and retro on its own changes: only this full read shows up as a job.
   ["patches", () => activity.track("scan:patches", { title: "패치 폴더를 읽습니다" }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
   ["retro", () => activity.track("scan:retro", { title: "레트로 폴더를 읽습니다" }, () => retroCatalog.rescan(env.retroDir))],
-  // The game folders are looked at every minute where they changed; this reads every one in full.
+  // The game folders are read again one by one as the watch sees them change; this reads every one in full.
   ["gameMeta", () => activity.track("scan:game-meta", { title: "게임 정보 폴더를 읽습니다" }, () => gameMeta.scan({ force: true }))],
 ];
 

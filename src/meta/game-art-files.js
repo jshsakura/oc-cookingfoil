@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import * as artCrop from "./art-crop.js";
+import debug from "../debug.js";
 
 export const KINDS = ["icon", "banner", "screenshot"];
 export const MAX_SCREENSHOTS = 8;
@@ -84,20 +85,50 @@ export function writeSlot(artFile, art, original, crop = null) {
   writeAtomic(artFile, art);
 }
 
+// What a hand-placed file was when it was read: one replaced or written to since differs.
+const fileStamp = (st) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}:${st.ino}`;
+const statOf = (file) => fs.statSync(file, { throwIfNoEntry: false });
+
 /**
  * A picture put into `dir` by hand (`file`, a .jpg, .jpeg or .png) made into
  * `slot`'s .webp and original. The hand-placed file goes only once both are
- * written; a picture that cannot be read throws and leaves everything as it was.
+ * written, and only when it is still the file that was read: one put there
+ * again meanwhile stays for the next look, and the slot's .webp takes the time
+ * of what was read, so that newer one wins then. `ready()`, asked right before
+ * writing, may say the slot changed meanwhile: nothing is written then. The
+ * .webp written, or null when nothing was; a picture that cannot be read throws
+ * and leaves everything as it was.
  */
-export async function convertHand(dir, slot, file) {
+export async function convertHand(dir, slot, file, { ready = () => true } = {}) {
   const [kind] = kindOf(slot);
   const src = path.join(dir, file);
-  const input = await fs.promises.readFile(src);
+  const fh = await fs.promises.open(src);
+  let read, input;
+  try {
+    read = await fh.stat();
+    input = await fh.readFile();
+  } finally {
+    await fh.close();
+  }
   const art = await encode(kind, input);
   const original = await artCrop.shrinkOriginal(input);
+  const same = () => {
+    const st = statOf(src);
+    return Boolean(st) && fileStamp(st) === fileStamp(read);
+  };
+  if (!same() || !ready()) return null;
   const artFile = path.join(dir, `${slot}.webp`);
   writeSlot(artFile, art, original);
   if (!fs.statSync(artFile).size || !fs.statSync(artCrop.originalPaths(artFile).image).size) throw new Error("written empty");
-  fs.rmSync(src);
+  fs.utimesSync(artFile, new Date(), new Date(Math.max(read.mtimeMs, read.ctimeMs)));
+  if (!same()) {
+    debug.log("game art: %s changed while it was read; kept for the next look", src);
+    return artFile;
+  }
+  try {
+    fs.rmSync(src);
+  } catch (err) {
+    debug.error("game art: %s is made into %s.webp but cannot be removed: %s", src, slot, err.message);
+  }
   return artFile;
 }

@@ -235,22 +235,28 @@ function variantSuffix(size, wide) {
  * ratio (banners, screenshots) instead of cropping to a square (icons). When
  * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
  * `overrideThumbs` (custom-art.serveOptions) is where an override's variants go:
- * they are WebP whatever the client says.
+ * they are WebP whatever the client says; `overrideGone` is called when the
+ * override is no longer there.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, overrideThumbs, wide = false, current = false }) {
+export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false }) {
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
   const wantThumb = size !== null;
 
   // Operator-supplied art wins outright over the titledb CDN proxy / NACP
   // cache. When present we serve it (and derive thumbs from it) and never
-  // touch the upstream. `existsCached` keeps the common no-override path a
-  // pure Set lookup after the first hit.
+  // touch the upstream. It sits in a folder the admin may rename or delete by
+  // hand, so it is looked for each time, not remembered: one found gone falls
+  // back to the usual art and `overrideGone` has the game read again.
   let source = cachePath;
   let fromOverride = false;
-  if (overridePath && existsCached(overridePath)) {
+  if (overridePath && fs.existsSync(overridePath)) {
     source = overridePath;
     fromOverride = true;
   } else {
+    if (overridePath) {
+      forget(overridePath);
+      overrideGone?.();
+    }
     try {
       await ensureOriginal(cachePath, upstreamUrl);
     } catch (err) {

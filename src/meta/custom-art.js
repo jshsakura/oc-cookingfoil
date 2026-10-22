@@ -50,11 +50,15 @@ export function stampOf(base, kind, idx) {
   return gameMeta.art(base, slotName(kind, idx))?.stamp ?? null;
 }
 
-/** serveImage's options for a slot: the picture and where its small copies go; {} when it has none. */
+/**
+ * serveImage's options for a slot: the picture, where its small copies go, and
+ * what to do when the picture is found gone (its folder renamed or deleted by
+ * hand: the game is read again); {} when it has none.
+ */
 export function serveOptions(base, kind, idx) {
   const slot = slotName(kind, idx);
   const a = gameMeta.art(base, slot);
-  return a ? { overridePath: a.path, overrideThumbs: gameMeta.thumbBase(base, slot, a.stamp) } : {};
+  return a ? { overridePath: a.path, overrideThumbs: gameMeta.thumbBase(base, slot, a.stamp), overrideGone: () => gameMeta.vanished(base) } : {};
 }
 
 /** Which slots have a picture: { icon, banner, screens: [idx] }. */
@@ -79,9 +83,14 @@ export async function init() {
 /**
  * Stores an upload in a slot. `crop` ({ x, y, w, h }, 0..1, or null for all of
  * it) is the area kept; the upload itself is kept smaller beside the picture so
- * the area can change later. Throws on a picture that cannot be read.
+ * the area can change later. Throws on a picture that cannot be read. Each
+ * write here waits for the game's others (gameMeta.withGame).
  */
-export async function put(base, kind, idx, input, crop = null) {
+export function put(base, kind, idx, input, crop = null) {
+  return gameMeta.withGame(base, () => putNow(base, kind, idx, input, crop));
+}
+
+async function putNow(base, kind, idx, input, crop) {
   const art = await encode(kind, await artCrop.cropOf(input, crop));
   const original = await artCrop.shrinkOriginal(input);
   const file = path.join(gameMeta.ensureFolder(base), `${slotName(kind, idx)}.webp`);
@@ -93,7 +102,11 @@ export async function put(base, kind, idx, input, crop = null) {
 }
 
 /** Cuts the slot again from the original kept at upload. Throws CropError when none is kept. */
-export async function recrop(base, kind, idx, crop) {
+export function recrop(base, kind, idx, crop) {
+  return gameMeta.withGame(base, () => recropNow(base, kind, idx, crop));
+}
+
+async function recropNow(base, kind, idx, crop) {
   gameMeta.refresh(base);
   const file = pathFor(base, kind, idx);
   const kept = file ? artCrop.readOriginal(file) : null;
@@ -123,7 +136,11 @@ export function originals(base) {
 }
 
 /** Takes a slot's picture out, with its kept original; the folder goes too when nothing is left in it. */
-export async function remove(base, kind, idx) {
+export function remove(base, kind, idx) {
+  return gameMeta.withGame(base, () => removeNow(base, kind, idx));
+}
+
+function removeNow(base, kind, idx) {
   gameMeta.refresh(base);
   const file = pathFor(base, kind, idx);
   if (!file) return;
@@ -189,7 +206,7 @@ export async function migrate() {
     if (!m) continue;
     const [kind, idx] = m[2] === "icon" || m[2] === "banner" ? [m[2], null] : ["screenshot", Number(m[3])];
     try {
-      await moveOld(name, m[1], kind, idx);
+      await gameMeta.withGame(m[1], () => moveOld(name, m[1], kind, idx));
       moved++;
     } catch (err) {
       failed++;

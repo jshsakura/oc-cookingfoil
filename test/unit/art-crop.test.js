@@ -225,3 +225,14 @@ test("the admin reads one game's folder again, or every game's, and sees what wa
   assert.equal(customArt.hasOverride(ID, "banner"), false);
   assert.equal((await postJson("/nope/rescan", {})).status, 400);
 });
+
+test("the original is written under a dot name with the pid first, never a name taken for a picture", async (t) => {
+  const dir = fs.mkdtempSync(path.join(data, "tmpname-"));
+  const written = [];
+  const write = fs.writeFileSync;
+  t.mock.method(fs, "writeFileSync", function (file, ...rest) { written.push(path.basename(String(file))); return write.call(this, file, ...rest); });
+  artCrop.keepOriginal(path.join(dir, "icon.webp"), await artCrop.shrinkOriginal(await sharp({ create: { width: 8, height: 8, channels: 3, background: "#fff" } }).png().toBuffer()), null);
+  t.mock.restoreAll();
+  assert.deepEqual(written, [`.icon.orig.webp.${process.pid}.tmp`, `.icon.orig.json.${process.pid}.tmp`]);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ["icon.orig.json", "icon.orig.webp"]);
+});

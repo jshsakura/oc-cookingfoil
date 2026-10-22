@@ -458,9 +458,10 @@ if (savesEnabled()) {
   backups.start();
 }
 
-// The game folders (names, text, pictures) read now and every minute, kept in
-// memory so the image routes and lists never wait on the disk. A change found
-// there (a picture or a game.json edited by hand) builds the lists again.
+// The game folders (names, text, pictures) read now, then one again whenever
+// the watch sees it change, kept in memory so the image routes and lists never
+// wait on the disk. A change found there (a picture or a game.json edited by
+// hand) builds the lists again.
 gameMeta.start({ onChange: () => shopCache.invalidate({ rename: true }) });
 
 // Which auth lanes are live, and does that combination lock out a client the

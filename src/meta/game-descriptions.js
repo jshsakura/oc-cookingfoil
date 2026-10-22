@@ -8,8 +8,8 @@
  * A game is found by the id in brackets at the end of its folder's name; the
  * name before it is for people and may be changed by hand. What is read comes
  * from meta/game-meta.js, which keeps the folders in memory: a game.json edited
- * by hand shows after its next look (within a minute, or at once from the admin
- * page), with no restart. A save reads the file again first.
+ * by hand shows after its next look (once the folder's watch has seen it go
+ * quiet, or at once from the admin page), with no restart. A save reads the file again first.
  *
  * name replaces the game's name everywhere it is shown (a wrong or empty one
  * from titledb or the file); one the admin cleared goes back to the usual name.

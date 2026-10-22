@@ -44,8 +44,8 @@
  * metadata strip) into the game's folder (meta/game-meta.js), so a bad/huge
  * image is rejected here rather than served. The stored override wins over the
  * titledb CDN proxy and NACP extraction in the icon/banner/screenshot routes.
- * A picture put into the folder by hand shows after the next look at it (every
- * minute) or at once after a rescan.
+ * A picture put into the folder by hand shows once the folder's watch has seen
+ * it go quiet, or at once after a rescan.
  *
  * Gating mirrors the game-upload tray: disabled unless COOK_UPLOADS_ENABLED,
  * and always behind the normal sign-in + IP-lockout perimeter.
