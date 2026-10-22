@@ -3,7 +3,7 @@
  * icon (else its game's), a banner behind its header and screenshots, uploaded
  * from the web page by an admin or put in the patch folder by hand.
  *
- *   <patch folder>/icon.webp …               the files (meta/art-sidecar.js)
+ *   <patch folder>/metadata/icon.webp …      the files (meta/art-sidecar.js)
  *   ${COOK_DATA_DIR}/patches/media/<id>/…    kept originals for cutting again
  *   ${COOK_DATA_DIR}/patches/media.json      { <id>: { icon?, banner?, shots? } }
  */

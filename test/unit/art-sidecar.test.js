@@ -20,9 +20,11 @@ const until = async (ok) => {
   assert.ok(ok(), "settled in time");
 };
 
-test("only pictures at a folder's root are its pictures, by name", () => {
-  for (const ok of ["icon.webp", "banner.jpg", "screenshot-01.png", "Icon.JPG", "screenshot-12.jpeg"]) assert.ok(sidecar.isArtSidecar(ok), ok);
-  for (const no of ["romfs/icon.webp", "icon.gif", "screenshot-1.webp", "screenshot-00.webp", "icon.orig.webp", "cover.jpg"]) assert.ok(!sidecar.isArtSidecar(no), no);
+test("an item's metadata folder is told apart from its own files, and what the server keeps there by name", () => {
+  for (const ok of ["metadata/icon.webp", "Metadata/notes.txt", "metadata/deep/x.bin"]) assert.ok(sidecar.isMetadata(ok), ok);
+  for (const no of ["icon.webp", "romfs/metadata/icon.webp", "metadata.json"]) assert.ok(!sidecar.isMetadata(no), no);
+  for (const ok of ["metadata/icon.webp", "metadata/banner.jpg", "metadata/screenshot-12.jpeg", "metadata/game.json", "metadata/.icon.webp.12.tmp"]) assert.ok(sidecar.isOurMetadata(ok), ok);
+  for (const no of ["metadata/levels.dat", "metadata/sub/icon.webp", "icon.webp"]) assert.ok(!sidecar.isOurMetadata(no), no);
   assert.equal(sidecar.slotName("shot", 3), "screenshot-03");
 });
 
@@ -49,23 +51,22 @@ test("each slot shows its newest file, screenshots in their order, and a hand-pl
   assert.equal(sidecar.read(dir).untidy, false);
 });
 
-test("a picture that cannot be read is left where it is; names an item owns are never touched", async () => {
+test("a picture that cannot be read is left where it is", async () => {
   const dir = tmp();
   put(path.join(dir, "banner.png"), Buffer.from("not a picture"), 60);
-  put(path.join(dir, "icon.jpg"), await img(16, 16, 10, "jpeg"), 60);
   const errors = [];
-  await sidecar.normalize(dir, () => [64, 64], { ignore: new Set(["icon.jpg"]), onError: (slot) => errors.push(slot) });
+  await sidecar.normalize(dir, () => [64, 64], { onError: (slot) => errors.push(slot) });
   assert.deepEqual(errors, ["banner"]);
-  assert.deepEqual(fs.readdirSync(dir).sort(), ["banner.png", "icon.jpg"]);
-  assert.equal(sidecar.read(dir, { ignore: new Set(["icon.jpg"]) }).icon, null);
+  assert.deepEqual(fs.readdirSync(dir), ["banner.png"]);
 });
 
 test("an item with a folder keeps its pictures there; one changed by hand is served at once", async () => {
   const data = tmp();
-  const home = tmp();
+  const folder = tmp();
+  const home = path.join(folder, "metadata");
   const ID = "m-0123456789ab";
   const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
-    urlBase: (id) => `/x/${id}`, homeOf: (id) => (id === ID ? home : null) });
+    urlBase: (id) => `/x/${id}`, homeOf: (id) => (id === ID ? folder : null) });
   await store.saveBanner(ID, await img(1600, 900, 10));
   assert.equal(store.bannerPath(ID), path.join(home, "banner.webp"));
   assert.deepEqual((await sharp(store.bannerPath(ID)).metadata()).width, 1280);
@@ -82,12 +83,13 @@ test("an item with a folder keeps its pictures there; one changed by hand is ser
   fs.rmSync(path.join(home, "banner.webp"));
   assert.equal(store.urls(ID).banner_url, null, "taken out by hand, gone");
   await store.forget(ID);
-  assert.equal(fs.existsSync(home), true, "the folder is never forgotten with the record");
+  assert.equal(fs.existsSync(folder), true, "the folder is never forgotten with the record");
 });
 
 test("pictures kept the old way move into the item's folder once, the folder's own winning", async () => {
   const data = tmp();
-  const home = tmp();
+  const folder = tmp();
+  const home = path.join(folder, "metadata");
   const ID = "m-0123456789ab";
   const own = path.join(data, "media", ID);
   put(path.join(own, "icon.webp"), await img(64, 64, 10, "webp"));
@@ -98,7 +100,7 @@ test("pictures kept the old way move into the item's folder once, the folder's o
   put(path.join(own, "shot-2.webp"), await img(64, 36, 50, "webp"));
   put(path.join(home, "banner.webp"), await img(64, 36, 250, "webp"));
   const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
-    urlBase: (id) => `/x/${id}`, homeOf: () => home });
+    urlBase: (id) => `/x/${id}`, homeOf: () => folder });
 
   assert.deepEqual(store.urls(ID).screenshots.length, 2);
   assert.deepEqual(fs.readdirSync(home).sort(), ["banner.webp", "icon.webp", "screenshot-01.webp", "screenshot-02.webp"]);
@@ -116,24 +118,13 @@ test("a picture that could not be moved into the item's folder is still shown fr
   assert.ok(store.iconPath(ID).startsWith(path.join(data, "media")));
 });
 
-test("a release's own file of a picture's name is never written over; the picture is kept on the server", async () => {
-  const data = tmp();
-  const home = tmp();
-  const ID = "m-0123456789ab";
-  put(path.join(home, "icon.webp"), Buffer.from("the release's own"), 60);
-  const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
-    urlBase: (id) => `/x/${id}`, homeOf: () => home, ignoreOf: () => new Set(["icon.webp"]) });
-  await store.saveIcon(ID, await img(64, 64, 10));
-  assert.equal(fs.readFileSync(path.join(home, "icon.webp"), "utf8"), "the release's own");
-  assert.equal(store.iconPath(ID), path.join(data, "media", ID, "icon.webp"));
-});
-
 test("a picture replaced by hand is what it is cut again from, and is kept as the new original", async () => {
   const data = tmp();
-  const home = tmp();
+  const folder = tmp();
+  const home = path.join(folder, "metadata");
   const ID = "m-0123456789ab";
   const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
-    urlBase: (id) => `/x/${id}`, homeOf: () => home });
+    urlBase: (id) => `/x/${id}`, homeOf: () => folder });
   await store.saveBanner(ID, await img(320, 180, 10));
   assert.ok(store.original(ID, "banner"));
   const px = Buffer.alloc(320 * 180 * 3);
@@ -150,7 +141,6 @@ test("a picture replaced by hand is what it is cut again from, and is kept as th
 
 test("a picture left half written is no part of the item, and is cleared once it is old", async () => {
   const dir = tmp();
-  assert.ok(sidecar.isArtSidecar(".icon.webp.123.tmp"));
   put(path.join(dir, ".icon.webp.123.tmp"), Buffer.from("x"), 3600);
   put(path.join(dir, ".banner.webp.124.tmp"), Buffer.from("x"));
   assert.equal(sidecar.read(dir).icon, null);

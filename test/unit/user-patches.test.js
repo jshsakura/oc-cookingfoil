@@ -299,14 +299,16 @@ test("a patch for a title nobody knows carries no game block", async () => {
   assert.equal(gameOf("0100FFFFFFFF0000", "https://shop.example"), null);
 });
 
-test("pictures at a patch's root are not part of the patch: it is listed, shipped and hashed without them", async () => {
+test("a patch's metadata folder is not part of it: it is listed, shipped and hashed without it", async () => {
   const body = { [`${TID}/한글/${CHEAT}`]: "cheat\n" };
   const plain = makeRoot(body);
-  const art = makeRoot({ ...body, [`${TID}/한글/icon.jpg`]: "pic", [`${TID}/한글/banner.jpg`]: "pic", [`${TID}/한글/screenshot-01.jpg`]: "pic" });
+  const art = makeRoot({ ...body, [`${TID}/한글/metadata/icon.webp`]: "pic", [`${TID}/한글/metadata/banner.jpg`]: "pic", [`${TID}/한글/metadata/notes.txt`]: "x" });
   await scan({ root: plain });
+  await hashed();
   const [a] = await list();
   reset();
   await scan({ root: art });
+  await hashed();
   const [b] = await list();
   assert.ok(b, "a patch with pictures is listed, not rejected");
   assert.equal(b.files, 1);
@@ -314,20 +316,22 @@ test("pictures at a patch's root are not part of the patch: it is listed, shippe
   const opened = await openForDownload(b.id, art);
   assert.deepEqual(tarEntries(opened.entries).map((e) => e.path).filter((p) => !p.endsWith("/")), [CHEAT]);
 
-  fs.writeFileSync(path.join(art, TID, "한글", "icon.jpg"), "another picture");
+  fs.writeFileSync(path.join(art, TID, "한글", "metadata", "icon.webp"), "another picture");
   reset();
   await scan({ root: art });
+  await hashed();
+  assert.ok(b.hash);
   assert.equal((await list())[0].hash, b.hash, "changing only a picture is not an update");
 });
 
-test("a picture below the root is the patch's own content, so it still has to sit where the game owns it", async () => {
-  const root = makeRoot({ [`${TID}/한글/${CHEAT}`]: "cheat\n", [`${TID}/한글/data/icon.jpg`]: "x" });
+test("a picture-named file outside metadata/ is the patch's own content", async () => {
+  const root = makeRoot({ [`${TID}/한글/${CHEAT}`]: "cheat\n", [`${TID}/한글/icon.jpg`]: "x" });
   await scan({ root });
-  assert.equal((await list()).length, 0);
+  assert.equal((await list()).length, 0, "a game patch cannot ship a file at its root");
 });
 
-test("a homebrew app's patch ships picture-named files at its root: that root is the app's folder", async () => {
-  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "the app's new icon" });
+test("a homebrew app's patch ships everything but its metadata folder", async () => {
+  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "the app's new icon", "homebrew/game/mod/metadata/banner.webp": "pic" });
   await scan({ root });
   const [p] = await list();
   assert.equal(p.files, 2);

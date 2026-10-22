@@ -4,7 +4,7 @@
  * from SteamGridDB's "heroes", screenshots from IGDB when its key is set); any
  * app may get both uploaded from the admin page.
  *
- *   <app folder>/icon.webp …                 a hand-placed or uploaded app's pictures (meta/art-sidecar.js)
+ *   <app folder>/metadata/icon.webp …        a hand-placed or uploaded app's pictures (meta/art-sidecar.js)
  *   ${COOK_DATA_DIR}/homebrew/media/<id>/…   an app followed on GitHub's pictures, and kept originals
  *   ${COOK_DATA_DIR}/homebrew/media.json     { <id>: { icon?, banner?, shots? } }
  *
@@ -17,7 +17,7 @@ import * as activity from "../tasks/activity.js";
 import * as igdb from "./igdb-client.js";
 import { fetchSgdbImage, sgdbHeroes, sgdbSearch } from "../retro/art/sync.js";
 import { createMediaStore, MediaImageError, MAX_SHOTS } from "./item-media.js";
-import { manualHomeOf, manualOwnArtOf } from "./homebrew.js";
+import { manualHomeOf } from "./homebrew.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const AUTO_SHOTS = 6;
@@ -33,7 +33,6 @@ const store = createMediaStore({
   urlBase: (id) => `/api/homebrew/${id}`,
   label: "homebrew media",
   homeOf: manualHomeOf,
-  ignoreOf: manualOwnArtOf,
 });
 const put = store.put;
 export { MediaImageError, MAX_SHOTS };

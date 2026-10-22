@@ -3,8 +3,8 @@
  * an icon, a wide banner behind its header and a row of screenshots. Shared by
  * meta/homebrew-media.js and the patches, so every window is edited and shown alike.
  *
- * The pictures live in the item's own folder when it has one (`homeOf`), as
- * meta/art-sidecar.js names them, so the folder keeps them and a picture changed
+ * The pictures live in the metadata folder of the item's own folder when it has
+ * one (`homeOf`, meta/art-sidecar.js), so the folder keeps them and a picture changed
  * there by hand is the one served; an item with no folder of its own keeps them in
  *   <dir>/<id>/icon.webp  banner.webp  screenshot-NN.webp
  * What is shown, and its version, is read from the disk. The record holds only
@@ -60,10 +60,9 @@ const shrink = async (raw) => {
 /**
  * One store. `idRe` guards every id (they become folder names), `urlBase(id)` is
  * where the item's pictures are served ("/api/homebrew/<id>"). `homeOf(id)` is the
- * item's own folder, or null for one kept under `dir`; `ignoreOf(id)` names files in
- * that folder that look like pictures but belong to the item (a release's own icon.jpg).
+ * item's own folder, or null for one kept under `dir`.
  */
-export function createMediaStore({ dir, file, idRe, urlBase, label = "media", homeOf = () => null, ignoreOf = () => null }) {
+export function createMediaStore({ dir, file, idRe, urlBase, label = "media", homeOf = () => null }) {
   let saved = null;
   function all() {
     if (saved) return saved;
@@ -109,8 +108,10 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   };
 
   const ownDir = (id) => path.join(dir, id);
-  const homeDir = (id) => homeOf(id) ?? ownDir(id);
-  const ignored = (id) => ignoreOf(id) ?? null;
+  const homeDir = (id) => {
+    const folder = homeOf(id);
+    return folder ? sidecar.metadataDir(folder) : ownDir(id);
+  };
   // Where an upload's kept original lives: always on the server, named after the slot.
   const anchor = (id, slot) => path.join(ownDir(id), `${slot}.webp`);
 
@@ -146,12 +147,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
       if (home !== own) {
         const kept = sidecar.read(own);
         for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
-          try {
-            if (!sidecar.adopt(p.file, home, p.slot, { ignore: ignored(id) })) artCrop.removeOriginal(anchor(id, p.slot));
-          } catch (err) {
-            // Left here, and shown from here (pictures()); a name the item itself uses is not tried again.
-            if (!(err instanceof sidecar.SlotTaken)) throw err;
-          }
+          if (!sidecar.adopt(p.file, home, p.slot)) artCrop.removeOriginal(anchor(id, p.slot));
         }
       }
       settled.add(key);
@@ -161,15 +157,8 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     }
   }
 
-  /** Writes a picture into the item's folder, or here when the item's own files use its name. Returns its version. */
-  function writePicture(id, slot, webp) {
-    try {
-      return sidecar.versionOfFile(sidecar.write(homeDir(id), slot, webp, { ignore: ignored(id) }));
-    } catch (err) {
-      if (!(err instanceof sidecar.SlotTaken)) throw err;
-      return sidecar.versionOfFile(sidecar.write(ownDir(id), slot, webp));
-    }
-  }
+  /** Writes a picture where the item keeps them. Returns its version. */
+  const writePicture = (id, slot, webp) => sidecar.versionOfFile(sidecar.write(homeDir(id), slot, webp));
 
   // A picture put in by hand that is not .webp, or a slot holding two, is tidied once it is seen.
   const tidying = new Set();
@@ -179,7 +168,6 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     tidying.add(id);
     let failed = false;
     serial(id, () => sidecar.normalize(homeDir(id), sizeOf, {
-      ignore: ignored(id),
       onError: (slot, err) => {
         failed = true;
         debug.error("%s: %s: %s left as it is: %s", label, id, slot, err.message);
@@ -198,7 +186,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   function pictures(id) {
     if (!idRe.test(String(id))) return { icon: null, banner: null, shots: [] };
     settle(id);
-    const got = sidecar.read(homeDir(id), { ignore: ignored(id) });
+    const got = sidecar.read(homeDir(id));
     if (got.untidy) tidy(id, got.signature);
     if (homeDir(id) === ownDir(id)) return got;
     // One that could not be moved into the folder (a read-only one) is still shown from here.
@@ -253,7 +241,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   function removePart(id, part) {
     check(id);
     settle(id);
-    sidecar.remove(homeDir(id), part, { ignore: ignored(id) });
+    sidecar.remove(homeDir(id), part);
     sidecar.remove(ownDir(id), part);
     artCrop.removeOriginal(anchor(id, part));
     put(id, part, { off: true });
@@ -265,7 +253,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
 
   function clearShots(id) {
     for (const s of pictures(id).shots) {
-      sidecar.remove(homeDir(id), s.slot, { ignore: ignored(id) });
+      sidecar.remove(homeDir(id), s.slot);
       sidecar.remove(ownDir(id), s.slot);
       artCrop.removeOriginal(anchor(id, s.slot));
     }
@@ -342,11 +330,11 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     }
     if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError("없는 스크린샷입니다");
     const gone = shots[n - 1].slot;
-    sidecar.remove(homeDir(id), gone, { ignore: ignored(id) });
+    sidecar.remove(homeDir(id), gone);
     sidecar.remove(ownDir(id), gone);
     artCrop.removeOriginal(anchor(id, gone));
     // The ones left close up to screenshot-01 …, each original going with its picture.
-    sidecar.renumberShots(homeDir(id), { ignore: ignored(id), onMove: (from, to) => artCrop.moveOriginal(anchor(id, from), anchor(id, to)) });
+    sidecar.renumberShots(homeDir(id), { onMove: (from, to) => artCrop.moveOriginal(anchor(id, from), anchor(id, to)) });
     return shots.length - 1;
   }
 
