@@ -128,7 +128,7 @@ async function findFirstRecursive(dir, predicate, maxDepth = 4) {
   return null;
 }
 
-async function pickIconForLangs(controlDir, langPriority) {
+export async function pickIconForLangs(controlDir, langPriority) {
   const order = slotPriorityOrder(langPriority);
   for (const slot of order) {
     const langName = NACP_SLOT_TO_ICON_NAME[slot];
@@ -150,15 +150,15 @@ async function pickIconForLangs(controlDir, langPriority) {
 }
 
 // The game file carries an icon per console language; these are the ones a
-// client language maps to, best first. Chinese goes by script: the console's
-// traditional slot was once named TaiwaneseChinese, its simplified one Chinese.
-// Portuguese follows titledb's, which is Brazil's.
+// client language maps to, best first, named as in nacp-decode.js. Chinese goes
+// by script, and neither script stands in for the other. Portuguese follows
+// titledb's, which is Brazil's.
 const LANG_ICON_NAMES = {
   ko: ["Korean"],
   en: ["AmericanEnglish", "BritishEnglish"],
   ja: ["Japanese"],
-  zh: ["SimplifiedChinese", "Chinese"],
-  "zh-Hant": ["TraditionalChinese", "TaiwaneseChinese"],
+  zh: ["SimplifiedChinese"],
+  "zh-Hant": ["TraditionalChinese"],
   es: ["Spanish", "LatinAmericanSpanish"],
   fr: ["French", "CanadianFrench"],
   de: ["German"],

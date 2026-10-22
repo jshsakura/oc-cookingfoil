@@ -68,15 +68,23 @@ let active = 0;
 let drained = Promise.resolve();
 let drainedResolver = null;
 
+// Which game-file icon goes to which client language (extract-providers/nsp.js
+// LANG_ICON_NAMES). Raised when that changes: 2 is twelve languages, Chinese by
+// script (1, unmarked, gave zh the traditional icon).
+export const ICON_MAP = 2;
+
+/** Whether a record's language icons were saved by an older mapping, or never: they are read once more. Pure. */
+export const needsLangIcons = (record) => !Array.isArray(record?.iconLangs) || record.iconMap !== ICON_MAP;
+
 export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   if (!baseTitleId) return false;
   if (tried.has(baseTitleId)) return false;
   if (inFlight.has(baseTitleId)) return false;
-  // A record from before per-language icons (no iconLangs) is extracted once
-  // more so a game titledb does not know still gets its English/Japanese/
-  // Chinese box art; the record then carries iconLangs and is left alone.
+  // A record whose language icons are missing or from an older mapping is
+  // extracted once more (its icons only); the record then carries iconLangs
+  // and the current iconMap, and is left alone.
   const existing = extractedMeta.get(baseTitleId);
-  if (existing && (Array.isArray(existing.iconLangs) || wantMeta === false)) {
+  if (existing && (!needsLangIcons(existing) || wantMeta === false)) {
     tried.add(baseTitleId);
     return false;
   }
@@ -128,9 +136,16 @@ async function persistLangIcons(baseTitleId, byLang, defaultIconPath) {
  */
 async function addLangIcons(job, record) {
   const existing = extractedMeta.get(job.baseTitleId);
-  if (!existing) return;
-  const iconLangs = await persistLangIcons(job.baseTitleId, record?.iconsByLang, cachePathFor(job.baseTitleId, "icon"));
-  await extractedMeta.put({ ...existing, iconLangs });
+  // A file that could not be read this time keeps what it had, and is tried again on a later start.
+  if (!existing || !record || typeof record !== "object") return;
+  const iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, cachePathFor(job.baseTitleId, "icon"));
+  // An icon the older mapping saved under a language this one gives none (zh's traditional icon) goes.
+  for (const lang of (Array.isArray(existing.iconLangs) ? existing.iconLangs : []).filter((l) => !iconLangs.includes(l))) {
+    const file = cachePathFor(job.baseTitleId, "icon-lang", lang);
+    await fs.rm(file, { force: true }).catch(() => {});
+    dropVariants(file);
+  }
+  await extractedMeta.put({ ...existing, iconLangs, iconMap: ICON_MAP });
   if (iconLangs.length) {
     debug.log("nacp-extractor: %s icons for %s", iconLangs.join("/"), job.baseTitleId);
     notifyExtracted({ baseTitleId: job.baseTitleId, source: "lang-icons" });
@@ -174,6 +189,7 @@ async function workOne(job) {
       delete record.iconBuffer;
     }
     record.iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, record.iconPath);
+    record.iconMap = ICON_MAP;
     delete record.iconsByLang;
     // titledb already owns the name/publisher/version for wantMeta === false
     // titles, and composeResponse only reads extracted meta when titledb has

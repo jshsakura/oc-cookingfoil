@@ -53,3 +53,34 @@ test("composeSections: NACP-extracted name fills in when titledb lacks the title
     rmSync(dd, { recursive: true, force: true });
   }
 });
+
+test("composeResponse: a game read before with an older icon mapping goes back to the extractor, a current one does not", () => {
+  const dd = mkdtempSync(path.join(tmpdir(), "cook-nacp-again-"));
+  try {
+    mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000AB1000.json"), JSON.stringify({ name: "Old", iconLangs: ["zh"] }));
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000AB2000.json"), JSON.stringify({ name: "Current", iconLangs: [], iconMap: 2 }));
+    const probe = `
+      import * as extractedMeta from "../../src/meta/extracted-meta-store.js";
+      import * as extractor from "../../src/meta/nacp-extractor.js";
+      import { composeResponse } from "../../src/create-index-content.js";
+      await extractedMeta.load();
+      const asked = [];
+      extractor.setProvider({ name: "probe", async extract(job) { asked.push(job.baseTitleId); return null; } });
+      composeResponse(new Map([
+        ["[0100000000AB1000][v0].nsp", { url: "a.nsp", name: "", size: 1, baseTitleId: "0100000000AB1000" }],
+        ["[0100000000AB2000][v0].nsp", { url: "b.nsp", name: "", size: 1, baseTitleId: "0100000000AB2000" }],
+      ]), []);
+      await extractor.whenDrained();
+      process.stdout.write(JSON.stringify(asked));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
+      cwd: import.meta.dirname,
+      env: { ...process.env, COOK_DATA_DIR: dd, COOK_EXTRACT_ICONS: "missing", COOK_EXTRACT_PACE_MS: "0" },
+      encoding: "utf-8",
+    });
+    assert.deepEqual(JSON.parse(out), ["0100000000AB1000"]);
+  } finally {
+    rmSync(dd, { recursive: true, force: true });
+  }
+});

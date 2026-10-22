@@ -329,7 +329,9 @@ export function composeResponse(filesMap, customs) {
 // scanLibrary, so no extra fs.stat here.
 function queueExtraction(relPath, item, baseId) {
   const fromDb = titledbStore.get(baseId);
-  if (!fromDb && extractedMeta.get(baseId)) return;
+  // A record already read is read again only for its language icons (nacp-extractor.js needsLangIcons).
+  const read = fromDb ? null : extractedMeta.get(baseId);
+  if (read && !nacpExtractor.needsLangIcons(read)) return;
   const sizeBytes = item.size;
   if (shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes, fileName: relPath })) {
     nacpExtractor.enqueue({
