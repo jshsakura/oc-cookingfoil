@@ -39,3 +39,9 @@ test("nothing known gives nothing; empty file titles are skipped", () => {
   assert.equal(pickFileName(null, ["", "  ", null], KO_FIRST), null);
   assert.equal(pickFileName(null, ["Homebrew App"], KO_FIRST), "Homebrew App", "with no titledb name the file's is used");
 });
+
+test("a traditional Chinese name from titledb ranks as zh-Hant, so a file's Han title does not beat it", () => {
+  assert.deepEqual(fileNamesOver({ "zh-Hant": "繁體名" }, ["中文名"], ["zh-Hant", "zh", "en"]), {});
+  assert.deepEqual(fileNamesOver({ "zh-Hant": "繁體名" }, ["中文名"], ["zh", "zh-Hant", "en"]), { zh: "中文名" });
+  assert.deepEqual(fileNamesOver({ ja: "日本語名" }, ["Name"], ["en-US", "ja"]), { en: "Name" }, "a regional priority still names its language");
+});

@@ -11,6 +11,7 @@ process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-drain-"));
 const express = (await import("express")).default;
 const { createDrainer, RESTART_HEADER, MESSAGE } = await import("../../src/security/drain.js");
 const env = await import("../../src/helpers/envs.js");
+const { LANGS } = await import("../../src/meta/langs.js");
 const settings = await import("../../src/security/server-settings.js");
 const { mountServerApi } = await import("../../src/routes/admin/server-api.js");
 
@@ -67,7 +68,7 @@ test("a draining server tells new requests to come back, with an id and a notice
   assert.equal(body.retry_after, 20);
   assert.equal(body.restart_id, st.id);
   assert.ok(Date.parse(body.back_by) > Date.now(), "back_by is a time ahead");
-  assert.deepEqual(Object.keys(body.message).sort(), ["en", "ja", "ko", "zh", "zh-Hant"]);
+  assert.deepEqual(Object.keys(body.message).sort(), [...LANGS].sort());
   assert.equal(body.message.ko, "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.");
   assert.deepEqual(body.message, MESSAGE);
   for (const text of Object.values(MESSAGE)) assert.doesNotMatch(text, /[—–]/);
@@ -89,7 +90,9 @@ test("the browser page speaks the browser's language, one language only", async 
   assert.match(ko.body, /<html lang="ko">/);
   assert.match(ko.body, /서버를 다시 시작하고 있습니다/);
   assert.doesNotMatch(ko.body, /restarting/);
-  const other = await get(`${base}/`, { accept: "text/html", "accept-language": "fr-FR" });
+  const fr = await get(`${base}/`, { accept: "text/html", "accept-language": "fr-FR" });
+  assert.match(fr.body, /<html lang="fr">[\s\S]*Le serveur redémarre/);
+  const other = await get(`${base}/`, { accept: "text/html", "accept-language": "sv-SE" });
   assert.match(other.body, /<html lang="en">[\s\S]*The server is restarting/);
   assert.doesNotMatch(other.body, /서버/);
   const zh = await get(`${base}/`, { accept: "text/html", "accept-language": "zh-CN" });
@@ -306,7 +309,7 @@ test("the dashboard shows its own notice once per restart, in its own language",
   assert.match(html, /msg\.type === "restarting"/);
   assert.match(html, /id === restartShown/);
   // The landing page speaks ko, en, ja and zh.
-  for (const [lang, text] of Object.entries(MESSAGE).filter(([l]) => l !== "zh-Hant")) {
+  for (const [lang, text] of Object.entries(MESSAGE).filter(([l]) => ["ko", "en", "ja", "zh"].includes(l))) {
     const start = html.indexOf(`        ${lang}: {`);
     const bundle = html.slice(start, html.indexOf("\n        },\n", start));
     // The 503 body speaks to a client whose download resumes; the page only reconnects, so it says that.

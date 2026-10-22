@@ -40,6 +40,7 @@ import { HashCache } from "../helpers/hash-cache.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
 import * as activity from "../tasks/activity.js";
+import { pick } from "./langs.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -309,17 +310,20 @@ export function createCatalog({ root, db }) {
   };
 }
 
-const SOURCE_LABEL = { ko: "출처", en: "Source" };
+export const SOURCE_LABEL = Object.freeze({
+  en: "Source", ko: "출처", ja: "出典", zh: "来源", "zh-Hant": "來源",
+  es: "Fuente", fr: "Source", de: "Quelle", it: "Fonte", pt: "Fonte", ru: "Источник", nl: "Bron",
+});
 
 /**
  * A save as one language sees it: Korean name and description for "ko" when
  * the save has them, the default (English) text otherwise, with the source
- * credited on the description's last line. Pure.
+ * credited on the description's last line in the reader's language. Pure.
  */
 export function localize(save, lang) {
   const { ko, ...rest } = save;
   const own = lang === "ko" ? ko ?? {} : {};
-  const label = SOURCE_LABEL[lang === "ko" ? "ko" : "en"];
+  const label = pick(SOURCE_LABEL, lang);
   const credit = save.source ? `${label}: ${[save.source.name, save.source.url].filter(Boolean).join(" ")}` : null;
   const text = own.description ?? save.description;
   return {

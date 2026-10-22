@@ -23,7 +23,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import * as env from "../helpers/envs.js";
-import { requestLang } from "../meta/langs.js";
+import { requestLang, tableLang } from "../meta/langs.js";
 import { BRAND_LOGO, BRAND_MOTION_CSS } from "../views/brand-motion.js";
 
 export const RESTART_HEADER = "X-CookingFoil-Restarting";
@@ -34,6 +34,13 @@ export const MESSAGE = Object.freeze({
   ja: "サーバーを再起動しています。まもなく続きから受信します。",
   zh: "服务器正在重新启动，稍后会接着下载。",
   "zh-Hant": "伺服器正在重新啟動，稍後會接著下載。",
+  es: "El servidor se está reiniciando. Las descargas continuarán en un momento.",
+  fr: "Le serveur redémarre. Les téléchargements reprendront dans un instant.",
+  de: "Der Server wird neu gestartet. Downloads werden gleich fortgesetzt.",
+  it: "Il server si sta riavviando. I download riprenderanno tra poco.",
+  pt: "O servidor está reiniciando. Os downloads continuarão em instantes.",
+  ru: "Сервер перезапускается. Загрузки скоро продолжатся.",
+  nl: "De server wordt opnieuw opgestart. Downloads gaan zo verder.",
 });
 
 // A response this large, or any Range request, counts as a download in the status.
@@ -74,17 +81,24 @@ function exempt(raw) {
 }
 
 // What a browser is told, in its own language: it waits on this page, which reloads itself.
-const PAGE_TEXT = Object.freeze({
+export const PAGE_TEXT = Object.freeze({
   ko: ["서버를 다시 시작하고 있습니다", "잠시 뒤 이 페이지를 다시 엽니다."],
   en: ["The server is restarting", "This page reloads in a moment."],
   ja: ["サーバーを再起動しています", "まもなくこのページを再読み込みします。"],
   zh: ["服务器正在重新启动", "稍后会自动重新加载此页面。"],
   "zh-Hant": ["伺服器正在重新啟動", "稍後會自動重新載入此頁面。"],
+  es: ["El servidor se está reiniciando", "Esta página se volverá a cargar en un momento."],
+  fr: ["Le serveur redémarre", "Cette page se rechargera dans un instant."],
+  de: ["Der Server wird neu gestartet", "Diese Seite wird gleich neu geladen."],
+  it: ["Il server si sta riavviando", "Questa pagina si ricaricherà tra poco."],
+  pt: ["O servidor está reiniciando", "Esta página será recarregada em instantes."],
+  ru: ["Сервер перезапускается", "Страница скоро обновится."],
+  nl: ["De server wordt opnieuw opgestart", "Deze pagina wordt zo opnieuw geladen."],
 });
 
 // Self-contained: while the server drains, its stylesheets and fonts are refused too.
 const page = (seconds, lang) => {
-  const shown = PAGE_TEXT[lang] ? lang : "en";
+  const shown = tableLang(PAGE_TEXT, lang);
   const [title, body] = PAGE_TEXT[shown];
   return `<!doctype html><html lang="${shown}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
 <title>CookingFoil</title><style>

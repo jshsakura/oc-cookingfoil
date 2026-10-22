@@ -10,6 +10,8 @@
  * Hangul is ko, kana is ja, Han alone is zh, anything else en.
  */
 
+import { parseLang } from "./langs.js";
+
 const HANGUL_RE = /[ᄀ-ᇿ㄰-㆏가-힯]/;
 const KANA_RE = /[぀-ヿㇰ-ㇿｦ-ﾟ]/;
 const HAN_RE = /[㐀-䶿一-鿿]/;
@@ -24,7 +26,8 @@ export function scriptLang(name) {
 }
 
 const rankIn = (priority) => {
-  const order = priority.map((l) => String(l).split("-")[0].toLowerCase());
+  // "en-US" ranks as en, "zh-TW" and "zh-Hant" as zh-Hant: the keys titledb's names use.
+  const order = priority.map((l) => parseLang(l) ?? String(l).split("-")[0].toLowerCase());
   return (lang) => {
     const i = order.indexOf(lang);
     return i === -1 ? Infinity : i;

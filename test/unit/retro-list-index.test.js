@@ -36,3 +36,14 @@ test("the cache rebuilds after its window or a new source, and remembers a bound
   assert.equal(cache.hashesOf("en", e1.snap.version), null, "the oldest is forgotten past the history");
   assert.equal(cache.hashesOf("ko", e2.snap.version), null, "per language");
 });
+
+test("each language, traditional Chinese included, keeps its own snapshot and version", () => {
+  const cache = createIndexCache((src, lang) => [{ id: "a", name: src.names[lang] ?? src.names.en }]);
+  const src = { names: { en: "Name", zh: "名称", "zh-Hant": "名稱", de: "Name" } };
+  const v = Object.fromEntries(["en", "zh", "zh-Hant", "de"].map((l) => [l, cache.get(src, l, 0).snap.version]));
+  assert.notEqual(v.zh, v["zh-Hant"], "simplified and traditional never share a version, so never an ETag");
+  assert.notEqual(v.zh, v.en);
+  assert.equal(v.de, v.en, "the same body is the same version");
+  assert.ok(cache.hashesOf("zh-Hant", v["zh-Hant"]));
+  assert.equal(cache.hashesOf("zh", v["zh-Hant"]), null);
+});

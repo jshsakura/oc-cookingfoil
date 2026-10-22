@@ -406,3 +406,29 @@ test("load: a region outside the shop's languages names Europe-only games but ne
   // German is a client language now: it adds its own localized name without replacing the merged one.
   assert.deepEqual(store.namesOf("0100BBBB00000000"), { de: "Nur in Europa" });
 });
+
+test("load: every client language keeps its own name, text and art; Hong Kong is traditional, China simplified", async () => {
+  await resetDir();
+  const id = "0100CCCC00000000";
+  const files = {
+    "KR.ko": "한국어", "US.en": "English", "JP.ja": "日本語", "HK.zh": "繁體", "CN.zh": "简体",
+    "DE.de": "Deutsch", "FR.fr": "Français", "ES.es": "Español", "IT.it": "Italiano", "RU.ru": "Русский", "BR.pt": "Português", "NL.nl": "Nederlands",
+  };
+  for (const [region, name] of Object.entries(files)) {
+    // Most European files repeat the English text and art; they still count as that language's.
+    const same = region === "NL.nl";
+    await writeRegion(`${region}.json`, { 1: { id, name: same ? "English" : name, description: same ? "English text" : `${name} text`, iconUrl: `https://img.example/${same ? "US.en" : region}.jpg` } });
+  }
+  await store.load();
+  const names = store.namesOf(id);
+  assert.deepEqual(Object.keys(names).sort(), ["de", "en", "es", "fr", "it", "ja", "ko", "nl", "pt", "ru", "zh", "zh-Hant"]);
+  assert.equal(names["zh-Hant"], "繁體");
+  assert.equal(names.zh, "简体");
+  assert.equal(names.pt, "Português", "Brazil's Portuguese is pt");
+  assert.equal(names.nl, "English", "a name equal to English's is kept");
+  assert.equal(store.descriptionsOf(id).nl, "English text");
+  assert.equal(store.descriptionsOf(id).ru, "Русский text");
+  assert.equal(store.iconsOf(id).nl, "https://img.example/US.en.jpg");
+  assert.equal(store.iconsOf(id)["zh-Hant"], "https://img.example/HK.zh.jpg");
+  assert.equal(store.bannersOf(id), null);
+});

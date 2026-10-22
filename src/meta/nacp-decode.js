@@ -34,7 +34,7 @@ export const NACP_LANG_SLOTS = {
   "pt": 10, "pt-BR": 15,
   "ru": 11,
   "ko": 12,
-  "zh-TW": 13, "zh-CN": 14, "zh": 14,
+  "zh-TW": 13, "zh-Hant": 13, "zh-CN": 14, "zh": 14,
 };
 
 // Reverse map: slot index → preferred icon filename suffix used by the eShop
