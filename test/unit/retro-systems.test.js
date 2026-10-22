@@ -188,6 +188,23 @@ test("the system's own folder wins over a look-alike, which is then reported unr
   }
 });
 
+test("an empty own folder gives way to a look-alike holding games; an empty look-alike does not", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
+  try {
+    fs.mkdirSync(path.join(root, "roms", "snes"), { recursive: true });
+    put(root, "roms/snes/.DS_Store");
+    put(root, "roms/SNES/a.sfc");
+    fs.mkdirSync(path.join(root, "roms", "gba"));
+    fs.mkdirSync(path.join(root, "roms", "Nintendo - Game Boy Advance"));
+    const s = loadSystems(root);
+    assert.equal(s.snes.folder, "SNES", "a folder with only dot files counts as empty");
+    assert.equal(s.gba.folder, "gba", "both empty: the own folder stays");
+    assert.deepEqual(unreadFolders(root, s), ["Nintendo - Game Boy Advance"], "the empty snes is not reported unread");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a folder named in systems.json is taken as written, never swapped for a look-alike", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
   try {

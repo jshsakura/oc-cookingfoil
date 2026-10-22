@@ -283,10 +283,20 @@ export function systemOfExtension(ext, systems) {
   return hits.length === 1 ? hits[0][0] : null;
 }
 
-/** Folders under roms/ that no system reads, by name. */
+/** Whether roms/<folder> holds anything but dot files. */
+function hasEntries(retroDir, folder) {
+  try {
+    return fs.readdirSync(path.join(retroDir, "roms", folder)).some((n) => !n.startsWith("."));
+  } catch {
+    return false;
+  }
+}
+
+/** Folders under roms/ that no system reads, by name. A built-in system's own folder left empty for a look-alike is not one. */
 export function unreadFolders(retroDir, systems) {
   const read = new Set(Object.values(systems).map((s) => s.folder));
-  return romFolders(retroDir).filter((f) => !read.has(f));
+  const own = new Set(Object.values(DEFAULT_SYSTEMS).map((s) => s.folder));
+  return romFolders(retroDir).filter((f) => !read.has(f) && !(own.has(f) && !hasEntries(retroDir, f)));
 }
 
 /** A folder name an operator gave, or null when it isn't one plain name. Pure. */
@@ -323,18 +333,27 @@ export function loadSystems(retroDir) {
       libretro: text(raw.libretro, base.libretro),
     };
   }
-  return withFoundFolders(out, romFolders(retroDir), new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder))));
+  const named = new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder)));
+  return withFoundFolders(out, romFolders(retroDir), named, (f) => hasEntries(retroDir, f));
 }
 
-/** Each built-in system whose folder is missing takes the first look-alike folder no other system reads. Pure. */
-function withFoundFolders(systems, folders, named) {
+/**
+ * Each built-in system whose folder is missing takes the first look-alike folder no other system reads.
+ * So does one whose folder is empty (`filled` says it holds nothing but dot files) while a look-alike holds
+ * something: the server makes the empty folders (scaffold.js) before people copy in a collection named the
+ * way other front ends name it. When both hold files the system's own folder wins, as it always has, so a
+ * server whose own folder has games reads the same folder as before. Game ids hang on the system id and the
+ * path inside the folder, not the folder's name, so they stay what that folder alone would give.
+ */
+function withFoundFolders(systems, folders, named, filled) {
   const taken = new Set(Object.values(systems).map((s) => s.folder).filter((f) => folders.includes(f)));
   const out = { ...systems };
   for (const [id, s] of Object.entries(systems)) {
-    if (named.has(id) || !DEFAULT_SYSTEMS[id] || folders.includes(s.folder)) continue;
+    if (named.has(id) || !DEFAULT_SYSTEMS[id]) continue;
+    const own = folders.includes(s.folder);
     const keys = new Set(folderKeys(id, DEFAULT_SYSTEMS[id]));
-    const found = folders.find((f) => !taken.has(f) && keys.has(keyOf(f)));
-    if (!found) continue;
+    const found = folders.find((f) => f !== s.folder && !taken.has(f) && keys.has(keyOf(f)) && (!own || filled(f)));
+    if (!found || (own && filled(s.folder))) continue;
     taken.add(found);
     out[id] = { ...s, folder: found };
   }

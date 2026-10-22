@@ -226,7 +226,7 @@ function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);}
 function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
   const folders=d.folders||[],g=d.guide||{};
   $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
-  const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
+  const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):d.skipped==='no-retro'?topText('sc.noRetro'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
   const pills=el('div',null,'ra-scaffold-list');
   pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
   const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));

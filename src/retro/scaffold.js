@@ -7,12 +7,21 @@
  * run when the official Switch bundle the pack lock pins has its core, or the
  * operator put that core in the pack's cores/ folder. A system whose games sit
  * in a folder named the way other front ends name it (SNES, psx, genesis) is
- * read from there (systems.js), so it gets no second folder: an empty one of
- * its own would take the reading away from the full one.
+ * read from there (systems.js), so it gets no second folder. When that folder
+ * is copied in after the server made the system's own, the empty one gives way
+ * to it (systems.js withFoundFolders) and stays as it is.
+ *
+ * The retro folder itself is never made here. A run with no retro folder does
+ * nothing: on a server reading a network share, a missing folder is usually a
+ * share that is not mounted yet, and folders made then would land on the local
+ * disk under the mount point. Only storage-layout.js ensureLayout, at start,
+ * makes the role folders.
  *
  * Nothing is renamed, moved or deleted, and nothing is written inside a folder
  * that is already there, except the guide. Folders come back after a delete at
  * the next scan; the admin turns the whole thing off with retroScaffold.
+ * A folder that cannot be made fails the same way at every scan, so
+ * freshProblems() hands each one to the log once per process.
  *
  * The guide (README.md) describes the layout for people and for AI tools that
  * read a folder's README first; it is plain Markdown in English. It goes in the
@@ -130,7 +139,7 @@ export function guideText({ systems, runnable, layout, retroDir, guideDir, biosD
     "- It makes missing folders: the folders above, a ROM folder for each system listed, and the BIOS folder.",
     "- It never renames, moves or deletes files or folders to do so.",
     "- Other changes happen only on request: files left in the drop box are sorted into the folders above, and the admin page renames or deletes what an admin picks. NSZ conversion, when an admin turns it on, replaces .nsp files with .nsz.",
-    "- The admin page's server settings turn the folder making off (retroScaffold).",
+    "- A deleted folder comes back at the next scan. To stop that, turn off the folder making (retroScaffold) in the admin page's server settings.",
     "",
   ].join("\n");
 }
@@ -179,10 +188,21 @@ export function fallbackGuide({ systems, layout, retroDir }) {
   return stamp(guideText({ systems, runnable: runnableIds(systems), layout, retroDir, guideDir, biosDir: path.join(retroDir, "retroarch", "system") }));
 }
 
-/** Makes `abs` when it is missing: `abs` when made, null when already there; throws when a file is in its place. */
-async function make(abs) {
+/**
+ * Makes `abs`, a folder inside `retroDir`, and the missing folders between: `abs` when made, null when
+ * already there; throws when a file is in its place. One level at a time and never `retroDir` itself, so
+ * a retro folder that goes away mid-run (a share unmounted) fails with ENOENT instead of coming back empty.
+ */
+async function make(retroDir, abs) {
   if (await isDir(abs)) return null;
-  await fsp.mkdir(abs, { recursive: true });
+  let at = retroDir;
+  for (const part of path.relative(retroDir, abs).split(path.sep)) {
+    at = path.join(at, part);
+    await fsp.mkdir(at).catch((err) => {
+      if (err.code !== "EEXIST") throw err;
+    });
+  }
+  if (!(await isDir(abs))) throw Object.assign(new Error("not a folder"), { code: "EEXIST" });
   return abs;
 }
 
@@ -221,12 +241,14 @@ export async function run({ retroDir, systems, layout, enabled = true }) {
   const rel = (abs) => path.relative(retroDir, abs).split(path.sep).join("/");
   const out = { at: Date.now(), enabled, skipped: null, made: [], failed: [], folders: [], guide: { path: path.join(guideDir, GUIDE_NAME), state: "off" }, text: stamp(body) };
   // An old data/retro still holding the games is named on the admin page while this one is empty; filling it would hide that.
-  const waiting = enabled && layout?.dirs?.data && oldRetroLeftBehind(layout.dirs.data, retroDir);
-  if (waiting) out.skipped = "old-retro";
-  if (enabled && !waiting) {
+  const missing = enabled && !(await isDir(retroDir));
+  const waiting = enabled && !missing && layout?.dirs?.data && oldRetroLeftBehind(layout.dirs.data, retroDir);
+  if (missing) out.skipped = "no-retro";
+  else if (waiting) out.skipped = "old-retro";
+  if (enabled && !missing && !waiting) {
     for (const abs of [...runnable.map((id) => path.join(retroDir, "roms", systems[id].folder)), biosDir]) {
       try {
-        if (await make(abs)) {
+        if (await make(retroDir, abs)) {
           out.made.push(rel(abs));
           madeSinceStart.add(abs);
         }
@@ -239,4 +261,19 @@ export async function run({ retroDir, systems, layout, enabled = true }) {
   out.folders = runnable.map((id) => ({ id, name: systems[id].names?.en ?? id, folder: systems[id].folder, made: madeSinceStart.has(path.join(retroDir, "roms", systems[id].folder)) }));
   last = out;
   return out;
+}
+
+const reported = new Set();
+
+/**
+ * The folders a run could not make and the guide it could not write, as [{ path, error }], leaving out
+ * each path already handed out in this process: the log names a problem once, the admin page shows it
+ * every time (status()).
+ */
+export function freshProblems(retroDir, r) {
+  const all = r.failed.map((f) => ({ path: path.join(retroDir, f.folder), error: f.error }));
+  if (r.guide.state === "failed" || r.guide.state === "unreadable") all.push({ path: r.guide.path, error: r.guide.error });
+  const fresh = all.filter((p) => !reported.has(p.path));
+  for (const p of fresh) reported.add(p.path);
+  return fresh;
 }

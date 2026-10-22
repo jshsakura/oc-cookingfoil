@@ -77,6 +77,58 @@ test("an older pack folder gets its BIOS folder there, so the pack is not switch
   assert.ok(!fs.existsSync(path.join(layout.dirs.retro, "retroarch")));
 });
 
+test("an alias folder copied in after the scaffold is read, with the game ids it had before the scaffold", async () => {
+  const layout = storageLayout(tmp());
+  const retro = layout.dirs.retro;
+  const before = tmp();
+  for (const [folder, file] of [["SNES", "Chrono Trigger.sfc"], ["psx", "Xenogears.chd"], ["genesis", "Sonic.md"]]) {
+    fs.mkdirSync(path.join(before, "roms", folder), { recursive: true });
+    fs.writeFileSync(path.join(before, "roms", folder, file), "x");
+  }
+  const want = (await catalog.scanDir(before)).games.map((g) => g.id).sort();
+  await runOn(layout);
+  fs.cpSync(path.join(before, "roms"), path.join(retro, "roms"), { recursive: true });
+  const s = loadSystems(retro);
+  assert.equal(s.snes.folder, "SNES");
+  assert.equal(s.ps1.folder, "psx");
+  assert.equal(s.md.folder, "genesis");
+  assert.deepEqual(unreadFolders(retro, s), []);
+  assert.deepEqual((await catalog.scanDir(retro)).games.map((g) => g.id).sort(), want);
+  const again = await runOn(layout);
+  assert.deepEqual(again.made, [], "the alias is the system's folder now; the empty snes stays as it is");
+  assert.ok(isDir(path.join(retro, "roms", "snes")));
+});
+
+test("a missing retro folder is never made, by a run or by a catalog scan", async () => {
+  const base = tmp();
+  const layout = { storage: false, root: null, dirs: { data: path.join(base, "data"), retro: path.join(base, "nas", "retro") }, from: {} };
+  fs.mkdirSync(layout.dirs.data);
+  const r = await runOn(layout);
+  assert.equal(r.skipped, "no-retro");
+  assert.deepEqual(r.made, []);
+  assert.equal(fs.existsSync(path.join(base, "nas")), false);
+  catalog.beforeScan((dir, systems) => scaffold.run({ retroDir: dir, systems, layout, enabled: true }));
+  await catalog.rescan(layout.dirs.retro);
+  assert.equal(fs.existsSync(path.join(base, "nas")), false, "a sync with the mount gone writes nothing on the local disk");
+});
+
+test("a problem is handed out for logging once per path, however many runs see it", async () => {
+  const layout = storageLayout(tmp());
+  fs.mkdirSync(path.join(layout.dirs.retro, "roms"));
+  fs.writeFileSync(path.join(layout.dirs.retro, "roms", "gba"), "not a folder");
+  fs.symlinkSync(path.join(layout.root, "gone"), path.join(layout.dirs.retro, "roms", "snes"));
+  const first = scaffold.freshProblems(layout.dirs.retro, await runOn(layout));
+  assert.deepEqual(first.map((p) => path.basename(p.path)).sort(), ["gba", "snes"]);
+  assert.ok(first.every((p) => p.error));
+  assert.deepEqual(scaffold.freshProblems(layout.dirs.retro, await runOn(layout)), [], "the second run reports nothing new");
+  assert.equal((await runOn(layout)).failed.length, 2, "the admin page still sees both");
+});
+
+test("the guide says how to stop a deleted folder from coming back", async () => {
+  const r = await runOn(storageLayout(tmp()));
+  assert.match(r.text, /deleted folder comes back[^\n]*retroScaffold/);
+});
+
 test("a file where a folder would go is reported, not replaced", async () => {
   const layout = storageLayout(tmp());
   fs.mkdirSync(path.join(layout.dirs.retro, "roms"));
