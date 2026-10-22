@@ -16,8 +16,8 @@
 import debug from "../../debug.js";
 import * as envs from "../../helpers/envs.js";
 import * as storageGuide from "../../helpers/storage-guide.js";
+import { apiWord } from "./api-words.js";
 
-const FAILED = "처리하지 못했습니다. 서버 기록을 봅니다";
 const NO_SCAN = { enabled: null, skipped: null, folders: [], made: [], failed: [] };
 
 export function mountStorageGuideApi(router, requireSession, { layout = envs.layout, retroDir = envs.retroDir } = {}) {
@@ -30,7 +30,7 @@ export function mountStorageGuideApi(router, requireSession, { layout = envs.lay
       res.type("text/markdown; charset=utf-8").send(text);
     } catch (err) {
       debug.error("admin: storage guide: %s", err.message);
-      res.status(500).json({ error: FAILED });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   });
 
@@ -39,13 +39,13 @@ export function mountStorageGuideApi(router, requireSession, { layout = envs.lay
     res.set("Cache-Control", "no-store");
     try {
       const r = storageGuide.folder(req.query.path, { layout, retroDir });
-      if (r.error === "bad-path") return res.status(400).json({ error: "폴더 경로는 retro/roms/gba 처럼 저장 폴더 기준 상대 경로로 적습니다" });
-      if (r.error === "unknown") return res.status(404).json({ error: "안내가 있는 폴더가 아닙니다", known: r.known });
+      if (r.error === "bad-path") return res.status(400).json({ error: apiWord(req, "guide.badPath") });
+      if (r.error === "unknown") return res.status(404).json({ error: apiWord(req, "guide.unknown"), known: r.known });
       if (req.query.format === "md") return res.type("text/markdown; charset=utf-8").send(r.guide.text);
       res.json({ guide: r.guide });
     } catch (err) {
       debug.error("admin: folder guide: %s", err.message);
-      res.status(500).json({ error: FAILED });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   });
 }

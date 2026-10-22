@@ -60,7 +60,8 @@ function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show')
 const ERRORS={self:'지금 로그인한 계정은 정지, 강등, 삭제할 수 없습니다.','last-admin':'관리자 계정이 하나는 남아 있어야 합니다.'};
 const errText=(err)=>ERRORS[err.code]||err.message;
 async function api(url,opts={}){
-  const init={headers:{Accept:'application/json'},...opts};
+  // The admin API answers its errors in the page's language (routes/admin/api-words.js).
+  const init={headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},...opts};
   if(opts.body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(opts.body);}
   const r=await fetch(url,init);
   // Signed out (or the first account just switched sign-in on): reload, which leads

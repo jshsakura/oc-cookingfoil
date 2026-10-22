@@ -90,7 +90,6 @@
     "src/routes/admin/server-api.js": 3,
     "src/routes/admin/server-settings-api.js": 7,
     "src/routes/admin/server-settings-panel.js": 187,
-    "src/routes/admin/storage-guide-api.js": 1,
     "src/routes/admin/tokens-panel.js": 17,
     "src/routes/admin/transfers-panel.js": 49,
     "src/routes/admin/two-factor-api.js": 6,
