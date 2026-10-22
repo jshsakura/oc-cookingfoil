@@ -28,7 +28,8 @@ export const ACTIVITY_CSS = /* css */ `
 .act-btn:has(img.acct-avatar){padding:0;overflow:visible}
 .act-btn.busy{color:var(--accent);border-color:rgba(var(--accent-rgb),.55)}
 .act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:100px;border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
-.act-count{position:absolute;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+/* The badge sits above the busy ring, a later box that would otherwise paint over the number. */
+.act-count{position:absolute;z-index:1;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .act-count[hidden]{display:none}
 .act-pop{max-height:min(45dvh,420px);overflow:auto;padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--line)}
 .act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:13px}
@@ -206,9 +207,22 @@ const activityMenu={apply:actApply,setLive(on){actSetLive(on);if(on){clearInterv
   try{const r=await fetch('/admin/api/activity/access',{headers:{Accept:'application/json'}});actCanCancel=r.ok&&Boolean((await r.json()).canCancel);actRender();}catch{}
 }};
 // A signed-in Google account wears its Gravatar on the account button; with none, the icon stays.
-function acctAvatar(url){if(!url)return;const b=document.getElementById('acct-btn');const svg=b?.querySelector('svg');if(!svg)return;
+// The last picture is remembered in this browser and put on at once, so a reload doesn't show the
+// plain icon first and swap it a moment later; the account's answer then confirms or clears it.
+const ACCT_AVATAR_KEY='cf.acct-avatar';
+let acctIcon=null;
+function acctPut(url){const b=document.getElementById('acct-btn');if(!b)return;
+  acctIcon??=b.querySelector('svg');const cur=b.querySelector('img.acct-avatar');
+  if(!url){if(cur&&acctIcon)cur.replaceWith(acctIcon);return;}
+  if(cur){if(cur.getAttribute('src')!==url)cur.src=url;return;}
+  if(!acctIcon)return;
   const img=new Image();img.className='acct-avatar';img.alt='';img.referrerPolicy='no-referrer';img.decoding='async';
-  img.onload=()=>{if(svg.isConnected)svg.replaceWith(img);};img.src=url;}
+  img.onerror=()=>{if(img.isConnected&&acctIcon)img.replaceWith(acctIcon);};
+  img.src=url;acctIcon.replaceWith(img);}
+function acctAvatar(url){
+  try{if(url)localStorage.setItem(ACCT_AVATAR_KEY,url);else localStorage.removeItem(ACCT_AVATAR_KEY);}catch{}
+  acctPut(url||null);}
+try{acctPut(localStorage.getItem(ACCT_AVATAR_KEY));}catch{}
 actRender();actSetLive(false);
 ${web ? "actFallback();" : "actConnect();"}
 `;

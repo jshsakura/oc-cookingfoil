@@ -35,6 +35,12 @@ test('everyone can see activity in the web account menu, with no stop control fo
     return [d.top + d.height / 2, t.top + t.height / 2];
   });
   expect(Math.abs(dot - digit)).toBeLessThanOrEqual(1);
+  // The number stays on top: the busy ring is never painted over it.
+  const onTop = await count.evaluate(el => {
+    const r = el.getBoundingClientRect();
+    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el && getComputedStyle(el).zIndex === '1';
+  });
+  expect(onTop).toBe(true);
   // The stats panel lists the running task for this ordinary account, with no stop control.
   const board = page.locator('#act-board');
   await expect(board).toBeVisible();
