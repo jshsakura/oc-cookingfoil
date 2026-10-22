@@ -6,7 +6,7 @@
 export const ORGANIZE_HTML = `  <div class="hd"><h2 class="first">임시 폴더</h2><div class="actions"><button type="button" class="primary" id="lo-sweep">지금 정리</button></div></div>
   <p class="muted"><b>incoming</b> 폴더(<code id="lo-path"></code>)에 파일을 넣으면 서버가 알아서 정리합니다. 복사가 끝나고 1분 동안 바뀌지 않은 파일부터 옮기고, 이미 있던 파일은 덮어쓰지 않습니다.</p>
   <ul class="muted lo-rules">
-    <li><b>스위치 게임</b>은 파일 안의 정보로 게임과 버전을 알아내 이름에 [타이틀 ID][v버전] 을 붙이고, 게임마다 폴더 하나에 본편, update, DLC 로 나눠 넣습니다. 그 게임의 폴더가 이미 있으면 그 폴더를 씁니다.</li>
+    <li><b>스위치 게임</b>은 파일 안의 정보로 게임과 버전을 알아내 파일 이름을 '게임 이름 [타이틀 ID][v버전]' 으로 바꾸고, 게임마다 폴더 하나에 본편, update, DLC 로 나눠 넣습니다. 이름은 관리자가 정한 이름, titledb, 파일 안의 정보, 원래 파일 이름 순으로 고릅니다. 그 게임의 폴더가 이미 있으면 그 폴더를 씁니다.</li>
     <li><b>레트로 롬</b>은 기종 이름 폴더에 넣습니다(incoming/snes/게임.zip 처럼). 그 폴더 이름이 기종이 되고, 기종 폴더 밖에 넣은 롬이나 그 기종에서 쓰지 않는 확장자는 옮기지 않고 경고와 함께 남깁니다. .cue 와 .m3u 는 가리키는 파일과 함께 폴더째 갑니다.</li>
     <li><b>홈브류 .nro</b> 하나짜리는 홈브류 폴더로 보냅니다. 폴더째 쓰는 홈브류와 패치, 세이브는 업로드 탭에서 올립니다.</li>
   </ul>

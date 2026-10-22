@@ -8,9 +8,11 @@
  *
  * The folder a game already has in the games folder is the one it keeps,
  * whatever its name: folder names are the operator's. A game that has none
- * gets one named after it (titledb's Korean or English name, else the file
- * name). The file itself goes in with [TITLEID][vN] added to its name, which
- * is what the shop reads. Files already in the games folder are never moved.
+ * gets one named after it. Each file goes in as `<name> [TITLEID][vN].ext`
+ * (organize-naming.js): the admin's name, titledb's, the NACP's, then the
+ * file's own name without its tags. An update's NACP carries its game's name,
+ * so it can name a game titledb does not know; a DLC has none and waits for
+ * its game. Files already in the games folder are never moved or renamed.
  *
  * What a file is comes from its cnmt when the keys can read it (NSP/NSZ), else
  * from the id in its name, else from its ticket's name (NSP/NSZ without keys).
@@ -26,13 +28,14 @@ import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
+import { cleanName, firstName, freeFileName, nameFromFile } from "./organize-naming.js";
+import { dlcDisplayName } from "./dlc-name.js";
 import { incomingInGames } from "../helpers/envs.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
 export const SETTLE_MS = 60_000;
 export const SWEEP_MS = 60_000;
-const FOLDER_MAX = 100;
 const LIST_MAX = 500;
 const RECENT_MAX = 100;
 
@@ -61,26 +64,7 @@ export const isIncoming = (rel, inGames = incomingInGames) => {
 };
 
 /** A folder name made from a title, or null. Pure. */
-export function folderNameOf(title) {
-  const name = String(title ?? "")
-    .normalize("NFC")
-    .replace(/\s*:\s*/g, " - ")
-    .replace(/[\\/*?"<>|\x00-\x1f\x7f]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/^[\s.]+|[\s.]+$/g, "")
-    .slice(0, FOLDER_MAX)
-    .trim();
-  return name || null;
-}
-
-/** The file name with [TITLEID] and [vN] in it, adding what is missing. Pure. */
-export function taggedName(fileName, { titleId, version }) {
-  const ext = path.extname(fileName);
-  let stem = fileName.slice(0, fileName.length - ext.length);
-  if (!/\[[0-9A-Fa-f]{16}\]/.test(stem)) stem = `${stem.trimEnd()} [${titleId}]`;
-  if (!/\[v\d+\]/i.test(stem)) stem = stem.replace(/\[[0-9A-Fa-f]{16}\]/, (m) => `${m}[v${version}]`);
-  return stem + ext;
-}
+export const folderNameOf = cleanName;
 
 const key = (id) => `${id.titleId}@${id.version}`;
 const topOf = (rel) => (rel.includes("/") ? rel.split("/")[0] : null);
@@ -107,29 +91,33 @@ export function indexLibrary(romsRels) {
   return { have, familyFolders, subNames, rels, topFolders };
 }
 
-function destOf(lib, folder, kind, fileName) {
-  if (kind === "base") return `${folder}/${fileName}`;
-  const sub = lib.subNames.get(`${folder}/${SUB[kind]}`.toLowerCase()) ?? SUB[kind];
-  return `${folder}/${sub}/${fileName}`;
+function dirOf(lib, folder, kind) {
+  if (kind === "base") return folder;
+  return `${folder}/${lib.subNames.get(`${folder}/${SUB[kind]}`.toLowerCase()) ?? SUB[kind]}`;
 }
 
 /**
- * The plan. `incoming` is [{ rel, mtimeMs, id, source }], `rel` relative to the
- * drop box, `id` from the cnmt ("cnmt"), the name ("name") or the ticket
- * ("ticket"), or null; `romsRels` is every file in the games folder;
- * `nameOf(baseTitleId)` is the game's title or null. Pure.
+ * The plan. `incoming` is [{ rel, mtimeMs, id, source, nacpName? }], `rel`
+ * relative to the drop box, `id` from the cnmt ("cnmt"), the name ("name") or
+ * the ticket ("ticket"), or null, `nacpName` the name the file's NACP gives
+ * (its game's, for a base game or an update); `romsRels` is every file in the
+ * games folder; `adminName(titleId)` and `titledbName(titleId)` are a title's
+ * name from the admin and from titledb, or null. Pure.
  */
-export function planOrganize({ incoming = [], romsRels = [], nameOf = () => null, now = Date.now(), settleMs = SETTLE_MS }) {
+export function planOrganize({ incoming = [], romsRels = [], adminName = () => null, titledbName = () => null, now = Date.now(), settleMs = SETTLE_MS }) {
   const lib = indexLibrary(romsRels);
   const moves = [];
   const held = [];
   const taken = new Set(lib.rels);
   const hold = (rel, reason, id = null) => held.push({ rel, reason, titleId: id?.titleId ?? null, kind: id?.kind ?? null });
 
-  // Base files go first, so a new game's folder is named from its base file when the title is unknown.
-  const order = { base: 0 };
-  const sorted = [...incoming].sort((a, b) => (order[a.id?.kind] ?? 1) - (order[b.id?.kind] ?? 1) || a.rel.localeCompare(b.rel));
+  // Base files, then updates, go first: a new game's folder is named from them when titledb does not know the game.
+  const order = { base: 0, update: 1 };
+  const sorted = [...incoming].sort((a, b) => (order[a.id?.kind] ?? 2) - (order[b.id?.kind] ?? 2) || a.rel.localeCompare(b.rel));
   const batchFolders = new Map(); // base id → the new folder made for it in this batch
+  const batchNames = new Map(); // base id → the game's name a file of this batch gave
+  const titleOf = (tid) => firstName([adminName(tid), titledbName(tid)]);
+  const isTaken = (rel) => taken.has(rel.toLowerCase());
   const usedFolders = new Set(lib.topFolders);
   // A new game's folder is never one another game already has; the title id tells two same-named games apart.
   const newFolder = (title, baseId) => {
@@ -158,11 +146,16 @@ export function planOrganize({ incoming = [], romsRels = [], nameOf = () => null
     if (family && family.size > 1) { hold(f.rel, REASONS.splitBase, id); continue; }
     const known = family?.size === 1 ? [...family][0] : null;
     const fileName = path.posix.basename(f.rel);
-    const title = nameOf(base) ?? (id.kind === "base" ? parseFromFilename(fileName).name : null);
-    const folder = known ?? batchFolders.get(base) ?? newFolder(title, base);
+    const own = nameFromFile(fileName);
+    const gameName = titleOf(base) ?? (id.kind === "dlc" ? null : cleanName(f.nacpName)) ?? batchNames.get(base) ?? (id.kind === "base" ? own : null);
+    const folder = known ?? batchFolders.get(base) ?? newFolder(gameName, base);
     if (!folder) { hold(f.rel, REASONS.noFolder, id); continue; }
-    const to = destOf(lib, folder, id.kind, taggedName(fileName, full));
-    if (taken.has(to.toLowerCase())) { hold(f.rel, REASONS.taken, id); continue; }
+    if (gameName && !batchNames.has(base)) batchNames.set(base, gameName);
+    const name = id.kind === "dlc"
+      ? firstName([titleOf(id.titleId), own, dlcDisplayName({ baseName: gameName ?? folder, titleId: id.titleId })])
+      : firstName([gameName, own, folder]);
+    const to = name && freeFileName(dirOf(lib, folder, id.kind), name, full, path.extname(fileName), isTaken);
+    if (!to) { hold(f.rel, REASONS.taken, id); continue; }
     taken.add(to.toLowerCase());
     moves.push({ from: f.rel, to, titleId: id.titleId, version, kind: id.kind, folderIsNew: !known });
     if (!known && !batchFolders.has(base)) {
@@ -262,16 +255,22 @@ export async function moveAcross(from, to) {
  *   romsDir            the games folder
  *   romsRels()         every file the library lists (relative paths)
  *   identify(file), forget(abs)   file-identity.js (the shared one by default)
- *   nameOf(baseId)     the game's title, or null
+ *   adminName(titleId), titledbName(titleId)   a title's name from the admin and from titledb, or null
+ *   readNacpName(file, id)   the game's name from a base game's or an update's NACP, or null;
+ *                      asked only when the admin and titledb have none, once while the file holds still
  *   retroDir, homebrewDir, systems()   where the other files go, and loadSystems()
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
+ *   journal({ action, from, to })   notes each move (absolute paths) in the operations journal, so it can be undone
  */
 export function createOrganizer(deps) {
   const dir = deps.incomingDir;
   const identify = deps.identify ?? sharedIdentify;
   const forget = deps.forget ?? sharedForget;
+  const adminName = deps.adminName ?? (() => null);
+  const titledbName = deps.titledbName ?? (() => null);
+  const nacpNames = new Map(); // abs → { size, mtimeMs, name }
   let state = { held: [], recent: [], sweptAt: null, error: null, waiting: 0 };
   let running = null;
   let timer = null;
@@ -286,6 +285,17 @@ export function createOrganizer(deps) {
       refs.set(f.rel, names.map((n) => path.posix.normalize(at === "." ? n.replace(/\\/g, "/") : `${at}/${n.replace(/\\/g, "/")}`)));
     }
     return refs;
+  }
+
+  /** The NACP's name for a settled base game or update whose game the admin and titledb cannot name. */
+  async function nacpNameOf(f, id) {
+    if (!deps.readNacpName || !id || (id.kind !== "base" && id.kind !== "update")) return null;
+    if (firstName([adminName(id.baseTitleId), titledbName(id.baseTitleId)])) return null;
+    const hit = nacpNames.get(f.abs);
+    if (hit && hit.size === f.size && hit.mtimeMs === f.mtimeMs) return hit.name;
+    const name = await deps.readNacpName(f, id).catch(() => null);
+    nacpNames.set(f.abs, { size: f.size, mtimeMs: f.mtimeMs, name });
+    return name;
   }
 
   async function sweepOnce() {
@@ -307,9 +317,12 @@ export function createOrganizer(deps) {
         continue;
       }
       const read = settled ? await identify(f) : { id: identityFromName(f.rel), source: "name" };
-      items.push({ rel: f.rel, mtimeMs: f.mtimeMs, id: read.id, source: read.source });
+      const nacpName = settled ? await nacpNameOf(f, read.id) : null;
+      items.push({ rel: f.rel, mtimeMs: f.mtimeMs, id: read.id, source: read.source, nacpName });
     }
-    const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), nameOf: deps.nameOf, now });
+    const present = new Set(files.map((f) => f.abs));
+    for (const abs of nacpNames.keys()) if (!present.has(abs)) nacpNames.delete(abs);
+    const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), adminName, titledbName, now });
     const extras = planExtras({ items: others, refs: await listRefs(others), systems: deps.systems() });
     const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
     const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
@@ -323,6 +336,7 @@ export function createOrganizer(deps) {
         await fsp.mkdir(path.dirname(to), { recursive: true });
         if (await moveAcross(from, to)) {
           movedIn[m.root]++;
+          await deps.journal?.({ action: "organize", from, to });
           forget(from);
           await dropEmptyDirs(dir, m.from);
           state.recent = [{ ...m, at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
