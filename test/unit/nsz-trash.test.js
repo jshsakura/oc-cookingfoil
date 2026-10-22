@@ -5,9 +5,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// After a conversion the original goes to the games folder's trash, never
-// straight to deletion, and the free space floor pauses the queue instead of
-// deleting anything to make room.
+// After a conversion whose output verified, the original is deleted; with a
+// keep time it waits in the keep folder and then goes to the trash. The free
+// space floor pauses the queue instead of deleting anything to make room.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-nsz-trash-"));
 process.env.COOK_DATA_DIR = path.join(root, "data");
 const STUB = path.join(root, "nsz-stub.mjs");
@@ -18,7 +18,11 @@ const args = process.argv.slice(2);
 const out = args[args.indexOf("-o") + 1];
 const src = args[args.length - 1];
 const size = fs.statSync(src).size;
-fs.writeFileSync(path.join(out, path.basename(src).replace(/\\.nsp$/i, ".nsz")), Buffer.alloc(Math.floor(size / 2)));
+const base = path.basename(src);
+// BADEXIT: verify fails and nsz says so. BADQUIET: nsz exits 0 but its output reports a mismatch. EMPTY: a 0 byte output.
+if (base.startsWith("BADEXIT")) { console.error("VerificationException: hash mismatch"); process.exit(1); }
+fs.writeFileSync(path.join(out, base.replace(/\\.nsp$/i, ".nsz")), Buffer.alloc(base.startsWith("EMPTY") ? 0 : Math.floor(size / 2)));
+if (base.startsWith("BADQUIET")) console.log("Verification failed: hash mismatch");
 `, { mode: 0o755 });
 process.env.COOK_NSZ_BIN = STUB;
 
@@ -63,15 +67,61 @@ async function run(q) {
   await q.idle();
 }
 
-test("a converted original goes to the trash, recorded as the queue's doing, and comes back whole", async () => {
+test("a verified conversion deletes the original: nothing left on disk, nothing in the trash, and the log says so", async () => {
   put("Dir/A.nsp", 2 * MIB, 9);
-  await run(make());
+  const changes = [];
+  const q = make({ onSwapped: (c) => changes.push(...c) });
+  await run(q);
   assert.ok(!exists("Dir/A.nsp") && exists("Dir/A.nsz"));
-  const [entry] = await trash.listRoot(gamesRoot());
-  assert.deepEqual([entry.kind, entry.action, entry.by, entry.size], ["nsz-original", "nsz-converted", { type: "job", name: "nsz" }, 2 * MIB]);
-  assert.deepEqual(entry.items.map((i) => i.rel), ["Dir/A.nsp"]);
-  await trash.restoreEntry(gamesRoot(), entry.home, entry.entry);
-  assert.deepEqual(fs.readFileSync(path.join(games, "Dir/A.nsp")), Buffer.alloc(2 * MIB, 9));
+  assert.deepEqual(await trash.listRoot(gamesRoot()), [], "the trash is not used");
+  assert.ok(!exists(KEEP_DIR_NAME) || fs.readdirSync(path.join(games, KEEP_DIR_NAME)).length === 0, "nothing kept");
+  assert.deepEqual(changes, [{ rel: "Dir/A.nsp", op: "remove" }, { rel: "Dir/A.nsz", op: "upsert" }], "the library hears of the removal");
+  const events = q.logPage().items.map((e) => [e.event, e.rel, e.sizeBefore, e.reason ?? null]);
+  assert.deepEqual(events, [["original-deleted", "Dir/A.nsp", 2 * MIB, "converted"], ["converted", "Dir/A.nsp", 2 * MIB, null]]);
+});
+
+for (const [name, why] of [["BADEXIT.nsp", "nsz fails the verify"], ["BADQUIET.nsp", "nsz exits 0 but reports a mismatch"], ["EMPTY.nsp", "the output is 0 bytes"]]) {
+  test(`the original stays untouched when ${why}`, async () => {
+    put(name, 2 * MIB, 5);
+    const q = make();
+    await run(q);
+    assert.deepEqual(fs.readFileSync(path.join(games, name)), Buffer.alloc(2 * MIB, 5), "the original is where it was, whole");
+    assert.ok(!exists(name.replace(/\.nsp$/, ".nsz")), "no output next to it");
+    assert.deepEqual(await trash.listRoot(gamesRoot()), []);
+    assert.equal(q.view().items.find((i) => i.rel === name).state, "failed");
+  });
+}
+
+test("a failed rename of the output leaves the original in place", async () => {
+  put("R.nsp", 2 * MIB, 4);
+  const q = make();
+  await q.init();
+  await q.scan();
+  const realRename = fs.promises.rename;
+  // The swap into place fails: fs/promises is the same object the queue calls.
+  fs.promises.rename = async (from, to) => {
+    if (String(to).endsWith("R.nsz")) throw new Error("EXDEV: rename failed");
+    return realRename(from, to);
+  };
+  try {
+    q.start();
+    await q.pump();
+    await q.idle();
+  } finally {
+    fs.promises.rename = realRename;
+  }
+  assert.deepEqual(fs.readFileSync(path.join(games, "R.nsp")), Buffer.alloc(2 * MIB, 4));
+  assert.ok(!exists("R.nsz"));
+  assert.equal(q.view().items.find((i) => i.rel === "R.nsp").state, "failed");
+});
+
+test("with a keep time the original is kept, not deleted", async () => {
+  S.keepHours = 6;
+  put("Keep.nsp", 2 * MIB, 6);
+  await run(make());
+  const [id] = fs.readdirSync(path.join(games, KEEP_DIR_NAME));
+  assert.deepEqual(fs.readFileSync(path.join(games, KEEP_DIR_NAME, id, "Keep.nsp")), Buffer.alloc(2 * MIB, 6));
+  assert.deepEqual(await trash.listRoot(gamesRoot()), []);
 });
 
 test("a kept original past its time, over the cap, emptied now or removed with its row goes to the trash", async () => {
@@ -99,7 +149,7 @@ test("a kept original past its time, over the cap, emptied now or removed with i
 
 test("below the free space floor the queue pauses, deletes nothing and says what the trash holds", async () => {
   put("Old.nsp", 3 * MIB);
-  await run(make());
+  await trash.trashItems(gamesRoot(), [{ rel: "Old.nsp" }], { kind: "game" });
   const before = await trash.listRoot(gamesRoot());
   assert.equal(before.length, 1);
   S.keepHours = 6;

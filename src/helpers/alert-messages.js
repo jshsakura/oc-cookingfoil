@@ -139,10 +139,10 @@ const M = {
   },
 
   nszDrained: {
-    ko: ({ done, saved, failed, kept }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 줄였습니다. ${kept ? "원본은 보관 폴더에 있다가 보관 시간이 지나면 휴지통으로 가며, 휴지통을 비워야 그만큼 공간이 생깁니다." : "원본은 휴지통에 있어 휴지통을 비워야 그만큼 공간이 생깁니다."}${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
-    en: ({ done, saved, failed, kept }) => `✅ The conversion queue is done: ${done} files converted, ${saved} smaller. ${kept ? "The originals are kept for now and go to the trash when their time is up; the space comes back once the trash is emptied." : "The originals are in the trash, so the space comes back once the trash is emptied."}${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
-    ja: ({ done, saved, failed, kept }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} 小さくしました。${kept ? "元のファイルは保管フォルダーにあり、保管時間が過ぎるとごみ箱に移ります。ごみ箱を空にするとその分の空きができます。" : "元のファイルはごみ箱にあり、ごみ箱を空にするとその分の空きができます。"}${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
-    zh: ({ done, saved, failed, kept }) => `✅ 转换队列已全部处理：转换 ${done} 个，缩小 ${saved}。${kept ? "原文件暂时保留在保管文件夹中，到期后移入回收站，清空回收站后才会腾出这些空间。" : "原文件在回收站中，清空回收站后才会腾出这些空间。"}${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
+    ko: ({ done, saved, failed, kept }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 줄였습니다. ${kept ? "원본은 보관 폴더에 있다가 보관 시간이 지나면 휴지통으로 가며, 휴지통을 비워야 그만큼 공간이 생깁니다." : "검증을 마친 원본은 지웠습니다."}${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
+    en: ({ done, saved, failed, kept }) => `✅ The conversion queue is done: ${done} files converted, ${saved} smaller. ${kept ? "The originals are kept for now and go to the trash when their time is up; the space comes back once the trash is emptied." : "The verified originals were deleted."}${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
+    ja: ({ done, saved, failed, kept }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} 小さくしました。${kept ? "元のファイルは保管フォルダーにあり、保管時間が過ぎるとごみ箱に移ります。ごみ箱を空にするとその分の空きができます。" : "検証を終えた元のファイルは削除しました。"}${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
+    zh: ({ done, saved, failed, kept }) => `✅ 转换队列已全部处理：转换 ${done} 个，缩小 ${saved}。${kept ? "原文件暂时保留在保管文件夹中，到期后移入回收站，清空回收站后才会腾出这些空间。" : "已验证的原文件已删除。"}${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
   },
   nszNoSpace: {
     ko: ({ free, name, size, trash = "0 B", kept = "0 B", hasTrash = true, hasKept = false, partial = "0 B", hasPartial = false }) => `💾 남은 공간이 ${free}라 ${name}(${size})를 변환할 작업 공간이 모자라 멈췄습니다. 서버는 공간을 만들려고 아무것도 지우지 않습니다. ${

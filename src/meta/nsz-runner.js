@@ -71,9 +71,12 @@ export function lowPriorityPrefix() {
 }
 
 /** The nsz arguments for one file. Pure. */
+/** nsz's verify flag: the queue deletes an original only after a run with it. */
+export const VERIFY_FLAG = "-V";
+
 export function nszArgs({ level, threads, block }, workDir, src) {
   // nsz looks for prod.keys next to itself or in ~/.switch; the server keeps them in its keys folder.
-  return ["--keys", keysDir(), "-C", "-V", "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
+  return ["--keys", keysDir(), "-C", VERIFY_FLAG, "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
 }
 
 /** The text a failure is shown with: the last lines, at most REASON_CHARS. Pure. */
