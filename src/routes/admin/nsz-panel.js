@@ -260,5 +260,6 @@ $('nz-purge').addEventListener('click',async()=>{if(!await ask('보관 중인 �
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
 $('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;nzSel.clear();
   for(const x of $('nz-filter').querySelectorAll('button')){const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));}
-  $('nz-list').replaceChildren();loadNsz();});
+  // Until the new rows arrive there is nothing to pick or run: a 모두 선택 click would untick itself and the run button would ask with the old tab's count.
+  $('nz-list').replaceChildren();$('nz-pick').hidden=true;nzTabCount=0;nzSelUpdate();loadNsz();});
 `;
