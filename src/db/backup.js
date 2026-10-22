@@ -8,11 +8,12 @@
  *                     queue, names, featured rows, homebrew sources,
  *                     the patch notes
  *   extracted-meta/   names fixed by hand
- *   custom-art/       artwork uploaded by hand
- *   metadata/games/   what the admin wrote about each game
+ *   custom-art/       artwork an older server kept apart (moved into metadata/games at start)
+ *   metadata/games/   what the admin wrote about each game, and its pictures, with
+ *                     the pictures put aside in a game's .replaced/ and .unreadable/
  *
  * Left out, as they come back by themselves: the library, the index
- * (cookingfoil.db), titledb, images and every other cache.
+ * (cookingfoil.db), titledb, images, the small copies in thumbs/ and every other cache.
  *
  * A day's folder is written beside its place and renamed in, so a backup is
  * there whole or not at all; a second one the same day replaces the first.
@@ -33,6 +34,10 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CACHES = new Set(["patches-cache.json"]);
 // Folders copied whole.
 const FOLDERS = ["extracted-meta", "custom-art", "metadata/games"];
+const GAMES = path.join("metadata", "games");
+// The dot folders in a game's folder where the server puts pictures placed there by hand (meta/game-art-files.js):
+// the only copy of them. Every other dot name (a file half written, say) is left out.
+const GAME_ASIDE = new Set([".replaced", ".unreadable"]);
 // Folders whose own top-level .json files are copied (not their subfolders).
 const JSON_FOLDERS = [".", "security", "homebrew", "patches"];
 // How often the schedule looks whether today's backup is there.
@@ -83,7 +88,7 @@ function copyFolder(rel, into) {
     throw err;
   }
   for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
+    if (e.name.startsWith(".") && !(e.isDirectory() && GAME_ASIDE.has(e.name) && path.dirname(rel) === GAMES)) continue;
     const child = path.join(rel, e.name);
     if (e.isDirectory()) n += copyFolder(child, into);
     else if (e.isFile() && copyOne(child, into)) n++;

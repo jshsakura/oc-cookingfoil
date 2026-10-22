@@ -34,9 +34,7 @@ export default async function bannerRoute(req, res) {
     wide: true,
     cachePath: cachePathFor(base, "banner"),
     upstreamUrl: entry?.bannerUrl,
-    overridePath: customArt.hasOverride(base, "banner")
-      ? customArt.pathFor(base, "banner")
-      : undefined,
+    ...customArt.serveOptions(base, "banner", null),
     current,
   });
 }

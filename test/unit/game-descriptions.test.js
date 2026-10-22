@@ -29,6 +29,8 @@ fs.writeFileSync(path.join(root, "game-descriptions.json"), JSON.stringify({
   [BROKEN]: { notes: { ko: "고장 난 폴더" } },
 }));
 const { get, set, reset, describe, notes, edited, names, locked, GAMES_DIR, folderName } = await import("../../src/meta/game-descriptions.js");
+// A change made by hand shows after the server's next look at the folders (every minute, or from the admin page).
+const { scan } = await import("../../src/meta/game-meta.js");
 const ID = "0100B00B51230000";
 const folderOf = (id) => fs.readdirSync(GAMES_DIR).find((d) => d.endsWith(`[${id}]`));
 
@@ -99,21 +101,24 @@ test("only a base title id and a known field are accepted", () => {
   assert.equal(set(ID, "rating", { en: "x" }), false);
 });
 
-test("a game.json changed by hand shows at once, a renamed folder still counts, and a broken one is never written over", () => {
+test("a game.json changed by hand shows after the next look, a renamed folder still counts, and a broken one is never written over", async () => {
   set(ID, "name", { ko: "그랜드 테프트 오토 V" });
   const first = folderOf(ID);
   assert.equal(first, "그랜드 테프트 오토 V [0100B00B51230000]");
   const file = path.join(GAMES_DIR, first, "game.json");
   fs.writeFileSync(file, JSON.stringify({ id: ID, name: { en: "GTA V", ko: "GTA 5" } }));
+  await scan();
   assert.deepEqual(names(ID), { en: "GTA V", ko: "GTA 5" }, "read again without a restart");
 
   fs.renameSync(path.join(GAMES_DIR, first), path.join(GAMES_DIR, "My own name [0100B00B51230000]"));
+  await scan();
   assert.deepEqual(names(ID), { en: "GTA V", ko: "GTA 5" }, "the id in brackets finds it");
   set(ID, "notes", { ko: "메모" });
   assert.deepEqual(fs.readdirSync(GAMES_DIR).filter((d) => d.endsWith(`[${ID}]`)), ["My own name [0100B00B51230000]"], "written where it is now");
 
   const renamed = path.join(GAMES_DIR, "My own name [0100B00B51230000]", "game.json");
   fs.writeFileSync(renamed, "{ not json");
+  await scan();
   assert.equal(get(ID), null);
   assert.throws(() => set(ID, "notes", { ko: "덮어쓰기" }), /cannot be read/);
   assert.equal(fs.readFileSync(renamed, "utf8"), "{ not json", "the hand edit is kept for the admin to fix");
@@ -131,23 +136,25 @@ test("a folder name keeps only what every disk accepts", () => {
   reset("0100000000B10000");
 });
 
-test("a game.json put back with its old time and size still shows the new text", () => {
+test("a game.json put back with its old time and size still shows the new text", async () => {
   set(ID, "notes", { en: "AAAA" });
   const file = path.join(GAMES_DIR, folderOf(ID), "game.json");
   const { atime, mtime } = fs.statSync(file);
   assert.equal(notes(ID, "en"), "AAAA");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("AAAA", "BBBB"));
   fs.utimesSync(file, atime, mtime);
+  await scan();
   assert.equal(notes(ID, "en"), "BBBB");
   reset(ID);
 });
 
-test("saving keeps what else a game.json holds, and lists the fields set by hand as locked", () => {
+test("saving keeps what else a game.json holds, and lists the fields set by hand as locked", async () => {
   const KEEP = "0100000000C10000";
   const dir = path.join(GAMES_DIR, `Keep [${KEEP}]`);
   fs.mkdirSync(dir, { recursive: true });
   const match = { source: "titledb", id: KEEP, region: "KR" };
   fs.writeFileSync(path.join(dir, "game.json"), JSON.stringify({ id: KEEP, match, mine: 1, locked: ["icon"] }));
+  await scan();
 
   assert.deepEqual(locked(KEEP), ["icon"]);
   set(KEEP, "notes", { ko: "메모" });
@@ -163,16 +170,18 @@ test("saving keeps what else a game.json holds, and lists the fields set by hand
   assert.equal(get(KEEP), null);
   assert.deepEqual(locked("not-an-id"), []);
   fs.writeFileSync(path.join(dir, "game.json"), JSON.stringify({ id: KEEP, name: { ko: "옛 서버" }, notes: { en: "old" } }));
+  await scan();
   assert.deepEqual(locked(KEEP), ["name", "notes"], "a file written before the list: everything in it is the admin's");
   fs.rmSync(dir, { recursive: true });
 });
 
-test("a field written by hand as plain text, a later version and a file that is not an object survive a save", () => {
+test("a field written by hand as plain text, a later version and a file that is not an object survive a save", async () => {
   const HAND = "0100000000C20000";
   const dir = path.join(GAMES_DIR, `Hand [${HAND}]`);
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "game.json");
   fs.writeFileSync(file, JSON.stringify({ id: HAND, version: 2, description: "손으로 쓴 글", name: "Hand Name", locked: ["icon", "icon"] }));
+  await scan();
 
   assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text with Hangul is Korean");
   assert.deepEqual(names(HAND), { en: "Hand Name" });

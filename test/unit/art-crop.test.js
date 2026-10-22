@@ -20,6 +20,8 @@ const artCrop = await import("../../src/meta/art-crop.js");
 const customArt = await import("../../src/meta/custom-art.js");
 const { createMediaStore } = await import("../../src/meta/item-media.js");
 const { default: artRouter } = await import("../../src/routes/art.js");
+const gameMetaModule = await import("../../src/meta/game-meta.js");
+gameMetaModule.setQuiet(0);
 await customArt.init();
 
 const app = express();
@@ -103,14 +105,12 @@ test("cutting again uses the kept original and only the new area", async () => {
   assert.match(up.urls.icon, new RegExp(`^/api/shop/icon/${BASE}\\?v=[0-9a-f]{12}$`));
   const art = customArt.pathFor(BASE, "icon", null);
   assert.ok(isBlue(await color(art)));
-  const before = customArt.revision(BASE);
 
   const r = await postJson(`/${BASE}/icon/crop`, { crop: { x: 0, y: 0, w: 0.5, h: 1 } });
   assert.equal(r.status, 200);
   const body = await r.json();
   assert.deepEqual(body.originals.icon, { x: 0, y: 0, w: 0.5, h: 1 });
   assert.ok(isRed(await color(art)), "the left half now");
-  assert.ok(customArt.revision(BASE) > before);
   assert.notEqual(body.urls.icon, up.urls.icon, "the shop address changes so the page and every cache show the new one");
 });
 
@@ -194,7 +194,7 @@ test("the small picture the list shows follows a new cut at once", async () => {
     let sent = null;
     const res = { set() { return this; }, type() { return this; }, sendFile(p) { sent = p; } };
     await serveImage({ query: { size: "sm" }, headers: {}, get: () => "" }, res, {
-      cachePath: path.join(data, "no-upstream.jpg"), overridePath: customArt.pathFor(BASE, "icon", null),
+      cachePath: path.join(data, "no-upstream.jpg"), ...customArt.serveOptions(BASE, "icon", null),
     });
     return color(sent);
   };
@@ -202,4 +202,59 @@ test("the small picture the list shows follows a new cut at once", async () => {
   assert.ok(isBlue(await small()));
   assert.equal((await postJson(`/${BASE}/icon/crop`, { crop: { x: 0, y: 0, w: 0.5, h: 1 } })).status, 200);
   assert.ok(isRed(await small()), "not the thumbnail of the old cut");
+});
+
+test("the admin reads one game's folder again, or every game's, and sees what was put there by hand", async () => {
+  const gameMeta = await import("../../src/meta/game-meta.js");
+  const ID = "0100000000AAA000";
+  const dir = path.join(gameMeta.GAMES_DIR, `Hand [${ID}]`);
+  fs.mkdirSync(dir, { recursive: true });
+  await gameMeta.scan();
+  fs.writeFileSync(path.join(dir, "banner.png"), await halves());
+
+  let r = await postJson(`/${ID}/rescan`, {});
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.banner, true);
+  assert.equal(body.folder, `Hand [${ID}]`);
+  assert.match(body.urls.banner, new RegExp(`^/api/shop/banner/${ID}\\?v=`));
+  assert.ok(fs.existsSync(path.join(dir, "banner.webp")) && !fs.existsSync(path.join(dir, "banner.png")));
+
+  fs.rmSync(path.join(dir, "banner.webp"));
+  r = await postJson("/rescan", {});
+  assert.equal(r.status, 200);
+  assert.ok((await r.json()).games >= 1);
+  assert.equal(customArt.hasOverride(ID, "banner"), false);
+  assert.equal((await postJson("/nope/rescan", {})).status, 400);
+});
+
+test("the original is written under a dot name with the pid first, never a name taken for a picture", async (t) => {
+  const dir = fs.mkdtempSync(path.join(data, "tmpname-"));
+  const written = [];
+  const write = fs.writeFileSync;
+  t.mock.method(fs, "writeFileSync", function (file, ...rest) { written.push(path.basename(String(file))); return write.call(this, file, ...rest); });
+  artCrop.keepOriginal(path.join(dir, "icon.webp"), await artCrop.shrinkOriginal(await sharp({ create: { width: 8, height: 8, channels: 3, background: "#fff" } }).png().toBuffer()), null);
+  t.mock.restoreAll();
+  assert.deepEqual(written, [`.icon.orig.webp.${process.pid}.tmp`, `.icon.orig.json.${process.pid}.tmp`]);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ["icon.orig.json", "icon.orig.webp"]);
+});
+
+test("a hand file that cannot be moved aside refuses the upload and the removal with a short reason and no server path", { timeout: 10_000 }, async (t) => {
+  const ID = "0100000000AAB000";
+  const dir = path.join(gameMetaModule.GAMES_DIR, `Stuck [${ID}]`);
+  fs.mkdirSync(dir, { recursive: true });
+  await post(`/${ID}/icon`, form(await halves()));
+  fs.writeFileSync(path.join(dir, "icon.png"), await halves());
+  // A file where the folder for pictures put aside would go: nothing can be moved there.
+  fs.writeFileSync(path.join(dir, ".replaced"), "in the way");
+  const debug = (await import("../../src/debug.js")).default;
+  t.mock.method(debug, "error", () => {});
+  for (const r of [await post(`/${ID}/icon`, form(await halves())), await fetch(`${URL_BASE}/${ID}/icon`, { method: "DELETE" })]) {
+    assert.equal(r.status, 409);
+    const { error } = await r.json();
+    assert.match(error, /could not be moved/);
+    assert.ok(!error.includes(data) && !error.includes("/"), error);
+  }
+  assert.ok(fs.existsSync(path.join(dir, "icon.png")), "the hand file stays");
+  assert.equal(customArt.hasOverride(ID, "icon"), true, "the slot is left as it was");
 });

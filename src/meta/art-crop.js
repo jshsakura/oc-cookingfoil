@@ -108,8 +108,10 @@ export function originalPaths(artFile) {
 
 function writeAtomic(file, buf) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(`${file}.tmp`, buf);
-  fs.renameSync(`${file}.tmp`, file);
+  // A dot name with the pid, like the rest: one left behind is never taken for a picture, two writers never meet.
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
+  fs.writeFileSync(tmp, buf);
+  fs.renameSync(tmp, file);
 }
 
 /** Keeps `webp` (from shrinkOriginal) as the original of `artFile`, with the area used. */

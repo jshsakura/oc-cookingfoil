@@ -156,6 +156,7 @@ import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
+import { videosOf } from "../meta/igdb-videos.js";
 import * as metaStore from "../retro/meta/store.js";
 import * as metaEdits from "../retro/meta/edits.js";
 import { metaKey } from "../retro/meta/build.js";
@@ -333,6 +334,20 @@ const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members]
 export function retroMetaKey(cat, g) {
   const group = groupOf(cat, g);
   return metaOwner(metaCandidates(g, representative(group, variantPicks.get(group.id)), group))?.key ?? metaKey(g);
+}
+
+/**
+ * The IGDB trailers of a game by its id ([{ id, name }], its versions share
+ * them as they share the detail), or null for no such game. For the web's
+ * admin view only (routes/videos.js); /api/retro/* never carries them.
+ */
+export async function retroVideos(id) {
+  if (!ID_RE.test(id) || !retroEnabled()) return null;
+  const cat = await catalog.current(retroDir);
+  const game = cat?.byId.get(id);
+  if (!game) return null;
+  const group = groupOf(cat, game);
+  return videosOf(metaOwner(metaCandidates(game, representative(group, variantPicks.get(group.id)), group))?.record?.videos) ?? [];
 }
 
 // A game's facts (retro/themes.js) for every game of a catalog, made again when the

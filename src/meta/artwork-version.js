@@ -3,7 +3,7 @@
  *
  * Every URL a list or detail hands out ends in ?v=<12 hex>, a hash of what
  * decides the picture's bytes:
- *   - art the admin uploaded: its file's size and mtime (every upload rewrites it);
+ *   - art the admin gave the game: its file's stamp (size and mtime), from memory (meta/game-meta.js);
  *   - else the image titledb names (the eShop URL, or that language's own);
  *   - else the file on disk (size and mtime): an icon read from the game file.
  * plus ART_PIPELINE, the version of the resize/WebP encoding. Bump it when
@@ -46,16 +46,16 @@ function sourceKey(kind, base, { idx = 0, lang = null } = {}) {
     const own = iconSource(base, lang);
     if (own?.url) return `u:${own.url}`;
     if (own) return fileKey(cachePathFor(base, "icon-lang", lang));
-    if (customArt.hasOverride(base, "icon")) return `o${fileKey(customArt.pathFor(base, "icon"))}`;
+    if (customArt.hasOverride(base, "icon")) return `o:${customArt.stampOf(base, "icon", null)}`;
     return entry?.iconUrl ? `u:${entry.iconUrl}` : fileKey(cachePathFor(base, "icon"));
   }
   if (kind === "banner") {
     const own = bannerSource(base, lang);
     if (own) return `u:${own}`;
-    if (customArt.hasOverride(base, "banner")) return `o${fileKey(customArt.pathFor(base, "banner"))}`;
+    if (customArt.hasOverride(base, "banner")) return `o:${customArt.stampOf(base, "banner", null)}`;
     return entry?.bannerUrl ? `u:${entry.bannerUrl}` : fileKey(cachePathFor(base, "banner"));
   }
-  if (customArt.hasOverride(base, "screenshot", idx)) return `o${fileKey(customArt.pathFor(base, "screenshot", idx))}`;
+  if (customArt.hasOverride(base, "screenshot", idx)) return `o:${customArt.stampOf(base, "screenshot", idx)}`;
   const shot = Array.isArray(entry?.screenshots) ? entry.screenshots[idx] : null;
   return shot ? `u:${shot}` : fileKey(cachePathFor(base, "screenshot", idx));
 }

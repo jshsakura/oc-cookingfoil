@@ -894,6 +894,20 @@
       .modal .modal-chips .chip { padding: 5px 12px; font-size: 12.5px; cursor: default; background: var(--surface); border: 1px solid var(--line); }
       .modal .screenshots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
       .modal .screenshots:empty, .modal .extras:empty { display: none; }
+      /* IGDB trailers, admins only: YouTube's thumbnail with a play mark until clicked, then its player in place. */
+      .modal .modal-videos { margin: 0 0 18px; }
+      .modal .modal-videos[hidden] { display: none; }
+      .modal .modal-videos h4 { margin: 0 0 8px; font-size: 13px; font-weight: 800; }
+      .modal .video-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+      .modal .video-card { display: flex; flex-direction: column; gap: 6px; width: 240px; flex-shrink: 0; }
+      .modal .video-thumb { position: relative; display: block; width: 240px; height: 135px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--sunk); cursor: pointer; }
+      .modal .video-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .modal .video-thumb .play { position: absolute; inset: 0; margin: auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(0, 0, 0, 0.62); color: #fff; transition: transform 0.15s ease, background 0.15s ease; }
+      .modal .video-thumb .play svg { width: 22px; height: 22px; margin-left: 3px; fill: currentColor; }
+      .modal .video-thumb:hover .play, .modal .video-thumb:focus-visible .play { transform: scale(1.08); background: var(--butter); color: var(--butter-ink); }
+      .modal .video-thumb:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .modal .video-card iframe { width: 240px; height: 135px; border: 0; border-radius: 12px; background: #000; }
+      .modal .video-card .video-name { font-size: 12.5px; color: var(--secondary); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .modal .screenshots img { width: 240px; height: 135px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--sunk); cursor: zoom-in; }
       .modal .extras { margin-bottom: 16px; }
       .modal .extras .extras-head { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
@@ -950,6 +964,8 @@
       .arted-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
       .arted-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
       .arted-head span { font-size: 12px; color: var(--secondary); }
+      .arted-head .reread { margin-left: auto; }
+      .arted-note { margin: -6px 0 14px; font-size: 12px; line-height: 1.5; color: var(--secondary); overflow-wrap: anywhere; }
       .arted { --art-h: 140px; }
       .arted-top { display: grid; grid-template-columns: var(--art-h) minmax(0, 1fr); gap: 14px; align-items: start; }
       .arted-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
@@ -1533,6 +1549,7 @@
           <p class="modal-where" id="modal-where" hidden></p>
           <div class="modal-chips" id="modal-chips"></div>
           <div class="screenshots" id="modal-screens"></div>
+          <section class="modal-videos" id="modal-videos" hidden></section>
           <div class="extras" id="modal-extras"></div>
           <div class="extras modal-install" id="modal-install" hidden></div>
           <div class="modal-actions">
@@ -1666,6 +1683,8 @@
           "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 다운로드합니다.",
           "patches.related": "관련 패치",
           "modal.notes": "추가 정보",
+          "modal.videos": "트레일러",
+          "modal.videoPlay": "트레일러를 재생합니다",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
           "extras.serverPresent": "서버에 있음",
@@ -1919,6 +1938,11 @@
           "art.cropApply": "적용",
           "art.cropCancel": "취소",
           "art.cropped": "다시 잘랐습니다.",
+          "art.reread": "폴더 다시 읽기",
+          "art.rereadTitle": (f) => `${f} 에 넣은 그림과 game.json 을 지금 다시 읽습니다.`,
+          "art.rereadDone": "폴더를 다시 읽었습니다.",
+          "art.rereadPending": "아직 복사 중인 그림이 있어 잠시 뒤 반영합니다.",
+          "art.folderNote": (f) => `${f} 에 icon.png, banner.jpg, screenshot-01.png 처럼 넣은 그림은 WebP 로 바꾸고 넣은 파일은 지우며, 같은 자리에 여럿이면 가장 최근에 수정한 그림을 씁니다. 나머지와 여기서 올리거나 다시 자르거나 지울 때 기다리던 그림은 .replaced 로, 읽을 수 없는 그림은 .unreadable 로 옮기는데, 두 폴더는 윈도우와 맥에서 숨김 폴더로 보이고 게임 폴더로 옮기면 다시 쓰며, icon.webp 처럼 자리 이름 그대로인 파일은 지금 그림을 바꿉니다.`,
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -2009,6 +2033,8 @@
           "patches.needNote": "The game won't start without these. Get them together with the game.",
           "patches.related": "Related mods",
           "modal.notes": "Notes",
+          "modal.videos": "Trailers",
+          "modal.videoPlay": "Plays the trailer",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
           "extras.serverPresent": "On server",
@@ -2261,6 +2287,11 @@
           "art.cropApply": "Apply",
           "art.cropCancel": "Cancel",
           "art.cropped": "Cropped",
+          "art.reread": "Read folder again",
+          "art.rereadTitle": (f) => `Reads the pictures and game.json in ${f} again now.`,
+          "art.rereadDone": "Read the folder again.",
+          "art.rereadPending": "A picture is still being copied; it will be applied shortly.",
+          "art.folderNote": (f) => `A picture put in ${f} as icon.png, banner.jpg, screenshot-01.png and so on is converted to WebP and the file is removed; when a slot has several, the most recently modified wins. The others, and any waiting when you upload, re-crop or remove here, move to .replaced (unreadable ones to .unreadable), hidden folders on Windows and macOS; move one back into the game folder to use it again (one named like the slot, such as icon.webp, replaces the current picture).`,
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -2351,6 +2382,8 @@
           "patches.needNote": "このパッチがないとゲームが起動しません。ゲームと一緒にダウンロードします。",
           "patches.related": "関連パッチ",
           "modal.notes": "追加情報",
+          "modal.videos": "トレーラー",
+          "modal.videoPlay": "トレーラーを再生します",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
           "extras.serverPresent": "サーバーにあり",
@@ -2603,6 +2636,11 @@
           "art.cropApply": "適用",
           "art.cropCancel": "キャンセル",
           "art.cropped": "切り抜き直しました",
+          "art.reread": "フォルダーを読み直す",
+          "art.rereadTitle": (f) => `${f} に置いた画像と game.json を今すぐ読み直します。`,
+          "art.rereadDone": "フォルダーを読み直しました",
+          "art.rereadPending": "コピー中の画像があるため、少し後に反映します。",
+          "art.folderNote": (f) => `${f} に icon.png、banner.jpg、screenshot-01.png のように置いた画像は WebP に変換して置いたファイルを削除し、同じ枠に複数あれば最後に更新したものを使います。残りと、ここでアップロード・切り直し・削除したときに待っていた画像は .replaced に、読めない画像は .unreadable に移します。どちらも Windows と Mac では隠しフォルダーで、ゲームフォルダーに戻すと再び使います。icon.webp のように枠と同じ名前のファイルは今の画像を置き換えます。`,
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2693,6 +2731,8 @@
           "patches.needNote": "沒有這些補丁遊戲無法啟動。請與遊戲一起下載。",
           "patches.related": "相關補丁",
           "modal.notes": "補充資訊",
+          "modal.videos": "預告片",
+          "modal.videoPlay": "播放預告片",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
           "extras.serverPresent": "服务器上有",
@@ -2945,6 +2985,11 @@
           "art.cropApply": "套用",
           "art.cropCancel": "取消",
           "art.cropped": "已重新裁切",
+          "art.reread": "重新讀取資料夾",
+          "art.rereadTitle": (f) => `立即重新讀取 ${f} 中的圖片與 game.json。`,
+          "art.rereadDone": "已重新讀取資料夾",
+          "art.rereadPending": "仍有圖片正在複製，稍後會套用。",
+          "art.folderNote": (f) => `放進 ${f} 的 icon.png、banner.jpg、screenshot-01.png 等圖片會轉成 WebP 並刪除放入的檔案，同一位置有多張時使用最後修改的一張。其餘圖片，以及在這裡上傳、重新裁切或刪除時正在等待的圖片，會移到 .replaced，無法讀取的移到 .unreadable；兩者在 Windows 與 Mac 上是隱藏資料夾，移回遊戲資料夾即可再次使用，而 icon.webp 這類與位置同名的檔案會取代目前的圖片。`,
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -5761,6 +5806,53 @@
           box.append(line);
         }
       }
+      // IGDB trailers (/api/videos), shown to admins only: YouTube's thumbnail with a play
+      // mark, which becomes YouTube's player (the no-cookie address) only when clicked.
+      const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+      let videosSeq = 0;
+      function loadVideos(path) {
+        const mine = ++videosSeq;
+        fillVideos([]);
+        if (!path || (session && !session.admin)) return;
+        fetch("/api/videos/" + path, { headers: { Accept: "application/json" } })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+          .then((d) => { if (mine === videosSeq) fillVideos(Array.isArray(d?.videos) ? d.videos : []); });
+      }
+      function fillVideos(list) {
+        const box = $("modal-videos");
+        const videos = list.filter((v) => YOUTUBE_ID.test(v?.id ?? "")).slice(0, 8);
+        box.replaceChildren();
+        box.hidden = !videos.length;
+        if (!videos.length) return;
+        const row = Object.assign(document.createElement("div"), { className: "video-row" });
+        for (const v of videos) {
+          const name = typeof v.name === "string" ? v.name : "";
+          const card = Object.assign(document.createElement("div"), { className: "video-card" });
+          const thumb = Object.assign(document.createElement("button"), { type: "button", className: "video-thumb" });
+          thumb.setAttribute("aria-label", name ? `${t("modal.videoPlay")}: ${name}` : t("modal.videoPlay"));
+          const img = Object.assign(document.createElement("img"), { src: `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, alt: "", loading: "lazy", decoding: "async" });
+          const play = Object.assign(document.createElement("span"), { className: "play" });
+          play.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+          thumb.append(img, play);
+          thumb.addEventListener("click", () => {
+            const frame = document.createElement("iframe");
+            frame.src = `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1`;
+            frame.title = name || t("modal.videos");
+            frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+            frame.allowFullscreen = true;
+            // The page sends no referrer at all; YouTube's player refuses to start without its origin.
+            frame.referrerPolicy = "strict-origin-when-cross-origin";
+            thumb.replaceWith(frame);
+          });
+          card.append(thumb);
+          if (name) card.append(Object.assign(document.createElement("span"), { className: "video-name", textContent: name, title: name }));
+          row.append(card);
+        }
+        const head = document.createElement("h4");
+        head.textContent = t("modal.videos");
+        box.append(head, row);
+      }
       function fillShots(urls, loading) {
         const scr = $("modal-screens"); scr.replaceChildren(...(loading ? shotSkeletons() : []));
         for (const url of urls) {
@@ -5947,6 +6039,7 @@
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
         openSheet("modal");
+        loadVideos(validBase ? "title/" + baseId : null);
 
         // Rich metadata (description, publisher, screenshots, release, region,
         // rating, players) lives behind /api/title/:id, outside the catalog.
@@ -5959,7 +6052,8 @@
         } else if (validBase) {
           const [ar, dr] = await Promise.all([
             fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-            fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" } }).catch(() => null),
+            // A game edited here is asked again past the browser's cache: the detail is kept a minute.
+            fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" }, cache: editedDetails.has(baseId) ? "no-cache" : "default" }).catch(() => null),
           ]);
           try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
           try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
@@ -6000,7 +6094,9 @@
       // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
       // find: { q, base } offers a search beside each slot (meta/art-search.js on the server).
       const ART_FIND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-      function artEditor({ slots, upload, remove, recrop = null, find = null }) {
+      // reread: { title, run, note } adds a button that reads the item's folder again (pictures put there by hand),
+      // and `note` says under the head what becomes of them.
+      function artEditor({ slots, upload, remove, recrop = null, find = null, reread = null }) {
         const card = document.createElement("section"); card.className = "arted";
         // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
         async function cropIn(slot, src, crop = null) {
@@ -6085,7 +6181,18 @@
         }
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
+        if (reread) {
+          const b = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost tiny reread", textContent: t("art.reread"), title: reread.title });
+          b.dataset.icon = "refresh";
+          b.addEventListener("click", async () => {
+            if (b.disabled) return;
+            b.disabled = true;
+            try { await reread.run(); } finally { b.disabled = false; }
+          });
+          head.append(b);
+        }
         card.append(head);
+        if (reread?.note) card.append(Object.assign(document.createElement("p"), { className: "arted-note", textContent: reread.note }));
         const pick = (onFile) => {
           const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
           input.addEventListener("change", () => { if (input.files && input.files[0]) onFile(input.files[0]); });
@@ -6198,11 +6305,19 @@
           upload: (slot, file, crop) => uploadArt(baseId, slot, file, crop),
           recrop: (slot, n, crop) => recropArt(baseId, slot, n, crop),
           remove: (slot, n) => removeArt(baseId, slot, n),
+          // Pictures and a game.json may also be put into the game's folder by hand; this reads it now.
+          reread: {
+            title: t("art.rereadTitle", `metadata/games/${art.folder || `… [${baseId}]`}`),
+            note: t("art.folderNote", `metadata/games/${art.folder || `… [${baseId}]`}`),
+            run: () => artChanged(baseId, fetch(`/api/art/${baseId}/rescan`, { method: "POST", headers: { Accept: "application/json" } }), t("art.rereadDone"), artPending(baseId)),
+          },
         });
         box.append(card);
       }
       // Drop the cached detail of every language, then repaint the open modal.
+      const editedDetails = new Set();
       function refreshAfterDesc(baseId) {
+        editedDetails.add(baseId);
         for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
         if (currentModal && $("modal").classList.contains("open")) openModal(currentModal);
       }
@@ -6239,12 +6354,27 @@
         });
       }
       // After a game's picture changed: every copy of it on the page, then the open window with fresh art.
-      async function artChanged(baseId, request, done) {
+      // A picture still being copied when the folder was read: said so, and the open card drawn again once the watch has taken it.
+      const artPending = (baseId) => (d) => {
+        if (!d.pending) return false;
+        toast(t("art.rereadPending"));
+        const r = currentModal;
+        setTimeout(() => {
+          if (currentModal !== r || !$("modal").classList.contains("open")) return;
+          // A crop or a search under way in the card is not swept away.
+          if ($("modal-art").querySelector(".arted.cropping, .arted.finding")) return;
+          artVersion++;
+          refreshAfterDesc(baseId);
+        }, Math.min(Math.max(Number(d.retryInMs) || 0, 1000), 120_000) + 1000);
+        return true;
+      };
+      // `pending(d)`, when given, may say something else than `done` about the answer (true then).
+      async function artChanged(baseId, request, done, pending = null) {
         try {
           const res = await request;
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { toast(d.error || t("art.failed")); return; }
-          toast(done);
+          if (!pending?.(d)) toast(done);
           artVersion++;
           for (const k of ["icon", "banner"]) refreshArtImages(`/api/shop/${k}/${baseId}`, d.urls?.[k]);
           refreshAfterDesc(baseId);
@@ -6326,6 +6456,7 @@
         const mine = ++retroSeq;
         renderRetroModal(g, sys, true);
         openSheet("modal");
+        loadVideos("retro/" + encodeURIComponent(g.id));
         retroDetail(g.id).then((d) => {
           if (mine !== retroSeq) return;
           renderRetroModal(d ? { ...g, ...d } : g, sys, false);
@@ -6444,7 +6575,11 @@
         }
       }
 
-      function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); gameEdit.leave(); }
+      function closeModal() {
+        $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); gameEdit.leave();
+        // A hidden player keeps playing: drop it, and any answer still on its way.
+        videosSeq++; fillVideos([]);
+      }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
       $("modal-close").addEventListener("click", closeModal);
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });

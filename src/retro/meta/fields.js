@@ -7,13 +7,16 @@
  *              wiki?: English Wikipedia title, koFrom?: "wikipedia", koTriedAt?: ms,
  *              cooperative?: true, esrb?: "E" | "E10+" | "T" | "M" | "AO" | "EC" | "RP",
  *              styles?: [style slug], simultaneous?: players at once, arcadeStyle?: style slug,
- *              series? }
+ *              series?, videos?: [{ id, name }] }
  *
  * styles are the finer genres a source names beside the big ones (LaunchBox's
  * "Beat 'em Up"), arcadeStyle the MAME category of an arcade set (Mame.xml's
  * catver-style "Shooter / Flying Vertical"), both as STYLE_NAMES keys.
  * simultaneous is how many play at once ("4P sim"), against numberOfPlayers
  * that counts turns too.
+ *
+ * videos are an IGDB record's trailers (meta/igdb-videos.js), for the web's
+ * admin view only: detailFields, what consoles read, leaves them out.
  *
  * description.ko comes from Korean Wikipedia (meta/kowiki.js, by `wiki`); koFrom
  * says so, and the text is shown with Wikipedia's attribution. koTriedAt is
@@ -26,6 +29,7 @@
 import { GENRE_LABELS, genreLabel } from "../../meta/categories.js";
 import { pick } from "../../meta/langs.js";
 import { ATTRIBUTION, enwikiTitle } from "../../meta/kowiki.js";
+import { videosOf } from "../../meta/igdb-videos.js";
 
 export const MAX_SHOTS = 8;
 const MAX_GENRES = 4;
@@ -176,6 +180,7 @@ export function fromIgdb(g) {
     numberOfPlayers: most > 0 ? playersInt(most) : single ? 1 : null,
     genres: genreKeys((g.genres ?? []).map((x) => x.name)),
     shots: shots.length ? shots : null,
+    videos: videosOf(g.videos),
   });
 }
 

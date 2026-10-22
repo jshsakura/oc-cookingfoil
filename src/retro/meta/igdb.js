@@ -7,6 +7,7 @@
 import * as igdb from "../../meta/igdb-client.js";
 import { bestMatch } from "../../meta/rating-sync.js";
 import { fromIgdb } from "./fields.js";
+import { VIDEO_FIELDS } from "../../meta/igdb-videos.js";
 
 const MATCH_MIN = 0.9;
 export const MISS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -24,6 +25,7 @@ const FIELDS = [
   "name", "summary", "first_release_date", "genres.name",
   "involved_companies.company.name", "involved_companies.developer", "involved_companies.publisher",
   "multiplayer_modes.offlinemax", "multiplayer_modes.offlinecoopmax", "game_modes.slug", "screenshots.image_id",
+  VIDEO_FIELDS,
 ].join(",");
 
 export const configured = () => igdb.configured();

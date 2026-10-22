@@ -62,6 +62,7 @@ import authGuard, { ignoreBasic } from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import sessionGate from "./security/session-gate.js";
 import adminOnly from "./security/admin-only.js";
+import videosRouter from "./routes/videos.js";
 import { sameOriginWrites } from "./security/same-origin.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
@@ -89,6 +90,7 @@ import * as securityStore from "./security/store.js";
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
 import * as customArt from "./meta/custom-art.js";
+import * as gameMeta from "./meta/game-meta.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
@@ -352,6 +354,8 @@ expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());
 // title. Surfaces titledb detail the shop response intentionally omits — the
 // dashboard modal and the remote client's detail panel both read this.
 expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
+// Game trailers from IGDB: the web's detail as an admin sees it, never a console.
+expressApp.use("/api/videos", adminOnly({ reads: true }), videosRouter());
 
 expressApp.get("/api/client-config", clientConfigRoute);
 
@@ -425,6 +429,11 @@ bootstrapTitledb()
     import("./meta/name-health.js")
       .then((nh) => nh.logNameHealth())
       .catch((err) => debug.error("name-health boot log failed:", err.message));
+    // Art an older server kept in custom-art/ moves into the game folders, named after the game: once titledb names them.
+    customArt
+      .migrate()
+      .then(({ moved }) => { if (moved) shopCache.invalidate(); })
+      .catch((err) => debug.error("custom-art migration failed:", err.message));
   });
 
 // Saved eShop prices first, so the first sections build already has them.
@@ -463,11 +472,11 @@ if (savesEnabled()) {
   backups.start();
 }
 
-// Seed the custom-art override index from disk so the icon/banner/screenshot
-// routes can do a zero-syscall "is there an override?" check on the hot path.
-customArt.init().then(() => shopCache.invalidate()).catch((err) =>
-  debug.error("custom-art init failed:", err.message)
-);
+// The game folders (names, text, pictures) read now, then one again whenever
+// the watch sees it change, kept in memory so the image routes and lists never
+// wait on the disk. A change found there (a picture or a game.json edited by
+// hand) builds the lists again.
+gameMeta.start({ onChange: () => shopCache.invalidate({ rename: true }) });
 
 // Which auth lanes are live, and does that combination lock out a client the
 // operator expects to work? Printed unconditionally — a silent misconfiguration

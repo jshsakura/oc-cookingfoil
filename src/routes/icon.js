@@ -41,9 +41,7 @@ export default async function iconRoute(req, res) {
   await serveImage(req, res, {
     cachePath: cachePathFor(base, "icon"),
     upstreamUrl: entry?.iconUrl,
-    overridePath: customArt.hasOverride(base, "icon")
-      ? customArt.pathFor(base, "icon")
-      : undefined,
+    ...customArt.serveOptions(base, "icon", null),
     current,
   });
 }

@@ -145,7 +145,7 @@ function ssRestartRow(){const r=el('div',null,'ss-row');const t=el('div');const 
     try{const x=await api('/admin/api/server/restart',{method:'POST',body:{}});toast(x.message);note.textContent=x.message;}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
 function ssSyncRow(st){const r=el('div',null,'ss-row');const t=el('div');
-  const parts=(st.last?.parts||[]).map((p)=>({games:'게임',homebrew:'홈브류',saves:'세이브',patches:'패치',retro:'레트로'}[p.name]||p.name)+(p.error?' 실패':''));
+  const parts=(st.last?.parts||[]).map((p)=>({games:'게임',homebrew:'홈브류',saves:'세이브',patches:'패치',retro:'레트로',gameMeta:'게임 정보'}[p.name]||p.name)+(p.error?' 실패':''));
   t.append(el('b','지금 동기화'),el('p',st.running?'모든 폴더를 다시 읽고 있습니다.':st.last?'마지막으로 다 읽은 때: '+fmt(st.last.at)+' ('+Math.max(1,Math.round(st.last.ms/1000))+'초, '+parts.join(', ')+')'+(st.next?'. 다음은 '+fmt(st.next)+'입니다.':'.'):'서버를 켠 뒤로 아직 다시 읽지 않았습니다. 켤 때 한 번 읽었습니다.'));
   const c=el('div',null,'ss-ctl');c.append(btn('지금 동기화',async()=>{try{const x=await api('/admin/api/server-settings/sync-now',{method:'POST',body:{}});toast(x.message);loadServerSettings();setTimeout(loadServerSettings,5000);}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}

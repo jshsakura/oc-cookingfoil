@@ -20,11 +20,13 @@
  * The client app's sizes (sm and md, as JPEG) are drawn ahead of time by
  * prewarmIcons, so a list never waits for a resize.
  *
- * The console client requests the original: it sends no Accept: image/webp
- * header, so it always gets JPEG.
- * Browsers requesting `?size=sm` with `Accept: image/webp` get the WebP
- * thumbnail (~70% smaller than the original JPEG); JPEG falls through
- * for the rest.
+ * The console client and browsers both send `Accept: image/webp` and get the
+ * WebP variants; a client that does not gets JPEG.
+ *
+ * Art kept in a game's folder (meta/game-meta.js) is WebP already, and its
+ * variants are drawn elsewhere (`overrideThumbs`, under thumbs/games/), WebP
+ * only, named after the picture's stamp: nothing is ever written into the
+ * admin's folders, and a new picture gets new variants without a stat.
  */
 import fs from "fs";
 import path from "path";
@@ -115,8 +117,8 @@ function variantPath(originalPath, suffix, ext) {
   return path.join(dir, `${base}.${suffix}.${ext}`);
 }
 
-/** The thumbnail variant paths derived from an original — used by callers
- *  (e.g. custom-art) that need to invalidate them when the original changes. */
+/** The thumbnail variant paths derived from an original: used by callers
+ *  (custom-art's move out of custom-art/) that take the original away. */
 export function thumbVariantPaths(originalPath) {
   const suffixes = new Set([...Object.values(SUFFIXES), ...Object.values(WIDE_SUFFIXES)]);
   return [...suffixes].flatMap((s) => [variantPath(originalPath, s, "jpg"), variantPath(originalPath, s, "webp"), variantPath(originalPath, s, WEBP_EXT), variantPath(originalPath, s, XL_WEBP_EXT)]);
@@ -190,6 +192,7 @@ async function ensureVariant(originalPath, variant) {
   if (!pending) {
     pending = (async () => {
       const tmp = `${variant.path}.tmp.${process.pid}`;
+      await mkdir(path.dirname(variant.path), { recursive: true });
       // Read as bytes: an uploaded picture is rewritten under the same name, and libvips would
       // answer a path it decoded before from its cache.
       let pipeline = sharp(await readFile(originalPath), { failOn: "none" });
@@ -214,10 +217,9 @@ async function ensureVariant(originalPath, variant) {
 }
 
 function acceptsWebp(req) {
-  // The console client doesn't send `image/webp`; modern
-  // browsers include it in the Accept header. We only check the explicit
-  // mime — relying on a bare `*/*` to mean "supports webp" produces
-  // false positives for legacy HTTP clients.
+  // The console client and modern browsers name `image/webp` in their Accept
+  // header. We only check the explicit mime: relying on a bare `*/*` to mean
+  // "supports webp" produces false positives for legacy HTTP clients.
   const a = req.get("accept") || "";
   return a.includes("image/webp");
 }
@@ -232,22 +234,30 @@ function variantSuffix(size, wide) {
  * (`wide`) come at 256, 512, 512 and 1280 px wide; the default returns the original. `wide` keeps the aspect
  * ratio (banners, screenshots) instead of cropping to a square (icons). When
  * the client says `Accept: image/webp` we serve WebP for a variant; otherwise JPEG.
+ * `overrideThumbs` (custom-art.serveOptions) is where an override's variants go:
+ * they are WebP whatever the client says; `overrideGone` is called when the
+ * override is no longer there.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, wide = false, current = false }) {
+export async function serveImage(req, res, opts) {
+  const { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false } = opts;
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
   const wantThumb = size !== null;
-  const wantWebp = wantThumb && acceptsWebp(req); // we only transcode the thumb
 
   // Operator-supplied art wins outright over the titledb CDN proxy / NACP
   // cache. When present we serve it (and derive thumbs from it) and never
-  // touch the upstream. `existsCached` keeps the common no-override path a
-  // pure Set lookup after the first hit.
-  let source = cachePath;
-  let fromOverride = false;
-  if (overridePath && existsCached(overridePath)) {
-    source = overridePath;
-    fromOverride = true;
-  } else {
+  // touch the upstream. It sits in a folder the admin may rename or delete by
+  // hand, yet it is sent without a look first (a request reads no more of the
+  // disk than what it sends): one found gone, at the send or the resize, falls
+  // back to the usual art and `overrideGone` has the game read again.
+  const fromOverride = Boolean(overridePath);
+  const source = overridePath || cachePath;
+  const gone = () => {
+    forget(overridePath);
+    overrideGone?.();
+    return serveImage(req, res, { ...opts, overridePath: null });
+  };
+  const send = (file) => (fromOverride ? sendOr(res, file, gone) : res.sendFile(file));
+  if (!fromOverride) {
     try {
       await ensureOriginal(cachePath, upstreamUrl);
     } catch (err) {
@@ -270,29 +280,52 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
         : UNVERSIONED
   );
 
+  const sourceType = source.endsWith(".webp") ? "image/webp" : "image/jpeg";
   if (!wantThumb) {
-    res.type("image/jpeg");
-    return res.sendFile(source);
+    res.type(sourceType);
+    return send(source);
   }
 
   try {
     const suffix = variantSuffix(size, wide);
     const px = (wide ? WIDE_SIZES : SIZES)[size];
+    const thumbs = fromOverride && overrideThumbs;
+    const at = thumbs || source;
+    const wantWebp = Boolean(thumbs) || acceptsWebp(req);
     const variant = wantWebp
       ? size === "xl"
-        ? { path: variantPath(source, suffix, XL_WEBP_EXT), resize: px, wide, format: "webp", webp: XL_WEBP_OPTIONS }
-        : { path: variantPath(source, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
-      : { path: variantPath(source, suffix, "jpg"), resize: px, wide, format: "jpeg" };
+        ? { path: variantPath(at, suffix, XL_WEBP_EXT), resize: px, wide, format: "webp", webp: XL_WEBP_OPTIONS }
+        : { path: variantPath(at, suffix, WEBP_EXT), resize: px, wide, format: "webp" }
+      : { path: variantPath(at, suffix, "jpg"), resize: px, wide, format: "jpeg" };
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");
-    return res.sendFile(variant.path);
+    if (!fromOverride) return res.sendFile(variant.path);
+    // A small copy found gone (thumbs/ pruned or cleared by hand) is made again, once; the
+    // picture itself counts as gone only when that fails too.
+    return sendOr(res, variant.path, opts.thumbAgain ? gone : () => serveImage(req, res, { ...opts, thumbAgain: true }));
   } catch (err) {
+    if (fromOverride && err.code === "ENOENT") return gone();
     debug.error("image cache: variant failed for %s: %s", source, err.message);
     // Worst case: send the original full-size, still works.
-    res.type("image/jpeg");
-    return res.sendFile(source);
+    res.type(sourceType);
+    return send(source);
   }
+}
+
+/** res.sendFile(file), and `gone()` in its place when the file is not there; nothing was sent then. */
+function sendOr(res, file, gone) {
+  res.sendFile(file, (err) => {
+    if (!err || res.headersSent) return;
+    if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+      forget(file);
+      Promise.resolve().then(gone).catch((e) => debug.error("image cache: %s", e.message));
+      return;
+    }
+    // What express does without a callback: the error's own status.
+    debug.cache("image cache: sending %s: %s", path.basename(file), err.message);
+    res.status(err.status ?? err.statusCode ?? 500).end();
+  });
 }
 
 /** Updates/DLC share the base game's icon — fold the suffix to 000. */
