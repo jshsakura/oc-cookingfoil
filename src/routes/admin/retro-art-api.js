@@ -35,7 +35,10 @@ import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import { packDirOf, packStatus } from "../../retro/pack-status.js";
 import { unreadFolders } from "../../retro/systems.js";
 import * as retroNames from "../../retro/names.js";
-import { rebuildRetroShortcut } from "../retro.js";
+import { rebuildRetroShortcut, retroMetaKey } from "../retro.js";
+import * as metaStore from "../../retro/meta/store.js";
+import * as metaEdits from "../../retro/meta/edits.js";
+import { GENRE_LABELS } from "../../meta/categories.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
@@ -244,6 +247,35 @@ export function mountRetroArtApi(router, requireSession) {
     rebuildRetroShortcut(g.id);
     debug.log("admin: retro game %s named", g.id);
     res.json({ ok: true, title: retroNames.get(g.id) });
+  }));
+
+  // The details clients show for a game (its versions share them): what was collected, and the admin's edit over it.
+  router.get("/api/retro-art/games/meta", guarded(async (req, res) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const g = catalog.byId.get(String(req.query.game ?? ""));
+    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    const key = retroMetaKey(catalog, g);
+    const collected = metaStore.get(key);
+    res.json({
+      key,
+      collected: collected && !collected.miss ? collected : null,
+      edit: metaEdits.get(key),
+      genres: Object.entries(GENRE_LABELS).map(([k, l]) => ({ key: k, name: l.ko ?? l.en })),
+    });
+  }));
+
+  // { description: { ko, en }, publisher, developer, year, players, genres }; an empty field goes back to what was collected.
+  router.post("/api/retro-art/games/meta", guarded(async (req, res) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const g = catalog.byId.get(String(req.body?.game ?? ""));
+    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    const { year, players } = req.body ?? {};
+    if (year !== undefined && year !== null && year !== "" && !/^(19[5-9]\d|20\d\d|2100)$/.test(String(year))) return res.status(400).json({ error: "발매 연도는 1950에서 2100 사이의 네 자리 숫자로 넣습니다." });
+    if (players !== undefined && players !== null && players !== "" && !/^([1-9]|[1-5]\d|6[0-4])$/.test(String(players))) return res.status(400).json({ error: "최대 인원은 1에서 64 사이의 숫자로 넣습니다." });
+    const key = retroMetaKey(catalog, g);
+    const edit = metaEdits.set(key, req.body ?? {});
+    debug.log("admin: retro game %s details %s", key, edit ? "edited" : "back to collected");
+    res.json({ key, edit });
   }));
 
   router.get("/api/retro-art/games", guarded(async (req, res) => {
