@@ -125,7 +125,13 @@ function arcadeView(games, files) {
  * `packDir` and the firmware listing `files` of `firmwareDir` (listed once by
  * the caller). Hashes go through `cache`, so an unchanged file is read once.
  */
-export async function requirements({ games, systems, packDir, firmwareDir, files, cache = md5Cache, rules = BIOS }) {
+export async function requirements({ games, systems, packDir, firmwareDir, files, cache = md5Cache, rules = BIOS, coreStates = [] }) {
+  // The upkeep's word on a console's core wins over the file check (auto-cores.js coreStates).
+  const upkeep = new Map(coreStates.map((st) => [`${st.id}\0${st.core}`, st]));
+  const stateOf = (id, c) => {
+    const st = upkeep.get(`${id}\0${c.core}`);
+    return st ? { ...c, state: st.state, reason: st.reason, message: st.message } : c;
+  };
   const pack = packStatus(packDir, games, systems);
   let hashed = null;
   // What the console gets by name, and with the files known by md5 only when some file is missing by name.
@@ -146,7 +152,7 @@ export async function requirements({ games, systems, packDir, firmwareDir, files
     const check = firmware.filter((f) => f.required && f.state === "mismatch").length;
     out.push({
       id: s.id, names: systems[s.id]?.names ?? { en: s.id }, games: s.games, missing, check,
-      cores: s.cores.map(coreView), firmware, ...(arcade ? { arcade } : {}),
+      cores: s.cores.map((c) => coreView(stateOf(s.id, c))), firmware, ...(arcade ? { arcade } : {}),
     });
   }
   const order = (s) => (s.missing ? 2 : s.check ? 1 : 0);

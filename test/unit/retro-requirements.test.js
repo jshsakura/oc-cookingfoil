@@ -245,6 +245,23 @@ test("a core state the pack reports wins over the file check, and only a failed 
   assert.equal(coreView({ core: "x", file: coreFile("x"), games: 1, installed: false, state: "not-in-bundle" }).warn, true);
 });
 
+test("the core upkeep's state of a console's core reaches the requirements view (auto-cores.js coreStates)", async () => {
+  const r = retro({ [coreFile("mgba")]: "nro" });
+  const games = [{ system: "gba", core: "mgba", rel: "a.gba" }, { system: "snes", core: "snes9x", rel: "b.sfc" }];
+  const coreStates = [
+    { id: "gba", core: "mgba", state: "pinned", origin: "extra" },
+    { id: "snes", core: "snes9x", state: "failed", reason: "crc-mismatch", message: "the CRC32 does not match" },
+  ];
+  const out = await requirements({ games, systems: DEFAULT_SYSTEMS, packDir: r.pack, firmwareDir: r.system, files: await listFirmware(r.system), cache: new Md5Cache(), rules: RULES, coreStates });
+  const cores = Object.fromEntries(out.systems.map((s) => [s.id, s.cores[0]]));
+  assert.equal(cores.gba.state, "pinned");
+  assert.equal(cores.gba.warn, false);
+  assert.deepEqual([cores.snes.state, cores.snes.reason, cores.snes.message, cores.snes.warn], ["failed", "crc-mismatch", "the CRC32 does not match", true]);
+  // Without the upkeep's word the file check stands.
+  const plain = Object.fromEntries((await view(r, games)).systems.map((s) => [s.id, s.cores[0].state]));
+  assert.deepEqual(plain, { gba: "present", snes: "missing" });
+});
+
 test("every core state and failure reason the pack may report reads as words in all four languages, and the broken ones warn", async () => {
   const { CORE_REASONS, CORE_STATES, coreView } = await import("../../src/retro/requirements.js");
   const { RQ_WORDS } = await import("../../src/routes/admin/retro-requirements-words.js");

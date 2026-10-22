@@ -46,17 +46,27 @@ import * as systemCores from "../../retro/system-cores.js";
 import { autoCores } from "../../retro/auto-cores.js";
 import { PackError } from "../../retro/pack-bundle.js";
 
+let hashCache = null;
+
+/**
+ * The pack's cores and the upkeep's state of each console's core (auto-cores.js coreStates), read
+ * the same way for this tab and for the requirements view (retro-art-api.js). Reads only.
+ */
+export async function coreStatesNow(catalog) {
+  hashCache ??= new HashCache(hashStore(appDb(), "retro"));
+  const list = await listCores(packDirOf(retroDir), hashCache, catalog.games, catalog.systems);
+  const auto = await autoCores();
+  return { list, auto, states: await auto.states(catalog, new Map(list.cores.map((c) => [c.core, c.sha256]))) };
+}
+
 export function mountRetroCoresApi(router, requireSession) {
-  let hashCache = null;
   router.get("/api/retro-cores", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     try {
       const catalog = await retroCatalog.current(retroDir);
-      hashCache ??= new HashCache(hashStore(appDb(), "retro"));
-      const list = await listCores(packDirOf(retroDir), hashCache, catalog.games, catalog.systems);
-      const auto = await autoCores();
-      const states = new Map((await auto.states(catalog, new Map(list.cores.map((c) => [c.core, c.sha256])))).map((st) => [st.id, st]));
+      const { list, auto, states: all } = await coreStatesNow(catalog);
+      const states = new Map(all.map((st) => [st.id, st]));
       res.json({ ...list, systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);

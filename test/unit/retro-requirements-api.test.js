@@ -10,6 +10,8 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-req-api-"));
 process.env.COOK_DATA_DIR = root;
 process.env.COOK_RETRO_DIR = path.join(root, "retro");
 process.env.COOK_RATING_SYNC = "false";
+// No core fetching here: the view reads "missing" for a core whether the upkeep or the file check says it.
+process.env.COOK_RETRO_AUTO_CORES = "false";
 for (const rel of ["roms/pcecd/Game.cue", "roms/gba/Game.gba", "retroarch/cores/mgba_libretro_libnx.nro", "retroarch/system/SYSCARD3.PCE"]) {
   fs.mkdirSync(path.dirname(path.join(root, "retro", rel)), { recursive: true });
   fs.writeFileSync(path.join(root, "retro", rel), "x");
@@ -36,8 +38,11 @@ test("GET /admin/api/retro/requirements names each system's core file and firmwa
     assert.deepEqual(pce.firmware.map((f) => [f.files, f.required, f.state, f.file]), [[["syscard3.pce"], true, "mismatch", "SYSCARD3.PCE"]]);
     assert.equal(pce.cores[0].file, "mednafen_pce_fast_libretro_libnx.nro");
     assert.equal(pce.cores[0].state, "missing");
+    assert.equal(pce.cores[0].warn, true);
     const gba = body.systems.find((s) => s.id === "gba");
-    assert.equal(gba.cores[0].state, "present");
+    // There: "pinned" from the upkeep (the server did not place it), "present" from the file check alone.
+    assert.ok(["pinned", "present"].includes(gba.cores[0].state), gba.cores[0].state);
+    assert.equal(gba.cores[0].warn, false);
     assert.deepEqual(gba.firmware.map((f) => [f.files, f.required, f.state]), [[["gba_bios.bin"], false, "missing"]]);
     assert.equal(body.systems[0].id, "pcecd", "what still needs something comes first");
 

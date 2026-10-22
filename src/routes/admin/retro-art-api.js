@@ -119,11 +119,22 @@ function biosNotices(catalog, files) {
   return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
 }
 
+/** The core upkeep's states for the requirements view; none (the file check alone) when they cannot be read. */
+async function upkeepStates(catalog) {
+  try {
+    const { coreStatesNow } = await import("./retro-cores-api.js");
+    return (await coreStatesNow(catalog)).states;
+  } catch (err) {
+    debug.error("retro requirements: core states unread: %s", err.message);
+    return [];
+  }
+}
+
 /** The old notices and the requirements view, from one listing of the system folder. */
 async function firmwareViews(catalog) {
   const dir = firmwareDir(retroDir);
   const files = await listFirmware(dir);
-  const req = await requirements({ games: catalog.games, systems: catalog.systems, packDir: packDirOf(retroDir), firmwareDir: dir, files });
+  const req = await requirements({ games: catalog.games, systems: catalog.systems, packDir: packDirOf(retroDir), firmwareDir: dir, files, coreStates: await upkeepStates(catalog) });
   return { bios: biosNotices(catalog, files), requirements: req };
 }
 
