@@ -44,6 +44,7 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { loadSystems } from "./systems.js";
+import * as systemCores from "./system-cores.js";
 import { assignSdNames } from "./sd-names.js";
 import { applyArcade, groupSets, setInfo } from "./arcade.js";
 import { buildGroups } from "./variants.js";
@@ -389,7 +390,7 @@ async function borrowArcadeArt(games, art) {
 
 /** Every game under `dir`, with the system table it was read with. */
 export async function scanDir(dir) {
-  const systems = loadSystems(dir);
+  const systems = systemCores.withPicks(loadSystems(dir), systemCores.all());
   const games = [];
   const present = new Set();
   for (const [systemId, system] of Object.entries(systems)) {
@@ -413,7 +414,7 @@ export async function scanDir(dir) {
     const claimed = new Set(found.flatMap((g) => g.extras.map((x) => x.rel)));
     let own = found.filter((g) => !claimed.has(g.rel));
     // Arcade zips keep their short names; the DAT names them and hides BIOS sets.
-    if (system.core === "fbneo") {
+    if ((system.tableCore ?? system.core) === "fbneo") {
       own = applyArcade(own, await readJson(path.join(dir, "arcade-names.json")));
       for (const g of own) if (g.original && !g.icon) g.icon = await firstIn(art.thumbs, thumbNames(g.original));
       await borrowArcadeArt(own, art);

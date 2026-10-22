@@ -5,7 +5,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { HashCache } from "../../src/helpers/hash-cache.js";
-import { listCores, originOf, OFFICIAL_VERSION } from "../../src/retro/core-list.js";
+import { listCores, originOf, OFFICIAL_VERSION, systemChoices } from "../../src/retro/core-list.js";
+import { withPicks } from "../../src/retro/system-cores.js";
 import official from "../../src/retro/data/official-cores-1.22.2.js";
 
 const memory = () => { const m = new Map(); return { get: (k) => m.get(k), set: (k, v) => m.set(k, v), prune: () => {} }; };
@@ -50,5 +51,20 @@ test("the core list shows each file's size, hash, name and the consoles whose ga
 
 test("no pack yet lists nothing", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-cores-"));
-  assert.deepEqual(await listCores(dir, new HashCache(memory()), [], {}), { official: "1.22.2", retroarch: null, cores: [] });
+  assert.deepEqual(await listCores(dir, new HashCache(memory()), [], {}), { official: "1.22.2", retroarch: null, cores: [], systems: [] });
+});
+
+test("each console with games lists the cores whose .info opens its files first, and the rest after", () => {
+  const systems = withPicks({
+    nes: { names: { ko: "패미컴" }, extensions: [".nes", ".fds"], core: "fceumm" },
+    snes: { names: { ko: "슈퍼 패미컴" }, extensions: [".sfc"], core: "snes9x" },
+    gba: { names: { ko: "게임보이 어드밴스" }, extensions: [".gba"], core: "mgba" },
+  }, { nes: "mesen", snes: "../x" });
+  const cores = [{ core: "fceumm", extensions: ["nes", "fds"] }, { core: "mesen", extensions: ["nes"] }, { core: "snes9x", extensions: ["sfc", "smc"] }];
+  const out = systemChoices(systems, [{ system: "nes" }, { system: "nes" }, { system: "snes" }], cores);
+  assert.deepEqual(out.map((s) => [s.id, s.games, s.core, s.tableCore, s.installed]), [["nes", 2, "mesen", "fceumm", true], ["snes", 1, "snes9x", "snes9x", true]],
+    "a console without games is left out; a malformed pick is ignored");
+  assert.deepEqual([out[0].fits, out[0].others], [["fceumm", "mesen"], ["snes9x"]]);
+  assert.equal(systems.nes.tableCore, "fceumm", "the system table's core stays beside the pick");
+  assert.equal(systems.snes.tableCore, undefined);
 });

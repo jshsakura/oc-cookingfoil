@@ -316,3 +316,37 @@ test("the admin adds a RetroArch core, replaces it only when asked, and removes 
     server.kill("SIGKILL");
   }
 });
+
+test("the admin picks the core a console's games start with, kept out of systems.json", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-system-core-"));
+  const dirs = Object.fromEntries(["data", "games", "patches", "saves", "retro"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  fs.mkdirSync(path.join(dirs.retro, "roms/gba"), { recursive: true });
+  fs.writeFileSync(path.join(dirs.retro, "roms/gba/Game.gba"), "rom");
+  fs.mkdirSync(path.join(dirs.retro, "retroarch/cores"), { recursive: true });
+  fs.mkdirSync(path.join(dirs.retro, "retroarch/info"), { recursive: true });
+  for (const core of ["mgba", "vba_next"]) fs.writeFileSync(path.join(dirs.retro, `retroarch/cores/${core}_libretro_libnx.nro`), fakeNro("1.0.0"));
+  fs.writeFileSync(path.join(dirs.retro, "retroarch/info/vba_next_libretro.info"), 'supported_extensions = "gba"\n');
+  const server = await boot(dirs);
+  try {
+    const admin = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")), "Content-Type": "application/json" };
+    const pick = (body) => fetch(`${BASE}/admin/api/retro-cores/system`, { method: "POST", headers: admin, body: JSON.stringify(body) });
+    const gba = async () => (await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json()).systems.find((s) => s.id === "gba");
+
+    assert.deepEqual(await gba(), { id: "gba", name: "게임보이 어드밴스", games: 1, core: "mgba", tableCore: "mgba", installed: true, fits: ["vba_next"], others: ["mgba"] });
+    assert.equal((await pick({ system: "gba", core: "snes9x" })).status, 400, "a core that is not installed");
+    assert.equal((await pick({ system: "nope", core: "mgba" })).status, 404);
+
+    const r = await pick({ system: "gba", core: "vba_next" });
+    assert.equal(r.status, 200, await r.clone().text());
+    assert.equal((await gba()).core, "vba_next");
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dirs.data, "retro-system-cores.json"), "utf8")), { gba: "vba_next" });
+    assert.ok(!fs.existsSync(path.join(dirs.retro, "systems.json")), "the operator's system table is not written");
+
+    assert.equal((await pick({ system: "gba", core: null })).status, 200);
+    assert.equal((await gba()).core, "mgba", "null goes back to the table's core");
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dirs.data, "retro-system-cores.json"), "utf8")), {});
+  } finally {
+    server.kill("SIGKILL");
+  }
+});
