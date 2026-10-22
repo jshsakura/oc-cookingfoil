@@ -14,14 +14,14 @@ function put(root, rel, body = "x") {
 
 test("OpenBOR is a system run by the OpenBOR libretro core", () => {
   const s = DEFAULT_SYSTEMS.openbor;
-  assert.deepEqual([s.core, s.coreName, s.extensions, s.folder], ["openbor", "OpenBOR", [".pak"], "OpenBOR"]);
+  assert.deepEqual([s.core, s.coreName, s.extensions, s.folder], ["openbor", "OpenBOR", [".pak"], "openbor"]);
   for (const lang of ["en", "ko", "ja", "zh"]) assert.ok(s.names[lang], lang);
 });
 
-test("a .pak in roms/OpenBOR is listed as an OpenBOR game", async () => {
+test("a .pak in roms/openbor is listed as an OpenBOR game", async () => {
   const dir = tmp();
-  put(dir, "roms/OpenBOR/Sample Brawler.pak");
-  put(dir, "roms/OpenBOR/readme.txt");
+  put(dir, "roms/openbor/Sample Brawler.pak");
+  put(dir, "roms/openbor/readme.txt");
   const { games } = await scanDir(dir);
   const bor = games.filter((g) => g.system === "openbor");
   assert.deepEqual(bor.map((g) => g.name), ["Sample Brawler"]);

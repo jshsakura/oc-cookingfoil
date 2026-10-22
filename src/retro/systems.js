@@ -229,7 +229,7 @@ const SYSTEMS = {
   // the core file is the operator's own build in retroarch/cores/ (the pack fill never brings it).
   openbor: {
     names: { en: "OpenBOR", ko: "OpenBOR (벨트스크롤)", ja: "OpenBOR", zh: "OpenBOR" },
-    extensions: [".pak"], core: "openbor", coreName: "OpenBOR", folder: "OpenBOR",
+    extensions: [".pak"], core: "openbor", coreName: "OpenBOR",
   },
 };
 
