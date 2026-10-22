@@ -141,6 +141,19 @@ function clientBuildWarnings() {
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
 export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
+// Reads a token may not make either: the token list (tokens never handle tokens) and the admin
+// login's second step.
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa)(?:\/|$)/i;
+
+/**
+ * Whether an automation token is refused `method path`, with the path decoded and as this router
+ * sees it (no /admin mount). requireSession enforces it; src/capabilities/define.js asks it too,
+ * so what the registry offers tokens never drifts from what the server allows.
+ */
+export function tokenBlocked(method, path) {
+  return (method.toUpperCase() === "GET" ? TOKEN_BLOCKED_READ_RE : TOKEN_BLOCKED_RE).test(path);
+}
+
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */
 function decodedPath(raw) {
   try {
@@ -151,13 +164,13 @@ function decodedPath(raw) {
 }
 
 function requireSession(req, res) {
-  if (req.apiToken && req.method !== "GET") {
+  if (req.apiToken) {
     const path = decodedPath(req.path);
     if (path === null) {
       res.status(400).json({ error: "malformed path" });
       return false;
     }
-    if (TOKEN_BLOCKED_RE.test(path)) {
+    if (tokenBlocked(req.method, path)) {
       res.status(403).json({ error: "automation tokens cannot do this; sign in to the admin page" });
       return false;
     }

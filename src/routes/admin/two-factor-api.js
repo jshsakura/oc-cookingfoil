@@ -8,7 +8,8 @@
  *
  * Every call needs a valid admin session; changes also need a same-origin
  * request. The live secret keeps working until a candidate is confirmed, so a
- * half-finished enrollment never locks anyone out.
+ * half-finished enrollment never locks anyone out. Automation tokens are refused all of
+ * these (tokenBlocked() in routes/admin-page.js).
  */
 import { renderSVG } from "uqr";
 import { adminPasswordMode, codeMatches, provisioningUri, verifyPassword } from "../../security/admin-session.js";
@@ -39,7 +40,6 @@ export function mountTwoFactorApi(router, { requireSession }) {
   const guarded = (handler, { write = true } = {}) => async (req, res) => {
     res.set("Cache-Control", "no-store");
     if (!requireSession(req, res) || (write && !sameOrigin(req, res))) return;
-    if (req.apiToken) return res.status(403).json({ error: "automation tokens cannot change the admin login" });
     try {
       await handler(req, res);
     } catch (err) {
