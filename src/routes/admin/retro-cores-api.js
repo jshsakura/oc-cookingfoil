@@ -11,6 +11,12 @@
  *   POST /admin/api/retro-cores/remove   { core, force? }  moves the core to the retro trash; 409 with
  *                                         { using } when games use it, unless force
  *
+ *   POST /admin/api/retro-cores/shortcuts/ack  { system }  the console's shortcuts have been downloaded again;
+ *                                         clears its "download the shortcuts again" mark
+ *
+ * The response also carries shortcutsStale: { <system id>: { from, to, at } }, the consoles whose core changed
+ * since their shortcuts were built.
+ *
  * E = { size, sha256, modifiedAt, origin: "official" | "modified" | "extra" } (src/retro/core-list.js).
  * Uploads go through /admin/api/upload/core.
  */
@@ -26,6 +32,7 @@ import { listCores } from "../../retro/core-list.js";
 import { CoreError, removeCore } from "../../retro/core-files.js";
 import { coreFile, packDirOf } from "../../retro/pack-status.js";
 import * as systemCores from "../../retro/system-cores.js";
+import { shortcutStale } from "../../retro/pack-watch.js";
 
 export function mountRetroCoresApi(router, requireSession) {
   let hashCache = null;
@@ -35,7 +42,7 @@ export function mountRetroCoresApi(router, requireSession) {
     try {
       const catalog = await retroCatalog.current(retroDir);
       hashCache ??= new HashCache(hashStore(appDb(), "retro"));
-      res.json(await listCores(packDirOf(retroDir), hashCache, catalog.games, catalog.systems));
+      res.json({ ...(await listCores(packDirOf(retroDir), hashCache, catalog.games, catalog.systems)), shortcutsStale: shortcutStale().stale() });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
       res.status(502).json({ error: err.message });
@@ -57,11 +64,19 @@ export function mountRetroCoresApi(router, requireSession) {
       systemCores.set(system, core === tableCore ? null : core);
       await retroCatalog.rescan(retroDir);
       debug.log("admin retro-cores: %s plays with %s", system, core ?? tableCore);
-      res.json({ system, core: core ?? tableCore, tableCore });
+      res.json({ system, core: core ?? tableCore, tableCore, shortcutsStale: Boolean(shortcutStale().stale()[system]) });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
       res.status(502).json({ error: err.message });
     }
+  });
+
+  router.post("/api/retro-cores/shortcuts/ack", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    const system = req.body?.system;
+    if (typeof system !== "string" || !systemCores.SYSTEM_RE.test(system)) return res.status(400).json({ error: "기종을 알려 주세요." });
+    res.json({ system, cleared: shortcutStale().ack(system) });
   });
 
   router.post("/api/retro-cores/remove", async (req, res) => {

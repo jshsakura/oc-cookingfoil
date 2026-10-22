@@ -2,8 +2,12 @@
  * Retro games for RetroArch on the console. Off (404) until the retro folder
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
- *   GET /api/retro/systems                       { retroarch: "installed" | "missing", systems: [{ id, name, names, defaultCore, coreName, romCount,
- *                                                iconUrl, iconMonoUrl, core: { id, state: "ready" | "core-missing" } }] }
+ *   GET /api/retro/systems                       { retroarch: "installed" | "missing", notices: { shortcutsStale: { <12 languages>: text } },
+ *                                                systems: [{ id, name, names, defaultCore, coreName, romCount, iconUrl, iconMonoUrl,
+ *                                                core: { id, state: "ready" | "core-missing", shortcutsStale: boolean,
+ *                                                        previousCore?, changedAt? } }] }
+ *                                                shortcutsStale: the console's core changed, so its HOME menu shortcuts have to be
+ *                                                downloaded again; previousCore is the core they were built for, changedAt is in ms
  *                                                only consoles with at least one listed game; the others never appear
  *   GET /api/retro/systems/:id/icon[?style=mono][&v=] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
  *                                                <folder> being the system's server folder, else <id>.png);
@@ -152,8 +156,9 @@ import * as romHashes from "../retro/rom-hash.js";
 import { createIndexCache, delta } from "../retro/list-index.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
-import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
+import { RETRO_LABELS, RETRO_NOTICES, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
+import { shortcutStale, startPackWatch } from "../retro/pack-watch.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
@@ -618,6 +623,8 @@ export default function retroRouter() {
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
   // Content hashes (rom_hash) of the new and changed files, one at a time.
   catalog.onScan((state) => romHashes.queue(state.games));
+  // Adds a missing core when ROMs appear for a console, keeps the server's own pack files current, and notes consoles whose core changed.
+  if (retroEnabled()) startPackWatch();
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch((err) => debug.error("retro: first catalog scan failed: %s", err.message)));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.
@@ -652,12 +659,20 @@ export default function retroRouter() {
     // Whether this server can run them: RetroArch itself and each console's core files.
     const pack = packStatus(packDir(), cat.games, cat.systems);
     const ready = new Map(pack.systems.map((p) => [p.id, p.state]));
+    const stale = shortcutStale().stale();
     res.json({
       retroarch: pack.retroarch,
+      // Shown by the client next to a console whose `core.shortcutsStale` is true.
+      notices: RETRO_NOTICES,
       systems: catalog.visibleSystems(cat, listedGames(cat)).map((s) => ({
         ...s,
         ...systemIconUrls(s.id, cat.systems[s.id]),
-        core: { id: s.defaultCore, state: ready.get(s.id) ?? "ready" },
+        core: {
+          id: s.defaultCore,
+          state: ready.get(s.id) ?? "ready",
+          shortcutsStale: Boolean(stale[s.id]),
+          ...(stale[s.id] ? { previousCore: stale[s.id].from, changedAt: stale[s.id].at } : {}),
+        },
       })),
     });
   }));

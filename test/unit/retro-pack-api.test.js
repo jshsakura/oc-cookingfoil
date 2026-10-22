@@ -52,3 +52,12 @@ test("F2: two simultaneous start requests: one 202, one 409, and the first job's
   assert.equal(view.body.job.startedAt, first.startedAt);
   assert.equal(view.body.job.error, undefined);
 });
+
+test("the pack view carries what the automatic upkeep did and its switches, and a check can be run by hand", async () => {
+  const routes = mount();
+  const view = await call(routes["GET /api/retro-pack"]);
+  assert.deepEqual(view.body.auto.settings, { auto: true, download: false });
+  const checked = await call(routes["POST /api/retro-pack/auto/check"]);
+  assert.equal(checked.status, 200);
+  assert.ok(["nothing", "off", "fill-needed", "busy"].includes(checked.body.add.state), checked.body.add.state);
+});

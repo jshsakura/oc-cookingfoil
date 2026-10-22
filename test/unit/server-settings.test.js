@@ -128,3 +128,15 @@ test("the share inbox switch and its two sizes are saved in bytes and apply at o
   assert.equal(env.inboxEnabled, true);
   assert.equal(env.inboxMaxBytes, 2 * 1024 ** 3);
 });
+
+test("the pack's automatic upkeep is on by default and the automatic download is off, both switchable from the admin page", () => {
+  assert.equal(env.retroPackAuto, true);
+  assert.equal(env.retroPackAutoDownload, false);
+  settings.save({ retroPackAuto: false, retroPackAutoDownload: true });
+  assert.equal(env.retroPackAuto, false);
+  assert.equal(env.retroPackAutoDownload, true);
+  assert.throws(() => settings.save({ retroPackAuto: "yes" }), /retroPackAuto/);
+  settings.save({ retroPackAuto: null, retroPackAutoDownload: null });
+  assert.equal(env.retroPackAuto, true);
+  assert.equal(env.retroPackAutoDownload, false);
+});

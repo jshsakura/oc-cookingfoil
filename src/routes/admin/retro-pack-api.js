@@ -6,6 +6,11 @@
  *                                        dirs, kept, notInBundle, needsBundle, job, credit }
  *   POST /admin/api/retro-pack/fill    { confirm: true } starts it (202 { job }); 409 when one runs; 400 without confirm
  *
+ * What the server does by itself (retro/pack-auto.js, switch: retroPackAuto) shows in `auto`:
+ * { add: { state, cores }, update: { state, available }, at, settings: { auto, download } }, where
+ * add.state is off | nothing | fill-needed | installed | failed | busy and update.state adds update-needed and updated.
+ *   POST /admin/api/retro-pack/auto/check   runs that check now (also repeating the update check) and answers with `auto`
+ *
  * The order: the RetroArch body, the cores for consoles that have ROMs, info/assets/autoconfig, then the
  * covers and bezels of every console with ROMs (the same job as the art tab's "download what is missing").
  * Progress shows in the activity menu. Which files the server may replace is src/retro/pack-fill.js's rule.
@@ -22,6 +27,7 @@ import { packDirOf } from "../../retro/pack-status.js";
 import { BEZEL_CREDIT } from "../../retro/credits.js";
 import * as activity from "../../tasks/activity.js";
 import { startArtSync } from "./retro-art-api.js";
+import * as packWatch from "../../retro/pack-watch.js";
 
 let last = null;
 // Held from the moment a start request is accepted to the end of the covers step; set before any await.
@@ -38,7 +44,20 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
       const catalog = await retroCatalog.current(retroDir);
       const packDir = packDirOf(retroDir);
       const plan = await describeFill({ packDir, ledger: ledger().forRoot(await ledgerRoot(packDir)), games: catalog.games, systems: catalog.systems, cacheDir: path.join(cacheRoot(), lock.version) });
-      res.json({ ...plan, job: last, busy: active, recovery: readRecovery(dataDir), credit: BEZEL_CREDIT });
+      res.json({ ...plan, job: last, busy: active, recovery: readRecovery(dataDir), credit: BEZEL_CREDIT, auto: packWatch.status() });
+    } catch (err) {
+      debug.error("admin retro-pack: %s", err.message);
+      res.status(502).json({ error: err.message });
+    }
+  });
+
+  router.post("/api/retro-pack/auto/check", async (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    try {
+      const catalog = await retroCatalog.current(retroDir);
+      await packWatch.check(catalog.games, catalog.systems, { force: true, ledger });
+      res.json(packWatch.status());
     } catch (err) {
       debug.error("admin retro-pack: %s", err.message);
       res.status(502).json({ error: err.message });

@@ -44,6 +44,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h3 data-top="rp.title">RetroArch 한 번에 채우기</h3><button type="button" class="primary" id="rp-fill" data-top="rp.button">한 번에 채우기</button></div>
   <p class="muted" data-top="rp.lead">공식 RetroArch 번들에서 본체, 지금 ROM 이 있는 기종의 코어, info·assets·autoconfig 를 받아 채운 뒤 표지와 베젤을 받습니다. 직접 넣은 파일, 바꾼 파일, retroarch.cfg, system(BIOS)은 건드리지 않습니다.</p>
   <p class="muted" id="rp-last"></p>
+  <p class="muted" id="rp-auto"></p><button type="button" id="rp-auto-check" data-top="rp.autoCheck">지금 확인</button>
   <h3>기종별 코어</h3>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
@@ -128,7 +129,7 @@ function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
   const panel=['art','ratings','cores'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
-  if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
+  if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>{rpLast(d.job);rpAuto(d.auto,d.kept);}).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
 function retroOpen(){loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
@@ -139,7 +140,7 @@ function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
-  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);
+  $('rc-official').textContent=d.official;rcSystems(d.systems||[],d.shortcutsStale||{});
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
   table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
@@ -151,6 +152,22 @@ function rpLast(job){const p=$('rp-last');if(!job){p.textContent='';return;}
   if(job.error)p.textContent=rpT('lastFail',{err:job.error});
   else if(job.result)p.textContent=rpT('lastOk',{i:job.result.installed,r:job.result.replaced,k:job.result.keptCount.operator+job.result.keptCount.modified,b:job.art?job.art.boxart:0,z:job.art?job.art.bezel:0});
   else p.textContent='';}
+function rpAuto(a,kept){const p=$('rp-auto');if(!a){p.textContent='';return;}
+  const out=[];
+  if(!a.settings.auto)out.push(rpT('autoOff'));
+  else{const add=a.add||{},up=a.update||{};
+    if(add.state==='installed')out.push(rpT('autoInstalled',{names:add.cores.join(', ')}));
+    if(add.state==='fill-needed')out.push(rpT('autoFillNeeded',{names:add.cores.join(', ')}));
+    if(up.state==='update-needed')out.push(rpT('autoUpdateNeeded',{n:up.files}));
+    if(up.state==='updated')out.push(rpT('autoUpdated'));
+    const names=[...new Set([...(up.available||[]),...(kept||[])].map((k)=>k.rel))];
+    if(names.length)out.push(rpT('autoAvailable',{names:names.join(', ')}));
+    for(const x of [add,up])if(x.state==='failed')out.push(rpT('autoFailed',{err:x.error}));}
+  p.textContent=out.join(' ');}
+async function rpAutoCheck(){$('rp-auto-check').disabled=true;
+  try{const a=await api('/admin/api/retro-pack/auto/check',{method:'POST',body:{}});rpAuto(a);loadRetroCores();}
+  catch(err){toast(err.message);}finally{$('rp-auto-check').disabled=false;}}
+$('rp-auto-check').addEventListener('click',rpAutoCheck);
 async function rpOpen(){let d;
   try{d=await api('/admin/api/retro-pack');}catch(err){toast(err.message);return;}
   $('rp-size').textContent=d.bundle.remaining===0||!d.needsBundle?rpT('sizeCached'):rpT('size',{size:rcMb(d.bundle.remaining),ver:d.version});
@@ -172,11 +189,14 @@ function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name
   if(s.fits.length)sel.append(group('확장자가 맞는 코어',s.fits));
   if(s.others.length)sel.append(group('기타',s.others));
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
-function rcSystems(list){
+async function rcAck(s){
+  try{await api('/admin/api/retro-cores/shortcuts/ack',{method:'POST',body:{system:s.id}});loadRetroCores();}catch(err){toast(err.message);}}
+function rcSystems(list,stale){
   table('rc-systems',['기종','게임','코어',''],list.map((s)=>{const tr=el('tr');
     const state=!s.installed?pill('코어가 없습니다','warn'):s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
     const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
     const extra=td();if(state)extra.append(state);if(back)extra.append(back);
+    const st=stale[s.id];if(st){extra.append(pill(rpT('stale'),'warn'),el('span',rpT('staleHint',{from:st.from,to:st.to}),'muted'),btn(rpT('staleAck'),()=>rcAck(s)));}
     tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
 async function rcSetSystem(s,core,sel){
   if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}

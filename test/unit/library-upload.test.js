@@ -375,3 +375,40 @@ test("the admin picks the core a console's games start with, kept out of systems
     server.kill("SIGKILL");
   }
 });
+
+test("picking another core marks the console's shortcuts to be downloaded again, for the admin and for the client, until it is acknowledged", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-stale-core-"));
+  const dirs = Object.fromEntries(["data", "games", "patches", "saves", "retro"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  fs.mkdirSync(path.join(dirs.retro, "roms/gba"), { recursive: true });
+  fs.writeFileSync(path.join(dirs.retro, "roms/gba/Game.gba"), "rom");
+  fs.mkdirSync(path.join(dirs.retro, "retroarch/cores"), { recursive: true });
+  for (const core of ["mgba", "vba_next"]) fs.writeFileSync(path.join(dirs.retro, `retroarch/cores/${core}_libretro_libnx.nro`), fakeNro("1.0.0"));
+  const server = await boot(dirs);
+  try {
+    const admin = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")), "Content-Type": "application/json" };
+    const post = (url, body) => fetch(`${BASE}${url}`, { method: "POST", headers: admin, body: JSON.stringify(body) });
+    const client = async () => (await (await fetch(`${BASE}/api/retro/systems`, { headers: admin })).json());
+    const gba = async () => (await client()).systems.find((s) => s.id === "gba").core;
+    const stale = async () => (await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json()).shortcutsStale;
+
+    assert.equal((await gba()).shortcutsStale, false, "nothing changed yet");
+    assert.deepEqual(await stale(), {});
+    assert.equal((await post("/admin/api/retro-cores/system", { system: "gba", core: "vba_next" })).status, 200);
+    const core = await gba();
+    assert.equal(core.shortcutsStale, true);
+    assert.equal(core.previousCore, "mgba");
+    assert.equal(core.id, "vba_next");
+    assert.ok(core.changedAt > 0);
+    const { notices } = await client();
+    assert.equal(Object.keys(notices.shortcutsStale).length, 12);
+    assert.deepEqual(Object.keys(await stale()), ["gba"]);
+    assert.equal((await (await post("/admin/api/retro-cores/shortcuts/ack", { system: "gba" })).json()).cleared, true);
+    assert.equal((await gba()).shortcutsStale, false);
+    // The choice stays; only the mark is gone, and going back marks it again.
+    await post("/admin/api/retro-cores/system", { system: "gba", core: null });
+    assert.equal((await gba()).shortcutsStale, true);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

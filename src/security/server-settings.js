@@ -59,6 +59,10 @@ export const SETTINGS = {
   ratingSync: bool,
   retroMeta: bool,
   // The RetroArch bundle's address; empty is the official one in the pack lock. The lock's SHA-256 decides what is accepted.
+  // Add a missing core for a console that got ROMs, and move the server's own pack files to a newer lock version.
+  retroPackAuto: bool,
+  // Whether that may download the 300 MB bundle by itself when it is not on disk.
+  retroPackAutoDownload: bool,
   retroPackUrl: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || URL_RE.test(v) },
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.

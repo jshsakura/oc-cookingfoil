@@ -139,14 +139,16 @@ async function isNro(abs) {
 }
 
 /** Everything unpacked, as [{ rel (in the pack), abs, sha256, source }], after checking it against the lock. */
-async function stagedFiles(staging, cores, { lock, official: officialCores }) {
+async function stagedFiles(staging, cores, { lock, official: officialCores }, { body: withBody = true, dirs = null } = {}) {
   const out = [];
   const body = lock.paths.body;
   const bodyAbs = path.join(staging, body.from);
-  await plainFile(bodyAbs);
-  const bodySha = await sha256File(bodyAbs);
-  if (bodySha !== body.sha256 || !(await isNro(bodyAbs))) throw new PackError("번들의 RetroArch 본체가 lock 과 다릅니다. 설치하지 않습니다", { status: 502 });
-  out.push({ rel: body.to, abs: bodyAbs, sha256: bodySha, source: "bundle", kind: "body" });
+  if (withBody) {
+    await plainFile(bodyAbs);
+    const bodySha = await sha256File(bodyAbs);
+    if (bodySha !== body.sha256 || !(await isNro(bodyAbs))) throw new PackError("번들의 RetroArch 본체가 lock 과 다릅니다. 설치하지 않습니다", { status: 502 });
+    out.push({ rel: body.to, abs: bodyAbs, sha256: bodySha, source: "bundle", kind: "body" });
+  }
   for (const core of cores) {
     const abs = path.join(staging, lock.paths.cores.from, `${core}_libretro_libnx.nro`);
     await plainFile(abs);
@@ -155,7 +157,7 @@ async function stagedFiles(staging, cores, { lock, official: officialCores }) {
     if (sha256 !== want || (await fsp.stat(abs)).size !== size || !(await isNro(abs))) throw new PackError(`번들의 ${core} 코어가 공식 목록과 다릅니다. 설치하지 않습니다`, { status: 502 });
     out.push({ rel: coreRel(core), abs, sha256, source: "bundle", kind: "core" });
   }
-  for (const d of lock.paths.dirs) {
+  for (const d of lock.paths.dirs.filter((x) => !dirs || dirs.includes(x.to))) {
     for (const f of await walkFiles(path.join(staging, d.from))) {
       const abs = path.join(staging, d.from, f);
       out.push({ rel: `${d.to}/${f}`, abs, sha256: await sha256File(abs), source: "bundle", kind: "dir" });
@@ -316,8 +318,14 @@ export const clearRecovery = (dataDir) => fs.rmSync(recoveryFile(dataDir), { for
  * Downloads (when needed), unpacks and places the body, the wanted cores and the folders.
  * Returns { version, installed, replaced, current, kept: [{ rel, state }], keptCount, prevDir }.
  * `onStep(name, detail)` reports "download" (with { done, total }), "unpack", "check", "place".
+ *
+ * `mode` narrows what a run may do (the admin's button is "fill"; src/retro/pack-auto.js runs the others):
+ *   fill       the body, the wanted cores and the folders: install what is absent, replace what is the server's
+ *   add-cores  only the wanted cores that are absent; nothing is replaced, no folder is touched
+ *   update     only files the ledger holds: replace the untouched ones, install nothing; the ones that differ
+ *              from the bundle but are not the server's to replace come back in `kept`
  */
-export async function applyFill({ packDir, dataDir, ledger, games, systems = {}, url, onStep = () => {}, fetchImpl, io, bin, pack = REAL_PACK }) {
+export async function applyFill({ packDir, dataDir, ledger, games, systems = {}, url, onStep = () => {}, fetchImpl, io, bin, pack = REAL_PACK, mode = "fill" }) {
   const { lock } = pack;
   if (running) throw new PackError("이미 채우고 있습니다", { status: 409 });
   const pending = readRecovery(dataDir);
@@ -335,16 +343,31 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     if ((await fsp.lstat(keepRoot).catch(() => null))?.isSymbolicLink()) throw new PackError("retro-pack-prev 가 링크라 쓰지 않습니다", { status: 500 });
     await fsp.mkdir(keepRoot, { recursive: true });
     const { have } = wantedCores(games, pack);
-    const cores = have.map((c) => c.core);
+    let cores = have.map((c) => c.core);
     // Nothing to place and no bundle on disk: do not fetch 300 MB to learn that.
     const plan = await describeFill({ packDir: root, ledger, games, systems, cacheDir: path.join(cacheRoot, lock.version), pack });
-    if (!plan.needsBundle && !plan.bundle.cached) return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
+    const owned = ledger.all();
+    const coreOf = (rel) => rel.match(/^cores\/([a-z0-9_]+)_libretro_libnx\.nro$/)?.[1];
+    // What each mode unpacks: the files it may place.
+    let want = { body: true, dirs: null };
+    let needs = plan.needsBundle;
+    if (mode === "add-cores") {
+      cores = plan.items.filter((i) => i.kind === "core" && i.state === "install").map((i) => i.name);
+      want = { body: false, dirs: [] };
+      needs = cores.length > 0;
+    } else if (mode === "update") {
+      const rels = [...owned].filter(([, e]) => e.lockVersion !== lock.version).map(([rel]) => rel);
+      cores = rels.map(coreOf).filter((c) => c && pack.official.files[`${c}_libretro_libnx.nro`]);
+      want = { body: rels.includes(lock.paths.body.to), dirs: lock.paths.dirs.map((d) => d.to).filter((to) => rels.some((r) => r.startsWith(`${to}/`))) };
+      needs = want.body || cores.length > 0 || want.dirs.length > 0;
+    } else if (mode !== "fill") throw new PackError(`mode ${mode} 를 모릅니다`, { status: 500 });
+    if (!needs && (mode !== "fill" || !plan.bundle.cached)) return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
     onStep("download", { done: 0, total: lock.bundle.size });
     const { file } = await downloadBundle({ url: url || lock.bundle.url, file: lock.bundle.file, size: lock.bundle.size, sha256: lock.bundle.sha256, cacheDir: path.join(cacheRoot, lock.version), fetchImpl, onProgress: (p) => onStep("download", p) });
     onStep("unpack");
-    await extractPaths(file, staging, [lock.paths.body.from, ...cores.map((c) => `${lock.paths.cores.from}/${c}_libretro_libnx.nro`), ...lock.paths.dirs.map((d) => d.from)], { bin });
+    await extractPaths(file, staging, [...(want.body ? [lock.paths.body.from] : []), ...cores.map((c) => `${lock.paths.cores.from}/${c}_libretro_libnx.nro`), ...lock.paths.dirs.filter((d) => !want.dirs || want.dirs.includes(d.to)).map((d) => d.from)], { bin });
     onStep("check");
-    const staged = await stagedFiles(staging, cores, pack);
+    const staged = (await stagedFiles(staging, cores, pack, want)).filter((f) => mode !== "update" || owned.has(f.rel));
     const entries = ledger.all();
     const ops = [];
     const tally = { current: 0 };
@@ -355,6 +378,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       if (isProtected(f.rel)) throw new PackError(`${f.rel} 는 서버가 쓰지 않는 파일입니다`, { status: 500 });
       const entry = entries.get(f.rel);
       const state = decide({ current: await hashOrNull(path.join(root, f.rel)), entry, next: f.sha256 });
+      if (mode === "update" && state === "install") continue;
       if (state === "install" || state === "replace") ops.push({ ...f, action: state, expect: entry?.sha256, prevVersion: entry?.lockVersion ?? "unknown" });
       else if (state === "current") {
         tally.current++;
@@ -363,7 +387,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
         if (entry && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
       } else {
         keptCount[state]++;
-        if (f.kind !== "dir") kept.push({ rel: f.rel, state });
+        if (f.kind !== "dir" || mode === "update") kept.push({ rel: f.rel, state });
       }
     }
     onStep("place", { files: ops.length });

@@ -236,6 +236,10 @@ let retroMeta = envBool("COOK_RETRO_META", true);
 // official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
 // must serve the same bytes, the lock's SHA-256 is checked either way.
 let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
+// Whether the server adds a missing core for a console that got ROMs, and moves its own pack files to a newer
+// lock version (retro/pack-auto.js). Downloading the 300 MB bundle for that is a separate switch, off by default.
+let retroPackAuto = envBool("COOK_RETRO_PACK_AUTO", true);
+let retroPackAutoDownload = envBool("COOK_RETRO_PACK_AUTO_DOWNLOAD", false);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -412,6 +416,8 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   retroMeta,
   retroPackUrl,
+  retroPackAuto,
+  retroPackAutoDownload,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -462,6 +468,8 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
   retroPackUrl = v.retroPackUrl;
+  retroPackAuto = v.retroPackAuto;
+  retroPackAutoDownload = v.retroPackAutoDownload;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -572,6 +580,8 @@ export {
   ratingSync,
   retroMeta,
   retroPackUrl,
+  retroPackAuto,
+  retroPackAutoDownload,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

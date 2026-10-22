@@ -160,8 +160,8 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     const { systems, retroarch } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
     assert.equal(retroarch, "installed");
-    assert.deepEqual(snes.core, { id: "snes9x", state: "ready" }, "its core is in the pack");
-    assert.deepEqual(systems.find((s) => s.id === "nes").core, { id: "fceumm", state: "core-missing" }, "a console whose core the pack lacks says so");
+    assert.deepEqual(snes.core, { id: "snes9x", state: "ready", shortcutsStale: false }, "its core is in the pack");
+    assert.deepEqual(systems.find((s) => s.id === "nes").core, { id: "fceumm", state: "core-missing", shortcutsStale: false }, "a console whose core the pack lacks says so");
     assert.equal(snes.romCount, 3);
     assert.equal(systems.find((s) => s.id === "nes").romCount, 1, "only roms/nes is read");
     assert.equal(snes.defaultCore, "snes9x");
