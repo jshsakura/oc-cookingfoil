@@ -53,11 +53,17 @@ export function normalize(raw) {
   return out;
 }
 
-/** The fields of a game.json that are text in English or Korean; anything else in the file is left out. Pure. */
+const HANGUL_RE = /[\uac00-\ud7a3]/;
+
+/**
+ * The fields of a game.json that are text in English or Korean; anything else in the file is left out.
+ * A field written by hand as plain text counts as Korean when it has Hangul, else English. Pure.
+ */
 function readFields(json) {
   const out = {};
   for (const field of FIELDS) {
-    const v = json?.[field];
+    let v = json?.[field];
+    if (typeof v === "string") v = HANGUL_RE.test(v) ? { ko: v } : { en: v };
     if (!v || typeof v !== "object") continue;
     const en = typeof v.en === "string" && v.en.trim() ? v.en : null;
     const ko = typeof v.ko === "string" && v.ko.trim() ? v.ko : null;
@@ -104,7 +110,25 @@ function writeAtomic(file, text) {
   fs.renameSync(tmp, file);
 }
 
-const toJson = (id, fields) => `${JSON.stringify({ id, ...fields }, null, 1)}\n`;
+// The game.json layout; a file without one was written by version 1.
+export const SCHEMA = 1;
+// Keys the server owns in a game.json; every other key (one a later version or a person added) is kept as it is.
+const OWN_KEYS = new Set(["id", "version", "locked", ...FIELDS]);
+
+/**
+ * A game.json: what was in it beside the server's keys, then the fields.
+ * `locked` lists what the admin set by hand, which a metadata refresh will not
+ * replace: the fields saved here, and anything else already listed (art). Pure.
+ */
+function toJson(id, fields, before = {}) {
+  const kept = Object.fromEntries(Object.entries(before).filter(([k]) => !OWN_KEYS.has(k)));
+  const otherLocks = [...new Set((Array.isArray(before.locked) ? before.locked : []).filter((k) => typeof k === "string" && !FIELDS.includes(k)))];
+  const locked = [...FIELDS.filter((f) => fields[f]), ...otherLocks];
+  // A file a later version wrote keeps its version: this one only adds what it knows.
+  const version = Number.isInteger(before.version) && before.version > SCHEMA ? before.version : SCHEMA;
+  const doc = { id, version, ...kept, ...fields, ...(locked.length ? { locked } : {}) };
+  return { text: `${JSON.stringify(doc, null, 1)}\n`, empty: !FIELDS.some((f) => fields[f]) && !Object.keys(kept).length && !otherLocks.length };
+}
 
 /** Reads one game.json: its fields, or an error saying the file cannot be read. Cached by its stamp. */
 function readFile(file) {
@@ -119,7 +143,10 @@ function readFile(file) {
   if (seen?.stamp === stamp) return seen;
   let out;
   try {
-    out = { stamp, fields: readFields(JSON.parse(fs.readFileSync(file, "utf8"))) };
+    const json = JSON.parse(fs.readFileSync(file, "utf8"));
+    // Anything but an object is a file someone else put here: read as broken, so it is never written over.
+    if (!json || typeof json !== "object" || Array.isArray(json)) throw new Error("not a JSON object");
+    out = { stamp, fields: readFields(json), raw: json };
   } catch (err) {
     out = { stamp, fields: null, error: new Error(`${file} cannot be read: ${err.message}`) };
     debug.error("game descriptions: %s", out.error.message);
@@ -241,7 +268,8 @@ function all() {
 function persist(id, fields) {
   const dir = folders().get(id) ?? path.join(GAMES_DIR, folderName(id, fields.name?.ko ?? fields.name?.en ?? nameOf(id)));
   const file = path.join(dir, FILE);
-  if (Object.keys(fields).length) writeAtomic(file, toJson(id, fields));
+  const { text, empty } = toJson(id, fields, readFile(file).raw);
+  if (!empty) writeAtomic(file, text);
   else {
     fs.rmSync(file, { force: true });
     // The folder goes too when nothing else (a picture) is in it.
@@ -264,6 +292,19 @@ const clean = (v, field) => {
 /** Every game the admin wrote about, by base title id. */
 export function edited() {
   return Object.keys(all());
+}
+
+/** What a metadata refresh must leave alone for a game: the fields and art the admin set by hand. */
+export function locked(id) {
+  if (!ID_RE.test(String(id))) return [];
+  fieldsOf(id);
+  const dir = folders().get(id);
+  const got = dir ? readFile(path.join(dir, FILE)) : {};
+  const list = got.raw?.locked;
+  // A file from before the list (0.9.4) holds only what the admin wrote: all of it is theirs.
+  const fromFile = Array.isArray(list) ? list.filter((k) => typeof k === "string") : Object.keys(got.fields ?? {});
+  // Text still in the old file was written by the admin too.
+  return [...new Set([...fromFile, ...Object.keys(leftover.get(id) ?? {})])];
 }
 
 /** The admin's text for a game ({ description, notes }, each { en, ko } or null), or null. */
