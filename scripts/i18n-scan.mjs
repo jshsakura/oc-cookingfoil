@@ -173,13 +173,36 @@ function nameOf(node) {
   return null;
 }
 
+/** The declarators a module declares at its top level, exported or not. */
+function topDeclarators(ast) {
+  const out = new Set();
+  for (const stmt of ast.body) {
+    const decl = stmt.type === "ExportNamedDeclaration" ? stmt.declaration : stmt;
+    if (decl?.type === "VariableDeclaration") decl.declarations.forEach((d) => out.add(d));
+  }
+  return out;
+}
+
+/** The strings of a table made of string literals only (objects and arrays of them), or null when any part is code. */
+function tableStrings(node, out = []) {
+  if (node?.type === "Literal" && typeof node.value === "string") return out.push(node.value), out;
+  if (node?.type === "ArrayExpression") return node.elements.every((e) => e && tableStrings(e, out)) ? out : null;
+  if (node?.type === "ObjectExpression") {
+    const plain = (p) => p.type === "Property" && !p.computed && p.kind === "init" && !p.method && !p.shorthand;
+    return node.properties.every((p) => plain(p) && tableStrings(p.value, out)) ? out : null;
+  }
+  return null;
+}
+
 function scanJsAst(ast, source, firstLine, ctx) {
   const line = (node) => firstLine + node.loc.start.line - 1;
   const visit = (node, parent, chain) => {
     const name = nameOf(node);
     if (node.type === "VariableDeclarator" && name && ctx.constants.has(name)) {
-      ctx.use(ctx.constants.get(name));
-      return;
+      // Only a top-level table of plain strings is data; anything else of that name is read as code.
+      const strings = ctx.topLevel.has(node) ? tableStrings(node.init) : null;
+      if (strings) return ctx.use(ctx.constants.get(name), strings.filter(hasKorean).length);
+      ctx.reject(ctx.constants.get(name), line(node));
     }
     const here = node.type === "VariableDeclarator" || node.type === "FunctionDeclaration" ? (name ? [name] : chain) : name ? [...chain, name] : chain;
     if (node.type === "ObjectExpression" && isDictionary(node, source)) {
@@ -228,49 +251,75 @@ function exemptionsFor(file, exempt) {
 }
 
 /** Problems of a dictionary as items the ceilings count and the base comparison names. */
-const problemItems = (dicts) => dicts.flatMap((d) => dictionaryProblems(d).map((text) => ({ line: d.line, text, key: `${d.label}: ${text}` })));
+const problemItems = (dicts) => dicts.flatMap((d) => dictionaryProblems(d).map((text) => ({ line: d.line, text, label: d.label, key: `${d.label}: ${text}` })));
 
 /**
  * Korean text outside dictionaries ({ line, text, key }), the dictionaries and their problems in one file,
- * and the data literal exemptions it used. A markdown file is text, one string per line.
+ * the data literal exemptions it used (entry -> strings hidden), and the constant exemptions that met
+ * something other than a top-level table ({ entry, line }). A markdown file is text, one string per line.
  */
 export function scanSource(source, file, { exempt = [] } = {}) {
   const strays = [];
   const dicts = [];
-  const used = new Set();
+  const used = new Map();
+  const rejected = [];
   const ctx = {
     dicts,
+    topLevel: new Set(),
     ...exemptionsFor(file, exempt),
-    use: (entry) => used.add(entry),
+    use: (entry, n = 1) => used.set(entry, (used.get(entry) ?? 0) + n),
+    reject: (entry, line) => rejected.push({ entry, line }),
     report: (line, text) => strays.push({ line, text: snippet(text), key: textKey(text) }),
   };
   if (file.endsWith(".md")) scanText(source.replace(/\/\*/g, "/ *"), 1, ctx);
   else if (file.endsWith(".html")) scanHtml(source, 1, ctx);
-  else scanJsAst(parseJs(source), source, 1, ctx);
-  return { strays, dicts, problems: problemItems(dicts), used };
+  else {
+    const ast = parseJs(source);
+    ctx.topLevel = topDeclarators(ast);
+    scanJsAst(ast, source, 1, ctx);
+  }
+  return { strays, dicts, problems: problemItems(dicts), used, rejected };
 }
 
 // A markdown doc is admin language: guide.md is Korean, guide.en.md guide.ja.md guide.zh.md its translations.
 const DOC_TRANSLATION = new RegExp(`\\.(${DOC_LANGS.join("|")})\\.md$`);
-const docShape = (source) => {
-  const lines = source.split("\n").filter((l) => l.trim());
-  return { lines: lines.length, headings: lines.filter((l) => /^#{1,6}\s/.test(l)).length };
-};
+const docLines = (source) => source.split("\n").map((text, i) => ({ n: i + 1, text })).filter((l) => l.text.trim());
+const isHeading = (text) => /^#{1,6}\s/.test(text);
+const PLACEHOLDER = /\b(TODO|TBD|FIXME|XXX|PLACEHOLDER)\b|lorem ipsum/i;
+// The letters a line says, without markdown marks, inline code or link targets.
+const letters = (text) => (text.replace(/`[^`]*`/g, " ").replace(/\]\([^)]*\)/g, "]").replace(/^\s*(#{1,6}|[-*+]|\d+[.)]|>)\s+/, "").match(/\p{L}/gu) ?? []).length;
+
+/** Why one translated line is not a translation of its Korean line, or null. */
+function lineProblem(ko, tr) {
+  if (hasKorean(ko) && tr === ko) return "copies ko";
+  if (hasKorean(tr)) return "has Korean";
+  if (PLACEHOLDER.test(tr) || (hasKorean(ko) && letters(tr) < 2)) return "has placeholder lines";
+  return null;
+}
 
 /** Why a Korean doc and its translations do not line up, or [] when every language has the same document. */
 function docProblems(file, sources) {
   const others = DOC_LANGS.map((l) => [l, sources.get(file.replace(/\.md$/, `.${l}.md`))]);
   if (others.every(([, s]) => s === undefined)) return null; // not translated yet: its Korean lines count as strays
-  const ko = docShape(sources.get(file));
+  const ko = docLines(sources.get(file));
+  const koHeadings = ko.filter((l) => isHeading(l.text)).length;
   const problems = [];
   for (const [lang, source] of others) {
     if (source === undefined) {
       problems.push(`missing ${lang}`);
       continue;
     }
-    const shape = docShape(source);
-    if (shape.headings !== ko.headings) problems.push(`${lang} has ${shape.headings} headings, ko ${ko.headings}`);
-    if (shape.lines !== ko.lines) problems.push(`${lang} has ${shape.lines} lines, ko ${ko.lines}`);
+    const tr = docLines(source);
+    const headings = tr.filter((l) => isHeading(l.text)).length;
+    if (headings !== koHeadings) problems.push(`${lang} has ${headings} headings, ko ${koHeadings}`);
+    if (tr.length !== ko.length) problems.push(`${lang} has ${tr.length} lines, ko ${ko.length}`);
+    // Line by line, so a translation cannot be the right shape filled with nothing.
+    const found = new Map();
+    tr.forEach((l, i) => {
+      const why = i < ko.length ? lineProblem(ko[i].text.trim(), l.text.trim()) : null;
+      if (why) found.set(why, [...(found.get(why) ?? []), l.n]);
+    });
+    for (const [why, lines] of found) problems.push(`${lang} ${why} at line ${lines[0]}${lines.length > 1 ? ` and ${lines.length - 1} more` : ""}`);
   }
   return problems;
 }
@@ -334,6 +383,15 @@ export function scanRef(ref, exempt = readDataLiterals()) {
   return scanEntries(entries, exempt);
 }
 
+/** The data literal list as it was at a commit, or [] when it had none. */
+export function readDataLiteralsAt(ref) {
+  try {
+    return JSON.parse(git(["show", `${ref}:${path.relative(ROOT, DATA_LITERALS_FILE)}`]).toString());
+  } catch {
+    return [];
+  }
+}
+
 const SECTIONS = { strays: "strays", problems: "problems" };
 
 /**
@@ -343,6 +401,7 @@ const SECTIONS = { strays: "strays", problems: "problems" };
  */
 export function newSince(head, base) {
   const found = [];
+  const baseByFile = new Map(base.map((r) => [r.file, r]));
   for (const section of Object.keys(SECTIONS)) {
     const tally = (results) => {
       const perFile = new Map();
@@ -368,11 +427,24 @@ export function newSince(head, base) {
         seen.set(item.key, n);
         if (n <= (before.get(item.key) ?? 0) || !(spare.get(item.key) > 0)) continue;
         spare.set(item.key, spare.get(item.key) - 1);
-        found.push({ section, file: r.file, line: item.line, text: section === "strays" ? item.key.slice(0, 120) : item.key });
+        const entry = { section, file: r.file, line: item.line, text: section === "strays" ? item.key.slice(0, 120) : item.key };
+        if (section === "problems") {
+          // The same problem under a dictionary name the file no longer has: the dictionary was renamed.
+          const labels = new Set(r.problems.map((p) => p.label));
+          const old = baseByFile.get(r.file)?.problems.find((p) => p.text === item.text && p.label !== item.label && !labels.has(p.label));
+          if (old) entry.was = old.label;
+        }
+        found.push(entry);
       }
     }
   }
   return found;
+}
+
+/** One line of the new-since-base report. */
+export function describeNew(f) {
+  const renamed = f.was ? ` (${f.was} at the merge base had the same problem: the dictionary was renamed. Fix its problems, or keep the old name)` : "";
+  return `${f.file}:${f.line} ${f.section === "problems" ? "dictionary " : ""}${f.text}${renamed}`;
 }
 
 export const readCeilings = () => JSON.parse(readFileSync(CEILINGS_FILE, "utf-8"));
@@ -444,9 +516,19 @@ export function lowerCeilings(ceilings, counts, renames = []) {
   }));
 }
 
-/** Why the data literal list is wrong: an entry without a target or a reason, or one that matches nothing. */
+const hiddenBy = (results) => {
+  const hidden = new Map();
+  for (const r of results) for (const [entry, n] of r.used) hidden.set(entry, (hidden.get(entry) ?? 0) + n);
+  return hidden;
+};
+
+/**
+ * Why the data literal list is wrong: an entry without a target or a reason, a constant that is not a
+ * top-level table of plain strings, or an entry that matches nothing.
+ */
 export function dataLiteralProblems(exempt, results) {
-  const used = new Set(results.flatMap((r) => [...r.used]));
+  const used = hiddenBy(results);
+  const rejected = results.flatMap((r) => r.rejected ?? []);
   const problems = [];
   for (const e of exempt) {
     const what = e.literal ?? e.constant;
@@ -454,10 +536,30 @@ export function dataLiteralProblems(exempt, results) {
       problems.push(`${e.file}: needs one of literal or constant`);
       continue;
     }
+    const bad = rejected.filter((x) => x.entry === e);
     if (!String(e.reason ?? "").trim()) problems.push(`${e.file} ${what}: needs a reason`);
+    else if (bad.length) problems.push(...bad.map((x) => `${e.file} ${what}: line ${x.line} is not a top-level table of plain strings`));
     else if (!used.has(e)) problems.push(`${e.file} ${what}: matches nothing`);
   }
   return problems;
+}
+
+const exemptionId = (e) => `${e.file}\0${e.constant ? `constant ${e.constant}` : `literal ${e.literal}`}`;
+
+/**
+ * Entries the merge base's list did not have and nobody approved, each naming what it hides. An
+ * exemption takes text out of the ratchet, so adding one is never silent: it needs an `approved`
+ * field, a line the reviewer reads in the diff.
+ */
+export function newExemptions(exempt, baseExempt, results) {
+  const before = new Set(baseExempt.map(exemptionId));
+  const hidden = hiddenBy(results);
+  return exempt
+    .filter((e) => !before.has(exemptionId(e)) && !String(e.approved ?? "").trim())
+    .map((e) => {
+      const n = hidden.get(e) ?? 0;
+      return `${e.file} ${exemptionId(e).split("\0")[1]}: new since the merge base, hides ${n} string${n === 1 ? "" : "s"}`;
+    });
 }
 
 function renamesFrom(argv) {

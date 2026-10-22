@@ -2,16 +2,7 @@
   {
     "file": "src/meta/categories.js",
     "constant": "ALIASES",
-    "reason": "Genre names other stores use, matched against incoming metadata to find the genre key. Never shown; the label comes from the genre dictionary."
-  },
-  {
-    "file": "src/retro/arcade-policy.js",
-    "literal": "한국판",
-    "reason": "Names the Korean release of an arcade set, the edition the collection is built around; kept as the edition's own name."
-  },
-  {
-    "file": "src/retro/shortcut-name.js",
-    "literal": "정발",
-    "reason": "Tag of the official Korean release on a HOME menu shortcut, kept as the edition's own name like a title."
+    "reason": "Genre names other stores use, matched against incoming metadata to find the genre key. Never shown; the label comes from the genre dictionary.",
+    "approved": "Repo owner in the i18n ratchet review, 2026-10-22"
   }
 ]

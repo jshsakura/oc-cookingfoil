@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   ADMIN_LANGS, CEILINGS_FILE, CLIENT_LANGS, ROOT, baseRef, compare, countsOf, dataLiteralProblems, dictionaryProblems,
-  lowerCeilings, newSince, readCeilings, readDataLiterals, renameHints, scanEntries, scanRef, scanSource, scanTree,
+  describeNew, lowerCeilings, newExemptions, newSince, readCeilings, readDataLiterals, readDataLiteralsAt, renameHints, scanEntries,
+  scanRef, scanSource, scanTree,
 } from "../../scripts/i18n-scan.mjs";
 
 // Korean a person reads belongs in a dictionary with every language: ko en ja zh on admin and web
@@ -143,6 +144,68 @@ test("data literals are exempt only by file and exact text or constant, each wit
   ]);
 });
 
+test("a constant exemption covers only a top-level table of plain strings, never code or a nested name", () => {
+  const exempt = [{ file: "src/a.js", constant: "ALIASES", reason: "matching table" }];
+  const nested = scanEntries([{ file: "src/a.js", source: 'const ALIASES = { Party: ["가족"] };\nexport function msg() { const ALIASES = "함수 안에 숨긴 새 오류 문구입니다"; return ALIASES; }\n' }], exempt);
+  assert.deepEqual(nested[0].strays.map((s) => s.text), ["함수 안에 숨긴 새 오류 문구입니다"], "the same name inside a function is not the table");
+  assert.deepEqual(dataLiteralProblems(exempt, nested), ["src/a.js ALIASES: line 2 is not a top-level table of plain strings"]);
+  const script = [{ file: "src/s.js", constant: "DASHBOARD_SCRIPT", reason: "inlined script" }];
+  const whole = scanEntries([{ file: "src/s.js", source: "export const DASHBOARD_SCRIPT = `const NEWMSG='새로 숨긴 관리자 문구입니다';`;\n" }], script);
+  assert.deepEqual(whole[0].strays.map((s) => s.text), ["새로 숨긴 관리자 문구입니다"], "a template is code, not a table");
+  assert.deepEqual(dataLiteralProblems(script, whole), ["src/s.js DASHBOARD_SCRIPT: line 1 is not a top-level table of plain strings"]);
+  const fn = [{ file: "src/f.js", constant: "T", reason: "x" }];
+  const withFn = scanEntries([{ file: "src/f.js", source: 'export const T = { a: ["가"], b: () => "함수 문구" };\n' }], fn);
+  assert.equal(withFn[0].strays.length, 2, "a function in the table makes it code");
+  const table = scanEntries([{ file: "src/a.js", source: 'export const ALIASES = { Party: ["가족", "family"], Training: ["피트니스"] };\n' }], exempt);
+  assert.deepEqual(table[0].strays, []);
+  assert.equal(table[0].used.get(exempt[0]), 2, "the exemption knows how many strings it hides");
+});
+
+test("an exemption the merge base did not have fails until approved, naming the entry and what it hides", () => {
+  const source = 'export const X = "새 관리자 알림 문구입니다";\nexport const ALIASES = { a: ["가족", "피트니스"] };\n';
+  const head = [
+    { file: "src/alerts.js", literal: "새 관리자 알림 문구입니다", reason: "data" },
+    { file: "src/alerts.js", constant: "ALIASES", reason: "matching table" },
+  ];
+  const results = scanEntries([{ file: "src/alerts.js", source }], head);
+  assert.deepEqual(results[0].strays, [], "the same PR hid the string");
+  assert.deepEqual(newExemptions(head, [], results), [
+    "src/alerts.js literal 새 관리자 알림 문구입니다: new since the merge base, hides 1 string",
+    "src/alerts.js constant ALIASES: new since the merge base, hides 2 strings",
+  ]);
+  assert.deepEqual(newExemptions(head, [head[1]], results).length, 1, "an entry the base had is not new");
+  const approved = head.map((e) => ({ ...e, approved: "reviewer in PR #1" }));
+  assert.deepEqual(newExemptions(approved, [], results), []);
+  assert.deepEqual(newExemptions(head.map((e) => ({ ...e, approved: " " })), [], results).length, 2, "a blank approval is none");
+  const base = scanEntries([{ file: "src/alerts.js", source }], []);
+  assert.equal(base[0].strays.length, 3, "the base side is scanned with the base's own list, so the hidden strings show");
+});
+
+test("a translated guide passes only when each line is translated, not filled with placeholders", () => {
+  const ko = "# 안내\n\n첫 줄입니다.\n\n## 둘\n\n- 항목\n\n```\nnpm start\n```\n";
+  const en = "# Guide\n\nFirst line.\n\n## Two\n\n- Item\n\n```\nnpm start\n```\n";
+  const set = (tr) => scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? tr(l.slice(1)) : ko })));
+  const guide = (results) => results.find((r) => r.file === "src/views/guide.md");
+  assert.deepEqual(guide(set(() => en)).problems, [], "a real translation with an identical code line passes");
+  const todo = ko.split("\n").map((l) => (!l.trim() ? "" : /^#{1,6}\s/.test(l) ? l.match(/^#+/)[0] + " x" : "TODO")).join("\n");
+  const filler = set(() => todo);
+  assert.ok(guide(filler).strays.length > 0, "the Korean still counts");
+  assert.ok(guide(filler).problems.some((p) => p.text.startsWith("en has placeholder lines")), guide(filler).problems.map((p) => p.text).join("; "));
+  const copied = set(() => en.replace("First line.", "첫 줄입니다."));
+  assert.ok(guide(copied).problems.some((p) => p.text.startsWith("en copies ko at line 3")), guide(copied).problems.map((p) => p.text).join("; "));
+  const hangul = set(() => en.replace("First line.", "First 줄."));
+  assert.ok(guide(hangul).problems.some((p) => p.text.startsWith("en has Korean at line 3")), guide(hangul).problems.map((p) => p.text).join("; "));
+});
+
+test("a broken dictionary renamed without a change says so instead of looking like new problems", () => {
+  const dict = (name) => `export const ${name} = { ko: { a: "가" }, en: { a: "A" } };`;
+  const base = scanEntries([{ file: "src/a.js", source: dict("SOURCE_LABEL") }]);
+  const head = scanEntries([{ file: "src/a.js", source: dict("SOURCE_LABEL_RENAMED") }]);
+  const fresh = newSince(head, base);
+  assert.deepEqual(fresh.map((f) => f.text), ["SOURCE_LABEL_RENAMED: missing ja", "SOURCE_LABEL_RENAMED: missing zh"]);
+  assert.match(describeNew(fresh[0]), /SOURCE_LABEL at the merge base had the same problem: the dictionary was renamed/);
+});
+
 // ---- The tree itself ----
 
 const exempt = readDataLiterals();
@@ -152,7 +215,9 @@ const ceilings = readCeilings();
 const counts = countsOf(results);
 const { over, under } = compare(counts, ceilings);
 const base = baseRef();
-const baseResults = base ? scanRef(base, exempt) : null;
+// The base is read with its own exemptions, so text this branch exempts shows as gone, not as never there.
+const baseExempt = base ? readDataLiteralsAt(base) : [];
+const baseResults = base ? scanRef(base, baseExempt) : null;
 const fresh = baseResults ? newSince(results, baseResults) : null;
 const NO_BASE = "No merge base with origin/main (a shallow clone?): only the per-file counts were compared, so a string swapped for another is not caught here.";
 const hints = renameHints(counts, ceilings, new Set(results.map((r) => r.file)));
@@ -174,7 +239,8 @@ function changedLines(file) {
 
 const HOW = "Put new text in a dictionary with all its languages (ko en ja zh for admin, the twelve for clients). "
   + "Admin page HTML uses ${top('key')} rather than Korean with a data-top attribute. "
-  + "A table that holds Korean as data goes in test/fixtures/i18n-data-literals.json with its reason.";
+  + "A top-level table of plain strings that holds Korean as data goes in test/fixtures/i18n-data-literals.json with its reason, "
+  + "and a new entry needs an `approved` field from the reviewer.";
 
 test("no file has more Korean outside dictionaries, or more dictionary problems, than its ceiling", () => {
   const report = over.map(({ section, file, n, ceiling }) => {
@@ -184,14 +250,14 @@ test("no file has more Korean outside dictionaries, or more dictionary problems,
     const newer = fresh ? fresh.filter((f) => f.file === file && f.section === section) : items.filter((s) => changed?.has(s.line));
     const shown = (newer.length ? newer : items).slice(0, 40);
     const what = section === "problems" ? "dictionary problems" : "Korean strings outside a dictionary";
-    return `${file}: ${n} ${what}, ceiling ${ceiling}\n` + shown.map((s) => `  ${file}:${s.line} ${s.text}`).join("\n");
+    return `${file}: ${n} ${what}, ceiling ${ceiling}\n` + shown.map((s) => `  ${s.section ? describeNew(s) : `${file}:${s.line} ${s.text}`}`).join("\n");
   });
   assert.equal(over.length, 0, `${HOW}\n${report.join("\n")}${RENAME}${base ? "" : `\n${NO_BASE}`}`);
 });
 
 test("no file gains a Korean string or a dictionary problem it did not have at the merge base", (t) => {
   if (!fresh) return t.diagnostic(NO_BASE);
-  const report = fresh.map((f) => `  ${f.file}:${f.line} ${f.section === "problems" ? "dictionary " : ""}${f.text}`);
+  const report = fresh.map((f) => `  ${describeNew(f)}`);
   assert.equal(fresh.length, 0, `${HOW}\nNew since ${base.slice(0, 7)}:\n${report.join("\n")}`);
 });
 
@@ -218,6 +284,13 @@ test("the ceilings in total never rise above the merge base's", (t) => {
 test("every data literal exemption has a reason and still matches something", () => {
   const problems = dataLiteralProblems(exempt, results);
   assert.deepEqual(problems, [], "Fix test/fixtures/i18n-data-literals.json:\n" + problems.join("\n"));
+});
+
+test("no data literal exemption is new since the merge base without an approval", (t) => {
+  if (!base) return t.diagnostic(NO_BASE);
+  const added = newExemptions(exempt, baseExempt, results);
+  assert.deepEqual(added, [], "An exemption takes its text out of the ratchet. Ask the reviewer, then record it as "
+    + "\"approved\": \"<who, where>\" on the entry in test/fixtures/i18n-data-literals.json, or translate the text instead:\n  " + added.join("\n  "));
 });
 
 test("the scanner finds the known dictionaries and holds each to its languages", () => {
