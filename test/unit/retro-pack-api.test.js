@@ -30,6 +30,18 @@ const call = (handler, body = {}) => new Promise((resolve, reject) => {
   Promise.resolve(handler({ body, query: {} }, res)).catch(reject);
 });
 
+test("a recovery note makes the start request a 409 at once, not a 202 that fails later", async () => {
+  const routes = mount();
+  const note = path.join(process.env.COOK_DATA_DIR, "retro-pack-recovery.json");
+  fs.mkdirSync(process.env.COOK_DATA_DIR, { recursive: true });
+  fs.writeFileSync(note, JSON.stringify({ stuck: ["retroarch.nro"] }));
+  try {
+    const r = await call(routes["POST /api/retro-pack/fill"], { confirm: true });
+    assert.equal(r.status, 409);
+    assert.deepEqual(r.body.stuck, ["retroarch.nro"]);
+  } finally { fs.rmSync(note, { force: true }); }
+});
+
 test("F2: two simultaneous start requests: one 202, one 409, and the first job's display is not replaced", async () => {
   const routes = mount();
   const [a, b] = await Promise.all([call(routes["POST /api/retro-pack/fill"], { confirm: true }), call(routes["POST /api/retro-pack/fill"], { confirm: true })]);

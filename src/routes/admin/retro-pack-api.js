@@ -58,6 +58,9 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     if (req.body?.confirm !== true) return res.status(400).json({ error: "확인이 필요합니다" });
+    // Refused up front, so the page does not get a 202 for a run that stops at once.
+    const pending = readRecovery(dataDir);
+    if (pending) return res.status(409).json({ error: "지난번 채우기에서 되돌리지 못한 파일이 있습니다. 확인한 뒤 복구 기록을 지워야 다시 채웁니다", stuck: pending.stuck, recovery: pending });
     // Taken before the first await, so a second request in the same tick finds it held.
     if (active) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
     active = true;

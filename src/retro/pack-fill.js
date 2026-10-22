@@ -329,8 +329,11 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     // The pack folder as it really is: every target is checked against this, not against a path with links in it.
     await fsp.mkdir(packDir, { recursive: true });
     const root = await fsp.realpath(packDir);
-    await fsp.mkdir(path.join(dataDir, "retro-pack-prev"), { recursive: true });
+    // What a hard kill left behind in staging is of no use to anyone.
+    await fsp.rm(path.join(dataDir, "retro-pack-staging"), { recursive: true, force: true });
     const keepRoot = path.join(await fsp.realpath(dataDir), "retro-pack-prev");
+    if ((await fsp.lstat(keepRoot).catch(() => null))?.isSymbolicLink()) throw new PackError("retro-pack-prev 가 링크라 쓰지 않습니다", { status: 500 });
+    await fsp.mkdir(keepRoot, { recursive: true });
     const { have } = wantedCores(games, pack);
     const cores = have.map((c) => c.core);
     // Nothing to place and no bundle on disk: do not fetch 300 MB to learn that.
@@ -355,8 +358,9 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       if (state === "install" || state === "replace") ops.push({ ...f, action: state, expect: entry?.sha256, prevVersion: entry?.lockVersion ?? "unknown" });
       else if (state === "current") {
         tally.current++;
-        // Its bytes are the bundle's, so a ledger row only moves to this version.
-        if (entry && entry.sha256 === f.sha256 && entry.lockVersion !== lock.version) refresh.push(f);
+        // Its bytes are the bundle's. A row for it that is behind (an older version, or a run that was cut off
+        // before the ledger was written) moves to this version, or the file would look changed from then on.
+        if (entry && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
       } else {
         keptCount[state]++;
         if (f.kind !== "dir") kept.push({ rel: f.rel, state });

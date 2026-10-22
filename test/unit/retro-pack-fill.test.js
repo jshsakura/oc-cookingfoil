@@ -481,3 +481,43 @@ test("F4: a file missing from a folder that exists is filled in, with no bundle 
     assert.match(fs.readFileSync(path.join(w.packDir, "info/fceumm_libretro.info"), "utf8"), /NES/);
   } finally { srv.close(); }
 });
+
+test("N1: files that match the bundle but whose ledger rows were left behind get their rows updated, so the next version still replaces them", opts, async () => {
+  const v1 = makeBundle("1.0.0", files("a"));
+  const v2 = makeBundle("2.0.0", files("b"));
+  const v3 = makeBundle("3.0.0", files("c"));
+  const [s1, s2, s3] = [await serve(v1.archive), await serve(v2.archive), await serve(v3.archive)];
+  const w = world();
+  try {
+    await applyFill({ ...w, games: GAMES, url: s1.url, pack: v1.pack, bin });
+    // A hard kill (or a disk too full for the ledger) after the files of v2 were placed: the ledger still says v1.
+    const lost = { all: () => w.ledger.all(), put: () => {} };
+    await applyFill({ ...w, ledger: lost, games: GAMES, url: s2.url, pack: v2.pack, bin });
+    assert.equal(w.ledger.all().get("retroarch.nro").lockVersion, "1.0.0");
+
+    // Running v2 again sees files equal to the bundle's and brings the rows up to date.
+    await applyFill({ ...w, games: GAMES, url: s2.url, pack: v2.pack, bin });
+    assert.deepEqual(w.ledger.all().get("retroarch.nro"), { sha256: sha(nro("body-b")), source: "bundle", lockVersion: "2.0.0" });
+    assert.equal(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").lockVersion, "2.0.0");
+
+    const out = await applyFill({ ...w, games: GAMES, url: s3.url, pack: v3.pack, bin });
+    assert.deepEqual(fs.readFileSync(path.join(w.packDir, "retroarch.nro")), nro("body-c"), "v3 replaces it instead of calling it changed");
+    assert.equal(out.keptCount.modified, 0);
+  } finally { s1.close(); s2.close(); s3.close(); }
+});
+
+test("a link in place of the prev folder is refused, and a staging folder left by a hard kill is removed", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const { srv, url } = await served(b);
+  const w = world();
+  try {
+    const outside = tmp();
+    fs.symlinkSync(outside, path.join(w.dataDir, "retro-pack-prev"));
+    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /링크/);
+    assert.deepEqual(fs.readdirSync(outside), []);
+    fs.unlinkSync(path.join(w.dataDir, "retro-pack-prev"));
+    fs.mkdirSync(path.join(w.dataDir, "retro-pack-staging/old-run"), { recursive: true });
+    await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin });
+    assert.deepEqual(fs.readdirSync(path.join(w.dataDir, "retro-pack-staging")), []);
+  } finally { srv.close(); }
+});
