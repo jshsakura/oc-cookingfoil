@@ -45,7 +45,8 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h3 data-top="rp.title">RetroArch 한 번에 채우기</h3><button type="button" class="primary" id="rp-fill" data-top="rp.button">한 번에 채우기</button></div>
   <p class="muted" data-top="rp.lead">공식 RetroArch 번들에서 본체, 지금 ROM 이 있는 기종의 코어, info·assets·autoconfig 를 받아 채운 뒤 표지와 베젤을 받습니다. 직접 넣은 파일, 바꾼 파일, retroarch.cfg, system(BIOS)은 건드리지 않습니다.</p>
   <p class="muted" id="rp-last"></p>
-  <h3>기종별 코어</h3>
+  <div class="hd"><h3>기종별 코어</h3><button type="button" id="rc-auto" data-top="ac.button">빠진 코어 지금 받기</button><button type="button" id="rc-update" data-top="ac.update">설치된 코어 업데이트</button></div>
+  <p class="muted" id="rc-auto-last"></p>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
   <h3>설치된 코어</h3>
@@ -142,7 +143,7 @@ function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
-  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);
+  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
   table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
@@ -177,9 +178,10 @@ function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
 function rcSystems(list){
   table('rc-systems',['기종','게임','코어',''],list.map((s)=>{const tr=el('tr');
-    const state=!s.installed?pill('코어가 없습니다','warn'):s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
+    const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill('코어가 없습니다','warn'):'';const swap=cs?acSwap(cs):'';
+    const picked=s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
     const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
-    const extra=td();if(state)extra.append(state);if(back)extra.append(back);
+    const extra=td();if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
     tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
 async function rcSetSystem(s,core,sel){
   if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}
@@ -197,6 +199,23 @@ async function rcUpload(file,replace=false){
   if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
   toast(d.where+' 에 올렸습니다.');loadRetroCores();}
+// The official core upkeep's state of a console's core (auto-cores.js coreStates).
+const AC_KIND={present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
+function acPill(cs){const k=cs.state==='missing'?'missing.'+cs.reason:cs.state;const p=pill(topText('ac.'+k),AC_KIND[cs.state]??'');
+  if(cs.state==='present'&&cs.built)p.title=cs.source+' · '+cs.built+(cs.crc32?' · '+cs.crc32:'');
+  if(cs.state==='failed')p.title=(cs.message||'')+(cs.retryAt?' · '+fmt(cs.retryAt):'');return p;}
+// A user's core can be swapped for the nightly build (it goes to the trash) and back again.
+function acSwap(cs){
+  if(cs.state==='pinned')return btn(topText('ac.toOfficial'),()=>acRun('official',cs.core,topText('ac.toOfficialQ').split('{core}').join(cs.core)));
+  if(cs.state==='present'&&cs.userVersion)return btn(topText('ac.toUser'),()=>acRun('user-version',cs.core,topText('ac.toUserQ').split('{core}').join(cs.core)));
+  return '';}
+async function acRun(name,core,question){if(question&&!await ask(question))return;
+  try{const d=await api('/admin/api/retro-cores/'+name,{method:'POST',body:core?{core}:{}});toast(topText(d.started===false?'ac.nothing':'ac.started'));loadRetroCores();}
+  catch(err){toast(err.message);}}
+function acLast(a){const p=$('rc-auto-last');if(!a){p.textContent='';return;}
+  const l=a.last;p.textContent=a.job?topText('ac.running'):l&&l.error?topText('ac.lastFail').split('{err}').join(l.error):l?topText('ac.lastOk').split('{i}').join((l.installed||[]).length).split('{r}').join((l.replaced||[]).length):'';}
+$('rc-auto').addEventListener('click',()=>acRun('auto'));
+$('rc-update').addEventListener('click',()=>acRun('update',null,topText('ac.updateQ')));
 $('rc-reload').addEventListener('click',loadRetroCores);
 $('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
 $('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});

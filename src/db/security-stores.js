@@ -63,12 +63,13 @@ export function settingsStore({ db = securityDb() } = {}) {
  * A file without a row in that folder's ledger is the operator's, whatever other folders hold.
  */
 export function packLedger({ db = securityDb() } = {}) {
-  const upsert = db.prepare("INSERT OR REPLACE INTO retro_pack_ledger (root, rel, sha256, source, lock_version) VALUES (?, ?, ?, ?, ?)");
+  const upsert = db.prepare("INSERT OR REPLACE INTO retro_pack_ledger (root, rel, sha256, source, lock_version, crc32, built) VALUES (?, ?, ?, ?, ?, ?, ?)");
   return {
     forRoot: (root) => ({
-      all: () => new Map(db.prepare("SELECT rel, sha256, source, lock_version FROM retro_pack_ledger WHERE root = ?").all(root).map((r) => [r.rel, { sha256: r.sha256, source: r.source, lockVersion: r.lock_version }])),
+      /** rel → { sha256, source, lockVersion, crc32, built } (crc32 and built null when not known). */
+      all: () => new Map(db.prepare("SELECT rel, sha256, source, lock_version, crc32, built FROM retro_pack_ledger WHERE root = ?").all(root).map((r) => [r.rel, { sha256: r.sha256, source: r.source, lockVersion: r.lock_version, crc32: r.crc32 ?? null, built: r.built ?? null }])),
       put(rows) {
-        transaction(db, () => { for (const r of rows) upsert.run(root, r.rel, r.sha256, r.source, r.lockVersion); });
+        transaction(db, () => { for (const r of rows) upsert.run(root, r.rel, r.sha256, r.source, r.lockVersion, r.crc32 ?? null, r.built ?? null); });
       },
       drop: (rel) => db.prepare("DELETE FROM retro_pack_ledger WHERE root = ? AND rel = ?").run(root, rel),
     }),

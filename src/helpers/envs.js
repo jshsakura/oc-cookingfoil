@@ -238,6 +238,9 @@ let retroScaffold = envBool("COOK_RETRO_SCAFFOLD", true);
 // official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
 // must serve the same bytes, the lock's SHA-256 is checked either way.
 let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
+// Official cores for the consoles that have games, put in by the server from that bundle, and the
+// server's own pack files replaced when the lock version rises (retro/auto-cores.js). Operator files never.
+let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -415,6 +418,7 @@ const ENV_SETTINGS = Object.freeze({
   retroMeta,
   retroScaffold,
   retroPackUrl,
+  retroAutoCores,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -466,6 +470,7 @@ function applyServerSettings(saved = {}) {
   retroMeta = v.retroMeta;
   retroScaffold = v.retroScaffold;
   retroPackUrl = v.retroPackUrl;
+  retroAutoCores = v.retroAutoCores;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -577,6 +582,7 @@ export {
   retroMeta,
   retroScaffold,
   retroPackUrl,
+  retroAutoCores,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

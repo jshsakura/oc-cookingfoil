@@ -5,6 +5,7 @@ import fs from "fs";
 import http from "http";
 import os from "os";
 import path from "path";
+import zlib from "zlib";
 import { spawnSync } from "child_process";
 import { openDatabase, SECURITY_MIGRATIONS } from "../../src/db/database.js";
 import { packLedger } from "../../src/db/security-stores.js";
@@ -16,6 +17,7 @@ import { LANGS } from "../../src/meta/langs.js";
 const bin = sevenZipBin();
 const opts = { skip: bin ? false : "7-Zip is not installed (COOK_7Z_BIN, 7z, 7zz or 7za)" };
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+const crc32 = (buf) => (zlib.crc32(buf) >>> 0).toString(16).padStart(8, "0");
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "retro-pack-fill-"));
 
 /** An NRO-looking file: "NRO0" at 0x10, then `tag` so each version differs. */
@@ -226,7 +228,7 @@ test("fills an empty pack with the body, the cores games use and the folders, an
     assert.ok(!fs.existsSync(path.join(w.packDir, "cores/unused_libretro_libnx.nro")), "a core no game uses is not installed");
     assert.ok(!fs.existsSync(path.join(w.packDir, "cores/stella_libretro_libnx.nro")));
     assert.equal(w.ledger.all().size, 6);
-    assert.deepEqual(w.ledger.all().get("cores/mgba_libretro_libnx.nro"), { sha256: sha(nro("mgba-a")), source: "bundle", lockVersion: "1.0.0" });
+    assert.deepEqual(w.ledger.all().get("cores/mgba_libretro_libnx.nro"), { sha256: sha(nro("mgba-a")), source: "bundle", lockVersion: "1.0.0", crc32: crc32(nro("mgba-a")), built: null });
     assert.ok(!fs.readdirSync(w.dataDir).includes("retro-pack-staging") || fs.readdirSync(path.join(w.dataDir, "retro-pack-staging")).length === 0, "staging is cleaned");
   } finally {
     srv.close();
@@ -246,7 +248,39 @@ test("running it twice gives the same result and the second run changes nothing"
     assert.equal(again.replaced, 0);
     assert.deepEqual(snapshot(w.packDir), once);
     assert.equal(JSON.stringify([...w.ledger.all()]), rows);
-    assert.equal(srv.hits.length, 1, "the verified download is reused");
+    assert.equal(srv.hits.length, 1, "nothing to place: no second download");
+  } finally {
+    srv.close();
+  }
+});
+
+test("the bundle is deleted once the fill is verified and written down", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const srv = await serve(b.archive);
+  const w = world();
+  try {
+    await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
+    assert.equal(fs.existsSync(path.join(w.dataDir, "retro-pack-cache")), false);
+    assert.equal(fs.readdirSync(path.join(w.dataDir, "retro-pack-staging")).length, 0);
+    assert.ok(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").crc32, "the ledger keeps each file's CRC-32");
+  } finally {
+    srv.close();
+  }
+});
+
+test("a fill never puts the stable build over a core the server took from nightly", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const srv = await serve(b.archive);
+  const w = world();
+  try {
+    const nightly = nro("fceumm-nightly");
+    fs.mkdirSync(path.join(w.packDir, "cores"), { recursive: true });
+    fs.writeFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro"), nightly);
+    w.ledger.put([{ rel: "cores/fceumm_libretro_libnx.nro", sha256: sha(nightly), source: "nightly", lockVersion: "nightly", crc32: "00000000", built: "2026-10-21" }]);
+    const out = await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
+    assert.deepEqual(fs.readFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro")), nightly);
+    assert.ok(out.kept.some((k) => k.rel === "cores/fceumm_libretro_libnx.nro"));
+    assert.equal(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").source, "nightly");
   } finally {
     srv.close();
   }
@@ -258,7 +292,7 @@ test("with nothing to place and no bundle on disk it does not download", opts, a
   const w = world();
   try {
     await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
-    fs.rmSync(path.join(w.dataDir, "retro-pack-cache"), { recursive: true });
+    fs.rmSync(path.join(w.dataDir, "retro-pack-cache"), { recursive: true, force: true });
     const out = await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
     assert.equal(out.skipped, true);
     assert.equal(srv.hits.length, 1);
@@ -471,7 +505,7 @@ test("F4: a file missing from a folder that exists is filled in, with no bundle 
   try {
     await applyFill({ ...w, games: GAMES, url, pack: b.pack, bin });
     fs.rmSync(path.join(w.packDir, "info/fceumm_libretro.info"));
-    fs.rmSync(path.join(w.dataDir, "retro-pack-cache"), { recursive: true });
+    fs.rmSync(path.join(w.dataDir, "retro-pack-cache"), { recursive: true, force: true });
     const plan = await describeFill({ ...w, games: GAMES, systems: {}, cacheDir: path.join(w.dataDir, "retro-pack-cache/1.0.0"), pack: b.pack });
     assert.equal(plan.needsBundle, true);
     assert.deepEqual(plan.missing, { info: 1, assets: 0, autoconfig: 0 });
@@ -495,14 +529,18 @@ test("N1: files that match the bundle but whose ledger rows were left behind get
     await applyFill({ ...w, ledger: lost, games: GAMES, url: s2.url, pack: v2.pack, bin });
     assert.equal(w.ledger.all().get("retroarch.nro").lockVersion, "1.0.0");
 
-    // Running v2 again sees files equal to the bundle's and brings the rows up to date.
+    // Running v2 again sees the body and cores equal to the lock's and brings their rows up to date, without
+    // the bundle (it is not kept after a fill).
+    const hits = s2.hits.length;
     await applyFill({ ...w, games: GAMES, url: s2.url, pack: v2.pack, bin });
-    assert.deepEqual(w.ledger.all().get("retroarch.nro"), { sha256: sha(nro("body-b")), source: "bundle", lockVersion: "2.0.0" });
+    assert.equal(s2.hits.length, hits, "no download to fix the rows");
+    assert.deepEqual(w.ledger.all().get("retroarch.nro"), { sha256: sha(nro("body-b")), source: "bundle", lockVersion: "2.0.0", crc32: crc32(nro("body-b")), built: null });
     assert.equal(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").lockVersion, "2.0.0");
 
     const out = await applyFill({ ...w, games: GAMES, url: s3.url, pack: v3.pack, bin });
     assert.deepEqual(fs.readFileSync(path.join(w.packDir, "retroarch.nro")), nro("body-c"), "v3 replaces it instead of calling it changed");
-    assert.equal(out.keptCount.modified, 0);
+    // Folder files have no hash in the lock: their rows stay behind, so they are kept, never overwritten.
+    assert.equal(out.keptCount.modified, 3);
   } finally { s1.close(); s2.close(); s3.close(); }
 });
 

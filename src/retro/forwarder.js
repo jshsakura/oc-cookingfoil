@@ -190,7 +190,7 @@ export function resetAvailability() {
 
 /**
  * Everything one game's NSP is made of, or null when it can't have one.
- * `game` carries { id, name, core, romSdPath, artKey, publisher }, or a ready
+ * `game` carries { id, name, core, coreRev?, romSdPath, artKey, publisher }, or a ready
  * `target` ({ nroPath, argv }) in place of core and romSdPath, and `cores`
  * (4 lets its threads use CPU core 3; anything else is the default 3).
  */
@@ -200,8 +200,9 @@ export function forwarderSpec(game) {
   const titleId = forwarderTitleId(game.id);
   const name = shortcutName(game);
   const cores = game.cores === 4 ? 4 : 3;
-  // The default leaves the key as it always was, so the NSPs already built stay valid.
-  const parts = [FORMAT, exefsVersion(), titleId, name, game.publisher, target, game.artKey ?? null, ...(cores === 4 ? [{ cores }] : [])];
+  // The default leaves the key as it always was, so the NSPs already built stay valid. A core file the
+  // server replaced (`coreRev`, retro/auto-cores.js) moves it, so consoles take the shortcut again.
+  const parts = [FORMAT, exefsVersion(), titleId, name, game.publisher, target, game.artKey ?? null, ...(cores === 4 ? [{ cores }] : []), ...(game.coreRev ? [{ coreRev: game.coreRev }] : [])];
   const key = crypto.createHash("sha1").update(JSON.stringify(parts)).digest("hex").slice(0, 12);
   return { titleId, name, publisher: game.publisher, target, key, cores };
 }

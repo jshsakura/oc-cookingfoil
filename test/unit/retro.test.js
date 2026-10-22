@@ -331,7 +331,9 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     fs.writeFileSync(extra, "EXTRA");
     const changed = await get(m.bundleUrl);
     assert.notEqual(changed.headers.get("etag"), `"${m.version}"`, "a stale manifest version never names other bytes");
-    assert.ok(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"));
+    assert.equal(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"), false, "a core no console with games uses is not pushed to a console");
+    const onDemand = await (await get("/api/retro/base-pack/manifest?cores=ondemand")).json();
+    assert.equal(onDemand.bundleUrl, "/api/retro/base-pack/bundle?cores=ondemand");
     fs.rmSync(extra);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");

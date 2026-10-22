@@ -132,6 +132,12 @@ export function mountServerSettingsApi(router, requireSession) {
     if (changed.includes("retroScaffold") && envs.retroScaffold && fs.existsSync(envs.retroDir)) {
       retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after retroScaffold failed: %s", err.message));
     }
+    // Turned on: the missing official cores are looked at now, not at the next scan.
+    if (changed.includes("retroAutoCores") && envs.retroAutoCores && fs.existsSync(envs.retroDir)) {
+      retroCatalog.current(envs.retroDir)
+        .then(async (cat) => (await import("../../retro/auto-cores.js")).autoCores().then((a) => a.check(cat)))
+        .catch((err) => debug.error("admin: official core check after retroAutoCores failed: %s", err.message));
+    }
     if (changed.length) debug.log("admin: server settings changed: %s", changed.join(", "));
     res.json({ ok: true, changed, ...view() });
   }));

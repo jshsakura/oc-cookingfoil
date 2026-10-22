@@ -42,7 +42,8 @@ async function isNro(abs) {
 /** A trash entry id for a core: "core-" and 10 hex of its file name. Pure. */
 const trashId = (name) => `core-${crypto.createHash("sha1").update(name).digest("hex").slice(0, 10)}`;
 
-async function toTrash(retroDir, abs, name) {
+/** Moves a core file (`abs`, named `name`) into the retro trash; restoreEntry() puts it back. */
+export async function toTrash(retroDir, abs, name) {
   const rel = path.relative(retroDir, abs).split(path.sep).join("/");
   const size = (await fsp.stat(abs)).size;
   return trashFiles(retroDir, { id: trashId(name), system: "core", name, file: rel, size }, [rel]);

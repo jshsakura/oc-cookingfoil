@@ -16,7 +16,7 @@ import debug from "../../debug.js";
 import { dataDir, retroDir, retroPackUrl } from "../../helpers/envs.js";
 import { packLedger } from "../../db/security-stores.js";
 import * as retroCatalog from "../../retro/catalog.js";
-import { applyFill, clearRecovery, describeFill, ledgerRoot, readRecovery } from "../../retro/pack-fill.js";
+import { applyFill, clearRecovery, describeFill, fillBusy, ledgerRoot, readRecovery } from "../../retro/pack-fill.js";
 import { lock, PackError } from "../../retro/pack-bundle.js";
 import { packDirOf } from "../../retro/pack-status.js";
 import { BEZEL_CREDIT } from "../../retro/credits.js";
@@ -63,6 +63,8 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
     if (pending) return res.status(409).json({ error: "지난번 채우기에서 되돌리지 못한 파일이 있습니다. 확인한 뒤 복구 기록을 지워야 다시 채웁니다", stuck: pending.stuck, recovery: pending });
     // Taken before the first await, so a second request in the same tick finds it held.
     if (active) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
+    // The official core upkeep (auto-cores.js) holds the pack: say so now, not after a 202.
+    if (fillBusy()) return res.status(409).json({ error: "코어를 받고 있습니다. 끝난 뒤 다시 채웁니다" });
     active = true;
     let act = null;
     let current = null;

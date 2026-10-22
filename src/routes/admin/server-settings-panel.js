@@ -81,6 +81,7 @@ const SS_GROUPS=[
     ['eshopArtwork','bool','공식 이미지','아이콘, 배너, 스크린샷을 받아 둡니다. 끄면 받아 둔 것, 파일에서 읽은 것, 직접 올린 것만 씁니다.'],
     ['ratingSync','bool','평점 모으기','Steam, IGDB, 레트로 평점을 천천히 모읍니다.'],
     ['retroMeta','bool','레트로 게임 정보','LaunchBox 와 IGDB 에서 레트로 게임의 설명, 제작사, 발매일, 장르, 스크린샷을 천천히 받아 둡니다. 스크린샷은 공식 이미지가 켜져 있을 때만 받습니다. 끄면 받아 둔 것만 씁니다.'],
+    ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],
     ['retroPackUrl','text','RetroArch 번들 주소','레트로 탭의 "한 번에 채우기"가 RetroArch 번들(.7z)을 받아 오는 주소입니다. 비워 두면 libretro 공식 주소를 씁니다. 어느 주소든 서버에 고정된 SHA-256 과 같은 파일만 받아들입니다.','https://...'],
   ]],
 ];
