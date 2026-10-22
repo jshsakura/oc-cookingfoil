@@ -15,12 +15,14 @@
  *     handler: async (ctx, input) => ...,                 calls module functions, never the HTTP route
  *   })
  *
- * Token reach is not listed here by hand. It comes from the lists the server enforces:
- * TOKEN_PATHS (security/auth-guard.js), TOKEN_BLOCKED_RE (routes/admin-page.js) and
- * TOKEN_LOCKED (routes/admin/server-settings-api.js).
+ * Token reach is not listed here by hand. It comes from what the server enforces: TOKEN_PATHS
+ * (security/auth-guard.js), tokenBlocked() (routes/admin-page.js, the predicate requireSession
+ * calls) and TOKEN_LOCKED (routes/admin/server-settings-api.js). A route the server refuses tokens
+ * on is never a tool; one refused for some values of a parameter needs an input enum that leaves
+ * those values out, or token: false.
  */
 import { TOKEN_PATHS } from "../security/auth-guard.js";
-import { TOKEN_BLOCKED_RE } from "../routes/admin-page.js";
+import { TOKEN_BLOCKED_RE, TOKEN_BLOCKED_READ_RE, tokenBlocked } from "../routes/admin-page.js";
 import { TOKEN_LOCKED } from "../routes/admin/server-settings-api.js";
 
 export const AREAS = ["server", "library", "games", "retro", "homebrew", "content", "incoming", "jobs", "nsz", "settings", "inbox"];
@@ -47,16 +49,48 @@ const JSON_TYPES = new Set(["string", "integer", "number", "boolean", "array", "
 
 const rank = (level) => ACCESS.indexOf(level);
 
-/** "METHOD /path", the key the registry, opt-out.js and the coverage test share. */
+/** "METHOD /path" of an http route, the key the registry, opt-out.js and the coverage test share. */
 export const routeKey = (http) => `${http.method.toUpperCase()} ${http.path}`;
 
-/** Whether an automation token gets through to this route at all. */
-export function tokenReach(http) {
-  if (!TOKEN_PATHS(http.path)) return false;
-  if (http.method.toUpperCase() === "GET") return true;
-  // admin-page.js tests the path inside its router, without the /admin mount.
-  const inner = http.path.startsWith("/admin/") ? http.path.slice("/admin".length) : http.path;
-  return !TOKEN_BLOCKED_RE.test(inner);
+// Values tried for a path parameter the route and the input leave open. The blocked patterns are
+// literal path words between slashes plus "any segment", so every word they spell out, and one
+// word they do not ("x", standing for every other value), covers every outcome.
+const PARAM_TRIALS = [...new Set([TOKEN_BLOCKED_RE, TOKEN_BLOCKED_READ_RE].flatMap((re) => re.source.match(/[a-z0-9][a-z0-9-]*/gi)).map((w) => w.toLowerCase())), "x"];
+// One Express path parameter, its optional inline values `:kind(homebrew|patch)`, or a wildcard.
+const PARAM_RE = /:(\w+)(?:\(([^)]*)\))?\??|\*/;
+const PLAIN_VALUES_RE = /^[\w-]+(?:\|[\w-]+)*$/;
+
+/** The values a path parameter can take: the input's enum, else the route's own list, else PARAM_TRIALS. */
+function paramValues(name, inline, input) {
+  const declared = name && input?.properties?.[name]?.enum;
+  if (Array.isArray(declared) && declared.length && declared.every((v) => typeof v === "string")) return declared;
+  if (inline && PLAIN_VALUES_RE.test(inline)) return inline.split("|");
+  return PARAM_TRIALS;
+}
+
+/** Every concrete path a route pattern stands for, as far as token blocking can tell them apart. */
+function concretePaths(path, input) {
+  const m = path.match(PARAM_RE);
+  if (!m) return [path];
+  return paramValues(m[1], m[2], input).flatMap((v) => concretePaths(path.replace(m[0], v), input));
+}
+
+/** The concrete paths of this route an automation token is refused on (empty when it is open to them). */
+export function tokenBlockedPaths(http, input) {
+  const method = http.method.toUpperCase();
+  return concretePaths(http.path, input).filter((p) => {
+    if (!TOKEN_PATHS(p)) return true;
+    // admin-page.js tests the path inside its router, without the /admin mount.
+    return p.startsWith("/admin/") && tokenBlocked(method, p.slice("/admin".length));
+  });
+}
+
+/**
+ * Whether an automation token gets through to this route for every value its parameters can take.
+ * Pass the capability's input so an enum on a path parameter narrows the values tried.
+ */
+export function tokenReach(http, input) {
+  return tokenBlockedPaths(http, input).length === 0;
 }
 
 function textProblems(field, value, { min = 1, max }) {
@@ -105,12 +139,22 @@ function tokenProblems(spec) {
   if (!spec.http || httpProblems(spec.http).length) {
     return spec.token === undefined ? ["token must be given when there is no http route to derive it from"] : [];
   }
-  const reach = tokenReach(spec.http);
-  if (spec.token === true && !reach) {
-    return [`token is true, but ${routeKey(spec.http)} is closed to tokens (TOKEN_PATHS or TOKEN_BLOCKED_RE); drop token or the capability`];
+  const key = routeKey(spec.http);
+  // Outside TOKEN_PATHS the token lane is not open at all; that is not work tokens are kept from.
+  if (!TOKEN_PATHS(spec.http.path)) {
+    return spec.token === true ? [`token is true, but ${key} is outside TOKEN_PATHS (security/auth-guard.js); drop token`] : [];
   }
-  const locked = TOKEN_LOCKED_ROUTES[routeKey(spec.http)];
-  if (reach && spec.token !== false && locked) {
+  const all = concretePaths(spec.http.path, spec.input);
+  const blocked = tokenBlockedPaths(spec.http, spec.input);
+  if (blocked.length === all.length) {
+    return [`${key} is work automation tokens may never do (tokenBlocked in src/routes/admin-page.js), so it is not a tool. Remove the capability and list the route in OPT_OUT as token-blocked`];
+  }
+  if (blocked.length && spec.token !== false) {
+    const shown = blocked.slice(0, 5).join(", ") + (blocked.length > 5 ? ", ..." : "");
+    return [`${key} refuses tokens on ${shown}. Give the path parameter an enum in input that leaves those values out, or set token: false`];
+  }
+  const locked = TOKEN_LOCKED_ROUTES[key];
+  if (spec.token !== false && locked) {
     const names = Object.keys(spec.input?.properties ?? {}).filter((k) => locked.includes(k));
     if (names.length) return [`${names.join(", ")} ${names.length > 1 ? "are" : "is"} in TOKEN_LOCKED; remove ${names.length > 1 ? "them" : "it"} from input or set token: false`];
   }
@@ -144,6 +188,6 @@ export function defineCapability(spec) {
   return Object.freeze({
     ...spec,
     access: spec.access ?? MIN_ACCESS[spec.safety],
-    token: spec.token ?? (spec.http ? tokenReach(spec.http) : false),
+    token: spec.token ?? (spec.http ? tokenReach(spec.http, spec.input) : false),
   });
 }

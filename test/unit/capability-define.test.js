@@ -99,23 +99,43 @@ test("handler is a function", () => {
   hasProblem({ handler: "nope" }, /handler/);
 });
 
-// Token reach comes from the same lists the server enforces: auth-guard's TOKEN_PATHS and
-// admin-page's TOKEN_BLOCKED_RE. Nothing here repeats them by hand.
-test("token reach follows TOKEN_PATHS and TOKEN_BLOCKED_RE", () => {
+// Token reach comes from what the server enforces: auth-guard's TOKEN_PATHS and admin-page's
+// tokenBlocked(). Nothing here repeats them by hand. capability-token-reach.test.js checks it
+// against real requests.
+test("token reach follows TOKEN_PATHS and tokenBlocked()", () => {
   assert.equal(tokenReach({ method: "GET", path: "/admin/api/stats" }), true);
   assert.equal(tokenReach({ method: "POST", path: "/admin/api/descriptions/:id" }), true);
   assert.equal(tokenReach({ method: "POST", path: "/admin/api/users" }), false, "accounts are token-blocked");
   assert.equal(tokenReach({ method: "POST", path: "/admin/api/library/files/remove" }), false);
   assert.equal(tokenReach({ method: "GET", path: "/admin/api/users" }), true, "TOKEN_BLOCKED_RE only stops writes");
+  assert.equal(tokenReach({ method: "GET", path: "/admin/api/tokens" }), false, "but the token list is not read with a token");
   assert.equal(tokenReach({ method: "GET", path: "/api/art/x" }), false, "outside TOKEN_PATHS");
   assert.equal(tokenReach({ method: "GET", path: "/shop.json" }), true);
 });
 
-test("token: true on a route a token cannot reach is refused, token: false narrows", () => {
+test("a route tokens may never use is not a tool, whatever token says", () => {
   const write = { safety: "write", http: { method: "POST", path: "/admin/api/users" } };
-  assert.equal(defineCapability({ ...base(), ...write }).token, false);
-  hasProblem({ ...write, token: true }, /token.*TOKEN_BLOCKED_RE|token/);
+  hasProblem(write, /may never do.*OPT_OUT as token-blocked/);
+  hasProblem({ ...write, token: false }, /may never do/);
+  hasProblem({ ...write, token: true }, /may never do/);
+  hasProblem({ http: { method: "GET", path: "/admin/api/tokens" } }, /may never do/);
+});
+
+test("token: true outside TOKEN_PATHS is refused, token: false narrows", () => {
+  hasProblem({ http: { method: "GET", path: "/api/shop/info" }, token: true }, /outside TOKEN_PATHS/);
+  assert.equal(defineCapability({ ...base(), http: { method: "GET", path: "/api/shop/info" } }).token, false);
   assert.equal(defineCapability({ ...base(), token: false }).token, false);
+});
+
+test("a route blocked for some parameter values needs an enum without them, or token: false", () => {
+  const move = (kind) => ({
+    safety: "write", http: { method: "POST", path: "/admin/api/content/:kind/move" },
+    input: { type: "object", properties: { kind: { type: "string", description: "Which kind of item to move to another game", ...kind } } },
+  });
+  hasProblem(move({}), /refuses tokens on \/admin\/api\/content\/patch\/move.*enum.*token: false/);
+  hasProblem(move({ enum: ["homebrew", "patch"] }), /refuses tokens/);
+  assert.equal(defineCapability({ ...base(), ...move({ enum: ["homebrew", "save"] }) }).token, true);
+  assert.equal(defineCapability({ ...base(), ...move({}), token: false }).token, false);
 });
 
 test("without http the token field must be given", () => {
