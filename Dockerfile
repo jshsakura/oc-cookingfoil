@@ -92,8 +92,9 @@ COPY --from=hacbrewpack-builder /hacBrewPack-source.tar.gz /usr/share/licenses/c
 # required on Alpine 3.20+'s PEP 668 environment; the image is single-
 # tenant and we own the Python install, so this is safe.
 # unzip opens the patch and save zips uploaded from the admin page.
+# 7zip unpacks the official RetroArch bundle (.7z) that the retro tab fills the pack from.
 # su-exec drops from root to PUID:PGID in the entrypoint.
-RUN apk add --no-cache python3 py3-pip unzip su-exec && \
+RUN apk add --no-cache python3 py3-pip unzip su-exec 7zip && \
     pip3 install --no-cache-dir --break-system-packages nsz && \
     # Drop pip caches & build deps to keep the runtime layer lean.
     rm -rf /root/.cache /tmp/* /var/cache/apk/*

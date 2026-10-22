@@ -112,6 +112,31 @@ async function biosNotices(catalog) {
   return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
 }
 
+/**
+ * Starts the cover and bezel download for every console with ROMs (or `only`). { job, done } with `done`
+ * resolving to the summary, or { error, status } when one is already running or the console is unknown.
+ * The one-go pack fill (retro-pack-api.js) runs the same job as its last step.
+ */
+export async function startArtSync(only = null) {
+  if (job && !job.finishedAt) return { error: "이미 정리하고 있습니다", status: 409, job };
+  const catalog = await retroCatalog.current(retroDir);
+  if (only && !catalog.systems[only]) return { error: "없는 시스템입니다", status: 400 };
+  const roms = {};
+  for (const g of catalog.games) (roms[g.system] ??= []).push(romKey(g));
+  const current = (job = { system: only, startedAt: Date.now(), progress: null });
+  const act = activity.begin("retro-art", { title: only ? `레트로 그림을 정리합니다 (${only})` : "레트로 그림을 정리합니다" });
+  const done = art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; act.total(p.total); act.step(p.index, p.system); } })
+    .then((summary) => { current.summary = summary; act.done(); return summary; })
+    .catch((err) => { current.error = err.message; act.fail(err); throw err; })
+    .finally(async () => {
+      current.finishedAt = Date.now();
+      await retroCatalog.scan(retroDir).catch((err) => debug.error("retro: rescan after an art change failed: %s", err.message));
+      debug.log("admin retro-art: sync %s done", only ?? "all");
+    });
+  done.catch(() => {});
+  return { job: current, done };
+}
+
 export function mountRetroArtApi(router, requireSession) {
   scheduleRatings();
   const guarded = (handler) => async (req, res) => {
@@ -137,24 +162,9 @@ export function mountRetroArtApi(router, requireSession) {
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {
-    if (job && !job.finishedAt) return res.status(409).json({ error: "이미 정리하고 있습니다", job });
-    const only = req.body?.system ? String(req.body.system) : null;
-    const catalog = await retroCatalog.current(retroDir);
-    if (only && !catalog.systems[only]) return res.status(400).json({ error: "없는 시스템입니다" });
-    const roms = {};
-    for (const g of catalog.games) (roms[g.system] ??= []).push(romKey(g));
-    job = { system: only, startedAt: Date.now(), progress: null };
-    res.status(202).json({ job });
-    const current = job;
-    const act = activity.begin("retro-art", { title: only ? `레트로 그림을 정리합니다 (${only})` : "레트로 그림을 정리합니다" });
-    art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; act.total(p.total); act.step(p.index, p.system); } })
-      .then((summary) => { current.summary = summary; act.done(); })
-      .catch((err) => { current.error = err.message; act.fail(err); })
-      .finally(async () => {
-        current.finishedAt = Date.now();
-        await retroCatalog.scan(retroDir).catch((err) => debug.error("retro: rescan after an art change failed: %s", err.message));
-        debug.log("admin retro-art: sync %s done", only ?? "all");
-      });
+    const started = await startArtSync(req.body?.system ? String(req.body.system) : null);
+    if (started.error) return res.status(started.status).json({ error: started.error, ...(started.job ? { job: started.job } : {}) });
+    res.status(202).json({ job: started.job });
   }));
 
   router.post("/api/retro-art/ratings", guarded(async (_req, res) => {

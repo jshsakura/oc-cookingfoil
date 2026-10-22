@@ -58,6 +58,8 @@ export const SETTINGS = {
   eshopArtwork: bool,
   ratingSync: bool,
   retroMeta: bool,
+  // The RetroArch bundle's address; empty is the official one in the pack lock. The lock's SHA-256 decides what is accepted.
+  retroPackUrl: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || URL_RE.test(v) },
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
   publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && v.startsWith("https://") && bareOrigin(v)) },
@@ -130,7 +132,7 @@ export function describe() {
   for (const k of Object.keys(SETTINGS)) {
     const fromEnv = env.ENV_SETTINGS[k];
     const value = k in saved ? saved[k] : fromEnv;
-    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "titledbSource" || k === "publicDirectBaseUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
+    out[k] = { value: value ?? (k === "publicBaseUrl" || k === "titledbSource" || k === "publicDirectBaseUrl" || k === "retroPackUrl" ? "" : value), source: k in saved ? "saved" : "env", envValue: fromEnv ?? null };
   }
   return out;
 }

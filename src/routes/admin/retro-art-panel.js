@@ -22,6 +22,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">표지와 베젤</h2><button type="button" class="primary" id="ra-sync">빠진 것 모두 다운로드</button></div>
   <p class="muted">파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다. 그 게임의 베젤이 없으면 같은 제목의 다른 지역판 베젤을, 그것도 없으면 시스템 기본 베젤을 씁니다. 아케이드 세트에 표지가 없으면 같은 게임의 다른 세트 표지를 보여 줍니다.</p>
+  <p class="muted ra-credit"><span data-top="rp.creditBezel">베젤: The Bezel Project 커뮤니티가 만들어 공개한 작품입니다. 감사합니다.</span> <a href="https://github.com/thebezelproject" target="_blank" rel="noopener">github.com/thebezelproject</a><br><span data-top="rp.creditCover">표지: libretro-thumbnails 가 모아 공개한 이미지입니다. 감사합니다.</span> <a href="https://github.com/libretro-thumbnails" target="_blank" rel="noopener">github.com/libretro-thumbnails</a></p>
   <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings/integrations">설정 탭</a>에서 넣을 수 있습니다.</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
@@ -40,6 +41,9 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">RetroArch 코어</h2><button type="button" id="rc-reload">${icon("refresh")}다시 읽기</button><button type="button" class="primary" id="rc-up-pick">${icon("upload")}코어 올리기</button><input type="file" id="rc-up" accept=".nro" hidden></div>
   <p class="muted">retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch <span id="rc-official"></span> 번들과 파일 내용을 비교해 출처를 표시합니다. 공식과 다른 코어는 한글패치나 해크판을 위해 따로 받은 것일 수 있으니 서버가 바꾸지 않습니다. 올린 코어는 <코어>_libretro_libnx.nro 이름의 Switch NRO 여야 하고, 바꾸거나 지운 코어는 휴지통 탭에서 되돌릴 수 있습니다.</p>
   <p class="muted" id="rc-nro"></p>
+  <div class="hd"><h3 data-top="rp.title">RetroArch 한 번에 채우기</h3><button type="button" class="primary" id="rp-fill" data-top="rp.button">한 번에 채우기</button></div>
+  <p class="muted" data-top="rp.lead">공식 RetroArch 번들에서 본체, 지금 ROM 이 있는 기종의 코어, info·assets·autoconfig 를 받아 채운 뒤 표지와 베젤을 받습니다. 직접 넣은 파일, 바꾼 파일, retroarch.cfg, system(BIOS)은 건드리지 않습니다.</p>
+  <p class="muted" id="rp-last"></p>
   <h3>기종별 코어</h3>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
@@ -62,6 +66,15 @@ ${RETRO_VARIANTS_HTML}
   <p class="muted" id="ra-msg"></p>
   <div class="ra-grid" id="ra-results"></div>
   <div class="row"><button type="button" id="ra-none" class="danger">표지 없음으로 두기</button></div>
+</dialog>
+<dialog id="rp-dialog" class="ra-dialog" aria-labelledby="rp-dtitle">
+  <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
+  <h3 id="rp-dtitle" data-top="rp.confirmTitle">RetroArch 팩을 채웁니다</h3>
+  <p id="rp-size"></p>
+  <h4 data-top="rp.install">설치할 목록</h4>
+  <ul id="rp-items" class="rp-items"></ul>
+  <p class="muted" id="rp-extra"></p>
+  <div class="row"><button type="button" class="primary" id="rp-go" data-top="rp.go">채우기 시작</button><button type="button" id="rp-cancel" data-top="rp.cancel">취소</button></div>
 </dialog>
 <dialog id="rm-dialog" class="ra-dialog" aria-labelledby="rm-title">
   <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
@@ -94,6 +107,8 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .ra-grid img{width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--sunk);border-radius:8px}
 .ra-grid span{overflow-wrap:anywhere}
 #ra-filter{max-width:220px}
+.rp-items{margin:0 0 10px;padding-left:18px;max-height:42vh;overflow:auto}.rp-items li{margin:3px 0}.rp-items .muted{margin-left:6px}
+.ra-credit a{overflow-wrap:anywhere}
 .ra-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0;font-size:13px;color:var(--muted)}
 .ra-up{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:13px}
 .ra-up.over{border-color:var(--accent,#4c8dff);background:var(--sunk)}
@@ -113,7 +128,7 @@ function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
   const panel=['art','ratings','cores'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
-  if(panel==='cores')loadRetroCores();
+  if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
 function retroOpen(){loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
@@ -131,6 +146,25 @@ async function loadRetroCores(){let d;
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
     const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
     tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+const rpT=(k,v)=>{let s=topText('rp.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
+function rpLast(job){const p=$('rp-last');if(!job){p.textContent='';return;}
+  if(job.error)p.textContent=rpT('lastFail',{err:job.error});
+  else if(job.result)p.textContent=rpT('lastOk',{i:job.result.installed,r:job.result.replaced,k:job.result.keptCount.operator+job.result.keptCount.modified,b:job.art?job.art.boxart:0,z:job.art?job.art.bezel:0});
+  else p.textContent='';}
+async function rpOpen(){let d;
+  try{d=await api('/admin/api/retro-pack');}catch(err){toast(err.message);return;}
+  $('rp-size').textContent=d.bundle.remaining===0||!d.needsBundle?rpT('sizeCached'):rpT('size',{size:rcMb(d.bundle.remaining),ver:d.version});
+  const ul=$('rp-items');ul.replaceChildren();
+  for(const i of d.items){const li=el('li',i.kind==='body'?rpT('body'):rpT('core',{name:i.name,sys:i.systems.map((s)=>s.name).join(', '),n:i.games}));
+    li.append(el('span',rcMb(i.size)+' · '+rpT('state.'+i.state),'muted'));ul.append(li);}
+  ul.append(el('li',rpT('dirs')),el('li',rpT('art')));
+  const notes=[];if(d.notInBundle.length)notes.push(rpT('notInBundle',{names:d.notInBundle.map((c)=>c.core).join(', ')}));
+  if(!d.needsBundle)notes.push(rpT('nothing'));
+  $('rp-extra').textContent=notes.join(' ');rpLast(d.job);$('rp-dialog').showModal();}
+async function rpStart(){$('rp-go').disabled=true;
+  try{await api('/admin/api/retro-pack/fill',{method:'POST',body:{confirm:true}});toast(rpT('started'));$('rp-dialog').close();}
+  catch(err){toast(err.message);}finally{$('rp-go').disabled=false;}}
+$('rp-fill').addEventListener('click',rpOpen);$('rp-go').addEventListener('click',rpStart);$('rp-cancel').addEventListener('click',()=>$('rp-dialog').close());
 function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name+' 코어');
   const opt=(core,label)=>{const o=el('option',label);o.value=core;if(core===s.core)o.selected=true;return o;};
   const group=(label,cores)=>{const g=el('optgroup');g.label=label;g.append(...cores.map((c)=>opt(c,c+(c===s.tableCore?' (기본값)':''))));return g;};
