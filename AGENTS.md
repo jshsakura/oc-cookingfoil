@@ -59,6 +59,8 @@ fake (`"a".repeat(64)`).
 
 - Text agents read (capabilities, API docs, this file) is English. Admin page strings ship in
   `en`, `ko`, `ja` and `zh` together; Korean uses 합니다체.
+- New UI text goes into a dictionary in all its languages (`ko en ja zh` for admin and web pages, the
+  twelve client languages for text a console shows); `test/unit/i18n-ratchet.test.js` enforces it.
 - No em dashes or en dashes joining sentences.
 - Settings are changed on the admin page and apply without a restart; environment variables only
   seed them.

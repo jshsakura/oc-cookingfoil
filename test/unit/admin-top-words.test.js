@@ -3,21 +3,7 @@ import assert from "node:assert/strict";
 import { TOP_WORDS, TOP_LANGS } from "../../src/routes/admin/top-i18n.js";
 import { dashboardPage } from "../../src/routes/admin/dashboard-page.js";
 
-const keysOf = (lang) => Object.keys(TOP_WORDS[lang]).sort();
-
-test("every admin top-area label exists in all four languages", () => {
-  const ko = keysOf("ko");
-  for (const [code] of TOP_LANGS) assert.deepEqual(keysOf(code), ko, `${code} has the same keys as ko`);
-});
-
-test("no top-area label is empty or uses an em dash", () => {
-  for (const [code] of TOP_LANGS) {
-    for (const [key, text] of Object.entries(TOP_WORDS[code])) {
-      assert.ok(text.trim().length > 0, `${code}.${key} is empty`);
-      assert.ok(!/[—–]/.test(text), `${code}.${key} has a dash`);
-    }
-  }
-});
+// i18n-ratchet.test.js holds TOP_WORDS, like every dictionary, to all four languages with the same keys.
 
 test("every data-top key the admin page uses has a label", () => {
   const html = dashboardPage();
