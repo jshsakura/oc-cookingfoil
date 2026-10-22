@@ -8,6 +8,7 @@
  */
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
+import { noteRefusal } from "./auth-log.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -45,6 +46,7 @@ export function sameHost(req) {
 export function sameOriginWrites() {
   return (req, res, next) => {
     if (SAFE_METHODS.has(req.method) || sameOrigin(req)) return next();
+    noteRefusal(req, res, 403, "origin-mismatch");
     res.set("Cache-Control", "no-store");
     res.status(403).json({ error: "origin mismatch" });
   };

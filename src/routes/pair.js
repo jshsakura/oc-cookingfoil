@@ -83,6 +83,7 @@ import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../sec
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
 import { noteRefusal } from "../security/auth-log.js";
+import { vouch } from "../security/server-id.js";
 import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
@@ -169,7 +170,8 @@ function pendingResponse(req, deviceKey) {
 // Another secret already claimed this device key: the console cannot get a key
 // until the admin refuses or forgets the request, so it should say so rather
 // than show a QR the admin might approve for someone else.
-function secretConflict(res) {
+function secretConflict(req, res) {
+  noteRefusal(req, res, 409, "pair-secret-mismatch");
   res.status(409).json({ error: "pairSecret mismatch" });
 }
 
@@ -213,7 +215,7 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid pairSecret" });
       return;
     }
-    if (registered === "conflict") return secretConflict(res);
+    if (registered === "conflict") return secretConflict(req, res);
     const download = enrollFromRequest(req, deviceKey);
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
@@ -237,7 +239,7 @@ export default function pairRouter() {
     }
     const secret = pairSecretOf(req, req.query?.pairSecret);
     // A GET-only client asks here, so its secret registers here too (a malformed one is ignored).
-    if (registerPairSecret(deviceKey, secret) === "conflict") return secretConflict(res);
+    if (registerPairSecret(deviceKey, secret) === "conflict") return secretConflict(req, res);
     const download = enrollFromRequest(req, deviceKey);
     // A console that knocks with its account is approved right here (COOK_DEVICE_AUTO_APPROVE).
     await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
@@ -278,14 +280,15 @@ export default function pairRouter() {
       const known = enrollTokens.lookup(req.body?.token);
       debug.log("pair: %s… enroll refused: the download token is %s", deviceKey.slice(0, 12), known?.state ?? "unknown");
       if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
-      noteRefusal(req, res, 401, `enroll-${known?.state ?? "invalid"}`);
+      // A download this server made, spent or not, names the server; a made-up one does not.
+      noteRefusal(req, res, 401, `enroll-${known?.state ?? "invalid"}`, { proven: Boolean(known) });
       res.set("X-CookingFoil-Enroll", known?.state ?? "invalid");
       res.status(401).json({ error: ENROLL_REFUSED[known?.state] ?? ENROLL_REFUSED.invalid });
       return;
     }
     if (spent.refused) {
       debug.log("pair: %s… enroll refused: the console is another account's", deviceKey.slice(0, 12));
-      noteRefusal(req, res, 409, "enroll-other-account");
+      noteRefusal(req, res, 409, "enroll-other-account", { proven: true });
       res.status(409).json({ error: "this console belongs to another account" });
       return;
     }
@@ -295,6 +298,7 @@ export default function pairRouter() {
     store.clearPairSecret(deviceKey);
     debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
     const origin = resolveOrigin(req, publicBaseUrl);
+    vouch(res);
     res.json({ status: "approved", accessKey, shopUrl: origin || null });
   });
 
@@ -320,7 +324,8 @@ export default function pairRouter() {
     const approvedBy = store.deviceAddedBy(from);
     const accountOwns = Boolean(who && approvedBy === who.name && !SYSTEM_APPROVERS.has(approvedBy));
     if (store.isDeviceApproved(from) && !keyProof && !accountOwns) {
-      noteRefusal(req, res, 403, "rebind-not-this-account");
+      // Signed in with a real account: the refusal may name the server.
+      noteRefusal(req, res, 403, "rebind-not-this-account", { proven: true });
       res.status(403).json({ error: "that console is not this account's" });
       return;
     }

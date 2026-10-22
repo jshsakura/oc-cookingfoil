@@ -42,7 +42,7 @@ import {
   rotateUnenrolledSecret,
 } from "./security/admin-secret.js";
 import { logConfigHealth } from "./security/config-health.js";
-import { serverId, serverIdHeader } from "./security/server-id.js";
+import { serverId } from "./security/server-id.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -156,8 +156,6 @@ if (trustProxy) {
 //   4. access guard      (block probes / traversal / locked IPs)
 //   5. auth guard        (device keys, sessions, web sign-in; 5-strike lockout)
 expressApp.use(defensiveHeaders());
-// Every response names this installation, refusals included (a console tells two addresses of one server apart).
-expressApp.use(serverIdHeader());
 // Safe restart: while the server drains, new requests get 503 + Retry-After and
 // running ones finish (security/drain.js). First, so nothing below starts new work.
 expressApp.use(drainer.middleware());

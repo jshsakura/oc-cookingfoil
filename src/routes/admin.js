@@ -10,6 +10,7 @@ import express from "express";
 import debug from "../debug.js";
 import * as store from "../security/store.js";
 import { sameOriginWrites } from "../security/same-origin.js";
+import { vouch } from "../security/server-id.js";
 
 const ADMIN_TOKEN = process.env.COOK_ADMIN_TOKEN || "";
 
@@ -24,6 +25,7 @@ function checkToken(req, res) {
     res.status(401).type("text/plain").send("invalid admin token");
     return false;
   }
+  vouch(res);
   return true;
 }
 

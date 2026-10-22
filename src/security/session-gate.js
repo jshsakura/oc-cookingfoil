@@ -28,12 +28,14 @@ import { devicePairing } from "../helpers/envs.js";
 import { trustedHere } from "./net.js";
 import { lockoutRetryAfter } from "./retry-after.js";
 import { noteRefusal } from "./auth-log.js";
+import { vouch } from "./server-id.js";
 
 export const SESSION_HEADER = "X-CookingFoil-Session";
 
 // `why` names the case in the log line where the verdict alone does not (auth-log.js).
+// Only "expired" and "revoked" come from a token whose MAC checked out, so only they name the server.
 function refuse(req, res, verdict, why = verdict) {
-  noteRefusal(req, res, 401, `session-${why}`);
+  noteRefusal(req, res, 401, `session-${why}`, { proven: verdict !== "invalid" });
   res.set("Cache-Control", "no-store");
   res.set(SESSION_HEADER, verdict);
   if (verdict === "invalid") recordDeny(req, { reason: DENY.SESSION_REFUSED, status: 401, deviceKey: deviceKeyFromHeaders(req) });
@@ -57,6 +59,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     // A paired console's session needs pairing to still be on.
     if (!sub.acct && !devicePairing) return refuse(req, res, "revoked", "revoked-pairing-off");
     req.sessionLane = true;
+    vouch(res);
     // The console the token was made for, checked against its header above (device-admin.js).
     req.sessionDevice = sub.dev;
     store.touchDevice(sub.dev);
