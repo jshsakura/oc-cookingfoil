@@ -110,3 +110,24 @@ test("an older record is extracted once more for language icons, keeping its han
   assert.equal(extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" }), false, "done once");
   assert.equal(calls.length, 1);
 });
+
+test("a record stored with a garbled name reads as nameless and is read again in full, once", async () => {
+  const BASE = "0100000000050000";
+  await extractedMeta.put({ id: BASE, name: "\uFFFD\u0013\uFFFD", publisher: "\uFFFDp", iconLangs: [], source: "nacp-nsp" });
+  assert.equal(extractedMeta.get(BASE).name, null, "the garbled name is not shown meanwhile");
+  assert.equal(extractedMeta.get(BASE).publisher, null);
+  assert.equal(extractor.needsReread(extractedMeta.get(BASE)), true);
+  const calls = [];
+  extractor.setProvider(stubProvider({ name: "Fresh Name", publisher: "Fresh Pub", source: "nacp-nsp" }, calls));
+
+  assert.equal(extractor.enqueue({ absPath: "/g.nsp", baseTitleId: BASE, fileName: "g.nsp" }), true);
+  await extractor.whenDrained();
+
+  assert.equal(calls[0].langIconsOnly, false, "a full read, not icons only");
+  const rec = extractedMeta.get(BASE);
+  assert.equal(rec.name, "Fresh Name");
+  assert.equal(rec.publisher, "Fresh Pub");
+  assert.equal(extractor.needsReread(rec), false);
+  extractor.resetForTests();
+  assert.equal(extractor.enqueue({ absPath: "/g.nsp", baseTitleId: BASE, fileName: "g.nsp" }), false, "done once");
+});

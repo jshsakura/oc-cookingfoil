@@ -68,6 +68,13 @@ let active = 0;
 let drained = Promise.resolve();
 let drainedResolver = null;
 
+/**
+ * Whether a stored record is read from its file once more: in full when its
+ * name came out garbled (extracted-meta-store.js), else for its language
+ * icons when it has none yet. Pure.
+ */
+export const needsReread = (record) => Boolean(record?.garbled) || !Array.isArray(record?.iconLangs);
+
 export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   if (!baseTitleId) return false;
   if (tried.has(baseTitleId)) return false;
@@ -76,11 +83,11 @@ export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   // more so a game titledb does not know still gets its English/Japanese/
   // Chinese box art; the record then carries iconLangs and is left alone.
   const existing = extractedMeta.get(baseTitleId);
-  if (existing && (Array.isArray(existing.iconLangs) || wantMeta === false)) {
+  if (existing && (!needsReread(existing) || wantMeta === false)) {
     tried.add(baseTitleId);
     return false;
   }
-  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) });
+  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) && !existing.garbled });
   inFlight.add(baseTitleId);
   if (drainedResolver === null) {
     drained = new Promise((resolve) => { drainedResolver = resolve; });
