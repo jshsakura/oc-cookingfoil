@@ -42,7 +42,7 @@ const RESCAN = new Set(["langPriority", "extractIcons"]);
 // would delete each original as soon as it is converted, a high disk floor would purge every kept
 // one): never changed with an automation token.
 export const TOKEN_LOCKED = [
-  "devicePairing", "passwordLogin", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
+  "devicePairing", "passwordLogin", "deviceApproval", "deviceLimit", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
   "nszKeepHours", "nszKeepGb", "nszDiskFloorGb",
 ];

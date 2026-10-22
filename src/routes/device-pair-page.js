@@ -98,7 +98,8 @@ function showDone(){main.innerHTML='';const h=document.createElement('h1');h.tex
 const MESSAGES={404:T.errNotFound,409:T.errUsed,410:T.expiredBody,401:T.errAuth,403:T.errAuth};
 async function approve(payload){const button=approveForm.querySelector('button');button.disabled=true;error.textContent='';
   try{const r=await fetch('/pair/approve',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
-    if(r.ok){stopCamera();if(token){showDone();return;}approveForm.reset();status.textContent=T.doneTitle+' '+T.doneBody;loadMine();return;}error.textContent=MESSAGES[r.status]||T.errOther;}
+    if(r.ok){stopCamera();if(token){showDone();return;}approveForm.reset();status.textContent=T.doneTitle+' '+T.doneBody;loadMine();return;}
+    const j=await r.json().catch(()=>({}));error.textContent=j.code==='device-limit'&&j.error?j.error:MESSAGES[r.status]||T.errOther;}
   catch{error.textContent=T.errNetwork;}finally{button.disabled=false;}}
 if(approveForm)approveForm.addEventListener('submit',e=>{e.preventDefault();const label=document.getElementById('label').value;
   if(token){approve({token,label});return;}

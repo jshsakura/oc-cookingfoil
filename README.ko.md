@@ -190,6 +190,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 |---|---|---|
 | QR 기기 연결(대시보드의 클라이언트 받기에도 필요합니다) | `COOK_DEVICE_PAIRING` | `true` |
 | 기기 승인 방식 | `COOK_DEVICE_AUTO_APPROVE` | `true`: 연결할 때 아이디와 비밀번호를 한 번 보낸 기기는 바로 승인합니다. `false`: 관리자가 하나씩 승인합니다. `all`: 요청하는 기기를 모두 승인합니다 |
+| 계정당 기기 수 | `COOK_DEVICE_LIMIT` | 한 계정이 가질 수 있는 승인된 기기 수입니다. 어떻게 승인됐든 셉니다. 기본 `5`, `0` 은 제한 없음. 설정 탭에서 바꿀 수 있습니다 |
 | 공개 주소 | `COOK_PUBLIC_BASE_URL` | 요청마다 알아냄 |
 | 웹 업로드 | `COOK_UPLOADS_ENABLED` | `false` |
 | 임시 공유 | `COOK_INBOX_ENABLED` | `true` |
@@ -234,7 +235,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 
 **1. CookingFoil 클라이언트, QR 로 연결.** 홈브류 메뉴에서 클라이언트를 열고 서버 주소를 넣으면 QR 코드와 8자리 기기 코드가 뜹니다. 휴대폰으로 QR 을 찍거나 `/pair` 에서 기기 코드를 입력한 뒤, 로그인해 승인합니다. 기기는 자기만의 접근 키를 받습니다. 승인 방식이 "로그인한 기기는 바로 승인"(기본값)이면 클라이언트에 넣은 아이디와 비밀번호로도 바로 승인됩니다. 그 비밀번호는 이때 한 번만 확인하고, 그 뒤로 기기는 접근 키로만 접속합니다.
 
-**2. CookingFoil 클라이언트, 대시보드에서 받기.** 서버의 대시보드에 로그인해 클라이언트 받기 카드를 씁니다. `switch/cookingfoil/cookingfoil.nro` 와, 이 서버 주소와 한 번 쓰는 등록 토큰이 든 `config.json` 이 함께 담긴 zip 을 받습니다. `switch/` 폴더를 SD 카드에 복사하고 클라이언트를 엽니다. 처음 켤 때 클라이언트가 토큰을 자기 접근 키로 바꾸고(`POST /api/pair/enroll`) 내 계정 아래로 승인되므로, 따로 찍을 것이 없습니다. 토큰은 한 번만, 받은 뒤 한 시간 안에만 쓸 수 있습니다. 아직 쓰지 않은 다운로드는 같은 화면이나 관리 페이지의 기기 탭에서 거둘 수 있습니다. 쓰기 전까지는 zip 을 열쇠처럼 다룹니다.
+**2. CookingFoil 클라이언트, 대시보드에서 받기.** 서버의 대시보드에 로그인해 클라이언트 받기 카드를 씁니다. `switch/cookingfoil/cookingfoil.nro` 와, 이 서버 주소와 등록 토큰이 든 `config.json` 이 함께 담긴 zip 을 받습니다. `switch/` 폴더를 SD 카드에 복사하고 클라이언트를 엽니다. 처음 켤 때 클라이언트가 토큰을 자기 접근 키로 바꾸고(`POST /api/pair/enroll`) 내 계정 아래로 승인되므로, 따로 찍을 것이 없습니다. 받은 뒤 1시간 안에 기기 5대까지 자동으로 연결되고, 그 이상은 QR 로 승인합니다. 5대는 그 계정의 모든 다운로드를 합쳐 한 시간에 세므로 다시 받아도 늘지 않습니다. 수동 승인(`COOK_DEVICE_AUTO_APPROVE=false`)이면 한 다운로드로 기기 한 대만 연결됩니다. 새로 받으면 같은 계정의 이전 다운로드는 끝나고, 이미 연결된 기기는 그대로 남습니다. 토큰으로 연결되지 않은 기기는 서버 주소만 아는 기기처럼 승인을 기다립니다. 다운로드는 같은 화면이나 관리 페이지의 기기 탭에서 거둘 수 있습니다. 한 계정은 어떻게 승인됐든 기기를 `COOK_DEVICE_LIMIT` 대까지 가질 수 있습니다(기본 5, 0 은 제한 없음, 설정 탭에서 바꿉니다). 쓰기 전까지는 zip 을 열쇠처럼 다룹니다.
 
 어느 쪽으로 연결했든, 클라이언트는 접근 키를 12시간짜리 세션 토큰으로 바꾸고(`GET /api/session`) 그 뒤로는 토큰만 보냅니다. 연결한 뒤에는 서버에서 스스로 업데이트하고, 홈 메뉴 바로가기도 직접 만들 수 있습니다. 새 기기 키로 옮겨 가는 기기는 `POST /api/pair/rebind` 로 승인을 그대로 이어 갑니다.
 
@@ -352,7 +353,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 - 알려진 공격 경로, 경로 이탈, 제어 문자, 지나치게 긴 주소는 로그인 전에 거절하고, 같은 잠금 횟수에 셉니다. 텔레그램 알림으로도 알릴 수 있습니다.
 - 브라우저에서 오는 쓰기 요청과 WebSocket 연결은 서버 자기 화면에서 온 것만 받습니다. WebSocket 메시지는 4 KB 까지입니다.
 - 관리자가 넣는 바깥 서비스 주소는 사설 네트워크를 가리킬 수 없습니다. `COOK_OUTBOUND_PRIVATE_HOSTS` 에 적은 호스트만 예외입니다.
-- 응답에는 방어용 헤더(`nosniff`, `DENY` 프레임 차단, 리퍼러 없음)가 붙습니다. 거절은 모두 이유와 함께 로그 탭과 `X-CookingFoil-Deny` 헤더에 남습니다. 모든 응답에는 이 서버의 무작위 ID 인 `X-CookingFoil-Server-Id` 가 붙고(어느 주소로 들어와도 같습니다), 로그인 거절(401, 403)에는 로그 줄과 같은 이유 코드가 `X-CookingFoil-Auth` 로 붙어서 클라이언트가 다음에 할 일을 정할 수 있습니다. 예를 들어 `no-access-key`, `access-key-wrong`, `device-not-approved`, `session-expired`, `session-revoked`, `enroll-used`, `rebind-no-proof` 가 있습니다.
+- 응답에는 방어용 헤더(`nosniff`, `DENY` 프레임 차단, 리퍼러 없음)가 붙습니다. 거절은 모두 이유와 함께 로그 탭과 `X-CookingFoil-Deny` 헤더에 남습니다. 모든 응답에는 이 서버의 무작위 ID 인 `X-CookingFoil-Server-Id` 가 붙고(어느 주소로 들어와도 같습니다), 로그인 거절(401, 403)에는 로그 줄과 같은 이유 코드가 `X-CookingFoil-Auth` 로 붙어서 클라이언트가 다음에 할 일을 정할 수 있습니다. 예를 들어 `no-access-key`, `access-key-wrong`, `device-not-approved`, `session-expired`, `session-revoked`, `enroll-used`, `enroll-limit`, `device-limit`, `rebind-no-proof` 가 있습니다.
 - 관리 페이지에 저장한 시크릿은 다시 보여 주지 않습니다. 웹 업로드는 켜기 전까지 꺼져 있습니다.
 
 취약점 제보는 [SECURITY.md](./SECURITY.md#한국어) 를 봅니다. 공개 이슈로 올리지 말아 주세요.
@@ -376,7 +377,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(그 폴더에 넣거나 관리 페이지 업로드 탭에서 "클라이언트"로 올립니다)와 그 홈 메뉴 바로가기. `latest` 는 빌드 옆의 `cookingfoil.nro.sig.json` 이 그 빌드의 버전, 크기, sha256 과 맞을 때만 `signature`(빌드한 곳에서 만든 Ed25519 서명)를 싣습니다 |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다. 승인 방식이 "로그인한 기기는 바로 승인" 이면 Basic 으로 보낸 계정 아이디와 비밀번호로 바로 승인합니다. JSON 응답에는 모두 `passwordOnly: true` 가 붙고, `/api/shop/info` 의 기능 목록에 `pair-password-only` 가 있습니다. 비밀번호는 연결할 때만 씁니다 |
-| `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 한 시간 안에 한 번만 쓸 수 있습니다 |
+| `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 받은 뒤 1시간 안에 기기 5대까지(수동 승인이면 한 대) 쓸 수 있고 그 이상은 QR 로 승인합니다. 거절: 401 과 `X-CookingFoil-Enroll: limit`(`X-CookingFoil-Auth: enroll-limit`), `used`, `expired`, `revoked`, `invalid`. 계정의 기기 수가 다 찼으면 403 과 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 연결한 기기의 접근 키를 12시간짜리 세션 토큰으로 바꿉니다(Basic 헤더는 무시합니다). 이후에는 같은 기기 키로 `Authorization: Bearer cfs_…` 만 보냅니다. 세션으로 세션을 다시 받을 수는 없고, 그 기기를 승인한 계정의 비밀번호 변경, 기기 회수, 잠금이 생기면 바로 끝납니다. 기능 이름은 `session-token` 입니다 |
 | `POST /api/pair/rebind` | 같은 기기를 새 기기 키로 옮깁니다(승인, 이름, 접근 키). 기기 키를 본체에서 만들어 내게 된 클라이언트가 씁니다. 옛 키의 접근 키, 또는 그 기기를 승인한 계정의 Basic 인증으로 증명합니다. 기능 이름은 `device-rebind` 입니다 |
 | `GET /healthz` | 상태 확인. 이미지의 `HEALTHCHECK` 가 씁니다 |

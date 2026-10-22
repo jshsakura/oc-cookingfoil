@@ -15,6 +15,9 @@
  *        pairSecret: 64 hex the client generated (32 random bytes), or the X-Pair-Secret header
  *        → records the device as "pending" for the admin to approve.
  *        → { status: "pending", passwordOnly: true, … }  (or { status: "approved", passwordOnly: true } if already done)
+ *          limit: "device" when the account it signed in with (or its download's) holds all the
+ *          consoles it may (security/device-limit.js), "enroll" when its download is over the
+ *          account's hourly count; the console waits for approval by QR
  *        → 400 { error: "invalid pairSecret" } when one is sent but is not 64 hex
  *        → 409 { error: "pairSecret mismatch" } when another secret already asked for this device
  *        → 429 + Retry-After when this address put too many new devices in the queue lately
@@ -31,15 +34,21 @@
  *   POST /api/pair/enroll  { token }  + X-Device-Key
  *        A console spends the enrollment token its downloaded client carries
  *        (security/enroll-tokens.js) for its own access key, approved under the
- *        account that downloaded it. Once, within an hour of the download, in every
- *        approval mode; a later console with the same download is refused (used)
- *        and asks /api/pair/status like a console with only the server address.
+ *        account that downloaded it, within an hour of the download. With
+ *        automatic approval a download enrolls every console that brings it,
+ *        up to ENROLL_MAX_PER_HOUR (5) per account in any rolling hour across
+ *        all its downloads; with manual approval it enrolls one. A console
+ *        refused asks /api/pair/status like a console with only the server address.
  *        → { status: "approved", accessKey, shopUrl }
  *        label: the console's own nickname, which names it once approved
- *        → 401 { error } + X-CookingFoil-Enroll: used | expired | revoked | invalid
- *          (invalid: a token this server never made). A known one puts the console
+ *        → 401 { error } + X-CookingFoil-Enroll: limit | used | expired | revoked | invalid
+ *          and X-CookingFoil-Auth: enroll-<that>
+ *          (limit: the account's five this hour; used: spent, manual approval;
+ *          invalid: a token this server never made). A known one puts the console
  *          in the approval queue under the download's account, so the admin sees
- *          whose it is (two consoles from one download: the second waits there)
+ *          whose it is
+ *        → 403 { error } + X-CookingFoil-Enroll: limit, X-CookingFoil-Auth: device-limit
+ *          the account holds all the consoles it may (security/device-limit.js)
  *        → 409 { error }   the console is another account's, or the account may no longer sign in
  *
  *   POST /api/pair/rebind  { from: <old 64hex>, accessKey? }  + X-Device-Key: <new 64hex>
@@ -80,13 +89,14 @@ import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
+import { publicBaseUrl, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { accountFull } from "../security/device-limit.js";
 import { noteRefusal } from "../security/auth-log.js";
 import { vouch } from "../security/server-id.js";
 import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
-import { deliverAccessKey, registerPairSecret } from "../security/pairing-delivery.js";
+import { checkPairSecret, deliverAccessKey, keepPairSecret } from "../security/pairing-delivery.js";
 import { recordPending } from "../security/pending-limit.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { recordDeny, DENY } from "../security/deny.js";
@@ -118,33 +128,43 @@ function consoleName(req) {
 
 const FROM_DOWNLOAD = "웹에서 받은 클라이언트";
 
+/** What spend and respend ask of an account for this console: still allowed, and room left. */
+const enrollChecks = (deviceKey) => ({
+  canEnroll: (owner) => mayEnroll(deviceKey, owner),
+  full: (owner) => Boolean(accountFull(owner, deviceKey)),
+  multi: deviceAutoApprove,
+});
+
 /**
  * A console that asks with the download token its client carries is approved under the
  * account that downloaded it, the way /enroll would, with its key staged for the next
  * status poll. Without one it waits like any other; with one that no longer works
- * (another console spent it, its hour passed, a newer download withdrew it) it waits too, and the download it names,
- * { owner, id, state }, is returned so the queue shows whose console it is.
+ * (spent, its hour passed, a newer download ended it, the account is at a limit) it waits
+ * too, and { download, limit } says whose download it names ({ owner, id, state }, so
+ * the queue shows whose console it is) and which limit held it ("device", "enroll").
  */
 function enrollFromRequest(req, deviceKey) {
   const token = req.body?.enrollToken ?? req.get("x-enroll-token");
-  if (!token || store.isDeviceApproved(deviceKey)) return null;
-  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner) });
-  if (!spent || spent.refused) {
+  if (!token || store.isDeviceApproved(deviceKey)) return {};
+  const spent = enrollTokens.spend(token, deviceKey, enrollChecks(deviceKey));
+  if (!spent || spent.refused || spent.full || spent.limit) {
     const known = enrollTokens.lookup(token);
-    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : known?.state ?? "unknown");
-    return known;
+    const limit = spent?.full ? "device" : spent?.limit ? "enroll" : undefined;
+    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : limit ? `at the ${limit} limit` : known?.state ?? "unknown");
+    return { download: known, limit };
   }
   const accessKey = generateAccessKey();
   store.approveDevice(deviceKey, { label: consoleName(req) ?? FROM_DOWNLOAD, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
   stageAccessKeyDelivery(deviceKey, accessKey);
   debug.log("pair: %s… enrolled by %s's download %s (from its request)", deviceKey.slice(0, 12), spent.owner, spent.id);
-  return null;
+  return {};
 }
 
 const ENROLL_REFUSED = {
+  limit: "this account connected its most consoles through downloads this hour; this console waits for approval by QR",
   used: "another console already used this download; this one waits for approval",
   expired: "this download's hour has passed; this console waits for approval",
-  revoked: "this download was withdrawn; this console waits for approval",
+  revoked: "this download was ended; this console waits for approval",
   invalid: "the enrollment token has expired or is unknown",
 };
 
@@ -154,7 +174,7 @@ export function mayEnroll(deviceKey, owner) {
   return store.deviceAddedBy(deviceKey) === owner && !SYSTEM_APPROVERS.has(owner);
 }
 
-function pendingResponse(req, deviceKey) {
+function pendingResponse(req, deviceKey, limit) {
   const link = issuePairLink(deviceKey);
   const origin = resolveOrigin(req, publicBaseUrl);
   return {
@@ -163,6 +183,7 @@ function pendingResponse(req, deviceKey) {
     pairUrl: origin ? `${origin}/pair/${link.token}` : null,
     pairCode: link.code,
     expiresAt: link.expiresAt,
+    ...(limit ? { limit } : {}),
   };
 }
 
@@ -208,16 +229,18 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
-    // Before auto-approval, so a console approved right here is held to its secret too.
-    const registered = registerPairSecret(deviceKey, pairSecretOf(req, req.body?.pairSecret));
-    if (registered === "invalid") {
+    // Checked first, kept only once the console is accepted (approved here, or queued within the
+    // pending limit), so a console approved right here is held to it and a refused one leaves nothing.
+    const secret = checkPairSecret(deviceKey, pairSecretOf(req, req.body?.pairSecret));
+    if (secret.verdict === "invalid") {
       res.status(400).json({ error: "invalid pairSecret" });
       return;
     }
-    if (registered === "conflict") return secretConflict(req, res);
-    const download = enrollFromRequest(req, deviceKey);
-    await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
+    if (secret.verdict === "conflict") return secretConflict(req, res);
+    const { download, limit } = enrollFromRequest(req, deviceKey);
+    const auto = await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
+      if (keepPairSecret(deviceKey, secret.hash) === "conflict") return secretConflict(req, res);
       res.json({ status: "approved", passwordOnly: true });
       return;
     }
@@ -225,8 +248,9 @@ export default function pairRouter() {
     const message = req.body && "message" in req.body ? pairMessage(req.body.message) : undefined;
     const queued = recordPending(req, deviceKey, { message, name: consoleName(req), download });
     if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
+    if (keepPairSecret(deviceKey, secret.hash) === "conflict") return secretConflict(req, res);
     debug.log("pair: request from %s…", deviceKey.slice(0, 12));
-    res.json(pendingResponse(req, deviceKey));
+    res.json(pendingResponse(req, deviceKey, auto === "limit" ? "device" : limit));
   });
 
   router.get("/status", async (req, res) => {
@@ -237,18 +261,22 @@ export default function pairRouter() {
       return;
     }
     const secret = pairSecretOf(req, req.query?.pairSecret);
-    // A GET-only client asks here, so its secret registers here too (a malformed one is ignored).
-    if (registerPairSecret(deviceKey, secret) === "conflict") return secretConflict(req, res);
-    const download = enrollFromRequest(req, deviceKey);
+    // A GET-only client asks here, so its secret registers here too (a malformed one is ignored),
+    // once the console is accepted, as on /request.
+    const checked = checkPairSecret(deviceKey, secret);
+    if (checked.verdict === "conflict") return secretConflict(req, res);
+    const { download, limit } = enrollFromRequest(req, deviceKey);
     // A console that knocks with its account is approved right here (COOK_DEVICE_AUTO_APPROVE).
-    await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
+    const auto = await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
+    if (store.isDeviceApproved(deviceKey) && keepPairSecret(deviceKey, checked.hash) === "conflict") return secretConflict(req, res);
     if (!store.isDeviceApproved(deviceKey)) {
       // Polling doubles as the knock: record the device as pending so a
       // GET-only client (oc-cookfoil-sdl has no POST helper) surfaces in the
       // admin dashboard without a separate /request call.
       const queued = recordPending(req, deviceKey, { download });
       if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
-      res.json(pendingResponse(req, deviceKey));
+      if (keepPairSecret(deviceKey, checked.hash) === "conflict") return secretConflict(req, res);
+      res.json(pendingResponse(req, deviceKey, auto === "limit" ? "device" : limit));
       return;
     }
     const out = { status: "approved", passwordOnly: true };
@@ -270,21 +298,27 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
-    const canEnroll = (owner) => mayEnroll(deviceKey, owner);
-    const first = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
-    // A console sometimes repeats its enroll seconds later; the one that spent the download is answered again.
-    const again = first ? null : enrollTokens.respend(req.body?.token, deviceKey, { canEnroll });
+    const checks = enrollChecks(deviceKey);
+    const first = enrollTokens.spend(req.body?.token, deviceKey, checks);
+    // A console sometimes repeats its enroll seconds later; one the download took is answered again.
+    const again = first ? null : enrollTokens.respend(req.body?.token, deviceKey, checks);
     const spent = first ?? again;
-    if (!spent) {
+    if (!spent || spent.limit || spent.full) {
       // A download this server made still says whose it is: the console waits
       // in the queue under that account's name, for the admin to approve.
-      const known = enrollTokens.lookup(req.body?.token);
-      debug.log("pair: %s… enroll refused: the download token is %s", deviceKey.slice(0, 12), known?.state ?? "unknown");
+      const known = enrollTokens.lookup(req.body?.token, Date.now(), { multi: checks.multi });
+      const reason = spent?.limit ? "limit" : spent?.full ? "device-limit" : known ? known.reason ?? "used" : "invalid";
+      debug.log("pair: %s… enroll refused: %s", deviceKey.slice(0, 12), reason);
       if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
+      res.set("X-CookingFoil-Enroll", reason === "device-limit" ? "limit" : reason);
+      if (reason === "device-limit") {
+        noteRefusal(req, res, 403, "device-limit", { proven: true });
+        res.status(403).json({ error: "this account holds all the consoles it may; remove one it no longer uses, then approve this one" });
+        return;
+      }
       // A download this server made, spent or not, names the server; a made-up one does not.
-      noteRefusal(req, res, 401, `enroll-${known?.state ?? "invalid"}`, { proven: Boolean(known) });
-      res.set("X-CookingFoil-Enroll", known?.state ?? "invalid");
-      res.status(401).json({ error: ENROLL_REFUSED[known?.state] ?? ENROLL_REFUSED.invalid });
+      noteRefusal(req, res, 401, `enroll-${reason}`, { proven: Boolean(known) });
+      res.status(401).json({ error: ENROLL_REFUSED[reason] ?? ENROLL_REFUSED.invalid });
       return;
     }
     if (spent.refused) {

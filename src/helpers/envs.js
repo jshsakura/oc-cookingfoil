@@ -312,6 +312,9 @@ const passwordLoginForced = envBool("COOK_PASSWORD_LOGIN_FORCE", false);
 const autoApproveMode = envString("COOK_DEVICE_AUTO_APPROVE", "true").trim().toLowerCase();
 let deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
 let deviceAutoApproveAll = autoApproveMode === "all";
+// How many approved consoles one account may hold, however they were approved
+// (security/device-limit.js). 0 is no limit.
+let deviceLimit = envNumber("COOK_DEVICE_LIMIT", 5, { min: 0, max: 1000, integer: true });
 
 // titledb: fetched in the background and refreshed on a timer; the regions are
 // the per-language name lists it reads (see titledb-fetcher.js DEFAULT_REGIONS).
@@ -403,6 +406,7 @@ const ENV_SETTINGS = Object.freeze({
   devicePairing,
   passwordLogin,
   deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
+  deviceLimit,
   uploadsEnabled,
   inboxEnabled,
   inboxMaxBytes,
@@ -456,6 +460,7 @@ function applyServerSettings(saved = {}) {
   passwordLogin = v.passwordLogin;
   deviceAutoApprove = v.deviceApproval !== "manual";
   deviceAutoApproveAll = v.deviceApproval === "all";
+  deviceLimit = v.deviceLimit;
   uploadsEnabled = v.uploadsEnabled;
   inboxEnabled = v.inboxEnabled;
   inboxMaxBytes = v.inboxMaxBytes;
@@ -603,4 +608,5 @@ export {
   passwordLoginForced,
   deviceAutoApprove,
   deviceAutoApproveAll,
+  deviceLimit,
 };

@@ -32,6 +32,7 @@ import { clientIp, recordFailure } from "../security/auth-guard.js";
 import { trustedHere } from "../security/net.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
+import { deviceLimitRefusal } from "../security/device-limit.js";
 import { devicePairing, googleRedirectBase, publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -225,6 +226,7 @@ function mountDevice(router) {
     const result = approvePairLink(token, { label: req.body?.label, addedBy: who.approver });
     if (result === "expired") return res.status(410).json({ error: "pair link expired" });
     if (result === "used") return res.status(409).json({ error: "pair link already approved" });
+    if (result === "limit") return deviceLimitRefusal(req, res);
     debug.log("pair: a signed-in %s account approved a device", who.kind);
     res.json({ ok: true });
   });

@@ -43,6 +43,8 @@ export const SETTINGS = {
   devicePairing: bool,
   passwordLogin: bool,
   deviceApproval: oneOf("manual", "signin", "all"),
+  // Approved consoles one account may hold; 0 is no limit (security/device-limit.js).
+  deviceLimit: whole(0, 1000),
   uploadsEnabled: bool,
   inboxEnabled: bool,
   inboxMaxBytes: bytes,

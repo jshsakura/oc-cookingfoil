@@ -13,6 +13,31 @@ import * as store from "./store.js";
 import { hashPairSecret, normalizePairSecret, pairSecretMatches, takeAccessKeyDelivery } from "./pairing.js";
 
 /**
+ * Check, without keeping it, the pairSecret a console asks with: "invalid" when
+ * malformed, "conflict" when another secret already claimed the device, else
+ * "ok" with the hash to keep once the console is accepted (approved, or queued
+ * within the pending limit), or "none" (no secret, or already approved).
+ * @returns {{ verdict: "none" | "ok" | "conflict" | "invalid", hash?: string }}
+ */
+export function checkPairSecret(deviceKey, raw) {
+  if (raw === undefined || raw === null || raw === "") return { verdict: "none" };
+  const secret = normalizePairSecret(raw);
+  if (!secret) return { verdict: "invalid" };
+  if (store.isDeviceApproved(deviceKey)) return { verdict: "none" };
+  const hash = hashPairSecret(secret);
+  const prev = store.pairSecretHash(deviceKey);
+  return prev && prev !== hash ? { verdict: "conflict" } : { verdict: "ok", hash };
+}
+
+/**
+ * Keep the hash checkPairSecret gave, for a console just accepted.
+ * @returns {"none" | "set" | "same" | "conflict"}
+ */
+export function keepPairSecret(deviceKey, hash) {
+  return hash ? store.registerPairSecret(deviceKey, hash) : "none";
+}
+
+/**
  * Record the pairSecret a waiting console asked with. Only an unapproved
  * console registers one (an approved one has nothing left to claim), and the
  * first secret wins. `raw` absent is fine (legacy); a malformed one is not.

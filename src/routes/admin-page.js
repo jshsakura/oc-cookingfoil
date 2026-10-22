@@ -94,6 +94,7 @@ import { fileURLToPath } from "url";
 const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink, approveWaitingDevice } from "../security/pairing-approve.js";
+import { deviceLimitRefusal } from "../security/device-limit.js";
 import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -256,6 +257,7 @@ export default function adminPageRouter() {
     const result = approvePairLink(req.params.token, { label: req.body?.label, addedBy: adminApprover(req) });
     if (result === "expired") return res.status(410).json({ error: "pair link expired" });
     if (result === "used") return res.status(409).json({ error: "pair link already approved" });
+    if (result === "limit") return deviceLimitRefusal(req, res);
     res.json({ ok: true });
   });
 
@@ -415,8 +417,9 @@ export default function adminPageRouter() {
     }
     // Mint a fresh accessKey, persist only its hash, stage the plaintext for the
     // device's next status poll (one-time, in-memory). Re-approving rotates it.
-    const label = approveWaitingDevice(deviceKey, { label: req.body?.label, addedBy: adminApprover(req) });
-    debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), label || "no label");
+    const result = approveWaitingDevice(deviceKey, { label: req.body?.label, addedBy: adminApprover(req) });
+    if (!result.ok) return deviceLimitRefusal(req, res, result.limit);
+    debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), result.label || "no label");
     res.json({ ok: true, deviceKey });
   });
 

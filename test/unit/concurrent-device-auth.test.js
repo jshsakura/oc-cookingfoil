@@ -142,28 +142,40 @@ const enrollAs = (i, token) => fetch(`${BASE}/api/pair/enroll`, {
   method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": KEYS[i] }, body: JSON.stringify({ token, label: `console ${i}` }),
 });
 
-test("auto-approve: a download connects the first console; the second is refused as used and pairs like an address-only console", async () => {
-  const server = await boot({ COOK_DEVICE_AUTO_APPROVE: "true" });
+test("auto-approve: a download connects five consoles; the sixth, even with a fresh download, is told to pair by QR", async () => {
+  // The account's total is set above five here, so only the hourly count holds the sixth.
+  const server = await boot({ COOK_DEVICE_AUTO_APPROVE: "true", COOK_DEVICE_LIMIT: "20" });
+  const many = [..."56789A"].map((c) => (c + "E").repeat(32));
+  const enrollKey = (key, token) => fetch(`${BASE}/api/pair/enroll`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": key }, body: JSON.stringify({ token }),
+  });
   try {
     const token = await downloadToken(server.data);
-    const first = await enrollAs(0, token);
-    assert.equal(first.status, 200);
-    const firstKey = (await first.json()).accessKey;
-    assert.deepEqual([(await useShop(0, firstKey)).sections], [200], "the first console is in");
+    const five = await Promise.all(many.slice(0, 5).map((key) => enrollKey(key, token)));
+    assert.deepEqual(five.map((r) => r.status), [200, 200, 200, 200, 200]);
+    const keys = await Promise.all(five.map((r) => r.json()));
+    assert.equal(new Set(keys.map((k) => k.accessKey)).size, 5, "each with its own key");
 
-    const second = await enrollAs(1, token);
-    assert.equal(second.status, 401);
-    assert.equal(second.headers.get("x-cookingfoil-enroll"), "used");
-    assert.equal(second.headers.get("x-cookingfoil-auth"), "enroll-used");
+    const sixth = await enrollKey(many[5], token);
+    assert.equal(sixth.status, 401);
+    assert.equal(sixth.headers.get("x-cookingfoil-enroll"), "limit");
+    assert.equal(sixth.headers.get("x-cookingfoil-auth"), "enroll-limit");
+    assert.ok(sixth.headers.get("x-cookingfoil-server-id"), "proven like used");
 
-    // From here on it is a console that knows only the server address.
-    assert.equal((await pairStatus(1, null)).status, "pending", "without sign-in it waits for approval");
-    const signedIn = await pairStatus(1, "alice");
-    assert.equal(signedIn.status, "approved", "signing in approves it, as for any console");
-    assert.ok(signedIn.accessKey && signedIn.accessKey !== firstKey, "with its own key");
-    const used = await useShop(1, signedIn.accessKey);
-    assert.deepEqual([used.sections, used.shop], [200, 200]);
-    assert.equal((await get("/api/shop/sections", (await useShop(0, firstKey)).bearer)).status, 200, "the first console stays in");
+    // The same console again does not count, and a fresh download does not reset the hour.
+    assert.equal((await enrollKey(many[0], token)).status, 200, "a console that spent it enrolls again");
+    const fresh = await downloadToken(server.data);
+    const still = await enrollKey(many[5], fresh);
+    assert.equal(still.status, 401);
+    assert.equal(still.headers.get("x-cookingfoil-auth"), "enroll-limit");
+    const ended = await enrollKey(many[5], token);
+    assert.equal(ended.headers.get("x-cookingfoil-auth"), "enroll-revoked", "the newer download ended the older one");
+    const pending = await (await get("/api/pair/status", { "X-Device-Key": many[5] })).json();
+    assert.equal(pending.status, "pending", "it pairs by QR");
+    for (const [i, k] of keys.slice(1).entries()) {
+      const r = await get("/api/shop/sections", { "X-Device-Key": many[i + 1], "X-Access-Key": k.accessKey });
+      assert.equal(r.status, 200, `console ${i + 1} stays in`);
+    }
   } finally {
     stop(server);
   }

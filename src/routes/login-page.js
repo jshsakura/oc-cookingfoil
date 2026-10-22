@@ -244,7 +244,8 @@ function approveScript(t, csrf) {
 if(form)form.addEventListener('submit',async(e)=>{e.preventDefault();const button=form.querySelector('button');const body={label:document.getElementById('label').value};
 const code=document.getElementById('code');if(code)body.code=code.value;else body.token=form.dataset.token;
 button.disabled=true;error.textContent='';try{const r=await fetch('/auth/device/approve',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':${JSON.stringify(csrf)}},body:JSON.stringify(body)});
-if(r.ok){location.href=code?'/device?done=1':location.pathname;return;}if(r.status===401){location.href='/login?next='+encodeURIComponent(location.pathname);return;}error.textContent=E[r.status]||E.other;}
+if(r.ok){location.href=code?'/device?done=1':location.pathname;return;}if(r.status===401){location.href='/login?next='+encodeURIComponent(location.pathname);return;}
+const j=await r.json().catch(()=>({}));error.textContent=j.code==='device-limit'&&j.error?j.error:E[r.status]||E.other;}
 catch{error.textContent=E.net;}finally{button.disabled=false;}});${SIGN_OUT_SCRIPT}`;
 }
 

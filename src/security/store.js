@@ -136,7 +136,8 @@ export async function load() {
   state.access = rows("access");
   state.devices = rows("devices", deviceRecord);
   state.pending = rows("pending", pendingRecord);
-  state.pairSecrets = new Map([...rows("pairSecrets")].filter(([, v]) => isSecretHash(v)));
+  // A secret stays only with its console's request or approval; one a refused request left is dropped.
+  state.pairSecrets = new Map([...rows("pairSecrets")].filter(([k, v]) => isSecretHash(v) && (state.pending.has(k) || state.devices.has(k))));
   state.audit = t.audit.load();
   state.denials = t.denials.load();
   state.denialCounts = Object.fromEntries(t.denialCounts.load());
@@ -308,6 +309,13 @@ export function accessSnapshot() {
 
 export function isDeviceApproved(deviceKey) {
   return state.devices.has(deviceKey);
+}
+
+/** How many approved consoles `owner` approved (their addedBy). */
+export function countDevicesAddedBy(owner) {
+  let n = 0;
+  for (const d of state.devices.values()) if (d.addedBy === owner) n++;
+  return n;
 }
 
 export function getDeviceAccessKeyHash(deviceKey) {
