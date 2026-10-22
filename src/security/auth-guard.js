@@ -180,7 +180,7 @@ function ownerIsAdmin(owner) {
 }
 
 // What an automation token may reach: the admin API, its guide, and the flat catalog.
-const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json";
+export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json";
 
 function tokenLane(req, res, next, ip) {
   if (!trustedHere(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });

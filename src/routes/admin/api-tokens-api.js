@@ -5,7 +5,8 @@
  *   POST /admin/api/tokens   { label }   { id, token }   the token is shown this once
  *   POST /admin/api/tokens/:id/revoke
  *
- * A request made with a token cannot use these: tokens never mint tokens.
+ * A request made with a token cannot use these: tokens never mint tokens (requireSession refuses
+ * them through tokenBlocked() in routes/admin-page.js).
  */
 import * as apiTokens from "../../security/api-tokens.js";
 import { adminActor } from "../../security/admin-actor.js";
@@ -15,7 +16,6 @@ export function mountApiTokensApi(router, requireSession) {
   const guarded = (handler) => (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    if (req.apiToken) return res.status(403).json({ error: "토큰으로는 토큰을 다룰 수 없습니다" });
     try {
       handler(req, res);
     } catch (err) {
