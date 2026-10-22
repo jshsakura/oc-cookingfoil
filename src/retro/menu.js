@@ -18,6 +18,7 @@
  * across all rows. Rows under MENU_MIN after that are left out. Pure.
  */
 import { genreLabel } from "../meta/categories.js";
+import { pick } from "../meta/langs.js";
 import { decadeOf, genreSlug } from "./themes.js";
 
 export const MENU_GAMES = 12;
@@ -34,52 +35,52 @@ const TIERS = [5, 4, 3];
 const CYCLE = ["genre", "genre", "era", "fame", "play", "maker", "arcade", "together"];
 
 export const STYLE_NAMES = {
-  "beat-em-up": { en: "Beat 'em up", ko: "벨트스크롤 액션", ja: "ベルトスクロールアクション", zh: "清版动作" },
-  "visual-novel": { en: "Visual novel", ko: "비주얼 노벨", ja: "ビジュアルノベル", zh: "视觉小说" },
-  "management-sim": { en: "Management sim", ko: "경영 시뮬레이션", ja: "経営シミュレーション", zh: "经营模拟" },
-  "life-sim": { en: "Life sim", ko: "육성 시뮬레이션", ja: "育成シミュレーション", zh: "养成模拟" },
-  compilation: { en: "Compilations", ko: "모음집", ja: "コレクション", zh: "合集" },
-  stealth: { en: "Stealth", ko: "잠입 액션", ja: "ステルス", zh: "潜行" },
-  horror: { en: "Horror", ko: "호러", ja: "ホラー", zh: "恐怖" },
-  "versus-fighter": { en: "Versus fighting", ko: "대전 격투", ja: "対戦格闘", zh: "对战格斗" },
-  "vertical-shmup": { en: "Vertical shooters", ko: "종스크롤 슈팅", ja: "縦スクロールシューティング", zh: "纵版射击" },
-  "horizontal-shmup": { en: "Horizontal shooters", ko: "횡스크롤 슈팅", ja: "横スクロールシューティング", zh: "横版射击" },
-  "run-and-gun": { en: "Run and gun", ko: "런앤건", ja: "ランアンドガン", zh: "跑射" },
-  platformer: { en: "Platformers", ko: "플랫포머", ja: "プラットフォーマー", zh: "平台" },
-  lightgun: { en: "Light gun", ko: "건 슈팅", ja: "ガンシューティング", zh: "光枪射击" },
-  puzzle: { en: "Puzzle", ko: "퍼즐", ja: "パズル", zh: "益智" },
-  racing: { en: "Racing", ko: "레이싱", ja: "レース", zh: "竞速" },
-  sports: { en: "Sports", ko: "스포츠", ja: "スポーツ", zh: "运动" },
-  maze: { en: "Maze", ko: "미로", ja: "迷路", zh: "迷宫" },
+  "beat-em-up": { en: "Beat 'em up", ko: "벨트스크롤 액션", ja: "ベルトスクロールアクション", zh: "清版动作", "zh-Hant": "清版動作", es: "Beat 'em up", fr: "Beat 'em all", de: "Beat 'em up", it: "Picchiaduro a scorrimento", pt: "Beat 'em up", ru: "Битемап", nl: "Beat 'em up" },
+  "visual-novel": { en: "Visual novel", ko: "비주얼 노벨", ja: "ビジュアルノベル", zh: "视觉小说", "zh-Hant": "視覺小說", es: "Novela visual", fr: "Visual novel", de: "Visual Novel", it: "Visual novel", pt: "Visual novel", ru: "Визуальная новелла", nl: "Visual novel" },
+  "management-sim": { en: "Management sim", ko: "경영 시뮬레이션", ja: "経営シミュレーション", zh: "经营模拟", "zh-Hant": "經營模擬", es: "Simulación de gestión", fr: "Gestion", de: "Wirtschaftssimulation", it: "Gestionale", pt: "Simulação de gestão", ru: "Экономический симулятор", nl: "Managementsimulatie" },
+  "life-sim": { en: "Life sim", ko: "육성 시뮬레이션", ja: "育成シミュレーション", zh: "养成模拟", "zh-Hant": "養成模擬", es: "Simulación de vida", fr: "Simulation de vie", de: "Lebenssimulation", it: "Simulazione di vita", pt: "Simulação de vida", ru: "Симулятор жизни", nl: "Levenssimulatie" },
+  compilation: { en: "Compilations", ko: "모음집", ja: "コレクション", zh: "合集", "zh-Hant": "合集", es: "Recopilatorios", fr: "Compilations", de: "Sammlungen", it: "Raccolte", pt: "Coletâneas", ru: "Сборники", nl: "Verzamelingen" },
+  stealth: { en: "Stealth", ko: "잠입 액션", ja: "ステルス", zh: "潜行", "zh-Hant": "潛行", es: "Sigilo", fr: "Infiltration", de: "Stealth", it: "Stealth", pt: "Furtividade", ru: "Стелс", nl: "Stealth" },
+  horror: { en: "Horror", ko: "호러", ja: "ホラー", zh: "恐怖", "zh-Hant": "恐怖", es: "Terror", fr: "Horreur", de: "Horror", it: "Horror", pt: "Terror", ru: "Хоррор", nl: "Horror" },
+  "versus-fighter": { en: "Versus fighting", ko: "대전 격투", ja: "対戦格闘", zh: "对战格斗", "zh-Hant": "對戰格鬥", es: "Lucha uno contra uno", fr: "Combat en duel", de: "Prügelspiel", it: "Picchiaduro a incontri", pt: "Luta versus", ru: "Файтинг", nl: "Vechtspel" },
+  "vertical-shmup": { en: "Vertical shooters", ko: "종스크롤 슈팅", ja: "縦スクロールシューティング", zh: "纵版射击", "zh-Hant": "縱版射擊", es: "Shoot 'em up vertical", fr: "Shoot 'em up vertical", de: "Vertikal-Shooter", it: "Sparatutto verticale", pt: "Nave vertical", ru: "Вертикальные шутеры", nl: "Verticale shooters" },
+  "horizontal-shmup": { en: "Horizontal shooters", ko: "횡스크롤 슈팅", ja: "横スクロールシューティング", zh: "横版射击", "zh-Hant": "橫版射擊", es: "Shoot 'em up horizontal", fr: "Shoot 'em up horizontal", de: "Horizontal-Shooter", it: "Sparatutto orizzontale", pt: "Nave horizontal", ru: "Горизонтальные шутеры", nl: "Horizontale shooters" },
+  "run-and-gun": { en: "Run and gun", ko: "런앤건", ja: "ランアンドガン", zh: "跑射", "zh-Hant": "跑射", es: "Run and gun", fr: "Run and gun", de: "Run and Gun", it: "Run and gun", pt: "Run and gun", ru: "Ран-энд-ган", nl: "Run-and-gun" },
+  platformer: { en: "Platformers", ko: "플랫포머", ja: "プラットフォーマー", zh: "平台", "zh-Hant": "平台", es: "Plataformas", fr: "Plateformes", de: "Jump 'n' Runs", it: "Piattaforme", pt: "Plataforma", ru: "Платформеры", nl: "Platformspellen" },
+  lightgun: { en: "Light gun", ko: "건 슈팅", ja: "ガンシューティング", zh: "光枪射击", "zh-Hant": "光槍射擊", es: "Pistola de luz", fr: "Pistolet optique", de: "Lightgun", it: "Pistola ottica", pt: "Pistola de luz", ru: "Световой пистолет", nl: "Lichtpistool" },
+  puzzle: { en: "Puzzle", ko: "퍼즐", ja: "パズル", zh: "益智", "zh-Hant": "益智", es: "Puzle", fr: "Réflexion", de: "Puzzle", it: "Rompicapo", pt: "Quebra-cabeça", ru: "Головоломки", nl: "Puzzel" },
+  racing: { en: "Racing", ko: "레이싱", ja: "レース", zh: "竞速", "zh-Hant": "競速", es: "Carreras", fr: "Course", de: "Rennspiele", it: "Corse", pt: "Corrida", ru: "Гонки", nl: "Racen" },
+  sports: { en: "Sports", ko: "스포츠", ja: "スポーツ", zh: "运动", "zh-Hant": "運動", es: "Deportes", fr: "Sport", de: "Sport", it: "Sport", pt: "Esportes", ru: "Спорт", nl: "Sport" },
+  maze: { en: "Maze", ko: "미로", ja: "迷路", zh: "迷宫", "zh-Hant": "迷宮", es: "Laberintos", fr: "Labyrinthe", de: "Labyrinth", it: "Labirinto", pt: "Labirinto", ru: "Лабиринты", nl: "Doolhof" },
 };
 
 const yy = (d) => String(d).slice(2);
 // The same words as the console's Switch home rows (최근 추가, 한국어 지원, 2인 이상 플레이, …)
 // where the idea is the same; the rest in the same plain style.
 const NAMES = {
-  recent: { en: "Recently added", ko: "최근 추가", ja: "最近追加", zh: "最近添加" },
-  arcade: { en: "Arcade games", ko: "오락실 게임", ja: "アーケードゲーム", zh: "街机游戏" },
-  arcadeDecade: { en: (d) => `'${yy(d)}s arcade`, ko: (d) => `${yy(d)}년대 오락실`, ja: (d) => `${yy(d)}年代のアーケード`, zh: (d) => `${yy(d)}年代街机` },
-  arcadeStyle: { en: (s) => `Arcade ${s.toLowerCase()}`, ko: (s) => `오락실 ${s}`, ja: (s) => `アーケードの${s}`, zh: (s) => `街机${s}` },
-  players2: { en: "2+ players", ko: "2인 이상 플레이", ja: "2人以上", zh: "2 人以上" },
-  players4: { en: "4+ players", ko: "4인 이상 플레이", ja: "4人以上", zh: "4 人以上" },
-  coop: { en: "Better together", ko: "함께 하면 더 재미있는 게임", ja: "みんなで遊ぶともっと楽しい", zh: "一起玩更有趣" },
-  versus: { en: "Versus", ko: "대전", ja: "対戦", zh: "对战" },
-  coopBeat: { en: "Beat 'em ups for two", ko: "2인 벨트스크롤", ja: "2人で遊ぶベルトスクロール", zh: "双人清版动作" },
-  classic: { en: "Classics", ko: "명작", ja: "名作", zh: "经典" },
-  good: { en: "Rated 80+", ko: "평점 80 이상", ja: "評価80以上", zh: "评分 80+" },
-  hidden: { en: "Hidden gems", ko: "숨은 명작", ja: "隠れた名作", zh: "隐藏经典" },
-  korean: { en: "Korean support", ko: "한국어 지원", ja: "韓国語対応", zh: "支持韩语" },
-  achievements: { en: "Achievements", ko: "업적 지원", ja: "実績対応", zh: "支持成就" },
-  family: { en: "Family games", ko: "가족 게임", ja: "ファミリーゲーム", zh: "家庭游戏" },
-  decade: { en: (d) => `'${yy(d)}s classics`, ko: (d) => `${yy(d)}년대 명작`, ja: (d) => `${yy(d)}年代の名作`, zh: (d) => `${yy(d)}年代经典` },
-  decadeGenre: { en: ([d, g]) => `'${yy(d)}s ${g}`, ko: ([d, g]) => `${yy(d)}년대 ${g}`, ja: ([d, g]) => `${yy(d)}年代の${g}`, zh: ([d, g]) => `${yy(d)}年代${g}` },
-  maker: { en: (m) => `${m} games`, ko: (m) => `${m} 게임`, ja: (m) => `${m}のゲーム`, zh: (m) => `${m}游戏` },
-  series: { en: (s) => `${s} series`, ko: (s) => `${s} 시리즈`, ja: (s) => `${s}シリーズ`, zh: (s) => `${s}系列` },
+  recent: { en: "Recently added", ko: "최근 추가", ja: "最近追加", zh: "最近添加", "zh-Hant": "最近新增", es: "Añadidos recientemente", fr: "Ajouts récents", de: "Kürzlich hinzugefügt", it: "Aggiunti di recente", pt: "Adicionados recentemente", ru: "Недавно добавленные", nl: "Recent toegevoegd" },
+  arcade: { en: "Arcade games", ko: "오락실 게임", ja: "アーケードゲーム", zh: "街机游戏", "zh-Hant": "街機遊戲", es: "Juegos arcade", fr: "Jeux d'arcade", de: "Arcade-Spiele", it: "Giochi arcade", pt: "Jogos de arcade", ru: "Аркадные игры", nl: "Arcadespellen" },
+  arcadeDecade: { en: (d) => `'${yy(d)}s arcade`, ko: (d) => `${yy(d)}년대 오락실`, ja: (d) => `${yy(d)}年代のアーケード`, zh: (d) => `${yy(d)}年代街机`, "zh-Hant": (d) => `${yy(d)}年代街機`, es: (d) => `Arcade de los ${yy(d)}`, fr: (d) => `Arcade des années ${yy(d)}`, de: (d) => `Arcade der ${yy(d)}er`, it: (d) => `Arcade anni '${yy(d)}`, pt: (d) => `Arcade dos anos ${yy(d)}`, ru: (d) => `Аркады ${yy(d)}-х`, nl: (d) => `Arcade uit de jaren ${yy(d)}` },
+  arcadeStyle: { en: (s) => `Arcade ${s.toLowerCase()}`, ko: (s) => `오락실 ${s}`, ja: (s) => `アーケードの${s}`, zh: (s) => `街机${s}`, "zh-Hant": (s) => `街機${s}`, es: (s) => `Arcade: ${s}`, fr: (s) => `Arcade : ${s}`, de: (s) => `Arcade: ${s}`, it: (s) => `Arcade: ${s}`, pt: (s) => `Arcade: ${s}`, ru: (s) => `Аркада: ${s}`, nl: (s) => `Arcade: ${s}` },
+  players2: { en: "2+ players", ko: "2인 이상 플레이", ja: "2人以上", zh: "2 人以上", "zh-Hant": "2 人以上", es: "2+ jugadores", fr: "2 joueurs et +", de: "Ab 2 Spielern", it: "2+ giocatori", pt: "2+ jogadores", ru: "2+ игрока", nl: "2+ spelers" },
+  players4: { en: "4+ players", ko: "4인 이상 플레이", ja: "4人以上", zh: "4 人以上", "zh-Hant": "4 人以上", es: "4+ jugadores", fr: "4 joueurs et +", de: "Ab 4 Spielern", it: "4+ giocatori", pt: "4+ jogadores", ru: "4+ игрока", nl: "4+ spelers" },
+  coop: { en: "Better together", ko: "함께 하면 더 재미있는 게임", ja: "みんなで遊ぶともっと楽しい", zh: "一起玩更有趣", "zh-Hant": "一起玩更有趣", es: "Mejor en compañía", fr: "Mieux à plusieurs", de: "Gemeinsam besser", it: "Meglio in compagnia", pt: "Melhor juntos", ru: "Веселее вместе", nl: "Samen leuker" },
+  versus: { en: "Versus", ko: "대전", ja: "対戦", zh: "对战", "zh-Hant": "對戰", es: "Versus", fr: "Duel", de: "Gegeneinander", it: "Sfida", pt: "Versus", ru: "Друг против друга", nl: "Tegen elkaar" },
+  coopBeat: { en: "Beat 'em ups for two", ko: "2인 벨트스크롤", ja: "2人で遊ぶベルトスクロール", zh: "双人清版动作", "zh-Hant": "雙人清版動作", es: "Beat 'em ups a dos", fr: "Beat 'em all à deux", de: "Beat 'em ups zu zweit", it: "Picchiaduro a scorrimento in due", pt: "Beat 'em ups para dois", ru: "Битемапы на двоих", nl: "Beat 'em ups voor twee" },
+  classic: { en: "Classics", ko: "명작", ja: "名作", zh: "经典", "zh-Hant": "經典", es: "Clásicos", fr: "Classiques", de: "Klassiker", it: "Classici", pt: "Clássicos", ru: "Классика", nl: "Klassiekers" },
+  good: { en: "Rated 80+", ko: "평점 80 이상", ja: "評価80以上", zh: "评分 80+", "zh-Hant": "評分 80+", es: "Nota 80+", fr: "Note 80+", de: "Wertung 80+", it: "Voto 80+", pt: "Nota 80+", ru: "Рейтинг 80+", nl: "Score 80+" },
+  hidden: { en: "Hidden gems", ko: "숨은 명작", ja: "隠れた名作", zh: "隐藏经典", "zh-Hant": "隱藏經典", es: "Joyas ocultas", fr: "Pépites cachées", de: "Versteckte Perlen", it: "Gemme nascoste", pt: "Joias escondidas", ru: "Скрытые жемчужины", nl: "Verborgen pareltjes" },
+  korean: { en: "Korean support", ko: "한국어 지원", ja: "韓国語対応", zh: "支持韩语", "zh-Hant": "支援韓語", es: "Con coreano", fr: "En coréen", de: "Mit Koreanisch", it: "In coreano", pt: "Com coreano", ru: "С корейским", nl: "Met Koreaans" },
+  achievements: { en: "Achievements", ko: "업적 지원", ja: "実績対応", zh: "支持成就", "zh-Hant": "支援成就", es: "Con logros", fr: "Avec succès", de: "Mit Erfolgen", it: "Con obiettivi", pt: "Com conquistas", ru: "С достижениями", nl: "Met prestaties" },
+  family: { en: "Family games", ko: "가족 게임", ja: "ファミリーゲーム", zh: "家庭游戏", "zh-Hant": "家庭遊戲", es: "Juegos familiares", fr: "Jeux en famille", de: "Familienspiele", it: "Giochi per famiglie", pt: "Jogos para a família", ru: "Семейные игры", nl: "Familiespellen" },
+  decade: { en: (d) => `'${yy(d)}s classics`, ko: (d) => `${yy(d)}년대 명작`, ja: (d) => `${yy(d)}年代の名作`, zh: (d) => `${yy(d)}年代经典`, "zh-Hant": (d) => `${yy(d)}年代經典`, es: (d) => `Clásicos de los ${yy(d)}`, fr: (d) => `Classiques des années ${yy(d)}`, de: (d) => `Klassiker der ${yy(d)}er`, it: (d) => `Classici anni '${yy(d)}`, pt: (d) => `Clássicos dos anos ${yy(d)}`, ru: (d) => `Классика ${yy(d)}-х`, nl: (d) => `Klassiekers uit de jaren ${yy(d)}` },
+  decadeGenre: { en: ([d, g]) => `'${yy(d)}s ${g}`, ko: ([d, g]) => `${yy(d)}년대 ${g}`, ja: ([d, g]) => `${yy(d)}年代の${g}`, zh: ([d, g]) => `${yy(d)}年代${g}`, "zh-Hant": ([d, g]) => `${yy(d)}年代${g}`, es: ([d, g]) => `${g} de los ${yy(d)}`, fr: ([d, g]) => `${g} des années ${yy(d)}`, de: ([d, g]) => `${g} der ${yy(d)}er`, it: ([d, g]) => `${g} anni '${yy(d)}`, pt: ([d, g]) => `${g} dos anos ${yy(d)}`, ru: ([d, g]) => `${g}: ${yy(d)}-е`, nl: ([d, g]) => `${g} uit de jaren ${yy(d)}` },
+  maker: { en: (m) => `${m} games`, ko: (m) => `${m} 게임`, ja: (m) => `${m}のゲーム`, zh: (m) => `${m}游戏`, "zh-Hant": (m) => `${m}遊戲`, es: (m) => `Juegos de ${m}`, fr: (m) => `Jeux ${m}`, de: (m) => `${m}-Spiele`, it: (m) => `Giochi ${m}`, pt: (m) => `Jogos da ${m}`, ru: (m) => `Игры ${m}`, nl: (m) => `${m}-spellen` },
+  series: { en: (s) => `${s} series`, ko: (s) => `${s} 시리즈`, ja: (s) => `${s}シリーズ`, zh: (s) => `${s}系列`, "zh-Hant": (s) => `${s}系列`, es: (s) => `Serie ${s}`, fr: (s) => `Série ${s}`, de: (s) => `${s}-Reihe`, it: (s) => `Serie ${s}`, pt: (s) => `Série ${s}`, ru: (s) => `Серия ${s}`, nl: (s) => `${s}-serie` },
 };
 
 const nameIn = (names, lang, arg) => {
-  const n = names[lang] ?? names.en;
+  const n = pick(names, lang);
   return typeof n === "function" ? n(arg) : n;
 };
 const styleName = (slug, lang) => nameIn(STYLE_NAMES[slug] ?? { en: slug }, lang);

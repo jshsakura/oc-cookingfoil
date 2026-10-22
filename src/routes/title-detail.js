@@ -15,7 +15,6 @@
  * clients can curl them verbatim; a same-origin browser keeps the relative form.
  */
 import * as titledbStore from "../meta/titledb-store.js";
-import { LOCALIZED_LANGS } from "../meta/titledb-store.js";
 import { iconSource, bannerSource, iconLangs } from "../meta/localized-art.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
 import * as customArt from "../meta/custom-art.js";
@@ -24,7 +23,8 @@ import { langPriority, publicBaseUrl } from "../helpers/envs.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { fileNamesOver } from "../meta/name-pick.js";
 import { titleVideos } from "../meta/title-videos.js";
-import { normalizeCategories, normalizeGenres, genreLabel, requestLang } from "../meta/categories.js";
+import { normalizeCategories, normalizeGenres, genreLabel } from "../meta/categories.js";
+import { fallbacks, parseLang, pick, requestLang } from "../meta/langs.js";
 import * as scores from "../meta/ratings.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { eshopPrice } from "../meta/eshop-price.js";
@@ -54,7 +54,8 @@ export function integrityFor(base, files = shopCache.files()) {
   return out;
 }
 
-const ownName = (own, lang) => (own ? (lang === "ko" ? own.ko ?? own.en : own.en ?? own.ko) : null);
+// The admin writes names in Korean and English; a Korean or English reader gets the other one rather than none.
+const ownName = (own, lang) => (own ? pick(own, lang) ?? (lang === "ko" || lang === "en" ? own.ko ?? null : null) : null);
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 // The detail must not wait on the price endpoint; a slow price is simply left out.
@@ -105,17 +106,20 @@ export default async function titleDetailRoute(req, res) {
   res.header("Vary", "Accept-Language");
   const categories = normalizeGenres(fromDb?.category);
   const lang = requestLang(req);
-  // An explicit ?lang= gets that region's own text when titledb has it; without
-  // one the detail keeps the merged (top-priority language) description.
-  const queryLang = String(req.query?.lang ?? "").toLowerCase();
-  const asked = LOCALIZED_LANGS.includes(queryLang) ? queryLang : null;
+  // An explicit ?lang= gets that language's text when titledb has it, else its
+  // fallbacks (meta/langs.js) before the server's order; an unknown one is English.
+  // Without one the detail keeps the merged (top-priority language) description.
+  const asked = req.query?.lang ? parseLang(req.query.lang) ?? "en" : null;
   const descriptions = titledbStore.descriptionsOf(base);
-  // The language asked for (?lang=) first, then the server's order; the file's own titles fill the languages titledb lacks.
-  const priority = asked ? [asked, ...langPriority] : langPriority;
+  const descriptionLang = asked ? fallbacks(asked).find((l) => descriptions?.[l]) ?? null : null;
+  // The language asked for first, then the server's order; the file's own titles fill the languages titledb lacks.
+  const priority = asked ? [...fallbacks(asked), ...langPriority] : langPriority;
   const fromDbNames = titledbStore.namesOf(base);
   const fileTitles = [(extracted ?? extractedMeta.get(base))?.name, contentMeta.get(base, 0)?.englishName];
   const names = { ...fileNamesOver(fromDbNames, fileTitles, priority), ...(fromDbNames ?? {}) };
-  const nameLang = priority.map((l) => String(l).split("-")[0]).find((l) => names[l]);
+  const nameLang = priority.map((l) => parseLang(l) ?? l).find((l) => names[l]);
+  // The asked language's own box art, else its fallbacks' (a Spanish reader gets the English art, not the server's first).
+  const artIn = (source) => (asked ? fallbacks(asked).find((l) => source(base, l)) ?? null : null);
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   res.json({
@@ -124,14 +128,14 @@ export default async function titleDetailRoute(req, res) {
     name: ownName(gameDescriptions.names(base), lang) ?? (nameLang ? names[nameLang] : null) ?? fromDb?.name ?? extracted?.name ?? null,
     publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
     // What the admin wrote wins over every source; descriptionCustom says they did.
-    description: customDesc ?? ((asked && descriptions?.[asked]) || (fromDb?.description ?? extracted?.description ?? null)),
+    description: customDesc ?? ((descriptionLang && descriptions[descriptionLang]) || (fromDb?.description ?? extracted?.description ?? null)),
     descriptionCustom: Boolean(customDesc),
     // Extra information only the admin writes (what to install with it, space,
     // version); kept apart from the description, which titledb may refresh.
     notes,
     // The name and description in each language titledb has them in.
     names: Object.keys(names).length ? names : null,
-    descriptionLang: asked && descriptions?.[asked] ? asked : null,
+    descriptionLang,
     intro: fromDb?.intro ?? null,
     // categories are English keys (as in sections); category and categoryLabels
     // are their labels in the language the request asked for.
@@ -146,9 +150,9 @@ export default async function titleDetailRoute(req, res) {
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     // With ?lang=, the icon and banner of that language's release when it has its own art.
-    iconUrl: art(`/api/shop/icon/${base}`, iconSource(base, asked) ? asked : null),
+    iconUrl: art(`/api/shop/icon/${base}`, artIn(iconSource)),
     bannerUrl: fromDb?.bannerUrl || overrides.banner
-      ? art(`/api/shop/banner/${base}`, bannerSource(base, asked) ? asked : null)
+      ? art(`/api/shop/banner/${base}`, artIn(bannerSource))
       : null,
     icons: iconLangs(base).length
       ? Object.fromEntries(iconLangs(base).map((l) => [l, art(`/api/shop/icon/${base}`, l)]))
@@ -167,7 +171,7 @@ export default async function titleDetailRoute(req, res) {
     score: score?.score ?? null,
     scoreCount: score?.count ?? null,
     scoreSource: score?.source ?? null,
-    scoreLabel: score?.label ? (scores.SCORE_LABELS[score.label]?.[lang] ?? score.label) : null,
+    scoreLabel: score?.label ? (pick(scores.SCORE_LABELS[score.label], lang) ?? score.label) : null,
     scoreLabelKey: score?.label ?? null,
     // User patches for this game, as in /api/patches.
     patches: userPatches.forTitle(base).map((p) => withPatchDirect(p, link)),

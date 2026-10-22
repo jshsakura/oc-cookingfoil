@@ -403,6 +403,6 @@ test("load: a region outside the shop's languages names Europe-only games but ne
   assert.equal(store.get("0100AAAA00000000").name, "Shared Game");
   assert.equal(store.get("0100BBBB00000000").name, "Nur in Europa");
   assert.equal(store.get("0100BBBB00000000").iconUrl, "https://img.example/de.jpg");
-  // German is not one of the shop's languages, so it adds no localized name.
-  assert.equal(store.namesOf("0100BBBB00000000"), null);
+  // German is a client language now: it adds its own localized name without replacing the merged one.
+  assert.deepEqual(store.namesOf("0100BBBB00000000"), { de: "Nur in Europa" });
 });

@@ -26,7 +26,7 @@ import crypto from "crypto";
 import express from "express";
 import * as userPatches from "../meta/user-patches.js";
 import { gameOf } from "../meta/game-info.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";

@@ -94,7 +94,8 @@ test("detail fields follow the request language with English as the fallback", (
   const ja = detailFields(record, "ja");
   assert.equal(ja.description, "English text.");
   assert.deepEqual(ja.genres, ["ロールプレイング", "アクション"]);
-  assert.equal(detailFields(record, "zh").genres[1], "動作");
+  assert.equal(detailFields(record, "zh").genres[1], "动作");
+  assert.equal(detailFields(record, "zh-Hant").genres[1], "動作");
   assert.equal(ja.releaseDate, 19950311);
   for (const k of ["publisher", "developer", "numberOfPlayers", "screenshots"]) assert.equal(k in ja, false, `${k} is left out`);
   assert.deepEqual(detailFields(null, "en"), {});

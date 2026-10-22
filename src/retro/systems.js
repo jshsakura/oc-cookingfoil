@@ -36,12 +36,12 @@ const DISC = [".chd", ".pbp", ".cue", ".m3u"];
 
 const SYSTEMS = {
   nes: {
-    names: { en: "Nintendo Entertainment System", ko: "패미컴 (NES)", ja: "ファミリーコンピュータ", zh: "红白机 (NES)" },
+    names: { en: "Nintendo Entertainment System", ko: "패미컴 (NES)", ja: "ファミリーコンピュータ", zh: "红白机 (NES)", "zh-Hant": "紅白機 (NES)" },
     extensions: [".nes", ".fds", ".zip", ".7z"], core: "fceumm", coreName: "FCEUmm", bezelDir: "NES",
     libretro: "Nintendo - Nintendo Entertainment System",
   },
   snes: {
-    names: { en: "Super Nintendo", ko: "슈퍼 패미컴 (SNES)", ja: "スーパーファミコン", zh: "超级任天堂 (SNES)" },
+    names: { en: "Super Nintendo", ko: "슈퍼 패미컴 (SNES)", ja: "スーパーファミコン", zh: "超级任天堂 (SNES)", "zh-Hant": "超級任天堂 (SNES)" },
     extensions: [".sfc", ".smc", ".zip", ".7z"], core: "snes9x", coreName: "Snes9x", bezelDir: "SNES",
     libretro: "Nintendo - Super Nintendo Entertainment System",
   },
@@ -126,7 +126,7 @@ const SYSTEMS = {
     libretro: "Sega - Saturn",
   },
   arcade: {
-    names: { en: "Arcade", ko: "아케이드", ja: "アーケード", zh: "街机" },
+    names: { en: "Arcade", ko: "아케이드", ja: "アーケード", zh: "街机", "zh-Hant": "街機", ru: "Аркада" },
     extensions: [".zip", ".7z"], core: "fbneo", coreName: "FinalBurn Neo", bezelDir: "MAME",
     libretro: "FBNeo - Arcade Games",
   },
@@ -149,17 +149,17 @@ const SYSTEMS = {
     folder: "Sega - SG-1000", libretro: "Sega - SG-1000",
   },
   a2600: {
-    names: { en: "Atari 2600", ko: "아타리 2600", ja: "アタリ2600", zh: "雅达利 2600" },
+    names: { en: "Atari 2600", ko: "아타리 2600", ja: "アタリ2600", zh: "雅达利 2600", "zh-Hant": "雅達利 2600" },
     extensions: [".a26", ".bin", ".zip", ".7z"], core: "stella", coreName: "Stella", bezelDir: "Atari2600",
     folder: "Atari - 2600", libretro: "Atari - 2600",
   },
   a7800: {
-    names: { en: "Atari 7800", ko: "아타리 7800", ja: "アタリ7800", zh: "雅达利 7800" },
+    names: { en: "Atari 7800", ko: "아타리 7800", ja: "アタリ7800", zh: "雅达利 7800", "zh-Hant": "雅達利 7800" },
     extensions: [".a78", ".bin", ".zip", ".7z"], core: "prosystem", coreName: "ProSystem", bezelDir: "Atari7800",
     folder: "Atari - 7800", libretro: "Atari - 7800",
   },
   lynx: {
-    names: { en: "Atari Lynx", ko: "아타리 링크스", ja: "アタリ リンクス", zh: "雅达利 Lynx" },
+    names: { en: "Atari Lynx", ko: "아타리 링크스", ja: "アタリ リンクス", zh: "雅达利 Lynx", "zh-Hant": "雅達利 Lynx" },
     extensions: [".lnx", ".lyx", ".zip", ".7z"], core: "handy", coreName: "Handy", bezelDir: "AtariLynx",
     folder: "Atari - Lynx", libretro: "Atari - Lynx",
   },

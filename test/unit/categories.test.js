@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  normalizeCategories, normalizeGenres, genreLabel, requestLang, GENRE_LABELS, GENRE_LANGS,
-} from "../../src/meta/categories.js";
+import { normalizeCategories, normalizeGenres, genreLabel, GENRE_LABELS } from "../../src/meta/categories.js";
+import { LANGS } from "../../src/meta/langs.js";
 
 test("normalizeCategories keeps distinct trimmed genre names", () => {
   assert.deepEqual(normalizeCategories([" 액션 ", "RPG", "액션"]), ["액션", "RPG"]);
@@ -36,16 +35,12 @@ test("normalizeGenres folds simplified Chinese and store-specific names", () => 
 });
 test("every genre key has a label in every language", () => {
   for (const labels of Object.values(GENRE_LABELS)) {
-    for (const lang of GENRE_LANGS) assert.ok(labels[lang], JSON.stringify(labels));
+    for (const lang of LANGS) assert.ok(labels[lang], JSON.stringify(labels));
   }
   assert.equal(genreLabel("Party", "ko"), "파티");
+  assert.equal(genreLabel("Action", "zh"), "动作", "zh is simplified");
+  assert.equal(genreLabel("Action", "zh-Hant"), "動作");
+  assert.deepEqual(normalizeGenres(["Abenteuer", "Réflexion", "Гонки"]), ["Adventure", "Puzzle", "Racing"], "a European region's genres fold onto the keys");
   assert.equal(genreLabel("Party", "ja"), "パーティー");
   assert.equal(genreLabel("Roguelike", "ko"), "Roguelike");
-});
-test("requestLang prefers ?lang=, then Accept-Language, then English", () => {
-  const req = (query, header) => ({ query, get: () => header });
-  assert.equal(requestLang(req({ lang: "ko" }, "ja-JP")), "ko");
-  assert.equal(requestLang(req({}, "ja-JP,ja;q=0.9")), "ja");
-  assert.equal(requestLang(req({}, "fr-FR")), "en");
-  assert.equal(requestLang(req({}, undefined)), "en");
 });

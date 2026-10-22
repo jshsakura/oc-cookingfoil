@@ -123,7 +123,7 @@ import { promisify } from "util";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
-import { requestLang } from "../meta/categories.js";
+import { pick, requestLang } from "../meta/langs.js";
 import * as catalog from "../retro/catalog.js";
 import * as retroNames from "../retro/names.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
@@ -427,7 +427,7 @@ function titleOf(g, lang) {
   const own = retroNames.get(g.id);
   const names = own ? { ...(g.names ?? { en: withoutTags(g.name) }), ...own } : g.names;
   // A named game is shown in the page's language, with the English title as its original.
-  const localized = names ? names[lang] ?? names.en : null;
+  const localized = names ? pick(names, lang) : null;
   const original = names ? (localized !== names.en ? names.en : null) : g.original;
   // The tags as flags: Korean or not, release or patch, patch version.
   const edition = g.edition ?? editionOf(variant);

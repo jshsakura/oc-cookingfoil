@@ -26,6 +26,8 @@ test("a language gets its own eShop icon only when it differs from the default",
 
 test("banners follow the same rule, and unknown languages get nothing", () => {
   assert.equal(art.bannerSource("0100AAAA00000000", "en"), null);
-  assert.equal(art.artLang("fr"), null);
+  assert.equal(art.artLang("sv"), null);
+  assert.equal(art.artLang("fr"), "fr");
+  assert.equal(art.artLang("zh-TW"), "zh-Hant");
   assert.equal(art.artLang("EN"), "en");
 });

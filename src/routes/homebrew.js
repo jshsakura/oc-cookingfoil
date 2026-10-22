@@ -90,7 +90,7 @@ import { dataDir, homebrewDir, homebrewCheckHours } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { directUrl, forRequest } from "../security/download-links.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import * as descriptions from "../meta/homebrew-descriptions.js";
 import * as kinds from "../meta/homebrew-kinds.js";
 import * as cores from "../meta/homebrew-cores.js";

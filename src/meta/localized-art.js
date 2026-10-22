@@ -11,11 +11,14 @@ import * as titledbStore from "./titledb-store.js";
 import * as extractedMeta from "./extracted-meta-store.js";
 import * as customArt from "./custom-art.js";
 import { LOCALIZED_LANGS } from "./titledb-store.js";
+import { parseLang } from "./langs.js";
+
+// Languages whose art is listed even when it matches English's; the others only where it differs from it.
+const CORE = new Set(["ko", "en", "ja", "zh"]);
 
 /** A ?lang= value we hold art for, or null. */
 export function artLang(value) {
-  const lang = String(value ?? "").toLowerCase();
-  return LOCALIZED_LANGS.includes(lang) ? lang : null;
+  return parseLang(value);
 }
 
 /** Where a language's icon comes from: { url } (eShop), { file: true } (game file), or null for the default. */
@@ -34,7 +37,15 @@ export function bannerSource(baseTitleId, lang) {
   return url && url !== titledbStore.get(baseTitleId)?.bannerUrl ? url : null;
 }
 
-/** Languages with their own icon, in LOCALIZED_LANGS order. */
+/**
+ * Languages with their own icon, in LOCALIZED_LANGS order. A language past the
+ * first four is listed only when its art differs from English's, which a client
+ * falls back to.
+ */
 export function iconLangs(baseTitleId) {
-  return LOCALIZED_LANGS.filter((lang) => iconSource(baseTitleId, lang));
+  const en = iconSource(baseTitleId, "en");
+  return LOCALIZED_LANGS.filter((lang) => {
+    const own = iconSource(baseTitleId, lang);
+    return own && (CORE.has(lang) || !en || own.url !== en.url || own.file);
+  });
 }
