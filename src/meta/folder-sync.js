@@ -1,6 +1,6 @@
 /**
  * Every library folder read again in full: games, hand-placed homebrew, saves,
- * patches and retro. The folder watches catch a change as it lands; this is
+ * patches, retro and the game folders the admin keeps (metadata/games). The folder watches catch a change as it lands; this is
  * the backstop for anything they miss (a mount that drops events, a copy made
  * while the server was off), run every `syncHours` hours or from the admin page.
  *
@@ -12,6 +12,7 @@ import debug from "../debug.js";
 import * as env from "../helpers/envs.js";
 import * as shopCache from "./shop-cache.js";
 import * as userPatches from "./user-patches.js";
+import * as gameMeta from "./game-meta.js";
 import * as retroCatalog from "../retro/catalog.js";
 import { refreshManual } from "../routes/homebrew.js";
 import { savesCatalog } from "../routes/saves.js";
@@ -33,9 +34,11 @@ const PARTS = [
   // Patches are read every minute and retro on its own changes: only this full read shows up as a job.
   ["patches", () => activity.track("scan:patches", { title: "패치 폴더를 읽습니다" }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
   ["retro", () => activity.track("scan:retro", { title: "레트로 폴더를 읽습니다" }, () => retroCatalog.rescan(env.retroDir))],
+  // The game folders are looked at every minute where they changed; this reads every one in full.
+  ["gameMeta", () => activity.track("scan:game-meta", { title: "게임 정보 폴더를 읽습니다" }, () => gameMeta.scan({ force: true }))],
 ];
 
-const PART_TITLES = { games: "게임", homebrew: "홈브류", saves: "세이브", patches: "패치", retro: "레트로" };
+const PART_TITLES = { games: "게임", homebrew: "홈브류", saves: "세이브", patches: "패치", retro: "레트로", gameMeta: "게임 정보" };
 
 let running = null;
 let last = null; // { at, ms, parts: [{ name, ms, error? }] }

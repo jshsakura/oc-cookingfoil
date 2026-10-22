@@ -26,7 +26,7 @@ process.exit(0);`;
   assert.equal(out.same, true, "the second call joined the first");
   assert.equal(out.during, true);
   assert.equal(out.after.running, false);
-  assert.deepEqual(out.after.last.parts.map((p) => p.name), ["games", "homebrew", "saves", "patches", "retro"]);
+  assert.deepEqual(out.after.last.parts.map((p) => p.name), ["games", "homebrew", "saves", "patches", "retro", "gameMeta"]);
   assert.deepEqual(out.after.last.parts.filter((p) => p.error), []);
   assert.equal(out.saves, 1, "the saves folder was read");
   assert.equal(out.after.hours, 6);

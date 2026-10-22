@@ -9,6 +9,8 @@
  *   DELETE /api/art/:baseTitleId/icon|banner   → remove it
  *   DELETE /api/art/:baseTitleId/screenshot/:idx
  *   DELETE /api/art/:baseTitleId/description   → back to titledb's own text
+ *   POST   /api/art/:baseTitleId/rescan        → the game's folder read again now, as GET answers
+ *   POST   /api/art/rescan                     → every game folder read again in full: { games, changed, converted }
  *
  * Cutting a picture (meta/art-crop.js). An upload may carry a "crop" field,
  * JSON { x, y, w, h } as fractions 0..1 of the upright picture; only that area
@@ -38,10 +40,12 @@
  *   POST     /api/art/homebrew/:id/meta/reset   back to the repository's description
  *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required, verified }
  *
- * Uploaded bytes are re-encoded by custom-art (sharp: resize cap + mozjpeg +
- * metadata strip), so a bad/huge image is rejected here rather than served.
- * The stored override wins over the titledb CDN proxy and NACP extraction in
- * the icon/banner/screenshot routes.
+ * Uploaded bytes are re-encoded by custom-art (sharp: resize cap, WebP,
+ * metadata strip) into the game's folder (meta/game-meta.js), so a bad/huge
+ * image is rejected here rather than served. The stored override wins over the
+ * titledb CDN proxy and NACP extraction in the icon/banner/screenshot routes.
+ * A picture put into the folder by hand shows after the next look at it (every
+ * minute) or at once after a rescan.
  *
  * Gating mirrors the game-upload tray: disabled unless COOK_UPLOADS_ENABLED,
  * and always behind the normal sign-in + IP-lockout perimeter.
@@ -54,6 +58,7 @@ import multer from "multer";
 import { uploadsEnabled } from "../helpers/envs.js";
 import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
+import * as gameMeta from "../meta/game-meta.js";
 import debug from "../debug.js";
 import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
@@ -306,13 +311,31 @@ export default function artRouter() {
 
   // What a game has: its slots, and the area each kept original was cut to.
   // urls: the shop addresses with their new ?v=, so the page shows a changed picture at once.
-  const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base),
+  // folder: the game's folder under metadata/games, where pictures may also be put by hand (null before it has one).
+  const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base), folder: gameMeta.entry(base)?.folder ?? null,
     urls: { icon: versionedArtwork(`/api/shop/icon/${base}`), banner: versionedArtwork(`/api/shop/banner/${base}`) } });
   router.get("/:baseTitleId", (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
     res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base) });
   });
+
+  // The game folders read again now, so what was put there by hand shows without waiting for the next look.
+  const rescanRoute = (fn) => async (req, res) => {
+    try {
+      await fn(req, res);
+    } catch (err) {
+      debug.error("art: rescan failed: %s", err.message);
+      res.status(500).json({ error: "could not read the folders" });
+    }
+  };
+  router.post("/rescan", rescanRoute(async (_req, res) => res.json(await gameMeta.scan({ force: true }))));
+  router.post("/:baseTitleId/rescan", rescanRoute(async (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    await gameMeta.rescan(base);
+    res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base) });
+  }));
 
   // A game's slot from the address: [kind, idx], or null when it names none.
   const gameSlot = (req) => {

@@ -116,6 +116,35 @@ test('the game window uses the same card', async ({ page }) => {
   await expect(card.locator('.atile.a-add')).toBeVisible();
 });
 
+test('a picture put into the game folder by hand shows once the editor reads the folder again', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const games = path.join(process.env.COOK_DATA_DIR!, 'metadata', 'games');
+  fs.mkdirSync(games, { recursive: true });
+  const id = '0100000000010000';
+  const folder = path.join(games, fs.readdirSync(games).find((d) => d.endsWith(`[${id}]`)) ?? `Test Game [${id}]`);
+  fs.mkdirSync(folder, { recursive: true });
+  for (const f of fs.readdirSync(folder)) if (f.startsWith('screenshot-08')) fs.rmSync(path.join(folder, f));
+  await page.goto('/#all');
+  await page.locator('#games .game').first().click();
+  await editPage(page, '#modal');
+  const card = page.locator('#modal-art .arted');
+  const before = await card.locator('.atile.a-shot').count();
+  fs.writeFileSync(path.join(folder, 'screenshot-08.png'), await sharp({ create: { width: 640, height: 360, channels: 3, background: '#3366cc' } }).png().toBuffer());
+
+  const reread = card.locator('.arted-head .reread');
+  await expect(reread).toHaveText('폴더 다시 읽기');
+  await expect(reread).toHaveAttribute('title', new RegExp(`\\[${id}\\]`));
+  await reread.click();
+  await expect(page.locator('#toasts .toast').last()).toContainText('폴더를 다시 읽었습니다');
+  await expect(page.locator('#modal-art .arted .atile.a-shot')).toHaveCount(before + 1);
+  expect(fs.existsSync(path.join(folder, 'screenshot-08.webp'))).toBe(true);
+  expect(fs.existsSync(path.join(folder, 'screenshot-08.png'))).toBe(false);
+  // Taken out from the card like an uploaded one: the gallery of later tests is as it was.
+  await page.locator('#modal-art .arted .atile.a-shot').last().locator('.reset').click();
+  await expect(page.locator('#modal-art .arted .atile.a-shot')).toHaveCount(before);
+  expect(fs.existsSync(path.join(folder, 'screenshot-08.webp'))).toBe(false);
+});
+
 test('the edit page saves a patch, a homebrew app and a game, and the detail shows it afterwards', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   // A patch: its Korean name and whether the game needs it.

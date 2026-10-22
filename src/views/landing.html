@@ -950,6 +950,7 @@
       .arted-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
       .arted-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
       .arted-head span { font-size: 12px; color: var(--secondary); }
+      .arted-head .reread { margin-left: auto; }
       .arted { --art-h: 140px; }
       .arted-top { display: grid; grid-template-columns: var(--art-h) minmax(0, 1fr); gap: 14px; align-items: start; }
       .arted-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
@@ -1919,6 +1920,9 @@
           "art.cropApply": "적용",
           "art.cropCancel": "취소",
           "art.cropped": "다시 잘랐습니다.",
+          "art.reread": "폴더 다시 읽기",
+          "art.rereadTitle": (f) => `${f} 에 넣은 그림과 game.json 을 지금 다시 읽습니다.`,
+          "art.rereadDone": "폴더를 다시 읽었습니다.",
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -2261,6 +2265,9 @@
           "art.cropApply": "Apply",
           "art.cropCancel": "Cancel",
           "art.cropped": "Cropped",
+          "art.reread": "Read folder again",
+          "art.rereadTitle": (f) => `Reads the pictures and game.json in ${f} again now.`,
+          "art.rereadDone": "Read the folder again.",
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -2603,6 +2610,9 @@
           "art.cropApply": "適用",
           "art.cropCancel": "キャンセル",
           "art.cropped": "切り抜き直しました",
+          "art.reread": "フォルダーを読み直す",
+          "art.rereadTitle": (f) => `${f} に置いた画像と game.json を今すぐ読み直します。`,
+          "art.rereadDone": "フォルダーを読み直しました",
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2945,6 +2955,9 @@
           "art.cropApply": "套用",
           "art.cropCancel": "取消",
           "art.cropped": "已重新裁切",
+          "art.reread": "重新讀取資料夾",
+          "art.rereadTitle": (f) => `立即重新讀取 ${f} 中的圖片與 game.json。`,
+          "art.rereadDone": "已重新讀取資料夾",
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -5959,7 +5972,8 @@
         } else if (validBase) {
           const [ar, dr] = await Promise.all([
             fetch(`/api/art/${baseId}`, { headers: { Accept: "application/json" } }).catch(() => null),
-            fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" } }).catch(() => null),
+            // A game edited here is asked again past the browser's cache: the detail is kept a minute.
+            fetch(`/api/title/${baseId}?lang=${lang}`, { headers: { Accept: "application/json" }, cache: editedDetails.has(baseId) ? "no-cache" : "default" }).catch(() => null),
           ]);
           try { if (ar && ar.ok) art = await ar.json(); } catch { /* best effort */ }
           try { if (dr && dr.ok) detail = await dr.json(); } catch { /* best effort */ }
@@ -6000,7 +6014,8 @@
       // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
       // find: { q, base } offers a search beside each slot (meta/art-search.js on the server).
       const ART_FIND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-      function artEditor({ slots, upload, remove, recrop = null, find = null }) {
+      // reread: { title, run } adds a button that reads the item's folder again (pictures put there by hand).
+      function artEditor({ slots, upload, remove, recrop = null, find = null, reread = null }) {
         const card = document.createElement("section"); card.className = "arted";
         // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
         async function cropIn(slot, src, crop = null) {
@@ -6085,6 +6100,16 @@
         }
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("art.head") }), Object.assign(document.createElement("span"), { textContent: t("art.hint") }));
+        if (reread) {
+          const b = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost tiny reread", textContent: t("art.reread"), title: reread.title });
+          b.dataset.icon = "refresh";
+          b.addEventListener("click", async () => {
+            if (b.disabled) return;
+            b.disabled = true;
+            try { await reread.run(); } finally { b.disabled = false; }
+          });
+          head.append(b);
+        }
         card.append(head);
         const pick = (onFile) => {
           const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
@@ -6198,11 +6223,18 @@
           upload: (slot, file, crop) => uploadArt(baseId, slot, file, crop),
           recrop: (slot, n, crop) => recropArt(baseId, slot, n, crop),
           remove: (slot, n) => removeArt(baseId, slot, n),
+          // Pictures and a game.json may also be put into the game's folder by hand; this reads it now.
+          reread: {
+            title: t("art.rereadTitle", `metadata/games/${art.folder || `… [${baseId}]`}`),
+            run: () => artChanged(baseId, fetch(`/api/art/${baseId}/rescan`, { method: "POST", headers: { Accept: "application/json" } }), t("art.rereadDone")),
+          },
         });
         box.append(card);
       }
       // Drop the cached detail of every language, then repaint the open modal.
+      const editedDetails = new Set();
       function refreshAfterDesc(baseId) {
+        editedDetails.add(baseId);
         for (const k of [...detailCache.keys()]) if (k.startsWith(baseId + ":")) detailCache.delete(k);
         if (currentModal && $("modal").classList.contains("open")) openModal(currentModal);
       }

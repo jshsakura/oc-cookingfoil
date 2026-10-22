@@ -89,6 +89,7 @@ import * as securityStore from "./security/store.js";
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
 import * as customArt from "./meta/custom-art.js";
+import * as gameMeta from "./meta/game-meta.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import { attach as attachWs } from "./realtime/ws-server.js";
 import debug from "./debug.js";
@@ -414,6 +415,11 @@ bootstrapTitledb()
     import("./meta/name-health.js")
       .then((nh) => nh.logNameHealth())
       .catch((err) => debug.error("name-health boot log failed:", err.message));
+    // Art an older server kept in custom-art/ moves into the game folders, named after the game: once titledb names them.
+    customArt
+      .migrate()
+      .then(({ moved }) => { if (moved) shopCache.invalidate(); })
+      .catch((err) => debug.error("custom-art migration failed:", err.message));
   });
 
 // Saved eShop prices first, so the first sections build already has them.
@@ -452,11 +458,10 @@ if (savesEnabled()) {
   backups.start();
 }
 
-// Seed the custom-art override index from disk so the icon/banner/screenshot
-// routes can do a zero-syscall "is there an override?" check on the hot path.
-customArt.init().then(() => shopCache.invalidate()).catch((err) =>
-  debug.error("custom-art init failed:", err.message)
-);
+// The game folders (names, text, pictures) read now and every minute, kept in
+// memory so the image routes and lists never wait on the disk. A change found
+// there (a picture or a game.json edited by hand) builds the lists again.
+gameMeta.start({ onChange: () => shopCache.invalidate({ rename: true }) });
 
 // Which auth lanes are live, and does that combination lock out a client the
 // operator expects to work? Printed unconditionally — a silent misconfiguration

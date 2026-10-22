@@ -8,11 +8,11 @@
  *                     queue, names, featured rows, homebrew sources,
  *                     the patch notes
  *   extracted-meta/   names fixed by hand
- *   custom-art/       artwork uploaded by hand
- *   metadata/games/   what the admin wrote about each game
+ *   custom-art/       artwork an older server kept apart (moved into metadata/games at start)
+ *   metadata/games/   what the admin wrote about each game, and its pictures
  *
  * Left out, as they come back by themselves: the library, the index
- * (cookingfoil.db), titledb, images and every other cache.
+ * (cookingfoil.db), titledb, images, the small copies in thumbs/ and every other cache.
  *
  * A day's folder is written beside its place and renamed in, so a backup is
  * there whole or not at all; a second one the same day replaces the first.

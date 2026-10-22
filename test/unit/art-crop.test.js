@@ -103,14 +103,12 @@ test("cutting again uses the kept original and only the new area", async () => {
   assert.match(up.urls.icon, new RegExp(`^/api/shop/icon/${BASE}\\?v=[0-9a-f]{12}$`));
   const art = customArt.pathFor(BASE, "icon", null);
   assert.ok(isBlue(await color(art)));
-  const before = customArt.revision(BASE);
 
   const r = await postJson(`/${BASE}/icon/crop`, { crop: { x: 0, y: 0, w: 0.5, h: 1 } });
   assert.equal(r.status, 200);
   const body = await r.json();
   assert.deepEqual(body.originals.icon, { x: 0, y: 0, w: 0.5, h: 1 });
   assert.ok(isRed(await color(art)), "the left half now");
-  assert.ok(customArt.revision(BASE) > before);
   assert.notEqual(body.urls.icon, up.urls.icon, "the shop address changes so the page and every cache show the new one");
 });
 
@@ -194,7 +192,7 @@ test("the small picture the list shows follows a new cut at once", async () => {
     let sent = null;
     const res = { set() { return this; }, type() { return this; }, sendFile(p) { sent = p; } };
     await serveImage({ query: { size: "sm" }, headers: {}, get: () => "" }, res, {
-      cachePath: path.join(data, "no-upstream.jpg"), overridePath: customArt.pathFor(BASE, "icon", null),
+      cachePath: path.join(data, "no-upstream.jpg"), ...customArt.serveOptions(BASE, "icon", null),
     });
     return color(sent);
   };
@@ -202,4 +200,28 @@ test("the small picture the list shows follows a new cut at once", async () => {
   assert.ok(isBlue(await small()));
   assert.equal((await postJson(`/${BASE}/icon/crop`, { crop: { x: 0, y: 0, w: 0.5, h: 1 } })).status, 200);
   assert.ok(isRed(await small()), "not the thumbnail of the old cut");
+});
+
+test("the admin reads one game's folder again, or every game's, and sees what was put there by hand", async () => {
+  const gameMeta = await import("../../src/meta/game-meta.js");
+  const ID = "0100000000AAA000";
+  const dir = path.join(gameMeta.GAMES_DIR, `Hand [${ID}]`);
+  fs.mkdirSync(dir, { recursive: true });
+  await gameMeta.scan();
+  fs.writeFileSync(path.join(dir, "banner.png"), await halves());
+
+  let r = await postJson(`/${ID}/rescan`, {});
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.banner, true);
+  assert.equal(body.folder, `Hand [${ID}]`);
+  assert.match(body.urls.banner, new RegExp(`^/api/shop/banner/${ID}\\?v=`));
+  assert.ok(fs.existsSync(path.join(dir, "banner.webp")) && !fs.existsSync(path.join(dir, "banner.png")));
+
+  fs.rmSync(path.join(dir, "banner.webp"));
+  r = await postJson("/rescan", {});
+  assert.equal(r.status, 200);
+  assert.ok((await r.json()).games >= 1);
+  assert.equal(customArt.hasOverride(ID, "banner"), false);
+  assert.equal((await postJson("/nope/rescan", {})).status, 400);
 });

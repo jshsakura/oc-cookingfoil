@@ -30,9 +30,7 @@ export default async function screenshotRoute(req, res) {
     wide: true,
     cachePath: cachePathFor(base, "screenshot", idx),
     upstreamUrl: shots[idx],
-    overridePath: customArt.hasOverride(base, "screenshot", idx)
-      ? customArt.pathFor(base, "screenshot", idx)
-      : undefined,
+    ...customArt.serveOptions(base, "screenshot", idx),
     current: isCurrentVersion(req, "screenshot", base, { idx }),
   });
 }
