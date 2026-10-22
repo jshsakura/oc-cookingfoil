@@ -71,10 +71,20 @@ export function lowPriorityPrefix() {
 }
 
 /** The nsz arguments for one file. Pure. */
+/** nsz's verify flag: the queue deletes an original only after a run with it. */
+export const VERIFY_FLAG = "-V";
+
 export function nszArgs({ level, threads, block }, workDir, src) {
   // nsz looks for prod.keys next to itself or in ~/.switch; the server keeps them in its keys folder.
-  return ["--keys", keysDir(), "-C", "-V", "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
+  return ["--keys", keysDir(), "-C", VERIFY_FLAG, "-l", String(level), "-t", String(threads), ...(block ? ["-B"] : []), "-o", workDir, src];
 }
+
+/**
+ * Lines nsz 5 prints when it skipped a check yet still exits 0: a ticketless container's NCAs are
+ * not hashed (Decompressor.py), only marked. Such a run did not verify the result.
+ */
+export const UNVERIFIED_MARKERS = ["[TICKETLESS]"];
+const MARKER_CARRY = Math.max(...UNVERIFIED_MARKERS.map((m) => m.length)) - 1;
 
 /** The text a failure is shown with: the last lines, at most REASON_CHARS. Pure. */
 export function trimReason(text) {
@@ -93,22 +103,31 @@ export function failureReason(code, signal, tail) {
 
 /**
  * Starts nsz. Returns { done, stop }: `done` resolves to { code, signal, tail,
- * stopped }; `stop()` ends the run (SIGTERM, then SIGKILL after `graceMs`)
+ * stopped, unverified } (`unverified`: an UNVERIFIED_MARKERS line was printed); `stop()` ends the run (SIGTERM, then SIGKILL after `graceMs`)
  * and resolves once the child is gone.
  */
 export function runNsz({ bin, args, graceMs = 3000, lowPriority = true }) {
   const argv = [...(lowPriority ? lowPriorityPrefix() : []), bin, ...args];
   let tail = "";
+  // Each stream is searched whole, a chunk at a time, keeping enough of its last chunk for a marker split between them.
+  const carry = { out: "", err: "" };
+  let unverified = false;
   let stopped = false;
   let exited = false;
   let killTimer = null;
   const child = spawn(argv[0], argv.slice(1), { stdio: ["ignore", "pipe", "pipe"], detached: true });
-  const keep = (chunk) => {
-    tail += chunk.toString("utf8");
+  const keep = (stream) => (chunk) => {
+    const text = chunk.toString("utf8");
+    if (!unverified) {
+      const seen = carry[stream] + text;
+      unverified = UNVERIFIED_MARKERS.some((m) => seen.includes(m));
+      carry[stream] = seen.slice(-MARKER_CARRY);
+    }
+    tail += text;
     if (tail.length > TAIL_CHARS) tail = tail.slice(-TAIL_CHARS);
   };
-  child.stdout.on("data", keep);
-  child.stderr.on("data", keep);
+  child.stdout.on("data", keep("out"));
+  child.stderr.on("data", keep("err"));
 
   const signalGroup = (sig) => {
     if (exited) return;
@@ -126,7 +145,7 @@ export function runNsz({ bin, args, graceMs = 3000, lowPriority = true }) {
       clearTimeout(killTimer);
       child.stdout.destroy();
       child.stderr.destroy();
-      resolve({ code, signal, tail, stopped });
+      resolve({ code, signal, tail, stopped, unverified });
     };
     child.once("error", (err) => { keep(err.message); finish(-1, null); });
     child.once("close", (code, signal) => finish(code, signal));

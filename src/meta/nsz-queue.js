@@ -14,13 +14,16 @@
  *   - the result must exist and be smaller than the original;
  *   - the original is stat'ed again: changed or in use, the result is dropped
  *     and the file waits ("busy") to be tried later;
- *   - the .nsz is renamed next to the original and the library told about both
- *     paths (coalesced into one incremental rebuild). The original goes to the
- *     games folder's trash (library/trash.js) at once by default, one rename;
- *     with nszKeepHours above 0 it is first moved into
+ *   - the .nsz is hard-linked next to the original (never over an existing
+ *     .nsz) and the library told about both paths (coalesced into one
+ *     incremental rebuild). By default the original is then deleted, and only
+ *     after nsz ran with its verify flag, exited 0, reported no mismatch, did
+ *     not skip a check (nsz-runner.js UNVERIFIED_MARKERS, e.g. a ticketless NSP, whose
+ *     original goes to the trash instead) and left a non-empty output that took its place;
+ *     the deletion goes to the conversion log with the name and size. With
+ *     nszKeepHours above 0 it is instead moved into
  *     <games>/.cookingfoil-nsz-keep/<id>/, another dot folder, and to the
- *     trash once that time is up. Nothing here deletes a file: only a person
- *     emptying the trash on the admin page does.
+ *     games folder's trash (library/trash.js) once that time is up.
  *
  * A file that fails keeps its original untouched, is marked failed and the
  * queue goes on with the next one. MAX_FAILS nsz failures in a row pause the
@@ -31,8 +34,8 @@
  * above 0 ("cap"), by 지금 비우기 ("manual") and with its row by 빼기
  * ("removed") or 완료건 삭제 ("cleared"). The age timer is set from the state
  * file again on start, past-due ones first. Its row leaves the list then; every
- * conversion, move to the trash and failure also goes to the conversion log
- * (nsz-log.js).
+ * conversion, deleted original, move to the trash and failure also goes to the
+ * conversion log (nsz-log.js).
  *
  * 선택한 것만 변환 runs only the rows it names, in queue order, and ends the
  * run once none of them is left to start; the other rows keep waiting.
@@ -40,8 +43,8 @@
  * A new file is started only while no console is downloading and none has for
  * IDLE_MS: the games sit on spinning disks, and conversion would compete with
  * downloads. A file already running finishes. Below the free space floor the
- * run pauses and the alert says how much the trash holds: the originals wait
- * there, so a conversion frees no space until the trash is emptied.
+ * run pauses, deletes nothing to make room, and the alert says how much the
+ * trash and the kept originals hold.
  *
  * A run ends by itself once nothing is left to start or running: the queue
  * then sits idle with no timer and no folder scan. It starts again only when
@@ -60,17 +63,41 @@ import fsp from "fs/promises";
 import path from "path";
 import FastGlob from "fast-glob";
 import debug from "../debug.js";
-import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason } from "./nsz-runner.js";
+import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason, VERIFY_FLAG } from "./nsz-runner.js";
 import { createNszLog } from "./nsz-log.js";
 import { trashItems } from "../library/trash.js";
 import { sweepPartials } from "../library/safe-move.js";
 
 // Kept in Korean in the queue like the queue's other reasons; the other languages are here for when reasons follow the page.
+const KEEP_FAILED = {
+  ko: "원본을 보관 폴더로 옮기지 못했습니다",
+  en: "Could not move the original to the keep folder",
+  ja: "元のファイルを保管フォルダーに移動できませんでした",
+  zh: "无法将原文件移入保管文件夹",
+};
+const NOT_VERIFIED = {
+  ko: "검증하지 않아 원본을 그대로 둡니다.",
+  en: "Not verified, so the original is left as it is.",
+  ja: "検証していないため、元のファイルはそのまま残します。",
+  zh: "未经验证，原文件保持不变。",
+};
+const EMPTY_OUTPUT = {
+  ko: "결과 파일이 비어 있습니다.",
+  en: "The output file is empty.",
+  ja: "出力ファイルが空です。",
+  zh: "输出文件为空。",
+};
 const TRASH_FAILED = {
-  ko: "원본을 휴지통으로 옮기지 못했습니다",
-  en: "Could not move the original to the trash",
-  ja: "元のファイルをゴミ箱に移動できませんでした",
-  zh: "无法将原文件移入回收站",
+  ko: "검증하지 못한 원본을 휴지통으로 옮기지 못했습니다",
+  en: "Could not move the unverified original to the trash",
+  ja: "検証できなかった元のファイルをゴミ箱に移動できませんでした",
+  zh: "无法将未验证的原文件移入回收站",
+};
+const DELETE_FAILED = {
+  ko: "원본을 지우지 못했습니다",
+  en: "Could not delete the original",
+  ja: "元のファイルを削除できませんでした",
+  zh: "无法删除原文件",
 };
 
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
@@ -472,36 +499,53 @@ export function createNszQueue({
 
     await fsp.rm(run.outDir, { recursive: true, force: true });
     await fsp.mkdir(run.outDir, { recursive: true });
-    const child = runNsz({ bin: nsz, args: nszArgs(s, run.outDir, abs), graceMs: killGraceMs, lowPriority });
+    const args = nszArgs(s, run.outDir, abs);
+    const child = runNsz({ bin: nsz, args, graceMs: killGraceMs, lowPriority });
     run.stop = child.stop;
     if (run.stopping) child.stop();
     const r = await child.done;
     if (r.stopped || run.stopping) return record(item, { state: "waiting", startedAt: null, reason: null });
     if (r.code !== 0) return finish(item, { state: "failed", reason: failureReason(r.code, r.signal, r.tail).reason }, { counts: true });
+    // The original is deleted below, so the verify must have run and reported nothing wrong.
+    if (!args.includes(VERIFY_FLAG)) return finish(item, { state: "failed", reason: NOT_VERIFIED.ko }, { counts: true });
+    const verdict = failureReason(r.code, r.signal, r.tail);
+    if (verdict.code === "verify") return finish(item, { state: "failed", reason: verdict.reason }, { counts: true });
 
     const out = findOutput(run.outDir);
     if (!out) return finish(item, { state: "failed", reason: "결과 파일이 없습니다." }, { counts: true });
     const outSize = (await fsp.stat(out)).size;
+    if (!(outSize > 0)) return finish(item, { state: "failed", reason: EMPTY_OUTPUT.ko }, { counts: true });
     if (outSize >= item.size) return finish(item, { state: "failed", reason: "압축해도 줄어들지 않습니다." });
 
     const again = await fsp.stat(abs).catch(() => null);
     if (!again) return finish(item, { state: "skipped", reason: "변환하는 동안 파일이 사라졌습니다." });
     if (changed(again, item)) return finish(item, BUSY("변환하는 동안 파일이 바뀌어 나중에 다시 합니다."));
     if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
-    if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
 
-    await fsp.rename(out, target);
-    const keep = settings().keepHours > 0;
+    // link fails with EEXIST where rename would replace a .nsz placed meanwhile (a.nsp and a.NSP share one target).
     try {
-      if (keep) {
+      await fsp.link(out, target);
+    } catch (err) {
+      if (err.code === "EEXIST") return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
+      throw err;
+    }
+    // The work folder is removed afterwards anyway.
+    await fsp.unlink(out).catch(() => {});
+    // A run that skipped a check is no proof: the original goes to the trash, where it can be restored.
+    const unverified = r.unverified;
+    const keep = !unverified && settings().keepHours > 0;
+    try {
+      if (unverified) {
+        await toTrash(item.rel, abs, "nsz-unverified");
+      } else if (keep) {
         await fsp.mkdir(path.dirname(keptPath(item)), { recursive: true });
         await fsp.rename(abs, keptPath(item));
       } else {
-        await toTrash(item.rel, abs, "nsz-converted");
+        await fsp.unlink(abs);
       }
     } catch (err) {
       onSwapped([{ rel: targetOf(item.rel), op: "upsert" }]);
-      return finish(item, { state: "failed", reason: `${TRASH_FAILED.ko}: ${trimReason(err.message)}` });
+      return finish(item, { state: "failed", reason: `${(unverified ? TRASH_FAILED : keep ? KEEP_FAILED : DELETE_FAILED).ko}: ${trimReason(err.message)}` });
     }
     onSwapped([{ rel: item.rel, op: "remove" }, { rel: targetOf(item.rel), op: "upsert" }]);
     const saved = item.size - outSize;
@@ -512,6 +556,13 @@ export function createNszQueue({
     debug.log("nsz: %s converted, %d bytes saved", item.rel, saved);
     finish(item, { state: "done", outSize, savedBytes: saved, reason: null, ...(keep ? { keptAt: now(), keptBytes: item.size } : {}) });
     logEvent(item, "converted");
+    if (unverified) {
+      debug.log("nsz: %s was not verified (ticketless), original moved to the trash", item.rel);
+      logEvent(item, "original-unverified", "ticketless");
+    } else if (!keep) {
+      debug.log("nsz: original %s deleted (%d bytes)", item.rel, item.size);
+      logEvent(item, "original-deleted", "converted");
+    }
     if (keep) await purgeDue();
   }
 
