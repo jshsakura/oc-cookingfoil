@@ -138,7 +138,7 @@ cookingfoil/
 
 存储文件夹默认是 `docker-compose.yml` 旁边的 `./storage`，可用 `.env` 中的 `COOK_STORAGE_PATH` 修改。服务器启动时会在其中创建上面的文件夹，也可以用 `COOK_<名称>_DIR` 把其中某一个放到别处。
 
-要让服务器代为整理，把文件放进 `storage/incoming/`。文件一分钟内没有变化后，服务器从文件内的信息(没有 `prod.keys` 时用文件名或票据)读出标题 ID 和版本，在文件名中加上 `[TITLEID][vN]`，移到 `games/` 中每个游戏一个文件夹，本体旁边放 `update/` 和 `DLC/`。已有文件夹的游戏沿用原文件夹，新游戏以其名称新建文件夹。复古 ROM 放进以机种命名的文件夹(`incoming/snes/`)后移到 `retro/`，单独的 `.nro` 移到 `homebrew/`。不会覆盖任何文件，无法放置的文件留在 `incoming/`，原因显示在管理页面(游戏库，임시 폴더)。服务器按位置而不是名称或内容识别临时文件夹，因此不会把 `games/` 中的文件夹误当作待整理的内容。
+要让服务器代为整理，把文件放进 `storage/incoming/`。文件一分钟内没有变化后，服务器从文件内的信息(没有 `prod.keys` 时用文件名或票据)读出标题 ID 和版本，把文件改名为 `游戏名 [TITLEID][vN].扩展名`，移到 `games/` 中每个游戏一个文件夹，本体旁边放 `update/` 和 `DLC/`。游戏名依次取管理页面设定的名称、titledb、文件内的 NACP(有 `prod.keys` 和 nstool 时从 NSP、NSZ、XCI、XCZ 读取)、去掉发布站标记、标签和浏览器添加的 ` (1)` 的原文件名，含乱码的名称会被跳过。一起到来的本体和更新使用同一个名称。已有文件夹的游戏沿用原文件夹，新游戏以其名称新建文件夹。titledb 不认识的游戏用本体或更新 NACP 中的名称建文件夹，没有时用本体的文件名。只有 DLC 时，如果该游戏已有文件夹，或 titledb 或管理页面知道游戏名称，就会移动；否则留到本体或更新到来，并在管理页面中说明。文件名没有意义的 DLC(如 `dlc2`)命名为 `游戏名 DLC n`。复古 ROM 放进以机种命名的文件夹(`incoming/snes/`)后移到 `retro/`，单独的 `.nro` 移到 `homebrew/`。不会覆盖任何文件，无法放置的文件留在 `incoming/`，原因显示在管理页面(游戏库，临时文件夹)。服务器按位置而不是名称或内容识别临时文件夹，因此不会把 `games/` 中的文件夹误当作待整理的内容。
 
 **从分开挂载的服务器迁移。** 新安装只挂载存储文件夹。文件仍在分开的文件夹(`./games`、`./data`、`./keys` 等，或 `COOK_<名称>_PATH` 指定的位置)中的服务器需同时使用 `docker-compose.legacy.yml`：用 `docker compose -f docker-compose.yml -f docker-compose.legacy.yml up -d` 启动，或在 `.env` 中写入 `COMPOSE_FILE=docker-compose.yml:docker-compose.legacy.yml`。不加这个文件启动时，这些文件夹不会被挂载，服务器以空状态启动，磁盘上的文件不受影响。加上后，有文件的旧文件夹继续使用，并在管理页面的概览中提示；空文件夹会被忽略。要完成迁移，先停止服务器，把各文件夹的内容按上面的名称移进存储文件夹，去掉 legacy 文件后再启动。迁移过程中不会覆盖任何文件；`games/incoming/` 中的内容在没有同名项且不在其他磁盘上时移到 `incoming/`，留下的会显示在概览中。
 

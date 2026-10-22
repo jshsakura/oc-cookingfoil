@@ -139,6 +139,18 @@ export const TOP_WORDS = {
     "sc.readme": "폴더에 넣은 README.md 는 서버가 읽지 않습니다.",
     "ss.scaffold": "레트로 기종 폴더 만들기",
     "ss.scaffoldD": "스위치에서 돌릴 수 있는 기종마다 retro/roms 아래에 롬 폴더를 만들고, BIOS 폴더도 만듭니다. 지운 폴더는 다음에 폴더를 읽을 때 다시 만듭니다. 파일은 옮기거나 지우지 않으며, 끄면 더 만들지 않고 만든 폴더는 그대로 둡니다.",
+    "lo.title": "임시 폴더", "lo.sweep": "지금 정리", "lo.lead": "incoming 폴더에 파일을 넣으면 서버가 알아서 정리합니다. 복사가 끝나고 1분 동안 바뀌지 않은 파일부터 옮기고, 이미 있던 파일은 덮어쓰지 않습니다.",
+    "lo.where": "넣는 곳", "lo.gameH": "스위치 게임", "lo.game": "파일 안의 정보로 게임과 버전을 알아내 파일 이름을 '게임 이름 [타이틀 ID][v버전]' 으로 바꾸고, 게임마다 폴더 하나에 본편, update, DLC 로 나눠 넣습니다. 이름은 관리자가 정한 이름, titledb, 파일 안의 정보, 원래 파일 이름 순으로 고릅니다. 그 게임의 폴더가 이미 있으면 그 폴더를 씁니다.",
+    "lo.retroH": "레트로 롬", "lo.retro": "기종 이름 폴더에 넣습니다(incoming/snes/게임.zip 처럼). 그 폴더 이름이 기종이 되고, 기종 폴더 밖에 넣은 롬이나 그 기종에서 쓰지 않는 확장자는 옮기지 않고 경고와 함께 남깁니다. .cue 와 .m3u 는 가리키는 파일과 함께 폴더째 갑니다.", "lo.nroH": "홈브류 .nro",
+    "lo.nro": ".nro 하나짜리는 홈브류 폴더로 보냅니다. 폴더째 쓰는 홈브류와 패치, 세이브는 업로드 탭에서 올립니다.", "lo.systems": "기종 폴더 이름", "lo.systemsHelp": "아래 이름 가운데 하나로 폴더를 만듭니다. 대소문자는 가리지 않고, ES-DE 나 RetroArch 에서 쓰는 이름(SNES, psx, Nintendo - Game Boy Advance 등)도 됩니다.",
+    "lo.held": "남아 있는 파일", "lo.recent": "최근에 옮긴 파일", "lo.kBase": "본편",
+    "lo.kUpdate": "업데이트", "lo.kDlc": "DLC", "lo.kDelta": "델타",
+    "lo.kRetro": "레트로 롬", "lo.kHomebrew": "홈브류", "lo.inGames": "게임 폴더",
+    "lo.inRetro": "레트로 폴더", "lo.inHomebrew": "홈브류 폴더", "lo.newFolder": "새 폴더",
+    "lo.checked": "{at} 에 확인했습니다.", "lo.waiting": "복사 중인 파일 {n}개는 끝나면 옮깁니다.", "lo.notYet": "아직 확인하지 않았습니다.",
+    "lo.colFile": "파일", "lo.colReason": "이유", "lo.colKind": "종류",
+    "lo.colTo": "옮긴 곳", "lo.colAt": "옮긴 때", "lo.empty": "임시 폴더가 비어 있습니다.",
+    "lo.noRecent": "아직 옮긴 파일이 없습니다.", "lo.moved": "{n}개 옮겼습니다", "lo.nothing": "옮길 파일이 없습니다",
   },
   en: {
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
@@ -274,6 +286,18 @@ export const TOP_WORDS = {
     "sc.readme": "A README.md you put in a folder is ignored by the server.",
     "ss.scaffold": "Make retro system folders",
     "ss.scaffoldD": "Makes a ROM folder under retro/roms for every system the Switch can run, plus the BIOS folder. A deleted folder comes back the next time the folders are read. No file is moved or deleted; turned off, nothing more is made and the folders already made stay.",
+    "lo.title": "Drop box", "lo.sweep": "Sort now", "lo.lead": "Put files in the incoming folder and the server sorts them. A file moves once it has finished copying and has not changed for a minute, and nothing already there is overwritten.",
+    "lo.where": "Folder", "lo.gameH": "Switch games", "lo.game": "The game and version come from the file itself. The file is renamed 'Game name [title ID][vversion]' and goes into one folder per game, split into the base game, update and DLC. The name is the one the admin set, else titledb's, else the one inside the file, else the original file name. A game that already has a folder keeps it.",
+    "lo.retroH": "Retro ROMs", "lo.retro": "Put them in a folder named after the system (like incoming/snes/game.zip). That folder name sets the system. A ROM outside a system folder, or with an extension that system does not use, stays with a warning. A .cue or .m3u moves as a folder with the files it names.", "lo.nroH": "Homebrew .nro",
+    "lo.nro": "A lone .nro goes to the homebrew folder. Homebrew that needs its folder, patches and saves are uploaded on the Upload tab.", "lo.systems": "System folder names", "lo.systemsHelp": "Name the folder with one of the names below. Case does not matter, and the names ES-DE and RetroArch use (SNES, psx, Nintendo - Game Boy Advance and so on) work too.",
+    "lo.held": "Files still here", "lo.recent": "Recently moved", "lo.kBase": "Base",
+    "lo.kUpdate": "Update", "lo.kDlc": "DLC", "lo.kDelta": "Delta",
+    "lo.kRetro": "Retro ROM", "lo.kHomebrew": "Homebrew", "lo.inGames": "Games folder",
+    "lo.inRetro": "Retro folder", "lo.inHomebrew": "Homebrew folder", "lo.newFolder": "New folder",
+    "lo.checked": "Checked at {at}.", "lo.waiting": "{n} files still being copied move once they finish.", "lo.notYet": "Not checked yet.",
+    "lo.colFile": "File", "lo.colReason": "Reason", "lo.colKind": "Kind",
+    "lo.colTo": "Moved to", "lo.colAt": "Moved at", "lo.empty": "The drop box is empty.",
+    "lo.noRecent": "Nothing has been moved yet.", "lo.moved": "Moved {n} files", "lo.nothing": "Nothing to move",
   },
   ja: {
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
@@ -409,6 +433,18 @@ export const TOP_WORDS = {
     "sc.readme": "フォルダに置いた README.md はサーバーが読みません。",
     "ss.scaffold": "レトロ機種フォルダを作る",
     "ss.scaffoldD": "Switch で動く機種ごとに retro/roms の下に ROM フォルダを作り、BIOS フォルダも作ります。消したフォルダは次にフォルダを読むときに作り直します。ファイルを移したり消したりはしません。オフにすると新しく作らず、作ったフォルダはそのまま残します。",
+    "lo.title": "一時フォルダー", "lo.sweep": "今すぐ整理", "lo.lead": "incoming フォルダーにファイルを入れると、サーバーが自動で整理します。コピーが終わって 1 分間変わらなかったファイルから移し、すでにあるファイルは上書きしません。",
+    "lo.where": "置き場所", "lo.gameH": "Switch ゲーム", "lo.game": "ファイルの中の情報でゲームとバージョンを読み取り、ファイル名を「ゲーム名 [タイトル ID][vバージョン]」に変えて、ゲームごとに一つのフォルダーへ本編、update、DLC に分けて入れます。名前は管理者が決めた名前、titledb、ファイルの中の情報、元のファイル名の順に選びます。そのゲームのフォルダーがすでにあれば、そのフォルダーを使います。",
+    "lo.retroH": "レトロ ROM", "lo.retro": "機種名のフォルダーに入れます(incoming/snes/game.zip のように)。そのフォルダー名が機種になり、機種フォルダーの外に入れた ROM や、その機種で使わない拡張子は移さずに警告とともに残します。.cue と .m3u は指しているファイルと一緒にフォルダーごと移ります。", "lo.nroH": "自作アプリ .nro",
+    "lo.nro": "単独の .nro は自作アプリのフォルダーへ送ります。フォルダーごと使う自作アプリ、パッチ、セーブはアップロードタブから上げます。", "lo.systems": "機種フォルダー名", "lo.systemsHelp": "下の名前のどれかでフォルダーを作ります。大文字と小文字は区別せず、ES-DE や RetroArch で使う名前(SNES、psx、Nintendo - Game Boy Advance など)も使えます。",
+    "lo.held": "残っているファイル", "lo.recent": "最近移したファイル", "lo.kBase": "本編",
+    "lo.kUpdate": "アップデート", "lo.kDlc": "DLC", "lo.kDelta": "差分",
+    "lo.kRetro": "レトロ ROM", "lo.kHomebrew": "自作アプリ", "lo.inGames": "ゲームフォルダー",
+    "lo.inRetro": "レトロフォルダー", "lo.inHomebrew": "自作アプリのフォルダー", "lo.newFolder": "新しいフォルダー",
+    "lo.checked": "{at} に確認しました。", "lo.waiting": "コピー中のファイル {n} 個は終わったら移します。", "lo.notYet": "まだ確認していません。",
+    "lo.colFile": "ファイル", "lo.colReason": "理由", "lo.colKind": "種類",
+    "lo.colTo": "移した場所", "lo.colAt": "移した日時", "lo.empty": "一時フォルダーは空です。",
+    "lo.noRecent": "まだ移したファイルはありません。", "lo.moved": "{n} 個移しました", "lo.nothing": "移すファイルはありません",
   },
   zh: {
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
@@ -544,6 +580,18 @@ export const TOP_WORDS = {
     "sc.readme": "放进文件夹的 README.md 不会被服务器读取。",
     "ss.scaffold": "创建复古机种文件夹",
     "ss.scaffoldD": "为 Switch 能运行的每个机种在 retro/roms 下创建 ROM 文件夹，并创建 BIOS 文件夹。删除的文件夹会在下次读取文件夹时重新创建。不会移动或删除文件；关闭后不再创建，已创建的文件夹保持不变。",
+    "lo.title": "临时文件夹", "lo.sweep": "立即整理", "lo.lead": "把文件放进 incoming 文件夹，服务器会自动整理。复制完成且一分钟内没有变化的文件会先移动，已有的文件不会被覆盖。",
+    "lo.where": "放置位置", "lo.gameH": "Switch 游戏", "lo.game": "根据文件内的信息识别游戏和版本，把文件改名为“游戏名 [标题 ID][v版本]”，并按游戏放进各自的文件夹，分为本体、update 和 DLC。名称依次取管理员设定的名称、titledb、文件内的信息、原文件名。该游戏已有文件夹时沿用该文件夹。",
+    "lo.retroH": "复古 ROM", "lo.retro": "放进以机种命名的文件夹(如 incoming/snes/game.zip)。文件夹名称即为机种。放在机种文件夹外的 ROM，或该机种不使用的扩展名，不会移动并附带警告保留。.cue 和 .m3u 会连同其指向的文件整个文件夹一起移动。", "lo.nroH": "自制软件 .nro",
+    "lo.nro": "单独的 .nro 会送到自制软件文件夹。需要整个文件夹的自制软件、补丁和存档请在上传标签页上传。", "lo.systems": "机种文件夹名称", "lo.systemsHelp": "用下面的任一名称建立文件夹。不区分大小写，ES-DE 和 RetroArch 使用的名称(SNES、psx、Nintendo - Game Boy Advance 等)也可以。",
+    "lo.held": "留下的文件", "lo.recent": "最近移动的文件", "lo.kBase": "本体",
+    "lo.kUpdate": "更新", "lo.kDlc": "DLC", "lo.kDelta": "增量",
+    "lo.kRetro": "复古 ROM", "lo.kHomebrew": "自制软件", "lo.inGames": "游戏文件夹",
+    "lo.inRetro": "复古文件夹", "lo.inHomebrew": "自制软件文件夹", "lo.newFolder": "新文件夹",
+    "lo.checked": "已于 {at} 检查。", "lo.waiting": "{n} 个正在复制的文件完成后会移动。", "lo.notYet": "尚未检查。",
+    "lo.colFile": "文件", "lo.colReason": "原因", "lo.colKind": "类型",
+    "lo.colTo": "移动到", "lo.colAt": "移动时间", "lo.empty": "临时文件夹是空的。",
+    "lo.noRecent": "还没有移动过文件。", "lo.moved": "已移动 {n} 个", "lo.nothing": "没有要移动的文件",
   },
 };
 
@@ -592,7 +640,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}
