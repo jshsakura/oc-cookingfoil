@@ -272,3 +272,47 @@ test("the admin uploads the client build and consoles are offered it at once, wi
     server.kill("SIGKILL");
   }
 });
+
+test("the admin adds a RetroArch core, replaces it only when asked, and removes it to the trash", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-upload-core-"));
+  const dirs = Object.fromEntries(["data", "games", "patches", "saves", "retro"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  const server = await boot(dirs);
+  try {
+    const admin = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")) };
+    const send = (name, data, replace) => {
+      const fd = new FormData();
+      fd.append("files", new Blob([data]), name);
+      if (replace) fd.append("replace", "true");
+      return fetch(`${BASE}/admin/api/upload/core`, { method: "POST", headers: admin, body: fd });
+    };
+    const core = path.join(dirs.retro, "retroarch/cores/mgba_libretro_libnx.nro");
+
+    let r = await send("mgba_libretro_libnx.nro", fakeNro("1.0.0"));
+    assert.equal(r.status, 201, await r.clone().text());
+    assert.equal((await r.json()).where, "retroarch/cores/mgba_libretro_libnx.nro");
+    assert.ok(fs.existsSync(core), "the pack folder is made on a fresh server");
+    assert.equal((await send("mgba.nro", fakeNro("1.0.0"))).status, 400, "the name must say it is a Switch core");
+    assert.equal((await send("snes9x_libretro_libnx.nro", Buffer.alloc(64))).status, 400, "and the file must be an NRO");
+
+    r = await send("mgba_libretro_libnx.nro", fakeNro("2.0.0"));
+    assert.equal(r.status, 409, "a core of that name is never replaced unasked");
+    r = await send("mgba_libretro_libnx.nro", fakeNro("2.0.0"), true);
+    assert.equal(r.status, 201);
+    assert.match((await r.json()).trashed, /^\d{4}-\d{2}-\d{2}\/core-[0-9a-f]{10}$/, "the old one went to the trash");
+
+    const list = await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json();
+    assert.deepEqual(list.cores.map((c) => [c.core, c.origin]), [["mgba", "modified"]]);
+
+    r = await fetch(`${BASE}/admin/api/retro-cores/remove`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ core: "mgba" }) });
+    assert.equal(r.status, 200, await r.clone().text());
+    assert.ok(!fs.existsSync(core));
+    const trash = await (await fetch(`${BASE}/admin/api/retro-variants/trash`, { headers: admin })).json();
+    assert.deepEqual(trash.items.map((i) => [i.system, i.name]).sort(), [["core", "mgba_libretro_libnx.nro"], ["core", "mgba_libretro_libnx.nro"]]);
+    r = await fetch(`${BASE}/admin/api/retro-variants/restore`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ entry: trash.items[0].entry }) });
+    assert.equal(r.status, 200, "a removed core comes back from the trash tab");
+    assert.ok(fs.existsSync(core));
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

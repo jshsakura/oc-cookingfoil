@@ -513,6 +513,14 @@ test("facets, fact filters and theme rows read the collected metadata", async ()
     assert.deepEqual(facets.players, [{ value: 2, count: 3 }]);
     assert.deepEqual(facets.decades, [{ value: 1980, count: 1 }, { value: 1990, count: 10 }]);
     assert.equal((await fetch(`${BASE}/api/retro/systems/nes/facets`, { headers: AUTH })).status, 404);
+    const filters = await fetch(`${BASE}/api/retro/systems/snes/filters`, { headers: AUTH });
+    const { groups, sorts } = await filters.json();
+    assert.deepEqual(groups.find((g) => g.key === "genre").options.map((o) => [o.key, o.count]), [["rpg", 10], ["puzzle", 1]]);
+    assert.ok(sorts.length >= 4);
+    // fetch() adds "Cache-Control: no-cache" to a conditional request unless one is given; consoles send none.
+    const again = await fetch(`${BASE}/api/retro/systems/snes/filters`, { headers: { ...AUTH, "Cache-Control": "max-age=0", "If-None-Match": filters.headers.get("etag") } });
+    assert.equal(again.status, 304, "unchanged filters are not sent again");
+    assert.equal((await fetch(`${BASE}/api/retro/systems/nes/filters`, { headers: AUTH })).status, 404);
 
     const two = await (await fetch(`${BASE}/api/retro/games?system=snes&genre=rpg&players=2`, { headers: AUTH })).json();
     assert.equal(two.total, 3);

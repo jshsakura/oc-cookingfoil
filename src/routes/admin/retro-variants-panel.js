@@ -27,7 +27,7 @@ let rvView='dups',rvData={},rvSeq=0;
 const RV_HELP={
   dups:'같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 삭제한 파일은 롬과 표지, 베젤까지 레트로 폴더의 .trash 로 가고, 휴지통 탭에서 되돌릴 수 있습니다.',
   sets:'아케이드는 FinalBurn Neo 의 부모 세트와 클론 세트를 한 게임으로 봅니다. 한국판, 해외판, 북미판, 유럽판, 일본판 순으로 돌아가는 정규 세트를 추천 버전으로 정합니다. 부모 롬이나 BIOS 가 roms/arcade 에 없으면 그 세트는 실행되지 않습니다.',
-  trash:'휴지통으로 옮긴 파일입니다. 지우지 않고 보관하며, 되돌리면 원래 자리로 돌아갑니다.'};
+  trash:'휴지통으로 옮긴 롬과 코어입니다. 지우지 않고 보관하며, 되돌리면 원래 자리로 돌아갑니다.'};
 const RV_TAGS={bootleg:'부트렉',hack:'해킹',prototype:'시제품',demo:'데모',decrypted:'복호화판','cps-changer':'CPS 체인저','4p':'4인용','3p':'3인용',resale:'재판',mvs:'MVS',aes:'AES'};
 const RV_REGION={kr:'한국',world:'세계',us:'미국',eu:'유럽',jp:'일본',asia:'아시아',hisp:'중남미',br:'브라질'};
 const RV_HIDDEN={missing:'실행 불가',bootleg:'부트렉',hack:'해킹',prototype:'시제품',demo:'데모'};
@@ -64,7 +64,7 @@ function rvShow(){
     $('rv-summary').textContent=items.length?'휴지통에 '+items.length+'개 있습니다.':'';
     table('rv-list',['이름','시스템','크기','옮긴 때',''],items.map((i)=>{const tr=el('tr');
       const n=td();n.append(i.name);n.append(el('div','파일 '+i.files.length+'개','muted'));
-      tr.append(n,td(i.system),td(rvMb(i.size)),td(fmt(i.trashedAt)),raCell(btn('되돌립니다',()=>rvRestore(i))));return tr;}),'휴지통이 비어 있습니다.');
+      tr.append(n,td(i.system==='core'?'RetroArch 코어':i.system),td(rvMb(i.size)),td(fmt(i.trashedAt)),raCell(btn('되돌립니다',()=>rvRestore(i))));return tr;}),'휴지통이 비어 있습니다.');
     return;}
   if(rvView==='sets'){
     const d=rvData.sets;if(!d){$('rv-list').replaceChildren();return;}

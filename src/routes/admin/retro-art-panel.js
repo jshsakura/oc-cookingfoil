@@ -2,7 +2,8 @@
  * The admin page's retro tab: box art and bezel coverage per system, a button
  * that fetches what is missing, and a dialog to match one item by hand from
  * libretro names or SteamGridDB covers. Talks to /admin/api/retro-art.
- * The tab is split by a bar of sub-tabs: covers and bezels, ratings, and the
+ * The tab is split by a bar of sub-tabs: covers and bezels, ratings, the cores
+ * in the RetroArch pack (/admin/api/retro-cores), and the
  * versions block (retro-variants-panel.js: duplicates, arcade sets, trash),
  * one shown at a time.
  */
@@ -13,6 +14,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs" id="retro-subtabs" role="tablist" aria-label="레트로">
     <button type="button" role="tab" data-sub="art">${icon("image")}표지·베젤</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}평점</button>
+    <button type="button" role="tab" data-sub="cores">${icon("package")}코어</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
     <button type="button" role="tab" data-sub="trash">${icon("trash")}휴지통</button>
@@ -33,6 +35,12 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">평점</h2><button type="button" id="ra-ratings">평점 갱신</button></div>
   <p class="muted">LaunchBox 게임 데이터베이스의 사용자 평점을 원제로 맞춰 붙입니다. 자료 파일이 100MB 쯤이라 몇 분 걸립니다. 일주일마다 저절로 갱신합니다.</p>
   <p class="muted" id="ra-ratings-state"></p>
+  </div>
+  <div data-sub-panel="cores" hidden>
+  <div class="hd"><h2 class="first">RetroArch 코어</h2><button type="button" id="rc-reload">${icon("refresh")}다시 읽기</button><button type="button" class="primary" id="rc-up-pick">${icon("upload")}코어 올리기</button><input type="file" id="rc-up" accept=".nro" hidden></div>
+  <p class="muted">retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch <span id="rc-official"></span> 번들과 파일 내용을 비교해 출처를 표시합니다. 공식과 다른 코어는 한글패치나 해크판을 위해 따로 받은 것일 수 있으니 서버가 바꾸지 않습니다. 올린 코어는 <코어>_libretro_libnx.nro 이름의 Switch NRO 여야 하고, 바꾸거나 지운 코어는 휴지통 탭에서 되돌릴 수 있습니다.</p>
+  <p class="muted" id="rc-nro"></p>
+  <div class="scroll" id="rc-list" data-skel></div>
   </div>
   <div data-sub-panel="versions" hidden>
 ${RETRO_VARIANTS_HTML}
@@ -68,6 +76,8 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .ra-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0;font-size:13px;color:var(--muted)}
 .ra-up{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:13px}
 .ra-up.over{border-color:var(--accent,#4c8dff);background:var(--sunk)}
+#rc-list .pill.warn{background:rgba(217,164,0,.16);color:var(--text)}
+#rc-list .rc-hash{font-family:ui-monospace,monospace;font-size:12px}
 .warn-line{background:var(--sunk);border:1px solid var(--line);border-left:3px solid var(--warn,#d9a400);border-radius:10px;padding:10px 12px;font-size:13px}
 `;
 
@@ -75,17 +85,46 @@ export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
 // One sub-tab at a time; the choice is remembered in this browser only.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['art','ratings','dups','sets','trash'];
+var RETRO_SUBS=['art','ratings','cores','dups','sets','trash'];
 var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
-  const panel=retroSub==='art'||retroSub==='ratings'?retroSub:'versions';
+  const panel=['art','ratings','cores'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
+  if(panel==='cores')loadRetroCores();
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
 function retroOpen(){loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
 function raCell(node){const c=el('td');c.append(node);return c;}
+const RC_ORIGIN={official:['공식 번들과 같음','on'],modified:['공식과 다름','warn'],extra:['공식 번들에 없음','']};
+const rcMb=(n)=>(n/1048576).toFixed(1)+' MB';
+function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
+function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
+async function loadRetroCores(){let d;
+  try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
+  $('rc-official').textContent=d.official;
+  const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
+  table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
+    const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
+    const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
+    const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
+    tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+async function rcRemove(c,force=false){
+  if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
+  try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
+  catch(err){if(/게임 \\d+개가/.test(err.message)&&!force){
+      if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
+    toast(err.message);}}
+async function rcUpload(file,replace=false){
+  const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
+  const r=await fetch('/admin/api/upload/core',{method:'POST',body:fd});const d=await r.json().catch(()=>({}));
+  if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
+  if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
+  toast(d.where+' 에 올렸습니다.');loadRetroCores();}
+$('rc-reload').addEventListener('click',loadRetroCores);
+$('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
+$('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});
 async function loadRetroArt(){
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
   const j=raData.job;

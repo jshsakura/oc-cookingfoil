@@ -93,26 +93,31 @@ export function facetsOf(list, lang = "en") {
 }
 
 const intParam = (v) => (typeof v === "string" && /^\d+$/.test(v) ? Number(v) : null);
+const listParam = (v) => (typeof v === "string" && v ? v.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) : null);
+
+/** A game's genre and play-style keys (an arcade set's style too), each once. Pure. */
+export const genreKeysOf = (f) => new Set([...f.genres.map(genreSlug), ...(f.styles ?? []), ...(f.arcadeStyle ? [f.arcadeStyle] : [])].filter(Boolean));
 
 /**
- * The /games filter on facts: genre (keys, comma for any of them), players
- * (at least), decade (1990), region (kr), korean=1, achievements=1. Pure.
+ * The /games filter on facts: genre (genre or play-style keys), decade (1990)
+ * and region (kr), each a comma list for any of them; players (at least),
+ * korean=1, achievements=1. Pure.
  */
 export function factsFilter(query) {
-  const genres = typeof query.genre === "string" && query.genre ? query.genre.split(",").map((s) => genreSlug(s.trim())).filter(Boolean) : null;
+  const genres = listParam(query.genre)?.map(genreSlug).filter(Boolean) ?? null;
   const players = intParam(query.players);
-  const decade = intParam(query.decade);
-  const region = typeof query.region === "string" && query.region ? query.region.toLowerCase() : null;
+  const decades = listParam(query.decade)?.map(Number).filter(Number.isInteger) ?? null;
+  const regions = listParam(query.region);
   const korean = query.korean === "1";
   const achievements = query.achievements === "1";
-  const any = genres || players !== null || decade !== null || region || korean || achievements;
+  const any = genres || players !== null || decades || regions || korean || achievements;
   if (!any) return null;
   return (f) =>
     Boolean(f) &&
-    (!genres || f.genres.some((g) => genres.includes(genreSlug(g)))) &&
+    (!genres || genres.some((k) => genreKeysOf(f).has(k))) &&
     (players === null || (f.players ?? 0) >= players) &&
-    (decade === null || decadeOf(f.year) === decade) &&
-    (!region || f.region === region) &&
+    (!decades || decades.includes(decadeOf(f.year))) &&
+    (!regions || regions.includes(f.region)) &&
     (!korean || f.korean) &&
     (!achievements || f.achievements);
 }
