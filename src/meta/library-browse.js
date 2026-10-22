@@ -238,8 +238,8 @@ export function createOtherScanner({ root, ignore = [], ttlMs = 60_000, now = Da
       if (GAME_FILE_RE.test(e.path) || e.dirent?.isSymbolicLink?.() || e.stats?.isSymbolicLink?.() || (e.stats && !e.stats.isFile())) continue;
       const rel = safeRel(e.path);
       if (!rel || !path.resolve(base, rel).startsWith(base + path.sep)) continue;
-      // The server's own list of extra shop entries is configuration, not a stray file; a README.md at the top is the operator's notes.
-      if (rel === "custom_entries.jsonc" || isReadme(rel)) continue;
+      // The server's own list of extra shop entries is configuration, not a stray file; a README.md anywhere is the operator's notes.
+      if (rel === "custom_entries.jsonc" || isReadme(path.posix.basename(rel))) continue;
       out.push({ rel, size: e.stats?.size ?? null, mtime: e.stats ? Math.floor(e.stats.mtimeMs / 1000) : null });
     }
     // A change that came in while walking leaves this result stale, but still better than nothing for peek.

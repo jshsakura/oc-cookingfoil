@@ -163,6 +163,10 @@ Each system has one folder named by its short id: `nes` `snes` `gb` `gbc` `gba` 
 
 The RetroArch base pack is what a console needs once before it can play: put `retroarch.nro`, `retroarch.cfg` and the folders RetroArch uses (`cores/`, `assets/`, `system/` and so on) under `retro/retroarch/`. The admin page tells you which BIOS files a system with games is missing. CookingFoil never ships them.
 
+### Folder guide
+
+The server writes no guide files into your folders. What each folder takes (accepted extensions, layout, naming, the core `.nro` and its path on the console, BIOS files) is served instead: `GET /admin/api/storage-guide` for every folder and `GET /admin/api/storage-guide/folder?path=<folder>` for one (add `&format=md` for Markdown), with an admin session or an API token. An AI helper reads the same through the MCP tools `library_storage_guide` and `library_folder_guide`. A `README.md` you put in a folder is ignored by the server: it is not listed, not counted in sizes and not sent to consoles.
+
 ## Configuration
 
 Most settings are changed on the admin page and apply at once. A value in `.env` is only the default for the first start: once you change a setting on the admin page, the page's value wins, and "back to compose" (compose 값으로) returns to the `.env` value. [`.env.example`](./.env.example) lists and explains every variable.

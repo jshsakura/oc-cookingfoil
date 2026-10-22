@@ -20,6 +20,9 @@ const { createIdentifier } = await import("../../src/meta/file-identity.js");
 const { createOtherScanner } = await import("../../src/meta/library-browse.js");
 const { scanManual } = await import("../../src/meta/homebrew.js");
 const { isReadme } = await import("../../src/helpers/readme-name.js");
+const { leftOutOfFolder } = await import("../../src/meta/homebrew-layout.js");
+const shopCache = await import("../../src/meta/shop-cache.js");
+const { default: extrasRoute } = await import("../../src/routes/extras.js");
 const patches = await import("../../src/meta/user-patches.js");
 const saves = await import("../../src/meta/shop-saves.js");
 const backup = await import("../../src/db/backup.js");
@@ -27,6 +30,7 @@ after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const NOTES = "# My notes\n\nThe games here came from my own cartridges.\n";
 const TID = "0100F2C0115B6000";
+const BASE = "0100A2C0115B6000";
 const dirOf = (name) => fs.mkdtempSync(path.join(root, `${name}-`));
 function put(base, files) {
   for (const [rel, body] of Object.entries(files)) {
@@ -98,10 +102,22 @@ test("drop box: a README.md in a system folder is not moved as a Mega Drive ROM"
   assert.ok(!org.view().held.some((h) => /readme/i.test(h.rel)), "and are not reported as held");
 });
 
-test("library browse: a README.md at the games folder's top is not an other file", async () => {
-  const games = put(dirOf("games"), { "README.md": NOTES, "sub/notes.txt": "x", "sub/README.md": "x" });
-  const rels = (await createOtherScanner({ root: games }).list()).map((f) => f.rel).sort();
-  assert.deepEqual(rels, ["sub/README.md", "sub/notes.txt"]);
+test("library browse: a README.md at any depth of the games folder is not an other file, nor counted", async () => {
+  const games = put(dirOf("games"), { "README.md": NOTES, "sub/notes.txt": "x", "sub/README.md": "x", "Game/deep/readme.MD": NOTES });
+  const others = await createOtherScanner({ root: games }).list();
+  assert.deepEqual(others.map((f) => f.rel).sort(), ["sub/notes.txt"]);
+  assert.equal(others.reduce((n, f) => n + f.size, 0), 1, "the notes add nothing to the folder's size");
+});
+
+test("ScummVM: a README.md in a game's folder is neither sent to the console nor counted in its size", async () => {
+  const retro = put(dirOf("retro"), { "roms/ScummVM/monkey/monkey.scummvm": "monkey\n", "roms/ScummVM/monkey/MONKEY.000": "abcd", "roms/ScummVM/monkey/README.md": NOTES, "roms/ScummVM/monkey/docs/readme.MD": NOTES });
+  const monkey = (await catalog.scanDir(retro)).games.find((g) => g.name === "monkey");
+  assert.deepEqual(monkey.extras.map((x) => x.rel), ["monkey/MONKEY.000"]);
+  assert.equal(monkey.size, "monkey\n".length + 4);
+});
+
+test("homebrew folder install: a README.md at any depth stays on the server", () => {
+  for (const rel of ["README.md", "data/readme.MD", "a/b/ReadMe.md"]) assert.ok(leftOutOfFolder(rel), rel);
 });
 
 test("shop scan: a README.md is not a game", async () => {
@@ -132,4 +148,13 @@ test("backups copy the data folder's .json files, so a README.md stays out", () 
   const copied = fs.readdirSync(path.join(process.env.COOK_DATA_DIR, backup.BACKUP_DIR, day), { recursive: true });
   assert.ok(copied.includes("settings.json"));
   assert.ok(!copied.includes("README.md"));
+});
+
+test("game detail: a README.md beside a game is not listed among its other files", async () => {
+  put(process.env.COOK_GAMES_DIR, { [`Detail/Detail [${BASE}][v0].nsp`]: "x", "Detail/ReadMe.md": NOTES, "Detail/manual.txt": "m" });
+  await shopCache.get();
+  let body = null;
+  const res = { status() { return this; }, type() { return this; }, json(b) { body = b; }, send(b) { body = JSON.parse(b); } };
+  await extrasRoute({ params: { baseTitleId: BASE }, query: {}, headers: {}, get: () => undefined }, res);
+  assert.deepEqual(body.extras.map((x) => x.name), ["manual.txt"]);
 });

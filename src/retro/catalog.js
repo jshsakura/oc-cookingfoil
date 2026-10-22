@@ -143,7 +143,7 @@ const GAME_FOLDER_MAX_DEPTH = 6;
 
 /**
  * Every file in the folder of `rel`, below it too (relative to `romsDir`, "/"-separated),
- * except .scummvm files (`rel` among them), the folder's own title.json, and hidden or non-regular files. For a game made of a folder of files
+ * except .scummvm files (`rel` among them), the folder's own title.json, a README.md, and hidden or non-regular files. For a game made of a folder of files
  * (ScummVM) rather than one ROM; empty when the file is not inside a folder of its own.
  */
 async function folderFilesOf(romsDir, rel) {
@@ -158,7 +158,7 @@ async function folderFilesOf(romsDir, rel) {
       return;
     }
     for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-      if (e.name.startsWith(".") || out.length >= GAME_FOLDER_MAX_FILES) continue;
+      if (e.name.startsWith(".") || (e.isFile() && isReadme(e.name)) || out.length >= GAME_FOLDER_MAX_FILES) continue;
       const childRel = `${dirRel}/${e.name}`;
       if (e.isDirectory() && depth < GAME_FOLDER_MAX_DEPTH) await walk(childRel, depth + 1);
       // Another .scummvm here is a game of its own, not a file of this one; title.json names the game on the server only.

@@ -47,3 +47,12 @@ test("the look-alike folder notice names both folders and the system, and says t
   }
   assert.match(TOP_WORDS.ko["sc.shadowed"], /합니다\.$|습니다\.$|옮깁니다\.$/);
 });
+
+test("beside the folder guide link, every language names the MCP tool and says a README.md is ignored", () => {
+  for (const [code] of TOP_LANGS) {
+    const text = TOP_WORDS[code]["sc.mcp"];
+    assert.ok(text?.includes("library_storage_guide"), `${code} names the tool`);
+    assert.ok(text.includes("README.md"), `${code} mentions README.md`);
+  }
+  assert.match(TOP_WORDS.ko["sc.mcp"], /습니다\.$/);
+});
