@@ -30,7 +30,7 @@ const GROUPS = {
   features: text("Features", "특징", "特徴", "特点"),
 };
 
-const REGIONS = {
+export const REGIONS = {
   kr: text("Korea", "한국", "韓国", "韩国"),
   jp: text("Japan", "일본", "日本", "日本"),
   us: text("North America", "북미", "北米", "北美"),

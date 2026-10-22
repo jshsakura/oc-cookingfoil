@@ -56,6 +56,9 @@ export function displayName(name) {
   return beforeParen || noTags || String(name);
 }
 
+/** The HOME menu name of a game's shortcut: its display name, then what tells it from its other versions. Pure. */
+export const shortcutName = (game) => (game.versionLabel ? `${displayName(game.name)} · ${game.versionLabel}` : displayName(game.name));
+
 /** UTF-8 `text` cut to fit `max` bytes with a terminating NUL, never mid-character. Pure. */
 function fitUtf8(text, max) {
   let buf = Buffer.from(text, "utf8");
@@ -195,7 +198,7 @@ export function forwarderSpec(game) {
   const target = game.target ?? launchTarget(game.core, game.romSdPath);
   if (!target) return null;
   const titleId = forwarderTitleId(game.id);
-  const name = displayName(game.name);
+  const name = shortcutName(game);
   const cores = game.cores === 4 ? 4 : 3;
   // The default leaves the key as it always was, so the NSPs already built stay valid.
   const parts = [FORMAT, exefsVersion(), titleId, name, game.publisher, target, game.artKey ?? null, ...(cores === 4 ? [{ cores }] : [])];
