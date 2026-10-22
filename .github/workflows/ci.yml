@@ -5,14 +5,14 @@ name: CI
 # they ran when a human remembered to. That is how a one-line missing import
 # reached :latest and 500'd every request.
 #
-# This gates main: lint (catches "used but never imported") + unit tests.
+# Lint (catches "used but never imported") + unit tests. They run when the
+# version goes up: ghcr-publish calls this before it builds, so a release can't
+# skip them. Every push also runs them locally first (the git hook refuses a
+# push without tests), so a PR does not spend a runner on them again.
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_call: # reused by ghcr-publish so releases can't skip it
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   test:
