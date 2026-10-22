@@ -161,7 +161,9 @@ function rpAuto(a,kept){const p=$('rp-auto');if(!a){p.textContent='';return;}
     if(up.state==='update-needed')out.push(rpT('autoUpdateNeeded',{n:up.files}));
     if(up.state==='updated')out.push(rpT('autoUpdated'));
     const names=[...new Set([...(up.available||[]),...(kept||[])].map((k)=>k.rel))];
-    if(names.length)out.push(rpT('autoAvailable',{names:names.join(', ')}));
+    if(names.length)out.push(rpT('autoAvailable',{names:names.slice(0,5).join(', ')+(names.length>5?' … ('+names.length+')':'')}));
+    if(add.held&&add.held.length)out.push(rpT('autoHeld',{names:add.held.join(', ')}));
+    if(add.state==='blocked'||up.state==='blocked')out.push(rpT('autoBlocked'));
     for(const x of [add,up])if(x.state==='failed')out.push(rpT('autoFailed',{err:x.error}));}
   p.textContent=out.join(' ');}
 async function rpAutoCheck(){$('rp-auto-check').disabled=true;

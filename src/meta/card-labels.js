@@ -39,7 +39,7 @@ export const RETRO_LABELS = {
  * than its HOME menu shortcuts were built for, so the shortcuts have to be downloaded again.
  */
 export const RETRO_NOTICES = {
-  shortcutsStale: { en: "The core changed. Download the HOME menu shortcuts again.", ko: "코어가 바뀌어 홈 메뉴 바로가기를 다시 받아야 합니다.", ja: "コアが変わったため、HOMEメニューのショートカットをダウンロードし直してください。", zh: "核心已更改,请重新下载主页菜单快捷方式。", "zh-Hant": "核心已變更,請重新下載主畫面選單捷徑。", es: "El núcleo ha cambiado. Vuelve a descargar los accesos directos del menú HOME.", fr: "Le cœur a changé. Retéléchargez les raccourcis du menu HOME.", de: "Der Core hat sich geändert. Lade die HOME-Menü-Verknüpfungen erneut herunter.", it: "Il core è cambiato. Scarica di nuovo le scorciatoie del menu HOME.", pt: "O núcleo mudou. Baixe novamente os atalhos do menu HOME.", ru: "Ядро изменилось. Скачайте ярлыки меню HOME заново.", nl: "De core is gewijzigd. Download de HOME-menusnelkoppelingen opnieuw." },
+  shortcutsStale: { en: "The core changed. Download the HOME menu shortcuts again.", ko: "코어가 바뀌어 홈 메뉴 바로가기를 다시 받아야 합니다.", ja: "コアが変わったため、HOMEメニューのショートカットをダウンロードし直してください。", zh: "核心已更改，请重新下载主页菜单快捷方式。", "zh-Hant": "核心已變更，請重新下載主畫面選單捷徑。", es: "El núcleo ha cambiado. Vuelve a descargar los accesos directos del menú HOME.", fr: "Le cœur a changé. Retéléchargez les raccourcis du menu HOME.", de: "Der Core hat sich geändert. Lade die HOME-Menü-Verknüpfungen erneut herunter.", it: "Il core è cambiato. Scarica di nuovo le scorciatoie del menu HOME.", pt: "O núcleo mudou. Baixe novamente os atalhos do menu HOME.", ru: "Ядро изменилось. Скачайте ярлыки меню HOME заново.", nl: "De core is gewijzigd. Download de HOME-menusnelkoppelingen opnieuw." },
 };
 
 const INTEGRITY_RANK = { modified: 1, damaged: 2 };

@@ -8,7 +8,9 @@
  *
  * What the server does by itself (retro/pack-auto.js, switch: retroPackAuto) shows in `auto`:
  * { add: { state, cores }, update: { state, available }, at, settings: { auto, download } }, where
- * add.state is off | nothing | fill-needed | installed | failed | busy and update.state adds update-needed and updated.
+ * add.state is off | nothing | fill-needed | installed | failed | busy | blocked (a recovery note exists) and update.state adds
+ * update-needed, updated and deferred (a console is downloading the pack); add.held lists cores left alone because they are in
+ * the retro trash.
  *   POST /admin/api/retro-pack/auto/check   runs that check now (also repeating the update check) and answers with `auto`
  *
  * The order: the RetroArch body, the cores for consoles that have ROMs, info/assets/autoconfig, then the
@@ -21,7 +23,7 @@ import debug from "../../debug.js";
 import { dataDir, retroDir, retroPackUrl } from "../../helpers/envs.js";
 import { packLedger } from "../../db/security-stores.js";
 import * as retroCatalog from "../../retro/catalog.js";
-import { applyFill, clearRecovery, describeFill, ledgerRoot, readRecovery } from "../../retro/pack-fill.js";
+import { applyFill, clearRecovery, describeFill, fillBusy, ledgerRoot, readRecovery } from "../../retro/pack-fill.js";
 import { lock, PackError } from "../../retro/pack-bundle.js";
 import { packDirOf } from "../../retro/pack-status.js";
 import { BEZEL_CREDIT } from "../../retro/credits.js";
@@ -80,6 +82,8 @@ export function mountRetroPackApi(router, requireSession, { ledger = () => packL
     // Refused up front, so the page does not get a 202 for a run that stops at once.
     const pending = readRecovery(dataDir);
     if (pending) return res.status(409).json({ error: "지난번 채우기에서 되돌리지 못한 파일이 있습니다. 확인한 뒤 복구 기록을 지워야 다시 채웁니다", stuck: pending.stuck, recovery: pending });
+    // The pack's own upkeep (or a core being placed) may hold the fill; say so now, not as a job that fails.
+    if (fillBusy()) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
     // Taken before the first await, so a second request in the same tick finds it held.
     if (active) return res.status(409).json({ error: "이미 채우고 있습니다", job: last });
     active = true;

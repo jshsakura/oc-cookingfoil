@@ -58,6 +58,8 @@ async function readSlice(p, from, to) {
   const len = to - from + 1;
   const fh = await fs.promises.open(p.abs, "r");
   try {
+    // The listing said how big it is; a file that has grown since would go out cut short, without a word.
+    if (p.size !== undefined && (await fh.stat()).size !== p.size) throw new Error(`${p.path} changed while sending`);
     const buf = Buffer.allocUnsafe(len);
     let got = 0;
     while (got < len) {
@@ -117,6 +119,7 @@ export async function* archive(entries, start = 0, end = Infinity) {
       yield buf;
       continue;
     }
+    if (p.size !== undefined && (await fs.promises.stat(p.abs)).size !== p.size) throw new Error(`${p.path} changed while sending`);
     let sent = 0;
     for await (const chunk of fs.createReadStream(p.abs, { start: from, end: to, highWaterMark: 1024 * 1024 })) {
       sent += chunk.length;

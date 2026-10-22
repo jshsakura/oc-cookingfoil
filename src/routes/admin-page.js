@@ -138,7 +138,7 @@ function clientBuildWarnings() {
 // files from the game library (retro roms and kept NSZ originals too), which has no trash to bring
 // them back from. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch|core)|retro-pack|retro-cores\/shortcuts|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */
 function decodedPath(raw) {

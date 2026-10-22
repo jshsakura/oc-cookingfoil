@@ -15,7 +15,9 @@ import debug from "../debug.js";
 import * as env from "../helpers/envs.js";
 import { packLedger } from "../db/security-stores.js";
 import * as catalog from "./catalog.js";
+import { trashedCores } from "./core-files.js";
 import { autoAddCores, autoUpdate } from "./pack-auto.js";
+import * as downloads from "./pack-downloads.js";
 import { ledgerRoot } from "./pack-fill.js";
 import { packDirOf } from "./pack-status.js";
 import { createStaleStore } from "./shortcut-stale.js";
@@ -40,18 +42,30 @@ let chain = Promise.resolve();
 
 export const status = () => ({ ...last, settings: settings() });
 
-/** One pass over `games` now. `force` repeats the update check. */
-export function check(games, systems, { force = false, ledger = () => packLedger(), run = { autoAddCores, autoUpdate } } = {}) {
+/**
+ * One pass over `games` now. `force` repeats the update check. `ctx` overrides the folders and settings (tests),
+ * `fresh` forgets that the update check already ran.
+ *
+ * The update check counts as done only when it really ran: not while the fill is busy, the switch is off or a
+ * console is downloading the pack, so it is tried again at the next scan.
+ */
+export function check(games, systems, { force = false, fresh = false, ledger = () => packLedger(), run = { autoAddCores, autoUpdate }, ctx = {}, pack } = {}) {
   chain = chain.then(async () => {
     try {
-      const packDir = packDirOf(env.retroDir);
+      if (fresh) updateChecked = false;
+      const retroDir = ctx.retroDir ?? env.retroDir;
+      const dataDir = ctx.dataDir ?? env.dataDir;
+      const packDir = packDirOf(retroDir);
       const store = ledger().forRoot(await ledgerRoot(packDir));
-      const base = { packDir, dataDir: env.dataDir, ledger: store, games, systems, settings: settings(), url: env.retroPackUrl };
-      const add = await run.autoAddCores(base);
+      const base = { packDir, dataDir, ledger: store, games, systems, settings: ctx.settings ?? settings(), url: ctx.url ?? env.retroPackUrl, bin: ctx.bin, ...(pack ? { pack } : {}) };
+      const add = await run.autoAddCores({ ...base, trashed: await trashedCores(retroDir) });
       let update = last.update;
       if (force || !updateChecked) {
-        updateChecked = true;
-        update = await run.autoUpdate(base);
+        if (downloads.busy()) update = { state: "deferred", available: [] };
+        else {
+          update = await run.autoUpdate(base);
+          if (update.state !== "busy" && update.state !== "off") updateChecked = true;
+        }
       }
       last = { add, update, at: Date.now() };
       if (add.state === "installed") debug.log("retro: added cores %s from the cached bundle", add.cores.join(", "));

@@ -43,6 +43,8 @@ export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
   "nszKeepHours", "nszKeepGb", "nszDiskFloorGb",
+  // The pack's own upkeep and where it downloads from: what the consoles install changes with them.
+  "retroPackAuto", "retroPackAutoDownload", "retroPackUrl",
 ];
 
 let fetching = null;

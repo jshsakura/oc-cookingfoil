@@ -159,6 +159,7 @@ import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, RETRO_NOTICES, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
 import { shortcutStale, startPackWatch } from "../retro/pack-watch.js";
+import * as packDownloads from "../retro/pack-downloads.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
@@ -923,6 +924,7 @@ export default function retroRouter() {
     const listed = (manifest?.sources ?? new Map((await listPack(packDir())).map((f) => [f.path, f]))).get(sd);
     if (!listed || !fs.existsSync(listed.abs)) return res.status(404).json({ error: "not in the base pack" });
     res.attachment(path.basename(sd));
+    res.on("close", packDownloads.begin());
     sendFile(res, listed.abs);
   }));
 
@@ -937,6 +939,7 @@ export default function retroRouter() {
     if (!matches) rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
     // A tar can't say "only if missing", so name those files for the client to skip.
     res.set("X-Retro-Once", files.filter((f) => f.once).map((f) => f.path).join(","));
+    res.on("close", packDownloads.begin());
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {
       filename: "retroarch-base-pack.tar",
       etag: matches ? snapshot.version : undefined,

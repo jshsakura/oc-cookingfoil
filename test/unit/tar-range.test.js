@@ -122,3 +122,13 @@ test("many small files read ahead still make the same archive, cut anywhere", as
     server.close();
   }
 });
+
+test("a file that grew after the listing was made stops the download instead of being cut short", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tar-grew-"));
+  const f = path.join(dir, "body.nro");
+  fs.writeFileSync(f, "x".repeat(26));
+  const { archive } = await import("../../src/helpers/tar-stream.js");
+  const entries = [{ path: "switch/body.nro", abs: f, size: 26, mtime: 0 }];
+  fs.writeFileSync(f, "y".repeat(38));
+  await assert.rejects(async () => { for await (const _chunk of archive(entries)) { /* drain */ } }, /changed while sending/);
+});

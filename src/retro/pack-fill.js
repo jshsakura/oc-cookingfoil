@@ -34,6 +34,23 @@ export const REAL_PACK = Object.freeze({ lock: realLock, official: realOfficial,
 
 const NRO_MAGIC_AT = 0x10;
 
+/** A ledger row that is a note and not a file: the lock version the update pass last finished for. */
+export const UPDATE_MARK = "~meta/update-checked";
+export const isMeta = (rel) => rel.startsWith("~meta/");
+/** Negative when version `a` is older than `b`, numeric by part ("1.9" < "1.22"). Pure. */
+export const compareVersions = (a, b) => String(a).localeCompare(String(b), "en", { numeric: true });
+/** The temporary names commit() makes beside a destination. */
+const TEMP_RE = /\.[0-9a-f]{12}\.cfpart$/;
+
+/** Removes the temporary copies a killed run left in the pack; folders are walked, links are not followed. */
+async function sweepTemps(dir) {
+  for (const e of await fsp.readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    const abs = path.join(dir, e.name);
+    if (e.isDirectory()) await sweepTemps(abs);
+    else if (e.isFile() && TEMP_RE.test(e.name)) await fsp.rm(abs, { force: true }).catch(() => {});
+  }
+}
+
 let running = false;
 export const fillBusy = () => running;
 
@@ -72,7 +89,7 @@ export function wantedCores(games, { lock, official } = REAL_PACK) {
   return { have, lacking };
 }
 
-const hashOrNull = async (abs) => ((await fsp.stat(abs).catch(() => null))?.isFile() ? sha256File(abs) : null);
+export const hashOrNull = async (abs) => ((await fsp.stat(abs).catch(() => null))?.isFile() ? sha256File(abs) : null);
 
 /**
  * What the one-go button would do, without downloading anything: the body and each wanted core with its
@@ -325,7 +342,7 @@ export const clearRecovery = (dataDir) => fs.rmSync(recoveryFile(dataDir), { for
  *   update     only files the ledger holds: replace the untouched ones, install nothing; the ones that differ
  *              from the bundle but are not the server's to replace come back in `kept`
  */
-export async function applyFill({ packDir, dataDir, ledger, games, systems = {}, url, onStep = () => {}, fetchImpl, io, bin, pack = REAL_PACK, mode = "fill" }) {
+export async function applyFill({ packDir, dataDir, ledger, games, systems = {}, url, onStep = () => {}, fetchImpl, io, bin, pack = REAL_PACK, mode = "fill", skip = new Set() }) {
   const { lock } = pack;
   if (running) throw new PackError("이미 채우고 있습니다", { status: 409 });
   const pending = readRecovery(dataDir);
@@ -339,29 +356,38 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     const root = await fsp.realpath(packDir);
     // What a hard kill left behind in staging is of no use to anyone.
     await fsp.rm(path.join(dataDir, "retro-pack-staging"), { recursive: true, force: true });
+    await sweepTemps(root);
     const keepRoot = path.join(await fsp.realpath(dataDir), "retro-pack-prev");
     if ((await fsp.lstat(keepRoot).catch(() => null))?.isSymbolicLink()) throw new PackError("retro-pack-prev 가 링크라 쓰지 않습니다", { status: 500 });
     await fsp.mkdir(keepRoot, { recursive: true });
     const { have } = wantedCores(games, pack);
     let cores = have.map((c) => c.core);
-    // Nothing to place and no bundle on disk: do not fetch 300 MB to learn that.
-    const plan = await describeFill({ packDir: root, ledger, games, systems, cacheDir: path.join(cacheRoot, lock.version), pack });
     const owned = ledger.all();
     const coreOf = (rel) => rel.match(/^cores\/([a-z0-9_]+)_libretro_libnx\.nro$/)?.[1];
-    // What each mode unpacks: the files it may place.
+    // What each mode unpacks: the files it may place. Only "fill" looks at (hashes) what is already there.
+    let plan = null;
     let want = { body: true, dirs: null };
-    let needs = plan.needsBundle;
-    if (mode === "add-cores") {
-      cores = plan.items.filter((i) => i.kind === "core" && i.state === "install").map((i) => i.name);
+    let needs;
+    if (mode === "fill") {
+      plan = await describeFill({ packDir: root, ledger, games, systems, cacheDir: path.join(cacheRoot, lock.version), pack });
+      needs = plan.needsBundle;
+    } else if (mode === "add-cores") {
+      // Existence is all that decides: a core that is there is not read.
+      const absent = [];
+      for (const c of cores) if (!skip.has(c) && !(await fsp.lstat(path.join(root, coreRel(c))).catch(() => null))) absent.push(c);
+      cores = absent;
       want = { body: false, dirs: [] };
       needs = cores.length > 0;
     } else if (mode === "update") {
-      const rels = [...owned].filter(([, e]) => e.lockVersion !== lock.version).map(([rel]) => rel);
+      const rels = [...owned].filter(([rel, e]) => !isMeta(rel) && compareVersions(e.lockVersion, lock.version) < 0).map(([rel]) => rel);
       cores = rels.map(coreOf).filter((c) => c && pack.official.files[`${c}_libretro_libnx.nro`]);
       want = { body: rels.includes(lock.paths.body.to), dirs: lock.paths.dirs.map((d) => d.to).filter((to) => rels.some((r) => r.startsWith(`${to}/`))) };
       needs = want.body || cores.length > 0 || want.dirs.length > 0;
-    } else if (mode !== "fill") throw new PackError(`mode ${mode} 를 모릅니다`, { status: 500 });
-    if (!needs && (mode !== "fill" || !plan.bundle.cached)) return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
+    } else throw new PackError(`mode ${mode} 를 모릅니다`, { status: 500 });
+    if (!needs && (mode !== "fill" || !plan.bundle.cached)) {
+      if (mode !== "fill") return { version: lock.version, installed: 0, replaced: 0, current: 0, kept: [], keptCount: { operator: 0, modified: 0 }, skipped: true };
+      return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
+    }
     onStep("download", { done: 0, total: lock.bundle.size });
     const { file } = await downloadBundle({ url: url || lock.bundle.url, file: lock.bundle.file, size: lock.bundle.size, sha256: lock.bundle.sha256, cacheDir: path.join(cacheRoot, lock.version), fetchImpl, onProgress: (p) => onStep("download", p) });
     onStep("unpack");
@@ -405,7 +431,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       if (!kept.some((x) => x.rel === k.rel)) kept.push(k);
     }
     try {
-      ledger.put([...placed.done.map((d) => d.op), ...refresh].map((f) => ({ rel: f.rel, sha256: f.sha256, source: f.source, lockVersion: lock.version })));
+      ledger.put([...placed.done.map((d) => d.op), ...refresh, ...(mode === "update" ? [{ rel: UPDATE_MARK, sha256: "", source: "meta" }] : [])].map((f) => ({ rel: f.rel, sha256: f.sha256, source: f.source, lockVersion: lock.version })));
     } catch (err) {
       const stuck = await placed.undo();
       if (stuck.length) throw leftBehind(dataDir, lock.version, stuck, `장부에 쓰지 못했고 되돌리지도 못했습니다: ${err.message}`, { ledgerBehind: true });

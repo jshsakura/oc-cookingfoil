@@ -13,7 +13,8 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { coreFile, packDirOf } from "./pack-status.js";
-import { TrashError, trashFiles } from "./trash.js";
+import { fillBusy } from "./pack-fill.js";
+import { listTrash, TrashError, trashFiles } from "./trash.js";
 
 export const CORE_MAX_BYTES = 256 * 1024 * 1024;
 export const CORE_NAME_RE = /^([a-z0-9_]+)_libretro_libnx\.nro$/;
@@ -25,6 +26,13 @@ export class CoreError extends Error {
     this.status = status;
     this.extra = extra;
   }
+}
+
+const FILL_RUNNING = "RetroArch 팩을 채우는 중입니다. 끝난 뒤에 다시 합니다";
+
+/** The cores that sit in the trash, by name ("mgba"): the server must not put its own copy in their place. */
+export async function trashedCores(retroDir) {
+  return new Set((await listTrash(retroDir)).filter((e) => e.system === "core").map((e) => CORE_NAME_RE.exec(e.name)?.[1]).filter(Boolean));
 }
 
 /** Whether the file starts like an NRO: "NRO0" at 0x10. */
@@ -53,6 +61,7 @@ async function toTrash(retroDir, abs, name) {
  * name is refused unless `replace`, and then goes to the trash first.
  */
 export async function placeCore(retroDir, { abs, name }, { replace = false } = {}) {
+  if (fillBusy()) throw new CoreError(409, FILL_RUNNING);
   if (!CORE_NAME_RE.test(name)) throw new CoreError(400, "코어 파일 이름은 <코어>_libretro_libnx.nro 여야 합니다");
   const { size } = await fsp.stat(abs);
   if (size > CORE_MAX_BYTES) throw new CoreError(413, `코어 파일은 ${CORE_MAX_BYTES / 1048576}MB 까지 받습니다`);
@@ -70,6 +79,7 @@ export async function placeCore(retroDir, { abs, name }, { replace = false } = {
 
 /** Moves a core to the trash. Refused (409, with how many games use it) unless `force` when `games` use it. */
 export async function removeCore(retroDir, core, games, { force = false } = {}) {
+  if (fillBusy()) throw new CoreError(409, FILL_RUNNING);
   if (!/^[a-z0-9_]+$/.test(String(core ?? ""))) throw new CoreError(400, "코어 이름이 맞지 않습니다");
   const abs = path.join(packDirOf(retroDir), coreFile(core));
   if (!fs.existsSync(abs)) throw new CoreError(404, "그런 코어가 없습니다");

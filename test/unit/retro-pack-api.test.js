@@ -42,6 +42,28 @@ test("a recovery note makes the start request a 409 at once, not a 202 that fail
   } finally { fs.rmSync(note, { force: true }); }
 });
 
+test("F4: a manual fill while the pack's own upkeep holds the fill is a 409 at once, not a 202 that fails", async () => {
+  const { applyFill, REAL_PACK } = await import("../../src/retro/pack-fill.js");
+  const dir = fs.mkdtempSync(path.join(base, "busy-"));
+  let release;
+  let started;
+  const fetching = new Promise((r) => { started = r; });
+  const run = applyFill({
+    packDir: path.join(dir, "retroarch"), dataDir: dir, ledger: packLedger({ db: openDatabase(":memory:", { migrations: SECURITY_MIGRATIONS }) }).forRoot("x"),
+    games: [{ core: "fceumm", system: "nes" }], pack: REAL_PACK, url: "http://unused.invalid/x",
+    fetchImpl: () => { started(); return new Promise((_, rej) => { release = () => rej(new Error("stopped by the test")); }); },
+  });
+  run.catch(() => {});
+  await fetching;
+  try {
+    const r = await call(mount()["POST /api/retro-pack/fill"], { confirm: true });
+    assert.equal(r.status, 409);
+  } finally {
+    release();
+    await assert.rejects(run, /stopped by the test/);
+  }
+});
+
 test("F2: two simultaneous start requests: one 202, one 409, and the first job's display is not replaced", async () => {
   const routes = mount();
   const [a, b] = await Promise.all([call(routes["POST /api/retro-pack/fill"], { confirm: true }), call(routes["POST /api/retro-pack/fill"], { confirm: true })]);
