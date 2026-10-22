@@ -43,6 +43,7 @@ import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 import { pathProblem } from "./console-paths.js";
 import * as patchInfo from "./patch-info.js";
 import { isMetadata } from "./art-sidecar.js";
+import { isTrashName } from "../library/trash.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -133,7 +134,7 @@ class Rejected extends Error {}
 async function walk(root, rel = "", out = []) {
   const dir = rel ? path.join(root, rel) : root;
   for (const entry of await fsp.readdir(dir, { withFileTypes: true })) {
-    if (JUNK_RE.test(entry.name)) continue;
+    if (JUNK_RE.test(entry.name) || isTrashName(entry.name)) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const st = await fsp.lstat(path.join(dir, entry.name));
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);
@@ -282,7 +283,8 @@ export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
 
 async function subdirs(dir) {
   try {
-    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    // The trash (and a trash folder on another disk below) is never a game's folder.
+    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name)).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("patches: cannot read %s: %s", dir, err.message);
     return [];

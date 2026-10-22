@@ -267,6 +267,7 @@ export async function moveAcross(from, to) {
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
+ *   journal({ action, from, to })   notes each move (absolute paths) in the operations journal, so it can be undone
  */
 export function createOrganizer(deps) {
   const dir = deps.incomingDir;
@@ -323,6 +324,7 @@ export function createOrganizer(deps) {
         await fsp.mkdir(path.dirname(to), { recursive: true });
         if (await moveAcross(from, to)) {
           movedIn[m.root]++;
+          await deps.journal?.({ action: "organize", from, to });
           forget(from);
           await dropEmptyDirs(dir, m.from);
           state.recent = [{ ...m, at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);

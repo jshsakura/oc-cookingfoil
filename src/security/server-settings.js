@@ -85,6 +85,8 @@ export const SETTINGS = {
   logKeepDays: whole(1, 365),
   syncHours: whole(0, 168),
   verifyHours: oneOf(...env.VERIFY_HOURS),
+  // Entries older than this are pointed out on the trash page; nothing is emptied by itself.
+  trashNoticeDays: whole(1, 3650),
   // Where the client build comes from, and the GitHub release followed in "github" mode (meta/client-release.js).
   clientSource: oneOf("manual", "github"),
   clientReleaseRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 140 && REPO_RE.test(v) },

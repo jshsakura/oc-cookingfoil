@@ -7,10 +7,11 @@
  *                                              { summary: { groups, sets, listed, broken, hidden: { bootleg, hack, … } },
  *                                                groups: [{ id, reason, picked, listed, members: [M…] }] }
  *   POST /admin/api/retro-variants/pick        { group, game }  that file represents the group (game null: the rule's pick)
- *   POST /admin/api/retro-variants/trash       { game, force? } move the file and its art into <retro dir>/.trash/<date>/;
+ *   POST /admin/api/retro-variants/trash       { game, force? } move the file and its art into <retro dir>/.cookingfoil-trash/<date>/;
  *                                              409 with { dependents } when other arcade sets need it, unless force
- *   GET  /admin/api/retro-variants/trash       { items: [{ entry, id, system, name, file, size, trashedAt, files }] }
- *   POST /admin/api/retro-variants/restore     { entry }        put it back (409 when a file has taken its place)
+ *   GET  /admin/api/retro-variants/trash       { items: [{ entry, home, id, trashId, system, name, file, size, trashedAt, files }] }
+ *   POST /admin/api/retro-variants/restore     { entry, home? } put it back; a file whose place was taken comes back
+ *                                              beside it under a numbered name ({ renamed })
  *
  * M = { id, name, file, variant?, edition?, region?, size, addedAt, representative, missing?, class?, hidden? }
  * `class` is an arcade set's tags (arcade-policy.js classifySet); `hidden` says
@@ -26,6 +27,7 @@ import { tagsOf } from "../../retro/sd-names.js";
 import { groupVisible, hiddenClass, representative } from "../../retro/variants.js";
 import * as picks from "../../retro/variant-picks.js";
 import { listTrash, restoreEntry, stillUsed, trashGame, TrashError } from "../../retro/trash.js";
+import { actorOf } from "../../library/trash-service.js";
 
 function member(g, rep, group) {
   const variant = tagsOf(g.name);
@@ -70,7 +72,7 @@ export function mountRetroVariantsApi(router, requireSession) {
     try {
       await handler(req, res);
     } catch (err) {
-      if (err instanceof TrashError) return res.status(409).json({ error: err.message });
+      if (err instanceof TrashError) return res.status(err.status ?? 409).json({ error: err.message });
       debug.error("admin retro-variants: %s", err.message);
       res.status(502).json({ error: err.message });
     }
@@ -118,7 +120,7 @@ export function mountRetroVariantsApi(router, requireSession) {
     const dependents = dependentsOf(catalog, g);
     if (dependents.length && req.body?.force !== true) return res.status(409).json({ error: "다른 세트가 이 파일을 씁니다", dependents });
     try {
-      const result = await trashGame(retroDir, g, catalog.systems[g.system], { keep: stillUsed(g, catalog.games) });
+      const result = await trashGame(retroDir, g, catalog.systems[g.system], { keep: stillUsed(g, catalog.games), by: actorOf(req) });
       debug.log("admin: retro game %s moved to the trash (%d files)", g.id, result.files.length);
       await retroCatalog.rescan(retroDir);
       res.json({ ok: true, ...result });
@@ -130,7 +132,8 @@ export function mountRetroVariantsApi(router, requireSession) {
 
   router.post("/api/retro-variants/restore", guarded(async (req, res) => {
     try {
-      const result = await restoreEntry(retroDir, String(req.body?.entry ?? ""));
+      const home = typeof req.body?.home === "string" ? req.body.home : null;
+      const result = await restoreEntry(retroDir, String(req.body?.entry ?? ""), home);
       debug.log("admin: retro game %s restored from the trash", result.id);
       await retroCatalog.rescan(retroDir);
       res.json({ ok: true, ...result });

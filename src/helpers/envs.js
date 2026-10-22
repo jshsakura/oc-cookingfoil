@@ -385,6 +385,8 @@ let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: tru
 // When the background file check (meta/verify-queue.js) may read the library: "always", "off", or "<from>-<to>" hours.
 export const VERIFY_HOURS = Object.freeze(["always", "off", "0-6", "1-7", "2-7", "3-8", "22-6"]);
 let verifyHours = VERIFY_HOURS.includes(process.env.COOK_VERIFY_HOURS) ? process.env.COOK_VERIFY_HOURS : "2-7";
+// The trash (library/trash.js) is never emptied by itself; its page points out entries older than this many days.
+let trashNoticeDays = envNumber("COOK_TRASH_NOTICE_DAYS", 30, { min: 1, max: 3650, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -437,6 +439,7 @@ const ENV_SETTINGS = Object.freeze({
   logKeepDays,
   syncHours,
   verifyHours,
+  trashNoticeDays,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -487,6 +490,7 @@ function applyServerSettings(saved = {}) {
   logKeepDays = v.logKeepDays;
   syncHours = v.syncHours;
   verifyHours = v.verifyHours;
+  trashNoticeDays = v.trashNoticeDays;
 }
 
 export {
@@ -516,6 +520,7 @@ export {
   logKeepDays,
   syncHours,
   verifyHours,
+  trashNoticeDays,
   applyServerSettings,
   clientSource,
   clientReleaseRepo,

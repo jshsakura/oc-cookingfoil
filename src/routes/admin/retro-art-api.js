@@ -42,6 +42,8 @@ import { GENRE_LABELS } from "../../meta/categories.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
+import { trashFiles, TrashError } from "../../retro/trash.js";
+import { actorOf } from "../../library/trash-service.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
 let ratingsJob = null; // { startedAt, finishedAt?, summary?, error? }
@@ -234,17 +236,24 @@ export function mountRetroArtApi(router, requireSession) {
     }
   }));
 
-  // Deletes a game's ROM and the disc files it names; its box art stays for a re-upload.
+  // Moves a game's ROM and the disc files it names to the retro trash; its box art stays for a re-upload.
   router.post("/api/retro-art/games/remove", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.body?.game ?? ""));
     if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
     const romsRoot = path.resolve(retroDir, "roms") + path.sep;
-    const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot));
-    for (const f of files) await fs.promises.rm(f, { force: true });
+    const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot) && fs.existsSync(f));
+    let out;
+    try {
+      out = await trashFiles(retroDir, { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size },
+        files.map((f) => path.relative(retroDir, f).split(path.sep).join("/")), new Date(), { by: actorOf(req), action: "retro-game-remove" });
+    } catch (err) {
+      if (!(err instanceof TrashError)) throw err;
+      return res.status(err.status ?? 409).json({ error: err.message });
+    }
     await retroCatalog.scan(retroDir);
-    debug.log("admin: retro game %s/%s removed (%d files)", g.system, g.rel, files.length);
-    res.json({ ok: true, files: files.length });
+    debug.log("admin: retro game %s/%s moved to the trash (%d files)", g.system, g.rel, files.length);
+    res.json({ ok: true, files: files.length, trash: out.id });
   }));
 
   // The name clients show for a game: { ko, en }, both empty = the file's own again.

@@ -248,7 +248,7 @@ test("a library rebuild drops the cached stray file list", () => {
 });
 
 // Deleting a stray file: only a plain, visible, non-game file inside the games folder.
-test("a stray file can be deleted, but not a game file, a hidden file, a linked folder's file or a path outside", async () => {
+test("a stray file can be moved to the trash, but not a game file, a hidden file, a linked folder's file or a path outside", async () => {
   const { mountLibraryFilesApi } = await import("../../src/routes/admin/library-files-api.js");
   const gamesDir = process.env.COOK_GAMES_DIR;
   const outside = path.join(root, "outside-dir");
@@ -277,6 +277,12 @@ test("a stray file can be deleted, but not a game file, a hidden file, a linked 
     assert.ok(fs.existsSync(path.join(gamesDir, "Game [0100000000010000][v0].nsp")));
     assert.equal((await post("notes/a.txt")).status, 200);
     assert.equal(fs.existsSync(path.join(gamesDir, "notes")), false, "the folder it left empty goes too");
+    // Nothing is deleted: it waits in the games folder's trash, and comes back with its folder.
+    const trash = await import("../../src/library/trash.js");
+    const held = (await trash.listRoot({ key: "games", dir: gamesDir })).find((e) => e.items[0].rel === "notes/a.txt");
+    assert.deepEqual([held?.action, held?.kind], ["library-other-remove", "file"]);
+    await trash.restoreEntry({ key: "games", dir: gamesDir }, held.home, held.entry);
+    assert.equal(fs.readFileSync(path.join(gamesDir, "notes", "a.txt"), "utf8"), "x");
   } finally {
     srv.close();
   }

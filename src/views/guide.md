@@ -95,10 +95,10 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 홈브류 목록, 추가, 지금 확인 | `GET /admin/api/homebrew`, `POST /admin/api/homebrew` `{ "repo": "owner/name" }`, `POST /admin/api/homebrew/check` |
 | 홈브류 앱 켜기·끄기 (끄면 기기 목록에서만 빠짐), 저장소 빼기, 직접 넣은 앱 삭제 | `POST /admin/api/homebrew/enabled` `{ "id", "enabled": false }`, `POST /admin/api/homebrew/remove` `{ "repo" }`, `POST /admin/api/homebrew/manual/remove` `{ "id" }` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
-| 게임 파일 찾기, 삭제 (삭제는 되돌릴 수 없어 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }` |
+| 게임 파일 찾기, 삭제 (삭제한 파일은 게임 폴더의 휴지통으로 옮겨집니다. 삭제는 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }` |
 | 라이브러리 파일을 종류별로 보기 (읽기만 합니다. 아래 "파일 목록 API" 참조) | `GET /admin/api/library/browse?kind=base&page=1&perPage=50` |
 | 레트로 게임 이름 정하기 (파일 이름은 그대로, 둘 다 비우면 파일 이름으로) | `POST /admin/api/retro-art/games/name` `{ "game": "<id>", "ko", "en" }` |
-| 레트로 게임 롬 삭제 (표지는 남음. 되돌릴 수 없어 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
+| 레트로 게임 롬 삭제 (표지는 남고 롬은 레트로 폴더의 휴지통으로 옮겨집니다. 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
 | 서버 동작 보기, 변경 (null 이면 compose 값으로, 기기 승인·접속 방식·공개 주소·다운로드 링크 수명은 제외), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "welcomeMessage": "…" }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` (필수 표시는 토큰으로 할 수 없습니다) |
 | 게임 세이브 목록, 패치·세이브 편집, 다른 게임으로 옮기기, 삭제 | `GET /admin/api/saves`, `POST /admin/api/content/<patch\|save>/meta` `{ "id", "name", "nameKo", "description", "descriptionKo", … }`, `…/move` `{ "id", "titleId" }`, `…/remove` `{ "id" }` |
@@ -109,6 +109,9 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 클라이언트 빌드 상태(받는 방식, 내려주는 빌드와 출처), 지금 가져오기 (설정은 서버 동작의 `clientSource` `clientReleaseRepo` `clientReleaseTag` `clientReleaseAsset`. 기본은 `manual` 로 올린 빌드만 쓰고, `github` 는 `jshsakura/oc-cookingfoil-client` 의 최신 릴리스를 따릅니다. 태그를 넣으면 그 태그의 릴리스를 따릅니다) | `GET /admin/api/client-release`, `POST /admin/api/client-release/check` |
 | 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |
 | 임시 공유 정리함으로 보내기, 되돌리기, 삭제 | `POST /admin/api/inbox/<id>/done` `{ "done": true }`, `DELETE /admin/api/inbox/<id>` |
+| 휴지통 보기, 되돌리기 (라이브러리 폴더에서 지운 것은 모두 그 폴더의 `.cookingfoil-trash` 에 있습니다. 자리가 차 있으면 번호를 붙인 이름으로 옆에 둡니다) | `GET /admin/api/trash`, `POST /admin/api/trash/restore` `{ "ids": ["<id>"] }` |
+| 휴지통 비우기 (영구 삭제는 이것뿐입니다. 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `POST /admin/api/trash/empty` `{ "ids": ["<id>"], "confirm": "empty" }` 또는 `{ "all": true, "confirm": "empty" }` |
+| 작업 기록 보기, 옮긴 것 되돌리기 (임시 폴더 정리, 패치·세이브 이동) | `GET /admin/api/trash/journal`, `POST /admin/api/trash/undo` `{ "id" }` |
 
 ### 파일 목록 API
 

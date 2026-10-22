@@ -52,6 +52,7 @@ import { CoreError, placeCore } from "../../retro/core-files.js";
 import { packDirOf } from "../../retro/pack-status.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
+import { actorOf } from "../../library/trash-service.js";
 import {
   GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
@@ -238,6 +239,20 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   return { where: `${under}/${name}`, files: rels.length };
 }
 
+/**
+ * Removes an upload's work folder, except a homebrew folder an upload replaced
+ * (work/previous) that could not be moved to the trash: that one is a person's
+ * file and stays where it is until someone moves it.
+ */
+async function dropWork(work) {
+  const previous = path.join(work, "previous");
+  if (!(await fsp.lstat(previous).then(() => true, () => false))) return fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+  for (const name of await fsp.readdir(work).catch(() => [])) {
+    if (name !== "previous") await fsp.rm(path.join(work, name), { recursive: true, force: true }).catch(() => {});
+  }
+  debug.error("upload: %s kept: it could not be moved to the trash", previous);
+}
+
 export function mountUploadApi(router, guard) {
   router.get("/api/upload/targets", async (req, res) => {
     if (!guard(req, res)) return;
@@ -287,7 +302,7 @@ export function mountUploadApi(router, guard) {
       const { items, fromFolder } = await received(req, work);
       const placed = kind === "game" ? await placeGame(items)
         : kind === "retro" ? await placeRetro(items, req.body)
-        : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true" })
+        : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
         : kind === "client" ? await placeClient(items)
         : kind === "core" ? await placeCoreUpload(items, req.body)
         : await placeFolder(kind, items, req.body, work, fromFolder);
@@ -301,7 +316,7 @@ export function mountUploadApi(router, guard) {
       body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err.message };
     }
     // Leftovers of a refused upload go before the answer does.
-    await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+    await dropWork(work);
     res.status(status).json(body);
   });
 }

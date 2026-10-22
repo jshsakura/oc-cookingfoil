@@ -4,7 +4,7 @@
  *   GET  /admin/api/saves                     { saves: [{ id, titleId, game, name, ko, description, gameVersion, saveType, source, size, files, verified }] }
  *   POST /admin/api/content/:kind/meta        { id, name, nameKo, description, descriptionKo, version, author, gameVersion, saveType, sourceName, sourceUrl }
  *   POST /admin/api/content/:kind/move        { id, titleId }  to another game; a patch's own paths follow it
- *   POST /admin/api/content/:kind/remove      { id }           delete it from disk
+ *   POST /admin/api/content/:kind/remove      { id }           move it to the trash (<patches|saves>/.cookingfoil-trash)
  *   POST /admin/api/content/:kind/verified    { id, verified } the 검수됨 badge on or off, kept in the edit history
  *   POST /admin/api/votes/clear               { kind, id }     drops the item's 잘 돼요 / 안 돼요 votes
  *                                             (kind homebrew | retro | patch | save)
@@ -13,9 +13,11 @@
  * a homebrew app's patch has its information edited here too (from the
  * homebrew tab), while moving and deleting it are on that tab. A patch's
  * information goes into the server's patch store (meta/patch-info.js), which
- * a move carries to the new game and a delete forgets; a save's meta.json is
- * rewritten with the fields given. Moving or deleting one forgets its 검수됨
- * mark and its votes: the id they were kept under is gone.
+ * a move carries to the new game and a delete forgets (the trash entry keeps
+ * it and a restore puts it back); a save's meta.json is rewritten with the
+ * fields given. Moving or deleting one forgets its 검수됨 mark and its votes:
+ * the id they were kept under is gone. A move is written to the operations
+ * journal (library/journal.js) and can be undone from the trash page.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -33,6 +35,7 @@ import * as itemVerified from "../../meta/item-verified.js";
 import * as itemVotes from "../../meta/item-votes.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
+import * as trashService from "../../library/trash-service.js";
 
 const BASE_RE = /^[0-9A-F]{16}$/;
 const isBase = (tid) => BASE_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
@@ -115,6 +118,22 @@ export function movedPatchPath(rel, from, to) {
   if (lower[0] === "atmosphere" && lower[1] === "contents" && owns(lower[2])) parts[2] = swap(parts[2]);
   else if (lower.slice(0, 4).join("/") === "saltysd/plugins/fpslocker/patches" && lower[4] === from.toLowerCase()) parts[4] = swap(parts[4]);
   return parts.join("/");
+}
+
+/**
+ * Renames, inside a patch folder, the paths that name the game (`from` → `to`),
+ * as a move between games does; the folders it leaves empty go.
+ */
+export async function rewritePatchPaths(dir, from, to) {
+  for (const rel of await filesUnder(dir)) {
+    const next = movedPatchPath(rel, from, to);
+    if (next === rel) continue;
+    await fsp.mkdir(path.dirname(path.join(dir, next)), { recursive: true });
+    await fsp.rename(path.join(dir, rel), path.join(dir, next));
+    for (let d = path.dirname(path.join(dir, rel)); d.startsWith(dir + path.sep); d = path.dirname(d)) {
+      if (!(await fsp.rmdir(d).then(() => true, () => false))) break;
+    }
+  }
 }
 
 async function filesUnder(dir, rel = "", out = []) {
@@ -217,6 +236,10 @@ export function mountContentApi(router, requireSession) {
     if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
     itemVerified.set(kind, String(req.body.id), false);
     itemVotes.forget(kind, String(req.body.id));
+    await trashService.recordMove({
+      action: `${kind}-move`, by: trashService.actorOf(req), from: dir, to: dest,
+      extra: kind === "patch" ? { rewrite: { type: "patch-title", from: titleId, to, folder } } : {},
+    });
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
     res.json({ ok: true });
@@ -224,15 +247,26 @@ export function mountContentApi(router, requireSession) {
 
   router.post("/api/content/:kind/remove", handle(async (req, res) => {
     const { kind } = req.params;
-    const { dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
-    await fsp.rm(dir, { recursive: true, force: true });
+    const { root, dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
+    const key = kind === "patch" ? patchInfo.keyOf(titleId, folder) : null;
+    let out;
+    try {
+      out = await trashService.trash(kind === "patch" ? "patches" : "saves", [{ rel: path.relative(root, dir).split(path.sep).join("/") }], {
+        kind, action: `${kind}-remove`, by: trashService.actorOf(req), name: folder,
+        // The patch store's entry goes with it, so a restore brings its information back.
+        extra: key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {},
+      });
+    } catch (err) {
+      if (err instanceof trashService.TrashError) throw new ContentError(err.status, err.message);
+      throw err;
+    }
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
-    if (kind === "patch") patchInfo.remove(patchInfo.keyOf(titleId, folder));
+    if (key) patchInfo.remove(key);
     itemVerified.set(kind, String(req.body.id), false);
     itemVotes.forget(kind, String(req.body.id));
     await refreshed(kind);
-    debug.log("admin: %s %s/%s removed", kind, titleId, folder);
-    res.json({ ok: true });
+    debug.log("admin: %s %s/%s moved to the trash", kind, titleId, folder);
+    res.json({ ok: true, trash: out.id });
   }));
 
   router.post("/api/content/:kind/verified", handle(async (req, res) => {

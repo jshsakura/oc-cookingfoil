@@ -15,6 +15,7 @@ import { refreshManual } from "../homebrew.js";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../../debug.js";
+import * as trashService from "../../library/trash-service.js";
 
 export const defaultOrganizer = createOrganizer({
   incomingDir: env.incomingDir,
@@ -35,6 +36,7 @@ export const defaultOrganizer = createOrganizer({
   rescan: () => shopCache.invalidate({ rescan: true }),
   rescanRetro: () => retroCatalog.rescan(env.retroDir).catch((err) => debug.error("organize: retro rescan failed: %s", err.message)),
   rescanHomebrew: () => refreshManual().catch((err) => debug.error("organize: homebrew rescan failed: %s", err.message)),
+  journal: ({ action, from, to }) => trashService.recordMove({ action, by: trashService.job("organize"), from, to }),
 });
 
 export function mountLibraryOrganizeApi(router, requireSession, organizer = defaultOrganizer) {

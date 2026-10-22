@@ -40,6 +40,7 @@ import { HashCache } from "../helpers/hash-cache.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
 import * as activity from "../tasks/activity.js";
+import { isTrashName } from "../library/trash.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -90,7 +91,7 @@ export function readMeta(raw) {
 
 async function walk(root, rel = "", out = []) {
   for (const entry of await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })) {
-    if (JUNK_RE.test(entry.name)) continue;
+    if (JUNK_RE.test(entry.name) || isTrashName(entry.name)) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const abs = path.join(root, relPath);
     const st = await fsp.lstat(abs);
@@ -153,7 +154,8 @@ export async function readSave(root, tidDir, folder, cache) {
 
 async function subdirs(dir) {
   try {
-    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    // The trash (and a trash folder on another disk below) is never a game's folder.
+    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name)).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("saves: cannot read %s: %s", dir, err.message);
     return [];

@@ -99,6 +99,7 @@ import { romsDirPath, appPort, dataDir, retroDir, layout, incomingDir } from "./
 import { ROLES, ensureLayout, oldIncoming, moveOldIncoming } from "./helpers/storage-layout.js";
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
+import * as trashService from "./library/trash-service.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -450,6 +451,8 @@ securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
+// The retro folder's old .trash entries move into the shared trash (a rename in the same folder).
+trashService.migrate().catch((err) => debug.error("trash: retro trash not moved: %s", err.message));
 // The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
 startNszQueue();
 // The file check: signatures of every game file, the whole-file hash of new ones; it only informs.

@@ -2,13 +2,15 @@
  * Game files in the library, from the library tab:
  *
  *   GET  /admin/api/library/files?q=        { files: [{ rel, name, size, kind, titleId }], total }  up to 100 matches
- *   POST /admin/api/library/files/remove    { rel }  delete one file from the games folder
- *   POST /admin/api/library/other/remove    { rel }  delete one stray file (not a game file) from the games folder
+ *   POST /admin/api/library/files/remove    { rel }  move one file of the games folder to its trash
+ *   POST /admin/api/library/other/remove    { rel }  move one stray file (not a game file) of the games folder to its trash
  *   GET  /admin/api/library/verify          the file check: { status, counts, pending, hashPending, flagged, … }
  *   POST /admin/api/library/verify/hash-all every file gets the whole-file hash it has not had   { queued }
  *   POST /admin/api/library/verify/recheck  { rel }  check one file again, hash included
  *
  * Only a file the library listed can be removed, and only from inside the games folder.
+ * Removing moves it to <games>/.cookingfoil-trash (library/trash.js); it stays
+ * there until someone empties the trash on the admin page.
  * The file check only informs: nothing here hides or refuses a file because of it.
  */
 import fsp from "fs/promises";
@@ -20,8 +22,20 @@ import { nestedDirs } from "../../meta/library-browse.js";
 import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
 import verifyQueue from "../../meta/verify-service.js";
+import * as trashService from "../../library/trash-service.js";
 
 const LIMIT = 100;
+
+/** Moves one file of the games folder to its trash; the folders it leaves empty go, up to the games folder. */
+async function toTrash(req, abs, kind, action) {
+  const rel = path.relative(romsDirPath, abs).split(path.sep).join("/");
+  const out = await trashService.trash("games", [{ rel }], { kind, action, by: trashService.actorOf(req), name: path.basename(abs) });
+  for (let dir = path.dirname(abs); dir !== path.resolve(romsDirPath) && dir.startsWith(path.resolve(romsDirPath)); dir = path.dirname(dir)) {
+    if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
+  }
+  shopCache.invalidate({ rescan: true });
+  return out;
+}
 
 export function mountLibraryFilesApi(router, requireSession, verify = verifyQueue) {
   const handle = (fn) => async (req, res) => {
@@ -30,6 +44,7 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     try {
       await fn(req, res);
     } catch (err) {
+      if (err instanceof trashService.TrashError) return res.status(err.status).json({ error: err.message });
       debug.error("admin: library files: %s", err.message);
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
     }
@@ -49,14 +64,9 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     const rel = String(req.body?.rel ?? "");
     const abs = shopCache.files().some((f) => f.rel === rel) ? inside(romsDirPath, rel) : null;
     if (!abs) return res.status(404).json({ error: "라이브러리에 없는 파일입니다" });
-    await fsp.rm(abs, { force: true });
-    // Folders the file leaves empty go too, up to the games folder itself.
-    for (let dir = path.dirname(abs); dir !== path.resolve(romsDirPath) && dir.startsWith(path.resolve(romsDirPath)); dir = path.dirname(dir)) {
-      if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
-    }
-    shopCache.invalidate({ rescan: true });
-    debug.log("admin: library file removed: %s", rel);
-    res.json({ ok: true });
+    const out = await toTrash(req, abs, "game", "library-file-remove");
+    debug.log("admin: library file moved to the trash: %s", rel);
+    res.json({ ok: true, trash: out.id });
   }));
 
   // A stray file is anything in the games folder that is not a game file, outside the folders the server manages itself.
@@ -70,13 +80,9 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     const real = stat?.isFile() ? await fsp.realpath(abs).catch(() => null) : null;
     const realBase = real ? await fsp.realpath(romsDirPath).catch(() => null) : null;
     if (!real || !realBase || !real.startsWith(realBase + path.sep)) return res.status(404).json({ error: "라이브러리에 없는 파일입니다" });
-    await fsp.rm(abs, { force: true });
-    for (let dir = path.dirname(abs); dir !== path.resolve(romsDirPath) && dir.startsWith(path.resolve(romsDirPath)); dir = path.dirname(dir)) {
-      if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
-    }
-    shopCache.invalidate({ rescan: true });
-    debug.log("admin: stray file removed: %s", rel);
-    res.json({ ok: true });
+    const out = await toTrash(req, abs, "file", "library-other-remove");
+    debug.log("admin: stray file moved to the trash: %s", rel);
+    res.json({ ok: true, trash: out.id });
   }));
 
   router.get("/api/library/verify", handle((req, res) => res.json(verify.view())));

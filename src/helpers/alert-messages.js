@@ -139,16 +139,16 @@ const M = {
   },
 
   nszDrained: {
-    ko: ({ done, saved, failed }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 확보했습니다.${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
-    en: ({ done, saved, failed }) => `✅ The conversion queue is done: ${done} files converted, ${saved} freed.${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
-    ja: ({ done, saved, failed }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} を確保しました。${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
-    zh: ({ done, saved, failed }) => `✅ 转换队列已全部处理：转换 ${done} 个，节省 ${saved}。${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
+    ko: ({ done, saved, failed }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 줄였습니다. 원본은 휴지통에 있어 휴지통을 비워야 그만큼 공간이 생깁니다.${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
+    en: ({ done, saved, failed }) => `✅ The conversion queue is done: ${done} files converted, ${saved} smaller. The originals are in the trash, so the space comes back once the trash is emptied.${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
+    ja: ({ done, saved, failed }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} 小さくしました。元のファイルはごみ箱にあり、ごみ箱を空にするとその分の空きができます。${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
+    zh: ({ done, saved, failed }) => `✅ 转换队列已全部处理：转换 ${done} 个，缩小 ${saved}。原文件在回收站中，清空回收站后才会腾出这些空间。${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
   },
   nszNoSpace: {
-    ko: ({ free, name, size }) => `💾 남은 공간이 ${free}라 ${name}(${size})를 변환할 작업 공간이 모자라 멈췄습니다. 공간을 비운 뒤 변환 탭에서 다시 시작합니다.`,
-    en: ({ free, name, size }) => `💾 Paused: only ${free} free, not enough room to convert ${name} (${size}). Free some space, then start again on the conversion tab.`,
-    ja: ({ free, name, size }) => `💾 空き容量が ${free} しかなく、${name} (${size}) を変換する作業領域が足りないため停止しました。空きを作ってから変換タブで再開します。`,
-    zh: ({ free, name, size }) => `💾 剩余空间只有 ${free}，不足以转换 ${name}（${size}），已暂停。腾出空间后在转换标签中重新开始。`,
+    ko: ({ free, name, size, trash = "0 B" }) => `💾 남은 공간이 ${free}라 ${name}(${size})를 변환할 작업 공간이 모자라 멈췄습니다. 서버는 공간을 만들려고 아무것도 지우지 않습니다. 휴지통에 ${trash}가 있으며 관리 페이지에서 휴지통을 비우면 그만큼 공간이 생깁니다. 그 뒤 변환 탭에서 다시 시작합니다.`,
+    en: ({ free, name, size, trash = "0 B" }) => `💾 Paused: only ${free} free, not enough room to convert ${name} (${size}). The server deletes nothing to make room. The trash holds ${trash}; emptying it on the admin page frees that much. Then start again on the conversion tab.`,
+    ja: ({ free, name, size, trash = "0 B" }) => `💾 空き容量が ${free} しかなく、${name} (${size}) を変換する作業領域が足りないため停止しました。サーバーは空きを作るために何も削除しません。ごみ箱に ${trash} あり、管理ページでごみ箱を空にするとその分の空きができます。その後、変換タブで再開します。`,
+    zh: ({ free, name, size, trash = "0 B" }) => `💾 剩余空间只有 ${free}，不足以转换 ${name}（${size}），已暂停。服务器不会为腾出空间而删除任何文件。回收站中有 ${trash}，在管理页面清空回收站即可腾出这些空间，然后在转换标签中重新开始。`,
   },
   nszFailures: {
     ko: ({ count, reason }) => `⚠️ 변환이 ${count}번 잇달아 실패해 멈췄습니다. 마지막 이유: ${reason}`,

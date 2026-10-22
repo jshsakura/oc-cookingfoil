@@ -1,41 +1,31 @@
 /**
- * The retro folder's trash. Moving a game there takes its ROM (and the disc
- * files it names; an arcade set's parent and BIOS zips stay, other sets need
- * them) and the three things that follow a ROM's name:
+ * The retro folder's side of the shared trash (library/trash.js). Moving a
+ * game there takes its ROM (and the disc files it names; an arcade set's
+ * parent and BIOS zips stay, other sets need them) and the three things that
+ * follow a ROM's name:
  *
  *   thumbnails/<folder>/Named_Boxarts/<name>.png|.jpg   its own box art
  *   bezels/<folder>/<name>.png, .cfg, _override.cfg     its bezel and configs
  *   art-map/<system>.json                               its key (kept in the manifest)
  *
- * into <retro dir>/.trash/<YYYY-MM-DD>/<game id>/, under the same relative
- * paths, with a manifest.json. The scanner skips dot folders, so the game
- * leaves the lists. Nothing is ever deleted; restoreEntry() puts it all back
- * when nothing has taken its place.
+ * into <retro dir>/.cookingfoil-trash/<YYYY-MM-DD>/<game id>/, under the same
+ * relative paths, with a manifest.json. The scanner skips dot folders, so the
+ * game leaves the lists. Nothing is deleted here; restoreEntry() puts it all
+ * back, beside anything that took its place, never over it. The old
+ * <retro dir>/.trash entries are moved into the shared folder at start.
  */
 import fs from "fs";
-import fsp from "fs/promises";
 import path from "path";
 import { romKey, thumbNames } from "./catalog.js";
+import * as shared from "../library/trash.js";
 
-export const TRASH = ".trash";
-const ENTRY_RE = /^\d{4}-\d{2}-\d{2}\/[a-z0-9_-]{1,24}-[0-9a-f]{10}(?:-\d{1,3})?$/;
+export const TRASH = shared.TRASH_DIR;
+export const { TrashError } = shared;
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg"];
-
-export class TrashError extends Error {}
 
 const exists = (abs) => fs.promises.lstat(abs).then(() => true, () => false);
 const inside = (root, abs) => path.resolve(abs).startsWith(path.resolve(root) + path.sep);
-
-async function move(from, to) {
-  await fsp.mkdir(path.dirname(to), { recursive: true });
-  try {
-    await fsp.rename(from, to);
-  } catch (err) {
-    if (err.code !== "EXDEV") throw err;
-    await fsp.cp(from, to, { preserveTimestamps: true });
-    await fsp.rm(from);
-  }
-}
+const rootOf = (dir) => ({ key: "retro", dir });
 
 function readJson(file) {
   try {
@@ -51,12 +41,6 @@ function writeJson(file, value) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
-/** Files under a trash entry other than its manifest. */
-async function filesIn(base) {
-  const all = await fsp.readdir(base, { recursive: true, withFileTypes: true }).catch(() => []);
-  return all.filter((e) => e.isFile() && !(e.name === "manifest.json" && path.resolve(e.parentPath ?? e.path) === path.resolve(base)));
-}
-
 /** Paths (relative to the retro dir) of the files that go with a game, existing or not. Pure. */
 export function filesOf(g, system) {
   const roms = [...(g.abs ? [g.rel] : []), ...(g.keepFileName ? [] : (g.extras ?? []).map((x) => x.rel))];
@@ -67,9 +51,6 @@ export function filesOf(g, system) {
   const bezels = [".png", ".cfg", "_override.cfg"].map((suffix) => path.posix.join("bezels", system.folder, `${key}${suffix}`));
   return { roms: roms.map((r) => path.posix.join("roms", system.folder, r)), art: [...thumbs, ...bezels], key };
 }
-
-/** YYYY-MM-DD in local time. Pure. */
-const day = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** Art files other games still show, and whether one of them is filed under the same name. */
 export function stillUsed(g, games) {
@@ -84,7 +65,7 @@ export function stillUsed(g, games) {
  * one name, or an arcade set whose art its other sets borrow; those stay.
  * Returns the entry ("<date>/<id>") and the files moved.
  */
-export async function trashGame(dir, g, system, { now = new Date(), keep = { files: new Set(), key: false } } = {}) {
+export async function trashGame(dir, g, system, { now = new Date(), keep = { files: new Set(), key: false }, by = null } = {}) {
   const { roms, art, key } = filesOf(g, system);
   const present = [];
   for (const rel of [...roms, ...art]) {
@@ -95,8 +76,8 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
   if (!present.some((rel) => roms.includes(rel))) throw new TrashError("롬 파일이 없습니다");
   const mapFile = path.join(dir, "art-map", `${g.system}.json`);
   const map = readJson(mapFile);
-  const artMap = map && !keep.key && Object.hasOwn(map, key) ? { system: g.system, key, value: map[key] } : null;
-  const out = await trashFiles(dir, { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size, artMap }, present, now);
+  const artMap = map && !keep.key && Object.hasOwn(map, key) ? { file: `art-map/${g.system}.json`, key, value: map[key] } : null;
+  const out = await trashFiles(dir, { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size }, present, now, { restoreKeys: artMap ? [artMap] : [], by });
   if (artMap) {
     const { [key]: _gone, ...rest } = map;
     writeJson(mapFile, rest);
@@ -108,60 +89,34 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
  * Moves `rels` (relative to the retro dir, all present) into a new trash entry
  * named by `item.id` ("<word>-<10 hex>"), all or none. `item` goes into its manifest.
  */
-export async function trashFiles(dir, item, rels, now = new Date()) {
-  let entry = `${day(now)}/${item.id}`;
-  for (let i = 2; await exists(path.join(dir, TRASH, entry)); i++) entry = `${day(now)}/${item.id}-${i}`;
-  const base = path.join(dir, TRASH, entry);
-  // The manifest first: whatever happens after, the trash says where each file came from.
-  writeJson(path.join(base, "manifest.json"), { ...item, trashedAt: now.getTime(), files: rels });
-  const moved = [];
-  try {
-    for (const rel of rels) {
-      await move(path.join(dir, rel), path.join(base, rel));
-      moved.push(rel);
-    }
-  } catch (err) {
-    // Half a game in the trash is worse than none: put back what went, newest first.
-    for (const rel of moved.reverse()) await move(path.join(base, rel), path.join(dir, rel)).catch(() => {});
-    if (!(await filesIn(base)).length) await fsp.rm(base, { recursive: true, force: true });
-    throw new TrashError(`옮기지 못해 되돌렸습니다: ${err.message}`);
-  }
-  return { entry, files: rels };
+export async function trashFiles(dir, item, rels, now = new Date(), { restoreKeys = [], by = null, action = null } = {}) {
+  const core = item.system === "core";
+  const { id, ...rest } = item;
+  const out = await shared.trashItems(rootOf(dir), rels.map((rel) => ({ rel })), {
+    kind: core ? "retro-core" : "retro-game", action: action ?? (core ? "retro-core-replace" : "retro-trash"), by, name: item.name,
+    slug: id, restoreKeys, extra: { ...rest, gameId: id },
+  }, now);
+  return { entry: out.entry, id: out.id, files: out.files };
 }
 
-/** Everything in the trash, newest first: [{ entry, id, system, name, file, size, trashedAt, files }]. */
+/** Everything in the retro trash, newest first: [{ entry, home, id, trashId, system, name, file, size, trashedAt, files }]. */
 export async function listTrash(dir) {
-  const root = path.join(dir, TRASH);
-  const out = [];
-  for (const d of await fsp.readdir(root).catch(() => [])) {
-    for (const e of await fsp.readdir(path.join(root, d)).catch(() => [])) {
-      const entry = `${d}/${e}`;
-      const m = ENTRY_RE.test(entry) && readJson(path.join(root, d, e, "manifest.json"));
-      if (m) out.push({ entry, id: m.id, system: m.system, name: m.name, file: m.file, size: m.size ?? null, trashedAt: m.trashedAt, files: m.files ?? [] });
-    }
-  }
-  return out.sort((a, b) => (b.trashedAt ?? 0) - (a.trashedAt ?? 0));
+  return (await shared.listRoot(rootOf(dir))).map((e) => ({
+    entry: e.entry, home: e.home, id: e.gameId, trashId: e.id, kind: e.kind, system: e.system ?? null, name: e.name, file: e.file ?? null,
+    size: e.size, trashedAt: e.trashedAt, files: e.items.map((i) => i.rel),
+  }));
 }
 
-/** Puts a trashed game back. Refuses (TrashError) when any of its files has been replaced meanwhile. */
-export async function restoreEntry(dir, entry) {
-  if (!ENTRY_RE.test(String(entry))) throw new TrashError("휴지통 항목이 맞지 않습니다");
-  const base = path.join(dir, TRASH, entry);
-  const m = readJson(path.join(base, "manifest.json"));
-  if (!m) throw new TrashError("휴지통에 없는 항목입니다");
-  // Only what the trash still holds: a file that went missing from it is not waited for.
-  const files = [];
-  for (const rel of m.files ?? []) {
-    if (inside(dir, path.join(dir, rel)) && inside(base, path.join(base, rel)) && (await exists(path.join(base, rel)))) files.push(rel);
-  }
-  for (const rel of files) if (await exists(path.join(dir, rel))) throw new TrashError(`${rel} 자리에 다른 파일이 있습니다`);
-  for (const rel of files) await move(path.join(base, rel), path.join(dir, rel));
-  if (m.artMap?.key) {
-    const mapFile = path.join(dir, "art-map", `${m.artMap.system}.json`);
-    const map = readJson(mapFile) ?? {};
-    if (!Object.hasOwn(map, m.artMap.key)) writeJson(mapFile, { ...map, [m.artMap.key]: m.artMap.value });
-  }
-  // Only the manifest and empty folders are left: those go, never a file.
-  if (!(await filesIn(base)).length) await fsp.rm(base, { recursive: true });
-  return { id: m.id, files };
+/**
+ * Puts a trashed game back. Nothing is overwritten: a file whose place was
+ * taken comes back beside it under a numbered name (listed in `renamed`).
+ */
+export async function restoreEntry(dir, entry, home = null) {
+  if (!/^\d{4}-\d{2}-\d{2}\/[a-z0-9_-]{1,40}$/.test(String(entry))) throw new TrashError("휴지통 항목이 맞지 않습니다", 404);
+  const root = rootOf(dir);
+  const homes = home ? [home] : shared.homesOf(root);
+  const at = homes.find((h) => fs.existsSync(path.join(dir, ...h.split("/"), ...String(entry).split("/")))) ?? homes[0];
+  const m = shared.normalizeManifest(readJson(path.join(dir, ...at.split("/"), ...String(entry).split("/"), "manifest.json")), "retro");
+  const r = await shared.restoreEntry(root, at, entry);
+  return { id: m?.gameId ?? null, trashId: r.id, files: r.items.map((i) => i.rel), renamed: r.renamed };
 }

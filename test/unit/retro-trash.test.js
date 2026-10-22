@@ -49,7 +49,7 @@ test("a trashed game takes its ROM, box art, bezel files and art-map key, and co
   assert.deepEqual(files.sort(), [`bezels/md/${OLD}.cfg`, `bezels/md/${OLD}.png`, `bezels/md/${OLD}_override.cfg`, `roms/md/${OLD}.zip`, `thumbnails/md/Named_Boxarts/${OLD}.png`].sort());
   for (const rel of files) {
     assert.ok(!has(rel), `${rel} left its place`);
-    assert.ok(has(path.join(".trash", entry, rel)), `${rel} is in the trash`);
+    assert.ok(has(path.join(".cookingfoil-trash", entry, rel)), `${rel} is in the trash`);
   }
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(retro, "art-map/md.json"), "utf8"))), [NEW]);
   assert.ok(has(`roms/md/${NEW}.zip`), "the other version stays");
@@ -62,7 +62,7 @@ test("a trashed game takes its ROM, box art, bezel files and art-map key, and co
   await restoreEntry(retro, entry);
   for (const rel of files) assert.ok(has(rel), `${rel} is back`);
   assert.equal(JSON.parse(fs.readFileSync(path.join(retro, "art-map/md.json"), "utf8"))[OLD], "Monster World IV (Japan)");
-  assert.ok(!has(path.join(".trash", entry)));
+  assert.ok(!has(path.join(".cookingfoil-trash", entry)));
   const back = (await catalog.scan(retro)).games.find((g) => g.name === OLD);
   assert.equal(back.id, old.id, "the same id as before");
 });
@@ -87,7 +87,7 @@ test("a restore only checks and moves the files the trash still holds", async ()
   const old = cat.games.find((g) => g.name === OLD);
   const { entry } = await trashGame(retro, old, cat.systems.md);
   // The cfg went missing from the trash, and a new one was made in its place meanwhile.
-  fs.rmSync(path.join(retro, ".trash", entry, `bezels/md/${OLD}.cfg`));
+  fs.rmSync(path.join(retro, ".cookingfoil-trash", entry, `bezels/md/${OLD}.cfg`));
   put(`bezels/md/${OLD}.cfg`, "NEW CFG");
   const { files } = await restoreEntry(retro, entry);
   assert.ok(!files.includes(`bezels/md/${OLD}.cfg`));
@@ -96,15 +96,18 @@ test("a restore only checks and moves the files the trash still holds", async ()
   put(`bezels/md/${OLD}.cfg`, "CFG");
 });
 
-test("a restore never overwrites a file that took the trashed one's place", async () => {
+test("a restore never overwrites a file that took the trashed one's place: it comes back beside it", async () => {
   const cat = await catalog.scan(retro);
   const old = cat.games.find((g) => g.name === OLD);
   const { entry } = await trashGame(retro, old, cat.systems.md);
   put(`roms/md/${OLD}.zip`, "SOMETHING ELSE");
-  await assert.rejects(restoreEntry(retro, entry), /다른 파일이 있습니다/);
+  const { renamed } = await restoreEntry(retro, entry);
+  assert.deepEqual(renamed, [{ rel: `roms/md/${OLD}.zip`, to: `roms/md/${OLD} (2).zip` }]);
   assert.equal(fs.readFileSync(path.join(retro, `roms/md/${OLD}.zip`), "utf8"), "SOMETHING ELSE");
-  assert.ok(has(path.join(".trash", entry, `roms/md/${OLD}.zip`)), "the trashed copy stays in the trash");
+  assert.equal(fs.readFileSync(path.join(retro, `roms/md/${OLD} (2).zip`), "utf8"), "OLD");
   await assert.rejects(restoreEntry(retro, "../../etc"), /맞지 않습니다/);
+  fs.rmSync(path.join(retro, `roms/md/${OLD}.zip`));
+  fs.renameSync(path.join(retro, `roms/md/${OLD} (2).zip`), path.join(retro, `roms/md/${OLD}.zip`));
 });
 
 test("art another copy still shows stays where it is", async () => {
@@ -132,8 +135,8 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
     await catalog.scan(retro);
     // The art overview: games with art of their own or borrowed are not missing.
     const overview = await (await fetch(base.replace("retro-variants", "retro-art"))).json();
-    // (The patch's art is still in the trash from the test before.)
-    assert.deepEqual(overview.missing.map((m) => m.system), ["md", "md"], "the arcade sets and the Comix Zone copy have art");
+    // (The patch's art came back with it in the test before; only the Korean version has none.)
+    assert.deepEqual(overview.missing.map((m) => m.system), ["md"], "the arcade sets and the Comix Zone copy have art");
     const arcade = overview.systems.find((x) => x.id === "arcade");
     assert.deepEqual([arcade.boxart, arcade.borrowed], [2, 1]);
     const { groups } = await (await fetch(base)).json();

@@ -4,6 +4,7 @@
  * chosen .nro must be a whole NRO with a NACP, and the result replaces
  * <homebrew dir>/<app>/ with a .cookingfoil.json saying what was decided. With
  * port set, the placed app is marked a port at once; otherwise its kind stays.
+ * The folder it replaced goes to <homebrew dir>/.cookingfoil-trash, never away.
  */
 import fsp from "fs/promises";
 import path from "path";
@@ -17,11 +18,12 @@ import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
 import { manualApps, refreshManual } from "../homebrew.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
+import * as trashService from "../../library/trash-service.js";
 
 /**
  * Keeps the server's pictures from the folder an upload replaced: its metadata/ moves into the new
  * folder, or, when the new release brings a metadata/ of its own, the pictures move to the server's side.
- * Done before the replaced folder is deleted with the upload's work folder.
+ * Done before the replaced folder goes to the trash.
  */
 async function keepMetadata(app, previous, dest, ownMetadata) {
   const before = await fsp.readFile(path.join(previous, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
@@ -38,7 +40,7 @@ async function keepMetadata(app, previous, dest, ownMetadata) {
 export class HomebrewUploadError extends Error {}
 
 /** items: [{ abs, rel }] as received; a lone .zip is read as a zip. Returns { where, files, install, kind }. */
-export async function placeHomebrew(items, work, { port = false } = {}) {
+export async function placeHomebrew(items, work, { port = false, by = null } = {}) {
   const zip = items.length === 1 && /\.zip$/i.test(items[0].rel) ? items[0] : null;
   const repoName = path.posix.basename((zip ?? items.find((i) => /\.nro$/i.test(i.rel)) ?? items[0]).rel).replace(/\.(zip|nro)$/i, "");
   const entries = zip ? await zipEntries(zip.abs) : items.map((i) => ({ name: i.rel, size: 0, dir: false, link: false }));
@@ -77,6 +79,11 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   noteManualHome(app, dest, ownMetadata);
   await fsp.rename(built, dest);
   await keepMetadata(app, previous, dest, ownMetadata);
+  // What the upload replaced waits in the trash under the app's own path, not with the work folder.
+  if (await fsp.lstat(previous).then(() => true, () => false)) {
+    await trashService.trash("homebrew", [{ rel: app, from: previous }], { kind: "homebrew", action: "homebrew-replace", by, name: app })
+      .catch((err) => debug.error("upload: the replaced %s stays in %s: %s", app, previous, err.message));
+  }
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
   await refreshManual();
   const placed = (await manualApps()).find((e) => path.dirname(e.path) === path.resolve(dest));
