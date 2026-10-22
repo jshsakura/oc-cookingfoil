@@ -165,6 +165,7 @@ export const TOP_WORDS = {
     "ac.hiddenBack": "이 파일로 되돌리기",
     "ac.hiddenQ": "{name} 자리에 숨은 사용자 파일을 되돌립니다. 지금 자리에 있는 사용자 파일은 휴지통으로 옮기고, 서버가 받은 코어라면 지웁니다.",
     "ac.hiddenDone": "숨은 사용자 파일을 되돌렸습니다.",
+    "ac.uploadBusy": "코어 작업이나 RetroArch 팩 채우기가 돌고 있어 올리지 않았습니다. 끝난 뒤 다시 올립니다.",
   },
   en: {
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
@@ -327,6 +328,7 @@ export const TOP_WORDS = {
     "ac.hiddenBack": "Bring this file back",
     "ac.hiddenQ": "Puts the hidden file back as {name}. A file of yours now in its place goes to the trash, and a core the server got is deleted.",
     "ac.hiddenDone": "Brought the hidden file back.",
+    "ac.uploadBusy": "A core job or a RetroArch pack fill is running, so the core was not uploaded. Upload it again once it ends.",
   },
   ja: {
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
@@ -489,6 +491,7 @@ export const TOP_WORDS = {
     "ac.hiddenBack": "このファイルに戻す",
     "ac.hiddenQ": "隠れたファイルを {name} に戻します。今その場所にあるユーザーファイルはゴミ箱に移し、サーバーが入れたコアなら消します。",
     "ac.hiddenDone": "隠れたユーザーファイルを戻しました。",
+    "ac.uploadBusy": "コアの作業か RetroArch パックの準備が動いているため、アップロードしませんでした。終わってからもう一度アップロードします。",
   },
   zh: {
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
@@ -651,6 +654,7 @@ export const TOP_WORDS = {
     "ac.hiddenBack": "恢复此文件",
     "ac.hiddenQ": "将隐藏文件恢复为 {name}。现在位于该位置的用户文件会移到回收站，若是服务器下载的核心则会删除。",
     "ac.hiddenDone": "已恢复隐藏的用户文件。",
+    "ac.uploadBusy": "核心任务或 RetroArch 包填充正在进行，因此没有上传。结束后请再次上传。",
   },
 };
 

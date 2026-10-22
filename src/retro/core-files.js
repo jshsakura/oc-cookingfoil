@@ -6,12 +6,16 @@
  * where the trash tab puts it back; nothing is deleted.
  *
  * A core placed here is the operator's own: nothing the server fetches later
- * replaces it (the pack plan's ownership rule).
+ * replaces it (the pack plan's ownership rule). An upload holds the pack
+ * (pack-fill.js claimFill) like a core job or a fill does, so it is refused while
+ * one runs, and it never overwrites: a file that got to the place first wins.
  */
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { linkNoClobber } from "./no-clobber.js";
+import { claimFill } from "./pack-fill.js";
 import { coreFile, packDirOf } from "./pack-status.js";
 import { TrashError, trashFiles } from "./trash.js";
 
@@ -51,22 +55,36 @@ export async function toTrash(retroDir, abs, name) {
 
 /**
  * Puts one uploaded file (`abs`, sent as `name`) into retroarch/cores/. A core of that
- * name is refused unless `replace`, and then goes to the trash first.
+ * name is refused unless `replace`, and then goes to the trash first. Refused (409,
+ * reason "busy") while a core job or a pack fill holds the pack; the upload is put in
+ * place without overwriting (409 when a file got there first) and only then removed.
  */
 export async function placeCore(retroDir, { abs, name }, { replace = false } = {}) {
   if (!CORE_NAME_RE.test(name)) throw new CoreError(400, "코어 파일 이름은 <코어>_libretro_libnx.nro 여야 합니다");
   const { size } = await fsp.stat(abs);
   if (size > CORE_MAX_BYTES) throw new CoreError(413, `코어 파일은 ${CORE_MAX_BYTES / 1048576}MB 까지 받습니다`);
   if (!(await isNro(abs))) throw new CoreError(400, "Switch 용 NRO 파일이 아닙니다");
-  const dest = path.join(packDirOf(retroDir), "cores", name);
-  let trashed = null;
-  if (fs.existsSync(dest)) {
-    if (!replace) throw new CoreError(409, "같은 이름의 코어가 이미 있습니다. 바꾸려면 교체를 확인합니다");
-    trashed = (await toTrash(retroDir, dest, name)).entry;
+  const release = claimFill();
+  if (!release) throw new CoreError(409, "코어 작업이나 RetroArch 팩 채우기가 돌고 있습니다. 끝난 뒤 다시 올립니다", { reason: "busy" });
+  try {
+    const dest = path.join(packDirOf(retroDir), "cores", name);
+    let trashed = null;
+    if (fs.existsSync(dest)) {
+      if (!replace) throw new CoreError(409, "같은 이름의 코어가 이미 있습니다. 바꾸려면 교체를 확인합니다");
+      trashed = (await toTrash(retroDir, dest, name)).entry;
+    }
+    await fsp.mkdir(path.dirname(dest), { recursive: true });
+    try {
+      await linkNoClobber(abs, dest);
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      throw new CoreError(409, `${name} 자리에 다른 파일이 먼저 들어와 올리지 않았습니다${trashed ? ". 원래 있던 코어는 휴지통에 있습니다" : ""}`, trashed ? { trashed } : {});
+    }
+    await fsp.rm(abs, { force: true });
+    return { core: name.match(CORE_NAME_RE)[1], file: `cores/${name}`, size, ...(trashed ? { trashed } : {}) };
+  } finally {
+    release();
   }
-  await fsp.mkdir(path.dirname(dest), { recursive: true });
-  await fsp.rename(abs, dest);
-  return { core: name.match(CORE_NAME_RE)[1], file: `cores/${name}`, size, ...(trashed ? { trashed } : {}) };
 }
 
 /** Moves a core to the trash. Refused (409, with how many games use it) unless `force` when `games` use it. */

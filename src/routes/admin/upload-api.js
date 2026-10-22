@@ -298,7 +298,7 @@ export function mountUploadApi(router, guard) {
     } catch (err) {
       status = err instanceof UploadError || err instanceof CoreError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
       if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
-      body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err.message };
+      body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err.message, ...(err instanceof CoreError ? err.extra : {}) };
     }
     // Leftovers of a refused upload go before the answer does.
     await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
