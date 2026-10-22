@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { readCnmtIdentity } from "../../src/meta/cnmt-parse.js";
 import {
-  REASONS, createOrganizer, moveNoReplace, folderNameOf, isIncoming, planOrganize,
+  REASONS, REASON_TEXT, createOrganizer, moveNoReplace, folderNameOf, isIncoming, planOrganize,
 } from "../../src/meta/library-organize.js";
 import { createIdentifier, identityFromName, identityFromTicket } from "../../src/meta/file-identity.js";
 import { EXTRA_REASONS } from "../../src/meta/incoming-extras.js";
@@ -80,7 +80,7 @@ test("an update with no base anywhere still gets the game's folder when the titl
   const plan = planOrganize({ titledbName: nameOf, incoming: [nameItem(`[${UPD}][v65536].nsp`)] });
   assert.deepEqual(plan.moves.map((m) => m.to), [`마이 게임/update/마이 게임 [${UPD}][v65536].nsp`]);
   const unknown = planOrganize({ incoming: [nameItem("[0100CCCC00030800][v65536].nsp")] });
-  assert.deepEqual(unknown.held.map((h) => h.reason), [REASONS.noFolder]);
+  assert.deepEqual(unknown.held.map((h) => h.reason), [REASONS.waitBase]);
 });
 
 test("two games of one name get apart folders; a name already taken by a folder is not reused", () => {
@@ -209,7 +209,7 @@ test("a broken name at any step is passed over, never written", () => {
     incoming: [cnmtItem(`� [${NEW}][v0].nsz`, baseId(NEW), { nacpName: "��" })],
   });
   assert.deepEqual(plan.moves, []);
-  assert.deepEqual(plan.held.map((h) => h.reason), [REASONS.noFolder]);
+  assert.deepEqual(plan.held.map((h) => h.reason), [REASONS.noName]);
   // The same file whose game already has a folder takes the folder's name.
   const known = planOrganize({
     romsRels: [`내 게임/a [${NEW}][v0].nsp`],
@@ -235,7 +235,7 @@ test("an update's NACP names a game titledb does not know, and its DLC follows i
 test("a DLC of a game nobody can name yet stays until its game arrives", () => {
   const dlc = cnmtItem(`Costume Pack [${NEW_DLC}][v0].nsp`, { titleId: NEW_DLC, version: 0, kind: "dlc", baseTitleId: NEW });
   const alone = planOrganize({ incoming: [dlc] });
-  assert.deepEqual(alone.held.map((h) => [h.rel, h.reason]), [[dlc.rel, REASONS.noFolder]]);
+  assert.deepEqual(alone.held.map((h) => [h.rel, h.reason]), [[dlc.rel, REASONS.waitBase]]);
   const later = planOrganize({ romsRels: [`Game X/Game X [${NEW}][v0].nsp`], incoming: [dlc] });
   assert.deepEqual(later.moves.map((m) => m.to), [`Game X/DLC/Costume Pack [${NEW_DLC}][v0].nsp`]);
   const dlcTitled = planOrganize({ titledbName: (t) => (t === NEW_DLC ? "의상 팩" : null), romsRels: [`Game X/Game X [${NEW}][v0].nsp`], incoming: [dlc] });
@@ -244,7 +244,7 @@ test("a DLC of a game nobody can name yet stays until its game arrives", () => {
 
 test("an update without a readable NACP of an unknown game still waits", () => {
   const plan = planOrganize({ incoming: [cnmtItem("Some Update.nsp", { titleId: NEW_UPD, version: 65536, kind: "update", baseTitleId: NEW })] });
-  assert.deepEqual(plan.held.map((h) => h.reason), [REASONS.noFolder]);
+  assert.deepEqual(plan.held.map((h) => h.reason), [REASONS.waitBase]);
 });
 
 test("a sweep reads a NACP only when no other name exists, once per file, and notes each move", async () => {
@@ -291,7 +291,7 @@ test("a sweep reads a NACP only when no other name exists, once per file, and no
       ["organize", "incoming/known.nsp", `마이 게임/마이 게임 [${BASE}][v0].nsp`],
       ["organize", "incoming/unknown-update.nsp", `새 게임/update/새 게임 [${NEW_UPD}][v65536].nsp`],
     ]);
-    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["dlc.nsp", REASONS.noFolder]]);
+    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["dlc.nsp", REASONS.waitBase]]);
     await org.sweep();
     assert.deepEqual(nacpReads, ["unknown-update.nsp"], "nothing left needs a NACP read");
   } finally {
@@ -331,6 +331,113 @@ test("a sweep never writes over a file that appears at the target between plan a
     assert.equal(fs.readFileSync(target, "utf8"), "already here");
     assert.ok(fs.existsSync(src));
     assert.deepEqual(org.view().held.map((h) => h.reason), [REASONS.taken]);
+  } finally {
+    fs.rmSync(roms, { recursive: true, force: true });
+  }
+});
+
+const NFD = "포켓몬".normalize("NFD");
+
+test("a folder spelled in NFD is the same folder: another game's is not doubled, the game's own is reused", () => {
+  assert.notEqual(NFD, "포켓몬");
+  const other = planOrganize({ titledbName: () => "포켓몬", romsRels: [`${NFD}/Old [0100DDDD00040000][v0].nsp`], incoming: [cnmtItem("x.nsp", baseId(NEW))] });
+  assert.deepEqual(other.moves.map((m) => m.to), [`포켓몬 [${NEW}]/포켓몬 [${NEW}][v0].nsp`]);
+  const own = planOrganize({
+    titledbName: () => "포켓몬",
+    romsRels: [`${NFD}/a [${NEW}][v0].nsp`, `${NFD}/Update/a [${NEW_UPD}][v65536].nsp`],
+    incoming: [cnmtItem("u.nsp", { titleId: NEW_UPD, version: 131072, kind: "update", baseTitleId: NEW })],
+  });
+  assert.deepEqual(own.moves.map((m) => m.to), [`${NFD}/Update/포켓몬 [${NEW_UPD}][v131072].nsp`], "the folder and its update folder as spelled on disk");
+  const file = planOrganize({ titledbName: () => "포켓몬", romsRels: [`${NFD}/${NFD} [${NEW}][v65536].nsp`], incoming: [cnmtItem("b.nsp", { titleId: NEW, version: 65536, kind: "base", baseTitleId: NEW })] });
+  assert.deepEqual(file.held.map((h) => h.reason), [REASONS.have]);
+});
+
+test("a DLC alone waits for its game; a game with no usable name says so", () => {
+  const dlc = planOrganize({ incoming: [cnmtItem(`Pack [${NEW_DLC}][v0].nsp`, { titleId: NEW_DLC, version: 0, kind: "dlc", baseTitleId: NEW })] });
+  assert.deepEqual(dlc.held.map((h) => [h.reason, h.code]), [[REASONS.waitBase, "waitBase"]]);
+  const update = planOrganize({ incoming: [cnmtItem("Some Update.nsp", { titleId: NEW_UPD, version: 65536, kind: "update", baseTitleId: NEW })] });
+  assert.deepEqual(update.held.map((h) => h.code), ["waitBase"]);
+  const base = planOrganize({ incoming: [cnmtItem(`[${NEW}][v0].nsp`, baseId(NEW))] });
+  assert.deepEqual(base.held.map((h) => h.code), ["noName"]);
+  const crowded = planOrganize({ titledbName: () => "Same", romsRels: ["Same/x [0100DDDD00040000][v0].nsp", `Same [${NEW}]/y [0100EEEE00050000][v0].nsp`], incoming: [cnmtItem("z.nsp", baseId(NEW))] });
+  assert.deepEqual(crowded.held.map((h) => h.code), ["noFolder"], "both folder names taken is a real naming failure");
+});
+
+test("a DLC file name that says nothing gives way to '<game> DLC n'", () => {
+  const plan = planOrganize({
+    romsRels: [`Game X/Game X [${NEW}][v0].nsp`],
+    incoming: ["dlc2.nsp", "dlc_01.nsp", "123.nsp", "Costume Pack.nsp"].map((rel, i) => cnmtItem(rel, { titleId: `0100CCCC0003${String(1001 + i).padStart(4, "0")}`, version: 0, kind: "dlc", baseTitleId: NEW })),
+  });
+  const named = Object.fromEntries(plan.moves.map((m) => [m.from, m.to.split("/").pop().replace(/ \[.*$/, "")]));
+  assert.deepEqual(named, { "dlc2.nsp": "Game X DLC 1", "dlc_01.nsp": "Game X DLC 2", "123.nsp": "Game X DLC 3", "Costume Pack.nsp": "Costume Pack" });
+});
+
+test("a base and its update in one batch take one name: the base's, else the update's NACP", () => {
+  const upd = (extra) => cnmtItem("patch.nsp", { titleId: NEW_UPD, version: 65536, kind: "update", baseTitleId: NEW }, extra);
+  const both = planOrganize({ incoming: [cnmtItem("base.nsp", baseId(NEW), { nacpName: "Base Name" }), upd({ nacpName: "Update Name" })] });
+  assert.deepEqual(both.moves.map((m) => m.to), [`Base Name/Base Name [${NEW}][v0].nsp`, `Base Name/update/Base Name [${NEW_UPD}][v65536].nsp`]);
+  const fromUpdate = planOrganize({ incoming: [cnmtItem("nsw2u.com - Raw File Name.nsp", baseId(NEW)), upd({ nacpName: "Update Name" })] });
+  assert.deepEqual(fromUpdate.moves.map((m) => m.to), [`Update Name/Update Name [${NEW}][v0].nsp`, `Update Name/update/Update Name [${NEW_UPD}][v65536].nsp`]);
+});
+
+test("every hold reason and the drop box's own words are in ko, en, ja and zh", () => {
+  const langs = ["ko", "en", "ja", "zh"];
+  assert.deepEqual(Object.keys(REASON_TEXT), langs);
+  for (const lang of langs) {
+    assert.deepEqual(Object.keys(REASON_TEXT[lang]).sort(), Object.keys(REASONS).sort(), lang);
+    for (const [code, text] of Object.entries(REASON_TEXT[lang])) {
+      assert.ok(text && !/[—–]/.test(text), `${lang}.${code}`);
+      if (lang !== "ko") assert.ok(!/[가-힣]/.test(text), `${lang}.${code} is not Korean`);
+    }
+  }
+  assert.equal(REASONS.waitBase, REASON_TEXT.ko.waitBase);
+});
+
+test("the NACP cache knows a file by its inode and ctime too, and retries a failed read", async () => {
+  const roms = fs.mkdtempSync(path.join(os.tmpdir(), "cook-org-"));
+  const abs = path.join(roms, "incoming/u.nsp");
+  const put = (body) => {
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    const tmp = `${abs}.tmp`;
+    fs.writeFileSync(tmp, body);
+    fs.utimesSync(tmp, OLD / 1000, OLD / 1000);
+    fs.renameSync(tmp, abs);
+  };
+  try {
+    put("AAAA");
+    const reads = [];
+    let answer = null;
+    let epoch = "no keys";
+    const org = createOrganizer({
+      incomingDir: path.join(roms, "incoming"),
+      romsDir: roms,
+      romsRels: async () => [],
+      identify: async () => ({ id: { titleId: NEW_UPD, version: 65536, kind: "update", baseTitleId: NEW }, source: "cnmt" }),
+      forget: () => {},
+      readNacpName: async () => { reads.push(answer); return answer; },
+      nacpEpoch: async () => epoch,
+      retroDir: path.join(roms, "retro"),
+      homebrewDir: path.join(roms, "homebrew"),
+      systems: () => ({}),
+      readRefs: async () => [],
+      begin: () => ({ step() {}, done() {} }),
+      rescan: () => {},
+      rescanRetro: () => {},
+      rescanHomebrew: () => {},
+    });
+    await org.sweep();
+    await org.sweep();
+    assert.equal(reads.length, 1, "a failed read is not repeated while nothing changed");
+    epoch = "keys";
+    await org.sweep();
+    assert.equal(reads.length, 2, "new keys or nstool: the read is tried again");
+    await org.sweep({ retry: true });
+    assert.equal(reads.length, 3, "a sweep asked for by hand tries again too");
+    put("BBBB"); // same name, size and mtime; a new inode and ctime
+    answer = "Second";
+    await org.sweep();
+    assert.equal(reads.length, 4, "another file under the same name, size and mtime is read again");
+    assert.ok(fs.existsSync(path.join(roms, `Second/update/Second [${NEW_UPD}][v65536].nsp`)));
   } finally {
     fs.rmSync(roms, { recursive: true, force: true });
   }

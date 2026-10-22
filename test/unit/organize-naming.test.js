@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanName, nameFromFile, firstName, nameIn, gameFileName, freeFileName, NAME_MAX_BYTES } from "../../src/meta/organize-naming.js";
+import { cleanName, nameFromFile, firstName, nameIn, gameFileName, freeFileName, isMeaningless, NAME_MAX_BYTES } from "../../src/meta/organize-naming.js";
 
 const ID = "0100AAAA00010000";
 
@@ -68,4 +68,46 @@ test("a taken file name, in any case, gets the next free number and is never reu
   assert.equal(freeFileName("G", "My Game", id, ".nsp", (rel) => taken.has(rel.toLowerCase())), `G/My Game (3) [${ID}][v0].nsp`);
   assert.equal(freeFileName("G", "Fresh", id, ".nsp", () => false), `G/Fresh [${ID}][v0].nsp`);
   assert.equal(freeFileName("G", "Full", id, ".nsp", () => true), null, "after a few numbers it holds instead");
+});
+
+test("a browser's duplicate number at the end of a downloaded name comes off", () => {
+  assert.equal(nameFromFile("Super Game (2).nsp"), "Super Game");
+  assert.equal(nameFromFile("Super Game (Base) (USA) (1).nsz"), "Super Game");
+  assert.equal(nameFromFile("nsw2u.com - Super Game (2).nsp"), "Super Game");
+  assert.equal(nameFromFile("Sequel (2) Deluxe.nsp"), "Sequel (2) Deluxe", "a number inside the title stays");
+  assert.equal(nameFromFile("Game (12).nsp"), "Game (12)", "only a single digit is a duplicate number");
+});
+
+test("a scene name's dots between words become spaces when the name has no spaces", () => {
+  assert.equal(nameFromFile("Super.Mario.Odyssey.NSW-BigBlueBox.nsp"), "Super Mario Odyssey NSW-BigBlueBox");
+  assert.equal(nameFromFile(`Cool.Game.[${ID}][v0].nsp`), "Cool Game");
+  assert.equal(nameFromFile("Mr. Driller DrillLand.nsp"), "Mr. Driller DrillLand", "a name with spaces keeps its dots");
+});
+
+test("a Windows device name is refused with or without an extension, and in the stem", () => {
+  for (const bad of ["con", "AUX", "aux.txt", "Nul.tar.gz", "com1.nsp", "LPT9.x", "aux .txt", "CONIN$", "conout$"]) {
+    assert.equal(cleanName(bad), null, bad);
+  }
+  assert.equal(nameFromFile("aux.nsp"), null);
+  assert.equal(nameFromFile("aux.txt.nsp"), "aux txt", "a scene name's dots become spaces first, which Windows takes");
+  assert.equal(cleanName("Auxiliary"), "Auxiliary");
+  assert.equal(cleanName("Console Wars"), "Console Wars");
+});
+
+test("bidi and zero-width characters are taken out of a name", () => {
+  assert.equal(cleanName("Name\u202Ertl"), "Namertl");
+  assert.equal(cleanName("⁦Game⁩"), "Game");
+  assert.equal(cleanName("Zero​width﻿"), "Zerowidth");
+  assert.equal(cleanName("Mark‏‎؜"), "Mark");
+  assert.equal(nameFromFile(`Evil\u202Evsn.exe [${ID}][v0].nsp`), "Evilvsn exe", "its dots become spaces too");
+  assert.equal(cleanName("\u202E​"), null, "nothing left is no name");
+});
+
+test("a meaningless DLC file name is told apart from a real one", () => {
+  for (const junk of ["dlc2", "dlc_01", "DLC-3", "01", "123", "aoc", "a-dlc", "upd", "update 2", "add-on 1", "x"]) {
+    assert.equal(isMeaningless(junk), true, junk);
+  }
+  for (const real of ["Costume Pack", "Season Pass", "Expansion 2", "DLC Pack: Ghosts", "Ys"]) {
+    assert.equal(isMeaningless(real), false, real);
+  }
 });
