@@ -93,6 +93,33 @@ test("a download enrolls one console in every mode, and one saved with several c
   assert.deepEqual([row.state, row.deviceKey], ["used", KEY_A]);
 });
 
+test("the console that spent a download may enroll again with it within its hour, no other console and not after", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  assert.ok(enroll.spend(d.token, KEY_A, { now: now + 1 }));
+  assert.deepEqual(enroll.respend(d.token, KEY_A, { now: now + 4000 }), { owner: "alice", id: d.id }, "the same console, seconds later");
+  assert.equal(enroll.respend(d.token, KEY_B, { now: now + 4000 }), null, "another console");
+  assert.equal(enroll.respend(d.token, KEY_A, { canEnroll: () => false, now: now + 4000 }), null, "an account that may no longer enroll");
+  assert.equal(enroll.respend(d.token, KEY_A, { now: now + enroll.TTL_MS }), null, "not after its hour");
+  const waiting = enroll.issue("bob", now);
+  assert.equal(enroll.respend(waiting.token, KEY_A, { now: now + 1 }), null, "a token nobody spent is spent, not re-spent");
+  assert.equal(enroll.respend("nope", KEY_A, { now }), null);
+});
+
+test("a token's life counts from its issue, so one saved with a day's expiry ends an hour after", async () => {
+  const now = 1_700_000_000_000;
+  const { recordStore } = await import("../../src/db/security-stores.js");
+  const token = "cfe_" + "B".repeat(43);
+  const hashed = crypto.createHash("sha256").update(token).digest("hex");
+  recordStore("enroll-token").sync([[hashed, { id: "0000000b", owner: "alice", createdAt: now, expiresAt: now + 24 * 60 * 60 * 1000 }]]);
+  const fresh = await import("../../src/security/enroll-tokens.js?legacy-day");
+  assert.equal(fresh.lookup(token, now + enroll.TTL_MS - 1)?.state, "waiting");
+  assert.equal(fresh.lookup(token, now + enroll.TTL_MS)?.state, "expired");
+  assert.equal(fresh.spend(token, KEY_A, { now: now + enroll.TTL_MS }), null);
+  assert.equal(fresh.list({ now }).find((r) => r.id === "0000000b")?.expiresAt, now + enroll.TTL_MS);
+});
+
 /** A minimal NRO: header, then an ASET block whose NACP carries `version`. */
 function fakeNro(version) {
   const head = Buffer.alloc(0x100);
@@ -177,6 +204,17 @@ test("a downloaded client connects once, under the account that downloaded it", 
     e = await enrollWith(token, KEY_B);
     assert.equal(e.status, 401, "once");
     assert.equal(e.headers.get("x-cookingfoil-enroll"), "used", "says why");
+    // The same console asking again seconds later (production did) gets a fresh key; the earlier one stops.
+    e = await enrollWith(token, KEY_A);
+    assert.equal(e.status, 200, "the console that spent it may enroll again within its hour");
+    const again1 = await e.json();
+    assert.equal(again1.status, "approved");
+    assert.ok(again1.accessKey && again1.accessKey !== accessKey);
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the earlier key is refused");
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": again1.accessKey } })).status, 200);
+    e = await enrollWith(token, "C3".repeat(32));
+    assert.equal(e.status, 401, "any other console still is refused");
+    assert.equal(e.headers.get("x-cookingfoil-enroll"), "used");
 
     const mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
     assert.equal(mine.clients[0].state, "used");

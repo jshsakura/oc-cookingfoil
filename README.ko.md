@@ -234,7 +234,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 
 **1. CookingFoil 클라이언트, QR 로 연결.** 홈브류 메뉴에서 클라이언트를 열고 서버 주소를 넣으면 QR 코드와 8자리 기기 코드가 뜹니다. 휴대폰으로 QR 을 찍거나 `/pair` 에서 기기 코드를 입력한 뒤, 로그인해 승인합니다. 기기는 자기만의 접근 키를 받습니다. 승인 방식이 "로그인한 기기는 바로 승인"(기본값)이면 클라이언트에 넣은 아이디와 비밀번호로도 바로 승인됩니다. 그 비밀번호는 이때 한 번만 확인하고, 그 뒤로 기기는 접근 키로만 접속합니다.
 
-**2. CookingFoil 클라이언트, 대시보드에서 받기.** 서버의 대시보드에 로그인해 클라이언트 받기 카드를 씁니다. `switch/cookingfoil/cookingfoil.nro` 와, 이 서버 주소와 한 번 쓰는 등록 토큰이 든 `config.json` 이 함께 담긴 zip 을 받습니다. `switch/` 폴더를 SD 카드에 복사하고 클라이언트를 엽니다. 처음 켤 때 클라이언트가 토큰을 자기 접근 키로 바꾸고(`POST /api/pair/enroll`) 내 계정 아래로 승인되므로, 따로 찍을 것이 없습니다. 토큰은 한 번만, 받은 뒤 24시간 안에만 쓸 수 있습니다. 아직 쓰지 않은 다운로드는 같은 화면이나 관리 페이지의 기기 탭에서 거둘 수 있습니다. 쓰기 전까지는 zip 을 열쇠처럼 다룹니다.
+**2. CookingFoil 클라이언트, 대시보드에서 받기.** 서버의 대시보드에 로그인해 클라이언트 받기 카드를 씁니다. `switch/cookingfoil/cookingfoil.nro` 와, 이 서버 주소와 한 번 쓰는 등록 토큰이 든 `config.json` 이 함께 담긴 zip 을 받습니다. `switch/` 폴더를 SD 카드에 복사하고 클라이언트를 엽니다. 처음 켤 때 클라이언트가 토큰을 자기 접근 키로 바꾸고(`POST /api/pair/enroll`) 내 계정 아래로 승인되므로, 따로 찍을 것이 없습니다. 토큰은 한 번만, 받은 뒤 한 시간 안에만 쓸 수 있습니다. 아직 쓰지 않은 다운로드는 같은 화면이나 관리 페이지의 기기 탭에서 거둘 수 있습니다. 쓰기 전까지는 zip 을 열쇠처럼 다룹니다.
 
 어느 쪽으로 연결했든, 클라이언트는 접근 키를 12시간짜리 세션 토큰으로 바꾸고(`GET /api/session`) 그 뒤로는 토큰만 보냅니다. 연결한 뒤에는 서버에서 스스로 업데이트하고, 홈 메뉴 바로가기도 직접 만들 수 있습니다. 새 기기 키로 옮겨 가는 기기는 `POST /api/pair/rebind` 로 승인을 그대로 이어 갑니다.
 
@@ -376,7 +376,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(그 폴더에 넣거나 관리 페이지 업로드 탭에서 "클라이언트"로 올립니다)와 그 홈 메뉴 바로가기. `latest` 는 빌드 옆의 `cookingfoil.nro.sig.json` 이 그 빌드의 버전, 크기, sha256 과 맞을 때만 `signature`(빌드한 곳에서 만든 Ed25519 서명)를 싣습니다 |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다. 승인 방식이 "로그인한 기기는 바로 승인" 이면 Basic 으로 보낸 계정 아이디와 비밀번호로 바로 승인합니다. JSON 응답에는 모두 `passwordOnly: true` 가 붙고, `/api/shop/info` 의 기능 목록에 `pair-password-only` 가 있습니다. 비밀번호는 연결할 때만 씁니다 |
-| `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 24시간 안에 한 번만 쓸 수 있습니다 |
+| `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 한 시간 안에 한 번만 쓸 수 있습니다 |
 | `GET /api/session` | 연결한 기기의 접근 키를 12시간짜리 세션 토큰으로 바꿉니다(Basic 헤더는 무시합니다). 이후에는 같은 기기 키로 `Authorization: Bearer cfs_…` 만 보냅니다. 세션으로 세션을 다시 받을 수는 없고, 그 기기를 승인한 계정의 비밀번호 변경, 기기 회수, 잠금이 생기면 바로 끝납니다. 기능 이름은 `session-token` 입니다 |
 | `POST /api/pair/rebind` | 같은 기기를 새 기기 키로 옮깁니다(승인, 이름, 접근 키). 기기 키를 본체에서 만들어 내게 된 클라이언트가 씁니다. 옛 키의 접근 키, 또는 그 기기를 승인한 계정의 Basic 인증으로 증명합니다. 기능 이름은 `device-rebind` 입니다 |
 | `GET /healthz` | 상태 확인. 이미지의 `HEALTHCHECK` 가 씁니다 |

@@ -9,7 +9,10 @@
  *
  * A token works once, within TTL_MS of its download, in every approval mode:
  * a second console holding the same download is refused (used) and waits for
- * approval like a console that has only the server address. A record saved
+ * approval like a console that has only the server address. The console that
+ * spent it may spend it again within the same hour (respend), since a console
+ * sometimes repeats its enroll seconds later. The hour counts from issue even
+ * for a record saved with a longer expiry by an older build. A record saved
  * with a `devices` list by an older build loads as used. Only the token's
  * SHA-256 is kept, in the security database (0600), so the file
  * alone enrolls nothing. Spent and lapsed ones stay as history for
@@ -43,11 +46,14 @@ function persist() {
   records().sync(Object.entries(saved));
 }
 
+/** When a record lapses: its stored expiry, but never later than TTL_MS after issue. */
+const expiryOf = (r) => Math.min(r.expiresAt, r.createdAt + TTL_MS);
+
 /** "waiting" | "used" | "expired" | "revoked" for a record at `now`. Pure. */
 export function stateOf(r, now = Date.now()) {
   if (r.usedAt) return "used";
   if (r.revokedAt) return "revoked";
-  return now >= r.expiresAt ? "expired" : "waiting";
+  return now >= expiryOf(r) ? "expired" : "waiting";
 }
 
 /** The history is cut to HISTORY_MS and MAX_KEPT, newest first kept; waiting tokens are never cut (an account holds at most a few). */
@@ -55,7 +61,7 @@ function prune(now) {
   const entries = Object.entries(all());
   const waiting = entries.filter(([, r]) => stateOf(r, now) === "waiting");
   const past = entries
-    .filter(([, r]) => stateOf(r, now) !== "waiting" && now - (r.usedAt ?? r.revokedAt ?? r.expiresAt) < HISTORY_MS)
+    .filter(([, r]) => stateOf(r, now) !== "waiting" && now - (r.usedAt ?? r.revokedAt ?? expiryOf(r)) < HISTORY_MS)
     .sort((a, b) => b[1].createdAt - a[1].createdAt)
     .slice(0, Math.max(0, MAX_KEPT - waiting.length));
   saved = Object.fromEntries([...waiting, ...past]);
@@ -94,6 +100,18 @@ export function spend(token, deviceKey, { canEnroll = () => true, now = Date.now
 }
 
 /**
+ * Spend `token` again for the console that already spent it: { owner, id } when
+ * `deviceKey` is the one it went to, its hour has not passed, it was not
+ * withdrawn and `canEnroll(owner)` still holds; else null. Nothing is written.
+ */
+export function respend(token, deviceKey, { canEnroll = () => true, now = Date.now() } = {}) {
+  if (typeof token !== "string" || !TOKEN_RE.test(token)) return null;
+  const r = all()[hash(token)];
+  if (!r?.usedAt || r.revokedAt || r.deviceKey !== deviceKey || now >= expiryOf(r)) return null;
+  return canEnroll(r.owner) ? { owner: r.owner, id: r.id } : null;
+}
+
+/**
  * What became of `token` that no longer works: { owner, id, state } for one
  * this server issued ("used", "expired", "revoked", or "waiting"), else null.
  * Spends nothing; a console that holds a spent download names its account
@@ -119,7 +137,7 @@ export function list({ owner, now = Date.now() } = {}) {
   return Object.values(all())
     .filter((r) => owner === undefined || r.owner === owner)
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((r) => ({ id: r.id, owner: r.owner, createdAt: r.createdAt, expiresAt: r.expiresAt, state: stateOf(r, now), usedAt: r.usedAt ?? null, deviceKey: r.deviceKey ?? null }));
+    .map((r) => ({ id: r.id, owner: r.owner, createdAt: r.createdAt, expiresAt: expiryOf(r), state: stateOf(r, now), usedAt: r.usedAt ?? null, deviceKey: r.deviceKey ?? null }));
 }
 
 /** Tests start from an empty store. */

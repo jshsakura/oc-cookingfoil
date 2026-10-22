@@ -143,7 +143,7 @@ function enrollFromRequest(req, deviceKey) {
 
 const ENROLL_REFUSED = {
   used: "another console already used this download; this one waits for approval",
-  expired: "this download's day has passed; this console waits for approval",
+  expired: "this download's hour has passed; this console waits for approval",
   revoked: "this download was withdrawn; this console waits for approval",
   invalid: "the enrollment token has expired or is unknown",
 };
@@ -271,7 +271,10 @@ export default function pairRouter() {
       return;
     }
     const canEnroll = (owner) => mayEnroll(deviceKey, owner);
-    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
+    const first = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
+    // A console sometimes repeats its enroll seconds later; the one that spent the download is answered again.
+    const again = first ? null : enrollTokens.respend(req.body?.token, deviceKey, { canEnroll });
+    const spent = first ?? again;
     if (!spent) {
       // A download this server made still says whose it is: the console waits
       // in the queue under that account's name, for the admin to approve.
@@ -294,7 +297,8 @@ export default function pairRouter() {
     const fresh = !store.isDeviceApproved(deviceKey);
     store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
     store.clearPairSecret(deviceKey);
-    debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
+    if (again) debug.log("pair: %s… re-enrolled with its own download %s", deviceKey.slice(0, 12), spent.id);
+    else debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
     const origin = resolveOrigin(req, publicBaseUrl);
     vouch(res);
     res.json({ status: "approved", accessKey, shopUrl: origin || null });
