@@ -849,7 +849,6 @@ async function loadUploadInfo(){
   const more=el('button',null,'up-more-sys');more.type='button';more.hidden=true;
   more.addEventListener('click',()=>{upAllSys=true;upRender();});$('up-systems').append(more);
   if(!upInfo.systems.length)$('up-systems').append(el('div','서버에 레트로 기종이 없습니다.','empty'));
-  $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
   // A homebrew app's patch or save goes into its own switch/<app>/ folder.
   for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
   return true;}
@@ -882,6 +881,7 @@ function upReset(){if(upBusy)return;upFiles=[];upPaths=null;upSystems=[];upGuess
   upRender();}
 $('up-target').addEventListener('change',()=>{upDropBatch();upRender();});
 $('up-game').addEventListener('input',()=>{upDropBatch();upRender();});
+gamePicker($('up-game'),{fill:true,pick:()=>{upDropBatch();upRender();}});
 $('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b||upBusy)return;
   const kind=b.dataset.kind;
   if(b.dataset.system){$('up-system').value=b.dataset.system;upOpen=false;}
@@ -966,9 +966,7 @@ $('up-form').addEventListener('submit',(e)=>{e.preventDefault();upSubmit();});
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return (d?d+'일 ':'')+(h?h+'시간 ':'')+m+'분';}
 // The admin's own description of a game; titledb refreshes never overwrite it.
-let gdGames=[],gdId='';
-async function loadDescGames(){let d;try{d=await api('/admin/api/descriptions');}catch(err){toast(err.message);return;}
-  gdGames=d.games||[];$('gd-games').replaceChildren(...gdGames.map((g)=>{const o=el('option',g.edited?'직접 씀':g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));}
+let gdId='';
 // Leaving the game box fires change again: the same game already open keeps what is being typed.
 async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}/);const id=m?m[0].toUpperCase():'';
   if(!id){$('gd-body').hidden=true;gdId='';return;}
@@ -982,15 +980,15 @@ async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}
   $('gd-original').textContent=own.description?'직접 쓴 소개를 보여 주고 있습니다.':(d.original?'지금은 titledb 소개를 보여 줍니다: '+d.original.slice(0,160)+(d.original.length>160?'…':''):'지금은 소개가 비어 있습니다. 쓰면 그 글이 나옵니다.');
   $('gd-body').hidden=false;ptGame();}
 $('gd-game').addEventListener('change',()=>openDesc());
+gamePicker($('gd-game'),{fill:true,pick:()=>openDesc()});
 $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
-  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
+  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);}catch(err){toast(err.message);}});
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
-  try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);loadDescGames();}catch(err){toast(err.message);}});
+  try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
 const LIB_SUBS=['files','organize','verify','patches','saves','info','server'];let libSub='files';
 function libLoadSub(){
-  if(libSub==='files')lbLoad();else if(libSub==='organize')loLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();
-  else if(libSub==='info')loadDescGames();}
+  if(libSub==='files')lbLoad();else if(libSub==='organize')loLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
   for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
   for(const p of document.querySelectorAll('#tab-library [data-lib-panel]'))p.hidden=p.dataset.libPanel!==sub;
@@ -1024,14 +1022,11 @@ $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
 
 // ── featured ──────────────────────────────────────────────────────────
 let featured=[],names=new Map(),featuredDirty=false;
-const ID_TAIL=/([0-9A-Fa-f]{16})\\s*$/;
 function markDirty(){featuredDirty=true;$('f-save').textContent='저장 (바뀜)';}
 async function loadFeatured(){
   if(featuredDirty)return;
   try{const d=await api('/admin/api/featured');featured=d.collections;
     names=new Map(d.candidates.map((c)=>[c.titleId,c.name]));
-    const list=$('f-candidates');list.replaceChildren();
-    for(const c of d.candidates){const o=el('option');o.value=c.name+' · '+c.titleId;list.append(o);}
     renderFeatured();}catch(err){toast(err.message);}}
 function move(arr,i,d){const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];}
 function renderFeatured(){const box=$('f-list');box.replaceChildren();
@@ -1055,14 +1050,11 @@ function renderFeatured(){const box=$('f-list');box.replaceChildren();
         btn('빼기',()=>{c.titleIds.splice(gi,1);if(c.bannerTitleId===id)c.bannerTitleId=null;markDirty();renderFeatured();}));
       ul.append(li);});
     if(c.titleIds.length)card.append(ul);
-    const add=el('form',null,'fadd');const q=el('input');q.setAttribute('list','f-candidates');
-    q.placeholder='게임 이름이나 타이틀 ID 로 찾습니다';q.setAttribute('aria-label','추가할 게임');
-    const addBtn=el('button','게임 추가');addBtn.type='submit';add.append(q,addBtn);
-    add.addEventListener('submit',(e)=>{e.preventDefault();const m=ID_TAIL.exec(q.value.trim());
-      const id=m&&m[1].toUpperCase();
-      if(!id||!names.has(id)){toast('목록에서 게임을 고릅니다.');return;}
-      if(c.titleIds.includes(id)){toast('이미 들어 있습니다.');return;}
-      c.titleIds.push(id);markDirty();renderFeatured();});
+    // Picking a result adds it at once; the search box of the same row takes the focus back for the next one.
+    const add=el('div',null,'fadd');const q=el('input');
+    q.placeholder=topText('gp.ph');q.setAttribute('aria-label',topText('gp.label'));add.append(q);
+    gamePicker(q,{added:(id)=>c.titleIds.includes(id),pick:(g)=>{names.set(g.titleId,g.name);c.titleIds.push(g.titleId);markDirty();
+      renderFeatured();$('f-list').querySelectorAll('.fadd input')[ci]?.focus();}});
     card.append(add);box.append(card);});}
 $('f-add').addEventListener('click',()=>{featured.push({title:'',bannerTitleId:null,titleIds:[]});markDirty();renderFeatured();});
 $('f-save').addEventListener('click',async()=>{

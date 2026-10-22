@@ -13,6 +13,7 @@ import { revokeOwnedBy } from "../../security/account-access.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as featured from "../../meta/featured.js";
+import { libraryGames, findLibraryGames } from "../../meta/library-games.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import {
   publicBaseUrl, devicePairing, uploadsEnabled, extractIcons, langPriority,
@@ -27,18 +28,6 @@ const USER_ERROR_STATUS = {
   "last-admin": 409, self: 409,
   "invalid-featured": 400,
 };
-
-// Base games in the library, for picking featured titles: [{ titleId, name }].
-async function baseCandidates() {
-  await shopCache.get();
-  const seen = new Map();
-  for (const file of shopCache.files()) {
-    if (file.kind !== "base" || !file.baseTitleId || seen.has(file.baseTitleId)) continue;
-    seen.set(file.baseTitleId, file.name ?? "");
-  }
-  return [...seen].map(([titleId, name]) => ({ titleId, name }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-}
 
 function sameOrigin(req, res) {
   const origin = req.get("Origin");
@@ -146,7 +135,19 @@ export function mountManageApi(router, guard) {
   router.get("/api/featured", async (req, res) => {
     if (!guard(req, res)) return;
     res.set("Cache-Control", "no-store");
-    res.json({ collections: featured.list(), candidates: await baseCandidates() });
+    res.json({ collections: featured.list(), candidates: await libraryGames() });
+  });
+
+  // The admin's game pickers: library games by part of any name, Korean initials or title ID.
+  router.get("/api/games/search", async (req, res) => {
+    if (!guard(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    try {
+      res.json(await findLibraryGames(String(req.query.q ?? ""), { limit: req.query.limit }));
+    } catch (err) {
+      debug.error("admin: game search: %s", err.message);
+      res.status(500).json({ error: "게임을 찾지 못했습니다. 서버 기록을 봅니다" });
+    }
   });
 
   router.put("/api/featured", change((req, res) => {

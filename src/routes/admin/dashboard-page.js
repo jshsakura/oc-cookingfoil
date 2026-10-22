@@ -32,6 +32,7 @@ import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } fr
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
 import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
+import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 
 const PAGE_CSS = /* css */ `
 ${BRAND_MOTION_CSS}
@@ -239,7 +240,7 @@ h3.sub-h{margin:18px 0 4px;font-size:15px}
 .fgames img{width:40px;height:40px;border-radius:10px;flex:none;background:var(--line)}
 .fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fgames button{padding:4px 9px}
-.fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
+.fadd{display:flex}.fadd input{flex:1;min-width:0}
 h2.first{margin-top:0}
 .note .note-go{margin-top:10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
@@ -312,7 +313,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
@@ -536,7 +537,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
     <button type="button" class="primary" id="f-save">저장</button></div></div>
   <p class="muted">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
   <div id="f-list"></div>
-  <datalist id="f-candidates"></datalist>
 </section>
 
 <section id="tab-library" hidden>
@@ -564,8 +564,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <h2 class="first">게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
-    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
-    <datalist id="gd-games"></datalist>
+    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
     <div id="gd-body" hidden>
       <h3>이름</h3>
       <p class="muted" id="gd-name-original"></p>
@@ -663,8 +662,7 @@ ${NSZ_HTML}
   <form class="up" id="up-form" hidden>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
-    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
-    <datalist id="up-games"></datalist>
+    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
     <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
     <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
@@ -733,5 +731,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

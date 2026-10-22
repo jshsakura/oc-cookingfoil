@@ -5,9 +5,10 @@
  * and spread it into ENTRIES. Then take its route out of LEGACY_UNREGISTERED in opt-out.js.
  */
 import { routeKey, ACCESS } from "./define.js";
+import { GAMES_CAPABILITIES } from "./games.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [];
+const ENTRIES = [...GAMES_CAPABILITIES];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {

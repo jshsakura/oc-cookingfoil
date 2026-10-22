@@ -35,7 +35,7 @@ import multer from "multer";
 import debug from "../../debug.js";
 import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir, uploadMaxBytes } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
-import * as shopCache from "../../meta/shop-cache.js";
+import { libraryGames } from "../../meta/library-games.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { SAVE_TYPES } from "../../meta/shop-saves.js";
@@ -71,17 +71,6 @@ async function writable(dir) {
   } catch {
     return false;
   }
-}
-
-/** Base games in the library: [{ titleId, name }]. */
-export async function libraryGames() {
-  await shopCache.get();
-  const seen = new Map();
-  for (const f of shopCache.files()) {
-    if (f.kind !== "base" || !f.baseTitleId || seen.has(f.baseTitleId)) continue;
-    seen.set(f.baseTitleId, f.name ?? "");
-  }
-  return [...seen].map(([titleId, name]) => ({ titleId, name })).sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
 
 /** Box art and bezels for one console's new ROMs, after the upload has answered. */

@@ -13,7 +13,7 @@ import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
-import { libraryGames } from "./upload-api.js";
+import { libraryGames } from "../../meta/library-games.js";
 import debug from "../../debug.js";
 
 const ID_RE = /^[0-9A-F]{16}$/;
