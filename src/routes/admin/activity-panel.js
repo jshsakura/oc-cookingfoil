@@ -28,8 +28,8 @@ export const ACTIVITY_CSS = /* css */ `
 .act-btn:has(img.acct-avatar){padding:0;overflow:visible}
 .act-btn.busy{color:var(--accent);border-color:rgba(var(--accent-rgb),.55)}
 .act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:100px;border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
-/* The badge sits above the busy ring (a later box would paint over it) with a rim of the page colour around it. */
-.act-count{position:absolute;z-index:1;box-shadow:0 0 0 2px var(--bg);top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+/* The badge sits above the busy ring, a later box that would otherwise paint over the number. */
+.act-count{position:absolute;z-index:1;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .act-count[hidden]{display:none}
 .act-pop{max-height:min(45dvh,420px);overflow:auto;padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--line)}
 .act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:13px}
