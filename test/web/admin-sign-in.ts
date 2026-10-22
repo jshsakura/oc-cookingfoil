@@ -12,6 +12,7 @@ const heading = (page: Page) => page.getByRole('heading', { name: 'CookingFoil ì
 // --repeat-each round and after a failure, so the last step used and the admin
 // session that came out of it live in a file, not in this module. The file sits in
 // the test server's data folder, which server.mjs empties when the server starts.
+// Read and written without a lock: safe only while playwright.web.config.ts runs one worker.
 const STATE = path.join(process.env.COOK_DATA_DIR!, 'web-test-admin-sign-in.json');
 type State = { lastStep: number; session: Cookie[] };
 function load(): State {
