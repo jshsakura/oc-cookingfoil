@@ -45,6 +45,8 @@ export const SETTINGS = {
   deviceApproval: oneOf("manual", "signin", "all"),
   // Approved consoles one account may hold; 0 is no limit (security/device-limit.js).
   deviceLimit: whole(0, 1000),
+  // Different consoles one account's downloads may enroll in any rolling hour (security/enroll-tokens.js).
+  enrollPerHour: whole(1, 50),
   uploadsEnabled: bool,
   inboxEnabled: bool,
   inboxMaxBytes: bytes,

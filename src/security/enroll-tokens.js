@@ -10,7 +10,7 @@
  * A token works within TTL_MS of its download (counted from issue, even for a
  * record an older build saved with a longer expiry). With automatic approval
  * (`multi`) it enrolls every console that brings it, while the account has
- * enrolled fewer than ENROLL_MAX_PER_HOUR different consoles through
+ * enrolled fewer than enrollPerHour (a server setting, 5 by default) different consoles through
  * downloads in the last TTL_MS, counted across all its downloads; a fresh
  * download does not reset that count. The count is kept in its own ledger
  * (owner → [{ deviceKey, at }]) that only age trims, never the history's
@@ -29,12 +29,11 @@
  */
 import crypto from "crypto";
 import { recordStore } from "../db/security-stores.js";
+import { enrollPerHour } from "../helpers/envs.js";
 
 export const TTL_MS = 60 * 60 * 1000;
 export const HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
 export const PREFIX = "cfe_";
-/** Consoles one account may enroll through its downloads in any rolling TTL_MS. */
-export const ENROLL_MAX_PER_HOUR = 5;
 const TOKEN_RE = /^cfe_[A-Za-z0-9_-]{43}$/;
 const MAX_KEPT = 500;
 
@@ -137,7 +136,7 @@ export function issue(owner, now = Date.now()) {
  * else null (unknown, spent, lapsed, ended, or already this console's: see respend).
  * Asked before anything is written: `canEnroll(owner)` false → { refused },
  * `full(owner)` true → { full } (the account holds all the consoles it may),
- * the account over ENROLL_MAX_PER_HOUR → { limit }; each with owner and id.
+ * the account at enrollPerHour consoles this hour → { limit }; each with owner and id.
  * `multi` (automatic approval) lets one token enroll several consoles.
  */
 export function spend(token, deviceKey, { canEnroll = () => true, full = () => false, multi = false, now = Date.now() } = {}) {
@@ -152,7 +151,7 @@ export function spend(token, deviceKey, { canEnroll = () => true, full = () => f
   if (full(r.owner)) return { full: true, ...who };
   const recent = enrolledLastHour(r.owner, now);
   // A console already counted this hour (it came back with a newer download) does not count again.
-  if (!recent.has(deviceKey) && recent.size >= ENROLL_MAX_PER_HOUR) return { limit: true, ...who };
+  if (!recent.has(deviceKey) && recent.size >= enrollPerHour) return { limit: true, ...who };
   const first = r.usedAt ? {} : { usedAt: now, deviceKey };
   saved = { ...saved, [h]: { ...r, ...first, enrolled: [...taken, { deviceKey, at: now }] } };
   persist();

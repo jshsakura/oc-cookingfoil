@@ -1,6 +1,6 @@
 /**
  * How many approved consoles one account may hold (server setting deviceLimit,
- * COOK_DEVICE_LIMIT, default 5; 0 is no limit). It counts every console the
+ * COOK_DEVICE_LIMIT, default 10; 0 is no limit). It counts every console the
  * account approved, however: a download's key, a QR approval, a sign-in at
  * pairing, or the admin approving a console that came with its download. The
  * markers the server writes for its own approvals ("admin", "auto",

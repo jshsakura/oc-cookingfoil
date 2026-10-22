@@ -16,7 +16,7 @@
  *        → records the device as "pending" for the admin to approve.
  *        → { status: "pending", passwordOnly: true, … }  (or { status: "approved", passwordOnly: true } if already done)
  *          limit: "device" when the account it signed in with (or its download's) holds all the
- *          consoles it may (security/device-limit.js), "enroll" when its download is over the
+ *          consoles it may (security/device-limit.js; deviceLimit then names that number), "enroll" when its download is over the
  *          account's hourly count; the console waits for approval by QR
  *        → 400 { error: "invalid pairSecret" } when one is sent but is not 64 hex
  *        → 409 { error: "pairSecret mismatch" } when another secret already asked for this device
@@ -36,14 +36,14 @@
  *        (security/enroll-tokens.js) for its own access key, approved under the
  *        account that downloaded it, within an hour of the download. With
  *        automatic approval a download enrolls every console that brings it,
- *        up to ENROLL_MAX_PER_HOUR (5) per account in any rolling hour across
+ *        up to enrollPerHour (server setting, 5 by default) per account in any rolling hour across
  *        all its downloads; with manual approval it enrolls one. A console
  *        refused asks /api/pair/status like a console with only the server address.
  *        → { status: "approved", accessKey, shopUrl }
  *        label: the console's own nickname, which names it once approved
  *        → 401 { error } + X-CookingFoil-Enroll: limit | used | expired | revoked | invalid
  *          and X-CookingFoil-Auth: enroll-<that>
- *          (limit: the account's five this hour; used: spent, manual approval;
+ *          (limit: the account's enrollPerHour this hour; used: spent, manual approval;
  *          invalid: a token this server never made). A known one puts the console
  *          in the approval queue under the download's account, so the admin sees
  *          whose it is
@@ -89,7 +89,7 @@ import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { publicBaseUrl, devicePairing, deviceAutoApprove, deviceLimit } from "../helpers/envs.js";
 import { accountFull } from "../security/device-limit.js";
 import { noteRefusal } from "../security/auth-log.js";
 import { vouch } from "../security/server-id.js";
@@ -184,6 +184,7 @@ function pendingResponse(req, deviceKey, limit) {
     pairCode: link.code,
     expiresAt: link.expiresAt,
     ...(limit ? { limit } : {}),
+    ...(limit === "device" ? { deviceLimit } : {}),
   };
 }
 

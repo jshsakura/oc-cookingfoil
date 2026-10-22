@@ -13,7 +13,7 @@ const BASE_WORDS = {
     "g.overview": "개요", "g.games": "파일·정리", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "계정·기기", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "변환", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
     "s.users": "계정", "s.devices": "기기", "s.logs": "로그", "s.alerts": "알림", "s.settings": "서버 설정",
-    "dev.clientsLead": "웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 자동 연동 키가 포함되며, 받은 뒤 1시간 안에 기기 5대까지 앱을 처음 실행하면 해당 계정의 기기로 자동 승인되고, 그 이상은 QR 로 승인합니다. 새로 다운로드하면 같은 계정의 이전 키는 끝나고, 이미 연결된 기기는 그대로 남습니다. 키 원본은 서버에 저장되지 않습니다.",
+    "dev.clientsLead": "웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 자동 연동 키가 포함되며, 받은 뒤 1시간 안에 기기 {n}대까지 앱을 처음 실행하면 해당 계정의 기기로 자동 승인되고, 그 이상은 QR 로 승인합니다. 새로 다운로드하면 같은 계정의 이전 키는 끝나고, 이미 연결된 기기는 그대로 남습니다. 키 원본은 서버에 저장되지 않습니다.",
     "f.type": "종류", "up.entry": "파일 올리기", "ops.status": "서버 현황", "up.seeFiles": "올린 파일은 파일 목록에서 확인합니다.",
     "u.picked": "고른 종류: {kind}",
     "u.seq": "고른 {n}개를 하나씩 차례로 올립니다.",
@@ -146,6 +146,8 @@ const BASE_WORDS = {
     "ss.deviceLimitNone": "제한하지 않습니다",
     "ss.deviceLimitN": "{n}대",
     "ss.deviceLimitDefault": "{n}대 (기본)",
+    "ss.enrollPerHour": "다운로드 키로 한 시간에 연결하는 기기 수",
+    "ss.enrollPerHourD": "한 계정이 받은 클라이언트로 한 시간 안에 자동으로 연결할 수 있는 서로 다른 기기 수입니다. 그 계정의 모든 다운로드를 합쳐 셉니다. 다시 받아도 줄어들지 않고, 이미 연결한 기기가 다시 연결하는 것은 세지 않습니다. 넘는 기기는 QR 로 승인합니다.",
     "ss.scaffoldD": "스위치에서 돌릴 수 있는 기종마다 retro/roms 아래에 롬 폴더를 만들고, BIOS 폴더도 만듭니다. 지운 폴더는 다음에 폴더를 읽을 때 다시 만듭니다. 파일은 옮기거나 지우지 않으며, 끄면 더 만들지 않고 만든 폴더는 그대로 둡니다.",
     "lo.title": "임시 폴더", "lo.sweep": "지금 정리", "lo.lead": "incoming 폴더에 파일을 넣으면 서버가 알아서 정리합니다. 복사가 끝나고 1분 동안 바뀌지 않은 파일부터 옮기고, 이미 있던 파일은 덮어쓰지 않습니다.",
     "lo.where": "넣는 곳", "lo.gameH": "스위치 게임", "lo.game": "파일 안의 정보로 게임과 버전을 알아내 파일 이름을 '게임 이름 [타이틀 ID][v버전]' 으로 바꾸고, 게임마다 폴더 하나에 본편, update, DLC 로 나눠 넣습니다. 이름은 관리자가 정한 이름, titledb, 파일 안의 정보, 원래 파일 이름 순으로 고릅니다. 그 게임의 폴더가 이미 있으면 그 폴더를 씁니다.",
@@ -193,7 +195,7 @@ const BASE_WORDS = {
     "g.overview": "Overview", "g.games": "Files", "g.retro": "Retro", "g.homebrew": "Homebrew", "g.people": "Accounts", "g.ops": "Operations",
     "s.library": "Files", "s.nsz": "Convert", "s.upload": "Upload", "s.inbox": "Shared inbox", "s.featured": "Home picks",
     "s.users": "Accounts", "s.devices": "Devices", "s.logs": "Logs", "s.alerts": "Alerts", "s.settings": "Server settings",
-    "dev.clientsLead": "Clients downloaded from the web page, ready to connect. Each carries a pairing key for its account: within 1 hour of the download, up to 5 consoles are approved for the account the first time the app starts on them, and any more are approved by QR. A new download ends the account's earlier key; consoles already connected stay. The key itself is never stored on the server.",
+    "dev.clientsLead": "Clients downloaded from the web page, ready to connect. Each carries a pairing key for its account: within 1 hour of the download, up to {n} consoles are approved for the account the first time the app starts on them, and any more are approved by QR. A new download ends the account's earlier key; consoles already connected stay. The key itself is never stored on the server.",
     "f.type": "Type", "up.entry": "Upload files", "ops.status": "Server status", "up.seeFiles": "Check uploaded files in the file list.",
     "u.picked": "Chosen kind: {kind}",
     "u.seq": "The {n} you picked go up one after another.",
@@ -326,6 +328,8 @@ const BASE_WORDS = {
     "ss.deviceLimitNone": "No limit",
     "ss.deviceLimitN": "{n}",
     "ss.deviceLimitDefault": "{n} (default)",
+    "ss.enrollPerHour": "Consoles per hour by download key",
+    "ss.enrollPerHourD": "How many different consoles one account's downloaded clients may connect on their own in any hour, counted across all of its downloads. Downloading again does not reset it, and a console that connects again is not counted twice. Any more are approved by QR.",
     "ss.scaffoldD": "Makes a ROM folder under retro/roms for every system the Switch can run, plus the BIOS folder. A deleted folder comes back the next time the folders are read. No file is moved or deleted; turned off, nothing more is made and the folders already made stay.",
     "lo.title": "Drop box", "lo.sweep": "Sort now", "lo.lead": "Put files in the incoming folder and the server sorts them. A file moves once it has finished copying and has not changed for a minute, and nothing already there is overwritten.",
     "lo.where": "Folder", "lo.gameH": "Switch games", "lo.game": "The game and version come from the file itself. The file is renamed 'Game name [title ID][vversion]' and goes into one folder per game, split into the base game, update and DLC. The name is the one the admin set, else titledb's, else the one inside the file, else the original file name. A game that already has a folder keeps it.",
@@ -373,7 +377,7 @@ const BASE_WORDS = {
     "g.overview": "概要", "g.games": "ファイル", "g.retro": "レトロ", "g.homebrew": "自作アプリ", "g.people": "アカウント", "g.ops": "運用",
     "s.library": "ファイル", "s.nsz": "変換", "s.upload": "アップロード", "s.inbox": "一時共有", "s.featured": "ホームのおすすめ",
     "s.users": "アカウント", "s.devices": "デバイス", "s.logs": "ログ", "s.alerts": "通知", "s.settings": "サーバー設定",
-    "dev.clientsLead": "Web ページからダウンロードされた連携済みクライアントです。アカウントごとの自動連携キーが含まれ、ダウンロードから 1 時間以内なら本体 5 台まで、初めてアプリを起動したときにそのアカウントの本体として自動承認され、それ以上は QR で承認します。新しくダウンロードすると同じアカウントの以前のキーは終わり、接続済みの本体はそのまま残ります。キーの原本はサーバーに保存されません。",
+    "dev.clientsLead": "Web ページからダウンロードされた連携済みクライアントです。アカウントごとの自動連携キーが含まれ、ダウンロードから 1 時間以内なら本体 {n} 台まで、初めてアプリを起動したときにそのアカウントの本体として自動承認され、それ以上は QR で承認します。新しくダウンロードすると同じアカウントの以前のキーは終わり、接続済みの本体はそのまま残ります。キーの原本はサーバーに保存されません。",
     "f.type": "種類", "up.entry": "ファイルをアップロード", "ops.status": "サーバーの状況", "up.seeFiles": "アップロードしたファイルはファイル一覧で確認します。",
     "u.picked": "選んだ種類: {kind}",
     "u.seq": "選んだ {n} 個を一つずつ順にアップロードします。",
@@ -506,6 +510,8 @@ const BASE_WORDS = {
     "ss.deviceLimitNone": "制限しません",
     "ss.deviceLimitN": "{n} 台",
     "ss.deviceLimitDefault": "{n} 台 (既定)",
+    "ss.enrollPerHour": "ダウンロードキーで 1 時間に接続する本体数",
+    "ss.enrollPerHourD": "1 つのアカウントがダウンロードしたクライアントで、1 時間以内に自動で接続できる異なる本体の数です。そのアカウントのすべてのダウンロードを合わせて数えます。ダウンロードし直しても戻らず、接続済みの本体がもう一度接続しても数えません。それ以上は QR で承認します。",
     "ss.scaffoldD": "Switch で動く機種ごとに retro/roms の下に ROM フォルダを作り、BIOS フォルダも作ります。消したフォルダは次にフォルダを読むときに作り直します。ファイルを移したり消したりはしません。オフにすると新しく作らず、作ったフォルダはそのまま残します。",
     "lo.title": "一時フォルダー", "lo.sweep": "今すぐ整理", "lo.lead": "incoming フォルダーにファイルを入れると、サーバーが自動で整理します。コピーが終わって 1 分間変わらなかったファイルから移し、すでにあるファイルは上書きしません。",
     "lo.where": "置き場所", "lo.gameH": "Switch ゲーム", "lo.game": "ファイルの中の情報でゲームとバージョンを読み取り、ファイル名を「ゲーム名 [タイトル ID][vバージョン]」に変えて、ゲームごとに一つのフォルダーへ本編、update、DLC に分けて入れます。名前は管理者が決めた名前、titledb、ファイルの中の情報、元のファイル名の順に選びます。そのゲームのフォルダーがすでにあれば、そのフォルダーを使います。",
@@ -553,7 +559,7 @@ const BASE_WORDS = {
     "g.overview": "概览", "g.games": "文件", "g.retro": "复古", "g.homebrew": "自制软件", "g.people": "账户", "g.ops": "运维",
     "s.library": "文件", "s.nsz": "转换", "s.upload": "上传", "s.inbox": "临时分享", "s.featured": "首页推荐",
     "s.users": "账户", "s.devices": "设备", "s.logs": "日志", "s.alerts": "通知", "s.settings": "服务器设置",
-    "dev.clientsLead": "从网页下载的预配对客户端。每个都带有该账户的自动配对密钥：下载后 1 小时内，最多 5 台主机首次启动应用时会自动批准为该账户的主机，更多主机请用二维码批准。重新下载会结束同一账户之前的密钥，已连接的主机保持不变。密钥原文不会保存在服务器上。",
+    "dev.clientsLead": "从网页下载的预配对客户端。每个都带有该账户的自动配对密钥：下载后 1 小时内，最多 {n} 台主机首次启动应用时会自动批准为该账户的主机，更多主机请用二维码批准。重新下载会结束同一账户之前的密钥，已连接的主机保持不变。密钥原文不会保存在服务器上。",
     "f.type": "类型", "up.entry": "上传文件", "ops.status": "服务器状态", "up.seeFiles": "上传的文件可在文件列表中查看。",
     "u.picked": "已选类型：{kind}",
     "u.seq": "选中的 {n} 个会逐个依次上传。",
@@ -686,6 +692,8 @@ const BASE_WORDS = {
     "ss.deviceLimitNone": "不限制",
     "ss.deviceLimitN": "{n} 台",
     "ss.deviceLimitDefault": "{n} 台（默认）",
+    "ss.enrollPerHour": "下载密钥每小时连接的主机数",
+    "ss.enrollPerHourD": "一个账户下载的客户端在一小时内可以自动连接的不同主机数量，合计该账户的所有下载。重新下载不会重置，已连接的主机再次连接也不重复计算。超出的主机请用二维码批准。",
     "ss.scaffoldD": "为 Switch 能运行的每个机种在 retro/roms 下创建 ROM 文件夹，并创建 BIOS 文件夹。删除的文件夹会在下次读取文件夹时重新创建。不会移动或删除文件；关闭后不再创建，已创建的文件夹保持不变。",
     "lo.title": "临时文件夹", "lo.sweep": "立即整理", "lo.lead": "把文件放进 incoming 文件夹，服务器会自动整理。复制完成且一分钟内没有变化的文件会先移动，已有的文件不会被覆盖。",
     "lo.where": "放置位置", "lo.gameH": "Switch 游戏", "lo.game": "根据文件内的信息识别游戏和版本，把文件改名为“游戏名 [标题 ID][v版本]”，并按游戏放进各自的文件夹，分为本体、update 和 DLC。名称依次取管理员设定的名称、titledb、文件内的信息、原文件名。该游戏已有文件夹时沿用该文件夹。",
@@ -734,6 +742,8 @@ export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { .
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
+/** top with {n} filled; the script fills it again in the stored language. */
+export const topN = (key, n) => `<span data-top="${key}" data-top-n="${n}">${TOP_WORDS.ko[key].split("{n}").join(String(n))}</span>`;
 /** A placeholder in the page's first language, swapped with the rest by data-top-ph. */
 export const topPh = (key) => `data-top-ph="${key}" placeholder="${TOP_WORDS.ko[key]}"`;
 
@@ -772,7 +782,7 @@ const topText=(key)=>topWords[adminLang][key]??topWords.ko[key];
 const topFill=(key,vars)=>{let s=topText(key);if(vars)for(const x in vars)s=s.split('{'+x+'}').join(String(vars[x]));return s;};
 function applyTopI18n(relabelActivity=true){
   document.title=topText('title');
-  for(const el of document.querySelectorAll('[data-top]'))el.textContent=topText(el.dataset.top);
+  for(const el of document.querySelectorAll('[data-top]'))el.textContent=el.dataset.topN===undefined?topText(el.dataset.top):topFill(el.dataset.top,{n:el.dataset.topN});
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
   for(const el of document.querySelectorAll('[data-top-ph]'))el.placeholder=topText(el.dataset.topPh);
   const who=document.getElementById('who');if(who&&Object.values(topWords).some((w)=>w.loading===who.textContent))who.textContent=topText('loading');

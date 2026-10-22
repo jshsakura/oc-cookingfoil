@@ -15,6 +15,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-enroll-unit-"));
 process.env.COOK_DATA_DIR = dir;
 const { zipStore } = await import("../../src/helpers/zip-store.js");
 const enroll = await import("../../src/security/enroll-tokens.js");
+const envs = await import("../../src/helpers/envs.js");
 
 const KEY_A = "A1".repeat(32);
 const KEY_B = "B2".repeat(32);
@@ -122,7 +123,7 @@ test("a token's life counts from its issue, so one saved with a day's expiry end
 });
 
 // Automatic approval: a download enrolls consoles for its hour, at most
-// ENROLL_MAX_PER_HOUR per account in any rolling hour across all its downloads.
+// enrollPerHour (5 unless set) per account in any rolling hour across all its downloads.
 const consoleKey = (i) => i.toString(16).toUpperCase().padStart(2, "0").repeat(32);
 const multi = (now) => ({ multi: true, now });
 /** Whether a spend enrolled the console (a refusal names the owner too). */
@@ -131,7 +132,7 @@ const took = (r) => Boolean(r?.owner && !r.limit && !r.full && !r.refused);
 test("with automatic approval one download enrolls five consoles; the sixth is over the account's limit", () => {
   enroll.resetForTests();
   const now = 1_700_000_000_000;
-  assert.equal(enroll.ENROLL_MAX_PER_HOUR, 5);
+  assert.equal(envs.enrollPerHour, 5, "five unless set");
   const d = enroll.issue("alice", now);
   for (let i = 1; i <= 5; i++) assert.deepEqual(enroll.spend(d.token, consoleKey(i), multi(now + i)), { owner: "alice", id: d.id }, `console ${i}`);
   const sixth = enroll.spend(d.token, consoleKey(6), multi(now + 6));
