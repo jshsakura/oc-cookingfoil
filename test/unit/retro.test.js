@@ -16,6 +16,10 @@ import { CONSOLE, seedConsole } from "../support/console.js";
 
 // A real, tall cover (like a SNES box), so the square drawing has something to fit.
 const TALL_COVER = await sharp({ create: { width: 100, height: 140, channels: 3, background: "#c03030" } }).png().toBuffer();
+// A bezel is a frame around a transparent screen: RetroArch draws it from the PNG on the SD card.
+const BEZEL_PNG = await sharp({ create: { width: 64, height: 36, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+  .composite([{ input: { create: { width: 8, height: 36, channels: 4, background: { r: 200, g: 40, b: 40, alpha: 1 } } }, left: 0, top: 0 }])
+  .png().toBuffer();
 
 function put(root, rel, body = "x") {
   fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
@@ -53,7 +57,7 @@ function fixture() {
   put(dir, "roms/ps1/Disc Game/Disc Game (Track 1).bin", "TRACK1");
   put(dir, "roms/gba/.hidden.gba", "x");
   put(dir, "thumbnails/snes/Named_Boxarts/Super Mario World (USA).png", TALL_COVER);
-  put(dir, "bezels/snes/Super Mario World (USA).png", "BEZEL");
+  put(dir, "bezels/snes/Super Mario World (USA).png", BEZEL_PNG);
   put(dir, "bezels/ps1/_default.png", "GENERIC");
   put(dir, "system-icons/color/snes.png", "COLOR");
   put(dir, "system-icons/mono/snes.png", "MONO");
@@ -239,7 +243,8 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(discGame.rom_hash, null);
     assert.ok(discGame.size > discGame.rom_size, "size counts the tracks, rom_size the .cue alone");
     const tile = await get(smw.iconUrl);
-    assert.equal(tile.headers.get("content-type"), "image/jpeg");
+    assert.equal(tile.headers.get("content-type"), "image/webp", "WebP without asking");
+    assert.doesNotMatch(tile.headers.get("vary") ?? "", /Accept/);
     const meta = await sharp(Buffer.from(await tile.arrayBuffer())).metadata();
     assert.deepEqual([meta.width, meta.height], [256, 256], "a square tile for the client, whatever the cover's shape");
     assert.match(smw.iconUrl, /\?v=[0-9a-f]{12}$/);
@@ -251,12 +256,22 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.match(smw.boxartUrl, /\/boxart\?v=[0-9a-f]{12}$/);
     assert.equal(smw.boxartUrl.split("v=")[1], smw.iconUrl.split("v=")[1], "one cover, one key");
     const whole = await get(smw.boxartUrl);
-    assert.ok(Buffer.from(await whole.arrayBuffer()).equals(TALL_COVER), "the cover itself stays available");
+    assert.equal(whole.headers.get("content-type"), "image/webp");
+    assert.deepEqual(await sharp(Buffer.from(await whole.arrayBuffer())).metadata().then((m) => [m.format, m.width, m.height]), ["webp", 100, 140], "the whole cover, as WebP");
     assert.equal(whole.headers.get("cache-control"), "public, max-age=31536000, immutable");
-    const box = await fetch(`${BASE}${smw.boxartUrl}&size=md`, { headers: { ...AUTH, Accept: "image/webp" } });
-    assert.equal(box.headers.get("content-type"), "image/webp");
-    assert.match(box.headers.get("vary") ?? "", /Accept/);
-    assert.equal(box.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    for (const accept of ["image/webp,image/*;q=0.8", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8", "*/*"]) {
+      const box = await fetch(`${BASE}${smw.boxartUrl}&size=md`, { headers: { ...AUTH, Accept: accept } });
+      assert.equal(box.headers.get("content-type"), "image/webp", accept);
+      assert.doesNotMatch(box.headers.get("vary") ?? "", /Accept/);
+      assert.equal(box.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    }
+    // The bezel goes onto the SD card for RetroArch's overlay: the PNG itself, its transparency whole.
+    const bezel = await fetch(`${BASE}${smw.bezel.imageUrl}`, { headers: { ...AUTH, Accept: "image/webp,image/*;q=0.8" } });
+    assert.equal(bezel.headers.get("content-type"), "image/png");
+    const bezelBytes = Buffer.from(await bezel.arrayBuffer());
+    assert.ok(bezelBytes.equals(BEZEL_PNG), "never re-encoded");
+    const bezelMeta = await sharp(bezelBytes).metadata();
+    assert.deepEqual([bezelMeta.format, bezelMeta.hasAlpha], ["png", true]);
     assert.equal((await get(smw.boxartUrl.replace(/\?v=.*/, ""))).headers.get("cache-control"), "private, no-cache", "unversioned: revalidated");
     assert.match(snes.iconUrl, /\/icon\?v=[0-9a-f]{12}$/);
     assert.match(snes.iconMonoUrl, /\/icon\?style=mono&v=[0-9a-f]{12}$/);
@@ -269,7 +284,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
 
     const bundle = untar(Buffer.from(await (await get(smw.bundleUrl)).arrayBuffer()));
     assert.equal(bundle.get("roms/snes/Super Mario World (USA).sfc"), "SMW");
-    assert.equal(bundle.get("retroarch/overlays/GameBezels/SNES/Super Mario World (USA).png"), "BEZEL");
+    assert.equal(bundle.get("retroarch/overlays/GameBezels/SNES/Super Mario World (USA).png"), BEZEL_PNG.toString("utf8"));
     assert.match(bundle.get("retroarch/overlays/GameBezels/SNES/Super Mario World (USA).cfg"), /overlay0_full_screen = true/);
     assert.match(bundle.get("retroarch/config/Snes9x/Super Mario World (USA).cfg"), /input_overlay_enable = "true"/);
 
@@ -480,7 +495,7 @@ test("square tiles are drawn ahead of time, redrawn for a new cover, and dropped
   assert.deepEqual(fs.readdirSync(artDir), [], "a removed game's square is dropped");
 });
 
-test("box art comes at the size the client shows, never enlarged, WebP only when asked, and is dropped with its game", async () => {
+test("box art comes as WebP at the size the client shows or whole, never enlarged, and is dropped with its game", async () => {
   const { ensureBoxart, prewarm, artKey } = await import("../../src/retro/square-art.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-boxart-"));
   const artDir = path.join(root, "art");
@@ -488,14 +503,19 @@ test("box art comes at the size the client shows, never enlarged, WebP only when
   fs.writeFileSync(cover, await sharp({ create: { width: 366, height: 512, channels: 3, background: "#30c030" } }).png().toBuffer());
   const game = { id: "snes-0123456789", icon: cover };
   const dims = async (file) => sharp(file).metadata().then((m) => [m.format, m.width, m.height]);
-  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "md", true)), ["webp", 183, 256], "fits within 256, keeps its shape");
-  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "sm", true)), ["webp", 114, 160]);
-  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "md", false)), ["png", 183, 256], "no WebP without Accept");
-  assert.ok((await ensureBoxart(artDir, game, "md", true)).includes(artKey(game)), "named by the cover's key");
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "md")), ["webp", 183, 256], "fits within 256, keeps its shape");
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "sm")), ["webp", 114, 160]);
+  assert.deepEqual(await dims(await ensureBoxart(artDir, game, "full")), ["webp", 366, 512], "whole, as WebP");
+  assert.ok((await ensureBoxart(artDir, game, "md")).includes(artKey(game)), "named by the cover's key");
+  // What an older server drew for clients without WebP is dropped at the next pass.
+  const oldPng = path.join(artDir, "boxart", `${game.id}-${artKey(game)}.md.png`);
+  fs.writeFileSync(oldPng, "old");
+  await prewarm(artDir, [game]);
+  assert.ok(!fs.existsSync(oldPng), "an old non-WebP box art variant is gone");
+  assert.ok(fs.existsSync(await ensureBoxart(artDir, game, "md")));
   const tiny = { id: "snes-0000000001", icon: path.join(root, "tiny.png") };
   fs.writeFileSync(tiny.icon, TALL_COVER);
-  assert.deepEqual(await dims(await ensureBoxart(artDir, tiny, "md", true)), ["webp", 100, 140], "a small cover is not enlarged");
-  assert.equal(await ensureBoxart(artDir, tiny, "md", false), tiny.icon, "already small enough: the cover itself");
+  assert.deepEqual(await dims(await ensureBoxart(artDir, tiny, "md")), ["webp", 100, 140], "a small cover is not enlarged");
   await prewarm(artDir, [tiny]);
   assert.deepEqual(fs.readdirSync(path.join(artDir, "boxart")).filter((f) => f.startsWith(game.id)), [], "a removed game's box art is dropped");
 });

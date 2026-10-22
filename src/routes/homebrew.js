@@ -2,8 +2,8 @@
  * GET /api/homebrew                every app the admin left on  { homebrew: [H…] }, with ETag;
  *                                  ?with=titles also lists the installable titles (install_type "title")
  * GET /api/homebrew/:id/icon?v=&size=sm|md   the app's icon from its NRO (404 before its first fetch):
- *                                  at most 160 or 256 px (md, the default), never enlarged; WebP for
- *                                  Accept: image/webp, else the NRO's own JPEG. icon_url carries
+ *                                  at most 160 or 256 px (md, the default), never enlarged, WebP for
+ *                                  every client. icon_url carries
  *                                  ?v= of the build: that v is immutable, anything else
  *                                  `public, max-age=300` with an ETag
  * GET /api/homebrew/:id/download   the .nro, or the .nsp of a title (Content-Length, Range, ETag = its sha256)
@@ -586,14 +586,12 @@ export function homebrewRouter({ service = defaultService } = {}) {
     const icon = custom ? fs.readFileSync(media.iconPath(req.params.id)) : await service.icon(req.params.id);
     if (!icon) return res.status(404).json({ error: "no icon" });
     const v = custom ? media.iconVersion(req.params.id) : homebrewIconVersion((await service.list()).find((e) => e.id === req.params.id));
-    const webp = (req.get("accept") || "").includes("image/webp");
     const key = `${req.params.id}\0${v ?? crypto.createHash("sha1").update(icon).digest("hex")}`;
-    const { body, type } = await iconVariant(key, icon, { size: req.query.size, webp });
+    const { body, type } = await iconVariant(key, icon, { size: req.query.size });
     res.set({
       "Content-Type": type,
       "Cache-Control": v && req.query.v === v ? IMMUTABLE : UNVERSIONED,
       ETag: `"${crypto.createHash("sha1").update(body).digest("base64url")}"`,
-      Vary: "Accept",
     });
     if (req.fresh) return res.status(304).end();
     res.end(body);

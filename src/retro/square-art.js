@@ -10,11 +10,14 @@
  * also the icon URL's ?v=, which makes the URL safe to cache for good).
  * Files for games that are gone are removed.
  *
- * The box art itself (the detail screen's cover) also comes at the client's
- * sizes, fitted within 256 px (md) or 160 px (sm) with its own shape and never
- * enlarged, as WebP for clients that ask for it. Those are drawn on first use
- * into <data dir>/retro-art/boxart/ under the same key, and dropped with
- * their game like the squares.
+ * The squares stay JPEG on disk: a forwarder's HOME icon is drawn from the md
+ * one, and a NACP icon is a JPEG. What goes to a screen over HTTP is WebP: the
+ * squares' WebP twins, and the box art itself (the detail screen's cover)
+ * fitted within 256 px (md) or 160 px (sm) with its own shape and never
+ * enlarged, or whole (full). Those are drawn on first use into
+ * <data dir>/retro-art/boxart/ under the same key, and dropped with their game
+ * like the squares. The covers themselves stay PNG in thumbnails/: RetroArch
+ * reads them from the SD card.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -67,30 +70,25 @@ export const BOXART_SIZES = { md: SQUARE_PX, sm: 160 };
 const BOXART_DIR = "boxart";
 
 /**
- * The box art fitted within `size` (md 256, sm 160), never enlarged: WebP when
- * `webp`, else the cover's own format. A cover already that small comes as it
- * is when WebP isn't wanted. Null without box art.
+ * The box art as WebP: fitted within `size` (md 256, sm 160), never enlarged,
+ * or whole for "full". Null without box art.
  */
-export async function ensureBoxart(artDir, game, size = "md", webp = false) {
+export async function ensureBoxart(artDir, game, size = "md") {
   const key = artKey(game);
   if (!key) return null;
-  const px = BOXART_SIZES[size] ?? SQUARE_PX;
-  const png = /\.png$/i.test(game.icon);
-  if (!webp) {
-    const { width = 0, height = 0 } = await sharp(game.icon, { failOn: "none" }).metadata();
-    if (width <= px && height <= px) return game.icon;
-  }
-  const dest = path.join(artDir, BOXART_DIR, `${game.id}-${key}.${size}.${webp ? "webp" : png ? "png" : "jpg"}`);
+  const px = size === "full" ? null : BOXART_SIZES[size] ?? SQUARE_PX;
+  const dest = path.join(artDir, BOXART_DIR, `${game.id}-${key}.${px ? size : "full"}.webp`);
   if (fs.existsSync(dest)) return dest;
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await drawOnce(dest, (tmp) => {
-    const fitted = sharp(game.icon, { failOn: "none" }).resize(px, px, { fit: "inside", withoutEnlargement: true });
-    return (webp ? fitted.webp({ quality: 75, effort: 6 }) : png ? fitted.png() : fitted.jpeg({ quality: QUALITY, mozjpeg: true })).toFile(tmp);
+    const img = sharp(game.icon, { failOn: "none" });
+    const fitted = px ? img.resize(px, px, { fit: "inside", withoutEnlargement: true }) : img;
+    return fitted.webp({ quality: 75, effort: 6 }).toFile(tmp);
   });
   return dest;
 }
 
-/** The WebP twin of a square (for clients that send `Accept: image/webp`), about a third smaller. */
+/** The WebP twin of a square, the one sent to screens, about a third smaller. */
 export const webpPath = (square) => square.replace(/\.jpg$/, ".webp");
 
 /** The WebP twin of a game's square, made from the JPEG square on first use; null without box art. */
@@ -154,8 +152,9 @@ export function prewarm(artDir, games) {
     let removed = 0;
     // <id>-<key>.<size>.<ext>: everything up to the first dot names the game and its cover.
     const keys = new Set(games.map((g) => { const k = artKey(g); return k && `${g.id}-${k}`; }).filter(Boolean));
+    // Box art is WebP only: a .png or .jpg there was drawn by an older server for clients without WebP.
     for (const f of await fsp.readdir(path.join(artDir, BOXART_DIR)).catch(() => [])) {
-      if (!keys.has(f.slice(0, f.indexOf(".")))) {
+      if (!keys.has(f.slice(0, f.indexOf("."))) || /\.(png|jpg)$/.test(f)) {
         await fsp.rm(path.join(artDir, BOXART_DIR, f), { force: true });
         removed++;
       }

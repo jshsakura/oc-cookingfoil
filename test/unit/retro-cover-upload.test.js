@@ -73,14 +73,14 @@ test("a cover uploaded from the retro tab replaces the box art, shrunk", async (
     const again = (await (await fetch(`${BASE}/admin/api/retro-art/games?q=mario`, { headers: admin })).json()).games;
     assert.equal(again[0].boxart, true, "the list follows at once");
 
-    // The tile: JPEG by default, WebP for a client that asks for it.
+    // The tile: WebP whatever the client names.
     const tile = (accept) => fetch(`${BASE}/api/retro/games/${encodeURIComponent(game)}/icon?size=sm`, { headers: { ...ALICE, Accept: accept } });
-    let t = await tile("image/jpeg");
-    assert.equal(t.status, 200);
-    assert.match(t.headers.get("content-type"), /jpeg/);
-    t = await tile("image/webp");
-    assert.match(t.headers.get("content-type"), /webp/);
-    assert.equal((await sharp(Buffer.from(await t.arrayBuffer())).metadata()).width, 160);
+    for (const accept of ["image/jpeg", "image/webp"]) {
+      const t = await tile(accept);
+      assert.equal(t.status, 200);
+      assert.match(t.headers.get("content-type"), /webp/, accept);
+      assert.equal((await sharp(Buffer.from(await t.arrayBuffer())).metadata()).width, 160);
+    }
   } finally {
     server.kill();
   }
