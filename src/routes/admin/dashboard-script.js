@@ -3,6 +3,7 @@
  * Plain DOM, no framework: the page must work on an offline LAN box.
  */
 import { guessUpload } from "./upload-guess.js";
+import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "./upload-flow.js";
 
 export const DASHBOARD_SCRIPT = /* js */ `
 const $=(id)=>document.getElementById(id);
@@ -678,22 +679,21 @@ async function openLog(c,f,button){
 $('cl-refresh').addEventListener('click',loadClientLogs);
 
 // ── upload ────────────────────────────────────────────────────────────
-// A homebrew app's patch or save is the inside of its switch/<app>/ folder, not a game's atmosphere/ tree.
-const UP_HINT_HB={
-  patch:'홈브류 앱의 패치를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 놓일 파일을 그 구조 그대로 넣습니다.',
-  save:'홈브류 앱의 세이브를 zip 이나 폴더로 올립니다. 기기의 switch/<앱>/ 안에 있던 세이브 파일을 그 구조 그대로 넣습니다.',
-};
-const UP_HINT={
-  game:'nsp·nsz·xci·xcz 파일 하나를 올립니다. 패키지 폴더 맨 위에 들어가고 라이브러리가 바로 읽습니다.',
-  retro:'기종을 고르고 롬을 올립니다. CD 게임은 cue·bin 이나 디스크 여러 장을 함께 고릅니다. 표지와 베젤은 올린 뒤 알아서 찾습니다.',
-  patch:'게임을 고르고 패치를 zip 이나 폴더로 올립니다. 안에 atmosphere/contents/<타이틀 ID>/… 가 있어야 합니다.',
-  save:'게임을 고르고 세이브 폴더(JKSV 로 뽑은 그대로)를 zip 이나 폴더로 올립니다. 설명은 영어가 기본이고 한국어는 한국어 화면에 나옵니다.',
-  homebrew:'.nro 하나나 릴리스 zip, 또는 앱 폴더를 올립니다. 감싼 폴더를 벗기고 switch/<앱>/ 하나로 정리하며, 그 밖의 파일(atmosphere/ 등)과 설명서는 빼고 무엇을 뺐는지 아래에 남깁니다.',
-  client:'직접 빌드한 cookingfoil.nro 하나를 올립니다. 지금 내보내는 것을 바꾸고, 기기는 다음에 앱을 켤 때 업데이트를 받습니다. 지금보다 낮은 버전은 받지 않습니다.',
-  port:'포트 게임을 홈브류와 같은 방식으로 올리고 바로 포트로 등록합니다. .nro 나 릴리스 zip, 앱 폴더를 switch/<앱>/ 하나로 정리합니다. 포트의 패치와 세이브는 올린 뒤 그 앱을 골라 따로 올립니다.',
-};
-let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[],upMismatch=false;
+// The page opens on the file chooser. What the names say is a suggestion shown next to it; the
+// kinds and consoles only appear once files are picked, and only as many as the suggestion needs.
+const upT=(k,v)=>{let s=topText('u.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
+const UP_KIND_KEY={game:'kGame',patch:'kPatch',save:'kSave',homebrew:'kHomebrew',port:'kPort',client:'kClient',retro:'kRetro'};
+const UP_HINT_KEY={game:'hGame',retro:'hRetro',patch:'hPatch',save:'hSave',homebrew:'hHomebrew',client:'hClient',port:'hPort'};
+let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[],upGuess=null,upPreset=false,upOpen=false,upAllSys=false,upBusy=false;
+let upUnits=[],upHistory=[],upDone=[];
 ${guessUpload.toString()}
+${splitUnits.toString()}
+${unitsToSend.toString()}
+${tally.toString()}
+${failureKind.toString()}
+${tallyFiles.toString()}
+${hasBatches.toString()}
+${trimHistory.toString()}
 // The entry names of a .zip, read from its central directory (no unpacking); null when it can't be read.
 async function zipNames(file){
   try{const tail=Math.min(file.size,65557);const v=new DataView(await file.slice(file.size-tail).arrayBuffer());
@@ -719,37 +719,125 @@ async function droppedFiles(dt){
     const r=en.createReader();for(let b=await read(r);b.length;b=await read(r))for(const x of b)await walk(x,pre+en.name+'/');}
   for(const en of entries)await walk(en,'');
   return {files,paths};}
-function upHint(){const app=$('up-target').value;
-  let h=!upKind?(upFiles.length?'파일 이름만으로는 어디에 올릴지 알 수 없습니다. 위에서 올릴 곳을 고릅니다.':'올릴 곳을 먼저 고릅니다. 파일을 바로 놓으면 이름을 보고 알맞은 곳을 미리 골라 둡니다.'):app&&UP_HINT_HB[upKind]?UP_HINT_HB[upKind]:UP_HINT[upKind];
-  if(upKind==='retro'){const sys=(upInfo?.systems||[]).find((x)=>x.id===$('up-system').value);if(sys)h='레트로 · '+sys.name+' 에 올립니다. '+h;}
-  if(upKind==='retro'&&upSystems.length>1)h+=' 이 확장자는 여러 기종이 씁니다. 고른 기종이 맞는지 확인합니다.';
-  if(upKind==='game'&&upFiles.length>1)h+=' 고른 '+upFiles.length+'개를 하나씩 차례로 올립니다.';
-  if(upMismatch&&upFiles.length)h+=' 파일 이름으로는 고른 곳과 다른 종류로 보입니다. 올릴 곳이 맞는지 확인합니다.';
-  $('up-hint').textContent=h;}
-function upChosen(){const n=upFiles.length;const size=upFiles.reduce((a,f)=>a+f.size,0);
-  $('up-drop').classList.toggle('has',n>0);$('up-form').hidden=!(n||$('up-target').value);
-  $('up-drop-t').textContent=n?'다른 파일로 바꾸려면 여기에 다시 놓습니다':'파일이나 폴더를 여기에 끌어다 놓습니다';
-  $('up-chosen').textContent=n?(upPaths?upPaths[0].split('/')[0]+'/ · ':'')+(n===1?upFiles[0].name:n+'개 파일')+' · '+(size/1048576).toFixed(1)+' MB'
-    :'놓은 파일의 이름을 보고 종류를 알아서 고릅니다';}
-function upSetKind(kind){upKind=kind;
-  // A retro tile is one console: it is the one pressed only when that console is the chosen one.
-  for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind&&(!b.dataset.system||b.dataset.system===$('up-system').value)));
-  // A picked console folds the others away; another kind or a reset shows them all again.
-  const folded=kind==='retro'&&Boolean($('up-system').value);$('up-systems').classList.toggle('folded',folded);
-  const more=$('up-systems').querySelector('.up-more-sys');if(more)more.hidden=!folded;
-  upHint();
-  const ps=kind==='patch'||kind==='save';
+const upSysName=(id)=>(upInfo?.systems||[]).find((x)=>x.id===id)?.name||'';
+function upKindName(kind){const sys=upSysName($('up-system').value);return kind==='retro'&&sys?upT('kRetro')+' · '+sys:upT(UP_KIND_KEY[kind]);}
+// What the names say that the chosen kind (or console) does not match; '' when they agree or say nothing.
+function upMismatch(){
+  if(!upGuess||!upGuess.kind||!upKind)return '';
+  const same=upGuess.kind===upKind||(upKind==='port'&&upGuess.kind==='homebrew');
+  if(!same)return upKindName(upGuess.kind);
+  const sys=$('up-system').value;
+  if(upKind==='retro'&&sys&&upSystems.length&&!upSystems.includes(sys))return upSystems.map(upSysName).join(', ');
+  return '';}
+function upPlanText(){
+  const app=$('up-target').value;
+  if(!upKind)return '';
+  if(upKind==='game')return upT('pGame',{n:upFiles.length||1});
+  if(upKind==='retro'){const s=upSysName($('up-system').value);return s?upT('pRetro',{sys:s}):upT('pRetroNone');}
+  if(upKind==='patch')return upT(app?'pPatchApp':'pPatch');
+  if(upKind==='save')return upT(app?'pSaveApp':'pSave');
+  return upT({homebrew:'pHomebrew',port:'pPort',client:'pClient'}[upKind]);}
+function upHintText(){
+  if(!upKind)return '';
+  const app=$('up-target').value;
+  let h=app&&(upKind==='patch'||upKind==='save')?upT(upKind==='patch'?'hPatchApp':'hSaveApp'):upT(UP_HINT_KEY[upKind]);
+  if(upKind==='game'&&upFiles.length>1)h+=' '+upT('seq',{n:upFiles.length});
+  return h;}
+// One place draws the whole page from its state, so a language switch or a retry never leaves part of it stale.
+function upRender(){
+  const n=upFiles.length,size=upFiles.reduce((a,f)=>a+f.size,0),sys=$('up-system').value;
+  $('up-drop').classList.toggle('has',n>0);
+  $('up-drop-t').textContent=upT(n?'dropT2':'dropT');
+  $('up-chosen').textContent=n?(upPaths?upPaths[0].split('/')[0]+'/ · ':'')+(n===1?upFiles[0].name:upT('filesN',{n}))+' · '+(size/1048576).toFixed(1)+' MB':'';
+  $('up-lead').hidden=n>0||upPreset;
+  $('up-form').hidden=!(n||$('up-target').value);
+  // The suggestion and the choices.
+  const showGuess=n>0&&!upPreset;
+  const forced=!upKind||(upKind==='retro'&&!sys);
+  const chooser=showGuess&&(upOpen||forced);
+  $('up-guess').hidden=!showGuess;$('up-kinds').hidden=!chooser;
+  $('up-change').hidden=forced;$('up-change').textContent=upT(chooser?'fold':'change');
+  $('up-change').setAttribute('aria-expanded',String(chooser));
+  const mm=upMismatch();
+  let gt='',warn=false;
+  if(showGuess){
+    if(mm){gt=upT('mismatch',{kind:mm});warn=true;}
+    else if(upGuess&&upGuess.mixed){gt=upT('guessMixed');warn=!upKind;}
+    else if(!upKind){gt=upT('guessUnknown');warn=true;}
+    else if(upGuess&&upGuess.kind===upKind&&upKind==='retro'&&upSystems.length>1&&!sys){gt=upT('guessAmbig');warn=true;}
+    else if(upGuess&&(upGuess.kind===upKind||(upKind==='port'&&upGuess.kind==='homebrew')))gt=upT('guessed',{kind:upKindName(upKind)});
+    else gt=upT('picked',{kind:upKindName(upKind)});}
+  $('up-guess-t').textContent=gt;$('up-guess').classList.toggle('warn',warn);
+  // Kind buttons: a console tile is pressed only when that console is the chosen one.
+  for(const b of document.querySelectorAll('#up-kinds [data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===upKind&&(!b.dataset.system||b.dataset.system===sys)));
+  const retro=chooser&&upKind==='retro';$('up-systems-wrap').hidden=!retro;
+  const folded=upKind==='retro'&&Boolean(sys)&&!upAllSys,cands=upKind==='retro'&&!sys&&upSystems.length>0&&!upAllSys;
+  $('up-systems').classList.toggle('folded',folded);$('up-systems').classList.toggle('cands',cands);
+  for(const b of $('up-systems').querySelectorAll('[data-system]'))b.classList.toggle('cand',upSystems.includes(b.dataset.system));
+  const more=$('up-systems').querySelector('.up-more-sys');if(more){more.textContent=upT('otherSys');more.hidden=!(folded||cands);}
+  // The form.
+  const ps=upKind==='patch'||upKind==='save';
   $('up-name-l').hidden=$('up-target-l').hidden=!ps;
   $('up-game-l').hidden=!ps||$('up-target').value!=='';
   $('up-desc-l').hidden=!ps;
-  $('up-savetype-l').hidden=!(kind==='save'&&$('up-target').value==='');
-  $('up-required-l').hidden=!(kind==='patch'&&$('up-target').value==='');
-  const w=kind&&upInfo&&upInfo.targets[kind==='port'?'homebrew':kind];$('up-note').replaceChildren();
-  if(w&&!w.writable){const n=el('div',null,'note warn');
-    n.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
+  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');
+  $('up-required-l').hidden=!(upKind==='patch'&&$('up-target').value==='');
+  $('up-hint').textContent=upHintText()+(upPreset&&n&&mm?' '+upT('mismatch',{kind:mm}):'');
+  $('up-plan').textContent=upPlanText();
+  const w=upKind&&upInfo&&upInfo.targets[upKind==='port'?'homebrew':upKind];$('up-note').replaceChildren();
+  if(w&&!w.writable){const nt=el('div',null,'note warn');
+    nt.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
       el('div',w.exists===false?'compose 에서 이 폴더를 마운트하고 컨테이너를 다시 띄웁니다. 폴더 위치는 README 의 폴더 설명을 봅니다.'
-        :'compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(n);}
-  $('up-go').disabled=!(w&&w.writable);}
+        :'compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(nt);}
+  const failed=upUnits.filter((u)=>u.state==='fail').length;
+  $('up-go').textContent=failed&&!upBusy?upT('goRetry',{n:failed}):upT('go');
+  $('up-go').disabled=upBusy||!(w&&w.writable)||(upKind==='retro'&&!sys);$('up-clear').disabled=upBusy;$('up-clear').textContent=upT('reset');
+  // The result of the batch on screen.
+  // The batch on screen, or the one that just finished: its summary stays through a language switch.
+  const shown=upUnits.length?upUnits:upDone;const t=tally(shown);const sum=$('up-sum');sum.hidden=!shown.length;
+  if(shown.length)sum.textContent=upSumText(shown)+(upUnits.length&&t.fail&&t.ok&&!upBusy?'. '+upT('rKeep'):'');
+  // While files are going up nothing that decides where they go can be changed.
+  for(const b of document.querySelectorAll('#up-kinds button,#up-change,#up-file-btn,#up-dir-btn'))b.disabled=upBusy;
+  for(const id of ['up-target','up-game','up-name','up-desc','up-desc-ko','up-savetype','up-required'])$(id).disabled=upBusy;
+  $('up-drop').setAttribute('aria-disabled',String(upBusy));
+  for(const u of upHistory)upPaint(u);}
+// Counts in files when a request carries several (a folder, a disc set), else in requests; never invented per file.
+const upFilesT=(n)=>n===1?upT('f1',{n}):upT('fN',{n});
+const upBatchesT=(n,f)=>upT('bf',{b:n===1?upT('b1',{n}):upT('bN',{n}),f:upFilesT(f)});
+function upSumText(units){const t=tally(units);
+  if(!hasBatches(units))return upT('rSum',t)+(t.wait?upT('rSumWait',t):'');
+  const f=tallyFiles(units);
+  return upT('sumB',{ok:upBatchesT(t.ok,f.ok),fail:upBatchesT(t.fail,f.fail)})+(t.wait?upT('sumBWait',{wait:upBatchesT(t.wait,f.wait)}):'');}
+function upTrim(){for(const u of trimHistory(upHistory,upUnits.length?upUnits:upDone,50)){u.row?.remove();upHistory.splice(upHistory.indexOf(u),1);}}
+// One result row per request, updated in place as it goes from waiting to sent or failed.
+function upPaint(u){
+  if(!u.row){u.row=el('div',null,'note');u.row.setAttribute('role','listitem');$('up-log').prepend(u.row);}
+  const ok=u.state==='ok',fail=u.state==='fail';
+  u.row.className='note'+(fail?' warn':'');
+  const head=ok?upT('rOk'):fail?upT('rFail'):upT(u.state==='busy'?'rBusy':'rWait');
+  const kids=[el('div',head+' · '+u.label,'t')];
+  if(u.files.length>1){const det=el('details',null,'d');det.append(el('summary',upT('rList',{n:u.files.length})));
+    for(const [i,f] of u.files.entries())det.append(el('div',u.paths?u.paths[i]:f.name));
+    kids.push(det,el('div',upT('rUnit'),'d'));}
+  if(ok){const d=u.d||{};
+    kids.push(el('div',upT('rWhere',{where:d.where,files:upFilesT(d.files)})+(d.kind==='port'?' · '+upT('rPort'):''),'d'));
+    if(d.install){for(const x of d.install.excluded||[])kids.push(el('div',upT('rExcl',{rule:HB_EXCLUDED[x.rule]||x.rule,paths:x.paths.join(', ')}),'d'));
+      if(d.install.rules?.length)kids.push(el('div',upT('rBasis',{rules:d.install.rules.join(' · ')}),'d'));}}
+  if(fail){const why=failureKind(u.status,u.msg);
+    kids.push(el('div',why==='net'?upT('rNet'):(u.msg||('HTTP '+u.status)),'d'));
+    if(why==='dup')kids.push(el('div',upT('rDup'),'d'));
+    if(upUnits.includes(u)&&!upBusy){const row=el('div',null,'row-actions');const b=el('button',upT('rRetry'));b.type='button';
+      b.addEventListener('click',()=>upSubmit([u]));row.append(b);kids.push(row);}}
+  u.row.replaceChildren(...kids);}
+function upSetKind(kind,fromUser){
+  if(fromUser)upDropBatch();
+  upKind=kind;upRender();}
+// A batch that was partly sent is over once the kind changes: what went up stays up, the rest is picked again.
+function upDropBatch(){
+  if(upBusy||!upUnits.length)return;
+  const rest=unitsToSend(upUnits);
+  if(rest.length<upUnits.length){upFiles=rest.flatMap((u)=>u.files);if(!rest.some((u)=>u.paths))upPaths=null;}
+  upUnits=[];}
 async function loadUploadInfo(){
   if(upInfo)return true;
   try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return false;}
@@ -758,8 +846,8 @@ async function loadUploadInfo(){
   $('up-systems').replaceChildren(...upInfo.systems.map((s)=>{const b=el('button');b.type='button';b.dataset.kind='retro';b.dataset.system=s.id;
     const im=el('img');im.alt='';im.loading='lazy';im.src='/api/retro/systems/'+encodeURIComponent(s.id)+'/icon';im.onerror=()=>im.style.visibility='hidden';
     b.append(im,el('b',s.name));b.title=s.name+' · '+s.extensions.join(' ');b.setAttribute('aria-label','레트로 · '+s.name);return b;}));
-  const more=el('button','다른 기종','up-more-sys');more.type='button';more.hidden=true;
-  more.addEventListener('click',()=>{$('up-systems').classList.remove('folded');more.hidden=true;});$('up-systems').append(more);
+  const more=el('button',null,'up-more-sys');more.type='button';more.hidden=true;
+  more.addEventListener('click',()=>{upAllSys=true;upRender();});$('up-systems').append(more);
   if(!upInfo.systems.length)$('up-systems').append(el('div','서버에 레트로 기종이 없습니다.','empty'));
   $('up-games').replaceChildren(...upInfo.games.map((g)=>{const o=el('option',g.titleId);o.value=g.name+' ['+g.titleId+']';return o;}));
   // A homebrew app's patch or save goes into its own switch/<app>/ folder.
@@ -767,38 +855,44 @@ async function loadUploadInfo(){
   return true;}
 async function loadUpload(){
   if(!await loadUploadInfo())return;
-  if(upPending){$('up-target').value=upPending.app;upKind=upPending.kind;upPending=null;}
-  upSetKind(upKind);upChosen();}
-// New files: guess what they are and fill in what the names tell.
+  // Sent here from an app card: the app and what to add to it are already chosen.
+  // An entry that arrives while files are going up waits: it is applied when the batch ends.
+  if(upPending&&!upBusy){
+    // A new entry starts clean: nothing picked or failed before may be sent to the kind chosen here.
+    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
+    $('up-target').value=upPending.app;upKind=upPending.kind;upPreset=true;upPending=null;}
+  upRender();}
+// New files: read what they are from the names, fill in what the names tell, and leave the rest to the admin.
 async function upTake(files,paths){
-  if(!files.length||!await loadUploadInfo())return;
-  upFiles=files;upPaths=paths;
+  if(upBusy||!files.length||!await loadUploadInfo())return;
+  upFiles=files;upPaths=paths;upUnits=[];upDone=[];upAllSys=false;upOpen=false;
   const zip=!paths&&files.length===1&&/[.]zip$/i.test(files[0].name)?await zipNames(files[0]):null;
   const g=guessUpload({names:files.map((f)=>f.name),paths,zipNames:zip,systems:upInfo.systems});
-  // The place picked first wins; the names only pick one when nothing was picked yet.
-  const picked=upKind;const keep=Boolean(picked);
-  upSystems=g.systems||[];
-  if(!picked&&upSystems.length)$('up-system').value=upSystems[0];
-  upMismatch=Boolean(picked&&g.kind&&(g.kind!==picked&&!(picked==='port'&&g.kind==='homebrew')||picked==='retro'&&upSystems.length&&!upSystems.includes($('up-system').value)));
+  upGuess=g;upSystems=g.systems||[];
   if(g.name)$('up-name').value=g.name;
-  if(g.titleId&&!keep){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
-    $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}
-  // Picked as a port: a homebrew guess stays a port.
-  // A kind picked before the files stays when their names say nothing.
-  upSetKind(keep?upKind:g.kind??null);upChosen();}
-function upReset(){upFiles=[];upPaths=null;upSystems=[];upMismatch=false;
+  if(!upPreset){
+    // Several consoles fit one extension: none is picked until the admin does.
+    upKind=g.kind??null;$('up-system').value=upSystems.length===1?upSystems[0]:'';
+    if(g.titleId){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
+      $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}}
+  upRender();}
+function upReset(){if(upBusy)return;upFiles=[];upPaths=null;upSystems=[];upGuess=null;upUnits=[];upDone=[];upOpen=false;upAllSys=false;upPreset=false;upKind=null;
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
-  $('up-required').checked=false;
-  upSetKind(null);upChosen();}
-$('up-target').addEventListener('change',()=>{$('up-game-l').hidden=$('up-target').value!=='';
-  $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');
-  $('up-required-l').hidden=!(upKind==='patch'&&$('up-target').value==='');upHint();});
-$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b)return;
-  if(b.dataset.system)$('up-system').value=b.dataset.system;upSetKind(b.dataset.kind);});
-$('up-file-btn').addEventListener('click',()=>$('up-file').click());
-$('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
-$('up-drop').addEventListener('click',(e)=>{if(!e.target.closest('button'))$('up-file').click();});
-$('up-drop').addEventListener('keydown',(e)=>{if(e.target===$('up-drop')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();$('up-file').click();}});
+  $('up-required').checked=false;$('up-target').value='';$('up-game').value='';
+  upRender();}
+$('up-target').addEventListener('change',()=>{upDropBatch();upRender();});
+$('up-game').addEventListener('input',()=>{upDropBatch();upRender();});
+$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b||upBusy)return;
+  const kind=b.dataset.kind;
+  if(b.dataset.system){$('up-system').value=b.dataset.system;upOpen=false;}
+  else if(kind==='retro'){if(upKind!=='retro')$('up-system').value='';}
+  else upOpen=false;
+  upSetKind(kind,true);});
+$('up-change').addEventListener('click',()=>{if(upBusy)return;upOpen=!upOpen;upRender();});
+$('up-file-btn').addEventListener('click',()=>{if(!upBusy)$('up-file').click();});
+$('up-dir-btn').addEventListener('click',()=>{if(!upBusy)$('up-dir').click();});
+$('up-drop').addEventListener('click',(e)=>{if(!upBusy&&!e.target.closest('button'))$('up-file').click();});
+$('up-drop').addEventListener('keydown',(e)=>{if(e.target===$('up-drop')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(!upBusy)$('up-file').click();}});
 $('up-clear').addEventListener('click',upReset);
 $('up-file').addEventListener('change',()=>{const f=[...$('up-file').files];$('up-file').value='';upTake(f,null);});
 $('up-dir').addEventListener('change',()=>{const f=[...$('up-dir').files];$('up-dir').value='';upTake(f,f.map((x)=>x.webkitRelativePath||x.name));});
@@ -812,42 +906,61 @@ document.addEventListener('dragover',(e)=>{if(hasFiles(e)){e.preventDefault();e.
 document.addEventListener('drop',async(e)=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');
   const got=await droppedFiles(e.dataTransfer);upTake(got.files,got.paths);});
 function upTitleId(){const v=$('up-game').value.trim();const m=v.match(/[0-9A-Fa-f]{16}/);return m?m[0].toUpperCase():'';}
-// One request; resolves to whether it went in, after logging the answer.
-function upSend(files,paths,label){return new Promise((resolve)=>{
+// One request for one unit; it ends with the unit marked sent or failed and its row repainted.
+function upSend(u,label){return new Promise((resolve)=>{
   const fd=new FormData();
-  if(upKind==='retro')fd.append('system',$('up-system').value);
-  if(upKind==='patch'||upKind==='save'){const app=$('up-target').value;
-    if(app)fd.append('homebrew',app);else fd.append('titleId',upTitleId());fd.append('name',$('up-name').value.trim());
+  // Where it goes was frozen into the unit when the batch was made; the name and descriptions are read now.
+  const k=u.f.kind;
+  if(k==='retro')fd.append('system',u.f.system);
+  if(k==='patch'||k==='save'){const app=u.f.app;
+    if(app)fd.append('homebrew',app);else fd.append('titleId',u.f.titleId);fd.append('name',$('up-name').value.trim());
     fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
-    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
-    if(upKind==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
-  if(upKind==='port')fd.append('port','true');
-  if(paths)fd.append('paths',JSON.stringify(paths));
-  for(const f of files)fd.append('files',f,f.name);
+    if(k==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
+    if(k==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
+  if(k==='port')fd.append('port','true');
+  if(u.paths)fd.append('paths',JSON.stringify(u.paths));
+  for(const f of u.files)fd.append('files',f,f.name);
   const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
   xhr.upload.addEventListener('progress',(ev)=>{if(ev.lengthComputable)bar.firstElementChild.style.width=(ev.loaded/ev.total*100).toFixed(1)+'%';});
   xhr.addEventListener('loadend',()=>{
     if(xhr.status===401){location.reload();return;}
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
-    const ok=xhr.status===201;const n=el('div',null,'note'+(ok?'':' warn'));
-    n.append(el('div',(ok?'올렸습니다':'올리지 못했습니다')+(label?' · '+label:''),'t'),el('div',ok?(d.where+' · 파일 '+d.files+'개'+(d.kind==='port'?' · 포트로 등록':'')):(d.error||('HTTP '+xhr.status)),'d'));
-    if(ok&&d.install){for(const x of d.install.excluded||[])n.append(el('div','일부 파일 제외('+(HB_EXCLUDED[x.rule]||x.rule)+'): '+x.paths.join(', '),'d'));
-      if(d.install.rules?.length)n.append(el('div','판단 근거: '+d.install.rules.join(' · '),'d'));}
-    $('up-log').prepend(n);resolve(ok);});
-  xhr.open('POST','/admin/api/upload/'+(upKind==='port'?'homebrew':upKind));xhr.send(fd);});}
-$('up-form').addEventListener('submit',async(e)=>{e.preventDefault();
-  if(!upFiles.length){toast('올릴 파일을 고릅니다');return;}
-  if(!upKind){toast('종류를 고릅니다');return;}
+    u.status=xhr.status;u.d=d;u.msg=d.error||'';u.state=xhr.status===201?'ok':'fail';
+    upPaint(u);resolve();});
+  xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.send(fd);});}
+// Send the given units (default: every one that has not gone in). Units that went up are never sent again.
+async function upSubmit(only){
+  if(upBusy)return;
+  if(!upFiles.length){toast(upT('tFiles'));return;}
+  if(!upKind){toast(upT('tKind'));return;}
+  if(upKind==='retro'&&!$('up-system').value){toast(upT('tSys'));return;}
   if(upKind==='patch'||upKind==='save'){
-    if(!$('up-target').value&&!upTitleId()){toast('게임이나 홈브류 앱을 고릅니다');return;}
-    if(!$('up-name').value.trim()){toast('이름을 적습니다');return;}}
-  $('up-go').disabled=$('up-clear').disabled=true;
-  let ok=true;
-  if(upKind==='game'&&upFiles.length>1){const list=upFiles;
-    for(const [i,f] of list.entries())ok=(await upSend([f],null,(i+1)+' / '+list.length+' · '+f.name))&&ok;}
-  else ok=await upSend(upFiles,upPaths,'');
-  $('up-go').disabled=$('up-clear').disabled=false;$('up-bar').hidden=true;$('up-progress').textContent='';
-  if(ok){upReset();toast('올렸습니다');}else toast('올리지 못한 것이 있습니다. 아래 기록을 봅니다');});
+    if(!$('up-target').value&&!upTitleId()){toast(upT('tTarget'));return;}
+    if(!$('up-name').value.trim()){toast(upT('tName'));return;}}
+  if(!upUnits.length){
+    upUnits=splitUnits({kind:upKind,names:upFiles.map((f)=>f.name),paths:upPaths}).map((s)=>({label:s.label,files:s.from.map((i)=>upFiles[i]),paths:upPaths&&upKind!=='game'?s.from.map((i)=>upPaths[i]):null,state:'wait',f:{kind:upKind,system:$('up-system').value,app:$('up-target').value,titleId:upTitleId()}}));
+    upDone=[];
+    for(const u of upUnits)upHistory.push(u);
+    // Rows go in newest first, so the batch reads top to bottom in the order it was picked.
+    for(const u of [...upUnits].reverse())upPaint(u);
+    upTrim();}
+  const todo=(only||unitsToSend(upUnits)).filter((u)=>u.state!=='ok');
+  upBusy=true;for(const u of todo)u.state='wait';upRender();
+  for(const [i,u] of todo.entries()){u.state='busy';upPaint(u);
+    await upSend(u,todo.length>1?(i+1)+' / '+todo.length+' · '+u.label:'');}
+  upBusy=false;$('up-bar').hidden=true;$('up-progress').textContent='';
+  if(!upUnits.some((u)=>u.state!=='ok')){
+    // Everything went up: the picked files are done with, the results stay on screen.
+    upFiles=[];upPaths=null;upSystems=[];upGuess=null;upOpen=false;upAllSys=false;upPreset=false;upKind=null;
+    for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
+    $('up-required').checked=false;$('up-target').value='';$('up-game').value='';
+    const done=upUnits;upUnits=[];upRender();
+    // The summary of a finished batch stays until the next pick.
+    upDone=done;upRender();upTrim();
+    toast(upT('tDone'));}
+  else{upRender();toast(upT('tSome'));}
+  if(upPending)await loadUpload();}
+$('up-form').addEventListener('submit',(e)=>{e.preventDefault();upSubmit();});
 
 // ── library ───────────────────────────────────────────────────────────
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);

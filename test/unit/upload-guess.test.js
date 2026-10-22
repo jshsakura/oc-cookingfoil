@@ -40,3 +40,34 @@ test("retro ROMs pick the consoles their extension fits", () => {
   assert.deepEqual(guess({ names: ["Sonic.bin"] }), { kind: "retro", systems: ["psx", "md"] }, "shared extension: the admin checks");
   assert.deepEqual(guess({ names: ["readme.txt"] }), { kind: null });
 });
+
+test("loose files of different kinds are not guessed as one", () => {
+  assert.deepEqual(guess({ names: ["Game.nsp", "Mario.sfc"] }), { kind: null, mixed: true }, "a package next to a ROM");
+  assert.deepEqual(guess({ names: ["app.nro", "Mario.sfc"] }), { kind: null, mixed: true }, "an app next to a ROM");
+  assert.deepEqual(guess({ names: ["Mario.sfc", "Zelda.sfc"] }), { kind: "retro", systems: ["snes"] }, "the same kind stays one guess");
+  assert.deepEqual(guess({ names: ["a.nsp", "b.xci"] }), { kind: "game" }, "packages of two formats are still packages");
+});
+
+test("a file the names cannot place is left unknown, never given a kind", () => {
+  assert.deepEqual(guess({ names: ["notes.txt"] }), { kind: null });
+  assert.deepEqual(guess({ names: ["photo.png", "readme.md"] }), { kind: null });
+});
+
+test("a folder is read as what its files show: packages, a save's file kinds, else undecided", () => {
+  assert.deepEqual(guess({ names: ["a.nsp", "b.xci"], paths: ["Games/a.nsp", "Games/b.xci"] }), { kind: "game", name: "Games" }, "a folder of packages is packages");
+  assert.deepEqual(guess({ names: ["notes.txt"], paths: ["Documents/notes.txt"] }), { kind: null, name: "Documents" }, "notes are not a save");
+  assert.deepEqual(guess({ names: ["a.nsp", "readme.txt"], paths: ["Mixed/a.nsp", "Mixed/readme.txt"] }), { kind: null, name: "Mixed" }, "packages next to notes are not decided");
+  assert.deepEqual(guess({ names: ["Mario.sfc"], paths: ["Roms/Mario.sfc"] }), { kind: null, name: "Roms" }, "a ROM folder is not a save");
+  assert.deepEqual(guess({ names: ["userdata.dat"], paths: ["MK8 save/userdata.dat"] }), { kind: "save", name: "MK8 save" });
+  assert.equal(guess({ names: ["0", "x.meta"], paths: ["B/0", "B/x.meta"] }).kind, "save", "a file with no extension or a .meta counts");
+});
+
+test("a folder is a save only when all its files look like a save's, never on one stray file", () => {
+  const folder = (...files) => guess({ names: files.map((f) => f.split("/").pop()), paths: files.map((f) => `D/${f}`) });
+  assert.equal(folder("Game.cue", "Game.bin").kind, null, "a PlayStation disc folder");
+  assert.equal(folder("a.gba", "b.gba", "README").kind, null, "ROMs with a readme");
+  assert.equal(folder("a.gba", "x.sav").kind, null, "a ROM next to a save file");
+  assert.equal(folder("0100000000010000/romfs/data.bin", "0100000000010000/romfs/more.bin").kind, null, "a patch tree without atmosphere/contents");
+  assert.equal(folder("userdata.dat", "extra.dat").kind, "save");
+  assert.equal(folder("0", "x.meta", "slot.sav").kind, "save");
+});

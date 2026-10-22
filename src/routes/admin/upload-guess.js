@@ -8,8 +8,9 @@
  *   zipNames  the entries of a lone .zip, null when there is no zip or it can't be read
  *   systems   [{ id, extensions }] the retro consoles the server knows
  *
- * → { kind: game|retro|patch|save|homebrew|client|null, systems?, titleId?, name? }
- *   kind null means the files did not say; the admin picks it.
+ * → { kind: game|retro|patch|save|homebrew|client|null, systems?, titleId?, name?, mixed? }
+ *   kind null means the files did not say; the admin picks it. `mixed` marks loose files of
+ *   different kinds (a package next to a ROM): one upload takes one kind, so none is guessed.
  */
 export function guessUpload({ names, paths = null, zipNames = null, systems = [] }) {
   const ext = (n) => { const i = n.lastIndexOf("."); return i > 0 ? n.slice(i).toLowerCase() : ""; };
@@ -33,7 +34,16 @@ export function guessUpload({ names, paths = null, zipNames = null, systems = []
       }
     }
     if (inside.some((p) => ext(p) === ".nro")) return { kind: "homebrew", name };
-    if (paths) return { kind: "save", name };
+    if (paths) {
+      // A folder is only read as what its files show: packages, or a save's own file kinds, all of
+      // them (.dat, .sav, .meta, .bin or no extension, and no romfs/exefs tree). Anything else stays undecided.
+      const files = inside.filter((p) => !p.endsWith("/")).map(ext);
+      const pkg = (e) => [".nsp", ".nsz", ".xci", ".xcz"].includes(e);
+      if (files.length && files.every(pkg)) return { kind: "game", name };
+      const gameTree = inside.some((p) => /(^|\/)(romfs|exefs)\//i.test(p));
+      if (!gameTree && files.length && files.every((e) => ["", ".dat", ".sav", ".meta", ".bin"].includes(e))) return { kind: "save", name };
+      return { kind: null, name };
+    }
     // A zipped ROM: consoles that take .zip and the ROM inside it.
     const roms = inside.filter((p) => !p.endsWith("/")).map(ext);
     const zipped = systems.filter((s) => s.extensions.includes(".zip") && roms.length && roms.every((e) => s.extensions.includes(e))).map((s) => s.id);
@@ -41,6 +51,11 @@ export function guessUpload({ names, paths = null, zipNames = null, systems = []
     return { kind: null, name };
   }
 
+  // Loose files that belong to different kinds are not guessed as one.
+  if (!paths && names.length > 1) {
+    const kindOf = (e) => ([".nsp", ".nsz", ".xci", ".xcz"].includes(e) ? "game" : e === ".nro" ? "homebrew" : systems.some((s) => s.extensions.includes(e)) ? "retro" : null);
+    if (new Set(exts.map(kindOf).filter(Boolean)).size > 1) return { kind: null, mixed: true };
+  }
   // Retro: the consoles that play the first file that isn't a companion (.cue/.m3u and the like).
   const companions = [".cue", ".m3u", ".bin", ".img", ".sub", ".ccd", ".gdi", ".raw"];
   const rom = exts.find((e) => !companions.includes(e)) ?? exts[0];
