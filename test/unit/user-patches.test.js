@@ -298,3 +298,43 @@ test("a patch for a title nobody knows carries no game block", async () => {
   const { gameOf } = await import("../../src/routes/patches.js");
   assert.equal(gameOf("0100FFFFFFFF0000", "https://shop.example"), null);
 });
+
+test("a patch's metadata folder is not part of it: it is listed, shipped and hashed without it", async () => {
+  const body = { [`${TID}/한글/${CHEAT}`]: "cheat\n" };
+  const plain = makeRoot(body);
+  const art = makeRoot({ ...body, [`${TID}/한글/metadata/icon.webp`]: "pic", [`${TID}/한글/metadata/banner.jpg`]: "pic", [`${TID}/한글/metadata/notes.txt`]: "x" });
+  await scan({ root: plain });
+  await hashed();
+  const [a] = await list();
+  reset();
+  await scan({ root: art });
+  await hashed();
+  const [b] = await list();
+  assert.ok(b, "a patch with pictures is listed, not rejected");
+  assert.equal(b.files, 1);
+  assert.equal(b.hash, a.hash);
+  const opened = await openForDownload(b.id, art);
+  assert.deepEqual(tarEntries(opened.entries).map((e) => e.path).filter((p) => !p.endsWith("/")), [CHEAT]);
+
+  fs.writeFileSync(path.join(art, TID, "한글", "metadata", "icon.webp"), "another picture");
+  reset();
+  await scan({ root: art });
+  await hashed();
+  assert.ok(b.hash);
+  assert.equal((await list())[0].hash, b.hash, "changing only a picture is not an update");
+});
+
+test("a picture-named file outside metadata/ is the patch's own content", async () => {
+  const root = makeRoot({ [`${TID}/한글/${CHEAT}`]: "cheat\n", [`${TID}/한글/icon.jpg`]: "x" });
+  await scan({ root });
+  assert.equal((await list()).length, 0, "a game patch cannot ship a file at its root");
+});
+
+test("a homebrew app's patch ships everything but its metadata folder", async () => {
+  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "the app's new icon", "homebrew/game/mod/metadata/banner.webp": "pic" });
+  await scan({ root });
+  const [p] = await list();
+  assert.equal(p.files, 2);
+  const opened = await openForDownload(p.id, root);
+  assert.deepEqual(opened.entries.map((e) => e.path).sort(), ["switch/game/data.bin", "switch/game/icon.jpg"]);
+});

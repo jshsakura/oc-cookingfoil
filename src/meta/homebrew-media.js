@@ -4,19 +4,20 @@
  * from SteamGridDB's "heroes", screenshots from IGDB when its key is set); any
  * app may get both uploaded from the admin page.
  *
- *   ${COOK_DATA_DIR}/homebrew/media/<id>/…   the store's files (meta/item-media.js)
+ *   <app folder>/metadata/icon.webp …        a hand-placed or uploaded app's pictures (meta/art-sidecar.js)
+ *   ${COOK_DATA_DIR}/homebrew/media/<id>/…   an app followed on GitHub's pictures, and kept originals
  *   ${COOK_DATA_DIR}/homebrew/media.json     { <id>: { icon?, banner?, shots? } }
  *
  * A search that found nothing is { miss: at } and is tried again after MISS_RETRY_MS.
  */
-import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as activity from "../tasks/activity.js";
 import * as igdb from "./igdb-client.js";
 import { fetchSgdbImage, sgdbHeroes, sgdbSearch } from "../retro/art/sync.js";
-import { createMediaStore, MediaImageError, MAX_SHOTS, jpegOf } from "./item-media.js";
+import { createMediaStore, MediaImageError, MAX_SHOTS } from "./item-media.js";
+import { manualHomeOf } from "./homebrew.js";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const AUTO_SHOTS = 6;
@@ -31,11 +32,12 @@ const store = createMediaStore({
   idRe: ID_RE,
   urlBase: (id) => `/api/homebrew/${id}`,
   label: "homebrew media",
+  homeOf: manualHomeOf,
 });
 const put = store.put;
-export { MediaImageError, MAX_SHOTS, jpegOf };
+export { MediaImageError, MAX_SHOTS };
 export const {
-  idRe, record, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
+  idRe, record, pictures, iconPath, bannerPath, shotPath, shotCount, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
   saveIcon, saveBanner, removeIcon, removeBanner, saveShots, addShots, removeShots, recrop, forget, original, originals,
 } = store;
 
@@ -108,10 +110,19 @@ export async function findShots(names, { fetchImpl = fetch } = {}) {
   return null;
 }
 
-/** Whether a part is still to be filled in automatically. */
-function due(part, now) {
+/**
+ * Whether a part is still to be filled in automatically: never one the folder has,
+ * nor one found before and since taken out of the folder by hand.
+ */
+function due(id, key, now) {
+  const p = pictures(id);
+  if (key === "banner" ? p.banner : p.shots.length) return false;
+  const part = record(id)[key];
+  if (part?.source) {
+    put(id, key, { off: true });
+    return false;
+  }
   if (part?.off) return false;
-  if (part?.source) return false;
   return !(part?.miss && now - part.miss < MISS_RETRY_MS);
 }
 
@@ -127,9 +138,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
   filling ??= (async () => {
     const todo = entries.filter((e) => {
       if (e.kind !== "port" || !ID_RE.test(e.id)) return false;
-      const r = record(e.id);
-      const bannerLost = r.banner?.source && !fs.existsSync(bannerPath(e.id));
-      return (apiKey && (due(r.banner, now()) || bannerLost)) || (shotsOn && due(r.shots, now()));
+      return (apiKey && due(e.id, "banner", now())) || (shotsOn && due(e.id, "shots", now()));
     });
     if (!todo.length) return 0;
     const job = activity.begin("homebrew-art", { title: "포트 그림을 찾습니다", total: todo.length });
@@ -144,7 +153,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
         debug.error("homebrew media: %s %s: %s", e.id, part, err.message);
         if (err instanceof MediaImageError || /\b4\d\d\b/.test(err.message)) put(e.id, part, { miss: now() });
       };
-      const bannerDue = () => due(record(e.id).banner, now()) || (record(e.id).banner?.source && !fs.existsSync(bannerPath(e.id)));
+      const bannerDue = () => due(e.id, "banner", now());
       if (apiKey && bannerDue()) {
         try {
           const found = await findBanner(names, apiKey, fetchImpl);
@@ -161,7 +170,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
       // SteamGridDB's name for the game ("RollerCoaster Tycoon 2") is the best IGDB search there is.
       const sgdbName = record(e.id).banner?.game?.name;
       if (sgdbName) names = [sgdbName, ...names.filter((n) => n.toLowerCase() !== sgdbName.toLowerCase())];
-      if (shotsOn && due(record(e.id).shots, now())) {
+      if (shotsOn && due(e.id, "shots", now())) {
         try {
           const found = await findShots(names, { fetchImpl });
           if (!found) put(e.id, "shots", { miss: now() });
@@ -172,7 +181,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
               try { raws.push(await download(url, fetchImpl)); } catch (err) { debug.error("homebrew media: %s screenshot: %s", e.id, err.message); }
             }
             if (!raws.length) put(e.id, "shots", { miss: now() });
-            else if (due(record(e.id).shots, now())) got += await saveShots(e.id, raws, { source: "igdb", game: found.game });
+            else if (due(e.id, "shots", now())) got += await saveShots(e.id, raws, { source: "igdb", game: found.game });
           }
         } catch (err) {
           failed("shots", err);

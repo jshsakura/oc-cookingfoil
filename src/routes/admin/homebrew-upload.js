@@ -9,12 +9,22 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../../debug.js";
 import { homebrewDir } from "../../helpers/envs.js";
-import { MANIFEST, extractPackage, readNro, zipEntries } from "../../meta/homebrew.js";
+import { MANIFEST, extractPackage, noteManualHome, readNro, zipEntries } from "../../meta/homebrew.js";
+import { META_DIR } from "../../meta/art-sidecar.js";
 import { normalizeLayout } from "../../meta/homebrew-layout.js";
 import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
 import { manualApps, refreshManual } from "../homebrew.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
+
+/** Moves the metadata folder of the folder an upload replaced into the new one. */
+async function keepMetadata(previous, dest) {
+  const before = await fsp.readFile(path.join(previous, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
+  if (before?.own_metadata) return;
+  await fsp.rename(path.join(previous, META_DIR), path.join(dest, META_DIR)).catch((err) => {
+    if (err.code !== "ENOENT") debug.error("upload: keeping %s's %s: %s", dest, META_DIR, err.message);
+  });
+}
 
 export class HomebrewUploadError extends Error {}
 
@@ -47,11 +57,17 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   if (problem) throw new HomebrewUploadError(`올바른 NRO 가 아닙니다: ${problem}`);
   if (!(await readNro(nroFile))) throw new HomebrewUploadError("NRO 에 NACP 가 없습니다");
   const install = { mode: layout.mode, reason: layout.reason, rules: layout.rules, excluded: layout.excluded };
-  await fsp.writeFile(path.join(built, MANIFEST), JSON.stringify({ nro: path.posix.basename(layout.nro.path), ...install }, null, 1));
+  // A metadata/ the release brings is its own and ships; else the app's pictures from before move into the new folder.
+  const ownMetadata = (await fsp.readdir(built)).some((n) => n.toLowerCase() === META_DIR);
+  await fsp.writeFile(path.join(built, MANIFEST), JSON.stringify({ nro: path.posix.basename(layout.nro.path), ...install, own_metadata: ownMetadata }, null, 1));
   const dest = path.join(homebrewDir, app);
-  await fsp.rm(path.join(work, "previous"), { recursive: true, force: true });
-  await fsp.rename(dest, path.join(work, "previous")).catch((err) => { if (err.code !== "ENOENT") throw err; });
+  const previous = path.join(work, "previous");
+  await fsp.rm(previous, { recursive: true, force: true });
+  await fsp.rename(dest, previous).catch((err) => { if (err.code !== "ENOENT") throw err; });
+  // Known before the folder is in place, so nothing looking at its pictures meanwhile takes a release's own metadata/ for them.
+  noteManualHome(app, dest, ownMetadata);
   await fsp.rename(built, dest);
+  if (!ownMetadata) await keepMetadata(previous, dest);
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
   await refreshManual();
   const placed = (await manualApps()).find((e) => path.dirname(e.path) === path.resolve(dest));

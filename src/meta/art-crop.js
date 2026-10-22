@@ -113,27 +113,32 @@ function writeAtomic(file, buf) {
 }
 
 /** Keeps `webp` (from shrinkOriginal) as the original of `artFile`, with the area used. */
-export function keepOriginal(artFile, webp, crop, now = Date.now()) {
+export function keepOriginal(artFile, webp, crop, now = Date.now(), of = null) {
   const p = originalPaths(artFile);
   writeAtomic(p.image, webp);
-  writeCrop(artFile, crop, now);
+  writeCrop(artFile, crop, now, of);
 }
 
-/** Records the area now used for `artFile` (its original stays as it is). */
-export function writeCrop(artFile, crop, now = Date.now()) {
-  writeAtomic(originalPaths(artFile).meta, `${JSON.stringify({ crop: crop ?? FULL, at: now })}\n`);
+/**
+ * Records the area now used for `artFile` (its original stays as it is). `of`, when
+ * given, is the version of the picture cut from it: one replaced since is not its cut.
+ */
+export function writeCrop(artFile, crop, now = Date.now(), of = null) {
+  writeAtomic(originalPaths(artFile).meta, `${JSON.stringify({ crop: crop ?? FULL, at: now, ...(of ? { of } : {}) })}\n`);
 }
 
-/** The kept original of `artFile`: { image, crop }, or null when there is none. */
+/** The kept original of `artFile`: { image, crop, of }, or null when there is none. */
 export function readOriginal(artFile) {
   const p = originalPaths(artFile);
   if (!fs.existsSync(p.image)) return null;
   let crop = FULL;
+  let of = null;
   try {
     const saved = JSON.parse(fs.readFileSync(p.meta, "utf8"));
     crop = parseCrop(saved?.crop) ?? FULL;
+    of = typeof saved?.of === "string" ? saved.of : null;
   } catch { /* no record of the area: the whole picture */ }
-  return { image: p.image, crop };
+  return { image: p.image, crop, of };
 }
 
 export function removeOriginal(artFile) {

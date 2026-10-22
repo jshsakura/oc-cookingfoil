@@ -25,15 +25,12 @@ test('an app with pictures opens like a game, and the page behind stays put', as
   expect(after.banner_url).toMatch(/\/banner\?v=/);
   expect(after.screenshots).toHaveLength(3);
   expect(after.media).toEqual({ banner: 'upload', shots: 'upload' });
-  // A console that cannot read WebP gets the same pictures as JPEG; browsers get WebP.
+  // One file per picture, served as it is: the console reads WebP itself.
   for (const url of [after.banner_url, after.screenshots[0]]) {
-    const jpg = await page.request.get(url, { headers: { Accept: 'image/jpeg,*/*' } });
-    expect(jpg.headers()['content-type']).toBe('image/jpeg');
-    expect((await jpg.body()).subarray(0, 2).toString('hex')).toBe('ffd8');
-    const webp = await page.request.get(url, { headers: { Accept: 'image/webp,*/*' } });
-    expect(webp.headers()['content-type']).toBe('image/webp');
-    expect(webp.headers()['cache-control']).toContain('immutable');
-    expect(webp.headers().vary).toContain('Accept');
+    const got = await page.request.get(url, { headers: { Accept: 'image/jpeg,*/*' } });
+    expect(got.headers()['content-type']).toBe('image/webp');
+    expect((await got.body()).subarray(8, 12).toString()).toBe('WEBP');
+    expect(got.headers()['cache-control']).toContain('immutable');
   }
   fs.mkdirSync('out/web', { recursive: true });
 

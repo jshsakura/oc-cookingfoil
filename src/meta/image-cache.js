@@ -38,7 +38,8 @@ import * as activity from "../tasks/activity.js";
 // libvips operation cache lives in C-land — bumping it pays for itself the
 // first time a hot icon's WebP variant is regenerated, since the source
 // JPEG's decode state stays warm. Defaults are 50 MB / 100 file slots.
-sharp.cache({ memory: 256, files: 200 });
+// No files kept open by path: a picture replaced by hand under the same name would be read stale (meta/art-sidecar.js).
+sharp.cache({ memory: 256, files: 0 });
 
 const THUMB_PX = 256;
 // ?size= → longest edge in px. Icons are square and cropped to it; banners and

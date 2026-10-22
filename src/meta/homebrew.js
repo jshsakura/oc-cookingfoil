@@ -26,6 +26,7 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
 import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
+import { isMetadata, isOurMetadata } from "./art-sidecar.js";
 import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
@@ -289,8 +290,25 @@ export async function sha256File(file) {
 }
 
 /** Every hand-placed app: the first .nro of each folder under `root`. */
-/** What an admin upload decided for a hand-placed app, kept in its folder: { nro, mode, reason, rules, excluded }. */
+/**
+ * What an admin upload decided for a hand-placed app, kept in its folder: { nro, mode, reason, rules, excluded, own_metadata }.
+ * The app's pictures live in its folder's metadata/ (meta/art-sidecar.js), which never ships; `own_metadata`
+ * is true for an app whose release brings a metadata/ of its own: that ships, and its pictures stay on the server.
+ */
 export const MANIFEST = ".cookingfoil.json";
+
+/** Whether `rel` in a hand-placed app's folder is its metadata rather than one of its files. */
+const metadataTest = (manifest) => (rel) => !manifest?.own_metadata && isMetadata(rel);
+
+// id → the folder each hand-placed app keeps its pictures in, or null (meta/homebrew-media.js).
+const manualHomes = new Map();
+/** A hand-placed app's own folder, or null (an app followed on GitHub, or one whose release has its own metadata/). */
+export const manualHomeOf = (id) => manualHomes.get(id) ?? null;
+/** Notes a hand-placed app's folder before it is read (an upload putting it in place). */
+export const noteManualHome = (folder, dir, ownMetadata) => manualHomes.set(idFor("manual", folder), ownMetadata ? null : dir);
+
+/** Whether files of an app folder (relative paths) hold a metadata/ that is the app's own, not the server's. Pure. */
+export const hasOwnMetadata = (files) => files.some((r) => isMetadata(r) && !isOurMetadata(r));
 
 /** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
 async function filesUnder(dir, rel = "") {
@@ -338,7 +356,7 @@ export async function adoptFolders(root) {
       skipped.push({ folder, reason: `콘솔 SD 에 만들 수 없는 이름이 있습니다: ${describeProblems(problems)}` });
       continue;
     }
-    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [] };
+    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_metadata: hasOwnMetadata(files) };
     await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(manifest));
     registered.push(folder);
   }
@@ -522,9 +540,18 @@ export function folderHash(files) {
   return h.digest("hex");
 }
 
+/** A manifest written before apps kept pictures in metadata/ says whether a metadata/ there is the app's own. */
+async function withOwnMetadata(dir, manifest) {
+  if (!manifest || typeof manifest !== "object" || typeof manifest.own_metadata === "boolean") return manifest;
+  const next = { ...manifest, own_metadata: hasOwnMetadata(await filesUnder(dir)) };
+  await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(next)).catch((err) => debug.error("homebrew: %s: noting its metadata: %s", dir, err.message));
+  return next;
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
-  const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
+  const manifest = await withOwnMetadata(dir, await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null));
+  manualHomes.set(idFor("manual", folder), manifest?.own_metadata ? null : dir);
   const names = await fsp.readdir(dir);
   const file = manifest?.nro && names.includes(manifest.nro) ? manifest.nro : names.filter((f) => /\.nro$/i.test(f)).sort()[0];
   if (!file) {
@@ -549,7 +576,8 @@ async function readManual(root, folder, seen = null, held = null) {
     const appDir = (APP_NAME_RE.test(manifest.dir ?? "") ? manifest.dir : null) ?? (await expectedAppDir(dir, file, folder, names)) ?? folder;
     const files = [];
     // Install guides and desktop clutter stay on the server; the console gets what the app runs on.
-    for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r))) {
+    const isOurs = metadataTest(manifest);
+    for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r) && !isOurs(r))) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
       files.push({ path: `switch/${appDir}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: fileKey(fst) });

@@ -680,3 +680,54 @@ test("nacp_version is the NRO's own display version, never a release tag", async
   fs.writeFileSync(path.join(root, "tool", "tool.nro"), fakeNro("Tool", "1.4.0 (r7)", "Maker"));
   assert.equal((await scanManual(root))[0].nacp_version, "1.4.0 (r7)");
 });
+
+function folderApp(manifest, files) {
+  const root = tmp("hb-sidecar-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(dir, "data.bin"), "one");
+  for (const [rel, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), body);
+  }
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [], ...manifest }));
+  return root;
+}
+const sdFiles = (e) => e.files.map((f) => f.path).sort();
+
+test("a hand-placed folder install keeps its metadata folder off the card and out of its hash", async () => {
+  const root = folderApp({ own_metadata: false }, { "icon.jpg": "the app's", "metadata/banner.jpg": "pic", "metadata/screenshot-01.webp": "pic", "romfs/icon.jpg": "game data" });
+  const [a] = await scanManual(root);
+  assert.deepEqual(sdFiles(a), ["switch/game/data.bin", "switch/game/game.nro", "switch/game/icon.jpg", "switch/game/romfs/icon.jpg"]);
+  fs.writeFileSync(path.join(root, "game", "metadata", "banner.jpg"), "a new picture");
+  assert.equal((await scanManual(root))[0].hash, a.hash, "a picture alone is not an update");
+});
+
+test("a folder taken in by hand keeps a metadata/ of the app's own and ships it; one of the server's stays", async () => {
+  const root = tmp("hb-meta-adopt-");
+  for (const [app, file] of [["solo", "metadata/config.ini"], ["pics", "metadata/icon.jpg"]]) {
+    fs.mkdirSync(path.join(root, app, "metadata"), { recursive: true });
+    fs.writeFileSync(path.join(root, app, `${app}.nro`), fakeNro(app, "1.0"));
+    fs.writeFileSync(path.join(root, app, file), "x");
+  }
+  assert.deepEqual((await adoptFolders(root)).registered, ["pics", "solo"]);
+  const manifest = (app) => JSON.parse(fs.readFileSync(path.join(root, app, ".cookingfoil.json"), "utf8"));
+  assert.equal(manifest("solo").own_metadata, true);
+  assert.equal(manifest("pics").own_metadata, false);
+  const byDir = Object.fromEntries((await scanManual(root)).map((e) => [e.install_dir, sdFiles(e)]));
+  assert.ok(byDir["switch/solo"].includes("switch/solo/metadata/config.ini"));
+  assert.ok(!byDir["switch/pics"].some((f) => f.includes("metadata")));
+});
+
+test("an app folder from before metadata folders notes whether a metadata/ there is its own", async () => {
+  const root = tmp("hb-own-meta-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(path.join(dir, "metadata"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(dir, "metadata", "levels.dat"), "the app's own");
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+  const [e] = await scanManual(root);
+  assert.ok(sdFiles(e).includes("switch/game/metadata/levels.dat"));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, ".cookingfoil.json"), "utf8")).own_metadata, true);
+});

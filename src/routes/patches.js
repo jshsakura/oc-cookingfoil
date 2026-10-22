@@ -96,7 +96,7 @@ export default function patchesRouter() {
   router.get("/", wrap(listRoute));
   router.get("/:id/download", wrap(downloadRoute));
   router.param("id", (req, res, next, id) => (ID_RE.test(id) ? next() : res.status(400).json({ error: "invalid patch id" })));
-  router.get("/:id/icon", wrap(async (req, res) => sendPicture(req, res, patchMedia.iconPath(req.params.id), patchMedia.iconVersion(req.params.id))));
+  router.get("/:id/icon", wrap(async (req, res) => sendPicture(req, res, patchMedia.pictures(req.params.id).icon)));
   mountPictures(router, patchMedia, wrap);
   return router;
 }

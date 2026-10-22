@@ -43,13 +43,13 @@ function makeZip(root, files) {
   return fs.readFileSync(zip);
 }
 
-async function boot(dirs) {
+async function boot(dirs, extra = {}) {
   await seedConsole(dirs.data);
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: {
       ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: dirs.data, COOK_GAMES_DIR: dirs.games, COOK_HOMEBREW_DIR: dirs.homebrew, COOK_PATCHES_DIR: dirs.patches, COOK_SAVES_DIR: dirs.saves,
-      COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false",
+      COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false", ...extra,
     },
     stdio: "ignore",
   });
@@ -392,4 +392,53 @@ test("a folder app whose launcher names its own SD folder is installed into that
   fs.writeFileSync(path.join(app, ".cookingfoil.json"), JSON.stringify({ nro: "mygame.nro", mode: "folder", dir: "Chosen" }));
   [entry] = await scanManual(path.join(root, "apps"));
   assert.equal(entry.install_dir, "switch/Chosen");
+});
+
+test("an app's pictures live in its folder, ship nowhere and stay when a new build is uploaded", async () => {
+  const sharp = (await import("sharp")).default;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-art-"));
+  const dirs = Object.fromEntries(["data", "games", "homebrew", "patches", "saves"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  const server = await boot(dirs, { COOK_UPLOADS_ENABLED: "true" });
+  try {
+    const admin = await adminSession(BASE, "alice", "alice-password", "admin-password-123");
+    const sendApp = (files) => {
+      const fd = new FormData();
+      fd.append("files", new Blob([makeZip(root, files)]), "app.zip");
+      return fetch(`${BASE}/admin/api/upload/homebrew`, { method: "POST", headers: admin, body: fd });
+    };
+    const listed = async () => (await (await fetch(`${BASE}/api/homebrew`, { headers: ALICE })).json()).homebrew.find((e) => e.install_dir === "switch/artapp");
+    assert.equal((await sendApp({ "switch/artapp/artapp.nro": fakeNro("Art App"), "switch/artapp/data.bin": "D" })).status, 201);
+    const app = await listed();
+
+    const form = new FormData();
+    form.append("file", new Blob([await sharp({ create: { width: 1600, height: 900, channels: 3, background: "#36c" } }).png().toBuffer()], { type: "image/png" }), "banner.png");
+    const up = await fetch(`${BASE}/api/art/homebrew/${app.id}/banner`, { method: "POST", headers: { Cookie: admin.Cookie, Origin: admin.Origin, "X-CSRF-Token": admin["X-CSRF-Token"] }, body: form });
+    assert.equal(up.status, 201, await up.clone().text());
+    const folder = path.join(dirs.homebrew, "artapp");
+    assert.ok(fs.existsSync(path.join(folder, "metadata", "banner.webp")), "the picture is in the app's metadata folder");
+    const after = await listed();
+    assert.ok(!after.files.some((f) => f.path.includes("metadata")), "and never goes to the card");
+    assert.equal(after.hash, app.hash, "a picture is not an update");
+    const pic = await fetch(BASE + after.banner_url.replace(/^https?:\/\/[^/]+/, ""), { headers: ALICE });
+    assert.equal(pic.headers.get("content-type"), "image/webp");
+
+    // A new build, with an icon.jpg of its own: it ships, and the banner moves into the new folder.
+    assert.equal((await sendApp({ "switch/artapp/artapp.nro": fakeNro("Art App"), "switch/artapp/data.bin": "E", "switch/artapp/icon.jpg": "the release's" })).status, 201);
+    assert.ok(fs.existsSync(path.join(folder, "metadata", "banner.webp")));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(folder, ".cookingfoil.json"), "utf8")).own_metadata, false);
+    for (let i = 0; i < 40 && !(await listed()).files.some((f) => f.path.endsWith("icon.jpg")); i++) await new Promise((r) => setTimeout(r, 250));
+    const next = await listed();
+    assert.ok(next.files.some((f) => f.path === "switch/artapp/icon.jpg"));
+    assert.ok(next.banner_url);
+    assert.equal(fs.readFileSync(path.join(folder, "icon.jpg"), "utf8"), "the release's", "an app's own file is never turned into a picture");
+
+    // A build that brings a metadata/ of its own: it ships, and the app's pictures go to the server.
+    assert.equal((await sendApp({ "switch/artapp/artapp.nro": fakeNro("Art App"), "switch/artapp/data.bin": "F", "switch/artapp/metadata/maps.dat": "the release's" })).status, 201);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(folder, ".cookingfoil.json"), "utf8")).own_metadata, true);
+    for (let i = 0; i < 40 && !(await listed()).files.some((f) => f.path.endsWith("maps.dat")); i++) await new Promise((r) => setTimeout(r, 250));
+    assert.ok((await listed()).files.some((f) => f.path === "switch/artapp/metadata/maps.dat"));
+  } finally {
+    server.kill();
+  }
 });

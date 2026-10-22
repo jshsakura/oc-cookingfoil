@@ -102,12 +102,12 @@ test("what the admin removed is not filled in again", async () => {
 test("uploaded screenshots add up to eight, one can be taken out and the rest close up", async () => {
   await media.addShots(TOOL.id, [await img(800, 450, 10), await img(800, 450, 20)]);
   await media.addShots(TOOL.id, [await img(800, 450, 30)]);
-  assert.equal(media.record(TOOL.id).shots.count, 3);
+  assert.equal(media.shotCount(TOOL.id), 3);
   assert.equal(media.record(TOOL.id).shots.source, "upload");
   const third = fs.readFileSync(media.shotPath(TOOL.id, 3));
   assert.equal(await media.removeShots(TOOL.id, 2), 2);
   assert.deepEqual(fs.readFileSync(media.shotPath(TOOL.id, 2)), third, "the third moved up");
-  assert.equal(fs.existsSync(media.shotPath(TOOL.id, 3)), false);
+  assert.equal(media.shotPath(TOOL.id, 3), null);
   await assert.rejects(media.addShots(TOOL.id, Array(7).fill(shot)), /8장/);
   await assert.rejects(media.removeShots(TOOL.id, 5), media.MediaImageError);
 });
@@ -115,7 +115,7 @@ test("uploaded screenshots add up to eight, one can be taken out and the rest cl
 test("two screenshots uploaded at the same moment both stay", async () => {
   const [a, b] = [await img(800, 450, 40), await img(800, 450, 50)];
   await Promise.all([media.addShots(TOOL.id, [a]), media.addShots(TOOL.id, [b])]);
-  assert.equal(media.record(TOOL.id).shots.count, 2);
+  assert.equal(media.shotCount(TOOL.id), 2);
   assert.notDeepEqual(fs.readFileSync(media.shotPath(TOOL.id, 1)), fs.readFileSync(media.shotPath(TOOL.id, 2)));
 });
 
