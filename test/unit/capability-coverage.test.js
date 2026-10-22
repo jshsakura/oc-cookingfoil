@@ -13,7 +13,7 @@ const { registry } = await import("../../src/capabilities/registry.js");
 const { routeKey } = await import("../../src/capabilities/define.js");
 const { OPT_OUT, OPT_OUT_REASONS, LEGACY_UNREGISTERED } = await import("../../src/capabilities/opt-out.js");
 
-// Ratchet ceilings. LEGACY_CEILING only goes down. Raising OPT_OUT_CEILING is a reviewed decision:
+// Ratchet ceilings. LEGACY_CEILING only goes down and is never raised. Raising OPT_OUT_CEILING is a reviewed decision:
 // do it in the same change that adds the opt-out, and say why in the commit.
 const LEGACY_CEILING = 315;
 const OPT_OUT_CEILING = 4;
@@ -42,7 +42,10 @@ test("a route added with neither a capability nor an opt-out fails and says wher
   assert.equal(problems.length, 1);
   assert.match(problems[0], /^Route POST \/admin\/api\/fake-thing has no capability\./);
   assert.match(problems[0], /src\/capabilities\/<area>\.js/);
-  assert.match(problems[0], /src\/capabilities\/opt-out\.js with a reason/);
+  assert.match(problems[0], /OPT_OUT in src\/capabilities\/opt-out\.js with a reason/);
+  // The opt-out path names the ceiling to raise with it, so following it never trips the ratchet.
+  assert.match(problems[0], /raise OPT_OUT_CEILING in test\/unit\/capability-coverage\.test\.js by one in the same change/);
+  assert.match(problems[0], /Never add it to LEGACY_UNREGISTERED or raise LEGACY_CEILING/);
 });
 
 test("an opt-out needs one of the fixed reasons, and legacy is not one you can pick", () => {
@@ -60,14 +63,29 @@ test("an entry that names no route, or a route claimed twice, fails", () => {
 });
 
 test("the legacy list only shrinks", () => {
-  assert.deepEqual(ratchetProblems({ name: "LEGACY_UNREGISTERED", count: LEGACY_UNREGISTERED.length, ceiling: LEGACY_CEILING, where: HERE }), []);
+  assert.deepEqual(ratchetProblems({ list: "LEGACY_UNREGISTERED", count: LEGACY_UNREGISTERED.length, ceiling: LEGACY_CEILING, where: HERE }), []);
 });
 
 test("opt-outs do not grow without raising their ceiling", () => {
-  assert.deepEqual(ratchetProblems({ name: "OPT_OUT", count: Object.keys(OPT_OUT).length, ceiling: OPT_OUT_CEILING, where: HERE }), []);
+  assert.deepEqual(ratchetProblems({ list: "OPT_OUT", count: Object.keys(OPT_OUT).length, ceiling: OPT_OUT_CEILING, where: HERE }), []);
 });
 
-test("the ratchet fails when a count grows and asks to lower the ceiling when it shrinks", () => {
-  assert.match(ratchetProblems({ name: "LEGACY_UNREGISTERED", count: LEGACY_CEILING + 1, ceiling: LEGACY_CEILING, where: HERE })[0], /grew/);
-  assert.match(ratchetProblems({ name: "OPT_OUT", count: 3, ceiling: 4, where: HERE })[0], /Lower its ceiling in test\/unit\/capability-coverage\.test\.js from 4 to 3/);
+test("a grown legacy list fails, and the message never suggests raising LEGACY_CEILING", () => {
+  const [problem, ...rest] = ratchetProblems({ list: "LEGACY_UNREGISTERED", count: LEGACY_CEILING + 1, ceiling: LEGACY_CEILING, where: HERE });
+  assert.equal(rest.length, 0);
+  assert.ok(problem.startsWith(`LEGACY_UNREGISTERED has ${LEGACY_CEILING + 1} routes, more than LEGACY_CEILING (${LEGACY_CEILING}).`), problem);
+  assert.match(problem, /never raised/);
+  assert.match(problem, /register it as a capability or opt it out/);
+  assert.doesNotMatch(problem, /raise LEGACY_CEILING|LEGACY_CEILING to/);
+});
+
+test("a grown opt-out list asks for OPT_OUT_CEILING to be raised in the same change", () => {
+  const [problem] = ratchetProblems({ list: "OPT_OUT", count: 5, ceiling: 4, where: HERE });
+  assert.equal(problem, "OPT_OUT grew from 4 to 5. If each new opt-out is right, raise OPT_OUT_CEILING in test/unit/capability-coverage.test.js to 5 in the same change and say why in the commit.");
+  assert.doesNotMatch(problem, /only shrinks/);
+});
+
+test("a shrunk list asks for its own ceiling to follow it down", () => {
+  assert.match(ratchetProblems({ list: "OPT_OUT", count: 3, ceiling: 4, where: HERE })[0], /^OPT_OUT shrank to 3\. Lower OPT_OUT_CEILING in test\/unit\/capability-coverage\.test\.js from 4 to 3/);
+  assert.match(ratchetProblems({ list: "LEGACY_UNREGISTERED", count: 3, ceiling: 4, where: HERE })[0], /^LEGACY_UNREGISTERED shrank to 3\. Lower LEGACY_CEILING in test\/unit\/capability-coverage\.test\.js from 4 to 3/);
 });

@@ -11,10 +11,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { routeKey } from "../../src/capabilities/define.js";
+import { OPT_OUT_REASONS } from "../../src/capabilities/opt-out.js";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const HOOK = new URL("./capability-listen-hook.js", import.meta.url).href;
 const INDEX = new URL("../../src/index.js", import.meta.url);
+const COVERAGE_TEST = "test/unit/capability-coverage.test.js";
+const OPT_OUT_CHOICES = Object.keys(OPT_OUT_REASONS).filter((r) => r !== "legacy-unregistered").join(", ");
 
 /**
  * Every route of the app as "METHOD /path", sorted. Starts `entry` (src/index.js by default) with a
@@ -79,16 +82,38 @@ export function coverageProblems({ routes, capabilities, optOut, legacy, reasons
     if (claimed.has(key)) continue;
     problems.push(
       `Route ${key} has no capability. Add one in src/capabilities/<area>.js with defineCapability() ` +
-        `(see src/capabilities/define.js) and list it in src/capabilities/registry.js, or add it to OPT_OUT in ` +
-        `src/capabilities/opt-out.js with a reason (browser-only, token-blocked, binary-upload).`,
+        `(see src/capabilities/define.js) and list it in src/capabilities/registry.js. Or, if an agent ` +
+        `should never get it as a tool, add it to OPT_OUT in src/capabilities/opt-out.js with a reason ` +
+        `(${OPT_OUT_CHOICES}) and raise OPT_OUT_CEILING in ${COVERAGE_TEST} by one in the same change, ` +
+        `saying why in the commit. Never add it to LEGACY_UNREGISTERED or raise LEGACY_CEILING.`,
     );
   }
   return problems;
 }
 
-/** A count that may only go down, and whose ceiling follows it down. */
-export function ratchetProblems({ name, count, ceiling, where }) {
-  if (count > ceiling) return [`${name} grew from ${ceiling} to ${count}. It only shrinks: register the route as a capability instead.`];
-  if (count < ceiling) return [`${name} shrank to ${count}. Lower its ceiling in ${where} from ${ceiling} to ${count} so it cannot grow back.`];
+const RATCHETS = {
+  // Only shrinks. Raising its ceiling is never the fix, so no message suggests it.
+  LEGACY_UNREGISTERED: {
+    ceiling: "LEGACY_CEILING",
+    grew: ({ count, ceiling }) =>
+      `LEGACY_UNREGISTERED has ${count} routes, more than LEGACY_CEILING (${ceiling}). The list never grows and ` +
+      `LEGACY_CEILING is never raised: take the added route out of LEGACY_UNREGISTERED in src/capabilities/opt-out.js, ` +
+      `then register it as a capability or opt it out with a reason, as the coverage failure for that route says.`,
+  },
+  // Grows only by a reviewed decision: the opt-out and its raised ceiling land in one change.
+  OPT_OUT: {
+    ceiling: "OPT_OUT_CEILING",
+    grew: ({ count, ceiling, where }) =>
+      `OPT_OUT grew from ${ceiling} to ${count}. If each new opt-out is right, raise OPT_OUT_CEILING in ${where} ` +
+      `to ${count} in the same change and say why in the commit.`,
+  },
+};
+
+/** Problems with the size of LEGACY_UNREGISTERED or OPT_OUT against its ceiling in `where`. */
+export function ratchetProblems({ list, count, ceiling, where }) {
+  const ratchet = RATCHETS[list];
+  if (!ratchet) throw new Error(`no ratchet named ${list}`);
+  if (count > ceiling) return [ratchet.grew({ count, ceiling, where })];
+  if (count < ceiling) return [`${list} shrank to ${count}. Lower ${ratchet.ceiling} in ${where} from ${ceiling} to ${count} so it cannot grow back.`];
   return [];
 }
