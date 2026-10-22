@@ -36,6 +36,7 @@ import { retroRomHashes } from "../db/stores.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import { entryStream, zipDirectory } from "../helpers/zip-read.js";
 import * as activity from "../tasks/activity.js";
+import { inTurn } from "./disk-turn.js";
 import { koreanNameCrc, koreanNameSystem } from "./ko-names.js";
 
 export const MAX_BYTES = 1024 ** 3;
@@ -77,8 +78,11 @@ function triple() {
   };
 }
 
-/** Hashes what `stream` gives, as a ROM of `system` that is `size` bytes long: { crc32, sha1, sha256, bare? }. */
-export async function hashRom(stream, system, size) {
+/**
+ * Hashes what `stream` gives, as a ROM of `system` that is `size` bytes long: { crc32, sha1, sha256, bare? }.
+ * Throws JobStopped, the stream destroyed, as soon as `stopped()` turns true.
+ */
+export async function hashRom(stream, system, size, stopped = () => false) {
   const whole = triple();
   const header = HEADERS[system];
   let bare = null;
@@ -93,6 +97,10 @@ export async function hashRom(stream, system, size) {
     bare.update(buf.subarray(skip));
   };
   for await (const chunk of stream) {
+    if (stopped()) {
+      stream.destroy();
+      throw new activity.JobStopped();
+    }
     whole.update(chunk);
     if (bare) bare.update(chunk);
     else if (head) {
@@ -126,20 +134,20 @@ async function target(g) {
   }
 }
 
-/** The row data for game `g` read through `t` (target). */
-async function read(g, t) {
+/** The row data for game `g` read through `t` (target); `stopped` as hashRom takes it. */
+async function read(g, t, stopped) {
   if (t.skip) return { skip: t.skip };
   const ext = path.extname(t.file).toLowerCase();
   if (SKIP_EXT.has(ext)) return { skip: "format" };
   if (t.size > MAX_BYTES) return { skip: "large" };
-  if (ext !== ".zip") return { ...(await hashRom(createReadStream(t.file, { highWaterMark: READ_CHUNK }), g.system, t.size)), ...(t.entry ? { entry: t.entry } : {}) };
+  if (ext !== ".zip") return { ...(await hashRom(createReadStream(t.file, { highWaterMark: READ_CHUNK }), g.system, t.size, stopped)), ...(t.entry ? { entry: t.entry } : {}) };
   const inner = (await zipDirectory(t.file)).filter((e) => !e.name.endsWith("/")).sort((a, b) => b.size - a.size)[0];
   if (!inner) return { skip: "unreadable" };
   if (inner.size > MAX_BYTES) return { skip: "large" };
   if (!HEADERS[g.system] && !koreanNameCrc(g.system, inner.crc32)) return { crc32: inner.crc32, entry: inner.name };
   const stream = await entryStream(t.file, inner);
   if (!stream) return { crc32: inner.crc32, entry: inner.name };
-  return { ...(await hashRom(stream, g.system, inner.size)), entry: inner.name };
+  return { ...(await hashRom(stream, g.system, inner.size, stopped)), entry: inner.name };
 }
 
 let store = null;
@@ -165,23 +173,31 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
   rows().prune(seen);
   if (!due.length) return { hashed: 0, stopped: false };
   const job = activity.begin("retro-rom-index", { title: JOB_TITLE.ko, total: due.length });
+  const stopped = () => job.stopped;
   let hashed = 0;
-  for (const [g, t] of due) {
-    if (job.stopped) break;
-    let data;
-    try {
-      data = await read(g, t);
-    } catch (err) {
-      debug.error("retro: content hash of %s: %s", g.rel ?? g.abs, err.message);
-      data = { skip: "unreadable" };
+  try {
+    for (const [g, t] of due) {
+      if (stopped()) break;
+      let data;
+      try {
+        data = await read(g, t, stopped);
+      } catch (err) {
+        // Stopped mid-file: no row, so the next pass reads it whole.
+        if (err instanceof activity.JobStopped) break;
+        debug.error("retro: content hash of %s: %s", g.rel ?? g.abs, err.message);
+        data = { skip: "unreadable" };
+      }
+      rows().set(g.abs, { key: t.key, data });
+      job.step(++hashed, g.file);
+      if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
     }
-    rows().set(g.abs, { key: t.key, data });
-    job.step(++hashed, g.file);
-    if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
+  } catch (err) {
+    job.fail(err);
+    throw err;
   }
-  const stopped = job.stopped;
+  const wasStopped = stopped();
   job.done(String(hashed));
-  return { hashed, stopped };
+  return { hashed, stopped: wasStopped };
 }
 
 /** How many indexed files have a row, and how many of those were skipped. */
@@ -193,14 +209,21 @@ export function counts(games) {
 
 let running = null;
 let next = null;
-/** A pass over `games`; one at a time, and a catalog that comes in meanwhile is read after it. */
+/**
+ * A pass over `games`, after any other reader of the ROM files (disk-turn.js); one at a time,
+ * and a catalog that comes in meanwhile is read after it, unless the admin stopped the pass:
+ * then the next scan or the admin's button starts the next one.
+ */
 export function queue(games) {
   if (running) {
     next = games;
     return running;
   }
-  running = pass(games)
-    .then((r) => { if (r.hashed) debug.log("retro: %d ROM content hashes read", r.hashed); })
+  running = inTurn(() => pass(games))
+    .then((r) => {
+      if (r.hashed) debug.log("retro: %d ROM content hashes read", r.hashed);
+      if (r.stopped) next = null;
+    })
     .catch((err) => debug.error("retro: ROM content hashes: %s", err.message))
     .finally(() => {
       running = null;

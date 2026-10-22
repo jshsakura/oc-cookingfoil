@@ -184,3 +184,72 @@ test("a pass the admin stops ends after the file it is on, and the rest is read 
   await romIndex.pass(games, { pauseMs: 0 });
   assert.ok(games.every((g) => romIndex.known(g)), "the next pass reads what was left");
 });
+
+/** Asks the content index job to stop as soon as it shows in the activity menu; returns the watcher's off(). */
+function stopIndexOnceRunning() {
+  let on = true;
+  const look = () => {
+    if (!on) return;
+    const job = activity.list().running.find((e) => e.kind === "retro-rom-index");
+    if (job) activity.cancel(job.id);
+    else setImmediate(look);
+  };
+  setImmediate(look);
+  return () => { on = false; };
+}
+
+/** A game whose file is `bytes` long and sparse, so reading it takes a while without filling the disk. */
+function bigGame(file, bytes = 256 * 1024 * 1024) {
+  const g = game("gba", file, null);
+  fs.closeSync(fs.openSync(g.abs, "w"));
+  fs.truncateSync(g.abs, bytes);
+  return g;
+}
+
+test("a stop ends the file being read at once, and that file keeps no row", async () => {
+  const g = bigGame("Long Read.gba");
+  const off = stopIndexOnceRunning();
+  try {
+    const r = await romIndex.pass([g], { pauseMs: 0 });
+    assert.equal(r.stopped, true);
+    assert.equal(r.hashed, 0);
+  } finally {
+    off();
+  }
+  assert.equal(romIndex.known(g), null, "read whole next time");
+});
+
+test("a catalog queued while a pass runs is not read once the admin stops that pass", async () => {
+  const first = bigGame("First.gba");
+  const later = game("gba", "Later.gba", rom(0x400, 41));
+  const off = stopIndexOnceRunning();
+  try {
+    const run = romIndex.queue([first]);
+    romIndex.queue([first, later]);
+    await run;
+  } finally {
+    off();
+  }
+  assert.equal(romIndex.busy(), false, "no pass started after the stop");
+  assert.equal(romIndex.known(later), null);
+  await romIndex.queue([later]);
+  assert.ok(romIndex.known(later), "the next scan or the admin's button reads it");
+});
+
+test("the RetroAchievements hashes and the content index never read ROM files at the same time", async () => {
+  const romHashes = await import("../../src/retro/rom-hash.js");
+  const files = [1, 2, 3, 4].map((i) => game("gba", `t${i}.gba`, rom(0x400, 50 + i)));
+  let both = false;
+  const watch = setInterval(() => {
+    const kinds = new Set(activity.list().running.map((e) => e.kind));
+    if (kinds.has("retro-hash") && kinds.has("retro-rom-index")) both = true;
+  }, 2);
+  try {
+    await Promise.all([romHashes.queue(files), romIndex.queue(files)]);
+    while (romHashes.pending() || romIndex.busy()) await new Promise((r) => setTimeout(r, 10));
+  } finally {
+    clearInterval(watch);
+  }
+  assert.ok(files.every((g) => romIndex.known(g) && romHashes.known(g)), "both passes ran");
+  assert.equal(both, false);
+});

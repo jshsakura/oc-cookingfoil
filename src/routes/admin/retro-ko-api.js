@@ -13,6 +13,7 @@
  */
 import debug from "../../debug.js";
 import { retroDir } from "../../helpers/envs.js";
+import { requestLang } from "../../meta/langs.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import * as koMatch from "../../retro/ko-match.js";
 import * as romIndex from "../../retro/rom-index.js";
@@ -21,22 +22,22 @@ import { apiWord } from "./api-words.js";
 
 const LIST_MAX = 1000;
 
-const row = (g, systems, hit) => ({
-  id: g.id, system: g.system, systemName: systems[g.system]?.names?.ko ?? g.system,
+const row = (g, systems, hit, lang) => ({
+  id: g.id, system: g.system, systemName: systems[g.system]?.names?.[lang] ?? systems[g.system]?.names?.en ?? systems[g.system]?.name ?? g.system,
   name: g.name, file: g.file, ko: hit.ko, en: hit.en ?? null, by: hit.by,
 });
 
-/** The confirmed names and the waiting guesses of the catalog now, as GET /admin/api/retro-ko sends them. */
-export async function retroKoReview() {
+/** The confirmed names and the waiting guesses of the catalog now, as GET /admin/api/retro-ko sends them, systems named in `lang`. */
+export async function retroKoReview(lang = "ko") {
   const catalog = await retroCatalog.current(retroDir);
   const confirmed = [];
   const guesses = [];
   for (const g of catalog.games) {
     const hit = koMatch.confirmed(g);
-    if (hit) confirmed.push(row(g, catalog.systems, hit));
+    if (hit) confirmed.push(row(g, catalog.systems, hit, lang));
     else {
       const guess = koMatch.pendingGuess(g);
-      if (guess) guesses.push(row(g, catalog.systems, guess));
+      if (guess) guesses.push(row(g, catalog.systems, guess, lang));
     }
   }
   return {
@@ -78,7 +79,7 @@ export function mountRetroKoApi(router, requireSession) {
     }
   };
 
-  router.get("/api/retro-ko", guarded(async (_req, res) => res.json(await retroKoReview())));
+  router.get("/api/retro-ko", guarded(async (req, res) => res.json(await retroKoReview(requestLang(req)))));
 
   router.post("/api/retro-ko/guess", guarded(async (req, res) => {
     const out = await decideRetroKoGuess(req.body?.game, req.body?.approve === true);

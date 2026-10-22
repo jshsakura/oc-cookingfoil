@@ -27,7 +27,7 @@ async function loadRetroKo(){let d;
     const acts=el('div',null,'row-actions');acts.append(btn(topText('rk.approve'),()=>rkDecide(k,true)),btn(topText('rk.reject'),()=>rkDecide(k,false),'danger'));
     tr.append(rkFile(k),td(k.systemName),td(k.ko),raCell(acts));return tr;}),topText('rk.noGuess'));
   table('rk-confirmed',[topText('rk.colFile'),topText('rk.colSystem'),topText('rk.colKo'),topText('rk.colBy')],d.confirmed.map((k)=>{const tr=el('tr');
-    tr.append(rkFile(k),td(k.systemName),td(k.ko),td(k.by));return tr;}),topText('rk.noConfirmed'));
+    tr.append(rkFile(k),td(k.systemName),td(k.ko),td(topText('rk.by.'+k.by)??k.by));return tr;}),topText('rk.noConfirmed'));
 }
 async function rkDecide(k,approve){
   try{await api('/admin/api/retro-ko/guess',{method:'POST',body:{game:k.id,approve}});toast(topText(approve?'rk.approved':'rk.rejected'));loadRetroKo();}catch(err){toast(err.message);}

@@ -287,10 +287,11 @@ function versionLabelOf(cat, g) {
 function forwarderGame(g, system, cat = null) {
   return {
     id: g.id,
-    // A name the admin gave wins over the file's, as in the list; a ScummVM game,
-    // named by its id, has its folder's title.json next. (Arcade names stay as
-    // they were: changing them would build every arcade shortcut again.)
-    name: retroNames.get(g.id)?.ko || retroNames.get(g.id)?.en || (g.system === "scummvm" && (g.names?.ko || g.names?.en)) || g.name,
+    // As in the list: a name the admin gave (a kept guess among them), then the Korean
+    // name the ROM's content hash finds, then the file's; a ScummVM game, named by its
+    // id, has its folder's title.json next. (Arcade names stay as they were: changing
+    // them would build every arcade shortcut again.)
+    name: retroNames.get(g.id)?.ko || koMatch.confirmed(g)?.ko || retroNames.get(g.id)?.en || (g.system === "scummvm" && (g.names?.ko || g.names?.en)) || g.name,
     core: g.core,
     romSdPath: sdPaths(g, system).rom,
     artKey: artKey(g),

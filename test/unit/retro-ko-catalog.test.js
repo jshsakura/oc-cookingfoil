@@ -49,8 +49,10 @@ const post = (p, body) => fetch(url(p), { method: "POST", headers: { "Content-Ty
 const games = async () => (await get("/api/retro/games?pageSize=50&variants=all")).games;
 const byFile = async (file) => (await games()).find((g) => g.file === file);
 
+let cat0;
 before(async () => {
   const cat = await catalog.scan(retro);
+  cat0 = cat;
   await romIndex.pass(cat.games, { pauseMs: 0 });
   const app = express();
   app.use(express.json());
@@ -69,6 +71,7 @@ after(() => {
 test("a ROM whose content hash is in the dictionary shows its Korean name in the list and is found by it", async () => {
   const plain = await byFile("Plain Game (USA).gba");
   assert.equal(plain.name, "평범한 게임");
+  assert.equal(plain.shortcutName, "평범한 게임", "the HOME shortcut has the name the list shows");
   const found = await get(`/api/retro/games?q=${encodeURIComponent("평범한")}`);
   assert.deepEqual(found.games.map((g) => g.file), ["Plain Game (USA).gba"]);
   assert.equal((await byFile("Guess Quest (USA).gba")).name, "Guess Quest (USA)", "a title match alone is not shown");
@@ -80,6 +83,8 @@ test("the admin sees confirmed names and the guesses that wait for a decision", 
   assert.deepEqual(d.guesses.map((k) => [k.file, k.ko, k.by]).sort(), [["Guess Quest (USA).gba", "추측 퀘스트", "title"], ["Second Guess (USA).gba", "두 번째 추측", "title"]]);
   assert.equal(d.index.files, 3, "the gba files; the new systems are not in this dictionary");
   assert.equal(d.index.read, 3);
+  const en = await (await fetch(url("/admin/api/retro-ko"), { headers: { "Accept-Language": "en" } })).json();
+  assert.deepEqual([d.confirmed[0].systemName, en.confirmed[0].systemName], [cat0.systems.gba.names.ko, cat0.systems.gba.names.en], "systems named in the admin's language");
 });
 
 test("an approved guess is saved with the admin's names and shows at once; a rejected one stays away", async () => {
@@ -102,7 +107,8 @@ test("anything that decides how a game runs sees only hash matches, never a gues
   const quest = cat.games.find((g) => g.file === "Guess Quest (USA).gba");
   assert.equal(koMatch.confirmed(quest), null, "a kept guess is still no hash match");
   assert.equal(koMatch.confirmed(cat.games.find((g) => g.file === "Plain Game (USA).gba")).by, "sha256");
-  assert.equal((await byFile("Guess Quest (USA).gba")).core, cat.systems.gba.core, "the core is the system's");
+  const d = await get("/admin/api/retro-ko");
+  assert.deepEqual(d.confirmed.map((k) => k.file), ["Plain Game (USA).gba"], "the kept guess is not listed as confirmed");
 });
 
 test("Pokémon mini and Game & Watch files are read from their RetroArch folders", async () => {

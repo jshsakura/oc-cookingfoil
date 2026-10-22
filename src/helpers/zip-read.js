@@ -5,7 +5,7 @@
  */
 import fs from "fs/promises";
 import { createReadStream } from "fs";
-import { Readable } from "stream";
+import { Readable, Transform, pipeline } from "stream";
 import zlib from "zlib";
 
 const EOCD_SIG = 0x06054b50;
@@ -13,6 +13,10 @@ const CENTRAL_SIG = 0x02014b50;
 const LOCAL_SIG = 0x04034b50;
 const EOCD_MIN = 22;
 const EOCD_SEARCH = EOCD_MIN + 0xffff;
+const CENTRAL_MIN = 46;
+// A record is 46 bytes plus a name, an extra field and a comment of up to 64 KB each.
+const CENTRAL_MAX = CENTRAL_MIN + 3 * 0xffff;
+const DIR_MAX = 64 * 1024 * 1024;
 
 /** Where the end-of-central-directory record of `buf` (the zip's tail) starts, or -1. Pure. */
 function eocdAt(buf) {
@@ -64,7 +68,7 @@ export async function zipDirectory(abs) {
     const count = tail.readUInt16LE(eocd + 10);
     const dirLen = tail.readUInt32LE(eocd + 12);
     const dirAt = tail.readUInt32LE(eocd + 16);
-    if (dirAt + dirLen > size) return [];
+    if (dirAt + dirLen > size || dirLen > DIR_MAX || dirLen < count * CENTRAL_MIN || dirLen > count * CENTRAL_MAX) return [];
     const dir = Buffer.alloc(dirLen);
     await fh.read(dir, 0, dirLen, dirAt);
     return centralEntries(dir, 0, count);
@@ -73,7 +77,21 @@ export async function zipDirectory(abs) {
   }
 }
 
-/** A stream of `entry`'s uncompressed bytes from the zip at `abs`, or null when it cannot be read here. */
+/** Passes at most `max` bytes on; one more fails the stream (a zip bomb, or a size the directory lied about). */
+function capped(max) {
+  let seen = 0;
+  return new Transform({
+    transform(chunk, _enc, cb) {
+      seen += chunk.length;
+      cb(seen > max ? new Error(`zip entry inflates past its declared ${max} bytes`) : null, chunk);
+    },
+  });
+}
+
+/**
+ * A stream of `entry`'s uncompressed bytes from the zip at `abs`, or null when it
+ * cannot be read here. Inflating past the size the directory declares fails it.
+ */
 export async function entryStream(abs, entry) {
   if (entry.flags & 1 || (entry.method !== 0 && entry.method !== 8)) return null;
   const fh = await fs.open(abs, "r");
@@ -89,9 +107,7 @@ export async function entryStream(abs, entry) {
   if (!entry.compressed) return Readable.from([]);
   const raw = createReadStream(abs, { start, end: start + entry.compressed - 1, highWaterMark: 1024 * 1024 });
   if (entry.method === 0) return raw;
-  const inflate = zlib.createInflateRaw();
-  raw.on("error", (err) => inflate.destroy(err));
-  return raw.pipe(inflate);
+  return pipeline(raw, zlib.createInflateRaw(), capped(entry.size), () => {});
 }
 
 /** The bytes of `entry` in the zip held in `buf`, or null when it cannot be read here. Pure. */
