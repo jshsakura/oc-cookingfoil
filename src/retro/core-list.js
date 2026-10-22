@@ -19,14 +19,38 @@ import { listPack } from "./base-pack.js";
 export const OFFICIAL_VERSION = official.version;
 const CORE_RE = /^retroarch\/cores\/([a-z0-9_]+)_libretro_libnx\.nro$/;
 
-/** RetroArch's own name for a core, from info/<core>_libretro.info, or null. */
-async function displayName(packDir, core) {
+/** RetroArch's name for a core and the extensions it opens, from info/<core>_libretro.info. */
+async function coreInfo(packDir, core) {
   try {
     const text = await fsp.readFile(path.join(packDir, "info", `${core}_libretro.info`), "utf8");
-    return text.match(/^\s*display_name\s*=\s*"([^"]*)"/m)?.[1] || null;
+    const field = (key) => text.match(new RegExp(`^\\s*${key}\\s*=\\s*"([^"]*)"`, "m"))?.[1] ?? "";
+    return { name: field("display_name") || null, extensions: field("supported_extensions").split("|").map((e) => e.trim().toLowerCase()).filter(Boolean) };
   } catch {
-    return null;
+    return { name: null, extensions: [] };
   }
+}
+
+/**
+ * Each console with games: its core, the system table's, and the installed
+ * cores split into those whose .info opens the console's extensions and the rest. Pure.
+ */
+export function systemChoices(systems, games, cores) {
+  const counts = new Map();
+  for (const g of games) counts.set(g.system, (counts.get(g.system) ?? 0) + 1);
+  return Object.entries(systems).filter(([id]) => counts.has(id)).map(([id, s]) => {
+    const exts = (s.extensions ?? []).map((e) => e.replace(/^\./, ""));
+    const fits = (c) => c.extensions.some((e) => exts.includes(e));
+    return {
+      id,
+      name: s.names?.ko ?? s.names?.en ?? id,
+      games: counts.get(id),
+      core: s.core,
+      tableCore: s.tableCore ?? s.core,
+      installed: cores.some((c) => c.core === s.core),
+      fits: cores.filter(fits).map((c) => c.core),
+      others: cores.filter((c) => !fits(c)).map((c) => c.core),
+    };
+  });
 }
 
 export const originOf = (name, sha256) => {
@@ -41,7 +65,8 @@ async function entry(f, hashCache) {
 }
 
 /**
- * { official, retroarch: E | null, cores: [{ core, file, name, ...E, systems: [{ id, name, games }] }] }
+ * { official, retroarch: E | null, cores: [{ core, file, name, extensions, ...E, systems: [{ id, name, games }] }],
+ *   systems: [{ id, name, games, core, tableCore, installed, fits: [core], others: [core] }] }
  * with E = { size, sha256, modifiedAt, origin }. `games` are the catalog's, each naming its core.
  */
 export async function listCores(packDir, hashCache, games, systems) {
@@ -58,13 +83,15 @@ export async function listCores(packDir, hashCache, games, systems) {
   for (const f of files) {
     const core = f.path.match(CORE_RE)?.[1];
     if (!core) continue;
+    const info = await coreInfo(packDir, core);
     cores.push({
       core,
       file: `cores/${path.basename(f.abs)}`,
-      name: await displayName(packDir, core),
+      name: info.name,
+      extensions: info.extensions,
       ...(await entry(f, hashCache)),
       systems: [...(users.get(core) ?? [])].map(([id, n]) => ({ id, name: systems[id]?.names?.ko ?? id, games: n })),
     });
   }
-  return { official: OFFICIAL_VERSION, retroarch: nro ? await entry(nro, hashCache) : null, cores };
+  return { official: OFFICIAL_VERSION, retroarch: nro ? await entry(nro, hashCache) : null, cores, systems: systemChoices(systems, games, cores) };
 }

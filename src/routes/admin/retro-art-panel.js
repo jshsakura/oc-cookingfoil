@@ -40,6 +40,10 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">RetroArch 코어</h2><button type="button" id="rc-reload">${icon("refresh")}다시 읽기</button><button type="button" class="primary" id="rc-up-pick">${icon("upload")}코어 올리기</button><input type="file" id="rc-up" accept=".nro" hidden></div>
   <p class="muted">retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch <span id="rc-official"></span> 번들과 파일 내용을 비교해 출처를 표시합니다. 공식과 다른 코어는 한글패치나 해크판을 위해 따로 받은 것일 수 있으니 서버가 바꾸지 않습니다. 올린 코어는 <코어>_libretro_libnx.nro 이름의 Switch NRO 여야 하고, 바꾸거나 지운 코어는 휴지통 탭에서 되돌릴 수 있습니다.</p>
   <p class="muted" id="rc-nro"></p>
+  <h3>기종별 코어</h3>
+  <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
+  <div class="scroll" id="rc-systems" data-skel></div>
+  <h3>설치된 코어</h3>
   <div class="scroll" id="rc-list" data-skel></div>
   </div>
   <div data-sub-panel="versions" hidden>
@@ -103,13 +107,30 @@ function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
-  $('rc-official').textContent=d.official;
+  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
   table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
     const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
     tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name+' 코어');
+  const opt=(core,label)=>{const o=el('option',label);o.value=core;if(core===s.core)o.selected=true;return o;};
+  const group=(label,cores)=>{const g=el('optgroup');g.label=label;g.append(...cores.map((c)=>opt(c,c+(c===s.tableCore?' (기본값)':''))));return g;};
+  if(!s.installed)sel.append(opt(s.core,s.core+' (설치돼 있지 않습니다)'));
+  if(s.fits.length)sel.append(group('확장자가 맞는 코어',s.fits));
+  if(s.others.length)sel.append(group('기타',s.others));
+  sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
+function rcSystems(list){
+  table('rc-systems',['기종','게임','코어',''],list.map((s)=>{const tr=el('tr');
+    const state=!s.installed?pill('코어가 없습니다','warn'):s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
+    const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
+    const extra=td();if(state)extra.append(state);if(back)extra.append(back);
+    tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
+async function rcSetSystem(s,core,sel){
+  if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}
+  try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(s.name+' 코어를 '+core+' 로 바꿨습니다.');loadRetroCores();}
+  catch(err){toast(err.message);if(sel)sel.value=s.core;}}
 async function rcRemove(c,force=false){
   if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
   try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
