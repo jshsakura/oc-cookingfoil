@@ -10,6 +10,10 @@
  * a found score is re-read weekly (reviews move), a miss is retried after two
  * weeks. The library is worked through in small paced batches every ten
  * minutes, new games first.
+ *
+ * The IGDB query also brings the game's trailers (igdb-videos.js), kept as
+ * `videos` on its IGDB entry for the web's admin view; a record saved before
+ * that gets them at its next scheduled re-read.
  */
 import fs from "fs";
 import path from "path";
@@ -17,6 +21,7 @@ import debug from "../debug.js";
 import { titledbCacheDir, ratingSync } from "../helpers/envs.js";
 import * as igdb from "./igdb-client.js";
 import * as activity from "../tasks/activity.js";
+import { VIDEO_FIELDS, videosOf } from "./igdb-videos.js";
 
 const STORE_FILE = "ratings-own.json";
 const STORE_VERSION = 1;
@@ -45,7 +50,7 @@ const EDITION_RE = /\b(nintendo switch( 2)?( edition)?|switch( 2)? edition|for n
 
 const ROMAN = { ii: "2", iii: "3", iv: "4", vi: "6", vii: "7", viii: "8", ix: "9" };
 
-let titles = {};          // TID → { steam?, igdb? }, each { at, percent, count, label?, confidence, id, name } or { at, miss: true }
+let titles = {};          // TID → { steam?, igdb? }, each { at, percent, count, label?, confidence, id, name, videos? } or { at, miss: true, videos? }
 let wanted = new Map();   // TID → { names: [English names], year }
 let running = null;
 let onChangeFn = null;
@@ -142,10 +147,14 @@ export async function steamRating(names, { fetchImpl = fetch } = {}) {
   return out;
 }
 
-/** IGDB's rating for this platform's release, or { miss }. Only when keys are set. */
+/**
+ * IGDB's rating for this platform's release, or { miss }, with the game's trailers
+ * as `videos` when it has any (a matched game without a rating keeps them too).
+ * Only when keys are set.
+ */
 export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
   const term = names[0].replace(/"/g, "");
-  const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count; where platforms = (${PLATFORM_ID}); limit 5;`;
+  const body = `search "${term}"; fields id,name,first_release_date,total_rating,total_rating_count,${VIDEO_FIELDS}; where platforms = (${PLATFORM_ID}); limit 5;`;
   const games = await igdb.query("games", body, { fetchImpl });
   const best = bestMatch(names, games);
   if (!best || best.confidence < MATCH_MIN) return { miss: true };
@@ -153,10 +162,12 @@ export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
   const released = g.first_release_date ? new Date(g.first_release_date * 1000).getUTCFullYear() : null;
   // A same-named game from another era is a different game.
   if (year && released && Math.abs(year - released) >= 4) return { miss: true };
-  if (!Number.isFinite(g.total_rating) || !g.total_rating_count) return { miss: true };
+  const videos = videosOf(g.videos);
+  const withVideos = videos ? { videos } : {};
+  if (!Number.isFinite(g.total_rating) || !g.total_rating_count) return { miss: true, ...withVideos };
   return {
     id: g.id, name: g.name, confidence: Math.round(best.confidence * 1000) / 1000,
-    percent: Math.round(g.total_rating * 100) / 100, count: g.total_rating_count,
+    percent: Math.round(g.total_rating * 100) / 100, count: g.total_rating_count, ...withVideos,
   };
 }
 
@@ -198,6 +209,11 @@ export function ratingOf(titleId) {
   if (!entry) return null;
   const toPick = (r) => (r && !r.miss ? { percent: r.percent, count: r.count, confidence: r.confidence, label: r.label } : null);
   return pickScore({ steam: toPick(entry.steam), igdb: toPick(entry.igdb) });
+}
+
+/** The trailers IGDB lists for a title ([{ id, name }]), or []. For the web's admin view only, never a console's reply. */
+export function trailersOf(titleId) {
+  return videosOf(titles[String(titleId ?? "").toUpperCase()]?.igdb?.videos) ?? [];
 }
 
 /** The library's base games and their English names; called whenever sections are composed. */

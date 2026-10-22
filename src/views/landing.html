@@ -894,6 +894,20 @@
       .modal .modal-chips .chip { padding: 5px 12px; font-size: 12.5px; cursor: default; background: var(--surface); border: 1px solid var(--line); }
       .modal .screenshots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
       .modal .screenshots:empty, .modal .extras:empty { display: none; }
+      /* IGDB trailers, admins only: YouTube's thumbnail with a play mark until clicked, then its player in place. */
+      .modal .modal-videos { margin: 0 0 18px; }
+      .modal .modal-videos[hidden] { display: none; }
+      .modal .modal-videos h4 { margin: 0 0 8px; font-size: 13px; font-weight: 800; }
+      .modal .video-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+      .modal .video-card { display: flex; flex-direction: column; gap: 6px; width: 240px; flex-shrink: 0; }
+      .modal .video-thumb { position: relative; display: block; width: 240px; height: 135px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--sunk); cursor: pointer; }
+      .modal .video-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .modal .video-thumb .play { position: absolute; inset: 0; margin: auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(0, 0, 0, 0.62); color: #fff; transition: transform 0.15s ease, background 0.15s ease; }
+      .modal .video-thumb .play svg { width: 22px; height: 22px; margin-left: 3px; fill: currentColor; }
+      .modal .video-thumb:hover .play, .modal .video-thumb:focus-visible .play { transform: scale(1.08); background: var(--butter); color: var(--butter-ink); }
+      .modal .video-thumb:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .modal .video-card iframe { width: 240px; height: 135px; border: 0; border-radius: 12px; background: #000; }
+      .modal .video-card .video-name { font-size: 12.5px; color: var(--secondary); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .modal .screenshots img { width: 240px; height: 135px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--sunk); cursor: zoom-in; }
       .modal .extras { margin-bottom: 16px; }
       .modal .extras .extras-head { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
@@ -1533,6 +1547,7 @@
           <p class="modal-where" id="modal-where" hidden></p>
           <div class="modal-chips" id="modal-chips"></div>
           <div class="screenshots" id="modal-screens"></div>
+          <section class="modal-videos" id="modal-videos" hidden></section>
           <div class="extras" id="modal-extras"></div>
           <div class="extras modal-install" id="modal-install" hidden></div>
           <div class="modal-actions">
@@ -1666,6 +1681,8 @@
           "patches.needNote": "이 패치가 없으면 게임이 실행되지 않습니다. 게임과 함께 다운로드합니다.",
           "patches.related": "관련 패치",
           "modal.notes": "추가 정보",
+          "modal.videos": "트레일러",
+          "modal.videoPlay": "트레일러를 재생합니다",
           "extras.empty": "이 조건에 맞는 항목이 없습니다.",
           "extras.source": "출처",
           "extras.serverPresent": "서버에 있음",
@@ -2009,6 +2026,8 @@
           "patches.needNote": "The game won't start without these. Get them together with the game.",
           "patches.related": "Related mods",
           "modal.notes": "Notes",
+          "modal.videos": "Trailers",
+          "modal.videoPlay": "Plays the trailer",
           "extras.empty": "Nothing matches.",
           "extras.source": "Source",
           "extras.serverPresent": "On server",
@@ -2351,6 +2370,8 @@
           "patches.needNote": "このパッチがないとゲームが起動しません。ゲームと一緒にダウンロードします。",
           "patches.related": "関連パッチ",
           "modal.notes": "追加情報",
+          "modal.videos": "トレーラー",
+          "modal.videoPlay": "トレーラーを再生します",
           "extras.empty": "条件に合う項目はありません。",
           "extras.source": "出典",
           "extras.serverPresent": "サーバーにあり",
@@ -2693,6 +2714,8 @@
           "patches.needNote": "沒有這些補丁遊戲無法啟動。請與遊戲一起下載。",
           "patches.related": "相關補丁",
           "modal.notes": "補充資訊",
+          "modal.videos": "預告片",
+          "modal.videoPlay": "播放預告片",
           "extras.empty": "沒有符合條件的項目。",
           "extras.source": "來源",
           "extras.serverPresent": "服务器上有",
@@ -5761,6 +5784,53 @@
           box.append(line);
         }
       }
+      // IGDB trailers (/api/videos), shown to admins only: YouTube's thumbnail with a play
+      // mark, which becomes YouTube's player (the no-cookie address) only when clicked.
+      const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+      let videosSeq = 0;
+      function loadVideos(path) {
+        const mine = ++videosSeq;
+        fillVideos([]);
+        if (!path || (session && !session.admin)) return;
+        fetch("/api/videos/" + path, { headers: { Accept: "application/json" } })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+          .then((d) => { if (mine === videosSeq) fillVideos(Array.isArray(d?.videos) ? d.videos : []); });
+      }
+      function fillVideos(list) {
+        const box = $("modal-videos");
+        const videos = list.filter((v) => YOUTUBE_ID.test(v?.id ?? "")).slice(0, 8);
+        box.replaceChildren();
+        box.hidden = !videos.length;
+        if (!videos.length) return;
+        const row = Object.assign(document.createElement("div"), { className: "video-row" });
+        for (const v of videos) {
+          const name = typeof v.name === "string" ? v.name : "";
+          const card = Object.assign(document.createElement("div"), { className: "video-card" });
+          const thumb = Object.assign(document.createElement("button"), { type: "button", className: "video-thumb" });
+          thumb.setAttribute("aria-label", name ? `${t("modal.videoPlay")}: ${name}` : t("modal.videoPlay"));
+          const img = Object.assign(document.createElement("img"), { src: `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, alt: "", loading: "lazy", decoding: "async" });
+          const play = Object.assign(document.createElement("span"), { className: "play" });
+          play.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+          thumb.append(img, play);
+          thumb.addEventListener("click", () => {
+            const frame = document.createElement("iframe");
+            frame.src = `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1`;
+            frame.title = name || t("modal.videos");
+            frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+            frame.allowFullscreen = true;
+            // The page sends no referrer at all; YouTube's player refuses to start without its origin.
+            frame.referrerPolicy = "strict-origin-when-cross-origin";
+            thumb.replaceWith(frame);
+          });
+          card.append(thumb);
+          if (name) card.append(Object.assign(document.createElement("span"), { className: "video-name", textContent: name, title: name }));
+          row.append(card);
+        }
+        const head = document.createElement("h4");
+        head.textContent = t("modal.videos");
+        box.append(head, row);
+      }
       function fillShots(urls, loading) {
         const scr = $("modal-screens"); scr.replaceChildren(...(loading ? shotSkeletons() : []));
         for (const url of urls) {
@@ -5947,6 +6017,7 @@
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
         openSheet("modal");
+        loadVideos(validBase ? "title/" + baseId : null);
 
         // Rich metadata (description, publisher, screenshots, release, region,
         // rating, players) lives behind /api/title/:id, outside the catalog.
@@ -6326,6 +6397,7 @@
         const mine = ++retroSeq;
         renderRetroModal(g, sys, true);
         openSheet("modal");
+        loadVideos("retro/" + encodeURIComponent(g.id));
         retroDetail(g.id).then((d) => {
           if (mine !== retroSeq) return;
           renderRetroModal(d ? { ...g, ...d } : g, sys, false);

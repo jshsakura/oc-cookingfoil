@@ -62,6 +62,7 @@ import authGuard, { ignoreBasic } from "./security/auth-guard.js";
 import pairingGate from "./security/pairing-gate.js";
 import sessionGate from "./security/session-gate.js";
 import adminOnly from "./security/admin-only.js";
+import videosRouter from "./routes/videos.js";
 import { sameOriginWrites } from "./security/same-origin.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
@@ -341,6 +342,8 @@ expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());
 // title. Surfaces titledb detail the shop response intentionally omits — the
 // dashboard modal and the remote client's detail panel both read this.
 expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
+// Game trailers from IGDB: the web's detail as an admin sees it, never a console.
+expressApp.use("/api/videos", adminOnly({ reads: true }), videosRouter());
 
 expressApp.get("/api/client-config", clientConfigRoute);
 
