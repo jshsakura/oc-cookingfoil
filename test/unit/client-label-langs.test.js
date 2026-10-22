@@ -75,14 +75,15 @@ test("a label table that leaves languages out still has English, and only client
   }
 });
 
-test("a sign-in page a phone opens shows simplified Chinese to a traditional reader, not English", async () => {
+test("a sign-in page a phone opens shows English to a traditional reader, never simplified Chinese", async () => {
   const { devicePairPage } = await import("../../src/routes/device-pair-page.js");
   const { raLinkPage } = await import("../../src/routes/ra-link.js");
   const pair = devicePairPage({ view: "scan", lang: "zh-Hant" });
-  assert.match(pair, /<html lang="zh">/);
-  assert.ok(pair.includes(PAIR_TEXT.zh.title));
+  assert.match(pair, /<html lang="en">/);
+  assert.ok(pair.includes(PAIR_TEXT.en.title));
+  assert.match(devicePairPage({ view: "scan", lang: "zh" }), /<html lang="zh">/);
   assert.match(devicePairPage({ view: "scan", lang: "de" }), /<html lang="en">/, "a language the page lacks is English");
   const ra = raLinkPage("zh-Hant");
-  assert.match(ra, /<html lang="zh">/);
-  assert.ok(ra.includes(RA_LINK_TEXT.zh.title));
+  assert.match(ra, /<html lang="en">/);
+  assert.ok(ra.includes(RA_LINK_TEXT.en.title));
 });

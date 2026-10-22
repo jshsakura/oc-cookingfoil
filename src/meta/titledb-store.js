@@ -86,8 +86,7 @@ function setIfEmpty(target, field, value) {
 export const LOCALIZED_LANGS = LANGS;
 
 // Most European region files repeat the English name, text or art. A value equal to
-// one already kept reuses that string, so the repeat costs no memory of its own
-// (blawar/titledb 2026-10, twelve regions: the eight later languages held 100 MB of heap, 38 MB this way).
+// one already kept reuses that string, so the repeat costs no memory of its own.
 function shared(kept, value, merged) {
   if (value === merged) return merged;
   for (const v of Object.values(kept)) if (v === value) return v;

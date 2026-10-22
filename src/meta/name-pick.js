@@ -7,7 +7,9 @@
  * English title too. With the languages in order (COOK_LANG_PRIORITY, ko, en,
  * ja by default) the file's title wins when its language comes before every
  * language titledb has. The language of a file's title is read from its script:
- * Hangul is ko, kana is ja, Han alone is zh, anything else en.
+ * Hangul is ko, kana is ja, Han alone is zh, anything else en. Han alone does
+ * not tell simplified from traditional, so it ranks as whichever of zh and
+ * zh-Hant the order puts first, and is kept under that one.
  */
 
 import { parseLang } from "./langs.js";
@@ -34,18 +36,22 @@ const rankIn = (priority) => {
   };
 };
 
+/** The language a file title in `script` is kept as: Han goes to the Chinese the order ranks first. */
+const chineseIn = (rank) => (script) => (script === "zh" && rank("zh-Hant") < rank("zh") ? "zh-Hant" : script);
+
 /**
  * The file's titles (`own`, any number, empty ones skipped) whose language comes
  * before every language in `titledbNames`, as { lang: name }, best first. Pure.
  */
 export function fileNamesOver(titledbNames, own, priority) {
   const rank = rankIn(priority);
+  const langOf = chineseIn(rank);
   const best = Math.min(Infinity, ...Object.entries(titledbNames ?? {}).filter(([, v]) => v).map(([l]) => rank(l)));
   const out = {};
   for (const raw of own ?? []) {
     const name = typeof raw === "string" ? raw.trim() : "";
     if (!name) continue;
-    const lang = scriptLang(name);
+    const lang = langOf(scriptLang(name));
     if (rank(lang) < best && !(lang in out)) out[lang] = name;
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => rank(a) - rank(b)));

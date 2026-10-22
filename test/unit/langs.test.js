@@ -27,10 +27,10 @@ test("a request's language: ?lang= decides alone, an unknown one is English, nev
   assert.equal(requestLang(req({}, undefined)), "en");
 });
 
-test("text falls back to the language asked, simplified Chinese for traditional, then English", () => {
-  assert.deepEqual(fallbacks("zh-Hant"), ["zh-Hant", "zh", "en"]);
+test("text falls back to the language asked, then English", () => {
+  assert.deepEqual(fallbacks("zh-Hant"), ["zh-Hant", "en"]);
   assert.deepEqual(fallbacks("en"), ["en"]);
-  assert.equal(pick({ en: "Name", zh: "名称" }, "zh-Hant"), "名称");
+  assert.equal(pick({ en: "Name", zh: "名称" }, "zh-Hant"), "Name", "a traditional reader never gets simplified text");
   assert.equal(pick({ en: "Name", ko: "이름" }, "es"), "Name");
   assert.equal(pick({ ko: "이름" }, "es"), null, "no Korean for a Spanish reader");
   assert.equal(pick(null, "en"), null);
@@ -81,15 +81,15 @@ test("requestLang: a repeated ?lang= takes its first value", () => {
   assert.equal(requestLang(req({ lang: [] }, "fr")), "fr", "an empty list is no ?lang= at all");
 });
 
-test("simplified and traditional Chinese read each other before English", () => {
-  assert.deepEqual(fallbacks("zh"), ["zh", "zh-Hant", "en"]);
-  assert.equal(pick({ en: "Name", "zh-Hant": "名稱" }, "zh"), "名稱", "Hong Kong's text beats English for a simplified reader");
+test("simplified and traditional Chinese never stand in for each other", () => {
+  assert.deepEqual(fallbacks("zh"), ["zh", "en"]);
+  assert.equal(pick({ en: "Name", "zh-Hant": "名稱" }, "zh"), "Name", "Hong Kong's text is not shown to a simplified reader");
   for (const lang of ["ko", "ja", "de", "pt"]) assert.deepEqual(fallbacks(lang), [lang, "en"], lang);
 });
 
 test("tableLang: the language a fixed text table answers a reader in", () => {
   const table = { en: {}, ko: {}, zh: {} };
   assert.equal(tableLang(table, "ko"), "ko");
-  assert.equal(tableLang(table, "zh-Hant"), "zh", "traditional reads simplified");
+  assert.equal(tableLang(table, "zh-Hant"), "en", "a traditional reader gets English, not simplified");
   assert.equal(tableLang(table, "de"), "en");
 });

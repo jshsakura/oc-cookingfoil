@@ -7,7 +7,8 @@
  * first language, so a Spanish client is never shown Korean.
  *
  * Text kept per language falls back the same way everywhere (pick): the language
- * asked for, the other Chinese script for either Chinese, then English.
+ * asked for, then English. Simplified and traditional Chinese never stand in for
+ * each other, as the client's own fallback does not either.
  */
 export const LANGS = ["en", "ko", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "ru", "nl"];
 
@@ -53,12 +54,8 @@ export function requestLang(req) {
   return "en";
 }
 
-// A Chinese reader reads the other script sooner than English: titledb's Chinese is
-// mostly Hong Kong's (traditional), and China's file names only a few dozen games.
-const OTHER_SCRIPT = { zh: "zh-Hant", "zh-Hant": "zh" };
-
 /** Where `lang` looks for text, in order. Pure. */
-export const fallbacks = (lang) => [...new Set([lang, ...(OTHER_SCRIPT[lang] ? [OTHER_SCRIPT[lang]] : []), "en"])];
+export const fallbacks = (lang) => [...new Set([lang, "en"])];
 
 /** The key of a fixed text table ({ en, ko, ... }) to answer `lang` with: its fallbacks, else English. Pure. */
 export const tableLang = (table, lang) => fallbacks(lang).find((l) => table[l]) ?? "en";
