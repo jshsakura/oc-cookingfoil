@@ -161,10 +161,6 @@ retro/
 
 RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要になるものです。`retroarch.nro`、`retroarch.cfg`、RetroArch が使うフォルダー (`cores/`、`assets/`、`system/` など) を `retro/retroarch/` に置きます。ゲームのあるシステムで足りない BIOS ファイルは管理ページが教えてくれます。CookingFoil が BIOS を配布することはありません。
 
-### フォルダの案内
-
-サーバーはフォルダに案内ファイルを作りません。フォルダごとに受け付ける拡張子、構成、名前の付け方、コアの `.nro` と本体側のパス、BIOS などの案内は API で提供します。全体は `GET /admin/api/storage-guide`、フォルダ一つは `GET /admin/api/storage-guide/folder?path=<フォルダ>` で読み、`&format=md` を付けると Markdown で受け取れます。管理者ログインか API トークンが必要です。AI アシスタントは MCP ツール `library_storage_guide` と `library_folder_guide` で同じ内容を読みます。フォルダに置いた `README.md` はサーバーが無視します。一覧に出ず、サイズにも数えず、本体にも送りません。
-
 ## 設定
 
 ほとんどの設定は管理ページで変更し、すぐに反映されます。`.env` の値は初回起動時の既定値にすぎません。管理ページで設定を変えるとページの値が優先され、「compose の値に戻す (compose 값으로)」操作で `.env` の値に戻ります。すべての変数とその説明は [`.env.example`](./.env.example) にあります。

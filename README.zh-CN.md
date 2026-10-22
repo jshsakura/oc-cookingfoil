@@ -161,10 +161,6 @@ retro/
 
 RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 `retroarch.nro`、`retroarch.cfg` 以及 RetroArch 使用的文件夹（`cores/`、`assets/`、`system/` 等）放到 `retro/retroarch/` 下。管理页面会告诉你有游戏的系统还缺哪些 BIOS 文件。CookingFoil 永远不会附带这些文件。
 
-### 文件夹说明
-
-服务器不会在文件夹里写入说明文件。每个文件夹接受的扩展名、结构、命名方式、核心 `.nro` 及其在主机上的路径、BIOS 等说明通过 API 提供：全部文件夹用 `GET /admin/api/storage-guide`，单个文件夹用 `GET /admin/api/storage-guide/folder?path=<文件夹>`，加上 `&format=md` 可获得 Markdown。需要管理员登录或 API 令牌。AI 助手通过 MCP 工具 `library_storage_guide` 和 `library_folder_guide` 读取同样的内容。你放进文件夹的 `README.md` 会被服务器忽略：不会出现在列表中，不计入大小，也不会发送到主机。
-
 ## 配置
 
 大多数设置在管理页面上修改并立即生效。`.env` 中的值只是首次启动时的默认值：一旦你在管理页面上修改了某项设置，就以页面上的值为准，"恢复为 compose 值 (compose 값으로)"会回到 `.env` 中的值。[`.env.example`](./.env.example) 列出并解释了每一个变量。

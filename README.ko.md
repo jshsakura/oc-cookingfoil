@@ -161,10 +161,6 @@ retro/
 
 RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 하는 것들입니다. `retroarch.nro`, `retroarch.cfg` 와 RetroArch 가 쓰는 폴더(`cores/`, `assets/`, `system/` 등)를 `retro/retroarch/` 아래에 넣습니다. 게임이 있는 시스템에 어떤 BIOS 파일이 빠졌는지는 관리 페이지가 알려 줍니다. CookingFoil 은 BIOS 를 절대 포함하지 않습니다.
 
-### 폴더 안내
-
-서버는 폴더에 안내 파일을 만들지 않습니다. 폴더마다 받는 확장자, 구조, 이름 붙이는 법, 코어 `.nro` 와 기기 경로, BIOS 같은 안내는 API 로 제공합니다. 전체는 `GET /admin/api/storage-guide`, 폴더 하나는 `GET /admin/api/storage-guide/folder?path=<폴더>` 로 읽고 `&format=md` 를 붙이면 마크다운으로 받습니다. 관리자 로그인이나 API 토큰이 필요합니다. AI 도우미는 MCP 도구 `library_storage_guide`, `library_folder_guide` 로 같은 내용을 읽습니다. 폴더에 넣은 `README.md` 는 서버가 무시합니다. 목록에 나오지 않고 크기에 더해지지 않으며 기기로 보내지 않습니다.
-
 ## 설정
 
 대부분의 설정은 관리 페이지에서 바꾸고 바로 적용됩니다. `.env` 의 값은 처음 시작할 때의 기본값일 뿐입니다. 관리 페이지에서 설정을 바꾸면 그 값이 우선하고, "compose 값으로"를 누르면 `.env` 값으로 돌아갑니다. 모든 변수와 설명은 [`.env.example`](./.env.example) 에 있습니다.
