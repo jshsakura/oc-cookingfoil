@@ -52,7 +52,7 @@ fs.mkdirSync(`${process.env.COOK_HOMEBREW_DIR}/handapp`, { recursive: true });
 fs.rmSync(process.env.COOK_RETRO_DIR, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/retro-variants.json`, { force: true });
 for (const rel of ['roms/md/더 슈퍼 시노비 2 (Super Shinobi II, The) [J-K v20130609].zip', 'roms/md/더 슈퍼 시노비 2 (Super Shinobi II, The) [Japan, Korea].zip',
-  'roms/arcade/gunbird.zip', 'roms/arcade/gunbirdj.zip', 'roms/My Hacks/hack.sfc']) {
+  'roms/arcade/gunbird.zip', 'roms/arcade/gunbirdj.zip', 'roms/My Hacks/hack.sfc', 'roms/Mega Drive/other.zip']) {
   fs.mkdirSync(`${process.env.COOK_RETRO_DIR}/${rel.slice(0, rel.lastIndexOf('/'))}`, { recursive: true });
   fs.writeFileSync(`${process.env.COOK_RETRO_DIR}/${rel}`, 'x');
 }

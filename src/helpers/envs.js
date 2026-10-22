@@ -232,6 +232,8 @@ let ratingSync = envBool("COOK_RATING_SYNC", true);
 // screenshots) collected slowly from LaunchBox, and IGDB with its keys.
 // false keeps what was collected and fetches nothing more.
 let retroMeta = envBool("COOK_RETRO_META", true);
+// A ROM folder for every system the Switch can run, the BIOS folder and the storage guide (retro/scaffold.js), made when missing.
+let retroScaffold = envBool("COOK_RETRO_SCAFFOLD", true);
 // Where the RetroArch bundle is downloaded from (retro/pack-fill.js). Empty is the
 // official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
 // must serve the same bytes, the lock's SHA-256 is checked either way.
@@ -413,6 +415,7 @@ const ENV_SETTINGS = Object.freeze({
   eshopArtwork,
   ratingSync,
   retroMeta,
+  retroScaffold,
   retroPackUrl,
   clientSource,
   clientReleaseRepo,
@@ -464,6 +467,7 @@ function applyServerSettings(saved = {}) {
   eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
+  retroScaffold = v.retroScaffold;
   retroPackUrl = v.retroPackUrl;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
@@ -576,6 +580,7 @@ export {
   homebrewCheckHours,
   ratingSync,
   retroMeta,
+  retroScaffold,
   retroPackUrl,
   dropboxAppKey,
   dropboxRedirectBase,

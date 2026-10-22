@@ -59,12 +59,22 @@ const THUMB_UNSAFE_RE = /[&*/:`<>?\\|"]/g;
 let state = { dir: null, scannedAt: 0, systems: {}, games: [], present: new Set(), byId: new Map(), groups: new Map() };
 let inFlight = null;
 const listeners = [];
+let prepare = null;
 
 /** The name a game's art is filed under: its file name, or its first disc's for a multi-disc game; an arcade set's short name. */
 export function romKey(g) {
   if (g.keepFileName) return path.basename(g.rel, path.extname(g.rel)); // arcade: the set name
   const first = g.m3u ? g.extras[0]?.rel : null;
   return first ? path.basename(first, path.extname(first)) : g.name;
+}
+
+/**
+ * Run `await fn(dir, systems)` at the start of every scan, before the folders are
+ * read (retro/scaffold.js makes missing system folders there); null removes it.
+ * A failure is logged and the scan goes on.
+ */
+export function beforeScan(fn) {
+  prepare = fn;
 }
 
 /** Run `fn(state)` after every scan (say, to draw artwork ahead of time). */
@@ -391,6 +401,7 @@ async function borrowArcadeArt(games, art) {
 /** Every game under `dir`, with the system table it was read with. */
 export async function scanDir(dir) {
   const systems = systemCores.withPicks(loadSystems(dir), systemCores.all());
+  if (prepare) await Promise.resolve().then(() => prepare(dir, systems)).catch((err) => debug.error("retro: preparing %s failed: %s", dir, err.message));
   const games = [];
   const present = new Set();
   for (const [systemId, system] of Object.entries(systems)) {

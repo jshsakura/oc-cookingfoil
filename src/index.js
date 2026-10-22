@@ -98,6 +98,9 @@ import debug from "./debug.js";
 import { romsDirPath, appPort, dataDir, retroDir, layout, incomingDir } from "./helpers/envs.js";
 import { ROLES, ensureLayout, oldIncoming, moveOldIncoming } from "./helpers/storage-layout.js";
 import { oldRetroLeftBehind } from "./helpers/folder-hints.js";
+import * as retroCatalog from "./retro/catalog.js";
+import * as retroScaffold from "./retro/scaffold.js";
+import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
@@ -116,6 +119,14 @@ for (const made of ensureLayout(layout)) debug.log("storage: made %s", made);
 for (const role of ROLES.filter((r) => layout.from[r] === "kept")) {
   debug.error("storage: %s still has files, so %s stays in use instead of %s/%s; move them over", layout.dirs[role], role, layout.root, role);
 }
+// Every retro scan (the first runs at start) makes the system folders and the storage guide that are missing.
+retroCatalog.beforeScan(async (dir, systems) => {
+  if (dir !== retroDir) return;
+  const r = await retroScaffold.run({ retroDir: dir, systems, layout, enabled: envs.retroScaffold });
+  if (r.made.length) debug.log("retro: made %d folders: %s", r.made.length, r.made.join(", "));
+  if (r.guide.state === "written") debug.log("storage: wrote the folder guide %s", r.guide.path);
+  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not write %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
+});
 const oldBox = oldIncoming(layout);
 if (oldBox) {
   try {

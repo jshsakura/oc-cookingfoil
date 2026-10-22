@@ -115,6 +115,9 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await page.locator('#retro-subtabs [data-sub="art"]').click();
   await expect(page.locator('#ra-systems')).toBeVisible();
   await expect(page.locator('#ra-bios')).toContainText('roms/ 안의 My Hacks 폴더는 어느 기종인지 몰라 읽지 않습니다');
+  // A look-alike of a known system is held back by the system's own folder, not unknown.
+  await expect(page.locator('#ra-bios')).toContainText('roms/Mega Drive 폴더는 읽지 않습니다. roms/md 폴더에 이미 메가 드라이브 게임이 있기 때문입니다');
+  await expect(page.locator('#ra-bios')).not.toContainText('Mega Drive, My Hacks');
   await page.locator('#tab-retro').screenshot({ path: 'out/web/admin-retro-unread-folder.png' });
 });
 
