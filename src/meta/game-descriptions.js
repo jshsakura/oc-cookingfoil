@@ -128,10 +128,19 @@ function readFile(file) {
   return out;
 }
 
-/** Keeps the entries not moved yet in game-descriptions.json, or removes it when none are left. */
-function writeLeftover() {
-  if (leftover.size) writeAtomic(LEGACY_FILE, `${JSON.stringify(Object.fromEntries(leftover), null, 1)}\n`);
+/** Keeps `left` (the entries not moved yet) in game-descriptions.json, or removes it when none are left. */
+function writeLeftover(left) {
+  if (left.size) writeAtomic(LEGACY_FILE, `${JSON.stringify(Object.fromEntries(left), null, 1)}\n`);
   else fs.rmSync(LEGACY_FILE, { force: true });
+  // Only once the disk agrees: otherwise what the admin removed would come back on the next start.
+  leftover = left;
+}
+
+/** Two sets of fields, `mine` winning language by language. Pure. */
+function mergeFields(old, mine) {
+  const out = { ...old };
+  for (const [field, text] of Object.entries(mine ?? {})) out[field] = { en: text.en ?? old?.[field]?.en ?? null, ko: text.ko ?? old?.[field]?.ko ?? null };
+  return out;
 }
 
 /**
@@ -161,18 +170,19 @@ function migrateLegacy() {
       const dir = folders().get(id);
       const there = dir ? readFile(path.join(dir, FILE)) : { fields: null };
       if (there.error) throw there.error;
-      persist(id, { ...fields, ...there.fields });
+      persist(id, mergeFields(fields, there.fields));
     } catch (err) {
       debug.error("game descriptions: %s stays in %s: %s", id, LEGACY_FILE, err.message);
       left.set(id, fields);
     }
   }
-  leftover = left;
   try {
-    writeLeftover();
+    writeLeftover(left);
     debug.log("game descriptions: moved %s into %s%s", LEGACY_FILE, GAMES_DIR, left.size ? ` (${left.size} left there)` : "");
   } catch (err) {
     debug.error("game descriptions: updating %s: %s", LEGACY_FILE, err.message);
+    // The old file is still whole on disk: keep reading every entry from it.
+    leftover = new Map(Object.entries(normalize(raw)).map(([k, e]) => [k.toUpperCase(), readFields(e)]));
   }
 }
 
@@ -212,9 +222,9 @@ function fieldsOf(id, { strict = false } = {}) {
   const dir = folders().get(id);
   const got = dir ? readFile(path.join(dir, FILE)) : { fields: null };
   if (got.error && strict) throw got.error;
-  if (got.error) return null;
   const old = leftover.get(id);
-  return old || got.fields ? { ...old, ...got.fields } : null;
+  if (got.error) return old ?? null;
+  return old || got.fields ? mergeFields(old, got.fields) : null;
 }
 
 function all() {
@@ -241,7 +251,7 @@ function persist(id, fields) {
   }
   read.delete(file);
   index = null;
-  if (leftover.delete(id)) writeLeftover();
+  if (leftover.has(id)) writeLeftover(new Map([...leftover].filter(([k]) => k !== id)));
 }
 
 const clean = (v, field) => {

@@ -23,7 +23,7 @@ put(`Pics [${PICS}]/icon.webp`, "WEBP");
 put(`Broken [${BROKEN}]/game.json`, "{ not json");
 fs.writeFileSync(path.join(root, "game-descriptions.json"), JSON.stringify({
   [OLD]: { name: { ko: "괴혼 앙코르" }, en: "Roll it up.", ko: null },
-  [MERGE]: { description: { ko: "옛 글" }, notes: { ko: "옛 메모" } },
+  [MERGE]: { description: { ko: "옛 글", en: "Old English" }, notes: { ko: "옛 메모" } },
   [PICS]: { notes: { en: "Has pictures" } },
   [LOWER]: { notes: { en: "Lower case id" } },
   [BROKEN]: { notes: { ko: "고장 난 폴더" } },
@@ -37,6 +37,7 @@ test("game-descriptions.json moves into one folder per game, named after the gam
   assert.equal(folderOf(OLD), "괴혼 앙코르 [0100D7000C2C6000]");
   assert.equal(get(MERGE).description.ko, "폴더 글", "a game.json already there wins");
   assert.equal(get(MERGE).notes.ko, "옛 메모", "and gets the fields it lacked");
+  assert.equal(get(MERGE).description.en, "Old English", "language by language");
   assert.equal(get(PICS).notes.en, "Has pictures");
   assert.ok(fs.existsSync(path.join(GAMES_DIR, `Pics [${PICS}]`, "game.json")), "written beside the pictures");
   assert.equal(get(LOWER.toUpperCase()).notes.en, "Lower case id");
@@ -44,6 +45,14 @@ test("game-descriptions.json moves into one folder per game, named after the gam
   const legacy = JSON.parse(fs.readFileSync(path.join(root, "game-descriptions.json"), "utf8"));
   assert.deepEqual(Object.keys(legacy), [BROKEN], "what could not be moved stays in the old file, and only that");
   assert.equal(fs.readFileSync(path.join(GAMES_DIR, `Broken [${BROKEN}]`, "game.json"), "utf8"), "{ not json", "a broken game.json is never written over");
+  assert.equal(get(BROKEN).notes.ko, "고장 난 폴더", "while it is broken, the old text still shows");
+  fs.chmodSync(root, 0o555);
+  try {
+    assert.throws(() => reset(BROKEN, "notes"));
+    assert.equal(get(BROKEN).notes.ko, "고장 난 폴더", "a forget the disk refused is not taken back only in memory");
+  } finally {
+    fs.chmodSync(root, 0o755);
+  }
   fs.writeFileSync(path.join(GAMES_DIR, `Broken [${BROKEN}]`, "game.json"), JSON.stringify({ id: BROKEN, name: { en: "Fixed" } }));
   assert.equal(get(BROKEN).notes.ko, "고장 난 폴더", "once fixed by hand, the old text still shows");
   assert.equal(set(BROKEN, "description", { en: "Saved" }), true);
