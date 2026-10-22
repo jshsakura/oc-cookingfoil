@@ -10,9 +10,13 @@ const GAMES = process.env.COOK_GAMES_DIR!;
 const NAME = 'Trash Game [0100000000040000][v0].nsp';
 const FILE = path.join(GAMES, NAME);
 
+// Other specs remove files on the same server, so each test starts from an empty trash.
+const emptyAll = (page: import('@playwright/test').Page) =>
+  page.request.post('/admin/api/trash/empty', { data: { all: true, confirm: 'empty' } }).catch(() => {});
+
 test.afterEach(async ({ page }) => {
   fs.rmSync(FILE, { force: true });
-  await page.request.post('/admin/api/trash/empty', { data: { all: true, confirm: 'empty' } }).catch(() => {});
+  await emptyAll(page);
 });
 
 async function removeFromLibrary(page: import('@playwright/test').Page) {
@@ -23,6 +27,7 @@ async function removeFromLibrary(page: import('@playwright/test').Page) {
 
 test('a removed file is listed in the trash and comes back with 되돌리기', async ({ page }) => {
   await signIn(page);
+  await emptyAll(page);
   await removeFromLibrary(page);
   await page.goto('/admin#trash');
   const row = page.locator('#tr-list .tr-row', { hasText: NAME });
@@ -38,6 +43,7 @@ test('a removed file is listed in the trash and comes back with 되돌리기', a
 
 test('emptying asks for the word: a wrong one keeps everything, the right one deletes for good', async ({ page }) => {
   await signIn(page);
+  await emptyAll(page);
   await removeFromLibrary(page);
   await page.goto('/admin#trash');
   const row = page.locator('#tr-list .tr-row', { hasText: NAME });
