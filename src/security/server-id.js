@@ -34,3 +34,13 @@ export function readOrCreate(file = FILE) {
 
 /** This server's id, read once. */
 export const serverId = () => (cached ??= readOrCreate());
+
+export const SERVER_ID_HEADER = "X-CookingFoil-Server-Id";
+
+/** Puts the server id on every response, set early so refusals carry it too. */
+export function serverIdHeader() {
+  return (_req, res, next) => {
+    res.set(SERVER_ID_HEADER, serverId());
+    next();
+  };
+}

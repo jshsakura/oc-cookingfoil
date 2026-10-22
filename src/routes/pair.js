@@ -278,14 +278,14 @@ export default function pairRouter() {
       const known = enrollTokens.lookup(req.body?.token);
       debug.log("pair: %s… enroll refused: the download token is %s", deviceKey.slice(0, 12), known?.state ?? "unknown");
       if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
-      noteRefusal(req, 401, `enroll-${known?.state ?? "invalid"}`);
+      noteRefusal(req, res, 401, `enroll-${known?.state ?? "invalid"}`);
       res.set("X-CookingFoil-Enroll", known?.state ?? "invalid");
       res.status(401).json({ error: ENROLL_REFUSED[known?.state] ?? ENROLL_REFUSED.invalid });
       return;
     }
     if (spent.refused) {
       debug.log("pair: %s… enroll refused: the console is another account's", deviceKey.slice(0, 12));
-      noteRefusal(req, 409, "enroll-other-account");
+      noteRefusal(req, res, 409, "enroll-other-account");
       res.status(409).json({ error: "this console belongs to another account" });
       return;
     }
@@ -310,7 +310,7 @@ export default function pairRouter() {
     const keyProof = Boolean(hash && verifyAccessKey(req.body?.accessKey ?? req.get("X-Access-Key"), hash));
     const who = await pairSignIn(req);
     if (!keyProof && !who) {
-      noteRefusal(req, 401, "rebind-no-proof");
+      noteRefusal(req, res, 401, "rebind-no-proof");
       res.status(401).json({ error: "sign in, or show the old access key" });
       return;
     }
@@ -320,7 +320,7 @@ export default function pairRouter() {
     const approvedBy = store.deviceAddedBy(from);
     const accountOwns = Boolean(who && approvedBy === who.name && !SYSTEM_APPROVERS.has(approvedBy));
     if (store.isDeviceApproved(from) && !keyProof && !accountOwns) {
-      noteRefusal(req, 403, "rebind-not-this-account");
+      noteRefusal(req, res, 403, "rebind-not-this-account");
       res.status(403).json({ error: "that console is not this account's" });
       return;
     }

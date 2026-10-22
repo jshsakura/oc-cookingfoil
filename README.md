@@ -354,7 +354,7 @@ CookingFoil itself speaks plain HTTP. Over `http://`, anything a console sends c
 - Known attack paths, path traversal, control characters and oversized URLs are refused before sign-in, count toward the same lockout, and can raise a Telegram alert.
 - Writes from a browser and WebSocket connections must come from the server's own page. WebSocket messages are capped at 4 KB.
 - Addresses the admin sets for outside services may not point into a private network, unless the host is named in `COOK_OUTBOUND_PRIVATE_HOSTS`.
-- Responses carry defensive headers (`nosniff`, `DENY` framing, no referrer). Every refusal is logged with its reason on the Logs tab and in the `X-CookingFoil-Deny` header.
+- Responses carry defensive headers (`nosniff`, `DENY` framing, no referrer). Every refusal is logged with its reason on the Logs tab and in the `X-CookingFoil-Deny` header. Every response carries `X-CookingFoil-Server-Id` (this installation's random id, the same on every address), and every sign-in refusal (401 or 403) carries `X-CookingFoil-Auth` with the reason code the log line shows, for example `no-access-key`, `access-key-wrong`, `device-not-approved`, `session-expired`, `session-revoked`, `enroll-used`, `rebind-no-proof`, so a client can tell what to do next.
 - Secrets saved on the admin page are never shown again. Web uploads are off until you turn them on.
 
 To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do not open a public issue.

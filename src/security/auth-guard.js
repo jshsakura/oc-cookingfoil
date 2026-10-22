@@ -91,7 +91,7 @@ export default function authGuard() {
         body: "Locked out after too many failed attempts. Contact the administrator.\n",
       });
     }
-    noteRefusal(req, 401, unsignedReason(req));
+    noteRefusal(req, res, 401, unsignedReason(req));
     res.set("Cache-Control", "no-store");
     res.status(401).type("text/plain").send(`${unauthorizedMessage}\n`);
   };
@@ -127,7 +127,7 @@ function toLogin(req, res) {
   res.set("Cache-Control", "no-store");
   const navigate = req.method === "GET" && (req.get("sec-fetch-mode") ? req.get("sec-fetch-mode") === "navigate" : /text\/html/.test(req.get("accept") ?? ""));
   if (navigate) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
-  noteRefusal(req, 401, "browser-not-signed-in");
+  noteRefusal(req, res, 401, "browser-not-signed-in");
   res.status(401).json({ error: "sign in at /login" });
 }
 
@@ -205,7 +205,7 @@ function tokenLane(req, res, next, ip) {
   const token = apiTokens.verify(req.headers.authorization);
   if (!token || !TOKEN_PATHS(req.path) || !ownerIsAdmin(token.owner)) {
     if (!trustedHere(req)) recordFailure(ip, req);
-    noteRefusal(req, 401, "api-token-invalid");
+    noteRefusal(req, res, 401, "api-token-invalid");
     return res.status(401).json({ error: "invalid token" });
   }
   req.apiToken = token;

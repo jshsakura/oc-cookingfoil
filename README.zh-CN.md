@@ -351,7 +351,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 - 已知的攻击路径、路径穿越、控制字符和过长的 URL 会在登录前被拒绝，并计入同一锁定次数，也可以通过 Telegram 通知你。
 - 来自浏览器的写入请求和 WebSocket 连接，只接受来自服务器自身页面的。WebSocket 消息最大 4 KB。
 - 管理员设置的外部服务地址不能指向私有网络，只有 `COOK_OUTBOUND_PRIVATE_HOSTS` 中列出的主机例外。
-- 响应带有防护性请求头（`nosniff`、`DENY` 框架限制、不发送 referrer）。每一次拒绝都会连同原因记录在日志 (로그) 标签页和 `X-CookingFoil-Deny` 响应头中。
+- 响应带有防护性请求头（`nosniff`、`DENY` 框架限制、不发送 referrer）。每一次拒绝都会连同原因记录在日志 (로그) 标签页和 `X-CookingFoil-Deny` 响应头中。每个响应都带有本服务器的随机 ID `X-CookingFoil-Server-Id`（从任何地址访问都相同），每次登录拒绝（401、403）都带有与日志行相同的原因码 `X-CookingFoil-Auth`，客户端据此决定下一步。例如 `no-access-key`、`access-key-wrong`、`device-not-approved`、`session-expired`、`session-revoked`、`enroll-used`、`rebind-no-proof`。
 - 在管理页面上保存的密钥不会再次显示。网页上传在你开启之前一直关闭。
 
 如需报告漏洞，请参阅 [SECURITY.md](./SECURITY.md#简体中文)。请不要公开提交 issue。

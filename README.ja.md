@@ -351,7 +351,7 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 - 既知の攻撃パス、パストラバーサル、制御文字、長すぎる URL はサインインの前に拒否し、同じロックアウトの回数に数えます。Telegram 通知で知らせることもできます。
 - ブラウザーからの書き込みと WebSocket の接続は、サーバー自身のページから来たものだけを受け付けます。WebSocket のメッセージは 4 KB までです。
 - 管理者が設定する外部サービスのアドレスは、プライベートネットワークを指すことができません。例外は `COOK_OUTBOUND_PRIVATE_HOSTS` に書いたホストだけです。
-- レスポンスには防御用のヘッダー (`nosniff`、`DENY` のフレーミング、リファラーなし) が付きます。拒否はすべて理由付きでログ (로그) タブと `X-CookingFoil-Deny` ヘッダーに残ります。
+- レスポンスには防御用のヘッダー (`nosniff`、`DENY` のフレーミング、リファラーなし) が付きます。拒否はすべて理由付きでログ (로그) タブと `X-CookingFoil-Deny` ヘッダーに残ります。すべてのレスポンスにはこのサーバーのランダムな ID である `X-CookingFoil-Server-Id` が付き (どのアドレスでも同じです)、サインインの拒否 (401、403) にはログ行と同じ理由コードが `X-CookingFoil-Auth` として付くので、クライアントは次の動作を決められます。例: `no-access-key`、`access-key-wrong`、`device-not-approved`、`session-expired`、`session-revoked`、`enroll-used`、`rebind-no-proof`。
 - 管理ページで保存したシークレットは二度と表示しません。Web アップロードはオンにするまでオフです。
 
 脆弱性の報告は [SECURITY.md](./SECURITY.md#日本語) を参照してください。公開の Issue には書かないでください。

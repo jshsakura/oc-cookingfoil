@@ -33,7 +33,7 @@ export const SESSION_HEADER = "X-CookingFoil-Session";
 
 // `why` names the case in the log line where the verdict alone does not (auth-log.js).
 function refuse(req, res, verdict, why = verdict) {
-  noteRefusal(req, 401, `session-${why}`);
+  noteRefusal(req, res, 401, `session-${why}`);
   res.set("Cache-Control", "no-store");
   res.set(SESSION_HEADER, verdict);
   if (verdict === "invalid") recordDeny(req, { reason: DENY.SESSION_REFUSED, status: 401, deviceKey: deviceKeyFromHeaders(req) });
