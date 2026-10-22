@@ -64,4 +64,6 @@ fs.writeFileSync(`${process.env.COOK_DATA_DIR}/retro-meta.json`, JSON.stringify(
     publisher: 'Sega', developer: 'Sega', releaseDate: 19900000, numberOfPlayers: 1, genres: ['Action'],
   },
 } }));
+// A picture a test puts in a game folder is taken at once, not after the watch's quiet time.
+(await import('../../src/meta/game-meta.js')).setQuiet(0);
 await import('../../src/index.js');
