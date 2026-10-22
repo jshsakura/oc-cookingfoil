@@ -23,6 +23,9 @@ function dataDir() {
   put("homebrew/gh-1/state.json", "{}");
   put("extracted-meta/0100000000010000.json", '{"name":"Fixed"}');
   put("custom-art/0100000000010000.icon.jpg", "JPG");
+  // A game's picture is kept; the small copies drawn from it are made again on demand.
+  put("metadata/games/Game [0100000000010000]/icon.webp", "WEBP");
+  put("thumbs/games/0100000000010000/icon.abc-1.thumb.q75.webp", "THUMB");
   put("titledb/KR.ko.json", "{}");
   put("cookingfoil.db", "index");
   return dir;
@@ -48,6 +51,7 @@ test("a day's backup holds the security database and the hand-kept files, not th
     "extracted-meta/0100000000010000.json",
     "homebrew/sources.json",
     "metadata/games/Game [0100000000010000]/game.json",
+    "metadata/games/Game [0100000000010000]/icon.webp",
     "security/alerts-history.json",
     "security/security.db",
     "transfers.json",
@@ -83,4 +87,21 @@ test("the status names the setting, the last run and what is kept", () => {
   assert.equal(st.days, 14);
   assert.equal(st.kept.length, 1);
   assert.ok(st.last.bytes > 0 && st.last.files >= 7);
+});
+
+test("a game's .replaced/ and .unreadable/ are backed up: they hold the only copy of pictures put there by hand", () => {
+  const dir = dataDir();
+  const game = "metadata/games/Game [0100000000010000]";
+  for (const [rel, body] of [[".replaced/icon.png", "PNG"], [".unreadable/banner.png", "BROKEN"], [".icon.webp.42.tmp", "TMP"], [".other/x.png", "X"]]) {
+    fs.mkdirSync(path.dirname(path.join(dir, game, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, game, rel), body);
+  }
+  const made = run(dir, `return backup.backupNow(Date.UTC(2026, 9, 16, 12));`);
+  const kept = walk(path.join(dir, "backups", made.day)).filter((f) => f.startsWith("metadata/games/"));
+  assert.deepEqual(kept, [
+    `${game}/.replaced/icon.png`,
+    `${game}/.unreadable/banner.png`,
+    `${game}/game.json`,
+    `${game}/icon.webp`,
+  ]);
 });

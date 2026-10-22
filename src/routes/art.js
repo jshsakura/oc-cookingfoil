@@ -9,6 +9,8 @@
  *   DELETE /api/art/:baseTitleId/icon|banner   → remove it
  *   DELETE /api/art/:baseTitleId/screenshot/:idx
  *   DELETE /api/art/:baseTitleId/description   → back to titledb's own text
+ *   POST   /api/art/:baseTitleId/rescan        → the game's folder read again now, as GET answers (+ { pending, retryInMs } while a picture is still being copied)
+ *   POST   /api/art/rescan                     → every game folder read again in full: { games, changed, converted }
  *
  * Cutting a picture (meta/art-crop.js). An upload may carry a "crop" field,
  * JSON { x, y, w, h } as fractions 0..1 of the upright picture; only that area
@@ -38,10 +40,14 @@
  *   POST     /api/art/homebrew/:id/meta/reset   back to the repository's description
  *   GET|POST /api/art/patch/:id/meta       { name, nameKo, version, author, gameVersion, description, descriptionKo, required, verified }
  *
- * Uploaded bytes are re-encoded by custom-art (sharp: resize cap + mozjpeg +
- * metadata strip), so a bad/huge image is rejected here rather than served.
- * The stored override wins over the titledb CDN proxy and NACP extraction in
- * the icon/banner/screenshot routes.
+ * Uploaded bytes are re-encoded by custom-art (sharp: resize cap, WebP,
+ * metadata strip) into the game's folder (meta/game-meta.js), so a bad/huge
+ * image is rejected here rather than served. The stored override wins over the
+ * titledb CDN proxy and NACP extraction in the icon/banner/screenshot routes.
+ * A picture put into the folder by hand shows once the folder's watch has seen
+ * it go quiet, or at once after a rescan; it is converted and the file put
+ * there goes, others for its slot move to the folder's .replaced/. An upload
+ * moves the ones waiting for its slot there too.
  *
  * Gating mirrors the game-upload tray: disabled unless COOK_UPLOADS_ENABLED,
  * and always behind the normal sign-in + IP-lockout perimeter.
@@ -54,6 +60,8 @@ import multer from "multer";
 import { uploadsEnabled } from "../helpers/envs.js";
 import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
+import * as gameMeta from "../meta/game-meta.js";
+import { StuckError } from "../meta/game-art-files.js";
 import debug from "../debug.js";
 import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
@@ -306,13 +314,40 @@ export default function artRouter() {
 
   // What a game has: its slots, and the area each kept original was cut to.
   // urls: the shop addresses with their new ?v=, so the page shows a changed picture at once.
-  const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base),
+  // folder: the game's folder under metadata/games, where pictures may also be put by hand (null before it has one).
+  const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base), folder: gameMeta.entry(base)?.folder ?? null,
     urls: { icon: versionedArtwork(`/api/shop/icon/${base}`), banner: versionedArtwork(`/api/shop/banner/${base}`) } });
   router.get("/:baseTitleId", (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
     res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base) });
   });
+
+  // The game folders read again now, so what was put there by hand shows without waiting for the next look.
+  const rescanRoute = (fn) => async (req, res) => {
+    try {
+      await fn(req, res);
+    } catch (err) {
+      debug.error("art: rescan failed: %s", err.message);
+      res.status(500).json({ error: "could not read the folders" });
+    }
+  };
+  router.post("/rescan", rescanRoute(async (_req, res) => res.json(await gameMeta.scan({ force: true }))));
+  router.post("/:baseTitleId/rescan", rescanRoute(async (req, res) => {
+    const base = requireBase(req, res);
+    if (!base) return;
+    // The admin asked: a picture copied just now is taken once it holds still for a moment.
+    // One still changing is left for the watch; `pending` says how many, `retryInMs` when they show.
+    const { pending, retryInMs } = await gameMeta.rescan(base, null, null, { settle: true });
+    res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base), ...(pending ? { pending, retryInMs } : {}) });
+  }));
+
+  // A picture waiting in the game's folder that cannot be moved aside stops a change to its slot.
+  // The log has the path; the answer, shown on the admin page, has no server path.
+  const stuckAnswer = (res, base, err) => {
+    debug.error("art: %s: %s", base, err.message);
+    res.status(409).json({ error: "a picture waiting in the game's folder could not be moved aside, so nothing was changed; check that the folder can be written" });
+  };
 
   // A game's slot from the address: [kind, idx], or null when it names none.
   const gameSlot = (req) => {
@@ -341,6 +376,7 @@ export default function artRouter() {
       res.json({ baseTitleId: base, kind: slot[0], idx: slot[1] ?? undefined, bytes: r.bytes, ...gameArt(base) });
     } catch (err) {
       if (err instanceof CropError) return badRequest(res, err.message);
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
       debug.error("art: crop %s/%s failed: %s", base, slot[0], err.message);
       badRequest(res, "could not process image: " + err.message);
     }
@@ -362,6 +398,7 @@ export default function artRouter() {
         ...gameArt(base),
       });
     } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
       // sharp throws on an unreadable/corrupt image — that's a client error.
       debug.error("art: put %s/%s failed: %s", base, kind, err.message);
       badRequest(res, "could not process image: " + err.message);
@@ -396,7 +433,12 @@ export default function artRouter() {
     if (!Number.isInteger(idx) || idx < 0 || idx >= customArt.MAX_SCREENSHOTS) {
       return badRequest(res, "invalid screenshot index");
     }
-    await customArt.remove(base, "screenshot", idx);
+    try {
+      await customArt.remove(base, "screenshot", idx);
+    } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
+      throw err;
+    }
     invalidate();
     res.json({ deleted: true, baseTitleId: base, ...gameArt(base) });
   });
@@ -426,7 +468,12 @@ export default function artRouter() {
     if (kind !== "icon" && kind !== "banner") {
       return badRequest(res, "kind must be icon or banner");
     }
-    await customArt.remove(base, kind, null);
+    try {
+      await customArt.remove(base, kind, null);
+    } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
+      throw err;
+    }
     invalidate();
     res.json({ deleted: true, baseTitleId: base, ...gameArt(base) });
   });

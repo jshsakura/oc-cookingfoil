@@ -45,11 +45,12 @@ const PROBE = `
 test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () => {
   const data = mkdtempSync(path.join(tmpdir(), "cook-detail-"));
   mkdirSync(path.join(data, "titledb"), { recursive: true });
-  mkdirSync(path.join(data, "custom-art"));
   // Marked tried on a console from an admin device (meta/item-verified.js).
   writeFileSync(path.join(data, "verified-items.json"), JSON.stringify({ "game:0100000000ABC000": Date.UTC(2026, 0, 2) }));
-  for (const file of ["0100000000ABC000.screen.4.jpg", "0100000000DDD000.banner.jpg", "0100000000DDD000.screen.2.jpg"]) {
-    writeFileSync(path.join(data, "custom-art", file), "indexed artwork fixture");
+  // The admin's pictures, in each game's folder: screenshot-05 is index 4.
+  for (const file of ["Test Title [0100000000ABC000]/screenshot-05.webp", "Game [0100000000DDD000]/banner.webp", "Game [0100000000DDD000]/screenshot-03.webp"]) {
+    mkdirSync(path.dirname(path.join(data, "metadata", "games", file)), { recursive: true });
+    writeFileSync(path.join(data, "metadata", "games", file), "indexed artwork fixture");
   }
   writeFileSync(
     path.join(data, "titledb", "US.en.json"),
@@ -105,7 +106,6 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
 test("title-detail: a name and description follow ?lang= through its fallbacks, never into the server's first language", () => {
   const data = mkdtempSync(path.join(tmpdir(), "cook-detail-lang-"));
   mkdirSync(path.join(data, "titledb"), { recursive: true });
-  mkdirSync(path.join(data, "custom-art"));
   const region = (file, name, description, iconUrl) => writeFileSync(path.join(data, "titledb", file), JSON.stringify({
     "70010000000002": { id: "0100000000ABE000", name, description, releaseDate: 20240101, iconUrl },
   }));

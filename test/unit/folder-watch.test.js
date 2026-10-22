@@ -98,3 +98,58 @@ test("with deep on, a file replaced by mv deep inside an item, at the same size,
   await w.close();
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("a file dated far ahead neither spins the watch nor stops its item from being reported", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-watch-"));
+  const item = path.join(root, "app");
+  fs.mkdirSync(item);
+  const ahead = new Date(Date.now() + 30 * 86400e3);
+  fs.writeFileSync(path.join(item, "notes.txt"), "x");
+  fs.utimesSync(path.join(item, "notes.txt"), ahead, ahead);
+  const warnings = [];
+  const onWarning = (w) => warnings.push(w.name);
+  process.on("warning", onWarning);
+  const fsp = (await import("node:fs/promises")).default;
+  const readdir = fsp.readdir;
+  let reads = 0;
+  t.mock.method(fsp, "readdir", (p, ...rest) => { if (String(p) === item) reads++; return readdir(p, ...rest); });
+  const seen = [];
+  const w = watchItems(root, { depth: 1, deep: true, quietMs: 200, cooldownMs: 0, onItem: (i) => seen.push(i) });
+  await w.ready;
+  fs.writeFileSync(path.join(item, "a.txt"), "x");
+  await new Promise((r) => setTimeout(r, 1200));
+  assert.deepEqual(seen, ["app"], "reported once quiet");
+  fs.writeFileSync(path.join(item, "b.txt"), "x");
+  for (let i = 0; i < 40 && seen.length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(seen, ["app", "app"], "and again when it changes later");
+  assert.ok(reads < 10, `read ${reads} times`);
+  assert.deepEqual(warnings.filter((n) => n === "TimeoutOverflowWarning"), []);
+  process.off("warning", onWarning);
+  await w.close();
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("with deep on, a folder deleted and made again under the same name is watched again", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-watch-"));
+  fs.mkdirSync(path.join(root, "app"));
+  const seen = [];
+  const w = watchItems(root, { depth: 1, deep: true, quietMs: 100, cooldownMs: 0, onItem: (i) => seen.push(i) });
+  await w.ready;
+  fs.rmSync(path.join(root, "app"), { recursive: true });
+  fs.mkdirSync(path.join(root, "app"));
+  await new Promise((r) => setTimeout(r, 400));
+  seen.length = 0;
+  fs.writeFileSync(path.join(root, "app", "a.nro"), "x");
+  for (let i = 0; i < 40 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(seen, ["app"]);
+
+  // Renamed: reported under its new name only.
+  fs.renameSync(path.join(root, "app"), path.join(root, "moved"));
+  await new Promise((r) => setTimeout(r, 400));
+  seen.length = 0;
+  fs.writeFileSync(path.join(root, "moved", "b.nro"), "x");
+  await new Promise((r) => setTimeout(r, 600));
+  assert.deepEqual(seen, ["moved"]);
+  await w.close();
+  fs.rmSync(root, { recursive: true, force: true });
+});

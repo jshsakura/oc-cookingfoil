@@ -18,7 +18,7 @@ test('a sync started from the settings tab ends in the activity menu', async ({ 
   const row = pop.locator('#act-recent .act-row', { hasText: '모든 폴더를 다시 읽습니다' }).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row).toHaveClass(/done/);
-  await expect(row.locator('.d')).toHaveText('5곳');
+  await expect(row.locator('.d')).toHaveText('6곳');
   // Each folder of the sync is its own job too.
   await expect(pop.locator('#act-recent .act-row', { hasText: '세이브 폴더를 읽습니다' }).first()).toBeVisible();
 
