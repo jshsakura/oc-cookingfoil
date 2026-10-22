@@ -30,6 +30,14 @@ export function iconSource(baseTitleId, lang) {
   return null;
 }
 
+/** Whether a language has an icon of its own, the default one included (a custom icon stands for every language). */
+export const iconKnown = (baseTitleId, lang) =>
+  customArt.hasOverride(baseTitleId, "icon") || Boolean(titledbStore.iconsOf(baseTitleId)?.[lang]) || Boolean(extractedMeta.get(baseTitleId)?.iconLangs?.includes(lang));
+
+/** Whether a language has a banner of its own, the default one included. */
+export const bannerKnown = (baseTitleId, lang) =>
+  customArt.hasOverride(baseTitleId, "banner") || Boolean(titledbStore.bannersOf(baseTitleId)?.[lang]);
+
 /** The eShop banner URL for a language when it differs from the default, or null. */
 export function bannerSource(baseTitleId, lang) {
   if (!lang || customArt.hasOverride(baseTitleId, "banner")) return null;

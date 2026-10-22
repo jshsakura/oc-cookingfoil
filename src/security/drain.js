@@ -32,7 +32,8 @@ export const MESSAGE = Object.freeze({
   ko: "서버를 다시 시작하고 있습니다. 잠시 뒤 이어서 받습니다.",
   en: "The server is restarting. Downloads will continue in a moment.",
   ja: "サーバーを再起動しています。まもなく続きから受信します。",
-  zh: "伺服器正在重新啟動，稍後會接著下載。",
+  zh: "服务器正在重新启动，稍后会接着下载。",
+  "zh-Hant": "伺服器正在重新啟動，稍後會接著下載。",
 });
 
 // A response this large, or any Range request, counts as a download in the status.
@@ -77,7 +78,8 @@ const PAGE_TEXT = Object.freeze({
   ko: ["서버를 다시 시작하고 있습니다", "잠시 뒤 이 페이지를 다시 엽니다."],
   en: ["The server is restarting", "This page reloads in a moment."],
   ja: ["サーバーを再起動しています", "まもなくこのページを再読み込みします。"],
-  zh: ["伺服器正在重新啟動", "稍後會自動重新載入此頁面。"],
+  zh: ["服务器正在重新启动", "稍后会自动重新加载此页面。"],
+  "zh-Hant": ["伺服器正在重新啟動", "稍後會自動重新載入此頁面。"],
 });
 
 // Self-contained: while the server drains, its stylesheets and fonts are refused too.
