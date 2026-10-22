@@ -50,7 +50,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/api/client-logs",
   "GET /admin/api/client-logs/:prefix/:file",
   "GET /admin/api/client-release",
-  "GET /admin/api/descriptions",
   "GET /admin/api/descriptions/:id",
   "GET /admin/api/devices",
   "GET /admin/api/featured",

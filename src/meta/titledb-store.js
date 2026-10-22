@@ -405,6 +405,11 @@ export function namesOf(titleId) {
   return own ? { ...(names ?? {}), ...own } : names;
 }
 
+/** The game's name in each language as titledb has it, without the admin's names, or null. */
+export function originalNamesOf(titleId) {
+  return localized(titleId, "names");
+}
+
 /** The game's description in each language titledb has it in, or null. */
 export function descriptionsOf(titleId) {
   return localized(titleId, "descriptions");

@@ -108,6 +108,7 @@ const artStamp = (st) => `${Math.round(st.mtimeMs * 1000).toString(36)}-${st.siz
  * hand: every picture put there by hand, still to be made into its slot (at: its mtime).
  */
 const games = new Map(); // id → { row, fields }
+let revisionCount = 0; // goes up whenever what was read of any game changes
 let topMtime = null;
 let loaded = false;
 let indexed = false; // the index holds a full look already
@@ -150,6 +151,7 @@ function toIndex(fn) {
 
 function remember(row) {
   games.set(row.id, { row, fields: row.json?.raw ? readFields(row.json.raw) : null });
+  revisionCount++;
 }
 
 /** The small copies of `slot` of game `id`, all but those of `keep` (a stamp), deleted in the background. */
@@ -179,7 +181,7 @@ function replaceRow(prev, row) {
     if (now?.stamp !== was.stamp) pruneThumbs(prev.id, slot, now?.stamp);
   }
   if (row) remember(row);
-  else games.delete(prev.id);
+  else if (games.delete(prev.id)) revisionCount++;
 }
 
 /** The game folders by name: [[id, folder]], the first of two for one id kept; null when it cannot be read. */
@@ -658,6 +660,12 @@ export function entry(id) {
   load();
   const g = games.get(id);
   return g ? { folder: g.row.folder, dir: path.join(GAMES_DIR, g.row.folder), json: g.row.json, fields: g.fields } : null;
+}
+
+/** A number that changes whenever any game's folder is read differently: for caches built from it. */
+export function revision() {
+  load();
+  return revisionCount;
 }
 
 /** Every game with a folder. */
