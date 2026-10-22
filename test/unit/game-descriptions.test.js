@@ -9,7 +9,25 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-desc-"));
 process.env.COOK_DATA_DIR = root;
 // What an older server kept in one file; it moves into the folders on the first read.
 const OLD = "0100D7000C2C6000";
-fs.writeFileSync(path.join(root, "game-descriptions.json"), JSON.stringify({ [OLD]: { name: { ko: "괴혼 앙코르" }, en: "Roll it up.", ko: null } }));
+const MERGE = "0100000000A10000";
+const PICS = "0100000000A20000";
+const LOWER = "0100000000a30000";
+const BROKEN = "0100000000A40000";
+const games = path.join(root, "metadata", "games");
+const put = (rel, body) => {
+  fs.mkdirSync(path.dirname(path.join(games, rel)), { recursive: true });
+  fs.writeFileSync(path.join(games, rel), body);
+};
+put(`Merge [${MERGE}]/game.json`, JSON.stringify({ id: MERGE, description: { ko: "폴더 글", en: null } }));
+put(`Pics [${PICS}]/icon.webp`, "WEBP");
+put(`Broken [${BROKEN}]/game.json`, "{ not json");
+fs.writeFileSync(path.join(root, "game-descriptions.json"), JSON.stringify({
+  [OLD]: { name: { ko: "괴혼 앙코르" }, en: "Roll it up.", ko: null },
+  [MERGE]: { description: { ko: "옛 글" }, notes: { ko: "옛 메모" } },
+  [PICS]: { notes: { en: "Has pictures" } },
+  [LOWER]: { notes: { en: "Lower case id" } },
+  [BROKEN]: { notes: { ko: "고장 난 폴더" } },
+}));
 const { get, set, reset, describe, notes, edited, names, GAMES_DIR, folderName } = await import("../../src/meta/game-descriptions.js");
 const ID = "0100B00B51230000";
 const folderOf = (id) => fs.readdirSync(GAMES_DIR).find((d) => d.endsWith(`[${id}]`));
@@ -17,7 +35,21 @@ const folderOf = (id) => fs.readdirSync(GAMES_DIR).find((d) => d.endsWith(`[${id
 test("game-descriptions.json moves into one folder per game, named after the game, and is then gone", () => {
   assert.deepEqual(get(OLD), { name: { en: null, ko: "괴혼 앙코르" }, description: { en: "Roll it up.", ko: null }, notes: null });
   assert.equal(folderOf(OLD), "괴혼 앙코르 [0100D7000C2C6000]");
-  assert.ok(!fs.existsSync(path.join(root, "game-descriptions.json")), "nothing is kept twice");
+  assert.equal(get(MERGE).description.ko, "폴더 글", "a game.json already there wins");
+  assert.equal(get(MERGE).notes.ko, "옛 메모", "and gets the fields it lacked");
+  assert.equal(get(PICS).notes.en, "Has pictures");
+  assert.ok(fs.existsSync(path.join(GAMES_DIR, `Pics [${PICS}]`, "game.json")), "written beside the pictures");
+  assert.equal(get(LOWER.toUpperCase()).notes.en, "Lower case id");
+
+  const legacy = JSON.parse(fs.readFileSync(path.join(root, "game-descriptions.json"), "utf8"));
+  assert.deepEqual(Object.keys(legacy), [BROKEN], "what could not be moved stays in the old file, and only that");
+  assert.equal(fs.readFileSync(path.join(GAMES_DIR, `Broken [${BROKEN}]`, "game.json"), "utf8"), "{ not json", "a broken game.json is never written over");
+  fs.writeFileSync(path.join(GAMES_DIR, `Broken [${BROKEN}]`, "game.json"), JSON.stringify({ id: BROKEN, name: { en: "Fixed" } }));
+  assert.equal(get(BROKEN).notes.ko, "고장 난 폴더", "once fixed by hand, the old text still shows");
+  assert.equal(set(BROKEN, "description", { en: "Saved" }), true);
+  assert.deepEqual(get(BROKEN), { name: { en: "Fixed", ko: null }, description: { en: "Saved", ko: null }, notes: { en: null, ko: "고장 난 폴더" } }, "saving moves the old text in");
+  assert.ok(!fs.existsSync(path.join(root, "game-descriptions.json")), "nothing left: the old file is gone");
+  for (const id of [MERGE, PICS, LOWER.toUpperCase(), BROKEN]) reset(id);
   const json = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, folderOf(OLD), "game.json"), "utf8"));
   assert.equal(json.id, OLD);
   assert.equal(reset(OLD), true);
@@ -82,5 +114,21 @@ test("a game.json changed by hand shows at once, a renamed folder still counts, 
 test("a folder name keeps only what every disk accepts", () => {
   assert.equal(folderName("0100000000010000", 'A/B: "C"?  *D*.'), "A B C D [0100000000010000]");
   assert.equal(folderName("0100000000010000", "   "), "Game [0100000000010000]");
-  assert.equal(folderName("0100000000010000", "x".repeat(200)).length, 80 + " [0100000000010000]".length);
+  assert.equal(folderName("0100000000010000", "x".repeat(300)).length, 180 + " [0100000000010000]".length);
+  const korean = folderName("0100000000010000", "가".repeat(120));
+  assert.ok(Buffer.byteLength(korean) <= 255, "a long Korean name still fits a disk's 255 bytes");
+  assert.equal(set("0100000000B10000", "name", { ko: "가".repeat(120) }), true);
+  assert.equal(get("0100000000B10000").name.ko, "가".repeat(120), "the name itself is kept whole");
+  reset("0100000000B10000");
+});
+
+test("a game.json put back with its old time and size still shows the new text", () => {
+  set(ID, "notes", { en: "AAAA" });
+  const file = path.join(GAMES_DIR, folderOf(ID), "game.json");
+  const { atime, mtime } = fs.statSync(file);
+  assert.equal(notes(ID, "en"), "AAAA");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("AAAA", "BBBB"));
+  fs.utimesSync(file, atime, mtime);
+  assert.equal(notes(ID, "en"), "BBBB");
+  reset(ID);
 });

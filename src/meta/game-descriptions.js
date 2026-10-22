@@ -35,7 +35,8 @@ const MAX = 2000;
 export const FIELDS = ["name", "description", "notes"];
 // A name is one line; the other fields keep their line breaks.
 const LIMIT = { name: 120 };
-const MAX_FOLDER_LABEL = 80;
+// Bytes, not characters: most disks take 255 bytes a name, and a Korean letter is three.
+const MAX_FOLDER_LABEL_BYTES = 180;
 
 /**
  * An entry written by an older version kept the description's languages at the
@@ -66,14 +67,18 @@ function readFields(json) {
 }
 
 /** A folder name for a game: its name, then its id in brackets. Pure. */
-export function folderName(id, label) {
-  const clean = String(label ?? "")
+export function folderName(id, name) {
+  const clean = String(name ?? "")
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_FOLDER_LABEL)
-    .replace(/[ .]+$/, "");
-  return `${clean || "Game"} [${id}]`;
+    .trim();
+  let label = "";
+  for (const ch of clean) {
+    if (Buffer.byteLength(label + ch) > MAX_FOLDER_LABEL_BYTES) break;
+    label += ch;
+  }
+  label = label.replace(/[ .]+$/, "");
+  return `${label || "Game"} [${id}]`;
 }
 
 // Where a game's usual name comes from when the admin gave none (meta/titledb-store.js sets it).
@@ -84,18 +89,57 @@ export function useNames(fn) {
 }
 
 let index = null; // { mtimeMs, byId: Map id → folder }
-const read = new Map(); // game.json → { mtimeMs, size, fields }
+const read = new Map(); // game.json → { stamp, fields }
+// Entries of game-descriptions.json that could not be moved yet: still read, and moved when saved.
+let leftover = new Map();
+
+// ctime too: a copy that keeps the old mtime and size (cp -p, rsync, a restore) still changes it.
+const stampOf = (st) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}`;
 
 function writeAtomic(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
+  // A dot name, so one left behind by a crash is not mistaken for anything.
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
   fs.writeFileSync(tmp, text);
   fs.renameSync(tmp, file);
 }
 
 const toJson = (id, fields) => `${JSON.stringify({ id, ...fields }, null, 1)}\n`;
 
-/** Moves game-descriptions.json into the folders, once; it is removed when every game is there. */
+/** Reads one game.json: its fields, or an error saying the file cannot be read. Cached by its stamp. */
+function readFile(file) {
+  let st;
+  try {
+    st = fs.statSync(file);
+  } catch {
+    return { fields: null };
+  }
+  const stamp = stampOf(st);
+  const seen = read.get(file);
+  if (seen?.stamp === stamp) return seen;
+  let out;
+  try {
+    out = { stamp, fields: readFields(JSON.parse(fs.readFileSync(file, "utf8"))) };
+  } catch (err) {
+    out = { stamp, fields: null, error: new Error(`${file} cannot be read: ${err.message}`) };
+    debug.error("game descriptions: %s", out.error.message);
+  }
+  read.set(file, out);
+  return out;
+}
+
+/** Keeps the entries not moved yet in game-descriptions.json, or removes it when none are left. */
+function writeLeftover() {
+  if (leftover.size) writeAtomic(LEGACY_FILE, `${JSON.stringify(Object.fromEntries(leftover), null, 1)}\n`);
+  else fs.rmSync(LEGACY_FILE, { force: true });
+}
+
+/**
+ * Moves game-descriptions.json into the folders. A game whose folder already
+ * has a game.json gets only the fields it lacks. An entry that cannot be moved
+ * (its game.json is broken, the disk refuses) stays in the old file and is still
+ * read from there; the old file goes once nothing is left in it.
+ */
 function migrateLegacy() {
   let raw;
   try {
@@ -104,81 +148,79 @@ function migrateLegacy() {
     if (err.code !== "ENOENT") debug.error("game descriptions: reading %s: %s", LEGACY_FILE, err.message);
     return;
   }
-  const have = folders();
-  for (const [id, entry] of Object.entries(normalize(raw))) {
-    if (!ID_RE.test(id) || have.has(id)) continue;
+  const left = new Map();
+  for (const [key, entry] of Object.entries(normalize(raw))) {
+    const id = key.toUpperCase();
     const fields = readFields(entry);
     if (!Object.keys(fields).length) continue;
-    writeAtomic(path.join(GAMES_DIR, folderName(id, fields.name?.ko ?? fields.name?.en ?? nameOf(id)), FILE), toJson(id, fields));
+    if (!ID_RE.test(id)) {
+      left.set(key, fields);
+      continue;
+    }
+    try {
+      const dir = folders().get(id);
+      const there = dir ? readFile(path.join(dir, FILE)) : { fields: null };
+      if (there.error) throw there.error;
+      persist(id, { ...fields, ...there.fields });
+    } catch (err) {
+      debug.error("game descriptions: %s stays in %s: %s", id, LEGACY_FILE, err.message);
+      left.set(id, fields);
+    }
   }
-  fs.rmSync(LEGACY_FILE, { force: true });
-  index = null;
-  debug.log("game descriptions: moved %s into %s", LEGACY_FILE, GAMES_DIR);
+  leftover = left;
+  try {
+    writeLeftover();
+    debug.log("game descriptions: moved %s into %s%s", LEGACY_FILE, GAMES_DIR, left.size ? ` (${left.size} left there)` : "");
+  } catch (err) {
+    debug.error("game descriptions: updating %s: %s", LEGACY_FILE, err.message);
+  }
 }
 
-/** Every game folder, by id: Map id → folder. Read again when the games folder changes. */
+/** Every game folder, by id: Map id → folder. Read again when the games folder changes; none when it cannot be read. */
 function folders() {
   let st;
   try {
-    st = fs.statSync(GAMES_DIR);
+    st = fs.statSync(GAMES_DIR, { throwIfNoEntry: false });
+    if (!st) return new Map();
+    if (index?.mtimeMs === st.mtimeMs) return index.byId;
+    const byId = new Map();
+    for (const d of fs.readdirSync(GAMES_DIR, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const m = d.isDirectory() && FOLDER_ID_RE.exec(d.name);
+      if (!m) continue;
+      const id = m[1].toUpperCase();
+      if (byId.has(id)) {
+        debug.error("game descriptions: %s and %s are both for %s; using the first", byId.get(id), d.name, id);
+        continue;
+      }
+      byId.set(id, path.join(GAMES_DIR, d.name));
+    }
+    index = { mtimeMs: st.mtimeMs, byId };
+    return byId;
   } catch (err) {
-    if (err.code !== "ENOENT") throw err;
+    debug.error("game descriptions: reading %s: %s", GAMES_DIR, err.message);
     return new Map();
   }
-  if (index?.mtimeMs === st.mtimeMs) return index.byId;
-  const byId = new Map();
-  for (const d of fs.readdirSync(GAMES_DIR, { withFileTypes: true })) {
-    const m = d.isDirectory() && FOLDER_ID_RE.exec(d.name);
-    if (!m) continue;
-    const id = m[1].toUpperCase();
-    if (byId.has(id)) {
-      debug.error("game descriptions: %s and %s are both for %s; using the first", byId.get(id), d.name, id);
-      continue;
-    }
-    byId.set(id, path.join(GAMES_DIR, d.name));
-  }
-  index = { mtimeMs: st.mtimeMs, byId };
-  return byId;
 }
 
 let migrated = false;
-/** What a game's folder holds, or null; a game.json that cannot be read throws when `strict`. */
+/** What the admin wrote about a game, or null; a game.json that cannot be read throws when `strict`. */
 function fieldsOf(id, { strict = false } = {}) {
   if (!migrated) {
     migrated = true;
     migrateLegacy();
   }
   const dir = folders().get(id);
-  if (!dir) return null;
-  const file = path.join(dir, FILE);
-  let st;
-  try {
-    st = fs.statSync(file);
-  } catch {
-    return null;
-  }
-  const seen = read.get(file);
-  if (seen && seen.mtimeMs === st.mtimeMs && seen.size === st.size) {
-    if (seen.error && strict) throw seen.error;
-    return seen.fields;
-  }
-  try {
-    const fields = readFields(JSON.parse(fs.readFileSync(file, "utf8")));
-    read.set(file, { mtimeMs: st.mtimeMs, size: st.size, fields });
-    return fields;
-  } catch (err) {
-    const error = new Error(`${file} cannot be read: ${err.message}`);
-    read.set(file, { mtimeMs: st.mtimeMs, size: st.size, fields: null, error });
-    debug.error("game descriptions: %s", error.message);
-    if (strict) throw error;
-    return null;
-  }
+  const got = dir ? readFile(path.join(dir, FILE)) : { fields: null };
+  if (got.error && strict) throw got.error;
+  if (got.error) return null;
+  const old = leftover.get(id);
+  return old || got.fields ? { ...old, ...got.fields } : null;
 }
 
 function all() {
   fieldsOf(null);
   const out = {};
-  for (const id of folders().keys()) {
+  for (const id of new Set([...folders().keys(), ...leftover.keys()])) {
     const fields = fieldsOf(id);
     if (fields && Object.keys(fields).length) out[id] = fields;
   }
@@ -199,6 +241,7 @@ function persist(id, fields) {
   }
   read.delete(file);
   index = null;
+  if (leftover.delete(id)) writeLeftover();
 }
 
 const clean = (v, field) => {
