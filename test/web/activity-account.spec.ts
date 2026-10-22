@@ -41,12 +41,8 @@ test('everyone can see activity in the web account menu, with no stop control fo
     return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el && getComputedStyle(el).zIndex === '1';
   });
   expect(onTop).toBe(true);
-  // The stats panel lists the running task for this ordinary account, with no stop control.
-  const board = page.locator('#act-board');
-  await expect(board).toBeVisible();
-  await expect(board.locator('.act-row .t')).toHaveText('NSZ 로 변환합니다');
-  await expect(board.locator('.act-row .n')).toContainText('50% · 3.0 GB / 6.0 GB');
-  await expect(board.locator('.act-stop')).toHaveCount(0);
+  // Running tasks show only in the account menu; the main page has no board of its own.
+  await expect(page.locator('#act-board')).toHaveCount(0);
   await button.click();
   const menu = page.locator('#acct-list');
   await expect(menu.getByRole('menuitemcheckbox', { name: '어두운 테마' })).toBeVisible();
@@ -68,7 +64,6 @@ test('everyone can see activity in the web account menu, with no stop control fo
   push([]);
   await expect(button).not.toHaveClass(/busy/);
   await expect(button.locator('#act-count')).toBeHidden();
-  await expect(page.locator('#act-board')).toBeHidden();
   await expect(page.locator('#act-idle')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
@@ -84,12 +79,6 @@ test('a verified admin can stop a task from the web menu after confirmation', as
     return route.fulfill({ json: { ok: true } });
   });
   await page.goto('/');
-  const boardStop = page.locator('#act-board .act-stop');
-  await expect(boardStop).toBeVisible();
-  await boardStop.click();
-  await expect(page.locator('#confirm-text')).toHaveText('이 작업을 중지할까요?');
-  await page.locator('#confirm-no').click();
-  expect(cancelled).toEqual([]);
   await page.locator('#acct-btn').click();
   const stop = page.locator('#act-running .act-stop');
   await expect(stop).toBeVisible();
@@ -112,7 +101,6 @@ test('a failed admin capability check leaves the public status visible without s
   await page.locator('#acct-btn').click();
   await expect(page.locator('#act-running .t')).toHaveText('NSZ 로 변환합니다');
   await expect(page.locator('#act-running .act-stop')).toHaveCount(0);
-  await expect(page.locator('#act-board .act-stop')).toHaveCount(0);
 });
 
 test('the signed-in address is a plain label that a phone cannot turn into a mail link', async ({ page }) => {
