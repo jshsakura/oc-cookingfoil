@@ -61,6 +61,7 @@ import { uploadsEnabled } from "../helpers/envs.js";
 import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 import * as gameMeta from "../meta/game-meta.js";
+import { StuckError } from "../meta/game-art-files.js";
 import debug from "../debug.js";
 import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
@@ -339,6 +340,13 @@ export default function artRouter() {
     res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base) });
   }));
 
+  // A picture waiting in the game's folder that cannot be moved aside stops a change to its slot.
+  // The log has the path; the answer, shown on the admin page, has no server path.
+  const stuckAnswer = (res, base, err) => {
+    debug.error("art: %s: %s", base, err.message);
+    res.status(409).json({ error: "a picture waiting in the game's folder could not be moved aside, so nothing was changed; check that the folder can be written" });
+  };
+
   // A game's slot from the address: [kind, idx], or null when it names none.
   const gameSlot = (req) => {
     if (req.params.kind !== "screenshot") return [req.params.kind, null];
@@ -366,6 +374,7 @@ export default function artRouter() {
       res.json({ baseTitleId: base, kind: slot[0], idx: slot[1] ?? undefined, bytes: r.bytes, ...gameArt(base) });
     } catch (err) {
       if (err instanceof CropError) return badRequest(res, err.message);
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
       debug.error("art: crop %s/%s failed: %s", base, slot[0], err.message);
       badRequest(res, "could not process image: " + err.message);
     }
@@ -387,6 +396,7 @@ export default function artRouter() {
         ...gameArt(base),
       });
     } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
       // sharp throws on an unreadable/corrupt image — that's a client error.
       debug.error("art: put %s/%s failed: %s", base, kind, err.message);
       badRequest(res, "could not process image: " + err.message);
@@ -421,7 +431,12 @@ export default function artRouter() {
     if (!Number.isInteger(idx) || idx < 0 || idx >= customArt.MAX_SCREENSHOTS) {
       return badRequest(res, "invalid screenshot index");
     }
-    await customArt.remove(base, "screenshot", idx);
+    try {
+      await customArt.remove(base, "screenshot", idx);
+    } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
+      throw err;
+    }
     invalidate();
     res.json({ deleted: true, baseTitleId: base, ...gameArt(base) });
   });
@@ -451,7 +466,12 @@ export default function artRouter() {
     if (kind !== "icon" && kind !== "banner") {
       return badRequest(res, "kind must be icon or banner");
     }
-    await customArt.remove(base, kind, null);
+    try {
+      await customArt.remove(base, kind, null);
+    } catch (err) {
+      if (err instanceof StuckError) return stuckAnswer(res, base, err);
+      throw err;
+    }
     invalidate();
     res.json({ deleted: true, baseTitleId: base, ...gameArt(base) });
   });

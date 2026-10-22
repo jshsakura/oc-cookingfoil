@@ -88,3 +88,20 @@ test("the status names the setting, the last run and what is kept", () => {
   assert.equal(st.kept.length, 1);
   assert.ok(st.last.bytes > 0 && st.last.files >= 7);
 });
+
+test("a game's .replaced/ and .unreadable/ are backed up: they hold the only copy of pictures put there by hand", () => {
+  const dir = dataDir();
+  const game = "metadata/games/Game [0100000000010000]";
+  for (const [rel, body] of [[".replaced/icon.png", "PNG"], [".unreadable/banner.png", "BROKEN"], [".icon.webp.42.tmp", "TMP"], [".other/x.png", "X"]]) {
+    fs.mkdirSync(path.dirname(path.join(dir, game, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, game, rel), body);
+  }
+  const made = run(dir, `return backup.backupNow(Date.UTC(2026, 9, 16, 12));`);
+  const kept = walk(path.join(dir, "backups", made.day)).filter((f) => f.startsWith("metadata/games/"));
+  assert.deepEqual(kept, [
+    `${game}/.replaced/icon.png`,
+    `${game}/.unreadable/banner.png`,
+    `${game}/game.json`,
+    `${game}/icon.webp`,
+  ]);
+});

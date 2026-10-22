@@ -24,6 +24,7 @@ const { catalogStore } = await import("../../src/db/stores.js");
 const { default: iconRoute } = await import("../../src/routes/icon.js");
 const { default: screenshotRoute } = await import("../../src/routes/screenshot.js");
 const { GAMES_DIR, THUMBS_DIR } = gameMeta;
+gameMeta.setQuiet(0);
 
 const picture = (w, h, color, format = "png") => sharp({ create: { width: w, height: h, channels: 3, background: color } })[format]().toBuffer();
 const folder = (id, name = "Game") => {

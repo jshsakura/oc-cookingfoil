@@ -20,8 +20,10 @@
  * next look, whatever the times on it, and no hand-placed file stays in the
  * folder once a look or the admin dealt with its slot (game-art-files.js
  * takeSlot): the newest by mtime that reads is taken and deleted, the others move
- * to the folder's .replaced/, one that does not read to .unreadable/. An upload,
- * a new cut or a removal moves those waiting for its slot to .replaced/ first.
+ * to the folder's .replaced/, one that does not read to .unreadable/. A slot with
+ * a file written within the watch's quiet time is left for later, even on a
+ * forced look: a copy may still be going on. An upload, a new cut or a removal
+ * moves those waiting for its slot to .replaced/ first.
  * Nothing remembers what was dealt with: what is left in the folder is all there
  * is to take, so a copy with new inodes, a lost index or a touch brings nothing
  * back. A slot is never written while one of its hand files would stay (a
@@ -40,7 +42,7 @@ import { appDb } from "../db/database.js";
 import { catalogStore } from "../db/stores.js";
 import { forget } from "./image-cache.js";
 import { classify, handStamp, kindOf, moveAside, REPLACED, StuckError, takeSlot } from "./game-art-files.js";
-import { watchItems } from "./folder-watch.js";
+import { QUIET_MS, watchItems } from "./folder-watch.js";
 
 export const GAMES_DIR = path.join(dataDir, "metadata", "games");
 export const THUMBS_DIR = path.join(dataDir, "thumbs", "games");
@@ -110,6 +112,13 @@ let indexed = false; // the index holds a full look already
 let store;
 let changedHook = () => {};
 let pruning = Promise.resolve();
+// How long a hand file must have been left alone before it is read: the watch's quiet time.
+let quietMs = QUIET_MS;
+
+/** Sets how long a hand file must have been left alone before a look reads it (start() sets it to the watch's; tests). */
+export function setQuiet(ms) {
+  quietMs = ms;
+}
 
 function index() {
   if (store === undefined) {
@@ -355,15 +364,19 @@ function load() {
 
 const queues = new Map(); // id → the last write into that game's slots, done or not
 /**
- * Runs `fn` once every write into game `id`'s slots started before it is done,
- * so two never interleave (a conversion and an upload, say). What `fn` returns.
- * Never called for a game from inside its own queue: that would wait on itself.
- * The code here that holds a game's queue calls what does not take it (read,
- * refresh, clearSlot), and nothing tells a call from inside, so work a queued
- * `fn` leaves behind (a timer, a promise not waited for) queues like any other.
+ * Runs `fn(held)` once every write into game `id`'s slots started before it is
+ * done, so two never interleave (a conversion and an upload, say). What `fn`
+ * returns. `held` names the queues the caller is inside: `fn` passes on the one
+ * it is given to whatever it calls that takes a queue, and a call for a game
+ * already in it fails at once, as it would wait on itself forever. The code here
+ * that holds a game's queue calls only what does not take it (read, refresh,
+ * clearSlot); work a queued `fn` leaves behind (a timer, a promise not waited
+ * for) passes nothing and queues like any other.
  */
-export function withGame(id, fn) {
-  const run = (queues.get(id) ?? Promise.resolve()).then(() => fn());
+export function withGame(id, fn, held = null) {
+  if (held?.has(id)) return Promise.reject(new Error(`game ${id}: its own queue was entered again from inside; it would wait on itself`));
+  const holding = new Set(held ?? []).add(id);
+  const run = (queues.get(id) ?? Promise.resolve()).then(() => fn(holding));
   const tail = run.catch(() => {});
   queues.set(id, tail);
   tail.then(() => { if (queues.get(id) === tail) queues.delete(id); });
@@ -383,12 +396,25 @@ function stuck(err) {
   debug.error("game meta: %s; the slot is left as it is", err.message);
 }
 
+const later = new Map(); // id → the timer that reads a game again once its hand files are quiet
+/** Game `id` read again in `ms`, while the watch runs: the watch alone may report a folder a moment early. */
+function lookLater(id, ms) {
+  if (!watch || later.has(id)) return;
+  const t = setTimeout(() => {
+    later.delete(id);
+    rescan(id).catch((err) => debug.error("game meta: reading %s again failed: %s", id, err.message));
+  }, ms + VANISHED_MS);
+  t.unref?.();
+  later.set(id, t);
+}
+
 /**
  * Slot `slot` of game `id` made from the hand-placed files there, once the
  * game's other writes are done: its folder read again first, and nothing done
- * when the slot changed meanwhile (the next look decides). How many rows changed.
+ * when the slot changed meanwhile or a file there is still fresh (a later look
+ * decides). How many rows changed.
  */
-function convertSlot(id, slot) {
+function convertSlot(id, slot, held = null) {
   return withGame(id, async () => {
     let changed = read({ only: id }).length;
     const row = games.get(id)?.row;
@@ -400,24 +426,27 @@ function convertSlot(id, slot) {
     const dir = path.join(GAMES_DIR, row.folder);
     const slotWas = row.art[slot]?.stamp ?? null;
     try {
-      const made = await takeSlot(dir, slot, files, { ready: () => slotStampNow(dir, slot) === slotWas });
+      const made = await takeSlot(dir, slot, files, { ready: () => slotStampNow(dir, slot) === slotWas, quietMs });
       if (!made) debug.log("game meta: %s/%s changed while it was read; left for the next look", row.folder, slot);
-      else if (made.taken) debug.log("game meta: %s/%s is now %s.webp", row.folder, made.taken, slot);
+      else if (made.waitMs) {
+        debug.log("game meta: %s/%s was written just now; left until it has been quiet", row.folder, slot);
+        lookLater(id, made.waitMs);
+      } else if (made.taken) debug.log("game meta: %s/%s is now %s.webp", row.folder, made.taken, slot);
     } catch (err) {
       if (err instanceof StuckError) stuck(err);
       else debug.error("game meta: %s/%s cannot be made from %s: %s", row.folder, slot, files[0], err.message);
     }
     return changed + read({ only: id }).length;
-  });
+  }, held);
 }
 
 /** The slots of game `id` with hand-placed files waiting, as last read. */
 const waitingSlots = (id) => [...new Set((games.get(id)?.row.hand ?? []).map((h) => h.slot))];
 
 /** Makes the hand-placed pictures of game `id` into its slots. How many rows changed. */
-async function convertGame(id) {
+async function convertGame(id, held = null) {
   let changed = 0;
-  for (const slot of waitingSlots(id)) changed += await convertSlot(id, slot);
+  for (const slot of waitingSlots(id)) changed += await convertSlot(id, slot, held);
   return changed;
 }
 
@@ -457,12 +486,13 @@ export async function scan({ force = false } = {}) {
 /**
  * Reads game `id`'s folder again in full now, its hand-placed pictures made into
  * WebP. `folder` is the folder's name when the watch gave it: a game new or
- * renamed is found there without a look at the whole games folder.
+ * renamed is found there without a look at the whole games folder. `held`:
+ * withGame's, when called from inside a queue.
  */
-export async function rescan(id, folder = null) {
+export async function rescan(id, folder = null, held = null) {
   load();
-  const changed = await withGame(id, () => read({ only: id, folder }));
-  const converted = await convertGame(id);
+  const changed = await withGame(id, () => read({ only: id, folder }), held);
+  const converted = await convertGame(id, held);
   await pruning;
   if (changed.length || converted) changedHook();
   return { changed: changed.length > 0, converted };
@@ -520,9 +550,10 @@ function nextTurn(fn) {
  * again once it has been quiet (`quietMs`, `cooldownMs`: folder-watch's, for
  * tests). `onChange` is told when a list needs building again.
  */
-export function start({ onChange, quietMs, cooldownMs } = {}) {
+export function start({ onChange, quietMs: quiet, cooldownMs } = {}) {
   if (onChange) changedHook = onChange;
   if (watch) return;
+  if (quiet !== undefined) quietMs = quiet;
   // Made first: a folder that is not there yet cannot be watched.
   try {
     fs.mkdirSync(GAMES_DIR, { recursive: true });
@@ -533,7 +564,7 @@ export function start({ onChange, quietMs, cooldownMs } = {}) {
   // One watch per folder, not per file: thousands of games cost megabytes.
   // A rename reports the old name and the new: both read the game again, and both find the new one.
   watch = watchItems(GAMES_DIR, {
-    depth: 1, deep: true, label: "game meta", quietMs, cooldownMs,
+    depth: 1, deep: true, label: "game meta", quietMs: quiet, cooldownMs,
     onItem: (item) => {
       const m = FOLDER_ID_RE.exec(item);
       // A name with no id may be a game's folder renamed: only a look at them all tells.
@@ -551,6 +582,8 @@ export function watching() {
 export function stop() {
   const w = watch;
   watch = null;
+  for (const t of later.values()) clearTimeout(t);
+  later.clear();
   return w?.close();
 }
 

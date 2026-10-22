@@ -20,6 +20,8 @@ const artCrop = await import("../../src/meta/art-crop.js");
 const customArt = await import("../../src/meta/custom-art.js");
 const { createMediaStore } = await import("../../src/meta/item-media.js");
 const { default: artRouter } = await import("../../src/routes/art.js");
+const gameMetaModule = await import("../../src/meta/game-meta.js");
+gameMetaModule.setQuiet(0);
 await customArt.init();
 
 const app = express();
@@ -235,4 +237,24 @@ test("the original is written under a dot name with the pid first, never a name 
   t.mock.restoreAll();
   assert.deepEqual(written, [`.icon.orig.webp.${process.pid}.tmp`, `.icon.orig.json.${process.pid}.tmp`]);
   assert.deepEqual(fs.readdirSync(dir).sort(), ["icon.orig.json", "icon.orig.webp"]);
+});
+
+test("a hand file that cannot be moved aside refuses the upload and the removal with a short reason and no server path", { timeout: 10_000 }, async (t) => {
+  const ID = "0100000000AAB000";
+  const dir = path.join(gameMetaModule.GAMES_DIR, `Stuck [${ID}]`);
+  fs.mkdirSync(dir, { recursive: true });
+  await post(`/${ID}/icon`, form(await halves()));
+  fs.writeFileSync(path.join(dir, "icon.png"), await halves());
+  // A file where the folder for pictures put aside would go: nothing can be moved there.
+  fs.writeFileSync(path.join(dir, ".replaced"), "in the way");
+  const debug = (await import("../../src/debug.js")).default;
+  t.mock.method(debug, "error", () => {});
+  for (const r of [await post(`/${ID}/icon`, form(await halves())), await fetch(`${URL_BASE}/${ID}/icon`, { method: "DELETE" })]) {
+    assert.equal(r.status, 409);
+    const { error } = await r.json();
+    assert.match(error, /could not be moved/);
+    assert.ok(!error.includes(data) && !error.includes("/"), error);
+  }
+  assert.ok(fs.existsSync(path.join(dir, "icon.png")), "the hand file stays");
+  assert.equal(customArt.hasOverride(ID, "icon"), true, "the slot is left as it was");
 });

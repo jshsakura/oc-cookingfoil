@@ -21,7 +21,7 @@ import { forget, thumbVariantPaths } from "./image-cache.js";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
 import * as gameMeta from "./game-meta.js";
-import { encode, slotName, writeAtomic, writeSlot, KINDS, MAX_SCREENSHOTS } from "./game-art-files.js";
+import { copyAside, encode, slotName, writeAtomic, writeSlot, KINDS, MAX_SCREENSHOTS, REPLACED } from "./game-art-files.js";
 
 export { KINDS, MAX_SCREENSHOTS };
 
@@ -169,33 +169,57 @@ async function readable(file) {
   }
 }
 
-/** Moves one picture of custom-art/ into its game's folder; throws, leaving the old files, when it cannot. */
+/** Whether `file` holds exactly `bytes`. */
+function holds(file, bytes) {
+  try {
+    return fs.readFileSync(file).equals(bytes);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Moves one picture of custom-art/ into its game's folder, as an upload would:
+ * the hand-placed files waiting for its slot go to .replaced/ first. Nothing
+ * found is deleted unless the same picture is in place: what the slot held
+ * before is copied to .replaced/ first, and an old picture the slot keeps a
+ * newer one over goes there too, named for its slot so it can be put back.
+ * Throws, leaving the old files, when it cannot.
+ */
 async function moveOld(name, base, kind, idx) {
   const slot = slotName(kind, idx);
   if (!slot) throw new Error(`no slot for ${name}`);
   const from = path.join(customArtDir, name);
   const fromOrig = artCrop.originalPaths(from);
-  const to = path.join(gameMeta.ensureFolder(base), `${slot}.webp`);
+  const dir = gameMeta.ensureFolder(base);
+  gameMeta.clearSlot(base, slot);
+  const to = path.join(dir, `${slot}.webp`);
+  const toOrig = artCrop.originalPaths(to);
+  const input = fs.readFileSync(from);
+  const original = fs.existsSync(fromOrig.image) ? fs.readFileSync(fromOrig.image) : await artCrop.shrinkOriginal(input);
+  const olds = [[from, `${slot}.jpg`], [fromOrig.image, `${slot}.orig.webp`], [fromOrig.meta, `${slot}.orig.json`]].filter(([f]) => fs.existsSync(f));
   const there = fs.statSync(to, { throwIfNoEntry: false });
-  // A picture there already as new as the old one is a move that stopped halfway, or a newer upload: kept.
-  if (!there || there.mtimeMs < fs.statSync(from).mtimeMs) {
-    const input = fs.readFileSync(from);
+  // A picture there that reads, as new as the old one: a move that stopped halfway, or a newer upload.
+  if (there && there.mtimeMs >= fs.statSync(from).mtimeMs && (await readable(to))) {
+    if (!holds(toOrig.image, original)) for (const [file, as] of olds) copyAside(file, dir, REPLACED, as);
+  } else {
     const art = await encode(kind, input);
-    const original = fs.existsSync(fromOrig.image) ? fs.readFileSync(fromOrig.image) : await artCrop.shrinkOriginal(input);
-    writeAtomic(artCrop.originalPaths(to).image, original);
-    if (fs.existsSync(fromOrig.meta)) writeAtomic(artCrop.originalPaths(to).meta, fs.readFileSync(fromOrig.meta));
+    for (const file of [to, toOrig.image, toOrig.meta]) if (fs.existsSync(file)) copyAside(file, dir, REPLACED, path.basename(file));
+    writeAtomic(toOrig.image, original);
+    if (fs.existsSync(fromOrig.meta)) writeAtomic(toOrig.meta, fs.readFileSync(fromOrig.meta));
     else artCrop.writeCrop(to, null);
     writeAtomic(to, art);
+    if (!(await readable(to))) throw new Error(`${to} does not read back`);
   }
-  if (!(await readable(to))) throw new Error(`${to} does not read back`);
-  for (const old of [from, fromOrig.image, fromOrig.meta, ...thumbVariantPaths(from)]) fs.rmSync(old, { force: true });
+  for (const old of [...olds.map(([file]) => file), ...thumbVariantPaths(from)]) fs.rmSync(old, { force: true });
   gameMeta.refresh(base);
 }
 
 /**
  * Moves the pictures an older server kept in custom-art/ into the game
- * folders. An old file goes only once its new one is written and reads back;
- * one that cannot move stays and is logged. { moved, failed }
+ * folders. An old file goes only once its new one is written and reads back,
+ * or once it is kept in the folder's .replaced/; one that cannot move stays and
+ * is logged. { moved, failed }
  */
 export async function migrate() {
   let names;

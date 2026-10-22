@@ -25,6 +25,8 @@ const ENCODE = {
   screenshot: { width: 1280, height: 720,  quality: 85 },
 };
 const MAX_INPUT_PIXELS = 50e6;
+// Past this a hand-placed file is no picture of a slot's size (50e6 pixels as an uncompressed PNG is 200 MB), and is never read whole.
+const MAX_HAND_BYTES = 256 * 1024 * 1024;
 // <slot>[.orig].<ext>; a hand-placed picture may be named in any case.
 const NAME_RE = /^(icon|banner|screenshot-0[1-8])(\.orig)?\.(webp|json|jpe?g|png)$/i;
 const SLOT_RE = /^(icon|banner|screenshot-0[1-8])$/;
@@ -119,6 +121,38 @@ export function moveAside(dir, file, sub) {
   }
 }
 
+/**
+ * Copies `src` into `dir`/`sub`/ as `name`, as `icon (2).png` and so on when
+ * that is taken, so nothing there is written over. Its new path; throws
+ * StuckError when it cannot be copied.
+ */
+export function copyAside(src, dir, sub, name) {
+  const to = path.join(dir, sub);
+  const { name: stem, ext } = path.parse(name);
+  try {
+    fs.mkdirSync(to, { recursive: true });
+    for (let n = 1; ; n++) {
+      const dest = path.join(to, n === 1 ? name : `${stem} (${n})${ext}`);
+      try {
+        fs.copyFileSync(src, dest, fs.constants.COPYFILE_EXCL);
+        return dest;
+      } catch (err) {
+        if (err.code !== "EEXIST") throw err;
+      }
+    }
+  } catch (err) {
+    throw new StuckError(`${src} cannot be copied to ${sub}/: ${err.message}`);
+  }
+}
+
+/**
+ * Whether a file was written or changed within the last `quietMs` (its mtime or
+ * its ctime): a copy may still be going on. A time ahead of now does not count. Pure.
+ */
+export function isFresh(st, quietMs, now = Date.now()) {
+  return [st.mtimeMs, st.ctimeMs].some((t) => now - t >= 0 && now - t < quietMs);
+}
+
 /** A hand-placed file read whole: { input, read } (read: its stat), or null when it is gone. */
 async function readHand(src) {
   let fh;
@@ -141,15 +175,28 @@ async function readHand(src) {
  * as a picture becomes the slot's .webp and original and is deleted once both
  * are written; the others move to .replaced/; one that does not read moves to
  * .unreadable/ (logged) and the next is tried. Nothing is written while one of
- * them would stay: a move that fails throws StuckError first. `ready()`, asked
- * right before anything is moved, may say the slot changed meanwhile; null
- * then, and also when a file changed while it was read (the next look decides).
- * { taken } else: the file made into the slot, or null when none read.
+ * them would stay: a move that fails throws StuckError first. The taken file
+ * stays where it is until the slot holds it, so a stop at any point leaves
+ * either the slot as it was or the same picture for the next look to take.
+ *
+ * Nothing is done while one of them was written within `quietMs` (a copy may
+ * still be going on): { taken: null, waitMs } then, how long until it is quiet.
+ * `ready()`, asked right before anything is moved, may say the slot changed
+ * meanwhile; null then, and also when a file changed while it was read (the
+ * next look decides). { taken } else: the file made into the slot, or null when none read.
  */
-export async function takeSlot(dir, slot, files, { ready = () => true } = {}) {
+export async function takeSlot(dir, slot, files, { ready = () => true, quietMs = 0 } = {}) {
   const [kind] = kindOf(slot);
+  const waitMs = (st) => (st && isFresh(st, quietMs) ? quietMs - (Date.now() - Math.max(st.mtimeMs, st.ctimeMs)) : 0);
+  const wait = Math.max(0, ...files.map((f) => waitMs(statOf(path.join(dir, f)))));
+  if (wait) return { taken: null, waitMs: wait };
   for (let i = 0; i < files.length; i++) {
     const src = path.join(dir, files[i]);
+    if ((statOf(src)?.size ?? 0) > MAX_HAND_BYTES) {
+      moveAside(dir, files[i], UNREADABLE);
+      debug.error("game art: %s is larger than any picture taken, moved to %s/", src, UNREADABLE);
+      continue;
+    }
     const got = await readHand(src);
     if (!got) continue;
     const same = () => {
@@ -161,35 +208,26 @@ export async function takeSlot(dir, slot, files, { ready = () => true } = {}) {
       art = await encode(kind, got.input);
       original = await artCrop.shrinkOriginal(got.input);
     } catch (err) {
-      // One still being written may read as broken: left for the next look.
+      // One still being written may read as broken: left where it is for the next look.
       if (!same()) return null;
+      const fresh = waitMs(statOf(src));
+      if (fresh) return { taken: null, waitMs: fresh };
       moveAside(dir, files[i], UNREADABLE);
       debug.error("game art: %s is not a picture that can be read, moved to %s/: %s", src, UNREADABLE, err.message);
       continue;
     }
     if (!same() || !ready()) return null;
     for (const other of files.slice(i + 1)) if (statOf(path.join(dir, other))) moveAside(dir, other, REPLACED);
-    // Held in .replaced/ until the slot is written: should the write fail, it goes back.
-    const held = moveAside(dir, files[i], REPLACED);
     const artFile = path.join(dir, `${slot}.webp`);
-    try {
-      writeSlot(artFile, art, original);
-      if (!fs.statSync(artFile).size || !fs.statSync(artCrop.originalPaths(artFile).image).size) throw new Error("written empty");
-    } catch (err) {
-      // Back where it was, unless a file took that name meanwhile: it stays in .replaced/ then, not lost.
-      if (!statOf(src)) {
-        try {
-          fs.renameSync(held, src);
-        } catch { /* stays in .replaced/ */ }
+    writeSlot(artFile, art, original);
+    if (!fs.statSync(artFile).size || !fs.statSync(artCrop.originalPaths(artFile).image).size) throw new Error(`${artFile} was written empty`);
+    // Changed while the slot was written: it stays, and the next look takes it.
+    if (same()) {
+      try {
+        fs.rmSync(src);
+      } catch (err) {
+        debug.error("game art: %s is made into %s.webp but cannot be removed: %s", src, slot, err.message);
       }
-      throw err;
-    }
-    try {
-      fs.rmSync(held);
-      fs.rmdirSync(path.dirname(held));
-    } catch (err) {
-      // ENOTEMPTY: .replaced/ holds others, and stays.
-      if (err.code !== "ENOTEMPTY" && err.code !== "EEXIST") debug.error("game art: %s is made into %s.webp; tidying %s/: %s", src, slot, REPLACED, err.message);
     }
     return { taken: files[i] };
   }

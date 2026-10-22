@@ -20,6 +20,8 @@ const { default: sharp } = await import("sharp");
 const gameMeta = await import("../../src/meta/game-meta.js");
 const customArt = await import("../../src/meta/custom-art.js");
 const { GAMES_DIR } = gameMeta;
+// A hand file is taken at once here: its quiet time is the watch's, for the tests that need one.
+gameMeta.setQuiet(0);
 
 const picture = (color, format = "png") => sharp({ create: { width: 64, height: 64, channels: 3, background: color } })[format]().toBuffer();
 const folder = (id, name = "Game") => {
@@ -146,8 +148,11 @@ test("a hand file that cannot be moved leaves the slot unwritten, logged once a 
   const dir = folder(ID);
   fs.writeFileSync(path.join(dir, "banner.webp"), await picture("#0000ff", "webp"));
   await gameMeta.scan();
-  const src = path.join(dir, "banner.png");
-  fs.writeFileSync(src, await picture("#00ff00"));
+  // The winner stays until the slot holds it; the other, older one is what has to move first.
+  const src = path.join(dir, "banner.jpg");
+  fs.writeFileSync(src, await picture("#ff0000", "jpeg"));
+  ago(src, 60);
+  fs.writeFileSync(path.join(dir, "banner.png"), await picture("#00ff00"));
   const renameSync = fs.renameSync;
   t.mock.method(fs, "renameSync", (from, ...rest) => {
     if (from === src) throw Object.assign(new Error("read-only"), { code: "EROFS" });
@@ -159,12 +164,13 @@ test("a hand file that cannot be moved leaves the slot unwritten, logged once a 
   await gameMeta.scan({ force: true });
   await gameMeta.rescan(ID);
   assert.ok((await colorOf(path.join(dir, "banner.webp"))).b > 200, "the slot is not written while the hand file would stay");
-  assert.ok(fs.existsSync(src));
-  assert.equal(logged.mock.calls.filter((c) => c.arguments.some((a) => String(a).includes("banner.png"))).length, 1);
+  assert.deepEqual(hand(dir).sort(), ["banner.jpg", "banner.png"]);
+  assert.equal(logged.mock.calls.filter((c) => c.arguments.some((a) => String(a).includes("banner.jpg"))).length, 1);
   t.mock.restoreAll();
   await gameMeta.rescan(ID);
   assert.ok(await green(path.join(dir, "banner.webp")));
-  assert.ok(!fs.existsSync(src));
+  assert.deepEqual(hand(dir), []);
+  assert.deepEqual(fs.readdirSync(path.join(dir, ".replaced")), ["banner.jpg"]);
 });
 
 test("a name already taken in .replaced/ gets a number, so nothing there is written over", async () => {
@@ -206,4 +212,87 @@ test("work a queued write leaves behind (a timer, a promise not waited for) wait
   await gameMeta.withGame(ID, async () => { chain = sleep(10).then(() => gameMeta.withGame(ID, slow("chain"))); });
   await Promise.all([gameMeta.withGame(ID, slow("other")), chain]);
   assert.deepEqual(log, ["other start", "other end", "chain start", "chain end"]);
+});
+
+test("a forced look leaves a hand file still being copied in its folder, untouched, and takes it once it has been quiet", async (t) => {
+  const ID = "0100000000BD0000";
+  const dir = folder(ID);
+  const whole = await picture("#00ff00");
+  // Half a PNG: what a slow copy looks like when the rescan button is pressed.
+  fs.writeFileSync(path.join(dir, "banner.png"), whole.subarray(0, Math.floor(whole.length / 2)));
+  fs.writeFileSync(path.join(dir, "icon.png"), whole);
+  gameMeta.setQuiet(30_000);
+  t.after(() => gameMeta.setQuiet(0));
+  await gameMeta.rescan(ID);
+  await gameMeta.scan({ force: true });
+  assert.ok(!fs.existsSync(path.join(dir, ".unreadable")), "not taken for a broken picture");
+  assert.deepEqual(hand(dir).sort(), ["banner.png", "icon.png"], "left where they are, not decoded");
+  assert.equal(customArt.hasOverride(ID, "icon"), false);
+
+  fs.writeFileSync(path.join(dir, "banner.png"), whole);
+  gameMeta.setQuiet(0);
+  await gameMeta.rescan(ID);
+  assert.deepEqual(hand(dir), []);
+  assert.ok(await green(path.join(dir, "banner.webp")));
+  assert.ok(await green(path.join(dir, "icon.webp")));
+});
+
+// The winner stays in the folder until the slot holds it, so a failure at any step
+// leaves either the slot as it was or one the next look makes again from the same picture.
+for (const step of ["original", "picture", "check", "delete"]) {
+  test(`a failure while the winner is written (${step}) loses nothing, and the next look takes the same picture`, async (t) => {
+    const ID = `0100000000C${["original", "picture", "check", "delete"].indexOf(step)}0000`;
+    const dir = folder(ID);
+    await customArt.put(ID, "icon", null, await picture("#0000ff"));
+    fs.writeFileSync(path.join(dir, "icon.jpg"), await picture("#ff0000", "jpeg"));
+    ago(path.join(dir, "icon.jpg"), 60);
+    const winner = path.join(dir, "icon.png");
+    fs.writeFileSync(winner, await picture("#00ff00"));
+    const fail = () => { throw Object.assign(new Error(`injected at ${step}`), { code: "EIO" }); };
+    const { renameSync, writeFileSync, rmSync } = fs;
+    if (step === "original") t.mock.method(fs, "renameSync", (a, b, ...r) => (String(b).endsWith("icon.orig.webp") ? fail() : renameSync(a, b, ...r)));
+    if (step === "picture") t.mock.method(fs, "renameSync", (a, b, ...r) => (String(b).endsWith(`${path.sep}icon.webp`) ? fail() : renameSync(a, b, ...r)));
+    if (step === "check") t.mock.method(fs, "writeFileSync", (f, buf, ...r) => writeFileSync(f, String(f).includes(".icon.webp.") ? Buffer.alloc(0) : buf, ...r));
+    if (step === "delete") t.mock.method(fs, "rmSync", (f, ...r) => (f === winner ? fail() : rmSync(f, ...r)));
+    const debug = (await import("../../src/debug.js")).default;
+    t.mock.method(debug, "error", () => {});
+    await gameMeta.rescan(ID);
+    assert.ok(fs.existsSync(winner), "the winner is still in the folder");
+    assert.deepEqual(fs.readdirSync(path.join(dir, ".replaced")), ["icon.jpg"], "only the loser was put aside");
+    if (step === "original" || step === "picture") assert.ok((await colorOf(path.join(dir, "icon.webp"))).b > 200, "the slot is as it was");
+    t.mock.restoreAll();
+    await gameMeta.rescan(ID);
+    assert.deepEqual(hand(dir), []);
+    assert.ok(await green(path.join(dir, "icon.webp")));
+    assert.ok(await green(path.join(dir, "icon.orig.webp")));
+    assert.deepEqual(fs.readdirSync(path.join(dir, ".replaced")), ["icon.jpg"]);
+  });
+}
+
+test("a game's queue entered again from inside itself fails at once instead of waiting forever", { timeout: 5_000 }, async () => {
+  const ID = "0100000000C50000";
+  await assert.rejects(
+    gameMeta.withGame(ID, (held) => gameMeta.withGame(ID, () => "inner", held)),
+    /own queue/,
+  );
+  await assert.rejects(gameMeta.withGame(ID, (held) => gameMeta.rescan(ID, null, held)), /own queue/);
+  assert.equal(await gameMeta.withGame(ID, () => "after"), "after", "the queue goes on");
+  assert.equal(await gameMeta.withGame(ID, (held) => gameMeta.withGame("0100000000C60000", () => "other", held)), "other", "another game's queue is fine");
+});
+
+test("a hand file far larger than any picture moves to .unreadable/ unread, and the next one is taken", async (t) => {
+  const ID = "0100000000C70000";
+  const dir = folder(ID);
+  fs.writeFileSync(path.join(dir, "icon.jpg"), await picture("#00ff00", "jpeg"));
+  ago(path.join(dir, "icon.jpg"), 60);
+  // Sparse: 300 MB on paper, nothing on the disk.
+  fs.closeSync(fs.openSync(path.join(dir, "icon.png"), "w"));
+  fs.truncateSync(path.join(dir, "icon.png"), 300 * 1024 * 1024);
+  const debug = (await import("../../src/debug.js")).default;
+  t.mock.method(debug, "error", () => {});
+  const read = t.mock.method(fs.promises, "open");
+  await gameMeta.rescan(ID);
+  assert.ok(!read.mock.calls.some((c) => String(c.arguments[0]).endsWith("icon.png")), "never read");
+  assert.deepEqual(fs.readdirSync(path.join(dir, ".unreadable")), ["icon.png"]);
+  assert.ok(await green(path.join(dir, "icon.webp")));
 });
