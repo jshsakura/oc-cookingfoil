@@ -85,7 +85,7 @@
  *
  * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, rom_hash, rom_size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
  *       group, variants (a count in lists, the V list in a game's own reply),
- *       bezel: { kind, hasBezel, generic?, imageUrl, overlayCfgUrl, gameCfgUrl },
+ *       bezel: { kind, hasBezel, generic?, credit?: { name, url, text }, imageUrl, overlayCfgUrl, gameCfgUrl },
  *         kind: "game" (made for this game), "system" (the console's default), "none".
  *         New kinds may be added later; hasBezel and generic stay for older clients.
  *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
@@ -127,6 +127,7 @@ import { pick, requestLang } from "../meta/langs.js";
 import * as catalog from "../retro/catalog.js";
 import * as retroNames from "../retro/names.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
+import { bezelCredit } from "../retro/credits.js";
 import { tagsOf, withoutTags } from "../retro/sd-names.js";
 import { editionOf } from "../retro/edition.js";
 import { regionOf } from "../retro/arcade.js";
@@ -403,12 +404,14 @@ function publicVariant(g, rep, lang) {
 const withDirect = (name, url, link) => ({ [name]: directUrl(url, link) });
 
 /** The bezel fields of a game, with their direct twins. */
-function bezelFields(g, paths, base, link) {
+function bezelFields(g, paths, base, link, lang) {
   if (!g.bezel) return { kind: "none", hasBezel: false };
   return {
     kind: bezelKind(g),
     hasBezel: true,
     generic: g.bezel.generic,
+    // Who made it: { name, url, text } with the text in the request's language.
+    credit: bezelCredit(lang),
     ...withDirect("imageUrl", `${base}/bezel.png`, link),
     ...withDirect("overlayCfgUrl", `${base}/overlay.cfg`, link),
     ...(paths.gameCfg ? withDirect("gameCfgUrl", `${base}/game.cfg`, link) : { gameCfgUrl: null }),
@@ -478,7 +481,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     boxartUrl: g.icon ? `${base}/boxart?v=${artKey(g)}` : null,
     ...withDirect("romUrl", `${base}/rom`, link),
     ...withDirect("bundleUrl", `${base}/bundle`, link),
-    bezel: bezelFields(g, paths, base, link),
+    bezel: bezelFields(g, paths, base, link, lang),
     ...forwarderFields(g, system, base, link, cat),
     install: {
       rom: paths.rom,

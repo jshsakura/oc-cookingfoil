@@ -35,6 +35,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The retro pack tests pack a small bundle with 7-Zip; the runner image has it, this only makes sure.
+      - name: 7-Zip
+        run: command -v 7z || command -v 7zz || sudo apt-get install -y p7zip-full
+
       - name: Unit tests
         run: npm run test:unit
       - name: Install browser

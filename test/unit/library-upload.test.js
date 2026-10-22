@@ -321,6 +321,14 @@ test("the admin adds a RetroArch core, replaces it only when asked, and removes 
     const list = await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json();
     assert.deepEqual(list.cores.map((c) => [c.core, c.origin]), [["mgba", "modified"]]);
 
+    // The fill-in-one-go plan names what would be installed and needs a confirmation to start.
+    const plan = await (await fetch(`${BASE}/admin/api/retro-pack`, { headers: admin })).json();
+    assert.equal(plan.items[0].kind, "body");
+    assert.ok(plan.bundle.size > 1e8);
+    assert.ok(plan.credit.url.startsWith("https://github.com/"));
+    r = await fetch(`${BASE}/admin/api/retro-pack/fill`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({}) });
+    assert.equal(r.status, 400, "no confirmation, no download");
+
     r = await fetch(`${BASE}/admin/api/retro-cores/remove`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ core: "mgba" }) });
     assert.equal(r.status, 200, await r.clone().text());
     assert.ok(!fs.existsSync(core));

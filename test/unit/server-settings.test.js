@@ -101,6 +101,15 @@ test("the per-console connection count is 4 unless the admin picks another, and 
   assert.equal(env.downloadMaxConnections, 4, "back to compose");
 });
 
+test("the RetroArch bundle address is saved from the admin page, blank means the official one", () => {
+  assert.equal(env.retroPackUrl, "");
+  settings.save({ retroPackUrl: " https://mirror.example.com/RetroArch.7z " });
+  assert.equal(env.retroPackUrl, "https://mirror.example.com/RetroArch.7z");
+  assert.throws(() => settings.save({ retroPackUrl: "ftp://mirror.example.com/x" }), /retroPackUrl/);
+  settings.save({ retroPackUrl: null });
+  assert.equal(env.retroPackUrl, "");
+});
+
 test("a saved file is read back on start", () => {
   settings.save({ ratingSync: false, eshopArtwork: false });
   settings.load();
