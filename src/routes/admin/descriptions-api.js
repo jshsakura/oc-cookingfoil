@@ -1,6 +1,6 @@
 /**
  * What the admin writes about a game, which titledb and metadata refreshes never
- * overwrite (kept apart, in game-descriptions.json). /api/title/{id} answers
+ * overwrite (kept apart, one game.json per game: meta/game-descriptions.js). /api/title/{id} answers
  * the admin's description in place of titledb's, and their notes as `notes`:
  *
  *   GET  /admin/api/descriptions               { games: [{ titleId, name, edited }] }   library games

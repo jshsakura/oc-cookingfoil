@@ -1,9 +1,13 @@
 /**
- * What the admin writes about each game, kept in
- * ${COOK_DATA_DIR}/game-descriptions.json, apart from titledb so no refresh
- * ever overwrites it:
+ * What the admin writes about each game, kept as plain files apart from titledb
+ * so no refresh ever overwrites it and nothing of it lives only in a database:
  *
- *   { <base title id>: { name?: { en, ko }, description?: { en, ko }, notes?: { en, ko } } }
+ *   ${COOK_DATA_DIR}/metadata/games/<name> [<base title id>]/game.json
+ *     { id, name?: { en, ko }, description?: { en, ko }, notes?: { en, ko } }
+ *
+ * A game is found by the id in brackets at the end of its folder's name; the
+ * name before it is for people and may be changed by hand. A game.json edited
+ * by hand is read again the next time it is asked for, with no restart.
  *
  * name replaces the game's name everywhere it is shown (a wrong or empty one
  * from titledb or the file); one the admin cleared goes back to the usual name.
@@ -13,19 +17,25 @@
  * information only the admin writes, such as what to install with the game.
  * Korean readers get the Korean text when there is one, everyone else the
  * English one. Line breaks are kept and shown as written.
+ *
+ * game-descriptions.json, where this was kept before, is moved into the folders
+ * the first time they are read, and removed once every game is there.
  */
 import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import debug from "../debug.js";
 
-const FILE = path.join(dataDir, "game-descriptions.json");
+export const GAMES_DIR = path.join(dataDir, "metadata", "games");
+const LEGACY_FILE = path.join(dataDir, "game-descriptions.json");
+const FILE = "game.json";
 const ID_RE = /^[0-9A-F]{16}$/;
+const FOLDER_ID_RE = /\[([0-9A-Fa-f]{16})\]\s*$/;
 const MAX = 2000;
 export const FIELDS = ["name", "description", "notes"];
 // A name is one line; the other fields keep their line breaks.
 const LIMIT = { name: 120 };
-
-let saved = null;
+const MAX_FOLDER_LABEL = 80;
 
 /**
  * An entry written by an older version kept the description's languages at the
@@ -42,22 +52,153 @@ export function normalize(raw) {
   return out;
 }
 
-function all() {
-  if (saved) return saved;
-  try {
-    saved = normalize(JSON.parse(fs.readFileSync(FILE, "utf8")));
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    saved = {};
+/** The fields of a game.json that are text in English or Korean; anything else in the file is left out. Pure. */
+function readFields(json) {
+  const out = {};
+  for (const field of FIELDS) {
+    const v = json?.[field];
+    if (!v || typeof v !== "object") continue;
+    const en = typeof v.en === "string" && v.en.trim() ? v.en : null;
+    const ko = typeof v.ko === "string" && v.ko.trim() ? v.ko : null;
+    if (en || ko) out[field] = { en, ko };
   }
-  return saved;
+  return out;
 }
 
-function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
+/** A folder name for a game: its name, then its id in brackets. Pure. */
+export function folderName(id, label) {
+  const clean = String(label ?? "")
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_FOLDER_LABEL)
+    .replace(/[ .]+$/, "");
+  return `${clean || "Game"} [${id}]`;
+}
+
+// Where a game's usual name comes from when the admin gave none (meta/titledb-store.js sets it).
+let nameOf = () => null;
+/** Lets the folder of a game the admin named nothing for carry its usual name. */
+export function useNames(fn) {
+  nameOf = fn;
+}
+
+let index = null; // { mtimeMs, byId: Map id → folder }
+const read = new Map(); // game.json → { mtimeMs, size, fields }
+
+function writeAtomic(file, text) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+}
+
+const toJson = (id, fields) => `${JSON.stringify({ id, ...fields }, null, 1)}\n`;
+
+/** Moves game-descriptions.json into the folders, once; it is removed when every game is there. */
+function migrateLegacy() {
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(LEGACY_FILE, "utf8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") debug.error("game descriptions: reading %s: %s", LEGACY_FILE, err.message);
+    return;
+  }
+  const have = folders();
+  for (const [id, entry] of Object.entries(normalize(raw))) {
+    if (!ID_RE.test(id) || have.has(id)) continue;
+    const fields = readFields(entry);
+    if (!Object.keys(fields).length) continue;
+    writeAtomic(path.join(GAMES_DIR, folderName(id, fields.name?.ko ?? fields.name?.en ?? nameOf(id)), FILE), toJson(id, fields));
+  }
+  fs.rmSync(LEGACY_FILE, { force: true });
+  index = null;
+  debug.log("game descriptions: moved %s into %s", LEGACY_FILE, GAMES_DIR);
+}
+
+/** Every game folder, by id: Map id → folder. Read again when the games folder changes. */
+function folders() {
+  let st;
+  try {
+    st = fs.statSync(GAMES_DIR);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+    return new Map();
+  }
+  if (index?.mtimeMs === st.mtimeMs) return index.byId;
+  const byId = new Map();
+  for (const d of fs.readdirSync(GAMES_DIR, { withFileTypes: true })) {
+    const m = d.isDirectory() && FOLDER_ID_RE.exec(d.name);
+    if (!m) continue;
+    const id = m[1].toUpperCase();
+    if (byId.has(id)) {
+      debug.error("game descriptions: %s and %s are both for %s; using the first", byId.get(id), d.name, id);
+      continue;
+    }
+    byId.set(id, path.join(GAMES_DIR, d.name));
+  }
+  index = { mtimeMs: st.mtimeMs, byId };
+  return byId;
+}
+
+let migrated = false;
+/** What a game's folder holds, or null; a game.json that cannot be read throws when `strict`. */
+function fieldsOf(id, { strict = false } = {}) {
+  if (!migrated) {
+    migrated = true;
+    migrateLegacy();
+  }
+  const dir = folders().get(id);
+  if (!dir) return null;
+  const file = path.join(dir, FILE);
+  let st;
+  try {
+    st = fs.statSync(file);
+  } catch {
+    return null;
+  }
+  const seen = read.get(file);
+  if (seen && seen.mtimeMs === st.mtimeMs && seen.size === st.size) {
+    if (seen.error && strict) throw seen.error;
+    return seen.fields;
+  }
+  try {
+    const fields = readFields(JSON.parse(fs.readFileSync(file, "utf8")));
+    read.set(file, { mtimeMs: st.mtimeMs, size: st.size, fields });
+    return fields;
+  } catch (err) {
+    const error = new Error(`${file} cannot be read: ${err.message}`);
+    read.set(file, { mtimeMs: st.mtimeMs, size: st.size, fields: null, error });
+    debug.error("game descriptions: %s", error.message);
+    if (strict) throw error;
+    return null;
+  }
+}
+
+function all() {
+  fieldsOf(null);
+  const out = {};
+  for (const id of folders().keys()) {
+    const fields = fieldsOf(id);
+    if (fields && Object.keys(fields).length) out[id] = fields;
+  }
+  return out;
+}
+
+/** Writes a game's fields into its folder (made when missing); none left removes its game.json. */
+function persist(id, fields) {
+  const dir = folders().get(id) ?? path.join(GAMES_DIR, folderName(id, fields.name?.ko ?? fields.name?.en ?? nameOf(id)));
+  const file = path.join(dir, FILE);
+  if (Object.keys(fields).length) writeAtomic(file, toJson(id, fields));
+  else {
+    fs.rmSync(file, { force: true });
+    // The folder goes too when nothing else (a picture) is in it.
+    try {
+      fs.rmdirSync(dir);
+    } catch { /* not empty */ }
+  }
+  read.delete(file);
+  index = null;
 }
 
 const clean = (v, field) => {
@@ -74,8 +215,8 @@ export function edited() {
 
 /** The admin's text for a game ({ description, notes }, each { en, ko } or null), or null. */
 export function get(id) {
-  const own = all()[id];
-  return own ? { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null } : null;
+  const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
+  return own && Object.keys(own).length ? { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null } : null;
 }
 
 /**
@@ -85,20 +226,18 @@ export function get(id) {
 export function set(id, field, { en, ko }) {
   if (!ID_RE.test(String(id)) || !FIELDS.includes(field)) return false;
   const [enText, koText] = [clean(en, field), clean(ko, field)];
-  const { [id]: prev = {}, ...rest } = all();
-  const { [field]: _old, ...others } = prev;
-  const entry = enText || koText ? { ...others, [field]: { en: enText, ko: koText } } : others;
-  persist(Object.keys(entry).length ? { ...rest, [id]: entry } : rest);
+  // A game.json that cannot be read (a hand edit gone wrong) is not written over: the error says which.
+  const { [field]: _old, ...others } = fieldsOf(id, { strict: true }) ?? {};
+  persist(id, enText || koText ? { ...others, [field]: { en: enText, ko: koText } } : others);
   return true;
 }
 
 /** Forget one field, or everything the admin wrote about the game. */
 export function reset(id, field = null) {
-  const own = all()[id];
-  if (!own || (field && !own[field])) return false;
+  const own = ID_RE.test(String(id)) ? fieldsOf(id, { strict: true }) : null;
+  if (!own || !Object.keys(own).length || (field && !own[field])) return false;
   if (field) return set(id, field, {});
-  const { [id]: _gone, ...rest } = all();
-  persist(rest);
+  persist(id, {});
   return true;
 }
 
@@ -107,12 +246,12 @@ const pick = (text, lang) => (text ? (lang === "ko" ? text.ko ?? text.en : text.
 
 /** The description a reader sees: the admin's, else `fallback` (titledb's own). */
 export function describe(id, lang, fallback = null) {
-  return pick(all()[id]?.description, lang) ?? fallback ?? null;
+  return pick(get(id)?.description, lang) ?? fallback ?? null;
 }
 
 /** The admin's name for a game in each language they wrote ({ en?, ko? }), or null. */
 export function names(id) {
-  const n = all()[String(id ?? "").toUpperCase()]?.name;
+  const n = get(String(id ?? "").toUpperCase())?.name;
   if (!n) return null;
   const out = { ...(n.en ? { en: n.en } : {}), ...(n.ko ? { ko: n.ko } : {}) };
   return Object.keys(out).length ? out : null;
@@ -120,5 +259,5 @@ export function names(id) {
 
 /** What the admin adds about a game (what to install with it, space, version): never from titledb. */
 export function notes(id, lang) {
-  return pick(all()[id]?.notes, lang);
+  return pick(get(id)?.notes, lang);
 }

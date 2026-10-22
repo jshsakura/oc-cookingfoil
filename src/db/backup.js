@@ -5,10 +5,11 @@
  *                     refusals, sealed secrets as they are (VACUUM INTO: a whole,
  *                     consistent copy while the server runs)
  *   *.json            the logs and hand-kept files: downloads, alerts, the NSZ
- *                     queue, descriptions, names, featured rows, homebrew sources,
+ *                     queue, names, featured rows, homebrew sources,
  *                     the patch notes
  *   extracted-meta/   names fixed by hand
  *   custom-art/       artwork uploaded by hand
+ *   metadata/games/   what the admin wrote about each game
  *
  * Left out, as they come back by themselves: the library, the index
  * (cookingfoil.db), titledb, images and every other cache.
@@ -31,7 +32,7 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Files at the top of the data folder that are only caches.
 const CACHES = new Set(["patches-cache.json"]);
 // Folders copied whole.
-const FOLDERS = ["extracted-meta", "custom-art"];
+const FOLDERS = ["extracted-meta", "custom-art", "metadata/games"];
 // Folders whose own top-level .json files are copied (not their subfolders).
 const JSON_FOLDERS = [".", "security", "homebrew", "patches"];
 // How often the schedule looks whether today's backup is there.

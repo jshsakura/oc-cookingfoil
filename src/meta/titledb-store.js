@@ -17,6 +17,9 @@ import { normalizeSupportedLanguages } from "./supported-languages.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
 
+// A game folder the admin writes into is named after the game (meta/game-descriptions.js).
+gameDescriptions.useNames((id) => get(id)?.name ?? null);
+
 // Fields we surface in the merged record: what the title detail page and the
 // client's info panel show.
 // languages is normalized separately below so invalid arrays allow fallback.

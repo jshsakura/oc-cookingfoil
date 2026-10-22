@@ -15,7 +15,7 @@ function dataDir() {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), body);
   };
-  put("game-descriptions.json", '{"a":1}');
+  put("metadata/games/Game [0100000000010000]/game.json", '{"id":"0100000000010000"}');
   put("transfers.json", "[]");
   put("patches-cache.json", '{"cache":true}');
   put("security/alerts-history.json", "[]");
@@ -46,8 +46,8 @@ test("a day's backup holds the security database and the hand-kept files, not th
   assert.deepEqual(walk(day), [
     "custom-art/0100000000010000.icon.jpg",
     "extracted-meta/0100000000010000.json",
-    "game-descriptions.json",
     "homebrew/sources.json",
+    "metadata/games/Game [0100000000010000]/game.json",
     "security/alerts-history.json",
     "security/security.db",
     "transfers.json",

@@ -3,7 +3,7 @@ fs.mkdirSync(process.env.COOK_GAMES_DIR, { recursive: true });
 // Accounts left behind by an interrupted admin spec would put every later run behind a password.
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/users.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/featured.json`, { force: true });
-fs.rmSync(`${process.env.COOK_DATA_DIR}/game-descriptions.json`, { force: true });
+fs.rmSync(`${process.env.COOK_DATA_DIR}/metadata`, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/verified-items.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/server-settings.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/admin-password.json`, { force: true });
