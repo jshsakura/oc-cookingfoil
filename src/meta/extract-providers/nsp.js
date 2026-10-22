@@ -37,7 +37,8 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import debug from "../../debug.js";
-import { readPfs0Entries, copyPfs0Entry } from "../pfs0.js";
+import { readPfs0Entries, copyPfs0Entry, MAX_CNMT_NCA_BYTES, MAX_CONTROL_NCA_BYTES } from "../pfs0.js";
+import { readXciSecureEntries } from "../hfs0.js";
 import {
   decodeNacp,
   NACP_TOTAL_BYTES,
@@ -202,17 +203,22 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   return { meta, titleId, metaType, requiredSystemVersion, iconBuffer: await pickIconForLangs(ctrlDir, langPriority), iconsByLang: await iconsByLang(ctrlDir) };
 }
 
+const XCI_RE = /\.xc[iz]$/i;
+
 /**
- * NSP and NSZ are PFS0 containers whose meta and control NCAs are small and
- * stored plain, so only those two are cut out of the file. A 90 GB title
+ * NSP and NSZ are PFS0 containers, XCI and XCZ keep their NCAs in the secure
+ * HFS0 partition; either way the meta and control NCAs are small and stored
+ * plain, so only those two are cut out of the file (each under its size cap).
+ * nsz compresses only program and public data NCAs; a control NCA that were
+ * compressed would be named .ncz, is not found, and gives null. A 90 GB title
  * costs a few MB of reads instead of a full dump, which is what lets large
- * files get icons at all. Returns null when the file is not PFS0.
+ * files get icons at all. Returns null when the file is neither.
  */
 export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
   const bin = await resolveBinary();
   if (!bin) return null;
   if (!(await keysAvailable())) return null;
-  const entries = await readPfs0Entries(absPath).catch(() => null);
+  const entries = await (XCI_RE.test(absPath) ? readXciSecureEntries(absPath) : readPfs0Entries(absPath)).catch(() => null);
   if (!entries) return null;
   const byName = new Map(entries.map((e) => [e.name.toLowerCase(), e]));
   const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cook-pfs0-"));
@@ -222,7 +228,8 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
     const ensureNca = async (name) => {
       const entry = byName.get(name.toLowerCase());
       if (!entry) return false;
-      await copyPfs0Entry(absPath, entry, path.join(pfs0Dir, name));
+      const maxBytes = /\.cnmt\.nca$/i.test(name) ? MAX_CNMT_NCA_BYTES : MAX_CONTROL_NCA_BYTES;
+      await copyPfs0Entry(absPath, entry, path.join(pfs0Dir, name), { maxBytes });
       return true;
     };
     const found = await readControl({
@@ -235,7 +242,7 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
     const { meta, iconBuffer, iconsByLang: langIcons } = found;
     return { id: baseTitleId, name: meta.name, publisher: meta.publisher, version: meta.version,
       titleId: found.titleId, metaType: found.metaType, requiredSystemVersion: found.requiredSystemVersion, languages: meta.languages ?? null,
-      source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer, iconsByLang: langIcons };
+      source: `nacp-${path.extname(absPath).slice(1).toLowerCase()}`, iconBuffer, iconsByLang: langIcons };
   } catch (err) {
     debug.log("pfs0 extractor: %s — %s", path.basename(absPath), err.message);
     return null;
