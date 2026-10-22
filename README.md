@@ -341,7 +341,7 @@ CookingFoil itself speaks plain HTTP. Over `http://`, anything a console sends c
 
 - **A console:** on the Devices tab, revoke its access key (or reissue it). A user can do the same on `/pair` for consoles they approved. Its session tokens stop working at once.
 - **A client download not used yet:** withdraw it on the Devices tab or on `/pair`. A used one is a console like any other.
-- **An account:** disable or delete it on the Users tab. Its session tokens and download tokens stop working with it. A password change ends its sessions too. Revoke the consoles it approved on the Devices tab as well.
+- **An account:** disable or delete it on the Accounts tab. Its session tokens and download tokens stop working with it. A password change ends its sessions too. Revoke the consoles it approved on the Devices tab as well.
 - **An automation token:** revoke it in Settings.
 - **Every token at once:** run `docker compose exec cookingfoil node -e 'import("./src/db/security-stores.js").then((s) => ["download-link", "user-session"].forEach((n) => s.deleteSecret(n)))'` and restart the server. Every session and download token ends, web sign-ins included, and consoles sign in again with their access keys.
 - **A locked address:** unlock it on the Logs tab.

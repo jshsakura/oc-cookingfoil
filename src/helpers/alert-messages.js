@@ -89,10 +89,10 @@ const M = {
   },
 
   account: {
-    ko: ({ email }) => `🆕 새 구글 계정이 들어왔습니다.\n📧 계정: ${email}\n관리 화면의 사용자 탭에서 승인합니다.`,
-    en: ({ email }) => `🆕 A new Google account signed in.\n📧 Account: ${email}\nApprove it on the admin page's users tab.`,
-    ja: ({ email }) => `🆕 新しい Google アカウントがログインしました。\n📧 アカウント: ${email}\n管理画面のユーザータブで承認します。`,
-    zh: ({ email }) => `🆕 有新的 Google 账号登录。\n📧 账号：${email}\n请在管理页面的用户标签中批准。`,
+    ko: ({ email }) => `🆕 새 구글 계정이 들어왔습니다.\n📧 계정: ${email}\n관리 화면의 계정 탭에서 승인합니다.`,
+    en: ({ email }) => `🆕 A new Google account signed in.\n📧 Account: ${email}\nApprove it on the admin page's accounts tab.`,
+    ja: ({ email }) => `🆕 新しい Google アカウントがログインしました。\n📧 アカウント: ${email}\n管理画面のアカウントタブで承認します。`,
+    zh: ({ email }) => `🆕 有新的 Google 账号登录。\n📧 账号：${email}\n请在管理页面的账户标签中批准。`,
   },
 
   device: {

@@ -48,7 +48,7 @@ test('the library tab shows the file check counts and its full hash button', asy
     route.fulfill({ response: res, json: { ...(await res.json()), status: 'tool', pending: 1 } });
   });
   await signIn(page);
-  await page.getByRole('link', { name: '게임', exact: true }).click();
+  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
   await page.getByRole('tab', { name: '검사' }).click();
   await expect(page.getByRole('heading', { name: '파일 검사' })).toBeVisible();
   await expect(page.locator('#lv-cards .card')).toHaveCount(5);

@@ -16,7 +16,7 @@ import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./inte
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
-import { LIBRARY_FILES_HTML, LIBRARY_VERIFY_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIBRARY_VERIFY_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { ORGANIZE_CSS, ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT, SAVES_HTML } from "./patches-panel.js";
@@ -27,6 +27,7 @@ import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
+import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
 import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
@@ -327,11 +328,12 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
+${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 <div class="wrap">
 <header>
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
+  <a class="up-entry" id="up-entry" href="#upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
@@ -360,8 +362,8 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 </nav>
 <nav class="group-tabs" id="group-tabs" data-top-label="subnav" aria-label="세부 메뉴">
   <a href="#library" data-tab="library" data-in="games">${icon("folder")}${top("s.library")}</a>
-  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
   <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}${top("s.upload")}</a>
+  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
   <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
   <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
   <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
@@ -531,8 +533,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
 
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
-  <p class="muted" id="scan-status" aria-live="polite"></p>
-  <div class="cards" id="lib-cards"></div>
   <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
     <button type="button" role="tab" data-lsub="organize" aria-selected="false">${icon("inbox")}임시 폴더</button>
@@ -543,7 +543,11 @@ ${POLISH_CSS}${TOP_LANG_CSS}</style></head><body>
     <button type="button" role="tab" data-lsub="server" aria-selected="false">${icon("sliders")}서버</button>
   </div>
   <div data-lib-panel="files">${LIB_BROWSER_HTML}
-  ${LIBRARY_FILES_HTML}</div>
+  <section class="lib-ops" aria-labelledby="lib-ops-h">
+    <h3 class="sub-h" id="lib-ops-h">${top("ops.status")}</h3>
+    <p class="muted" id="scan-status" aria-live="polite"></p>
+    <div class="cards" id="lib-cards"></div>
+  </section></div>
   <div data-lib-panel="organize" hidden>${ORGANIZE_HTML}</div>
   <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
   <div data-lib-panel="patches" hidden>${PATCHES_HTML}</div>
@@ -655,7 +659,7 @@ ${NSZ_HTML}
     <div class="bar" id="up-bar" hidden><i></i></div>
     <div class="up-go"><button type="submit" class="primary" id="up-go">올리기</button><button type="button" id="up-clear">다시 고르기</button><span class="muted" id="up-progress"></span></div>
   </form>
-  <p class="muted up-foot">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다.</p>
+  <p class="muted up-foot">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다. <a href="#library">${top("up.seeFiles")}</a></p>
   <div class="up-log" id="up-log"></div>
 </section>
 </div>
@@ -711,5 +715,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

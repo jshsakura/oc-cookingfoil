@@ -7,30 +7,34 @@ export const TOP_WORDS = {
   ko: {
     title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내", dark: "어두운 테마",
     logout: "로그아웃", language: "언어", nav: "서버 관리 메뉴", subnav: "세부 메뉴",
-    "g.overview": "개요", "g.games": "게임", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "사용자", "g.ops": "운영",
+    "g.overview": "개요", "g.games": "파일·정리", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "계정·기기", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "변환", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
     "s.users": "계정", "s.devices": "기기", "s.logs": "로그", "s.alerts": "알림", "s.settings": "서버 설정",
+    "f.type": "종류", "up.entry": "파일 올리기", "ops.status": "서버 현황", "up.seeFiles": "올린 파일은 파일 목록에서 확인합니다.",
   },
   en: {
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
     logout: "Sign out", language: "Language", nav: "Server admin menu", subnav: "Section menu",
-    "g.overview": "Overview", "g.games": "Games", "g.retro": "Retro", "g.homebrew": "Homebrew", "g.people": "Users", "g.ops": "Operations",
+    "g.overview": "Overview", "g.games": "Files", "g.retro": "Retro", "g.homebrew": "Homebrew", "g.people": "Accounts", "g.ops": "Operations",
     "s.library": "Files", "s.nsz": "Convert", "s.upload": "Upload", "s.inbox": "Shared inbox", "s.featured": "Home picks",
     "s.users": "Accounts", "s.devices": "Devices", "s.logs": "Logs", "s.alerts": "Alerts", "s.settings": "Server settings",
+    "f.type": "Type", "up.entry": "Upload files", "ops.status": "Server status", "up.seeFiles": "Check uploaded files in the file list.",
   },
   ja: {
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
     logout: "ログアウト", language: "言語", nav: "サーバー管理メニュー", subnav: "サブメニュー",
-    "g.overview": "概要", "g.games": "ゲーム", "g.retro": "レトロ", "g.homebrew": "自作アプリ", "g.people": "ユーザー", "g.ops": "運用",
+    "g.overview": "概要", "g.games": "ファイル", "g.retro": "レトロ", "g.homebrew": "自作アプリ", "g.people": "アカウント", "g.ops": "運用",
     "s.library": "ファイル", "s.nsz": "変換", "s.upload": "アップロード", "s.inbox": "一時共有", "s.featured": "ホームのおすすめ",
     "s.users": "アカウント", "s.devices": "デバイス", "s.logs": "ログ", "s.alerts": "通知", "s.settings": "サーバー設定",
+    "f.type": "種類", "up.entry": "ファイルをアップロード", "ops.status": "サーバーの状況", "up.seeFiles": "アップロードしたファイルはファイル一覧で確認します。",
   },
   zh: {
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
     logout: "退出登录", language: "语言", nav: "服务器管理菜单", subnav: "子菜单",
-    "g.overview": "概览", "g.games": "游戏", "g.retro": "复古", "g.homebrew": "自制软件", "g.people": "用户", "g.ops": "运维",
+    "g.overview": "概览", "g.games": "文件", "g.retro": "复古", "g.homebrew": "自制软件", "g.people": "账户", "g.ops": "运维",
     "s.library": "文件", "s.nsz": "转换", "s.upload": "上传", "s.inbox": "临时分享", "s.featured": "首页推荐",
     "s.users": "账户", "s.devices": "设备", "s.logs": "日志", "s.alerts": "通知", "s.settings": "服务器设置",
+    "f.type": "类型", "up.entry": "上传文件", "ops.status": "服务器状态", "up.seeFiles": "上传的文件可在文件列表中查看。",
   },
 };
 

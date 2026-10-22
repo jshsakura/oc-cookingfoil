@@ -54,12 +54,12 @@ test('the admin top area follows the language picked on the web, and its account
   await signIn(page);
   const games = page.locator('nav.tabs a[data-group="games"] [data-top]');
   const files = page.locator('#group-tabs a[data-tab="library"]');
-  await expect(games).toHaveText('게임');
+  await expect(games).toHaveText('파일·정리');
 
   await page.goto('/');
   await pickLang(page, 'ja');
   await page.goto('/admin');
-  await expect(games).toHaveText('ゲーム');
+  await expect(games).toHaveText('ファイル');
   await expect(files).toContainText('ファイル');
   await expect(page.locator('nav.tabs a[data-group="ops"] [data-top]')).toHaveText('運用');
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
@@ -79,13 +79,13 @@ test('the admin top area follows the language picked on the web, and its account
   await expect(page.locator('#acct-list #logout')).toHaveText('ログアウト');
   await page.keyboard.press('Escape');
   await pick('en');
-  await expect(games).toHaveText('Games');
+  await expect(games).toHaveText('Files');
   await expect(files).toContainText('Files');
   await expect(page.locator('#lang-current')).toHaveText('EN');
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');
   await pick('zh');
-  await expect(games).toHaveText('游戏');
+  await expect(games).toHaveText('文件');
   await expect(page.locator('#act-heading')).toHaveText('正在运行');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:lang'))).toBe('zh');
   const topText = await page.evaluate(() => [...document.querySelectorAll('nav.tabs, #group-tabs')].map((n) => (n as HTMLElement).innerText).join('\n'));
@@ -93,5 +93,5 @@ test('the admin top area follows the language picked on the web, and its account
 
   // Back to Korean for the specs that follow and read the admin by its Korean labels.
   await pick('ko');
-  await expect(games).toHaveText('게임');
+  await expect(games).toHaveText('파일·정리');
 });

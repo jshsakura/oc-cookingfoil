@@ -21,7 +21,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-overview.png' });
 
-  await page.getByRole('link', { name: '사용자' }).click();
+  await page.getByRole('link', { name: '계정·기기' }).click();
   await page.getByLabel('사용자 이름').fill(NAME);
   await page.getByLabel('비밀번호', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: '사용자 추가', exact: true }).click();
@@ -47,7 +47,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.screenshot({ path: 'out/web/login.png' });
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: '사용자' }).click();
+  await page.getByRole('link', { name: '계정·기기' }).click();
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
@@ -63,7 +63,7 @@ test.afterEach(async ({ request }) => {
 
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '게임', exact: true }).click();
+  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
   await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
   const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
@@ -78,7 +78,7 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '게임', exact: true }).click();
+  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
   await page.getByRole('link', { name: '홈 추천' }).click();
   await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
   await page.getByLabel('줄 제목').fill('이번 주 추천');
@@ -330,13 +330,15 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   await signIn(page);
   await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
   await page.goto('/admin#library');
+  // The one file browser finds it across every kind, with the type filter on 전체.
+  await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => {
-    await page.locator('#lf-q').fill('');
-    await page.locator('#lf-q').fill('Throwaway');
-    return page.locator('#lf-list .ag-row', { hasText: 'Throwaway' }).count();
+    await page.locator('#lb-q').fill('');
+    await page.locator('#lb-q').fill('Throwaway');
+    return page.locator('#lb-list .ag-row', { hasText: 'Throwaway' }).count();
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
-  await page.getByRole('button', { name: 'Throwaway [0100000000030000][v0].nsp 삭제' }).click();
+  await page.locator('#lb-list .ag-row', { hasText: 'Throwaway' }).getByRole('button', { name: /삭제$/ }).click();
   await expect(page.locator('#toast')).toContainText('삭제했습니다');
   expect(fs.existsSync(file)).toBe(false);
   await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);

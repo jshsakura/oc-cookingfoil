@@ -29,7 +29,8 @@ for (const [kind, extra, endpoint, body] of cases) {
     await page.route(`**${endpoint}`, (route) => { sent = route.request().postDataJSON(); route.fulfill({ json: { ok: true } }); });
     await signIn(page);
     await page.goto('/admin#library');
-    if (kind !== 'base') await page.locator(`#lb-tab-${kind}`).click();
+    // The list opens on 전체; each kind is picked from the type filter.
+    await page.locator(`#lb-tab-${kind}`).click();
     await page.getByRole('button', { name: `Sample ${kind} 삭제` }).click();
     await page.locator('#ask-ok').click();
     await expect.poll(() => sent).toEqual(body);
