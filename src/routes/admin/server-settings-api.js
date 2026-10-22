@@ -15,6 +15,7 @@
  *
  * The names are security/server-settings.js SETTINGS.
  */
+import fs from "fs";
 import * as serverSettings from "../../security/server-settings.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import nszQueue from "../../meta/nsz-service.js";
@@ -28,6 +29,7 @@ import { checkOutboundUrl, OutboundError } from "../../security/outbound-guard.j
 import { googleReady } from "../../security/password-policy.js";
 import * as envs from "../../helpers/envs.js";
 import * as prodKeys from "../../security/prod-keys.js";
+import * as retroCatalog from "../../retro/catalog.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
@@ -126,6 +128,10 @@ export function mountServerSettingsApi(router, requireSession) {
     if (changed.includes("verifyHours")) import("../../meta/verify-service.js").then((m) => m.default.pump()).catch(() => {});
     // The conversion queue stops when turned off and looks again after any of its settings.
     if (changed.some((k) => k.startsWith("nsz"))) await nszQueue.settingsChanged();
+    // Turned on: the system folders and the guide appear at once, not at the next scan.
+    if (changed.includes("retroScaffold") && envs.retroScaffold && fs.existsSync(envs.retroDir)) {
+      retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after retroScaffold failed: %s", err.message));
+    }
     if (changed.length) debug.log("admin: server settings changed: %s", changed.join(", "));
     res.json({ ok: true, changed, ...view() });
   }));

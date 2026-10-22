@@ -72,6 +72,7 @@ const SS_GROUPS=[
     ['syncHours',[['0','누를 때만'],['1','1시간마다'],['3','3시간마다'],['6','6시간마다 (기본)'],['12','12시간마다'],['24','하루마다']],'모든 폴더 다시 읽기','게임, 홈브류, 세이브, 패치, 레트로 폴더를 이 주기로 처음부터 다시 읽습니다. 넣은 파일은 폴더 감시가 바로 잡으니, 이것은 놓친 것을 채우는 용도입니다.'],
     ['verifyHours',[['2-7','새벽 2시~7시 (기본)'],['0-6','자정~6시'],['1-7','새벽 1시~7시'],['3-8','새벽 3시~8시'],['22-6','밤 10시~아침 6시'],['always','언제나'],['off','하지 않습니다']],'파일 검사 시간','라이브러리 파일이 수정되거나 손상됐는지 이 시간에만 읽어 확인합니다. 디스크를 오래 읽으니 쓰지 않는 시간에 둡니다. 시간이 끝나면 읽던 파일까지만 마치고 다음 날 이어서 합니다. 관리자가 직접 다시 검사를 누른 파일은 시간과 상관없이 바로 합니다.'],
     ['backupDays',[['0','하지 않습니다'],['7','7일'],['14','14일 (기본)'],['30','30일'],['90','90일']],'매일 백업 보관','계정, 기기, 토큰, 설정, 감사 기록, 다운로드 기록, 손으로 고친 이름과 설명을 하루에 한 번 데이터 폴더의 backups 에 복사하고, 이 기간이 지난 것은 삭제합니다. 롬과 이미지처럼 다시 받을 수 있는 것은 넣지 않습니다.'],
+    ['retroScaffold','bool',()=>topText('ss.scaffold'),()=>topText('ss.scaffoldD')],
     ['logKeepDays',[['7','7일'],['30','30일 (기본)'],['90','90일'],['180','180일'],['365','1년']],'기록 보관 기간','변환 기록과 다운로드 기록을 이 기간만큼 남기고, 지난 것은 지웁니다. 줄이면 바로 적용됩니다.'],
   ]],
   ['외부 정보',[
@@ -83,12 +84,14 @@ const SS_GROUPS=[
     ['retroPackUrl','text','RetroArch 번들 주소','레트로 탭의 "한 번에 채우기"가 RetroArch 번들(.7z)을 받아 오는 주소입니다. 비워 두면 libretro 공식 주소를 씁니다. 어느 주소든 서버에 고정된 SHA-256 과 같은 파일만 받아들입니다.','https://...'],
   ]],
 ];
+// A label or description may be a function, for the rows shown in the admin page's own language.
+const ssText=(v)=>typeof v==='function'?v():v;
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
 const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
 async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);loadHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
-    toast(row?row[2]+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
+    toast(row?ssText(row[2])+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
     b.addEventListener('change',()=>ssSave({[key]:b.checked},b.checked?'켰습니다.':'껐습니다.'));w.append(b,el('span'));return w;}
@@ -104,11 +107,14 @@ function ssControl(key,kind,s,ph){
   const i=el('input');i.type='text';i.spellcheck=false;i.autocomplete='off';i.maxLength=300;i.placeholder=ph||'';
   i.value=Array.isArray(s.value)?s.value.join(','):(s.value||'');
   i.addEventListener('change',()=>ssSave({[key]:i.value}));i.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();i.blur();}});return i;}
-function ssRender(d){const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
+let ssLast=null;
+// Drawn again in the new language when the admin switches it.
+function ssRelabel(){if(ssLast)ssRender(ssLast);}
+function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
   for(const [title,rows] of SS_GROUPS){const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),title,'','ss-group');const g=box.querySelector('.box-b');
     const a=el('button',title);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
-      const t=el('div');t.append(el('b',label),el('p',desc));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
+      const t=el('div');t.append(el('b',ssText(label)),el('p',ssText(desc)));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
       const src=el('div',null,'ss-src');
       if(s.source==='saved'){src.append('여기서 정한 값입니다. compose 값은 '+ssShow(key,s.envValue)+' 입니다.');
