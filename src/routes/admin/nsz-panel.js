@@ -199,8 +199,8 @@ function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden)
   p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
 // A label is text or, for a translated one, a function giving it in the page's language.
 const nzWord=(w)=>typeof w==='function'?w():w;
-const NZ_EVENT={converted:['변환','on'],'original-deleted':[()=>topText('t.nz.evOrig'),''],failed:['실패','off'],restored:['되돌림','']}; // restored: lines written before 되돌리기 was dropped
-const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:()=>topText('t.nz.whyManual'),removed:'대기열에서 뺐습니다.',cleared:()=>topText('t.nz.whyCleared'),missing:'파일이 이미 없었습니다.'};
+const NZ_EVENT={converted:['변환','on'],'original-deleted':[()=>topText('t.nz.evOrig'),''],'original-unverified':[()=>topText('t.nz.evOrig'),''],failed:['실패','off'],restored:['되돌림','']}; // restored: lines written before 되돌리기 was dropped
+const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:()=>topText('t.nz.whyManual'),removed:'대기열에서 뺐습니다.',cleared:()=>topText('t.nz.whyCleared'),missing:'파일이 이미 없었습니다.',ticketless:()=>topText('t.nz.whyTicketless')};
 function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
   main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));
   if(e.reason)main.append(el('span',nzWord(NZ_WHY[e.reason])||e.reason,e.event==='failed'?'err':''));

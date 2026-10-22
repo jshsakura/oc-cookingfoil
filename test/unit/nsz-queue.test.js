@@ -24,6 +24,8 @@ if (mode === "fail" || path.basename(src) === process.env.NSZ_STUB_FAIL) { proce
 fs.writeFileSync(dest, Buffer.alloc(mode === "nogain" ? size : Math.floor(size / 2)));
 if (mode === "verify") { process.stderr.write("VerificationException: Verification detected hash mismatch!"); process.exit(1); }
 if (mode === "touch") fs.appendFileSync(src, "x");
+if (mode === "ticketless") { process.stdout.write("[VERIFY NSZ] x\\n[TICKETLESS] 0123.nca\\n"); process.stdout.write("[VERIFIED] padding line\\n".repeat(400)); }
+if (mode === "racetarget") fs.writeFileSync(src.replace(/\\.nsp$/i, ".nsz"), "other");
 if (mode === "slow") { if (process.env.NSZ_STUB_PID) fs.writeFileSync(process.env.NSZ_STUB_PID, String(process.pid)); setInterval(() => {}, 1000); }
 `, { mode: 0o755 });
 process.env.COOK_NSZ_BIN = STUB;
@@ -180,6 +182,38 @@ test("a .nsz already beside the original fails without touching either", async (
   assert.equal(item(q, "A.nsp").state, "failed");
   assert.match(item(q, "A.nsp").reason, /이미 있습니다/);
   assert.equal(fs.readFileSync(path.join(games, "A.nsz"), "utf8"), "old");
+});
+
+test("a run that skipped hash checks for a ticketless container sends the original to the trash, not away", async () => {
+  put("A.nsp");
+  process.env.NSZ_STUB_MODE = "ticketless";
+  const trashed = [];
+  const bin = path.join(root, "trash-" + path.basename(games));
+  const q = make({ toTrash: async (rel, from, action) => {
+    fs.mkdirSync(bin, { recursive: true });
+    fs.renameSync(from, path.join(bin, path.basename(rel)));
+    trashed.push({ rel, action });
+  } });
+  await run(q);
+  assert.ok(exists("A.nsz"));
+  assert.ok(!exists("A.nsp"));
+  assert.deepEqual(trashed, [{ rel: "A.nsp", action: "nsz-unverified" }]);
+  assert.equal(fs.statSync(path.join(bin, "A.nsp")).size, 2 * MIB, "the original is whole in the trash");
+  assert.equal(item(q, "A.nsp").state, "done");
+  const events = fs.readFileSync(logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l).event);
+  assert.ok(!events.includes("original-deleted"), "nothing says the original was deleted");
+  assert.ok(events.includes("original-unverified"));
+});
+
+test("a .nsz that appears while converting is not overwritten and the original stays", async () => {
+  put("A.nsp");
+  process.env.NSZ_STUB_MODE = "racetarget";
+  const q = make();
+  await run(q);
+  assert.equal(fs.readFileSync(path.join(games, "A.nsz"), "utf8"), "other");
+  assert.ok(exists("A.nsp"));
+  assert.equal(item(q, "A.nsp").state, "failed");
+  assert.match(item(q, "A.nsp").reason, /이미 있습니다/);
 });
 
 test("a file starts when its own size fits in the free space, and the run pauses when it does not", async () => {

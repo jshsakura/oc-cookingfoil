@@ -14,10 +14,12 @@
  *   - the result must exist and be smaller than the original;
  *   - the original is stat'ed again: changed or in use, the result is dropped
  *     and the file waits ("busy") to be tried later;
- *   - the .nsz is renamed next to the original and the library told about both
- *     paths (coalesced into one incremental rebuild). By default the original
- *     is then deleted, and only after nsz ran with its verify flag, exited 0,
- *     reported no mismatch and left a non-empty output that took its place;
+ *   - the .nsz is hard-linked next to the original (never over an existing
+ *     .nsz) and the library told about both paths (coalesced into one
+ *     incremental rebuild). By default the original is then deleted, and only
+ *     after nsz ran with its verify flag, exited 0, reported no mismatch, did
+ *     not skip a check (nsz-runner.js UNVERIFIED_MARKERS, e.g. a ticketless NSP, whose
+ *     original goes to the trash instead) and left a non-empty output that took its place;
  *     the deletion goes to the conversion log with the name and size. With
  *     nszKeepHours above 0 it is instead moved into
  *     <games>/.cookingfoil-nsz-keep/<id>/, another dot folder, and to the
@@ -84,6 +86,12 @@ const EMPTY_OUTPUT = {
   en: "The output file is empty.",
   ja: "出力ファイルが空です。",
   zh: "输出文件为空。",
+};
+const TRASH_FAILED = {
+  ko: "검증하지 못한 원본을 휴지통으로 옮기지 못했습니다",
+  en: "Could not move the unverified original to the trash",
+  ja: "検証できなかった元のファイルをゴミ箱に移動できませんでした",
+  zh: "无法将未验证的原文件移入回收站",
 };
 const DELETE_FAILED = {
   ko: "원본을 지우지 못했습니다",
@@ -513,12 +521,23 @@ export function createNszQueue({
     if (!again) return finish(item, { state: "skipped", reason: "변환하는 동안 파일이 사라졌습니다." });
     if (changed(again, item)) return finish(item, BUSY("변환하는 동안 파일이 바뀌어 나중에 다시 합니다."));
     if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
-    if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
 
-    await fsp.rename(out, target);
-    const keep = settings().keepHours > 0;
+    // link fails with EEXIST where rename would replace a .nsz placed meanwhile (a.nsp and a.NSP share one target).
     try {
-      if (keep) {
+      await fsp.link(out, target);
+    } catch (err) {
+      if (err.code === "EEXIST") return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
+      throw err;
+    }
+    // The work folder is removed afterwards anyway.
+    await fsp.unlink(out).catch(() => {});
+    // A run that skipped a check is no proof: the original goes to the trash, where it can be restored.
+    const unverified = r.unverified;
+    const keep = !unverified && settings().keepHours > 0;
+    try {
+      if (unverified) {
+        await toTrash(item.rel, abs, "nsz-unverified");
+      } else if (keep) {
         await fsp.mkdir(path.dirname(keptPath(item)), { recursive: true });
         await fsp.rename(abs, keptPath(item));
       } else {
@@ -526,7 +545,7 @@ export function createNszQueue({
       }
     } catch (err) {
       onSwapped([{ rel: targetOf(item.rel), op: "upsert" }]);
-      return finish(item, { state: "failed", reason: `${(keep ? KEEP_FAILED : DELETE_FAILED).ko}: ${trimReason(err.message)}` });
+      return finish(item, { state: "failed", reason: `${(unverified ? TRASH_FAILED : keep ? KEEP_FAILED : DELETE_FAILED).ko}: ${trimReason(err.message)}` });
     }
     onSwapped([{ rel: item.rel, op: "remove" }, { rel: targetOf(item.rel), op: "upsert" }]);
     const saved = item.size - outSize;
@@ -537,7 +556,10 @@ export function createNszQueue({
     debug.log("nsz: %s converted, %d bytes saved", item.rel, saved);
     finish(item, { state: "done", outSize, savedBytes: saved, reason: null, ...(keep ? { keptAt: now(), keptBytes: item.size } : {}) });
     logEvent(item, "converted");
-    if (!keep) {
+    if (unverified) {
+      debug.log("nsz: %s was not verified (ticketless), original moved to the trash", item.rel);
+      logEvent(item, "original-unverified", "ticketless");
+    } else if (!keep) {
       debug.log("nsz: original %s deleted (%d bytes)", item.rel, item.size);
       logEvent(item, "original-deleted", "converted");
     }

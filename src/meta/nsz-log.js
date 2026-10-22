@@ -4,7 +4,8 @@
  * rows are cleared.
  *
  *   { at, id, rel, name, from, to, sizeBefore, sizeAfter, event, reason? }
- *   event: converted | original-deleted | failed
+ *   event: converted | original-deleted | original-unverified | failed
+ *   (original-unverified: nsz skipped the hash check, so the original went to the trash)
  *   (lines from older versions may also say restored)
  *
  * Appended as events happen; past `max` lines, or once an hour when the oldest

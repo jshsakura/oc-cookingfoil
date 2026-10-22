@@ -92,23 +92,23 @@ for (const [name, why] of [["BADEXIT.nsp", "nsz fails the verify"], ["BADQUIET.n
   });
 }
 
-test("a failed rename of the output leaves the original in place", async () => {
+test("a failed placing of the output leaves the original in place", async () => {
   put("R.nsp", 2 * MIB, 4);
   const q = make();
   await q.init();
   await q.scan();
-  const realRename = fs.promises.rename;
+  const realLink = fs.promises.link;
   // The swap into place fails: fs/promises is the same object the queue calls.
-  fs.promises.rename = async (from, to) => {
-    if (String(to).endsWith("R.nsz")) throw new Error("EXDEV: rename failed");
-    return realRename(from, to);
+  fs.promises.link = async (from, to) => {
+    if (String(to).endsWith("R.nsz")) throw Object.assign(new Error("EXDEV: link failed"), { code: "EXDEV" });
+    return realLink(from, to);
   };
   try {
     q.start();
     await q.pump();
     await q.idle();
   } finally {
-    fs.promises.rename = realRename;
+    fs.promises.link = realLink;
   }
   assert.deepEqual(fs.readFileSync(path.join(games, "R.nsp")), Buffer.alloc(2 * MIB, 4));
   assert.ok(!exists("R.nsz"));
