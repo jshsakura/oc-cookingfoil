@@ -194,6 +194,8 @@ function buildUserRows() {
   const rows = users.list().map(({ name: user, enabled, role }) => {
     const a = byUser.get(user);
     byUser.delete(user);
+    const login = store.lastLogin(user);
+    const consoles = store.lastActiveOf(user);
     return {
       user,
       configured: true,
@@ -204,6 +206,10 @@ function buildUserRows() {
       count: a?.count ?? 0,
       lastIp: a?.lastIp ?? null,
       ips: a?.ips ?? [],
+      lastLoginAt: login?.at ?? null,
+      lastLoginMethod: login?.method ?? null,
+      // Its web requests and the consoles it approved, whichever was later.
+      lastActiveAt: Math.max(a?.lastAt ?? 0, consoles ?? 0) || null,
     };
   });
   const historical = Array.from(byUser.values()).map((a) => ({ ...a, configured: false }));
@@ -397,7 +403,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows(), since: Date.now() - Math.round(process.uptime() * 1000) });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows() });
   });
 
   router.post("/api/clients/:id/revoke", (req, res) => {

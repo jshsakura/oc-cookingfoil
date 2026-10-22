@@ -12,6 +12,13 @@ const ago=(t)=>{if(!t)return '—';const s=Math.round((Date.now()-t)/1000);
   if(s<60)return s+'초 전';if(s<3600)return Math.round(s/60)+'분 전';
   if(s<86400)return Math.round(s/3600)+'시간 전';return Math.round(s/86400)+'일 전';};
 const num=(n)=>Number(n||0).toLocaleString('ko-KR');
+// ago in the page's language (top-i18n.js).
+const agoT=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
+  return s<60?topFill('acc.ago.s',{n:s}):s<3600?topFill('acc.ago.m',{n:Math.round(s/60)}):s<86400?topFill('acc.ago.h',{n:Math.round(s/3600)}):topFill('acc.ago.d',{n:Math.round(s/86400)});};
+// A last sign-in: when, relative with the exact time on hover, and how.
+function loginCell(at,method){if(!at)return td('—','dim');
+  const c=td(agoT(at)+(method?' · '+topText('acc.method.'+method):''));c.title=fmt(at);return c;}
+function whenCell(at){const c=td(agoT(at),at?'':'dim');if(at)c.title=fmt(at);return c;}
 function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e;}
 function td(txt,cls){return el('td',txt,cls);}
 // Row actions show an icon; on a wide screen the label hides and stays as the tooltip and accessible name.
@@ -178,13 +185,15 @@ let me=null;
 // The name, with a badge on the account you are signed in with (one cell child, so the phone layout keeps it on one line).
 function nameCell(name,self){const c=td();const s=el('span',name);if(self){const b=pill('나','on');b.classList.add('me');s.append(b);}c.append(s);return c;}
 const isMe=(kind,id)=>Boolean(me)&&me.kind===kind&&(kind==='google'?me.sub===id:me.name===id);
-function renderUsers(list){
+let usersShown=null;
+function renderUsers(list){usersShown=list;
   const configured=list.filter((u)=>u.configured);
   const row=(u)=>{const tr=el('tr');const self=isMe('password',u.user);
     tr.append(nameCell(u.user,self));
     tr.append(td(u.role==='admin'?'관리자':'일반 사용자'));
-    const st=td();st.append(u.enabled?pill(u.lastAt?'사용 중':'접속 기록 없음',u.lastAt?'on':''):pill('사용 중지','off'));tr.append(st);
-    const seen=td(ago(u.lastAt));seen.title=fmt(u.lastAt);tr.append(seen,td(u.lastIp||'—','ip'));
+    const active=u.lastActiveAt||u.lastAt;
+    const st=td();st.append(u.enabled?pill(active?'사용 중':'접속 기록 없음',active?'on':''):pill('사용 중지','off'));tr.append(st);
+    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod),whenCell(active),td(u.lastIp||'—','ip'));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('비밀번호 변경',()=>resetPassword(u.user)));
     // Your own account can't be demoted, turned off or removed (you'd lock yourself out).
@@ -193,7 +202,7 @@ function renderUsers(list){
     // Removing the very last account opens the server, so nobody is locked out by it.
     if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
     act.append(box);tr.append(act);return tr;};
-  pagedTable('users',['이름','역할','상태','마지막 접속','마지막 IP',''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
+  pagedTable('users',['이름','역할','상태',topText('acc.lastLogin'),topText('acc.lastActive'),topText('acc.lastIp'),''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
 // What each refusal means, for the log tab (the server's own codes and English hints are for curl and the server log).
 const DENY_KO={
   'rate-limited':['요청 과다','짧은 시간에 요청이 너무 많아 잠시 쉬게 했습니다. 승인된 기기와 로그인한 브라우저는 이 제한을 받지 않습니다.'],
@@ -278,15 +287,16 @@ $('clrdeny').addEventListener('click',async()=>{if(!await ask('거부 기록을 
 
 // ── Google accounts ─────────────────────────────────────────────────
 const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on'],disabled:['사용 중지','off']};
+let accountsLoaded=false;
 async function loadAccounts(){
-  const d=await api('/admin/api/accounts');const list=d.accounts||[];
+  const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
   $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 기기 화면의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
     :'구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.';
   const waiting=list.filter((a)=>a.status==='pending').length;
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
-  pagedTable('accounts',['이메일','역할','상태','승인','처음 로그인','마지막 로그인',''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
+  pagedTable('accounts',['이메일','역할','상태','승인','처음 로그인',topText('acc.lastLogin'),topText('acc.lastActive'),''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
-    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),td(ago(a.lastAt)));
+    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),loginCell(a.lastLoginAt,a.lastLoginMethod),whenCell(a.lastActiveAt));
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
@@ -315,6 +325,35 @@ $('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.wri
 
 // ── devices ───────────────────────────────────────────────────────────
 const DOWNLOAD_WORDS={used:'다른 기기에서 이미 쓴 다운로드',expired:'기한이 지난 다운로드',revoked:'취소된 다운로드',waiting:'다운로드'};
+let devicesShown=null;
+const DAY_MS=86400000;
+// When a console was last used: its last access, else when it was approved (after access history began), else no record.
+function seenCell(a){
+  if(a.lastSeenAt)return whenCell(a.lastSeenAt);
+  const c=td(topText(a.idleSince?'acc.neverSince':'acc.noRecord'),'dim');
+  c.title=a.idleSince?fmt(a.idleSince):topFill('acc.noRecordHint',{at:fmt(devicesShown.activitySince)});return c;}
+// The approved consoles, only those unused for the chosen number of days when one is chosen.
+function renderApproved(){const d=devicesShown;if(!d)return;
+  const idle=Number($('dev-idle').value)||0;
+  // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
+  const whose=(a)=>a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'');
+  const unused=(a)=>!idle||(a.idleSince!=null&&Date.now()-a.idleSince>=idle*DAY_MS);
+  const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
+  const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
+  const devRows=(slice)=>{const rows=[];let group=null;
+  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=8;h.append(c);rows.push(h);}
+    const tr=el('tr');
+    tr.append(td(a.label||'—'),seenCell(a),td(a.lastIp||'—',a.lastIp?'ip':'dim'),td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
+    const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
+    // An admin device may change item settings from the console; off by default.
+    const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||'기기')+' 관리자 기기');
+    b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||'이 기기'));w.append(b,el('span'));adm.append(w);tr.append(adm);
+    const act=td();const box=el('div',null,'row-actions');
+    box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
+    act.append(box);tr.append(act);rows.push(tr);}
+  return rows;};
+  pagedTable('devices',['이름',topText('acc.lastAccess'),topText('acc.lastIp'),topText('acc.days30'),'승인한 날','기기 키','관리자 기기',''],approved,devRows,idle?topText('acc.noIdle'):'승인된 기기가 없습니다.',{label:'승인된 기기',placeholder:'이름이나 계정으로 찾기',slice:true,
+    match:(a,q)=>(a.label+' '+whose(a)+' '+a.deviceKey+' '+(a.lastIp||'')).toLowerCase().includes(q)});}
 async function loadDevices(){
   const d=await api('/admin/api/devices');
   $('devhint').textContent=d.pairingEnabled?'CookingFoil 클라이언트가 승인을 요청하면 여기에 나옵니다. 기기 화면의 기기 코드를 넣거나 목록에서 승인하면 비밀번호 없이 접속합니다.'
@@ -328,27 +367,7 @@ async function loadDevices(){
     tr.append(td(p.code||'—','ip'),said,who,k,td(fmt(p.lastSeenAt)));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('승인',()=>approve(p.deviceKey),'primary'),btn('거절',()=>dismissDevice(p.deviceKey,p.code),'danger'));act.append(box);tr.append(act);return tr;}),'승인을 기다리는 기기가 없습니다.');
-  // Last seen is kept in memory only, so it starts empty after a restart.
-  const seenSince='서버 시작('+fmt(d.since)+') 뒤로 접속 없음';
-  // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
-  const whose=(a)=>a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'');
-  const approved=[...(d.approved||[])].sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
-  const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
-  const devRows=(slice)=>{const rows=[];let group=null;
-  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=6;h.append(c);rows.push(h);}
-    const tr=el('tr');
-    const seen=td(a.lastSeenAt?ago(a.lastSeenAt):'—',a.lastSeenAt?'':'dim');seen.title=a.lastSeenAt?fmt(a.lastSeenAt):seenSince;
-    tr.append(td(a.label||'—'),seen,td(fmt(a.addedAt)));
-    const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
-    // An admin device may change item settings from the console; off by default.
-    const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||'기기')+' 관리자 기기');
-    b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||'이 기기'));w.append(b,el('span'));adm.append(w);tr.append(adm);
-    const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
-    act.append(box);tr.append(act);rows.push(tr);}
-  return rows;};
-  pagedTable('devices',['이름','마지막 접속','승인한 날','기기 키','관리자 기기',''],approved,devRows,'승인된 기기가 없습니다.',{label:'승인된 기기',placeholder:'이름이나 계정으로 찾기',slice:true,
-    match:(a,q)=>(a.label+' '+whose(a)+' '+a.deviceKey).toLowerCase().includes(q)});
+  devicesShown=d;renderApproved();
   const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
   const clientRow=(c)=>{const tr=el('tr');
     const state=td(STATE[c.state]||c.state,c.state==='used'?'':'dim');if(c.state==='waiting')state.title=fmt(c.expiresAt)+'까지 연결할 수 있습니다';
@@ -362,6 +381,9 @@ async function loadDevices(){
   pagedTable('clients',COLS,live,clientRow,'기다리거나 연동한 클라이언트가 없습니다.',{label:'받은 클라이언트',placeholder:'계정이나 기기 코드로 찾기'});
   $('clients-ended-box').hidden=!ended.length;$('clients-ended-count').textContent=ended.length;
   table('clients-ended',COLS,ended.map(clientRow),'');}
+$('dev-idle').addEventListener('change',renderApproved);
+// A new language redraws the tables whose words come from top-i18n.js.
+function accRelabel(){if(usersShown)renderUsers(usersShown);renderApproved();if(accountsLoaded)loadAccounts().catch(()=>{});}
 async function cancelClient(id){if(!await ask('이 다운로드로는 이제 연동할 수 없게 합니다.'))return;
   try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast('취소했습니다.');loadDevices();}catch(err){toast(err.message);}}
 $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();

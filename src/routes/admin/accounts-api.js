@@ -1,7 +1,9 @@
 /**
  * Google sign-in accounts, for the admin to approve.
  *
- *   GET  /admin/api/accounts                  { enabled, accounts: [{ sub, email, status, createdAt, approvedAt, lastAt }] }
+ *   GET  /admin/api/accounts                  { enabled, accounts: [{ sub, email, status, createdAt, approvedAt, lastAt,
+ *                                               lastLoginAt, lastLoginMethod, lastActiveAt }] }
+ *     lastAt is the last Google sign-in; lastActiveAt is when a console the account approved last connected.
  *   POST /admin/api/accounts/status  { sub, status: "approved" | "disabled" | "pending" }
  *   POST /admin/api/accounts/role    { sub, role: "admin" | "user" }
  *   POST /admin/api/accounts/remove  { sub }
@@ -20,6 +22,7 @@ import { callbackUri } from "../web-login.js";
 import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
+import * as store from "../../security/store.js";
 
 const SELF = { error: "self", message: "You can't disable, demote or remove the account you are signed in with." };
 
@@ -27,7 +30,11 @@ export function mountAccountsApi(router, requireSession) {
   router.get("/api/accounts", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    res.json({ enabled: googleConfig.googleConfigured(), accounts: accounts.list() });
+    const withActivity = (a) => {
+      const login = store.lastLogin(`google:${a.sub}`);
+      return { ...a, lastLoginAt: login?.at ?? a.lastAt ?? null, lastLoginMethod: login?.method ?? "google", lastActiveAt: store.lastActiveOf(`google:${a.email}`) };
+    };
+    res.json({ enabled: googleConfig.googleConfigured(), accounts: accounts.list().map(withActivity) });
   });
 
   router.post("/api/accounts/status", (req, res) => {

@@ -1,9 +1,10 @@
 /**
  * Persistent security state — failures, lockouts, and a bounded audit log.
  *
- * Kept in the security database (db/database.js): the approved consoles, the
- * approval queue, failures, lockouts and per-user access a row each, the audit
- * log and the refusals as append-only logs. Writes are debounced so a burst of
+ * Kept in the security database (db/database.js): the approved consoles and
+ * their activity, accounts' last sign-ins, the approval queue, failures,
+ * lockouts and per-user access a row each, the audit log and the refusals as
+ * append-only logs. Writes are debounced so a burst of
  * auth failures doesn't thrash the disk, and a write touches only the rows that
  * changed and the log lines added since the last one. State survives container
  * restarts so attackers can't just bounce us to reset their failure count.
@@ -14,7 +15,7 @@ import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
 import { isLoopbackIp, isPrivateIp } from "./net.js";
-import { eventLog, recordStore } from "../db/security-stores.js";
+import { doneAt, eventLog, markDone, recordStore } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
 
 const FLUSH_DEBOUNCE_MS = 500;
@@ -32,8 +33,10 @@ const state = {
   failures: new Map(), // ip → { count, firstAt, lastAt, lastUser }
   lockouts: new Map(), // ip → { lockedAt, until, reason }
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
-  // Consoles keep only what approval needs: no IP, no last-seen time, no client version.
+  // Consoles keep only what approval needs; when and from where they connect is `activity`.
   devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, admin? }
+  activity: new Map(), // deviceKey → { lastSeenAt, lastIp, days: { "YYYY-MM-DD": requests } } (approved consoles only)
+  logins: new Map(),   // account (name, or "google:<sub>") → { at, method } of its last sign-in
   pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, message? } (when it asked, to order and trim the queue; its note)
   // SHA-256 of the pairSecret a console sent with its request. Kept apart from
   // `pending` because approval drops the pending row, and the secret must
@@ -45,7 +48,7 @@ const state = {
 };
 
 // The map of `state` each kind of record mirrors.
-const KINDS = { failures: "failure", lockouts: "lockout", access: "access", devices: "device", pending: "pending-device", pairSecrets: "pair-secret" };
+const KINDS = { failures: "failure", lockouts: "lockout", access: "access", devices: "device", activity: "device-activity", logins: "account-login", pending: "pending-device", pairSecrets: "pair-secret" };
 
 let tables = null;
 const db = () => {
@@ -127,6 +130,42 @@ const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null, 
 };
 const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+// How long a console's daily request counts are kept, today included.
+const ACTIVITY_DAYS = 90;
+const DAY_RE = /^\d{4}-\d\d-\d\d$/;
+const LOGIN_METHODS = ["password", "google", "console"];
+
+/** The server's local calendar day of `ms`, as YYYY-MM-DD. Pure. */
+function dayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** The days of `days` inside the kept window that ends at `now`. Pure. */
+const keptDays = (days, now) => {
+  const from = dayKey(now - (ACTIVITY_DAYS - 1) * DAY_MS);
+  return Object.fromEntries(Object.entries(days).filter(([day]) => day >= from));
+};
+
+const activityRecord = ({ lastSeenAt = null, lastIp = null, days = {} } = {}, now = Date.now()) => ({
+  lastSeenAt: Number.isFinite(lastSeenAt) ? lastSeenAt : null,
+  lastIp: typeof lastIp === "string" && lastIp ? lastIp.slice(0, 64) : null,
+  days: keptDays(Object.fromEntries(Object.entries(days ?? {}).filter(([day, n]) => DAY_RE.test(day) && Number.isInteger(n) && n > 0)), now),
+});
+
+/** One console's activity under two keys, as one (device-key rebind). Pure. */
+function mergeActivity(a, b) {
+  if (!a || !b) return a ?? b ?? null;
+  const days = { ...a.days };
+  for (const [day, n] of Object.entries(b.days)) days[day] = (days[day] ?? 0) + n;
+  const [newer, older] = (a.lastSeenAt ?? 0) >= (b.lastSeenAt ?? 0) ? [a, b] : [b, a];
+  return { lastSeenAt: newer.lastSeenAt, lastIp: newer.lastIp ?? older.lastIp, days };
+}
+
+const loginRecord = ({ at = null, method = null } = {}) =>
+  Number.isFinite(at) && LOGIN_METHODS.includes(method) ? { at, method } : null;
+
 /** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
 export async function load() {
   const t = db();
@@ -135,6 +174,11 @@ export async function load() {
   state.lockouts = rows("lockouts");
   state.access = rows("access");
   state.devices = rows("devices", deviceRecord);
+  // A console no longer approved leaves no activity behind.
+  state.activity = new Map([...rows("activity", (v) => activityRecord(v))].filter(([k]) => state.devices.has(k)));
+  state.logins = new Map([...rows("logins", loginRecord)].filter(([, v]) => v));
+  if (doneAt("device-activity") === null) markDone("device-activity");
+  activitySince = doneAt("device-activity");
   state.pending = rows("pending", pendingRecord);
   // A secret stays only with its console's request or approval; one a refused request left is dropped.
   state.pairSecrets = new Map([...rows("pairSecrets")].filter(([k, v]) => isSecretHash(v) && (state.pending.has(k) || state.devices.has(k))));
@@ -339,7 +383,8 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
 }
 
 export function revokeDevice(deviceKey) {
-  lastSeen.delete(deviceKey);
+  state.activity.delete(deviceKey);
+  activityWrittenAt.delete(deviceKey);
   const removed = state.devices.delete(deviceKey);
   // Dismissing a request that was never approved must stick across a restart too.
   const dismissed = dropPending(deviceKey);
@@ -372,8 +417,10 @@ export function rebindDevice(from, to) {
   dropPending(from);
   dropPending(to);
   state.pairSecrets.delete(from);
-  if (lastSeen.has(from)) lastSeen.set(to, Math.max(lastSeen.get(from), lastSeen.get(to) ?? 0));
-  lastSeen.delete(from);
+  const activity = mergeActivity(state.activity.get(from), state.activity.get(to));
+  state.activity.delete(from);
+  activityWrittenAt.delete(from);
+  if (activity) state.activity.set(to, activity);
   appendAudit({ kind: "device-rebind", deviceKey: to, from, at: Date.now() });
   scheduleFlush();
   return true;
@@ -429,7 +476,7 @@ export function clearPairSecret(deviceKey) {
   if (state.pairSecrets.delete(deviceKey)) scheduleFlush();
 }
 
-// Where each waiting console asked from: memory only, never written to disk (like lastSeen).
+// Where each waiting console asked from: memory only, never written to disk.
 const pendingFrom = new Map();
 function dropPending(deviceKey) {
   pendingFrom.delete(deviceKey);
@@ -534,14 +581,48 @@ function evictOldestPending() {
   }
 }
 
-// When each approved console last connected: memory only (never written to
-// disk, no IP), so the admin page can say who is active since the last start.
-const lastSeen = new Map();
-const SEEN_GRAIN_MS = 60_000;
+// Activity changes in memory on every request but asks for a write at most this
+// often per console; the counts in between ride along with the next write, and
+// shutdown() writes the rest. A request never waits on the disk.
+const ACTIVITY_WRITE_MS = 5 * 60 * 1000;
+const activityWrittenAt = new Map(); // deviceKey → when its activity last asked for a write
+// When the server began keeping console activity: a console approved before it
+// and not seen since has no record, which is not the same as unused.
+let activitySince = null;
 
-export function touchDevice(deviceKey, now = Date.now()) {
+/** An approved console made a signed-in request from `ip`. */
+export function touchDevice(deviceKey, ip = null, now = Date.now()) {
   if (!state.devices.has(deviceKey)) return;
-  if (now - (lastSeen.get(deviceKey) ?? 0) >= SEEN_GRAIN_MS) lastSeen.set(deviceKey, now);
+  const prev = state.activity.get(deviceKey);
+  const day = dayKey(now);
+  const days = prev?.days ?? {};
+  const next = day in days ? { ...days, [day]: days[day] + 1 } : { ...keptDays(days, now), [day]: 1 };
+  state.activity.set(deviceKey, { lastSeenAt: now, lastIp: ip || prev?.lastIp || null, days: next });
+  if (now - (activityWrittenAt.get(deviceKey) ?? -Infinity) < ACTIVITY_WRITE_MS) return;
+  activityWrittenAt.set(deviceKey, now);
+  scheduleFlush();
+}
+
+/** An account signed in: `owner` is its name, or "google:<sub>"; `method` one of LOGIN_METHODS. */
+export function recordLogin(owner, method, now = Date.now()) {
+  if (!owner || !LOGIN_METHODS.includes(method)) return;
+  state.logins.set(owner, { at: now, method });
+  scheduleFlush();
+}
+
+/** The last sign-in of an account, { at, method }, or null. */
+export function lastLogin(owner) {
+  return state.logins.get(owner) ?? null;
+}
+
+/** When any console `owner` approved last connected, or null. */
+export function lastActiveOf(owner) {
+  let last = null;
+  for (const [key, d] of state.devices) {
+    const seen = d.addedBy === owner ? state.activity.get(key)?.lastSeenAt : null;
+    if (seen && seen > (last ?? 0)) last = seen;
+  }
+  return last;
 }
 
 /** Whether an approved console is an admin device: one that may change item settings (device-admin.js). */
@@ -568,10 +649,30 @@ export function renameDevice(deviceKey, label) {
   return true;
 }
 
-export function devicesSnapshot() {
+/**
+ * An approved console's activity for the admin page. `idleSince` is what its
+ * idle time counts from: its last connection, else its approval when that came
+ * after the server began keeping activity, else null (no record). Pure.
+ */
+function deviceActivity(activity, addedAt, since, now = Date.now()) {
+  const days = activity?.days ?? {};
+  const recent = dayKey(now - 29 * DAY_MS);
+  const lastSeenAt = activity?.lastSeenAt ?? null;
   return {
+    lastSeenAt,
+    lastIp: activity?.lastIp ?? null,
+    days: { ...days },
+    activeDays30: Object.keys(days).filter((day) => day >= recent).length,
+    idleSince: lastSeenAt ?? (since !== null && (addedAt ?? 0) >= since ? addedAt : null),
+  };
+}
+
+export function devicesSnapshot(now = Date.now()) {
+  return {
+    activitySince,
     approved: Array.from(state.devices.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, admin: v.admin === true, lastSeenAt: lastSeen.get(deviceKey) ?? null }))
+      .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, admin: v.admin === true,
+        ...deviceActivity(state.activity.get(deviceKey), v.addedAt ?? null, activitySince, now) }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
       .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), ...(v.name ? { name: v.name } : {}),
