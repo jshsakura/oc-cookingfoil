@@ -61,3 +61,13 @@ test("a folder is read as what its files show: packages, a save's file kinds, el
   assert.deepEqual(guess({ names: ["userdata.dat"], paths: ["MK8 save/userdata.dat"] }), { kind: "save", name: "MK8 save" });
   assert.equal(guess({ names: ["0", "x.meta"], paths: ["B/0", "B/x.meta"] }).kind, "save", "a file with no extension or a .meta counts");
 });
+
+test("a folder is a save only when all its files look like a save's, never on one stray file", () => {
+  const folder = (...files) => guess({ names: files.map((f) => f.split("/").pop()), paths: files.map((f) => `D/${f}`) });
+  assert.equal(folder("Game.cue", "Game.bin").kind, null, "a PlayStation disc folder");
+  assert.equal(folder("a.gba", "b.gba", "README").kind, null, "ROMs with a readme");
+  assert.equal(folder("a.gba", "x.sav").kind, null, "a ROM next to a save file");
+  assert.equal(folder("0100000000010000/romfs/data.bin", "0100000000010000/romfs/more.bin").kind, null, "a patch tree without atmosphere/contents");
+  assert.equal(folder("userdata.dat", "extra.dat").kind, "save");
+  assert.equal(folder("0", "x.meta", "slot.sav").kind, "save");
+});

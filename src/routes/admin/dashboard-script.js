@@ -802,11 +802,13 @@ function upRender(){
   $('up-drop').setAttribute('aria-disabled',String(upBusy));
   for(const u of upHistory)upPaint(u);}
 // Counts in files when a request carries several (a folder, a disc set), else in requests; never invented per file.
+const upFilesT=(n)=>n===1?upT('f1',{n}):upT('fN',{n});
+const upBatchesT=(n,f)=>upT('bf',{b:n===1?upT('b1',{n}):upT('bN',{n}),f:upFilesT(f)});
 function upSumText(units){const t=tally(units);
   if(!hasBatches(units))return upT('rSum',t)+(t.wait?upT('rSumWait',t):'');
   const f=tallyFiles(units);
-  return upT('sumB',{ok:t.ok,fail:t.fail,okF:f.ok,failF:f.fail})+(t.wait?upT('sumBWait',{wait:t.wait,waitF:f.wait}):'');}
-function upTrim(){for(const u of trimHistory(upHistory,upUnits,50)){u.row?.remove();upHistory.splice(upHistory.indexOf(u),1);}}
+  return upT('sumB',{ok:upBatchesT(t.ok,f.ok),fail:upBatchesT(t.fail,f.fail)})+(t.wait?upT('sumBWait',{wait:upBatchesT(t.wait,f.wait)}):'');}
+function upTrim(){for(const u of trimHistory(upHistory,upUnits.length?upUnits:upDone,50)){u.row?.remove();upHistory.splice(upHistory.indexOf(u),1);}}
 // One result row per request, updated in place as it goes from waiting to sent or failed.
 function upPaint(u){
   if(!u.row){u.row=el('div',null,'note');u.row.setAttribute('role','listitem');$('up-log').prepend(u.row);}
@@ -818,7 +820,7 @@ function upPaint(u){
     for(const [i,f] of u.files.entries())det.append(el('div',u.paths?u.paths[i]:f.name));
     kids.push(det,el('div',upT('rUnit'),'d'));}
   if(ok){const d=u.d||{};
-    kids.push(el('div',upT('rWhere',{where:d.where,n:d.files})+(d.kind==='port'?' · '+upT('rPort'):''),'d'));
+    kids.push(el('div',upT('rWhere',{where:d.where,files:upFilesT(d.files)})+(d.kind==='port'?' · '+upT('rPort'):''),'d'));
     if(d.install){for(const x of d.install.excluded||[])kids.push(el('div',upT('rExcl',{rule:HB_EXCLUDED[x.rule]||x.rule,paths:x.paths.join(', ')}),'d'));
       if(d.install.rules?.length)kids.push(el('div',upT('rBasis',{rules:d.install.rules.join(' · ')}),'d'));}}
   if(fail){const why=failureKind(u.status,u.msg);
@@ -854,9 +856,10 @@ async function loadUploadInfo(){
 async function loadUpload(){
   if(!await loadUploadInfo())return;
   // Sent here from an app card: the app and what to add to it are already chosen.
-  if(upPending){
+  // An entry that arrives while files are going up waits: it is applied when the batch ends.
+  if(upPending&&!upBusy){
     // A new entry starts clean: nothing picked or failed before may be sent to the kind chosen here.
-    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upDone=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
+    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
     $('up-target').value=upPending.app;upKind=upPending.kind;upPreset=true;upPending=null;}
   upRender();}
 // New files: read what they are from the names, fill in what the names tell, and leave the rest to the admin.
@@ -955,7 +958,8 @@ async function upSubmit(only){
     // The summary of a finished batch stays until the next pick.
     upDone=done;upRender();upTrim();
     toast(upT('tDone'));}
-  else{upRender();toast(upT('tSome'));}}
+  else{upRender();toast(upT('tSome'));}
+  if(upPending)await loadUpload();}
 $('up-form').addEventListener('submit',(e)=>{e.preventDefault();upSubmit();});
 
 // ── library ───────────────────────────────────────────────────────────

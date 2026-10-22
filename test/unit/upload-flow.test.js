@@ -28,7 +28,7 @@ test("packages picked as a folder still go one request each, so the server's one
 
 test("the page script sends package units without folder paths and clears the old batch when entered from an app card", () => {
   assert.match(DASHBOARD_SCRIPT, /paths:upPaths&&upKind!=='game'/);
-  const enter = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("if(upPending){"), DASHBOARD_SCRIPT.indexOf("upPreset=true"));
+  const enter = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("if(upPending&&!upBusy){"), DASHBOARD_SCRIPT.indexOf("upPreset=true"));
   for (const part of ["upFiles=[]", "upUnits=[]", "upGuess=null"]) assert.ok(enter.includes(part), part);
   assert.match(DASHBOARD_SCRIPT, /upPreset&&n&&mm/, "the mismatch warning stays on the app card entry");
 });
@@ -67,7 +67,7 @@ test("every upload string the page script asks for exists in all four languages 
   const keys = new Set([...DASHBOARD_SCRIPT.matchAll(/upT\('(\w+)'/g)].map((m) => m[1]));
   // Keys built from a table in the script: every kind needs its name, hint and plan.
   for (const kind of ["Game", "Patch", "Save", "Homebrew", "Port", "Client", "Retro"]) keys.add(`k${kind}`);
-  for (const k of ["sumB", "sumBWait", "rList", "rUnit"]) keys.add(k);
+  for (const k of ["sumB", "sumBWait", "rList", "rUnit", "b1", "bN", "f1", "fN", "bf"]) keys.add(k);
   for (const k of ["hGame", "hRetro", "hPatch", "hSave", "hHomebrew", "hClient", "hPort", "pHomebrew", "pPort", "pClient"]) keys.add(k);
   assert.ok(keys.size > 30);
   for (const key of keys) {
@@ -126,5 +126,28 @@ test("each request freezes where it goes, the controls lock while sending, and a
 
 test("the batch wording is in all four languages with the file counts", () => {
   for (const [code] of TOP_LANGS) for (const k of ["sumB", "sumBWait", "rList", "rUnit"]) assert.ok(TOP_WORDS[code][`u.${k}`], `${code} u.${k}`);
-  assert.equal(holes(TOP_WORDS.en["u.sumB"]), "fail,failF,ok,okF");
+  assert.equal(holes(TOP_WORDS.en["u.sumB"]), "fail,ok");
+  // Singular and plural read properly in English: "1 batch (1 file)", "2 batches (3 files)".
+  const en = TOP_WORDS.en;
+  assert.equal(en["u.b1"].replace("{n}", 1), "1 batch");
+  assert.equal(en["u.bN"].replace("{n}", 2), "2 batches");
+  assert.equal(en["u.f1"].replace("{n}", 1), "1 file");
+  assert.equal(en["u.fN"].replace("{n}", 3), "3 files");
+  assert.match(DASHBOARD_SCRIPT, /n===1\?upT\('b1'/);
+  assert.match(DASHBOARD_SCRIPT, /n===1\?upT\('f1'/);
+});
+
+test("an app-card entry during a running upload waits and is applied when the batch ends", () => {
+  const load = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("async function loadUpload()"), DASHBOARD_SCRIPT.indexOf("async function upTake"));
+  assert.match(load, /if\(upPending&&!upBusy\)/, "the entry is not consumed while busy");
+  const end = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("async function upSubmit"), DASHBOARD_SCRIPT.indexOf("$('up-form').addEventListener('submit'"));
+  assert.match(end, /if\(upPending\)await loadUpload\(\)/, "and it is applied after the batch");
+  assert.ok(end.indexOf("upBusy=false") < end.indexOf("if(upPending)await loadUpload()"));
+});
+
+test("the history trim protects the batch that just finished", () => {
+  assert.match(DASHBOARD_SCRIPT, /trimHistory\(upHistory,upUnits\.length\?upUnits:upDone,50\)/);
+  const finished = Array.from({ length: 80 }, (_, i) => ({ id: i, state: "ok" }));
+  const older = Array.from({ length: 5 }, (_, i) => ({ id: `o${i}`, state: "ok" }));
+  assert.deepEqual(trimHistory([...older, ...finished], finished, 50).map((u) => u.id), older.map((u) => u.id));
 });

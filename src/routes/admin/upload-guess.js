@@ -35,12 +35,13 @@ export function guessUpload({ names, paths = null, zipNames = null, systems = []
     }
     if (inside.some((p) => ext(p) === ".nro")) return { kind: "homebrew", name };
     if (paths) {
-      // A folder is only read as what its files show: packages, or a save's own file kinds (a save-keeper
-      // .meta, .dat, .sav, .bin or a file with no extension). Notes, pictures and mixed folders stay undecided.
+      // A folder is only read as what its files show: packages, or a save's own file kinds, all of
+      // them (.dat, .sav, .meta, .bin or no extension, and no romfs/exefs tree). Anything else stays undecided.
       const files = inside.filter((p) => !p.endsWith("/")).map(ext);
       const pkg = (e) => [".nsp", ".nsz", ".xci", ".xcz"].includes(e);
       if (files.length && files.every(pkg)) return { kind: "game", name };
-      if (!files.some(pkg) && files.some((e) => ["", ".dat", ".sav", ".meta", ".bin"].includes(e))) return { kind: "save", name };
+      const gameTree = inside.some((p) => /(^|\/)(romfs|exefs)\//i.test(p));
+      if (!gameTree && files.length && files.every((e) => ["", ".dat", ".sav", ".meta", ".bin"].includes(e))) return { kind: "save", name };
       return { kind: null, name };
     }
     // A zipped ROM: consoles that take .zip and the ROM inside it.

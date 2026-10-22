@@ -249,16 +249,46 @@ test('a folder is not guessed as a save without a reason, a folder of packages r
     await page.locator('#up-game').fill('Test Game [0100000000010000]');
     await page.locator('#up-game').dispatchEvent('input');
     await page.getByRole('button', { name: '올리기', exact: true }).click();
-    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(2개 파일) · 실패 0묶음(0개 파일)');
+    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(파일 2개) · 실패 0묶음(파일 0개)');
     await expect(page.locator('#up-log .note details summary')).toContainText('묶음 안의 파일 2개');
     // The finished summary survives a language switch.
     await page.locator('#lang-btn').click();
     await page.locator('[data-admin-lang="en"]').click();
-    await expect(page.locator('#up-sum')).toContainText('1 batches (2 files) sent');
+    await expect(page.locator('#up-sum')).toContainText('1 batch (2 files) sent');
     await page.locator('#lang-btn').click();
     await page.locator('[data-admin-lang="ko"]').click();
-    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(2개 파일)');
+    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(파일 2개)');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('80 packages that all go up keep all 80 rows', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  await page.route('**/admin/api/upload/game', (route) => route.fulfill(created('x')));
+  const names = Array.from({ length: 80 }, (_, i) => `E2E Flow M${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
+  await page.locator('#up-file').setInputFiles(names.map(pkg));
+  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await expect(page.locator('#up-sum')).toContainText('성공 80개 · 실패 0개');
+  await expect(page.locator('#up-log .note')).toHaveCount(80);
+});
+
+test('an app-card entry while files are going up waits, then opens with the app and kind chosen', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  await page.route('**/admin/api/upload/game', async (route) => { await gate; await route.fulfill(created('x')); });
+  await page.locator('#up-file').setInputFiles([pkg(nsp('A'))]);
+  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await expect(page.locator('#up-change')).toBeDisabled();
+  await page.evaluate(() => (window as unknown as { uploadFor: (k: string, a: string) => void }).uploadFor('patch', 'handapp'));
+  // Still the package batch: nothing of the entry was applied yet.
+  await expect(page.locator('#up-target')).toHaveValue('');
+  release();
+  await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(1);
+  await expect(page.locator('#up-target')).toHaveValue('handapp');
+  await expect(page.locator('#up-hint')).toContainText('홈브류 앱의 패치');
+  await expect(page.locator('#up-sum')).toContainText('성공 1개');
 });
