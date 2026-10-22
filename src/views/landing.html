@@ -6516,7 +6516,11 @@
         }
       }
 
-      function closeModal() { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); gameEdit.leave(); }
+      function closeModal() {
+        $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); gameEdit.leave();
+        // A hidden player keeps playing: drop it, and any answer still on its way.
+        videosSeq++; fillVideos([]);
+      }
       $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
       $("modal-close").addEventListener("click", closeModal);
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });

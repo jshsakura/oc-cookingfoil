@@ -46,6 +46,9 @@ test('an admin sees the trailers as thumbnails and a click puts the player in pl
   await expect(frame).toHaveAttribute('src', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1');
   await expect(frame).toHaveAttribute('allow', /autoplay/);
   await expect(box.locator('.video-thumb')).toHaveCount(1, { timeout: 2000 });
+
+  await page.locator('#modal-close').click();
+  await expect(page.locator('#modal iframe')).toHaveCount(0);
 });
 
 test('a regular account never asks for trailers, and a game without any shows no row', async ({ page }) => {
