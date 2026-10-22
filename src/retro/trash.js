@@ -108,15 +108,20 @@ export async function listTrash(dir) {
 }
 
 /**
- * Puts a trashed game back. Nothing is overwritten: a file whose place was
- * taken comes back beside it under a numbered name (listed in `renamed`).
+ * Puts a trashed game or core back. Nothing is overwritten: a game whose name is
+ * taken stays in the trash (its art and art-map key follow that name); another
+ * entry comes back beside what took its place under a numbered name (listed in
+ * `renamed`), unless `exactName` is set, which refuses it like a game. A core put
+ * back after a failed swap wants `exactName`: "x_libretro_libnx (2).nro" is no core.
+ * The third argument is the home, or { home, exactName }.
  */
-export async function restoreEntry(dir, entry, home = null) {
+export async function restoreEntry(dir, entry, homeOrOpts = null) {
+  const { home = null, exactName = false } = homeOrOpts && typeof homeOrOpts === "object" ? homeOrOpts : { home: homeOrOpts };
   if (!/^\d{4}-\d{2}-\d{2}\/[a-z0-9_-]{1,40}$/.test(String(entry))) throw new TrashError("휴지통 항목이 맞지 않습니다", 404);
   const root = rootOf(dir);
   const homes = home ? [home] : shared.homesOf(root);
   const at = homes.find((h) => fs.existsSync(path.join(dir, ...h.split("/"), ...String(entry).split("/")))) ?? homes[0];
   const m = shared.normalizeManifest(readJson(path.join(dir, ...at.split("/"), ...String(entry).split("/"), "manifest.json")), "retro");
-  const r = await shared.restoreEntry(root, at, entry);
+  const r = await shared.restoreEntry(root, at, entry, { exactName });
   return { id: m?.gameId ?? null, trashId: r.id, files: r.items.map((i) => i.rel), renamed: r.renamed };
 }
