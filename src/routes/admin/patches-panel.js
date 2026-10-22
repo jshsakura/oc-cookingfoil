@@ -10,6 +10,7 @@
  * edit dialog offers a folder's patch.json when it says something else.
  * Each row has the homebrew tab's 검수됨 pill (POST /admin/api/content/:kind/verified).
  */
+import { top, topPh } from "./top-i18n.js";
 
 export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다. 기기에서 돌려 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
@@ -43,7 +44,7 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <div class="ct-pair" data-for="save"><label>게임 버전<input id="ct-game-version" maxlength="40"></label>
       <label>세이브 종류<select id="ct-save-type"><option value="">가리지 않습니다</option><option value="device">기기 공용 세이브</option><option value="account">계정별 세이브</option></select></label></div>
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
-    <label data-game>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" list="gd-games" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
+    <label data-game>${top("gp.move")}<span class="ct-move"><input id="ct-move" autocomplete="off" ${topPh("gp.ph")}><button type="button" id="ct-move-go">${top("gp.moveGo")}</button></span></label>
     <div class="dialog-actions">
       <button type="button" class="danger" id="ct-remove" data-game>삭제</button>
       <button type="button" id="ct-close">닫기</button>
@@ -194,10 +195,11 @@ $('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
     ...(ctKind==='patch'&&!ctItem.homebrew?{updateVersion:$('ct-update').value}:{}),
     sourceName:$('ct-source-name').value,sourceUrl:$('ct-source-url').value};
   try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
+gamePicker($('ct-move'),{fill:true,pick:()=>$('ct-move-go').focus()});
 $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);
   if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
   if(!await ask(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
   try{await api('/admin/api/content/'+ctKind+'/move',{method:'POST',body:{id:ctItem.id,titleId:to}});ctDone('옮겼습니다.');}catch(err){toast(err.message);}});
-$('ct-remove').addEventListener('click',async()=>{if(!await ask(ctItem.name+' 을(를) 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
-  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('삭제했습니다.');}catch(err){toast(err.message);}});
+$('ct-remove').addEventListener('click',async()=>{if(!await ask(topFill('t.askMove',{name:ctItem.name})))return;
+  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone(topText('t.movedToast'));}catch(err){toast(err.message);}});
 `;

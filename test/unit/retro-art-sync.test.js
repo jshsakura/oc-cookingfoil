@@ -168,3 +168,51 @@ test("LaunchBox ratings: same platform, enough votes, and no guessing between di
   assert.deepEqual(ratings, { snes: { a: { rating: 90, count: 120 }, b: { rating: 85, count: 80 } } });
   assert.equal(summary.snes, "2/3");
 });
+
+test("art the server did not fetch goes to the trash when a match replaces it; art it fetched is simply replaced", async () => {
+  const { listRoot } = await import("../../src/library/trash.js");
+  const dir = tmp();
+  const rom = "Hand Made (USA)";
+  const box = art.boxartPath(dir, system, rom);
+  const bezel = art.bezelPath(dir, system, rom);
+  fs.mkdirSync(path.dirname(box), { recursive: true });
+  fs.mkdirSync(path.dirname(bezel), { recursive: true });
+  fs.writeFileSync(box, "MY SCAN");
+  fs.writeFileSync(bezel, "MY BEZEL");
+  globalThis.fetch = fakeNet();
+  await art.applyMatch(dir, "snes", system, rom, "Mega Man X (USA)");
+  const [entry] = await listRoot({ key: "retro", dir });
+  assert.equal(entry.kind, "retro-art");
+  assert.deepEqual(entry.items.map((i) => i.rel).sort(), [path.relative(dir, bezel), path.relative(dir, box)].map((p) => p.split(path.sep).join("/")).sort());
+  assert.equal(fs.readFileSync(path.join(dir, ".cookingfoil-trash", entry.entry, path.relative(dir, box)), "utf8"), "MY SCAN");
+  assert.deepEqual(fs.readFileSync(box), PNG, "the fetched art took its place");
+  // What the server fetched itself is replaced, or removed for "no art", without filling the trash.
+  await art.applyMatch(dir, "snes", system, rom, "Rockman X (Japan)");
+  await art.applyMatch(dir, "snes", system, rom, null);
+  assert.equal((await listRoot({ key: "retro", dir })).length, 1);
+  assert.equal(fs.existsSync(box), false);
+});
+
+test("the box art shrinker leaves trash folders alone, even under a thumbnails folder on its own disk", async () => {
+  const dir = tmp();
+  const big = await sharp(Buffer.alloc(900 * 1300 * 3, 0).map((_, i) => (i * 2654435761) >>> 24), { raw: { width: 900, height: 1300, channels: 3 } }).png().toBuffer();
+  const held = path.join(dir, "thumbnails", ".cookingfoil-trash", "2026-01-01", "game-0123456789", "thumbnails", "snes", "Named_Boxarts", "x.png");
+  fs.mkdirSync(path.dirname(held), { recursive: true });
+  fs.writeFileSync(held, big);
+  const r = await art.optimizeBoxarts(dir);
+  assert.equal(r.checked, 0);
+  assert.equal(fs.statSync(held).size, big.length, "the trashed picture keeps its bytes, so its manifest still matches");
+});
+
+test("a cover uploaded over a picture a person put there keeps that picture in the trash", async () => {
+  const { listRoot } = await import("../../src/library/trash.js");
+  const dir = tmp();
+  const box = art.boxartPath(dir, system, "Scan (USA)");
+  fs.mkdirSync(path.dirname(box), { recursive: true });
+  fs.writeFileSync(box, "MY SCAN");
+  const png = await sharp({ create: { width: 40, height: 60, channels: 3, background: "#0a0" } }).png().toBuffer();
+  await art.saveCoverImage(dir, system, "Scan (USA)", png);
+  const [entry] = await listRoot({ key: "retro", dir });
+  assert.equal(entry?.kind, "retro-art");
+  assert.equal(fs.readFileSync(path.join(dir, ".cookingfoil-trash", entry.entry, path.relative(dir, box)), "utf8"), "MY SCAN");
+});

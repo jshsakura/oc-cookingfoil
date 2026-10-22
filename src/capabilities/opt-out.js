@@ -23,6 +23,11 @@ export const OPT_OUT = {
   "GET /assets/og-image-ja.png": "browser-only",
   "GET /assets/og-image-ko.png": "browser-only",
   "GET /assets/og-image-zh.png": "browser-only",
+  // Emptying the trash is the one permanent delete; only a person on the admin page does it.
+  "POST /admin/api/trash/empty": "token-blocked",
+  // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
+  "POST /admin/api/retro-cores/official": "token-blocked",
+  "POST /admin/api/retro-cores/user-version": "token-blocked",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
@@ -50,7 +55,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/api/client-logs",
   "GET /admin/api/client-logs/:prefix/:file",
   "GET /admin/api/client-release",
-  "GET /admin/api/descriptions",
   "GET /admin/api/descriptions/:id",
   "GET /admin/api/devices",
   "GET /admin/api/featured",
@@ -88,7 +92,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/api/server-settings",
   "GET /admin/api/server/status",
   "GET /admin/api/stats",
-  "GET /admin/api/storage-guide",
   "GET /admin/api/tokens",
   "GET /admin/api/transfers",
   "GET /admin/api/upload/targets",

@@ -95,10 +95,10 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 홈브류 목록, 추가, 지금 확인 | `GET /admin/api/homebrew`, `POST /admin/api/homebrew` `{ "repo": "owner/name" }`, `POST /admin/api/homebrew/check` |
 | 홈브류 앱 켜기·끄기 (끄면 기기 목록에서만 빠짐), 저장소 빼기, 직접 넣은 앱 삭제 | `POST /admin/api/homebrew/enabled` `{ "id", "enabled": false }`, `POST /admin/api/homebrew/remove` `{ "repo" }`, `POST /admin/api/homebrew/manual/remove` `{ "id" }` |
 | 라이브러리 목록, 다시 읽기 | `GET /admin/api/library`, `POST /admin/api/library/rescan` |
-| 게임 파일 찾기, 삭제 (삭제는 되돌릴 수 없어 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }` |
+| 게임 파일 찾기, 삭제, 휴지통 보기·되살리기·비우기 (삭제한 파일은 휴지통으로 가고 비우기 전까지 되살릴 수 있습니다. 삭제와 비우기는 관리 페이지에 로그인해야 하며 자동화 토큰은 거절됩니다) | `GET /admin/api/library/files?q=`, `POST /admin/api/library/files/remove` `{ "rel" }`, `GET /admin/api/trash`, `POST /admin/api/trash/restore` `{ "ids": [ … ] }`, `POST /admin/api/trash/empty` `{ "confirm": "empty", "ids": [ … ] }` |
 | 라이브러리 파일을 종류별로 보기 (읽기만 합니다. 아래 "파일 목록 API" 참조) | `GET /admin/api/library/browse?kind=base&page=1&perPage=50` |
 | 레트로 게임 이름 정하기 (파일 이름은 그대로, 둘 다 비우면 파일 이름으로) | `POST /admin/api/retro-art/games/name` `{ "game": "<id>", "ko", "en" }` |
-| 레트로 게임 롬 삭제 (표지는 남음. 되돌릴 수 없어 관리 페이지에 로그인해야 합니다. 자동화 토큰은 거절됩니다) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
+| 레트로 게임 롬 삭제 (표지는 남습니다. 롬은 휴지통으로 가고 비우기 전까지 되살릴 수 있습니다. 관리 페이지에 로그인해야 하며 자동화 토큰은 거절됩니다) | `POST /admin/api/retro-art/games/remove` `{ "game": "<id>" }` |
 | 서버 동작 보기, 변경 (null 이면 compose 값으로, 기기 승인·접속 방식·공개 주소·다운로드 링크 수명은 제외), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "welcomeMessage": "…" }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` (필수 표시는 토큰으로 할 수 없습니다) |
 | 게임 세이브 목록, 패치·세이브 편집, 다른 게임으로 옮기기, 삭제 | `GET /admin/api/saves`, `POST /admin/api/content/<patch\|save>/meta` `{ "id", "name", "nameKo", "description", "descriptionKo", … }`, `…/move` `{ "id", "titleId" }`, `…/remove` `{ "id" }` |

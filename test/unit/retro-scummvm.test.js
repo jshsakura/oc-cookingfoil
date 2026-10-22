@@ -105,7 +105,7 @@ test("a ScummVM game's box art uses its libretro title and its bezel its ScummVM
 test("a ScummVM game's folder can carry its titles in title.json, shown instead of its id", async () => {
   const dir = tmp();
   put(dir, "roms/ScummVM/monkey2/monkey2.scummvm", "monkey2\n");
-  put(dir, "roms/ScummVM/monkey2/title.json", JSON.stringify({ ko: "원숭이 섬의 비밀 2: 르척의 복수", en: "Monkey Island 2: LeChuck's Revenge" }));
+  put(dir, "roms/ScummVM/monkey2/title.json", JSON.stringify({ ko: "원숭이 섬의 비밀 2: 르척의 복수", en: "Monkey Island 2: LeChuck's Revenge", "zh-Hant": "猴島小英雄 2", de: "Monkey Island 2: LeChucks Rache", sv: "Apön" }));
   put(dir, "roms/ScummVM/ft/ft.scummvm", "ft\n");
   put(dir, "roms/ScummVM/ft/title.json", JSON.stringify({ ko: "풀 스로틀" }));
   put(dir, "roms/ScummVM/comi/comi.scummvm", "comi\n");
@@ -114,7 +114,7 @@ test("a ScummVM game's folder can carry its titles in title.json, shown instead 
 
   const { games } = await scanDir(dir);
   const by = Object.fromEntries(games.filter((g) => g.system === "scummvm").map((g) => [g.name, g]));
-  assert.deepEqual(by.monkey2.names, { ko: "원숭이 섬의 비밀 2: 르척의 복수", en: "Monkey Island 2: LeChuck's Revenge" });
+  assert.deepEqual(by.monkey2.names, { ko: "원숭이 섬의 비밀 2: 르척의 복수", en: "Monkey Island 2: LeChuck's Revenge", "zh-Hant": "猴島小英雄 2", de: "Monkey Island 2: LeChucks Rache" }, "every client language, no other");
   assert.deepEqual(by.ft.names, { en: "풀 스로틀", ko: "풀 스로틀" }, "a title in one language serves as the English one");
   assert.equal(by.comi.names, undefined, "an unreadable title.json is ignored");
   assert.equal(by.atlantis.names, undefined);

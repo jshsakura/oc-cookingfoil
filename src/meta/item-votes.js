@@ -77,6 +77,22 @@ export function vote(kind, id, voter, v, now = Date.now()) {
   return true;
 }
 
+/** Every vote on the item as stored ({ <voter>: { v, at } }), for keeping with it in the trash. */
+export const votesOf = (kind, id) => ({ ...(all()[keyOf(kind, id)] ?? {}) });
+
+/**
+ * Puts back votes kept with a restored item, under the id it has now. A voter who
+ * voted on it since keeps that vote. False for an unknown kind or malformed id.
+ */
+export function restore(kind, id, votes) {
+  if (!known(kind, id) || !votes || typeof votes !== "object") return false;
+  const kept = Object.fromEntries(Object.entries(votes).filter(([voter, x]) => VOTER_RE.test(voter) && VALUES.includes(x?.v) && Number.isFinite(x?.at)));
+  if (!Object.keys(kept).length) return true;
+  const key = keyOf(kind, id);
+  write({ ...all(), [key]: { ...kept, ...(all()[key] ?? {}) } });
+  return true;
+}
+
 /** Drops every vote on the item (it was removed, or the admin cleared it). */
 export function forget(kind, id) {
   if (!Object.hasOwn(all(), keyOf(kind, id))) return;

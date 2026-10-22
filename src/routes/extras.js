@@ -1,8 +1,9 @@
 /**
  * GET /api/title/:baseTitleId/extras
  *
- * Lists auxiliary files that live alongside a title's game file(s) — mods,
- * patches, zips, readmes, save bundles. A console does not install them, but
+ * Lists auxiliary files that live alongside a title's game file(s): mods,
+ * patches, zips, save bundles. A README.md is the operator's notes and is left
+ * out (helpers/readme-name.js). A console does not install them, but
  * they are worth surfacing (and downloading) from the web page. The catalog
  * leaves them out, so this is a web-UI-only view.
  *
@@ -22,6 +23,7 @@ import fs from "fs/promises";
 import { romsDirPath } from "../helpers/envs.js";
 import * as shopCache from "../meta/shop-cache.js";
 import { isGameFile } from "../create-index-content.js";
+import { isReadme } from "../helpers/readme-name.js";
 import debug from "../debug.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 
@@ -72,6 +74,7 @@ export default async function extrasRoute(req, res) {
       if (name.startsWith(".")) continue;          // dotfiles
       if (isGameFile(name)) continue;              // installable → already in shop
       if (SIDECAR_NAMES.has(name) || name.toLowerCase().endsWith(".tfl")) continue;
+      if (isReadme(name)) continue;                // the operator's notes, not the game's
       const rel = path.posix.join(dir.split(path.sep).join("/"), name);
       if (seen.has(rel)) continue;
       seen.add(rel);

@@ -548,7 +548,7 @@ test("over the size cap the oldest kept original goes first", async () => {
   assert.equal(logLines().find((l) => l.event === "original-deleted").reason, "cap");
 });
 
-test("short of space, kept originals are deleted oldest first before the run pauses", async () => {
+test("short of space, kept originals stay kept and the run pauses: nothing is deleted to make room", async () => {
   S.keepHours = 6;
   put("A.nsp");
   let low = false;
@@ -561,12 +561,14 @@ test("short of space, kept originals are deleted oldest first before the run pau
   q.start();
   await q.pump();
   await q.idle();
-  assert.equal(item(q, "A.nsp"), undefined);
-  assert.equal(item(q, "B.nsp").state, "done", "converted after making room");
-  assert.equal(logLines().find((l) => l.event === "original-deleted").reason, "space");
+  assert.ok(item(q, "A.nsp")?.keptAt, "the kept original is still kept");
+  assert.ok(fs.existsSync(keptFile(q, "A.nsp")));
+  assert.equal(item(q, "B.nsp").state, "waiting");
+  assert.equal(q.view().pausedReason, "disk");
+  assert.equal(logLines().filter((l) => l.event === "original-deleted").length, 0);
 });
 
-test("지금 비우기 deletes every kept original", async () => {
+test("지금 비우기 sends every kept original to the trash", async () => {
   S.keepHours = 6;
   put("A.nsp");
   put("B.nsp");

@@ -35,6 +35,7 @@ for (const [kind, extra, endpoint, body] of cases) {
     await page.getByRole('button', { name: `Sample ${kind} 삭제` }).click();
     await page.locator('#ask-ok').click();
     await expect.poll(() => sent).toEqual(body);
-    await expect(page.locator('#toast')).toContainText('삭제했습니다');
+    // Only a GitHub app's own download is deleted; everything else waits in the trash.
+    await expect(page.locator('#toast')).toContainText(extra.repo ? '삭제했습니다' : '휴지통으로 옮겼습니다');
   });
 }

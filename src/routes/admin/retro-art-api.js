@@ -7,6 +7,8 @@
  *                                                  bios: [{ id, name, missing: [[file…]] }] for consoles that have
  *                                                  games but lack firmware (src/retro/bios.js), never for the others
  *                                                  pack: RetroArch and the core files the games need (src/retro/pack-status.js)
+ *                                                  requirements: the cores and firmware the games in the library
+ *                                                  need, per system with games (src/retro/requirements.js)
  *                                                  unread: folder names under roms/ that no system reads
  *   POST /admin/api/retro-art/sync      { system? } match and download what is missing (one job at a time)
  *   GET  /admin/api/retro-art/candidates?game=&q=  libretro names to pick from, with preview addresses
@@ -18,6 +20,9 @@
  *                                                  shrunk to a small PNG and used as the game's box art
  *   GET  /admin/api/retro-art/games?q=             every game whose name matches, art or not (at most 500)
  *   POST /admin/api/retro-art/ratings              refresh LaunchBox ratings (one job at a time)
+ *   GET  /admin/api/retro/requirements             the same requirements alone, read-only (an API token may read it):
+ *                                                  what the operator still has to put in, and which core file each
+ *                                                  system's games start with
  *
  * Ratings also refresh by themselves once ratings.json is a week old (COOK_RATING_SYNC).
  *
@@ -33,6 +38,7 @@ import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import { packDirOf, packStatus } from "../../retro/pack-status.js";
+import { requirements } from "../../retro/requirements.js";
 import { unreadReasons } from "../../retro/systems.js";
 import * as retroNames from "../../retro/names.js";
 import { rebuildRetroShortcut, retroMetaKey } from "../retro.js";
@@ -42,6 +48,8 @@ import { GENRE_LABELS } from "../../meta/categories.js";
 import * as art from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
+import { trashFiles, TrashError } from "../../retro/trash.js";
+import { actorOf } from "../../library/trash-service.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
 let ratingsJob = null; // { startedAt, finishedAt?, summary?, error? }
@@ -105,11 +113,34 @@ function overview(catalog) {
   return { systems: Object.values(systems), missing };
 }
 
-/** The firmware missing for the consoles that have games, with their Korean names. */
-async function biosNotices(catalog) {
+/** The firmware missing for the consoles that have games, with their Korean names. `files` is the system folder's listing. */
+function biosNotices(catalog, files) {
   const ids = catalog.games.map((g) => g.system);
-  const files = await listFirmware(firmwareDir(retroDir));
   return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
+}
+
+/** The core upkeep's states for the requirements view; none (the file check alone) when they cannot be read. */
+async function upkeepStates(catalog) {
+  try {
+    const { coreStatesNow } = await import("./retro-cores-api.js");
+    return (await coreStatesNow(catalog)).states;
+  } catch (err) {
+    debug.error("retro requirements: core states unread: %s", err.message);
+    return [];
+  }
+}
+
+/** The old notices and the requirements view, from one listing of the system folder. */
+async function firmwareViews(catalog) {
+  const dir = firmwareDir(retroDir);
+  const files = await listFirmware(dir);
+  const req = await requirements({ games: catalog.games, systems: catalog.systems, packDir: packDirOf(retroDir), firmwareDir: dir, files, coreStates: await upkeepStates(catalog) });
+  return { bios: biosNotices(catalog, files), requirements: req };
+}
+
+/** The cores and firmware the library's games need (GET /admin/api/retro/requirements; capabilities/retro.js). */
+export async function retroRequirements() {
+  return (await firmwareViews(await retroCatalog.current(retroDir))).requirements;
 }
 
 /**
@@ -167,7 +198,11 @@ export function mountRetroArtApi(router, requireSession) {
   router.get("/api/retro-art", guarded(async (_req, res) => {
     const age = ratingsAge();
     const catalog = await retroCatalog.current(retroDir);
-    res.json({ ...overview(catalog), bios: await biosNotices(catalog), pack: packStatus(packDirOf(retroDir), catalog.games, catalog.systems), ...unreadNotices(retroDir, catalog.systems), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+    res.json({ ...overview(catalog), ...(await firmwareViews(catalog)), pack: packStatus(packDirOf(retroDir), catalog.games, catalog.systems), ...unreadNotices(retroDir, catalog.systems), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+  }));
+
+  router.get("/api/retro/requirements", guarded(async (_req, res) => {
+    res.json(await retroRequirements());
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {
@@ -243,17 +278,24 @@ export function mountRetroArtApi(router, requireSession) {
     }
   }));
 
-  // Deletes a game's ROM and the disc files it names; its box art stays for a re-upload.
+  // Moves a game's ROM and the disc files it names to the retro trash; its box art stays for a re-upload.
   router.post("/api/retro-art/games/remove", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.body?.game ?? ""));
     if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
     const romsRoot = path.resolve(retroDir, "roms") + path.sep;
-    const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot));
-    for (const f of files) await fs.promises.rm(f, { force: true });
+    const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot) && fs.existsSync(f));
+    let out;
+    try {
+      out = await trashFiles(retroDir, { id: g.id, system: g.system, name: g.name, file: g.file, size: g.size },
+        files.map((f) => path.relative(retroDir, f).split(path.sep).join("/")), new Date(), { by: actorOf(req), action: "retro-game-remove" });
+    } catch (err) {
+      if (!(err instanceof TrashError)) throw err;
+      return res.status(err.status ?? 409).json({ error: err.message });
+    }
     await retroCatalog.scan(retroDir);
-    debug.log("admin: retro game %s/%s removed (%d files)", g.system, g.rel, files.length);
-    res.json({ ok: true, files: files.length });
+    debug.log("admin: retro game %s/%s moved to the trash (%d files)", g.system, g.rel, files.length);
+    res.json({ ok: true, files: files.length, trash: out.id });
   }));
 
   // The name clients show for a game: { ko, en }, both empty = the file's own again.

@@ -27,10 +27,13 @@ import { clientIp } from "./auth-guard.js";
 import { devicePairing } from "../helpers/envs.js";
 import { trustedHere } from "./net.js";
 import { lockoutRetryAfter } from "./retry-after.js";
+import { noteRefusal } from "./auth-log.js";
 
 export const SESSION_HEADER = "X-CookingFoil-Session";
 
-function refuse(req, res, verdict) {
+// `why` names the case in the log line where the verdict alone does not (auth-log.js).
+function refuse(req, res, verdict, why = verdict) {
+  noteRefusal(req, 401, `session-${why}`);
   res.set("Cache-Control", "no-store");
   res.set(SESSION_HEADER, verdict);
   if (verdict === "invalid") recordDeny(req, { reason: DENY.SESSION_REFUSED, status: 401, deviceKey: deviceKeyFromHeaders(req) });
@@ -44,7 +47,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     const checked = session.verify(token, now());
     if (checked.verdict !== "ok") return refuse(req, res, checked.verdict);
     const { sub } = checked;
-    if (deviceKeyFromHeaders(req) !== sub.dev) return refuse(req, res, "invalid");
+    if (deviceKeyFromHeaders(req) !== sub.dev) return refuse(req, res, "invalid", "other-device");
     // A locked-out address stays out, session or not (the loopback exemption as in authGuard).
     const ip = clientIp(req);
     if (!trustedHere(req) && store.isLocked(ip)) {
@@ -52,7 +55,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     }
     if (!stillAllowed(sub)) return refuse(req, res, "revoked");
     // A paired console's session needs pairing to still be on.
-    if (!sub.acct && !devicePairing) return refuse(req, res, "revoked");
+    if (!sub.acct && !devicePairing) return refuse(req, res, "revoked", "revoked-pairing-off");
     req.sessionLane = true;
     // The console the token was made for, checked against its header above (device-admin.js).
     req.sessionDevice = sub.dev;

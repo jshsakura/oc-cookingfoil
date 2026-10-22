@@ -25,13 +25,15 @@ import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-pan
 import { connectHowto } from "./connect-howto.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
+import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top, topPh } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
+import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 
 const PAGE_CSS = /* css */ `
 ${BRAND_MOTION_CSS}
@@ -239,7 +241,25 @@ h3.sub-h{margin:18px 0 4px;font-size:15px}
 .fgames img{width:40px;height:40px;border-radius:10px;flex:none;background:var(--line)}
 .fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fgames button{padding:4px 9px}
-.fadd{display:flex;gap:8px;flex-wrap:wrap}.fadd input{flex:1;min-width:200px}
+.fp-toggle{margin:0 0 10px}
+.fp{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--sunk)}
+.fp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.fp-bar .fp-q{flex:1 1 220px;min-width:0}
+.fp-bar label.check{display:inline-flex;align-items:center;gap:6px;margin:0}
+.fp-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+.fp-list label{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:0;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;min-width:0}
+.fp-list label.on{border-color:var(--good);box-shadow:inset 0 0 0 1px var(--good)}
+.fp-list input{flex:none;width:18px;height:18px;margin:0}
+.fp-list img{width:36px;height:36px;border-radius:9px;flex:none;background:var(--line);object-fit:cover}
+.fp-list .fp-t{flex:1;min-width:0;display:grid;gap:1px}
+.fp-list .fp-n,.fp-list .fp-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-list .fp-n{font-weight:600}
+.fp-list .fp-s{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.fp-pager{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.fp-pager .fp-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.fp-note{color:var(--muted);padding:8px 2px}
+.fp-detail{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px}
+.fp-detail label{flex:1 1 200px;min-width:0}
 h2.first{margin-top:0}
 .note .note-go{margin-top:10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
@@ -312,7 +332,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export function dashboardPage() {
   return /* html */ `<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
@@ -374,6 +394,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
   <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
   <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
+  <a href="#trash" data-tab="trash" data-in="games">${icon("trash")}${top("s.trash")}</a>
   <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
   <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
   <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
@@ -531,12 +552,11 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-featured" hidden>
-  <div class="hd"><h2>추천</h2>
-    <div class="actions"><button type="button" id="f-add">추천 줄 추가</button>
+  <div class="hd"><h2 data-top="fp.h">추천</h2>
+    <div class="actions"><button type="button" id="f-add" data-top="fp.addRow">추천 줄 추가</button>
     <button type="button" class="primary" id="f-save">저장</button></div></div>
-  <p class="muted">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
+  <p class="muted" data-top="fp.lead">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
   <div id="f-list"></div>
-  <datalist id="f-candidates"></datalist>
 </section>
 
 <section id="tab-library" hidden>
@@ -564,8 +584,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <h2 class="first">게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
-    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" list="gd-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
-    <datalist id="gd-games"></datalist>
+    <label>${top("gp.find")}<input id="gd-game" autocomplete="off" ${topPh("gp.ph")}></label>
     <div id="gd-body" hidden>
       <h3>이름</h3>
       <p class="muted" id="gd-name-original"></p>
@@ -578,6 +597,10 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
       <p class="muted" id="gd-original"></p>
       <label>한국어<textarea id="gd-ko" maxlength="2000"></textarea></label>
       <label>영어 (다른 언어의 기본값)<textarea id="gd-en" maxlength="2000"></textarea></label>
+      <h3>${top("fp.detailH")}</h3>
+      <div class="fp-detail"><label>${top("fp.detailRow")}<select id="gd-feat-row"></select></label>
+        <label id="gd-feat-title-l" hidden>${top("fp.newTitle")}<input id="gd-feat-title" maxlength="40" autocomplete="off"></label>
+        <button type="button" id="gd-feat-go">${top("fp.addTo")}</button></div>
       <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
     </div>
   </form>
@@ -593,6 +616,7 @@ ${RETRO_ART_HTML}
 ${ALERTS_HTML}
 ${INBOX_HTML}
 ${NSZ_HTML}
+${TRASH_HTML}
 <section id="tab-homebrew" hidden>
   <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
@@ -663,8 +687,7 @@ ${NSZ_HTML}
   <form class="up" id="up-form" hidden>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
-    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" list="up-games" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
-    <datalist id="up-games"></datalist>
+    <label id="up-game-l" hidden>${top("gp.find")}<input id="up-game" autocomplete="off" ${topPh("gp.ph")}></label>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
     <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
     <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
@@ -733,5 +756,5 @@ ${NSZ_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

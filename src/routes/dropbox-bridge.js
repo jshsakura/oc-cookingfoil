@@ -23,7 +23,7 @@ import express from "express";
 import { publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { requestLang } from "../meta/langs.js";
+import { requestLang, tableLang } from "../meta/langs.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { ownerKey } from "../security/link-identity.js";
 
@@ -137,17 +137,23 @@ export function dropboxSessionsRouter() {
   return router;
 }
 
-const PAGE_TEXT = {
+export const DROPBOX_PAGE_TEXT = {
   ko: { ok: "Dropbox 를 연결했습니다", okBody: "기기로 돌아가면 곧 연결이 끝납니다. 이 창은 닫아도 됩니다.", fail: "Dropbox 연결에 실패했습니다", failBody: "기기에서 다시 시도합니다.", gone: "연결 요청이 만료됐습니다", goneBody: "기기에서 새 QR 을 띄워 다시 시도합니다." },
   en: { ok: "Dropbox connected", okBody: "Go back to your console; it finishes in a moment. You can close this window.", fail: "Dropbox was not connected", failBody: "Try again from your console.", gone: "This sign-in has expired", goneBody: "Show a new QR code on your console and try again." },
   ja: { ok: "Dropbox を接続しました", okBody: "本体に戻るとまもなく完了します。このウィンドウは閉じてかまいません。", fail: "Dropbox を接続できませんでした", failBody: "本体からもう一度試してください。", gone: "このサインインは期限切れです", goneBody: "本体で新しい QR コードを表示して、もう一度試してください。" },
   zh: { ok: "已连接 Dropbox", okBody: "回到主机即可完成。可以关闭这个窗口。", fail: "未能连接 Dropbox", failBody: "请在主机上再试一次。", gone: "此登录已过期", goneBody: "请在主机上显示新的二维码再试一次。" },
   "zh-Hant": { ok: "已連接 Dropbox", okBody: "回到主機即可完成。可以關閉這個視窗。", fail: "未能連接 Dropbox", failBody: "請在主機上再試一次。", gone: "此登入已過期", goneBody: "請在主機上顯示新的 QR 碼再試一次。" },
+  es: { ok: "Dropbox conectado", okBody: "Vuelve a tu consola; terminará en un momento. Puedes cerrar esta ventana.", fail: "No se pudo conectar Dropbox", failBody: "Vuelve a intentarlo desde tu consola.", gone: "Este inicio de sesión ha caducado", goneBody: "Muestra un nuevo código QR en tu consola e inténtalo de nuevo." },
+  fr: { ok: "Dropbox connecté", okBody: "Revenez à votre console, la connexion se termine dans un instant. Vous pouvez fermer cette fenêtre.", fail: "Dropbox n'a pas pu être connecté", failBody: "Réessayez depuis votre console.", gone: "Cette connexion a expiré", goneBody: "Affichez un nouveau code QR sur votre console et réessayez." },
+  de: { ok: "Dropbox verbunden", okBody: "Kehre zu deiner Konsole zurück, gleich ist alles fertig. Du kannst dieses Fenster schließen.", fail: "Dropbox wurde nicht verbunden", failBody: "Versuche es erneut über deine Konsole.", gone: "Diese Anmeldung ist abgelaufen", goneBody: "Zeige einen neuen QR-Code auf deiner Konsole an und versuche es erneut." },
+  it: { ok: "Dropbox collegato", okBody: "Torna alla console, la procedura si conclude tra un momento. Puoi chiudere questa finestra.", fail: "Impossibile collegare Dropbox", failBody: "Riprova dalla console.", gone: "Questo accesso è scaduto", goneBody: "Mostra un nuovo codice QR sulla console e riprova." },
+  pt: { ok: "Dropbox conectado", okBody: "Volte ao console, a conexão termina em instantes. Você pode fechar esta janela.", fail: "Não foi possível conectar o Dropbox", failBody: "Tente novamente pelo console.", gone: "Este login expirou", goneBody: "Mostre um novo código QR no console e tente novamente." },
+  ru: { ok: "Dropbox подключён", okBody: "Вернитесь к консоли, подключение скоро завершится. Это окно можно закрыть.", fail: "Не удалось подключить Dropbox", failBody: "Повторите попытку с консоли.", gone: "Срок действия входа истёк", goneBody: "Покажите новый QR-код на консоли и повторите попытку." },
+  nl: { ok: "Dropbox gekoppeld", okBody: "Ga terug naar je console, het is zo klaar. Je kunt dit venster sluiten.", fail: "Dropbox is niet gekoppeld", failBody: "Probeer het opnieuw vanaf je console.", gone: "Deze aanmelding is verlopen", goneBody: "Toon een nieuwe QR-code op je console en probeer het opnieuw." },
 };
-
 function page(res, status, lang, kind, detail = "") {
-  const shown = PAGE_TEXT[lang] ? lang : "en";
-  const t = PAGE_TEXT[shown];
+  const shown = tableLang(DROPBOX_PAGE_TEXT, lang);
+  const t = DROPBOX_PAGE_TEXT[shown];
   const title = t[kind], body = t[`${kind}Body`];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   res.status(status).set({ "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'" })

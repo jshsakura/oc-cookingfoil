@@ -45,6 +45,7 @@ import { catalogStore } from "../db/stores.js";
 import { forget } from "./image-cache.js";
 import { classify, handStamp, kindOf, moveAside, REPLACED, StuckError, takeSlot } from "./game-art-files.js";
 import { QUIET_MS, watchItems } from "./folder-watch.js";
+import { LANGS } from "./langs.js";
 
 export const GAMES_DIR = path.join(dataDir, "metadata", "games");
 export const THUMBS_DIR = path.join(dataDir, "thumbs", "games");
@@ -55,21 +56,23 @@ const VANISHED_MS = 1_000;
 export const FIELDS = ["name", "description", "notes"];
 // Bytes, not characters: most disks take 255 bytes a name, and a Korean letter is three.
 const MAX_FOLDER_LABEL_BYTES = 180;
-const HANGUL_RE = /[가-힣]/;
 
 /**
- * The fields of a game.json that are text in English or Korean; anything else in the file is left out.
- * A field written by hand as plain text counts as Korean when it has Hangul, else English. Pure.
+ * The fields of a game.json, each as written: plain text (game-descriptions.js reads
+ * it as Korean when it has Hangul, else English) or { <client language>: text } (meta/langs.js LANGS). An empty text, a language
+ * key no client reads and anything else in the file are left out. Pure.
  */
 export function readFields(json) {
   const out = {};
   for (const field of FIELDS) {
-    let v = json?.[field];
-    if (typeof v === "string") v = HANGUL_RE.test(v) ? { ko: v } : { en: v };
-    if (!v || typeof v !== "object") continue;
-    const en = typeof v.en === "string" && v.en.trim() ? v.en : null;
-    const ko = typeof v.ko === "string" && v.ko.trim() ? v.ko : null;
-    if (en || ko) out[field] = { en, ko };
+    const v = json?.[field];
+    if (typeof v === "string") {
+      if (v.trim()) out[field] = v;
+      continue;
+    }
+    if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+    const kept = Object.fromEntries(LANGS.filter((l) => typeof v[l] === "string" && v[l].trim()).map((l) => [l, v[l]]));
+    if (Object.keys(kept).length) out[field] = kept;
   }
   return out;
 }
@@ -108,6 +111,7 @@ const artStamp = (st) => `${Math.round(st.mtimeMs * 1000).toString(36)}-${st.siz
  * hand: every picture put there by hand, still to be made into its slot (at: its mtime).
  */
 const games = new Map(); // id → { row, fields }
+let revisionCount = 0; // goes up whenever what was read of any game changes
 let topMtime = null;
 let loaded = false;
 let indexed = false; // the index holds a full look already
@@ -150,6 +154,7 @@ function toIndex(fn) {
 
 function remember(row) {
   games.set(row.id, { row, fields: row.json?.raw ? readFields(row.json.raw) : null });
+  revisionCount++;
 }
 
 /** The small copies of `slot` of game `id`, all but those of `keep` (a stamp), deleted in the background. */
@@ -179,7 +184,7 @@ function replaceRow(prev, row) {
     if (now?.stamp !== was.stamp) pruneThumbs(prev.id, slot, now?.stamp);
   }
   if (row) remember(row);
-  else games.delete(prev.id);
+  else if (games.delete(prev.id)) revisionCount++;
 }
 
 /** The game folders by name: [[id, folder]], the first of two for one id kept; null when it cannot be read. */
@@ -658,6 +663,12 @@ export function entry(id) {
   load();
   const g = games.get(id);
   return g ? { folder: g.row.folder, dir: path.join(GAMES_DIR, g.row.folder), json: g.row.json, fields: g.fields } : null;
+}
+
+/** A number that changes whenever any game's folder is read differently: for caches built from it. */
+export function revision() {
+  load();
+  return revisionCount;
 }
 
 /** Every game with a folder. */

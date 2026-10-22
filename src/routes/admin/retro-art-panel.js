@@ -9,6 +9,8 @@
  */
 import { icon } from "../../views/icons.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
+import { RQ_WORDS } from "./retro-requirements-words.js";
+import { top } from "./top-i18n.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs" id="retro-subtabs" role="tablist" aria-label="레트로">
@@ -45,7 +47,10 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h3 data-top="rp.title">RetroArch 한 번에 채우기</h3><button type="button" class="primary" id="rp-fill" data-top="rp.button">한 번에 채우기</button></div>
   <p class="muted" data-top="rp.lead">공식 RetroArch 번들에서 본체, 지금 ROM 이 있는 기종의 코어, info·assets·autoconfig 를 받아 채운 뒤 표지와 베젤을 받습니다. 직접 넣은 파일, 바꾼 파일, retroarch.cfg, system(BIOS)은 건드리지 않습니다.</p>
   <p class="muted" id="rp-last"></p>
-  <h3>기종별 코어</h3>
+  <div class="hd"><h3>기종별 코어</h3>
+    <button type="button" id="rc-auto">${top("ac.button")}</button><button type="button" id="rc-update">${top("ac.update")}</button></div>
+  <p class="muted" id="rc-auto-last"></p>
+  <div id="rc-hidden"></div>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
   <h3>설치된 코어</h3>
@@ -118,6 +123,22 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 #rc-list .pill.warn{background:rgba(217,164,0,.16);color:var(--text)}
 #rc-list .rc-hash{font-family:ui-monospace,monospace;font-size:12px}
 .warn-line{background:var(--sunk);border:1px solid var(--line);border-left:3px solid var(--warn,#d9a400);border-radius:10px;padding:10px 12px;font-size:13px}
+#ra-bios{display:grid;gap:8px;margin:0 0 12px}#ra-bios p{margin:0}
+.rq-note{font-size:12.5px}
+.rq-ok{color:var(--good);font-weight:600;font-size:13.5px}
+.rq-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.rq-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:6px;align-content:start}
+.rq-card.need,.rq-card.check{border-color:rgba(var(--warn-rgb),.45)}
+.rq-tag{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--warn)}
+.rq-card h4{margin:0;font-size:13.5px;display:flex;gap:8px;align-items:baseline}.rq-card h4 span{color:var(--muted);font-weight:400;font-size:12px}
+.rq-core{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.rq-core code{font-size:11.5px}
+.rq-chips{display:flex;flex-wrap:wrap;gap:5px}
+.rq-chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:2px 9px;border-radius:100px;font-size:12px;line-height:1.6;border:1px solid var(--line);background:var(--sunk);color:var(--muted);overflow-wrap:anywhere}
+.rq-chip.present{color:var(--good);border-color:rgba(var(--good-rgb),.5);background:rgba(var(--good-rgb),.12)}
+.rq-chip.mismatch{color:var(--warn);border-color:rgba(var(--warn-rgb),.6);background:rgba(var(--warn-rgb),.12)}
+.rq-chip .rq-ic{font-weight:700}.rq-chip .rq-opt{font-size:10.5px;opacity:.85;border:1px solid currentColor;border-radius:100px;padding:0 5px}
+.rq-hint{color:var(--muted);font-size:12px}
+.rq-done summary{cursor:pointer;color:var(--good);font-weight:600;font-size:13px}.rq-done .rq-cards{margin-top:8px}
 `;
 
 export const RETRO_ART_SCRIPT = /* js */ `
@@ -142,7 +163,7 @@ function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
-  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);
+  $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
   table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
@@ -177,9 +198,10 @@ function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
 function rcSystems(list){
   table('rc-systems',['기종','게임','코어',''],list.map((s)=>{const tr=el('tr');
-    const state=!s.installed?pill('코어가 없습니다','warn'):s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
+    const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill('코어가 없습니다','warn'):'';const swap=cs?acSwap(cs):'';
+    const picked=s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
     const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
-    const extra=td();if(state)extra.append(state);if(back)extra.append(back);
+    const extra=td();if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
     tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
 async function rcSetSystem(s,core,sel){
   if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}
@@ -195,8 +217,30 @@ async function rcUpload(file,replace=false){
   const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
   const r=await fetch('/admin/api/upload/core',{method:'POST',body:fd});const d=await r.json().catch(()=>({}));
   if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
+  if(r.status===409&&d.reason==='busy'){toast(topText('ac.uploadBusy'));return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
   toast(d.where+' 에 올렸습니다.');loadRetroCores();}
+// The official core upkeep's state of a console's core (auto-cores.js coreStates).
+const AC_KIND={present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
+function acPill(cs){const k=cs.state==='missing'?'missing.'+cs.reason:cs.state;const p=pill(topText('ac.'+k),AC_KIND[cs.state]??'');
+  if(cs.state==='present'&&cs.built)p.title=cs.source+' · '+cs.built+(cs.crc32?' · '+cs.crc32:'');
+  if(cs.state==='failed')p.title=(cs.message||'')+(cs.retryAt?' · '+fmt(cs.retryAt):'');return p;}
+// A user's core can be swapped for the nightly build (it goes to the trash) and back again.
+function acSwap(cs){
+  if(cs.state==='pinned')return btn(topText('ac.toOfficial'),()=>acRun('official',cs.core,topText('ac.toOfficialQ').split('{core}').join(cs.core)));
+  if(cs.state==='present'&&cs.userVersion)return btn(topText('ac.toUser'),()=>acRun('user-version',cs.core,topText('ac.toUserQ').split('{core}').join(cs.core)));
+  return '';}
+async function acRun(name,core,question){if(question&&!await ask(question))return;
+  try{const d=await api('/admin/api/retro-cores/'+name,{method:'POST',body:core?{core}:{}});toast(topText(d.started===false?'ac.nothing':'ac.started'));loadRetroCores();}
+  catch(err){toast(err.message);}}
+// A user's core a crash or a lost race left under a hidden name: held, never deleted, and put back on request.
+function acHidden(list){$('rc-hidden').replaceChildren(...(list||[]).map((h)=>{const fill=(k)=>topText(k).split('{name}').join(h.name).split('{file}').join(h.file);
+  const p=el('p',fill('ac.hidden')+' ','warn-line');p.append(btn(topText('ac.hiddenBack'),async()=>{if(!await ask(fill('ac.hiddenQ')))return;
+    try{await api('/admin/api/retro-cores/user-version',{method:'POST',body:{core:h.core,hidden:h.file}});toast(topText('ac.hiddenDone'));loadRetroCores();}catch(err){toast(err.message);}}));return p;}));}
+function acLast(a){acHidden(a&&a.hidden);const p=$('rc-auto-last');if(!a){p.textContent='';return;}
+  const l=a.last;p.textContent=a.job?topText('ac.running'):l&&l.error?topText('ac.lastFail').split('{err}').join(l.error):l?topText('ac.lastOk').split('{i}').join((l.installed||[]).length).split('{r}').join((l.replaced||[]).length):'';}
+$('rc-auto').addEventListener('click',()=>acRun('auto'));
+$('rc-update').addEventListener('click',()=>acRun('update',null,topText('ac.updateQ')));
 $('rc-reload').addEventListener('click',loadRetroCores);
 $('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
 $('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});
@@ -224,26 +268,67 @@ let raScaffoldData=null;
 const raFill=(key,vars)=>{let s=topText(key);for(const x in vars)s=s.split('{'+x+'}').join(vars[x]);return s;};
 function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);if(raData)raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);}
 function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
-  const folders=d.folders||[],g=d.guide||{};
+  const folders=d.folders||[];
   $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
   const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):d.skipped==='no-retro'?topText('sc.noRetro'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
   const pills=el('div',null,'ra-scaffold-list');
   pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
   const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));
-  const state={written:'sc.gWritten',current:'sc.gWritten',edited:'sc.gEdited',foreign:'sc.gForeign',failed:'sc.gFailed',unreadable:'sc.gFailed'}[g.state];
-  const guide=el('p',state?raFill(state,{path:g.path,error:g.error||''})+' ':'','muted');
-  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a);
+  const guide=el('p',null,'muted');
+  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a,document.createTextNode(' '+topText('sc.readme')));
   $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
-// Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
+// What the games in the library still need (GET /admin/api/retro-art requirements): the BIOS the operator puts in
+// as chips, grey while missing, green once there, amber when the md5 differs; each system's core as a quiet line,
+// since the server supplies cores. Systems still missing something come first; complete ones fold away.
 // A folder under roms/ that no system reads would hide its games without a word.
+const rqWords=${JSON.stringify(RQ_WORDS)};
+const rqT=(k,v)=>{let s=(rqWords[adminLang]||rqWords.ko)[k]??rqWords.ko[k]??k;if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
+const rqHas=(k)=>Object.hasOwn(rqWords.ko,k);
+// A core state or reason the pack adds later still reads as words, never as a key.
+const rqCs=(state)=>rqHas('cs.'+state)?rqT('cs.'+state):rqT('cs.unknown',{state:String(state)});
+const rqReason=(code)=>!code?'':rqHas('reason.'+code)?rqT('reason.'+code):rqT('reason.other');
+const rqName=(s)=>s.names[adminLang]||s.names.en||s.id;
+const rqBase=(f)=>f.slice(f.lastIndexOf('/')+1);
+function rqChip(label,state,opts={}){const c=el('span',null,'rq-chip '+state);c.dataset.state=state;
+  c.append(el('span',state==='present'?'\u2713':state==='mismatch'?'!':'\u25CB','rq-ic'),el('span',label));
+  if(opts.optional)c.append(el('span',rqT('opt'),'rq-opt'));
+  c.title=[rqT('st.'+state),...(opts.notes||[])].join('\\n');c.setAttribute('aria-label',label+', '+rqT('st.'+state)+(opts.optional?', '+rqT('opt'):''));return c;}
+function rqFirmwareChip(f){const n=f.files.length;
+  const label=f.recognizedAs?rqBase(f.recognizedAs):f.file?rqBase(f.file):n>2?rqBase(f.files[0])+' / +'+(n-1):f.files.map(rqBase).join(' / ');
+  const notes=[];if(f.recognizedAs)notes.push(rqT('recognized',{file:f.file,as:f.recognizedAs}));
+  if(f.state==='mismatch')notes.push(rqT('mismatch',{file:f.file}));if(f.state==='missing'&&n>1)notes.push(rqT('anyOf',{files:f.files.join(', ')}));
+  if(!f.required)notes.push(rqT('optWhy'));return rqChip(label,f.state,{optional:!f.required,notes});}
+function rqCard(s){const card=el('div',null,'rq-card'+(s.missing?' need':s.check?' check':''));card.dataset.system=s.id;
+  const h=el('h4',rqName(s));h.append(el('span',rqT('games',{n:s.games})));
+  // Something not there and a file of another dump are told apart: the second may still start.
+  if(s.missing||s.check)h.append(el('span',s.missing?rqT('tagMissing',{n:s.missing}):rqT('tagCheck'),'rq-tag'));card.append(h);
+  for(const c of s.cores){const line=el('div',null,'rq-core');line.append(rqT('core',{file:''}),el('code',c.file),' \u00B7 '+rqCs(c.state));card.append(line);}
+  const chips=el('div',null,'rq-chips');chips.append(...s.firmware.map(rqFirmwareChip));
+  if(s.arcade){chips.append(...s.arcade.bios.map((b)=>rqChip(b.zip,b.state,{notes:[rqT('games',{n:b.sets})]})));
+    if(s.arcade.parents.length)chips.append(rqChip(rqT('parents',{n:s.arcade.parents.length}),'missing',{notes:[s.arcade.parents.slice(0,20).map((p)=>p.zip).join(', ')]}));}
+  if(chips.childElementCount)card.append(chips);
+  if(s.missing||s.check){const fw=s.firmware.some((f)=>f.required&&f.state==='missing'),arc=s.arcade&&(s.arcade.parents.length||s.arcade.bios.some((b)=>b.state==='missing'));
+    const mm=s.firmware.some((f)=>f.required&&f.state==='mismatch');
+    card.append(el('p',[fw?rqT('hintFw'):'',arc?rqT('hintArc'):'',mm?rqT('hintMd5'):''].filter(Boolean).join(' '),'rq-hint'));}
+  return card;}
+const RQ_CORE_WARN={'not-in-bundle':'coreNotInBundle','not-in-nightly':'coreNotInNightly',failed:'coreFailed'};
+function rqCoreWarn(s,c){const v={system:rqName(s),n:c.games,file:c.file,reason:rqReason(c.reason)};
+  const p=el('p',rqT(RQ_CORE_WARN[c.state]||'coreMissing',v).trim(),'warn-line');if(c.message)p.title=c.message;return p;}
 function raBios(list,unread,pack,shadowed=[]){
-  const want=(g)=>g.length>1?g.join(', ')+' 중 하나':g[0];
-  const nro=pack&&pack.retroarch==='missing'?[el('p','retroarch/ 에 RetroArch 본체(retroarch.nro)가 없습니다. 이 파일이 있어야 기기에 레트로 게임을 설치할 수 있습니다.','warn-line')]:[];
-  const cores=(pack?pack.systems:[]).flatMap((s)=>s.cores.filter((c)=>!c.installed).map((c)=>el('p',s.name+' 게임 '+c.games+'개를 켜려면 retroarch/'+c.file+' 파일이 있어야 합니다.','warn-line')));
-  const folders=unread.length?[el('p','roms/ 안의 '+unread.join(', ')+' 폴더는 어느 기종인지 몰라 읽지 않습니다. 폴더 이름을 기종 이름(nes, snes, gba, ps1 등)으로 바꾸거나 retro/systems.json 의 folder 에 적습니다.','warn-line')]:[];
+  const req=raData&&raData.requirements;const systems=req?req.systems:[];
+  const out=[];
+  if(req)out.push(el('p',rqT('nro'),'muted rq-note'));
+  if(pack&&pack.retroarch==='missing')out.push(el('p',rqT('noRa'),'warn-line'));
+  for(const s of systems)for(const c of s.cores)if(c.warn)out.push(rqCoreWarn(s,c));
+  if(unread.length)out.push(el('p',rqT('unread',{folders:unread.join(', ')}),'warn-line'));
   // A look-alike of a known system: its own folder already has games, so this one waits.
-  const held=shadowed.map((f)=>el('p',raFill('sc.shadowed',{alias:f.folder,canonical:f.by,system:f.names[adminLang]||f.names.en||f.system}),'warn-line'));
-  $('ra-bios').replaceChildren(...nro,...cores,...folders,...held,...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
+  out.push(...shadowed.map((f)=>el('p',raFill('sc.shadowed',{alias:f.folder,canonical:f.by,system:f.names[adminLang]||f.names.en||f.system}),'warn-line')));
+  const need=systems.filter((s)=>s.missing||s.check),done=systems.filter((s)=>!s.missing&&!s.check&&(s.firmware.length||(s.arcade&&s.arcade.bios.length)));
+  if(req&&systems.length&&!need.length)out.push(el('p','\u2713 '+rqT('allOk'),'rq-ok'));
+  if(need.length){const box=el('div',null,'rq-cards');box.id='rq-need';box.append(...need.map(rqCard));out.push(box);}
+  if(done.length){const d=el('details',null,'rq-done');d.id='rq-done';d.append(el('summary','\u2713 '+rqT('okList',{n:done.length})));
+    const box=el('div',null,'rq-cards');box.append(...done.map(rqCard));d.append(box);out.push(d);}
+  $('ra-bios').replaceChildren(...out);
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
@@ -280,8 +365,8 @@ $('rm-form').addEventListener('submit',(e)=>{e.preventDefault();
   rmSave({description:{ko:$('rm-ko').value,en:$('rm-en').value},publisher:$('rm-publisher').value,developer:$('rm-developer').value,year:$('rm-year').value.trim(),players:$('rm-players').value.trim(),genres});});
 $('rm-reset').addEventListener('click',async()=>{if(await ask('이 게임에서 고친 정보를 모두 지우고 자동으로 모은 값으로 돌립니다.'))rmSave({});});
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
-async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
-  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('삭제했습니다. 파일 '+r.files+'개');
+async function raRemove(m){if(!await ask(topFill('t.askRetroRom',{name:m.name,system:m.system})))return;
+  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast(topFill('t.movedFiles',{n:r.files}));
     raRows=raRows.filter((x)=>x.id!==m.id);raShow();}catch(err){toast(err.message);}}
 // Empty: the games without box art. A name: every game that matches, so art can be replaced too.
 let raFind=0,raRows=[],raAt=0,raFound=false;

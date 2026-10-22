@@ -21,6 +21,10 @@ const ENTRY_SIZE = 0x18;
 const MAX_FILES = 4096;
 const MAX_STRING_TABLE = 1 << 20;
 const COPY_CHUNK = 1 << 20;
+// The most a cut-out NCA may be: a cnmt NCA is a few KB, a control NCA with
+// every icon a few MB. A bigger entry is a broken or hostile header.
+export const MAX_CNMT_NCA_BYTES = 1 << 20;
+export const MAX_CONTROL_NCA_BYTES = 64 << 20;
 
 /** Parses the PFS0 header from the start of a buffer; null when it is not one. */
 export function parsePfs0Header(buf) {
@@ -64,22 +68,35 @@ export async function readPfs0Entries(filePath) {
   }
 }
 
-/** Copies one entry's bytes to `destPath`. */
-export async function copyPfs0Entry(filePath, entry, destPath) {
+/**
+ * Copies one entry's bytes to `destPath`. The entry must lie inside the file
+ * and be at most `maxBytes`, checked before anything is written, so a header
+ * that lies about an entry never fills the disk.
+ */
+export async function copyPfs0Entry(filePath, entry, destPath, { maxBytes = MAX_CONTROL_NCA_BYTES } = {}) {
   const src = await fs.open(filePath, "r");
-  const dest = await fs.open(destPath, "w");
   try {
-    const buf = Buffer.alloc(Math.min(COPY_CHUNK, Math.max(1, entry.size)));
-    let done = 0;
-    while (done < entry.size) {
-      const want = Math.min(buf.length, entry.size - done);
-      const { bytesRead } = await src.read(buf, 0, want, entry.offset + done);
-      if (bytesRead === 0) throw new Error("pfs0 entry is truncated");
-      await dest.write(buf, 0, bytesRead);
-      done += bytesRead;
+    const { size: fileSize } = await src.stat();
+    const { offset, size } = entry;
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(size) || offset < 0 || size < 0 || offset + size > fileSize) {
+      throw new Error(`pfs0 entry ${entry.name} lies outside the file`);
+    }
+    if (size > maxBytes) throw new Error(`pfs0 entry ${entry.name} is bigger than ${maxBytes} bytes`);
+    const dest = await fs.open(destPath, "w");
+    try {
+      const buf = Buffer.alloc(Math.min(COPY_CHUNK, Math.max(1, size)));
+      let done = 0;
+      while (done < size) {
+        const want = Math.min(buf.length, size - done);
+        const { bytesRead } = await src.read(buf, 0, want, offset + done);
+        if (bytesRead === 0) throw new Error("pfs0 entry is truncated");
+        await dest.write(buf, 0, bytesRead);
+        done += bytesRead;
+      }
+    } finally {
+      await dest.close();
     }
   } finally {
     await src.close();
-    await dest.close();
   }
 }

@@ -47,11 +47,11 @@ export const NACP_LANG_SLOTS = {
   "pt": 10, "pt-BR": 15,
   "ru": 11,
   "ko": 12,
-  "zh-TW": 13, "zh-CN": 14, "zh": 14,
+  "zh-TW": 13, "zh-Hant": 13, "zh-CN": 14, "zh": 14,
 };
 
-// Reverse map: slot index → preferred icon filename suffix used by the eShop
-// when extracting the Control NCA. icon_AmericanEnglish.dat etc.
+// Reverse map: slot index → the language's name in the Control NCA's icon file,
+// icon_<name>.dat, as switchbrew's NACP Language table lists them.
 export const NACP_SLOT_TO_ICON_NAME = {
   0: "AmericanEnglish",
   1: "BritishEnglish",
@@ -66,7 +66,7 @@ export const NACP_SLOT_TO_ICON_NAME = {
   10: "Portuguese",
   11: "Russian",
   12: "Korean",
-  13: "TaiwaneseChinese",
+  13: "TraditionalChinese",
   14: "SimplifiedChinese",
   15: "BrazilianPortuguese",
 };

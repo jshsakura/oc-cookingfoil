@@ -178,8 +178,10 @@ function lbRemoveCall(f,kind){
   return Promise.reject(new Error('이 항목은 여기서 지울 수 없습니다.'));}
 async function lbRemove(f,kind){
   const name=f.name||f.rel||'이 파일';
-  if(!await ask(name+' 을(를) 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
-  try{await lbRemoveCall(f,kind);toast('삭제했습니다.');lbLoad();}catch(err){toast(err.message);}}
+  // A GitHub app's download is the server's own copy; everything else goes to the trash of its folder.
+  const gone=Boolean(f.repo);
+  if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name})))return;
+  try{await lbRemoveCall(f,kind);toast(gone?'삭제했습니다.':topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
   if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',label+' 페이지');}else{b.textContent=String(page);b.setAttribute('aria-label',page+' 페이지');}
   if(current)b.setAttribute('aria-current','page');

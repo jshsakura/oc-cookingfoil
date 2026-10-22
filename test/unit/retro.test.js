@@ -64,6 +64,7 @@ function fixture() {
   put(dir, "retroarch/retroarch.nro", "NRO");
   put(dir, "retroarch/retroarch.cfg", 'user_language = "14"\n');
   put(dir, "retroarch/cores/snes9x_libretro_libnx.nro", "CORE");
+  put(dir, "retroarch/cores/mgba_libretro_libnx.nro", "GBA-CORE"); // gba has no listed game
   put(dir, "retroarch/assets/fonts/korean.ttf", "FONT");
   put(dir, "retroarch/.DS_Store", "junk");
   return dir;
@@ -83,6 +84,18 @@ test("base pack files map onto the SD card, RetroArch itself into its homebrew f
   assert.equal(sdPathOf("system/neocd_f.rom"), "retroarch/system/neocd/neocd_f.rom", "NeoCD looks in system/neocd/");
   assert.equal(sdPathOf("system/neocd/neocd_z.rom"), "retroarch/system/neocd/neocd_z.rom");
   assert.equal(sdPathOf("system/BS-X.bin"), "retroarch/system/BS-X.bin", "other firmware stays at the top");
+  assert.equal(sdPathOf(".cookingfoil-trash/2026-10-22/core-0123456789/cores/x.nro"), null, "the pack's own trash never goes to the card");
+  assert.equal(sdPathOf("cores/.cookingfoil-trash/2026-10-22/core-0123456789/x.nro"), null);
+  assert.equal(sdPathOf("cores/.cookingfoil-partial-0123456789-x.nro"), null, "nor a copy a stop cut short");
+});
+
+test("the pack list leaves out a trash folder and a partial copy wherever they sit", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-pack-trash-"));
+  for (const rel of ["cores/a_libretro_libnx.nro", ".cookingfoil-trash/2026-10-22/core-0123456789/cores/old_libretro_libnx.nro", "retroarch/.cookingfoil-trash/2026-10-22/core-0123456789/cores/b.nro", "cores/.cookingfoil-partial-0123456789-c_libretro_libnx.nro", "cores/.cookingfoil-partial-0123456789.json"]) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), "x");
+  }
+  assert.deepEqual((await listPack(dir)).map((f) => f.path), ["retroarch/cores/a_libretro_libnx.nro"]);
 });
 
 test("bezel configs follow the Bezel Project layout and keep the core's aspect ratio", () => {
@@ -316,7 +329,8 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
       manifest = await get("/api/retro/base-pack/manifest");
     }
     const m = await manifest.json();
-    assert.deepEqual(m.files.map((f) => f.path), ["retroarch/assets/fonts/korean.ttf", "retroarch/cores/snes9x_libretro_libnx.nro", "retroarch/retroarch.cfg", "switch/retroarch_switch.nro"]);
+    assert.deepEqual(m.files.map((f) => f.path), ["retroarch/assets/fonts/korean.ttf", "retroarch/cores/mgba_libretro_libnx.nro", "retroarch/cores/snes9x_libretro_libnx.nro", "retroarch/retroarch.cfg", "switch/retroarch_switch.nro"], "a client without cores=ondemand gets every file, the cores of consoles without games too");
+    assert.ok(m.files.every((f) => !("core" in f) && !("onDemand" in f)), "and no on-demand marks");
     assert.equal(m.files.find((f) => f.path === "retroarch/retroarch.cfg").once, true);
     assert.match(m.files[0].sha256, /^[0-9a-f]{64}$/);
     assert.equal(await (await get(m.files.at(-1).url)).text(), "NRO");
@@ -331,7 +345,9 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     fs.writeFileSync(extra, "EXTRA");
     const changed = await get(m.bundleUrl);
     assert.notEqual(changed.headers.get("etag"), `"${m.version}"`, "a stale manifest version never names other bytes");
-    assert.ok(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"));
+    assert.ok(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"), "the bundle without cores=ondemand has every file, as before");
+    const onDemand = await (await get("/api/retro/base-pack/manifest?cores=ondemand")).json();
+    assert.equal(onDemand.bundleUrl, "/api/retro/base-pack/bundle?cores=ondemand");
     fs.rmSync(extra);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");

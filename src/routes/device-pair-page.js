@@ -8,6 +8,7 @@
  */
 import { escapeHtml } from "./admin/escape.js";
 import { PAIR_TEXT } from "./device-pair-text.js";
+import { tableLang } from "../meta/langs.js";
 
 const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--soft:#F2F1EE;--accent:#FFC23D;--bad:#982929;font-family:'IBM Plex Sans KR',system-ui,sans-serif}
 @media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--soft:#26262B;--bad:#FF8A80}}
@@ -181,9 +182,10 @@ loadMine();
 `;
 
 export function devicePairPage({ view = "scan", lang = "en", code = "", approver = null, pairing = true } = {}) {
-  const t = PAIR_TEXT[lang] ?? PAIR_TEXT.en;
+  const shown = tableLang(PAIR_TEXT, lang);
+  const t = PAIR_TEXT[shown];
   const interactive = view === "scan" || view === "confirm";
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+  return `<!doctype html><html lang="${shown}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>${t.title} · CookingFoil</title><link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/fonts.css"><style>${STYLE}</style></head>
 <body><main class="card"><a class="brand" href="/"><img src="/assets/cookingfoil.svg" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></a>
 <div class="content">${body(view, t, { code, approver, pairing })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>

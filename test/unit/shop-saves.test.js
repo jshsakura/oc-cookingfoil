@@ -77,7 +77,10 @@ test("a save reads in Korean for ko and in English for every other language", ()
     id: "x", name: "All karts", source: meta.source,
     description: "모든 카트와 트랙을 엽니다.\n출처: GameBanana https://gamebanana.com/mods/1",
   });
-  assert.equal(localize(save, "ja").description, "Every kart and track.\nSource: GameBanana https://gamebanana.com/mods/1", "no Japanese: English");
+  assert.equal(localize(save, "ja").description, "Every kart and track.\n出典: GameBanana https://gamebanana.com/mods/1", "no Japanese text: English, credited in Japanese");
+  assert.equal(localize(save, "de").description.split("\n")[1], "Quelle: GameBanana https://gamebanana.com/mods/1");
+  assert.equal(localize(save, "zh-Hant").description.split("\n")[1], "來源: GameBanana https://gamebanana.com/mods/1");
+  assert.equal(localize(save, "en").description.split("\n")[1], "Source: GameBanana https://gamebanana.com/mods/1");
   assert.equal(localize({ ...save, ko: null }, "ko").description.split("\n")[0], "Every kart and track.", "no Korean yet: English");
   assert.deepEqual(readMeta({ source: { name: "x", url: "javascript:alert(1)" } }).source, { name: "x" }, "only web links");
 });
@@ -263,4 +266,14 @@ test("one save read again by itself: added, changed and removed without a full s
   assert.equal((await cat.list()).length, 1);
   await new Promise((r) => setTimeout(r, 50));
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("a README.md inside a save folder is the owner's note, never sent with the save", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "saves-readme-"));
+  put(root, "0100000000010000/slot/save1.dat");
+  put(root, "0100000000010000/slot/README.md", "notes");
+  put(root, "0100000000010000/slot/sub/readme.MD", "notes");
+  const { save, entries } = await readSave(root, "0100000000010000", "slot", { hash: async () => "h" });
+  assert.equal(save.files, 1);
+  assert.deepEqual(entries.map((e) => e.path), ["save1.dat"]);
 });

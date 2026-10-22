@@ -1,0 +1,32 @@
+[
+  {
+    "file": "src/meta/categories.js",
+    "constant": "ALIASES",
+    "reason": "Genre names other stores use, matched against incoming metadata to find the genre key. Never shown; the label comes from the genre dictionary.",
+    "approved": "Repo owner in the i18n ratchet review, 2026-10-22"
+  },
+  {
+    "file": "src/meta/game-search.js",
+    "literal": "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ",
+    "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
+    "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
+  },
+  {
+    "file": "src/meta/game-search.js",
+    "constant": "JUNGSEONG",
+    "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
+    "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
+  },
+  {
+    "file": "src/meta/game-search.js",
+    "constant": "JONGSEONG",
+    "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
+    "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
+  },
+  {
+    "file": "src/meta/game-search.js",
+    "constant": "COMPOUND_JAMO",
+    "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
+    "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
+  }
+]

@@ -232,12 +232,15 @@ let ratingSync = envBool("COOK_RATING_SYNC", true);
 // screenshots) collected slowly from LaunchBox, and IGDB with its keys.
 // false keeps what was collected and fetches nothing more.
 let retroMeta = envBool("COOK_RETRO_META", true);
-// A ROM folder for every system the Switch can run, the BIOS folder and the storage guide (retro/scaffold.js), made when missing.
+// A ROM folder for every system the Switch can run and the BIOS folder (retro/scaffold.js), made when missing.
 let retroScaffold = envBool("COOK_RETRO_SCAFFOLD", true);
 // Where the RetroArch bundle is downloaded from (retro/pack-fill.js). Empty is the
 // official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
 // must serve the same bytes, the lock's SHA-256 is checked either way.
 let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
+// Official cores for the consoles that have games, put in by the server from that bundle, and the
+// server's own pack files replaced when the lock version rises (retro/auto-cores.js). Operator files never.
+let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -387,6 +390,8 @@ let syncHours = envNumber("COOK_SYNC_HOURS", 6, { min: 0, max: 168, integer: tru
 // When the background file check (meta/verify-queue.js) may read the library: "always", "off", or "<from>-<to>" hours.
 export const VERIFY_HOURS = Object.freeze(["always", "off", "0-6", "1-7", "2-7", "3-8", "22-6"]);
 let verifyHours = VERIFY_HOURS.includes(process.env.COOK_VERIFY_HOURS) ? process.env.COOK_VERIFY_HOURS : "2-7";
+// The trash (library/trash.js) is never emptied by itself; its page points out entries older than this many days.
+let trashNoticeDays = envNumber("COOK_TRASH_NOTICE_DAYS", 30, { min: 1, max: 3650, integer: true });
 
 /*
  * Settings the admin page can change while the server runs (see
@@ -415,6 +420,7 @@ const ENV_SETTINGS = Object.freeze({
   retroMeta,
   retroScaffold,
   retroPackUrl,
+  retroAutoCores,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -440,6 +446,7 @@ const ENV_SETTINGS = Object.freeze({
   logKeepDays,
   syncHours,
   verifyHours,
+  trashNoticeDays,
 });
 
 /** Puts saved values over the compose ones; a key left out goes back to compose. */
@@ -466,6 +473,7 @@ function applyServerSettings(saved = {}) {
   retroMeta = v.retroMeta;
   retroScaffold = v.retroScaffold;
   retroPackUrl = v.retroPackUrl;
+  retroAutoCores = v.retroAutoCores;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -491,6 +499,7 @@ function applyServerSettings(saved = {}) {
   logKeepDays = v.logKeepDays;
   syncHours = v.syncHours;
   verifyHours = v.verifyHours;
+  trashNoticeDays = v.trashNoticeDays;
 }
 
 export {
@@ -520,6 +529,7 @@ export {
   logKeepDays,
   syncHours,
   verifyHours,
+  trashNoticeDays,
   applyServerSettings,
   clientSource,
   clientReleaseRepo,
@@ -577,6 +587,7 @@ export {
   retroMeta,
   retroScaffold,
   retroPackUrl,
+  retroAutoCores,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

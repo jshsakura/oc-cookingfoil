@@ -49,6 +49,12 @@ export function groupSets(shortName) {
   return sets[root] ? [root, ...(clones.get(root) ?? [])] : [short];
 }
 
+/** The DAT's BIOS sets (neogeo, pgm …) by short name: never games, they travel with the games that load them. */
+export const biosSets = () => Object.entries(load().sets).filter(([, s]) => s[3]).map(([k]) => k).sort();
+
+/** A parent set that loads `bios`, or null: an example for the folder guide. */
+export const firstNeeding = (bios) => Object.entries(load().sets).find(([, s]) => !s[1] && s[2] === bios)?.[0] ?? null;
+
 /** "Title (World 910522)" → ["Title", "World 910522"]. Pure. */
 export function splitDescription(desc) {
   const m = String(desc).match(/^(.*?)\s*\(([^()]*)\)\s*$/);

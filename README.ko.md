@@ -138,7 +138,7 @@ cookingfoil/
 
 저장 폴더는 `.env` 의 `COOK_STORAGE_PATH` 로 바꾸지 않으면 `docker-compose.yml` 옆의 `./storage` 입니다. 서버는 켤 때 그 안에 위 폴더들을 만들고, `COOK_<이름>_DIR` 로 그중 하나를 다른 곳에 둘 수도 있습니다.
 
-정리를 맡기려면 파일을 `storage/incoming/` 에 넣습니다. 1분 동안 바뀌지 않은 파일부터 파일 안의 정보(`prod.keys` 가 없으면 이름이나 티켓)로 타이틀 ID 와 버전을 읽어 이름에 `[TITLEID][vN]` 을 붙이고, `games/` 안에 게임마다 폴더 하나로 본편 옆에 `update/` 와 `DLC/` 를 두어 옮깁니다. 이미 폴더가 있는 게임은 그 폴더를 쓰고, 새 게임은 그 이름으로 폴더를 만듭니다. 레트로 롬은 기종 이름 폴더(`incoming/snes/`)에 넣으면 `retro/` 로, `.nro` 하나짜리는 `homebrew/` 로 갑니다. 덮어쓰는 일은 없고, 옮기지 못한 파일은 `incoming/` 에 남아 관리 페이지(라이브러리, 임시 폴더)에 이유가 나옵니다. 서버는 임시 폴더를 이름이나 내용이 아니라 위치로 알아보므로, `games/` 안의 폴더를 정리할 대상으로 착각하는 일은 없습니다.
+정리를 맡기려면 파일을 `storage/incoming/` 에 넣습니다. 1분 동안 바뀌지 않은 파일부터 파일 안의 정보(`prod.keys` 가 없으면 이름이나 티켓)로 타이틀 ID 와 버전을 읽어 파일 이름을 `게임 이름 [TITLEID][vN].확장자` 로 바꾸고, `games/` 안에 게임마다 폴더 하나로 본편 옆에 `update/` 와 `DLC/` 를 두어 옮깁니다. 게임 이름은 관리 페이지에서 정한 이름, titledb, 파일 안의 NACP(`prod.keys` 와 nstool 이 있을 때 NSP, NSZ, XCI, XCZ 에서 읽습니다), 배포처 표시와 태그, 브라우저가 붙인 ` (1)` 을 뗀 원래 파일 이름 순으로 고르고, 깨진 글자가 든 이름은 건너뜁니다. 함께 들어온 본편과 업데이트는 같은 이름을 씁니다. 이미 폴더가 있는 게임은 그 폴더를 쓰고, 새 게임은 그 이름으로 폴더를 만듭니다. titledb 가 모르는 게임은 본편이나 업데이트의 NACP 이름으로, 그것도 없으면 본편 파일 이름으로 폴더를 만듭니다. DLC 만 들어오면 그 게임의 폴더가 있거나 titledb 나 관리 페이지가 게임 이름을 알 때 옮기고, 아니면 본편이나 업데이트가 올 때까지 남겨 두며 관리 페이지에 그렇게 알립니다. 파일 이름이 뜻 없는 DLC(`dlc2` 같은)는 `게임 이름 DLC n` 으로 이름 붙입니다. 레트로 롬은 기종 이름 폴더(`incoming/snes/`)에 넣으면 `retro/` 로, `.nro` 하나짜리는 `homebrew/` 로 갑니다. 덮어쓰는 일은 없고, 옮기지 못한 파일은 `incoming/` 에 남아 관리 페이지(라이브러리, 임시 폴더)에 이유가 나옵니다. 서버는 임시 폴더를 이름이나 내용이 아니라 위치로 알아보므로, `games/` 안의 폴더를 정리할 대상으로 착각하는 일은 없습니다.
 
 **따로 마운트하던 서버를 옮길 때.** 새로 설치하면 저장 폴더 하나만 마운트합니다. 파일이 아직 따로 된 폴더(`./games`, `./data`, `./keys` 등, 또는 `COOK_<이름>_PATH` 로 정한 곳)에 있는 서버는 `docker-compose.legacy.yml` 을 함께 씁니다. `docker compose -f docker-compose.yml -f docker-compose.legacy.yml up -d` 로 켜거나 `.env` 에 `COMPOSE_FILE=docker-compose.yml:docker-compose.legacy.yml` 을 넣습니다. 이 파일 없이 켜면 그 폴더들이 마운트되지 않아 서버가 빈 상태로 뜹니다. 디스크의 파일은 건드리지 않습니다. 함께 쓰면 파일이 있는 옛 폴더는 그대로 쓰면서 관리 페이지 개요에 알리고, 빈 폴더는 무시합니다. 옮기기를 끝내려면 서버를 멈추고 각 폴더의 내용을 위 이름으로 저장 폴더 안에 옮긴 뒤 legacy 파일을 빼고 켭니다. 옮기는 동안 덮어쓰는 일은 없고, `games/incoming/` 에 있던 것은 같은 이름이 있거나 다른 디스크에 있지 않으면 `incoming/` 으로 옮깁니다. 남은 것은 개요에 나옵니다.
 
@@ -199,7 +199,7 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 | 파일에서 아이콘 읽기 | `COOK_EXTRACT_ICONS` | `missing` |
 | 스토어 가격, 인기순, 그림 | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | 켜짐 |
 | 리뷰 점수, 레트로 게임 정보 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | 켜짐 |
-| 레트로 기종 폴더와 저장 폴더 안내(README.md) 만들기 | `COOK_RETRO_SCAFFOLD` | 켜짐 |
+| 레트로 기종 폴더 만들기 | `COOK_RETRO_SCAFFOLD` | 켜짐 |
 | 다운로드당 연결 수 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | 직접 다운로드 주소, 토큰 수명 | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | 꺼짐, `21600` 초 |
 | 안전한 재시작 | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` 초, `25` 초 |

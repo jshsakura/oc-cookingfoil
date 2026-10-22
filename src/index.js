@@ -102,6 +102,7 @@ import * as retroCatalog from "./retro/catalog.js";
 import * as retroScaffold from "./retro/scaffold.js";
 import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
+import * as trashService from "./library/trash-service.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -118,13 +119,12 @@ for (const made of ensureLayout(layout)) debug.log("storage: made %s", made);
 for (const role of ROLES.filter((r) => layout.from[r] === "kept")) {
   debug.error("storage: %s still has files, so %s stays in use instead of %s/%s; move them over", layout.dirs[role], role, layout.root, role);
 }
-// Every retro scan (the first runs at start) makes the system folders and the storage guide that are missing.
+// Every retro scan (the first runs at start) makes the system folders that are missing and recomputes the folder guides (API only).
 retroCatalog.beforeScan(async (dir, systems) => {
   if (dir !== retroDir) return;
   const r = await retroScaffold.run({ retroDir: dir, systems, layout, enabled: envs.retroScaffold });
   if (r.made.length) debug.log("retro: made %d folders: %s", r.made.length, r.made.join(", "));
-  if (r.guide.state === "written") debug.log("storage: wrote the folder guide %s", r.guide.path);
-  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not write %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
+  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not make %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
 });
 const oldBox = oldIncoming(layout);
 if (oldBox) {
@@ -461,6 +461,8 @@ securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
+// The retro folder's old .trash entries move into the shared trash (a rename in the same folder), and what a stop left behind is cleaned up.
+trashService.tidy().catch((err) => debug.error("trash: start tidy failed: %s", err.message));
 // The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
 startNszQueue();
 // The file check: signatures of every game file, the whole-file hash of new ones; it only informs.

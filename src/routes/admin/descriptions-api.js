@@ -3,18 +3,19 @@
  * overwrite (kept apart, one game.json per game: meta/game-descriptions.js). /api/title/{id} answers
  * the admin's description in place of titledb's, and their notes as `notes`:
  *
- *   GET  /admin/api/descriptions               { games: [{ titleId, name, edited }] }   library games
- *   GET  /admin/api/descriptions/<title id>    { titleId, own: { description, notes } | null, original }
- *   POST /admin/api/descriptions/<title id>    { description?: { en, ko }, notes?: { en, ko } }
- *                                              a field sent is saved; both languages empty forgets it
+ *   GET  /admin/api/descriptions/<title id>    { titleId, own: { name, description, notes } | null, original }
+ *   POST /admin/api/descriptions/<title id>    { name?, description?, notes? }, each plain text (Korean when it
+ *                                              has Hangul, else English) or { <client language>: text }: the languages sent
+ *                                              are saved, one sent empty is forgotten; an unknown language
+ *                                              key or a text too long is refused with 400
  *   POST /admin/api/descriptions/<title id>/reset   { field?: "description" | "notes" }  (none: both)
  */
 import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
-import { libraryGames } from "./upload-api.js";
 import debug from "../../debug.js";
+import { requestLang } from "../../meta/langs.js";
 
 const ID_RE = /^[0-9A-F]{16}$/;
 
@@ -36,12 +37,6 @@ export function mountDescriptionsApi(router, requireSession) {
     return null;
   };
 
-  router.get("/api/descriptions", handle(async (req, res) => {
-    const edited = new Set(gameDescriptions.edited());
-    const games = await libraryGames().catch(() => []);
-    res.json({ games: games.map((g) => ({ ...g, edited: edited.has(g.titleId) })) });
-  }));
-
   router.get("/api/descriptions/:id", handle(async (req, res) => {
     const id = idOf(req, res);
     if (!id) return;
@@ -53,10 +48,13 @@ export function mountDescriptionsApi(router, requireSession) {
   router.post("/api/descriptions/:id", handle(async (req, res) => {
     const id = idOf(req, res);
     if (!id) return;
-    const text = (v) => (typeof v === "string" ? v : null);
+    for (const field of gameDescriptions.FIELDS) {
+      const problem = gameDescriptions.checkInput(field, req.body?.[field], requestLang(req));
+      if (problem) return res.status(400).json({ error: problem });
+    }
     for (const field of gameDescriptions.FIELDS) {
       const v = req.body?.[field];
-      if (v && typeof v === "object") gameDescriptions.set(id, field, { en: text(v.en), ko: text(v.ko) });
+      if (v != null) gameDescriptions.set(id, field, v);
     }
     // A changed name is baked into the list the server hands out: build it again.
     if (req.body?.name) shopCache.invalidate({ rename: true });

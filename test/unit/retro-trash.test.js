@@ -37,7 +37,7 @@ put("roms/arcade/gunbirdj.zip");
 put("thumbnails/arcade/Named_Boxarts/Gunbird (Japan).png", "GJ");
 
 const catalog = await import("../../src/retro/catalog.js");
-const { listTrash, restoreEntry, stillUsed, trashGame } = await import("../../src/retro/trash.js");
+const { listTrash, restoreEntry, trashFiles, trashGame } = await import("../../src/retro/trash.js");
 const { mountRetroVariantsApi } = await import("../../src/routes/admin/retro-variants-api.js");
 const { mountRetroArtApi } = await import("../../src/routes/admin/retro-art-api.js");
 
@@ -49,7 +49,7 @@ test("a trashed game takes its ROM, box art, bezel files and art-map key, and co
   assert.deepEqual(files.sort(), [`bezels/md/${OLD}.cfg`, `bezels/md/${OLD}.png`, `bezels/md/${OLD}_override.cfg`, `roms/md/${OLD}.zip`, `thumbnails/md/Named_Boxarts/${OLD}.png`].sort());
   for (const rel of files) {
     assert.ok(!has(rel), `${rel} left its place`);
-    assert.ok(has(path.join(".trash", entry, rel)), `${rel} is in the trash`);
+    assert.ok(has(path.join(".cookingfoil-trash", entry, rel)), `${rel} is in the trash`);
   }
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(retro, "art-map/md.json"), "utf8"))), [NEW]);
   assert.ok(has(`roms/md/${NEW}.zip`), "the other version stays");
@@ -62,7 +62,7 @@ test("a trashed game takes its ROM, box art, bezel files and art-map key, and co
   await restoreEntry(retro, entry);
   for (const rel of files) assert.ok(has(rel), `${rel} is back`);
   assert.equal(JSON.parse(fs.readFileSync(path.join(retro, "art-map/md.json"), "utf8"))[OLD], "Monster World IV (Japan)");
-  assert.ok(!has(path.join(".trash", entry)));
+  assert.ok(!has(path.join(".cookingfoil-trash", entry)));
   const back = (await catalog.scan(retro)).games.find((g) => g.name === OLD);
   assert.equal(back.id, old.id, "the same id as before");
 });
@@ -87,7 +87,7 @@ test("a restore only checks and moves the files the trash still holds", async ()
   const old = cat.games.find((g) => g.name === OLD);
   const { entry } = await trashGame(retro, old, cat.systems.md);
   // The cfg went missing from the trash, and a new one was made in its place meanwhile.
-  fs.rmSync(path.join(retro, ".trash", entry, `bezels/md/${OLD}.cfg`));
+  fs.rmSync(path.join(retro, ".cookingfoil-trash", entry, `bezels/md/${OLD}.cfg`));
   put(`bezels/md/${OLD}.cfg`, "NEW CFG");
   const { files } = await restoreEntry(retro, entry);
   assert.ok(!files.includes(`bezels/md/${OLD}.cfg`));
@@ -96,23 +96,20 @@ test("a restore only checks and moves the files the trash still holds", async ()
   put(`bezels/md/${OLD}.cfg`, "CFG");
 });
 
-test("a restore never overwrites a file that took the trashed one's place", async () => {
+test("a restore never overwrites a file that took the trashed one's place: the game waits in the trash", async () => {
   const cat = await catalog.scan(retro);
   const old = cat.games.find((g) => g.name === OLD);
   const { entry } = await trashGame(retro, old, cat.systems.md);
   put(`roms/md/${OLD}.zip`, "SOMETHING ELSE");
-  await assert.rejects(restoreEntry(retro, entry), /다른 파일이 있습니다/);
+  // A ROM under another name would part from its art and art-map key, so a taken name refuses the game.
+  await assert.rejects(restoreEntry(retro, entry), /자리에 다른 파일/);
   assert.equal(fs.readFileSync(path.join(retro, `roms/md/${OLD}.zip`), "utf8"), "SOMETHING ELSE");
-  assert.ok(has(path.join(".trash", entry, `roms/md/${OLD}.zip`)), "the trashed copy stays in the trash");
+  assert.ok((await listTrash(retro)).some((e) => e.entry === entry), "still in the trash");
   await assert.rejects(restoreEntry(retro, "../../etc"), /맞지 않습니다/);
-});
-
-test("art another copy still shows stays where it is", async () => {
-  const cat = await catalog.scan(retro);
-  const [a] = cat.games.filter((g) => g.system === "gba");
-  const { files } = await trashGame(retro, a, cat.systems.gba, { keep: stillUsed(a, cat.games) });
-  assert.deepEqual(files, [a.rel.replace(/^/, "roms/gba/")]);
-  assert.ok(has("thumbnails/gba/Named_Boxarts/코믹스 존 (Comix Zone) [K].png"));
+  fs.rmSync(path.join(retro, `roms/md/${OLD}.zip`));
+  const { renamed } = await restoreEntry(retro, entry);
+  assert.deepEqual(renamed, []);
+  assert.equal(fs.readFileSync(path.join(retro, `roms/md/${OLD}.zip`), "utf8"), "OLD");
 });
 
 test("the admin API lists groups and sets, picks, trashes with a confirmation for needed parents, and restores", async () => {
@@ -132,8 +129,8 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
     await catalog.scan(retro);
     // The art overview: games with art of their own or borrowed are not missing.
     const overview = await (await fetch(base.replace("retro-variants", "retro-art"))).json();
-    // (The patch's art is still in the trash from the test before.)
-    assert.deepEqual(overview.missing.map((m) => m.system), ["md", "md"], "the arcade sets and the Comix Zone copy have art");
+    // (The patch's art came back with it in the test before; only the Korean version has none.)
+    assert.deepEqual(overview.missing.map((m) => m.system), ["md"], "the arcade sets and the Comix Zone copy have art");
     const arcade = overview.systems.find((x) => x.id === "arcade");
     assert.deepEqual([arcade.boxart, arcade.borrowed], [2, 1]);
     const { groups } = await (await fetch(base)).json();
@@ -169,4 +166,34 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
   } finally {
     server.close();
   }
+});
+
+test("a retro core whose name is taken is refused with or without exactName, and waits in the trash", async () => {
+  const shared = await import("../../src/library/trash.js");
+  const r = { key: "retro", dir: retro };
+  put("cores/exact_libretro_libnx.a", "OLD CORE");
+  await shared.trashItems(r, [{ rel: "cores/exact_libretro_libnx.a" }], { kind: "retro-core", action: "retro-core-replace" });
+  put("cores/exact_libretro_libnx.a", "NEW CORE");
+  const entry = (await shared.listRoot(r)).find((e) => e.items.some((i) => i.rel === "cores/exact_libretro_libnx.a"));
+  await assert.rejects(restoreEntry(retro, entry.entry, { home: entry.home, exactName: true }), (err) => err.status === 409);
+  assert.ok((await shared.listRoot(r)).some((e) => e.entry === entry.entry), "still in the trash");
+  assert.equal(fs.readFileSync(path.join(retro, "cores/exact_libretro_libnx.a"), "utf8"), "NEW CORE");
+  // A core never comes back numbered, asked or not: "x (2).nro" in cores/ would ship in the pack as no core at all.
+  await assert.rejects(restoreEntry(retro, entry.entry, entry.home), (err) => err.status === 409 && /코어/.test(err.message));
+  assert.deepEqual(fs.readdirSync(path.join(retro, "cores")).filter((f) => f.startsWith("exact")), ["exact_libretro_libnx.a"]);
+  assert.equal(fs.readFileSync(path.join(retro, "cores/exact_libretro_libnx.a"), "utf8"), "NEW CORE");
+});
+
+test("restoreEntry(dir, entry, { exactName: true }), the shape the core swap calls, leaves a user core in the trash when its name is taken", async () => {
+  const shared = await import("../../src/library/trash.js");
+  put("cores/swap_libretro_libnx.nro", "USER CORE");
+  const t = await trashFiles(retro, { id: "core-abcdef0123", system: "core", name: "swap_libretro_libnx.nro" }, ["cores/swap_libretro_libnx.nro"]);
+  put("cores/swap_libretro_libnx.nro", "OFFICIAL");
+  await assert.rejects(restoreEntry(retro, t.entry, { exactName: true }), (err) => err.status === 409);
+  assert.deepEqual(fs.readdirSync(path.join(retro, "cores")).filter((f) => f.startsWith("swap")), ["swap_libretro_libnx.nro"], "no numbered core is left in the cores folder");
+  assert.ok((await shared.listRoot({ key: "retro", dir: retro })).some((e) => e.entry === t.entry), "the user core waits in the trash");
+  fs.rmSync(path.join(retro, "cores/swap_libretro_libnx.nro"));
+  const back = await restoreEntry(retro, t.entry, { exactName: true });
+  assert.deepEqual([back.files, back.renamed], [["cores/swap_libretro_libnx.nro"], []]);
+  assert.equal(fs.readFileSync(path.join(retro, "cores/swap_libretro_libnx.nro"), "utf8"), "USER CORE");
 });

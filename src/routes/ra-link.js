@@ -17,7 +17,7 @@ import path from "path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "url";
 import { escapeHtml } from "./admin/escape.js";
-import { requestLang } from "../meta/langs.js";
+import { requestLang, tableLang } from "../meta/langs.js";
 import * as link from "../retro/achievements/link.js";
 import { LONG_WAIT_MS } from "./retro-achievements.js";
 import { RA_LINK_TEXT } from "./ra-link-text.js";
@@ -51,9 +51,10 @@ button:disabled{opacity:.6;cursor:wait}input:focus-visible,button:focus-visible,
 const scriptJson = (value) => JSON.stringify(value).replace(/</g, "\\u003c");
 
 export function raLinkPage(lang) {
-  const t = RA_LINK_TEXT[lang] ?? RA_LINK_TEXT.en;
+  const shown = tableLang(RA_LINK_TEXT, lang);
+  const t = RA_LINK_TEXT[shown];
   const words = Object.fromEntries(Object.entries(t).filter(([, v]) => typeof v === "string"));
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="format-detection" content="telephone=no,email=no,address=no">
+  return `<!doctype html><html lang="${shown}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="format-detection" content="telephone=no,email=no,address=no">
 <title>${escapeHtml(t.title)} · CookingFoil</title><style>${STYLE}</style>
 <script type="importmap">${IMPORT_MAP}</script></head>
 <body><main class="card"><p class="brand"><span class="wm">cookingfoil<span class="dot">.</span></span></p>

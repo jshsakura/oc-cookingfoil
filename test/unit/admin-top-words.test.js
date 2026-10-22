@@ -3,21 +3,7 @@ import assert from "node:assert/strict";
 import { TOP_WORDS, TOP_LANGS } from "../../src/routes/admin/top-i18n.js";
 import { dashboardPage } from "../../src/routes/admin/dashboard-page.js";
 
-const keysOf = (lang) => Object.keys(TOP_WORDS[lang]).sort();
-
-test("every admin top-area label exists in all four languages", () => {
-  const ko = keysOf("ko");
-  for (const [code] of TOP_LANGS) assert.deepEqual(keysOf(code), ko, `${code} has the same keys as ko`);
-});
-
-test("no top-area label is empty or uses an em dash", () => {
-  for (const [code] of TOP_LANGS) {
-    for (const [key, text] of Object.entries(TOP_WORDS[code])) {
-      assert.ok(text.trim().length > 0, `${code}.${key} is empty`);
-      assert.ok(!/[—–]/.test(text), `${code}.${key} has a dash`);
-    }
-  }
-});
+// i18n-ratchet.test.js holds TOP_WORDS, like every dictionary, to all four languages with the same keys.
 
 test("every data-top key the admin page uses has a label", () => {
   const html = dashboardPage();
@@ -46,4 +32,13 @@ test("the look-alike folder notice names both folders and the system, and says t
     for (const part of ["{alias}", "{canonical}", "{system}", "thumbnails/", "bezels/"]) assert.ok(text.includes(part), `${code} has ${part}`);
   }
   assert.match(TOP_WORDS.ko["sc.shadowed"], /합니다\.$|습니다\.$|옮깁니다\.$/);
+});
+
+test("beside the folder guide link, every language says a README.md is ignored and names no tool that does not exist yet", () => {
+  for (const [code] of TOP_LANGS) {
+    const text = TOP_WORDS[code]["sc.readme"];
+    assert.ok(text?.includes("README.md"), `${code} mentions README.md`);
+    assert.ok(!/MCP|library_storage_guide/.test(text), `${code} does not point at an MCP tool before /mcp ships`);
+  }
+  assert.match(TOP_WORDS.ko["sc.readme"], /습니다\.$/);
 });

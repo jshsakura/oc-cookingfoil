@@ -85,15 +85,27 @@ function setIfEmpty(target, field, value) {
 // The languages clients pick from (meta/langs.js); other region files still merge as before.
 export const LOCALIZED_LANGS = LANGS;
 
+// Most European region files repeat the English name, text or art. A value equal to
+// one already kept reuses that string, so the repeat costs no memory of its own.
+function shared(kept, value, merged) {
+  if (value === merged) return merged;
+  for (const v of Object.values(kept)) if (v === value) return v;
+  return value;
+}
+
 function keepLocalized(rec, lang, entry) {
   if (!LOCALIZED_LANGS.includes(lang)) return;
+  const keep = (field, value, merged) => {
+    const kept = (rec[field] ??= {});
+    kept[lang] ??= shared(kept, value, merged);
+  };
   const name = typeof entry.name === "string" ? entry.name.trim() : "";
-  if (name) (rec.names ??= {})[lang] ??= name;
+  if (name) keep("names", name, rec.name);
   const text = typeof entry.description === "string" ? entry.description.trim() : "";
-  if (text) (rec.descriptions ??= {})[lang] ??= text;
+  if (text) keep("descriptions", text, rec.description);
   // Box art carries the title in that region's script, so it follows the language too.
-  if (typeof entry.iconUrl === "string" && entry.iconUrl) (rec.icons ??= {})[lang] ??= entry.iconUrl;
-  if (typeof entry.bannerUrl === "string" && entry.bannerUrl) (rec.banners ??= {})[lang] ??= entry.bannerUrl;
+  if (typeof entry.iconUrl === "string" && entry.iconUrl) keep("icons", entry.iconUrl, rec.iconUrl);
+  if (typeof entry.bannerUrl === "string" && entry.bannerUrl) keep("banners", entry.bannerUrl, rec.bannerUrl);
 }
 
 function priIndex(region) {
@@ -403,6 +415,11 @@ export function namesOf(titleId) {
   const own = gameDescriptions.names(titleId);
   const names = localized(titleId, "names");
   return own ? { ...(names ?? {}), ...own } : names;
+}
+
+/** The game's name in each language as titledb has it, without the admin's names, or null. */
+export function originalNamesOf(titleId) {
+  return localized(titleId, "names");
 }
 
 /** The game's description in each language titledb has it in, or null. */

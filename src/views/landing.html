@@ -541,7 +541,8 @@
       .recent > .game .size-badge { top: calc(var(--card) * 0.053); bottom: auto; left: calc(var(--card) * 0.053); }
       .recent > .game .score-badge { right: calc(var(--card) * 0.053); }
       .recent > .game .cover { border-radius: calc(var(--card) * 0.0933); }
-      .recent > .game .name { -webkit-line-clamp: 1; min-height: 0; font-size: clamp(12px, calc(var(--card) * 0.12), 17px); }
+      /* one line: fill it and cut at the edge (a clamp of 1 would stop at "G-" when the rest is one unbroken run of kana) */
+      .recent > .game .name { display: block; white-space: nowrap; text-overflow: ellipsis; min-height: 0; font-size: clamp(12px, calc(var(--card) * 0.12), 17px); }
       /* "See all": the shelf opened out into rows, every card at the same size. */
       .recent.expanded { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, var(--card)); grid-auto-columns: auto; justify-content: start; overflow: visible; scroll-snap-type: none; row-gap: 22px; }
       .recent > .see-all .face {
@@ -678,6 +679,8 @@
         /* two lines at most, always two lines tall, so a row of cards lines up; the full name is the tooltip */
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
         overflow-wrap: anywhere; min-height: calc(2 * 1.35em);
+        /* body keeps Korean words whole, but that makes a run of kana or kanji one word, so the line broke after "G-"; names may break inside it */
+        word-break: normal; line-break: strict;
       }
       /* one line of pills, as on the client: one that would wrap is left out, and every card keeps the line */
       .game .sub { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 0; height: 24px; overflow: hidden; }
@@ -1109,6 +1112,8 @@
       .ef-langs button { font: 700 12.5px var(--font-body); padding: 5px 13px; border: 0; border-radius: 100px; background: transparent; color: var(--secondary); cursor: pointer; }
       .ef-langs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
       .ef-langs button:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .arted-head select.ef-langs-list { display: inline-block; max-width: 100%; font: 700 12.5px var(--font-body); padding: 6px 13px; border: 0; color: var(--ink); cursor: pointer; }
+      .arted-head select.ef-langs-list:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .ef-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .ef-field { display: grid; gap: 6px; min-width: 0; margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
       .ef-field.wide { grid-column: 1 / -1; }
@@ -1852,11 +1857,11 @@
           "empty.loading": "타이틀 라이브러리 로딩 중…",
           "empty.none": "조건에 맞는 타이틀이 없습니다.<br>검색·필터를 비워보세요.",
           "empty.library": "<strong>아직 라이브러리에 등록된 게임이 없습니다.</strong>관리자가 게임 폴더에 파일을 넣으면 여기에 바로 나타납니다.",
-          "empty.err": "/api/shop/sections 로드 실패 — 콘솔 확인",
+          "empty.err": "/api/shop/sections 를 불러오지 못했습니다. 콘솔을 확인합니다.",
           "status.loading": "서버 데이터 불러오는 중…",
           "status.serving": (n) => `타이틀 ${n.toLocaleString()}개 서비스 중`,
           "status.empty": "구동 중 · 아직 게임이 없습니다",
-          "status.timeout": "타임아웃 — 캐시 빌드가 오래 걸리는 듯",
+          "status.timeout": "시간이 초과됐습니다. 서버가 아직 캐시를 만드는 중일 수 있습니다",
           "status.error": (m) => "오류: " + m,
           "search.placeholder": "이름·타이틀ID 검색…",
           "pager.info": (a, b, total) => `${a}–${b} / 총 ${total.toLocaleString()}`,
@@ -2198,11 +2203,11 @@
           "empty.loading": "Loading title library…",
           "empty.none": "No matches.<br>Try clearing search or filter.",
           "empty.library": "<strong>No games in the library yet.</strong>They show up here as soon as the admin puts files in the games folder.",
-          "empty.err": "Failed to load /api/shop/sections — check console.",
+          "empty.err": "Failed to load /api/shop/sections. Check the console.",
           "status.loading": "Loading server data…",
           "status.serving": (n) => `Serving ${n.toLocaleString()} titles`,
           "status.empty": "Running · no games yet",
-          "status.timeout": "Timed out — server still building cache?",
+          "status.timeout": "Timed out. The server may still be building its cache",
           "status.error": (m) => "Error: " + m,
           "search.placeholder": "Search by name or title ID…",
           "pager.info": (a, b, total) => `${a}–${b} of ${total.toLocaleString()}`,
@@ -3743,14 +3748,33 @@
       }
 
       // ─── filter / sort / paginate ─────────────────────────────────────────
+      // A game kept as several base files (an XCI and an NSP, or an older dump) is one card.
+      // The highest version stands for it, then the newest file; the card sorts by the newest
+      // file of the title. The detail still offers every file.
+      const titleKeyOf = (r) => (r.item.baseTitleId || r.item.titleId || "").toUpperCase();
+      const baseRank = (a, b) => fileVersion(b.item) - fileVersion(a.item) || b.added - a.added || a.idx - b.idx;
+      function oneCardPerTitle(list) {
+        const groups = new Map();
+        for (const r of list) {
+          const key = titleKeyOf(r) || "#" + r.idx;
+          if (groups.has(key)) groups.get(key).push(r); else groups.set(key, [r]);
+        }
+        return [...groups.values()].map((group) => {
+          if (group.length === 1) return group[0];
+          const [best] = [...group].sort(baseRank);
+          return { ...best, added: Math.max(...group.map((r) => r.added)) };
+        });
+      }
+
       function visibleSet() {
-        const list = renderedItems.filter(r => {
+        const matched = renderedItems.filter(r => {
           if (r.kind !== state.kind) return false;
           if (state.genre && !(genreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || []).includes(state.genre)) return false;
           if (state.steam && scoreFor(r)?.label !== state.steam) return false;
           if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
+        const list = state.kind === "base" ? oneCardPerTitle(matched) : matched;
         list.sort((a, b) => {
           switch (state.sort) {
             case "name-desc":    return b.item.name.localeCompare(a.item.name);
@@ -4145,7 +4169,7 @@
       }
 
       function renderShowcase() {
-        const bases = renderedItems.filter((r) => r.kind === "base");
+        const bases = oneCardPerTitle(renderedItems.filter((r) => r.kind === "base"));
         heroSlides = buildHeroSlides(bases);
         setHeroSkeleton(false);
         $("hero").hidden = !heroSlides.length;
@@ -4686,17 +4710,22 @@
         };
       }
       // The facts card: labelled fields two to a row, then save (and restore, when there is an original).
-      // A `pair` field holds { ko, en } behind one input: the switch on top picks which one it shows,
-      // starting from the language the page is in, and what is typed in either is kept until saved.
+      // A `pair` field holds its text per language behind one input: the switch on top (a list, for more
+      // than two languages) picks which one it shows, starting from the language the page is in, and what
+      // is typed in any of them is kept until saved.
       const EDIT_LANGS = [["ko", "한국어"], ["en", "English"]];
-      function factsCard({ fields, save, reset = null }) {
+      // Every language a console client reads (meta/langs.js LANGS), each named in itself.
+      const CLIENT_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "简体中文"], ["zh-Hant", "繁體中文"], ["es", "Español"],
+        ["fr", "Français"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"], ["ru", "Русский"], ["nl", "Nederlands"]];
+      const textByLang = (v, langs) => Object.fromEntries(langs.map(([code]) => [code, v?.[code] ?? ""]));
+      function factsCard({ fields, save, reset = null, langs = EDIT_LANGS }) {
         const card = document.createElement("section"); card.className = "arted";
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("edit.facts") }), Object.assign(document.createElement("span"), { textContent: t("edit.hint") }));
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
         const pairs = fields.filter((f) => f.pair);
-        const typed = Object.fromEntries(pairs.map((f) => [f.name, { ko: f.value?.ko ?? "", en: f.value?.en ?? "" }]));
-        let editLang = lang === "ko" ? "ko" : "en";
+        const typed = Object.fromEntries(pairs.map((f) => [f.name, textByLang(f.value, langs)]));
+        let editLang = langs.some(([code]) => code === lang) ? lang : lang === "ko" ? "ko" : "en";
         const pairInput = (f) => form.elements.namedItem(f.name);
         const showLang = (next) => {
           for (const f of pairs) {
@@ -4710,9 +4739,14 @@
           for (const b of switcher?.querySelectorAll("button") ?? []) b.setAttribute("aria-pressed", String(b.dataset.lang === next));
         };
         let switcher = null;
-        if (pairs.length) {
+        if (pairs.length && langs.length > 2) {
+          switcher = document.createElement("select"); switcher.className = "ef-langs ef-langs-list"; switcher.setAttribute("aria-label", t("edit.lang"));
+          for (const [code, label] of langs) switcher.append(Object.assign(document.createElement("option"), { value: code, textContent: label, lang: code, selected: code === editLang }));
+          switcher.addEventListener("change", () => showLang(switcher.value));
+          head.append(switcher);
+        } else if (pairs.length) {
           switcher = document.createElement("div"); switcher.className = "ef-langs"; switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", t("edit.lang"));
-          for (const [code, label] of EDIT_LANGS) {
+          for (const [code, label] of langs) {
             const b = Object.assign(document.createElement("button"), { type: "button", textContent: label });
             b.dataset.lang = code; b.setAttribute("aria-pressed", String(code === editLang));
             b.addEventListener("click", () => { if (code !== editLang) showLang(code); });
@@ -4771,11 +4805,12 @@
         return card;
       }
       const pairOf = (v) => ({ ko: v?.ko ?? "", en: v?.en ?? "" });
-      // A game: its names, description and notes in Korean and English; empty ones fall back to titledb's.
+      // A game: its name, description and notes in each language a client reads; empty ones fall back to titledb's.
       async function gameFacts(baseId, changed, refill) {
         const d = await artJson(`/${baseId}/meta`);
-        const name = pairOf(d.name), desc = pairOf(d.description), notes = pairOf(d.notes);
+        const name = textByLang(d.name, CLIENT_LANGS), desc = textByLang(d.description, CLIENT_LANGS), notes = textByLang(d.notes, CLIENT_LANGS);
         return factsCard({
+          langs: CLIENT_LANGS,
           fields: [
             { name: "name", pair: true, label: t("edit.name"), value: name, placeholder: d.original?.name || "", wide: true },
             { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
@@ -4784,9 +4819,9 @@
           async save(v) {
             const body = { description: v.desc, notes: v.notes };
             // The name only when it changed: a new name rebuilds the whole list.
-            if (v.name.ko !== name.ko || v.name.en !== name.en) body.name = v.name;
+            if (CLIENT_LANGS.some(([code]) => v.name[code] !== name[code])) body.name = v.name;
             const next = await artJson(`/${baseId}/meta`, body);
-            Object.assign(name, pairOf(next.name));
+            Object.assign(name, textByLang(next.name, CLIENT_LANGS));
             changed();
           },
           reset: d.name || d.description || d.notes ? async () => { await artJson(`/${baseId}/meta/reset`, {}); changed(); refill(); } : null,
@@ -5918,7 +5953,7 @@
           genres: Array.isArray(td.categoryLabels) ? td.categoryLabels : (m.categories || []).map(genreLabel),
           release: fmtDate(td.releaseDate || m.release_date),
           players: fmtPlayers(Number(td.numberOfPlayers ?? m.players)),
-          baseSize: group.find((x) => x.kind === "base")?.size || (r.kind === "base" ? r.size : 0) || td.size || 0,
+          baseSize: (r.kind === "base" ? r.size : 0) || group.find((x) => x.kind === "base")?.size || td.size || 0,
           installSize: m.install_size || 0,
           firmware: td.requiredFirmware || m.required_firmware || "",
           rating: [td.rating != null ? String(td.rating) : "", (td.ratingContent || []).join(", ")].filter(Boolean).join(" · "),
@@ -5977,11 +6012,15 @@
           a.href = f.url || "#"; a.target = "_blank"; a.rel = "noopener";
           return a;
         };
-        const base = group.find((x) => x.kind === "base");
-        if (base) {
+        // A game kept as several base files offers each, the one its card stands for first.
+        const bases = group.filter((x) => x.kind === "base").sort(baseRank);
+        bases.forEach((base, i) => {
           const v = fileVersion(base.item);
-          rows.push(detailRow(link(base.item), { name: (base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips: [{ text: fmtVersion(v, versionName(base.item.titleId, v)) }, { text: t("install.required"), tone: "need" }], size: base.size, clamp: true }));
-        }
+          const chips = [{ text: fmtVersion(v, versionName(base.item.titleId, v)) },
+            ...(bases.length > 1 ? [{ text: fmtExt(base.item.url || base.item.name) }] : []),
+            ...(i === 0 ? [{ text: t("install.required"), tone: "need" }] : [])];
+          rows.push(detailRow(link(base.item), { name: (base.item.name || t("install.base")), tag: { kind: "base", text: t("install.tag.base") }, chips, size: base.size, clamp: true }));
+        });
         const update = group.filter((x) => x.kind === "update").sort((a, b) => fileVersion(b.item) - fileVersion(a.item))[0];
         if (update) {
           const v = fileVersion(update.item);

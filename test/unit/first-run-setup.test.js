@@ -164,6 +164,18 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
       assert.equal((await viaToken(url, { method: "POST", body: JSON.stringify({ chatId: "1" }) })).status, 403, url);
     }
     assert.equal((await viaToken("/admin/api/upload/%E0%A4%A", { method: "POST", body: "{}" })).status, 400, "a malformed encoding is refused");
+    // The trash: only a person empties it; a token lists it, restores from it and undoes a move.
+    for (const url of ["/admin/api/trash/empty", "/admin/api/Trash/Empty", "/admin/api/trash/empty/"]) {
+      assert.equal((await viaToken(url, { method: "POST", body: JSON.stringify({ all: true, confirm: "empty" }) })).status, 403, url);
+    }
+    assert.equal((await viaToken("/admin/api/trash")).status, 200, "the trash still lists");
+    const restored = await viaToken("/admin/api/trash/restore", { method: "POST", body: JSON.stringify({ ids: ["games|.cookingfoil-trash|2026-01-01/game-0123456789"] }) });
+    assert.equal(restored.status, 200, "restoring stays open");
+    assert.equal((await restored.json()).failed.length, 1);
+    assert.equal((await viaToken("/admin/api/trash/undo", { method: "POST", body: JSON.stringify({ id: "0123456789ab" }) })).status, 404, "undoing stays open");
+    assert.equal((await post("/admin/api/trash/empty", { all: true })).status, 400, "a person must say it is meant");
+    assert.equal((await post("/admin/api/trash/empty", { all: true, confirm: "empty" })).status, 400, "everything needs the version the person saw");
+    assert.equal((await post("/admin/api/trash/empty", { all: true, version: "0000000000000000", confirm: "empty" })).status, 409, "and a stale one is refused");
     assert.equal((await viaToken("/admin/api/client-release")).status, 200, "the release status still reads");
     assert.equal((await viaToken("/admin/api/devices")).status, 200, "reading stays open");
     for (const key of ["deviceApproval", "devicePairing", "publicBaseUrl", "publicDirectBaseUrl", "downloadLinkTtl", "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset"]) {
