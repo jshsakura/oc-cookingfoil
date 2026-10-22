@@ -383,7 +383,7 @@ test("an automation token cannot restart the server", async () => {
   assert.ok(TOKEN_BLOCKED_RE.test("/api/nsz/purge-kept"), "kept NSZ originals purged only by a person");
   assert.ok(!TOKEN_BLOCKED_RE.test("/api/retro-art/games/name"));
   const { TOKEN_LOCKED } = await import("../../src/routes/admin/server-settings-api.js");
-  assert.ok(TOKEN_LOCKED.includes("nszKeepHours") && TOKEN_LOCKED.includes("nszKeepGb"), "a token cannot shorten how long NSZ originals stay");
+  assert.ok(["nszKeepHours", "nszKeepGb", "nszDiskFloorGb"].every((k) => TOKEN_LOCKED.includes(k)), "a token cannot shorten how long NSZ originals stay");
   assert.ok(!TOKEN_BLOCKED_RE.test("/api/library/files"), "finding files stays open");
   assert.ok(!TOKEN_BLOCKED_RE.test("/api/library/rescan"));
 });

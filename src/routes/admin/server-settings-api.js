@@ -37,11 +37,12 @@ const OUTBOUND = ["titledbSource", "publicDirectBaseUrl", "retroPackUrl"];
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 // Who may sign in and how, the addresses consoles are sent to, and where the client build they
 // install comes from, and how long an original stays after NSZ conversion (a token setting it to 0
-// would delete each original as soon as it is converted): never changed with an automation token.
+// would delete each original as soon as it is converted, a high disk floor would purge every kept
+// one): never changed with an automation token.
 export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
-  "nszKeepHours", "nszKeepGb",
+  "nszKeepHours", "nszKeepGb", "nszDiskFloorGb",
 ];
 
 let fetching = null;
