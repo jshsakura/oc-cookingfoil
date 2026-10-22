@@ -39,6 +39,9 @@
  *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
  *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
  *                                                korean?: count, achievements?: count }; values no game has are left out
+ *   G.shortcutName                                the HOME menu name of its shortcut (the forwarder's NACP name):
+ *                                                the display name, then " · " and what tells it from the game's
+ *                                                other versions (한글 v2, 정발, 일본…) when there is more than one
  *   GET /api/retro/systems/:id/filters           { groups: [{ key, en, ko, ja, zh, pick, options: [{ key, …, count, params }] }], sorts }
  *                                                every filter its list can take (retro/filters.js); ETag
  *   /api/retro/games filters by facts too: genre=<key>[,<key>] (genres and play styles), decade=1990[,…],
@@ -157,7 +160,8 @@ import * as metaEdits from "../retro/meta/edits.js";
 import { metaKey } from "../retro/meta/build.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
 import { menuRows, pickMenu, rowIcon, MENU_GAMES } from "../retro/menu.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
+import { displayName, ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, shortcutName } from "../retro/forwarder.js";
+import { versionLabels } from "../retro/shortcut-name.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 const PAGE_MAX = 200;
@@ -245,7 +249,19 @@ const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
 /** What the forwarder module needs to know about a game. */
-function forwarderGame(g, system) {
+/** What tells `g` from the other versions of its game on the HOME menu, or null (retro/shortcut-name.js). */
+function versionLabelOf(cat, g) {
+  const group = cat ? groupOf(cat, g) : null;
+  if (!group || group.members.length < 2) return null;
+  return versionLabels(group.members.map((m) => {
+    const parts = titleOf(m, "ko");
+    // "(USA)", "(Japan) (Rev 1)": what the HOME name drops, read when the [tags] say nothing.
+    const rest = m.name.slice(displayName(m.name).length).trim();
+    return { id: m.id, parts: { ...parts, region: parts.region ?? regionOf(rest), variant: parts.variant || rest } };
+  })).get(g.id) ?? null;
+}
+
+function forwarderGame(g, system, cat = null) {
   return {
     id: g.id,
     // A name the admin gave wins over the file's, as in the list; a ScummVM game,
@@ -257,6 +273,7 @@ function forwarderGame(g, system) {
     artKey: artKey(g),
     publisher: `RetroArch · ${system.names?.ko ?? system.name ?? g.system}`,
     icon: squarePath(artDir, g, "md"),
+    versionLabel: versionLabelOf(cat, g),
   };
 }
 
@@ -272,7 +289,7 @@ export async function rebuildRetroShortcut(gameId) {
     const system = g && state.systems[g.system];
     if (!system) return null;
     await ensureSquare(artDir, g, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system), keysDir());
+    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system, state), keysDir());
     if (built) debug.log("retro: shortcut for %s built again", gameId);
     return built;
   } catch (err) {
@@ -282,16 +299,18 @@ export async function rebuildRetroShortcut(gameId) {
 }
 
 /** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
-function forwarderFields(g, system, base, link) {
-  const spec = forwardersAvailable(keysDir()) ? forwarderSpec(forwarderGame(g, system)) : null;
-  if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null };
+function forwarderFields(g, system, base, link, cat) {
+  const game = forwarderGame(g, system, cat);
+  const shortcut = { shortcutName: shortcutName(game) };
+  const spec = forwardersAvailable(keysDir()) ? forwarderSpec(game) : null;
+  if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null, ...shortcut };
   let size = null;
   try {
     size = fs.statSync(forwarderPath(forwarderDir, g.id, spec)).size;
   } catch {
     // not built yet; the first download builds it
   }
-  return { forwarderUrl: directUrl(`${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size };
+  return { forwarderUrl: directUrl(`${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size, ...shortcut };
 }
 
 /** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
@@ -460,7 +479,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...withDirect("romUrl", `${base}/rom`, link),
     ...withDirect("bundleUrl", `${base}/bundle`, link),
     bezel: bezelFields(g, paths, base, link),
-    ...forwarderFields(g, system, base, link),
+    ...forwarderFields(g, system, base, link, cat),
     install: {
       rom: paths.rom,
       extras: g.extras.map((x) => paths.extra(x.rel)),
@@ -854,7 +873,7 @@ export default function retroRouter() {
     if (!forwardersAvailable(keysDir())) return res.status(404).json({ error: "forwarders are not available on this server" });
     const { game, system } = req.retro;
     await ensureSquare(artDir, game, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system), keysDir());
+    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system, req.retro.cat), keysDir());
     if (!built) return res.status(404).json({ error: "this game can't have a forwarder" });
     res.attachment(`${built.spec.name}.nsp`);
     res.set("X-Forwarder-Title-Id", built.spec.titleId);

@@ -551,9 +551,14 @@ test("with keys and hacBrewPack, each game offers its HOME-menu forwarder", asyn
   fs.writeFileSync(bin, '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in --titleid) t="$2"; shift ;; --nspdir) n="$2"; shift ;; esac; shift; done\nmkdir -p "$n" && echo NSP > "$n/$t.nsp"\n', { mode: 0o755 });
   fs.mkdirSync(path.join(tools, "keys"));
   fs.writeFileSync(path.join(tools, "keys", "prod.keys"), `header_key = ${"ab".repeat(32)}\n`);
+  put(dir, "roms/snes/Super Mario World (Japan).sfc", "SMWJ");
   const server = await boot(dir, { COOK_HACBREWPACK_BIN: bin, COOK_KEYS_DIR: path.join(tools, "keys") });
   try {
     const smw = (await (await get("/api/retro/games?q=mario")).json()).games[0];
+    // Two versions of one game: each HOME shortcut says which it is, and the reply carries that name.
+    const names = await Promise.all((await (await get(`/api/retro/games/${smw.id}`)).json()).variants.map(async (v) => (await (await get(`/api/retro/games/${v.id}`)).json()).shortcutName));
+    assert.deepEqual(names.sort(), ["Super Mario World · 북미", "Super Mario World · 일본"]);
+    assert.equal((await (await get("/api/retro/games?q=chrono")).json()).games[0].shortcutName, "Chrono Trigger", "a lone version keeps its plain name");
     assert.equal(smw.forwarderUrl, `/api/retro/games/${smw.id}/forwarder.nsp`);
     assert.match(smw.forwarderTitleId, /^05[0-9A-F]{11}000$/);
     const nsp = await get(smw.forwarderUrl);
