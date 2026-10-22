@@ -218,7 +218,11 @@ const base = baseRef();
 // The base is read with its own exemptions, so text this branch exempts shows as gone, not as never there.
 const baseExempt = base ? readDataLiteralsAt(base) : [];
 const baseResults = base ? scanRef(base, baseExempt) : null;
-const fresh = baseResults ? newSince(results, baseResults) : null;
+// An untranslated markdown doc counts every Korean line, so editing a line reads as a new string.
+// Its line-count ceiling still holds it; the merge-base comparison leaves it out until it is translated.
+const files = new Set(results.map((r) => r.file));
+const untranslatedDoc = (file) => file.endsWith(".md") && !files.has(file.replace(/\.md$/, ".en.md"));
+const fresh = baseResults ? newSince(results, baseResults).filter((f) => !untranslatedDoc(f.file)) : null;
 const NO_BASE = "No merge base with origin/main (a shallow clone?): only the per-file counts were compared, so a string swapped for another is not caught here.";
 const hints = renameHints(counts, ceilings, new Set(results.map((r) => r.file)));
 const RENAME = hints.length ? `\nIf a file was renamed or split, move its ceiling instead of editing the JSON:\n  ${hints.join("\n  ")}` : "";
