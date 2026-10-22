@@ -240,7 +240,25 @@ h3.sub-h{margin:18px 0 4px;font-size:15px}
 .fgames img{width:40px;height:40px;border-radius:10px;flex:none;background:var(--line)}
 .fgames .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fgames button{padding:4px 9px}
-.fadd{display:flex}.fadd input{flex:1;min-width:0}
+.fp-toggle{margin:0 0 10px}
+.fp{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--sunk)}
+.fp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.fp-bar .fp-q{flex:1 1 220px;min-width:0}
+.fp-bar label.check{display:inline-flex;align-items:center;gap:6px;margin:0}
+.fp-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+.fp-list label{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:0;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;min-width:0}
+.fp-list label.on{border-color:var(--good);box-shadow:inset 0 0 0 1px var(--good)}
+.fp-list input{flex:none;width:18px;height:18px;margin:0}
+.fp-list img{width:36px;height:36px;border-radius:9px;flex:none;background:var(--line);object-fit:cover}
+.fp-list .fp-t{flex:1;min-width:0;display:grid;gap:1px}
+.fp-list .fp-n,.fp-list .fp-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-list .fp-n{font-weight:600}
+.fp-list .fp-s{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.fp-pager{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.fp-pager .fp-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.fp-note{color:var(--muted);padding:8px 2px}
+.fp-detail{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px}
+.fp-detail label{flex:1 1 200px;min-width:0}
 h2.first{margin-top:0}
 .note .note-go{margin-top:10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
@@ -532,10 +550,10 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-featured" hidden>
-  <div class="hd"><h2>추천</h2>
-    <div class="actions"><button type="button" id="f-add">추천 줄 추가</button>
+  <div class="hd"><h2 data-top="fp.h">추천</h2>
+    <div class="actions"><button type="button" id="f-add" data-top="fp.addRow">추천 줄 추가</button>
     <button type="button" class="primary" id="f-save">저장</button></div></div>
-  <p class="muted">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
+  <p class="muted" data-top="fp.lead">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
   <div id="f-list"></div>
 </section>
 
@@ -564,7 +582,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <h2 class="first">게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
-    <label>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="gd-game" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
+    <label><span data-top="gp.find">게임 (이름이나 타이틀 ID 로 찾습니다)</span><input id="gd-game" autocomplete="off" data-top-ph="gp.ph" placeholder="게임 이름이나 타이틀 ID 일부로 찾습니다"></label>
     <div id="gd-body" hidden>
       <h3>이름</h3>
       <p class="muted" id="gd-name-original"></p>
@@ -577,6 +595,10 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
       <p class="muted" id="gd-original"></p>
       <label>한국어<textarea id="gd-ko" maxlength="2000"></textarea></label>
       <label>영어 (다른 언어의 기본값)<textarea id="gd-en" maxlength="2000"></textarea></label>
+      <h3 data-top="fp.detailH">홈 추천</h3>
+      <div class="fp-detail"><label><span data-top="fp.detailRow">넣을 줄</span><select id="gd-feat-row"></select></label>
+        <label id="gd-feat-title-l" hidden><span data-top="fp.newTitle">새 줄 제목</span><input id="gd-feat-title" maxlength="40" autocomplete="off"></label>
+        <button type="button" id="gd-feat-go" data-top="fp.addTo">추천에 넣기</button></div>
       <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
     </div>
   </form>
@@ -662,7 +684,7 @@ ${NSZ_HTML}
   <form class="up" id="up-form" hidden>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
     <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
-    <label id="up-game-l" hidden>게임 (이름이나 타이틀 ID 로 찾습니다)<input id="up-game" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"></label>
+    <label id="up-game-l" hidden><span data-top="gp.find">게임 (이름이나 타이틀 ID 로 찾습니다)</span><input id="up-game" autocomplete="off" data-top-ph="gp.ph" placeholder="게임 이름이나 타이틀 ID 일부로 찾습니다"></label>
     <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
     <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
     <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>

@@ -1,5 +1,6 @@
 // The admin page's top area (brand, the six-group nav, the sub-page row and the account menu) in the
-// language the web page uses. The panels below stay Korean for now.
+// language the web page uses, and the panels already translated (upload, home picks, the game pickers).
+// The other panels stay Korean for now.
 
 export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"]];
 
@@ -38,7 +39,8 @@ export const TOP_WORDS = {
     "u.guessAmbig": "읽은 종류: 레트로. 이 확장자는 여러 기종이 씁니다. 기종을 고릅니다.",
     "u.change": "바꾸기",
     "u.fold": "접기",
-    "gp.ph": "게임 이름이나 타이틀 ID 로 찾습니다", "gp.label": "추가할 게임", "gp.added": "추가됨", "gp.already": "이미 들어 있습니다.", "gp.none": "맞는 게임이 없습니다.", "gp.more": "{n}개가 더 있습니다. 더 입력해 좁힙니다.",
+    "gp.ph": "게임 이름이나 타이틀 ID 일부로 찾습니다", "gp.find": "게임 (이름이나 타이틀 ID 로 찾습니다)", "gp.move": "다른 게임으로 옮기기", "gp.moveGo": "옮기기", "gp.added": "추가됨", "gp.already": "이미 들어 있습니다.", "gp.none": "맞는 게임이 없습니다.", "gp.more": "{n}개가 더 있습니다. 더 입력해 좁힙니다.", "gp.current": "지금 값", "gp.edited": "직접 씀",
+    "fp.h": "추천", "fp.addRow": "추천 줄 추가", "fp.save": "저장", "fp.saveDirty": "저장 (바뀜)", "fp.lead": "CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.", "fp.empty": "아직 추천 줄이 없습니다. 추천 줄 추가를 누릅니다.", "fp.rowTitle": "줄 제목 (예: 이번 주 추천)", "fp.rowTitleAria": "줄 제목", "fp.banner": "배너", "fp.noBanner": "배너 없음", "fp.bannerOf": "배너: {name}", "fp.remove": "빼기", "fp.delRow": "줄 삭제", "fp.delAsk": "\"{title}\" 줄을 삭제합니다.", "fp.untitled": "제목 없음", "fp.up": "위로 옮기기", "fp.down": "아래로 옮기기", "fp.saved": "추천을 저장했습니다.", "fp.open": "게임 목록 열기 (추천 {n}개)", "fp.close": "게임 목록 닫기 (추천 {n}개)", "fp.q": "목록에서 찾기 (이름이나 타이틀 ID 일부)", "fp.qAria": "게임 목록에서 찾기", "fp.list": "게임 목록", "fp.sort": "정렬", "fp.byName": "이름순", "fp.byRecent": "최근 추가순", "fp.only": "추천한 것만", "fp.page": "{from}-{to} / 전체 {total}개", "fp.prev": "이전", "fp.next": "다음", "fp.full": "한 줄에는 게임을 {n}개까지 넣습니다.", "fp.detailH": "홈 추천", "fp.detailRow": "넣을 줄", "fp.newRow": "새 줄 만들기", "fp.newTitle": "새 줄 제목", "fp.addTo": "추천에 넣기", "fp.inRow": "{title} (이미 들어 있습니다)", "fp.addedOk": "추천에 넣었습니다.", "fp.addedDirty": "추천 탭에 넣었습니다. 추천 탭에서 저장합니다.", "fp.needTitle": "새 줄 제목을 씁니다.",
     "u.kindsAria": "올릴 곳",
     "u.grpSwitch": "스위치",
     "u.grpRetro": "레트로 기종",
@@ -175,7 +177,8 @@ export const TOP_WORDS = {
     "u.guessAmbig": "Detected kind: retro. Several consoles use this extension. Choose the console.",
     "u.change": "Change",
     "u.fold": "Close",
-    "gp.ph": "Search by game name or title ID", "gp.label": "Game to add", "gp.added": "Added", "gp.already": "Already in this row.", "gp.none": "No game matches.", "gp.more": "{n} more. Keep typing to narrow it down.",
+    "gp.ph": "Search by game name or part of the title ID", "gp.find": "Game (find it by name or title ID)", "gp.move": "Move to another game", "gp.moveGo": "Move", "gp.added": "Added", "gp.already": "Already in this row.", "gp.none": "No game matches.", "gp.more": "{n} more. Keep typing to narrow it down.", "gp.current": "Current", "gp.edited": "Edited",
+    "fp.h": "Home picks", "fp.addRow": "Add a row", "fp.save": "Save", "fp.saveDirty": "Save (changed)", "fp.lead": "These rows appear at the top of the CookingFoil client's home, in this order. Rows without games are not sent. Saved changes reach the client the next time it loads the list.", "fp.empty": "No rows yet. Press Add a row.", "fp.rowTitle": "Row title (e.g. This week's picks)", "fp.rowTitleAria": "Row title", "fp.banner": "Banner", "fp.noBanner": "No banner", "fp.bannerOf": "Banner: {name}", "fp.remove": "Remove", "fp.delRow": "Delete row", "fp.delAsk": "Deletes the row \"{title}\".", "fp.untitled": "Untitled", "fp.up": "Move up", "fp.down": "Move down", "fp.saved": "Home picks saved.", "fp.open": "Open the game list ({n} picked)", "fp.close": "Close the game list ({n} picked)", "fp.q": "Filter the list (name or part of the title ID)", "fp.qAria": "Search the game list", "fp.list": "Game list", "fp.sort": "Sort", "fp.byName": "By name", "fp.byRecent": "Recently added", "fp.only": "Picked only", "fp.page": "{from}-{to} of {total}", "fp.prev": "Previous", "fp.next": "Next", "fp.full": "A row holds up to {n} games.", "fp.detailH": "Home picks", "fp.detailRow": "Row", "fp.newRow": "New row", "fp.newTitle": "New row title", "fp.addTo": "Add to home picks", "fp.inRow": "{title} (already in it)", "fp.addedOk": "Added to home picks.", "fp.addedDirty": "Added in the Home picks tab. Save it there.", "fp.needTitle": "Write a title for the new row.",
     "u.kindsAria": "Where to upload",
     "u.grpSwitch": "Switch",
     "u.grpRetro": "Retro consoles",
@@ -312,7 +315,8 @@ export const TOP_WORDS = {
     "u.guessAmbig": "読み取った種類: レトロ。この拡張子は複数の機種が使います。機種を選びます。",
     "u.change": "変更",
     "u.fold": "閉じる",
-    "gp.ph": "ゲーム名かタイトル ID で探します", "gp.label": "追加するゲーム", "gp.added": "追加済み", "gp.already": "すでに入っています。", "gp.none": "一致するゲームがありません。", "gp.more": "ほかに {n} 件あります。続けて入力して絞り込みます。",
+    "gp.ph": "ゲーム名かタイトル ID の一部で探します", "gp.find": "ゲーム（名前かタイトル ID で探します）", "gp.move": "別のゲームへ移す", "gp.moveGo": "移す", "gp.added": "追加済み", "gp.already": "すでに入っています。", "gp.none": "一致するゲームがありません。", "gp.more": "ほかに {n} 件あります。続けて入力して絞り込みます。", "gp.current": "現在の値", "gp.edited": "手動で編集",
+    "fp.h": "おすすめ", "fp.addRow": "行を追加", "fp.save": "保存", "fp.saveDirty": "保存（変更あり）", "fp.lead": "CookingFoil クライアントのホーム最上部にこの順で行が出ます。ゲームのない行は送りません。保存すると、クライアントが次に一覧を受け取るときに反映されます。", "fp.empty": "まだ行がありません。「行を追加」を押します。", "fp.rowTitle": "行のタイトル（例: 今週のおすすめ）", "fp.rowTitleAria": "行のタイトル", "fp.banner": "バナー", "fp.noBanner": "バナーなし", "fp.bannerOf": "バナー: {name}", "fp.remove": "外す", "fp.delRow": "行を削除", "fp.delAsk": "「{title}」の行を削除します。", "fp.untitled": "無題", "fp.up": "上へ移動", "fp.down": "下へ移動", "fp.saved": "おすすめを保存しました。", "fp.open": "ゲーム一覧を開く（おすすめ {n} 件）", "fp.close": "ゲーム一覧を閉じる（おすすめ {n} 件）", "fp.q": "一覧を絞り込む（名前かタイトル ID の一部）", "fp.qAria": "ゲーム一覧を検索", "fp.list": "ゲーム一覧", "fp.sort": "並べ替え", "fp.byName": "名前順", "fp.byRecent": "追加が新しい順", "fp.only": "おすすめのみ", "fp.page": "{from}-{to} / 全 {total} 件", "fp.prev": "前へ", "fp.next": "次へ", "fp.full": "1 行に入るゲームは {n} 件までです。", "fp.detailH": "ホームのおすすめ", "fp.detailRow": "入れる行", "fp.newRow": "新しい行を作る", "fp.newTitle": "新しい行のタイトル", "fp.addTo": "おすすめに入れる", "fp.inRow": "{title}（すでに入っています）", "fp.addedOk": "おすすめに入れました。", "fp.addedDirty": "おすすめタブに入れました。おすすめタブで保存します。", "fp.needTitle": "新しい行のタイトルを書きます。",
     "u.kindsAria": "置き場所",
     "u.grpSwitch": "Switch",
     "u.grpRetro": "レトロ機種",
@@ -449,7 +453,8 @@ export const TOP_WORDS = {
     "u.guessAmbig": "识别的类型：复古。多个机种使用这个扩展名，请选择机种。",
     "u.change": "更改",
     "u.fold": "收起",
-    "gp.ph": "按游戏名称或 Title ID 查找", "gp.label": "要添加的游戏", "gp.added": "已添加", "gp.already": "已在这一行中。", "gp.none": "没有匹配的游戏。", "gp.more": "还有 {n} 个结果。继续输入以缩小范围。",
+    "gp.ph": "按游戏名称或部分 Title ID 查找", "gp.find": "游戏（按名称或 Title ID 查找）", "gp.move": "移到其他游戏", "gp.moveGo": "移动", "gp.added": "已添加", "gp.already": "已在这一行中。", "gp.none": "没有匹配的游戏。", "gp.more": "还有 {n} 个结果。继续输入以缩小范围。", "gp.current": "当前值", "gp.edited": "已手动编辑",
+    "fp.h": "推荐", "fp.addRow": "添加一行", "fp.save": "保存", "fp.saveDirty": "保存（已更改）", "fp.lead": "这些行按此顺序显示在 CookingFoil 客户端主页顶部。没有游戏的行不会发送。保存后，客户端下次获取列表时生效。", "fp.empty": "还没有推荐行。请按“添加一行”。", "fp.rowTitle": "行标题（例如：本周推荐）", "fp.rowTitleAria": "行标题", "fp.banner": "横幅", "fp.noBanner": "无横幅", "fp.bannerOf": "横幅：{name}", "fp.remove": "移除", "fp.delRow": "删除行", "fp.delAsk": "删除“{title}”行。", "fp.untitled": "无标题", "fp.up": "上移", "fp.down": "下移", "fp.saved": "推荐已保存。", "fp.open": "打开游戏列表（已推荐 {n} 个）", "fp.close": "关闭游戏列表（已推荐 {n} 个）", "fp.q": "筛选列表（名称或部分 Title ID）", "fp.qAria": "搜索游戏列表", "fp.list": "游戏列表", "fp.sort": "排序", "fp.byName": "按名称", "fp.byRecent": "最近添加", "fp.only": "仅已推荐", "fp.page": "{from}-{to} / 共 {total} 个", "fp.prev": "上一页", "fp.next": "下一页", "fp.full": "每行最多放 {n} 个游戏。", "fp.detailH": "首页推荐", "fp.detailRow": "目标行", "fp.newRow": "新建一行", "fp.newTitle": "新行标题", "fp.addTo": "加入推荐", "fp.inRow": "{title}（已在其中）", "fp.addedOk": "已加入推荐。", "fp.addedDirty": "已加入推荐标签页，请在那里保存。", "fp.needTitle": "请填写新行标题。",
     "u.kindsAria": "上传位置",
     "u.grpSwitch": "Switch",
     "u.grpRetro": "复古机种",
@@ -592,11 +597,12 @@ function applyTopI18n(relabelActivity=true){
   document.title=topText('title');
   for(const el of document.querySelectorAll('[data-top]'))el.textContent=topText(el.dataset.top);
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
+  for(const el of document.querySelectorAll('[data-top-ph]'))el.placeholder=topText(el.dataset.topPh);
   const who=document.getElementById('who');if(who&&Object.values(topWords).some((w)=>w.loading===who.textContent))who.textContent=topText('loading');
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}

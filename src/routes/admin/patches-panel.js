@@ -43,7 +43,7 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <div class="ct-pair" data-for="save"><label>게임 버전<input id="ct-game-version" maxlength="40"></label>
       <label>세이브 종류<select id="ct-save-type"><option value="">가리지 않습니다</option><option value="device">기기 공용 세이브</option><option value="account">계정별 세이브</option></select></label></div>
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
-    <label data-game>다른 게임으로 옮기기<span class="ct-move"><input id="ct-move" autocomplete="off" placeholder="게임 이름이나 16자리 타이틀 ID"><button type="button" id="ct-move-go">옮기기</button></span></label>
+    <label data-game><span data-top="gp.move">다른 게임으로 옮기기</span><span class="ct-move"><input id="ct-move" autocomplete="off" data-top-ph="gp.ph" placeholder="게임 이름이나 타이틀 ID 일부로 찾습니다"><button type="button" id="ct-move-go" data-top="gp.moveGo">옮기기</button></span></label>
     <div class="dialog-actions">
       <button type="button" class="danger" id="ct-remove" data-game>삭제</button>
       <button type="button" id="ct-close">닫기</button>
