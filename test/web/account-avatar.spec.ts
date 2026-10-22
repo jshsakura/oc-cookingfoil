@@ -18,3 +18,22 @@ for (const where of ['/', '/admin']) {
     await button.screenshot({ path: test.info().outputPath('avatar.png') });
   });
 }
+
+// A reload puts the remembered picture on at once instead of the icon first; the account's answer then confirms or clears it.
+for (const [where, answer] of [['/', '**/auth/me'], ['/admin', '**/admin/api/stats']] as const) {
+  test(`a reload shows the remembered picture before the account answers (${where})`, async ({ page }) => {
+    await signIn(page);
+    await page.goto(where);
+    await page.evaluate((src) => (window as any).acctAvatar(src), PNG);
+    let release: () => void = () => {};
+    const held = new Promise<void>((r) => { release = r; });
+    await page.route(answer, async (route) => { await held; await route.continue(); });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const button = page.locator('#acct-btn');
+    await expect(button.locator('img.acct-avatar')).toBeVisible();
+    release();
+    // This test account has no picture of its own, so the answer takes the remembered one off.
+    await expect(button.locator('svg').first()).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('cf.acct-avatar'))).toBeNull();
+  });
+}

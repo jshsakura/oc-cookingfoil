@@ -206,9 +206,22 @@ const activityMenu={apply:actApply,setLive(on){actSetLive(on);if(on){clearInterv
   try{const r=await fetch('/admin/api/activity/access',{headers:{Accept:'application/json'}});actCanCancel=r.ok&&Boolean((await r.json()).canCancel);actRender();}catch{}
 }};
 // A signed-in Google account wears its Gravatar on the account button; with none, the icon stays.
-function acctAvatar(url){if(!url)return;const b=document.getElementById('acct-btn');const svg=b?.querySelector('svg');if(!svg)return;
+// The last picture is remembered in this browser and put on at once, so a reload doesn't show the
+// plain icon first and swap it a moment later; the account's answer then confirms or clears it.
+const ACCT_AVATAR_KEY='cf.acct-avatar';
+let acctIcon=null;
+function acctPut(url){const b=document.getElementById('acct-btn');if(!b)return;
+  acctIcon??=b.querySelector('svg');const cur=b.querySelector('img.acct-avatar');
+  if(!url){if(cur&&acctIcon)cur.replaceWith(acctIcon);return;}
+  if(cur){if(cur.getAttribute('src')!==url)cur.src=url;return;}
+  if(!acctIcon)return;
   const img=new Image();img.className='acct-avatar';img.alt='';img.referrerPolicy='no-referrer';img.decoding='async';
-  img.onload=()=>{if(svg.isConnected)svg.replaceWith(img);};img.src=url;}
+  img.onerror=()=>{if(img.isConnected&&acctIcon)img.replaceWith(acctIcon);};
+  img.src=url;acctIcon.replaceWith(img);}
+function acctAvatar(url){
+  try{if(url)localStorage.setItem(ACCT_AVATAR_KEY,url);else localStorage.removeItem(ACCT_AVATAR_KEY);}catch{}
+  acctPut(url||null);}
+try{acctPut(localStorage.getItem(ACCT_AVATAR_KEY));}catch{}
 actRender();actSetLive(false);
 ${web ? "actFallback();" : "actConnect();"}
 `;
