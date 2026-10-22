@@ -337,7 +337,8 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   const idle=Number($('dev-idle').value)||0;
   // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
   const whose=(a)=>a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'');
-  const unused=(a)=>!idle||(a.idleSince!=null&&Date.now()-a.idleSince>=idle*DAY_MS);
+  // A console with no record has been idle at least since the server began keeping history.
+  const unused=(a)=>{if(!idle)return true;const from=a.idleSince??devicesShown.activitySince;return from!=null&&Date.now()-from>=idle*DAY_MS;};
   const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
   const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
   const devRows=(slice)=>{const rows=[];let group=null;

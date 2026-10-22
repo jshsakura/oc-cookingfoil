@@ -176,7 +176,7 @@ function mountGoogle(router) {
     if (who.error) return fail(who.error);
     const account = accounts.signIn(who);
     if (!account) return fail("account limit reached");
-    store.recordLogin(`google:${account.sub}`, "google");
+    if (account.status === "approved") store.recordLogin(`google:${account.sub}`, "google");
     if (account.status === "pending" && account.createdAt === account.lastAt) debug.log("google sign-in: a new account is waiting for approval");
     issueUserSession(req, res, account.sub);
     // A pending account lands back on /login, which says it is waiting.
