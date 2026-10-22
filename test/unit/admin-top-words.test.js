@@ -39,3 +39,11 @@ test("every pre-existing admin page hash still has its section", () => {
     assert.match(html, new RegExp(`href="#${tab}" data-tab="${tab}"`), `menu link for ${tab}`);
   }
 });
+
+test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {
+  for (const [code] of TOP_LANGS) {
+    const text = TOP_WORDS[code]["sc.shadowed"];
+    for (const part of ["{alias}", "{canonical}", "{system}", "thumbnails/", "bezels/"]) assert.ok(text.includes(part), `${code} has ${part}`);
+  }
+  assert.match(TOP_WORDS.ko["sc.shadowed"], /합니다\.$|습니다\.$|옮깁니다\.$/);
+});

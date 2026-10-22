@@ -283,21 +283,45 @@ export function systemOfExtension(ext, systems) {
   return hits.length === 1 ? hits[0][0] : null;
 }
 
-/** Whether roms/<folder> holds anything but dot files. */
+// What an OS leaves in a folder it has shown (dot files such as .DS_Store aside): never a game.
+const OS_LITTER = new Set(["thumbs.db", "desktop.ini", "ehthumbs.db"]);
+
+/** Whether roms/<folder> holds anything but dot files and OS litter; reads only up to the first such entry. */
 function hasEntries(retroDir, folder) {
+  let dir;
   try {
-    return fs.readdirSync(path.join(retroDir, "roms", folder)).some((n) => !n.startsWith("."));
+    dir = fs.opendirSync(path.join(retroDir, "roms", folder));
+    for (let e = dir.readSync(); e; e = dir.readSync()) {
+      if (!e.name.startsWith(".") && !OS_LITTER.has(e.name.toLowerCase())) return true;
+    }
+    return false;
   } catch {
     return false;
+  } finally {
+    dir?.closeSync();
   }
 }
 
-/** Folders under roms/ that no system reads, by name. A built-in system's own folder left empty for a look-alike is not one. */
-export function unreadFolders(retroDir, systems) {
+/**
+ * Folders under roms/ that no system reads, each with why: { folder, system, by }. `system` and `by` are set
+ * when the folder is a look-alike of a system whose read folder `by` already holds files (withFoundFolders
+ * keeps that one); both are null when no system answers to the name. A built-in system's own folder left
+ * empty for a look-alike is not listed.
+ */
+export function unreadReasons(retroDir, systems) {
   const read = new Set(Object.values(systems).map((s) => s.folder));
   const own = new Set(Object.values(DEFAULT_SYSTEMS).map((s) => s.folder));
-  return romFolders(retroDir).filter((f) => !read.has(f) && !(own.has(f) && !hasEntries(retroDir, f)));
+  return romFolders(retroDir)
+    .filter((f) => !read.has(f) && !(own.has(f) && !hasEntries(retroDir, f)))
+    .map((folder) => {
+      const system = systemOfFolder(folder, systems);
+      const by = system ? systems[system].folder : null;
+      return by && by !== folder && hasEntries(retroDir, by) ? { folder, system, by } : { folder, system: null, by: null };
+    });
 }
+
+/** Folders under roms/ that no system reads, by name (unreadReasons without the reasons). */
+export const unreadFolders = (retroDir, systems) => unreadReasons(retroDir, systems).map((r) => r.folder);
 
 /** A folder name an operator gave, or null when it isn't one plain name. Pure. */
 export function folderName(value) {

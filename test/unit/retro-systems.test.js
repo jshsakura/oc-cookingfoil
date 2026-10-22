@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_SYSTEMS, loadSystems, folderKeys, unreadFolders } from "../../src/retro/systems.js";
+import { DEFAULT_SYSTEMS, loadSystems, folderKeys, unreadFolders, unreadReasons } from "../../src/retro/systems.js";
 import { scanDir, visibleSystems } from "../../src/retro/catalog.js";
 import { BEZEL_SOURCES } from "../../src/retro/art/sources.js";
 import { PLATFORMS } from "../../src/retro/art/titles.js";
@@ -183,6 +183,10 @@ test("the system's own folder wins over a look-alike, which is then reported unr
     const s = loadSystems(root);
     assert.equal(s.snes.folder, "snes");
     assert.deepEqual(unreadFolders(root, s), ["My Hacks", "SNES"]);
+    assert.deepEqual(unreadReasons(root, s), [
+      { folder: "My Hacks", system: null, by: null },
+      { folder: "SNES", system: "snes", by: "snes" },
+    ], "SNES is a known system's look-alike, held back by the folder that already has its games");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -200,6 +204,25 @@ test("an empty own folder gives way to a look-alike holding games; an empty look
     assert.equal(s.snes.folder, "SNES", "a folder with only dot files counts as empty");
     assert.equal(s.gba.folder, "gba", "both empty: the own folder stays");
     assert.deepEqual(unreadFolders(root, s), ["Nintendo - Game Boy Advance"], "the empty snes is not reported unread");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an own folder holding only OS litter (Thumbs.db, desktop.ini, dot files) counts as empty", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-alias-"));
+  try {
+    put(root, "roms/snes/Thumbs.db");
+    put(root, "roms/snes/desktop.ini");
+    put(root, "roms/snes/.DS_Store");
+    put(root, "roms/SNES/a.sfc");
+    put(root, "roms/gba/THUMBS.DB");
+    put(root, "roms/gba/real.gba");
+    put(root, "roms/GBA/b.gba");
+    const s = loadSystems(root);
+    assert.equal(s.snes.folder, "SNES", "litter is not a game");
+    assert.equal(s.gba.folder, "gba", "a real file next to the litter keeps the own folder");
+    assert.deepEqual(unreadFolders(root, s), ["GBA"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

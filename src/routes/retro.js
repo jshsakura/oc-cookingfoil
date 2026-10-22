@@ -13,6 +13,7 @@
  *                       total counts what the filters left)
  *                       &variants=all                every file, as before versions were grouped (old clients, admin)
  *                                                { total, page, pageSize, games: [G…] }  (search= is q's old name)
+ *                                                no-store and no ETag while rom_hash is still being worked out after a scan
  *   GET /api/retro/index?page=&pageSize=         { version, total, page, pageSize, games: [I…] }: every version of every listed
  *                                                game, ordered by id, 500 a page (the most), gzipped when asked, ETag/304.
  *                                                version (16 hex) names the whole list: a page with another one means the
@@ -776,14 +777,18 @@ export default function retroRouter() {
       .sort(sort);
     const link = forRequest(req);
     const voter = itemVotes.voterOf(req);
-    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
-    res.json({
+    const body = {
       labels: RETRO_LABELS,
       total: matches.length,
       page,
       pageSize,
       games: matches.slice((page - 1) * pageSize, page * pageSize).map((g) => publicGame(g, cat.systems, requestLang(req), { cat, link, voter })),
-    });
+    };
+    res.set("Vary", "Accept-Language");
+    // While rom_hash is still being worked out the list is partial: never cached,
+    // and no ETag (end() skips Express's own), so a console asks again for the full one.
+    if (romHashes.pending()) return res.set("Cache-Control", "no-store").type("json").end(JSON.stringify(body));
+    res.set("Cache-Control", "private, max-age=0, must-revalidate").json(body);
   }));
 
   router.get("/index", wrap(async (req, res) => {

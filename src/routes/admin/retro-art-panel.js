@@ -205,7 +205,7 @@ async function loadRetroArt(){
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
   const j=raData.job;
   $('ra-sync').disabled=Boolean(j&&!j.finishedAt);$('ra-gh').hidden=raData.github!==false;
-  raBios(raData.bios||[],raData.unread||[],raData.pack);
+  raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);
   $('ra-job').textContent=!j?'':!j.finishedAt?'받고 있습니다'+(j.progress?' · '+j.progress.system+' ('+(j.progress.index+1)+'/'+j.progress.total+')':''):
     j.error?'실패했습니다: '+j.error:'마지막 정리: '+fmt(j.finishedAt)+' · '+Object.entries(j.summary||{}).map(([k,v])=>v.error?k+' 실패':k+' +'+(v.boxart||0)+'/'+(v.bezel||0)).join(', ');
   const r=raData.ratings||{},rj=r.job;const rRunning=Boolean(rj&&!rj.finishedAt);
@@ -222,7 +222,7 @@ async function loadRetroArt(){
 // The system folders the server keeps (retro/scaffold.js) and a link to the storage guide.
 let raScaffoldData=null;
 const raFill=(key,vars)=>{let s=topText(key);for(const x in vars)s=s.split('{'+x+'}').join(vars[x]);return s;};
-function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);}
+function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);if(raData)raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);}
 function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
   const folders=d.folders||[],g=d.guide||{};
   $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
@@ -236,12 +236,14 @@ function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d
   $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
 // Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
 // A folder under roms/ that no system reads would hide its games without a word.
-function raBios(list,unread,pack){
+function raBios(list,unread,pack,shadowed=[]){
   const want=(g)=>g.length>1?g.join(', ')+' 중 하나':g[0];
   const nro=pack&&pack.retroarch==='missing'?[el('p','retroarch/ 에 RetroArch 본체(retroarch.nro)가 없습니다. 이 파일이 있어야 기기에 레트로 게임을 설치할 수 있습니다.','warn-line')]:[];
   const cores=(pack?pack.systems:[]).flatMap((s)=>s.cores.filter((c)=>!c.installed).map((c)=>el('p',s.name+' 게임 '+c.games+'개를 켜려면 retroarch/'+c.file+' 파일이 있어야 합니다.','warn-line')));
   const folders=unread.length?[el('p','roms/ 안의 '+unread.join(', ')+' 폴더는 어느 기종인지 몰라 읽지 않습니다. 폴더 이름을 기종 이름(nes, snes, gba, ps1 등)으로 바꾸거나 retro/systems.json 의 folder 에 적습니다.','warn-line')]:[];
-  $('ra-bios').replaceChildren(...nro,...cores,...folders,...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
+  // A look-alike of a known system: its own folder already has games, so this one waits.
+  const held=shadowed.map((f)=>el('p',raFill('sc.shadowed',{alias:f.folder,canonical:f.by,system:f.names[adminLang]||f.names.en||f.system}),'warn-line'));
+  $('ra-bios').replaceChildren(...nro,...cores,...folders,...held,...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
