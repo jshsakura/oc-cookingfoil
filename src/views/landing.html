@@ -951,6 +951,7 @@
       .arted-head h4 { margin: 0; font-size: 15px; font-weight: 800; }
       .arted-head span { font-size: 12px; color: var(--secondary); }
       .arted-head .reread { margin-left: auto; }
+      .arted-note { margin: -6px 0 14px; font-size: 12px; line-height: 1.5; color: var(--secondary); overflow-wrap: anywhere; }
       .arted { --art-h: 140px; }
       .arted-top { display: grid; grid-template-columns: var(--art-h) minmax(0, 1fr); gap: 14px; align-items: start; }
       .arted-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
@@ -1923,6 +1924,7 @@
           "art.reread": "폴더 다시 읽기",
           "art.rereadTitle": (f) => `${f} 에 넣은 그림과 game.json 을 지금 다시 읽습니다.`,
           "art.rereadDone": "폴더를 다시 읽었습니다.",
+          "art.folderNote": (f) => `${f} 에 icon.png, banner.jpg, screenshot-01.png 처럼 넣은 그림은 WebP 로 바꿔 저장하고 넣은 파일은 지웁니다. 같은 자리의 다른 그림과 여기서 올리기 전에 넣어 둔 그림은 그 폴더의 .replaced 로, 읽을 수 없는 그림은 .unreadable 로 옮겨 둡니다.`,
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -2268,6 +2270,7 @@
           "art.reread": "Read folder again",
           "art.rereadTitle": (f) => `Reads the pictures and game.json in ${f} again now.`,
           "art.rereadDone": "Read the folder again.",
+          "art.folderNote": (f) => `A picture put in ${f} as icon.png, banner.jpg, screenshot-01.png and so on is converted to WebP and the file you put there is removed. Other pictures for the same slot, and any put there before an upload here, are moved to .replaced in that folder, and one that cannot be read to .unreadable.`,
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -2613,6 +2616,7 @@
           "art.reread": "フォルダーを読み直す",
           "art.rereadTitle": (f) => `${f} に置いた画像と game.json を今すぐ読み直します。`,
           "art.rereadDone": "フォルダーを読み直しました",
+          "art.folderNote": (f) => `${f} に icon.png、banner.jpg、screenshot-01.png のように置いた画像は WebP に変換して保存し、置いたファイルは削除します。同じ枠の別の画像と、ここでアップロードする前に置いてあった画像は、そのフォルダーの .replaced に、読めない画像は .unreadable に移します。`,
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2958,6 +2962,7 @@
           "art.reread": "重新讀取資料夾",
           "art.rereadTitle": (f) => `立即重新讀取 ${f} 中的圖片與 game.json。`,
           "art.rereadDone": "已重新讀取資料夾",
+          "art.folderNote": (f) => `放進 ${f} 的 icon.png、banner.jpg、screenshot-01.png 等圖片會轉成 WebP 儲存，並刪除放入的檔案。同一位置的其他圖片，以及在這裡上傳前就放著的圖片，會移到該資料夾的 .replaced，無法讀取的圖片則移到 .unreadable。`,
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -6014,7 +6019,8 @@
       // slots.*.original: { src, crop } when the upload is kept and can be cut again; recrop(slot, n, crop) does it.
       // find: { q, base } offers a search beside each slot (meta/art-search.js on the server).
       const ART_FIND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-      // reread: { title, run } adds a button that reads the item's folder again (pictures put there by hand).
+      // reread: { title, run, note } adds a button that reads the item's folder again (pictures put there by hand),
+      // and `note` says under the head what becomes of them.
       function artEditor({ slots, upload, remove, recrop = null, find = null, reread = null }) {
         const card = document.createElement("section"); card.className = "arted";
         // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
@@ -6111,6 +6117,7 @@
           head.append(b);
         }
         card.append(head);
+        if (reread?.note) card.append(Object.assign(document.createElement("p"), { className: "arted-note", textContent: reread.note }));
         const pick = (onFile) => {
           const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
           input.addEventListener("change", () => { if (input.files && input.files[0]) onFile(input.files[0]); });
@@ -6226,6 +6233,7 @@
           // Pictures and a game.json may also be put into the game's folder by hand; this reads it now.
           reread: {
             title: t("art.rereadTitle", `metadata/games/${art.folder || `… [${baseId}]`}`),
+            note: t("art.folderNote", `metadata/games/${art.folder || `… [${baseId}]`}`),
             run: () => artChanged(baseId, fetch(`/api/art/${baseId}/rescan`, { method: "POST", headers: { Accept: "application/json" } }), t("art.rereadDone")),
           },
         });

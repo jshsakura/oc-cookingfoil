@@ -300,7 +300,10 @@ export async function serveImage(req, res, opts) {
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");
-    return send(variant.path);
+    if (!fromOverride) return res.sendFile(variant.path);
+    // A small copy found gone (thumbs/ pruned or cleared by hand) is made again, once; the
+    // picture itself counts as gone only when that fails too.
+    return sendOr(res, variant.path, opts.thumbAgain ? gone : () => serveImage(req, res, { ...opts, thumbAgain: true }));
   } catch (err) {
     if (fromOverride && err.code === "ENOENT") return gone();
     debug.error("image cache: variant failed for %s: %s", source, err.message);

@@ -45,7 +45,9 @@
  * image is rejected here rather than served. The stored override wins over the
  * titledb CDN proxy and NACP extraction in the icon/banner/screenshot routes.
  * A picture put into the folder by hand shows once the folder's watch has seen
- * it go quiet, or at once after a rescan.
+ * it go quiet, or at once after a rescan; it is converted and the file put
+ * there goes, others for its slot move to the folder's .replaced/. An upload
+ * moves the ones waiting for its slot there too.
  *
  * Gating mirrors the game-upload tray: disabled unless COOK_UPLOADS_ENABLED,
  * and always behind the normal sign-in + IP-lockout perimeter.

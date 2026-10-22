@@ -84,7 +84,9 @@ export async function init() {
  * Stores an upload in a slot. `crop` ({ x, y, w, h }, 0..1, or null for all of
  * it) is the area kept; the upload itself is kept smaller beside the picture so
  * the area can change later. Throws on a picture that cannot be read. Each
- * write here waits for the game's others (gameMeta.withGame).
+ * write here waits for the game's others (gameMeta.withGame), and moves the
+ * hand-placed files waiting for its slot to the folder's .replaced/ first
+ * (gameMeta.clearSlot): one that cannot be moved stops it before anything is written.
  */
 export function put(base, kind, idx, input, crop = null) {
   return gameMeta.withGame(base, () => putNow(base, kind, idx, input, crop));
@@ -94,9 +96,10 @@ async function putNow(base, kind, idx, input, crop) {
   const art = await encode(kind, await artCrop.cropOf(input, crop));
   const original = await artCrop.shrinkOriginal(input);
   const file = path.join(gameMeta.ensureFolder(base), `${slotName(kind, idx)}.webp`);
+  gameMeta.clearSlot(base, slotName(kind, idx));
   writeSlot(file, art, original, crop);
   forget(file);
-  gameMeta.settle(base, slotName(kind, idx));
+  gameMeta.refresh(base);
   debug.log("custom-art: stored %s (%d bytes)", path.relative(gameMeta.GAMES_DIR, file), art.length);
   return { path: file, bytes: art.length };
 }
@@ -112,10 +115,11 @@ async function recropNow(base, kind, idx, crop) {
   const kept = file ? artCrop.readOriginal(file) : null;
   if (!kept) throw new artCrop.CropError("다시 자를 원본이 없습니다");
   const art = await encode(kind, await artCrop.cropOf(await fs.promises.readFile(kept.image), crop));
+  gameMeta.clearSlot(base, slotName(kind, idx));
   writeAtomic(file, art);
   artCrop.writeCrop(file, crop);
   forget(file);
-  gameMeta.settle(base, slotName(kind, idx));
+  gameMeta.refresh(base);
   return { path: file, bytes: art.length };
 }
 
@@ -144,13 +148,14 @@ function removeNow(base, kind, idx) {
   gameMeta.refresh(base);
   const file = pathFor(base, kind, idx);
   if (!file) return;
+  gameMeta.clearSlot(base, slotName(kind, idx));
   fs.rmSync(file, { force: true });
   artCrop.removeOriginal(file);
   forget(file);
   try {
     fs.rmdirSync(path.dirname(file));
   } catch { /* not empty */ }
-  gameMeta.settle(base, slotName(kind, idx));
+  gameMeta.refresh(base);
   debug.log("custom-art: removed %s", path.relative(gameMeta.GAMES_DIR, file));
 }
 
