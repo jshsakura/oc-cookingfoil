@@ -23,6 +23,7 @@ import fsp from "fs/promises";
 import path from "path";
 import { HashCache } from "../helpers/hash-cache.js";
 import { consoleFirmwarePath } from "./bios.js";
+import { isGuideName } from "../helpers/guide-file.js";
 import { dataDir } from "../helpers/envs.js";
 
 export { HashCache };
@@ -34,6 +35,8 @@ export function sdPathOf(rel) {
   const parts = rel.split("/");
   if (parts.some((p) => !p || p === "." || p === ".." || p.startsWith("."))) return null;
   if (rel === "retroarch.nro") return "switch/retroarch_switch.nro";
+  // The BIOS folder's guide (helpers/folder-guides.js) is for the server's folder, not the console.
+  if (parts.length === 2 && parts[0] === "system" && isGuideName(parts[1])) return null;
   if (parts[0] === "system" && parts.length > 1) return `retroarch/system/${consoleFirmwarePath(parts.slice(1).join("/"))}`;
   return `retroarch/${rel}`;
 }

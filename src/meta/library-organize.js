@@ -27,6 +27,7 @@ import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
 import { incomingInGames } from "../helpers/envs.js";
+import { isGuideName } from "../helpers/guide-file.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
@@ -50,7 +51,7 @@ export const REASONS = Object.freeze({
   notGame: "스위치 게임 파일(nsp, nsz, xci, xcz)이 아닙니다",
 });
 
-const SUB = { update: "update", dlc: "DLC" };
+export const SUB = Object.freeze({ update: "update", dlc: "DLC" });
 
 /** True for a games-folder path inside a drop box there (`inGames`, any case). Pure. */
 export const isIncoming = (rel, inGames = incomingInGames) => {
@@ -173,7 +174,7 @@ export function planOrganize({ incoming = [], romsRels = [], nameOf = () => null
   return { moves, held };
 }
 
-/** Every file under `root` as { rel, abs, size, mtimeMs }; dot entries are skipped. */
+/** Every file under `root` as { rel, abs, size, mtimeMs }; dot entries and the guide at its top are skipped. */
 export async function listFiles(root, rel = "", out = []) {
   let entries;
   try {
@@ -183,7 +184,8 @@ export async function listFiles(root, rel = "", out = []) {
     return out;
   }
   for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
+    // The drop box's own guide stays where it is: never sorted, never listed as held.
+    if (e.name.startsWith(".") || (!rel && isGuideName(e.name))) continue;
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) await listFiles(root, r, out);
     else if (e.isFile()) {

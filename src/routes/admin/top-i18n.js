@@ -139,6 +139,8 @@ export const TOP_WORDS = {
     "sc.gFailed": "{path} 에 안내를 쓰지 못했습니다({error}).",
     "ss.scaffold": "레트로 기종 폴더 만들기",
     "ss.scaffoldD": "스위치에서 돌릴 수 있는 기종마다 retro/roms 아래에 롬 폴더를 만들고, BIOS 폴더와 폴더 안내(README.md)도 만듭니다. 지운 폴더는 다음에 폴더를 읽을 때 다시 만듭니다. 파일은 옮기거나 지우지 않으며, 끄면 더 만들지 않고 만든 폴더는 그대로 둡니다.",
+    "ss.guides": "폴더마다 안내 남기기",
+    "ss.guidesD": "서버가 쓰는 폴더(incoming, games, homebrew, retro, 기종 폴더, BIOS 폴더 등)마다 무엇을 어떻게 넣는지 적은 README.md 를 둡니다. 사람과 AI 도구가 그 폴더만 열어도 따라 할 수 있습니다. 없는 폴더는 만들지 않고, 고친 안내는 덮어쓰지 않습니다.",
   },
   en: {
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
@@ -275,6 +277,8 @@ export const TOP_WORDS = {
     "sc.gFailed": "Could not write the guide to {path} ({error}).",
     "ss.scaffold": "Make retro system folders",
     "ss.scaffoldD": "Makes a ROM folder under retro/roms for every system the Switch can run, plus the BIOS folder and a folder guide (README.md). A deleted folder comes back the next time the folders are read. No file is moved or deleted; turned off, nothing more is made and the folders already made stay.",
+    "ss.guides": "Leave a guide in each folder",
+    "ss.guidesD": "Puts a README.md in each folder the server uses (incoming, games, homebrew, retro, each system folder, the BIOS folder and more) saying what goes there and how. A person or an AI tool opening that folder can follow it. No folder is made for it, and a guide someone edited is not overwritten.",
   },
   ja: {
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
@@ -411,6 +415,8 @@ export const TOP_WORDS = {
     "sc.gFailed": "{path} に案内を書けませんでした({error})。",
     "ss.scaffold": "レトロ機種フォルダを作る",
     "ss.scaffoldD": "Switch で動く機種ごとに retro/roms の下に ROM フォルダを作り、BIOS フォルダとフォルダの案内(README.md)も作ります。消したフォルダは次にフォルダを読むときに作り直します。ファイルを移したり消したりはしません。オフにすると新しく作らず、作ったフォルダはそのまま残します。",
+    "ss.guides": "フォルダごとに案内を置く",
+    "ss.guidesD": "サーバーが使うフォルダ(incoming、games、homebrew、retro、機種フォルダ、BIOS フォルダなど)ごとに、何をどう入れるかを書いた README.md を置きます。人も AI ツールもそのフォルダを開くだけで従えます。フォルダは作らず、書き換えた案内は上書きしません。",
   },
   zh: {
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
@@ -547,6 +553,8 @@ export const TOP_WORDS = {
     "sc.gFailed": "无法将说明写入 {path}({error})。",
     "ss.scaffold": "创建复古机种文件夹",
     "ss.scaffoldD": "为 Switch 能运行的每个机种在 retro/roms 下创建 ROM 文件夹，并创建 BIOS 文件夹和文件夹说明(README.md)。删除的文件夹会在下次读取文件夹时重新创建。不会移动或删除文件；关闭后不再创建，已创建的文件夹保持不变。",
+    "ss.guides": "在每个文件夹放说明",
+    "ss.guidesD": "在服务器使用的每个文件夹(incoming、games、homebrew、retro、各机种文件夹、BIOS 文件夹等)放一个 README.md，写明放什么、怎么放。人和 AI 工具打开该文件夹即可照做。不会为此创建文件夹，也不会覆盖已修改的说明。",
   },
 };
 

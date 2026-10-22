@@ -202,6 +202,7 @@ Settings you will usually change on the admin page (Settings tab), all of which 
 | Store prices, popularity, artwork | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | on |
 | Review scores, retro game details | `COOK_RATING_SYNC`, `COOK_RETRO_META` | on |
 | Ready-made retro folders and storage guide (README.md) | `COOK_RETRO_SCAFFOLD` | on |
+| A guide (README.md) in each folder the server uses | `COOK_FOLDER_GUIDES` | on |
 | Connections per download | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | Direct download address, token lifetime | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | off, `21600` s |
 | Safe restart | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` s, `25` s |

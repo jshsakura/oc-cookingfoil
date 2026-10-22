@@ -60,6 +60,8 @@ export const SETTINGS = {
   retroMeta: bool,
   // Ready-made ROM and BIOS folders and the storage guide (retro/scaffold.js).
   retroScaffold: bool,
+  // A README.md in each folder the server owns or reads (helpers/folder-guides.js).
+  folderGuides: bool,
   // The RetroArch bundle's address; empty is the official one in the pack lock. The lock's SHA-256 decides what is accepted.
   retroPackUrl: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || URL_RE.test(v) },
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },

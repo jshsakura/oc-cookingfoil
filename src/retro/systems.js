@@ -31,6 +31,7 @@
 import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
+import { isGuideName } from "../helpers/guide-file.js";
 
 const DISC = [".chd", ".pbp", ".cue", ".m3u"];
 
@@ -283,7 +284,7 @@ export function systemOfExtension(ext, systems) {
   return hits.length === 1 ? hits[0][0] : null;
 }
 
-// What an OS leaves in a folder it has shown (dot files such as .DS_Store aside): never a game.
+// What an OS leaves in a folder it has shown (dot files such as .DS_Store aside): never a game. Nor is the folder guide.
 const OS_LITTER = new Set(["thumbs.db", "desktop.ini", "ehthumbs.db"]);
 
 /** Whether roms/<folder> holds anything but dot files and OS litter; reads only up to the first such entry. */
@@ -292,7 +293,7 @@ function hasEntries(retroDir, folder) {
   try {
     dir = fs.opendirSync(path.join(retroDir, "roms", folder));
     for (let e = dir.readSync(); e; e = dir.readSync()) {
-      if (!e.name.startsWith(".") && !OS_LITTER.has(e.name.toLowerCase())) return true;
+      if (!e.name.startsWith(".") && !OS_LITTER.has(e.name.toLowerCase()) && !isGuideName(e.name)) return true;
     }
     return false;
   } catch {

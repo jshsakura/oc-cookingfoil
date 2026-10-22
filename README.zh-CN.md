@@ -200,6 +200,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 | 商店价格、热门度、图片 | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | 开启 |
 | 评测分数、复古游戏详情 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | 开启 |
 | 预建复古机种文件夹和存储说明(README.md) | `COOK_RETRO_SCAFFOLD` | 开启 |
+| 在服务器使用的每个文件夹放说明(README.md) | `COOK_FOLDER_GUIDES` | 开启 |
 | 每次下载的连接数 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |
 | 直接下载地址、令牌有效期 | `COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL` | 关闭、`21600` 秒 |
 | 安全重启 | `COOK_RESTART_RETRY_AFTER`, `COOK_RESTART_GRACE` | `20` 秒、`25` 秒 |

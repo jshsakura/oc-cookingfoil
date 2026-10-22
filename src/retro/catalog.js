@@ -49,6 +49,7 @@ import { assignSdNames } from "./sd-names.js";
 import { applyArcade, groupSets, setInfo } from "./arcade.js";
 import { buildGroups } from "./variants.js";
 import { rankSets } from "./arcade-policy.js";
+import { isGuideName } from "../helpers/guide-file.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -128,7 +129,8 @@ async function listFiles(root, rel = "", depth = 1, out = []) {
     return out;
   }
   for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
+    // The folder guide (helpers/guide-file.js) is never a ROM, though .md is a Mega Drive extension.
+    if (e.name.startsWith(".") || (e.isFile() && isGuideName(e.name))) continue;
     const childRel = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory() && depth < MAX_DEPTH) await listFiles(root, childRel, depth + 1, out);
     else if (e.isFile()) out.push(childRel);

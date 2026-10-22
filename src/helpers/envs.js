@@ -234,6 +234,8 @@ let ratingSync = envBool("COOK_RATING_SYNC", true);
 let retroMeta = envBool("COOK_RETRO_META", true);
 // A ROM folder for every system the Switch can run, the BIOS folder and the storage guide (retro/scaffold.js), made when missing.
 let retroScaffold = envBool("COOK_RETRO_SCAFFOLD", true);
+// A README.md in each folder the server owns or reads (helpers/folder-guides.js), written when missing.
+let folderGuides = envBool("COOK_FOLDER_GUIDES", true);
 // Where the RetroArch bundle is downloaded from (retro/pack-fill.js). Empty is the
 // official libretro address pinned in retro/data/retro-pack.lock.json; a mirror
 // must serve the same bytes, the lock's SHA-256 is checked either way.
@@ -414,6 +416,7 @@ const ENV_SETTINGS = Object.freeze({
   ratingSync,
   retroMeta,
   retroScaffold,
+  folderGuides,
   retroPackUrl,
   clientSource,
   clientReleaseRepo,
@@ -465,6 +468,7 @@ function applyServerSettings(saved = {}) {
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
   retroScaffold = v.retroScaffold;
+  folderGuides = v.folderGuides;
   retroPackUrl = v.retroPackUrl;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
@@ -576,6 +580,7 @@ export {
   ratingSync,
   retroMeta,
   retroScaffold,
+  folderGuides,
   retroPackUrl,
   dropboxAppKey,
   dropboxRedirectBase,

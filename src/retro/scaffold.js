@@ -29,23 +29,29 @@
  * mounts no other folder the server owns is a parent of everything). Its first
  * line carries a hash of the rest: the server rewrites it only while that hash
  * still matches, so a guide someone edited, or a README of their own, is left
- * as it is. The same text is kept in memory for the admin page
+ * as it is (helpers/guide-file.js). The same text is kept in memory for the admin page
  * (routes/admin/storage-guide-api.js), so requests never read the disk.
+ *
+ * With folderGuides on, each run also writes the README.md of each folder that is
+ * there (helpers/folder-guides.js): the role folders, roms/ and each system folder,
+ * the BIOS folder, thumbnails/ and bezels/. Those follow the same rule and make no
+ * folder; writeRoleGuides() writes the role folders' at start, for a server whose
+ * retro scan never runs.
  *
  * The server process makes all of this, as PUID:PGID in the image (the
  * entrypoint drops root before the server starts), so what it makes belongs to
  * the same owner as everything else the server writes. Nothing is chowned.
  */
-import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import officialCores from "./data/official-cores-1.22.2.js";
-import { BIOS } from "./bios.js";
 import { packDirOf } from "./pack-status.js";
 import { oldRetroLeftBehind } from "../helpers/folder-hints.js";
+import { GUIDE_NAME, stamp, writeGuide } from "../helpers/guide-file.js";
+import * as folderGuides from "../helpers/folder-guides.js";
 
-export const GUIDE_NAME = "README.md";
-const MARK_RE = /^<!-- cookingfoil-guide sha256=([0-9a-f]{16}) [^\n]*-->\n/;
+export { GUIDE_NAME, stamp };
+export { guideState } from "../helpers/guide-file.js";
 
 const ROLE_TEXT = {
   incoming: "Drop box. Files left here are sorted into the folders below once they stop changing. Retro ROMs go in a folder named after their system (incoming/snes/Game.zip).",
@@ -59,7 +65,6 @@ const ROLE_TEXT = {
 };
 
 const isDir = async (p) => (await fsp.stat(p).catch(() => null))?.isDirectory() === true;
-const hash = (body) => crypto.createHash("sha256").update(body).digest("hex").slice(0, 16);
 const cell = (s) => String(s).replaceAll("|", "\\|");
 
 /** The cores the operator put in the pack's cores/ folder, by core name. */
@@ -80,17 +85,13 @@ export function guidePlace(layout, retroDir) {
 }
 
 /** The BIOS a system needs, as one table cell. Pure. */
-function biosCell(id) {
-  const rule = BIOS[id];
-  if (!rule) return "none";
-  return rule.groups.map((g) => (g.length > 1 ? `one of ${g.map((f) => `\`${f}\``).join(", ")}` : `\`${g[0]}\``)).join(" and ");
-}
+const biosCell = (id) => folderGuides.biosText(id) ?? "none";
 
 /**
  * The guide's text without its first line. `biosDir` is the pack's system/ folder.
  * Paths inside `guideDir` are written relative to it, the rest in full. Pure.
  */
-export function guideText({ systems, runnable, layout, retroDir, guideDir, biosDir }) {
+export function guideText({ systems, runnable, layout, retroDir, guideDir, biosDir, guides = true }) {
   const shown = (p) => {
     const rel = path.relative(guideDir, p);
     if (rel === "") return "";
@@ -132,7 +133,7 @@ export function guideText({ systems, runnable, layout, retroDir, guideDir, biosD
     `- \`${r}system-icons/color/<folder>.png\`, \`${r}system-icons/mono/<folder>.png\`: system icons.`,
     `- \`${r}art-map/<id>.json\`, \`${r}ratings.json\`, \`${r}arcade-names.json\`: original titles and ratings.`,
     `- \`${r}systems.json\`: changes a system (folder, core, extensions) or adds one.`,
-    `- \`${shown(path.dirname(biosDir))}\`: the RetroArch pack (retroarch.nro, cores/, system/).`,
+    `- \`${shown(path.dirname(biosDir))}\`: the RetroArch pack (retroarch.nro, cores/, system/). ${folderGuides.CORE_NOTE}`,
     "",
     "## What the server does here",
     "",
@@ -140,30 +141,9 @@ export function guideText({ systems, runnable, layout, retroDir, guideDir, biosD
     "- It never renames, moves or deletes files or folders to do so.",
     "- Other changes happen only on request: files left in the drop box are sorted into the folders above, and the admin page renames or deletes what an admin picks. NSZ conversion, when an admin turns it on, replaces .nsp files with .nsz.",
     "- A deleted folder comes back at the next scan. To stop that, turn off the folder making (retroScaffold) in the admin page's server settings.",
+    ...(guides ? ["- Each folder above, each system folder, the BIOS folder, thumbnails/ and bezels/ hold a README.md of their own (folderGuides). `GET /admin/api/storage-guide?format=json` returns them all."] : []),
     "",
   ].join("\n");
-}
-
-/** The guide with its first line: a marker and the hash of the rest. Pure. */
-export function stamp(body) {
-  return `<!-- cookingfoil-guide sha256=${hash(body)} Written by the CookingFoil server. Edit this file and the server stops updating it. -->\n${body}`;
-}
-
-/**
- * What is at the guide's place, against the guide `body` the server would write. Pure.
- *   missing   nothing there: write
- *   current   the server's, as it would write it
- *   stale     the server's, untouched since, for an older system list: write
- *   edited    the server's, changed by hand: leave
- *   foreign   no marker, a file of someone else's: leave
- */
-export function guideState(existing, body) {
-  if (existing === null) return "missing";
-  const m = existing.match(MARK_RE);
-  if (!m) return "foreign";
-  const rest = existing.slice(m[0].length);
-  if (hash(rest) !== m[1]) return "edited";
-  return rest === body ? "current" : "stale";
 }
 
 let last = null;
@@ -206,46 +186,53 @@ async function make(retroDir, abs) {
   return abs;
 }
 
-async function writeGuide(file, body) {
-  let existing = null;
-  try {
-    existing = await fsp.readFile(file, "utf8");
-  } catch (err) {
-    if (err.code !== "ENOENT") return { path: file, state: "unreadable", error: err.code ?? err.message };
-  }
-  const state = guideState(existing, body);
-  if (state !== "missing" && state !== "stale") return { path: file, state };
-  const tmp = `${file}.${process.pid}.tmp`;
-  try {
-    await fsp.writeFile(tmp, stamp(body));
-    await fsp.rename(tmp, file);
-    return { path: file, state: "written" };
-  } catch (err) {
-    await fsp.rm(tmp, { force: true });
-    return { path: file, state: "failed", error: err.code ?? err.message };
-  }
+/** Every folder guide for this layout (helpers/folder-guides.js plan), `retro` saying whether the retro folder's own are in. Pure. */
+function guidePlan({ systems, runnable, layout, retroDir, packDir, retro }) {
+  const storageGuide = path.join(guidePlace(layout, retroDir), GUIDE_NAME);
+  return folderGuides.plan({ layout, systems, runnable, retroDir, biosDir: path.join(packDir, "system"), packDir, storageGuide, retro });
 }
 
 /**
- * Makes the missing folders and writes the guide when it is missing or out of date.
+ * The folder guides for a server that has not scanned yet, as [{ path, state: null, text }], from the
+ * built-in system table alone: no disk, so every guide the server could write is listed.
+ */
+export function fallbackFolderGuides({ systems, layout, retroDir }) {
+  const packDir = path.join(retroDir, "retroarch");
+  return guidePlan({ systems, runnable: runnableIds(systems), layout, retroDir, packDir, retro: true })
+    .map((g) => ({ path: g.path, state: null, text: stamp(g.body) }));
+}
+
+/**
+ * Writes the role folders' guides (not the retro folder's own): at start, when a retro scan may not come.
+ * Returns what writeAll returns; nothing when `enabled` is off.
+ */
+export async function writeRoleGuides({ systems, layout, retroDir, enabled = true }) {
+  if (!enabled) return [];
+  return folderGuides.writeAll(guidePlan({ systems, runnable: [], layout, retroDir, packDir: packDirOf(retroDir), retro: false }));
+}
+
+/**
+ * Makes the missing folders and writes the guide when it is missing or out of date, then (with `guides`,
+ * the folderGuides setting) each folder's own guide in the folders that are there.
  * `systems` is the table the scan reads with (systems.js loadSystems, cores picked);
  * `layout` is storage-layout.js resolveLayout's. Returns (and keeps for status())
- * { at, enabled, skipped, made: [rel], failed: [{ folder, error }], folders: [{ id, name, folder, made }], guide: { path, state }, text }.
+ * { at, enabled, skipped, made: [rel], failed: [{ folder, error }], folders: [{ id, name, folder, made }], guide: { path, state },
+ *   folderGuides: [{ path, state, error? }], text }.
  */
-export async function run({ retroDir, systems, layout, enabled = true }) {
+export async function run({ retroDir, systems, layout, enabled = true, guides = true }) {
   const packDir = packDirOf(retroDir);
   const biosDir = path.join(packDir, "system");
   const runnable = runnableIds(systems, await installedCores(packDir));
   const guideDir = guidePlace(layout, retroDir);
-  const body = guideText({ systems, runnable, layout, retroDir, guideDir, biosDir });
+  const body = guideText({ systems, runnable, layout, retroDir, guideDir, biosDir, guides });
   const rel = (abs) => path.relative(retroDir, abs).split(path.sep).join("/");
-  const out = { at: Date.now(), enabled, skipped: null, made: [], failed: [], folders: [], guide: { path: path.join(guideDir, GUIDE_NAME), state: "off" }, text: stamp(body) };
+  const out = { at: Date.now(), enabled, skipped: null, made: [], failed: [], folders: [], guide: { path: path.join(guideDir, GUIDE_NAME), state: "off" }, folderGuides: [], text: stamp(body) };
+  const present = await isDir(retroDir);
   // An old data/retro still holding the games is named on the admin page while this one is empty; filling it would hide that.
-  const missing = enabled && !(await isDir(retroDir));
-  const waiting = enabled && !missing && layout?.dirs?.data && oldRetroLeftBehind(layout.dirs.data, retroDir);
-  if (missing) out.skipped = "no-retro";
-  else if (waiting) out.skipped = "old-retro";
-  if (enabled && !missing && !waiting) {
+  const waiting = present && Boolean(layout?.dirs?.data) && oldRetroLeftBehind(layout.dirs.data, retroDir);
+  if (enabled && !present) out.skipped = "no-retro";
+  else if (enabled && waiting) out.skipped = "old-retro";
+  if (enabled && present && !waiting) {
     for (const abs of [...runnable.map((id) => path.join(retroDir, "roms", systems[id].folder)), biosDir]) {
       try {
         if (await make(retroDir, abs)) {
@@ -258,6 +245,8 @@ export async function run({ retroDir, systems, layout, enabled = true }) {
     }
     out.guide = await writeGuide(out.guide.path, body);
   }
+  if (guides) out.folderGuides = (await folderGuides.writeAll(guidePlan({ systems, runnable, layout, retroDir, packDir, retro: present && !waiting }))).filter((r) => r.state !== "no-folder");
+  else folderGuides.forget();
   out.folders = runnable.map((id) => ({ id, name: systems[id].names?.en ?? id, folder: systems[id].folder, made: madeSinceStart.has(path.join(retroDir, "roms", systems[id].folder)) }));
   last = out;
   return out;
@@ -272,7 +261,7 @@ const reported = new Set();
  */
 export function freshProblems(retroDir, r) {
   const all = r.failed.map((f) => ({ path: path.join(retroDir, f.folder), error: f.error }));
-  if (r.guide.state === "failed" || r.guide.state === "unreadable") all.push({ path: r.guide.path, error: r.guide.error });
+  for (const g of [r.guide, ...(r.folderGuides ?? [])]) if (g.state === "failed" || g.state === "unreadable") all.push({ path: g.path, error: g.error });
   const fresh = all.filter((p) => !reported.has(p.path));
   for (const p of fresh) reported.add(p.path);
   return fresh;

@@ -125,7 +125,7 @@ test("6. an uploaded zip, folder or .nro lands in switch/<app>/ exactly as a rel
     assert.equal((await listed("myapp")).files.find((f) => f.path.endsWith("a.bin")).size, 4);
     e = await listed("myapp");
     assert.ok(!fs.existsSync(path.join(dirs.homebrew, "myapp", "atmosphere")), "nothing outside switch/<app>/ is kept");
-    assert.deepEqual(fs.readdirSync(dirs.homebrew).filter((n) => !n.startsWith(".")), ["myapp"]);
+    assert.deepEqual(fs.readdirSync(dirs.homebrew).filter((n) => !n.startsWith(".") && n !== "README.md"), ["myapp"]);
 
     // A folder without switch/: its own folder becomes switch/<it>/.
     r = await send([["tool.nro", nro], ["tool.cfg", "c"]], ["Tool/tool.nro", "Tool/tool.cfg"]);

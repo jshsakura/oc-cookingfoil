@@ -30,6 +30,8 @@ import { googleReady } from "../../security/password-policy.js";
 import * as envs from "../../helpers/envs.js";
 import * as prodKeys from "../../security/prod-keys.js";
 import * as retroCatalog from "../../retro/catalog.js";
+import { writeRoleGuides } from "../../retro/scaffold.js";
+import { loadSystems } from "../../retro/systems.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
@@ -131,6 +133,12 @@ export function mountServerSettingsApi(router, requireSession) {
     // Turned on: the system folders and the guide appear at once, not at the next scan.
     if (changed.includes("retroScaffold") && envs.retroScaffold && fs.existsSync(envs.retroDir)) {
       retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after retroScaffold failed: %s", err.message));
+    }
+    // Turned on: the folder guides appear at once; the role folders' even without a retro folder.
+    if (changed.includes("folderGuides") && envs.folderGuides) {
+      writeRoleGuides({ systems: loadSystems(envs.retroDir), layout: envs.layout, retroDir: envs.retroDir })
+        .catch((err) => debug.error("admin: folder guides failed: %s", err.message));
+      if (fs.existsSync(envs.retroDir)) retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after folderGuides failed: %s", err.message));
     }
     if (changed.length) debug.log("admin: server settings changed: %s", changed.join(", "));
     res.json({ ok: true, changed, ...view() });

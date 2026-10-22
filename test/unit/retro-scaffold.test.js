@@ -12,7 +12,7 @@ import { mountStorageGuideApi } from "../../src/routes/admin/storage-guide-api.j
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "retro-scaffold-"));
 const isDir = (p) => fs.statSync(p, { throwIfNoEntry: false })?.isDirectory() === true;
-const roms = (retro) => fs.readdirSync(path.join(retro, "roms")).sort();
+const roms = (retro) => fs.readdirSync(path.join(retro, "roms"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
 
 /** A storage folder layout as storage-layout.js resolves it, every role inside `root`. */
 function storageLayout(root) {
@@ -64,7 +64,7 @@ test("an alias folder means no canonical folder, and its files are left as they 
   await runOn(layout);
   const names = roms(layout.dirs.retro);
   assert.ok(!names.includes("snes") && !names.includes("gba"));
-  assert.deepEqual(fs.readdirSync(snes), ["Game.sfc"]);
+  assert.deepEqual(fs.readdirSync(snes).filter((n) => n !== scaffold.GUIDE_NAME), ["Game.sfc"], "only the folder guide is added");
   assert.equal(loadSystems(layout.dirs.retro).snes.folder, "SNES", "the games are still read from the alias");
 });
 
@@ -144,7 +144,7 @@ test("a deleted system folder comes back at the next catalog scan", async () => 
   await catalog.scan(layout.dirs.retro);
   const gba = path.join(layout.dirs.retro, "roms", "gba");
   assert.ok(isDir(gba));
-  fs.rmdirSync(gba);
+  fs.rmSync(gba, { recursive: true });
   await catalog.scan(layout.dirs.retro);
   assert.ok(isDir(gba));
   assert.equal(catalog.visibleSystems(await catalog.current(layout.dirs.retro)).length, 0, "empty folders show no system to clients");
