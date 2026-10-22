@@ -48,11 +48,11 @@ test("the look-alike folder notice names both folders and the system, and says t
   assert.match(TOP_WORDS.ko["sc.shadowed"], /합니다\.$|습니다\.$|옮깁니다\.$/);
 });
 
-test("beside the folder guide link, every language names the MCP tool and says a README.md is ignored", () => {
+test("beside the folder guide link, every language says a README.md is ignored and names no tool that does not exist yet", () => {
   for (const [code] of TOP_LANGS) {
-    const text = TOP_WORDS[code]["sc.mcp"];
-    assert.ok(text?.includes("library_storage_guide"), `${code} names the tool`);
-    assert.ok(text.includes("README.md"), `${code} mentions README.md`);
+    const text = TOP_WORDS[code]["sc.readme"];
+    assert.ok(text?.includes("README.md"), `${code} mentions README.md`);
+    assert.ok(!/MCP|library_storage_guide/.test(text), `${code} does not point at an MCP tool before /mcp ships`);
   }
-  assert.match(TOP_WORDS.ko["sc.mcp"], /습니다\.$/);
+  assert.match(TOP_WORDS.ko["sc.readme"], /습니다\.$/);
 });

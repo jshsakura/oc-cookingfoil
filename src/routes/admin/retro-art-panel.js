@@ -231,7 +231,7 @@ function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d
   pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
   const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));
   const guide=el('p',null,'muted');
-  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a,document.createTextNode(' '+topText('sc.mcp')));
+  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a,document.createTextNode(' '+topText('sc.readme')));
   $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
 // Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
 // A folder under roms/ that no system reads would hide its games without a word.
