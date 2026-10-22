@@ -8,6 +8,7 @@
  *     title: "Get one game",          English, short
  *     description: "...",             English, 40-200 characters: what it does, when, what comes next
  *     input: { type: "object", properties: { titleId: { type: "string", description: "..." } }, required: ["titleId"] },
+ *                                     JSON Schema; argument descriptions 40-120 characters, about 80
  *     safety: "read",                 read | write | destructive
  *     access: "read",                 optional; lowest token level that sees it, never below what safety needs
  *     http: { method: "GET", path: "/admin/api/..." },   the route that does the same thing, if any
@@ -43,7 +44,9 @@ const ID_MAX = 48;
 const ENGLISH_RE = /^[\x20-\x7E]*$/;
 const TITLE_MAX = 48;
 const DESCRIPTION = { min: 40, max: 200 };
-const ARG_DESCRIPTION = { min: 12, max: 120 };
+// About 80 characters (plan 3.2, ServiceNow's measurement). The lower bound is the firm one:
+// shorter argument descriptions make agents pick the wrong tool or fill the argument wrongly.
+const ARG_DESCRIPTION = { min: 40, max: 120 };
 const SCHEMA_KEYS = new Set(["type", "properties", "required", "additionalProperties", "description"]);
 const JSON_TYPES = new Set(["string", "integer", "number", "boolean", "array", "object", "null"]);
 
@@ -102,6 +105,9 @@ function textProblems(field, value, { min = 1, max }) {
   return out;
 }
 
+// Inputs are plain JSON Schema, the shape MCP's tools/list carries. If PR 2 adopts zod for the SDK's
+// registerTool, convert at that boundary (or write entries in zod and run z.toJSONSchema() before
+// these checks) so the registry keeps one schema shape.
 function inputProblems(input) {
   if (!input || typeof input !== "object" || input.type !== "object") return ["input must be a JSON Schema with type \"object\""];
   const out = [];

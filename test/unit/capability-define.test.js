@@ -18,7 +18,7 @@ const base = () => ({
   description: "Get one game with its names, files, patches and art. Use game_find first to get titleId.",
   input: {
     type: "object",
-    properties: { titleId: { type: "string", description: "16 hex digit title id from game_find" } },
+    properties: { titleId: { type: "string", description: "16 hex digit title id, as game_find returns it" } },
     required: ["titleId"],
   },
   safety: "read",
@@ -63,6 +63,9 @@ test("input is a JSON Schema object whose arguments carry a type and a descripti
   hasProblem({ input: { type: "object", properties: { q: { description: "Name, file name or title id" } } } }, /argument q.*type/);
   hasProblem({ input: { type: "object", properties: { q: { type: "string", description: "이름으로 찾습니다. 한국어는 안 됩니다." } } } }, /argument q.*English/);
   hasProblem({ input: { type: "object", properties: {}, required: ["q"] } }, /required.*q/);
+  // About 80 characters, and the lower bound is the firm one: shorter descriptions make agents pick the wrong tool.
+  hasProblem({ input: { type: "object", properties: { q: { type: "string", description: "Name or title id" } } } }, /argument q description must be at least 40/);
+  assert.deepEqual(problemsOf({ input: { type: "object", properties: { q: { type: "string", description: "Name, file name or 16 hex digit title id" } } } }), []);
   hasProblem({ input: { type: "object", properties: {}, $schema: "x" } }, /input.*\$schema/);
   // Obvious paging names need no description (ServiceNow measured that they only cost tokens).
   assert.deepEqual(problemsOf({ input: { type: "object", properties: { page: { type: "integer" }, perPage: { type: "integer" } } } }), []);
@@ -147,7 +150,7 @@ test("a token capability on the settings route may not take a TOKEN_LOCKED setti
   const locked = TOKEN_LOCKED[0];
   const settings = {
     safety: "write", http: { method: "POST", path: "/admin/api/server-settings" },
-    input: { type: "object", properties: { [locked]: { type: "string", description: "A setting a token may never change" } } },
+    input: { type: "object", properties: { [locked]: { type: "string", description: "A setting an automation token may never change" } } },
   };
   hasProblem(settings, new RegExp(`${locked}.*TOKEN_LOCKED`));
   assert.deepEqual(problemsOf({ ...settings, token: false }), []);
