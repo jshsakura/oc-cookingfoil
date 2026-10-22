@@ -22,6 +22,7 @@ import * as autoProvider from "./extract-providers/auto.js";
 import { iconCacheDir, extractPaceMs } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { envNumber } from "../helpers/env-read.js";
+import { NACP_DECODER_VERSION } from "./nacp-decode.js";
 
 const CONCURRENCY = envNumber("COOK_EXTRACT_CONCURRENCY", 2, { min: 1, integer: true });
 
@@ -70,10 +71,15 @@ let drainedResolver = null;
 
 /**
  * Whether a stored record is read from its file once more: in full when its
- * name came out garbled (extracted-meta-store.js), else for its language
- * icons when it has none yet. Pure.
+ * name came out garbled (extracted-meta-store.js) or an older decoder could
+ * not read its NACP, else for its language icons when it has none yet. Pure.
  */
-export const needsReread = (record) => Boolean(record?.garbled) || !Array.isArray(record?.iconLangs);
+export const needsReread = (record) => fullReread(record) || !Array.isArray(record?.iconLangs);
+
+function fullReread(record) {
+  if (record?.garbled) return true;
+  return record?.nacpUnreadable != null && record.nacpUnreadable !== NACP_DECODER_VERSION;
+}
 
 export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
   if (!baseTitleId) return false;
@@ -87,7 +93,7 @@ export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
     tried.add(baseTitleId);
     return false;
   }
-  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) && !existing.garbled });
+  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) && !fullReread(existing) });
   inFlight.add(baseTitleId);
   if (drainedResolver === null) {
     drained = new Promise((resolve) => { drainedResolver = resolve; });

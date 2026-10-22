@@ -27,6 +27,13 @@ const NACP_NAME_BYTES = 0x200;
 const NACP_PUBLISHER_BYTES = 0x100;
 export const NACP_TOTAL_BYTES = 0x4000;
 
+/**
+ * Raise this when decodeNacp learns a NACP layout it could not read before.
+ * A stored record whose NACP did not decode carries the version that gave up
+ * on it, and nacp-extractor.js reads the file again once the version moves.
+ */
+export const NACP_DECODER_VERSION = 2;
+
 // Slot index per console language code. Aliases ("en" → en-US, "zh" → CN)
 // match how the rest of the codebase talks about langPriority.
 export const NACP_LANG_SLOTS = {

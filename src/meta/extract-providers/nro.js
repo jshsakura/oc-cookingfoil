@@ -29,7 +29,7 @@
  *   0x30  8   romfs_size
  */
 import fs from "fs/promises";
-import { decodeNacp, NACP_TOTAL_BYTES } from "../nacp-decode.js";
+import { decodeNacp, NACP_DECODER_VERSION, NACP_TOTAL_BYTES } from "../nacp-decode.js";
 
 const NRO_MAGIC = Buffer.from("NRO0");
 const ASET_MAGIC = Buffer.from("ASET");
@@ -78,15 +78,24 @@ export const name = "nro";
 export async function extract({ absPath, baseTitleId }, opts = {}) {
   if (!/\.nro$/i.test(absPath)) return null;
   const parsed = await parseAssets(absPath).catch(() => null);
-  if (!parsed || !parsed.nacp) return null;
-  const meta = decodeNacp(parsed.nacp, opts.langPriority ?? ["en", "ja", "ko"]);
-  if (!meta) return null;
+  return parsed ? extractFromAssets(parsed, { baseTitleId }, opts) : null;
+}
+
+/**
+ * The record for an NRO's parsed assets. A NACP that does not decode still
+ * keeps the icon, with no name and `nacpUnreadable` set to the decoder
+ * version; null when there is neither a name nor an icon.
+ */
+export function extractFromAssets({ icon, nacp }, { baseTitleId }, opts = {}) {
+  const meta = nacp ? decodeNacp(nacp, opts.langPriority ?? ["en", "ja", "ko"]) : null;
+  if (!meta && !(nacp && icon)) return null;
   return {
     id: baseTitleId,
-    name: meta.name,
-    publisher: meta.publisher,
-    version: meta.version,
+    name: meta?.name ?? null,
+    publisher: meta?.publisher ?? null,
+    version: meta?.version ?? null,
     source: "nro",
-    iconBuffer: parsed.icon,
+    iconBuffer: icon,
+    ...(meta ? {} : { nacpUnreadable: NACP_DECODER_VERSION }),
   };
 }

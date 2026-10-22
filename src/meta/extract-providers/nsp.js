@@ -40,7 +40,7 @@ import debug from "../../debug.js";
 import { readPfs0Entries, copyPfs0Entry } from "../pfs0.js";
 import {
   decodeNacp,
-  NACP_TOTAL_BYTES,
+  NACP_DECODER_VERSION,
   NACP_SLOT_TO_ICON_NAME,
   slotPriorityOrder,
 } from "../nacp-decode.js";
@@ -193,13 +193,35 @@ async function readControl({ bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames, langPr
   if (!controlId || !(await ensureNca(`${controlId}.nca`))) return null;
   await fs.mkdir(ctrlDir, { recursive: true });
   await runNstool(bin, ["-k", keysFile(), "-x", ctrlDir, path.join(pfs0Dir, `${controlId}.nca`)], { timeoutMs });
+  const control = await readControlDir(ctrlDir, langPriority);
+  return control && { ...control, titleId, metaType, requiredSystemVersion };
+}
+
+/**
+ * NACP and icons from an extracted control partition. A NACP that is missing
+ * or does not decode leaves `meta` null and sets `nacpUnreadable` to the
+ * decoder version, so the icons are still kept; null only when there is
+ * neither a name nor an icon.
+ */
+export async function readControlDir(ctrlDir, langPriority) {
   const nacpFile = await findFirstRecursive(ctrlDir, (n) => n.toLowerCase() === "control.nacp");
-  if (!nacpFile) return null;
-  const nacpBuf = await fs.readFile(nacpFile);
-  if (nacpBuf.length < NACP_TOTAL_BYTES) return null;
-  const meta = decodeNacp(nacpBuf, langPriority);
-  if (!meta) return null;
-  return { meta, titleId, metaType, requiredSystemVersion, iconBuffer: await pickIconForLangs(ctrlDir, langPriority), iconsByLang: await iconsByLang(ctrlDir) };
+  const nacpBuf = nacpFile ? await fs.readFile(nacpFile).catch(() => null) : null;
+  const meta = nacpBuf ? decodeNacp(nacpBuf, langPriority) : null;
+  const iconBuffer = await pickIconForLangs(ctrlDir, langPriority);
+  const langIcons = await iconsByLang(ctrlDir);
+  if (!meta && !iconBuffer) return null;
+  return { meta, iconBuffer, iconsByLang: langIcons, ...(meta ? {} : { nacpUnreadable: NACP_DECODER_VERSION }) };
+}
+
+/** The record fields a NACP gives; all null when it did not decode. */
+function nacpFields(found) {
+  const { meta } = found;
+  return {
+    name: meta?.name ?? null,
+    publisher: meta?.publisher ?? null,
+    version: meta?.version ?? null,
+    ...(found.nacpUnreadable ? { nacpUnreadable: found.nacpUnreadable } : {}),
+  };
 }
 
 /**
@@ -233,8 +255,8 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
     });
     if (!found) return null;
     const { meta, iconBuffer, iconsByLang: langIcons } = found;
-    return { id: baseTitleId, name: meta.name, publisher: meta.publisher, version: meta.version,
-      titleId: found.titleId, metaType: found.metaType, requiredSystemVersion: found.requiredSystemVersion, languages: meta.languages ?? null,
+    return { id: baseTitleId, ...nacpFields(found),
+      titleId: found.titleId, metaType: found.metaType, requiredSystemVersion: found.requiredSystemVersion, languages: meta?.languages ?? null,
       source: /\.nsz$/i.test(absPath) ? "nacp-nsz" : "nacp-nsp", iconBuffer, iconsByLang: langIcons };
   } catch (err) {
     debug.log("pfs0 extractor: %s — %s", path.basename(absPath), err.message);
@@ -268,12 +290,10 @@ export async function extract({ absPath, baseTitleId }, opts = {}) {
       bin, tmpRoot, pfs0Dir, ensureNca, cnmtNames: await fs.readdir(pfs0Dir), langPriority, timeoutMs,
     });
     if (!found) return null;
-    const { meta, iconBuffer, iconsByLang: langIcons } = found;
+    const { iconBuffer, iconsByLang: langIcons } = found;
     return {
       id: baseTitleId,
-      name: meta.name,
-      publisher: meta.publisher,
-      version: meta.version,
+      ...nacpFields(found),
       source: absPath.toLowerCase().endsWith(".xci") ? "nacp-xci" : "nacp-nsp",
       iconBuffer,
       iconsByLang: langIcons,
