@@ -251,7 +251,7 @@ export default function artRouter() {
   router.post("/:baseTitleId/meta", metaJson, (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
-    // Plain text (every language) or text per client language; checked whole before anything is saved.
+    // Plain text (Korean with Hangul, else English) or text per client language; checked whole before anything is saved.
     for (const field of gameDescriptions.FIELDS) {
       const problem = gameDescriptions.checkInput(field, req.body?.[field]);
       if (problem) return badRequest(res, problem);

@@ -102,7 +102,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 서버 동작 보기, 변경 (null 이면 compose 값으로, 기기 승인·접속 방식·공개 주소·다운로드 링크 수명은 제외), 게임 정보 지금 받기 | `GET /admin/api/server-settings`, `POST /admin/api/server-settings` `{ "welcomeMessage": "…" }`, `POST /admin/api/server-settings/titledb-refresh` |
 | 게임 패치 목록, 필수 표시 (없으면 게임이 실행되지 않는 패치) | `GET /admin/api/patches`, `POST /admin/api/patches/required` `{ "id": "<패치 id>", "required": true }` (필수 표시는 토큰으로 할 수 없습니다) |
 | 게임 세이브 목록, 패치·세이브 편집, 다른 게임으로 옮기기, 삭제 | `GET /admin/api/saves`, `POST /admin/api/content/<patch\|save>/meta` `{ "id", "name", "nameKo", "description", "descriptionKo", … }`, `…/move` `{ "id", "titleId" }`, `…/remove` `{ "id" }` |
-| 게임 이름, 소개, 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "name", "description", "notes" }` (각각 모든 언어에 쓰는 글자이거나, 클라이언트 언어 12개 키 `en ko ja zh zh-Hant es fr de it pt ru nl` 로 나눈 글자입니다. 보낸 언어만 바뀌고 빈 값은 지웁니다), `POST …/<타이틀 ID>/reset` |
+| 게임 이름, 소개, 추가 정보 직접 쓰기 (titledb 갱신이 덮어쓰지 않음) | `GET /admin/api/descriptions/<타이틀 ID>`, `POST /admin/api/descriptions/<타이틀 ID>` `{ "name", "description", "notes" }` (각각 글자 하나(한글이 있으면 한국어, 없으면 영어로 읽습니다)이거나, 클라이언트 언어 12개 키 `en ko ja zh zh-Hant es fr de it pt ru nl` 로 나눈 글자입니다. 보낸 언어만 바뀌고 빈 값은 지웁니다), `POST …/<타이틀 ID>/reset` |
 | 기기 목록 (보기만 합니다) | `GET /admin/api/devices` |
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |

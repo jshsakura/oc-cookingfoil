@@ -202,25 +202,37 @@ test("title-detail: simplified and traditional Chinese never stand in for each o
   assert.deepEqual(r["0100000000AC4000:zh-Hant"], ["繁體名", "繁體說明"]);
 });
 
-test("title-detail: the admin's name per language, then their name for every language, then titledb's, then English", () => {
+test("title-detail: the admin's name per language, then titledb's, then English; plain text is Korean with Hangul, else English", () => {
   const A = "0100000000AC0000";
   const B = "0100000000AC2000";
-  const row = (id, name, description) => ({ [id === A ? "70010000000010" : "70010000000011"]: { id, name, description, releaseDate: 20240101 } });
+  const C = "0100000000AC6000";
+  const D = "0100000000AC8000";
+  const ROW = { [A]: "70010000000010", [B]: "70010000000011", [C]: "70010000000012", [D]: "70010000000013" };
+  const row = (id, name, description) => ({ [ROW[id]]: { id, name, description, releaseDate: 20240101 } });
   const r = detailIn({
     regions: {
-      "US.en.json": { ...row(A, "English Name", "English text"), ...row(B, "B English", "B text") },
-      "DE.de.json": { ...row(A, "Deutscher Name", "Deutscher Text"), ...row(B, "B Deutsch", "B Text de") },
+      "US.en.json": { ...row(A, "English Name", "English text"), ...row(B, "B English", "B text"), ...row(C, "C English", "C text"), ...row(D, "D English", "D text") },
+      "DE.de.json": { ...row(A, "Deutscher Name", "Deutscher Text"), ...row(B, "B Deutsch", "B Text de"), ...row(C, "C Deutsch", "C Text de") },
+      "KR.ko.json": { ...row(D, "D 한국어", "D 한국어 설명") },
     },
     games: {
       [`Own [${A}]`]: { id: A, name: { ja: "管理者の名前", "zh-Hant": "管理員名稱", en: "Admin English" }, description: { en: "Admin text" } },
       [`All [${B}]`]: { id: B, name: "One Name For All" },
+      [`Ko [${C}]`]: { id: C, description: "관리자가 쓴 한국어 소개" },
+      [`En [${D}]`]: { id: D, name: { en: "Admin D" } },
     },
-    langs: { [A]: ["ja", "zh-Hant", "de", "nl", "zh"], [B]: ["ko", "de", "zh-Hant"] },
+    langs: { [A]: ["ja", "zh-Hant", "de", "nl", "zh"], [B]: ["ko", "de", "zh-Hant", "fr", "ja"], [C]: ["ko", "de", "fr"], [D]: ["ko", "fr"] },
   });
   assert.deepEqual(r[`${A}:ja`], ["管理者の名前", "Admin text"], "the admin's Japanese name; the admin's English text beats titledb's English");
   assert.deepEqual(r[`${A}:zh-Hant`], ["管理員名稱", "Admin text"]);
   assert.deepEqual(r[`${A}:de`], ["Deutscher Name", "Deutscher Text"], "titledb's German beats the admin's English");
   assert.deepEqual(r[`${A}:nl`], ["Admin English", "Admin text"], "no Dutch anywhere: the admin's English");
   assert.deepEqual(r[`${A}:zh`], ["Admin English", "Admin text"], "the traditional name is not the simplified one");
-  for (const l of ["ko", "de", "zh-Hant"]) assert.equal(r[`${B}:${l}`][0], "One Name For All", `a plain name is every language's (${l})`);
+  for (const l of ["ko", "zh-Hant", "fr", "ja"]) assert.equal(r[`${B}:${l}`][0], "One Name For All", `a plain English name reaches a language titledb has no name in (${l})`);
+  assert.equal(r[`${B}:de`][0], "B Deutsch", "titledb's German beats the admin's plain English name");
+  assert.equal(r[`${C}:ko`][1], "관리자가 쓴 한국어 소개", "a plain text with Hangul is Korean");
+  assert.equal(r[`${C}:de`][1], "C Text de", "a German reader gets titledb's German, not the admin's Korean");
+  assert.equal(r[`${C}:fr`][1], "C text", "a French reader gets English, not the admin's Korean");
+  assert.equal(r[`${D}:ko`][0], "D 한국어", "an admin name only in English: titledb's Korean wins for a Korean reader");
+  assert.equal(r[`${D}:fr`][0], "Admin D", "and the admin's English for a language titledb lacks");
 });

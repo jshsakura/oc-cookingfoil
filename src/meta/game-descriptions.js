@@ -5,9 +5,10 @@
  *   ${COOK_DATA_DIR}/metadata/games/<name> [<base title id>]/game.json
  *     { id, name?, description?, notes? }
  *
- * Each field is plain text, which every client language reads, or text per
- * client language ({ "ko": "…", "ja": "…", "zh-Hant": "…" }, the keys of
- * meta/langs.js LANGS).
+ * Each field is text per client language ({ "ko": "…", "ja": "…", "zh-Hant": "…" },
+ * the keys of meta/langs.js LANGS) or plain text, which counts as Korean when it
+ * has Hangul and as English otherwise (other languages reach English through
+ * the usual fallback, so a Korean text is never shown to a German reader).
  *
  * A game is found by the id in brackets at the end of its folder's name; the
  * name before it is for people and may be changed by hand. What is read comes
@@ -21,8 +22,8 @@
  * description replaces titledb's own text (for a game it has none for, or a
  * wrong one); one the admin cleared goes back to titledb's. notes is extra
  * information only the admin writes, such as what to install with the game.
- * A reader of a language gets the admin's text in it, else their plain text;
- * where a source has the language too (titledb's name or description) that
+ * A reader of a language gets the admin's text in it (plain text in the one it
+ * counts as); where a source has the language too (titledb's name or description) that
  * comes next, then English (title-detail.js). Line breaks are kept and shown as written.
  *
  * game-descriptions.json, where this was kept before, is moved into the folders
@@ -104,25 +105,28 @@ function writeLeftover(left) {
   leftover = left;
 }
 
-/** A field's text in `lang`: plain text is every language's. Pure. */
-const textIn = (v, lang) => (typeof v === "string" ? v : v?.[lang] ?? null) || null;
+const HANGUL_RE = /[가-힣]/;
 
-/** A field as text per language, plain text spread over every language. Pure. */
-const spread = (v) => (typeof v === "string" ? Object.fromEntries(LANGS.map((l) => [l, v])) : { ...(v ?? {}) });
+/** A field as text per language: plain text is Korean when it has Hangul, else English. Pure. */
+const asLangs = (v) => (typeof v === "string" ? { [HANGUL_RE.test(v) ? "ko" : "en"]: v } : { ...(v ?? {}) });
 
-/** Text per language back to what is kept: plain text when every language has the same, null when none has any. Pure. */
+/** A field's text in `lang` (plain text only in the language it counts as). Pure. */
+const textIn = (v, lang) => asLangs(v)[lang] || null;
+
+/**
+ * Text per language back to what is kept, null when none has any. Never plain text:
+ * that would read as Korean or English only, not as the languages sent. Pure.
+ */
 function gather(byLang) {
   const kept = Object.fromEntries(LANGS.filter((l) => byLang[l]).map((l) => [l, byLang[l]]));
-  const values = Object.values(kept);
-  if (!values.length) return null;
-  return values.length === LANGS.length && values.every((v) => v === values[0]) ? values[0] : kept;
+  return Object.keys(kept).length ? kept : null;
 }
 
 /** Two sets of fields, `mine` winning language by language (plain text in `mine` wins whole). Pure. */
 function mergeFields(old, mine) {
   const out = { ...old };
   for (const [field, text] of Object.entries(mine ?? {})) {
-    const next = typeof text === "string" ? text : gather({ ...spread(old?.[field]), ...Object.fromEntries(Object.entries(text).filter(([, v]) => v)) });
+    const next = typeof text === "string" ? text : gather({ ...asLangs(old?.[field]), ...Object.fromEntries(Object.entries(text).filter(([, v]) => v)) });
     if (next) out[field] = next;
   }
   return out;
@@ -198,7 +202,7 @@ function all() {
 /** Writes a game's fields into its folder (made when missing); none left removes its game.json. */
 function persist(id, fields) {
   const { text, empty } = toJson(id, fields, readFile(id).raw);
-  const label = textIn(fields.name, "ko") ?? textIn(fields.name, "en") ?? Object.values(spread(fields.name))[0] ?? null;
+  const label = textIn(fields.name, "ko") ?? textIn(fields.name, "en") ?? Object.values(asLangs(fields.name))[0] ?? null;
   if (!empty) writeAtomic(path.join(gameMeta.ensureFolder(id, label), FILE), text);
   else if (gameMeta.folderOf(id)) {
     const dir = gameMeta.folderOf(id);
@@ -242,7 +246,7 @@ export function locked(id) {
 
 /**
  * Why `value`, sent for a field, cannot be saved, in words for the admin; null when it can.
- * It is plain text (every language) or { <client language>: text | null }; too long is refused, not cut. Pure.
+ * It is plain text (Korean when it has Hangul, else English) or { <client language>: text | null }; too long is refused, not cut. Pure.
  */
 export function checkInput(field, value) {
   if (value == null) return null;
@@ -265,19 +269,19 @@ export function checkInput(field, value) {
 /**
  * The admin's text for a game, or null: { name, description, notes }, each null or
  * { <language>: text } with en and ko always there (null when not written). Plain
- * text is given in every language.
+ * text is given in the language it counts as.
  */
 export function get(id) {
   const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
   if (!own || !Object.keys(own).length) return null;
-  const shown = (v) => (v ? { en: null, ko: null, ...spread(v) } : null);
+  const shown = (v) => (v ? { en: null, ko: null, ...asLangs(v) } : null);
   return { name: shown(own.name), description: shown(own.description), notes: shown(own.notes) };
 }
 
 /**
- * Save one field. Plain text is every language's. Text per language changes only
- * the languages sent: one sent empty is forgotten, one not sent is kept (over plain
- * text, the plain text stays for the rest). Nothing left forgets the field (and the
+ * Save one field. Plain text is kept as sent and read as Korean when it has Hangul,
+ * else English. Text per language changes only the languages sent: one sent empty is
+ * forgotten, one not sent is kept (plain text already there counts in its one language). Nothing left forgets the field (and the
  * game, when nothing is left). Languages no client reads are ignored: checkInput refuses them first.
  */
 export function set(id, field, value) {
@@ -289,7 +293,7 @@ export function set(id, field, value) {
   let next;
   if (typeof value === "string") next = clean(value, field);
   else {
-    const byLang = spread(old);
+    const byLang = asLangs(old);
     for (const lang of LANGS) if (Object.hasOwn(value ?? {}, lang)) byLang[lang] = clean(value[lang], field);
     next = gather(byLang);
   }
@@ -315,7 +319,7 @@ export function describe(id, lang, fallback = null) {
   return pick(get(id)?.description, lang) ?? fallback ?? null;
 }
 
-/** The admin's name for a game in each language it has one in ({ <language>: name }, plain text in all), or null. */
+/** The admin's name for a game in each language it has one in ({ <language>: name }, plain text in the one it counts as), or null. */
 export function names(id) {
   const n = get(String(id ?? "").toUpperCase())?.name;
   if (!n) return null;

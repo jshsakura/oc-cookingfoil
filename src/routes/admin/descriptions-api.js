@@ -5,8 +5,8 @@
  *
  *   GET  /admin/api/descriptions               { games: [{ titleId, name, edited }] }   library games
  *   GET  /admin/api/descriptions/<title id>    { titleId, own: { name, description, notes } | null, original }
- *   POST /admin/api/descriptions/<title id>    { name?, description?, notes? }, each plain text (every
- *                                              language) or { <client language>: text }: the languages sent
+ *   POST /admin/api/descriptions/<title id>    { name?, description?, notes? }, each plain text (Korean when it
+ *                                              has Hangul, else English) or { <client language>: text }: the languages sent
  *                                              are saved, one sent empty is forgotten; an unknown language
  *                                              key or a text too long is refused with 400
  *   POST /admin/api/descriptions/<title id>/reset   { field?: "description" | "notes" }  (none: both)

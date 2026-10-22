@@ -183,9 +183,8 @@ test("a field written by hand as plain text, a later version and a file that is 
   fs.writeFileSync(file, JSON.stringify({ id: HAND, version: 2, description: "손으로 쓴 글", name: "Hand Name", locked: ["icon", "icon"] }));
   await scan();
 
-  assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text is every language's");
-  assert.equal(describe(HAND, "de"), "손으로 쓴 글");
-  assert.equal(names(HAND).ja, "Hand Name");
+  assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text with Hangul is Korean");
+  assert.deepEqual(names(HAND), { en: "Hand Name" });
   set(HAND, "notes", { ko: "메모" });
   const saved = JSON.parse(fs.readFileSync(file, "utf8"));
   assert.equal(saved.description, "손으로 쓴 글", "kept as written");
@@ -198,7 +197,7 @@ test("a field written by hand as plain text, a later version and a file that is 
   fs.rmSync(dir, { recursive: true });
 });
 
-test("a name is kept per client language; one written as plain text is every language's", async () => {
+test("a name is kept per client language; one written as plain text is English without Hangul, Korean with it", async () => {
   const id = "0100000000C10000";
   assert.equal(set(id, "name", { ja: "日本語の名前", "zh-Hant": "繁體名稱", ko: "한국어 이름" }), true);
   assert.deepEqual(names(id), { ja: "日本語の名前", "zh-Hant": "繁體名稱", ko: "한국어 이름" });
@@ -209,15 +208,23 @@ test("a name is kept per client language; one written as plain text is every lan
 
   fs.writeFileSync(file, JSON.stringify({ id, name: "Hand Written", description: { fr: "Texte", xx: "ignored" } }));
   await scan();
-  const every = names(id);
-  for (const l of ["en", "ko", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "ru", "nl"]) assert.equal(every[l], "Hand Written", l);
+  assert.deepEqual(names(id), { en: "Hand Written" }, "other languages reach it through the English fallback");
   assert.equal(describe(id, "fr"), "Texte");
   assert.equal(describe(id, "de"), null, "a German reader is not handed French: English, then Korean, else nothing");
   set(id, "notes", { en: "A note" });
   assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).name, "Hand Written", "a plain name stays plain when another field is saved");
   set(id, "name", { ko: "한국어만" });
   assert.equal(names(id).ko, "한국어만");
-  assert.equal(names(id).de, "Hand Written", "a language set over a plain name keeps the plain one for the rest");
+  assert.deepEqual(names(id), { en: "Hand Written", ko: "한국어만" }, "a language set over a plain name keeps the plain one in its language");
+
+  fs.writeFileSync(file, JSON.stringify({ id, description: "한국어로 쓴 소개" }));
+  await scan();
+  assert.deepEqual(get(id).description, { en: null, ko: "한국어로 쓴 소개" }, "plain text with Hangul is Korean only");
+  set(id, "description", { ko: "한국어로 쓴 소개", de: "" });
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")).description, { ko: "한국어로 쓴 소개" }, "saved back as Korean, not as every language");
+  const all = Object.fromEntries(["en", "ko", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "ru", "nl"].map((l) => [l, "Same"]));
+  set(id, "name", all);
+  assert.deepEqual(names(id), all, "the same text sent for every language still reads in every language");
   reset(id);
 });
 

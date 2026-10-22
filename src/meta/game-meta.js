@@ -58,8 +58,8 @@ export const FIELDS = ["name", "description", "notes"];
 const MAX_FOLDER_LABEL_BYTES = 180;
 
 /**
- * The fields of a game.json, each as written: plain text (every client language's)
- * or { <client language>: text } (meta/langs.js LANGS). An empty text, a language
+ * The fields of a game.json, each as written: plain text (game-descriptions.js reads
+ * it as Korean when it has Hangul, else English) or { <client language>: text } (meta/langs.js LANGS). An empty text, a language
  * key no client reads and anything else in the file are left out. Pure.
  */
 export function readFields(json) {

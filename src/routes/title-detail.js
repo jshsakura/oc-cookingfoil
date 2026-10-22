@@ -118,7 +118,7 @@ export default async function titleDetailRoute(req, res) {
   const names = { ...fileNamesOver(fromDbNames, fileTitles, priority), ...(fromDbNames ?? {}) };
   const nameLang = priority.map((l) => parseLang(l) ?? l).find((l) => names[l]);
   const own = gameDescriptions.get(base);
-  // The admin's text in the asked language (their plain text is every language's), else titledb's in it, else
+  // The admin's text in the asked language (their plain text counts as Korean with Hangul, else English), else titledb's in it, else
   // the admin's English, else titledb's English: the order a name takes too, as namesOf lays the admin's over titledb's.
   const ownDescription = asked ? own?.description?.[asked] ?? (descriptions?.[asked] ? null : own?.description?.en) ?? null : customDesc;
   // The asked language's box art, else its fallbacks'. A language whose art is the default one stops there.
