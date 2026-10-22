@@ -11,6 +11,7 @@ import path from "path";
 import { readdir, readFile } from "fs/promises";
 import debug from "../debug.js";
 import { titledbCacheDir, langPriority } from "../helpers/envs.js";
+import { LANGS } from "./langs.js";
 import { slimPathFor, writeSlimFromJson, SLIM_SCHEMA_VERSION } from "./titledb-slim.js";
 import { normalizeSupportedLanguages } from "./supported-languages.js";
 import * as gameDescriptions from "./game-descriptions.js";
@@ -34,9 +35,10 @@ const REGION_FILE_RE = /^([A-Z]{2}\.[a-z]{2,3})\.json$/;
 const REGION_SLIM_RE = /^([A-Z]{2}\.[a-z]{2,3})\.slim\.json$/;
 
 function regionToLang(region) {
-  // "US.en" → "en", "JP.ja" → "ja", "KR.ko" → "ko".
+  // "US.en" → "en", "JP.ja" → "ja", "KR.ko" → "ko"; Hong Kong's Chinese is traditional ("zh-Hant").
   const dot = region.lastIndexOf(".");
-  return (dot >= 0 ? region.slice(dot + 1) : region).toLowerCase();
+  const lang = (dot >= 0 ? region.slice(dot + 1) : region).toLowerCase();
+  return lang === "zh" && /^(HK|TW|MO)\./.test(region) ? "zh-Hant" : lang;
 }
 
 const state = {
@@ -77,8 +79,8 @@ function setIfEmpty(target, field, value) {
   }
 }
 
-// The languages clients pick from; other region files still merge as before.
-export const LOCALIZED_LANGS = ["ko", "en", "ja", "zh"];
+// The languages clients pick from (meta/langs.js); other region files still merge as before.
+export const LOCALIZED_LANGS = LANGS;
 
 function keepLocalized(rec, lang, entry) {
   if (!LOCALIZED_LANGS.includes(lang)) return;

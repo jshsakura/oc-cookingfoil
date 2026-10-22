@@ -22,7 +22,7 @@ export const DEFAULT_SOURCE = "https://raw.githubusercontent.com/blawar/titledb/
 // GB.en; EU.en does not exist upstream.
 export const DEFAULT_REGIONS = [
   "KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh", "CN.zh",
-  "AU.en", "NZ.en", "CA.en", "ZA.en", "DE.de", "FR.fr", "ES.es", "IT.it", "RU.ru", "BR.pt",
+  "AU.en", "NZ.en", "CA.en", "ZA.en", "DE.de", "FR.fr", "ES.es", "IT.it", "RU.ru", "BR.pt", "NL.nl",
 ];
 const RENAMED = { "EU.en": "GB.en" };
 

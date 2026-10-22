@@ -23,7 +23,7 @@ import express from "express";
 import { publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { ownerKey } from "../security/link-identity.js";
 

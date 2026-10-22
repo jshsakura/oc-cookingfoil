@@ -23,7 +23,8 @@
  * the keys of categories.js GENRE_LABELS, so every one has a label in en, ko,
  * ja and zh; a source's genre with no such key is dropped. Everything here is pure.
  */
-import { GENRE_LABELS, GENRE_LANGS, genreLabel } from "../../meta/categories.js";
+import { GENRE_LABELS, genreLabel } from "../../meta/categories.js";
+import { pick } from "../../meta/langs.js";
 import { ATTRIBUTION, enwikiTitle } from "../../meta/kowiki.js";
 
 export const MAX_SHOTS = 8;
@@ -190,7 +191,7 @@ export function descriptionIn(record, lang) {
   const d = record?.description;
   if (!d) return null;
   if (lang === "ko" && d.ko && record.koFrom === "wikipedia") return `${d.ko}\n\n${ATTRIBUTION}`;
-  return (GENRE_LANGS.includes(lang) && d[lang]) || d.en || null;
+  return pick(d, lang);
 }
 
 /**

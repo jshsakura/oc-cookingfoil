@@ -185,6 +185,10 @@ function baseDisplayName(parsed, fromDb) {
   return decorateNameWithAlias(rawName, source ?? fromDb, nacpEnglish);
 }
 
+// European titles are mostly the English one; those are left out of a list item, as a client falls back to English.
+const TWIN_LANGS = new Set(["es", "fr", "de", "it", "pt", "ru", "nl"]);
+const withoutEnglishTwins = (names) => Object.fromEntries(Object.entries(names).filter(([l, v]) => !TWIN_LANGS.has(l) || v !== names.en));
+
 function buildFileItem(relPath, size, mtimeMs) {
   const parsed = parseFromFilename(relPath);
   const baseId = parsed.groupTitleId;
@@ -402,7 +406,7 @@ function buildSectionItem(relPath, wireItem) {
       const nacpEnglish = contentMeta.get(parsed.titleId, 0)?.englishName;
       const fromDbNames = titledbStore.namesOf(parsed.titleId);
       // The file's own titles fill the languages titledb lacks, so a Korean client finds the Korean one.
-      const names = { ...fileNamesOver(fromDbNames, fileTitles(parsed.titleId, nacpEnglish), langPriority), ...(fromDbNames ?? {}) };
+      const names = withoutEnglishTwins({ ...fileNamesOver(fromDbNames, fileTitles(parsed.titleId, nacpEnglish), langPriority), ...(fromDbNames ?? {}) });
       if (Object.keys(names).length) item.names = names;
       // Box art per language where it differs from icon_url (feature "item-icons").
       const langs = iconLangs(parsed.titleId);

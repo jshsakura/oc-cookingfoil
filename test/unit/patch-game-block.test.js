@@ -35,7 +35,7 @@ after(async () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test("a patch for a game the shop does not list carries its name, names in all four languages and icon", async () => {
+test("a patch for a game the shop does not list carries its name, names in each language titledb has and icon", async () => {
   let patch;
   for (let i = 0; i < 40 && !patch; i++) {
     const body = await (await fetch(`${BASE}/api/patches?lang=ko`)).json();
@@ -45,6 +45,6 @@ test("a patch for a game the shop does not list carries its name, names in all f
   assert.ok(patch, "the patch is listed");
   assert.equal(typeof patch.game.name, "string");
   assert.ok(patch.game.name.length > 0);
-  assert.deepEqual(patch.game.names, { ko: "한국어 이름", en: "English Name", ja: "日本語の名前", zh: "中文名稱" });
+  assert.deepEqual(patch.game.names, { ko: "한국어 이름", en: "English Name", ja: "日本語の名前", "zh-Hant": "中文名稱" }, "Hong Kong's Chinese is traditional");
   assert.match(patch.game.icon, new RegExp(`^${BASE}/api/shop/icon/${TID}`), "an absolute icon the shop serves");
 });

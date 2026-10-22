@@ -15,23 +15,23 @@
 const label = (order, tone, icon, text) => ({ ...text, tone, ...(icon ? { icon } : {}), order });
 
 export const SWITCH_LABELS = {
-  "korean-patch": label(10, "accent", "globe", { en: "Korean patch", ko: "한글패치", ja: "韓国語パッチ", zh: "韩化补丁" }),
-  "required-patch": label(20, "warn", "wrench", { en: "Required patch", ko: "필수 패치", ja: "必須パッチ", zh: "必需补丁" }),
-  damaged: label(30, "bad", "alert", { en: "May be damaged", ko: "손상 의심", ja: "破損の疑い", zh: "疑似损坏" }),
-  modified: label(31, "warn", "info", { en: "Modified", ko: "수정됨", ja: "改変あり", zh: "已修改" }),
-  latest: label(32, "good", "check", { en: "Latest version", ko: "최신 버전", ja: "最新バージョン", zh: "最新版本" }),
-  update: label(33, "neutral", "download", { en: "Update", ko: "업데이트", ja: "アップデート", zh: "更新" }),
-  sale: label(40, "accent", "tag", { en: "eShop sale", ko: "eShop 할인", ja: "eShop セール", zh: "eShop 折扣" }),
-  dlc: label(50, "neutral", "package", { en: "DLC {0}", ko: "DLC {0}", ja: "DLC {0}", zh: "DLC {0}" }),
+  "korean-patch": label(10, "accent", "globe", { en: "Korean patch", ko: "한글패치", ja: "韓国語パッチ", zh: "韩化补丁", "zh-Hant": "韓化補丁", es: "Parche coreano", fr: "Patch coréen", de: "Koreanischer Patch", it: "Patch coreana", pt: "Patch coreano", ru: "Корейский патч", nl: "Koreaanse patch" }),
+  "required-patch": label(20, "warn", "wrench", { en: "Required patch", ko: "필수 패치", ja: "必須パッチ", zh: "必需补丁", "zh-Hant": "必需補丁", es: "Parche necesario", fr: "Patch requis", de: "Erforderlicher Patch", it: "Patch necessaria", pt: "Patch necessário", ru: "Обязательный патч", nl: "Vereiste patch" }),
+  damaged: label(30, "bad", "alert", { en: "May be damaged", ko: "손상 의심", ja: "破損の疑い", zh: "疑似损坏", "zh-Hant": "疑似損壞", es: "Posiblemente dañado", fr: "Peut-être endommagé", de: "Möglicherweise beschädigt", it: "Forse danneggiato", pt: "Pode estar danificado", ru: "Возможно повреждён", nl: "Mogelijk beschadigd" }),
+  modified: label(31, "warn", "info", { en: "Modified", ko: "수정됨", ja: "改変あり", zh: "已修改", "zh-Hant": "已修改", es: "Modificado", fr: "Modifié", de: "Verändert", it: "Modificato", pt: "Modificado", ru: "Изменён", nl: "Aangepast" }),
+  latest: label(32, "good", "check", { en: "Latest version", ko: "최신 버전", ja: "最新バージョン", zh: "最新版本", "zh-Hant": "最新版本", es: "Última versión", fr: "Dernière version", de: "Neueste Version", it: "Ultima versione", pt: "Versão mais recente", ru: "Последняя версия", nl: "Nieuwste versie" }),
+  update: label(33, "neutral", "download", { en: "Update", ko: "업데이트", ja: "アップデート", zh: "更新", "zh-Hant": "更新", es: "Actualización", fr: "Mise à jour", de: "Update", it: "Aggiornamento", pt: "Atualização", ru: "Обновление", nl: "Update" }),
+  sale: label(40, "accent", "tag", { en: "eShop sale", ko: "eShop 할인", ja: "eShop セール", zh: "eShop 折扣", "zh-Hant": "eShop 折扣", es: "Oferta en eShop", fr: "Promo eShop", de: "eShop-Angebot", it: "Offerta eShop", pt: "Promoção eShop", ru: "Скидка в eShop", nl: "eShop-aanbieding" }),
+  dlc: label(50, "neutral", "package", { en: "DLC {0}", ko: "DLC {0}", ja: "DLC {0}", zh: "DLC {0}", "zh-Hant": "DLC {0}", es: "DLC {0}", fr: "DLC {0}", de: "DLC {0}", it: "DLC {0}", pt: "DLC {0}", ru: "DLC {0}", nl: "DLC {0}" }),
 };
 
 export const RETRO_LABELS = {
-  achievements: label(10, "accent", "trophy", { en: "Achievements {0}", ko: "업적 {0}", ja: "実績 {0}", zh: "成就 {0}" }),
+  achievements: label(10, "accent", "trophy", { en: "Achievements {0}", ko: "업적 {0}", ja: "実績 {0}", zh: "成就 {0}", "zh-Hant": "成就 {0}", es: "Logros {0}", fr: "Succès {0}", de: "Erfolge {0}", it: "Obiettivi {0}", pt: "Conquistas {0}", ru: "Достижения {0}", nl: "Prestaties {0}" }),
   // Found by its title rather than its ROM's hash, so this ROM may not earn them.
-  "achievements-title": label(11, "neutral", "trophy", { en: "Achievements {0}", ko: "업적 {0}", ja: "実績 {0}", zh: "成就 {0}" }),
-  korean: label(20, "neutral", null, { en: "Korean", ko: "한글", ja: "韓国語", zh: "韩文" }),
-  year: label(30, "neutral", null, { en: "{0}", ko: "{0}", ja: "{0}", zh: "{0}" }),
-  players: label(40, "neutral", null, { en: "{0}P", ko: "{0}인", ja: "{0}人", zh: "{0}人" }),
+  "achievements-title": label(11, "neutral", "trophy", { en: "Achievements {0}", ko: "업적 {0}", ja: "実績 {0}", zh: "成就 {0}", "zh-Hant": "成就 {0}", es: "Logros {0}", fr: "Succès {0}", de: "Erfolge {0}", it: "Obiettivi {0}", pt: "Conquistas {0}", ru: "Достижения {0}", nl: "Prestaties {0}" }),
+  korean: label(20, "neutral", null, { en: "Korean", ko: "한글", ja: "韓国語", zh: "韩文", "zh-Hant": "韓文", es: "Coreano", fr: "Coréen", de: "Koreanisch", it: "Coreano", pt: "Coreano", ru: "Корейский", nl: "Koreaans" }),
+  year: label(30, "neutral", null, { en: "{0}", ko: "{0}", ja: "{0}", zh: "{0}", "zh-Hant": "{0}", es: "{0}", fr: "{0}", de: "{0}", it: "{0}", pt: "{0}", ru: "{0}", nl: "{0}" }),
+  players: label(40, "neutral", null, { en: "{0}P", ko: "{0}인", ja: "{0}人", zh: "{0}人", "zh-Hant": "{0}人", es: "{0} jug.", fr: "{0} j.", de: "{0} Sp.", it: "{0} gioc.", pt: "{0} jog.", ru: "{0} игр.", nl: "{0} sp." }),
 };
 
 const INTEGRITY_RANK = { modified: 1, damaged: 2 };

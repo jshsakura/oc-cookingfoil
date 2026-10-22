@@ -17,7 +17,7 @@ import path from "path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "url";
 import { escapeHtml } from "./admin/escape.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import * as link from "../retro/achievements/link.js";
 import { LONG_WAIT_MS } from "./retro-achievements.js";
 import { RA_LINK_TEXT } from "./ra-link-text.js";

@@ -29,7 +29,7 @@ import { approvePairLink } from "../security/pairing-approve.js";
 import { hasValidSession } from "../security/admin-session.js";
 import { devicePairing, publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { devicePairPage } from "./device-pair-page.js";
 import * as users from "../security/users.js";
 import { normalizeDeviceKey } from "../security/pairing.js";

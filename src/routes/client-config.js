@@ -3,7 +3,7 @@
  * at this server. It carries no password, access key or Cloudflare secret; a
  * console pairs (QR, or the download token) to get its access key.
  */
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 

@@ -35,7 +35,7 @@ import { approvePairLink } from "../security/pairing-approve.js";
 import { devicePairing, googleRedirectBase, publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { devicePage, loginPage } from "./login-page.js";
 import debug from "../debug.js";
 import { gravatarUrl } from "../helpers/gravatar.js";

@@ -27,7 +27,7 @@ import { savesDir, publicBaseUrl } from "../helpers/envs.js";
 import { createCatalog, localize } from "../meta/shop-saves.js";
 import { appDb } from "../db/database.js";
 import { watchItems } from "../meta/folder-watch.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { gameOf } from "../meta/game-info.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { sendTar } from "../helpers/tar-stream.js";

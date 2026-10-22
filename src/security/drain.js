@@ -23,7 +23,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import * as env from "../helpers/envs.js";
-import { requestLang } from "../meta/categories.js";
+import { requestLang } from "../meta/langs.js";
 import { BRAND_LOGO, BRAND_MOTION_CSS } from "../views/brand-motion.js";
 
 export const RESTART_HEADER = "X-CookingFoil-Restarting";
@@ -82,8 +82,9 @@ const PAGE_TEXT = Object.freeze({
 
 // Self-contained: while the server drains, its stylesheets and fonts are refused too.
 const page = (seconds, lang) => {
-  const [title, body] = PAGE_TEXT[lang] ?? PAGE_TEXT.en;
-  return `<!doctype html><html lang="${lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
+  const shown = PAGE_TEXT[lang] ? lang : "en";
+  const [title, body] = PAGE_TEXT[shown];
+  return `<!doctype html><html lang="${shown}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="${seconds}">
 <title>CookingFoil</title><style>
 :root{--ground:#f2f1ee;--surface:#fff;--ink:#16161a;--secondary:#55555e;--line:#e2e0da;--butter:#ffc23d;color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--ground:#16161a;--surface:#1f1f24;--ink:#f2f1ee;--secondary:#a9a8a3;--line:#303037}}
