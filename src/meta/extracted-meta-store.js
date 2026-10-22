@@ -27,6 +27,7 @@ import fs from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { extractedMetaDir } from "../helpers/envs.js";
+import { garbled } from "./nacp-decode.js";
 
 const FILE_RE = /^([0-9A-F]{16})\.json$/;
 
@@ -73,10 +74,26 @@ export async function load() {
   debug.log("extracted-meta: loaded %d records", count);
 }
 
+/**
+ * A name or publisher stored garbled (a compressed NACP read as plain text,
+ * before nacp-decode.js understood it) reads as missing, and the record is
+ * marked `garbled` so nacp-extractor.js reads the file again. Pure.
+ */
+function readable(record) {
+  if (!garbled(record.name) && !garbled(record.publisher)) return record;
+  return {
+    ...record,
+    name: garbled(record.name) ? null : record.name,
+    publisher: garbled(record.publisher) ? null : record.publisher,
+    garbled: true,
+  };
+}
+
 export function get(titleId) {
   const tid = normTid(titleId);
   if (!tid) return null;
-  return memory.get(tid) ?? null;
+  const record = memory.get(tid);
+  return record ? readable(record) : null;
 }
 
 export function size() {

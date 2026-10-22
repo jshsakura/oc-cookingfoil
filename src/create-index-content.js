@@ -327,19 +327,28 @@ export function composeResponse(filesMap, customs) {
 // uncovered file is SKIPPED rather than allowed to grind for minutes —
 // it keeps its filename fallback. `item.size` is the fast-glob stat from
 // scanLibrary, so no extra fs.stat here.
+//
+// A record stored garbled (a compressed NACP read as plain text by an older
+// decoder) is a repair, not an optional extraction: it is read again in full
+// whatever the mode and whether or not titledb knows the title, still through
+// the paced queue and under the size cap.
 function queueExtraction(relPath, item, baseId) {
   const fromDb = titledbStore.get(baseId);
-  if (!fromDb && extractedMeta.get(baseId)) return;
+  const read = extractedMeta.get(baseId);
+  const repair = Boolean(read?.garbled);
+  // A record already read is read again only when nacp-extractor.js asks for it (needsReread).
+  if (!fromDb && read && !nacpExtractor.needsReread(read)) return;
   const sizeBytes = item.size;
-  if (shouldAutoExtract({ sizeBytes, extractMode: extractIcons, fromDb, maxBytes: extractMaxBytes, fileName: relPath })) {
+  const extractMode = repair ? "all" : extractIcons;
+  if (shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes: extractMaxBytes, fileName: relPath })) {
     nacpExtractor.enqueue({
       absPath: path.join(romsDirPath, relPath),
       baseTitleId: baseId,
       fileName: item.name,
-      wantMeta: !fromDb,
+      wantMeta: repair || !fromDb,
     });
   } else if (
-    wantsExtractByMode({ extractMode: extractIcons, fromDb }) &&
+    wantsExtractByMode({ extractMode, fromDb }) &&
     !isSliceable(relPath) &&
     isOverSizeCap({ sizeBytes, maxBytes: extractMaxBytes })
   ) {
