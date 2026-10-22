@@ -131,3 +131,22 @@ test("an unknown size serves the picture at its own size, as WebP", async () => 
   const meta = await served(file, { size: "huge" }, { wide: true });
   assert.deepEqual([meta.format, meta.width], ["webp", 1280]);
 });
+
+test("no more than MAX_ENCODES variants are encoded at once", async (t) => {
+  const { MAX_ENCODES } = await import("../../src/meta/image-cache.js");
+  const files = await Promise.all(Array.from({ length: 12 }, () => picture(64, 64)));
+  let now = 0;
+  let most = 0;
+  const toFile = sharp.prototype.toFile;
+  t.mock.method(sharp.prototype, "toFile", async function (...args) {
+    most = Math.max(most, ++now);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return await toFile.apply(this, args);
+    } finally {
+      now--;
+    }
+  });
+  await Promise.all(files.map((f) => sentFile(f, { size: "sm" })));
+  assert.equal(most, MAX_ENCODES);
+});

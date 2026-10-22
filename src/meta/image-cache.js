@@ -67,6 +67,22 @@ export const IMMUTABLE = "public, max-age=31536000, immutable";
 export const UNVERSIONED = "public, max-age=300";
 const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
+// Encodes at once: a burst (a shop opened on several consoles after a deploy) would
+// otherwise fill libuv's thread pool and hold up file reads and downloads behind it.
+export const MAX_ENCODES = 4;
+let encoding = 0;
+const waitingEncodes = [];
+
+async function encodeSlot(fn) {
+  if (encoding >= MAX_ENCODES) await new Promise((resolve) => waitingEncodes.push(resolve));
+  encoding++;
+  try {
+    return await fn();
+  } finally {
+    encoding--;
+    waitingEncodes.shift()?.();
+  }
+}
 
 // Once we've confirmed a file is on disk, skip the syscall on subsequent
 // requests. A grid of 24 cards triggers 24+ image hits; on a warm cache
@@ -251,7 +267,7 @@ async function ensureVariant(originalPath, variant) {
   const key = variant.path;
   let pending = inFlightVariant.get(key);
   if (!pending) {
-    pending = (async () => {
+    pending = encodeSlot(async () => {
       const tmp = `${variant.path}.tmp.${process.pid}`;
       await mkdir(path.dirname(variant.path), { recursive: true });
       // Read as bytes: an uploaded picture is rewritten under the same name, and libvips would
@@ -269,7 +285,7 @@ async function ensureVariant(originalPath, variant) {
       knownExists.add(variant.path);
       const sz = (await statAsync(variant.path)).size;
       debug.cache("image cache: variant %s (%d bytes, %dms)", path.basename(variant.path), sz, Date.now() - t0);
-    })().finally(() => inFlightVariant.delete(key));
+    }).finally(() => inFlightVariant.delete(key));
     inFlightVariant.set(key, pending);
   }
   await pending;
