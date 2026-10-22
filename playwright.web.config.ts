@@ -1,4 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import crypto from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
+
+// Each checkout gets its own port and folders: two worktrees running the suite at
+// once would otherwise test against each other's server and files.
+const slot = parseInt(crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 6), 16) % 1000;
+const port = process.env.COOK_WEB_TEST_PORT ?? String(3188 + slot);
+const root = path.join(os.tmpdir(), `cookingfoil-web-test-${slot}`);
+process.env.COOK_WEB_TEST_PORT = port;
+for (const [role, dir] of Object.entries({ DATA: 'data', GAMES: 'games', PATCHES: 'patches', SAVES: 'saves', HOMEBREW: 'homebrew', RETRO: 'retro' })) {
+  process.env[`COOK_${role}_DIR`] ??= path.join(root, dir);
+}
+const base = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: './test/web',
   // The admin spec turns the password lane on and off for the whole server,
@@ -7,16 +21,16 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:3188', trace: 'retain-on-failure',
+  use: { baseURL: base, trace: 'retain-on-failure',
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {},
   },
   webServer: {
     command: 'node test/web/server.mjs',
-    url: 'http://127.0.0.1:3188/healthz',
-    reuseExistingServer: !process.env.CI,
+    url: `${base}/healthz`,
+    // A server already on the port is someone else's: fail rather than test against it.
+    reuseExistingServer: false,
     env: {
-      COOK_PORT: '3188', COOK_STORAGE_DIR: '', COOK_DATA_DIR: '/tmp/cookingfoil-web-test-data',
-      COOK_GAMES_DIR: '/tmp/cookingfoil-web-test-games', COOK_TITLEDB_AUTO_FETCH: 'false',
+      COOK_PORT: port, COOK_STORAGE_DIR: '', COOK_TITLEDB_AUTO_FETCH: 'false',
       COOK_EXTRACT_ICONS: 'off', COOK_AUTH_USERS: '', COOK_DEVICE_PAIRING: 'true',
       COOK_UPLOADS_ENABLED: 'true', COOK_ESHOP_PRICES: 'false', COOK_ADMIN_TOTP_SECRET: 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU',
       COOK_FIRST_RUN_SETUP: 'false', COOK_VERIFY_HOURS: 'always', COOK_RETRO_META: 'false', COOK_RATING_SYNC: 'false',

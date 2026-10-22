@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const GAMES = process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games';
-const SAVES = process.env.COOK_SAVES_DIR ?? '/tmp/cookingfoil-web-test-saves';
+const GAMES = process.env.COOK_GAMES_DIR!;
+const SAVES = process.env.COOK_SAVES_DIR!;
 const pkg = (name: string) => ({ name, mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
 const nsp = (tag: string) => `E2E Flow ${tag} [0100000000${60 + tag.length}0000][v0].nsp`;
 // The file names of every upload request the page sends, in order (the page's XHR is wrapped before it loads).
