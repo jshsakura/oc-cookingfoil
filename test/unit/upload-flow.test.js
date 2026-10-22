@@ -19,8 +19,18 @@ test("a folder, a ROM set and a lone file are each one request", () => {
   assert.deepEqual(splitUnits({ kind: "game", names: [] }), []);
 });
 
-test("a folder of packages stays one request: the server takes a package per request, so the folder is refused whole and retried whole", () => {
-  assert.equal(splitUnits({ kind: "game", names: ["a.nsp", "b.nsp"], paths: ["d/a.nsp", "d/b.nsp"] }).length, 1);
+test("packages picked as a folder still go one request each, so the server's one-package rule holds", () => {
+  const units = splitUnits({ kind: "game", names: ["a.nsp", "b.nsp", "c.nsp"], paths: ["d/a.nsp", "d/b.nsp", "d/c.nsp"] });
+  assert.deepEqual(units.map((u) => u.from), [[0], [1], [2]]);
+  assert.deepEqual(units.map((u) => u.label), ["a.nsp", "b.nsp", "c.nsp"]);
+  assert.equal(splitUnits({ kind: "save", names: ["a", "b"], paths: ["d/a", "d/b"] }).length, 1, "other kinds keep a folder whole");
+});
+
+test("the page script sends package units without folder paths and clears the old batch when entered from an app card", () => {
+  assert.match(DASHBOARD_SCRIPT, /paths:upPaths&&upKind!=='game'/);
+  const enter = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("if(upPending){"), DASHBOARD_SCRIPT.indexOf("upPreset=true"));
+  for (const part of ["upFiles=[]", "upUnits=[]", "upGuess=null"]) assert.ok(enter.includes(part), part);
+  assert.match(DASHBOARD_SCRIPT, /upPreset&&n&&mm/, "the mismatch warning stays on the app card entry");
 });
 
 test("a retry sends only what has not gone in", () => {

@@ -779,7 +779,7 @@ function upRender(){
   $('up-desc-l').hidden=!ps;
   $('up-savetype-l').hidden=!(upKind==='save'&&$('up-target').value==='');
   $('up-required-l').hidden=!(upKind==='patch'&&$('up-target').value==='');
-  $('up-hint').textContent=upHintText();
+  $('up-hint').textContent=upHintText()+(upPreset&&n&&mm?' '+upT('mismatch',{kind:mm}):'');
   $('up-plan').textContent=upPlanText();
   const w=upKind&&upInfo&&upInfo.targets[upKind==='port'?'homebrew':upKind];$('up-note').replaceChildren();
   if(w&&!w.writable){const nt=el('div',null,'note warn');
@@ -837,7 +837,10 @@ async function loadUploadInfo(){
 async function loadUpload(){
   if(!await loadUploadInfo())return;
   // Sent here from an app card: the app and what to add to it are already chosen.
-  if(upPending){$('up-target').value=upPending.app;upKind=upPending.kind;upPreset=true;upPending=null;}
+  if(upPending){
+    // A new entry starts clean: nothing picked or failed before may be sent to the kind chosen here.
+    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
+    $('up-target').value=upPending.app;upKind=upPending.kind;upPreset=true;upPending=null;}
   upRender();}
 // New files: read what they are from the names, fill in what the names tell, and leave the rest to the admin.
 async function upTake(files,paths){
@@ -912,7 +915,7 @@ async function upSubmit(only){
     if(!$('up-target').value&&!upTitleId()){toast(upT('tTarget'));return;}
     if(!$('up-name').value.trim()){toast(upT('tName'));return;}}
   if(!upUnits.length){
-    upUnits=splitUnits({kind:upKind,names:upFiles.map((f)=>f.name),paths:upPaths}).map((s)=>({label:s.label,files:s.from.map((i)=>upFiles[i]),paths:upPaths?s.from.map((i)=>upPaths[i]):null,state:'wait'}));
+    upUnits=splitUnits({kind:upKind,names:upFiles.map((f)=>f.name),paths:upPaths}).map((s)=>({label:s.label,files:s.from.map((i)=>upFiles[i]),paths:upPaths&&upKind!=='game'?s.from.map((i)=>upPaths[i]):null,state:'wait'}));
     for(const u of upUnits)upHistory.push(u);
     // Rows go in newest first, so the batch reads top to bottom in the order it was picked.
     for(const u of [...upUnits].reverse())upPaint(u);

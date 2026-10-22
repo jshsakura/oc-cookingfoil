@@ -5,12 +5,12 @@
 
 /**
  * How a picked set is sent: [{ label, from }], `from` the indexes into the picked files.
- * Packages go one request each (the server takes one per request); anything else, a folder
- * included, is one request so its parts land together.
+ * Packages go one request each, folder or not (the server takes one per request); anything
+ * else, a folder included, is one request so its parts land together.
  */
 export function splitUnits({ kind, names, paths = null }) {
   if (!names.length) return [];
-  if (kind === "game" && names.length > 1 && !paths) return names.map((n, i) => ({ label: n, from: [i] }));
+  if (kind === "game" && names.length > 1) return names.map((n, i) => ({ label: n, from: [i] }));
   const all = names.map((_, i) => i);
   if (paths) return [{ label: `${paths[0].split("/")[0]}/ · ${names.length}`, from: all }];
   if (names.length === 1) return [{ label: names[0], from: all }];
