@@ -23,7 +23,7 @@ export const TRASH_HTML = `<section id="tab-trash" hidden>
     <div class="actions"><button type="button" id="tr-restore-sel" disabled>${top("t.restoreSel")}</button><button type="button" class="danger" id="tr-empty-sel" disabled>${top("t.emptySel")}</button></div>
   </div>
   <div class="tr-list" id="tr-list"></div>
-  ${box("trash-journal", top("t.jTitle"), `<p class="muted">${top("t.jLead")}</p><div class="tr-list" id="tr-journal"></div>`)}
+  ${box("trash-journal", top("t.jTitle"), `<div id="tr-held-box" hidden><p class="muted">${top("t.jHeld")}</p><div class="tr-list" id="tr-held"></div></div><p class="muted">${top("t.jLead")}</p><div class="tr-list" id="tr-journal"></div>`)}
 </section>`;
 
 export const TRASH_CSS = `
@@ -75,17 +75,19 @@ function trRender(){if(!trData)return;const d=trData;trCards(d);
   const o=$('tr-old');o.hidden=!d.old.count;if(d.old.count)o.textContent=trT('old',{days:d.noticeDays,n:num(d.old.count),size:trSize(d.old.bytes)});
   for(const id of [...trSel])if(!d.items.some((e)=>e.id===id))trSel.delete(id);
   $('tr-list').replaceChildren(...(d.items.length?d.items.map(trRow):[el('p',trT('none'),'muted')]));trSelUpdate();trJournalRender();}
-function trJournalRender(){if(!trJournal)return;const box=$('tr-journal');
+function trMove(o){const r=el('div',null,'tr-row');const main=el('div',null,'tr-main');
+  main.append(el('b',topWords.ko['t.j.'+o.action]?trT('j.'+o.action):o.action),el('span',trRoot(o.fromRoot)+' / '+o.from+'  →  '+trRoot(o.toRoot)+' / '+o.to));
+  const meta=el('div',null,'tr-meta');meta.append(el('span',trWhen(o.at)),el('span',trBy(o.by)));
+  if(o.held)meta.append(pill(trT('staysPut')));
+  else if(!o.undoable&&o.reason)meta.append(pill(topWords.ko['t.r.'+o.reason]?trT('r.'+o.reason):o.reason));main.append(meta);
+  const act=el('div',null,'tr-act');if(o.undoable)act.append(btn(trT('undo'),()=>trUndo(o)));
+  if(o.held)act.append(btn(trT('release'),()=>trRelease(o)));
+  r.append(el('span'),main,act);return r;}
+// Held files come from the server's full hold list, not the page of recent moves: a release is always reachable.
+function trJournalRender(){if(!trJournal)return;const box=$('tr-journal');const held=trJournal.held||[];
+  $('tr-held-box').hidden=!held.length;$('tr-held').replaceChildren(...held.map(trMove));
   if(!trJournal.items.length){box.replaceChildren(el('p',trT('jNone'),'muted'));return;}
-  box.replaceChildren(...trJournal.items.map((o)=>{const r=el('div',null,'tr-row');const main=el('div',null,'tr-main');
-    main.append(el('b',topWords.ko['t.j.'+o.action]?trT('j.'+o.action):o.action),el('span',trRoot(o.fromRoot)+' / '+o.from+'  →  '+trRoot(o.toRoot)+' / '+o.to));
-    const meta=el('div',null,'tr-meta');meta.append(el('span',trWhen(o.at)),el('span',trBy(o.by)));
-    const held=o.undone&&!o.released&&o.action==='organize';
-    if(held)meta.append(pill(trT('staysPut')));
-    else if(!o.undoable&&o.reason)meta.append(pill(topWords.ko['t.r.'+o.reason]?trT('r.'+o.reason):o.reason));main.append(meta);
-    const act=el('div',null,'tr-act');if(o.undoable)act.append(btn(trT('undo'),()=>trUndo(o)));
-    if(held)act.append(btn(trT('release'),()=>trRelease(o)));
-    r.append(el('span'),main,act);return r;}));}
+  box.replaceChildren(...trJournal.items.map(trMove));}
 async function loadTrash(){try{[trData,trJournal]=await Promise.all([api('/admin/api/trash'),api('/admin/api/trash/journal?limit=100')]);trRender();}
   catch(err){if(err.message!=='session')toast(trT('loadFail',{err:err.message}));}}
 async function trRestore(ids){if(!ids.length)return toast(trT('pickFirst'));
@@ -98,12 +100,12 @@ async function trEmpty(ids){const all=ids==='all';const picked=all?trData.items:
   if(!picked.length)return toast(trT('pickFirst'));
   const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'');
   if(typed==null)return;if(typed.trim()!==word)return toast(trT('typedWrong'));
-  // Everything means what this list showed: its version goes along, and the server refuses if the trash changed since.
-  try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,version:trData.version,confirm:'empty'}:{ids,confirm:'empty'}});
+  // Everything means what this list showed: its version and time go along. Entries that came in after it are left; the server refuses only if what it showed changed.
+  try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,version:trData.version,listedAt:trData.listedAt,confirm:'empty'}:{ids,confirm:'empty'}});
     picked.forEach((e)=>trSel.delete(e.id));toast(trT('emptied',{n:num(d.removed),size:trSize(d.bytes)}));}
   catch(err){toast(err.message);}loadTrash();}
 async function trUndo(o){if(!await ask(trT(o.action==='organize'?'undoAskOrganize':'undoAsk',{to:o.to,from:o.from})))return;
-  try{await api('/admin/api/trash/undo',{method:'POST',body:{id:o.id}});toast(trT('undoneToast'));}catch(err){toast(err.message);}loadTrash();}
+  try{const d=await api('/admin/api/trash/undo',{method:'POST',body:{id:o.id}});toast(d.warning?trT('undoneToast')+' '+d.warning:trT('undoneToast'));}catch(err){toast(err.message);}loadTrash();}
 async function trRelease(o){if(!await ask(trT('releaseAsk',{from:o.from})))return;
   try{await api('/admin/api/trash/release',{method:'POST',body:{id:o.id}});toast(trT('releasedToast'));}catch(err){toast(err.message);}loadTrash();}
 $('tr-pick-all').addEventListener('change',()=>{const on=$('tr-pick-all').checked;trSel.clear();if(on&&trData)for(const e of trData.items)trSel.add(e.id);

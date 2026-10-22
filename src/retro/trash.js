@@ -108,12 +108,22 @@ export async function listTrash(dir) {
 }
 
 /**
- * Puts a trashed game or core back. Nothing is overwritten: a game whose name is
- * taken stays in the trash (its art and art-map key follow that name); another
- * entry comes back beside what took its place under a numbered name (listed in
- * `renamed`), unless `exactName` is set, which refuses it like a game. A core put
- * back after a failed swap wants `exactName`: "x_libretro_libnx (2).nro" is no core.
- * The third argument is the home, or { home, exactName }.
+ * Puts a trashed game or core back. Nothing is overwritten: a game or a core
+ * whose name is taken stays in the trash (a game's art and art-map key follow
+ * its name, and "x_libretro_libnx (2).nro" is no core) and the call throws a
+ * TrashError with status 409; any other entry comes back beside what took its
+ * place under a numbered name (listed in `renamed`), unless `exactName` is set,
+ * which refuses it the same way.
+ *
+ * @param {string} dir   the retro folder
+ * @param {string} entry "<YYYY-MM-DD>/<id>" as listTrash() gives it
+ * @param {string | { home?: string, exactName?: boolean } | null} [opts]
+ *   the options, or (as older callers pass it) the home alone. `home`: the trash
+ *   folder holding the entry, found when left out. `exactName`: refuse a taken
+ *   name instead of numbering. The core swap calls
+ *   `restoreEntry(dir, entry, { exactName: true })`.
+ * @returns {Promise<{ id, trashId, files: string[], renamed: { rel, to }[] }>}
+ *   `files` are the original paths; where each landed is `renamed[].to` when it differs.
  */
 export async function restoreEntry(dir, entry, homeOrOpts = null) {
   const { home = null, exactName = false } = homeOrOpts && typeof homeOrOpts === "object" ? homeOrOpts : { home: homeOrOpts };

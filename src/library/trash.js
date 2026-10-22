@@ -42,7 +42,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
-import { copyChecked, moveAcross, moveNoClobber, partialOf, realInside, withLocks } from "./safe-move.js";
+import { copyChecked, moveAcross, moveNoClobber, realInside, sameBytes, sweepPartials, withLocks, withPartial } from "./safe-move.js";
 
 export const TRASH_DIR = ".cookingfoil-trash";
 export const LEGACY_TRASH = ".trash";
@@ -127,12 +127,11 @@ export async function measure(abs) {
  * until the trash is emptied.
  */
 async function copyIn(from, to) {
-  const part = partialOf(to);
-  await copyChecked(from, part);
-  if (!(await moveNoClobber(part, to))) {
-    await fsp.rm(part, { recursive: true, force: true });
-    throw new TrashError(`휴지통 안의 자리가 이미 있습니다: ${path.basename(to)}`);
-  }
+  const placed = await withPartial(from, to, async (part) => {
+    await copyChecked(from, part);
+    return moveNoClobber(part, to);
+  });
+  if (!placed) throw new TrashError(`휴지통 안의 자리가 이미 있습니다: ${path.basename(to)}`);
   // The copy is whole and in place; an original that will not go entirely is reported, not undone.
   await fsp.rm(from, { recursive: true, force: true }).catch((err) => debug.error("trash: %s copied to the trash but not all of it removed: %s", from, err.message));
 }
@@ -225,6 +224,16 @@ function entryBase(root, home, entry) {
   return path.join(root.dir, ...home.split("/"), ...entry.split("/"));
 }
 
+/**
+ * Before an operation writes beside `paths`: partials an earlier stop left in
+ * their folders go (safe-move.js sweepPartials). Never fails the operation.
+ */
+async function sweepBeside(paths, extra = []) {
+  const dirs = [...new Set(paths.map((p) => path.dirname(p)))];
+  await sweepPartials(dirs).catch((err) => debug.error("trash: partials beside %s not swept: %s", dirs[0], err.message));
+  if (extra.length) await sweepPartials(extra, { recursive: true }).catch(() => {});
+}
+
 // ── moving in ────────────────────────────────────────────────────────
 const slugOf = (kind) => `${String(kind ?? "item").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").slice(0, 13) || "item"}-${crypto.randomBytes(5).toString("hex")}`;
 
@@ -245,7 +254,10 @@ export async function trashItems(root, items, meta = {}, now = new Date()) {
     return { rel, from: it.from ?? path.join(root.dir, rel) };
   });
   if (!list.length) throw new TrashError("옮길 파일이 없습니다", 400);
-  return withLocks([root.dir], () => trashLocked(root, list, meta, now));
+  return withLocks([root.dir], async () => {
+    await sweepBeside(list.map((i) => i.from));
+    return trashLocked(root, list, meta, now);
+  });
 }
 
 async function trashLocked(root, list, meta, now) {
@@ -441,9 +453,12 @@ const takenError = (rel) => new TrashError(`${rel} 자리에 다른 파일이 �
  * places are taken comes back beside them, every item under the same number
  * ("<name> (2)"), so files that belong together keep matching names. With
  * `exactName` (and always for a retro game, whose art and art-map key follow
- * its ROM's name) a taken place refuses the whole entry instead, which stays
- * in the trash. All of the entry's items come back or none do. An item whose
- * bytes do not match its manifest (a copy cut short) refuses the entry too.
+ * its ROM's name, and a retro core, which RetroArch only finds under its own
+ * name) a taken place refuses the whole entry instead, which stays in the
+ * trash. All of the entry's items come back or none do. An item whose bytes
+ * do not match its manifest (a copy cut short) refuses the entry too. An item
+ * whose file is already in the library (a restore stopped after placing it and
+ * before taking it out of the trash) counts as back: its trash name goes.
  * `after(result, base)` runs before the entry folder goes, for what the caller
  * keeps in it (ATTACHED_DIR). Returns { id, root, name, kind, manifest, items:
  * [{ rel, to }], renamed: [{ rel, to }] }.
@@ -453,17 +468,25 @@ export async function restoreEntry(root, home, entry, { exactName = false, after
   return withLocks([root.dir], async () => {
     const m = normalizeManifest(readJson(path.join(base, MANIFEST)), root.key);
     if (!m) throw new TrashError("휴지통에 없는 항목입니다", 404);
+    await sweepBeside(m.items.map((it) => path.join(root.dir, ...it.rel.split("/"))), [base]);
     const todo = [];
+    const already = [];
     for (const it of m.items) {
       const from = path.join(base, ...it.rel.split("/"));
       if (!inside(base, from)) continue;
       const st = await measure(from).catch(() => null);
       if (!st) continue;
       if (isIncomplete(it, st)) throw new TrashError(`${it.rel} 은(는) 휴지통에 다 들어오지 못한 불완전한 사본이라 되돌리지 않습니다`, 409);
+      const twin = await twinOf(root, it.rel, from);
+      if (twin) {
+        await fsp.unlink(from);
+        already.push({ rel: it.rel, to: twin });
+        continue;
+      }
       todo.push({ rel: it.rel, from, isDir: st.type === "dir" });
     }
-    const exact = exactName || m.kind === "retro-game";
-    const done = todo.length ? await placeAll(root, todo, exact) : [];
+    const exact = exactName || EXACT_KINDS.has(m.kind);
+    const done = [...already, ...(todo.length ? await placeAll(root, todo, exact, m.kind) : [])];
     for (const k of m.restoreKeys ?? []) {
       const rel = cleanRel(k?.file);
       if (!rel || !KEY_FILE_RE.test(rel) || typeof k.key !== "string") continue;
@@ -480,8 +503,69 @@ export async function restoreEntry(root, home, entry, { exactName = false, after
   });
 }
 
+// Kinds that only ever come back under their own name.
+const EXACT_KINDS = new Set(["retro-game", "retro-core"]);
+
+/**
+ * The name in the root (the item's own, or a numbered one a restore gave it)
+ * that holds the same file as `from` in the trash: the same inode (a restore
+ * stopped between link and unlink) or, for a copy across disks stopped before
+ * the original went, the same size, mtime and bytes. Null when none does.
+ */
+async function twinOf(root, rel, from) {
+  const st = await fsp.lstat(from).catch(() => null);
+  if (!st?.isFile()) return null;
+  for (let k = 1; k <= MAX_NUMBER; k++) {
+    const name = numbered(rel, k, false);
+    const abs = path.join(root.dir, ...name.split("/"));
+    const there = await fsp.lstat(abs).catch(() => null);
+    if (!there) {
+      // Restores take the first free number, so past a gap only a hard link can still be found.
+      if (st.nlink > 1) continue;
+      return null;
+    }
+    if (there.dev === st.dev && there.ino === st.ino) return name;
+    if (there.isFile() && there.size === st.size && Math.round(there.mtimeMs) === Math.round(st.mtimeMs) && (await sameBytes(abs, from))) return name;
+  }
+  return null;
+}
+
+/**
+ * At start: every entry item whose file is also in the library (twinOf) loses
+ * its trash name; an entry left with nothing goes. Returns how many went.
+ */
+export async function dropTwins(root) {
+  return withLocks([root.dir], async () => {
+    let n = 0;
+    for (const e of await listRoot(root)) {
+      const base = path.join(root.dir, ...e.home.split("/"), ...e.entry.split("/"));
+      const file = path.join(base, MANIFEST);
+      const raw = readJson(file);
+      if (!raw) continue;
+      const gone = new Set();
+      for (const it of e.items) {
+        if (!it.present || it.incomplete) continue;
+        const from = path.join(base, ...it.rel.split("/"));
+        if (!inside(base, from) || !(await twinOf(root, it.rel, from))) continue;
+        await fsp.unlink(from);
+        gone.add(it.rel);
+        n++;
+      }
+      if (!gone.size) continue;
+      if (Array.isArray(raw.items)) raw.items = raw.items.filter((i) => !gone.has(cleanRel(i?.rel)));
+      if (Array.isArray(raw.files)) raw.files = raw.files.filter((f) => !gone.has(cleanRel(f)));
+      writeJson(file, raw);
+      await dropIfEmpty(base);
+    }
+    return n;
+  });
+}
+
+const coreTakenError = (rel) => new TrashError(`${rel} 자리에 다른 코어가 있어 되돌리지 않았습니다. 레트로 코어는 이름이 바뀌면 RetroArch 가 찾지 못하므로 원래 이름으로만 되돌립니다. 그 코어를 휴지통에 보낸 뒤 다시 합니다`, 409);
+
 /** Moves every item of `todo` back under one number, all or none. Returns [{ rel, to }]. */
-async function placeAll(root, todo, exact) {
+async function placeAll(root, todo, exact, kind = null) {
+  const refuse = (rel) => (kind === "retro-core" ? coreTakenError(rel) : takenError(rel));
   for (let k = 1; k <= MAX_NUMBER; k++) {
     const names = todo.map((t) => numbered(t.rel, k, t.isDir));
     for (const name of names) {
@@ -491,7 +575,7 @@ async function placeAll(root, todo, exact) {
     const taken = [];
     for (const name of names) if (await exists(path.join(root.dir, ...name.split("/")))) taken.push(name);
     if (taken.length) {
-      if (exact) throw takenError(taken[0]);
+      if (exact) throw refuse(taken[0]);
       continue;
     }
     const placed = [];
@@ -510,7 +594,7 @@ async function placeAll(root, todo, exact) {
         throw new TrashError(`되돌리는 사이에 ${lost} 자리가 찼습니다. ${names[i]} 은(는) 이미 돌아왔고 나머지는 휴지통에 있습니다`);
       }
     }
-    if (exact) throw takenError(lost);
+    if (exact) throw refuse(lost);
   }
   throw new TrashError("비어 있는 이름을 찾지 못해 되돌리지 않았습니다");
 }
@@ -548,12 +632,11 @@ export async function attach(root, home, entry, { name = null, fromDir = null, f
     if (name && fromDir && (await exists(fromDir))) {
       if (!/^[a-z0-9_-]{1,40}$/.test(name)) throw new TrashError("붙일 이름이 맞지 않습니다", 400);
       const to = path.join(base, ATTACHED_DIR, name);
-      const part = partialOf(to);
-      await copyChecked(fromDir, part);
-      if (!(await moveNoClobber(part, to))) {
-        await fsp.rm(part, { recursive: true, force: true });
-        throw new TrashError("이미 붙여 둔 것이 있습니다");
-      }
+      const placed = await withPartial(fromDir, to, async (part) => {
+        await copyChecked(fromDir, part);
+        return moveNoClobber(part, to);
+      });
+      if (!placed) throw new TrashError("이미 붙여 둔 것이 있습니다");
       attached = name;
     }
     writeJson(file, { ...m, ...fields, ...(attached ? { attached: [...new Set([...(m.attached ?? []), attached])] } : {}) });

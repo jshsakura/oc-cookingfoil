@@ -33,3 +33,15 @@ test("emptying the trash is never a tool: tokens are refused it", () => {
   assert.ok(!registry.all.some((c) => c.http && `${c.http.method} ${c.http.path}` === "POST /admin/api/trash/empty"));
   assert.ok(!registry.toolsFor("full").some((c) => c.id === "trash_empty"));
 });
+
+test("trash_restore's ids are a bounded list of strings, so a tool call is checked like the HTTP route", () => {
+  const ids = registry.byId("trash_restore").input.properties.ids;
+  assert.deepEqual([ids.type, ids.items, ids.maxItems, ids.minItems], ["array", { type: "string", minLength: 1, maxLength: 300 }, 1000, 1]);
+});
+
+test("trash_restore called directly refuses ids that are not a short list of strings", async () => {
+  const cap = registry.byId("trash_restore");
+  for (const ids of [[], "x", [1], Array.from({ length: 1001 }, (_, i) => `id-${i}`), ["y".repeat(301)]]) {
+    await assert.rejects(cap.handler({}, { ids }), (err) => err.status === 400, JSON.stringify(ids).slice(0, 40));
+  }
+});

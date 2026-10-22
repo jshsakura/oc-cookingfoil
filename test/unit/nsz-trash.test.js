@@ -171,3 +171,48 @@ test("the trash bytes the pause counts are the ones on the games folder's own di
   const devOf = (p) => (p === usb || p.startsWith(usb + path.sep) ? 2 : 1);
   assert.equal(await service.bytesOnDisk(games, [g, inc], devOf), 3 * MIB, "the drop box's trash counts, the other disk's does not");
 });
+
+test("an orphan kept folder goes to the trash under its real hidden path, and a restore puts it back there, out of the shop", async () => {
+  S.keepHours = 1;
+  const dir = path.join(games, KEEP_DIR_NAME, "lost-id");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "Lost.nsp"), Buffer.alloc(MIB, 3));
+  put("Lost.nsz", MIB / 2);
+  // Two hours on: the folder is past its keep time.
+  clock = Date.now() + 2 * 3600_000;
+  const q = make();
+  await q.init();
+  const [entry] = await trash.listRoot(gamesRoot());
+  assert.deepEqual([entry.action, entry.items.map((i) => i.rel)], ["nsz-kept-orphan", [`${KEEP_DIR_NAME}/lost-id`]], "the dot is kept: the path is where it really was");
+  const back = await trash.restoreEntry(gamesRoot(), entry.home, entry.entry);
+  assert.deepEqual(back.items.map((i) => i.to), [`${KEEP_DIR_NAME}/lost-id`]);
+  assert.ok(exists(`${KEEP_DIR_NAME}/lost-id/Lost.nsp`) && !exists("lost-id") && !exists("cookingfoil-nsz-keep"), "back in the hidden keep folder, nothing visible");
+  // The restore starts its keep time again: a start within the hour does not send it straight back.
+  clock = Date.now() + 30 * 60_000;
+  const again = make();
+  await again.init();
+  assert.ok(exists(`${KEEP_DIR_NAME}/lost-id/Lost.nsp`));
+  assert.deepEqual(await trash.listRoot(gamesRoot()), []);
+  // Past the keep time again it goes back to the trash, under the same hidden path.
+  clock = Date.now() + 2 * 3600_000;
+  await make().init();
+  assert.deepEqual((await trash.listRoot(gamesRoot())).map((e) => e.items[0].rel), [`${KEEP_DIR_NAME}/lost-id`]);
+});
+
+test("the pause counts copies a stop cut short until they are removed", async () => {
+  S.diskFloorGb = 50;
+  put("Next4.nsp");
+  // A copy from a dead run whose bytes live nowhere else: it is kept, and the pause names it.
+  put(".cookingfoil-partial-abcdefabcd-x.nsp", 3 * MIB);
+  fs.writeFileSync(path.join(games, ".cookingfoil-partial-abcdefabcd.json"), JSON.stringify({ pid: 999999, boot: "old", startedAt: 1, from: path.join(games, "gone.nsp"), to: path.join(games, "x.nsp") }));
+  // One whose original is still there: removed before the count.
+  put("Dir/src.nsp", MIB);
+  put("Dir/.cookingfoil-partial-1234512345-y.nsp", 5 * MIB);
+  fs.writeFileSync(path.join(games, "Dir/.cookingfoil-partial-1234512345.json"), JSON.stringify({ pid: 999999, boot: "old", startedAt: 1, from: path.join(games, "Dir/src.nsp"), to: path.join(games, "Dir/y.nsp") }));
+  const low = make({ freeBytes: async () => 10 * GIB, trashBytes: async () => 0 });
+  await run(low);
+  assert.equal(low.view().pausedReason, "disk");
+  assert.ok(!exists("Dir/.cookingfoil-partial-1234512345-y.nsp"), "the removable one went");
+  assert.equal(low.view().partial.bytes, 3 * MIB);
+  assert.match(alerts.at(-1).text, /끊긴 복사본 /);
+});

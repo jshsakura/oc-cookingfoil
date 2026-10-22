@@ -145,7 +145,7 @@ test("exactName: a taken place refuses the whole entry and leaves it in the tras
   put(root, "cores/x_libretro_libnx.info", "INFO");
   const t = await trash.trashItems(root, [{ rel: "cores/x_libretro_libnx.nro" }, { rel: "cores/x_libretro_libnx.info" }], { kind: "retro-core" });
   put(root, "cores/x_libretro_libnx.info", "OTHER");
-  await assert.rejects(trash.restoreEntry(root, HOME, t.entry, { exactName: true }), (err) => err.status === 409 && /자리에 다른 파일/.test(err.message));
+  await assert.rejects(trash.restoreEntry(root, HOME, t.entry, { exactName: true }), (err) => err.status === 409 && /자리에 다른 코어/.test(err.message));
   assert.ok(!has(root, "cores/x_libretro_libnx.nro"), "nothing came back, not even the free one");
   assert.equal(read(root, "cores/x_libretro_libnx.info"), "OTHER");
   assert.equal((await trash.listRoot(root)).length, 1);

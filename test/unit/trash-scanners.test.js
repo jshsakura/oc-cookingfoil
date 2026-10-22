@@ -131,3 +131,58 @@ test("a move's work folder, or one a stop left behind, is never listed as a patc
   const saves = await import("../../src/meta/shop-saves.js");
   assert.ok(!(await saves.scanDir(dirs.saves, { hash: async (f) => `${f.path}:${f.size}`, save() {} })).some((s) => String(s.folder ?? s.name).startsWith(".")));
 });
+
+test("the games list leaves out the NSZ keep folder and a copy a stop cut short", async () => {
+  put("games", `.cookingfoil-nsz-keep/lost-id/Lost [0100000000040000][v0].nsp`);
+  put("games", `Dir/.cookingfoil-partial-0123456789-Half [0100000000050000][v0].nsp`);
+  const { scanLibrary } = await import("../../src/create-index-content.js");
+  const keys = [...(await scanLibrary()).filesMap.keys()];
+  assert.ok(!keys.some((k) => k.includes("Lost") || k.includes("Half")), keys.join(", "));
+});
+
+test("the folder watcher ignores the trash, a trash on a disk below the root, and partial copies", async () => {
+  const { ignoredUnder } = await import("../../src/meta/shop-cache.js");
+  const r = dirs.games;
+  for (const rel of [".cookingfoil-trash", ".cookingfoil-trash/2026-10-22/game-0123456789/x.nsp", "M/.cookingfoil-trash", "M/.cookingfoil-trash/2026-10-22/game-0123456789/M/a.nsp", "M/.cookingfoil-partial-0123456789-a.nsp", ".cookingfoil-nsz-keep/id/a.nsp"]) {
+    assert.equal(ignoredUnder(r, path.join(r, rel)), true, rel);
+  }
+  assert.equal(ignoredUnder(r, path.join(r, "M/a.nsp")), false);
+  assert.equal(ignoredUnder(r, r), false, "the root itself is watched");
+  assert.equal(ignoredUnder(r, path.join(base, "data", "custom_entries.json")), false, "a watched file outside the root is judged by its own name");
+});
+
+test("a real watcher sees nothing of a move into the trash below a folder or a write inside it", async () => {
+  const chokidar = (await import("chokidar")).default;
+  const { ignoredUnder } = await import("../../src/meta/shop-cache.js");
+  const root = fs.mkdtempSync(path.join(base, "watch-"));
+  fs.mkdirSync(path.join(root, "M"));
+  fs.writeFileSync(path.join(root, "M/a.nsp"), "x");
+  const w = chokidar.watch(root, { ignoreInitial: true, ignored: (p) => ignoredUnder(root, p) });
+  const events = [];
+  w.on("all", (e, p) => events.push(`${e} ${path.relative(root, p)}`));
+  await new Promise((r) => w.once("ready", r));
+  const t = path.join(root, "M/.cookingfoil-trash/2026-10-22/game-0123456789/M");
+  fs.mkdirSync(t, { recursive: true });
+  fs.renameSync(path.join(root, "M/a.nsp"), path.join(t, "a.nsp"));
+  await new Promise((r) => setTimeout(r, 300));
+  fs.writeFileSync(path.join(t, "b.nsp"), "y");
+  await new Promise((r) => setTimeout(r, 800));
+  await w.close();
+  assert.deepEqual(events.filter((e) => e.includes(".cookingfoil")), [], events.join(", "));
+  assert.ok(events.includes(`unlink ${path.join("M", "a.nsp")}`), "the file leaving the folder is seen");
+});
+
+test("a title's extras leave out the trash and partial copies in its folder", async () => {
+  const TID2 = "0100000000060000";
+  put("games", `Extra/Extra [${TID2}][v0].nsp`);
+  put("games", "Extra/readme.txt", "hi");
+  put("games", "Extra/.cookingfoil-trash/2026-10-22/file-0123456789/Extra/old.zip");
+  put("games", "Extra/.cookingfoil-partial-0123456789-mod.zip");
+  const shopCache = await import("../../src/meta/shop-cache.js");
+  shopCache.invalidate({ rescan: true });
+  const { default: extrasRoute } = await import("../../src/routes/extras.js");
+  let body = null;
+  const res = { status() { return this; }, type() { return this; }, set() { return this; }, json(v) { body = v; return this; }, send(t) { body = JSON.parse(t); return this; } };
+  await extrasRoute({ params: { baseTitleId: TID2 }, query: {}, headers: {}, get: () => undefined, protocol: "http" }, res);
+  assert.deepEqual(body.extras.map((x) => x.name), ["readme.txt"], JSON.stringify(body));
+});

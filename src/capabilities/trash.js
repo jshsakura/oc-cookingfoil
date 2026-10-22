@@ -32,14 +32,22 @@ export const TRASH_CAPABILITIES = [
     input: {
       type: "object",
       properties: {
-        ids: { type: "array", description: "The entry ids to put back, from trash_list; at most 1000 in one call, each one at most once." },
+        ids: { type: "array", items: { type: "string", minLength: 1, maxLength: 300 }, minItems: 1, maxItems: 1000, description: "The entry ids to put back, from trash_list; at most 1000 in one call, each one at most once." },
         exactName: { type: "boolean", description: "When true, an entry whose original name is taken stays in the trash instead of coming back renamed." },
       },
       required: ["ids"],
     },
     safety: "write",
     http: { method: "POST", path: "/admin/api/trash/restore" },
-    handler: async (ctx, input) => (await service()).restore(input.ids, byOf(ctx), { exactName: input.exactName === true }),
+    handler: async (ctx, input) => {
+      const s = await service();
+      // Checked here as the HTTP route checks it: a tool call reaches this handler without the route.
+      const ids = input?.ids;
+      if (!Array.isArray(ids) || !ids.length || ids.length > 1000 || !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= 300)) {
+        throw new s.TrashError("ids 는 1개에서 1000개까지의 항목 id 목록입니다", 400);
+      }
+      return s.restore([...new Set(ids)], byOf(ctx), { exactName: input.exactName === true });
+    },
   }),
   defineCapability({
     id: "trash_journal",

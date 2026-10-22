@@ -27,7 +27,7 @@ import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { planExtras } from "./incoming-extras.js";
 import { incomingInGames } from "../helpers/envs.js";
-import { moveNoClobber, partialOf } from "../library/safe-move.js";
+import { moveNoClobber, withPartial } from "../library/safe-move.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
@@ -227,19 +227,17 @@ export async function moveAcross(from, to) {
     if (err.code !== "EXDEV") throw err;
   }
   if (await exists(to)) return false;
-  // A dot name: no scanner reads a copy that is not finished.
-  const part = partialOf(to);
-  try {
+  // A dot name with a marker beside it: no scanner reads a copy that is not finished, and one a stop leaves is swept.
+  const placed = await withPartial(from, to, async (part) => {
     const before = await fsp.stat(from);
     await fsp.copyFile(from, part, constants.COPYFILE_EXCL);
     const after = await fsp.stat(from);
     if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
       throw Object.assign(new Error(`${from} changed while it was copied`), { code: "ECHANGED" });
     }
-    if (!(await moveNoReplace(part, to))) return false;
-  } finally {
-    await fsp.rm(part, { force: true });
-  }
+    return moveNoReplace(part, to);
+  });
+  if (!placed) return false;
   await fsp.rm(from, { force: true });
   return true;
 }

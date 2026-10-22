@@ -229,3 +229,36 @@ test("a journaled move is undone only while its old place is free and the file i
   assert.deepEqual([items[0].undone?.by, items[0].undoable], [by, false]);
   await assert.rejects(journal.undoMove(roots, line.id), /이미 되돌린/);
 });
+
+test("a legacy .trash entry whose name the new folder already has stays where it is, and both are listed", async () => {
+  const root = fresh("retro");
+  const m = (name) => JSON.stringify({ id: "md-0123456789", system: "md", name, trashedAt: 3, files: [`roms/md/${name}.zip`] });
+  put(root, ".trash/2026-10-14/md-0123456789/roms/md/Old.zip", "OLD");
+  put(root, ".trash/2026-10-14/md-0123456789/manifest.json", m("Old"));
+  put(root, ".cookingfoil-trash/2026-10-14/md-0123456789/roms/md/New.zip", "NEW");
+  put(root, ".cookingfoil-trash/2026-10-14/md-0123456789/manifest.json", m("New"));
+  assert.equal(await trash.migrateLegacy(root), 0, "nothing is renamed over the entry already there");
+  const list = await trash.listRoot(root);
+  assert.deepEqual(list.map((e) => [e.home, e.name]).sort(), [[".cookingfoil-trash", "New"], [".trash", "Old"]]);
+  assert.equal(read(root, ".cookingfoil-trash/2026-10-14/md-0123456789/roms/md/New.zip").toString(), "NEW");
+});
+
+test("a .trash folder in any folder but retro is someone else's: never listed, never migrated", async () => {
+  const root = fresh("games");
+  put(root, ".trash/2026-10-14/md-0123456789/roms/md/X.zip", "X");
+  put(root, ".trash/2026-10-14/md-0123456789/manifest.json", JSON.stringify({ id: "md-0123456789", system: "md", name: "X", trashedAt: 3, files: ["roms/md/X.zip"] }));
+  assert.deepEqual(await trash.listRoot(root), []);
+  assert.ok(!trash.homesOf(root).includes(".trash"));
+  assert.ok(has(root, ".trash/2026-10-14/md-0123456789/roms/md/X.zip"));
+});
+
+test("a legacy .trash day folder with stray files or a broken manifest is left alone, the good entries still move", async () => {
+  const root = fresh("retro");
+  put(root, ".trash/2026-10-14/md-abcdefabcd/roms/md/G.zip", "G");
+  put(root, ".trash/2026-10-14/md-abcdefabcd/manifest.json", JSON.stringify({ id: "md-abcdefabcd", system: "md", name: "G", trashedAt: 3, files: ["roms/md/G.zip"] }));
+  put(root, ".trash/2026-10-14/md-bbbbbbbbbb/manifest.json", "{ not json");
+  put(root, ".trash/2026-10-14/notes.txt", "mine");
+  assert.equal(await trash.migrateLegacy(root), 1);
+  assert.ok(has(root, ".trash/2026-10-14/notes.txt") && has(root, ".trash/2026-10-14/md-bbbbbbbbbb/manifest.json"), "what is not a trash entry stays");
+  assert.deepEqual((await trash.listRoot(root)).map((e) => e.name), ["G"]);
+});

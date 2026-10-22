@@ -22,14 +22,21 @@
  * admin releases it (releaseUndone).
  *
  * The file keeps the newest JOURNAL_KEEP moves: past JOURNAL_KEEP + JOURNAL_SLACK
- * lines it is rewritten without the oldest ones.
+ * lines it is rewritten without the oldest ones. A move that is held (undone
+ * and not released) is kept with its undo line however old it is: the hold
+ * lives in those lines, and dropping them would let the drop box sort the file
+ * again behind the admin's back.
+ *
+ * The undo line is written as soon as the file is back, before anything else
+ * the undo does (`after`), so a failure or a stop after the move never leaves
+ * the file back without its hold.
  */
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { TRASH_DIR, TrashError, cleanRel, measure } from "./trash.js";
-import { moveAcross, realInside, withLocks } from "./safe-move.js";
+import { moveAcross, realInside, sweepPartials, withLocks } from "./safe-move.js";
 
 export const JOURNAL_FILE = "journal.jsonl";
 export const JOURNAL_KEEP = 2000;
@@ -47,7 +54,13 @@ async function append(root, line) {
   await fsp.appendFile(file, `${JSON.stringify(line)}\n`);
 }
 
-/** Keeps the newest JOURNAL_KEEP moves with their undo and release lines, once the file is past the slack. */
+/** The ids of moves undone and not released in `lines`: the holds. Pure. */
+function heldIds(lines) {
+  const released = new Set(lines.filter((l) => l.release).map((l) => l.release));
+  return new Set(lines.filter((l) => l.undo && !released.has(l.undo)).map((l) => l.undo));
+}
+
+/** Keeps the newest JOURNAL_KEEP moves and every held one, with their undo and release lines, once the file is past the slack. */
 async function trim(root) {
   const file0 = journalOf(root);
   const count = (appended.get(file0) ?? 0) + 1;
@@ -56,7 +69,7 @@ async function trim(root) {
   const lines = readLines(root);
   if (lines.length <= JOURNAL_KEEP + JOURNAL_SLACK) return;
   const ops = lines.filter((l) => l.id);
-  const keep = new Set(ops.slice(-JOURNAL_KEEP).map((l) => l.id));
+  const keep = new Set([...ops.slice(-JOURNAL_KEEP).map((l) => l.id), ...heldIds(lines)]);
   const kept = lines.filter((l) => keep.has(l.id) || keep.has(l.undo) || keep.has(l.release));
   const file = journalOf(root);
   const tmp = `${file}.${process.pid}.tmp`;
@@ -119,19 +132,30 @@ async function undoable(op, roots) {
   return { ok: true, reason: null };
 }
 
-/** Moves across every root, newest first, at most `limit`: [{ ...line, undone, undoable, reason }]. */
+/**
+ * Moves across every root, newest first, at most `limit`: { items: [{ ...line,
+ * undone, released, held, undoable, reason }], total, held }. `held` lists every
+ * move whose file the drop box must leave where it is (undone into it and not
+ * released), whatever its age, so its release is always reachable.
+ */
 export async function listJournal(roots, { limit = 200 } = {}) {
   const ops = [];
   for (const r of roots) {
     const lines = readLines(r);
     const undone = new Map(lines.filter((l) => l.undo).map((l) => [l.undo, l]));
     const released = new Map(lines.filter((l) => l.release).map((l) => [l.release, l]));
-    for (const l of lines) if (ID_RE.test(l.id ?? "") && l.from && l.to) ops.push({ ...l, journal: r.key, undone: undone.get(l.id) ?? null, released: released.get(l.id) ?? null });
+    for (const l of lines) {
+      if (!ID_RE.test(l.id ?? "") || !l.from || !l.to) continue;
+      const u = undone.get(l.id) ?? null;
+      const rel = released.get(l.id) ?? null;
+      ops.push({ ...l, journal: r.key, undone: u, released: rel, held: Boolean(u && !rel && u.back?.root === "incoming") });
+    }
   }
   ops.sort((a, b) => b.at - a.at);
   const page = ops.slice(0, limit);
   for (const op of page) Object.assign(op, op.undone ? { undoable: false, reason: "undone" } : await undoable(op, roots).then(({ ok, reason }) => ({ undoable: ok, reason })));
-  return { items: page, total: ops.length };
+  const held = ops.filter((o) => o.held).map((o) => ({ ...o, undoable: false, reason: "undone" }));
+  return { items: page, total: ops.length, held };
 }
 
 /** The line of a move by id ("<journal root>:<id>" or an id): { root, lines, op }, or null. */
@@ -167,22 +191,33 @@ export async function undoMove(roots, id, { by = null, now = Date.now(), after =
   const locks = [first.root.dir, fromRoot?.dir, toRoot?.dir].filter(Boolean);
   return withLocks(locks, async () => {
     // Read again under the locks: a second undo of the same move waits for the first and then sees its line.
-    const { root: r, lines, op, want } = findOp(roots, id);
+    const again = findOp(roots, id);
+    if (!again) throw new TrashError("작업 기록에 없는 항목입니다", 404);
+    const { root: r, lines, op, want } = again;
     if (lines.some((l) => l.undo === want)) throw new TrashError("이미 되돌린 작업입니다");
     const check = await undoable(op, roots);
     if (!check.ok) throw new TrashError(REFUSED[check.reason]);
     const back = path.join(fromRoot.dir, ...op.from.split("/"));
     if (!(await realInside(fromRoot.dir, back))) throw new TrashError(REFUSED["bad-path"]);
+    await sweepPartials([path.dirname(back)]).catch(() => {});
     const st = await measure(path.join(toRoot.dir, ...op.to.split("/")));
     if (!(await moveAcross(path.join(toRoot.dir, ...op.to.split("/")), back))) throw new TrashError(REFUSED.taken);
-    if (after) await after(op, back);
+    // What came back, written first, so the drop box can tell it is the same file it must leave alone.
+    await withLocks([journalOf(r)], () => append(r, { undo: want, at: now, by, back: { root: op.fromRoot, rel: op.from, size: st.size, mtimeMs: st.mtimeMs, type: st.type } }));
+    // The file is back and held; what else the move changed is put back after, and a failure there is reported, not undone.
+    let warning = null;
+    if (after) {
+      try {
+        await after(op, back);
+      } catch (err) {
+        warning = `파일은 되돌렸지만 함께 바꾼 정보는 되돌리지 못했습니다: ${err.message}`;
+      }
+    }
     // The folder the move left empty goes too, up to the root.
     for (let dir = path.posix.dirname(op.to); dir && dir !== "."; dir = path.posix.dirname(dir)) {
       if (!(await fsp.rmdir(path.join(toRoot.dir, ...dir.split("/"))).then(() => true, () => false))) break;
     }
-    // What came back, so the drop box can tell it is the same file it must leave alone.
-    await withLocks([journalOf(r)], () => append(r, { undo: want, at: now, by, back: { root: op.fromRoot, rel: op.from, size: st.size, mtimeMs: st.mtimeMs, type: st.type } }));
-    return { id: want, action: op.action, fromRoot: op.fromRoot, from: op.from, toRoot: op.toRoot, to: op.to };
+    return { id: want, action: op.action, fromRoot: op.fromRoot, from: op.from, toRoot: op.toRoot, to: op.to, ...(warning ? { warning } : {}) };
   });
 }
 

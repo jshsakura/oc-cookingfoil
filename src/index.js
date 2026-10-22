@@ -462,8 +462,8 @@ securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => shopCache.invalidate() });
 
-// The retro folder's old .trash entries move into the shared trash (a rename in the same folder).
-trashService.migrate().catch((err) => debug.error("trash: retro trash not moved: %s", err.message));
+// The retro folder's old .trash entries move into the shared trash (a rename in the same folder), and what a stop left behind is cleaned up.
+trashService.tidy().catch((err) => debug.error("trash: start tidy failed: %s", err.message));
 // The NSZ conversion queue: empties its work folder, resumes a run left going, follows the library.
 startNszQueue();
 // The file check: signatures of every game file, the whole-file hash of new ones; it only informs.

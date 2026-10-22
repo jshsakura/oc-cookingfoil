@@ -1,14 +1,16 @@
 /**
  * The shared trash (trash.js) and the operations journal (journal.js) over the
- * server's own library folders. The admin API (routes/admin/trash-api.js) and,
- * later, the MCP tools (trash_list, trash_restore, trash_empty) call these and
- * nothing else, so every way in behaves the same:
+ * server's own library folders. The admin API (routes/admin/trash-api.js) and
+ * the tools (capabilities/trash.js: trash_list, trash_restore, trash_journal,
+ * trash_undo, trash_release; emptying is never a tool) call these and nothing
+ * else, so every way in behaves the same:
  *
  *   list()                 every entry, with totals per folder
  *   trash(key, items, meta)  move into the trash (what every delete does now)
  *   restore(ids, by, opts) put entries back, never over a file
- *   empty(ids | { all, version }, by)  the only permanent delete; a person on the admin page only
+ *   empty(ids | { all, version, listedAt }, by)  the only permanent delete; a person on the admin page only
  *   journal(), undo(id, by), release(id, by)
+ *   tidy()                 at start: what a stop left behind is cleaned up
  *
  * After a restore, an empty or an undo the folder it touched is read again.
  */
@@ -20,6 +22,7 @@ import debug from "../debug.js";
 import * as trashStore from "./trash.js";
 import * as journalStore from "./journal.js";
 import { homebrewExtrasOf, putHomebrewExtras, putMarks } from "./trash-marks.js";
+import { sweepPartials } from "./safe-move.js";
 
 export const ROOT_KEYS = Object.freeze(["games", "incoming", "patches", "saves", "homebrew", "retro"]);
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -99,12 +102,21 @@ export async function trash(key, items, meta = {}) {
 export const versionOf = (ids) => crypto.createHash("sha256").update([...ids].sort().join("\n")).digest("hex").slice(0, 16);
 
 /**
+ * The entries a list made at `listedAt` showed: the ones moved into the trash
+ * by then. Entries are never changed once made, so one that came in later is
+ * new, not a change to what was seen. Pure.
+ */
+const seenBy = (items, listedAt) => items.filter((e) => (e.trashedAt ?? 0) <= listedAt);
+
+/**
  * Every entry newest first, each with its age, and the totals:
  * { items, total, roots, noticeDays, old, version, unavailable: [{ root, home }] }.
  */
 export async function list({ now = Date.now() } = {}) {
   const roots = libraryRoots();
   const items = (await trashStore.listAll(roots)).map((e) => ({ ...e, ageDays: Math.floor((now - (e.trashedAt ?? now)) / DAY_MS) }));
+  // Taken once the folders are read: everything listed was moved in by then.
+  const listedAt = Date.now();
   const totals = Object.fromEntries(roots.map((r) => [r.key, { bytes: 0, count: 0 }]));
   for (const e of items) {
     totals[e.root].bytes += e.size;
@@ -118,7 +130,9 @@ export async function list({ now = Date.now() } = {}) {
     roots: totals,
     noticeDays,
     old: { count: old.length, bytes: old.reduce((n, e) => n + e.size, 0) },
-    version: versionOf(items.map((e) => e.id)),
+    // Emptying everything sends both back: it empties what this list showed, and an entry that came in after it is left.
+    version: versionOf(seenBy(items, listedAt).map((e) => e.id)),
+    listedAt,
     // A disk that is not mounted: its entries are not lost, only not listed until it is back.
     unavailable: roots.flatMap((r) => trashStore.unavailableHomes(r).map((home) => ({ root: r.key, home }))),
   };
@@ -210,20 +224,25 @@ export async function restore(ids, by = null, { exactName = false } = {}) {
 }
 
 /**
- * Deletes entries for good: a list of ids, or { all: true, version } for every
- * entry, refused when the trash is not the one the person saw (version from
- * list()). Every id is checked before anything is deleted. Returns { removed,
+ * Deletes entries for good: a list of ids, or { all: true, version, listedAt }
+ * for every entry the person saw (both from list()). Entries moved in after
+ * `listedAt` are left alone, not a conflict; it is refused only when what the
+ * person saw changed (an entry restored or emptied meanwhile, or one older
+ * than the list that it did not show). Without `listedAt` every entry counts
+ * as seen. Every id is checked before anything is deleted. Returns { removed,
  * bytes }. Only a person on the admin page may.
  */
 export async function empty(target, by = null) {
   let ids;
   if (Array.isArray(target)) ids = target;
   else if (target?.all === true) {
-    const now = (await trashStore.listAll(libraryRoots())).map((e) => e.id);
-    if (typeof target.version !== "string" || target.version !== versionOf(now)) {
+    const at = target.listedAt ?? Number.POSITIVE_INFINITY;
+    if (typeof at !== "number" || Number.isNaN(at)) throw new trashStore.TrashError("listedAt 은 목록의 listedAt 숫자입니다", 400);
+    const seen = seenBy(await trashStore.listAll(libraryRoots()), at).map((e) => e.id);
+    if (typeof target.version !== "string" || target.version !== versionOf(seen)) {
       throw new trashStore.TrashError("휴지통이 그사이 바뀌었습니다. 목록을 다시 불러온 뒤 비웁니다", 409);
     }
-    ids = now;
+    ids = seen;
   } else throw new trashStore.TrashError("비울 항목을 고릅니다", 400);
   const targets = ids.map(parse);
   for (const t of targets) {
@@ -288,6 +307,7 @@ export async function undo(id, by = null) {
   };
   const out = await journalStore.undoMove(libraryRoots(), id, { by, after });
   debug.log("journal: %s undone by %s: %s/%s → %s/%s", out.id, by?.name ?? "-", out.toRoot, out.to, out.fromRoot, out.from);
+  if (out.warning) debug.error("journal: %s: %s", out.id, out.warning);
   refresh([out.fromRoot, out.toRoot]);
   return out;
 }
@@ -309,6 +329,26 @@ export async function migrate() {
   const n = await trashStore.migrateLegacy(retro);
   if (n) debug.log("trash: %d retro trash entries moved from %s to %s", n, trashStore.LEGACY_TRASH, trashStore.TRASH_DIR);
   return n;
+}
+
+/**
+ * At start, before anything else moves: retro's old trash is migrated, partial
+ * copies a stop left in any library folder are removed (safe-move.js
+ * sweepPartials), and a file a stopped restore left both in the library and in
+ * the trash keeps only its library name (trash.js dropTwins). Never throws.
+ */
+export async function tidy() {
+  const out = { migrated: 0, partials: 0, left: 0, twins: 0 };
+  const before = Date.now();
+  out.migrated = await migrate().catch((err) => { debug.error("trash: retro trash not moved: %s", err.message); return 0; });
+  for (const r of libraryRoots()) {
+    const swept = await sweepPartials([r.dir], { recursive: true, before }).catch((err) => { debug.error("trash: partials in %s not swept: %s", r.key, err.message); return { removed: 0, left: [] }; });
+    out.partials += swept.removed;
+    out.left += swept.left.length;
+    out.twins += await trashStore.dropTwins(r).catch((err) => { debug.error("trash: %s not checked for twins: %s", r.key, err.message); return 0; });
+  }
+  if (out.partials || out.left || out.twins) debug.log("trash: at start %d partial copies removed, %d kept, %d files left in both library and trash dropped from the trash", out.partials, out.left, out.twins);
+  return out;
 }
 
 export const { TrashError, TRASH_DIR } = trashStore;

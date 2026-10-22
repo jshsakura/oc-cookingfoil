@@ -186,18 +186,38 @@ test("emptying needs the word, takes chosen entries or all, and is the only thin
   assert.equal((await post("/trash/restore", { ids: [a] })).body.failed.length, 1, "gone for good");
 });
 
-test("emptying everything empties only what the person saw: an entry that came in since refuses it", async () => {
+test("emptying everything empties only what the person saw: an entry that came in since is left, not a conflict", async () => {
   put("games", "seen.txt", "S");
-  await post("/library/other/remove", { rel: "seen.txt" });
+  const seenId = (await post("/library/other/remove", { rel: "seen.txt" })).body.trash;
   const seen = await list();
+  assert.equal(typeof seen.listedAt, "number");
+  await new Promise((r) => setTimeout(r, 5));
   // The NSZ queue (or anyone) adds an entry while the confirmation is open.
   put("games", "late.txt", "L");
   const late = (await post("/library/other/remove", { rel: "late.txt" })).body.trash;
-  const r = await post("/trash/empty", { all: true, version: seen.version, confirm: "empty" });
+  const r = await post("/trash/empty", { all: true, version: seen.version, listedAt: seen.listedAt, confirm: "empty" });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.removed, seen.total.count);
+  const after = await list();
+  assert.ok(!after.items.some((i) => i.id === seenId), "what was seen is gone");
+  assert.deepEqual(after.items.map((i) => i.id), [late], "the late entry is untouched");
+  await post("/trash/empty", { ids: [late], confirm: "empty" });
+});
+
+test("emptying everything still refuses when something the person saw changed: an entry restored or added before the list", async () => {
+  put("games", "s1.txt", "1");
+  put("games", "s2.txt", "2");
+  const a = (await post("/library/other/remove", { rel: "s1.txt" })).body.trash;
+  (await post("/library/other/remove", { rel: "s2.txt" })).body.trash;
+  const seen = await list();
+  await post("/trash/restore", { ids: [a] });
+  const r = await post("/trash/empty", { all: true, version: seen.version, listedAt: seen.listedAt, confirm: "empty" });
   assert.equal(r.status, 409);
-  assert.ok((await list()).items.some((i) => i.id === late), "nothing was deleted");
+  assert.equal((await list()).total.count, 1, "nothing was deleted");
+  assert.equal((await post("/trash/empty", { all: true, version: seen.version, listedAt: "soon", confirm: "empty" })).status, 400);
   const now = await list();
-  assert.equal((await post("/trash/empty", { all: true, version: now.version, confirm: "empty" })).body.removed, now.total.count);
+  assert.equal((await post("/trash/empty", { all: true, version: now.version, listedAt: now.listedAt, confirm: "empty" })).body.removed, 1);
+  await post("/library/other/remove", { rel: "s1.txt" }).then((x) => post("/trash/empty", { ids: [x.body.trash], confirm: "empty" }));
 });
 
 test("emptying chosen entries checks every id first: one unknown id deletes nothing", async () => {

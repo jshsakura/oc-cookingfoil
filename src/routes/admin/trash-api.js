@@ -6,10 +6,12 @@
  *   POST /admin/api/trash/restore          { ids, exactName? }   put entries back; a taken place gets a numbered name beside it,
  *                                          or with exactName the entry stays in the trash
  *                                          → { restored: [{ id, name, items, renamed }], failed: [{ id, error }] }
- *   POST /admin/api/trash/empty            { ids | all: true + version, confirm: "empty" }  deletes for good   → { removed, bytes }
- *                                          (all: the version the list answered; 409 when the trash changed since)
- *   GET  /admin/api/trash/journal?limit=   { items: [{ id, at, action, by, fromRoot, from, toRoot, to, undoable, reason, undone, released }], total }
- *   POST /admin/api/trash/undo             { id }    moves a journaled file back → { from, to }
+ *   POST /admin/api/trash/empty            { ids | all: true + version + listedAt, confirm: "empty" }  deletes for good   → { removed, bytes }
+ *                                          (all: the version and listedAt the list answered; entries that came in after the
+ *                                          list are left alone; 409 only when what the list showed changed)
+ *   GET  /admin/api/trash/journal?limit=   { items: [{ id, at, action, by, fromRoot, from, toRoot, to, undoable, reason, undone, released, held }], total,
+ *                                            held: every move whose file the drop box leaves alone, whatever its age }
+ *   POST /admin/api/trash/undo             { id }    moves a journaled file back → { from, to, warning? }
  *   POST /admin/api/trash/release          { id }    lets the drop box sort a file an undo put back in it again
  *
  * Emptying is the only permanent delete the server has, so only a person on the
@@ -57,7 +59,9 @@ export function mountTrashApi(router, requireSession, service = trash) {
     // Everything means everything the person saw: the list's version comes back with it.
     if (req.body?.all === true) {
       if (typeof req.body.version !== "string" || !req.body.version) return res.status(400).json({ error: "목록의 version 을 함께 보냅니다" });
-      return res.json({ ok: true, ...(await service.empty({ all: true, version: req.body.version }, service.actorOf(req))) });
+      const listedAt = req.body.listedAt;
+      if (listedAt !== undefined && !Number.isFinite(listedAt)) return res.status(400).json({ error: "listedAt 은 목록의 listedAt 숫자입니다" });
+      return res.json({ ok: true, ...(await service.empty({ all: true, version: req.body.version, listedAt }, service.actorOf(req))) });
     }
     const ids = idsOf(req.body);
     if (!ids) return res.status(400).json({ error: "비울 항목을 고릅니다" });

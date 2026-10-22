@@ -69,7 +69,7 @@ test('emptying asks for the word: a wrong one keeps everything, the right one de
   expect(fs.existsSync(FILE)).toBe(false);
 });
 
-test('emptying everything refuses when an entry came in after the list was shown', async ({ page }) => {
+test('emptying everything empties what the list showed and leaves an entry that came in after it', async ({ page }) => {
   await signIn(page);
   await emptyAll(page);
   await removeFromLibrary(page);
@@ -82,9 +82,10 @@ test('emptying everything refuses when an entry came in after the list was shown
   await page.locator('#tr-empty-all').click();
   await page.locator('#ask-input').fill('비우기');
   await page.locator('#ask-ok').click();
-  await expect(page.locator('#toast')).toContainText('그사이 바뀌었습니다');
+  await expect(page.locator('#toast')).toContainText('1개');
   const listed = await (await page.request.get('/admin/api/trash')).json();
-  expect(listed.total.count).toBe(2);
+  expect(listed.total.count).toBe(1);
+  expect(listed.items[0].items[0].rel).toBe(LATE);
 });
 
 test('the trash tab speaks the language the top area is set to', async ({ page }) => {

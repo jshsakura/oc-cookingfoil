@@ -63,6 +63,7 @@ import debug from "../debug.js";
 import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason } from "./nsz-runner.js";
 import { createNszLog } from "./nsz-log.js";
 import { trashItems } from "../library/trash.js";
+import { sweepPartials } from "../library/safe-move.js";
 
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
 export const KEEP_DIR_NAME = ".cookingfoil-nsz-keep";
@@ -137,6 +138,8 @@ export function createNszQueue({
     const roots = libraryRoots();
     return bytesOnDisk(gamesDir, roots.some((r) => path.resolve(r.dir) === path.resolve(gamesDir)) ? roots : [{ key: "games", dir: gamesDir }, ...roots]);
   },
+  // Bytes of copies a stop cut short in the games folder that are still there: the ones that can go are removed first.
+  partialBytes = async () => (await sweepPartials([gamesDir], { recursive: true })).left.reduce((n, l) => n + l.bytes, 0),
 }) {
   const workDir = path.join(gamesDir, WORK_DIR_NAME);
   const keepDir = path.join(gamesDir, KEEP_DIR_NAME);
@@ -159,6 +162,8 @@ export function createNszQueue({
   let keepChain = Promise.resolve();
   // What the trash held when the run last paused for space: the page and the alert say emptying it frees that much.
   let trashHeld = 0;
+  // Copies a stop cut short that the last pause found and could not remove.
+  let partialHeld = 0;
 
   const reindex = () => { byRel = new Map(state.items.map((i) => [i.rel, i])); };
   const find = (id) => state.items.find((i) => i.id === id) ?? null;
@@ -378,7 +383,9 @@ export function createNszQueue({
         const held = trashHeld;
         // Kept originals sit in the games folder too: they free space only once they go to the trash and it is emptied.
         const kept = keptBytes();
-        pauseFor("disk", (t) => t("nszNoSpace", { free: gb(free), name: item.name || path.basename(item.rel), size: gb(item.size || 0), trash: gb(held), kept: gb(kept), hasTrash: held > 0, hasKept: kept > 0 }));
+        partialHeld = await partialBytes().catch(() => 0);
+        const partial = partialHeld;
+        pauseFor("disk", (t) => t("nszNoSpace", { free: gb(free), name: item.name || path.basename(item.rel), size: gb(item.size || 0), trash: gb(held), kept: gb(kept), hasTrash: held > 0, hasKept: kept > 0, partial: gb(partial), hasPartial: partial > 0 }));
         return;
       }
       startItem(item, s);
@@ -598,15 +605,18 @@ export function createNszQueue({
       if (known.has(d)) continue;
       const dir = path.join(keepDir, d);
       const st = await fsp.stat(dir).catch(() => null);
-      if (!st || now() - st.mtimeMs < maxAge) continue;
-      // No record says where it was in the library: it goes to the trash under the keep folder's own path.
+      // Its age counts from the later of its last change and its last move: a folder restored from the trash
+      // (a rename, which sets ctime) starts its keep time again instead of going straight back.
+      if (!st || now() - Math.max(st.mtimeMs, st.ctimeMs) < maxAge) continue;
+      // No record says where it was in the library: it goes to the trash under its real, hidden path, so a
+      // restore puts it back in the keep folder, where the shop never lists it beside its .nsz.
       const files = await fsp.readdir(dir).catch(() => []);
       if (!files.length) {
         await fsp.rmdir(dir).catch(() => {});
         continue;
       }
       debug.log("nsz: kept folder %s has no record and is past the keep time, moved to the trash", d);
-      await toTrash(`${KEEP_DIR_NAME.slice(1)}/${d}`, dir, "nsz-kept-orphan").catch((err) => debug.error("nsz: kept folder %s not moved: %s", d, err.message));
+      await toTrash(`${KEEP_DIR_NAME}/${d}`, dir, "nsz-kept-orphan").catch((err) => debug.error("nsz: kept folder %s not moved: %s", d, err.message));
     }
   }
 
@@ -786,6 +796,7 @@ export function createNszQueue({
       only,
       kept: { count: kept.length, bytes: keptBytes(), capBytes: (s.keepGb || 0) * GIB, keepHours: s.keepHours, nextAt: kept.length ? dueAt(kept[0], s) : null, now: now() },
       trash: { bytes: trashHeld },
+      partial: { bytes: partialHeld },
       tool: Boolean(bin()),
       totals: totals(),
       active: state.items.filter((i) => runs.has(i.id)).map((i) => ({ ...i, ...progressOf(i) })),

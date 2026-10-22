@@ -19,6 +19,18 @@
  * of the first and last MiB of every file), and only then moved into place with
  * the same no-replace step; the source goes last. A stop mid-copy leaves only
  * the dot-named partial, which no scanner reads and nothing trusts.
+ *
+ * Every partial has a marker beside it, written before the copy starts:
+ *
+ *   .cookingfoil-partial-<10 hex>-<name>   the copy (a file or a folder)
+ *   .cookingfoil-partial-<10 hex>.json     { pid, boot, startedAt, from, to }
+ *
+ * sweepPartials() removes the ones a stop left behind: only a partial with our
+ * marker, not being copied by this process, started before the operation that
+ * sweeps, and from a run that is over (this process's own, a pid that is gone,
+ * the same pid under another boot after a restart, or older than a day), and
+ * only while its source or its target still holds the bytes. Anything else is
+ * left and reported, so a disk-full message can count it.
  */
 import crypto from "crypto";
 import fsp from "fs/promises";
@@ -27,6 +39,12 @@ import path from "path";
 const NO_LINK = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EMLINK"]);
 const EDGE_BYTES = 1024 * 1024;
 export const PARTIAL_PREFIX = ".cookingfoil-partial-";
+const MARKER_RE = /^\.cookingfoil-partial-([0-9a-f]{10})\.json$/;
+// Another live process's partial is left alone this long: past it, the copy is not running any more.
+const OTHER_RUN_MS = 24 * 60 * 60 * 1000;
+// This process's run: a marker with another boot but this pid is a dead run whose pid came back (pid 1 in a container).
+const BOOT = crypto.randomBytes(6).toString("hex");
+const live = new Set();
 
 // ── locks ────────────────────────────────────────────────────────────
 const chains = new Map();
@@ -176,6 +194,109 @@ export class CopyMismatchError extends Error {
 /** A dot-named place beside `to` for a copy that is not checked yet. Pure. */
 export const partialOf = (to) => path.join(path.dirname(to), `${PARTIAL_PREFIX}${crypto.randomBytes(5).toString("hex")}-${path.basename(to)}`.slice(0, 255));
 
+const markerOf = (part) => path.join(path.dirname(part), `${path.basename(part).slice(0, PARTIAL_PREFIX.length + 10)}.json`);
+
+/**
+ * Runs `fn(part)` with a fresh partial beside `to` for a copy of `from`, its
+ * marker written first. Whatever is still at `part` afterwards (a copy that was
+ * not placed) goes, and the marker with it.
+ */
+export async function withPartial(from, to, fn) {
+  const part = partialOf(to);
+  const marker = markerOf(part);
+  await fsp.mkdir(path.dirname(part), { recursive: true });
+  live.add(part);
+  try {
+    await fsp.writeFile(marker, JSON.stringify({ pid: process.pid, boot: BOOT, startedAt: Date.now(), from: path.resolve(from), to: path.resolve(to) }), { flag: "wx" });
+    return await fn(part);
+  } finally {
+    await fsp.rm(part, { recursive: true, force: true }).catch(() => {});
+    await fsp.rm(marker, { force: true }).catch(() => {});
+    live.delete(part);
+  }
+}
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err.code === "EPERM";
+  }
+};
+const there = (p) => typeof p === "string" && fsp.lstat(p).then(() => true, () => false);
+const sizeOf = async (p) => {
+  const st = await fsp.lstat(p).catch(() => null);
+  if (!st?.isDirectory()) return st?.size ?? 0;
+  let n = 0;
+  for (const e of await fsp.readdir(p, { withFileTypes: true, recursive: true }).catch(() => [])) {
+    if (e.isFile()) n += (await fsp.lstat(path.join(e.parentPath ?? e.path, e.name)).catch(() => ({ size: 0 }))).size;
+  }
+  return n;
+};
+
+/** Whether a marker's copy is over: never one running here, nor one started after `before`. */
+function finished(info, mtimeMs, before) {
+  if (!info || typeof info !== "object") return mtimeMs < before - OTHER_RUN_MS;
+  if (!(Number(info.startedAt) < before)) return false;
+  if (info.boot === BOOT || (info.pid === process.pid && info.boot !== BOOT)) return true;
+  return !Number.isInteger(info.pid) || !alive(info.pid) || before - info.startedAt > OTHER_RUN_MS;
+}
+
+/**
+ * Removes the partials a stop left behind in `dirs` (and below them with
+ * `recursive`), as the header says. `before`: the start of the operation that
+ * sweeps (a partial started later is never touched). Returns { removed, left:
+ * [{ path, bytes }] } where `left` are ours that had to stay.
+ */
+export async function sweepPartials(dirs, { recursive = false, before = Date.now() } = {}) {
+  let removed = 0;
+  const left = [];
+  for (const dir of new Set(dirs.map((d) => path.resolve(d)))) {
+    const entries = await fsp.readdir(dir, { withFileTypes: true, recursive }).catch(() => []);
+    const byDir = new Map();
+    for (const e of entries) {
+      if (!e.name.startsWith(PARTIAL_PREFIX)) continue;
+      const at = e.parentPath ?? e.path ?? dir;
+      if (!byDir.has(at)) byDir.set(at, []);
+      byDir.get(at).push(e.name);
+    }
+    for (const [at, names] of byDir) {
+      for (const name of names) {
+        const hex = MARKER_RE.exec(name)?.[1];
+        if (!hex) continue;
+        const marker = path.join(at, name);
+        const parts = names.filter((n) => n.startsWith(`${PARTIAL_PREFIX}${hex}-`)).map((n) => path.join(at, n));
+        if (parts.some((p) => live.has(p))) continue;
+        const st = await fsp.lstat(marker).catch(() => null);
+        if (!st) continue;
+        let info = null;
+        try {
+          info = JSON.parse(await fsp.readFile(marker, "utf8"));
+        } catch {
+          // A marker cut by a stop: judged by its age alone.
+        }
+        const over = finished(info, st.mtimeMs, before);
+        // Only ever a copy: the bytes are still at the source, or already placed at the target.
+        const elsewhere = over && (await there(info?.from) || await there(info?.to));
+        if (!over || (parts.length && !elsewhere)) {
+          for (const p of parts) left.push({ path: p, bytes: await sizeOf(p) });
+          continue;
+        }
+        let gone = true;
+        for (const p of parts) {
+          await fsp.rm(p, { recursive: true, force: true }).catch(() => { gone = false; });
+        }
+        if (gone) {
+          await fsp.rm(marker, { force: true }).catch(() => {});
+          if (parts.length) removed++;
+        } else for (const p of parts) if (await there(p)) left.push({ path: p, bytes: await sizeOf(p) });
+      }
+    }
+  }
+  return { removed, left };
+}
+
 /**
  * Copies `from` to the new path `part` and checks it against `from`; on any
  * difference the copy is removed and CopyMismatchError thrown.
@@ -203,16 +324,29 @@ export async function moveAcross(from, to) {
   } catch (err) {
     if (err.code !== "EXDEV") throw err;
   }
-  const part = partialOf(to);
-  await copyChecked(from, part);
-  let placed = false;
-  try {
-    placed = await moveNoClobber(part, to);
-  } finally {
-    if (!placed) await fsp.rm(part, { recursive: true, force: true }).catch(() => {});
-  }
+  const placed = await withPartial(from, to, async (part) => {
+    await copyChecked(from, part);
+    return moveNoClobber(part, to);
+  });
   if (placed) await fsp.rm(from, { recursive: true, force: true });
   return placed;
+}
+
+/** Whether two regular files hold the same bytes (sizes first, then a full hash of each). */
+export async function sameBytes(a, b) {
+  const [x, y] = await Promise.all([fsp.lstat(a).catch(() => null), fsp.lstat(b).catch(() => null)]);
+  if (!x?.isFile() || !y?.isFile() || x.size !== y.size) return false;
+  const hash = async (p) => {
+    const h = crypto.createHash("sha256");
+    const fh = await fsp.open(p, "r");
+    try {
+      for await (const chunk of fh.createReadStream({ highWaterMark: 4 * 1024 * 1024 })) h.update(chunk);
+    } finally {
+      await fh.close().catch(() => {});
+    }
+    return h.digest("hex");
+  };
+  return (await hash(a)) === (await hash(b));
 }
 
 /**

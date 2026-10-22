@@ -37,7 +37,7 @@ put("roms/arcade/gunbirdj.zip");
 put("thumbnails/arcade/Named_Boxarts/Gunbird (Japan).png", "GJ");
 
 const catalog = await import("../../src/retro/catalog.js");
-const { listTrash, restoreEntry, stillUsed, trashGame } = await import("../../src/retro/trash.js");
+const { listTrash, restoreEntry, trashFiles, trashGame } = await import("../../src/retro/trash.js");
 const { mountRetroVariantsApi } = await import("../../src/routes/admin/retro-variants-api.js");
 const { mountRetroArtApi } = await import("../../src/routes/admin/retro-art-api.js");
 
@@ -168,7 +168,7 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
   }
 });
 
-test("the retro wrapper passes exactName on: a taken name is refused and the item waits; without it the item comes back beside", async () => {
+test("a retro core whose name is taken is refused with or without exactName, and waits in the trash", async () => {
   const shared = await import("../../src/library/trash.js");
   const r = { key: "retro", dir: retro };
   put("cores/exact_libretro_libnx.a", "OLD CORE");
@@ -178,7 +178,22 @@ test("the retro wrapper passes exactName on: a taken name is refused and the ite
   await assert.rejects(restoreEntry(retro, entry.entry, { home: entry.home, exactName: true }), (err) => err.status === 409);
   assert.ok((await shared.listRoot(r)).some((e) => e.entry === entry.entry), "still in the trash");
   assert.equal(fs.readFileSync(path.join(retro, "cores/exact_libretro_libnx.a"), "utf8"), "NEW CORE");
-  const back = await restoreEntry(retro, entry.entry, entry.home);
-  assert.equal(back.renamed.length, 1);
+  // A core never comes back numbered, asked or not: "x (2).nro" in cores/ would ship in the pack as no core at all.
+  await assert.rejects(restoreEntry(retro, entry.entry, entry.home), (err) => err.status === 409 && /코어/.test(err.message));
+  assert.deepEqual(fs.readdirSync(path.join(retro, "cores")).filter((f) => f.startsWith("exact")), ["exact_libretro_libnx.a"]);
   assert.equal(fs.readFileSync(path.join(retro, "cores/exact_libretro_libnx.a"), "utf8"), "NEW CORE");
+});
+
+test("restoreEntry(dir, entry, { exactName: true }), the shape the core swap calls, leaves a user core in the trash when its name is taken", async () => {
+  const shared = await import("../../src/library/trash.js");
+  put("cores/swap_libretro_libnx.nro", "USER CORE");
+  const t = await trashFiles(retro, { id: "core-abcdef0123", system: "core", name: "swap_libretro_libnx.nro" }, ["cores/swap_libretro_libnx.nro"]);
+  put("cores/swap_libretro_libnx.nro", "OFFICIAL");
+  await assert.rejects(restoreEntry(retro, t.entry, { exactName: true }), (err) => err.status === 409);
+  assert.deepEqual(fs.readdirSync(path.join(retro, "cores")).filter((f) => f.startsWith("swap")), ["swap_libretro_libnx.nro"], "no numbered core is left in the cores folder");
+  assert.ok((await shared.listRoot({ key: "retro", dir: retro })).some((e) => e.entry === t.entry), "the user core waits in the trash");
+  fs.rmSync(path.join(retro, "cores/swap_libretro_libnx.nro"));
+  const back = await restoreEntry(retro, t.entry, { exactName: true });
+  assert.deepEqual([back.files, back.renamed], [["cores/swap_libretro_libnx.nro"], []]);
+  assert.equal(fs.readFileSync(path.join(retro, "cores/swap_libretro_libnx.nro"), "utf8"), "USER CORE");
 });
