@@ -11,8 +11,10 @@ const NAME = 'Trash Game [0100000000040000][v0].nsp';
 const FILE = path.join(GAMES, NAME);
 
 // Other specs remove files on the same server, so each test starts from an empty trash.
-const emptyAll = (page: import('@playwright/test').Page) =>
-  page.request.post('/admin/api/trash/empty', { data: { all: true, confirm: 'empty' } }).catch(() => {});
+const emptyAll = async (page: import('@playwright/test').Page) => {
+  const { version } = await (await page.request.get('/admin/api/trash')).json().catch(() => ({}));
+  await page.request.post('/admin/api/trash/empty', { data: { all: true, version, confirm: 'empty' } }).catch(() => {});
+};
 
 test.afterEach(async ({ page }) => {
   fs.rmSync(FILE, { force: true });
@@ -65,6 +67,24 @@ test('emptying asks for the word: a wrong one keeps everything, the right one de
   const listed = await (await page.request.get('/admin/api/trash')).json();
   expect(listed.total.count).toBe(0);
   expect(fs.existsSync(FILE)).toBe(false);
+});
+
+test('emptying everything refuses when an entry came in after the list was shown', async ({ page }) => {
+  await signIn(page);
+  await emptyAll(page);
+  await removeFromLibrary(page);
+  await page.goto('/admin#trash');
+  await expect(page.locator('#tr-list .tr-row', { hasText: NAME })).toBeVisible();
+  // Something lands in the trash while the page is open (the NSZ queue does this).
+  const LATE = 'Late Game [0100000000050000][v0].nsp';
+  fs.writeFileSync(path.join(GAMES, LATE), 'LATE');
+  await expect.poll(async () => (await (await page.request.post('/admin/api/library/files/remove', { data: { rel: LATE } })).status()), { timeout: 15000 }).toBe(200);
+  await page.locator('#tr-empty-all').click();
+  await page.locator('#ask-input').fill('비우기');
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#toast')).toContainText('그사이 바뀌었습니다');
+  const listed = await (await page.request.get('/admin/api/trash')).json();
+  expect(listed.total.count).toBe(2);
 });
 
 test('the trash tab speaks the language the top area is set to', async ({ page }) => {

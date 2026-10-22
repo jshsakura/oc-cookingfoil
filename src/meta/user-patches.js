@@ -82,6 +82,13 @@ export function homebrewPatchId(app, folder) {
   return `hb-${short(app.toLowerCase())}-${short(folder)}`;
 }
 
+/** The id of the patch at `rel` under the patches folder ("<title id>/<folder>" or "homebrew/<app>/<folder>"), or null. Pure. */
+export function patchIdAt(rel) {
+  const parts = String(rel ?? "").split("/");
+  if (parts.length === 3 && parts[0] === HOMEBREW_DIR) return homebrewPatchId(parts[1], parts[2]);
+  return parts.length === 2 ? patchId(parts[0].toUpperCase(), parts[1]) : null;
+}
+
 /** "0100…000-1a2b3c4d5e6f": the title id and a hash of the folder name. Pure. */
 export function patchId(titleId, folder) {
   const digest = crypto.createHash("sha256").update(folder.normalize("NFC")).digest("hex");
@@ -283,8 +290,8 @@ export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
 
 async function subdirs(dir) {
   try {
-    // The trash (and a trash folder on another disk below) is never a game's folder.
-    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name)).map((e) => e.name);
+    // The trash (and a trash folder on another disk below), or a dot folder such as a move's work folder, is never a game's folder.
+    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name) && !e.name.startsWith(".")).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("patches: cannot read %s: %s", dir, err.message);
     return [];

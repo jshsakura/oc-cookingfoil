@@ -1,13 +1,16 @@
 /**
  * The shared trash and the operations journal, from the admin page's 휴지통 tab:
  *
- *   GET  /admin/api/trash                  { items: [{ id, root, kind, action, by, name, trashedAt, ageDays, size, items, missing }],
- *                                            total: { bytes, count }, roots: { <folder>: { bytes, count } }, noticeDays, old }
- *   POST /admin/api/trash/restore          { ids }   put entries back; a taken place gets a numbered name beside it
+ *   GET  /admin/api/trash                  { items: [{ id, root, kind, action, by, name, trashedAt, ageDays, size, items, missing, incomplete }],
+ *                                            total: { bytes, count }, roots: { <folder>: { bytes, count } }, noticeDays, old, version, unavailable }
+ *   POST /admin/api/trash/restore          { ids, exactName? }   put entries back; a taken place gets a numbered name beside it,
+ *                                          or with exactName the entry stays in the trash
  *                                          → { restored: [{ id, name, items, renamed }], failed: [{ id, error }] }
- *   POST /admin/api/trash/empty            { ids | all: true, confirm: "empty" }  deletes for good   → { removed, bytes }
- *   GET  /admin/api/trash/journal?limit=   { items: [{ id, at, action, by, fromRoot, from, toRoot, to, undoable, reason, undone }], total }
+ *   POST /admin/api/trash/empty            { ids | all: true + version, confirm: "empty" }  deletes for good   → { removed, bytes }
+ *                                          (all: the version the list answered; 409 when the trash changed since)
+ *   GET  /admin/api/trash/journal?limit=   { items: [{ id, at, action, by, fromRoot, from, toRoot, to, undoable, reason, undone, released }], total }
  *   POST /admin/api/trash/undo             { id }    moves a journaled file back → { from, to }
+ *   POST /admin/api/trash/release          { id }    lets the drop box sort a file an undo put back in it again
  *
  * Emptying is the only permanent delete the server has, so only a person on the
  * admin page may (admin-page.js TOKEN_BLOCKED_RE refuses it to automation tokens);
@@ -44,13 +47,19 @@ export function mountTrashApi(router, requireSession, service = trash) {
   router.post("/api/trash/restore", handle(async (req, res) => {
     const ids = idsOf(req.body);
     if (!ids) return res.status(400).json({ error: "되돌릴 항목을 고릅니다" });
-    res.json({ ok: true, ...(await service.restore(ids, service.actorOf(req))) });
+    if (req.body?.exactName !== undefined && typeof req.body.exactName !== "boolean") return res.status(400).json({ error: "exactName 은 true 나 false 입니다" });
+    res.json({ ok: true, ...(await service.restore(ids, service.actorOf(req), { exactName: req.body?.exactName === true })) });
   }));
 
   router.post("/api/trash/empty", handle(async (req, res) => {
     // The page asks the person to type the word first; the API wants the same proof it was meant.
     if (req.body?.confirm !== "empty") return res.status(400).json({ error: "비우려면 confirm 에 \"empty\" 를 넣습니다" });
-    const ids = req.body?.all === true ? "all" : idsOf(req.body);
+    // Everything means everything the person saw: the list's version comes back with it.
+    if (req.body?.all === true) {
+      if (typeof req.body.version !== "string" || !req.body.version) return res.status(400).json({ error: "목록의 version 을 함께 보냅니다" });
+      return res.json({ ok: true, ...(await service.empty({ all: true, version: req.body.version }, service.actorOf(req))) });
+    }
+    const ids = idsOf(req.body);
     if (!ids) return res.status(400).json({ error: "비울 항목을 고릅니다" });
     res.json({ ok: true, ...(await service.empty(ids, service.actorOf(req))) });
   }));
@@ -64,5 +73,11 @@ export function mountTrashApi(router, requireSession, service = trash) {
     const id = typeof req.body?.id === "string" ? req.body.id : "";
     if (!id || id.length > ID_MAX) return res.status(400).json({ error: "되돌릴 작업을 고릅니다" });
     res.json({ ok: true, ...(await service.undo(id, service.actorOf(req))) });
+  }));
+
+  router.post("/api/trash/release", handle(async (req, res) => {
+    const id = typeof req.body?.id === "string" ? req.body.id : "";
+    if (!id || id.length > ID_MAX) return res.status(400).json({ error: "놓아 줄 작업을 고릅니다" });
+    res.json({ ok: true, ...(await service.release(id, service.actorOf(req))) });
   }));
 }

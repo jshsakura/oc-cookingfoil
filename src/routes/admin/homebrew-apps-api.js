@@ -36,9 +36,9 @@ import * as integrations from "../../security/integrations.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
 import * as itemVerified from "../../meta/item-verified.js";
-import * as itemVotes from "../../meta/item-votes.js";
 import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
+import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -208,9 +208,10 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const dir = where && where.dir.startsWith("homebrew/") ? inside(type === "patch" ? patchesDir : savesDir, where.dir, where.folder) : null;
     if (!dir) return res.status(404).json({ error: "목록에 없는 항목입니다" });
     const root = type === "patch" ? patchesDir : savesDir;
+    const marks = marksOf(type, id);
     const out = await trashOr409(res, type === "patch" ? "patches" : "saves", dir, root, {
       kind: type, action: `homebrew-${type}-remove`, by: trashService.actorOf(req), name: where.folder,
-      extra: type === "patch" && where.key && patchInfo.has(where.key) ? { patchInfo: { key: where.key, info: patchInfo.get(where.key) } } : {},
+      extra: { ...(type === "patch" && where.key && patchInfo.has(where.key) ? { patchInfo: { key: where.key, info: patchInfo.get(where.key) } } : {}), ...(marks ? { marks } : {}) },
     });
     if (!out) return;
     if (type === "patch") {
@@ -218,8 +219,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
       await userPatches.scan();
     }
     else savesCatalog().invalidate();
-    itemVerified.set(type, id, false);
-    itemVotes.forget(type, id);
+    forgetMarks(type, id);
     debug.log("admin: homebrew %s %s/%s moved to the trash", type, where.dir, where.folder);
     res.json({ ok: true, trash: out.id });
   }));
@@ -233,7 +233,13 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const out = await trashOr409(res, "homebrew", dir, homebrewDir, { kind: "homebrew", action: "homebrew-remove", by: trashService.actorOf(req), name: app.name ?? path.basename(dir) });
     if (!out) return;
     await forgetZipCopies(id);
-    await forgetExtras(id);
+    // Pictures, description, choices and marks go into the trash entry first; only then are they forgotten here.
+    try {
+      await trashService.keepHomebrewExtras(out, id);
+      await forgetExtras(id);
+    } catch (err) {
+      debug.error("admin: homebrew %s: extras not kept with the trash entry, so left as they are: %s", id, err.message);
+    }
     await refreshManual();
     debug.log("admin: hand-placed homebrew %s moved to the trash", path.basename(dir));
     res.json({ ok: true, trash: out.id });

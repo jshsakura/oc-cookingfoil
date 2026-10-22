@@ -6,17 +6,20 @@
  *
  *   list()                 every entry, with totals per folder
  *   trash(key, items, meta)  move into the trash (what every delete does now)
- *   restore(ids, by)       put entries back, never over a file
- *   empty(ids | "all", by) the only permanent delete; a person on the admin page only
- *   journal(), undo(id, by)
+ *   restore(ids, by, opts) put entries back, never over a file
+ *   empty(ids | { all, version }, by)  the only permanent delete; a person on the admin page only
+ *   journal(), undo(id, by), release(id, by)
  *
  * After a restore, an empty or an undo the folder it touched is read again.
  */
+import crypto from "crypto";
+import fs from "fs";
 import path from "path";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as trashStore from "./trash.js";
 import * as journalStore from "./journal.js";
+import { homebrewExtrasOf, putHomebrewExtras, putMarks } from "./trash-marks.js";
 
 export const ROOT_KEYS = Object.freeze(["games", "incoming", "patches", "saves", "homebrew", "retro"]);
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -88,7 +91,17 @@ export async function trash(key, items, meta = {}) {
   return out;
 }
 
-/** Every entry newest first, each with its age, and the totals: { items, total, roots, noticeDays, old }. */
+/**
+ * A short digest of which entries are in the trash. The page sends back the one
+ * it showed when it empties everything, and the server refuses when the trash
+ * changed since (an entry the person never saw would be deleted with it). Pure.
+ */
+export const versionOf = (ids) => crypto.createHash("sha256").update([...ids].sort().join("\n")).digest("hex").slice(0, 16);
+
+/**
+ * Every entry newest first, each with its age, and the totals:
+ * { items, total, roots, noticeDays, old, version, unavailable: [{ root, home }] }.
+ */
 export async function list({ now = Date.now() } = {}) {
   const roots = libraryRoots();
   const items = (await trashStore.listAll(roots)).map((e) => ({ ...e, ageDays: Math.floor((now - (e.trashedAt ?? now)) / DAY_MS) }));
@@ -105,6 +118,9 @@ export async function list({ now = Date.now() } = {}) {
     roots: totals,
     noticeDays,
     old: { count: old.length, bytes: old.reduce((n, e) => n + e.size, 0) },
+    version: versionOf(items.map((e) => e.id)),
+    // A disk that is not mounted: its entries are not lost, only not listed until it is back.
+    unavailable: roots.flatMap((r) => trashStore.unavailableHomes(r).map((home) => ({ root: r.key, home }))),
   };
 }
 
@@ -114,6 +130,24 @@ export async function bytesOf(key) {
   return root ? (await trashStore.listRoot(root)).reduce((n, e) => n + e.size, 0) : 0;
 }
 
+/**
+ * Bytes the trash holds on the filesystem `dir` is on: every library folder's
+ * entries whose folder is on that disk (emptying them frees space there). An
+ * entry on another disk mounted below does not count.
+ */
+const realDev = (p) => fs.statSync(p, { throwIfNoEntry: false })?.dev;
+export async function bytesOnDisk(dir, roots = libraryRoots(), devOf = realDev) {
+  const dev = devOf(path.resolve(dir));
+  if (dev === undefined) return 0;
+  let bytes = 0;
+  for (const r of roots) {
+    for (const e of await trashStore.listRoot(r)) {
+      if (devOf(path.resolve(r.dir, ...e.home.split("/"), ...e.entry.split("/"))) === dev) bytes += e.size;
+    }
+  }
+  return bytes;
+}
+
 const parse = (id) => {
   const a = trashStore.parseAddress(id);
   const root = a ? rootOf(a.rootKey) : null;
@@ -121,29 +155,49 @@ const parse = (id) => {
   return { ...a, root };
 };
 
-// What a restore puts back besides the files, by kind.
+// What a restore puts back besides the files, by kind. Runs before the entry folder goes (its .attached is still there).
 const AFTER_RESTORE = {
   // A patch's information was taken out of the patch store with it: back under the folder it now has.
   patch: async (r) => {
-    const stash = r.manifest?.patchInfo;
     const to = r.items[0]?.to;
-    if (!stash?.info || !to) return;
-    const patchInfo = await import("../meta/patch-info.js");
-    // "<title id>/<folder>" or "homebrew/<app>/<folder>", as the patch store keys it.
-    const key = patchInfo.keyOf(path.posix.dirname(to), path.posix.basename(to));
-    if (key && !patchInfo.has(key)) patchInfo.set(key, stash.info);
+    if (!to) return;
+    const stash = r.manifest?.patchInfo;
+    if (stash?.info) {
+      const patchInfo = await import("../meta/patch-info.js");
+      // "<title id>/<folder>" or "homebrew/<app>/<folder>", as the patch store keys it.
+      const key = patchInfo.keyOf(path.posix.dirname(to), path.posix.basename(to));
+      if (key && !patchInfo.has(key)) patchInfo.set(key, stash.info);
+    }
+    if (r.manifest?.marks) putMarks(r.manifest.marks, (await import("../meta/user-patches.js")).patchIdAt(to));
+  },
+  save: async (r) => {
+    const to = r.items[0]?.to;
+    if (to && r.manifest?.marks) putMarks(r.manifest.marks, (await import("../meta/shop-saves.js")).saveIdAt(to));
+  },
+  // A hand-placed app's pictures, description, choices and marks, under the id its folder now gives it.
+  homebrew: async (r, base) => {
+    const extras = r.manifest?.homebrewExtras;
+    const to = r.items[0]?.to;
+    if (!extras || !to || to.includes("/")) return;
+    const { idFor } = await import("../meta/homebrew.js");
+    const media = r.manifest.attached?.includes("media") ? path.join(base, trashStore.ATTACHED_DIR, "media") : null;
+    await putHomebrewExtras(extras, idFor("manual", to), media);
   },
 };
 
-/** Puts entries back. Returns { restored: [{ id, name, items, renamed }], failed: [{ id, error }] }. */
-export async function restore(ids, by = null) {
+/**
+ * Puts entries back. `exactName` refuses an entry whose place is taken (it stays
+ * in the trash) instead of numbering it. Returns { restored: [{ id, name, items,
+ * renamed }], failed: [{ id, error }] }.
+ */
+export async function restore(ids, by = null, { exactName = false } = {}) {
   const restored = [];
   const failed = [];
   for (const id of ids) {
     try {
       const { root, home, entry } = parse(id);
-      const { manifest, ...r } = await trashStore.restoreEntry(root, home, entry);
-      await AFTER_RESTORE[r.kind]?.({ ...r, manifest })?.catch?.((err) => debug.error("trash: after restoring %s: %s", id, err.message));
+      const after = (r, base) => AFTER_RESTORE[r.kind]?.(r, base)?.catch?.((err) => debug.error("trash: after restoring %s: %s", id, err.message));
+      const { manifest: _m, ...r } = await trashStore.restoreEntry(root, home, entry, { exactName, after });
       restored.push(r);
       debug.log("trash: %s restored by %s%s", id, by?.name ?? "-", r.renamed.length ? ` (${r.renamed.map((x) => `${x.rel} → ${x.to}`).join(", ")})` : "");
     } catch (err) {
@@ -155,18 +209,46 @@ export async function restore(ids, by = null) {
   return { restored, failed };
 }
 
-/** Deletes entries for good ("all": every one). Returns { removed, bytes }. Only a person on the admin page may. */
-export async function empty(ids, by = null) {
-  const targets = ids === "all" ? (await trashStore.listAll(libraryRoots())).map((e) => e.id) : ids;
+/**
+ * Deletes entries for good: a list of ids, or { all: true, version } for every
+ * entry, refused when the trash is not the one the person saw (version from
+ * list()). Every id is checked before anything is deleted. Returns { removed,
+ * bytes }. Only a person on the admin page may.
+ */
+export async function empty(target, by = null) {
+  let ids;
+  if (Array.isArray(target)) ids = target;
+  else if (target?.all === true) {
+    const now = (await trashStore.listAll(libraryRoots())).map((e) => e.id);
+    if (typeof target.version !== "string" || target.version !== versionOf(now)) {
+      throw new trashStore.TrashError("휴지통이 그사이 바뀌었습니다. 목록을 다시 불러온 뒤 비웁니다", 409);
+    }
+    ids = now;
+  } else throw new trashStore.TrashError("비울 항목을 고릅니다", 400);
+  const targets = ids.map(parse);
+  for (const t of targets) {
+    if (!(await trashStore.hasEntry(t.root, t.home, t.entry))) throw new trashStore.TrashError("휴지통에 없는 항목이 있어 아무것도 비우지 않았습니다. 목록을 다시 불러옵니다", 404);
+  }
   let removed = 0;
   let bytes = 0;
-  for (const id of targets) {
-    const { root, home, entry } = parse(id);
+  for (const { root, home, entry } of targets) {
     bytes += await trashStore.emptyEntry(root, home, entry);
     removed++;
   }
   debug.log("trash: %d entries (%d bytes) deleted for good by %s", removed, bytes, by?.name ?? "-");
   return { removed, bytes };
+}
+
+/**
+ * Keeps a hand-placed homebrew app's extras with its trash entry (`out` from
+ * trash()), so a restore brings them back. Throws when they could not be kept:
+ * the caller then leaves them where they are instead of forgetting them.
+ */
+export async function keepHomebrewExtras(out, appId) {
+  const root = rootOf("homebrew");
+  const at = out.entries[0];
+  const { fields, mediaDir } = await homebrewExtrasOf(appId);
+  await trashStore.attach(root, at.home, at.entry, { name: mediaDir ? "media" : null, fromDir: mediaDir, fields: { homebrewExtras: fields } });
 }
 
 // ── the journal ──────────────────────────────────────────────────────
@@ -193,13 +275,32 @@ const UNDO_REWRITE = {
 
 export const journal = (opts) => journalStore.listJournal(libraryRoots(), opts);
 
+// The marks a move dropped (a patch's or save's votes), back on the id the item has where it returns.
+const MARK_ID = {
+  patch: async (rel) => (await import("../meta/user-patches.js")).patchIdAt(rel),
+  save: async (rel) => (await import("../meta/shop-saves.js")).saveIdAt(rel),
+};
+
 export async function undo(id, by = null) {
-  const after = (op, abs) => UNDO_REWRITE[op.rewrite?.type]?.(op, abs);
+  const after = async (op, abs) => {
+    await UNDO_REWRITE[op.rewrite?.type]?.(op, abs);
+    if (op.marks) putMarks(op.marks, await MARK_ID[op.marks.kind]?.(op.from));
+  };
   const out = await journalStore.undoMove(libraryRoots(), id, { by, after });
   debug.log("journal: %s undone by %s: %s/%s → %s/%s", out.id, by?.name ?? "-", out.toRoot, out.to, out.fromRoot, out.from);
   refresh([out.fromRoot, out.toRoot]);
   return out;
 }
+
+/** Lets the drop box sort a file it put back by an undo again. */
+export async function release(id, by = null) {
+  const out = await journalStore.releaseUndone(libraryRoots(), id, { by });
+  debug.log("journal: %s released by %s", out.id, by?.name ?? "-");
+  return out;
+}
+
+/** The files undone back into the drop box that it must leave where they are: [{ id, rel, size, mtimeMs }]. */
+export const undoneInDropBox = () => journalStore.undoneHeld(libraryRoots(), "incoming");
 
 /** At start: retro's old .trash entries move into the shared trash folder (a rename in place). */
 export async function migrate() {

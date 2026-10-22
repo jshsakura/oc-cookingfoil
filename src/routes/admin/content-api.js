@@ -36,6 +36,15 @@ import * as itemVotes from "../../meta/item-votes.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
+import { forgetMarks, marksOf } from "../../library/trash-marks.js";
+import { moveNoClobber } from "../../library/safe-move.js";
+
+/** Removes `dir` and the folders under it once they hold no file: anything written into it meanwhile stays. */
+async function dropEmptyTree(dir) {
+  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const e of entries) if (e.isDirectory()) await dropEmptyTree(path.join(dir, e.name));
+  await fsp.rmdir(dir).catch(() => {});
+}
 
 const BASE_RE = /^[0-9A-F]{16}$/;
 const isBase = (tid) => BASE_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
@@ -225,20 +234,28 @@ export function mountContentApi(router, requireSession) {
         await fsp.mkdir(path.dirname(path.join(work, next)), { recursive: true });
         await fsp.rename(path.join(dir, rel), path.join(work, next));
       }
-      await fsp.rename(work, dest);
+      // Never onto a folder that appeared meanwhile.
+      if (!(await moveNoClobber(work, dest))) throw new ContentError(409, "그 게임에 같은 이름의 폴더가 이미 있습니다. 이름을 바꾸거나 그쪽을 먼저 삭제합니다");
     } catch (err) {
-      await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+      // What was moved into the work folder goes back first; only an empty work folder is removed.
+      for (const rel of await filesUnder(work).catch(() => [])) {
+        const back = kind === "patch" ? movedPatchPath(rel, to, titleId) : rel;
+        await fsp.mkdir(path.dirname(path.join(dir, back)), { recursive: true }).catch(() => {});
+        await moveNoClobber(path.join(work, rel), path.join(dir, back)).catch(() => false);
+      }
+      await dropEmptyTree(work);
       throw err;
     }
-    await fsp.rm(dir, { recursive: true, force: true });
+    await dropEmptyTree(dir);
     await fsp.rmdir(path.dirname(dir)).catch(() => {}); // the old game's folder, when it is left empty
     // Before the rescan, so an old patch.json that travelled along is not imported over the edits.
     if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
-    itemVerified.set(kind, String(req.body.id), false);
-    itemVotes.forget(kind, String(req.body.id));
+    // The marks stay with the line, so undoing the move brings them back.
+    const marks = marksOf(kind, String(req.body.id));
+    forgetMarks(kind, String(req.body.id));
     await trashService.recordMove({
       action: `${kind}-move`, by: trashService.actorOf(req), from: dir, to: dest,
-      extra: kind === "patch" ? { rewrite: { type: "patch-title", from: titleId, to, folder } } : {},
+      extra: { ...(kind === "patch" ? { rewrite: { type: "patch-title", from: titleId, to, folder } } : {}), ...(marks ? { marks } : {}) },
     });
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
@@ -249,12 +266,13 @@ export function mountContentApi(router, requireSession) {
     const { kind } = req.params;
     const { root, dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
     const key = kind === "patch" ? patchInfo.keyOf(titleId, folder) : null;
+    const marks = marksOf(kind, String(req.body.id));
     let out;
     try {
       out = await trashService.trash(kind === "patch" ? "patches" : "saves", [{ rel: path.relative(root, dir).split(path.sep).join("/") }], {
         kind, action: `${kind}-remove`, by: trashService.actorOf(req), name: folder,
         // The patch store's entry goes with it, so a restore brings its information back.
-        extra: key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {},
+        extra: { ...(key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {}), ...(marks ? { marks } : {}) },
       });
     } catch (err) {
       if (err instanceof trashService.TrashError) throw new ContentError(err.status, err.message);
@@ -262,8 +280,8 @@ export function mountContentApi(router, requireSession) {
     }
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
     if (key) patchInfo.remove(key);
-    itemVerified.set(kind, String(req.body.id), false);
-    itemVotes.forget(kind, String(req.body.id));
+    // Kept in the manifest above: a restore puts them back.
+    forgetMarks(kind, String(req.body.id));
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to the trash", kind, titleId, folder);
     res.json({ ok: true, trash: out.id });
