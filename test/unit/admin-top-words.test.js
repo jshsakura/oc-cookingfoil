@@ -39,3 +39,10 @@ test("every pre-existing admin page hash still has its section", () => {
     assert.match(html, new RegExp(`href="#${tab}" data-tab="${tab}"`), `menu link for ${tab}`);
   }
 });
+
+test("every settings row whose label or help is a word-table key has it in all four languages", async () => {
+  const { SERVER_SETTINGS_SCRIPT } = await import("../../src/routes/admin/server-settings-panel.js");
+  const keys = [...new Set([...String(SERVER_SETTINGS_SCRIPT).matchAll(/'@([a-zA-Z0-9_.]+)'/g)].map((m) => m[1]))];
+  assert.ok(keys.includes("ss.retroPackAuto.label") && keys.includes("ss.retroPackAutoDownload.help"));
+  for (const [code] of TOP_LANGS) for (const key of keys) assert.ok(TOP_WORDS[code][key]?.trim().length > 3, `${code}.${key}`);
+});

@@ -80,8 +80,8 @@ const SS_GROUPS=[
     ['eshopArtwork','bool','공식 이미지','아이콘, 배너, 스크린샷을 받아 둡니다. 끄면 받아 둔 것, 파일에서 읽은 것, 직접 올린 것만 씁니다.'],
     ['ratingSync','bool','평점 모으기','Steam, IGDB, 레트로 평점을 천천히 모읍니다.'],
     ['retroMeta','bool','레트로 게임 정보','LaunchBox 와 IGDB 에서 레트로 게임의 설명, 제작사, 발매일, 장르, 스크린샷을 천천히 받아 둡니다. 스크린샷은 공식 이미지가 켜져 있을 때만 받습니다. 끄면 받아 둔 것만 씁니다.'],
-    ['retroPackAuto','bool','레트로 코어 자동 추가와 업데이트','ROM 이 생긴 기종의 코어가 팩에 없으면 받아 둔 공식 번들에서 꺼내 채우고, 서버가 올라가 고정 버전이 바뀌면 서버가 직접 놓은 파일만 새 버전으로 바꿉니다. 직접 넣은 파일과 바꾼 파일은 건드리지 않고 "업데이트 있음"으로만 알립니다. 고정 목록에 있고 검증된 코어만 다룹니다.'],
-    ['retroPackAutoDownload','bool','자동 추가를 위해 번들 받기','켜면 위 기능이 번들(약 309MB)이 디스크에 없을 때 스스로 받아 옵니다. 끄면 받지 않고 레트로 탭에 "채우기가 필요합니다"라고만 알립니다.'],
+    ['retroPackAuto','bool','@ss.retroPackAuto.label','@ss.retroPackAuto.help'],
+    ['retroPackAutoDownload','bool','@ss.retroPackAutoDownload.label','@ss.retroPackAutoDownload.help'],
     ['retroPackUrl','text','RetroArch 번들 주소','레트로 탭의 "한 번에 채우기"가 RetroArch 번들(.7z)을 받아 오는 주소입니다. 비워 두면 libretro 공식 주소를 씁니다. 어느 주소든 서버에 고정된 SHA-256 과 같은 파일만 받아들입니다.','https://...'],
   ]],
 ];
@@ -90,7 +90,7 @@ const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
 const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
 async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);loadHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
-    toast(row?row[2]+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
+    toast(row?ssText(row[2])+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
     b.addEventListener('change',()=>ssSave({[key]:b.checked},b.checked?'켰습니다.':'껐습니다.'));w.append(b,el('span'));return w;}
@@ -106,10 +106,12 @@ function ssControl(key,kind,s,ph){
   const i=el('input');i.type='text';i.spellcheck=false;i.autocomplete='off';i.maxLength=300;i.placeholder=ph||'';
   i.value=Array.isArray(s.value)?s.value.join(','):(s.value||'');
   i.addEventListener('change',()=>ssSave({[key]:i.value}));i.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();i.blur();}});return i;}
+// A label or help starting with @ is a key of the admin word table (top-i18n.js), so it follows the admin language.
+const ssText=(v)=>typeof v==='string'&&v[0]==='@'?topText(v.slice(1)):v;
 function ssRender(d){const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
   for(const [title,rows] of SS_GROUPS){const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),title,'','ss-group');const g=box.querySelector('.box-b');
     const a=el('button',title);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;
-    for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
+    for(const [key,kind,label0,desc0,ph] of rows){const s=d.settings[key];if(!s)continue;const label=ssText(label0),desc=ssText(desc0);const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',label),el('p',desc));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
       const src=el('div',null,'ss-src');
