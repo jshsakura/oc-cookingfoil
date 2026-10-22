@@ -238,25 +238,26 @@ function variantSuffix(size, wide) {
  * they are WebP whatever the client says; `overrideGone` is called when the
  * override is no longer there.
  */
-export async function serveImage(req, res, { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false }) {
+export async function serveImage(req, res, opts) {
+  const { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false } = opts;
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
   const wantThumb = size !== null;
 
   // Operator-supplied art wins outright over the titledb CDN proxy / NACP
   // cache. When present we serve it (and derive thumbs from it) and never
   // touch the upstream. It sits in a folder the admin may rename or delete by
-  // hand, so it is looked for each time, not remembered: one found gone falls
+  // hand, yet it is sent without a look first (a request reads no more of the
+  // disk than what it sends): one found gone, at the send or the resize, falls
   // back to the usual art and `overrideGone` has the game read again.
-  let source = cachePath;
-  let fromOverride = false;
-  if (overridePath && fs.existsSync(overridePath)) {
-    source = overridePath;
-    fromOverride = true;
-  } else {
-    if (overridePath) {
-      forget(overridePath);
-      overrideGone?.();
-    }
+  const fromOverride = Boolean(overridePath);
+  const source = overridePath || cachePath;
+  const gone = () => {
+    forget(overridePath);
+    overrideGone?.();
+    return serveImage(req, res, { ...opts, overridePath: null });
+  };
+  const send = (file) => (fromOverride ? sendOr(res, file, gone) : res.sendFile(file));
+  if (!fromOverride) {
     try {
       await ensureOriginal(cachePath, upstreamUrl);
     } catch (err) {
@@ -282,7 +283,7 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
   const sourceType = source.endsWith(".webp") ? "image/webp" : "image/jpeg";
   if (!wantThumb) {
     res.type(sourceType);
-    return res.sendFile(source);
+    return send(source);
   }
 
   try {
@@ -299,13 +300,29 @@ export async function serveImage(req, res, { cachePath, upstreamUrl, overridePat
     await ensureVariant(source, variant);
     res.set("Vary", "Accept");
     res.type(wantWebp ? "image/webp" : "image/jpeg");
-    return res.sendFile(variant.path);
+    return send(variant.path);
   } catch (err) {
+    if (fromOverride && err.code === "ENOENT") return gone();
     debug.error("image cache: variant failed for %s: %s", source, err.message);
     // Worst case: send the original full-size, still works.
     res.type(sourceType);
-    return res.sendFile(source);
+    return send(source);
   }
+}
+
+/** res.sendFile(file), and `gone()` in its place when the file is not there; nothing was sent then. */
+function sendOr(res, file, gone) {
+  res.sendFile(file, (err) => {
+    if (!err || res.headersSent) return;
+    if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+      forget(file);
+      Promise.resolve().then(gone).catch((e) => debug.error("image cache: %s", e.message));
+      return;
+    }
+    // What express does without a callback: the error's own status.
+    debug.cache("image cache: sending %s: %s", path.basename(file), err.message);
+    res.status(err.status ?? err.statusCode ?? 500).end();
+  });
 }
 
 /** Updates/DLC share the base game's icon — fold the suffix to 000. */

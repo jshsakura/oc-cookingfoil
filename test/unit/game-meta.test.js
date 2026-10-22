@@ -38,10 +38,17 @@ const ago = (file, seconds) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const colorOf = async (file) => (await sharp(file).stats()).dominant;
 const noise = (w, h) => sharp({ create: { width: w, height: h, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 60 } } }).png().toBuffer();
+// Held apart: a test counts the calls a request makes to fs, not the ones made here.
+const { existsSync } = fs;
 // One request through a route, its sent file returned.
 async function serve(route, params, query = {}) {
   let sent = null;
-  const res = { statusCode: 200, set() { return this; }, type() { return this; }, status(c) { this.statusCode = c; return this; }, send() { return this; }, sendFile(p) { sent = p; } };
+  // As express does: a file that is not there is an ENOENT to the callback, not a send.
+  const sendFile = (p, cb) => {
+    if (existsSync(p)) sent = p;
+    else cb?.(Object.assign(new Error("gone"), { code: "ENOENT" }));
+  };
+  const res = { statusCode: 200, headersSent: false, set() { return this; }, type() { return this; }, status(c) { this.statusCode = c; return this; }, send() { return this; }, sendFile };
   await route({ params, query, headers: { accept: "image/webp" }, get: (h) => (h.toLowerCase() === "accept" ? "image/webp" : "") }, res);
   return sent;
 }
@@ -63,22 +70,16 @@ test("a picture put in a folder by hand becomes the slot's WebP and its original
   assert.deepEqual(gameDescriptions.locked(ID), ["icon", "screenshots"], "art set by hand is locked");
 });
 
-test("the newer of a hand-placed picture and the slot's WebP wins", async () => {
+test("a hand-placed picture is made into its slot once, whatever its time against the slot's WebP", async () => {
   const ID = "0100000000020000";
   const dir = folder(ID);
-  fs.writeFileSync(path.join(dir, "banner.png"), await picture(1280, 720, "#ff0000"));
-  ago(path.join(dir, "banner.png"), 60);
-  await sleep(20);
   fs.writeFileSync(path.join(dir, "banner.webp"), await picture(1280, 720, "#0000ff", "webp"));
   await gameMeta.scan();
-  assert.ok(fs.existsSync(path.join(dir, "banner.png")), "an older hand file is left alone");
-  const { dominant } = await sharp(path.join(dir, "banner.webp")).stats();
-  assert.ok(dominant.b > 200, "the WebP stays");
-
   fs.writeFileSync(path.join(dir, "banner.png"), await picture(1280, 720, "#ff0000"));
-  await gameMeta.scan({ force: true });
-  assert.ok(!fs.existsSync(path.join(dir, "banner.png")), "a newer one replaces it");
-  assert.ok((await sharp(path.join(dir, "banner.webp")).stats()).dominant.r > 200);
+  ago(path.join(dir, "banner.png"), 3600);
+  await gameMeta.scan();
+  assert.ok(!fs.existsSync(path.join(dir, "banner.png")), "an older-dated new file still counts");
+  assert.ok((await colorOf(path.join(dir, "banner.webp"))).r > 200);
 });
 
 test("a picture that cannot be read is left alone and not tried again until it changes", async (t) => {
@@ -258,18 +259,136 @@ test("a hand file copied with its old mtime (cp -p, unzip) still wins over the s
   assert.ok(!fs.existsSync(path.join(dir, "icon.png")));
 });
 
-test("a hand file that loses to a newer WebP is logged once and left alone", async (t) => {
+test("of two hand files in one slot the newest is made into it; the other is left on disk, logged once, never taken later", async (t) => {
   const ID = "01000000000C0000";
   const dir = folder(ID);
-  fs.writeFileSync(path.join(dir, "banner.jpg"), await picture(64, 36, "#00ff00", "jpeg"));
-  await sleep(20);
-  fs.writeFileSync(path.join(dir, "banner.webp"), await picture(64, 36, "#ff0000", "webp"));
+  fs.writeFileSync(path.join(dir, "icon.jpg"), await picture(64, 64, "#ff0000", "jpeg"));
+  ago(path.join(dir, "icon.jpg"), 60);
+  fs.writeFileSync(path.join(dir, "icon.png"), await picture(64, 64, "#00ff00"));
   const debug = (await import("../../src/debug.js")).default;
   const logged = t.mock.method(debug, "log", () => {});
   await gameMeta.scan();
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).g > 200, "the newer one");
+  assert.ok(fs.existsSync(path.join(dir, "icon.jpg")), "the other stays where it was");
+  await sleep(20);
+  // chmod, chown, a hard link: a new ctime, the same file.
+  fs.chmodSync(path.join(dir, "icon.jpg"), 0o600);
+  await gameMeta.rescan(ID);
   await gameMeta.scan({ force: true });
-  assert.ok(fs.existsSync(path.join(dir, "banner.jpg")));
-  assert.equal(logged.mock.calls.filter((c) => c.arguments.some((a) => String(a).includes("banner.jpg"))).length, 1);
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).g > 200, "still the newer one");
+  assert.ok(fs.existsSync(path.join(dir, "icon.jpg")));
+  assert.equal(logged.mock.calls.filter((c) => c.arguments.some((a) => String(a).includes("icon.jpg"))).length, 1);
+});
+
+test("a hand file put there before an admin upload never comes back over it, not after chmod either", async () => {
+  const ID = "01000000001A0000";
+  const dir = folder(ID);
+  await gameMeta.scan();
+  fs.writeFileSync(path.join(dir, "icon.png"), await picture(64, 64, "#ff0000"));
+  // Within the watch's quiet time: the hand file is not made into the slot yet.
+  await customArt.put(ID, "icon", null, await picture(64, 64, "#00ff00"));
+  await gameMeta.scan();
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).g > 200, "the upload shows");
+  await sleep(20);
+  fs.chmodSync(path.join(dir, "icon.png"), 0o644);
+  await gameMeta.rescan(ID);
+  await gameMeta.scan({ force: true });
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).g > 200, "the upload stays");
+  assert.ok((await colorOf(path.join(dir, "icon.orig.webp"))).g > 200, "and its original");
+  assert.ok(fs.existsSync(path.join(dir, "icon.png")), "the hand file is left as it is");
+
+  // A new picture put there later wins.
+  fs.writeFileSync(path.join(dir, "icon.png"), await picture(64, 64, "#0000ff"));
+  await gameMeta.rescan(ID);
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).b > 200);
+});
+
+test("a hand file that cannot be removed after it was made into its slot is never made into it again", async (t) => {
+  const ID = "01000000001B0000";
+  const dir = folder(ID);
+  const hand = path.join(dir, "banner.png");
+  fs.writeFileSync(hand, await picture(64, 36, "#ff0000"));
+  const rmSync = fs.rmSync;
+  t.mock.method(fs, "rmSync", (p, ...rest) => {
+    if (p === hand) throw Object.assign(new Error("read-only"), { code: "EROFS" });
+    return rmSync(p, ...rest);
+  });
+  const debug = (await import("../../src/debug.js")).default;
+  t.mock.method(debug, "error", () => {});
+  await gameMeta.scan();
+  assert.ok(fs.existsSync(hand));
+  await sleep(20);
+  fs.writeFileSync(path.join(dir, "banner.webp"), await picture(64, 36, "#00ff00", "webp"));
+  await sleep(20);
+  fs.chmodSync(hand, 0o600);
+  await gameMeta.rescan(ID);
+  await gameMeta.scan({ force: true });
+  assert.ok((await colorOf(path.join(dir, "banner.webp"))).g > 200, "the picture put there since stays");
+});
+
+test("a hand file dated in the future leaves no future date on the slot, and a picture put there after it wins", async () => {
+  const ID = "01000000001C0000";
+  const dir = folder(ID);
+  const hand = path.join(dir, "icon.png");
+  fs.writeFileSync(hand, await picture(64, 64, "#ff0000"));
+  const later = new Date(Date.now() + 9 * 3600e3);
+  fs.utimesSync(hand, later, later);
+  await gameMeta.scan();
+  assert.ok(fs.statSync(path.join(dir, "icon.webp")).mtimeMs <= Date.now() + 1000, "not dated ahead");
+  fs.writeFileSync(hand, await picture(64, 64, "#00ff00"));
+  await gameMeta.scan({ force: true });
+  assert.ok((await colorOf(path.join(dir, "icon.webp"))).g > 200);
+  assert.ok(!fs.existsSync(hand));
+});
+
+test("a write queued for a game that waits on that game again runs at once instead of waiting on itself", async () => {
+  const ID = "01000000001D0000";
+  folder(ID);
+  const r = await Promise.race([gameMeta.withGame(ID, () => gameMeta.rescan(ID)).then(() => "done"), sleep(2000).then(() => "stuck")]);
+  assert.equal(r, "done");
+  assert.equal(await gameMeta.withGame("01000000001E0000", () => "ok"), "ok");
+});
+
+test("reading one game again reads only its folder, not the whole games folder", async (t) => {
+  const ID = "01000000001F0000";
+  const dir = folder(ID);
+  await gameMeta.scan();
+  fs.writeFileSync(path.join(dir, "icon.webp"), await picture(64, 64, "#ffffff", "webp"));
+  const NEW = "0100000000200000";
+  const fresh = folder(NEW, "New");
+  fs.writeFileSync(path.join(fresh, "banner.webp"), await picture(64, 36, "#ffffff", "webp"));
+  const readdirSync = fs.readdirSync;
+  const listed = [];
+  t.mock.method(fs, "readdirSync", (p, ...rest) => { listed.push(String(p)); return readdirSync(p, ...rest); });
+  await gameMeta.rescan(ID);
+  // The watch names the folder that changed: a new one is read without the whole list.
+  await gameMeta.rescan(NEW, path.basename(fresh));
+  t.mock.restoreAll();
+  assert.equal(customArt.hasOverride(ID, "icon"), true);
+  assert.equal(customArt.hasOverride(NEW, "banner"), true);
+  assert.deepEqual(listed.filter((p) => p === GAMES_DIR), []);
+});
+
+test("an icon in a game's folder is sent without a look at the disk first; one found gone falls back and has the game read again", async (t) => {
+  const ID = "0100000000210000";
+  const dir = folder(ID, "Sent");
+  fs.writeFileSync(path.join(dir, "icon.webp"), await picture(64, 64, "#ff0000", "webp"));
+  await gameMeta.scan();
+  await serve(iconRoute, { titleId: ID }, { size: "sm" });
+  const calls = [];
+  for (const key of ["existsSync", "statSync", "accessSync"]) {
+    const fn = fs[key];
+    t.mock.method(fs, key, (...args) => { calls.push(key); return fn(...args); });
+  }
+  assert.equal(await serve(iconRoute, { titleId: ID }), path.join(dir, "icon.webp"));
+  assert.ok(await serve(iconRoute, { titleId: ID }, { size: "sm" }));
+  t.mock.restoreAll();
+  assert.deepEqual(calls, []);
+
+  fs.renameSync(dir, path.join(GAMES_DIR, `Moved [${ID}]`));
+  await serve(iconRoute, { titleId: ID });
+  for (let i = 0; i < 60 && !/Moved \[/.test(customArt.pathFor(ID, "icon", null) ?? ""); i++) await sleep(50);
+  assert.match(customArt.pathFor(ID, "icon", null), /Moved \[/);
 });
 
 test("a hand file replaced while it is being converted is kept, never deleted unread", async () => {
@@ -362,6 +481,50 @@ test("started, it watches the games folder (made when missing) and reads a folde
       env: { ...process.env, COOK_DATA_DIR: own }, encoding: "utf8",
     }));
     assert.deepEqual(out, { made: true, art: true, intervals: [] });
+  } finally {
+    fs.rmSync(own, { recursive: true, force: true });
+  }
+});
+
+test("a game folder deleted and made again under the same name is watched again, by hand or by the server", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const own = fs.mkdtempSync(path.join(os.tmpdir(), "cook-game-meta-again-"));
+  const script = `
+    import fs from "fs";
+    import path from "path";
+    const { default: sharp } = await import("sharp");
+    const gameMeta = await import(${JSON.stringify(path.join(import.meta.dirname, "../../src/meta/game-meta.js"))});
+    const customArt = await import(${JSON.stringify(path.join(import.meta.dirname, "../../src/meta/custom-art.js"))});
+    const png = () => sharp({ create: { width: 8, height: 8, channels: 3, background: "#fff" } }).png().toBuffer();
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (fn) => { for (let i = 0; i < 60 && !fn(); i++) await sleep(50); return Boolean(fn()); };
+    gameMeta.start({ quietMs: 100, cooldownMs: 0 });
+    await gameMeta.watching();
+    const dir = path.join(gameMeta.GAMES_DIR, "Again [0100000000F30000]");
+    fs.mkdirSync(dir);
+    await sleep(300);
+    fs.rmSync(dir, { recursive: true });
+    fs.mkdirSync(dir);
+    await sleep(300);
+    fs.writeFileSync(path.join(dir, "icon.png"), await png());
+    const byHand = await until(() => gameMeta.art("0100000000F30000", "icon"));
+
+    const ID = "0100000000F40000";
+    await customArt.put(ID, "icon", null, await png());
+    await sleep(300);
+    await customArt.remove(ID, "icon", null);
+    await sleep(300);
+    await customArt.put(ID, "icon", null, await png());
+    await sleep(300);
+    fs.writeFileSync(path.join(gameMeta.folderOf(ID), "screenshot-01.png"), await png());
+    const byServer = await until(() => gameMeta.art(ID, "screenshot-01"));
+    gameMeta.stop();
+    process.stdout.write(JSON.stringify({ byHand, byServer }));`;
+  try {
+    const out = JSON.parse(execFileSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script], {
+      env: { ...process.env, COOK_DATA_DIR: own }, encoding: "utf8",
+    }));
+    assert.deepEqual(out, { byHand: true, byServer: true });
   } finally {
     fs.rmSync(own, { recursive: true, force: true });
   }

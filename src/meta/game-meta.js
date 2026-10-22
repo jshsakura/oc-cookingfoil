@@ -17,24 +17,28 @@
  *
  * A picture put into a folder by hand as icon.jpg, banner.png, screenshot-02.jpeg
  * and so on is made into the slot's .webp (and an original to cut again) by the
- * next look; the hand-placed file goes once both are written. When the slot has
- * a .webp already, the newer of the two wins: the hand file by the later of its
- * mtime and ctime, as a copy that keeps the old mtime (cp -p, unzip) is still
- * new. One that cannot be read is left as it is and tried again only once it
- * changes. Every write into one game's slots (a conversion, an upload, a new
- * cut, a removal, the move out of custom-art/) waits for the one before it.
+ * next look, whatever the times on it, and the hand-placed file goes once both
+ * are written. Each such file is taken once, known by its inode, size and mtime
+ * (game-art-files.js handStamp), which the folder's row keeps: one that cannot
+ * be removed, cannot be read, lost to a newer one in the same slot (the newest
+ * mtime is taken, the others are left on disk and logged once) or was there
+ * when the admin set the slot is never taken again until its content changes.
+ * So an upload stays until a new or changed picture is put there. Every write
+ * into one game's slots (a conversion, an upload, a new cut, a removal, the
+ * move out of custom-art/) waits for the one before it.
  *
  * Small copies of the pictures are kept apart, in thumbs/games/<id>/, named
  * after the picture's stamp: a new picture gets new ones without a look at the disk.
  */
 import fs from "fs";
 import path from "path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 import { appDb } from "../db/database.js";
 import { catalogStore } from "../db/stores.js";
 import { forget } from "./image-cache.js";
-import { classify, convertHand, kindOf } from "./game-art-files.js";
+import { classify, convertHand, handStamp, kindOf } from "./game-art-files.js";
 import { watchItems } from "./folder-watch.js";
 
 export const GAMES_DIR = path.join(dataDir, "metadata", "games");
@@ -95,9 +99,9 @@ const artStamp = (st) => `${Math.round(st.mtimeMs * 1000).toString(36)}-${st.siz
 /*
  * A row, as kept in memory and in the index:
  *   { id, folder, mtimeMs, json: null | { stamp, raw } | { stamp, error },
- *     art: { <slot>: { file, stamp } }, hand: [{ slot, file, stamp }], failed: { <file>: stamp } }
- * hand: pictures put there by hand still to be made into their slot's .webp;
- * failed: the ones that could not be, by the stamp they had then.
+ *     art: { <slot>: { file, stamp } }, hand: [{ slot, file, stamp }], seen: { <file>: stamp } }
+ * hand: pictures put there by hand still to be made into their slot's .webp, one a slot;
+ * seen: the hand-placed files still there that were dealt with, by their handStamp.
  */
 const games = new Map(); // id → { row, fields }
 let topMtime = null;
@@ -188,23 +192,15 @@ function listTop() {
   return [...byId];
 }
 
-const loserLogged = new Set();
-/** Says once that a hand-placed picture is left alone, as `than` in its slot is newer. */
-function logLoser(dir, h, than) {
-  const key = `${dir}/${h.file}/${h.stamp}`;
-  if (loserLogged.has(key)) return;
-  loserLogged.add(key);
-  debug.log("game meta: %s is left as it is: %s is newer", path.join(dir, h.file), than);
-}
-
 /**
- * The pictures in one folder: { art, hand }, a hand-placed one only when it is
- * newer than the slot's .webp. A hand file counts by the later of its mtime and
- * ctime; a .webp by its mtime, which a conversion sets to the time of what it read.
+ * The pictures in one folder: { art, hand, seen }. A hand-placed file whose
+ * stamp `seen` holds was dealt with and stays so; of the others, the newest by
+ * mtime in each slot waits to be made into it and the rest are dealt with now.
  */
-function listFolder(dir) {
+function listFolder(dir, seen) {
   const art = {};
-  const hands = new Map();
+  const fresh = new Map(); // slot → hand-placed files not dealt with
+  const kept = {};
   for (const name of fs.readdirSync(dir)) {
     const c = classify(name);
     if (!c || c.role === "orig") continue;
@@ -215,25 +211,24 @@ function listFolder(dir) {
       continue;
     }
     if (!st.isFile()) continue;
-    const found = { file: name, stamp: artStamp(st) };
     if (c.role === "art") {
-      art[c.slot] = { ...found, at: st.mtimeMs };
+      art[c.slot] = { file: name, stamp: artStamp(st) };
       continue;
     }
-    const h = { slot: c.slot, ...found, at: Math.max(st.mtimeMs, st.ctimeMs) };
-    const had = hands.get(c.slot);
-    if (had && had.at >= h.at) logLoser(dir, h, had.file);
-    else {
-      if (had) logLoser(dir, had, h.file);
-      hands.set(c.slot, h);
-    }
+    const stamp = handStamp(st);
+    if (seen[name] === stamp) kept[name] = stamp;
+    else fresh.set(c.slot, [...(fresh.get(c.slot) ?? []), { slot: c.slot, file: name, stamp, at: st.mtimeMs }]);
   }
   const hand = [];
-  for (const h of hands.values()) {
-    if (art[h.slot] && h.at <= art[h.slot].at) logLoser(dir, h, art[h.slot].file);
-    else hand.push({ slot: h.slot, file: h.file, stamp: h.stamp });
+  for (const files of fresh.values()) {
+    const [newest, ...rest] = files.sort((a, b) => b.at - a.at || a.file.localeCompare(b.file));
+    hand.push({ slot: newest.slot, file: newest.file, stamp: newest.stamp });
+    for (const h of rest) {
+      kept[h.file] = h.stamp;
+      debug.log("game meta: %s is left as it is: %s, for the same slot, is newer", path.join(dir, h.file), newest.file);
+    }
   }
-  return { art: Object.fromEntries(Object.entries(art).map(([slot, { file, stamp }]) => [slot, { file, stamp }])), hand };
+  return { art, hand, seen: kept };
 }
 
 /** A game.json: `prev` again when its stamp is the same, else read anew (a broken one as an error). */
@@ -259,9 +254,13 @@ function readJson(file, prev) {
 }
 
 // A picture saved over in place leaves its folder's mtime as it was: the few in a folder are looked at each time.
-const picturesMoved = (dir, row) => [...Object.values(row.art), ...row.hand].some((p) => {
+const picturesMoved = (dir, row) => [
+  ...Object.values(row.art).map((p) => [p.file, p.stamp, artStamp]),
+  ...row.hand.map((h) => [h.file, h.stamp, handStamp]),
+  ...Object.entries(row.seen).map(([file, stamp]) => [file, stamp, handStamp]),
+].some(([file, stamp, stampOf]) => {
   try {
-    return artStamp(fs.statSync(path.join(dir, p.file))) !== p.stamp;
+    return stampOf(fs.statSync(path.join(dir, file))) !== stamp;
   } catch {
     return true;
   }
@@ -280,22 +279,40 @@ function readFolder(id, folder, prev, force) {
   const same = !force && prev?.folder === folder;
   let listed;
   try {
-    listed = same && prev.mtimeMs === st.mtimeMs && !picturesMoved(dir, prev) ? prev : listFolder(dir);
+    // What was dealt with follows the game into a folder renamed by hand: the files keep their inodes.
+    listed = same && prev.mtimeMs === st.mtimeMs && !picturesMoved(dir, prev) ? prev : listFolder(dir, prev?.seen ?? {});
   } catch (err) {
     debug.error("game meta: reading %s: %s", dir, err.message);
     return prev ?? null;
   }
-  const failed = Object.fromEntries(Object.entries(prev?.failed ?? {}).filter(([file]) => listed.hand.some((h) => h.file === file)));
   // The stamp has the ctime: a game.json with the same one is the same file, even on a full look.
   const json = readJson(path.join(dir, JSON_FILE), prev?.folder === folder ? prev.json : null);
-  return { id, folder, mtimeMs: st.mtimeMs, json, art: listed.art, hand: listed.hand, failed };
+  return { id, folder, mtimeMs: st.mtimeMs, json, art: listed.art, hand: listed.hand, seen: listed.seen };
+}
+
+/**
+ * Where game `id`'s folder is, from its known folder and `hint` (a name the
+ * watch gave), a stat each and no look at the whole games folder: [[id, folder]],
+ * or null when only that look can tell (none of them there, or two for one id).
+ */
+function locate(id, hint) {
+  const hinted = hint && FOLDER_ID_RE.exec(hint)?.[1].toUpperCase() === id ? hint : null;
+  const there = [...new Set([hinted, games.get(id)?.row.folder].filter(Boolean))].filter((name) => {
+    try {
+      return fs.statSync(path.join(GAMES_DIR, name), { throwIfNoEntry: false })?.isDirectory();
+    } catch {
+      return false;
+    }
+  });
+  return there.length === 1 ? [[id, there[0]]] : null;
 }
 
 /**
  * Reads what changed in the games folder: every folder (`force`: all of each),
- * or only game `only`, always in full. The ids whose row changed.
+ * or only game `only`, always in full, found where it was or in `folder` (a name
+ * the watch gave). The ids whose row changed.
  */
-function read({ force = false, only = null } = {}) {
+function read({ force = false, only = null, folder = null } = {}) {
   let st = null;
   try {
     st = fs.statSync(GAMES_DIR);
@@ -305,7 +322,8 @@ function read({ force = false, only = null } = {}) {
       return [];
     }
   }
-  const list = !st ? [] : only || force || st.mtimeMs !== topMtime ? listTop() : [...games.values()].map(({ row }) => [row.id, row.folder]);
+  // One game is looked for where it is known to be: thousands of folders put in at once are thousands of these.
+  const list = !st ? [] : only ? locate(only, folder) ?? listTop() : force || st.mtimeMs !== topMtime ? listTop() : [...games.values()].map(({ row }) => [row.id, row.folder]);
   if (!list) return [];
   // Only a full look settles the folder's mtime: one game read alone may leave new folders beside it unread.
   if (!only) topMtime = st?.mtimeMs ?? null;
@@ -321,8 +339,8 @@ function read({ force = false, only = null } = {}) {
     replaceRow(prev, row);
     changed.push(id);
   }
-  for (const id of [...games.keys()]) {
-    if (seen.has(id) || (only && id !== only)) continue;
+  for (const id of only ? [only].filter((id) => games.has(id)) : [...games.keys()]) {
+    if (seen.has(id)) continue;
     replaceRow(games.get(id).row, null);
     changed.push(id);
   }
@@ -350,23 +368,37 @@ function load() {
     indexed = Boolean(kept);
     // In the order a look writes them, so an unchanged folder compares equal.
     for (const r of kept?.items ?? []) {
-      if (r?.id && r.folder && r.art) remember({ id: r.id, folder: r.folder, mtimeMs: r.mtimeMs, json: r.json ?? null, art: r.art, hand: r.hand ?? [], failed: r.failed ?? {} });
+      if (r?.id && r.folder && r.art) remember({ id: r.id, folder: r.folder, mtimeMs: r.mtimeMs, json: r.json ?? null, art: r.art, hand: r.hand ?? [], seen: r.seen ?? {} });
     }
   });
   return read();
 }
 
 const queues = new Map(); // id → the last write into that game's slots, done or not
+const inQueue = new AsyncLocalStorage(); // the games whose queue the running code is in
 /**
  * Runs `fn` once every write into game `id`'s slots started before it is done,
  * so two never interleave (a conversion and an upload, say). What `fn` returns.
+ * Called again for the same game from inside `fn` (a rescan, a put), it runs at
+ * once instead: waiting in the queue would be waiting on itself.
  */
 export function withGame(id, fn) {
-  const run = (queues.get(id) ?? Promise.resolve()).then(fn);
+  const mine = inQueue.getStore();
+  if (mine?.has(id)) return Promise.resolve().then(fn);
+  const run = (queues.get(id) ?? Promise.resolve()).then(() => inQueue.run(new Set([...(mine ?? []), id]), fn));
   const tail = run.catch(() => {});
   queues.set(id, tail);
   tail.then(() => { if (queues.get(id) === tail) queues.delete(id); });
   return run;
+}
+
+/** Marks game `id`'s hand-placed files [[file, stamp]] as dealt with: they leave the waiting list for good. */
+function dealtWith(id, files) {
+  const row = games.get(id)?.row;
+  if (!row || !files.length) return;
+  const done = new Set(files.map(([file]) => file));
+  remember({ ...row, hand: row.hand.filter((h) => !done.has(h.file)), seen: { ...row.seen, ...Object.fromEntries(files) } });
+  toIndex((s) => s.put(games.get(id).row));
 }
 
 /** The stamp of slot `slot`'s .webp in `dir` as it is now, or null when it has none. */
@@ -386,19 +418,22 @@ function convertOne(id, h) {
     const row = games.get(id)?.row;
     if (!row?.hand.some((x) => x.file === h.file && x.stamp === h.stamp)) return changed;
     const dir = path.join(GAMES_DIR, row.folder);
-    const seen = row.art[h.slot]?.stamp ?? null;
+    const slotWas = row.art[h.slot]?.stamp ?? null;
+    let made;
     try {
-      const made = await convertHand(dir, h.slot, h.file, { ready: () => slotStampNow(dir, h.slot) === seen });
-      if (made) debug.log("game meta: %s/%s is now %s.webp", row.folder, h.file, h.slot);
-      else debug.log("game meta: %s/%s or its slot changed while it was read; left for the next look", row.folder, h.file);
+      made = await convertHand(dir, h.slot, h.file, { ready: () => slotStampNow(dir, h.slot) === slotWas });
     } catch (err) {
       debug.error("game meta: %s cannot be made into %s.webp: %s", `${row.folder}/${h.file}`, h.slot, err.message);
-      const now = games.get(id)?.row;
-      if (!now) return changed;
-      remember({ ...now, failed: { ...now.failed, [h.file]: h.stamp } });
-      toIndex((s) => s.put(games.get(id).row));
+      dealtWith(id, [[h.file, h.stamp]]);
       return changed;
     }
+    if (!made) {
+      debug.log("game meta: %s/%s or its slot changed while it was read; left for the next look", row.folder, h.file);
+      return changed;
+    }
+    debug.log("game meta: %s/%s is now %s.webp", row.folder, h.file, h.slot);
+    // Taken: should the file stay (it cannot be removed, or only its ctime moved), it is never taken again.
+    dealtWith(id, [[h.file, made.read]]);
     return changed + read({ only: id }).length;
   });
 }
@@ -411,7 +446,7 @@ function convertWaiting() {
     const tried = new Set();
     for (;;) {
       const next = [...games.values()].flatMap(({ row }) => row.hand
-        .filter((h) => row.failed[h.file] !== h.stamp && !tried.has(`${row.id}/${h.file}/${h.stamp}`))
+        .filter((h) => !tried.has(`${row.id}/${h.file}/${h.stamp}`))
         .map((h) => [row.id, h]));
       if (!next.length) return changed;
       for (const [id, h] of next) {
@@ -424,23 +459,40 @@ function convertWaiting() {
 }
 
 /**
+ * convertWaiting, started outside any game's queue so each conversion waits its
+ * turn. Waited for, except from inside a queue: the conversions may need that
+ * very queue, and they finish on their own. How many rows changed.
+ */
+function convertAll() {
+  const run = inQueue.exit(convertWaiting);
+  if (!inQueue.getStore()) return run;
+  run.catch((err) => debug.error("game meta: making hand-placed pictures failed: %s", err.message));
+  return Promise.resolve(0);
+}
+
+/**
  * Looks at the games folder now: what changed (`force`: every folder in full),
  * then the hand-placed pictures made into WebP. Tells `onChange` (start) when
  * anything a list shows changed. { games, changed, converted }
  */
 export async function scan({ force = false } = {}) {
   const changed = [...load(), ...read({ force })];
-  const converted = await convertWaiting();
+  const converted = await convertAll();
   await pruning;
   if (changed.length || converted) changedHook();
   return { games: games.size, changed: changed.length, converted };
 }
 
-/** Reads game `id`'s folder again in full now, its hand-placed pictures made into WebP. */
-export async function rescan(id) {
+/**
+ * Reads game `id`'s folder again in full now, its hand-placed pictures made into
+ * WebP. `folder` is the folder's name when the watch gave it: a game new or
+ * renamed is found there without a look at the whole games folder.
+ */
+export async function rescan(id, folder = null) {
   load();
-  const changed = await withGame(id, () => read({ only: id }));
-  const converted = await convertWaiting();
+  const changed = await withGame(id, () => read({ only: id, folder }));
+  // Thousands of folders put in at once are thousands of these: only one with pictures waiting looks for others.
+  const converted = games.get(id)?.row.hand.length ? await convertAll() : 0;
   await pruning;
   if (changed.length || converted) changedHook();
   return { changed: changed.length > 0, converted };
@@ -450,6 +502,18 @@ export async function rescan(id) {
 export function refresh(id) {
   load();
   read({ only: id });
+}
+
+/**
+ * Reads game `id`'s folder again after the server set slot `slot` (an upload, a
+ * new cut, a removal): a hand-placed file waiting for that slot is taken as dealt
+ * with, so one put there before never comes back over what the admin chose.
+ */
+export function settle(id, slot) {
+  refresh(id);
+  const waiting = games.get(id)?.row.hand.filter((h) => h.slot === slot) ?? [];
+  for (const h of waiting) debug.log("game meta: %s is left as it is: %s was set from the admin page", path.join(GAMES_DIR, games.get(id).row.folder, h.file), slot);
+  dealtWith(id, waiting.map((h) => [h.file, h.stamp]));
 }
 
 const vanishing = new Set();
@@ -464,6 +528,15 @@ export function vanished(id) {
 }
 
 let watch = null;
+let watchTurn = Promise.resolve();
+// Folders the watch reports together (thousands copied in at once) are read one a turn of the
+// event loop, so requests are answered in between instead of after them all.
+function nextTurn(fn) {
+  const run = watchTurn.then(() => new Promise((resolve) => setImmediate(resolve))).then(fn);
+  watchTurn = run.catch(() => {});
+  return run;
+}
+
 /**
  * Reads the folders now, then watches them: a folder that changed is read
  * again once it has been quiet (`quietMs`, `cooldownMs`: folder-watch's, for
@@ -485,7 +558,8 @@ export function start({ onChange, quietMs, cooldownMs } = {}) {
     depth: 1, deep: true, label: "game meta", quietMs, cooldownMs,
     onItem: (item) => {
       const m = FOLDER_ID_RE.exec(item);
-      return m ? rescan(m[1].toUpperCase()) : null;
+      // A name with no id may be a game's folder renamed: only a look at them all tells.
+      return nextTurn(() => (m ? rescan(m[1].toUpperCase(), item) : scan()));
     },
   });
 }

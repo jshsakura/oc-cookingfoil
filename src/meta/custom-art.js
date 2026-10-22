@@ -96,7 +96,7 @@ async function putNow(base, kind, idx, input, crop) {
   const file = path.join(gameMeta.ensureFolder(base), `${slotName(kind, idx)}.webp`);
   writeSlot(file, art, original, crop);
   forget(file);
-  gameMeta.refresh(base);
+  gameMeta.settle(base, slotName(kind, idx));
   debug.log("custom-art: stored %s (%d bytes)", path.relative(gameMeta.GAMES_DIR, file), art.length);
   return { path: file, bytes: art.length };
 }
@@ -115,7 +115,7 @@ async function recropNow(base, kind, idx, crop) {
   writeAtomic(file, art);
   artCrop.writeCrop(file, crop);
   forget(file);
-  gameMeta.refresh(base);
+  gameMeta.settle(base, slotName(kind, idx));
   return { path: file, bytes: art.length };
 }
 
@@ -150,7 +150,7 @@ function removeNow(base, kind, idx) {
   try {
     fs.rmdirSync(path.dirname(file));
   } catch { /* not empty */ }
-  gameMeta.refresh(base);
+  gameMeta.settle(base, slotName(kind, idx));
   debug.log("custom-art: removed %s", path.relative(gameMeta.GAMES_DIR, file));
 }
 

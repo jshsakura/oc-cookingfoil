@@ -18,7 +18,13 @@
  * With `deep`, every folder under the root is watched instead (one inotify watch
  * per folder, not per file: a few thousand folders cost megabytes, where chokidar
  * watching each file of the same tree cost hundreds), so a file replaced deep
- * inside an app is seen too.
+ * inside an app is seen too. A folder deleted, moved away or made again under
+ * the same name is let go and watched anew.
+ *
+ * A file dated ahead of now (a zip from another time zone, a wrong clock) says
+ * nothing about a copy still writing, as a write stamps the time it is made, so
+ * it never puts a report off; and no timer waits longer than the quiet time and
+ * the cooldown together.
  *
  * The watch is only a shortcut: the catalogs still rescan in full on their own
  * long schedule, for anything the watch missed (a mount that drops events).
@@ -33,6 +39,9 @@ export const QUIET_MS = 30_000;
 // An item is read again at most this often: a folder that keeps changing (a log, a big copy
 // pausing now and then) is not read over and over.
 export const COOLDOWN_MS = 2 * 60_000;
+// A file dated more than this ahead of now is not being written now (a write stamps the time it is
+// made; this much covers clocks and file systems that keep coarse times).
+const AHEAD_MS = 2_000;
 
 /** The item an event under `root` belongs to: its first `depth` path parts, or null. Pure. */
 export function itemOf(root, file, depth) {
@@ -43,8 +52,8 @@ export function itemOf(root, file, depth) {
   return parts.slice(0, depth).join("/");
 }
 
-/** The newest mtime of any file under `dir` (ms), 0 when there is none or it is gone. */
-export async function newestUnder(dir) {
+/** The newest mtime of any file under `dir` (ms) not dated ahead of now, 0 when there is none or it is gone. */
+export async function newestUnder(dir, now = Date.now()) {
   let newest = 0;
   let entries;
   try {
@@ -54,8 +63,11 @@ export async function newestUnder(dir) {
   }
   for (const e of entries) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) newest = Math.max(newest, await newestUnder(p));
-    else if (e.isFile()) newest = Math.max(newest, (await fsp.stat(p).catch(() => null))?.mtimeMs ?? 0);
+    if (e.isDirectory()) newest = Math.max(newest, await newestUnder(p, now));
+    else if (e.isFile()) {
+      const at = (await fsp.stat(p).catch(() => null))?.mtimeMs ?? 0;
+      if (at <= now + AHEAD_MS) newest = Math.max(newest, at);
+    }
   }
   return newest;
 }
@@ -65,23 +77,43 @@ export async function newestUnder(dir) {
  * and calls `onPath(path)` for what changed in any of them. Returns { close, ready }.
  */
 function watchFolders(root, onPath, label) {
-  const watchers = new Map();
+  const watchers = new Map(); // dir → its fs.watch
   let closed = false;
+  // `dir` and every folder under it, no longer watched.
+  const drop = (dir) => {
+    // A name not watched has nothing watched under it either: a folder just made costs no walk of them all.
+    if (!watchers.has(dir)) return;
+    for (const [d, w] of watchers) {
+      if (d !== dir && !d.startsWith(dir + path.sep)) continue;
+      w.close();
+      watchers.delete(d);
+    }
+  };
   const add = async (dir) => {
-    if (closed || watchers.has(dir)) return;
+    if (closed) return;
+    const st = await fsp.stat(dir).catch((err) => {
+      if (dir === root) debug.error("%s: watch error: %s", label, err.message);
+      return null;
+    });
+    if (closed || !st?.isDirectory() || watchers.has(dir)) return;
     let w;
     try {
-      w = fs.watch(dir, { persistent: false }, (_event, name) => {
+      w = fs.watch(dir, { persistent: false }, (event, name) => {
         if (!name || String(name).startsWith(".")) return;
         const p = path.join(dir, String(name));
         onPath(p);
-        // A folder made or moved in: watch it and what is under it.
-        fsp.stat(p).then((st) => { if (st.isDirectory()) return add(p); }).catch(() => {});
+        // Only a "rename" makes, moves or deletes a name. Whatever watched that name before
+        // is let go (a folder deleted and made again may even get its old inode number
+        // back; one moved away would go on reporting under the old name), and a folder
+        // there now is watched anew with what is under it.
+        if (event !== "rename") return;
+        drop(p);
+        add(p).catch(() => {});
       });
     } catch {
       return;
     }
-    w.on("error", () => { w.close(); watchers.delete(dir); });
+    w.on("error", () => { if (watchers.get(dir) === w) drop(dir); else w.close(); });
     watchers.set(dir, w);
     let entries = [];
     try {
@@ -111,9 +143,13 @@ function watchFolders(root, onPath, label) {
 export function watchItems(root, { depth, deep = false, onItem, quietMs = QUIET_MS, cooldownMs = COOLDOWN_MS, label = "watch" }) {
   const timers = new Map();
   const lastRead = new Map(); // item → when it was last reported
+  let closed = false;
+  // Never past the quiet time and the cooldown together: a timer past 2^31 ms runs at once, over and over.
+  const longest = quietMs + cooldownMs;
   const arm = (item, ms) => {
+    if (closed) return;
     clearTimeout(timers.get(item));
-    const t = setTimeout(fire, ms, item);
+    const t = setTimeout(fire, Math.min(Math.max(0, ms), longest), item);
     t.unref?.();
     timers.set(item, t);
   };
@@ -121,6 +157,7 @@ export function watchItems(root, { depth, deep = false, onItem, quietMs = QUIET_
     timers.delete(item);
     // Still being written somewhere below what the watch sees: look again once it has been quiet.
     const age = Date.now() - (await newestUnder(path.join(root, ...item.split("/"))));
+    if (closed) return;
     if (age < quietMs) {
       if (!timers.has(item)) arm(item, quietMs - age);
       return;
@@ -145,6 +182,7 @@ export function watchItems(root, { depth, deep = false, onItem, quietMs = QUIET_
     folders.ready.then(() => debug.log("%s: watching %s for changes, every folder", label, root));
     return {
       async close() {
+        closed = true;
         for (const t of timers.values()) clearTimeout(t);
         timers.clear();
         await folders.close();
@@ -166,6 +204,7 @@ export function watchItems(root, { depth, deep = false, onItem, quietMs = QUIET_
   watcher.once("ready", () => debug.log("%s: watching %s for changes", label, root));
   return {
     async close() {
+      closed = true;
       for (const t of timers.values()) clearTimeout(t);
       timers.clear();
       await watcher.close();
