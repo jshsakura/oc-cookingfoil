@@ -338,3 +338,23 @@ test("a homebrew app's patch ships everything but its metadata folder", async ()
   const opened = await openForDownload(p.id, root);
   assert.deepEqual(opened.entries.map((e) => e.path).sort(), ["switch/game/data.bin", "switch/game/icon.jpg"]);
 });
+
+test("a README.md anywhere inside a patch is the owner's note: the patch stays listed and ships without it", async () => {
+  const body = { [`${TID}/cheat/${CHEAT}`]: "cheat\n", "homebrew/game/mod/data.bin": "x" };
+  const plain = makeRoot(body);
+  const noted = makeRoot({
+    ...body,
+    [`${TID}/README.md`]: "notes on this game's patches",
+    [`${TID}/cheat/README.md`]: "how to turn it on",
+    [`${TID}/cheat/atmosphere/readme.MD`]: "deeper note",
+    "homebrew/game/mod/README.md": "notes",
+  });
+  const byFolder = (list) => Object.fromEntries(list.map((p) => [p.folder, [p.files, p.hash]]));
+  const a = await scanDir(plain);
+  const b = await scanDir(noted);
+  assert.deepEqual(b.map((p) => p.folder).sort(), ["cheat", "mod"], "no patch is left out");
+  assert.deepEqual(byFolder(b), byFolder(a), "a README is not content");
+  await scan({ root: noted });
+  const opened = await openForDownload(b.find((p) => p.folder === "cheat").id, noted);
+  assert.deepEqual(opened.entries.map((e) => e.path), [CHEAT]);
+});

@@ -36,6 +36,7 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
 import { fitsUstar } from "../helpers/ustar.js";
+import { isReadme } from "../helpers/readme-name.js";
 import { HashCache } from "../helpers/hash-cache.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
@@ -90,7 +91,8 @@ export function readMeta(raw) {
 
 async function walk(root, rel = "", out = []) {
   for (const entry of await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })) {
-    if (JUNK_RE.test(entry.name)) continue;
+    // A README.md is the owner's note on the folder, never content (helpers/readme-name.js).
+    if (JUNK_RE.test(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const abs = path.join(root, relPath);
     const st = await fsp.lstat(abs);

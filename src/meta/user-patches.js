@@ -43,6 +43,7 @@ import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 import { pathProblem } from "./console-paths.js";
 import * as patchInfo from "./patch-info.js";
 import { isMetadata } from "./art-sidecar.js";
+import { isReadme } from "../helpers/readme-name.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -133,7 +134,8 @@ class Rejected extends Error {}
 async function walk(root, rel = "", out = []) {
   const dir = rel ? path.join(root, rel) : root;
   for (const entry of await fsp.readdir(dir, { withFileTypes: true })) {
-    if (JUNK_RE.test(entry.name)) continue;
+    // A README.md is the owner's note on the folder, never content (helpers/readme-name.js).
+    if (JUNK_RE.test(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const st = await fsp.lstat(path.join(dir, entry.name));
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);

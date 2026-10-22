@@ -264,3 +264,13 @@ test("one save read again by itself: added, changed and removed without a full s
   await new Promise((r) => setTimeout(r, 50));
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("a README.md inside a save folder is the owner's note, never sent with the save", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "saves-readme-"));
+  put(root, "0100000000010000/slot/save1.dat");
+  put(root, "0100000000010000/slot/README.md", "notes");
+  put(root, "0100000000010000/slot/sub/readme.MD", "notes");
+  const { save, entries } = await readSave(root, "0100000000010000", "slot", { hash: async () => "h" });
+  assert.equal(save.files, 1);
+  assert.deepEqual(entries.map((e) => e.path), ["save1.dat"]);
+});
