@@ -15,6 +15,22 @@ import { describeProblems } from "../../meta/console-paths.js";
 import { nroProblem } from "../../meta/client-build.js";
 import { manualApps, refreshManual } from "../homebrew.js";
 import * as kinds from "../../meta/homebrew-kinds.js";
+import * as sidecar from "../../meta/art-sidecar.js";
+
+const { isArtSidecar } = sidecar;
+
+/** Moves the pictures of the folder an upload replaced into the new one, where the new release has none of its own. */
+async function keepPictures(previous, dest, ownArt) {
+  const before = await fsp.readFile(path.join(previous, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
+  const kept = sidecar.read(previous, { ignore: new Set(Array.isArray(before?.own_art) ? before.own_art : []) });
+  for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
+    try {
+      sidecar.adopt(p.file, dest, p.slot, { ignore: ownArt });
+    } catch (err) {
+      debug.error("upload: keeping %s's %s: %s", dest, p.slot, err.message);
+    }
+  }
+}
 
 export class HomebrewUploadError extends Error {}
 
@@ -47,11 +63,15 @@ export async function placeHomebrew(items, work, { port = false } = {}) {
   if (problem) throw new HomebrewUploadError(`올바른 NRO 가 아닙니다: ${problem}`);
   if (!(await readNro(nroFile))) throw new HomebrewUploadError("NRO 에 NACP 가 없습니다");
   const install = { mode: layout.mode, reason: layout.reason, rules: layout.rules, excluded: layout.excluded };
-  await fsp.writeFile(path.join(built, MANIFEST), JSON.stringify({ nro: path.posix.basename(layout.nro.path), ...install }, null, 1));
+  // Picture-like files the release brings are its own; the app's pictures from before stay with the folder.
+  const ownArt = (await fsp.readdir(built)).filter(isArtSidecar).sort();
+  await fsp.writeFile(path.join(built, MANIFEST), JSON.stringify({ nro: path.posix.basename(layout.nro.path), ...install, own_art: ownArt }, null, 1));
   const dest = path.join(homebrewDir, app);
-  await fsp.rm(path.join(work, "previous"), { recursive: true, force: true });
-  await fsp.rename(dest, path.join(work, "previous")).catch((err) => { if (err.code !== "ENOENT") throw err; });
+  const previous = path.join(work, "previous");
+  await fsp.rm(previous, { recursive: true, force: true });
+  await fsp.rename(dest, previous).catch((err) => { if (err.code !== "ENOENT") throw err; });
   await fsp.rename(built, dest);
+  await keepPictures(previous, dest, new Set(ownArt));
   debug.log("upload: homebrew %s → %s (%s); %s", repoName, layout.appDir, layout.mode, [...layout.rules, ...layout.excluded.map((x) => `${x.rule}: ${x.paths.join(", ")}`)].join("; ") || "as it is");
   await refreshManual();
   const placed = (await manualApps()).find((e) => path.dirname(e.path) === path.resolve(dest));

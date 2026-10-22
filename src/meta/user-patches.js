@@ -11,7 +11,8 @@
  *
  * Every file must sit under a path the patch's own game owns; one stray file
  * (or a symlink, or a path ustar cannot hold) drops the whole patch from the
- * list and is only logged. patch.json never ships.
+ * list and is only logged. patch.json never ships, nor do the pictures at the
+ * folder's root (meta/art-sidecar.js).
  *
  * A patch's name, version, author, description and the rest live on the
  * server (meta/patch-info.js) and are edited on the admin page. A patch.json
@@ -41,6 +42,7 @@ import { patchesDir, dataDir } from "../helpers/envs.js";
 import { fitsUstar, MAX_FILE_SIZE } from "../helpers/ustar.js";
 import { pathProblem } from "./console-paths.js";
 import * as patchInfo from "./patch-info.js";
+import { isArtSidecar } from "./art-sidecar.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -57,6 +59,7 @@ const JUNK_RE = /^(\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)$/i;
 let patches = []; // sorted by title id, then name
 let provisional = null; // during the first scan: the patches read so far
 let scannedAt = 0;
+let scannedRoot = patchesDir; // the folder the listing was read from
 let inFlight = null;
 let rerun = null; // a scan asked for while one runs: one more after it, so a change made meanwhile is read
 let signature = "";
@@ -209,7 +212,7 @@ async function importMeta(metaFile, dir, folder) {
  */
 /** A homebrew app's patch: every file goes under switch/<app>/. */
 async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
-  const all = await walk(path.join(root, HOMEBREW_DIR, app, folder));
+  const all = (await walk(path.join(root, HOMEBREW_DIR, app, folder))).filter((f) => !isArtSidecar(f.path));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).map((f) => ({ ...f, path: `switch/${app}/${f.path}` })).sort((a, b) => (a.path < b.path ? -1 : 1));
   if (!files.length) throw new Rejected("no files");
@@ -243,7 +246,7 @@ async function readHomebrewPatch(root, app, folder, { wait = true } = {}) {
 export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
   if (tidDir.startsWith(`${HOMEBREW_DIR}/`)) return readHomebrewPatch(root, tidDir.slice(HOMEBREW_DIR.length + 1), folder, { wait });
   const titleId = tidDir.toUpperCase();
-  const all = await walk(path.join(root, tidDir, folder));
+  const all = (await walk(path.join(root, tidDir, folder))).filter((f) => !isArtSidecar(f.path));
   const metaFile = all.find((f) => f.path === META_FILE);
   const files = all.filter((f) => f !== metaFile).sort((a, b) => (a.path < b.path ? -1 : 1));
   if (!files.length) throw new Rejected("no files");
@@ -381,6 +384,7 @@ function saveCache(file) {
  */
 export function scan(options = {}) {
   const { root = patchesDir, onChange, cacheFile = root === patchesDir ? CACHE_PATH : null } = options;
+  scannedRoot = root;
   // The running scan may have read a patch.json before the caller changed it.
   if (inFlight) {
     rerun ??= inFlight.catch(() => {}).then(() => {
@@ -554,6 +558,12 @@ export function requiredFor(titleId) {
 }
 
 /** Where a listed patch sits under the root ({ dir, folder, key }), or null; key is its patch-info key. */
+/** A listed patch's own folder (its pictures live there, meta/patch-media.js), or null. */
+export function folderOf(id) {
+  const known = patches.find((p) => p.id === id);
+  return known ? path.join(scannedRoot, known.dir, known.folder) : null;
+}
+
 export function locate(id) {
   const known = patches.find((p) => p.id === id);
   return known ? { dir: known.dir, folder: known.folder, key: patchInfo.keyOf(known.dir, known.folder) } : null;

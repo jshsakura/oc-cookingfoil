@@ -1,28 +1,25 @@
 /**
- * Sends one stored picture (meta/item-media.js): immutable under the ?v= a listing
- * gives, revalidated otherwise; WebP for a client that says it reads it (browsers,
- * the CookingFoil client), else its JPEG twin, made once.
+ * Sends one item picture (meta/item-media.js) as it is on the disk: immutable
+ * under the ?v= a listing gives, revalidated otherwise.
  */
-import fs from "fs";
+import path from "path";
 import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
-import { jpegOf } from "../meta/item-media.js";
 
-export async function sendPicture(req, res, file, v, tag = v) {
-  if (!v || !fs.existsSync(file)) return res.status(404).json({ error: "no picture" });
-  const webp = (req.get("accept") || "").includes("image/webp");
-  res.set({ "Content-Type": webp ? "image/webp" : "image/jpeg", "Cache-Control": req.query.v === v ? IMMUTABLE : UNVERSIONED, ETag: `"${tag}${webp ? "" : "-jpg"}"`, Vary: "Accept" });
+const TYPES = { ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png" };
+
+export function sendPicture(req, res, pic, tag = pic?.version) {
+  if (!pic) return res.status(404).json({ error: "no picture" });
+  res.set({ "Content-Type": TYPES[path.extname(pic.file).toLowerCase()] ?? "application/octet-stream", "Cache-Control": req.query.v && req.query.v === tag ? IMMUTABLE : UNVERSIONED, ETag: `"${pic.version}"` });
   if (req.fresh) return res.status(304).end();
-  res.sendFile(webp ? file : await jpegOf(file), { etag: false, lastModified: false });
+  res.sendFile(pic.file, { etag: false, lastModified: false });
 }
 
-/** The routes for one store's pictures: icon, banner and screenshot/:n under `router` (ids already checked). */
+/** The routes for one store's banner and screenshot/:n under `router` (ids already checked). */
 export function mountPictures(router, store, wrap) {
-  router.get("/:id/banner", wrap(async (req, res) => sendPicture(req, res, store.bannerPath(req.params.id), store.bannerVersion(req.params.id))));
+  router.get("/:id/banner", wrap(async (req, res) => sendPicture(req, res, store.pictures(req.params.id).banner)));
   router.get("/:id/screenshot/:n", wrap(async (req, res) => {
+    const { shots } = store.pictures(req.params.id);
     const n = Number(req.params.n);
-    const s = store.record(req.params.id).shots;
-    if (!Number.isInteger(n) || !s?.count || n < 1 || n > s.count) return res.status(404).json({ error: "no picture" });
-    const v = s.at.toString(36);
-    return sendPicture(req, res, store.shotPath(req.params.id, n), v, `${v}-${n}`);
+    return sendPicture(req, res, Number.isInteger(n) ? shots[n - 1] : null, store.shotsVersion(req.params.id));
   }));
 }

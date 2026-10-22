@@ -680,3 +680,54 @@ test("nacp_version is the NRO's own display version, never a release tag", async
   fs.writeFileSync(path.join(root, "tool", "tool.nro"), fakeNro("Tool", "1.4.0 (r7)", "Maker"));
   assert.equal((await scanManual(root))[0].nacp_version, "1.4.0 (r7)");
 });
+
+function folderApp(manifest, files) {
+  const root = tmp("hb-sidecar-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(dir, "data.bin"), "one");
+  for (const [rel, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), body);
+  }
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [], ...manifest }));
+  return root;
+}
+const sdFiles = (e) => e.files.map((f) => f.path).sort();
+
+test("a hand-placed folder install keeps its root pictures off the card and out of its hash", async () => {
+  const root = folderApp({ own_art: [] }, { "icon.jpg": "pic", "banner.jpg": "pic", "screenshot-01.jpg": "pic", "romfs/icon.jpg": "game data" });
+  const [a] = await scanManual(root);
+  assert.deepEqual(sdFiles(a), ["switch/game/data.bin", "switch/game/game.nro", "switch/game/romfs/icon.jpg"]);
+  fs.writeFileSync(path.join(root, "game", "banner.jpg"), "a new picture");
+  assert.equal((await scanManual(root))[0].hash, a.hash, "a picture alone is not an update");
+});
+
+test("a folder without a manifest is adopted by its content, pictures not counted", async () => {
+  const root = tmp("hb-sidecar-adopt-");
+  fs.mkdirSync(path.join(root, "solo"));
+  fs.writeFileSync(path.join(root, "solo", "solo.nro"), fakeNro("Solo", "1.0"));
+  fs.writeFileSync(path.join(root, "solo", "icon.jpg"), "pic");
+  assert.deepEqual((await adoptFolders(root)).registered, []);
+});
+
+test("a release's own picture-named files ship with it; the folder's other pictures stay on the server", async () => {
+  const root = folderApp({ own_art: ["icon.jpg"] }, { "icon.jpg": "from the release", "banner.jpg": "ours" });
+  const [e] = await scanManual(root);
+  assert.deepEqual(sdFiles(e), ["switch/game/data.bin", "switch/game/game.nro", "switch/game/icon.jpg"]);
+});
+
+test("an app folder from before pictures lived there keeps its picture-named files as its own", async () => {
+  const root = tmp("hb-own-art-");
+  const dir = path.join(root, "game");
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "game.nro"), fakeNro("Game", "1.0.0", "Maker"));
+  fs.writeFileSync(path.join(dir, "icon.jpg"), "the app's own");
+  fs.writeFileSync(path.join(dir, ".cookingfoil.json"), JSON.stringify({ nro: "game.nro", mode: "folder", reason: "x", rules: [], excluded: [] }));
+  const [e] = await scanManual(root);
+  assert.ok(sdFiles(e).includes("switch/game/icon.jpg"));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, ".cookingfoil.json"), "utf8")).own_art, ["icon.jpg"]);
+  fs.writeFileSync(path.join(dir, "banner.webp"), "a picture added later");
+  assert.ok(!sdFiles((await scanManual(root))[0]).includes("switch/game/banner.webp"));
+});

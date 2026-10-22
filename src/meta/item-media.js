@@ -3,52 +3,38 @@
  * an icon, a wide banner behind its header and a row of screenshots. Shared by
  * meta/homebrew-media.js and the patches, so every window is edited and shown alike.
  *
- *   <dir>/<id>/icon.webp       at most ICON × ICON
- *   <dir>/<id>/banner.webp     at most BANNER_W × BANNER_H
- *   <dir>/<id>/shot-<n>.webp   n = 1 … MAX_SHOTS, at most SHOT_W × SHOT_H
- *   <dir>/<id>/<part>.orig.webp an upload kept for cutting again, with <part>.orig.json (meta/art-crop.js)
- *   <file>                     { <id>: { icon?, banner?, shots? } }
+ * The pictures live in the item's own folder when it has one (`homeOf`), as
+ * meta/art-sidecar.js names them, so the folder keeps them and a picture changed
+ * there by hand is the one served; an item with no folder of its own keeps them in
+ *   <dir>/<id>/icon.webp  banner.webp  screenshot-NN.webp
+ * What is shown, and its version, is read from the disk. The record holds only
+ * what the files cannot say:
+ *   <file>   { <id>: { icon?, banner?, shots? } }
+ * each part { source: "sgdb" | "igdb" | "upload", game?, at }, or { miss: at } (a
+ * search that found nothing), or { off: true } (removed by the admin: never
+ * filled in automatically again).
  *
- * Each part: { source: "sgdb" | "igdb" | "upload", game?, count?, at }, or
- * { miss: at } (a search that found nothing), or { off: true } (removed by the
- * admin: never filled in automatically again). Every WebP gets a JPEG twin on
- * demand (jpegOf) for clients that cannot read WebP.
+ *   <dir>/<id>/<slot>.orig.webp/.orig.json   an upload kept for cutting again (meta/art-crop.js)
  */
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
+import * as sidecar from "./art-sidecar.js";
 
-export const MAX_SHOTS = 8;
+export const MAX_SHOTS = sidecar.MAX_SHOTS;
 const ICON = 512;
 const BANNER_W = 1280;
 const BANNER_H = 720;
 const SHOT_W = 1280;
 const SHOT_H = 720;
+const sizeOf = (slot) => (slot === "icon" ? [ICON, ICON] : slot === "banner" ? [BANNER_W, BANNER_H] : [SHOT_W, SHOT_H]);
 
 export class MediaImageError extends Error {}
 
-const twin = (webp) => webp.replace(/\.webp$/, ".jpg");
-
-function writeAtomic(file, buf) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(`${file}.tmp`, buf);
-  fs.renameSync(`${file}.tmp`, file);
-}
-
-const rmBoth = (file) => {
-  fs.rmSync(file, { force: true });
-  fs.rmSync(twin(file), { force: true });
-};
-
-async function encode(raw, w, h) {
+async function encode(raw, [w, h]) {
   try {
-    return await sharp(raw, { failOn: "none", limitInputPixels: 50e6 })
-      .rotate()
-      .resize({ width: w, height: h, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80, effort: 5 })
-      .toBuffer();
+    return await sidecar.toWebp(raw, w, h);
   } catch (err) {
     throw new MediaImageError(`이미지를 읽지 못했습니다: ${err.message}`);
   }
@@ -72,24 +58,12 @@ const shrink = async (raw) => {
 };
 
 /**
- * The JPEG twin of a stored WebP, for clients that cannot read WebP (the console
- * client): made the first time one asks, then kept beside it until the WebP changes.
- */
-export async function jpegOf(webpFile) {
-  const jpg = twin(webpFile);
-  const src = fs.statSync(webpFile);
-  try {
-    if (fs.statSync(jpg).mtimeMs >= src.mtimeMs) return jpg;
-  } catch { /* not made yet */ }
-  writeAtomic(jpg, await sharp(webpFile).jpeg({ quality: 82, mozjpeg: true }).toBuffer());
-  return jpg;
-}
-
-/**
  * One store. `idRe` guards every id (they become folder names), `urlBase(id)` is
- * where the item's pictures are served ("/api/homebrew/<id>").
+ * where the item's pictures are served ("/api/homebrew/<id>"). `homeOf(id)` is the
+ * item's own folder, or null for one kept under `dir`; `ignoreOf(id)` names files in
+ * that folder that look like pictures but belong to the item (a release's own icon.jpg).
  */
-export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) {
+export function createMediaStore({ dir, file, idRe, urlBase, label = "media", homeOf = () => null, ignoreOf = () => null }) {
   let saved = null;
   function all() {
     if (saved) return saved;
@@ -134,69 +108,150 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
     if (!idRe.test(String(id))) throw new MediaImageError("번호가 맞지 않습니다");
   };
 
-  const dirOf = (id) => path.join(dir, id);
-  const iconPath = (id) => path.join(dirOf(id), "icon.webp");
-  const bannerPath = (id) => path.join(dirOf(id), "banner.webp");
-  const shotPath = (id, n) => path.join(dirOf(id), `shot-${n}.webp`);
+  const ownDir = (id) => path.join(dir, id);
+  const homeDir = (id) => homeOf(id) ?? ownDir(id);
+  const ignored = (id) => ignoreOf(id) ?? null;
+  // Where an upload's kept original lives: always on the server, named after the slot.
+  const anchor = (id, slot) => path.join(ownDir(id), `${slot}.webp`);
+
+  /**
+   * Pictures kept the old way under <dir>/<id> (shot-N.webp, with .jpg twins beside)
+   * are named as sidecars, and moved into the item's folder when it has one; the
+   * folder's own picture of a slot wins. Once per item and folder.
+   */
+  const settled = new Set();
+  function settle(id) {
+    const home = homeDir(id);
+    const key = `${id}\0${home}`;
+    if (settled.has(key)) return;
+    settled.add(key);
+    const own = ownDir(id);
+    let names;
+    try {
+      names = fs.readdirSync(own);
+    } catch {
+      return;
+    }
+    try {
+      for (const name of names) {
+        const twin = /^(icon|banner|shot-\d+)\.jpg$/.exec(name);
+        if (twin && names.includes(`${twin[1]}.webp`)) fs.rmSync(path.join(own, name), { force: true });
+        const shot = /^shot-(\d+)\.webp$/.exec(name);
+        if (shot) {
+          const slot = sidecar.slotName("shot", Number(shot[1]));
+          fs.renameSync(path.join(own, name), path.join(own, `${slot}.webp`));
+          artCrop.moveOriginal(path.join(own, name), anchor(id, slot));
+        }
+      }
+      if (home === own) return;
+      const kept = sidecar.read(own);
+      for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
+        if (!sidecar.adopt(p.file, home, p.slot, { ignore: ignored(id) })) artCrop.removeOriginal(anchor(id, p.slot));
+      }
+    } catch (err) {
+      debug.error("%s: %s: moving its pictures into %s: %s", label, id, home, err.message);
+    }
+  }
+
+  // A picture put in by hand that is not .webp, or a slot holding two, is tidied once it is seen.
+  const tidying = new Set();
+  function tidy(id) {
+    if (tidying.has(id)) return;
+    tidying.add(id);
+    serial(id, () => sidecar.normalize(homeDir(id), sizeOf, {
+      ignore: ignored(id),
+      onError: (slot, err) => debug.error("%s: %s: %s left as it is: %s", label, id, slot, err.message),
+    })).catch((err) => debug.error("%s: %s: tidying its pictures: %s", label, id, err.message))
+      .finally(() => tidying.delete(id));
+  }
+
+  /** What the item's folder holds now: { icon, banner, shots } (meta/art-sidecar.js read). */
+  function pictures(id) {
+    if (!idRe.test(String(id))) return { icon: null, banner: null, shots: [] };
+    settle(id);
+    const got = sidecar.read(homeDir(id), { ignore: ignored(id) });
+    if (got.untidy) tidy(id);
+    if (homeDir(id) === ownDir(id)) return got;
+    // One that could not be moved into the folder (a read-only one) is still shown from here.
+    const spare = sidecar.read(ownDir(id));
+    return { icon: got.icon ?? spare.icon, banner: got.banner ?? spare.banner, shots: got.shots.length ? got.shots : spare.shots };
+  }
 
   /** What is on file for one item: { icon?, banner?, shots? }. */
   const record = (id) => all()[id] ?? {};
 
-  const stamp = (part) => (part?.source && part.at ? part.at.toString(36) : null);
-  const iconVersion = (id) => stamp(record(id).icon);
-  const bannerVersion = (id) => stamp(record(id).banner);
-  const shotsVersion = (id) => stamp(record(id).shots);
+  const iconPath = (id) => pictures(id).icon?.file ?? null;
+  const bannerPath = (id) => pictures(id).banner?.file ?? null;
+  const shotPath = (id, n) => pictures(id).shots[n - 1]?.file ?? null;
+  const iconVersion = (id) => pictures(id).icon?.version ?? null;
+  const bannerVersion = (id) => pictures(id).banner?.version ?? null;
+  const shotsVersion = (id) => sidecar.shotsVersion(pictures(id).shots);
+  const shotCount = (id) => pictures(id).shots.length;
 
   function shotUrls(id) {
-    const s = record(id).shots;
-    const v = stamp(s);
-    return v ? Array.from({ length: s.count }, (_, i) => `${urlBase(id)}/screenshot/${i + 1}?v=${v}`) : [];
+    const { shots } = pictures(id);
+    const v = sidecar.shotsVersion(shots);
+    return shots.map((_, i) => `${urlBase(id)}/screenshot/${i + 1}?v=${v}`);
   }
 
   /** What a listing carries for an item: its own icon (or null), banner (or null) and screenshots. */
   function urls(id) {
-    const iv = iconVersion(id);
-    const bv = bannerVersion(id);
-    return { custom_icon_url: iv ? `${urlBase(id)}/icon?v=${iv}` : null, banner_url: bv ? `${urlBase(id)}/banner?v=${bv}` : null, screenshots: shotUrls(id) };
+    const p = pictures(id);
+    const v = sidecar.shotsVersion(p.shots);
+    return {
+      custom_icon_url: p.icon ? `${urlBase(id)}/icon?v=${p.icon.version}` : null,
+      banner_url: p.banner ? `${urlBase(id)}/banner?v=${p.banner.version}` : null,
+      screenshots: p.shots.map((_, i) => `${urlBase(id)}/screenshot/${i + 1}?v=${v}`),
+    };
   }
 
-  // An upload keeps its original beside the art (for cutting again); a picture found on its own does not.
-  async function saveOne(id, part, filePath, raw, w, h, { source = "upload", game = null, now = Date.now(), crop = null } = {}) {
+  // An upload keeps its original on the server (for cutting again); a picture found on its own does not.
+  async function saveOne(id, part, raw, { source = "upload", game = null, now = Date.now(), crop = null } = {}) {
     check(id);
-    const webp = await encode(await cut(raw, crop), w, h);
+    settle(id);
+    const webp = await encode(await cut(raw, crop), sizeOf(part));
     const original = source === "upload" ? await shrink(raw) : null;
-    writeAtomic(filePath, webp);
-    if (original) artCrop.keepOriginal(filePath, original, crop, now);
-    else artCrop.removeOriginal(filePath);
+    sidecar.write(homeDir(id), part, webp, { ignore: ignored(id) });
+    if (original) artCrop.keepOriginal(anchor(id, part), original, crop, now);
+    else artCrop.removeOriginal(anchor(id, part));
     put(id, part, { source, ...(game ? { game } : {}), at: now });
     return webp.length;
   }
 
-  const saveIcon = (id, raw, opts) => saveOne(id, "icon", iconPath(id), raw, ICON, ICON, opts);
-  const saveBanner = (id, raw, opts) => saveOne(id, "banner", bannerPath(id), raw, BANNER_W, BANNER_H, opts);
+  const saveIcon = (id, raw, opts) => saveOne(id, "icon", raw, opts);
+  const saveBanner = (id, raw, opts) => saveOne(id, "banner", raw, opts);
 
-  /** Removes the icon (the item's own comes back) or the banner; neither is filled in automatically again. */
-  function removeIcon(id) {
+  function removePart(id, part) {
     check(id);
-    rmBoth(iconPath(id));
-    artCrop.removeOriginal(iconPath(id));
-    put(id, "icon", { off: true });
+    settle(id);
+    sidecar.remove(homeDir(id), part, { ignore: ignored(id) });
+    artCrop.removeOriginal(anchor(id, part));
+    put(id, part, { off: true });
   }
-  /** Forgets the item altogether: its pictures, their kept originals and its record (no "removed by hand" mark stays). */
+  /** Removes the icon (the item's own comes back); it is not filled in automatically again. */
+  const removeIcon = (id) => removePart(id, "icon");
+  /** Removes the banner; it is not filled in automatically again. */
+  const removeBanner = (id) => removePart(id, "banner");
+
+  function clearShots(id) {
+    for (const s of pictures(id).shots) {
+      sidecar.remove(homeDir(id), s.slot, { ignore: ignored(id) });
+      artCrop.removeOriginal(anchor(id, s.slot));
+    }
+  }
+
+  /**
+   * Forgets the item: its record, the originals kept for it, and its pictures when
+   * they are kept here. Pictures in the item's own folder stay with the folder.
+   */
   function forget(id) {
     check(id);
-    for (const file of [iconPath(id), bannerPath(id), ...Array.from({ length: MAX_SHOTS }, (_, i) => shotPath(id, i + 1))]) {
-      rmBoth(file);
-      artCrop.removeOriginal(file);
+    if (homeDir(id) === ownDir(id)) fs.rmSync(ownDir(id), { recursive: true, force: true });
+    else for (const name of fs.existsSync(ownDir(id)) ? fs.readdirSync(ownDir(id)) : []) {
+      if (/\.orig\.(webp|json)$/.test(name)) fs.rmSync(path.join(ownDir(id), name), { force: true });
     }
     const { [id]: _gone, ...rest } = all();
     persist(rest);
-  }
-  function removeBanner(id) {
-    check(id);
-    rmBoth(bannerPath(id));
-    artCrop.removeOriginal(bannerPath(id));
-    put(id, "banner", { off: true });
   }
 
   /**
@@ -205,113 +260,106 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media" }) 
    */
   async function saveShots(id, raws, { source = "upload", game = null, now = Date.now() } = {}) {
     check(id);
+    settle(id);
     const encoded = [];
     for (const raw of raws.slice(0, MAX_SHOTS)) {
       try {
-        encoded.push(await encode(raw, SHOT_W, SHOT_H));
+        encoded.push(await encode(raw, sizeOf("shot")));
       } catch (err) {
         if (raws.length === 1) throw err;
         debug.error("%s: %s: a screenshot left out: %s", label, id, err.message);
       }
     }
     if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
-    encoded.forEach((buf, i) => writeAtomic(shotPath(id, i + 1), buf));
-    for (let n = 1; n <= MAX_SHOTS; n++) artCrop.removeOriginal(shotPath(id, n));
-    for (let n = encoded.length + 1; n <= MAX_SHOTS; n++) rmBoth(shotPath(id, n));
-    put(id, "shots", { source, count: encoded.length, ...(game ? { game } : {}), at: now });
+    clearShots(id);
+    encoded.forEach((buf, i) => sidecar.write(homeDir(id), sidecar.slotName("shot", i + 1), buf, { ignore: ignored(id) }));
+    put(id, "shots", { source, ...(game ? { game } : {}), at: now });
     return encoded.length;
   }
 
   /** Adds uploaded screenshots after the ones it has (up to MAX_SHOTS); those stay as they are, never encoded again. */
   async function addShots(id, raws, { now = Date.now(), crop = null } = {}) {
     check(id);
-    const have = record(id).shots?.count ?? 0;
-    if (have + raws.length > MAX_SHOTS) throw new MediaImageError(`스크린샷은 ${MAX_SHOTS}장까지 둡니다`);
+    settle(id);
+    const have = pictures(id).shots;
+    if (have.length + raws.length > MAX_SHOTS) throw new MediaImageError(`스크린샷은 ${MAX_SHOTS}장까지 둡니다`);
     const encoded = [];
     const originals = [];
     for (const raw of raws) {
-      encoded.push(await encode(await cut(raw, crop), SHOT_W, SHOT_H));
+      encoded.push(await encode(await cut(raw, crop), sizeOf("shot")));
       originals.push(await shrink(raw));
     }
+    // After the highest number there, so a gap left by hand is never filled with a new one.
+    let next = Math.max(0, ...have.map((s) => Number(s.slot.slice("screenshot-".length))));
     encoded.forEach((buf, i) => {
-      writeAtomic(shotPath(id, have + i + 1), buf);
-      artCrop.keepOriginal(shotPath(id, have + i + 1), originals[i], crop, now);
+      const slot = sidecar.slotName("shot", ++next);
+      sidecar.write(homeDir(id), slot, buf, { ignore: ignored(id) });
+      artCrop.keepOriginal(anchor(id, slot), originals[i], crop, now);
     });
-    put(id, "shots", { source: "upload", count: have + encoded.length, at: now });
-    return have + encoded.length;
+    put(id, "shots", { source: "upload", at: now });
+    return have.length + encoded.length;
   }
 
   /** Removes one screenshot (n from 1), or all of them with n = null; removing all stops automatic filling. */
   function removeShots(id, n = null) {
     check(id);
-    const s = record(id).shots;
-    if (n == null || !s?.count || s.count <= 1) {
-      for (let i = 1; i <= MAX_SHOTS; i++) { rmBoth(shotPath(id, i)); artCrop.removeOriginal(shotPath(id, i)); }
+    settle(id);
+    const shots = pictures(id).shots;
+    if (n == null || shots.length <= 1) {
+      clearShots(id);
       put(id, "shots", { off: true });
       return 0;
     }
-    if (!Number.isInteger(n) || n < 1 || n > s.count) throw new MediaImageError("없는 스크린샷입니다");
-    // The ones left, in order, from what is actually on disk: a missing file never leaves the set out of step.
-    const keep = [];
-    for (let i = 1; i <= s.count; i++) if (i !== n && fs.existsSync(shotPath(id, i))) keep.push({ from: i, buf: fs.readFileSync(shotPath(id, i)) });
-    artCrop.removeOriginal(shotPath(id, n));
-    keep.forEach(({ from, buf }, i) => {
-      writeAtomic(shotPath(id, i + 1), buf);
-      if (from !== i + 1) artCrop.moveOriginal(shotPath(id, from), shotPath(id, i + 1));
-    });
-    for (let i = keep.length + 1; i <= MAX_SHOTS; i++) { rmBoth(shotPath(id, i)); artCrop.removeOriginal(shotPath(id, i)); }
-    put(id, "shots", keep.length ? { ...s, count: keep.length, at: Date.now() } : { off: true });
-    return keep.length;
+    if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError("없는 스크린샷입니다");
+    const gone = shots[n - 1].slot;
+    sidecar.remove(homeDir(id), gone, { ignore: ignored(id) });
+    artCrop.removeOriginal(anchor(id, gone));
+    // The ones left close up to screenshot-01 …, each original going with its picture.
+    sidecar.renumberShots(homeDir(id), { ignore: ignored(id), onMove: (from, to) => artCrop.moveOriginal(anchor(id, from), anchor(id, to)) });
+    return shots.length - 1;
   }
 
-  // part "icon" | "banner" | "shot" (n from 1): the art file it names, or null when there is none.
-  function artFile(id, part, n) {
-    if (part === "icon") return record(id).icon?.source ? iconPath(id) : null;
-    if (part === "banner") return record(id).banner?.source ? bannerPath(id) : null;
-    const s = record(id).shots;
-    return part === "shot" && Number.isInteger(n) && s?.source && n >= 1 && n <= s.count ? shotPath(id, n) : null;
+  // part "icon" | "banner" | "shot" (n from 1): the picture it names, or null when there is none.
+  function pictureOf(id, part, n) {
+    const p = pictures(id);
+    return part === "icon" ? p.icon : part === "banner" ? p.banner : part === "shot" && Number.isInteger(n) ? p.shots[n - 1] ?? null : null;
   }
 
   /** The original kept for one picture: { image, crop }, or null. */
   function original(id, part, n = null) {
     check(id);
-    const f = artFile(id, part, n);
-    return f ? artCrop.readOriginal(f) : null;
+    const pic = pictureOf(id, part, n);
+    return pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
   }
 
   /** The area each kept original was cut to: { icon, banner, screenshots: [crop | null] }. */
   function originals(id) {
-    const count = record(id).shots?.source ? record(id).shots.count : 0;
     return {
       icon: original(id, "icon")?.crop ?? null,
       banner: original(id, "banner")?.crop ?? null,
-      screenshots: Array.from({ length: count }, (_, i) => original(id, "shot", i + 1)?.crop ?? null),
+      screenshots: pictures(id).shots.map((_, i) => original(id, "shot", i + 1)?.crop ?? null),
     };
   }
 
-  /** Cuts one picture again from its kept original; the address changes so nobody keeps the old one. */
+  /** Cuts one picture again from its kept original; its version changes so nobody keeps the old one. */
   async function recrop(id, part, n, crop, { now = Date.now() } = {}) {
     check(id);
-    const f = artFile(id, part, n);
-    const kept = f ? artCrop.readOriginal(f) : null;
+    const pic = pictureOf(id, part, n);
+    const kept = pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
     if (!kept) throw new MediaImageError("다시 자를 원본이 없습니다");
-    const [w, h] = part === "icon" ? [ICON, ICON] : part === "banner" ? [BANNER_W, BANNER_H] : [SHOT_W, SHOT_H];
-    const webp = await encode(await cut(fs.readFileSync(kept.image), crop), w, h);
-    writeAtomic(f, webp);
-    fs.rmSync(twin(f), { force: true });
-    artCrop.writeCrop(f, crop, now);
-    const key = part === "shot" ? "shots" : part;
-    put(id, key, { ...record(id)[key], at: Math.max(now, (record(id)[key]?.at ?? 0) + 1) });
+    const webp = await encode(await cut(fs.readFileSync(kept.image), crop), sizeOf(part));
+    sidecar.write(homeDir(id), pic.slot, webp, { ignore: ignored(id) });
+    artCrop.writeCrop(anchor(id, pic.slot), crop, now);
     return webp.length;
   }
 
   const one = (fn) => (id, ...args) => serial(String(id), () => fn(id, ...args));
   return {
-    idRe, put, record, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotUrls, urls,
+    idRe, put, record, pictures, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotCount, shotUrls, urls,
     saveIcon: one(saveIcon), saveBanner: one(saveBanner), removeIcon: one(removeIcon), removeBanner: one(removeBanner),
     saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
     recrop: one(recrop), forget: one(forget), original, originals,
     /** Test seam. */
-    resetForTests() { saved = null; },
+    resetForTests() { saved = null; settled.clear(); },
   };
 }

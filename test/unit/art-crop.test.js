@@ -172,7 +172,8 @@ test("an item's pictures are cut, kept, cut again and taken out alike", async ()
   assert.deepEqual(store.originals(ID).screenshots, [{ x: 0, y: 0, w: 0.5, h: 1 }, { x: 0.5, y: 0, w: 0.5, h: 1 }]);
   await store.removeShots(ID, 1);
   assert.deepEqual(store.originals(ID).screenshots, [{ x: 0.5, y: 0, w: 0.5, h: 1 }]);
-  assert.ok(!fs.existsSync(artCrop.originalPaths(store.shotPath(ID, 2)).image));
+  assert.equal(store.shotPath(ID, 2), null);
+  assert.ok(!fs.existsSync(path.join(data, "items", "media", ID, "screenshot-02.orig.webp")), "its original went with it");
   await store.recrop(ID, "shot", 1, { x: 0, y: 0, w: 0.5, h: 1 });
   assert.ok(isRed(await color(store.shotPath(ID, 1))));
 

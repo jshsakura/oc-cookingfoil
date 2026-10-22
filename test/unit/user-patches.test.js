@@ -298,3 +298,39 @@ test("a patch for a title nobody knows carries no game block", async () => {
   const { gameOf } = await import("../../src/routes/patches.js");
   assert.equal(gameOf("0100FFFFFFFF0000", "https://shop.example"), null);
 });
+
+test("pictures at a patch's root are not part of the patch: it is listed, shipped and hashed without them", async () => {
+  const body = { [`${TID}/한글/${CHEAT}`]: "cheat\n" };
+  const plain = makeRoot(body);
+  const art = makeRoot({ ...body, [`${TID}/한글/icon.jpg`]: "pic", [`${TID}/한글/banner.jpg`]: "pic", [`${TID}/한글/screenshot-01.jpg`]: "pic" });
+  await scan({ root: plain });
+  const [a] = await list();
+  reset();
+  await scan({ root: art });
+  const [b] = await list();
+  assert.ok(b, "a patch with pictures is listed, not rejected");
+  assert.equal(b.files, 1);
+  assert.equal(b.hash, a.hash);
+  const opened = await openForDownload(b.id, art);
+  assert.deepEqual(tarEntries(opened.entries).map((e) => e.path).filter((p) => !p.endsWith("/")), [CHEAT]);
+
+  fs.writeFileSync(path.join(art, TID, "한글", "icon.jpg"), "another picture");
+  reset();
+  await scan({ root: art });
+  assert.equal((await list())[0].hash, b.hash, "changing only a picture is not an update");
+});
+
+test("a picture below the root is the patch's own content, so it still has to sit where the game owns it", async () => {
+  const root = makeRoot({ [`${TID}/한글/${CHEAT}`]: "cheat\n", [`${TID}/한글/data/icon.jpg`]: "x" });
+  await scan({ root });
+  assert.equal((await list()).length, 0);
+});
+
+test("a homebrew app's patch ignores pictures at its root too", async () => {
+  const root = makeRoot({ "homebrew/game/mod/data.bin": "x", "homebrew/game/mod/icon.jpg": "pic", "homebrew/game/mod/screenshot-01.png": "pic" });
+  await scan({ root });
+  const [p] = await list();
+  assert.equal(p.files, 1);
+  const opened = await openForDownload(p.id, root);
+  assert.deepEqual(opened.entries.map((e) => e.path), ["switch/game/data.bin"]);
+});

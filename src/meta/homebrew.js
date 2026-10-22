@@ -26,6 +26,7 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import debug from "../debug.js";
 import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
+import { isArtSidecar } from "./art-sidecar.js";
 import { describeProblems, pathProblems } from "./console-paths.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
@@ -289,8 +290,25 @@ export async function sha256File(file) {
 }
 
 /** Every hand-placed app: the first .nro of each folder under `root`. */
-/** What an admin upload decided for a hand-placed app, kept in its folder: { nro, mode, reason, rules, excluded }. */
+/**
+ * What an admin upload decided for a hand-placed app, kept in its folder: { nro, mode, reason, rules, excluded, own_art }.
+ * `own_art` names the files at the folder's root that look like its pictures (meta/art-sidecar.js) but came
+ * with the app (a release's own icon.jpg): those ship with it; the others are the app's pictures and stay here.
+ */
 export const MANIFEST = ".cookingfoil.json";
+
+/** Whether `rel` in a hand-placed app's folder is one of its pictures rather than one of its files. */
+const pictureTest = (manifest) => {
+  const own = new Set(Array.isArray(manifest?.own_art) ? manifest.own_art : []);
+  return (rel) => isArtSidecar(rel) && !own.has(rel);
+};
+
+// id → { dir, own } for each hand-placed app read: where its pictures live (meta/homebrew-media.js).
+const manualHomes = new Map();
+/** A hand-placed app's own folder, or null (an app followed on GitHub has none). */
+export const manualHomeOf = (id) => manualHomes.get(id)?.dir ?? null;
+/** The picture-like files that came with a hand-placed app, or null. */
+export const manualOwnArtOf = (id) => manualHomes.get(id)?.own ?? null;
 
 /** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
 async function filesUnder(dir, rel = "") {
@@ -326,7 +344,7 @@ export async function adoptFolders(root) {
     if (hasManifest) continue;
     const nro = (await fsp.readdir(dir)).filter((f) => /\.nro$/i.test(f)).sort()[0];
     if (!nro) continue;
-    const files = await filesUnder(dir);
+    const files = (await filesUnder(dir)).filter((r) => !isArtSidecar(r));
     if (files.length < 2) continue;
     if (!APP_NAME_RE.test(folder) || !APP_NAME_RE.test(nro)) {
       skipped.push({ folder, reason: "폴더나 .nro 이름에 영문, 숫자, - _ . 만 쓸 수 있습니다" });
@@ -338,7 +356,7 @@ export async function adoptFolders(root) {
       skipped.push({ folder, reason: `콘솔 SD 에 만들 수 없는 이름이 있습니다: ${describeProblems(problems)}` });
       continue;
     }
-    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [] };
+    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_art: [] };
     await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(manifest));
     registered.push(folder);
   }
@@ -522,9 +540,21 @@ export function folderHash(files) {
   return h.digest("hex");
 }
 
+/**
+ * A manifest written before pictures lived in app folders says nothing of them: the
+ * picture-named files its folder holds then came with the app, and stay part of it.
+ */
+async function withOwnArt(dir, manifest) {
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest.own_art)) return manifest;
+  const next = { ...manifest, own_art: (await fsp.readdir(dir)).filter(isArtSidecar).sort() };
+  await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(next)).catch((err) => debug.error("homebrew: %s: noting its own pictures: %s", dir, err.message));
+  return next;
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
-  const manifest = await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null);
+  const manifest = await withOwnArt(dir, await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null));
+  manualHomes.set(idFor("manual", folder), { dir, own: new Set(Array.isArray(manifest?.own_art) ? manifest.own_art : []) });
   const names = await fsp.readdir(dir);
   const file = manifest?.nro && names.includes(manifest.nro) ? manifest.nro : names.filter((f) => /\.nro$/i.test(f)).sort()[0];
   if (!file) {
@@ -549,7 +579,8 @@ async function readManual(root, folder, seen = null, held = null) {
     const appDir = (APP_NAME_RE.test(manifest.dir ?? "") ? manifest.dir : null) ?? (await expectedAppDir(dir, file, folder, names)) ?? folder;
     const files = [];
     // Install guides and desktop clutter stay on the server; the console gets what the app runs on.
-    for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r))) {
+    const isPicture = pictureTest(manifest);
+    for (const rel of (await filesUnder(dir)).filter((r) => !leftOutOfFolder(r) && !isPicture(r))) {
       const fileAbs = path.join(dir, ...rel.split("/"));
       const fst = await fsp.stat(fileAbs);
       files.push({ path: `switch/${appDir}/${rel}`, size: fst.size, sha256: await cachedSha256(fileAbs, fst, seen), abs: fileAbs, key: fileKey(fst) });
