@@ -31,7 +31,8 @@ import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top, topPh } from "./top-i18n.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top, topN, topPh } from "./top-i18n.js";
+import { enrollPerHour } from "../../helpers/envs.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 
@@ -456,7 +457,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   </div>
   <div data-sub-panel="approved" hidden><div class="scroll" id="devices" data-skel></div></div>
   <div data-sub-panel="clients" hidden>
-  <p class="muted">${top("dev.clientsLead")}</p>
+  <p class="muted">${topN("dev.clientsLead", enrollPerHour)}</p>
   <div class="scroll" id="clients" data-skel></div>
   <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended" data-skel></div></details>
   </div>

@@ -29,7 +29,7 @@ import pkg from "../package.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, downloadMaxConnections, retroDir } from "../helpers/envs.js";
+import { devicePairing, downloadMaxConnections, enrollPerHour, retroDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import { retroEnabled } from "./retro.js";
@@ -126,6 +126,8 @@ export default async function shopInfoRoute(req, res) {
     ],
     // How many connections one console may open per download (a hint, not enforced; admin setting).
     download: { maxConnections: downloadMaxConnections },
+    // How many different consoles one account's downloaded clients may enroll in any hour (admin setting).
+    ...(devicePairing ? { enroll: { perHour: enrollPerHour } } : {}),
     files: stats.files,
     contentMeta: contentMeta.progress(),
     ...(adminDevice ? { keys: { present: prodKeys.status().present } } : {}),

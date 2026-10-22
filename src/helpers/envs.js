@@ -314,7 +314,10 @@ let deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
 let deviceAutoApproveAll = autoApproveMode === "all";
 // How many approved consoles one account may hold, however they were approved
 // (security/device-limit.js). 0 is no limit.
-let deviceLimit = envNumber("COOK_DEVICE_LIMIT", 5, { min: 0, max: 1000, integer: true });
+let deviceLimit = envNumber("COOK_DEVICE_LIMIT", 10, { min: 0, max: 1000, integer: true });
+// How many different consoles one account's downloaded clients may enroll in any rolling hour
+// (security/enroll-tokens.js).
+let enrollPerHour = envNumber("COOK_ENROLL_PER_HOUR", 5, { min: 1, max: 50, integer: true });
 
 // titledb: fetched in the background and refreshed on a timer; the regions are
 // the per-language name lists it reads (see titledb-fetcher.js DEFAULT_REGIONS).
@@ -407,6 +410,7 @@ const ENV_SETTINGS = Object.freeze({
   passwordLogin,
   deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
   deviceLimit,
+  enrollPerHour,
   uploadsEnabled,
   inboxEnabled,
   inboxMaxBytes,
@@ -461,6 +465,7 @@ function applyServerSettings(saved = {}) {
   deviceAutoApprove = v.deviceApproval !== "manual";
   deviceAutoApproveAll = v.deviceApproval === "all";
   deviceLimit = v.deviceLimit;
+  enrollPerHour = v.enrollPerHour;
   uploadsEnabled = v.uploadsEnabled;
   inboxEnabled = v.inboxEnabled;
   inboxMaxBytes = v.inboxMaxBytes;
@@ -609,4 +614,5 @@ export {
   deviceAutoApprove,
   deviceAutoApproveAll,
   deviceLimit,
+  enrollPerHour,
 };

@@ -9,6 +9,7 @@
 import { escapeHtml } from "./admin/escape.js";
 import { PAIR_TEXT } from "./device-pair-text.js";
 import { tableLang } from "../meta/langs.js";
+import { enrollPerHour } from "../helpers/envs.js";
 
 const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--soft:#F2F1EE;--accent:#FFC23D;--bad:#982929;font-family:'IBM Plex Sans KR',system-ui,sans-serif}
 @media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--soft:#26262B;--bad:#FF8A80}}
@@ -52,7 +53,7 @@ function clientSection(t) {
   return `<section class="block" id="client"><h2>${t.clientTitle}</h2>
 <div class="client-card"><img id="client-icon" src="/api/client/icon" alt="" width="64" height="64" decoding="async">
 <div><strong>CookingFoil</strong><span class="hint" id="client-meta"></span></div></div>
-<p>${t.clientLead}</p><button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint}</p></section>`;
+<p>${t.clientLead}</p><button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint.replace("{n}", enrollPerHour)}</p></section>`;
 }
 
 function mineSection(t) {

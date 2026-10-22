@@ -103,6 +103,7 @@ test("an account at its device limit: the download, the sign-in, the admin and t
     const signedIn = await status(key("4"), "alice");
     assert.equal(signedIn.status, "pending");
     assert.equal(signedIn.limit, "device");
+    assert.equal(signedIn.deviceLimit, 2, "the console can say how many the account may hold");
     assert.ok(signedIn.pairCode);
     const bobs = await status(key("5"), "bob");
     assert.equal(bobs.status, "approved", "another account is not held by alice's limit");
@@ -131,7 +132,9 @@ test("an account at its device limit: the download, the sign-in, the admin and t
     const save = (deviceLimit) => fetch(`${BASE}/admin/api/server-settings`, { method: "POST", headers: ADMIN, body: JSON.stringify({ deviceLimit }) });
     assert.equal((await save(3)).status, 200);
     assert.equal((await approve("ko")).status, 200, "room for a third");
-    assert.equal((await status(key("4"), "alice")).limit, "device", "full again at three");
+    const full = await status(key("4"), "alice");
+    assert.equal(full.limit, "device", "full again at three");
+    assert.equal(full.deviceLimit, 3, "the new limit, with no restart");
 
     // Removing a console makes room.
     assert.equal((await fetch(`${BASE}/pair/api/devices/revoke`, { method: "POST", headers: { ...ALICE, "Content-Type": "application/json", Origin: BASE }, body: JSON.stringify({ deviceKey: key("1") }) })).status, 200);
@@ -140,6 +143,43 @@ test("an account at its device limit: the download, the sign-in, the admin and t
     // 0 is no limit.
     assert.equal((await save(0)).status, 200);
     assert.equal((await status(key("6"), "alice")).status, "approved");
+  } finally {
+    stop(server);
+  }
+});
+
+test("unless set an account holds ten consoles and its downloads connect five an hour; the hourly count changes live and every page shows it", async () => {
+  const server = await boot({ COOK_DEVICE_AUTO_APPROVE: "true" });
+  try {
+    const ADMIN = { ...(await adminSession(BASE, "alice", ACCOUNTS.alice, "admin-password-123")), "Content-Type": "application/json" };
+    const settings = async () => (await (await fetch(`${BASE}/admin/api/server-settings`, { headers: ADMIN })).json()).settings;
+    let s = await settings();
+    assert.equal(s.deviceLimit.value, 10);
+    assert.equal(s.enrollPerHour.value, 5);
+
+    const save = await fetch(`${BASE}/admin/api/server-settings`, { method: "POST", headers: ADMIN, body: JSON.stringify({ enrollPerHour: 2 }) });
+    assert.equal(save.status, 200);
+    assert.equal((await settings()).enrollPerHour.value, 2);
+    for (const bad of [0, 51, "x"]) {
+      const r = await fetch(`${BASE}/admin/api/server-settings`, { method: "POST", headers: ADMIN, body: JSON.stringify({ enrollPerHour: bad }) });
+      assert.equal(r.status, 400, `refuses ${bad}`);
+    }
+
+    const token = await downloadToken(server.data);
+    assert.equal((await enroll(key("1"), token)).status, 200);
+    assert.equal((await enroll(key("2"), token)).status, 200);
+    const third = await enroll(key("3"), token);
+    assert.equal(third.status, 401, "the third different console this hour");
+    assert.equal(third.headers.get("x-cookingfoil-auth"), "enroll-limit");
+    assert.equal((await enroll(key("1"), token)).status, 200, "a console already counted enrolls again");
+
+    const WEB = await webSession(BASE, "alice", ACCOUNTS.alice);
+    const info = await (await fetch(`${BASE}/api/shop/info`, { headers: WEB })).json();
+    assert.deepEqual(info.enroll, { perHour: 2 }, "the web page reads the number here");
+    const pairPage = await (await fetch(`${BASE}/pair`, { headers: { ...WEB, "Accept-Language": "en" } })).text();
+    assert.match(pairPage, /Up to 2 consoles connect on their own/);
+    const adminPage = await (await fetch(`${BASE}/admin/`, { headers: ADMIN })).text();
+    assert.match(adminPage, /data-top="dev.clientsLead" data-top-n="2">[^<]*기기 2대까지/);
   } finally {
     stop(server);
   }
