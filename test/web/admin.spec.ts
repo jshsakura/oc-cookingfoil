@@ -82,9 +82,9 @@ test('a featured row picked in the admin page reaches the sections list by base 
   await page.getByRole('link', { name: '파일·정리', exact: true }).click();
   await page.getByRole('link', { name: '홈 추천' }).click();
   await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
-  await page.getByLabel('줄 제목').fill('이번 주 추천');
-  await page.getByLabel('추가할 게임').fill('Test Game · 0100000000010000');
-  await page.getByRole('button', { name: '게임 추가', exact: true }).click();
+  await page.getByLabel('줄 제목', { exact: true }).fill('이번 주 추천');
+  // A new row opens on the list of every game: ticking one puts it in the row.
+  await page.getByRole('list', { name: '게임 목록' }).getByRole('checkbox', { name: /0100000000010000/ }).check();
   await expect(page.locator('#f-list .fgames')).toContainText('Test Game');
   await page.getByRole('button', { name: /^저장/ }).click();
   await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');

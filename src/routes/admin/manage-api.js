@@ -13,6 +13,7 @@ import { revokeOwnedBy } from "../../security/account-access.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as featured from "../../meta/featured.js";
+import { libraryGames, findLibraryGames } from "../../meta/library-games.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import {
   publicBaseUrl, devicePairing, uploadsEnabled, extractIcons, langPriority,
@@ -21,24 +22,13 @@ import pkg from "../../package.js";
 import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import * as envs from "../../helpers/envs.js";
+import { apiWord } from "./api-words.js";
 
 const USER_ERROR_STATUS = {
   "invalid-name": 400, "weak-password": 400, "invalid-role": 400, "not-found": 404, exists: 409, "last-user": 409,
   "last-admin": 409, self: 409,
   "invalid-featured": 400,
 };
-
-// Base games in the library, for picking featured titles: [{ titleId, name }].
-async function baseCandidates() {
-  await shopCache.get();
-  const seen = new Map();
-  for (const file of shopCache.files()) {
-    if (file.kind !== "base" || !file.baseTitleId || seen.has(file.baseTitleId)) continue;
-    seen.set(file.baseTitleId, file.name ?? "");
-  }
-  return [...seen].map(([titleId, name]) => ({ titleId, name }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-}
 
 function sameOrigin(req, res) {
   const origin = req.get("Origin");
@@ -146,7 +136,24 @@ export function mountManageApi(router, guard) {
   router.get("/api/featured", async (req, res) => {
     if (!guard(req, res)) return;
     res.set("Cache-Control", "no-store");
-    res.json({ collections: featured.list(), candidates: await baseCandidates() });
+    // Names for the games already in a row; finding more goes through /api/games/search.
+    const collections = featured.list();
+    const inRows = new Set(collections.flatMap((c) => c.titleIds));
+    res.json({ collections, candidates: (await libraryGames()).filter((g) => inRows.has(g.titleId)) });
+  });
+
+  // The admin's game pickers and the home picks list: library games by part of any name, Korean
+  // initials or title ID, a page at a time, by name or newest first.
+  router.get("/api/games/search", async (req, res) => {
+    if (!guard(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    try {
+      const { q, limit, offset, sort } = req.query;
+      res.json(await findLibraryGames(String(q ?? ""), { limit, offset, sort: String(sort ?? "name") }));
+    } catch (err) {
+      debug.error("admin: game search: %s", err.message);
+      res.status(500).json({ error: apiWord(req, "games.searchFailed") });
+    }
   });
 
   router.put("/api/featured", change((req, res) => {

@@ -27,7 +27,7 @@ import { SAVE_TYPES } from "../../meta/shop-saves.js";
 import { patchesDir, savesDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { inside } from "./homebrew-apps-api.js";
-import { libraryGames } from "./upload-api.js";
+import { libraryGames } from "../../meta/library-games.js";
 import { editedInfo } from "./patches-api.js";
 import * as itemVerified from "../../meta/item-verified.js";
 import * as itemVotes from "../../meta/item-votes.js";

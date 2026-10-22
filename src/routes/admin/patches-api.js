@@ -25,7 +25,7 @@
  */
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
-import { libraryGames } from "./upload-api.js";
+import { libraryGames } from "../../meta/library-games.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbVersions from "../../meta/titledb-versions.js";
 import { gameOf } from "../../meta/game-info.js";

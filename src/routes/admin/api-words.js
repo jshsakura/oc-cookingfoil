@@ -9,21 +9,25 @@ import { requestLang } from "../../meta/langs.js";
 
 export const API_WORDS = {
   ko: {
+    "games.searchFailed": "게임을 찾지 못했습니다. 서버 기록을 봅니다",
     failed: "처리하지 못했습니다. 서버 기록을 봅니다",
     "guide.badPath": "폴더 경로는 retro/roms/gba 처럼 저장 폴더 기준 상대 경로로 적습니다",
     "guide.unknown": "안내가 있는 폴더가 아닙니다",
   },
   en: {
+    "games.searchFailed": "Could not search the games. See the server log",
     failed: "Could not do that. See the server log",
     "guide.badPath": "Write the folder path relative to the storage folder, like retro/roms/gba",
     "guide.unknown": "There is no guide for that folder",
   },
   ja: {
+    "games.searchFailed": "ゲームを検索できませんでした。サーバーのログを確認します",
     failed: "処理できませんでした。サーバーのログを確認します",
     "guide.badPath": "フォルダーのパスは retro/roms/gba のように保存フォルダーからの相対パスで書きます",
     "guide.unknown": "案内のあるフォルダーではありません",
   },
   zh: {
+    "games.searchFailed": "无法搜索游戏。请查看服务器日志",
     failed: "无法处理。请查看服务器日志",
     "guide.badPath": "文件夹路径请写成相对于存储文件夹的路径，例如 retro/roms/gba",
     "guide.unknown": "这个文件夹没有说明",

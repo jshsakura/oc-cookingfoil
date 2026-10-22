@@ -3,7 +3,6 @@
  * overwrite (kept apart, one game.json per game: meta/game-descriptions.js). /api/title/{id} answers
  * the admin's description in place of titledb's, and their notes as `notes`:
  *
- *   GET  /admin/api/descriptions               { games: [{ titleId, name, edited }] }   library games
  *   GET  /admin/api/descriptions/<title id>    { titleId, own: { description, notes } | null, original }
  *   POST /admin/api/descriptions/<title id>    { description?: { en, ko }, notes?: { en, ko } }
  *                                              a field sent is saved; both languages empty forgets it
@@ -13,7 +12,6 @@ import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
-import { libraryGames } from "./upload-api.js";
 import debug from "../../debug.js";
 
 const ID_RE = /^[0-9A-F]{16}$/;
@@ -35,12 +33,6 @@ export function mountDescriptionsApi(router, requireSession) {
     res.status(400).json({ error: "타이틀 ID 는 16자리 16진수입니다" });
     return null;
   };
-
-  router.get("/api/descriptions", handle(async (req, res) => {
-    const edited = new Set(gameDescriptions.edited());
-    const games = await libraryGames().catch(() => []);
-    res.json({ games: games.map((g) => ({ ...g, edited: edited.has(g.titleId) })) });
-  }));
 
   router.get("/api/descriptions/:id", handle(async (req, res) => {
     const id = idOf(req, res);
