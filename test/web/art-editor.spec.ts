@@ -289,3 +289,32 @@ test('a slot finds pictures from the sources, and one click cuts and saves the p
   expect(asked.at(-1)?.get('q')).toBe('Hand App');
   expect(asked.at(-1)?.has('base')).toBe(false);
 });
+
+test('a game name is written per client language from the list on the edit card', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#all');
+  await page.locator('#games .game').first().click();
+  const metaRequest = page.waitForRequest(/\/api\/art\/[0-9A-F]{16}\/meta$/);
+  await editPage(page, '#modal');
+  const id = /\/api\/art\/([0-9A-F]{16})\/meta$/.exec((await metaRequest).url())![1];
+  const card = page.locator('#modal .edit-facts');
+  const list = card.locator('select.ef-langs-list');
+  await expect(list.locator('option')).toHaveCount(12);
+  await expect(list).toHaveValue('ko');
+  const name = card.locator('[name="name"]');
+  await list.selectOption('ja');
+  await name.fill('管理者の名前');
+  await list.selectOption('zh-Hant');
+  await name.fill('管理員名稱');
+  await list.selectOption('ja');
+  await expect(name).toHaveValue('管理者の名前');
+  await card.getByRole('button', { name: '저장' }).click();
+  await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
+  const meta = await (await page.request.get(`/api/art/${id}/meta`)).json();
+  expect(meta.name.ja).toBe('管理者の名前');
+  expect(meta.name['zh-Hant']).toBe('管理員名稱');
+  const refused = await page.request.post(`/api/art/${id}/meta`, { data: { name: { 'en-US': 'x' } } });
+  expect(refused.status()).toBe(400);
+  expect((await refused.json()).error).toContain('알 수 없는 언어 키입니다: en-US');
+  await page.request.post(`/api/art/${id}/meta/reset`, { data: {} });
+});

@@ -155,3 +155,72 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
   assert.deepEqual(r.headerSv, ["English Name", "English text", "en"]);
   assert.equal(r[""][0], "관리자 이름", "without a language the server's own order still decides");
 });
+
+// One probe per data folder: titledb regions and admin game folders in, { lang: [name, description] } out.
+function detailIn({ regions, games = {}, langs }) {
+  const data = mkdtempSync(path.join(tmpdir(), "cook-detail-own-"));
+  mkdirSync(path.join(data, "titledb"), { recursive: true });
+  for (const [file, rows] of Object.entries(regions)) writeFileSync(path.join(data, "titledb", file), JSON.stringify(rows));
+  for (const [folder, json] of Object.entries(games)) {
+    mkdirSync(path.join(data, "metadata", "games", folder), { recursive: true });
+    writeFileSync(path.join(data, "metadata", "games", folder, "game.json"), JSON.stringify(json));
+  }
+  const probe = `
+    import * as store from "../../src/meta/titledb-store.js";
+    import route from "../../src/routes/title-detail.js";
+    import * as art from "../../src/meta/custom-art.js";
+    import { scan } from "../../src/meta/game-meta.js";
+    await store.load();
+    await art.init();
+    await scan();
+    const call = (id, lang) => {
+      const r = { code: 200, body: null };
+      r.status = (c) => { r.code = c; return r; };
+      r.json = (o) => { r.body = o; return r; };
+      r.header = () => r;
+      route({ params: { baseTitleId: id }, query: { lang }, get: () => undefined, protocol: "http" }, r);
+      return [r.body?.name ?? null, r.body?.description ?? null];
+    };
+    const out = {};
+    for (const [id, list] of Object.entries(${JSON.stringify(langs)})) for (const l of list) out[id + ":" + l] = call(id, l);
+    process.stdout.write(JSON.stringify(out));
+  `;
+  return JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
+    cwd: import.meta.dirname,
+    env: { ...process.env, COOK_DATA_DIR: data, COOK_EXTRACT_ICONS: "off", COOK_LANG_PRIORITY: "ko,en,ja" },
+    encoding: "utf-8",
+  }));
+}
+
+test("title-detail: simplified and traditional Chinese never stand in for each other", () => {
+  const row = (name, description) => ({ "70010000000003": { id: "0100000000AC4000", name, description, releaseDate: 20240101 } });
+  const r = detailIn({
+    regions: { "US.en.json": row("English Name", "English text"), "HK.zh.json": row("繁體名", "繁體說明") },
+    langs: { "0100000000AC4000": ["zh", "zh-Hant"] },
+  });
+  assert.deepEqual(r["0100000000AC4000:zh"], ["English Name", "English text"], "Hong Kong's text is not shown to a simplified reader");
+  assert.deepEqual(r["0100000000AC4000:zh-Hant"], ["繁體名", "繁體說明"]);
+});
+
+test("title-detail: the admin's name per language, then their name for every language, then titledb's, then English", () => {
+  const A = "0100000000AC0000";
+  const B = "0100000000AC2000";
+  const row = (id, name, description) => ({ [id === A ? "70010000000010" : "70010000000011"]: { id, name, description, releaseDate: 20240101 } });
+  const r = detailIn({
+    regions: {
+      "US.en.json": { ...row(A, "English Name", "English text"), ...row(B, "B English", "B text") },
+      "DE.de.json": { ...row(A, "Deutscher Name", "Deutscher Text"), ...row(B, "B Deutsch", "B Text de") },
+    },
+    games: {
+      [`Own [${A}]`]: { id: A, name: { ja: "管理者の名前", "zh-Hant": "管理員名稱", en: "Admin English" }, description: { en: "Admin text" } },
+      [`All [${B}]`]: { id: B, name: "One Name For All" },
+    },
+    langs: { [A]: ["ja", "zh-Hant", "de", "nl", "zh"], [B]: ["ko", "de", "zh-Hant"] },
+  });
+  assert.deepEqual(r[`${A}:ja`], ["管理者の名前", "Admin text"], "the admin's Japanese name; the admin's English text beats titledb's English");
+  assert.deepEqual(r[`${A}:zh-Hant`], ["管理員名稱", "Admin text"]);
+  assert.deepEqual(r[`${A}:de`], ["Deutscher Name", "Deutscher Text"], "titledb's German beats the admin's English");
+  assert.deepEqual(r[`${A}:nl`], ["Admin English", "Admin text"], "no Dutch anywhere: the admin's English");
+  assert.deepEqual(r[`${A}:zh`], ["Admin English", "Admin text"], "the traditional name is not the simplified one");
+  for (const l of ["ko", "de", "zh-Hant"]) assert.equal(r[`${B}:${l}`][0], "One Name For All", `a plain name is every language's (${l})`);
+});

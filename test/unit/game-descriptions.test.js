@@ -28,7 +28,7 @@ fs.writeFileSync(path.join(root, "game-descriptions.json"), JSON.stringify({
   [LOWER]: { notes: { en: "Lower case id" } },
   [BROKEN]: { notes: { ko: "고장 난 폴더" } },
 }));
-const { get, set, reset, describe, notes, edited, names, locked, GAMES_DIR, folderName } = await import("../../src/meta/game-descriptions.js");
+const { get, set, reset, describe, notes, edited, names, locked, checkInput, GAMES_DIR, folderName } = await import("../../src/meta/game-descriptions.js");
 // A change made by hand shows after the server's next look at the folders (every minute, or from the admin page).
 const { scan } = await import("../../src/meta/game-meta.js");
 const ID = "0100B00B51230000";
@@ -183,11 +183,12 @@ test("a field written by hand as plain text, a later version and a file that is 
   fs.writeFileSync(file, JSON.stringify({ id: HAND, version: 2, description: "손으로 쓴 글", name: "Hand Name", locked: ["icon", "icon"] }));
   await scan();
 
-  assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text with Hangul is Korean");
-  assert.deepEqual(names(HAND), { en: "Hand Name" });
+  assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text is every language's");
+  assert.equal(describe(HAND, "de"), "손으로 쓴 글");
+  assert.equal(names(HAND).ja, "Hand Name");
   set(HAND, "notes", { ko: "메모" });
   const saved = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.deepEqual(saved.description, { en: null, ko: "손으로 쓴 글" }, "kept, in the usual shape");
+  assert.equal(saved.description, "손으로 쓴 글", "kept as written");
   assert.equal(saved.version, 2, "a later version is not taken back");
   assert.deepEqual(saved.locked, ["name", "description", "notes", "icon"], "no entry twice");
 
@@ -195,4 +196,37 @@ test("a field written by hand as plain text, a later version and a file that is 
   assert.throws(() => set(HAND, "notes", { ko: "덮어쓰기" }), /cannot be read/);
   assert.equal(fs.readFileSync(file, "utf8"), "[1, 2]");
   fs.rmSync(dir, { recursive: true });
+});
+
+test("a name is kept per client language; one written as plain text is every language's", async () => {
+  const id = "0100000000C10000";
+  assert.equal(set(id, "name", { ja: "日本語の名前", "zh-Hant": "繁體名稱", ko: "한국어 이름" }), true);
+  assert.deepEqual(names(id), { ja: "日本語の名前", "zh-Hant": "繁體名稱", ko: "한국어 이름" });
+  set(id, "name", { ja: "", de: "Deutscher Name" });
+  assert.deepEqual(names(id), { "zh-Hant": "繁體名稱", ko: "한국어 이름", de: "Deutscher Name" }, "a language sent empty is forgotten, the ones not sent are kept");
+  const file = path.join(GAMES_DIR, folderOf(id), "game.json");
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")).name, { ko: "한국어 이름", "zh-Hant": "繁體名稱", de: "Deutscher Name" });
+
+  fs.writeFileSync(file, JSON.stringify({ id, name: "Hand Written", description: { fr: "Texte", xx: "ignored" } }));
+  await scan();
+  const every = names(id);
+  for (const l of ["en", "ko", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "ru", "nl"]) assert.equal(every[l], "Hand Written", l);
+  assert.equal(describe(id, "fr"), "Texte");
+  assert.equal(describe(id, "de"), null, "a German reader is not handed French: English, then Korean, else nothing");
+  set(id, "notes", { en: "A note" });
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).name, "Hand Written", "a plain name stays plain when another field is saved");
+  set(id, "name", { ko: "한국어만" });
+  assert.equal(names(id).ko, "한국어만");
+  assert.equal(names(id).de, "Hand Written", "a language set over a plain name keeps the plain one for the rest");
+  reset(id);
+});
+
+test("a name or text sent with an unknown language or too long is refused, saying why", () => {
+  assert.equal(checkInput("name", { ko: "이름", "en-US": "Name" }), "알 수 없는 언어 키입니다: en-US. 쓸 수 있는 키는 en, ko, ja, zh, zh-Hant, es, fr, de, it, pt, ru, nl 입니다");
+  assert.match(checkInput("name", { ko: "가".repeat(121) }), /이름\(ko\)은 120자를 넘을 수 없습니다/);
+  assert.match(checkInput("description", { en: "x".repeat(2001) }), /2000자/);
+  assert.match(checkInput("name", { ko: 3 }), /글자로/);
+  assert.match(checkInput("name", ["x"]), /글자나 언어별 글자/);
+  assert.equal(checkInput("name", { ko: "이름", en: "", ja: null }), null);
+  assert.equal(checkInput("name", "Plain Name"), null);
 });

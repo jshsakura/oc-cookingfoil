@@ -54,3 +54,8 @@ test("a file item built again from the one held picks up a new name and keeps it
   assert.equal(again.size, 1234);
   assert.equal(again.mtime, 1700000000);
 });
+
+test("the shown name comes from any language the admin named it in, the server's order first", () => {
+  assert.equal(ownDisplayName({ ja: "日本語の名前" }, ["ko", "en"]), "日本語の名前");
+  assert.equal(ownDisplayName({ "zh-Hant": "繁體名稱", en: "Name" }, ["zh-TW", "en"]), "繁體名稱 (Name)");
+});

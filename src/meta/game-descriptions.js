@@ -3,7 +3,11 @@
  * so no refresh ever overwrites it and nothing of it lives only in a database:
  *
  *   ${COOK_DATA_DIR}/metadata/games/<name> [<base title id>]/game.json
- *     { id, name?: { en, ko }, description?: { en, ko }, notes?: { en, ko } }
+ *     { id, name?, description?, notes? }
+ *
+ * Each field is plain text, which every client language reads, or text per
+ * client language ({ "ko": "…", "ja": "…", "zh-Hant": "…" }, the keys of
+ * meta/langs.js LANGS).
  *
  * A game is found by the id in brackets at the end of its folder's name; the
  * name before it is for people and may be changed by hand. What is read comes
@@ -17,8 +21,9 @@
  * description replaces titledb's own text (for a game it has none for, or a
  * wrong one); one the admin cleared goes back to titledb's. notes is extra
  * information only the admin writes, such as what to install with the game.
- * Korean readers get the Korean text when there is one, everyone else the
- * English one. Line breaks are kept and shown as written.
+ * A reader of a language gets the admin's text in it, else their plain text;
+ * where a source has the language too (titledb's name or description) that
+ * comes next, then English (title-detail.js). Line breaks are kept and shown as written.
  *
  * game-descriptions.json, where this was kept before, is moved into the folders
  * the first time they are read, and removed once every game is there.
@@ -30,6 +35,7 @@ import debug from "../debug.js";
 import * as gameMeta from "./game-meta.js";
 import { FIELDS, readFields } from "./game-meta.js";
 import { writeAtomic } from "./game-art-files.js";
+import { LANGS } from "./langs.js";
 
 export { FIELDS, GAMES_DIR, folderName, useNames } from "./game-meta.js";
 const LEGACY_FILE = path.join(dataDir, "game-descriptions.json");
@@ -38,6 +44,9 @@ const ID_RE = /^[0-9A-F]{16}$/;
 const MAX = 2000;
 // A name is one line; the other fields keep their line breaks.
 const LIMIT = { name: 120 };
+// What a field is called in an error the admin reads, with its particle.
+const LABEL = { name: ["이름", "은"], description: ["소개", "는"], notes: ["추가 정보", "는"] };
+const labelOf = (field, lang = null) => `${LABEL[field][0]}${lang ? `(${lang})` : ""}${LABEL[field][1]}`;
 // What a metadata refresh must leave alone when the folder has a picture in the slot.
 const ART_LOCKS = [["icon", (s) => s.icon], ["banner", (s) => s.banner], ["screenshots", (s) => s.screens.length > 0]];
 
@@ -95,10 +104,27 @@ function writeLeftover(left) {
   leftover = left;
 }
 
-/** Two sets of fields, `mine` winning language by language. Pure. */
+/** A field's text in `lang`: plain text is every language's. Pure. */
+const textIn = (v, lang) => (typeof v === "string" ? v : v?.[lang] ?? null) || null;
+
+/** A field as text per language, plain text spread over every language. Pure. */
+const spread = (v) => (typeof v === "string" ? Object.fromEntries(LANGS.map((l) => [l, v])) : { ...(v ?? {}) });
+
+/** Text per language back to what is kept: plain text when every language has the same, null when none has any. Pure. */
+function gather(byLang) {
+  const kept = Object.fromEntries(LANGS.filter((l) => byLang[l]).map((l) => [l, byLang[l]]));
+  const values = Object.values(kept);
+  if (!values.length) return null;
+  return values.length === LANGS.length && values.every((v) => v === values[0]) ? values[0] : kept;
+}
+
+/** Two sets of fields, `mine` winning language by language (plain text in `mine` wins whole). Pure. */
 function mergeFields(old, mine) {
   const out = { ...old };
-  for (const [field, text] of Object.entries(mine ?? {})) out[field] = { en: text.en ?? old?.[field]?.en ?? null, ko: text.ko ?? old?.[field]?.ko ?? null };
+  for (const [field, text] of Object.entries(mine ?? {})) {
+    const next = typeof text === "string" ? text : gather({ ...spread(old?.[field]), ...Object.fromEntries(Object.entries(text).filter(([, v]) => v)) });
+    if (next) out[field] = next;
+  }
   return out;
 }
 
@@ -172,7 +198,8 @@ function all() {
 /** Writes a game's fields into its folder (made when missing); none left removes its game.json. */
 function persist(id, fields) {
   const { text, empty } = toJson(id, fields, readFile(id).raw);
-  if (!empty) writeAtomic(path.join(gameMeta.ensureFolder(id, fields.name?.ko ?? fields.name?.en), FILE), text);
+  const label = textIn(fields.name, "ko") ?? textIn(fields.name, "en") ?? Object.values(spread(fields.name))[0] ?? null;
+  if (!empty) writeAtomic(path.join(gameMeta.ensureFolder(id, label), FILE), text);
   else if (gameMeta.folderOf(id)) {
     const dir = gameMeta.folderOf(id);
     fs.rmSync(path.join(dir, FILE), { force: true });
@@ -185,10 +212,10 @@ function persist(id, fields) {
   if (leftover.has(id)) writeLeftover(new Map([...leftover].filter(([k]) => k !== id)));
 }
 
-const clean = (v, field) => {
+const clean = (v, field, limit = LIMIT[field] ?? MAX) => {
   let s = String(v ?? "").replace(/\r\n/g, "\n").trim();
   if (field === "name") s = s.replace(/\s+/g, " ");
-  s = s.slice(0, LIMIT[field] ?? MAX);
+  s = s.slice(0, limit);
   return s || null;
 };
 
@@ -213,24 +240,60 @@ export function locked(id) {
   return [...new Set([...fromFile, ...Object.keys(leftover.get(id) ?? {}), ...ART_LOCKS.filter(([, has]) => has(slots)).map(([k]) => k)])];
 }
 
-/** The admin's text for a game ({ description, notes }, each { en, ko } or null), or null. */
-export function get(id) {
-  const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
-  return own && Object.keys(own).length ? { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null } : null;
+/**
+ * Why `value`, sent for a field, cannot be saved, in words for the admin; null when it can.
+ * It is plain text (every language) or { <client language>: text | null }; too long is refused, not cut. Pure.
+ */
+export function checkInput(field, value) {
+  if (value == null) return null;
+  const tooLong = (text, lang) => {
+    const limit = LIMIT[field] ?? MAX;
+    return (clean(text, field, Infinity) ?? "").length > limit ? `${labelOf(field, lang)} ${limit}자를 넘을 수 없습니다` : null;
+  };
+  if (typeof value === "string") return tooLong(value, null);
+  if (typeof value !== "object" || Array.isArray(value)) return `${labelOf(field)} 글자나 언어별 글자({ "ko": "…" })로 보냅니다`;
+  const unknown = Object.keys(value).find((l) => !LANGS.includes(l));
+  if (unknown) return `알 수 없는 언어 키입니다: ${unknown}. 쓸 수 있는 키는 ${LANGS.join(", ")} 입니다`;
+  for (const [lang, text] of Object.entries(value)) {
+    if (text != null && typeof text !== "string") return `${labelOf(field, lang)} 글자로 보냅니다`;
+    const problem = text ? tooLong(text, lang) : null;
+    if (problem) return problem;
+  }
+  return null;
 }
 
 /**
- * Save one field ("description" or "notes"); an empty language is stored as
- * none, and both empty forgets that field (and the game, when nothing is left).
+ * The admin's text for a game, or null: { name, description, notes }, each null or
+ * { <language>: text } with en and ko always there (null when not written). Plain
+ * text is given in every language.
  */
-export function set(id, field, { en, ko }) {
+export function get(id) {
+  const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
+  if (!own || !Object.keys(own).length) return null;
+  const shown = (v) => (v ? { en: null, ko: null, ...spread(v) } : null);
+  return { name: shown(own.name), description: shown(own.description), notes: shown(own.notes) };
+}
+
+/**
+ * Save one field. Plain text is every language's. Text per language changes only
+ * the languages sent: one sent empty is forgotten, one not sent is kept (over plain
+ * text, the plain text stays for the rest). Nothing left forgets the field (and the
+ * game, when nothing is left). Languages no client reads are ignored: checkInput refuses them first.
+ */
+export function set(id, field, value) {
   if (!ID_RE.test(String(id)) || !FIELDS.includes(field)) return false;
-  const [enText, koText] = [clean(en, field), clean(ko, field)];
   // A hand edit since the last look is read before it is written over (or refused, when broken).
   gameMeta.refresh(id);
   // A game.json that cannot be read (a hand edit gone wrong) is not written over: the error says which.
-  const { [field]: _old, ...others } = fieldsOf(id, { strict: true }) ?? {};
-  persist(id, enText || koText ? { ...others, [field]: { en: enText, ko: koText } } : others);
+  const { [field]: old, ...others } = fieldsOf(id, { strict: true }) ?? {};
+  let next;
+  if (typeof value === "string") next = clean(value, field);
+  else {
+    const byLang = spread(old);
+    for (const lang of LANGS) if (Object.hasOwn(value ?? {}, lang)) byLang[lang] = clean(value[lang], field);
+    next = gather(byLang);
+  }
+  persist(id, next ? { ...others, [field]: next } : others);
   return true;
 }
 
@@ -239,24 +302,24 @@ export function reset(id, field = null) {
   if (ID_RE.test(String(id))) gameMeta.refresh(id);
   const own = ID_RE.test(String(id)) ? fieldsOf(id, { strict: true }) : null;
   if (!own || !Object.keys(own).length || (field && !own[field])) return false;
-  if (field) return set(id, field, {});
+  if (field) return set(id, field, "");
   persist(id, {});
   return true;
 }
 
-// The reader's language, else the admin's other one (what they wrote beats nothing).
-const pick = (text, lang) => (text ? (lang === "ko" ? text.ko ?? text.en : text.en ?? text.ko) ?? null : null);
+// The reader's language, else English, else Korean (what the admin wrote beats nothing).
+const pick = (text, lang) => textIn(text, lang) ?? textIn(text, "en") ?? textIn(text, "ko");
 
 /** The description a reader sees: the admin's, else `fallback` (titledb's own). */
 export function describe(id, lang, fallback = null) {
   return pick(get(id)?.description, lang) ?? fallback ?? null;
 }
 
-/** The admin's name for a game in each language they wrote ({ en?, ko? }), or null. */
+/** The admin's name for a game in each language it has one in ({ <language>: name }, plain text in all), or null. */
 export function names(id) {
   const n = get(String(id ?? "").toUpperCase())?.name;
   if (!n) return null;
-  const out = { ...(n.en ? { en: n.en } : {}), ...(n.ko ? { ko: n.ko } : {}) };
+  const out = Object.fromEntries(Object.entries(n).filter(([, v]) => v));
   return Object.keys(out).length ? out : null;
 }
 

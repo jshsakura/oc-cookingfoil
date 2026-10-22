@@ -187,7 +187,8 @@ export default function artRouter() {
   router.get("/:kind(homebrew|patch)/:id", itemRoute(async (_req, res, { store, id }) => res.json(state(store, id))));
 
   // The facts beside the pictures. A JSON body, small: names and a few paragraphs.
-  const metaJson = express.json({ limit: "32kb" });
+  // A game's three fields in twelve languages, Korean being three bytes a letter.
+  const metaJson = express.json({ limit: "256kb" });
   const both = (v) => (v && typeof v === "object" ? { en: typeof v.en === "string" ? v.en : null, ko: typeof v.ko === "string" ? v.ko : null } : null);
   const patchFacts = (id) => {
     const info = userPatches.infoOf(id) ?? {};
@@ -250,9 +251,14 @@ export default function artRouter() {
   router.post("/:baseTitleId/meta", metaJson, (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
+    // Plain text (every language) or text per client language; checked whole before anything is saved.
     for (const field of gameDescriptions.FIELDS) {
-      const v = both(req.body?.[field]);
-      if (v) gameDescriptions.set(base, field, v);
+      const problem = gameDescriptions.checkInput(field, req.body?.[field]);
+      if (problem) return badRequest(res, problem);
+    }
+    for (const field of gameDescriptions.FIELDS) {
+      const v = req.body?.[field];
+      if (v != null) gameDescriptions.set(base, field, v);
     }
     // A changed name is baked into the list the server hands out: build it again.
     if (req.body?.name) invalidate({ rename: true });
