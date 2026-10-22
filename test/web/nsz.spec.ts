@@ -6,7 +6,7 @@ import { reveal } from './fold';
 
 // The admin page's 변환 tab: off by default, turned on from its settings, a
 // library check queues a big enough .nsp, and the row actions work.
-const GAMES = '/tmp/cookingfoil-web-test-games';
+const GAMES = process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games';
 const FILE = 'Queue Game [0100000000030000][v0].nsp';
 
 

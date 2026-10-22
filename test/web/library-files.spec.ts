@@ -4,7 +4,7 @@ import { signIn } from './admin-sign-in';
 
 // The library tab's file browser: a tab per kind with its count, a page of 50
 // at a time, and a search that stays inside the chosen kind.
-const GAMES = '/tmp/cookingfoil-web-test-games';
+const GAMES = process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games';
 const EXTRA = `${GAMES}/zz-e2e-extras`;
 
 

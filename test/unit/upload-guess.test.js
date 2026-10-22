@@ -40,3 +40,15 @@ test("retro ROMs pick the consoles their extension fits", () => {
   assert.deepEqual(guess({ names: ["Sonic.bin"] }), { kind: "retro", systems: ["psx", "md"] }, "shared extension: the admin checks");
   assert.deepEqual(guess({ names: ["readme.txt"] }), { kind: null });
 });
+
+test("loose files of different kinds are not guessed as one", () => {
+  assert.deepEqual(guess({ names: ["Game.nsp", "Mario.sfc"] }), { kind: null, mixed: true }, "a package next to a ROM");
+  assert.deepEqual(guess({ names: ["app.nro", "Mario.sfc"] }), { kind: null, mixed: true }, "an app next to a ROM");
+  assert.deepEqual(guess({ names: ["Mario.sfc", "Zelda.sfc"] }), { kind: "retro", systems: ["snes"] }, "the same kind stays one guess");
+  assert.deepEqual(guess({ names: ["a.nsp", "b.xci"] }), { kind: "game" }, "packages of two formats are still packages");
+});
+
+test("a file the names cannot place is left unknown, never given a kind", () => {
+  assert.deepEqual(guess({ names: ["notes.txt"] }), { kind: null });
+  assert.deepEqual(guess({ names: ["photo.png", "readme.md"] }), { kind: null });
+});

@@ -8,8 +8,9 @@
  *   zipNames  the entries of a lone .zip, null when there is no zip or it can't be read
  *   systems   [{ id, extensions }] the retro consoles the server knows
  *
- * → { kind: game|retro|patch|save|homebrew|client|null, systems?, titleId?, name? }
- *   kind null means the files did not say; the admin picks it.
+ * → { kind: game|retro|patch|save|homebrew|client|null, systems?, titleId?, name?, mixed? }
+ *   kind null means the files did not say; the admin picks it. `mixed` marks loose files of
+ *   different kinds (a package next to a ROM): one upload takes one kind, so none is guessed.
  */
 export function guessUpload({ names, paths = null, zipNames = null, systems = [] }) {
   const ext = (n) => { const i = n.lastIndexOf("."); return i > 0 ? n.slice(i).toLowerCase() : ""; };
@@ -41,6 +42,11 @@ export function guessUpload({ names, paths = null, zipNames = null, systems = []
     return { kind: null, name };
   }
 
+  // Loose files that belong to different kinds are not guessed as one.
+  if (!paths && names.length > 1) {
+    const kindOf = (e) => ([".nsp", ".nsz", ".xci", ".xcz"].includes(e) ? "game" : e === ".nro" ? "homebrew" : systems.some((s) => s.extensions.includes(e)) ? "retro" : null);
+    if (new Set(exts.map(kindOf).filter(Boolean)).size > 1) return { kind: null, mixed: true };
+  }
   // Retro: the consoles that play the first file that isn't a companion (.cue/.m3u and the like).
   const companions = [".cue", ".m3u", ".bin", ".img", ".sub", ".ccd", ".gdi", ".raw"];
   const rom = exts.find((e) => !companions.includes(e)) ?? exts[0];

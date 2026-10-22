@@ -125,7 +125,15 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .up-systems.folded button[data-system][aria-pressed="false"]{display:none}
 .up-systems .up-more-sys{justify-content:center;color:var(--muted);font-weight:700}
 .up-kinds button[aria-pressed="true"] span{color:inherit;opacity:.75}
-.up-hint{margin:0 0 12px;min-height:1.4em}
+.up-hint{margin:0 0 12px;min-height:1.4em}.up-hint:empty{display:none}
+.up-lead{margin:0 0 12px}
+.up-guess{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.up-guess p{margin:0;flex:1 1 220px;font-size:14px}.up-guess.warn{border-color:var(--accent)}
+.up-guess[hidden],#up-kinds[hidden],#up-systems-wrap[hidden]{display:none}
+.up-systems.cands button[data-system]:not(.cand){display:none}
+.up-plan{margin:0;font-size:13px;color:var(--muted)}.up-plan:empty{display:none}
+.up-sum{margin:14px 0 0;font-weight:700;font-size:14px}.up-sum[hidden]{display:none}
+.up-log .note .row-actions{margin-top:8px}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
 .up-drop:hover,.up-drop:focus-visible,.up-drop.over{border-color:var(--accent);background:rgba(var(--accent-rgb),.08);outline:none}
 .up-drop svg{width:40px;height:40px;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -617,32 +625,40 @@ ${NSZ_HTML}
 </section>
 
 <section id="tab-upload" hidden>
-  <div class="hd"><h2>업로드</h2></div>
-  <div id="up-kinds" role="group" aria-label="올릴 곳">
-  <p class="up-group">스위치</p>
-  <div class="up-kinds">
-    <button type="button" data-kind="game"><b>패키지</b><span>nsp · nsz · xci · xcz</span></button>
-    <button type="button" data-kind="patch"><b>패치</b><span>게임이나 앱에 덮는 파일</span></button>
-    <button type="button" data-kind="save"><b>세이브</b><span>게임이나 앱의 세이브</span></button>
-    <button type="button" data-kind="homebrew"><b>홈브류</b><span>.nro, 앱 폴더</span></button>
-    <button type="button" data-kind="port"><b>포트</b><span>옮겨 온 게임 앱</span></button>
-    <button type="button" data-kind="client"><b>클라이언트</b><span>cookingfoil.nro</span></button>
-  </div>
-  <p class="up-group">레트로 기종</p>
-  <div class="up-kinds up-systems" id="up-systems" data-skel></div>
-  </div>
-  <p class="muted up-hint" id="up-hint"></p>
-  <div class="up-drop" id="up-drop" tabindex="0" role="button" aria-label="올릴 파일 고르기">
+  <div class="hd"><h2>${top("s.upload")}</h2></div>
+  <p class="muted up-lead" id="up-lead">${top("u.lead")}</p>
+  <div class="up-drop" id="up-drop" tabindex="0" role="button" data-top-label="u.dropAria" aria-label="올릴 파일 고르기">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-    <b id="up-drop-t">파일이나 폴더를 여기에 끌어다 놓습니다</b>
-    <span id="up-chosen">놓은 파일의 이름을 보고 종류를 알아서 고릅니다</span>
+    <b id="up-drop-t">${top("u.dropT")}</b>
+    <span id="up-chosen"></span>
     <div class="pick">
-      <button type="button" id="up-file-btn">파일 고르기</button>
-      <button type="button" id="up-dir-btn">폴더 고르기</button>
+      <button type="button" id="up-file-btn">${top("u.pickFiles")}</button>
+      <button type="button" id="up-dir-btn">${top("u.pickDir")}</button>
     </div>
     <input type="file" id="up-file" multiple hidden>
     <input type="file" id="up-dir" webkitdirectory hidden>
   </div>
+  <div class="up-guess" id="up-guess" hidden>
+    <p id="up-guess-t" aria-live="polite"></p>
+    <button type="button" id="up-change">${top("u.change")}</button>
+  </div>
+  <div id="up-kinds" role="group" data-top-label="u.kindsAria" aria-label="올릴 곳" hidden>
+  <p class="up-group">${top("u.grpSwitch")}</p>
+  <div class="up-kinds">
+    <button type="button" data-kind="game"><b>${top("u.kGame")}</b><span>${top("u.kGameD")}</span></button>
+    <button type="button" data-kind="patch"><b>${top("u.kPatch")}</b><span>${top("u.kPatchD")}</span></button>
+    <button type="button" data-kind="save"><b>${top("u.kSave")}</b><span>${top("u.kSaveD")}</span></button>
+    <button type="button" data-kind="homebrew"><b>${top("u.kHomebrew")}</b><span>${top("u.kHomebrewD")}</span></button>
+    <button type="button" data-kind="port"><b>${top("u.kPort")}</b><span>${top("u.kPortD")}</span></button>
+    <button type="button" data-kind="client"><b>${top("u.kClient")}</b><span>${top("u.kClientD")}</span></button>
+    <button type="button" data-kind="retro" data-pick="retro"><b>${top("u.kRetro")}</b><span>${top("u.kRetroD")}</span></button>
+  </div>
+  <div id="up-systems-wrap" hidden>
+  <p class="up-group">${top("u.grpRetro")}</p>
+  <div class="up-kinds up-systems" id="up-systems" data-skel></div>
+  </div>
+  </div>
+  <p class="muted up-hint" id="up-hint"></p>
   <div id="up-note"></div>
   <form class="up" id="up-form" hidden>
     <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
@@ -656,11 +672,13 @@ ${NSZ_HTML}
       <label>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
       <label>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
     </details>
+    <p class="up-plan" id="up-plan"></p>
     <div class="bar" id="up-bar" hidden><i></i></div>
-    <div class="up-go"><button type="submit" class="primary" id="up-go">올리기</button><button type="button" id="up-clear">다시 고르기</button><span class="muted" id="up-progress"></span></div>
+    <div class="up-go"><button type="submit" class="primary" id="up-go">${top("u.go")}</button><button type="button" id="up-clear">${top("u.reset")}</button><span class="muted" id="up-progress"></span></div>
   </form>
-  <p class="muted up-foot">올린 파일은 그 폴더에 바로 들어가고 서버 목록에 반영됩니다. 같은 이름이 이미 있으면 덮어쓰지 않고 거절합니다. <a href="#library">${top("up.seeFiles")}</a></p>
-  <div class="up-log" id="up-log"></div>
+  <p class="muted up-foot">${top("u.foot")} <a href="#library">${top("up.seeFiles")}</a></p>
+  <p class="up-sum" id="up-sum" role="status" aria-live="polite" hidden></p>
+  <div class="up-log" id="up-log" role="list" data-top-label="u.resultsAria" aria-label="올린 결과"></div>
 </section>
 </div>
 

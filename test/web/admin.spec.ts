@@ -105,8 +105,18 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await signIn(page);
   await page.goto('/admin#upload');
   await expect(page.locator('#up-form')).toBeHidden();
-  // Before any file the places are on show: the Switch kinds, then every retro console as its own tile.
-  await expect(page.locator('#up-hint')).toContainText('올릴 곳을 먼저 고릅니다');
+  // Before any file only the chooser is on show: no kinds and no consoles.
+  await expect(page.locator('#up-drop')).toBeVisible();
+  await expect(page.locator('#up-kinds')).toBeHidden();
+  await expect(page.locator('#up-systems')).toBeHidden();
+  // A file the names cannot place is left unknown, and the admin chooses.
+  await page.locator('#up-file').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+  await expect(page.locator('#up-guess-t')).toContainText('종류를 알 수 없습니다');
+  await expect(page.locator('#up-go')).toBeDisabled();
+  await expect(page.locator('#up-kinds')).toBeVisible();
+  await expect(page.locator('#up-systems')).toBeHidden();
+  // The consoles only show once retro is chosen.
+  await page.locator('#up-kinds [data-pick="retro"]').click();
   const consoles = page.locator('#up-systems [data-kind="retro"]');
   await expect(consoles.first()).toBeVisible();
   const first = consoles.first();
@@ -114,21 +124,27 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await first.click();
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#up-system')).toHaveValue(system!);
-  await expect(page.locator('#up-hint')).toContainText('레트로 · ');
-  // The other consoles fold away until "다른 기종" brings them back.
+  await expect(page.locator('#up-hint')).toContainText('기종을 고르고 롬을');
+  await expect(page.locator('#up-plan')).toContainText('롬 폴더에 이 이름 그대로');
+  // The choice folds back into one line; "바꾸기" brings the consoles back, the others folded behind "다른 기종".
+  await expect(page.locator('#up-kinds')).toBeHidden();
+  await page.locator('#up-change').click();
   await expect(consoles.nth(1)).toBeHidden();
   await page.locator('#up-systems .up-more-sys').click();
   await expect(consoles.nth(1)).toBeVisible();
   await expect(first).toHaveAttribute('aria-pressed', 'true');
-  // A file that looks like something else keeps the picked place and says so.
+  // A file that reads as something else than the choice says so and keeps the choice.
   await page.locator('#up-file').setInputFiles({ name: 'Other [0100000000040000][v0].nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await expect(page.locator('#up-guess-t')).toContainText('읽은 종류: 패키지');
+  await page.locator('#up-change').click();
+  await page.locator('#up-kinds [data-pick="retro"]').click();
+  await first.click();
   await expect(first).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#up-hint')).toContainText('고른 곳과 다른 종류');
+  await expect(page.locator('#up-guess-t')).toContainText('다른 종류');
   await expect(page.locator('#up-required-l')).toBeHidden();
   await page.screenshot({ path: 'out/web/admin-upload-retro.png' });
   await page.getByRole('button', { name: '다시 고르기' }).click();
-  await expect(consoles.first()).toHaveAttribute('aria-pressed', 'false');
-  await expect(consoles.nth(1)).toBeVisible();
+  await expect(page.locator('#up-kinds')).toBeHidden();
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-upload-empty.png', fullPage: true });
 
@@ -155,7 +171,7 @@ test('files dropped into the upload box pick their own kind and go in one by one
     await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(2);
     await expect(page.locator('#up-form')).toBeHidden();
   } finally {
-    for (const name of names) fs.rmSync(`/tmp/cookingfoil-web-test-games/${name}`, { force: true });
+    for (const name of names) fs.rmSync(`${process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games'}/${name}`, { force: true });
     fs.rmSync(dir, { recursive: true, force: true });
     // Later specs count the library's games: wait until the two uploads have left it (other specs may add their own meanwhile).
     await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
@@ -326,7 +342,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
 });
 
 test('a game file is found by name and deleted from the library tab', async ({ page, request }) => {
-  const file = '/tmp/cookingfoil-web-test-games/Throwaway [0100000000030000][v0].nsp';
+  const file = `${process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games'}/Throwaway [0100000000030000][v0].nsp`;
   fs.writeFileSync(file, '');
   await signIn(page);
   await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
