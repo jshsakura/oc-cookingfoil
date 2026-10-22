@@ -161,6 +161,10 @@ export const TOP_WORDS = {
     "ac.lastFail": "지난 코어 작업은 실패했습니다: {err}",
     "ac.started": "코어 작업을 시작했습니다. 진행은 활동 메뉴에서 봅니다.",
     "ac.nothing": "지금 받을 코어가 없습니다.",
+    "ac.hidden": "{name} 의 사용자 파일이 숨은 이름 {file} 로 남아 있습니다. 작업이 끊기거나 같은 자리에 다른 파일이 먼저 들어가 되돌리지 못했습니다. 서버는 이 파일을 지우지 않습니다.",
+    "ac.hiddenBack": "이 파일로 되돌리기",
+    "ac.hiddenQ": "{name} 자리에 숨은 사용자 파일을 되돌립니다. 지금 자리에 있는 사용자 파일은 휴지통으로 옮기고, 서버가 받은 코어라면 지웁니다.",
+    "ac.hiddenDone": "숨은 사용자 파일을 되돌렸습니다.",
   },
   en: {
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
@@ -319,6 +323,10 @@ export const TOP_WORDS = {
     "ac.lastFail": "The last core job failed: {err}",
     "ac.started": "Started the core job. The activity menu shows the progress.",
     "ac.nothing": "There are no cores to download now.",
+    "ac.hidden": "Your file for {name} was left under the hidden name {file}. A job stopped, or another file took its place first, so it could not go back. The server does not delete it.",
+    "ac.hiddenBack": "Bring this file back",
+    "ac.hiddenQ": "Puts the hidden file back as {name}. A file of yours now in its place goes to the trash, and a core the server got is deleted.",
+    "ac.hiddenDone": "Brought the hidden file back.",
   },
   ja: {
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
@@ -477,6 +485,10 @@ export const TOP_WORDS = {
     "ac.lastFail": "前回のコア作業は失敗しました: {err}",
     "ac.started": "コア作業を始めました。進み具合はアクティビティメニューで見ます。",
     "ac.nothing": "今ダウンロードするコアはありません。",
+    "ac.hidden": "{name} のユーザーファイルが隠れた名前 {file} のまま残っています。作業が中断したか、同じ場所に別のファイルが先に入ったため戻せませんでした。サーバーはこのファイルを消しません。",
+    "ac.hiddenBack": "このファイルに戻す",
+    "ac.hiddenQ": "隠れたファイルを {name} に戻します。今その場所にあるユーザーファイルはゴミ箱に移し、サーバーが入れたコアなら消します。",
+    "ac.hiddenDone": "隠れたユーザーファイルを戻しました。",
   },
   zh: {
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
@@ -635,6 +647,10 @@ export const TOP_WORDS = {
     "ac.lastFail": "上次核心作业失败：{err}",
     "ac.started": "已开始核心作业。进度在活动菜单中查看。",
     "ac.nothing": "现在没有要下载的核心。",
+    "ac.hidden": "{name} 的用户文件以隐藏名称 {file} 留了下来。作业中断，或同一位置先放入了其他文件，所以没能恢复。服务器不会删除此文件。",
+    "ac.hiddenBack": "恢复此文件",
+    "ac.hiddenQ": "将隐藏文件恢复为 {name}。现在位于该位置的用户文件会移到回收站，若是服务器下载的核心则会删除。",
+    "ac.hiddenDone": "已恢复隐藏的用户文件。",
   },
 };
 

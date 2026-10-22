@@ -1,4 +1,5 @@
-import { test } from "node:test";
+import { mock, test } from "node:test";
+import fsp from "fs/promises";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import fs from "fs";
@@ -15,9 +16,9 @@ import { sevenZipBin, sha256File } from "../../src/retro/pack-bundle.js";
 import { claimFill } from "../../src/retro/pack-fill.js";
 import { coreStates, createAutoCores, STATE_FILE } from "../../src/retro/auto-cores.js";
 import { forgetIndex, parseIndex } from "../../src/retro/nightly-cores.js";
-import { coreFiles, manifestView } from "../../src/retro/base-pack.js";
+import { coreFiles, listPack, manifestView } from "../../src/retro/base-pack.js";
 import { forwarderSpec } from "../../src/retro/forwarder.js";
-import { listTrash, restoreEntry } from "../../src/retro/trash.js";
+import { listTrash, restoreEntry, TrashError } from "../../src/retro/trash.js";
 
 const bin = sevenZipBin();
 const opts = { skip: bin ? false : "7-Zip is not installed (COOK_7Z_BIN, 7z, 7zz or 7za)" };
@@ -396,26 +397,84 @@ test("switching back needs the core's own name free: a taken slot leaves the tra
   } finally { bot.close(); }
 });
 
-test("a trash that restores beside under another name (shared trash) is undone: the core goes back to the trash", opts, async () => {
+/** A restore that behaves like feat/shared-trash's restoreEntry: a taken place gets "name (2)"; `files` are the original paths. */
+function sharedTrashRestore(occupy) {
+  const calls = [];
+  const fn = async (dir, entry, opts) => {
+    calls.push(opts);
+    await occupy?.();
+    const out = await restoreEntry(dir, entry, null).catch(() => null);
+    if (out) return { id: out.id, files: out.files, renamed: [] };
+    // The original place is taken: put the trash's file beside it, the way shared-trash freeName does.
+    const m = JSON.parse(fs.readFileSync(path.join(dir, ".trash", entry, "manifest.json"), "utf8"));
+    const rel = m.files[0];
+    const to = rel.replace(/\.nro$/, " (2).nro");
+    fs.renameSync(path.join(dir, ".trash", entry, rel), path.join(dir, to));
+    fs.rmSync(path.join(dir, ".trash", entry), { recursive: true });
+    return { id: m.id, files: [rel], renamed: [{ rel, to }] };
+  };
+  return { fn, calls };
+}
+
+test("G1: a shared trash that restores beside as \"(2)\" (its real result shape) is undone and the pack never lists it", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await officialOverUser(w, bot.base, nro("my-build"));
+    const other = nro("someone-else");
+    const { fn } = sharedTrashRestore(() => fs.writeFileSync(w.core("fceumm"), other));
+    const auto = w.make(bot.base, { restore: fn });
+    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"], "no \"(2)\" core is left");
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), other, "the file that took the place stays");
+    const listed = (await listPack(w.packDir, { cleanDir: path.join(w.dataDir, "clean") })).map((f) => f.path);
+    assert.deepEqual(listed.filter((p) => p.includes("(2)")), [], "the pack does not list it");
+    const trash = await listTrash(w.retroDir);
+    assert.equal(trash.length, 1, "the user's core is back in the trash");
+    assert.equal(trash[0].name, "fceumm_libretro_libnx.nro");
+  } finally { bot.close(); }
+});
+
+test("G1: the restore is asked for the exact name, and a trash that refuses leaves its item in place", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await officialOverUser(w, bot.base, nro("my-build"));
+    const other = nro("someone-else");
+    const calls = [];
+    const refusing = async (dir, entry, o) => {
+      calls.push(o);
+      fs.writeFileSync(w.core("fceumm"), other);
+      if (o?.exactName) throw new TrashError("자리에 다른 파일이 있습니다");
+      return restoreEntry(dir, entry);
+    };
+    const auto = w.make(bot.base, { restore: refusing });
+    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(calls, [{ exactName: true }]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), other);
+    assert.equal((await listTrash(w.retroDir)).length, 1, "the trash item is left");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"]);
+  } finally { bot.close(); }
+});
+
+test("G1: a core the trash put under another name while its own name is free comes back under its own name", opts, async () => {
   const bot = await buildbot(BUILDS);
   try {
     const w = world();
     const mine = nro("my-build");
     await officialOverUser(w, bot.base, mine);
-    // feat/shared-trash restores beside as "name (2)" instead of failing when the slot is taken.
-    const beside = async (dir, entry) => {
-      const out = await restoreEntry(dir, entry);
-      const rel = "retroarch/cores/fceumm_libretro_libnx (2).nro";
-      fs.renameSync(path.join(dir, out.files[0]), path.join(dir, rel));
-      return { ...out, files: [rel], renamed: [{ from: out.files[0], to: rel }] };
+    // The place was taken while the trash restored, and freed again before the check.
+    const { fn } = sharedTrashRestore(() => fs.writeFileSync(w.core("fceumm"), nro("brief")));
+    const freeing = async (dir, entry, o) => {
+      const out = await fn(dir, entry, o);
+      fs.rmSync(w.core("fceumm"));
+      return out;
     };
-    const auto = w.make(bot.base, { restore: beside });
-    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
-    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"], "no \"(2)\" core reaches the pack");
-    assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm, "the server's core is back");
-    const trash = await listTrash(w.retroDir);
-    assert.equal(trash.length, 1);
-    assert.equal(trash[0].name, "fceumm_libretro_libnx.nro", "the user's core is in the trash under its own name");
+    const auto = w.make(bot.base, { restore: freeing });
+    await auto.useUserVersion("fceumm");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine);
+    assert.deepEqual(await listTrash(w.retroDir), []);
   } finally { bot.close(); }
 });
 
@@ -497,4 +556,140 @@ test("F5: automation tokens may start the install and the update, never move a u
   assert.equal(tokenBlocked("POST", "/api/retro-cores/Official"), true, "case does not get around it");
   assert.equal(tokenBlocked("POST", "/api/retro-cores/auto"), false);
   assert.equal(tokenBlocked("POST", "/api/retro-cores/update"), false);
+});
+
+/** Makes link() fail the way exFAT and CIFS do; `before(to)` runs first. Returns the mock to restore. */
+const noHardLinks = (before = () => {}) => mock.method(fsp, "link", async (_from, to) => {
+  before(to);
+  throw Object.assign(new Error("operation not permitted, link"), { code: "EPERM" });
+});
+const coreNames = (w) => fs.readdirSync(path.join(w.packDir, "cores")).sort();
+
+test("G2: without hard links a core is still installed and updated, and nothing is left hidden", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  const m = noHardLinks();
+  try {
+    const w = world();
+    const first = await (await w.make(bot.base).check(catalogOf("nes"))).done;
+    assert.deepEqual(first.installed, ["fceumm"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm);
+    bot.state.builds = { ...bot.state.builds, fceumm: nro("fceumm-b") };
+    const out = await w.make(bot.base).update().done;
+    assert.deepEqual(out.replaced, ["fceumm"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), nro("fceumm-b"));
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"], "no aside or partial file is left");
+  } finally { m.mock.restore(); bot.close(); }
+});
+
+test("G2: without hard links a user's file dropped during an update stays in place, not hidden", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await (await w.make(bot.base).check(catalogOf("nes"))).done;
+    bot.state.builds = { ...bot.state.builds, fceumm: nro("fceumm-b") };
+    const mine = nro("user-wrote-this-meanwhile");
+    const m = noHardLinks();
+    try {
+      const auto = w.make(bot.base, { hashFile: racingHash(1, () => fs.writeFileSync(w.core("fceumm"), mine)) });
+      const out = await auto.update().done;
+      assert.deepEqual(out.replaced, []);
+    } finally { m.mock.restore(); }
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+  } finally { bot.close(); }
+});
+
+test("G2: without hard links the copy never overwrites a file that got to the place first", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  const mine = nro("dropped-at-the-last-moment");
+  let w;
+  const m = noHardLinks((to) => { if (to === w.core("fceumm")) fs.writeFileSync(to, mine); });
+  try {
+    w = world();
+    const out = await (await w.make(bot.base).check(catalogOf("nes"))).done;
+    assert.deepEqual([out.installed, out.failed], [[], []], "kept, not failed: the copy was refused, not the disk");
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+    assert.equal(w.ledger().all().has("cores/fceumm_libretro_libnx.nro"), false, "no ledger row for the user's file");
+  } finally { m.mock.restore(); bot.close(); }
+});
+
+/** A leftover beside `core`'s place, named the way auto-cores.js names them. */
+const leftover = (w, core, kind, bytes) => {
+  const abs = path.join(w.packDir, "cores", `.${core}_libretro_libnx.nro.${crypto.randomBytes(6).toString("hex")}.${kind}`);
+  fs.writeFileSync(abs, bytes);
+  return abs;
+};
+
+test("G3: on start the partial downloads, staging and the server's own moved-aside files are deleted", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await (await w.make(bot.base).check(catalogOf("nes", "gba"))).done;
+    leftover(w, "fceumm", "cfpart", nro("half"));
+    leftover(w, "fceumm", "aside", BUILDS.fceumm); // the server's, its place is taken
+    fs.rmSync(w.core("mgba"));
+    leftover(w, "mgba", "aside", BUILDS.mgba); // the server's, mid-update: its place is empty
+    fs.mkdirSync(path.join(w.dataDir, "retro-core-staging", "fceumm-abc"), { recursive: true });
+    fs.writeFileSync(path.join(w.dataDir, "retro-core-staging", "fceumm-abc", "x.zip"), "zip");
+    const out = await w.make(bot.base).recover();
+    assert.deepEqual(out.held, []);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+    assert.deepEqual(fs.existsSync(path.join(w.dataDir, "retro-core-staging")) ? fs.readdirSync(path.join(w.dataDir, "retro-core-staging")) : [], []);
+  } finally { bot.close(); }
+});
+
+test("G3: a user's file left aside goes back to its name when the place is empty", opts, async () => {
+  const w = world();
+  const mine = nro("users-core");
+  leftover(w, "fceumm", "aside", mine);
+  const out = await w.make("http://127.0.0.1:1/").recover();
+  assert.deepEqual(out.held, []);
+  assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+  assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine);
+});
+
+test("G3: a user's file left aside whose place is taken is held, shown, never deleted, and comes back on request", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    const hiddenUser = nro("user-a");
+    const occupant = nro("user-b");
+    fs.writeFileSync(w.core("fceumm"), occupant);
+    const aside = leftover(w, "fceumm", "aside", hiddenUser);
+    const auto = w.make(bot.base);
+    const out = await auto.recover();
+    assert.equal(out.held.length, 1);
+    assert.deepEqual({ core: out.held[0].core, file: out.held[0].file, size: out.held[0].size }, { core: "fceumm", file: path.basename(aside), size: hiddenUser.length });
+    // Before each job too: it is still there after one, and still not deleted.
+    await (await auto.check(catalogOf("nes"), { force: true })).done;
+    assert.deepEqual(fs.readFileSync(aside), hiddenUser);
+    assert.deepEqual((await auto.hidden()).map((h) => h.file), [path.basename(aside)]);
+    // The admin brings it back: the file in its place goes to the trash (nothing deleted).
+    await auto.useUserVersion("fceumm", { hidden: path.basename(aside) });
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), hiddenUser);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+    const trash = await listTrash(w.retroDir);
+    assert.equal(trash.length, 1);
+    assert.deepEqual(fs.readFileSync(path.join(w.retroDir, ".trash", trash[0].entry, trash[0].files[0])), occupant);
+    assert.deepEqual(await auto.hidden(), []);
+  } finally { bot.close(); }
+});
+
+test("G3: bringing back a held file over the server's own core deletes the server's core and its ledger row", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await (await w.make(bot.base).check(catalogOf("nes"))).done;
+    const hiddenUser = nro("user-a");
+    const aside = leftover(w, "fceumm", "aside", hiddenUser);
+    const auto = w.make(bot.base);
+    assert.equal((await auto.hidden()).length, 1);
+    await assert.rejects(auto.useUserVersion("fceumm", { hidden: "../../etc/passwd" }), (err) => err.status === 404);
+    await auto.useUserVersion("fceumm", { hidden: path.basename(aside) });
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), hiddenUser);
+    assert.deepEqual(coreNames(w), ["fceumm_libretro_libnx.nro"]);
+    assert.deepEqual(await listTrash(w.retroDir), [], "the server's core is not kept");
+    assert.equal(w.ledger().all().has("cores/fceumm_libretro_libnx.nro"), false);
+  } finally { bot.close(); }
 });

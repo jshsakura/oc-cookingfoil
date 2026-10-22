@@ -47,6 +47,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="muted" id="rp-last"></p>
   <div class="hd"><h3>기종별 코어</h3><button type="button" id="rc-auto" data-top="ac.button">빠진 코어 지금 받기</button><button type="button" id="rc-update" data-top="ac.update">설치된 코어 업데이트</button></div>
   <p class="muted" id="rc-auto-last"></p>
+  <div id="rc-hidden"></div>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
   <h3>설치된 코어</h3>
@@ -212,7 +213,11 @@ function acSwap(cs){
 async function acRun(name,core,question){if(question&&!await ask(question))return;
   try{const d=await api('/admin/api/retro-cores/'+name,{method:'POST',body:core?{core}:{}});toast(topText(d.started===false?'ac.nothing':'ac.started'));loadRetroCores();}
   catch(err){toast(err.message);}}
-function acLast(a){const p=$('rc-auto-last');if(!a){p.textContent='';return;}
+// A user's core a crash or a lost race left under a hidden name: held, never deleted, and put back on request.
+function acHidden(list){$('rc-hidden').replaceChildren(...(list||[]).map((h)=>{const fill=(k)=>topText(k).split('{name}').join(h.name).split('{file}').join(h.file);
+  const p=el('p',fill('ac.hidden')+' ','warn-line');p.append(btn(topText('ac.hiddenBack'),async()=>{if(!await ask(fill('ac.hiddenQ')))return;
+    try{await api('/admin/api/retro-cores/user-version',{method:'POST',body:{core:h.core,hidden:h.file}});toast(topText('ac.hiddenDone'));loadRetroCores();}catch(err){toast(err.message);}}));return p;}));}
+function acLast(a){acHidden(a&&a.hidden);const p=$('rc-auto-last');if(!a){p.textContent='';return;}
   const l=a.last;p.textContent=a.job?topText('ac.running'):l&&l.error?topText('ac.lastFail').split('{err}').join(l.error):l?topText('ac.lastOk').split('{i}').join((l.installed||[]).length).split('{r}').join((l.replaced||[]).length):'';}
 $('rc-auto').addEventListener('click',()=>acRun('auto'));
 $('rc-update').addEventListener('click',()=>acRun('update',null,topText('ac.updateQ')));

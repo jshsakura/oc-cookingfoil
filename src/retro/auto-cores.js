@@ -22,7 +22,16 @@
  *                         is deleted; refused, with the trash item left, when the name is taken
  *
  * A file is replaced or deleted only after it was moved aside (a rename in its folder) and the moved
- * bytes were hashed as the server's; anything else goes back. A user's file is never deleted.
+ * bytes were hashed as the server's; anything else goes back. A user's file is never deleted. A file is
+ * put in place with link(), which fails rather than overwrite; on a disk without hard links (exFAT,
+ * CIFS) with a copy into a file created exclusively (O_EXCL), which fails the same way.
+ *
+ * A crash or a lost race can leave files beside a core's place, hidden by a dot name, and a staging
+ * folder in the data dir. recover() runs when the upkeep starts and before each job, under the pack
+ * lock: staging and partial downloads (.cfpart) are deleted, a moved-aside file (.aside) of the
+ * server's (by the ledger and its hash) is deleted, and a user's goes back to its name when the place
+ * is empty. A user's file whose place is taken is held: never deleted, listed by hidden() for the
+ * admin, and useUserVersion(core, { hidden }) puts it back (what is in its place goes to the trash).
  *
  * Every download asks first that the data disk (the zip and its unpacked .nro) and the disk the
  * cores are written to each keep the NSZ floor (nszDiskFloorGb) plus 1 GiB free; the ledger gets
@@ -46,6 +55,7 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { pipeline } from "stream/promises";
 import debug from "../debug.js";
 import { PackError, sha256File } from "./pack-bundle.js";
 import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PACK, serverOwns } from "./pack-fill.js";
@@ -62,6 +72,9 @@ const NRO_MAGIC_AT = 0x10;
 
 const coreRel = (core) => `cores/${nroName(core)}`;
 const CORE_RE = /^[a-z0-9_]{1,64}$/;
+/** A file left beside a core's place by besideName(): [, its name, core, kind]. */
+const LEFTOVER_RE = /^\.(([a-z0-9_]{1,64})_libretro_libnx\.nro)\.[0-9a-f]{12}\.(aside|cfpart)$/;
+const STAGING = "retro-core-staging";
 
 /** Each console with games and the core it starts with, as [id, core]. Pure. */
 export function systemsInUse(games, systems) {
@@ -132,13 +145,42 @@ async function trashedCores(retroDir) {
 /** A name beside `abs` in its folder, hidden from the pack listing (base-pack.js skips dot names). */
 const besideName = (abs, kind) => path.join(path.dirname(abs), `.${path.basename(abs)}.${crypto.randomBytes(6).toString("hex")}.${kind}`);
 
+/** link() errors of a disk that has no hard links (exFAT, CIFS, some FUSE), where a copy stands in. */
+const NO_LINKS = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "EXDEV", "ENOSYS"]);
+
+/**
+ * `from`'s bytes at `to` only when nothing is there: fails with EEXIST when a file got to `to` first, so
+ * nothing is ever overwritten. `from` stays. Without hard links the bytes are copied into a file this
+ * opens with O_EXCL: the create is the same atomic check link() makes. COPYFILE_EXCL would be too, but
+ * when it fails halfway the partial file cannot be told from one a user put there meanwhile; holding
+ * the descriptor, this knows its inode and removes only that.
+ */
+async function linkNoClobber(from, to) {
+  try {
+    await fsp.link(from, to);
+    return;
+  } catch (err) {
+    if (!NO_LINKS.has(err.code)) throw err;
+  }
+  const fh = await fsp.open(to, "wx");
+  const { ino, dev } = await fh.stat();
+  try {
+    await pipeline(fs.createReadStream(from), fh.createWriteStream());
+  } catch (err) {
+    await fh.close().catch(() => {});
+    const now = await fsp.lstat(to).catch(() => null);
+    if (now && now.ino === ino && now.dev === dev) await fsp.rm(to, { force: true });
+    throw err;
+  }
+}
+
 /**
  * Puts a file moved aside back at `dest`, never over a file that got there since. When one did, the
- * aside file is deleted only if it is the server's (`owned`); a user's stays where it is.
+ * aside file is deleted only if it is the server's (`owned`); a user's stays, held (recover()).
  */
 async function putBack(aside, dest, owned) {
   try {
-    await fsp.link(aside, dest);
+    await linkNoClobber(aside, dest);
   } catch (err) {
     if (err.code !== "EEXIST") throw err;
     if (!owned) {
@@ -149,18 +191,24 @@ async function putBack(aside, dest, owned) {
   await fsp.rm(aside, { force: true });
 }
 
+const inside = (root, abs) => path.resolve(abs).startsWith(path.resolve(root) + path.sep);
+
+/** The retro trash's restore for restoreExact: today's refuses a taken place by itself, so `exactName` is not passed on. */
+const restoreCore = (dir, entry) => restoreEntry(dir, entry);
+
 const busy = () => new PackError("코어 작업이나 RetroArch 팩 채우기가 돌고 있습니다. 끝난 뒤 다시 합니다", { status: 409 });
 
 /**
  * The upkeep for one pack folder. Every dependency is a function or value so tests run it on a temp folder:
  * packDir(), retroDir, dataDir, ledger() (packLedger), enabled(), base() (the nightly address),
  * floorBytes(), freeBytes(dir), hashCache (helpers/hash-cache.js), hashFile(abs) (a fresh read, for the
- * check before a swap), restore(dir, entry) (trash.js restoreEntry), timeouts { core, index } (nightly-cores.js),
+ * check before a swap), restore(dir, entry, { exactName: true }) (trash.js restoreEntry: refuses when the
+ * name is taken, or puts the file beside it and lists it in `renamed` [{ rel, to }]), timeouts { core, index } (nightly-cores.js),
  * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores.
  */
 export function createAutoCores({
   packDir, retroDir, dataDir, ledger, enabled = () => true, base = () => NIGHTLY_BASE, floorBytes = () => 0,
-  freeBytes = statfsFree, hashCache = null, hashFile = sha256File, restore = restoreEntry, timeouts = { core: TIMEOUTS, index: INDEX_TIMEOUTS },
+  freeBytes = statfsFree, hashCache = null, hashFile = sha256File, restore = restoreCore, timeouts = { core: TIMEOUTS, index: INDEX_TIMEOUTS },
   activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now,
 }) {
   const file = path.join(dataDir, STATE_FILE);
@@ -230,7 +278,7 @@ export function createAutoCores({
    * Returns "installed" | "replaced" | "kept" (someone's file got there, or changed, first).
    */
   async function place(core, info, expect = null) {
-    const staging = path.join(dataDir, "retro-core-staging", `${core}-${crypto.randomBytes(6).toString("hex")}`);
+    const staging = path.join(dataDir, STAGING, `${core}-${crypto.randomBytes(6).toString("hex")}`);
     try {
       const nro = await fetchCore(core, { base: base(), fetchImpl, dir: staging, room, bin, timeouts: timeouts.core });
       const digest = await digestFile(nro);
@@ -255,7 +303,7 @@ export function createAutoCores({
   /** `tmp` becomes `dest` only when nothing is there: "installed", or "kept" when a file got there first. */
   async function putNew(tmp, dest) {
     try {
-      await fsp.link(tmp, dest);
+      await linkNoClobber(tmp, dest);
       return "installed";
     } catch (err) {
       if (err.code === "EEXIST") return "kept";
@@ -297,20 +345,86 @@ export function createAutoCores({
 
   /**
    * Restores the trash `entry` holding `core` under its own name and nowhere else. Refused (409), with the
-   * item left in the trash, when the name is taken. A trash that restores beside under another name
-   * (feat/shared-trash) is undone: what came back goes to the trash again.
+   * item left in the trash, when the name is taken. The trash is asked for the exact name; one that puts
+   * the file beside under another name (feat/shared-trash: `files` are the original paths, the new name
+   * only in `renamed[].to`) is undone: that file takes its own name when it is free, else goes back to
+   * the trash, and is checked gone from the pack.
    */
   async function restoreExact(core, entry) {
     const dest = path.join(packDir(), coreRel(core));
     const rel = path.relative(retroDir, dest).split(path.sep).join("/");
-    if (await fsp.lstat(dest).catch(() => null)) throw new PackError(`${nroName(core)} 자리에 다른 파일이 있어 되살리지 않았습니다`, { status: 409 });
-    const out = await restore(retroDir, entry);
-    const elsewhere = (out?.files ?? []).filter((f) => f !== rel);
-    if (out?.renamed?.length || elsewhere.length) {
-      for (const f of elsewhere) await toTrash(retroDir, path.join(retroDir, f), nroName(core)).catch((err) => debug.error("retro: could not put %s back in the trash: %s", f, err.message));
-      throw new PackError(`${nroName(core)} 자리에 다른 파일이 있어 되살리지 않았습니다`, { status: 409 });
+    const taken = () => new PackError(`${nroName(core)} 자리에 다른 파일이 있어 되살리지 않았습니다`, { status: 409 });
+    if (await fsp.lstat(dest).catch(() => null)) throw taken();
+    const out = await restore(retroDir, entry, { exactName: true });
+    const placed = new Set([...(out?.renamed ?? []).map((r) => r?.to), ...(out?.files ?? []).filter((f) => f !== rel)].filter((f) => typeof f === "string"));
+    let refused = false;
+    for (const f of placed) {
+      const abs = path.join(retroDir, ...f.split("/"));
+      if (!inside(retroDir, abs)) continue;
+      try {
+        await linkNoClobber(abs, dest);
+        await fsp.rm(abs, { force: true });
+        continue;
+      } catch (err) {
+        if (err.code !== "EEXIST") debug.error("retro: %s could not take its own name: %s", f, err.message);
+      }
+      refused = true;
+      await toTrash(retroDir, abs, nroName(core)).catch((err) => debug.error("retro: could not put %s back in the trash: %s", f, err.message));
+      if (await fsp.lstat(abs).catch(() => null)) throw new PackError(`${nroName(core)} 이 ${f} 로 되살아났고 휴지통으로 돌려보내지 못했습니다. 그 파일을 직접 지우거나 옮겨야 합니다`, { status: 500 });
     }
+    if (refused) throw taken();
     return out;
+  }
+
+  /**
+   * Clears what a crash or a lost race left (see the top of this file). Call with the pack lock held.
+   * Returns { held: [{ file, core, name, size, modifiedAt }] }: the user's files whose place is taken.
+   */
+  async function recoverHeld() {
+    await fsp.rm(path.join(dataDir, STAGING), { recursive: true, force: true }).catch((err) => debug.error("retro: could not clear %s: %s", STAGING, err.message));
+    const dir = path.join(packDir(), "cores");
+    const names = (await fsp.readdir(dir).catch(() => [])).filter((n) => LEFTOVER_RE.test(n)).sort();
+    if (!names.length) return { held: [] };
+    const entries = (await store()).all();
+    const known = knownOfficial(pack);
+    const held = [];
+    for (const file of names) {
+      const [, name, core, kind] = file.match(LEFTOVER_RE);
+      const abs = path.join(dir, file);
+      const st = await fsp.lstat(abs).catch(() => null);
+      if (!st?.isFile()) continue;
+      if (kind === "cfpart") {
+        await fsp.rm(abs, { force: true });
+        continue;
+      }
+      const sha = await hashFile(abs).catch(() => null);
+      if (sha !== null && serverOwns(sha, entries.get(coreRel(core)), known)) {
+        await fsp.rm(abs, { force: true });
+        continue;
+      }
+      try {
+        await linkNoClobber(abs, path.join(dir, name));
+        await fsp.rm(abs, { force: true });
+        debug.log("retro: %s came back under its own name", name);
+        continue;
+      } catch (err) {
+        if (err.code !== "EEXIST") debug.error("retro: %s could not go back: %s", name, err.message);
+      }
+      held.push({ file, core, name, size: st.size, modifiedAt: st.mtimeMs });
+    }
+    return { held };
+  }
+
+  /** recoverHeld() under the pack lock; { held: [], busy: true } while a job or a fill runs. */
+  async function recover() {
+    if (job) return { held: [], busy: true };
+    const release = claimFill();
+    if (!release) return { held: [], busy: true };
+    try {
+      return await recoverHeld();
+    } finally {
+      release();
+    }
   }
 
   /** Runs `fn` as the one job of this upkeep, holding the pack against a fill. Throws 409 when either runs. */
@@ -322,6 +436,7 @@ export function createAutoCores({
     job = { kind, cores: new Set(cores), startedAt: now() };
     job.done = (async () => {
       try {
+        await recoverHeld();
         const out = await fn(act);
         saved = { ...saved, last: { at: now(), kind, ...out } };
         persist();
@@ -390,6 +505,7 @@ export function createAutoCores({
       return { started: false, reason: "busy", cores: [] };
     }
     if (readRecovery(dataDir)) return { started: false, reason: "recovery", cores: [] };
+    await recover();
     const cores = await due(cat, force);
     if (!cores.length) return { started: false, reason: "nothing", cores };
     if (job) {
@@ -465,18 +581,29 @@ export function createAutoCores({
     });
   }
 
-  /** The user's core comes back from the retro trash under its own name; the server's file (fetched again any time) is deleted. */
-  async function useUserVersion(core) {
+  /**
+   * The user's core comes back under its own name, from the retro trash or, with `hidden`, from a held
+   * file (recover()). From the trash, the server's file in its place (fetched again any time) is deleted
+   * and a user's refuses. A held file was hidden by a lost race with another file of the user's, so that
+   * one goes to the trash instead (a server's file is deleted); nothing of the user's is deleted.
+   */
+  async function useUserVersion(core, { hidden = null } = {}) {
     if (!CORE_RE.test(String(core))) throw new PackError("코어 이름이 맞지 않습니다", { status: 400 });
-    const entry = (await trashedCores(retroDir)).get(core);
-    if (!entry) throw new PackError("휴지통에 이 코어의 사용자 버전이 없습니다", { status: 404 });
+    const entry = hidden === null ? (await trashedCores(retroDir)).get(core) : null;
+    if (hidden === null && !entry) throw new PackError("휴지통에 이 코어의 사용자 버전이 없습니다", { status: 404 });
     if (job) throw busy();
     const release = claimFill();
     if (!release) throw busy();
     try {
+      const { held } = await recoverHeld();
       const dest = path.join(packDir(), coreRel(core));
       const ledgerNow = await store();
       const owns = (sha) => serverOwns(sha, ledgerNow.all().get(coreRel(core)), knownOfficial(pack));
+      if (hidden !== null) {
+        const item = held.find((h) => h.file === hidden && h.core === core);
+        if (!item) throw new PackError("숨은 사용자 코어가 없습니다. 목록을 새로 고칩니다", { status: 404 });
+        return await bringBackHeld(core, item, dest, owns, ledgerNow);
+      }
       const notMine = () => new PackError("지금 자리에 있는 코어도 사용자 파일이라 바꾸지 않습니다", { status: 409 });
       const sha = await hashOf(dest);
       if (sha !== null && !owns(sha)) throw notMine();
@@ -504,11 +631,47 @@ export function createAutoCores({
     }
   }
 
+  /** Puts the held file `item` at `dest`; what is there goes to the trash, or is deleted when it is the server's. */
+  async function bringBackHeld(core, item, dest, owns, ledgerNow) {
+    const abs = path.join(path.dirname(dest), item.file);
+    let trashed = null;
+    const sha = await hashOf(dest);
+    if (sha !== null && owns(sha)) {
+      const aside = besideName(dest, "aside");
+      await fsp.rename(dest, aside).catch((err) => {
+        if (err.code !== "ENOENT") throw err;
+      });
+      if (await fsp.lstat(aside).catch(() => null)) {
+        // The bytes moved aside are what gets deleted, so they are what is checked, read again.
+        if (!owns(await hashFile(aside).catch(() => null))) {
+          await putBack(aside, dest, false);
+          throw new PackError(`${nroName(core)} 자리의 파일이 방금 바뀌어 되돌리지 않았습니다. 다시 시도합니다`, { status: 409 });
+        }
+        await fsp.rm(aside, { force: true });
+      }
+    } else if (sha !== null) {
+      trashed = (await toTrash(retroDir, dest, nroName(core))).entry;
+    }
+    try {
+      await linkNoClobber(abs, dest);
+    } catch (err) {
+      if (err.code === "EEXIST") throw new PackError(`${nroName(core)} 자리에 또 다른 파일이 생겨 되돌리지 않았습니다. 숨은 파일은 그대로 있습니다`, { status: 409 });
+      throw err;
+    }
+    await fsp.rm(abs, { force: true });
+    ledgerNow.drop(coreRel(core));
+    debug.log("retro: held %s is back as %s", item.file, item.name);
+    return { core, restored: item.file, ...(trashed ? { trashed } : {}) };
+  }
+
   return {
     check,
     update,
     useOfficial,
     useUserVersion,
+    recover,
+    /** The user's files left hidden beside a taken place (recover()); [] while a job or a fill runs. */
+    hidden: async () => (await recover()).held,
     /** The job now, the failures and the last result. */
     status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null }),
     /** Each console's state, with `present` (Map core → sha256 | null) read by the caller. */
@@ -549,5 +712,6 @@ export async function autoCores() {
     hashCache: new HashCache(hashStore(appDb(), "retro")),
     activity,
   });
+  shared.recover().catch((err) => debug.error("retro: core leftovers not cleared: %s", err.message));
   return shared;
 }

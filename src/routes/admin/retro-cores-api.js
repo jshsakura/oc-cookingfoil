@@ -16,13 +16,15 @@
  *                                             libretro nightly buildbot (202 { started, cores } or 200 { started: false, reason })
  *   POST /admin/api/retro-cores/update        replaces each server core whose CRC-32 the nightly index changed (202)
  *   POST /admin/api/retro-cores/official      { core } the user's core goes to the retro trash, the nightly one takes its place (202)
- *   POST /admin/api/retro-cores/user-version  { core } the user's core comes back from the trash (200 { core, restored })
+ *   POST /admin/api/retro-cores/user-version  { core, hidden? } the user's core comes back from the trash, or with
+ *                                             `hidden` the held file of that name (200 { core, restored, trashed? })
  *   409 while another core job or a pack fill runs.
  *
  * E = { size, sha256, modifiedAt, origin: "official" | "modified" | "extra" } (src/retro/core-list.js).
  * Each systems[] entry carries coreState { id, core, state, reason?, message?, retryAt?, origin?, source?, built?,
  * crc32?, userVersion? } (src/retro/auto-cores.js coreStates), and `auto` is the upkeep's
- * { enabled, source, job, failures, last }.
+ * { enabled, source, job, failures, last, hidden: [{ file, core, name, size, modifiedAt }] } (hidden: a user's
+ * core left beside a taken place by a crash or a lost race, held for the admin).
  * Automation tokens may read all of it and start the install and the update (they write only the server's
  * own files), but not official or user-version, which move a user's core to or from the trash
  * (admin-page.js TOKEN_BLOCKED_RE).
@@ -54,7 +56,7 @@ export function mountRetroCoresApi(router, requireSession) {
       const list = await listCores(packDirOf(retroDir), hashCache, catalog.games, catalog.systems);
       const auto = await autoCores();
       const states = new Map((await auto.states(catalog, new Map(list.cores.map((c) => [c.core, c.sha256])))).map((st) => [st.id, st]));
-      res.json({ ...list, systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: auto.status() });
+      res.json({ ...list, systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
       res.status(502).json({ error: err.message });
@@ -105,7 +107,7 @@ export function mountRetroCoresApi(router, requireSession) {
   job("auto", async (a) => a.check(await retroCatalog.current(retroDir), { force: true }));
   job("update", async (a) => jobView(a.update()));
   job("official", async (a, body) => jobView(a.useOfficial(body.core)));
-  job("user-version", async (a, body) => a.useUserVersion(body.core));
+  job("user-version", async (a, body) => a.useUserVersion(body.core, { hidden: typeof body.hidden === "string" ? body.hidden : null }));
 
   router.post("/api/retro-cores/remove", async (req, res) => {
     if (!requireSession(req, res)) return;
