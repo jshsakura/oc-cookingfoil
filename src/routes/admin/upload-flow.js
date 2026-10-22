@@ -35,3 +35,28 @@ export function failureKind(status, message) {
   if (status === 409 && /^이미 있습니다/.test(message ?? "")) return "dup";
   return null;
 }
+
+/** The same count in files: { ok, fail, wait } over what each unit holds (`files`), for batches that are not one file each. */
+export function tallyFiles(units) {
+  const t = { ok: 0, fail: 0, wait: 0 };
+  for (const u of units) t[u.state === "ok" ? "ok" : u.state === "fail" ? "fail" : "wait"] += u.files?.length ?? 1;
+  return t;
+}
+
+/** True when some request carries several files, so the counts are batches and not files. */
+export function hasBatches(units) {
+  return units.some((u) => (u.files?.length ?? 1) > 1);
+}
+
+/**
+ * Which past rows to drop to keep the history short: the oldest ones that are not part of the batch on
+ * screen. The batch being sent, and its failures, are never dropped. Returns the units to remove.
+ */
+export function trimHistory(history, current, max) {
+  const drop = [];
+  for (const u of history) {
+    if (history.length - drop.length <= max) break;
+    if (!current.includes(u)) drop.push(u);
+  }
+  return drop;
+}

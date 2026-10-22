@@ -52,3 +52,12 @@ test("a file the names cannot place is left unknown, never given a kind", () => 
   assert.deepEqual(guess({ names: ["notes.txt"] }), { kind: null });
   assert.deepEqual(guess({ names: ["photo.png", "readme.md"] }), { kind: null });
 });
+
+test("a folder is read as what its files show: packages, a save's file kinds, else undecided", () => {
+  assert.deepEqual(guess({ names: ["a.nsp", "b.xci"], paths: ["Games/a.nsp", "Games/b.xci"] }), { kind: "game", name: "Games" }, "a folder of packages is packages");
+  assert.deepEqual(guess({ names: ["notes.txt"], paths: ["Documents/notes.txt"] }), { kind: null, name: "Documents" }, "notes are not a save");
+  assert.deepEqual(guess({ names: ["a.nsp", "readme.txt"], paths: ["Mixed/a.nsp", "Mixed/readme.txt"] }), { kind: null, name: "Mixed" }, "packages next to notes are not decided");
+  assert.deepEqual(guess({ names: ["Mario.sfc"], paths: ["Roms/Mario.sfc"] }), { kind: null, name: "Roms" }, "a ROM folder is not a save");
+  assert.deepEqual(guess({ names: ["userdata.dat"], paths: ["MK8 save/userdata.dat"] }), { kind: "save", name: "MK8 save" });
+  assert.equal(guess({ names: ["0", "x.meta"], paths: ["B/0", "B/x.meta"] }).kind, "save", "a file with no extension or a .meta counts");
+});

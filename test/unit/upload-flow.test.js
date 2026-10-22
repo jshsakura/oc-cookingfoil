@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { failureKind, splitUnits, tally, unitsToSend } from "../../src/routes/admin/upload-flow.js";
+import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "../../src/routes/admin/upload-flow.js";
 import { TOP_LANGS, TOP_WORDS } from "../../src/routes/admin/top-i18n.js";
 import { DASHBOARD_SCRIPT } from "../../src/routes/admin/dashboard-script.js";
 import { dashboardPage } from "../../src/routes/admin/dashboard-page.js";
@@ -67,6 +67,7 @@ test("every upload string the page script asks for exists in all four languages 
   const keys = new Set([...DASHBOARD_SCRIPT.matchAll(/upT\('(\w+)'/g)].map((m) => m[1]));
   // Keys built from a table in the script: every kind needs its name, hint and plan.
   for (const kind of ["Game", "Patch", "Save", "Homebrew", "Port", "Client", "Retro"]) keys.add(`k${kind}`);
+  for (const k of ["sumB", "sumBWait", "rList", "rUnit"]) keys.add(k);
   for (const k of ["hGame", "hRetro", "hPatch", "hSave", "hHomebrew", "hClient", "hPort", "pHomebrew", "pPort", "pClient"]) keys.add(k);
   assert.ok(keys.size > 30);
   for (const key of keys) {
@@ -93,4 +94,37 @@ test("the page promises no incoming handoff and says homebrew and the client bui
   }
   assert.match(TOP_WORDS.ko["u.pHomebrew"], /바꿉니다/);
   assert.match(TOP_WORDS.ko["u.pClient"], /바꿉니다/);
+});
+
+test("the history cap never drops the batch on screen or its failures, only older rows", () => {
+  const old = Array.from({ length: 10 }, (_, i) => ({ id: `old${i}`, state: "ok" }));
+  const current = Array.from({ length: 51 }, (_, i) => ({ id: `cur${i}`, state: i === 0 ? "fail" : "ok" }));
+  const history = [...old, ...current];
+  const drop = trimHistory(history, current, 50);
+  assert.deepEqual(drop.map((u) => u.id), old.map((u) => u.id), "only past rows go, even though the current batch alone is over the cap");
+  assert.ok(!drop.includes(current[0]), "the failed row of the batch stays");
+  assert.deepEqual(trimHistory(old, [], 50), [], "under the cap nothing goes");
+  assert.deepEqual(trimHistory(Array.from({ length: 53 }, (_, i) => ({ i })), [], 50).map((u) => u.i), [0, 1, 2], "the oldest go first");
+});
+
+test("batch counts are told in files too, and only when a request holds several files", () => {
+  const folder = [{ state: "ok", files: [1, 2] }, { state: "fail", files: [1, 2, 3] }, { state: "ok", files: [1] }];
+  assert.equal(hasBatches(folder), true);
+  assert.deepEqual(tally(folder), { ok: 2, fail: 1, wait: 0 });
+  assert.deepEqual(tallyFiles(folder), { ok: 3, fail: 3, wait: 0 });
+  assert.equal(hasBatches([{ state: "ok", files: [1] }, { state: "ok", files: [1] }]), false, "one file per request reads as files");
+});
+
+test("each request freezes where it goes, the controls lock while sending, and a finished summary is kept for a language switch", () => {
+  assert.match(DASHBOARD_SCRIPT, /f:\{kind:upKind,system:\$\('up-system'\)\.value,app:\$\('up-target'\)\.value,titleId:upTitleId\(\)\}/);
+  const send = DASHBOARD_SCRIPT.slice(DASHBOARD_SCRIPT.indexOf("function upSend("), DASHBOARD_SCRIPT.indexOf("async function upSubmit"));
+  assert.ok(!/upKind/.test(send), "a request never reads the live kind");
+  assert.ok(!/\$\('up-system'\)|\$\('up-target'\)/.test(send), "nor the live console or target");
+  assert.match(DASHBOARD_SCRIPT, /#up-kinds button,#up-change,#up-file-btn,#up-dir-btn'\)\)b\.disabled=upBusy/);
+  assert.match(DASHBOARD_SCRIPT, /const shown=upUnits\.length\?upUnits:upDone/);
+});
+
+test("the batch wording is in all four languages with the file counts", () => {
+  for (const [code] of TOP_LANGS) for (const k of ["sumB", "sumBWait", "rList", "rUnit"]) assert.ok(TOP_WORDS[code][`u.${k}`], `${code} u.${k}`);
+  assert.equal(holes(TOP_WORDS.en["u.sumB"]), "fail,failF,ok,okF");
 });

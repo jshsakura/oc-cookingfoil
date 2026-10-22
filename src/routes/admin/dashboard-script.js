@@ -3,7 +3,7 @@
  * Plain DOM, no framework: the page must work on an offline LAN box.
  */
 import { guessUpload } from "./upload-guess.js";
-import { failureKind, splitUnits, tally, unitsToSend } from "./upload-flow.js";
+import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "./upload-flow.js";
 
 export const DASHBOARD_SCRIPT = /* js */ `
 const $=(id)=>document.getElementById(id);
@@ -685,12 +685,15 @@ const upT=(k,v)=>{let s=topText('u.'+k);if(v)for(const x in v)s=s.split('{'+x+'}
 const UP_KIND_KEY={game:'kGame',patch:'kPatch',save:'kSave',homebrew:'kHomebrew',port:'kPort',client:'kClient',retro:'kRetro'};
 const UP_HINT_KEY={game:'hGame',retro:'hRetro',patch:'hPatch',save:'hSave',homebrew:'hHomebrew',client:'hClient',port:'hPort'};
 let upKind=null,upInfo=null,upFiles=[],upPaths=null,upSystems=[],upGuess=null,upPreset=false,upOpen=false,upAllSys=false,upBusy=false;
-let upUnits=[],upHistory=[];
+let upUnits=[],upHistory=[],upDone=[];
 ${guessUpload.toString()}
 ${splitUnits.toString()}
 ${unitsToSend.toString()}
 ${tally.toString()}
 ${failureKind.toString()}
+${tallyFiles.toString()}
+${hasBatches.toString()}
+${trimHistory.toString()}
 // The entry names of a .zip, read from its central directory (no unpacking); null when it can't be read.
 async function zipNames(file){
   try{const tail=Math.min(file.size,65557);const v=new DataView(await file.slice(file.size-tail).arrayBuffer());
@@ -790,9 +793,20 @@ function upRender(){
   $('up-go').textContent=failed&&!upBusy?upT('goRetry',{n:failed}):upT('go');
   $('up-go').disabled=upBusy||!(w&&w.writable)||(upKind==='retro'&&!sys);$('up-clear').disabled=upBusy;$('up-clear').textContent=upT('reset');
   // The result of the batch on screen.
-  const t=tally(upUnits);const sum=$('up-sum');sum.hidden=!upUnits.length;
-  if(upUnits.length)sum.textContent=upT('rSum',t)+(t.wait?upT('rSumWait',t):'')+(t.fail&&t.ok&&!upBusy?'. '+upT('rKeep'):'');
+  // The batch on screen, or the one that just finished: its summary stays through a language switch.
+  const shown=upUnits.length?upUnits:upDone;const t=tally(shown);const sum=$('up-sum');sum.hidden=!shown.length;
+  if(shown.length)sum.textContent=upSumText(shown)+(upUnits.length&&t.fail&&t.ok&&!upBusy?'. '+upT('rKeep'):'');
+  // While files are going up nothing that decides where they go can be changed.
+  for(const b of document.querySelectorAll('#up-kinds button,#up-change,#up-file-btn,#up-dir-btn'))b.disabled=upBusy;
+  for(const id of ['up-target','up-game','up-name','up-desc','up-desc-ko','up-savetype','up-required'])$(id).disabled=upBusy;
+  $('up-drop').setAttribute('aria-disabled',String(upBusy));
   for(const u of upHistory)upPaint(u);}
+// Counts in files when a request carries several (a folder, a disc set), else in requests; never invented per file.
+function upSumText(units){const t=tally(units);
+  if(!hasBatches(units))return upT('rSum',t)+(t.wait?upT('rSumWait',t):'');
+  const f=tallyFiles(units);
+  return upT('sumB',{ok:t.ok,fail:t.fail,okF:f.ok,failF:f.fail})+(t.wait?upT('sumBWait',{wait:t.wait,waitF:f.wait}):'');}
+function upTrim(){for(const u of trimHistory(upHistory,upUnits,50)){u.row?.remove();upHistory.splice(upHistory.indexOf(u),1);}}
 // One result row per request, updated in place as it goes from waiting to sent or failed.
 function upPaint(u){
   if(!u.row){u.row=el('div',null,'note');u.row.setAttribute('role','listitem');$('up-log').prepend(u.row);}
@@ -800,6 +814,9 @@ function upPaint(u){
   u.row.className='note'+(fail?' warn':'');
   const head=ok?upT('rOk'):fail?upT('rFail'):upT(u.state==='busy'?'rBusy':'rWait');
   const kids=[el('div',head+' · '+u.label,'t')];
+  if(u.files.length>1){const det=el('details',null,'d');det.append(el('summary',upT('rList',{n:u.files.length})));
+    for(const [i,f] of u.files.entries())det.append(el('div',u.paths?u.paths[i]:f.name));
+    kids.push(det,el('div',upT('rUnit'),'d'));}
   if(ok){const d=u.d||{};
     kids.push(el('div',upT('rWhere',{where:d.where,n:d.files})+(d.kind==='port'?' · '+upT('rPort'):''),'d'));
     if(d.install){for(const x of d.install.excluded||[])kids.push(el('div',upT('rExcl',{rule:HB_EXCLUDED[x.rule]||x.rule,paths:x.paths.join(', ')}),'d'));
@@ -815,7 +832,7 @@ function upSetKind(kind,fromUser){
   upKind=kind;upRender();}
 // A batch that was partly sent is over once the kind changes: what went up stays up, the rest is picked again.
 function upDropBatch(){
-  if(!upUnits.length)return;
+  if(upBusy||!upUnits.length)return;
   const rest=unitsToSend(upUnits);
   if(rest.length<upUnits.length){upFiles=rest.flatMap((u)=>u.files);if(!rest.some((u)=>u.paths))upPaths=null;}
   upUnits=[];}
@@ -839,13 +856,13 @@ async function loadUpload(){
   // Sent here from an app card: the app and what to add to it are already chosen.
   if(upPending){
     // A new entry starts clean: nothing picked or failed before may be sent to the kind chosen here.
-    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
+    if(!upBusy){upFiles=[];upPaths=null;upUnits=[];upDone=[];upGuess=null;upSystems=[];upOpen=false;upAllSys=false;}
     $('up-target').value=upPending.app;upKind=upPending.kind;upPreset=true;upPending=null;}
   upRender();}
 // New files: read what they are from the names, fill in what the names tell, and leave the rest to the admin.
 async function upTake(files,paths){
   if(upBusy||!files.length||!await loadUploadInfo())return;
-  upFiles=files;upPaths=paths;upUnits=[];upAllSys=false;upOpen=false;
+  upFiles=files;upPaths=paths;upUnits=[];upDone=[];upAllSys=false;upOpen=false;
   const zip=!paths&&files.length===1&&/[.]zip$/i.test(files[0].name)?await zipNames(files[0]):null;
   const g=guessUpload({names:files.map((f)=>f.name),paths,zipNames:zip,systems:upInfo.systems});
   upGuess=g;upSystems=g.systems||[];
@@ -856,22 +873,23 @@ async function upTake(files,paths){
     if(g.titleId){$('up-target').value='';const game=upInfo.games.find((x)=>x.titleId===g.titleId);
       $('up-game').value=game?game.name+' ['+game.titleId+']':g.titleId;}}
   upRender();}
-function upReset(){if(upBusy)return;upFiles=[];upPaths=null;upSystems=[];upGuess=null;upUnits=[];upOpen=false;upAllSys=false;upPreset=false;upKind=null;
+function upReset(){if(upBusy)return;upFiles=[];upPaths=null;upSystems=[];upGuess=null;upUnits=[];upDone=[];upOpen=false;upAllSys=false;upPreset=false;upKind=null;
   for(const id of ['up-name','up-desc','up-desc-ko','up-savetype'])$(id).value='';
   $('up-required').checked=false;$('up-target').value='';$('up-game').value='';
   upRender();}
-$('up-target').addEventListener('change',upRender);
-$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b)return;
+$('up-target').addEventListener('change',()=>{upDropBatch();upRender();});
+$('up-game').addEventListener('input',()=>{upDropBatch();upRender();});
+$('up-kinds').addEventListener('click',(e)=>{const b=e.target.closest('[data-kind]');if(!b||upBusy)return;
   const kind=b.dataset.kind;
   if(b.dataset.system){$('up-system').value=b.dataset.system;upOpen=false;}
   else if(kind==='retro'){if(upKind!=='retro')$('up-system').value='';}
   else upOpen=false;
   upSetKind(kind,true);});
-$('up-change').addEventListener('click',()=>{upOpen=!upOpen;upRender();});
-$('up-file-btn').addEventListener('click',()=>$('up-file').click());
-$('up-dir-btn').addEventListener('click',()=>$('up-dir').click());
-$('up-drop').addEventListener('click',(e)=>{if(!e.target.closest('button'))$('up-file').click();});
-$('up-drop').addEventListener('keydown',(e)=>{if(e.target===$('up-drop')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();$('up-file').click();}});
+$('up-change').addEventListener('click',()=>{if(upBusy)return;upOpen=!upOpen;upRender();});
+$('up-file-btn').addEventListener('click',()=>{if(!upBusy)$('up-file').click();});
+$('up-dir-btn').addEventListener('click',()=>{if(!upBusy)$('up-dir').click();});
+$('up-drop').addEventListener('click',(e)=>{if(!upBusy&&!e.target.closest('button'))$('up-file').click();});
+$('up-drop').addEventListener('keydown',(e)=>{if(e.target===$('up-drop')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(!upBusy)$('up-file').click();}});
 $('up-clear').addEventListener('click',upReset);
 $('up-file').addEventListener('change',()=>{const f=[...$('up-file').files];$('up-file').value='';upTake(f,null);});
 $('up-dir').addEventListener('change',()=>{const f=[...$('up-dir').files];$('up-dir').value='';upTake(f,f.map((x)=>x.webkitRelativePath||x.name));});
@@ -888,13 +906,15 @@ function upTitleId(){const v=$('up-game').value.trim();const m=v.match(/[0-9A-Fa
 // One request for one unit; it ends with the unit marked sent or failed and its row repainted.
 function upSend(u,label){return new Promise((resolve)=>{
   const fd=new FormData();
-  if(upKind==='retro')fd.append('system',$('up-system').value);
-  if(upKind==='patch'||upKind==='save'){const app=$('up-target').value;
-    if(app)fd.append('homebrew',app);else fd.append('titleId',upTitleId());fd.append('name',$('up-name').value.trim());
+  // Where it goes was frozen into the unit when the batch was made; the name and descriptions are read now.
+  const k=u.f.kind;
+  if(k==='retro')fd.append('system',u.f.system);
+  if(k==='patch'||k==='save'){const app=u.f.app;
+    if(app)fd.append('homebrew',app);else fd.append('titleId',u.f.titleId);fd.append('name',$('up-name').value.trim());
     fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
-    if(upKind==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
-    if(upKind==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
-  if(upKind==='port')fd.append('port','true');
+    if(k==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
+    if(k==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
+  if(k==='port')fd.append('port','true');
   if(u.paths)fd.append('paths',JSON.stringify(u.paths));
   for(const f of u.files)fd.append('files',f,f.name);
   const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
@@ -904,7 +924,7 @@ function upSend(u,label){return new Promise((resolve)=>{
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
     u.status=xhr.status;u.d=d;u.msg=d.error||'';u.state=xhr.status===201?'ok':'fail';
     upPaint(u);resolve();});
-  xhr.open('POST','/admin/api/upload/'+(upKind==='port'?'homebrew':upKind));xhr.send(fd);});}
+  xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.send(fd);});}
 // Send the given units (default: every one that has not gone in). Units that went up are never sent again.
 async function upSubmit(only){
   if(upBusy)return;
@@ -915,11 +935,12 @@ async function upSubmit(only){
     if(!$('up-target').value&&!upTitleId()){toast(upT('tTarget'));return;}
     if(!$('up-name').value.trim()){toast(upT('tName'));return;}}
   if(!upUnits.length){
-    upUnits=splitUnits({kind:upKind,names:upFiles.map((f)=>f.name),paths:upPaths}).map((s)=>({label:s.label,files:s.from.map((i)=>upFiles[i]),paths:upPaths&&upKind!=='game'?s.from.map((i)=>upPaths[i]):null,state:'wait'}));
+    upUnits=splitUnits({kind:upKind,names:upFiles.map((f)=>f.name),paths:upPaths}).map((s)=>({label:s.label,files:s.from.map((i)=>upFiles[i]),paths:upPaths&&upKind!=='game'?s.from.map((i)=>upPaths[i]):null,state:'wait',f:{kind:upKind,system:$('up-system').value,app:$('up-target').value,titleId:upTitleId()}}));
+    upDone=[];
     for(const u of upUnits)upHistory.push(u);
     // Rows go in newest first, so the batch reads top to bottom in the order it was picked.
     for(const u of [...upUnits].reverse())upPaint(u);
-    while(upHistory.length>50){const old=upHistory.shift();old.row?.remove();}}
+    upTrim();}
   const todo=(only||unitsToSend(upUnits)).filter((u)=>u.state!=='ok');
   upBusy=true;for(const u of todo)u.state='wait';upRender();
   for(const [i,u] of todo.entries()){u.state='busy';upPaint(u);
@@ -932,7 +953,7 @@ async function upSubmit(only){
     $('up-required').checked=false;$('up-target').value='';$('up-game').value='';
     const done=upUnits;upUnits=[];upRender();
     // The summary of a finished batch stays until the next pick.
-    const t=tally(done);$('up-sum').hidden=false;$('up-sum').textContent=upT('rSum',t);
+    upDone=done;upRender();upTrim();
     toast(upT('tDone'));}
   else{upRender();toast(upT('tSome'));}}
 $('up-form').addEventListener('submit',(e)=>{e.preventDefault();upSubmit();});

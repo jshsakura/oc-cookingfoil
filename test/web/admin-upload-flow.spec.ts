@@ -179,3 +179,86 @@ test('a folder is one request with its own result, and the language switch repai
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+const created = (where: string) => ({ status: 201, contentType: 'application/json', body: JSON.stringify({ ok: true, kind: 'game', where, files: 1 }) });
+
+test('51 packages with the first refused keep the failed row on screen next to the 50 that went up', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  const names = Array.from({ length: 51 }, (_, i) => `E2E Flow N${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
+  await page.route('**/admin/api/upload/game', async (route) => {
+    const body = route.request().postDataBuffer()?.toString('latin1') ?? '';
+    if (body.includes(names[0])) await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `이미 있습니다: ${names[0]}` }) });
+    else await route.fulfill(created('x'));
+  });
+  await page.locator('#up-file').setInputFiles(names.map(pkg));
+  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await expect(page.locator('#up-sum')).toContainText('성공 50개 · 실패 1개');
+  await expect(page.locator('#up-log .note.warn')).toHaveCount(1);
+  await expect(page.locator('#up-log .note.warn')).toContainText(names[0]);
+  await expect(page.locator('#up-log .note.warn').getByRole('button', { name: '다시 시도' })).toBeVisible();
+  await expect(page.locator('#up-log .note')).toHaveCount(51);
+});
+
+test('while files are going up the kind, console and target cannot be changed, and every request goes where the batch was made', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  const names = [nsp('A'), nsp('BB')];
+  const urls: string[] = [];
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  await page.route('**/admin/api/upload/**', async (route) => {
+    urls.push(new URL(route.request().url()).pathname);
+    if (urls.length === 1) await gate;
+    await route.fulfill(created('x'));
+  });
+  await page.locator('#up-file').setInputFiles(names.map(pkg));
+  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await expect(page.locator('#up-change')).toBeDisabled();
+  await expect(page.locator('#up-file-btn')).toBeDisabled();
+  await expect(page.locator('#up-dir-btn')).toBeDisabled();
+  await expect(page.locator('#up-kinds button').first()).toBeDisabled();
+  await page.locator('#up-change').click({ force: true });
+  await expect(page.locator('#up-kinds')).toBeHidden();
+  release();
+  await expect(page.locator('#up-sum')).toContainText('성공 2개 · 실패 0개');
+  expect(urls).toEqual(['/admin/api/upload/game', '/admin/api/upload/game']);
+  await expect(page.locator('#up-change')).toBeHidden();
+});
+
+test('a folder is not guessed as a save without a reason, a folder of packages reads as packages without a false warning, and batch counts say batches and files', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-flow-'));
+  try {
+    fs.mkdirSync(`${dir}/Documents`);
+    fs.writeFileSync(`${dir}/Documents/notes.txt`, 'x');
+    await page.locator('#up-dir').setInputFiles(`${dir}/Documents`);
+    await expect(page.locator('#up-guess-t')).toContainText('종류를 알 수 없습니다');
+    await expect(page.locator('#up-go')).toBeDisabled();
+    fs.mkdirSync(`${dir}/Pkgs`);
+    for (const n of ['A', 'BB']) fs.writeFileSync(`${dir}/Pkgs/${nsp(n)}`, 'x');
+    await page.locator('#up-dir').setInputFiles(`${dir}/Pkgs`);
+    await expect(page.locator('#up-guess-t')).toContainText('읽은 종류: 패키지');
+    await expect(page.locator('#up-guess-t')).not.toContainText('다른 종류');
+    // A save folder is one batch of two files: the summary says so and the files can be unfolded.
+    fs.mkdirSync(`${dir}/Flow save`);
+    fs.writeFileSync(`${dir}/Flow save/userdata.dat`, 'x');
+    fs.writeFileSync(`${dir}/Flow save/extra.dat`, 'y');
+    await page.locator('#up-dir').setInputFiles(`${dir}/Flow save`);
+    await page.locator('#up-game').fill('Test Game [0100000000010000]');
+    await page.locator('#up-game').dispatchEvent('input');
+    await page.getByRole('button', { name: '올리기', exact: true }).click();
+    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(2개 파일) · 실패 0묶음(0개 파일)');
+    await expect(page.locator('#up-log .note details summary')).toContainText('묶음 안의 파일 2개');
+    // The finished summary survives a language switch.
+    await page.locator('#lang-btn').click();
+    await page.locator('[data-admin-lang="en"]').click();
+    await expect(page.locator('#up-sum')).toContainText('1 batches (2 files) sent');
+    await page.locator('#lang-btn').click();
+    await page.locator('[data-admin-lang="ko"]').click();
+    await expect(page.locator('#up-sum')).toContainText('성공 1묶음(2개 파일)');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
