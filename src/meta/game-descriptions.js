@@ -53,11 +53,17 @@ export function normalize(raw) {
   return out;
 }
 
-/** The fields of a game.json that are text in English or Korean; anything else in the file is left out. Pure. */
+const HANGUL_RE = /[\uac00-\ud7a3]/;
+
+/**
+ * The fields of a game.json that are text in English or Korean; anything else in the file is left out.
+ * A field written by hand as plain text counts as Korean when it has Hangul, else English. Pure.
+ */
 function readFields(json) {
   const out = {};
   for (const field of FIELDS) {
-    const v = json?.[field];
+    let v = json?.[field];
+    if (typeof v === "string") v = HANGUL_RE.test(v) ? { ko: v } : { en: v };
     if (!v || typeof v !== "object") continue;
     const en = typeof v.en === "string" && v.en.trim() ? v.en : null;
     const ko = typeof v.ko === "string" && v.ko.trim() ? v.ko : null;
@@ -116,9 +122,11 @@ const OWN_KEYS = new Set(["id", "version", "locked", ...FIELDS]);
  */
 function toJson(id, fields, before = {}) {
   const kept = Object.fromEntries(Object.entries(before).filter(([k]) => !OWN_KEYS.has(k)));
-  const otherLocks = (Array.isArray(before.locked) ? before.locked : []).filter((k) => typeof k === "string" && !FIELDS.includes(k));
+  const otherLocks = [...new Set((Array.isArray(before.locked) ? before.locked : []).filter((k) => typeof k === "string" && !FIELDS.includes(k)))];
   const locked = [...FIELDS.filter((f) => fields[f]), ...otherLocks];
-  const doc = { id, version: SCHEMA, ...kept, ...fields, ...(locked.length ? { locked } : {}) };
+  // A file a later version wrote keeps its version: this one only adds what it knows.
+  const version = Number.isInteger(before.version) && before.version > SCHEMA ? before.version : SCHEMA;
+  const doc = { id, version, ...kept, ...fields, ...(locked.length ? { locked } : {}) };
   return { text: `${JSON.stringify(doc, null, 1)}\n`, empty: !FIELDS.some((f) => fields[f]) && !Object.keys(kept).length && !otherLocks.length };
 }
 
@@ -136,7 +144,9 @@ function readFile(file) {
   let out;
   try {
     const json = JSON.parse(fs.readFileSync(file, "utf8"));
-    out = { stamp, fields: readFields(json), raw: json && typeof json === "object" && !Array.isArray(json) ? json : {} };
+    // Anything but an object is a file someone else put here: read as broken, so it is never written over.
+    if (!json || typeof json !== "object" || Array.isArray(json)) throw new Error("not a JSON object");
+    out = { stamp, fields: readFields(json), raw: json };
   } catch (err) {
     out = { stamp, fields: null, error: new Error(`${file} cannot be read: ${err.message}`) };
     debug.error("game descriptions: %s", out.error.message);

@@ -166,3 +166,24 @@ test("saving keeps what else a game.json holds, and lists the fields set by hand
   assert.deepEqual(locked(KEEP), ["name", "notes"], "a file written before the list: everything in it is the admin's");
   fs.rmSync(dir, { recursive: true });
 });
+
+test("a field written by hand as plain text, a later version and a file that is not an object survive a save", () => {
+  const HAND = "0100000000C20000";
+  const dir = path.join(GAMES_DIR, `Hand [${HAND}]`);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, "game.json");
+  fs.writeFileSync(file, JSON.stringify({ id: HAND, version: 2, description: "손으로 쓴 글", name: "Hand Name", locked: ["icon", "icon"] }));
+
+  assert.equal(describe(HAND, "ko"), "손으로 쓴 글", "plain text with Hangul is Korean");
+  assert.deepEqual(names(HAND), { en: "Hand Name" });
+  set(HAND, "notes", { ko: "메모" });
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.deepEqual(saved.description, { en: null, ko: "손으로 쓴 글" }, "kept, in the usual shape");
+  assert.equal(saved.version, 2, "a later version is not taken back");
+  assert.deepEqual(saved.locked, ["name", "description", "notes", "icon"], "no entry twice");
+
+  fs.writeFileSync(file, "[1, 2]");
+  assert.throws(() => set(HAND, "notes", { ko: "덮어쓰기" }), /cannot be read/);
+  assert.equal(fs.readFileSync(file, "utf8"), "[1, 2]");
+  fs.rmSync(dir, { recursive: true });
+});
