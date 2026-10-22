@@ -116,7 +116,9 @@ test('the game window uses the same card', async ({ page }) => {
   await expect(card.locator('.atile.a-add')).toBeVisible();
 });
 
-test('a picture put into the game folder by hand shows once the editor reads the folder again', async ({ page }) => {
+// The server here keeps the watch's real quiet time: a picture copied just now is taken from the button
+// once it holds still for a moment, and one still being written is left with a word that it comes shortly.
+test('a picture put into the game folder by hand shows once the editor reads the folder again, even right after it was copied', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   const games = path.join(process.env.COOK_DATA_DIR!, 'metadata', 'games');
   fs.mkdirSync(games, { recursive: true });
@@ -129,16 +131,30 @@ test('a picture put into the game folder by hand shows once the editor reads the
   await editPage(page, '#modal');
   const card = page.locator('#modal-art .arted');
   const before = await card.locator('.atile.a-shot').count();
-  fs.writeFileSync(path.join(folder, 'screenshot-08.png'), await sharp({ create: { width: 640, height: 360, channels: 3, background: '#3366cc' } }).png().toBuffer());
+  const shot = path.join(folder, 'screenshot-08.png');
+  fs.writeFileSync(shot, await sharp({ create: { width: 640, height: 360, channels: 3, background: '#3366cc' } }).png().toBuffer());
 
   const reread = card.locator('.arted-head .reread');
   await expect(reread).toHaveText('폴더 다시 읽기');
   await expect(reread).toHaveAttribute('title', new RegExp(`\\[${id}\\]`));
+  // Still being copied: it changes while the button looks, so it is left where it is.
+  const busy = setInterval(() => { const now = new Date(); fs.utimesSync(shot, now, now); }, 100);
+  try {
+    await reread.click();
+    await expect(page.locator('#toasts .toast').last()).toContainText('아직 복사 중인 그림이 있어 잠시 뒤 반영합니다');
+  } finally {
+    clearInterval(busy);
+  }
+  await expect(card.locator('.atile.a-shot')).toHaveCount(before);
+  expect(fs.existsSync(shot)).toBe(true);
+
+  // Done copying a moment ago, well inside the quiet time: taken at once, and the open card shows it.
+  await expect(reread).toBeEnabled();
   await reread.click();
   await expect(page.locator('#toasts .toast').last()).toContainText('폴더를 다시 읽었습니다');
   await expect(page.locator('#modal-art .arted .atile.a-shot')).toHaveCount(before + 1);
   expect(fs.existsSync(path.join(folder, 'screenshot-08.webp'))).toBe(true);
-  expect(fs.existsSync(path.join(folder, 'screenshot-08.png'))).toBe(false);
+  expect(fs.existsSync(shot)).toBe(false);
   // Taken out from the card like an uploaded one: the gallery of later tests is as it was.
   await page.locator('#modal-art .arted .atile.a-shot').last().locator('.reset').click();
   await expect(page.locator('#modal-art .arted .atile.a-shot')).toHaveCount(before);

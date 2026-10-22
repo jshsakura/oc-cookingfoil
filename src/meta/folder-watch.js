@@ -41,7 +41,7 @@ export const QUIET_MS = 30_000;
 export const COOLDOWN_MS = 2 * 60_000;
 // A file dated more than this ahead of now is not being written now (a write stamps the time it is
 // made; this much covers clocks and file systems that keep coarse times).
-const AHEAD_MS = 2_000;
+export const AHEAD_MS = 2_000;
 
 /** The item an event under `root` belongs to: its first `depth` path parts, or null. Pure. */
 export function itemOf(root, file, depth) {

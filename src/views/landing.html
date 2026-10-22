@@ -1924,7 +1924,8 @@
           "art.reread": "폴더 다시 읽기",
           "art.rereadTitle": (f) => `${f} 에 넣은 그림과 game.json 을 지금 다시 읽습니다.`,
           "art.rereadDone": "폴더를 다시 읽었습니다.",
-          "art.folderNote": (f) => `${f} 에 icon.png, banner.jpg, screenshot-01.png 처럼 넣은 그림은 WebP 로 바꾸고 넣은 파일은 지우며, 같은 자리에 여럿이면 가장 최근에 수정한 그림을 씁니다. 나머지와 여기서 올리거나 다시 자르거나 지울 때 기다리던 그림은 .replaced 로, 읽을 수 없는 그림은 .unreadable 로 옮기는데, 두 폴더는 윈도우와 맥에서 숨김 폴더로 보이고 게임 폴더로 옮기면 다시 씁니다.`,
+          "art.rereadPending": "아직 복사 중인 그림이 있어 잠시 뒤 반영합니다.",
+          "art.folderNote": (f) => `${f} 에 icon.png, banner.jpg, screenshot-01.png 처럼 넣은 그림은 WebP 로 바꾸고 넣은 파일은 지우며, 같은 자리에 여럿이면 가장 최근에 수정한 그림을 씁니다. 나머지와 여기서 올리거나 다시 자르거나 지울 때 기다리던 그림은 .replaced 로, 읽을 수 없는 그림은 .unreadable 로 옮기는데, 두 폴더는 윈도우와 맥에서 숨김 폴더로 보이고 게임 폴더로 옮기면 다시 쓰며, icon.webp 처럼 자리 이름 그대로인 파일은 지금 그림을 바꿉니다.`,
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
@@ -2270,7 +2271,8 @@
           "art.reread": "Read folder again",
           "art.rereadTitle": (f) => `Reads the pictures and game.json in ${f} again now.`,
           "art.rereadDone": "Read the folder again.",
-          "art.folderNote": (f) => `A picture put in ${f} as icon.png, banner.jpg, screenshot-01.png and so on is converted to WebP and the file is removed; when a slot has several, the most recently modified wins. The others, and any waiting when you upload, re-crop or remove here, move to .replaced (unreadable ones to .unreadable), hidden folders on Windows and macOS; move one back into the game folder to use it again.`,
+          "art.rereadPending": "A picture is still being copied; it will be applied shortly.",
+          "art.folderNote": (f) => `A picture put in ${f} as icon.png, banner.jpg, screenshot-01.png and so on is converted to WebP and the file is removed; when a slot has several, the most recently modified wins. The others, and any waiting when you upload, re-crop or remove here, move to .replaced (unreadable ones to .unreadable), hidden folders on Windows and macOS; move one back into the game folder to use it again (one named like the slot, such as icon.webp, replaces the current picture).`,
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
@@ -2616,7 +2618,8 @@
           "art.reread": "フォルダーを読み直す",
           "art.rereadTitle": (f) => `${f} に置いた画像と game.json を今すぐ読み直します。`,
           "art.rereadDone": "フォルダーを読み直しました",
-          "art.folderNote": (f) => `${f} に icon.png、banner.jpg、screenshot-01.png のように置いた画像は WebP に変換して置いたファイルを削除し、同じ枠に複数あれば最後に更新したものを使います。残りと、ここでアップロード・切り直し・削除したときに待っていた画像は .replaced に、読めない画像は .unreadable に移します。どちらも Windows と Mac では隠しフォルダーで、ゲームフォルダーに戻すと再び使います。`,
+          "art.rereadPending": "コピー中の画像があるため、少し後に反映します。",
+          "art.folderNote": (f) => `${f} に icon.png、banner.jpg、screenshot-01.png のように置いた画像は WebP に変換して置いたファイルを削除し、同じ枠に複数あれば最後に更新したものを使います。残りと、ここでアップロード・切り直し・削除したときに待っていた画像は .replaced に、読めない画像は .unreadable に移します。どちらも Windows と Mac では隠しフォルダーで、ゲームフォルダーに戻すと再び使います。icon.webp のように枠と同じ名前のファイルは今の画像を置き換えます。`,
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
@@ -2962,7 +2965,8 @@
           "art.reread": "重新讀取資料夾",
           "art.rereadTitle": (f) => `立即重新讀取 ${f} 中的圖片與 game.json。`,
           "art.rereadDone": "已重新讀取資料夾",
-          "art.folderNote": (f) => `放進 ${f} 的 icon.png、banner.jpg、screenshot-01.png 等圖片會轉成 WebP 並刪除放入的檔案，同一位置有多張時使用最後修改的一張。其餘圖片，以及在這裡上傳、重新裁切或刪除時正在等待的圖片，會移到 .replaced，無法讀取的移到 .unreadable；兩者在 Windows 與 Mac 上是隱藏資料夾，移回遊戲資料夾即可再次使用。`,
+          "art.rereadPending": "仍有圖片正在複製，稍後會套用。",
+          "art.folderNote": (f) => `放進 ${f} 的 icon.png、banner.jpg、screenshot-01.png 等圖片會轉成 WebP 並刪除放入的檔案，同一位置有多張時使用最後修改的一張。其餘圖片，以及在這裡上傳、重新裁切或刪除時正在等待的圖片，會移到 .replaced，無法讀取的移到 .unreadable；兩者在 Windows 與 Mac 上是隱藏資料夾，移回遊戲資料夾即可再次使用，而 icon.webp 這類與位置同名的檔案會取代目前的圖片。`,
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
@@ -6234,7 +6238,7 @@
           reread: {
             title: t("art.rereadTitle", `metadata/games/${art.folder || `… [${baseId}]`}`),
             note: t("art.folderNote", `metadata/games/${art.folder || `… [${baseId}]`}`),
-            run: () => artChanged(baseId, fetch(`/api/art/${baseId}/rescan`, { method: "POST", headers: { Accept: "application/json" } }), t("art.rereadDone")),
+            run: () => artChanged(baseId, fetch(`/api/art/${baseId}/rescan`, { method: "POST", headers: { Accept: "application/json" } }), t("art.rereadDone"), artPending(baseId)),
           },
         });
         box.append(card);
@@ -6279,12 +6283,27 @@
         });
       }
       // After a game's picture changed: every copy of it on the page, then the open window with fresh art.
-      async function artChanged(baseId, request, done) {
+      // A picture still being copied when the folder was read: said so, and the open card drawn again once the watch has taken it.
+      const artPending = (baseId) => (d) => {
+        if (!d.pending) return false;
+        toast(t("art.rereadPending"));
+        const r = currentModal;
+        setTimeout(() => {
+          if (currentModal !== r || !$("modal").classList.contains("open")) return;
+          // A crop or a search under way in the card is not swept away.
+          if ($("modal-art").querySelector(".arted.cropping, .arted.finding")) return;
+          artVersion++;
+          refreshAfterDesc(baseId);
+        }, Math.min(Math.max(Number(d.retryInMs) || 0, 1000), 120_000) + 1000);
+        return true;
+      };
+      // `pending(d)`, when given, may say something else than `done` about the answer (true then).
+      async function artChanged(baseId, request, done, pending = null) {
         try {
           const res = await request;
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { toast(d.error || t("art.failed")); return; }
-          toast(done);
+          if (!pending?.(d)) toast(done);
           artVersion++;
           for (const k of ["icon", "banner"]) refreshArtImages(`/api/shop/${k}/${baseId}`, d.urls?.[k]);
           refreshAfterDesc(baseId);

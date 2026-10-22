@@ -13,6 +13,7 @@ import path from "path";
 import sharp from "sharp";
 import * as artCrop from "./art-crop.js";
 import debug from "../debug.js";
+import { AHEAD_MS } from "./folder-watch.js";
 
 export const KINDS = ["icon", "banner", "screenshot"];
 export const MAX_SCREENSHOTS = 8;
@@ -147,10 +148,26 @@ export function copyAside(src, dir, sub, name) {
 
 /**
  * Whether a file was written or changed within the last `quietMs` (its mtime or
- * its ctime): a copy may still be going on. A time ahead of now does not count. Pure.
+ * its ctime): a copy may still be going on. A time a moment ahead of now counts
+ * (a file stamped within the same millisecond, a file server's clock a little
+ * ahead), one further ahead does not (the watch's AHEAD_MS). Pure.
  */
 export function isFresh(st, quietMs, now = Date.now()) {
-  return [st.mtimeMs, st.ctimeMs].some((t) => now - t >= 0 && now - t < quietMs);
+  return quietMs > 0 && [st.mtimeMs, st.ctimeMs].some((t) => now - t > -AHEAD_MS && now - t < quietMs);
+}
+
+/**
+ * Whether every file of `paths` holds still across `ms`: looked at once, then
+ * once more after the wait, its size, times and inode the same (one gone both
+ * times counts as still). A copy going on changes one of them meanwhile.
+ */
+export async function holdsStill(paths, ms) {
+  const before = paths.map(statOf);
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  return paths.every((p, i) => {
+    const now = statOf(p);
+    return now && before[i] ? fileStamp(now) === fileStamp(before[i]) : !now && !before[i];
+  });
 }
 
 /** A hand-placed file read whole: { input, read } (read: its stat), or null when it is gone. */
@@ -181,15 +198,20 @@ async function readHand(src) {
  *
  * Nothing is done while one of them was written within `quietMs` (a copy may
  * still be going on): { taken: null, waitMs } then, how long until it is quiet.
+ * `settleMs` (the admin asked, from the folder button): such files are taken
+ * all the same when they hold still across that wait instead (holdsStill).
  * `ready()`, asked right before anything is moved, may say the slot changed
  * meanwhile; null then, and also when a file changed while it was read (the
  * next look decides). { taken } else: the file made into the slot, or null when none read.
  */
-export async function takeSlot(dir, slot, files, { ready = () => true, quietMs = 0 } = {}) {
+export async function takeSlot(dir, slot, files, { ready = () => true, quietMs = 0, settleMs = 0 } = {}) {
   const [kind] = kindOf(slot);
   const waitMs = (st) => (st && isFresh(st, quietMs) ? quietMs - (Date.now() - Math.max(st.mtimeMs, st.ctimeMs)) : 0);
-  const wait = Math.max(0, ...files.map((f) => waitMs(statOf(path.join(dir, f)))));
-  if (wait) return { taken: null, waitMs: wait };
+  const waitAll = () => Math.max(0, ...files.map((f) => waitMs(statOf(path.join(dir, f)))));
+  if (waitAll() && !(settleMs && await holdsStill(files.map((f) => path.join(dir, f)), settleMs))) {
+    const wait = waitAll();
+    if (wait) return { taken: null, waitMs: wait };
+  }
   for (let i = 0; i < files.length; i++) {
     const src = path.join(dir, files[i]);
     if ((statOf(src)?.size ?? 0) > MAX_HAND_BYTES) {

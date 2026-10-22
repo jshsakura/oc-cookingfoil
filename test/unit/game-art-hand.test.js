@@ -296,3 +296,64 @@ test("a hand file far larger than any picture moves to .unreadable/ unread, and 
   assert.deepEqual(fs.readdirSync(path.join(dir, ".unreadable")), ["icon.png"]);
   assert.ok(await green(path.join(dir, "icon.webp")));
 });
+
+test("the settle check says a file held still across the wait, and not one whose time or size changed meanwhile", async () => {
+  const { holdsStill } = await import("../../src/meta/game-art-files.js");
+  const dir = folder("0100000000C90000");
+  const still = path.join(dir, "icon.png");
+  const touched = path.join(dir, "banner.png");
+  const growing = path.join(dir, "screenshot-01.png");
+  for (const f of [still, touched, growing]) fs.writeFileSync(f, await picture("#00ff00"));
+  assert.equal(await holdsStill([still], 200), true);
+  const busy = setInterval(() => {
+    const now = new Date(Date.now() + 1000);
+    fs.utimesSync(touched, now, now);
+    fs.appendFileSync(growing, "x");
+  }, 50);
+  try {
+    assert.equal(await holdsStill([still, touched], 200), false);
+    assert.equal(await holdsStill([growing], 200), false);
+  } finally {
+    clearInterval(busy);
+  }
+});
+
+test("asked from the button, a picture written just now is taken once it holds still, and one still changing is left and reported", async (t) => {
+  const ID = "0100000000CA0000";
+  const dir = folder(ID);
+  gameMeta.setQuiet(30_000);
+  t.after(() => gameMeta.setQuiet(0));
+  fs.writeFileSync(path.join(dir, "icon.png"), await picture("#00ff00"));
+  const plain = await gameMeta.rescan(ID);
+  assert.equal(plain.converted, 0, "a look of its own waits the quiet time");
+  assert.deepEqual(hand(dir), ["icon.png"]);
+
+  const asked = await gameMeta.rescan(ID, null, null, { settle: true });
+  assert.equal(asked.pending, 0);
+  assert.deepEqual(hand(dir), []);
+  assert.ok(await green(path.join(dir, "icon.webp")));
+
+  const banner = path.join(dir, "banner.png");
+  fs.writeFileSync(banner, await picture("#00ff00"));
+  const busy = setInterval(() => { const now = new Date(); fs.utimesSync(banner, now, now); }, 100);
+  let still;
+  try {
+    still = await gameMeta.rescan(ID, null, null, { settle: true });
+  } finally {
+    clearInterval(busy);
+  }
+  assert.equal(still.pending, 1);
+  assert.ok(still.retryInMs > 25_000 && still.retryInMs < 40_000, `retry in ${still.retryInMs}`);
+  assert.deepEqual(hand(dir), ["banner.png"], "left where it is");
+  assert.ok(!fs.existsSync(path.join(dir, ".unreadable")));
+});
+
+test("a hand file stamped a moment ahead of the clock is still fresh; one far ahead is not", async () => {
+  const { isFresh } = await import("../../src/meta/game-art-files.js");
+  const now = 1_000_000;
+  assert.equal(isFresh({ mtimeMs: now + 0.7, ctimeMs: now + 0.7 }, 30_000, now), true, "the same millisecond");
+  assert.equal(isFresh({ mtimeMs: now + 1500, ctimeMs: now - 60_000 }, 30_000, now), true, "a file server a little ahead");
+  assert.equal(isFresh({ mtimeMs: now + 60_000, ctimeMs: now - 60_000 }, 30_000, now), false);
+  assert.equal(isFresh({ mtimeMs: now - 31_000, ctimeMs: now - 31_000 }, 30_000, now), false);
+  assert.equal(isFresh({ mtimeMs: now + 0.7, ctimeMs: now + 0.7 }, 0, now), false, "no quiet time asked");
+});

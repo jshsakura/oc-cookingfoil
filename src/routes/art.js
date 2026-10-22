@@ -9,7 +9,7 @@
  *   DELETE /api/art/:baseTitleId/icon|banner   → remove it
  *   DELETE /api/art/:baseTitleId/screenshot/:idx
  *   DELETE /api/art/:baseTitleId/description   → back to titledb's own text
- *   POST   /api/art/:baseTitleId/rescan        → the game's folder read again now, as GET answers
+ *   POST   /api/art/:baseTitleId/rescan        → the game's folder read again now, as GET answers (+ { pending, retryInMs } while a picture is still being copied)
  *   POST   /api/art/rescan                     → every game folder read again in full: { games, changed, converted }
  *
  * Cutting a picture (meta/art-crop.js). An upload may carry a "crop" field,
@@ -336,8 +336,10 @@ export default function artRouter() {
   router.post("/:baseTitleId/rescan", rescanRoute(async (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;
-    await gameMeta.rescan(base);
-    res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base) });
+    // The admin asked: a picture copied just now is taken once it holds still for a moment.
+    // One still changing is left for the watch; `pending` says how many, `retryInMs` when they show.
+    const { pending, retryInMs } = await gameMeta.rescan(base, null, null, { settle: true });
+    res.json({ baseTitleId: base, description: gameDescriptions.get(base)?.description ?? null, ...gameArt(base), ...(pending ? { pending, retryInMs } : {}) });
   }));
 
   // A picture waiting in the game's folder that cannot be moved aside stops a change to its slot.

@@ -471,3 +471,36 @@ test("a game folder deleted and made again under the same name is watched again,
     fs.rmSync(own, { recursive: true, force: true });
   }
 });
+
+test("the start scan deletes only the server's own temp files a crash left in a game folder over an hour ago", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const own = fs.mkdtempSync(path.join(os.tmpdir(), "cook-game-meta-tmp-"));
+  const dir = path.join(own, "metadata", "games", "Crashed [0100000000F60000]");
+  fs.mkdirSync(path.join(dir, ".replaced"), { recursive: true });
+  const old = [".icon.webp.4242.tmp", ".icon.orig.webp.4242.tmp", ".screenshot-03.orig.json.7.tmp", ".game.json.99.tmp"];
+  const kept = [".notes.txt.4242.tmp", ".icon.webp.abc.tmp", ".icon.webp.4242.tmp.bak", "icon.webp.4242.tmp", ".icon.png.4242.tmp"];
+  const young = ".banner.webp.4242.tmp";
+  const twoHours = new Date(Date.now() - 2 * 3600_000);
+  for (const f of [...old, ...kept, young]) fs.writeFileSync(path.join(dir, f), "x");
+  fs.writeFileSync(path.join(dir, ".replaced", ".icon.webp.4242.tmp"), "x");
+  for (const f of [...old, ...kept, ".replaced/.icon.webp.4242.tmp"]) fs.utimesSync(path.join(dir, f), twoHours, twoHours);
+  const script = `
+    import fs from "fs";
+    const gameMeta = await import(${JSON.stringify(path.join(import.meta.dirname, "../../src/meta/game-meta.js"))});
+    await gameMeta.scan({ force: true });
+    const afterScan = fs.readdirSync(${JSON.stringify(dir)}).length;
+    gameMeta.start();
+    await new Promise((r) => setTimeout(r, 300));
+    gameMeta.stop();
+    process.stdout.write(JSON.stringify({ afterScan }));`;
+  try {
+    const out = JSON.parse(execFileSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", script], {
+      env: { ...process.env, COOK_DATA_DIR: own }, encoding: "utf8",
+    }));
+    assert.equal(out.afterScan, old.length + kept.length + 2, "a scan of its own deletes nothing");
+    assert.deepEqual(fs.readdirSync(dir).sort(), [...kept, young, ".replaced"].sort());
+    assert.deepEqual(fs.readdirSync(path.join(dir, ".replaced")), [".icon.webp.4242.tmp"]);
+  } finally {
+    fs.rmSync(own, { recursive: true, force: true });
+  }
+});
