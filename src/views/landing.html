@@ -1112,6 +1112,8 @@
       .ef-langs button { font: 700 12.5px var(--font-body); padding: 5px 13px; border: 0; border-radius: 100px; background: transparent; color: var(--secondary); cursor: pointer; }
       .ef-langs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
       .ef-langs button:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .arted-head select.ef-langs-list { display: inline-block; max-width: 100%; font: 700 12.5px var(--font-body); padding: 6px 13px; border: 0; color: var(--ink); cursor: pointer; }
+      .arted-head select.ef-langs-list:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .ef-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .ef-field { display: grid; gap: 6px; min-width: 0; margin: 0; font-size: 12px; font-weight: 700; color: var(--secondary); }
       .ef-field.wide { grid-column: 1 / -1; }
@@ -4708,17 +4710,22 @@
         };
       }
       // The facts card: labelled fields two to a row, then save (and restore, when there is an original).
-      // A `pair` field holds { ko, en } behind one input: the switch on top picks which one it shows,
-      // starting from the language the page is in, and what is typed in either is kept until saved.
+      // A `pair` field holds its text per language behind one input: the switch on top (a list, for more
+      // than two languages) picks which one it shows, starting from the language the page is in, and what
+      // is typed in any of them is kept until saved.
       const EDIT_LANGS = [["ko", "한국어"], ["en", "English"]];
-      function factsCard({ fields, save, reset = null }) {
+      // Every language a console client reads (meta/langs.js LANGS), each named in itself.
+      const CLIENT_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "简体中文"], ["zh-Hant", "繁體中文"], ["es", "Español"],
+        ["fr", "Français"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"], ["ru", "Русский"], ["nl", "Nederlands"]];
+      const textByLang = (v, langs) => Object.fromEntries(langs.map(([code]) => [code, v?.[code] ?? ""]));
+      function factsCard({ fields, save, reset = null, langs = EDIT_LANGS }) {
         const card = document.createElement("section"); card.className = "arted";
         const head = document.createElement("div"); head.className = "arted-head";
         head.append(Object.assign(document.createElement("h4"), { textContent: t("edit.facts") }), Object.assign(document.createElement("span"), { textContent: t("edit.hint") }));
         const form = document.createElement("form"); form.className = "ef-grid"; form.noValidate = true;
         const pairs = fields.filter((f) => f.pair);
-        const typed = Object.fromEntries(pairs.map((f) => [f.name, { ko: f.value?.ko ?? "", en: f.value?.en ?? "" }]));
-        let editLang = lang === "ko" ? "ko" : "en";
+        const typed = Object.fromEntries(pairs.map((f) => [f.name, textByLang(f.value, langs)]));
+        let editLang = langs.some(([code]) => code === lang) ? lang : lang === "ko" ? "ko" : "en";
         const pairInput = (f) => form.elements.namedItem(f.name);
         const showLang = (next) => {
           for (const f of pairs) {
@@ -4732,9 +4739,14 @@
           for (const b of switcher?.querySelectorAll("button") ?? []) b.setAttribute("aria-pressed", String(b.dataset.lang === next));
         };
         let switcher = null;
-        if (pairs.length) {
+        if (pairs.length && langs.length > 2) {
+          switcher = document.createElement("select"); switcher.className = "ef-langs ef-langs-list"; switcher.setAttribute("aria-label", t("edit.lang"));
+          for (const [code, label] of langs) switcher.append(Object.assign(document.createElement("option"), { value: code, textContent: label, lang: code, selected: code === editLang }));
+          switcher.addEventListener("change", () => showLang(switcher.value));
+          head.append(switcher);
+        } else if (pairs.length) {
           switcher = document.createElement("div"); switcher.className = "ef-langs"; switcher.setAttribute("role", "group"); switcher.setAttribute("aria-label", t("edit.lang"));
-          for (const [code, label] of EDIT_LANGS) {
+          for (const [code, label] of langs) {
             const b = Object.assign(document.createElement("button"), { type: "button", textContent: label });
             b.dataset.lang = code; b.setAttribute("aria-pressed", String(code === editLang));
             b.addEventListener("click", () => { if (code !== editLang) showLang(code); });
@@ -4793,11 +4805,12 @@
         return card;
       }
       const pairOf = (v) => ({ ko: v?.ko ?? "", en: v?.en ?? "" });
-      // A game: its names, description and notes in Korean and English; empty ones fall back to titledb's.
+      // A game: its name, description and notes in each language a client reads; empty ones fall back to titledb's.
       async function gameFacts(baseId, changed, refill) {
         const d = await artJson(`/${baseId}/meta`);
-        const name = pairOf(d.name), desc = pairOf(d.description), notes = pairOf(d.notes);
+        const name = textByLang(d.name, CLIENT_LANGS), desc = textByLang(d.description, CLIENT_LANGS), notes = textByLang(d.notes, CLIENT_LANGS);
         return factsCard({
+          langs: CLIENT_LANGS,
           fields: [
             { name: "name", pair: true, label: t("edit.name"), value: name, placeholder: d.original?.name || "", wide: true },
             { name: "desc", pair: true, label: t("edit.desc"), value: desc, area: true, wide: true, placeholder: d.original?.description || "" },
@@ -4806,9 +4819,9 @@
           async save(v) {
             const body = { description: v.desc, notes: v.notes };
             // The name only when it changed: a new name rebuilds the whole list.
-            if (v.name.ko !== name.ko || v.name.en !== name.en) body.name = v.name;
+            if (CLIENT_LANGS.some(([code]) => v.name[code] !== name[code])) body.name = v.name;
             const next = await artJson(`/${baseId}/meta`, body);
-            Object.assign(name, pairOf(next.name));
+            Object.assign(name, textByLang(next.name, CLIENT_LANGS));
             changed();
           },
           reset: d.name || d.description || d.notes ? async () => { await artJson(`/${baseId}/meta/reset`, {}); changed(); refill(); } : null,

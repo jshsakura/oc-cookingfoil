@@ -7,16 +7,24 @@
  * first language, so a Spanish client is never shown Korean.
  *
  * Text kept per language falls back the same way everywhere (pick): the language
- * asked for, simplified Chinese for traditional, then English.
+ * asked for, then English. Simplified and traditional Chinese never stand in for
+ * each other, as the client's own fallback does not either.
  */
 export const LANGS = ["en", "ko", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "ru", "nl"];
 
-const TRADITIONAL = new Set(["hant", "tw", "hk", "mo"]);
+const TRADITIONAL_REGIONS = new Set(["tw", "hk", "mo"]);
 
-/** The language a tag ("ko-KR", "zh-Hant-TW", "pt-BR") names, or null for one not in LANGS. Pure. */
+/**
+ * The language a tag ("ko-KR", "zh-Hant-TW", "pt-BR") names, or null for one not
+ * in LANGS. Chinese goes by its script subtag, else by its region. Pure.
+ */
 export function parseLang(tag) {
   const parts = String(tag ?? "").trim().toLowerCase().split(/[-_]/);
-  if (parts[0] === "zh") return parts.slice(1).some((p) => TRADITIONAL.has(p)) ? "zh-Hant" : "zh";
+  if (parts[0] === "zh") {
+    const rest = parts.slice(1);
+    if (rest.includes("hans")) return "zh";
+    return rest.includes("hant") || rest.some((p) => TRADITIONAL_REGIONS.has(p)) ? "zh-Hant" : "zh";
+  }
   return LANGS.includes(parts[0]) ? parts[0] : null;
 }
 
@@ -35,8 +43,10 @@ function accepted(header) {
 
 /** The request's language: ?lang= when given (English if unknown), else the first known in Accept-Language, else English. */
 export function requestLang(req) {
-  const asked = req.query?.lang;
-  if (asked !== undefined && asked !== "") return parseLang(asked) ?? "en";
+  const raw = req.query?.lang;
+  // ?lang=a&lang=b arrives as a list; the first one is what was asked.
+  const asked = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof asked === "string" && asked !== "") return parseLang(asked) ?? "en";
   for (const tag of accepted(req.get?.("accept-language"))) {
     const lang = parseLang(tag);
     if (lang) return lang;
@@ -45,7 +55,10 @@ export function requestLang(req) {
 }
 
 /** Where `lang` looks for text, in order. Pure. */
-export const fallbacks = (lang) => [...new Set([lang, ...(lang === "zh-Hant" ? ["zh"] : []), "en"])];
+export const fallbacks = (lang) => [...new Set([lang, "en"])];
+
+/** The key of a fixed text table ({ en, ko, ... }) to answer `lang` with: its fallbacks, else English. Pure. */
+export const tableLang = (table, lang) => fallbacks(lang).find((l) => table[l]) ?? "en";
 
 /** `texts[lang]` with the fallbacks, or null. Pure. */
 export function pick(texts, lang) {

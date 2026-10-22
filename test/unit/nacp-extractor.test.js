@@ -131,3 +131,43 @@ test("a record stored with a garbled name reads as nameless and is read again in
   extractor.resetForTests();
   assert.equal(extractor.enqueue({ absPath: "/g.nsp", baseTitleId: BASE, fileName: "g.nsp" }), false, "done once");
 });
+
+test("a record from the old icon mapping is extracted once more, its old Chinese icon dropped", async () => {
+  const BASE = "0100000000050000";
+  const iconPath = cachePathFor(BASE, "icon");
+  await fs.mkdir(path.dirname(iconPath), { recursive: true });
+  await fs.writeFile(iconPath, Buffer.from("korean-icon"));
+  // main's mapping saved the traditional icon as zh.
+  await fs.writeFile(cachePathFor(BASE, "icon-lang", "zh"), Buffer.from("traditional-icon"));
+  await extractedMeta.put({ id: BASE, name: "Kept", source: "nacp-nsp", iconLangs: ["zh"] });
+  assert.equal(extractor.needsLangIcons(extractedMeta.get(BASE)), true, "an old record asks for its icons again");
+  const calls = [];
+  extractor.setProvider(stubProvider({
+    name: "ignored", iconBuffer: Buffer.from("korean-icon"),
+    iconsByLang: { ko: Buffer.from("korean-icon"), "zh-Hant": Buffer.from("traditional-icon"), de: Buffer.from("german-icon") },
+  }, calls));
+
+  assert.equal(extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" }), true);
+  await extractor.whenDrained();
+
+  const rec = extractedMeta.get(BASE);
+  assert.equal(rec.name, "Kept");
+  assert.deepEqual(rec.iconLangs, ["zh-Hant", "de"]);
+  assert.equal(extractor.needsLangIcons(rec), false);
+  await assert.rejects(fs.access(cachePathFor(BASE, "icon-lang", "zh")), "the traditional icon saved as zh is gone");
+  assert.equal((await fs.readFile(cachePathFor(BASE, "icon-lang", "zh-Hant"))).toString(), "traditional-icon");
+
+  extractor.resetForTests();
+  assert.equal(extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" }), false, "left alone from now on");
+  assert.equal(calls.length, 1);
+});
+
+test("a second pass that cannot read the file leaves the record as it was", async () => {
+  const BASE = "0100000000060000";
+  await extractedMeta.put({ id: BASE, name: "Kept", source: "nacp-nsp", iconLangs: ["en"] });
+  extractor.setProvider(stubProvider(null, []));
+  extractor.enqueue({ absPath: "/x.nsp", baseTitleId: BASE, fileName: "x.nsp" });
+  await extractor.whenDrained();
+  assert.deepEqual(extractedMeta.get(BASE).iconLangs, ["en"]);
+  assert.equal(extractor.needsLangIcons(extractedMeta.get(BASE)), true, "tried again on a later start");
+});

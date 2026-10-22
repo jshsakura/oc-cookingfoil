@@ -3,7 +3,12 @@
  * so no refresh ever overwrites it and nothing of it lives only in a database:
  *
  *   ${COOK_DATA_DIR}/metadata/games/<name> [<base title id>]/game.json
- *     { id, name?: { en, ko }, description?: { en, ko }, notes?: { en, ko } }
+ *     { id, name?, description?, notes? }
+ *
+ * Each field is text per client language ({ "ko": "…", "ja": "…", "zh-Hant": "…" },
+ * the keys of meta/langs.js LANGS) or plain text, which counts as Korean when it
+ * has Hangul and as English otherwise (other languages reach English through
+ * the usual fallback, so a Korean text is never shown to a German reader).
  *
  * A game is found by the id in brackets at the end of its folder's name; the
  * name before it is for people and may be changed by hand. What is read comes
@@ -17,8 +22,9 @@
  * description replaces titledb's own text (for a game it has none for, or a
  * wrong one); one the admin cleared goes back to titledb's. notes is extra
  * information only the admin writes, such as what to install with the game.
- * Korean readers get the Korean text when there is one, everyone else the
- * English one. Line breaks are kept and shown as written.
+ * A reader of a language gets the admin's text in it (plain text in the one it
+ * counts as); where a source has the language too (titledb's name or description) that
+ * comes next, then English (title-detail.js). Line breaks are kept and shown as written.
  *
  * game-descriptions.json, where this was kept before, is moved into the folders
  * the first time they are read, and removed once every game is there.
@@ -30,6 +36,7 @@ import debug from "../debug.js";
 import * as gameMeta from "./game-meta.js";
 import { FIELDS, readFields } from "./game-meta.js";
 import { writeAtomic } from "./game-art-files.js";
+import { LANGS } from "./langs.js";
 
 export { FIELDS, GAMES_DIR, folderName, useNames } from "./game-meta.js";
 const LEGACY_FILE = path.join(dataDir, "game-descriptions.json");
@@ -38,6 +45,73 @@ const ID_RE = /^[0-9A-F]{16}$/;
 const MAX = 2000;
 // A name is one line; the other fields keep their line breaks.
 const LIMIT = { name: 120 };
+// What the admin reads when a field cannot be saved, whole sentences per field (checkInput).
+const CHECK_TEXT = {
+  ko: {
+    "name.tooLong": "이름은 {limit}자를 넘을 수 없습니다",
+    "name.tooLongIn": "이름({lang})은 {limit}자를 넘을 수 없습니다",
+    "name.shape": "이름은 글자나 언어별 글자({ \"ko\": \"…\" })로 보냅니다",
+    "name.notTextIn": "이름({lang})은 글자로 보냅니다",
+    "description.tooLong": "소개는 {limit}자를 넘을 수 없습니다",
+    "description.tooLongIn": "소개({lang})는 {limit}자를 넘을 수 없습니다",
+    "description.shape": "소개는 글자나 언어별 글자({ \"ko\": \"…\" })로 보냅니다",
+    "description.notTextIn": "소개({lang})는 글자로 보냅니다",
+    "notes.tooLong": "추가 정보는 {limit}자를 넘을 수 없습니다",
+    "notes.tooLongIn": "추가 정보({lang})는 {limit}자를 넘을 수 없습니다",
+    "notes.shape": "추가 정보는 글자나 언어별 글자({ \"ko\": \"…\" })로 보냅니다",
+    "notes.notTextIn": "추가 정보({lang})는 글자로 보냅니다",
+    "unknownLang": "알 수 없는 언어 키입니다: {key}. 쓸 수 있는 키는 {keys} 입니다",
+  },
+  en: {
+    "name.tooLong": "Name cannot be longer than {limit} characters",
+    "name.tooLongIn": "Name ({lang}) cannot be longer than {limit} characters",
+    "name.shape": "Send name as text or as text per language ({ \"ko\": \"…\" })",
+    "name.notTextIn": "Send name ({lang}) as text",
+    "description.tooLong": "Description cannot be longer than {limit} characters",
+    "description.tooLongIn": "Description ({lang}) cannot be longer than {limit} characters",
+    "description.shape": "Send description as text or as text per language ({ \"ko\": \"…\" })",
+    "description.notTextIn": "Send description ({lang}) as text",
+    "notes.tooLong": "Notes cannot be longer than {limit} characters",
+    "notes.tooLongIn": "Notes ({lang}) cannot be longer than {limit} characters",
+    "notes.shape": "Send notes as text or as text per language ({ \"ko\": \"…\" })",
+    "notes.notTextIn": "Send notes ({lang}) as text",
+    "unknownLang": "Unknown language key: {key}. The keys are {keys}",
+  },
+  ja: {
+    "name.tooLong": "名前は {limit} 文字を超えられません",
+    "name.tooLongIn": "名前({lang})は {limit} 文字を超えられません",
+    "name.shape": "名前は文字列か言語ごとの文字列({ \"ko\": \"…\" })で送ります",
+    "name.notTextIn": "名前({lang})は文字列で送ります",
+    "description.tooLong": "紹介は {limit} 文字を超えられません",
+    "description.tooLongIn": "紹介({lang})は {limit} 文字を超えられません",
+    "description.shape": "紹介は文字列か言語ごとの文字列({ \"ko\": \"…\" })で送ります",
+    "description.notTextIn": "紹介({lang})は文字列で送ります",
+    "notes.tooLong": "追加情報は {limit} 文字を超えられません",
+    "notes.tooLongIn": "追加情報({lang})は {limit} 文字を超えられません",
+    "notes.shape": "追加情報は文字列か言語ごとの文字列({ \"ko\": \"…\" })で送ります",
+    "notes.notTextIn": "追加情報({lang})は文字列で送ります",
+    "unknownLang": "不明な言語キーです: {key}。使えるキーは {keys} です",
+  },
+  zh: {
+    "name.tooLong": "名称不能超过 {limit} 个字符",
+    "name.tooLongIn": "名称({lang})不能超过 {limit} 个字符",
+    "name.shape": "名称请以文本或按语言的文本({ \"ko\": \"…\" })发送",
+    "name.notTextIn": "名称({lang})请以文本发送",
+    "description.tooLong": "简介不能超过 {limit} 个字符",
+    "description.tooLongIn": "简介({lang})不能超过 {limit} 个字符",
+    "description.shape": "简介请以文本或按语言的文本({ \"ko\": \"…\" })发送",
+    "description.notTextIn": "简介({lang})请以文本发送",
+    "notes.tooLong": "附加信息不能超过 {limit} 个字符",
+    "notes.tooLongIn": "附加信息({lang})不能超过 {limit} 个字符",
+    "notes.shape": "附加信息请以文本或按语言的文本({ \"ko\": \"…\" })发送",
+    "notes.notTextIn": "附加信息({lang})请以文本发送",
+    "unknownLang": "未知的语言键: {key}。可用的键为 {keys}",
+  },
+};
+const checkText = (lang, key, vars) => {
+  const text = CHECK_TEXT[lang]?.[key] ?? (lang === "zh-Hant" ? CHECK_TEXT.zh[key] : null) ?? CHECK_TEXT.en[key];
+  return text.replace(/\{(\w+)\}/g, (m, name) => (vars[name] === undefined ? m : String(vars[name])));
+};
 // What a metadata refresh must leave alone when the folder has a picture in the slot.
 const ART_LOCKS = [["icon", (s) => s.icon], ["banner", (s) => s.banner], ["screenshots", (s) => s.screens.length > 0]];
 
@@ -95,10 +169,30 @@ function writeLeftover(left) {
   leftover = left;
 }
 
-/** Two sets of fields, `mine` winning language by language. Pure. */
+const HANGUL_RE = /[가-힣]/;
+
+/** A field as text per language: plain text is Korean when it has Hangul, else English. Pure. */
+const asLangs = (v) => (typeof v === "string" ? { [HANGUL_RE.test(v) ? "ko" : "en"]: v } : { ...(v ?? {}) });
+
+/** A field's text in `lang` (plain text only in the language it counts as). Pure. */
+const textIn = (v, lang) => asLangs(v)[lang] || null;
+
+/**
+ * Text per language back to what is kept, null when none has any. Never plain text:
+ * that would read as Korean or English only, not as the languages sent. Pure.
+ */
+function gather(byLang) {
+  const kept = Object.fromEntries(LANGS.filter((l) => byLang[l]).map((l) => [l, byLang[l]]));
+  return Object.keys(kept).length ? kept : null;
+}
+
+/** Two sets of fields, `mine` winning language by language (plain text in `mine` wins whole). Pure. */
 function mergeFields(old, mine) {
   const out = { ...old };
-  for (const [field, text] of Object.entries(mine ?? {})) out[field] = { en: text.en ?? old?.[field]?.en ?? null, ko: text.ko ?? old?.[field]?.ko ?? null };
+  for (const [field, text] of Object.entries(mine ?? {})) {
+    const next = typeof text === "string" ? text : gather({ ...asLangs(old?.[field]), ...Object.fromEntries(Object.entries(text).filter(([, v]) => v)) });
+    if (next) out[field] = next;
+  }
   return out;
 }
 
@@ -172,7 +266,8 @@ function all() {
 /** Writes a game's fields into its folder (made when missing); none left removes its game.json. */
 function persist(id, fields) {
   const { text, empty } = toJson(id, fields, readFile(id).raw);
-  if (!empty) writeAtomic(path.join(gameMeta.ensureFolder(id, fields.name?.ko ?? fields.name?.en), FILE), text);
+  const label = textIn(fields.name, "ko") ?? textIn(fields.name, "en") ?? Object.values(asLangs(fields.name))[0] ?? null;
+  if (!empty) writeAtomic(path.join(gameMeta.ensureFolder(id, label), FILE), text);
   else if (gameMeta.folderOf(id)) {
     const dir = gameMeta.folderOf(id);
     fs.rmSync(path.join(dir, FILE), { force: true });
@@ -185,10 +280,10 @@ function persist(id, fields) {
   if (leftover.has(id)) writeLeftover(new Map([...leftover].filter(([k]) => k !== id)));
 }
 
-const clean = (v, field) => {
+const clean = (v, field, limit = LIMIT[field] ?? MAX) => {
   let s = String(v ?? "").replace(/\r\n/g, "\n").trim();
   if (field === "name") s = s.replace(/\s+/g, " ");
-  s = s.slice(0, LIMIT[field] ?? MAX);
+  s = s.slice(0, limit);
   return s || null;
 };
 
@@ -213,24 +308,61 @@ export function locked(id) {
   return [...new Set([...fromFile, ...Object.keys(leftover.get(id) ?? {}), ...ART_LOCKS.filter(([, has]) => has(slots)).map(([k]) => k)])];
 }
 
-/** The admin's text for a game ({ description, notes }, each { en, ko } or null), or null. */
-export function get(id) {
-  const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
-  return own && Object.keys(own).length ? { name: own.name ?? null, description: own.description ?? null, notes: own.notes ?? null } : null;
+/**
+ * Why `value`, sent for a field, cannot be saved, in words for the admin in `say` (an admin language,
+ * Korean when left out); null when it can.
+ * It is plain text (Korean when it has Hangul, else English) or { <client language>: text | null }; too long is refused, not cut. Pure.
+ */
+export function checkInput(field, value, say = "ko") {
+  if (value == null) return null;
+  const tooLong = (text, lang) => {
+    const limit = LIMIT[field] ?? MAX;
+    return (clean(text, field, Infinity) ?? "").length > limit ? checkText(say, `${field}.${lang ? "tooLongIn" : "tooLong"}`, { limit, lang }) : null;
+  };
+  if (typeof value === "string") return tooLong(value, null);
+  if (typeof value !== "object" || Array.isArray(value)) return checkText(say, `${field}.shape`, {});
+  const unknown = Object.keys(value).find((l) => !LANGS.includes(l));
+  if (unknown) return checkText(say, "unknownLang", { key: unknown, keys: LANGS.join(", ") });
+  for (const [lang, text] of Object.entries(value)) {
+    if (text != null && typeof text !== "string") return checkText(say, `${field}.notTextIn`, { lang });
+    const problem = text ? tooLong(text, lang) : null;
+    if (problem) return problem;
+  }
+  return null;
 }
 
 /**
- * Save one field ("description" or "notes"); an empty language is stored as
- * none, and both empty forgets that field (and the game, when nothing is left).
+ * The admin's text for a game, or null: { name, description, notes }, each null or
+ * { <language>: text } with en and ko always there (null when not written). Plain
+ * text is given in the language it counts as.
  */
-export function set(id, field, { en, ko }) {
+export function get(id) {
+  const own = ID_RE.test(String(id)) ? fieldsOf(id) : null;
+  if (!own || !Object.keys(own).length) return null;
+  const shown = (v) => (v ? { en: null, ko: null, ...asLangs(v) } : null);
+  return { name: shown(own.name), description: shown(own.description), notes: shown(own.notes) };
+}
+
+/**
+ * Save one field. Plain text is kept as sent and read as Korean when it has Hangul,
+ * else English. Text per language changes only the languages sent: one sent empty is
+ * forgotten, one not sent is kept (plain text already there counts in its one language). Nothing left forgets the field (and the
+ * game, when nothing is left). Languages no client reads are ignored: checkInput refuses them first.
+ */
+export function set(id, field, value) {
   if (!ID_RE.test(String(id)) || !FIELDS.includes(field)) return false;
-  const [enText, koText] = [clean(en, field), clean(ko, field)];
   // A hand edit since the last look is read before it is written over (or refused, when broken).
   gameMeta.refresh(id);
   // A game.json that cannot be read (a hand edit gone wrong) is not written over: the error says which.
-  const { [field]: _old, ...others } = fieldsOf(id, { strict: true }) ?? {};
-  persist(id, enText || koText ? { ...others, [field]: { en: enText, ko: koText } } : others);
+  const { [field]: old, ...others } = fieldsOf(id, { strict: true }) ?? {};
+  let next;
+  if (typeof value === "string") next = clean(value, field);
+  else {
+    const byLang = asLangs(old);
+    for (const lang of LANGS) if (Object.hasOwn(value ?? {}, lang)) byLang[lang] = clean(value[lang], field);
+    next = gather(byLang);
+  }
+  persist(id, next ? { ...others, [field]: next } : others);
   return true;
 }
 
@@ -239,24 +371,24 @@ export function reset(id, field = null) {
   if (ID_RE.test(String(id))) gameMeta.refresh(id);
   const own = ID_RE.test(String(id)) ? fieldsOf(id, { strict: true }) : null;
   if (!own || !Object.keys(own).length || (field && !own[field])) return false;
-  if (field) return set(id, field, {});
+  if (field) return set(id, field, "");
   persist(id, {});
   return true;
 }
 
-// The reader's language, else the admin's other one (what they wrote beats nothing).
-const pick = (text, lang) => (text ? (lang === "ko" ? text.ko ?? text.en : text.en ?? text.ko) ?? null : null);
+// The reader's language, else English, else Korean (what the admin wrote beats nothing).
+const pick = (text, lang) => textIn(text, lang) ?? textIn(text, "en") ?? textIn(text, "ko");
 
 /** The description a reader sees: the admin's, else `fallback` (titledb's own). */
 export function describe(id, lang, fallback = null) {
   return pick(get(id)?.description, lang) ?? fallback ?? null;
 }
 
-/** The admin's name for a game in each language they wrote ({ en?, ko? }), or null. */
+/** The admin's name for a game in each language it has one in ({ <language>: name }, plain text in the one it counts as), or null. */
 export function names(id) {
   const n = get(String(id ?? "").toUpperCase())?.name;
   if (!n) return null;
-  const out = { ...(n.en ? { en: n.en } : {}), ...(n.ko ? { ko: n.ko } : {}) };
+  const out = Object.fromEntries(Object.entries(n).filter(([, v]) => v));
   return Object.keys(out).length ? out : null;
 }
 

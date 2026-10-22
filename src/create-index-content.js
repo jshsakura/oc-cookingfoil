@@ -57,6 +57,7 @@ import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
+import { parseLang } from "./meta/langs.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import { integrityOf } from "./meta/file-integrity.js";
 import {
@@ -156,7 +157,7 @@ function resolveDisplayName(parsed, fromDb) {
  * in, with the English one after it the way titledb names are shown. Pure.
  */
 export function ownDisplayName(own, priority) {
-  const lang = priority.map((l) => l.split("-")[0]).find((l) => own[l]) ?? (own.en ? "en" : "ko");
+  const lang = priority.map((l) => parseLang(l) ?? l.split("-")[0]).find((l) => own[l]) ?? ["en", "ko", ...Object.keys(own)].find((l) => own[l]);
   const name = own[lang];
   return lang !== "en" && own.en && !name.toLowerCase().includes(own.en.toLowerCase()) ? `${name} (${own.en})` : name;
 }

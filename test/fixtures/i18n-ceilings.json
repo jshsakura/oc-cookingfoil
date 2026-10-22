@@ -108,9 +108,6 @@
     "src/views/guide.md": 98
   },
   "problems": {
-    "src/meta/shop-saves.js": 2,
-    "src/retro/systems.js": 41,
-    "src/routes/dropbox-bridge.js": 7,
-    "src/security/drain.js": 14
+    "src/retro/systems.js": 41
   }
 }

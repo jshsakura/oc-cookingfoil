@@ -50,6 +50,7 @@ import { applyArcade, groupSets, setInfo } from "./arcade.js";
 import { buildGroups } from "./variants.js";
 import { rankSets } from "./arcade-policy.js";
 import { isReadme } from "../helpers/readme-name.js";
+import { LANGS } from "../meta/langs.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -169,11 +170,9 @@ async function folderFilesOf(romsDir, rel) {
   return out;
 }
 
-const TITLE_LANGS = ["en", "ko", "ja", "zh"];
-
 /**
- * A ScummVM game's titles from its folder's title.json ({ "en": "…", "ko": "…" }, ja and zh
- * optional), or null. The game is named by its ScummVM id, so this is what clients show; a
+ * A ScummVM game's titles from its folder's title.json ({ "en": "…", "ko": "…" }, any other
+ * client language optional, "zh-Hant" among them), or null. The game is named by its ScummVM id, so this is what clients show; a
  * name the admin sets in the retro tab still wins, language by language.
  */
 async function folderTitles(dir) {
@@ -184,7 +183,7 @@ async function folderTitles(dir) {
     return null;
   }
   const out = {};
-  for (const lang of TITLE_LANGS) {
+  for (const lang of LANGS) {
     const v = typeof raw?.[lang] === "string" ? raw[lang].replace(/\s+/g, " ").trim().slice(0, 120) : "";
     if (v) out[lang] = v;
   }
