@@ -118,13 +118,12 @@ for (const made of ensureLayout(layout)) debug.log("storage: made %s", made);
 for (const role of ROLES.filter((r) => layout.from[r] === "kept")) {
   debug.error("storage: %s still has files, so %s stays in use instead of %s/%s; move them over", layout.dirs[role], role, layout.root, role);
 }
-// Every retro scan (the first runs at start) makes the system folders and the storage guide that are missing.
+// Every retro scan (the first runs at start) makes the system folders that are missing and recomputes the folder guides (API only).
 retroCatalog.beforeScan(async (dir, systems) => {
   if (dir !== retroDir) return;
   const r = await retroScaffold.run({ retroDir: dir, systems, layout, enabled: envs.retroScaffold });
   if (r.made.length) debug.log("retro: made %d folders: %s", r.made.length, r.made.join(", "));
-  if (r.guide.state === "written") debug.log("storage: wrote the folder guide %s", r.guide.path);
-  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not write %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
+  for (const p of retroScaffold.freshProblems(dir, r)) debug.error("storage: could not make %s: %s (logged once; the retro tab shows it while it lasts)", p.path, p.error);
 });
 const oldBox = oldIncoming(layout);
 if (oldBox) {

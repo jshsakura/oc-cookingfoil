@@ -224,15 +224,14 @@ let raScaffoldData=null;
 const raFill=(key,vars)=>{let s=topText(key);for(const x in vars)s=s.split('{'+x+'}').join(vars[x]);return s;};
 function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);if(raData)raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);}
 function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
-  const folders=d.folders||[],g=d.guide||{};
+  const folders=d.folders||[];
   $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
   const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):d.skipped==='no-retro'?topText('sc.noRetro'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
   const pills=el('div',null,'ra-scaffold-list');
   pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
   const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));
-  const state={written:'sc.gWritten',current:'sc.gWritten',edited:'sc.gEdited',foreign:'sc.gForeign',failed:'sc.gFailed',unreadable:'sc.gFailed'}[g.state];
-  const guide=el('p',state?raFill(state,{path:g.path,error:g.error||''})+' ':'','muted');
-  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a);
+  const guide=el('p',null,'muted');
+  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a,document.createTextNode(' '+topText('sc.readme')));
   $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
 // Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
 // A folder under roms/ that no system reads would hide its games without a word.

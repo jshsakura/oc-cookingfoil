@@ -49,6 +49,7 @@ import { assignSdNames } from "./sd-names.js";
 import { applyArcade, groupSets, setInfo } from "./arcade.js";
 import { buildGroups } from "./variants.js";
 import { rankSets } from "./arcade-policy.js";
+import { isReadme } from "../helpers/readme-name.js";
 
 const STALE_MS = 60_000;
 const MAX_DEPTH = 2; // roms/<system>/<file> or roms/<system>/<folder>/<file>
@@ -128,7 +129,8 @@ async function listFiles(root, rel = "", depth = 1, out = []) {
     return out;
   }
   for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
+    // A README.md (helpers/readme-name.js) is someone's notes, never a ROM, though .md is a Mega Drive extension.
+    if (e.name.startsWith(".") || (e.isFile() && isReadme(e.name))) continue;
     const childRel = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory() && depth < MAX_DEPTH) await listFiles(root, childRel, depth + 1, out);
     else if (e.isFile()) out.push(childRel);
@@ -141,7 +143,7 @@ const GAME_FOLDER_MAX_DEPTH = 6;
 
 /**
  * Every file in the folder of `rel`, below it too (relative to `romsDir`, "/"-separated),
- * except .scummvm files (`rel` among them), the folder's own title.json, and hidden or non-regular files. For a game made of a folder of files
+ * except .scummvm files (`rel` among them), the folder's own title.json, a README.md, and hidden or non-regular files. For a game made of a folder of files
  * (ScummVM) rather than one ROM; empty when the file is not inside a folder of its own.
  */
 async function folderFilesOf(romsDir, rel) {
@@ -156,7 +158,7 @@ async function folderFilesOf(romsDir, rel) {
       return;
     }
     for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-      if (e.name.startsWith(".") || out.length >= GAME_FOLDER_MAX_FILES) continue;
+      if (e.name.startsWith(".") || (e.isFile() && isReadme(e.name)) || out.length >= GAME_FOLDER_MAX_FILES) continue;
       const childRel = `${dirRel}/${e.name}`;
       if (e.isDirectory() && depth < GAME_FOLDER_MAX_DEPTH) await walk(childRel, depth + 1);
       // Another .scummvm here is a game of its own, not a file of this one; title.json names the game on the server only.

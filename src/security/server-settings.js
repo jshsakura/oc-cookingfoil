@@ -58,7 +58,7 @@ export const SETTINGS = {
   eshopArtwork: bool,
   ratingSync: bool,
   retroMeta: bool,
-  // Ready-made ROM and BIOS folders and the storage guide (retro/scaffold.js).
+  // Ready-made ROM and BIOS folders (retro/scaffold.js).
   retroScaffold: bool,
   // The RetroArch bundle's address; empty is the official one in the pack lock. The lock's SHA-256 decides what is accepted.
   retroPackUrl: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || URL_RE.test(v) },
