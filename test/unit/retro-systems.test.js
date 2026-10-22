@@ -61,6 +61,9 @@ test("BIOS notices only name consoles that have games, and an any-of group is me
   put(dir, "bios_CD_J.bin");
   put(dir, "neocd/neocd_z.rom");
   put(dir, "Machines/Shared Roms/MSX.rom");
+  // A BIOS that went to the trash (the firmware folder on its own disk keeps its trash inside) is not there.
+  put(dir, ".cookingfoil-trash/2026-01-01/bios-0123456789/colecovision.rom");
+  put(dir, ".cookingfoil-partial-0a1b2c3d4e-colecovision.rom");
   const files = await listFirmware(dir);
   assert.deepEqual(files.sort(), ["Machines/Shared Roms/MSX.rom", "bios_CD_J.bin", "neocd/neocd_z.rom"]);
 

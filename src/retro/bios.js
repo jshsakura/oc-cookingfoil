@@ -53,6 +53,8 @@ export async function listFirmware(dir, depth = 0, prefix = "") {
   const entries = await fsp.readdir(path.join(dir, prefix), { withFileTypes: true }).catch(() => []);
   const out = [];
   for (const e of entries) {
+    // Dot names are never firmware: the trash, a copy not yet checked, an OS's own files.
+    if (e.name.startsWith(".")) continue;
     const rel = prefix ? `${prefix}/${e.name}` : e.name;
     if (e.isDirectory() && depth < MAX_DEPTH) out.push(...(await listFirmware(dir, depth + 1, rel)));
     else if (e.isFile()) out.push(rel);
