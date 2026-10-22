@@ -16,8 +16,8 @@
  *
  * The CookingFoil client, ready to connect (needs device pairing):
  *   POST /pair/api/client-bundle           a zip of switch/cookingfoil/cookingfoil.nro and a config.json
- *                                          holding this server and a one-day enrollment token
- *   POST /pair/api/clients/<id>/revoke     withdraw a download's token while it can still connect a console
+ *                                          holding this server and a one-hour enrollment token
+ *   POST /pair/api/clients/<id>/revoke     withdraw a download's token before a console used it
  *   /pair/api/mine lists the downloads too (no token in it: id, when, state, the console's code)
  */
 import express from "express";

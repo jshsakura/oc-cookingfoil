@@ -164,7 +164,7 @@ function row(item){if(item.kind==='client')return clientRow(item);const li=docum
 async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/mine',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();
   const items=[...(d.clients||[]).map((x)=>({...x,kind:'client'})),...d.devices.map((x)=>({...x,kind:'qr'}))];
   mine.replaceChildren(...(items.length?items.map(row):[Object.assign(document.createElement('li'),{className:'hint',textContent:T.mineEmpty})]));}catch{}}
-// The client with this server and a one-day connection key inside, as one zip.
+// The client with this server and a one-hour connection key inside, as one zip.
 const getClient=document.getElementById('get-client');
 if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;error.textContent='';
   try{const r=await post('/pair/api/client-bundle');

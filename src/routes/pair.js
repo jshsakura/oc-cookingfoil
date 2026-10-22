@@ -31,10 +31,9 @@
  *   POST /api/pair/enroll  { token }  + X-Device-Key
  *        A console spends the enrollment token its downloaded client carries
  *        (security/enroll-tokens.js) for its own access key, approved under the
- *        account that downloaded it. Once, within a day of the download; while
- *        consoles may join by sign-in (COOK_DEVICE_AUTO_APPROVE) one download takes
- *        up to enroll-tokens.js MAX_CONSOLES consoles within that day, each answered
- *        as the first.
+ *        account that downloaded it. Once, within an hour of the download, in every
+ *        approval mode; a later console with the same download is refused (used)
+ *        and asks /api/pair/status like a console with only the server address.
  *        → { status: "approved", accessKey, shopUrl }
  *        label: the console's own nickname, which names it once approved
  *        → 401 { error } + X-CookingFoil-Enroll: used | expired | revoked | invalid
@@ -81,7 +80,7 @@ import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
 import { noteRefusal } from "../security/auth-log.js";
 import { vouch } from "../security/server-id.js";
 import debug from "../debug.js";
@@ -123,13 +122,13 @@ const FROM_DOWNLOAD = "웹에서 받은 클라이언트";
  * A console that asks with the download token its client carries is approved under the
  * account that downloaded it, the way /enroll would, with its key staged for the next
  * status poll. Without one it waits like any other; with one that no longer works
- * (another console spent it, its day passed) it waits too, and the download it names,
+ * (another console spent it, its hour passed, a newer download withdrew it) it waits too, and the download it names,
  * { owner, id, state }, is returned so the queue shows whose console it is.
  */
 function enrollFromRequest(req, deviceKey) {
   const token = req.body?.enrollToken ?? req.get("x-enroll-token");
   if (!token || store.isDeviceApproved(deviceKey)) return null;
-  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner), reusable: deviceAutoApprove });
+  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner) });
   if (!spent || spent.refused) {
     const known = enrollTokens.lookup(token);
     debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : known?.state ?? "unknown");
@@ -272,8 +271,7 @@ export default function pairRouter() {
       return;
     }
     const canEnroll = (owner) => mayEnroll(deviceKey, owner);
-    // While consoles may join by sign-in alone, one download connects several consoles (enroll-tokens.js).
-    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll, reusable: deviceAutoApprove });
+    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
     if (!spent) {
       // A download this server made still says whose it is: the console waits
       // in the queue under that account's name, for the admin to approve.

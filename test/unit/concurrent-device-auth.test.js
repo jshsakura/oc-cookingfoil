@@ -128,10 +128,10 @@ test("manual approve: four consoles wait at once, the admin approves them all, a
   }
 });
 
-/** The enrollment token inside a client download alice makes on her web page. */
-async function downloadToken(data) {
-  const ALICE = await webSession(BASE, "alice", ACCOUNTS.alice);
-  const r = await fetch(`${BASE}/pair/api/client-bundle`, { method: "POST", headers: { ...ALICE, Origin: BASE } });
+/** The enrollment token inside a client download `account` (alice by default) makes on its web page. */
+async function downloadToken(data, account = "alice") {
+  const web = await webSession(BASE, account, ACCOUNTS[account]);
+  const r = await fetch(`${BASE}/pair/api/client-bundle`, { method: "POST", headers: { ...web, Origin: BASE } });
   assert.equal(r.status, 200);
   const file = path.join(data, `bundle-${Date.now()}.zip`);
   fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
@@ -142,20 +142,28 @@ const enrollAs = (i, token) => fetch(`${BASE}/api/pair/enroll`, {
   method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": KEYS[i] }, body: JSON.stringify({ token, label: `console ${i}` }),
 });
 
-test("auto-approve: one downloaded client put on four consoles connects them all at once, under its account", async () => {
+test("auto-approve: a download connects the first console; the second is refused as used and pairs like an address-only console", async () => {
   const server = await boot({ COOK_DEVICE_AUTO_APPROVE: "true" });
   try {
     const token = await downloadToken(server.data);
-    const replies = await Promise.all(consoles(4).map((i) => enrollAs(i, token)));
-    const refused = replies.map((r, i) => [i, r.status, r.headers.get("x-cookingfoil-enroll")]).filter(([, s]) => s !== 200);
-    assert.deepEqual(refused, [], "no console after the first is turned away with 401");
-    const keys = await Promise.all(replies.map((r) => r.json().then((b) => b.accessKey)));
-    const used = await Promise.all(consoles(4).map((i) => useShop(i, keys[i])));
-    for (const [i, u] of used.entries()) assert.deepEqual([u.sections, u.shop], [200, 200], `console ${i}`);
-    const ALICE = await webSession(BASE, "alice", ACCOUNTS.alice);
-    const mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
-    assert.equal(KEYS.filter((k) => mine.devices.some((d) => d.deviceKey === k)).length, 4, "all four are alice's");
-    assert.equal(mine.clients[0].consoles, 4);
+    const first = await enrollAs(0, token);
+    assert.equal(first.status, 200);
+    const firstKey = (await first.json()).accessKey;
+    assert.deepEqual([(await useShop(0, firstKey)).sections], [200], "the first console is in");
+
+    const second = await enrollAs(1, token);
+    assert.equal(second.status, 401);
+    assert.equal(second.headers.get("x-cookingfoil-enroll"), "used");
+    assert.equal(second.headers.get("x-cookingfoil-auth"), "enroll-used");
+
+    // From here on it is a console that knows only the server address.
+    assert.equal((await pairStatus(1, null)).status, "pending", "without sign-in it waits for approval");
+    const signedIn = await pairStatus(1, "alice");
+    assert.equal(signedIn.status, "approved", "signing in approves it, as for any console");
+    assert.ok(signedIn.accessKey && signedIn.accessKey !== firstKey, "with its own key");
+    const used = await useShop(1, signedIn.accessKey);
+    assert.deepEqual([used.sections, used.shop], [200, 200]);
+    assert.equal((await get("/api/shop/sections", (await useShop(0, firstKey)).bearer)).status, 200, "the first console stays in");
   } finally {
     stop(server);
   }
@@ -168,6 +176,24 @@ test("manual approve: a download still connects one console; the next waits for 
     const replies = await Promise.all(consoles(3).map((i) => enrollAs(i, token)));
     assert.deepEqual(replies.map((r) => r.status).sort(), [200, 401, 401]);
     assert.deepEqual(replies.filter((r) => r.status === 401).map((r) => r.headers.get("x-cookingfoil-enroll")), ["used", "used"]);
+  } finally {
+    stop(server);
+  }
+});
+
+test("a new download withdraws the account's earlier unused one, and leaves another account's alone", async () => {
+  const server = await boot({ COOK_DEVICE_AUTO_APPROVE: "true" });
+  try {
+    const older = await downloadToken(server.data);
+    const bobs = await downloadToken(server.data, "bob");
+    const newer = await downloadToken(server.data);
+    const withdrawn = await enrollAs(0, older);
+    assert.equal(withdrawn.status, 401);
+    assert.equal(withdrawn.headers.get("x-cookingfoil-enroll"), "revoked");
+    assert.equal(withdrawn.headers.get("x-cookingfoil-auth"), "enroll-revoked");
+    assert.equal((await pairStatus(0, null)).status, "pending", "it waits for approval like an address-only console");
+    assert.equal((await enrollAs(1, newer)).status, 200);
+    assert.equal((await enrollAs(2, bobs)).status, 200, "bob's download still works");
   } finally {
     stop(server);
   }
