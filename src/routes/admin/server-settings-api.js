@@ -36,10 +36,12 @@ const OUTBOUND = ["titledbSource", "publicDirectBaseUrl", "retroPackUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
 const RESCAN = new Set(["langPriority", "extractIcons"]);
 // Who may sign in and how, the addresses consoles are sent to, and where the client build they
-// install comes from: never changed with an automation token.
+// install comes from, and how long an original stays after NSZ conversion (a token setting it to 0
+// would delete each original as soon as it is converted): never changed with an automation token.
 export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
+  "nszKeepHours", "nszKeepGb",
 ];
 
 let fetching = null;

@@ -135,9 +135,10 @@ function clientBuildWarnings() {
 // buttons, whether the server runs, and the binaries every console installs (the client build
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
 // which release file of it, uploaded patches and which of them a game requires), and deleting
-// files from the game library, which has no trash to bring them back from. Routes match
+// files from the game library (retro roms and kept NSZ originals too), which has no trash to bring
+// them back from. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */
 function decodedPath(raw) {
