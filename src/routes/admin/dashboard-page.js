@@ -533,6 +533,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
+  <p class="muted" id="scan-status" aria-live="polite"></p>
   <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
     <button type="button" role="tab" data-lsub="organize" aria-selected="false">${icon("inbox")}임시 폴더</button>
@@ -545,7 +546,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <div data-lib-panel="files">${LIB_BROWSER_HTML}
   <section class="lib-ops" aria-labelledby="lib-ops-h">
     <h3 class="sub-h" id="lib-ops-h">${top("ops.status")}</h3>
-    <p class="muted" id="scan-status" aria-live="polite"></p>
     <div class="cards" id="lib-cards"></div>
   </section></div>
   <div data-lib-panel="organize" hidden>${ORGANIZE_HTML}</div>

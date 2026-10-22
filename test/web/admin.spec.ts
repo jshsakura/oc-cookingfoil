@@ -73,6 +73,7 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
   await expect(rescan).toBeDisabled();
   await expect(page.locator('#toast')).toContainText('다시 스캔을 마쳤습니다', { timeout: 15000 });
   await expect(rescan).toBeEnabled();
+  await expect(page.locator('#scan-status')).toBeVisible();
   await expect(page.locator('#scan-status')).toContainText('마지막으로 전부 읽은 때는');
 });
 

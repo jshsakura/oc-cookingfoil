@@ -173,6 +173,8 @@ function lbRemoveCall(f,kind){
   if(kind==='patch'||kind==='save')return api('/admin/api/content/'+kind+'/remove',{method:'POST',body:{id:f.id}});
   if(f.source==='manual')return api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:f.id}});
   if(f.repo)return api('/admin/api/homebrew/remove',{method:'POST',body:{repo:f.repo}});
+  // A .nro lying in the games folder is a plain file of that folder: it has no homebrew record, only its path.
+  if(f.rel)return api('/admin/api/library/files/remove',{method:'POST',body:{rel:f.rel}});
   return Promise.reject(new Error('이 항목은 여기서 지울 수 없습니다.'));}
 async function lbRemove(f,kind){
   const name=f.name||f.rel||'이 파일';

@@ -11,6 +11,7 @@ const row = (kind: string, extra: Record<string, unknown>) => ({
 const cases: [string, Record<string, unknown>, string, Record<string, unknown>][] = [
   ['homebrew', { id: 'hand-app', source: 'manual' }, '/admin/api/homebrew/manual/remove', { id: 'hand-app' }],
   ['homebrew', { id: 'gh-app', source: 'github', repo: 'example/tool' }, '/admin/api/homebrew/remove', { repo: 'example/tool' }],
+  ['homebrew', { rel: 'tools/loose.nro' }, '/admin/api/library/files/remove', { rel: 'tools/loose.nro' }],
   ['patch', { id: 'patch-1' }, '/admin/api/content/patch/remove', { id: 'patch-1' }],
   ['save', { id: 'save-1' }, '/admin/api/content/save/remove', { id: 'save-1' }],
   ['other', { rel: 'notes/a.txt' }, '/admin/api/library/other/remove', { rel: 'notes/a.txt' }],
