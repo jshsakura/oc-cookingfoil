@@ -6,7 +6,8 @@
  * game it has open. Talks to /admin/api/patches, /admin/api/saves and
  * /admin/api/content. The homebrew tab opens the same dialog for a homebrew
  * app's patch, with only its text (no update to pick, no move or delete).
- * A patch's text is kept on the server, not in a patch.json in its folder.
+ * A patch's text is kept on the server, not in a patch.json in its folder; the
+ * edit dialog offers a folder's patch.json when it says something else.
  * Each row has the homebrew tab's 검수됨 pill (POST /admin/api/content/:kind/verified).
  */
 
@@ -29,6 +30,7 @@ export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
 export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-title">
   <h3 id="ct-title"></h3>
   <p class="muted" id="ct-where"></p>
+  <div class="note" id="ct-json" hidden><span id="ct-json-msg"></span> <button type="button" id="ct-json-go">patch.json 에서 가져오기</button></div>
   <form class="desc-form" id="ct-form" method="dialog" autocomplete="off">
     <label>이름 (모든 언어의 기본값)<input id="ct-name" maxlength="120" required></label>
     <label>한국어 이름 (다를 때만)<input id="ct-name-ko" maxlength="120"></label>
@@ -154,7 +156,23 @@ function ctOpen(kind,x,onDone){ctKind=kind;ctItem=x;ctAfter=onDone||null;const h
   $('ct-source-name').value=x.source?.name||'';$('ct-source-url').value=x.source?.url||'';$('ct-move').value='';
   $('ct-p-game-version').value=x.game_version||'';
   if(kind==='patch'&&!hb)ctUpdates(x);
+  $('ct-json').hidden=true;ctJson=null;if(kind==='patch')ctPatchJson(x);
   $('ct-edit').showModal();}
+// A patch.json the folder holds now (kpatch writes one when it updates a patch) is offered, never taken in unasked.
+let ctJson=null;
+async function ctPatchJson(x){let d;
+  try{d=await api('/admin/api/patches/'+encodeURIComponent(x.id)+'/patch-json');}catch{return;}
+  if(ctItem!==x||!d.found)return;
+  if(d.error){$('ct-json-msg').textContent=d.error;$('ct-json-go').hidden=true;$('ct-json').hidden=false;return;}
+  if(!d.differs)return;
+  ctJson=d.info;$('ct-json-go').hidden=false;
+  $('ct-json-msg').textContent='폴더의 patch.json 이 저장된 정보와 다릅니다. 가져오면 칸을 채우고, 저장해야 반영됩니다.'+(Boolean(d.info.required)!==Boolean(x.required)?' 필수 여부는 패치 목록의 필수 버튼으로 바꿉니다.':'');
+  $('ct-json').hidden=false;}
+$('ct-json-go').addEventListener('click',()=>{const j=ctJson;if(!j)return;
+  const put=(id,v)=>{if(v!==undefined&&v!==null)$(id).value=v;};
+  put('ct-name',j.name);put('ct-name-ko',j.ko?.name);put('ct-desc',j.description);put('ct-desc-ko',j.ko?.description);
+  put('ct-version',j.version);put('ct-author',j.author);put('ct-p-game-version',j.game_version);
+  $('ct-json').hidden=true;toast('patch.json 내용을 채웠습니다. 저장을 눌러야 반영됩니다.');});
 // The updates titledb lists for the game and the ones in the library; the patch's own stays selectable.
 let ctChoices=[];
 async function ctUpdates(x){const s=$('ct-update');const keep=(list)=>{

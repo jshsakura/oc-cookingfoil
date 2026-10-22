@@ -165,6 +165,23 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(infoList.patches.find((p) => p.id === data.id).stored, true);
     assert.equal(fs.existsSync(path.join(dirs.patches, MK, "게임 데이터", "patch.json")), false, "the server never writes a patch.json");
 
+    // A patch.json put in the folder later is offered to the edit dialog, never taken in on its own.
+    const fromFile = () => fetch(`${BASE}/admin/api/patches/${data.id}/patch-json`, { headers: admin }).then((x) => x.json());
+    assert.deepEqual(await fromFile(), { found: false });
+    const jsonPath = path.join(dirs.patches, MK, "게임 데이터", "patch.json");
+    fs.writeFileSync(jsonPath, "{ not json");
+    assert.match((await fromFile()).error, /JSON/);
+    fs.writeFileSync(jsonPath, JSON.stringify({ name: "Game data", version: "2.1", author: "someone", description: "Needed to start.", required: true,
+      ko: { name: "게임 데이터", description: "이게 있어야 실행됩니다." } }));
+    const offered = await fromFile();
+    assert.deepEqual([offered.found, offered.differs, offered.info.version], [true, true, "2.1"]);
+    assert.equal((await (await fetch(`${BASE}/admin/api/patches/info`, { headers: admin })).json()).patches.find((p) => p.id === data.id).info.version, "2.0", "the store keeps its own until saved");
+    fs.writeFileSync(jsonPath, JSON.stringify({ name: "Game data", version: "2.0", author: "someone", description: "Needed to start.", required: true,
+      ko: { name: "게임 데이터", description: "이게 있어야 실행됩니다." } }));
+    assert.equal((await fromFile()).differs, false, "the same information is not offered");
+    assert.equal((await fetch(`${BASE}/admin/api/patches/0100152000022000-000000000000/patch-json`, { headers: admin })).status, 404);
+    fs.rmSync(jsonPath);
+
     r = await send("save", { titleId: MK, name: "All karts", description: "Everything unlocked.", descriptionKo: "전부 엽니다." },
       [["userdata.dat", "SAVE"], ["x.bin", "X"]], ["MK8D/userdata.dat", "MK8D/sub/x.bin"]);
     assert.equal(r.status, 201, await r.clone().text());

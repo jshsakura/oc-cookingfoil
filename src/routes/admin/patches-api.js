@@ -13,6 +13,9 @@
  *                                      replaces the text fields; `required`, `update_version` and `game_version`
  *                                      stay as they were when left out. Limits as in meta/patch-info.js.
  *
+ *   GET  /admin/api/patches/:id/patch-json  { found, info?, differs?, error? }  what the folder's patch.json says now,
+ *                                      for the edit dialog to offer; nothing is taken in until the admin saves
+ *
  * `update_version` is the update a patch was made for. It is a reference: the
  * admin sees when the library lacks that update, nothing is hidden or held back.
  *
@@ -28,6 +31,18 @@ import * as titledbVersions from "../../meta/titledb-versions.js";
 import { gameOf } from "../../meta/game-info.js";
 import * as itemVerified from "../../meta/item-verified.js";
 import debug from "../../debug.js";
+import fsp from "fs/promises";
+import path from "path";
+import { patchesDir } from "../../helpers/envs.js";
+
+const SHOWN_FIELDS = ["name", "version", "game_version", "author", "description", "required"];
+
+/** Whether a patch.json's information differs from the stored one in what the dialog shows. Pure. */
+export function patchJsonDiffers(stored, file) {
+  const s = stored ?? {};
+  if (SHOWN_FIELDS.some((k) => (s[k] ?? null) !== (file[k] ?? null))) return true;
+  return ["name", "description"].some((k) => (s.ko?.[k] ?? null) !== (file.ko?.[k] ?? null));
+}
 
 /** Information with `required` set or cleared; other fields kept as they are. Pure. */
 export function withRequired(meta, required) {
@@ -142,6 +157,26 @@ export function mountPatchesApi(router, requireSession) {
     });
     const missing = patchInfo.entries().filter((e) => e.missing_since && !keys.has(e.key)).map(({ key, missing_since }) => ({ key, missing_since }));
     res.json({ patches, missing });
+  }));
+
+  router.get("/api/patches/:id/patch-json", handle(async (req, res) => {
+    const id = String(req.params.id ?? "");
+    const where = userPatches.locate(id);
+    if (!where?.key) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    let text;
+    try {
+      text = await fsp.readFile(path.join(patchesDir, where.dir, where.folder, "patch.json"), "utf8");
+    } catch (err) {
+      if (err.code === "ENOENT") return res.json({ found: false });
+      throw err;
+    }
+    let info;
+    try {
+      info = patchInfo.normalize(JSON.parse(text));
+    } catch {
+      return res.json({ found: true, error: "patch.json 을 JSON 으로 읽을 수 없습니다" });
+    }
+    res.json({ found: true, info, differs: patchJsonDiffers(userPatches.infoOf(id), info) });
   }));
 
   router.put("/api/patches/:id/info", handle(async (req, res) => {
