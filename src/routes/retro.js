@@ -153,6 +153,8 @@ import { packDirOf, packStatus } from "../retro/pack-status.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
+import * as metaEdits from "../retro/meta/edits.js";
+import { metaKey } from "../retro/meta/build.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
 import { menuRows, pickMenu, rowIcon, MENU_GAMES } from "../retro/menu.js";
 import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable } from "../retro/forwarder.js";
@@ -307,6 +309,12 @@ const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, m
 /** A game, then its group's representative, then its other versions: whose details it shows. */
 const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members])];
 
+/** The meta key a game's details are read from (its versions share it), so an edit lands where it shows. */
+export function retroMetaKey(cat, g) {
+  const group = groupOf(cat, g);
+  return metaOwner(metaCandidates(g, representative(group, variantPicks.get(group.id)), group))?.key ?? metaKey(g);
+}
+
 // A game's facts (retro/themes.js) for every game of a catalog, made again when the
 // catalog, the collected metadata or the achievement matches change, or after FACTS_TTL_MS.
 const FACTS_TTL_MS = 10 * 60 * 1000;
@@ -341,9 +349,10 @@ function gameFacts(cat, g) {
 /** id → facts for the games of `cat` (every version, so variants=all filters too). */
 function factsById(cat) {
   const now = Date.now();
-  if (factsMemo?.cat === cat && factsMemo.meta === metaStore.all() && now - factsMemo.at < FACTS_TTL_MS) return factsMemo.map;
+  const fresh = factsMemo?.cat === cat && factsMemo.meta === metaStore.all() && factsMemo.edits === metaEdits.version;
+  if (fresh && now - factsMemo.at < FACTS_TTL_MS) return factsMemo.map;
   const map = new Map(cat.games.map((g) => [g.id, gameFacts(cat, g)]));
-  factsMemo = { cat, meta: metaStore.all(), at: now, map };
+  factsMemo = { cat, meta: metaStore.all(), edits: metaEdits.version, at: now, map };
   return map;
 }
 

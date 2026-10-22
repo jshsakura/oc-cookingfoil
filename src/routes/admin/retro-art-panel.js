@@ -62,9 +62,26 @@ ${RETRO_VARIANTS_HTML}
   <p class="muted" id="ra-msg"></p>
   <div class="ra-grid" id="ra-results"></div>
   <div class="row"><button type="button" id="ra-none" class="danger">표지 없음으로 두기</button></div>
+</dialog>
+<dialog id="rm-dialog" class="ra-dialog" aria-labelledby="rm-title">
+  <form method="dialog" class="ra-close"><button aria-label="닫기">닫기</button></form>
+  <h3 id="rm-title"></h3>
+  <p class="muted">기기의 게임 상세에 보이는 정보입니다. 같은 게임의 다른 버전도 같은 정보를 씁니다. 칸을 비우면 자동으로 모은 값(흐린 글씨)으로 돌아가고, 메타데이터를 다시 받아도 여기서 고친 값은 그대로입니다.</p>
+  <form id="rm-form" class="rm-form">
+    <label>한국어 소개<textarea id="rm-ko" rows="5"></textarea></label>
+    <label>영어 소개 (다른 언어의 기본값)<textarea id="rm-en" rows="5"></textarea></label>
+    <div class="rm-pair"><label>발매<input id="rm-publisher"></label><label>개발<input id="rm-developer"></label></div>
+    <div class="rm-pair"><label>발매 연도<input id="rm-year" inputmode="numeric" maxlength="4"></label><label>최대 인원<input id="rm-players" inputmode="numeric" maxlength="2"></label></div>
+    <fieldset><legend>장르 (4개까지, 아무것도 고르지 않으면 자동으로 모은 장르를 씁니다)</legend><div id="rm-genres" class="rm-genres"></div></fieldset>
+    <div class="row"><button class="primary">저장</button><button type="button" id="rm-reset" class="danger">모두 자동 값으로 돌리기</button></div>
+  </form>
 </dialog>`;
 
 export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
+.rm-form{display:grid;gap:12px}.rm-form label{display:grid;gap:4px}.rm-form textarea{width:100%;resize:vertical}
+.rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
+@media (max-width:560px){.rm-pair{grid-template-columns:1fr}}
 .subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
 .subtabs::-webkit-scrollbar{display:none}
 .subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
@@ -176,13 +193,37 @@ function raBios(list,unread,pack){
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
   const del=btn('삭제',()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' 삭제');
-  const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');const box=el('div',null,'row-actions');box.append(b,nm,del);
+  const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');
+  const info=btn('정보',()=>rmOpen(m));info.setAttribute('aria-label',m.name+' 정보');const box=el('div',null,'row-actions');box.append(b,nm,info,del);
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
 // The name clients show; the ROM file keeps its own (box art and configs are found by it).
 async function raName(m){const ko=await askText(m.name+' 의 한국어 이름을 넣습니다. 비우면 파일 이름을 씁니다.',m.title?.ko||'');if(ko===null)return;
   const en=await askText('영어 이름을 넣습니다 (다른 언어의 기본값). 비워 둬도 됩니다.',m.title?.en||'');if(en===null)return;
   try{const r=await api('/admin/api/retro-art/games/name',{method:'POST',body:{game:m.id,ko,en}});m.title=r.title;toast(r.title?'이름을 정했습니다.':'파일 이름으로 돌렸습니다.');raShow();}catch(err){toast(err.message);}}
+// The details clients show (description, makers, year, players, genres): the admin's edit over what was collected.
+let rmGame=null,rmMax=4;
+const rmYear=(d)=>Number.isInteger(d)?String(Math.floor(d/10000)):'';
+async function rmOpen(m){let d;
+  try{d=await api('/admin/api/retro-art/games/meta?game='+encodeURIComponent(m.id));}catch(err){toast(err.message);return;}
+  rmGame=m;const c=d.collected||{},e=d.edit||{};
+  $('rm-title').textContent=(m.title?.ko||m.title?.en||m.name)+' 정보';
+  const put=(id,mine,auto)=>{$(id).value=mine??'';$(id).placeholder=auto??'';};
+  put('rm-ko',e.description?.ko,c.description?.ko);put('rm-en',e.description?.en,c.description?.en);
+  put('rm-publisher',e.publisher,c.publisher);put('rm-developer',e.developer,c.developer);
+  put('rm-year',rmYear(e.releaseDate)||null,rmYear(c.releaseDate));put('rm-players',e.numberOfPlayers,c.numberOfPlayers);
+  const picked=new Set(e.genres||[]),auto=new Set(c.genres||[]);
+  $('rm-genres').replaceChildren(...d.genres.map((g)=>{const l=el('label');const box=el('input');box.type='checkbox';box.value=g.key;box.checked=picked.has(g.key);
+    l.append(box,g.name+(auto.has(g.key)?' (자동)':''));return l;}));
+  $('rm-dialog').showModal();}
+async function rmSave(body){
+  try{const r=await api('/admin/api/retro-art/games/meta',{method:'POST',body:{game:rmGame.id,...body}});$('rm-dialog').close();toast(r.edit?'정보를 저장했습니다.':'자동으로 모은 값으로 돌렸습니다.');}
+  catch(err){toast(err.message);}}
+$('rm-form').addEventListener('submit',(e)=>{e.preventDefault();
+  const genres=[...document.querySelectorAll('#rm-genres input:checked')].map((x)=>x.value);
+  if(genres.length>rmMax){toast('장르는 '+rmMax+'개까지 고릅니다.');return;}
+  rmSave({description:{ko:$('rm-ko').value,en:$('rm-en').value},publisher:$('rm-publisher').value,developer:$('rm-developer').value,year:$('rm-year').value.trim(),players:$('rm-players').value.trim(),genres});});
+$('rm-reset').addEventListener('click',async()=>{if(await ask('이 게임에서 고친 정보를 모두 지우고 자동으로 모은 값으로 돌립니다.'))rmSave({});});
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
 async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
   try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('삭제했습니다. 파일 '+r.files+'개');

@@ -8,6 +8,7 @@ import { metaKey } from "./build.js";
 import { detailFields } from "./fields.js";
 import { shotFile, shotUrls } from "./screenshots.js";
 import * as store from "./store.js";
+import * as edits from "./edits.js";
 
 const useful = (r) => Boolean(r) && !r.miss;
 
@@ -15,7 +16,7 @@ const useful = (r) => Boolean(r) && !r.miss;
 export function metaOwner(games) {
   for (const g of games) {
     const key = metaKey(g);
-    const record = store.get(key);
+    const record = edits.applyEdit(store.get(key), edits.get(key));
     if (useful(record)) return { game: g, key, record };
   }
   return null;

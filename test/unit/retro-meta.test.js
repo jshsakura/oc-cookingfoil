@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { CONSOLE, seedConsole } from "../support/console.js";
+import { adminSession } from "../support/web-session.js";
 
 process.env.COOK_RATING_SYNC = "false";
 const { releaseDateInt, playersInt, genreKeys, fromLaunchBox, fromMame, fromIgdb, fillFrom, detailFields, MAX_SHOTS } = await import("../../src/retro/meta/fields.js");
@@ -442,7 +443,7 @@ async function boot(retroDir, dataDir) {
   const child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: dataDir, COOK_GAMES_DIR: path.join(dataDir, "games"), COOK_RETRO_DIR: retroDir,
-      COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_RATING_SYNC: "false", COOK_RETRO_META: "false" },
+      COOK_AUTH_USERS: "alice:alice-password", COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false", COOK_RATING_SYNC: "false", COOK_RETRO_META: "false" },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -552,4 +553,56 @@ test("the activity line says what was gathered, for which systems, and what is l
   assert.equal(systemNames(["snes", "gba", "snes", "odd"], systems), "슈퍼 패미컴, 게임보이 어드밴스, odd");
   assert.equal(tickSummary({ igdb: 0, ko: 50, shots: 31, left: 2310 }), "한국어 설명 50개 · 스크린샷 31장 · 남은 2,310개");
   assert.equal(tickSummary({ igdb: 3, ko: 0, shots: 0 }), "IGDB 게임 정보 3개");
+});
+
+test("the admin's edit of a game's details shows in its detail and filters, survives a refresh, and empties back", async () => {
+  const dir = tmp("retro-edit-");
+  const data = tmp("retro-edit-data-");
+  put(dir, "roms/snes/Chrono Trigger (USA).sfc", "CT");
+  put(dir, "roms/snes/Unknown Game (Japan).sfc", "UG");
+  put(data, "retro-meta.json", JSON.stringify({ version: 3, builtAt: Date.now(), games: {
+    "snes/Chrono Trigger (USA)": { source: "launchbox", description: { en: "Time travel.", ko: "위키 글" }, koFrom: "wikipedia", publisher: "Square", releaseDate: 19950311, genres: ["RPG"] },
+  } }));
+  const server = await boot(dir, data);
+  try {
+    const admin = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")), "Content-Type": "application/json" };
+    const ct = gameId("snes", "Chrono Trigger (USA).sfc");
+    const unknown = gameId("snes", "Unknown Game (Japan).sfc");
+    const save = (body) => fetch(`${BASE}/admin/api/retro-art/games/meta`, { method: "POST", headers: admin, body: JSON.stringify(body) });
+    const detail = async (id) => (await fetch(`${BASE}/api/retro/games/${id}`, { headers: { ...AUTH, "Accept-Language": "ko" } })).json();
+
+    const before = await (await fetch(`${BASE}/admin/api/retro-art/games/meta?game=${ct}`, { headers: admin })).json();
+    assert.equal(before.key, "snes/Chrono Trigger (USA)");
+    assert.equal(before.collected.publisher, "Square");
+    assert.equal(before.edit, null);
+    assert.ok(before.genres.some((g) => g.key === "Puzzle"));
+
+    assert.equal((await save({ game: ct, year: "95" })).status, 400);
+    assert.equal((await save({ game: ct, players: "0" })).status, 400);
+    assert.equal((await save({ game: "nope", publisher: "X" })).status, 404);
+    const r = await save({ game: ct, description: { ko: "시간 여행 RPG 입니다.", en: "" }, publisher: "스퀘어", year: "1995", players: "2", genres: ["Puzzle", "Bogus"] });
+    assert.equal(r.status, 200, await r.clone().text());
+    assert.deepEqual((await r.json()).edit, { description: { ko: "시간 여행 RPG 입니다." }, publisher: "스퀘어", releaseDate: 19950000, numberOfPlayers: 2, genres: ["Puzzle"] });
+
+    const shown = await detail(ct);
+    assert.equal(shown.description, "시간 여행 RPG 입니다.", "the admin's Korean text, without Wikipedia's attribution");
+    assert.equal(shown.publisher, "스퀘어");
+    assert.equal(shown.releaseDate, 19950000);
+    assert.equal(shown.numberOfPlayers, 2);
+    const puzzles = await (await fetch(`${BASE}/api/retro/games?system=snes&genre=puzzle`, { headers: AUTH })).json();
+    assert.deepEqual(puzzles.games.map((g) => g.id), [ct], "the list filters read the edit too");
+    assert.equal((await (await fetch(`${BASE}/api/retro/games?system=snes&genre=puzzle`, { headers: { ...AUTH, "Accept-Language": "en" } })).json()).total, 1);
+    assert.equal((await detail(ct)).description, "시간 여행 RPG 입니다.");
+
+    assert.equal((await save({ game: unknown, description: { en: "Found nothing for this one." } })).status, 200);
+    assert.equal((await (await fetch(`${BASE}/api/retro/games/${unknown}`, { headers: AUTH })).json()).description, "Found nothing for this one.", "a game nothing was found for gets the edit alone");
+
+    assert.equal((await save({ game: ct })).status, 200);
+    const back = await detail(ct);
+    assert.equal(back.publisher, "Square", "an empty edit goes back to what was collected");
+    assert.match(back.description, /^위키 글/);
+    assert.ok(!JSON.parse(fs.readFileSync(path.join(data, "retro-meta-edits.json"), "utf8"))["snes/Chrono Trigger (USA)"]);
+  } finally {
+    server.kill("SIGKILL");
+  }
 });
