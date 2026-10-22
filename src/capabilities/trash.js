@@ -1,0 +1,74 @@
+/**
+ * The shared trash and the move journal (library/trash-service.js), the 휴지통 tab's
+ * routes as tools. Emptying is not here: it deletes for good, so only a person on
+ * the admin page may (opt-out.js lists it as token-blocked).
+ *
+ * ctx.by is who asks, as the trash records it ({ type, name }); a tool call
+ * without one is recorded as a token.
+ */
+import { defineCapability } from "./define.js";
+
+const service = () => import("../library/trash-service.js");
+const byOf = (ctx) => ctx?.by ?? { type: "token", name: "mcp" };
+
+const MOVE_ARG = { type: "string", description: "The id of a move as trash_journal returns it; undone moves keep their id for release." };
+
+export const TRASH_CAPABILITIES = [
+  defineCapability({
+    id: "trash_list",
+    area: "library",
+    title: "List the trash",
+    description: "Lists what was removed from the library folders and waits in their trash: where it was, why, by whom, size and age. Use before trash_restore.",
+    input: { type: "object", properties: {} },
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/trash" },
+    handler: async () => (await service()).list(),
+  }),
+  defineCapability({
+    id: "trash_restore",
+    area: "library",
+    title: "Restore trash entries",
+    description: "Puts trash entries back where they were. Nothing is overwritten: a taken place gets a numbered name, or with exactName the entry stays in the trash.",
+    input: {
+      type: "object",
+      properties: {
+        ids: { type: "array", description: "The entry ids to put back, from trash_list; at most 1000 in one call, each one at most once." },
+        exactName: { type: "boolean", description: "When true, an entry whose original name is taken stays in the trash instead of coming back renamed." },
+      },
+      required: ["ids"],
+    },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/trash/restore" },
+    handler: async (ctx, input) => (await service()).restore(input.ids, byOf(ctx), { exactName: input.exactName === true }),
+  }),
+  defineCapability({
+    id: "trash_journal",
+    area: "library",
+    title: "List library moves",
+    description: "Lists the moves the server made between library folders, newest first, with whether each can still be undone and why not. Use before trash_undo.",
+    input: { type: "object", properties: { limit: { type: "integer", description: "How many moves to return, newest first: from 1 to 1000, 200 when it is left out." } } },
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/trash/journal" },
+    handler: async (_ctx, input) => (await service()).journal({ limit: Math.min(Math.max(Number(input?.limit) || 200, 1), 1000) }),
+  }),
+  defineCapability({
+    id: "trash_undo",
+    area: "library",
+    title: "Undo a library move",
+    description: "Moves a journaled file back to where it was, only while its old place is free and it is unchanged. A file sorted from the drop box then stays there.",
+    input: { type: "object", properties: { id: MOVE_ARG }, required: ["id"] },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/trash/undo" },
+    handler: async (ctx, input) => (await service()).undo(input.id, byOf(ctx)),
+  }),
+  defineCapability({
+    id: "trash_release",
+    area: "library",
+    title: "Let the drop box sort a file again",
+    description: "A file an undo put back in the drop box stays there; this lets the drop box sort it again on its next pass. Takes the id of the undone move.",
+    input: { type: "object", properties: { id: MOVE_ARG }, required: ["id"] },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/trash/release" },
+    handler: async (ctx, input) => (await service()).release(input.id, byOf(ctx)),
+  }),
+];

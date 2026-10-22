@@ -23,6 +23,8 @@ export const OPT_OUT = {
   "GET /assets/og-image-ja.png": "browser-only",
   "GET /assets/og-image-ko.png": "browser-only",
   "GET /assets/og-image-zh.png": "browser-only",
+  // Emptying the trash is the one permanent delete; only a person on the admin page does it.
+  "POST /admin/api/trash/empty": "token-blocked",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
