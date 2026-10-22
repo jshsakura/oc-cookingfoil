@@ -150,15 +150,19 @@ test("the BIOS folder's guide lists every rule of bios.js and where it goes on t
   assert.match(byPath(all, "retro/bezels").text, /_default\.png/);
 });
 
-test("BIOS facts follow bios.js: optional groups and md5 show when a rule has them, and a NeoCD BIOS goes into neocd/", () => {
-  const rules = { x: { groups: [["a.bin", { file: "b.bin", md5: "0123" }]], optional: [["opt.rom"]] }, y: { groups: [["neocd_z.rom"]] } };
-  const x = folderGuides.biosFiles("x", rules);
-  assert.deepEqual(x.required[0].map((f) => f.file), ["a.bin", "b.bin"]);
-  assert.equal(x.required[0][1].md5, "0123");
-  assert.deepEqual(x.optional[0].map((f) => f.file), ["opt.rom"]);
-  assert.equal(folderGuides.biosFiles("y", rules).required[0][0].console, "sdmc:/retroarch/system/neocd/neocd_z.rom");
-  assert.deepEqual(folderGuides.biosFiles("none", rules), null);
-  assert.deepEqual(folderGuides.biosFiles("z", { z: { groups: [] } }), { required: [], optional: [] }, "missing fields are just empty");
+test("BIOS facts follow the real bios.js: every group of every system, and a NeoCD BIOS goes into neocd/", () => {
+  for (const [id, rule] of Object.entries(BIOS)) {
+    const b = folderGuides.biosFiles(id);
+    assert.deepEqual(b.required.map((g) => g.map((f) => f.file)), rule.groups, id);
+    for (const f of b.required.flat()) assert.equal(f.console, `sdmc:/retroarch/system/${f.file}`, `${id} ${f.file}`);
+    assert.deepEqual(b.optional, [], `${id}: this bios.js has no optional files`);
+  }
+  assert.deepEqual(folderGuides.biosFiles("msx").required.map((g) => g.length), [1, 1], "two groups, each needed");
+  assert.equal(folderGuides.biosFiles("segacd").required[0].length, 3, "one group met by any of three files");
+  assert.ok(BIOS.neocd.groups[0].every((f) => f.startsWith("neocd/")));
+  assert.equal(folderGuides.biosFiles("neocd").required[0][0].console, `sdmc:/retroarch/system/${BIOS.neocd.groups[0][0]}`);
+  assert.equal(folderGuides.biosFiles("gba"), null, "a system bios.js does not list needs none");
+  assert.ok(byPath(guidesOf(storageLayout(tmp())), "retro/roms/gba").text.includes("BIOS: none needed."));
 });
 
 test("the guides say deletes go to a trash only in the retro folder for now, from one constant", () => {
