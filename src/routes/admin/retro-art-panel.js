@@ -26,6 +26,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings/integrations">설정 탭</a>에서 넣을 수 있습니다.</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
+  <details class="ra-scaffold" id="ra-scaffold" hidden><summary id="ra-scaffold-t"></summary><div id="ra-scaffold-b"></div></details>
   <div class="scroll" id="ra-systems" data-skel></div>
   <div class="hd"><h2 id="ra-list-title">표지가 없는 항목</h2><input id="ra-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"></div>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.</p>
@@ -91,6 +92,8 @@ ${RETRO_VARIANTS_HTML}
 </dialog>`;
 
 export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
+.ra-scaffold{margin:0 0 12px}.ra-scaffold summary{cursor:pointer;font-weight:600}
+.ra-scaffold-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.ra-scaffold-list code{font-size:12.5px}
 .rm-form{display:grid;gap:12px}.rm-form label{display:grid;gap:4px}.rm-form textarea{width:100%;resize:vertical}
 .rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
@@ -198,6 +201,7 @@ $('rc-reload').addEventListener('click',loadRetroCores);
 $('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
 $('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});
 async function loadRetroArt(){
+  api('/admin/api/storage-guide?format=json').then(raScaffold).catch(()=>raScaffold(null));
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
   const j=raData.job;
   $('ra-sync').disabled=Boolean(j&&!j.finishedAt);$('ra-gh').hidden=raData.github!==false;
@@ -215,6 +219,21 @@ async function loadRetroArt(){
     tr.append(td(s.name),td(String(s.games)),td(pct(s.boxart)),td(s.borrowed?String(s.borrowed):'—'),td(pct(s.bezel)),raCell(b));return tr;}),'레트로 폴더에 항목이 없습니다.');
   raList();
 }
+// The system folders the server keeps (retro/scaffold.js) and a link to the storage guide.
+let raScaffoldData=null;
+const raFill=(key,vars)=>{let s=topText(key);for(const x in vars)s=s.split('{'+x+'}').join(vars[x]);return s;};
+function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);}
+function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
+  const folders=d.folders||[],g=d.guide||{};
+  $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
+  const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
+  const pills=el('div',null,'ra-scaffold-list');
+  pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
+  const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));
+  const state={written:'sc.gWritten',current:'sc.gWritten',edited:'sc.gEdited',foreign:'sc.gForeign',failed:'sc.gFailed',unreadable:'sc.gFailed'}[g.state];
+  const guide=el('p',state?raFill(state,{path:g.path,error:g.error||''})+' ':'','muted');
+  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a);
+  $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
 // Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
 // A folder under roms/ that no system reads would hide its games without a word.
 function raBios(list,unread,pack){
