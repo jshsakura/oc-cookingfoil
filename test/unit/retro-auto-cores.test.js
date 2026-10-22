@@ -11,12 +11,13 @@ import { openDatabase, SECURITY_MIGRATIONS } from "../../src/db/database.js";
 import { hashStore } from "../../src/db/stores.js";
 import { packLedger } from "../../src/db/security-stores.js";
 import { HashCache } from "../../src/helpers/hash-cache.js";
-import { sevenZipBin } from "../../src/retro/pack-bundle.js";
-import { coreStates, createAutoCores, coreRev, STATE_FILE } from "../../src/retro/auto-cores.js";
+import { sevenZipBin, sha256File } from "../../src/retro/pack-bundle.js";
+import { claimFill } from "../../src/retro/pack-fill.js";
+import { coreStates, createAutoCores, STATE_FILE } from "../../src/retro/auto-cores.js";
 import { forgetIndex, parseIndex } from "../../src/retro/nightly-cores.js";
 import { coreFiles, manifestView } from "../../src/retro/base-pack.js";
 import { forwarderSpec } from "../../src/retro/forwarder.js";
-import { listTrash } from "../../src/retro/trash.js";
+import { listTrash, restoreEntry } from "../../src/retro/trash.js";
 
 const bin = sevenZipBin();
 const opts = { skip: bin ? false : "7-Zip is not installed (COOK_7Z_BIN, 7z, 7zz or 7za)" };
@@ -209,7 +210,7 @@ test("setting off: a scan does nothing; a core in the trash is not fetched again
   } finally { bot.close(); }
 });
 
-test("update replaces only the server's cores whose CRC changed, keeps no old copy, and moves the forwarder key", opts, async () => {
+test("update replaces only the server's cores whose CRC changed, keeps no old copy, and leaves the forwarder key alone", opts, async () => {
   const bot = await buildbot(BUILDS);
   try {
     const w = world();
@@ -217,7 +218,6 @@ test("update replaces only the server's cores whose CRC changed, keeps no old co
     await (await auto.check(catalogOf("nes", "gba", "snes"))).done;
     const mine = nro("user-snes9x");
     fs.writeFileSync(w.core("snes9x"), mine); // the user's build over the server's: now pinned
-    const keyBefore = forwarderSpec({ id: "nes-0123456789", name: "Game", core: "fceumm", coreRev: coreRev("fceumm", w.dataDir), romSdPath: "roms/nes/a.nes", publisher: "x" }).key;
     bot.state.builds = { ...bot.state.builds, fceumm: nro("fceumm-b"), snes9x: nro("snes9x-b") };
     bot.state.date = "2026-10-23";
     const out = await auto.update().done;
@@ -229,15 +229,13 @@ test("update replaces only the server's cores whose CRC changed, keeps no old co
     assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")).sort(), ["fceumm_libretro_libnx.nro", "mgba_libretro_libnx.nro", "snes9x_libretro_libnx.nro"], "no backup or temp files");
     assert.equal(fs.existsSync(path.join(w.dataDir, "retro-pack-prev")), false);
     assert.equal(w.ledger().all().get("cores/fceumm_libretro_libnx.nro").built, "2026-10-23");
-    assert.equal(coreRev("fceumm", w.dataDir), "2026-10-23");
-    const keyAfter = forwarderSpec({ id: "nes-0123456789", name: "Game", core: "fceumm", coreRev: coreRev("fceumm", w.dataDir), romSdPath: "roms/nes/a.nes", publisher: "x" }).key;
-    assert.notEqual(keyAfter, keyBefore);
-    assert.equal(forwarderSpec({ id: "nes-0123456789", name: "Game", core: "mgba", coreRev: null, romSdPath: "roms/nes/a.nes", publisher: "x" }).key,
-      forwarderSpec({ id: "nes-0123456789", name: "Game", core: "mgba", romSdPath: "roms/nes/a.nes", publisher: "x" }).key, "no rev, no key change");
     const zips = bot.zips().length;
     await auto.update().done;
     assert.equal(bot.zips().length, zips, "a second update downloads nothing");
-    assert.ok(JSON.parse(fs.readFileSync(path.join(w.dataDir, STATE_FILE), "utf8")).revs.fceumm);
+    // Shortcuts are never made again by themselves: the core path in a forwarder is the same after an update.
+    assert.equal("revs" in JSON.parse(fs.readFileSync(path.join(w.dataDir, STATE_FILE), "utf8")), false, "no core revision is kept for forwarder keys");
+    const game = { id: "nes-0123456789", name: "Game", core: "fceumm", romSdPath: "roms/nes/a.nes", publisher: "x" };
+    assert.equal(forwarderSpec({ ...game, coreRev: "2026-10-23" }).key, forwarderSpec(game).key, "a core revision never moves a forwarder key");
   } finally { bot.close(); }
 });
 
@@ -308,29 +306,195 @@ test("a redirect to another host is not followed", opts, async () => {
   } finally { bot.close(); }
 });
 
-test("old clients get today's manifest; on-demand clients get every core marked; one core's files", () => {
+test("old clients get the manifest exactly as it is; on-demand clients get every core marked; one core's files", () => {
   const m = {
     version: "v-all",
     files: [
       { path: "retroarch/assets/a.png", size: 1, sha256: "a".repeat(64) },
       { path: "retroarch/cores/fceumm_libretro_libnx.nro", size: 10, sha256: "b".repeat(64) },
+      // A core for a console with no games, and one no system names (the operator put it there).
       { path: "retroarch/cores/mgba_libretro_libnx.nro", size: 10, sha256: "c".repeat(64) },
+      { path: "retroarch/cores/openbor_libretro_libnx.nro", size: 10, sha256: "f".repeat(64) },
       { path: "retroarch/info/fceumm_libretro.info", size: 2, sha256: "d".repeat(64) },
       { path: "switch/retroarch_switch.nro", size: 5, sha256: "e".repeat(64) },
     ],
   };
-  const both = manifestView(m, { used: new Set(["fceumm", "mgba"]), onDemand: false });
-  assert.deepEqual(both, { version: "v-all", files: m.files }, "every core in use: exactly as before");
-  const old = manifestView(m, { used: new Set(["fceumm"]), onDemand: false });
-  assert.deepEqual(old.files.map((f) => f.path), m.files.filter((f) => !f.path.includes("mgba")).map((f) => f.path), "no core of a console without games");
-  assert.notEqual(old.version, "v-all");
-  assert.ok(old.files.every((f) => !("onDemand" in f) && !("core" in f)));
+  const before = JSON.stringify(m);
+  assert.equal(manifestView(m, { onDemand: false }), m, "without the flag: the very manifest, byte for byte");
+  assert.equal(JSON.stringify(manifestView(m, { onDemand: false })), before);
   const od = manifestView(m, { onDemand: true });
   assert.equal(od.files.length, m.files.length);
   assert.deepEqual(od.files[1], { ...m.files[1], core: "fceumm", onDemand: true });
-  assert.deepEqual(od.files[3], { ...m.files[3], core: "fceumm" });
+  assert.deepEqual(od.files[4], { ...m.files[4], core: "fceumm" });
   assert.equal(od.files[0].core, undefined);
-  assert.notEqual(od.version, old.version);
+  assert.notEqual(od.version, m.version);
+  assert.equal(JSON.stringify(m), before, "the manifest itself is not changed");
   assert.deepEqual(coreFiles(m, "fceumm").map((f) => [f.path, f.core]), [["retroarch/cores/fceumm_libretro_libnx.nro", "fceumm"], ["retroarch/info/fceumm_libretro.info", "fceumm"]]);
   assert.deepEqual(coreFiles(m, "stella"), []);
+});
+
+/** A hashFile whose `nth` call lets `write()` land right after it read the file: a user's write racing the server. */
+function racingHash(nth, write) {
+  let calls = 0;
+  return async (abs) => {
+    const h = await sha256File(abs);
+    if (++calls === nth) write();
+    return h;
+  };
+}
+
+/** Puts the user's `bytes` in the trash and the server's build of fceumm in its place, the way useOfficial does. */
+async function officialOverUser(w, base, bytes) {
+  fs.writeFileSync(w.core("fceumm"), bytes);
+  await w.make(base).useOfficial("fceumm").done;
+  assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm);
+  assert.equal((await listTrash(w.retroDir)).length, 1);
+}
+
+test("F2: a user's file written while update checks the old one is never overwritten", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await (await w.make(bot.base).check(catalogOf("nes"))).done;
+    bot.state.builds = { ...bot.state.builds, fceumm: nro("fceumm-b") };
+    const mine = nro("user-wrote-this-meanwhile");
+    // Call 1 is update's look at the core, call 2 the check just before the swap.
+    const auto = w.make(bot.base, { hashFile: racingHash(2, () => fs.writeFileSync(w.core("fceumm"), mine)) });
+    const out = await auto.update().done;
+    assert.deepEqual(out.replaced, []);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine, "the user's bytes are kept");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"], "nothing left aside");
+  } finally { bot.close(); }
+});
+
+test("F2: switching back never deletes a file the user changed after the server looked", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await officialOverUser(w, bot.base, nro("my-build"));
+    const changed = nro("changed-meanwhile");
+    const auto = w.make(bot.base, { hashFile: racingHash(1, () => fs.writeFileSync(w.core("fceumm"), changed)) });
+    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), changed, "the changed file is where it was");
+    assert.equal((await listTrash(w.retroDir)).length, 1, "the user version stays in the trash");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"]);
+  } finally { bot.close(); }
+});
+
+test("switching back needs the core's own name free: a taken slot leaves the trash item in place", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    await officialOverUser(w, bot.base, nro("my-build"));
+    const other = nro("someone-else");
+    // Call 2 hashes the server's file moved aside; then another file lands in the slot.
+    const auto = w.make(bot.base, { hashFile: racingHash(2, () => fs.writeFileSync(w.core("fceumm"), other)) });
+    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), other);
+    assert.equal((await listTrash(w.retroDir)).length, 1, "nothing restored under another name");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"]);
+  } finally { bot.close(); }
+});
+
+test("a trash that restores beside under another name (shared trash) is undone: the core goes back to the trash", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    const mine = nro("my-build");
+    await officialOverUser(w, bot.base, mine);
+    // feat/shared-trash restores beside as "name (2)" instead of failing when the slot is taken.
+    const beside = async (dir, entry) => {
+      const out = await restoreEntry(dir, entry);
+      const rel = "retroarch/cores/fceumm_libretro_libnx (2).nro";
+      fs.renameSync(path.join(dir, out.files[0]), path.join(dir, rel));
+      return { ...out, files: [rel], renamed: [{ from: out.files[0], to: rel }] };
+    };
+    const auto = w.make(bot.base, { restore: beside });
+    await assert.rejects(auto.useUserVersion("fceumm"), (err) => err.status === 409);
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), ["fceumm_libretro_libnx.nro"], "no \"(2)\" core reaches the pack");
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm, "the server's core is back");
+    const trash = await listTrash(w.retroDir);
+    assert.equal(trash.length, 1);
+    assert.equal(trash[0].name, "fceumm_libretro_libnx.nro", "the user's core is in the trash under its own name");
+  } finally { bot.close(); }
+});
+
+/**
+ * A buildbot that answers the index and then misbehaves on the zip: "silent" never sends headers,
+ * "stall" sends headers and a few bytes and then nothing, "trickle" sends a byte every 50 ms forever.
+ * `index: "silent"` never answers the index either.
+ */
+async function slowBot(zip, { index = "ok" } = {}) {
+  const timers = new Set();
+  const server = http.createServer((req, res) => {
+    if (req.url.endsWith(".index-extended")) {
+      if (index === "silent") return;
+      res.end(`2026-10-21 ${crc(BUILDS.fceumm)} fceumm_libretro_libnx.nro.zip\n`);
+      return;
+    }
+    if (zip === "silent") return;
+    res.writeHead(200, { "Content-Length": 100_000 });
+    res.write(Buffer.alloc(10));
+    if (zip === "trickle") timers.add(setInterval(() => res.write(Buffer.alloc(1)), 50));
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  return {
+    base: `http://127.0.0.1:${server.address().port}/latest/`,
+    close: () => {
+      for (const t of timers) clearInterval(t);
+      server.closeAllConnections();
+      server.close();
+    },
+  };
+}
+
+const SHORT = { connect: 300, idle: 300, total: 1500 };
+const SHORT_ALL = { core: SHORT, index: SHORT };
+
+for (const [what, zip, index] of [["no answer to the index", "ok", "silent"], ["no headers for the zip", "silent", "ok"], ["a body that stops", "stall", "ok"], ["a body that never ends", "trickle", "ok"]]) {
+  test(`F3: ${what} times out, fails as a download with backoff and frees the pack`, { ...opts, timeout: 15_000 }, async () => {
+    const bot = await slowBot(zip, { index });
+    try {
+      const w = world();
+      const auto = w.make(bot.base, { timeouts: SHORT_ALL });
+      const r = await auto.check(catalogOf("nes"));
+      const out = await r.done;
+      assert.deepEqual(out.installed ?? [], []);
+      assert.equal(auto.status().failures.fceumm.reason, "download");
+      assert.equal(auto.status().job, null);
+      assert.equal(fs.existsSync(w.core("fceumm")), false);
+      const release = claimFill();
+      assert.ok(release, "the pack is free for a fill again");
+      release();
+    } finally { bot.close(); }
+  });
+}
+
+test("F4: the free space is measured where the core is written too, not only on the data disk", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    const retroName = path.basename(w.retroDir);
+    const asked = [];
+    const freeBytes = async (dir) => {
+      asked.push(dir);
+      return dir.includes(retroName) ? 100 * 1024 * 1024 : 100 * GIB;
+    };
+    const auto = w.make(bot.base, { freeBytes, floorBytes: () => 0 });
+    await (await auto.check(catalogOf("nes"))).done;
+    assert.equal(fs.existsSync(w.core("fceumm")), false, "the retro disk is short: nothing written there");
+    assert.equal(auto.status().failures.fceumm.reason, "disk-floor");
+    assert.ok(asked.some((d) => d.includes(retroName)), "the retro disk was asked");
+    assert.ok(asked.some((d) => d.includes(path.basename(w.dataDir))), "and the data disk, where the zip is staged");
+    assert.deepEqual(fs.readdirSync(path.join(w.packDir, "cores")), []);
+  } finally { bot.close(); }
+});
+
+test("F5: automation tokens may start the install and the update, never move a user's core to or from the trash", async () => {
+  const { tokenBlocked } = await import("../../src/routes/admin-page.js");
+  assert.equal(tokenBlocked("POST", "/api/retro-cores/official"), true);
+  assert.equal(tokenBlocked("POST", "/api/retro-cores/user-version"), true);
+  assert.equal(tokenBlocked("POST", "/api/retro-cores/Official"), true, "case does not get around it");
+  assert.equal(tokenBlocked("POST", "/api/retro-cores/auto"), false);
+  assert.equal(tokenBlocked("POST", "/api/retro-cores/update"), false);
 });

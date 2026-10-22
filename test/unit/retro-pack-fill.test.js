@@ -279,8 +279,31 @@ test("a fill never puts the stable build over a core the server took from nightl
     w.ledger.put([{ rel: "cores/fceumm_libretro_libnx.nro", sha256: sha(nightly), source: "nightly", lockVersion: "nightly", crc32: "00000000", built: "2026-10-21" }]);
     const out = await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
     assert.deepEqual(fs.readFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro")), nightly);
-    assert.ok(out.kept.some((k) => k.rel === "cores/fceumm_libretro_libnx.nro"));
+    assert.equal(out.replaced, 0);
     assert.equal(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").source, "nightly");
+  } finally {
+    srv.close();
+  }
+});
+
+test("B2: once a core is nightly, filling again is current and downloads nothing", opts, async () => {
+  const b = makeBundle("1.0.0", files("a"));
+  const srv = await serve(b.archive);
+  const w = world();
+  try {
+    await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin });
+    // The admin's update (auto-cores.js) put a nightly build in its place and wrote its row.
+    const nightly = nro("fceumm-nightly");
+    fs.writeFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro"), nightly);
+    w.ledger.put([{ rel: "cores/fceumm_libretro_libnx.nro", sha256: sha(nightly), source: "nightly", lockVersion: "nightly", crc32: crc32(nightly), built: "2026-10-21" }]);
+    const plan = await describeFill({ ...w, games: GAMES, systems: {}, cacheDir: path.join(w.dataDir, "retro-pack-cache", "1.0.0"), pack: b.pack });
+    assert.equal(plan.items.find((i) => i.name === "fceumm").state, "current");
+    assert.equal(plan.needsBundle, false);
+    assert.deepEqual(plan.kept, []);
+    for (let i = 0; i < 2; i++) assert.equal((await applyFill({ ...w, games: GAMES, url: srv.url, pack: b.pack, bin })).skipped, true);
+    assert.equal(srv.hits.length, 1, "the 300 MB bundle is fetched once, not on every fill");
+    assert.deepEqual(fs.readFileSync(path.join(w.packDir, "cores/fceumm_libretro_libnx.nro")), nightly);
+    assert.equal(w.ledger.all().get("cores/fceumm_libretro_libnx.nro").sha256, sha(nightly));
   } finally {
     srv.close();
   }

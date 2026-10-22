@@ -64,6 +64,7 @@ function fixture() {
   put(dir, "retroarch/retroarch.nro", "NRO");
   put(dir, "retroarch/retroarch.cfg", 'user_language = "14"\n');
   put(dir, "retroarch/cores/snes9x_libretro_libnx.nro", "CORE");
+  put(dir, "retroarch/cores/mgba_libretro_libnx.nro", "GBA-CORE"); // gba has no listed game
   put(dir, "retroarch/assets/fonts/korean.ttf", "FONT");
   put(dir, "retroarch/.DS_Store", "junk");
   return dir;
@@ -316,7 +317,8 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
       manifest = await get("/api/retro/base-pack/manifest");
     }
     const m = await manifest.json();
-    assert.deepEqual(m.files.map((f) => f.path), ["retroarch/assets/fonts/korean.ttf", "retroarch/cores/snes9x_libretro_libnx.nro", "retroarch/retroarch.cfg", "switch/retroarch_switch.nro"]);
+    assert.deepEqual(m.files.map((f) => f.path), ["retroarch/assets/fonts/korean.ttf", "retroarch/cores/mgba_libretro_libnx.nro", "retroarch/cores/snes9x_libretro_libnx.nro", "retroarch/retroarch.cfg", "switch/retroarch_switch.nro"], "a client without cores=ondemand gets every file, the cores of consoles without games too");
+    assert.ok(m.files.every((f) => !("core" in f) && !("onDemand" in f)), "and no on-demand marks");
     assert.equal(m.files.find((f) => f.path === "retroarch/retroarch.cfg").once, true);
     assert.match(m.files[0].sha256, /^[0-9a-f]{64}$/);
     assert.equal(await (await get(m.files.at(-1).url)).text(), "NRO");
@@ -331,7 +333,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     fs.writeFileSync(extra, "EXTRA");
     const changed = await get(m.bundleUrl);
     assert.notEqual(changed.headers.get("etag"), `"${m.version}"`, "a stale manifest version never names other bytes");
-    assert.equal(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"), false, "a core no console with games uses is not pushed to a console");
+    assert.ok(untar(Buffer.from(await changed.arrayBuffer())).has("retroarch/cores/extra_libretro_libnx.nro"), "the bundle without cores=ondemand has every file, as before");
     const onDemand = await (await get("/api/retro/base-pack/manifest?cores=ondemand")).json();
     assert.equal(onDemand.bundleUrl, "/api/retro/base-pack/bundle?cores=ondemand");
     fs.rmSync(extra);

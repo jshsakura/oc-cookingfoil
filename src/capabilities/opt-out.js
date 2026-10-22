@@ -23,6 +23,9 @@ export const OPT_OUT = {
   "GET /assets/og-image-ja.png": "browser-only",
   "GET /assets/og-image-ko.png": "browser-only",
   "GET /assets/og-image-zh.png": "browser-only",
+  // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
+  "POST /admin/api/retro-cores/official": "token-blocked",
+  "POST /admin/api/retro-cores/user-version": "token-blocked",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */

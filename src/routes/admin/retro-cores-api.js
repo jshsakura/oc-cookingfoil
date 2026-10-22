@@ -21,9 +21,11 @@
  *
  * E = { size, sha256, modifiedAt, origin: "official" | "modified" | "extra" } (src/retro/core-list.js).
  * Each systems[] entry carries coreState { id, core, state, reason?, message?, retryAt?, origin?, source?, built?,
- * crc32?, userVersion?, rev? } (src/retro/auto-cores.js coreStates), and `auto` is the upkeep's
- * { enabled, source, job, failures, last, revs }.
- * Automation tokens may read all of it and start the install (it writes only the server's own files).
+ * crc32?, userVersion? } (src/retro/auto-cores.js coreStates), and `auto` is the upkeep's
+ * { enabled, source, job, failures, last }.
+ * Automation tokens may read all of it and start the install and the update (they write only the server's
+ * own files), but not official or user-version, which move a user's core to or from the trash
+ * (admin-page.js TOKEN_BLOCKED_RE).
  * Uploads go through /admin/api/upload/core.
  */
 import fs from "fs";
@@ -81,8 +83,8 @@ export function mountRetroCoresApi(router, requireSession) {
     }
   });
 
-  // The core upkeep's actions (src/retro/auto-cores.js). Each writes only the server's own files, or moves a
-  // user's core to the retro trash and back, so automation tokens may start them.
+  // The core upkeep's actions (src/retro/auto-cores.js). auto and update write only the server's own files;
+  // official and user-version move a user's core to the retro trash and back, so tokens may not call them.
   const job = (name, run) => router.post(`/api/retro-cores/${name}`, async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");

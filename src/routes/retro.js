@@ -3,9 +3,7 @@
  * (COOK_RETRO_DIR, default <data dir>/retro) exists.
  *
  *   GET /api/retro/systems                       { retroarch: "installed" | "missing", systems: [{ id, name, names, defaultCore, coreName, romCount,
- *                                                iconUrl, iconMonoUrl, core: { id, state: "ready" | "core-missing", rev? } }] }
- *                                                rev: the lock version the server last replaced that core file for; when it
- *                                                moves, the console's HOME menu shortcuts for the system are taken again
+ *                                                iconUrl, iconMonoUrl, core: { id, state: "ready" | "core-missing" } }] }
  *                                                only consoles with at least one listed game; the others never appear
  *   GET /api/retro/systems/:id/icon[?style=mono][&v=] the console's icon (from <retro dir>/system-icons/{color,mono}/<folder>.png,
  *                                                <folder> being the system's server folder, else <id>.png);
@@ -85,10 +83,10 @@
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
  *   GET /api/retro/base-pack/manifest[?cores=ondemand]  { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once?, core?, onDemand? }] }
- *                                                without cores=ondemand (or X-Retro-Cores: ondemand) a core .nro is listed only
- *                                                for the cores the consoles with games use; with it every core is listed,
- *                                                its .nro and .info carry core, the .nro onDemand: true (not in the bundle;
- *                                                fetched by its url when a game needs it)
+ *                                                without cores=ondemand (or X-Retro-Cores: ondemand) every file, exactly as
+ *                                                before; with it every core is listed too, its .nro and .info carry core,
+ *                                                the .nro onDemand: true (not in the bundle; fetched by its url when a game
+ *                                                needs it)
  *   GET /api/retro/base-pack/core/<core>         { core, files: [{ path, size, sha256, url, core }] } one core's .nro and .info
  *   GET /api/retro/base-pack/file/<sd path>      one pack file (Range works)
  *   GET /api/retro/base-pack/bundle[?cores=ondemand] the manifest's files as one tar, SD-root paths (also at /base-pack);
@@ -165,7 +163,7 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
-import { autoCores, coreRev, systemsInUse } from "../retro/auto-cores.js";
+import { autoCores } from "../retro/auto-cores.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import { videosOf } from "../meta/igdb-videos.js";
@@ -222,11 +220,14 @@ async function currentManifest() {
   return result === "pending" ? null : result;
 }
 
-/** The manifest as one console gets it (base-pack.js manifestView): the cores of the consoles with games, or all on demand. */
-async function packView(m, onDemand) {
-  if (onDemand) return manifestView(m, { onDemand });
-  const cat = await catalog.current(retroDir);
-  return manifestView(m, { used: new Set(systemsInUse(cat.games, cat.systems).map(([, core]) => core)), onDemand: false });
+/**
+ * One core's .nro and .info in the base pack, each with its url ([] when the pack has no such core),
+ * or null while the pack is still being read.
+ */
+export async function baseCoreFiles(core) {
+  const m = await currentManifest();
+  if (!m) return null;
+  return coreFiles(m, String(core)).map((f) => ({ ...f, url: `/api/retro/base-pack/file/${enc(f.path)}` }));
 }
 
 /** Whether a manifest was read from exactly this listing (same paths, sizes, times, inodes). Pure. */
@@ -288,7 +289,6 @@ function forwarderGame(g, system, cat = null) {
     // they were: changing them would build every arcade shortcut again.)
     name: retroNames.get(g.id)?.ko || retroNames.get(g.id)?.en || (g.system === "scummvm" && (g.names?.ko || g.names?.en)) || g.name,
     core: g.core,
-    coreRev: coreRev(g.core, dataDir),
     romSdPath: sdPaths(g, system).rom,
     artKey: artKey(g),
     publisher: `RetroArch · ${system.names?.ko ?? system.name ?? g.system}`,
@@ -694,7 +694,7 @@ export default function retroRouter() {
       systems: catalog.visibleSystems(cat, listedGames(cat)).map((s) => ({
         ...s,
         ...systemIconUrls(s.id, cat.systems[s.id]),
-        core: { id: s.defaultCore, state: ready.get(s.id) ?? "ready", ...(coreRev(s.defaultCore, dataDir) ? { rev: coreRev(s.defaultCore, dataDir) } : {}) },
+        core: { id: s.defaultCore, state: ready.get(s.id) ?? "ready" },
       })),
     });
   }));
@@ -927,7 +927,7 @@ export default function retroRouter() {
     }
     const link = forRequest(req);
     const onDemand = wantsOnDemand(req);
-    const view = await packView(m, onDemand);
+    const view = manifestView(m, { onDemand });
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language, X-Retro-Cores" });
     // The direct variant has other URLs, so it has its own ETag (the same for every console).
     res.set("ETag", `"${view.version}${link ? "-direct" : ""}"`);
@@ -942,17 +942,16 @@ export default function retroRouter() {
 
   // One core's files (.nro and .info) for a console that takes cores on demand.
   router.get("/base-pack/core/:core", wrap(async (req, res) => {
-    const m = await currentManifest();
-    if (!m) {
+    const core = String(req.params.core);
+    const files = await baseCoreFiles(core);
+    if (!files) {
       res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
       return res.status(503).json({ error: "the base pack is still being read", retryAfter: 30 });
     }
-    const core = String(req.params.core);
-    const files = coreFiles(m, core);
     if (!files.length) return res.status(404).json({ error: "no such core in the base pack" });
     const link = forRequest(req);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate" });
-    res.json({ core, files: files.map((f) => ({ ...f, ...withDirect("url", `/api/retro/base-pack/file/${enc(f.path)}`, link) })) });
+    res.json({ core, files: files.map((f) => ({ ...f, ...withDirect("url", f.url, link) })) });
   }));
 
   router.get("/base-pack/file/*", wrap(async (req, res) => {
@@ -975,10 +974,10 @@ export default function retroRouter() {
     if (!matches) rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
     // The same files the manifest sends this console, without the cores it takes on demand.
     const onDemand = wantsOnDemand(req);
-    const view = await packView({ version: snapshot?.version, files: listed.map((f) => ({ path: f.path, sha256: "" })) }, onDemand);
+    const view = manifestView({ version: snapshot?.version, files: listed.map((f) => ({ path: f.path, sha256: "" })) }, { onDemand });
     const keep = new Set(view.files.filter((f) => !f.onDemand).map((f) => f.path));
     const files = listed.filter((f) => keep.has(f.path));
-    const etag = matches ? (await packView(snapshot, onDemand)).version : undefined;
+    const etag = matches ? manifestView(snapshot, { onDemand }).version : undefined;
     // A tar can't say "only if missing", so name those files for the client to skip.
     res.set("X-Retro-Once", files.filter((f) => f.once).map((f) => f.path).join(","));
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {

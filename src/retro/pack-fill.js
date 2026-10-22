@@ -81,12 +81,14 @@ export const isProtected = (rel) => rel === "retroarch.cfg" || rel.startsWith("s
  *
  *   install   absent: place it
  *   replace   the server's own, untouched, and the bundle has a newer one
- *   current   already the bundle's bytes
+ *   current   already the bundle's bytes, or a core the server took from nightly (auto-cores.js) and
+ *             left untouched: the admin's update keeps that one current, never the stable bundle
  *   operator  not placed by the server and different: kept, "update available"
  *   modified  placed by the server but changed since: kept
  */
 export function decide({ current, entry, next }) {
   if (current === null) return "install";
+  if (entry?.source === "nightly" && current === entry.sha256) return "current";
   if (!entry) return current === next ? "current" : "operator";
   if (current !== entry.sha256) return current === next ? "current" : "modified";
   return current === next ? "current" : "replace";
@@ -399,14 +401,14 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       if (isProtected(f.rel)) throw new PackError(`${f.rel} 는 서버가 쓰지 않는 파일입니다`, { status: 500 });
       const entry = entries.get(f.rel);
       const cur = await hashOrNull(path.join(root, f.rel));
-      // A nightly core stays as it is: the admin's update action keeps it current.
-      const state = entry?.source === "nightly" && cur === entry.sha256 ? (cur === f.sha256 ? "current" : "operator") : decide({ current: cur, entry, next: f.sha256 });
+      const state = decide({ current: cur, entry, next: f.sha256 });
       if (state === "install" || state === "replace") ops.push({ ...f, action: state, expect: entry?.sha256, prevVersion: entry?.lockVersion ?? "unknown" });
       else if (state === "current") {
         tally.current++;
-        // Its bytes are the bundle's. A row for it that is behind (an older version, or a run that was cut off
-        // before the ledger was written) moves to this version, or the file would look changed from then on.
-        if (entry && entry.source !== "nightly" && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
+        // When its bytes are the bundle's (a nightly core's are not), a row for it that is behind (an older version,
+        // or a run that was cut off before the ledger was written) moves to this version, or the file would look
+        // changed from then on.
+        if (entry && cur === f.sha256 && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
       } else {
         keptCount[state]++;
         if (f.kind !== "dir") kept.push({ rel: f.rel, state });

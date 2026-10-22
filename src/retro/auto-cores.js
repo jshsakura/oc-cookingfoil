@@ -15,12 +15,19 @@
  *                         once when it ends. A core that fails waits for its backoff (30 min, doubling
  *                         up to a day) unless the admin asks
  *   update()              the admin's "update installed cores": each core the server owns whose CRC-32
- *                         is not the index's is replaced in place (no copy of the old one is kept)
+ *                         is not the index's is replaced in place (no copy of the old one is kept).
+ *                         Forwarders keep their key: shortcuts are never made again by themselves
  *   useOfficial(core)     a pinned core goes to the retro trash and the nightly build takes its place
- *   useUserVersion(core)  the core from the trash comes back and the server's file is deleted
+ *   useUserVersion(core)  the core from the trash comes back under its own name and the server's file
+ *                         is deleted; refused, with the trash item left, when the name is taken
  *
- * Every download asks first that the data disk keeps the NSZ floor (nszDiskFloorGb) plus 1 GiB
- * free; the ledger gets sha256, crc32, the nightly date (built) and source "nightly".
+ * A file is replaced or deleted only after it was moved aside (a rename in its folder) and the moved
+ * bytes were hashed as the server's; anything else goes back. A user's file is never deleted.
+ *
+ * Every download asks first that the data disk (the zip and its unpacked .nro) and the disk the
+ * cores are written to each keep the NSZ floor (nszDiskFloorGb) plus 1 GiB free; the ledger gets
+ * sha256, crc32, the nightly date (built) and source "nightly". Downloads have time limits
+ * (nightly-cores.js TIMEOUTS).
  *
  * Per console state (coreStates), for the admin's core screen and the requirements view:
  *
@@ -42,7 +49,7 @@ import path from "path";
 import debug from "../debug.js";
 import { PackError, sha256File } from "./pack-bundle.js";
 import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PACK, serverOwns } from "./pack-fill.js";
-import { fetchCore, fetchIndex, NIGHTLY_BASE, nroName } from "./nightly-cores.js";
+import { fetchCore, fetchIndex, INDEX_TIMEOUTS, NIGHTLY_BASE, nroName, TIMEOUTS } from "./nightly-cores.js";
 import { toTrash } from "./core-files.js";
 import { listTrash, restoreEntry } from "./trash.js";
 
@@ -72,10 +79,10 @@ export const backoffAfter = (attempts) => BACKOFF_MS[Math.min(Math.max(attempts,
  *   entries   the ledger rows; held, Map core → trash entry of the cores in the retro trash
  *   job       { cores: Set } while one runs; failures, core → { reason, message, retryAt }
  */
-export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, revs = {}, now = Date.now(), pack = REAL_PACK }) {
+export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK }) {
   const known = knownOfficial(pack);
   return systemsInUse(games, systems).map(([id, core]) => {
-    const base = { id, core, ...(revs[core] ? { rev: revs[core].rev, changedAt: revs[core].at } : {}) };
+    const base = { id, core };
     const failure = failures[core];
     if (present.has(core)) {
       const sha = present.get(core);
@@ -122,17 +129,39 @@ async function trashedCores(retroDir) {
   return out;
 }
 
+/** A name beside `abs` in its folder, hidden from the pack listing (base-pack.js skips dot names). */
+const besideName = (abs, kind) => path.join(path.dirname(abs), `.${path.basename(abs)}.${crypto.randomBytes(6).toString("hex")}.${kind}`);
+
+/**
+ * Puts a file moved aside back at `dest`, never over a file that got there since. When one did, the
+ * aside file is deleted only if it is the server's (`owned`); a user's stays where it is.
+ */
+async function putBack(aside, dest, owned) {
+  try {
+    await fsp.link(aside, dest);
+  } catch (err) {
+    if (err.code !== "EEXIST") throw err;
+    if (!owned) {
+      debug.error("retro: %s could not go back, a file got to %s first; it stays at %s", path.basename(dest), dest, aside);
+      return;
+    }
+  }
+  await fsp.rm(aside, { force: true });
+}
+
 const busy = () => new PackError("코어 작업이나 RetroArch 팩 채우기가 돌고 있습니다. 끝난 뒤 다시 합니다", { status: 409 });
 
 /**
  * The upkeep for one pack folder. Every dependency is a function or value so tests run it on a temp folder:
  * packDir(), retroDir, dataDir, ledger() (packLedger), enabled(), base() (the nightly address),
- * floorBytes(), freeBytes(dir), hashCache (helpers/hash-cache.js), activity (tasks/activity.js or null),
- * onCoreChanged(cores) after replaced cores.
+ * floorBytes(), freeBytes(dir), hashCache (helpers/hash-cache.js), hashFile(abs) (a fresh read, for the
+ * check before a swap), restore(dir, entry) (trash.js restoreEntry), timeouts { core, index } (nightly-cores.js),
+ * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores.
  */
 export function createAutoCores({
   packDir, retroDir, dataDir, ledger, enabled = () => true, base = () => NIGHTLY_BASE, floorBytes = () => 0,
-  freeBytes = statfsFree, hashCache = null, activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now,
+  freeBytes = statfsFree, hashCache = null, hashFile = sha256File, restore = restoreEntry, timeouts = { core: TIMEOUTS, index: INDEX_TIMEOUTS },
+  activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now,
 }) {
   const file = path.join(dataDir, STATE_FILE);
   let saved = readState(file);
@@ -152,7 +181,7 @@ export function createAutoCores({
   const hashOf = async (abs) => {
     const st = await fsp.lstat(abs).catch(() => null);
     if (!st?.isFile()) return null;
-    return hashCache ? hashCache.hash({ abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino }) : sha256File(abs);
+    return hashCache ? hashCache.hash({ abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino }) : hashFile(abs);
   };
   const failures = () => saved.failures ?? {};
   const setFailure = (core, err) => {
@@ -167,13 +196,24 @@ export function createAutoCores({
     saved = { ...saved, failures: rest };
   };
 
-  /** Throws (reason disk-floor) when `bytes` more would leave less than the floor free. */
+  /** Throws (reason disk-floor) when `bytes` more on `dir`'s disk would leave less than the floor free. */
+  async function roomOn(dir, label, bytes) {
+    const need = bytes + SPACE_SLACK + floorBytes();
+    const free = await freeBytes(dir);
+    if (free < need) throw new PackError(`${label}의 빈 공간이 모자라 코어를 받지 않았습니다 (필요 ${Math.ceil(need / 1048576)}MB, 남은 공간 ${Math.floor(free / 1048576)}MB)`, { status: 507, reason: "disk-floor", need, free });
+  }
+
+  /**
+   * Before a download of `bytes`: the data disk holds the zip and the .nro unpacked from it (counted as
+   * twice the zip), the cores' disk the copy beside its place while the old file is still there.
+   * When both are one disk the data disk is asked for all three.
+   */
   async function room(bytes) {
     await fsp.mkdir(dataDir, { recursive: true });
-    // The zip, the .nro unpacked from it and its copy beside its place: about three times the zip.
-    const need = bytes * 3 + SPACE_SLACK + floorBytes();
-    const free = await freeBytes(dataDir);
-    if (free < need) throw new PackError(`데이터 디스크의 빈 공간이 모자라 코어를 받지 않았습니다 (필요 ${Math.ceil(need / 1048576)}MB, 남은 공간 ${Math.floor(free / 1048576)}MB)`, { status: 507, reason: "disk-floor", need, free });
+    const cores = await coresDir();
+    const oneDisk = (await fsp.stat(dataDir)).dev === (await fsp.stat(cores)).dev;
+    await roomOn(dataDir, "데이터 디스크", bytes * (oneDisk ? 3 : 2));
+    await roomOn(cores, "레트로 디스크", bytes);
   }
 
   /** The pack folder's real cores/ folder, made when missing; neither it nor the pack folder may be a link. */
@@ -192,21 +232,16 @@ export function createAutoCores({
   async function place(core, info, expect = null) {
     const staging = path.join(dataDir, "retro-core-staging", `${core}-${crypto.randomBytes(6).toString("hex")}`);
     try {
-      const nro = await fetchCore(core, { base: base(), fetchImpl, dir: staging, room, bin });
+      const nro = await fetchCore(core, { base: base(), fetchImpl, dir: staging, room, bin, timeouts: timeouts.core });
       const digest = await digestFile(nro);
       if (digest.crc32 !== info.crc32) throw new PackError(`${core} 코어의 CRC32 가 목록과 다릅니다. 설치하지 않습니다`, { status: 502, reason: "crc-mismatch" });
       if (!(await isNro(nro))) throw new PackError(`${core} 코어가 Switch NRO 가 아닙니다`, { status: 502, reason: "bad-zip" });
       const dest = path.join(await coresDir(), nroName(core));
-      const tmp = `${dest}.${crypto.randomBytes(6).toString("hex")}.cfpart`;
+      const tmp = besideName(dest, "cfpart");
       await fsp.copyFile(nro, tmp, fs.constants.COPYFILE_EXCL);
-      let done = "kept";
+      let done;
       try {
-        if (expect === null) {
-          await fsp.link(tmp, dest).then(() => { done = "installed"; }, (err) => { if (err.code !== "EEXIST") throw err; });
-        } else if ((await sha256File(dest).catch(() => null)) === expect) {
-          await fsp.rename(tmp, dest);
-          done = "replaced";
-        }
+        done = expect === null ? await putNew(tmp, dest) : await swap(tmp, dest, expect);
       } finally {
         await fsp.rm(tmp, { force: true });
       }
@@ -215,6 +250,67 @@ export function createAutoCores({
     } finally {
       await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  /** `tmp` becomes `dest` only when nothing is there: "installed", or "kept" when a file got there first. */
+  async function putNew(tmp, dest) {
+    try {
+      await fsp.link(tmp, dest);
+      return "installed";
+    } catch (err) {
+      if (err.code === "EEXIST") return "kept";
+      throw err;
+    }
+  }
+
+  /**
+   * `tmp` takes the place of `dest` when `dest` is still the server's file (`expect`): it is moved aside
+   * first, and the moved bytes are what is checked, so a write that lands meanwhile is never lost.
+   * "replaced", or "kept" when it was not the server's (put back) or a new file got to `dest` meanwhile.
+   */
+  async function swap(tmp, dest, expect) {
+    const aside = besideName(dest, "aside");
+    try {
+      await fsp.rename(dest, aside);
+    } catch (err) {
+      if (err.code === "ENOENT") return "kept";
+      throw err;
+    }
+    let sha;
+    try {
+      sha = await hashFile(aside);
+    } catch (err) {
+      await putBack(aside, dest, false);
+      throw err;
+    }
+    if (sha !== expect) {
+      await putBack(aside, dest, false);
+      return "kept";
+    }
+    const done = await putNew(tmp, dest).catch(async (err) => {
+      await putBack(aside, dest, true);
+      throw err;
+    });
+    await fsp.rm(aside, { force: true });
+    return done === "installed" ? "replaced" : "kept";
+  }
+
+  /**
+   * Restores the trash `entry` holding `core` under its own name and nowhere else. Refused (409), with the
+   * item left in the trash, when the name is taken. A trash that restores beside under another name
+   * (feat/shared-trash) is undone: what came back goes to the trash again.
+   */
+  async function restoreExact(core, entry) {
+    const dest = path.join(packDir(), coreRel(core));
+    const rel = path.relative(retroDir, dest).split(path.sep).join("/");
+    if (await fsp.lstat(dest).catch(() => null)) throw new PackError(`${nroName(core)} 자리에 다른 파일이 있어 되살리지 않았습니다`, { status: 409 });
+    const out = await restore(retroDir, entry);
+    const elsewhere = (out?.files ?? []).filter((f) => f !== rel);
+    if (out?.renamed?.length || elsewhere.length) {
+      for (const f of elsewhere) await toTrash(retroDir, path.join(retroDir, f), nroName(core)).catch((err) => debug.error("retro: could not put %s back in the trash: %s", f, err.message));
+      throw new PackError(`${nroName(core)} 자리에 다른 파일이 있어 되살리지 않았습니다`, { status: 409 });
+    }
+    return out;
   }
 
   /** Runs `fn` as the one job of this upkeep, holding the pack against a fill. Throws 409 when either runs. */
@@ -263,7 +359,7 @@ export function createAutoCores({
     const installed = [];
     let index;
     try {
-      index = await fetchIndex({ base: base(), fetchImpl, now: now() });
+      index = await fetchIndex({ base: base(), fetchImpl, now: now(), timeouts: timeouts.index });
     } catch (err) {
       for (const core of cores) setFailure(core, err);
       throw err;
@@ -312,7 +408,7 @@ export function createAutoCores({
   /** The admin's "update installed cores": a job replacing each server core whose CRC-32 the index changed. */
   function update() {
     return start("update", [], async (act) => {
-      const index = await fetchIndex({ base: base(), fetchImpl, fresh: true, now: now() });
+      const index = await fetchIndex({ base: base(), fetchImpl, fresh: true, now: now(), timeouts: timeouts.index });
       const known = knownOfficial(pack);
       const entries = (await store()).all();
       const names = (await fsp.readdir(path.join(packDir(), "cores")).catch(() => [])).sort();
@@ -344,10 +440,7 @@ export function createAutoCores({
           setFailure(core, err);
         }
       }
-      if (replaced.length) {
-        saved = { ...saved, revs: { ...saved.revs, ...Object.fromEntries(replaced.map((c) => [c, { rev: index.get(c).date, at: now() }])) } };
-        onCoreChanged(replaced);
-      }
+      if (replaced.length) onCoreChanged(replaced);
       return { replaced, current, pinned };
     });
   }
@@ -356,7 +449,7 @@ export function createAutoCores({
   function useOfficial(core) {
     if (!CORE_RE.test(String(core))) throw new PackError("코어 이름이 맞지 않습니다", { status: 400 });
     return start("official", [core], async () => {
-      const info = (await fetchIndex({ base: base(), fetchImpl, now: now() })).get(core);
+      const info = (await fetchIndex({ base: base(), fetchImpl, now: now(), timeouts: timeouts.index })).get(core);
       if (!info) throw new PackError(`nightly 에 ${core} 코어가 없습니다`, { status: 404, reason: "not-in-nightly" });
       const dest = path.join(packDir(), coreRel(core));
       const sha = await hashOf(dest);
@@ -365,14 +458,14 @@ export function createAutoCores({
       try {
         if ((await place(core, info)) !== "installed") throw new PackError(`${core} 자리에 다른 파일이 생겨 설치하지 않았습니다`, { status: 409 });
       } catch (err) {
-        if (trashed) await restoreEntry(retroDir, trashed).catch((e) => debug.error("retro: could not put %s back from the trash: %s", core, e.message));
+        if (trashed) await restoreExact(core, trashed).catch((e) => debug.error("retro: %s stays in the trash: %s", core, e.message));
         throw err;
       }
       return { installed: [core], trashed };
     });
   }
 
-  /** The user's core comes back from the retro trash; the server's file (fetched again any time) is deleted. */
+  /** The user's core comes back from the retro trash under its own name; the server's file (fetched again any time) is deleted. */
   async function useUserVersion(core) {
     if (!CORE_RE.test(String(core))) throw new PackError("코어 이름이 맞지 않습니다", { status: 400 });
     const entry = (await trashedCores(retroDir)).get(core);
@@ -383,15 +476,25 @@ export function createAutoCores({
     try {
       const dest = path.join(packDir(), coreRel(core));
       const ledgerNow = await store();
+      const owns = (sha) => serverOwns(sha, ledgerNow.all().get(coreRel(core)), knownOfficial(pack));
+      const notMine = () => new PackError("지금 자리에 있는 코어도 사용자 파일이라 바꾸지 않습니다", { status: 409 });
       const sha = await hashOf(dest);
-      if (sha !== null && !serverOwns(sha, ledgerNow.all().get(coreRel(core)), knownOfficial(pack))) throw new PackError("지금 자리에 있는 코어도 사용자 파일이라 바꾸지 않습니다", { status: 409 });
-      const aside = sha === null ? null : `${dest}.${crypto.randomBytes(6).toString("hex")}.cfpart`;
-      if (aside) await fsp.rename(dest, aside);
+      if (sha !== null && !owns(sha)) throw notMine();
+      let aside = null;
+      if (sha !== null) {
+        aside = besideName(dest, "aside");
+        await fsp.rename(dest, aside);
+        // The bytes moved aside are what gets deleted, so they are what is checked, read again.
+        if (!owns(await hashFile(aside).catch(() => null))) {
+          await putBack(aside, dest, false);
+          throw notMine();
+        }
+      }
       try {
-        await restoreEntry(retroDir, entry);
+        await restoreExact(core, entry);
       } catch (err) {
-        if (aside) await fsp.rename(aside, dest);
-        throw new PackError(err.message, { status: 409 });
+        if (aside) await putBack(aside, dest, true);
+        throw err instanceof PackError ? err : new PackError(err.message, { status: 409 });
       }
       if (aside) await fsp.rm(aside, { force: true });
       ledgerNow.drop(coreRel(core));
@@ -407,10 +510,10 @@ export function createAutoCores({
     useOfficial,
     useUserVersion,
     /** The job now, the failures and the last result. */
-    status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null, revs: saved.revs ?? {} }),
+    status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null }),
     /** Each console's state, with `present` (Map core → sha256 | null) read by the caller. */
     async states(cat, present) {
-      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), revs: saved.revs ?? {}, now: now(), pack });
+      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), now: now(), pack });
     },
   };
 }
@@ -447,17 +550,4 @@ export async function autoCores() {
     activity,
   });
   return shared;
-}
-
-let revCache = { file: null, mtimeMs: -1, revs: {} };
-
-/**
- * The nightly date `core` was last replaced with by an update, read from the saved state (so a forwarder's
- * key is the same before and after the upkeep starts), or null when the server never replaced it.
- */
-export function coreRev(core, dataDir) {
-  const file = path.join(dataDir, STATE_FILE);
-  const mtimeMs = fs.statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0;
-  if (file !== revCache.file || mtimeMs !== revCache.mtimeMs) revCache = { file, mtimeMs, revs: readState(file).revs ?? {} };
-  return revCache.revs[core]?.rev ?? null;
 }

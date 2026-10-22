@@ -117,25 +117,19 @@ const versionOf = (files, salt = "") => crypto.createHash("sha256").update(files
 /**
  * What one console is sent of the manifest `m` ({ version, files }). Pure.
  *
- *   onDemand false   a client that takes every file (all clients before cores=ondemand): the files as
- *                    always, but a core .nro only for a core in `used` (the consoles with games), so a
- *                    server holding every official core never pushes them all to a console
+ *   onDemand false   a client that takes every file (all clients before cores=ondemand): `m` itself,
+ *                    the same bytes and version as before cores could be taken on demand
  *   onDemand true    every file; a core's .nro and .info carry `core`, and the .nro `onDemand: true`:
  *                    the client fetches it by its url when a game needs it, not with the rest
- *
- * The version is that of the files sent (the same as m.version when nothing is left out).
  */
-export function manifestView(m, { used, onDemand }) {
-  if (onDemand) {
-    const files = m.files.map((f) => {
-      const core = coreOfPath(f.path);
-      if (!core) return f;
-      return CORE_NRO_RE.test(f.path) ? { ...f, core, onDemand: true } : { ...f, core };
-    });
-    return { version: versionOf(m.files, "\nondemand"), files };
-  }
-  const files = m.files.filter((f) => !CORE_NRO_RE.test(f.path) || used.has(coreOfPath(f.path)));
-  return { version: files.length === m.files.length ? m.version : versionOf(files), files };
+export function manifestView(m, { onDemand }) {
+  if (!onDemand) return m;
+  const files = m.files.map((f) => {
+    const core = coreOfPath(f.path);
+    if (!core) return f;
+    return CORE_NRO_RE.test(f.path) ? { ...f, core, onDemand: true } : { ...f, core };
+  });
+  return { version: versionOf(m.files, "\nondemand"), files };
 }
 
 /** One core's files in the manifest `m`: its .nro and .info, or [] when the pack has no .nro for it. Pure. */
