@@ -169,10 +169,13 @@ test("a sweep sorts the drop box into the games folder and leaves the rest", asy
       rescan: () => {},
       rescanRetro: () => {},
       rescanHomebrew: () => {},
+      journal: async (m) => journaled.push(m),
     });
+    const journaled = [];
     const { moved } = await org.sweep();
     assert.equal(moved, 1);
     assert.ok(fs.existsSync(path.join(roms, `내 게임/update/마이 게임 [${UPD}][v65536].nsp`)));
+    assert.deepEqual(journaled, [{ action: "organize", from: path.join(roms, "incoming/pack/update.nsp"), to: path.join(roms, `내 게임/update/마이 게임 [${UPD}][v65536].nsp`) }]);
     assert.ok(!fs.existsSync(path.join(roms, "incoming/pack/update.nsp")));
     assert.deepEqual(reads, ["update.nsp"], "a file still being copied is not opened");
     const v = org.view();
@@ -440,5 +443,48 @@ test("the NACP cache knows a file by its inode and ctime too, and retries a fail
     assert.ok(fs.existsSync(path.join(roms, `Second/update/Second [${NEW_UPD}][v65536].nsp`)));
   } finally {
     fs.rmSync(roms, { recursive: true, force: true });
+  }
+});
+
+test("a sorted file is journaled and its move undone puts it back in the drop box", async () => {
+  const roms = fs.mkdtempSync(path.join(os.tmpdir(), "cook-org-"));
+  const incoming = fs.mkdtempSync(path.join(os.tmpdir(), "cook-org-in-"));
+  const journal = await import("../../src/library/journal.js");
+  const roots = [{ key: "incoming", dir: incoming }, { key: "games", dir: roms }];
+  try {
+    fs.mkdirSync(path.join(roms, "내 게임"), { recursive: true });
+    fs.writeFileSync(path.join(roms, `내 게임/a [${BASE}][v0].nsp`), "a");
+    fs.mkdirSync(path.join(incoming, "pack"));
+    fs.writeFileSync(path.join(incoming, "pack/update.nsp"), "UPDATE");
+    fs.utimesSync(path.join(incoming, "pack/update.nsp"), OLD / 1000, OLD / 1000);
+    const rel = (abs) => roots.map((r) => ({ r, rel: path.relative(r.dir, abs) })).find((x) => !x.rel.startsWith(".."));
+    const org = createOrganizer({
+      incomingDir: incoming, romsDir: roms, romsRels: async () => [`내 게임/a [${BASE}][v0].nsp`],
+      ...createIdentifier({ readIdentity: async () => ({ titleId: UPD, version: 65536, kind: "update", baseTitleId: BASE }), readTicketNames: async () => [] }),
+      titledbName: nameOf, retroDir: path.join(roms, "retro"), homebrewDir: path.join(roms, "homebrew"), systems: () => ({}), readRefs: async () => [],
+      begin: () => ({ step() {}, done() {} }), rescan: () => {}, rescanRetro: () => {}, rescanHomebrew: () => {},
+      journal: async ({ action, from, to }) => {
+        const a = rel(from);
+        const b = rel(to);
+        await journal.recordMove({ action, by: { type: "job", name: "organize" }, fromRoot: a.r, from: a.rel, toRoot: b.r, to: b.rel });
+      },
+      undone: () => journal.undoneHeld(roots, "incoming"),
+    });
+    assert.equal((await org.sweep()).moved, 1);
+    const { items: [op] } = await journal.listJournal(roots);
+    assert.deepEqual([op.action, op.from, op.to, op.undoable], ["organize", "pack/update.nsp", `내 게임/update/마이 게임 [${UPD}][v65536].nsp`, true]);
+    await journal.undoMove(roots, op.id);
+    assert.equal(fs.readFileSync(path.join(incoming, "pack/update.nsp"), "utf8"), "UPDATE");
+    assert.ok(!fs.existsSync(path.join(roms, "내 게임/update")), "the folder the sort made goes with it");
+    // The next sweeps leave it where the admin put it back, and say why.
+    assert.equal((await org.sweep()).moved, 0);
+    assert.ok(fs.existsSync(path.join(incoming, "pack/update.nsp")));
+    assert.deepEqual(org.view().held.map((h) => [h.rel, h.reason]), [["pack/update.nsp", REASONS.undone]]);
+    // Once released it is sorted again.
+    await journal.releaseUndone(roots, op.id);
+    assert.equal((await org.sweep()).moved, 1);
+  } finally {
+    fs.rmSync(roms, { recursive: true, force: true });
+    fs.rmSync(incoming, { recursive: true, force: true });
   }
 });

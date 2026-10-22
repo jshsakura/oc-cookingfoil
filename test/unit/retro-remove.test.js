@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import express from "express";
 
-// Deleting a retro game from the admin page takes its ROM and the disc files it names;
+// Deleting a retro game from the admin page moves its ROM and the disc files it names to the trash;
 // naming one changes what clients show, never the file.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "retro-rm-"));
 process.env.COOK_DATA_DIR = root;
@@ -19,7 +19,7 @@ fs.writeFileSync(path.join(ps1, "Other.chd"), "x");
 const { mountRetroArtApi } = await import("../../src/routes/admin/retro-art-api.js");
 const retroCatalog = await import("../../src/retro/catalog.js");
 
-test("a removed game's cue and bin go, other games stay", async () => {
+test("a removed game's cue and bin go to the trash and come back, other games stay", async () => {
   const app = express();
   app.use(express.json());
   const router = express.Router();
@@ -33,8 +33,18 @@ test("a removed game's cue and bin go, other games stay", async () => {
     const post = (body) => fetch(`${base}/games/remove`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     assert.equal((await post({ game: "ps1-0000000000" })).status, 404);
     const r = await post({ game: game.id });
-    assert.deepEqual(await r.json(), { ok: true, files: 2 });
+    const body = await r.json();
+    assert.deepEqual([body.ok, body.files], [true, 2]);
     assert.deepEqual(fs.readdirSync(ps1), ["Other.chd"]);
+    // Both wait in the retro trash and come back together.
+    const { listTrash, restoreEntry } = await import("../../src/retro/trash.js");
+    const [held] = await listTrash(process.env.COOK_RETRO_DIR);
+    assert.equal(held.trashId, body.trash);
+    assert.deepEqual(held.files.sort(), ["roms/ps1/Game.bin", "roms/ps1/Game.cue"]);
+    await restoreEntry(process.env.COOK_RETRO_DIR, held.entry, held.home);
+    assert.deepEqual(fs.readdirSync(ps1).sort(), ["Game.bin", "Game.cue", "Other.chd"]);
+    assert.equal(fs.readFileSync(path.join(ps1, "Game.bin"), "utf8"), "x");
+    assert.equal((await post({ game: (await retroCatalog.scan(process.env.COOK_RETRO_DIR)).games.find((g) => g.name === "Game").id })).status, 200);
 
     // A name for the game left: found by it, the file keeps its own.
     const other = (await retroCatalog.scan(process.env.COOK_RETRO_DIR)).games.find((g) => g.name === "Other");

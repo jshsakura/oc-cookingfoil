@@ -35,6 +35,7 @@ import { fileKey } from "../helpers/hash-cache.js";
 import { dlcDisplayName } from "./dlc-name.js";
 import { incomingInGames } from "../helpers/envs.js";
 import { isReadme } from "../helpers/readme-name.js";
+import { moveNoClobber, withPartial } from "../library/safe-move.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
@@ -63,6 +64,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "이름을 정할 정보가 없습니다. 관리 페이지에서 게임 이름을 정하면 옮깁니다",
     moveFailed: "옮기지 못했습니다",
     readFailed: "임시 폴더를 읽지 못했습니다",
+    undone: "휴지통 탭에서 정리를 되돌린 파일이라 그대로 둡니다. 다시 정리하려면 휴지통 탭의 작업 기록에서 다시 정리 허용을 누릅니다",
   },
   en: {
     noId: "No title ID found. Put [TITLEID] in the file name or add prod.keys",
@@ -80,6 +82,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "There is nothing to name this game from. It moves once you set its name on the admin page",
     moveFailed: "Could not move the file",
     readFailed: "Could not read the drop box",
+    undone: "This file is left as it is because its organizing was undone in the Trash tab. To organize it again, press Allow organizing again in the Trash tab's move log",
   },
   ja: {
     noId: "タイトル ID が見つかりません。ファイル名に [TITLEID] を入れるか、prod.keys を置きます",
@@ -97,6 +100,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "名前を決める情報がありません。管理ページでゲーム名を決めると移します",
     moveFailed: "移せませんでした",
     readFailed: "一時フォルダーを読めませんでした",
+    undone: "ごみ箱タブで整理を取り消したファイルなので、そのままにします。もう一度整理するには、ごみ箱タブの作業記録で「再整理を許可」を押します",
   },
   zh: {
     noId: "找不到标题 ID。请在文件名中加入 [TITLEID]，或放入 prod.keys",
@@ -114,6 +118,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "没有可用于命名的信息。在管理页面设定游戏名称后即会移动",
     moveFailed: "无法移动",
     readFailed: "无法读取临时文件夹",
+    undone: "此文件已在回收站标签页中撤销整理，因此保持原样。要重新整理，请在回收站标签页的操作记录中按“允许重新整理”",
   },
 });
 
@@ -283,23 +288,10 @@ async function exists(p) {
 }
 
 /**
- * Moves `from` to `to` unless something is already at `to`: a hard link fails
- * on an existing name where a rename would replace it. False when `to` exists.
+ * Moves `from` to `to` unless something is already at `to`, claiming the name in
+ * the same step (library/safe-move.js). False when `to` exists.
  */
-export async function moveNoReplace(from, to) {
-  try {
-    await fsp.link(from, to);
-  } catch (err) {
-    if (err.code === "EEXIST") return false;
-    if (err.code !== "EPERM" && err.code !== "ENOTSUP" && err.code !== "EOPNOTSUPP") throw err;
-    // A filesystem without hard links: check, then rename.
-    if (await exists(to)) return false;
-    await fsp.rename(from, to);
-    return true;
-  }
-  await fsp.unlink(from);
-  return true;
-}
+export const moveNoReplace = (from, to) => moveNoClobber(from, to);
 
 /**
  * Moves `from` to `to` on another mount without replacing anything: a copy
@@ -315,18 +307,17 @@ export async function moveAcross(from, to) {
     if (err.code !== "EXDEV") throw err;
   }
   if (await exists(to)) return false;
-  const part = `${to}.${process.pid}-${Date.now()}.part`;
-  try {
+  // A dot name with a marker beside it: no scanner reads a copy that is not finished, and one a stop leaves is swept.
+  const placed = await withPartial(from, to, async (part) => {
     const before = await fsp.stat(from);
     await fsp.copyFile(from, part, constants.COPYFILE_EXCL);
     const after = await fsp.stat(from);
     if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
       throw Object.assign(new Error(`${from} changed while it was copied`), { code: "ECHANGED" });
     }
-    if (!(await moveNoReplace(part, to))) return false;
-  } finally {
-    await fsp.rm(part, { force: true });
-  }
+    return moveNoReplace(part, to);
+  });
+  if (!placed) return false;
   await fsp.rm(from, { force: true });
   return true;
 }
@@ -349,6 +340,8 @@ export async function moveAcross(from, to) {
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
  *   journal({ action, from, to })   notes each move (absolute paths) in the operations journal, so it can be undone
+ *   undone()           files an undo put back in the drop box: [{ rel, size, mtimeMs }]. Each stays where it
+ *                      is while it is that same file, until the admin releases it (library/journal.js)
  */
 export function createOrganizer(deps) {
   const dir = deps.incomingDir;
@@ -373,6 +366,16 @@ export function createOrganizer(deps) {
     return refs;
   }
 
+  /** The drop-box files an undo put back that must stay: rel → true while size and mtime still match. */
+  async function undoneSet(files) {
+    const list = await Promise.resolve(deps.undone?.() ?? []).catch(() => []);
+    const want = new Map(list.map((u) => [u.rel, u]));
+    return new Set(files.filter((f) => {
+      const u = want.get(f.rel);
+      return u && u.size === f.size && Math.round(u.mtimeMs) === Math.round(f.mtimeMs);
+    }).map((f) => f.rel));
+  }
+
   /**
    * The NACP's name for a settled base game or update whose game the admin and
    * titledb cannot name. A name is kept while the file is the same file; a
@@ -390,9 +393,12 @@ export function createOrganizer(deps) {
   }
 
   async function sweepOnce({ retry = false } = {}) {
-    const files = await listFiles(dir);
+    const all = await listFiles(dir);
+    const keep = await undoneSet(all);
+    const kept = all.filter((f) => keep.has(f.rel)).map((f) => heldItem(f.rel, "undone"));
+    const files = all.filter((f) => !keep.has(f.rel));
     if (!files.length) {
-      state = { ...state, held: [], sweptAt: new Date().toISOString(), error: null, waiting: 0 };
+      state = { ...state, held: kept, sweptAt: new Date().toISOString(), error: null, waiting: 0 };
       return { moved: 0 };
     }
     const now = Date.now();
@@ -443,7 +449,7 @@ export function createOrganizer(deps) {
     if (movedIn.games) deps.rescan();
     if (movedIn.retro) deps.rescanRetro();
     if (movedIn.homebrew) deps.rescanHomebrew();
-    const held = [...settling, ...plan.held, ...extras.held, ...failed];
+    const held = [...kept, ...settling, ...plan.held, ...extras.held, ...failed];
     state = { ...state, held, sweptAt: new Date().toISOString(), error: null, errorCode: null, errorDetail: null, waiting: held.filter((h) => h.code === "settling").length };
     return { moved };
   }

@@ -8,6 +8,7 @@ import express from "express";
 import { DEFAULT_SYSTEMS, loadSystems } from "../../src/retro/systems.js";
 import { BIOS } from "../../src/retro/bios.js";
 import { biosSets } from "../../src/retro/arcade.js";
+import { TRASH_DIR } from "../../src/library/trash.js";
 import * as catalog from "../../src/retro/catalog.js";
 import * as scaffold from "../../src/retro/scaffold.js";
 import * as folderGuides from "../../src/helpers/folder-guides.js";
@@ -171,9 +172,9 @@ test("BIOS facts follow the real bios.js: every group of every system, and a Neo
   assert.ok(byPath(guidesOf(storageLayout(tmp())), "retro/roms/snes").text.includes("BIOS: none needed."));
 });
 
-test("the guides say deletes go to a trash only in the retro folder for now, from one constant", () => {
+test("the guides say every delete goes to the folder's shared trash, from one constant", () => {
   const all = guidesOf(storageLayout(tmp()));
-  assert.match(folderGuides.TRASH_NOTE, /only[^\n]*retro/);
+  assert.ok(folderGuides.TRASH_NOTE.includes(`\`${TRASH_DIR}/\``), "the guides name the shared trash folder");
   for (const p of ["retro", "retro/roms", "retro/roms/gba", "games"]) assert.ok(byPath(all, p).text.includes(folderGuides.TRASH_NOTE), p);
   const text = folderGuides.storageText({ systems: DEFAULT_SYSTEMS, runnable: scaffold.runnableIds(DEFAULT_SYSTEMS), layout: storageLayout(tmp()), retroDir: "/s/retro", packDir: "/s/retro/retroarch" });
   assert.ok(text.includes(folderGuides.TRASH_NOTE));

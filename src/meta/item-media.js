@@ -394,12 +394,32 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     return webp.length;
   }
 
+  /**
+   * Takes back what forget() dropped, kept with the item in the trash: its record
+   * (parts it has now win) and the files of its own folder, copied from `fromDir`
+   * without replacing any it has now. For a restore, under the id it has now.
+   */
+  function adopt(id, rec, fromDir = null) {
+    check(id);
+    if (fromDir && fs.existsSync(fromDir)) {
+      fs.mkdirSync(ownDir(id), { recursive: true });
+      for (const name of fs.readdirSync(fromDir)) {
+        const to = path.join(ownDir(id), name);
+        if (!fs.existsSync(to)) fs.cpSync(path.join(fromDir, name), to, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
+      }
+    }
+    if (rec && typeof rec === "object" && Object.keys(rec).length) persist({ ...all(), [id]: { ...rec, ...all()[id] } });
+    settled.clear();
+  }
+
   const one = (fn) => (id, ...args) => serial(String(id), () => fn(id, ...args));
   return {
     idRe, put, record, pictures, iconPath, bannerPath, shotPath, iconVersion, bannerVersion, shotsVersion, shotCount, shotUrls, urls,
     saveIcon: one(saveIcon), saveBanner: one(saveBanner), removeIcon: one(removeIcon), removeBanner: one(removeBanner),
     saveShots: one(saveShots), addShots: one(addShots), removeShots: one(removeShots),
-    recrop: one(recrop), forget: one(forget), park: one(park), original, originals,
+    recrop: one(recrop), forget: one(forget), park: one(park), adopt: one(adopt), original, originals,
+    /** Where the item's own files live on the server (kept originals, and pictures of an item without a folder). */
+    ownDir,
     /** Test seam. */
     resetForTests() { saved = null; settled.clear(); failedTidy.clear(); },
   };

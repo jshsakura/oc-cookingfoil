@@ -338,8 +338,8 @@ $('rm-form').addEventListener('submit',(e)=>{e.preventDefault();
   rmSave({description:{ko:$('rm-ko').value,en:$('rm-en').value},publisher:$('rm-publisher').value,developer:$('rm-developer').value,year:$('rm-year').value.trim(),players:$('rm-players').value.trim(),genres});});
 $('rm-reset').addEventListener('click',async()=>{if(await ask('이 게임에서 고친 정보를 모두 지우고 자동으로 모은 값으로 돌립니다.'))rmSave({});});
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
-async function raRemove(m){if(!await ask(m.name+' ('+m.system+') 롬 파일을 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
-  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast('삭제했습니다. 파일 '+r.files+'개');
+async function raRemove(m){if(!await ask(topFill('t.askRetroRom',{name:m.name,system:m.system})))return;
+  try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast(topFill('t.movedFiles',{n:r.files}));
     raRows=raRows.filter((x)=>x.id!==m.id);raShow();}catch(err){toast(err.message);}}
 // Empty: the games without box art. A name: every game that matches, so art can be replaced too.
 let raFind=0,raRows=[],raAt=0,raFound=false;

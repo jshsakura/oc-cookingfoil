@@ -115,7 +115,7 @@ test('two waiting rows run by themselves, a kept row says when its original goes
   await expect(runSel).toHaveText('선택한 3개 변환');
 
   const kept = page.locator('#nz-list .nz-row', { hasText: 'Kept' });
-  await expect(kept).toContainText('원본 보관 중 · 5시간 1분 뒤 삭제');
+  await expect(kept).toContainText('원본 보관 중 · 5시간 1분 뒤 휴지통으로');
   await expect(page.locator('#nz-kept')).toContainText('보관 중인 원본 1개 · 4.0 GB');
   await expect(page.locator('#nz-purge')).toBeVisible();
   fs.mkdirSync('out/web', { recursive: true });

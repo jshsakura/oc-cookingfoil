@@ -18,7 +18,8 @@
  *   3. POST /api/uploads/:id/apply
  *        Validates extension + final filename (no traversal, no overwrite
  *        of an existing game by default), then RENAMES from uploads/
- *        into the games library. chokidar picks up the new file and the
+ *        into the games library. With ?force=1 the file already there goes
+ *        to the games folder's trash first; it is never written over. chokidar picks up the new file and the
  *        shop cache rebuilds incrementally.
  *
  *   4. DELETE /api/uploads/:id
@@ -47,6 +48,7 @@ import {
 } from "../helpers/envs.js";
 import { parseFromFilename } from "../meta/filename-parser.js";
 import { moveFile } from "../meta/library-upload.js";
+import * as trashService from "../library/trash-service.js";
 import debug from "../debug.js";
 
 const GAME_EXT_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
@@ -238,17 +240,25 @@ export default function uploadsRouter() {
       return;
     }
 
+    let replaced = null;
     try {
+      // The file it replaces waits in the trash, so a forced apply loses nothing.
+      if (exists) {
+        replaced = await trashService.trash("games", [{ rel: desc.name }], {
+          kind: "game", action: "upload-overwrite", by: trashService.actorOf(req), name: desc.name,
+        });
+      }
       // A rename on the same disk; across disks a copy renamed into place, so a
       // link at the target is replaced rather than followed.
       await moveFile(path.join(uploadsDir, desc.diskName), target);
     } catch (err) {
       debug.error("uploads apply failed: %s", err.message);
-      res.status(500).json({ error: err.message });
+      if (replaced) await trashService.restore([replaced.id]).catch(() => {});
+      res.status(err instanceof trashService.TrashError ? err.status : 500).json({ error: err.message });
       return;
     }
     debug.log("uploads: applied %s → games/", desc.name);
-    res.json({ applied: true, name: desc.name, size: desc.size });
+    res.json({ applied: true, name: desc.name, size: desc.size, ...(replaced ? { trash: replaced.id } : {}) });
   });
 
   router.delete("/:id", async (req, res) => {

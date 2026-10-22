@@ -44,6 +44,7 @@ import { pathProblem } from "./console-paths.js";
 import * as patchInfo from "./patch-info.js";
 import { isMetadata } from "./art-sidecar.js";
 import { isReadme } from "../helpers/readme-name.js";
+import { isTrashName } from "../library/trash.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -80,6 +81,13 @@ const short = (s) => crypto.createHash("sha256").update(s.normalize("NFC")).dige
 /** "hb-<app hash>-<folder hash>" for a homebrew app's patch. Pure. */
 export function homebrewPatchId(app, folder) {
   return `hb-${short(app.toLowerCase())}-${short(folder)}`;
+}
+
+/** The id of the patch at `rel` under the patches folder ("<title id>/<folder>" or "homebrew/<app>/<folder>"), or null. Pure. */
+export function patchIdAt(rel) {
+  const parts = String(rel ?? "").split("/");
+  if (parts.length === 3 && parts[0] === HOMEBREW_DIR) return homebrewPatchId(parts[1], parts[2]);
+  return parts.length === 2 ? patchId(parts[0].toUpperCase(), parts[1]) : null;
 }
 
 /** "0100…000-1a2b3c4d5e6f": the title id and a hash of the folder name. Pure. */
@@ -135,7 +143,7 @@ async function walk(root, rel = "", out = []) {
   const dir = rel ? path.join(root, rel) : root;
   for (const entry of await fsp.readdir(dir, { withFileTypes: true })) {
     // A README.md is the owner's note on the folder, never content (helpers/readme-name.js).
-    if (JUNK_RE.test(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
+    if (JUNK_RE.test(entry.name) || isTrashName(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const st = await fsp.lstat(path.join(dir, entry.name));
     if (st.isSymbolicLink()) throw new Rejected(`symlink ${relPath}`);
@@ -284,7 +292,8 @@ export async function readPatch(root, tidDir, folder, { wait = true } = {}) {
 
 async function subdirs(dir) {
   try {
-    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    // The trash (and a trash folder on another disk below), or a dot folder such as a move's work folder, is never a game's folder.
+    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name) && !e.name.startsWith(".")).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("patches: cannot read %s: %s", dir, err.message);
     return [];

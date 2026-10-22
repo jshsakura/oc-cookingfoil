@@ -74,3 +74,19 @@ test("applying across disks replaces a link at the target instead of writing thr
   assert.ok(st.isFile() && !st.isSymbolicLink(), "the game is a plain file now");
   assert.equal(st.size, 10);
 });
+
+test("a forced apply sends the file it replaces to the trash, from where it comes back beside the new one", async () => {
+  const name = "Same [0100000000060000][v0].nsp";
+  fs.writeFileSync(path.join(games, name), "OLD GAME");
+  const sent = await (await send(name, 7)).json();
+  const applied = await (await fetch(`${base}/${sent.id}/apply?force=1`, { method: "POST" })).json();
+  assert.equal(applied.applied, true);
+  assert.match(applied.trash, /^games\|/);
+  assert.equal(fs.statSync(path.join(games, name)).size, 7, "the new file is in place");
+  const trash = await import("../../src/library/trash.js");
+  const held = (await trash.listRoot({ key: "games", dir: games })).find((e) => e.id === applied.trash);
+  assert.equal(held.action, "upload-overwrite");
+  const back = await trash.restoreEntry({ key: "games", dir: games }, held.home, held.entry);
+  assert.deepEqual(back.renamed, [{ rel: name, to: "Same [0100000000060000][v0] (2).nsp" }]);
+  assert.equal(fs.readFileSync(path.join(games, "Same [0100000000060000][v0] (2).nsp"), "utf8"), "OLD GAME");
+});

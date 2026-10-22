@@ -15,7 +15,7 @@
  *   POST   /admin/api/nsz/items/:id/top            move to the front
  *   POST   /admin/api/nsz/items/:id/retry          a failed or skipped one waits again ("all" for every one)
  *   DELETE /admin/api/nsz/items/:id                take it out (not queued by itself again), with its kept original
- *   POST   /admin/api/nsz/purge-kept               delete every kept original now   { removed, bytes }
+ *   POST   /admin/api/nsz/purge-kept               every kept original to the trash now   { removed, bytes }
  *   POST   /admin/api/nsz/clear-finished           drop the done and skipped rows and their kept originals
  *   GET    /admin/api/nsz/log?offset=&limit=&q=     the conversion log, newest first
  *

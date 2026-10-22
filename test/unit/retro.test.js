@@ -83,6 +83,18 @@ test("base pack files map onto the SD card, RetroArch itself into its homebrew f
   assert.equal(sdPathOf("system/neocd_f.rom"), "retroarch/system/neocd/neocd_f.rom", "NeoCD looks in system/neocd/");
   assert.equal(sdPathOf("system/neocd/neocd_z.rom"), "retroarch/system/neocd/neocd_z.rom");
   assert.equal(sdPathOf("system/BS-X.bin"), "retroarch/system/BS-X.bin", "other firmware stays at the top");
+  assert.equal(sdPathOf(".cookingfoil-trash/2026-10-22/core-0123456789/cores/x.nro"), null, "the pack's own trash never goes to the card");
+  assert.equal(sdPathOf("cores/.cookingfoil-trash/2026-10-22/core-0123456789/x.nro"), null);
+  assert.equal(sdPathOf("cores/.cookingfoil-partial-0123456789-x.nro"), null, "nor a copy a stop cut short");
+});
+
+test("the pack list leaves out a trash folder and a partial copy wherever they sit", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-pack-trash-"));
+  for (const rel of ["cores/a_libretro_libnx.nro", ".cookingfoil-trash/2026-10-22/core-0123456789/cores/old_libretro_libnx.nro", "retroarch/.cookingfoil-trash/2026-10-22/core-0123456789/cores/b.nro", "cores/.cookingfoil-partial-0123456789-c_libretro_libnx.nro", "cores/.cookingfoil-partial-0123456789.json"]) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), "x");
+  }
+  assert.deepEqual((await listPack(dir)).map((f) => f.path), ["retroarch/cores/a_libretro_libnx.nro"]);
 });
 
 test("bezel configs follow the Bezel Project layout and keep the core's aspect ratio", () => {

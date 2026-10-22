@@ -12,9 +12,10 @@ import { routeKey, ACCESS } from "./define.js";
 import { gamesCapabilities } from "./games.js";
 import { libraryCapabilities } from "./library.js";
 import { retroCapabilities } from "./retro.js";
+import { trashCapabilities } from "./trash.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [...gamesCapabilities, ...libraryCapabilities, ...retroCapabilities];
+const ENTRIES = [...gamesCapabilities, ...libraryCapabilities, ...retroCapabilities, ...trashCapabilities];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {

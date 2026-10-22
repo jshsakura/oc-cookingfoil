@@ -35,6 +35,7 @@ import { extractFromPfs0 } from "./extract-providers/nsp.js";
 import * as activity from "../tasks/activity.js";
 import { firmwareString } from "./cnmt-parse.js";
 import { fileKey } from "../helpers/hash-cache.js";
+import { isTrashName } from "../library/trash.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -316,10 +317,11 @@ export function hasOwnMetadata(files) {
   return meta.length > 0 && !meta.some(isOurMetadata);
 }
 
-/** Every file under `dir` (relative, "/"-separated), skipping the manifest and links. */
+/** Every file under `dir` (relative, "/"-separated), skipping the manifest, links and a trash folder. */
 async function filesUnder(dir, rel = "") {
   const out = [];
   for (const e of await fsp.readdir(path.join(dir, rel), { withFileTypes: true })) {
+    if (isTrashName(e.name)) continue;
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) out.push(...(await filesUnder(dir, r)));
     else if (e.isFile() && r !== MANIFEST) out.push(r);

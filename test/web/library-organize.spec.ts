@@ -41,9 +41,13 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
   } finally {
     fs.rmSync(path.join(GAMES, 'incoming'), { recursive: true, force: true });
     fs.rmSync(path.join(GAMES, 'Drop Game'), { recursive: true, force: true });
-    // Removed through the server, so its retro list forgets the game for the specs after this one.
+    // Removed through the server, so its retro list forgets the game for the specs after this one,
+    // and emptied from the trash it lands in, so the retro trash is empty again.
     const games = (await (await page.request.get('/api/retro/games?system=gba')).json()).games ?? [];
-    for (const g of games) await page.request.post('/admin/api/retro-art/games/remove', { data: { game: g.id } });
+    for (const g of games) {
+      const { trash } = await (await page.request.post('/admin/api/retro-art/games/remove', { data: { game: g.id } })).json();
+      if (trash) await page.request.post('/admin/api/trash/empty', { data: { ids: [trash], confirm: 'empty' } });
+    }
     fs.rmSync(`${process.env.COOK_RETRO_DIR!}/roms/gba`, { recursive: true, force: true });
   }
 });

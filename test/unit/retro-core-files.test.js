@@ -20,7 +20,7 @@ test("a core games use is removed only when forced", async () => {
   const out = await removeCore(dir, "fceumm", games, { force: true });
   assert.equal(out.using, 2);
   assert.deepEqual(out.files, ["retroarch/cores/fceumm_libretro_libnx.nro"]);
-  assert.ok(fs.existsSync(path.join(dir, ".trash", out.entry, "retroarch/cores/fceumm_libretro_libnx.nro")));
+  assert.ok(fs.existsSync(path.join(dir, ".cookingfoil-trash", out.entry, "retroarch/cores/fceumm_libretro_libnx.nro")));
 });
 
 test("a name that is not a core, or a core that is not there, is refused", async () => {

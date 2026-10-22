@@ -67,6 +67,7 @@ import { mountServerSettingsApi } from "./admin/server-settings-api.js";
 import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
+import { mountTrashApi } from "./admin/trash-api.js";
 import { mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
@@ -135,11 +136,12 @@ function clientBuildWarnings() {
 // their approval, client downloads), the alerts that carry the approval
 // buttons, whether the server runs, and the binaries every console installs (the client build
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
-// which release file of it, uploaded patches and which of them a game requires), and deleting
-// files from the game library (retro roms and kept NSZ originals too), which has no trash to bring
-// them back from. Routes match
+// which release file of it, uploaded patches and which of them a game requires), removing
+// files from the game library (retro roms and kept NSZ originals too), and emptying the trash,
+// the one delete nothing brings back. Restoring from the trash and undoing a move stay open.
+// Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens) and the admin
 // login's second step.
@@ -474,6 +476,7 @@ export default function adminPageRouter() {
   mountKeysApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
+  mountTrashApi(router, requireSession);
   mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);

@@ -200,6 +200,6 @@ $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.ma
   if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
   if(!await ask(ctItem.name+' 을(를) '+to+' 게임으로 옮깁니다.'+(ctKind==='patch'?' 패치 안의 게임 폴더 이름도 함께 바뀝니다.':'')))return;
   try{await api('/admin/api/content/'+ctKind+'/move',{method:'POST',body:{id:ctItem.id,titleId:to}});ctDone('옮겼습니다.');}catch(err){toast(err.message);}});
-$('ct-remove').addEventListener('click',async()=>{if(!await ask(ctItem.name+' 을(를) 서버에서 삭제합니다. 되돌릴 수 없습니다.'))return;
-  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone('삭제했습니다.');}catch(err){toast(err.message);}});
+$('ct-remove').addEventListener('click',async()=>{if(!await ask(topFill('t.askMove',{name:ctItem.name})))return;
+  try{await api('/admin/api/content/'+ctKind+'/remove',{method:'POST',body:{id:ctItem.id}});ctDone(topText('t.movedToast'));}catch(err){toast(err.message);}});
 `;

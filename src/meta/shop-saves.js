@@ -41,6 +41,7 @@ import { HashCache } from "../helpers/hash-cache.js";
 import { catalogStore, hashStore } from "../db/stores.js";
 import { pathProblem } from "./console-paths.js";
 import * as activity from "../tasks/activity.js";
+import { isTrashName } from "../library/trash.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -59,6 +60,18 @@ const isBase = (tid) => TITLE_ID_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) 
 /** "0100…000-1a2b3c4d5e6f": the title id and a hash of the folder name. Pure. */
 export function saveId(titleId, folder) {
   return `${titleId}-${crypto.createHash("sha256").update(folder.normalize("NFC")).digest("hex").slice(0, 12)}`;
+}
+
+/** A homebrew app's save: "hb-<hash of the app>-<hash of the folder>". Pure. */
+export function homebrewSaveId(app, folder) {
+  return `hb-${crypto.createHash("sha256").update(app.toLowerCase()).digest("hex").slice(0, 12)}-${saveId("", folder).slice(1)}`;
+}
+
+/** The id of the save at `rel` under the saves folder ("<title id>/<folder>" or "homebrew/<app>/<folder>"), or null. Pure. */
+export function saveIdAt(rel) {
+  const parts = String(rel ?? "").split("/");
+  if (parts.length === 3 && parts[0] === "homebrew") return homebrewSaveId(parts[1], parts[2]);
+  return parts.length === 2 ? saveId(parts[0].toUpperCase(), parts[1]) : null;
 }
 
 const SOURCE_MAX = { name: 120, url: 500 };
@@ -92,7 +105,7 @@ export function readMeta(raw) {
 async function walk(root, rel = "", out = []) {
   for (const entry of await fsp.readdir(rel ? path.join(root, rel) : root, { withFileTypes: true })) {
     // A README.md is the owner's note on the folder, never content (helpers/readme-name.js).
-    if (JUNK_RE.test(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
+    if (JUNK_RE.test(entry.name) || isTrashName(entry.name) || (entry.isFile() && isReadme(entry.name))) continue;
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
     const abs = path.join(root, relPath);
     const st = await fsp.lstat(abs);
@@ -133,7 +146,7 @@ export async function readSave(root, tidDir, folder, cache) {
   for (const f of files) content.update(`${f.path}\0${await cache.hash(f)}\n`);
   return {
     save: {
-      id: app ? `hb-${crypto.createHash("sha256").update(app.toLowerCase()).digest("hex").slice(0, 12)}-${saveId("", folder).slice(1)}` : saveId(titleId, folder),
+      id: app ? homebrewSaveId(app, folder) : saveId(titleId, folder),
       titleId,
       ...(app ? { homebrew: app, installRoot: `switch/${app}` } : {}),
       ...(!app && meta.saveType ? { saveType: meta.saveType } : {}),
@@ -155,7 +168,8 @@ export async function readSave(root, tidDir, folder, cache) {
 
 async function subdirs(dir) {
   try {
-    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+    // The trash (and a trash folder on another disk below), or a dot folder such as a move's work folder, is never a game's folder.
+    return (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory() && !isTrashName(e.name) && !e.name.startsWith(".")).map((e) => e.name);
   } catch (err) {
     if (err.code !== "ENOENT") debug.error("saves: cannot read %s: %s", dir, err.message);
     return [];

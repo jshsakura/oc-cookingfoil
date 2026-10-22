@@ -4,7 +4,7 @@
  *   GET  /admin/api/saves                     { saves: [{ id, titleId, game, name, ko, description, gameVersion, saveType, source, size, files, verified }] }
  *   POST /admin/api/content/:kind/meta        { id, name, nameKo, description, descriptionKo, version, author, gameVersion, saveType, sourceName, sourceUrl }
  *   POST /admin/api/content/:kind/move        { id, titleId }  to another game; a patch's own paths follow it
- *   POST /admin/api/content/:kind/remove      { id }           delete it from disk
+ *   POST /admin/api/content/:kind/remove      { id }           move it to the trash (<patches|saves>/.cookingfoil-trash)
  *   POST /admin/api/content/:kind/verified    { id, verified } the 검수됨 badge on or off, kept in the edit history
  *   POST /admin/api/votes/clear               { kind, id }     drops the item's 잘 돼요 / 안 돼요 votes
  *                                             (kind homebrew | retro | patch | save)
@@ -13,9 +13,11 @@
  * a homebrew app's patch has its information edited here too (from the
  * homebrew tab), while moving and deleting it are on that tab. A patch's
  * information goes into the server's patch store (meta/patch-info.js), which
- * a move carries to the new game and a delete forgets; a save's meta.json is
- * rewritten with the fields given. Moving or deleting one forgets its 검수됨
- * mark and its votes: the id they were kept under is gone.
+ * a move carries to the new game and a delete forgets (the trash entry keeps
+ * it and a restore puts it back); a save's meta.json is rewritten with the
+ * fields given. Moving or deleting one forgets its 검수됨 mark and its votes:
+ * the id they were kept under is gone. A move is written to the operations
+ * journal (library/journal.js) and can be undone from the trash page.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -33,15 +35,28 @@ import * as itemVerified from "../../meta/item-verified.js";
 import * as itemVotes from "../../meta/item-votes.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
+import * as trashService from "../../library/trash-service.js";
+import { forgetMarks, marksOf } from "../../library/trash-marks.js";
+import { moveNoClobber } from "../../library/safe-move.js";
+import { API_WORDS, apiWord } from "./api-words.js";
+
+/** Removes `dir` and the folders under it once they hold no file: anything written into it meanwhile stays. */
+async function dropEmptyTree(dir) {
+  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const e of entries) if (e.isDirectory()) await dropEmptyTree(path.join(dir, e.name));
+  await fsp.rmdir(dir).catch(() => {});
+}
 
 const BASE_RE = /^[0-9A-F]{16}$/;
 const isBase = (tid) => BASE_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 0n;
 const LIMITS = { name: 120, nameKo: 120, description: 2000, descriptionKo: 2000, gameVersion: 40, sourceName: 120, sourceUrl: 300 };
 
 class ContentError extends Error {
-  constructor(status, message) {
+  /** `key` names an api-words.js message, answered in the request's language. */
+  constructor(status, message, key = null) {
     super(message);
     this.status = status;
+    this.key = key;
   }
 }
 
@@ -117,6 +132,22 @@ export function movedPatchPath(rel, from, to) {
   return parts.join("/");
 }
 
+/**
+ * Renames, inside a patch folder, the paths that name the game (`from` → `to`),
+ * as a move between games does; the folders it leaves empty go.
+ */
+export async function rewritePatchPaths(dir, from, to) {
+  for (const rel of await filesUnder(dir)) {
+    const next = movedPatchPath(rel, from, to);
+    if (next === rel) continue;
+    await fsp.mkdir(path.dirname(path.join(dir, next)), { recursive: true });
+    await fsp.rename(path.join(dir, rel), path.join(dir, next));
+    for (let d = path.dirname(path.join(dir, rel)); d.startsWith(dir + path.sep); d = path.dirname(d)) {
+      if (!(await fsp.rmdir(d).then(() => true, () => false))) break;
+    }
+  }
+}
+
 async function filesUnder(dir, rel = "", out = []) {
   for (const e of await fsp.readdir(rel ? path.join(dir, rel) : dir, { withFileTypes: true })) {
     const r = rel ? `${rel}/${e.name}` : e.name;
@@ -133,7 +164,7 @@ export function mountContentApi(router, requireSession) {
     try {
       await fn(req, res);
     } catch (err) {
-      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.message });
+      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.key ? apiWord(req, err.key) : err.message });
       debug.error("admin: content: %s", err.message);
       res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
     }
@@ -196,7 +227,7 @@ export function mountContentApi(router, requireSession) {
     if (!isBase(to)) throw new ContentError(400, "옮길 게임의 타이틀 ID(16자리, 본편)를 고릅니다");
     if (to === titleId) throw new ContentError(400, "이미 그 게임에 있습니다");
     const dest = inside(root, to, folder);
-    if (!dest || fs.existsSync(dest)) throw new ContentError(409, "그 게임에 같은 이름의 폴더가 이미 있습니다. 이름을 바꾸거나 그쪽을 먼저 삭제합니다");
+    if (!dest || fs.existsSync(dest)) throw new ContentError(409, API_WORDS.ko["content.folderTaken"], "content.folderTaken");
     // Built beside the destination, then renamed into place in one step.
     const work = path.join(root, to, `.moving-${crypto.randomBytes(4).toString("hex")}`);
     await fsp.mkdir(work, { recursive: true });
@@ -206,17 +237,29 @@ export function mountContentApi(router, requireSession) {
         await fsp.mkdir(path.dirname(path.join(work, next)), { recursive: true });
         await fsp.rename(path.join(dir, rel), path.join(work, next));
       }
-      await fsp.rename(work, dest);
+      // Never onto a folder that appeared meanwhile.
+      if (!(await moveNoClobber(work, dest))) throw new ContentError(409, API_WORDS.ko["content.folderTaken"], "content.folderTaken");
     } catch (err) {
-      await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+      // What was moved into the work folder goes back first; only an empty work folder is removed.
+      for (const rel of await filesUnder(work).catch(() => [])) {
+        const back = kind === "patch" ? movedPatchPath(rel, to, titleId) : rel;
+        await fsp.mkdir(path.dirname(path.join(dir, back)), { recursive: true }).catch(() => {});
+        await moveNoClobber(path.join(work, rel), path.join(dir, back)).catch(() => false);
+      }
+      await dropEmptyTree(work);
       throw err;
     }
-    await fsp.rm(dir, { recursive: true, force: true });
+    await dropEmptyTree(dir);
     await fsp.rmdir(path.dirname(dir)).catch(() => {}); // the old game's folder, when it is left empty
     // Before the rescan, so an old patch.json that travelled along is not imported over the edits.
     if (kind === "patch") patchInfo.move(patchInfo.keyOf(titleId, folder), patchInfo.keyOf(to, folder));
-    itemVerified.set(kind, String(req.body.id), false);
-    itemVotes.forget(kind, String(req.body.id));
+    // The marks stay with the line, so undoing the move brings them back.
+    const marks = marksOf(kind, String(req.body.id));
+    forgetMarks(kind, String(req.body.id));
+    await trashService.recordMove({
+      action: `${kind}-move`, by: trashService.actorOf(req), from: dir, to: dest,
+      extra: { ...(kind === "patch" ? { rewrite: { type: "patch-title", from: titleId, to, folder } } : {}), ...(marks ? { marks } : {}) },
+    });
     await refreshed(kind);
     debug.log("admin: %s %s/%s moved to %s", kind, titleId, folder, to);
     res.json({ ok: true });
@@ -224,15 +267,27 @@ export function mountContentApi(router, requireSession) {
 
   router.post("/api/content/:kind/remove", handle(async (req, res) => {
     const { kind } = req.params;
-    const { dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
-    await fsp.rm(dir, { recursive: true, force: true });
+    const { root, dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
+    const key = kind === "patch" ? patchInfo.keyOf(titleId, folder) : null;
+    const marks = marksOf(kind, String(req.body.id));
+    let out;
+    try {
+      out = await trashService.trash(kind === "patch" ? "patches" : "saves", [{ rel: path.relative(root, dir).split(path.sep).join("/") }], {
+        kind, action: `${kind}-remove`, by: trashService.actorOf(req), name: folder,
+        // The patch store's entry goes with it, so a restore brings its information back.
+        extra: { ...(key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {}), ...(marks ? { marks } : {}) },
+      });
+    } catch (err) {
+      if (err instanceof trashService.TrashError) throw new ContentError(err.status, err.message);
+      throw err;
+    }
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
-    if (kind === "patch") patchInfo.remove(patchInfo.keyOf(titleId, folder));
-    itemVerified.set(kind, String(req.body.id), false);
-    itemVotes.forget(kind, String(req.body.id));
+    if (key) patchInfo.remove(key);
+    // Kept in the manifest above: a restore puts them back.
+    forgetMarks(kind, String(req.body.id));
     await refreshed(kind);
-    debug.log("admin: %s %s/%s removed", kind, titleId, folder);
-    res.json({ ok: true });
+    debug.log("admin: %s %s/%s moved to the trash", kind, titleId, folder);
+    res.json({ ok: true, trash: out.id });
   }));
 
   router.post("/api/content/:kind/verified", handle(async (req, res) => {

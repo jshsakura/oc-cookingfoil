@@ -645,7 +645,7 @@ export async function init() {
     // catches directories whose names happen to start with a dot (the
     // watch root itself, in dev), which would silently mute every change.
     // The drop box (meta/library-organize.js) is sorted into the library; its files are not listed.
-    ignored: (filePath) => path.basename(filePath).startsWith(".") || isIncoming(path.relative(romsDirPath, filePath)),
+    ignored: (filePath) => ignoredUnder(romsDirPath, filePath) || isIncoming(path.relative(romsDirPath, filePath)),
   });
 
   watcher
@@ -659,6 +659,19 @@ export async function init() {
   // Don't keep the event loop alive for the watcher alone — Node should
   // exit cleanly on SIGTERM. chokidar v4 doesn't expose .unref directly,
   // but FSWatcher instances unref on close; we close in stop().
+}
+
+/**
+ * Whether the watcher over `root` ignores `filePath`: anything under a dot
+ * name inside the root (the trash, a trash on a disk below, a partial copy,
+ * the NSZ keep folder), judged by the path's parts below the root. A watched
+ * path outside the root (custom_entries.json) is judged by its own name. Pure.
+ */
+export function ignoredUnder(root, filePath) {
+  const rel = path.relative(root, filePath);
+  if (!rel) return false;
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return path.basename(filePath).startsWith(".");
+  return rel.split(path.sep).some((p) => p.startsWith("."));
 }
 
 export async function stop() {

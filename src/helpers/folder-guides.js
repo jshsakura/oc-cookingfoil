@@ -34,8 +34,8 @@ const ENDPOINT = "`GET /admin/api/storage-guide/folder?path=<path>` returns one 
 const README_NOTE = "A README.md of your own here is left alone and never taken for content.";
 const BY_HAND = "The server never renames, moves or deletes anything here on its own. Renames and deletes happen only when an admin starts them on the admin page, for that run.";
 
-/** Where deletes go. One place, so every guide says the same until the shared trash comes. */
-export const TRASH_NOTE = "Deletes go to a trash only in the retro folder for now: a game an admin deletes goes to `.trash/` there with its box art and bezel, and the retro tab restores it. Elsewhere a delete is final until the shared trash comes.";
+/** Where deletes go (library/trash.js). One place, so every guide says the same. */
+export const TRASH_NOTE = "A delete never removes a file: it moves into this folder's `.cookingfoil-trash/` (hidden from every listing), and the admin page's Trash tab restores it or empties the trash. Leave that folder to the server.";
 
 export const CORE_NOTE = "A core is a Switch .nro built with libnx, named exactly `<core>_libretro_libnx.nro`; the .dll, .so or .dylib cores of PC RetroArch do not work.";
 

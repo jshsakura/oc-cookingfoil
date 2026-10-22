@@ -6,12 +6,13 @@
  *                                            patches: [{ id, name, size, files, verified, ko, description, version, author, game_version }],
  *                                            saves: [{ id, name, size, files, verified }] }],
  *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
- *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  deletes a homebrew app's patch or save folder
- *                                          (a patch's information in the patch store, the 검수됨 mark and the votes go with it)
+ *   POST /admin/api/homebrew/extra/remove  { type: "patch" | "save", id }  moves a homebrew app's patch or save folder to the trash
+ *                                          (the 검수됨 mark and the votes go; a patch's information goes with it into the trash)
  *
  * A homebrew app's patch has its information edited with the game patches' dialog
  * (POST /admin/api/content/patch/meta).
- *   POST /admin/api/homebrew/manual/remove { id }  deletes a hand-placed app's folder and what was added to it by hand (its patches and saves stay)
+ *   POST /admin/api/homebrew/manual/remove { id }  moves a hand-placed app's folder to the trash and forgets what was added to it
+ *                                          by hand (its patches and saves stay)
  *
  * An app's pictures, laid out as a game's (meta/homebrew-media.js); apps carry banner_url, screenshots
  * and media: { banner, shots } (where each came from):
@@ -23,7 +24,6 @@
  *   POST /admin/api/homebrew/shots/remove  { id, n? }  one screenshot (n from 1), or all of them without n
  */
 import express from "express";
-import fsp from "fs/promises";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
@@ -36,8 +36,9 @@ import * as integrations from "../../security/integrations.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
 import * as itemVerified from "../../meta/item-verified.js";
-import * as itemVotes from "../../meta/item-votes.js";
 import debug from "../../debug.js";
+import * as trashService from "../../library/trash-service.js";
+import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -63,6 +64,17 @@ export function extrasByApp(patches, saves) {
   for (const p of patches) if (p.homebrew) add(p.homebrew, "patches", p);
   for (const s of saves) if (s.homebrew) add(s.homebrew, "saves", s);
   return out;
+}
+
+/** Moves `dir` (inside `rootDir`, library folder `key`) to the trash; on a refusal answers it and returns null. */
+async function trashOr409(res, key, dir, rootDir, meta) {
+  try {
+    return await trashService.trash(key, [{ rel: path.relative(rootDir, dir).split(path.sep).join("/") }], meta);
+  } catch (err) {
+    if (!(err instanceof trashService.TrashError)) throw err;
+    res.status(err.status).json({ error: err.message });
+    return null;
+  }
 }
 
 export function mountHomebrewAppsApi(router, requireSession) {
@@ -195,16 +207,21 @@ export function mountHomebrewAppsApi(router, requireSession) {
     // Only a homebrew app's own folder (homebrew/<app>/<name>) is removed here.
     const dir = where && where.dir.startsWith("homebrew/") ? inside(type === "patch" ? patchesDir : savesDir, where.dir, where.folder) : null;
     if (!dir) return res.status(404).json({ error: "목록에 없는 항목입니다" });
-    await fsp.rm(dir, { recursive: true, force: true });
+    const root = type === "patch" ? patchesDir : savesDir;
+    const marks = marksOf(type, id);
+    const out = await trashOr409(res, type === "patch" ? "patches" : "saves", dir, root, {
+      kind: type, action: `homebrew-${type}-remove`, by: trashService.actorOf(req), name: where.folder,
+      extra: { ...(type === "patch" && where.key && patchInfo.has(where.key) ? { patchInfo: { key: where.key, info: patchInfo.get(where.key) } } : {}), ...(marks ? { marks } : {}) },
+    });
+    if (!out) return;
     if (type === "patch") {
       patchInfo.remove(where.key);
       await userPatches.scan();
     }
     else savesCatalog().invalidate();
-    itemVerified.set(type, id, false);
-    itemVotes.forget(type, id);
-    debug.log("admin: removed homebrew %s %s/%s", type, where.dir, where.folder);
-    res.json({ ok: true });
+    forgetMarks(type, id);
+    debug.log("admin: homebrew %s %s/%s moved to the trash", type, where.dir, where.folder);
+    res.json({ ok: true, trash: out.id });
   }));
 
   router.post("/api/homebrew/manual/remove", handle(async (req, res) => {
@@ -213,11 +230,18 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const dir = app ? (app.folder ?? path.dirname(app.path)) : null;
     // The app's own folder, directly under the homebrew folder.
     if (!dir || path.dirname(dir) !== path.resolve(homebrewDir)) return res.status(404).json({ error: "직접 넣은 앱 목록에 없습니다" });
-    await fsp.rm(dir, { recursive: true, force: true });
+    const out = await trashOr409(res, "homebrew", dir, homebrewDir, { kind: "homebrew", action: "homebrew-remove", by: trashService.actorOf(req), name: app.name ?? path.basename(dir) });
+    if (!out) return;
     await forgetZipCopies(id);
-    await forgetExtras(id);
+    // Pictures, description, choices and marks go into the trash entry first; only then are they forgotten here.
+    try {
+      await trashService.keepHomebrewExtras(out, id);
+      await forgetExtras(id);
+    } catch (err) {
+      debug.error("admin: homebrew %s: extras not kept with the trash entry, so left as they are: %s", id, err.message);
+    }
     await refreshManual();
-    debug.log("admin: removed hand-placed homebrew %s", path.basename(dir));
-    res.json({ ok: true });
+    debug.log("admin: hand-placed homebrew %s moved to the trash", path.basename(dir));
+    res.json({ ok: true, trash: out.id });
   }));
 }

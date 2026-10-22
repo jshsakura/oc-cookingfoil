@@ -27,6 +27,8 @@ import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, poo
 import { bestMatch, englishTitle, titleKey } from "./titles.js";
 import { groupSets, setInfo } from "../arcade.js";
 import { rankSets } from "../arcade-policy.js";
+import { noteFetched, wasFetched } from "./fetched.js";
+import { trashItems } from "../../library/trash.js";
 
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const CANDIDATES = 24;
@@ -310,13 +312,27 @@ export async function candidates(id, system, query, opts = {}) {
 export const libretroUrl = (system, name) => (system.libretro ? `${THUMBS}/${repoOf(system.libretro)}/master/${enc(`Named_Boxarts/${name}.png`)}` : null);
 
 /**
+ * Moves the pictures among `files` that the server did not fetch itself (a scan or
+ * bezel a person put there, an uploaded cover) to the retro trash before they are
+ * replaced. What the server fetched is left for the caller to replace.
+ */
+async function keepTheirs(dir, files, rom) {
+  const theirs = files.filter((f) => fs.existsSync(f) && !wasFetched(f));
+  if (!theirs.length) return;
+  await trashItems({ key: "retro", dir }, theirs.map((f) => ({ rel: path.relative(dir, f).split(path.sep).join("/") })), {
+    kind: "retro-art", action: "retro-art-replace", by: { type: "job", name: "retro-art" }, name: rom,
+  });
+}
+
+/**
  * Sets one ROM's No-Intro name (null: it has no art) and replaces its box art and
  * bezel with that name's. Returns { boxart, bezel } download outcomes.
  */
 export async function applyMatch(dir, id, system, rom, name) {
-  writeMap(dir, id, { ...readMap(dir, id), [rom]: name });
   const box = boxartPath(dir, system, rom);
   const bezel = bezelPath(dir, system, rom);
+  await keepTheirs(dir, [box, bezel], rom);
+  writeMap(dir, id, { ...readMap(dir, id), [rom]: name });
   await Promise.all([box, bezel].map((f) => fsp.rm(f, { force: true })));
   if (!name) return { boxart: "removed", bezel: "removed" };
   const sources = BEZEL_SOURCES[id] ?? [];
@@ -404,8 +420,9 @@ async function isOptimized(file) {
  */
 export async function optimizeBoxarts(dir) {
   const root = path.join(dir, "thumbnails");
+  // Never inside a dot folder: a trash entry under thumbnails/ (a thumbnails folder on its own disk) keeps its bytes.
   const files = (await fsp.readdir(root, { recursive: true }).catch(() => []))
-    .filter((p) => p.endsWith(".png") && p.split(path.sep).includes("Named_Boxarts"))
+    .filter((p) => p.endsWith(".png") && p.split(path.sep).includes("Named_Boxarts") && !p.split(path.sep).some((s) => s.startsWith(".")))
     .map((p) => path.join(root, p));
   const out = { checked: files.length, optimized: 0, before: 0, after: 0 };
   let next = 0;
@@ -417,8 +434,11 @@ export async function optimizeBoxarts(dir) {
         const raw = await fsp.readFile(file);
         const png = await encodeCover(raw);
         if (png.length >= raw.length) continue;
+        const fetched = wasFetched(file);
         await fsp.writeFile(`${file}.part`, png);
         await fsp.rename(`${file}.part`, file);
+        // Still the server's own picture, only smaller.
+        if (fetched) noteFetched(file);
         out.optimized++;
         out.before += raw.length;
         out.after += png.length;
@@ -436,6 +456,7 @@ export async function saveCoverImage(dir, system, rom, raw) {
   if (raw.length > MAX_COVER_BYTES) throw new CoverImageError("15 MB 보다 큰 이미지는 받지 않습니다");
   const png = await encodeCover(raw);
   const dest = boxartPath(dir, system, rom);
+  await keepTheirs(dir, [dest], rom);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.writeFile(`${dest}.part`, png);
   await fsp.rename(`${dest}.part`, dest);

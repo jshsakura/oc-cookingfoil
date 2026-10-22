@@ -90,14 +90,15 @@ async function rvPick(g,m){
   try{await api('/admin/api/retro-variants/pick',{method:'POST',body:{group:g.id,game:m.id}});toast('추천 버전을 변경했습니다.');loadRetroVariants();}catch(err){toast(err.message);}
 }
 async function rvTrash(m,force=false){
-  if(!force&&!await ask(m.file+' 파일을 삭제합니다. 롬과 표지, 베젤 파일이 함께 지워지고, 휴지통 탭에서 되돌릴 수 있습니다.'))return;
-  try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast('삭제했습니다. 파일 '+r.files.length+'개');rvData={};loadRetroVariants();}
+  if(!force&&!await ask(topFill('t.askVariant',{file:m.file})))return;
+  try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast(topFill('t.movedFiles',{n:r.files.length}));rvData={};loadRetroVariants();}
   catch(err){if(/다른 세트/.test(err.message)&&!force){
       if(await ask('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 삭제하면 그 세트는 실행되지 않습니다. 그래도 삭제할까요?'))rvTrash(m,true);return;}
     toast(err.message);}
 }
 async function rvRestore(i){
-  try{await api('/admin/api/retro-variants/restore',{method:'POST',body:{entry:i.entry}});toast('되돌렸습니다.');rvData={};loadRetroVariants();}catch(err){toast(err.message);}
+  try{const r=await api('/admin/api/retro-variants/restore',{method:'POST',body:{entry:i.entry,home:i.home}});
+    toast(r.renamed&&r.renamed.length?topFill('t.restoredRenamed',{names:r.renamed.map((x)=>x.to.split('/').pop()).join(', ')}):'되돌렸습니다.');rvData={};loadRetroVariants();}catch(err){toast(err.message);}
 }
 
 let rvFilterT=0;$('rv-filter').addEventListener('input',()=>{clearTimeout(rvFilterT);rvFilterT=setTimeout(rvShow,200);});

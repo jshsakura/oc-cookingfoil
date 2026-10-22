@@ -9,6 +9,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { noteFetched } from "./fetched.js";
 
 export const THUMBS = "https://raw.githubusercontent.com/libretro-thumbnails";
 export const BEZELS = "https://raw.githubusercontent.com/thebezelproject";
@@ -82,6 +83,8 @@ export async function download(url, dest, dry, transform = null) {
       // A PNG the transform can't read is kept as it came, rather than lost.
       fs.writeFileSync(tmp, transform ? await transform(body).catch(() => body) : body);
       fs.renameSync(tmp, dest);
+      // The server's own file: a later match may replace it without keeping it in the trash.
+      noteFetched(dest);
       return "ok";
     }
     const target = body.length < 512 ? body.toString("utf8").trim() : "";
