@@ -8,22 +8,21 @@ import path from "node:path";
 // capability in src/capabilities/, or an opt-out with a reason in src/capabilities/opt-out.js.
 // Routes that predate the registry are LEGACY_UNREGISTERED, and that list only shrinks.
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-capability-coverage-"));
-// Routes that only exist when a feature is on must be seen too.
-process.env.COOK_UPLOADS_ENABLED = "true";
 const { discoverRoutes, coverageProblems, ratchetProblems } = await import("../support/capability-routes.js");
 const { registry } = await import("../../src/capabilities/registry.js");
+const { routeKey } = await import("../../src/capabilities/define.js");
 const { OPT_OUT, OPT_OUT_REASONS, LEGACY_UNREGISTERED } = await import("../../src/capabilities/opt-out.js");
 
 // Ratchet ceilings. LEGACY_CEILING only goes down. Raising OPT_OUT_CEILING is a reviewed decision:
 // do it in the same change that adds the opt-out, and say why in the commit.
 const LEGACY_CEILING = 315;
-const OPT_OUT_CEILING = 0;
+const OPT_OUT_CEILING = 4;
 const HERE = "test/unit/capability-coverage.test.js";
 
-const routes = await discoverRoutes();
+const routes = discoverRoutes();
 const current = { routes, capabilities: registry.all, optOut: OPT_OUT, legacy: LEGACY_UNREGISTERED, reasons: OPT_OUT_REASONS };
 // The routes the lists claim, so the checks below test the checker, not today's drift.
-const listed = { ...current, routes: [...registry.all.filter((c) => c.http).map((c) => `${c.http.method} ${c.http.path}`), ...Object.keys(OPT_OUT), ...LEGACY_UNREGISTERED] };
+const listed = { ...current, routes: [...registry.all.filter((c) => c.http).map((c) => routeKey(c.http)), ...Object.keys(OPT_OUT), ...LEGACY_UNREGISTERED] };
 
 test("the walk finds the admin API and the routes outside it", () => {
   for (const key of ["GET /admin/api/stats", "POST /admin/api/server-settings", "GET /api/admin/items/:kind/:id/fields", "GET /shop.json", "GET /api/shop/info"]) {
@@ -31,7 +30,7 @@ test("the walk finds the admin API and the routes outside it", () => {
   }
   assert.ok(routes.some((r) => r.startsWith("POST /api/art/")), "upload-gated /api/art routes are walked");
   assert.ok(routes.some((r) => r.includes("/achievements/link")), "nested routers are walked");
-  assert.ok(routes.some((r) => r.includes("/oauth/dropbox/callback")), "template paths are resolved");
+  assert.ok(routes.some((r) => r.includes("/oauth/dropbox/callback")), "inline routes on the app are walked");
 });
 
 test("every route has a capability or an opt-out with a reason", () => {

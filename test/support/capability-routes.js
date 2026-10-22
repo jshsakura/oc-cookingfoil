@@ -1,118 +1,54 @@
-// Every route the server answers, read from the same routers src/index.js mounts, and the check that
-// each one has a capability or an opt-out. Used by test/unit/capability-coverage.test.js.
+// Every route the server answers, and the check that each one has a capability or an opt-out.
+// Used by test/unit/capability-coverage.test.js.
 //
-// How routes are found:
-//   - src/index.js is read as text. Each `xRouter()` call is matched to its import and its mount path
-//     (`expressApp.use("/path", ..., xRouter())`, `"/path": xRouter()` in a map, or no path).
-//   - Each router is built and its stack walked, nested routers included.
-//   - Inline `expressApp.get("/path", ...)` routes are read from the text too.
-// Import index.js itself and the server would start listening, which is why this reads its text.
+// Routes are read from the running app, not from source text: src/index.js is started in a child
+// process with test/support/capability-listen-hook.js preloaded, which walks the real Express
+// router when the app calls listen() and exits before a port opens. However a route is registered,
+// it is seen, as long as it is registered unconditionally (see AGENTS.md).
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { routeKey } from "../../src/capabilities/define.js";
 
-const INDEX_URL = new URL("../../src/index.js", import.meta.url);
-const VERBS = "get|post|put|patch|delete|all";
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const HOOK = new URL("./capability-listen-hook.js", import.meta.url).href;
+const INDEX = new URL("../../src/index.js", import.meta.url);
 
-// Inline routes whose path is computed, not written out. Each is named with why it needs no capability.
-const COMPUTED_INLINE = {
-  where: "share images for link previews, one per language (static files)",
-};
-
-/** "METHOD /path", the key used by the registry and opt-out.js. */
-export const routeKey = (method, path) => `${method.toUpperCase()} ${path}`;
-
-function importsOf(source) {
-  const byName = new Map();
-  for (const m of source.matchAll(/^import\s+(.+?)\s+from\s+"([^"]+)";/gms)) {
-    const [, clause, spec] = m;
-    const def = clause.match(/^([A-Za-z_$][\w$]*)/);
-    if (def) byName.set(def[1], { spec, name: "default" });
-    const named = clause.match(/\{([^}]*)\}/);
-    for (const part of named ? named[1].split(",") : []) {
-      const [orig, alias] = part.trim().split(/\s+as\s+/);
-      if (orig) byName.set(alias ?? orig, { spec, name: orig });
+/**
+ * Every route of the app as "METHOD /path", sorted. Starts `entry` (src/index.js by default) with a
+ * scratch data dir and every route-gating feature on. Throws with the child's error if the walk fails.
+ */
+export function discoverRoutes({ entry = INDEX } = {}) {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cook-capability-routes-"));
+  try {
+    fs.mkdirSync(path.join(data, "games"));
+    const run = spawnSync(process.execPath, ["--import", HOOK, fileURLToPath(entry)], {
+      cwd: ROOT,
+      encoding: "utf8",
+      timeout: 60_000,
+      maxBuffer: 16 * 1024 * 1024,
+      env: {
+        ...process.env,
+        COOK_DATA_DIR: data,
+        COOK_GAMES_DIR: path.join(data, "games"),
+        // Routes that only exist when a feature is on must be seen too.
+        COOK_UPLOADS_ENABLED: "true",
+        COOK_ADMIN_TOKEN: "x",
+        COOK_TITLEDB_AUTO_FETCH: "false",
+        COOK_HOMEBREW_REPOS: "",
+        COOK_RETRO_META: "false",
+      },
+    });
+    if (run.status !== 0) {
+      const why = run.error?.message ?? (run.stderr.trim().split("\n").slice(-5).join("\n") || `exit ${run.status ?? run.signal}`);
+      throw new Error(`route discovery failed for ${fileURLToPath(entry)}: ${why}`);
     }
+    return [...new Set(JSON.parse(run.stdout).map(([method, p]) => routeKey({ method, path: p })))].sort();
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
   }
-  return byName;
-}
-
-/** Where each router factory called in index.js is mounted: a path, an imported name, or nothing. */
-function mountsOf(source) {
-  const mounts = [];
-  for (const line of source.split("\n")) {
-    for (const call of line.matchAll(/\b(\w+Router)\(\)/g)) {
-      const factory = call[1];
-      const inMap = line.match(/^\s*"([^"]+)":\s*\w+Router\(\)/);
-      const used = line.match(/expressApp\.use\(\s*(?:"([^"]+)"|([A-Z][A-Z0-9_]*)\s*,)/);
-      const bare = new RegExp(`expressApp\\.use\\(\\s*${factory}\\(\\)`).test(line);
-      if (!inMap && !used && !bare) throw new Error(`src/index.js calls ${factory}() in a way test/support/capability-routes.js cannot read: ${line.trim()}`);
-      mounts.push({ factory, at: inMap?.[1] ?? used?.[1] ?? "", atName: used?.[2] });
-    }
-  }
-  return mounts;
-}
-
-/** The mount path of a nested router, from the regexp Express 4 keeps for it. */
-function nestedPath(layer) {
-  if (layer.keys?.length) throw new Error(`nested router with path parameters (${layer.regexp}) is not supported by the coverage walk`);
-  if (layer.regexp.fast_slash) return "";
-  const src = layer.regexp.source.replace(/^\^/, "").replace(/\\\/\?\(\?=\\\/\|\$\)$/, "");
-  if (/[()[\]*+?|]/.test(src.replace(/\\\//g, ""))) throw new Error(`cannot read nested router path ${layer.regexp}`);
-  return src.replace(/\\\//g, "/");
-}
-
-function walk(stack, prefix, out) {
-  for (const layer of stack) {
-    if (layer.route) {
-      const paths = Array.isArray(layer.route.path) ? layer.route.path : [layer.route.path];
-      for (const p of paths) {
-        if (typeof p !== "string") throw new Error(`route ${prefix}${p} is not a string path; the coverage walk needs one`);
-        for (const method of Object.keys(layer.route.methods)) if (method !== "_all") out.add(routeKey(method, prefix + p));
-      }
-    } else if (Array.isArray(layer.handle?.stack)) {
-      walk(layer.handle.stack, prefix + nestedPath(layer), out);
-    }
-  }
-}
-
-/** Every route of the app as "METHOD /path", sorted. Set env flags that gate routes before calling. */
-export async function discoverRoutes() {
-  const source = fs.readFileSync(fileURLToPath(INDEX_URL), "utf8");
-  const imports = importsOf(source);
-  const routes = new Set();
-  for (const { factory, at, atName } of mountsOf(source)) {
-    const from = imports.get(factory);
-    const prefix = atName ? await importedValue(atName, imports) : at;
-    if (!from) throw new Error(`src/index.js calls ${factory}() but no import names it`);
-    const mod = await import(new URL(from.spec, INDEX_URL).href);
-    walk(mod[from.name]().stack, prefix, routes);
-  }
-  for (const m of source.matchAll(new RegExp(`expressApp\\.(${VERBS})\\(\\s*([^,]+),`, "g"))) {
-    const [, method, arg] = m;
-    const literal = arg.match(/^"([^"]+)"$/);
-    const template = arg.match(/^`([^`]+)`$/);
-    if (literal) routes.add(routeKey(method, literal[1]));
-    else if (template) {
-      const resolved = await resolveTemplate(template[1], imports);
-      routes.add(routeKey(method, resolved));
-    } else if (!(arg.trim() in COMPUTED_INLINE)) {
-      throw new Error(`src/index.js has an inline route with a computed path (${arg.trim()}); name it in COMPUTED_INLINE in test/support/capability-routes.js with why`);
-    }
-  }
-  return [...routes].sort();
-}
-
-async function importedValue(name, imports) {
-  const from = imports.get(name);
-  const value = from && (await import(new URL(from.spec, INDEX_URL).href))[from.name];
-  if (typeof value !== "string") throw new Error(`cannot resolve ${name}, a route path in src/index.js, to an imported string`);
-  return value;
-}
-
-async function resolveTemplate(text, imports) {
-  let out = text;
-  for (const [, name] of text.matchAll(/\$\{(\w+)\}/g)) out = out.replace(`\${${name}}`, await importedValue(name, imports));
-  return out;
 }
 
 /**
@@ -126,7 +62,7 @@ export function coverageProblems({ routes, capabilities, optOut, legacy, reasons
     if (claimed.has(key)) problems.push(`Route ${key} is listed twice: ${claimed.get(key)} and ${by}. Keep one.`);
     else claimed.set(key, by);
   };
-  for (const cap of capabilities) if (cap.http) claim(routeKey(cap.http.method, cap.http.path), `capability ${cap.id}`);
+  for (const cap of capabilities) if (cap.http) claim(routeKey(cap.http), `capability ${cap.id}`);
   for (const [key, reason] of Object.entries(optOut)) {
     if (!(reason in reasons) || reason === "legacy-unregistered") {
       problems.push(`Route ${key} in OPT_OUT has reason "${reason}". Use one of: ${Object.keys(reasons).filter((r) => r !== "legacy-unregistered").join(", ")}.`);

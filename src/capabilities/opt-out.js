@@ -17,7 +17,13 @@ export const OPT_OUT_REASONS = {
 };
 
 /** "METHOD /path" -> reason, one of OPT_OUT_REASONS other than legacy-unregistered. */
-export const OPT_OUT = {};
+export const OPT_OUT = {
+  // The link-preview share images, one per language: static files fetched without signing in.
+  "GET /assets/og-image.png": "browser-only",
+  "GET /assets/og-image-ja.png": "browser-only",
+  "GET /assets/og-image-ko.png": "browser-only",
+  "GET /assets/og-image-zh.png": "browser-only",
+};
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
 export const LEGACY_UNREGISTERED = [

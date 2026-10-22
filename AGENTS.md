@@ -33,7 +33,12 @@ are built from it.
   (`src/capabilities/opt-out.js`) with a reason. `test/unit/capability-coverage.test.js` fails
   otherwise and says which file to edit.
 - `LEGACY_UNREGISTERED` only shrinks. When a capability claims a legacy route, delete that line and
-  lower `LEGACY_CEILING` in the coverage test. Never add to it.
+  lower `LEGACY_CEILING` in the coverage test. Never add to it: a diff that grows the list or raises
+  `LEGACY_CEILING` is refused in review.
+- Register routes unconditionally, inside the router factory, and check whether a feature is on
+  when a request comes in. The coverage test starts the real app and reads its router, so a route
+  added only when an environment variable is set, or a middleware that answers a path itself, is
+  not seen.
 - Token reach comes from `TOKEN_PATHS`, `TOKEN_BLOCKED_RE` and `TOKEN_LOCKED`. Do not copy those lists.
 - Handlers call module functions, never the HTTP route.
 
