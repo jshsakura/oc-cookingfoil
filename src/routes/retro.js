@@ -39,8 +39,11 @@
  *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
  *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
  *                                                korean?: count, achievements?: count }; values no game has are left out
- *   /api/retro/games filters by facts too: genre=<key>[,<key>] (any), players=<at least>, decade=1990,
- *                                                region=kr, korean=1, achievements=1; G carries genres?, players?, year?
+ *   GET /api/retro/systems/:id/filters           { groups: [{ key, en, ko, ja, zh, pick, options: [{ key, …, count, params }] }], sorts }
+ *                                                every filter its list can take (retro/filters.js); ETag
+ *   /api/retro/games filters by facts too: genre=<key>[,<key>] (genres and play styles), decade=1990[,…],
+ *                                                region=kr[,…] (any of them), players=<at least>, korean=1, achievements=1;
+ *                                                G carries genres?, players?, year?
  *   GET /api/retro/games/:id                     G with variants: [V…] and representative (the group's listed id),
  *                                                and when known (src/retro/meta/): description (in the request's
  *                                                language, else English), publisher, developer, releaseDate (YYYYMMDD,
@@ -147,6 +150,7 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
+import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import * as metaStore from "../retro/meta/store.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
@@ -656,6 +660,23 @@ export default function retroRouter() {
     if (!list.length) return res.status(404).json({ error: "no such system" });
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     res.json({ system: id, total: list.length, ...facetsOf(list, requestLang(req)) });
+  }));
+
+  // Every filter that console's list can take, worded in four languages, so the client keeps no list of its own.
+  router.get("/systems/:system/filters", wrap(async (req, res) => {
+    const cat = await catalog.current(retroDir);
+    const id = req.params.system;
+    const games = listedGames(cat).filter((g) => g.system === id);
+    if (!games.length) return res.status(404).json({ error: "no such system" });
+    const facts = factsById(cat);
+    const body = JSON.stringify(filtersOf(games, (gid) => facts.get(gid)));
+    res.set({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "private, max-age=0, must-revalidate",
+      ETag: `"${crypto.createHash("sha1").update(body).digest("base64url")}"`,
+    });
+    if (req.fresh) return res.status(304).end();
+    res.send(body);
   }));
 
   // Rows across systems for the day ("무슨 게임하지?"): genres and other themes in turns, no game twice.

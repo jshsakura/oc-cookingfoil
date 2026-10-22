@@ -33,7 +33,7 @@ const TIERS = [5, 4, 3];
 // The turns after the first rows: genres twice as often as the rest.
 const CYCLE = ["genre", "genre", "era", "fame", "play", "maker", "arcade", "together"];
 
-const STYLE_NAMES = {
+export const STYLE_NAMES = {
   "beat-em-up": { en: "Beat 'em up", ko: "벨트스크롤 액션", ja: "ベルトスクロールアクション", zh: "清版动作" },
   "visual-novel": { en: "Visual novel", ko: "비주얼 노벨", ja: "ビジュアルノベル", zh: "视觉小说" },
   "management-sim": { en: "Management sim", ko: "경영 시뮬레이션", ja: "経営シミュレーション", zh: "经营模拟" },
