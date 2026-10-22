@@ -114,6 +114,41 @@ export async function buildManifest(packDir, cache) {
     out.push(entry);
   }
   cache.save(new Set(files.map((f) => f.abs)));
-  const version = crypto.createHash("sha256").update(out.map((f) => `${f.path}\0${f.sha256}`).join("\n")).digest("hex").slice(0, 16);
+  const version = versionOf(out);
   return { version, files: out, sources: new Map(files.map((f) => [f.path, f])) };
 }
+
+const CORE_NRO_RE = /^retroarch\/cores\/([a-z0-9_]+)_libretro_libnx\.nro$/;
+const CORE_INFO_RE = /^retroarch\/info\/([a-z0-9_]+)_libretro\.info$/;
+
+/** The core an SD path belongs to (its .nro or its .info), or null. Pure. */
+export const coreOfPath = (sd) => sd.match(CORE_NRO_RE)?.[1] ?? sd.match(CORE_INFO_RE)?.[1] ?? null;
+
+const versionOf = (files, salt = "") => crypto.createHash("sha256").update(files.map((f) => `${f.path}\0${f.sha256}`).join("\n") + salt).digest("hex").slice(0, 16);
+
+/**
+ * What one console is sent of the manifest `m` ({ version, files }). Pure.
+ *
+ *   onDemand false   a client that takes every file (all clients before cores=ondemand): `m` itself,
+ *                    the same bytes and version as before cores could be taken on demand
+ *   onDemand true    every file; a core's .nro and .info carry `core`, and the .nro `onDemand: true`:
+ *                    the client fetches it by its url when a game needs it, not with the rest
+ */
+export function manifestView(m, { onDemand }) {
+  if (!onDemand) return m;
+  const files = m.files.map((f) => {
+    const core = coreOfPath(f.path);
+    if (!core) return f;
+    return CORE_NRO_RE.test(f.path) ? { ...f, core, onDemand: true } : { ...f, core };
+  });
+  return { version: versionOf(m.files, "\nondemand"), files };
+}
+
+/** One core's files in the manifest `m`: its .nro and .info, or [] when the pack has no .nro for it. Pure. */
+export function coreFiles(m, core) {
+  const files = m.files.filter((f) => coreOfPath(f.path) === core);
+  return files.some((f) => CORE_NRO_RE.test(f.path)) ? files.map((f) => ({ ...f, core })) : [];
+}
+
+/** Whether a console that takes cores on demand asked so: ?cores=ondemand or the X-Retro-Cores header. Pure. */
+export const wantsOnDemand = (req) => String(req.query?.cores ?? req.get?.("x-retro-cores") ?? "").toLowerCase() === "ondemand";

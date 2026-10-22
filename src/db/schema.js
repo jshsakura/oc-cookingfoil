@@ -82,6 +82,10 @@ export const SECURITY_MIGRATIONS = [
      lock_version TEXT NOT NULL,
      PRIMARY KEY (root, rel)
    ) WITHOUT ROWID;`,
+  // Each pack file's CRC-32 (what the libretro nightly index lists) and, for a file from a nightly build,
+  // its build date. source is bundle, adopted (an official build found in place), extra or nightly.
+  `ALTER TABLE retro_pack_ledger ADD COLUMN crc32 TEXT;
+   ALTER TABLE retro_pack_ledger ADD COLUMN built TEXT;`,
 ];
 
 /**

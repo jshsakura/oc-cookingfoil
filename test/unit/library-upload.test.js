@@ -358,7 +358,9 @@ test("the admin picks the core a console's games start with, kept out of systems
     const pick = (body) => fetch(`${BASE}/admin/api/retro-cores/system`, { method: "POST", headers: admin, body: JSON.stringify(body) });
     const gba = async () => (await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json()).systems.find((s) => s.id === "gba");
 
-    assert.deepEqual(await gba(), { id: "gba", name: "게임보이 어드밴스", games: 1, core: "mgba", tableCore: "mgba", installed: true, fits: ["vba_next"], others: ["mgba"] });
+    const { coreState, ...listed } = await gba();
+    assert.deepEqual(listed, { id: "gba", name: "게임보이 어드밴스", games: 1, core: "mgba", tableCore: "mgba", installed: true, fits: ["vba_next"], others: ["mgba"] });
+    assert.deepEqual(coreState, { id: "gba", core: "mgba", state: "pinned", origin: "modified" }, "a core not from the server is the user's, pinned");
     assert.equal((await pick({ system: "gba", core: "snes9x" })).status, 400, "a core that is not installed");
     assert.equal((await pick({ system: "nope", core: "mgba" })).status, 404);
 

@@ -137,11 +137,12 @@ function clientBuildWarnings() {
 // buttons, whether the server runs, and the binaries every console installs (the client build
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
 // which release file of it, uploaded patches and which of them a game requires), removing
-// files from the game library (retro roms and kept NSZ originals too), and emptying the trash,
-// the one delete nothing brings back. Restoring from the trash and undoing a move stay open.
-// Routes match
+// files from the game library (retro roms and kept NSZ originals too), moving a user's
+// RetroArch core to the trash or back (retro-cores official and user-version), and emptying
+// the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
+// stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens) and the admin
 // login's second step.

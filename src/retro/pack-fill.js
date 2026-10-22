@@ -12,19 +12,23 @@
  *   - a file whose hash differs from the ledger (the operator changed it)
  *   - retroarch.cfg, config/ and system/ (BIOS): nothing in the lock reaches them
  *   - anything the bundle does not have (stella, OpenBOR, ...)
+ *   - a core the server took from a nightly build (ledger source "nightly", auto-cores.js): the fill
+ *     never puts the stable build back over it
  *
  * Those are reported ("update available"), not changed. Running it again changes nothing.
  *
  * Applying: unpack into a staging folder, check every file, then copy each one beside its
  * destination and rename it into place. A file that is replaced is first kept in
  * <data>/retro-pack-prev/<its version>/. A step that fails puts everything back and the ledger
- * is not written, so the pack is as it was.
+ * is not written, so the pack is as it was. Once a run is verified and written down the downloaded
+ * bundle is deleted: the server keeps the unpacked files, not the 300 MB archive.
  */
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import realOfficial from "./data/official-cores-1.22.2.js";
+import zlib from "zlib";
 import { downloadBundle, extractPaths, lock as realLock, PackError, sha256File } from "./pack-bundle.js";
 
 const realManifest = JSON.parse(fs.readFileSync(new URL("./data/retro-pack.files.json", import.meta.url), "utf8"));
@@ -35,7 +39,50 @@ export const REAL_PACK = Object.freeze({ lock: realLock, official: realOfficial,
 const NRO_MAGIC_AT = 0x10;
 
 let running = false;
+let waiters = [];
 export const fillBusy = () => running;
+
+/** Frees the pack and wakes whoever waits for it (whenFillFree). */
+function free() {
+  running = false;
+  const woken = waiters;
+  waiters = [];
+  for (const wake of woken) wake();
+}
+
+/** Resolves once the pack is free: now, or when the fill or the writer holding it lets go. */
+export const whenFillFree = () => (running ? new Promise((wake) => waiters.push(wake)) : Promise.resolve());
+
+/** Holds the pack for another writer (auto-cores.js, core uploads): a release function, or null when someone holds it. */
+export function claimFill() {
+  if (running) return null;
+  running = true;
+  let held = true;
+  return () => {
+    if (held) free();
+    held = false;
+  };
+}
+
+/** SHA-256 and CRC-32 (8 hex, as the libretro nightly index writes it) of a file, in one read. */
+export async function digestFile(abs) {
+  const hash = crypto.createHash("sha256");
+  let crc = 0;
+  for await (const chunk of fs.createReadStream(abs)) {
+    hash.update(chunk);
+    crc = zlib.crc32(chunk, crc);
+  }
+  return { sha256: hash.digest("hex"), crc32: (crc >>> 0).toString(16).padStart(8, "0") };
+}
+
+/** Every official stable build's core hash the server knows. Pure. */
+export const knownOfficial = ({ official }) => new Set(Object.values(official.files).map(([sha]) => sha));
+
+/**
+ * Whose a file is, by hash: the server's when its hash is the one the ledger wrote, or, with no row,
+ * when it is the bytes of an official stable build. Anything else is the user's. Pure.
+ */
+export const serverOwns = (current, entry, known) => (entry ? current === entry.sha256 : known.has(current));
 
 /** Whether `rel` (relative to the pack folder) is something the server must never write. Pure. */
 export const isProtected = (rel) => rel === "retroarch.cfg" || rel.startsWith("system/") || rel.startsWith("config/") || rel.split("/").includes("..");
@@ -46,12 +93,14 @@ export const isProtected = (rel) => rel === "retroarch.cfg" || rel.startsWith("s
  *
  *   install   absent: place it
  *   replace   the server's own, untouched, and the bundle has a newer one
- *   current   already the bundle's bytes
+ *   current   already the bundle's bytes, or a core the server took from nightly (auto-cores.js) and
+ *             left untouched: the admin's update keeps that one current, never the stable bundle
  *   operator  not placed by the server and different: kept, "update available"
  *   modified  placed by the server but changed since: kept
  */
 export function decide({ current, entry, next }) {
   if (current === null) return "install";
+  if (entry?.source === "nightly" && current === entry.sha256) return "current";
   if (!entry) return current === next ? "current" : "operator";
   if (current !== entry.sha256) return current === next ? "current" : "modified";
   return current === next ? "current" : "replace";
@@ -82,7 +131,7 @@ export async function describeFill({ packDir, ledger, games, systems, cacheDir, 
   const { lock, official: officialCores } = pack;
   const entries = ledger.all();
   const body = lock.paths.body;
-  const item = async (kind, rel, name, size, next, extra = {}) => ({ kind, rel, name, size, state: decide({ current: await hashOrNull(path.join(packDir, rel)), entry: entries.get(rel), next }), ...extra });
+  const item = async (kind, rel, name, size, next, extra = {}) => ({ kind, rel, name, size, sha256: next, state: decide({ current: await hashOrNull(path.join(packDir, rel)), entry: entries.get(rel), next }), ...extra });
   const { have, lacking } = wantedCores(games, pack);
   const items = [await item("body", body.to, "RetroArch", body.size, body.sha256)];
   for (const c of have) {
@@ -144,21 +193,21 @@ async function stagedFiles(staging, cores, { lock, official: officialCores }) {
   const body = lock.paths.body;
   const bodyAbs = path.join(staging, body.from);
   await plainFile(bodyAbs);
-  const bodySha = await sha256File(bodyAbs);
-  if (bodySha !== body.sha256 || !(await isNro(bodyAbs))) throw new PackError("번들의 RetroArch 본체가 lock 과 다릅니다. 설치하지 않습니다", { status: 502 });
-  out.push({ rel: body.to, abs: bodyAbs, sha256: bodySha, source: "bundle", kind: "body" });
+  const bodyDigest = await digestFile(bodyAbs);
+  if (bodyDigest.sha256 !== body.sha256 || !(await isNro(bodyAbs))) throw new PackError("번들의 RetroArch 본체가 lock 과 다릅니다. 설치하지 않습니다", { status: 502 });
+  out.push({ rel: body.to, abs: bodyAbs, ...bodyDigest, source: "bundle", kind: "body" });
   for (const core of cores) {
     const abs = path.join(staging, lock.paths.cores.from, `${core}_libretro_libnx.nro`);
     await plainFile(abs);
     const [want, size] = officialCores.files[`${core}_libretro_libnx.nro`];
-    const sha256 = await sha256File(abs);
+    const { sha256, crc32 } = await digestFile(abs);
     if (sha256 !== want || (await fsp.stat(abs)).size !== size || !(await isNro(abs))) throw new PackError(`번들의 ${core} 코어가 공식 목록과 다릅니다. 설치하지 않습니다`, { status: 502 });
-    out.push({ rel: coreRel(core), abs, sha256, source: "bundle", kind: "core" });
+    out.push({ rel: coreRel(core), abs, sha256, crc32, source: "bundle", kind: "core" });
   }
   for (const d of lock.paths.dirs) {
     for (const f of await walkFiles(path.join(staging, d.from))) {
       const abs = path.join(staging, d.from, f);
-      out.push({ rel: `${d.to}/${f}`, abs, sha256: await sha256File(abs), source: "bundle", kind: "dir" });
+      out.push({ rel: `${d.to}/${f}`, abs, ...(await digestFile(abs)), source: "bundle", kind: "dir" });
     }
   }
   return out;
@@ -338,7 +387,16 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     const cores = have.map((c) => c.core);
     // Nothing to place and no bundle on disk: do not fetch 300 MB to learn that.
     const plan = await describeFill({ packDir: root, ledger, games, systems, cacheDir: path.join(cacheRoot, lock.version), pack });
-    if (!plan.needsBundle && !plan.bundle.cached) return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
+    if (!plan.needsBundle && !plan.bundle.cached) {
+      // The body and cores are the lock's bytes already: a row left behind (a run cut off before the ledger
+      // was written) moves to this version without the bundle, which is not kept after a fill.
+      const entries = ledger.all();
+      const behind = plan.items.filter((i) => i.state === "current" && entries.get(i.rel) && entries.get(i.rel).source !== "nightly" && (entries.get(i.rel).sha256 !== i.sha256 || entries.get(i.rel).lockVersion !== lock.version));
+      const rows = [];
+      for (const i of behind) rows.push({ rel: i.rel, sha256: i.sha256, source: entries.get(i.rel).source, lockVersion: lock.version, crc32: (await digestFile(path.join(root, i.rel))).crc32 });
+      if (rows.length) ledger.put(rows);
+      return { version: lock.version, installed: 0, replaced: 0, current: plan.items.length, kept: plan.kept, keptCount: { operator: plan.kept.filter((k) => k.state === "operator").length, modified: plan.kept.filter((k) => k.state === "modified").length }, skipped: true };
+    }
     onStep("download", { done: 0, total: lock.bundle.size });
     const { file } = await downloadBundle({ url: url || lock.bundle.url, file: lock.bundle.file, size: lock.bundle.size, sha256: lock.bundle.sha256, cacheDir: path.join(cacheRoot, lock.version), fetchImpl, onProgress: (p) => onStep("download", p) });
     onStep("unpack");
@@ -354,13 +412,15 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     for (const f of staged) {
       if (isProtected(f.rel)) throw new PackError(`${f.rel} 는 서버가 쓰지 않는 파일입니다`, { status: 500 });
       const entry = entries.get(f.rel);
-      const state = decide({ current: await hashOrNull(path.join(root, f.rel)), entry, next: f.sha256 });
+      const cur = await hashOrNull(path.join(root, f.rel));
+      const state = decide({ current: cur, entry, next: f.sha256 });
       if (state === "install" || state === "replace") ops.push({ ...f, action: state, expect: entry?.sha256, prevVersion: entry?.lockVersion ?? "unknown" });
       else if (state === "current") {
         tally.current++;
-        // Its bytes are the bundle's. A row for it that is behind (an older version, or a run that was cut off
-        // before the ledger was written) moves to this version, or the file would look changed from then on.
-        if (entry && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
+        // When its bytes are the bundle's (a nightly core's are not), a row for it that is behind (an older version,
+        // or a run that was cut off before the ledger was written) moves to this version, or the file would look
+        // changed from then on.
+        if (entry && cur === f.sha256 && (entry.sha256 !== f.sha256 || entry.lockVersion !== lock.version)) refresh.push(f);
       } else {
         keptCount[state]++;
         if (f.kind !== "dir") kept.push({ rel: f.rel, state });
@@ -381,16 +441,17 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       if (!kept.some((x) => x.rel === k.rel)) kept.push(k);
     }
     try {
-      ledger.put([...placed.done.map((d) => d.op), ...refresh].map((f) => ({ rel: f.rel, sha256: f.sha256, source: f.source, lockVersion: lock.version })));
+      ledger.put([...placed.done.map((d) => d.op), ...refresh].map((f) => ({ rel: f.rel, sha256: f.sha256, source: f.source, lockVersion: lock.version, crc32: f.crc32 ?? null })));
     } catch (err) {
       const stuck = await placed.undo();
       if (stuck.length) throw leftBehind(dataDir, lock.version, stuck, `장부에 쓰지 못했고 되돌리지도 못했습니다: ${err.message}`, { ledgerBehind: true });
       throw new PackError(`장부에 쓰지 못해 되돌렸습니다: ${err.message}`, { status: 500, rolledBack: true });
     }
-    await pruneOldCaches(cacheRoot, lock.version);
+    // Verified and written down: the unpacked files are what the server keeps, not the bundle.
+    await fsp.rm(cacheRoot, { recursive: true, force: true }).catch(() => {});
     return { version: lock.version, installed: placed.done.filter((d) => d.op.action === "install").length, replaced: placed.done.filter((d) => d.op.action === "replace").length, current: tally.current, kept, keptCount };
   } finally {
-    running = false;
+    free();
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
   }
 }
@@ -404,11 +465,4 @@ function leftBehind(dataDir, version, stuck, message, extra = {}) {
     // The error below carries the same list.
   }
   return new PackError(message, { status: 500, stuck, ...extra });
-}
-
-/** Older bundle downloads are dropped once the current version is installed. */
-async function pruneOldCaches(cacheRoot, keep) {
-  for (const e of await fsp.readdir(cacheRoot, { withFileTypes: true }).catch(() => [])) {
-    if (e.isDirectory() && e.name !== keep) await fsp.rm(path.join(cacheRoot, e.name), { recursive: true, force: true }).catch(() => {});
-  }
 }

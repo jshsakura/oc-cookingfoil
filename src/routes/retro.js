@@ -82,9 +82,14 @@
  * (revalidated by its ETag), so a replaced picture never sticks.
  *   GET /api/retro/games/:id/bezel.png | overlay.cfg | game.cfg
  *   GET /api/retro/games/:id/bundle              tar of everything below, SD-root paths
- *   GET /api/retro/base-pack/manifest            { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once? }] }
+ *   GET /api/retro/base-pack/manifest[?cores=ondemand]  { version, bundleUrl, bundleSize, files: [{ path, size, sha256, url, once?, core?, onDemand? }] }
+ *                                                without cores=ondemand (or X-Retro-Cores: ondemand) every file, exactly as
+ *                                                before; with it every core is listed too, its .nro and .info carry core,
+ *                                                the .nro onDemand: true (not in the bundle; fetched by its url when a game
+ *                                                needs it)
+ *   GET /api/retro/base-pack/core/<core>         { core, files: [{ path, size, sha256, url, core }] } one core's .nro and .info
  *   GET /api/retro/base-pack/file/<sd path>      one pack file (Range works)
- *   GET /api/retro/base-pack/bundle              the whole pack as one tar, SD-root paths (also at /base-pack);
+ *   GET /api/retro/base-pack/bundle[?cores=ondemand] the manifest's files as one tar, SD-root paths (also at /base-pack);
  *                                                X-Retro-Once lists the files to skip when already on the card
  *
  * G = { id, name, names?, region?, original?, rating?, ratingCount?, file, system, core, size, rom_hash, rom_size, addedAt, iconUrl, boxartUrl, romUrl, bundleUrl,
@@ -135,7 +140,7 @@ import { bezelCredit } from "../retro/credits.js";
 import { tagsOf, withoutTags } from "../retro/sd-names.js";
 import { editionOf } from "../retro/edition.js";
 import { regionOf } from "../retro/arcade.js";
-import { buildManifest, listPack, HashCache } from "../retro/base-pack.js";
+import { buildManifest, coreFiles, listPack, HashCache, manifestView, wantsOnDemand } from "../retro/base-pack.js";
 import { appDb } from "../db/database.js";
 import { hashStore } from "../db/stores.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
@@ -158,6 +163,7 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
+import { autoCores } from "../retro/auto-cores.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
 import { videosOf } from "../meta/igdb-videos.js";
@@ -212,6 +218,16 @@ async function currentManifest() {
   const timeout = new Promise((resolve) => setTimeout(resolve, FIRST_HASH_WAIT_MS, "pending"));
   const result = await Promise.race([running, timeout]);
   return result === "pending" ? null : result;
+}
+
+/**
+ * One core's .nro and .info in the base pack, each with its url ([] when the pack has no such core),
+ * or null while the pack is still being read.
+ */
+export async function baseCoreFiles(core) {
+  const m = await currentManifest();
+  if (!m) return null;
+  return coreFiles(m, String(core)).map((f) => ({ ...f, url: `/api/retro/base-pack/file/${enc(f.path)}` }));
 }
 
 /** Whether a manifest was read from exactly this listing (same paths, sizes, times, inodes). Pure. */
@@ -635,6 +651,10 @@ export default function retroRouter() {
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
   // Content hashes (rom_hash) of the new and changed files, one at a time.
   catalog.onScan((state) => romHashes.queue(state.games));
+  // A console with games and no core gets the official one (retroAutoCores); one job for what a scan finds.
+  catalog.onScan((state) => {
+    if (state.dir === retroDir) autoCores().then((a) => a.check(state)).catch((err) => debug.error("retro: official core check: %s", err.message));
+  });
   if (retroEnabled()) setImmediate(() => catalog.current(retroDir).catch((err) => debug.error("retro: first catalog scan failed: %s", err.message)));
   // Box art saved before covers were shrunk on the way in: shrink it once, then
   // rescan so the tiles are redrawn from the small copies.
@@ -906,16 +926,32 @@ export default function retroRouter() {
       return res.status(503).json({ error: "the base pack is still being read", retryAfter: 30 });
     }
     const link = forRequest(req);
-    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+    const onDemand = wantsOnDemand(req);
+    const view = manifestView(m, { onDemand });
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language, X-Retro-Cores" });
     // The direct variant has other URLs, so it has its own ETag (the same for every console).
-    res.set("ETag", `"${m.version}${link ? "-direct" : ""}"`);
+    res.set("ETag", `"${view.version}${link ? "-direct" : ""}"`);
     if (req.fresh) return res.status(304).end();
     res.json({
-      version: m.version,
-      ...withDirect("bundleUrl", "/api/retro/base-pack/bundle", link),
-      bundleSize: archiveSize(tarEntries(m.files)),
-      files: m.files.map((f) => ({ ...f, ...withDirect("url", `/api/retro/base-pack/file/${enc(f.path)}`, link) })),
+      version: view.version,
+      ...withDirect("bundleUrl", `/api/retro/base-pack/bundle${onDemand ? "?cores=ondemand" : ""}`, link),
+      bundleSize: archiveSize(tarEntries(view.files.filter((f) => !f.onDemand))),
+      files: view.files.map((f) => ({ ...f, ...withDirect("url", `/api/retro/base-pack/file/${enc(f.path)}`, link) })),
     });
+  }));
+
+  // One core's files (.nro and .info) for a console that takes cores on demand.
+  router.get("/base-pack/core/:core", wrap(async (req, res) => {
+    const core = String(req.params.core);
+    const files = await baseCoreFiles(core);
+    if (!files) {
+      res.set({ "Retry-After": "30", "Cache-Control": "no-store" });
+      return res.status(503).json({ error: "the base pack is still being read", retryAfter: 30 });
+    }
+    if (!files.length) return res.status(404).json({ error: "no such core in the base pack" });
+    const link = forRequest(req);
+    res.set({ "Cache-Control": "private, max-age=0, must-revalidate" });
+    res.json({ core, files: files.map((f) => ({ ...f, ...withDirect("url", f.url, link) })) });
   }));
 
   router.get("/base-pack/file/*", wrap(async (req, res) => {
@@ -929,18 +965,24 @@ export default function retroRouter() {
 
   // One request for the whole pack: thousands of per-file GETs run into the rate limit.
   router.get(["/base-pack", "/base-pack/bundle"], wrap(async (req, res) => {
-    const files = await listPack(packDir());
-    if (!files.length) return res.status(404).json({ error: "the base pack is empty" });
+    const listed = await listPack(packDir());
+    if (!listed.length) return res.status(404).json({ error: "the base pack is empty" });
     // The manifest's version names these bytes only when it was read from this very
     // listing; otherwise the ETag comes from the listing itself and the manifest catches up.
     const snapshot = manifest;
-    const matches = manifestMatches(snapshot, files);
+    const matches = manifestMatches(snapshot, listed);
     if (!matches) rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
+    // The same files the manifest sends this console, without the cores it takes on demand.
+    const onDemand = wantsOnDemand(req);
+    const view = manifestView({ version: snapshot?.version, files: listed.map((f) => ({ path: f.path, sha256: "" })) }, { onDemand });
+    const keep = new Set(view.files.filter((f) => !f.onDemand).map((f) => f.path));
+    const files = listed.filter((f) => keep.has(f.path));
+    const etag = matches ? manifestView(snapshot, { onDemand }).version : undefined;
     // A tar can't say "only if missing", so name those files for the client to skip.
     res.set("X-Retro-Once", files.filter((f) => f.once).map((f) => f.path).join(","));
     sendTar(res, files.map((f) => ({ path: f.path, abs: f.abs, size: f.size, mtime: f.mtimeMs / 1000 })), {
       filename: "retroarch-base-pack.tar",
-      etag: matches ? snapshot.version : undefined,
+      etag,
       fixedTimes: matches,
       label: "retro",
     });

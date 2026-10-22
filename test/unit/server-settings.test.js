@@ -110,6 +110,20 @@ test("the RetroArch bundle address is saved from the admin page, blank means the
   assert.equal(env.retroPackUrl, "");
 });
 
+test("cores by themselves: on unless compose says otherwise, switched on the admin page", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { COOK_RETRO_AUTO_CORES: _unset, ...rest } = process.env;
+  const read = spawnSync(process.execPath, ["--input-type=module", "-e", 'const e = await import("./src/helpers/envs.js"); process.stdout.write(String(e.retroAutoCores));'], { env: { ...rest, COOK_DATA_DIR: dir }, encoding: "utf8" });
+  assert.equal(read.stdout, "true", "default on");
+  settings.save({ retroAutoCores: false });
+  assert.equal(env.retroAutoCores, false);
+  assert.throws(() => settings.save({ retroAutoCores: "yes" }), /retroAutoCores/);
+  settings.save({ retroAutoCores: true });
+  assert.equal(env.retroAutoCores, true);
+  settings.save({ retroAutoCores: null });
+  assert.equal(settings.describe().retroAutoCores.source, "env");
+});
+
 test("a saved file is read back on start", () => {
   settings.save({ ratingSync: false, eshopArtwork: false });
   settings.load();
