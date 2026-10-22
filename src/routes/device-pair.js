@@ -25,7 +25,7 @@ import { createRequire } from "node:module";
 
 import * as store from "../security/store.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
-import { approvePairLink } from "../security/pairing-approve.js";
+import { approvePairLink, pairLinkView } from "../security/pairing-approve.js";
 import { deviceLimitRefusal } from "../security/device-limit.js";
 import { hasValidSession } from "../security/admin-session.js";
 import { devicePairing, publicBaseUrl } from "../helpers/envs.js";
@@ -193,10 +193,10 @@ export default function devicePairRouter() {
     const approver = approverOf(req);
     const link = readPairLink(req.params.token);
     if (!link) return res.status(410).type("html").send(devicePairPage({ view: "expired", lang }));
-    const done = link.used || store.isDeviceApproved(link.deviceKey);
+    const { view, repair } = pairLinkView(link, approver);
     // No account to approve as: the admin page's own QR screen signs the admin in inline.
-    if (!done && !approver) return res.redirect(302, `/admin/pair/${req.params.token}`);
-    res.type("html").send(devicePairPage({ view: done ? "done" : "confirm", lang, code: link.code, approver }));
+    if (view !== "done" && !approver) return res.redirect(302, `/admin/pair/${req.params.token}`);
+    res.type("html").send(devicePairPage({ view, lang, code: link.code, approver, repair }));
   });
 
   router.post("/approve", qrOnly, express.json({ limit: "4kb" }), (req, res) => {

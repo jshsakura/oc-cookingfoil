@@ -19,7 +19,10 @@
  *          consoles it may (security/device-limit.js; deviceLimit then names that number), "enroll" when its download is over the
  *          account's hourly count; the console waits for approval by QR
  *        → 400 { error: "invalid pairSecret" } when one is sent but is not 64 hex
- *        → 409 { error: "pairSecret mismatch" } when another secret already asked for this device
+ *        → 409 { error: "pairSecret mismatch" } (X-CookingFoil-Auth: pair-secret-mismatch) only in a
+ *          race where the console was approved meanwhile under another secret. A console still
+ *          waiting that asks with a new secret (it restarted, say) takes its request over: the
+ *          new secret replaces the old and it is answered "pending" with its QR as usual
  *        → 429 + Retry-After when this address put too many new devices in the queue lately
  *          (security/pending-limit.js); /status answers the same for a new device
  *
@@ -28,8 +31,21 @@
  *        → { status: "pending", passwordOnly: true, … }       while unapproved
  *        → { status: "approved", passwordOnly: true, accessKey, shopUrl }
  *                                                             ONCE after approval, to the caller with the secret (shopUrl: this server's address)
- *        → { status: "approved", passwordOnly: true }         on later polls, or without the secret
- *        → 409 { error: "pairSecret mismatch" }               while pending, with a secret other than the first
+ *        → { status: "approved", passwordOnly: true }         when no key is delivered and no valid secret came
+ *        → { status: "pending", passwordOnly: true, repair: true, pairUrl, pairCode, expiresAt }
+ *                                                             when no key is delivered but a valid secret (64 hex) came:
+ *                                                             the console is approved yet has no key it can use (it
+ *                                                             lost it, or /enroll answered 409 because another account
+ *                                                             holds it), so it shows this QR again (one link per
+ *                                                             console while it lives, the pending rate limit for a new
+ *                                                             one). Nothing changes until someone approves it: the
+ *                                                             console stays approved and its key keeps working. The
+ *                                                             approval (security/pairing-repair.js, pairing-approve.js)
+ *                                                             makes the approving account its owner (within that
+ *                                                             account's device limit), swaps in a new key (the old one
+ *                                                             stops) and hands it, once, only to the secret that asked
+ *        → 409 { error: "pairSecret mismatch" }               while pending, with a secret other than the first; or
+ *                                                             while another secret's re-pair QR for this console lives
  *
  *   POST /api/pair/enroll  { token }  + X-Device-Key
  *        A console spends the enrollment token its downloaded client carries
@@ -50,6 +66,8 @@
  *        → 403 { error } + X-CookingFoil-Enroll: limit, X-CookingFoil-Auth: device-limit
  *          the account holds all the consoles it may (security/device-limit.js)
  *        → 409 { error }   the console is another account's, or the account may no longer sign in
+ *          (X-CookingFoil-Auth: enroll-other-account); the console then asks /api/pair/status with
+ *          its pairSecret for a re-pair QR
  *
  *   POST /api/pair/rebind  { from: <old 64hex>, accessKey? }  + X-Device-Key: <new 64hex>
  *        The same console under a new device key (a client that now makes its
@@ -68,8 +86,9 @@
  * The accessKey is handed down exactly once (first poll after approval that
  * presents the pairSecret the console asked with); the device persists it and
  * presents it on every future request. The server keeps only the secret's
- * SHA-256, the first secret for a device wins, and a poll without it (or with
- * another) never consumes the delivery. A console that asked without a secret
+ * SHA-256; while a device waits, the last /request's secret wins (a /status
+ * poll with another is refused), and a poll without it (or with another) never
+ * consumes the delivery. A console that asked without a secret
  * (an older client) gets the key on its first poll, as before
  * (security/pairing-delivery.js). Mounted OUTSIDE the sign-in wall but
  * INSIDE rate-limiting + the probe access-guard.
@@ -87,7 +106,7 @@ import * as enrollTokens from "../security/enroll-tokens.js";
 import * as users from "../security/users.js";
 import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
-import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
+import { generateAccessKey, hashAccessKey, hashPairSecret, normalizePairSecret, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl, devicePairing, deviceAutoApprove, deviceLimit } from "../helpers/envs.js";
 import { accountFull } from "../security/device-limit.js";
@@ -97,7 +116,8 @@ import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
 import { checkPairSecret, deliverAccessKey, keepPairSecret } from "../security/pairing-delivery.js";
-import { recordPending } from "../security/pending-limit.js";
+import { admitRepair, recordPending } from "../security/pending-limit.js";
+import { dropRepair, keepRepair, repairVerdict } from "../security/pairing-repair.js";
 import { tooManyRequests } from "../security/retry-after.js";
 import { recordDeny, DENY } from "../security/deny.js";
 import { passwordOwnerOk } from "../security/password-policy.js";
@@ -196,6 +216,25 @@ function secretConflict(req, res) {
   res.status(409).json({ error: "pairSecret mismatch" });
 }
 
+/**
+ * An approved console that asked with a pairSecret but got no key: it lost the
+ * one it had (or another account holds it), so it is shown a QR again. Nothing
+ * changes until someone approves that QR (security/pairing-repair.js), so a
+ * stranger who knows the device key cannot knock the console out.
+ */
+function repairResponse(req, res, deviceKey, secretHash) {
+  const verdict = repairVerdict(deviceKey, secretHash);
+  if (verdict === "conflict") return secretConflict(req, res);
+  if (verdict === "new") {
+    const admitted = admitRepair(req, deviceKey);
+    if (!admitted.ok) return tooManyConsoles(req, res, deviceKey, admitted.retryAfterSec);
+    debug.log("pair: %s… is approved but asked for a new key; showing a re-pair QR", deviceKey.slice(0, 12));
+  }
+  const out = pendingResponse(req, deviceKey);
+  keepRepair(deviceKey, secretHash, out.expiresAt);
+  res.json({ ...out, repair: true });
+}
+
 // This address put too many new consoles in the queue lately (security/pending-limit.js).
 function tooManyConsoles(req, res, deviceKey, retryAfterSec) {
   recordDeny(req, { reason: DENY.RATE_LIMITED, status: 429, deviceKey, detail: "pair-request" });
@@ -237,7 +276,12 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid pairSecret" });
       return;
     }
-    if (secret.verdict === "conflict") return secretConflict(req, res);
+    if (secret.verdict === "conflict") {
+      // A waiting console that asks again with a new secret (it restarted, say) takes its request over.
+      if (!store.isDevicePending(deviceKey)) return secretConflict(req, res);
+      store.replacePairSecret(deviceKey, secret.hash);
+      debug.log("pair: %s… asked again with a new pairSecret", deviceKey.slice(0, 12));
+    }
     const { download, limit } = enrollFromRequest(req, deviceKey);
     const auto = await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
@@ -283,6 +327,8 @@ export default function pairRouter() {
     const out = { status: "approved", passwordOnly: true };
     // Only to the caller holding the pairSecret the console asked with (or any caller, for a legacy console).
     const accessKey = deliverAccessKey(deviceKey, typeof secret === "string" ? secret : null);
+    const repairSecret = accessKey ? null : normalizePairSecret(secret);
+    if (repairSecret) return repairResponse(req, res, deviceKey, hashPairSecret(repairSecret));
     if (accessKey) {
       out.accessKey = accessKey;
       const origin = resolveOrigin(req, publicBaseUrl);
@@ -332,6 +378,7 @@ export default function pairRouter() {
     const fresh = !store.isDeviceApproved(deviceKey);
     store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
     store.clearPairSecret(deviceKey);
+    dropRepair(deviceKey);
     if (again) debug.log("pair: %s… re-enrolled with its own download %s", deviceKey.slice(0, 12), spent.id);
     else debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
     const origin = resolveOrigin(req, publicBaseUrl);

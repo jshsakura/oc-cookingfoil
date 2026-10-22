@@ -407,8 +407,7 @@ export function dismissPending(deviceKey) {
 
 /**
  * Remember the hash of the pairSecret a console asked with. The first one
- * wins: a later request with a different secret never replaces it, so a
- * stranger who learns the device key cannot swap in their own.
+ * wins here; only replacePairSecret puts another in its place.
  * @returns {"set" | "same" | "conflict"}
  */
 export function registerPairSecret(deviceKey, secretHash) {
@@ -417,6 +416,17 @@ export function registerPairSecret(deviceKey, secretHash) {
   state.pairSecrets.set(deviceKey, secretHash);
   scheduleFlush();
   return "set";
+}
+
+/**
+ * Put `secretHash` in place of whatever secret a console holds: a waiting
+ * console that asks again with a new one, or a re-paired console whose new key
+ * goes to the secret that asked for it (pairing-repair.js).
+ */
+export function replacePairSecret(deviceKey, secretHash) {
+  if (state.pairSecrets.get(deviceKey) === secretHash) return;
+  state.pairSecrets.set(deviceKey, secretHash);
+  scheduleFlush();
 }
 
 /** The stored pairSecret hash of a console, or null. */

@@ -93,7 +93,7 @@ import { fileURLToPath } from "url";
 
 const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
-import { approvePairLink, approveWaitingDevice } from "../security/pairing-approve.js";
+import { approvePairLink, approveWaitingDevice, pairLinkView } from "../security/pairing-approve.js";
 import { deviceLimitRefusal } from "../security/device-limit.js";
 import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
@@ -240,10 +240,12 @@ export default function adminPageRouter() {
     if (!devicePairing) return res.status(404).send("not found");
     const link = readPairLink(req.params.token);
     if (!link) return res.status(410).type("html").send(pairPage({ expired: true }));
+    const { view, repair } = pairLinkView(link, adminApprover(req));
     res.type("html").send(pairPage({
       code: link.code,
       authenticated: hasValidSession(req),
-      approved: link.used || store.isDeviceApproved(link.deviceKey),
+      approved: view === "done",
+      repair,
     }));
   });
 

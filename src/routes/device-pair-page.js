@@ -60,7 +60,7 @@ function mineSection(t) {
   return `<section class="block"><h2>${t.mineTitle}</h2><ul id="mine" class="mine"><li class="hint">${t.mineEmpty}</li></ul></section>`;
 }
 
-function body(view, t, { code, approver, pairing = true }) {
+function body(view, t, { code, approver, pairing = true, repair = null }) {
   const who = approver === "admin" ? t.asAdmin : t.asUser.replace("{user}", `<strong>${escapeHtml(approver)}</strong>`);
   switch (view) {
     case "done":
@@ -70,7 +70,7 @@ function body(view, t, { code, approver, pairing = true }) {
     case "signin":
       return `<h1>${t.title}</h1><p>${t.signIn}</p><a class="button" href="/admin">${t.openAdmin}</a>`;
     case "confirm":
-      return `<h1>${t.title}</h1><p>${t.confirmLead}</p><p class="who">${who}</p>${form(t, { withCode: false, code })}`;
+      return `<h1>${t.title}</h1>${repair ? `<p>${t[repair]}</p>` : ""}<p>${t.confirmLead}</p><p class="who">${who}</p>${form(t, { withCode: false, code })}`;
     default:
       return `<h1>${t.title}</h1><p>${t.lead}</p><p class="who">${who}</p>
 ${pairing ? `<div id="viewer" class="viewer" hidden><video id="video" playsinline muted></video></div>
@@ -183,13 +183,14 @@ const clientIcon=document.getElementById('client-icon');if(clientIcon)clientIcon
 loadMine();
 `;
 
-export function devicePairPage({ view = "scan", lang = "en", code = "", approver = null, pairing = true } = {}) {
+/** `repair`: "repairSame" or "repairOther" when the console is already registered and asks to be paired again. */
+export function devicePairPage({ view = "scan", lang = "en", code = "", approver = null, pairing = true, repair = null } = {}) {
   const shown = tableLang(PAIR_TEXT, lang);
   const t = PAIR_TEXT[shown];
   const interactive = view === "scan" || view === "confirm";
   return `<!doctype html><html lang="${shown}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>${t.title} · CookingFoil</title><link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/fonts.css"><style>${STYLE}</style></head>
 <body><main class="card"><a class="brand" href="/"><img src="/assets/cookingfoil.svg" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></a>
-<div class="content">${body(view, t, { code, approver, pairing })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>
+<div class="content">${body(view, t, { code, approver, pairing, repair })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>
 ${interactive ? `<script type="application/json" id="pair-text">${clientText(t)}</script><script>${SCRIPT}</script>` : ""}</body></html>`;
 }

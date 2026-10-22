@@ -31,7 +31,7 @@ import { CALLBACK_PATH, authUrl, checkClaims, exchangeCode, newAttempt, safeNext
 import { clientIp, recordFailure } from "../security/auth-guard.js";
 import { trustedHere } from "../security/net.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
-import { approvePairLink } from "../security/pairing-approve.js";
+import { approvePairLink, pairLinkView } from "../security/pairing-approve.js";
 import { deviceLimitRefusal } from "../security/device-limit.js";
 import { devicePairing, googleRedirectBase, publicBaseUrl } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
@@ -204,9 +204,9 @@ function mountDevice(router) {
     if (!link) return res.status(410).type("html").send(devicePage({ lang, view: "expired" }));
     const who = webUser(req);
     if (!who) return toLogin(req, res);
-    const done = link.used || store.isDeviceApproved(link.deviceKey);
+    const { view, repair } = pairLinkView(link, who.approver);
     res.type("html").send(devicePage({
-      lang, view: done ? "done" : "confirm", code: link.code, token: req.params.token, user: who.name ?? who.email, csrf: csrfToken(req, res),
+      lang, view, code: link.code, token: req.params.token, user: who.name ?? who.email, csrf: csrfToken(req, res), repair,
     }));
   });
 

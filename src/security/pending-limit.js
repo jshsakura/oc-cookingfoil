@@ -77,3 +77,12 @@ export function recordPending(req, deviceKey, { message, name, download } = {}, 
   store.recordPendingDevice(deviceKey, { message, name, download, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null } });
   return { ok: true };
 }
+
+/**
+ * Counts a new re-pair request (an approved console asking for a QR again,
+ * pairing-repair.js) against the same per-address budget as a new console.
+ * Returns { ok: true } or { ok: false, retryAfterSec }.
+ */
+export function admitRepair(req, deviceKey, now = Date.now()) {
+  return limit.admit(clientIp(req), deviceKey, now);
+}

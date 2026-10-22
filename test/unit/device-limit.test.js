@@ -201,7 +201,7 @@ test("a pair request refused by the pending limit keeps no pairSecret", async ()
     const poll = await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": keys[7], "X-Pair-Secret": secret("9") } });
     assert.equal(poll.status, 429);
     // An accepted one keeps it.
-    const accepted = await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceKey: keys[0], pairSecret: secret("9") }) });
+    const accepted = await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": keys[0], "X-Pair-Secret": secret("9") } });
     assert.equal(accepted.status, 409);
   } finally {
     stop(server);

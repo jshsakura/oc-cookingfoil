@@ -42,11 +42,12 @@ test("the accessKey goes only to the caller presenting the console's pairSecret"
   assert.equal((await request({ deviceKey: key, pairSecret: secret })).status, 200);
   approveWaitingDevice(key, { addedBy: "admin" });
 
-  // A stranger who knows the device key polls first: approved, no key.
+  // A stranger who knows the device key polls first: no key (with a secret of its own, a re-pair QR nobody approved).
   let r = await status(key);
   assert.deepEqual(r.body, { status: "approved", passwordOnly: true });
   r = await status(key, { "X-Pair-Secret": newSecret() });
-  assert.deepEqual(r.body, { status: "approved", passwordOnly: true });
+  assert.equal(r.body.accessKey, undefined);
+  assert.equal(r.body.repair, true);
 
   // The console, with its secret, still gets the key.
   r = await status(key, { "X-Pair-Secret": secret });
@@ -56,7 +57,7 @@ test("the accessKey goes only to the caller presenting the console's pairSecret"
 
   // One time only.
   r = await status(key, { "X-Pair-Secret": secret });
-  assert.deepEqual(r.body, { status: "approved", passwordOnly: true });
+  assert.equal(r.body.accessKey, undefined);
   store.revokeDevice(key);
 });
 
@@ -79,20 +80,22 @@ test("only a hash of the pairSecret is stored", async () => {
   store.revokeDevice(key);
 });
 
-test("the first pairSecret wins; the same one again is fine, another is refused", async () => {
+test("a waiting console's new /request replaces its secret; /status with another is refused", async () => {
   const key = newKey();
   const first = newSecret();
   assert.equal((await request({ deviceKey: key, pairSecret: first })).status, 200);
   assert.equal((await request({ deviceKey: key, pairSecret: first })).status, 200);
-  const other = await request({ deviceKey: key, pairSecret: newSecret() });
-  assert.equal(other.status, 409);
-  assert.deepEqual(await other.json(), { error: "pairSecret mismatch" });
-  assert.equal((await status(key, { "X-Pair-Secret": newSecret() })).code, 409);
+  const second = newSecret();
+  const asked = await request({ deviceKey: key, pairSecret: second });
+  assert.equal(asked.status, 200);
+  assert.equal((await asked.json()).status, "pending");
+  const poll = await status(key, { "X-Pair-Secret": first });
+  assert.equal(poll.code, 409);
+  assert.deepEqual(poll.body, { error: "pairSecret mismatch" });
 
   approveWaitingDevice(key, { addedBy: "admin" });
-  // The second caller's secret did not replace the first.
-  assert.equal((await status(key, { "X-Pair-Secret": newSecret() })).body.accessKey, undefined);
-  assert.ok((await status(key, { "X-Pair-Secret": first })).body.accessKey);
+  assert.equal((await status(key, { "X-Pair-Secret": first })).body.accessKey, undefined);
+  assert.ok((await status(key, { "X-Pair-Secret": second })).body.accessKey);
   store.revokeDevice(key);
 });
 
