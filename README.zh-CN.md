@@ -190,6 +190,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 |---|---|---|
 | 二维码设备连接（网页的“下载客户端”也需要它） | `COOK_DEVICE_PAIRING` | `true` |
 | 主机的批准方式 | `COOK_DEVICE_AUTO_APPROVE` | `true`：在配对时发送一次账号和密码的主机立即批准。`false`：管理员逐台批准。`all`：所有请求的主机都批准 |
+| 每个账户的主机数 | `COOK_DEVICE_LIMIT` | 一个账户可以拥有的已批准主机数量，无论以何种方式批准都计算在内。默认 `5`，`0` 表示不限制。可在设置标签页更改 |
 | 公开地址 | `COOK_PUBLIC_BASE_URL` | 由每个请求推断 |
 | 网页上传 | `COOK_UPLOADS_ENABLED` | `false` |
 | 临时共享收件箱 | `COOK_INBOX_ENABLED` | `true` |
@@ -234,7 +235,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 
 **1. CookingFoil 客户端，扫码连接。** 从自制程序菜单打开客户端并输入服务器地址，屏幕上会出现二维码和 8 位设备码。用手机扫描二维码，或在 `/pair` 输入设备码，然后登录并批准。主机会收到自己的访问密钥。批准方式为“已登录的主机立即批准”（默认）时，在客户端中输入账号和密码也会当场批准；密码只在这时检查一次，此后主机只用访问密钥连接。
 
-**2. CookingFoil 客户端，从网页下载。** 登录服务器的网页，使用“下载客户端”卡片。你会得到一个 zip，里面有 `switch/cookingfoil/cookingfoil.nro`，以及写有本服务器地址和一次性注册令牌的 `config.json`。把 `switch/` 文件夹复制到 SD 卡，然后打开客户端。第一次启动时，客户端会用令牌换取自己的访问密钥（`POST /api/pair/enroll`），并以你的账号批准，不需要扫码。令牌只能用一次，并且只在下载后 24 小时内有效。尚未使用的下载可以在同一页面或管理页面的设备 (기기) 标签页撤回。在用掉之前，请像对待钥匙一样保管这个 zip。
+**2. CookingFoil 客户端，从网页下载。** 登录服务器的网页，使用“下载客户端”卡片。你会得到一个 zip，里面有 `switch/cookingfoil/cookingfoil.nro`，以及写有本服务器地址和注册令牌的 `config.json`。把 `switch/` 文件夹复制到 SD 卡，然后打开客户端。第一次启动时，客户端会用令牌换取自己的访问密钥（`POST /api/pair/enroll`），并以你的账号批准，不需要扫码。下载后 1 小时内最多 5 台主机会自动连接，更多主机请用二维码批准。这 5 台按该账户所有下载合计、在任意 1 小时内计算，所以重新下载也不会增加。手动批准（`COOK_DEVICE_AUTO_APPROVE=false`）时一次下载只连接一台主机。重新下载会结束同一账户之前的下载，已连接的主机保持不变。未能用令牌连接的主机会像只知道服务器地址的主机一样等待批准。下载可以在同一页面或管理页面的设备 (기기) 标签页撤回。无论以何种方式批准，一个账户最多拥有 `COOK_DEVICE_LIMIT` 台主机（默认 5，0 表示不限制，可在设置标签页更改）。在用掉之前，请像对待钥匙一样保管这个 zip。
 
 无论用哪种方式，客户端都会把访问密钥换成 12 小时的会话令牌（`GET /api/session`），之后只发送这个令牌。连接之后，客户端会从你的服务器自动更新，也可以为自己创建 HOME 菜单快捷方式。换用新设备密钥的主机可以通过 `POST /api/pair/rebind` 保留原来的批准。
 
@@ -351,7 +352,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 - 已知的攻击路径、路径穿越、控制字符和过长的 URL 会在登录前被拒绝，并计入同一锁定次数，也可以通过 Telegram 通知你。
 - 来自浏览器的写入请求和 WebSocket 连接，只接受来自服务器自身页面的。WebSocket 消息最大 4 KB。
 - 管理员设置的外部服务地址不能指向私有网络，只有 `COOK_OUTBOUND_PRIVATE_HOSTS` 中列出的主机例外。
-- 响应带有防护性请求头（`nosniff`、`DENY` 框架限制、不发送 referrer）。每一次拒绝都会连同原因记录在日志 (로그) 标签页和 `X-CookingFoil-Deny` 响应头中。每个响应都带有本服务器的随机 ID `X-CookingFoil-Server-Id`（从任何地址访问都相同），每次登录拒绝（401、403）都带有与日志行相同的原因码 `X-CookingFoil-Auth`，客户端据此决定下一步。例如 `no-access-key`、`access-key-wrong`、`device-not-approved`、`session-expired`、`session-revoked`、`enroll-used`、`rebind-no-proof`。
+- 响应带有防护性请求头（`nosniff`、`DENY` 框架限制、不发送 referrer）。每一次拒绝都会连同原因记录在日志 (로그) 标签页和 `X-CookingFoil-Deny` 响应头中。每个响应都带有本服务器的随机 ID `X-CookingFoil-Server-Id`（从任何地址访问都相同），每次登录拒绝（401、403）都带有与日志行相同的原因码 `X-CookingFoil-Auth`，客户端据此决定下一步。例如 `no-access-key`、`access-key-wrong`、`device-not-approved`、`session-expired`、`session-revoked`、`enroll-used`、`enroll-limit`、`device-limit`、`rebind-no-proof`。
 - 在管理页面上保存的密钥不会再次显示。网页上传在你开启之前一直关闭。
 
 如需报告漏洞，请参阅 [SECURITY.md](./SECURITY.md#简体中文)。请不要公开提交 issue。
@@ -375,7 +376,7 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）及其 HOME 菜单快捷方式。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
 | `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方。批准方式为“已登录的主机立即批准”时，以 Basic 发送的账号和密码会当场批准这台主机。每个 JSON 响应都带有 `passwordOnly: true`，`/api/shop/info` 列出功能 `pair-password-only`：密码只用于配对 |
-| `POST /api/pair/enroll` | 主机把下载的客户端中的注册令牌连同 `X-Device-Key` 一起发送，换取自己的访问密钥。以下载它的账号批准，24 小时内只能用一次 |
+| `POST /api/pair/enroll` | 主机把下载的客户端中的注册令牌连同 `X-Device-Key` 一起发送，换取自己的访问密钥。以下载它的账号批准，下载后 1 小时内最多可用于 5 台主机（手动批准时为 1 台），更多主机请用二维码批准。拒绝：401 并带 `X-CookingFoil-Enroll: limit`（`X-CookingFoil-Auth: enroll-limit`）、`used`、`expired`、`revoked` 或 `invalid`；账户的主机数已满时为 403 并带 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 用已配对主机的访问密钥换取 12 小时的会话令牌（忽略 Basic 头），之后以同一设备密钥只发送 `Authorization: Bearer cfs_…`。会话不能自行续期；批准该主机的账号修改密码、撤销设备、锁定都会立即使其失效。功能名为 `session-token` |
 | `POST /api/pair/rebind` | 把同一台设备迁移到新的设备密钥（批准状态、名称和访问密钥）。供改为从主机生成设备密钥的客户端使用。用旧密钥的访问密钥，或以批准该设备的账户进行 Basic 认证来证明。功能名为 `device-rebind` |
 | `GET /healthz` | 健康检查，供镜像的 `HEALTHCHECK` 使用 |

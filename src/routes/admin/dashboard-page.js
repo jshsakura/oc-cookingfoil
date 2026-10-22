@@ -456,7 +456,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   </div>
   <div data-sub-panel="approved" hidden><div class="scroll" id="devices" data-skel></div></div>
   <div data-sub-panel="clients" hidden>
-  <p class="muted">웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 일회용 자동 연동 키(유효시간 24시간)가 포함되며, 기기에서 앱을 최초 실행하면 해당 계정의 기기로 자동 승인됩니다. 키 원본은 서버에 저장되지 않습니다.</p>
+  <p class="muted">${top("dev.clientsLead")}</p>
   <div class="scroll" id="clients" data-skel></div>
   <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended" data-skel></div></details>
   </div>

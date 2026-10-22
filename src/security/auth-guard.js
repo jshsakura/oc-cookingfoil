@@ -141,7 +141,9 @@ function toLogin(req, res) {
  * COOK_DEVICE_AUTO_APPROVE: a console that knocks on the pairing routes with
  * a real account (Basic) and its device key is approved without a QR scan, and
  * uses its device key and access key from then on. With `all`, every console
- * that asks is let in, no sign-in needed. Returns whether it is approved.
+ * that asks is let in, no sign-in needed. Returns whether it is approved, or
+ * "limit" when the account holds all the consoles it may (device-limit.js)
+ * and the console keeps waiting.
  */
 export async function autoApproveFromPairRequest(req, deviceKey) {
   if (!devicePairing || !deviceAutoApprove || !deviceKey) return false;
@@ -151,7 +153,12 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
   }
   const who = await pairSignIn(req);
   if (!who) return false;
-  if (approveSignedInDevice(deviceKey, who.name)) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
+  const approved = approveSignedInDevice(deviceKey, who.name);
+  if (approved === "limit") {
+    debug.log("pair: %s… waits: %s holds all the consoles it may", deviceKey.slice(0, 12), who.name);
+    return "limit";
+  }
+  if (approved) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
   return true;
 }
 

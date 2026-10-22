@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +9,7 @@ import { everything } from "../support/security-db.js";
 import { webSession, adminSession } from "../support/web-session.js";
 
 // The web page hands a signed-in user the client and this server in one zip,
-// with a one-day, one-use enrollment token in its config; the console spends
+// with a one-hour enrollment token in its config; a console spends
 // it for its own access key, approved under that user.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-enroll-unit-"));
 process.env.COOK_DATA_DIR = dir;
@@ -27,7 +28,7 @@ test("a stored zip opens with the stock unzip, names and bytes intact", () => {
   assert.equal(execFileSync("unzip", ["-p", file, "switch/cookingfoil/config.json"]).toString(), '{"한":1}\n');
 });
 
-test("an enrollment token works once, within its day, and lists show no secret", () => {
+test("an enrollment token works once, within its hour, and lists show no secret", () => {
   enroll.resetForTests();
   const now = Date.UTC(2026, 9, 15);
   const a = enroll.issue("alice", now);
@@ -37,7 +38,7 @@ test("an enrollment token works once, within its day, and lists show no secret",
   assert.deepEqual(enroll.spend(a.token, KEY_A, { now: now + 1000 }), { owner: "alice", id: a.id });
   assert.equal(enroll.spend(a.token, KEY_B, { now: now + 2000 }), null, "once");
   const late = enroll.issue("alice", now);
-  assert.equal(enroll.spend(late.token, KEY_A, { now: now + enroll.TTL_MS }), null, "not after its day");
+  assert.equal(enroll.spend(late.token, KEY_A, { now: now + enroll.TTL_MS }), null, "not after its hour");
   assert.equal(enroll.spend("cfe_" + "x".repeat(43), KEY_A, { now }), null);
   assert.equal(enroll.spend("nope", KEY_A, { now }), null);
   const refused = enroll.issue("alice", now);
@@ -46,40 +47,174 @@ test("an enrollment token works once, within its day, and lists show no secret",
 
   const rows = enroll.list({ owner: "alice", now: now + enroll.TTL_MS + 1 });
   assert.ok(!JSON.stringify(rows).includes("cfe_"), "no token in a list");
-  assert.deepEqual(rows.map((r) => r.state).sort(), ["expired", "used", "used"]);
+  assert.deepEqual(rows.map((r) => r.state).sort(), ["revoked", "used", "used"], "a newer download withdrew the unused one");
   assert.equal(rows.find((r) => r.id === a.id).deviceKey, KEY_A);
   const stored = everything(dir);
   assert.ok(!stored.includes(a.token) && !stored.includes(late.token), "only hashes are kept");
 
-  // At most three waiting per account; a new download withdraws the oldest.
+  // One hour, and one live download per account: a new one withdraws the earlier unused ones.
+  assert.equal(enroll.TTL_MS, 60 * 60 * 1000);
   enroll.resetForTests();
-  const issued = [1, 2, 3, 4].map((i) => enroll.issue("bob", now + i));
+  const lapsing = enroll.issue("carol", now);
+  assert.equal(enroll.lookup(lapsing.token, now + enroll.TTL_MS)?.state, "expired");
+  enroll.resetForTests();
+  const spentEarlier = enroll.issue("bob", now);
+  assert.ok(enroll.spend(spentEarlier.token, KEY_A, { now: now + 1 }));
+  const issued = [1, 2, 3].map((i) => enroll.issue("bob", now + i));
+  const other = enroll.issue("alice", now + 4);
+  assert.deepEqual(issued.map((d) => enroll.lookup(d.token, now + 5)?.state), ["revoked", "revoked", "waiting"]);
+  assert.equal(enroll.lookup(spentEarlier.token, now + 5)?.state, "used", "a used one stays as history");
+  assert.equal(enroll.lookup(other.token, now + 5)?.state, "waiting", "another account's download is untouched");
   assert.equal(enroll.spend(issued[0].token, KEY_B, { now: now + 10 }), null);
-  assert.equal(enroll.list({ owner: "bob", now: now + 10 }).filter((r) => r.state === "waiting").length, 3);
-  assert.equal(enroll.revoke(issued[1].id, { owner: "alice", now }), false, "only the owner withdraws");
-  assert.equal(enroll.revoke(issued[1].id, { owner: "bob", now }), true);
-  assert.equal(enroll.spend(issued[1].token, KEY_B, { now: now + 20 }), null);
+  assert.equal(enroll.revoke(issued[2].id, { owner: "alice", now }), false, "only the owner withdraws");
+  assert.equal(enroll.revoke(issued[2].id, { owner: "bob", now }), true);
+  assert.equal(enroll.spend(issued[2].token, KEY_B, { now: now + 20 }), null);
 });
 
-test("while consoles join by sign-in, one download takes several consoles within its day, up to its cap", () => {
+test("with manual approval a download enrolls one console, and one saved with several consoles loads as used", async () => {
+  enroll.resetForTests();
+  const now = Date.UTC(2026, 9, 23);
+  const d = enroll.issue("alice", now);
+  assert.ok(enroll.spend(d.token, KEY_A, { now: now + 1 }));
+  assert.equal(enroll.spend(d.token, KEY_B, { now: now + 2 }), null, "a second console is refused");
+  assert.equal(enroll.spend(d.token, KEY_A, { now: now + 3 }), null, "the first console does not spend it again");
+  assert.equal(enroll.revoke(d.id, { owner: "alice", now: now + 4 }), true, "a spent download inside its hour can be ended");
+  assert.equal(enroll.respend(d.token, KEY_A, { now: now + 5 }), null, "and then re-enrolls nobody");
+
+  // An older build kept every console a download took in `devices`.
+  const { recordStore } = await import("../../src/db/security-stores.js");
+  const token = "cfe_" + "A".repeat(43);
+  const hashed = crypto.createHash("sha256").update(token).digest("hex");
+  recordStore("enroll-token").sync([[hashed, { id: "0000000a", owner: "alice", createdAt: now, expiresAt: now + enroll.TTL_MS, usedAt: now + 1, deviceKey: KEY_A, devices: [KEY_A, KEY_B] }]]);
+  const fresh = await import("../../src/security/enroll-tokens.js?legacy-devices");
+  assert.equal(fresh.lookup(token, now + 2)?.state, "used");
+  assert.equal(fresh.spend(token, "C3".repeat(32), { now: now + 2 }), null);
+  assert.equal(fresh.spend(token, KEY_B, { now: now + 2 }), null);
+  const [row] = fresh.list({ owner: "alice", now: now + 2 });
+  assert.deepEqual([row.state, row.deviceKey], ["used", KEY_A]);
+});
+
+test("the console that spent a download may enroll again with it within its hour, no other console and not after", () => {
   enroll.resetForTests();
   const now = 1_700_000_000_000;
   const d = enroll.issue("alice", now);
-  const keys = [...Array(enroll.MAX_CONSOLES + 1).keys()].map((i) => i.toString(16).toUpperCase().padStart(2, "0").repeat(32));
-  for (const key of keys.slice(0, enroll.MAX_CONSOLES)) assert.equal(enroll.spend(d.token, key, { now: now + 1, reusable: true })?.owner, "alice");
-  assert.equal(enroll.spend(d.token, keys.at(-1), { now: now + 2, reusable: true }), null, "not past the cap");
-  assert.equal(enroll.spend(d.token, keys[0], { now: now + 3, reusable: true })?.owner, "alice", "a console it took may come again");
-  assert.equal(enroll.spend(d.token, keys.at(-1), { now: now + 4 }), null, "once, when consoles wait for approval");
-  const [row] = enroll.list({ owner: "alice", now: now + 5 });
-  assert.deepEqual([row.state, row.deviceKey, row.consoles], ["used", keys[0], enroll.MAX_CONSOLES]);
+  assert.ok(enroll.spend(d.token, KEY_A, { now: now + 1 }));
+  assert.deepEqual(enroll.respend(d.token, KEY_A, { now: now + 4000 }), { owner: "alice", id: d.id }, "the same console, seconds later");
+  assert.equal(enroll.respend(d.token, KEY_B, { now: now + 4000 }), null, "another console");
+  assert.equal(enroll.respend(d.token, KEY_A, { canEnroll: () => false, now: now + 4000 }), null, "an account that may no longer enroll");
+  assert.equal(enroll.respend(d.token, KEY_A, { now: now + enroll.TTL_MS }), null, "not after its hour");
+  const waiting = enroll.issue("bob", now);
+  assert.equal(enroll.respend(waiting.token, KEY_A, { now: now + 1 }), null, "a token nobody spent is spent, not re-spent");
+  assert.equal(enroll.respend("nope", KEY_A, { now }), null);
+});
 
-  const late = enroll.issue("alice", now);
-  assert.ok(enroll.spend(late.token, KEY_A, { now: now + 1, reusable: true }));
-  assert.equal(enroll.spend(late.token, KEY_B, { now: now + enroll.TTL_MS, reusable: true }), null, "not after its day");
-  const pulled = enroll.issue("alice", now);
-  assert.ok(enroll.spend(pulled.token, KEY_A, { now: now + 1, reusable: true }));
-  assert.equal(enroll.revoke(pulled.id, { owner: "alice", now: now + 2 }), true, "a download still taking consoles can be withdrawn");
-  assert.equal(enroll.spend(pulled.token, KEY_B, { now: now + 3, reusable: true }), null);
+test("a token's life counts from its issue, so one saved with a day's expiry ends an hour after", async () => {
+  const now = 1_700_000_000_000;
+  const { recordStore } = await import("../../src/db/security-stores.js");
+  const token = "cfe_" + "B".repeat(43);
+  const hashed = crypto.createHash("sha256").update(token).digest("hex");
+  recordStore("enroll-token").sync([[hashed, { id: "0000000b", owner: "alice", createdAt: now, expiresAt: now + 24 * 60 * 60 * 1000 }]]);
+  const fresh = await import("../../src/security/enroll-tokens.js?legacy-day");
+  assert.equal(fresh.lookup(token, now + enroll.TTL_MS - 1)?.state, "waiting");
+  assert.equal(fresh.lookup(token, now + enroll.TTL_MS)?.state, "expired");
+  assert.equal(fresh.spend(token, KEY_A, { now: now + enroll.TTL_MS }), null);
+  assert.equal(fresh.list({ now }).find((r) => r.id === "0000000b")?.expiresAt, now + enroll.TTL_MS);
+});
+
+// Automatic approval: a download enrolls consoles for its hour, at most
+// ENROLL_MAX_PER_HOUR per account in any rolling hour across all its downloads.
+const consoleKey = (i) => i.toString(16).toUpperCase().padStart(2, "0").repeat(32);
+const multi = (now) => ({ multi: true, now });
+/** Whether a spend enrolled the console (a refusal names the owner too). */
+const took = (r) => Boolean(r?.owner && !r.limit && !r.full && !r.refused);
+
+test("with automatic approval one download enrolls five consoles; the sixth is over the account's limit", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  assert.equal(enroll.ENROLL_MAX_PER_HOUR, 5);
+  const d = enroll.issue("alice", now);
+  for (let i = 1; i <= 5; i++) assert.deepEqual(enroll.spend(d.token, consoleKey(i), multi(now + i)), { owner: "alice", id: d.id }, `console ${i}`);
+  const sixth = enroll.spend(d.token, consoleKey(6), multi(now + 6));
+  assert.deepEqual(sixth, { limit: true, owner: "alice", id: d.id });
+  assert.equal(enroll.spend(d.token, consoleKey(6), multi(now + 7))?.limit, true, "a refusal spends nothing and stays refused");
+  const other = enroll.issue("bob", now + 8);
+  assert.ok(took(enroll.spend(other.token, consoleKey(6), multi(now + 9))), "another account's limit is its own");
+});
+
+test("a fresh download does not reset the limit; once the hour has passed a new download works again", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  for (let i = 1; i <= 5; i++) assert.ok(took(enroll.spend(d.token, consoleKey(i), multi(now + i * 1000))));
+  const fresh = enroll.issue("alice", now + 10_000);
+  assert.equal(enroll.spend(fresh.token, consoleKey(6), multi(now + 11_000))?.limit, true, "the sixth console within the hour");
+  // The first enrollment leaves the window at now + 1000 + TTL_MS; one place opens.
+  const later = enroll.issue("alice", now + 1000 + enroll.TTL_MS);
+  assert.ok(took(enroll.spend(later.token, consoleKey(6), multi(now + 1000 + enroll.TTL_MS + 1))), "one place has opened");
+  assert.equal(enroll.spend(later.token, consoleKey(7), multi(now + 1000 + enroll.TTL_MS + 2))?.limit, true, "but only one");
+  const muchLater = enroll.issue("alice", now + 3 * enroll.TTL_MS);
+  for (let i = 7; i <= 11; i++) assert.ok(took(enroll.spend(muchLater.token, consoleKey(i), multi(now + 3 * enroll.TTL_MS + i))), `console ${i}`);
+});
+
+test("a new download ends the account's earlier one even with room left; its consoles were enrolled and stay counted", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  assert.ok(took(enroll.spend(d.token, consoleKey(1), multi(now + 1))));
+  assert.ok(took(enroll.spend(d.token, consoleKey(2), multi(now + 2))));
+  const next = enroll.issue("alice", now + 3);
+  assert.equal(enroll.spend(d.token, consoleKey(3), multi(now + 4)), null);
+  assert.equal(enroll.lookup(d.token, now + 4)?.reason, "revoked");
+  assert.equal(enroll.respend(d.token, consoleKey(1), multi(now + 5)), null, "an ended download re-enrolls nobody");
+  for (let i = 3; i <= 5; i++) assert.ok(took(enroll.spend(next.token, consoleKey(i), multi(now + 5 + i))), `console ${i}`);
+  assert.equal(enroll.spend(next.token, consoleKey(6), multi(now + 20))?.limit, true, "the ended download's two consoles still count");
+  assert.equal(enroll.lookup(next.token, now + enroll.TTL_MS + 3)?.reason, "expired", "past its hour");
+});
+
+test("the same console enrolling again with its download does not count again", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  assert.ok(took(enroll.spend(d.token, consoleKey(1), multi(now + 1))));
+  for (let n = 0; n < 4; n++) {
+    assert.equal(enroll.spend(d.token, consoleKey(1), multi(now + 2 + n)), null, "spend leaves it to respend");
+    assert.deepEqual(enroll.respend(d.token, consoleKey(1), multi(now + 2 + n)), { owner: "alice", id: d.id });
+  }
+  for (let i = 2; i <= 5; i++) assert.ok(took(enroll.spend(d.token, consoleKey(i), multi(now + 10 + i))), `console ${i}`);
+  assert.deepEqual(enroll.respend(d.token, consoleKey(3), multi(now + 20)), { owner: "alice", id: d.id }, "any console it took");
+  assert.equal(enroll.spend(d.token, consoleKey(6), multi(now + 21))?.limit, true);
+});
+
+test("the hourly count is of different consoles: one console back with five fresh downloads counts once", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  for (let n = 0; n < 5; n++) {
+    const d = enroll.issue("alice", now + n * 10);
+    assert.ok(took(enroll.spend(d.token, consoleKey(1), multi(now + n * 10 + 1))), `download ${n + 1}`);
+  }
+  const d = enroll.issue("alice", now + 100);
+  for (let i = 2; i <= 5; i++) assert.ok(took(enroll.spend(d.token, consoleKey(i), multi(now + 100 + i))), `console ${i}`);
+  assert.equal(enroll.spend(d.token, consoleKey(6), multi(now + 110))?.limit, true, "the sixth different console");
+});
+
+test("issuing hundreds of downloads cannot push this hour's consoles out of the count", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  for (let i = 1; i <= 5; i++) assert.ok(took(enroll.spend(d.token, consoleKey(i), multi(now + i))));
+  let last;
+  for (let n = 0; n < 502; n++) last = enroll.issue("alice", now + 10 + n);
+  assert.equal(enroll.spend(last.token, consoleKey(6), multi(now + 600))?.limit, true);
+});
+
+test("with manual approval a download stays single-use", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  assert.ok(took(enroll.spend(d.token, consoleKey(1), { now: now + 1 })));
+  assert.equal(enroll.spend(d.token, consoleKey(2), { now: now + 2 }), null);
+  assert.equal(enroll.lookup(d.token, now + 2)?.reason, "used");
+  assert.equal(enroll.lookup(d.token, now + enroll.TTL_MS)?.reason, "expired", "past its hour it says expired");
 });
 
 /** A minimal NRO: header, then an ASET block whose NACP carries `version`. */
@@ -166,6 +301,17 @@ test("a downloaded client connects once, under the account that downloaded it", 
     e = await enrollWith(token, KEY_B);
     assert.equal(e.status, 401, "once");
     assert.equal(e.headers.get("x-cookingfoil-enroll"), "used", "says why");
+    // The same console asking again seconds later (production did) gets a fresh key; the earlier one stops.
+    e = await enrollWith(token, KEY_A);
+    assert.equal(e.status, 200, "the console that spent it may enroll again within its hour");
+    const again1 = await e.json();
+    assert.equal(again1.status, "approved");
+    assert.ok(again1.accessKey && again1.accessKey !== accessKey);
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the earlier key is refused");
+    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": again1.accessKey } })).status, 200);
+    e = await enrollWith(token, "C3".repeat(32));
+    assert.equal(e.status, 401, "any other console still is refused");
+    assert.equal(e.headers.get("x-cookingfoil-enroll"), "used");
 
     const mine = await (await fetch(`${BASE}/pair/api/mine`, { headers: ALICE })).json();
     assert.equal(mine.clients[0].state, "used");

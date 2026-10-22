@@ -98,7 +98,8 @@ function showDone(){main.innerHTML='';const h=document.createElement('h1');h.tex
 const MESSAGES={404:T.errNotFound,409:T.errUsed,410:T.expiredBody,401:T.errAuth,403:T.errAuth};
 async function approve(payload){const button=approveForm.querySelector('button');button.disabled=true;error.textContent='';
   try{const r=await fetch('/pair/approve',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
-    if(r.ok){stopCamera();if(token){showDone();return;}approveForm.reset();status.textContent=T.doneTitle+' '+T.doneBody;loadMine();return;}error.textContent=MESSAGES[r.status]||T.errOther;}
+    if(r.ok){stopCamera();if(token){showDone();return;}approveForm.reset();status.textContent=T.doneTitle+' '+T.doneBody;loadMine();return;}
+    const j=await r.json().catch(()=>({}));error.textContent=j.code==='device-limit'&&j.error?j.error:MESSAGES[r.status]||T.errOther;}
   catch{error.textContent=T.errNetwork;}finally{button.disabled=false;}}
 if(approveForm)approveForm.addEventListener('submit',e=>{e.preventDefault();const label=document.getElementById('label').value;
   if(token){approve({token,label});return;}
@@ -164,7 +165,7 @@ function row(item){if(item.kind==='client')return clientRow(item);const li=docum
 async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/mine',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();
   const items=[...(d.clients||[]).map((x)=>({...x,kind:'client'})),...d.devices.map((x)=>({...x,kind:'qr'}))];
   mine.replaceChildren(...(items.length?items.map(row):[Object.assign(document.createElement('li'),{className:'hint',textContent:T.mineEmpty})]));}catch{}}
-// The client with this server and a one-day connection key inside, as one zip.
+// The client with this server and a one-hour connection key inside, as one zip.
 const getClient=document.getElementById('get-client');
 if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;error.textContent='';
   try{const r=await post('/pair/api/client-bundle');

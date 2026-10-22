@@ -9,6 +9,7 @@ import { requestLang } from "../../meta/langs.js";
 
 export const API_WORDS = {
   ko: {
+    "device.limit": "이 계정은 기기를 최대 {n}대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인해 주세요.",
     "content.folderTaken": "그 게임에 같은 이름의 폴더가 이미 있습니다. 이름을 바꾸거나 그쪽을 먼저 삭제합니다",
     "upload.replaceToTrash": "지금 있는 {name} 을 휴지통에 옮기지 못해 올리지 않았습니다: {why}",
     "upload.folderAppeared": "그사이 {name} 폴더가 새로 생겨 올리지 않았습니다. 다시 올립니다",
@@ -18,6 +19,7 @@ export const API_WORDS = {
     "guide.unknown": "안내가 있는 폴더가 아닙니다",
   },
   en: {
+    "device.limit": "This account can register up to {n} consoles. Remove a console it no longer uses, then approve again.",
     "content.folderTaken": "That game already has a folder with the same name. Rename it or delete that one first",
     "upload.replaceToTrash": "The existing {name} could not go to the trash, so nothing was uploaded: {why}",
     "upload.folderAppeared": "A {name} folder appeared in the meantime, so nothing was uploaded. Upload again",
@@ -27,6 +29,7 @@ export const API_WORDS = {
     "guide.unknown": "There is no guide for that folder",
   },
   ja: {
+    "device.limit": "このアカウントに登録できる本体は最大 {n} 台です。使っていない本体を解除してから、もう一度承認してください。",
     "content.folderTaken": "そのゲームには同じ名前のフォルダーがすでにあります。名前を変えるか、先にそちらを削除します",
     "upload.replaceToTrash": "今ある {name} をゴミ箱に移動できなかったため、アップロードしませんでした: {why}",
     "upload.folderAppeared": "その間に {name} フォルダーが新しくできたため、アップロードしませんでした。もう一度アップロードします",
@@ -36,6 +39,7 @@ export const API_WORDS = {
     "guide.unknown": "案内のあるフォルダーではありません",
   },
   zh: {
+    "device.limit": "此账户最多可以登记 {n} 台主机。请先解除不再使用的主机，然后重新批准。",
     "content.folderTaken": "该游戏已有同名文件夹。请改名或先删除那个文件夹",
     "upload.replaceToTrash": "无法将现有的 {name} 移入回收站，因此没有上传: {why}",
     "upload.folderAppeared": "在此期间出现了新的 {name} 文件夹，因此没有上传。请重新上传",

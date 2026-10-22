@@ -16,8 +16,8 @@
  *
  * The CookingFoil client, ready to connect (needs device pairing):
  *   POST /pair/api/client-bundle           a zip of switch/cookingfoil/cookingfoil.nro and a config.json
- *                                          holding this server and a one-day enrollment token
- *   POST /pair/api/clients/<id>/revoke     withdraw a download's token while it can still connect a console
+ *                                          holding this server and a one-hour enrollment token
+ *   POST /pair/api/clients/<id>/revoke     withdraw a download's token before a console used it
  *   /pair/api/mine lists the downloads too (no token in it: id, when, state, the console's code)
  */
 import express from "express";
@@ -26,6 +26,7 @@ import { createRequire } from "node:module";
 import * as store from "../security/store.js";
 import { readPairLink, findPairLinkByCode } from "../security/pairing-link.js";
 import { approvePairLink } from "../security/pairing-approve.js";
+import { deviceLimitRefusal } from "../security/device-limit.js";
 import { hasValidSession } from "../security/admin-session.js";
 import { devicePairing, publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -211,6 +212,7 @@ export default function devicePairRouter() {
     const result = approvePairLink(token, { label: req.body?.label, addedBy: approver });
     if (result === "expired") return res.status(410).json({ error: "pair link expired" });
     if (result === "used") return res.status(409).json({ error: "pair link already approved" });
+    if (result === "limit") return deviceLimitRefusal(req, res);
     debug.log("pair: %s approved a device", approver);
     res.json({ ok: true });
   });

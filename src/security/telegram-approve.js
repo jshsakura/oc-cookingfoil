@@ -60,8 +60,10 @@ function decide(request, yes, t) {
   const kind = KINDS[request.kind];
   if (!kind) return { done: false, line: t("spent") };
   if (!kind.waiting(request.ref)) return { done: false, line: t("handled") };
-  if (yes) kind.approve(request.ref);
-  else kind.refuse(request.ref);
+  if (yes) {
+    const result = kind.approve(request.ref);
+    if (result?.ok === false) return { done: false, line: t("deviceLimit", { n: result.limit }) };
+  } else kind.refuse(request.ref);
   debug.log("telegram: a %s request was %s from the chat", request.kind, yes ? "approved" : "refused");
   return { done: true, line: t(yes ? "approved" : kind.refused) };
 }

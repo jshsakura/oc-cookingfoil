@@ -35,6 +35,7 @@ const SS_GROUPS=[
   ['기기 연결',[
     ['devicePairing','bool','QR 로 기기 연결','CookingFoil 클라이언트가 QR 을 띄우고, 휴대폰으로 찍어 승인합니다. 끄면 콘솔이 접속할 수 없습니다.'],
     ['deviceApproval',[['manual','관리자가 하나씩 승인합니다'],['signin','연결할 때 아이디와 비밀번호를 넣은 기기는 바로 승인합니다'],['all','연결을 요청하는 기기를 모두 승인합니다']],'승인 방식','콘솔은 접속할 때 비밀번호를 쓰지 않습니다. 아이디와 비밀번호는 연결할 때 한 번만 받아서 그 기기를 바로 승인하는 데 씁니다. 모두 승인은 내 기기만 닿을 수 있는 서버에서만 씁니다.'],
+    ['deviceLimit',[['0',()=>topText('ss.deviceLimitNone')],...[1,2,3,5,10,15,20,30,50].map((n)=>[String(n),()=>topFill(n===5?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})])],()=>topText('ss.deviceLimit'),()=>topText('ss.deviceLimitD')],
   ]],
   ['로그인',[
     ['passwordLogin','bool','아이디·비밀번호 로그인','끄면 대시보드와 관리 페이지에는 Google 계정으로만 로그인하고, 계정 비밀번호는 어디서도 받지 않습니다. 비밀번호로 로그인해 있던 사람과 비밀번호 계정이 만든 토큰도 그동안 쓸 수 없습니다. 이미 승인된 콘솔은 기기 키로 계속 붙고, 새 콘솔은 QR 로 승인합니다. Google 로그인이 켜져 있고 관리자로 승인된 Google 계정이 있어야 끌 수 있으며, 나중에 둘 중 하나라도 없어지면 비밀번호 로그인이 저절로 다시 켜집니다. Google 쪽이 고장 나 들어올 수 없으면 compose 에 COOK_PASSWORD_LOGIN_FORCE=true 를 넣고 다시 시작합니다.'],
