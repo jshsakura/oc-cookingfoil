@@ -177,9 +177,10 @@ test("an item's pictures are cut, kept, cut again and taken out alike", async ()
   await store.recrop(ID, "shot", 1, { x: 0, y: 0, w: 0.5, h: 1 });
   assert.ok(isRed(await color(store.shotPath(ID, 1))));
 
-  // A picture found on its own (not an upload) keeps no original.
+  // A picture found on its own (not an upload) keeps no original: it is cut again from itself, whole.
   await store.saveBanner(ID, await halves(), { source: "sgdb" });
-  assert.equal(store.originals(ID).banner, null);
+  assert.deepEqual(store.originals(ID).banner, artCrop.FULL);
+  assert.ok(!fs.existsSync(path.join(data, "items", "media", ID, "banner.orig.webp")));
 
   store.removeShots(ID);
   await store.removeBanner(ID);

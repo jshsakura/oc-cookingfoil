@@ -356,12 +356,17 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     return part === "icon" ? p.icon : part === "banner" ? p.banner : part === "shot" && Number.isInteger(n) ? p.shots[n - 1] ?? null : null;
   }
 
-  /** The original kept for one picture: { image, crop }, or null; none once the picture was replaced by hand. */
+  /**
+   * What one picture is cut from: { image, crop }, or null when there is no picture.
+   * The upload it was cut from, while it is still that cut; a picture replaced since
+   * (by hand in its folder) is its own whole original.
+   */
   function original(id, part, n = null) {
     check(id);
     const pic = pictureOf(id, part, n);
-    const kept = pic ? artCrop.readOriginal(anchor(id, pic.slot)) : null;
-    return kept && (!kept.of || kept.of === pic.version) ? kept : null;
+    if (!pic) return null;
+    const kept = artCrop.readOriginal(anchor(id, pic.slot));
+    return kept && (!kept.of || kept.of === pic.version) ? kept : { image: pic.file, crop: artCrop.FULL, whole: true };
   }
 
   /** The area each kept original was cut to: { icon, banner, screenshots: [crop | null] }. */
@@ -379,8 +384,13 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     const pic = pictureOf(id, part, n);
     const kept = original(id, part, n);
     if (!kept) throw new MediaImageError("다시 자를 원본이 없습니다");
-    const webp = await encode(await cut(fs.readFileSync(kept.image), crop), sizeOf(part));
-    artCrop.writeCrop(anchor(id, pic.slot), crop, now, writePicture(id, pic.slot, webp));
+    const raw = fs.readFileSync(kept.image);
+    const webp = await encode(await cut(raw, crop), sizeOf(part));
+    // A picture put in by hand becomes the kept original before the cut replaces it.
+    const whole = kept.whole ? await shrink(raw) : null;
+    const version = writePicture(id, pic.slot, webp);
+    if (whole) artCrop.keepOriginal(anchor(id, pic.slot), whole, crop, now, version);
+    else artCrop.writeCrop(anchor(id, pic.slot), crop, now, version);
     return webp.length;
   }
 

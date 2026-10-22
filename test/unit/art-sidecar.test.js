@@ -128,7 +128,7 @@ test("a release's own file of a picture's name is never written over; the pictur
   assert.equal(store.iconPath(ID), path.join(data, "media", ID, "icon.webp"));
 });
 
-test("a picture replaced by hand is no longer cut again from the upload it replaced", async () => {
+test("a picture replaced by hand is what it is cut again from, and is kept as the new original", async () => {
   const data = tmp();
   const home = tmp();
   const ID = "m-0123456789ab";
@@ -136,9 +136,16 @@ test("a picture replaced by hand is no longer cut again from the upload it repla
     urlBase: (id) => `/x/${id}`, homeOf: () => home });
   await store.saveBanner(ID, await img(320, 180, 10));
   assert.ok(store.original(ID, "banner"));
-  put(path.join(home, "banner.webp"), await img(320, 180, 200, "webp"));
-  assert.equal(store.original(ID, "banner"), null);
-  await assert.rejects(store.recrop(ID, "banner", null, { x: 0, y: 0, w: 1, h: 1 }), /원본이 없습니다/);
+  const px = Buffer.alloc(320 * 180 * 3);
+  for (let i = 0; i < 320 * 180; i++) px[i * 3 + ((i % 320) < 160 ? 0 : 2)] = 255;
+  const halves = await sharp(px, { raw: { width: 320, height: 180, channels: 3 } }).webp().toBuffer();
+  put(path.join(home, "banner.webp"), halves);
+  assert.deepEqual(store.originals(ID).banner, { x: 0, y: 0, w: 1, h: 1 }, "the hand-placed picture, whole");
+  await store.recrop(ID, "banner", null, { x: 0, y: 0, w: 0.5, h: 1 });
+  const red = (await sharp(fs.readFileSync(store.bannerPath(ID))).stats()).channels;
+  assert.ok(red[0].mean > 200 && red[2].mean < 60, "cut from the hand-placed picture, not the old upload");
+  await store.recrop(ID, "banner", null, { x: 0.5, y: 0, w: 0.5, h: 1 });
+  assert.ok((await sharp(fs.readFileSync(store.bannerPath(ID))).stats()).channels[2].mean > 200, "cut again from it, kept as the original");
 });
 
 test("a picture left half written is no part of the item, and is cleared once it is old", async () => {
