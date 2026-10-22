@@ -4,18 +4,22 @@
  * admin page's retro tab and GET /admin/api/retro/requirements both show it.
  *
  *   { note, retroarch: "installed" | "missing", complete,
- *     systems: [{ id, names, games, missing,
- *                 cores:    [{ core, file, server, console, games, state, warn, reason? }],
+ *     systems: [{ id, names, games, missing, check,
+ *                 cores:    [{ core, file, server, console, games, state, warn, reason?, message? }],
  *                 firmware: [{ files, required, state, file?, recognizedAs?, console?, md5? }],
  *                 arcade?:  { sets, missingSets, bios: [{ zip, sets, state }], parents: [{ zip, sets }] } }] }
  *
  *   firmware state  present | missing | mismatch (the file is there under its name but its md5 is
- *                   not a documented dump: another revision may still work)
- *   core state      the pack's own (an automatic installer may say installing, will-install,
- *                   not-in-bundle, operator-owned, failed …), else present | missing from the file
- *   missing         required firmware not present (or mismatched) and arcade zips not found;
- *                   optional firmware never counts. Systems with something missing come first.
- *   complete        no system misses anything
+ *                   not a documented dump: another revision may still work). It is the state of
+ *                   the very file the console gets at that path (bios.js firmwareDelivery)
+ *   core state      the pack's own (CORE_STATES; an automatic installer may say installing,
+ *                   will-install, pinned, held, not-in-nightly, failed …), else present | missing
+ *                   from the file. `reason` is a machine code (CORE_REASONS), `message` a sentence
+ *   missing         required firmware not there and arcade zips not found; optional firmware
+ *                   never counts
+ *   check           required firmware there but of another dump (mismatch): not missing, still
+ *                   to be looked at. Systems with something missing come first, then those to check
+ *   complete        no system misses anything or has anything to check
  *
  * Cores are the server's job (the retro pack supplies them); the firmware and
  * arcade BIOS are the operator's. Nothing here writes or fetches a file.
@@ -25,16 +29,24 @@
  * packStatus groups games by that field, so its core shows here unchanged.
  */
 import path from "path";
-import { BIOS, consoleFirmwarePath, firmwareRenames, md5Cache, nameMatches, ruleGroups } from "./bios.js";
+import { BIOS, firmwareDelivery, firmwareRenames, md5Cache, ruleGroups } from "./bios.js";
 import { dependencies, setInfo } from "./arcade.js";
 import { packStatus } from "./pack-status.js";
 
 export const CORE_NOTE = "Cores are Switch .nro files built for libnx, named <core>_libretro_libnx.nro: the .dll, .so or .dylib cores of PC RetroArch do not run on the Switch. "
   + "On the server they go in retroarch/cores/ under the retro folder; the console gets them in sdmc:/retroarch/cores/.";
 
-const CORE_WARN = new Set(["missing", "not-in-bundle", "failed"]);
+/** Every core state a pack may report; the admin page has words for each and a generic one for any other. */
+export const CORE_STATES = ["present", "missing", "installing", "will-install", "pinned", "nightly", "operator-owned",
+  "held", "not-in-bundle", "not-in-nightly", "failed"];
+/** The machine reasons a pack may give with a state; the page words each and falls back to a generic sentence. */
+export const CORE_REASONS = ["download", "install", "rollback", "disk-floor", "crc-mismatch", "bad-zip", "sha256", "hash",
+  "not-in-nightly", "in-trash", "auto-off"];
+// The states with which the games of that system do not start.
+const CORE_WARN = new Set(["missing", "not-in-bundle", "not-in-nightly", "failed"]);
 const lower = (s) => String(s).toLowerCase();
 const baseOf = (f) => f.slice(f.lastIndexOf("/") + 1);
+const dirOf = (f) => f.slice(0, Math.max(0, f.lastIndexOf("/")));
 
 /** One core of a system as the view shows it. Pure. */
 export function coreView(c) {
@@ -42,7 +54,7 @@ export function coreView(c) {
   const state = typeof c.state === "string" && c.state ? c.state : c.installed ? "present" : "missing";
   return {
     core: c.core, file, server: `retroarch/${c.file}`, console: `sdmc:/retroarch/${c.file}`, games: c.games, state,
-    warn: CORE_WARN.has(state), ...(c.reason ? { reason: String(c.reason) } : {}),
+    warn: CORE_WARN.has(state), ...(c.reason ? { reason: String(c.reason) } : {}), ...(c.message ? { message: String(c.message) } : {}),
   };
 }
 
@@ -53,25 +65,32 @@ function applicable(rule, exts) {
   return groups.filter((g) => g.required || !required.has(g.files.join("\0")));
 }
 
-/** One group's state, looked up by name first, then by a documented md5 under another name. */
-async function groupState(id, rule, group, ctx) {
+/**
+ * The files the core reads as `want`, as delivered to the console: the one at that path, then for a
+ * core that searches subfolders (NeoCD) those under it. A file known by md5 is looked for only when
+ * nothing has that path by name, so the hashes are read only then.
+ */
+async function reaching(rule, want, ctx) {
+  const w = lower(want);
+  let at = ctx.named;
+  if (!at.has(w) && rule.md5?.[want]) at = await ctx.hashed();
+  const nested = rule.nested ? [...at.values()].filter((f) => lower(f.path) !== w && lower(baseOf(f.path)) === lower(baseOf(want)) && lower(f.path).startsWith(`${lower(dirOf(want))}/`)) : [];
+  return [...(at.has(w) ? [at.get(w)] : []), ...nested.sort((a, b) => (a.rel < b.rel ? -1 : 1))];
+}
+
+/** One group's state: the first of its files the console gets with a documented md5 (or none known), else another dump, else missing. */
+async function groupState(rule, group, ctx) {
   let mismatch = null;
   for (const want of group.files) {
     const hashes = rule.md5?.[want];
-    for (const file of ctx.files.filter((f) => nameMatches(f, want, id, rule))) {
-      const actual = hashes ? await ctx.cache.md5(path.join(ctx.dir, file)) : null;
-      if (!hashes || !actual || hashes.includes(actual)) return { state: "present", file, console: `retroarch/system/${consoleFirmwarePath(file, ctx.rules)}` };
-      mismatch ??= { state: "mismatch", file, md5: { expected: hashes, actual } };
+    for (const f of await reaching(rule, want, ctx)) {
+      const where = { file: f.rel, ...(f.rank === 3 ? { recognizedAs: want } : {}), console: `retroarch/system/${f.path}` };
+      const actual = hashes ? await ctx.cache.md5(path.join(ctx.dir, f.rel)) : null;
+      if (!hashes || !actual || hashes.includes(actual)) return { state: "present", ...where };
+      mismatch ??= { state: "mismatch", ...where, md5: { expected: hashes, actual } };
     }
   }
-  if (mismatch) return mismatch;
-  const known = group.files.filter((want) => rule.md5?.[want]);
-  const renames = known.length ? await ctx.renames() : new Map();
-  for (const want of known) {
-    const file = [...renames].find(([, as]) => as === want)?.[0];
-    if (file) return { state: "present", file, recognizedAs: want, console: `retroarch/system/${want}` };
-  }
-  return { state: "missing" };
+  return mismatch ?? { state: "missing" };
 }
 
 /** Where FBNeo finds a BIOS or parent zip besides the game's folder: system/fbneo/ or system/ itself. */
@@ -108,24 +127,29 @@ function arcadeView(games, files) {
  */
 export async function requirements({ games, systems, packDir, firmwareDir, files, cache = md5Cache, rules = BIOS }) {
   const pack = packStatus(packDir, games, systems);
-  let renames = null;
-  // Files known by their md5 under another name, looked for only when some file is missing by name.
-  const ctx = { files, cache, rules, dir: firmwareDir, renames: () => (renames ??= firmwareRenames(firmwareDir, files, cache, rules)) };
+  let hashed = null;
+  // What the console gets by name, and with the files known by md5 only when some file is missing by name.
+  const ctx = {
+    cache, dir: firmwareDir, named: firmwareDelivery(files, new Map(), rules),
+    hashed: () => (hashed ??= firmwareRenames(firmwareDir, files, cache, rules).then((renames) => firmwareDelivery(files, renames, rules))),
+  };
   const out = [];
   for (const s of pack.systems) {
     const own = games.filter((g) => g.system === s.id);
     const exts = new Set(own.map((g) => lower(path.extname(g.rel ?? ""))));
     const rule = Object.hasOwn(rules, s.id) ? rules[s.id] : null;
     const firmware = [];
-    for (const g of rule ? applicable(rule, exts) : []) firmware.push({ files: g.files, required: g.required, ...(await groupState(s.id, rule, g, ctx)) });
+    for (const g of rule ? applicable(rule, exts) : []) firmware.push({ files: g.files, required: g.required, ...(await groupState(rule, g, ctx)) });
     const arcade = arcadeView(own, files);
-    const missing = firmware.filter((f) => f.required && f.state !== "present").length
+    const missing = firmware.filter((f) => f.required && f.state === "missing").length
       + (arcade ? arcade.bios.filter((b) => b.state === "missing").length + arcade.parents.length : 0);
+    const check = firmware.filter((f) => f.required && f.state === "mismatch").length;
     out.push({
-      id: s.id, names: systems[s.id]?.names ?? { en: s.id }, games: s.games, missing,
+      id: s.id, names: systems[s.id]?.names ?? { en: s.id }, games: s.games, missing, check,
       cores: s.cores.map(coreView), firmware, ...(arcade ? { arcade } : {}),
     });
   }
-  out.sort((a, b) => Number(b.missing > 0) - Number(a.missing > 0));
-  return { note: CORE_NOTE, retroarch: pack.retroarch, complete: out.every((s) => !s.missing), systems: out };
+  const order = (s) => (s.missing ? 2 : s.check ? 1 : 0);
+  out.sort((a, b) => order(b) - order(a));
+  return { note: CORE_NOTE, retroarch: pack.retroarch, complete: out.every((s) => !s.missing && !s.check), systems: out };
 }

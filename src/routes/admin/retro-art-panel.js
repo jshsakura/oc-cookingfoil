@@ -124,7 +124,8 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .rq-ok{color:var(--good);font-weight:600;font-size:13.5px}
 .rq-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
 .rq-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:6px;align-content:start}
-.rq-card.need{border-color:rgba(var(--warn-rgb),.45)}
+.rq-card.need,.rq-card.check{border-color:rgba(var(--warn-rgb),.45)}
+.rq-tag{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--warn)}
 .rq-card h4{margin:0;font-size:13.5px;display:flex;gap:8px;align-items:baseline}.rq-card h4 span{color:var(--muted);font-weight:400;font-size:12px}
 .rq-core{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.rq-core code{font-size:11.5px}
 .rq-chips{display:flex;flex-wrap:wrap;gap:5px}
@@ -256,6 +257,10 @@ function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d
 // A folder under roms/ that no system reads would hide its games without a word.
 const rqWords=${JSON.stringify(RQ_WORDS)};
 const rqT=(k,v)=>{let s=(rqWords[adminLang]||rqWords.ko)[k]??rqWords.ko[k]??k;if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
+const rqHas=(k)=>Object.hasOwn(rqWords.ko,k);
+// A core state or reason the pack adds later still reads as words, never as a key.
+const rqCs=(state)=>rqHas('cs.'+state)?rqT('cs.'+state):rqT('cs.unknown',{state:String(state)});
+const rqReason=(code)=>!code?'':rqHas('reason.'+code)?rqT('reason.'+code):rqT('reason.other');
 const rqName=(s)=>s.names[adminLang]||s.names.en||s.id;
 const rqBase=(f)=>f.slice(f.lastIndexOf('/')+1);
 function rqChip(label,state,opts={}){const c=el('span',null,'rq-chip '+state);c.dataset.state=state;
@@ -267,19 +272,22 @@ function rqFirmwareChip(f){const n=f.files.length;
   const notes=[];if(f.recognizedAs)notes.push(rqT('recognized',{file:f.file,as:f.recognizedAs}));
   if(f.state==='mismatch')notes.push(rqT('mismatch',{file:f.file}));if(f.state==='missing'&&n>1)notes.push(rqT('anyOf',{files:f.files.join(', ')}));
   if(!f.required)notes.push(rqT('optWhy'));return rqChip(label,f.state,{optional:!f.required,notes});}
-function rqCard(s){const card=el('div',null,'rq-card'+(s.missing?' need':''));card.dataset.system=s.id;
-  const h=el('h4',rqName(s));h.append(el('span',rqT('games',{n:s.games})));card.append(h);
-  for(const c of s.cores){const line=el('div',null,'rq-core');line.append(rqT('core',{file:''}),el('code',c.file),' \u00B7 '+rqT('cs.'+c.state));card.append(line);}
+function rqCard(s){const card=el('div',null,'rq-card'+(s.missing?' need':s.check?' check':''));card.dataset.system=s.id;
+  const h=el('h4',rqName(s));h.append(el('span',rqT('games',{n:s.games})));
+  // Something not there and a file of another dump are told apart: the second may still start.
+  if(s.missing||s.check)h.append(el('span',s.missing?rqT('tagMissing',{n:s.missing}):rqT('tagCheck'),'rq-tag'));card.append(h);
+  for(const c of s.cores){const line=el('div',null,'rq-core');line.append(rqT('core',{file:''}),el('code',c.file),' \u00B7 '+rqCs(c.state));card.append(line);}
   const chips=el('div',null,'rq-chips');chips.append(...s.firmware.map(rqFirmwareChip));
   if(s.arcade){chips.append(...s.arcade.bios.map((b)=>rqChip(b.zip,b.state,{notes:[rqT('games',{n:b.sets})]})));
     if(s.arcade.parents.length)chips.append(rqChip(rqT('parents',{n:s.arcade.parents.length}),'missing',{notes:[s.arcade.parents.slice(0,20).map((p)=>p.zip).join(', ')]}));}
   if(chips.childElementCount)card.append(chips);
-  if(s.missing){const fw=s.firmware.some((f)=>f.required&&f.state!=='present'),arc=s.arcade&&(s.arcade.parents.length||s.arcade.bios.some((b)=>b.state==='missing'));
+  if(s.missing||s.check){const fw=s.firmware.some((f)=>f.required&&f.state==='missing'),arc=s.arcade&&(s.arcade.parents.length||s.arcade.bios.some((b)=>b.state==='missing'));
     const mm=s.firmware.some((f)=>f.required&&f.state==='mismatch');
     card.append(el('p',[fw?rqT('hintFw'):'',arc?rqT('hintArc'):'',mm?rqT('hintMd5'):''].filter(Boolean).join(' '),'rq-hint'));}
   return card;}
-function rqCoreWarn(s,c){const v={system:rqName(s),n:c.games,file:c.file,reason:c.reason||''};
-  return el('p',rqT(c.state==='not-in-bundle'?'coreNotInBundle':c.state==='failed'?'coreFailed':'coreMissing',v).trim(),'warn-line');}
+const RQ_CORE_WARN={'not-in-bundle':'coreNotInBundle','not-in-nightly':'coreNotInNightly',failed:'coreFailed'};
+function rqCoreWarn(s,c){const v={system:rqName(s),n:c.games,file:c.file,reason:rqReason(c.reason)};
+  const p=el('p',rqT(RQ_CORE_WARN[c.state]||'coreMissing',v).trim(),'warn-line');if(c.message)p.title=c.message;return p;}
 function raBios(list,unread,pack,shadowed=[]){
   const req=raData&&raData.requirements;const systems=req?req.systems:[];
   const out=[];
@@ -289,7 +297,7 @@ function raBios(list,unread,pack,shadowed=[]){
   if(unread.length)out.push(el('p',rqT('unread',{folders:unread.join(', ')}),'warn-line'));
   // A look-alike of a known system: its own folder already has games, so this one waits.
   out.push(...shadowed.map((f)=>el('p',raFill('sc.shadowed',{alias:f.folder,canonical:f.by,system:f.names[adminLang]||f.names.en||f.system}),'warn-line')));
-  const need=systems.filter((s)=>s.missing),done=systems.filter((s)=>!s.missing&&(s.firmware.length||(s.arcade&&s.arcade.bios.length)));
+  const need=systems.filter((s)=>s.missing||s.check),done=systems.filter((s)=>!s.missing&&!s.check&&(s.firmware.length||(s.arcade&&s.arcade.bios.length)));
   if(req&&systems.length&&!need.length)out.push(el('p','\u2713 '+rqT('allOk'),'rq-ok'));
   if(need.length){const box=el('div',null,'rq-cards');box.id='rq-need';box.append(...need.map(rqCard));out.push(box);}
   if(done.length){const d=el('details',null,'rq-done');d.id='rq-done';d.append(el('summary','\u2713 '+rqT('okList',{n:done.length})));

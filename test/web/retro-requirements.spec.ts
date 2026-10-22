@@ -106,3 +106,47 @@ test('the needs show in all four languages, missing systems first, a failed core
   // Nothing here offers a firmware or core download.
   await expect(page.locator('#ra-bios a')).toHaveCount(0);
 });
+
+const core = (name: string, state: string, extra: Record<string, unknown> = {}) => ({
+  core: name, file: `${name}_libretro_libnx.nro`, server: `retroarch/cores/${name}_libretro_libnx.nro`,
+  console: `sdmc:/retroarch/cores/${name}_libretro_libnx.nro`, games: 1, state, warn: ['missing', 'not-in-bundle', 'not-in-nightly', 'failed'].includes(state), ...extra,
+});
+const sys = (id: string, cores: unknown[], rest: Record<string, unknown> = {}) => ({ id, names: { en: id, ko: id, ja: id, zh: id }, games: 1, missing: 0, check: 0, cores,
+  // An optional BIOS that is there, so the system's card (and its core line) shows in the folded list.
+  firmware: [{ files: ['x.bin'], required: false, state: 'present', file: 'x.bin', console: 'retroarch/system/x.bin' }], ...rest });
+
+test('every core state reads as words, a new one too, and a BIOS of another dump is to check, not missing', async ({ page }) => {
+  const states = ['present', 'pinned', 'nightly', 'held', 'installing', 'will-install', 'operator-owned', 'missing', 'not-in-bundle', 'not-in-nightly', 'failed', 'some-new-state'];
+  const needs = {
+    note: 'Cores are Switch .nro files', retroarch: 'installed', complete: false,
+    systems: [
+      sys('pcecd', [core('mednafen_pce_fast', 'present')], { check: 1, firmware: [{ files: ['syscard3.pce'], required: true, state: 'mismatch', file: 'syscard3.pce', console: 'retroarch/system/syscard3.pce', md5: { expected: ['0'], actual: '1' } }] }),
+      ...states.map((state, i) => sys(`s${i}`, [core(`c${i}`, state, state === 'failed' ? { reason: 'download', message: 'HTTP 500' } : state === 'missing' ? { reason: 'a-code-nobody-knows' } : {})])),
+    ],
+  };
+  await page.route('**/admin/api/retro-art', async (route) => {
+    const body = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...body, requirements: needs, unread: [], shadowed: [] } });
+  });
+  await signIn(page);
+  for (const lang of ['ko', 'en', 'ja', 'zh']) {
+    await openRetro(page, lang);
+    const bios = page.locator('#ra-bios');
+    await bios.locator('#rq-done summary').click();
+    const text = await bios.innerText();
+    expect(text).not.toMatch(/\b(cs|reason)\.[a-z-]+/);
+    expect(text).toContain('some-new-state');
+    const pce = bios.locator('#rq-need .rq-card[data-system="pcecd"]');
+    await expect(pce).toHaveClass(/\bcheck\b/);
+    await expect(pce).not.toHaveClass(/\bneed\b/);
+    await expect(pce.locator('.rq-chip')).toHaveClass(/\bmismatch\b/);
+    await expect(bios.locator('.warn-line', { hasText: 'c8_libretro_libnx.nro' })).toBeVisible();
+    await expect(bios.locator('.warn-line', { hasText: 'c9_libretro_libnx.nro' })).toBeVisible();
+    await expect(bios.locator('.warn-line', { hasText: 'c10_libretro_libnx.nro' })).toHaveAttribute('title', 'HTTP 500');
+    await expect(bios.locator('.warn-line', { hasText: 'c10_libretro_libnx.nro' })).not.toHaveText(/\.\s*download$/);
+    await expect(bios.locator('.warn-line', { hasText: 'c1_libretro_libnx.nro' })).toHaveCount(0);
+  }
+  await openRetro(page, 'ko');
+  await expect(page.locator('#rq-need .rq-card[data-system="pcecd"] .rq-tag')).toHaveText('다른 덤프');
+  await expect(page.locator('.warn-line', { hasText: 'c10_libretro_libnx.nro' })).toContainText('내려받지 못했습니다.');
+});

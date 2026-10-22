@@ -6,10 +6,11 @@
  *   retroarch.cfg     → sdmc:/retroarch/retroarch.cfg   (written only if missing)
  *   anything else     → sdmc:/retroarch/<same path>      (cores/, assets/, system/, …)
  *
- * except a firmware file of system/ that the BIOS table knows, which goes
- * where its core looks whatever case or folder the operator used
- * (bios.js consoleFirmwarePath: a NeoCD BIOS at the top goes into neocd/), or
- * by its md5 under another name (bios.js firmwareRenames).
+ * except a NeoCD BIOS at the top of system/, which goes into system/neocd/
+ * where that core looks. A firmware file the BIOS table recognises in another
+ * folder or by its md5 under another name also goes, once (never over the
+ * console's own file), to the path its core reads while no file of the pack
+ * has that path (bios.js firmwareDelivery).
  *
  * A config the pack sends (retroarch.cfg, config/<core>/*.cfg) goes out without
  * its cheevos_ lines: the client writes the RetroAchievements sign-in into the
@@ -24,7 +25,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import { HashCache } from "../helpers/hash-cache.js";
-import { BIOS, consoleFirmwarePath, firmwareRenames, md5Cache } from "./bios.js";
+import { BIOS, firmwareDelivery, firmwareRenames, md5Cache, packFirmwarePath } from "./bios.js";
 import { dataDir } from "../helpers/envs.js";
 
 export { HashCache };
@@ -36,7 +37,7 @@ export function sdPathOf(rel) {
   const parts = rel.split("/");
   if (parts.some((p) => !p || p === "." || p === ".." || p.startsWith("."))) return null;
   if (rel === "retroarch.nro") return "switch/retroarch_switch.nro";
-  if (parts[0] === "system" && parts.length > 1) return `retroarch/system/${consoleFirmwarePath(parts.slice(1).join("/"))}`;
+  if (parts[0] === "system" && parts.length > 1) return `retroarch/system/${packFirmwarePath(parts.slice(1).join("/"))}`;
   return `retroarch/${rel}`;
 }
 
@@ -81,21 +82,22 @@ async function cleaned(entry, cleanDir) {
 
 /** The pack's files with their SD paths and stats (no SHA-256; only small unknown firmware files get an md5). */
 export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean"), firmware = {} } = {}) {
-  const bySd = new Map();
   const rels = await walk(packDir);
+  const rules = firmware.rules ?? BIOS;
   const system = rels.filter((r) => r.startsWith("system/")).map((r) => r.slice("system/".length));
-  const renames = await firmwareRenames(path.join(packDir, "system"), system, firmware.cache ?? md5Cache, firmware.rules ?? BIOS);
-  for (const rel of rels) {
-    const known = rel.startsWith("system/") ? renames.get(rel.slice("system/".length)) : null;
-    const sd = known && sdPathOf(rel) ? `retroarch/system/${known}` : sdPathOf(rel);
+  const renames = await firmwareRenames(path.join(packDir, "system"), system, firmware.cache ?? md5Cache, rules);
+  const sources = [
+    ...rels.filter((r) => !r.startsWith("system/")).map((rel) => ({ rel, sd: sdPathOf(rel), copy: false })),
+    ...[...firmwareDelivery(system, renames, rules).values()].map((f) => ({ rel: `system/${f.rel}`, sd: `retroarch/system/${f.path}`, copy: f.copy })),
+  ];
+  const out = [];
+  for (const { rel, sd, copy } of sources) {
     if (!sd) continue;
-    // A moved file never replaces one the operator already put at that place.
-    if (bySd.has(sd) && sd !== `retroarch/${rel}`) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
-    bySd.set(sd, await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino, once: ONCE.has(sd) }, cleanDir));
+    out.push(await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino, once: ONCE.has(sd) || copy }, cleanDir));
   }
-  return [...bySd.values()].sort((a, b) => (a.path < b.path ? -1 : 1));
+  return out.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 /** { version, files: [{ path, size, sha256, once? }] } for the pack. */

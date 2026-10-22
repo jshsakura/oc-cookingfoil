@@ -20,8 +20,9 @@
  * The operator manages the files; the server never renames or moves them. It
  * recognises them where people usually put them: any letter case, at the top
  * of system/, or in a folder named after the system (id or server folder), its
- * core, or "bios". The base pack then sends each to the console under the path
- * its core reads (consoleFirmwarePath, firmwareRenames).
+ * core, or "bios", or by md5 under another name. The base pack sends every
+ * file at its own path and, while nothing is there, one more copy of a
+ * recognised file under the path its core reads (firmwareDelivery).
  *
  * Sources: the BIOS table of each core's page in the libretro docs
  * (github.com/libretro/docs, docs/library/<core>.md) and the core's info file
@@ -34,6 +35,7 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { fileKey } from "../helpers/hash-cache.js";
 import { DEFAULT_SYSTEMS } from "./systems.js";
 
 // NeoCD takes any one of these (front loader, top loader, CDZ, Universe BIOS),
@@ -105,6 +107,8 @@ export const FIRMWARE_HASH_MAX = 64 * 1024 * 1024;
 const lower = (s) => String(s).toLowerCase();
 const baseOf = (f) => f.slice(f.lastIndexOf("/") + 1);
 const dirOf = (f) => f.slice(0, Math.max(0, f.lastIndexOf("/")));
+/** A path with a hidden or empty part, which the base pack never sends. Pure. */
+const hidden = (rel) => rel.split("/").some((p) => !p || p.startsWith("."));
 
 /** Every group of a rule: { files, required, ext? }, the required ones first. Pure. */
 export function ruleGroups(rule) {
@@ -143,10 +147,10 @@ function nameIndex(rules) {
 const NAMES = nameIndex(BIOS);
 
 /**
- * Where a file of the system folder goes on the console: under the path its
- * core reads when the table knows it by name (SCPH5501.BIN → scph5501.bin,
- * bios/neocd_f.rom → neocd/neocd_f.rom); a NeoCD file already somewhere under
- * neocd/ and any other file stay where they are. Pure.
+ * The path a file of the system folder's core reads it under when the table
+ * knows it by name (SCPH5501.BIN → scph5501.bin, bios/neocd_f.rom →
+ * neocd/neocd_f.rom); a NeoCD file already somewhere under neocd/ and any
+ * other file keep their path. Pure.
  */
 export function consoleFirmwarePath(rel, rules = BIOS) {
   const names = rules === BIOS ? NAMES : nameIndex(rules);
@@ -157,6 +161,46 @@ export function consoleFirmwarePath(rel, rules = BIOS) {
     return want;
   }
   return rel;
+}
+
+/** Where the base pack sends a file of the system folder: its own path, but a NeoCD BIOS at the top goes into neocd/. Pure. */
+export function packFirmwarePath(rel) {
+  return !rel.includes("/") && NEOCD.includes(rel) ? `${NEOCD_DIR}/${rel}` : rel;
+}
+
+/**
+ * Which file of the system folder the console gets at each path, one source
+ * per path: Map(lower-case path → { rel, path, copy, rank }). Every file goes
+ * at its own path (packFirmwarePath). A file known by name somewhere else
+ * (consoleFirmwarePath) or by md5 (`renames`, from firmwareRenames) also goes
+ * as a copy to the path its core reads, only while no file has that path.
+ * The console's file system ignores case, so paths that differ only in case
+ * are one path. When several files want one path, the first wins of: a file
+ * named exactly as its core reads it (rank 0), any other at its own path (1),
+ * a copy of a file known by name (2), a copy of a file known by md5 (3); then
+ * the first name in code point order. The base pack and the requirements view
+ * both read this, so the view shows the very file the console gets. Pure.
+ */
+export function firmwareDelivery(files, renames = new Map(), rules = BIOS) {
+  const out = new Map();
+  const offer = (rank, rel, at, copy) => {
+    const had = out.get(lower(at));
+    if (had && (had.rank < rank || (had.rank === rank && had.rel < rel))) return;
+    out.set(lower(at), { rel, path: at, copy, rank });
+  };
+  const shown = files.filter((rel) => !hidden(rel));
+  for (const rel of shown) {
+    const own = packFirmwarePath(rel);
+    offer(own === rel && consoleFirmwarePath(rel, rules) === rel ? 0 : 1, rel, own, false);
+  }
+  const taken = new Set(out.keys());
+  for (const rel of shown) {
+    const named = consoleFirmwarePath(rel, rules);
+    const byName = lower(named) !== lower(rel);
+    const want = byName ? named : renames.get(rel);
+    if (want && !taken.has(lower(want))) offer(byName ? 2 : 3, rel, want, true);
+  }
+  return out;
 }
 
 /** retroarch/system/ (or base-pack/system/, the earlier name) under the retro folder. */
@@ -190,7 +234,7 @@ export function missingBios(systemIds, files, rules = BIOS) {
     .filter((x) => x.missing.length);
 }
 
-/** MD5 of small files, remembered by path, size and modification time; `reads` counts the files actually read. */
+/** MD5 of small files, remembered by path and fileKey (size, mtime, ctime, inode); `reads` counts the files actually read. */
 export class Md5Cache {
   constructor() {
     this.map = new Map();
@@ -201,7 +245,7 @@ export class Md5Cache {
   async md5(abs) {
     const st = await fsp.stat(abs).catch(() => null);
     if (!st?.isFile() || st.size > FIRMWARE_HASH_MAX) return null;
-    const key = `${st.size}:${st.mtimeMs}`;
+    const key = fileKey(st);
     const hit = this.map.get(abs);
     if (hit?.key === key) return hit.md5;
     const h = crypto.createHash("md5");
@@ -227,7 +271,7 @@ function hashIndex(rules) {
  * Files of the system folder that the table does not know by name but whose
  * md5 is a documented dump: Map(rel → the path its core reads). Only files at
  * the top or in a system, core or "bios" folder are hashed, and each once
- * while its size and time stay the same.
+ * while it stays the same (Md5Cache).
  */
 export async function firmwareRenames(dir, files, cache = md5Cache, rules = BIOS) {
   const names = nameIndex(rules);
@@ -235,7 +279,7 @@ export async function firmwareRenames(dir, files, cache = md5Cache, rules = BIOS
   const folders = new Set(Object.keys(rules).flatMap((id) => [...homes(id)]));
   const out = new Map();
   for (const rel of files) {
-    if (names.has(lower(baseOf(rel)))) continue;
+    if (hidden(rel) || names.has(lower(baseOf(rel)))) continue;
     const dir1 = dirOf(rel);
     if (dir1 && !folders.has(lower(dir1.split("/")[0]))) continue;
     const md5 = await cache.md5(path.join(dir, rel));

@@ -7,7 +7,7 @@ import path from "node:path";
 import { DEFAULT_SYSTEMS } from "../../src/retro/systems.js";
 import { BIOS, Md5Cache, consoleFirmwarePath, firmwareRenames, listFirmware, missingBios } from "../../src/retro/bios.js";
 import { CORE_NOTE, requirements } from "../../src/retro/requirements.js";
-import { listPack } from "../../src/retro/base-pack.js";
+import { HashCache, buildManifest, listPack } from "../../src/retro/base-pack.js";
 import { coreFile } from "../../src/retro/pack-status.js";
 
 const md5 = (s) => crypto.createHash("md5").update(s).digest("hex");
@@ -82,11 +82,99 @@ test("a misnamed file with a known hash is recognised and reaches the console un
   assert.equal(fw.console, "retroarch/system/gba_bios.bin");
 });
 
-test("the base pack sends a misnamed but known firmware under its expected name", async () => {
-  const r = retro({ "system/psx.bin": "x" });
-  const known = md5("x");
-  const pack = await listPack(r.pack, { cleanDir: path.join(r.root, "clean"), firmware: { cache: new Md5Cache(), rules: { ps1: { groups: [], extra: [{ files: ["scph5501.bin"] }], md5: { "scph5501.bin": [known] } } } } });
-  assert.deepEqual(pack.map((f) => f.path), ["retroarch/system/scph5501.bin"]);
+const packPaths = async (r, rules) => (await listPack(r.pack, { cleanDir: path.join(r.root, "clean"), firmware: { cache: new Md5Cache(), rules } }));
+const GB = { gb: { groups: [], extra: [{ files: ["gb_bios.bin"] }], md5: { "gb_bios.bin": [md5("boot")] } } };
+
+test("a firmware known by its md5 keeps its own path, and one copy goes where its core reads only while nothing is there", async () => {
+  const r = retro({ "system/dmg_boot.bin": "boot" });
+  const alone = await packPaths(r, GB);
+  assert.deepEqual(alone.map((f) => [f.path, path.basename(f.abs), Boolean(f.once)]), [
+    ["retroarch/system/dmg_boot.bin", "dmg_boot.bin", false],
+    ["retroarch/system/gb_bios.bin", "dmg_boot.bin", true],
+  ], "Gearboy still reads dmg_boot.bin; the copy never replaces a file the console already has");
+
+  fs.writeFileSync(path.join(r.system, "GB_BIOS.BIN"), "the operator's own");
+  const both = await packPaths(r, GB);
+  assert.deepEqual(both.map((f) => [f.path, path.basename(f.abs)]), [
+    ["retroarch/system/GB_BIOS.BIN", "GB_BIOS.BIN"],
+    ["retroarch/system/dmg_boot.bin", "dmg_boot.bin"],
+  ], "a file already at that place (any case, the console's file system ignores it) wins and nothing else goes there");
+});
+
+test("a file with the same md5 as one that is there is still sent under its own name", async () => {
+  const rules = { sms: { groups: [], extra: [{ files: ["bios_J.sms"] }], md5: { "bios_J.sms": [md5("sms")] } } };
+  const r = retro({ "system/bios.sms": "sms", "system/bios_J.sms": "sms" });
+  assert.deepEqual((await packPaths(r, rules)).map((f) => [f.path, path.basename(f.abs)]), [
+    ["retroarch/system/bios.sms", "bios.sms"],
+    ["retroarch/system/bios_J.sms", "bios_J.sms"],
+  ]);
+});
+
+test("one console path has one source: the exactly named file, then a file known by name, then by md5, then the first name", async () => {
+  const r = retro({ "system/b.bin": "boot", "system/a.bin": "boot" });
+  const md5Twins = await packPaths(r, GB);
+  assert.equal(path.basename(md5Twins.find((f) => f.path === "retroarch/system/gb_bios.bin").abs), "a.bin", "two md5 matches: the first name");
+
+  const named = retro({ "system/gb/gb_bios.bin": "x", "system/a.bin": "boot" });
+  const byName = await packPaths(named, GB);
+  assert.deepEqual(byName.map((f) => [f.path, path.relative(named.system, f.abs)]), [
+    ["retroarch/system/a.bin", "a.bin"],
+    ["retroarch/system/gb/gb_bios.bin", path.join("gb", "gb_bios.bin")],
+    ["retroarch/system/gb_bios.bin", path.join("gb", "gb_bios.bin")],
+  ], "a file known by its name in a system folder beats one known by md5");
+
+  const cased = retro({ "system/SCPH5501.BIN": "upper", "system/scph5501.bin": "lower", "system/Scph5501.bin": "mixed" });
+  assert.deepEqual((await packPaths(cased, BIOS)).map((f) => [f.path, path.basename(f.abs)]), [["retroarch/system/scph5501.bin", "scph5501.bin"]]);
+  const noExact = retro({ "system/Scph5501.bin": "mixed", "system/SCPH5501.BIN": "upper" });
+  assert.deepEqual((await packPaths(noExact, BIOS)).map((f) => [f.path, path.basename(f.abs)]), [["retroarch/system/SCPH5501.BIN", "SCPH5501.BIN"]], "then the first name");
+});
+
+test("a pack without misnamed firmware gets the very manifest it got before", async () => {
+  const r = retro({
+    "retroarch.nro": "nro", "retroarch.cfg": "video_driver = \"deko3d\"\n",
+    "cores/mgba_libretro_libnx.nro": "core", "assets/x.png": "png", "config/mGBA/mGBA.cfg": "a = 1\n",
+    "system/scph5501.bin": "not a real bios", "system/SCPH1001.BIN": "another", "system/neocd_z.rom": "nz", "system/.hidden": "h",
+    "system/BS-X.bin": "bsx", "system/neocd/front/neocd_f.rom": "neo2", "system/bios.sms": "sms",
+  });
+  const store = new Map();
+  const { version, files } = await buildManifest(r.pack, new HashCache({ get: (k) => store.get(k), set: (k, v) => store.set(k, v), prune: () => {} }));
+  // Built with the same files by the code on main before firmware was recognised.
+  assert.equal(JSON.stringify({ version, files }), MAIN_MANIFEST);
+});
+
+// The manifest main built from these files: the files with their sizes and SHA-256, and main's version for them.
+const sha = (body) => crypto.createHash("sha256").update(body).digest("hex");
+const MAIN_MANIFEST = JSON.stringify({
+  version: "6e3131b4208a2478",
+  files: [
+    ["retroarch/assets/x.png", "png"], ["retroarch/config/mGBA/mGBA.cfg", "a = 1\n"], ["retroarch/cores/mgba_libretro_libnx.nro", "core"],
+    ["retroarch/retroarch.cfg", "video_driver = \"deko3d\"\n", true], ["retroarch/system/BS-X.bin", "bsx"], ["retroarch/system/SCPH1001.BIN", "another"],
+    ["retroarch/system/bios.sms", "sms"], ["retroarch/system/neocd/front/neocd_f.rom", "neo2"], ["retroarch/system/neocd/neocd_z.rom", "nz"],
+    ["retroarch/system/scph5501.bin", "not a real bios"], ["switch/retroarch_switch.nro", "nro"],
+  ].map(([p, body, once]) => ({ path: p, size: Buffer.byteLength(body), sha256: sha(body), ...(once ? { once } : {}) })),
+});
+
+test("the view shows the file the console gets when two differ only by case", async () => {
+  const rules = { ps1: { groups: [["scph5501.bin"]], md5: { "scph5501.bin": [md5("good dump")] } } };
+  const r = retro({ "system/scph5501.bin": "bad dump", "system/SCPH5501.BIN": "good dump" });
+  const delivered = (await packPaths(r, rules)).find((f) => f.path.toLowerCase() === "retroarch/system/scph5501.bin");
+  const fw = (await view(r, [{ system: "ps1", core: "pcsx_rearmed", rel: "a.cue" }], { rules })).systems[0].firmware[0];
+  assert.equal(fw.file, path.basename(delivered.abs));
+  assert.equal(fw.state, "mismatch", "the good dump next to it never reaches the console");
+});
+
+test("a firmware's md5 is read again when its content changes even if the time is put back", async () => {
+  const r = retro({ "system/a.bin": Buffer.alloc(1024, 1) });
+  const file = path.join(r.system, "a.bin");
+  const then = new Date("2020-01-01");
+  fs.utimesSync(file, then, then);
+  const cache = new Md5Cache();
+  const before = await cache.md5(file);
+  fs.writeFileSync(`${file}.new`, Buffer.alloc(1024, 2));
+  fs.utimesSync(`${file}.new`, then, then);
+  fs.renameSync(`${file}.new`, file); // what an SMB or cp -p copy over the old file does
+  assert.notEqual(await cache.md5(file), before);
+  assert.equal(cache.reads, 2);
 });
 
 test("each firmware is present, missing, or present with another hash, and optional ones never count as missing", async () => {
@@ -95,12 +183,15 @@ test("each firmware is present, missing, or present with another hash, and optio
   const pce = out.systems.find((s) => s.id === "pcecd");
   assert.equal(pce.firmware[0].state, "mismatch");
   assert.equal(pce.firmware[0].md5.actual, md5("a bad dump"));
-  assert.equal(pce.missing, 1);
+  assert.equal(pce.missing, 0, "another dump is there, not missing");
+  assert.equal(pce.check, 1, "but it is counted apart, to be checked");
   const gba = out.systems.find((s) => s.id === "gba");
   assert.deepEqual(gba.firmware.map((f) => [f.files[0], f.required, f.state]), [["gba_bios.bin", false, "missing"]]);
   assert.equal(gba.missing, 0, "optional");
-  assert.equal(out.complete, false);
+  assert.equal(out.complete, false, "a required BIOS of another dump still leaves the library incomplete");
   assert.deepEqual(out.systems.map((s) => s.id), ["pcecd", "gba"], "systems that still need something come first");
+  const none = await view(retro({}), [{ system: "gba", core: "mgba", rel: "b.gba" }, { system: "pcecd", core: "mednafen_pce_fast", rel: "a.cue" }]);
+  assert.deepEqual(none.systems.map((s) => [s.id, s.missing, s.check]), [["pcecd", 1, 0], ["gba", 0, 0]]);
 
   fs.writeFileSync(path.join(r.system, "syscard3.pce"), "good syscard");
   const fixed = await view(r, [{ system: "pcecd", core: "mednafen_pce_fast", rel: "a.cue" }]);
@@ -152,6 +243,23 @@ test("a core state the pack reports wins over the file check, and only a failed 
   assert.equal(coreView({ core: "x", file: coreFile("x"), games: 1, installed: false, state: "failed", reason: "hash" }).warn, true);
   assert.equal(coreView({ core: "x", file: coreFile("x"), games: 1, installed: false, state: "failed", reason: "hash" }).reason, "hash");
   assert.equal(coreView({ core: "x", file: coreFile("x"), games: 1, installed: false, state: "not-in-bundle" }).warn, true);
+});
+
+test("every core state and failure reason the pack may report reads as words in all four languages, and the broken ones warn", async () => {
+  const { CORE_REASONS, CORE_STATES, coreView } = await import("../../src/retro/requirements.js");
+  const { RQ_WORDS } = await import("../../src/routes/admin/retro-requirements-words.js");
+  const fromAutoCores = ["present", "pinned", "installing", "will-install", "missing", "held", "not-in-nightly", "failed"];
+  for (const state of [...fromAutoCores, "not-in-bundle", "operator-owned", "nightly"]) assert.ok(CORE_STATES.includes(state), state);
+  const warns = CORE_STATES.filter((state) => coreView({ core: "x", file: coreFile("x"), games: 1, state }).warn);
+  assert.deepEqual(warns.sort(), ["failed", "missing", "not-in-bundle", "not-in-nightly"]);
+  for (const reason of ["download", "install", "rollback", "disk-floor", "crc-mismatch", "bad-zip", "in-trash", "auto-off"]) assert.ok(CORE_REASONS.includes(reason), reason);
+  for (const [lang, words] of Object.entries(RQ_WORDS)) {
+    for (const key of [...CORE_STATES.map((x) => `cs.${x}`), "cs.unknown", ...CORE_REASONS.map((x) => `reason.${x}`), "reason.other", "coreNotInNightly"]) {
+      assert.ok(typeof words[key] === "string" && words[key].trim(), `${lang} ${key}`);
+    }
+  }
+  const failed = coreView({ core: "x", file: coreFile("x"), games: 1, state: "failed", reason: "download", message: "HTTP 500" });
+  assert.deepEqual([failed.reason, failed.message], ["download", "HTTP 500"], "the code is turned into words by the page, the server's own sentence goes along");
 });
 
 test("arcade sets sum up the BIOS they need and the parents that are not there", async () => {
