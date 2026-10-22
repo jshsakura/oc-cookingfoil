@@ -78,3 +78,15 @@ test("hashOf works out a hash on demand and keeps it for the pass", async () => 
   assert.equal(romHashes.known(a), md5(rom(0x1000, 13)));
   assert.equal((await romHashes.pass([a], { pauseMs: 0 })).hashed, 0);
 });
+
+test("pending holds from queueing a catalog with unhashed games until its pass is done", async () => {
+  const a = game("snes-e1", "snes", "a.sfc", rom(0x1000, 17));
+  assert.equal(romHashes.pending(), false);
+  const run = romHashes.queue([a]);
+  assert.equal(romHashes.pending(), true, "a game never hashed: the list is partial");
+  await run;
+  assert.equal(romHashes.pending(), false);
+  assert.ok(romHashes.known(a));
+  await romHashes.queue([a]);
+  assert.equal(romHashes.pending(), false, "nothing new to read");
+});

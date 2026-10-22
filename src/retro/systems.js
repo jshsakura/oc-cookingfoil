@@ -283,11 +283,45 @@ export function systemOfExtension(ext, systems) {
   return hits.length === 1 ? hits[0][0] : null;
 }
 
-/** Folders under roms/ that no system reads, by name. */
-export function unreadFolders(retroDir, systems) {
-  const read = new Set(Object.values(systems).map((s) => s.folder));
-  return romFolders(retroDir).filter((f) => !read.has(f));
+// What an OS leaves in a folder it has shown (dot files such as .DS_Store aside): never a game.
+const OS_LITTER = new Set(["thumbs.db", "desktop.ini", "ehthumbs.db"]);
+
+/** Whether roms/<folder> holds anything but dot files and OS litter; reads only up to the first such entry. */
+function hasEntries(retroDir, folder) {
+  let dir;
+  try {
+    dir = fs.opendirSync(path.join(retroDir, "roms", folder));
+    for (let e = dir.readSync(); e; e = dir.readSync()) {
+      if (!e.name.startsWith(".") && !OS_LITTER.has(e.name.toLowerCase())) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    dir?.closeSync();
+  }
 }
+
+/**
+ * Folders under roms/ that no system reads, each with why: { folder, system, by }. `system` and `by` are set
+ * when the folder is a look-alike of a system whose read folder `by` already holds files (withFoundFolders
+ * keeps that one); both are null when no system answers to the name. A built-in system's own folder left
+ * empty for a look-alike is not listed.
+ */
+export function unreadReasons(retroDir, systems) {
+  const read = new Set(Object.values(systems).map((s) => s.folder));
+  const own = new Set(Object.values(DEFAULT_SYSTEMS).map((s) => s.folder));
+  return romFolders(retroDir)
+    .filter((f) => !read.has(f) && !(own.has(f) && !hasEntries(retroDir, f)))
+    .map((folder) => {
+      const system = systemOfFolder(folder, systems);
+      const by = system ? systems[system].folder : null;
+      return by && by !== folder && hasEntries(retroDir, by) ? { folder, system, by } : { folder, system: null, by: null };
+    });
+}
+
+/** Folders under roms/ that no system reads, by name (unreadReasons without the reasons). */
+export const unreadFolders = (retroDir, systems) => unreadReasons(retroDir, systems).map((r) => r.folder);
 
 /** A folder name an operator gave, or null when it isn't one plain name. Pure. */
 export function folderName(value) {
@@ -323,18 +357,27 @@ export function loadSystems(retroDir) {
       libretro: text(raw.libretro, base.libretro),
     };
   }
-  return withFoundFolders(out, romFolders(retroDir), new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder))));
+  const named = new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder)));
+  return withFoundFolders(out, romFolders(retroDir), named, (f) => hasEntries(retroDir, f));
 }
 
-/** Each built-in system whose folder is missing takes the first look-alike folder no other system reads. Pure. */
-function withFoundFolders(systems, folders, named) {
+/**
+ * Each built-in system whose folder is missing takes the first look-alike folder no other system reads.
+ * So does one whose folder is empty (`filled` says it holds nothing but dot files) while a look-alike holds
+ * something: the server makes the empty folders (scaffold.js) before people copy in a collection named the
+ * way other front ends name it. When both hold files the system's own folder wins, as it always has, so a
+ * server whose own folder has games reads the same folder as before. Game ids hang on the system id and the
+ * path inside the folder, not the folder's name, so they stay what that folder alone would give.
+ */
+function withFoundFolders(systems, folders, named, filled) {
   const taken = new Set(Object.values(systems).map((s) => s.folder).filter((f) => folders.includes(f)));
   const out = { ...systems };
   for (const [id, s] of Object.entries(systems)) {
-    if (named.has(id) || !DEFAULT_SYSTEMS[id] || folders.includes(s.folder)) continue;
+    if (named.has(id) || !DEFAULT_SYSTEMS[id]) continue;
+    const own = folders.includes(s.folder);
     const keys = new Set(folderKeys(id, DEFAULT_SYSTEMS[id]));
-    const found = folders.find((f) => !taken.has(f) && keys.has(keyOf(f)));
-    if (!found) continue;
+    const found = folders.find((f) => f !== s.folder && !taken.has(f) && keys.has(keyOf(f)) && (!own || filled(f)));
+    if (!found || (own && filled(s.folder))) continue;
     taken.add(found);
     out[id] = { ...s, folder: found };
   }

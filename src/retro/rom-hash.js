@@ -22,6 +22,9 @@ import { hashable, romHash } from "./achievements/hash.js";
 const PAUSE_MS = 50;
 
 let store = null;
+// A pass is reading files, or a queued catalog holds games never hashed yet.
+let hashing = false;
+let unseen = false;
 const hashes = () => (store ??= hashStore(appDb(), "retro-rom"));
 
 async function keyOf(g) {
@@ -65,6 +68,7 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
     if (key && hashes().get(g.id)?.key !== key) due.push([g, key]);
   }
   if (!due.length) return { hashed: 0 };
+  hashing = true;
   const job = activity.begin("retro-hash", { title: "레트로 게임 파일의 해시를 구합니다", total: due.length });
   try {
     for (const [i, [g, key]] of due.entries()) {
@@ -75,15 +79,24 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
   } catch (err) {
     job.fail(err);
     throw err;
+  } finally {
+    hashing = false;
   }
   job.done(`${due.length}개`);
   return { hashed: due.length };
 }
 
+/**
+ * Whether the hashes of the catalog last queued are still being worked out:
+ * a list sent now may change once they are in, so it should not be cached.
+ */
+export const pending = () => hashing || unseen;
+
 let running = null;
 let next = null;
 /** A pass over `games`; one at a time, and a catalog that comes in meanwhile is read after it. */
 export function queue(games) {
+  if (games.some((g) => hashable(g.system, g.abs) && !hashes().get(g.id))) unseen = true;
   if (running) {
     next = games;
     return running;
@@ -96,6 +109,7 @@ export function queue(games) {
       const later = next;
       next = null;
       if (later) queue(later);
+      else unseen = false;
     });
   return running;
 }

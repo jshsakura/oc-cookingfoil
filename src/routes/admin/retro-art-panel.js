@@ -26,6 +26,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="warn-line" id="ra-gh" hidden>GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다. <a href="#settings/integrations">설정 탭</a>에서 넣을 수 있습니다.</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
+  <details class="ra-scaffold" id="ra-scaffold" hidden><summary id="ra-scaffold-t"></summary><div id="ra-scaffold-b"></div></details>
   <div class="scroll" id="ra-systems" data-skel></div>
   <div class="hd"><h2 id="ra-list-title">표지가 없는 항목</h2><input id="ra-filter" placeholder="이름으로 찾기" aria-label="이름으로 찾기"></div>
   <p class="muted">자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.</p>
@@ -91,6 +92,8 @@ ${RETRO_VARIANTS_HTML}
 </dialog>`;
 
 export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
+.ra-scaffold{margin:0 0 12px}.ra-scaffold summary{cursor:pointer;font-weight:600}
+.ra-scaffold-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.ra-scaffold-list code{font-size:12.5px}
 .rm-form{display:grid;gap:12px}.rm-form label{display:grid;gap:4px}.rm-form textarea{width:100%;resize:vertical}
 .rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
@@ -198,10 +201,11 @@ $('rc-reload').addEventListener('click',loadRetroCores);
 $('rc-up-pick').addEventListener('click',()=>$('rc-up').click());
 $('rc-up').addEventListener('change',(e)=>{const f=e.target.files[0];e.target.value='';if(f)rcUpload(f);});
 async function loadRetroArt(){
+  api('/admin/api/storage-guide?format=json').then(raScaffold).catch(()=>raScaffold(null));
   try{raData=await api('/admin/api/retro-art');}catch(err){toast(err.message);return;}
   const j=raData.job;
   $('ra-sync').disabled=Boolean(j&&!j.finishedAt);$('ra-gh').hidden=raData.github!==false;
-  raBios(raData.bios||[],raData.unread||[],raData.pack);
+  raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);
   $('ra-job').textContent=!j?'':!j.finishedAt?'받고 있습니다'+(j.progress?' · '+j.progress.system+' ('+(j.progress.index+1)+'/'+j.progress.total+')':''):
     j.error?'실패했습니다: '+j.error:'마지막 정리: '+fmt(j.finishedAt)+' · '+Object.entries(j.summary||{}).map(([k,v])=>v.error?k+' 실패':k+' +'+(v.boxart||0)+'/'+(v.bezel||0)).join(', ');
   const r=raData.ratings||{},rj=r.job;const rRunning=Boolean(rj&&!rj.finishedAt);
@@ -215,14 +219,31 @@ async function loadRetroArt(){
     tr.append(td(s.name),td(String(s.games)),td(pct(s.boxart)),td(s.borrowed?String(s.borrowed):'—'),td(pct(s.bezel)),raCell(b));return tr;}),'레트로 폴더에 항목이 없습니다.');
   raList();
 }
+// The system folders the server keeps (retro/scaffold.js) and a link to the storage guide.
+let raScaffoldData=null;
+const raFill=(key,vars)=>{let s=topText(key);for(const x in vars)s=s.split('{'+x+'}').join(vars[x]);return s;};
+function raScaffoldRelabel(){if(raScaffoldData)raScaffold(raScaffoldData);if(raData)raBios(raData.bios||[],raData.unread||[],raData.pack,raData.shadowed||[]);}
+function raScaffold(d){raScaffoldData=d;const box=$('ra-scaffold');box.hidden=!d;if(!d)return;
+  const folders=d.folders||[],g=d.guide||{};
+  $('ra-scaffold-t').textContent=raFill('sc.title',{n:folders.length});
+  const lead=el('p',d.enabled===false?topText('sc.off'):d.skipped==='old-retro'?topText('sc.waiting'):d.skipped==='no-retro'?topText('sc.noRetro'):topText('sc.lead'),d.enabled===false||d.skipped?'warn-line':'muted');
+  const pills=el('div',null,'ra-scaffold-list');
+  pills.append(...folders.map((f)=>{const p=pill('');p.replaceChildren(el('code',f.folder),document.createTextNode(' '+f.name));if(f.made)p.append(el('b',' '+topText('sc.new')));return p;}));
+  const failed=(d.failed||[]).map((f)=>el('p',raFill('sc.failed',{folder:f.folder,error:f.error}),'warn-line'));
+  const state={written:'sc.gWritten',current:'sc.gWritten',edited:'sc.gEdited',foreign:'sc.gForeign',failed:'sc.gFailed',unreadable:'sc.gFailed'}[g.state];
+  const guide=el('p',state?raFill(state,{path:g.path,error:g.error||''})+' ':'','muted');
+  const a=el('a',topText('sc.guide'));a.href='/admin/api/storage-guide';a.target='_blank';a.rel='noopener';guide.append(a);
+  $('ra-scaffold-b').replaceChildren(lead,pills,...failed,guide);}
 // Only consoles that have games are listed; each line names the RetroArch, core or firmware file it still needs.
 // A folder under roms/ that no system reads would hide its games without a word.
-function raBios(list,unread,pack){
+function raBios(list,unread,pack,shadowed=[]){
   const want=(g)=>g.length>1?g.join(', ')+' 중 하나':g[0];
   const nro=pack&&pack.retroarch==='missing'?[el('p','retroarch/ 에 RetroArch 본체(retroarch.nro)가 없습니다. 이 파일이 있어야 기기에 레트로 게임을 설치할 수 있습니다.','warn-line')]:[];
   const cores=(pack?pack.systems:[]).flatMap((s)=>s.cores.filter((c)=>!c.installed).map((c)=>el('p',s.name+' 게임 '+c.games+'개를 켜려면 retroarch/'+c.file+' 파일이 있어야 합니다.','warn-line')));
   const folders=unread.length?[el('p','roms/ 안의 '+unread.join(', ')+' 폴더는 어느 기종인지 몰라 읽지 않습니다. 폴더 이름을 기종 이름(nes, snes, gba, ps1 등)으로 바꾸거나 retro/systems.json 의 folder 에 적습니다.','warn-line')]:[];
-  $('ra-bios').replaceChildren(...nro,...cores,...folders,...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
+  // A look-alike of a known system: its own folder already has games, so this one waits.
+  const held=shadowed.map((f)=>el('p',raFill('sc.shadowed',{alias:f.folder,canonical:f.by,system:f.names[adminLang]||f.names.en||f.system}),'warn-line'));
+  $('ra-bios').replaceChildren(...nro,...cores,...folders,...held,...list.map((b)=>el('p',b.name+' 게임을 켜려면 retroarch/system/ 에 '+b.missing.map(want).join(', 그리고 ')+' 파일이 있어야 합니다.','warn-line')));
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
