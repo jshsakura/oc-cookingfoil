@@ -352,7 +352,7 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 - 알려진 공격 경로, 경로 이탈, 제어 문자, 지나치게 긴 주소는 로그인 전에 거절하고, 같은 잠금 횟수에 셉니다. 텔레그램 알림으로도 알릴 수 있습니다.
 - 브라우저에서 오는 쓰기 요청과 WebSocket 연결은 서버 자기 화면에서 온 것만 받습니다. WebSocket 메시지는 4 KB 까지입니다.
 - 관리자가 넣는 바깥 서비스 주소는 사설 네트워크를 가리킬 수 없습니다. `COOK_OUTBOUND_PRIVATE_HOSTS` 에 적은 호스트만 예외입니다.
-- 응답에는 방어용 헤더(`nosniff`, `DENY` 프레임 차단, 리퍼러 없음)가 붙습니다. 거절은 모두 이유와 함께 로그 탭과 `X-CookingFoil-Deny` 헤더에 남습니다.
+- 응답에는 방어용 헤더(`nosniff`, `DENY` 프레임 차단, 리퍼러 없음)가 붙습니다. 거절은 모두 이유와 함께 로그 탭과 `X-CookingFoil-Deny` 헤더에 남습니다. 모든 응답에는 이 서버의 무작위 ID 인 `X-CookingFoil-Server-Id` 가 붙고(어느 주소로 들어와도 같습니다), 로그인 거절(401, 403)에는 로그 줄과 같은 이유 코드가 `X-CookingFoil-Auth` 로 붙어서 클라이언트가 다음에 할 일을 정할 수 있습니다. 예를 들어 `no-access-key`, `access-key-wrong`, `device-not-approved`, `session-expired`, `session-revoked`, `enroll-used`, `rebind-no-proof` 가 있습니다.
 - 관리 페이지에 저장한 시크릿은 다시 보여 주지 않습니다. 웹 업로드는 켜기 전까지 꺼져 있습니다.
 
 취약점 제보는 [SECURITY.md](./SECURITY.md#한국어) 를 봅니다. 공개 이슈로 올리지 말아 주세요.

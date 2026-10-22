@@ -50,6 +50,7 @@ import crypto from "crypto";
 import express from "express";
 import net from "net";
 import * as tokens from "./download-token.js";
+import { vouch } from "./server-id.js";
 import { stillAllowed } from "./link-identity.js";
 import { createBan, BAD_WINDOW_MS, BAN_MS } from "./download-ban.js";
 import { isLocalHop } from "./local-hop.js";
@@ -217,6 +218,8 @@ export default function directLane(root, { routes = {}, ban = newBan(), staleBan
       staleBan.recordBad(ip);
       return refuse(res, 401, "expired");
     }
+    // From here the token's MAC checked out: it is ours, so the answer names the server (server-id.js).
+    vouch(res);
     if (token.verdict === "expired") return refuse(res, 401, "expired");
     if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
 

@@ -22,6 +22,7 @@ import * as users from "./users.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { hasValidSession } from "./admin-session.js";
 import { denyResponse, DENY } from "./deny.js";
+import { AUTH_HEADER } from "./auth-log.js";
 import { trustedHere } from "./net.js";
 
 export default function deviceContentGuard() {
@@ -46,6 +47,7 @@ export default function deviceContentGuard() {
     // is what turns a mystery ("download just says Complete") into a one-line
     // dashboard answer.
     if (!deviceKey) {
+      res.set(AUTH_HEADER, DENY.NO_DEVICE_KEY);
       return denyResponse(req, res, {
         reason: DENY.NO_DEVICE_KEY,
         status: 403,
@@ -55,6 +57,7 @@ export default function deviceContentGuard() {
       });
     }
 
+    res.set(AUTH_HEADER, DENY.DEVICE_NOT_APPROVED);
     return denyResponse(req, res, {
       reason: DENY.DEVICE_NOT_APPROVED,
       status: 403,

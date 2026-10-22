@@ -36,6 +36,7 @@ import * as googleAccounts from "./google-accounts.js";
 import { basicRefusal, passwordOwnerOk } from "./password-policy.js";
 import { noteRefusal } from "./auth-log.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
+import { vouch } from "./server-id.js";
 
 const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
@@ -77,6 +78,7 @@ export default function authGuard() {
       req.auth = { user: who.approver };
       req.webUser = who;
       if (who.kind === "password") store.recordAccess(who.name, ip);
+      vouch(res);
       return next();
     }
     if (isBrowser(req)) return toLogin(req, res);
@@ -91,7 +93,10 @@ export default function authGuard() {
         body: "Locked out after too many failed attempts. Contact the administrator.\n",
       });
     }
-    noteRefusal(req, 401, unsignedReason(req));
+    const reason = unsignedReason(req);
+    // A wrong key for a console an admin approved: the device key is one this server let in.
+    // A pending one proves nothing, since any request with a made-up key queues it.
+    noteRefusal(req, res, 401, reason, { proven: reason === "access-key-wrong" });
     res.set("Cache-Control", "no-store");
     res.status(401).type("text/plain").send(`${unauthorizedMessage}\n`);
   };
@@ -100,8 +105,9 @@ export default function authGuard() {
 /**
  * Why a request that reached the wall carried nothing it accepts, for the log:
  *   access-key-wrong    an approved console sent a key that is not its own (replaced since)
- *   device-not-approved a console sent a key the server no longer approves
- *   no-access-key       a console sent its device key but no key (approved, but never took its key)
+ *   device-not-approved a console sent a key the server no longer approves, or never did
+ *   no-access-key       a device key and no access key, approved or not (an approved
+ *                       console that never took its key, or one still waiting)
  *   no-credentials      nothing at all
  */
 function unsignedReason(req) {
@@ -127,7 +133,7 @@ function toLogin(req, res) {
   res.set("Cache-Control", "no-store");
   const navigate = req.method === "GET" && (req.get("sec-fetch-mode") ? req.get("sec-fetch-mode") === "navigate" : /text\/html/.test(req.get("accept") ?? ""));
   if (navigate) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
-  noteRefusal(req, 401, "browser-not-signed-in");
+  noteRefusal(req, res, 401, "browser-not-signed-in");
   res.status(401).json({ error: "sign in at /login" });
 }
 
@@ -205,10 +211,11 @@ function tokenLane(req, res, next, ip) {
   const token = apiTokens.verify(req.headers.authorization);
   if (!token || !TOKEN_PATHS(req.path) || !ownerIsAdmin(token.owner)) {
     if (!trustedHere(req)) recordFailure(ip, req);
-    noteRefusal(req, 401, "api-token-invalid");
+    noteRefusal(req, res, 401, "api-token-invalid");
     return res.status(401).json({ error: "invalid token" });
   }
   req.apiToken = token;
+  vouch(res);
   if (token.owner.startsWith("google:")) req.webUser = { kind: "google", sub: token.owner.slice(7) };
   else req.auth = { user: token.owner };
   return next();

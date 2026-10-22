@@ -8,6 +8,7 @@
  * upload list); otherwise only writes are held.
  */
 import { mayAdminister } from "./admin-actor.js";
+import { noteRefusal } from "./auth-log.js";
 
 const READS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -17,7 +18,10 @@ export const consoleLane = (req) => Boolean(req.pairedDevice || req.sessionLane)
 export default function adminOnly({ reads = false } = {}) {
   return (req, res, next) => {
     if (!reads && READS.has(req.method)) return next();
-    if (consoleLane(req) || !mayAdminister(req)) return res.status(403).json({ error: "admin accounts only" });
+    if (consoleLane(req) || !mayAdminister(req)) {
+      noteRefusal(req, res, 403, "admin-only");
+      return res.status(403).json({ error: "admin accounts only" });
+    }
     next();
   };
 }

@@ -34,3 +34,17 @@ export function readOrCreate(file = FILE) {
 
 /** This server's id, read once. */
 export const serverId = () => (cached ??= readOrCreate());
+
+export const SERVER_ID_HEADER = "X-CookingFoil-Server-Id";
+
+/**
+ * Puts the server id on `res`. The one place it goes out, and only to a caller
+ * that proved it holds a credential this server made (a guard that let it in,
+ * or a refusal of a credential that was ours). The direct address sits on the
+ * home line and the public one behind a tunnel, so an id handed to anyone would
+ * let a stranger match the two and find the home address.
+ */
+export function vouch(res) {
+  res.locals.serverIdVouched = true;
+  res.set(SERVER_ID_HEADER, serverId());
+}

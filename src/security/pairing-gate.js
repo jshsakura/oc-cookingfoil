@@ -18,6 +18,7 @@ import { devicePairing } from "../helpers/envs.js";
 import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
 import { SESSION_HEADER } from "./session-gate.js";
 import { recordDeny, DENY } from "./deny.js";
+import { vouch } from "./server-id.js";
 
 export default function pairingGate() {
   if (!devicePairing) {
@@ -31,6 +32,7 @@ export default function pairingGate() {
     if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) {
       req.pairedDevice = deviceKey;
       store.touchDevice(deviceKey);
+      vouch(res);
       return next();
     }
 
