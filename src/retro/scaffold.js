@@ -82,7 +82,7 @@ export function guidePlace(layout, retroDir) {
 /** The BIOS a system needs, as one table cell. Pure. */
 function biosCell(id) {
   const rule = BIOS[id];
-  if (!rule) return "none";
+  if (!rule?.groups.length) return "none"; // only optional firmware (bios.js extra): nothing is required
   return rule.groups.map((g) => (g.length > 1 ? `one of ${g.map((f) => `\`${f}\``).join(", ")}` : `\`${g[0]}\``)).join(" and ");
 }
 

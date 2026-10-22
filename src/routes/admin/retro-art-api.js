@@ -7,6 +7,8 @@
  *                                                  bios: [{ id, name, missing: [[file…]] }] for consoles that have
  *                                                  games but lack firmware (src/retro/bios.js), never for the others
  *                                                  pack: RetroArch and the core files the games need (src/retro/pack-status.js)
+ *                                                  requirements: the cores and firmware the games in the library
+ *                                                  need, per system with games (src/retro/requirements.js)
  *                                                  unread: folder names under roms/ that no system reads
  *   POST /admin/api/retro-art/sync      { system? } match and download what is missing (one job at a time)
  *   GET  /admin/api/retro-art/candidates?game=&q=  libretro names to pick from, with preview addresses
@@ -18,6 +20,9 @@
  *                                                  shrunk to a small PNG and used as the game's box art
  *   GET  /admin/api/retro-art/games?q=             every game whose name matches, art or not (at most 500)
  *   POST /admin/api/retro-art/ratings              refresh LaunchBox ratings (one job at a time)
+ *   GET  /admin/api/retro/requirements             the same requirements alone, read-only (an API token may read it):
+ *                                                  what the operator still has to put in, and which core file each
+ *                                                  system's games start with
  *
  * Ratings also refresh by themselves once ratings.json is a week old (COOK_RATING_SYNC).
  *
@@ -33,6 +38,7 @@ import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import { packDirOf, packStatus } from "../../retro/pack-status.js";
+import { requirements } from "../../retro/requirements.js";
 import { unreadReasons } from "../../retro/systems.js";
 import * as retroNames from "../../retro/names.js";
 import { rebuildRetroShortcut, retroMetaKey } from "../retro.js";
@@ -105,11 +111,18 @@ function overview(catalog) {
   return { systems: Object.values(systems), missing };
 }
 
-/** The firmware missing for the consoles that have games, with their Korean names. */
-async function biosNotices(catalog) {
+/** The firmware missing for the consoles that have games, with their Korean names. `files` is the system folder's listing. */
+function biosNotices(catalog, files) {
   const ids = catalog.games.map((g) => g.system);
-  const files = await listFirmware(firmwareDir(retroDir));
   return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
+}
+
+/** The old notices and the requirements view, from one listing of the system folder. */
+async function firmwareViews(catalog) {
+  const dir = firmwareDir(retroDir);
+  const files = await listFirmware(dir);
+  const req = await requirements({ games: catalog.games, systems: catalog.systems, packDir: packDirOf(retroDir), firmwareDir: dir, files });
+  return { bios: biosNotices(catalog, files), requirements: req };
 }
 
 /**
@@ -167,7 +180,11 @@ export function mountRetroArtApi(router, requireSession) {
   router.get("/api/retro-art", guarded(async (_req, res) => {
     const age = ratingsAge();
     const catalog = await retroCatalog.current(retroDir);
-    res.json({ ...overview(catalog), bios: await biosNotices(catalog), pack: packStatus(packDirOf(retroDir), catalog.games, catalog.systems), ...unreadNotices(retroDir, catalog.systems), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+    res.json({ ...overview(catalog), ...(await firmwareViews(catalog)), pack: packStatus(packDirOf(retroDir), catalog.games, catalog.systems), ...unreadNotices(retroDir, catalog.systems), job, ratings: { job: ratingsJob, updatedAt: Number.isFinite(age) ? Date.now() - age : null }, steamgriddb: integrations.configured("steamgriddb"), github: integrations.configured("github") });
+  }));
+
+  router.get("/api/retro/requirements", guarded(async (_req, res) => {
+    res.json((await firmwareViews(await retroCatalog.current(retroDir))).requirements);
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {

@@ -6,8 +6,10 @@
  *   retroarch.cfg     → sdmc:/retroarch/retroarch.cfg   (written only if missing)
  *   anything else     → sdmc:/retroarch/<same path>      (cores/, assets/, system/, …)
  *
- * except a NeoCD BIOS at the top of system/, which goes into system/neocd/
- * where that core looks (bios.js consoleFirmwarePath).
+ * except a firmware file of system/ that the BIOS table knows, which goes
+ * where its core looks whatever case or folder the operator used
+ * (bios.js consoleFirmwarePath: a NeoCD BIOS at the top goes into neocd/), or
+ * by its md5 under another name (bios.js firmwareRenames).
  *
  * A config the pack sends (retroarch.cfg, config/<core>/*.cfg) goes out without
  * its cheevos_ lines: the client writes the RetroAchievements sign-in into the
@@ -22,7 +24,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import { HashCache } from "../helpers/hash-cache.js";
-import { consoleFirmwarePath } from "./bios.js";
+import { BIOS, consoleFirmwarePath, firmwareRenames, md5Cache } from "./bios.js";
 import { dataDir } from "../helpers/envs.js";
 
 export { HashCache };
@@ -77,11 +79,15 @@ async function cleaned(entry, cleanDir) {
   return { ...entry, abs: out, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino };
 }
 
-/** The pack's files with their SD paths and stats (no hashing). */
-export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean") } = {}) {
+/** The pack's files with their SD paths and stats (no SHA-256; only small unknown firmware files get an md5). */
+export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean"), firmware = {} } = {}) {
   const bySd = new Map();
-  for (const rel of await walk(packDir)) {
-    const sd = sdPathOf(rel);
+  const rels = await walk(packDir);
+  const system = rels.filter((r) => r.startsWith("system/")).map((r) => r.slice("system/".length));
+  const renames = await firmwareRenames(path.join(packDir, "system"), system, firmware.cache ?? md5Cache, firmware.rules ?? BIOS);
+  for (const rel of rels) {
+    const known = rel.startsWith("system/") ? renames.get(rel.slice("system/".length)) : null;
+    const sd = known && sdPathOf(rel) ? `retroarch/system/${known}` : sdPathOf(rel);
     if (!sd) continue;
     // A moved file never replaces one the operator already put at that place.
     if (bySd.has(sd) && sd !== `retroarch/${rel}`) continue;

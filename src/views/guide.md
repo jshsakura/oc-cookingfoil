@@ -87,6 +87,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 |---|---|
 | 서버 상태와 경고 | `GET /admin/api/stats` |
 | 레트로 표지·베젤 현황, 표지 없는 항목 | `GET /admin/api/retro-art` |
+| 레트로 게임에 아직 필요한 BIOS 와 기종별 코어(.nro) 상태 | `GET /admin/api/retro/requirements` |
 | 빠진 표지·베젤 받기 (진행은 위 GET 의 `job`) | `POST /admin/api/retro-art/sync` `{ "system": "snes" }` (생략하면 전부) |
 | 한 항목의 표지 후보 | `GET /admin/api/retro-art/candidates?game=<id>&q=<영어 제목>` |
 | 후보로 맞추기 / 표지 없음 | `POST /admin/api/retro-art/match` `{ "game": "<id>", "name": "<후보 이름>" }` / `"name": null` |
