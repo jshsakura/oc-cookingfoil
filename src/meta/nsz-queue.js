@@ -62,7 +62,7 @@ import FastGlob from "fast-glob";
 import debug from "../debug.js";
 import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason } from "./nsz-runner.js";
 import { createNszLog } from "./nsz-log.js";
-import { listRoot, trashItems } from "../library/trash.js";
+import { trashItems } from "../library/trash.js";
 
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
 export const KEEP_DIR_NAME = ".cookingfoil-nsz-keep";
@@ -131,8 +131,12 @@ export function createNszQueue({
   // An original into the games folder's trash: (rel where it was, path where it is now, action).
   toTrash = (rel, from, action) => trashItems({ key: "games", dir: gamesDir }, [{ rel, from }],
     { kind: "nsz-original", action, by: { type: "job", name: "nsz" }, name: path.basename(rel) }),
-  // Bytes the games folder's trash holds.
-  trashBytes = async () => (await listRoot({ key: "games", dir: gamesDir })).reduce((n, e) => n + e.size, 0),
+  // Bytes the trash holds on the games folder's disk: every library folder's entries there (emptying them frees space here).
+  trashBytes = async () => {
+    const { bytesOnDisk, libraryRoots } = await import("../library/trash-service.js");
+    const roots = libraryRoots();
+    return bytesOnDisk(gamesDir, roots.some((r) => path.resolve(r.dir) === path.resolve(gamesDir)) ? roots : [{ key: "games", dir: gamesDir }, ...roots]);
+  },
 }) {
   const workDir = path.join(gamesDir, WORK_DIR_NAME);
   const keepDir = path.join(gamesDir, KEEP_DIR_NAME);
@@ -372,7 +376,9 @@ export function createNszQueue({
       if (free < need) {
         trashHeld = await trashBytes().catch(() => 0);
         const held = trashHeld;
-        pauseFor("disk", (t) => t("nszNoSpace", { free: gb(free), name: item.name || path.basename(item.rel), size: gb(item.size || 0), trash: gb(held) }));
+        // Kept originals sit in the games folder too: they free space only once they go to the trash and it is emptied.
+        const kept = keptBytes();
+        pauseFor("disk", (t) => t("nszNoSpace", { free: gb(free), name: item.name || path.basename(item.rel), size: gb(item.size || 0), trash: gb(held), kept: gb(kept), hasTrash: held > 0, hasKept: kept > 0 }));
         return;
       }
       startItem(item, s);
@@ -388,7 +394,8 @@ export function createNszQueue({
     }
     if (!cycle.done && !cycle.failed) return;
     const { done, saved, failed } = cycle;
-    const text = (t) => t("nszDrained", { done, saved: gb(saved), failed });
+    const kept = settings().keepHours > 0;
+    const text = (t) => t("nszDrained", { done, saved: gb(saved), failed, kept });
     cycle = { done: 0, saved: 0, failed: 0 };
     debug.log("nsz: queue drained");
     // Each drain is its own alert; the 30 minute repeat guard is for the pauses.

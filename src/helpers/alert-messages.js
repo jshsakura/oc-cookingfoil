@@ -139,16 +139,32 @@ const M = {
   },
 
   nszDrained: {
-    ko: ({ done, saved, failed }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 줄였습니다. 원본은 휴지통에 있어 휴지통을 비워야 그만큼 공간이 생깁니다.${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
-    en: ({ done, saved, failed }) => `✅ The conversion queue is done: ${done} files converted, ${saved} smaller. The originals are in the trash, so the space comes back once the trash is emptied.${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
-    ja: ({ done, saved, failed }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} 小さくしました。元のファイルはごみ箱にあり、ごみ箱を空にするとその分の空きができます。${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
-    zh: ({ done, saved, failed }) => `✅ 转换队列已全部处理：转换 ${done} 个，缩小 ${saved}。原文件在回收站中，清空回收站后才会腾出这些空间。${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
+    ko: ({ done, saved, failed, kept }) => `✅ 변환 대기열을 모두 처리했습니다. ${done}개를 변환해 ${saved}를 줄였습니다. ${kept ? "원본은 보관 폴더에 있다가 보관 시간이 지나면 휴지통으로 가며, 휴지통을 비워야 그만큼 공간이 생깁니다." : "원본은 휴지통에 있어 휴지통을 비워야 그만큼 공간이 생깁니다."}${failed ? ` 실패 ${failed}개는 변환 탭에서 확인합니다.` : ""}`,
+    en: ({ done, saved, failed, kept }) => `✅ The conversion queue is done: ${done} files converted, ${saved} smaller. ${kept ? "The originals are kept for now and go to the trash when their time is up; the space comes back once the trash is emptied." : "The originals are in the trash, so the space comes back once the trash is emptied."}${failed ? ` ${failed} failed; see the conversion tab.` : ""}`,
+    ja: ({ done, saved, failed, kept }) => `✅ 変換キューをすべて処理しました。${done} 件を変換して ${saved} 小さくしました。${kept ? "元のファイルは保管フォルダーにあり、保管時間が過ぎるとごみ箱に移ります。ごみ箱を空にするとその分の空きができます。" : "元のファイルはごみ箱にあり、ごみ箱を空にするとその分の空きができます。"}${failed ? `失敗した ${failed} 件は変換タブで確認します。` : ""}`,
+    zh: ({ done, saved, failed, kept }) => `✅ 转换队列已全部处理：转换 ${done} 个，缩小 ${saved}。${kept ? "原文件暂时保留在保管文件夹中，到期后移入回收站，清空回收站后才会腾出这些空间。" : "原文件在回收站中，清空回收站后才会腾出这些空间。"}${failed ? `失败的 ${failed} 个请在转换标签中查看。` : ""}`,
   },
   nszNoSpace: {
-    ko: ({ free, name, size, trash = "0 B" }) => `💾 남은 공간이 ${free}라 ${name}(${size})를 변환할 작업 공간이 모자라 멈췄습니다. 서버는 공간을 만들려고 아무것도 지우지 않습니다. 휴지통에 ${trash}가 있으며 관리 페이지에서 휴지통을 비우면 그만큼 공간이 생깁니다. 그 뒤 변환 탭에서 다시 시작합니다.`,
-    en: ({ free, name, size, trash = "0 B" }) => `💾 Paused: only ${free} free, not enough room to convert ${name} (${size}). The server deletes nothing to make room. The trash holds ${trash}; emptying it on the admin page frees that much. Then start again on the conversion tab.`,
-    ja: ({ free, name, size, trash = "0 B" }) => `💾 空き容量が ${free} しかなく、${name} (${size}) を変換する作業領域が足りないため停止しました。サーバーは空きを作るために何も削除しません。ごみ箱に ${trash} あり、管理ページでごみ箱を空にするとその分の空きができます。その後、変換タブで再開します。`,
-    zh: ({ free, name, size, trash = "0 B" }) => `💾 剩余空间只有 ${free}，不足以转换 ${name}（${size}），已暂停。服务器不会为腾出空间而删除任何文件。回收站中有 ${trash}，在管理页面清空回收站即可腾出这些空间，然后在转换标签中重新开始。`,
+    ko: ({ free, name, size, trash = "0 B", kept = "0 B", hasTrash = true, hasKept = false }) => `💾 남은 공간이 ${free}라 ${name}(${size})를 변환할 작업 공간이 모자라 멈췄습니다. 서버는 공간을 만들려고 아무것도 지우지 않습니다. ${
+      hasTrash && hasKept ? `이 디스크의 휴지통에 ${trash}, 보관 중인 변환 원본에 ${kept}가 있습니다. 변환 탭에서 보관 원본을 지금 비우기로 휴지통에 보내고 관리 페이지에서 휴지통을 비우면 그만큼 공간이 생깁니다.`
+      : hasTrash ? `이 디스크의 휴지통에 ${trash}가 있으며 관리 페이지에서 휴지통을 비우면 그만큼 공간이 생깁니다.`
+      : hasKept ? `휴지통은 비어 있고, 보관 중인 변환 원본에 ${kept}가 있습니다. 변환 탭에서 지금 비우기로 휴지통에 보낸 뒤 휴지통을 비우면 그만큼 공간이 생깁니다.`
+      : "휴지통과 보관 원본으로는 공간을 만들 수 없으니 이 디스크의 다른 파일을 정리합니다."} 그 뒤 변환 탭에서 다시 시작합니다.`,
+    en: ({ free, name, size, trash = "0 B", kept = "0 B", hasTrash = true, hasKept = false }) => `💾 Paused: only ${free} free, not enough room to convert ${name} (${size}). The server deletes nothing to make room. ${
+      hasTrash && hasKept ? `The trash on this disk holds ${trash} and the kept originals ${kept}; send the kept originals to the trash with Empty now on the conversion tab, then empty the trash on the admin page to free that much.`
+      : hasTrash ? `The trash on this disk holds ${trash}; emptying it on the admin page frees that much.`
+      : hasKept ? `The trash is empty, and the kept originals hold ${kept}; send them to the trash with Empty now on the conversion tab, then empty the trash to free that much.`
+      : "Neither the trash nor kept originals can free space, so clear other files on this disk."} Then start again on the conversion tab.`,
+    ja: ({ free, name, size, trash = "0 B", kept = "0 B", hasTrash = true, hasKept = false }) => `💾 空き容量が ${free} しかなく、${name} (${size}) を変換する作業領域が足りないため停止しました。サーバーは空きを作るために何も削除しません。${
+      hasTrash && hasKept ? `このディスクのごみ箱に ${trash}、保管中の変換元ファイルに ${kept} あります。変換タブの今すぐ空にするで保管中の元ファイルをごみ箱に送り、管理ページでごみ箱を空にするとその分の空きができます。`
+      : hasTrash ? `このディスクのごみ箱に ${trash} あり、管理ページでごみ箱を空にするとその分の空きができます。`
+      : hasKept ? `ごみ箱は空で、保管中の変換元ファイルに ${kept} あります。変換タブの今すぐ空にするでごみ箱に送ってからごみ箱を空にするとその分の空きができます。`
+      : "ごみ箱と保管中の元ファイルでは空きを作れないため、このディスクのほかのファイルを整理します。"}その後、変換タブで再開します。`,
+    zh: ({ free, name, size, trash = "0 B", kept = "0 B", hasTrash = true, hasKept = false }) => `💾 剩余空间只有 ${free}，不足以转换 ${name}（${size}），已暂停。服务器不会为腾出空间而删除任何文件。${
+      hasTrash && hasKept ? `此磁盘的回收站中有 ${trash}，保留的转换原文件有 ${kept}。在转换标签中用立即清空把保留的原文件移入回收站，再在管理页面清空回收站即可腾出这些空间。`
+      : hasTrash ? `此磁盘的回收站中有 ${trash}，在管理页面清空回收站即可腾出这些空间。`
+      : hasKept ? `回收站是空的，保留的转换原文件有 ${kept}。在转换标签中用立即清空把它们移入回收站，再清空回收站即可腾出这些空间。`
+      : "回收站和保留的原文件都无法腾出空间，请整理此磁盘上的其他文件。"}然后在转换标签中重新开始。`,
   },
   nszFailures: {
     ko: ({ count, reason }) => `⚠️ 변환이 ${count}번 잇달아 실패해 멈췄습니다. 마지막 이유: ${reason}`,

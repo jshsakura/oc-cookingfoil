@@ -178,7 +178,11 @@ function nzCards(t){const cards=[['대기',num(t.waiting+t.busy),nzSize(t.waitin
   $('nz-cards').replaceChildren(...cards.map(([l,v,sub,cls])=>{const c=el('div',null,'card'+(cls?' '+cls:''));c.append(el('div',v,'v'),el('div',l+(sub?' · '+sub:''),'l'));return c;}));}
 function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const [label,kind]=d.status==='off'?['꺼짐','']:d.status==='running'?['실행 중','on']:d.status==='idle'?['쉬는 중','']:['일시정지','warn'];st.textContent=label;st.className='pill'+(kind?' '+kind:'');
-  const notes={disk:'변환할 작업 공간이 모자라 멈췄습니다. 원본은 휴지통에 있으니 휴지통을 비운 뒤 시작합니다.'+(d.trash&&d.trash.bytes?' 휴지통에 '+nzSize(d.trash.bytes)+'가 있습니다.':''),failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
+  const tb=d.trash&&d.trash.bytes||0,kb=d.kept&&d.kept.bytes||0;
+  const notes={disk:'변환할 작업 공간이 모자라 멈췄습니다. '+(tb&&kb?'이 디스크의 휴지통에 '+nzSize(tb)+', 보관 중인 원본에 '+nzSize(kb)+'가 있습니다. 보관 원본을 휴지통으로 보내고 휴지통을 비운 뒤 시작합니다.'
+    :tb?'이 디스크의 휴지통에 '+nzSize(tb)+'가 있으니 휴지통을 비운 뒤 시작합니다.'
+    :kb?'휴지통은 비어 있고 보관 중인 원본에 '+nzSize(kb)+'가 있습니다. 지금 비우기로 휴지통에 보내고 휴지통을 비운 뒤 시작합니다.'
+    :'휴지통과 보관 원본으로는 공간을 만들 수 없으니 이 디스크의 다른 파일을 정리한 뒤 시작합니다.'),failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
   let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 다운로드하고 있어 기다립니다. 30초 동안 다운로드가 없으면 다음 파일을 시작합니다.':d.active.length?'':'사용 중인 파일만 남아 잠시 뒤에 다시 확인합니다.'):d.status==='idle'?(d.totals.waiting+d.totals.busy?'시작을 누르면 대기열을 차례로 변환합니다.':'할 일이 없어 쉬고 있습니다.')+(d.autoQueue?' 새 게임이 들어오면 저절로 시작합니다.':''):'시작을 누르면 대기열을 차례로 변환합니다.';
   if(d.only&&d.status==='running')note='선택한 '+num(d.only)+'개만 변환합니다. '+note;
   if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;

@@ -119,3 +119,55 @@ test("below the free space floor the queue pauses, deletes nothing and says what
   assert.match(alerts.at(-1).text, /휴지통/);
   assert.match(alerts.at(-1).text, /비우면/);
 });
+
+test("the pause says what kept originals hold, and never promises space from an empty trash", async () => {
+  S.keepHours = 6;
+  put("Kept2.nsp", 2 * MIB);
+  const first = make();
+  await run(first);
+  // Its state (the kept original) is on disk before the next queue reads it.
+  await first.shutdown();
+  S.diskFloorGb = 50;
+  put("Next2.nsp");
+  const low = make({ freeBytes: async () => 10 * GIB, trashBytes: async () => 0 });
+  await run(low);
+  const v = low.view();
+  assert.equal(v.pausedReason, "disk");
+  assert.equal(v.kept.bytes, 2 * MIB);
+  assert.equal(v.trash.bytes, 0);
+  const text = alerts.at(-1).text;
+  assert.match(text, /보관 중인 변환 원본에/);
+  assert.match(text, /휴지통은 비어 있고/);
+  assert.doesNotMatch(text, /휴지통에 [^,.]*가 있으며/, "no promise that an empty trash frees space");
+});
+
+test("a run that keeps its originals does not say they are in the trash", async () => {
+  S.keepHours = 6;
+  put("K3.nsp");
+  await run(make());
+  const drained = alerts.find((a) => a.subject.startsWith("drained-"));
+  assert.ok(drained);
+  assert.doesNotMatch(drained.text, /원본은 휴지통에 있어/);
+  assert.match(drained.text, /보관/);
+});
+
+test("the trash bytes the pause counts are the ones on the games folder's own disk", async () => {
+  const service = await import("../../src/library/trash-service.js");
+  const g = { key: "games", dir: games };
+  const inc = { key: "incoming", dir: path.join(games, "incoming") };
+  put("incoming/i.nsp", 1 * MIB);
+  put("own.nsp", 2 * MIB);
+  put("usb/far.nsp", 4 * MIB);
+  await trash.trashItems(inc, [{ rel: "i.nsp" }], { kind: "game" });
+  await trash.trashItems(g, [{ rel: "own.nsp" }], { kind: "game" });
+  const far = await trash.trashItems(g, [{ rel: "usb/far.nsp" }], { kind: "game" });
+  // As if usb/ were another disk whose trash lives on it.
+  fs.mkdirSync(path.join(games, "usb", ".cookingfoil-trash"), { recursive: true });
+  fs.renameSync(path.join(games, ".cookingfoil-trash", far.entry), path.join(games, "usb", ".cookingfoil-trash", far.entry.split("/")[0] + "-x"));
+  fs.mkdirSync(path.join(games, "usb", ".cookingfoil-trash", far.entry.split("/")[0]), { recursive: true });
+  fs.renameSync(path.join(games, "usb", ".cookingfoil-trash", far.entry.split("/")[0] + "-x"), path.join(games, "usb", ".cookingfoil-trash", far.entry));
+  fs.writeFileSync(path.join(games, ".cookingfoil-trash", "homes.json"), JSON.stringify(["usb/.cookingfoil-trash"]));
+  const usb = path.join(games, "usb");
+  const devOf = (p) => (p === usb || p.startsWith(usb + path.sep) ? 2 : 1);
+  assert.equal(await service.bytesOnDisk(games, [g, inc], devOf), 3 * MIB, "the drop box's trash counts, the other disk's does not");
+});
