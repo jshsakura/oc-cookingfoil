@@ -1,0 +1,8 @@
+[
+  {
+    "file": "src/meta/categories.js",
+    "constant": "ALIASES",
+    "reason": "Genre names other stores use, matched against incoming metadata to find the genre key. Never shown; the label comes from the genre dictionary.",
+    "approved": "Repo owner in the i18n ratchet review, 2026-10-22"
+  }
+]
