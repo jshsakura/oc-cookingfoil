@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { displayVersionOf, recordFromFacts, englishNameOf } from "../../src/meta/content-meta.js";
+import { displayVersionOf, recordFromFacts, englishNameOf, isComplete } from "../../src/meta/content-meta.js";
 import { decorateNameWithAlias } from "../../src/create-index-content.js";
 import { readCnmtFacts, firmwareString } from "../../src/meta/cnmt-parse.js";
 
@@ -87,4 +87,9 @@ test("a Korean name gets the English title from titledb first, then from the NAC
   assert.equal(decorateNameWithAlias("엘와의 유산 Alwa's Legacy", null, "Alwa's Legacy"), "엘와의 유산 Alwa's Legacy",
     "a name that already spells the English title is left alone");
   assert.equal(decorateNameWithAlias("A Hat in Time", null, "A Hat in Time"), "A Hat in Time");
+});
+
+test("a record whose stored English name is garbled counts as unread, so its NACP is read again", () => {
+  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Ab�cd" }, "base"), false);
+  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Absolum" }, "base"), true);
 });

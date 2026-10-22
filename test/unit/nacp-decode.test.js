@@ -16,9 +16,7 @@ import {
 
 const SLOT_BYTES = 0x300;
 const NAME_BYTES = 0x200;
-const PUBLISHER_BYTES = 0x100;
 const VERSION_OFFSET = 0x3060;
-const VERSION_BYTES = 0x10;
 
 /**
  * Build a minimal valid NACP buffer. `slots` maps slot index -> { name, publisher }.
@@ -256,6 +254,14 @@ test("decodeNacp leaves the uncompressed format as it was when TitlesDataFormat 
   const buf = buildNacp({ slots: { 0: { name: "Plain Game", publisher: "Plain Pub" } }, version: "1.0" });
   assert.equal(buf[TITLES_DATA_FORMAT], 0);
   assert.equal(decodeNacp(buf, ["en"]).name, "Plain Game");
+});
+
+test("decodeNacp treats a TitlesDataFormat it does not know as unreadable, not as plain text", () => {
+  const buf = buildNacp({ slots: { 0: { name: "Plain Game", publisher: "Plain Pub" } } });
+  buf[TITLES_DATA_FORMAT] = 2;
+  assert.equal(decodeNacp(buf, ["en"]), null);
+  buf[TITLES_DATA_FORMAT] = 0xff;
+  assert.equal(decodeNacp(buf, ["en"]), null);
 });
 
 test("decodeNacp skips a name with a replacement or control character and uses the next slot", () => {

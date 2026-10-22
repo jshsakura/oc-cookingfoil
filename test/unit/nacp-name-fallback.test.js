@@ -92,3 +92,76 @@ test("a library rebuild reads a garbled record's file again in full, and leaves 
     rmSync(dd, { recursive: true, force: true });
   }
 });
+
+const CONTENT_META_PROBE = `
+  import * as extractedMeta from "../../src/meta/extracted-meta-store.js";
+  import * as contentMeta from "../../src/meta/content-meta.js";
+  import { composeSections } from "../../src/create-index-content.js";
+  import { gameOf } from "../../src/meta/game-info.js";
+  await extractedMeta.load();
+  await contentMeta.load();
+  const fm = new Map([
+    ["File Name B [0100000000B00000][v0].nsp", { url: "../b.nsp", name: "", size: 1 }],
+    ["File Name C [0100000000C00000][v0].nsp", { url: "../c.nsp", name: "", size: 1 }],
+  ]);
+  const items = composeSections(fm, []).sections[0].items;
+  process.stdout.write(JSON.stringify({
+    shop: Object.fromEntries(items.map((i) => [i.title_id, i.name])),
+    english: contentMeta.get("0100000000B00000", 0).englishName ?? null,
+    gameOfC: gameOf("0100000000C00000")?.name,
+  }));
+`;
+
+test("an English name stored garbled in content-meta is not shown in the shop list or by gameOf", () => {
+  const dd = mkdtempSync(path.join(tmpdir(), "cook-nacp-"));
+  try {
+    mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000B00000.json"), JSON.stringify({ name: "Ab�cd", iconLangs: [], iconMap: 2 }));
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000C00000.json"), JSON.stringify({ name: "가상 게임", iconLangs: [], iconMap: 2 }));
+    writeFileSync(path.join(dd, "extracted-meta", "content-meta.json"), JSON.stringify({
+      "0100000000B00000@0": { installSize: 1, nacpRead: true, englishName: "Ab�cd" },
+      "0100000000C00000@0": { installSize: 1, nacpRead: true, englishName: "Ab�cd" },
+    }));
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", CONTENT_META_PROBE], {
+      cwd: import.meta.dirname,
+      env: { ...process.env, COOK_DATA_DIR: dd, COOK_EXTRACT_ICONS: "off" },
+      encoding: "utf-8",
+    });
+    const result = JSON.parse(out);
+    assert.equal(result.english, null);
+    assert.equal(result.shop["0100000000B00000"], "File Name B");
+    assert.equal(result.shop["0100000000C00000"], "가상 게임");
+    assert.equal(result.gameOfC, "가상 게임");
+  } finally {
+    rmSync(dd, { recursive: true, force: true });
+  }
+});
+
+test("a garbled record of a title titledb knows is read again in full even in the default missing mode", () => {
+  const dd = mkdtempSync(path.join(tmpdir(), "cook-nacp-"));
+  try {
+    mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
+    mkdirSync(path.join(dd, "titledb"), { recursive: true });
+    writeFileSync(path.join(dd, "titledb", "US.en.json"), JSON.stringify({
+      a: { id: "0100000000DEF000", name: "Known Game" },
+      b: { id: "0100000000ABC000", name: "Known Too" },
+    }));
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000DEF000.json"), JSON.stringify({ name: "�\u0013", iconLangs: [], iconMap: 2 }));
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000ABC000.json"), JSON.stringify({ name: "Cool Homebrew", iconLangs: [], iconMap: 2 }));
+    const probe = QUEUE_PROBE.replace(
+      "await extractedMeta.load();",
+      `await extractedMeta.load();
+       const titledb = await import("../../src/meta/titledb-store.js");
+       await titledb.load();`,
+    ).replace("calls.map((c) => ({ id: c.baseTitleId, iconsOnly: c.langIconsOnly }))",
+      "calls.map((c) => ({ id: c.baseTitleId, iconsOnly: c.langIconsOnly, wantMeta: c.wantMeta }))");
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
+      cwd: import.meta.dirname,
+      env: { ...process.env, COOK_DATA_DIR: dd, COOK_EXTRACT_ICONS: "missing" },
+      encoding: "utf-8",
+    });
+    assert.deepEqual(JSON.parse(out), [{ id: "0100000000DEF000", iconsOnly: false, wantMeta: true }]);
+  } finally {
+    rmSync(dd, { recursive: true, force: true });
+  }
+});

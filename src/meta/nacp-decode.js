@@ -72,6 +72,7 @@ export const NACP_SLOT_TO_ICON_NAME = {
 };
 
 const TITLES_DATA_FORMAT = 0x3215;
+const TITLES_PLAIN = 0;
 const TITLES_COMPRESSED = 1;
 const TITLE_BLOCK_BYTES = 0x3000;
 const COMPRESSED_SLOTS = 32;
@@ -129,10 +130,14 @@ function readText(buf, offset, length) {
 /**
  * The title slots: the 16 stored plain, or the 32 a compressed block inflates
  * to. Null when the compressed block is bad, empty or does not inflate to
- * exactly 32 slots; the output is capped, so a bomb stops at the cap.
+ * exactly 32 slots; the output is capped, so a bomb stops at the cap. Null
+ * too for a TitlesDataFormat other than 0 and 1: read as plain text it would
+ * give a wrong name, and null lets a later decoder version read it again.
  */
 function titleSlots(nacp) {
-  if (nacp[TITLES_DATA_FORMAT] !== TITLES_COMPRESSED) return nacp.subarray(0, TITLE_BLOCK_BYTES);
+  const format = nacp[TITLES_DATA_FORMAT];
+  if (format === TITLES_PLAIN) return nacp.subarray(0, TITLE_BLOCK_BYTES);
+  if (format !== TITLES_COMPRESSED) return null;
   const size = nacp.readUInt16LE(0);
   if (size === 0 || size > TITLE_BLOCK_BYTES - 2) return null;
   const expected = COMPRESSED_SLOTS * NACP_SLOT_BYTES;
