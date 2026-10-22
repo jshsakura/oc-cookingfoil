@@ -109,25 +109,25 @@ export function failureReason(code, signal, tail) {
 export function runNsz({ bin, args, graceMs = 3000, lowPriority = true }) {
   const argv = [...(lowPriority ? lowPriorityPrefix() : []), bin, ...args];
   let tail = "";
-  // The whole stream is searched, a chunk at a time, keeping enough of the last one for a marker split between them.
-  let carry = "";
+  // Each stream is searched whole, a chunk at a time, keeping enough of its last chunk for a marker split between them.
+  const carry = { out: "", err: "" };
   let unverified = false;
   let stopped = false;
   let exited = false;
   let killTimer = null;
   const child = spawn(argv[0], argv.slice(1), { stdio: ["ignore", "pipe", "pipe"], detached: true });
-  const keep = (chunk) => {
+  const keep = (stream) => (chunk) => {
     const text = chunk.toString("utf8");
     if (!unverified) {
-      const seen = carry + text;
+      const seen = carry[stream] + text;
       unverified = UNVERIFIED_MARKERS.some((m) => seen.includes(m));
-      carry = seen.slice(-MARKER_CARRY);
+      carry[stream] = seen.slice(-MARKER_CARRY);
     }
     tail += text;
     if (tail.length > TAIL_CHARS) tail = tail.slice(-TAIL_CHARS);
   };
-  child.stdout.on("data", keep);
-  child.stderr.on("data", keep);
+  child.stdout.on("data", keep("out"));
+  child.stderr.on("data", keep("err"));
 
   const signalGroup = (sig) => {
     if (exited) return;
