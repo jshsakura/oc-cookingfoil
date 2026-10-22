@@ -318,6 +318,22 @@ test("the settle check says a file held still across the wait, and not one whose
   }
 });
 
+test("the settle check does not take a picture whose size was set ahead and whose end is not written yet", async () => {
+  const { holdsStill } = await import("../../src/meta/game-art-files.js");
+  const dir = folder("0100000000CB0000");
+  const unfinished = async (name, bytes) => {
+    bytes.fill(0, Math.floor(bytes.length * 0.6));
+    fs.writeFileSync(path.join(dir, name), bytes);
+    return path.join(dir, name);
+  };
+  const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#00ff00" } }).jpeg().toBuffer();
+  const png = await picture("#00ff00");
+  assert.equal(await holdsStill([await unfinished("icon.jpg", Buffer.from(jpeg))], 50), false, "a JPEG without its end marker");
+  assert.equal(await holdsStill([await unfinished("banner.png", Buffer.from(png))], 50), false, "a PNG without IEND");
+  fs.writeFileSync(path.join(dir, "screenshot-01.jpg"), jpeg);
+  assert.equal(await holdsStill([path.join(dir, "screenshot-01.jpg")], 50), true, "a whole JPEG");
+});
+
 test("asked from the button, a picture written just now is taken once it holds still, and one still changing is left and reported", async (t) => {
   const ID = "0100000000CA0000";
   const dir = folder(ID);

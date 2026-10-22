@@ -156,17 +156,44 @@ export function isFresh(st, quietMs, now = Date.now()) {
   return quietMs > 0 && [st.mtimeMs, st.ctimeMs].some((t) => now - t > -AHEAD_MS && now - t < quietMs);
 }
 
+const TAIL_BYTES = 64;
+
+/**
+ * Whether a picture's last bytes are written: a JPEG's end marker, a PNG's IEND,
+ * anything else not ending in zeros. A copy that sets the size first and fills
+ * it in later holds still between writes, and its zero tail can still decode.
+ */
+function endWritten(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size;
+    const tail = Buffer.alloc(Math.min(TAIL_BYTES, size));
+    fs.readSync(fd, tail, 0, tail.length, size - tail.length);
+    const ext = path.extname(file).toLowerCase();
+    if (ext === ".jpg" || ext === ".jpeg") return tail.includes(Buffer.from([0xff, 0xd9]));
+    if (ext === ".png") return tail.includes(Buffer.from("IEND"));
+    return tail.some((b) => b !== 0);
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
 /**
  * Whether every file of `paths` holds still across `ms`: looked at once, then
  * once more after the wait, its size, times and inode the same (one gone both
- * times counts as still). A copy going on changes one of them meanwhile.
+ * times counts as still) and its end written. A copy going on changes one of
+ * them meanwhile.
  */
 export async function holdsStill(paths, ms) {
   const before = paths.map(statOf);
   await new Promise((resolve) => setTimeout(resolve, ms));
   return paths.every((p, i) => {
     const now = statOf(p);
-    return now && before[i] ? fileStamp(now) === fileStamp(before[i]) : !now && !before[i];
+    if (!now || !before[i]) return !now && !before[i];
+    return fileStamp(now) === fileStamp(before[i]) && endWritten(p);
   });
 }
 
