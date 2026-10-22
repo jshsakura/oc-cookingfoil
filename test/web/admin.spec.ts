@@ -171,7 +171,7 @@ test('files dropped into the upload box pick their own kind and go in one by one
     await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(2);
     await expect(page.locator('#up-form')).toBeHidden();
   } finally {
-    for (const name of names) fs.rmSync(`${process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games'}/${name}`, { force: true });
+    for (const name of names) fs.rmSync(`${process.env.COOK_GAMES_DIR!}/${name}`, { force: true });
     fs.rmSync(dir, { recursive: true, force: true });
     // Later specs count the library's games: wait until the two uploads have left it (other specs may add their own meanwhile).
     await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
@@ -342,7 +342,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
 });
 
 test('a game file is found by name and deleted from the library tab', async ({ page, request }) => {
-  const file = `${process.env.COOK_GAMES_DIR ?? '/tmp/cookingfoil-web-test-games'}/Throwaway [0100000000030000][v0].nsp`;
+  const file = `${process.env.COOK_GAMES_DIR!}/Throwaway [0100000000030000][v0].nsp`;
   fs.writeFileSync(file, '');
   await signIn(page);
   await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
