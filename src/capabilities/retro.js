@@ -3,7 +3,8 @@
  * (src/retro/auto-cores.js) that fetches missing cores and updates the server's own from the
  * libretro nightly buildbot. Switching a user's core to the official build and back moves the
  * user's file to or from the trash, so those two routes are token-blocked (opt-out.js). Also
- * what the library's retro games need from the pack (retro_requirements).
+ * what the library's retro games need from the pack (retro_requirements), and the Korean titles
+ * the bundled dictionary gives retro games by content hash or, for the admin to decide, by title.
  */
 import { defineCapability } from "./define.js";
 
@@ -68,6 +69,53 @@ export const retroCapabilities = [
     handler: async () => {
       const { retroRequirements } = await import("../routes/admin/retro-art-api.js");
       return retroRequirements();
+    },
+  }),
+  defineCapability({
+    id: "retro_ko_names",
+    area: "retro",
+    title: "Korean titles of retro games",
+    description: "Lists retro games named in Korean by their ROM content hash, and title-only guesses waiting for approval, with hash index counts.",
+    input: { type: "object", properties: {} },
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/retro-ko" },
+    handler: async () => {
+      const { retroKoReview } = await import("../routes/admin/retro-ko-api.js");
+      return retroKoReview();
+    },
+  }),
+  defineCapability({
+    id: "retro_ko_name_decide",
+    area: "retro",
+    title: "Approve or reject a Korean title guess",
+    description: "Keeps a title-only Korean name guess as the game's Korean name, or rejects it so it is not suggested again. Hash matches need no decision.",
+    input: {
+      type: "object",
+      properties: {
+        game: { type: "string", description: "Retro game id from retro_ko_names guesses, e.g. gba-0123456789" },
+        approve: { type: "boolean", description: "true keeps the guessed Korean title, false rejects it for good" },
+      },
+      required: ["game", "approve"],
+    },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-ko/guess" },
+    handler: async (_ctx, { game, approve }) => {
+      const { decideRetroKoGuess } = await import("../routes/admin/retro-ko-api.js");
+      const result = await decideRetroKoGuess(game, approve === true);
+      return { ok: result === "ok", result };
+    },
+  }),
+  defineCapability({
+    id: "retro_ko_index",
+    area: "retro",
+    title: "Read retro ROM content hashes",
+    description: "Starts one background pass reading CRC-32, SHA-1 and SHA-256 of new and changed retro ROM files. ROM files are only read.",
+    input: { type: "object", properties: {} },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-ko/index" },
+    handler: async () => {
+      const { startRetroKoIndex } = await import("../routes/admin/retro-ko-api.js");
+      return startRetroKoIndex();
     },
   }),
 ];

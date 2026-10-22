@@ -17,6 +17,8 @@ export const API_WORDS = {
     failed: "처리하지 못했습니다. 서버 기록을 봅니다",
     "guide.badPath": "폴더 경로는 retro/roms/gba 처럼 저장 폴더 기준 상대 경로로 적습니다",
     "guide.unknown": "안내가 있는 폴더가 아닙니다",
+    "retroKo.noGame": "목록에 없는 레트로 게임입니다",
+    "retroKo.noGuess": "이 게임에는 결정을 기다리는 한글 제목 제안이 없습니다",
   },
   en: {
     "device.limit": "This account can register up to {n} consoles. Remove a console it no longer uses, then approve again.",
@@ -27,6 +29,8 @@ export const API_WORDS = {
     failed: "Could not do that. See the server log",
     "guide.badPath": "Write the folder path relative to the storage folder, like retro/roms/gba",
     "guide.unknown": "There is no guide for that folder",
+    "retroKo.noGame": "That retro game is not in the list",
+    "retroKo.noGuess": "This game has no Korean title suggestion waiting for a decision",
   },
   ja: {
     "device.limit": "このアカウントに登録できる本体は最大 {n} 台です。使っていない本体を解除してから、もう一度承認してください。",
@@ -37,6 +41,8 @@ export const API_WORDS = {
     failed: "処理できませんでした。サーバーのログを確認します",
     "guide.badPath": "フォルダーのパスは retro/roms/gba のように保存フォルダーからの相対パスで書きます",
     "guide.unknown": "案内のあるフォルダーではありません",
+    "retroKo.noGame": "一覧にないレトロゲームです",
+    "retroKo.noGuess": "このゲームには判断待ちの韓国語タイトル候補がありません",
   },
   zh: {
     "device.limit": "此账户最多可以登记 {n} 台主机。请先解除不再使用的主机，然后重新批准。",
@@ -47,6 +53,8 @@ export const API_WORDS = {
     failed: "无法处理。请查看服务器日志",
     "guide.badPath": "文件夹路径请写成相对于存储文件夹的路径，例如 retro/roms/gba",
     "guide.unknown": "这个文件夹没有说明",
+    "retroKo.noGame": "列表中没有这个复古游戏",
+    "retroKo.noGuess": "这个游戏没有等待决定的韩语标题建议",
   },
 };
 

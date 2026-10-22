@@ -4,6 +4,8 @@
  * anything else is null.
  */
 import fs from "fs/promises";
+import { createReadStream } from "fs";
+import { Readable } from "stream";
 import zlib from "zlib";
 
 const EOCD_SIG = 0x06054b50;
@@ -12,15 +14,16 @@ const LOCAL_SIG = 0x04034b50;
 const EOCD_MIN = 22;
 const EOCD_SEARCH = EOCD_MIN + 0xffff;
 
-/** The central directory entries of a zip held in `buf`: [{ name, method, flags, compressed, size, offset }]. Pure. */
-export function zipEntries(buf) {
-  let eocd = -1;
+/** Where the end-of-central-directory record of `buf` (the zip's tail) starts, or -1. Pure. */
+function eocdAt(buf) {
   for (let i = buf.length - EOCD_MIN; i >= Math.max(0, buf.length - EOCD_SEARCH); i--) {
-    if (buf.readUInt32LE(i) === EOCD_SIG) { eocd = i; break; }
+    if (buf.readUInt32LE(i) === EOCD_SIG) return i;
   }
-  if (eocd < 0) return [];
-  const count = buf.readUInt16LE(eocd + 10);
-  let at = buf.readUInt32LE(eocd + 16);
+  return -1;
+}
+
+/** `count` central directory entries read from `buf` starting at `at`; offsets are the zip's own. Pure. */
+function centralEntries(buf, at, count) {
   const out = [];
   for (let n = 0; n < count && at + 46 <= buf.length; n++) {
     if (buf.readUInt32LE(at) !== CENTRAL_SIG) break;
@@ -28,6 +31,7 @@ export function zipEntries(buf) {
     out.push({
       flags: buf.readUInt16LE(at + 8),
       method: buf.readUInt16LE(at + 10),
+      crc32: buf.readUInt32LE(at + 16).toString(16).padStart(8, "0"),
       compressed: buf.readUInt32LE(at + 20),
       size: buf.readUInt32LE(at + 24),
       offset: buf.readUInt32LE(at + 42),
@@ -36,6 +40,58 @@ export function zipEntries(buf) {
     at += 46 + nameLen + buf.readUInt16LE(at + 30) + buf.readUInt16LE(at + 32);
   }
   return out;
+}
+
+/** The central directory entries of a zip held in `buf`: [{ name, method, flags, crc32, compressed, size, offset }]. Pure. */
+export function zipEntries(buf) {
+  const eocd = eocdAt(buf);
+  return eocd < 0 ? [] : centralEntries(buf, buf.readUInt32LE(eocd + 16), buf.readUInt16LE(eocd + 10));
+}
+
+/**
+ * The central directory entries of the zip at `abs`, read from its tail alone: the
+ * CRC-32 of every file without inflating any. [] when it is not a zip this can read.
+ */
+export async function zipDirectory(abs) {
+  const fh = await fs.open(abs, "r");
+  try {
+    const { size } = await fh.stat();
+    const tailLen = Math.min(size, EOCD_SEARCH);
+    const tail = Buffer.alloc(tailLen);
+    await fh.read(tail, 0, tailLen, size - tailLen);
+    const eocd = eocdAt(tail);
+    if (eocd < 0) return [];
+    const count = tail.readUInt16LE(eocd + 10);
+    const dirLen = tail.readUInt32LE(eocd + 12);
+    const dirAt = tail.readUInt32LE(eocd + 16);
+    if (dirAt + dirLen > size) return [];
+    const dir = Buffer.alloc(dirLen);
+    await fh.read(dir, 0, dirLen, dirAt);
+    return centralEntries(dir, 0, count);
+  } finally {
+    await fh.close();
+  }
+}
+
+/** A stream of `entry`'s uncompressed bytes from the zip at `abs`, or null when it cannot be read here. */
+export async function entryStream(abs, entry) {
+  if (entry.flags & 1 || (entry.method !== 0 && entry.method !== 8)) return null;
+  const fh = await fs.open(abs, "r");
+  let start;
+  try {
+    const local = Buffer.alloc(30);
+    const { bytesRead } = await fh.read(local, 0, 30, entry.offset);
+    if (bytesRead !== 30 || local.readUInt32LE(0) !== LOCAL_SIG) return null;
+    start = entry.offset + 30 + local.readUInt16LE(26) + local.readUInt16LE(28);
+  } finally {
+    await fh.close();
+  }
+  if (!entry.compressed) return Readable.from([]);
+  const raw = createReadStream(abs, { start, end: start + entry.compressed - 1, highWaterMark: 1024 * 1024 });
+  if (entry.method === 0) return raw;
+  const inflate = zlib.createInflateRaw();
+  raw.on("error", (err) => inflate.destroy(err));
+  return raw.pipe(inflate);
 }
 
 /** The bytes of `entry` in the zip held in `buf`, or null when it cannot be read here. Pure. */
