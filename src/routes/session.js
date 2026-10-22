@@ -12,11 +12,18 @@
  */
 import { requester } from "../security/link-identity.js";
 import * as session from "../security/session-token.js";
+import { noteRefusal } from "../security/auth-log.js";
 
 export default function sessionRoute(req, res) {
   res.set("Cache-Control", "no-store");
-  if (req.sessionLane) return res.status(403).json({ error: "sign in with the access key to renew" });
+  if (req.sessionLane) {
+    noteRefusal(req, 403, "session-renew-with-session");
+    return res.status(403).json({ error: "sign in with the access key to renew" });
+  }
   const who = requester(req);
-  if (!session.eligible(who)) return res.status(403).json({ error: "sessions are for consoles that signed in" });
+  if (!session.eligible(who)) {
+    noteRefusal(req, 403, "session-not-a-console");
+    return res.status(403).json({ error: "sessions are for consoles that signed in" });
+  }
   res.json(session.issue(who));
 }

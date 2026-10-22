@@ -61,6 +61,27 @@ test("an enrollment token works once, within its day, and lists show no secret",
   assert.equal(enroll.spend(issued[1].token, KEY_B, { now: now + 20 }), null);
 });
 
+test("while consoles join by sign-in, one download takes several consoles within its day, up to its cap", () => {
+  enroll.resetForTests();
+  const now = 1_700_000_000_000;
+  const d = enroll.issue("alice", now);
+  const keys = [...Array(enroll.MAX_CONSOLES + 1).keys()].map((i) => i.toString(16).toUpperCase().padStart(2, "0").repeat(32));
+  for (const key of keys.slice(0, enroll.MAX_CONSOLES)) assert.equal(enroll.spend(d.token, key, { now: now + 1, reusable: true })?.owner, "alice");
+  assert.equal(enroll.spend(d.token, keys.at(-1), { now: now + 2, reusable: true }), null, "not past the cap");
+  assert.equal(enroll.spend(d.token, keys[0], { now: now + 3, reusable: true })?.owner, "alice", "a console it took may come again");
+  assert.equal(enroll.spend(d.token, keys.at(-1), { now: now + 4 }), null, "once, when consoles wait for approval");
+  const [row] = enroll.list({ owner: "alice", now: now + 5 });
+  assert.deepEqual([row.state, row.deviceKey, row.consoles], ["used", keys[0], enroll.MAX_CONSOLES]);
+
+  const late = enroll.issue("alice", now);
+  assert.ok(enroll.spend(late.token, KEY_A, { now: now + 1, reusable: true }));
+  assert.equal(enroll.spend(late.token, KEY_B, { now: now + enroll.TTL_MS, reusable: true }), null, "not after its day");
+  const pulled = enroll.issue("alice", now);
+  assert.ok(enroll.spend(pulled.token, KEY_A, { now: now + 1, reusable: true }));
+  assert.equal(enroll.revoke(pulled.id, { owner: "alice", now: now + 2 }), true, "a download still taking consoles can be withdrawn");
+  assert.equal(enroll.spend(pulled.token, KEY_B, { now: now + 3, reusable: true }), null);
+});
+
 /** A minimal NRO: header, then an ASET block whose NACP carries `version`. */
 function fakeNro(version) {
   const head = Buffer.alloc(0x100);

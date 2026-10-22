@@ -31,7 +31,10 @@
  *   POST /api/pair/enroll  { token }  + X-Device-Key
  *        A console spends the enrollment token its downloaded client carries
  *        (security/enroll-tokens.js) for its own access key, approved under the
- *        account that downloaded it. Once, within a day of the download.
+ *        account that downloaded it. Once, within a day of the download; while
+ *        consoles may join by sign-in (COOK_DEVICE_AUTO_APPROVE) one download takes
+ *        up to enroll-tokens.js MAX_CONSOLES consoles within that day, each answered
+ *        as the first.
  *        → { status: "approved", accessKey, shopUrl }
  *        label: the console's own nickname, which names it once approved
  *        → 401 { error } + X-CookingFoil-Enroll: used | expired | revoked | invalid
@@ -78,7 +81,8 @@ import { SYSTEM_APPROVERS } from "../security/users.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "../security/pairing.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl, devicePairing } from "../helpers/envs.js";
+import { publicBaseUrl, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
+import { noteRefusal } from "../security/auth-log.js";
 import debug from "../debug.js";
 import { issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
@@ -124,7 +128,7 @@ const FROM_DOWNLOAD = "웹에서 받은 클라이언트";
 function enrollFromRequest(req, deviceKey) {
   const token = req.body?.enrollToken ?? req.get("x-enroll-token");
   if (!token || store.isDeviceApproved(deviceKey)) return null;
-  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner) });
+  const spent = enrollTokens.spend(token, deviceKey, { canEnroll: (owner) => mayEnroll(deviceKey, owner), reusable: deviceAutoApprove });
   if (!spent || spent.refused) {
     const known = enrollTokens.lookup(token);
     debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : known?.state ?? "unknown");
@@ -266,19 +270,22 @@ export default function pairRouter() {
       return;
     }
     const canEnroll = (owner) => mayEnroll(deviceKey, owner);
-    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll });
+    // While consoles may join by sign-in alone, one download connects several consoles (enroll-tokens.js).
+    const spent = enrollTokens.spend(req.body?.token, deviceKey, { canEnroll, reusable: deviceAutoApprove });
     if (!spent) {
       // A download this server made still says whose it is: the console waits
       // in the queue under that account's name, for the admin to approve.
       const known = enrollTokens.lookup(req.body?.token);
       debug.log("pair: %s… enroll refused: the download token is %s", deviceKey.slice(0, 12), known?.state ?? "unknown");
       if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
+      noteRefusal(req, 401, `enroll-${known?.state ?? "invalid"}`);
       res.set("X-CookingFoil-Enroll", known?.state ?? "invalid");
       res.status(401).json({ error: ENROLL_REFUSED[known?.state] ?? ENROLL_REFUSED.invalid });
       return;
     }
     if (spent.refused) {
       debug.log("pair: %s… enroll refused: the console is another account's", deviceKey.slice(0, 12));
+      noteRefusal(req, 409, "enroll-other-account");
       res.status(409).json({ error: "this console belongs to another account" });
       return;
     }
@@ -303,6 +310,7 @@ export default function pairRouter() {
     const keyProof = Boolean(hash && verifyAccessKey(req.body?.accessKey ?? req.get("X-Access-Key"), hash));
     const who = await pairSignIn(req);
     if (!keyProof && !who) {
+      noteRefusal(req, 401, "rebind-no-proof");
       res.status(401).json({ error: "sign in, or show the old access key" });
       return;
     }
@@ -312,6 +320,7 @@ export default function pairRouter() {
     const approvedBy = store.deviceAddedBy(from);
     const accountOwns = Boolean(who && approvedBy === who.name && !SYSTEM_APPROVERS.has(approvedBy));
     if (store.isDeviceApproved(from) && !keyProof && !accountOwns) {
+      noteRefusal(req, 403, "rebind-not-this-account");
       res.status(403).json({ error: "that console is not this account's" });
       return;
     }

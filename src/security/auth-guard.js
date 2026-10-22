@@ -34,6 +34,8 @@ import { webUser } from "./user-session.js";
 import * as apiTokens from "./api-tokens.js";
 import * as googleAccounts from "./google-accounts.js";
 import { basicRefusal, passwordOwnerOk } from "./password-policy.js";
+import { noteRefusal } from "./auth-log.js";
+import { deviceKeyFromHeaders } from "./pairing.js";
 
 const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
@@ -89,9 +91,24 @@ export default function authGuard() {
         body: "Locked out after too many failed attempts. Contact the administrator.\n",
       });
     }
+    noteRefusal(req, 401, unsignedReason(req));
     res.set("Cache-Control", "no-store");
     res.status(401).type("text/plain").send(`${unauthorizedMessage}\n`);
   };
+}
+
+/**
+ * Why a request that reached the wall carried nothing it accepts, for the log:
+ *   access-key-wrong    an approved console sent a key that is not its own (replaced since)
+ *   device-not-approved a console sent a key the server no longer approves
+ *   no-access-key       a console sent its device key but no key (approved, but never took its key)
+ *   no-credentials      nothing at all
+ */
+function unsignedReason(req) {
+  const device = deviceKeyFromHeaders(req);
+  if (!device) return "no-credentials";
+  if (!req.get("X-Access-Key")) return "no-access-key";
+  return store.isDeviceApproved(device) ? "access-key-wrong" : "device-not-approved";
 }
 
 /** A request from a web browser (consoles and curl send no Sec-Fetch-* or text/html Accept). */
@@ -110,6 +127,7 @@ function toLogin(req, res) {
   res.set("Cache-Control", "no-store");
   const navigate = req.method === "GET" && (req.get("sec-fetch-mode") ? req.get("sec-fetch-mode") === "navigate" : /text\/html/.test(req.get("accept") ?? ""));
   if (navigate) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
+  noteRefusal(req, 401, "browser-not-signed-in");
   res.status(401).json({ error: "sign in at /login" });
 }
 
@@ -187,6 +205,7 @@ function tokenLane(req, res, next, ip) {
   const token = apiTokens.verify(req.headers.authorization);
   if (!token || !TOKEN_PATHS(req.path) || !ownerIsAdmin(token.owner)) {
     if (!trustedHere(req)) recordFailure(ip, req);
+    noteRefusal(req, 401, "api-token-invalid");
     return res.status(401).json({ error: "invalid token" });
   }
   req.apiToken = token;
