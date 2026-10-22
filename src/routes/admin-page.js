@@ -60,6 +60,7 @@ import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountStorageGuideApi } from "./admin/storage-guide-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
+import { mountRetroKoApi } from "./admin/retro-ko-api.js";
 import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
 import { mountRetroPackApi } from "./admin/retro-pack-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
@@ -473,6 +474,7 @@ export default function adminPageRouter() {
   mountRetroArtApi(router, requireSession);
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
+  mountRetroKoApi(router, requireSession);
   mountRetroCoresApi(router, requireSession);
   mountRetroPackApi(router, requireSession);
   mountApiTokensApi(router, requireSession);

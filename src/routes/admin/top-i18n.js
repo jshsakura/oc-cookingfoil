@@ -2,6 +2,7 @@
 // language the web page uses, and the panels already translated (upload, home picks, the game pickers).
 // The other panels stay Korean for now.
 
+import { RETRO_KO_WORDS } from "./retro-ko-words.js";
 import { TRASH_WORDS } from "./trash-words.js";
 
 export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"]];
@@ -738,7 +739,7 @@ const BASE_WORDS = {
 };
 
 // Each panel that speaks the four languages brings its own words; one table for the page.
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...RETRO_KO_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
