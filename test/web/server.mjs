@@ -13,7 +13,6 @@ fs.rmSync(`${process.env.COOK_DATA_DIR}/nsz-queue.json`, { force: true });
 // One base game so the featured picker has something to offer.
 fs.writeFileSync(`${process.env.COOK_GAMES_DIR}/Test Game [0100000000010000][v0].nsp`, '');
 // Two patches for that game, one marked required, for the admin's patch switches.
-process.env.COOK_PATCHES_DIR ??= '/tmp/cookingfoil-web-test-patches';
 fs.rmSync(process.env.COOK_PATCHES_DIR, { recursive: true, force: true });
 for (const [name, meta] of [['게임 데이터', { name: '게임 데이터', required: true }], ['한글패치', { name: '한글패치' }]]) {
   const dir = `${process.env.COOK_PATCHES_DIR}/0100000000010000/${name}`;
@@ -28,12 +27,10 @@ fs.writeFileSync(`${process.env.COOK_PATCHES_DIR}/homebrew/handapp/Turbo mod/con
 fs.rmSync(`${process.env.COOK_DATA_DIR}/patches`, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/patches-cache.json`, { force: true });
 // One save for that game, for the admin's edit dialog.
-process.env.COOK_SAVES_DIR ??= '/tmp/cookingfoil-web-test-saves';
 fs.rmSync(process.env.COOK_SAVES_DIR, { recursive: true, force: true });
 fs.mkdirSync(`${process.env.COOK_SAVES_DIR}/0100000000010000/All unlocked`, { recursive: true });
 fs.writeFileSync(`${process.env.COOK_SAVES_DIR}/0100000000010000/All unlocked/save.dat`, 'x');
 // One hand-placed homebrew app, for the homebrew tab's on/off switch.
-process.env.COOK_HOMEBREW_DIR ??= '/tmp/cookingfoil-web-test-homebrew';
 fs.rmSync(process.env.COOK_HOMEBREW_DIR, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/disabled.json`, { force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/homebrew/media`, { recursive: true, force: true });
@@ -47,7 +44,6 @@ fs.mkdirSync(`${process.env.COOK_HOMEBREW_DIR}/handapp`, { recursive: true });
   fs.writeFileSync(`${process.env.COOK_HOMEBREW_DIR}/handapp/handapp.nro`, Buffer.concat([head, aset, nacp]));
 }
 // A retro folder with two versions of one game and an arcade parent with its clone.
-process.env.COOK_RETRO_DIR ??= '/tmp/cookingfoil-web-test-retro';
 fs.rmSync(process.env.COOK_RETRO_DIR, { recursive: true, force: true });
 fs.rmSync(`${process.env.COOK_DATA_DIR}/retro-variants.json`, { force: true });
 for (const rel of ['roms/md/더 슈퍼 시노비 2 (Super Shinobi II, The) [J-K v20130609].zip', 'roms/md/더 슈퍼 시노비 2 (Super Shinobi II, The) [Japan, Korea].zip',

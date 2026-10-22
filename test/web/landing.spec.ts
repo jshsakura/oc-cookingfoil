@@ -70,7 +70,7 @@ test('the web page has no upload: no floating button and no upload item in the m
 test('the page shares a large image card whose image is an absolute URL on this server', async ({ page, request }) => {
   await page.goto('/');
   const image = await page.locator('meta[property="og:image"]').getAttribute('content');
-  expect(image).toBe('http://127.0.0.1:3188/assets/og-image.png');
+  expect(image).toBe(`http://127.0.0.1:${process.env.COOK_WEB_TEST_PORT}/assets/og-image.png`);
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
   await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', image!);
   const res = await request.get(image!);
