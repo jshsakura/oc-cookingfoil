@@ -21,9 +21,15 @@ test('the library tab lists files by kind with counts, pages and a search inside
     await expect.poll(async () => (await (await request.get('/admin/api/library/browse?counts_only=1', { headers: { Cookie: cookie } })).json()).counts?.other, { timeout: 15000 }).toBeGreaterThanOrEqual(55);
 
     await page.goto('/admin#library');
-    const tabs = page.locator('#lb-kinds [role=tab]');
-    await expect(tabs).toHaveText([/게임/, /업데이트/, /DLC/, /패치/, /세이브/, /홈브류/, /기타/]);
-    await expect(page.locator('#lb-tab-base')).toHaveAttribute('aria-selected', 'true');
+    // The kinds are a filter on one list: a labelled group of toggle buttons, 전체 first and on.
+    const tabs = page.locator('#lb-kinds button');
+    await expect(page.locator('#lb-kinds')).toHaveAttribute('role', 'group');
+    await expect(tabs).toHaveText([/전체/, /게임/, /업데이트/, /DLC/, /패치/, /세이브/, /홈브류/, /기타/]);
+    await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#lb-list')).toContainText('게임 데이터');
+    await page.locator('#lb-tab-base').click();
+    await expect(page.locator('#lb-tab-base')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'false');
     // Other specs may add a game for a moment (the games folder is shared): at least the one fixture.
     await expect(page.locator('#lb-n-base')).not.toHaveText('0');
     await expect(page.locator('#lb-list')).toContainText('Test Game');
@@ -34,7 +40,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
 
     fs.mkdirSync('out/web', { recursive: true });
     await page.locator('#lb-tab-patch').click();
-    await expect(page.locator('#lb-tab-patch')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#lb-tab-patch')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#lb-list')).toContainText('게임 데이터');
     // Each patch leads with the game it is for; the game's own file is not listed here.
     await expect(page.locator('#lb-list .lb-for', { hasText: '게임 데이터' }).locator('b')).toHaveText('Test Game');

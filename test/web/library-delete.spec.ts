@@ -11,6 +11,7 @@ const row = (kind: string, extra: Record<string, unknown>) => ({
 const cases: [string, Record<string, unknown>, string, Record<string, unknown>][] = [
   ['homebrew', { id: 'hand-app', source: 'manual' }, '/admin/api/homebrew/manual/remove', { id: 'hand-app' }],
   ['homebrew', { id: 'gh-app', source: 'github', repo: 'example/tool' }, '/admin/api/homebrew/remove', { repo: 'example/tool' }],
+  ['homebrew', { rel: 'tools/loose.nro' }, '/admin/api/library/files/remove', { rel: 'tools/loose.nro' }],
   ['patch', { id: 'patch-1' }, '/admin/api/content/patch/remove', { id: 'patch-1' }],
   ['save', { id: 'save-1' }, '/admin/api/content/save/remove', { id: 'save-1' }],
   ['other', { rel: 'notes/a.txt' }, '/admin/api/library/other/remove', { rel: 'notes/a.txt' }],
@@ -29,7 +30,8 @@ for (const [kind, extra, endpoint, body] of cases) {
     await page.route(`**${endpoint}`, (route) => { sent = route.request().postDataJSON(); route.fulfill({ json: { ok: true } }); });
     await signIn(page);
     await page.goto('/admin#library');
-    if (kind !== 'base') await page.locator(`#lb-tab-${kind}`).click();
+    // The list opens on 전체; each kind is picked from the type filter.
+    await page.locator(`#lb-tab-${kind}`).click();
     await page.getByRole('button', { name: `Sample ${kind} 삭제` }).click();
     await page.locator('#ask-ok').click();
     await expect.poll(() => sent).toEqual(body);

@@ -32,7 +32,7 @@ const HINTS = {
   [DENY.PROBE]:
     "Request matched a scanner/traversal pattern and was dropped before auth.",
   [DENY.BAD_CREDENTIALS]:
-    "Wrong ID or password at the web sign-in or at pairing. Check the account on the Users tab.",
+    "Wrong ID or password at the web sign-in or at pairing. Check the account on the Accounts tab.",
   [DENY.NO_DEVICE_KEY]:
     "Client sent no device key. Consoles connect with the CookingFoil client, which pairs by QR; a password alone opens nothing.",
   [DENY.DEVICE_NOT_APPROVED]:

@@ -1,0 +1,100 @@
+import { test, expect } from '@playwright/test';
+import { signIn } from './admin-sign-in';
+
+// Every hash the admin page answered before the menu regrouping, and the section it opens.
+const HASHES: [string, string][] = [
+  ['#overview', 'tab-overview'], ['#users', 'tab-users'], ['#devices', 'tab-devices'], ['#settings', 'tab-settings'],
+  ['#alerts', 'tab-alerts'], ['#logs', 'tab-logs'], ['#featured', 'tab-featured'], ['#library', 'tab-library'],
+  ['#nsz', 'tab-nsz'], ['#upload', 'tab-upload'], ['#inbox', 'tab-inbox'], ['#homebrew', 'tab-homebrew'], ['#retro', 'tab-retro'],
+  ['#library/files', 'tab-library'], ['#library/organize', 'tab-library'], ['#library/verify', 'tab-library'],
+  ['#library/patches', 'tab-library'], ['#library/saves', 'tab-library'], ['#library/info', 'tab-library'], ['#library/server', 'tab-library'],
+  ['#users/google', 'tab-users'], ['#devices/approved', 'tab-devices'], ['#devices/clients', 'tab-devices'],
+  ['#homebrew/reco', 'tab-homebrew'], ['#homebrew/sources', 'tab-homebrew'],
+  ['#settings/integrations', 'tab-settings'], ['#settings/security', 'tab-settings'], ['#settings/tokens', 'tab-settings'],
+];
+
+test('every earlier admin hash still opens its section', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  for (const [hash, section] of HASHES) {
+    await page.goto(`/admin${hash}`);
+    await expect(page.locator(`#${section}`), hash).toBeVisible();
+  }
+});
+
+test('library sub-pages open the panel their hash names', async ({ page }) => {
+  await signIn(page);
+  for (const sub of ['files', 'organize', 'verify', 'patches', 'saves', 'info', 'server']) {
+    await page.goto(`/admin#library/${sub}`);
+    await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
+  }
+});
+
+test('the upload entry in the header is on every group and leads to the one upload page', async ({ page }) => {
+  await signIn(page);
+  for (const hash of ['#retro', '#homebrew', '#library', '#overview']) {
+    await page.goto(`/admin${hash}`);
+    const entry = page.locator('#up-entry');
+    await expect(entry, hash).toBeVisible();
+    await expect(entry).toHaveAttribute('aria-label', '파일 올리기');
+  }
+  await page.goto('/admin#retro');
+  await page.locator('#up-entry').click();
+  await expect(page.locator('#tab-upload')).toBeVisible();
+  await expect(page.locator('#up-entry')).toHaveAttribute('aria-current', 'page');
+});
+
+test('the menus are named for what they hold, in every language', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  const group = (name: string) => page.locator(`nav.tabs [data-group="${name}"]`);
+  await expect(group('games')).toContainText('파일·정리');
+  await expect(group('people')).toContainText('계정·기기');
+  for (const [lang, games, people] of [['en', 'Files', 'Accounts'], ['ja', 'ファイル', 'アカウント'], ['zh', '文件', '账户']]) {
+    await page.locator('#lang-btn').click();
+    await page.locator(`#lang-list [data-admin-lang="${lang}"]`).click();
+    await expect(group('games')).toContainText(games);
+    await expect(group('people')).toContainText(people);
+    await expect(page.locator('#up-entry')).toHaveAttribute('aria-label', /./);
+  }
+  await page.locator('#lang-btn').click();
+  await page.locator('#lang-list [data-admin-lang="ko"]').click();
+});
+
+test('on the files page the list comes first and the server numbers follow it', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#library');
+  await expect(page.locator('#lb-list')).toContainText('Test Game');
+  const list = await page.locator('#lb-list').boundingBox();
+  const stats = await page.locator('#lib-cards').boundingBox();
+  expect(list && stats && stats.y > list.y + list.height - 1).toBe(true);
+  // One file browser: the separate game-file search is gone, its job is the browser's search.
+  await expect(page.locator('#lf-q')).toHaveCount(0);
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the file list is on the first screen, the header fits one row and clipped menus say so', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/admin#library');
+    await expect(page.locator('#lb-list')).toContainText('Test Game');
+    const top = await page.locator('#lb-list').evaluate((e) => e.getBoundingClientRect().top + scrollY);
+    expect(top).toBeLessThan(844);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+    const tops = await page.evaluate(() => ['.brand', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => Math.round(document.querySelector(s)!.getBoundingClientRect().top)));
+    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(20);
+
+    // A row that is clipped fades at the hidden edge, and the open page is brought into view.
+    const sub = page.locator('#lib-subtabs');
+    await expect(sub).toHaveClass(/fade-r/);
+    await page.goto('/admin#library/info');
+    await expect(sub).toHaveClass(/fade-l/);
+    // The row scrolls smoothly to it, so wait for the end of the move.
+    await expect.poll(() => page.locator('#lib-subtabs [data-lsub="info"]').evaluate((b) => {
+      const r = b.getBoundingClientRect(), p = b.parentElement!.getBoundingClientRect();
+      return r.left >= p.left - 1 && r.right <= p.right + 1;
+    })).toBe(true);
+  });
+});

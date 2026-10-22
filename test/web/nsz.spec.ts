@@ -20,7 +20,7 @@ test.afterEach(async ({ page }) => {
 test('the conversion queue is off by default, turns on from its settings and queues a library file', async ({ page }) => {
   await acceptAsks(page);
   await signIn(page);
-  await page.getByRole('link', { name: '게임', exact: true }).click();
+  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
   await page.getByRole('link', { name: '변환' }).click();
   await expect(page.locator('#nz-state')).toHaveText('꺼짐');
   await expect(page.locator('#nz-toggle')).toBeDisabled();

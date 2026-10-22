@@ -124,7 +124,7 @@ function gridControlsWidth(data,i){let w=0;for(const r of data){const n=r._n[i];
   return w;}
 // mount: id of the box the grid goes in. cols: column titles, '' for the actions column.
 // rows: <tr> elements. A row whose only cell spans the table starts a group under that heading.
-// opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
+// opts.noFilter lists column titles that get no chip filter (the page already filters by them); opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
 // (for a list the server already pages); opts.tall lets a row grow to hold lists inside its cells.
 function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   if(m._grid){m._grid.destroy();m._grid=null;}m.replaceChildren();m.classList.add('grid-mount');
@@ -164,7 +164,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   pick.append(new Option('기본 순서',''));for(const o of orders)pick.append(new Option(o.label,o.key));
   if(orders.length&&items.length>1)tools.append(pick);
   // Filters for a column with a handful of values (상태, 역할, 기종), as chips like the client's.
-  m._filters??={};const filters=gridFilters(cols,columnDefs,items);
+  m._filters??={};const filters=gridFilters(cols,columnDefs,items).filter((f)=>!(opts.noFilter||[]).includes(f.title));
   for(const f of Object.keys(m._filters))if(!filters.some((x)=>x.col===f))delete m._filters[f];
   const chipRows=filters.map((f)=>{const row=el('div',null,'grid-chips');row.append(el('span',f.title,'grid-chips-label'));
     for(const v of ['',...f.values]){const b=el('button',v||'전체','grid-chip');b.type='button';
