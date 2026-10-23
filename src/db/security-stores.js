@@ -108,8 +108,11 @@ export function writeSecretJson(name, value, opts) {
   writeSecret(name, JSON.stringify(value), opts);
 }
 
-/** Whether `step` (a one-time step such as seeding accounts from the environment) was done. */
-export const done = (step, { db = securityDb() } = {}) => Boolean(db.prepare("SELECT 1 FROM imports WHERE source = ?").get(`done:${step}`));
+/** When `step` (a one-time step such as seeding accounts from the environment) was done, or null. */
+export const doneAt = (step, { db = securityDb() } = {}) => db.prepare("SELECT at FROM imports WHERE source = ?").get(`done:${step}`)?.at ?? null;
+
+/** Whether `step` was done. */
+export const done = (step, opts) => doneAt(step, opts) !== null;
 
 /** Notes `step` as done. */
 export function markDone(step, { db = securityDb() } = {}) {

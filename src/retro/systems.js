@@ -204,6 +204,16 @@ const SYSTEMS = {
     extensions: [".sv", ".bin", ".zip", ".7z"], core: "potator", coreName: "Potator", bezelDir: "Supervision",
     folder: "Watara - Supervision", libretro: "Watara - Supervision",
   },
+  mini: {
+    names: { en: "Pokémon mini", ko: "포켓몬 미니", ja: "ポケモンミニ", zh: "宝可梦 mini" },
+    extensions: [".min", ".zip", ".7z"], core: "pokemini", coreName: "PokeMini", bezelDir: "PokemonMini",
+    folder: "Nintendo - Pokemon Mini", libretro: "Nintendo - Pokemon Mini",
+  },
+  gw: {
+    names: { en: "Game & Watch", ko: "게임 & 워치", ja: "ゲーム&ウオッチ", zh: "Game & Watch" },
+    extensions: [".mgw", ".zip", ".7z"], core: "gw", coreName: "Game & Watch", bezelDir: "GameAndWatch",
+    folder: "Nintendo - Game & Watch", libretro: "Handheld Electronic Game",
+  },
   // The three below have neither a Bezel Project collection nor libretro box
   // art, so they carry no bezelDir (the SD folder falls back to the id) or libretro.
   pico8: {
@@ -254,6 +264,7 @@ const FOLDER_ALIASES = {
   sg: ["sg1000"], a2600: ["atari2600"], a7800: ["atari7800"], lynx: ["atarilynx"], col: ["colecovision", "coleco"],
   videopac: ["odyssey2", "videopac"], msx: ["msx1", "msx2"], amstrad: ["amstradcpc", "cpc"], c64: ["commodore64"],
   zxs: ["zxspectrum"], vb: ["virtualboy"], wsv: ["supervision"], tama: ["tamagotchi"],
+  mini: ["pokemini", "pokemonmini"], gw: ["gameandwatch", "gamewatch", "handheldelectronicgame"],
 };
 
 /** A folder name compared without case, spaces or punctuation ("Nintendo - SNES" → "nintendosnes"). Pure. */

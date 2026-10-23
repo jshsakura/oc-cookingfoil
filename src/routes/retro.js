@@ -158,6 +158,8 @@ import { directUrl, forRequest } from "../security/download-links.js";
 import * as retroMeta from "../retro/meta/sync.js";
 import * as retroAchievements from "../retro/achievements/sync.js";
 import * as romHashes from "../retro/rom-hash.js";
+import * as romIndex from "../retro/rom-index.js";
+import * as koMatch from "../retro/ko-match.js";
 import { createIndexCache, delta } from "../retro/list-index.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
@@ -264,7 +266,8 @@ function systemIconUrls(id, system) {
 /** Text for matching: NFC, lower case, no spaces. Pure. */
 const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
 /** A game matches on its name in any language, its original title or its file name (sf2.zip). */
-const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {}), ...Object.values(retroNames.get(g.id) ?? {})].some((s) => s && folded(s).includes(needle));
+const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {}), ...Object.values(retroNames.get(g.id) ?? {}), koMatch.confirmed(g)?.ko]
+  .some((s) => s && folded(s).includes(needle));
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
@@ -284,10 +287,11 @@ function versionLabelOf(cat, g) {
 function forwarderGame(g, system, cat = null) {
   return {
     id: g.id,
-    // A name the admin gave wins over the file's, as in the list; a ScummVM game,
-    // named by its id, has its folder's title.json next. (Arcade names stay as
-    // they were: changing them would build every arcade shortcut again.)
-    name: retroNames.get(g.id)?.ko || retroNames.get(g.id)?.en || (g.system === "scummvm" && (g.names?.ko || g.names?.en)) || g.name,
+    // As in the list: a name the admin gave (a kept guess among them), then the Korean
+    // name the ROM's content hash finds, then the file's; a ScummVM game, named by its
+    // id, has its folder's title.json next. (Arcade names stay as they were: changing
+    // them would build every arcade shortcut again.)
+    name: retroNames.get(g.id)?.ko || koMatch.confirmed(g)?.ko || retroNames.get(g.id)?.en || (g.system === "scummvm" && (g.names?.ko || g.names?.en)) || g.name,
     core: g.core,
     romSdPath: sdPaths(g, system).rom,
     artKey: artKey(g),
@@ -459,8 +463,10 @@ const tileFacts = (f) => (f ? { ...(f.genres.length ? { genres: f.genres.map(gen
 /** How a game is titled in `lang`: name, names, original, and its tags as variant, edition and region. */
 function titleOf(g, lang) {
   const variant = tagsOf(g.name);
-  // A name the admin gave wins, language by language, over the file's and the arcade table's.
-  const own = retroNames.get(g.id);
+  // A name the admin gave wins, language by language, over the ROM's content hash in the Korean
+  // title dictionary, which wins over the file's and the arcade table's.
+  const found = koMatch.confirmed(g);
+  const own = found ? { ko: found.ko, ...retroNames.get(g.id) } : retroNames.get(g.id);
   const names = own ? { ...(g.names ?? { en: withoutTags(g.name) }), ...own } : g.names;
   // A named game is shown in the page's language, with the English title as its original.
   const localized = names ? pick(names, lang) : null;
@@ -651,6 +657,8 @@ export default function retroRouter() {
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
   // Content hashes (rom_hash) of the new and changed files, one at a time.
   catalog.onScan((state) => romHashes.queue(state.games));
+  // CRC-32, SHA-1 and SHA-256 of the same files, for the Korean title dictionary.
+  catalog.onScan((state) => romIndex.queue(state.games));
   // A console with games and no core gets the official one (retroAutoCores); one job for what a scan finds.
   catalog.onScan((state) => {
     if (state.dir === retroDir) autoCores().then((a) => a.check(state)).catch((err) => debug.error("retro: official core check: %s", err.message));

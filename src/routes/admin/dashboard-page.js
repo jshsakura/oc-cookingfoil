@@ -31,7 +31,7 @@ import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top, topN, topPh } from "./top-i18n.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, TOP_WORDS, top, topN, topPh } from "./top-i18n.js";
 import { enrollPerHour } from "../../helpers/envs.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
@@ -455,7 +455,12 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   </form>
   <div class="scroll" id="pending" data-skel></div>
   </div>
-  <div data-sub-panel="approved" hidden><div class="scroll" id="devices" data-skel></div></div>
+  <div data-sub-panel="approved" hidden>
+  <div class="add"><select id="dev-idle" data-top-label="acc.filter" aria-label="${TOP_WORDS.ko["acc.filter"]}">${["filterAll", "idle30", "idle60", "idle90"].map((k, i) =>
+    `<option value="${i * 30}" data-top="acc.${k}">${TOP_WORDS.ko[`acc.${k}`]}</option>`).join("")}</select></div>
+  <p class="muted">${top("acc.filterHint")}</p>
+  <div class="scroll" id="devices" data-skel></div>
+  </div>
   <div data-sub-panel="clients" hidden>
   <p class="muted">${topN("dev.clientsLead", enrollPerHour)}</p>
   <div class="scroll" id="clients" data-skel></div>

@@ -46,7 +46,9 @@ after(async () => {
 test("load() with no state file on disk leaves all maps empty and does not throw", async () => {
   assert.equal(existsSync(STATE_PATH), false);
   await assert.doesNotReject(store.load());
-  assert.deepEqual(store.devicesSnapshot(), { approved: [], pending: [] });
+  const { approved, pending, activitySince } = store.devicesSnapshot();
+  assert.deepEqual({ approved, pending }, { approved: [], pending: [] });
+  assert.ok(activitySince > 0, "the first start marks when console activity began to be kept");
   assert.deepEqual(store.snapshot(), { failures: [], lockouts: [], audit: [] });
   assert.deepEqual(store.accessSnapshot(), []);
 });
@@ -229,8 +231,8 @@ test("approveDevice on a brand-new device stores label/addedBy/hash and audits i
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
   assert.equal(approved.label, "kid console");
   assert.equal(approved.addedBy, "admin");
-  assert.deepEqual(Object.keys(approved).sort(), ["addedAt", "addedBy", "admin", "deviceKey", "label", "lastSeenAt"], "no IP or version");
-  assert.equal(approved.lastSeenAt, null, "not seen since this start");
+  assert.deepEqual(Object.keys(approved).sort(), ["activeDays30", "addedAt", "addedBy", "admin", "days", "deviceKey", "idleSince", "label", "lastIp", "lastSeenAt"], "no client version");
+  assert.equal(approved.lastSeenAt, null, "not seen yet");
 
   const kinds = store.snapshot().audit.map((a) => a.kind);
   assert.ok(kinds.includes("device-approve"));

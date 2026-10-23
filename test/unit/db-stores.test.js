@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { openDatabase } from "../../src/db/database.js";
+import { INDEX_MIGRATIONS, openDatabase } from "../../src/db/database.js";
 import { catalogStore, hashStore } from "../../src/db/stores.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "cf-db-"));
@@ -54,7 +54,7 @@ test("an index opened again is not migrated twice", () => {
   const file = path.join(tmp(), "index.db");
   openDatabase(file).close();
   const db = openDatabase(file);
-  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 1);
+  assert.equal(db.prepare("PRAGMA user_version").get().user_version, INDEX_MIGRATIONS.length);
   assert.equal(db.prepare("PRAGMA journal_mode").get().journal_mode, "wal");
 });
 

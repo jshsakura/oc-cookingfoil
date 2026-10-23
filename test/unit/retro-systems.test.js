@@ -17,6 +17,7 @@ const ADDED = {
   lynx: "Atari - Lynx", col: "Coleco - ColecoVision", videopac: "Magnavox - Odyssey2", msx: "Microsoft - MSX",
   amstrad: "Amstrad - CPC", c64: "Commodore - 64", zxs: "Sinclair - ZX Spectrum", vb: "Nintendo - Virtual Boy",
   wsv: "Watara - Supervision", pico8: "PICO-8", chip8: "CHIP-8", tama: "Bandai - Tamagotchi P1",
+  mini: "Nintendo - Pokemon Mini", gw: "Nintendo - Game & Watch",
 };
 const LANGS = ["en", "ko", "ja", "zh"];
 

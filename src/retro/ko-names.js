@@ -3,7 +3,7 @@
  * can name a Korean ROM without anything imported.
  *
  * data/ko-names.json is built by scripts/retro-ko-names.mjs:
- *   folders  { system id: libretro folder name } for systems the server has no built-in id for
+ *   folders  { system id: libretro folder name } for the systems that came after the first ones (systems.js folder)
  *   systems  { system id: { <SHA-256, first 32 hex>: [ko, en|null, crc32|"", <SHA-1, first 32 hex>|""] } }
  *   titles   { system id: { <normalized English title>: ko } } for names that came without a hash
  *
@@ -18,9 +18,14 @@ import { fileURLToPath } from "url";
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "ko-names.json");
 
 let loaded = null;
-const load = () => {
-  if (loaded) return loaded;
-  const raw = JSON.parse(fs.readFileSync(DATA, "utf8"));
+const load = () => (loaded ??= index(JSON.parse(fs.readFileSync(DATA, "utf8"))));
+
+/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one. */
+export function useKoreanNames(raw) {
+  loaded = raw ? index(raw) : null;
+}
+
+function index(raw) {
   const bySha1 = new Map();
   const byCrc = new Map();
   const byTitle = new Map();
@@ -34,9 +39,8 @@ const load = () => {
   for (const [system, rows] of Object.entries(raw.titles ?? {})) {
     for (const [title, ko] of Object.entries(rows)) if (!byTitle.has(`${system}/${title}`)) byTitle.set(`${system}/${title}`, { ko, en: null });
   }
-  loaded = { raw, bySha1, byCrc, byTitle };
-  return loaded;
-};
+  return { raw, bySha1, byCrc, byTitle };
+}
 
 /** "Metal Slug Advance (Japan) [!]" → "metal slug advance": tags gone, case and punctuation ignored. Pure. */
 export function normalizeTitle(title) {
@@ -78,7 +82,7 @@ export function koreanNameByTitle(system, title) {
   return hit ? { ...hit, by: "title" } : null;
 }
 
-/** libretro folder names of the dictionary's systems that the server has no built-in id for. */
+/** libretro folder names of the dictionary's later systems, as systems.js names their folders. */
 export function koreanNameFolders() {
   return { ...(load().raw.folders ?? {}) };
 }
@@ -86,4 +90,15 @@ export function koreanNameFolders() {
 /** How many hash-keyed names the bundled dictionary holds per system. */
 export function koreanNameCounts() {
   return Object.fromEntries(Object.entries(load().raw.systems ?? {}).map(([id, rows]) => [id, Object.keys(rows).length]));
+}
+
+/** Whether the dictionary holds any name, by hash or by title, for `system`. */
+export function koreanNameSystem(system) {
+  const { raw } = load();
+  return Boolean(raw.systems?.[system] || raw.titles?.[system]);
+}
+
+/** Whether some ROM of `system` in the dictionary has this CRC-32 (worth reading the whole file to confirm). */
+export function koreanNameCrc(system, crc32) {
+  return Boolean(crc32 && load().byCrc.has(`${system}/${hex(crc32, 8)}`));
 }
