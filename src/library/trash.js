@@ -229,6 +229,11 @@ export function parseAddress(id) {
   return ENTRY_RE.test(entry) ? { rootKey: s.slice(0, a), home: s.slice(a + 1, b), entry } : null;
 }
 
+/** An entry's manifest, or null when it is not in the trash. Throws for an address this root does not have. */
+export function entryManifest(root, home, entry) {
+  return normalizeManifest(readJson(path.join(entryBase(root, home, entry), MANIFEST)), root.key);
+}
+
 /** The folder of an entry, after checking the home is one this root has. */
 function entryBase(root, home, entry) {
   if (!ENTRY_RE.test(String(entry)) || !homesOf(root).includes(home)) throw trashError("badEntry", 404);

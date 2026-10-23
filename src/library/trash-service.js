@@ -200,6 +200,23 @@ const AFTER_RESTORE = {
 };
 
 /**
+ * Undoing a homebrew file replace: the build that took the old one's place goes to the trash
+ * (so the undo can itself be undone), then the old build comes back under its own name. Without
+ * this the two would sit side by side and the scan would serve whichever sorts first. Returns the
+ * entry made for the swapped-out build, or null when the folder holds none.
+ */
+async function swapOutReplacement(root, m, by) {
+  const [rel] = m.items.map((it) => it.rel);
+  const [folder, file] = rel?.split("/") ?? [];
+  if (!folder || !file || rel.split("/").length !== 2) return null;
+  const ext = path.extname(file).toLowerCase();
+  const names = await fs.promises.readdir(path.join(root.dir, folder)).catch(() => []);
+  const current = names.filter((n) => !n.startsWith(".") && path.extname(n).toLowerCase() === ext);
+  if (!current.length) return null;
+  return trash("homebrew", current.map((n) => ({ rel: `${folder}/${n}` })), { kind: "homebrew", action: "homebrew-file-replace", by, name: m.name });
+}
+
+/**
  * Puts entries back. `exactName` refuses an entry whose place is taken (it stays
  * in the trash) instead of numbering it. Returns { restored: [{ id, name, items,
  * renamed }], failed: [{ id, error }] }.
@@ -210,8 +227,15 @@ export async function restore(ids, by = null, { exactName = false, lang = "ko" }
   for (const id of ids) {
     try {
       const { root, home, entry } = parse(id);
+      const swap = root.key === "homebrew" && trashStore.entryManifest(root, home, entry)?.action === "homebrew-file-replace";
+      const swapped = swap ? await swapOutReplacement(root, trashStore.entryManifest(root, home, entry), by) : null;
       const after = (r, base) => AFTER_RESTORE[r.kind]?.(r, base)?.catch?.((err) => debug.error("trash: after restoring %s: %s", id, err.message));
-      const { manifest: _m, ...r } = await trashStore.restoreEntry(root, home, entry, { exactName, after });
+      const { manifest: _m, ...r } = await trashStore.restoreEntry(root, home, entry, { exactName: exactName || swap, after })
+        .catch(async (err) => {
+          // The old build could not come back: the new one returns, so the app is never left without a file.
+          if (swapped) await trashStore.restoreEntry(root, swapped.entries[0].home, swapped.entries[0].entry, { exactName: true }).catch(() => {});
+          throw err;
+        });
       restored.push(r);
       debug.log("trash: %s restored by %s%s", id, by?.name ?? "-", r.renamed.length ? ` (${r.renamed.map((x) => `${x.rel} → ${x.to}`).join(", ")})` : "");
     } catch (err) {

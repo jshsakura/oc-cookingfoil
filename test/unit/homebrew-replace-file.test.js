@@ -125,3 +125,23 @@ test("a build whose name another file in the folder already has is refused befor
   assert.deepEqual(fs.readdirSync(path.join(dirs.homebrew, "taken")).sort(), ["Taken-v1.nsp", "Taken-v2.nsp"]);
   assert.equal((await trashedAs("homebrew-file-replace")).filter((e) => e.name === "Wiki").length, 1, "only the first test's file went to the trash");
 });
+
+test("restoring a replaced build from the trash swaps it back: one file, the old version, and the swap can be undone too", async () => {
+  const trashService = await import("../../src/library/trash-service.js");
+  put("undo/Undo-v1.nsp", fakeNsp("1.0.0"));
+  const { id } = await appIn("undo");
+  await replaceHomebrewFile(received("Undo-v2.nsp", fakeNsp("2.0.0")), id);
+  const replaced = (await trashedAs("homebrew-file-replace")).find((e) => e.items.some((it) => it.rel === "undo/Undo-v1.nsp"));
+
+  const { failed } = await trashService.restore([replaced.id]);
+
+  assert.deepEqual(failed, []);
+  assert.deepEqual(fs.readdirSync(path.join(dirs.homebrew, "undo")), ["Undo-v1.nsp"]);
+  assert.equal((await appIn("undo")).version, "1.0.0");
+  const swapped = (await trashedAs("homebrew-file-replace")).find((e) => e.items.some((it) => it.rel === "undo/Undo-v2.nsp"));
+  assert.ok(swapped, "the newer build waits in the trash");
+
+  await trashService.restore([swapped.id]);
+  assert.deepEqual(fs.readdirSync(path.join(dirs.homebrew, "undo")), ["Undo-v2.nsp"]);
+  assert.equal((await appIn("undo")).version, "2.0.0");
+});
