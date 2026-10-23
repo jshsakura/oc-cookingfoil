@@ -235,6 +235,12 @@ const SYSTEMS = {
     extensions: [".scummvm"], core: "scummvm", coreName: "ScummVM", bezelDir: "ScummVM", folder: "ScummVM",
     libretro: "ScummVM",
   },
+  // OpenBOR runs a game's .pak on the OpenBOR libretro core. No official libnx build exists, so
+  // the core file is the operator's own build in retroarch/cores/ (the pack fill never brings it).
+  openbor: {
+    names: { en: "OpenBOR", ko: "OpenBOR (벨트스크롤)", ja: "OpenBOR", zh: "OpenBOR" },
+    extensions: [".pak"], core: "openbor", coreName: "OpenBOR",
+  },
 };
 
 
