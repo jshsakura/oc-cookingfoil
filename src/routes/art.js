@@ -60,6 +60,7 @@
 import path from "node:path";
 import express from "express";
 import * as artSearch from "../meta/art-search.js";
+import * as integrations from "../security/integrations.js";
 import multer from "multer";
 
 import { retroDir, uploadsEnabled } from "../helpers/envs.js";
@@ -174,14 +175,30 @@ export default function artRouter() {
   const iconChanged = (req, id) => { if (req.params.kind === "homebrew") rebuildHomebrewShortcut(id); };
   // Pictures to pick from for one slot (meta/art-search.js), and a picked one fetched for the page to cut.
   //   GET /api/art/search?slot=icon|banner|screenshot&q=&base=   { q, items, errors, missing }
+  //   GET /api/art/search?slot=boxart&retro=<game id>&q=        a retro game's cover: libretro-thumbnails first, then SteamGridDB and IGDB
   //   GET /api/art/remote?url=                                    the picture's bytes, from the sources' own hosts only
+  // A retro game and its console, by the game's id; null when there is none.
+  const retroGameOf = async (id) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const g = catalog.byId.get(String(id ?? ""));
+    return g ? { g, system: catalog.systems[g.system] } : null;
+  };
+  // The libretro-thumbnails covers named like `q` for a retro game's console, as the admin tab's matcher offers them.
+  const libretroCovers = async ({ g, system }, q) => {
+    const names = await retroArt.candidates(g.system, system, q, { token: integrations.get("github").token }).catch(() => []);
+    return names.map((name) => ({ source: "libretro", game: null, label: name, thumb: retroArt.libretroUrl(system, name), url: retroArt.libretroUrl(system, name) }))
+      .filter((c) => c.url);
+  };
   router.get("/search", adminOnly({ reads: true }), async (req, res) => {
     const slot = String(req.query.slot ?? "");
     if (!artSearch.SLOTS.includes(slot)) return badRequest(res, "invalid slot");
     const base = req.query.base ? customArt.normalizeBase(String(req.query.base)) : null;
-    const q = String(req.query.q ?? "").trim() || artSearch.defaultQuery(base);
     try {
-      res.json(await artSearch.searchArt({ slot, q, baseTitleId: base }));
+      const retro = slot === "boxart" ? await retroGameOf(req.query.retro) : null;
+      if (slot === "boxart" && !retro) return res.status(404).json({ error: "no such game" });
+      const q = String(req.query.q ?? "").trim() || (retro ? retro.g.original || retro.g.name : artSearch.defaultQuery(base));
+      const first = retro ? await libretroCovers(retro, q) : [];
+      res.json(await artSearch.searchArt({ slot, q, baseTitleId: base, first }));
     } catch (err) {
       res.status(502).json({ error: err.message });
     }
