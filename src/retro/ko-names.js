@@ -14,18 +14,74 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { dataDir } from "../helpers/envs.js";
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "ko-names.json");
 
+const LOCAL = path.join(dataDir, "retro-ko-names.json");
+let bundled = null;
 let loaded = null;
-const load = () => (loaded ??= index(JSON.parse(fs.readFileSync(DATA, "utf8"))));
+let localStamp = null;
+let localRaw = null;
+let manual = null;
 
-/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one. */
-export function useKoreanNames(raw) {
-  loaded = raw ? index(raw) : null;
+function validLocal(raw) {
+  const object = (v) => v && typeof v === "object" && !Array.isArray(v);
+  if (!object(raw) || !object(raw.systems ?? {}) || !object(raw.titles ?? {}) || !object(raw.folders ?? {})) return false;
+  for (const [system, rows] of Object.entries(raw.systems ?? {})) {
+    if (!/^[a-z0-9]{1,16}$/.test(system) || !object(rows)) return false;
+    for (const [hash, row] of Object.entries(rows)) {
+      if (!/^[0-9a-f]{32}$/i.test(hash) || !Array.isArray(row) || row.length !== 4 || typeof row[0] !== "string"
+        || !(row[1] === null || typeof row[1] === "string") || typeof row[2] !== "string" || typeof row[3] !== "string"
+        || !/^(?:[0-9a-f]{8})?$/i.test(row[2]) || !/^(?:[0-9a-f]{32})?$/i.test(row[3])) return false;
+    }
+  }
+  for (const [system, rows] of Object.entries(raw.titles ?? {})) {
+    if (!/^[a-z0-9]{1,16}$/.test(system) || !object(rows) || Object.values(rows).some((v) => typeof v !== "string")) return false;
+  }
+  return Object.values(raw.folders ?? {}).every((v) => typeof v === "string");
 }
 
-function index(raw) {
+function load() {
+  if (manual) return manual;
+  bundled ??= JSON.parse(fs.readFileSync(DATA, "utf8"));
+  let stamp = null;
+  try {
+    const st = fs.statSync(LOCAL, { bigint: true });
+    stamp = [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(":");
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  if (!loaded || stamp !== localStamp) {
+    if (stamp === null) localRaw = null;
+    else {
+      try {
+        const next = JSON.parse(fs.readFileSync(LOCAL, "utf8"));
+        // A partial hand edit keeps the last complete dictionary until the next file change.
+        if (validLocal(next)) localRaw = next;
+      } catch (err) {
+        if (!(err instanceof SyntaxError)) throw err;
+      }
+    }
+    const systems = { ...bundled.systems };
+    const titles = { ...bundled.titles };
+    for (const [system, rows] of Object.entries(localRaw?.systems ?? {})) {
+      const normalized = Object.fromEntries(Object.entries(rows).map(([hash, r]) => [hash.toLowerCase(), [r[0], r[1], r[2].toLowerCase(), r[3].toLowerCase()]]));
+      systems[system] = { ...systems[system], ...normalized };
+    }
+    for (const [system, rows] of Object.entries(localRaw?.titles ?? {})) titles[system] = { ...titles[system], ...rows };
+    loaded = index({ ...bundled, systems, titles, folders: { ...bundled.folders, ...localRaw?.folders } }, localRaw?.titles ?? {});
+    localStamp = stamp;
+  }
+  return loaded;
+}
+
+/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one. */
+export function useKoreanNames(raw, titleOverrides = {}) {
+  manual = raw ? index(raw, titleOverrides) : null;
+}
+
+function index(raw, titleOverrides = {}) {
   const bySha1 = new Map();
   const byCrc = new Map();
   const byTitle = new Map();
@@ -38,6 +94,10 @@ function index(raw) {
   }
   for (const [system, rows] of Object.entries(raw.titles ?? {})) {
     for (const [title, ko] of Object.entries(rows)) if (!byTitle.has(`${system}/${title}`)) byTitle.set(`${system}/${title}`, { ko, en: null });
+  }
+  // Local display corrections override title guesses, not hash-confirmed labels.
+  for (const [system, rows] of Object.entries(titleOverrides)) {
+    for (const [title, ko] of Object.entries(rows)) byTitle.set(`${system}/${normalizeTitle(title)}`, { ko, en: null });
   }
   return { raw, bySha1, byCrc, byTitle };
 }
