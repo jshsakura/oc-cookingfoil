@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickMenu, menuRows, MENU_GAMES, MENU_MIN } from "../../src/retro/menu.js";
+import { pickMenu, menuRows, MENU_GAMES, MENU_MIN, ROW_ICON_NAMES } from "../../src/retro/menu.js";
+import { iconSet } from "../../src/views/icons.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 9, 21, 3, 0); // 12:00 in Korea
@@ -128,4 +129,8 @@ test("every row has an icon from the client's set", async () => {
   assert.deepEqual(new Set(ids.map(rowIcon)).has("grid"), false, "no row falls through to the default");
   assert.equal(rowIcon("arcade:genre:vertical-shmup"), "joystick");
   assert.equal(rowIcon("coop:beat-em-up"), "users");
+});
+
+test("every icon a row can name is one the web preview can draw", () => {
+  assert.deepEqual(Object.keys(iconSet(ROW_ICON_NAMES)).sort(), [...ROW_ICON_NAMES].sort());
 });

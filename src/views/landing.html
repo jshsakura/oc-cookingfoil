@@ -624,6 +624,7 @@
       .pill.variant { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pill.sys-pill img { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; }
       .home-row h2 .sys-icon { width: 26px; height: 26px; object-fit: contain; align-self: center; }
+      .home-row h2 .row-icon { width: 24px; height: 24px; align-self: center; }
       .retro-systems .chip .n { color: var(--secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
       .retro-systems .chip.active .n { color: inherit; opacity: 0.7; }
       button.game { background: none; border: 0; padding: 0; font: inherit; text-align: left; }
@@ -4592,15 +4593,29 @@
             rows.setAttribute("aria-busy", "true");
             if (!rows.querySelector(".home-row")) rows.replaceChildren(...skeletonShelves(2));
             if (!systems) await this.open(); // cards name their console from the system list
-            let d;
-            try {
-              d = await getJson("/api/retro/home?limit=20");
-            } catch {
+            // The client's home: up to six rows the server picks across systems, then one shelf per system.
+            const [d, picked] = await Promise.all([
+              getJson("/api/retro/home?limit=20").catch(() => null),
+              getJson("/api/retro/themes?limit=12&rows=6").catch(() => null),
+            ]);
+            if (!d) {
               rows.replaceChildren();
               rows.setAttribute("aria-busy", "false");
               return;
             }
-            rows.replaceChildren(...d.systems.filter((s) => s.games.length).map((s) => {
+            // A picked row has its icon and name, no count and no "see all": it is what the server picked, not a list.
+            const themeRows = (picked?.themes ?? []).filter((r) => r.name && r.games?.length).map((r) => {
+              const block = document.createElement("div"); block.className = "home-row";
+              const h = document.createElement("h2");
+              h.insertAdjacentHTML("beforeend", (BTN_ICONS[r.icon] || BTN_ICONS.grid || "").replace('class="bi"', 'class="bi row-icon"'));
+              h.append(document.createTextNode(r.name));
+              const list = document.createElement("div"); list.className = "recent";
+              list.append(...r.games.slice(0, SHELF_MAX).map(card));
+              block.append(h, list);
+              shelfControls(block, list, null);
+              return block;
+            });
+            rows.replaceChildren(...themeRows, ...d.systems.filter((s) => s.games.length).map((s) => {
               const block = document.createElement("div"); block.className = "home-row";
               const h = document.createElement("h2");
               if (s.iconUrl) { const im = document.createElement("img"); im.className = "sys-icon"; im.src = s.iconUrl; im.alt = ""; im.loading = "lazy"; h.append(im); }

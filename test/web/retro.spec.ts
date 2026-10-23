@@ -192,6 +192,25 @@ test('a preview shelf keeps its title, game count and buttons on one line, seven
   await expect(row.locator('.recent')).toHaveCSS('--n', '7');
 });
 
+test('the preview leads with the rows the server picks, as the client home does, then the system shelves', async ({ page, request }) => {
+  const home = await (await request.get('/api/retro/home?limit=20')).json();
+  const game = home.systems.find((s: { games: unknown[] }) => s.games.length).games[0];
+  await page.route(/\/api\/retro\/themes(\?|$)/, (route) => route.fulfill({ json: { themes: [
+    { id: 'classic', name: '명작 모음', icon: 'star', games: [game] },
+    { id: 'empty', name: '빈 줄', icon: 'grid', games: [] },
+  ] } }));
+  await page.goto('/#retro-home');
+  const first = page.locator('#retro-rows .home-row').first();
+  await expect(first.locator('h2')).toHaveText('명작 모음');
+  await expect(first.locator('h2 svg.row-icon')).toHaveCount(1);
+  // A picked row is not a list: no count and no "see all".
+  await expect(first.locator('.row-count')).toHaveCount(0);
+  await expect(first.locator('.see-all')).toHaveCount(0);
+  await expect(first.locator('.recent > .game')).toHaveCount(1);
+  await expect(page.locator('#retro-rows .home-row', { hasText: '빈 줄' })).toHaveCount(0);
+  await expect(page.locator('#retro-rows .home-row').nth(1).locator('.row-count')).toHaveCount(1);
+});
+
 test('removing a core that games use asks again by the refusal code, whatever language its text is in', async ({ page }) => {
   await signIn(page);
   await page.route('**/admin/api/retro-cores', (route) => route.fulfill({ json: {
