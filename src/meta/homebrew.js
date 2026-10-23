@@ -147,7 +147,7 @@ export async function zipEntries(zip) {
 const APP_NAME_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
 const NSP_FILE_RE = /^[A-Za-z0-9_.-]+\.nsp$/i;
 const TITLE_ID_IN_NAME_RE = /\[([0-9A-Fa-f]{16})\]/;
-const META_APPLICATION = 0x80;
+export const META_APPLICATION = 0x80;
 
 /** `name` when it is a plain .nsp file name, else `<fallback>.nsp`. Pure. */
 export function safeNspName(name, fallback) {
@@ -456,6 +456,12 @@ async function readNspFacts(abs, st) {
     languages: r.languages ?? null, requiredFirmware: r.requiredSystemVersion ? firmwareString(r.requiredSystemVersion) : null, iconBuffer: r.iconBuffer ?? null } : null;
   nspFacts.set(abs, { key, meta, retryAt: meta ? 0 : Date.now() + NSP_RETRY_MS });
   return meta;
+}
+
+/** An NSP's { titleId, metaType, version } read from its cnmt, or null when it can't be read. */
+export async function inspectNsp(abs) {
+  const r = await nspReader(abs).catch(() => null);
+  return r ? { titleId: r.titleId ?? null, metaType: r.metaType ?? null, version: r.version ?? null } : null;
 }
 
 /** The icon of a hand-placed NSP (its control NCA), read again when the server has not read it yet. */

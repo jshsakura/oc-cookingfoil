@@ -14,7 +14,8 @@
  *             (a save-keeper backup's .meta is read for saveType and left out)
  *                                              → <saves>/<title id>/<name>/ (+ meta.json)
  *     homebrew  port ("true" marks the placed app a port); a .nro, a release .zip or the app folder
- *                                              → <homebrew>/<app>/
+ *                                              → <homebrew>/<app>/; with replace=<id>, one .nro or .nsp
+ *                                              that becomes that hand-placed app's file (homebrew-upload.js)
  *     core    one <core>_libretro_libnx.nro    → <retro>/retroarch/cores/; replace ("true") swaps a core of that
  *             name, which goes to the retro trash first (retro/core-files.js)
  *     client  the CookingFoil client build, one .nro → <data>/client/cookingfoil.nro, replacing the one
@@ -44,7 +45,7 @@ import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
 import * as integrations from "../../security/integrations.js";
 import { romKey } from "./retro-art-api.js";
-import { HomebrewUploadError, placeHomebrew } from "./homebrew-upload.js";
+import { HomebrewUploadError, placeHomebrew, replaceHomebrewFile } from "./homebrew-upload.js";
 import { defaultService } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
@@ -292,6 +293,7 @@ export function mountUploadApi(router, guard) {
       const { items, fromFolder } = await received(req, work);
       const placed = kind === "game" ? await placeGame(items)
         : kind === "retro" ? await placeRetro(items, req.body)
+        : kind === "homebrew" && req.body?.replace ? await replaceHomebrewFile(items, req.body.replace, { by: actorOf(req) })
         : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
         : kind === "client" ? await placeClient(items)
         : kind === "core" ? await placeCoreUpload(items, req.body)
