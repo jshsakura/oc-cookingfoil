@@ -827,3 +827,8 @@ test("H2: a scan that finds the pack held by another writer runs once it is free
     assert.deepEqual(fs.readFileSync(w.core("fceumm")), BUILDS.fceumm);
   } finally { bot.close(); }
 });
+
+test("a switched-off core reads off, whatever is on disk", () => {
+  const [st] = coreStates({ ...catalogOf("nes"), present: new Map([["fceumm", null]]), entries: new Map(), enabled: true, off: new Set(["fceumm"]) });
+  assert.deepEqual(st, { id: "nes", core: "fceumm", state: "off" });
+});

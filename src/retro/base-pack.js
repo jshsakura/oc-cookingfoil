@@ -83,8 +83,11 @@ async function cleaned(entry, cleanDir) {
   return { ...entry, abs: out, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino };
 }
 
-/** The pack's files with their SD paths and stats (no SHA-256; only small unknown firmware files get an md5). */
-export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean"), firmware = {} } = {}) {
+/**
+ * The pack's files with their SD paths and stats (no SHA-256; only small unknown firmware files get an md5).
+ * The .nro and .info of a core in `off` are left out.
+ */
+export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-pack-clean"), firmware = {}, off = new Set() } = {}) {
   const rels = await walk(packDir);
   const rules = firmware.rules ?? BIOS;
   // sdPathOf is the one gate: an operator's system/README.md never reaches the console.
@@ -96,7 +99,7 @@ export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-p
   ];
   const out = [];
   for (const { rel, sd, copy } of sources) {
-    if (!sd) continue;
+    if (!sd || off.has(coreOfPath(sd))) continue;
     const abs = path.join(packDir, rel);
     const st = await fsp.stat(abs);
     out.push(await cleaned({ path: sd, abs, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, ino: st.ino, once: ONCE.has(sd) || copy }, cleanDir));
@@ -105,8 +108,8 @@ export async function listPack(packDir, { cleanDir = path.join(dataDir, "retro-p
 }
 
 /** { version, files: [{ path, size, sha256, once? }] } for the pack. */
-export async function buildManifest(packDir, cache) {
-  const files = await listPack(packDir);
+export async function buildManifest(packDir, cache, { off } = {}) {
+  const files = await listPack(packDir, { off });
   const out = [];
   for (const f of files) {
     const entry = { path: f.path, size: f.size, sha256: await cache.hash(f) };

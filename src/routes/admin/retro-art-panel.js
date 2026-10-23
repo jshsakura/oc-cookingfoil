@@ -171,11 +171,17 @@ async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
   $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
-  table('rc-list',['코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
+  table('rc-list',[topText('ac.on'),'코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
     const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
-    tr.append(name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+    tr.append(raCell(rcSwitch(c)),name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+// Off leaves the core out of the console pack; the games that need it stay listed but can't be taken.
+function rcSwitch(c){const box=el('input');box.type='checkbox';box.checked=!c.off;box.setAttribute('aria-label',c.core+' '+topText('ac.on'));
+  box.addEventListener('change',async()=>{const on=box.checked;const fill=(k)=>topText(k).split('{core}').join(c.core);
+    if(!on&&!await ask(fill('ac.offQ'))){box.checked=true;return;}
+    try{await api('/admin/api/retro-cores/enabled',{method:'POST',body:{core:c.core,enabled:on}});toast(fill(on?'ac.onDone':'ac.offDone'));loadRetroCores();}
+    catch(err){box.checked=!on;toast(err.message);}});return box;}
 const rpT=(k,v)=>{let s=topText('rp.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
 function rpLast(job){const p=$('rp-last');if(!job){p.textContent='';return;}
   if(job.error)p.textContent=rpT('lastFail',{err:job.error});
@@ -227,7 +233,7 @@ async function rcUpload(file,replace=false){
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
   toast(d.where+' 에 올렸습니다.');loadRetroCores();}
 // The official core upkeep's state of a console's core (auto-cores.js coreStates).
-const AC_KIND={present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
+const AC_KIND={off:'',present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
 function acPill(cs){const k=cs.state==='missing'?'missing.'+cs.reason:cs.state;const p=pill(topText('ac.'+k),AC_KIND[cs.state]??'');
   if(cs.state==='present'&&cs.built)p.title=cs.source+' · '+cs.built+(cs.crc32?' · '+cs.crc32:'');
   if(cs.state==='failed')p.title=(cs.message||'')+(cs.retryAt?' · '+fmt(cs.retryAt):'');return p;}

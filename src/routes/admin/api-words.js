@@ -11,6 +11,7 @@ export const API_WORDS = {
   ko: {
     "fileReplace.taken": "폴더에 {name} 이 이미 있어 바꾸지 않았습니다. 그 파일을 먼저 정리합니다",
     "fileReplace.one": "파일 하나만 올립니다 (.nro 또는 .nsp)",
+    "coreSwitch.bad": "core 와 enabled(true/false) 가 필요합니다",
     "fileReplace.unknown": "직접 넣은 앱 목록에 없습니다",
     "fileReplace.kind": "{name} 은 {want} 파일로만 바꿉니다. 형식을 바꾸려면 앱을 삭제하고 새로 올립니다",
     "fileReplace.badNro": "올바른 NRO 가 아닙니다: {why}",
@@ -32,6 +33,7 @@ export const API_WORDS = {
   en: {
     "fileReplace.taken": "The folder already has {name}, so nothing was replaced. Clear that file first",
     "fileReplace.one": "Upload one file (.nro or .nsp)",
+    "coreSwitch.bad": "core and enabled (true/false) are required",
     "fileReplace.unknown": "That app is not among the hand-placed apps",
     "fileReplace.kind": "{name} takes only a {want} file. To change the format, delete the app and upload it again",
     "fileReplace.badNro": "Not a valid NRO: {why}",
@@ -53,6 +55,7 @@ export const API_WORDS = {
   ja: {
     "fileReplace.taken": "フォルダーに {name} がすでにあるため、置き換えませんでした。先にそのファイルを整理します",
     "fileReplace.one": "ファイルを 1 つだけアップロードします (.nro または .nsp)",
+    "coreSwitch.bad": "core と enabled (true/false) が必要です",
     "fileReplace.unknown": "手動で置いたアプリの一覧にありません",
     "fileReplace.kind": "{name} は {want} ファイルでのみ置き換えます。形式を変えるにはアプリを削除して新しくアップロードします",
     "fileReplace.badNro": "正しい NRO ではありません: {why}",
@@ -74,6 +77,7 @@ export const API_WORDS = {
   zh: {
     "fileReplace.taken": "文件夹中已有 {name}，因此没有替换。请先处理那个文件",
     "fileReplace.one": "只上传一个文件 (.nro 或 .nsp)",
+    "coreSwitch.bad": "需要 core 和 enabled (true/false)",
     "fileReplace.unknown": "不在手动放置的应用列表中",
     "fileReplace.kind": "{name} 只能用 {want} 文件替换。要更换格式，请删除应用后重新上传",
     "fileReplace.badNro": "不是有效的 NRO: {why}",
