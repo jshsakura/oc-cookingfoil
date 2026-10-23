@@ -24,12 +24,12 @@ const PROBE = `
     return r;
   };
   const req = (id) => ({ params: { baseTitleId: id }, get: () => undefined, protocol: "http" });
-  const call = (id) => { const res = mkRes(); route(req(id), res); return res; };
+  const call = async (id) => { const res = mkRes(); await route(req(id), res); return res; };
 
-  const ok = call("0100000000ABC000");
-  const bad = call("ZZZZ");
-  const missing = call("0100000000FFF000");
-  const artworkOnly = call("0100000000DDD000");
+  const ok = await call("0100000000ABC000");
+  const bad = await call("ZZZZ");
+  const missing = await call("0100000000FFF000");
+  const artworkOnly = await call("0100000000DDD000");
   process.stdout.write(JSON.stringify({
     okCode: ok.code, name: ok.body?.name, publisher: ok.body?.publisher,
     descLen: (ok.body?.description || "").length, shots: ok.body?.screenshotCount,
@@ -123,18 +123,19 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
     import * as art from "../../src/meta/custom-art.js";
     await store.load();
     await art.init();
-    const call = (lang, header) => {
+    const call = async (lang, header) => {
       const r = { code: 200, body: null, headers: {} };
       r.status = (c) => { r.code = c; return r; };
       r.json = (o) => { r.body = o; return r; };
       r.header = () => r;
-      route({ params: { baseTitleId: "0100000000ABE000" }, query: lang ? { lang } : {}, get: (h) => (h === "accept-language" ? header : undefined), protocol: "http" }, r);
+      await route({ params: { baseTitleId: "0100000000ABE000" }, query: lang ? { lang } : {}, get: (h) => (h === "accept-language" ? header : undefined), protocol: "http" }, r);
       const art = new URL(r.body.iconUrl, "http://x").searchParams.get("lang");
       return [r.body.name, r.body.description, art];
     };
-    const out = Object.fromEntries(["es", "de", "sv", "nl", "zh", "zh-Hant", "zh-TW", "ko", ""].map((l) => [l, call(l)]));
-    out.headerEs = call("", "es-ES,es;q=0.9");
-    out.headerSv = call("", "sv-SE");
+    const out = {};
+    for (const l of ["es", "de", "sv", "nl", "zh", "zh-Hant", "zh-TW", "ko", ""]) out[l] = await call(l);
+    out.headerEs = await call("", "es-ES,es;q=0.9");
+    out.headerSv = await call("", "sv-SE");
     process.stdout.write(JSON.stringify(out));
   `;
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
@@ -173,16 +174,16 @@ function detailIn({ regions, games = {}, langs }) {
     await store.load();
     await art.init();
     await scan();
-    const call = (id, lang) => {
+    const call = async (id, lang) => {
       const r = { code: 200, body: null };
       r.status = (c) => { r.code = c; return r; };
       r.json = (o) => { r.body = o; return r; };
       r.header = () => r;
-      route({ params: { baseTitleId: id }, query: { lang }, get: () => undefined, protocol: "http" }, r);
+      await route({ params: { baseTitleId: id }, query: { lang }, get: () => undefined, protocol: "http" }, r);
       return [r.body?.name ?? null, r.body?.description ?? null];
     };
     const out = {};
-    for (const [id, list] of Object.entries(${JSON.stringify(langs)})) for (const l of list) out[id + ":" + l] = call(id, l);
+    for (const [id, list] of Object.entries(${JSON.stringify(langs)})) for (const l of list) out[id + ":" + l] = await call(id, l);
     process.stdout.write(JSON.stringify(out));
   `;
   return JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", probe], {

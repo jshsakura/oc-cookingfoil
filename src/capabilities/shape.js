@@ -10,7 +10,7 @@ export const num = (description) => described({ type: "number" }, description);
 export const bool = (description) => described({ type: "boolean" }, description);
 export const oneOf = (values, description) => described({ enum: values }, description);
 export const arr = (items, description) => described({ type: "array", items }, description);
-export const nullable = (schema) => ({ ...schema, type: [schema.type, "null"] });
+export const nullable = (schema) => ({ ...schema, type: [...[schema.type].flat(), "null"] });
 
 export function obj(properties, { optional = [], description } = {}) {
   const required = Object.keys(properties).filter((k) => !optional.includes(k));
