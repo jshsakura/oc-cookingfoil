@@ -42,7 +42,7 @@ const SS_GROUPS=[
     ['passwordLogin','bool','아이디·비밀번호 로그인','끄면 대시보드와 관리 페이지에는 Google 계정으로만 로그인하고, 계정 비밀번호는 어디서도 받지 않습니다. 비밀번호로 로그인해 있던 사람과 비밀번호 계정이 만든 토큰도 그동안 쓸 수 없습니다. 이미 승인된 콘솔은 기기 키로 계속 붙고, 새 콘솔은 QR 로 승인합니다. Google 로그인이 켜져 있고 관리자로 승인된 Google 계정이 있어야 끌 수 있으며, 나중에 둘 중 하나라도 없어지면 비밀번호 로그인이 저절로 다시 켜집니다. Google 쪽이 고장 나 들어올 수 없으면 compose 에 COOK_PASSWORD_LOGIN_FORCE=true 를 넣고 다시 시작합니다.'],
   ]],
   ['대시보드',[
-    ['uploadsEnabled','bool','웹에서 올리기','로그인한 사용자가 대시보드에서 파일과 표지를 올릴 수 있습니다. 관리 페이지의 업로드 탭은 이 설정과 상관없이 씁니다.'],
+    ['uploadsEnabled','bool',()=>topText('ss.uploads'),()=>topText('ss.uploadsD')],
     ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
   ]],
   ['임시 공유',[
