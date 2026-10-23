@@ -11,6 +11,7 @@ import * as prodKeys from "../../security/prod-keys.js";
 import { adminApprover } from "../../security/admin-actor.js";
 import { keysChanged } from "../../meta/keys-refresh.js";
 import { apiWord } from "./api-words.js";
+import { actorOf } from "../../library/trash-service.js";
 
 const REFUSED = {
   format: "keys.format",
@@ -32,10 +33,16 @@ export function mountKeysApi(router, requireSession) {
     }
   });
 
-  router.delete("/api/keys", (req, res) => {
+  router.delete("/api/keys", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    const removed = prodKeys.remove({ actor: adminApprover(req), via: "dashboard" });
+    let removed;
+    try {
+      removed = await prodKeys.remove({ actor: adminApprover(req), via: "dashboard", by: actorOf(req) });
+    } catch (err) {
+      res.status(err.status ?? 500).json({ error: err.message, code: err.code ?? null });
+      return;
+    }
     if (removed) keysChanged();
     res.json({ ok: true, removed, keys: prodKeys.status() });
   });

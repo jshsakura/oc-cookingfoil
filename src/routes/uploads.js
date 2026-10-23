@@ -268,7 +268,7 @@ export default function uploadsRouter() {
       return;
     }
     try {
-      await fs.unlink(path.join(uploadsDir, desc.diskName));
+      await trashService.discard([path.join(uploadsDir, desc.diskName)], { kind: "upload", action: "delete", by: trashService.actorOf(req), name: desc.diskName });
     } catch (err) {
       debug.error("uploads delete failed: %s", err.message);
       res.status(500).json({ error: err.message });

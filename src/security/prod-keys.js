@@ -23,6 +23,7 @@ import { dataDir, keysDir as mountedDir } from "../helpers/envs.js";
 import { envString } from "../helpers/env-read.js";
 import * as edits from "../meta/admin-edits.js";
 import debug from "../debug.js";
+import { discard } from "../library/trash-service.js";
 
 export const MAX_BYTES = 64 * 1024;
 const UPLOAD_DIR = path.join(dataDir, "keys");
@@ -166,11 +167,10 @@ export function install(text, { actor, via, device = null, deviceName = null }, 
   return status();
 }
 
-/** Deletes the uploaded copy (never a mounted file); false when there was none. */
-export function remove({ actor, via, device = null, deviceName = null }) {
+/** Moves the uploaded copy to the data folder's trash (never a mounted file); false when there was none. */
+export async function remove({ actor, via, device = null, deviceName = null, by = null }) {
   if (!uploaded()) return false;
-  fs.rmSync(UPLOAD_FILE, { force: true });
-  fs.rmSync(MARK_FILE, { force: true });
+  await discard([UPLOAD_FILE, MARK_FILE].filter((f) => fs.existsSync(f)), { kind: "prod-keys", action: "delete", by, name: "prod.keys" });
   debug.log("prod.keys upload removed by %s via %s", actor, via);
   edits.record({ via, device, deviceName, kind: "server", id: "prod.keys", key: "keys", before: "upload", after: status().source });
   return true;

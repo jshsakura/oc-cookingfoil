@@ -16,6 +16,7 @@ import * as envs from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { actorOf } from "../../library/trash-service.js";
 
 const SHOW = { open: false, done: true, all: undefined };
 
@@ -61,7 +62,7 @@ export function mountInboxApi(router, requireSession) {
   }));
 
   router.delete("/api/inbox/:id", handle(async (req, res) => {
-    if (!(await inbox.remove(req.params.id))) return res.status(404).json({ error: apiWord(req, "inbox.noItem") });
+    if (!(await inbox.remove(req.params.id, { by: actorOf(req) }))) return res.status(404).json({ error: apiWord(req, "inbox.noItem") });
     debug.log("admin: inbox %s deleted", req.params.id);
     res.json({ ok: true });
   }));

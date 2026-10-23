@@ -21,6 +21,7 @@ import path from "path";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
 import * as sidecar from "./art-sidecar.js";
+import { discard } from "../library/trash-service.js";
 
 export const MAX_SHOTS = sidecar.MAX_SHOTS;
 const ICON = 512;
@@ -275,12 +276,13 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
    * Forgets the item: its record, the originals kept for it, and its pictures when
    * they are kept here. Pictures in the item's own folder stay with the folder.
    */
-  function forget(id) {
+  async function forget(id) {
     check(id);
-    if (homeDir(id) === ownDir(id)) fs.rmSync(ownDir(id), { recursive: true, force: true });
-    else for (const name of fs.existsSync(ownDir(id)) ? fs.readdirSync(ownDir(id)) : []) {
-      if (/\.orig\.(webp|json)$/.test(name)) fs.rmSync(path.join(ownDir(id), name), { force: true });
-    }
+    const own = ownDir(id);
+    const gone = !fs.existsSync(own) ? []
+      : homeDir(id) === own ? [own]
+      : fs.readdirSync(own).filter((name) => /\.orig\.(webp|json)$/.test(name)).map((name) => path.join(own, name));
+    if (gone.length) await discard(gone, { kind: label, action: "forget", name: id });
     const { [id]: _gone, ...rest } = all();
     persist(rest);
   }

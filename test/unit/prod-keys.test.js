@@ -20,7 +20,7 @@ const nsp = await import("../../src/meta/extract-providers/nsp.js");
 const edits = await import("../../src/meta/admin-edits.js");
 
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-beforeEach(() => { keys.remove({ actor: "test", via: "dashboard" }); seal.reset(); });
+beforeEach(async () => { await keys.remove({ actor: "test", via: "dashboard" }); seal.reset(); });
 
 const HEADER = "a".repeat(64);
 const FAKE = [
@@ -57,7 +57,7 @@ test("the parser takes a prod.keys dump and refuses anything else without echoin
   assert.equal(reasonOf(() => keys.parseKeys(42)), "format");
 });
 
-test("an upload is written 0600 where every reader looks, shows at once, and only it can be removed", () => {
+test("an upload is written 0600 where every reader looks, shows at once, and only it can be removed", async () => {
   assert.deepEqual(keys.status(), { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0 });
   const st = keys.install(FAKE, { actor: "alice", via: "dashboard" });
   assert.equal(st.present, true);
@@ -79,18 +79,21 @@ test("an upload is written 0600 where every reader looks, shows at once, and onl
   assert.equal(edits.recent(1)[0].id, "prod.keys");
   assert.ok(!JSON.stringify(edits.recent(5)).includes(HEADER));
 
-  assert.equal(keys.remove({ actor: "alice", via: "dashboard" }), true);
+  assert.equal(await keys.remove({ actor: "alice", via: "dashboard" }), true);
   assert.equal(keys.status().present, false);
+  const trashed = fs.readdirSync(root, { recursive: true }).filter((f) => f.includes(".cookingfoil-trash") && f.endsWith(path.join("keys", "prod.keys")));
+  assert.equal(trashed.length, 1, "the upload goes to the data folder's trash under its own path");
+  assert.equal(fs.statSync(path.join(root, trashed[0])).mode & 0o777, 0o600, "and stays readable by the owner only");
   assert.equal(keys.keysFile(), path.join(root, "mounted", "prod.keys"), "back to the configured file");
-  assert.equal(keys.remove({ actor: "alice", via: "dashboard" }), false, "nothing uploaded to remove");
+  assert.equal(await keys.remove({ actor: "alice", via: "dashboard" }), false, "nothing uploaded to remove");
 });
 
-test("a mounted file counts as present and is never removed", () => {
+test("a mounted file counts as present and is never removed", async () => {
   fs.mkdirSync(path.join(root, "mounted"), { recursive: true });
   fs.writeFileSync(path.join(root, "mounted", "prod.keys"), FAKE);
   try {
     assert.deepEqual({ ...keys.status(), uploadedAt: null }, { present: true, source: "file", uploadedAt: null, keyCount: 5, hasHeaderKey: true, titleKekCount: 2 });
-    assert.equal(keys.remove({ actor: "alice", via: "dashboard" }), false);
+    assert.equal(await keys.remove({ actor: "alice", via: "dashboard" }), false);
     assert.ok(fs.existsSync(path.join(root, "mounted", "prod.keys")));
     keys.install(FAKE, { actor: "alice", via: "dashboard" });
     assert.equal(keys.status().source, "upload", "an upload wins over the mounted file");

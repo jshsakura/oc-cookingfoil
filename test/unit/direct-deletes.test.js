@@ -11,7 +11,7 @@ const LIST = "src/library/direct-deletes.js";
 // fs.rm, fsp.unlink, a destructured rm(...), rmdir with recursive, and rm run as a program.
 const DELETE_RE = /(?<![\w$])(?:rmSync|unlinkSync|rm|unlink)\s*\(|\.(?:rm|unlink|rmSync|unlinkSync)\s*\(|\brmdir(?:Sync)?\s*\([^)\n]*recursive|["']rm["']\s*,\s*\[/g;
 // Only falls: a file leaves `todo` once it uses discard().
-const TODO_CEILING = 6;
+const TODO_CEILING = 3;
 
 function sourceCounts(dir = "src", out = {}) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
