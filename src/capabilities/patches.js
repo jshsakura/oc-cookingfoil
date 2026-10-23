@@ -7,7 +7,8 @@ import path from "path";
 import { defineCapability } from "./define.js";
 import { arr, bool, int, obj, str, titleId } from "./shape.js";
 import * as userPatches from "../meta/user-patches.js";
-import { locateContent, trashContent } from "../library/content-remove.js";
+import { locateContent, refreshContent, trashContent } from "../library/content-remove.js";
+import debug from "../debug.js";
 
 export const MAX_PATCHES = 20;
 
@@ -65,7 +66,7 @@ export const patchesCapabilities = [
         return {
           id, titleId: found.titleId, folder: found.folder, name: shown?.name || found.folder,
           korean: userPatches.isKorean({ ...shown, ...userPatches.locate(id) }), required: shown?.required === true,
-          ...(await sizeOf(found.dir)),
+          ...(Number.isInteger(shown?.files) && Number.isInteger(shown?.size) ? { files: shown.files, bytes: shown.size } : await sizeOf(found.dir)),
         };
       }));
       const korean = patches.filter((p) => p.korean).length;
@@ -81,13 +82,18 @@ export const patchesCapabilities = [
     handler: async (ctx, input) => {
       const removed = [];
       const failed = [];
-      for (const { id, found } of await chosen(input)) {
-        try {
-          removed.push({ id, trash: (await trashContent("patch", id, found, byOf(ctx))).id });
-        } catch (err) {
-          if (!(err?.status >= 400 && err.status < 500)) throw err;
-          failed.push({ id, error: err.textIn?.("en") ?? err.message });
+      try {
+        for (const { id, found } of await chosen(input)) {
+          try {
+            removed.push({ id, trash: (await trashContent("patch", id, found, byOf(ctx), { refresh: false })).id });
+          } catch (err) {
+            // Every failure is the item's: the ones already moved must still reach the caller.
+            failed.push({ id, error: err?.status >= 400 && err.status < 500 ? err.textIn?.("en") ?? err.message : "could not be moved; the server log has why" });
+            if (!(err?.status >= 400 && err.status < 500)) debug.error("mcp: patches_remove %s: %s", id, err?.stack ?? err);
+          }
         }
+      } finally {
+        await refreshContent("patch");
       }
       return { removed, failed };
     },

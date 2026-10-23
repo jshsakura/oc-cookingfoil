@@ -37,9 +37,10 @@ export async function refreshContent(kind) {
 
 /**
  * Moves the patch or save `id` (where locateContent found it) to its trash and forgets what was
- * kept under its id. The trash entry; throws TrashError when it cannot be moved.
+ * kept under its id. The trash entry; throws TrashError when it cannot be moved. `refresh: false`
+ * leaves the rescan to a caller moving several.
  */
-export async function trashContent(kind, id, { root, dir, titleId, folder }, by) {
+export async function trashContent(kind, id, { root, dir, titleId, folder }, by, { refresh = true } = {}) {
   const key = kind === "patch" ? patchInfo.keyOf(titleId, folder) : null;
   const marks = marksOf(kind, id);
   const out = await trashService.trash(kind === "patch" ? "patches" : "saves", [{ rel: path.relative(root, dir).split(path.sep).join("/") }], {
@@ -49,6 +50,6 @@ export async function trashContent(kind, id, { root, dir, titleId, folder }, by)
   await fsp.rmdir(path.dirname(dir)).catch(() => {});
   if (key) patchInfo.remove(key);
   forgetMarks(kind, id);
-  await refreshContent(kind);
+  if (refresh) await refreshContent(kind);
   return out;
 }
