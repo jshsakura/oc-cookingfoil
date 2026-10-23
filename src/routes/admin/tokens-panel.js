@@ -42,11 +42,11 @@ $('tok-form').addEventListener('submit',async(e)=>{e.preventDefault();
     $('tok-value').textContent=d.token;$('tok-new').hidden=false;$('tok-note').hidden=false;$('tok-label').value='';loadTokens();}catch(err){toast(err.message);}});
 async function loadMcp(){
   try{const d=await api('/admin/api/server-settings');const s=d.settings;
-    const base=(s.publicBaseUrl?.value||location.origin).replace(/\/+$/,'')+'/mcp';
+    const base=(s.publicBaseUrl?.value||location.origin).replace(/\\/+$/,'')+'/mcp';
     $('mcp-on').checked=s.mcpEnabled?.value===true;$('mcp-howto').hidden=!$('mcp-on').checked;
     $('mcp-claude').textContent='claude mcp add --transport http cookingfoil '+base+' --header "Authorization: Bearer '+topText('mcp.placeholder')+'"';
     $('mcp-project').textContent=JSON.stringify({mcpServers:{cookingfoil:{type:'http',url:base,headers:{Authorization:'Bearer \${COOKINGFOIL_TOKEN}'}}}},null,2);
-    $('mcp-codex').textContent='[mcp_servers.cookingfoil]\nurl = "'+base+'"\nbearer_token_env_var = "COOKINGFOIL_TOKEN"';
+    $('mcp-codex').textContent='[mcp_servers.cookingfoil]\\nurl = "'+base+'"\\nbearer_token_env_var = "COOKINGFOIL_TOKEN"';
   }catch(err){toast(err.message);}
 }
 $('mcp-on').addEventListener('change',async(e)=>{const on=e.target.checked;

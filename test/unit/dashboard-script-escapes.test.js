@@ -27,3 +27,22 @@ test("served page and script sources have no single-backslash regex escapes", ()
     .filter(([, line]) => /(?<!\\)\\[dDsSwWbB]/.test(line)).map(([where]) => where));
   assert.deepEqual(lone, [], "inside a template literal write two backslashes (\\\\d), or the browser gets d");
 });
+
+// A lone backslash also drops out of \/ and \n, which leaves the browser a broken regex or string
+// and stops the whole admin page script. Every served script must parse.
+test("every served script parses", async () => {
+  const { Script } = await import("node:vm");
+  const broken = [];
+  for (const u of SERVED) {
+    const mod = await import(u.href);
+    for (const [name, text] of Object.entries(mod)) {
+      if (!name.endsWith("_SCRIPT") || typeof text !== "string") continue;
+      try {
+        new Script(text);
+      } catch (err) {
+        broken.push(`${u.pathname.split("/src/")[1]} ${name}: ${err.message}`);
+      }
+    }
+  }
+  assert.deepEqual(broken, []);
+});
