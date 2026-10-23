@@ -23,20 +23,12 @@ import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
 import verifyQueue from "../../meta/verify-service.js";
 import * as trashService from "../../library/trash-service.js";
+import { trashGameFiles } from "../../library/game-files.js";
 import { apiWord } from "./api-words.js";
 
 const LIMIT = 100;
 
-/** Moves one file of the games folder to its trash; the folders it leaves empty go, up to the games folder. */
-async function toTrash(req, abs, kind, action) {
-  const rel = path.relative(romsDirPath, abs).split(path.sep).join("/");
-  const out = await trashService.trash("games", [{ rel }], { kind, action, by: trashService.actorOf(req), name: path.basename(abs) });
-  for (let dir = path.dirname(abs); dir !== path.resolve(romsDirPath) && dir.startsWith(path.resolve(romsDirPath)); dir = path.dirname(dir)) {
-    if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
-  }
-  shopCache.invalidate({ rescan: true });
-  return out;
-}
+const toTrash = (req, abs, kind, action) => trashGameFiles([abs], { kind, action, by: trashService.actorOf(req), name: path.basename(abs) });
 
 export function mountLibraryFilesApi(router, requireSession, verify = verifyQueue) {
   const handle = (fn) => async (req, res) => {

@@ -48,7 +48,10 @@ are built from it.
 `/mcp` (`src/mcp/`) serves the capabilities an automation token may use (`src/mcp/tools.js`). A write
 or destructive capability is served only with a `preview(ctx, input)` and a `previewOutput` schema:
 MCP adds a `confirm` argument, returns the preview and changes nothing without `confirm: "approve"`,
-and journals every approved call to `<data>/mcp-actions.jsonl`. A preview states the exact effect. Each served capability needs an `output` JSON Schema (`src/capabilities/shape.js`
+and journals every approved call to `<data>/mcp-actions.jsonl`. A preview states the exact effect.
+A write whose route is token-blocked may still be a tool with `token: true` and no `http`: the
+confirm gate exists only over MCP. Removals go to the trash with a per-call cap; emptying it stays
+on the admin page. Each served capability needs an `output` JSON Schema (`src/capabilities/shape.js`
 builds them); `help` prints input and output from the registry, and `test/unit/mcp*.test.js` checks
 real results against it. `src/mcp/reference.md` may name only served tools.
 

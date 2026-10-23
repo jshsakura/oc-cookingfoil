@@ -72,7 +72,8 @@ export const okResult = (value) => ({ content: [{ type: "text", text: fitJson(va
 export function errorResult(err, tool) {
   let error;
   if (err instanceof ToolError) error = { code: err.code, message: err.message, ...(err.hint ? { hint: err.hint } : {}), ...(err.next ? { next: err.next } : {}) };
-  else if (err?.status >= 400 && err.status < 500) error = { code: STATUS_CODES[err.status] ?? "BAD_INPUT", message: err.message };
+  // textIn: errors that keep their words per language (library/trash.js) answer in English.
+  else if (err?.status >= 400 && err.status < 500) error = { code: STATUS_CODES[err.status] ?? "BAD_INPUT", message: err.textIn?.("en") ?? err.message };
   else {
     const at = new Date().toISOString();
     debug.error("mcp: %s failed at %s: %s", tool, at, err?.stack ?? err);

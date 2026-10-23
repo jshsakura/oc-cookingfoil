@@ -190,3 +190,39 @@ test("retro art: status, previews and a no-art match that sends a placed cover t
   assert.ok(trashed.some((f) => f.endsWith("Cover Quest (USA).png")), "the placed cover is in the retro trash");
   assert.equal((await check("retro_game_get", { id: game.id })).artMatched, true);
 });
+
+test("library_files_remove previews, moves the files into one trash entry, and trash_restore puts them back", async () => {
+  const base = "0100000000050000";
+  const rels = [`Fifth Game/Fifth Game [${base}][v0].nsp`, "Fifth Game/update/Fifth Game [0100000000050800][v65536].nsp"];
+  for (const rel of rels) put("games", rel);
+  put("games", "Fifth Game/DLC/Fifth Game DLC [0100000000051001][v0].nsp");
+  const shopCache = await import("../../src/meta/shop-cache.js");
+  const rebuilt = new Promise((resolve) => { const off = shopCache.onUpdate(() => { off(); resolve(); }); });
+  shopCache.invalidate({ rescan: true });
+  await rebuilt;
+
+  const preview = await checkPreview("library_files_remove", { rels });
+  assert.equal(preview.count, 2);
+  assert.deepEqual(preview.games, [{ titleId: base, left: 1 }]);
+  assert.ok(rels.every((rel) => fs.existsSync(path.join(dirs.games, rel))), "the preview moved nothing");
+
+  const done = await check("library_files_remove", { rels });
+  assert.equal(done.trash.length, 1);
+  assert.ok(rels.every((rel) => !fs.existsSync(path.join(dirs.games, rel))));
+  assert.ok(!fs.existsSync(path.join(dirs.games, "Fifth Game/update")), "the emptied folder went");
+  await assert.rejects(registry.byId("library_files_remove").preview({}, { rels }), (err) => err.status === 404, "a moved file is gone before the list is rebuilt");
+
+  const back = await checkPreview("trash_restore", { ids: done.trash });
+  assert.equal(back.entries.length, 1);
+  const restored = await check("trash_restore", { ids: done.trash });
+  assert.equal(restored.failed.length, 0);
+  assert.ok(rels.every((rel) => fs.existsSync(path.join(dirs.games, rel))));
+});
+
+test("library_files_remove refuses paths the library does not list, and more than its cap", async () => {
+  const cap = registry.byId("library_files_remove");
+  await assert.rejects(cap.preview({}, { rels: ["Nope/Nope [0100000000060000][v0].nsp"] }), (err) => err.status === 404);
+  await assert.rejects(cap.preview({}, { rels: ["../outside.nsp"] }), (err) => err.status === 404);
+  await assert.rejects(cap.preview({}, { rels: Array.from({ length: 21 }, (_, i) => `x${i}.nsp`) }), (err) => err.status === 400);
+  await assert.rejects(registry.byId("trash_restore").preview({}, { ids: ["games:nope"] }), (err) => err.status === 404);
+});
