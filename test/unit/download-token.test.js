@@ -538,7 +538,7 @@ test("the probe looks the host up, asks base/, and counts any answer", async () 
   assert.deepEqual(asked, ["dl.example.org", `${DL}/`, "GET"]);
   await assert.rejects(health.probe("https://dl.example.org", { lookup: PUBLIC_LOOKUP, fetchImpl: async () => { throw new Error("timeout"); } }));
   // A name that resolves into the private network is refused before it is asked.
-  await assert.rejects(health.probe(DL, { lookup: async () => [{ address: "10.0.0.8" }], fetchImpl: async () => ({ status: 404 }) }), /내부망/);
+  await assert.rejects(health.probe(DL, { lookup: async () => [{ address: "10.0.0.8" }], fetchImpl: async () => ({ status: 404 }) }), /private network/);
   assert.deepEqual(health.nextHealth({ up: false, known: true, since: null, fails: 3 }, true, 5), { up: true, known: true, since: 5, fails: 0, checkedAt: 5, error: null });
 });
 

@@ -9,6 +9,7 @@
  */
 import * as env from "../helpers/envs.js";
 import { readSecretJson, writeSecretJson } from "../db/security-stores.js";
+import { codedError } from "./security-messages.js";
 
 const TOKEN_RE = /^[\x21-\x7e]{8,300}$/;
 const URL_RE = /^https?:\/\/[^\s]{3,300}$/;
@@ -116,12 +117,12 @@ function persist(next) {
 /** Saves one service. An empty secret keeps the one already set, so a masked field can be left alone. */
 export function save(service, input = {}) {
   const spec = SERVICES[service];
-  if (!spec) throw new IntegrationError("알 수 없는 서비스입니다");
+  if (!spec) throw codedError(IntegrationError, "integration.unknown");
   const current = get(service);
   const next = {};
   for (const [k, f] of Object.entries(spec.fields)) {
     const value = String(input[k] ?? "").trim();
-    if (value && !f.re.test(value)) throw new IntegrationError(`${k} 형식이 맞지 않습니다`);
+    if (value && !f.re.test(value)) throw codedError(IntegrationError, "integration.badField", { field: k });
     next[k] = value || (f.secret ? current[k] : "");
   }
   persist({ ...all(), [service]: next });
@@ -131,7 +132,7 @@ export function save(service, input = {}) {
 
 /** Forgets what the admin saved; the service goes back to its env vars, if any. */
 export function clear(service) {
-  if (!SERVICES[service]) throw new IntegrationError("알 수 없는 서비스입니다");
+  if (!SERVICES[service]) throw codedError(IntegrationError, "integration.unknown");
   const { [service]: _gone, ...rest } = all();
   persist(rest);
   changed(service);

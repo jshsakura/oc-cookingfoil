@@ -19,14 +19,14 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import { envString } from "../helpers/env-read.js";
+import { securityText } from "./security-messages.js";
 
-export const BLOCKED_MESSAGE = "이 주소는 내부망(사설, 루프백, 링크 로컬, CGNAT, 클라우드 메타데이터 주소)을 가리켜서 쓸 수 없습니다. 인터넷에 공개된 주소만 쓸 수 있습니다.";
-export const UNRESOLVED_MESSAGE = "주소의 호스트 이름을 찾지 못했습니다. 주소를 확인합니다.";
-export const INVALID_MESSAGE = "http:// 또는 https:// 로 시작하는 주소만 쓸 수 있습니다.";
-
+/** A refused address: English message, `code` (security-messages key) and `reason` (what was refused). */
 export class OutboundError extends Error {
-  constructor(message, reason) {
-    super(message);
+  constructor(code, reason) {
+    super(securityText("en", code));
+    this.code = code;
+    this.vars = {};
     this.reason = reason;
   }
 }
@@ -102,16 +102,16 @@ export function setLookupForTests(fn) {
 /**
  * Resolve `raw` and refuse it when any address it resolves to is not public.
  * @returns {Promise<{ url: URL, addresses: string[] }>}
- * @throws {OutboundError} with a Korean message for the admin page
+ * @throws {OutboundError} with an English message and a code the route translates
  */
 export async function checkOutboundUrl(raw, { lookup = defaultLookup, privateHosts = PRIVATE_HOSTS } = {}) {
   let url;
   try {
     url = new URL(String(raw));
   } catch {
-    throw new OutboundError(INVALID_MESSAGE, "invalid");
+    throw new OutboundError("outbound.invalid", "invalid");
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new OutboundError(INVALID_MESSAGE, "invalid");
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new OutboundError("outbound.invalid", "invalid");
   const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   let addresses;
   if (net.isIP(host)) {
@@ -120,14 +120,14 @@ export async function checkOutboundUrl(raw, { lookup = defaultLookup, privateHos
     try {
       addresses = (await lookup(host)).map((a) => (typeof a === "string" ? a : a.address));
     } catch {
-      throw new OutboundError(UNRESOLVED_MESSAGE, "unresolved");
+      throw new OutboundError("outbound.unresolved", "unresolved");
     }
-    if (!addresses.length) throw new OutboundError(UNRESOLVED_MESSAGE, "unresolved");
+    if (!addresses.length) throw new OutboundError("outbound.unresolved", "unresolved");
   }
   const mayBePrivate = privateHosts.has(host);
   for (const address of addresses) {
     const reason = blockedReason(address);
-    if (reason === "metadata" || (reason === "private" && !mayBePrivate)) throw new OutboundError(BLOCKED_MESSAGE, reason);
+    if (reason === "metadata" || (reason === "private" && !mayBePrivate)) throw new OutboundError("outbound.blocked", reason);
   }
   return { url, addresses };
 }
@@ -149,5 +149,5 @@ export async function guardedFetch(url, options = {}, { fetchImpl = fetch, looku
     await res.body?.cancel?.().catch(() => {});
     at = new URL(next, at).href;
   }
-  throw new OutboundError("주소가 너무 여러 번 다른 곳으로 넘겨서 따라가지 않았습니다.", "redirects");
+  throw new OutboundError("outbound.redirects", "redirects");
 }

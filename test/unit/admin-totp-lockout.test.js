@@ -20,7 +20,6 @@ test("five wrong codes in fifteen minutes stop code checks; a correct one starts
   guard.reset("admin", "203.0.113.5");
   guard.recordFailure("admin", "203.0.113.5", t0 + 1);
   assert.equal(guard.lockedFor("admin", "203.0.113.5", t0 + 2), 0, "a correct code cleared the count");
-  assert.match(guard.LOCKED_MESSAGE, /합니다\.$/);
 });
 
 const PORT = 13200 + (process.pid % 500);
@@ -50,7 +49,7 @@ test("wrong admin codes lock even from loopback, where the ordinary lockout does
     assert.ok(Number(locked.headers.get("retry-after")) > 0);
     const body = await locked.json();
     assert.equal(body.error, "otp-locked");
-    assert.equal(body.message, guard.LOCKED_MESSAGE);
+    assert.match(body.message, /Too many wrong codes/);
   } finally {
     server.kill();
   }

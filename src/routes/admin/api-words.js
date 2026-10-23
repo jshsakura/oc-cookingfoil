@@ -136,6 +136,8 @@ export const API_WORDS = {
     "upload.serverMeta": "{name} 는 서버가 만듭니다. 빼고 올립니다",
     "upload.readOnly": "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 변경합니다",
     "upload.failed": "올리지 못했습니다. 서버 기록을 봅니다",
+    "token.needAccount": "관리자 계정으로 로그인한 뒤에 만들 수 있습니다",
+    "account.lastPassword": "Google 로 로그인하는 동안에는 마지막 비밀번호 계정을 지울 수 없습니다. 지우면 서버가 비밀번호 없이 열립니다.",
   },
   en: {
     "fileReplace.taken": "The folder already has {name}, so nothing was replaced. Clear that file first",
@@ -265,6 +267,8 @@ export const API_WORDS = {
     "upload.serverMeta": "The server writes {name}. Leave it out of the upload",
     "upload.readOnly": "This folder is read-only. Set its read_only to false in the compose file",
     "upload.failed": "Could not upload. See the server log",
+    "token.needAccount": "Sign in with an admin account to make one",
+    "account.lastPassword": "While signed in with Google, the last password account cannot be deleted. Deleting it would leave the server open without a password.",
   },
   ja: {
     "fileReplace.taken": "フォルダーに {name} がすでにあるため、置き換えませんでした。先にそのファイルを整理します",
@@ -394,6 +398,8 @@ export const API_WORDS = {
     "upload.serverMeta": "{name} はサーバーが作ります。除いてアップロードします",
     "upload.readOnly": "読み取り専用です。compose でこのフォルダーの read_only を false に変更します",
     "upload.failed": "アップロードできませんでした。サーバーのログを確認します",
+    "token.needAccount": "管理者アカウントでログインしてから作れます",
+    "account.lastPassword": "Google でログインしている間は、最後のパスワードアカウントを削除できません。削除するとサーバーがパスワードなしで開かれます。",
   },
   zh: {
     "fileReplace.taken": "文件夹中已有 {name}，因此没有替换。请先处理那个文件",
@@ -523,6 +529,8 @@ export const API_WORDS = {
     "upload.serverMeta": "{name} 由服务器生成。上传时请不要包含它",
     "upload.readOnly": "此文件夹为只读。请在 compose 中把它的 read_only 改为 false",
     "upload.failed": "无法上传。请查看服务器日志",
+    "token.needAccount": "请先用管理员账号登录再创建",
+    "account.lastPassword": "使用 Google 登录期间，不能删除最后一个密码账号。删除后服务器将无需密码即可访问。",
   },
 };
 

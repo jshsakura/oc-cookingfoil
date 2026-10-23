@@ -21,6 +21,7 @@ import fsp from "fs/promises";
 import path from "path";
 import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
+import { apiWord } from "./api-words.js";
 
 // One stuck nstool step must not hold the sweep for the extractor's ten minutes.
 const NACP_TIMEOUT_MS = 60_000;
@@ -74,7 +75,7 @@ export function mountLibraryOrganizeApi(router, requireSession, organizer = defa
       await fn(req, res);
     } catch (err) {
       debug.error("admin: organize: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed"), code: "failed" });
     }
   };
 

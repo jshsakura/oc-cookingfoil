@@ -19,6 +19,7 @@ import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { securityError } from "../../security/security-messages.js";
 
 const TOKEN_RE = integrations.SERVICES.telegram.fields.botToken.re;
 
@@ -30,7 +31,7 @@ export function mountAlertsApi(router, requireSession) {
       await handler(req, res);
     } catch (err) {
       if (!(err instanceof integrations.IntegrationError)) throw err;
-      res.status(400).json({ error: err.message });
+      res.status(400).json(securityError(req, err));
     }
   };
 

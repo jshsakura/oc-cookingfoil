@@ -106,6 +106,8 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import * as envs from "../helpers/envs.js";
 import { sameOriginWrites } from "../security/same-origin.js";
 import { sendVendor } from "./admin/grid.js";
+import { securityText } from "../security/security-messages.js";
+import { requestLang } from "../meta/langs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 // One authenticator secret guards /admin, so its wrong codes share one account counter.
@@ -322,7 +324,7 @@ export default function adminPageRouter() {
     const codeWait = triesCode ? totpGuard.lockedFor(TOTP_ACCOUNT, ip) : 0;
     if (codeWait) {
       recordDeny(req, { reason: DENY.ADMIN_BAD_TOTP, status: 429, detail: "too many wrong codes" });
-      return tooManyRequests(res, codeWait).json({ ok: false, error: "otp-locked", message: totpGuard.LOCKED_MESSAGE });
+      return tooManyRequests(res, codeWait).json({ ok: false, error: "otp-locked", message: securityText(requestLang(req), "totp.locked") });
     }
     const byCode = triesCode && (await verifyTotp(req.body.code));
     if (triesCode) {

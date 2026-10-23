@@ -11,6 +11,8 @@
 import * as apiTokens from "../../security/api-tokens.js";
 import { adminActor } from "../../security/admin-actor.js";
 import debug from "../../debug.js";
+import { securityError } from "../../security/security-messages.js";
+import { apiWord } from "./api-words.js";
 
 export function mountApiTokensApi(router, requireSession) {
   const guarded = (handler) => (req, res) => {
@@ -20,7 +22,7 @@ export function mountApiTokensApi(router, requireSession) {
       handler(req, res);
     } catch (err) {
       if (!(err instanceof apiTokens.TokenError)) throw err;
-      res.status(400).json({ error: err.message });
+      res.status(400).json(securityError(req, err));
     }
   };
 
@@ -28,7 +30,7 @@ export function mountApiTokensApi(router, requireSession) {
 
   router.post("/api/tokens", guarded((req, res) => {
     const actor = adminActor(req);
-    if (!actor) return res.status(409).json({ error: "관리자 계정으로 로그인한 뒤에 만들 수 있습니다" });
+    if (!actor) return res.status(409).json({ error: apiWord(req, "token.needAccount"), code: "token.needAccount" });
     const owner = actor.kind === "google" ? `google:${actor.sub}` : actor.name;
     const made = apiTokens.create(owner, req.body?.label);
     debug.log("admin: automation token %s made for %s", made.id, owner);
