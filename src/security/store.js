@@ -720,6 +720,14 @@ export function forgetLogins(owner) {
   if (state.logins.delete(owner)) scheduleFlush();
 }
 
+/** Drops the sign-ins of every owner `isKnown` says no longer exists (an account taken out of the settings). Returns how many. */
+export function forgetLoginsBut(isKnown) {
+  const gone = [...state.logins.keys()].filter((owner) => !isKnown(owner));
+  for (const owner of gone) state.logins.delete(owner);
+  if (gone.length) scheduleFlush();
+  return gone.length;
+}
+
 /** When any console `owner` approved last connected, or null. */
 export function lastActiveOf(owner) {
   let last = null;
