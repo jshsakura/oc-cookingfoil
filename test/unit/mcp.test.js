@@ -8,6 +8,7 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-mcp-"));
+process.env.COOK_MCP_ENABLED = "true";
 const { registry } = await import("../../src/capabilities/registry.js");
 const { servedTools } = await import("../../src/mcp/tools.js");
 const { mcpRoute } = await import("../../src/mcp/route.js");
@@ -40,6 +41,21 @@ async function connect(mode = "auto") {
 }
 
 const json = (result) => JSON.parse(result.content[0].text);
+
+test("with MCP off, /mcp answers 404 to everyone and the SDK stays unloaded", async () => {
+  const env = await import("../../src/helpers/envs.js");
+  env.applyServerSettings({ mcpEnabled: false });
+  try {
+    for (const auth of ["Bearer good", "Bearer bad"]) {
+      const res = await fetch(`${base}/mcp`, { method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: "{}" });
+      assert.equal(res.status, 404, auth);
+      assert.match((await res.json()).error, /MCP is off/);
+    }
+  } finally {
+    env.applyServerSettings({});
+  }
+  assert.equal(env.mcpEnabled, true, "compose's value comes back");
+});
 
 test("/mcp is on the automation token's paths", () => {
   assert.equal(TOKEN_PATHS("/mcp"), true);

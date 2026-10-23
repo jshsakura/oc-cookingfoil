@@ -154,7 +154,7 @@ for(const tab of ['users','devices','homebrew','alerts'])subtabs(tab);
 const SET_SUBS=['server','integrations','security','tokens'];let setSub='server';
 function setLoadSub(){
   if(setSub==='server')loadServerSettings();else if(setSub==='integrations')loadIntegrations();
-  else if(setSub==='security'){loadTfa();loadGoogle();}else if(setSub==='tokens')loadTokens();}
+  else if(setSub==='security'){loadTfa();loadGoogle();}else if(setSub==='tokens'){loadTokens();loadMcp();}}
 function setShowSub(sub,quiet){if(!SET_SUBS.includes(sub))return;setSub=sub;
   for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.setAttribute('aria-selected',String(b.dataset.ssub===sub));
   for(const p of document.querySelectorAll('#tab-settings [data-set-panel]'))p.hidden=p.dataset.setPanel!==sub;

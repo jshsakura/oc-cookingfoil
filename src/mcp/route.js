@@ -11,7 +11,11 @@ import express from "express";
 import { Readable } from "node:stream";
 import { sameOrigin } from "../security/same-origin.js";
 import { noteRefusal } from "../security/auth-log.js";
-import { mcpHandler } from "./server.js";
+import * as env from "../helpers/envs.js";
+
+// Loaded on the first call after an admin turns MCP on, so a server that never does keeps the SDK out of memory.
+let handler = null;
+const mcpHandler = async () => (handler ??= (await import("./server.js")).mcpHandler);
 
 const KEPT_OUT = new Set(["authorization", "cookie", "host", "content-length"]);
 const BODY_LIMIT = "1mb";
@@ -27,6 +31,7 @@ function webRequest(req, signal) {
 
 async function serve(req, res) {
   res.set("Cache-Control", "no-store");
+  if (!env.mcpEnabled) return res.status(404).json({ error: "MCP is off. An admin turns it on in the admin page's settings, under automation tokens." });
   if (!req.apiToken) {
     noteRefusal(req, res, 401, "mcp-no-token");
     return res.status(401).json({ error: "MCP takes an automation token from the admin page: Authorization: Bearer cft_..." });
@@ -40,7 +45,7 @@ async function serve(req, res) {
     if (!res.writableEnded) abort.abort();
   });
   const authInfo = { token: req.apiToken.id, clientId: req.apiToken.id, scopes: [], extra: { label: req.apiToken.label ?? "" } };
-  const response = await mcpHandler.fetch(webRequest(req, abort.signal), { authInfo, ...(req.method === "POST" ? { parsedBody: req.body } : {}) });
+  const response = await (await mcpHandler()).fetch(webRequest(req, abort.signal), { authInfo, ...(req.method === "POST" ? { parsedBody: req.body } : {}) });
   res.status(response.status);
   for (const [name, value] of response.headers) res.setHeader(name, value);
   if (!response.body) return res.end();

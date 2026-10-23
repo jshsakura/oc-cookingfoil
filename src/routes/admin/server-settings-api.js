@@ -45,7 +45,7 @@ const RESCAN = new Set(["langPriority", "extractIcons"]);
 export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "deviceLimit", "enrollPerHour", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
-  "nszKeepHours", "nszKeepGb", "nszDiskFloorGb",
+  "nszKeepHours", "nszKeepGb", "nszDiskFloorGb", "mcpEnabled",
 ];
 
 let fetching = null;
