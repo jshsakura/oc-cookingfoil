@@ -13,6 +13,7 @@ import debug from "../debug.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
 import { deviceCode } from "./pairing-link.js";
+import { dropRepair } from "./pairing-repair.js";
 import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { eventLog, recordStore } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
@@ -322,16 +323,16 @@ export function getDeviceAccessKeyHash(deviceKey) {
   return state.devices.get(deviceKey)?.accessKeyHash ?? null;
 }
 
-export function approveDevice(deviceKey, { label, addedBy, accessKeyHash }) {
+export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin }) {
   const now = Date.now();
   const prev = state.devices.get(deviceKey);
-  // A new key for the same console keeps it an admin device.
+  // A new key for the same console keeps it an admin device unless `admin` says otherwise.
   state.devices.set(deviceKey, deviceRecord({
     label: label ?? prev?.label ?? "",
     addedAt: prev?.addedAt ?? now,
     addedBy: addedBy ?? prev?.addedBy ?? null,
     accessKeyHash,
-    admin: prev?.admin,
+    admin: admin ?? prev?.admin,
   }));
   dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
@@ -344,6 +345,7 @@ export function revokeDevice(deviceKey) {
   // Dismissing a request that was never approved must stick across a restart too.
   const dismissed = dropPending(deviceKey);
   const hadSecret = state.pairSecrets.delete(deviceKey);
+  dropRepair(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
   if (removed || dismissed || hadSecret) scheduleFlush();
   return removed;
@@ -402,6 +404,7 @@ export function pendingName(deviceKey) {
 /** Drop a console from the approval queue without approving it. */
 export function dismissPending(deviceKey) {
   const dismissed = dropPending(deviceKey);
+  dropRepair(deviceKey);
   if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
 }
 

@@ -63,8 +63,9 @@ export function pairLinkView(link, approver) {
 /**
  * Approve the console behind a QR link under `addedBy`. A console already
  * approved is approved again only when it asked to be re-paired: it gets a new
- * key (the old one stops), `addedBy` becomes its owner, and the new key goes
- * only to the pairSecret that asked. "limit" while the approving account holds
+ * key (the old one stops), `addedBy` becomes its owner (an admin device moved
+ * to another account is one no more), and the new key goes only to the
+ * pairSecret that asked. "limit" while the approving account holds
  * all the consoles it may (device-limit.js; a console already its own does not
  * count again).
  * @returns {"ok" | "expired" | "used" | "limit"}
@@ -77,13 +78,15 @@ export function approvePairLink(token, { label = "", addedBy }) {
   if (accountFull(addedBy, link.deviceKey)) return "limit";
   const name = String(label ?? "").slice(0, 64).trim();
   const accessKey = generateAccessKey();
+  // The secret that asked for the re-pair, read while the console is still approved.
+  const asked = repair ? repairRequest(link.deviceKey) : null;
   store.approveDevice(link.deviceKey, {
     label: repair && !name ? undefined : name,
     addedBy,
     accessKeyHash: hashAccessKey(accessKey),
+    // An admin device stays one only with the account that made it so.
+    admin: repair === "repairOther" ? false : undefined,
   });
-  // A console that asked to be re-paired gets its key at that secret, even if it was revoked meanwhile.
-  const asked = repairRequest(link.deviceKey);
   if (asked) store.replacePairSecret(link.deviceKey, asked.secretHash);
   dropRepair(link.deviceKey);
   stageAccessKeyDelivery(link.deviceKey, accessKey);

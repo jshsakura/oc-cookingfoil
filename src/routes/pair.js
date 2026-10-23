@@ -22,7 +22,8 @@
  *        → 409 { error: "pairSecret mismatch" } (X-CookingFoil-Auth: pair-secret-mismatch) only in a
  *          race where the console was approved meanwhile under another secret. A console still
  *          waiting that asks with a new secret (it restarted, say) takes its request over: the
- *          new secret replaces the old and it is answered "pending" with its QR as usual
+ *          new secret replaces the old and it is answered "pending" with a fresh pairUrl (the old QR
+ *          stops working; pairCode comes from the device key, so it stays)
  *        → 429 + Retry-After when this address put too many new devices in the queue lately
  *          (security/pending-limit.js); /status answers the same for a new device
  *
@@ -113,7 +114,7 @@ import { accountFull } from "../security/device-limit.js";
 import { noteRefusal } from "../security/auth-log.js";
 import { vouch } from "../security/server-id.js";
 import debug from "../debug.js";
-import { issuePairLink } from "../security/pairing-link.js";
+import { dropPairLink, issuePairLink } from "../security/pairing-link.js";
 import { autoApproveFromPairRequest, pairSignIn } from "../security/auth-guard.js";
 import { checkPairSecret, deliverAccessKey, keepPairSecret } from "../security/pairing-delivery.js";
 import { admitRepair, recordPending } from "../security/pending-limit.js";
@@ -276,15 +277,14 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid pairSecret" });
       return;
     }
-    if (secret.verdict === "conflict") {
-      // A waiting console that asks again with a new secret (it restarted, say) takes its request over.
-      if (!store.isDevicePending(deviceKey)) return secretConflict(req, res);
-      store.replacePairSecret(deviceKey, secret.hash);
-      debug.log("pair: %s… asked again with a new pairSecret", deviceKey.slice(0, 12));
-    }
+    // A waiting console that asks again with a new secret (it restarted, say) takes its request over,
+    // once it is accepted again (approved here, or let through the pending limit).
+    if (secret.verdict === "conflict" && !store.isDevicePending(deviceKey)) return secretConflict(req, res);
+    const swap = secret.verdict === "conflict";
     const { download, limit } = enrollFromRequest(req, deviceKey);
     const auto = await autoApproveFromPairRequest(req, deviceKey).catch(() => false);
     if (store.isDeviceApproved(deviceKey)) {
+      if (swap) store.replacePairSecret(deviceKey, secret.hash);
       if (keepPairSecret(deviceKey, secret.hash) === "conflict") return secretConflict(req, res);
       res.json({ status: "approved", passwordOnly: true });
       return;
@@ -293,6 +293,12 @@ export default function pairRouter() {
     const message = req.body && "message" in req.body ? pairMessage(req.body.message) : undefined;
     const queued = recordPending(req, deviceKey, { message, name: consoleName(req), download });
     if (!queued.ok) return tooManyConsoles(req, res, deviceKey, queued.retryAfterSec);
+    if (swap) {
+      // A QR shown under the old secret must not hand a key to the new one: it gets a fresh link.
+      store.replacePairSecret(deviceKey, secret.hash);
+      dropPairLink(deviceKey);
+      debug.log("pair: %s… asked again with a new pairSecret", deviceKey.slice(0, 12));
+    }
     if (keepPairSecret(deviceKey, secret.hash) === "conflict") return secretConflict(req, res);
     debug.log("pair: request from %s…", deviceKey.slice(0, 12));
     res.json(pendingResponse(req, deviceKey, auto === "limit" ? "device" : limit));

@@ -4,7 +4,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { webSession } from "../support/web-session.js";
+import { adminSession, webSession } from "../support/web-session.js";
 
 // A console that reaches the server can always show a QR. An approved console
 // that asks /api/pair/status with a pairSecret and gets no key (it lost its key,
@@ -43,7 +43,7 @@ async function boot() {
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"),
       COOK_AUTH_USERS: Object.entries(ACCOUNTS).map(([n, p]) => `${n}:${p}`).join(","), COOK_DEVICE_PAIRING: "true",
       COOK_DEVICE_AUTO_APPROVE: "false", COOK_DEVICE_LIMIT: "2",
-      COOK_ADMIN_PASSWORD: "admin-password-123", COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
+      COOK_ADMIN_PASSWORD: "admin-password-123", COOK_ADMIN_TOTP_SECRET: "", COOK_TITLEDB_AUTO_FETCH: "false", COOK_LOCKOUT_TRUST_LOOPBACK: "false" },
     stdio: "ignore",
   });
   for (let i = 0; i < 60; i++) {
@@ -116,6 +116,21 @@ const enroll = (deviceKey, token) => fetch(`${BASE}/api/pair/enroll`, {
 
 const mine = async (account) =>
   (await (await fetch(`${BASE}/pair/api/mine`, { headers: await signedIn(account) })).json()).devices.map((d) => d.deviceKey);
+
+let adminHeaders = null;
+async function admin(method, url, body) {
+  adminHeaders ??= { ...(await adminSession(BASE, "alice", ACCOUNTS.alice, "admin-password-123")), "Content-Type": "application/json" };
+  return fetch(`${BASE}${url}`, { method, headers: adminHeaders, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+const isAdminDevice = async (deviceKey) =>
+  (await (await admin("GET", "/admin/api/devices")).json()).approved.find((d) => d.deviceKey === deviceKey)?.admin;
+
+const revokeMine = async (account, deviceKey) => (await fetch(`${BASE}/pair/api/devices/revoke`, {
+  method: "POST", headers: { ...(await signedIn(account)), "Content-Type": "application/json", Origin: BASE }, body: JSON.stringify({ deviceKey }),
+})).status;
+
+const tokenOf = (pairUrl) => pairUrl.split("/").pop();
 
 const pageText = async (account, pairUrl) =>
   (await fetch(pairUrl, { headers: { ...(await signedIn(account)), "Accept-Language": "en" } })).text();
@@ -226,7 +241,12 @@ test("a waiting console that asks again with a new secret takes its request over
   const swapped = await request(waiting, secret("b"));
   assert.equal(swapped.code, 200);
   assert.equal(swapped.body.status, "pending");
-  assert.equal(swapped.body.pairCode, first.body.pairCode, "the same QR");
+  assert.equal(swapped.body.pairCode, first.body.pairCode, "the code comes from the device key");
+  assert.notEqual(swapped.body.pairUrl, first.body.pairUrl, "a fresh link");
+  const oldQr = await fetch(`${BASE}/pair/approve`, {
+    method: "POST", headers: { ...(await signedIn("alice")), "Content-Type": "application/json", Origin: BASE }, body: JSON.stringify({ token: tokenOf(first.body.pairUrl) }),
+  });
+  assert.equal(oldQr.status, 410, "the QR shown under the old secret no longer approves");
 
   const stale = await poll(waiting, secret("a"));
   assert.equal(stale.code, 409);
@@ -235,4 +255,55 @@ test("a waiting console that asks again with a new secret takes its request over
   assert.equal((await approveQr("alice", swapped.body.pairCode)).code, 200);
   assert.equal((await poll(waiting, secret("a"))).body.accessKey, undefined, "the old secret gets no key");
   assert.ok((await poll(waiting, secret("b"))).body.accessKey);
+}));
+
+test("a re-pair to another account clears the admin-device flag; a re-pair by the same owner keeps it", () => withServer(async () => {
+  for (const k of Object.keys(sessions)) delete sessions[k];
+  adminHeaders = null;
+  const flagged = key("9");
+  await pairAs("alice", flagged, secret("a"));
+  assert.equal((await admin("POST", "/admin/api/devices/admin", { deviceKey: flagged, admin: true })).status, 200);
+
+  const same = await poll(flagged, secret("b"));
+  assert.equal((await approveQr("alice", same.body.pairCode)).code, 200);
+  assert.ok((await poll(flagged, secret("b"))).body.accessKey);
+  assert.equal(await isAdminDevice(flagged), true, "same owner keeps it");
+
+  const other = await poll(flagged, secret("c"));
+  assert.equal(other.body.repair, true);
+  assert.equal((await approveQr("bob", other.body.pairCode)).code, 200);
+  assert.ok((await poll(flagged, secret("c"))).body.accessKey);
+  assert.equal(await isAdminDevice(flagged), false, "another owner does not inherit it");
+}));
+
+test("a re-pair secret from before a revoke never takes the key of the console's next pairing", () => withServer(async () => {
+  for (const k of Object.keys(sessions)) delete sessions[k];
+  const target = key("A");
+  await pairAs("alice", target, secret("a"));
+  assert.equal((await poll(target, secret("e"))).body.repair, true, "a stranger's re-pair QR");
+  assert.equal(await revokeMine("alice", target), 200);
+
+  const fresh = await request(target, secret("b"));
+  assert.equal(fresh.body.status, "pending");
+  assert.equal((await approveQr("alice", fresh.body.pairCode)).code, 200);
+  assert.equal((await poll(target, secret("e"))).body.accessKey, undefined, "the stale re-pair secret gets nothing");
+  assert.ok((await poll(target, secret("b"))).body.accessKey, "the secret that asked this time does");
+}));
+
+test("revoking a console ends its re-pair request: its old QR cannot re-pair it after the admin approves it again", () => withServer(async () => {
+  for (const k of Object.keys(sessions)) delete sessions[k];
+  adminHeaders = null;
+  const target = key("B");
+  await pairAs("alice", target, secret("a"));
+  const stranger = await poll(target, secret("e"));
+  assert.equal(stranger.body.repair, true);
+  assert.equal(await revokeMine("alice", target), 200);
+
+  assert.equal((await request(target, secret("b"))).body.status, "pending");
+  assert.equal((await admin("POST", "/admin/api/devices/approve", { deviceKey: target })).status, 200);
+  assert.ok((await poll(target, secret("b"))).body.accessKey);
+
+  assert.equal((await approveQr("bob", stranger.body.pairCode)).code, 409, "no re-pair is left to approve");
+  assert.equal((await poll(target, secret("e"))).body.accessKey, undefined);
+  assert.deepEqual(await mine("alice"), [target]);
 }));
