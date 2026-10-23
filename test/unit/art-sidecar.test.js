@@ -112,7 +112,8 @@ test("pictures kept the old way move into the item's folder once, the folder's o
   assert.deepEqual(store.urls(ID).screenshots.length, 2);
   assert.deepEqual(fs.readdirSync(home).sort(), ["banner.webp", "icon.webp", "screenshot-01.webp", "screenshot-02.webp"]);
   assert.ok((await sharp(path.join(home, "banner.webp")).stats()).channels[0].mean > 200, "the folder's banner stays");
-  assert.deepEqual(fs.readdirSync(own), ["screenshot-01.orig.webp"], "no copy left behind but the kept original");
+  await until(() => !fs.existsSync(path.join(own, "banner.webp")));
+  assert.deepEqual(fs.readdirSync(own), ["screenshot-01.orig.webp"], "the replaced banner went to the trash, the kept original stays");
 });
 
 test("a picture that could not be moved into the item's folder is still shown from the server", async () => {

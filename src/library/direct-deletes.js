@@ -51,9 +51,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/routes/inbox.js": { count: 4, why: "upload work files" },
   "src/routes/uploads.js": { count: 1, why: "a rejected upload's half-written file" },
   "src/security/prod-keys.js": { count: 1, why: "a temporary file" },
-
-  "src/meta/art-crop.js": { count: 2, why: "the kept original of an uploaded picture", todo: true },
-  "src/meta/art-sidecar.js": { count: 5, why: "a slot's other files and an incoming picture the slot already has; also temporary files", todo: true },
+  "src/meta/art-sidecar.js": { count: 3, why: "stale temporary files, and a picture's source once its copy to another disk is in place" },
   "src/meta/custom-art.js": { count: 1, why: "a slot's old files once their move to the new slot verified" },
-  "src/meta/item-media.js": { count: 1, why: "a homebrew app's uploaded pictures and its media folder", todo: true },
+  "src/meta/item-media.js": { count: 1, why: "a .jpg twin the server once made beside its own .webp of the same picture" },
 });

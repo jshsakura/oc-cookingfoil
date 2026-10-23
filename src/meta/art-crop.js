@@ -13,6 +13,7 @@
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+import { discard } from "../library/trash-service.js";
 
 export const ORIG_MAX = 2048;
 const ORIG_QUALITY = 85;
@@ -143,16 +144,19 @@ export function readOriginal(artFile) {
   return { image: p.image, crop, of };
 }
 
-export function removeOriginal(artFile) {
+/** Moves the kept original of `artFile` (and its area) to the trash, when there is one. */
+export async function discardOriginal(artFile, action = "art-remove") {
   const p = originalPaths(artFile);
-  fs.rmSync(p.image, { force: true });
-  fs.rmSync(p.meta, { force: true });
+  const files = [p.image, p.meta].filter((f) => fs.existsSync(f));
+  if (files.length) await discard(files, { kind: "item-art", action, name: path.basename(p.image) });
 }
 
-/** Moves an original along with its art (screenshots closing up after one is taken out). */
+/**
+ * Moves an original along with its art (screenshots closing up after one is taken out). `toArt`'s
+ * slot holds no picture by then, so an original still there belongs to nothing and is replaced.
+ */
 export function moveOriginal(fromArt, toArt) {
   const a = originalPaths(fromArt), b = originalPaths(toArt);
-  removeOriginal(toArt);
   if (fs.existsSync(a.image)) fs.renameSync(a.image, b.image);
   if (fs.existsSync(a.meta)) fs.renameSync(a.meta, b.meta);
 }

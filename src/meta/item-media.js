@@ -137,6 +137,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     try {
       for (const name of names) {
         const twin = /^(icon|banner|shot-\d+)\.jpg$/.exec(name);
+        // A .jpg twin the server once made beside its own .webp: the same picture again.
         if (twin && names.includes(`${twin[1]}.webp`)) fs.rmSync(path.join(own, name), { force: true });
         const shot = /^shot-(\d+)\.webp$/.exec(name);
         if (shot) {
@@ -147,8 +148,13 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
       }
       if (home !== own) {
         const kept = sidecar.read(own);
-        for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
-          if (!sidecar.adopt(p.file, home, p.slot)) artCrop.removeOriginal(anchor(id, p.slot));
+        const losers = [kept.icon, kept.banner, ...kept.shots].filter(Boolean).filter((p) => !sidecar.adopt(p.file, home, p.slot));
+        // The folder's own picture of a slot won: the one kept here goes to the trash, with its original.
+        if (losers.length) {
+          serial(id, async () => {
+            await sidecar.toTrash(losers.map((p) => p.file).filter((f) => fs.existsSync(f)), "art-replace");
+            for (const p of losers) await artCrop.discardOriginal(anchor(id, p.slot), "art-replace");
+          }).catch((err) => debug.error("%s: %s: pictures the folder replaced not moved to the trash: %s", label, id, err.message));
         }
       }
       settled.add(key);
@@ -163,15 +169,16 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
    * replaced release had) into the server's own folder for the item, where they are shown from next.
    * What the server already keeps there of a slot wins.
    */
-  function park(id, from) {
+  async function park(id, from) {
     check(id);
     const kept = sidecar.read(from);
-    for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) sidecar.adopt(p.file, ownDir(id), p.slot);
+    const losers = [kept.icon, kept.banner, ...kept.shots].filter(Boolean).filter((p) => !sidecar.adopt(p.file, ownDir(id), p.slot));
+    await sidecar.toTrash(losers.map((p) => p.file), "art-replace");
     settled.clear();
   }
 
   /** Writes a picture where the item keeps them. Returns its version. */
-  const writePicture = (id, slot, webp) => sidecar.versionOfFile(sidecar.write(homeDir(id), slot, webp));
+  const writePicture = async (id, slot, webp) => sidecar.versionOfFile(await sidecar.write(homeDir(id), slot, webp));
 
   // A picture put in by hand that is not .webp, or a slot holding two, is tidied once it is seen.
   const tidying = new Set();
@@ -241,9 +248,9 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     settle(id);
     const webp = await encode(await cut(raw, crop), sizeOf(part));
     const original = source === "upload" ? await shrink(raw) : null;
-    const version = writePicture(id, part, webp);
+    const version = await writePicture(id, part, webp);
     if (original) artCrop.keepOriginal(anchor(id, part), original, crop, now, version);
-    else artCrop.removeOriginal(anchor(id, part));
+    else await artCrop.discardOriginal(anchor(id, part), "art-replace");
     put(id, part, { source, ...(game ? { game } : {}), at: now });
     return webp.length;
   }
@@ -251,12 +258,12 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   const saveIcon = (id, raw, opts) => saveOne(id, "icon", raw, opts);
   const saveBanner = (id, raw, opts) => saveOne(id, "banner", raw, opts);
 
-  function removePart(id, part) {
+  async function removePart(id, part) {
     check(id);
     settle(id);
-    sidecar.remove(homeDir(id), part);
-    sidecar.remove(ownDir(id), part);
-    artCrop.removeOriginal(anchor(id, part));
+    await sidecar.remove(homeDir(id), part);
+    await sidecar.remove(ownDir(id), part);
+    await artCrop.discardOriginal(anchor(id, part));
     put(id, part, { off: true });
   }
   /** Removes the icon (the item's own comes back); it is not filled in automatically again. */
@@ -264,11 +271,11 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   /** Removes the banner; it is not filled in automatically again. */
   const removeBanner = (id) => removePart(id, "banner");
 
-  function clearShots(id) {
+  async function clearShots(id) {
     for (const s of pictures(id).shots) {
-      sidecar.remove(homeDir(id), s.slot);
-      sidecar.remove(ownDir(id), s.slot);
-      artCrop.removeOriginal(anchor(id, s.slot));
+      await sidecar.remove(homeDir(id), s.slot);
+      await sidecar.remove(ownDir(id), s.slot);
+      await artCrop.discardOriginal(anchor(id, s.slot));
     }
   }
 
@@ -304,8 +311,8 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
       }
     }
     if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
-    clearShots(id);
-    encoded.forEach((buf, i) => writePicture(id, sidecar.slotName("shot", i + 1), buf));
+    await clearShots(id);
+    for (const [i, buf] of encoded.entries()) await writePicture(id, sidecar.slotName("shot", i + 1), buf);
     put(id, "shots", { source, ...(game ? { game } : {}), at: now });
     return encoded.length;
   }
@@ -324,29 +331,29 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     }
     // After the highest number there, so a gap left by hand is never filled with a new one.
     let next = Math.max(0, ...have.map((s) => Number(s.slot.slice("screenshot-".length))));
-    encoded.forEach((buf, i) => {
+    for (const [i, buf] of encoded.entries()) {
       const slot = sidecar.slotName("shot", ++next);
-      artCrop.keepOriginal(anchor(id, slot), originals[i], crop, now, writePicture(id, slot, buf));
-    });
+      artCrop.keepOriginal(anchor(id, slot), originals[i], crop, now, await writePicture(id, slot, buf));
+    }
     put(id, "shots", { source: "upload", at: now });
     return have.length + encoded.length;
   }
 
   /** Removes one screenshot (n from 1), or all of them with n = null; removing all stops automatic filling. */
-  function removeShots(id, n = null) {
+  async function removeShots(id, n = null) {
     check(id);
     settle(id);
     const shots = pictures(id).shots;
     if (n == null || shots.length <= 1) {
-      clearShots(id);
+      await clearShots(id);
       put(id, "shots", { off: true });
       return 0;
     }
     if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError("없는 스크린샷입니다");
     const gone = shots[n - 1].slot;
-    sidecar.remove(homeDir(id), gone);
-    sidecar.remove(ownDir(id), gone);
-    artCrop.removeOriginal(anchor(id, gone));
+    await sidecar.remove(homeDir(id), gone);
+    await sidecar.remove(ownDir(id), gone);
+    await artCrop.discardOriginal(anchor(id, gone));
     // The ones left close up to screenshot-01 …, each original going with its picture.
     sidecar.renumberShots(homeDir(id), { onMove: (from, to) => artCrop.moveOriginal(anchor(id, from), anchor(id, to)) });
     return shots.length - 1;
@@ -390,7 +397,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     const webp = await encode(await cut(raw, crop), sizeOf(part));
     // A picture put in by hand becomes the kept original before the cut replaces it.
     const whole = kept.whole ? await shrink(raw) : null;
-    const version = writePicture(id, pic.slot, webp);
+    const version = await writePicture(id, pic.slot, webp);
     if (whole) artCrop.keepOriginal(anchor(id, pic.slot), whole, crop, now, version);
     else artCrop.writeCrop(anchor(id, pic.slot), crop, now, version);
     return webp.length;
