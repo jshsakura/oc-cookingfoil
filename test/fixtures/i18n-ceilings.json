@@ -54,7 +54,7 @@
     "src/routes/admin/connect-howto.js": 7,
     "src/routes/admin/content-api.js": 12,
     "src/routes/admin/dashboard-page.js": 147,
-    "src/routes/admin/dashboard-script.js": 472,
+    "src/routes/admin/dashboard-script.js": 466,
     "src/routes/admin/descriptions-api.js": 2,
     "src/routes/admin/enroll-page.js": 14,
     "src/routes/admin/forbidden-page.js": 4,

@@ -158,7 +158,10 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
     debug.log("pair: %s… waits: %s holds all the consoles it may", deviceKey.slice(0, 12), who.name);
     return "limit";
   }
-  if (approved) debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
+  if (approved) {
+    store.recordLogin(who.name, "console");
+    debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
+  }
   return true;
 }
 
