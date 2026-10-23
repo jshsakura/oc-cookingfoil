@@ -15,6 +15,7 @@ import * as inbox from "../../meta/inbox.js";
 import * as envs from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import debug from "../../debug.js";
+import { apiWord } from "./api-words.js";
 
 const SHOW = { open: false, done: true, all: undefined };
 
@@ -30,7 +31,7 @@ export function mountInboxApi(router, requireSession) {
       await fn(req, res);
     } catch (err) {
       debug.error("admin: inbox: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
   const fileUrl = (id, name) => `/admin/api/inbox/${id}/file?path=${encodeURIComponent(name)}`;
@@ -49,18 +50,18 @@ export function mountInboxApi(router, requireSession) {
 
   router.get("/api/inbox/:id/file", handle((req, res) => {
     const abs = inbox.filePath(req.params.id, String(req.query.path ?? ""));
-    if (!abs) return res.status(404).json({ error: "없는 파일입니다" });
+    if (!abs) return res.status(404).json({ error: apiWord(req, "inbox.noFile") });
     res.download(abs, path.basename(abs), { dotfiles: "allow" });
   }));
 
   router.post("/api/inbox/:id/done", handle(async (req, res) => {
-    if (!(await inbox.setDone(req.params.id, req.body?.done === true))) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!(await inbox.setDone(req.params.id, req.body?.done === true))) return res.status(404).json({ error: apiWord(req, "inbox.noItem") });
     debug.log("admin: inbox %s %s", req.params.id, req.body?.done === true ? "set aside" : "back to open");
     res.json({ ok: true });
   }));
 
   router.delete("/api/inbox/:id", handle(async (req, res) => {
-    if (!(await inbox.remove(req.params.id))) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!(await inbox.remove(req.params.id))) return res.status(404).json({ error: apiWord(req, "inbox.noItem") });
     debug.log("admin: inbox %s deleted", req.params.id);
     res.json({ ok: true });
   }));

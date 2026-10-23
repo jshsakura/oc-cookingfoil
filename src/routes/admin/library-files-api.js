@@ -23,6 +23,7 @@ import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
 import verifyQueue from "../../meta/verify-service.js";
 import * as trashService from "../../library/trash-service.js";
+import { apiWord } from "./api-words.js";
 
 const LIMIT = 100;
 
@@ -46,7 +47,7 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     } catch (err) {
       if (err instanceof trashService.TrashError) return res.status(err.status).json({ error: err.message });
       debug.error("admin: library files: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
 
@@ -63,7 +64,7 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     await shopCache.get();
     const rel = String(req.body?.rel ?? "");
     const abs = shopCache.files().some((f) => f.rel === rel) ? inside(romsDirPath, rel) : null;
-    if (!abs) return res.status(404).json({ error: "라이브러리에 없는 파일입니다" });
+    if (!abs) return res.status(404).json({ error: apiWord(req, "libraryFiles.notInLibrary") });
     const out = await toTrash(req, abs, "game", "library-file-remove");
     debug.log("admin: library file moved to the trash: %s", rel);
     res.json({ ok: true, trash: out.id });
@@ -79,7 +80,7 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     // A folder that is a link could lead out of the games folder: the real path must stay inside it.
     const real = stat?.isFile() ? await fsp.realpath(abs).catch(() => null) : null;
     const realBase = real ? await fsp.realpath(romsDirPath).catch(() => null) : null;
-    if (!real || !realBase || !real.startsWith(realBase + path.sep)) return res.status(404).json({ error: "라이브러리에 없는 파일입니다" });
+    if (!real || !realBase || !real.startsWith(realBase + path.sep)) return res.status(404).json({ error: apiWord(req, "libraryFiles.notInLibrary") });
     const out = await toTrash(req, abs, "file", "library-other-remove");
     debug.log("admin: stray file moved to the trash: %s", rel);
     res.json({ ok: true, trash: out.id });
@@ -91,7 +92,7 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
 
   router.post("/api/library/verify/recheck", handle((req, res) => {
     const rel = String(req.body?.rel ?? "");
-    if (!rel || !verify.recheck(rel)) return res.status(404).json({ error: "검사 기록이 없는 파일입니다" });
+    if (!rel || !verify.recheck(rel)) return res.status(404).json({ error: apiWord(req, "libraryFiles.noCheck") });
     res.json({ ok: true });
   }));
 }

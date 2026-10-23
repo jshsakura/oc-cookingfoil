@@ -242,7 +242,7 @@ async function rcRemove(c,force=false){
     toast(err.message);}}
 async function rcUpload(file,replace=false){
   const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
-  const r=await fetch('/admin/api/upload/core',{method:'POST',body:fd});const d=await r.json().catch(()=>({}));
+  const r=await fetch('/admin/api/upload/core',{method:'POST',headers:{'Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});const d=await r.json().catch(()=>({}));
   if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
   if(r.status===409&&d.reason==='busy'){toast(topText('ac.uploadBusy'));return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}

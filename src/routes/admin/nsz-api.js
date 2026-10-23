@@ -24,9 +24,10 @@
 import * as serverSettings from "../../security/server-settings.js";
 import nszQueue from "../../meta/nsz-service.js";
 import debug from "../../debug.js";
+import { apiWord } from "./api-words.js";
 
 const ID_RE = /^[0-9a-f]{12}$/;
-const OFF = { error: "off", message: "변환이 꺼져 있습니다. 아래 설정에서 먼저 켭니다." };
+const off = (req) => ({ error: "off", message: apiWord(req, "nsz.off") });
 const MAX_SELECTED = 1000;
 
 function nszSettings() {
@@ -42,14 +43,14 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
       await fn(req, res);
     } catch (err) {
       debug.error("admin: nsz: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
   const view = (q = {}) => ({ ...queue.view({ filter: String(q.filter ?? "all"), offset: q.offset, limit: q.limit }), settings: nszSettings() });
   const item = (fn) => handle(async (req, res) => {
     const id = String(req.params.id);
-    if (id !== "all" && !ID_RE.test(id)) return res.status(404).json({ error: "대기열에 없는 항목입니다" });
-    if (!(await fn(id))) return res.status(404).json({ error: "대기열에 없는 항목입니다" });
+    if (id !== "all" && !ID_RE.test(id)) return res.status(404).json({ error: apiWord(req, "nsz.noItem") });
+    if (!(await fn(id))) return res.status(404).json({ error: apiWord(req, "nsz.noItem") });
     res.json({ ok: true });
   });
 
@@ -57,26 +58,26 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
   router.get("/api/nsz/preview", handle(async (req, res) => res.json(await queue.preview())));
 
   router.post("/api/nsz/start", handle((req, res) => {
-    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
+    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(off(req));
     queue.start();
     res.json({ ok: true });
   }));
   router.post("/api/nsz/run-selected", handle((req, res) => {
     const ids = req.body?.ids;
     if (!Array.isArray(ids) || !ids.length || ids.length > MAX_SELECTED || !ids.every((id) => typeof id === "string" && ID_RE.test(id))) {
-      return res.status(400).json({ error: "변환할 파일을 고릅니다" });
+      return res.status(400).json({ error: apiWord(req, "nsz.pickFiles") });
     }
-    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
+    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(off(req));
     const n = queue.runSelected(ids);
-    if (!n) return res.status(400).json({ error: "고른 파일 중 변환할 것이 없습니다" });
+    if (!n) return res.status(400).json({ error: apiWord(req, "nsz.nothingPicked") });
     res.json({ ok: true, count: n });
   }));
   router.post("/api/nsz/run-filter", handle((req, res) => {
     const filter = req.body?.filter;
-    if (filter !== "waiting" && filter !== "failed") return res.status(400).json({ error: "대기 또는 실패를 고릅니다" });
-    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
+    if (filter !== "waiting" && filter !== "failed") return res.status(400).json({ error: apiWord(req, "nsz.pickState") });
+    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(off(req));
     const n = queue.runFilter(filter);
-    if (!n) return res.status(400).json({ error: "이 상태의 파일이 없습니다" });
+    if (!n) return res.status(400).json({ error: apiWord(req, "nsz.noneInState") });
     res.json({ ok: true, count: n });
   }));
   router.post("/api/nsz/pause", handle(async (req, res) => {
@@ -85,7 +86,7 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
   }));
   router.post("/api/nsz/scan", handle(async (req, res) => res.json({ ok: true, ...(await queue.scan()) })));
   router.post("/api/nsz/convert-all", handle(async (req, res) => {
-    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(OFF);
+    if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(off(req));
     const r = await queue.scan();
     queue.start();
     res.json({ ok: true, ...r });

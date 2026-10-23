@@ -10,11 +10,12 @@
 import * as prodKeys from "../../security/prod-keys.js";
 import { adminApprover } from "../../security/admin-actor.js";
 import { keysChanged } from "../../meta/keys-refresh.js";
+import { apiWord } from "./api-words.js";
 
 const REFUSED = {
-  format: "prod.keys 형식이 아닙니다. 기기에서 덤프한 prod.keys 파일을 그대로 올립니다.",
-  "no-header-key": "header_key 가 없습니다. 기기에서 덤프한 prod.keys 전체를 올립니다.",
-  "too-large": "prod.keys 는 64 KB 를 넘을 수 없습니다.",
+  format: "keys.format",
+  "no-header-key": "keys.noHeaderKey",
+  "too-large": "keys.tooLarge",
 };
 
 export function mountKeysApi(router, requireSession) {
@@ -27,7 +28,7 @@ export function mountKeysApi(router, requireSession) {
       res.json({ ok: true, keys });
     } catch (err) {
       if (!(err instanceof prodKeys.KeysError)) throw err;
-      res.status(400).json({ error: REFUSED[err.reason], reason: err.reason });
+      res.status(400).json({ error: REFUSED[err.reason] ? apiWord(req, REFUSED[err.reason]) : err.message, reason: err.reason });
     }
   });
 

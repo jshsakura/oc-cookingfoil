@@ -39,6 +39,7 @@ import * as itemVerified from "../../meta/item-verified.js";
 import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
 import { forgetMarks, marksOf } from "../../library/trash-marks.js";
+import { apiWord } from "./api-words.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -85,7 +86,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
       await fn(req, res);
     } catch (err) {
       debug.error("admin: homebrew apps: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
 
@@ -125,16 +126,16 @@ export function mountHomebrewAppsApi(router, requireSession) {
 
   router.get("/api/homebrew/banner/candidates", handle(async (req, res) => {
     const { apiKey } = integrations.get("steamgriddb");
-    if (!apiKey) return res.status(409).json({ error: "SteamGridDB 키가 없습니다. 연동 탭에서 넣습니다" });
+    if (!apiKey) return res.status(409).json({ error: apiWord(req, "homebrew.noSgdbKey") });
     const app = await appOf(req.query.id);
-    if (!app) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!app) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const q = String(req.query.q ?? "").trim().slice(0, 100) || media.searchNames(app)[0] || app.name;
     res.json({ q, items: await media.bannerCandidates(q, apiKey) });
   }));
 
   router.post("/api/homebrew/banner", handle(async (req, res) => {
     const app = await appOf(req.body?.id);
-    if (!app) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!app) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const g = req.body?.game;
     const game = g && Number.isSafeInteger(Number(g.id)) ? { id: Number(g.id), name: String(g.name ?? "").slice(0, 200) } : null;
     try {
@@ -153,10 +154,10 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return void res.status(403).json({ error: "origin mismatch" });
     const app = await appOf(req.query.id);
-    if (!app) return void res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!app) return void res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const bad = await new Promise((resolve) => imageBody(req, res, resolve));
-    if (bad) return void res.status(bad.type === "entity.too.large" ? 413 : 400).json({ error: bad.type === "entity.too.large" ? "15 MB 보다 큰 이미지는 받지 않습니다" : "이미지를 받지 못했습니다" });
-    if (!Buffer.isBuffer(req.body) || !req.body.length) return void res.status(415).json({ error: "이미지 파일을 올립니다" });
+    if (bad) return void res.status(bad.type === "entity.too.large" ? 413 : 400).json({ error: bad.type === "entity.too.large" ? apiWord(req, "image.tooLarge") : apiWord(req, "image.unreadable") });
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return void res.status(415).json({ error: apiWord(req, "image.missing") });
     return { app, raw: req.body };
   };
 
@@ -184,9 +185,9 @@ export function mountHomebrewAppsApi(router, requireSession) {
 
   router.post("/api/homebrew/shots/remove", handle(async (req, res) => {
     const app = await appOf(req.body?.id);
-    if (!app) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!app) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const n = req.body?.n == null ? null : Number(req.body.n);
-    if (n !== null && !Number.isInteger(n)) return res.status(400).json({ error: "없는 스크린샷입니다" });
+    if (n !== null && !Number.isInteger(n)) return res.status(400).json({ error: apiWord(req, "homebrew.noShot") });
     try {
       res.json({ ok: true, count: await media.removeShots(app.id, n) });
     } catch (err) {
@@ -196,7 +197,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
 
   router.post("/api/homebrew/banner/remove", handle(async (req, res) => {
     const app = await appOf(req.body?.id);
-    if (!app) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!app) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     await media.removeBanner(app.id);
     res.json({ ok: true });
   }));
@@ -204,11 +205,11 @@ export function mountHomebrewAppsApi(router, requireSession) {
   router.post("/api/homebrew/extra/remove", handle(async (req, res) => {
     const type = req.body?.type;
     const id = String(req.body?.id ?? "");
-    if (type !== "patch" && type !== "save") return res.status(400).json({ error: "patch 나 save 여야 합니다" });
+    if (type !== "patch" && type !== "save") return res.status(400).json({ error: apiWord(req, "content.badKind") });
     const where = type === "patch" ? userPatches.locate(id) : savesEnabled() ? await savesCatalog().locate(id) : null;
     // Only a homebrew app's own folder (homebrew/<app>/<name>) is removed here.
     const dir = where && where.dir.startsWith("homebrew/") ? inside(type === "patch" ? patchesDir : savesDir, where.dir, where.folder) : null;
-    if (!dir) return res.status(404).json({ error: "목록에 없는 항목입니다" });
+    if (!dir) return res.status(404).json({ error: apiWord(req, "content.noItem") });
     const root = type === "patch" ? patchesDir : savesDir;
     const marks = marksOf(type, id);
     const out = await trashOr409(res, type === "patch" ? "patches" : "saves", dir, root, {
@@ -231,7 +232,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
     const app = (await manualApps()).find((m) => m.id === id);
     const dir = app ? (app.folder ?? path.dirname(app.path)) : null;
     // The app's own folder, directly under the homebrew folder.
-    if (!dir || path.dirname(dir) !== path.resolve(homebrewDir)) return res.status(404).json({ error: "직접 넣은 앱 목록에 없습니다" });
+    if (!dir || path.dirname(dir) !== path.resolve(homebrewDir)) return res.status(404).json({ error: apiWord(req, "fileReplace.unknown") });
     const out = await trashOr409(res, "homebrew", dir, homebrewDir, { kind: "homebrew", action: "homebrew-remove", by: trashService.actorOf(req), name: app.name ?? path.basename(dir) });
     if (!out) return;
     await forgetZipCopies(id);

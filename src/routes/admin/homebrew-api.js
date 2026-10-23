@@ -33,6 +33,7 @@ import { homebrewDir } from "../../helpers/envs.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
+import { apiWord } from "./api-words.js";
 
 const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
 const statuses = () => githubTracker().status().map(withDescription);
@@ -50,7 +51,7 @@ export function mountHomebrewApi(router, requireSession) {
       if (err instanceof FieldError) return res.status(err.status).json({ error: err.message });
       if (!(err instanceof sources.SourceError)) {
         debug.error("admin: homebrew change failed: %s", err.message);
-        return res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+        return res.status(500).json({ error: apiWord(req, "failed") });
       }
       res.status(400).json({ error: err.message });
     }
@@ -88,7 +89,7 @@ export function mountHomebrewApi(router, requireSession) {
   }));
 
   router.post("/api/homebrew/asset", write(async (req, res) => {
-    if (!sources.setAsset(req.body?.repo, req.body?.asset)) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+    if (!sources.setAsset(req.body?.repo, req.body?.asset)) return res.status(404).json({ error: apiWord(req, "homebrew.noRepo") });
     const repo = sources.list().find((s) => s.repo.toLowerCase() === String(req.body.repo).toLowerCase()).repo;
     await sourcesChanged(repo);
     res.json(statusOf(repo));
@@ -97,7 +98,7 @@ export function mountHomebrewApi(router, requireSession) {
   router.post("/api/homebrew/check", write(async (req, res) => {
     if (req.body?.repo) {
       const s = sources.list().find((x) => x.repo.toLowerCase() === String(req.body.repo).toLowerCase());
-      if (!s) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+      if (!s) return res.status(404).json({ error: apiWord(req, "homebrew.noRepo") });
       await githubTracker().checkNow(s.repo);
       return res.json(statusOf(s.repo));
     }
@@ -110,16 +111,16 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/description", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!(await known(id))) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     descriptions.set(id, { en: req.body?.en, ko: req.body?.ko });
     res.json({ ok: true, custom: descriptions.get(id) });
   }));
 
   router.post("/api/homebrew/cores", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (!(await known(id))) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const want = Number(req.body?.cores);
-    if (!cores.CORES.includes(want)) return res.status(400).json({ error: "코어 수는 3 이나 4 입니다" });
+    if (!cores.CORES.includes(want)) return res.status(400).json({ error: apiWord(req, "homebrew.badCores") });
     // item-fields builds the shortcut again at once, so the list carries the new shortcut's address.
     await setField("homebrew", id, "cores", String(want), DASHBOARD);
     debug.log("admin: homebrew %s shortcut cores %d", id, cores.coresOf(id));
@@ -128,8 +129,8 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/verified", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    if (typeof req.body?.verified !== "boolean") return res.status(400).json({ error: "verified 는 true 나 false 입니다" });
+    if (!(await known(id))) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
+    if (typeof req.body?.verified !== "boolean") return res.status(400).json({ error: apiWord(req, "field.bool", { field: "verified" }) });
     await setField("homebrew", id, "verified", req.body.verified, DASHBOARD);
     debug.log("admin: homebrew %s %s", id, req.body.verified ? "verified" : "no longer verified");
     res.json({ ok: true, ...verified.fields(id) });
@@ -137,16 +138,16 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/kind", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
-    if (!kinds.KINDS.includes(String(req.body?.kind ?? ""))) return res.status(400).json({ error: "tool 이나 port 여야 합니다" });
+    if (!(await known(id))) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
+    if (!kinds.KINDS.includes(String(req.body?.kind ?? ""))) return res.status(400).json({ error: apiWord(req, "homebrew.badKind") });
     await setField("homebrew", id, "kind", String(req.body.kind), DASHBOARD);
     res.json({ ok: true, kind: kinds.kindOf(id) });
   }));
 
   router.post("/api/homebrew/enabled", write(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: "enabled 는 true 나 false 입니다" });
-    if (!(await known(id))) return res.status(404).json({ error: "목록에 없는 앱입니다" });
+    if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: apiWord(req, "field.bool", { field: "enabled" }) });
+    if (!(await known(id))) return res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     await setField("homebrew", id, "enabled", req.body.enabled, DASHBOARD);
     debug.log("admin: homebrew %s %s", id, req.body.enabled ? "on" : "off");
     res.json({ ok: true, enabled: req.body.enabled });
@@ -174,9 +175,9 @@ export function mountHomebrewApi(router, requireSession) {
 
   router.post("/api/homebrew/remove", write(async (req, res) => {
     const s = sources.list().find((x) => x.repo.toLowerCase() === String(req.body?.repo ?? "").toLowerCase());
-    if (!s) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+    if (!s) return res.status(404).json({ error: apiWord(req, "homebrew.noRepo") });
     const id = statusOf(s.repo)?.id;
-    if (!sources.remove(s.repo)) return res.status(404).json({ error: "따라가지 않는 저장소입니다" });
+    if (!sources.remove(s.repo)) return res.status(404).json({ error: apiWord(req, "homebrew.noRepo") });
     await sourcesChanged();
     await githubTracker().forget(s.repo);
     // The pictures, description and kind put on it by hand go with it.

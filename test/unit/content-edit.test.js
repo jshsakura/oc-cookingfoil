@@ -31,7 +31,7 @@ test("a save edit checks the source address and the save kind", () => {
     { name: "All karts", gameVersion: "3.0", saveType: "device", source: { name: "Forum", url: "https://example.org/x" } },
   );
   assert.equal(saveMeta({}, { name: "a", saveType: "nope" }).saveType, undefined);
-  assert.throws(() => saveMeta({}, { name: "a", sourceName: "b", sourceUrl: "javascript:alert(1)" }), /출처/);
+  assert.throws(() => saveMeta({}, { name: "a", sourceName: "b", sourceUrl: "javascript:alert(1)" }), (err) => err.key === "content.badSource" && /http or https/.test(err.message));
 });
 
 test("a moved patch takes its game's folders along, program offsets kept", () => {

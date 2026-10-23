@@ -54,13 +54,16 @@ import { packDirOf } from "../../retro/pack-status.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
 import { actorOf } from "../../library/trash-service.js";
-import { apiWord } from "./api-words.js";
+import { apiText, apiWord } from "./api-words.js";
 import {
   GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
 
 const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
+
+/** A refusal answered with the api-words.js message `key` in the request's language. */
+const refuse = (status, key, vars = {}) => Object.assign(new UploadError(status, apiText("en", key, vars)), { key, vars });
 
 const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir, client: path.dirname(CLIENT_NRO), core: path.join(packDirOf(retroDir), "cores") })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
@@ -91,12 +94,12 @@ async function fetchRetroArt(systemId) {
 /** The uploaded files with their paths inside the upload; a lone .zip is unpacked. */
 async function received(req, work) {
   const files = req.files ?? [];
-  if (!files.length) throw new UploadError(400, "파일이 없습니다");
+  if (!files.length) throw refuse(400, "upload.noFiles");
   let paths = null;
   try {
     paths = req.body.paths ? JSON.parse(req.body.paths) : null;
   } catch {
-    throw new UploadError(400, "paths 가 JSON 이 아닙니다");
+    throw refuse(400, "upload.badPaths");
   }
   const fromFolder = Array.isArray(paths) && paths.length === files.length;
   if (files.length === 1 && /\.zip$/i.test(files[0].originalname) && req.params.kind !== "retro" && req.params.kind !== "homebrew") {
@@ -108,47 +111,47 @@ async function received(req, work) {
   }
   const items = files.map((f, i) => {
     const rel = safeRelPath(fromFolder ? paths[i] : f.originalname);
-    if (!rel) throw new UploadError(400, `쓸 수 없는 경로입니다: ${fromFolder ? paths[i] : f.originalname}`);
+    if (!rel) throw refuse(400, "upload.badPath", { path: fromFolder ? paths[i] : f.originalname });
     return { abs: f.path, rel };
   });
   return { items, fromFolder };
 }
 
 async function placeGame(items) {
-  if (items.length !== 1) throw new UploadError(400, "패키지는 파일 하나씩 올립니다");
+  if (items.length !== 1) throw refuse(400, "upload.onePackage");
   const name = safeName(path.posix.basename(items[0].rel));
-  if (!name || !GAME_EXT_RE.test(name)) throw new UploadError(400, "nsp·nsz·xci·xcz 파일만 받습니다");
+  if (!name || !GAME_EXT_RE.test(name)) throw refuse(400, "upload.gameExt");
   const dest = path.join(romsDirPath, name);
   mustBeFree(dest, name);
   await moveFile(items[0].abs, dest);
   return { where: name, files: 1 };
 }
 
-/** The client build: checked before it replaces the one offered, then offered at once. */
-async function placeClient(items) {
-  if (items.length !== 1 || !/\.nro$/i.test(items[0].rel)) throw new UploadError(400, "클라이언트는 .nro 파일 하나만 받습니다");
+/** The client build: checked before it replaces the one offered, then offered at once. `req` picks the language of `where`. */
+async function placeClient(items, req) {
+  if (items.length !== 1 || !/\.nro$/i.test(items[0].rel)) throw refuse(400, "upload.clientOne");
   let version;
   try {
     ({ version } = inspectNro(await fsp.readFile(items[0].abs)));
   } catch (err) {
-    if (err instanceof ClientBuildError) throw new UploadError(400, `CookingFoil 빌드가 아닙니다: ${err.message}`);
+    if (err instanceof ClientBuildError) throw refuse(400, "upload.notClient", { why: err.message });
     throw err;
   }
   // Older than the manual build on offer is an old file picked by mistake; a newer GitHub build is no reason to refuse.
   const before = clientBuildStatus().published;
-  if (before?.source === "manual" && compareVersions(version, before.version) < 0) throw new UploadError(400, `${version} 은 지금 내보내는 ${before.version} 보다 낮습니다`);
+  if (before?.source === "manual" && compareVersions(version, before.version) < 0) throw refuse(400, "upload.clientOlder", { got: version, want: before.version });
   await fsp.rename(items[0].abs, CLIENT_NRO);
   await latestBuild();
   const { published, rejected } = clientBuildStatus();
   if (published?.source === "github" && compareVersions(published.version, version) > 0) {
-    return { where: `client/cookingfoil.nro · ${version} (GitHub 의 ${published.version} 이 더 새로워 그것을 내보냅니다)`, files: 1, version };
+    return { where: apiWord(req, "upload.githubNewer", { got: version, newer: published.version }), files: 1, version };
   }
-  if (published?.version !== version) throw new UploadError(400, `내보내지 못했습니다: ${rejected?.message ?? "검사를 통과하지 못했습니다"}`);
+  if (published?.version !== version) throw rejected?.message ? refuse(400, "upload.clientRejected", { why: rejected.message }) : refuse(400, "upload.clientUnchecked");
   return { where: `client/cookingfoil.nro · ${version}`, files: 1, version };
 }
 
 async function placeCoreUpload(items, body) {
-  if (items.length !== 1) throw new UploadError(400, "코어는 .nro 파일 하나씩 올립니다");
+  if (items.length !== 1) throw refuse(400, "upload.coreOne");
   const placed = await placeCore(retroDir, { abs: items[0].abs, name: path.posix.basename(items[0].rel) }, { replace: body?.replace === "true" });
   return { where: `retroarch/${placed.file}`, files: 1, ...placed };
 }
@@ -156,7 +159,7 @@ async function placeCoreUpload(items, body) {
 async function placeRetro(items, body) {
   const systems = loadSystems(retroDir);
   const system = systems[String(body.system ?? "")];
-  if (!system) throw new UploadError(400, "기종을 고릅니다");
+  if (!system) throw refuse(400, "upload.pickSystem");
   const names = retroLayout(items.map((i) => i.rel), system);
   const dir = path.join(retroDir, "roms", system.folder);
   for (const n of names) mustBeFree(path.join(dir, n), n);
@@ -185,24 +188,23 @@ async function takeBackupMeta(items) {
 async function placeFolder(kind, items, body, work, fromFolder) {
   // The target is a game (its base title id) or a homebrew app (its switch/<app>/ folder name).
   const app = body.homebrew ? homebrewApp(body.homebrew) : null;
-  if (body.homebrew && !app) throw new UploadError(400, "홈브류 앱을 고릅니다");
+  if (body.homebrew && !app) throw refuse(400, "upload.pickApp");
   const tid = app ? null : baseTitleId(body.titleId);
-  if (!app && !tid) throw new UploadError(400, "게임(타이틀 ID)이나 홈브류 앱을 고릅니다");
+  if (!app && !tid) throw refuse(400, "upload.pickTarget");
   const name = safeName(body.name);
-  if (!name) throw new UploadError(400, "이름을 적습니다 (100자 이내, / 없이)");
+  if (!name) throw refuse(400, "upload.noName");
   let saveType = null;
   if (kind === "save" && !app) {
     ({ items, saveType } = await takeBackupMeta(items));
     if (SAVE_TYPES.includes(body.saveType)) saveType = body.saveType;
-    if (!items.length) throw new UploadError(400, "세이브 파일이 없습니다");
+    if (!items.length) throw refuse(400, "upload.noSave");
   }
   const paths = items.map((i) => i.rel);
   const rels = app ? homebrewLayout(paths, app, fromFolder) : kind === "patch" ? patchLayout(paths, tid) : saveLayout(paths, fromFolder);
   const under = app ? `homebrew/${app}` : tid;
   const metaName = kind === "patch" ? "patch.json" : "meta.json";
   if (rels.some((r) => r.toLowerCase() === metaName)) {
-    throw new UploadError(400, kind === "patch" ? "patch.json 은 빼고 올립니다. 패치 정보는 이 양식에 적고, 올린 뒤 관리 페이지에서 고칩니다"
-      : `${metaName} 는 서버가 만듭니다. 빼고 올립니다`);
+    throw kind === "patch" ? refuse(400, "upload.noPatchJson") : refuse(400, "upload.serverMeta", { name: metaName });
   }
   const dest = path.join(rootOf(kind), ...under.split("/"), name);
   mustBeFree(dest, `${under}/${name}`);
@@ -272,7 +274,7 @@ export function mountUploadApi(router, guard) {
     if (!KINDS.includes(kind)) return res.status(404).json({ error: "unknown kind" });
     if (kind === "client" || (kind === "core" && fs.existsSync(retroDir))) await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
     if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) {
-      return res.status(409).json({ error: "읽기 전용입니다. compose 에서 이 폴더의 read_only 를 false 로 변경합니다" });
+      return res.status(409).json({ error: apiWord(req, "upload.readOnly") });
     }
     const work = path.join(stagingOf(kind), crypto.randomBytes(8).toString("hex"));
     await fsp.mkdir(path.join(work, "in"), { recursive: true });
@@ -295,7 +297,7 @@ export function mountUploadApi(router, guard) {
         : kind === "retro" ? await placeRetro(items, req.body)
         : kind === "homebrew" && req.body?.replace ? await replaceHomebrewFile(items, req.body.replace, { by: actorOf(req) })
         : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
-        : kind === "client" ? await placeClient(items)
+        : kind === "client" ? await placeClient(items, req)
         : kind === "core" ? await placeCoreUpload(items, req.body)
         : await placeFolder(kind, items, req.body, work, fromFolder);
       debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
@@ -305,7 +307,8 @@ export function mountUploadApi(router, guard) {
     } catch (err) {
       status = err instanceof UploadError || err instanceof CoreError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
       if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
-      body = { error: status === 500 ? "올리지 못했습니다. 서버 기록을 봅니다" : err instanceof HomebrewUploadError && err.key ? apiWord(req, err.key, err.vars) : err.message, ...(err instanceof CoreError ? err.extra : {}) };
+      const keyed = (err instanceof UploadError || err instanceof HomebrewUploadError) && err.key;
+      body = { error: status === 500 ? apiWord(req, "upload.failed") : keyed ? apiWord(req, err.key, err.vars) : err.message, ...(err instanceof CoreError ? err.extra : {}) };
     }
     // Leftovers of a refused upload go before the answer does.
     await dropWork(work);

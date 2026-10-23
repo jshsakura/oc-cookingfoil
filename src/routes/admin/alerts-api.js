@@ -18,6 +18,7 @@ import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
 import debug from "../../debug.js";
+import { apiWord } from "./api-words.js";
 
 const TOKEN_RE = integrations.SERVICES.telegram.fields.botToken.re;
 
@@ -79,15 +80,15 @@ export function mountAlertsApi(router, requireSession) {
 
   router.post("/api/alerts/chats", guarded(async (req, res) => {
     const token = String(req.body?.botToken ?? "").trim() || integrations.get("telegram").botToken;
-    if (!token) return res.json({ ok: false, message: "봇 토큰을 먼저 넣습니다" });
-    if (!TOKEN_RE.test(token)) return res.json({ ok: false, message: "봇 토큰 형식이 맞지 않습니다" });
+    if (!token) return res.json({ ok: false, message: apiWord(req, "alerts.noToken") });
+    if (!TOKEN_RE.test(token)) return res.json({ ok: false, message: apiWord(req, "alerts.badToken") });
     try {
       const chats = await updates.recentChats(token);
-      if (!chats) return res.json({ ok: false, message: "텔레그램이 이 토큰을 받아들이지 않았습니다" });
-      res.json({ ok: true, chats, message: chats.length ? "" : "아직 봇에게 온 메시지가 없습니다. 알림을 받을 대화에서 봇에게 아무 말이나 보낸 뒤 다시 누릅니다" });
+      if (!chats) return res.json({ ok: false, message: apiWord(req, "alerts.tokenRefused") });
+      res.json({ ok: true, chats, message: chats.length ? "" : apiWord(req, "alerts.noChats") });
     } catch (err) {
       debug.log("admin: telegram chats failed: %s", err.message);
-      res.json({ ok: false, message: "텔레그램에 닿지 못했습니다" });
+      res.json({ ok: false, message: apiWord(req, "alerts.unreachable") });
     }
   }));
 

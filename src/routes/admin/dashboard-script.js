@@ -94,7 +94,8 @@ async function api(url,opts={}){
   // to the sign-in page, but never while a new password is still on screen.
   if(r.status===401){if($('cred-dialog').open)$('cred-dialog').addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
   const data=await r.json().catch(()=>({}));
-  if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.error;throw e;}
+  // A refusal the page acts on carries a stable code; older answers put theirs in error.
+  if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}
   return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
@@ -601,7 +602,7 @@ $('hb-shots-clear').addEventListener('click',async()=>{if(!await ask('스크린�
 $('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-shots-file').files];$('hb-shots-file').value='';if(!files.length)return;
   const st=$('hb-shots-state');let done=0;
   for(const file of files){st.textContent='올리고 있습니다 ('+(done+1)+'/'+files.length+')';
-    try{const r=await fetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
+    try{const r=await fetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');done++;}
     catch(err){st.textContent=file.name+': '+err.message;break;}}
   if(done===files.length)st.textContent=done+'장을 올렸습니다.';await hbMediaReload();});
@@ -609,7 +610,7 @@ $('hb-banner-remove').addEventListener('click',async()=>{if(!await ask('배경 �
   try{await api('/admin/api/homebrew/banner/remove',{method:'POST',body:{id:hbBannerApp.id}});toast('배경 그림을 뺐습니다.');await hbMediaReload();}catch(err){toast(err.message);}});
 $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-file').files[0];$('hb-banner-file').value='';if(!file)return;
   $('hb-banner-state').textContent='올리고 있습니다';
-  try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json'},body:file});
+  try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
 async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name})))return;
@@ -985,7 +986,7 @@ function upSend(u,label){return new Promise((resolve)=>{
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
     u.status=xhr.status;u.d=d;u.msg=d.error||'';u.state=xhr.status===201?'ok':'fail';
     upPaint(u);resolve();});
-  xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.send(fd);});}
+  xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.setRequestHeader('Accept-Language',typeof adminLang==='string'?adminLang:'ko');xhr.send(fd);});}
 // Send the given units (default: every one that has not gone in). Units that went up are never sent again.
 async function upSubmit(only){
   if(upBusy)return;

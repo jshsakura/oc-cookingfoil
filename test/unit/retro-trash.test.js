@@ -153,6 +153,11 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
     const refused = await post("/trash", { game: gunbird.id });
     assert.equal(refused.status, 409);
     assert.deepEqual(refused.body.dependents, ["gunbirdj.zip"]);
+    // The page asks for a confirmation on the code, not on the words, which follow its language.
+    assert.equal(refused.body.code, "in-use");
+    assert.equal(refused.body.error, "Another set uses this file");
+    const inKorean = await fetch(base + "/trash", { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": "ko" }, body: JSON.stringify({ game: gunbird.id }) });
+    assert.deepEqual([inKorean.status, (await inKorean.json()).error], [409, "다른 세트가 이 파일을 씁니다"]);
     assert.ok(has("roms/arcade/gunbird.zip"));
 
     const moved = await post("/trash", { game: patch.id });
