@@ -25,6 +25,15 @@ const MOVE = obj({
   reason: nullable(str("why not: undone, missing, changed, taken, gone-root or bad-path")),
 }, { description: "also by, type, size, undone, released, held" });
 
+// Checked here as the HTTP route checks it: a tool call reaches this handler without the route.
+async function restoreIds(input) {
+  const ids = input?.ids;
+  if (!Array.isArray(ids) || !ids.length || ids.length > 1000 || !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= 300)) {
+    throw new (await service()).TrashError("ids is a list of 1 to 1000 item ids", 400);
+  }
+  return [...new Set(ids)];
+}
+
 const MOVE_ARG = { type: "string", description: "The id of a move as trash_journal returns it; undone moves keep their id for release." };
 
 export const trashCapabilities = [
@@ -68,17 +77,25 @@ export const trashCapabilities = [
       },
       required: ["ids"],
     },
+    output: obj({
+      restored: arr(obj({ id: str(), name: str(), renamed: arr(obj({ rel: str(), to: str() }), "put back under a numbered name") }, { description: "also root and items" })),
+      failed: arr(obj({ id: str(), error: str() }), "entries that stayed in the trash, and why"),
+    }),
+    preview: async (ctx, input) => {
+      const ids = await restoreIds(input);
+      const byId = new Map((await (await service()).list()).items.map((e) => [e.id, e]));
+      const missing = ids.filter((id) => !byId.has(id));
+      if (missing.length) throw Object.assign(new Error(`not in the trash: ${missing.join(", ")}; see trash_list`), { status: 404 });
+      const entries = ids.map((id) => byId.get(id)).map(({ id, root, name, size }) => ({ id, root, name, size }));
+      return {
+        entries,
+        changes: `Puts ${entries.length} entr${entries.length === 1 ? "y" : "ies"} back where they were. A taken name ${input.exactName === true ? "keeps that entry in the trash" : "gets a numbered name"}; nothing is overwritten.`,
+      };
+    },
+    previewOutput: obj({ entries: arr(obj({ id: str(), root: str(), name: str(), size: int("bytes") })), changes: str() }),
     safety: "write",
     http: { method: "POST", path: "/admin/api/trash/restore" },
-    handler: async (ctx, input) => {
-      const s = await service();
-      // Checked here as the HTTP route checks it: a tool call reaches this handler without the route.
-      const ids = input?.ids;
-      if (!Array.isArray(ids) || !ids.length || ids.length > 1000 || !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= 300)) {
-        throw new s.TrashError("ids is a list of 1 to 1000 item ids", 400);
-      }
-      return s.restore([...new Set(ids)], byOf(ctx), { exactName: input.exactName === true });
-    },
+    handler: async (ctx, input) => (await service()).restore(await restoreIds(input), byOf(ctx), { exactName: input.exactName === true, lang: "en" }),
   }),
   defineCapability({
     id: "trash_journal",
