@@ -18,6 +18,10 @@
  *     http: { method: "GET", path: "/admin/api/..." },   the route that does the same thing, if any
  *     token: false,                   optional; derived from http, may only narrow it
  *     handler: async (ctx, input) => ...,                 calls module functions, never the HTTP route
+ *     preview: async (ctx, input) => ...,                 write and destructive only: what the call would
+ *                                     change, changing nothing. MCP serves a write only when it has one:
+ *                                     a call without confirm='approve' returns this preview instead.
+ *     previewOutput: { type: "object", ... },             JSON Schema of what preview returns, with output
  *   })
  *
  * Token reach is not listed here by hand. It comes from what the server enforces: TOKEN_PATHS
@@ -38,7 +42,7 @@ const MIN_ACCESS = { read: "read", write: "manage", destructive: "full" };
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 // Arguments whose name says it all; a description would only cost tokens.
 export const OBVIOUS_ARGS = new Set(["page", "perPage", "fields", "dry_run"]);
-// Injected by the MCP layer for destructive tools (preview, then apply with confirm='approve').
+// Injected by the MCP layer for write and destructive tools (preview, then apply with confirm='approve').
 export const RESERVED_ARGS = new Set(["plan_id", "confirm"]);
 // Routes that take settings by name, and the settings a token may never send them.
 const TOKEN_LOCKED_ROUTES = { "POST /admin/api/server-settings": TOKEN_LOCKED };
@@ -119,7 +123,7 @@ function inputProblems(input) {
   const props = input.properties ?? {};
   if (typeof props !== "object" || Array.isArray(props)) return [...out, "input.properties must be an object"];
   for (const [name, schema] of Object.entries(props)) {
-    if (RESERVED_ARGS.has(name)) out.push(`argument ${name} is reserved: the MCP layer adds it to destructive tools`);
+    if (RESERVED_ARGS.has(name)) out.push(`argument ${name} is reserved: the MCP layer adds it to write and destructive tools`);
     if (!schema || typeof schema !== "object") {
       out.push(`argument ${name} must be a schema object`);
       continue;
@@ -189,6 +193,10 @@ export function capabilityProblems(spec) {
   if (spec.http?.method === "GET" && (spec.safety === "write" || spec.safety === "destructive")) out.push(`a ${spec.safety} capability cannot sit on a GET route`);
   out.push(...tokenProblems(spec));
   if (typeof spec.handler !== "function") out.push("handler must be a function (ctx, input) => result");
+  if (spec.preview !== undefined && typeof spec.preview !== "function") out.push("preview must be a function (ctx, input) => what would change");
+  if (spec.preview !== undefined && spec.safety === "read") out.push("a read capability has nothing to preview");
+  if ((spec.preview === undefined) !== (spec.previewOutput === undefined)) out.push("preview and previewOutput come together");
+  if (spec.previewOutput !== undefined && (!spec.previewOutput || typeof spec.previewOutput !== "object" || !spec.previewOutput.type)) out.push("previewOutput must be a JSON Schema with a type");
   return out;
 }
 

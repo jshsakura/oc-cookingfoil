@@ -47,12 +47,16 @@ import * as metaStore from "../../retro/meta/store.js";
 import * as metaEdits from "../../retro/meta/edits.js";
 import { GENRE_LABELS } from "../../meta/categories.js";
 import * as art from "../../retro/art/sync.js";
+import { gameOf, overview } from "../../retro/art/admin.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
 import { trashFiles, TrashError } from "../../retro/trash.js";
 import { actorOf } from "../../library/trash-service.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
+
+/** The running or last art sync: { system, startedAt, progress, finishedAt?, summary?, error? } or null. */
+export const artJob = () => job;
 let ratingsJob = null; // { startedAt, finishedAt?, summary?, error? }
 
 const RATINGS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -99,20 +103,6 @@ export const romKey = retroCatalog.romKey;
 
 const ghToken = () => integrations.get("github").token;
 
-function overview(catalog) {
-  const systems = {};
-  const missing = [];
-  for (const g of catalog.games) {
-    const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, borrowed: 0, bezel: 0 });
-    s.games++;
-    if (g.icon) {
-      s.boxart++;
-      if (g.iconFrom) s.borrowed++;
-    } else missing.push({ id: g.id, system: g.system, name: g.name, title: retroNames.get(g.id), rom: romKey(g), original: g.original ?? null });
-    if (g.bezel && !g.bezel.generic) s.bezel++;
-  }
-  return { systems: Object.values(systems), missing };
-}
 
 /** The firmware missing for the consoles that have games, with their Korean names. `files` is the system folder's listing. */
 function biosNotices(catalog, files) {
@@ -180,11 +170,6 @@ export function mountRetroArtApi(router, requireSession) {
       debug.error("admin retro-art: %s", err.message);
       res.status(502).json({ error: err.message });
     }
-  };
-  const gameOf = async (id) => {
-    const catalog = await retroCatalog.current(retroDir);
-    const g = catalog.byId.get(String(id ?? ""));
-    return g ? { g, system: catalog.systems[g.system] } : null;
   };
 
   // Folders under roms/ no system reads: unknown names, and look-alikes held back by a system folder that has games.

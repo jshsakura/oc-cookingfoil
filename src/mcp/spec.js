@@ -4,7 +4,7 @@
  * output, field by field.
  */
 import { readFileSync } from "node:fs";
-import { servedTools } from "./tools.js";
+import { servedTools, toolDescription, toolInput } from "./tools.js";
 
 const REFERENCE = readFileSync(new URL("./reference.md", import.meta.url), "utf8").trimEnd();
 
@@ -27,8 +27,9 @@ export function typeText(s, depth = 0) {
 
 /** "games_search(q?, limit?) -> { total, offset, items }" */
 export function signature(cap) {
-  const req = new Set(cap.input.required ?? []);
-  const args = Object.keys(cap.input.properties ?? {}).map((k) => (req.has(k) ? k : `${k}?`)).join(", ");
+  const input = toolInput(cap);
+  const req = new Set(input.required ?? []);
+  const args = Object.keys(input.properties ?? {}).map((k) => (req.has(k) ? k : `${k}?`)).join(", ");
   const out = cap.output?.properties ? `{ ${Object.keys(cap.output.properties).join(", ")} }` : typeText(cap.output);
   return `${cap.id}(${args}) -> ${out}`;
 }
@@ -59,11 +60,15 @@ export function reference() {
 export function toolSpec(id) {
   const cap = servedTools().find((c) => c.id === id);
   if (!cap) throw Object.assign(new Error(`No tool ${id}. Tools: ${servedTools().map((c) => c.id).join(", ")}`), { status: 404 });
-  const input = fieldLines(cap.input);
+  const input = fieldLines(toolInput(cap));
+  const preview = cap.preview
+    ? ["", "## Preview", "Without confirm: `{ preview, next }`, nothing changed. `preview`:", ...fieldLines(cap.previewOutput)]
+    : [];
   return [
-    `# ${cap.id}`, "", cap.description, "",
+    `# ${cap.id}`, "", toolDescription(cap), "",
     `Safety: ${cap.safety}.`, "",
     "## Input", ...(input.length ? input : ["none"]), "",
     "## Output", ...fieldLines(cap.output),
+    ...preview,
   ].join("\n");
 }
