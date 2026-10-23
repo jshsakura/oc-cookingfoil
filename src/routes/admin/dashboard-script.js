@@ -543,6 +543,7 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   if(a.app)for(const [txt,type,short] of [['패치 올리기','patch','패치'],['세이브 올리기','save','세이브']]){
     const u=btn(txt,()=>uploadFor(type,a.app),'hb-up');u.querySelector('span').textContent=short;foot.append(u);}
   foot.append(btn('설명',()=>editHbDesc(a.id,name,desc)),btn('그림',()=>openHbBanner(a)));
+  if(a.replaceable)foot.append(btn(topText('t.hbReplace'),()=>pickHbFile(a,name)));
   if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,name),'danger'));
   else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
   card.append(foot);return card;}
@@ -617,6 +618,17 @@ async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 
     loadHomebrew();}catch(err){toast(err.message);}}
 async function removeManualHb(id,name){if(!await ask(topFill('t.askHbApp',{name})))return;
   try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast(topText('t.movedToast'));loadHomebrew();}catch(err){toast(err.message);}}
+// A new build of a hand-placed app, same format as now: the server keeps its folder, so its id and what was added by hand stay.
+function pickHbFile(a,name){const ext=a.install_type==='title'?'.nsp':'.nro';
+  const input=el('input');input.type='file';input.accept=ext;
+  input.addEventListener('change',()=>{const file=input.files[0];if(file)replaceHbFile(a,name,file);});input.click();}
+async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name})))return;
+  toast(topFill('t.hbReplacing',{name}));
+  const fd=new FormData();fd.append('replace',a.id);fd.append('files',file,file.name);
+  try{const r=await fetch('/admin/api/upload/homebrew',{method:'POST',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});
+    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+    toast(topFill('t.hbReplacedToast',{name,old:d.replaced}));loadHomebrew();}
+  catch(err){toast(err.message);}}
 let upPending=null;
 function uploadFor(kind,app){upPending={kind,app};if(location.hash==='#upload')loadUpload();else location.hash='upload';}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.
