@@ -213,8 +213,12 @@ function ownerIsAdmin(owner) {
   return owner.startsWith("google:") ? googleAccounts.isAdmin(owner.slice(7)) : passwordOwnerOk() && users.isActive(owner) && users.isAdmin(owner);
 }
 
+// /mcp the way Express routes it: any case, one optional trailing slash. A miss here would count a valid
+// token as a failed login and could lock the caller's address out.
+const MCP_PATH = /^\/mcp\/?$/i;
+
 // What an automation token may reach: the admin API, its guide, the flat catalog and MCP.
-export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json" || p === "/mcp";
+export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json" || MCP_PATH.test(p);
 
 function tokenLane(req, res, next, ip) {
   if (!trustedHere(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });

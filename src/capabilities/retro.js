@@ -74,7 +74,7 @@ export const retroCapabilities = [
         name: nullable(str()),
         size: int("bytes"),
         sha256: str(),
-        modifiedAt: num("epoch ms"),
+        modifiedAt: num("epoch seconds"),
         origin: oneOf(["official", "modified", "extra"], "against the pinned official build; modified and extra are never replaced"),
         off: bool("switched off: left out of the console pack, its games listed with coreOff"),
         systems: arr(obj({ id: str(), name: str(), games: int() }), "consoles whose games start with it"),

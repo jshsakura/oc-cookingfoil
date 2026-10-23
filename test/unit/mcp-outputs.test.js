@@ -54,3 +54,15 @@ test("trash_journal's moves match its output", async () => {
   const out = await check("trash_journal");
   assert.equal(out.items.length, 1);
 });
+
+test("retro_cores' cores and systems match its output", async () => {
+  put("retro", "retroarch/cores/mgba_libretro_libnx.nro");
+  put("retro", "retroarch/retroarch.nro");
+  fs.writeFileSync(put("retro", "retroarch/info/mgba_libretro.info"), 'display_name = "Nintendo - Game Boy Advance (mGBA)"\nsupported_extensions = "gba|gb"\n');
+  put("retro", "roms/gba/Some Game (USA).gba");
+  const { scan } = await import("../../src/retro/catalog.js");
+  await scan(dirs.retro);
+  const out = await check("retro_cores");
+  assert.equal(out.cores.length, 1);
+  assert.ok(out.systems.length >= 1);
+});

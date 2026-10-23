@@ -11,7 +11,7 @@ const JOB = obj({
   kind: str("what kind of work, such as scan:games, nsz, backup or retro-art"),
   title: str("the admin page's label, in Korean"),
   detail: nullable(str()),
-  current: int("steps done"),
+  current: nullable(int("steps done")),
   total: nullable(int("steps in all, when known")),
   startedAt: num("epoch ms"),
   state: str("running, done, failed or stopped"),

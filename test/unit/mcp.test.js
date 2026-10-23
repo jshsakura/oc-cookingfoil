@@ -185,3 +185,14 @@ test("errors keep a 4xx message and hide anything else behind INTERNAL", () => {
   assert.equal(internal.code, "INTERNAL");
   assert.doesNotMatch(internal.message, /secret/);
 });
+
+test("/mcp matches the token lane the way Express routes it, so a valid token never counts as a failed login", () => {
+  for (const p of ["/mcp/", "/MCP", "/Mcp/"]) assert.equal(TOKEN_PATHS(p), true, p);
+  assert.equal(TOKEN_PATHS("/mcp/x"), false);
+});
+
+test("a body that is not JSON gets a JSON-RPC parse error", async () => {
+  const res = await fetch(`${base}/mcp`, { method: "POST", headers: { Authorization: "Bearer good", "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{not json" });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error.code, -32700);
+});

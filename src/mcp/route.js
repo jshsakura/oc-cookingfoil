@@ -47,7 +47,18 @@ async function serve(req, res) {
   Readable.fromWeb(response.body).on("error", () => res.destroy()).pipe(res);
 }
 
+const jsonBody = express.json({ limit: BODY_LIMIT });
+
+// A body express cannot read gets a JSON-RPC error an MCP client can parse, not the app's plain-text 400.
+function readBody(req, res, next) {
+  jsonBody(req, res, (err) => {
+    if (!err) return next();
+    const tooLarge = err.type === "entity.too.large";
+    res.status(tooLarge ? 413 : 400).json({ jsonrpc: "2.0", id: null, error: { code: tooLarge ? -32600 : -32700, message: tooLarge ? `body over ${BODY_LIMIT}` : "parse error" } });
+  });
+}
+
 /** Mount after authGuard, for POST, GET and DELETE /mcp. */
 export function mcpRoute() {
-  return [express.json({ limit: BODY_LIMIT }), serve];
+  return [readBody, serve];
 }
