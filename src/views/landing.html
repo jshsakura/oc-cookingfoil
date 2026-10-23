@@ -842,13 +842,22 @@
         color: rgba(255, 255, 255, 0.82); font: 600 14px var(--font-body); margin-bottom: 28px;
       }
       .modal .banner.no-art .banner-empty svg { width: 40px; height: 40px; }
-      /* Retro games: the box art sits in the bezel's screen, where the game will play. */
-      .modal .banner .banner-poster { display: none; }
-      .modal .banner.with-poster .banner-poster {
-        display: block; position: relative; z-index: 1; height: 86%; max-width: 70%; object-fit: contain;
-        border-radius: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      /* Retro games: the bezel fills the banner and the game sits in its 4:3 screen, as the console
+         plays it. The server's bezel art lies on top (its screen is see-through); without one a frame is drawn. */
+      .modal .banner .bezel-stage { display: none; }
+      .modal .banner.with-stage { background: #0b0b0d; }
+      .modal .banner.with-stage .banner-empty { display: none; }
+      .modal .banner.with-stage .bezel-stage { display: block; position: absolute; inset: 0; z-index: 1; }
+      .bezel-stage .bezel-screen {
+        position: absolute; top: 4%; bottom: 4%; left: 50%; transform: translateX(-50%); aspect-ratio: 4 / 3; max-width: 92%;
+        background: #000; overflow: hidden; border-radius: 10px;
+        box-shadow: 0 0 0 10px #1c1c20, 0 0 0 12px #2c2c32, 0 14px 40px rgba(0, 0, 0, 0.6);
       }
-      .modal .banner.with-poster.no-art .banner-empty { display: none; }
+      .bezel-stage .bezel-screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .bezel-stage .bezel-screen img.boxart { object-fit: contain; }
+      .bezel-stage .bezel-frame { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+      .bezel-stage.own-frame .bezel-frame { display: block; }
+      .bezel-stage.own-frame .bezel-screen { top: 0; bottom: 0; border-radius: 0; box-shadow: none; }
       /* Opened before the detail arrives: shimmer where it will land. */
       .modal.loading .banner, .modal.loading .desc-skel {
         background: linear-gradient(90deg, var(--sunk) 0%, var(--line) 50%, var(--sunk) 100%);
@@ -1539,7 +1548,7 @@
       <div class="modal" onclick="event.stopPropagation()"><div class="modal-scroll">
         <div class="modal-x-bar"><button class="modal-gear" type="button" aria-pressed="false" hidden></button><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="banner" id="modal-banner">
-          <img class="banner-poster" id="modal-poster" alt="" decoding="async">
+          <div class="bezel-stage" id="modal-stage"><div class="bezel-screen"><img id="modal-screen" alt="" decoding="async"></div><img class="bezel-frame" id="modal-bezel" alt="" decoding="async"></div>
           <div class="banner-empty" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
             <span data-i18n="modal.noImage"></span>
@@ -5825,16 +5834,24 @@
 
       // Show the banner once it has actually loaded; a missing or broken one
       // falls back to the blurred icon and a "no artwork" mark, never a blank band.
-      // Box art shown inside the banner (retro games); an empty url, or one that fails, hides it.
-      function setPoster(url) {
+      // A retro game's banner: its screenshot (else the box art) in the bezel's screen, under the
+      // server's bezel art. An empty screen hides the stage; a bezel that fails leaves the drawn frame.
+      function setStage(screenUrl, isBoxart, bezelUrl) {
         const box = $("modal-banner");
-        const img = $("modal-poster");
-        box.classList.remove("with-poster");
-        img.removeAttribute("src");
-        if (!url) return;
-        img.onload = () => box.classList.add("with-poster");
-        img.onerror = () => box.classList.remove("with-poster");
-        img.src = bustUrl(url);
+        const stage = $("modal-stage");
+        const screen = $("modal-screen");
+        const frame = $("modal-bezel");
+        box.classList.toggle("with-stage", !!screenUrl);
+        stage.classList.remove("own-frame");
+        screen.removeAttribute("src"); frame.removeAttribute("src");
+        if (!screenUrl) return;
+        screen.classList.toggle("boxart", isBoxart);
+        screen.onerror = () => box.classList.remove("with-stage");
+        screen.src = bustUrl(screenUrl);
+        if (!bezelUrl) return;
+        frame.onload = () => stage.classList.add("own-frame");
+        frame.onerror = () => stage.classList.remove("own-frame");
+        frame.src = bustUrl(bezelUrl);
       }
 
       function setBanner(bannerUrl, iconUrl) {
@@ -6127,7 +6144,7 @@
         // detail will land, instead of waiting on the network with nothing shown.
         modalEl.classList.toggle("loading", validBase && !cached);
         setCover(iconUrl);
-        setPoster("");
+        setStage("");
         $("modal-flag").hidden = true; $("modal-where").hidden = true;
         const bannerBox = $("modal-banner");
         bannerBox.dataset.want = ""; bannerBox.classList.remove("no-art"); bannerBox.style.backgroundImage = "";
@@ -6572,8 +6589,8 @@
         });
       }
 
-      // Laid out as the console shows a retro game: a screenshot (else the box
-      // art, else the blurred icon) as the banner, the icon with its region flag,
+      // Laid out as the console shows a retro game: the bezel with a screenshot (else the box
+      // art) in its screen as the banner, else the blurred icon, the icon with its region flag,
       // pills for what the file is, the description, the info table, where it
       // installs, genres, screenshots and the versions to pick from.
       function renderRetroModal(g, sys, loading) {
@@ -6595,10 +6612,10 @@
         const shot = Array.isArray(g.screenshots) ? g.screenshots[0] : "";
         if (loading) {
           banner.dataset.want = ""; banner.classList.remove("no-art"); banner.style.backgroundImage = "";
-          setPoster("");
+          setStage("");
         } else {
-          setBanner(shot || "", g.iconUrl || "");
-          setPoster(shot ? "" : g.boxartUrl || "");
+          setBanner("", g.iconUrl || "");
+          setStage(shot || g.boxartUrl || "", !shot, g.bezel?.imageUrl || "");
         }
 
         const ed = g.edition || null;
