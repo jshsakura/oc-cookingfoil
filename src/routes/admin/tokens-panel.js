@@ -30,11 +30,11 @@ export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2></div>
 export const TOKENS_SCRIPT = /* js */ `
 async function loadTokens(){
   try{const d=await api('/admin/api/tokens');
-    table('tok-list',['이름','만든 계정','만든 때','마지막 사용',''],d.tokens.map((t)=>{const tr=el('tr');
-      const b=btn('삭제',async()=>{if(!await ask('이 토큰을 삭제할까요? 이 토큰을 쓰던 곳은 바로 막힙니다.'))return;
-        try{await api('/admin/api/tokens/'+t.id+'/revoke',{method:'POST',body:{}});toast('삭제했습니다.');loadTokens();}catch(err){toast(err.message);}},'danger');
+    table('tok-list',[topText('tok.name'),topText('tok.owner'),topText('tok.created'),topText('tok.lastUsed'),''],d.tokens.map((t)=>{const tr=el('tr');
+      const b=btn(topText('tok.delete'),async()=>{if(!await ask(topText('tok.deleteAsk')))return;
+        try{await api('/admin/api/tokens/'+t.id+'/revoke',{method:'POST',body:{}});toast(topText('tok.deleted'));loadTokens();}catch(err){toast(err.message);}},'danger');
       const c=el('td');c.append(b);
-      tr.append(td(t.label||'—'),td(String(t.owner).replace(/^google:.*/,'구글 계정')),td(fmt(t.createdAt)),td(fmt(t.lastUsedAt)),c);return tr;}),'아직 토큰이 없습니다.');
+      tr.append(td(t.label||'—'),td(String(t.owner).replace(/^google:.*/,topText('tok.google'))),td(fmt(t.createdAt)),td(fmt(t.lastUsedAt)),c);return tr;}),topText('tok.none'));
   }catch(err){toast(err.message);}
 }
 $('tok-form').addEventListener('submit',async(e)=>{e.preventDefault();
@@ -53,5 +53,5 @@ $('mcp-on').addEventListener('change',async(e)=>{const on=e.target.checked;
   try{await api('/admin/api/server-settings',{method:'POST',body:{mcpEnabled:on}});toast(topText(on?'mcp.opened':'mcp.closed'));$('mcp-howto').hidden=!on;}
   catch(err){e.target.checked=!on;toast(err.message);}});
 document.querySelectorAll('[data-copy^="mcp-"]').forEach((b)=>b.addEventListener('click',()=>{navigator.clipboard?.writeText($(b.dataset.copy).textContent).then(()=>toast(topText('mcp.copied')),()=>toast(topText('mcp.copyFailed')));}));
-$('tok-copy').addEventListener('click',()=>{navigator.clipboard?.writeText($('tok-value').textContent).then(()=>toast('복사했습니다.'),()=>toast('복사하지 못했습니다. 직접 골라 복사합니다.'));});
+$('tok-copy').addEventListener('click',()=>{navigator.clipboard?.writeText($('tok-value').textContent).then(()=>toast(topText('mcp.copied')),()=>toast(topText('mcp.copyFailed')));});
 `;
