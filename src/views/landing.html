@@ -1253,7 +1253,8 @@
       }
       .toast-rack { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; }
       .toast {
-        background: var(--ink); color: var(--ground); padding: 12px 22px; border-radius: 100px;
+        display: flex; align-items: center; gap: 9px; width: max-content; max-width: calc(100vw - 32px); margin-inline: auto;
+        background: var(--hero); color: #fff; padding: 12px 22px 12px 16px; border-radius: 100px;
         font-size: 14px; font-weight: 600; margin-top: 8px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
         animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
@@ -1263,6 +1264,7 @@
         font-size: 14px; font-weight: 600; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); pointer-events: none;
       }
       .restart-banner[hidden] { display: none; }
+      .toast svg { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--butter); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
       .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); margin-right: 6px; vertical-align: middle; }
@@ -3187,7 +3189,11 @@
       };
       const toast = (msg) => {
         const el = document.createElement("div");
-        el.className = "toast"; el.textContent = msg;
+        el.className = "toast";
+        // The info mark leads every toast, as on the console.
+        el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+        el.append(document.createElement("span"));
+        el.lastChild.textContent = msg;
         $("toasts").appendChild(el);
         setTimeout(() => el.remove(), 2400);
       };
