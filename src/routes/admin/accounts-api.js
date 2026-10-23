@@ -2,7 +2,7 @@
  * Google sign-in accounts, for the admin to approve.
  *
  *   GET  /admin/api/accounts                  { enabled, accounts: [{ sub, email, status, createdAt, approvedAt, lastAt,
- *                                               lastLoginAt, lastLoginMethod, lastActiveAt }] }
+ *                                               lastLoginAt, lastLoginMethod, lastLoginIp, lastActiveAt }] }
  *     lastAt is the last Google sign-in; lastActiveAt is when a console the account approved last connected.
  *   POST /admin/api/accounts/status  { sub, status: "approved" | "disabled" | "pending" }
  *   POST /admin/api/accounts/role    { sub, role: "admin" | "user" }
@@ -23,6 +23,7 @@ import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
 import * as store from "../../security/store.js";
+import { withoutIps } from "./access-history-api.js";
 
 const SELF = { error: "self", message: "You can't disable, demote or remove the account you are signed in with." };
 
@@ -32,7 +33,8 @@ export function mountAccountsApi(router, requireSession) {
     res.set("Cache-Control", "no-store");
     const withActivity = (a) => {
       const login = store.lastLogin(`google:${a.sub}`);
-      return { ...a, lastLoginAt: login?.at ?? a.lastAt ?? null, lastLoginMethod: login?.method ?? "google", lastActiveAt: store.lastActiveOf(`google:${a.email}`) };
+      const row = { ...a, lastLoginAt: login?.at ?? a.lastAt ?? null, lastLoginMethod: login?.method ?? "google", lastLoginIp: login?.ip ?? null, lastActiveAt: store.lastActiveOf(`google:${a.email}`) };
+      return req.apiToken ? withoutIps(row) : row;
     };
     res.json({ enabled: googleConfig.googleConfigured(), accounts: accounts.list().map(withActivity) });
   });
@@ -64,6 +66,7 @@ export function mountAccountsApi(router, requireSession) {
     if (isSelf(req, "google", String(req.body?.sub ?? ""))) return res.status(409).json(SELF);
     const email = accounts.get(String(req.body?.sub ?? ""))?.email;
     if (!accounts.remove(String(req.body?.sub ?? ""))) return res.status(404).json({ error: "no such account" });
+    store.forgetLogins(`google:${String(req.body.sub)}`);
     if (email) revokeOwnedBy(`google:${email}`);
     res.json({ ok: true });
   });

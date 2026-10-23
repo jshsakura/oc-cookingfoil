@@ -15,9 +15,28 @@ const num=(n)=>Number(n||0).toLocaleString('ko-KR');
 // ago in the page's language (top-i18n.js).
 const agoT=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
   return s<60?topFill('acc.ago.s',{n:s}):s<3600?topFill('acc.ago.m',{n:Math.round(s/60)}):s<86400?topFill('acc.ago.h',{n:Math.round(s/3600)}):topFill('acc.ago.d',{n:Math.round(s/86400)});};
-// A last sign-in: when, relative with the exact time on hover, and how.
-function loginCell(at,method){if(!at)return td('—','dim');
-  const c=td(agoT(at)+(method?' · '+topText('acc.method.'+method):''));c.title=fmt(at);return c;}
+// A last sign-in: when, relative with the exact time on hover, and how; its address opens the account's sign-ins.
+function loginCell(at,method,ip,open){if(!at)return td('—','dim');
+  const c=td();const s=el('span',agoT(at)+(method?' · '+topText('acc.method.'+method):''));s.title=fmt(at);c.append(s);
+  if(open){c.append(el('br'),ipButton(ip||topText('acc.loginHistory'),'acc.loginHistory',open));}return c;}
+function ipButton(txt,label,open){const b=el('button',txt,'ip-more');b.type='button';b.title=topText(label);b.setAttribute('aria-label',txt+' · '+topText(label));
+  b.addEventListener('click',open);return b;}
+// Where a console or an account connected from, in a dialog. Every value goes in as text.
+function ipDialog(title,hint,rows){$('ip-title').textContent=title;$('ip-hint').textContent=hint;
+  $('ip-list').replaceChildren(...(rows.length?rows:[el('p',topText('acc.noHistory'),'muted')]));$('ip-dialog').showModal();}
+$('ip-close').addEventListener('click',()=>$('ip-dialog').close());
+async function openDeviceIps(a){
+  try{const d=await api('/admin/api/access-history?device='+encodeURIComponent(a.deviceKey));
+    ipDialog(topFill('acc.ipTitle',{name:a.label||a.code||a.deviceKey.slice(0,8)}),topText('acc.ipHint'),d.days.map((x)=>{
+      const r=el('div',null,'ip-row');const ips=el('div',null,'ip-chips');
+      for(const i of x.ips)ips.append(el('span',i.ip+' · '+topFill('acc.times',{n:i.n}),'ip'));
+      if(x.other)ips.append(el('span',topFill('acc.otherIps',{n:x.other}),'muted'));
+      r.append(el('b',x.day),ips);return r;}));}catch(err){toast(errText(err));}}
+async function openLogins(owner,name){
+  try{const d=await api('/admin/api/access-history?account='+encodeURIComponent(owner));
+    ipDialog(topFill('acc.loginTitle',{name}),topText('acc.loginHint'),d.logins.map((x)=>{
+      const r=el('div',null,'ip-row');const how=el('div',null,'ip-chips');how.append(el('span',topText('acc.method.'+x.method)),el('span',x.ip||'—','ip'));
+      r.append(el('b',fmt(x.at)),how);return r;}));}catch(err){toast(errText(err));}}
 function whenCell(at){const c=td(agoT(at),at?'':'dim');if(at)c.title=fmt(at);return c;}
 function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e;}
 function td(txt,cls){return el('td',txt,cls);}
@@ -193,7 +212,7 @@ function renderUsers(list){usersShown=list;
     tr.append(td(u.role==='admin'?'관리자':'일반 사용자'));
     const active=u.lastActiveAt||u.lastAt;
     const st=td();st.append(u.enabled?pill(active?'사용 중':'접속 기록 없음',active?'on':''):pill('사용 중지','off'));tr.append(st);
-    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod),whenCell(active),td(u.lastIp||'—','ip'));
+    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod,u.lastLoginIp,()=>openLogins(u.user,u.user)),whenCell(active),td(u.lastIp||'—','ip'));
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('비밀번호 변경',()=>resetPassword(u.user)));
     // Your own account can't be demoted, turned off or removed (you'd lock yourself out).
@@ -296,7 +315,7 @@ async function loadAccounts(){
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
   pagedTable('accounts',['이메일','역할','상태','승인','처음 로그인',topText('acc.lastLogin'),topText('acc.lastActive'),''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
-    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),loginCell(a.lastLoginAt,a.lastLoginMethod),whenCell(a.lastActiveAt));
+    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),loginCell(a.lastLoginAt,a.lastLoginMethod,a.lastLoginIp,()=>openLogins('google:'+a.sub,a.email)),whenCell(a.lastActiveAt));
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
@@ -344,7 +363,8 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   const devRows=(slice)=>{const rows=[];let group=null;
   for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
-    tr.append(td(a.label||'—'),seenCell(a),td(a.lastIp||'—',a.lastIp?'ip':'dim'),td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
+    const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
+    tr.append(td(a.label||'—'),seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     // An admin device may change item settings from the console; off by default.
     const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||'기기')+' 관리자 기기');

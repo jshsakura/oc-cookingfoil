@@ -36,8 +36,11 @@ const state = {
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
   // Consoles keep only what approval needs; when and from where they connect is `activity`.
   devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, admin? }
-  activity: new Map(), // deviceKey → { lastSeenAt, lastIp, days: { "YYYY-MM-DD": requests } } (approved consoles only)
-  logins: new Map(),   // account (name, or "google:<sub>") → { at, method } of its last sign-in
+  // Approved consoles only. Each day counts its requests, the addresses they came from (up to
+  // IPS_PER_DAY, each with its count) and the requests from any further address as `other`.
+  activity: new Map(), // deviceKey → { lastSeenAt, lastIp, days: { "YYYY-MM-DD": { n, ips: { ip: n }, other } } }
+  // An account's last sign-in, and its sign-ins of the last LOGIN_DAYS days, LOGIN_HISTORY_MAX at most, oldest first.
+  logins: new Map(),   // account (name, or "google:<sub>") → { at, method, ip, history: [{ at, method, ip }] }
   pending: new Map(),  // deviceKey → { firstSeenAt, lastSeenAt, message? } (when it asked, to order and trim the queue; its note)
   // SHA-256 of the pairSecret a console sent with its request. Kept apart from
   // `pending` because approval drops the pending row, and the secret must
@@ -135,7 +138,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // How long a console's daily request counts are kept, today included.
 const ACTIVITY_DAYS = 90;
 const DAY_RE = /^\d{4}-\d\d-\d\d$/;
+// Addresses kept per console per day; requests from any more count as `other`.
+const IPS_PER_DAY = 8;
+const IP_MAX = 64;
 const LOGIN_METHODS = ["password", "google", "console"];
+const LOGIN_HISTORY_MAX = 100;
+const LOGIN_DAYS = 90;
 
 /** The server's local calendar day of `ms`, as YYYY-MM-DD. Pure. */
 function dayKey(ms) {
@@ -149,23 +157,71 @@ const keptDays = (days, now) => {
   return Object.fromEntries(Object.entries(days).filter(([day]) => day >= from));
 };
 
+const isCount = (n) => Number.isInteger(n) && n > 0;
+const ipOrNull = (ip) => (typeof ip === "string" && ip ? ip.slice(0, IP_MAX) : null);
+
+/** `ips` with at most IPS_PER_DAY addresses, the busiest kept; the rest fold into `other`. Pure. */
+function cappedDay(n, ips, other) {
+  const ranked = Object.entries(ips).sort(([, a], [, b]) => b - a);
+  const folded = ranked.slice(IPS_PER_DAY).reduce((sum, [, c]) => sum + c, 0);
+  return { n, ips: Object.fromEntries(ranked.slice(0, IPS_PER_DAY)), other: other + folded };
+}
+
+/** A stored day: a count from before addresses were kept by day, or { n, ips, other }; null when invalid. Pure. */
+function dayRecord(v) {
+  if (isCount(v)) return { n: v, ips: {}, other: 0 };
+  if (!v || !isCount(v.n)) return null;
+  const ips = Object.entries(v.ips ?? {}).filter(([ip, c]) => ip && ip.length <= IP_MAX && isCount(c));
+  return cappedDay(v.n, Object.fromEntries(ips), isCount(v.other) ? v.other : 0);
+}
+
+/** `day` with one more request, from `ip` when it is known. Pure. */
+function countRequest(day = { n: 0, ips: {}, other: 0 }, ip) {
+  const n = day.n + 1;
+  if (!ip) return { ...day, n };
+  if (ip in day.ips) return { ...day, n, ips: { ...day.ips, [ip]: day.ips[ip] + 1 } };
+  if (Object.keys(day.ips).length < IPS_PER_DAY) return { ...day, n, ips: { ...day.ips, [ip]: 1 } };
+  return { ...day, n, other: day.other + 1 };
+}
+
+// An address is kept as long as the history is: one last seen longer ago is dropped with it.
+const fresh = (at, now) => Number.isFinite(at) && at > now - ACTIVITY_DAYS * DAY_MS;
+
 const activityRecord = ({ lastSeenAt = null, lastIp = null, days = {} } = {}, now = Date.now()) => ({
   lastSeenAt: Number.isFinite(lastSeenAt) ? lastSeenAt : null,
-  lastIp: typeof lastIp === "string" && lastIp ? lastIp.slice(0, 64) : null,
-  days: keptDays(Object.fromEntries(Object.entries(days ?? {}).filter(([day, n]) => DAY_RE.test(day) && Number.isInteger(n) && n > 0)), now),
+  lastIp: fresh(lastSeenAt, now) ? ipOrNull(lastIp) : null,
+  days: keptDays(Object.fromEntries(Object.entries(days ?? {})
+    .filter(([day]) => DAY_RE.test(day)).map(([day, v]) => [day, dayRecord(v)]).filter(([, v]) => v)), now),
 });
 
 /** One console's activity under two keys, as one (device-key rebind). Pure. */
 function mergeActivity(a, b) {
   if (!a || !b) return a ?? b ?? null;
   const days = { ...a.days };
-  for (const [day, n] of Object.entries(b.days)) days[day] = (days[day] ?? 0) + n;
+  for (const [day, d] of Object.entries(b.days)) {
+    const into = days[day];
+    if (!into) { days[day] = d; continue; }
+    const ips = { ...into.ips };
+    for (const [ip, c] of Object.entries(d.ips)) ips[ip] = (ips[ip] ?? 0) + c;
+    days[day] = cappedDay(into.n + d.n, ips, into.other + d.other);
+  }
   const [newer, older] = (a.lastSeenAt ?? 0) >= (b.lastSeenAt ?? 0) ? [a, b] : [b, a];
   return { lastSeenAt: newer.lastSeenAt, lastIp: newer.lastIp ?? older.lastIp, days };
 }
 
-const loginRecord = ({ at = null, method = null } = {}) =>
-  Number.isFinite(at) && LOGIN_METHODS.includes(method) ? { at, method } : null;
+const loginEntry = ({ at = null, method = null, ip = null } = {}) =>
+  Number.isFinite(at) && LOGIN_METHODS.includes(method) ? { at, method, ip: ipOrNull(ip) } : null;
+
+/** The sign-ins of `history` inside the kept window that ends at `now`, LOGIN_HISTORY_MAX at most. Pure. */
+const keptLogins = (history, now) => history.filter((e) => e.at > now - LOGIN_DAYS * DAY_MS).slice(-LOGIN_HISTORY_MAX);
+
+/** A stored sign-in record; one from before the history was kept starts its history with its last sign-in. Pure. */
+function loginRecord(v = {}, now = Date.now()) {
+  const last = loginEntry(v ?? {});
+  if (!last) return null;
+  const history = Array.isArray(v.history) ? v.history.map((e) => loginEntry(e ?? {})).filter(Boolean) : [last];
+  return { ...last, ip: fresh(last.at, now) ? last.ip : null, history: keptLogins(history, now) };
+}
 
 /** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
 export async function load() {
@@ -178,6 +234,8 @@ export async function load() {
   // A console no longer approved leaves no activity behind.
   state.activity = new Map([...rows("activity", (v) => activityRecord(v))].filter(([k]) => state.devices.has(k)));
   state.logins = new Map([...rows("logins", loginRecord)].filter(([, v]) => v));
+  pruneTimer ??= setInterval(() => pruneAccessHistory(), DAY_MS);
+  pruneTimer.unref?.();
   if (doneAt("device-activity") === null) markDone("device-activity");
   activitySince = doneAt("device-activity");
   state.pending = rows("pending", pendingRecord);
@@ -602,6 +660,7 @@ const activityWrittenAt = new Map(); // deviceKey → when its activity last ask
 // When the server began keeping console activity: a console approved before it
 // and not seen since has no record, which is not the same as unused.
 let activitySince = null;
+let pruneTimer = null;
 
 /** An approved console made a signed-in request from `ip`. */
 export function touchDevice(deviceKey, ip = null, now = Date.now()) {
@@ -609,23 +668,56 @@ export function touchDevice(deviceKey, ip = null, now = Date.now()) {
   const prev = state.activity.get(deviceKey);
   const day = dayKey(now);
   const days = prev?.days ?? {};
-  const next = day in days ? { ...days, [day]: days[day] + 1 } : { ...keptDays(days, now), [day]: 1 };
-  state.activity.set(deviceKey, { lastSeenAt: now, lastIp: ip || prev?.lastIp || null, days: next });
+  const from = ipOrNull(ip);
+  const next = { ...(day in days ? days : keptDays(days, now)), [day]: countRequest(days[day], from) };
+  state.activity.set(deviceKey, { lastSeenAt: now, lastIp: from || prev?.lastIp || null, days: next });
   if (now - (activityWrittenAt.get(deviceKey) ?? -Infinity) < ACTIVITY_WRITE_MS) return;
   activityWrittenAt.set(deviceKey, now);
   scheduleFlush();
 }
 
-/** An account signed in: `owner` is its name, or "google:<sub>"; `method` one of LOGIN_METHODS. */
-export function recordLogin(owner, method, now = Date.now()) {
-  if (!owner || !LOGIN_METHODS.includes(method)) return;
-  state.logins.set(owner, { at: now, method });
+/** An account signed in from `ip`: `owner` is its name, or "google:<sub>"; `method` one of LOGIN_METHODS. */
+export function recordLogin(owner, method, ip = null, now = Date.now()) {
+  const entry = loginEntry({ at: now, method, ip });
+  if (!owner || !entry) return;
+  const history = state.logins.get(owner)?.history ?? [];
+  state.logins.set(owner, { ...entry, history: keptLogins([...history, entry], now) });
   scheduleFlush();
 }
 
-/** The last sign-in of an account, { at, method }, or null. */
-export function lastLogin(owner) {
-  return state.logins.get(owner) ?? null;
+/** The last sign-in of an account, { at, method, ip }, or null. */
+export function lastLogin(owner, now = Date.now()) {
+  const v = state.logins.get(owner);
+  return v ? { at: v.at, method: v.method, ip: fresh(v.at, now) ? v.ip : null } : null;
+}
+
+/**
+ * Drops the days, sign-ins and addresses older than the kept window from every record, so a console
+ * or account that went quiet loses them too. Runs once a day while the server is up, and at load.
+ */
+export function pruneAccessHistory(now = Date.now()) {
+  let changed = false;
+  for (const [table, record] of [[state.activity, activityRecord], [state.logins, loginRecord]]) {
+    for (const [k, v] of table) {
+      const next = record(v, now);
+      if (JSON.stringify(next) === JSON.stringify(v)) continue;
+      changed = true;
+      if (next) table.set(k, next);
+      else table.delete(k);
+    }
+  }
+  if (changed) scheduleFlush();
+  return changed;
+}
+
+/** An account's sign-ins of the last LOGIN_DAYS days, newest first, each { at, method, ip }. */
+export function loginHistory(owner, now = Date.now()) {
+  return keptLogins(state.logins.get(owner)?.history ?? [], now).toReversed();
+}
+
+/** A deleted account leaves no sign-ins behind. */
+export function forgetLogins(owner) {
+  if (state.logins.delete(owner)) scheduleFlush();
 }
 
 /** When any console `owner` approved last connected, or null. */
@@ -668,16 +760,27 @@ export function renameDevice(deviceKey, label) {
  * after the server began keeping activity, else null (no record). Pure.
  */
 function deviceActivity(activity, addedAt, since, now = Date.now()) {
-  const days = activity?.days ?? {};
+  const days = Object.fromEntries(Object.entries(activity?.days ?? {}).map(([day, d]) => [day, d.n]));
   const recent = dayKey(now - 29 * DAY_MS);
   const lastSeenAt = activity?.lastSeenAt ?? null;
   return {
     lastSeenAt,
     lastIp: activity?.lastIp ?? null,
-    days: { ...days },
+    days,
     activeDays30: Object.keys(days).filter((day) => day >= recent).length,
     idleSince: lastSeenAt ?? (since !== null && (addedAt ?? 0) >= since ? addedAt : null),
   };
+}
+
+/**
+ * The addresses an approved console connected from, by day, newest day first:
+ * [{ day, n, ips: [{ ip, n }] busiest first, other }], or null when it is not approved.
+ */
+export function deviceIpHistory(deviceKey, now = Date.now()) {
+  if (!state.devices.has(deviceKey)) return null;
+  return Object.entries(keptDays(state.activity.get(deviceKey)?.days ?? {}, now))
+    .sort(([a], [b]) => (a < b ? 1 : -1))
+    .map(([day, d]) => ({ day, n: d.n, ips: Object.entries(d.ips).map(([ip, n]) => ({ ip, n })).sort((a, b) => b.n - a.n), other: d.other }));
 }
 
 export function devicesSnapshot(now = Date.now()) {

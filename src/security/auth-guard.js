@@ -159,7 +159,7 @@ export async function autoApproveFromPairRequest(req, deviceKey) {
     return "limit";
   }
   if (approved) {
-    store.recordLogin(who.name, "console");
+    store.recordLogin(who.name, "console", clientIp(req));
     debug.log("pair: auto-approved %s… signed in as %s", deviceKey.slice(0, 12), who.name);
   }
   return true;
