@@ -24,6 +24,8 @@ import { envString } from "../helpers/env-read.js";
 import * as edits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import { discard } from "../library/trash-service.js";
+import { maxGeneration } from "../meta/nca-crypto.js";
+import { firmwareOf } from "../meta/rewrap/generations.js";
 
 export const MAX_BYTES = 64 * 1024;
 const UPLOAD_DIR = path.join(dataDir, "keys");
@@ -68,12 +70,20 @@ export function parseKeys(text) {
   return keys;
 }
 
-/** Counts only. Pure. */
-const summary = (keys) => ({
-  keyCount: keys.size,
-  hasHeaderKey: keys.get("header_key")?.length === 64,
-  titleKekCount: [...keys.keys()].filter((k) => /^titlekek_[0-9a-f]{2}$/.test(k)).length,
-});
+/**
+ * Counts only, and the highest master key generation the keys reach with the
+ * firmware that brought it (what a game may need at most to be rewrapped). Pure.
+ */
+function summary(keys) {
+  const gen = maxGeneration(keys);
+  return {
+    keyCount: keys.size,
+    hasHeaderKey: keys.get("header_key")?.length === 64,
+    titleKekCount: [...keys.keys()].filter((k) => /^titlekek_[0-9a-f]{2}$/.test(k)).length,
+    maxGeneration: gen,
+    maxFirmware: firmwareOf(gen),
+  };
+}
 
 /** The entries of a file the operator placed, read leniently: lines that do not parse are skipped. */
 function readLenient(file) {
@@ -117,9 +127,9 @@ export function loadKeys() {
   return cached.keys;
 }
 
-const NONE = { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0 };
+const NONE = { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0, maxGeneration: null, maxFirmware: null };
 
-/** { present, source: "upload"|"file"|null, uploadedAt, keyCount, hasHeaderKey, titleKekCount }. No values. */
+/** { present, source: "upload"|"file"|null, uploadedAt, keyCount, hasHeaderKey, titleKekCount, maxGeneration, maxFirmware }. No values. */
 export function status() {
   const source = uploaded() ? "upload" : fs.existsSync(MOUNTED_FILE) ? "file" : null;
   if (!source) return { ...NONE };

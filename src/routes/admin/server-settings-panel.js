@@ -160,11 +160,18 @@ function ssBackupRow(st){const r=el('div',null,'ss-row');const t=el('div');const
     :kept.length?'백업 '+kept.length+'개를 두고 있습니다(모두 '+(total/1048576).toFixed(1)+' MB). 가장 최근: '+kept[0].day+'.':'아직 만든 백업이 없습니다.'));
   const c=el('div',null,'ss-ctl');c.append(btn('지금 백업',async()=>{try{const x=await api('/admin/api/server-settings/backup-now',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
+// How far the keys reach (master key generation and its firmware) and how many library games need more.
+function ssKeysReach(k){if(!k.present)return [];
+  if(k.maxGeneration==null)return [el('p',topText('keys.noGen'))];
+  const lib=k.library||{above:0,unknown:0};
+  const out=[el('p',topFill('keys.gen',{gen:k.maxGeneration,fw:k.maxFirmware})),el('p',lib.above?topFill('keys.above',{n:lib.above,version:lib.version}):topText('keys.aboveNone'))];
+  if(lib.unknown)out.push(el('p',topFill('keys.pending',{n:lib.unknown})));
+  return out;}
 // The console keys: what the server has, a file to hand in, and removing an uploaded copy.
 function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';const t=el('div');
   const line=!k.present?'없음':'있음 · '+(k.source==='upload'?'업로드'+(k.uploadedAt?' · '+fmt(k.uploadedAt):''):'서버에 둔 파일')+' · 키 '+k.keyCount+'개';
   const st=el('p',line);st.id='keys-status';
-  t.append(el('b','prod.keys'),st,el('p','넣는 것을 권장합니다. 서버는 이 키로 스위치 게임 파일마다 어떤 게임인지 읽어 정리하고, 이름과 아이콘, NSZ 변환, 홈 화면 바로가기도 만듭니다. 키가 없으면 파일 이름의 [타이틀ID][vN] 로만 게임을 알아봅니다.'),
+  t.append(el('b','prod.keys'),st,...ssKeysReach(k),el('p','넣는 것을 권장합니다. 서버는 이 키로 스위치 게임 파일마다 어떤 게임인지 읽어 정리하고, 이름과 아이콘, NSZ 변환, 홈 화면 바로가기도 만듭니다. 키가 없으면 파일 이름의 [타이틀ID][vN] 로만 게임을 알아봅니다.'),
     el('p','자기 기기에서 덤프한 prod.keys 를 올립니다. 올린 것은 데이터 폴더에만 두고, 서버에 따로 둔 파일은 건드리지 않습니다.'));
   const c=el('div',null,'ss-ctl');const f=el('input');f.type='file';f.accept='.keys,text/plain';f.setAttribute('aria-label','prod.keys 파일');
   f.addEventListener('change',async()=>{const file=f.files[0];if(!file)return;

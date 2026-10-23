@@ -46,6 +46,7 @@ import { SWITCH_LABELS, attachSwitchLabels } from "./meta/card-labels.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
+import { firmwareOf } from "./meta/rewrap/generations.js";
 import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
 import * as popularity from "./meta/eshop-popularity.js";
@@ -449,6 +450,11 @@ function attachContentMeta(item, relPath, parsed) {
   const { titleId, version } = parsed;
   const meta = contentMeta.get(titleId, version);
   if (meta?.installSize) item.install_size = meta.installSize;
+  // The master key generation the file needs and the firmware that brought it (feature "item-key-generation").
+  if (Number.isInteger(meta?.keyGeneration)) {
+    item.key_generation = meta.keyGeneration;
+    item.key_firmware = firmwareOf(meta.keyGeneration);
+  }
   const firmware = meta?.requiredFirmware ?? titledbVersions.requiredFirmware(titleId, version);
   if (firmware) item.required_firmware = firmware;
   const needsUpdate = meta?.requiredAppVersion ?? titledbVersions.requiredAppVersion(titleId, version);

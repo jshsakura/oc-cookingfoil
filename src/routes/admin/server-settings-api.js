@@ -11,13 +11,16 @@
  *   POST /admin/api/server-settings/backup-now        make today's backup now; { backup }
  *
  * The GET also carries sync (meta/folder-sync.js status), backup (db/backup.js status) and
- * keys (security/prod-keys.js status; changed through admin/keys-api.js).
+ * keys (security/prod-keys.js status; changed through admin/keys-api.js), with `library`
+ * ({ above, known, unknown }, meta/key-needs.js): games whose files need a newer master key
+ * generation than the keys reach, counted from generations already read in the background.
  *
  * The names are security/server-settings.js SETTINGS.
  */
 import fs from "fs";
 import * as serverSettings from "../../security/server-settings.js";
 import * as shopCache from "../../meta/shop-cache.js";
+import { libraryAbove } from "../../meta/key-needs.js";
 import nszQueue from "../../meta/nsz-service.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
@@ -61,13 +64,17 @@ export function mountServerSettingsApi(router, requireSession) {
       res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
+  const keysView = () => {
+    const keys = prodKeys.status();
+    return keys.present ? { ...keys, library: libraryAbove(keys.maxGeneration) } : keys;
+  };
   const view = () => ({
     settings: serverSettings.describe(),
     titledb: { ...titledbStore.status(), fetching: Boolean(fetching) },
     directDownload: directHealth.status(),
     sync: folderSync.status(),
     backup: backups.status(),
-    keys: prodKeys.status(),
+    keys: keysView(),
   });
 
   router.get("/api/server-settings", handle((req, res) => res.json(view())));

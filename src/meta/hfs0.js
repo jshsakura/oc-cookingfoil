@@ -50,6 +50,7 @@ export function parseHfs0Header(buf, base = 0) {
     const nameEnd = buf.indexOf(0, stringsAt + nameOffset);
     entries.push({
       name: buf.toString("utf8", stringsAt + nameOffset, nameEnd < 0 || nameEnd > dataStart ? dataStart : nameEnd),
+      nameAt: base + stringsAt + nameOffset,
       offset: base + dataStart + Number(buf.readBigUInt64LE(at)),
       size: Number(buf.readBigUInt64LE(at + 0x08)),
       hashedSize: buf.readUInt32LE(at + 0x14),

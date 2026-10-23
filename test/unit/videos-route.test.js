@@ -13,9 +13,10 @@ const TID = "0100000000010000";
 const SWITCH_VIDEO = "SwitchTrlr1";
 const RETRO_VIDEO = "RetroTrlr_2";
 
-// The fields the console's game detail had before trailers were collected: they must not grow.
+// The fields the console's game detail has without trailers (keyGeneration and keyFirmware came
+// with the firmware-override install): trailers must not add any.
 const CONSOLE_TITLE_FIELDS = ["bannerUrl", "categories", "category", "categoryLabels", "description", "descriptionCustom",
-  "descriptionLang", "dlcTotal", "iconUrl", "icons", "id", "integrity", "intro", "latestVersion", "name", "names", "notes",
+  "descriptionLang", "dlcTotal", "iconUrl", "icons", "id", "integrity", "intro", "keyFirmware", "keyGeneration", "latestVersion", "name", "names", "notes",
   "numberOfPlayers", "patches", "price", "publisher", "rating", "ratingContent", "region", "releaseDate", "requiredFirmware",
   "score", "scoreCount", "scoreLabel", "scoreLabelKey", "scoreSource", "screenshotCount", "screenshots", "size", "updates",
   "verified", "verified_at", "videos"];

@@ -9,6 +9,9 @@
  *   englishName         the English title from the NACP of a base game, so a
  *                       Korean name can carry it even when titledb's US file
  *                       lacks the title (Korean-only ids, brand-new games)
+ *   keyGeneration       the master key generation the file needs, the highest
+ *                       among its NCA headers (key-generation.js); records from
+ *                       before it are read again in the background
  *
  * Persisted as one JSON map under the extracted-meta directory, keyed by
  * "<TITLE_ID>@<numeric version>" so a replaced file gets read again. Reading
@@ -25,6 +28,8 @@ import { readPfs0Entries, copyPfs0Entry } from "./pfs0.js";
 import { findControlNcaId, readCnmtFacts, firmwareString } from "./cnmt-parse.js";
 import { NACP_TOTAL_BYTES, decodeNacp, garbled } from "./nacp-decode.js";
 import { readCnmts } from "./nca-reader.js";
+import { readKeyGeneration } from "./key-generation.js";
+import { loadKeys } from "../security/prod-keys.js";
 import {
   resolveBinary, keysAvailable, runNstool, findFirstRecursive, keysFile, DEFAULT_TIMEOUT_MS,
 } from "./extract-providers/nsp.js";
@@ -64,7 +69,7 @@ const nacpDone = (record) => Boolean(record?.nacpRead) && !garbled(record.englis
 export function isComplete(record, contentType) {
   if (!record) return false;
   if (record.failed) return !garbled(record.englishName);
-  if (!record.installSize) return false;
+  if (!record.installSize || !Number.isInteger(record.keyGeneration)) return false;
   return !wantsNacp(contentType) || nacpDone(record);
 }
 
@@ -124,8 +129,9 @@ export function displayVersionOf(nacp) {
 }
 
 /** Builds the stored record from parsed cnmt facts; the cnmt NCA itself is installed too. */
-export function recordFromFacts(facts, metaNcaSize, nacpFacts = null) {
+export function recordFromFacts(facts, metaNcaSize, nacpFacts = null, keyGeneration = null) {
   const record = { installSize: facts.contentSize + metaNcaSize };
+  if (Number.isInteger(keyGeneration)) record.keyGeneration = keyGeneration;
   if (nacpFacts) record.nacpRead = true;
   const { displayVersion, englishName } = nacpFacts ?? {};
   const firmware = firmwareString(facts.requiredSystemVersion);
@@ -181,12 +187,13 @@ export async function readContentMeta(absPath, { withNacp = false } = {}) {
   if (!first) return null;
   const facts = readCnmtFacts(first.cnmt);
   if (!facts) return null;
-  if (!withNacp) return recordFromFacts(facts, first.entry.size, null);
+  const keyGeneration = await readKeyGeneration(absPath, loadKeys());
+  if (!withNacp) return recordFromFacts(facts, first.entry.size, null, keyGeneration);
   const entries = await readPfs0Entries(absPath);
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "cook-meta-"));
   const run = (args) => runNstool(bin, ["-k", keysFile(), ...args], { timeoutMs: DEFAULT_TIMEOUT_MS });
   try {
-    return recordFromFacts(facts, first.entry.size, await readNacpFacts(run, absPath, entries ?? [], first.cnmt, tmp));
+    return recordFromFacts(facts, first.entry.size, await readNacpFacts(run, absPath, entries ?? [], first.cnmt, tmp), keyGeneration);
   } finally {
     fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
   }
