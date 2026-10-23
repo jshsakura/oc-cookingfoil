@@ -9,8 +9,8 @@
  * <folder> is the system's folder on the server (systems.js `folder`); the
  * libretro-thumbnails repository is found by its `libretro` name alone.
  *
- * syncArt() fills what is missing: it matches unmapped ROMs by their English
- * title against libretro-thumbnails, then downloads box art and bezels for every
+ * syncArt() fills what is missing: it matches unmapped ROMs against
+ * libretro-thumbnails (by content hash, then English title; matchRom), then downloads box art and bezels for every
  * mapped ROM. applyMatch() is the hand-made correction for one ROM, and
  * saveCover() takes a cover from SteamGridDB instead, and saveCoverImage() one the
  * admin uploaded. Box art is only ever shown, never installed, so the server keeps
@@ -24,7 +24,10 @@ import path from "path";
 import sharp from "sharp";
 import debug from "../../debug.js";
 import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, pool, repoOf } from "./sources.js";
-import { bestMatch, englishTitle, titleKey } from "./titles.js";
+import { bestMatch, englishTitle, titleKey, titleMatcher } from "./titles.js";
+import * as retroCatalog from "../catalog.js";
+import * as romIndex from "../rom-index.js";
+import { nameOfRow } from "../ko-match.js";
 import { groupSets, setInfo } from "../arcade.js";
 import { rankSets } from "../arcade-policy.js";
 import { noteFetched, wasFetched } from "./fetched.js";
@@ -243,17 +246,47 @@ export async function libretroNames(id, system, { token = "", fetchImpl = fetch 
   return names;
 }
 
-/** Maps a system's unmapped ROMs by English title. Returns { matched, missed } ROM names. */
+// ROMs matchSystem looked up in this process, hit or miss ("<system>/<ROM>"): the
+// automatic run after a scan (auto.js) leaves them to the admin.
+const attempted = new Set();
+export const wasMatched = (id, rom) => attempted.has(`${id}/${rom}`);
+
+/** The rom-index.js row for a ROM of system `id` in the catalog of `dir`, when that catalog is loaded; else null. */
+function catalogRow(dir, id) {
+  const cat = retroCatalog.loaded(dir);
+  if (!cat) return () => null;
+  const games = new Map(cat.games.filter((g) => g.system === id).map((g) => [retroCatalog.romKey(g), g]));
+  return (rom) => (games.has(rom) ? romIndex.known(games.get(rom)) : null);
+}
+
+/**
+ * The libretro name for one ROM, strongest evidence first: its content hash in
+ * the Korean title dictionary (ko-names.js) gives the English title, so a file
+ * named in Korean alone is found; then the English title in its file name; then
+ * that title without its subtitle, when only one game answers to it. `row` is
+ * the ROM's rom-index.js row or null. Pure.
+ */
+export function matchRom(id, rom, row, matcher) {
+  const en = nameOfRow(id, row)?.en;
+  return (en && matcher.exact(en)) || matcher.exact(englishTitle(rom)) || matcher.loose(englishTitle(rom)) || null;
+}
+
+/**
+ * Maps a system's unmapped ROMs (matchRom). Returns { matched, missed } ROM names.
+ * `opts.rowOf(rom)` gives a ROM's content hash row; by default the loaded catalog's.
+ */
 export async function matchSystem(dir, id, system, roms, opts = {}) {
   if (NOT_MATCHED.has(id)) return { matched: [], missed: [] };
   const map = readMap(dir, id);
   const todo = [...new Set(roms)].filter((rom) => !(rom in map));
   if (!todo.length) return { matched: [], missed: [] };
-  const names = await libretroNames(id, system, opts);
+  const matcher = titleMatcher(await libretroNames(id, system, opts));
+  const rowOf = opts.rowOf ?? catalogRow(dir, id);
   const found = {};
   const missed = [];
   for (const rom of todo) {
-    const hit = bestMatch(englishTitle(rom), names);
+    attempted.add(`${id}/${rom}`);
+    const hit = matchRom(id, rom, rowOf(rom), matcher);
     if (hit) found[rom] = hit;
     else missed.push(rom);
   }
@@ -368,24 +401,41 @@ export async function sgdbHeroes(gameId, apiKey, { fetchImpl = fetch } = {}) {
   return (body.data ?? []).slice(0, CANDIDATES).map((g) => ({ url: g.url, thumb: g.thumb }));
 }
 
-/** An image from SteamGridDB's own image host, at most MAX_COVER_BYTES; anything else throws. */
-export async function fetchSgdbImage(url, { fetchImpl = fetch } = {}) {
-  if (!SGDB_CDN_RE.test(String(url))) throw new Error("SteamGridDB 이미지 주소가 아닙니다");
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`image ${res.status}`);
-  const body = Buffer.from(await res.arrayBuffer());
-  if (body.length > MAX_COVER_BYTES) throw new Error("image too large");
-  return body;
+const NOT_SGDB = "SteamGridDB 이미지 주소가 아닙니다";
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+const MAX_SGDB_HOPS = 3;
+
+/**
+ * The bytes at a SteamGridDB image address, at most MAX_COVER_BYTES. Redirects are
+ * followed by hand so every hop, not only the first, must be SteamGridDB's own
+ * image host; anything else throws. `what` names the image in errors.
+ */
+async function sgdbBytes(url, fetchImpl, what) {
+  let at = String(url);
+  for (let hop = 0; hop <= MAX_SGDB_HOPS; hop++) {
+    if (!SGDB_CDN_RE.test(at)) throw new Error(NOT_SGDB);
+    const res = await fetchImpl(at, { signal: AbortSignal.timeout(20_000), redirect: "manual" });
+    if (REDIRECTS.has(res.status)) {
+      await res.body?.cancel?.().catch(() => {});
+      at = new URL(res.headers.get("location") ?? "", at).href;
+      continue;
+    }
+    if (!res.ok) throw new Error(`${what} ${res.status}`);
+    const body = Buffer.from(await res.arrayBuffer());
+    if (body.length > MAX_COVER_BYTES) throw new Error(`${what} too large`);
+    return body;
+  }
+  throw new Error(`${what}: too many redirects`);
 }
 
-/** Saves a SteamGridDB cover as one ROM's box art (PNG). Only SteamGridDB's own image host is accepted. */
+/** An image from SteamGridDB's own image host, at most MAX_COVER_BYTES; anything else throws. */
+export async function fetchSgdbImage(url, { fetchImpl = fetch } = {}) {
+  return sgdbBytes(url, fetchImpl, "image");
+}
+
+/** Saves a SteamGridDB cover as one ROM's box art (PNG). Only SteamGridDB's own image host is accepted, on every redirect hop. */
 export async function saveCover(dir, system, rom, url, { fetchImpl = fetch } = {}) {
-  if (!SGDB_CDN_RE.test(String(url))) throw new Error("SteamGridDB 이미지 주소가 아닙니다");
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`cover ${res.status}`);
-  const body = Buffer.from(await res.arrayBuffer());
-  if (body.length > MAX_COVER_BYTES) throw new Error("cover too large");
-  await saveCoverImage(dir, system, rom, body);
+  await saveCoverImage(dir, system, rom, await sgdbBytes(url, fetchImpl, "cover"));
 }
 
 export class CoverImageError extends Error {}

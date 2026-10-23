@@ -133,6 +133,10 @@ export function mountServerSettingsApi(router, requireSession) {
     if (changed.includes("retroScaffold") && envs.retroScaffold && fs.existsSync(envs.retroDir)) {
       retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after retroScaffold failed: %s", err.message));
     }
+    // Turned on: a rescan lets the box art watcher (retro/art/auto.js) look at the games without any now.
+    if (changed.includes("retroAutoArt") && envs.retroAutoArt && fs.existsSync(envs.retroDir)) {
+      retroCatalog.rescan(envs.retroDir).catch((err) => debug.error("admin: retro rescan after retroAutoArt failed: %s", err.message));
+    }
     // Turned on: the missing official cores are looked at now, not at the next scan.
     if (changed.includes("retroAutoCores") && envs.retroAutoCores && fs.existsSync(envs.retroDir)) {
       retroCatalog.current(envs.retroDir)

@@ -33,7 +33,7 @@ export default defineConfig({
       COOK_PORT: port, COOK_STORAGE_DIR: '', COOK_TITLEDB_AUTO_FETCH: 'false',
       COOK_EXTRACT_ICONS: 'off', COOK_AUTH_USERS: '', COOK_DEVICE_PAIRING: 'true',
       COOK_UPLOADS_ENABLED: 'true', COOK_ESHOP_PRICES: 'false', COOK_ADMIN_TOTP_SECRET: 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU',
-      COOK_FIRST_RUN_SETUP: 'false', COOK_VERIFY_HOURS: 'always', COOK_RETRO_META: 'false', COOK_RETRO_AUTO_CORES: 'false', COOK_RATING_SYNC: 'false',
+      COOK_FIRST_RUN_SETUP: 'false', COOK_VERIFY_HOURS: 'always', COOK_RETRO_META: 'false', COOK_RETRO_AUTO_CORES: 'false', COOK_RETRO_AUTO_ART: 'false', COOK_RATING_SYNC: 'false',
       // A fixed key for the test server's throwaway data; production sets its own in .env.
       COOK_SECRET_KEY: 'dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=',
     },
