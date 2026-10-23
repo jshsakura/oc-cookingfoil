@@ -12,6 +12,7 @@ import { Readable } from "node:stream";
 import { sameOrigin } from "../security/same-origin.js";
 import { noteRefusal } from "../security/auth-log.js";
 import * as env from "../helpers/envs.js";
+import debug from "../debug.js";
 
 // Loaded on the first call after an admin turns MCP on, so a server that never does keeps the SDK out of memory.
 let handler = null;
@@ -31,7 +32,6 @@ function webRequest(req, signal) {
 
 async function serve(req, res) {
   res.set("Cache-Control", "no-store");
-  if (!env.mcpEnabled) return res.status(404).json({ error: "MCP is off. An admin turns it on in the admin page's settings, under automation tokens." });
   if (!req.apiToken) {
     noteRefusal(req, res, 401, "mcp-no-token");
     return res.status(401).json({ error: "MCP takes an automation token from the admin page: Authorization: Bearer cft_..." });
@@ -45,7 +45,15 @@ async function serve(req, res) {
     if (!res.writableEnded) abort.abort();
   });
   const authInfo = { token: req.apiToken.id, clientId: req.apiToken.id, scopes: [], extra: { label: req.apiToken.label ?? "" } };
-  const response = await (await mcpHandler()).fetch(webRequest(req, abort.signal), { authInfo, ...(req.method === "POST" ? { parsedBody: req.body } : {}) });
+  let response;
+  try {
+    response = await (await mcpHandler()).fetch(webRequest(req, abort.signal), { authInfo, ...(req.method === "POST" ? { parsedBody: req.body } : {}) });
+  } catch (err) {
+    // Express 4 leaves a rejected handler unhandled, which would stop the whole server.
+    debug.error("mcp: %s", err?.stack ?? err);
+    if (res.headersSent) return res.destroy();
+    return res.status(500).json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "internal error" } });
+  }
   res.status(response.status);
   for (const [name, value] of response.headers) res.setHeader(name, value);
   if (!response.body) return res.end();
@@ -64,6 +72,13 @@ function readBody(req, res, next) {
 }
 
 /** Mount after authGuard, for POST, GET and DELETE /mcp. */
+// Before the body is read: while MCP is off, nothing of the request is looked at.
+function whenOn(req, res, next) {
+  if (env.mcpEnabled) return next();
+  res.set("Cache-Control", "no-store");
+  res.status(404).json({ error: "MCP is off. An admin turns it on in the admin page's settings, under automation tokens." });
+}
+
 export function mcpRoute() {
-  return [readBody, serve];
+  return [whenOn, readBody, serve];
 }

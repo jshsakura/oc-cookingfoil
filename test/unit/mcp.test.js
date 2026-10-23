@@ -42,12 +42,12 @@ async function connect(mode = "auto") {
 
 const json = (result) => JSON.parse(result.content[0].text);
 
-test("with MCP off, /mcp answers 404 to everyone and the SDK stays unloaded", async () => {
+test("with MCP off, /mcp answers 404 to everyone without reading the body", async () => {
   const env = await import("../../src/helpers/envs.js");
   env.applyServerSettings({ mcpEnabled: false });
   try {
     for (const auth of ["Bearer good", "Bearer bad"]) {
-      const res = await fetch(`${base}/mcp`, { method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: "{}" });
+      const res = await fetch(`${base}/mcp`, { method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: "{not json" });
       assert.equal(res.status, 404, auth);
       assert.match((await res.json()).error, /MCP is off/);
     }
