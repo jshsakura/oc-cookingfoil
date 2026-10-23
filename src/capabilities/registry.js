@@ -21,9 +21,12 @@ import { serverCapabilities } from "./server.js";
 import { trashCapabilities } from "./trash.js";
 import { devicesCapabilities } from "./devices.js";
 import { accountsCapabilities } from "./accounts.js";
+import { serverAdminCapabilities } from "./server-admin.js";
+import { alertsCapabilities } from "./alerts.js";
+import { integrationsCapabilities } from "./integrations.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...accountsCapabilities];
+const ENTRIES = [...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {

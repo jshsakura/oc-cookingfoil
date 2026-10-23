@@ -24,7 +24,7 @@ test("the routes tokens are refused are served over MCP, and the HTTP lane stays
   assert.ok(servedTools().includes(set));
   assert.equal(set.token, false);
   assert.equal(set.mcp, true);
-  assert.deepEqual(set.also.sort(), ["POST /admin/api/devices/admin", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke"]);
+  assert.deepEqual(set.also.sort(), ["POST /admin/api/clients/:id/revoke", "POST /admin/api/devices/admin", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke"]);
 });
 
 test("device_list names waiting and approved consoles by code, never by key", async () => {
@@ -67,4 +67,15 @@ test("bad calls say what to fix", async () => {
   await assert.rejects(run({ device: code, op: "rename", label: "x" }), (e) => e.status === 409);
   await assert.rejects(run({ device: code, op: "admin" }), /on: true or false/);
   await assert.rejects(run({ device: code, op: "fly" }), /op is one of/);
+});
+
+test("a waiting client download is listed and cancelled by its id", async () => {
+  const enroll = await import("../../src/security/enroll-tokens.js");
+  const made = enroll.issue("alice");
+  const id = enroll.list({ owner: "alice" })[0]?.id;
+  assert.ok(id, `a download was made (${typeof made})`);
+  assert.equal((await list.handler(ctx, {})).downloads[0].id, id);
+  await run({ device: id, op: "cancel_download" });
+  assert.deepEqual((await list.handler(ctx, {})).downloads, []);
+  await assert.rejects(run({ device: id, op: "cancel_download" }), (e) => e.status === 404);
 });

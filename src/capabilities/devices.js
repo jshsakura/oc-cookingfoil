@@ -10,6 +10,7 @@ import * as store from "../security/store.js";
 import { deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approveWaitingDevice } from "../security/pairing-approve.js";
 import { accountFull } from "../security/device-limit.js";
+import * as enrollTokens from "../security/enroll-tokens.js";
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -43,10 +44,17 @@ const WAITING = obj({
   lastSeenAt: nullable(int("epoch ms")),
 });
 
+const DOWNLOAD = obj({
+  id: str("8-hex id, the device argument of device_set with op cancel_download"),
+  owner: str("account that made the download"),
+  expiresAt: int("epoch ms"),
+}, { description: "a client download waiting to be used" });
+
 const OPS = {
   approve: "approve a waiting console, or give an approved one a new key",
   rename: "change the name (label)",
   revoke: "remove the console; it must pair again",
+  cancel_download: "cancel a waiting client download (its id, from device_list)",
   admin: "let it change item settings (on: true), or only read (on: false)",
 };
 
@@ -54,6 +62,11 @@ function check(input) {
   if (!Object.hasOwn(OPS, input.op)) throw fail(400, `op is one of ${Object.keys(OPS).join(", ")}`);
   if (input.op === "rename" && typeof input.label !== "string") throw fail(400, "rename needs label");
   if (input.op === "admin" && typeof input.on !== "boolean") throw fail(400, "admin needs on: true or false");
+  if (input.op === "cancel_download") {
+    const row = enrollTokens.list().find((t) => t.id === String(input.device) && t.state === "waiting");
+    if (!row) throw fail(404, `no waiting download ${input.device}; device_list shows them`);
+    return { state: "download", key: null, row };
+  }
   const found = findDevice(input.device);
   if (found.state === "pending" && input.op !== "approve" && input.op !== "revoke") throw fail(409, "only an approved console can be renamed or made an admin device; approve it first");
   return found;
@@ -68,13 +81,14 @@ export const devicesCapabilities = [
     title: "List consoles",
     description: "Lists the consoles waiting for approval and the approved ones, each with the 8-character code device_set takes. Read before approving or removing one.",
     input: { type: "object", properties: {} },
-    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED) }),
+    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED), downloads: arr(DOWNLOAD) }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/devices" },
     handler: async () => {
       const { approved, pending } = store.devicesSnapshot();
       return {
         waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
+        downloads: enrollTokens.list().filter((t) => t.state === "waiting").map((t) => ({ id: t.id, owner: t.owner, expiresAt: t.expiresAt })),
         approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
       };
     },
@@ -83,20 +97,21 @@ export const devicesCapabilities = [
     id: "device_set",
     area: "admin",
     title: "Approve or change a console",
-    description: "Approves a waiting console, renames it, makes it an admin device, or removes it. Pick the console by its code from device_list; op says which.",
+    description: "Approves a waiting console, renames it, sets its admin flag, removes it, or cancels a waiting client download. Pick it by the code from device_list.",
     input: {
       type: "object",
       properties: {
-        device: { type: "string", description: "The console's 8-character code from device_list, such as 3F9A01BC" },
-        op: { type: "string", enum: Object.keys(OPS), description: "approve (or give a new key), rename, revoke (it must pair again), or admin (with on: true or false)" },
+        device: { type: "string", description: "The console's 8-character code from device_list, such as 3F9A01BC; for cancel_download its download id" },
+        op: { type: "string", enum: Object.keys(OPS), description: "approve (or give a new key), rename, revoke (must pair again), admin (with on), or cancel_download" },
         label: { type: "string", description: "The name to give (approve and rename), up to 64 characters; approve keeps the console's own name when omitted" },
         on: { type: "boolean", description: "For op admin only: true lets the console change item settings, false makes it read only" },
       },
       required: ["device", "op"],
     },
-    output: obj({ done: oneOf(["approve", "rename", "revoke", "admin"]), code: str(), label: str(), admin: bool() }),
+    output: obj({ done: oneOf(["approve", "rename", "revoke", "admin", "cancel_download"]), code: str(), label: str(), admin: bool() }),
     preview: async (ctx, input) => {
       const { state, row } = check(input);
+      if (state === "download") return { console: { code: row.id, state, name: `download of ${row.owner}`, admin: false }, op: input.op, refused: null, changes: "Cancels the download. A console that has not used it yet can no longer enroll with it." };
       const limit = input.op === "approve" ? accountFull(row.download?.owner ?? approver(ctx), row.deviceKey) : 0;
       return {
         console: { code: deviceCode(row.deviceKey), state, name: name(row), admin: row.admin === true },
@@ -111,17 +126,21 @@ export const devicesCapabilities = [
       };
     },
     previewOutput: obj({
-      console: obj({ code: str(), state: oneOf(["pending", "approved"]), name: str(), admin: bool() }),
+      console: obj({ code: str(), state: oneOf(["pending", "approved", "download"]), name: str(), admin: bool() }),
       op: str(),
       refused: nullable(str("why approve would be refused")),
       changes: str(),
     }),
     safety: "write",
     http: { method: "POST", path: "/admin/api/devices/approve" },
-    also: ["POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/admin"],
+    also: ["POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/admin", "POST /admin/api/clients/:id/revoke"],
     mcp: true,
     handler: async (ctx, input) => {
       const { key, row } = check(input);
+      if (input.op === "cancel_download") {
+        enrollTokens.revoke(row.id);
+        return { done: "cancel_download", code: row.id, label: `download of ${row.owner}`, admin: false };
+      }
       if (input.op === "approve") {
         const result = approveWaitingDevice(key, { label: input.label, addedBy: approver(ctx) });
         if (!result.ok) throw fail(409, `the account holds ${result.limit} consoles already, the most it may`);
