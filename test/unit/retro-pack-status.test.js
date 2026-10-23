@@ -44,3 +44,11 @@ test("a pack with every core is ready, and the older base-pack folder is read to
   fs.writeFileSync(path.join(root, "base-pack", coreFile("mgba")), "x");
   assert.equal(packStatus(packDirOf(root), [{ system: "gba", core: "mgba" }], SYSTEMS).systems[0].state, "ready");
 });
+
+test("a console whose every core is switched off reads core-off; one with another core on is judged by that", () => {
+  const root = pack(["retroarch.nro", coreFile("snes9x")]);
+  const games = [{ system: "snes", core: "snes9x" }, { system: "snes", core: "bsnes" }, { system: "gba", core: "mgba" }];
+  const status = packStatus(packDirOf(root), games, SYSTEMS, new Set(["bsnes", "mgba"]));
+  assert.deepEqual(status.systems.map((s) => [s.id, s.state]), [["snes", "ready"], ["gba", "core-off"]]);
+  assert.equal(status.systems[0].cores[1].off, true);
+});

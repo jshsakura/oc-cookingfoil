@@ -9,6 +9,9 @@
  *                                         null goes back to the system table's. Rescans, so each game's
  *                                         forwarder key changes and consoles fetch a new one
  *
+ *   POST /admin/api/retro-cores/enabled  { core, enabled }  switches a core on or off (src/retro/cores-off.js);
+ *                                         an off core leaves the console pack and isn't fetched. GET marks it off: true
+ *
  *   POST /admin/api/retro-cores/remove   { core, force? }  moves the core to the retro trash; 409 with
  *                                         { using } when games use it, unless force
  *
@@ -43,6 +46,8 @@ import { listCores } from "../../retro/core-list.js";
 import { CoreError, removeCore } from "../../retro/core-files.js";
 import { coreFile, packDirOf } from "../../retro/pack-status.js";
 import * as systemCores from "../../retro/system-cores.js";
+import * as coresOff from "../../retro/cores-off.js";
+import { apiWord } from "./api-words.js";
 import { autoCores } from "../../retro/auto-cores.js";
 import { PackError } from "../../retro/pack-bundle.js";
 
@@ -67,11 +72,21 @@ export function mountRetroCoresApi(router, requireSession) {
       const catalog = await retroCatalog.current(retroDir);
       const { list, auto, states: all } = await coreStatesNow(catalog);
       const states = new Map(all.map((st) => [st.id, st]));
-      res.json({ ...list, systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } });
+      const off = coresOff.off();
+      res.json({ ...list, cores: list.cores.map((c) => (off.has(c.core) ? { ...c, off: true } : c)), systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
       res.status(502).json({ error: err.message });
     }
+  });
+
+  router.post("/api/retro-cores/enabled", (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    const { core, enabled } = req.body ?? {};
+    if (typeof enabled !== "boolean" || !coresOff.setEnabled(core, enabled)) return res.status(400).json({ error: apiWord(req, "coreSwitch.bad") });
+    debug.log("admin retro-cores: %s switched %s", core, enabled ? "on" : "off");
+    res.json({ core, enabled });
   });
 
   router.post("/api/retro-cores/system", async (req, res) => {

@@ -45,6 +45,20 @@ export const retroCapabilities = [
     },
   }),
   defineCapability({
+    id: "retro_core_enabled",
+    area: "retro",
+    title: "Switch a RetroArch core on or off",
+    description: "A core that is off leaves the console base pack and is not fetched; games that start with it stay listed with coreOff and can't be downloaded. Consoles that have it keep it.",
+    input: { type: "object", properties: { core: { type: "string", description: "The core id as in its file name, e.g. mgba for mgba_libretro_libnx.nro" }, enabled: { type: "boolean", description: "true switches the core on again, false switches it off for every console" } }, required: ["core", "enabled"] },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-cores/enabled" },
+    handler: async ({ core, enabled }) => {
+      const coresOff = await import("../retro/cores-off.js");
+      if (typeof enabled !== "boolean" || !coresOff.setEnabled(core, enabled)) throw new Error("core and enabled (true/false) are required");
+      return { core, enabled };
+    },
+  }),
+  defineCapability({
     id: "retro_cores_update",
     area: "retro",
     title: "Update the server's RetroArch cores",

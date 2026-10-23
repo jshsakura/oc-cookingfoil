@@ -377,3 +377,58 @@ test("the admin picks the core a console's games start with, kept out of systems
     server.kill("SIGKILL");
   }
 });
+
+test("a core switched off leaves the console pack; its games stay listed but can't be taken", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-core-off-"));
+  const dirs = Object.fromEntries(["data", "games", "patches", "saves", "retro"].map((d) => [d, path.join(root, d)]));
+  for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true });
+  fs.mkdirSync(path.join(dirs.retro, "roms/gba"), { recursive: true });
+  fs.writeFileSync(path.join(dirs.retro, "roms/gba/Game.gba"), "rom");
+  fs.mkdirSync(path.join(dirs.retro, "retroarch/cores"), { recursive: true });
+  fs.mkdirSync(path.join(dirs.retro, "retroarch/info"), { recursive: true });
+  fs.writeFileSync(path.join(dirs.retro, "retroarch/cores/mgba_libretro_libnx.nro"), fakeNro("1.0.0"));
+  fs.writeFileSync(path.join(dirs.retro, "retroarch/info/mgba_libretro.info"), 'supported_extensions = "gba"\n');
+  const server = await boot(dirs);
+  try {
+    const admin = { ...(await adminSession(BASE, "alice", "alice-password", "admin-password-123")), "Content-Type": "application/json" };
+    const toggle = (body) => fetch(`${BASE}/admin/api/retro-cores/enabled`, { method: "POST", headers: admin, body: JSON.stringify(body) });
+    const get = async (p) => (await fetch(`${BASE}${p}`, { headers: ALICE })).json();
+    const manifestPaths = async () => {
+      for (let i = 0; i < 40; i++) {
+        const r = await fetch(`${BASE}/api/retro/base-pack/manifest`, { headers: ALICE });
+        if (r.status === 200) return (await r.json()).files.map((f) => f.path);
+        await new Promise((ok) => setTimeout(ok, 250));
+      }
+      throw new Error("the manifest never came");
+    };
+    const game = async () => (await get("/api/retro/games?system=gba")).games[0];
+    const nro = "retroarch/cores/mgba_libretro_libnx.nro";
+
+    assert.ok((await manifestPaths()).includes(nro));
+    assert.equal((await game()).coreOff, undefined);
+    assert.equal((await toggle({ core: "mgba" })).status, 400, "enabled must be a boolean");
+    assert.equal((await toggle({ core: "../x", enabled: false })).status, 400);
+
+    assert.equal((await toggle({ core: "mgba", enabled: false })).status, 200);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dirs.data, "retro-cores-off.json"), "utf8")), ["mgba"]);
+    const paths = await manifestPaths();
+    assert.ok(!paths.some((p) => p.includes("mgba")), "neither the .nro nor the .info is sent");
+    assert.equal((await fetch(`${BASE}/api/retro/base-pack/file/${nro}`, { headers: ALICE })).status, 404);
+    const g = await game();
+    assert.equal(g.coreOff, true, "the game stays listed and says why it can't be taken");
+    const rom = await fetch(`${BASE}/api/retro/games/${g.id}/rom`, { headers: ALICE });
+    assert.equal(rom.status, 409);
+    assert.equal((await rom.json()).coreOff, true);
+    const gba = (await get("/api/retro/systems")).systems.find((s) => s.id === "gba");
+    assert.equal(gba.core.state, "core-off");
+    const cores = await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json();
+    assert.equal(cores.cores.find((c) => c.core === "mgba").off, true);
+    assert.equal(cores.systems.find((s) => s.id === "gba").coreState.state, "off");
+
+    assert.equal((await toggle({ core: "mgba", enabled: true })).status, 200);
+    assert.ok((await manifestPaths()).includes(nro), "switched back on, the pack sends it again");
+    assert.equal((await fetch(`${BASE}/api/retro/games/${g.id}/rom`, { headers: ALICE })).status, 200);
+  } finally {
+    server.kill("SIGKILL");
+  }
+});

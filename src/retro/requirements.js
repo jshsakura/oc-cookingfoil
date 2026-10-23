@@ -38,7 +38,7 @@ export const CORE_NOTE = "Cores are Switch .nro files built for libnx, named <co
 
 /** Every core state a pack may report; the admin page has words for each and a generic one for any other. */
 export const CORE_STATES = ["present", "missing", "installing", "will-install", "pinned", "nightly", "operator-owned",
-  "held", "not-in-bundle", "not-in-nightly", "failed"];
+  "held", "not-in-bundle", "not-in-nightly", "failed", "off"];
 /** The machine reasons a pack may give with a state; the page words each and falls back to a generic sentence. */
 export const CORE_REASONS = ["download", "install", "rollback", "disk-floor", "crc-mismatch", "bad-zip", "sha256", "hash",
   "not-in-nightly", "in-trash", "auto-off"];

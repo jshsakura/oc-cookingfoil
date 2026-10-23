@@ -50,6 +50,7 @@
  *   held            missing and in the retro trash
  *   not-in-nightly  the nightly buildbot has no such core (looked again after a day)
  *   failed          missing and the last try failed (reason, message, retryAt)
+ *   off             the admin switched it off (cores-off.js): not fetched, not sent to consoles
  *
  * A present core with a user version in the trash carries userVersion: true, so the admin can switch back.
  */
@@ -95,11 +96,12 @@ export const backoffAfter = (attempts) => BACKOFF_MS[Math.min(Math.max(attempts,
  *   entries   the ledger rows; held, Map core → trash entry of the cores in the retro trash
  *   job       { cores: Set } while one runs; failures, core → { reason, message, retryAt }
  */
-export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK }) {
+export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK, off = new Set() }) {
   const known = knownOfficial(pack);
   return systemsInUse(games, systems).map(([id, core]) => {
     const base = { id, core };
     const failure = failures[core];
+    if (off.has(core)) return { ...base, state: "off" };
     if (present.has(core)) {
       const sha = present.get(core);
       const entry = entries.get(coreRel(core));
@@ -173,12 +175,12 @@ const busy = () => new PackError(coreKo("busy"), { status: 409 });
  * floorBytes(), freeBytes(dir), hashCache (helpers/hash-cache.js), hashFile(abs) (a fresh read, for the
  * check before a swap), restore(dir, entry, { exactName: true }) (trash.js restoreEntry: refuses a taken name
  * with a 409 TrashError and leaves the entry in the trash), timeouts { core, index } (nightly-cores.js),
- * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores.
+ * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores, off() the switched-off cores.
  */
 export function createAutoCores({
   packDir, retroDir, dataDir, ledger, enabled = () => true, base = () => NIGHTLY_BASE, floorBytes = () => 0,
   freeBytes = statfsFree, hashCache = null, hashFile = sha256File, restore = restoreCore, timeouts = { core: TIMEOUTS, index: INDEX_TIMEOUTS },
-  activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now,
+  activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now, off = () => new Set(),
 }) {
   const file = path.join(dataDir, STATE_FILE);
   let saved = readState(file);
@@ -456,7 +458,7 @@ export function createAutoCores({
     const trash = await trashedCores(retroDir);
     const fail = failures();
     return [...new Set(systemsInUse(cat.games, cat.systems).map(([, core]) => core))]
-      .filter((core) => CORE_RE.test(core) && !trash.has(core) && !fs.existsSync(path.join(root, coreRel(core))))
+      .filter((core) => CORE_RE.test(core) && !off().has(core) && !trash.has(core) && !fs.existsSync(path.join(root, coreRel(core))))
       .filter((core) => force || !fail[core] || now() >= fail[core].retryAt)
       .sort();
   }
@@ -664,7 +666,7 @@ export function createAutoCores({
     status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null }),
     /** Each console's state, with `present` (Map core → sha256 | null) read by the caller. */
     async states(cat, present) {
-      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), now: now(), pack });
+      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), now: now(), pack, off: off() });
     },
   };
 }
@@ -690,6 +692,7 @@ export async function autoCores() {
   const { HashCache } = await import("../helpers/hash-cache.js");
   const { appDb } = await import("../db/database.js");
   const { hashStore } = await import("../db/stores.js");
+  const coresOff = await import("./cores-off.js");
   shared ??= createAutoCores({
     packDir: () => packDirOf(envs.retroDir),
     retroDir: envs.retroDir,
@@ -699,6 +702,7 @@ export async function autoCores() {
     floorBytes: () => envs.nszDiskFloorGb * GIB,
     hashCache: new HashCache(hashStore(appDb(), "retro")),
     activity,
+    off: coresOff.off,
   });
   shared.recover().catch((err) => debug.error("retro: core leftovers not cleared: %s", err.message));
   return shared;
