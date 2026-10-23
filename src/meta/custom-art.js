@@ -20,6 +20,7 @@ import { customArtDir } from "../helpers/envs.js";
 import { forget, thumbVariantPaths } from "./image-cache.js";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
+import { discard } from "../library/trash-service.js";
 import * as gameMeta from "./game-meta.js";
 import { copyAside, encode, slotName, writeAtomic, writeSlot, KINDS, MAX_SCREENSHOTS, REPLACED } from "./game-art-files.js";
 
@@ -139,24 +140,31 @@ export function originals(base) {
   return { icon: original(base, "icon", null)?.crop ?? null, banner: original(base, "banner", null)?.crop ?? null, screens };
 }
 
-/** Takes a slot's picture out, with its kept original; the folder goes too when nothing is left in it. */
-export function remove(base, kind, idx) {
-  return gameMeta.withGame(base, () => removeNow(base, kind, idx));
+/**
+ * Takes a slot's picture out to the games trash, with its kept original, as one entry a restore
+ * brings back; the folder goes too when nothing is left in it. The trash entry, or null when the
+ * slot had no picture.
+ */
+export function remove(base, kind, idx, { by = null } = {}) {
+  return gameMeta.withGame(base, () => removeNow(base, kind, idx, by));
 }
 
-function removeNow(base, kind, idx) {
+async function removeNow(base, kind, idx, by) {
   gameMeta.refresh(base);
   const file = pathFor(base, kind, idx);
-  if (!file) return;
+  if (!file) return null;
   gameMeta.clearSlot(base, slotName(kind, idx));
-  fs.rmSync(file, { force: true });
-  artCrop.removeOriginal(file);
+  const kept = Object.values(artCrop.originalPaths(file)).filter((p) => fs.existsSync(p));
+  const out = await discard([file, ...kept], {
+    kind: "custom-art", action: "art-remove", by, name: `${base} ${slotName(kind, idx)}`, extra: { customArt: { base } },
+  });
   forget(file);
   try {
     fs.rmdirSync(path.dirname(file));
   } catch { /* not empty */ }
   gameMeta.refresh(base);
-  debug.log("custom-art: removed %s", path.relative(gameMeta.GAMES_DIR, file));
+  debug.log("custom-art: %s moved to the trash", path.relative(gameMeta.GAMES_DIR, file));
+  return out;
 }
 
 /** Whether `file` is a picture sharp reads whole. */

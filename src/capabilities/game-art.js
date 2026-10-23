@@ -85,6 +85,22 @@ async function readable(fn) {
   }
 }
 
+/** A slot holding one of the admin's pictures, refusing one that holds none. */
+function ownSlot(input) {
+  const base = baseOf(input);
+  const slot = slotOf(input);
+  const idx = slot === "screenshot" ? input.idx ?? null : null;
+  if (slot === "screenshot" && !Number.isInteger(idx)) throw fail(400, "idx is needed for a screenshot");
+  if (!customArt.pathFor(base, slot, idx)) throw fail(404, "the admin has no picture in that slot; game_art lists them");
+  return { base, slot, idx };
+}
+
+/** What each slot shows with the admin's pictures gone. */
+function withoutOwn(base) {
+  const db = titledbStore.get(base);
+  return { icon: db?.iconUrl ? "titledb" : extractedMeta.get(base)?.iconPath ? "nacp" : null, banner: db?.bannerUrl ? "titledb" : null };
+}
+
 function keptOriginal(base, slot, idx) {
   const kept = customArt.original(base, slot, idx);
   if (!kept) throw fail(404, "no full picture is kept for that slot; set it with game_art_set first");
@@ -242,6 +258,42 @@ export const gameArtCapabilities = [
       const r = await readable(() => customArt.recrop(base, slot, idx, crop));
       invalidate();
       return { slot, idx, bytes: r.bytes, crop };
+    },
+  }),
+  defineCapability({
+    id: "game_art_remove",
+    area: "games",
+    title: "Remove a game's own art",
+    description: "Moves one of the admin's pictures (and its kept original) to the trash; the slot then shows eShop's or the game file's again. trash_restore undoes it.",
+    input: {
+      type: "object",
+      properties: {
+        titleId: TITLE_ARG,
+        slot: SLOT_ARG,
+        idx: { type: "integer", description: "Screenshot slot from game_art; only with slot screenshot" },
+      },
+      required: ["titleId", "slot"],
+    },
+    output: obj({ trash: str("trash entry id, for trash_restore") }),
+    preview: async (ctx, input) => {
+      const { base, slot, idx } = ownSlot(input);
+      const after = slot === "screenshot" ? null : withoutOwn(base)[slot];
+      return {
+        titleId: base, slot, idx, crop: customArt.original(base, slot, idx)?.crop ?? null, after,
+        changes: `Moves the admin's ${slot}${idx === null ? "" : ` ${idx}`} and its kept original to the trash; the slot then shows ${after ?? (slot === "screenshot" ? "the remaining screenshots" : "nothing")}. trash_restore with the returned id brings it back.`,
+      };
+    },
+    previewOutput: obj({
+      titleId: titleId(), slot: str(), idx: nullable(int()), crop: nullable(CROP),
+      after: nullable(str("what the slot shows once it is gone: titledb, nacp or null")), changes: str(),
+    }),
+    safety: "write",
+    token: true,
+    handler: async (ctx, input) => {
+      const { base, slot, idx } = ownSlot(input);
+      const out = await readable(() => customArt.remove(base, slot, idx, { by: ctx?.by ?? { type: "token", name: "mcp" } }));
+      invalidate();
+      return { trash: out.id };
     },
   }),
 ];

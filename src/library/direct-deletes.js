@@ -51,7 +51,7 @@ export const DIRECT_DELETES = Object.freeze({
 
   "src/meta/art-crop.js": { count: 2, why: "the kept original of an uploaded picture", todo: true },
   "src/meta/art-sidecar.js": { count: 5, why: "a slot's other files and an incoming picture the slot already has; also temporary files", todo: true },
-  "src/meta/custom-art.js": { count: 2, why: "a game's uploaded icon, banner or screenshot", todo: true },
+  "src/meta/custom-art.js": { count: 1, why: "a slot's old files once their move to the new slot verified" },
   "src/meta/inbox.js": { count: 4, why: "a drop box entry with its files; also work folders", todo: true },
   "src/meta/item-media.js": { count: 3, why: "a homebrew app's uploaded pictures and its media folder", todo: true },
   "src/routes/uploads.js": { count: 2, why: "an upload not applied yet", todo: true },

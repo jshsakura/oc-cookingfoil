@@ -217,6 +217,12 @@ const AFTER_RESTORE = {
     }
     if (r.manifest?.marks) putMarks(r.manifest.marks, (await import("../meta/user-patches.js")).patchIdAt(to));
   },
+  // A game's own picture: the game's art is read again, so the shop shows it at once.
+  "custom-art": async (r) => {
+    const base = r.manifest?.customArt?.base;
+    if (base) (await import("../meta/game-meta.js")).refresh(base);
+    (await import("../meta/shop-cache.js")).invalidate();
+  },
   save: async (r) => {
     const to = r.items[0]?.to;
     if (to && r.manifest?.marks) putMarks(r.manifest.marks, (await import("../meta/shop-saves.js")).saveIdAt(to));
