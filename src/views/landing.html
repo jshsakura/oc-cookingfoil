@@ -789,6 +789,7 @@
       .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
       .pager-btn.current { background: var(--ink); color: var(--ground); border-color: var(--ink); }
       .pager-ellipsis { color: var(--faint); padding: 0 4px; }
+      .pager-row { display: flex; align-items: center; justify-content: center; gap: inherit; flex-wrap: wrap; min-width: 0; }
       .pager-btn.prev, .pager-btn.next { gap: 4px; }
       .pager-btn.prev { padding-left: 10px; }
       .pager-btn.next { padding-right: 10px; }
@@ -5739,6 +5740,7 @@
       }
 
       // Compact pager: « 1 … 5 6 [7] 8 9 … 42 »
+      const PAGER_AROUND = 3;
       function renderPager(p, current, total, totalItems, from, to, go) {
         p.innerHTML = "";
         if (totalItems === 0) return;
@@ -5763,26 +5765,30 @@
           return b;
         };
 
-        p.appendChild(mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1, dir: "prev" }));
-
-        const window = matchMedia("(max-width: 640px)").matches ? 1 : 2; // pages around current, fewer on a phone
-        const pages = new Set();
-        pages.add(1); pages.add(total);
-        for (let i = current - window; i <= current + window; i++) {
-          if (i >= 1 && i <= total) pages.add(i);
-        }
-        const sorted = [...pages].sort((a, b) => a - b);
-        let prev = 0;
-        for (const n of sorted) {
-          if (n - prev > 1) {
-            const dots = document.createElement("span"); dots.className = "pager-ellipsis"; dots.textContent = "…";
-            p.appendChild(dots);
+        // The buttons: prev, the first and last page, `around` pages each side of the current one, next.
+        const buttons = (around) => {
+          const out = [mkBtn(t("pager.prev"), current - 1, { disabled: current <= 1, dir: "prev" })];
+          const pages = new Set([1, total]);
+          for (let i = current - around; i <= current + around; i++) if (i >= 1 && i <= total) pages.add(i);
+          let prev = 0;
+          for (const n of [...pages].sort((a, b) => a - b)) {
+            if (n - prev > 1) out.push(Object.assign(document.createElement("span"), { className: "pager-ellipsis", textContent: "…" }));
+            out.push(mkBtn(String(n), n, { current: n === current }));
+            prev = n;
           }
-          p.appendChild(mkBtn(String(n), n, { current: n === current }));
-          prev = n;
+          out.push(mkBtn(t("pager.next"), current + 1, { disabled: current >= total, dir: "next" }));
+          return out;
+        };
+        // As many pages around the current one as fit the buttons' one line, up to PAGER_AROUND each side
+        // (a phone fits more than one when there is room); a pager not on screen yet takes two.
+        const row = document.createElement("span"); row.className = "pager-row";
+        p.appendChild(row);
+        if (!row.offsetParent) { row.append(...buttons(2)); return; }
+        for (let around = PAGER_AROUND; around >= 1; around--) {
+          row.replaceChildren(...buttons(around));
+          const items = [...row.children];
+          if (around === 1 || items.at(-1).offsetTop === items[0].offsetTop) break;
         }
-
-        p.appendChild(mkBtn(t("pager.next"), current + 1, { disabled: current >= total, dir: "next" }));
       }
 
       const PAGER_ARROW = {
