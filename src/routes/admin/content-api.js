@@ -26,7 +26,7 @@ import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { SAVE_TYPES } from "../../meta/shop-saves.js";
-import { patchesDir, savesDir } from "../../helpers/envs.js";
+import { savesDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { inside } from "./homebrew-apps-api.js";
 import { libraryGames } from "../../meta/library-games.js";
@@ -38,6 +38,7 @@ import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
 import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 import { moveNoClobber } from "../../library/safe-move.js";
+import { locateContent, refreshContent, trashContent } from "../../library/content-remove.js";
 import { apiText, apiWord } from "./api-words.js";
 
 /** Removes `dir` and the folders under it once they hold no file: anything written into it meanwhile stays. */
@@ -177,16 +178,11 @@ export function mountContentApi(router, requireSession) {
   /** The folder of a game's patch or save, its root and title id, or a ContentError. */
   async function find(kind, id) {
     if (kind !== "patch" && kind !== "save") throw new ContentError(404, "content.badKind");
-    const root = kind === "patch" ? patchesDir : savesDir;
-    const where = kind === "patch" ? userPatches.locate(id) : savesEnabled() ? await savesCatalog().locate(id) : null;
-    const dir = where && !where.dir.startsWith("homebrew/") ? inside(root, where.dir, where.folder) : null;
-    if (!dir) throw new ContentError(404, "content.noItem");
-    return { root, dir, titleId: where.dir.toUpperCase(), folder: where.folder };
+    const found = await locateContent(kind, id);
+    if (!found) throw new ContentError(404, "content.noItem");
+    return found;
   }
-  const refreshed = async (kind) => {
-    if (kind === "patch") await userPatches.scan();
-    else savesCatalog().invalidate();
-  };
+  const refreshed = refreshContent;
 
   router.get("/api/saves", handle(async (req, res) => {
     if (!savesEnabled()) return res.json({ saves: [] });
@@ -271,25 +267,16 @@ export function mountContentApi(router, requireSession) {
 
   router.post("/api/content/:kind/remove", handle(async (req, res) => {
     const { kind } = req.params;
-    const { root, dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
-    const key = kind === "patch" ? patchInfo.keyOf(titleId, folder) : null;
-    const marks = marksOf(kind, String(req.body.id));
+    const id = String(req.body?.id ?? "");
+    const found = await find(kind, id);
+    const { titleId, folder } = found;
     let out;
     try {
-      out = await trashService.trash(kind === "patch" ? "patches" : "saves", [{ rel: path.relative(root, dir).split(path.sep).join("/") }], {
-        kind, action: `${kind}-remove`, by: trashService.actorOf(req), name: folder,
-        // The patch store's entry goes with it, so a restore brings its information back.
-        extra: { ...(key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {}), ...(marks ? { marks } : {}) },
-      });
+      out = await trashContent(kind, id, found, trashService.actorOf(req));
     } catch (err) {
       if (err instanceof trashService.TrashError) throw new ContentError(err.status, null, {}, err.message);
       throw err;
     }
-    await fsp.rmdir(path.dirname(dir)).catch(() => {});
-    if (key) patchInfo.remove(key);
-    // Kept in the manifest above: a restore puts them back.
-    forgetMarks(kind, String(req.body.id));
-    await refreshed(kind);
     debug.log("admin: %s %s/%s moved to the trash", kind, titleId, folder);
     res.json({ ok: true, trash: out.id });
   }));

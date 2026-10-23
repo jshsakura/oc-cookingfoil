@@ -226,3 +226,24 @@ test("library_files_remove refuses paths the library does not list, and more tha
   await assert.rejects(cap.preview({}, { rels: Array.from({ length: 21 }, (_, i) => `x${i}.nsp`) }), (err) => err.status === 400);
   await assert.rejects(registry.byId("trash_restore").preview({}, { ids: ["games:nope"] }), (err) => err.status === 404);
 });
+
+test("patches_remove previews a Korean patch, moves it to the patches trash, and trash_restore puts it back", async () => {
+  const base = "0100000000070000";
+  put("patches", `${base}/한글패치/atmosphere/contents/${base}/romfs/a.bin`);
+  const userPatches = await import("../../src/meta/user-patches.js");
+  await userPatches.scan();
+  const [patch] = userPatches.forTitle(base);
+
+  const preview = await checkPreview("patches_remove", { ids: [patch.id] });
+  assert.deepEqual(preview.patches.map((p) => [p.titleId, p.folder, p.korean, p.files]), [[base, "한글패치", true, 1]]);
+  assert.ok(fs.existsSync(path.join(dirs.patches, base, "한글패치")), "the preview moved nothing");
+
+  const done = await check("patches_remove", { ids: [patch.id] });
+  assert.equal(done.removed.length, 1);
+  assert.ok(!fs.existsSync(path.join(dirs.patches, base, "한글패치")));
+  assert.equal(userPatches.forTitle(base).length, 0);
+  await assert.rejects(registry.byId("patches_remove").preview({}, { ids: [patch.id] }), (err) => err.status === 404);
+
+  await check("trash_restore", { ids: [done.removed[0].trash] });
+  assert.ok(fs.existsSync(path.join(dirs.patches, base, "한글패치/atmosphere/contents", base, "romfs/a.bin")));
+});
