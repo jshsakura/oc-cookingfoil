@@ -34,6 +34,7 @@ import debug from "../../debug.js";
 import fsp from "fs/promises";
 import path from "path";
 import { patchesDir } from "../../helpers/envs.js";
+import { apiWord } from "./api-words.js";
 
 const SHOWN_FIELDS = ["name", "version", "game_version", "author", "description", "required"];
 
@@ -112,7 +113,7 @@ export function mountPatchesApi(router, requireSession) {
       await fn(req, res);
     } catch (err) {
       debug.error("admin: patches: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
 
@@ -131,15 +132,15 @@ export function mountPatchesApi(router, requireSession) {
 
   router.get("/api/patches/updates", handle(async (req, res) => {
     const base = String(req.query.titleId ?? "").toUpperCase();
-    if (!/^[0-9A-F]{16}$/.test(base)) return res.status(400).json({ error: "titleId 는 16자리 타이틀 ID 입니다" });
+    if (!/^[0-9A-F]{16}$/.test(base)) return res.status(400).json({ error: apiWord(req, "patches.badTitle") });
     res.json({ updates: updateChoices(base, titledbVersions.updateHistory(base), await libraryFiles()) });
   }));
 
   router.post("/api/patches/required", handle(async (req, res) => {
     const id = String(req.body?.id ?? "");
-    if (typeof req.body?.required !== "boolean") return res.status(400).json({ error: "required 는 true 나 false 입니다" });
+    if (typeof req.body?.required !== "boolean") return res.status(400).json({ error: apiWord(req, "field.bool", { field: "required" }) });
     const where = userPatches.locate(id);
-    if (!where?.key || where.dir.startsWith("homebrew/")) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    if (!where?.key || where.dir.startsWith("homebrew/")) return res.status(404).json({ error: apiWord(req, "patches.noPatch") });
     patchInfo.set(where.key, withRequired(userPatches.infoOf(id), req.body.required));
     debug.log("admin: patch %s required=%s", where.key, req.body.required);
     shopCache.invalidate(); // the game's card and the consoles' shop carry required_patches
@@ -162,7 +163,7 @@ export function mountPatchesApi(router, requireSession) {
   router.get("/api/patches/:id/patch-json", handle(async (req, res) => {
     const id = String(req.params.id ?? "");
     const where = userPatches.locate(id);
-    if (!where?.key) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    if (!where?.key) return res.status(404).json({ error: apiWord(req, "patches.noPatch") });
     let text;
     try {
       text = await fsp.readFile(path.join(patchesDir, where.dir, where.folder, "patch.json"), "utf8");
@@ -174,7 +175,7 @@ export function mountPatchesApi(router, requireSession) {
     try {
       info = patchInfo.normalize(JSON.parse(text));
     } catch {
-      return res.json({ found: true, error: "patch.json 을 JSON 으로 읽을 수 없습니다" });
+      return res.json({ found: true, error: apiWord(req, "patches.badJson") });
     }
     res.json({ found: true, info, differs: patchJsonDiffers(userPatches.infoOf(id), info) });
   }));
@@ -182,7 +183,7 @@ export function mountPatchesApi(router, requireSession) {
   router.put("/api/patches/:id/info", handle(async (req, res) => {
     const id = String(req.params.id ?? "");
     const where = userPatches.locate(id);
-    if (!where?.key) return res.status(404).json({ error: "목록에 없는 패치입니다" });
+    if (!where?.key) return res.status(404).json({ error: apiWord(req, "patches.noPatch") });
     let info;
     try {
       info = editedInfo(userPatches.infoOf(id), req.body);

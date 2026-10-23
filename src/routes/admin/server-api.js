@@ -20,6 +20,7 @@ import { publicBaseUrl } from "../../helpers/envs.js";
 import * as defaultActivity from "../../tasks/activity.js";
 import debug from "../../debug.js";
 import { hasValidSession } from "../../security/admin-session.js";
+import { apiWord } from "./api-words.js";
 
 export function mountServerApi(router, requireSession, { drainer = defaultDrainer, activity = defaultActivity } = {}) {
   // The router already checks the admin account. Probe the second step without a denial log.
@@ -34,7 +35,7 @@ export function mountServerApi(router, requireSession, { drainer = defaultDraine
   router.post("/api/activity/:id/cancel", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    if (!activity.cancel(String(req.params.id))) return res.status(404).json({ error: "not-cancellable", message: "중지할 수 있는 작업이 아닙니다." });
+    if (!activity.cancel(String(req.params.id))) return res.status(404).json({ error: "not-cancellable", message: apiWord(req, "server.notCancellable") });
     debug.log("admin: job %s asked to stop", req.params.id);
     res.json({ ok: true });
   });
@@ -49,12 +50,12 @@ export function mountServerApi(router, requireSession, { drainer = defaultDraine
     res.set("Cache-Control", "no-store");
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
-    if (!drainer.hasRestartHandler()) return res.status(503).json({ error: "이 서버는 여기서 다시 시작할 수 없습니다" });
+    if (!drainer.hasRestartHandler()) return res.status(503).json({ error: apiWord(req, "server.noRestart") });
     // The answer goes out before the drain starts, so this request is never the one waited for.
     res.once("finish", () => setImmediate(() => {
       debug.log("admin: safe restart requested");
       drainer.requestRestart();
     }));
-    res.status(202).json({ ok: true, message: "다시 시작합니다. 받고 있던 것이 끝나면 서버가 꺼졌다가 다시 켜집니다.", ...drainer.status() });
+    res.status(202).json({ ok: true, message: apiWord(req, "server.restarting"), ...drainer.status() });
   });
 }

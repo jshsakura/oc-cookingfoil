@@ -38,7 +38,7 @@ import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
 import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 import { moveNoClobber } from "../../library/safe-move.js";
-import { API_WORDS, apiWord } from "./api-words.js";
+import { apiText, apiWord } from "./api-words.js";
 
 /** Removes `dir` and the folders under it once they hold no file: anything written into it meanwhile stays. */
 async function dropEmptyTree(dir) {
@@ -52,11 +52,15 @@ const isBase = (tid) => BASE_RE.test(tid) && (BigInt(`0x${tid}`) & 0x1fffn) === 
 const LIMITS = { name: 120, nameKo: 120, description: 2000, descriptionKo: 2000, gameVersion: 40, sourceName: 120, sourceUrl: 300 };
 
 class ContentError extends Error {
-  /** `key` names an api-words.js message, answered in the request's language. */
-  constructor(status, message, key = null) {
+  /**
+   * `key` and `vars` name an api-words.js message, answered in the request's language. Without a key,
+   * `message` is passed on as it is: a meta module's own words.
+   */
+  constructor(status, key, vars = {}, message = apiText("en", key, vars)) {
     super(message);
     this.status = status;
     this.key = key;
+    this.vars = vars;
   }
 }
 
@@ -92,7 +96,7 @@ export function patchMeta(old, input) {
   try {
     return editedInfo(old, body);
   } catch (err) {
-    if (err instanceof patchInfo.InfoError) throw new ContentError(400, err.message);
+    if (err instanceof patchInfo.InfoError) throw new ContentError(400, null, {}, err.message);
     throw err;
   }
 }
@@ -100,8 +104,8 @@ export function patchMeta(old, input) {
 /** meta.json after an edit. Pure. */
 export function saveMeta(old, input) {
   const t = texts(input);
-  if (!t.name) throw new ContentError(400, "이름을 적습니다");
-  if (t.sourceUrl && !/^https?:\/\/\S+$/i.test(t.sourceUrl)) throw new ContentError(400, "출처 주소는 http 나 https 로 시작합니다");
+  if (!t.name) throw new ContentError(400, "content.noName");
+  if (t.sourceUrl && !/^https?:\/\/\S+$/i.test(t.sourceUrl)) throw new ContentError(400, "content.badSource");
   const saveType = SAVE_TYPES.includes(input?.saveType) ? input.saveType : null;
   return {
     name: t.name,
@@ -164,19 +168,19 @@ export function mountContentApi(router, requireSession) {
     try {
       await fn(req, res);
     } catch (err) {
-      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.key ? apiWord(req, err.key) : err.message });
+      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.key ? apiWord(req, err.key, err.vars) : err.message });
       debug.error("admin: content: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
 
   /** The folder of a game's patch or save, its root and title id, or a ContentError. */
   async function find(kind, id) {
-    if (kind !== "patch" && kind !== "save") throw new ContentError(404, "patch 나 save 여야 합니다");
+    if (kind !== "patch" && kind !== "save") throw new ContentError(404, "content.badKind");
     const root = kind === "patch" ? patchesDir : savesDir;
     const where = kind === "patch" ? userPatches.locate(id) : savesEnabled() ? await savesCatalog().locate(id) : null;
     const dir = where && !where.dir.startsWith("homebrew/") ? inside(root, where.dir, where.folder) : null;
-    if (!dir) throw new ContentError(404, "목록에 없는 항목입니다");
+    if (!dir) throw new ContentError(404, "content.noItem");
     return { root, dir, titleId: where.dir.toUpperCase(), folder: where.folder };
   }
   const refreshed = async (kind) => {
@@ -201,7 +205,7 @@ export function mountContentApi(router, requireSession) {
       // A game's or a homebrew app's patch: into the store, shown at once.
       const id = String(req.body?.id ?? "");
       const where = userPatches.locate(id);
-      if (!where?.key) throw new ContentError(404, "목록에 없는 항목입니다");
+      if (!where?.key) throw new ContentError(404, "content.noItem");
       patchInfo.set(where.key, patchMeta(userPatches.infoOf(id), req.body));
       debug.log("admin: patch %s edited", where.key);
       return res.json({ ok: true });
@@ -212,7 +216,7 @@ export function mountContentApi(router, requireSession) {
     try {
       old = JSON.parse(await fsp.readFile(file, "utf8"));
     } catch (err) {
-      if (err.code !== "ENOENT") throw new ContentError(409, `${path.basename(file)} 을 읽지 못했습니다. 파일을 고친 뒤 다시 합니다`);
+      if (err.code !== "ENOENT") throw new ContentError(409, "content.unreadable", { file: path.basename(file) });
     }
     await fsp.writeFile(file, `${JSON.stringify(saveMeta(old, req.body), null, 1)}\n`);
     await refreshed(kind);
@@ -224,10 +228,10 @@ export function mountContentApi(router, requireSession) {
     const { kind } = req.params;
     const { root, dir, titleId, folder } = await find(kind, String(req.body?.id ?? ""));
     const to = String(req.body?.titleId ?? "").trim().toUpperCase();
-    if (!isBase(to)) throw new ContentError(400, "옮길 게임의 타이틀 ID(16자리, 본편)를 고릅니다");
-    if (to === titleId) throw new ContentError(400, "이미 그 게임에 있습니다");
+    if (!isBase(to)) throw new ContentError(400, "content.badTarget");
+    if (to === titleId) throw new ContentError(400, "content.sameGame");
     const dest = inside(root, to, folder);
-    if (!dest || fs.existsSync(dest)) throw new ContentError(409, API_WORDS.ko["content.folderTaken"], "content.folderTaken");
+    if (!dest || fs.existsSync(dest)) throw new ContentError(409, "content.folderTaken");
     // Built beside the destination, then renamed into place in one step.
     const work = path.join(root, to, `.moving-${crypto.randomBytes(4).toString("hex")}`);
     await fsp.mkdir(work, { recursive: true });
@@ -238,7 +242,7 @@ export function mountContentApi(router, requireSession) {
         await fsp.rename(path.join(dir, rel), path.join(work, next));
       }
       // Never onto a folder that appeared meanwhile.
-      if (!(await moveNoClobber(work, dest))) throw new ContentError(409, API_WORDS.ko["content.folderTaken"], "content.folderTaken");
+      if (!(await moveNoClobber(work, dest))) throw new ContentError(409, "content.folderTaken");
     } catch (err) {
       // What was moved into the work folder goes back first; only an empty work folder is removed.
       for (const rel of await filesUnder(work).catch(() => [])) {
@@ -278,7 +282,7 @@ export function mountContentApi(router, requireSession) {
         extra: { ...(key && patchInfo.has(key) ? { patchInfo: { titleId, folder, info: patchInfo.get(key) } } : {}), ...(marks ? { marks } : {}) },
       });
     } catch (err) {
-      if (err instanceof trashService.TrashError) throw new ContentError(err.status, err.message);
+      if (err instanceof trashService.TrashError) throw new ContentError(err.status, null, {}, err.message);
       throw err;
     }
     await fsp.rmdir(path.dirname(dir)).catch(() => {});
@@ -292,8 +296,8 @@ export function mountContentApi(router, requireSession) {
 
   router.post("/api/content/:kind/verified", handle(async (req, res) => {
     const { kind } = req.params;
-    if (kind !== "patch" && kind !== "save") throw new ContentError(404, "patch 나 save 여야 합니다");
-    if (typeof req.body?.verified !== "boolean") throw new ContentError(400, "verified 는 true 나 false 입니다");
+    if (kind !== "patch" && kind !== "save") throw new ContentError(404, "content.badKind");
+    if (typeof req.body?.verified !== "boolean") throw new ContentError(400, "field.bool", { field: "verified" });
     const id = String(req.body?.id ?? "");
     await setField(kind, id, "verified", req.body.verified, { via: "dashboard", device: null, deviceName: null });
     debug.log("admin: %s %s %s", kind, id, req.body.verified ? "verified" : "no longer verified");
@@ -303,7 +307,7 @@ export function mountContentApi(router, requireSession) {
   router.post("/api/votes/clear", handle(async (req, res) => {
     const kind = String(req.body?.kind ?? "");
     const id = String(req.body?.id ?? "");
-    if (!itemVotes.KINDS.includes(kind)) throw new ContentError(404, "homebrew, retro, patch, save 중 하나여야 합니다");
+    if (!itemVotes.KINDS.includes(kind)) throw new ContentError(404, "content.badVoteKind");
     const before = itemVotes.tally(kind, id);
     itemVotes.forget(kind, id);
     debug.log("admin: votes on %s:%s cleared (%d up, %d down)", kind, id.slice(0, 64), before.up, before.down);

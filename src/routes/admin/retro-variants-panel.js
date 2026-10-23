@@ -92,7 +92,7 @@ async function rvPick(g,m){
 async function rvTrash(m,force=false){
   if(!force&&!await ask(topFill('t.askVariant',{file:m.file})))return;
   try{const r=await api('/admin/api/retro-variants/trash',{method:'POST',body:{game:m.id,force}});toast(topFill('t.movedFiles',{n:r.files.length}));rvData={};loadRetroVariants();}
-  catch(err){if(/다른 세트/.test(err.message)&&!force){
+  catch(err){if(err.code==='in-use'&&!force){
       if(await ask('다른 세트가 이 파일을 부모 롬이나 BIOS 로 씁니다. 삭제하면 그 세트는 실행되지 않습니다. 그래도 삭제할까요?'))rvTrash(m,true);return;}
     toast(err.message);}
 }

@@ -16,6 +16,7 @@ import * as shopCache from "../../meta/shop-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
 import debug from "../../debug.js";
 import { requestLang } from "../../meta/langs.js";
+import { apiWord } from "./api-words.js";
 
 const ID_RE = /^[0-9A-F]{16}$/;
 
@@ -27,13 +28,13 @@ export function mountDescriptionsApi(router, requireSession) {
       await fn(req, res);
     } catch (err) {
       debug.error("admin: descriptions: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다" });
+      res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
   const idOf = (req, res) => {
     const id = String(req.params.id ?? "").toUpperCase();
     if (ID_RE.test(id)) return id;
-    res.status(400).json({ error: "타이틀 ID 는 16자리 16진수입니다" });
+    res.status(400).json({ error: apiWord(req, "descriptions.badTitle") });
     return null;
   };
 

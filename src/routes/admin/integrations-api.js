@@ -13,6 +13,7 @@ import debug from "../../debug.js";
 import { redirectUriFor } from "../dropbox-bridge.js";
 import { test as testAlerts } from "../../helpers/alerts.js";
 import { eshopPopularity, eshopPrices } from "../../helpers/envs.js";
+import { apiWord } from "./api-words.js";
 
 const TEST_TIMEOUT_MS = 10_000;
 
@@ -71,17 +72,17 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
 
   router.post("/api/integrations/:service/test", guarded(async (req, res) => {
     const { service } = req.params;
-    if (!(service in integrations.SERVICES)) throw new integrations.IntegrationError("알 수 없는 서비스입니다");
-    if (!integrations.configured(service)) return res.json({ ok: false, message: "키가 아직 없습니다" });
+    if (!(service in integrations.SERVICES)) return res.status(400).json({ error: apiWord(req, "integrations.unknown") });
+    if (!integrations.configured(service)) return res.json({ ok: false, message: apiWord(req, "integrations.noKey") });
     const test = TESTS[service];
-    if (!test) return res.json({ ok: true, message: "저장되어 있습니다. 이 서비스는 연결 확인을 하지 않습니다" });
+    if (!test) return res.json({ ok: true, message: apiWord(req, "integrations.noTest") });
     const timed = (url, opts = {}) => fetchImpl(url, { ...opts, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) });
     try {
       const ok = await test(integrations.get(service), timed);
-      res.json({ ok, message: ok ? "연결됩니다" : "키가 받아들여지지 않았습니다" });
+      res.json({ ok, message: ok ? apiWord(req, "integrations.connected") : apiWord(req, "integrations.keyRefused") });
     } catch (err) {
       debug.log("admin: %s test failed: %s", service, err.message);
-      res.json({ ok: false, message: "서비스에 닿지 못했습니다" });
+      res.json({ ok: false, message: apiWord(req, "integrations.unreachable") });
     }
   }));
 }
