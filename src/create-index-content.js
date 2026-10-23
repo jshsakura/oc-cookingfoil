@@ -425,7 +425,10 @@ function buildSectionItem(relPath, wireItem) {
       }
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);
-      if (patchCount) item.patches = patchCount;
+      if (patchCount) {
+        item.patches = patchCount;
+        item.patch_required = Boolean(userPatches.requiredFor(parsed.titleId));
+      }
       const required = patchCount ? userPatches.requiredFor(parsed.titleId) : 0;
       if (required) item.required_patches = required;
       const korean = patchCount ? userPatches.koreanFor(parsed.titleId) : 0;

@@ -1846,6 +1846,7 @@
           "pill.sale": "할인",
           "pill.update": "업데이트",
           "pill.needPatch": "필수 패치",
+          "pill.patch": "패치",
           "misc.unnamed": "(이름 없음)",
           "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
           "sort.name_desc": "정렬: 이름 ㅎ→ㄱ",
@@ -2193,7 +2194,8 @@
           "chip.custom": "Custom",
           "pill.sale": "Sale",
           "pill.update": "Update",
-          "pill.needPatch": "Mod required",
+          "pill.needPatch": "Required mod",
+          "pill.patch": "Mod",
           "misc.unnamed": "(unnamed)",
           "sort.name_asc": "Sort: Name (A→Z)",
           "sort.name_desc": "Sort: Name (Z→A)",
@@ -2544,7 +2546,8 @@
           "chip.custom": "カスタム",
           "pill.sale": "セール",
           "pill.update": "アップデート",
-          "pill.needPatch": "パッチ必須",
+          "pill.needPatch": "必須パッチ",
+          "pill.patch": "パッチ",
           "misc.unnamed": "(名前なし)",
           "sort.name_asc": "並び替え: 名前 (昇順)",
           "sort.name_desc": "並び替え: 名前 (降順)",
@@ -2895,7 +2898,8 @@
           "chip.custom": "自訂",
           "pill.sale": "特價",
           "pill.update": "更新",
-          "pill.needPatch": "需要補丁",
+          "pill.needPatch": "必需补丁",
+          "pill.patch": "补丁",
           "misc.unnamed": "(未命名)",
           "sort.name_asc": "排序：名稱 (A→Z)",
           "sort.name_desc": "排序：名稱 (Z→A)",
@@ -5681,7 +5685,10 @@
         // filter chip across the toolbar.
         if (r.kind === "base" && saleOf(r)) addPill(t("pill.sale"), "sale");
         // A patch the game does not start without, marked on the patches page.
-        if (r.kind === "base" && sectionOf.get((r.item.titleId || "").toUpperCase())?.required_patches) addPill(t("pill.needPatch"), "need");
+        // A required patch shows once, in the stronger pill; any other patch says there is one.
+        const patched = r.kind === "base" ? sectionOf.get((r.item.titleId || "").toUpperCase()) : null;
+        if (patched?.patch_required) addPill(t("pill.needPatch"), "need");
+        else if (patched?.patches) addPill(t("pill.patch"), "patch");
         if (r.updateCount) addPill(t("pill.update"), "update");
         if (r.dlcCount)    addPill("DLC " + r.dlcCount, "dlc");
         const poster = document.createElement("div"); poster.className = "poster";
