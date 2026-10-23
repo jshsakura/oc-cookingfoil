@@ -79,6 +79,8 @@ export const SETTINGS = {
   restartRetryAfter: seconds(300),
   // Inside compose's stop_grace_period (40 s), so docker never kills a drain.
   restartGrace: seconds(35),
+  // The MCP endpoint for AI assistants (mcp/route.js).
+  mcpEnabled: bool,
   // The NSZ conversion queue (meta/nsz-queue.js).
   nszEnabled: bool,
   nszAutoQueue: bool,

@@ -371,6 +371,8 @@ let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, intege
 // NSZ conversion queue (meta/nsz-queue.js): compresses .nsp files in the games
 // folder to .nsz, run from the admin page's 변환 tab. Off until turned on there.
 let nszEnabled = envBool("COOK_NSZ_ENABLED", false);
+// The MCP endpoint for AI assistants (src/mcp/route.js). Off until an admin turns it on.
+let mcpEnabled = envBool("COOK_MCP_ENABLED", false);
 // New .nsp files the library finds are queued by themselves while the queue is on.
 let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
 // nsz -l (zstd level) and -t (threads); workers is how many files at once.
@@ -442,6 +444,7 @@ const ENV_SETTINGS = Object.freeze({
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
+  mcpEnabled,
   nszEnabled,
   nszAutoQueue,
   nszLevel,
@@ -498,6 +501,7 @@ function applyServerSettings(saved = {}) {
   downloadLinkTtl = v.downloadLinkTtl;
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;
+  mcpEnabled = v.mcpEnabled;
   nszEnabled = v.nszEnabled;
   nszAutoQueue = v.nszAutoQueue;
   nszLevel = v.nszLevel;
@@ -528,6 +532,7 @@ export {
   downloadLinkTtl,
   restartRetryAfter,
   restartGrace,
+  mcpEnabled,
   nszEnabled,
   nszAutoQueue,
   nszLevel,
