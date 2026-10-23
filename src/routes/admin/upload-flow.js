@@ -29,10 +29,10 @@ export function tally(units) {
   return t;
 }
 
-/** Which note explains a failed answer: dup (name taken), net (no answer) or null (show the server's words). */
-export function failureKind(status, message) {
+/** Which note explains a failed answer, by its status and `code`: dup (name taken), net (no answer) or null (show the server's words). */
+export function failureKind(status, code) {
   if (!status) return "net";
-  if (status === 409 && /^이미 있습니다/.test(message ?? "")) return "dup";
+  if (status === 409 && code === "upload.exists") return "dup";
   return null;
 }
 

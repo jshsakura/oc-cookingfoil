@@ -49,6 +49,7 @@ import path from "path";
 import debug from "../debug.js";
 import { VERIFY_RE } from "./file-verify.js";
 import { nameDisagrees } from "./file-identity.js";
+import { activityText } from "./meta-messages.js";
 
 const IDLE_MS = 30_000;
 const RECENT_WRITE_MS = 60_000;
@@ -350,14 +351,14 @@ export function createVerifyQueue({
 
   function beginBatch() {
     if (batch) return;
-    batch = { job: track({ title: "게임 파일을 검사합니다", total: pending.size, cancel: stop }), done: 0 };
+    batch = { job: track({ title: activityText("act.verify"), total: pending.size, cancel: stop }), done: 0 };
   }
 
   function endBatch() {
     if (!batch) return;
     const { job, done } = batch;
     batch = null;
-    if (done) job?.done(`${done}개`);
+    if (done) job?.done(activityText("act.count", { n: done }));
     else job?.discard();
   }
 
@@ -407,7 +408,7 @@ export function createVerifyQueue({
       if (fails >= MAX_FAILS) {
         pausedReason = "failures";
         debug.log("verify: stopped after %d failures in a row; trying again in %d min", MAX_FAILS, Math.round(resumeMs / 60_000));
-        batch?.job?.fail(`${MAX_FAILS}번 잇달아 검사하지 못해 멈췄습니다: ${err.message}`);
+        batch?.job?.fail(activityText("act.verifyStopped", { n: MAX_FAILS, why: err.message }));
         batch = null;
         resumeAt = now() + resumeMs;
         resumeTimer = setTimeout(() => {

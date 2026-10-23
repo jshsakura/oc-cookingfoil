@@ -188,7 +188,7 @@ test('51 packages with the first refused keep the failed row on screen next to t
   const names = Array.from({ length: 51 }, (_, i) => `E2E Flow N${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
   await page.route('**/admin/api/upload/game', async (route) => {
     const body = route.request().postDataBuffer()?.toString('latin1') ?? '';
-    if (body.includes(names[0])) await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `이미 있습니다: ${names[0]}` }) });
+    if (body.includes(names[0])) await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `이미 있습니다: ${names[0]}`, code: 'upload.exists' }) });
     else await route.fulfill(created('x'));
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));

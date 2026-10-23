@@ -34,6 +34,8 @@ import { forgetExtras } from "../../meta/homebrew-forget.js";
 import { setField, FieldError } from "../../meta/item-fields.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { metaError, metaErrorText } from "../../meta/meta-messages.js";
+import { requestLang } from "../../meta/langs.js";
 
 const withDescription = ({ repo_description: github, ...s }) => ({ ...s, kind: kinds.kindOf(s.id), description: { custom: descriptions.get(s.id), github } });
 const statuses = () => githubTracker().status().map(withDescription);
@@ -53,7 +55,7 @@ export function mountHomebrewApi(router, requireSession) {
         debug.error("admin: homebrew change failed: %s", err.message);
         return res.status(500).json({ error: apiWord(req, "failed") });
       }
-      res.status(400).json({ error: err.message });
+      res.status(400).json(metaError(req, err));
     }
   };
 
@@ -166,11 +168,12 @@ export function mountHomebrewApi(router, requireSession) {
     res.json({ ok: true });
   }));
 
-  router.post("/api/homebrew/adopt", write(async (_req, res) => {
+  router.post("/api/homebrew/adopt", write(async (req, res) => {
     const result = await adoptFolders(homebrewDir);
     await refreshManual();
     debug.log("admin: homebrew folders registered: %s", result.registered.join(", ") || "none");
-    res.json(result);
+    const lang = requestLang(req);
+    res.json({ ...result, skipped: result.skipped.map(({ folder, reason, code, vars }) => ({ folder, reason: metaErrorText(lang, { message: reason, code, vars }), ...(code ? { code } : {}) })) });
   }));
 
   router.post("/api/homebrew/remove", write(async (req, res) => {

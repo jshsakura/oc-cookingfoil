@@ -50,7 +50,7 @@ test("a file name's id is trusted only for a base title when the cnmt cannot be 
   folderWith(root, "upd", `Game [0100000000010800][v65536].nsp`);
   useNspReader(async () => null);
   assert.deepEqual(await scanManual(root), []);
-  assert.match(Object.fromEntries(heldManual().map((h) => [h.folder, h.reason])).upd, /타이틀 ID/);
+  assert.equal(Object.fromEntries(heldManual().map((h) => [h.folder, h.code])).upd, "homebrew.nspNoId");
 });
 
 test("a failed read is tried again later, not kept until the file changes", async () => {
@@ -76,9 +76,12 @@ test("an .nsp whose title id cannot be read, or an update, is held back with the
   folderWith(root, "update", "update.nsp");
   useNspReader(async (abs) => (abs.includes("update") ? { titleId: "053F13457F6B0800", metaType: 0x81 } : null));
   assert.deepEqual(await scanManual(root), []);
-  const held = Object.fromEntries(heldManual().map((h) => [h.folder, h.reason]));
-  assert.match(held.unknown, /타이틀 ID/);
-  assert.match(held.update, /게임 폴더/);
+  // The reason is English with its code; the admin page reads it in its own language by the code.
+  const held = Object.fromEntries(heldManual().map((h) => [h.folder, h]));
+  assert.equal(held.unknown.code, "homebrew.nspNoId");
+  assert.match(held.unknown.reason, /title ID/);
+  assert.equal(held.update.code, "homebrew.nspNotApp");
+  assert.match(held.update.reason, /games folder/);
 });
 
 test("an .nro next to an .nsp still wins: the folder stays a card install", async () => {

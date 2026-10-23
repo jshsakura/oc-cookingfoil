@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { metaErrorText } from "../../src/meta/meta-messages.js";
 
 // A patch's information lives in the server's store; patch.json is only imported, once.
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "patch-info-"));
@@ -43,8 +44,10 @@ test("an edit is checked against the limits and keeps what it leaves out", () =>
     [{ name: "a", game_version: "1".repeat(41) }, /게임 버전은 40자/], [{ name: "a", description: "d".repeat(2001) }, /설명은 2000자/],
     [{ name: "a", ko: { name: "가".repeat(121) } }, /한국어 이름/], [{ name: "a", ko: [] }, /ko/], [{ name: "a", version: 2 }, /글자/],
     [{ name: "a", required: 1 }, /required/], [{ name: "a", update_version: "1.5" }, /업데이트/], ["text", /JSON/]]) {
-    assert.throws(() => patchInfo.validate(bad), (err) => err instanceof patchInfo.InfoError && why.test(err.message), JSON.stringify(bad));
+    // The admin page reads it in its language by the code; the message itself is English.
+    assert.throws(() => patchInfo.validate(bad), (err) => err instanceof patchInfo.InfoError && why.test(metaErrorText("ko", err)) && !/[가-힣]/.test(err.message), JSON.stringify(bad));
   }
+  assert.throws(() => patchInfo.validate({ name: "a", author: "b".repeat(121) }), { message: "The author may be at most 120 characters", code: "info.tooLong" });
   const old = { name: "old", required: true, update_version: 2097152, game_version: "1.0.32.0", author: "x" };
   assert.deepEqual(editedInfo(old, { name: "new" }), { name: "new", required: true, update_version: 2097152, game_version: "1.0.32.0" },
     "the author is a text field and goes; required and the versions stay");

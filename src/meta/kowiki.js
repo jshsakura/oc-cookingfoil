@@ -11,7 +11,14 @@ const TIMEOUT_MS = 15 * 1000;
 export const BATCH = 50;
 const MIN_TEXT = 20;
 const MAX_TEXT = 6000;
-export const ATTRIBUTION = "출처: 위키백과 (CC BY-SA 4.0)";
+// Said with the Korean article only (retro/meta/fields.js); the other languages are for where the credit is shown in them.
+export const ATTRIBUTIONS = Object.freeze({
+  ko: "출처: 위키백과 (CC BY-SA 4.0)",
+  en: "Source: Wikipedia (CC BY-SA 4.0)",
+  ja: "出典: ウィキペディア (CC BY-SA 4.0)",
+  zh: "来源: 维基百科 (CC BY-SA 4.0)",
+});
+export const ATTRIBUTION = ATTRIBUTIONS.ko;
 
 // Pages in these namespaces are not articles ("1941: Counter Attack" is).
 const NAMESPACES = /^(file|image|category|special|template|wikipedia|help|portal|talk|user|draft|module|media):/i;

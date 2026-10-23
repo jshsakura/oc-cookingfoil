@@ -13,6 +13,7 @@ import crypto from "crypto";
 import debug from "../debug.js";
 import { dataDir } from "../helpers/envs.js";
 import { versionedArtwork } from "./artwork-version.js";
+import { metaText } from "./meta-messages.js";
 
 const STORE_PATH = path.join(dataDir, "featured.json");
 const MAX_COLLECTIONS = 12;
@@ -24,10 +25,13 @@ const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 let collections = [];
 const listeners = [];
 
+/** A refusal: `code` is the public "invalid-featured", `key` and `vars` its meta-messages.js message. */
 class FeaturedError extends Error {
-  constructor(message) {
-    super(message);
+  constructor(key, vars = {}) {
+    super(metaText("en", key, vars));
     this.code = "invalid-featured";
+    this.key = key;
+    this.vars = vars;
   }
 }
 
@@ -38,15 +42,15 @@ function isBaseTitleId(id) {
 function cleanCollection(raw, index) {
   const title = typeof raw?.title === "string" ? raw.title.trim() : "";
   if (!title || title.length > MAX_TITLE_CHARS) {
-    throw new FeaturedError(`${index + 1}번째 추천의 제목은 1-${MAX_TITLE_CHARS}자로 씁니다.`);
+    throw new FeaturedError("featured.badTitle", { n: index + 1, max: MAX_TITLE_CHARS });
   }
   const ids = Array.isArray(raw.titleIds) ? raw.titleIds : [];
   const titleIds = [...new Set(ids.map((id) => String(id).toUpperCase()))];
   if (titleIds.some((id) => !isBaseTitleId(id))) {
-    throw new FeaturedError(`"${title}" 에 본편이 아닌 타이틀 ID 가 있습니다.`);
+    throw new FeaturedError("featured.notBase", { title });
   }
   if (titleIds.length > MAX_TITLES) {
-    throw new FeaturedError(`"${title}" 에는 게임을 ${MAX_TITLES}개까지 넣습니다.`);
+    throw new FeaturedError("featured.tooManyGames", { title, max: MAX_TITLES });
   }
   const banner = raw.bannerTitleId ? String(raw.bannerTitleId).toUpperCase() : null;
   return {
@@ -59,8 +63,8 @@ function cleanCollection(raw, index) {
 
 /** Validates the whole list; throws FeaturedError with a message for the operator. */
 export function normalize(list) {
-  if (!Array.isArray(list)) throw new FeaturedError("추천 목록 형식이 아닙니다.");
-  if (list.length > MAX_COLLECTIONS) throw new FeaturedError(`추천은 ${MAX_COLLECTIONS}개까지 만듭니다.`);
+  if (!Array.isArray(list)) throw new FeaturedError("featured.notList");
+  if (list.length > MAX_COLLECTIONS) throw new FeaturedError("featured.tooMany", { max: MAX_COLLECTIONS });
   const out = list.map(cleanCollection);
   const ids = new Set();
   for (const c of out) {

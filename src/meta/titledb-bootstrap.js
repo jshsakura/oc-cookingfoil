@@ -22,6 +22,7 @@ import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
 import { envNumber } from "../helpers/env-read.js";
 import { titledbAutoFetch } from "../helpers/envs.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "./meta-messages.js";
 
 // `Number` here so "0.01" (~36 s) works for tests; clamped to >= 0.
 const REFRESH_HOURS = Math.max(
@@ -44,7 +45,7 @@ async function doFetch(regions) {
   const existing = inFlightByKey.get(key);
   if (existing) return existing;
 
-  const job = activity.begin("titledb", { title: "titledb 를 받습니다", detail: key });
+  const job = activity.begin("titledb", { title: activityText("act.titledb"), detail: key });
   const p = (async () => {
     try {
       const results = await fetchAll(target, titledbCacheDir);
@@ -63,7 +64,7 @@ async function doFetch(regions) {
         // the rebuild goes incremental (+0/-0) and re-serves those names.
         shopCache.invalidate({ rename: true });
       }
-      job.done(`지역 ${okCount}/${results.length}`);
+      job.done(activityText("act.regions", { ok: okCount, total: results.length }));
       return results;
     } catch (err) {
       job.fail(err);

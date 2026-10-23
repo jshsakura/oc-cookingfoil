@@ -43,6 +43,7 @@ import { pathProblem } from "./console-paths.js";
 import * as activity from "../tasks/activity.js";
 import { isTrashName } from "../library/trash.js";
 import { pick } from "./langs.js";
+import { activityText } from "./meta-messages.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "meta.json";
@@ -187,7 +188,7 @@ export async function scanDir(root, cache) {
       for (const app of await subdirs(path.join(root, "homebrew"))) if (APP_RE.test(app)) dirs.push(`homebrew/${app}`);
     } else if (isBase(tidDir.toUpperCase())) dirs.push(tidDir);
   }
-  const job = activity.begin("scan:saves", { title: "세이브 폴더를 읽습니다", total: dirs.length });
+  const job = activity.begin("scan:saves", { title: activityText("act.scanSaves"), total: dirs.length });
   let done = 0;
   for (const tidDir of dirs) {
     // Stopped: the listing kept from the last whole scan stays, not a half-read one.
@@ -210,7 +211,7 @@ export async function scanDir(root, cache) {
     job.fail(err);
     throw err;
   }
-  job.done(`세이브 ${out.length}개`);
+  job.done(activityText("act.saves", { n: out.length }));
   return sortSaves(out);
 }
 

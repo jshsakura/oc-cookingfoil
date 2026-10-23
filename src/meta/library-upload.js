@@ -13,6 +13,7 @@ import path from "path";
 import { kindOf } from "./user-patches.js";
 import { zipEntries } from "./homebrew.js";
 import { uploadMaxBytes } from "../helpers/envs.js";
+import { coded } from "./meta-messages.js";
 
 const UNSAFE_RE = /[\x00-\x1f\x7f/\\]/;
 const NAME_MAX = 100;
@@ -30,8 +31,13 @@ export class UploadError extends Error {
     super(message);
     this.status = status;
   }
+
+  /** A refusal said by a meta-messages.js key: English message, the key as `code`, its `vars`. */
+  static of(status, code, vars = {}) {
+    return coded(new UploadError(status, ""), code, vars);
+  }
 }
-const bad = (message) => new UploadError(400, message);
+const bad = (code, vars) => UploadError.of(400, code, vars);
 
 /** A folder or file name the operator typed, or null when it can't be one. Pure. */
 export function safeName(raw) {
@@ -74,7 +80,7 @@ export function patchLayout(paths, titleId) {
     const next = stripShared(cur);
     if (!next) {
       const stray = cur.find((p) => !owned(p));
-      throw bad(`이 게임(${titleId})의 패치 경로가 아닙니다: ${stray}. atmosphere/contents/${titleId}/… 구조여야 합니다`);
+      throw bad("upload.notPatchPath", { titleId, path: stray });
     }
     cur = next;
   }
@@ -104,7 +110,7 @@ export function homebrewLayout(paths, app, fromFolderPicker = false) {
   const plain = fromFolderPicker ? stripShared(paths) ?? paths : paths;
   // An SD-card folder anywhere in a path (atmosphere/, another app's switch/<x>/) means it aims elsewhere.
   const stray = paths.find((p) => /(^|\/)(atmosphere|bootloader)\//i.test(p) || /(^|\/)switch\/[^/]+\//i.test(p));
-  if (stray) throw bad(`이 앱(switch/${app}/) 밖의 경로입니다: ${stray}`);
+  if (stray) throw bad("upload.outsideApp", { app, path: stray });
   return plain;
 }
 
@@ -133,14 +139,14 @@ export function backupSaveType(name, text) {
 /** Retro files go flat into the console's folder; one of them must be a ROM it plays. Pure. */
 export function retroLayout(paths, system) {
   const names = paths.map((p) => path.posix.basename(p));
-  if (new Set(names).size !== names.length) throw bad("같은 이름의 파일이 두 개 있습니다");
+  if (new Set(names).size !== names.length) throw bad("upload.sameName");
   const exts = names.map((n) => path.extname(n).toLowerCase());
   if (!exts.some((e) => system.extensions.includes(e))) {
-    throw bad(`${system.names?.ko ?? system.name} 롬이 없습니다 (${system.extensions.join(" ")})`);
+    throw bad("upload.noRom", { system: (lang) => system.names?.[lang] ?? system.names?.en ?? system.name, exts: system.extensions.join(" ") });
   }
   const stray = names.find((n, i) => !system.extensions.includes(exts[i]) && !COMPANION_EXT.has(exts[i]));
-  if (stray) throw bad(`이 기종에서 쓰지 않는 파일입니다: ${stray}`);
-  for (const n of names) if (!safeName(n)) throw bad(`파일 이름을 쓸 수 없습니다: ${n}`);
+  if (stray) throw bad("upload.foreignFile", { name: stray });
+  for (const n of names) if (!safeName(n)) throw bad("upload.badName", { name: n });
   return names;
 }
 
@@ -153,11 +159,11 @@ export function retroLayout(paths, system) {
  */
 export async function unzip(zip, dir, { maxBytes = uploadMaxBytes, maxEntries = MAX_UPLOAD_FILES } = {}) {
   let entries;
-  try { entries = await zipEntries(zip); } catch { throw bad("zip 을 읽을 수 없습니다"); }
-  if (entries.length > maxEntries) throw new UploadError(413, `zip 안의 항목이 ${maxEntries}개를 넘습니다`);
+  try { entries = await zipEntries(zip); } catch { throw bad("upload.zipUnreadable"); }
+  if (entries.length > maxEntries) throw UploadError.of(413, "upload.zipTooManyEntries", { max: maxEntries });
   const total = entries.reduce((sum, e) => sum + e.size, 0);
-  if (total > maxBytes) throw new UploadError(413, `zip 을 풀면 ${maxBytes} 바이트를 넘습니다`);
-  const tooBig = () => new UploadError(413, `zip 을 풀면 ${maxBytes} 바이트를 넘습니다`);
+  const tooBig = () => UploadError.of(413, "upload.zipTooBig", { max: maxBytes });
+  if (total > maxBytes) throw tooBig();
   let overflow = false;
   const done = await new Promise((resolve) => {
     const child = execFile("unzip", ["-qq", "-o", zip, "-d", dir], { timeout: UNZIP_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, _out, stderr) => {
@@ -175,7 +181,7 @@ export async function unzip(zip, dir, { maxBytes = uploadMaxBytes, maxEntries = 
     throw tooBig();
   }
   // Exit 1 is "warnings" (such as a skipped ../ part); the files are out.
-  if (done.err && done.err.code !== 1) throw bad(`zip 을 풀 수 없습니다: ${(done.stderr || done.err.message).trim().split("\n")[0]}`);
+  if (done.err && done.err.code !== 1) throw bad("upload.unzipFailed", { why: (done.stderr || done.err.message).trim().split("\n")[0] });
 }
 
 /** Bytes of the regular files under `dir`; links are not followed. */
@@ -198,10 +204,10 @@ export async function walk(dir, base = dir) {
   const out = [];
   for (const e of await fsp.readdir(dir, { withFileTypes: true })) {
     const abs = path.join(dir, e.name);
-    if (e.isSymbolicLink()) throw bad(`링크는 올릴 수 없습니다: ${path.relative(base, abs)}`);
+    if (e.isSymbolicLink()) throw bad("upload.link", { path: path.relative(base, abs) });
     if (e.isDirectory()) out.push(...(await walk(abs, base)));
     else if (e.isFile()) out.push({ abs, rel: path.relative(base, abs).split(path.sep).join("/") });
-    else throw bad(`일반 파일이 아닙니다: ${path.relative(base, abs)}`);
+    else throw bad("upload.notFile", { path: path.relative(base, abs) });
   }
   return out;
 }
@@ -231,5 +237,5 @@ export async function moveFile(from, to) {
 
 /** Refuse when something is already at `dest`. */
 export function mustBeFree(dest, label) {
-  if (fs.existsSync(dest)) throw new UploadError(409, `이미 있습니다: ${label}`);
+  if (fs.existsSync(dest)) throw UploadError.of(409, "upload.exists", { name: label });
 }

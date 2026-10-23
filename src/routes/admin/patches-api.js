@@ -35,6 +35,7 @@ import fsp from "fs/promises";
 import path from "path";
 import { patchesDir } from "../../helpers/envs.js";
 import { apiWord } from "./api-words.js";
+import { metaError } from "../../meta/meta-messages.js";
 
 const SHOWN_FIELDS = ["name", "version", "game_version", "author", "description", "required"];
 
@@ -188,7 +189,7 @@ export function mountPatchesApi(router, requireSession) {
     try {
       info = editedInfo(userPatches.infoOf(id), req.body);
     } catch (err) {
-      if (err instanceof patchInfo.InfoError) return res.status(400).json({ error: err.message });
+      if (err instanceof patchInfo.InfoError) return res.status(400).json(metaError(req, err));
       throw err;
     }
     patchInfo.set(where.key, info);

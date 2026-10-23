@@ -32,6 +32,7 @@
 import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import { metaText } from "./meta-messages.js";
 
 const FILE = path.join(dataDir, "patches", "info.json");
 export const FIELD_MAX = { name: 120, version: 40, game_version: 40, author: 120, description: 2000 };
@@ -39,11 +40,20 @@ const KO_MAX = { name: FIELD_MAX.name, description: FIELD_MAX.description };
 export const RETAIN_MS = 30 * 24 * 3600_000;
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const APP_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/;
-const FIELD_LABEL = { name: "이름", version: "버전", game_version: "게임 버전", author: "만든 사람", description: "설명" };
 
 let saved = null; // key → { info, missing_since }
 
-export class InfoError extends Error {}
+/** A refusal with its meta-messages.js key as `code` and its English message. */
+export class InfoError extends Error {
+  constructor(code, vars = {}) {
+    super(metaText("en", code, vars));
+    this.code = code;
+    this.vars = vars;
+  }
+}
+
+/** A field's name in the language a message is said in. */
+const fieldName = (key) => (lang) => metaText(lang, `patchField.${key}`);
 
 /**
  * The store key of a patch folder: `dir` is the title id folder (any case) or
@@ -102,25 +112,26 @@ export function normalize(raw) {
  * number or empty. Throws InfoError with a message for the admin. Pure.
  */
 export function validate(input) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new InfoError("패치 정보는 JSON 객체로 보냅니다");
-  const check = (obj, limits, prefix) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new InfoError("info.notObject");
+  // `ko`: the fields of the Korean block, whose messages say so.
+  const check = (obj, limits, ko) => {
     for (const [key, max] of Object.entries(limits)) {
       const v = obj[key];
       if (v === undefined || v === null) continue;
-      if (typeof v !== "string") throw new InfoError(`${prefix}${FIELD_LABEL[key]}은 글자로 적습니다`);
-      if (v.trim().length > max) throw new InfoError(`${prefix}${FIELD_LABEL[key]}은 ${max}자까지 적습니다`);
+      if (typeof v !== "string") throw new InfoError(ko ? "info.koNotText" : "info.notText", { field: fieldName(key) });
+      if (v.trim().length > max) throw new InfoError(ko ? "info.koTooLong" : "info.tooLong", { field: fieldName(key), max });
     }
   };
-  check(input, FIELD_MAX, "");
-  if (!String(input.name ?? "").trim()) throw new InfoError("이름을 적습니다");
+  check(input, FIELD_MAX, false);
+  if (!String(input.name ?? "").trim()) throw new InfoError("info.noName");
   if (input.ko !== undefined && input.ko !== null && (typeof input.ko !== "object" || Array.isArray(input.ko))) {
-    throw new InfoError("ko 는 { name, description } 객체로 보냅니다");
+    throw new InfoError("info.koNotObject");
   }
-  check(input.ko ?? {}, KO_MAX, "한국어 ");
-  if (input.required !== undefined && typeof input.required !== "boolean") throw new InfoError("required 는 true 나 false 입니다");
+  check(input.ko ?? {}, KO_MAX, true);
+  if (input.required !== undefined && typeof input.required !== "boolean") throw new InfoError("info.requiredBool");
   const raw = input.update_version;
   if (raw !== undefined && raw !== null && String(raw).trim() !== "" && !updateVersionOf(raw)) {
-    throw new InfoError("필요한 업데이트는 v 뒤의 숫자(예: 2097152)로 고릅니다");
+    throw new InfoError("info.updateVersion");
   }
   return normalize(input);
 }

@@ -69,7 +69,7 @@ export async function placeHomebrew(items, work, { port = false, by = null } = {
   const entries = zip ? await zipEntries(zip.abs) : items.map((i) => ({ name: i.rel, size: 0, dir: false, link: false }));
   const layout = normalizeLayout(entries, { repoName });
   if (layout.reason === "console-path") {
-    throw uploadError("homebrew.badNames", { list: describeProblems(layout.problems, 20) });
+    throw uploadError("homebrew.badNames", { list: (lang) => describeProblems(layout.problems, 20, lang) });
   }
   if (!layout.nro || !layout.appDir) throw uploadError("homebrew.cannotInstall", { why: layout.reason });
   const stage = path.join(work, "out");

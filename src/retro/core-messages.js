@@ -320,5 +320,5 @@ export const coreErrorText = (lang, err) => (isCoreCode(err?.code) ? coreText(la
 /** A route's JSON error for a core or pack failure: the text in the request's language, and its code when it has one. */
 export const coreError = (req, err) => ({ error: coreErrorText(requestLang(req), err), ...(isCoreCode(err?.code) ? { code: err.code } : {}) });
 
-/** The activity menu has no language of its own yet: its titles and steps are Korean, as every other job's are. */
-export const ACTIVITY_LANG = "ko";
+// The activity menu's language is kept in one place for every job.
+export { ACTIVITY_LANG } from "../meta/meta-messages.js";

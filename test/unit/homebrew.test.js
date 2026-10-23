@@ -401,7 +401,7 @@ test("COOK_HOMEBREW_REPOS seeds the admin's list once; the list file wins afterw
     [["murat303/ytb-player", "*.nro"], ["J-D-K/JKSV", null]]);
   assert.deepEqual(run(`return s.list().map((x) => x.repo);`, "something/else"), ["murat303/ytb-player", "J-D-K/JKSV"], "the env is not read again");
   assert.deepEqual(run(`const e = []; for (const f of [() => s.add("not a repo"), () => s.setAsset("J-D-K/JKSV", "evil.exe")]) { try { f(); e.push(null); } catch (x) { e.push(x.message); } } return e;`, ""),
-    ["GitHub 저장소 주소가 아닙니다", "파일 이름 패턴은 .nro 나 .zip 으로 끝나야 합니다"]);
+    ["This is not a GitHub repository address", "The file name pattern must end in .nro or .zip"]);
 });
 
 test("a repository's own GitHub description is learned once, apart from the release checks", async () => {

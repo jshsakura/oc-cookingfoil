@@ -208,8 +208,8 @@ export function translator(lang = DEFAULT_LANG) {
   };
 }
 
-/** A message for alert(): a string as it is, or a function of `t` rendered in `lang`. Pure. */
-export const render = (message, lang) => (typeof message === "function" ? message(translator(lang)) : String(message ?? ""));
+/** A message for alert(): a string as it is, or a function of `t` (and `lang`, for parts said elsewhere) rendered in `lang`. Pure. */
+export const render = (message, lang) => (typeof message === "function" ? message(translator(lang), lang) : String(message ?? ""));
 
 /** Every key with every language, for the tests. */
 export const keysForTests = () => Object.fromEntries(Object.entries(M).map(([k, v]) => [k, Object.keys(v)]));

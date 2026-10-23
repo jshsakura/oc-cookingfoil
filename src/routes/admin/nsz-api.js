@@ -25,10 +25,14 @@ import * as serverSettings from "../../security/server-settings.js";
 import nszQueue from "../../meta/nsz-service.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { inLang } from "../../meta/nsz-queue.js";
+import { requestLang } from "../../meta/langs.js";
 
 const ID_RE = /^[0-9a-f]{12}$/;
 const off = (req) => ({ error: "off", message: apiWord(req, "nsz.off") });
 const MAX_SELECTED = 1000;
+/** Rows with their reasons in `lang` (nsz-queue.js keeps them in English with a code). */
+const sayAll = (lang) => (rows) => (Array.isArray(rows) ? rows.map(inLang(lang)) : rows);
 
 function nszSettings() {
   const all = serverSettings.describe();
@@ -46,7 +50,13 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
       res.status(500).json({ error: apiWord(req, "failed") });
     }
   };
-  const view = (q = {}) => ({ ...queue.view({ filter: String(q.filter ?? "all"), offset: q.offset, limit: q.limit }), settings: nszSettings() });
+  // Reasons are kept in English with their code; the page reads them in its own language.
+  const view = (req) => {
+    const q = req.query ?? {};
+    const v = queue.view({ filter: String(q.filter ?? "all"), offset: q.offset, limit: q.limit });
+    const say = sayAll(requestLang(req));
+    return { ...v, items: say(v.items), active: say(v.active), failures: say(v.failures), settings: nszSettings() };
+  };
   const item = (fn) => handle(async (req, res) => {
     const id = String(req.params.id);
     if (id !== "all" && !ID_RE.test(id)) return res.status(404).json({ error: apiWord(req, "nsz.noItem") });
@@ -54,7 +64,7 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
     res.json({ ok: true });
   });
 
-  router.get("/api/nsz", handle((req, res) => res.json(view(req.query))));
+  router.get("/api/nsz", handle((req, res) => res.json(view(req))));
   router.get("/api/nsz/preview", handle(async (req, res) => res.json(await queue.preview())));
 
   router.post("/api/nsz/start", handle((req, res) => {
@@ -95,6 +105,9 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
   router.post("/api/nsz/items/:id/retry", item((id) => queue.retry(id) > 0 || id === "all"));
   router.delete("/api/nsz/items/:id", item((id) => id !== "all" && queue.remove(id)));
   router.post("/api/nsz/purge-kept", handle(async (req, res) => res.json({ ok: true, ...(await queue.purgeKept()) })));
-  router.get("/api/nsz/log", handle((req, res) => res.json(queue.logPage({ offset: req.query.offset, limit: req.query.limit, q: String(req.query.q ?? "").slice(0, 200) }))));
+  router.get("/api/nsz/log", handle((req, res) => {
+    const page = queue.logPage({ offset: req.query.offset, limit: req.query.limit, q: String(req.query.q ?? "").slice(0, 200) });
+    res.json({ ...page, items: sayAll(requestLang(req))(page.items) });
+  }));
   router.post("/api/nsz/clear-finished", handle(async (req, res) => res.json({ ok: true, removed: await queue.clearFinished() })));
 }

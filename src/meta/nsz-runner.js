@@ -15,6 +15,7 @@ import fs from "fs";
 import path from "path";
 import { envString } from "../helpers/env-read.js";
 import { keysDir } from "../security/prod-keys.js";
+import { metaText } from "./meta-messages.js";
 
 const TAIL_CHARS = 4000;
 export const REASON_CHARS = 300;
@@ -92,13 +93,17 @@ export function trimReason(text) {
   return t.length > REASON_CHARS ? `…${t.slice(-(REASON_CHARS - 1))}` : t;
 }
 
-/** What went wrong, from the exit code and the output's tail. Pure. */
+/**
+ * What went wrong, from the exit code and the output's tail: `reason` in English, `reasonCode` and
+ * `reasonVars` (meta-messages.js) for the admin page's language. Pure.
+ */
 export function failureReason(code, signal, tail) {
   const t = String(tail ?? "");
-  if (/hash mismatch|corrupted|verification (failed|exception)|verificationexception/i.test(t)) return { code: "verify", reason: "검증에서 해시가 맞지 않습니다. 원본이 손상되었을 수 있습니다." };
+  const said = (key, vars = {}) => ({ reason: metaText("en", key, vars), reasonCode: key, reasonVars: vars });
+  if (/hash mismatch|corrupted|verification (failed|exception)|verificationexception/i.test(t)) return { code: "verify", ...said("nsz.hashMismatch") };
   const detail = trimReason(t);
-  const how = signal ? `신호 ${signal}` : `종료 코드 ${code}`;
-  return { code: "compress", reason: `압축하지 못했습니다 (${how})${detail ? `: ${detail}` : ""}` };
+  const how = signal ? { key: "nsz.compressSignal", vars: { signal } } : { key: "nsz.compressExit", vars: { exit: code } };
+  return { code: "compress", ...said(detail ? `${how.key}Why` : how.key, detail ? { ...how.vars, why: detail } : how.vars) };
 }
 
 /**

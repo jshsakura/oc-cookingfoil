@@ -17,6 +17,7 @@ import * as retroCatalog from "../retro/catalog.js";
 import { refreshManual } from "../routes/homebrew.js";
 import { savesCatalog } from "../routes/saves.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "./meta-messages.js";
 
 // How often the schedule looks whether a sync is due (the setting can change any time).
 const CHECK_MS = 5 * 60_000;
@@ -32,13 +33,14 @@ const PARTS = [
     await saves.list();
   }],
   // Patches are read every minute and retro on its own changes: only this full read shows up as a job.
-  ["patches", () => activity.track("scan:patches", { title: "패치 폴더를 읽습니다" }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
-  ["retro", () => activity.track("scan:retro", { title: "레트로 폴더를 읽습니다" }, () => retroCatalog.rescan(env.retroDir))],
+  ["patches", () => activity.track("scan:patches", { title: activityText("act.scanPatches") }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
+  ["retro", () => activity.track("scan:retro", { title: activityText("act.scanRetro") }, () => retroCatalog.rescan(env.retroDir))],
   // The game folders are read again one by one as the watch sees them change; this reads every one in full.
-  ["gameMeta", () => activity.track("scan:game-meta", { title: "게임 정보 폴더를 읽습니다" }, () => gameMeta.scan({ force: true }))],
+  ["gameMeta", () => activity.track("scan:game-meta", { title: activityText("act.scanGameMeta") }, () => gameMeta.scan({ force: true }))],
 ];
 
-const PART_TITLES = { games: "게임", homebrew: "홈브류", saves: "세이브", patches: "패치", retro: "레트로", gameMeta: "게임 정보" };
+const PART_KEYS = { games: "act.partGames", homebrew: "act.partHomebrew", saves: "act.partSaves", patches: "act.partPatches", retro: "act.partRetro", gameMeta: "act.partGameMeta" };
+const partTitle = (name) => activityText(PART_KEYS[name]);
 
 let running = null;
 let last = null; // { at, ms, parts: [{ name, ms, error? }] }
@@ -47,10 +49,10 @@ async function run(reason) {
   const started = Date.now();
   const parts = [];
   debug.log("sync: reading every folder again (%s)", reason);
-  const job = activity.begin("sync", { title: "모든 폴더를 다시 읽습니다", total: PARTS.length });
+  const job = activity.begin("sync", { title: activityText("act.sync"), total: PARTS.length });
   for (const [name, read] of PARTS) {
     if (job.stopped) break;
-    job.step(parts.length, PART_TITLES[name]);
+    job.step(parts.length, partTitle(name));
     const t = Date.now();
     try {
       await read();
@@ -63,8 +65,8 @@ async function run(reason) {
   last = { at: Date.now(), ms: Date.now() - started, parts };
   debug.log("sync: done in %d ms", last.ms);
   const failed = parts.filter((p) => p.error);
-  if (failed.length) job.fail(failed.map((p) => `${PART_TITLES[p.name]}: ${p.error}`).join(", "));
-  else job.done(`${parts.length}곳`);
+  if (failed.length) job.fail(failed.map((p) => `${partTitle(p.name)}: ${p.error}`).join(", "));
+  else job.done(activityText("act.places", { n: parts.length }));
   return last;
 }
 

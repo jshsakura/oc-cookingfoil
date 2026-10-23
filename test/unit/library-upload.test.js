@@ -7,6 +7,8 @@ import path from "node:path";
 import { backupSaveType, baseTitleId, patchLayout, retroLayout, safeName, safeRelPath, saveLayout } from "../../src/meta/library-upload.js";
 import { CONSOLE, seedConsole } from "../support/console.js";
 import { adminSession } from "../support/web-session.js";
+import { metaErrorText } from "../../src/meta/meta-messages.js";
+import { failureKind } from "../../src/routes/admin/upload-flow.js";
 
 const PORT = 16400 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -27,7 +29,8 @@ test("upload names and paths can't leave their folder", () => {
 test("patches are laid out from the SD root, wrapper folders peeled off", () => {
   const files = [`My Patch/atmosphere/contents/${MK}/romfs/a.bin`, `My Patch/atmosphere/contents/${MK}/cheats/x.txt`];
   assert.deepEqual(patchLayout(files, MK), files.map((f) => f.slice("My Patch/".length)));
-  assert.throws(() => patchLayout(["atmosphere/contents/0100000000010000/romfs/a"], MK), /패치 경로가 아닙니다/);
+  assert.throws(() => patchLayout(["atmosphere/contents/0100000000010000/romfs/a"], MK), (err) => err.code === "upload.notPatchPath" && /Not a patch path/.test(err.message)
+    && /패치 경로가 아닙니다/.test(metaErrorText("ko", err)));
 });
 
 test("saves keep their folder's contents; retro ROMs must be the console's", () => {
@@ -35,7 +38,9 @@ test("saves keep their folder's contents; retro ROMs must be the console's", () 
   assert.deepEqual(saveLayout(["userdata.dat"], false), ["userdata.dat"]);
   const snes = { name: "SNES", extensions: [".sfc", ".smc", ".zip"] };
   assert.deepEqual(retroLayout(["Game.sfc"], snes), ["Game.sfc"]);
-  assert.throws(() => retroLayout(["Game.gba"], snes), /롬이 없습니다/);
+  assert.throws(() => retroLayout(["Game.gba"], snes), { code: "upload.noRom", message: "No SNES ROM (.sfc .smc .zip)" });
+  const named = { ...snes, names: { en: "Super Nintendo", ko: "슈퍼 패미컴" } };
+  assert.throws(() => retroLayout(["Game.gba"], named), (err) => metaErrorText("ko", err) === "슈퍼 패미컴 롬이 없습니다 (.sfc .smc .zip)" && err.message === "No Super Nintendo ROM (.sfc .smc .zip)");
   const ps1 = { name: "PS1", extensions: [".cue", ".chd"] };
   assert.deepEqual(retroLayout(["a.cue", "a.bin"], ps1), ["a.cue", "a.bin"], "a cue travels with its bin");
 });
@@ -94,7 +99,12 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     let r = await send("game", {}, [["Game [0100000000010000][v0].nsp", "NSP"]]);
     assert.equal(r.status, 201);
     assert.equal(fs.readFileSync(path.join(dirs.games, "Game [0100000000010000][v0].nsp"), "utf8"), "NSP");
-    assert.equal((await send("game", {}, [["Game [0100000000010000][v0].nsp", "NSP"]])).status, 409, "never overwritten");
+    r = await send("game", {}, [["Game [0100000000010000][v0].nsp", "NSP"]]);
+    assert.equal(r.status, 409, "never overwritten");
+    // The refusal is English with its code; the upload page tells a duplicate by that code, not by its words.
+    const dup = await r.json();
+    assert.deepEqual(dup, { error: "Already exists: Game [0100000000010000][v0].nsp", code: "upload.exists" });
+    assert.equal(failureKind(r.status, dup.code), "dup");
     assert.equal((await send("game", {}, [["evil.exe", "x"]])).status, 400);
 
     r = await send("retro", { system: "snes" }, [["슈퍼 마리오 월드 (Super Mario World).sfc", "SMW"]]);
@@ -136,8 +146,8 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal((await (await fetch(`${BASE}/api/patches`, { headers: ALICE })).json()).patches.find((p) => p.id === data.id).required, true);
 
     // Editing a patch's information: checked, saved in the store, and served at once with a new ETag.
-    const editInfo = (id, body) => fetch(`${BASE}/admin/api/patches/${id}/info`, {
-      method: "PUT", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const editInfo = (id, body, lang = null) => fetch(`${BASE}/admin/api/patches/${id}/info`, {
+      method: "PUT", headers: { ...admin, "Content-Type": "application/json", ...(lang ? { "Accept-Language": lang } : {}) }, body: JSON.stringify(body) });
     const publicList = (lang) => fetch(`${BASE}/api/patches?lang=${lang}`, { headers: ALICE });
     const etagBefore = (await publicList("en")).headers.get("etag");
     assert.equal((await fetch(`${BASE}/admin/api/patches/${data.id}/info`, {
@@ -145,10 +155,15 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     for (const [bad, why] of [[{ name: "" }, /이름/], [{ name: "a".repeat(121) }, /120자/], [{ name: "a", version: 1 }, /글자/],
       [{ name: "a", ko: "x" }, /ko/], [{ name: "a", ko: { description: "가".repeat(2001) } }, /한국어 설명/], [{ name: "a", update_version: "v1" }, /업데이트/],
       [{ name: "a", required: "yes" }, /required/]]) {
-      const res = await editInfo(data.id, bad);
+      const res = await editInfo(data.id, bad, "ko");
       assert.equal(res.status, 400, JSON.stringify(bad));
       assert.match((await res.json()).error, why);
     }
+    // patch-info.js refuses in English with a code: a token or script without Accept-Language reads English, the admin page its own language.
+    let refused = await editInfo(data.id, { name: "a", author: "b".repeat(121) });
+    assert.deepEqual(await refused.json(), { error: "The author may be at most 120 characters", code: "info.tooLong" });
+    refused = await editInfo(data.id, { name: "a", author: "b".repeat(121) }, "ko");
+    assert.deepEqual(await refused.json(), { error: "만든 사람은 120자까지 적습니다", code: "info.tooLong" });
     assert.equal((await editInfo("0100152000022000-000000000000", { name: "a" })).status, 404);
     const edited = await editInfo(data.id, { name: "Game data", version: "2.0", author: "someone", description: "Needed to start.",
       ko: { name: "게임 데이터", description: "이게 있어야 실행됩니다." } });

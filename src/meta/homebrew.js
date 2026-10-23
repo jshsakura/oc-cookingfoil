@@ -28,6 +28,7 @@ import debug from "../debug.js";
 import { leftOutOfFolder, normalizeLayout } from "./homebrew-layout.js";
 import { META_DIR, isMetadata, isOurMetadata } from "./art-sidecar.js";
 import { describeProblems, pathProblems } from "./console-paths.js";
+import { activityText, metaText } from "./meta-messages.js";
 import { nroProblem } from "./client-build.js";
 import { parseAssets } from "./extract-providers/nro.js";
 import { decodeNacp } from "./nacp-decode.js";
@@ -334,7 +335,7 @@ async function filesUnder(dir, rel = "") {
  * plus other files becomes a folder install (everything in it goes to switch/<folder>/),
  * so dropping a ported game into the homebrew folder and pressing the admin button is
  * all it takes. A lone .nro needs nothing; unsafe names are reported, not guessed at.
- * Returns { registered: [folder], skipped: [{ folder, reason }] }.
+ * Returns { registered: [folder], skipped: [{ folder, reason, code, vars }] } (reason in English).
  */
 export async function adoptFolders(root) {
   const registered = [];
@@ -355,13 +356,13 @@ export async function adoptFolders(root) {
     const files = await filesUnder(dir);
     if (files.length < 2) continue;
     if (!APP_NAME_RE.test(folder) || !APP_NAME_RE.test(nro)) {
-      skipped.push({ folder, reason: "폴더나 .nro 이름에 영문, 숫자, - _ . 만 쓸 수 있습니다" });
+      skipped.push(heldEntry(folder, "homebrew.badAppName"));
       continue;
     }
     // The same check every install goes through: guides are left out, any other name the card can't create stops it.
     const problems = pathProblems(files.filter((r) => !leftOutOfFolder(r)).map((r) => `switch/${folder}/${r}`));
     if (problems.length) {
-      skipped.push({ folder, reason: `콘솔 SD 에 만들 수 없는 이름이 있습니다: ${describeProblems(problems)}` });
+      skipped.push(heldEntry(folder, "homebrew.badPaths", { list: (lang) => describeProblems(problems, 5, lang) }));
       continue;
     }
     const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_metadata: hasOwnMetadata(files) };
@@ -382,7 +383,7 @@ export async function scanManual(root) {
   const out = [];
   const seen = new Set();
   const held = [];
-  const job = activity.begin("scan:homebrew", { title: "홈브류 폴더를 읽습니다", total: folders.length });
+  const job = activity.begin("scan:homebrew", { title: activityText("act.scanHomebrew"), total: folders.length });
   let n = 0;
   for (const folder of folders.sort()) {
     // Stopped: the list kept from the last whole scan stays, not a half-read one.
@@ -401,7 +402,7 @@ export async function scanManual(root) {
     debug.error("homebrew: hashes not pruned: %s", err.message);
   }
   heldBack = held;
-  job.done(`앱 ${out.length}개`);
+  job.done(activityText("act.apps", { n: out.length }));
   return out;
 }
 
@@ -420,7 +421,7 @@ export async function scanManualOne(root, folder) {
   return { id, entry };
 }
 
-// Hand-placed apps the last scan kept off the consoles' list, with why: [{ folder, reason }].
+// Hand-placed apps the last scan kept off the consoles' list, with why: [{ folder, reason, code, vars }].
 let heldBack = [];
 const heldLogged = new Map(); // folder → the reason last logged, so a minutely rescan logs it once
 
@@ -429,8 +430,13 @@ export function heldManual() {
   return heldBack;
 }
 
-function hold(held, folder, reason) {
-  held?.push({ folder, reason });
+/** A folder left out, with why: `reason` in English, `code` and `vars` (meta-messages.js) for the admin page's language. */
+const heldEntry = (folder, code, vars = {}) => ({ folder, reason: metaText("en", code, vars), code, vars });
+
+function hold(held, folder, code, vars = {}) {
+  const entry = heldEntry(folder, code, vars);
+  const { reason } = entry;
+  held?.push(entry);
   if (heldLogged.get(folder) !== reason) debug.error("homebrew: %s left out: %s", folder, reason);
   heldLogged.set(folder, reason);
 }
@@ -485,11 +491,11 @@ async function readManualNsp(dir, folder, file, seen, held) {
   // Without the cnmt only a base title's id (…000) from the file name is trusted: updates end in 800, DLC elsewhere.
   const titleId = meta.titleId ?? (fromName?.endsWith("000") ? fromName : null);
   if (!titleId) {
-    hold(held, folder, "NSP 의 타이틀 ID 를 읽지 못해 기기 목록에서 뺐습니다. 서버에 nstool 과 키가 있는지 확인하거나 파일 이름에 [타이틀ID] 를 붙입니다.");
+    hold(held, folder, "homebrew.nspNoId");
     return null;
   }
   if (meta.metaType != null && meta.metaType !== META_APPLICATION) {
-    hold(held, folder, "업데이트나 DLC NSP 는 홈브류로 등록하지 않습니다. 게임 폴더에 넣습니다.");
+    hold(held, folder, "homebrew.nspNotApp");
     return null;
   }
   const hash = await cachedSha256(abs, st, seen);
@@ -610,7 +616,7 @@ async function readManual(root, folder, seen = null, held = null) {
     // A name the card can't create would fail at the very end of the install; the app waits until it is renamed.
     const problems = pathProblems(files.map((f) => f.path));
     if (problems.length) {
-      hold(held, folder, `콘솔 SD 에 만들 수 없는 이름이 있어 기기 목록에서 뺐습니다. 이름을 바꾸면 다시 나옵니다: ${describeProblems(problems)}`);
+      hold(held, folder, "homebrew.heldPaths", { list: (lang) => describeProblems(problems, 5, lang) });
       return null;
     }
     folderInstall = { install_dir: `switch/${appDir}`, install_path: `switch/${appDir}/${file}`, files };
@@ -986,7 +992,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       let asked = 0;
       const onAsk = () => {
         asked++;
-        job ??= activity.begin("homebrew-github", { title: "홈브류 새 버전을 확인합니다", total: ids.length });
+        job ??= activity.begin("homebrew-github", { title: activityText("act.homebrewCheck"), total: ids.length });
       };
       try {
         for (const [i, id] of ids.entries()) {
@@ -998,7 +1004,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         job?.fail(err);
         throw err;
       }
-      job?.done(`${asked}곳 확인`);
+      job?.done(activityText("act.checked", { n: asked }));
     })().finally(() => { checking = null; });
     return checking;
   }

@@ -45,8 +45,10 @@ test("the tally separates sent, failed and still waiting", () => {
 });
 
 test("failures are told apart: a taken name, no answer, anything else", () => {
-  assert.equal(failureKind(409, "이미 있습니다: A.nsp"), "dup");
-  assert.equal(failureKind(409, "읽기 전용입니다"), null, "another 409 shows the server's own words");
+  // By the answer's code, whatever language its words are in.
+  assert.equal(failureKind(409, "upload.exists"), "dup");
+  assert.equal(failureKind(409, null), null, "another 409 shows the server's own words");
+  assert.equal(failureKind(409, "coreExists"), null);
   assert.equal(failureKind(0, ""), "net");
   assert.equal(failureKind(413, "too big"), null);
 });

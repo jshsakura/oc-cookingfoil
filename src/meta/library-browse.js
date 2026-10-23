@@ -24,6 +24,7 @@ import path from "path";
 import FastGlob from "fast-glob";
 import { GAME_FILE_RE } from "../helpers/file-send.js";
 import { isReadme } from "../helpers/readme-name.js";
+import { metaText } from "./meta-messages.js";
 
 export const KINDS = ["base", "update", "dlc", "patch", "save", "homebrew", "other"];
 export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "game", "version", "integrity", "id", "source", "repo"];
@@ -36,11 +37,14 @@ const Q_MAX = 200;
 const EXT_RE = /^\.?[a-z0-9]{1,10}$/i;
 const INT_RE = /^\d{1,16}$/;
 
+/** A wrong parameter: `code` is the public "bad-param", `key` and `vars` its meta-messages.js message. */
 export class BadParam extends Error {
-  constructor(param, message) {
-    super(message);
+  constructor(param, key, vars = {}) {
+    super(metaText("en", key, { param, ...vars }));
     this.code = "bad-param";
     this.param = param;
+    this.key = key;
+    this.vars = { param, ...vars };
   }
 }
 
@@ -50,14 +54,14 @@ const one = (raw) => (Array.isArray(raw) ? raw[raw.length - 1] : raw);
 function oneOf(param, raw, allowed) {
   const values = list(raw);
   const wrong = values.find((v) => !allowed.includes(v));
-  if (wrong !== undefined || !values.length) throw new BadParam(param, `${param} 는 ${allowed.join(", ")} 중에서 고릅니다`);
+  if (wrong !== undefined || !values.length) throw new BadParam(param, "browse.oneOf", { allowed: allowed.join(", ") });
   return [...new Set(values)];
 }
 
 function int(param, raw, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const s = String(raw).trim();
   const n = INT_RE.test(s) ? Number(s) : NaN;
-  if (!Number.isSafeInteger(n) || n < min || n > max) throw new BadParam(param, `${param} 는 ${min} 이상 ${max} 이하의 정수입니다`);
+  if (!Number.isSafeInteger(n) || n < min || n > max) throw new BadParam(param, "browse.int", { min, max });
   return n;
 }
 
@@ -65,7 +69,7 @@ function epochSeconds(param, raw) {
   const s = String(raw).trim();
   if (INT_RE.test(s)) return int(param, s);
   const ms = Date.parse(s);
-  if (!Number.isFinite(ms)) throw new BadParam(param, `${param} 는 epoch 초나 ISO 날짜입니다`);
+  if (!Number.isFinite(ms)) throw new BadParam(param, "browse.date");
   return Math.floor(ms / 1000);
 }
 
@@ -73,7 +77,7 @@ function flag(param, raw) {
   const s = String(raw).trim().toLowerCase();
   if (["1", "true", "yes"].includes(s)) return true;
   if (["0", "false", "no", ""].includes(s)) return false;
-  throw new BadParam(param, `${param} 는 1 이나 0 입니다`);
+  throw new BadParam(param, "browse.flag");
 }
 
 /** The checked query, with defaults. Throws BadParam. Pure. */
@@ -89,16 +93,16 @@ export function parseQuery(query = {}) {
   if (get("kind") !== undefined) out.kinds = oneOf("kind", get("kind"), KINDS);
   if (get("q") !== undefined) {
     out.q = String(get("q")).trim();
-    if (out.q.length > Q_MAX) throw new BadParam("q", `q 는 ${Q_MAX}자까지입니다`);
+    if (out.q.length > Q_MAX) throw new BadParam("q", "browse.qTooLong", { max: Q_MAX });
   }
   if (get("ext") !== undefined) {
     const exts = list(get("ext"));
-    if (!exts.length || exts.some((e) => !EXT_RE.test(e))) throw new BadParam("ext", "ext 는 쉼표로 나눈 확장자입니다 (예: nsp,xci)");
+    if (!exts.length || exts.some((e) => !EXT_RE.test(e))) throw new BadParam("ext", "browse.ext");
     out.exts = new Set(exts.map((e) => (e.startsWith(".") ? e : `.${e}`).toLowerCase()));
   }
   if (get("minSize") !== undefined) out.minSize = int("minSize", get("minSize"));
   if (get("maxSize") !== undefined) out.maxSize = int("maxSize", get("maxSize"));
-  if (out.minSize !== null && out.maxSize !== null && out.minSize > out.maxSize) throw new BadParam("maxSize", "maxSize 는 minSize 보다 작을 수 없습니다");
+  if (out.minSize !== null && out.maxSize !== null && out.minSize > out.maxSize) throw new BadParam("maxSize", "browse.sizeOrder");
   if (get("modifiedSince") !== undefined) out.modifiedSince = epochSeconds("modifiedSince", get("modifiedSince"));
   if (get("integrity") !== undefined) out.integrity = new Set(oneOf("integrity", get("integrity"), INTEGRITY));
   if (get("sort") !== undefined) [out.sort] = oneOf("sort", get("sort"), SORTS);

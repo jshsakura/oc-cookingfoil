@@ -30,7 +30,7 @@ if (mode === "slow") { if (process.env.NSZ_STUB_PID) fs.writeFileSync(process.en
 `, { mode: 0o755 });
 process.env.COOK_NSZ_BIN = STUB;
 
-const { createNszQueue, WORK_DIR_NAME, KEEP_DIR_NAME } = await import("../../src/meta/nsz-queue.js");
+const { createNszQueue, WORK_DIR_NAME, KEEP_DIR_NAME, reasonText } = await import("../../src/meta/nsz-queue.js");
 const MIB = 1024 ** 2;
 const defaults = () => ({ enabled: true, autoQueue: true, level: 18, threads: 4, workers: 1, minSizeMb: 1, diskFloorGb: 0, keepHours: 0, keepGb: 0, block: false, xci: false });
 
@@ -126,7 +126,7 @@ test("a verify failure keeps the original and says the source may be damaged", a
   assert.ok(!exists("A.nsz"));
   const i = item(q, "A.nsp");
   assert.equal(i.state, "failed");
-  assert.match(i.reason, /해시/);
+  assert.match(reasonText("ko", i), /해시/);
   assert.equal(q.view().failures[0].rel, "A.nsp");
 });
 
@@ -138,7 +138,10 @@ test("a compression error keeps the original with a trimmed reason", async () =>
   assert.ok(exists("A.nsp"));
   const i = item(q, "A.nsp");
   assert.equal(i.state, "failed");
-  assert.match(i.reason, /압축하지 못했습니다.*zstd error/);
+  assert.match(reasonText("ko", i), /압축하지 못했습니다.*zstd error/);
+  // Kept in English with its code: the page reads its own language, a token or the log file English.
+  assert.match(i.reason, /^Could not compress \(exit code \d+\): .*zstd error/);
+  assert.equal(i.reasonCode, "nsz.compressExitWhy");
   assert.ok(i.reason.length <= 400);
 });
 
@@ -148,7 +151,7 @@ test("a result no smaller than the original is refused", async () => {
   const q = make();
   await run(q);
   assert.ok(exists("A.nsp") && !exists("A.nsz"));
-  assert.match(item(q, "A.nsp").reason, /줄어들지 않습니다/);
+  assert.match(reasonText("ko", item(q, "A.nsp")), /줄어들지 않습니다/);
 });
 
 test("a source that changed while it was compressed waits for later and is kept", async () => {
@@ -180,7 +183,7 @@ test("a .nsz already beside the original fails without touching either", async (
   const q = make();
   await run(q);
   assert.equal(item(q, "A.nsp").state, "failed");
-  assert.match(item(q, "A.nsp").reason, /이미 있습니다/);
+  assert.match(reasonText("ko", item(q, "A.nsp")), /이미 있습니다/);
   assert.equal(fs.readFileSync(path.join(games, "A.nsz"), "utf8"), "old");
 });
 
@@ -213,7 +216,7 @@ test("a .nsz that appears while converting is not overwritten and the original s
   assert.equal(fs.readFileSync(path.join(games, "A.nsz"), "utf8"), "other");
   assert.ok(exists("A.nsp"));
   assert.equal(item(q, "A.nsp").state, "failed");
-  assert.match(item(q, "A.nsp").reason, /이미 있습니다/);
+  assert.match(reasonText("ko", item(q, "A.nsp")), /이미 있습니다/);
 });
 
 test("a file starts when its own size fits in the free space, and the run pauses when it does not", async () => {
@@ -427,7 +430,7 @@ test("a failed file is never tried again by itself, only by 재시도", async ()
   await q.scan();
   await q.idle();
   assert.equal(item(q, "A.nsp").state, "failed");
-  assert.match(item(q, "A.nsp").reason, /줄어들지 않습니다/);
+  assert.match(reasonText("ko", item(q, "A.nsp")), /줄어들지 않습니다/);
   assert.equal(q.retry(item(q, "A.nsp").id), 1);
   await q.pump();
   await q.idle();
@@ -631,7 +634,7 @@ test("a failure goes to the log too", async () => {
   await run(make());
   const [line] = logLines();
   assert.equal(line.event, "failed");
-  assert.match(line.reason, /압축하지 못했습니다/);
+  assert.match(reasonText("ko", line), /압축하지 못했습니다/);
 });
 
 test("a lost state file does not delete kept originals until they pass the keep time", async () => {

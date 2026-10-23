@@ -39,6 +39,7 @@ import debug from "../debug.js";
 import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "./meta-messages.js";
 
 // libvips operation cache lives in C-land — bumping it pays for itself the
 // first time a hot icon's WebP variant is regenerated, since the source
@@ -440,7 +441,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
 
       const url = getUpstreamForBase(tid);
       if (!url && !haveOriginal) { skipped++; continue; }
-      job ??= activity.begin("prewarm", { title: "게임 아이콘을 미리 받습니다", total: queue.length });
+      job ??= activity.begin("prewarm", { title: activityText("act.prewarm"), total: queue.length });
 
       try {
         if (!haveOriginal) {
@@ -468,7 +469,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     throw err;
   }
   // Icons whose address is gone fail on every pass: a pass that made nothing new leaves no trace.
-  if (done + thumbs) job?.done(`새로 ${done}개${failed ? ` · 실패 ${failed}개` : ""}`);
+  if (done + thumbs) job?.done(activityText(failed ? "act.prewarmFailed" : "act.prewarmDone", { n: done, failed }));
   else job?.discard();
   debug.log(
     "image cache: prewarm done — %d new, %d thumbs, %d skipped, %d failed (%dms)",
