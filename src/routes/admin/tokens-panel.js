@@ -21,6 +21,8 @@ export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2></div>
   <p class="muted" data-top="mcp.token"></p>
   <p data-top="mcp.claude"></p>
   <div class="copy-row"><code id="mcp-claude"></code><button type="button" data-copy="mcp-claude" data-top="mcp.copy"></button></div>
+  <p data-top="mcp.project"></p>
+  <div class="copy-row"><code id="mcp-project" style="white-space:pre"></code><button type="button" data-copy="mcp-project" data-top="mcp.copy"></button></div>
   <p data-top="mcp.codex"></p>
   <div class="copy-row"><code id="mcp-codex" style="white-space:pre"></code><button type="button" data-copy="mcp-codex" data-top="mcp.copy"></button></div>
 </div>`;
@@ -43,6 +45,7 @@ async function loadMcp(){
     const base=(s.publicBaseUrl?.value||location.origin).replace(/\/+$/,'')+'/mcp';
     $('mcp-on').checked=s.mcpEnabled?.value===true;$('mcp-howto').hidden=!$('mcp-on').checked;
     $('mcp-claude').textContent='claude mcp add --transport http cookingfoil '+base+' --header "Authorization: Bearer '+topText('mcp.placeholder')+'"';
+    $('mcp-project').textContent=JSON.stringify({mcpServers:{cookingfoil:{type:'http',url:base,headers:{Authorization:'Bearer \${COOKINGFOIL_TOKEN}'}}}},null,2);
     $('mcp-codex').textContent='[mcp_servers.cookingfoil]\nurl = "'+base+'"\nbearer_token_env_var = "COOKINGFOIL_TOKEN"';
   }catch(err){toast(err.message);}
 }
