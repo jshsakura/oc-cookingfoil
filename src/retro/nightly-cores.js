@@ -21,7 +21,6 @@ import path from "path";
 import { Readable, Transform } from "stream";
 import { pipeline } from "stream/promises";
 import { extractPaths, PackError } from "./pack-bundle.js";
-import { coreKo } from "./core-messages.js";
 
 export const NIGHTLY_BASE = "https://buildbot.libretro.com/nightly/nintendo/switch/libnx/latest/";
 export const CORE_ZIP_MAX = 256 * 1024 * 1024;
@@ -44,7 +43,7 @@ export function parseIndex(text) {
   return out;
 }
 
-const timedOut = (message) => new PackError(message, { status: 504, reason: "download" });
+const timedOut = ({ code, vars }) => PackError.of(code, vars, { status: 504, reason: "download" });
 
 /**
  * One download's limits: `signal` aborts the request at `total`, or when `idle()` was not called for
@@ -73,7 +72,7 @@ function deadline(late, { idle, total }) {
 async function get(url, { base, hosts = [new URL(base).origin], fetchImpl = fetch, limit, connect, headers = {} }) {
   let at = new URL(url, base);
   for (let hop = 0; hop <= MAX_HOPS; hop++) {
-    if (!hosts.includes(at.origin)) throw new PackError(coreKo("badHost", { host: at.host }), { status: 502, reason: "download" });
+    if (!hosts.includes(at.origin)) throw PackError.of("badHost", { host: at.host }, { status: 502, reason: "download" });
     limit.arm(connect);
     const res = await limit.run(fetchImpl(at.href, { redirect: "manual", signal: limit.signal, headers }));
     limit.done();
@@ -82,10 +81,10 @@ async function get(url, { base, hosts = [new URL(base).origin], fetchImpl = fetc
       at = new URL(res.headers.get("location"), at);
       continue;
     }
-    if (!res.ok || !res.body) throw new PackError(coreKo("httpFailed", { status: res.status }), { status: 502, reason: "download" });
+    if (!res.ok || !res.body) throw PackError.of("httpFailed", { status: res.status }, { status: 502, reason: "download" });
     return res;
   }
-  throw new PackError(coreKo("tooManyRedirects"), { status: 502, reason: "download" });
+  throw PackError.of("tooManyRedirects", {}, { status: 502, reason: "download" });
 }
 
 let cached = { base: null, at: 0, index: null };
@@ -93,7 +92,7 @@ let cached = { base: null, at: 0, index: null };
 /** The nightly index, read again at most every ten minutes unless `fresh`. */
 export async function fetchIndex({ base = NIGHTLY_BASE, fetchImpl, fresh = false, now = Date.now(), timeouts = INDEX_TIMEOUTS } = {}) {
   if (!fresh && cached.base === base && now - cached.at < INDEX_TTL_MS) return cached.index;
-  const limit = deadline(coreKo("timedOutIndex"), timeouts);
+  const limit = deadline({ code: "timedOutIndex", vars: {} }, timeouts);
   let text;
   try {
     const res = await get(".index-extended", { base, fetchImpl, limit, connect: timeouts.connect });
@@ -102,9 +101,9 @@ export async function fetchIndex({ base = NIGHTLY_BASE, fetchImpl, fresh = false
   } finally {
     limit.done();
   }
-  if (text.length > INDEX_MAX) throw new PackError(coreKo("indexTooLarge"), { status: 502, reason: "download" });
+  if (text.length > INDEX_MAX) throw PackError.of("indexTooLarge", {}, { status: 502, reason: "download" });
   const index = parseIndex(text);
-  if (!index.size) throw new PackError(coreKo("indexUnread"), { status: 502, reason: "download" });
+  if (!index.size) throw PackError.of("indexUnread", {}, { status: 502, reason: "download" });
   cached = { base, at: now, index };
   return index;
 }
@@ -122,7 +121,7 @@ export const forgetIndex = () => {
  */
 export async function fetchCore(core, { base = NIGHTLY_BASE, from = null, fetchImpl, dir, room = async () => {}, bin, max = CORE_ZIP_MAX, timeouts = TIMEOUTS }) {
   await fsp.mkdir(dir, { recursive: true });
-  const limit = deadline(coreKo("timedOutCore", { core }), timeouts);
+  const limit = deadline({ code: "timedOutCore", vars: { core } }, timeouts);
   const zipped = from ? from.zipped : true;
   const zip = path.join(dir, zipped ? zipName(core) : nroName(core));
   try {
@@ -132,7 +131,7 @@ export async function fetchCore(core, { base = NIGHTLY_BASE, from = null, fetchI
     const announced = Number(res.headers.get("content-length"));
     if (Number.isFinite(announced) && announced > max) {
       res.body.cancel().catch(() => {});
-      throw new PackError(coreKo("coreTooLarge", { core }), { status: 502, reason: "too-large" });
+      throw PackError.of("coreTooLarge", { core }, { status: 502, reason: "too-large" });
     }
     try {
       await room(Number.isFinite(announced) && announced > 0 ? announced : max);
@@ -145,7 +144,7 @@ export async function fetchCore(core, { base = NIGHTLY_BASE, from = null, fetchI
       transform(chunk, _enc, cb) {
         limit.idle();
         done += chunk.length;
-        cb(done > max ? new PackError(coreKo("coreTooLarge", { core }), { status: 502, reason: "too-large" }) : null, chunk);
+        cb(done > max ? PackError.of("coreTooLarge", { core }, { status: 502, reason: "too-large" }) : null, chunk);
       },
     });
     limit.idle();
@@ -155,13 +154,13 @@ export async function fetchCore(core, { base = NIGHTLY_BASE, from = null, fetchI
   }
   if (!zipped) {
     const st = await fsp.lstat(zip);
-    if (!st.isFile() || st.size > max) throw new PackError(coreKo("badZip", { core }), { status: 502, reason: "bad-zip" });
+    if (!st.isFile() || st.size > max) throw PackError.of("badZip", { core }, { status: 502, reason: "bad-zip" });
     return zip;
   }
   const out = path.join(dir, "out");
   await extractPaths(zip, out, [nroName(core)], { bin });
   const nro = path.join(out, nroName(core));
   const st = await fsp.lstat(nro);
-  if (!st.isFile() || st.size > max) throw new PackError(coreKo("badZip", { core }), { status: 502, reason: "bad-zip" });
+  if (!st.isFile() || st.size > max) throw PackError.of("badZip", { core }, { status: 502, reason: "bad-zip" });
   return nro;
 }

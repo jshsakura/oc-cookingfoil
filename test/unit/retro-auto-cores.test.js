@@ -22,6 +22,8 @@ import { coreFiles, listPack, manifestView } from "../../src/retro/base-pack.js"
 import { forwarderSpec } from "../../src/retro/forwarder.js";
 import { listTrash, restoreEntry } from "../../src/retro/trash.js";
 import { toTrash } from "../../src/retro/core-files.js";
+import { coreErrorText } from "../../src/retro/core-messages.js";
+import { localizeCoresView } from "../../src/routes/admin/retro-cores-api.js";
 
 const bin = sevenZipBin();
 const opts = { skip: bin ? false : "7-Zip is not installed (COOK_7Z_BIN, 7z, 7zz or 7za)" };
@@ -180,6 +182,15 @@ test("the disk floor stops a download before it starts", opts, async () => {
     assert.equal(fs.existsSync(w.core("fceumm")), false);
     assert.equal(auto.status().failures.fceumm.reason, "disk-floor");
     assert.deepEqual(stagingLeft(w), []);
+    // Kept in English with its code, so the admin page reads it in its own language.
+    const failure = auto.status().failures.fceumm;
+    assert.match(failure.message, /^Not enough free space on the data disk/);
+    assert.equal(failure.code, "noRoomData");
+    assert.match(coreErrorText("ko", failure), /^데이터 디스크의 빈 공간이 모자라/);
+    const state = (await auto.states(catalogOf("nes"), new Map())).find((s) => s.core === "fceumm");
+    const view = { systems: [{ id: "nes", coreState: state }], auto: { last: null } };
+    assert.match(localizeCoresView(view, "ko").systems[0].coreState.message, /^데이터 디스크/);
+    assert.match(localizeCoresView(view, "en").systems[0].coreState.message, /^Not enough free space/);
   } finally { bot.close(); }
 });
 
@@ -282,7 +293,7 @@ test("switch a user's core to the official build and back: the user's file goes 
     assert.deepEqual(fs.readFileSync(w.core("fceumm")), mine);
     assert.equal(w.ledger().all().has("cores/fceumm_libretro_libnx.nro"), false);
     assert.deepEqual(await listTrash(w.retroDir), []);
-    await assert.rejects(auto.useUserVersion("fceumm"), /휴지통/);
+    await assert.rejects(auto.useUserVersion("fceumm"), /trash/);
   } finally { bot.close(); }
 });
 
@@ -310,7 +321,7 @@ test("a redirect to another host is not followed", opts, async () => {
     const { fetchIndex } = await import("../../src/retro/nightly-cores.js");
     forgetIndex();
     const hop = async (url, init) => (url.endsWith(".index-extended") ? fetch(bot.base.replace("/latest/", "/elsewhere"), init) : fetch(url, init));
-    await assert.rejects(fetchIndex({ base: bot.base, fetchImpl: hop }), /example\.invalid 는 코어를 받는 주소가 아닙니다/);
+    await assert.rejects(fetchIndex({ base: bot.base, fetchImpl: hop }), /example\.invalid is not where cores are downloaded from/);
   } finally { bot.close(); }
 });
 

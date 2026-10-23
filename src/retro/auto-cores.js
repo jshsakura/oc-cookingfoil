@@ -70,7 +70,7 @@ import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PA
 import { fetchCore, fetchIndex, INDEX_TIMEOUTS, NIGHTLY_BASE, nroName, TIMEOUTS } from "./nightly-cores.js";
 import { fetchRepoIndex } from "./repo-cores.js";
 import { toTrash } from "./core-files.js";
-import { coreKo } from "./core-messages.js";
+import { ACTIVITY_LANG, coreErrorText, coreText, isCoreCode } from "./core-messages.js";
 import { listTrash, restoreEntry, TrashError } from "./trash.js";
 
 const GIB = 1024 ** 3;
@@ -100,7 +100,7 @@ export const backoffAfter = (attempts) => BACKOFF_MS[Math.min(Math.max(attempts,
  *
  *   present   Map core → sha256 (null when not hashed) of the core files on disk
  *   entries   the ledger rows; held, Map core → trash entry of the cores in the retro trash
- *   job       { cores: Set } while one runs; failures, core → { reason, message, retryAt }
+ *   job       { cores: Set } while one runs; failures, core → { reason, message, code?, vars?, retryAt }
  */
 export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK, off = new Set(), sourceOf = () => "nightly" }) {
   const known = knownOfficial(pack);
@@ -120,11 +120,14 @@ export function coreStates({ games, systems, present, entries, held = new Map(),
     if (sourceOf(core) === "upload") return { ...base, state: "missing", reason: "upload" };
     if (job?.cores.has(core)) return { ...base, state: "installing" };
     if ((failure?.reason === "not-in-nightly" || failure?.reason === "not-in-repo") && now < failure.retryAt) return { ...base, state: failure.reason, retryAt: failure.retryAt };
-    if (failure && now < failure.retryAt) return { ...base, state: "failed", reason: failure.reason, message: failure.message, retryAt: failure.retryAt };
+    if (failure && now < failure.retryAt) return { ...base, state: "failed", reason: failure.reason, message: failure.message, ...faultOf(failure), retryAt: failure.retryAt };
     if (!enabled) return { ...base, state: "missing", reason: "auto-off" };
     return { ...base, state: "will-install" };
   });
 }
+
+/** The code and vars a failure carries (core-messages.js), so a route can say it in the reader's language. Pure. */
+const faultOf = (err) => (isCoreCode(err?.code) ? { code: err.code, vars: err.vars ?? {} } : {});
 
 const failureReason = (err) => err.reason ?? (err.stuck ? "rollback" : /HTTP|fetch|ECONN|ENOTFOUND|ETIMEDOUT/i.test(err.message) ? "download" : "install");
 
@@ -174,7 +177,7 @@ async function putBack(aside, dest, owned) {
 /** The retro trash's restore for restoreExact: restoreEntry(dir, entry, { exactName: true }). */
 export const restoreCore = (dir, entry, opts) => restoreEntry(dir, entry, opts);
 
-const busy = () => new PackError(coreKo("busy"), { status: 409 });
+const busy = () => PackError.of("busy", {}, { status: 409 });
 
 /**
  * The upkeep for one pack folder. Every dependency is a function or value so tests run it on a temp folder:
@@ -218,7 +221,7 @@ export function createAutoCores({
     const attempts = (failures()[core]?.attempts ?? 0) + 1;
     const reason = failureReason(err);
     const wait = reason === "not-in-nightly" || reason === "not-in-repo" ? NOT_IN_NIGHTLY_MS : backoffAfter(attempts);
-    saved = { ...saved, failures: { ...failures(), [core]: { reason, message: err.message, at: now(), attempts, retryAt: now() + wait } } };
+    saved = { ...saved, failures: { ...failures(), [core]: { reason, message: err.message, ...faultOf(err), at: now(), attempts, retryAt: now() + wait } } };
     debug.error("retro: core %s not installed (%s): %s", core, reason, err.message);
   };
   const clearFailure = (core) => {
@@ -226,11 +229,11 @@ export function createAutoCores({
     saved = { ...saved, failures: rest };
   };
 
-  /** Throws (reason disk-floor) when `bytes` more on `dir`'s disk would leave less than the floor free. */
-  async function roomOn(dir, label, bytes) {
+  /** Throws `code` (reason disk-floor) when `bytes` more on `dir`'s disk would leave less than the floor free. */
+  async function roomOn(dir, code, bytes) {
     const need = bytes + SPACE_SLACK + floorBytes();
     const free = await freeBytes(dir);
-    if (free < need) throw new PackError(coreKo("noRoom", { disk: label, need: Math.ceil(need / 1048576), free: Math.floor(free / 1048576) }), { status: 507, reason: "disk-floor", need, free });
+    if (free < need) throw PackError.of(code, { need: Math.ceil(need / 1048576), free: Math.floor(free / 1048576) }, { status: 507, reason: "disk-floor", need, free });
   }
 
   /**
@@ -242,15 +245,15 @@ export function createAutoCores({
     await fsp.mkdir(dataDir, { recursive: true });
     const cores = await coresDir();
     const oneDisk = (await fsp.stat(dataDir)).dev === (await fsp.stat(cores)).dev;
-    await roomOn(dataDir, coreKo("dataDisk"), bytes * (oneDisk ? 3 : 2));
-    await roomOn(cores, coreKo("retroDisk"), bytes);
+    await roomOn(dataDir, "noRoomData", bytes * (oneDisk ? 3 : 2));
+    await roomOn(cores, "noRoomRetro", bytes);
   }
 
   /** The pack folder's real cores/ folder, made when missing; neither it nor the pack folder may be a link. */
   async function coresDir() {
     const root = packDir();
     await fsp.mkdir(path.join(root, "cores"), { recursive: true });
-    for (const p of [root, path.join(root, "cores")]) if ((await fsp.lstat(p)).isSymbolicLink()) throw new PackError(coreKo("isLink", { path: p }), { status: 500 });
+    for (const p of [root, path.join(root, "cores")]) if ((await fsp.lstat(p)).isSymbolicLink()) throw PackError.of("isLink", { path: p }, { status: 500 });
     return path.join(await fsp.realpath(root), "cores");
   }
 
@@ -265,9 +268,9 @@ export function createAutoCores({
       const fromRepo = info.source === "repo";
       const nro = await fetchCore(core, { base: base(), from: fromRepo ? info : null, fetchImpl, dir: staging, room, bin, timeouts: timeouts.core });
       const digest = await digestFile(nro);
-      if (fromRepo && info.sha256 && digest.sha256 !== info.sha256) throw new PackError(coreKo("shaMismatch", { core }), { status: 502, reason: "sha256" });
-      if (!fromRepo && digest.crc32 !== info.crc32) throw new PackError(coreKo("crcMismatch", { core }), { status: 502, reason: "crc-mismatch" });
-      if (!(await isNro(nro))) throw new PackError(coreKo("notNro", { core }), { status: 502, reason: "bad-zip" });
+      if (fromRepo && info.sha256 && digest.sha256 !== info.sha256) throw PackError.of("shaMismatch", { core }, { status: 502, reason: "sha256" });
+      if (!fromRepo && digest.crc32 !== info.crc32) throw PackError.of("crcMismatch", { core }, { status: 502, reason: "crc-mismatch" });
+      if (!(await isNro(nro))) throw PackError.of("notNro", { core }, { status: 502, reason: "bad-zip" });
       const dest = path.join(await coresDir(), nroName(core));
       const tmp = besideName(dest, "cfpart");
       await fsp.copyFile(nro, tmp, fs.constants.COPYFILE_EXCL);
@@ -420,7 +423,7 @@ export function createAutoCores({
     if (job) throw busy();
     const release = claimFill();
     if (!release) throw busy();
-    const act = activity?.begin("retro-pack", { title: coreKo(kind === "update" ? "jobUpdate" : "jobInstall"), total: Math.max(cores.length, 1) });
+    const act = activity?.begin("retro-pack", { title: coreText(ACTIVITY_LANG, kind === "update" ? "jobUpdate" : "jobInstall"), total: Math.max(cores.length, 1) });
     job = { kind, cores: new Set(cores), startedAt: now() };
     job.done = (async () => {
       try {
@@ -428,14 +431,14 @@ export function createAutoCores({
         const out = await fn(act);
         saved = { ...saved, last: { at: now(), kind, ...out } };
         persist();
-        if (act) (out.installed?.length || out.replaced?.length ? act.done(coreKo("jobDone", { installed: out.installed?.length ?? 0, replaced: out.replaced?.length ?? 0 })) : act.discard());
+        if (act) (out.installed?.length || out.replaced?.length ? act.done(coreText(ACTIVITY_LANG, "jobDone", { installed: out.installed?.length ?? 0, replaced: out.replaced?.length ?? 0 })) : act.discard());
         return out;
       } catch (err) {
-        saved = { ...saved, last: { at: now(), kind, error: err.message } };
+        saved = { ...saved, last: { at: now(), kind, error: err.message, ...faultOf(err) } };
         persist();
-        act?.fail(err);
+        act?.fail(coreErrorText(ACTIVITY_LANG, err));
         debug.error("retro: core %s job failed: %s", kind, err.message);
-        return { error: err.message, reason: err.reason ?? null };
+        return { error: err.message, reason: err.reason ?? null, ...faultOf(err) };
       } finally {
         await recoverHeld().catch((err) => debug.error("retro: core leftovers not cleared: %s", err.message));
         job = null;
@@ -493,8 +496,8 @@ export function createAutoCores({
       if (index instanceof Error) throw index;
       const info = index.get(core);
       if (info) return { ...info, source };
-      if (source === "repo") throw new PackError(coreKo("notInRepo", { core, repo: repo() }), { status: 404, reason: "not-in-repo" });
-      throw new PackError(coreKo("notInNightly", { core }), { status: 404, reason: "not-in-nightly" });
+      if (source === "repo") throw PackError.of("notInRepo", { core, repo: repo() }, { status: 404, reason: "not-in-repo" });
+      throw PackError.of("notInNightly", { core }, { status: 404, reason: "not-in-nightly" });
     };
     return { find, errors: Object.values(indexes).filter((i) => i instanceof Error), read: Object.values(indexes).filter((i) => i instanceof Map).length };
   }
@@ -601,7 +604,7 @@ export function createAutoCores({
 
   /** A pinned core goes to the retro trash and the nightly build takes its place; a failed fetch puts it back. */
   function useOfficial(core) {
-    if (!CORE_RE.test(String(core))) throw new PackError(coreKo("badCore"), { status: 400 });
+    if (!CORE_RE.test(String(core))) throw PackError.of("badCore", {}, { status: 400 });
     return start("official", [core], async () => {
       const info = (await lookups([core])).find(core);
       const dest = path.join(packDir(), coreRel(core));
@@ -609,7 +612,7 @@ export function createAutoCores({
       if (sha !== null && serverOwns(sha, (await store()).all().get(coreRel(core)), knownOfficial(pack))) return { installed: [], already: true };
       const trashed = sha === null ? null : (await toTrash(retroDir, dest, nroName(core))).entry;
       try {
-        if ((await place(core, info)) !== "installed") throw new PackError(coreKo("placeAppeared", { core }), { status: 409 });
+        if ((await place(core, info)) !== "installed") throw PackError.of("placeAppeared", { core }, { status: 409 });
       } catch (err) {
         if (trashed) await restoreExact(core, trashed).catch((e) => debug.error("retro: %s stays in the trash: %s", core, e.message));
         throw err;
@@ -625,9 +628,9 @@ export function createAutoCores({
    * one goes to the trash instead (a server's file is deleted); nothing of the user's is deleted.
    */
   async function useUserVersion(core, { hidden = null } = {}) {
-    if (!CORE_RE.test(String(core))) throw new PackError(coreKo("badCore"), { status: 400 });
+    if (!CORE_RE.test(String(core))) throw PackError.of("badCore", {}, { status: 400 });
     const entry = hidden === null ? (await trashedCores(retroDir)).get(core) : null;
-    if (hidden === null && !entry) throw new PackError(coreKo("noUserVersion"), { status: 404 });
+    if (hidden === null && !entry) throw PackError.of("noUserVersion", {}, { status: 404 });
     if (job) throw busy();
     const release = claimFill();
     if (!release) throw busy();
@@ -638,10 +641,10 @@ export function createAutoCores({
       const owns = (sha) => serverOwns(sha, ledgerNow.all().get(coreRel(core)), knownOfficial(pack));
       if (hidden !== null) {
         const item = held.find((h) => h.file === hidden && h.core === core);
-        if (!item) throw new PackError(coreKo("noHidden"), { status: 404 });
+        if (!item) throw PackError.of("noHidden", {}, { status: 404 });
         return await bringBackHeld(core, item, dest, owns, ledgerNow);
       }
-      const notMine = () => new PackError(coreKo("alsoUser"), { status: 409 });
+      const notMine = () => PackError.of("alsoUser", {}, { status: 409 });
       const sha = await hashOf(dest);
       if (sha !== null && !owns(sha)) throw notMine();
       let aside = null;
@@ -682,7 +685,7 @@ export function createAutoCores({
         // The bytes moved aside are what gets deleted, so they are what is checked, read again.
         if (!owns(await hashFile(aside).catch(() => null))) {
           await putBack(aside, dest, false);
-          throw new PackError(coreKo("justChanged", { name: nroName(core) }), { status: 409 });
+          throw PackError.of("justChanged", { name: nroName(core) }, { status: 409 });
         }
         await fsp.rm(aside, { force: true });
       }
@@ -692,7 +695,7 @@ export function createAutoCores({
     try {
       await linkNoClobber(abs, dest);
     } catch (err) {
-      if (err.code === "EEXIST") throw new PackError(coreKo("againTaken", { name: nroName(core) }), { status: 409 });
+      if (err.code === "EEXIST") throw PackError.of("againTaken", { name: nroName(core) }, { status: 409 });
       throw err;
     }
     await fsp.rm(abs, { force: true });

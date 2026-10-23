@@ -18,7 +18,7 @@ import { linkNoClobber } from "./no-clobber.js";
 import { claimFill } from "./pack-fill.js";
 import { coreFile, packDirOf } from "./pack-status.js";
 import { TrashError, trashFiles } from "./trash.js";
-import { coreKo } from "./core-messages.js";
+import { coreText } from "./core-messages.js";
 
 export const CORE_MAX_BYTES = 256 * 1024 * 1024;
 export const CORE_NAME_RE = /^([a-z0-9_]+)_libretro_libnx\.nro$/;
@@ -29,6 +29,11 @@ export class CoreError extends Error {
     super(message);
     this.status = status;
     this.extra = extra;
+  }
+
+  /** A refusal named by its core-messages.js key: the message in English, with `code` and `vars` for the route to translate. */
+  static of(status, code, vars = {}, extra = {}) {
+    return Object.assign(new CoreError(status, coreText("en", code, vars), extra), { code, vars });
   }
 }
 
@@ -61,17 +66,17 @@ export async function toTrash(retroDir, abs, name) {
  * place without overwriting (409 when a file got there first) and only then removed.
  */
 export async function placeCore(retroDir, { abs, name }, { replace = false } = {}) {
-  if (!CORE_NAME_RE.test(name)) throw new CoreError(400, "코어 파일 이름은 <코어>_libretro_libnx.nro 여야 합니다");
+  if (!CORE_NAME_RE.test(name)) throw CoreError.of(400, "badName");
   const { size } = await fsp.stat(abs);
-  if (size > CORE_MAX_BYTES) throw new CoreError(413, `코어 파일은 ${CORE_MAX_BYTES / 1048576}MB 까지 받습니다`);
-  if (!(await isNro(abs))) throw new CoreError(400, "Switch 용 NRO 파일이 아닙니다");
+  if (size > CORE_MAX_BYTES) throw CoreError.of(413, "tooLarge", { mb: CORE_MAX_BYTES / 1048576 });
+  if (!(await isNro(abs))) throw CoreError.of(400, "notSwitchNro");
   const release = claimFill();
-  if (!release) throw new CoreError(409, coreKo("busyUpload"), { reason: "busy" });
+  if (!release) throw CoreError.of(409, "busyUpload", {}, { reason: "busy" });
   try {
     const dest = path.join(packDirOf(retroDir), "cores", name);
     let trashed = null;
     if (fs.existsSync(dest)) {
-      if (!replace) throw new CoreError(409, "같은 이름의 코어가 이미 있습니다. 바꾸려면 교체를 확인합니다");
+      if (!replace) throw CoreError.of(409, "coreExists");
       trashed = (await toTrash(retroDir, dest, name)).entry;
     }
     await fsp.mkdir(path.dirname(dest), { recursive: true });
@@ -79,7 +84,7 @@ export async function placeCore(retroDir, { abs, name }, { replace = false } = {
       await linkNoClobber(abs, dest);
     } catch (err) {
       if (err.code !== "EEXIST") throw err;
-      throw new CoreError(409, coreKo(trashed ? "uploadTakenTrashed" : "uploadTaken", { name }), trashed ? { trashed } : {});
+      throw CoreError.of(409, trashed ? "uploadTakenTrashed" : "uploadTaken", { name }, trashed ? { trashed } : {});
     }
     await fsp.rm(abs, { force: true });
     return { core: name.match(CORE_NAME_RE)[1], file: `cores/${name}`, size, ...(trashed ? { trashed } : {}) };
@@ -90,11 +95,11 @@ export async function placeCore(retroDir, { abs, name }, { replace = false } = {
 
 /** Moves a core to the trash. Refused (409, with how many games use it) unless `force` when `games` use it. */
 export async function removeCore(retroDir, core, games, { force = false } = {}) {
-  if (!/^[a-z0-9_]+$/.test(String(core ?? ""))) throw new CoreError(400, "코어 이름이 맞지 않습니다");
+  if (!/^[a-z0-9_]+$/.test(String(core ?? ""))) throw CoreError.of(400, "badCore");
   const abs = path.join(packDirOf(retroDir), coreFile(core));
-  if (!fs.existsSync(abs)) throw new CoreError(404, "그런 코어가 없습니다");
+  if (!fs.existsSync(abs)) throw CoreError.of(404, "noSuchCore");
   const using = games.filter((g) => g.core === core).length;
-  if (using && !force) throw new CoreError(409, `게임 ${using}개가 이 코어를 씁니다`, { using });
+  if (using && !force) throw CoreError.of(409, "coreInUse", { n: using }, { using });
   try {
     return { core, using, ...(await toTrash(retroDir, abs, path.basename(abs))) };
   } catch (err) {

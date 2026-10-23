@@ -54,6 +54,8 @@ import * as coreSettings from "../../retro/core-settings.js";
 import { apiWord } from "./api-words.js";
 import { autoCores } from "../../retro/auto-cores.js";
 import { PackError } from "../../retro/pack-bundle.js";
+import { coreError, coreErrorText, coreWord } from "../../retro/core-messages.js";
+import { requestLang } from "../../meta/langs.js";
 
 let hashCache = null;
 
@@ -77,15 +79,24 @@ export async function retroCoresView() {
   return { ...list, sources: { repo: coreSettings.repo(), cores: coreSettings.sources() }, cores: list.cores.map((c) => (off.has(c.core) ? { ...c, off: true } : c)), systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } };
 }
 
+/**
+ * The view with each stored failure (a console's failed core, the upkeep's last job) said in the request's
+ * language by its code; a failure saved before codes were kept reads as it was written. Pure.
+ */
+export function localizeCoresView(view, lang) {
+  const say = (x, field) => (x?.code ? { ...x, [field]: coreErrorText(lang, x) } : x);
+  return { ...view, systems: view.systems.map((sys) => ({ ...sys, coreState: say(sys.coreState, "message") })), auto: { ...view.auto, last: say(view.auto.last, "error") } };
+}
+
 export function mountRetroCoresApi(router, requireSession) {
   router.get("/api/retro-cores", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     try {
-      res.json(await retroCoresView());
+      res.json(localizeCoresView(await retroCoresView(), requestLang(req)));
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
-      res.status(502).json({ error: err.message });
+      res.status(502).json(coreError(req, err));
     }
   });
 
@@ -123,9 +134,9 @@ export function mountRetroCoresApi(router, requireSession) {
       const { system } = req.body ?? {};
       const core = req.body?.core ?? null;
       const catalog = await retroCatalog.current(retroDir);
-      if (typeof system !== "string" || !catalog.systems[system]) return res.status(404).json({ error: "그런 기종이 없습니다." });
+      if (typeof system !== "string" || !catalog.systems[system]) return res.status(404).json({ error: coreWord(req, "noSystem"), code: "noSystem" });
       if (core !== null && (typeof core !== "string" || !systemCores.CORE_RE.test(core) || !fs.existsSync(path.join(packDirOf(retroDir), coreFile(core))))) {
-        return res.status(400).json({ error: "retroarch/cores/ 에 없는 코어입니다." });
+        return res.status(400).json({ error: coreWord(req, "notInCores"), code: "notInCores" });
       }
       const tableCore = catalog.systems[system].tableCore ?? catalog.systems[system].core;
       systemCores.set(system, core === tableCore ? null : core);
@@ -134,7 +145,7 @@ export function mountRetroCoresApi(router, requireSession) {
       res.json({ system, core: core ?? tableCore, tableCore });
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
-      res.status(502).json({ error: err.message });
+      res.status(502).json(coreError(req, err));
     }
   });
 
@@ -149,11 +160,11 @@ export function mountRetroCoresApi(router, requireSession) {
         const { done: _done, ...shown } = out;
         return res.status(202).json(shown);
       }
-      res.json(out);
+      res.json(out?.code ? { ...out, error: coreErrorText(requestLang(req), out) } : out);
     } catch (err) {
-      if (err instanceof PackError && err.status < 500) return res.status(err.status).json({ error: err.message });
+      if (err instanceof PackError && err.status < 500) return res.status(err.status).json(coreError(req, err));
       debug.error("admin retro-cores: %s", err.message);
-      res.status(502).json({ error: err.message });
+      res.status(502).json(coreError(req, err));
     }
   });
   const jobView = (j) => ({ started: true, kind: j.kind, cores: [...j.cores], startedAt: j.startedAt, done: j.done });
@@ -171,9 +182,9 @@ export function mountRetroCoresApi(router, requireSession) {
       debug.log("admin retro-cores: %s → trash %s", out.core, out.entry);
       res.json(out);
     } catch (err) {
-      if (err instanceof CoreError) return res.status(err.status).json({ error: err.message, ...err.extra });
+      if (err instanceof CoreError) return res.status(err.status).json({ ...coreError(req, err), ...err.extra });
       debug.error("admin retro-cores: %s", err.message);
-      res.status(502).json({ error: err.message });
+      res.status(502).json(coreError(req, err));
     }
   });
 }

@@ -243,13 +243,13 @@ async function rcSetSystem(s,core,sel){
 async function rcRemove(c,force=false){
   if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
   try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
-  catch(err){if(/게임 \\d+개가/.test(err.message)&&!force){
+  catch(err){if(err.code==='coreInUse'&&!force){
       if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
     toast(err.message);}}
 async function rcUpload(file,replace=false){
   const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
   const r=await fetch('/admin/api/upload/core',{method:'POST',headers:{'Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});const d=await r.json().catch(()=>({}));
-  if(r.status===409&&!replace&&/같은 이름/.test(d.error||'')){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
+  if(r.status===409&&!replace&&d.code==='coreExists'){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
   if(r.status===409&&d.reason==='busy'){toast(topText('ac.uploadBusy'));return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
   toast(d.where+' 에 올렸습니다.');loadRetroCores();}
