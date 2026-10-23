@@ -1,9 +1,11 @@
 import { escapeHtml } from "./escape.js";
-export function pairPage({ code = "", authenticated = false, approved = false, expired = false } = {}) {
+import { PAIR_TEXT } from "../device-pair-text.js";
+/** `repair`: "repairSame" or "repairOther" when the console is already registered and asks to be paired again. */
+export function pairPage({ code = "", authenticated = false, approved = false, expired = false, repair = null } = {}) {
   const title = expired ? "연결 시간이 지났습니다." : approved ? "서버 연결을 승인했습니다." : "서버 연결";
   const content = expired ? '<p>기기에서 새 QR을 확인하고 다시 스캔합니다.</p>'
     : approved ? '<p>기기가 자동으로 서버에 연결합니다. 이 창을 닫아도 됩니다.</p>'
-    : `<p>기기 화면에 표시된 기기 코드와 같은지 확인합니다.</p><strong class="device-code">${escapeHtml(code)}</strong>
+    : `${repair ? `<p>${PAIR_TEXT.ko[repair]}</p>` : ""}<p>기기 화면에 표시된 기기 코드와 같은지 확인합니다.</p><strong class="device-code">${escapeHtml(code)}</strong>
 ${authenticated ? '<form id="approve"><label for="label">기기 이름 <span>(선택)</span></label><input id="label" maxlength="64" placeholder="거실 기기" autocomplete="off"><button type="submit">이 기기를 연결합니다</button></form>'
     : '<form id="verify"><label for="code">관리자 인증 앱의 6자리 코드</label><input id="code" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" maxlength="6" required autofocus><button type="submit">인증합니다</button></form><p class="hint">서버 관리자만 연결을 승인할 수 있습니다.</p>'}
 <p id="error" role="alert"></p>`;

@@ -5,7 +5,8 @@
  *   loginPage   the ID and password form; a Google button under it when Google
  *               sign-in is on, and a note when a Google account is waiting or turned off
  *   devicePage  code     type the 8-character code a console shows
- *               confirm  one console (its QR was scanned): a single button
+ *               confirm  one console (its QR was scanned): a single button; `repair`
+ *                        ("repairSame" | "repairOther") notes it is already registered
  *               done     that console is already approved
  *               expired  the QR is gone
  */
@@ -37,6 +38,8 @@ const TEXT = {
     codeLabel: "기기 코드",
     confirmTitle: "이 기기를 연결합니다",
     confirmLead: "기기 화면에 표시된 기기 코드와 같은지 확인합니다.",
+    repairSame: "이 기기는 이미 등록되어 있습니다. 승인하면 새 키로 다시 연결하고, 기기가 쓰던 키는 더 이상 쓸 수 없습니다.",
+    repairOther: "이 기기는 이미 다른 계정에 등록되어 있습니다. 승인하면 이 계정으로 옮기고 새 키로 다시 연결하며, 기기가 쓰던 키는 더 이상 쓸 수 없습니다.",
     nameLabel: "기기 이름",
     namePlaceholder: "거실 기기",
     optional: "(선택)",
@@ -74,6 +77,8 @@ const TEXT = {
     codeLabel: "Device code",
     confirmTitle: "Connect this console",
     confirmLead: "Check that the code matches the one on the console.",
+    repairSame: "This console is already registered. Approving reconnects it with a new key; the key it had stops working.",
+    repairOther: "This console is already registered to another account. Approving moves it to this account and reconnects it with a new key; the key it had stops working.",
     nameLabel: "Console name",
     namePlaceholder: "Living room",
     optional: "(optional)",
@@ -111,6 +116,8 @@ const TEXT = {
     codeLabel: "端末コード",
     confirmTitle: "この本体を接続します",
     confirmLead: "本体に表示された端末コードと同じか確認します。",
+    repairSame: "この本体はすでに登録されています。承認すると新しいキーで接続し直し、それまでのキーは使えなくなります。",
+    repairOther: "この本体はすでに別のアカウントに登録されています。承認するとこのアカウントに移して新しいキーで接続し直し、それまでのキーは使えなくなります。",
     nameLabel: "本体の名前",
     namePlaceholder: "リビング",
     optional: "（任意）",
@@ -148,6 +155,8 @@ const TEXT = {
     codeLabel: "设备码",
     confirmTitle: "连接这台主机",
     confirmLead: "请确认与主机上显示的设备码一致。",
+    repairSame: "这台主机已经登记过。批准后将用新密钥重新连接，原来的密钥将无法再用。",
+    repairOther: "这台主机已登记在其他账户下。批准后将把它移到此账户并用新密钥重新连接，原来的密钥将无法再用。",
     nameLabel: "主机名称",
     namePlaceholder: "客厅",
     optional: "（可选）",
@@ -249,14 +258,14 @@ const j=await r.json().catch(()=>({}));error.textContent=j.code==='device-limit'
 catch{error.textContent=E.net;}finally{button.disabled=false;}});${SIGN_OUT_SCRIPT}`;
 }
 
-export function devicePage({ lang = "ko", view = "code", code = "", token = "", user = "", csrf = "" } = {}) {
+export function devicePage({ lang = "ko", view = "code", code = "", token = "", user = "", csrf = "", repair = null } = {}) {
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
   if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
   const name = `<div class="field"><label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off"></div>`;
   const approve = `<button type="submit">${icon("check")}<span>${escapeHtml(t.approve)}</span></button>`;
   const body = view === "confirm"
-    ? `<p>${escapeHtml(t.confirmLead)}</p><strong class="device-code">${escapeHtml(code)}</strong>
+    ? `${repair ? `<p>${escapeHtml(t[repair])}</p>` : ""}<p>${escapeHtml(t.confirmLead)}</p><strong class="device-code">${escapeHtml(code)}</strong>
 <form id="approve" data-token="${escapeHtml(token)}" novalidate>${name}${approve}</form>`
     : `<p>${escapeHtml(t.codeLead)}</p><form id="approve" novalidate><div class="field"><label for="code">${escapeHtml(t.codeLabel)}</label>
 <input id="code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A1B2C3D4" required></div>${name}

@@ -16,7 +16,8 @@ import { hashPairSecret, normalizePairSecret, pairSecretMatches, takeAccessKeyDe
  * Check, without keeping it, the pairSecret a console asks with: "invalid" when
  * malformed, "conflict" when another secret already claimed the device, else
  * "ok" with the hash to keep once the console is accepted (approved, or queued
- * within the pending limit), or "none" (no secret, or already approved).
+ * within the pending limit), or "none" (no secret, or already approved). A
+ * conflict carries the hash too, for a waiting console that asks again (/request).
  * @returns {{ verdict: "none" | "ok" | "conflict" | "invalid", hash?: string }}
  */
 export function checkPairSecret(deviceKey, raw) {
@@ -26,7 +27,7 @@ export function checkPairSecret(deviceKey, raw) {
   if (store.isDeviceApproved(deviceKey)) return { verdict: "none" };
   const hash = hashPairSecret(secret);
   const prev = store.pairSecretHash(deviceKey);
-  return prev && prev !== hash ? { verdict: "conflict" } : { verdict: "ok", hash };
+  return { verdict: prev && prev !== hash ? "conflict" : "ok", hash };
 }
 
 /**
