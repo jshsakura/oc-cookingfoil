@@ -16,7 +16,9 @@ const label = (order, tone, icon, text) => ({ ...text, tone, ...(icon ? { icon }
 
 export const SWITCH_LABELS = {
   "korean-patch": label(10, "accent", "globe", { en: "Korean patch", ko: "한글패치", ja: "韓国語パッチ", zh: "韩化补丁", "zh-Hant": "韓化補丁", es: "Parche coreano", fr: "Patch coréen", de: "Koreanischer Patch", it: "Patch coreana", pt: "Patch coreano", ru: "Корейский патч", nl: "Koreaanse patch" }),
-  "required-patch": label(20, "warn", "wrench", { en: "Required patch", ko: "필수 패치", ja: "必須パッチ", zh: "必需补丁", "zh-Hant": "必需補丁", es: "Parche necesario", fr: "Patch requis", de: "Erforderlicher Patch", it: "Patch necessaria", pt: "Patch necessário", ru: "Обязательный патч", nl: "Vereiste patch" }),
+  // Overseas a fan-made patch is a mod ("patch" reads as an official update there): the client's patches menu says Mods too.
+  "required-patch": label(20, "warn", "wrench", { en: "Required mod", ko: "필수 패치", ja: "必須パッチ", zh: "必需补丁", "zh-Hant": "必需修補程式", es: "Mod necesario", fr: "Mod requis", de: "Erforderlicher Mod", it: "Mod necessaria", pt: "Mod necessário", ru: "Обязательный мод", nl: "Vereiste mod" }),
+  patch: label(21, "neutral", "wrench", { en: "Mod", ko: "패치", ja: "パッチ", zh: "补丁", "zh-Hant": "修補程式", es: "Mod", fr: "Mod", de: "Mod", it: "Mod", pt: "Mod", ru: "Мод", nl: "Mod" }),
   damaged: label(30, "bad", "alert", { en: "May be damaged", ko: "손상 의심", ja: "破損の疑い", zh: "疑似损坏", "zh-Hant": "疑似損壞", es: "Posiblemente dañado", fr: "Peut-être endommagé", de: "Möglicherweise beschädigt", it: "Forse danneggiato", pt: "Pode estar danificado", ru: "Возможно повреждён", nl: "Mogelijk beschadigd" }),
   modified: label(31, "warn", "info", { en: "Modified", ko: "수정됨", ja: "改変あり", zh: "已修改", "zh-Hant": "已修改", es: "Modificado", fr: "Modifié", de: "Verändert", it: "Modificato", pt: "Modificado", ru: "Изменён", nl: "Aangepast" }),
   latest: label(32, "good", "check", { en: "Latest version", ko: "최신 버전", ja: "最新バージョン", zh: "最新版本", "zh-Hant": "最新版本", es: "Última versión", fr: "Dernière version", de: "Neueste Version", it: "Ultima versione", pt: "Versão mais recente", ru: "Последняя версия", nl: "Nieuwste versie" }),
@@ -58,6 +60,8 @@ export function attachSwitchLabels(items) {
     const labels = [];
     if (item.korean_patches) labels.push("korean-patch");
     if (item.required_patches) labels.push("required-patch");
+    // A Korean patch already says so in its own label.
+    else if (item.patches && !item.korean_patches) labels.push("patch");
     if (game.integrity) labels.push(game.integrity === 2 ? "damaged" : "modified");
     else if (game.update >= 0) labels.push(item.latest_version && game.update >= item.latest_version ? "latest" : "update");
     if (item.price_discount) labels.push("sale");

@@ -190,6 +190,28 @@ test('card names follow the page language from the sections names, falling back 
   await expect(name).toHaveText('테스트 게임');
 });
 
+test('a game with a patch shows a patch chip on its card, a required one the stronger chip, and a game without none', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  const game = (tid: string, name: string, over = {}) => ({ url: `${tid}.nsp`, name, size: 1e9, app_type: 'base', title_id: tid, base_title_id: tid, app_version: 0, ...over });
+  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [
+    game('0100000000020000', 'Patched Game', { patches: 2, patch_required: false }),
+    game('0100000000030000', 'Required Game', { patches: 1, patch_required: true, required_patches: 1 }),
+    game('0100000000040000', 'Plain Game'),
+  ] }], genres: {}, score_labels: {} } }));
+  await page.goto('/');
+  const card = (name: string) => page.locator('#games .game').filter({ has: page.locator('.name', { hasText: name }) });
+  await expect(card('Patched Game').locator('.pill.patch')).toHaveText('패치');
+  await expect(card('Patched Game').locator('.pill.need')).toHaveCount(0);
+  await expect(card('Required Game').locator('.pill.need')).toHaveText('필수 패치');
+  await expect(card('Required Game').locator('.pill.patch')).toHaveCount(0);
+  await expect(card('Plain Game').locator('.pill.patch, .pill.need')).toHaveCount(0);
+  for (const [code, plain, required] of [['en', 'Mod', 'Required mod'], ['ja', 'パッチ', '必須パッチ'], ['zh', '补丁', '必需补丁']]) {
+    await pickLang(page, code);
+    await expect(card('Patched Game').locator('.pill.patch')).toHaveText(plain);
+    await expect(card('Required Game').locator('.pill.need')).toHaveText(required);
+  }
+});
+
 test('the stats panel draws composition, storage and recent-month charts from the file list', async ({ page }) => {
   const now = Date.now();
   const items = [
