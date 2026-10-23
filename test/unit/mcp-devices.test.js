@@ -79,3 +79,11 @@ test("a waiting client download is listed and cancelled by its id", async () => 
   assert.deepEqual((await list.handler(ctx, {})).downloads, []);
   await assert.rejects(run({ device: id, op: "cancel_download" }), (e) => e.status === 404);
 });
+
+test("a Google owner's token approves under google:<email>, the name account_set revokes by", async () => {
+  const google = await import("../../src/security/google-accounts.js");
+  google.signIn({ sub: "sub1", email: "boss@example.com" });
+  store.recordPendingDevice(key("d"), { quiet: true });
+  await set.handler({ token: { id: "t2", owner: "google:sub1" } }, { device: deviceCode(key("d")), op: "approve" });
+  assert.equal(store.deviceAddedBy(key("d")), "google:boss@example.com");
+});

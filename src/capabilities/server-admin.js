@@ -7,6 +7,7 @@ import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
 import drainer from "../security/drain.js";
 import * as serverSettings from "../security/server-settings.js";
+import { SETTINGS } from "../security/server-settings.js";
 import * as folderSync from "../meta/folder-sync.js";
 import * as backups from "../db/backup.js";
 import * as titledbStore from "../meta/titledb-store.js";
@@ -87,7 +88,7 @@ export const serverAdminCapabilities = [
     http: { method: "GET", path: "/admin/api/server-settings" },
     handler: async (_ctx, input) => {
       const all = serverSettings.describe();
-      if (input.name !== undefined && !all[input.name]) throw fail(404, `no setting ${input.name}; settings_get without name lists them`);
+      if (input.name !== undefined && !Object.hasOwn(all, input.name)) throw fail(404, `no setting ${input.name}; settings_get without name lists them`);
       const names = input.name ? [input.name] : Object.keys(all);
       return {
         values: Object.fromEntries(names.map((k) => [k, all[k].value])),
@@ -142,7 +143,7 @@ export const serverAdminCapabilities = [
     output: obj({ started: oneOf(Object.keys(TASKS)), already: bool("it was running, so nothing new started") }),
     preview: async (_ctx, input) => {
       taskOf(input);
-      return { task: input.task, changes: `Will ${TASKS[input.task]}. It runs in the background and changes no setting.` };
+      return { task: input.task, changes: `Will ${TASKS[input.task]}.${input.task === "backup" ? " It finishes before the call returns." : " It runs in the background; follow it with jobs_list."} No setting changes.` };
     },
     previewOutput: obj({ task: str(), changes: str() }),
     safety: "write",
@@ -163,8 +164,10 @@ function valuesOf(input) {
   if (!values || typeof values !== "object" || Array.isArray(values) || !Object.keys(values).length) throw fail(400, "values is an object of setting name to value; see settings_get");
   const now = serverSettings.describe();
   for (const name of Object.keys(values)) {
-    if (!now[name]) throw fail(404, `no setting ${name}; settings_get lists them`);
+    if (!Object.hasOwn(now, name)) throw fail(404, `no setting ${name}; settings_get lists them`);
     if (TOKEN_LOCKED.includes(name)) throw fail(403, `${name} decides who may sign in or where consoles connect; change it on the admin page`);
+    const spec = SETTINGS[name];
+    if (values[name] !== null && !(spec.check(spec.parse ? spec.parse(values[name]) : values[name]))) throw fail(400, `${name} does not accept that value`);
   }
   return values;
 }

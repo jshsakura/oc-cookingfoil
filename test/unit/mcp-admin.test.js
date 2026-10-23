@@ -45,6 +45,8 @@ test("settings_set previews the change, saves it, and refuses sign-in settings a
   await assert.rejects(set.handler(ctx, { values: { passwordLogin: false } }), (e) => e.status === 403 && /admin page/.test(e.message));
   await assert.rejects(set.handler(ctx, { values: { nope: 1 } }), (e) => e.status === 404);
   await assert.rejects(set.handler(ctx, { values: { backupDays: "many" } }), (e) => e.status === 400 && /backupDays/.test(e.message));
+  await assert.rejects(set.preview(ctx, { values: { backupDays: "many" } }), (e) => e.status === 400, "a preview refuses what the save would");
+  await assert.rejects(set.preview(ctx, { values: { constructor: 1 } }), (e) => e.status === 404);
   await assert.rejects(set.handler(ctx, { values: {} }), /object of setting name/);
 });
 

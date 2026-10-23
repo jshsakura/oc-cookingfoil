@@ -10,6 +10,7 @@ import * as store from "../security/store.js";
 import { deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approveWaitingDevice } from "../security/pairing-approve.js";
 import { accountFull } from "../security/device-limit.js";
+import { tokenApprover } from "../security/admin-actor.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -26,7 +27,7 @@ function findDevice(raw) {
   throw fail(404, `no console with code ${code}; device_list shows the waiting and approved ones`);
 }
 
-const approver = (ctx) => ctx.token?.owner ?? ctx.by?.name ?? "admin";
+const approver = (ctx) => tokenApprover(ctx.token?.owner);
 
 const APPROVED = obj({
   code: str("8-character code, the device argument of device_set"),
@@ -112,7 +113,7 @@ export const devicesCapabilities = [
     preview: async (ctx, input) => {
       const { state, row } = check(input);
       if (state === "download") return { console: { code: row.id, state, name: `download of ${row.owner}`, admin: false }, op: input.op, refused: null, changes: "Cancels the download. A console that has not used it yet can no longer enroll with it." };
-      const limit = input.op === "approve" ? accountFull(row.download?.owner ?? approver(ctx), row.deviceKey) : 0;
+      const limit = input.op === "approve" ? accountFull(store.pendingDownload(row.deviceKey)?.owner ?? approver(ctx), row.deviceKey) : 0;
       return {
         console: { code: deviceCode(row.deviceKey), state, name: name(row), admin: row.admin === true },
         op: input.op,
