@@ -1,10 +1,10 @@
 /**
  * The help tool's text, generated from the registry so it never drifts from what the tools do:
- * reference() is reference.md plus one line per served tool, toolSpec(id) one tool's full input and
- * output, field by field.
+ * reference() is reference.md plus each area tool with one line per action, toolSpec(name) one
+ * action's full input and output field by field, or an area's action lines.
  */
 import { readFileSync } from "node:fs";
-import { servedTools, toolDescription, toolInput } from "./tools.js";
+import { areaDescription, areaTools, gated, servedTools, toolOf } from "./tools.js";
 
 const REFERENCE = readFileSync(new URL("./reference.md", import.meta.url), "utf8").trimEnd();
 
@@ -25,13 +25,12 @@ export function typeText(s, depth = 0) {
   return nullable ? `${out}|null` : out;
 }
 
-/** "games_search(q?, limit?) -> { total, offset, items }" */
+/** "games_search(q?, limit?) -> { total, offset, items }"; a writing action ends in " [confirm]". */
 export function signature(cap) {
-  const input = toolInput(cap);
-  const req = new Set(input.required ?? []);
-  const args = Object.keys(input.properties ?? {}).map((k) => (req.has(k) ? k : `${k}?`)).join(", ");
+  const req = new Set(cap.input.required ?? []);
+  const args = Object.keys(cap.input.properties ?? {}).map((k) => (req.has(k) ? k : `${k}?`)).join(", ");
   const out = cap.output?.properties ? `{ ${Object.keys(cap.output.properties).join(", ")} }` : typeText(cap.output);
-  return `${cap.id}(${args}) -> ${out}`;
+  return `${cap.id}(${args}) -> ${out}${gated(cap) ? " [confirm]" : ""}`;
 }
 
 /** The rows of a schema's fields as "- path: type. description"; a nested object or list of objects gets its own rows once. */
@@ -54,20 +53,29 @@ function fieldLines(schema, prefix = "", seen = new Map()) {
 }
 
 export function reference() {
-  return [REFERENCE, "", "## Tools", "", "`help` with `tool` gives one tool's full spec.", "", ...servedTools().map((c) => `- \`${signature(c)}\``)].join("\n");
+  const areas = areaTools().flatMap((a) => ["", `### ${a.name}`, areaDescription(a), ...a.caps.map((c) => `- \`${signature(c)}\``)]);
+  return [REFERENCE, "", "## Tools",
+    "", "Call an area tool as `games { action: \"games_search\", args: { q: \"zelda\" } }`. `[confirm]` marks a writing action: without `confirm` it only previews; `confirm: \"approve\"` goes next to `action`, not inside `args`. `help` with `tool` (an action or area name) gives its full spec.",
+    ...areas].join("\n");
 }
 
-export function toolSpec(id) {
-  const cap = servedTools().find((c) => c.id === id);
-  if (!cap) throw Object.assign(new Error(`No tool ${id}. Tools: ${servedTools().map((c) => c.id).join(", ")}`), { status: 404 });
-  const input = fieldLines(toolInput(cap));
+const notFound = (name) => Object.assign(new Error(`No action or tool ${name}. Actions: ${servedTools().map((c) => c.id).join(", ")}`), { status: 404 });
+
+export function toolSpec(name) {
+  const area = areaTools().find((a) => a.name === name);
+  if (area) return [`# ${area.name}`, "", areaDescription(area), "", ...area.caps.map((c) => `- \`${signature(c)}\``)].join("\n");
+  const cap = servedTools().find((c) => c.id === name);
+  if (!cap) throw notFound(name);
+  const input = fieldLines(cap.input);
+  const tool = toolOf(cap);
   const preview = cap.preview
     ? ["", "## Preview", "Without confirm: `{ preview, next }`, nothing changed. `preview`:", ...fieldLines(cap.previewOutput)]
     : [];
   return [
-    `# ${cap.id}`, "", toolDescription(cap), "",
+    `# ${cap.id}`, "", cap.description, "",
+    tool === cap.id ? `Call: \`${cap.id} { ...input }\`.` : `Call: \`${tool} { action: "${cap.id}", args: { ...input }${gated(cap) ? ", confirm?: \"approve\"" : ""} }\`.`,
     `Safety: ${cap.safety}.`, "",
-    "## Input", ...(input.length ? input : ["none"]), "",
+    "## Input (args)", ...(input.length ? input : ["none"]), "",
     "## Output", ...fieldLines(cap.output),
     ...preview,
   ].join("\n");

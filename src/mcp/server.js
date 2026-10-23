@@ -1,40 +1,40 @@
 /**
- * The MCP server: one McpServer per request (createMcpHandler, stateless), its tools the served
- * capabilities (tools.js). The SDK checks arguments against each capability's input schema before
- * the handler runs; a bad call comes back as an isError result naming the argument.
+ * The MCP server: one McpServer per request (createMcpHandler, stateless). help is a tool of its own;
+ * every other served capability is an action of its area's tool (tools.js). The SDK checks the area
+ * tool's shape, and the action's own input schema is checked here before its handler runs; a bad
+ * call comes back as an isError result naming the argument.
  *
- * Write and destructive tools take confirm: "approve" (as ServiceNow MCP does). Without it the
- * call changes nothing and returns the capability's preview, which the agent shows the user; it
- * calls again with confirm only after the user agrees. Each carried-out write is journaled.
+ * Writing actions take confirm: "approve" (as ServiceNow MCP does). Without it the call changes
+ * nothing and returns the capability's preview, which the agent shows the user; it calls again with
+ * confirm only after the user agrees. Each carried-out write is journaled.
  */
 import { createMcpHandler, fromJsonSchema, McpServer } from "@modelcontextprotocol/server";
 import pkg from "../package.js";
 import { errorResult, okResult } from "./envelope.js";
 import { reference } from "./spec.js";
-import { gated, servedTools, toolDescription, toolInput } from "./tools.js";
+import { areaDescription, areaInput, areaTools, gated, servedTools, STANDALONE } from "./tools.js";
 import { record } from "./journal.js";
 
-const INSTRUCTIONS = "CookingFoil, a Nintendo Switch library server. Call help first: rules, id formats and every tool's arguments and result. help with tool gives one tool's full spec.";
-
-const ANNOTATIONS = {
-  read: { readOnlyHint: true },
-  write: { readOnlyHint: false, destructiveHint: false },
-  destructive: { readOnlyHint: false, destructiveHint: true },
-};
+const INSTRUCTIONS = "CookingFoil, a Nintendo Switch library server. Each tool is an area; pick what it does with action and pass that action's arguments in args. Call help first: rules, id formats and every action's arguments and result. help with tool (an action or area name) gives its full spec.";
 
 const NEXT = "Nothing changed yet. Tell the user what this would do, then call again with confirm='approve' only if they agree.";
 
-
 // Compiled once: the schemas never change while the server runs.
-const inputSchemas = new Map();
-const inputSchemaOf = (cap) => {
-  if (!inputSchemas.has(cap.id)) inputSchemas.set(cap.id, fromJsonSchema(toolInput(cap)));
-  return inputSchemas.get(cap.id);
+const schemas = new Map();
+const compiled = (key, schema) => {
+  if (!schemas.has(key)) schemas.set(key, fromJsonSchema(schema));
+  return schemas.get(key);
 };
+const badInput = (message) => Object.assign(new Error(message), { status: 400 });
 
-async function call(cap, ctx, args) {
-  if (!gated(cap)) return cap.handler(ctx, args);
-  const { confirm, ...input } = args;
+async function argsOf(cap, args) {
+  const checked = await compiled(cap.id, cap.input)["~standard"].validate(args);
+  if (checked.issues) throw badInput(`${cap.id}: ${checked.issues.map((i) => i.message).join("; ")}`);
+  return checked.value;
+}
+
+async function call(cap, ctx, input, confirm) {
+  if (!gated(cap)) return cap.handler(ctx, input);
   if (confirm !== "approve") return { preview: await cap.preview(ctx, input), next: NEXT };
   try {
     const result = await cap.handler(ctx, input);
@@ -49,12 +49,24 @@ async function call(cap, ctx, args) {
 /** A server for one caller. `ctx` reaches every handler: { token: { id, label }, by }. */
 export function buildServer(ctx) {
   const server = new McpServer({ name: "cookingfoil", version: pkg.version }, { instructions: INSTRUCTIONS });
-  for (const cap of servedTools()) {
-    server.registerTool(cap.id, { title: cap.title, description: toolDescription(cap), inputSchema: inputSchemaOf(cap), annotations: ANNOTATIONS[cap.safety] }, async (args) => {
+  for (const cap of servedTools().filter((c) => STANDALONE.has(c.id))) {
+    server.registerTool(cap.id, { title: cap.title, description: cap.description, inputSchema: compiled(`tool:${cap.id}`, cap.input), annotations: { readOnlyHint: true } }, async (args) => {
       try {
         return okResult(await call(cap, ctx, args ?? {}));
       } catch (err) {
         return errorResult(err, cap.id);
+      }
+    });
+  }
+  for (const area of areaTools()) {
+    const writes = area.caps.some(gated);
+    const annotations = writes ? { readOnlyHint: false, destructiveHint: false } : { readOnlyHint: true };
+    server.registerTool(area.name, { description: areaDescription(area), inputSchema: compiled(`area:${area.name}`, areaInput(area)), annotations }, async ({ action, args, confirm } = {}) => {
+      const cap = area.caps.find((c) => c.id === action);
+      try {
+        return okResult(await call(cap, ctx, await argsOf(cap, args ?? {}), confirm));
+      } catch (err) {
+        return errorResult(err, action);
       }
     });
   }

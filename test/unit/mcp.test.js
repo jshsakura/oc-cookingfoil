@@ -10,7 +10,7 @@ import { fromJsonSchema } from "@modelcontextprotocol/server";
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-mcp-"));
 process.env.COOK_MCP_ENABLED = "true";
 const { registry } = await import("../../src/capabilities/registry.js");
-const { servedTools } = await import("../../src/mcp/tools.js");
+const { servedTools, areaTools, AREA_TEXT, gated } = await import("../../src/mcp/tools.js");
 const { mcpRoute } = await import("../../src/mcp/route.js");
 const { fitJson, errorResult, ToolError } = await import("../../src/mcp/envelope.js");
 const { TOKEN_PATHS } = await import("../../src/security/auth-guard.js");
@@ -73,16 +73,19 @@ test("a browser page from another site is refused even with a token", async () =
 });
 
 for (const mode of ["auto", "legacy"]) {
-  test(`a ${mode === "auto" ? "2026" : "2025"} client lists exactly the served tools, reads marked read-only and writes asking for confirm`, async () => {
+  test(`a ${mode === "auto" ? "2026" : "2025"} client lists help and one tool per area, read-only areas marked so and writing ones asking for confirm`, async () => {
     const client = await connect(mode);
     const { tools } = await client.listTools();
-    assert.deepEqual(tools.map((t) => t.name).sort(), servedTools().map((c) => c.id).sort());
-    for (const t of tools) {
-      const read = registry.byId(t.name).safety === "read";
-      assert.equal(t.annotations?.readOnlyHint, read, t.name);
-      assert.equal(Boolean(t.inputSchema.properties?.confirm), !read, t.name);
-      assert.equal(t.description.endsWith("(confirm='approve')"), !read, t.name);
+    const areas = areaTools();
+    assert.deepEqual(tools.map((t) => t.name).sort(), ["help", ...areas.map((a) => a.name)].sort());
+    for (const area of areas) {
+      const t = tools.find((x) => x.name === area.name);
+      const writes = area.caps.some(gated);
+      assert.equal(t.annotations?.readOnlyHint, !writes, t.name);
+      assert.equal(Boolean(t.inputSchema.properties?.confirm), writes, t.name);
+      assert.deepEqual(t.inputSchema.properties.action.enum, area.caps.map((c) => c.id), t.name);
     }
+    assert.deepEqual(areas.flatMap((a) => a.caps.map((c) => c.id)).concat("help").sort(), servedTools().map((c) => c.id).sort(), "every served capability is reachable once");
     await client.close();
   });
 }
@@ -92,27 +95,42 @@ test("a write is served only with a preview of what it would change, and no dest
   assert.ok(registry.all.some((c) => c.safety !== "read" && c.token && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
 });
 
-// Per tool, so the bound holds as tools are added; narrowing the list per token (packages) is the next lever.
-test("tools/list stays small enough to send with every request: at most 560 bytes a tool", async () => {
+// tools/list goes with every request: an action costs its name and a share of its area's line, its spec waits for help.
+test("tools/list stays small enough to send with every request: at most 120 bytes an action", async () => {
   const client = await connect();
   const { tools } = await client.listTools();
   const size = Buffer.byteLength(JSON.stringify(tools));
-  assert.ok(size / tools.length <= 560, `tools/list is ${size} bytes for ${tools.length} tools`);
+  assert.ok(size / servedTools().length <= 120, `tools/list is ${size} bytes for ${servedTools().length} actions`);
   await client.close();
 });
 
-test("help without a tool gives the reference and one line per served tool", async () => {
+test("every area tool says what it covers", () => {
+  for (const area of areaTools()) assert.ok(AREA_TEXT[area.name], `AREA_TEXT in src/mcp/tools.js needs a line for ${area.name}`);
+});
+
+test("an action is called through its area, and one of another area is refused", async () => {
+  const client = await connect();
+  const ok = await client.callTool({ name: "games", arguments: { action: "games_search", args: { limit: 1 } } });
+  assert.notEqual(ok.isError, true, ok.content[0].text);
+  assert.ok(Array.isArray(json(ok).items));
+  const wrong = await client.callTool({ name: "games", arguments: { action: "trash_list" } });
+  assert.equal(wrong.isError, true);
+  await client.close();
+});
+
+test("help without a tool gives the reference and one line per action", async () => {
   const client = await connect();
   const { text } = json(await client.callTool({ name: "help", arguments: {} }));
   assert.match(text, /## Title ids/);
-  for (const c of servedTools()) assert.ok(text.includes(`\`${c.id}(`), `${c.id} has an index line`);
+  for (const c of servedTools().filter((x) => x.id !== "help")) assert.ok(text.includes(`\`${c.id}(`), `${c.id} has an index line`);
   await client.close();
 });
 
 test("help with a tool gives its input and output field by field", async () => {
   const client = await connect();
   const { text } = json(await client.callTool({ name: "help", arguments: { tool: "games_search" } }));
-  assert.match(text, /## Input\n- `q\?`: string/);
+  assert.match(text, /Call: `games \{ action: "games_search", args: \{ \.\.\.input \} \}`/);
+  assert.match(text, /## Input \(args\)\n- `q\?`: string/);
   assert.match(text, /- `items\[\]\.titleId`: string\. base game id/);
   await client.close();
 });
@@ -129,7 +147,7 @@ test("help for an unknown tool is an error naming the tools there are", async ()
 
 test("arguments of the wrong type come back as an error the model can read, before the handler runs", async () => {
   const client = await connect();
-  const result = await client.callTool({ name: "games_search", arguments: { limit: "ten" } });
+  const result = await client.callTool({ name: "games", arguments: { action: "games_search", args: { limit: "ten" } } });
   assert.equal(result.isError, true);
   assert.match(result.content[0].text, /limit/);
   await client.close();
@@ -224,13 +242,13 @@ test("a write without confirm changes nothing and returns its preview; with conf
   const { journalFile } = await import("../../src/mcp/journal.js");
   const { artJob } = await import("../../src/routes/admin/retro-art-api.js");
   const client = await connect();
-  const first = json(await client.callTool({ name: "retro_art_sync", arguments: {} }));
+  const first = json(await client.callTool({ name: "retro", arguments: { action: "retro_art_sync" } }));
   assert.ok(Array.isArray(first.preview.systems));
   assert.match(first.next, /confirm='approve'/);
   assert.equal(artJob(), null, "the preview started nothing");
   assert.equal(readFileSync(journalFile(), { flag: "a+" }).toString(), "", "a preview is not journaled");
 
-  const done = json(await client.callTool({ name: "retro_art_sync", arguments: { confirm: "approve" } }));
+  const done = json(await client.callTool({ name: "retro", arguments: { action: "retro_art_sync", confirm: "approve" } }));
   assert.equal(done.started, true);
   const [line] = readFileSync(journalFile(), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.deepEqual([line.tool, line.ok, line.token, line.input], ["retro_art_sync", true, TOKEN.id, {}]);
@@ -239,7 +257,7 @@ test("a write without confirm changes nothing and returns its preview; with conf
 
 test("a confirm other than approve is refused before the tool runs", async () => {
   const client = await connect();
-  const result = await client.callTool({ name: "retro_art_match", arguments: { id: "gba-0000000000", name: null, confirm: "yes" } });
+  const result = await client.callTool({ name: "retro", arguments: { action: "retro_art_match", args: { id: "gba-0000000000", name: null }, confirm: "yes" } });
   assert.equal(result.isError, true);
   await client.close();
 });
@@ -247,7 +265,7 @@ test("a confirm other than approve is refused before the tool runs", async () =>
 test("help shows a write's confirm argument and its preview fields", async () => {
   const client = await connect();
   const { text } = json(await client.callTool({ name: "help", arguments: { tool: "retro_art_match" } }));
-  assert.match(text, /- `confirm\?`: "approve"/);
+  assert.match(text, /confirm\?: "approve"/);
   assert.match(text, /## Preview/);
   assert.match(text, /- `now\.boxart`/);
   await client.close();

@@ -27,11 +27,11 @@ export const serverCapabilities = [
     id: "help",
     area: "server",
     title: "CookingFoil reference",
-    description: "Without tool: rules, id formats and one line per tool (arguments and result). With tool: that tool's full input and output spec.",
+    description: "Without tool: rules, id formats, and each area tool with one line per action (arguments and result). With tool: that action's full input and output, or that area's actions.",
     input: {
       type: "object",
       properties: {
-        tool: { type: "string", description: "A tool name from the index, such as games_search, to get its full input and output spec" },
+        tool: { type: "string", description: "An action such as games_search, or an area tool such as games" },
       },
     },
     output: obj({ text: str("Markdown") }),
