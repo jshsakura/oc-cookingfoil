@@ -65,10 +65,33 @@ export function titleKey(raw) {
 
 export const decode = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
-/** The English title in a "한글명 (English) [tags]" file name, or the name itself. Pure. */
+// Only complete metadata groups qualify. A title containing a region word stays a title.
+const RELEASE_GROUP = /^(?:(?:USA|Japan|Europe|World|Korea|Asia|Australia|China|Taiwan|Hong Kong|En|Ja|Ko|Fr|De|Es|It|Pt|Zh|Nl|Ru|Sv|No|Da|Fi|Pl|Cs|Hu|El|Tr|Ar|He)(?:\s*,\s*|$))+$/i;
+const VERSION_GROUP = /^(?:Rev(?:ision)?\s+[\w.]+|Disc\s+\d+(?:\s+of\s+\d+)?|Track\s+\d+|Beta(?:\s+[\w.]+)?|Proto(?:type)?|Demo|Sample|Unl|Aftermarket|Pirate)$/i;
+
+/** The last balanced top-level parenthesized group, with its opening offset. */
+function finalGroup(s) {
+  if (!s.endsWith(")")) return null;
+  let depth = 0;
+  for (let i = s.length - 1; i >= 0; i--) {
+    if (s[i] === ")") depth++;
+    else if (s[i] === "(" && --depth === 0) return { start: i, text: s.slice(i + 1, -1).trim() };
+  }
+  return null;
+}
+
+/** The English lookup title in a localized ROM stem, or the Latin title itself. Pure. */
 export function englishTitle(rom) {
-  const m = rom.match(/\(([^()]*[A-Za-z][^()]*)\)/);
-  return (m ? m[1] : rom).trim();
+  let bare = String(rom).replace(/(?:\s*\[[^\]]*\])+\s*$/, "").trim();
+  let group = finalGroup(bare);
+  while (group && (RELEASE_GROUP.test(group.text) || VERSION_GROUP.test(group.text))) {
+    bare = bare.slice(0, group.start).trim();
+    group = finalGroup(bare);
+  }
+  // An accented Latin title is already a title. Only a localized prefix introduces an alias.
+  if (group && /[^\p{Script=Latin}\p{N}\p{P}\p{S}\s]/u.test(bare.slice(0, group.start))
+    && /[A-Za-z]/.test(group.text) && !/[^\p{Script=Latin}\p{N}\p{P}\p{S}\s]/u.test(group.text)) return group.text;
+  return bare;
 }
 
 /** Rank a No-Intro name: Japanese first, then World, USA, Europe; no revisions or betas. Pure. */
