@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { routeKey } from "../../src/capabilities/define.js";
+import { routeKey, routesOf } from "../../src/capabilities/define.js";
 import { OPT_OUT_REASONS } from "../../src/capabilities/opt-out.js";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -65,7 +65,7 @@ export function coverageProblems({ routes, capabilities, optOut, legacy, reasons
     if (claimed.has(key)) problems.push(`Route ${key} is listed twice: ${claimed.get(key)} and ${by}. Keep one.`);
     else claimed.set(key, by);
   };
-  for (const cap of capabilities) if (cap.http) claim(routeKey(cap.http), `capability ${cap.id}`);
+  for (const cap of capabilities) for (const key of routesOf(cap)) claim(key, `capability ${cap.id}`);
   for (const [key, reason] of Object.entries(optOut)) {
     if (!(reason in reasons) || reason === "legacy-unregistered") {
       problems.push(`Route ${key} in OPT_OUT has reason "${reason}". Use one of: ${Object.keys(reasons).filter((r) => r !== "legacy-unregistered").join(", ")}.`);

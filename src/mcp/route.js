@@ -44,7 +44,7 @@ async function serve(req, res) {
   res.on("close", () => {
     if (!res.writableEnded) abort.abort();
   });
-  const authInfo = { token: req.apiToken.id, clientId: req.apiToken.id, scopes: [], extra: { label: req.apiToken.label ?? "" } };
+  const authInfo = { token: req.apiToken.id, clientId: req.apiToken.id, scopes: [], extra: { label: req.apiToken.label ?? "", owner: req.apiToken.owner ?? null } };
   let response;
   try {
     response = await (await mcpHandler()).fetch(webRequest(req, abort.signal), { authInfo, ...(req.method === "POST" ? { parsedBody: req.body } : {}) });

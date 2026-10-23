@@ -10,19 +10,19 @@ import path from "node:path";
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-capability-coverage-"));
 const { discoverRoutes, coverageProblems, ratchetProblems } = await import("../support/capability-routes.js");
 const { registry } = await import("../../src/capabilities/registry.js");
-const { routeKey } = await import("../../src/capabilities/define.js");
+const { routeKey, routesOf } = await import("../../src/capabilities/define.js");
 const { OPT_OUT, OPT_OUT_REASONS, LEGACY_UNREGISTERED } = await import("../../src/capabilities/opt-out.js");
 
 // Ratchet ceilings. LEGACY_CEILING only goes down and is never raised. Raising OPT_OUT_CEILING is a reviewed decision:
 // do it in the same change that adds the opt-out, and say why in the commit.
-const LEGACY_CEILING = 306;
+const LEGACY_CEILING = 301;
 const OPT_OUT_CEILING = 15;
 const HERE = "test/unit/capability-coverage.test.js";
 
 const routes = discoverRoutes();
 const current = { routes, capabilities: registry.all, optOut: OPT_OUT, legacy: LEGACY_UNREGISTERED, reasons: OPT_OUT_REASONS };
 // The routes the lists claim, so the checks below test the checker, not today's drift.
-const listed = { ...current, routes: [...registry.all.filter((c) => c.http).map((c) => routeKey(c.http)), ...Object.keys(OPT_OUT), ...LEGACY_UNREGISTERED] };
+const listed = { ...current, routes: [...registry.all.flatMap(routesOf), ...Object.keys(OPT_OUT), ...LEGACY_UNREGISTERED] };
 
 test("the walk finds the admin API and the routes outside it", () => {
   for (const key of ["GET /admin/api/stats", "POST /admin/api/server-settings", "GET /api/admin/items/:kind/:id/fields", "GET /shop.json", "GET /api/shop/info"]) {

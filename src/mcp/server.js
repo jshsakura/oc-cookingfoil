@@ -47,7 +47,7 @@ async function call(cap, ctx, input, confirm) {
   }
 }
 
-/** A server for one caller. `ctx` reaches every handler: { token: { id, label }, by }. */
+/** A server for one caller. `ctx` reaches every handler: { token: { id, label, owner }, by }. */
 export function buildServer(ctx) {
   const server = new McpServer({ name: "cookingfoil", version: pkg.version }, { instructions: INSTRUCTIONS });
   for (const cap of servedTools().filter((c) => STANDALONE.has(c.id))) {
@@ -79,6 +79,6 @@ export function buildServer(ctx) {
 
 /** authInfo is the token route.js verified: { clientId: token id, extra: { label } }. */
 export const mcpHandler = createMcpHandler(({ authInfo }) => {
-  const token = { id: authInfo?.clientId ?? null, label: authInfo?.extra?.label ?? "" };
+  const token = { id: authInfo?.clientId ?? null, label: authInfo?.extra?.label ?? "", owner: authInfo?.extra?.owner ?? null };
   return buildServer({ token, by: { type: "token", name: token.label || token.id || "mcp" } });
 });
