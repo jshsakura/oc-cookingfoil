@@ -910,6 +910,12 @@ test('on a phone the list pager fits one line under its count', async ({ page })
   await expect(page.locator('#pager .pager-btn.next')).toHaveAttribute('aria-label', '다음');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#pager').screenshot({ path: 'out/web/pager-phone.png' });
+  // A wider window, drawn again without a page change: more numbers, still one line beside the count.
+  const shown = await buttons.filter({ hasText: /^\d+$/ }).count();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect.poll(() => buttons.filter({ hasText: /^\d+$/ }).count()).toBeGreaterThan(shown);
+  const mids = await page.locator('#pager').evaluate((p) => [...p.querySelectorAll('.info, .pager-btn')].map((b) => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; }));
+  expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(3);
 });
 
 test('a game kept as two base files shows one card everywhere, and its detail lists both files', async ({ page }) => {
