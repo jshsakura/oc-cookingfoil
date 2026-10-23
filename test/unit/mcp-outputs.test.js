@@ -38,6 +38,14 @@ async function check(id, input = {}) {
   return out;
 }
 
+async function checkPreview(id, input) {
+  const cap = registry.byId(id);
+  const out = JSON.parse(JSON.stringify(await cap.preview({}, input)));
+  const { issues } = await fromJsonSchema(cap.previewOutput)["~standard"].validate(out);
+  assert.equal(issues, undefined, `${id} preview: ${JSON.stringify(issues)}`);
+  return out;
+}
+
 test("trash_list's items match its output", async () => {
   put("games", "Some Game/Some Game [0100000000010000][v0].nsp");
   await service.trash("games", [{ rel: "Some Game/Some Game [0100000000010000][v0].nsp" }], { kind: "game", action: "remove", by: { type: "admin", name: "test" }, name: "Some Game" });
@@ -156,4 +164,29 @@ test("retro_games_search orders by the name it shows", async () => {
   (await import("../../src/retro/names.js")).set(alpha.id, { ko: "하늘 퀘스트" });
   const names = (await check("retro_games_search", { system: "gba" })).items.map((g) => g.name);
   assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, "ko")));
+});
+
+test("retro art: status, previews and a no-art match that sends a placed cover to the retro trash", async () => {
+  put("retro", "roms/gba/Cover Quest (USA).gba");
+  const { scan, current } = await import("../../src/retro/catalog.js");
+  await scan(dirs.retro);
+  const game = (await current(dirs.retro)).games.find((g) => g.file === "Cover Quest (USA).gba");
+  const cover = put("retro", "thumbnails/gba/Named_Boxarts/Cover Quest (USA).png");
+  await scan(dirs.retro);
+
+  const status = await check("retro_art_status");
+  assert.ok(status.systems.some((s) => s.id === "gba"));
+  const preview = await checkPreview("retro_art_match", { id: game.id, name: null });
+  assert.equal(preview.now.boxart, "placed");
+  await checkPreview("retro_cover_set", { id: game.id, url: "https://cdn2.steamgriddb.com/grid/abc.png" });
+  await checkPreview("retro_art_sync", { system: "gba" });
+  await assert.rejects(registry.byId("retro_cover_set").preview({}, { id: game.id, url: "https://example.com/a.png" }), (err) => err.status === 400);
+  await assert.rejects(registry.byId("retro_art_match").preview({}, { id: game.id, name: "../x" }), (err) => err.status === 400);
+  await assert.rejects(registry.byId("retro_sgdb_search").handler({}, { q: "cover quest" }), (err) => err.status === 409, "no SteamGridDB key");
+
+  assert.deepEqual(await check("retro_art_match", { id: game.id, name: null }), { boxart: "removed", bezel: "removed" });
+  assert.equal(fs.existsSync(cover), false);
+  const trashed = fs.readdirSync(path.join(dirs.retro, ".cookingfoil-trash"), { recursive: true }).map(String);
+  assert.ok(trashed.some((f) => f.endsWith("Cover Quest (USA).png")), "the placed cover is in the retro trash");
+  assert.equal((await check("retro_game_get", { id: game.id })).artMatched, true);
 });

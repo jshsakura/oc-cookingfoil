@@ -57,26 +57,31 @@ test("a browser page from another site is refused even with a token", async () =
 });
 
 for (const mode of ["auto", "legacy"]) {
-  test(`a ${mode === "auto" ? "2026" : "2025"} client lists exactly the served read tools, marked read-only`, async () => {
+  test(`a ${mode === "auto" ? "2026" : "2025"} client lists exactly the served tools, reads marked read-only and writes asking for confirm`, async () => {
     const client = await connect(mode);
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), servedTools().map((c) => c.id).sort());
-    for (const t of tools) assert.equal(t.annotations?.readOnlyHint, true, t.name);
+    for (const t of tools) {
+      const read = registry.byId(t.name).safety === "read";
+      assert.equal(t.annotations?.readOnlyHint, read, t.name);
+      assert.equal(Boolean(t.inputSchema.properties?.confirm), !read, t.name);
+      assert.equal(t.description.endsWith("(confirm='approve')"), !read, t.name);
+    }
     await client.close();
   });
 }
 
-test("only reads are served: no write or destructive capability becomes a tool yet", () => {
-  assert.ok(servedTools().length > 0);
-  assert.ok(servedTools().every((c) => c.safety === "read" && c.token));
-  assert.ok(registry.all.some((c) => c.safety === "write" && c.token), "the registry has token writes that stay off MCP");
+test("a write is served only with a preview of what it would change", () => {
+  assert.ok(servedTools().every((c) => c.token && (c.safety === "read" || (c.preview && c.previewOutput))));
+  assert.ok(registry.all.some((c) => c.safety !== "read" && c.token && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
 });
 
-test("tools/list stays small enough to send with every request", async () => {
+// Per tool, so the bound holds as tools are added; narrowing the list per token (packages) is the next lever.
+test("tools/list stays small enough to send with every request: at most 560 bytes a tool", async () => {
   const client = await connect();
   const { tools } = await client.listTools();
   const size = Buffer.byteLength(JSON.stringify(tools));
-  assert.ok(size <= 6500, `tools/list is ${size} bytes`);
+  assert.ok(size / tools.length <= 560, `tools/list is ${size} bytes for ${tools.length} tools`);
   await client.close();
 });
 
@@ -125,13 +130,15 @@ test("every served tool declares its output", () => {
   for (const c of servedTools()) assert.equal(c.output?.type, "object", `${c.id} has an output schema`);
 });
 
+// A write is checked through its preview only: running it here would change the server.
 async function conforms(cap, input) {
-  const out = await cap.handler({}, input);
-  const checked = await fromJsonSchema(cap.output)["~standard"].validate(JSON.parse(JSON.stringify(out)));
+  const [run, schema] = cap.safety === "read" ? [cap.handler, cap.output] : [cap.preview, cap.previewOutput];
+  const out = await run({}, input);
+  const checked = await fromJsonSchema(schema)["~standard"].validate(JSON.parse(JSON.stringify(out)));
   assert.equal(checked.issues, undefined, `${cap.id}(${JSON.stringify(input)}): ${JSON.stringify(checked.issues)}`);
 }
 
-test("each served tool's real result matches its declared output", async () => {
+test("each served tool's real result (a write's preview) matches its declared output", async () => {
   for (const cap of servedTools()) {
     if (cap.input.required?.length) continue; // checked with real arguments in mcp-outputs.test.js and below
     await conforms(cap, {});
@@ -195,4 +202,37 @@ test("a body that is not JSON gets a JSON-RPC parse error", async () => {
   const res = await fetch(`${base}/mcp`, { method: "POST", headers: { Authorization: "Bearer good", "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{not json" });
   assert.equal(res.status, 400);
   assert.equal((await res.json()).error.code, -32700);
+});
+
+test("a write without confirm changes nothing and returns its preview; with confirm it runs and is journaled", async () => {
+  const { journalFile } = await import("../../src/mcp/journal.js");
+  const { artJob } = await import("../../src/routes/admin/retro-art-api.js");
+  const client = await connect();
+  const first = json(await client.callTool({ name: "retro_art_sync", arguments: {} }));
+  assert.ok(Array.isArray(first.preview.systems));
+  assert.match(first.next, /confirm='approve'/);
+  assert.equal(artJob(), null, "the preview started nothing");
+  assert.equal(readFileSync(journalFile(), { flag: "a+" }).toString(), "", "a preview is not journaled");
+
+  const done = json(await client.callTool({ name: "retro_art_sync", arguments: { confirm: "approve" } }));
+  assert.equal(done.started, true);
+  const [line] = readFileSync(journalFile(), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual([line.tool, line.ok, line.token, line.input], ["retro_art_sync", true, TOKEN.id, {}]);
+  await client.close();
+});
+
+test("a confirm other than approve is refused before the tool runs", async () => {
+  const client = await connect();
+  const result = await client.callTool({ name: "retro_art_match", arguments: { id: "gba-0000000000", name: null, confirm: "yes" } });
+  assert.equal(result.isError, true);
+  await client.close();
+});
+
+test("help shows a write's confirm argument and its preview fields", async () => {
+  const client = await connect();
+  const { text } = json(await client.callTool({ name: "help", arguments: { tool: "retro_art_match" } }));
+  assert.match(text, /- `confirm\?`: "approve"/);
+  assert.match(text, /## Preview/);
+  assert.match(text, /- `now\.boxart`/);
+  await client.close();
 });
