@@ -58,6 +58,7 @@ export const GRID_CSS = /* css */ `
 .gc>*{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gc .muted,.gc .sub{display:block;font-size:12px;color:var(--muted);line-height:1.3}
 .gc .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.gc button,.gc a.btn,.gc select{flex-shrink:0}
 .gc .xline,.gc .pills{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
 .gc.ip,.gc.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .gc.dim{color:var(--muted)}
@@ -143,8 +144,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
       ...(opts.tall?{autoHeight:true,wrapText:true,cellClass:'tall'}:{}),
       valueGetter:(p)=>p.data?._n?.[i]?.textContent.trim()||'',
       cellRenderer:(p)=>{const n=p.data?._n?.[i];if(!n)return '';if(!act&&!n.title&&n.textContent.trim().length>24)n.title=n.textContent.trim();return n;}};
-    // The buttons stay pinned in sight while long columns scroll under them.
-    if(act)return {...base,pinned:'right',width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
+    if(act)return {...base,width:Math.max(56,controls),minWidth:Math.max(56,controls),cellStyle:{justifyContent:'flex-end'}};
     if(controls)return {...base,width:Math.max(controls,title.length*14+32),minWidth:controls};
     const w=fit(i);if(w)return {...base,width:Math.max(w,title.length*14+32),minWidth:Math.max(72,title.length*14+24)};
     // Long text shares the spare width; it is cut only past what a cell can reasonably hold.
@@ -180,6 +180,18 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   // A grouped list goes flat while it is sorted or filtered: its headings would no longer fit the rows under them.
   const flat=()=>{if(!groups||!m._grid)return;const sorted=m._grid.getColumnState().some((c)=>c.sort);
     m._grid.setGridOption('rowData',sorted||filtered()?items:data);};
+  // The estimate above can fall short (another language, an icon, a font not loaded yet): a column of
+  // buttons grows to what its rendered cells really hold, and the grid scrolls sideways when it no longer fits.
+  const ctl=columnDefs.filter((c,i)=>gridControlsWidth(items,i)).map((c)=>c.colId);
+  const fitControls=()=>{if(!m._grid||!ctl.length)return;const grow=[];
+    for(const id of ctl){let w=0;
+      for(const cell of box.querySelectorAll('.ag-cell[col-id="'+id+'"]')){const g=cell.querySelector('.gc');if(!g)continue;
+        const cs=[...g.querySelectorAll('button,a.btn,select')];
+        const used=cs.reduce((s,c)=>s+c.offsetWidth,0)+Math.max(0,cs.length-1)*6;
+        const pad=parseFloat(getComputedStyle(cell).paddingLeft)+parseFloat(getComputedStyle(cell).paddingRight);
+        w=Math.max(w,Math.max(used,g.scrollWidth)+pad+4);}
+      const col=m._grid.getColumn(id);if(col&&w>col.getActualWidth())grow.push({key:id,newWidth:Math.ceil(w)});}
+    if(grow.length)m._grid.setColumnWidths(grow);};
   const count=()=>{const n=tools.querySelector('.grid-count');if(!n||!m._grid)return;let shown=0;
     m._grid.forEachNodeAfterFilter((r)=>{if(!r.data?._head)shown++;});n.textContent=shown===items.length?items.length+'개':shown+' / '+items.length+'개';};
   m._grid=agGrid.createGrid(box,{theme:GRID_THEME,rowData:data,columnDefs,domLayout:'autoHeight',
@@ -191,9 +203,11 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     doesExternalFilterPass:(r)=>!r.data?._head&&Object.entries(m._filters).every(([c,v])=>gridText0(r.data._n[Number(c)])===v),
     onSortChanged:(e)=>{const s=e.api.getColumnState().find((c)=>c.sort);const key=s?s.colId+':'+s.sort:'';
       m._sort=key;pick.value=[...pick.options].some((o)=>o.value===key)?key:'';flat();},
-    onModelUpdated:count,
+    onModelUpdated:()=>{count();requestAnimationFrame(fitControls);},
+    onFirstDataRendered:fitControls,
     isFullWidthRow:(p)=>!!p.rowNode.data?._head,fullWidthCellRenderer:(p)=>p.data._head,
     ...(many?{pagination:true,paginationPageSize:GRID_PAGE,paginationPageSizeSelector:[20,50,100]}:{})});
+  m._grid.addEventListener?.('paginationChanged',()=>requestAnimationFrame(fitControls));
   const apply=(key)=>{const [colId,sort]=key?key.split(':'):[];
     m._grid.applyColumnState({state:colId?[{colId,sort}]:[],defaultState:{sort:null}});};
   pick.addEventListener('change',()=>apply(pick.value));
