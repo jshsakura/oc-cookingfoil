@@ -33,6 +33,13 @@ export const INDEX_MIGRATIONS = [
      source TEXT PRIMARY KEY,
      at INTEGER NOT NULL
    );`,
+  // Content hashes of retro ROM files (retro/rom-index.js), by absolute path, with the fileKey they were read at.
+  // data is JSON: { crc32, sha1?, sha256?, bare?, entry?, skip? }. Retro games only, never the Switch library.
+  `CREATE TABLE retro_rom_hashes (
+     path TEXT PRIMARY KEY,
+     key TEXT NOT NULL,
+     data TEXT NOT NULL
+   ) WITHOUT ROWID;`,
 ];
 
 // One row per record (an account, a console login, a token), JSON as the module

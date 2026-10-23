@@ -60,6 +60,7 @@ import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountStorageGuideApi } from "./admin/storage-guide-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
+import { mountRetroKoApi } from "./admin/retro-ko-api.js";
 import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
 import { mountRetroPackApi } from "./admin/retro-pack-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
@@ -194,6 +195,8 @@ function buildUserRows() {
   const rows = users.list().map(({ name: user, enabled, role }) => {
     const a = byUser.get(user);
     byUser.delete(user);
+    const login = store.lastLogin(user);
+    const consoles = store.lastActiveOf(user);
     return {
       user,
       configured: true,
@@ -204,6 +207,10 @@ function buildUserRows() {
       count: a?.count ?? 0,
       lastIp: a?.lastIp ?? null,
       ips: a?.ips ?? [],
+      lastLoginAt: login?.at ?? null,
+      lastLoginMethod: login?.method ?? null,
+      // Its web requests and the consoles it approved, whichever was later.
+      lastActiveAt: Math.max(a?.lastAt ?? 0, consoles ?? 0) || null,
     };
   });
   const historical = Array.from(byUser.values()).map((a) => ({ ...a, configured: false }));
@@ -399,7 +406,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows(), since: Date.now() - Math.round(process.uptime() * 1000) });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows() });
   });
 
   router.post("/api/clients/:id/revoke", (req, res) => {
@@ -475,6 +482,7 @@ export default function adminPageRouter() {
   mountRetroArtApi(router, requireSession);
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
+  mountRetroKoApi(router, requireSession);
   mountRetroCoresApi(router, requireSession);
   mountRetroPackApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
