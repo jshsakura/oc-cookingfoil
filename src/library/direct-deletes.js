@@ -23,6 +23,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/meta/homebrew-nro-icon.js": { count: 1, why: "a temporary file" },
   "src/meta/homebrew.js": { count: 12, why: "cached GitHub builds and the .nro copies taken out of zips, and temporary files" },
   "src/meta/image-cache.js": { count: 2, why: "the image cache and its old variants" },
+  "src/meta/inbox.js": { count: 3, why: "the upload staging folder, work folders and an entry's done mark" },
   "src/meta/library-organize.js": { count: 1, why: "a move's source after its copy verified" },
   "src/meta/library-upload.js": { count: 3, why: "half-written uploads" },
   "src/meta/nacp-extractor.js": { count: 1, why: "temporary extraction folders" },
@@ -48,12 +49,11 @@ export const DIRECT_DELETES = Object.freeze({
   "src/routes/client-log.js": { count: 2, why: "log rotation" },
   "src/routes/client-update.js": { count: 1, why: "an empty forwarder" },
   "src/routes/inbox.js": { count: 4, why: "upload work files" },
+  "src/routes/uploads.js": { count: 1, why: "a rejected upload's half-written file" },
+  "src/security/prod-keys.js": { count: 1, why: "a temporary file" },
 
   "src/meta/art-crop.js": { count: 2, why: "the kept original of an uploaded picture", todo: true },
   "src/meta/art-sidecar.js": { count: 5, why: "a slot's other files and an incoming picture the slot already has; also temporary files", todo: true },
   "src/meta/custom-art.js": { count: 2, why: "a game's uploaded icon, banner or screenshot", todo: true },
-  "src/meta/inbox.js": { count: 4, why: "a drop box entry with its files; also work folders", todo: true },
-  "src/meta/item-media.js": { count: 3, why: "a homebrew app's uploaded pictures and its media folder", todo: true },
-  "src/routes/uploads.js": { count: 2, why: "an upload not applied yet", todo: true },
-  "src/security/prod-keys.js": { count: 3, why: "uploaded prod.keys; also a temporary file", todo: true },
+  "src/meta/item-media.js": { count: 1, why: "a homebrew app's uploaded pictures and its media folder", todo: true },
 });

@@ -18,6 +18,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import { discard } from "../library/trash-service.js";
 
 export const INBOX_DIR = path.join(dataDir, "inbox");
 const STAGING_DIR = path.join(INBOX_DIR, ".staging");
@@ -230,11 +231,11 @@ export async function setDone(id, done) {
   return true;
 }
 
-/** Deletes one entry. Returns whether it existed. */
-export async function remove(id) {
+/** Moves one entry to the data folder's trash. Returns whether it existed. */
+export async function remove(id, { by = null } = {}) {
   const dir = entryDir(id);
   if (!dir) return false;
-  await fsp.rm(dir, { recursive: true, force: true });
+  await discard([dir], { kind: "inbox", action: "delete", by, name: id });
   renewUsage();
   return true;
 }

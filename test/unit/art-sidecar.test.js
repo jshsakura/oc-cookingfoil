@@ -4,10 +4,14 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import sharp from "sharp";
-import * as sidecar from "../../src/meta/art-sidecar.js";
-import { createMediaStore } from "../../src/meta/item-media.js";
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "art-sidecar-"));
+// Every folder here sits in the server's data folder, as the media stores do, so a forget can reach the trash.
+const base = fs.mkdtempSync(path.join(os.tmpdir(), "art-sidecar-data-"));
+process.env.COOK_DATA_DIR = base;
+const sidecar = await import("../../src/meta/art-sidecar.js");
+const { createMediaStore } = await import("../../src/meta/item-media.js");
+
+const tmp = () => fs.mkdtempSync(path.join(base, "art-sidecar-"));
 const img = (w, h, r, format = "png") => sharp({ create: { width: w, height: h, channels: 3, background: { r, g: 0, b: 0 } } })[format]().toBuffer();
 const put = (file, buf, ageSec = 0) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });

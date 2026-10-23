@@ -81,6 +81,8 @@ test("writes from another site are refused", async () => {
 test("deleting removes that one entry; an unknown or crafted id removes nothing", async () => {
   assert.equal((await fetch(`${BASE}/${newer.id}`, { method: "DELETE", headers: ADMIN })).status, 200);
   assert.equal(fs.existsSync(path.join(data, "inbox", newer.id)), false);
+  const trashed = fs.readdirSync(data, { recursive: true }).filter((f) => f.includes(".cookingfoil-trash") && f.endsWith(path.join("inbox", newer.id, "note.json")));
+  assert.equal(trashed.length, 1, "the entry goes to the data folder's trash under its own path");
   assert.equal((await fetch(`${BASE}/${newer.id}`, { method: "DELETE", headers: ADMIN })).status, 404);
   assert.equal((await fetch(`${BASE}/..%2F..`, { method: "DELETE", headers: ADMIN })).status, 404);
   assert.ok(fs.existsSync(path.join(data, "secret.txt")));
