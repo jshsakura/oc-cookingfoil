@@ -58,7 +58,8 @@ import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import { mountAlertsApi } from "./admin/alerts-api.js";
-import { mountRetroArtApi } from "./admin/retro-art-api.js";
+import { mountRetroArtApi, startArtSync } from "./admin/retro-art-api.js";
+import { watchRetroArt } from "../retro/art/auto.js";
 import { mountStorageGuideApi } from "./admin/storage-guide-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountRetroKoApi } from "./admin/retro-ko-api.js";
@@ -102,6 +103,7 @@ import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
+import * as envs from "../helpers/envs.js";
 import { sameOriginWrites } from "../security/same-origin.js";
 import { sendVendor } from "./admin/grid.js";
 
@@ -487,6 +489,8 @@ export default function adminPageRouter() {
   mountIntegrationsApi(router, requireSession);
   mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);
+  // Box art for ROMs a scan finds without any, as the retro tab's button fetches it (retroAutoArt).
+  watchRetroArt({ dir: envs.retroDir, start: startArtSync, enabled: () => envs.retroAutoArt });
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
   mountRetroKoApi(router, requireSession);
