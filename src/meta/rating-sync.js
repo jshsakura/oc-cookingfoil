@@ -22,6 +22,7 @@ import { titledbCacheDir, ratingSync } from "../helpers/envs.js";
 import * as igdb from "./igdb-client.js";
 import * as activity from "../tasks/activity.js";
 import { VIDEO_FIELDS, videosOf } from "./igdb-videos.js";
+import { activityText } from "./meta-messages.js";
 
 const STORE_FILE = "ratings-own.json";
 const STORE_VERSION = 1;
@@ -261,7 +262,7 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
   running = (async () => {
     let changed = 0;
     const due = dueTitles(wanted, titles, now(), { providers: providers() });
-    const job = due.length ? activity.begin("ratings", { title: "평점을 모읍니다", total: due.length }) : null;
+    const job = due.length ? activity.begin("ratings", { title: activityText("act.ratings"), total: due.length }) : null;
     for (const [i, { tid, providers: todo }] of due.entries()) {
       if (job?.stopped) break;
       job?.step(i);
@@ -284,7 +285,7 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
       job?.fail(err);
       throw err;
     }
-    job?.done(`${changed}개 바뀜`);
+    job?.done(activityText("act.changed", { n: changed }));
     return changed;
   })().finally(() => { running = null; });
   return running;

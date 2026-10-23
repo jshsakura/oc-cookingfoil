@@ -51,6 +51,7 @@ import { installPathFor } from "../../meta/homebrew.js";
 import { loadSystems } from "../../retro/systems.js";
 import { CoreError, placeCore } from "../../retro/core-files.js";
 import { coreError } from "../../retro/core-messages.js";
+import { isMetaCode, metaError } from "../../meta/meta-messages.js";
 import { packDirOf } from "../../retro/pack-status.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
@@ -309,7 +310,12 @@ export function mountUploadApi(router, guard) {
       status = err instanceof UploadError || err instanceof CoreError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
       if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
       const keyed = (err instanceof UploadError || err instanceof HomebrewUploadError) && err.key;
-      body = err instanceof CoreError ? { ...coreError(req, err), ...err.extra } : { error: status === 500 ? apiWord(req, "upload.failed") : keyed ? apiWord(req, err.key, err.vars) : err.message };
+      // A meta module's refusal (library-upload.js) carries its key as `code`: said in the request's language, with the code.
+      body = err instanceof CoreError ? { ...coreError(req, err), ...err.extra }
+        : status === 500 ? { error: apiWord(req, "upload.failed") }
+        : keyed ? { error: apiWord(req, err.key, err.vars) }
+        : isMetaCode(err.code) ? metaError(req, err)
+        : { error: err.message };
     }
     // Leftovers of a refused upload go before the answer does.
     await dropWork(work);

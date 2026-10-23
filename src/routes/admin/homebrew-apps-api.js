@@ -40,6 +40,8 @@ import debug from "../../debug.js";
 import * as trashService from "../../library/trash-service.js";
 import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 import { apiWord } from "./api-words.js";
+import { metaErrorText } from "../../meta/meta-messages.js";
+import { requestLang } from "../../meta/langs.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -113,7 +115,8 @@ export function mountHomebrewAppsApi(router, requireSession) {
           saves: (app && extras.get(app)?.saves) || [],
         };
       }),
-      held: heldManual(),
+      // Each held app's reason in the request's language; its code stays for the page to branch on.
+      held: heldManual().map(({ folder, reason, code, vars }) => ({ folder, reason: metaErrorText(requestLang(req), { message: reason, code, vars }), ...(code ? { code } : {}) })),
     });
   }));
 

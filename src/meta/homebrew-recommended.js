@@ -4,25 +4,23 @@
  * its latest GitHub release; `purpose` is what it is for, per language.
  * Installers and other stores (Goldleaf, DBI, hb-appstore) are never offered.
  */
-const P = (ko, en, ja, zh) => ({ ko, en, ja, zh });
-
 export const RECOMMENDED = [
-  { repo: "murat303/ytb-player", purpose: P("유튜브", "YouTube", "YouTube", "YouTube") },
-  { repo: "mirusu400/switch-newpipe", purpose: P("유튜브 (YTB Player 의 원본)", "YouTube (YTB Player's origin)", "YouTube（YTB Player の元）", "YouTube（YTB Player 的原版）") },
-  { repo: "xfangfang/wiliwili", purpose: P("빌리빌리", "Bilibili", "ビリビリ", "哔哩哔哩") },
-  { repo: "proconsule/nxmp", purpose: P("동영상 플레이어", "Video player", "動画プレーヤー", "视频播放器") },
-  { repo: "dragonflylee/switchfin", purpose: P("Jellyfin", "Jellyfin", "Jellyfin", "Jellyfin") },
-  { repo: "XITRIX/Moonlight-Switch", purpose: P("PC 화면 스트리밍", "PC streaming", "PC 画面ストリーミング", "PC 串流") },
-  { repo: "J-D-K/JKSV", purpose: P("세이브 백업", "Save backup", "セーブのバックアップ", "存档备份") },
-  { repo: "BernardoGiordano/Checkpoint", purpose: P("세이브 백업", "Save backup", "セーブのバックアップ", "存档备份") },
-  { repo: "joel16/NX-Shell", purpose: P("파일 관리자", "File manager", "ファイルマネージャー", "文件管理器") },
-  { repo: "mtheall/ftpd", purpose: P("FTP 서버", "FTP server", "FTP サーバー", "FTP 服务器") },
-  { repo: "DarkMatterCore/nxdumptool", purpose: P("덤프 도구", "Dump tool", "ダンプツール", "转储工具") },
-  { repo: "ITotalJustice/sphaira", purpose: P("홈브류 메뉴", "Homebrew menu", "自作アプリメニュー", "自制程序菜单") },
-  { repo: "HamletDuFromage/aio-switch-updater", purpose: P("업데이트 도구", "Updater", "アップデーター", "更新工具") },
-  { repo: "exelix11/SwitchThemeInjector", purpose: P("테마 설치", "Theme installer", "テーマのインストール", "主题安装") },
-  { repo: "nadrino/SimpleModManager", purpose: P("모드 관리", "Mod manager", "MOD 管理", "模组管理") },
-  { repo: "WerWolv/EdiZon", purpose: P("치트 관리", "Cheat manager", "チート管理", "金手指管理") },
-  { repo: "averne/Fizeau", purpose: P("화면 색 보정", "Screen colour", "画面の色補正", "屏幕色彩调整") },
-  { repo: "meganukebmp/Switch_90DNS_tester", purpose: P("90DNS 차단 확인", "90DNS check", "90DNS の確認", "90DNS 检查") },
+  { repo: "murat303/ytb-player", purpose: { ko: "유튜브", en: "YouTube", ja: "YouTube", zh: "YouTube" } },
+  { repo: "mirusu400/switch-newpipe", purpose: { ko: "유튜브 (YTB Player 의 원본)", en: "YouTube (YTB Player's origin)", ja: "YouTube（YTB Player の元）", zh: "YouTube（YTB Player 的原版）" } },
+  { repo: "xfangfang/wiliwili", purpose: { ko: "빌리빌리", en: "Bilibili", ja: "ビリビリ", zh: "哔哩哔哩" } },
+  { repo: "proconsule/nxmp", purpose: { ko: "동영상 플레이어", en: "Video player", ja: "動画プレーヤー", zh: "视频播放器" } },
+  { repo: "dragonflylee/switchfin", purpose: { ko: "Jellyfin", en: "Jellyfin", ja: "Jellyfin", zh: "Jellyfin" } },
+  { repo: "XITRIX/Moonlight-Switch", purpose: { ko: "PC 화면 스트리밍", en: "PC streaming", ja: "PC 画面ストリーミング", zh: "PC 串流" } },
+  { repo: "J-D-K/JKSV", purpose: { ko: "세이브 백업", en: "Save backup", ja: "セーブのバックアップ", zh: "存档备份" } },
+  { repo: "BernardoGiordano/Checkpoint", purpose: { ko: "세이브 백업", en: "Save backup", ja: "セーブのバックアップ", zh: "存档备份" } },
+  { repo: "joel16/NX-Shell", purpose: { ko: "파일 관리자", en: "File manager", ja: "ファイルマネージャー", zh: "文件管理器" } },
+  { repo: "mtheall/ftpd", purpose: { ko: "FTP 서버", en: "FTP server", ja: "FTP サーバー", zh: "FTP 服务器" } },
+  { repo: "DarkMatterCore/nxdumptool", purpose: { ko: "덤프 도구", en: "Dump tool", ja: "ダンプツール", zh: "转储工具" } },
+  { repo: "ITotalJustice/sphaira", purpose: { ko: "홈브류 메뉴", en: "Homebrew menu", ja: "自作アプリメニュー", zh: "自制程序菜单" } },
+  { repo: "HamletDuFromage/aio-switch-updater", purpose: { ko: "업데이트 도구", en: "Updater", ja: "アップデーター", zh: "更新工具" } },
+  { repo: "exelix11/SwitchThemeInjector", purpose: { ko: "테마 설치", en: "Theme installer", ja: "テーマのインストール", zh: "主题安装" } },
+  { repo: "nadrino/SimpleModManager", purpose: { ko: "모드 관리", en: "Mod manager", ja: "MOD 管理", zh: "模组管理" } },
+  { repo: "WerWolv/EdiZon", purpose: { ko: "치트 관리", en: "Cheat manager", ja: "チート管理", zh: "金手指管理" } },
+  { repo: "averne/Fizeau", purpose: { ko: "화면 색 보정", en: "Screen colour", ja: "画面の色補正", zh: "屏幕色彩调整" } },
+  { repo: "meganukebmp/Switch_90DNS_tester", purpose: { ko: "90DNS 차단 확인", en: "90DNS check", ja: "90DNS の確認", zh: "90DNS 检查" } },
 ];

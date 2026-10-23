@@ -9,6 +9,7 @@ import path from "path";
 import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "./meta-messages.js";
 
 const ENDPOINT = "https://api.ec.nintendo.com/v1/price";
 const COUNTRIES = [["KR", "ko"], ["US", "en"], ["JP", "ja"]];
@@ -205,13 +206,13 @@ export function warmPrices(nsuIds, opts = {}) {
     if (dropped) savePrices();
     return Promise.resolve(0);
   }
-  const job = activity.begin("eshop", { title: "eShop 가격을 받습니다", detail: `${stale.length}개` });
+  const job = activity.begin("eshop", { title: activityText("act.eshop"), detail: activityText("act.count", { n: stale.length }) });
   warming = fetchPrices(stale, opts)
     .then((changed) => {
       savePrices(); // also keeps the refreshed timestamps of unchanged prices
       if (changed) for (const fn of listeners) fn();
       // Runs after every build: one that changed nothing (or could not reach the eShop) leaves no trace.
-      if (changed) job.done(`${changed}개 바뀜`);
+      if (changed) job.done(activityText("act.changed", { n: changed }));
       else job.discard();
       return changed;
     })

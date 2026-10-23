@@ -64,41 +64,23 @@ import path from "path";
 import FastGlob from "fast-glob";
 import debug from "../debug.js";
 import { resolveNsz, nszArgs, runNsz, failureReason, findOutput, trimReason, VERIFY_FLAG } from "./nsz-runner.js";
+import { ACTIVITY_LANG, activityText, metaText } from "./meta-messages.js";
 import { createNszLog } from "./nsz-log.js";
 import { trashItems } from "../library/trash.js";
 import { sweepPartials } from "../library/safe-move.js";
 
-// Kept in Korean in the queue like the queue's other reasons; the other languages are here for when reasons follow the page.
-const KEEP_FAILED = {
-  ko: "원본을 보관 폴더로 옮기지 못했습니다",
-  en: "Could not move the original to the keep folder",
-  ja: "元のファイルを保管フォルダーに移動できませんでした",
-  zh: "无法将原文件移入保管文件夹",
-};
-const NOT_VERIFIED = {
-  ko: "검증하지 않아 원본을 그대로 둡니다.",
-  en: "Not verified, so the original is left as it is.",
-  ja: "検証していないため、元のファイルはそのまま残します。",
-  zh: "未经验证，原文件保持不变。",
-};
-const EMPTY_OUTPUT = {
-  ko: "결과 파일이 비어 있습니다.",
-  en: "The output file is empty.",
-  ja: "出力ファイルが空です。",
-  zh: "输出文件为空。",
-};
-const TRASH_FAILED = {
-  ko: "검증하지 못한 원본을 휴지통으로 옮기지 못했습니다",
-  en: "Could not move the unverified original to the trash",
-  ja: "検証できなかった元のファイルをゴミ箱に移動できませんでした",
-  zh: "无法将未验证的原文件移入回收站",
-};
-const DELETE_FAILED = {
-  ko: "원본을 지우지 못했습니다",
-  en: "Could not delete the original",
-  ja: "元のファイルを削除できませんでした",
-  zh: "无法删除原文件",
-};
+/**
+ * A queue reason: `reason` in English (what a token or the log file reads), `reasonCode` and `reasonVars`
+ * (meta-messages.js) for the admin page's language (reasonText). Pure.
+ */
+const said = (key, vars = {}) => ({ reason: metaText("en", key, vars), reasonCode: key, reasonVars: vars });
+const reasonOf = ({ reason, reasonCode, reasonVars }) => ({ reason, reasonCode, reasonVars });
+
+/** What a row's reason ({ reason, reasonCode?, reasonVars? }) says in `lang`: by its code, else as it was stored. Pure. */
+export const reasonText = (lang, x) => (x?.reasonCode ? metaText(lang, x.reasonCode, x.reasonVars) : x?.reason ?? null);
+
+/** A queue row, failure or log line with its reason in `lang`. Pure. */
+export const inLang = (lang) => (x) => (x?.reasonCode && x.reason ? { ...x, reason: reasonText(lang, x) } : x);
 
 export const WORK_DIR_NAME = ".cookingfoil-nsz-work";
 export const KEEP_DIR_NAME = ".cookingfoil-nsz-keep";
@@ -355,9 +337,10 @@ export function createNszQueue({
   }
 
   function record(item, patch) {
-    Object.assign(item, patch);
+    // A reason said in plain words (or none) drops the key of the one before it.
+    Object.assign(item, "reason" in patch && !("reasonCode" in patch) ? { reasonCode: undefined, reasonVars: undefined } : {}, patch);
     if (patch.state === "failed" || patch.state === "skipped") {
-      state.failures.push({ at: Date.now(), rel: item.rel, reason: item.reason });
+      state.failures.push({ at: Date.now(), rel: item.rel, reason: item.reason, ...(item.reasonCode ? { reasonCode: item.reasonCode, reasonVars: item.reasonVars } : {}) });
       if (state.failures.length > FAILURE_LOG) state.failures.splice(0, state.failures.length - FAILURE_LOG);
     }
     save();
@@ -454,12 +437,12 @@ export function createNszQueue({
       return { current: p.outBytes, total: p.expectedBytes };
     });
     run.done = convert(item, s, run)
-      .catch((err) => finish(item, { state: "failed", reason: trimReason(err.message) || "알 수 없는 오류입니다." }))
+      .catch((err) => finish(item, trimReason(err.message) ? { state: "failed", reason: trimReason(err.message) } : { state: "failed", ...said("nsz.unknown") }))
       .finally(async () => {
         await fsp.rm(outDir, { recursive: true, force: true }).catch(() => {});
         runs.delete(item.id);
-        if (item.state === "done") job?.done(item.savedBytes ? `${gb(item.savedBytes)} 줄임` : null);
-        else if (item.state === "failed") job?.fail(item.reason);
+        if (item.state === "done") job?.done(item.savedBytes ? activityText("act.nszSaved", { size: gb(item.savedBytes) }) : null);
+        else if (item.state === "failed") job?.fail(reasonText(ACTIVITY_LANG, item));
         else job?.discard();
         pump();
       });
@@ -469,12 +452,12 @@ export function createNszQueue({
   function finish(item, patch, { counts = false } = {}) {
     record(item, { ...patch, finishedAt: Date.now(), retryAt: patch.state === "busy" ? Date.now() + busyRetryMs : null });
     if (patch.state === "failed") {
-      logEvent(item, "failed", item.reason);
+      logEvent(item, "failed", item.reason, item);
       cycle.failed++;
       if (counts) fails++;
       if (fails >= MAX_FAILS) {
         fails = 0;
-        pauseFor("failures", (t) => t("nszFailures", { count: MAX_FAILS, reason: item.reason }));
+        pauseFor("failures", (t, lang) => t("nszFailures", { count: MAX_FAILS, reason: reasonText(lang, item) }));
       }
     } else if (patch.state === "done") {
       fails = 0;
@@ -482,20 +465,20 @@ export function createNszQueue({
   }
 
   const changed = (st, item) => st.size !== item.size || Math.round(st.mtimeMs) !== Math.round(item.mtimeMs);
-  const BUSY = (why) => ({ state: "busy", reason: why });
+  const BUSY = (key) => ({ state: "busy", ...said(key) });
 
   async function convert(item, s, run) {
     const abs = path.join(gamesDir, item.rel);
     const target = path.join(gamesDir, targetOf(item.rel));
     const st = await fsp.stat(abs).catch(() => null);
-    if (!st?.isFile()) return finish(item, { state: "skipped", reason: "파일이 없습니다." });
-    if (st.size < s.minSizeMb * MIB) return finish(item, { state: "skipped", reason: "최소 크기보다 작습니다." });
+    if (!st?.isFile()) return finish(item, { state: "skipped", ...said("nsz.noFile") });
+    if (st.size < s.minSizeMb * MIB) return finish(item, { state: "skipped", ...said("nsz.tooSmall") });
     Object.assign(item, { size: st.size, mtimeMs: st.mtimeMs });
-    if (fs.existsSync(target)) return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
-    if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
-    if (Date.now() - st.mtimeMs < recentWriteMs) return finish(item, BUSY("파일이 방금 바뀌어 나중에 다시 합니다."));
+    if (fs.existsSync(target)) return finish(item, { state: "failed", ...said("nsz.exists") });
+    if (fileInUse(item.rel)) return finish(item, BUSY("nsz.downloading"));
+    if (Date.now() - st.mtimeMs < recentWriteMs) return finish(item, BUSY("nsz.justChanged"));
     const nsz = bin();
-    if (!nsz) return finish(item, { state: "failed", reason: "nsz 를 찾지 못했습니다. COOK_NSZ_BIN 을 확인합니다." });
+    if (!nsz) return finish(item, { state: "failed", ...said("nsz.noBin") });
 
     await fsp.rm(run.outDir, { recursive: true, force: true });
     await fsp.mkdir(run.outDir, { recursive: true });
@@ -505,28 +488,28 @@ export function createNszQueue({
     if (run.stopping) child.stop();
     const r = await child.done;
     if (r.stopped || run.stopping) return record(item, { state: "waiting", startedAt: null, reason: null });
-    if (r.code !== 0) return finish(item, { state: "failed", reason: failureReason(r.code, r.signal, r.tail).reason }, { counts: true });
+    if (r.code !== 0) return finish(item, { state: "failed", ...reasonOf(failureReason(r.code, r.signal, r.tail)) }, { counts: true });
     // The original is deleted below, so the verify must have run and reported nothing wrong.
-    if (!args.includes(VERIFY_FLAG)) return finish(item, { state: "failed", reason: NOT_VERIFIED.ko }, { counts: true });
+    if (!args.includes(VERIFY_FLAG)) return finish(item, { state: "failed", ...said("nsz.notVerified") }, { counts: true });
     const verdict = failureReason(r.code, r.signal, r.tail);
-    if (verdict.code === "verify") return finish(item, { state: "failed", reason: verdict.reason }, { counts: true });
+    if (verdict.code === "verify") return finish(item, { state: "failed", ...reasonOf(verdict) }, { counts: true });
 
     const out = findOutput(run.outDir);
-    if (!out) return finish(item, { state: "failed", reason: "결과 파일이 없습니다." }, { counts: true });
+    if (!out) return finish(item, { state: "failed", ...said("nsz.noOutput") }, { counts: true });
     const outSize = (await fsp.stat(out)).size;
-    if (!(outSize > 0)) return finish(item, { state: "failed", reason: EMPTY_OUTPUT.ko }, { counts: true });
-    if (outSize >= item.size) return finish(item, { state: "failed", reason: "압축해도 줄어들지 않습니다." });
+    if (!(outSize > 0)) return finish(item, { state: "failed", ...said("nsz.emptyOutput") }, { counts: true });
+    if (outSize >= item.size) return finish(item, { state: "failed", ...said("nsz.notSmaller") });
 
     const again = await fsp.stat(abs).catch(() => null);
-    if (!again) return finish(item, { state: "skipped", reason: "변환하는 동안 파일이 사라졌습니다." });
-    if (changed(again, item)) return finish(item, BUSY("변환하는 동안 파일이 바뀌어 나중에 다시 합니다."));
-    if (fileInUse(item.rel)) return finish(item, BUSY("다운로드하는 중이라 나중에 다시 합니다."));
+    if (!again) return finish(item, { state: "skipped", ...said("nsz.vanished") });
+    if (changed(again, item)) return finish(item, BUSY("nsz.changedDuring"));
+    if (fileInUse(item.rel)) return finish(item, BUSY("nsz.downloading"));
 
     // link fails with EEXIST where rename would replace a .nsz placed meanwhile (a.nsp and a.NSP share one target).
     try {
       await fsp.link(out, target);
     } catch (err) {
-      if (err.code === "EEXIST") return finish(item, { state: "failed", reason: "같은 이름의 .nsz 가 이미 있습니다." });
+      if (err.code === "EEXIST") return finish(item, { state: "failed", ...said("nsz.exists") });
       throw err;
     }
     // The work folder is removed afterwards anyway.
@@ -545,7 +528,7 @@ export function createNszQueue({
       }
     } catch (err) {
       onSwapped([{ rel: targetOf(item.rel), op: "upsert" }]);
-      return finish(item, { state: "failed", reason: `${(unverified ? TRASH_FAILED : keep ? KEEP_FAILED : DELETE_FAILED).ko}: ${trimReason(err.message)}` });
+      return finish(item, { state: "failed", ...said(unverified ? "nsz.trashFailed" : keep ? "nsz.keepFailed" : "nsz.deleteFailed", { why: trimReason(err.message) }) });
     }
     onSwapped([{ rel: item.rel, op: "remove" }, { rel: targetOf(item.rel), op: "upsert" }]);
     const saved = item.size - outSize;
@@ -574,10 +557,12 @@ export function createNszQueue({
   // Kept originals go to the trash one at a time.
   const serial = (fn) => (keepChain = keepChain.catch(() => {}).then(fn));
 
-  function logEvent(item, event, reason) {
+  /** `said`: the failure's { reasonCode, reasonVars }, kept so the log reads in the page's language. */
+  function logEvent(item, event, reason, said = null) {
     log.append({
       at: now(), id: item.id, rel: item.rel, name: item.name ?? null, from: item.rel, to: targetOf(item.rel),
       sizeBefore: item.size ?? null, sizeAfter: item.outSize ?? null, event, ...(reason ? { reason } : {}),
+      ...(reason && said?.reasonCode ? { reasonCode: said.reasonCode, reasonVars: said.reasonVars } : {}),
     });
   }
 
@@ -715,7 +700,7 @@ export function createNszQueue({
     const want = new Set(ids);
     const picked = state.items.filter((i) => want.has(i.id) && RUNNABLE.has(i.state));
     if (!picked.length) return 0;
-    for (const i of picked) if (i.state !== "waiting") Object.assign(i, { state: "waiting", reason: null, retryAt: null, finishedAt: null });
+    for (const i of picked) if (i.state !== "waiting") Object.assign(i, { state: "waiting", reason: null, reasonCode: undefined, reasonVars: undefined, retryAt: null, finishedAt: null });
     Object.assign(state, { only: picked.map((i) => i.id), running: true, held: false, pausedReason: null });
     fails = 0;
     save();
@@ -754,7 +739,7 @@ export function createNszQueue({
     const list = id === "all" ? state.items.filter((i) => i.state === "failed" || i.state === "skipped" || i.state === "busy") : [find(id)].filter(Boolean);
     for (const i of list) {
       if (i.state === "running" || i.state === "done") continue;
-      Object.assign(i, { state: "waiting", reason: null, retryAt: null, finishedAt: null });
+      Object.assign(i, { state: "waiting", reason: null, reasonCode: undefined, reasonVars: undefined, retryAt: null, finishedAt: null });
     }
     if (id !== "all" && !list.length) return 0;
     // 재시도 is the admin's go: an idle queue starts, a paused one stays paused.

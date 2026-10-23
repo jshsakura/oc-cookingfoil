@@ -21,7 +21,10 @@ test("other scripts, FAT's reserved characters and odd segments are refused", ()
 test("problems are listed per path and summarised for a message", () => {
   const problems = pathProblems(["switch/a/ok.bin", "switch/a/한.md", "switch/a/b?.bin"]);
   assert.deepEqual(problems.map((x) => x.path), ["switch/a/한.md", "switch/a/b?.bin"]);
-  assert.match(describeProblems(problems, 1), /switch\/a\/한\.md \(.+\) 외 1개/);
+  // English by default (a log line, a token's answer); the admin page's language when it is asked for.
+  assert.equal(problems[0].reason, "It has characters other than ASCII letters, digits and symbols");
+  assert.equal(describeProblems(problems, 1), "switch/a/한.md (It has characters other than ASCII letters, digits and symbols) and 1 more");
+  assert.equal(describeProblems(problems, 1, "ko"), "switch/a/한.md (영문, 숫자, 기호(ASCII)가 아닌 글자가 있습니다) 외 1개");
 });
 
 test("names that differ only by case are one file on the card", () => {

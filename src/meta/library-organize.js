@@ -29,13 +29,14 @@ import fsp from "fs/promises";
 import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
-import { planExtras } from "./incoming-extras.js";
+import { EXTRA_REASON_TEXT, planExtras } from "./incoming-extras.js";
 import { cleanName, firstName, freeFileName, isMeaningless, nameFromFile } from "./organize-naming.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import { dlcDisplayName } from "./dlc-name.js";
 import { incomingInGames } from "../helpers/envs.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { moveNoClobber, withPartial } from "../library/safe-move.js";
+import { activityText } from "./meta-messages.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
 // A file younger than this may still be being copied into the drop box.
@@ -46,7 +47,7 @@ const RECENT_MAX = 100;
 
 // Why a file stays in the drop box, by code, in each admin page language. A held
 // file carries the code (the panel shows it in the viewer's language) and the
-// Korean text as `reason`.
+// English text as `reason`. The other files' reasons (incoming-extras.js) are part of it.
 export const REASON_TEXT = Object.freeze({
   ko: {
     noId: "타이틀 ID 를 찾지 못했습니다. 파일 이름에 [TITLEID] 를 넣거나 prod.keys 를 둡니다",
@@ -65,6 +66,7 @@ export const REASON_TEXT = Object.freeze({
     moveFailed: "옮기지 못했습니다",
     readFailed: "임시 폴더를 읽지 못했습니다",
     undone: "휴지통 탭에서 정리를 되돌린 파일이라 그대로 둡니다. 다시 정리하려면 휴지통 탭의 작업 기록에서 다시 정리 허용을 누릅니다",
+    ...EXTRA_REASON_TEXT.ko,
   },
   en: {
     noId: "No title ID found. Put [TITLEID] in the file name or add prod.keys",
@@ -83,6 +85,7 @@ export const REASON_TEXT = Object.freeze({
     moveFailed: "Could not move the file",
     readFailed: "Could not read the drop box",
     undone: "This file is left as it is because its organizing was undone in the Trash tab. To organize it again, press Allow organizing again in the Trash tab's move log",
+    ...EXTRA_REASON_TEXT.en,
   },
   ja: {
     noId: "タイトル ID が見つかりません。ファイル名に [TITLEID] を入れるか、prod.keys を置きます",
@@ -101,6 +104,7 @@ export const REASON_TEXT = Object.freeze({
     moveFailed: "移せませんでした",
     readFailed: "一時フォルダーを読めませんでした",
     undone: "ごみ箱タブで整理を取り消したファイルなので、そのままにします。もう一度整理するには、ごみ箱タブの作業記録で「再整理を許可」を押します",
+    ...EXTRA_REASON_TEXT.ja,
   },
   zh: {
     noId: "找不到标题 ID。请在文件名中加入 [TITLEID]，或放入 prod.keys",
@@ -119,11 +123,12 @@ export const REASON_TEXT = Object.freeze({
     moveFailed: "无法移动",
     readFailed: "无法读取临时文件夹",
     undone: "此文件已在回收站标签页中撤销整理，因此保持原样。要重新整理，请在回收站标签页的操作记录中按“允许重新整理”",
+    ...EXTRA_REASON_TEXT.zh,
   },
 });
 
-/** The Korean text of each hold reason, by code. */
-export const REASONS = Object.freeze({ ...REASON_TEXT.ko });
+/** The English text of each hold reason, by code: what a token or a script reads. */
+export const REASONS = Object.freeze({ ...REASON_TEXT.en });
 
 export const SUB = Object.freeze({ update: "update", dlc: "DLC" });
 
@@ -141,7 +146,7 @@ export const folderNameOf = cleanName;
 const key = (id) => `${id.titleId}@${id.version}`;
 // How two names are compared: the same text in NFC or NFD, any case, is one name.
 const same = (s) => s.normalize("NFC").toLowerCase();
-/** A held file: its reason as a code and in Korean, and `detail` for what the code leaves open. */
+/** A held file: its reason as a code and in English, and `detail` for what the code leaves open. */
 const heldItem = (rel, code, id = null, detail = null) => ({
   rel, code, reason: detail ? `${REASONS[code]}: ${detail}` : REASONS[code], ...(detail ? { detail } : {}), titleId: id?.titleId ?? null, kind: id?.kind ?? null,
 });
@@ -425,7 +430,7 @@ export function createOrganizer(deps) {
     const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
     const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
     const movedIn = { games: 0, retro: 0, homebrew: 0 };
-    const job = moves.length ? deps.begin("organize", { title: "임시 폴더의 파일을 옮깁니다", total: moves.length }) : null;
+    const job = moves.length ? deps.begin("organize", { title: activityText("act.organize"), total: moves.length }) : null;
     const failed = [];
     for (const [i, m] of moves.entries()) {
       const from = path.join(dir, m.from);
@@ -445,7 +450,7 @@ export function createOrganizer(deps) {
       job?.step(i + 1, m.to);
     }
     const moved = movedIn.games + movedIn.retro + movedIn.homebrew;
-    job?.done(`${moved}개 옮겼습니다`);
+    job?.done(activityText("act.organized", { n: moved }));
     if (movedIn.games) deps.rescan();
     if (movedIn.retro) deps.rescanRetro();
     if (movedIn.homebrew) deps.rescanHomebrew();

@@ -24,6 +24,8 @@ import {
   BadParam, browse, createOtherScanner, gameItem, item, nestedDirs, parseQuery,
 } from "../../meta/library-browse.js";
 import debug from "../../debug.js";
+import { metaErrorText } from "../../meta/meta-messages.js";
+import { requestLang } from "../../meta/langs.js";
 
 const OTHER_TTL_MS = 60_000;
 
@@ -134,7 +136,7 @@ export function mountLibraryBrowseApi(router, requireSession, {
     try {
       query = parseQuery(req.query);
     } catch (err) {
-      if (err instanceof BadParam) return res.status(400).json({ error: err.message, code: err.code, param: err.param });
+      if (err instanceof BadParam) return res.status(400).json({ error: metaErrorText(requestLang(req), err), code: err.code, param: err.param });
       throw err;
     }
     try {

@@ -51,6 +51,7 @@ import * as downloadLinks from "../security/download-links.js";
 import debug from "../debug.js";
 import * as activity from "../tasks/activity.js";
 import { isIncoming } from "./library-organize.js";
+import { activityText } from "./meta-messages.js";
 
 const gzipAsync = promisify(zlib.gzip);
 const brotliAsync = promisify(zlib.brotliCompress);
@@ -184,7 +185,7 @@ async function build() {
       let mode;
       if (!filesMap || needsFullRescan) {
         // Only a full read shows up as a job: the incremental passes run on every file change.
-        scanJob = activity.begin("scan:games", { title: "게임 폴더를 읽습니다" });
+        scanJob = activity.begin("scan:games", { title: activityText("act.scanGames") });
         // Cleared before the read: a rescan asked while it runs builds again afterwards.
         needsFullRescan = false;
         needsRename = false;
@@ -274,7 +275,7 @@ async function build() {
       // critical-path measurement and so the consumer's `await build()`
       // resolves the moment the response Buffers are ready.
       setImmediate(() => schedulePrewarm(r));
-      scanJob?.done(`파일 ${filesMap.size}개`);
+      scanJob?.done(activityText("act.files", { n: filesMap.size }));
       scanJob = null;
 
       // Push to ws subscribers so dashboards open across the network see

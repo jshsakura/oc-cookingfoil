@@ -15,12 +15,20 @@ import path from "path";
 import { dataDir, homebrewRepos } from "../helpers/envs.js";
 import { parseRepo } from "./homebrew.js";
 import debug from "../debug.js";
+import { metaText } from "./meta-messages.js";
 
 const FILE = path.join(dataDir, "homebrew", "sources.json");
 const MAX_SOURCES = 200;
 const PATTERN_RE = /^[A-Za-z0-9_.*?\- ]{1,100}$/;
 
-export class SourceError extends Error {}
+/** A refusal with its meta-messages.js key as `code` and its English message. */
+export class SourceError extends Error {
+  constructor(code, vars = {}) {
+    super(metaText("en", code, vars));
+    this.code = code;
+    this.vars = vars;
+  }
+}
 
 let sources = null;
 
@@ -59,17 +67,17 @@ const find = (repo) => list().find((s) => s.repo.toLowerCase() === repo.toLowerC
 export function cleanPattern(raw) {
   const p = String(raw ?? "").trim();
   if (!p) return null;
-  if (!PATTERN_RE.test(p) || !/\.(nro|zip)$/i.test(p)) throw new SourceError("파일 이름 패턴은 .nro 나 .zip 으로 끝나야 합니다");
+  if (!PATTERN_RE.test(p) || !/\.(nro|zip)$/i.test(p)) throw new SourceError("sources.badPattern");
   return p;
 }
 
 /** Adds a repository (owner/name or its GitHub address). Returns the stored entry. */
 export function add(raw, asset = null) {
   const repo = parseRepo(raw);
-  if (!repo) throw new SourceError("GitHub 저장소 주소가 아닙니다");
+  if (!repo) throw new SourceError("sources.badRepo");
   const existing = find(repo);
   if (existing) return existing;
-  if (list().length >= MAX_SOURCES) throw new SourceError(`저장소는 ${MAX_SOURCES}개까지 둡니다`);
+  if (list().length >= MAX_SOURCES) throw new SourceError("sources.tooMany", { max: MAX_SOURCES });
   const entry = { repo, asset: cleanPattern(asset), addedAt: Date.now() };
   persist([...list(), entry]);
   return entry;

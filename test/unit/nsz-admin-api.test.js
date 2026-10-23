@@ -85,8 +85,15 @@ test("turned on, 전체 변환 queues and starts; nsz missing fails the file wit
   await queue.idle();
   const d = await (await call("?filter=failed")).json();
   assert.equal(d.total, 1);
-  assert.match(d.items[0].reason, /nsz 를 찾지 못했습니다/);
+  // Kept in English with a code: without Accept-Language the reason is English, the admin page reads its own.
+  assert.equal(d.items[0].reason, "nsz was not found. Check COOK_NSZ_BIN.");
+  assert.equal(d.failures[0].reason, "nsz was not found. Check COOK_NSZ_BIN.");
+  const ko = await (await fetch(`${BASE}?filter=failed`, { headers: { "x-admin": "1", "Accept-Language": "ko" } })).json();
+  assert.equal(ko.items[0].reason, "nsz 를 찾지 못했습니다. COOK_NSZ_BIN 을 확인합니다.");
+  assert.equal(ko.failures[0].reason, "nsz 를 찾지 못했습니다. COOK_NSZ_BIN 을 확인합니다.");
   assert.equal((await call("/run-selected", "POST", { ids: ["0123456789ab"] })).status, 400, "unknown rows");
   const log = await (await call("/log")).json();
-  assert.deepEqual([log.total, log.items[0].event], [1, "failed"]);
+  assert.deepEqual([log.total, log.items[0].event, log.items[0].reason], [1, "failed", "nsz was not found. Check COOK_NSZ_BIN."]);
+  const koLog = await (await fetch(`${BASE}/log`, { headers: { "x-admin": "1", "Accept-Language": "ko" } })).json();
+  assert.equal(koLog.items[0].reason, "nsz 를 찾지 못했습니다. COOK_NSZ_BIN 을 확인합니다.");
 });

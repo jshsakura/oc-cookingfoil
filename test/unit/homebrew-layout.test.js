@@ -132,5 +132,6 @@ test("an app that falls back to its .nro alone is not refused for a name it neve
 test("two names that differ only by case refuse a folder install", () => {
   const layout = normalizeLayout(["switch/g/g.nro", "switch/g/A.bin", "switch/g/a.bin"].map(entry), { repoName: "g" });
   assert.equal(layout.reason, "console-path");
-  assert.match(layout.problems[0].reason, /대소문자/);
+  assert.equal(layout.problems[0].code, "path.caseClash");
+  assert.match(layout.problems[0].reason, /only in case/);
 });

@@ -40,6 +40,7 @@ import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 import { moveNoClobber } from "../../library/safe-move.js";
 import { locateContent, refreshContent, trashContent } from "../../library/content-remove.js";
 import { apiText, apiWord } from "./api-words.js";
+import { isMetaCode, metaError } from "../../meta/meta-messages.js";
 
 /** Removes `dir` and the folders under it once they hold no file: anything written into it meanwhile stays. */
 async function dropEmptyTree(dir) {
@@ -97,7 +98,7 @@ export function patchMeta(old, input) {
   try {
     return editedInfo(old, body);
   } catch (err) {
-    if (err instanceof patchInfo.InfoError) throw new ContentError(400, null, {}, err.message);
+    if (err instanceof patchInfo.InfoError) throw Object.assign(new ContentError(400, null, {}, err.message), { code: err.code, vars: err.vars });
     throw err;
   }
 }
@@ -169,7 +170,12 @@ export function mountContentApi(router, requireSession) {
     try {
       await fn(req, res);
     } catch (err) {
-      if (err instanceof ContentError || err instanceof FieldError) return res.status(err.status).json({ error: err.key ? apiWord(req, err.key, err.vars) : err.message });
+      if (err instanceof ContentError || err instanceof FieldError) {
+        if (err.key) return res.status(err.status).json({ error: apiWord(req, err.key, err.vars) });
+        // A meta module's refusal (patch-info.js) carries its key as `code`.
+        if (isMetaCode(err.code)) return res.status(err.status).json(metaError(req, err));
+        return res.status(err.status).json({ error: err.message });
+      }
       debug.error("admin: content: %s", err.message);
       res.status(500).json({ error: apiWord(req, "failed") });
     }

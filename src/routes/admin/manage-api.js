@@ -24,6 +24,8 @@ import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import * as envs from "../../helpers/envs.js";
 import { apiWord } from "./api-words.js";
+import { isMetaCode, metaErrorText } from "../../meta/meta-messages.js";
+import { requestLang } from "../../meta/langs.js";
 
 const USER_ERROR_STATUS = {
   "invalid-name": 400, "weak-password": 400, "invalid-role": 400, "not-found": 404, exists: 409, "last-user": 409,
@@ -50,8 +52,10 @@ function notSelf(req, name, { emptying = false } = {}) {
   if (isSelf(req, "password", name) && !emptying) throw new SelfError();
 }
 
-function userError(res, err) {
+function userError(req, res, err) {
   const status = USER_ERROR_STATUS[err.code];
+  // A meta module's refusal (featured.js) carries its message key: said in the request's language, the key as `code`.
+  if (status && isMetaCode(err.key)) return res.status(status).json({ error: err.code, message: metaErrorText(requestLang(req), err), code: err.key });
   if (status) return res.status(status).json({ error: err.code, message: err.message });
   // Disk or unexpected failures: log the detail, keep it out of the response.
   debug.error("admin: account change failed: %s", err.message);
@@ -63,7 +67,7 @@ export function mountManageApi(router, guard) {
   const change = (handler) => (req, res) => {
     if (!guard(req, res) || !sameOrigin(req, res)) return;
     res.set("Cache-Control", "no-store");
-    try { handler(req, res); } catch (err) { userError(res, err); }
+    try { handler(req, res); } catch (err) { userError(req, res, err); }
   };
 
   router.get("/api/users", (req, res) => {

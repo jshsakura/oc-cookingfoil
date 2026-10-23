@@ -882,7 +882,7 @@ function upPaint(u){
     kids.push(el('div',upT('rWhere',{where:d.where,files:upFilesT(d.files)})+(d.kind==='port'?' · '+upT('rPort'):''),'d'));
     if(d.install){for(const x of d.install.excluded||[])kids.push(el('div',upT('rExcl',{rule:HB_EXCLUDED[x.rule]||x.rule,paths:x.paths.join(', ')}),'d'));
       if(d.install.rules?.length)kids.push(el('div',upT('rBasis',{rules:d.install.rules.join(' · ')}),'d'));}}
-  if(fail){const why=failureKind(u.status,u.msg);
+  if(fail){const why=failureKind(u.status,u.code);
     kids.push(el('div',why==='net'?upT('rNet'):(u.msg||('HTTP '+u.status)),'d'));
     if(why==='dup')kids.push(el('div',upT('rDup'),'d'));
     if(upUnits.includes(u)&&!upBusy){const row=el('div',null,'row-actions');const b=el('button',upT('rRetry'));b.type='button';
@@ -984,7 +984,7 @@ function upSend(u,label){return new Promise((resolve)=>{
   xhr.addEventListener('loadend',()=>{
     if(xhr.status===401){location.reload();return;}
     let d={};try{d=JSON.parse(xhr.responseText);}catch{}
-    u.status=xhr.status;u.d=d;u.msg=d.error||'';u.state=xhr.status===201?'ok':'fail';
+    u.status=xhr.status;u.d=d;u.msg=d.error||'';u.code=d.code||null;u.state=xhr.status===201?'ok':'fail';
     upPaint(u);resolve();});
   xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.setRequestHeader('Accept-Language',typeof adminLang==='string'?adminLang:'ko');xhr.send(fd);});}
 // Send the given units (default: every one that has not gone in). Units that went up are never sent again.

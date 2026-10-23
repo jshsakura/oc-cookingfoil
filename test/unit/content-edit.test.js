@@ -12,7 +12,7 @@ const { readMeta, localizePatch } = await import("../../src/meta/user-patches.js
 test("a patch edit keeps required and drops emptied fields", () => {
   const next = patchMeta({ name: "old", required: true, author: "x" }, { name: " 한글패치 ", nameKo: "", description: "Korean text", descriptionKo: "한국어로 변경합니다", version: "1.2", author: "" });
   assert.deepEqual(next, { name: "한글패치", version: "1.2", description: "Korean text", ko: { description: "한국어로 변경합니다" }, required: true });
-  assert.throws(() => patchMeta({}, { name: "  " }), /이름/);
+  assert.throws(() => patchMeta({}, { name: "  " }), { status: 400, code: "info.noName", message: "Enter a name" });
 });
 
 test("a patch edit keeps the game version and the update it is for unless it sets them", () => {
@@ -22,7 +22,7 @@ test("a patch edit keeps the game version and the update it is for unless it set
   assert.deepEqual(patchMeta(old, { name: "a", gameVersion: "1.0.33.0", updateVersion: "2162688" }),
     { name: "a", game_version: "1.0.33.0", update_version: 2162688, required: true });
   assert.deepEqual(patchMeta(old, { name: "a", gameVersion: "", updateVersion: "" }), { name: "a", required: true }, "cleared");
-  for (const bad of ["v2097152", "-1", "1.5", "99999999999"]) assert.throws(() => patchMeta(old, { name: "a", updateVersion: bad }), /업데이트/, bad);
+  for (const bad of ["v2097152", "-1", "1.5", "99999999999"]) assert.throws(() => patchMeta(old, { name: "a", updateVersion: bad }), { code: "info.updateVersion" }, bad);
 });
 
 test("a save edit checks the source address and the save kind", () => {

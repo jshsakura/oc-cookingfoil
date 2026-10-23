@@ -25,8 +25,12 @@ test("a ROM goes to the system the folder it was dropped in chose", () => {
 test("the extension never picks a system; it only warns when something looks wrong", () => {
   const p = plan(["받은 것/Golden Sun.gba", "snes/Golden Sun.gba", "snes/Chrono.sfc"]);
   const why = Object.fromEntries(p.held.map((h) => [h.rel, h.reason]));
-  assert.equal(why["받은 것/Golden Sun.gba"], `${EXTRA_REASONS.noSystem}. 게임보이 어드밴스 롬으로 보입니다`);
-  assert.equal(why["snes/Golden Sun.gba"], `${EXTRA_REASONS.wrongExtension}. 게임보이 어드밴스 롬으로 보입니다`);
+  assert.equal(why["받은 것/Golden Sun.gba"], `${EXTRA_REASONS.noSystem}. It looks like a Game Boy Advance ROM`);
+  assert.equal(why["snes/Golden Sun.gba"], `${EXTRA_REASONS.wrongExtension}. It looks like a Game Boy Advance ROM`);
+  // The panel says it in its own language by the code, the console named in that language.
+  const held = p.held.find((h) => h.rel === "snes/Golden Sun.gba");
+  assert.equal(held.code, "wrongExtensionHint");
+  assert.equal(held.vars.system.ko, "게임보이 어드밴스");
   assert.deepEqual(p.moves.map((m) => m.to), ["roms/snes/Chrono.sfc"]);
 });
 

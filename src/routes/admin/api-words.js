@@ -531,7 +531,8 @@ const wordsFor = (lang) => API_WORDS[lang] ?? (lang === "zh-Hant" ? API_WORDS.zh
 /** The message `key` in `lang` (English when it is not an admin language), placeholders filled. Pure. */
 export function apiText(lang, key, vars = {}) {
   const text = wordsFor(lang)[key] ?? API_WORDS.en[key] ?? key;
-  return text.replace(/\{(\w+)\}/g, (m, name) => (vars[name] === undefined ? m : String(vars[name])));
+  // A value may be a function of the language: a part that is itself said per language (a list of reasons).
+  return text.replace(/\{(\w+)\}/g, (m, name) => (vars[name] === undefined ? m : String(typeof vars[name] === "function" ? vars[name](lang) : vars[name])));
 }
 
 /** The message `key` in the request's language. */

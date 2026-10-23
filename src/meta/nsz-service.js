@@ -9,6 +9,7 @@ import * as env from "../helpers/envs.js";
 import * as shopCache from "./shop-cache.js";
 import drainer from "../security/drain.js";
 import { alert } from "../helpers/alerts.js";
+import { activityText } from "./meta-messages.js";
 import * as activity from "../tasks/activity.js";
 
 /** The queue's settings as they are right now (envs.js live bindings). */
@@ -49,7 +50,7 @@ const queue = createNszQueue({
     // Stopping one conversion from the activity menu pauses the queue, like the 변환 tab's pause:
     // the running files wait again and nothing starts until the admin starts it.
     const cancel = () => queue.pause().catch(() => {});
-    return activity.begin("nsz", { title: "NSZ 로 변환합니다", detail: item.name || path.basename(item.rel), probe: steady, cancel });
+    return activity.begin("nsz", { title: activityText("act.nsz"), detail: item.name || path.basename(item.rel), probe: steady, cancel });
   },
 });
 

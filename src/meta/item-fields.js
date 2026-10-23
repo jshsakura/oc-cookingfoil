@@ -37,8 +37,7 @@ export class FieldError extends Error {
   }
 }
 
-const L = (ko, en, ja, zh) => ({ ko, en, ja, zh });
-const VERIFIED = L("검수됨", "Verified", "動作確認済み", "已驗證");
+const VERIFIED = { ko: "검수됨", en: "Verified", ja: "動作確認済み", zh: "已驗證" };
 
 const toggle = (key, label, read, write, extra = {}) =>
   ({ key, type: "toggle", label, read, write, valid: (v) => typeof v === "boolean", ...extra });
@@ -47,12 +46,12 @@ const choice = (key, label, options, read, write, extra = {}) =>
 
 const HOMEBREW = [
   toggle("verified", VERIFIED, (id) => homebrewVerified.verifiedAt(id) !== null, (id, v) => homebrewVerified.set(id, v)),
-  toggle("enabled", L("보이기", "Show", "表示", "顯示"), (id) => !disabled.isDisabled(id), (id, v) => disabled.setEnabled(id, v)),
-  choice("kind", L("분류", "Type", "種類", "類型"),
-    [{ value: "tool", label: L("도구", "Tool", "ツール", "工具") }, { value: "port", label: L("포트", "Port", "移植", "移植版") }],
+  toggle("enabled", { ko: "보이기", en: "Show", ja: "表示", zh: "顯示" }, (id) => !disabled.isDisabled(id), (id, v) => disabled.setEnabled(id, v)),
+  choice("kind", { ko: "분류", en: "Type", ja: "種類", zh: "類型" },
+    [{ value: "tool", label: { ko: "도구", en: "Tool", ja: "ツール", zh: "工具" } }, { value: "port", label: { ko: "포트", en: "Port", ja: "移植", zh: "移植版" } }],
     (id) => kinds.kindOf(id), (id, v) => kinds.set(id, v)),
-  choice("cores", L("바로가기 CPU 코어", "Shortcut CPU cores", "ショートカットの CPU コア", "捷徑 CPU 核心"),
-    [{ value: "3", label: L("3 (기본)", "3 (default)", "3 (標準)", "3 (預設)") }, { value: "4", label: L("4", "4", "4", "4") }],
+  choice("cores", { ko: "바로가기 CPU 코어", en: "Shortcut CPU cores", ja: "ショートカットの CPU コア", zh: "捷徑 CPU 核心" },
+    [{ value: "3", label: { ko: "3 (기본)", en: "3 (default)", ja: "3 (標準)", zh: "3 (預設)" } }, { value: "4", label: { ko: "4", en: "4", ja: "4", zh: "4" } }],
     (id) => String(cores.coresOf(id)),
     (id, v) => {
       cores.set(id, Number(v));

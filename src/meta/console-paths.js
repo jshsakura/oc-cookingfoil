@@ -14,46 +14,57 @@
  *
  * A space inside a name is fine ("Battle wild.ogg" writes normally).
  */
+import { metaText } from "./meta-messages.js";
+
 export const MAX_SEGMENT = 255;
 export const MAX_PATH = 768;
 const NOT_ASCII_RE = /[^\x20-\x7e]/;
 const FORBIDDEN_RE = /[\\:*?"<>|]/;
 
-/** Why the console cannot create `p`, in Korean for the admin page, or null when it can. Pure. */
-export function pathProblem(p) {
+/** Why the console cannot create `p` as { code, vars } (a meta-messages.js key), or null when it can. Pure. */
+export function pathProblemCode(p) {
   const s = String(p ?? "");
-  if (!s) return "경로가 비어 있습니다";
-  if (NOT_ASCII_RE.test(s)) return "영문, 숫자, 기호(ASCII)가 아닌 글자가 있습니다";
-  if (FORBIDDEN_RE.test(s)) return "\\ : * ? \" < > | 는 쓸 수 없습니다";
-  if (s.startsWith("/")) return "/ 로 시작하면 안 됩니다";
-  if (s.length > MAX_PATH) return `전체 경로가 ${MAX_PATH}자를 넘습니다`;
+  if (!s) return { code: "path.empty", vars: {} };
+  if (NOT_ASCII_RE.test(s)) return { code: "path.notAscii", vars: {} };
+  if (FORBIDDEN_RE.test(s)) return { code: "path.forbidden", vars: {} };
+  if (s.startsWith("/")) return { code: "path.absolute", vars: {} };
+  if (s.length > MAX_PATH) return { code: "path.tooLong", vars: { max: MAX_PATH } };
   for (const seg of s.split("/")) {
-    if (!seg) return "빈 폴더 이름이 있습니다";
-    if (seg === "." || seg === "..") return `"${seg}" 는 폴더 이름으로 쓸 수 없습니다`;
-    if (/^ |[ .]$/.test(seg)) return `"${seg}" 은 공백으로 시작하거나 공백이나 점으로 끝납니다`;
-    if (seg.length > MAX_SEGMENT) return `이름 하나가 ${MAX_SEGMENT}자를 넘습니다`;
+    if (!seg) return { code: "path.emptySegment", vars: {} };
+    if (seg === "." || seg === "..") return { code: "path.dotSegment", vars: { name: seg } };
+    if (/^ |[ .]$/.test(seg)) return { code: "path.edgeSpace", vars: { name: seg } };
+    if (seg.length > MAX_SEGMENT) return { code: "path.segmentTooLong", vars: { max: MAX_SEGMENT } };
   }
   return null;
 }
 
+/** Why the console cannot create `p`, in English, or null when it can. Pure. */
+export function pathProblem(p) {
+  const why = pathProblemCode(p);
+  return why && metaText("en", why.code, why.vars);
+}
+
 /**
- * [{ path, reason }] for every path the console cannot create, including two
- * that differ only by case (FAT treats them as one file). Pure.
+ * [{ path, reason, code, vars }] for every path the console cannot create, including two
+ * that differ only by case (FAT treats them as one file). `reason` is English; `code` and
+ * `vars` say it in another language (describeProblems). Pure.
  */
 export function pathProblems(paths) {
   const seen = new Map();
+  const problem = (p, code, vars) => [{ path: p, reason: metaText("en", code, vars), code, vars }];
   return paths.flatMap((p) => {
-    const reason = pathProblem(p);
-    if (reason) return [{ path: p, reason }];
+    const why = pathProblemCode(p);
+    if (why) return problem(p, why.code, why.vars);
     const folded = String(p).toLowerCase();
     const other = seen.get(folded);
     seen.set(folded, p);
-    return other !== undefined && other !== p ? [{ path: p, reason: `${other} 와 대소문자만 달라 SD 에서 같은 파일이 됩니다` }] : [];
+    return other !== undefined && other !== p ? problem(p, "path.caseClash", { other }) : [];
   });
 }
 
-/** "a/b.md (이유), …" for a log line or an error message, the first few only. Pure. */
-export function describeProblems(problems, max = 5) {
-  const shown = problems.slice(0, max).map((x) => `${x.path} (${x.reason})`).join(", ");
-  return problems.length > max ? `${shown} 외 ${problems.length - max}개` : shown;
+/** "a/b.md (why), …" in `lang` for a log line or an error message, the first few only. Pure. */
+export function describeProblems(problems, max = 5, lang = "en") {
+  const reasonOf = (x) => (x.code ? metaText(lang, x.code, x.vars) : x.reason);
+  const shown = problems.slice(0, max).map((x) => `${x.path} (${reasonOf(x)})`).join(", ");
+  return problems.length > max ? metaText(lang, "path.andMore", { shown, n: problems.length - max }) : shown;
 }
