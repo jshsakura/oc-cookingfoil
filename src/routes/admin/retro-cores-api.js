@@ -68,16 +68,21 @@ export async function coreStatesNow(catalog) {
   return { list, auto, states: await auto.states(catalog, new Map(list.cores.map((c) => [c.core, c.sha256]))) };
 }
 
+/** What GET /admin/api/retro-cores sends (see the top of this file); capabilities/retro.js retro_cores reads it too. */
+export async function retroCoresView() {
+  const catalog = await retroCatalog.current(retroDir);
+  const { list, auto, states: all } = await coreStatesNow(catalog);
+  const states = new Map(all.map((st) => [st.id, st]));
+  const off = coreSettings.off();
+  return { ...list, sources: { repo: coreSettings.repo(), cores: coreSettings.sources() }, cores: list.cores.map((c) => (off.has(c.core) ? { ...c, off: true } : c)), systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } };
+}
+
 export function mountRetroCoresApi(router, requireSession) {
   router.get("/api/retro-cores", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     try {
-      const catalog = await retroCatalog.current(retroDir);
-      const { list, auto, states: all } = await coreStatesNow(catalog);
-      const states = new Map(all.map((st) => [st.id, st]));
-      const off = coreSettings.off();
-      res.json({ ...list, sources: { repo: coreSettings.repo(), cores: coreSettings.sources() }, cores: list.cores.map((c) => (off.has(c.core) ? { ...c, off: true } : c)), systems: list.systems.map((sys) => ({ ...sys, coreState: states.get(sys.id) ?? null })), auto: { ...auto.status(), hidden: await auto.hidden() } });
+      res.json(await retroCoresView());
     } catch (err) {
       debug.error("admin retro-cores: %s", err.message);
       res.status(502).json({ error: err.message });

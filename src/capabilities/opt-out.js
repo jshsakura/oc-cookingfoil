@@ -13,6 +13,7 @@ export const OPT_OUT_REASONS = {
   "browser-only": "a page, its assets, or a sign-in step a person does in the browser",
   "token-blocked": "accounts, sign-in, devices or binaries; automation tokens may never do it",
   "binary-upload": "takes a file upload, which a tool call cannot carry",
+  "mcp-transport": "the MCP endpoint itself, through which the capabilities are served as tools",
   "legacy-unregistered": "predates the registry; only LEGACY_UNREGISTERED may use it",
 };
 
@@ -34,6 +35,10 @@ export const OPT_OUT = {
   "GET /api/art/access": "browser-only",
   // A retro game's box art as an image file, from the dashboard's editor.
   "POST /api/art/retro/:id/boxart": "binary-upload",
+  // MCP's Streamable HTTP endpoint (src/mcp/route.js): calls arrive as POST; GET and DELETE answer 2025-era clients.
+  "POST /mcp": "mcp-transport",
+  "GET /mcp": "mcp-transport",
+  "DELETE /mcp": "mcp-transport",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
@@ -89,7 +94,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/api/retro-art/games/meta",
   "GET /admin/api/retro-art/sgdb",
   "GET /admin/api/retro-art/sgdb/:id",
-  "GET /admin/api/retro-cores",
   "GET /admin/api/retro-pack",
   "GET /admin/api/retro-variants",
   "GET /admin/api/retro-variants/sets",

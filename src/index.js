@@ -30,6 +30,7 @@ import votesRouter from "./routes/votes.js";
 import adminKeysRouter from "./routes/admin-keys.js";
 import artRouter from "./routes/art.js";
 import adminPageRouter from "./routes/admin-page.js";
+import { mcpRoute } from "./mcp/route.js";
 import {
   adminTotpEnabled,
   hasValidSession,
@@ -368,6 +369,9 @@ expressApp.use("/pair", devicePairRouter());
 // 2FA-gated operator dashboard (behind the web sign-in). 404s when
 // COOK_ADMIN_TOTP_SECRET is unset.
 expressApp.use("/admin", adminPageRouter());
+
+// MCP for AI agents, automation tokens only (src/mcp/route.js).
+for (const method of ["post", "get", "delete"]) expressApp[method]("/mcp", ...mcpRoute());
 
 // The web page.
 expressApp.get("/", landingRoute);

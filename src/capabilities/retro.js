@@ -7,11 +7,26 @@
  * the bundled dictionary gives retro games by content hash or, for the admin to decide, by title.
  */
 import { defineCapability } from "./define.js";
+import { arr, bool, int, nullable, num, obj, oneOf, str } from "./shape.js";
 
 const CORE_ARG = {
   type: "string",
   description: "Core id as in the file name before _libretro_libnx.nro, e.g. snes9x or mgba",
 };
+
+const KO_ROW = obj({
+  id: str("retro game id"),
+  system: str(),
+  systemName: str(),
+  name: str("name shown now"),
+  file: str("ROM file name"),
+  ko: str("Korean title"),
+  en: nullable(str()),
+  by: str("how it was matched"),
+});
+
+/** An input the route would answer 400; MCP reports it as BAD_INPUT. */
+const badInput = (message) => Object.assign(new Error(message), { status: 400 });
 
 /** A started job as the admin route shows it, without its promise. */
 const shown = ({ done: _done, ...rest }) => rest;
@@ -45,16 +60,56 @@ export const retroCapabilities = [
     },
   }),
   defineCapability({
+    id: "retro_cores",
+    area: "retro",
+    title: "List RetroArch cores and their settings",
+    description: "Lists the base pack's cores with size, hash, origin and on/off, each console's core and its upkeep state, and each core's source. Read before changing a core.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      official: str("the libretro RetroArch version the server pins"),
+      retroarch: nullable({ type: "object", description: "retroarch_switch.nro in the pack: size, sha256, modifiedAt, origin" }),
+      cores: arr(obj({
+        core: str("core id, as the core tools take it"),
+        file: str(),
+        name: nullable(str()),
+        size: int("bytes"),
+        sha256: str(),
+        modifiedAt: num("epoch seconds"),
+        origin: oneOf(["official", "modified", "extra"], "against the pinned official build; modified and extra are never replaced"),
+        off: bool("switched off: left out of the console pack, its games listed with coreOff"),
+        systems: arr(obj({ id: str(), name: str(), games: int() }), "consoles whose games start with it"),
+      }, { optional: ["off"] })),
+      systems: arr(obj({
+        id: str("retro system id"),
+        name: str(),
+        games: int(),
+        core: nullable(str("core its games start with")),
+        coreState: nullable({ type: "object", description: "the upkeep's word on that core: state, reason, message, source and more" }),
+      })),
+      sources: obj({
+        repo: nullable(str("owner/name read by source repo")),
+        cores: { type: "object", description: "core id to repo or upload; a core left out takes the nightly buildbot" },
+      }),
+      auto: obj({ enabled: bool("automatic core upkeep is on"), hidden: arr({ type: "object" }, "user cores held aside for the admin") }, { description: "also source, job, failures and last" }),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/retro-cores" },
+    handler: async () => {
+      const { retroCoresView } = await import("../routes/admin/retro-cores-api.js");
+      return retroCoresView();
+    },
+  }),
+  defineCapability({
     id: "retro_core_enabled",
     area: "retro",
     title: "Switch a RetroArch core on or off",
-    description: "A core that is off leaves the console base pack and is not fetched; games that start with it stay listed with coreOff and can't be downloaded. Consoles that have it keep it.",
+    description: "Switches a core on or off for every console. Off: it leaves the console pack and is not fetched; its games stay listed with coreOff and refuse downloads (409).",
     input: { type: "object", properties: { core: { type: "string", description: "The core id as in its file name, e.g. mgba for mgba_libretro_libnx.nro" }, enabled: { type: "boolean", description: "true switches the core on again, false switches it off for every console" } }, required: ["core", "enabled"] },
     safety: "write",
     http: { method: "POST", path: "/admin/api/retro-cores/enabled" },
-    handler: async ({ core, enabled }) => {
-      const coresOff = await import("../retro/cores-off.js");
-      if (typeof enabled !== "boolean" || !coresOff.setEnabled(core, enabled)) throw new Error("core and enabled (true/false) are required");
+    handler: async (_ctx, { core, enabled }) => {
+      const coreSettings = await import("../retro/core-settings.js");
+      if (typeof enabled !== "boolean" || !coreSettings.setEnabled(core, enabled)) throw badInput("core and enabled (true/false) are required");
       return { core, enabled };
     },
   }),
@@ -62,20 +117,20 @@ export const retroCapabilities = [
     id: "retro_core_source",
     area: "retro",
     title: "Choose where a RetroArch core comes from",
-    description: "Sets one core's source for the upkeep: the libretro nightly buildbot, the latest release of the core repository, or the admin's own upload, which is never fetched or replaced.",
+    description: "Sets where the core upkeep takes one core: nightly buildbot (default), repo (latest release of the retro_core_repo repository) or upload (never fetched or replaced).",
     input: {
       type: "object",
       properties: {
         core: { type: "string", description: "The core id as in its file name, e.g. mgba for mgba_libretro_libnx.nro" },
-        source: { type: "string", enum: ["nightly", "repo", "upload"], description: "nightly (default), repo (the core repository's latest release) or upload (the admin's own file)" },
+        source: { type: "string", enum: ["nightly", "repo", "upload"], description: "nightly, repo (set the repository with retro_core_repo first) or upload (the admin's own file)" },
       },
       required: ["core", "source"],
     },
     safety: "write",
     http: { method: "POST", path: "/admin/api/retro-cores/source" },
-    handler: async ({ core, source }) => {
+    handler: async (_ctx, { core, source }) => {
       const coreSettings = await import("../retro/core-settings.js");
-      if (!coreSettings.setSource(core, source)) throw new Error("core and source (nightly, repo, upload) are required");
+      if (!coreSettings.setSource(core, source)) throw badInput("core and source (nightly, repo, upload) are required");
       return { core, source };
     },
   }),
@@ -83,13 +138,13 @@ export const retroCapabilities = [
     id: "retro_core_repo",
     area: "retro",
     title: "Set the RetroArch core repository",
-    description: "Names the GitHub repository (owner/name) whose latest release assets <core>_libretro_libnx.nro or .nro.zip are the cores with source repo. An empty value clears it.",
-    input: { type: "object", properties: { repo: { type: "string", description: "owner/name of a GitHub repository with Switch core releases, or empty to clear it" } }, required: ["repo"] },
+    description: "Sets the GitHub repository whose latest release supplies <core>_libretro_libnx.nro (or .nro.zip) to cores with source repo. An empty repo clears it.",
+    input: { type: "object", properties: { repo: { type: "string", description: "owner/name of a GitHub repository with Switch core releases, e.g. owner/switch-cores; empty clears it" } }, required: ["repo"] },
     safety: "write",
     http: { method: "POST", path: "/admin/api/retro-cores/repo" },
-    handler: async ({ repo }) => {
+    handler: async (_ctx, { repo }) => {
       const coreSettings = await import("../retro/core-settings.js");
-      if (typeof repo !== "string" || !coreSettings.setRepo(repo)) throw new Error("not an owner/name repository");
+      if (typeof repo !== "string" || !coreSettings.setRepo(repo)) throw badInput("not an owner/name repository");
       return { repo: coreSettings.repo() };
     },
   }),
@@ -113,6 +168,21 @@ export const retroCapabilities = [
     title: "Cores and BIOS the retro games need",
     description: "Per system with games: the core each one needs and whether the pack has it, and the BIOS files present, missing or a different dump.",
     input: { type: "object", properties: {} },
+    output: obj({
+      note: str("where cores go and which builds run on the Switch"),
+      retroarch: oneOf(["installed", "missing"], "retroarch.nro in the pack"),
+      complete: bool("no system misses anything or has anything to check"),
+      systems: arr(obj({
+        id: str("retro system id"),
+        names: { type: "object", description: "the system's name by language, en at least" },
+        games: int(),
+        missing: int("required BIOS files and arcade zips not there"),
+        check: int("required BIOS files there but of another dump"),
+        cores: arr(obj({ core: str(), file: str(), state: str("present, missing, or what the core upkeep is doing"), games: int() }, { description: "also server, console, warn, reason and message" })),
+        firmware: arr(obj({ files: arr(str()), required: bool(), state: oneOf(["present", "missing", "mismatch"]) })),
+        arcade: obj({ sets: int(), missingSets: arr(str()), bios: arr(obj({ zip: str(), state: str() })), parents: arr(obj({ zip: str() })) }, { description: "FBNeo sets, on the arcade system" }),
+      }, { optional: ["arcade"] }), "systems with something missing first, then those to check"),
+    }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/retro/requirements" },
     handler: async () => {
@@ -126,6 +196,13 @@ export const retroCapabilities = [
     title: "Korean titles of retro games",
     description: "Lists retro games named in Korean by their ROM content hash, and title-only guesses waiting for approval, with hash index counts.",
     input: { type: "object", properties: {} },
+    output: obj({
+      index: obj({ files: int("ROM files"), read: int("ROM files hashed"), skipped: int(), busy: bool("a hashing pass is running") }),
+      confirmedTotal: int(),
+      confirmed: arr(KO_ROW, "games named by content hash; the first ones when there are many"),
+      guessesTotal: int(),
+      guesses: arr(KO_ROW, "title-only guesses for retro_ko_name_decide; the first ones when there are many"),
+    }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/retro-ko" },
     handler: async () => {
