@@ -86,6 +86,8 @@ import verifyQueue, { start as startVerifyQueue } from "./meta/verify-service.js
 import { loadPrices } from "./meta/eshop-price.js";
 import * as ratingSync from "./meta/rating-sync.js";
 import * as securityStore from "./security/store.js";
+import * as users from "./security/users.js";
+import * as googleAccounts from "./security/google-accounts.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
 import * as shopCache from "./meta/shop-cache.js";
@@ -410,7 +412,14 @@ transferLog
 
 // Without its state (approved consoles, lockouts) the server must not serve: it would let
 // the next save write an empty state over the one it could not read.
-securityStore.load().catch((err) => {
+securityStore.load().then(() => {
+  // An account taken out of COOK_AUTH_USERS (or its Google sign-in) leaves no sign-in addresses behind.
+  const known = (owner) => (owner.startsWith("google:")
+    ? googleAccounts.list().some((a) => `google:${a.sub}` === owner)
+    : users.list().some((u) => u.name === owner));
+  const n = securityStore.forgetLoginsBut(known);
+  if (n) debug.log("security: dropped the sign-in history of %d removed accounts", n);
+}, (err) => {
   debug.error("security store load failed, stopping: %s", err.message);
   process.exit(1);
 });

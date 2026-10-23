@@ -359,11 +359,12 @@ export default function adminPageRouter() {
       lanes,
       warnings: [...configWarnings(lanes), ...clientBuildWarnings()],
       users: req.apiToken ? userRows.map(withoutIps) : userRows,
-      lockouts,
+      // An automation token gets the counts and reasons, never the addresses.
+      lockouts: req.apiToken ? lockouts.map(({ ip: _ip, ...l }) => l) : lockouts,
       // The hint is what turns a reason code into an action the operator can take.
       denials: {
         ...denials,
-        recent: denials.recent.map((d) => ({ ...d, hint: hintFor(d.reason) })),
+        recent: denials.recent.map(({ ip, ...d }) => ({ ...d, ...(req.apiToken ? {} : { ip }), hint: hintFor(d.reason) })),
       },
       totals: {
         configuredUsers: users.list().length,

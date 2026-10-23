@@ -190,6 +190,10 @@ test("the admin sees each console's IPs by day and each account's sign-ins, and 
     assert.ok(tokenDevices.approved.length > 0 && tokenDevices.approved.every((d) => !("lastIp" in d)), "a token's device list has no addresses");
     const tokenStats = await (await fetch(`${BASE}/admin/api/stats`, { headers: bearer })).json();
     assert.ok(tokenStats.users.every((u) => !("lastIp" in u) && !("ips" in u) && !("lastLoginIp" in u)), "a token's user list has no addresses");
+    const adminDenials = (await call("GET", "/admin/api/stats")).denials.recent;
+    assert.ok(adminDenials.length > 0 && adminDenials.every((d) => "ip" in d), "the admin page sees where refused requests came from");
+    assert.ok(tokenStats.denials.recent.length > 0, "the token sees the refusals");
+    assert.ok([...tokenStats.denials.recent, ...tokenStats.lockouts].every((d) => !("ip" in d)), "a token's denials and lockouts have no addresses");
 
     await stop(server);
     server = boot(data);

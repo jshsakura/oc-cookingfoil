@@ -25,3 +25,16 @@ test("a sign-in older than 90 days no longer shows its address, and the daily pr
   assert.equal(store.lastLogin("quiet", later).ip, null);
   assert.equal(store.pruneAccessHistory(later), false, "nothing left to drop");
 });
+
+test("the sign-ins of an account that no longer exists are dropped, the others stay", () => {
+  const now = Date.now();
+  store.recordLogin("kept", "password", "192.0.2.20", now);
+  store.recordLogin("removed", "password", "192.0.2.21", now);
+  store.recordLogin("google:123", "google", "192.0.2.22", now);
+
+  assert.equal(store.forgetLoginsBut((owner) => owner !== "removed"), 1);
+
+  assert.equal(store.lastLogin("removed"), null);
+  assert.equal(store.lastLogin("kept").ip, "192.0.2.20");
+  assert.equal(store.lastLogin("google:123").ip, "192.0.2.22");
+});
