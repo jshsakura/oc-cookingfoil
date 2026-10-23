@@ -1928,6 +1928,8 @@
           "art.icon": "아이콘",
           "art.banner": "배너",
           "art.screens": "스크린샷",
+          "art.boxart": "박스 아트",
+          "art.retroNote": "레트로 게임은 여기서 박스 아트를 바꿉니다. 베젤은 관리 페이지의 레트로 탭에서 고르고, 스크린샷은 메타데이터에서 받아옵니다.",
           "art.upload": "업로드",
           "art.replace": "교체",
           "art.remove": "빼기",
@@ -2277,6 +2279,8 @@
           "art.icon": "Icon",
           "art.banner": "Banner",
           "art.screens": "Screenshots",
+          "art.boxart": "Box art",
+          "art.retroNote": "A retro game's box art is changed here. Its bezel is picked in the retro tab of server admin, and its screenshots come from the metadata.",
           "art.upload": "Upload",
           "art.replace": "Replace",
           "art.remove": "Remove",
@@ -2626,6 +2630,8 @@
           "art.icon": "アイコン",
           "art.banner": "バナー",
           "art.screens": "スクリーンショット",
+          "art.boxart": "パッケージ画像",
+          "art.retroNote": "レトロゲームはここでパッケージ画像を変更します。ベゼルはサーバー管理のレトロタブで選び、スクリーンショットはメタデータから取得します。",
           "art.upload": "アップロード",
           "art.replace": "差し替え",
           "art.remove": "削除",
@@ -2975,6 +2981,8 @@
           "art.icon": "圖示",
           "art.banner": "橫幅",
           "art.screens": "截圖",
+          "art.boxart": "盒裝封面",
+          "art.retroNote": "復古遊戲在這裡更換盒裝封面。邊框請在伺服器管理的復古分頁選擇，截圖則從中繼資料取得。",
           "art.upload": "上傳",
           "art.replace": "取代",
           "art.remove": "刪除",
@@ -4550,6 +4558,8 @@
           }
         }
         const reload = () => show(1);
+        // A box art changed in a game's window: the page on screen is read again (its addresses carry the new ?v=).
+        addEventListener("cf-art-changed", (e) => { if (e.detail?.kind === "retro" && systems && box().offsetParent !== null) show(page); });
         let searchTimer = null;
         $("retro-search").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(reload, 250); });
         $("retro-sort").addEventListener("change", reload);
@@ -4667,6 +4677,7 @@
         onLang.push(() => face(editing()));
         async function fill() {
           const mine = ++seq;
+          if (!spec.build) { facts.replaceChildren(); return; }
           facts.replaceChildren(Object.assign(document.createElement("p"), { className: "ef-msg", textContent: t("edit.loading") }));
           try {
             // Each save tells the page what changed (a new title, say); leaving it hands that on.
@@ -4708,7 +4719,7 @@
             if (next && spec && next.key === spec.key && editing()) { spec = next; return; }
             if (editing()) set(false);
             spec = next; dirty = false;
-            gear.hidden = !next || !uploadsEnabled;
+            gear.hidden = !next || !canEditArt;
             drawDanger(next?.remove ?? null);
           },
           leave() { if (editing()) set(false); },
@@ -4893,7 +4904,7 @@
           const box = $("xm-art");
           const mine = ++artSeq;
           box.replaceChildren(); box.hidden = true;
-          if (!art || !uploadsEnabled) return;
+          if (!art || !canEditArt) return;
           const base = `/api/art/${art.kind}/${encodeURIComponent(art.id)}`;
           let st;
           try { const r = await fetch(base, { headers: { Accept: "application/json" } }); if (!r.ok) return; st = await r.json(); } catch { return; }
@@ -6140,7 +6151,9 @@
       const ART_FIND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
       // reread: { title, run, note } adds a button that reads the item's folder again (pictures put there by hand),
       // and `note` says under the head what becomes of them.
-      function artEditor({ slots, upload, remove, recrop = null, find = null, reread = null }) {
+      // cut: false sends the picture as chosen (no crop view); note: a line under the head; slots.icon.caption names the icon tile;
+      // slots.shots: null leaves the screenshots out.
+      function artEditor({ slots, upload, remove, recrop = null, find = null, reread = null, cut = true, note = null }) {
         const card = document.createElement("section"); card.className = "arted";
         // The crop view in the card's place. The area to keep, null when cancelled, false without the widget (all of it).
         async function cropIn(slot, src, crop = null) {
@@ -6152,6 +6165,7 @@
           } finally { card.classList.remove("cropping"); }
         }
         const cutAndUpload = (slot) => async (file) => {
+          if (!cut) return upload(slot, file, null);
           const src = URL.createObjectURL(file);
           try {
             const crop = await cropIn(slot, src);
@@ -6236,7 +6250,8 @@
           head.append(b);
         }
         card.append(head);
-        if (reread?.note) card.append(Object.assign(document.createElement("p"), { className: "arted-note", textContent: reread.note }));
+        const said = note ?? reread?.note;
+        if (said) card.append(Object.assign(document.createElement("p"), { className: "arted-note", textContent: said }));
         const pick = (onFile) => {
           const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
           input.addEventListener("change", () => { if (input.files && input.files[0]) onFile(input.files[0]); });
@@ -6299,10 +6314,11 @@
         }
         if (slots.icon || slots.banner) {
           const top = document.createElement("div"); top.className = "arted-top";
-          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: t("art.icon"), slot: "icon", onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
+          if (slots.icon) top.append(tile("icon", { url: slots.icon.url, has: Boolean(slots.icon.url), caption: slots.icon.caption ?? t("art.icon"), slot: "icon", onFile: cutAndUpload("icon"), reset: slots.icon.custom ? () => remove("icon") : null, again: recut("icon", null, slots.icon.original) }));
           if (slots.banner) top.append(tile("banner", { url: slots.banner.url, has: Boolean(slots.banner.url), caption: t("art.banner"), slot: "banner", onFile: cutAndUpload("banner"), reset: slots.banner.custom ? () => remove("banner") : null, again: recut("banner", null, slots.banner.original) }));
           card.append(top);
         }
+        if (slots.shots === null) return card;
         const shots = slots.shots || [];
         card.append(Object.assign(document.createElement("p"), { className: "arted-label", textContent: `${t("art.screens")} ${shots.length}/${slots.maxShots ?? 8}` }));
         const grid = document.createElement("div"); grid.className = "arted-shots";
@@ -6328,13 +6344,13 @@
       function renderArtEditor(baseId, validBase, art, group = [], gameName = "") {
         const box = $("modal-art");
         box.replaceChildren(); box.hidden = true;
-        gameEdit.offer(uploadsEnabled && validBase ? {
+        gameEdit.offer(canEditArt && validBase ? {
           key: baseId,
           build: (mark, refill) => gameFacts(baseId, mark, refill),
           changed: () => refreshAfterDesc(baseId),
           remove: gameRemove(group, gameName),
         } : null);
-        if (!uploadsEnabled || !validBase) return;
+        if (!canEditArt || !validBase) return;
         box.hidden = false;
         // A game's screenshots from titledb stay as they are; the ones an admin added can be taken out.
         const kept = (crop, path) => (crop ? { src: `/api/art/${baseId}${path}`, crop } : null);
@@ -6578,7 +6594,7 @@
         fillChips([[t("modal.category"), g.genres || []]]);
         fillShots(Array.isArray(g.screenshots) ? g.screenshots : [], loading && !g.screenshots);
 
-        $("modal-art").hidden = true;
+        renderRetroArt(g, sys);
         $("modal-notes").hidden = true;
         $("modal-integrity").replaceChildren(); $("modal-integrity").hidden = true;
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
@@ -6589,6 +6605,32 @@
         dl.href = discs ? g.bundleUrl : g.romUrl;
         dl.setAttribute("download", "");
         dl.textContent = discs ? t("retro.downloadDiscs") : t("retro.downloadRom");
+      }
+
+      // An admin changes a retro game's box art in its window's edit page; the bezel and the screenshots
+      // stay with the retro tab and the metadata. After an upload the lists and the open window follow.
+      function renderRetroArt(g, sys) {
+        const box = $("modal-art");
+        box.replaceChildren(); box.hidden = true;
+        gameEdit.offer(canEditArt ? { key: "retro:" + g.id } : null);
+        if (!canEditArt) return;
+        const mine = retroSeq;
+        async function upload(_slot, file) {
+          const fd = new FormData(); fd.append("file", file, file.name);
+          try {
+            const r = await fetch(`/api/art/retro/${encodeURIComponent(g.id)}/boxart`, { method: "POST", body: fd, headers: { Accept: "application/json" } });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { toast(d.error || t("art.failed")); return; }
+          } catch { toast(t("art.failed")); return; }
+          toast(t("art.saved"));
+          for (const k of [...retroDetailCache.keys()]) if (k.startsWith(g.id + ":")) retroDetailCache.delete(k);
+          for (const kind of ["icon", "boxart"]) refreshArtImages(`/api/retro/games/${g.id}/${kind}`, null);
+          window.dispatchEvent(new CustomEvent("cf-art-changed", { detail: { kind: "retro", id: g.id } }));
+          const d = await retroDetail(g.id);
+          if (d && mine === retroSeq && $("modal").classList.contains("open")) renderRetroModal({ ...g, ...d }, sys, false);
+        }
+        box.append(artEditor({ slots: { icon: { url: g.boxartUrl || null, caption: t("art.boxart") }, shots: null }, upload, cut: false, note: t("art.retroNote") }));
+        box.hidden = false;
       }
 
       // The files of a game (a patch beside the official release, an arcade set's
@@ -6861,12 +6903,12 @@
         return { check, relabel, open };
       })();
 
-      // ─── uploads on the server ──────────────────────────────────────────
-      // Files are put into the library from the admin page. The artwork controls in a
-      // game's window are shown only to admin accounts, and only when the server takes uploads (503 when it doesn't, 403 for anyone else).
-      let uploadsEnabled = false;
-      fetch("/api/uploads", { headers: { Accept: "application/json" } })
-        .then((r) => { uploadsEnabled = r.ok; })
+      // ─── picture editing ────────────────────────────────────────────────
+      // The edit page in a detail window (pictures and facts) is for admin accounts, whatever the
+      // web-uploads setting says: /api/art/access answers 200 to an admin and 403 to anyone else.
+      let canEditArt = false;
+      fetch("/api/art/access", { headers: { Accept: "application/json" } })
+        .then((r) => { canEditArt = r.ok; })
         .catch(() => { /* off for this visit */ });
 
       __ACTIVITY_SCRIPT__

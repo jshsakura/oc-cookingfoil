@@ -314,7 +314,7 @@ expressApp.use("/api/votes", sameOriginWrites(), votesRouter());
 expressApp.use("/api/admin/keys", sameOriginWrites(), adminKeysRouter());
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
-// Authenticated title-artwork overrides (same opt-in flag as the upload tray).
+// Authenticated title-artwork overrides; pictures are not library uploads, so the upload setting does not hold them.
 expressApp.use("/api/art", sameOriginWrites(), adminOnly(), artRouter());
 
 // Locally-cached artwork. First request fetches from the eShop CDN
