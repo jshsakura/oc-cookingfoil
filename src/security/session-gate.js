@@ -62,7 +62,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     vouch(res);
     // The console the token was made for, checked against its header above (device-admin.js).
     req.sessionDevice = sub.dev;
-    store.touchDevice(sub.dev);
+    store.touchDevice(sub.dev, ip);
     if (!sub.acct) {
       req.pairedDevice = sub.dev;
       return next();

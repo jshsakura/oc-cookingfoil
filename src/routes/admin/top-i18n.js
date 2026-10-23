@@ -2,6 +2,7 @@
 // language the web page uses, and the panels already translated (upload, home picks, the game pickers).
 // The other panels stay Korean for now.
 
+import { RETRO_KO_WORDS } from "./retro-ko-words.js";
 import { TRASH_WORDS } from "./trash-words.js";
 
 export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"]];
@@ -14,6 +15,7 @@ const BASE_WORDS = {
     "s.library": "파일", "s.nsz": "변환", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
     "s.users": "계정", "s.devices": "기기", "s.logs": "로그", "s.alerts": "알림", "s.settings": "서버 설정",
     "dev.clientsLead": "웹 페이지에서 다운로드된 사전 연동 클라이언트입니다. 발급 시 계정별 자동 연동 키가 포함되며, 받은 뒤 1시간 안에 기기 {n}대까지 앱을 처음 실행하면 해당 계정의 기기로 자동 승인되고, 그 이상은 QR 로 승인합니다. 새로 다운로드하면 같은 계정의 이전 키는 끝나고, 이미 연결된 기기는 그대로 남습니다. 키 원본은 서버에 저장되지 않습니다.",
+    "acc.lastLogin": "마지막 로그인", "acc.lastActive": "마지막 활동", "acc.lastAccess": "마지막 접속", "acc.lastIp": "마지막 IP", "acc.days30": "최근 30일 접속일", "acc.daysN": "{n}일", "acc.noRecord": "기록 없음", "acc.noRecordHint": "접속 기록을 남기기 시작한 {at} 뒤로 접속하지 않았습니다. 그 전의 사용 여부는 알 수 없습니다.", "acc.neverSince": "승인 뒤 접속 없음", "acc.filter": "미사용 기기", "acc.filterAll": "모든 기기", "acc.idle30": "30일 이상 쓰지 않은 기기", "acc.idle60": "60일 이상 쓰지 않은 기기", "acc.idle90": "90일 이상 쓰지 않은 기기", "acc.filterHint": "쓰지 않은 기간은 마지막 접속부터 세고, 접속한 적이 없으면 승인한 날부터 셉니다. 기록이 없는 기기는 이 목록에 넣지 않습니다. 회수할 기기는 각 줄의 접근 키 회수 버튼으로 회수합니다.", "acc.noIdle": "조건에 맞는 기기가 없습니다.", "acc.method.password": "웹 비밀번호", "acc.method.google": "구글", "acc.method.console": "기기 연결", "acc.ago.s": "{n}초 전", "acc.ago.m": "{n}분 전", "acc.ago.h": "{n}시간 전", "acc.ago.d": "{n}일 전",
     "f.type": "종류", "up.entry": "파일 올리기", "ops.status": "서버 현황", "up.seeFiles": "올린 파일은 파일 목록에서 확인합니다.",
     "u.picked": "고른 종류: {kind}",
     "u.seq": "고른 {n}개를 하나씩 차례로 올립니다.",
@@ -196,6 +198,7 @@ const BASE_WORDS = {
     "s.library": "Files", "s.nsz": "Convert", "s.upload": "Upload", "s.inbox": "Shared inbox", "s.featured": "Home picks",
     "s.users": "Accounts", "s.devices": "Devices", "s.logs": "Logs", "s.alerts": "Alerts", "s.settings": "Server settings",
     "dev.clientsLead": "Clients downloaded from the web page, ready to connect. Each carries a pairing key for its account: within 1 hour of the download, up to {n} consoles are approved for the account the first time the app starts on them, and any more are approved by QR. A new download ends the account's earlier key; consoles already connected stay. The key itself is never stored on the server.",
+    "acc.lastLogin": "Last sign-in", "acc.lastActive": "Last active", "acc.lastAccess": "Last access", "acc.lastIp": "Last IP", "acc.days30": "Active days (30 days)", "acc.daysN": "{n} days", "acc.noRecord": "No record", "acc.noRecordHint": "Not seen since access history began on {at}. Whether it was used before that is unknown.", "acc.neverSince": "Not used since approval", "acc.filter": "Unused consoles", "acc.filterAll": "All consoles", "acc.idle30": "Unused for 30 days or more", "acc.idle60": "Unused for 60 days or more", "acc.idle90": "Unused for 90 days or more", "acc.filterHint": "Unused time counts from the last access, or from approval for a console that never connected. Consoles with no record are left out of this list. Revoke a console with the Revoke access key button on its row.", "acc.noIdle": "No consoles match.", "acc.method.password": "Web password", "acc.method.google": "Google", "acc.method.console": "Console pairing", "acc.ago.s": "{n}s ago", "acc.ago.m": "{n} min ago", "acc.ago.h": "{n} h ago", "acc.ago.d": "{n} days ago",
     "f.type": "Type", "up.entry": "Upload files", "ops.status": "Server status", "up.seeFiles": "Check uploaded files in the file list.",
     "u.picked": "Chosen kind: {kind}",
     "u.seq": "The {n} you picked go up one after another.",
@@ -378,6 +381,7 @@ const BASE_WORDS = {
     "s.library": "ファイル", "s.nsz": "変換", "s.upload": "アップロード", "s.inbox": "一時共有", "s.featured": "ホームのおすすめ",
     "s.users": "アカウント", "s.devices": "デバイス", "s.logs": "ログ", "s.alerts": "通知", "s.settings": "サーバー設定",
     "dev.clientsLead": "Web ページからダウンロードされた連携済みクライアントです。アカウントごとの自動連携キーが含まれ、ダウンロードから 1 時間以内なら本体 {n} 台まで、初めてアプリを起動したときにそのアカウントの本体として自動承認され、それ以上は QR で承認します。新しくダウンロードすると同じアカウントの以前のキーは終わり、接続済みの本体はそのまま残ります。キーの原本はサーバーに保存されません。",
+    "acc.lastLogin": "最終ログイン", "acc.lastActive": "最終アクティビティ", "acc.lastAccess": "最終アクセス", "acc.lastIp": "最終 IP", "acc.days30": "直近 30 日の利用日数", "acc.daysN": "{n} 日", "acc.noRecord": "記録なし", "acc.noRecordHint": "アクセス記録を始めた {at} 以降、接続していません。それ以前に使っていたかは分かりません。", "acc.neverSince": "承認後アクセスなし", "acc.filter": "未使用の本体", "acc.filterAll": "すべての本体", "acc.idle30": "30 日以上使っていない本体", "acc.idle60": "60 日以上使っていない本体", "acc.idle90": "90 日以上使っていない本体", "acc.filterHint": "未使用の期間は最終アクセスから数え、一度も接続していない本体は承認日から数えます。記録のない本体はこの一覧に入りません。回収する本体は各行のアクセスキー回収ボタンで回収します。", "acc.noIdle": "条件に合う本体はありません。", "acc.method.password": "Web パスワード", "acc.method.google": "Google", "acc.method.console": "本体の連携", "acc.ago.s": "{n} 秒前", "acc.ago.m": "{n} 分前", "acc.ago.h": "{n} 時間前", "acc.ago.d": "{n} 日前",
     "f.type": "種類", "up.entry": "ファイルをアップロード", "ops.status": "サーバーの状況", "up.seeFiles": "アップロードしたファイルはファイル一覧で確認します。",
     "u.picked": "選んだ種類: {kind}",
     "u.seq": "選んだ {n} 個を一つずつ順にアップロードします。",
@@ -560,6 +564,7 @@ const BASE_WORDS = {
     "s.library": "文件", "s.nsz": "转换", "s.upload": "上传", "s.inbox": "临时分享", "s.featured": "首页推荐",
     "s.users": "账户", "s.devices": "设备", "s.logs": "日志", "s.alerts": "通知", "s.settings": "服务器设置",
     "dev.clientsLead": "从网页下载的预配对客户端。每个都带有该账户的自动配对密钥：下载后 1 小时内，最多 {n} 台主机首次启动应用时会自动批准为该账户的主机，更多主机请用二维码批准。重新下载会结束同一账户之前的密钥，已连接的主机保持不变。密钥原文不会保存在服务器上。",
+    "acc.lastLogin": "最后登录", "acc.lastActive": "最后活动", "acc.lastAccess": "最后访问", "acc.lastIp": "最后 IP", "acc.days30": "近 30 天活跃天数", "acc.daysN": "{n} 天", "acc.noRecord": "无记录", "acc.noRecordHint": "自 {at} 开始记录访问以来未连接过。在此之前是否使用过无法得知。", "acc.neverSince": "批准后未访问", "acc.filter": "未使用的主机", "acc.filterAll": "所有主机", "acc.idle30": "30 天以上未使用的主机", "acc.idle60": "60 天以上未使用的主机", "acc.idle90": "90 天以上未使用的主机", "acc.filterHint": "未使用时间从最后访问算起，从未连接的主机从批准之日算起。没有记录的主机不在此列表中。要收回的主机请用该行的收回访问密钥按钮收回。", "acc.noIdle": "没有符合条件的主机。", "acc.method.password": "网页密码", "acc.method.google": "Google", "acc.method.console": "主机配对", "acc.ago.s": "{n} 秒前", "acc.ago.m": "{n} 分钟前", "acc.ago.h": "{n} 小时前", "acc.ago.d": "{n} 天前",
     "f.type": "类型", "up.entry": "上传文件", "ops.status": "服务器状态", "up.seeFiles": "上传的文件可在文件列表中查看。",
     "u.picked": "已选类型：{kind}",
     "u.seq": "选中的 {n} 个会逐个依次上传。",
@@ -738,7 +743,7 @@ const BASE_WORDS = {
 };
 
 // Each panel that speaks the four languages brings its own words; one table for the page.
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...RETRO_KO_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
@@ -789,7 +794,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}
