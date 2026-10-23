@@ -44,19 +44,18 @@ function searchGames(cat, input) {
   const all = input.allVersions === true;
   const found = (g) => !needle || (all ? gameMatches(g, needle) : groupOf(cat, g).members.some((m) => gameMatches(m, needle)));
   const off = coreSettings.off();
+  // Sorted by the name an agent is shown, not the file's.
   const hits = (all ? cat.games : listedGames(cat))
     .filter((g) => (!system || g.system === system) && (input.missingArt !== true || !g.icon) && found(g))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .map((g) => ({ g, title: titleOf(g, LANG) }))
+    .sort((a, b) => a.title.name.localeCompare(b.title.name, LANG));
   return {
     total: hits.length,
     offset,
-    items: hits.slice(offset, offset + limit).map((g) => {
-      const { name, original } = titleOf(g, LANG);
-      return {
-        id: g.id, system: g.system, name, ...(original ? { original } : {}), file: g.file, boxart: Boolean(g.icon),
-        versions: groupOf(cat, g).members.length, ...(off.has(g.core) ? { coreOff: true } : {}),
-      };
-    }),
+    items: hits.slice(offset, offset + limit).map(({ g, title: { name, original } }) => ({
+      id: g.id, system: g.system, name, ...(original ? { original } : {}), file: g.file, boxart: Boolean(g.icon),
+      versions: groupOf(cat, g).members.length, ...(off.has(g.core) ? { coreOff: true } : {}),
+    })),
   };
 }
 

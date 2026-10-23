@@ -9,6 +9,7 @@ import { titleDetail } from "../meta/title-detail.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as titledbStore from "../meta/titledb-store.js";
 import * as userPatches from "../meta/user-patches.js";
+import { parseLang } from "../meta/langs.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const notFound = (message) => Object.assign(new Error(message), { status: 404 });
@@ -20,7 +21,9 @@ async function gameOf(input) {
   if (!TITLE_ID_RE.test(base)) throw badInput("titleId must be 16 hex digits");
   await shopCache.get();
   const files = shopCache.files().filter((f) => f.baseTitleId === base);
-  const d = await titleDetail(base, { lang: input.lang ?? "en", asked: input.lang ?? null, price: false });
+  // The language as GET /api/title reads ?lang=: ko-KR and KO are ko, an unknown tag is English.
+  const asked = input.lang ? parseLang(input.lang) ?? "en" : null;
+  const d = await titleDetail(base, { lang: asked ?? "en", asked, price: false });
   if (!d && !files.length) throw notFound(`no game ${base}: not in titledb, the library or the admin's edits; find ids with games_search`);
   const have = new Set(files.map((f) => `${f.titleId}@${f.version}`));
   const updateId = `${base.slice(0, 13)}800`;
@@ -43,9 +46,9 @@ async function gameOf(input) {
     banner: Boolean(d?.bannerUrl),
     latestVersion: d?.latestVersion ?? null,
     updates: (d?.updates ?? []).map((u) => ({ version: u.version, date: u.date ?? null, inLibrary: have.has(`${updateId}@${u.version}`) })),
-    dlc: { total: d?.dlcTotal ?? titledbStore.dlcIdsOf(base).length, inLibrary: [...new Set(files.filter((f) => f.kind === "dlc").map((f) => f.titleId))] },
+    dlc: { total: d?.dlcTotal ?? titledbStore.dlcIdsOf(base).length, inLibrary: [...new Set(files.filter((f) => f.kind === "dlc" && f.titleId).map((f) => f.titleId))] },
     files: files.map(({ rel, kind, titleId: id, version, size }) => ({ rel, kind, titleId: id, version, size })),
-    patches: userPatches.forTitle(base).map((p) => ({ id: p.id, name: p.name, version: p.version ?? null, required: p.required === true, korean: userPatches.isKorean(p) })),
+    patches: userPatches.forTitle(base).map((p) => ({ id: p.id, name: p.name, version: p.version ?? null, required: p.required === true, korean: userPatches.isKorean({ ...p, ...userPatches.locate(p.id) }) })),
     integrity: d?.integrity ?? [],
     verified: Boolean(d?.verified),
   };

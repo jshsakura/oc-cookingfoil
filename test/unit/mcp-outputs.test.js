@@ -130,3 +130,30 @@ test("retro tools answer an unknown system or id as BAD_INPUT or NOT_FOUND", asy
   await assert.rejects(registry.byId("retro_game_get").handler({}, { id: "gba-0000000000" }), (err) => err.status === 404);
   await assert.rejects(registry.byId("retro_game_get").handler({}, { id: "../etc" }), (err) => err.status === 400);
 });
+
+test("game_get reads lang as the shop does and keeps a renamed Korean patch Korean", async () => {
+  const base = "0100000000030000";
+  const descriptions = await import("../../src/meta/game-descriptions.js");
+  descriptions.set(base, "description", { ko: "한국어 설명", en: "English text" });
+  for (const lang of ["ko", "ko-KR", "KO"]) assert.equal((await check("game_get", { titleId: base, lang })).description, "한국어 설명", lang);
+  const odd = await check("game_get", { titleId: base, lang: "constructor" });
+  assert.equal(typeof odd.name, "string");
+
+  const patches = await import("../../src/meta/user-patches.js");
+  const info = await import("../../src/meta/patch-info.js");
+  const [p] = patches.forTitle(base);
+  info.set(patches.locate(p.id).key, { name: "KR Text v1.2" });
+  const game = await check("game_get", { titleId: base });
+  assert.equal(game.patches[0].name, "KR Text v1.2");
+  assert.equal(game.patches[0].korean, true, "the folder still says 한글패치");
+});
+
+test("retro_games_search orders by the name it shows", async () => {
+  put("retro", "roms/gba/Alpha Quest (USA).gba");
+  const { scan, current } = await import("../../src/retro/catalog.js");
+  await scan(dirs.retro);
+  const alpha = (await current(dirs.retro)).games.find((g) => g.file === "Alpha Quest (USA).gba");
+  (await import("../../src/retro/names.js")).set(alpha.id, { ko: "하늘 퀘스트" });
+  const names = (await check("retro_games_search", { system: "gba" })).items.map((g) => g.name);
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, "ko")));
+});
