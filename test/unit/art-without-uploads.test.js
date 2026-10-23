@@ -68,6 +68,8 @@ async function retroId() {
 test("the page's editor probe answers an admin account and refuses a user-role one", async () => {
   assert.equal((await fetch(`${base}/api/art/access`, { headers: alice })).status, 200);
   assert.equal((await fetch(`${base}/api/art/access`, { headers: bob })).status, 403);
+  assert.equal((await fetch(`${base}/api/art/search?slot=icon&q=x`, { headers: bob })).status, 403, "picture search is the admin's too");
+  assert.equal((await fetch(`${base}/api/art/remote?url=x`, { headers: bob })).status, 403);
 });
 
 test("with uploads off an admin still sets a game's icon, and the upload tray stays off", async () => {

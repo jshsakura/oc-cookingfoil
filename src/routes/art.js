@@ -62,7 +62,8 @@ import express from "express";
 import * as artSearch from "../meta/art-search.js";
 import multer from "multer";
 
-import { retroDir } from "../helpers/envs.js";
+import { retroDir, uploadsEnabled } from "../helpers/envs.js";
+import * as users from "../security/users.js";
 import adminOnly from "../security/admin-only.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as retroArt from "../retro/art/sync.js";
@@ -101,6 +102,11 @@ function badRequest(res, msg) {
 
 export default function artRouter() {
   const router = express.Router();
+  // A server with no accounts lets every visitor through as admin, so there pictures still wait for the uploads switch.
+  router.use((_req, res, next) => {
+    if (users.hasUsers() || uploadsEnabled) return next();
+    res.status(503).json({ error: "picture editing needs an admin account or uploads turned on" });
+  });
 
   router.get("/access", adminOnly({ reads: true }), (_req, res) => {
     res.set("Cache-Control", "no-store").json({ edit: true });
@@ -168,7 +174,7 @@ export default function artRouter() {
   // Pictures to pick from for one slot (meta/art-search.js), and a picked one fetched for the page to cut.
   //   GET /api/art/search?slot=icon|banner|screenshot&q=&base=   { q, items, errors, missing }
   //   GET /api/art/remote?url=                                    the picture's bytes, from the sources' own hosts only
-  router.get("/search", async (req, res) => {
+  router.get("/search", adminOnly({ reads: true }), async (req, res) => {
     const slot = String(req.query.slot ?? "");
     if (!artSearch.SLOTS.includes(slot)) return badRequest(res, "invalid slot");
     const base = req.query.base ? customArt.normalizeBase(String(req.query.base)) : null;
@@ -179,7 +185,7 @@ export default function artRouter() {
       res.status(502).json({ error: err.message });
     }
   });
-  router.get("/remote", async (req, res) => {
+  router.get("/remote", adminOnly({ reads: true }), async (req, res) => {
     try {
       const { body, type } = await artSearch.remoteImage(String(req.query.url ?? ""));
       res.type(type).set("Cache-Control", "private, max-age=300").send(body);
