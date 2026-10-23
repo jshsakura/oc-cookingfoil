@@ -46,7 +46,7 @@
     "src/retro/trash.js": 2,
     "src/retro/variants.js": 8,
     "src/routes/admin-page.js": 13,
-    "src/routes/admin/activity-panel.js": 6,
+    "src/routes/admin/activity-panel.js": 5,
     "src/routes/admin/alerts-api.js": 5,
     "src/routes/admin/alerts-panel.js": 60,
     "src/routes/admin/api-tokens-api.js": 1,
