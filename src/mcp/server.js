@@ -28,6 +28,7 @@ const compiled = (key, schema) => {
 const badInput = (message) => Object.assign(new Error(message), { status: 400 });
 
 async function argsOf(cap, args) {
+  if (args && Object.hasOwn(args, "confirm")) throw badInput("confirm goes next to action, not inside args");
   const checked = await compiled(cap.id, cap.input)["~standard"].validate(args);
   if (checked.issues) throw badInput(`${cap.id}: ${checked.issues.map((i) => i.message).join("; ")}`);
   return checked.value;

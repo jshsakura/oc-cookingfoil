@@ -115,6 +115,9 @@ test("an action is called through its area, and one of another area is refused",
   assert.ok(Array.isArray(json(ok).items));
   const wrong = await client.callTool({ name: "games", arguments: { action: "trash_list" } });
   assert.equal(wrong.isError, true);
+  const misplaced = await client.callTool({ name: "retro", arguments: { action: "retro_art_sync", args: { confirm: "approve" } } });
+  assert.equal(misplaced.isError, true);
+  assert.match(json(misplaced).error.message, /next to action/);
   await client.close();
 });
 
