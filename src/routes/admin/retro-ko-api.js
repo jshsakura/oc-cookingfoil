@@ -28,7 +28,7 @@ const row = (g, systems, hit, lang) => ({
 });
 
 /** The confirmed names and the waiting guesses of the catalog now, as GET /admin/api/retro-ko sends them, systems named in `lang`. */
-export async function retroKoReview(lang = "ko") {
+export async function retroKoReview(lang = "ko", max = LIST_MAX) {
   const catalog = await retroCatalog.current(retroDir);
   const confirmed = [];
   const guesses = [];
@@ -43,9 +43,9 @@ export async function retroKoReview(lang = "ko") {
   return {
     index: { ...romIndex.counts(catalog.games), busy: romIndex.busy() },
     confirmedTotal: confirmed.length,
-    confirmed: confirmed.slice(0, LIST_MAX),
+    confirmed: confirmed.slice(0, max),
     guessesTotal: guesses.length,
-    guesses: guesses.slice(0, LIST_MAX),
+    guesses: guesses.slice(0, max),
   };
 }
 

@@ -6,8 +6,8 @@
  */
 import debug from "../debug.js";
 
-// Under Claude Code's default 25,000-token result cap in UTF-8 bytes (ServiceNow MCP's measure).
-export const BUDGET_BYTES = 60_000;
+// A result an agent reads costs its tokens again on every later turn: about 3,000 at this size. Lists take limit/offset or a filter for more.
+export const BUDGET_BYTES = 12_000;
 
 const STATUS_CODES = { 400: "BAD_INPUT", 404: "NOT_FOUND", 409: "CONFLICT" };
 

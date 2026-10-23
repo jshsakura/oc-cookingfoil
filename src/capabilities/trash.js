@@ -8,6 +8,7 @@
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, num, obj, str } from "./shape.js";
+import { leanTrash } from "./lean.js";
 
 const service = () => import("../library/trash-service.js");
 const byOf = (ctx) => ctx?.by ?? { type: "token", name: "mcp" };
@@ -41,28 +42,37 @@ export const trashCapabilities = [
     id: "trash_list",
     area: "library",
     title: "List the trash",
-    description: "Lists what was removed from the library folders and waits in their trash: where it was, why, by whom, size and age. Use before trash_restore.",
-    input: { type: "object", properties: {} },
+    description: "Lists what waits in the library folders' trash, newest first, one line each (where from, size, age), 20 a page. Use before trash_restore.",
+    input: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", description: "How many entries to return; 20 when left out, at most 200" },
+        offset: { type: "integer", description: "How many entries to skip, for the next page of the list" },
+      },
+    },
     output: obj({
       items: arr(obj({
         id: str("entry id for trash_restore"),
         root: str("library folder it came from"),
+        kind: str(),
         name: str(),
         size: int("bytes"),
         trashedAt: num("epoch ms"),
         ageDays: int(),
-      }, { description: "also kind, action, by, items (the files, by path) and more" }), "newest first"),
+        files: int("files in the entry"),
+        missing: int("files no longer there"),
+        incomplete: int("files only partly there"),
+      }, { optional: ["missing", "incomplete"] }), "newest first, this page"),
       total: BYTES_COUNT,
       roots: { type: "object", description: "{ bytes, count } per library folder" },
       noticeDays: int("age after which entries count as old"),
       old: BYTES_COUNT,
-      version: str("digest of the listed ids"),
-      listedAt: num("epoch ms"),
+      offset: int(),
       unavailable: arr(obj({ root: str(), home: str() }), "trash folders on a disk that is not mounted"),
-    }),
+    }, { optional: ["unavailable"] }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/trash" },
-    handler: async () => (await service()).list(),
+    handler: async (_ctx, input = {}) => leanTrash(await (await service()).list(), input),
   }),
   defineCapability({
     id: "trash_restore",

@@ -75,6 +75,21 @@ test("retro_cores' cores and systems match its output", async () => {
   assert.ok(out.systems.length >= 1);
 });
 
+test("retro_cores, retro_requirements and retro_ko_names answer lean and still match their outputs", async () => {
+  const cores = await check("retro_cores");
+  assert.deepEqual(Object.keys(cores.cores[0]).sort(), ["core", "origin", "size", "systems"]);
+  const one = await check("retro_cores", { core: cores.cores[0].core });
+  assert.equal(one.core.core, cores.cores[0].core);
+  const req = await check("retro_requirements");
+  assert.ok(Array.isArray(req.ok));
+  await check("retro_requirements", { system: "gba" }).catch((err) => assert.equal(err.status, 404));
+  const ko = await check("retro_ko_names", { list: "confirmed", limit: 5 });
+  assert.ok(ko.items.length <= 5);
+  await check("retro_ko_names");
+  const trash = await check("trash_list", { limit: 1 });
+  assert.ok(trash.items.length <= 1);
+});
+
 test("game_get and games_search over a game with titledb data, an update, a DLC and a patch match their outputs", async () => {
   const base = "0100000000030000";
   fs.mkdirSync(path.join(dirs.data, "titledb"), { recursive: true });
