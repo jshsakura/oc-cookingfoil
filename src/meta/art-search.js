@@ -2,10 +2,11 @@
  * Pictures to pick from for one slot of a game, a homebrew app or a patch, the
  * way Plex offers posters: the eShop's own (every region's icon and banner and
  * the screenshots), SteamGridDB (square grids for the icon, heroes for the
- * banner) and IGDB (cover, artworks, screenshots). The admin picks one; the
+ * banner, box covers for a retro game) and IGDB (cover, artworks, screenshots);
+ * a retro game's box art also from libretro-thumbnails (the route passes those in). The admin picks one; the
  * page fetches it through remoteImage() and cuts and uploads it like a file.
  *
- * A candidate: { source: "eshop" | "sgdb" | "igdb", game: { id, name } | null, label, thumb, url }.
+ * A candidate: { source: "eshop" | "libretro" | "sgdb" | "igdb", game: { id, name } | null, label, thumb, url }.
  */
 import * as igdb from "./igdb-client.js";
 import * as titledb from "./titledb-store.js";
@@ -17,14 +18,17 @@ const TIMEOUT_MS = 10_000;
 const GAMES = 2;
 const PER_GAME = 12;
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
-export const SLOTS = ["icon", "banner", "screenshot"];
+// boxart: a retro game's cover (portrait or wide, as the box was).
+export const SLOTS = ["icon", "banner", "screenshot", "boxart"];
 
-// Hosts a picked picture may come from: the three sources' own image servers, https only.
+// Hosts a picked picture may come from: the sources' own image servers, https only;
+// GitHub's raw host only for the libretro-thumbnails repositories.
 const HOSTS = [/^cdn\d*\.steamgriddb\.com$/, /^images\.igdb\.com$/, /(^|\.)nintendo\.(net|com)$/];
+const LIBRETRO = (u) => u.hostname === "raw.githubusercontent.com" && u.pathname.startsWith("/libretro-thumbnails/");
 export function allowedImageUrl(url) {
   try {
     const u = new URL(String(url));
-    return u.protocol === "https:" && HOSTS.some((re) => re.test(u.hostname));
+    return u.protocol === "https:" && (HOSTS.some((re) => re.test(u.hostname)) || LIBRETRO(u));
   } catch {
     return false;
   }
@@ -58,13 +62,15 @@ async function sgdbGet(path, apiKey, fetchImpl) {
   return (await res.json()).data ?? [];
 }
 
-/** SteamGridDB's square grids (icon) or heroes (banner) for the games found under `q`; nothing for screenshots. */
+/** SteamGridDB's square grids (icon), box covers (boxart) or heroes (banner) for the games found under `q`; nothing for screenshots. */
 export async function sgdbCandidates(slot, q, apiKey, { fetchImpl = fetch } = {}) {
   if (!apiKey || slot === "screenshot") return [];
   const games = (await sgdbGet(`/search/autocomplete/${encodeURIComponent(q)}`, apiKey, fetchImpl)).slice(0, GAMES);
   const out = [];
   for (const g of games) {
-    const path = slot === "icon" ? `/grids/game/${Number(g.id)}?dimensions=512x512,1024x1024&types=static` : `/heroes/game/${Number(g.id)}?types=static`;
+    const path = slot === "icon" ? `/grids/game/${Number(g.id)}?dimensions=512x512,1024x1024&types=static`
+      : slot === "boxart" ? `/grids/game/${Number(g.id)}?dimensions=600x900,342x482,660x930&types=static`
+        : `/heroes/game/${Number(g.id)}?types=static`;
     for (const img of (await sgdbGet(path, apiKey, fetchImpl)).slice(0, PER_GAME)) {
       if (allowedImageUrl(img.url)) out.push({ source: "sgdb", game: { id: g.id, name: g.name }, label: "", thumb: img.thumb || img.url, url: img.url });
     }
@@ -75,15 +81,15 @@ export async function sgdbCandidates(slot, q, apiKey, { fetchImpl = fetch } = {}
 const igdbImage = (size, id) => `${IGDB_IMAGES}${size}/${id}.jpg`;
 const quoted = (s) => String(s).replace(/["\\]/g, " ").slice(0, 100);
 
-/** IGDB's cover (icon), artworks (banner) or screenshots for the games found under `q`. */
+/** IGDB's cover (icon, boxart), artworks (banner) or screenshots for the games found under `q`. */
 export async function igdbCandidates(slot, q, { fetchImpl = fetch, ready = igdb.configured, query = igdb.query } = {}) {
   if (!ready()) return [];
   const games = await query("games", `search "${quoted(q)}"; fields name,cover.image_id,artworks.image_id,screenshots.image_id; limit ${GAMES};`, { fetchImpl });
   const out = [];
   for (const g of games ?? []) {
-    const ids = slot === "icon" ? [g.cover?.image_id] : slot === "banner" ? [...(g.artworks ?? []), ...(g.screenshots ?? [])].map((a) => a.image_id) : (g.screenshots ?? []).map((s) => s.image_id);
+    const ids = slot === "icon" || slot === "boxart" ? [g.cover?.image_id] : slot === "banner" ? [...(g.artworks ?? []), ...(g.screenshots ?? [])].map((a) => a.image_id) : (g.screenshots ?? []).map((s) => s.image_id);
     for (const id of ids.filter(Boolean).slice(0, PER_GAME)) {
-      out.push({ source: "igdb", game: { id: g.id, name: g.name }, label: "", thumb: igdbImage(slot === "icon" ? "t_cover_big" : "t_screenshot_med", id), url: igdbImage("t_1080p", id) });
+      out.push({ source: "igdb", game: { id: g.id, name: g.name }, label: "", thumb: igdbImage(slot === "icon" || slot === "boxart" ? "t_cover_big" : "t_screenshot_med", id), url: igdbImage("t_1080p", id) });
     }
   }
   return out;
@@ -93,8 +99,9 @@ export async function igdbCandidates(slot, q, { fetchImpl = fetch, ready = igdb.
  * Every source's pictures for `slot`. A source that is not set up or fails is
  * left out and named in `errors`, so one bad key never empties the list.
  */
-export async function searchArt({ slot, q, baseTitleId = null }, { fetchImpl = fetch, sgdbKey = integrations.get("steamgriddb")?.apiKey ?? "", igdbReady = igdb.configured, igdbQuery = igdb.query } = {}) {
-  const items = eshopCandidates(slot, baseTitleId);
+export async function searchArt({ slot, q, baseTitleId = null, first = [] }, { fetchImpl = fetch, sgdbKey = integrations.get("steamgriddb")?.apiKey ?? "", igdbReady = igdb.configured, igdbQuery = igdb.query } = {}) {
+  // `first`: candidates the caller found itself (a retro game's libretro covers), allowed hosts only.
+  const items = [...first.filter((c) => allowedImageUrl(c.url)), ...eshopCandidates(slot, baseTitleId)];
   const errors = [];
   const query = String(q ?? "").trim().slice(0, 100);
   const sources = {

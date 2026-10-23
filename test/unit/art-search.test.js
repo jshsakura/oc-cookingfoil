@@ -67,6 +67,21 @@ test("a source without its key is named as missing, a failing one as an error, a
   assert.deepEqual(mixed.items.map((c) => c.source), ["igdb"]);
 });
 
+test("a retro game's box art: libretro covers lead, then SteamGridDB box covers and the IGDB cover", async () => {
+  const libretro = "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis/master/Named_Boxarts/Shinobi.png";
+  assert.equal(search.allowedImageUrl(libretro), true);
+  // Only libretro-thumbnails on GitHub's raw host, nothing else served there.
+  assert.equal(search.allowedImageUrl("https://raw.githubusercontent.com/someone/else/main/a.png"), false);
+  const web = fakeSgdb();
+  const r = await search.searchArt({ slot: "boxart", q: "Shinobi", first: [
+    { source: "libretro", game: null, label: "Shinobi", thumb: libretro, url: libretro },
+    { source: "libretro", game: null, label: "x", thumb: "https://example.com/x.png", url: "https://example.com/x.png" },
+  ] }, { fetchImpl: web.fetchImpl, sgdbKey: "k", igdbReady: () => true, igdbQuery: async () => [{ id: 5, name: "Shinobi", cover: { image_id: "co1" } }] });
+  assert.deepEqual(r.items.map((c) => c.source), ["libretro", "sgdb", "sgdb", "igdb"]);
+  assert.ok(web.calls.some((u) => u.includes("/grids/game/11?dimensions=600x900")));
+  assert.equal(r.items.at(-1).thumb, "https://images.igdb.com/igdb/image/upload/t_cover_big/co1.jpg");
+});
+
 test("a picked picture is fetched from an allowed host only, redirects included, and must be an image", async () => {
   const ok = await search.remoteImage("https://cdn2.steamgriddb.com/a.jpg", { fetchImpl: async () => new Response(JPEG) });
   assert.equal(ok.type, "image/jpeg");

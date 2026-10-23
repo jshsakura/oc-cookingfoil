@@ -70,6 +70,8 @@ test("the page's editor probe answers an admin account and refuses a user-role o
   assert.equal((await fetch(`${base}/api/art/access`, { headers: bob })).status, 403);
   assert.equal((await fetch(`${base}/api/art/search?slot=icon&q=x`, { headers: bob })).status, 403, "picture search is the admin's too");
   assert.equal((await fetch(`${base}/api/art/remote?url=x`, { headers: bob })).status, 403);
+  assert.equal((await fetch(`${base}/api/art/search?slot=boxart&retro=x`, { headers: bob })).status, 403, "a retro cover search too");
+  assert.equal((await fetch(`${base}/api/art/search?slot=boxart&retro=no-such-game`, { headers: alice })).status, 404, "a retro cover needs its game");
 });
 
 test("with uploads off an admin still sets a game's icon, and the upload tray stays off", async () => {

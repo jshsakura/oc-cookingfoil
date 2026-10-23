@@ -6232,7 +6232,7 @@
           const top = document.createElement("header");
           const shut = Object.assign(document.createElement("button"), { type: "button", className: "close", textContent: t("art.findClose") });
           shut.addEventListener("click", close);
-          top.append(Object.assign(document.createElement("h4"), { textContent: t("art.findHead", t(slot === "screenshot" ? "art.screens" : "art." + slot)) }), shut);
+          top.append(Object.assign(document.createElement("h4"), { textContent: t("art.findHead", t(find.slot === "boxart" ? "art.boxart" : slot === "screenshot" ? "art.screens" : "art." + slot)) }), shut);
           const form = document.createElement("form");
           const input = Object.assign(document.createElement("input"), { type: "search", value: find.q || "", placeholder: t("art.findPlaceholder") });
           input.setAttribute("aria-label", t("art.findPlaceholder"));
@@ -6240,14 +6240,16 @@
           const state = Object.assign(document.createElement("p"), { className: "state" });
           const results = document.createElement("div"); results.className = "results";
           panel.append(top, form, state, results);
-          const SOURCE = { eshop: "eShop", sgdb: "SteamGridDB", igdb: "IGDB" };
+          const SOURCE = { eshop: "eShop", libretro: "libretro", sgdb: "SteamGridDB", igdb: "IGDB" };
           let seq = 0;
           async function search() {
             const mine = ++seq;
             state.textContent = t("art.findLoading"); state.hidden = false;
             results.replaceChildren(...Array.from({ length: 6 }, () => Object.assign(document.createElement("div"), { className: "pick sk" })));
-            const qs = new URLSearchParams({ slot, q: input.value.trim() });
+            // A retro game's cover searches its own slot (boxart) by the game's id.
+            const qs = new URLSearchParams({ slot: find.slot || slot, q: input.value.trim() });
             if (find.base) qs.set("base", find.base);
+            if (find.retro) qs.set("retro", find.retro);
             let d;
             try { const r = await fetch("/api/art/search?" + qs, { headers: { Accept: "application/json" } }); d = await r.json(); if (!r.ok) throw new Error(d.error); }
             catch { if (mine === seq) state.textContent = t("art.findFailed"); return; }
@@ -6676,7 +6678,8 @@
           const d = await retroDetail(g.id);
           if (d && mine === retroSeq && $("modal").classList.contains("open")) renderRetroModal({ ...g, ...d }, sys, false);
         }
-        box.append(artEditor({ slots: { icon: { url: g.boxartUrl || null, caption: t("art.boxart") }, shots: null }, upload, cut: false, note: t("art.retroNote") }));
+        box.append(artEditor({ slots: { icon: { url: g.boxartUrl || null, caption: t("art.boxart") }, shots: null }, upload, cut: false, note: t("art.retroNote"),
+          find: { q: "", slot: "boxart", retro: g.id } }));
         box.hidden = false;
       }
 
