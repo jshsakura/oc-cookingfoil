@@ -165,7 +165,7 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
-import * as coresOff from "../retro/cores-off.js";
+import * as coreSettings from "../retro/core-settings.js";
 import { autoCores } from "../retro/auto-cores.js";
 import { filtersOf } from "../retro/filters.js";
 import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detail.js";
@@ -204,9 +204,9 @@ let building = null;
 function rebuildManifest() {
   if (building) return building;
   hashCache ??= new HashCache(hashStore(appDb(), "retro"));
-  const off = coresOff.off();
+  const off = coreSettings.off();
   building = buildManifest(packDir(), hashCache, { off })
-    .then((m) => (manifest = { ...m, builtAt: Date.now(), off: coresOff.offKey() }))
+    .then((m) => (manifest = { ...m, builtAt: Date.now(), off: coreSettings.offKey() }))
     .finally(() => (building = null));
   return building;
 }
@@ -214,7 +214,7 @@ function rebuildManifest() {
 /** The manifest; stale ones refresh in the background, the first waits a little then reports pending. */
 async function currentManifest() {
   // A core switched on or off changes what the pack holds: the old manifest no longer applies.
-  if (manifest && manifest.off !== coresOff.offKey()) manifest = null;
+  if (manifest && manifest.off !== coreSettings.offKey()) manifest = null;
   if (manifest && Date.now() - manifest.builtAt <= MANIFEST_STALE_MS) return manifest;
   const running = rebuildManifest().catch((err) => {
     debug.error("retro: base pack manifest failed: %s", err.message);
@@ -518,7 +518,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     system: g.system,
     core: g.core,
     // The admin switched this game's core off: it stays listed but can't be taken.
-    ...(coresOff.off().has(g.core) ? { coreOff: true } : {}),
+    ...(coreSettings.off().has(g.core) ? { coreOff: true } : {}),
     size: g.size,
     ...romFields(g),
     addedAt: g.addedAt,
@@ -701,7 +701,7 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     // Whether this server can run them: RetroArch itself and each console's core files.
-    const pack = packStatus(packDir(), cat.games, cat.systems, coresOff.off());
+    const pack = packStatus(packDir(), cat.games, cat.systems, coreSettings.off());
     const ready = new Map(pack.systems.map((p) => [p.id, p.state]));
     res.json({
       retroarch: pack.retroarch,
@@ -878,7 +878,7 @@ export default function retroRouter() {
   }));
   // A game whose core the admin switched off is listed with coreOff and not handed out.
   const coreOffGuard = (req, res, next) =>
-    coresOff.off().has(req.retro.game.core) ? res.status(409).json({ error: "this game's core is switched off", coreOff: true }) : next();
+    coreSettings.off().has(req.retro.game.core) ? res.status(409).json({ error: "this game's core is switched off", coreOff: true }) : next();
   router.get("/games/:id/rom", coreOffGuard, (req, res) => {
     const { game, system } = req.retro;
     res.attachment(path.posix.basename(sdPaths(game, system).rom));
@@ -974,8 +974,8 @@ export default function retroRouter() {
   router.get("/base-pack/file/*", wrap(async (req, res) => {
     const sd = req.params[0];
     // Only paths the pack lists: a request never becomes a path on disk by itself.
-    const fresh = manifest?.off === coresOff.offKey() ? manifest.sources : null;
-    const listed = (fresh ?? new Map((await listPack(packDir(), { off: coresOff.off() })).map((f) => [f.path, f]))).get(sd);
+    const fresh = manifest?.off === coreSettings.offKey() ? manifest.sources : null;
+    const listed = (fresh ?? new Map((await listPack(packDir(), { off: coreSettings.off() })).map((f) => [f.path, f]))).get(sd);
     if (!listed || !fs.existsSync(listed.abs)) return res.status(404).json({ error: "not in the base pack" });
     res.attachment(path.basename(sd));
     sendFile(res, listed.abs);
@@ -983,7 +983,7 @@ export default function retroRouter() {
 
   // One request for the whole pack: thousands of per-file GETs run into the rate limit.
   router.get(["/base-pack", "/base-pack/bundle"], wrap(async (req, res) => {
-    const listed = await listPack(packDir(), { off: coresOff.off() });
+    const listed = await listPack(packDir(), { off: coreSettings.off() });
     if (!listed.length) return res.status(404).json({ error: "the base pack is empty" });
     // The manifest's version names these bytes only when it was read from this very
     // listing; otherwise the ETag comes from the listing itself and the manifest catches up.

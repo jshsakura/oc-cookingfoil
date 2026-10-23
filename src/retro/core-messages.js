@@ -37,6 +37,10 @@ export const CORE_MESSAGES = {
     indexUnread: "코어 목록을 읽지 못했습니다",
     coreTooLarge: "{core} 코어 파일이 너무 큽니다",
     badZip: "{core} 코어 압축 안의 파일이 맞지 않습니다",
+    notInRepo: "{repo} 의 최신 릴리스에 {core} 코어가 없습니다",
+    noRepo: "코어 레포가 지정되지 않았습니다",
+    repoFailed: "{repo} 의 릴리스를 읽지 못했습니다 (HTTP {status})",
+    shaMismatch: "{core} 코어의 SHA-256 이 릴리스와 다릅니다. 설치하지 않습니다",
   },
   en: {
     busy: "A core job or a RetroArch pack fill is running. Try again once it ends",
@@ -70,6 +74,10 @@ export const CORE_MESSAGES = {
     indexUnread: "Could not read the core list",
     coreTooLarge: "The {core} core file is too large",
     badZip: "The file inside the {core} core archive is not valid",
+    notInRepo: "The latest release of {repo} has no {core} core",
+    noRepo: "No core repository is set",
+    repoFailed: "Could not read the releases of {repo} (HTTP {status})",
+    shaMismatch: "The {core} core's SHA-256 does not match the release. It is not installed",
   },
   ja: {
     busy: "コアの作業か RetroArch パックの準備が動いています。終わってからもう一度行います",
@@ -103,6 +111,10 @@ export const CORE_MESSAGES = {
     indexUnread: "コアの一覧を読めませんでした",
     coreTooLarge: "{core} コアのファイルが大きすぎます",
     badZip: "{core} コアの圧縮ファイルの中身が正しくありません",
+    notInRepo: "{repo} の最新リリースに {core} コアがありません",
+    noRepo: "コアのリポジトリが指定されていません",
+    repoFailed: "{repo} のリリースを読めませんでした (HTTP {status})",
+    shaMismatch: "{core} コアの SHA-256 がリリースと一致しません。インストールしません",
   },
   zh: {
     busy: "核心任务或 RetroArch 包填充正在进行。结束后请重试",
@@ -136,6 +148,10 @@ export const CORE_MESSAGES = {
     indexUnread: "无法读取核心列表",
     coreTooLarge: "{core} 核心文件过大",
     badZip: "{core} 核心压缩包内的文件无效",
+    notInRepo: "{repo} 的最新版本中没有 {core} 核心",
+    noRepo: "未指定核心仓库",
+    repoFailed: "无法读取 {repo} 的版本 (HTTP {status})",
+    shaMismatch: "{core} 核心的 SHA-256 与版本不符，不予安装",
   },
 };
 

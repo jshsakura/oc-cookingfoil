@@ -50,7 +50,12 @@
  *   held            missing and in the retro trash
  *   not-in-nightly  the nightly buildbot has no such core (looked again after a day)
  *   failed          missing and the last try failed (reason, message, retryAt)
- *   off             the admin switched it off (cores-off.js): not fetched, not sent to consoles
+ *   not-in-repo     the repository's latest release has no such core (looked again after a day)
+ *   off             the admin switched it off (core-settings.js): not fetched, not sent to consoles
+ *
+ * Each core is taken from its source (core-settings.js sourceOf): the nightly buildbot, the latest
+ * release of the admin's repository, or "upload", the admin's own file, which is never fetched.
+ * Missing with source "upload" reads missing with reason "upload".
  *
  * A present core with a user version in the trash carries userVersion: true, so the admin can switch back.
  */
@@ -63,6 +68,7 @@ import { besideName, linkNoClobber } from "./no-clobber.js";
 import { PackError, sha256File } from "./pack-bundle.js";
 import { claimFill, digestFile, knownOfficial, ledgerRoot, readRecovery, REAL_PACK, serverOwns, whenFillFree } from "./pack-fill.js";
 import { fetchCore, fetchIndex, INDEX_TIMEOUTS, NIGHTLY_BASE, nroName, TIMEOUTS } from "./nightly-cores.js";
+import { fetchRepoIndex } from "./repo-cores.js";
 import { toTrash } from "./core-files.js";
 import { coreKo } from "./core-messages.js";
 import { listTrash, restoreEntry, TrashError } from "./trash.js";
@@ -96,7 +102,7 @@ export const backoffAfter = (attempts) => BACKOFF_MS[Math.min(Math.max(attempts,
  *   entries   the ledger rows; held, Map core → trash entry of the cores in the retro trash
  *   job       { cores: Set } while one runs; failures, core → { reason, message, retryAt }
  */
-export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK, off = new Set() }) {
+export function coreStates({ games, systems, present, entries, held = new Map(), enabled, job = null, failures = {}, now = Date.now(), pack = REAL_PACK, off = new Set(), sourceOf = () => "nightly" }) {
   const known = knownOfficial(pack);
   return systemsInUse(games, systems).map(([id, core]) => {
     const base = { id, core };
@@ -111,8 +117,9 @@ export function coreStates({ games, systems, present, entries, held = new Map(),
       return { ...base, state: "pinned", origin: pack.official.files[nroName(core)] ? "modified" : "extra" };
     }
     if (held.has(core)) return { ...base, state: "held", reason: "in-trash" };
+    if (sourceOf(core) === "upload") return { ...base, state: "missing", reason: "upload" };
     if (job?.cores.has(core)) return { ...base, state: "installing" };
-    if (failure?.reason === "not-in-nightly" && now < failure.retryAt) return { ...base, state: "not-in-nightly", retryAt: failure.retryAt };
+    if ((failure?.reason === "not-in-nightly" || failure?.reason === "not-in-repo") && now < failure.retryAt) return { ...base, state: failure.reason, retryAt: failure.retryAt };
     if (failure && now < failure.retryAt) return { ...base, state: "failed", reason: failure.reason, message: failure.message, retryAt: failure.retryAt };
     if (!enabled) return { ...base, state: "missing", reason: "auto-off" };
     return { ...base, state: "will-install" };
@@ -175,12 +182,15 @@ const busy = () => new PackError(coreKo("busy"), { status: 409 });
  * floorBytes(), freeBytes(dir), hashCache (helpers/hash-cache.js), hashFile(abs) (a fresh read, for the
  * check before a swap), restore(dir, entry, { exactName: true }) (trash.js restoreEntry: refuses a taken name
  * with a 409 TrashError and leaves the entry in the trash), timeouts { core, index } (nightly-cores.js),
- * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores, off() the switched-off cores.
+ * activity (tasks/activity.js or null), onCoreChanged(cores) after replaced cores, off() the switched-off cores,
+ * sourceOf(core) "nightly" | "repo" | "upload", repo() the "owner/name" the repo source reads, token() a GitHub token,
+ * repoIndex(repo, opts) (repo-cores.js fetchRepoIndex).
  */
 export function createAutoCores({
   packDir, retroDir, dataDir, ledger, enabled = () => true, base = () => NIGHTLY_BASE, floorBytes = () => 0,
   freeBytes = statfsFree, hashCache = null, hashFile = sha256File, restore = restoreCore, timeouts = { core: TIMEOUTS, index: INDEX_TIMEOUTS },
   activity = null, onCoreChanged = () => {}, fetchImpl, bin, pack = REAL_PACK, now = Date.now, off = () => new Set(),
+  sourceOf = () => "nightly", repo = () => null, token = () => null, repoIndex = fetchRepoIndex,
 }) {
   const file = path.join(dataDir, STATE_FILE);
   let saved = readState(file);
@@ -207,7 +217,7 @@ export function createAutoCores({
   const setFailure = (core, err) => {
     const attempts = (failures()[core]?.attempts ?? 0) + 1;
     const reason = failureReason(err);
-    const wait = reason === "not-in-nightly" ? NOT_IN_NIGHTLY_MS : backoffAfter(attempts);
+    const wait = reason === "not-in-nightly" || reason === "not-in-repo" ? NOT_IN_NIGHTLY_MS : backoffAfter(attempts);
     saved = { ...saved, failures: { ...failures(), [core]: { reason, message: err.message, at: now(), attempts, retryAt: now() + wait } } };
     debug.error("retro: core %s not installed (%s): %s", core, reason, err.message);
   };
@@ -252,9 +262,11 @@ export function createAutoCores({
   async function place(core, info, expect = null) {
     const staging = path.join(dataDir, STAGING, `${core}-${crypto.randomBytes(6).toString("hex")}`);
     try {
-      const nro = await fetchCore(core, { base: base(), fetchImpl, dir: staging, room, bin, timeouts: timeouts.core });
+      const fromRepo = info.source === "repo";
+      const nro = await fetchCore(core, { base: base(), from: fromRepo ? info : null, fetchImpl, dir: staging, room, bin, timeouts: timeouts.core });
       const digest = await digestFile(nro);
-      if (digest.crc32 !== info.crc32) throw new PackError(coreKo("crcMismatch", { core }), { status: 502, reason: "crc-mismatch" });
+      if (fromRepo && info.sha256 && digest.sha256 !== info.sha256) throw new PackError(coreKo("shaMismatch", { core }), { status: 502, reason: "sha256" });
+      if (!fromRepo && digest.crc32 !== info.crc32) throw new PackError(coreKo("crcMismatch", { core }), { status: 502, reason: "crc-mismatch" });
       if (!(await isNro(nro))) throw new PackError(coreKo("notNro", { core }), { status: 502, reason: "bad-zip" });
       const dest = path.join(await coresDir(), nroName(core));
       const tmp = besideName(dest, "cfpart");
@@ -265,7 +277,7 @@ export function createAutoCores({
       } finally {
         await fsp.rm(tmp, { force: true });
       }
-      if (done !== "kept") (await store()).put([{ rel: coreRel(core), sha256: digest.sha256, source: "nightly", lockVersion: "nightly", crc32: digest.crc32, built: info.date }]);
+      if (done !== "kept") (await store()).put([{ rel: coreRel(core), sha256: digest.sha256, source: fromRepo ? "repo" : "nightly", lockVersion: fromRepo ? info.tag : "nightly", crc32: digest.crc32, built: info.date }]);
       return done;
     } finally {
       await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
@@ -458,26 +470,46 @@ export function createAutoCores({
     const trash = await trashedCores(retroDir);
     const fail = failures();
     return [...new Set(systemsInUse(cat.games, cat.systems).map(([, core]) => core))]
-      .filter((core) => CORE_RE.test(core) && !off().has(core) && !trash.has(core) && !fs.existsSync(path.join(root, coreRel(core))))
+      .filter((core) => CORE_RE.test(core) && !off().has(core) && sourceOf(core) !== "upload" && !trash.has(core) && !fs.existsSync(path.join(root, coreRel(core))))
       .filter((core) => force || !fail[core] || now() >= fail[core].retryAt)
       .sort();
   }
 
+  /**
+   * Reads the index of each source `cores` need. find(core) is the core's listing with its `source`, and
+   * throws why there is none (that source could not be read, or does not have it). An "upload" core is
+   * looked up in nightly: only the admin's "use the server's build" asks for it.
+   */
+  async function lookups(cores, { fresh = false } = {}) {
+    const wants = new Set(cores.map((c) => (sourceOf(c) === "repo" ? "repo" : "nightly")));
+    const read = (go) => go().catch((err) => err);
+    const indexes = {
+      nightly: wants.has("nightly") ? await read(() => fetchIndex({ base: base(), fetchImpl, fresh, now: now(), timeouts: timeouts.index })) : null,
+      repo: wants.has("repo") ? await read(() => repoIndex(repo(), { fetchImpl, token: token(), fresh, now: now() })) : null,
+    };
+    const find = (core) => {
+      const source = sourceOf(core) === "repo" ? "repo" : "nightly";
+      const index = indexes[source];
+      if (index instanceof Error) throw index;
+      const info = index.get(core);
+      if (info) return { ...info, source };
+      if (source === "repo") throw new PackError(coreKo("notInRepo", { core, repo: repo() }), { status: 404, reason: "not-in-repo" });
+      throw new PackError(coreKo("notInNightly", { core }), { status: 404, reason: "not-in-nightly" });
+    };
+    return { find, errors: Object.values(indexes).filter((i) => i instanceof Error), read: Object.values(indexes).filter((i) => i instanceof Map).length };
+  }
+
   async function installAll(cores, act) {
     const installed = [];
-    let index;
-    try {
-      index = await fetchIndex({ base: base(), fetchImpl, now: now(), timeouts: timeouts.index });
-    } catch (err) {
-      for (const core of cores) setFailure(core, err);
-      throw err;
+    const { find, errors, read } = await lookups(cores);
+    if (!read && errors.length) {
+      for (const core of cores) setFailure(core, errors[0]);
+      throw errors[0];
     }
     for (const [i, core] of cores.entries()) {
       act?.step(i, core);
-      const info = index.get(core);
       try {
-        if (!info) throw new PackError(coreKo("notInNightly", { core }), { status: 404, reason: "not-in-nightly" });
-        if ((await place(core, info)) === "installed") installed.push(core);
+        if ((await place(core, find(core))) === "installed") installed.push(core);
         clearFailure(core);
       } catch (err) {
         setFailure(core, err);
@@ -511,19 +543,36 @@ export function createAutoCores({
     }
   }
 
+  /** Whether the server's core at `abs` (`sha`) is already `info`'s build: the same CRC-32 for nightly, the same release for a repo. */
+  async function isCurrent(abs, sha, entry, info) {
+    if (info.source === "repo") return info.sha256 ? sha === info.sha256 : entry?.source === "repo" && entry.sha256 === sha && entry.lockVersion === info.tag;
+    if (entry?.source === "repo") return false;
+    const crc = entry?.sha256 === sha && entry.crc32 ? entry.crc32 : (await digestFile(abs)).crc32;
+    return crc === info.crc32;
+  }
+
   /** The admin's "update installed cores": a job replacing each server core whose CRC-32 the index changed. */
   function update() {
     return start("update", [], async (act) => {
-      const index = await fetchIndex({ base: base(), fetchImpl, fresh: true, now: now(), timeouts: timeouts.index });
       const known = knownOfficial(pack);
       const entries = (await store()).all();
       const names = (await fsp.readdir(path.join(packDir(), "cores")).catch(() => [])).sort();
+      const fetched = names.map((n) => n.match(/^([a-z0-9_]+)_libretro_libnx\.nro$/)?.[1]).filter((c) => c && !off().has(c) && sourceOf(c) !== "upload");
+      const { find, errors, read } = await lookups(fetched, { fresh: true });
+      if (!read && errors.length) throw errors[0];
+      const listing = (core) => {
+        try {
+          return find(core);
+        } catch {
+          return null;
+        }
+      };
       const replaced = [];
       const pinned = [];
       const current = [];
       for (const name of names) {
         const core = name.match(/^([a-z0-9_]+)_libretro_libnx\.nro$/)?.[1];
-        const info = core && index.get(core);
+        const info = core && fetched.includes(core) ? listing(core) : null;
         if (!info) continue;
         const abs = path.join(packDir(), "cores", name);
         const sha = await hashOf(abs);
@@ -533,8 +582,7 @@ export function createAutoCores({
           pinned.push(core);
           continue;
         }
-        const crc = entry?.sha256 === sha && entry.crc32 ? entry.crc32 : (await digestFile(abs)).crc32;
-        if (crc === info.crc32) {
+        if (await isCurrent(abs, sha, entry, info)) {
           current.push(core);
           continue;
         }
@@ -555,8 +603,7 @@ export function createAutoCores({
   function useOfficial(core) {
     if (!CORE_RE.test(String(core))) throw new PackError(coreKo("badCore"), { status: 400 });
     return start("official", [core], async () => {
-      const info = (await fetchIndex({ base: base(), fetchImpl, now: now(), timeouts: timeouts.index })).get(core);
-      if (!info) throw new PackError(coreKo("notInNightly", { core }), { status: 404, reason: "not-in-nightly" });
+      const info = (await lookups([core])).find(core);
       const dest = path.join(packDir(), coreRel(core));
       const sha = await hashOf(dest);
       if (sha !== null && serverOwns(sha, (await store()).all().get(coreRel(core)), knownOfficial(pack))) return { installed: [], already: true };
@@ -666,7 +713,7 @@ export function createAutoCores({
     status: () => ({ enabled: enabled(), source: base(), job: job ? { kind: job.kind, cores: [...job.cores], startedAt: job.startedAt } : null, failures: failures(), last: saved.last ?? null }),
     /** Each console's state, with `present` (Map core → sha256 | null) read by the caller. */
     async states(cat, present) {
-      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), now: now(), pack, off: off() });
+      return coreStates({ games: cat.games, systems: cat.systems, present, entries: fs.existsSync(packDir()) ? (await store()).all() : new Map(), held: await trashedCores(retroDir), enabled: enabled(), job, failures: failures(), now: now(), pack, off: off(), sourceOf });
     },
   };
 }
@@ -692,7 +739,8 @@ export async function autoCores() {
   const { HashCache } = await import("../helpers/hash-cache.js");
   const { appDb } = await import("../db/database.js");
   const { hashStore } = await import("../db/stores.js");
-  const coresOff = await import("./cores-off.js");
+  const coreSettings = await import("./core-settings.js");
+  const integrations = await import("../security/integrations.js");
   shared ??= createAutoCores({
     packDir: () => packDirOf(envs.retroDir),
     retroDir: envs.retroDir,
@@ -702,7 +750,10 @@ export async function autoCores() {
     floorBytes: () => envs.nszDiskFloorGb * GIB,
     hashCache: new HashCache(hashStore(appDb(), "retro")),
     activity,
-    off: coresOff.off,
+    off: coreSettings.off,
+    sourceOf: coreSettings.sourceOf,
+    repo: coreSettings.repo,
+    token: () => integrations.get("github").token,
   });
   shared.recover().catch((err) => debug.error("retro: core leftovers not cleared: %s", err.message));
   return shared;

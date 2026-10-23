@@ -17,6 +17,7 @@ import { sevenZipBin, sha256File } from "../../src/retro/pack-bundle.js";
 import { claimFill, fillBusy } from "../../src/retro/pack-fill.js";
 import { coreStates, createAutoCores, restoreCore, STATE_FILE } from "../../src/retro/auto-cores.js";
 import { forgetIndex, parseIndex } from "../../src/retro/nightly-cores.js";
+import { parseRelease } from "../../src/retro/repo-cores.js";
 import { coreFiles, listPack, manifestView } from "../../src/retro/base-pack.js";
 import { forwarderSpec } from "../../src/retro/forwarder.js";
 import { listTrash, restoreEntry } from "../../src/retro/trash.js";
@@ -831,4 +832,91 @@ test("H2: a scan that finds the pack held by another writer runs once it is free
 test("a switched-off core reads off, whatever is on disk", () => {
   const [st] = coreStates({ ...catalogOf("nes"), present: new Map([["fceumm", null]]), entries: new Map(), enabled: true, off: new Set(["fceumm"]) });
   assert.deepEqual(st, { id: "nes", core: "fceumm", state: "off" });
+});
+
+test("a release's cores: a bare .nro wins over its zip, the digest is kept, other assets are skipped", () => {
+  const asset = (name, extra = {}) => ({ name, size: 10, browser_download_url: `https://github.com/o/r/releases/download/v1/${name}`, ...extra });
+  const index = parseRelease({
+    tag_name: "v1", published_at: "2026-10-20T01:02:03Z",
+    assets: [
+      asset("mgba_libretro_libnx.nro.zip"),
+      asset("mgba_libretro_libnx.nro", { digest: `sha256:${"a".repeat(64)}` }),
+      asset("snes9x_libretro_libnx.nro.zip"),
+      asset("readme.txt"),
+      { name: "fceumm_libretro_libnx.nro", browser_download_url: "https://example.com/fceumm_libretro_libnx.nro" },
+    ],
+  });
+  assert.deepEqual([...index.keys()].sort(), ["mgba", "snes9x"], "a download outside github.com is not a core");
+  assert.equal(index.get("mgba").zipped, false);
+  assert.equal(index.get("mgba").sha256, "a".repeat(64));
+  assert.equal(index.get("snes9x").zipped, true);
+  assert.equal(index.get("snes9x").sha256, null);
+  assert.deepEqual([index.get("mgba").tag, index.get("mgba").date], ["v1", "2026-10-20"]);
+});
+
+/** A release host on 127.0.0.1: `files` maps an asset name to its bytes. */
+async function releaseHost(files) {
+  const hits = [];
+  const server = http.createServer((req, res) => {
+    hits.push(req.url);
+    const data = files[req.url.slice(1)];
+    if (!data) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    res.writeHead(200, { "Content-Length": data.length });
+    res.end(data);
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const index = (tag, digests = {}) => new Map(Object.keys(files).map((name) => {
+    const core = name.match(/^([a-z0-9_]+)_libretro/)[1];
+    return [core, { date: "2026-10-20", tag, file: name, url: `${origin}/${name}`, size: files[name].length, sha256: digests[core] ?? null, zipped: name.endsWith(".zip"), hosts: [origin] }];
+  }));
+  return { hits, index, files, close: () => server.close() };
+}
+
+test("a core whose source is the repo comes from its release, checked against the digest, and updates by tag", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  const host = await releaseHost({ "fceumm_libretro_libnx.nro": nro("fceumm-repo-1") });
+  try {
+    const w = world();
+    let release = host.index("v1", { fceumm: sha(nro("fceumm-repo-1")) });
+    const sources = { fceumm: "repo" };
+    const auto = w.make(bot.base, { sourceOf: (c) => sources[c] ?? "nightly", repo: () => "o/r", repoIndex: async () => release });
+    const out = await (await auto.check(catalogOf("nes", "snes"))).done;
+    assert.deepEqual(out.installed.sort(), ["fceumm", "snes9x"]);
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), nro("fceumm-repo-1"), "from the repo, not nightly");
+    assert.ok(!bot.zips().includes("/latest/fceumm_libretro_libnx.nro.zip"));
+    const row = w.ledger().all().get("cores/fceumm_libretro_libnx.nro");
+    assert.deepEqual([row.source, row.lockVersion, row.built], ["repo", "v1", "2026-10-20"]);
+
+    host.files["fceumm_libretro_libnx.nro"] = nro("fceumm-repo-2");
+    release = host.index("v2", { fceumm: sha(nro("fceumm-repo-1")) });
+    let up = await auto.update().done;
+    assert.deepEqual(up.replaced, [], "the release's digest still names the file on disk");
+    release = host.index("v2", { fceumm: sha(nro("wrong")) });
+    up = await auto.update().done;
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), nro("fceumm-repo-1"), "a download that is not the digest is not installed");
+    assert.equal(auto.status().failures.fceumm.reason, "sha256");
+    release = host.index("v2");
+    up = await auto.update().done;
+    assert.deepEqual(up.replaced, ["fceumm"], "no digest: a new tag replaces it");
+    assert.deepEqual(fs.readFileSync(w.core("fceumm")), nro("fceumm-repo-2"));
+  } finally { bot.close(); host.close(); }
+});
+
+test("an upload core is never fetched, and a core missing from the release says so", opts, async () => {
+  const bot = await buildbot(BUILDS);
+  try {
+    const w = world();
+    const sources = { fceumm: "upload", snes9x: "repo" };
+    const auto = w.make(bot.base, { sourceOf: (c) => sources[c] ?? "nightly", repo: () => "o/r", repoIndex: async () => new Map() });
+    const out = await (await auto.check(catalogOf("nes", "snes", "gba"))).done;
+    assert.deepEqual(out.installed, ["mgba"]);
+    assert.ok(!fs.existsSync(w.core("fceumm")));
+    const states = coreStates({ ...catalogOf("nes", "snes"), present: new Map(), entries: new Map(), enabled: true, failures: auto.status().failures, now: w.clock(), sourceOf: (c) => sources[c] ?? "nightly" });
+    assert.deepEqual(states.map((s) => [s.core, s.state, s.reason ?? null]), [["fceumm", "missing", "upload"], ["snes9x", "not-in-repo", null]]);
+  } finally { bot.close(); }
 });

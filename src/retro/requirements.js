@@ -38,12 +38,12 @@ export const CORE_NOTE = "Cores are Switch .nro files built for libnx, named <co
 
 /** Every core state a pack may report; the admin page has words for each and a generic one for any other. */
 export const CORE_STATES = ["present", "missing", "installing", "will-install", "pinned", "nightly", "operator-owned",
-  "held", "not-in-bundle", "not-in-nightly", "failed", "off"];
+  "held", "not-in-bundle", "not-in-nightly", "failed", "off", "not-in-repo"];
 /** The machine reasons a pack may give with a state; the page words each and falls back to a generic sentence. */
 export const CORE_REASONS = ["download", "install", "rollback", "disk-floor", "crc-mismatch", "bad-zip", "sha256", "hash",
-  "not-in-nightly", "in-trash", "auto-off"];
+  "not-in-nightly", "in-trash", "auto-off", "not-in-repo", "upload", "no-repo"];
 // The states with which the games of that system do not start.
-const CORE_WARN = new Set(["missing", "not-in-bundle", "not-in-nightly", "failed"]);
+const CORE_WARN = new Set(["missing", "not-in-bundle", "not-in-nightly", "not-in-repo", "failed"]);
 const lower = (s) => String(s).toLowerCase();
 const baseOf = (f) => f.slice(f.lastIndexOf("/") + 1);
 const dirOf = (f) => f.slice(0, Math.max(0, f.lastIndexOf("/")));

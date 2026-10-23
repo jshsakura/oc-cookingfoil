@@ -93,14 +93,14 @@ export const isProtected = (rel) => rel === "retroarch.cfg" || rel.startsWith("s
  *
  *   install   absent: place it
  *   replace   the server's own, untouched, and the bundle has a newer one
- *   current   already the bundle's bytes, or a core the server took from nightly (auto-cores.js) and
+ *   current   already the bundle's bytes, or a core the server took from nightly or a repo (auto-cores.js) and
  *             left untouched: the admin's update keeps that one current, never the stable bundle
  *   operator  not placed by the server and different: kept, "update available"
  *   modified  placed by the server but changed since: kept
  */
 export function decide({ current, entry, next }) {
   if (current === null) return "install";
-  if (entry?.source === "nightly" && current === entry.sha256) return "current";
+  if ((entry?.source === "nightly" || entry?.source === "repo") && current === entry.sha256) return "current";
   if (!entry) return current === next ? "current" : "operator";
   if (current !== entry.sha256) return current === next ? "current" : "modified";
   return current === next ? "current" : "replace";
@@ -391,7 +391,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       // The body and cores are the lock's bytes already: a row left behind (a run cut off before the ledger
       // was written) moves to this version without the bundle, which is not kept after a fill.
       const entries = ledger.all();
-      const behind = plan.items.filter((i) => i.state === "current" && entries.get(i.rel) && entries.get(i.rel).source !== "nightly" && (entries.get(i.rel).sha256 !== i.sha256 || entries.get(i.rel).lockVersion !== lock.version));
+      const behind = plan.items.filter((i) => i.state === "current" && entries.get(i.rel) && !["nightly", "repo"].includes(entries.get(i.rel).source) && (entries.get(i.rel).sha256 !== i.sha256 || entries.get(i.rel).lockVersion !== lock.version));
       const rows = [];
       for (const i of behind) rows.push({ rel: i.rel, sha256: i.sha256, source: entries.get(i.rel).source, lockVersion: lock.version, crc32: (await digestFile(path.join(root, i.rel))).crc32 });
       if (rows.length) ledger.put(rows);

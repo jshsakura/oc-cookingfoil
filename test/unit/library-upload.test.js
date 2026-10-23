@@ -410,7 +410,6 @@ test("a core switched off leaves the console pack; its games stay listed but can
     assert.equal((await toggle({ core: "../x", enabled: false })).status, 400);
 
     assert.equal((await toggle({ core: "mgba", enabled: false })).status, 200);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dirs.data, "retro-cores-off.json"), "utf8")), ["mgba"]);
     const paths = await manifestPaths();
     assert.ok(!paths.some((p) => p.includes("mgba")), "neither the .nro nor the .info is sent");
     assert.equal((await fetch(`${BASE}/api/retro/base-pack/file/${nro}`, { headers: ALICE })).status, 404);
@@ -426,6 +425,17 @@ test("a core switched off leaves the console pack; its games stay listed but can
     assert.equal(cores.systems.find((s) => s.id === "gba").coreState.state, "off");
 
     assert.equal((await toggle({ core: "mgba", enabled: true })).status, 200);
+    const post = (p, body) => fetch(`${BASE}/admin/api/retro-cores/${p}`, { method: "POST", headers: admin, body: JSON.stringify(body) });
+    assert.equal((await post("repo", { repo: "not a repo" })).status, 400);
+    assert.equal((await post("repo", { repo: "example/cores" })).status, 200);
+    assert.equal((await post("source", { core: "mgba", source: "ftp" })).status, 400);
+    assert.equal((await post("source", { core: "mgba", source: "repo" })).status, 200);
+    let sources = (await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json()).sources;
+    assert.deepEqual(sources, { repo: "example/cores", cores: { mgba: "repo" } });
+    assert.equal((await post("source", { core: "mgba", source: "nightly" })).status, 200);
+    assert.equal((await post("repo", { repo: "" })).status, 200);
+    sources = (await (await fetch(`${BASE}/admin/api/retro-cores`, { headers: admin })).json()).sources;
+    assert.deepEqual(sources, { repo: null, cores: {} }, "nightly is the default and leaves no row");
     assert.ok((await manifestPaths()).includes(nro), "switched back on, the pack sends it again");
     assert.equal((await fetch(`${BASE}/api/retro/games/${g.id}/rom`, { headers: ALICE })).status, 200);
   } finally {
