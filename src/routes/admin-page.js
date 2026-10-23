@@ -62,6 +62,7 @@ import { mountRetroArtApi } from "./admin/retro-art-api.js";
 import { mountStorageGuideApi } from "./admin/storage-guide-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountRetroKoApi } from "./admin/retro-ko-api.js";
+import { mountRetroPatchApi } from "./admin/retro-patch-api.js";
 import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
 import { mountRetroPackApi } from "./admin/retro-pack-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
@@ -141,11 +142,12 @@ function clientBuildWarnings() {
 // and where its releases come from, uploaded homebrew, which GitHub homebrew is followed and
 // which release file of it, uploaded patches and which of them a game requires), removing
 // files from the game library (retro roms and kept NSZ originals too), moving a user's
-// RetroArch core to the trash or back (retro-cores official and user-version), and emptying
+// RetroArch core to the trash or back (retro-cores official and user-version), patching a
+// retro ROM in place or putting its original back (retro-patch apply and restore), and emptying
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
@@ -488,6 +490,7 @@ export default function adminPageRouter() {
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
   mountRetroKoApi(router, requireSession);
+  mountRetroPatchApi(router, requireSession);
   mountRetroCoresApi(router, requireSession);
   mountRetroPackApi(router, requireSession);
   mountApiTokensApi(router, requireSession);

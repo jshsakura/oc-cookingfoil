@@ -13,6 +13,7 @@ import { editionOf } from "./edition.js";
 import { regionOf } from "./arcade.js";
 import { metaOwner } from "./meta/detail.js";
 import { metaKey } from "./meta/build.js";
+import { patchOf } from "./rom-patch-records.js";
 
 export const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
 /** A game matches on its name in any language, its original title or its file name (sf2.zip). */
@@ -39,6 +40,15 @@ export function retroMetaKey(cat, g) {
   return metaOwner(metaCandidates(g, representative(group, variantPicks.get(group.id)), group))?.key ?? metaKey(g);
 }
 
+/**
+ * A ROM the admin patched on the server (rom-patch.js) is a Korean patch whatever its file name
+ * says: `applied` marks it, beside the flags its tags give. Pure.
+ */
+export function patchedEdition(edition, record) {
+  if (!record) return edition;
+  return { ...edition, korean: true, source: edition?.source === "official" ? "official" : "patch", applied: true };
+}
+
 /** How a game is titled in `lang`: name, names, original, and its tags as variant, edition and region. */
 export function titleOf(g, lang) {
   const variant = tagsOf(g.name);
@@ -51,7 +61,7 @@ export function titleOf(g, lang) {
   const localized = names ? pick(names, lang) : null;
   const original = names ? (localized !== names.en ? names.en : null) : g.original;
   // The tags as flags: Korean or not, release or patch, patch version.
-  const edition = g.edition ?? editionOf(variant);
+  const edition = patchedEdition(g.edition ?? editionOf(variant), patchOf(g.id));
   const region = g.region ?? (edition ? "kr" : regionOf(variant));
   return { name: localized ?? withoutTags(g.name), names, original, variant, edition, region };
 }

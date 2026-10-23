@@ -94,7 +94,8 @@ COPY --from=hacbrewpack-builder /hacBrewPack-source.tar.gz /usr/share/licenses/c
 # unzip opens the patch and save zips uploaded from the admin page.
 # 7zip unpacks the official RetroArch bundle (.7z) that the retro tab fills the pack from.
 # su-exec drops from root to PUID:PGID in the entrypoint.
-RUN apk add --no-cache python3 py3-pip unzip su-exec 7zip && \
+# xdelta3 applies the xdelta (VCDIFF) patches the admin puts on a retro ROM.
+RUN apk add --no-cache python3 py3-pip unzip su-exec 7zip xdelta3 && \
     pip3 install --no-cache-dir --break-system-packages nsz && \
     # Drop pip caches & build deps to keep the runtime layer lean.
     rm -rf /root/.cache /tmp/* /var/cache/apk/*

@@ -29,6 +29,9 @@ export const OPT_OUT = {
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
   "POST /admin/api/retro-cores/official": "token-blocked",
   "POST /admin/api/retro-cores/user-version": "token-blocked",
+  // Patch a retro ROM in place, and put its original back: a person's choice on the admin page, game by game.
+  "POST /admin/api/retro-patch/:id/apply": "token-blocked",
+  "POST /admin/api/retro-patch/:id/restore": "token-blocked",
   // Where consoles and accounts connected from: the admin page only.
   "GET /admin/api/access-history": "token-blocked",
   // The dashboard asks whether to show its picture editor; an agent has no editor to show.
