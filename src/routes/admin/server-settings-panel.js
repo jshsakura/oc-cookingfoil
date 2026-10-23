@@ -99,7 +99,7 @@ async function ssSave(body,msg){try{const d=await api('/admin/api/server-setting
     toast(row?ssText(row[2])+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
-    b.addEventListener('change',()=>ssSave({[key]:b.checked},b.checked?'켰습니다.':'껐습니다.'));w.append(b,el('span'));return w;}
+    b.addEventListener('change',()=>ssSave({[key]:b.checked},topText((b.checked?'ss.on.':'ss.off.')+key)));w.append(b,el('span'));return w;}
   if(kind==='gb'){const i=el('input');i.type='number';i.min='0.001';i.step='any';i.inputMode='decimal';i.value=ssGb(s.value);i.setAttribute('aria-label',key);
     const unit=el('span','GB','muted');
     i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(!(v>0)){toast('0 보다 큰 크기를 넣습니다.');i.value=ssGb(s.value);return;}ssSave({[key]:v});});
