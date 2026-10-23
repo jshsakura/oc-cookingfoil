@@ -44,6 +44,7 @@ import {
 } from "./security/admin-secret.js";
 import { logConfigHealth } from "./security/config-health.js";
 import { serverId } from "./security/server-id.js";
+import { pathForLog } from "./security/deny.js";
 
 import defensiveHeaders from "./security/headers.js";
 import accessGuard from "./security/access-guard.js";
@@ -393,7 +394,7 @@ expressApp.use(express.static(romsDirPath, { dotfiles: "ignore" }));
 // paths whenever NODE_ENV is not production (anything run outside Docker).
 expressApp.use((err, req, res, next) => {
   const status = Number.isInteger(err?.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
-  if (status >= 500) debug.error("request %s %s failed: %s", req.method, req.originalUrl, err?.stack ?? err);
+  if (status >= 500) debug.error("request %s %s failed: %s", req.method, pathForLog(req), err?.stack ?? err);
   if (res.headersSent) return res.destroy();
   res.status(status).type("text/plain").send(status >= 500 ? "Internal Server Error\n" : `${http.STATUS_CODES[status] ?? "Error"}\n`);
 });
