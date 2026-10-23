@@ -133,7 +133,7 @@ async function conforms(cap, input) {
 
 test("each served tool's real result matches its declared output", async () => {
   for (const cap of servedTools()) {
-    if (cap.id === "library_folder_guide") continue;
+    if (cap.input.required?.length) continue; // checked with real arguments in mcp-outputs.test.js and below
     await conforms(cap, {});
   }
   await conforms(registry.byId("help"), { tool: "trash_list" });

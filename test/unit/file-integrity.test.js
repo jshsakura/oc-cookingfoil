@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 const PROBE = `
   import { composeSections } from "../../src/create-index-content.js";
   import * as fileIntegrity from "../../src/meta/file-integrity.js";
-  import { integrityFor } from "../../src/routes/title-detail.js";
+  import { integrityFor } from "../../src/meta/title-detail.js";
   const verdicts = { "Mario [0100000000010000][v0].nsp": "modified", "Mario Update [0100000000010800][v65536].nsp": "damaged" };
   fileIntegrity.provide((rel) => verdicts[rel] ?? null);
   const filesMap = new Map([

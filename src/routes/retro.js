@@ -132,13 +132,11 @@ import { promisify } from "util";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
-import { pick, requestLang } from "../meta/langs.js";
+import { requestLang } from "../meta/langs.js";
 import * as catalog from "../retro/catalog.js";
 import * as retroNames from "../retro/names.js";
 import { sdPaths, overlayCfg, gameCfg, retargetOverride } from "../retro/bezel-config.js";
 import { bezelCredit } from "../retro/credits.js";
-import { tagsOf, withoutTags } from "../retro/sd-names.js";
-import { editionOf } from "../retro/edition.js";
 import { regionOf } from "../retro/arcade.js";
 import { buildManifest, coreFiles, listPack, HashCache, manifestView, wantsOnDemand } from "../retro/base-pack.js";
 import { appDb } from "../db/database.js";
@@ -149,7 +147,7 @@ import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, pre
 import { fileVersion } from "../retro/file-version.js";
 import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
-import { groupVisible, representative } from "../retro/variants.js";
+import { representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
 import * as itemVerified from "../meta/item-verified.js";
 import * as itemVotes from "../meta/item-votes.js";
@@ -172,8 +170,8 @@ import { retroDetailFields, retroShotFile, metaOwner } from "../retro/meta/detai
 import { videosOf } from "../meta/igdb-videos.js";
 import * as metaStore from "../retro/meta/store.js";
 import * as metaEdits from "../retro/meta/edits.js";
-import { metaKey } from "../retro/meta/build.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
+import { folded, gameMatches, groupOf, listedGames, metaCandidates, titleOf } from "../retro/game-view.js";
 import { menuRows, pickMenu, rowIcon, MENU_GAMES } from "../retro/menu.js";
 import { displayName, ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, shortcutName } from "../retro/forwarder.js";
 import { versionLabels } from "../retro/shortcut-name.js";
@@ -268,10 +266,6 @@ function systemIconUrls(id, system) {
 }
 
 /** Text for matching: NFC, lower case, no spaces. Pure. */
-const folded = (s) => String(s ?? "").normalize("NFC").toLowerCase().replace(/\s+/g, "");
-/** A game matches on its name in any language, its original title or its file name (sf2.zip). */
-const gameMatches = (g, needle) => [g.name, g.original, g.file, ...Object.values(g.names ?? {}), ...Object.values(retroNames.get(g.id) ?? {}), koMatch.confirmed(g)?.ko]
-  .some((s) => s && folded(s).includes(needle));
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
@@ -342,25 +336,6 @@ function forwarderFields(g, system, base, link, cat) {
 }
 
 /** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
-export function listedGames(cat) {
-  const out = [];
-  for (const group of cat.groups?.values() ?? []) {
-    const rep = representative(group, variantPicks.get(group.id));
-    if (groupVisible(rep)) out.push(rep);
-  }
-  return out;
-}
-
-const groupOf = (cat, g) => cat.groups?.get(g.group) ?? { id: g.group ?? g.id, members: [g] };
-
-/** A game, then its group's representative, then its other versions: whose details it shows. */
-const metaCandidates = (g, rep, group) => [...new Set([g, rep, ...group.members])];
-
-/** The meta key a game's details are read from (its versions share it), so an edit lands where it shows. */
-export function retroMetaKey(cat, g) {
-  const group = groupOf(cat, g);
-  return metaOwner(metaCandidates(g, representative(group, variantPicks.get(group.id)), group))?.key ?? metaKey(g);
-}
 
 /**
  * The IGDB trailers of a game by its id ([{ id, name }], its versions share
@@ -464,22 +439,6 @@ const tileFacts = (f) => (f ? { ...(f.genres.length ? { genres: f.genres.map(gen
 
 // `link` (download-links.js forRequest) puts the download URLs on the direct address.
 // `voter` (item-votes.js voterOf) gives my_vote; without one it is null.
-/** How a game is titled in `lang`: name, names, original, and its tags as variant, edition and region. */
-function titleOf(g, lang) {
-  const variant = tagsOf(g.name);
-  // A name the admin gave wins, language by language, over the ROM's content hash in the Korean
-  // title dictionary, which wins over the file's and the arcade table's.
-  const found = koMatch.confirmed(g);
-  const own = found ? { ko: found.ko, ...retroNames.get(g.id) } : retroNames.get(g.id);
-  const names = own ? { ...(g.names ?? { en: withoutTags(g.name) }), ...own } : g.names;
-  // A named game is shown in the page's language, with the English title as its original.
-  const localized = names ? pick(names, lang) : null;
-  const original = names ? (localized !== names.en ? names.en : null) : g.original;
-  // The tags as flags: Korean or not, release or patch, patch version.
-  const edition = g.edition ?? editionOf(variant);
-  const region = g.region ?? (edition ? "kr" : regionOf(variant));
-  return { name: localized ?? withoutTags(g.name), names, original, variant, edition, region };
-}
 
 function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = null, voter = null } = {}) {
   const { name, names, original, variant, edition, region } = titleOf(g, lang);
