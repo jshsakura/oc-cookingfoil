@@ -213,8 +213,8 @@ function ownerIsAdmin(owner) {
   return owner.startsWith("google:") ? googleAccounts.isAdmin(owner.slice(7)) : passwordOwnerOk() && users.isActive(owner) && users.isAdmin(owner);
 }
 
-// What an automation token may reach: the admin API, its guide, and the flat catalog.
-export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json";
+// What an automation token may reach: the admin API, its guide, the flat catalog and MCP.
+export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json" || p === "/mcp";
 
 function tokenLane(req, res, next, ip) {
   if (!trustedHere(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });

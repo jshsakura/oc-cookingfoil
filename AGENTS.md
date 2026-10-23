@@ -40,7 +40,15 @@ are built from it.
   added only when an environment variable is set, or a middleware that answers a path itself, is
   not seen.
 - Token reach comes from `TOKEN_PATHS`, `TOKEN_BLOCKED_RE` and `TOKEN_LOCKED`. Do not copy those lists.
-- Handlers call module functions, never the HTTP route.
+- Handlers take `(ctx, input)` and call module functions, never the HTTP route. A bad input throws
+  an error with `status: 400`, so MCP reports it as `BAD_INPUT`.
+
+## MCP
+
+`/mcp` (`src/mcp/`) serves the capabilities an automation token may use, reads only for now
+(`src/mcp/tools.js`). Each served capability needs an `output` JSON Schema (`src/capabilities/shape.js`
+builds them); `help` prints input and output from the registry, and `test/unit/mcp*.test.js` checks
+real results against it. `src/mcp/reference.md` may name only served tools.
 
 ## The library is hands off
 

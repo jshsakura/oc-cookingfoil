@@ -9,6 +9,10 @@
  *     description: "...",             English, 40-200 characters: what it does, when, what comes next
  *     input: { type: "object", properties: { titleId: { type: "string", description: "..." } }, required: ["titleId"] },
  *                                     JSON Schema; argument descriptions 40-120 characters, about 80
+ *     output: { type: "object", properties: { ... } },
+ *                                     JSON Schema of what the handler returns; the MCP help tool
+ *                                     prints it as the tool's spec, and tests check real results
+ *                                     against it. Every tool MCP serves needs one.
  *     safety: "read",                 read | write | destructive
  *     access: "read",                 optional; lowest token level that sees it, never below what safety needs
  *     http: { method: "GET", path: "/admin/api/..." },   the route that does the same thing, if any
@@ -175,6 +179,7 @@ export function capabilityProblems(spec) {
   out.push(...textProblems("title", spec.title, { max: TITLE_MAX }));
   out.push(...textProblems("description", spec.description, DESCRIPTION));
   out.push(...inputProblems(spec.input));
+  if (spec.output !== undefined && (!spec.output || typeof spec.output !== "object" || !spec.output.type)) out.push("output must be a JSON Schema with a type");
   if (!SAFETY.includes(spec.safety)) out.push(`safety must be one of ${SAFETY.join(", ")}`);
   if (spec.access !== undefined && !ACCESS.includes(spec.access)) out.push(`access must be one of ${ACCESS.join(", ")}`);
   else if (spec.access !== undefined && SAFETY.includes(spec.safety) && rank(spec.access) < rank(MIN_ACCESS[spec.safety])) {

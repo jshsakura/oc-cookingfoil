@@ -7,9 +7,23 @@
  * without one is recorded as a token.
  */
 import { defineCapability } from "./define.js";
+import { arr, bool, int, nullable, num, obj, str } from "./shape.js";
 
 const service = () => import("../library/trash-service.js");
 const byOf = (ctx) => ctx?.by ?? { type: "token", name: "mcp" };
+
+const BYTES_COUNT = obj({ bytes: int(), count: int() });
+const MOVE = obj({
+  id: str(),
+  at: num("epoch ms"),
+  action: str(),
+  fromRoot: str("library folder: games, incoming, patches, saves, homebrew or retro"),
+  from: str("path in fromRoot"),
+  toRoot: str(),
+  to: str("path in toRoot"),
+  undoable: bool(),
+  reason: nullable(str("why not: undone, missing, changed, taken, gone-root or bad-path")),
+}, { description: "also by, type, size, undone, released, held" });
 
 const MOVE_ARG = { type: "string", description: "The id of a move as trash_journal returns it; undone moves keep their id for release." };
 
@@ -20,6 +34,23 @@ export const trashCapabilities = [
     title: "List the trash",
     description: "Lists what was removed from the library folders and waits in their trash: where it was, why, by whom, size and age. Use before trash_restore.",
     input: { type: "object", properties: {} },
+    output: obj({
+      items: arr(obj({
+        id: str("entry id for trash_restore"),
+        root: str("library folder it came from"),
+        name: str(),
+        size: int("bytes"),
+        trashedAt: num("epoch ms"),
+        ageDays: int(),
+      }, { description: "also kind, action, by, items (the files, by path) and more" }), "newest first"),
+      total: BYTES_COUNT,
+      roots: { type: "object", description: "{ bytes, count } per library folder" },
+      noticeDays: int("age after which entries count as old"),
+      old: BYTES_COUNT,
+      version: str("digest of the listed ids"),
+      listedAt: num("epoch ms"),
+      unavailable: arr(obj({ root: str(), home: str() }), "trash folders on a disk that is not mounted"),
+    }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/trash" },
     handler: async () => (await service()).list(),
@@ -55,6 +86,11 @@ export const trashCapabilities = [
     title: "List library moves",
     description: "Lists the moves the server made between library folders, newest first, with whether each can still be undone and why not. Use before trash_undo.",
     input: { type: "object", properties: { limit: { type: "integer", description: "How many moves to return, newest first: from 1 to 1000, 200 when it is left out." } } },
+    output: obj({
+      items: arr(MOVE, "newest first"),
+      total: int(),
+      held: arr(MOVE, "undone moves whose file the drop box leaves alone until released"),
+    }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/trash/journal" },
     handler: async (_ctx, input) => (await service()).journal({ limit: Math.min(Math.max(Number(input?.limit) || 200, 1), 1000) }),
