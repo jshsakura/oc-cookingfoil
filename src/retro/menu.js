@@ -104,6 +104,8 @@ const ROW_ICONS = [
 ];
 
 export const rowIcon = (id) => ROW_ICONS.find(([re]) => re.test(id))?.[1] ?? "grid";
+/** Every icon a row can name, for a page that draws them itself (landing.js). */
+export const ROW_ICON_NAMES = [...new Set([...ROW_ICONS.map(([, name]) => name), "grid"])];
 
 /** Every row `list` could fill, before games are shared out: { id, group, name(lang), games ranked }. */
 export function menuRows(list, now) {

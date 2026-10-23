@@ -21,10 +21,11 @@ import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } fro
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
+import { ROW_ICON_NAMES } from "../retro/menu.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon).
-const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash", "check"];
+// The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon), and the retro preview's row icons.
+const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash", "check", ...ROW_ICON_NAMES];
 const TEMPLATE_PATH = path.join(__dirname, "../views/landing.html");
 
 const gzipAsync = promisify(zlib.gzip);
