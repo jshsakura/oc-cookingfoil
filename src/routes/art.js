@@ -1,5 +1,5 @@
 /**
- * Authenticated, opt-in title-artwork upload router.
+ * Authenticated title-artwork upload router.
  *
  *   GET    /api/art/:baseTitleId               → which overrides exist
  *   POST   /api/art/:baseTitleId/icon          → upload/replace the icon
@@ -49,15 +49,24 @@
  * there goes, others for its slot move to the folder's .replaced/. An upload
  * moves the ones waiting for its slot there too.
  *
- * Gating mirrors the game-upload tray: disabled unless COOK_UPLOADS_ENABLED,
- * and always behind the normal sign-in + IP-lockout perimeter.
+ *   GET    /api/art/access                     → 200 for an admin account, 403 for anyone else (the page's editor follows it)
+ *
+ * Retro games, box art only (their bezels are picked in the retro tab, their screenshots come from the metadata):
+ *   POST   /api/art/retro/:id/boxart            → upload/replace the box art (form field "file")
+ *
+ * Admin accounts only (adminOnly in index.js), behind the normal sign-in + IP-lockout perimeter.
+ * Pictures are not files in the library: the web-uploads setting (COOK_UPLOADS_ENABLED) does not hold them.
  */
 import path from "node:path";
 import express from "express";
 import * as artSearch from "../meta/art-search.js";
 import multer from "multer";
 
-import { uploadsEnabled } from "../helpers/envs.js";
+import { retroDir } from "../helpers/envs.js";
+import adminOnly from "../security/admin-only.js";
+import * as retroCatalog from "../retro/catalog.js";
+import * as retroArt from "../retro/art/sync.js";
+import { rebuildRetroShortcut } from "./retro.js";
 import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 import * as gameMeta from "../meta/game-meta.js";
@@ -93,15 +102,9 @@ function badRequest(res, msg) {
 export default function artRouter() {
   const router = express.Router();
 
-  if (!uploadsEnabled) {
-    router.use((_req, res) => {
-      res
-        .status(503)
-        .type("application/json")
-        .send(JSON.stringify({ error: "uploads disabled — set COOK_UPLOADS_ENABLED=true" }));
-    });
-    return router;
-  }
+  router.get("/access", adminOnly({ reads: true }), (_req, res) => {
+    res.set("Cache-Control", "no-store").json({ edit: true });
+  });
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -182,6 +185,25 @@ export default function artRouter() {
       res.type(type).set("Cache-Control", "private, max-age=300").send(body);
     } catch (err) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  // The admin tab's cover upload (admin/retro-art-api.js) needs the admin page's own sign-in; this one an admin account.
+  router.post("/retro/:id/boxart", single, async (req, res) => {
+    if (!req.file) return badRequest(res, "no file");
+    try {
+      const catalog = await retroCatalog.current(retroDir);
+      const g = catalog.byId.get(String(req.params.id));
+      if (!g) return res.status(404).json({ error: "no such game" });
+      await retroArt.saveCoverImage(retroDir, catalog.systems[g.system], retroCatalog.romKey(g), req.file.buffer);
+      await retroCatalog.scan(retroDir);
+      rebuildRetroShortcut(g.id);
+      debug.log("art: retro %s box art uploaded", g.id);
+      res.status(201).json({ boxart: "ok" });
+    } catch (err) {
+      if (err instanceof retroArt.CoverImageError) return badRequest(res, err.message);
+      debug.error("art: retro %s box art failed: %s", req.params.id, err.message);
+      res.status(500).json({ error: "could not save the picture" });
     }
   });
 

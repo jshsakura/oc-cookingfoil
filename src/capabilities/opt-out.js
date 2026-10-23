@@ -28,6 +28,10 @@ export const OPT_OUT = {
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
   "POST /admin/api/retro-cores/official": "token-blocked",
   "POST /admin/api/retro-cores/user-version": "token-blocked",
+  // The dashboard asks whether to show its picture editor; an agent has no editor to show.
+  "GET /api/art/access": "browser-only",
+  // A retro game's box art as an image file, from the dashboard's editor.
+  "POST /api/art/retro/:id/boxart": "binary-upload",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
