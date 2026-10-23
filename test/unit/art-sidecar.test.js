@@ -112,7 +112,29 @@ test("pictures kept the old way move into the item's folder once, the folder's o
   assert.deepEqual(store.urls(ID).screenshots.length, 2);
   assert.deepEqual(fs.readdirSync(home).sort(), ["banner.webp", "icon.webp", "screenshot-01.webp", "screenshot-02.webp"]);
   assert.ok((await sharp(path.join(home, "banner.webp")).stats()).channels[0].mean > 200, "the folder's banner stays");
-  assert.deepEqual(fs.readdirSync(own), ["screenshot-01.orig.webp"], "no copy left behind but the kept original");
+  await until(() => !fs.existsSync(path.join(own, "banner.webp")));
+  assert.deepEqual(fs.readdirSync(own), ["screenshot-01.orig.webp"], "the replaced banner went to the trash, the kept original stays");
+});
+
+test("an upload settling a slot the folder won keeps its own original, the old one going to the trash", async () => {
+  const data = tmp();
+  const folder = tmp();
+  const ID = "m-0123456789ab";
+  const own = path.join(data, "media", ID);
+  put(path.join(own, "icon.webp"), await img(64, 64, 10, "webp"));
+  put(path.join(own, "icon.orig.webp"), await img(64, 64, 10, "webp"));
+  put(path.join(folder, "metadata", "icon.webp"), await img(64, 64, 250, "webp"));
+  const store = createMediaStore({ dir: path.join(data, "media"), file: path.join(data, "media.json"), idRe: /^m-[0-9a-f]{12}$/,
+    urlBase: (id) => `/x/${id}`, homeOf: () => folder });
+
+  await store.saveIcon(ID, await img(128, 128, 120));
+  // Queued behind whatever the upload left for this item, so that has run by the time it returns.
+  await store.saveBanner(ID, await img(128, 72, 60));
+  assert.equal(fs.existsSync(path.join(own, "icon.webp")), false, "the old icon went to the trash");
+
+  const kept = store.original(ID, "icon");
+  assert.ok(kept && !kept.whole, "the upload's original is kept, not stood in for by the picture");
+  assert.ok(Math.abs((await sharp(kept.image).stats()).channels[0].mean - 120) < 10, "and it is the upload, not the old one");
 });
 
 test("a picture that could not be moved into the item's folder is still shown from the server", async () => {

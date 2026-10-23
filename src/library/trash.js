@@ -520,7 +520,7 @@ export async function restoreEntry(root, home, entry, { exactName = false, after
 }
 
 // Kinds that only ever come back under their own name.
-const EXACT_KINDS = new Set(["retro-game", "retro-core", "custom-art"]);
+const EXACT_KINDS = new Set(["retro-game", "retro-core", "custom-art", "item-art"]);
 
 /**
  * The name in the root (the item's own, or a numbered one a restore gave it)

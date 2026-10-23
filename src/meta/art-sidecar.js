@@ -20,6 +20,8 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+import debug from "../debug.js";
+import { discard } from "../library/trash-service.js";
 
 export const META_DIR = "metadata";
 const NAME_RE = /^(icon|banner|screenshot-(\d{2}))\.(webp|jpe?g|png)$/i;
@@ -122,21 +124,27 @@ function writeAtomic(file, buf) {
   fs.renameSync(tmp, file);
 }
 
-/** Removes every file of `slot` in `dir` but `keep`. */
-function clearSlot(dir, slot, keep = null) {
-  for (const f of filesBySlot(dir).get(slot) ?? []) if (f.file !== keep) fs.rmSync(f.file, { force: true });
+/** Pictures a slot no longer shows go to the trash, never away: a person may have put them there. */
+export async function toTrash(files, action) {
+  if (files.length) await discard(files, { kind: "item-art", action, name: path.basename(files[0]) });
 }
 
-/** Writes `webp` as `slot` in `dir`, the slot's other files removed. Returns the file. */
-export function write(dir, slot, webp) {
+/** Moves every file of `slot` in `dir` but `keep` to the trash. */
+async function clearSlot(dir, slot, keep = null, action = "art-replace") {
+  await toTrash((filesBySlot(dir).get(slot) ?? []).filter((f) => f.file !== keep).map((f) => f.file), action);
+}
+
+/** Writes `webp` as `slot` in `dir`, the slot's other files moved to the trash. Returns the file. */
+export async function write(dir, slot, webp) {
   const file = path.join(dir, `${slot}.webp`);
   writeAtomic(file, webp);
-  clearSlot(dir, slot, file);
+  // The new picture is in place and shown; a leftover of the slot that could not go is only noted.
+  await clearSlot(dir, slot, file).catch((err) => debug.error("art: %s of %s: its old files stay: %s", slot, dir, err.message));
   return file;
 }
 
-/** Removes `slot` from `dir`, in every format. */
-export const remove = (dir, slot) => clearSlot(dir, slot);
+/** Moves `slot` of `dir`, in every format, to the trash. */
+export const remove = (dir, slot) => clearSlot(dir, slot, null, "art-remove");
 
 /** Picture bytes as a .webp no larger than w × h, upright, without metadata. */
 export async function toWebp(raw, w, h) {
@@ -160,10 +168,10 @@ export async function normalize(dir, sizeOf, { onError = () => {}, now = Date.no
     if (list.length === 1 && newest.ext === "webp") continue;
     if (now - newest.mtimeMs < SETTLE_MS) continue;
     try {
-      if (newest.ext === "webp") clearSlot(dir, slot, newest.file);
+      if (newest.ext === "webp") await clearSlot(dir, slot, newest.file);
       else {
         const [w, h] = sizeOf(slot);
-        write(dir, slot, await toWebp(fs.readFileSync(newest.file), w, h));
+        await write(dir, slot, await toWebp(fs.readFileSync(newest.file), w, h));
       }
       changed++;
     } catch (err) {
@@ -186,14 +194,11 @@ export function renumberShots(dir, { onMove = () => {} } = {}) {
 
 /**
  * Moves `from` (a file) into `dir` as `slot` unless the folder already has that
- * slot, which wins: the file there is the truth, and `from` is removed. Works
- * across disks. Returns whether it moved.
+ * slot, which wins: the file there is the truth, and `from` stays where it is for
+ * the caller to send to the trash. Works across disks. Returns whether it moved.
  */
 export function adopt(from, dir, slot) {
-  if (filesBySlot(dir).has(slot)) {
-    fs.rmSync(from, { force: true });
-    return false;
-  }
+  if (filesBySlot(dir).has(slot)) return false;
   const to = path.join(dir, `${slot}${path.extname(from).toLowerCase()}`);
   fs.mkdirSync(dir, { recursive: true });
   try {
