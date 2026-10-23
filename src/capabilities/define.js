@@ -34,7 +34,7 @@ import { TOKEN_PATHS } from "../security/auth-guard.js";
 import { TOKEN_BLOCKED_RE, TOKEN_BLOCKED_READ_RE, tokenBlocked } from "../routes/admin-page.js";
 import { TOKEN_LOCKED } from "../routes/admin/server-settings-api.js";
 
-export const AREAS = ["server", "library", "games", "retro", "homebrew", "content", "incoming", "jobs", "nsz", "settings", "inbox"];
+export const AREAS = ["server", "library", "games", "retro", "homebrew", "content", "incoming", "jobs", "nsz", "settings", "inbox", "admin"];
 export const SAFETY = ["read", "write", "destructive"];
 export const ACCESS = ["read", "manage", "full"];
 // The lowest token level each safety tier needs.
@@ -62,6 +62,9 @@ const rank = (level) => ACCESS.indexOf(level);
 
 /** "METHOD /path" of an http route, the key the registry, opt-out.js and the coverage test share. */
 export const routeKey = (http) => `${http.method.toUpperCase()} ${http.path}`;
+
+/** Every route a capability stands for: its http route, then the `also` routes an op or option of it covers. */
+export const routesOf = (cap) => (cap.http ? [routeKey(cap.http), ...(cap.also ?? [])] : []);
 
 // Values tried for a path parameter the route and the input leave open. The blocked patterns are
 // literal path words between slashes plus "any segment", so every word they spell out, and one
@@ -149,6 +152,14 @@ function httpProblems(http) {
 }
 
 function tokenProblems(spec) {
+  // mcp: the route refuses tokens, and MCP serves the same work behind its preview and confirm='approve'.
+  if (spec.mcp !== undefined && spec.mcp !== true) return ["mcp must be true when given"];
+  if (spec.mcp === true) {
+    if (!spec.http || httpProblems(spec.http).length) return ["mcp needs the http route whose token refusal it stands in for"];
+    if (spec.token === true) return ["mcp and token: true exclude each other: token opens the HTTP route, mcp serves what it refuses"];
+    if (tokenReach(spec.http, spec.input)) return [`${routeKey(spec.http)} is open to tokens already; drop mcp`];
+    return [];
+  }
   if (spec.token !== undefined && typeof spec.token !== "boolean") return ["token must be true or false"];
   if (!spec.http || httpProblems(spec.http).length) {
     return spec.token === undefined ? ["token must be given when there is no http route to derive it from"] : [];
@@ -190,6 +201,7 @@ export function capabilityProblems(spec) {
     out.push(`access ${spec.access} is below what a ${spec.safety} capability needs (${MIN_ACCESS[spec.safety]})`);
   }
   out.push(...httpProblems(spec.http));
+  if (spec.also !== undefined && (!spec.http || !Array.isArray(spec.also) || spec.also.some((r) => typeof r !== "string" || !/^(GET|POST|PUT|PATCH|DELETE) \/\S*$/.test(r)))) out.push("also must list \"METHOD /path\" routes, and needs http");
   if (spec.http?.method === "GET" && (spec.safety === "write" || spec.safety === "destructive")) out.push(`a ${spec.safety} capability cannot sit on a GET route`);
   out.push(...tokenProblems(spec));
   if (typeof spec.handler !== "function") out.push("handler must be a function (ctx, input) => result");
@@ -207,6 +219,6 @@ export function defineCapability(spec) {
   return Object.freeze({
     ...spec,
     access: spec.access ?? MIN_ACCESS[spec.safety],
-    token: spec.token ?? (spec.http ? tokenReach(spec.http, spec.input) : false),
+    token: spec.mcp === true ? false : spec.token ?? (spec.http ? tokenReach(spec.http, spec.input) : false),
   });
 }

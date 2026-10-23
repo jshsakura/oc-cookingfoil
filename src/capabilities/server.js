@@ -50,7 +50,32 @@ export const serverCapabilities = [
     input: { type: "object", properties: {} },
     output: obj({ running: arr(JOB), recent: arr(JOB, "newest first, kept for a while after they end") }),
     safety: "read",
+    http: { method: "GET", path: "/admin/api/activity" },
     token: true,
     handler: async () => (await import("../tasks/activity.js")).list(),
+  }),
+  defineCapability({
+    id: "job_cancel",
+    area: "jobs",
+    title: "Stop a running job",
+    description: "Asks a running background job to stop. Only jobs listed as cancellable by jobs_list can; a job stops at its next safe point.",
+    input: {
+      type: "object",
+      properties: { id: { type: "string", description: "The job id from jobs_list; the job must be running and cancellable" } },
+      required: ["id"],
+    },
+    output: obj({ stopping: bool(), id: str() }),
+    preview: async (_ctx, input) => {
+      const job = (await import("../tasks/activity.js")).list().running.find((j) => j.id === input.id);
+      if (!job) throw Object.assign(new Error(`no running job ${input.id}; jobs_list shows them`), { status: 404 });
+      return { job: { id: job.id, kind: job.kind, title: job.title, cancellable: job.cancellable }, changes: job.cancellable ? "Asks it to stop. Work already done stays done." : "It cannot be stopped; it runs to the end." };
+    },
+    previewOutput: obj({ job: obj({ id: str(), kind: str(), title: str(), cancellable: bool() }), changes: str() }),
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/activity/:id/cancel" },
+    handler: async (_ctx, input) => {
+      if (!(await import("../tasks/activity.js")).cancel(String(input.id))) throw Object.assign(new Error(`job ${input.id} is not running or cannot be stopped`), { status: 404 });
+      return { stopping: true, id: input.id };
+    },
   }),
 ];

@@ -8,7 +8,7 @@
  * retroCapabilities from retro.js, libraryCapabilities from library.js), so ENTRIES reads the same
  * however many areas join.
  */
-import { routeKey, ACCESS } from "./define.js";
+import { routesOf, ACCESS } from "./define.js";
 import { gamesCapabilities } from "./games.js";
 import { libraryCapabilities } from "./library.js";
 import { libraryFilesCapabilities } from "./library-files.js";
@@ -19,9 +19,14 @@ import { gameArtCapabilities } from "./game-art.js";
 import { patchesCapabilities } from "./patches.js";
 import { serverCapabilities } from "./server.js";
 import { trashCapabilities } from "./trash.js";
+import { devicesCapabilities } from "./devices.js";
+import { accountsCapabilities } from "./accounts.js";
+import { serverAdminCapabilities } from "./server-admin.js";
+import { alertsCapabilities } from "./alerts.js";
+import { integrationsCapabilities } from "./integrations.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities];
+const ENTRIES = [...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {
@@ -31,10 +36,10 @@ export function buildRegistry(entries) {
   for (const cap of entries) {
     if (byId.has(cap.id)) problems.push(`duplicate id ${cap.id}`);
     else byId.set(cap.id, cap);
-    if (!cap.http) continue;
-    const key = routeKey(cap.http);
-    if (byRoute.has(key)) problems.push(`${key} is claimed by ${byRoute.get(key).id} and ${cap.id}`);
-    else byRoute.set(key, cap);
+    for (const key of routesOf(cap)) {
+      if (byRoute.has(key)) problems.push(`${key} is claimed by ${byRoute.get(key).id} and ${cap.id}`);
+      else byRoute.set(key, cap);
+    }
   }
   if (problems.length) throw new Error(`capability registry: ${problems.join("; ")}`);
   const all = Object.freeze([...entries]);

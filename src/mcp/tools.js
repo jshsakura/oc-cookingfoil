@@ -9,7 +9,7 @@
  */
 import { registry } from "../capabilities/registry.js";
 
-export const servedTools = () => registry.all.filter((c) => c.token && (c.safety === "read" || (c.safety === "write" && c.preview)));
+export const servedTools = () => registry.all.filter((c) => (c.token || c.mcp) && (c.safety === "read" || (c.safety === "write" && c.preview)));
 
 /** Served as a tool of its own: the entry point an agent calls before any area. */
 export const STANDALONE = new Set(["help"]);
@@ -20,6 +20,7 @@ export const AREA_TEXT = {
   library: "Library folders, removing files, and the trash.",
   retro: "Retro (RetroArch) games, cores, Korean names, ROM patches and box art.",
   jobs: "Background jobs and their progress.",
+  admin: "Consoles, accounts, alerts, settings and restarting the server.",
 };
 
 /** Whether an action changes something, and so previews first and takes confirm. */

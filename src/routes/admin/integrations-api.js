@@ -41,6 +41,26 @@ const TESTS = {
   },
 };
 
+/**
+ * Tries the saved key of `service` against it. `reason` is the word the admin page says it in:
+ * unknown, noKey, noTest, connected, keyRefused or unreachable.
+ * @returns {Promise<{ ok: boolean, reason: string }>}
+ */
+export async function testIntegration(service, fetchImpl = fetch) {
+  if (!(service in integrations.SERVICES)) return { ok: false, reason: "unknown" };
+  if (!integrations.configured(service)) return { ok: false, reason: "noKey" };
+  const test = TESTS[service];
+  if (!test) return { ok: true, reason: "noTest" };
+  const timed = (url, opts = {}) => fetchImpl(url, { ...opts, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) });
+  try {
+    const ok = await test(integrations.get(service), timed);
+    return { ok, reason: ok ? "connected" : "keyRefused" };
+  } catch (err) {
+    debug.log("admin: %s test failed: %s", service, err.message);
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
 export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch } = {}) {
   const guarded = (handler) => async (req, res) => {
     if (!requireSession(req, res)) return;
@@ -72,18 +92,8 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
   }));
 
   router.post("/api/integrations/:service/test", guarded(async (req, res) => {
-    const { service } = req.params;
-    if (!(service in integrations.SERVICES)) return res.status(400).json({ error: apiWord(req, "integrations.unknown") });
-    if (!integrations.configured(service)) return res.json({ ok: false, message: apiWord(req, "integrations.noKey") });
-    const test = TESTS[service];
-    if (!test) return res.json({ ok: true, message: apiWord(req, "integrations.noTest") });
-    const timed = (url, opts = {}) => fetchImpl(url, { ...opts, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) });
-    try {
-      const ok = await test(integrations.get(service), timed);
-      res.json({ ok, message: ok ? apiWord(req, "integrations.connected") : apiWord(req, "integrations.keyRefused") });
-    } catch (err) {
-      debug.log("admin: %s test failed: %s", service, err.message);
-      res.json({ ok: false, message: apiWord(req, "integrations.unreachable") });
-    }
+    const outcome = await testIntegration(req.params.service, fetchImpl);
+    if (outcome.reason === "unknown") return res.status(400).json({ error: apiWord(req, "integrations.unknown") });
+    res.json({ ok: outcome.ok, message: apiWord(req, `integrations.${outcome.reason}`) });
   }));
 }

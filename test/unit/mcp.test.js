@@ -91,16 +91,16 @@ for (const mode of ["auto", "legacy"]) {
 }
 
 test("a write is served only with a preview of what it would change, and no destructive tool yet", () => {
-  assert.ok(servedTools().every((c) => c.token && (c.safety === "read" || (c.safety === "write" && c.preview && c.previewOutput))));
-  assert.ok(registry.all.some((c) => c.safety !== "read" && c.token && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
+  assert.ok(servedTools().every((c) => (c.token || c.mcp) && (c.safety === "read" || (c.safety === "write" && c.preview && c.previewOutput))));
+  assert.ok(registry.all.some((c) => c.safety !== "read" && (c.token || c.mcp) && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
 });
 
 // tools/list goes with every request: an action costs its name and a share of its area's line, its spec waits for help.
-test("tools/list stays small enough to send with every request: at most 120 bytes an action", async () => {
+test("tools/list stays small enough to send with every request: at most 125 bytes an action and 5 KB in all", async () => {
   const client = await connect();
   const { tools } = await client.listTools();
   const size = Buffer.byteLength(JSON.stringify(tools));
-  assert.ok(size / servedTools().length <= 120, `tools/list is ${size} bytes for ${servedTools().length} actions`);
+  assert.ok(size <= 5000 && size / servedTools().length <= 125, `tools/list is ${size} bytes for ${servedTools().length} actions`);
   await client.close();
 });
 
