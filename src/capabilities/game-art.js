@@ -10,8 +10,9 @@ import * as customArt from "../meta/custom-art.js";
 import * as artSearch from "../meta/art-search.js";
 import * as titledbStore from "../meta/titledb-store.js";
 import * as extractedMeta from "../meta/extracted-meta-store.js";
-import { parseCrop } from "../meta/art-crop.js";
-import { ART_ASPECT, fitCrop, uprightSize } from "../meta/art-fit.js";
+import { CropError, MIN_CROP_PX, parseCrop, uprightSize } from "../meta/art-crop.js";
+import { ART_ASPECT, fitCrop } from "../meta/art-fit.js";
+import { StuckError } from "../meta/game-art-files.js";
 import { invalidate } from "../meta/shop-cache.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
@@ -66,9 +67,22 @@ function targetIdx(base, slot) {
 
 /** The area to keep, in the slot's shape, and its size in pixels. */
 async function plan(picture, slot, crop) {
-  const { width, height } = await uprightSize(picture);
+  const { width, height } = await readable(() => uprightSize(picture));
   const area = fitCrop(width, height, ART_ASPECT[slot], crop);
-  return { image: { width, height }, crop: area, result: { width: Math.round(area.w * width), height: Math.round(area.h * height) } };
+  const result = { width: Math.round(area.w * width), height: Math.round(area.h * height) };
+  if (result.width < MIN_CROP_PX || result.height < MIN_CROP_PX) throw fail(400, `the area must be at least ${MIN_CROP_PX} pixels a side; it would be ${result.width}x${result.height}`);
+  return { image: { width, height }, crop: area, result };
+}
+
+/** Runs a store or cut, answering its known failures as statuses an agent can act on. */
+async function readable(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof CropError) throw fail(400, "could not read or cut that picture; pick another one");
+    if (err instanceof StuckError) throw fail(409, "a picture placed in the game's folder by hand could not be moved aside; check that folder can be written");
+    throw err;
+  }
 }
 
 function keptOriginal(base, slot, idx) {
@@ -185,7 +199,7 @@ export const gameArtCapabilities = [
       const idx = targetIdx(base, slot);
       const picture = await fetchPicture(input.url);
       const { crop: area } = await plan(picture, slot, crop);
-      const r = await customArt.put(base, slot, idx, picture, area);
+      const r = await readable(() => customArt.put(base, slot, idx, picture, area));
       invalidate();
       return { slot, idx, bytes: r.bytes, crop: area };
     },
@@ -225,7 +239,7 @@ export const gameArtCapabilities = [
       if (slot === "screenshot" && !Number.isInteger(idx)) throw fail(400, "idx is needed for a screenshot");
       const kept = keptOriginal(base, slot, idx);
       const { crop } = await plan(await fs.promises.readFile(kept.image), slot, cropOf(input));
-      const r = await customArt.recrop(base, slot, idx, crop);
+      const r = await readable(() => customArt.recrop(base, slot, idx, crop));
       invalidate();
       return { slot, idx, bytes: r.bytes, crop };
     },

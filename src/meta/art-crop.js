@@ -52,7 +52,7 @@ export function parseCrop(raw) {
 }
 
 /** Width and height as the picture stands once its EXIF orientation is applied. */
-async function uprightSize(input, failOn) {
+export async function uprightSize(input, failOn = "error") {
   let m;
   try {
     m = await sharp(input, { failOn, limitInputPixels: MAX_INPUT_PIXELS }).metadata();

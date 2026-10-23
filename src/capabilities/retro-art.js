@@ -26,6 +26,13 @@ function sgdbKey() {
   return apiKey;
 }
 
+/** The systems with ROMs, refusing `system` when it has none. */
+async function systemsFor(system) {
+  const { systems } = overview(await retroCatalog.current(envs.retroDir));
+  if (system && !systems.some((s) => s.id === system)) throw fail(400, `no ROMs for system ${system}`);
+  return systems.filter((s) => !system || s.id === system);
+}
+
 async function gameAt(id) {
   const found = await gameOf(id);
   if (!found) throw fail(404, `no retro game ${id}; find ids with retro_games_search`);
@@ -163,11 +170,10 @@ export const retroArtCapabilities = [
     },
     output: obj({ started: bool(), system: nullable(str()), startedAt: int("epoch ms") }),
     preview: async (ctx, input) => {
-      const { systems } = overview(await retroCatalog.current(envs.retroDir));
-      if (input.system && !systems.some((s) => s.id === input.system)) throw fail(400, `no ROMs for system ${input.system}`);
+      const systems = await systemsFor(input.system);
       const job = (await route()).artJob();
       return {
-        systems: systems.filter((s) => !input.system || s.id === input.system).map((s) => ({ id: s.id, games: s.games, missing: s.games - s.boxart })),
+        systems: systems.map((s) => ({ id: s.id, games: s.games, missing: s.games - s.boxart })),
         running: Boolean(job && !job.finishedAt),
         changes: "Adds box art and bezels only where none exist yet. Existing pictures stay as they are.",
       };
@@ -180,6 +186,7 @@ export const retroArtCapabilities = [
     safety: "write",
     http: { method: "POST", path: "/admin/api/retro-art/sync" },
     handler: async (ctx, input) => {
+      await systemsFor(input.system);
       const started = await (await route()).startArtSync(input.system ?? null);
       if (started.error) throw fail(started.status === 409 ? 409 : 400, started.status === 409 ? "an art sync is running already; follow it with jobs_list" : `unknown system ${input.system}`);
       return { started: true, system: started.job.system ?? null, startedAt: started.job.startedAt };
@@ -237,7 +244,12 @@ export const retroArtCapabilities = [
     http: { method: "POST", path: "/admin/api/retro-art/cover" },
     handler: async (ctx, input) => {
       const { g, system } = await gameAt(input.id);
-      await art.saveCover(envs.retroDir, system, retroCatalog.romKey(g), checkCoverUrl(input.url));
+      try {
+        await art.saveCover(envs.retroDir, system, retroCatalog.romKey(g), checkCoverUrl(input.url));
+      } catch (err) {
+        if (err instanceof art.CoverImageError) throw fail(400, "could not fetch that cover as an image; pick another from retro_sgdb_covers");
+        throw err;
+      }
       await retroCatalog.scan(envs.retroDir);
       (await import("../routes/retro.js")).rebuildRetroShortcut(g.id);
       return { boxart: "ok" };

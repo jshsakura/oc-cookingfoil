@@ -1,10 +1,11 @@
 /**
  * The capabilities served as MCP tools: those an automation token may use, every read, and a write
- * or destructive one once it has a preview (server.js asks for confirm='approve' after showing it).
+ * once it has a preview (server.js asks for confirm='approve' after showing it). Destructive ones wait
+ * until deletes go through the trash with a per-call cap.
  */
 import { registry } from "../capabilities/registry.js";
 
-export const servedTools = () => registry.all.filter((c) => c.token && (c.safety === "read" || c.preview));
+export const servedTools = () => registry.all.filter((c) => c.token && (c.safety === "read" || (c.safety === "write" && c.preview)));
 
 const CONFIRM = { type: "string", enum: ["approve"], description: "Omit to preview; approve only after the user agrees" };
 

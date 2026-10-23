@@ -80,6 +80,7 @@ test("game art tools refuse bad ids, hosts and slots with no kept picture", asyn
   await assert.rejects(run("game_art", { titleId: "0100000000040800" }), failsWith(400));
   await assert.rejects(run("game_art_set", { titleId: BASE, slot: "icon", url: "https://example.com/a.png" }, "preview"), failsWith(400));
   await assert.rejects(run("game_art_set", { titleId: BASE, slot: "poster", url: URL_OK }, "preview"), failsWith(400));
+  await assert.rejects(run("game_art_set", { titleId: BASE, slot: "icon", url: URL_OK, crop: { x: 0, y: 0, w: 0.01, h: 0.04 } }, "preview"), failsWith(400));
   await assert.rejects(run("game_art_crop", { titleId: BASE, slot: "banner" }, "preview"), failsWith(404));
   await assert.rejects(run("game_art_crop", { titleId: BASE, slot: "screenshot" }, "preview"), failsWith(400));
 });

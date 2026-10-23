@@ -3,7 +3,6 @@
  * editor draws them (views/assets/crop.js, ART_ASPECT in views/landing.html), so an area chosen
  * without the editor comes out the same as one chosen with it.
  */
-import sharp from "sharp";
 
 export const ART_ASPECT = Object.freeze({ icon: 1, banner: 16 / 9, screenshot: 16 / 9 });
 
@@ -30,10 +29,4 @@ export function fitCrop(W, H, aspect, crop = null) {
   const x = crop && crop.w > 0 ? clamp(crop.x, 0, 1 - w) : (1 - w) / 2;
   const y = crop && crop.w > 0 ? clamp(crop.y, 0, 1 - h) : (1 - h) / 2;
   return { x: round(x), y: round(y), w: round(w), h: round(h) };
-}
-
-/** Width and height of a picture as it stands upright (EXIF orientation applied). */
-export async function uprightSize(input) {
-  const m = await sharp(input, { failOn: "none" }).metadata();
-  return (m.orientation ?? 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
 }

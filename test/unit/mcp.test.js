@@ -71,8 +71,8 @@ for (const mode of ["auto", "legacy"]) {
   });
 }
 
-test("a write is served only with a preview of what it would change", () => {
-  assert.ok(servedTools().every((c) => c.token && (c.safety === "read" || (c.preview && c.previewOutput))));
+test("a write is served only with a preview of what it would change, and no destructive tool yet", () => {
+  assert.ok(servedTools().every((c) => c.token && (c.safety === "read" || (c.safety === "write" && c.preview && c.previewOutput))));
   assert.ok(registry.all.some((c) => c.safety !== "read" && c.token && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
 });
 
