@@ -2,6 +2,7 @@
  * Files of the games folder going to its trash: one at a time from the library tab, a few at once
  * from MCP (capabilities/library-files.js). Nothing here deletes; emptying the trash does.
  */
+import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import * as shopCache from "../meta/shop-cache.js";
@@ -25,13 +26,25 @@ export async function trashGameFiles(abss, { kind, action, by, name }) {
   return out;
 }
 
-/** The library's own entries for `rels`, in order, and the rels it does not list. */
+/**
+ * The library's own entries for `rels`, in order, and the rels it does not list. The list is read
+ * against the disk: a file moved since the last rebuild (it waits a moment) is not counted.
+ */
 export async function listedFiles(rels) {
   await shopCache.get();
-  const all = shopCache.files();
-  const byRel = new Map(all.map((f) => [f.rel, f]));
-  return { files: rels.filter((r) => byRel.has(r)).map((r) => byRel.get(r)), missing: rels.filter((r) => !byRel.has(r)), all };
+  const onDisk = (f) => fs.existsSync(path.join(romsDirPath, f.rel));
+  const listed = new Map(shopCache.files().map((f) => [f.rel, f]));
+  const files = rels.map((r) => listed.get(r)).filter((f) => f && onDisk(f));
+  const bases = new Set(files.map(baseOf));
+  return {
+    files,
+    missing: rels.filter((r) => !files.some((f) => f.rel === r)),
+    // The other files of the games these are of, as they stand now.
+    kin: [...listed.values()].filter((f) => bases.has(baseOf(f)) && onDisk(f)),
+  };
 }
+
+const baseOf = (f) => f.baseTitleId ?? f.titleId;
 
 /** Where a listed file is on disk, or null when its path would leave the games folder. */
 export function pathOf(rel) {

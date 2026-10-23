@@ -18,17 +18,17 @@ async function chosen(input) {
   if (!Array.isArray(rels) || !rels.length || rels.length > MAX_FILES || !rels.every((r) => typeof r === "string" && r)) {
     throw fail(400, `rels is a list of 1 to ${MAX_FILES} file paths from game_get files[].rel`);
   }
-  const { files, missing, all } = await listedFiles([...new Set(rels)]);
+  const { files, missing, kin } = await listedFiles([...new Set(rels)]);
   if (missing.length) throw fail(404, `not files of the library: ${missing.join(", ")}; take paths from game_get files[].rel`);
   if (files.some((f) => !pathOf(f.rel))) throw fail(400, "a path leaves the games folder");
-  return { files, all };
+  return { files, kin };
 }
 
 /** Per game the call touches: how many of its files stay in the library. */
-function gamesLeft(files, all) {
+function gamesLeft(files, kin) {
   const going = new Set(files.map((f) => f.rel));
   const bases = [...new Set(files.map((f) => f.baseTitleId ?? f.titleId).filter(Boolean))];
-  return bases.map((base) => ({ titleId: base, left: all.filter((f) => (f.baseTitleId ?? f.titleId) === base && !going.has(f.rel)).length }));
+  return bases.map((base) => ({ titleId: base, left: kin.filter((f) => (f.baseTitleId ?? f.titleId) === base && !going.has(f.rel)).length }));
 }
 
 const FILE = obj({
@@ -49,9 +49,9 @@ export const libraryFilesCapabilities = [
     },
     output: obj({ trash: arr(str(), "trash entry ids, one per disk, for trash_restore"), files: arr(str(), "paths moved") }),
     preview: async (ctx, input) => {
-      const { files, all } = await chosen(input);
+      const { files, kin } = await chosen(input);
       const bytes = files.reduce((n, f) => n + (f.size ?? 0), 0);
-      const games = gamesLeft(files, all);
+      const games = gamesLeft(files, kin);
       return {
         files: files.map(({ rel, name, size, kind, titleId: id, version }) => ({ rel, name, size: size ?? 0, kind, titleId: id, version })),
         count: files.length, bytes, games,

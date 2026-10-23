@@ -210,6 +210,7 @@ test("library_files_remove previews, moves the files into one trash entry, and t
   assert.equal(done.trash.length, 1);
   assert.ok(rels.every((rel) => !fs.existsSync(path.join(dirs.games, rel))));
   assert.ok(!fs.existsSync(path.join(dirs.games, "Fifth Game/update")), "the emptied folder went");
+  await assert.rejects(registry.byId("library_files_remove").preview({}, { rels }), (err) => err.status === 404, "a moved file is gone before the list is rebuilt");
 
   const back = await checkPreview("trash_restore", { ids: done.trash });
   assert.equal(back.entries.length, 1);
