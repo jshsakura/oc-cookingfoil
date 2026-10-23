@@ -146,6 +146,9 @@ const ZIP_ROM = rom(0x300, 11);
 const README = Buffer.from("readme text");
 put("roms/gba/Zipped Quest (Japan).zip", zipStore([{ name: "Zipped Quest (Japan).gba", data: ZIP_ROM }, { name: "readme.txt", data: README }]));
 
+put("roms/gba/Trash Quest (Japan).gba", SOURCE);
+const { trashGame, restoreEntry } = await import("../../src/retro/trash.js");
+
 let server;
 const url = (p) => `http://127.0.0.1:${server.address().port}${p}`;
 const ADMIN = { "X-Test-Admin": "yes", "Accept-Language": "en" };
@@ -354,4 +357,19 @@ test("an uploaded patch marks the game as a Korean patch in the console list and
   const after = (await get("/api/retro/games?pageSize=50&variants=all")).games.find((x) => x.file === g.file);
   assert.equal(after.edition, undefined);
   assert.deepEqual((await get("/admin/api/retro-patch")).patched, []);
+});
+
+test("a patched game sent to the trash takes its original along, and comes back still able to undo the patch", async () => {
+  const g = await gameByFile("Trash Quest (Japan).gba");
+  const record = await applyRomPatch(retro, g, { patchPath: patchFile("ko.bps", BPS_PATCH), patchName: "ko.bps" });
+  const cat = await catalog.current(retro);
+  const { entry, files } = await trashGame(retro, g, cat.systems[g.system]);
+  assert.ok(files.includes(record.backup));
+  assert.equal(fs.existsSync(path.join(retro, record.backup)), false, "the original left its folder");
+  assert.deepEqual(read(path.join(".cookingfoil-trash", entry, record.backup)), SOURCE);
+
+  await restoreEntry(retro, entry);
+  assert.deepEqual(read(record.backup), SOURCE);
+  await restoreOriginal(retro, g.id);
+  assert.deepEqual(read("roms/gba/Trash Quest (Japan).gba"), SOURCE);
 });
