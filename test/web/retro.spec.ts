@@ -11,8 +11,8 @@ test('the web page shows one card per game and picks another version in its wind
   const cards = page.locator('#retro-games .game');
   await expect(cards).toHaveCount(2);
   const shinobi = cards.filter({ hasText: '슈퍼 시노비' });
-  await expect(shinobi).toContainText('버전 2개');
-  await expect(shinobi).toContainText('Japan, Korea');
+  // Under the name only the server's labels, as on the client; its versions are picked in its window.
+  await expect(shinobi).not.toContainText('버전 2개');
   await shinobi.click();
   const versions = page.locator('#modal-extras .version-row');
   await expect(versions).toHaveCount(2);
@@ -149,12 +149,15 @@ test('a console chip row too wide for the page has arrows, so a mouse reaches ev
 
 test('a game with achievements says so under its name: gold when its ROM earns them, grey when only its title matched', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
-  const withAch = (g: { name: string }) => ({
-    ...g,
-    achievements: g.name.includes('시노비')
-      ? { raGameId: 1, count: 40, points: 400, matchedBy: 'hash' }
-      : { raGameId: 2, count: 12, points: 100, matchedBy: 'title' },
-  });
+  // The server decides the labels (meta/card-labels.js); the card only draws them.
+  const withAch = (g: { name: string, labels?: unknown[] }) => {
+    const hash = g.name.includes('시노비');
+    return {
+      ...g,
+      achievements: hash ? { raGameId: 1, count: 40, points: 400, matchedBy: 'hash' } : { raGameId: 2, count: 12, points: 100, matchedBy: 'title' },
+      labels: [hash ? ['achievements', '40'] : ['achievements-title', '12'], ...(g.labels ?? []).filter((l) => !String(l).startsWith('achievements'))],
+    };
+  };
   await page.route(/\/api\/retro\/games(\?|\/[^/?]+(\?|$))/, async (route) => {
     const res = await route.fetch();
     const body = await res.json();
@@ -211,7 +214,7 @@ test('the preview leads with the rows the server picks, as the client home does,
   await expect(page.locator('#retro-rows .home-row').nth(1).locator('.row-count')).toHaveCount(1);
 });
 
-test('a shelf card shows whole pills only, two at most, never one cut at the edge', async ({ page }) => {
+test('a shelf card shows whole pills only, two at most, never one cut at the edge or the foot', async ({ page }) => {
   for (const width of [1280, 420]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/#retro-home');
@@ -223,6 +226,7 @@ test('a shelf card shows whole pills only, two at most, never one cut at the edg
       const out: string[] = [];
       if (shown.length > 2) out.push(`${shown.length} pills`);
       for (const p of shown) if (p.getBoundingClientRect().right > box.right + 0.5) out.push(`cut: ${p.textContent}`);
+      for (const p of shown) if (p.getBoundingClientRect().bottom > box.bottom + 0.5) out.push(`foot cut: ${p.textContent}`);
       return out;
     }));
     expect(bad, `width ${width}`).toEqual([]);
