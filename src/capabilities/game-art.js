@@ -292,6 +292,7 @@ export const gameArtCapabilities = [
     handler: async (ctx, input) => {
       const { base, slot, idx } = ownSlot(input);
       const out = await readable(() => customArt.remove(base, slot, idx, { by: ctx?.by ?? { type: "token", name: "mcp" } }));
+      if (!out) throw fail(404, "the admin has no picture in that slot any more; game_art lists them");
       invalidate();
       return { trash: out.id };
     },

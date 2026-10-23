@@ -39,6 +39,18 @@ test("a removed icon and its kept original go to the trash as one entry and come
   assert.deepEqual(customArt.original(ID, "icon", null).crop, { x: 0, y: 0, w: 0.5, h: 0.5 });
 });
 
+test("a restore onto a slot filled again since is refused, and the entry stays in the trash", async () => {
+  const pic = (c) => sharp({ create: { width: 32, height: 32, channels: 3, background: c } }).png().toBuffer();
+  await customArt.put(ID, "banner", null, await pic("#a00"));
+  const out = await customArt.remove(ID, "banner", null, { by });
+  await customArt.put(ID, "banner", null, await pic("#00a"));
+  const { restored, failed } = await service.restore([out.id], by);
+  assert.equal(restored.length, 0);
+  assert.equal(failed.length, 1);
+  assert.ok((await service.list()).items.some((e) => e.id === out.id));
+  assert.ok(!fs.readdirSync(path.dirname(customArt.pathFor(ID, "banner", null))).some((n) => n.includes("(2)")), "no numbered copies left beside it");
+});
+
 test("removing a slot with no picture moves nothing", async () => {
-  assert.equal(await customArt.remove(ID, "banner", null, { by }), null);
+  assert.equal(await customArt.remove(ID, "screenshot", 5, { by }), null);
 });
