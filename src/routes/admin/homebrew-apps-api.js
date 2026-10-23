@@ -2,7 +2,7 @@
  * Every homebrew app in one list for the admin page, each with its own patches
  * and saves, and the changes that list allows.
  *
- *   GET  /admin/api/homebrew/apps          { apps: [{ id, app, name, version, author, size, kind, cores, verified, source, repo_url,
+ *   GET  /admin/api/homebrew/apps          { apps: [{ id, app, name, version, author, size, kind, cores, verified, source, repo_url, replaceable,
  *                                            patches: [{ id, name, size, files, verified, ko, description, version, author, game_version }],
  *                                            saves: [{ id, name, size, files, verified }] }],
  *                                            held: [{ folder, reason }] }  hand-placed apps kept off the list, and why
@@ -97,6 +97,8 @@ export function mountHomebrewAppsApi(router, requireSession) {
     ]);
     const mark = (kind) => (x) => ({ ...x, verified: itemVerified.verifiedAt(kind, x.id) !== null });
     const extras = extrasByApp(patches.map(mark("patch")), saves.map(mark("save")));
+    // A hand-placed .nro or .nsp takes a new build in place; a kept release zip does not.
+    const replaceable = new Set((await manualApps()).filter((m) => !m.archive).map((m) => m.id));
     res.json({
       apps: apps.map(({ id, name, version, author, size, kind, forwarder_cores, verified, enabled, source, repo_url, install_path, file_name, install_type, title_id }) => {
         // The switch/<app>/ folder name, as the public listing gives it; an installable title (.nsp) has none.
@@ -104,7 +106,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
         const app = title ? null : (install_path ?? installPathFor(file_name)).split("/")[1];
         return {
           id, app, name, version, author, size, kind, cores: forwarder_cores ?? 3, verified: verified === true, enabled: enabled !== false, source, repo_url,
-          install_type: title ? "title" : "file", title_id: title ? title_id : null,
+          install_type: title ? "title" : "file", title_id: title ? title_id : null, replaceable: replaceable.has(id),
           ...media.urls(id), media: { banner: media.record(id).banner?.source ?? null, shots: media.record(id).shots?.source ?? null },
           patches: (app && extras.get(app)?.patches) || [],
           saves: (app && extras.get(app)?.saves) || [],
