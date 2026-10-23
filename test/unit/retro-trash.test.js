@@ -133,10 +133,11 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
     assert.deepEqual(overview.missing.map((m) => m.system), ["md"], "the arcade sets and the Comix Zone copy have art");
     const arcade = overview.systems.find((x) => x.id === "arcade");
     assert.deepEqual([arcade.boxart, arcade.borrowed], [2, 1]);
-    const { groups } = await (await fetch(base)).json();
+    const { groups } = await (await fetch(base, { headers: { "Accept-Language": "ko" } })).json();
     const mw = groups.find((g) => g.system === "md");
     assert.deepEqual(mw.members.map((m) => [m.variant, m.representative]), [["Korea", true], ["U-K v20260701 v0.6", false]]);
     assert.equal(mw.reason, "공식 한국어판입니다");
+    assert.equal(mw.reasonCode, "variant.official");
 
     const sets = await (await fetch(`${base}/sets`)).json();
     assert.deepEqual(sets.summary, { groups: 1, sets: 2, listed: 1, broken: 0, hidden: {} });
@@ -144,7 +145,9 @@ test("the admin API lists groups and sets, picks, trashes with a confirmation fo
 
     const patch = mw.members[1];
     const picked = await post("/pick", { group: mw.id, game: patch.id });
-    assert.equal(picked.body.group.reason, "관리자가 정했습니다");
+    // No Accept-Language (a script or token): English, with the code to branch on.
+    assert.equal(picked.body.group.reason, "Chosen by the admin");
+    assert.equal(picked.body.group.reasonCode, "variant.picked");
     assert.equal(picked.body.group.members.find((m) => m.representative).id, patch.id);
     assert.equal((await post("/pick", { group: mw.id, game: "md-0000000000" })).status, 400);
     await post("/pick", { group: mw.id, game: null });

@@ -13,6 +13,7 @@ import * as romHashes from "../rom-hash.js";
 import { CONSOLES } from "./hash.js";
 import { consoleIndex, matchRom } from "./match.js";
 import * as store from "./store.js";
+import { ACTIVITY_LANG, retroText } from "../retro-messages.js";
 
 const LOOP_MS = 2 * 60 * 1000;
 const FIRST_RUN_MS = 3 * 60 * 1000;
@@ -98,19 +99,19 @@ export function tick({ current, fetchImpl = fetch, now = Date.now, pauseMs = PAU
     const ours = games.filter((g) => CONSOLES[g.system]);
     const dropped = store.keepRoms(new Set(ours.map((g) => g.id)));
     const lists = listsDue([...new Set(ours.map((g) => CONSOLES[g.system]))], now());
-    if (lists.length) job ??= activity.begin("retro-achievements", { title: "RetroAchievements 목록을 받습니다" });
+    if (lists.length) job ??= activity.begin("retro-achievements", { title: retroText(ACTIVITY_LANG, "ach.jobLists") });
     const read = await readLists(lists, { fetchImpl, now, pauseMs });
     const roms = romsDue(ours);
     if (roms.length) {
-      job ??= activity.begin("retro-achievements", { title: "RetroAchievements 게임을 맞춥니다" });
-      job.step(null, `${roms.length}개`);
+      job ??= activity.begin("retro-achievements", { title: retroText(ACTIVITY_LANG, "ach.jobGames") });
+      job.step(null, retroText(ACTIVITY_LANG, "ach.count", { n: roms.length }));
     }
     const matched = await matchRoms(roms, { now });
     if (read || roms.length || dropped || lists.length) store.save();
     return { lists: read, roms: roms.length, matched };
   })()
     .then((r) => {
-      if (job && (r.lists || r.roms)) job.done(`목록 ${r.lists}개 · 게임 ${r.matched}개 맞춤`);
+      if (job && (r.lists || r.roms)) job.done(retroText(ACTIVITY_LANG, "ach.done", { lists: r.lists, matched: r.matched }));
       else job?.discard();
       return r;
     }, (err) => { job?.fail(err); throw err; })

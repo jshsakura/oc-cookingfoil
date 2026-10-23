@@ -355,7 +355,7 @@ test("LaunchBox reads: a failed unzip is no update, and a far shorter read is no
     fs.writeFileSync(path.join(work, "Metadata.xml"), xml);
     fs.rmSync(path.join(cache, "Metadata.zip"));
     await new Promise((res, rej) => spawn("zip", ["-q", path.join(cache, "Metadata.zip"), "Metadata.xml"], { cwd: work }).on("close", (c) => (c ? rej(new Error(`zip ${c}`)) : res())));
-    await assert.rejects(sync.refreshLaunchBox({ dir, cacheDir: cache, games, systems: { snes: SNES }, fetchImpl: unchanged }), /크게 줄어/);
+    await assert.rejects(sync.refreshLaunchBox({ dir, cacheDir: cache, games, systems: { snes: SNES }, fetchImpl: unchanged }), { code: "meta.shrunk" });
     assert.deepEqual(store.all(), many, "records kept");
     assert.ok(fs.existsSync(path.join(dir, "screenshots/snes/Game 5/1.png")), "screenshots kept");
   } finally {

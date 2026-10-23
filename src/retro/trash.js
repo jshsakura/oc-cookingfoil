@@ -75,7 +75,7 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
     if (!roms.includes(rel) && (keep.key || keep.files.has(path.resolve(abs)))) continue;
     if (inside(dir, abs) && (await exists(abs))) present.push(rel);
   }
-  if (!present.some((rel) => roms.includes(rel))) throw new TrashError("롬 파일이 없습니다");
+  if (!present.some((rel) => roms.includes(rel))) throw shared.trashError("noRom");
   // A patched ROM's original (rom-patch.js) goes with it; its record stays so a restore can still undo the patch.
   const backup = patchOf(g.id)?.backup;
   if (backup && inside(path.join(dir, ".cookingfoil-originals"), path.join(dir, backup)) && (await exists(path.join(dir, backup)))) present.push(backup);
@@ -132,7 +132,7 @@ export async function listTrash(dir) {
  */
 export async function restoreEntry(dir, entry, homeOrOpts = null) {
   const { home = null, exactName = false } = homeOrOpts && typeof homeOrOpts === "object" ? homeOrOpts : { home: homeOrOpts };
-  if (!/^\d{4}-\d{2}-\d{2}\/[a-z0-9_-]{1,40}$/.test(String(entry))) throw new TrashError("휴지통 항목이 맞지 않습니다", 404);
+  if (!/^\d{4}-\d{2}-\d{2}\/[a-z0-9_-]{1,40}$/.test(String(entry))) throw shared.trashError("badEntry", 404);
   const root = rootOf(dir);
   const homes = home ? [home] : shared.homesOf(root);
   const at = homes.find((h) => fs.existsSync(path.join(dir, ...h.split("/"), ...String(entry).split("/")))) ?? homes[0];

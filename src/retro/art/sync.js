@@ -32,6 +32,7 @@ import { groupSets, setInfo } from "../arcade.js";
 import { rankSets } from "../arcade-policy.js";
 import { noteFetched, wasFetched } from "./fetched.js";
 import { trashItems } from "../../library/trash.js";
+import { RetroError, retroText } from "../retro-messages.js";
 
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const CANDIDATES = 24;
@@ -401,7 +402,7 @@ export async function sgdbHeroes(gameId, apiKey, { fetchImpl = fetch } = {}) {
   return (body.data ?? []).slice(0, CANDIDATES).map((g) => ({ url: g.url, thumb: g.thumb }));
 }
 
-const NOT_SGDB = "SteamGridDB 이미지 주소가 아닙니다";
+const NOT_SGDB = () => RetroError.of("art.notSgdb");
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const MAX_SGDB_HOPS = 3;
 
@@ -413,7 +414,7 @@ const MAX_SGDB_HOPS = 3;
 async function sgdbBytes(url, fetchImpl, what) {
   let at = String(url);
   for (let hop = 0; hop <= MAX_SGDB_HOPS; hop++) {
-    if (!SGDB_CDN_RE.test(at)) throw new Error(NOT_SGDB);
+    if (!SGDB_CDN_RE.test(at)) throw NOT_SGDB();
     const res = await fetchImpl(at, { signal: AbortSignal.timeout(20_000), redirect: "manual" });
     if (REDIRECTS.has(res.status)) {
       await res.body?.cancel?.().catch(() => {});
@@ -438,7 +439,12 @@ export async function saveCover(dir, system, rom, url, { fetchImpl = fetch } = {
   await saveCoverImage(dir, system, rom, await sgdbBytes(url, fetchImpl, "cover"));
 }
 
-export class CoverImageError extends Error {}
+/** An image the admin handed in that cannot become box art (RetroError: English message, code, vars). */
+export class CoverImageError extends RetroError {
+  static of(code, vars = {}) {
+    return Object.assign(new CoverImageError(retroText("en", code, vars)), { code, vars, status: 400 });
+  }
+}
 
 /** Any image sharp can read (jpg, png, webp, gif, avif …) → a small PNG. Upright, never enlarged. */
 export async function encodeCover(raw) {
@@ -452,7 +458,7 @@ export async function encodeCover(raw) {
       .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
       .toBuffer();
   } catch (err) {
-    throw new CoverImageError(`이미지를 읽지 못했습니다: ${err.message}`);
+    throw CoverImageError.of("art.unreadable", { reason: err.message });
   }
 }
 
@@ -502,8 +508,8 @@ export async function optimizeBoxarts(dir) {
 
 /** Saves image bytes as one ROM's box art, shrunk by encodeCover. Returns the bytes written. */
 export async function saveCoverImage(dir, system, rom, raw) {
-  if (!raw?.length) throw new CoverImageError("빈 파일입니다");
-  if (raw.length > MAX_COVER_BYTES) throw new CoverImageError("15 MB 보다 큰 이미지는 받지 않습니다");
+  if (!raw?.length) throw CoverImageError.of("art.emptyImage");
+  if (raw.length > MAX_COVER_BYTES) throw CoverImageError.of("art.tooBig");
   const png = await encodeCover(raw);
   const dest = boxartPath(dir, system, rom);
   await keepTheirs(dir, [dest], rom);
