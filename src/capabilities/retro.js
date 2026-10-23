@@ -25,6 +25,22 @@ const KO_ROW = obj({
   by: str("how it was matched"),
 });
 
+const PATCH_ROW = obj({
+  id: str("retro game id"),
+  system: str(),
+  systemName: str(),
+  name: str("name from the file"),
+  file: str("ROM file name"),
+  size: nullable(int("bytes; null when the game left the catalog")),
+  unpatchable: oneOf(["arcade", "multi-file"], "why the game takes no patch"),
+  missing: bool("patched, but no longer in the catalog"),
+  patch: obj({
+    patches: arr(obj({ name: str("patch file name"), format: oneOf(["ips", "bps", "ups", "xdelta"]), verified: bool("source and result checksums matched"), at: str("ISO time") })),
+    backup: str("original's path under the retro folder"),
+    original: obj({ size: int("bytes") }),
+  }, { description: "patches the admin applied on the server, oldest first" }),
+}, { optional: ["unpatchable", "missing", "patch"] });
+
 /** An input the route would answer 400; MCP reports it as BAD_INPUT. */
 const badInput = (message) => Object.assign(new Error(message), { status: 400 });
 
@@ -229,6 +245,23 @@ export const retroCapabilities = [
       const { decideRetroKoGuess } = await import("../routes/admin/retro-ko-api.js");
       const result = await decideRetroKoGuess(game, approve === true);
       return { ok: result === "ok", result };
+    },
+  }),
+  defineCapability({
+    id: "retro_rom_patches",
+    area: "retro",
+    title: "Retro ROMs patched on the server",
+    description: "Lists retro games the admin patched on the server (IPS, BPS, UPS, xdelta) with each patch and its backup, and finds games by name.",
+    input: {
+      type: "object",
+      properties: { q: { type: "string", description: "Part of a game's name or file name to search for; leave empty to list only patched games" } },
+    },
+    output: obj({ patched: arr(PATCH_ROW, "games carrying a server-applied patch"), games: arr(PATCH_ROW, "up to 50 games matching q") }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/retro-patch" },
+    handler: async (_ctx, { q = "" } = {}) => {
+      const { retroPatchStatus } = await import("../routes/admin/retro-patch-api.js");
+      return retroPatchStatus({ q: String(q).slice(0, 200) });
     },
   }),
   defineCapability({
