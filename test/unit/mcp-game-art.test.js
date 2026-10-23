@@ -76,6 +76,17 @@ test("game_art_crop cuts the kept picture again to a new area", async () => {
   assert.deepEqual((await run("game_art", { titleId: BASE })).crops.icon, { x: 0, y: 0, w: 0.25, h: 1 });
 });
 
+test("game_art_remove previews, moves the icon to the trash, and trash_restore brings it back", async () => {
+  const preview = await run("game_art_remove", { titleId: BASE, slot: "icon" }, "preview");
+  assert.equal(preview.after, null);
+  assert.equal((await run("game_art", { titleId: BASE })).shown.icon, "custom", "the preview moved nothing");
+  const { trash } = await run("game_art_remove", { titleId: BASE, slot: "icon" });
+  assert.equal((await run("game_art", { titleId: BASE })).shown.icon, null);
+  await assert.rejects(run("game_art_remove", { titleId: BASE, slot: "icon" }, "preview"), failsWith(404));
+  await run("trash_restore", { ids: [trash] });
+  assert.equal((await run("game_art", { titleId: BASE })).shown.icon, "custom");
+});
+
 test("game art tools refuse bad ids, hosts and slots with no kept picture", async () => {
   await assert.rejects(run("game_art", { titleId: "0100000000040800" }), failsWith(400));
   await assert.rejects(run("game_art_set", { titleId: BASE, slot: "icon", url: "https://example.com/a.png" }, "preview"), failsWith(400));

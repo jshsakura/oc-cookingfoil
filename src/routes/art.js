@@ -72,6 +72,7 @@ import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 import * as gameMeta from "../meta/game-meta.js";
 import { StuckError } from "../meta/game-art-files.js";
+import { actorOf } from "../library/trash-service.js";
 import debug from "../debug.js";
 import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
@@ -469,7 +470,7 @@ export default function artRouter() {
       return badRequest(res, "invalid screenshot index");
     }
     try {
-      await customArt.remove(base, "screenshot", idx);
+      await customArt.remove(base, "screenshot", idx, { by: actorOf(req) });
     } catch (err) {
       if (err instanceof StuckError) return stuckAnswer(res, base, err);
       throw err;
@@ -504,7 +505,7 @@ export default function artRouter() {
       return badRequest(res, "kind must be icon or banner");
     }
     try {
-      await customArt.remove(base, kind, null);
+      await customArt.remove(base, kind, null, { by: actorOf(req) });
     } catch (err) {
       if (err instanceof StuckError) return stuckAnswer(res, base, err);
       throw err;
