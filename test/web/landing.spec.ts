@@ -903,6 +903,8 @@ test('on a phone the list pager fits one line under its count', async ({ page })
   await expect(page.locator('#pager .pager-btn.current')).toHaveText('3');
   const tops = await buttons.evaluateAll((bs) => [...new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top)))]);
   expect(tops).toHaveLength(1);
+  // Room on the line goes to more page numbers than the old one-each-side (1 2 3 4 … 17).
+  expect(await buttons.filter({ hasText: /^\d+$/ }).count()).toBeGreaterThan(5);
   const over = await page.locator('#pager').evaluate((p) => p.scrollWidth - p.clientWidth);
   expect(over).toBeLessThanOrEqual(0);
   await expect(page.locator('#pager .pager-btn.next')).toHaveAttribute('aria-label', '다음');
