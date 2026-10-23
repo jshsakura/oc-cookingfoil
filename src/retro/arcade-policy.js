@@ -119,17 +119,17 @@ export function rankSets(members) {
     String(a.short).localeCompare(String(b.short)));
 }
 
-const REGION_KO = { kr: "한국판", world: "해외판", us: "북미판", eu: "유럽판", jp: "일본판", asia: "아시아판", hisp: "중남미판", br: "브라질판" };
+const REGIONS = new Set(["kr", "world", "us", "eu", "jp", "asia", "hisp", "br"]);
 
-/** One line on why `best` (the first of rankSets) leads its group, in Korean. Pure. */
+/** Why `best` (the first of rankSets) leads its group, as { code, vars } for retro-messages.js. Pure. */
 export function reasonFor(ranked) {
   const [best, ...rest] = ranked;
-  if (!best) return "";
-  if (!rest.length) return "하나뿐인 세트입니다";
-  if (best.runnable === false) return "돌아가는 세트가 없습니다";
-  if (isOdd(best.class)) return "정규 세트가 없어 비정규 세트를 씁니다";
-  const label = REGION_KO[best.class.region] ?? (best.parent ? "기본 세트" : "이 세트");
+  if (!best) return null;
+  if (!rest.length) return { code: "arcade.only" };
+  if (best.runnable === false) return { code: "arcade.noRunnable" };
+  if (isOdd(best.class)) return { code: "arcade.odd" };
+  const label = `arcade.${REGIONS.has(best.class.region) ? best.class.region : best.parent ? "parent" : "this"}`;
   const sameRegion = rest.filter((r) => r.class.region === best.class.region && !isOdd(r.class));
   const newer = sameRegion.some((r) => (r.class.date ?? 0) < (best.class.date ?? 0) || (r.class.rev ?? 0) < (best.class.rev ?? 0));
-  return `${label}${newer ? " 최신 개정" : ""}입니다`;
+  return { code: newer ? "arcade.pickNewer" : "arcade.pick", vars: { label } };
 }

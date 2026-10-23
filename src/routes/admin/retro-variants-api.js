@@ -29,6 +29,8 @@ import * as picks from "../../retro/variant-picks.js";
 import { listTrash, restoreEntry, stillUsed, trashGame, TrashError } from "../../retro/trash.js";
 import { actorOf } from "../../library/trash-service.js";
 import { apiWord } from "./api-words.js";
+import { requestLang } from "../../meta/langs.js";
+import { retroSaid, retroText } from "../../retro/retro-messages.js";
 
 function member(g, rep, group) {
   const variant = tagsOf(g.name);
@@ -46,7 +48,7 @@ function member(g, rep, group) {
   };
 }
 
-function publicGroup(group, systems) {
+function publicGroup(group, systems, lang) {
   const picked = picks.get(group.id);
   const rep = representative(group, picked);
   const pickedNow = Boolean(picked) && rep.id === picked && rep !== group.members[0];
@@ -55,7 +57,8 @@ function publicGroup(group, systems) {
     system: group.system,
     systemName: systems[group.system]?.names?.ko ?? group.system,
     kind: group.kind,
-    reason: pickedNow ? "관리자가 정했습니다" : group.reason,
+    reason: pickedNow ? retroText(lang, "variant.picked") : retroSaid(lang, group.reason),
+    reasonCode: pickedNow ? "variant.picked" : group.reason?.code ?? null,
     picked: pickedNow ? picked : null,
     listed: groupVisible(rep),
     members: group.members.map((g) => member(g, rep, group)),
@@ -73,21 +76,21 @@ export function mountRetroVariantsApi(router, requireSession) {
     try {
       await handler(req, res);
     } catch (err) {
-      if (err instanceof TrashError) return res.status(err.status ?? 409).json({ error: err.message });
+      if (err instanceof TrashError) return res.status(err.status ?? 409).json({ error: err.textIn(requestLang(req)), ...(err.key ? { code: err.key } : {}) });
       debug.error("admin retro-variants: %s", err.message);
       res.status(502).json({ error: err.message });
     }
   };
 
-  router.get("/api/retro-variants", guarded(async (_req, res) => {
+  router.get("/api/retro-variants", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
-    const groups = [...catalog.groups.values()].filter((g) => g.members.length > 1).map((g) => publicGroup(g, catalog.systems));
+    const groups = [...catalog.groups.values()].filter((g) => g.members.length > 1).map((g) => publicGroup(g, catalog.systems, requestLang(req)));
     res.json({ groups });
   }));
 
-  router.get("/api/retro-variants/sets", guarded(async (_req, res) => {
+  router.get("/api/retro-variants/sets", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
-    const groups = [...catalog.groups.values()].filter((g) => g.kind === "arcade").map((g) => publicGroup(g, catalog.systems));
+    const groups = [...catalog.groups.values()].filter((g) => g.kind === "arcade").map((g) => publicGroup(g, catalog.systems, requestLang(req)));
     const members = groups.flatMap((g) => g.members);
     const hidden = {};
     for (const m of members) if (m.hidden) hidden[m.hidden] = (hidden[m.hidden] ?? 0) + 1;
@@ -107,7 +110,7 @@ export function mountRetroVariantsApi(router, requireSession) {
     if (game !== null && group.members.find((g) => g.id === game).missing?.length) return res.status(400).json({ error: apiWord(req, "retroVariants.brokenPick") });
     picks.set(group.id, game === group.members[0].id ? null : game);
     debug.log("admin: retro group %s represented by %s", group.id, game ?? "(rule)");
-    res.json({ ok: true, group: publicGroup(group, catalog.systems) });
+    res.json({ ok: true, group: publicGroup(group, catalog.systems, requestLang(req)) });
   }));
 
   router.get("/api/retro-variants/trash", guarded(async (_req, res) => {

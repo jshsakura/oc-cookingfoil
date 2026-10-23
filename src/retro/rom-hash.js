@@ -18,6 +18,7 @@ import { fileKey } from "../helpers/hash-cache.js";
 import * as activity from "../tasks/activity.js";
 import { hashable, romHash } from "./achievements/hash.js";
 import { inTurn } from "./disk-turn.js";
+import { ACTIVITY_LANG, retroText } from "./retro-messages.js";
 
 // A breath between files, so requests keep their turn while a big library is read.
 const PAUSE_MS = 50;
@@ -70,7 +71,7 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
   }
   if (!due.length) return { hashed: 0 };
   hashing = true;
-  const job = activity.begin("retro-hash", { title: "레트로 게임 파일의 해시를 구합니다", total: due.length });
+  const job = activity.begin("retro-hash", { title: retroText(ACTIVITY_LANG, "hash.job"), total: due.length });
   try {
     for (const [i, [g, key]] of due.entries()) {
       await compute(g, key);
@@ -83,7 +84,7 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
   } finally {
     hashing = false;
   }
-  job.done(`${due.length}개`);
+  job.done(retroText(ACTIVITY_LANG, "hash.done", { n: due.length }));
   return { hashed: due.length };
 }
 

@@ -52,6 +52,8 @@ import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
 import { trashFiles, TrashError } from "../../retro/trash.js";
 import { actorOf } from "../../library/trash-service.js";
+import { requestLang } from "../../meta/langs.js";
+import { ACTIVITY_LANG, RetroError, retroError, retroText, retroWord } from "../../retro/retro-messages.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
 
@@ -140,13 +142,13 @@ export async function retroRequirements() {
  * The one-go pack fill (retro-pack-api.js) runs the same job as its last step.
  */
 export async function startArtSync(only = null) {
-  if (job && !job.finishedAt) return { error: "이미 정리하고 있습니다", status: 409, job };
+  if (job && !job.finishedAt) return { error: retroText("en", "art.busy"), code: "art.busy", status: 409, job };
   const catalog = await retroCatalog.current(retroDir);
-  if (only && !catalog.systems[only]) return { error: "없는 시스템입니다", status: 400 };
+  if (only && !catalog.systems[only]) return { error: retroText("en", "art.noSystem"), code: "art.noSystem", status: 400 };
   const roms = {};
   for (const g of catalog.games) (roms[g.system] ??= []).push(romKey(g));
   const current = (job = { system: only, startedAt: Date.now(), progress: null });
-  const act = activity.begin("retro-art", { title: only ? `레트로 그림을 정리합니다 (${only})` : "레트로 그림을 정리합니다" });
+  const act = activity.begin("retro-art", { title: only ? retroText(ACTIVITY_LANG, "art.jobSystem", { system: only }) : retroText(ACTIVITY_LANG, "art.job") });
   const done = art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; act.total(p.total); act.step(p.index, p.system); } })
     .then((summary) => { current.summary = summary; act.done(); return summary; })
     .catch((err) => { current.error = err.message; act.fail(err); throw err; })
@@ -168,7 +170,7 @@ export function mountRetroArtApi(router, requireSession) {
       await handler(req, res);
     } catch (err) {
       debug.error("admin retro-art: %s", err.message);
-      res.status(502).json({ error: err.message });
+      res.status(err.status ?? 502).json(retroError(req, err));
     }
   };
 
@@ -193,7 +195,7 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {
     const started = await startArtSync(req.body?.system ? String(req.body.system) : null);
-    if (started.error) return res.status(started.status).json({ error: started.error, ...(started.job ? { job: started.job } : {}) });
+    if (started.error) return res.status(started.status).json({ ...retroError(req, started), ...(started.job ? { job: started.job } : {}) });
     res.status(202).json({ job: started.job });
   }));
 
@@ -203,7 +205,7 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.get("/api/retro-art/candidates", guarded(async (req, res) => {
     const found = await gameOf(req.query.game);
-    if (!found) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!found) return res.status(404).json(retroError(req, RetroError.of("art.noItem", {}, 404)));
     const q = String(req.query.q ?? "").trim() || found.g.original || found.g.name;
     const names = await art.candidates(found.g.system, found.system, q, { token: ghToken() });
     res.json({ q, names: names.map((name) => ({ name, preview: art.libretroUrl(found.system, name) })) });
@@ -211,9 +213,9 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.post("/api/retro-art/match", guarded(async (req, res) => {
     const found = await gameOf(req.body?.game);
-    if (!found) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!found) return res.status(404).json(retroError(req, RetroError.of("art.noItem", {}, 404)));
     const name = req.body?.name == null ? null : String(req.body.name);
-    if (name !== null && (!name.trim() || name.includes("/") || name.includes(".."))) return res.status(400).json({ error: "이름이 맞지 않습니다" });
+    if (name !== null && (!name.trim() || name.includes("/") || name.includes(".."))) return res.status(400).json(retroError(req, RetroError.of("art.badName", {}, 400)));
     const result = await art.applyMatch(retroDir, found.g.system, found.system, romKey(found.g), name);
     await retroCatalog.scan(retroDir);
     debug.log("admin retro-art: %s → %s", found.g.id, name ?? "(none)");
@@ -222,20 +224,20 @@ export function mountRetroArtApi(router, requireSession) {
 
   router.get("/api/retro-art/sgdb", guarded(async (req, res) => {
     const { apiKey } = integrations.get("steamgriddb");
-    if (!apiKey) return res.status(409).json({ error: "SteamGridDB 키가 없습니다" });
+    if (!apiKey) return res.status(409).json(retroError(req, RetroError.of("art.noSgdbKey", {}, 409)));
     res.json({ games: await art.sgdbSearch(String(req.query.q ?? "").slice(0, 100), apiKey) });
   }));
 
   router.get("/api/retro-art/sgdb/:id", guarded(async (req, res) => {
     const { apiKey } = integrations.get("steamgriddb");
-    if (!apiKey) return res.status(409).json({ error: "SteamGridDB 키가 없습니다" });
-    if (!/^\d{1,10}$/.test(req.params.id)) return res.status(400).json({ error: "번호가 맞지 않습니다" });
+    if (!apiKey) return res.status(409).json(retroError(req, RetroError.of("art.noSgdbKey", {}, 409)));
+    if (!/^\d{1,10}$/.test(req.params.id)) return res.status(400).json(retroError(req, RetroError.of("art.badNumber", {}, 400)));
     res.json({ covers: await art.sgdbCovers(req.params.id, apiKey) });
   }));
 
   router.post("/api/retro-art/cover", guarded(async (req, res) => {
     const found = await gameOf(req.body?.game);
-    if (!found) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!found) return res.status(404).json(retroError(req, RetroError.of("art.noItem", {}, 404)));
     await art.saveCover(retroDir, found.system, romKey(found.g), String(req.body?.url ?? ""));
     await retroCatalog.scan(retroDir);
     rebuildRetroShortcut(found.g.id);
@@ -248,10 +250,10 @@ export function mountRetroArtApi(router, requireSession) {
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
     const bad = await new Promise((resolve) => imageBody(req, res, resolve));
-    if (bad) return res.status(bad.type === "entity.too.large" ? 413 : 400).json({ error: bad.type === "entity.too.large" ? "15 MB 보다 큰 이미지는 받지 않습니다" : "이미지를 받지 못했습니다" });
-    if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: "이미지 파일을 올립니다" });
+    if (bad) return res.status(bad.type === "entity.too.large" ? 413 : 400).json(retroError(req, RetroError.of(bad.type === "entity.too.large" ? "art.tooBig" : "art.uploadFailed")));
+    if (!Buffer.isBuffer(req.body)) return res.status(415).json(retroError(req, RetroError.of("art.needImage", {}, 415)));
     const found = await gameOf(req.query.game);
-    if (!found) return res.status(404).json({ error: "없는 항목입니다" });
+    if (!found) return res.status(404).json(retroError(req, RetroError.of("art.noItem", {}, 404)));
     try {
       const bytes = await art.saveCoverImage(retroDir, found.system, romKey(found.g), req.body);
       await retroCatalog.scan(retroDir);
@@ -260,7 +262,7 @@ export function mountRetroArtApi(router, requireSession) {
       res.json({ boxart: "ok", from: req.body.length, bytes });
     } catch (err) {
       if (!(err instanceof art.CoverImageError)) throw err;
-      res.status(400).json({ error: err.message });
+      res.status(400).json(retroError(req, err));
     }
   }));
 
@@ -268,7 +270,7 @@ export function mountRetroArtApi(router, requireSession) {
   router.post("/api/retro-art/games/remove", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.body?.game ?? ""));
-    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    if (!g) return res.status(404).json(retroError(req, RetroError.of("game.missing", {}, 404)));
     const romsRoot = path.resolve(retroDir, "roms") + path.sep;
     const files = [g.abs, ...(g.extras ?? []).map((x) => x.abs)].filter((f) => f && path.resolve(f).startsWith(romsRoot) && fs.existsSync(f));
     let out;
@@ -277,7 +279,7 @@ export function mountRetroArtApi(router, requireSession) {
         files.map((f) => path.relative(retroDir, f).split(path.sep).join("/")), new Date(), { by: actorOf(req), action: "retro-game-remove" });
     } catch (err) {
       if (!(err instanceof TrashError)) throw err;
-      return res.status(err.status ?? 409).json({ error: err.message });
+      return res.status(err.status ?? 409).json({ error: err.textIn(requestLang(req)), ...(err.key ? { code: err.key } : {}) });
     }
     await retroCatalog.scan(retroDir);
     debug.log("admin: retro game %s/%s moved to the trash (%d files)", g.system, g.rel, files.length);
@@ -288,7 +290,7 @@ export function mountRetroArtApi(router, requireSession) {
   router.post("/api/retro-art/games/name", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.body?.game ?? ""));
-    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    if (!g) return res.status(404).json(retroError(req, RetroError.of("game.missing", {}, 404)));
     retroNames.set(g.id, { ko: req.body?.ko, en: req.body?.en });
     // The shortcut carries the name too: built again in the background.
     rebuildRetroShortcut(g.id);
@@ -300,7 +302,7 @@ export function mountRetroArtApi(router, requireSession) {
   router.get("/api/retro-art/games/meta", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.query.game ?? ""));
-    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    if (!g) return res.status(404).json(retroError(req, RetroError.of("game.missing", {}, 404)));
     const key = retroMetaKey(catalog, g);
     const collected = metaStore.get(key);
     res.json({
@@ -315,10 +317,10 @@ export function mountRetroArtApi(router, requireSession) {
   router.post("/api/retro-art/games/meta", guarded(async (req, res) => {
     const catalog = await retroCatalog.current(retroDir);
     const g = catalog.byId.get(String(req.body?.game ?? ""));
-    if (!g) return res.status(404).json({ error: "목록에 없는 게임입니다" });
+    if (!g) return res.status(404).json(retroError(req, RetroError.of("game.missing", {}, 404)));
     const { year, players } = req.body ?? {};
-    if (year !== undefined && year !== null && year !== "" && !/^(19[5-9]\d|20\d\d|2100)$/.test(String(year))) return res.status(400).json({ error: "발매 연도는 1950에서 2100 사이의 네 자리 숫자로 넣습니다." });
-    if (players !== undefined && players !== null && players !== "" && !/^([1-9]|[1-5]\d|6[0-4])$/.test(String(players))) return res.status(400).json({ error: "최대 인원은 1에서 64 사이의 숫자로 넣습니다." });
+    if (year !== undefined && year !== null && year !== "" && !/^(19[5-9]\d|20\d\d|2100)$/.test(String(year))) return res.status(400).json(retroError(req, RetroError.of("game.badYear", {}, 400)));
+    if (players !== undefined && players !== null && players !== "" && !/^([1-9]|[1-5]\d|6[0-4])$/.test(String(players))) return res.status(400).json(retroError(req, RetroError.of("game.badPlayers", {}, 400)));
     const key = retroMetaKey(catalog, g);
     const edit = metaEdits.set(key, req.body ?? {});
     debug.log("admin: retro game %s details %s", key, edit ? "edited" : "back to collected");

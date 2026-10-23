@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { classifySet, rankSets, reasonFor } from "../../src/retro/arcade-policy.js";
+import { retroSaid } from "../../src/retro/retro-messages.js";
 
 // Real sets from the FinalBurn Neo DAT the server ships.
 const DAT = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../../src/retro/data/fbneo-arcade.json"), "utf8")).sets;
@@ -72,12 +73,14 @@ test("a set that cannot run loses to one that can", () => {
   assert.equal(best(["knightsj", "knights"], { knights: false }), "knightsj");
 });
 
-test("the reason says why the representative leads", () => {
-  const reason = (shorts, runnable = {}) => reasonFor(rankSets(shorts.map((s) => member(s, runnable[s] ?? true))));
+test("the reason says why the representative leads, in each admin language", () => {
+  const reason = (shorts, runnable = {}, lang = "ko") => retroSaid(lang, reasonFor(rankSets(shorts.map((s) => member(s, runnable[s] ?? true)))));
   assert.equal(reason(["gunbird"]), "하나뿐인 세트입니다");
   assert.equal(reason(["gunbird", "gunbirdj"]), "해외판입니다");
   assert.equal(reason(["kodr1", "kod"]), "해외판 최신 개정입니다");
   assert.equal(reason(["gunbirdk", "gunbird"]), "한국판입니다");
   assert.equal(reason(["ffightae", "ffightbl"]), "정규 세트가 없어 비정규 세트를 씁니다");
   assert.equal(reason(["gunbirdj", "gunbird"], { gunbirdj: false, gunbird: false }), "돌아가는 세트가 없습니다");
+  assert.equal(reason(["kodr1", "kod"], {}, "en"), "World set, latest revision");
+  assert.deepEqual(reasonFor(rankSets(["gunbirdk", "gunbird"].map((s) => member(s, true)))), { code: "arcade.pick", vars: { label: "arcade.kr" } }, "kept as plain data");
 });

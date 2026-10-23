@@ -22,6 +22,7 @@ import readline from "readline";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { PLATFORMS, decode, titleKey } from "./titles.js";
+import { RetroError } from "../retro-messages.js";
 
 export const METADATA_URL = "https://gamesdb.launchbox-app.com/Metadata.zip";
 const MIN_VOTES = 3;
@@ -199,14 +200,14 @@ const countRatings = (ratings) => Object.values(ratings).reduce((n, roms) => n +
 export async function refreshRatings(dir, cacheDir, { fetchImpl = fetch } = {}) {
   const zip = await fetchMetadata(cacheDir, fetchImpl);
   const data = await readXml(zip, "Metadata.xml", (open) => readLaunchBox(open(), new Set(Object.values(PLATFORMS).flat())));
-  if (!data.games.size) throw new Error("LaunchBox 자료를 읽지 못했습니다");
+  if (!data.games.size) throw RetroError.of("ratings.unreadable");
   const { ratings, summary } = buildRatings(dir, data);
   const dest = path.join(dir, "ratings.json");
   const previous = await fsp.readFile(dest, "utf8").then(JSON.parse).catch(() => null);
   const before = comparableCount(previous, mappedRoms(dir));
   const after = countRatings(ratings);
   if (shrankTooMuch(before, after)) {
-    throw new Error(`LaunchBox 평점이 지난번 ${before}개에서 ${after}개로 크게 줄어 적용하지 않았습니다`);
+    throw RetroError.of("ratings.shrunk", { before, after });
   }
   await fsp.writeFile(`${dest}.tmp`, JSON.stringify(ratings, null, 1));
   await fsp.rename(`${dest}.tmp`, dest);

@@ -26,6 +26,7 @@ import * as kowiki from "../../meta/kowiki.js";
 import { downloadShots, indexShots, removeShots, shotDir, wantedShots } from "./screenshots.js";
 import * as store from "./store.js";
 import * as activity from "../../tasks/activity.js";
+import { ACTIVITY_LANG, RetroError, retroText } from "../retro-messages.js";
 
 const REFRESH_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LOOP_MS = 2 * 60 * 1000;
@@ -86,7 +87,7 @@ export async function refreshLaunchBox({ dir, cacheDir, games, systems, fetchImp
   const wanted = new Set([...new Set(games.map((g) => g.system))].flatMap((s) => PLATFORMS[s] ?? []));
   const data = await readXml(zip, "Metadata.xml", (open) => readLaunchBoxMeta(open, wanted, wantedKeys(games, mame)));
   const fresh = buildMeta(games, data, mame);
-  if (games.length && !Object.keys(fresh).length) throw new Error("LaunchBox 자료에서 맞는 게임을 찾지 못했습니다");
+  if (games.length && !Object.keys(fresh).length) throw RetroError.of("meta.noMatch");
   const previous = store.all();
   const byKey = new Map(games.map((g) => [metaKey(g), g]));
   // A read far shorter than the last one is a cut-off file, not LaunchBox forgetting games:
@@ -95,7 +96,7 @@ export async function refreshLaunchBox({ dir, cacheDir, games, systems, fetchImp
   const after = Object.keys(fresh).length;
   if (shrankTooMuch(before, after)) {
     debug.error("retro meta: LaunchBox matched %d games against %d last time; not applied", after, before);
-    throw new Error(`LaunchBox 자료가 지난번 ${before}개에서 ${after}개로 크게 줄어 적용하지 않았습니다`);
+    throw RetroError.of("meta.shrunk", { before, after });
   }
   const next = mergeRecords(previous, fresh);
   shotIndex = null; // screenshots may go below, so the index is read again
@@ -223,7 +224,7 @@ export async function tick({
   let job = null;
   const touched = new Set();
   const at = (what, systemIds = []) => {
-    job ??= activity.begin("retro-meta", { title: "레트로 정보를 모읍니다" });
+    job ??= activity.begin("retro-meta", { title: retroText(ACTIVITY_LANG, "meta.job") });
     for (const id of systemIds) touched.add(id);
     job.step(null, [what, systemNames(systemIds, lastSystems)].filter(Boolean).join(" · "));
   };
@@ -234,22 +235,22 @@ export async function tick({
     if (!games.length) return { idle: true };
     if (now() - store.builtAt() >= REFRESH_AGE_MS && now() - refreshTriedAt >= REFRESH_RETRY_MS) {
       refreshTriedAt = now();
-      at("LaunchBox 에서 게임 정보를 맞춥니다");
+      at(retroText(ACTIVITY_LANG, "meta.stepLaunchbox"));
       return { launchbox: await refreshLaunchBox({ dir, cacheDir, games, systems, fetchImpl, now }) };
     }
     // IGDB only fills in after LaunchBox has had its say.
     const igdbNext = store.builtAt() ? igdbDue(games, store.all(), now()) : [];
-    if (igdbNext.length) at("IGDB 에서 게임 정보를 찾습니다", igdbNext.map((g) => g.system));
+    if (igdbNext.length) at(retroText(ACTIVITY_LANG, "meta.stepIgdb"), igdbNext.map((g) => g.system));
     const igdb = store.builtAt() ? await igdbBatch({ games, fetchImpl, now, pauseMs }) : 0;
     const koNext = store.builtAt() ? koDue(store.all(), now()) : [];
-    if (koNext.length) at("한국어 위키백과에서 한국어 설명을 찾습니다", koNext.map(([key]) => key.split("/")[0]));
+    if (koNext.length) at(retroText(ACTIVITY_LANG, "meta.stepKo"), koNext.map(([key]) => key.split("/")[0]));
     const ko = store.builtAt() ? await koBatch({ fetchImpl, now, pauseMs }) : 0;
-    const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now, onStart: (ids) => at("스크린샷을 받습니다", ids) }) : 0;
+    const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now, onStart: (ids) => at(retroText(ACTIVITY_LANG, "meta.stepShots"), ids) }) : 0;
     const left = store.builtAt() ? igdbDue(games, store.all(), now(), Infinity).length + koDue(store.all(), now(), Infinity).length : 0;
     return { igdb, ko, shots, left };
   })()
     .then((r) => {
-      if (r.launchbox !== undefined) job?.done(`LaunchBox ${r.launchbox}개`);
+      if (r.launchbox !== undefined) job?.done(retroText(ACTIVITY_LANG, "meta.doneLaunchbox", { n: r.launchbox }));
       else if (job && (r.igdb || r.ko || r.shots)) job.done([tickSummary(r), systemNames([...touched], lastSystems)].filter(Boolean).join(" · "));
       else job?.discard();
       return r;
@@ -263,10 +264,10 @@ export function systemNames(ids, systems = {}) {
   return [...new Set(ids)].map((id) => systems[id]?.names?.ko ?? systems[id]?.name ?? id).join(", ");
 }
 
-/** "한국어 설명 50개 · 스크린샷 31장 · 남은 2,310개": what one tick gathered, and what is left. Pure. */
-export function tickSummary({ igdb, ko, shots, left = 0 }) {
-  const parts = [igdb && `IGDB 게임 정보 ${igdb}개`, ko && `한국어 설명 ${ko}개`, shots && `스크린샷 ${shots}장`].filter(Boolean);
-  if (left) parts.push(`남은 ${left.toLocaleString("ko-KR")}개`);
+/** "한국어 설명 50개 · 스크린샷 31장 · 남은 2,310개": what one tick gathered, and what is left, in `lang`. Pure. */
+export function tickSummary({ igdb, ko, shots, left = 0 }, lang = ACTIVITY_LANG) {
+  const parts = [igdb && retroText(lang, "meta.igdb", { n: igdb }), ko && retroText(lang, "meta.ko", { n: ko }), shots && retroText(lang, "meta.shots", { n: shots })].filter(Boolean);
+  if (left) parts.push(retroText(lang, "meta.left", { n: left.toLocaleString(lang === "zh" ? "zh-CN" : lang) }));
   return parts.join(" · ");
 }
 
