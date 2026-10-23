@@ -7,6 +7,7 @@
  *   thumbnails/<folder>/Named_Boxarts/<name>.png|.jpg   its own box art
  *   bezels/<folder>/<name>.png, .cfg, _override.cfg     its bezel and configs
  *   art-map/<system>.json                               its key (kept in the manifest)
+ *   .cookingfoil-originals/<id>/<file>                  the original of a patched ROM
  *
  * into <retro dir>/.cookingfoil-trash/<YYYY-MM-DD>/<game id>/, under the same
  * relative paths, with a manifest.json. The scanner skips dot folders, so the
@@ -18,6 +19,7 @@ import fs from "fs";
 import path from "path";
 import { romKey, thumbNames } from "./catalog.js";
 import * as shared from "../library/trash.js";
+import { patchOf } from "./rom-patch-records.js";
 
 export const TRASH = shared.TRASH_DIR;
 export const { TrashError } = shared;
@@ -74,6 +76,9 @@ export async function trashGame(dir, g, system, { now = new Date(), keep = { fil
     if (inside(dir, abs) && (await exists(abs))) present.push(rel);
   }
   if (!present.some((rel) => roms.includes(rel))) throw new TrashError("롬 파일이 없습니다");
+  // A patched ROM's original (rom-patch.js) goes with it; its record stays so a restore can still undo the patch.
+  const backup = patchOf(g.id)?.backup;
+  if (backup && inside(path.join(dir, ".cookingfoil-originals"), path.join(dir, backup)) && (await exists(path.join(dir, backup)))) present.push(backup);
   const mapFile = path.join(dir, "art-map", `${g.system}.json`);
   const map = readJson(mapFile);
   const artMap = map && !keep.key && Object.hasOwn(map, key) ? { file: `art-map/${g.system}.json`, key, value: map[key] } : null;
