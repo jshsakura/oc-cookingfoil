@@ -30,6 +30,12 @@ export function issuePairLink(deviceKey, now = Date.now()) {
   byDevice.set(deviceKey, next);
   return { token: next, expiresAt: link.expiresAt, code };
 }
+/** End the live link of `deviceKey`, so a QR shown before can no longer approve it. */
+export function dropPairLink(deviceKey) {
+  const token = byDevice.get(deviceKey);
+  const link = links.get(token);
+  if (link) remove(token, link);
+}
 export function readPairLink(token, now = Date.now()) {
   prune(now);
   if (typeof token !== "string" || !/^[a-f0-9]{32}$/.test(token)) return null;

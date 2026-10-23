@@ -30,6 +30,10 @@ export const OPT_OUT = {
   "POST /admin/api/retro-cores/user-version": "token-blocked",
   // Where consoles and accounts connected from: the admin page only.
   "GET /admin/api/access-history": "token-blocked",
+  // The dashboard asks whether to show its picture editor; an agent has no editor to show.
+  "GET /api/art/access": "browser-only",
+  // A retro game's box art as an image file, from the dashboard's editor.
+  "POST /api/art/retro/:id/boxart": "binary-upload",
 };
 
 /** Routes from before the registry. Remove lines as capabilities claim them; never add one. */
