@@ -74,7 +74,7 @@
     "src/routes/admin/retro-pack-api.js": 13,
     "src/routes/admin/retro-variants-api.js": 1,
     "src/routes/admin/retro-variants-panel.js": 76,
-    "src/routes/admin/server-settings-panel.js": 185,
+    "src/routes/admin/server-settings-panel.js": 183,
     "src/routes/admin/tokens-panel.js": 17,
     "src/routes/admin/transfers-panel.js": 49,
     "src/routes/inbox.js": 9,
