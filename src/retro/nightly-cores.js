@@ -69,14 +69,13 @@ function deadline(late, { idle, total }) {
   };
 }
 
-/** GET `url`, following redirects only within the base's origin (and only over https when the base is https). */
-async function get(url, { base, fetchImpl = fetch, limit, connect }) {
-  const origin = new URL(base).origin;
+/** GET `url`, following redirects only within `hosts` (origins; the base's alone by default). */
+async function get(url, { base, hosts = [new URL(base).origin], fetchImpl = fetch, limit, connect, headers = {} }) {
   let at = new URL(url, base);
   for (let hop = 0; hop <= MAX_HOPS; hop++) {
-    if (at.origin !== origin) throw new PackError(coreKo("badHost", { host: at.host }), { status: 502, reason: "download" });
+    if (!hosts.includes(at.origin)) throw new PackError(coreKo("badHost", { host: at.host }), { status: 502, reason: "download" });
     limit.arm(connect);
-    const res = await limit.run(fetchImpl(at.href, { redirect: "manual", signal: limit.signal }));
+    const res = await limit.run(fetchImpl(at.href, { redirect: "manual", signal: limit.signal, headers }));
     limit.done();
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       res.body?.cancel?.().catch(() => {});
@@ -118,13 +117,18 @@ export const forgetIndex = () => {
 /**
  * Downloads `core`'s zip into `dir` and unpacks its .nro there. `room(bytes)` is asked first with the
  * size the server announces (or the cap) and throws to refuse. Returns the .nro's path.
+ * `from` { url, zipped, hosts } takes it from elsewhere (a release asset, repo-cores.js): a bare .nro
+ * is kept as it came, and redirects may go only to `hosts`.
  */
-export async function fetchCore(core, { base = NIGHTLY_BASE, fetchImpl, dir, room = async () => {}, bin, max = CORE_ZIP_MAX, timeouts = TIMEOUTS }) {
+export async function fetchCore(core, { base = NIGHTLY_BASE, from = null, fetchImpl, dir, room = async () => {}, bin, max = CORE_ZIP_MAX, timeouts = TIMEOUTS }) {
   await fsp.mkdir(dir, { recursive: true });
   const limit = deadline(coreKo("timedOutCore", { core }), timeouts);
-  const zip = path.join(dir, zipName(core));
+  const zipped = from ? from.zipped : true;
+  const zip = path.join(dir, zipped ? zipName(core) : nroName(core));
   try {
-    const res = await get(zipName(core), { base, fetchImpl, limit, connect: timeouts.connect });
+    const res = from
+      ? await get(from.url, { base: from.url, hosts: from.hosts, fetchImpl, limit, connect: timeouts.connect })
+      : await get(zipName(core), { base, fetchImpl, limit, connect: timeouts.connect });
     const announced = Number(res.headers.get("content-length"));
     if (Number.isFinite(announced) && announced > max) {
       res.body.cancel().catch(() => {});
@@ -148,6 +152,11 @@ export async function fetchCore(core, { base = NIGHTLY_BASE, fetchImpl, dir, roo
     await limit.run(pipeline(Readable.fromWeb(res.body), cap, fs.createWriteStream(zip)));
   } finally {
     limit.done();
+  }
+  if (!zipped) {
+    const st = await fsp.lstat(zip);
+    if (!st.isFile() || st.size > max) throw new PackError(coreKo("badZip", { core }), { status: 502, reason: "bad-zip" });
+    return zip;
   }
   const out = path.join(dir, "out");
   await extractPaths(zip, out, [nroName(core)], { bin });

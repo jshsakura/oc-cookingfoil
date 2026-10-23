@@ -268,7 +268,7 @@ test("every core state and failure reason the pack may report reads as words in 
   const fromAutoCores = ["present", "pinned", "installing", "will-install", "missing", "held", "not-in-nightly", "failed"];
   for (const state of [...fromAutoCores, "not-in-bundle", "operator-owned", "nightly"]) assert.ok(CORE_STATES.includes(state), state);
   const warns = CORE_STATES.filter((state) => coreView({ core: "x", file: coreFile("x"), games: 1, state }).warn);
-  assert.deepEqual(warns.sort(), ["failed", "missing", "not-in-bundle", "not-in-nightly"]);
+  assert.deepEqual(warns.sort(), ["failed", "missing", "not-in-bundle", "not-in-nightly", "not-in-repo"]);
   for (const reason of ["download", "install", "rollback", "disk-floor", "crc-mismatch", "bad-zip", "in-trash", "auto-off"]) assert.ok(CORE_REASONS.includes(reason), reason);
   for (const [lang, words] of Object.entries(RQ_WORDS)) {
     for (const key of [...CORE_STATES.map((x) => `cs.${x}`), "cs.unknown", ...CORE_REASONS.map((x) => `reason.${x}`), "reason.other", "coreNotInNightly"]) {

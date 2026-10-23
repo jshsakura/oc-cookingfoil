@@ -52,6 +52,9 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h3>기종별 코어</h3>
     <button type="button" id="rc-auto">${top("ac.button")}</button><button type="button" id="rc-update">${top("ac.update")}</button></div>
   <p class="muted" id="rc-auto-last"></p>
+  <div class="hd"><h3>${top("ac.repo")}</h3></div>
+  <p class="muted">${top("ac.repoLead")}</p>
+  <div class="row"><input type="text" id="rc-repo" placeholder="owner/name" aria-label="${top("ac.repo")}" spellcheck="false" autocomplete="off"><button type="button" id="rc-repo-save">${top("ac.repoSave")}</button></div>
   <div id="rc-hidden"></div>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>
@@ -169,19 +172,31 @@ function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
+  rcSources=d.sources||{repo:null,cores:{}};$('rc-repo').value=rcSources.repo||'';
   $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
-  table('rc-list',[topText('ac.on'),'코어','쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
+  table('rc-list',[topText('ac.on'),'코어',topText('ac.source'),'쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
     const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
-    tr.append(raCell(rcSwitch(c)),name,td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+    tr.append(raCell(rcSwitch(c)),name,raCell(rcSource(c.core)),td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
 // Off leaves the core out of the console pack; the games that need it stay listed but can't be taken.
 function rcSwitch(c){const box=el('input');box.type='checkbox';box.checked=!c.off;box.setAttribute('aria-label',c.core+' '+topText('ac.on'));
   box.addEventListener('change',async()=>{const on=box.checked;const fill=(k)=>topText(k).split('{core}').join(c.core);
     if(!on&&!await ask(fill('ac.offQ'))){box.checked=true;return;}
     try{await api('/admin/api/retro-cores/enabled',{method:'POST',body:{core:c.core,enabled:on}});toast(fill(on?'ac.onDone':'ac.offDone'));loadRetroCores();}
     catch(err){box.checked=!on;toast(err.message);}});return box;}
+// Where the upkeep takes a core: nightly, the core repository's latest release, or the admin's own upload.
+let rcSources={repo:null,cores:{}};
+function rcSource(core){const sel=el('select');sel.setAttribute('aria-label',core+' '+topText('ac.source'));
+  for(const v of ['nightly','repo','upload']){const o=el('option',topText('ac.src.'+v));o.value=v;sel.append(o);}
+  const now=rcSources.cores[core]||'nightly';sel.value=now;
+  sel.addEventListener('change',async()=>{const v=sel.value;
+    if(v==='repo'&&!rcSources.repo){toast(topText('ac.repoFirst'));sel.value=now;$('rc-repo').focus();return;}
+    try{await api('/admin/api/retro-cores/source',{method:'POST',body:{core,source:v}});toast(topText('ac.srcDone').split('{core}').join(core).split('{src}').join(topText('ac.src.'+v)));loadRetroCores();}
+    catch(err){sel.value=now;toast(err.message);}});return sel;}
+$('rc-repo-save').addEventListener('click',async()=>{const repo=$('rc-repo').value.trim();
+  try{await api('/admin/api/retro-cores/repo',{method:'POST',body:{repo}});toast(topText(repo?'ac.repoSaved':'ac.repoCleared'));loadRetroCores();}catch(err){toast(err.message);}});
 const rpT=(k,v)=>{let s=topText('rp.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
 function rpLast(job){const p=$('rp-last');if(!job){p.textContent='';return;}
   if(job.error)p.textContent=rpT('lastFail',{err:job.error});
@@ -213,7 +228,7 @@ function rcSystems(list){
     const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill('코어가 없습니다','warn'):'';const swap=cs?acSwap(cs):'';
     const picked=s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
     const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
-    const extra=td();if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
+    const extra=td();if(cs)extra.append(rcSource(cs.core));if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
     tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
 async function rcSetSystem(s,core,sel){
   if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}
@@ -233,7 +248,7 @@ async function rcUpload(file,replace=false){
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
   toast(d.where+' 에 올렸습니다.');loadRetroCores();}
 // The official core upkeep's state of a console's core (auto-cores.js coreStates).
-const AC_KIND={off:'',present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
+const AC_KIND={off:'',"not-in-repo":'warn',present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
 function acPill(cs){const k=cs.state==='missing'?'missing.'+cs.reason:cs.state;const p=pill(topText('ac.'+k),AC_KIND[cs.state]??'');
   if(cs.state==='present'&&cs.built)p.title=cs.source+' · '+cs.built+(cs.crc32?' · '+cs.crc32:'');
   if(cs.state==='failed')p.title=(cs.message||'')+(cs.retryAt?' · '+fmt(cs.retryAt):'');return p;}

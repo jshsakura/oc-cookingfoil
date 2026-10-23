@@ -59,6 +59,41 @@ export const retroCapabilities = [
     },
   }),
   defineCapability({
+    id: "retro_core_source",
+    area: "retro",
+    title: "Choose where a RetroArch core comes from",
+    description: "Sets one core's source for the upkeep: the libretro nightly buildbot, the latest release of the core repository, or the admin's own upload, which is never fetched or replaced.",
+    input: {
+      type: "object",
+      properties: {
+        core: { type: "string", description: "The core id as in its file name, e.g. mgba for mgba_libretro_libnx.nro" },
+        source: { type: "string", enum: ["nightly", "repo", "upload"], description: "nightly (default), repo (the core repository's latest release) or upload (the admin's own file)" },
+      },
+      required: ["core", "source"],
+    },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-cores/source" },
+    handler: async ({ core, source }) => {
+      const coreSettings = await import("../retro/core-settings.js");
+      if (!coreSettings.setSource(core, source)) throw new Error("core and source (nightly, repo, upload) are required");
+      return { core, source };
+    },
+  }),
+  defineCapability({
+    id: "retro_core_repo",
+    area: "retro",
+    title: "Set the RetroArch core repository",
+    description: "Names the GitHub repository (owner/name) whose latest release assets <core>_libretro_libnx.nro or .nro.zip are the cores with source repo. An empty value clears it.",
+    input: { type: "object", properties: { repo: { type: "string", description: "owner/name of a GitHub repository with Switch core releases, or empty to clear it" } }, required: ["repo"] },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-cores/repo" },
+    handler: async ({ repo }) => {
+      const coreSettings = await import("../retro/core-settings.js");
+      if (typeof repo !== "string" || !coreSettings.setRepo(repo)) throw new Error("not an owner/name repository");
+      return { repo: coreSettings.repo() };
+    },
+  }),
+  defineCapability({
     id: "retro_cores_update",
     area: "retro",
     title: "Update the server's RetroArch cores",
