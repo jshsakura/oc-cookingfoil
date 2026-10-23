@@ -314,6 +314,12 @@ test("the admin adds a RetroArch core, replaces it only when asked, and removes 
 
     r = await send("mgba_libretro_libnx.nro", fakeNro("2.0.0"));
     assert.equal(r.status, 409, "a core of that name is never replaced unasked");
+    // Without Accept-Language (a token, a script) the refusal is English; the admin page gets its own language. Both carry the code.
+    assert.deepEqual(await r.json(), { error: "A core of that name is already there. Confirm the replacement to swap it", code: "coreExists" });
+    const fdKo = new FormData();
+    fdKo.append("files", new Blob([fakeNro("2.0.0")]), "mgba_libretro_libnx.nro");
+    r = await fetch(`${BASE}/admin/api/upload/core`, { method: "POST", headers: { ...admin, "Accept-Language": "ko" }, body: fdKo });
+    assert.deepEqual(await r.json(), { error: "같은 이름의 코어가 이미 있습니다. 바꾸려면 교체를 확인합니다", code: "coreExists" });
     r = await send("mgba_libretro_libnx.nro", fakeNro("2.0.0"), true);
     assert.equal(r.status, 201);
     assert.match((await r.json()).trashed, /^\d{4}-\d{2}-\d{2}\/core-[0-9a-f]{10}$/, "the old one went to the trash");
@@ -328,6 +334,9 @@ test("the admin adds a RetroArch core, replaces it only when asked, and removes 
     assert.ok(plan.credit.url.startsWith("https://github.com/"));
     r = await fetch(`${BASE}/admin/api/retro-pack/fill`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({}) });
     assert.equal(r.status, 400, "no confirmation, no download");
+    assert.deepEqual(await r.json(), { error: "Confirmation is required", code: "confirmNeeded" });
+    r = await fetch(`${BASE}/admin/api/retro-pack/fill`, { method: "POST", headers: { ...admin, "Content-Type": "application/json", "Accept-Language": "ko" }, body: JSON.stringify({}) });
+    assert.deepEqual(await r.json(), { error: "확인이 필요합니다", code: "confirmNeeded" });
 
     r = await fetch(`${BASE}/admin/api/retro-cores/remove`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ core: "mgba" }) });
     assert.equal(r.status, 200, await r.clone().text());

@@ -14,6 +14,7 @@ import fsp from "fs/promises";
 import path from "path";
 import { Readable, Transform } from "stream";
 import { pipeline } from "stream/promises";
+import { coreText } from "./core-messages.js";
 
 export const lock = JSON.parse(fs.readFileSync(new URL("./data/retro-pack.lock.json", import.meta.url), "utf8"));
 
@@ -22,6 +23,11 @@ export class PackError extends Error {
     super(message);
     this.name = "PackError";
     Object.assign(this, extra);
+  }
+
+  /** A refusal named by its core-messages.js key: the message in English, with `code` and `vars` for the route to translate. */
+  static of(code, vars = {}, extra = {}) {
+    return new PackError(coreText("en", code, vars), { ...extra, code, vars });
   }
 }
 
@@ -67,7 +73,7 @@ export async function downloadBundle({ url, file = lock.bundle.file, size = lock
       at = 0;
       continue;
     }
-    if (!res.ok || !res.body) throw new PackError(`번들을 받지 못했습니다 (HTTP ${res.status})`, { status: 502 });
+    if (!res.ok || !res.body) throw PackError.of("bundleHttp", { status: res.status }, { status: 502 });
     // A server that ignores Range sends the whole file with 200: start over.
     const resume = at > 0 && res.status === 206 && Number(rangeFrom(res)) === at;
     if (!resume) at = 0;
@@ -76,13 +82,13 @@ export async function downloadBundle({ url, file = lock.bundle.file, size = lock
     if (Number.isFinite(promised) && promised > 0 && at + promised > size) {
       res.body.cancel().catch(() => {});
       await fsp.rm(dest, { force: true });
-      throw new PackError("받는 번들이 lock 의 크기보다 큽니다. 받지 않습니다", { status: 502, hashMismatch: true });
+      throw PackError.of("bundleTooLarge", {}, { status: 502, hashMismatch: true });
     }
     let done = at;
     const count = new Transform({
       transform(chunk, _enc, cb) {
         done += chunk.length;
-        if (done > size) return cb(new PackError("받는 번들이 lock 의 크기보다 커서 멈췄습니다", { status: 502, hashMismatch: true }));
+        if (done > size) return cb(PackError.of("bundleOverrun", {}, { status: 502, hashMismatch: true }));
         onProgress({ done, total: size });
         cb(null, chunk);
       },
@@ -97,7 +103,7 @@ export async function downloadBundle({ url, file = lock.bundle.file, size = lock
   }
   if ((await have()) !== size || (await sha256File(dest)) !== sha256) {
     await fsp.rm(dest, { force: true });
-    throw new PackError("받은 번들의 SHA-256 이 맞지 않아 지웠습니다. 설치하지 않습니다", { status: 502, hashMismatch: true });
+    throw PackError.of("bundleSha", {}, { status: 502, hashMismatch: true });
   }
   return { file: dest, downloaded: true };
 }
@@ -107,7 +113,7 @@ export async function downloadBundle({ url, file = lock.bundle.file, size = lock
  * accepted when every wanted path is there afterwards; anything else throws.
  */
 export async function extractPaths(archive, outDir, paths, { bin = sevenZipBin() } = {}) {
-  if (!bin) throw new PackError("7-Zip 이 없어 번들을 풀 수 없습니다 (COOK_7Z_BIN)", { status: 500 });
+  if (!bin) throw PackError.of("no7z", {}, { status: 500 });
   await fsp.mkdir(outDir, { recursive: true });
   const code = await new Promise((resolve, reject) => {
     const child = spawn(bin, ["x", "-y", "-bd", "-aoa", `-o${outDir}`, "--", archive, ...paths], { stdio: ["ignore", "ignore", "pipe"] });
@@ -116,8 +122,8 @@ export async function extractPaths(archive, outDir, paths, { bin = sevenZipBin()
     child.on("error", reject);
     child.on("close", (c) => resolve(c === 0 || c === 1 ? 0 : Object.assign(new Error(err.trim() || `7z exit ${c}`), { code: c })));
   });
-  if (code !== 0) throw new PackError(`번들을 풀지 못했습니다: ${code.message}`, { status: 500 });
+  if (code !== 0) throw PackError.of("unpackFailed", { why: code.message }, { status: 500 });
   for (const p of paths) {
-    if (!(await fsp.lstat(path.join(outDir, p)).catch(() => null))) throw new PackError(`번들에 ${p} 가 없습니다`, { status: 500 });
+    if (!(await fsp.lstat(path.join(outDir, p)).catch(() => null))) throw PackError.of("bundleMissing", { path: p }, { status: 500 });
   }
 }

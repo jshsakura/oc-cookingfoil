@@ -477,7 +477,7 @@ test("B2: a link where a folder should be is refused and nothing is written outs
   try {
     const outside = tmp();
     fs.symlinkSync(outside, path.join(w.packDir, "assets"));
-    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /링크/);
+    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /link/);
     assert.deepEqual(fs.readdirSync(outside), []);
     assert.equal(w.ledger.all().size, 0);
     assert.ok(!fs.existsSync(path.join(w.packDir, "retroarch.nro")), "the whole run was undone");
@@ -508,7 +508,7 @@ test("F1: a response longer than the lock's size is cut at once and the partial 
   const fetchImpl = async () => new Response(new ReadableStream({
     pull(ctl) { if (sent > 4 * 1024 * 1024) return ctl.close(); sent += 64 * 1024; ctl.enqueue(new Uint8Array(64 * 1024)); },
   }), { status: 200 });
-  await assert.rejects(downloadBundle({ url: "http://x.invalid/a", file: "RetroArch.7z", size: 16, sha256: "0".repeat(64), cacheDir, fetchImpl }), /크기|SHA/);
+  await assert.rejects(downloadBundle({ url: "http://x.invalid/a", file: "RetroArch.7z", size: 16, sha256: "0".repeat(64), cacheDir, fetchImpl }), /lock|SHA/);
   assert.ok(!fs.existsSync(path.join(cacheDir, "RetroArch.7z")));
   assert.ok(sent < 1024 * 1024, `stopped early, ${sent} bytes were pulled`);
 });
@@ -574,7 +574,7 @@ test("a link in place of the prev folder is refused, and a staging folder left b
   try {
     const outside = tmp();
     fs.symlinkSync(outside, path.join(w.dataDir, "retro-pack-prev"));
-    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /링크/);
+    await assert.rejects(applyFill({ ...w, games: GAMES, url, pack: b.pack, bin }), /link/);
     assert.deepEqual(fs.readdirSync(outside), []);
     fs.unlinkSync(path.join(w.dataDir, "retro-pack-prev"));
     fs.mkdirSync(path.join(w.dataDir, "retro-pack-staging/old-run"), { recursive: true });

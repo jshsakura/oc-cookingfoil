@@ -7,7 +7,6 @@
  * Downloads go over https and may be redirected only to GitHub's own download hosts.
  */
 import { PackError } from "./pack-bundle.js";
-import { coreKo } from "./core-messages.js";
 
 export const GITHUB_HOSTS = ["https://github.com", "https://objects.githubusercontent.com", "https://release-assets.githubusercontent.com"];
 const API_TIMEOUT_MS = 30_000;
@@ -37,15 +36,15 @@ let cached = { repo: null, at: 0, index: null };
 
 /** The latest release's cores of `repo`, read again at most every ten minutes unless `fresh`. */
 export async function fetchRepoIndex(repo, { fetchImpl = fetch, token = null, fresh = false, now = Date.now() } = {}) {
-  if (!repo) throw new PackError(coreKo("noRepo"), { status: 400, reason: "no-repo" });
+  if (!repo) throw PackError.of("noRepo", {}, { status: 400, reason: "no-repo" });
   if (!fresh && cached.repo === repo && now - cached.at < INDEX_TTL_MS) return cached.index;
   const res = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
     headers: { "User-Agent": "oc-cookingfoil", Accept: "application/vnd.github+json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     signal: AbortSignal.timeout(API_TIMEOUT_MS),
   }).catch((err) => {
-    throw new PackError(coreKo("repoFailed", { repo, status: err.name === "TimeoutError" ? "timeout" : "fetch" }), { status: 502, reason: "download" });
+    throw PackError.of("repoFailed", { repo, status: err.name === "TimeoutError" ? "timeout" : "fetch" }, { status: 502, reason: "download" });
   });
-  if (!res.ok) throw new PackError(coreKo("repoFailed", { repo, status: res.status }), { status: 502, reason: "download" });
+  if (!res.ok) throw PackError.of("repoFailed", { repo, status: res.status }, { status: 502, reason: "download" });
   const index = parseRelease(await res.json());
   cached = { repo, at: now, index };
   return index;

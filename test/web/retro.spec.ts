@@ -191,3 +191,25 @@ test('a preview shelf keeps its title, game count and buttons on one line, seven
   expect(await row.evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(await row.locator('h2').evaluate((el) => el.getBoundingClientRect().top), 0);
   await expect(row.locator('.recent')).toHaveCSS('--n', '7');
 });
+
+test('removing a core that games use asks again by the refusal code, whatever language its text is in', async ({ page }) => {
+  await signIn(page);
+  await page.route('**/admin/api/retro-cores', (route) => route.fulfill({ json: {
+    official: '1.22.2', retroarch: null, systems: [], auto: null, sources: { repo: null, cores: {} },
+    cores: [{ core: 'mgba', file: 'mgba_libretro_libnx.nro', name: 'mGBA', systems: [], size: 1, modifiedAt: 0, origin: 'extra', sha256: 'a'.repeat(64) }],
+  } }));
+  const forced: boolean[] = [];
+  await page.route('**/admin/api/retro-cores/remove', (route) => {
+    const force = route.request().postDataJSON().force === true;
+    forced.push(force);
+    // English text on purpose: the page must branch on the code, not on the words.
+    return force ? route.fulfill({ json: { core: 'mgba', using: 3, entry: 'x' } }) : route.fulfill({ status: 409, json: { error: '3 games use this core', code: 'coreInUse', using: 3 } });
+  });
+  await page.getByRole('link', { name: '레트로' }).click();
+  await page.locator('#retro-subtabs [data-sub="cores"]').click();
+  await page.getByRole('button', { name: 'mgba 지우기' }).click();
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#ask-dialog')).toContainText('3 games use this core');
+  await page.locator('#ask-ok').click();
+  await expect.poll(() => forced).toEqual([false, true]);
+});

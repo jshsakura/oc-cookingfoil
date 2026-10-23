@@ -163,7 +163,7 @@ export async function describeFill({ packDir, ledger, games, systems, cacheDir, 
 async function walkFiles(root, rel = "", out = []) {
   for (const e of await fsp.readdir(path.join(root, rel), { withFileTypes: true })) {
     const child = rel ? `${rel}/${e.name}` : e.name;
-    if (e.isSymbolicLink()) throw new PackError(`번들에 심볼릭 링크가 있습니다: ${child}`, { status: 500 });
+    if (e.isSymbolicLink()) throw PackError.of("bundleLink", { path: child }, { status: 500 });
     if (e.isDirectory()) await walkFiles(root, child, out);
     else if (e.isFile()) out.push(child);
   }
@@ -173,7 +173,7 @@ async function walkFiles(root, rel = "", out = []) {
 /** Throws unless `abs` is a regular file and not a link. */
 async function plainFile(abs) {
   const st = await fsp.lstat(abs);
-  if (!st.isFile()) throw new PackError(`번들의 ${path.basename(abs)} 가 일반 파일이 아닙니다`, { status: 500 });
+  if (!st.isFile()) throw PackError.of("bundleNotFile", { name: path.basename(abs) }, { status: 500 });
 }
 
 async function isNro(abs) {
@@ -194,14 +194,14 @@ async function stagedFiles(staging, cores, { lock, official: officialCores }) {
   const bodyAbs = path.join(staging, body.from);
   await plainFile(bodyAbs);
   const bodyDigest = await digestFile(bodyAbs);
-  if (bodyDigest.sha256 !== body.sha256 || !(await isNro(bodyAbs))) throw new PackError("번들의 RetroArch 본체가 lock 과 다릅니다. 설치하지 않습니다", { status: 502 });
+  if (bodyDigest.sha256 !== body.sha256 || !(await isNro(bodyAbs))) throw PackError.of("bodyMismatch", {}, { status: 502 });
   out.push({ rel: body.to, abs: bodyAbs, ...bodyDigest, source: "bundle", kind: "body" });
   for (const core of cores) {
     const abs = path.join(staging, lock.paths.cores.from, `${core}_libretro_libnx.nro`);
     await plainFile(abs);
     const [want, size] = officialCores.files[`${core}_libretro_libnx.nro`];
     const { sha256, crc32 } = await digestFile(abs);
-    if (sha256 !== want || (await fsp.stat(abs)).size !== size || !(await isNro(abs))) throw new PackError(`번들의 ${core} 코어가 공식 목록과 다릅니다. 설치하지 않습니다`, { status: 502 });
+    if (sha256 !== want || (await fsp.stat(abs)).size !== size || !(await isNro(abs))) throw PackError.of("bundleCoreMismatch", { core }, { status: 502 });
     out.push({ rel: coreRel(core), abs, sha256, crc32, source: "bundle", kind: "core" });
   }
   for (const d of lock.paths.dirs) {
@@ -230,13 +230,13 @@ const tempName = (dest) => `${dest}.${crypto.randomBytes(6).toString("hex")}.cfp
 /** Throws when `abs` or any folder between `root` and it is a link, or when it is outside `root`. */
 async function assertNoLinks(root, abs, io) {
   const rel = path.relative(root, abs);
-  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) throw new PackError(`${abs} 는 팩 폴더 밖입니다`, { status: 500 });
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) throw PackError.of("outsidePack", { path: abs }, { status: 500 });
   let cur = root;
   for (const part of rel.split(path.sep)) {
     cur = path.join(cur, part);
     const st = await io.lstat(cur);
     if (!st) return;
-    if (st.isSymbolicLink()) throw new PackError(`${path.relative(root, cur)} 가 링크라 쓰지 않습니다`, { status: 500 });
+    if (st.isSymbolicLink()) throw PackError.of("isLink", { path: path.relative(root, cur) }, { status: 500 });
   }
 }
 
@@ -333,7 +333,7 @@ export async function commit(ops, { packDir, keepRoot = null, io = REAL_IO }) {
     }
   } catch (err) {
     const stuck = await rollback();
-    throw new PackError(`설치하다 멈췄습니다: ${err.message}`, { status: 500, ...(stuck.length ? { stuck } : { rolledBack: true }) });
+    throw PackError.of("installStopped", { why: err.message }, { status: 500, ...(stuck.length ? { stuck } : { rolledBack: true }) });
   }
   return { done, skipped, undo: rollback };
 }
@@ -368,9 +368,9 @@ export const clearRecovery = (dataDir) => fs.rmSync(recoveryFile(dataDir), { for
  */
 export async function applyFill({ packDir, dataDir, ledger, games, systems = {}, url, onStep = () => {}, fetchImpl, io, bin, pack = REAL_PACK }) {
   const { lock } = pack;
-  if (running) throw new PackError("이미 채우고 있습니다", { status: 409 });
+  if (running) throw PackError.of("fillRunning", {}, { status: 409 });
   const pending = readRecovery(dataDir);
-  if (pending) throw new PackError("지난번 채우기에서 되돌리지 못한 파일이 있습니다. 확인한 뒤 복구 기록을 지워야 다시 채웁니다", { status: 409, stuck: pending.stuck });
+  if (pending) throw PackError.of("fillStuck", {}, { status: 409, stuck: pending.stuck });
   running = true;
   const cacheRoot = path.join(dataDir, "retro-pack-cache");
   const staging = path.join(dataDir, "retro-pack-staging", `${lock.version}-${process.pid}-${Date.now()}`);
@@ -381,7 +381,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     // What a hard kill left behind in staging is of no use to anyone.
     await fsp.rm(path.join(dataDir, "retro-pack-staging"), { recursive: true, force: true });
     const keepRoot = path.join(await fsp.realpath(dataDir), "retro-pack-prev");
-    if ((await fsp.lstat(keepRoot).catch(() => null))?.isSymbolicLink()) throw new PackError("retro-pack-prev 가 링크라 쓰지 않습니다", { status: 500 });
+    if ((await fsp.lstat(keepRoot).catch(() => null))?.isSymbolicLink()) throw PackError.of("isLink", { path: "retro-pack-prev" }, { status: 500 });
     await fsp.mkdir(keepRoot, { recursive: true });
     const { have } = wantedCores(games, pack);
     const cores = have.map((c) => c.core);
@@ -410,7 +410,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     const keptCount = { operator: 0, modified: 0 };
     const refresh = [];
     for (const f of staged) {
-      if (isProtected(f.rel)) throw new PackError(`${f.rel} 는 서버가 쓰지 않는 파일입니다`, { status: 500 });
+      if (isProtected(f.rel)) throw PackError.of("protectedFile", { path: f.rel }, { status: 500 });
       const entry = entries.get(f.rel);
       const cur = await hashOrNull(path.join(root, f.rel));
       const state = decide({ current: cur, entry, next: f.sha256 });
@@ -433,7 +433,7 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
     try {
       placed = await commit(ops, { packDir: root, keepRoot, io });
     } catch (err) {
-      if (err.stuck?.length) throw leftBehind(dataDir, lock.version, err.stuck, err.message);
+      if (err.stuck?.length) throw leftBehind(dataDir, lock.version, err.stuck, err);
       throw err;
     }
     for (const k of placed.skipped) {
@@ -444,8 +444,8 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
       ledger.put([...placed.done.map((d) => d.op), ...refresh].map((f) => ({ rel: f.rel, sha256: f.sha256, source: f.source, lockVersion: lock.version, crc32: f.crc32 ?? null })));
     } catch (err) {
       const stuck = await placed.undo();
-      if (stuck.length) throw leftBehind(dataDir, lock.version, stuck, `장부에 쓰지 못했고 되돌리지도 못했습니다: ${err.message}`, { ledgerBehind: true });
-      throw new PackError(`장부에 쓰지 못해 되돌렸습니다: ${err.message}`, { status: 500, rolledBack: true });
+      if (stuck.length) throw leftBehind(dataDir, lock.version, stuck, { code: "ledgerStuck", vars: { why: err.message } }, { ledgerBehind: true });
+      throw PackError.of("ledgerRolledBack", { why: err.message }, { status: 500, rolledBack: true });
     }
     // Verified and written down: the unpacked files are what the server keeps, not the bundle.
     await fsp.rm(cacheRoot, { recursive: true, force: true }).catch(() => {});
@@ -456,13 +456,13 @@ export async function applyFill({ packDir, dataDir, ledger, games, systems = {},
   }
 }
 
-/** Writes the recovery note and builds the error for a run that left files behind. */
-function leftBehind(dataDir, version, stuck, message, extra = {}) {
+/** Writes the recovery note and builds the error for a run that left files behind; `fault` { code, vars } says why. */
+function leftBehind(dataDir, version, stuck, fault, extra = {}) {
   const note = { at: new Date().toISOString(), version, stuck, prev: path.join(dataDir, "retro-pack-prev"), ...extra };
   try {
     fs.writeFileSync(recoveryFile(dataDir), JSON.stringify(note, null, 2));
   } catch {
     // The error below carries the same list.
   }
-  return new PackError(message, { status: 500, stuck, ...extra });
+  return PackError.of(fault.code, fault.vars, { status: 500, stuck, ...extra });
 }
