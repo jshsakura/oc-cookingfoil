@@ -17,7 +17,7 @@ const MOVE = obj({
   id: str(),
   at: num("epoch ms"),
   action: str(),
-  fromRoot: str("library folder: games, incoming, patches, saves, homebrew or retro"),
+  fromRoot: str("library folder: games, incoming, patches, saves, homebrew, retro or data"),
   from: str("path in fromRoot"),
   toRoot: str(),
   to: str("path in toRoot"),

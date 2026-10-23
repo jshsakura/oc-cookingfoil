@@ -24,14 +24,15 @@ import * as journalStore from "./journal.js";
 import { homebrewExtrasOf, putHomebrewExtras, putMarks } from "./trash-marks.js";
 import { sweepPartials } from "./safe-move.js";
 
-// data: the server's own folder (uploaded art, the drop box's notes, uploads); keys: prod.keys.
-export const ROOT_KEYS = Object.freeze(["games", "incoming", "patches", "saves", "homebrew", "retro", "data", "keys"]);
-const OWN_ROOTS = ["data", "keys"];
+// data: the server's own folder (uploaded art and prod.keys, the drop box's notes, uploads). The
+// mounted keys folder is the operator's and never deleted from, so it is not a root.
+export const ROOT_KEYS = Object.freeze(["games", "incoming", "patches", "saves", "homebrew", "retro", "data"]);
+const OWN_ROOTS = ["data"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The library folders as { key, dir }, each folder once (the first key that names it). */
 export function libraryRoots() {
-  const dirs = { games: env.romsDirPath, incoming: env.incomingDir, patches: env.patchesDir, saves: env.savesDir, homebrew: env.homebrewDir, retro: env.retroDir, data: env.dataDir, keys: env.keysDir };
+  const dirs = { games: env.romsDirPath, incoming: env.incomingDir, patches: env.patchesDir, saves: env.savesDir, homebrew: env.homebrewDir, retro: env.retroDir, data: env.dataDir };
   const seen = new Set();
   const out = [];
   for (const key of ROOT_KEYS) {
@@ -76,7 +77,6 @@ const REFRESH = {
   homebrew: async () => (await import("../routes/homebrew.js")).refreshManual(),
   retro: async () => (await import("../retro/catalog.js")).rescan(env.retroDir),
   data: async () => {},
-  keys: async () => {},
 };
 let refresher = (key) => REFRESH[key]?.();
 /** Test-only: what runs after a folder changed (null puts the real one back). */
@@ -103,18 +103,28 @@ export async function trash(key, items, meta = {}) {
  * Deleting, as everything that is not a database row is deleted: `paths` (absolute) go to the trash
  * of the folder each is in, one entry per folder and disk, and come back with a restore. A path in no
  * such folder is refused (TrashError noRoot), never deleted. Direct deletes are listed with their
- * reason in direct-deletes.js. Returns { id, entries, files } like trash().
+ * reason in direct-deletes.js. All or nothing: a failure puts back what the call moved. Returns
+ * { id, ids, entries, files }: every entry id, one per folder and disk.
  */
 export async function discard(paths, meta = {}) {
+  const roots = new Set(libraryRoots().map((r) => r.dir));
   const groups = new Map();
   for (const abs of paths) {
     const at = locate(abs);
-    if (!at) throw trashStore.trashError("noRoot", 400);
+    // A library folder itself is never one of another folder's files (retro inside data, in the old layout).
+    if (!at || roots.has(path.resolve(abs))) throw trashStore.trashError("noRoot", 400);
     groups.set(at.root.key, [...(groups.get(at.root.key) ?? []), { rel: at.rel, from: path.resolve(abs) }]);
   }
   const outs = [];
-  for (const [key, items] of groups) outs.push(await trash(key, items, meta));
-  return { id: outs[0]?.id ?? null, entries: outs.flatMap((o) => o.entries), files: outs.flatMap((o) => o.files) };
+  try {
+    for (const [key, items] of groups) outs.push(await trash(key, items, meta));
+  } catch (err) {
+    // All or nothing: what the call already moved goes back.
+    if (outs.length) await restore(outs.flatMap((o) => o.entries.map((e) => e.id)), meta.by ?? null, { exactName: true });
+    throw err;
+  }
+  const entries = outs.flatMap((o) => o.entries);
+  return { id: entries[0]?.id ?? null, ids: entries.map((e) => e.id), entries, files: outs.flatMap((o) => o.files) };
 }
 
 /**
@@ -389,7 +399,8 @@ export async function tidy() {
   const before = Date.now();
   out.migrated = await migrate().catch((err) => { debug.error("trash: retro trash not moved: %s", err.message); return 0; });
   for (const r of libraryRoots()) {
-    const swept = await sweepPartials([r.dir], { recursive: true, before }).catch((err) => { debug.error("trash: partials in %s not swept: %s", r.key, err.message); return { removed: 0, left: [] }; });
+    // The server's data folder holds caches and, in the old layout, retro: only its top is swept.
+    const swept = await sweepPartials([r.dir], { recursive: !OWN_ROOTS.includes(r.key), before }).catch((err) => { debug.error("trash: partials in %s not swept: %s", r.key, err.message); return { removed: 0, left: [] }; });
     out.partials += swept.removed;
     out.left += swept.left.length;
     out.twins += await trashStore.dropTwins(r).catch((err) => { debug.error("trash: %s not checked for twins: %s", r.key, err.message); return 0; });
