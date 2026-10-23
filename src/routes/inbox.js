@@ -38,6 +38,8 @@ import { alert } from "../helpers/alerts.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { csrfOk, webUser } from "../security/user-session.js";
 import debug from "../debug.js";
+import { isMetaCode, metaText } from "../meta/meta-messages.js";
+import { requestLang } from "../meta/langs.js";
 
 export const RATE_MAX = 5;
 const RATE_WINDOW_MS = 60_000;
@@ -62,7 +64,8 @@ function overRate(key, now = Date.now()) {
   return over;
 }
 
-const fail = (res, status, code, error) => res.status(status).json({ error, code });
+/** Answers `code` (what the page branches on) with message `key` in the request's language; origin and csrf say plain English. */
+const fail = (req, res, status, code, key, vars) => res.status(status).json({ error: isMetaCode(key) ? metaText(requestLang(req), key, vars) : key, code });
 
 let inFlight = 0; // bytes of uploads being received, held against the quota
 
@@ -77,8 +80,8 @@ function budget(used) {
   return {
     take(n) {
       if (over) return over;
-      if (mine + n > envs.inboxMaxBytes) over = new inbox.InboxError(413, "too-big", tooBigMessage());
-      else if (used + inFlight + n > envs.inboxQuotaBytes) over = new inbox.InboxError(507, "full", fullMessage());
+      if (mine + n > envs.inboxMaxBytes) over = new inbox.InboxError(413, "too-big", "inbox.tooBig", tooBigVars());
+      else if (used + inFlight + n > envs.inboxQuotaBytes) over = new inbox.InboxError(507, "full", "inbox.full");
       if (over) return over;
       mine += n;
       inFlight += n;
@@ -128,8 +131,7 @@ function countedStorage(work, money, onOver) {
     },
   };
 }
-const fullMessage = () => "임시 공유함이 가득 찼습니다. 관리자가 정리한 뒤 다시 올립니다";
-const tooBigMessage = () => `한 번에 ${inbox.fmtBytes(envs.inboxMaxBytes)}까지 올립니다`;
+const tooBigVars = () => ({ size: inbox.fmtBytes(envs.inboxMaxBytes) });
 
 export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => alert("inbox", text, { subject: id }) } = {}) {
   const router = express.Router();
@@ -139,7 +141,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
   router.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
     req.inboxUser = whoOf(req);
-    if (!req.inboxUser) return fail(res, 401, "signin", "로그인한 사용자만 씁니다");
+    if (!req.inboxUser) return fail(req, res, 401, "signin", "inbox.signin");
     next();
   });
 
@@ -150,23 +152,23 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
 
   router.post("/", async (req, res) => {
     const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return fail(res, 403, "origin", "origin mismatch");
-    if (!csrfOk(req)) return fail(res, 403, "csrf", "csrf token missing or wrong");
-    if (!envs.inboxEnabled) return fail(res, 404, "off", "임시 공유가 꺼져 있습니다");
+    if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return fail(req, res, 403, "origin", "origin mismatch");
+    if (!csrfOk(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
+    if (!envs.inboxEnabled) return fail(req, res, 404, "off", "inbox.off");
     const user = req.inboxUser;
     // Refused before a byte is read: an announced size that can't fit.
     const announced = Number(req.get("content-length")) || 0;
     if (announced > envs.inboxMaxBytes + FORM_OVERHEAD) {
       res.set("Connection", "close");
-      return fail(res, 413, "too-big", tooBigMessage());
+      return fail(req, res, 413, "too-big", "inbox.tooBig", tooBigVars());
     }
     if ((await inbox.usage()) + Math.max(0, announced - FORM_OVERHEAD) > envs.inboxQuotaBytes) {
       res.set("Connection", "close");
-      return fail(res, 507, "full", fullMessage());
+      return fail(req, res, 507, "full", "inbox.full");
     }
     if (overRate(user.slug)) {
       res.set("Connection", "close");
-      return fail(res, 429, "rate", "잠시 뒤에 다시 올립니다");
+      return fail(req, res, 429, "rate", "inbox.rate");
     }
 
     const work = await inbox.newStaging();
@@ -181,7 +183,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       if (res.headersSent) return;
       res.set("Connection", "close");
       res.on("finish", () => req.socket?.destroy());
-      fail(res, err.status, err.code, err.message);
+      fail(req, res, err.status, err.code, err.key, err.vars);
     };
     // However the request ends, what it held against the quota is let go.
     res.on("close", () => money.release());
@@ -203,7 +205,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       const files = received.map((f, i) => ({ path: f.path, name: fromFolder ? String(paths[i]) : Buffer.from(f.originalname, "latin1").toString("utf8") }));
       const memo = inbox.cleanMemo(req.body?.memo);
       const links = inbox.parseLinks(req.body?.links);
-      if (!files.length && !memo && !links.length) throw new inbox.InboxError(400, "empty", "파일, 메모, 링크 중 하나는 남깁니다");
+      if (!files.length && !memo && !links.length) throw new inbox.InboxError(400, "empty", "inbox.empty");
       const bytes = received.reduce((sum, f) => sum + f.size, 0);
       const note = await inbox.create({ user: user.name, slug: user.slug, work, files, memo, links });
       debug.log("inbox: %s left %d files (%d bytes), %d links", user.slug, files.length, bytes, links.length);
@@ -212,11 +214,11 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
     } catch (err) {
       await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
       if (res.headersSent) return;
-      if (err instanceof inbox.InboxError) return fail(res, err.status, err.code, err.message);
-      if (err.code === "LIMIT_FILE_SIZE") return fail(res, 413, "too-big", tooBigMessage());
-      if (err.code?.startsWith?.("LIMIT_")) return fail(res, 400, "limit", "파일이나 항목이 너무 많습니다");
+      if (err instanceof inbox.InboxError) return fail(req, res, err.status, err.code, err.key, err.vars);
+      if (err.code === "LIMIT_FILE_SIZE") return fail(req, res, 413, "too-big", "inbox.tooBig", tooBigVars());
+      if (err.code?.startsWith?.("LIMIT_")) return fail(req, res, 400, "limit", "inbox.limit");
       debug.error("inbox: upload failed: %s", err.message);
-      fail(res, 500, "error", "올리지 못했습니다. 잠시 뒤에 다시 올립니다");
+      fail(req, res, 500, "error", "inbox.error");
     } finally {
       money.release();
     }

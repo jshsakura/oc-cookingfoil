@@ -19,6 +19,7 @@ import fsp from "fs/promises";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import { discard } from "../library/trash-service.js";
+import { coded } from "./meta-messages.js";
 
 export const INBOX_DIR = path.join(dataDir, "inbox");
 const STAGING_DIR = path.join(INBOX_DIR, ".staging");
@@ -32,9 +33,14 @@ const USAGE_TTL_MS = 60_000;
 const ID_RE = /^\d{8}-\d{6}-[A-Za-z0-9_-]{1,40}-[0-9a-f]{4}$/;
 
 /** A refusal the person can act on: an HTTP status, a code and a Korean message. */
+/**
+ * A refused share: `code` is the public value the page branches on, `key` the message
+ * (meta-messages "inbox.*") with `vars`; the message itself is English.
+ */
 export class InboxError extends Error {
-  constructor(status, code, message) {
-    super(message);
+  constructor(status, code, key, vars = {}) {
+    super();
+    coded(this, key, vars, { field: "key" });
     this.status = status;
     this.code = code;
   }
@@ -76,7 +82,7 @@ export function uniquePaths(rels) {
 /** Links from a newline-separated text or a list: http or https only, no repeats. */
 export function parseLinks(raw) {
   const items = (Array.isArray(raw) ? raw : String(raw ?? "").split(/\r?\n/)).map((s) => String(s).trim()).filter(Boolean);
-  if (items.length > LINKS_MAX) throw new InboxError(400, "too-many-links", `링크는 ${LINKS_MAX}개까지 남깁니다`);
+  if (items.length > LINKS_MAX) throw new InboxError(400, "too-many-links", "inbox.tooManyLinks", { n: LINKS_MAX });
   const out = [];
   for (const item of items) {
     let url = null;
@@ -86,7 +92,7 @@ export function parseLinks(raw) {
       url = null;
     }
     if (!url || (url.protocol !== "http:" && url.protocol !== "https:")) {
-      throw new InboxError(400, "bad-link", `http 나 https 로 시작하는 주소만 남깁니다: ${item.slice(0, 80)}`);
+      throw new InboxError(400, "bad-link", "inbox.badLink", { link: item.slice(0, 80) });
     }
     if (!out.includes(url.href)) out.push(url.href);
   }
@@ -96,7 +102,7 @@ export function parseLinks(raw) {
 /** The memo, trimmed, with plain line breaks. */
 export function cleanMemo(raw) {
   const memo = String(raw ?? "").replace(/\r\n?/g, "\n").trim();
-  if (memo.length > MEMO_MAX) throw new InboxError(400, "memo-too-long", `메모는 ${MEMO_MAX.toLocaleString()}자까지 남깁니다`);
+  if (memo.length > MEMO_MAX) throw new InboxError(400, "memo-too-long", "inbox.memoLong", { n: MEMO_MAX.toLocaleString("en") });
   return memo;
 }
 

@@ -90,16 +90,16 @@ test("nothing at all, a bad link or a memo that is too long is refused with a re
 test("an upload over the size limit is refused and leaves nothing behind", async () => {
   const r = await post(form({ files: { "big.bin": "x".repeat(700), "big2.bin": "y".repeat(700) } }), headers("dave"));
   assert.equal(r.status, 413);
-  assert.match((await r.json()).error, /한 번에/);
+  assert.deepEqual(await r.json(), { error: "Up to 1000 B can be uploaded at once", code: "too-big" }, "English without Accept-Language");
   assert.equal(fs.readdirSync(path.join(data, "inbox", ".staging")).length, 0);
   assert.equal((await inbox.list()).some((e) => e.user === "dave"), false);
 });
 
 test("a full inbox refuses new uploads with a clear message", async () => {
   settings.save({ inboxQuotaBytes: 1000 });
-  const r = await post(form({ files: { "c.bin": "z".repeat(900) } }), headers("erin"));
+  const r = await post(form({ files: { "c.bin": "z".repeat(900) } }), { ...headers("erin"), "Accept-Language": "ko" });
   assert.equal(r.status, 507);
-  assert.match((await r.json()).error, /가득/);
+  assert.match((await r.json()).error, /가득/, "the share page's language when it asks");
   settings.save({ inboxQuotaBytes: null });
 });
 
@@ -148,7 +148,7 @@ test("a chunked upload with no announced size is cut off once it passes the limi
   // 45 files of 900 bytes: each under the per-upload limit (1000), far over it together
   const r = await chunked("ivan", 45, 900);
   assert.ok(r.status === 413 || r.error, JSON.stringify(r));
-  if (r.status) assert.match(JSON.parse(r.body).error, /한 번에/);
+  if (r.status) assert.match(JSON.parse(r.body).error, /at once/);
   assert.ok(r.written < 45 * 900, `the server read on until ${r.written} bytes`);
   await new Promise((done) => setTimeout(done, 100));
   assert.deepEqual(fs.readdirSync(path.join(data, "inbox", ".staging")), []);

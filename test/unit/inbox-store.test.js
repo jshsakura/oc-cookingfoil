@@ -61,7 +61,7 @@ test("links are http or https, one per line or a list, and memos are trimmed and
   for (const bad of ["javascript:alert(1)", "ftp://x.example", "not a url", "file:///etc/passwd"]) {
     assert.throws(() => inbox.parseLinks(bad), (err) => err instanceof inbox.InboxError && err.status === 400 && err.code === "bad-link");
   }
-  assert.throws(() => inbox.parseLinks(Array.from({ length: 21 }, (_, i) => `https://x.example/${i}`)), /링크/);
+  assert.throws(() => inbox.parseLinks(Array.from({ length: 21 }, (_, i) => `https://x.example/${i}`)), (err) => err.code === "too-many-links" && /Up to 20 links/.test(err.message));
   assert.equal(inbox.cleanMemo("  첫 줄\r\n둘째 줄  "), "첫 줄\n둘째 줄");
   assert.throws(() => inbox.cleanMemo("x".repeat(10_001)), (err) => err.code === "memo-too-long");
 });
