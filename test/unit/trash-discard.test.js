@@ -60,7 +60,8 @@ test("a secret keeps its 0600 mode in the trash and after a restore", async () =
   fs.chmodSync(keys, 0o600);
   const out = await service.discard([keys], { kind: "keys", action: "keys-remove", by, name: "prod.keys" });
   const [entry] = (await service.list()).items.filter((e) => e.id === out.id);
-  const inTrash = fs.readdirSync(path.join(dirs.data, ".cookingfoil-trash"), { recursive: true }).map((r) => path.join(dirs.data, ".cookingfoil-trash", r)).find((p) => path.basename(p) === "prod.keys");
+  // Inside its entry the file keeps the path it had under the folder, as a file browser would show it.
+  const inTrash = path.join(dirs.data, out.entries[0].home, out.entries[0].entry, "keys", "prod.keys");
   assert.equal(fs.statSync(inTrash).mode & 0o777, 0o600);
   assert.ok(!JSON.stringify(entry).includes("secret"), "the list never carries the contents");
   await service.restore([out.id], by);
