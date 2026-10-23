@@ -29,9 +29,9 @@ function files(root) {
 }
 const dirs = (root, sub) => fs.readdirSync(path.join(root, sub)).sort();
 
-// The systems that shipped first keep their short folders; the later ones use RetroArch's system name.
-const FIRST = ["nes", "snes", "gb", "gbc", "gba", "n64", "md", "sms", "gg", "pce", "segacd", "pcecd", "ps1", "psp", "nds", "ngp", "ws", "saturn", "arcade"];
-const NO_BOX_ART = ["pico8", "chip8", "tama"];
+// The systems that shipped first, and OpenBOR, keep their short folders; the other later ones use RetroArch's system name.
+const FIRST = ["nes", "snes", "gb", "gbc", "gba", "n64", "md", "sms", "gg", "pce", "segacd", "pcecd", "ps1", "psp", "nds", "ngp", "ws", "saturn", "arcade", "openbor"];
+const NO_BOX_ART = ["pico8", "chip8", "tama", "openbor"];
 
 test("the first systems' folder is their id; the libretro name is a separate field", () => {
   for (const [id, s] of Object.entries(DEFAULT_SYSTEMS)) {

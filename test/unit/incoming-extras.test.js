@@ -50,9 +50,9 @@ test("a .cue takes its tracks along into a folder of its own; a missing track ho
 });
 
 test("a lone .nro goes to a homebrew folder of its own; one with files beside it stays", () => {
-  const p = plan(["Tool.nro", "apps/Other.nro", "port/game.nro", "port/data.pak"]);
+  const p = plan(["Tool.nro", "apps/Other.nro", "port/game.nro", "port/data.dat"]);
   assert.deepEqual(p.moves.map((m) => [m.root, m.to]), [["homebrew", "Other/Other.nro"], ["homebrew", "Tool/Tool.nro"]]);
-  assert.deepEqual(p.held.map((h) => [h.rel, h.reason]), [["port/data.pak", EXTRA_REASONS.unknown], ["port/game.nro", EXTRA_REASONS.homebrewFolder]]);
+  assert.deepEqual(p.held.map((h) => [h.rel, h.reason]), [["port/data.dat", EXTRA_REASONS.unknown], ["port/game.nro", EXTRA_REASONS.homebrewFolder]]);
   assert.equal(setFolderOf("a:b?.nro"), "ab");
 });
 
