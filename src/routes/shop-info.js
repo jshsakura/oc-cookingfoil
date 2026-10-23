@@ -20,6 +20,15 @@
  * hand the server prod.keys through /api/admin/keys (routes/admin-keys.js).
  * Nobody else learns whether the server has keys.
  *
+ * `nca-rewrap` ("Install ignoring firmware version") is listed whenever the server has prod.keys: a
+ * game file asked for with ?rewrap=<the console's firmware, "21.0.1"> is then
+ * served lowered to that firmware's master key generation (meta/rewrap/), and
+ * `rewrapMaxGen` (0-based) and `rewrapMaxFirmware` ("21.0.0") say how far the server's keys
+ * reach, so a client can tell before it asks whether a game is within reach
+ * (item.key_generation, feature "item-key-generation"). This tells any
+ * signed-in client that the server has keys and how new they are, never a
+ * key; the owner chose that over a client that finds out by a failed install.
+ *
  * `server_id` is this installation's UUID (security/server-id.js): the same on
  * every address the server answers on, so a client merging several servers
  * sees two addresses of one server as one.
@@ -39,6 +48,8 @@ import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
 import * as prodKeys from "../security/prod-keys.js";
 import { serverId } from "../security/server-id.js";
+import { maxGeneration } from "../meta/nca-crypto.js";
+import { firmwareOf } from "../meta/rewrap/generations.js";
 
 export const API_VERSION = 1;
 
@@ -54,6 +65,7 @@ const FEATURES = [
   "item-install-size",    // item.install_size, the unpacked size (NSP/NSZ only)
   "item-integrity",       // item.integrity "modified" | "damaged" from the file check; absent when it passed or was not checked. Informational only
   "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
+  "item-key-generation",  // item.key_generation (master key generation, 0-based) and item.key_firmware ("21.0.0"); detail.keyGeneration, detail.keyFirmware
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
   "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
@@ -87,6 +99,9 @@ export default async function shopInfoRoute(req, res) {
   const patches = (await userPatches.list()).length > 0;
   const stats = shopCache.stats();
   const adminDevice = Boolean(adminDeviceOf(req));
+  const keys = prodKeys.loadKeys();
+  const rewrap = prodKeys.usable(keys);
+  const rewrapGen = rewrap ? maxGeneration(keys) : null;
   res.header("Cache-Control", "private, max-age=60");
   res.json({
     name: "CookingFoil",
@@ -121,6 +136,8 @@ export default async function shopInfoRoute(req, res) {
       ...(adminDevice ? ["admin-edit"] : []),
       // keys-upload: this console may hand the server prod.keys, sealed, through /api/admin/keys.
       ...(adminDevice ? ["keys-upload"] : []),
+      // nca-rewrap: ?rewrap=<firmware> on a game file serves it lowered to that firmware; info.rewrapMaxGen says how far.
+      ...(rewrap ? ["nca-rewrap"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
@@ -130,6 +147,7 @@ export default async function shopInfoRoute(req, res) {
     ...(devicePairing ? { enroll: { perHour: enrollPerHour } } : {}),
     files: stats.files,
     contentMeta: contentMeta.progress(),
+    ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
     ...(adminDevice ? { keys: { present: prodKeys.status().present } } : {}),
   });
 }

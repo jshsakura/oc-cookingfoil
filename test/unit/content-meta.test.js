@@ -90,6 +90,12 @@ test("a Korean name gets the English title from titledb first, then from the NAC
 });
 
 test("a record whose stored English name is garbled counts as unread, so its NACP is read again", () => {
-  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Ab�cd" }, "base"), false);
-  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Absolum" }, "base"), true);
+  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Ab�cd", keyGeneration: 3 }, "base"), false);
+  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Absolum", keyGeneration: 3 }, "base"), true);
+});
+
+test("a record from before key generations were read counts as unread, and the generation is kept once read", () => {
+  assert.equal(isComplete({ installSize: 1, nacpRead: true, englishName: "Absolum" }, "base"), false);
+  assert.equal(isComplete({ installSize: 1, keyGeneration: 0 }, "dlc"), true);
+  assert.equal(recordFromFacts({ contentSize: 10, requiredSystemVersion: null }, 0, null, 20).keyGeneration, 20);
 });

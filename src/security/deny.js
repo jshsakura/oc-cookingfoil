@@ -22,6 +22,12 @@ export function clientIp(req) {
  * Record a refusal. Returns the stored entry so callers can log or assert on it.
  * Never throws — a bookkeeping failure must not turn into a 500.
  */
+/** The request path without its query. Queries can carry what a console sent about itself (?rewrap=). */
+export function pathForLog(req) {
+  const url = req?.originalUrl || req?.path || null;
+  return url ? url.split("?")[0] : null;
+}
+
 export function recordDeny(req, { reason, status, deviceKey = null, user = null, detail = null } = {}) {
   const entry = {
     at: Date.now(),
@@ -29,7 +35,7 @@ export function recordDeny(req, { reason, status, deviceKey = null, user = null,
     status: status ?? null,
     ip: clientIp(req),
     method: req?.method ?? null,
-    path: req?.originalUrl || req?.path || null,
+    path: pathForLog(req),
     ua: (req?.get?.("user-agent") || "").slice(0, 120) || null,
     deviceKey,
     user,

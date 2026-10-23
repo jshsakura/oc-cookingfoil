@@ -18,14 +18,12 @@
  *     0x08  hierarchical sha256 data: 0x24 layer count, 0x28 regions × (offset u64, size u64); the last is the PFS0
  *     0x140 upper half of the CTR, stored little-endian
  */
-import crypto from "crypto";
 import fs from "fs/promises";
 import { readPfs0Entries, parsePfs0Header } from "./pfs0.js";
 import { readXciSecureEntries } from "./hfs0.js";
 import { loadKeys } from "../security/prod-keys.js";
+import { HEADER_BYTES, decryptHeader, ecbDecrypt, ctr, headerGeneration, keyAreaKey } from "./nca-crypto.js";
 
-const HEADER_BYTES = 0xc00;
-const SECTOR = 0x200;
 const MEDIA_UNIT = 0x200;
 const CONTENT_META = 1;
 const FS_PFS0 = 1;
@@ -33,42 +31,6 @@ const ENC_NONE = 1;
 const ENC_CTR = 3;
 const MAX_CNMT = 1 << 20;
 const PFS0_TABLE_START = 0x4000;
-const KEY_AREA_NAMES = ["application", "ocean", "system"];
-
-const ecb = (key, data) => {
-  const d = crypto.createDecipheriv("aes-128-ecb", key, null);
-  d.setAutoPadding(false);
-  return Buffer.concat([d.update(data), d.final()]);
-};
-
-/** The key area key for a key index and master key revision, from the file or derived; null when absent. */
-export function keyAreaKey(keys, index, revision) {
-  const rev = revision.toString(16).padStart(2, "0");
-  const kind = KEY_AREA_NAMES[index];
-  if (!kind) return null;
-  const direct = keys.get(`key_area_key_${kind}_${rev}`);
-  if (direct?.length === 32) return Buffer.from(direct, "hex");
-  const parts = [`master_key_${rev}`, "aes_kek_generation_source", `key_area_key_${kind}_source`, "aes_key_generation_source"].map((n) => keys.get(n));
-  if (parts.some((p) => p?.length !== 32)) return null;
-  const [master, kekSeed, source, keySeed] = parts.map((p) => Buffer.from(p, "hex"));
-  return ecb(ecb(ecb(master, kekSeed), source), keySeed);
-}
-
-/** Decrypts the 0xC00 NCA header. Pure. */
-export function decryptHeader(raw, headerKey) {
-  const out = Buffer.alloc(HEADER_BYTES);
-  const sector = (i, tweak) => {
-    const iv = Buffer.alloc(16);
-    iv.writeBigUInt64BE(BigInt(tweak), 8);
-    const d = crypto.createDecipheriv("aes-128-xts", headerKey, iv);
-    Buffer.concat([d.update(raw.subarray(i * SECTOR, (i + 1) * SECTOR)), d.final()]).copy(out, i * SECTOR);
-  };
-  sector(0, 0);
-  sector(1, 1);
-  const nca2 = out.toString("ascii", 0x200, 0x204) === "NCA2";
-  for (let i = 2; i < HEADER_BYTES / SECTOR; i++) sector(i, nca2 ? 0 : i);
-  return out;
-}
 
 /**
  * Where section 0's PFS0 sits in the NCA and how to read it, from a decrypted
@@ -87,10 +49,9 @@ export function metaSection(header, keys) {
   const encryption = fsh[0x04];
   if (encryption === ENC_NONE) return { pfs0At, key: null, upper: null };
   if (encryption !== ENC_CTR) return null;
-  const gen = Math.max(header[0x206], header[0x220]);
-  const kak = keyAreaKey(keys, header[0x207], gen ? gen - 1 : 0);
+  const kak = keyAreaKey(keys, header[0x207], headerGeneration(header));
   if (!kak) return null;
-  const key = ecb(kak, header.subarray(0x300 + 0x20, 0x300 + 0x30));
+  const key = ecbDecrypt(kak, header.subarray(0x300 + 0x20, 0x300 + 0x30));
   return { pfs0At, key, upper: Buffer.from(fsh.subarray(0x140, 0x148)).reverse() };
 }
 
@@ -99,17 +60,11 @@ export function metaSection(header, keys) {
  * when the file ends first (a meta NCA is often the last thing in an NSP).
  */
 async function readSection(handle, ncaAt, section, at, length) {
-  const from = at - (at % 16);
-  const buf = Buffer.alloc(at - from + length);
-  const { bytesRead } = await handle.read(buf, 0, buf.length, ncaAt + from);
-  if (bytesRead <= at - from) return null;
+  const buf = Buffer.alloc(length);
+  const { bytesRead } = await handle.read(buf, 0, length, ncaAt + at);
+  if (bytesRead === 0) return null;
   const raw = buf.subarray(0, bytesRead);
-  if (!section.key) return raw.subarray(at - from);
-  const iv = Buffer.alloc(16);
-  section.upper.copy(iv, 0);
-  iv.writeBigUInt64BE(BigInt(from / 16), 8);
-  const d = crypto.createDecipheriv("aes-128-ctr", section.key, iv);
-  return Buffer.concat([d.update(raw), d.final()]).subarray(at - from);
+  return section.key ? ctr(section.key, section.upper, at, raw) : raw;
 }
 
 /** The cnmt bytes of the meta NCA at `ncaAt` in an open file; null when unreadable. */

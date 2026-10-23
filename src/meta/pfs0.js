@@ -26,7 +26,10 @@ const COPY_CHUNK = 1 << 20;
 export const MAX_CNMT_NCA_BYTES = 1 << 20;
 export const MAX_CONTROL_NCA_BYTES = 64 << 20;
 
-/** Parses the PFS0 header from the start of a buffer; null when it is not one. */
+/**
+ * Parses the PFS0 header from the start of a buffer; null when it is not one.
+ * Each entry's `offset` and `nameAt` (where its name starts) count from the buffer's start.
+ */
 export function parsePfs0Header(buf) {
   if (!Buffer.isBuffer(buf) || buf.length < HEADER_SIZE) return null;
   if (buf.toString("ascii", 0, 4) !== MAGIC) return null;
@@ -44,7 +47,7 @@ export function parsePfs0Header(buf) {
     const nameOffset = buf.readUInt32LE(at + 16);
     const nameEnd = buf.indexOf(0, stringsAt + nameOffset);
     const name = buf.toString("utf8", stringsAt + nameOffset, nameEnd < 0 ? dataStart : nameEnd);
-    entries.push({ name, offset: dataStart + offset, size });
+    entries.push({ name, offset: dataStart + offset, size, nameAt: stringsAt + nameOffset });
   }
   return { entries };
 }

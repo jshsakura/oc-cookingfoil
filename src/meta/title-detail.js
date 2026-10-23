@@ -21,6 +21,7 @@ import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
 import * as shopCache from "./shop-cache.js";
+import { titleKeyNeed } from "./key-needs.js";
 import { integrityOf } from "./file-integrity.js";
 import path from "path";
 
@@ -149,6 +150,8 @@ export async function titleDetail(base, { lang, asked = null, origin = null, pri
     updates: titledbVersions.updateHistory(base),
     dlcTotal: titledbVersions.dlcCount(base, titledbStore.dlcIdsOf(base)),
     requiredFirmware: titledbVersions.requiredFirmware(base, 0),
+    // The master key generation the game and its updates in the library need, and its firmware; null until read.
+    ...titleKeyNeed(base),
     // Review score (0-100) with its vote count and source; scoreLabel is Steam's
     // summary in the request language, scoreLabelKey its SCORE_LABELS key.
     score: score?.score ?? null,

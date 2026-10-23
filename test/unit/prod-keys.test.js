@@ -58,13 +58,15 @@ test("the parser takes a prod.keys dump and refuses anything else without echoin
 });
 
 test("an upload is written 0600 where every reader looks, shows at once, and only it can be removed", async () => {
-  assert.deepEqual(keys.status(), { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0 });
+  assert.deepEqual(keys.status(), { present: false, source: null, uploadedAt: null, keyCount: 0, hasHeaderKey: false, titleKekCount: 0, maxGeneration: null, maxFirmware: null });
   const st = keys.install(FAKE, { actor: "alice", via: "dashboard" });
   assert.equal(st.present, true);
   assert.equal(st.source, "upload");
   assert.equal(st.keyCount, 5);
   assert.equal(st.hasHeaderKey, true);
   assert.equal(st.titleKekCount, 2);
+  assert.equal(st.maxGeneration, 0, "the highest generation with both a key area key and a title kek");
+  assert.equal(st.maxFirmware, "1.0.0");
   assert.match(st.uploadedAt, /^\d{4}-\d\d-\d\dT/);
   assert.ok(!JSON.stringify(st).includes(HEADER));
 
@@ -92,7 +94,7 @@ test("a mounted file counts as present and is never removed", async () => {
   fs.mkdirSync(path.join(root, "mounted"), { recursive: true });
   fs.writeFileSync(path.join(root, "mounted", "prod.keys"), FAKE);
   try {
-    assert.deepEqual({ ...keys.status(), uploadedAt: null }, { present: true, source: "file", uploadedAt: null, keyCount: 5, hasHeaderKey: true, titleKekCount: 2 });
+    assert.deepEqual({ ...keys.status(), uploadedAt: null }, { present: true, source: "file", uploadedAt: null, keyCount: 5, hasHeaderKey: true, titleKekCount: 2, maxGeneration: 0, maxFirmware: "1.0.0" });
     assert.equal(await keys.remove({ actor: "alice", via: "dashboard" }), false);
     assert.ok(fs.existsSync(path.join(root, "mounted", "prod.keys")));
     keys.install(FAKE, { actor: "alice", via: "dashboard" });

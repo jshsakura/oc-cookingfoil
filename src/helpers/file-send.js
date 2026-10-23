@@ -11,16 +11,22 @@
  *
  * The ETag is the same as express.static's (weak, size and mtime), so a client
  * resuming with If-Range across the change still matches.
+ *
+ * A game file asked for with ?rewrap=N goes out lowered to master key
+ * generation N (meta/rewrap/serve.js): the same size, with the patch map laid
+ * over whatever range is read, and an ETag of its own. A refusal is a 409.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream";
+import * as rewrap from "../meta/rewrap/serve.js";
+import { patchStream } from "../meta/rewrap/patch-stream.js";
 
 export const READ_CHUNK = 4 * 1024 * 1024;
 // What the shop lists and serves as games.
 export const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
 
-const etagOf = (st) => `W/"${st.size.toString(16)}-${st.mtime.getTime().toString(16)}"`;
+const etagOf = (st, tag) => `W/"${st.size.toString(16)}-${st.mtime.getTime().toString(16)}${tag ? `-${tag}` : ""}"`;
 
 /** One byte range of a file this size, or null when the header asks for none we serve (multi-range, other units). */
 export function parseRange(header, size) {
@@ -49,9 +55,12 @@ function ifRangeMatches(req, etag, lastModified) {
   return Number.isFinite(at) && Math.floor(lastModified / 1000) <= Math.floor(at / 1000);
 }
 
-/** Serves an already-resolved regular file. */
-export function sendLargeFile(req, res, abs, st) {
-  const etag = etagOf(st);
+/**
+ * Serves an already-resolved regular file; `variant` ({ tag, patches }, from
+ * meta/rewrap/serve.js plan) serves it with those bytes replaced.
+ */
+export function sendLargeFile(req, res, abs, st, variant = null) {
+  const etag = etagOf(st, variant?.tag);
   const lastModified = st.mtime.getTime();
   res.set({
     "Accept-Ranges": "bytes",
@@ -77,9 +86,12 @@ export function sendLargeFile(req, res, abs, st) {
   }
   res.set("Content-Length", String(st.size === 0 ? 0 : end - start + 1));
   if (req.method === "HEAD" || st.size === 0) return res.end();
-  pipeline(fs.createReadStream(abs, { start, end, highWaterMark: READ_CHUNK }), res, () => {
+  const read = fs.createReadStream(abs, { start, end, highWaterMark: READ_CHUNK });
+  const done = () => {
     // A console that hangs up mid-file is normal; the streams are closed either way.
-  });
+  };
+  if (variant?.patches.length) pipeline(read, patchStream(start, variant.patches), res, done);
+  else pipeline(read, res, done);
 }
 
 /**
@@ -120,7 +132,11 @@ export function largeFiles(root, match) {
     if (!abs.startsWith(base + path.sep)) return next();
     fs.stat(abs, (err, st) => {
       if (err || !st.isFile()) return next();
-      sendLargeFile(req, res, abs, st);
+      if (!rewrap.asksRewrap(req)) return sendLargeFile(req, res, abs, st);
+      rewrap.plan(abs, st, req.query[rewrap.PARAM]).then(
+        (variant) => sendLargeFile(req, res, abs, st, variant),
+        (failure) => rewrap.refuse(req, res, abs, failure) || next(failure),
+      );
     });
   };
 }

@@ -12,6 +12,7 @@
  */
 import debug from "../debug.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
+import { pathForLog } from "./deny.js";
 import { vouch } from "./server-id.js";
 
 /** The line for a refusal, without the "auth: " prefix. Pure. */
@@ -40,7 +41,7 @@ export function noteRefusal(req, res, status, reason, { proven = false } = {}) {
     /* a header that cannot be set must not take the log line with it */
   }
   try {
-    debug.log("auth: %s", refusalLine({ status, reason, method: req.method, path: req.originalUrl || req.path, deviceKey: deviceKeyFromHeaders(req) }));
+    debug.log("auth: %s", refusalLine({ status, reason, method: req.method, path: pathForLog(req), deviceKey: deviceKeyFromHeaders(req) }));
   } catch {
     /* logging must not turn a refusal into a 500 */
   }
