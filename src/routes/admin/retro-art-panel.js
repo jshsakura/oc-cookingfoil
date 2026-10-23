@@ -8,6 +8,7 @@
  * one shown at a time.
  */
 import { icon } from "../../views/icons.js";
+import { RETRO_KO_HTML, RETRO_KO_SCRIPT } from "./retro-ko-panel.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 import { RQ_WORDS } from "./retro-requirements-words.js";
 import { top } from "./top-i18n.js";
@@ -17,6 +18,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
     <button type="button" role="tab" data-sub="art">${icon("image")}표지·베젤</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}평점</button>
     <button type="button" role="tab" data-sub="cores">${icon("package")}코어</button>
+    <button type="button" role="tab" data-sub="names">${icon("tag")}${top("rk.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
     <button type="button" role="tab" data-sub="trash">${icon("trash")}휴지통</button>
@@ -55,6 +57,9 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="scroll" id="rc-systems" data-skel></div>
   <h3>설치된 코어</h3>
   <div class="scroll" id="rc-list" data-skel></div>
+  </div>
+  <div data-sub-panel="names" hidden>
+${RETRO_KO_HTML}
   </div>
   <div data-sub-panel="versions" hidden>
 ${RETRO_VARIANTS_HTML}
@@ -145,13 +150,14 @@ export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
 // One sub-tab at a time; the choice is remembered in this browser only.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['art','ratings','cores','dups','sets','trash'];
+var RETRO_SUBS=['art','ratings','cores','names','dups','sets','trash'];
 var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
-  const panel=['art','ratings','cores'].includes(retroSub)?retroSub:'versions';
+  const panel=['art','ratings','cores','names'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
+  if(panel==='names')loadRetroKo();
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
@@ -445,4 +451,4 @@ $('ra-dialog').addEventListener('paste',(e)=>{const f=[...(e.clipboardData?.file
 $('ra-search').addEventListener('submit',(e)=>{e.preventDefault();raSearch();});
 $('ra-sgdb-go').addEventListener('click',raSgdb);
 $('ra-none').addEventListener('click',async()=>{if(await ask('이 항목은 표지 없이 두고 자동 맞춤에서도 뺄까요?'))raApply('/admin/api/retro-art/match',{game:raGame.id,name:null});});
-`+RETRO_VARIANTS_SCRIPT;
+`+RETRO_KO_SCRIPT+RETRO_VARIANTS_SCRIPT;

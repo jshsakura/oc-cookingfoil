@@ -4,6 +4,7 @@
  *   catalogStore   the items a scan of one folder found, one row each, with
  *                  when the folder was last read in full
  *   hashStore      content hashes of files, remembered by fileKey (size, mtime, ctime, inode)
+ *   retroRomHashes CRC-32, SHA-1 and SHA-256 of retro ROM files, remembered the same way
  */
 import { transaction } from "./database.js";
 
@@ -59,6 +60,30 @@ export function hashStore(db, scope) {
       const gone = [...known().keys()].filter((p) => !seen.has(p));
       if (!gone.length) return;
       transaction(db, () => { for (const p of gone) { known().delete(p); drop.run(scope, p); } });
+    },
+    get size() {
+      return known().size;
+    },
+  };
+}
+
+/** Retro ROM content hashes by absolute path: { key, data } with data as retro/rom-index.js reads a file. */
+export function retroRomHashes(db) {
+  const upsert = db.prepare("INSERT OR REPLACE INTO retro_rom_hashes (path, key, data) VALUES (?, ?, ?)");
+  const drop = db.prepare("DELETE FROM retro_rom_hashes WHERE path = ?");
+  let map = null;
+  const known = () => (map ??= new Map(db.prepare("SELECT path, key, data FROM retro_rom_hashes").all().map((r) => [r.path, { key: r.key, data: JSON.parse(r.data) }])));
+  return {
+    get: (file) => known().get(file),
+    set(file, { key, data }) {
+      known().set(file, { key, data });
+      upsert.run(file, key, JSON.stringify(data));
+    },
+    /** Forgets every file not in `seen` (a Set of paths). */
+    prune(seen) {
+      const gone = [...known().keys()].filter((p) => !seen.has(p));
+      if (!gone.length) return;
+      transaction(db, () => { for (const p of gone) { known().delete(p); drop.run(p); } });
     },
     get size() {
       return known().size;

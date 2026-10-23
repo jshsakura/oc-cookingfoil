@@ -17,6 +17,7 @@ import { hashStore } from "../db/stores.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import * as activity from "../tasks/activity.js";
 import { hashable, romHash } from "./achievements/hash.js";
+import { inTurn } from "./disk-turn.js";
 
 // A breath between files, so requests keep their turn while a big library is read.
 const PAUSE_MS = 50;
@@ -101,7 +102,7 @@ export function queue(games) {
     next = games;
     return running;
   }
-  running = pass(games)
+  running = inTurn(() => pass(games))
     .then((r) => { if (r.hashed) debug.log("retro: %d ROM hashes worked out", r.hashed); })
     .catch((err) => debug.error("retro: ROM hashes: %s", err.message))
     .finally(() => {
