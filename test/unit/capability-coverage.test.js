@@ -15,7 +15,7 @@ const { OPT_OUT, OPT_OUT_REASONS, LEGACY_UNREGISTERED } = await import("../../sr
 
 // Ratchet ceilings. LEGACY_CEILING only goes down and is never raised. Raising OPT_OUT_CEILING is a reviewed decision:
 // do it in the same change that adds the opt-out, and say why in the commit.
-const LEGACY_CEILING = 301;
+const LEGACY_CEILING = 293;
 const OPT_OUT_CEILING = 15;
 const HERE = "test/unit/capability-coverage.test.js";
 
