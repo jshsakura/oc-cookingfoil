@@ -241,6 +241,8 @@ let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
 // Official cores for the consoles that have games, put in by the server from that bundle, and the
 // server's own pack files replaced when the lock version rises (retro/auto-cores.js). Operator files never.
 let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
+// Box art fetched by itself for ROMs a scan finds without any (retro/art/auto.js), as the admin's "fetch all missing" does.
+let retroAutoArt = envBool("COOK_RETRO_AUTO_ART", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -429,6 +431,7 @@ const ENV_SETTINGS = Object.freeze({
   retroScaffold,
   retroPackUrl,
   retroAutoCores,
+  retroAutoArt,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -484,6 +487,7 @@ function applyServerSettings(saved = {}) {
   retroScaffold = v.retroScaffold;
   retroPackUrl = v.retroPackUrl;
   retroAutoCores = v.retroAutoCores;
+  retroAutoArt = v.retroAutoArt;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -598,6 +602,7 @@ export {
   retroScaffold,
   retroPackUrl,
   retroAutoCores,
+  retroAutoArt,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

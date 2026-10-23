@@ -481,6 +481,9 @@ export async function current(dir) {
   return state;
 }
 
+/** The catalog of `dir` as the last scan left it, or null when none was read: never starts a scan. */
+export const loaded = (dir) => (state.dir === dir && state.scannedAt ? state : null);
+
 /** Systems listed before the rest, in this order; the others keep the system table's order. */
 const FIRST_SYSTEMS = ["arcade"];
 

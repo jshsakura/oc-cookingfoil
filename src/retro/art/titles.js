@@ -87,3 +87,40 @@ export function bestMatch(title, names) {
   if (!hits.length) return null;
   return hits.sort((a, b) => regionRank(a) - regionRank(b) || a.localeCompare(b))[0];
 }
+
+// Where a subtitle starts: " - ", ":" or the "_ " libretro-thumbnails writes for ":".
+const SUBTITLE_RE = /\s+-\s+|\s*:\s*|_\s+/;
+
+/** A title's key without its subtitle: "Mega Quest - The Lost Ring (USA)" → "mega quest". Pure. */
+export function looseKey(raw) {
+  return titleKey(String(raw).replace(/\s*[[(][^\])]*[\])]/g, "").split(SUBTITLE_RE)[0]);
+}
+
+/**
+ * bestMatch over one list of names, keyed once for many titles: exact(title) is
+ * bestMatch(title, names); loose(title) compares without subtitles and answers
+ * only when every name it finds is the same title (one family), so it never
+ * picks between different games. Pure.
+ */
+export function titleMatcher(names) {
+  const byKey = new Map();
+  const byLoose = new Map();
+  for (const n of names) {
+    const key = titleKey(n);
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(n);
+    const loose = looseKey(n);
+    if (!byLoose.has(loose)) byLoose.set(loose, new Set());
+    byLoose.get(loose).add(key);
+  }
+  const best = (key) => [...(byKey.get(key) ?? [])].sort((a, b) => regionRank(a) - regionRank(b) || a.localeCompare(b))[0] ?? null;
+  return {
+    exact: (title) => best(titleKey(title)),
+    loose: (title) => {
+      const loose = looseKey(title);
+      const families = loose ? byLoose.get(loose) : null;
+      return families?.size === 1 ? best([...families][0]) : null;
+    },
+  };
+}
