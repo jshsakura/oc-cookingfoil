@@ -8,6 +8,7 @@
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, num, obj, oneOf, str } from "./shape.js";
+import { leanCores, leanKoNames, leanRequirements } from "./lean.js";
 
 const CORE_ARG = {
   type: "string",
@@ -17,9 +18,6 @@ const CORE_ARG = {
 const KO_ROW = obj({
   id: str("retro game id"),
   system: str(),
-  systemName: str(),
-  name: str("name shown now"),
-  file: str("ROM file name"),
   ko: str("Korean title"),
   en: nullable(str()),
   by: str("how it was matched"),
@@ -79,40 +77,34 @@ export const retroCapabilities = [
     id: "retro_cores",
     area: "retro",
     title: "List RetroArch cores and their settings",
-    description: "Lists the base pack's cores with size, hash, origin and on/off, each console's core and its upkeep state, and each core's source. Read before changing a core.",
-    input: { type: "object", properties: {} },
+    description: "One line per core (size, origin, on/off) and per console (core, upkeep state). With core: that core's whole row and consoles. Read before changing a core.",
+    input: { type: "object", properties: { core: { ...CORE_ARG, description: "One core id, for its whole row and its consoles; leave out for the one-line list" } } },
     output: obj({
       official: str("the libretro RetroArch version the server pins"),
       retroarch: nullable({ type: "object", description: "retroarch_switch.nro in the pack: size, sha256, modifiedAt, origin" }),
       cores: arr(obj({
         core: str("core id, as the core tools take it"),
-        file: str(),
-        name: nullable(str()),
         size: int("bytes"),
-        sha256: str(),
-        modifiedAt: num("epoch seconds"),
         origin: oneOf(["official", "modified", "extra"], "against the pinned official build; modified and extra are never replaced"),
         off: bool("switched off: left out of the console pack, its games listed with coreOff"),
-        systems: arr(obj({ id: str(), name: str(), games: int() }), "consoles whose games start with it"),
-      }, { optional: ["off"] })),
+        systems: arr(str("retro system id"), "consoles whose games start with it"),
+      }, { optional: ["off"] }), "one line a core; absent with core"),
       systems: arr(obj({
         id: str("retro system id"),
-        name: str(),
         games: int(),
         core: nullable(str("core its games start with")),
-        coreState: nullable({ type: "object", description: "the upkeep's word on that core: state, reason, message, source and more" }),
-      })),
-      sources: obj({
-        repo: nullable(str("owner/name read by source repo")),
-        cores: { type: "object", description: "core id to repo or upload; a core left out takes the nightly buildbot" },
-      }),
-      auto: obj({ enabled: bool("automatic core upkeep is on"), hidden: arr({ type: "object" }, "user cores held aside for the admin") }, { description: "also source, job, failures and last" }),
-    }),
+        installed: nullable(bool("that core is in the pack")),
+        state: nullable(str("the upkeep's word on that core")),
+      }, { optional: ["games", "core", "installed", "state"], description: "with core: the whole console rows instead (name, fits, others, coreState)" }), "one line a console"),
+      core: { type: "object", description: "with core: the whole row, with file, name, sha256, modifiedAt, origin, off and systems" },
+      sources: obj({ repo: nullable(str("owner/name read by source repo")), custom: arr(str(), "cores with a source other than the nightly buildbot") }),
+      auto: obj({ enabled: bool("automatic core upkeep is on"), hidden: int("user cores held aside for the admin") }),
+    }, { optional: ["cores", "core"] }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/retro-cores" },
-    handler: async () => {
+    handler: async (_ctx, input = {}) => {
       const { retroCoresView } = await import("../routes/admin/retro-cores-api.js");
-      return retroCoresView();
+      return leanCores(await retroCoresView(), input.core);
     },
   }),
   defineCapability({
@@ -182,10 +174,9 @@ export const retroCapabilities = [
     id: "retro_requirements",
     area: "retro",
     title: "Cores and BIOS the retro games need",
-    description: "Per system with games: the core each one needs and whether the pack has it, and the BIOS files present, missing or a different dump.",
-    input: { type: "object", properties: {} },
+    description: "Systems missing a core or BIOS, or with a BIOS to check, whole; the ids of the rest. With system: that one whole.",
+    input: { type: "object", properties: { system: { type: "string", description: "One retro system id, such as gba, for its whole row; leave out for the ones with problems" } } },
     output: obj({
-      note: str("where cores go and which builds run on the Switch"),
       retroarch: oneOf(["installed", "missing"], "retroarch.nro in the pack"),
       complete: bool("no system misses anything or has anything to check"),
       systems: arr(obj({
@@ -197,33 +188,44 @@ export const retroCapabilities = [
         cores: arr(obj({ core: str(), file: str(), state: str("present, missing, or what the core upkeep is doing"), games: int() }, { description: "also server, console, warn, reason and message" })),
         firmware: arr(obj({ files: arr(str()), required: bool(), state: oneOf(["present", "missing", "mismatch"]) })),
         arcade: obj({ sets: int(), missingSets: arr(str()), bios: arr(obj({ zip: str(), state: str() })), parents: arr(obj({ zip: str() })) }, { description: "FBNeo sets, on the arcade system" }),
-      }, { optional: ["arcade"] }), "systems with something missing first, then those to check"),
+      }, { optional: ["arcade"] }), "systems with something missing or to check, whole; with system, that one"),
+      ok: arr(str("retro system id"), "systems with games and nothing missing"),
     }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/retro/requirements" },
-    handler: async () => {
+    handler: async (_ctx, input = {}) => {
       const { retroRequirements } = await import("../routes/admin/retro-art-api.js");
-      return retroRequirements();
+      return leanRequirements(await retroRequirements(), input.system);
     },
   }),
   defineCapability({
     id: "retro_ko_names",
     area: "retro",
     title: "Korean titles of retro games",
-    description: "Lists retro games named in Korean by their ROM content hash, and title-only guesses waiting for approval, with hash index counts.",
-    input: { type: "object", properties: {} },
+    description: "One page of retro games named in Korean: guesses waiting for approval (default) or those named by ROM hash. Counts of both come with it.",
+    input: {
+      type: "object",
+      properties: {
+        list: { type: "string", enum: ["guesses", "confirmed"], description: "guesses (default) waits for retro_ko_name_decide; confirmed is named by content hash and needs no decision" },
+        q: { type: "string", description: "Part of the Korean title, English title or file name" },
+        limit: { type: "integer", description: "How many rows to return; 25 when left out, at most 100" },
+        offset: { type: "integer", description: "How many rows to skip, for the next page of the list" },
+      },
+    },
     output: obj({
       index: obj({ files: int("ROM files"), read: int("ROM files hashed"), skipped: int(), busy: bool("a hashing pass is running") }),
       confirmedTotal: int(),
-      confirmed: arr(KO_ROW, "games named by content hash; the first ones when there are many"),
       guessesTotal: int(),
-      guesses: arr(KO_ROW, "title-only guesses for retro_ko_name_decide; the first ones when there are many"),
+      list: oneOf(["guesses", "confirmed"]),
+      total: int("rows of that list matching q"),
+      offset: int(),
+      items: arr(KO_ROW, "this page"),
     }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/retro-ko" },
-    handler: async () => {
+    handler: async (_ctx, input = {}) => {
       const { retroKoReview } = await import("../routes/admin/retro-ko-api.js");
-      return retroKoReview();
+      return leanKoNames(await retroKoReview("ko", Infinity), input);
     },
   }),
   defineCapability({
