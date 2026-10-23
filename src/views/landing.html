@@ -532,7 +532,6 @@
          one line of labels in its order (필수 패치, 할인, 업데이트, DLC), without the kind label every card shares. */
       /* A shelf card keeps the one-line rule above: a pill that doesn't fit drops whole instead of being cut, two at most. */
       .recent > .game .sub { gap: 4px; }
-      .recent > .game .sub .pill { flex: none; background: var(--line); color: var(--ink); border-color: transparent; border-radius: 7px; }
       .recent > .game .sub .pill:nth-child(n + 3 of :not(.base, .pub, [hidden])) { display: none; }
       .recent > .game .sub .pill.base { display: none; }
       .recent > .game .sub .pill.need { order: 1; } .recent > .game .sub .pill.sale { order: 2; }
@@ -695,8 +694,9 @@
       .game .sub .pill {
         /* a fixed 20px box on the 20px line, so no pill is clipped at its foot */
         display: inline-flex; align-items: center; box-sizing: border-box; height: 20px;
-        padding: 0 7px; border-radius: 100px; font-size: 11px; font-weight: 600;
-        background: var(--surface); border: 1px solid var(--line); color: var(--secondary);
+        /* one look for every card's pills, the shelves' (preview) one */
+        padding: 0 7px; border-radius: 7px; font-size: 11px; font-weight: 600;
+        background: var(--line); border: 1px solid transparent; color: var(--ink);
         white-space: nowrap; flex-shrink: 0; line-height: 1;
         max-width: 100%; overflow: hidden; text-overflow: ellipsis; /* only a first pill wider than the card is shortened */
       }
