@@ -183,9 +183,12 @@ function countRequest(day = { n: 0, ips: {}, other: 0 }, ip) {
   return { ...day, n, other: day.other + 1 };
 }
 
+// An address is kept as long as the history is: one last seen longer ago is dropped with it.
+const fresh = (at, now) => Number.isFinite(at) && at > now - ACTIVITY_DAYS * DAY_MS;
+
 const activityRecord = ({ lastSeenAt = null, lastIp = null, days = {} } = {}, now = Date.now()) => ({
   lastSeenAt: Number.isFinite(lastSeenAt) ? lastSeenAt : null,
-  lastIp: ipOrNull(lastIp),
+  lastIp: fresh(lastSeenAt, now) ? ipOrNull(lastIp) : null,
   days: keptDays(Object.fromEntries(Object.entries(days ?? {})
     .filter(([day]) => DAY_RE.test(day)).map(([day, v]) => [day, dayRecord(v)]).filter(([, v]) => v)), now),
 });
@@ -216,7 +219,7 @@ function loginRecord(v = {}, now = Date.now()) {
   const last = loginEntry(v ?? {});
   if (!last) return null;
   const history = Array.isArray(v.history) ? v.history.map((e) => loginEntry(e ?? {})).filter(Boolean) : [last];
-  return { ...last, history: keptLogins(history, now) };
+  return { ...last, ip: fresh(last.at, now) ? last.ip : null, history: keptLogins(history, now) };
 }
 
 /** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
@@ -230,6 +233,8 @@ export async function load() {
   // A console no longer approved leaves no activity behind.
   state.activity = new Map([...rows("activity", (v) => activityRecord(v))].filter(([k]) => state.devices.has(k)));
   state.logins = new Map([...rows("logins", loginRecord)].filter(([, v]) => v));
+  pruneTimer ??= setInterval(() => pruneAccessHistory(), DAY_MS);
+  pruneTimer.unref?.();
   if (doneAt("device-activity") === null) markDone("device-activity");
   activitySince = doneAt("device-activity");
   state.pending = rows("pending", pendingRecord);
@@ -642,6 +647,7 @@ const activityWrittenAt = new Map(); // deviceKey → when its activity last ask
 // When the server began keeping console activity: a console approved before it
 // and not seen since has no record, which is not the same as unused.
 let activitySince = null;
+let pruneTimer = null;
 
 /** An approved console made a signed-in request from `ip`. */
 export function touchDevice(deviceKey, ip = null, now = Date.now()) {
@@ -667,9 +673,28 @@ export function recordLogin(owner, method, ip = null, now = Date.now()) {
 }
 
 /** The last sign-in of an account, { at, method, ip }, or null. */
-export function lastLogin(owner) {
+export function lastLogin(owner, now = Date.now()) {
   const v = state.logins.get(owner);
-  return v ? { at: v.at, method: v.method, ip: v.ip } : null;
+  return v ? { at: v.at, method: v.method, ip: fresh(v.at, now) ? v.ip : null } : null;
+}
+
+/**
+ * Drops the days, sign-ins and addresses older than the kept window from every record, so a console
+ * or account that went quiet loses them too. Runs once a day while the server is up, and at load.
+ */
+export function pruneAccessHistory(now = Date.now()) {
+  let changed = false;
+  for (const [table, record] of [[state.activity, activityRecord], [state.logins, loginRecord]]) {
+    for (const [k, v] of table) {
+      const next = record(v, now);
+      if (JSON.stringify(next) === JSON.stringify(v)) continue;
+      changed = true;
+      if (next) table.set(k, next);
+      else table.delete(k);
+    }
+  }
+  if (changed) scheduleFlush();
+  return changed;
 }
 
 /** An account's sign-ins of the last LOGIN_DAYS days, newest first, each { at, method, ip }. */
