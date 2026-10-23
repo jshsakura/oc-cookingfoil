@@ -12,8 +12,6 @@ export const MAX_FAILURES = 5;
 export const WINDOW_MS = 15 * 60 * 1000;
 const MAX_KEYS = 10_000;
 
-export const LOCKED_MESSAGE = "인증 코드를 너무 여러 번 틀려 잠갔습니다. 15분 뒤에 다시 시도합니다.";
-
 const failures = new Map(); // key → timestamps of recent wrong codes
 
 const keysOf = (account, ip) => [`account:${account}`, ...(ip ? [`ip:${ip}`] : [])];

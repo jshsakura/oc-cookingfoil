@@ -110,7 +110,7 @@ export function mountManageApi(router, guard) {
   router.delete("/api/users/:name", change((req, res) => {
     // Google-only with no password account left would read as "no accounts": the server would open up.
     if (!envs.passwordLogin && users.list().length === 1 && users.list()[0].name === req.params.name) {
-      return res.status(409).json({ error: "Google 로 로그인하는 동안에는 마지막 비밀번호 계정을 지울 수 없습니다. 지우면 서버가 비밀번호 없이 열립니다." });
+      return res.status(409).json({ error: apiWord(req, "account.lastPassword"), code: "account.lastPassword" });
     }
     notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });

@@ -9,6 +9,7 @@
  */
 import { googleClientId as envId, googleClientSecret as envSecret } from "../helpers/envs.js";
 import { readSecretJson, writeSecretJson } from "../db/security-stores.js";
+import { codedError } from "./security-messages.js";
 
 const ID_RE = /^[A-Za-z0-9._-]{8,200}$/;
 const SECRET_RE = /^[\x21-\x7e]{8,200}$/;
@@ -55,10 +56,10 @@ export function save({ enabled, clientId, clientSecret }) {
   const s = settings();
   const id = String(clientId ?? "").trim();
   const secretIn = String(clientSecret ?? "").trim();
-  if (id && !ID_RE.test(id)) throw new GoogleConfigError("클라이언트 ID 형식이 아닙니다");
-  if (secretIn && !SECRET_RE.test(secretIn)) throw new GoogleConfigError("클라이언트 시크릿 형식이 아닙니다");
+  if (id && !ID_RE.test(id)) throw codedError(GoogleConfigError, "google.badId");
+  if (secretIn && !SECRET_RE.test(secretIn)) throw codedError(GoogleConfigError, "google.badSecret");
   const next = { enabled: enabled === true, clientId: id, clientSecret: secretIn || (id === s.clientId || !s.clientId ? s.clientSecret : "") };
-  if (next.enabled && !(next.clientId && next.clientSecret)) throw new GoogleConfigError("켜려면 클라이언트 ID 와 시크릿이 모두 필요합니다");
+  if (next.enabled && !(next.clientId && next.clientSecret)) throw codedError(GoogleConfigError, "google.needBoth");
   persist(next);
   return describe();
 }

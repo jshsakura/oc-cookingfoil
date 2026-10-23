@@ -24,6 +24,7 @@ import { isSelf } from "../../security/admin-actor.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
 import * as store from "../../security/store.js";
 import { withoutIps } from "./access-history-api.js";
+import { securityError } from "../../security/security-messages.js";
 
 const SELF = { error: "self", message: "You can't disable, demote or remove the account you are signed in with." };
 
@@ -86,7 +87,7 @@ export function mountAccountsApi(router, requireSession) {
       res.json({ ...saved, redirectUri: callbackUri(req) });
     } catch (err) {
       if (!(err instanceof googleConfig.GoogleConfigError)) throw err;
-      res.status(400).json({ error: err.message });
+      res.status(400).json(securityError(req, err));
     }
   });
 

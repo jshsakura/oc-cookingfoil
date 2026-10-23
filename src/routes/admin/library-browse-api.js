@@ -26,6 +26,7 @@ import {
 import debug from "../../debug.js";
 import { metaErrorText } from "../../meta/meta-messages.js";
 import { requestLang } from "../../meta/langs.js";
+import { apiWord } from "./api-words.js";
 
 const OTHER_TTL_MS = 60_000;
 
@@ -144,7 +145,7 @@ export function mountLibraryBrowseApi(router, requireSession, {
       res.json(pending ? { ...browse(items, query), pending: true } : browse(items, query));
     } catch (err) {
       debug.error("admin: library browse: %s", err.message);
-      res.status(500).json({ error: "처리하지 못했습니다. 서버 기록을 봅니다", code: "failed" });
+      res.status(500).json({ error: apiWord(req, "failed"), code: "failed" });
     }
   });
 }

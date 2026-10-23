@@ -14,6 +14,7 @@ import { redirectUriFor } from "../dropbox-bridge.js";
 import { test as testAlerts } from "../../helpers/alerts.js";
 import { eshopPopularity, eshopPrices } from "../../helpers/envs.js";
 import { apiWord } from "./api-words.js";
+import { securityError } from "../../security/security-messages.js";
 
 const TEST_TIMEOUT_MS = 10_000;
 
@@ -48,7 +49,7 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
       await handler(req, res);
     } catch (err) {
       if (!(err instanceof integrations.IntegrationError)) throw err;
-      res.status(400).json({ error: err.message });
+      res.status(400).json(securityError(req, err));
     }
   };
 

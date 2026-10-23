@@ -34,6 +34,7 @@ import * as envs from "../../helpers/envs.js";
 import * as prodKeys from "../../security/prod-keys.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { apiWord } from "./api-words.js";
+import { securityError } from "../../security/security-messages.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
 const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
@@ -108,7 +109,7 @@ export function mountServerSettingsApi(router, requireSession) {
         await checkOutboundUrl(value);
       } catch (err) {
         if (!(err instanceof OutboundError)) throw err;
-        return res.status(400).json({ error: err.message, field });
+        return res.status(400).json({ ...securityError(req, err), field });
       }
     }
     // Without Google sign-in and an approved Google admin, switching passwords off would lock everyone out of /admin.

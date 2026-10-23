@@ -9,7 +9,7 @@ import path from "node:path";
 // admin API and again at fetch time, after DNS, on every redirect hop.
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-outbound-"));
 const guard = await import("../../src/security/outbound-guard.js");
-const { blockedReason, checkOutboundUrl, guardedFetch, OutboundError, BLOCKED_MESSAGE } = guard;
+const { blockedReason, checkOutboundUrl, guardedFetch, OutboundError } = guard;
 
 const resolvesTo = (...addresses) => async () => addresses.map((address) => ({ address }));
 
@@ -35,7 +35,7 @@ test("public addresses pass", () => {
 });
 
 test("a hostname that resolves to a private address is refused", async () => {
-  await assert.rejects(checkOutboundUrl("https://ratings.example.org", { lookup: resolvesTo("10.0.0.5") }), (err) => err instanceof OutboundError && err.message === BLOCKED_MESSAGE);
+  await assert.rejects(checkOutboundUrl("https://ratings.example.org", { lookup: resolvesTo("10.0.0.5") }), (err) => err instanceof OutboundError && err.code === "outbound.blocked" && /private network/.test(err.message));
   // Any one bad address among several is enough.
   await assert.rejects(checkOutboundUrl("https://ratings.example.org", { lookup: resolvesTo("203.0.113.5", "127.0.0.1") }), OutboundError);
   const ok = await checkOutboundUrl("https://ratings.example.org/api", { lookup: resolvesTo("203.0.113.5") });
@@ -104,7 +104,11 @@ test("saving a titledb source or direct address inside the private network is re
   for (const field of ["titledbSource", "publicDirectBaseUrl"]) {
     const r = await post("/admin/api/server-settings", { [field]: "https://mirror.example.org" });
     assert.equal(r.status, 400, field);
-    assert.deepEqual(r.body, { error: BLOCKED_MESSAGE, field });
+    assert.equal(r.body.code, "outbound.blocked", field);
+    assert.equal(r.body.field, field);
+    assert.match(r.body.error, /private network/, "English without Accept-Language");
   }
+  const ko = await fetch(`${BASE}/admin/api/server-settings`, { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": "ko" }, body: JSON.stringify({ titledbSource: "https://mirror.example.org" }) });
+  assert.match((await ko.json()).error, /내부망/, "the admin page reads its own language");
   guard.setLookupForTests(null);
 });

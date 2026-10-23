@@ -12,6 +12,7 @@
  */
 import crypto from "crypto";
 import { recordStore } from "../db/security-stores.js";
+import { codedError } from "./security-messages.js";
 
 const TOKEN_RE = /^Bearer\s+cft_([a-f0-9]{8})_([A-Za-z0-9_-]{32,64})$/i;
 const LABEL_MAX = 64;
@@ -54,7 +55,7 @@ export function verify(header, now = Date.now()) {
 
 /** Makes a token for an admin account. Returns { token, id }; the token is not kept. */
 export function create(owner, label) {
-  if (load().length >= MAX_TOKENS) throw new TokenError(`토큰은 ${MAX_TOKENS}개까지 만들 수 있습니다`);
+  if (load().length >= MAX_TOKENS) throw codedError(TokenError, "token.max", { n: MAX_TOKENS });
   const id = crypto.randomBytes(4).toString("hex");
   const secret = crypto.randomBytes(32).toString("base64url");
   const rec = { id, owner: String(owner), label: String(label ?? "").trim().slice(0, LABEL_MAX), hash: sha(secret).toString("hex"), createdAt: Date.now(), lastUsedAt: null };
@@ -69,7 +70,7 @@ export function list() {
 
 export function revoke(id) {
   const next = load().filter((t) => t.id !== id);
-  if (next.length === load().length) throw new TokenError("없는 토큰입니다");
+  if (next.length === load().length) throw codedError(TokenError, "token.missing");
   persist(next);
 }
 
