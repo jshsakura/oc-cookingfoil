@@ -211,6 +211,24 @@ test('the preview leads with the rows the server picks, as the client home does,
   await expect(page.locator('#retro-rows .home-row').nth(1).locator('.row-count')).toHaveCount(1);
 });
 
+test('a shelf card shows whole pills only, two at most, never one cut at the edge', async ({ page }) => {
+  for (const width of [1280, 420]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/#retro-home');
+    await page.locator('#retro-rows .home-row .recent > .game .sub .pill:not([hidden])').first().waitFor();
+    const bad = await page.locator('#retro-rows .recent > .game .sub').evaluateAll((subs) => subs.flatMap((sub) => {
+      const box = sub.getBoundingClientRect();
+      // A pill on the line, not wrapped below it and not hidden.
+      const shown = [...sub.querySelectorAll('.pill')].filter((p) => getComputedStyle(p).display !== 'none' && p.getBoundingClientRect().top < box.bottom);
+      const out: string[] = [];
+      if (shown.length > 2) out.push(`${shown.length} pills`);
+      for (const p of shown) if (p.getBoundingClientRect().right > box.right + 0.5) out.push(`cut: ${p.textContent}`);
+      return out;
+    }));
+    expect(bad, `width ${width}`).toEqual([]);
+  }
+});
+
 test('removing a core that games use asks again by the refusal code, whatever language its text is in', async ({ page }) => {
   await signIn(page);
   await page.route('**/admin/api/retro-cores', (route) => route.fulfill({ json: {
