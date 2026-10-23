@@ -136,3 +136,76 @@ test("console activity and account sign-ins are kept across a restart and droppe
     await stop(server);
   }
 });
+
+const ipHistory = async (call, query) => call("GET", `/admin/api/access-history?${query}`);
+
+test("the admin sees each console's IPs by day and each account's sign-ins, and nobody else does", async () => {
+  const data = mkdtempSync(path.join(tmpdir(), "cook-access-ips-"));
+  const now = Date.now();
+  const yesterday = dayKey(now - DAY);
+  await seedConsole(data, { addedBy: "alice" });
+  await seedRecords(data, "device-activity", { [CONSOLE_KEY]: { lastSeenAt: now - DAY, lastIp: "198.51.100.7", days: { [yesterday]: 4 } } });
+  const old = Array.from({ length: 105 }, (_, i) => ({ at: now - (106 - i) * 60_000, method: "password", ip: "198.51.100.20" }));
+  await seedRecords(data, "account-login", { alice: { at: old.at(-1).at, method: "password", ip: "198.51.100.20", history: [{ at: now - 100 * DAY, method: "password", ip: null }, ...old] } });
+
+  let server = boot(data);
+  try {
+    await waitReady();
+    let call = await asAdmin();
+
+    const shop = (ip) => fetch(`${BASE}/api/shop/sections`, { headers: { ...CONSOLE, "X-Forwarded-For": ip } });
+    for (const ip of ["192.0.2.10", "192.0.2.10", "198.51.100.7", ...Array.from({ length: 8 }, (_, i) => `203.0.113.${i + 1}`)]) {
+      assert.equal((await shop(ip)).status, 200);
+    }
+    let { days } = await ipHistory(call, `device=${CONSOLE_KEY}`);
+    assert.deepEqual(days.map((d) => d.day), [dayKey(Date.now()), yesterday], "newest day first");
+    const [today] = days;
+    assert.equal(today.n, 11);
+    assert.deepEqual(today.ips.slice(0, 2), [{ ip: "192.0.2.10", n: 2 }, { ip: "198.51.100.7", n: 1 }], "both addresses of the day, each with its count");
+    assert.equal(today.ips.length, 8, "at most 8 addresses a day");
+    assert.equal(today.other, 2, "the rest count as other");
+    assert.deepEqual(days[1], { day: yesterday, n: 4, ips: [], other: 0 }, "a day counted before addresses were kept by day still reads");
+
+    await webSession(BASE, "alice", "alice-password-1", { "X-Forwarded-For": "192.0.2.33" });
+    await webSession(BASE, "bob", "bob-password-1", FROM);
+    let { logins } = await ipHistory(call, "account=alice");
+    assert.equal(logins.length, 100, "the last 100 sign-ins are kept");
+    assert.equal(logins[0].ip, "192.0.2.33");
+    assert.equal(logins[0].method, "password");
+    assert.ok(logins.every((l) => l.at > now - 90 * DAY), "nothing older than 90 days");
+    const stats = await call("GET", "/admin/api/stats");
+    assert.equal(user(stats, "alice").lastLoginIp, "192.0.2.33");
+    assert.equal(user(stats, "alice").lastLoginMethod, "password");
+
+    const userRole = await webSession(BASE, "alice", "alice-password-1", FROM);
+    for (const q of [`device=${CONSOLE_KEY}`, "account=alice"]) {
+      assert.equal((await fetch(`${BASE}/admin/api/access-history?${q}`, { headers: userRole })).status, 403, "a regular account cannot read it");
+    }
+    const { token } = await call("POST", "/admin/api/tokens", { label: "ips" });
+    const bearer = { Authorization: `Bearer ${token}` };
+    for (const q of [`device=${CONSOLE_KEY}`, "account=alice"]) {
+      assert.equal((await fetch(`${BASE}/admin/api/access-history?${q}`, { headers: bearer })).status, 403, "an automation token cannot read it");
+    }
+    const tokenDevices = await (await fetch(`${BASE}/admin/api/devices`, { headers: bearer })).json();
+    assert.ok(tokenDevices.approved.length > 0 && tokenDevices.approved.every((d) => !("lastIp" in d)), "a token's device list has no addresses");
+    const tokenStats = await (await fetch(`${BASE}/admin/api/stats`, { headers: bearer })).json();
+    assert.ok(tokenStats.users.every((u) => !("lastIp" in u) && !("ips" in u) && !("lastLoginIp" in u)), "a token's user list has no addresses");
+
+    await stop(server);
+    server = boot(data);
+    await waitReady();
+    call = await asAdmin();
+
+    ({ days } = await ipHistory(call, `device=${CONSOLE_KEY}`));
+    assert.deepEqual(days[0], today, "a console's addresses survive a restart");
+    ({ logins } = await ipHistory(call, "account=alice"));
+    assert.equal(logins.length, 100);
+    assert.equal(logins.find((l) => l.ip === "192.0.2.33")?.method, "password", "sign-ins survive a restart");
+    assert.equal((await ipHistory(call, "account=bob")).logins[0].ip, "192.0.2.10");
+
+    await call("DELETE", "/admin/api/users/bob");
+    assert.deepEqual((await ipHistory(call, "account=bob")).logins, [], "a deleted account's sign-ins are gone");
+  } finally {
+    await stop(server);
+  }
+});

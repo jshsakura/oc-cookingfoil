@@ -9,6 +9,7 @@
  * consoles and enrollment tokens it left (account-access.js).
  */
 import * as users from "../../security/users.js";
+import * as store from "../../security/store.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
 import * as shopCache from "../../meta/shop-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
@@ -109,6 +110,7 @@ export function mountManageApi(router, guard) {
     }
     notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });
+    store.forgetLogins(req.params.name);
     revokeOwnedBy(req.params.name);
     debug.log("admin: removed user %s", req.params.name);
     res.json({ ok: true });

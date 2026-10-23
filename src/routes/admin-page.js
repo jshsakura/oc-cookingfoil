@@ -45,6 +45,7 @@ import { adminSecret, isEnrolled } from "../security/admin-secret.js";
 import * as users from "../security/users.js";
 import { mountManageApi } from "./admin/manage-api.js";
 import { mountAccountsApi } from "./admin/accounts-api.js";
+import { mountAccessHistoryApi, withoutIps } from "./admin/access-history-api.js";
 import { mountClientLogsApi } from "./admin/client-logs-api.js";
 import { mountClientReleaseApi } from "./admin/client-release-api.js";
 import { mountHomebrewApi } from "./admin/homebrew-api.js";
@@ -146,9 +147,9 @@ function clientBuildWarnings() {
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
 export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
-// Reads a token may not make either: the token list (tokens never handle tokens) and the admin
-// login's second step.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa)(?:\/|$)/i;
+// Reads a token may not make either: the token list (tokens never handle tokens), the admin
+// login's second step, and where consoles and accounts connected from.
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history)(?:\/|$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router
@@ -209,6 +210,7 @@ function buildUserRows() {
       ips: a?.ips ?? [],
       lastLoginAt: login?.at ?? null,
       lastLoginMethod: login?.method ?? null,
+      lastLoginIp: login?.ip ?? null,
       // Its web requests and the consoles it approved, whichever was later.
       lastActiveAt: Math.max(a?.lastAt ?? 0, consoles ?? 0) || null,
     };
@@ -354,7 +356,7 @@ export default function adminPageRouter() {
       me: withAvatar(adminActor(req)),
       lanes,
       warnings: [...configWarnings(lanes), ...clientBuildWarnings()],
-      users: userRows,
+      users: req.apiToken ? userRows.map(withoutIps) : userRows,
       lockouts,
       // The hint is what turns a reason code into an action the operator can take.
       denials: {
@@ -404,7 +406,8 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: snapshot.approved.map(withCode), clients: clientRows() });
+    const approved = snapshot.approved.map(withCode);
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: req.apiToken ? approved.map(withoutIps) : approved, clients: clientRows() });
   });
 
   router.post("/api/clients/:id/revoke", (req, res) => {
@@ -467,6 +470,7 @@ export default function adminPageRouter() {
 
   mountManageApi(router, requireSession);
   mountAccountsApi(router, requireSession);
+  mountAccessHistoryApi(router, requireSession);
   mountClientLogsApi(router, requireSession);
   mountClientReleaseApi(router, requireSession);
   mountHomebrewApi(router, requireSession);

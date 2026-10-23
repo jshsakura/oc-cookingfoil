@@ -231,6 +231,10 @@ h3.sub-h{margin:18px 0 4px;font-size:15px}
 .cred{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 12px;align-items:center;margin:16px 0}
 .cred .v{font-family:ui-monospace,monospace;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:7px 10px;word-break:break-all}
 .dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+button.ip-more{background:none;border:0;padding:0;min-height:0;color:var(--accent);font:12px ui-monospace,monospace;text-decoration:underline dotted;cursor:pointer;word-break:break-all;text-align:left}
+.ip-list{max-height:min(60vh,520px);overflow:auto;margin:12px 0;display:grid;gap:8px}
+.ip-row{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13px}
+.ip-row .ip-chips{display:flex;flex-wrap:wrap;gap:4px 12px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .fcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
@@ -715,6 +719,12 @@ ${TRASH_HTML}
   <p id="ask-text"></p>
   <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>
   <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>
+</dialog>
+<dialog id="ip-dialog" aria-labelledby="ip-title">
+  <h3 id="ip-title"></h3>
+  <p class="muted" id="ip-hint"></p>
+  <div class="ip-list" id="ip-list"></div>
+  <div class="dialog-actions"><button type="button" class="primary" id="ip-close" data-top="acc.close"></button></div>
 </dialog>
 <dialog id="cred-dialog" aria-labelledby="cred-title">
   <h3 id="cred-title"></h3>

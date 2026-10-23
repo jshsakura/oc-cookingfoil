@@ -645,6 +645,29 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
   }
 });
 
+test("a console's address opens its IPs by day, every value shown as text", async ({ page, request }) => {
+  const KEY = 'E8'.repeat(32);
+  await signIn(page);
+  const origin = { Origin: new URL(page.url()).origin };
+  const pending = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
+  expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '<b>IP 콘솔</b>' }, headers: origin })).status()).toBe(200);
+  try {
+    const { accessKey } = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
+    expect((await request.get('/api/shop/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
+    await page.goto('/admin#devices/approved');
+    await page.reload();
+    await page.getByRole('button', { name: /날짜별 IP 기록을 봅니다/ }).first().click();
+    const dialog = page.locator('#ip-dialog');
+    await expect(dialog.locator('#ip-title')).toHaveText('<b>IP 콘솔</b> 접속 IP');
+    await expect(dialog.locator('.ip-row').first()).toContainText('1회');
+    await page.screenshot({ path: 'out/web/admin-device-ips.png' });
+    await dialog.getByRole('button', { name: '닫기' }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await page.request.post('/admin/api/devices/revoke', { data: { deviceKey: KEY }, headers: origin });
+  }
+});
+
 test('server behaviour shows one group at a time and keeps the one picked after a reload', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings/server');

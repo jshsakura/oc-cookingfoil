@@ -2,15 +2,15 @@
 // form with its CSRF token) and returns the headers its page's requests carry.
 const cookieOf = (res, name) => res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`))?.split(";")[0];
 
-/** { Cookie, Origin, "X-CSRF-Token" } of `name` signed in at `base`; throws when the sign-in fails. */
-export async function webSession(base, name, password) {
+/** { Cookie, Origin, "X-CSRF-Token" } of `name` signed in at `base`, the sign-in sent with `headers`; throws when it fails. */
+export async function webSession(base, name, password, headers = {}) {
   const page = await fetch(`${base}/login`, { headers: { Accept: "text/html" } });
   const csrfCookie = cookieOf(page, "cf_csrf");
   if (!csrfCookie) throw new Error("no CSRF cookie from /login");
   const csrf = csrfCookie.split("=")[1];
   const res = await fetch(`${base}/login`, {
     method: "POST", redirect: "manual",
-    headers: { Cookie: csrfCookie, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { ...headers, Cookie: csrfCookie, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ username: name, password, csrf, next: "/" }),
   });
   const user = cookieOf(res, "cf_user");
