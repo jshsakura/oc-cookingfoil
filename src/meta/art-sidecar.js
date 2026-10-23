@@ -20,6 +20,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+import debug from "../debug.js";
 import { discard } from "../library/trash-service.js";
 
 export const META_DIR = "metadata";
@@ -137,7 +138,8 @@ async function clearSlot(dir, slot, keep = null, action = "art-replace") {
 export async function write(dir, slot, webp) {
   const file = path.join(dir, `${slot}.webp`);
   writeAtomic(file, webp);
-  await clearSlot(dir, slot, file);
+  // The new picture is in place and shown; a leftover of the slot that could not go is only noted.
+  await clearSlot(dir, slot, file).catch((err) => debug.error("art: %s of %s: its old files stay: %s", slot, dir, err.message));
   return file;
 }
 

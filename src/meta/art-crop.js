@@ -144,11 +144,16 @@ export function readOriginal(artFile) {
   return { image: p.image, crop, of };
 }
 
+/** The kept original of `artFile` and its area record, those that exist. */
+export function originalFiles(artFile) {
+  const p = originalPaths(artFile);
+  return [p.image, p.meta].filter((f) => fs.existsSync(f));
+}
+
 /** Moves the kept original of `artFile` (and its area) to the trash, when there is one. */
 export async function discardOriginal(artFile, action = "art-remove") {
-  const p = originalPaths(artFile);
-  const files = [p.image, p.meta].filter((f) => fs.existsSync(f));
-  if (files.length) await discard(files, { kind: "item-art", action, name: path.basename(p.image) });
+  const files = originalFiles(artFile);
+  if (files.length) await discard(files, { kind: "item-art", action, name: path.basename(files[0]) });
 }
 
 /**

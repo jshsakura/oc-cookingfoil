@@ -115,6 +115,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   };
   // Where an upload's kept original lives: always on the server, named after the slot.
   const anchor = (id, slot) => path.join(ownDir(id), `${slot}.webp`);
+  const inodeOf = (file) => { try { return fs.statSync(file).ino; } catch { return null; } };
 
   /**
    * Pictures kept the old way under <dir>/<id> (shot-N.webp, with .jpg twins beside)
@@ -150,11 +151,12 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
         const kept = sidecar.read(own);
         const losers = [kept.icon, kept.banner, ...kept.shots].filter(Boolean).filter((p) => !sidecar.adopt(p.file, home, p.slot));
         // The folder's own picture of a slot won: the one kept here goes to the trash, with its original.
-        if (losers.length) {
-          serial(id, async () => {
-            await sidecar.toTrash(losers.map((p) => p.file).filter((f) => fs.existsSync(f)), "art-replace");
-            for (const p of losers) await artCrop.discardOriginal(anchor(id, p.slot), "art-replace");
-          }).catch((err) => debug.error("%s: %s: pictures the folder replaced not moved to the trash: %s", label, id, err.message));
+        // Settling can run inside a save of this item, which then writes a new original at the same
+        // path, so only the files as they are now go, each recognised by its inode.
+        const doomed = losers.flatMap((p) => [p.file, ...artCrop.originalFiles(anchor(id, p.slot))])
+          .map((file) => ({ file, ino: inodeOf(file) })).filter((f) => f.ino != null);
+        if (doomed.length) {
+          serial(id, () => sidecar.toTrash(doomed.filter((f) => inodeOf(f.file) === f.ino).map((f) => f.file), "art-replace")).catch((err) => debug.error("%s: %s: pictures the folder replaced not moved to the trash: %s", label, id, err.message));
         }
       }
       settled.add(key);
@@ -169,11 +171,13 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
    * replaced release had) into the server's own folder for the item, where they are shown from next.
    * What the server already keeps there of a slot wins.
    */
-  async function park(id, from) {
+  function park(id, from) {
     check(id);
     const kept = sidecar.read(from);
-    const losers = [kept.icon, kept.banner, ...kept.shots].filter(Boolean).filter((p) => !sidecar.adopt(p.file, ownDir(id), p.slot));
-    await sidecar.toTrash(losers.map((p) => p.file), "art-replace");
+    // `from` is a copy in the upload's work folder; the folder it came from already went to the trash whole.
+    for (const p of [kept.icon, kept.banner, ...kept.shots].filter(Boolean)) {
+      if (!sidecar.adopt(p.file, ownDir(id), p.slot)) fs.rmSync(p.file, { force: true });
+    }
     settled.clear();
   }
 

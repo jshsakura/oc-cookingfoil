@@ -53,5 +53,5 @@ export const DIRECT_DELETES = Object.freeze({
   "src/security/prod-keys.js": { count: 1, why: "a temporary file" },
   "src/meta/art-sidecar.js": { count: 3, why: "stale temporary files, and a picture's source once its copy to another disk is in place" },
   "src/meta/custom-art.js": { count: 1, why: "a slot's old files once their move to the new slot verified" },
-  "src/meta/item-media.js": { count: 1, why: "a .jpg twin the server once made beside its own .webp of the same picture" },
+  "src/meta/item-media.js": { count: 2, why: "a .jpg twin the server once made beside its own .webp of the same picture, and copies in an upload's work folder" },
 });
