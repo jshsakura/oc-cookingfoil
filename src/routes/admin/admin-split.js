@@ -26,6 +26,8 @@ import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
+import { PEOPLE_SCRIPT } from "./people-script.js";
+import { CRED_DIALOG_HTML, DEVICES_HTML, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
 function splitPage(page, { css = "", body = "", script = "", init = "" }) {
@@ -64,6 +66,15 @@ export const SPLIT_PAGES = {
   "/admin/logs/security": bundle({
     css: LOGS_CSS, body: LOGS_SECURITY_HTML, script: LOGS_SCRIPT,
     init: "admInterval(loadSecurity,15000);",
+  }),
+  // Second bundle: the people pages carry their own credential and IP dialogs.
+  "/admin/users": bundle({
+    body: USERS_HTML + CRED_DIALOG_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
+    init: "admInterval(loadPeople,15000);",
+  }),
+  "/admin/devices": bundle({
+    body: DEVICES_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
+    init: "admInterval(loadPeople,15000);",
   }),
 };
 

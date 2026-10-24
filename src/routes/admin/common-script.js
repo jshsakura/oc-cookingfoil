@@ -134,4 +134,17 @@ function admInterval(fn,ms){
   return {stop(){stopped=true;clearTimeout(t);t=0;
     document.removeEventListener('visibilitychange',onVis);
     removeEventListener('pagehide',onHide);removeEventListener('pageshow',onShow);}};}
+
+// Sub-tab bars inside a section: one area at a time, the address carries the
+// choice. Works on the whole-page dashboard and on the split pages alike.
+const SUBTABS={};
+function subtabs(tab){const bar=$(tab+'-subtabs');if(!bar)return;
+  const subs=[...bar.querySelectorAll('[data-sub]')].map((b)=>b.dataset.sub);
+  if(!subs.length)return;
+  const st={cur:subs[0],show(sub){if(!subs.includes(sub))return;st.cur=sub;
+    for(const b of bar.querySelectorAll('[data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===sub));
+    for(const p of $('tab-'+tab)?.querySelectorAll('[data-sub-panel]')||[])p.hidden=p.dataset.subPanel!==sub;}};
+  for(const b of bar.querySelectorAll('[data-sub]'))b.addEventListener('click',()=>{
+    history.replaceState(null,'','#'+tab+'/'+b.dataset.sub);st.show(b.dataset.sub);});
+  SUBTABS[tab]=st;}
 `;
