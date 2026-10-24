@@ -165,6 +165,8 @@ The RetroArch base pack is what a console needs once before it can play: put `re
 
 ## Configuration
 
+The retired `TINFOIL_HAT_PORT` variable is no longer read. Use `COOK_PORT` for the server listener (default `80`); Docker users normally change the published port with `COOK_HOST_PORT` instead.
+
 Most settings are changed on the admin page and apply at once. A value in `.env` is only the default for the first start: once you change a setting on the admin page, the page's value wins, and "back to compose" (compose 값으로) returns to the `.env` value. [`.env.example`](./.env.example) lists and explains every variable.
 
 These have to be known before the admin page exists, or are kept out of it on purpose:

@@ -10,7 +10,7 @@ import { resolveLayout, oldIncoming } from "./storage-layout.js";
  * Backward-compat env var reader.
  * Returns the first defined+non-empty value across the supplied keys.
  * The first key is the canonical (COOK_*) name; the rest are legacy
- * tinfoil-hat aliases we still accept so existing setups keep working.
+ * environment aliases retained for existing configurations.
  */
 function pickEnv(...names) {
   for (const name of names) {
@@ -51,7 +51,7 @@ const incomingInGames = (() => {
   return oldIncoming(layout) ? "incoming" : null;
 })();
 
-const appPort = pickEnv("COOK_PORT", "TINFOIL_HAT_PORT") ?? "80";
+const appPort = pickEnv("COOK_PORT") ?? "80";
 
 const authUsers = pickEnv("COOK_AUTH_USERS", "AUTH_USERS") ?? null;
 const unauthorizedMessage =

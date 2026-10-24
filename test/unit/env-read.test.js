@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -84,6 +84,23 @@ const PROBE = `
     maxAuthFailures, trustLoopback, adminSessionHours, extractPaceMs, uploadMaxBytes,
   }));
 `;
+
+test("only COOK_PORT selects the listener port; the retired alias is ignored", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "cf-env-port-"));
+  try {
+    for (const [port, expected] of [["", "80"], ["18080", "18080"]]) {
+      const out = execFileSync(process.execPath, ["--input-type=module", "-e",
+        'import { appPort } from "../../src/helpers/envs.js"; process.stdout.write(appPort);'], {
+        cwd: import.meta.dirname,
+        env: { ...process.env, COOK_DATA_DIR: dir, COOK_STORAGE_DIR: "", COOK_PORT: port, TINFOIL_HAT_PORT: "19999" },
+        encoding: "utf-8",
+      });
+      assert.equal(out, expected);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("compose-style empty passthrough leaves every documented default intact", () => {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", PROBE], {
