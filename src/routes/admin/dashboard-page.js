@@ -27,6 +27,7 @@ import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
+import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ADMIN_PAGE_BY_PATH, ADM_SHELL_CSS, MENU_BUTTON_HTML, admRouterScript, drawerHtml, sidebarNav } from "./admin-pages.js";
@@ -37,7 +38,7 @@ import { enrollPerHour } from "../../helpers/envs.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 
-const PAGE_CSS = /* css */ `
+export const PAGE_CSS = /* css */ `
 ${BRAND_MOTION_CSS}
 body{padding:28px 32px 80px}.wrap{max-width:1240px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
@@ -264,16 +265,6 @@ h2.first{margin-top:0}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
 :is(td,.gc) .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 form.add select{flex:none;min-width:9em}
-.logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
-.logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
-.logs-list details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
-.logs-list summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
-.logs-list summary span{color:var(--muted);font-weight:500;font-size:12px}
-.logs-list button{display:flex;width:100%;justify-content:space-between;margin-top:6px;padding:7px 10px;font-weight:500}
-.logs-list button[aria-pressed="true"]{border-color:var(--accent);background:rgba(var(--accent-rgb),.14)}
-.logs-body{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
-.logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.logs-body pre{margin:0;padding:14px;min-height:220px;max-height:520px;overflow:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
 .me{margin-left:6px}
 /* Phones: the header wraps into two rows so every control keeps a real 44px
    touch target: the brand alone on the first, the four controls under it. */
@@ -286,7 +277,6 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px
 .hdr-right .lang-btn{height:44px}
 .up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 form.add input,form.add select,form.add button{flex:1 1 100%}
-.logs-view{grid-template-columns:1fr}
 table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
 tr:first-child:has(th){display:none}
 tr{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:6px 0}
@@ -320,40 +310,15 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 `;
 
 
-export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = "") {
-  const current = { path: page.path, view, countId: page.count ?? "" };
-  return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
-.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
-.pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
-.pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
-.pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
-.pg-n{min-width:38px;padding-left:10px;padding-right:10px;font-variant-numeric:tabular-nums}
-.pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
-.pg-gap{color:var(--faint)}
-@media (max-width:600px){.pg-q{max-width:none;flex-basis:100%}.pg-nav{margin-left:0;width:100%;justify-content:center}}
-.logs-view{align-items:stretch}
-.logs-list summary{align-items:center}.logs-list summary>b{display:grid;gap:1px;min-width:0;font-weight:700}
-.logs-list summary>b small{font:500 11px ui-monospace,monospace;color:var(--muted);letter-spacing:.02em}
-.logs-list button{gap:10px}.logs-list button span{white-space:nowrap;font-variant-numeric:tabular-nums}
-.logs-list summary span{white-space:nowrap}
-.logs-body{min-height:320px}
-.logs-body pre{flex:1}.logs-body pre[hidden],.logs-head[hidden]{display:none}
-.logs-empty{flex:1;display:grid;place-content:center;justify-items:center;gap:6px;padding:30px 20px;text-align:center;color:var(--muted)}
-.logs-empty b{color:var(--text);font-size:15px}.logs-empty span{font-size:13px}
-.logs-empty[hidden]{display:none}.logs-empty-ico{width:38px;height:38px;color:var(--faint);stroke-width:1.5;margin-bottom:4px}
-#bug-reports table{width:100%}#bug-reports td,#bug-reports th{white-space:nowrap}#bug-reports td:nth-child(3){white-space:normal}
-tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
-.rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
-.rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
-<body class="adm-shell">
-<aside class="adm-side" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</aside>
-${drawerHtml(current)}
-<div class="wrap">
-<header>
+/** The header every admin page shares: brand, menu, upload, language, account and activity. */
+/** The page title and the ask dialog, shared by the whole dashboard and the split pages. */
+/** The sidebar and phone drawer around every admin page's content. */
+export const adminChrome = (current) => /* html */ `<aside class="adm-side" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</aside>\n${drawerHtml(current)}`;
+
+export const ADMIN_TITLE_HTML = /* html */ `<title>CookingFoil 서버 관리</title>`;
+export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
+
+export const ADMIN_HEADER_HTML = /* html */ `<header>
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   ${MENU_BUTTON_HTML}
@@ -374,7 +339,27 @@ ${drawerHtml(current)}
     </div>
   </div>
   </div>
-</header>
+</header>`;
+
+export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = "") {
+  const current = { path: page.path, view, countId: page.count ?? "" };
+  return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
+.pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
+.pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+.pg-n{min-width:38px;padding-left:10px;padding-right:10px;font-variant-numeric:tabular-nums}
+.pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.pg-gap{color:var(--faint)}
+@media (max-width:600px){.pg-q{max-width:none;flex-basis:100%}.pg-nav{margin-left:0;width:100%;justify-content:center}}
+tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
+${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
+<body class="adm-shell">
+${adminChrome(current)}
+<div class="wrap">
+${ADMIN_HEADER_HTML}
 
 <section id="tab-overview">
   <h2 class="first">연결</h2>
@@ -503,27 +488,11 @@ ${drawerHtml(current)}
     <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}차단과 거부</button>
   </div>
   <div data-logs-panel="xfer">${TRANSFERS_HTML}</div>
-  <div data-logs-panel="client" hidden>
-  <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
-  <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
-  ${box("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
-  <div class="scroll" id="bug-reports" data-skel></div>`, { level: "h3", open: true })}
-  <h3 class="sub-h">기기별 기록</h3>
-  <div class="logs-view">
-    <div class="logs-list" id="cl-list"></div>
-    <div class="logs-body">
-      <div class="logs-head" id="cl-head" hidden></div>
-      <div class="logs-empty" id="cl-empty">${icon("log", "ico logs-empty-ico")}<b>기록을 고르면 여기에 내용이 나옵니다</b><span>왼쪽 기기에서 기록 하나를 누릅니다.</span></div>
-      <pre id="cl-text" tabindex="0" hidden></pre>
-    </div>
+  <div data-logs-panel="client" hidden">
+  ${LOGS_CLIENT_HTML}
   </div>
-  </div>
-  <div data-logs-panel="deny" hidden>
-  <div class="hd"><h2 class="first">차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
-  <div class="scroll" id="lockouts" data-skel></div>
-  <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 삭제</button></div>
-  <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
-  <div class="scroll" id="denials" data-skel></div>
+  <div data-logs-panel="deny" hidden">
+  ${LOGS_SECURITY_HTML}
   </div>
 </section>
 
@@ -681,11 +650,7 @@ ${TRASH_HTML}
 </section>
 </div>
 
-<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">
-  <p id="ask-text"></p>
-  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>
-  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>
-</dialog>
+${ASK_DIALOG_HTML}
 <dialog id="ip-dialog" aria-labelledby="ip-title">
   <h3 id="ip-title"></h3>
   <p class="muted" id="ip-hint"></p>

@@ -23,19 +23,21 @@ const payload = {
   ],
 };
 
-test('the logs tab splits into sub-tabs and the client log list stays short and tells same-named consoles apart', async ({ page }) => {
+test('each records page shows only its own group and the client log list stays short and tells same-named consoles apart', async ({ page }) => {
   await page.route('**/admin/api/client-logs', (route) => route.fulfill({ json: payload }));
   await page.route('**/admin/api/client-logs/aaaa1111/*', (route) => route.fulfill({ body: 'line one\nline two', contentType: 'text/plain' }));
   await signIn(page);
+
+  // The downloads page carries only the download records.
   await page.goto('/admin/logs/downloads');
+  await expect(page.locator('#xf-cards')).toBeVisible();
+  await expect(page.locator('#cl-list')).toHaveCount(0);
+  await expect(page.locator('#lockouts')).toHaveCount(0);
 
-  // Only the download records show at first; the other two groups wait behind their sub-tabs.
-  await expect(page.locator('[data-logs-panel="xfer"]')).toBeVisible();
-  await expect(page.locator('[data-logs-panel="client"]')).toBeHidden();
-  await expect(page.locator('#lockouts')).toBeHidden();
-
-  await page.getByRole('tab', { name: '클라이언트 로그' }).click();
-  await expect(page.locator('[data-logs-panel="xfer"]')).toBeHidden();
+  // The client-logs page is its own page now, not a sub-tab behind the downloads.
+  await page.goto('/admin/logs/clients');
+  await expect(page.locator('#cl-list')).toBeVisible();
+  await expect(page.locator('#xf-cards')).toHaveCount(0);
 
   // Ranks 1 to 3 are marked, and the table does not run past its box.
   await expect(page.locator('#bug-reports .rk.r1')).toHaveText('1');
@@ -60,6 +62,7 @@ test('the logs tab splits into sub-tabs and the client log list stays short and 
   await expect(page.locator('#cl-text')).toHaveText('line one\nline two');
   await expect(page.locator('#cl-empty')).toBeHidden();
 
-  await page.getByRole('tab', { name: '차단과 거부' }).click();
+  // Blocks and denials are their own page now.
+  await page.goto('/admin/logs/security');
   await expect(page.locator('#lockouts')).toBeVisible();
 });

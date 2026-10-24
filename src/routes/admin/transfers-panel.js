@@ -75,7 +75,7 @@ function xfCards(s){const box=$('xf-cards');box.replaceChildren();
 async function xfLoad(){if(xfBusy)return;xfBusy=true;
   try{const d=await api('/admin/api/transfers?limit=200'+(xfRoute?'&route='+xfRoute:''));xfCards(d.summary);xfRender(d);xfLoaded=true;}
   catch(err){if(!xfLoaded)toast(err.message);}finally{xfBusy=false;}}
-function xfVisible(){return !$('tab-logs').hidden&&document.visibilityState==='visible';}
+function xfVisible(){const t=$('tab-logs');return (t?!t.hidden:true)&&document.visibilityState==='visible';}
 function xfOpen(){if(!xfLoaded&&!$('xf-table').childNodes.length)$('xf-table').append(el('div','불러오는 중입니다.','empty'));xfLoad();
   if(!xfTimer)xfTimer=setInterval(()=>{if(xfVisible())xfLoad();else{clearInterval(xfTimer);xfTimer=null;}},3000);}
 document.addEventListener('visibilitychange',()=>{if(xfVisible())xfOpen();});

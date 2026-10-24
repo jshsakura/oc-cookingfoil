@@ -4,99 +4,16 @@
  */
 import { guessUpload } from "./upload-guess.js";
 import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "./upload-flow.js";
+import { COMMON_SCRIPT } from "./common-script.js";
+import { LOGS_SCRIPT } from "./logs-pages.js";
 
+// The helpers every page shares (element, format, ask, toast, api, pagedTable)
+// live in common-script.js: this whole-page script inlines them first, and the
+// split pages of the admin redesign inline the same block on their own.
 export const DASHBOARD_SCRIPT = /* js */ `
-const $=(id)=>document.getElementById(id);
-const fmt=(t)=>t?new Date(t).toLocaleString('ko-KR'):'—';
-const ago=(t)=>{if(!t)return '—';const s=Math.round((Date.now()-t)/1000);
-  if(s<60)return s+'초 전';if(s<3600)return Math.round(s/60)+'분 전';
-  if(s<86400)return Math.round(s/3600)+'시간 전';return Math.round(s/86400)+'일 전';};
-const num=(n)=>Number(n||0).toLocaleString('ko-KR');
-// ago in the page's language (top-i18n.js).
-const agoT=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
-  return s<60?topFill('acc.ago.s',{n:s}):s<3600?topFill('acc.ago.m',{n:Math.round(s/60)}):s<86400?topFill('acc.ago.h',{n:Math.round(s/3600)}):topFill('acc.ago.d',{n:Math.round(s/86400)});};
-// A last sign-in: when, relative with the exact time on hover, and how; its address opens the account's sign-ins.
-function loginCell(at,method,ip,open){if(!at)return td('—','dim');
-  const c=td();const s=el('span',agoT(at)+(method?' · '+topText('acc.method.'+method):''));s.title=fmt(at);c.append(s);
-  if(open){c.append(el('br'),ipButton(ip||topText('acc.loginHistory'),'acc.loginHistory',open));}return c;}
-function ipButton(txt,label,open){const b=el('button',txt,'ip-more');b.type='button';b.title=topText(label);b.setAttribute('aria-label',txt+' · '+topText(label));
-  b.addEventListener('click',open);return b;}
-// Where a console or an account connected from, in a dialog. Every value goes in as text.
-function ipDialog(title,hint,rows){$('ip-title').textContent=title;$('ip-hint').textContent=hint;
-  $('ip-list').replaceChildren(...(rows.length?rows:[el('p',topText('acc.noHistory'),'muted')]));$('ip-dialog').showModal();}
-$('ip-close').addEventListener('click',()=>$('ip-dialog').close());
-async function openDeviceIps(a){
-  try{const d=await api('/admin/api/access-history?device='+encodeURIComponent(a.deviceKey));
-    ipDialog(topFill('acc.ipTitle',{name:a.label||a.code||a.deviceKey.slice(0,8)}),topText('acc.ipHint'),d.days.map((x)=>{
-      const r=el('div',null,'ip-row');const ips=el('div',null,'ip-chips');
-      for(const i of x.ips)ips.append(el('span',i.ip+' · '+topFill('acc.times',{n:i.n}),'ip'));
-      if(x.other)ips.append(el('span',topFill('acc.otherIps',{n:x.other}),'muted'));
-      r.append(el('b',x.day),ips);return r;}));}catch(err){toast(errText(err));}}
-async function openLogins(owner,name){
-  try{const d=await api('/admin/api/access-history?account='+encodeURIComponent(owner));
-    ipDialog(topFill('acc.loginTitle',{name}),topText('acc.loginHint'),d.logins.map((x)=>{
-      const r=el('div',null,'ip-row');const how=el('div',null,'ip-chips');how.append(el('span',topText('acc.method.'+x.method)),el('span',x.ip||'—','ip'));
-      r.append(el('b',fmt(x.at)),how);return r;}));}catch(err){toast(errText(err));}}
-function whenCell(at){const c=td(agoT(at),at?'':'dim');if(at)c.title=fmt(at);return c;}
-function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e;}
-function td(txt,cls){return el('td',txt,cls);}
-// Row actions show an icon; on a wide screen the label hides and stays as the tooltip and accessible name.
-const TRASH='<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>';
-const PENCIL='<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>';
-const CROSS='<path d="M6 6l12 12M18 6L6 18"/>';
-const BAN='<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>';
-const STAR='<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>';
-const ROTATE='<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
-const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,
-  '편집':PENCIL,'이름':PENCIL,'이름 변경':PENCIL,
-  '승인':'<path d="M5 12.5l4.5 4.5L19 7.5"/>','거절':CROSS,'취소':CROSS,'빼기':'<path d="M5 12h14"/>',
-  '접근 키 회수':BAN,'사용 중지':BAN,'해제':BAN,
-  '키 재발급':'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
-  '재시도':ROTATE,'다시 시작':ROTATE,'되돌립니다':'<path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
-  '복사':'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
-  '설명':'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>','지금 확인':ROTATE,
-  '추천 버전입니다':STAR,'추천 버전으로 정합니다':STAR,
-  '그림':'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 8"/>',
-  '지금 다운로드':'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
-  '패치 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>','세이브 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
-  'GitHub 연결':'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'};
-function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const icon=ICONS[txt];
-  if(icon){b.classList.add('ib');b.title=txt;b.setAttribute('aria-label',txt);
-    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';b.append(el('span',txt));}
-  else b.textContent=txt;
-  b.addEventListener('click',fn);return b;}
-// Asks in a dialog that looks like the rest of the page, instead of the browser's confirm().
-// Removing, revoking and the like get a red button, and the cancel button starts focused.
-const ASK_DANGER=/삭제|폐기|회수|중지|되돌릴 수 없|휴지통|멈추고|끄면|끕니다/;
-// askText(msg,value) asks for a line of text the same way, resolving to it or null (like await askText()).
-function askDialog(msg,value){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
-  const typing=value!==undefined,danger=!typing&&ASK_DANGER.test(msg);
-  $('ask-text').textContent=msg;ok.className=danger?'danger-solid':'primary';inp.hidden=!typing;inp.value=typing?value:'';
-  return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
-    const yes=()=>done(typing?inp.value:true),nope=()=>done(typing?null:false);
-    ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
-    inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
-    d.showModal();if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
-const ask=(msg)=>askDialog(msg);
-const askText=(msg,value='')=>askDialog(msg,value);
-function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
-// table(mount,cols,rows,empty) is in grid.js.
+${COMMON_SCRIPT}
+${LOGS_SCRIPT}
 
-const ERRORS={self:'지금 로그인한 계정은 정지, 강등, 삭제할 수 없습니다.','last-admin':'관리자 계정이 하나는 남아 있어야 합니다.'};
-const errText=(err)=>ERRORS[err.code]||err.message;
-async function api(url,opts={}){
-  // The admin API answers its errors in the page's language (routes/admin/api-words.js).
-  const init={headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},...opts};
-  if(opts.body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(opts.body);}
-  const r=await fetch(url,init);
-  // Signed out (or the first account just switched sign-in on): reload, which leads
-  // to the sign-in page, but never while a new password is still on screen.
-  if(r.status===401){if($('cred-dialog').open)$('cred-dialog').addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
-  const data=await r.json().catch(()=>({}));
-  // A refusal the page acts on carries a stable code; older answers put theirs in error.
-  if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}
-  return data;}
 
 // ── tabs ──────────────────────────────────────────────────────────────
 // why a zip was served as its single .nro instead of a whole folder
@@ -230,33 +147,6 @@ function renderUsers(list){usersShown=list;
     if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
     act.append(box);tr.append(act);return tr;};
   pagedTable('users',['이름','역할','상태',topText('acc.lastLogin'),topText('acc.lastActive'),topText('acc.lastIp'),''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
-// What each refusal means, for the log tab (the server's own codes and English hints are for curl and the server log).
-const DENY_KO={
-  'rate-limited':['요청 과다','짧은 시간에 요청이 너무 많아 잠시 쉬게 했습니다. 승인된 기기와 로그인한 브라우저는 이 제한을 받지 않습니다.'],
-  'ip-locked':['잠긴 주소','비밀번호를 여러 번 틀려 잠긴 주소에서 온 요청입니다. 위 차단 목록에서 풉니다.'],
-  'probe':['공격 시도','알려진 공격 경로나 도구라 로그인 전에 걸렀습니다.'],
-  'bad-credentials':['비밀번호 틀림','아이디나 비밀번호가 맞지 않습니다. 여러 번 틀리면 그 주소를 잠급니다.'],
-  'no-device-key':['기기 키 없음','기기 키 없이 들어왔습니다. 콘솔은 CookingFoil 클라이언트로 QR 승인을 받아야 들어오고, 비밀번호만으로는 열리지 않습니다.'],
-  'device-not-approved':['승인 전 기기','아직 승인하지 않은 기기입니다. 기기 탭에서 승인합니다.'],
-  'device-bad-access-key':['기기 키 틀림','승인된 기기가 맞지 않는 접근 키를 보냈습니다. 기기 탭에서 키를 다시 냅니다.'],
-  'admin-no-session':['관리자 로그인 필요','관리 기능을 로그인 없이 요청했습니다.'],
-  'admin-bad-totp':['OTP 틀림','관리자 6자리 코드가 맞지 않았습니다.'],
-};
-function renderSecurity(d){
-  const locks=d.lockouts||[];const lockedNow=new Set(locks.map((l)=>l.ip));
-  $('lock-count').hidden=!locks.length;$('lock-count').textContent=locks.length;
-  $('unlock-all').disabled=!locks.length;
-  pagedTable('lockouts',['IP','이유','차단 시각','해제 예정',''],locks,(l)=>{const tr=el('tr');
-    tr.append(td(l.ip,'ip'),td(l.reason||'—'),td(fmt(l.lockedAt)),td(l.until?fmt(l.until):'직접 해제할 때까지'));
-    const act=td();act.append(btn('해제',()=>unlock(l.ip)));tr.append(act);return tr;},'차단된 IP 가 없습니다.',{label:'차단된 IP',placeholder:'IP 로 찾기'});
-  pagedTable('denials',['시각','이유','클라이언트','경로','IP'],d.denials?.recent||[],(x)=>{const tr=el('tr');
-    const w=td(ago(x.at));w.title=fmt(x.at);tr.append(w);
-    const [label,hint]=DENY_KO[x.reason]||[x.reason,x.hint||''];
-    const r=td();r.append(pill(label,'warn'));if(x.status)r.append(' ',pill(String(x.status)));
-    // A lock that has since been lifted is history, not a live block.
-    if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill('지금은 풀림'));
-    if(hint)r.append(el('div',hint,'muted'));tr.append(r);
-    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;},'거부된 요청이 없습니다.',{label:'거부 기록',placeholder:'IP, 경로, 클라이언트로 찾기'});}
 async function loadStats(){
   const d=await api('/admin/api/stats');
   me=d.me||null;const a=d.lanes.admin;
@@ -303,14 +193,6 @@ async function removeUser(name){
   if(!await ask(msg))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+(last?'?allowEmpty=1':''),{method:'DELETE'});toast('삭제했습니다.');loadStats();}
   catch(err){toast(errText(err));}}
-
-// ── security ──────────────────────────────────────────────────────────
-async function unlock(ip){if(!await ask(ip+' 의 차단을 해제합니다.'))return;
-  try{await api('/admin/api/unlock',{method:'POST',body:{ip}});toast('차단을 해제했습니다.');loadStats();}catch(err){toast(err.message);}}
-$('unlock-all').addEventListener('click',async()=>{if(!await ask('차단된 IP 를 모두 해제합니다.'))return;
-  try{const r=await api('/admin/api/unlock',{method:'POST',body:{ip:'all'}});toast(r.unlocked+'개를 해제했습니다.');loadStats();}catch(err){toast(err.message);}});
-$('clrdeny').addEventListener('click',async()=>{if(!await ask('거부 기록을 삭제합니다.'))return;
-  try{await api('/admin/api/denials/clear',{method:'POST',body:{}});loadStats();}catch(err){toast(err.message);}});
 
 // ── Google accounts ─────────────────────────────────────────────────
 const ACCOUNT_STATUS={pending:['승인 대기','warn'],approved:['승인됨','on'],disabled:['사용 중지','off']};
@@ -469,10 +351,6 @@ function paged(mount,opts){
     nav.append(next);
     bar.append(find,per,info,nav);};
   run();}
-// A table whose rows are made per item, paged the same way. row(item) makes one row, or with
-// opts.slice row(items) makes the rows of a whole page (for group headings inside a page).
-function pagedTable(id,cols,items,row,empty,opts={}){
-  table(id,cols,opts.slice?row(items):items.map(row),empty,{search:true,label:opts.label,placeholder:opts.placeholder});}
 // ── homebrew ──────────────────────────────────────────────────────────
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
 async function loadHomebrew(){
@@ -710,39 +588,7 @@ $('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disable
 async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 삭제합니다.'))return;
   try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 
-// ── client logs ───────────────────────────────────────────────────────
-const kb=(n)=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
-// Today shows the time alone, any other day month.day and time: short enough for one line.
-function fmtShort(t){if(!t)return '—';const d=new Date(t),n=new Date();
-  const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-  return d.toDateString()===n.toDateString()?hm:(d.getMonth()+1)+'.'+d.getDate()+' '+hm;}
-let logsSub='xfer';
-function logsShowSub(sub){logsSub=sub;
-  for(const b of document.querySelectorAll('#logs-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
-  for(const p of document.querySelectorAll('#tab-logs [data-logs-panel]'))p.hidden=p.dataset.logsPanel!==sub;}
-for(const b of document.querySelectorAll('#logs-subtabs [data-lsub]'))b.addEventListener('click',()=>logsShowSub(b.dataset.lsub));
-async function loadClientLogs(){
-  const d=await api('/admin/api/client-logs');const box=$('cl-list');box.replaceChildren();
-  pagedTable('bug-reports',['순위','사용자','기기','보낸 횟수','최근'],(d.bugReports||[]).map((r,i)=>({...r,rank:i+1})),(r)=>{const tr=el('tr');
-    const rk=td();rk.append(el('span',String(r.rank),'rk'+(r.rank<=3?' r'+r.rank:'')));
-    const dev=td();dev.append(el('span',r.label||r.prefix,r.label?'':'ip'));if(r.label)dev.append(el('span',r.prefix,'rk-key'));
-    tr.append(rk,td(r.owner||'—',r.owner?'':'dim'),dev,td(num(r.count)+'번'),td(ago(r.last)));
-    tr.lastChild.title=fmt(r.last);return tr;},'아직 받은 버그 리포트가 없습니다.',{label:'버그 리포트',placeholder:'사용자나 기기로 찾기',def:10});
-  if(!(d.consoles||[]).length){box.append(el('div','아직 받은 로그가 없습니다.','empty'));return;}
-  for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
-    const sum=el('summary');const name=el('b',c.label||c.prefix);
-    // Several consoles can share one name ("자동 등록"): the key's first 8 characters tell them apart.
-    if(c.label)name.append(el('small',c.prefix));
-    sum.append(name,el('span',c.files.length+'개'));det.append(sum);
-    for(const f of c.files){const b=btn('',()=>openLog(c,f,b));b.dataset.noicon='1';const t=el('span',fmtShort(f.at));t.title=fmt(f.at);b.append(t,el('span',kb(f.size),'muted'));det.append(b);}
-    box.append(det);}}
-async function openLog(c,f,button){
-  for(const b of document.querySelectorAll('#cl-list button'))b.setAttribute('aria-pressed',String(b===button));
-  const head=$('cl-head');head.hidden=false;$('cl-empty').hidden=true;$('cl-text').hidden=false;
-  head.textContent=(c.label?c.label+' · ':'')+c.prefix+' · '+fmt(f.at);
-  const r=await fetch('/admin/api/client-logs/'+c.prefix+'/'+encodeURIComponent(f.name));
-  $('cl-text').textContent=r.ok?await r.text():'기록을 읽지 못했습니다.';}
-$('cl-refresh').addEventListener('click',loadClientLogs);
+
 
 // ── upload ────────────────────────────────────────────────────────────
 // The page opens on the file chooser. What the names say is a suggestion shown next to it; the

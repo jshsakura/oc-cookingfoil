@@ -91,6 +91,7 @@ import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import { ADMIN_PAGES, ADMIN_PAGE_BY_PATH } from "./admin/admin-pages.js";
+import { splitPageFor } from "./admin/admin-split.js";
 import * as adminEdits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import fs from "fs";
@@ -295,6 +296,12 @@ export default function adminPageRouter() {
     if (hasValidSession(req)) {
       const raw = page.param === "tab" ? req.query.tab : req.query.view;
       const view = typeof raw === "string" ? raw.slice(0, 40) : "";
+      // The split pages of the redesign carry only their own markup and script.
+      const split = splitPageFor(page);
+      if (split) {
+        res.type("html").send(split);
+        return;
+      }
       res.type("html").send(dashboardPage(page, view));
       return;
     }

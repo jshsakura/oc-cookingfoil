@@ -87,10 +87,12 @@ const ACTIVITY_WORDS = {
 };
 
 const ADMIN_FOLLOW_SCRIPT = /* js */ `const ACT_FOLLOW=[
-  {kinds:['nsz'],when:()=>nzVisible(),run:()=>loadNsz()},
-  {kinds:['retro-art'],when:()=>location.hash==='#retro',run:()=>loadRetroArt()},
-  {kinds:['scan:games','sync'],ended:true,when:()=>location.hash==='#library',run:()=>loadLibrary()},
-  {kinds:['scan:homebrew','homebrew-github'],ended:true,when:()=>location.hash==='#homebrew',run:()=>loadHomebrew()},
+  // A split page carries only its own panels: the hooks must not name a
+  // function that page never loaded.
+  {kinds:['nsz'],when:()=>typeof nzVisible==='function'&&nzVisible(),run:()=>{if(typeof loadNsz==='function')loadNsz();}},
+  {kinds:['retro-art'],when:()=>location.hash==='#retro',run:()=>{if(typeof loadRetroArt==='function')loadRetroArt();}},
+  {kinds:['scan:games','sync'],ended:true,when:()=>location.hash==='#library',run:()=>{if(typeof loadLibrary==='function')loadLibrary();}},
+  {kinds:['scan:homebrew','homebrew-github'],ended:true,when:()=>location.hash==='#homebrew',run:()=>{if(typeof loadHomebrew==='function')loadHomebrew();}},
 ];
 function actFollow(prev,next){
   // Ended: gone from running, or new in recent (a job that began and ended between two updates).
@@ -108,8 +110,10 @@ const ADMIN_CHANNEL_SCRIPT = /* js */ `function actConnect(){
   actWs.onopen=()=>{actSetLive(true);actRetry=1000;clearInterval(actPoll);actPoll=null;};
   actWs.onmessage=(ev)=>{let m;try{m=JSON.parse(ev.data);}catch{return;}if(m.type==='activity')actApply(m);};
   actWs.onclose=()=>{const was=actLive;actWs=null;actSetLive(false);actFallback();
-    // The panels go back to their own timers while the socket is down.
-    if(was){if(nzVisible())loadNsz();if(location.hash==='#retro')loadRetroArt();}
+    // The panels go back to their own timers while the socket is down; on a
+    // split page the panel that owns the work may not be there at all.
+    if(was){if(typeof nzVisible==='function'&&nzVisible()&&typeof loadNsz==='function')loadNsz();
+      if(location.hash==='#retro'&&typeof loadRetroArt==='function')loadRetroArt();}
     setTimeout(actConnect,actRetry);actRetry=Math.min(actRetry*2,30000);};}
 `;
 
