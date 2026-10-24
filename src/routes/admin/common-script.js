@@ -107,24 +107,26 @@ async function api(url,opts={}){
   if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}
   return data;}
 // A poll that a hidden tab or a left page should not keep running.
-// Three states: running (timer set), paused (hidden or page-hidden: no timer,
-// an in-flight run may finish but never schedules another tick), stopped
-// (stop() removed the listeners: the poll never comes back). fn's rejection
-// is the caller's to handle; the next tick is always scheduled regardless.
+// Three lifecycle bits: stopped (stop(): listeners removed, never again),
+// pageHidden (pagehide: like hidden, but pageshow/BFCache is the only wake),
+// and document.hidden (the tab's own visibility). An in-flight run always
+// finishes; the finally block schedules the next tick only when no lifecycle
+// bit paused or stopped the poll, so an async completion during pagehide
+// cannot resurrect the timer. fn's rejection is the caller's business: the
+// poll keeps going (the finally runs regardless of the promise's outcome).
 function admInterval(fn,ms){
-  let t=0,stopped=false,inflight=false;
-  function paused(){return stopped||document.hidden;}
+  let t=0,stopped=false,pageHidden=false,inflight=false;
+  function held(){return stopped||pageHidden||document.hidden;}
   async function tick(){
     t=0;
-    if(paused())return;
+    if(held())return;
     if(inflight){schedule();return;}
     inflight=true;
-    try{await fn();}finally{inflight=false;}
-    if(!paused())schedule();}
-  function schedule(){if(paused())return;clearTimeout(t);t=setTimeout(tick,ms);}
-  const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!stopped&&!t&&!inflight)schedule();};
-  const onHide=()=>{clearTimeout(t);t=0;};
-  const onShow=()=>{if(!stopped&&!document.hidden&&!t&&!inflight)schedule();};
+    try{await fn();}finally{inflight=false;if(!held())schedule();}}
+  function schedule(){if(held())return;clearTimeout(t);t=setTimeout(tick,ms);}
+  const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!stopped&&!pageHidden&&!t&&!inflight)schedule();};
+  const onHide=()=>{pageHidden=true;clearTimeout(t);t=0;};
+  const onShow=()=>{pageHidden=false;if(!stopped&&!document.hidden&&!t&&!inflight)schedule();};
   document.addEventListener('visibilitychange',onVis);
   addEventListener('pagehide',onHide);
   addEventListener('pageshow',onShow);

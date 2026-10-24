@@ -179,7 +179,7 @@ async function lbRemove(f,kind){
   const name=f.name||f.rel||'이 파일';
   // A GitHub app's download is the server's own copy; everything else goes to the trash of its folder.
   const gone=Boolean(f.repo);
-  if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name})))return;
+  if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name}),{danger:true}))return;
   try{await lbRemoveCall(f,kind);toast(gone?'삭제했습니다.':topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
   if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',label+' 페이지');}else{b.textContent=String(page);b.setAttribute('aria-label',page+' 페이지');}

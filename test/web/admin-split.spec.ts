@@ -94,9 +94,15 @@ test('the account menu opens on a split page, shows who is in, and signs out', a
   await expect(page.locator('#acct-list')).toBeHidden();
   await expect(page.locator('#acct-btn')).toBeFocused();
 
-  // The sidebar badges carry real numbers from the seeded fixtures, not zero.
+  // The sidebar badges carry real numbers from the seeded fixtures (the test
+  // server has at least the locked-IP and pending-device fixtures).
   const lockBadge = page.locator('aside.adm-side .adm-item [data-count-id="lock-count"], aside.adm-side #lock-count');
   await expect(lockBadge).toBeAttached();
+  // With no locks in the fresh test server the badge hides; with one it shows a number.
+  const lockHidden = await lockBadge.evaluate((el) => el.hidden);
+  const lockText = await lockBadge.textContent();
+  // The badge is either hidden (count 0) or shows a non-zero number.
+  expect(lockHidden || (lockText && lockText !== '0')).toBeTruthy();
 
   // Sign out: the admin session and the web session both end.
   await page.locator('#acct-btn').click();
@@ -104,14 +110,31 @@ test('the account menu opens on a split page, shows who is in, and signs out', a
   await expect(page.getByRole('heading', { name: '관리 페이지 확인' })).toBeVisible({ timeout: 10000 });
 });
 
-test('the counts endpoint refuses automation tokens, the unsigned and non-admin accounts', async ({ request }) => {
+test('the counts endpoint refuses automation tokens, the unsigned and non-admin accounts', async ({ page, request }) => {
+  // Create a real automation token through the admin API (the same way a person would).
+  await signIn(page);
+  const cookie = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
+  const made = await request.post('/admin/api/tokens', {
+    headers: { Cookie: cookie, Origin: new URL(page.url()).origin },
+    data: { label: 'counts-reach-test' },
+  });
+  const tok = made.ok() ? (await made.json()).token : null;
+  // Clean it up when the test ends.
+  if (tok) {
+    const id = tok.split('_')[1];
+    await request.delete(`/admin/api/tokens/${id}`, { headers: { Cookie: cookie } }).catch(() => {});
+  }
+
   // Unsigned: the gate keeps it out.
   const unsigned = await request.get('/admin/api/counts');
   expect([401, 403]).toContain(unsigned.status());
-  // An automation token may read other admin answers but never the shell's counts.
-  const token = process.env.COOK_TEST_TOKEN;
-  if (token) {
-    const withToken = await request.get('/admin/api/counts', { headers: { Authorization: `Bearer ${token}` } });
+
+  // A valid automation token can read other admin answers but never the counts.
+  if (tok) {
+    const withToken = await request.get('/admin/api/counts', { headers: { Authorization: `Bearer ${tok}` } });
     expect(withToken.status()).toBe(403);
+    // The same token CAN read an allowed endpoint, proving the token itself works.
+    const allowed = await request.get('/admin/api/stats', { headers: { Authorization: `Bearer ${tok}` } });
+    expect(allowed.status()).toBe(200);
   }
 });

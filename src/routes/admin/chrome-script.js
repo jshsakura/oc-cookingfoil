@@ -36,7 +36,8 @@ syncThemeMenu();
 
 // ── who is in, and the sidebar's four numbers ─────────────────────────
 // One small answer for the identity and the counts, refreshed on the same
-// visibility-aware timer the page data uses.
+// visibility-aware timer the page data uses. The timer's first tick calls
+// fn immediately, so there is exactly one initial request.
 async function chromeCounts(){
   try{const r=await fetch('/admin/api/counts',{headers:{Accept:'application/json'}});
     if(!r.ok)return;const d=await r.json();
@@ -47,8 +48,5 @@ async function chromeCounts(){
     set('pending-count',d.pendingDevices??0);set('lock-count',d.lockouts??0);
     if(typeof __admSums==='function')__admSums();}
   catch{/* the badges keep their last values */}}
-chromeCounts();
-// Refresh the badges on the shell's own timer, so staying on one page still
-// sees the counts change (a device waiting, an inbox entry landing).
 if(typeof admInterval==='function')admInterval(chromeCounts,30000);
 `;

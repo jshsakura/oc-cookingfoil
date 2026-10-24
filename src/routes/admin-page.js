@@ -510,34 +510,34 @@ export default function adminPageRouter() {
     res.json({ edits: adminEdits.recent(req.query.limit) });
   });
 
-  // The shell's four sidebar numbers, in one small answer. The inbox count
-  // is the open (undone) entries; the accounts count is Google sign-ins
-  // waiting for approval; the others are in-memory state. The inbox's flat
-  // directory is read (not scanned) behind a short TTL so repeated polls
-  // within a moment do not touch the disk again.
+  // The shell's four sidebar numbers. The inbox count is the open (undone)
+  // entries: each is a directory with note.json and status.json (done: true
+  // once set aside). A 15s TTL keeps repeated polls from re-reading the disk.
   const inboxTTL = { at: 0, n: 0 };
+  async function countOpenInbox() {
+    if (Date.now() - inboxTTL.at < 15_000) return inboxTTL.n;
+    let n = 0;
+    const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
+    for (const id of names.filter(inboxStore.isEntryId)) {
+      const status = await fs.promises
+        .readFile(`${inboxStore.INBOX_DIR}/${id}/status.json`, "utf8")
+        .then((t) => JSON.parse(t), () => null)
+        .catch(() => null);
+      if (!status?.done) n++;
+    }
+    inboxTTL.at = Date.now();
+    inboxTTL.n = n;
+    return n;
+  }
   router.get("/api/counts", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    let inboxOpen = inboxTTL.n;
-    if (Date.now() - inboxTTL.at > 15_000) {
-      try {
-        const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
-        const entries = await Promise.all(names.filter((n) => /[0-9a-f]{8}-/.test(n)).map(async (n) => {
-          try { return JSON.parse(await fs.promises.readFile(`${inboxStore.INBOX_DIR}/${n}`, "utf8")); } catch { return null; }
-        }));
-        inboxOpen = entries.filter((e) => e && !e.done).length;
-        inboxTTL.at = Date.now(); inboxTTL.n = inboxOpen;
-      } catch { /* keep the last count */ }
-    }
-    const google = googleAccounts;
+    const inbox = await countOpenInbox();
     let pendingAccounts = 0;
-    if (google) {
-      try { pendingAccounts = google.list().filter((a) => a.status === "pending").length; } catch { /* none configured */ }
-    }
+    try { pendingAccounts = googleAccounts.list().filter((a) => a.status === "pending").length; } catch { /* none configured */ }
     res.json({
       me: withAvatar(adminActor(req)),
-      inbox: inboxOpen,
+      inbox,
       pendingAccounts,
       pendingDevices: store.devicesSnapshot().pending.length,
       lockouts: store.snapshot().lockouts.length,

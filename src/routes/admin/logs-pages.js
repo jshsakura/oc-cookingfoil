@@ -130,7 +130,7 @@ async function unlock(ip){if(!await ask(topFill('lg.unlockAsk',{ip})))return;
   try{await api('/admin/api/unlock',{method:'POST',body:{ip}});toast(topText('lg.unlocked'));secReload();}catch(err){toast(err.message);}}
 if($('unlock-all'))$('unlock-all').addEventListener('click',async()=>{if(!await ask(topText('lg.unlockAllAsk')))return;
   try{const r=await api('/admin/api/unlock',{method:'POST',body:{ip:'all'}});toast(topFill('lg.unlockedN',{n:r.unlocked}));secReload();}catch(err){toast(err.message);}});
-if($('clrdeny'))$('clrdeny').addEventListener('click',async()=>{if(!await ask(topText('lg.denyClearAsk')))return;
+if($('clrdeny'))$('clrdeny').addEventListener('click',async()=>{if(!await ask(topText('lg.denyClearAsk'),{danger:true}))return;
   try{await api('/admin/api/denials/clear',{method:'POST',body:{}});secReload();}catch(err){toast(err.message);}});
 // The whole dashboard refreshes through loadStats; the security page stands alone.
 function secReload(){if(typeof loadStats==='function')loadStats();else loadSecurity();}

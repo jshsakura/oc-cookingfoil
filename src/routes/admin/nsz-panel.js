@@ -153,7 +153,7 @@ function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;
   if(it.state==='waiting'||it.state==='busy')acts.append(btn('위로',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},'맨 앞으로 옮겼습니다.')));
   if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(btn('재시도',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},'다시 대기열에 넣었습니다.')));
   acts.append(btn('빼기',async()=>{if(it.state==='running'&&!await ask(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.',{danger:true}))return;
-    if(it.keptAt&&!await ask(topFill('t.nz.askRemoveKept',{name:nzName(it)})))return;
+    if(it.keptAt&&!await ask(topFill('t.nz.askRemoveKept',{name:nzName(it)}),{danger:true}))return;
     nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},'대기열에서 뺐습니다.');},'danger'));
   r.append(nzLead(it),main,info,acts);return r;}
 /** Puts the rows in order, keeping the nodes whose row did not change. */
@@ -260,7 +260,7 @@ $('nz-run-sel').addEventListener('click',async()=>{const ids=[...nzSel];
   const f=nzFilter,word=f==='failed'?'실패한':'대기 중인';
   if(!await ask(word+' 파일 '+num(nzTabCount)+'개를 변환합니다. 그동안 새로 들어온 파일은 기다립니다.'))return;
   nzAct('/admin/api/nsz/run-filter',{method:'POST',body:{filter:f}},(d)=>word+' '+d.count+'개를 변환합니다.');});
-$('nz-purge').addEventListener('click',async()=>{if(!await ask(topText('t.nz.askPurge')))return;
+$('nz-purge').addEventListener('click',async()=>{if(!await ask(topText('t.nz.askPurge'),{danger:true}))return;
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>topFill('t.nz.purged',{n:d.removed,size:nzSize(d.bytes)}));});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
 $('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;nzSel.clear();
