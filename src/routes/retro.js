@@ -757,7 +757,8 @@ export default function retroRouter() {
     const system = typeof req.query.system === "string" ? req.query.system : "";
     const raw = typeof req.query.q === "string" ? req.query.q : typeof req.query.search === "string" ? req.query.search : "";
     const search = folded(raw);
-    const sort = SORTS[req.query.sort] ?? SORTS.name;
+    // The list opens on the newest game; a sort the caller names is kept as named.
+    const sort = SORTS[req.query.sort] ?? SORTS.added;
     const pageSize = Math.min(PAGE_MAX, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const keep = listFilter(req.query);
