@@ -20,7 +20,7 @@ const PAGES: [string, string, string][] = [
   ['/admin/logs/clients', 'cl-list', '클라이언트 로그'],
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
   ['/admin/notifications', 'tab-alerts', '알림 설정'],
-  ['/admin/client', 'tab-overview', '클라이언트 배포'],
+  ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'tab-settings', '서버 동작'],
   ['/admin/settings/integrations', 'tab-settings', '외부 서비스'],
   ['/admin/settings/login', 'tab-settings', '사용자 로그인'],

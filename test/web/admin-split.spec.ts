@@ -7,6 +7,8 @@ import { signIn } from './admin-sign-in';
 // polls stop when the tab hides or the page is left.
 
 const SPLIT: [string, string, string[], RegExp][] = [
+  ['/admin/notifications', '#al-form', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(alerts|counts)/],
+  ['/admin/client', '#cr-form', ['#al-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(client-release|counts)/],
   ['/admin/trash', '#tr-list', ['#ib-list', '#nz-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(trash|counts)/],
   ['/admin/inbox', '#ib-list', ['#tr-list', '#nz-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(inbox|counts)/],
   ['/admin/convert', '#nz-list', ['#tr-list', '#ib-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(nsz|server-settings|counts)/],

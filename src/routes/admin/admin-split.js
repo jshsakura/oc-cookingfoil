@@ -16,7 +16,7 @@ import { ADMIN_HEADER_HTML, ADMIN_TITLE_HTML, ASK_DIALOG_HTML, PAGE_CSS, adminCh
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS } from "./top-i18n.js";
+import { top, TOP_I18N_SCRIPT, TOP_LANG_CSS } from "./top-i18n.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ADM_SHELL_CSS, admRouterScript } from "./admin-pages.js";
 import { COMMON_SCRIPT } from "./common-script.js";
@@ -28,6 +28,8 @@ import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-pan
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { PEOPLE_SCRIPT } from "./people-script.js";
 import { CRED_DIALOG_HTML, DEVICES_HTML, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
+import { ALERTS_CSS, ALERTS_SCRIPT, ALERTS_HTML } from "./alerts-panel.js";
+import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
 function splitPage(page, { css = "", body = "", script = "", init = "" }) {
@@ -66,6 +68,16 @@ export const SPLIT_PAGES = {
   "/admin/logs/security": bundle({
     css: LOGS_CSS, body: LOGS_SECURITY_HTML, script: LOGS_SCRIPT,
     init: "admInterval(loadSecurity,15000);",
+  }),
+  // Third bundle: the pages whose panels were already modules of their own.
+  "/admin/notifications": bundle({
+    css: ALERTS_CSS, body: ALERTS_HTML, script: ALERTS_SCRIPT,
+    init: "subtabs('alerts');SUBTABS.alerts.show(location.hash.split('/')[1]||'setup');loadAlerts();",
+  }),
+  "/admin/client": bundle({
+    body: `<section id="tab-client"><div class="hd"><h2 class="first">${top("m.client")}</h2></div>${CLIENT_RELEASE_HTML}</section>`,
+    script: CLIENT_RELEASE_SCRIPT,
+    init: "loadClientRelease();",
   }),
   // Second bundle: the people pages carry their own credential and IP dialogs.
   "/admin/users": bundle({
