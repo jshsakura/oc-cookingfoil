@@ -15,7 +15,7 @@ import { RQ_WORDS } from "./retro-requirements-words.js";
 import { top } from "./top-i18n.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
-  <nav class="subtabs" id="retro-subtabs" role="tablist" aria-label="레트로">
+  <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" aria-label="레트로">
     <button type="button" role="tab" data-sub="art">${icon("image")}표지·베젤</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}평점</button>
     <button type="button" role="tab" data-sub="cores">${icon("package")}코어</button>
@@ -116,8 +116,7 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
 @media (max-width:560px){.rm-pair{grid-template-columns:1fr}}
-.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
-.subtabs::-webkit-scrollbar{display:none}
+.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
 .subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
 .subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
 .subtabs button:hover{color:var(--text)}
@@ -170,7 +169,8 @@ function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
-function retroOpen(){loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
+function retroOpen(){if(window.__admRetro){if(RETRO_SUBS.includes(window.__admRetro))retroSub=window.__admRetro;window.__admRetro=null;}
+  loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
 function raCell(node){const c=el('td');c.append(node);return c;}
 const RC_ORIGIN={official:['공식 번들과 같음','on'],modified:['공식과 다름','warn'],extra:['공식 번들에 없음','']};
 const rcMb=(n)=>(n/1048576).toFixed(1)+' MB';

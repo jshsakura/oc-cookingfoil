@@ -24,6 +24,20 @@ export const ADMIN_CSS = /* css */ `
 :root{${DARK}}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){${LIGHT}}}
 :root[data-theme="light"]{${LIGHT}}
+/* One scrollbar for every admin page, in the page's own colours and both themes.
+   The scope is the admin document root itself (html.adm) so the viewport scroll is
+   covered too, and the user dashboard (landing.html) keeps its own rules untouched.
+   forced-colors and OS-level overlay scrollbars are left to the system. */
+html.adm{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+html.adm::-webkit-scrollbar,html.adm ::-webkit-scrollbar{width:10px;height:10px}
+html.adm::-webkit-scrollbar-track,html.adm ::-webkit-scrollbar-track{background:transparent}
+html.adm::-webkit-scrollbar-thumb,html.adm ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+html.adm::-webkit-scrollbar-thumb:hover,html.adm ::-webkit-scrollbar-thumb:hover{background-color:var(--faint)}
+html.adm::-webkit-scrollbar-corner,html.adm ::-webkit-scrollbar-corner{background:transparent}
+@supports not selector(::-webkit-scrollbar){html.adm *{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}}
+@media (forced-colors:active){html.adm{scrollbar-color:auto}}
+/* A row that hides its scrollbar on purpose says so with this class. */
+.hide-bar{scrollbar-width:none}.hide-bar::-webkit-scrollbar{display:none}
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.55 "Inter","Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);word-break:keep-all;-webkit-font-smoothing:antialiased}
 .muted{color:var(--muted);font-size:13px}

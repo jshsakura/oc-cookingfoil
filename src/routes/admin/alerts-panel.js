@@ -9,7 +9,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <h2 class="first">텔레그램 알림</h2>
   <p class="muted">처리할 일이나 위험한 접근이 생기면 텔레그램으로 알립니다. 같은 일은 30분에 한 번만, 위험한 접근은 10분씩 모아 보냅니다. 비밀번호, 주소, 이메일은 담지 않습니다.</p>
   <div class="al-status" id="al-status"><span class="al-dot"></span><div><strong>불러오고 있습니다</strong><span></span></div></div>
-  <div class="subtabs" id="alerts-subtabs" role="tablist" aria-label="알림 구역">
+  <div class="subtabs hide-bar" id="alerts-subtabs" role="tablist" aria-label="알림 구역">
     <button type="button" role="tab" data-sub="setup" aria-selected="true">${icon("sliders")}설정</button>
     <button type="button" role="tab" data-sub="history" aria-selected="false">${icon("bell")}최근 알림</button>
   </div>

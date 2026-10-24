@@ -4,7 +4,7 @@ import { signIn } from './admin-sign-in';
 // The admin marks a homebrew app as tried on a console; the shop's list then says so.
 test('the 검수 pill marks an app verified for the shop and takes it off again', async ({ page, request }) => {
   await signIn(page);
-  await page.locator('nav.tabs a[data-group="homebrew"]').click();
+  await page.goto('/admin/homebrew?tab=apps');
   const pill = () => page.getByRole('button', { name: 'Hand App 검수됨' });
   await expect(pill()).toHaveAttribute('aria-pressed', 'false');
   await expect(pill()).toHaveText('검수 전');

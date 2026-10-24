@@ -46,15 +46,15 @@ test('the upload entry in the header is on every group and leads to the one uplo
 
 test('the menus are named for what they hold, in every language', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#library');
-  const group = (name: string) => page.locator(`nav.tabs [data-group="${name}"]`);
-  await expect(group('games')).toContainText('파일·정리');
-  await expect(group('people')).toContainText('계정·기기');
-  for (const [lang, games, people] of [['en', 'Files', 'Accounts'], ['ja', 'ファイル', 'アカウント'], ['zh', '文件', '账户']]) {
+  await page.goto('/admin/games');
+  const group = (name: string) => page.locator(`aside.adm-side .adm-grp[data-grp="${name}"] summary [data-top]`);
+  await expect(group('games')).toHaveText('게임');
+  await expect(group('people')).toHaveText('계정과 기기');
+  for (const [lang, games, people] of [['en', 'Games', 'Accounts and devices'], ['ja', 'ゲーム', 'アカウントとデバイス'], ['zh', '游戏', '账户与设备']]) {
     await page.locator('#lang-btn').click();
     await page.locator(`#lang-list [data-admin-lang="${lang}"]`).click();
-    await expect(group('games')).toContainText(games);
-    await expect(group('people')).toContainText(people);
+    await expect(group('games')).toHaveText(games);
+    await expect(group('people')).toHaveText(people);
     await expect(page.locator('#up-entry')).toHaveAttribute('aria-label', /./);
   }
   await page.locator('#lang-btn').click();
@@ -83,7 +83,7 @@ test.describe('on a phone', () => {
     expect(top).toBeLessThan(844);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    const tops = await page.evaluate(() => ['.brand', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => Math.round(document.querySelector(s)!.getBoundingClientRect().top)));
+    const tops = await page.evaluate(() => ['.brand', '#adm-menu', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => Math.round(document.querySelector(s)!.getBoundingClientRect().top)));
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(20);
 
     // A row that is clipped fades at the hidden edge, and the open page is brought into view.

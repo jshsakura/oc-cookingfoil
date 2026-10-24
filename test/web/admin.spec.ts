@@ -21,7 +21,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-overview.png' });
 
-  await page.getByRole('link', { name: '계정·기기' }).click();
+  await page.goto("/admin/users");
   await page.getByLabel('사용자 이름').fill(NAME);
   await page.getByLabel('비밀번호', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: '사용자 추가', exact: true }).click();
@@ -47,7 +47,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.screenshot({ path: 'out/web/login.png' });
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: '계정·기기' }).click();
+  await page.goto("/admin/users");
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
@@ -63,7 +63,7 @@ test.afterEach(async ({ request }) => {
 
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
+  await page.goto("/admin/games");
   await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
   const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
@@ -79,8 +79,8 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
-  await page.getByRole('link', { name: '홈 추천' }).click();
+  await page.goto("/admin/games");
+  await page.goto('/admin/featured');
   await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
   await page.getByLabel('줄 제목', { exact: true }).fill('이번 주 추천');
   // A new row opens on the list of every game: ticking one puts it in the row.
@@ -557,8 +557,8 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await expect(page.locator('#al-msg')).toHaveText('봇 토큰과 채팅 ID 를 먼저 넣습니다');
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-alerts.png', fullPage: true });
-  // Every tab fits the desktop bar without scrolling.
-  expect(await page.locator('nav.tabs').evaluate((n) => n.scrollWidth - n.clientWidth)).toBe(0);
+  // Every menu fits the sidebar without scrolling sideways.
+  expect(await page.locator('aside.adm-side').evaluate((n) => n.scrollWidth - n.clientWidth)).toBe(0);
 
   await page.setViewportSize({ width: 390, height: 800 });
   await page.reload();

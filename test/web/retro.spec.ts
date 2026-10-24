@@ -84,8 +84,7 @@ test('the retro window fits a phone without scrolling sideways', async ({ page }
 
 test('the admin retro tab lists the versions of a game, picks the one shown and shows arcade sets', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '레트로' }).click();
-  await page.locator('#retro-subtabs [data-sub="dups"]').click();
+  await page.goto('/admin/retro?view=dups');
   const list = page.locator('#rv-list');
   await expect(list).toContainText('공식 한국어판입니다');
   const patchRow = list.locator('.ag-row', { hasText: 'J-K v20130609' });
@@ -246,14 +245,14 @@ test('removing a core that games use asks again by the refusal code, whatever la
     // English text on purpose: the page must branch on the code, not on the words.
     return force ? route.fulfill({ json: { core: 'mgba', using: 3, entry: 'x' } }) : route.fulfill({ status: 409, json: { error: '3 games use this core', code: 'coreInUse', using: 3 } });
   });
-  await page.getByRole('link', { name: '레트로' }).click();
-  await page.locator('#retro-subtabs [data-sub="cores"]').click();
+  await page.goto('/admin/retro?view=cores');
   await page.getByRole('button', { name: 'mgba 지우기' }).click();
   await page.locator('#ask-ok').click();
   await expect(page.locator('#ask-dialog')).toContainText('3 games use this core');
   await page.locator('#ask-ok').click();
   await expect.poll(() => forced).toEqual([false, true]);
 });
+
 test('the retro list asks for the newest first by default and keeps the sort the visitor picks', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
 

@@ -69,10 +69,7 @@ export const GRID_CSS = /* css */ `
 .ag-cell.tall{align-items:flex-start;padding-top:9px;padding-bottom:9px;line-height:1.4}
 .ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
 .ag-header-cell-text{font-size:12px;letter-spacing:.02em}
-/* Scrollbars in the page's colours, thin, in both themes. */
-.grid-mount *{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
-.grid-mount ::-webkit-scrollbar{width:8px;height:8px}.grid-mount ::-webkit-scrollbar-track{background:transparent}
-.grid-mount ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}.grid-mount ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+/* Scrollbars come from the shared admin scope in styles.js (html.adm), so the grid matches every panel. */
 .ag-row.live{background:rgba(var(--accent-rgb),.06)}
 `;
 

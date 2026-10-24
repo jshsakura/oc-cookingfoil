@@ -16,7 +16,7 @@
     "src/routes/admin/alerts-panel.js": 60,
     "src/routes/admin/client-release-panel.js": 33,
     "src/routes/admin/connect-howto.js": 7,
-    "src/routes/admin/dashboard-page.js": 147,
+    "src/routes/admin/dashboard-page.js": 146,
     "src/routes/admin/dashboard-script.js": 466,
     "src/routes/admin/enroll-page.js": 14,
     "src/routes/admin/forbidden-page.js": 4,

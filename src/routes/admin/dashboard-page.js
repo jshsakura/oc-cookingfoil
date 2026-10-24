@@ -29,6 +29,7 @@ import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
+import { ADMIN_PAGE_BY_PATH, ADM_SHELL_CSS, MENU_BUTTON_HTML, admRouterScript, drawerHtml, sidebarNav } from "./admin-pages.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
 import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, TOP_WORDS, top, topN, topPh } from "./top-i18n.js";
@@ -59,24 +60,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-/* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
-nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
-nav.tabs::-webkit-scrollbar{display:none}
-/* Six menus in one slim row across the full width, the icon beside each label. */
-@media (min-width:641px){nav.tabs{display:flex;padding:4px;border-radius:14px}
-  nav.tabs a{flex:1 1 0;min-width:0;flex-direction:row;gap:7px;padding:8px 10px;font-size:13.5px;border-radius:10px}nav.tabs a svg{width:16px;height:16px}
-  nav.tabs .count{margin-left:2px}}
-nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
-nav.tabs a:hover{color:var(--text)}
-/* The second row: the pages inside the chosen menu, the current one filled like the console's sidebar. */
-.group-tabs{display:flex;gap:6px;margin:-4px 0 22px;overflow-x:auto;scrollbar-width:none}.group-tabs::-webkit-scrollbar{display:none}
-.group-tabs[hidden]{display:none}
-.group-tabs a{flex:none;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;color:var(--muted);font-weight:700;font-size:13.5px;text-decoration:none;position:relative}
-.group-tabs a svg{width:16px;height:16px}
-.group-tabs a:hover{color:var(--text);background:var(--sunk)}
-.group-tabs a[aria-current="page"]{background:var(--text);color:var(--panel)}
-.group-tabs a[hidden]{display:none}
-nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
+/* The old two-row menu (nav.tabs + .group-tabs) is gone; the sidebar in admin-pages.js owns the tree. */
 .count[hidden]{display:none}
 .count{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:100px;font-size:11px;background:rgba(var(--bad-rgb),.18);color:var(--bad)}
 section[hidden]{display:none}
@@ -294,11 +278,11 @@ form.add select{flex:none;min-width:9em}
 /* Phones: tables turn into one card per row, each cell labelled. */
 @media (max-width:640px){
 body{padding:16px 16px 80px}header{margin-bottom:12px}
-.brand .wm{font-size:24px}.brand img{width:32px;height:32px}
-/* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
-nav.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
-nav.tabs a{flex-direction:column;justify-content:center;gap:3px;padding:8px 2px;font-size:12px;border-radius:10px;text-align:center}
-nav.tabs a svg{width:18px;height:18px}nav.tabs .count{position:absolute;margin:-30px 0 0 26px}nav.tabs a{position:relative}
+/* One row: the wordmark shrinks before the four header buttons (menu, upload, language, account). */
+.brand .wm{font-size:17px;letter-spacing:-.02em}.brand img{width:30px;height:30px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hdr-right{flex:none}
+.icon-btn{width:34px;height:34px}
 form.add input,form.add select,form.add button{flex:1 1 100%}
 .logs-view{grid-template-columns:1fr}
 table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
@@ -334,11 +318,12 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 `;
 
 
-export function dashboardPage() {
-  return /* html */ `<!doctype html><html lang="ko"><head>
+export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = "") {
+  const current = { path: page.path, view, countId: page.count ?? "" };
+  return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
 <title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
-nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
+.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
 .pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
@@ -361,12 +346,16 @@ tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
+${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
+<body class="adm-shell">
+<aside class="adm-side" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</aside>
+${drawerHtml(current)}
 <div class="wrap">
 <header>
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
-  <a class="up-entry" id="up-entry" href="#upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
+  ${MENU_BUTTON_HTML}
+  <a class="up-entry" id="up-entry" href="/admin/upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
@@ -385,31 +374,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   </div>
 </header>
 
-<nav class="tabs" data-top-label="nav" aria-label="서버 관리 메뉴">
-  <a href="#overview" data-group="overview">${icon("dashboard")}${top("g.overview")}</a>
-  <a href="#library" data-group="games">${icon("folder")}${top("g.games")}<span class="count" data-sum="games" hidden></span></a>
-  <a href="#retro" data-group="retro">${icon("image")}${top("g.retro")}</a>
-  <a href="#homebrew" data-group="homebrew">${icon("package")}${top("g.homebrew")}</a>
-  <a href="#users" data-group="people">${icon("users")}${top("g.people")}<span class="count" data-sum="people" hidden></span></a>
-  <a href="#logs" data-group="ops">${icon("sliders")}${top("g.ops")}<span class="count" data-sum="ops" hidden></span></a>
-</nav>
-<nav class="group-tabs" id="group-tabs" data-top-label="subnav" aria-label="세부 메뉴">
-  <a href="#library" data-tab="library" data-in="games">${icon("folder")}${top("s.library")}</a>
-  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}${top("s.upload")}</a>
-  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
-  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
-  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
-  <a href="#trash" data-tab="trash" data-in="games">${icon("trash")}${top("s.trash")}</a>
-  <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
-  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
-  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}${top("s.alerts")}</a>
-  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}${top("s.settings")}</a>
-  <a href="#overview" data-tab="overview" data-in="overview" hidden></a>
-  <a href="#retro" data-tab="retro" data-in="retro" hidden></a>
-  <a href="#homebrew" data-tab="homebrew" data-in="homebrew" hidden></a>
-</nav>
-
 <section id="tab-overview">
   <h2 class="first">연결</h2>
   <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
@@ -424,7 +388,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-users" hidden>
-  <div class="subtabs" id="users-subtabs" role="tablist" aria-label="사용자 구역">
+  <div class="subtabs hide-bar" id="users-subtabs" role="tablist" aria-label="사용자 구역">
     <button type="button" role="tab" data-sub="local" aria-selected="true">${icon("users")}계정</button>
     <button type="button" role="tab" data-sub="google" aria-selected="false">${icon("lock")}구글 로그인 계정<span class="count" id="account-sub-count" hidden></span></button>
   </div>
@@ -445,7 +409,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-devices" hidden>
-  <div class="subtabs" id="devices-subtabs" role="tablist" aria-label="기기 구역">
+  <div class="subtabs hide-bar" id="devices-subtabs" role="tablist" aria-label="기기 구역">
     <button type="button" role="tab" data-sub="pending" aria-selected="true">${icon("bell")}승인 대기<span class="count" id="pending-sub-count" hidden></span></button>
     <button type="button" role="tab" data-sub="approved" aria-selected="false">${icon("device")}승인된 기기</button>
     <button type="button" role="tab" data-sub="clients" aria-selected="false">${icon("download")}웹에서 받은 클라이언트</button>
@@ -473,7 +437,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-settings" hidden>
-  <div class="subtabs" id="set-subtabs" role="tablist" aria-label="설정 구역">
+  <div class="subtabs hide-bar" id="set-subtabs" role="tablist" aria-label="설정 구역">
     <button type="button" role="tab" data-ssub="server" aria-selected="true">${icon("sliders")}서버 동작</button>
     <button type="button" role="tab" data-ssub="integrations" aria-selected="false">${icon("package")}외부 서비스</button>
     <button type="button" role="tab" data-ssub="security" aria-selected="false">${icon("lock")}로그인과 보안</button>
@@ -531,7 +495,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 </section>
 
 <section id="tab-logs" hidden>
-  <div class="subtabs" id="logs-subtabs" role="tablist" aria-label="로그 종류">
+  <div class="subtabs hide-bar" id="logs-subtabs" role="tablist" aria-label="로그 종류">
     <button type="button" role="tab" data-lsub="xfer" aria-selected="true">${icon("download")}다운로드 기록</button>
     <button type="button" role="tab" data-lsub="client" aria-selected="false">${icon("device")}클라이언트 로그</button>
     <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}차단과 거부</button>
@@ -572,7 +536,7 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
 <section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <p class="muted" id="scan-status" aria-live="polite"></p>
-  <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
+  <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
     <button type="button" role="tab" data-lsub="organize" aria-selected="false">${icon("inbox")}임시 폴더</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
@@ -628,7 +592,7 @@ ${INBOX_HTML}
 ${NSZ_HTML}
 ${TRASH_HTML}
 <section id="tab-homebrew" hidden>
-  <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
+  <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
     <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
@@ -772,5 +736,5 @@ ${TRASH_HTML}
 </dialog>
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

@@ -31,8 +31,7 @@ const KINDS = [["all", "전체"], ["base", "게임"], ["update", "업데이트"]
 
 export const LIB_BROWSER_CSS = /* css */ `
 #lib-files{display:grid;gap:12px;margin-bottom:8px}
-#lib-files .lb-kinds{position:relative;display:flex;gap:4px;padding:5px;background:var(--sunk);border:1px solid var(--line);border-radius:16px;overflow-x:auto;scrollbar-width:none}
-#lib-files .lb-kinds::-webkit-scrollbar{display:none}
+#lib-files .lb-kinds{position:relative;display:flex;gap:4px;padding:5px;background:var(--sunk);border:1px solid var(--line);border-radius:16px;overflow-x:auto}
 #lib-files .lb-ind{position:absolute;left:0;top:0;width:0;height:0;border-radius:12px;background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2);transition:transform .28s cubic-bezier(.3,.7,.2,1),width .28s cubic-bezier(.3,.7,.2,1),height .28s;pointer-events:none}
 #lib-files .lb-kinds button{position:relative;z-index:1;flex:1 0 auto;gap:7px;padding:8px 12px;border:0;border-radius:12px;background:none;color:var(--muted);white-space:nowrap;transition:color .15s,transform .12s}
 #lib-files .lb-kinds button:hover{color:var(--text)}
@@ -101,7 +100,7 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
     </form>
     <div class="lb-filter">
       <span class="lb-filter-l" id="lb-filter-l">${top("f.type")}</span>
-      <div class="lb-kinds" id="lb-kinds" role="group" aria-labelledby="lb-filter-l">
+      <div class="lb-kinds hide-bar" id="lb-kinds" role="group" aria-labelledby="lb-filter-l">
         <span class="lb-ind" id="lb-ind" aria-hidden="true"></span>
         ${KINDS.map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${label}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
       </div>

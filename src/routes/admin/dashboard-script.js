@@ -105,8 +105,12 @@ const HB_EXCLUDED={'outside-switch':'switch 폴더 밖','other-app':'다른 앱 
 const HB_REASON={'not-one-folder':'zip 안이 switch/<앱>/ 폴더 하나로 되어 있지 않습니다','too-many-files':'파일이 너무 많습니다','several-nro':'nro 가 여러 개입니다','no-nro':'nro 가 없습니다','only-nro':'폴더에 nro 하나뿐입니다','link':'링크가 들어 있습니다','unsafe-path':'쓸 수 없는 이름이나 경로가 있습니다','foreign-file':'다른 기기용 실행 파일이 섞여 있습니다','nro-release':'릴리스가 nro 파일 하나입니다','partial':'일부 파일을 빼고 설치합니다'};
 // Six menus like the console's sidebar; the pages of the chosen one sit in the row under it.
 // A menu remembers its last page, so coming back lands where the admin left it.
+// The sidebar (admin-pages.js) owns the menu tree now, so with no group row the
+// call just asks the sidebar to mark the current item.
 const GROUP_LAST={};
-function showGroup(tab){const g=document.querySelector('#group-tabs [data-tab="'+tab+'"]').dataset.in;GROUP_LAST[g]=tab;
+function showGroup(tab){const bar=$('group-tabs');
+  if(!bar){if(window.__admMark)window.__admMark();return;}
+  const g=document.querySelector('#group-tabs [data-tab="'+tab+'"]').dataset.in;GROUP_LAST[g]=tab;
   const pages=[...document.querySelectorAll('#group-tabs [data-in="'+g+'"]')];
   for(const a of document.querySelectorAll('#group-tabs a'))a.hidden=a.dataset.in!==g||pages.length<2;
   $('group-tabs').hidden=pages.length<2;
@@ -114,22 +118,25 @@ function showGroup(tab){const g=document.querySelector('#group-tabs [data-tab="'
     if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
     a.setAttribute('href','#'+(GROUP_LAST[a.dataset.group]||a.getAttribute('href').slice(1)));}}
 // A menu shows the sum of its pages' counts, so a pending device is seen from any page.
-function sumGroupCounts(){for(const c of document.querySelectorAll('nav.tabs [data-sum]')){let n=0;
+function sumGroupCounts(){if(!$('group-tabs'))return;
+  for(const c of document.querySelectorAll('nav.tabs [data-sum]')){let n=0;
   for(const x of document.querySelectorAll('#group-tabs [data-in="'+c.dataset.sum+'"] .count'))if(!x.hidden)n+=Number(x.textContent)||0;
   c.textContent=n;c.hidden=!n;}}
-new MutationObserver(sumGroupCounts).observe($('group-tabs'),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden']});
+if($('group-tabs'))new MutationObserver(sumGroupCounts).observe($('group-tabs'),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden']});
 const TABS=['overview','users','devices','settings','alerts','logs','featured','library','nsz','upload','inbox','homebrew','retro','trash'];
 function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=TABS.includes(want)?want:'overview';
   if(tab==='library'&&sub)libShowSub(sub,true);
   if(tab==='settings')setShowSub(sub||setSub,true);
   if(SUBTABS[tab])SUBTABS[tab].show(sub||SUBTABS[tab].cur);
   for(const name of TABS){$('tab-'+name).hidden=name!==tab;
-    const a=document.querySelector('#group-tabs [data-tab="'+name+'"]');if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
+    const a=document.querySelector('#group-tabs [data-tab="'+name+'"]');
+    if(a){if(name===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}}
   showGroup(tab);
   if(tab==='library')loadLibrary();
   if(tab==='overview')loadClientRelease();
   if(tab==='settings')setLoadSub();
-  if(tab==='logs'){loadClientLogs();setTimeout(xfOpen);}
+  if(tab==='logs'){loadClientLogs();setTimeout(xfOpen);
+    if(window.__admLogs){logsShowSub(window.__admLogs);window.__admLogs=null;}}
   if(tab==='alerts')loadAlerts();
   if(tab==='homebrew')loadHomebrew();
   // After the whole script has run: the retro panel's state is declared further down.

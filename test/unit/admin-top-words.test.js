@@ -15,15 +15,22 @@ test("every data-top key the admin page uses has a label", () => {
 test("the header carries one upload entry that points at the upload page", () => {
   const html = dashboardPage();
   assert.equal([...html.matchAll(/id="up-entry"/g)].length, 1);
-  assert.match(html, /<a class="up-entry" id="up-entry" href="#upload"/);
+  assert.match(html, /<a class="up-entry" id="up-entry" href="\/admin\/upload"/);
 });
 
-test("every pre-existing admin page hash still has its section", () => {
+test("every section keeps its id and every job keeps its page address", () => {
   const html = dashboardPage();
   for (const tab of ["overview", "users", "devices", "settings", "alerts", "logs", "featured", "library", "nsz", "upload", "inbox", "homebrew", "retro"]) {
     assert.match(html, new RegExp(`<section id="tab-${tab}"`), `tab-${tab}`);
-    assert.match(html, new RegExp(`href="#${tab}" data-tab="${tab}"`), `menu link for ${tab}`);
   }
+  // The page each of those sections now lives behind (admin-pages.js). The
+  // retro and homebrew groups carry their tasks as links, so those two match
+  // by their task-address prefix.
+  for (const path of ["/admin", "/admin/games", "/admin/upload", "/admin/convert", "/admin/inbox", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
+    assert.match(html, new RegExp(`href="${path.replace(/\//g, "\\/")}"`), `sidebar link for ${path}`);
+  }
+  assert.match(html, /href="\/admin\/retro\?view=/, "sidebar link for /admin/retro");
+  assert.match(html, /href="\/admin\/homebrew\?tab=/, "sidebar link for /admin/homebrew");
 });
 
 test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {

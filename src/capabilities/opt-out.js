@@ -24,6 +24,29 @@ export const OPT_OUT = {
   "GET /assets/og-image-ja.png": "browser-only",
   "GET /assets/og-image-ko.png": "browser-only",
   "GET /assets/og-image-zh.png": "browser-only",
+  // The admin pages themselves, one address per job (the admin redesign, Stage A):
+  // HTML a signed-in person reads behind the admin gate; never a tool. GET /admin
+  // and GET /admin/ predate the registry and stay in LEGACY_UNREGISTERED.
+  "GET /admin/games": "browser-only",
+  "GET /admin/upload": "browser-only",
+  "GET /admin/convert": "browser-only",
+  "GET /admin/inbox": "browser-only",
+  "GET /admin/featured": "browser-only",
+  "GET /admin/trash": "browser-only",
+  "GET /admin/retro": "browser-only",
+  "GET /admin/homebrew": "browser-only",
+  "GET /admin/users": "browser-only",
+  "GET /admin/devices": "browser-only",
+  "GET /admin/logs/downloads": "browser-only",
+  "GET /admin/logs/clients": "browser-only",
+  "GET /admin/logs/security": "browser-only",
+  "GET /admin/notifications": "browser-only",
+  "GET /admin/client": "browser-only",
+  "GET /admin/settings/server": "browser-only",
+  "GET /admin/settings/integrations": "browser-only",
+  "GET /admin/settings/login": "browser-only",
+  "GET /admin/settings/admin": "browser-only",
+  "GET /admin/settings/automation": "browser-only",
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
   "POST /admin/api/trash/empty": "token-blocked",
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.

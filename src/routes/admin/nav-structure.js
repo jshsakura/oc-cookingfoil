@@ -12,13 +12,13 @@ export const NAV_CSS = /* css */ `
 .up-entry:hover{border-color:var(--text)}
 .up-entry svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .up-entry[aria-current="page"]{background:var(--text);color:var(--panel);border-color:var(--text)}
-@media (max-width:640px){nav.tabs a [data-top]{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;letter-spacing:-.02em}nav.tabs{padding:4px;gap:2px}nav.tabs a{padding-left:0;padding-right:0}.hdr-right{gap:6px}.lang-btn{padding:0 9px;gap:4px}.lang-btn .chev{display:none}.up-entry{width:36px;padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
-.group-tabs,.subtabs{--fade:34px}
-.group-tabs.fade-l,.subtabs.fade-l{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
-.group-tabs.fade-r,.subtabs.fade-r{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}
-.group-tabs.fade-l.fade-r,.subtabs.fade-l.fade-r{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%)}
-.group-tabs,.subtabs{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){.group-tabs,.subtabs{scroll-behavior:auto}}
+@media (max-width:640px){.hdr-right{gap:6px}.lang-btn{padding:0 9px;gap:4px}.lang-btn .chev{display:none}.up-entry{width:36px;padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.subtabs{--fade:34px}
+.subtabs.fade-l{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
+.subtabs.fade-r{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}
+.subtabs.fade-l.fade-r{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%)}
+.subtabs{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){.subtabs{scroll-behavior:auto}}
 .lib-ops{margin-top:28px}
 .lib-ops .sub-h{margin-top:0}
 `;
@@ -26,9 +26,10 @@ export const NAV_CSS = /* css */ `
 export const NAV_SCRIPT = /* js */ `
 (function(){
   var entry=document.getElementById('up-entry');
+  // The upload entry is a real page now: /admin/upload.
   function syncEntry(){if(!entry)return;
-    if(location.hash.split('/')[0]==='#upload')entry.setAttribute('aria-current','page');else entry.removeAttribute('aria-current');}
-  addEventListener('hashchange',syncEntry);syncEntry();
+    if(location.pathname==='/admin/upload')entry.setAttribute('aria-current','page');else entry.removeAttribute('aria-current');}
+  addEventListener('hashchange',syncEntry);addEventListener('popstate',syncEntry);syncEntry();
 
   // A row that scrolls sideways fades at the edge that still hides something.
   function hint(row){
@@ -45,10 +46,10 @@ export const NAV_SCRIPT = /* js */ `
     addEventListener('resize',update);
     new MutationObserver(function(){reveal();update();}).observe(row,{subtree:true,attributes:true,attributeFilter:['aria-current','aria-selected','hidden']});
     reveal();update();}
-  function scan(){var rows=document.querySelectorAll('.group-tabs,.subtabs');for(var i=0;i<rows.length;i++)if(!rows[i].dataset.hinted){rows[i].dataset.hinted='1';hint(rows[i]);}}
+  function scan(){var rows=document.querySelectorAll('.subtabs');for(var i=0;i<rows.length;i++)if(!rows[i].dataset.hinted){rows[i].dataset.hinted='1';hint(rows[i]);}}
   scan();
   // Tab pages show and hide: a row that was hidden has no width until its page opens.
-  addEventListener('hashchange',function(){requestAnimationFrame(function(){var rows=document.querySelectorAll('.group-tabs,.subtabs');
+  addEventListener('hashchange',function(){requestAnimationFrame(function(){var rows=document.querySelectorAll('.subtabs');
     for(var i=0;i<rows.length;i++)rows[i].dispatchEvent(new Event('scroll'));});});
 })();
 `;
