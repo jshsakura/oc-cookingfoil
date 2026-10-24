@@ -71,12 +71,12 @@ function showTab(){const [want,sub]=location.hash.slice(1).split('/');const tab=
 addEventListener('hashchange',showTab);
 // Tabs inside a tab that only show and hide: #devices/approved opens a given area, the area last opened stays.
 // Sub-tab bars are wired by the shared subtabs() in common-script.js.
-for(const tab of ['users','devices','homebrew','alerts'])subtabs(tab);
+for(const tab of ['homebrew','alerts'])subtabs(tab);
 // The settings tab shows one area at a time and loads only that one: #settings/security opens a given area.
 const SET_SUBS=['server','integrations','security','tokens'];let setSub='server';
 function setLoadSub(){
   if(setSub==='server')loadServerSettings();else if(setSub==='integrations')loadIntegrations();
-  else if(setSub==='security'){loadTfa();loadGoogle();}else if(setSub==='tokens'){loadTokens();loadMcp();}}
+  else if(setSub==='security'){loadTfa();loadGoogleSettings();}else if(setSub==='tokens'){loadTokens();loadMcp();}}
 function setShowSub(sub,quiet){if(!SET_SUBS.includes(sub))return;setSub=sub;
   for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.setAttribute('aria-selected',String(b.dataset.ssub===sub));
   for(const p of document.querySelectorAll('#tab-settings [data-set-panel]'))p.hidden=p.dataset.setPanel!==sub;
@@ -85,7 +85,6 @@ for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.addEventL
 
 
 // ── overview + users + security (one stats call) ──────────────────────
-let origin=location.origin;
 // The server reports warnings by code (in English for its log); here each says what to do, with a button to the place to do it.
 const WARNINGS={
   'storage-kept':{t:'일부 폴더를 아직 옛 위치에서 읽습니다',d:(w)=>'저장 폴더가 연결됐지만 아래 폴더는 옛 위치에 파일이 남아 있어 그대로 씁니다. 내용을 저장 폴더 안의 같은 이름 폴더로 옮기고 옛 마운트를 빼면 저장 폴더 하나로 정리됩니다. '+(w.paths||[]).map((p)=>p.now+' → '+p.want).join(', ')},
@@ -133,6 +132,43 @@ async function loadStats(){
 // The users, Google accounts, devices and issued-clients behaviour lives in
 // The one-time credential dialog lives in people-script.js.
 const mb=(n)=>n==null?'—':(n/1048576).toFixed(1)+' MB';
+// ── paged lists: search, how many per page, page buttons ──────────────
+// The data is already in the browser, so this only slices it. A list of ten or fewer shows no bar.
+const PG_SIZES=[10,25,50,100],pgState={};
+function pgSize(key,def){try{const v=Number(localStorage.getItem('pg-'+key));if(PG_SIZES.includes(v))return v;}catch(e){}return def;}
+function pgPages(page,pages){const out=[];let last=0;
+  for(let n=1;n<=pages;n++){if(n===1||n===pages||Math.abs(n-page)<=1){if(last&&n-last>1)out.push(0);out.push(n);last=n;}}return out;}
+// mount: the element the rows go in. opts: key, items, match(item,q), def, render(slice,filtered), placeholder
+function paged(mount,opts){
+  const st=pgState[opts.key]||(pgState[opts.key]={q:'',page:1,per:pgSize(opts.key,opts.def||25)});
+  let bar=document.getElementById(mount.id+'-bar');
+  if(!bar){bar=el('div',null,'pg-bar');bar.id=mount.id+'-bar';mount.before(bar);}
+  const run=()=>{
+    const q=st.q.trim().toLowerCase();
+    const list=q?opts.items.filter((it)=>opts.match(it,q)):opts.items;
+    const pages=Math.max(1,Math.ceil(list.length/st.per));if(st.page>pages)st.page=pages;
+    const from=(st.page-1)*st.per;
+    opts.render(list.slice(from,from+st.per),list,q);
+    bar.hidden=opts.items.length<=PG_SIZES[0];bar.replaceChildren();if(bar.hidden)return;
+    const find=el('input',null,'pg-q');find.type='search';find.value=st.q;find.placeholder=opts.placeholder||'이름으로 찾기';find.setAttribute('aria-label',(opts.label||'목록')+' 찾기');
+    find.addEventListener('input',()=>{st.q=find.value;st.page=1;run();find.focus();});
+    const per=el('select',null,'pg-per');per.setAttribute('aria-label',(opts.label||'목록')+' 몇 개씩 볼지');
+    for(const n of PG_SIZES){const o=el('option',n+'개씩');o.value=n;per.append(o);}per.value=st.per;
+    per.addEventListener('change',()=>{st.per=Number(per.value);st.page=1;try{localStorage.setItem('pg-'+opts.key,String(st.per));}catch(e){}run();});
+    const info=el('span',list.length?(from+1)+'-'+Math.min(list.length,from+st.per)+' / '+num(list.length)+'개':'찾은 것이 없습니다','pg-info');
+    const nav=el('div',null,'pg-nav');nav.setAttribute('role','navigation');nav.setAttribute('aria-label',(opts.label||'목록')+' 페이지');
+    const go=(n)=>{st.page=n;run();};
+    const prev=btn('이전',()=>go(st.page-1));prev.disabled=st.page<=1;
+    const next=btn('다음',()=>go(st.page+1));next.disabled=st.page>=pages;
+    nav.append(prev);
+    if(pages>1)for(const n of pgPages(st.page,pages)){
+      if(!n){nav.append(el('span','…','pg-gap'));continue;}
+      const b=btn(String(n),()=>go(n));b.dataset.noicon='1';b.setAttribute('aria-label',n+' 쪽');b.classList.add('pg-n');
+      if(n===st.page)b.setAttribute('aria-current','page');nav.append(b);}
+    nav.append(next);
+    bar.append(find,per,info,nav);};
+  run();}
+// ── homebrew ──────────────────────────────────────────────────────────
 async function loadHomebrew(){
   const d=await api('/admin/api/homebrew');
   const reco=$('hb-reco');hbReco=d.recommended||[];

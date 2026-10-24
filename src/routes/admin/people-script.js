@@ -8,6 +8,8 @@
  * creating a password shows it once and the page must not lose it.
  */
 export const PEOPLE_SCRIPT = /* js */ `
+let me=null;
+let origin=location.origin;
 function nameCell(name,self){const c=td();const s=el('span',name);if(self){const b=pill('나','on');b.classList.add('me');s.append(b);}c.append(s);return c;}
 const isMe=(kind,id)=>Boolean(me)&&me.kind===kind&&(kind==='google'?me.sub===id:me.name===id);
 let usersShown=null;
@@ -33,6 +35,9 @@ function renderUsers(list){usersShown=list;
 
 // Wire the sub-tab bars this page carries.
 for(const t of ['users','devices'])subtabs(t);
+// A direct address or reload must open the area named by the path bridge.
+const [peopleTab,peopleSub]=location.hash.slice(1).split('/');
+if(SUBTABS[peopleTab])SUBTABS[peopleTab].show(peopleSub||SUBTABS[peopleTab].cur);
 
 // ── users ─────────────────────────────────────────────────────────────
 let lastCred=null;
@@ -43,7 +48,11 @@ function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=ti
       try{await navigator.clipboard.writeText(value);toast(label+'를 복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}}));}
   $('cred-dialog').showModal();}
 if($('cred-close'))$('cred-close').addEventListener('click',()=>{$('cred-dialog').close();lastCred=null;});
-if($('cred-dialog'))$('cred-dialog').addEventListener('close',()=>{lastCred=null;});
+function clearCredential(){lastCred=null;$('cred')?.replaceChildren();if($('cred-title'))$('cred-title').textContent='';}
+if($('cred-dialog')){
+  $('cred-dialog').addEventListener('close',clearCredential);
+  addEventListener('pagehide',clearCredential);
+}
 if($('cred-config'))$('cred-config').addEventListener('click',()=>{if(!lastCred)return;
   const config={servers:[{title:location.hostname,url:origin,username:lastCred.name,password:lastCred.password,
     cfClientId:'',cfClientSecret:'',enabled:true}],language:(['ko','en','ja','zh'].find((l)=>(navigator.language||'').toLowerCase().startsWith(l))||'en'),installTarget:'sd'};
@@ -60,7 +69,7 @@ async function resetPassword(name){if(!await ask(name+' 의 비밀번호를 새�
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
     showCredential(name+' 의 새 비밀번호',cred);peopleReload();}catch(err){toast(err.message);}}
 async function setRole(name,role){
-  if(!await ask(role==='admin'?name+' 계정을 관리자로 변경합니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 변경합니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.'))return;
+  if(!await ask(role==='admin'?name+' 계정을 관리자로 변경합니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 변경합니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.',{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast('역할을 변경했습니다.');peopleReload();}catch(err){toast(errText(err));}}
 async function setEnabled(name,enabled){
   if(!enabled&&!await ask(name+' 계정을 사용 중지합니다. 이 계정으로는 접속할 수 없게 됩니다.',{danger:true}))return;
@@ -70,7 +79,7 @@ async function removeUser(name){
   const last=(await api('/admin/api/users')).users.length===1;
   const msg=last?name+' 은 마지막 계정입니다. 지우면 비밀번호 없이 누구나 이 서버에 접속하고 파일을 받습니다. 정말 삭제할까요?'
     :name+' 계정을 삭제합니다. 이 계정으로 접속하던 기기는 더 접속할 수 없습니다.';
-  if(!await ask(msg))return;
+  if(!await ask(msg,{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+(last?'?allowEmpty=1':''),{method:'DELETE'});toast('삭제했습니다.');peopleReload();}
   catch(err){toast(errText(err));}}
 
@@ -93,18 +102,14 @@ async function loadAccounts(){
     if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
     act.append(box);tr.append(act);return tr;},'아직 로그인한 계정이 없습니다.',{label:'구글 로그인 계정',placeholder:'이메일로 찾기'});}
 async function setAccountRole(sub,email,role){
-  if(!await ask(role==='admin'?email+' 계정을 관리자로 변경합니다.':email+' 계정을 일반 사용자로 변경합니다.'))return;
+  if(!await ask(role==='admin'?email+' 계정을 관리자로 변경합니다.':email+' 계정을 일반 사용자로 변경합니다.',{danger:true}))return;
   try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 변경했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function setAccount(sub,status){
   try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.',{danger:true}))return;
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('삭제했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 
-async function loadGoogleSettings(){
-  const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
-  $('g-secret').value='';$('g-secret').placeholder=g.hasSecret?'저장된 시크릿을 씁니다 (바꿀 때만 입력)':'클라이언트 시크릿';
-  $('g-redirect').textContent=g.redirectUri;
-  $('g-status').textContent=g.active?'켜져 있습니다. 로그인 화면에 구글 버튼이 나옵니다.':g.enabled?'켜려면 ID 와 시크릿이 모두 필요합니다.':'꺼져 있습니다. 로그인 화면은 아이디와 비밀번호만 받습니다.';}
+// The Google OAuth form loader lives at the end of this file (with guards).
 if($('google-form'))$('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
     toast('저장했습니다.');loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
@@ -175,7 +180,7 @@ async function loadDevices(){
 if($('dev-idle'))$('dev-idle').addEventListener('change',renderApproved);
 // A new language redraws the tables whose words come from top-i18n.js.
 function accRelabel(){if(usersShown)renderUsers(usersShown);renderApproved();if(accountsLoaded)loadAccounts().catch(()=>{});}
-async function cancelClient(id){if(!await ask('이 다운로드로는 이제 연동할 수 없게 합니다.'))return;
+async function cancelClient(id){if(!await ask('이 다운로드로는 이제 연동할 수 없게 합니다.',{danger:true}))return;
   try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast('취소했습니다.');loadDevices();}catch(err){toast(err.message);}}
 if($('approve-code'))$('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
@@ -207,9 +212,9 @@ async function loadPeople(){
     const d=await api('/admin/api/stats');
     me=d.me||null;
     // The accounts page: the local-user table and the Google approval list.
-    if($('users')){renderUsers(d.users||[]);loadAccounts();}
+    if($('users')){renderUsers(d.users||[]);await loadAccounts();}
     // The devices page: the pending, approved and issued-clients areas.
-    if($('devices')||$('pending'))loadDevices();
+    if($('devices')||$('pending'))await loadDevices();
   }catch(err){if(err.message!=='session')toast(errText(err));}}
 // The Google OAuth form (settings page): a different owner from the accounts list.
 async function loadGoogleSettings(){
