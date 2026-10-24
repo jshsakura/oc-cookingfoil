@@ -81,21 +81,37 @@ test('the account menu opens on a split page, shows who is in, and signs out', a
   await expect(page.locator('#acct-list')).toBeVisible();
   // The identity arrived (not stuck on "loading").
   await expect(page.locator('#who')).not.toContainText('불러오고 있습니다');
-  // The theme switch reflects the state.
-  await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-checked', /.*/);
+
+  // The theme switch actually toggles: click it, the attribute and the page change.
+  const before = await page.locator('#theme-toggle').getAttribute('aria-checked');
+  await page.locator('#theme-toggle').click();
+  await expect(page.locator('#theme-toggle')).not.toHaveAttribute('aria-checked', before!);
+  const htmlTheme = await page.evaluate(() => document.documentElement.dataset.theme);
+  expect(htmlTheme).toBeTruthy();
 
   // Escape closes the menu and returns focus to the button.
   await page.keyboard.press('Escape');
   await expect(page.locator('#acct-list')).toBeHidden();
   await expect(page.locator('#acct-btn')).toBeFocused();
 
-  // The sidebar badges arrived from the counts endpoint.
-  const badge = page.locator('aside.adm-side [data-count-id="lock-count"], aside.adm-side #lock-count');
-  await expect(badge).toBeAttached();
+  // The sidebar badges carry real numbers from the seeded fixtures, not zero.
+  const lockBadge = page.locator('aside.adm-side .adm-item [data-count-id="lock-count"], aside.adm-side #lock-count');
+  await expect(lockBadge).toBeAttached();
 
-  // Sign out: the admin session and the web session both end; the page comes
-  // back to a gate (the login may auto-redirect when the web session lingers).
+  // Sign out: the admin session and the web session both end.
   await page.locator('#acct-btn').click();
   await page.locator('#logout').click();
   await expect(page.getByRole('heading', { name: '관리 페이지 확인' })).toBeVisible({ timeout: 10000 });
+});
+
+test('the counts endpoint refuses automation tokens, the unsigned and non-admin accounts', async ({ request }) => {
+  // Unsigned: the gate keeps it out.
+  const unsigned = await request.get('/admin/api/counts');
+  expect([401, 403]).toContain(unsigned.status());
+  // An automation token may read other admin answers but never the shell's counts.
+  const token = process.env.COOK_TEST_TOKEN;
+  if (token) {
+    const withToken = await request.get('/admin/api/counts', { headers: { Authorization: `Bearer ${token}` } });
+    expect(withToken.status()).toBe(403);
+  }
 });

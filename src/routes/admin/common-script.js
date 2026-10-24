@@ -107,28 +107,28 @@ async function api(url,opts={}){
   if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}
   return data;}
 // A poll that a hidden tab or a left page should not keep running.
-// The lifecycle: hidden stops the timer and forgets its id; visible again
-// restarts it; stop() removes the listeners so the poll never comes back;
-// pagehide stops the poll and pageshow (BFCache) starts it again.
-// The first run is immediate; an async run still in flight holds the next
-// tick back so two copies never overlap.
+// Three states: running (timer set), paused (hidden or page-hidden: no timer,
+// an in-flight run may finish but never schedules another tick), stopped
+// (stop() removed the listeners: the poll never comes back). fn's rejection
+// is the caller's to handle; the next tick is always scheduled regardless.
 function admInterval(fn,ms){
   let t=0,stopped=false,inflight=false;
+  function paused(){return stopped||document.hidden;}
   async function tick(){
-    if(stopped||document.hidden){t=0;return;}
+    t=0;
+    if(paused())return;
     if(inflight){schedule();return;}
     inflight=true;
     try{await fn();}finally{inflight=false;}
-    schedule();}
-  function schedule(){if(stopped||document.hidden){t=0;return;}clearTimeout(t);t=setTimeout(tick,ms);}
-  const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!t&&!stopped)schedule();};
+    if(!paused())schedule();}
+  function schedule(){if(paused())return;clearTimeout(t);t=setTimeout(tick,ms);}
+  const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!stopped&&!t&&!inflight)schedule();};
   const onHide=()=>{clearTimeout(t);t=0;};
-  const onShow=()=>{if(!stopped&&!document.hidden&&!t)schedule();};
+  const onShow=()=>{if(!stopped&&!document.hidden&&!t&&!inflight)schedule();};
   document.addEventListener('visibilitychange',onVis);
   addEventListener('pagehide',onHide);
   addEventListener('pageshow',onShow);
-  if(document.hidden)document.addEventListener('visibilitychange',function start(){document.removeEventListener('visibilitychange',start);onVis();},{once:true});
-  else tick();
+  if(!document.hidden)tick();
   return {stop(){stopped=true;clearTimeout(t);t=0;
     document.removeEventListener('visibilitychange',onVis);
     removeEventListener('pagehide',onHide);removeEventListener('pageshow',onShow);}};}

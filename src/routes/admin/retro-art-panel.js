@@ -241,7 +241,7 @@ async function rcSetSystem(s,core,sel){
   try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(s.name+' 코어를 '+core+' 로 바꿨습니다.');loadRetroCores();}
   catch(err){toast(err.message);if(sel)sel.value=s.core;}}
 async function rcRemove(c,force=false){
-  if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.'))return;
+  if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.',{danger:true}))return;
   try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
   catch(err){if(err.code==='coreInUse'&&!force){
       if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
@@ -396,7 +396,7 @@ $('rm-form').addEventListener('submit',(e)=>{e.preventDefault();
   const genres=[...document.querySelectorAll('#rm-genres input:checked')].map((x)=>x.value);
   if(genres.length>rmMax){toast('장르는 '+rmMax+'개까지 고릅니다.');return;}
   rmSave({description:{ko:$('rm-ko').value,en:$('rm-en').value},publisher:$('rm-publisher').value,developer:$('rm-developer').value,year:$('rm-year').value.trim(),players:$('rm-players').value.trim(),genres});});
-$('rm-reset').addEventListener('click',async()=>{if(await ask('이 게임에서 고친 정보를 모두 지우고 자동으로 모은 값으로 돌립니다.'))rmSave({});});
+$('rm-reset').addEventListener('click',async()=>{if(await ask('이 게임에서 고친 정보를 모두 지우고 자동으로 모은 값으로 돌립니다.',{danger:true}))rmSave({});});
 // Deletes the ROM (and the disc files it names) from the server; its box art stays.
 async function raRemove(m){if(!await ask(topFill('t.askRetroRom',{name:m.name,system:m.system})))return;
   try{const r=await api('/admin/api/retro-art/games/remove',{method:'POST',body:{game:m.id}});toast(topFill('t.movedFiles',{n:r.files}));

@@ -178,14 +178,14 @@ $('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
     $('new-name').value='';$('new-pass').value='';showCredential(name+' 계정을 만들었습니다',cred);loadStats();}
   catch(err){toast(err.message);}});
-async function resetPassword(name){if(!await ask(name+' 의 비밀번호를 새로 만듭니다. 지금 비밀번호는 바로 쓸 수 없게 되고, 이 계정이 승인한 기기도 연결이 끊겨 다시 승인받아야 합니다.'))return;
+async function resetPassword(name){if(!await ask(name+' 의 비밀번호를 새로 만듭니다. 지금 비밀번호는 바로 쓸 수 없게 되고, 이 계정이 승인한 기기도 연결이 끊겨 다시 승인받아야 합니다.',{danger:true}))return;
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
     showCredential(name+' 의 새 비밀번호',cred);loadStats();}catch(err){toast(err.message);}}
 async function setRole(name,role){
   if(!await ask(role==='admin'?name+' 계정을 관리자로 변경합니다. 이 계정도 관리 페이지를 열 수 있게 됩니다.':name+' 계정을 일반 사용자로 변경합니다. 이 계정은 관리 페이지를 열 수 없게 됩니다.'))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast('역할을 변경했습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function setEnabled(name,enabled){
-  if(!enabled&&!await ask(name+' 계정을 사용 중지합니다. 이 계정으로는 접속할 수 없게 됩니다.'))return;
+  if(!enabled&&!await ask(name+' 계정을 사용 중지합니다. 이 계정으로는 접속할 수 없게 됩니다.',{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/enabled',{method:'POST',body:{enabled}});
     toast(enabled?'다시 사용합니다.':'사용을 중지했습니다.');loadStats();}catch(err){toast(errText(err));}}
 async function removeUser(name){
@@ -211,7 +211,7 @@ async function loadAccounts(){
     const act=td();const box=el('div',null,'row-actions');
     if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
     if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
-    if(a.status==='approved'&&!self)box.append(btn('사용 중지',async()=>{if(await ask(a.email+' 계정의 사용을 중지합니다. 다시 승인하기 전까지 로그인하지 못합니다.'))setAccount(a.sub,'disabled');}));
+    if(a.status==='approved'&&!self)box.append(btn('사용 중지',async()=>{if(await ask(a.email+' 계정의 사용을 중지합니다. 다시 승인하기 전까지 로그인하지 못합니다.',{danger:true}))setAccount(a.sub,'disabled');}));
     if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
     act.append(box);tr.append(act);return tr;},'아직 로그인한 계정이 없습니다.',{label:'구글 로그인 계정',placeholder:'이메일로 찾기'});}
 async function setAccountRole(sub,email,role){
@@ -219,7 +219,7 @@ async function setAccountRole(sub,email,role){
   try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast('역할을 변경했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 async function setAccount(sub,status){
   try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?'승인했습니다.':'사용을 중지했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
-async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.'))return;
+async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.',{danger:true}))return;
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('삭제했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 
 async function loadGoogle(){
@@ -304,11 +304,11 @@ $('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
     toast('승인했습니다. 기기가 다음 확인 때 접속 키를 받습니다.');$('code-in').value='';$('code-label').value='';loadDevices();}
   catch(err){toast(err.message==='no device is waiting with that code'?'그 코드로 승인을 기다리는 기기가 없습니다. 기기 화면의 코드를 다시 확인합니다.':err.message);}});
 // Drops a request without approving it; the console shows up again only if it asks again.
-async function dismissDevice(deviceKey,code){if(!await ask((code||'이')+' 기기의 승인 요청을 삭제합니다. 기기가 다시 요청하면 또 나옵니다.'))return;
+async function dismissDevice(deviceKey,code){if(!await ask((code||'이')+' 기기의 승인 요청을 삭제합니다. 기기가 다시 요청하면 또 나옵니다.',{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('요청을 삭제했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function approve(deviceKey){const label=await askText('이 기기를 알아볼 이름을 정합니다 (예: 친구 기기)','');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
-async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;
+async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.',{danger:true}))return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 접속할 수 없습니다.',{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
@@ -467,7 +467,7 @@ function hbShotsShow(urls){const n=(urls||[]).length;$('hb-shots-count').textCon
 // The dialog stays open while pictures change; the list behind it is read again when it closes.
 async function hbMediaReload(){const d=await api('/admin/api/homebrew/apps');const a=(d.apps||[]).find((x)=>x.id===hbBannerApp.id);
   if(a){hbBannerApp=a;hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);}}
-async function hbShotRemove(n){if(!await ask(n+'번째 스크린샷을 뺍니다.'))return;
+async function hbShotRemove(n){if(!await ask(n+'번째 스크린샷을 뺍니다.',{danger:true}))return;
   try{await api('/admin/api/homebrew/shots/remove',{method:'POST',body:{id:hbBannerApp.id,n}});await hbMediaReload();}catch(err){toast(err.message);}}
 function openHbBanner(a){hbBannerApp=a;$('hb-banner-title').textContent=(a.name||a.app)+' 그림';hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);$('hb-shots-state').textContent='';
   $('hb-banner-q').value='';$('hb-banner-results').replaceChildren();$('hb-banner-state').textContent='';$('hb-banner').showModal();hbBannerSearch();}
@@ -484,7 +484,7 @@ async function hbBannerPick(it){$('hb-banner-state').textContent='받고 있습�
 $('hb-banner-search').addEventListener('submit',(e)=>{e.preventDefault();hbBannerSearch();});
 $('hb-banner-close').addEventListener('click',()=>$('hb-banner').close());
 $('hb-banner').addEventListener('close',()=>loadHbApps());
-$('hb-shots-clear').addEventListener('click',async()=>{if(!await ask('스크린샷을 모두 뺍니다. 포트도 다시 자동으로 채우지 않습니다.'))return;
+$('hb-shots-clear').addEventListener('click',async()=>{if(!await ask('스크린샷을 모두 뺍니다. 포트도 다시 자동으로 채우지 않습니다.',{danger:true}))return;
   try{await api('/admin/api/homebrew/shots/remove',{method:'POST',body:{id:hbBannerApp.id}});await hbMediaReload();}catch(err){toast(err.message);}});
 $('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-shots-file').files];$('hb-shots-file').value='';if(!files.length)return;
   const st=$('hb-shots-state');let done=0;
@@ -493,14 +493,14 @@ $('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-sho
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');done++;}
     catch(err){st.textContent=file.name+': '+err.message;break;}}
   if(done===files.length)st.textContent=done+'장을 올렸습니다.';await hbMediaReload();});
-$('hb-banner-remove').addEventListener('click',async()=>{if(!await ask('배경 그림을 뺍니다. 포트도 다시 자동으로 채우지 않습니다.'))return;
+$('hb-banner-remove').addEventListener('click',async()=>{if(!await ask('배경 그림을 뺍니다. 포트도 다시 자동으로 채우지 않습니다.',{danger:true}))return;
   try{await api('/admin/api/homebrew/banner/remove',{method:'POST',body:{id:hbBannerApp.id}});toast('배경 그림을 뺐습니다.');await hbMediaReload();}catch(err){toast(err.message);}});
 $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-file').files[0];$('hb-banner-file').value='';if(!file)return;
   $('hb-banner-state').textContent='올리고 있습니다';
   try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
-async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name})))return;
+async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name},{danger:true})))return;
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast(topText('t.movedToast'));loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
@@ -520,17 +520,17 @@ async function setHbVerified(id,verified,name){
 async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 저장소 주소나 owner/name 을 넣습니다. 서버가 그 저장소의 새 버전을 따라갑니다.');
   if(!input||!input.trim())return;
   try{const s=await api('/admin/api/homebrew',{method:'POST',body:{repo:input.trim()}});
-    if(s&&!s.error&&await ask(s.repo+' 을(를) 따라갑니다. 직접 넣은 '+(a.name||a.app)+' 사본을 삭제할까요? 이 앱의 패치와 세이브는 남습니다.')){
+    if(s&&!s.error&&await ask(s.repo+' 을(를) 따라갑니다. 직접 넣은 '+(a.name||a.app)+' 사본을 삭제할까요? 이 앱의 패치와 세이브는 남습니다.',{danger:true})){
       await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 변경했습니다.');}
     else toast(s?.error?.message?s.repo+' 을(를) 따라가지만 확인에 실패했습니다: '+s.error.message:'저장소를 추가했습니다.');
     loadHomebrew();}catch(err){toast(err.message);}}
-async function removeManualHb(id,name){if(!await ask(topFill('t.askHbApp',{name})))return;
+async function removeManualHb(id,name){if(!await ask(topFill('t.askHbApp',{name},{danger:true})))return;
   try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast(topText('t.movedToast'));loadHomebrew();}catch(err){toast(err.message);}}
 // A new build of a hand-placed app, same format as now: the server keeps its folder, so its id and what was added by hand stay.
 function pickHbFile(a,name){const ext=a.install_type==='title'?'.nsp':'.nro';
   const input=el('input');input.type='file';input.accept=ext;
   input.addEventListener('change',()=>{const file=input.files[0];if(file)replaceHbFile(a,name,file);});input.click();}
-async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name})))return;
+async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name},{danger:true})))return;
   toast(topFill('t.hbReplacing',{name}));
   const fd=new FormData();fd.append('replace',a.id);fd.append('files',file,file.name);
   try{const r=await fetch('/admin/api/upload/homebrew',{method:'POST',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});
@@ -587,7 +587,7 @@ $('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disable
   try{const r=await api('/admin/api/homebrew/adopt',{method:'POST',body:{}});
     toast(r.registered.length?r.registered.join(', ')+' 를 등록했습니다.':'새로 등록할 폴더가 없습니다.'+(r.skipped.length?' 건너뜀: '+r.skipped.map((x)=>x.folder+' ('+x.reason+')').join(', '):''));loadHomebrew();}
   catch(err){toast(err.message);}finally{b.disabled=false;}});
-async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 삭제합니다.'))return;
+async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 삭제합니다.',{danger:true}))return;
   try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
 
 
@@ -974,7 +974,7 @@ function fpCard(c,ci){const card=el('div',null,'fcard'),st=fpOf(c);
   const up=btn('▲',()=>{move(featured,ci,-1);markDirty();renderFeatured();}),down=btn('▼',()=>{move(featured,ci,1);markDirty();renderFeatured();});
   up.setAttribute('aria-label',topText('fp.up'));down.setAttribute('aria-label',topText('fp.down'));
   top.append(title,banner,up,down,
-    tbtn('줄 삭제','fp.delRow',async()=>{if(!await ask(fpFill(topText('fp.delAsk'),{title:c.title||topText('fp.untitled')})))return;featured.splice(ci,1);markDirty();renderFeatured();},'danger'));
+    tbtn('줄 삭제','fp.delRow',async()=>{if(!await ask(fpFill(topText('fp.delAsk'),{title:c.title||topText('fp.untitled')}),{danger:true}))return;featured.splice(ci,1);markDirty();renderFeatured();},'danger'));
   const chosen=el('ul',null,'fgames');
   const toggle=el('button',null,'fp-toggle');toggle.type='button';
   const panel=el('div',null,'fp');

@@ -79,6 +79,7 @@ import { mountServerApi } from "./admin/server-api.js";
 import { mountNszApi } from "./admin/nsz-api.js";
 import { mountTransfersApi } from "./admin/transfers-api.js";
 import * as inboxStore from "../meta/inbox.js";
+import * as googleAccounts from "../security/google-accounts.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -158,7 +159,7 @@ export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history)(?:\/|$)/i;
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history|counts)(?:\/|$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router
@@ -509,22 +510,35 @@ export default function adminPageRouter() {
     res.json({ edits: adminEdits.recent(req.query.limit) });
   });
 
-  // The shell's four sidebar numbers, in one small answer: what is waiting in
-  // the share inbox, how many accounts, consoles waiting for approval and
-  // locked addresses. In-memory state only (the inbox's flat directory is
-  // counted, not read), behind the admin session, no automation-token reach.
+  // The shell's four sidebar numbers, in one small answer. The inbox count
+  // is the open (undone) entries; the accounts count is Google sign-ins
+  // waiting for approval; the others are in-memory state. The inbox's flat
+  // directory is read (not scanned) behind a short TTL so repeated polls
+  // within a moment do not touch the disk again.
+  const inboxTTL = { at: 0, n: 0 };
   router.get("/api/counts", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    let inbox = 0;
-    try {
-      const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
-      inbox = names.filter((n) => inboxStore.isEntryId?.(n) ?? /[0-9a-f]{8}-/.test(n)).length;
-    } catch { /* the inbox may not exist yet */ }
+    let inboxOpen = inboxTTL.n;
+    if (Date.now() - inboxTTL.at > 15_000) {
+      try {
+        const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
+        const entries = await Promise.all(names.filter((n) => /[0-9a-f]{8}-/.test(n)).map(async (n) => {
+          try { return JSON.parse(await fs.promises.readFile(`${inboxStore.INBOX_DIR}/${n}`, "utf8")); } catch { return null; }
+        }));
+        inboxOpen = entries.filter((e) => e && !e.done).length;
+        inboxTTL.at = Date.now(); inboxTTL.n = inboxOpen;
+      } catch { /* keep the last count */ }
+    }
+    const google = googleAccounts;
+    let pendingAccounts = 0;
+    if (google) {
+      try { pendingAccounts = google.list().filter((a) => a.status === "pending").length; } catch { /* none configured */ }
+    }
     res.json({
       me: withAvatar(adminActor(req)),
-      inbox,
-      accounts: users.list().length,
+      inbox: inboxOpen,
+      pendingAccounts,
       pendingDevices: store.devicesSnapshot().pending.length,
       lockouts: store.snapshot().lockouts.length,
     });
